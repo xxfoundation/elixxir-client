@@ -366,7 +366,8 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 
 // LoginWithProtoClient creates a client object with a protoclient JSON containing the
 // cryptographic primitives. This is designed for some specific deployment
-//// procedures and is generally unsafe.
+// procedures and is generally unsafe. It is unsafe because all network relationships
+// will no longer be present in the new session file.
 func LoginWithProtoClient(storageDir string, password []byte, protoClientJSON []byte,
 	newBaseNdf string, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")

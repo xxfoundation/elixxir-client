@@ -10,7 +10,6 @@ package api
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/storage"
 )
@@ -42,13 +41,6 @@ func (c *Client) registerWithPermissioning() error {
 	userData.SetReceptionRegistrationValidationSignature(receptionRegValidationSignature)
 	userData.SetRegistrationTimestamp(registrationTimestamp)
 
-
-
-	err = c.printProtoUser(regCode, transmissionRegValidationSignature, receptionRegValidationSignature)
-	if err != nil {
-		return errors.WithMessage(err, "failed to print proto user")
-	}
-
 	//update the registration state
 	err = c.storage.ForwardRegistrationStatus(storage.PermissioningComplete)
 	if err != nil {
@@ -58,29 +50,35 @@ func (c *Client) registerWithPermissioning() error {
 	return nil
 }
 
-// todo: remove once deploy has been tested
-func (c *Client) printProtoUser(regCode string,
-	transmissionRegValidationSignature, receptionRegValidationSignature []byte) error {
-	// todo: remove this once proto has been generated
+// ConstructProtoUerFile is a helper function which is used for proto client testing.
+// This is used for development testing.
+func (c *Client) ConstructProtoUerFile() ([]byte, error) {
 	username, err := c.GetStorage().User().GetUsername()
 	if err != nil {
-		return errors.WithMessage(err, "failed to register with "+
+		return nil, errors.WithMessage(err, "failed to register with "+
+			"permissioning")
+	}
+
+	//load the registration code
+	regCode, err := c.storage.GetRegCode()
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to register with "+
 			"permissioning")
 	}
 
 	Usr := user.Proto{
 		TransmissionID:               c.GetUser().TransmissionID,
-		TransmissionSalt:               c.GetUser().TransmissionSalt,
-		TransmissionRSA:                c.GetUser().TransmissionRSA,
-		ReceptionID:                    c.GetUser().ReceptionID,
+		TransmissionSalt:             c.GetUser().TransmissionSalt,
+		TransmissionRSA:              c.GetUser().TransmissionRSA,
+		ReceptionID:                  c.GetUser().ReceptionID,
 		ReceptionSalt:                c.GetUser().ReceptionSalt,
 		ReceptionRSA:                 c.GetUser().ReceptionRSA,
 		Precanned:                    c.GetUser().Precanned,
-		RegistrationTimestamp:       c.GetUser().RegistrationTimestamp,
-		Username:                    username,
-		RegCode:                     regCode,
-		TransmissionRegValidationSig: transmissionRegValidationSignature,
-		ReceptionRegValidationSig:    receptionRegValidationSignature,
+		RegistrationTimestamp:        c.GetUser().RegistrationTimestamp,
+		Username:                     username,
+		RegCode:                      regCode,
+		TransmissionRegValidationSig: c.storage.User().GetTransmissionRegistrationValidationSignature(),
+		ReceptionRegValidationSig:    c.storage.User().GetReceptionRegistrationValidationSignature(),
 		CmixDhPrivateKey:             c.GetStorage().Cmix().GetDHPrivateKey(),
 		CmixDhPublicKey:              c.GetStorage().Cmix().GetDHPublicKey(),
 		E2eDhPrivateKey:              c.GetStorage().E2e().GetDHPrivateKey(),
@@ -89,11 +87,9 @@ func (c *Client) printProtoUser(regCode string,
 
 	jsonBytes, err := json.Marshal(Usr)
 	if err != nil {
-		return errors.WithMessage(err, "failed to register with "+
+		return nil, errors.WithMessage(err, "failed to register with "+
 			"permissioning")
 	}
 
-	jww.INFO.Printf("PROTO USER JSON: \n%s", string(jsonBytes))
-
-	return nil
+	return jsonBytes, nil
 }

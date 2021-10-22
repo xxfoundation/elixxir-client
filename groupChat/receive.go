@@ -25,7 +25,7 @@ const (
 	unmarshalInternalMsgErr = "failed to unmarshal group internal message: %+v"
 	unmarshalSenderIdErr    = "failed to unmarshal sender ID: %+v"
 	unmarshalPublicMsgErr   = "failed to unmarshal group cMix message contents: %+v"
-	findGroupKeyFpErr       = "failed to find group with key fingerprint matching %s"
+	findGroupKeyFpErr       = "no group with key fingerprint %s"
 	genCryptKeyMacErr       = "failed to generate encryption key for group " +
 		"cMix message because MAC verification failed (epoch %d could be off)"
 )
@@ -45,12 +45,22 @@ func (m Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) {
 			jww.DEBUG.Print("Group message reception received cMix message.")
 
 			// Attempt to read the message
-			g, msgID, timestamp, senderID, msg, err := m.readMessage(receiveMsg)
+			g, msgID, timestamp, senderID, msg, noFpMatch, err :=
+				m.readMessage(receiveMsg)
 			if err != nil {
-				jww.WARN.Printf("Group message reception failed to read cMix "+
-					"message: %+v", err)
+				if noFpMatch {
+					jww.DEBUG.Printf("Received message not for group chat: %+v",
+						err)
+				} else {
+					jww.WARN.Printf("Group message reception failed to read "+
+						"cMix message: %+v", err)
+				}
 				continue
 			}
+
+			jww.DEBUG.Printf("Received group message with ID %s from sender "+
+				"%s in group %s with ID %s at %s.", msgID, senderID, g.Name,
+				g.ID, timestamp)
 
 			// If the message was read correctly, send it to the callback
 			go m.receiveFunc(MessageReceive{
@@ -72,31 +82,32 @@ func (m Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) {
 // of a group message. The encrypted group message data is unmarshalled from a
 // cMix message in the message.Receive and then decrypted and the MAC is
 // verified. The group is found by finding the group with a matching key
-// fingerprint.
+// fingerprint. Returns true if the key fingerprint cannot be found; in this
+// case no warning or error should be printed.
 func (m *Manager) readMessage(msg message.Receive) (gs.Group, group.MessageID,
-	time.Time, *id.ID, []byte, error) {
+	time.Time, *id.ID, []byte, bool, error) {
 	// Unmarshal payload into cMix message
 	cMixMsg := format.Unmarshal(msg.Payload)
 
 	// Unmarshal cMix message contents to get public message format
-	publicMsg, err := unmarshalPublicMsg(cMixMsg.GetContents())
+	pubMsg, err := unmarshalPublicMsg(cMixMsg.GetContents())
 	if err != nil {
-		return gs.Group{}, group.MessageID{}, time.Time{}, nil, nil,
+		return gs.Group{}, group.MessageID{}, time.Time{}, nil, nil, false,
 			errors.Errorf(unmarshalPublicMsgErr, err)
 	}
 
 	// Get the group from storage via key fingerprint lookup
-	g, exists := m.gs.GetByKeyFp(cMixMsg.GetKeyFP(), publicMsg.GetSalt())
+	g, exists := m.gs.GetByKeyFp(cMixMsg.GetKeyFP(), pubMsg.GetSalt())
 	if !exists {
-		return gs.Group{}, group.MessageID{}, time.Time{}, nil, nil,
+		return gs.Group{}, group.MessageID{}, time.Time{}, nil, nil, true,
 			errors.Errorf(findGroupKeyFpErr, cMixMsg.GetKeyFP())
 	}
 
 	// Decrypt the payload and return the messages timestamp, sender ID, and
 	// message contents
 	messageID, timestamp, senderID, contents, err := m.decryptMessage(
-		g, cMixMsg, publicMsg, msg.RoundTimestamp)
-	return g, messageID, timestamp, senderID, contents, err
+		g, cMixMsg, pubMsg, msg.RoundTimestamp)
+	return g, messageID, timestamp, senderID, contents, false, err
 }
 
 // decryptMessage decrypts the group message payload and returns its message ID,
@@ -116,23 +127,22 @@ func (m *Manager) decryptMessage(g gs.Group, cMixMsg format.Message,
 		publicMsg.GetPayload())
 
 	// Unmarshal internal message
-	internalMsg, err := unmarshalInternalMsg(decryptedPayload)
+	intlMsg, err := unmarshalInternalMsg(decryptedPayload)
 	if err != nil {
 		return group.MessageID{}, time.Time{}, nil, nil,
 			errors.Errorf(unmarshalInternalMsgErr, err)
 	}
 
 	// Unmarshal sender ID
-	senderID, err := internalMsg.GetSenderID()
+	senderID, err := intlMsg.GetSenderID()
 	if err != nil {
 		return group.MessageID{}, time.Time{}, nil, nil,
 			errors.Errorf(unmarshalSenderIdErr, err)
 	}
 
-	messageID := group.NewMessageID(g.ID, internalMsg.Marshal())
+	messageID := group.NewMessageID(g.ID, intlMsg.Marshal())
 
-	return messageID, internalMsg.GetTimestamp(), senderID,
-		internalMsg.GetPayload(), nil
+	return messageID, intlMsg.GetTimestamp(), senderID, intlMsg.GetPayload(), nil
 }
 
 // getCryptKey generates the decryption key for a group internal message. The

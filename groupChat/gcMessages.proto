@@ -17,4 +17,5 @@ message Request {
     bytes keyPreimage = 3;
     bytes members = 4;
     bytes message = 5;
+    int64 created = 6;
 }

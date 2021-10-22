@@ -165,9 +165,14 @@ func TestManager_readMessage(t *testing.T) {
 	}
 
 	m.gs.SetUser(expectedGrp.Members[4], t)
-	g, messageID, timestamp, senderID, contents, err := m.readMessage(receiveMsg)
+	g, messageID, timestamp, senderID, contents, noFpMatch, err :=
+		m.readMessage(receiveMsg)
 	if err != nil {
 		t.Errorf("readMessage() returned an error: %+v", err)
+	}
+
+	if noFpMatch {
+		t.Error("Fingerprint did not match when it should have.")
 	}
 
 	if !reflect.DeepEqual(expectedGrp, g) {
@@ -226,7 +231,7 @@ func TestManager_readMessage_FindGroupKpError(t *testing.T) {
 	expectedErr := strings.SplitN(findGroupKeyFpErr, "%", 2)[0]
 
 	m.gs.SetUser(g.Members[4], t)
-	_, _, _, _, _, err = m.readMessage(receiveMsg)
+	_, _, _, _, _, _, err = m.readMessage(receiveMsg)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("readMessage() failed to return the expected error."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)

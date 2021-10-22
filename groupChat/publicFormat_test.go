@@ -141,7 +141,9 @@ func Test_publicMsg_String(t *testing.T) {
 	payload = append(payload, 0, 1, 2)
 	pm.SetPayload(payload)
 
-	expected := `{salt:U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVI=, payload:"Sample payload message.\x00\x01\x02\x00\x00\x00\x00\x00\x00"}`
+	expected := "{salt:U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVI=, " +
+		"payload:\"Sample payload message." +
+		"\\x00\\x01\\x02\\x00\\x00\\x00\\x00\\x00\\x00\"}"
 
 	if pm.String() != expected {
 		t.Errorf("String() failed to return the expected value."+

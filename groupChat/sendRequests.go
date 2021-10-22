@@ -50,6 +50,7 @@ func (m Manager) sendRequests(g gs.Group) ([]id.Round, RequestStatus, error) {
 		KeyPreimage: g.KeyPreimage.Bytes(),
 		Members:     g.Members.Serialize(),
 		Message:     g.InitMessage,
+		Created:     g.Created.UnixNano(),
 	})
 	if err != nil {
 		return nil, NotSent, errors.Errorf(protoMarshalErr, err)
@@ -100,6 +101,9 @@ func (m Manager) sendRequests(g gs.Group) ([]id.Round, RequestStatus, error) {
 			errors.Errorf(sendRequestPartialErr, len(errs), n,
 				strings.Join(errs, "\n"))
 	}
+
+	jww.DEBUG.Printf("Sent group request to %d members in group %q with ID %s.",
+		len(g.Members), g.Name, g.ID)
 
 	// If all sends succeeded, return a list of roundIDs
 	return roundIdMap2List(roundIDs), AllSent, nil

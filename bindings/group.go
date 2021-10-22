@@ -349,6 +349,9 @@ func (gmr *GroupMessageReceive) GetTimestampNano() int64 {
 func (gmr *GroupMessageReceive) GetTimestampMS() int64 {
 
 	ts := uint64(gmr.Timestamp.UnixNano()) / uint64(time.Millisecond)
+	// TODO: remove the print below once debugging is done.
+	jww.DEBUG.Printf("Received group message timestamp:    %s", gmr.Timestamp)
+	jww.DEBUG.Printf("Received group message timestamp MS: %d", ts)
 	return int64(ts)
 }
 
@@ -367,5 +370,8 @@ func (gmr *GroupMessageReceive) GetRoundTimestampNano() int64 {
 // message was sent on.
 func (gmr *GroupMessageReceive) GetRoundTimestampMS() int64 {
 	ts := uint64(gmr.RoundTimestamp.UnixNano()) / uint64(time.Millisecond)
+	// TODO: remove the print below once debugging is done.
+	jww.DEBUG.Printf("Received group message round timestamp:    %s", gmr.RoundTimestamp)
+	jww.DEBUG.Printf("Received group message round timestamp MS: %d", ts)
 	return int64(ts)
 }

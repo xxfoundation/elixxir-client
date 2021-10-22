@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/group"
+	"time"
 )
 
 // Error message.
@@ -75,7 +76,7 @@ func (m *Manager) readRequest(msg message.Receive) (gs.Group, error) {
 	}
 
 	// Deserialize membership list
-	membership, err := group.DeserializeMembership(request.Members)
+	membership, err := group.DeserializeMembership(request.GetMembers())
 	if err != nil {
 		return gs.Group{}, errors.Errorf(deserializeMembershipErr, err)
 	}
@@ -101,15 +102,18 @@ func (m *Manager) readRequest(msg message.Receive) (gs.Group, error) {
 
 	// Copy preimages
 	var idPreimage group.IdPreimage
-	copy(idPreimage[:], request.IdPreimage)
+	copy(idPreimage[:], request.GetIdPreimage())
 	var keyPreimage group.KeyPreimage
-	copy(keyPreimage[:], request.KeyPreimage)
+	copy(keyPreimage[:], request.GetKeyPreimage())
 
 	// Create group ID and key
 	groupID := group.NewID(idPreimage, membership)
 	groupKey := group.NewKey(keyPreimage, membership)
 
+	// Convert created timestamp from nanoseconds to time.Time
+	created := time.Unix(0, request.GetCreated())
+
 	// Return the new group
-	return gs.NewGroup(request.Name, groupID, groupKey, idPreimage, keyPreimage,
-		request.Message, membership, dkl), nil
+	return gs.NewGroup(request.GetName(), groupID, groupKey, idPreimage,
+		keyPreimage, request.GetMessage(), created, membership, dkl), nil
 }

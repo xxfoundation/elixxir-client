@@ -23,9 +23,6 @@ type lookupCallback func(contact.Contact, error)
 // system or returns by the timeout.
 func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Duration) error {
 	jww.INFO.Printf("ud.Lookup(%s, %s)", uid, timeout)
-	if !m.IsRegistered() {
-		return errors.New("Failed to lookup: client is not registered.")
-	}
 
 	// Build the request and marshal it
 	request := &LookupSend{UserID: uid.Marshal()}

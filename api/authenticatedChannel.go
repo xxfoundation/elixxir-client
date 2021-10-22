@@ -12,6 +12,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/interfaces/preimage"
+	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
@@ -102,6 +104,27 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Co
 	// check garbled messages in case any messages arrived before creating
 	// the channel
 	c.network.CheckGarbledMessages()
+
+	//add the e2e and rekey firngeprints
+	//e2e
+	sessionPartner, err := c.storage.E2e().GetPartner(precan.ID)
+	if err != nil {
+		jww.FATAL.Panicf("Cannot find %s right after creating: %+v", precan.ID, err)
+	}
+	me := c.storage.GetUser().ReceptionID
+
+	c.storage.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetE2EPreimage(),
+		Type:   preimage.E2e,
+		Source: precan.ID[:],
+	}, me)
+
+	//rekey
+	c.storage.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetRekeyPreimage(),
+		Type:   preimage.Rekey,
+		Source: precan.ID[:],
+	}, me)
 
 	return precan, err
 }

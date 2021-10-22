@@ -50,6 +50,7 @@ func (m Manager) sendRequests(g gs.Group) ([]id.Round, RequestStatus, error) {
 		KeyPreimage: g.KeyPreimage.Bytes(),
 		Members:     g.Members.Serialize(),
 		Message:     g.InitMessage,
+		Created:     g.Created.UnixNano(),
 	})
 	if err != nil {
 		return nil, NotSent, errors.Errorf(protoMarshalErr, err)

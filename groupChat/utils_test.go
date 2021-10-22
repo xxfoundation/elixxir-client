@@ -33,6 +33,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"sync"
 	"testing"
@@ -156,7 +157,7 @@ func newTestGroup(grp *cyclic.Group, privKey *cyclic.Int, rng *rand.Rand,
 	groupKey := group.NewKey(keyPreimage, membership)
 
 	return gs.NewGroup(name, groupID, groupKey, idPreimage, keyPreimage, msg,
-		membership, dkl)
+		netTime.Now(), membership, dkl)
 }
 
 // newTestGroup generates a new group with random values for testing.
@@ -190,7 +191,7 @@ func newTestGroupWithUser(grp *cyclic.Group, uid *id.ID, pubKey,
 	groupKey := group.NewKey(keyPreimage, membership)
 
 	return gs.NewGroup(name, groupID, groupKey, idPreimage, keyPreimage, msg,
-		membership, dkl)
+		netTime.Now().Round(0), membership, dkl)
 }
 
 // randCycInt returns a random cyclic int.

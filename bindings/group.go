@@ -231,6 +231,19 @@ func (g *Group) GetInitMessage() []byte {
 	return g.g.InitMessage
 }
 
+// GetCreatedNano returns the time the group was created in nanoseconds. This is
+// also the time the group requests were sent.
+func (g *Group) GetCreatedNano() int64 {
+	return g.g.Created.UnixNano()
+}
+
+// GetCreatedMS returns the time the group was created in milliseconds. This is
+// also the time the group requests were sent.
+func (g *Group) GetCreatedMS() int64 {
+	ts := uint64(g.g.Created.UnixNano()) / uint64(time.Millisecond)
+	return int64(ts)
+}
+
 // GetMembership returns a list of contacts, one for each member in the group.
 // The list is in order; the first contact is the leader/creator of the group.
 // All subsequent members are ordered by their ID.

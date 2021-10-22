@@ -15,6 +15,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
 	"testing"
+	"time"
 )
 
 const (
@@ -25,6 +26,8 @@ const (
 	groupKeyPreimage = "keyPreimage"
 	initMessage      = "initMessage"
 )
+
+var created = time.Date(1955, 11, 5, 12, 1, 0, 0, time.Local)
 
 // createTestGroup generates a new group for testing.
 func createTestGroup(rng *rand.Rand, t *testing.T) Group {
@@ -37,6 +40,7 @@ func createTestGroup(rng *rand.Rand, t *testing.T) Group {
 		newIdPreimage(groupIdPreimage),
 		newKeyPreimage(groupKeyPreimage),
 		[]byte(initMessage),
+		created,
 		members,
 		dkl,
 	)

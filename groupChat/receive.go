@@ -127,23 +127,22 @@ func (m *Manager) decryptMessage(g gs.Group, cMixMsg format.Message,
 		publicMsg.GetPayload())
 
 	// Unmarshal internal message
-	internalMsg, err := unmarshalInternalMsg(decryptedPayload)
+	intlMsg, err := unmarshalInternalMsg(decryptedPayload)
 	if err != nil {
 		return group.MessageID{}, time.Time{}, nil, nil,
 			errors.Errorf(unmarshalInternalMsgErr, err)
 	}
 
 	// Unmarshal sender ID
-	senderID, err := internalMsg.GetSenderID()
+	senderID, err := intlMsg.GetSenderID()
 	if err != nil {
 		return group.MessageID{}, time.Time{}, nil, nil,
 			errors.Errorf(unmarshalSenderIdErr, err)
 	}
 
-	messageID := group.NewMessageID(g.ID, internalMsg.Marshal())
+	messageID := group.NewMessageID(g.ID, intlMsg.Marshal())
 
-	return messageID, internalMsg.GetTimestamp(), senderID,
-		internalMsg.GetPayload(), nil
+	return messageID, intlMsg.GetTimestamp(), senderID, intlMsg.GetPayload(), nil
 }
 
 // getCryptKey generates the decryption key for a group internal message. The

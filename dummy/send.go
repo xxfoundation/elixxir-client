@@ -70,7 +70,16 @@ func (m *Manager) sendMessages(msgs map[id.ID]format.Message) error {
 		wg.Add(1)
 
 		go func(i int64, recipient id.ID, msg format.Message) {
-			_, _, err := m.net.SendCMIX(msg, &recipient, params.GetDefaultCMIX())
+			//fill the preiamge with random data to ensure it isnt repeatable
+			p := params.GetDefaultCMIX()
+			p.IdentityPreimage = make([]byte, 32)
+			rng := m.rng.GetStream()
+			if _, err := rng.Read(p.IdentityPreimage); err != nil {
+				jww.FATAL.Panicf("Failed to generate data for random "+
+					"identity preimage in e2e send: %+v", err)
+			}
+			rng.Close()
+			_, _, err := m.net.SendCMIX(msg, &recipient, p)
 			if err != nil {
 				jww.WARN.Printf("failed to send dummy message %d/%d: %+v",
 					i, len(msgs), err)

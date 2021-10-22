@@ -30,6 +30,7 @@ func TestManager_ResendRequest(t *testing.T) {
 		KeyPreimage: g.KeyPreimage.Bytes(),
 		Members:     g.Members.Serialize(),
 		Message:     g.InitMessage,
+		Created:     g.Created.UnixNano(),
 	}
 
 	_, status, err := m.ResendRequest(g.ID)
@@ -108,6 +109,7 @@ func TestManager_sendRequests(t *testing.T) {
 		KeyPreimage: g.KeyPreimage.Bytes(),
 		Members:     g.Members.Serialize(),
 		Message:     g.InitMessage,
+		Created:     g.Created.UnixNano(),
 	}
 
 	_, status, err := m.sendRequests(g)

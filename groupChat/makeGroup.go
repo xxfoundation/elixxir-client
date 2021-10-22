@@ -11,10 +11,13 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
+	"gitlab.com/elixxir/client/interfaces/preimage"
+	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
 )
 
@@ -74,10 +77,13 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 	groupID := group.NewID(idPreimage, mem)
 	groupKey := group.NewKey(keyPreimage, mem)
 
+	// Generate group creation timestamp stripped of the monotonic clock
+	created := netTime.Now().Round(0)
+
 	// Create new group and add to manager
 	g := gs.NewGroup(
-		name, groupID, groupKey, idPreimage, keyPreimage, msg, mem, dkl)
-	if err := m.gs.Add(g); err != nil {
+		name, groupID, groupKey, idPreimage, keyPreimage, msg, created, mem, dkl)
+	if err = m.gs.Add(g); err != nil {
 		return gs.Group{}, nil, NotSent, errors.Errorf(addGroupErr, err)
 	}
 
@@ -86,6 +92,15 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 
 	// Send all group requests
 	roundIDs, status, err := m.sendRequests(g)
+
+	if err == nil {
+		edgeStore := m.store.GetEdge()
+		edgeStore.Add(edge.Preimage{
+			Data:   g.ID[:],
+			Type:   preimage.Group,
+			Source: g.ID[:],
+		}, m.store.GetUser().ReceptionID)
+	}
 
 	return g, roundIDs, status, err
 }

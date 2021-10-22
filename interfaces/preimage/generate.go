@@ -6,6 +6,10 @@ import (
 )
 
 func Generate(data []byte, t string) []byte {
+
+	if t==Default{
+		return data
+	}
 	// Hash fingerprints
 	h, _ := blake2b.New256(nil)
 	h.Write(data)

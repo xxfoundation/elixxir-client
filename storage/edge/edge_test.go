@@ -149,7 +149,7 @@ func TestStore_Add(t *testing.T) {
 			"\nexpected: %d\nreceived: %d", identities[0], 3, len(pis))
 	}
 
-	expected := Preimage{preimage.Generate(identities[0].Bytes(), preimage.Default), preimage.Default, identities[0].Bytes()}
+	expected := Preimage{preimage.MakeDefault(identities[0]), preimage.Default, identities[0].Bytes()}
 	if !reflect.DeepEqual(pis[expected.key()], expected) {
 		t.Errorf("First Preimage of first Preimages does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
@@ -174,7 +174,7 @@ func TestStore_Add(t *testing.T) {
 			"\nexpected: %d\nreceived: %d", identities[1], 2, len(pis))
 	}
 
-	expected = Preimage{preimage.Generate(identities[1].Bytes(), preimage.Default), preimage.Default, identities[1].Bytes()}
+	expected = Preimage{preimage.MakeDefault(identities[1]), preimage.Default, identities[1].Bytes()}
 	if !reflect.DeepEqual(pis[expected.key()], expected) {
 		t.Errorf("First Preimage of second Preimages does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
@@ -292,7 +292,7 @@ func TestStore_Remove(t *testing.T) {
 		t.Errorf("Remove returned an error: %+v", err)
 	}
 
-	if len(s.edge) != 3 {
+	if len(s.edge) != 2 {
 		t.Errorf("Length of edge incorrect.\nexpected: %d\nreceived: %d",
 			2, len(s.edge))
 	}
@@ -318,9 +318,9 @@ func TestStore_Remove(t *testing.T) {
 
 	pis = s.edge[*identities[1]]
 
-	if len(pis) != 1 {
+	if len(pis) != 0 {
 		t.Errorf("Length of preimages for identity %s inocrrect."+
-			"\nexpected: %d\nreceived: %d", identities[1], 1, len(pis))
+			"\nexpected: %d\nreceived: %d", identities[1], 0, len(pis))
 	}
 
 	wg.Wait()
@@ -349,7 +349,7 @@ func TestStore_Get(t *testing.T) {
 	}
 
 	expected := []Preimage{
-		{preimage.Generate(identities[0].Bytes(), preimage.Default), preimage.Default, identities[0].Bytes()},
+		{preimage.MakeDefault(identities[0]), preimage.Default, identities[0].Bytes()},
 		preimages[0],
 		preimages[2],
 	}
@@ -375,7 +375,7 @@ top:
 	}
 
 	expected = []Preimage{
-		{preimage.Generate(identities[1].Bytes(), preimage.Default), preimage.Default, identities[1].Bytes()},
+		{preimage.MakeDefault(identities[1]), preimage.Default, identities[1].Bytes()},
 		preimages[1],
 	}
 
@@ -475,12 +475,12 @@ func TestLoadStore(t *testing.T) {
 
 	expectedPis := [][]Preimage{
 		{
-			Preimage{preimage.Generate(identities[0].Bytes(), preimage.Default), preimage.Default, identities[0].Bytes()},
+			Preimage{preimage.MakeDefault(identities[0]), preimage.Default, identities[0].Bytes()},
 			preimages[0],
 			preimages[2],
 		},
 		{
-			Preimage{preimage.Generate(identities[1].Bytes(), preimage.Default), preimage.Default, identities[1].Bytes()},
+			Preimage{preimage.MakeDefault(identities[1]), preimage.Default, identities[1].Bytes()},
 			preimages[1],
 		},
 	}

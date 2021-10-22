@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
+	preimage2 "gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/cmix"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -141,15 +142,21 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	msg.SetEphemeralRID(ephIdFilled[:])
 
 	// use the alternate identity preimage if it is set
-	preimage := recipient[:]
-	if param.IdentityPreimage!=nil{
+	var preimage []byte
+	if param.IdentityPreimage != nil {
 		preimage = param.IdentityPreimage
+		jww.INFO.Printf("Sending to %s with override preimage %v", recipient, preimage)
+	}else{
+		preimage = preimage2.MakeDefault(recipient)
+		jww.INFO.Printf("Sending to %s with default preimage %v", recipient, preimage)
 	}
 
 	// Set the identity fingerprint
 	ifp := fingerprint.IdentityFP(msg.GetContents(), preimage)
 
 	msg.SetIdentityFP(ifp)
+
+	jww.INFO.Printf(" Sending to %s with preimage %v, ifp: %v, contents: %v", recipient, preimage, ifp, msg.GetContents())
 
 	// Encrypt the message
 	salt := make([]byte, 32)

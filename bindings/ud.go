@@ -207,12 +207,11 @@ type MultiLookupCallback interface {
 	Callback(Succeeded *ContactList, failed *IdList, errors string)
 }
 
-
-type lookupResponse struct{
-	C contact.Contact
-	err error
+type lookupResponse struct {
+	C     contact.Contact
+	err   error
 	index int
-	id *id.ID
+	id    *id.ID
 }
 
 // MultiLookup Looks for the contact object associated with all given userIDs.
@@ -223,12 +222,12 @@ type lookupResponse struct{
 func (ud UserDiscovery) MultiLookup(ids *IdList, callback MultiLookupCallback,
 	timeoutMS int) error {
 
-	idList := make([]*id.ID,0,ids.Len())
+	idList := make([]*id.ID, 0, ids.Len())
 
 	//extract all IDs from
-	for i:=0;i<ids.Len();i++{
+	for i := 0; i < ids.Len(); i++ {
 		idBytes, err := ids.Get(i)
-		if err!=nil{
+		if err != nil {
 			return errors.WithMessagef(err, "Failed to get ID at index %d", i)
 		}
 		uid, err := id.Unmarshal(idBytes)
@@ -245,54 +244,52 @@ func (ud UserDiscovery) MultiLookup(ids *IdList, callback MultiLookupCallback,
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 
 	//loop through the IDs and send the lookup
-	for i := range idList{
+	for i := range idList {
 		locali := i
 		localID := idList[locali]
-		cb := func(c contact.Contact, err error){
+		cb := func(c contact.Contact, err error) {
 			results <- lookupResponse{
 				C:     c,
 				err:   err,
 				index: locali,
-				id: localID,
+				id:    localID,
 			}
 		}
 
-		go func(){
+		go func() {
 			err := ud.ud.Lookup(localID, cb, timeout)
-			if err!=nil{
+			if err != nil {
 				results <- lookupResponse{
-					C:     contact.Contact{},
-					err:   errors.WithMessagef(err, "Failed to send lookup " +
+					C: contact.Contact{},
+					err: errors.WithMessagef(err, "Failed to send lookup "+
 						"for user %s[%d]", localID, locali),
 					index: locali,
-					id: localID,
+					id:    localID,
 				}
 			}
 		}()
 	}
 
 	//run the result gathering in its own thread
-	go func(){
-		returnedContactList := make([]contact.Contact,0,len(idList))
-		failedIDList := make([]*id.ID,0,len(idList))
+	go func() {
+		returnedContactList := make([]contact.Contact, 0, len(idList))
+		failedIDList := make([]*id.ID, 0, len(idList))
 		var concatonatedErrs string
 
 		//Get the responses and return
-		for numReturned := 0; numReturned<len(idList);numReturned++{
-			response := <- results
-			if response.err==nil{
+		for numReturned := 0; numReturned < len(idList); numReturned++ {
+			response := <-results
+			if response.err == nil {
 				returnedContactList = append(returnedContactList, response.C)
-			}else{
+			} else {
 				failedIDList = append(failedIDList, response.id)
-				concatonatedErrs = concatonatedErrs + fmt.Sprintf("Error returned from " +
+				concatonatedErrs = concatonatedErrs + fmt.Sprintf("Error returned from "+
 					"send to %d [%d]:%+v\t", response.id, response.index, response.err)
 			}
 		}
 
-		callback.Callback(&ContactList{list:returnedContactList}, &IdList{list:failedIDList}, concatonatedErrs)
+		callback.Callback(&ContactList{list: returnedContactList}, &IdList{list: failedIDList}, concatonatedErrs)
 	}()
-
 
 	return nil
 }
-

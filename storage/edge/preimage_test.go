@@ -10,6 +10,7 @@ package edge
 import (
 	"bytes"
 	"encoding/json"
+	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
@@ -20,12 +21,13 @@ import (
 // Tests that newPreimages returns the expected new Preimages.
 func Test_newPreimages(t *testing.T) {
 	identity := id.NewIdFromString("identity", id.User, t)
+	pimg := Preimage{
+		Data:   preimage.MakeDefault(identity),
+		Type:   "default",
+		Source: identity.Bytes(),
+	}
 	expected := Preimages{
-		identity.String(): {
-			Data:   identity.Bytes(),
-			Type:   "default",
-			Source: identity.Bytes(),
-		},
+		pimg.key(): pimg,
 	}
 
 	received := newPreimages(identity)
@@ -42,36 +44,47 @@ func TestPreimages_add(t *testing.T) {
 	identity1 := id.NewIdFromString("identity1", id.User, t)
 	identity2 := id.NewIdFromString("identity3", id.User, t)
 	expected := Preimages{
-		identity0.String(): {identity0.Bytes(), "default", identity0.Bytes()},
-		identity1.String(): {identity1.Bytes(), "group", identity1.Bytes()},
-		identity2.String(): {identity2.Bytes(), "default", identity2.Bytes()},
+		identity0.String(): {preimage.Generate(identity0.Bytes(), preimage.Default), preimage.Default, preimage.MakeDefault(identity0)},
+		identity1.String(): {preimage.Generate(identity1.Bytes(), preimage.Group), preimage.Group, identity1.Bytes()},
+		identity2.String(): {preimage.Generate(identity2.Bytes(), preimage.Default), preimage.Default, identity2.Bytes()},
 	}
 
 	pis := newPreimages(identity0)
-	exists := pis.add(Preimage{identity1.Bytes(), "group", identity1.Bytes()})
-	if !exists {
-		t.Errorf("Failed to add idenetity.")
-	}
-	exists = pis.add(Preimage{identity2.Bytes(), "default", identity2.Bytes()})
+	preimageOne := Preimage{preimage.Generate(identity1.Bytes(), preimage.Group), preimage.Group, identity1.Bytes()}
+	exists := pis.add(preimageOne)
 	if !exists {
 		t.Errorf("Failed to add idenetity.")
 	}
 
-	if !reflect.DeepEqual(expected, pis) {
-		t.Errorf("Failed to add expected Preimages."+
-			"\nexpected: %+v\nreceived: %+v", expected, pis)
+	preimageTwo := Preimage{preimage.Generate(identity2.Bytes(), preimage.Default), preimage.Default, identity2.Bytes()}
+	exists = pis.add(preimageTwo)
+	if !exists {
+		t.Errorf("Failed to add idenetity.")
 	}
 
+	for identity, pimg := range expected {
+		if _, exists = pis[pimg.key()]; !exists {
+			t.Errorf("Identity %s could not be found", identity)
+		}
+	}
+
+	expectedPreimageIdentityTwo := Preimage{
+		Data:   preimage.Generate(identity2.Bytes(), preimage.Default),
+		Type:   preimage.Default,
+		Source: identity2.Bytes(),
+	}
 	// Test that nothing happens when a Preimage with the same data exists
-	exists = pis.add(Preimage{identity2.Bytes(), "test", identity2.Bytes()})
+	exists = pis.add(Preimage{preimage.Generate(identity2.Bytes(), preimage.Default), "test", identity2.Bytes()})
 	if exists {
 		t.Errorf("Add idenetity that shoudl already exist.")
 	}
 
-	if !reflect.DeepEqual(expected, pis) {
-		t.Errorf("Failed to add expected Preimages."+
-			"\nexpected: %+v\nreceived: %+v", expected, pis)
+	receivedPreimageIdentityTwo := pis[preimageTwo.key()]
+
+	if !reflect.DeepEqual(expectedPreimageIdentityTwo, receivedPreimageIdentityTwo) {
+		t.Errorf("Unexpected overwritting of existing identity")
 	}
+
 }
 
 // Tests that Preimages.remove removes all the correct Preimage from the list.
@@ -82,9 +95,9 @@ func TestPreimages_remove(t *testing.T) {
 	// Add 10 Preimage to the list
 	for i := 0; i < 10; i++ {
 		identity := id.NewIdFromUInt(uint64(i), id.User, t)
-		pisType := "default"
+		pisType := preimage.Default
 		if i%2 == 0 {
-			pisType = "group"
+			pisType = preimage.Group
 		}
 
 		exists := pis.add(Preimage{identity.Bytes(), pisType, identity.Bytes()})

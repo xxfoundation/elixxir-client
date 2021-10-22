@@ -16,7 +16,9 @@ package edge
 
 import (
 	"encoding/json"
+	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage/versioned"
+	fingerprint2 "gitlab.com/elixxir/crypto/fingerprint"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
@@ -147,7 +149,7 @@ func TestStore_Add(t *testing.T) {
 			"\nexpected: %d\nreceived: %d", identities[0], 3, len(pis))
 	}
 
-	expected := Preimage{identities[0].Bytes(), "default", identities[0].Bytes()}
+	expected := Preimage{preimage.Generate(identities[0].Bytes(), preimage.Default), preimage.Default, identities[0].Bytes()}
 	if !reflect.DeepEqual(pis[expected.key()], expected) {
 		t.Errorf("First Preimage of first Preimages does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
@@ -172,7 +174,7 @@ func TestStore_Add(t *testing.T) {
 			"\nexpected: %d\nreceived: %d", identities[1], 2, len(pis))
 	}
 
-	expected = Preimage{identities[1].Bytes(), "default", identities[1].Bytes()}
+	expected = Preimage{preimage.Generate(identities[1].Bytes(), preimage.Default), preimage.Default, identities[1].Bytes()}
 	if !reflect.DeepEqual(pis[expected.key()], expected) {
 		t.Errorf("First Preimage of second Preimages does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
@@ -290,9 +292,9 @@ func TestStore_Remove(t *testing.T) {
 		t.Errorf("Remove returned an error: %+v", err)
 	}
 
-	if len(s.edge) != 2 {
+	if len(s.edge) != 3 {
 		t.Errorf("Length of edge incorrect.\nexpected: %d\nreceived: %d",
-			1, len(s.edge))
+			2, len(s.edge))
 	}
 
 	pis := s.edge[*identities[0]]
@@ -316,9 +318,9 @@ func TestStore_Remove(t *testing.T) {
 
 	pis = s.edge[*identities[1]]
 
-	if len(pis) != 0 {
+	if len(pis) != 1 {
 		t.Errorf("Length of preimages for identity %s inocrrect."+
-			"\nexpected: %d\nreceived: %d", identities[1], 0, len(pis))
+			"\nexpected: %d\nreceived: %d", identities[1], 1, len(pis))
 	}
 
 	wg.Wait()
@@ -346,15 +348,25 @@ func TestStore_Get(t *testing.T) {
 		t.Errorf("No Preimages found for identity %s.", identities[0])
 	}
 
-	expected := Preimages{
-		identities[0].String(): Preimage{identities[0].Bytes(), "default", identities[0].Bytes()},
-		preimages[0].key():     preimages[0],
-		preimages[2].key():     preimages[2],
+	expected := []Preimage{
+		{preimage.Generate(identities[0].Bytes(), preimage.Default), preimage.Default, identities[0].Bytes()},
+		preimages[0],
+		preimages[2],
 	}
 
-	if !reflect.DeepEqual(expected, pis) {
-		t.Errorf("First Preimages for identity %s does not match expected."+
-			"\nexpected: %+v\nreceived: %+v", identities[0], expected, pis)
+	if len(expected) != len(pis) {
+		t.Errorf("First Preimages for identity %s does not match expected, difrent lengths of %d and %d"+
+			"\nexpected: %+v\nreceived: %+v", identities[0], len(expected), len(pis), expected, pis)
+	}
+
+top:
+	for i, lookup := range expected {
+		for _, checked := range pis {
+			if reflect.DeepEqual(lookup, checked) {
+				continue top
+			}
+		}
+		t.Errorf("Entree %d in expected %v not found in received %v", i, lookup, pis)
 	}
 
 	pis, exists = s.Get(identities[1])
@@ -362,14 +374,24 @@ func TestStore_Get(t *testing.T) {
 		t.Errorf("No Preimages found for identity %s.", identities[1])
 	}
 
-	expected = Preimages{
-		identities[1].String(): Preimage{identities[1].Bytes(), "default", identities[1].Bytes()},
-		preimages[1].key():     preimages[1],
+	expected = []Preimage{
+		{preimage.Generate(identities[1].Bytes(), preimage.Default), preimage.Default, identities[1].Bytes()},
+		preimages[1],
 	}
 
-	if !reflect.DeepEqual(expected, pis) {
-		t.Errorf("First Preimages for identity %s does not match expected."+
-			"\nexpected: %+v\nreceived: %+v", identities[1], expected, pis)
+	if len(expected) != len(pis) {
+		t.Errorf("First Preimages for identity %s does not match expected, difrent lengths of %d and %d"+
+			"\nexpected: %+v\nreceived: %+v", identities[0], len(expected), len(pis), expected, pis)
+	}
+
+top2:
+	for i, lookup := range expected {
+		for _, checked := range pis {
+			if reflect.DeepEqual(lookup, checked) {
+				continue top2
+			}
+		}
+		t.Errorf("Entree %d in expected %v not found in received %v", i, lookup, pis)
 	}
 }
 
@@ -451,15 +473,15 @@ func TestLoadStore(t *testing.T) {
 		t.Fatalf("LoadStore error: %v", err)
 	}
 
-	expectedPis := []Preimages{
+	expectedPis := [][]Preimage{
 		{
-			identities[0].String(): Preimage{identities[0].Bytes(), "default", identities[0].Bytes()},
-			preimages[0].key():     preimages[0],
-			preimages[2].key():     preimages[2],
+			Preimage{preimage.Generate(identities[0].Bytes(), preimage.Default), preimage.Default, identities[0].Bytes()},
+			preimages[0],
+			preimages[2],
 		},
 		{
-			identities[1].String(): Preimage{identities[1].Bytes(), "default", identities[1].Bytes()},
-			preimages[1].key():     preimages[1],
+			Preimage{preimage.Generate(identities[1].Bytes(), preimage.Default), preimage.Default, identities[1].Bytes()},
+			preimages[1],
 		},
 	}
 
@@ -469,11 +491,70 @@ func TestLoadStore(t *testing.T) {
 			t.Errorf("Identity %s does not exist in loaded store", identity)
 		}
 
-		if !reflect.DeepEqual(pis, expectedPis[i]) {
-			t.Errorf("Identity %s does not have expected preimages in loaded store."+
-				"\nExpected: %v\nRecieved", expectedPis[i], pis)
+		if len(expectedPis[i]) != len(pis) {
+			t.Errorf("First Preimages for identity %s does not match expected, difrent lengths of %d and %d"+
+				"\nexpected: %+v\nreceived: %+v", identities[0], len(expectedPis[i]), len(pis), expectedPis[i], pis)
 		}
+
+	top:
+		for idx, lookup := range expectedPis[i] {
+			for _, checked := range pis {
+				if reflect.DeepEqual(lookup, checked) {
+					continue top
+				}
+			}
+			t.Errorf("Entree %d in expected %v not found in received %v", idx, lookup, pis)
+		}
+
 	}
+}
+
+func TestStore_Check(t *testing.T) {
+	// Initialize store
+	s, _, _ := newTestStore(t)
+	identities := []*id.ID{
+		id.NewIdFromString("identity0", id.User, t),
+		id.NewIdFromString("identity1", id.User, t),
+	}
+	preimages := []Preimage{
+		{[]byte("ID0"), "default0", []byte("ID0")},
+		{[]byte("ID1"), "default1", []byte("ID1")},
+		{[]byte("ID2"), "default2", []byte("ID2")},
+	}
+
+	// Add preimages
+	s.Add(preimages[0], identities[0])
+	s.Add(preimages[1], identities[1])
+	s.Add(preimages[2], identities[0])
+
+	testMsg := []byte("test message 123")
+	preImageData := preimages[0].Data
+	testFp := fingerprint2.IdentityFP(testMsg, preImageData)
+
+	has, forMe, receivedPreImage := s.Check(identities[0], testFp, testMsg)
+
+	if !has || !forMe || !reflect.DeepEqual(receivedPreImage, preimages[0]) {
+		t.Errorf("Unexpected result from Check()."+
+			"\nExpected results: (has: %v) "+
+			"\n\t(forMe: %v)"+
+			"\n\t(Preimage: %v)"+
+			"\nReceived results: (has: %v) "+
+			"\n\t(forME: %v)"+
+			"\n\t(Preimage: %v)", true, true, preimages[0],
+			has, forMe, receivedPreImage)
+	}
+
+	// Check with wrong identity (has should be true, for me false)
+	has, forMe, _ = s.Check(identities[1], testFp, testMsg)
+	if !has || forMe {
+		t.Errorf("Unexpected results from check."+
+			"\nExpected results: (has: %v)"+
+			"\n\t(ForMe %v)"+
+			"\nReceived results: "+
+			"has: %v"+
+			"\n\t(ForMe: %v)", true, false, has, forMe)
+	}
+
 }
 
 func TestStore_save(t *testing.T) {

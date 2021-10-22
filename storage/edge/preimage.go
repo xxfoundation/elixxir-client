@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -31,12 +32,13 @@ type Preimages map[string]Preimage
 // newPreimages makes a Preimages object for the given identity and populates
 // it with the default preimage for the identity. Does not store to disk.
 func newPreimages(identity *id.ID) Preimages {
+	defaultPreimage := Preimage{
+		Data:   preimage.MakeDefault(identity),
+		Type:   preimage.Default,
+		Source: identity[:],
+	}
 	pis := Preimages{
-		identity.String(): {
-			Data:   identity[:],
-			Type:   "default",
-			Source: identity[:],
-		},
+		defaultPreimage.key(): defaultPreimage,
 	}
 
 	return pis

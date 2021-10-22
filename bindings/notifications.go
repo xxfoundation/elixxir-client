@@ -15,25 +15,23 @@ import (
 	"gitlab.com/elixxir/crypto/fingerprint"
 )
 
-
-type NotificationForMeReport struct{
-	forMe bool
-	tYpe string
+type NotificationForMeReport struct {
+	forMe  bool
+	tYpe   string
 	source []byte
 }
 
-func (nfmr *NotificationForMeReport)ForMe()bool{
+func (nfmr *NotificationForMeReport) ForMe() bool {
 	return nfmr.forMe
 }
 
-func (nfmr *NotificationForMeReport)Type()string{
+func (nfmr *NotificationForMeReport) Type() string {
 	return nfmr.tYpe
 }
 
-func (nfmr *NotificationForMeReport)Source()[]byte{
+func (nfmr *NotificationForMeReport) Source() []byte {
 	return nfmr.source
 }
-
 
 // NotificationForMe Check if a notification received is for me
 func NotificationForMe(messageHash, idFP string, preimages string) (*NotificationForMeReport, error) {
@@ -48,15 +46,15 @@ func NotificationForMe(messageHash, idFP string, preimages string) (*Notificatio
 	}
 
 	//handle deserialization of preimages
-	var preimageList edge.Preimages
-	if err := json.Unmarshal([]byte(preimages),&preimageList); err!=nil{
-		return nil, errors.WithMessagef(err,"Failed to unmarshal the preimages list, " +
+	var preimageList []edge.Preimage
+	if err := json.Unmarshal([]byte(preimages), &preimageList); err != nil {
+		return nil, errors.WithMessagef(err, "Failed to unmarshal the preimages list, "+
 			"cannot check if notification is for me")
 	}
 
 	//check if any preimages match with the passed in data
 	for _, preimage := range preimageList {
-		if fingerprint.CheckIdentityFpFromMessageHash(idFpBytes, messageHashBytes, preimage.Data){
+		if fingerprint.CheckIdentityFpFromMessageHash(idFpBytes, messageHashBytes, preimage.Data) {
 			return &NotificationForMeReport{
 				forMe:  true,
 				tYpe:   preimage.Type,

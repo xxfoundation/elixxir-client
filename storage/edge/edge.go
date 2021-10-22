@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
+	fingerprint2 "gitlab.com/elixxir/crypto/fingerprint"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
@@ -146,12 +147,43 @@ func (s *Store) Remove(preimage Preimage, identity *id.ID) error {
 }
 
 // Get returns the Preimages list for the given identity.
-func (s *Store) Get(identity *id.ID) (Preimages, bool) {
+func (s *Store) Get(identity *id.ID) ([]Preimage, bool) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 
 	preimages, exists := s.edge[*identity]
-	return preimages, exists
+	if !exists {
+		return nil, false
+	}
+
+	preiamgesSlice := make([]Preimage, 0, len(preimages))
+
+	for _, preimage := range preimages {
+		preiamgesSlice = append(preiamgesSlice, preimage)
+	}
+	return preiamgesSlice, exists
+}
+
+// Check looks checks if the identity fingerprint matches for any of
+// the stored preimages. It returns the preimage it hit with if it
+// finds one.
+func (s *Store) Check(identity *id.ID, identityFP []byte, messageContents []byte) (bool, bool, Preimage) {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	preimages, exists := s.edge[*identity]
+	if !exists {
+		return false, false, Preimage{}
+	}
+
+	for _, preimage := range preimages {
+		jww.INFO.Printf("checking  ifp: %v, msg: %v, preimage %v", identityFP, messageContents, preimage)
+		if fingerprint2.CheckIdentityFP(identityFP, messageContents, preimage.Data) {
+			return true, true, preimage
+		}
+	}
+
+	return true, false, Preimage{}
 }
 
 // AddUpdateCallback adds the callback to be called for changes to the identity.
@@ -183,8 +215,8 @@ func LoadStore(kv *versioned.KV) (*Store, error) {
 	}
 
 	s := &Store{
-		kv:   kv,
-		edge: make(map[id.ID]Preimages),
+		kv:        kv,
+		edge:      make(map[id.ID]Preimages),
 		callbacks: make(map[id.ID][]ListUpdateCallBack),
 	}
 

@@ -14,6 +14,7 @@ import (
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/edge"
@@ -133,7 +134,7 @@ func (m Manager) JoinGroup(g gs.Group) error {
 	edgeStore := m.store.GetEdge()
 	edgeStore.Add(edge.Preimage{
 		Data:   g.ID[:],
-		Type:   "group",
+		Type:   preimage.Group,
 		Source: g.ID[:],
 	}, m.store.GetUser().ReceptionID)
 
@@ -151,7 +152,7 @@ func (m Manager) LeaveGroup(groupID *id.ID) error {
 	edgeStore := m.store.GetEdge()
 	err := edgeStore.Remove(edge.Preimage{
 		Data:   groupID[:],
-		Type:   "group",
+		Type:   preimage.Group,
 		Source: groupID[:],
 	}, m.store.GetUser().ReceptionID)
 

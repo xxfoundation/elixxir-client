@@ -13,12 +13,14 @@ import (
 	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/keyExchange"
 	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/registration"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -555,13 +557,45 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 // DeleteContact is a function which removes a partner from Client's storage
 func (c *Client) DeleteContact(partnerId *id.ID) error {
 	jww.DEBUG.Printf("Deleting contact with ID %s", partnerId)
-	if err := c.storage.E2e().DeletePartner(partnerId); err != nil {
+	//get the partner so they can be removed from preiamge store
+	partner, err := c.storage.E2e().GetPartner(partnerId)
+	if err != nil {
+		return errors.WithMessagef(err, "Could not delete %s because "+
+			"they could not be found", partnerId)
+	}
+	e2ePreimage := partner.GetE2EPreimage()
+	rekeyPreimage := partner.GetRekeyPreimage()
+
+	//delete the partner
+	if err = c.storage.E2e().DeletePartner(partnerId); err != nil {
 		return err
 	}
-	if err := c.storage.Auth().Delete(partnerId); err != nil {
+	//delete the preimages
+	if err = c.storage.GetEdge().Remove(edge.Preimage{
+		Data:   e2ePreimage,
+		Type:   preimage.E2e,
+		Source: partnerId[:],
+	}, c.storage.GetUser().ReceptionID); err != nil {
+		jww.WARN.Printf("Failed delete the preimage for e2e "+
+			"from %s on contact deletion: %+v", partnerId, err)
+	}
+
+	if err = c.storage.GetEdge().Remove(edge.Preimage{
+		Data:   rekeyPreimage,
+		Type:   preimage.Rekey,
+		Source: partnerId[:],
+	}, c.storage.GetUser().ReceptionID); err != nil {
+		jww.WARN.Printf("Failed delete the preimage for rekey "+
+			"from %s on contact deletion: %+v", partnerId, err)
+	}
+
+	if err = c.storage.Auth().Delete(partnerId); err != nil {
 		return err
 	}
+
+	//delete conversations
 	c.storage.Conversations().Delete(partnerId)
+
 	return nil
 }
 
@@ -693,6 +727,13 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, 
 		//move the registration state to indicate registered with registration
 		err = storageSess.ForwardRegistrationStatus(storage.PermissioningComplete)
 	}
+
+	//add the request preiamge
+	storageSess.GetEdge().Add(edge.Preimage{
+		Data:   preimage.GenerateRequest(protoUser.ReceptionID),
+		Type:   preimage.Request,
+		Source: protoUser.ReceptionID[:],
+	}, protoUser.ReceptionID)
 
 	if err != nil {
 		return errors.WithMessage(err, "Failed to denote state "+

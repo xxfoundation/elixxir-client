@@ -11,6 +11,7 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -52,28 +53,19 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 	var err error
 	var relationshipFingerprint []byte
 
-	//check if the identity fingerprint matches
-	//first check if a list is present in store for the receiving source
-	forMe := false
-	preimagelist, exist := edge.Get(identity.Source)
-	if exist{
-		//if it exists, check against all in the list
-		for key := range preimagelist{
-			if forMe = fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
-				ecrMsg.GetContents(), preimagelist[key].Data); forMe{
-				break
-			}
-		}
-	}else{
+	//if it exists, check against all in the list
+	has, forMe, _ := m.Session.GetEdge().Check(identity.Source, ecrMsg.GetIdentityFP(), ecrMsg.GetContents())
+	if !has {
+		jww.INFO.Printf("checking backup %v", preimage.MakeDefault(identity.Source))
 		//if it doesnt exist, check against the default fingerprint for the identity
 		forMe = fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
-			ecrMsg.GetContents(), identity.Source[:])
+			ecrMsg.GetContents(), preimage.MakeDefault(identity.Source))
 	}
 
 	if !forMe {
 		if jww.GetLogThreshold() == jww.LevelTrace {
 			expectedFP := fingerprint2.IdentityFP(ecrMsg.GetContents(),
-				identity.Source[:])
+				preimage.MakeDefault(identity.Source))
 			jww.TRACE.Printf("Message for %d (%s) failed identity "+
 				"check: %v (expected-default) vs %v (received)", identity.EphId,
 				identity.Source, expectedFP, ecrMsg.GetIdentityFP())

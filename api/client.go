@@ -205,6 +205,8 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 func NewProtoClient_Unsafe(storageDir string, password []byte,
 	protoClientJSON []byte,
 	parameters params.Network, def *ndf.NetworkDefinition) (*Client, error) {
+	jww.INFO.Printf("NewProtoClient_Unsafe")
+
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 
@@ -368,7 +370,8 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 // cryptographic primitives. This is designed for some specific deployment
 // procedures and is generally unsafe. It is unsafe because all network relationships
 // will no longer be present in the new session file.
-func LoginWithProtoClient(storageDir string, password []byte, protoClientJSON []byte,
+func LoginWithProtoClient(storageDir string, password []byte,
+	protoClientJSON []byte,
 	newBaseNdf string, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
 

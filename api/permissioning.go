@@ -53,11 +53,6 @@ func (c *Client) registerWithPermissioning() error {
 // ConstructProtoUerFile is a helper function which is used for proto client testing.
 // This is used for development testing.
 func (c *Client) ConstructProtoUerFile() ([]byte, error) {
-	username, err := c.GetStorage().User().GetUsername()
-	if err != nil {
-		return nil, errors.WithMessage(err, "failed to register with "+
-			"permissioning")
-	}
 
 	//load the registration code
 	regCode, err := c.storage.GetRegCode()
@@ -75,7 +70,6 @@ func (c *Client) ConstructProtoUerFile() ([]byte, error) {
 		ReceptionRSA:                 c.GetUser().ReceptionRSA,
 		Precanned:                    c.GetUser().Precanned,
 		RegistrationTimestamp:        c.GetUser().RegistrationTimestamp,
-		Username:                     username,
 		RegCode:                      regCode,
 		TransmissionRegValidationSig: c.storage.User().GetTransmissionRegistrationValidationSignature(),
 		ReceptionRegValidationSig:    c.storage.User().GetReceptionRegistrationValidationSignature(),

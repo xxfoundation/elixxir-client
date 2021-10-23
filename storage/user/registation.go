@@ -112,6 +112,7 @@ func (u *User) SetReceptionRegistrationValidationSignature(b []byte) {
 	defer u.rvsMux.Unlock()
 
 	//check if the signature already exists
+	jww.WARN.Printf("receptionValidationSig: %v", u.receptionRegValidationSig)
 	if u.receptionRegValidationSig != nil {
 		jww.FATAL.Panicf("cannot overwrite existing reception Identity Validation Signature")
 	}

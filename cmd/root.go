@@ -58,8 +58,13 @@ var rootCmd = &cobra.Command{
 			pprof.StartCPUProfile(f)
 		}
 
-		client := initClient()
-
+		protoUserPath := viper.GetString("protoUserPath")
+		var client *api.Client
+		if protoUserPath != "" {
+			loadProtoClient()
+		} else {
+			client = initClient()
+		}
 		user := client.GetUser()
 		jww.INFO.Printf("User: %s", user.ReceptionID)
 		writeContact(user.GetContact())
@@ -453,6 +458,13 @@ func initClient() *api.Client {
 		jww.FATAL.Panicf("%+v", err)
 	}
 
+	jsoBytes, err := client.ConstructProtoUerFile()
+	if err != nil {
+		jww.WARN.Printf("err: %v", err)
+	}
+
+	jww.WARN.Printf("json %s", string(jsoBytes))
+
 	return client
 }
 
@@ -823,30 +835,30 @@ func init() {
 	rootCmd.Flags().UintP("receiveCount",
 		"", 1, "How many messages we should wait for before quitting")
 	viper.BindPFlag("receiveCount", rootCmd.Flags().Lookup("receiveCount"))
-	rootCmd.Flags().UintP("waitTimeout", "", 15,
+	rootCmd.PersistentFlags().UintP("waitTimeout", "", 15,
 		"The number of seconds to wait for messages to arrive")
 	viper.BindPFlag("waitTimeout",
-		rootCmd.Flags().Lookup("waitTimeout"))
+		rootCmd.PersistentFlags().Lookup("waitTimeout"))
 
 	rootCmd.Flags().BoolP("unsafe", "", false,
 		"Send raw, unsafe messages without e2e encryption.")
 	viper.BindPFlag("unsafe", rootCmd.Flags().Lookup("unsafe"))
 
-	rootCmd.Flags().BoolP("unsafe-channel-creation", "", false,
+	rootCmd.PersistentFlags().BoolP("unsafe-channel-creation", "", false,
 		"Turns off the user identity authenticated channel check, "+
 			"automatically approving authenticated channels")
 	viper.BindPFlag("unsafe-channel-creation",
-		rootCmd.Flags().Lookup("unsafe-channel-creation"))
+		rootCmd.PersistentFlags().Lookup("unsafe-channel-creation"))
 
 	rootCmd.Flags().BoolP("accept-channel", "", false,
 		"Accept the channel request for the corresponding recipient ID")
 	viper.BindPFlag("accept-channel",
 		rootCmd.Flags().Lookup("accept-channel"))
 
-	rootCmd.Flags().Bool("delete-channel", false,
+	rootCmd.PersistentFlags().Bool("delete-channel", false,
 		"Delete the channel information for the corresponding recipient ID")
 	viper.BindPFlag("delete-channel",
-		rootCmd.Flags().Lookup("delete-channel"))
+		rootCmd.PersistentFlags().Lookup("delete-channel"))
 
 	rootCmd.Flags().BoolP("send-auth-request", "", false,
 		"Send an auth request to the specified destination and wait"+
@@ -895,14 +907,15 @@ func init() {
 	viper.BindPFlag("profile-cpu", rootCmd.Flags().Lookup("profile-cpu"))
 
 	// Proto user flags
-	rootCmd.PersistentFlags().String("protoUserPath", "protoUser.json",
+	protoCmd.Flags().String("protoUserPath", "protoUser.json",
 		"Path to proto user JSON file containing cryptographic primitives "+
 			"the client will load")
-	viper.BindPFlag("protoUserPath", rootCmd.Flags().Lookup("protoUserPath"))
-	rootCmd.PersistentFlags().String("protoUserOut", "protoUser.json",
+	viper.BindPFlag("protoUserPath", protoCmd.Flags().Lookup("protoUserPath"))
+	protoCmd.Flags().String("protoUserOut", "protoUser.json",
 		"Path to which a normally constructed client "+
 			"will write proto user JSON file")
-	viper.BindPFlag("protoUserOut", rootCmd.Flags().Lookup("protoUserOut"))
+	viper.BindPFlag("protoUserOut", protoCmd.Flags().Lookup("protoUserOut"))
+
 
 }
 

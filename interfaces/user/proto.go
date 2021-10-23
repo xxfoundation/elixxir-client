@@ -19,7 +19,6 @@ type Proto struct {
 	// Timestamp in which user has registered with the network
 	RegistrationTimestamp time.Time
 
-	Username string
 	RegCode  string
 
 	TransmissionRegValidationSig []byte

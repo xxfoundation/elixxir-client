@@ -94,7 +94,7 @@ func New(baseDir, password string, u userInterface.User, currentVersion version.
 
 	s, err := initStore(baseDir, password)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create session")
+		return nil, errors.WithMessagef(err, "Failed to create session for %s", baseDir)
 	}
 
 	err = s.newRegStatus()

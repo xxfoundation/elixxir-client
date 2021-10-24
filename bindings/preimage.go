@@ -37,6 +37,7 @@ func (c *Client) GetPreimages(identity []byte) (string, error) {
 	return string(marshaled), err
 }
 
+// hack on getPreimages so it works on iOS per https://github.com/golang/go/issues/46893
 func (c *Client) GetPreimagesHack(dummy string, identity []byte) (string, error) {
 
 	iid := &id.ID{}

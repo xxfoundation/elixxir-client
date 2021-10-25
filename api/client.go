@@ -540,6 +540,9 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 
 	var numRegistered int
 	for i, n := range nodes {
+		if n.Status == ndf.Stale {
+			continue
+		}
 		nid, err := id.Unmarshal(n.ID)
 		if err != nil {
 			return 0, 0, errors.Errorf("Failed to unmarshal node ID %v "+

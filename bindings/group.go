@@ -62,10 +62,13 @@ func NewGroupManager(client *Client, requestFunc GroupRequestFunc,
 // MakeGroup creates a new group and sends a group request to all members in the
 // group. The ID of the new group, the rounds the requests were sent on, and the
 // status of the send are contained in NewGroupReport.
-func (g *GroupChat) MakeGroup(membership *IdList, name, message []byte) (
-	*NewGroupReport, error) {
+func (g *GroupChat) MakeGroup(membership *IdList, name, message []byte)*NewGroupReport {
 	grp, rounds, status, err := g.m.MakeGroup(membership.list, name, message)
-	return &NewGroupReport{&Group{grp}, rounds, status}, err
+	errStr := ""
+	if err !=nil{
+		errStr = err.Error()
+	}
+	return &NewGroupReport{&Group{grp}, rounds, status, errStr}
 }
 
 // ResendRequest resends a group request to all members in the group. The rounds
@@ -77,9 +80,18 @@ func (g *GroupChat) ResendRequest(groupIdBytes []byte) (*NewGroupReport, error) 
 			errors.Errorf("Failed to unmarshal group ID: %+v", err)
 	}
 
+	grp, exists := g.m.GetGroup(groupID)
+	if !exists{
+		return nil,errors.Errorf("Failed to find group %s", groupID)
+	}
+
 	rounds, status, err := g.m.ResendRequest(groupID)
 
-	return &NewGroupReport{&Group{}, rounds, status}, nil
+	errStr := ""
+	if err !=nil{
+		errStr = err.Error()
+	}
+	return &NewGroupReport{&Group{grp}, rounds, status, errStr}, nil
 }
 
 // JoinGroup allows a user to join a group when they receive a request. The
@@ -152,6 +164,7 @@ type NewGroupReport struct {
 	group  *Group
 	rounds []id.Round
 	status gc.RequestStatus
+	err string
 }
 
 // GetGroup returns the Group.
@@ -167,11 +180,17 @@ func (ngr *NewGroupReport) GetRoundList() *RoundList {
 
 // GetStatus returns the status of the requests sent when creating a new group.
 // status = 0   an error occurred before any requests could be sent
-//          1   all requests failed to send
-//          2   some request failed and some succeeded
-//          3,  all requests sent successfully
+//          1   all requests failed to send (call Resend Group)
+//          2   some request failed and some succeeded (call Resend Group)
+//          3,  all requests sent successfully (call Resend Group)
 func (ngr *NewGroupReport) GetStatus() int {
 	return int(ngr.status)
+}
+
+// GetError returns the string of an error.
+// Will be an empty string if no error occured
+func (ngr *NewGroupReport) GetError() string {
+	return ngr.err
 }
 
 ////

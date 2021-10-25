@@ -36,6 +36,62 @@ func createNewUser(rng *fastRNG.StreamGenerator, cmix, e2e *cyclic.Group) user.U
 
 	var cMixKeyBytes, e2eKeyBytes, transmissionSalt, receptionSalt []byte
 
+	cMixKeyBytes, e2eKeyBytes, transmissionSalt, receptionSalt,
+		transmissionRsaKey, receptionRsaKey = createDhKeys(rng, cmix, e2e)
+
+	// Salt, UID, etc gen
+	stream := rng.GetStream()
+	transmissionSalt = make([]byte, SaltSize)
+
+	n, err := stream.Read(transmissionSalt)
+
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+	if n != SaltSize {
+		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
+	}
+
+	receptionSalt = make([]byte, SaltSize)
+
+	n, err = stream.Read(receptionSalt)
+
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+	if n != SaltSize {
+		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
+	}
+
+	stream.Close()
+
+	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(), transmissionSalt, id.User)
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+
+	receptionID, err := xx.NewID(receptionRsaKey.GetPublic(), receptionSalt, id.User)
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+
+	return user.User{
+		TransmissionID:   transmissionID.DeepCopy(),
+		TransmissionSalt: transmissionSalt,
+		TransmissionRSA:  transmissionRsaKey,
+		ReceptionID:      receptionID.DeepCopy(),
+		ReceptionSalt:    receptionSalt,
+		ReceptionRSA:     receptionRsaKey,
+		Precanned:        false,
+		CmixDhPrivateKey: cmix.NewIntFromBytes(cMixKeyBytes),
+		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
+	}
+}
+
+func createDhKeys(rng *fastRNG.StreamGenerator,
+	cmix, e2e *cyclic.Group) (cMixKeyBytes, e2eKeyBytes,
+	transmissionSalt, receptionSalt []byte,
+	transmissionRsaKey, receptionRsaKey *rsa.PrivateKey) {
 	wg := sync.WaitGroup{}
 
 	wg.Add(4)
@@ -93,53 +149,8 @@ func createNewUser(rng *fastRNG.StreamGenerator, cmix, e2e *cyclic.Group) user.U
 	}()
 	wg.Wait()
 
-	// Salt, UID, etc gen
-	stream := rng.GetStream()
-	transmissionSalt = make([]byte, SaltSize)
+	return
 
-	n, err := stream.Read(transmissionSalt)
-
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-	if n != SaltSize {
-		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
-	}
-
-	receptionSalt = make([]byte, SaltSize)
-
-	n, err = stream.Read(receptionSalt)
-
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-	if n != SaltSize {
-		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
-	}
-
-	stream.Close()
-
-	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(), transmissionSalt, id.User)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-
-	receptionID, err := xx.NewID(receptionRsaKey.GetPublic(), receptionSalt, id.User)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-
-	return user.User{
-		TransmissionID:   transmissionID.DeepCopy(),
-		TransmissionSalt: transmissionSalt,
-		TransmissionRSA:  transmissionRsaKey,
-		ReceptionID:      receptionID.DeepCopy(),
-		ReceptionSalt:    receptionSalt,
-		ReceptionRSA:     receptionRsaKey,
-		Precanned:        false,
-		CmixDhPrivateKey: cmix.NewIntFromBytes(cMixKeyBytes),
-		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
-	}
 }
 
 // TODO: Add precanned user code structures here.

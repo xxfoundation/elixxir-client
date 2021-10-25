@@ -94,7 +94,7 @@ func New(baseDir, password string, u userInterface.User, currentVersion version.
 
 	s, err := initStore(baseDir, password)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create session")
+		return nil, errors.WithMessagef(err, "Failed to create session for %s", baseDir)
 	}
 
 	err = s.newRegStatus()
@@ -103,7 +103,8 @@ func New(baseDir, password string, u userInterface.User, currentVersion version.
 			"Create new session")
 	}
 
-	s.user, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID, u.TransmissionSalt, u.ReceptionSalt, u.TransmissionRSA, u.ReceptionRSA, u.Precanned)
+	s.user, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID, u.TransmissionSalt,
+		u.ReceptionSalt, u.TransmissionRSA, u.ReceptionRSA, u.Precanned)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create user")
 	}

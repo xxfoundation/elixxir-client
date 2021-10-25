@@ -23,6 +23,7 @@ import (
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/utils"
 	"io/ioutil"
 	"log"
 	"os"
@@ -382,6 +383,8 @@ func createClient() *api.Client {
 	regCode := viper.GetString("regcode")
 	precannedID := viper.GetUint("sendid")
 	userIDprefix := viper.GetString("userid-prefix")
+	protoUserPath := viper.GetString("protoUserPath")
+
 	//create a new client if none exist
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
 		// Load NDF
@@ -394,14 +397,19 @@ func createClient() *api.Client {
 		if precannedID != 0 {
 			err = api.NewPrecannedClient(precannedID,
 				string(ndfJSON), storeDir, []byte(pass))
-		} else {
-			if userIDprefix != "" {
-				err = api.NewVanityClient(string(ndfJSON), storeDir,
-					[]byte(pass), regCode, userIDprefix)
-			} else {
-				err = api.NewClient(string(ndfJSON), storeDir,
-					[]byte(pass), regCode)
+		} else if protoUserPath != "" {
+			protoUserJson, err := utils.ReadFile(protoUserPath)
+			if err != nil {
+				jww.FATAL.Panicf("%v", err)
 			}
+			err = api.NewProtoClient_Unsafe(string(ndfJSON), storeDir,
+				[]byte(pass), protoUserJson)
+		} else if userIDprefix != "" {
+			err = api.NewVanityClient(string(ndfJSON), storeDir,
+				[]byte(pass), regCode, userIDprefix)
+		} else {
+			err = api.NewClient(string(ndfJSON), storeDir,
+				[]byte(pass), regCode)
 		}
 
 		if err != nil {
@@ -431,7 +439,7 @@ func initClient() *api.Client {
 
 	pass := viper.GetString("password")
 	storeDir := viper.GetString("session")
-
+	jww.DEBUG.Printf("sessionDur: %v", storeDir)
 	netParams := params.GetDefaultNetwork()
 	netParams.E2EParams.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
 	netParams.E2EParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
@@ -451,6 +459,20 @@ func initClient() *api.Client {
 	client, err := api.Login(storeDir, []byte(pass), netParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
+	}
+
+	if protoUser := viper.GetString("protoUserOut"); protoUser != "" {
+
+		jsonBytes, err := client.ConstructProtoUerFile()
+		if err != nil {
+			jww.FATAL.Panicf("Failed to construct proto user file: %v", err)
+		}
+
+		err = utils.WriteFileDef(protoUser, jsonBytes)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to write proto user to file: %v", err)
+		}
+
 	}
 
 	return client
@@ -823,30 +845,30 @@ func init() {
 	rootCmd.Flags().UintP("receiveCount",
 		"", 1, "How many messages we should wait for before quitting")
 	viper.BindPFlag("receiveCount", rootCmd.Flags().Lookup("receiveCount"))
-	rootCmd.Flags().UintP("waitTimeout", "", 15,
+	rootCmd.PersistentFlags().UintP("waitTimeout", "", 15,
 		"The number of seconds to wait for messages to arrive")
 	viper.BindPFlag("waitTimeout",
-		rootCmd.Flags().Lookup("waitTimeout"))
+		rootCmd.PersistentFlags().Lookup("waitTimeout"))
 
 	rootCmd.Flags().BoolP("unsafe", "", false,
 		"Send raw, unsafe messages without e2e encryption.")
 	viper.BindPFlag("unsafe", rootCmd.Flags().Lookup("unsafe"))
 
-	rootCmd.Flags().BoolP("unsafe-channel-creation", "", false,
+	rootCmd.PersistentFlags().BoolP("unsafe-channel-creation", "", false,
 		"Turns off the user identity authenticated channel check, "+
 			"automatically approving authenticated channels")
 	viper.BindPFlag("unsafe-channel-creation",
-		rootCmd.Flags().Lookup("unsafe-channel-creation"))
+		rootCmd.PersistentFlags().Lookup("unsafe-channel-creation"))
 
 	rootCmd.Flags().BoolP("accept-channel", "", false,
 		"Accept the channel request for the corresponding recipient ID")
 	viper.BindPFlag("accept-channel",
 		rootCmd.Flags().Lookup("accept-channel"))
 
-	rootCmd.Flags().Bool("delete-channel", false,
+	rootCmd.PersistentFlags().Bool("delete-channel", false,
 		"Delete the channel information for the corresponding recipient ID")
 	viper.BindPFlag("delete-channel",
-		rootCmd.Flags().Lookup("delete-channel"))
+		rootCmd.PersistentFlags().Lookup("delete-channel"))
 
 	rootCmd.Flags().BoolP("send-auth-request", "", false,
 		"Send an auth request to the specified destination and wait"+
@@ -893,6 +915,17 @@ func init() {
 	rootCmd.Flags().String("profile-cpu", "",
 		"Enable cpu profiling to this file")
 	viper.BindPFlag("profile-cpu", rootCmd.Flags().Lookup("profile-cpu"))
+
+	// Proto user flags
+	rootCmd.Flags().String("protoUserPath", "",
+		"Path to proto user JSON file containing cryptographic primitives "+
+			"the client will load")
+	viper.BindPFlag("protoUserPath", rootCmd.Flags().Lookup("protoUserPath"))
+	rootCmd.Flags().String("protoUserOut", "",
+		"Path to which a normally constructed client "+
+			"will write proto user JSON file")
+	viper.BindPFlag("protoUserOut", rootCmd.Flags().Lookup("protoUserOut"))
+
 }
 
 // initConfig reads in config file and ENV variables if set.

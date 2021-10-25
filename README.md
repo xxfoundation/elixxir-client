@@ -145,59 +145,49 @@ Usage:
   client [command]
 
 Available Commands:
-  generate    Generates version and dependency information for the
-              Elixxir binary
+  generate    Generates version and dependency information for the Elixxir binary
+  getndf      Download the network definition file from the network and print it.
+  group       Group commands for cMix client
   help        Help about any command
-  version     Print the version and dependency information for the
-              Elixxir binary
+  init        Initialize a user ID but do not connect to the network
+  proto       Load client with a proto client JSON file.
+  single      Send and respond to single-use messages.
+  ud          Register for and search users using the xx network user discovery service.
+  version     Print the version and dependency information for the Elixxir binary
 
 Flags:
-      --accept-channel            Accept the channel request for the
-                                  corresponding recipient ID
-      --delete-channel            Delete the channel information for the
-                                  corresponding recipient ID                            
+      --accept-channel            Accept the channel request for the corresponding recipient ID
+      --auth-timeout uint         The number of seconds to wait for an authentication channelto confirm (default 120)
+      --delete-channel            Delete the channel information for the corresponding recipient ID
       --destfile string           Read this contact file for the destination id
-  -d, --destid string             ID to send message to (if below 40, will be
-                                  precanned. Use '0x' or 'b64:' for hex and
-                                  base64 representations) (default "0")
-      --forceHistoricalRounds     Force all rounds to be sent to historical
-                                  round retrieval
-      --forceMessagePickupRetry   Enable a mechanism which forces a 50% chance 
-                                  of no message pickup, instead triggering the 
-                                  message pickup retry mechanism
+  -d, --destid string             ID to send message to (if below 40, will be precanned. Use '0x' or 'b64:' for hex and base64 representations) (default "0")
+      --e2eMaxKeys uint           Max keys used before blocking until a rekey completes (default 800)
+      --e2eMinKeys uint           Minimum number of keys used before requesting rekey (default 500)
+      --e2eNumReKeys uint         Number of rekeys reserved for rekey operations (default 16)
+      --forceHistoricalRounds     Force all rounds to be sent to historical round retrieval
+      --forceMessagePickupRetry   Enable a mechanism which forces a 50% chance of no message pickup, instead triggering the message pickup retry mechanism
   -h, --help                      help for client
-  -l, --log string                Path to the log output path (- is stdout)
-                                  (default "-")
+  -l, --log string                Path to the log output path (- is stdout) (default "-")
+  -v, --logLevel uint             Verbose mode for debugging
   -m, --message string            Message to send
-  -n, --ndf string                Path to the network definition JSON file
-                                  (default "ndf.json")
+  -n, --ndf string                Path to the network definition JSON file (default "ndf.json")
   -p, --password string           Password to the session file
-      --receiveCount uint         How many messages we should wait for before
-                                  quitting (default 1)
-      --regcode string            Registration code (optional)
-      --sendCount uint            The number of times to send the message
-                                  (default 1)
-      --sendDelay uint            The delay between sending the messages in ms
-                                  (default 500)
-      --sendid uint               Use precanned user id (must be between 1 and
-                                  40, inclusive)
-      --slowPolling bool          Enables polling for all network updates and RSA signed rounds.
-                                  Defaults to true (filtered updates with ECC signed rounds) if not set
-
-  -s, --session string            Sets the initial directory for client storage
-      --unsafe                    Send raw, unsafe messages without e2e
-                                  encryption.
-      --unsafe-channel-creation   Turns off the user identity authenticated
-                                  channel check, automatically approving
-                                  authenticated channels
-      --verboseRoundTracking      Verbose round tracking, keeps track and prints 
-                                  all rounds the client was aware of while running. 
-                                  Defaults to false if not set.
-  -v, --logLevel uint             Level of debugging to print (0 = info, 
-                                  1 = debug, >1 = trace). (Default info)
-      --waitTimeout uint          The number of seconds to wait for messages to
-                                  arrive (default 15)
-  -w, --writeContact string       Write the contact file for this user to this
+      --profile-cpu string        Enable cpu profiling to this file
+      --protoUserOut string       Path to which a normally constructed client will write proto user JSON file (default "protoUser.json")
+      --protoUserPath string      Path to proto user JSON file containing cryptographic primitives the client will load (default "protoUser.json")
+      --receiveCount uint         How many messages we should wait for before quitting (default 1)
+      --regcode string            Identity code (optional)
+      --send-auth-request         Send an auth request to the specified destination and waitfor confirmation
+      --sendCount uint            The number of times to send the message (default 1)
+      --sendDelay uint            The delay between sending the messages in ms (default 500)
+      --sendid uint               Use precanned user id (must be between 1 and 40, inclusive)
+  -s, --session string            Sets the initial storage directory for client session data
+      --slowPolling               Enables polling for unfiltered network updates with RSA signatures
+      --unsafe                    Send raw, unsafe messages without e2e encryption.
+      --unsafe-channel-creation   Turns off the user identity authenticated channel check, automatically approving authenticated channels
+      --verboseRoundTracking      Verbose round tracking, keeps track and prints all rounds the client was aware of while running. Defaults to false if not set.
+      --waitTimeout uint          The number of seconds to wait for messages to arrive (default 15)
+  -w, --writeContact string       Write contact information, if any, to this file,  defaults to stdout (default "-")
                                   file
 
 Use "client [command] --help" for more information about a command.

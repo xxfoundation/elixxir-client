@@ -16,9 +16,9 @@ func (s *Session) GetUser() user.User {
 	return user.User{
 		TransmissionID:        ci.GetTransmissionID().DeepCopy(),
 		TransmissionSalt:      copySlice(ci.GetTransmissionSalt()),
-		TransmissionRSA:       ci.GetReceptionRSA(),
+		TransmissionRSA:       ci.GetTransmissionRSA(),
 		ReceptionID:           ci.GetReceptionID().DeepCopy(),
-		RegistrationTimestamp: s.user.GetRegistrationTimestamp(),
+		RegistrationTimestamp: s.user.GetRegistrationTimestamp().UnixNano(),
 		ReceptionSalt:         copySlice(ci.GetReceptionSalt()),
 		ReceptionRSA:          ci.GetReceptionRSA(),
 		Precanned:             ci.IsPrecanned(),

@@ -23,6 +23,7 @@ import (
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/utils"
 	"io/ioutil"
 	"log"
 	"os"
@@ -58,13 +59,8 @@ var rootCmd = &cobra.Command{
 			pprof.StartCPUProfile(f)
 		}
 
-		protoUserPath := viper.GetString("protoUserPath")
-		var client *api.Client
-		if protoUserPath != "" {
-			loadProtoClient()
-		} else {
-			client = initClient()
-		}
+		client := initClient()
+
 		user := client.GetUser()
 		jww.INFO.Printf("User: %s", user.ReceptionID)
 		writeContact(user.GetContact())
@@ -387,6 +383,8 @@ func createClient() *api.Client {
 	regCode := viper.GetString("regcode")
 	precannedID := viper.GetUint("sendid")
 	userIDprefix := viper.GetString("userid-prefix")
+	protoUserPath := viper.GetString("protoUserPath")
+
 	//create a new client if none exist
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
 		// Load NDF
@@ -399,14 +397,19 @@ func createClient() *api.Client {
 		if precannedID != 0 {
 			err = api.NewPrecannedClient(precannedID,
 				string(ndfJSON), storeDir, []byte(pass))
-		} else {
-			if userIDprefix != "" {
-				err = api.NewVanityClient(string(ndfJSON), storeDir,
-					[]byte(pass), regCode, userIDprefix)
-			} else {
-				err = api.NewClient(string(ndfJSON), storeDir,
-					[]byte(pass), regCode)
+		} else if protoUserPath != "" {
+			protoUserJson, err := utils.ReadFile(protoUserPath)
+			if err != nil {
+				jww.FATAL.Panicf("%v", err)
 			}
+			err = api.NewProtoClient_Unsafe(string(ndfJSON), storeDir,
+				[]byte(pass), protoUserJson)
+		} else if userIDprefix != "" {
+			err = api.NewVanityClient(string(ndfJSON), storeDir,
+				[]byte(pass), regCode, userIDprefix)
+		} else {
+			err = api.NewClient(string(ndfJSON), storeDir,
+				[]byte(pass), regCode)
 		}
 
 		if err != nil {
@@ -458,12 +461,19 @@ func initClient() *api.Client {
 		jww.FATAL.Panicf("%+v", err)
 	}
 
-	jsoBytes, err := client.ConstructProtoUerFile()
-	if err != nil {
-		jww.WARN.Printf("err: %v", err)
-	}
+	if protoUser := viper.GetString("protoUserOut"); protoUser != "" {
 
-	jww.WARN.Printf("json %s", string(jsoBytes))
+		jsonBytes, err := client.ConstructProtoUerFile()
+		if err != nil {
+			jww.FATAL.Panicf("Failed to construct proto user file: %v", err)
+		}
+
+		err = utils.WriteFileDef(protoUser, jsonBytes)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to write proto user to file: %v", err)
+		}
+
+	}
 
 	return client
 }
@@ -907,15 +917,14 @@ func init() {
 	viper.BindPFlag("profile-cpu", rootCmd.Flags().Lookup("profile-cpu"))
 
 	// Proto user flags
-	protoCmd.Flags().String("protoUserPath", "protoUser.json",
+	rootCmd.Flags().String("protoUserPath", "",
 		"Path to proto user JSON file containing cryptographic primitives "+
 			"the client will load")
-	viper.BindPFlag("protoUserPath", protoCmd.Flags().Lookup("protoUserPath"))
-	protoCmd.Flags().String("protoUserOut", "protoUser.json",
+	viper.BindPFlag("protoUserPath", rootCmd.Flags().Lookup("protoUserPath"))
+	rootCmd.Flags().String("protoUserOut", "",
 		"Path to which a normally constructed client "+
 			"will write proto user JSON file")
-	viper.BindPFlag("protoUserOut", protoCmd.Flags().Lookup("protoUserOut"))
-
+	viper.BindPFlag("protoUserOut", rootCmd.Flags().Lookup("protoUserOut"))
 
 }
 

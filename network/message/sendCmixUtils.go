@@ -146,7 +146,7 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	if param.IdentityPreimage != nil {
 		preimage = param.IdentityPreimage
 		jww.INFO.Printf("Sending to %s with override preimage %v", recipient, preimage)
-	}else{
+	} else {
 		preimage = preimage2.MakeDefault(recipient)
 		jww.INFO.Printf("Sending to %s with default preimage %v", recipient, preimage)
 	}

@@ -4,7 +4,6 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 type Proto struct {
@@ -17,9 +16,9 @@ type Proto struct {
 	ReceptionRSA     *rsa.PrivateKey
 	Precanned        bool
 	// Timestamp in which user has registered with the network
-	RegistrationTimestamp time.Time
+	RegistrationTimestamp int64
 
-	RegCode  string
+	RegCode string
 
 	TransmissionRegValidationSig []byte
 	ReceptionRegValidationSig    []byte

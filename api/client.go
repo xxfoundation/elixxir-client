@@ -92,7 +92,7 @@ func NewClient(ndfJSON, storageDir string, password []byte,
 	protoUser := createNewUser(rngStreamGen, cmixGrp, e2eGrp)
 	jww.DEBUG.Printf("User generation took: %s", time.Now().Sub(start))
 
-	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
+	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
 		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
 	if err != nil {
 		return err
@@ -123,7 +123,7 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
 
 	protoUser := createPrecannedUser(precannedID, rngStream, cmixGrp, e2eGrp)
 
-	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
+	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
 		cmixGrp, e2eGrp, rngStreamGen, true, "")
 	if err != nil {
 		return err
@@ -153,7 +153,7 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 
 	protoUser := createNewVanityUser(rngStream, cmixGrp, e2eGrp, userIdPrefix)
 
-	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
+	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
 		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
 	if err != nil {
 		return err
@@ -202,42 +202,50 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 // NewProtoClient_Unsafe initializes a client object from a JSON containing
 // predefined cryptographic which defines a user. This is designed for some
 // specific deployment procedures and is generally unsafe.
-func NewProtoClient_Unsafe(storageDir string, password []byte,
-	protoClientJSON []byte,
-	parameters params.Network, def *ndf.NetworkDefinition) (*Client, error) {
+func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
+	protoClientJSON []byte) error {
 	jww.INFO.Printf("NewProtoClient_Unsafe")
 
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 
+	// Parse the NDF
+	def, err := parseNDF(ndfJSON)
+	if err != nil {
+		return err
+	}
+
 	cmixGrp, e2eGrp := decodeGroups(def)
 
 	// Pull the proto user from the JSON
 	protoUser := &user.Proto{}
-	err := json.Unmarshal(protoClientJSON, protoUser)
+	err = json.Unmarshal(protoClientJSON, protoUser)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Initialize a user object for storage set up
 	usr := user.NewUserFromProto(protoUser)
 
 	// Set up storage
-	err = checkVersionAndSetupStorage(def, storageDir, password, usr,
+	storageSess, err := checkVersionAndSetupStorage(def, storageDir, password, usr,
 		cmixGrp, e2eGrp, rngStreamGen, false, protoUser.RegCode)
-
-	//Open the client
-	c, err := OpenClient(storageDir, password, parameters)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Set registration values in storage
-	c.GetStorage().User().SetReceptionRegistrationValidationSignature(protoUser.ReceptionRegValidationSig)
-	c.GetStorage().User().SetTransmissionRegistrationValidationSignature(protoUser.TransmissionRegValidationSig)
-	c.GetStorage().User().SetRegistrationTimestamp(protoUser.RegistrationTimestamp.UnixNano())
+	storageSess.User().SetReceptionRegistrationValidationSignature(protoUser.ReceptionRegValidationSig)
+	storageSess.User().SetTransmissionRegistrationValidationSignature(protoUser.TransmissionRegValidationSig)
+	storageSess.User().SetRegistrationTimestamp(protoUser.RegistrationTimestamp)
 
-	return c, nil
+	//move the registration state to indicate registered with registration on proto client
+	err = storageSess.ForwardRegistrationStatus(storage.PermissioningComplete)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Login initializes a client object from existing storage.
@@ -366,54 +374,6 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	return c, nil
 }
 
-// LoginWithProtoClient creates a client object with a protoclient JSON containing the
-// cryptographic primitives. This is designed for some specific deployment
-// procedures and is generally unsafe. It is unsafe because all network relationships
-// will no longer be present in the new session file.
-func LoginWithProtoClient(storageDir string, password []byte,
-	protoClientJSON []byte,
-	newBaseNdf string, parameters params.Network) (*Client, error) {
-	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
-
-	// Parse the NDF
-	def, err := parseNDF(newBaseNdf)
-	if err != nil {
-		return nil, err
-	}
-
-	//Open the client
-	c, err := NewProtoClient_Unsafe(storageDir, password, protoClientJSON, parameters, def)
-	if err != nil {
-		return nil, err
-	}
-
-	//initialize comms
-	err = c.initComms()
-	if err != nil {
-		return nil, err
-	}
-
-	//store the updated base NDF
-	c.storage.SetNDF(def)
-
-	// Initialize network and link it to context
-	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng,
-		c.events, c.comms, parameters, def)
-	if err != nil {
-		return nil, err
-	}
-
-	// initialize the auth tracker
-	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
-
-	err = c.registerFollower()
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
-}
-
 func (c *Client) initComms() error {
 	var err error
 
@@ -476,7 +436,9 @@ func (c *Client) registerFollower() error {
 	}
 
 	//register the core follower service
-	err = c.followerServices.add(func() (stoppable.Stoppable, error) { return c.network.Follow(cer) })
+	err = c.followerServices.add(func() (stoppable.Stoppable, error) {
+		return c.network.Follow(cer)
+	})
 	if err != nil {
 		return errors.WithMessage(err, "Failed to start following "+
 			"the network")
@@ -792,13 +754,15 @@ func decodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 
 // checkVersionAndSetupStorage is common code shared by NewClient, NewPrecannedClient and NewVanityClient
 // it checks client version and creates a new storage for user data
-func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, password []byte,
-	protoUser user.User, cmixGrp, e2eGrp *cyclic.Group, rngStreamGen *fastRNG.StreamGenerator,
-	isPrecanned bool, registrationCode string) error {
+func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
+	storageDir string, password []byte,
+	protoUser user.User,
+	cmixGrp, e2eGrp *cyclic.Group, rngStreamGen *fastRNG.StreamGenerator,
+	isPrecanned bool, registrationCode string) (*storage.Session, error) {
 	// Get current client version
 	currentVersion, err := version.ParseVersion(SEMVER)
 	if err != nil {
-		return errors.WithMessage(err, "Could not parse version string.")
+		return nil, errors.WithMessage(err, "Could not parse version string.")
 	}
 
 	// Create Storage
@@ -806,7 +770,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, 
 	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
 		currentVersion, cmixGrp, e2eGrp, rngStreamGen)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Save NDF to be used in the future
@@ -830,9 +794,9 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, 
 	}, protoUser.ReceptionID)
 
 	if err != nil {
-		return errors.WithMessage(err, "Failed to denote state "+
+		return nil, errors.WithMessage(err, "Failed to denote state "+
 			"change in session")
 	}
 
-	return nil
+	return storageSess, nil
 }

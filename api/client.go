@@ -541,14 +541,14 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	var numRegistered int
 	var numStale = 0
 	for i, n := range nodes {
-		if n.Status == ndf.Stale {
-			numStale += 1
-			continue
-		}
 		nid, err := id.Unmarshal(n.ID)
 		if err != nil {
 			return 0, 0, errors.Errorf("Failed to unmarshal node ID %v "+
 				"(#%d): %s", n.ID, i, err.Error())
+		}
+		if n.Status == ndf.Stale {
+			numStale += 1
+			continue
 		}
 		if cmixStore.Has(nid) {
 			numRegistered++

@@ -36,3 +36,19 @@ func (c *Client) GetPreimages(identity []byte) (string, error) {
 
 	return string(marshaled), err
 }
+
+// hack on getPreimages so it works on iOS per https://github.com/golang/go/issues/46893
+func (c *Client) GetPreimagesHack(dummy string, identity []byte) (string, error) {
+
+	iid := &id.ID{}
+	copy(iid[:], identity)
+
+	list, exist := c.api.GetStorage().GetEdge().Get(iid)
+	if !exist {
+		return "", errors.Errorf("Could not find a preimage list for %s", iid)
+	}
+
+	marshaled, err := json.Marshal(&list)
+
+	return string(marshaled), err
+}

@@ -96,10 +96,6 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 
 //registerWithNode serves as a helper for RegisterWithNodes
 // It registers a user with a specific in the client's ndf.
-// todo: follow uci. TransmissionRSA and ReceptionRSA are marshaled into JSON as
-//  objects. MAke sure JSON is intelligent enough on unmarshal to read that data.
-//  Also make sure (if unmarshalled correctly) that data makes it's way to storage
-//  as expected.
 func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	ngw network.NodeGateway, regSig []byte, registrationTimestampNano int64,
 	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source,

@@ -2,7 +2,6 @@ package reception
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage/rounds"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"io"
@@ -44,6 +43,5 @@ func generateFakeIdentity(rng io.Reader, addressSize uint8,
 			Ephemeral:   true,
 		},
 		Fake: true,
-		ER: &rounds.EarliestRound{},
 	}, nil
 }

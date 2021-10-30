@@ -266,6 +266,7 @@ func (m *manager) GetFakeEarliestRound() id.Round   {
 
 	rangeVal :=  binary.LittleEndian.Uint64(b) % 800
 
+	earliestKnown := atomic.LoadUint64(m.earliestRound)
 
-	return id.Round(rangeVal)
+	return id.Round(earliestKnown - rangeVal)
 }

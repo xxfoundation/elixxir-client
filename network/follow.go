@@ -314,7 +314,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// move the earliest unknown round tracker forward to the earliest
 	// tracked round if it is behind
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
-	m.SetEarliestRound(earliestTrackedRound)
+	m.SetFakeEarliestRound(earliestTrackedRound)
 	updated, old, _ := identity.ER.Set(earliestTrackedRound)
 	if old == 0 {
 		if gwRoundsState.GetLastChecked() > id.Round(m.param.KnownRoundsThreshold) {

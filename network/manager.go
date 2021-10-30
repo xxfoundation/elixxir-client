@@ -253,7 +253,7 @@ func (m *manager) GetVerboseRounds() string {
 }
 
 
-func (m *manager) SetEarliestRound(rnd id.Round)   {
+func (m *manager) SetFakeEarliestRound(rnd id.Round)   {
 	atomic.StoreUint64(m.earliestRound, uint64(rnd))
 }
 

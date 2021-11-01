@@ -111,7 +111,10 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			"impossible: %+v", err)
 	}
 
-	// Populate earliest round of a fake identity
+	// While polling with a fake identity, it is necessary to have
+	// populated earliestRound data. However, as with fake identities
+	// we want the values to be randomly generated rather than based on
+	// actual state.
 	if identity.Fake {
 		fakeEr := &rounds2.EarliestRound{}
 		fakeEr.Set(m.GetFakeEarliestRound())

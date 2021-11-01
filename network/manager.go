@@ -39,6 +39,12 @@ import (
 	"time"
 )
 
+// fakeIdentityRange indicates the range generated between
+// 0 (most current) and fakeIdentityRange rounds behind the earliest known
+// round that will be used as the earliest round when polling with a
+// fake identity.
+const fakeIdentityRange = 800
+
 // Manager implements the NetworkManager interface inside context. It
 // controls access to network resources and implements all the communications
 // functions used by the client.
@@ -257,7 +263,7 @@ func (m *manager) SetFakeEarliestRound(rnd id.Round)   {
 	atomic.StoreUint64(m.earliestRound, uint64(rnd))
 }
 
-// GetFakeEarliestRound gets an earliest round for a fake identity
+// GetFakeEarliestRound generates a random earliest round for a fake identity.
 func (m *manager) GetFakeEarliestRound() id.Round   {
 	b, err := csprng.Generate(8, rand.Reader)
 	if err != nil {

@@ -29,6 +29,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/network/rounds"
 	"gitlab.com/elixxir/client/stoppable"
+	rounds2 "gitlab.com/elixxir/client/storage/rounds"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/elixxir/primitives/states"
@@ -110,6 +111,16 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			"impossible: %+v", err)
 	}
 
+	// While polling with a fake identity, it is necessary to have
+	// populated earliestRound data. However, as with fake identities
+	// we want the values to be randomly generated rather than based on
+	// actual state.
+	if identity.Fake {
+		fakeEr := &rounds2.EarliestRound{}
+		fakeEr.Set(m.GetFakeEarliestRound())
+		identity.ER = fakeEr
+	}
+
 	atomic.AddUint64(m.tracker, 1)
 
 	// Get client version for poll
@@ -126,6 +137,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		EndTimestamp:   identity.EndValid.UnixNano(),
 		ClientVersion:  []byte(version.String()),
 		FastPolling:    m.param.FastPolling,
+		LastRound:      uint64(identity.ER.Get()),
 	}
 
 	result, err := m.GetSender().SendToAny(func(host *connect.Host) (interface{}, error) {
@@ -305,6 +317,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// move the earliest unknown round tracker forward to the earliest
 	// tracked round if it is behind
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
+	m.SetFakeEarliestRound(earliestTrackedRound)
 	updated, old, _ := identity.ER.Set(earliestTrackedRound)
 	if old == 0 {
 		if gwRoundsState.GetLastChecked() > id.Round(m.param.KnownRoundsThreshold) {

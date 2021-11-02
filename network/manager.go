@@ -11,8 +11,11 @@ package network
 // and intraclient state are accessible through the context object.
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/ephemeral"
@@ -28,10 +31,19 @@ import (
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"math"
+	"sync/atomic"
 	"time"
 )
+
+// fakeIdentityRange indicates the range generated between
+// 0 (most current) and fakeIdentityRange rounds behind the earliest known
+// round that will be used as the earliest round when polling with a
+// fake identity.
+const fakeIdentityRange = 800
 
 // Manager implements the NetworkManager interface inside context. It
 // controls access to network resources and implements all the communications
@@ -48,6 +60,9 @@ type manager struct {
 	//sub-managers
 	round   *rounds.Manager
 	message *message.Manager
+
+	// Earliest tracked round
+	earliestRound *uint64
 
 	//number of polls done in a period of time
 	tracker       *uint64
@@ -81,13 +96,14 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	session.E2e().SetE2ESessionParams(params.E2EParams)
 
 	tracker := uint64(0)
-
+	earliest := uint64(0)
 	// create manager object
 	m := manager{
 		param:     params,
 		tracker:   &tracker,
 		addrSpace: ephemeral.NewAddressSpace(),
 		events:    events,
+		earliestRound: &earliest,
 	}
 
 	if params.VerboseRoundTracking {
@@ -240,4 +256,23 @@ func (m *manager) GetVerboseRounds() string {
 		return "Verbose Round tracking not enabled"
 	}
 	return m.verboseRounds.String()
+}
+
+
+func (m *manager) SetFakeEarliestRound(rnd id.Round)   {
+	atomic.StoreUint64(m.earliestRound, uint64(rnd))
+}
+
+// GetFakeEarliestRound generates a random earliest round for a fake identity.
+func (m *manager) GetFakeEarliestRound() id.Round   {
+	b, err := csprng.Generate(8, rand.Reader)
+	if err != nil {
+		jww.FATAL.Panicf("Could not get random number: %v", err)
+	}
+
+	rangeVal :=  binary.LittleEndian.Uint64(b) % 800
+
+	earliestKnown := atomic.LoadUint64(m.earliestRound)
+
+	return id.Round(earliestKnown - rangeVal)
 }

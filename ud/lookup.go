@@ -1,11 +1,11 @@
 package ud
 
 import (
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -23,9 +23,6 @@ type lookupCallback func(contact.Contact, error)
 // system or returns by the timeout.
 func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Duration) error {
 	jww.INFO.Printf("ud.Lookup(%s, %s)", uid, timeout)
-	if !m.IsRegistered() {
-		return errors.New("Failed to lookup: client is not registered.")
-	}
 
 	// Build the request and marshal it
 	request := &LookupSend{UserID: uid.Marshal()}
@@ -38,7 +35,13 @@ func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Durat
 		m.lookupResponseProcess(uid, callback, payload, err)
 	}
 
-	err = m.single.TransmitSingleUse(m.udContact, requestMarshaled, LookupTag,
+	// Get UD contact
+	c, err := m.getContact()
+	if err != nil {
+		return err
+	}
+
+	err = m.single.TransmitSingleUse(c, requestMarshaled, LookupTag,
 		maxLookupMessages, f, timeout)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to transmit lookup request.")
@@ -67,10 +70,16 @@ func (m *Manager) lookupResponseProcess(uid *id.ID, callback lookupCallback,
 		return
 	}
 
-	fmt.Printf("pubKey: %+v\n", lookupResponse.PubKey)
 	c := contact.Contact{
 		ID:       uid,
 		DhPubKey: m.grp.NewIntFromBytes(lookupResponse.PubKey),
+	}
+
+	if lookupResponse.Username != "" {
+		c.Facts = fact.FactList{{
+			Fact: lookupResponse.Username,
+			T:    fact.Username,
+		}}
 	}
 
 	go callback(c, nil)

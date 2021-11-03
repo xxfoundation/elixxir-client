@@ -154,7 +154,8 @@ func createGroup(name, msg []byte, filePath string, gm *groupChat.Manager) {
 
 	// Integration grabs the group ID from this line
 	jww.INFO.Printf("NewGroupID: b64:%s", grp.ID)
-	jww.INFO.Printf("Created Group: Requests:%s on rounds %#v, %v", status, rids, grp)
+	jww.INFO.Printf("Created Group: Requests:%s on rounds %#v, %v",
+		status, rids, grp)
 	fmt.Printf("Created new group with name %q and message %q\n", grp.Name,
 		grp.InitMessage)
 }
@@ -168,13 +169,15 @@ func resendRequests(groupIdString string, gm *groupChat.Manager) {
 			groupID, err)
 	}
 
-	jww.INFO.Printf("Resending requests to group %s: %v, %s", groupID, rids, status)
+	jww.INFO.Printf("Resending requests to group %s: %v, %s",
+		groupID, rids, status)
 	fmt.Println("Resending group requests to group.")
 }
 
 // joinGroup joins a group when a request is received on the group request
 // channel.
-func joinGroup(reqChan chan groupStore.Group, timeout time.Duration, gm *groupChat.Manager) {
+func joinGroup(reqChan chan groupStore.Group, timeout time.Duration,
+	gm *groupChat.Manager) {
 	jww.INFO.Print("Waiting for group request to be received.")
 	fmt.Println("Waiting for group request to be received.")
 
@@ -215,18 +218,20 @@ func sendGroup(groupIdString string, msg []byte, gm *groupChat.Manager) {
 
 	jww.INFO.Printf("Sending to group %s message %q", groupID, msg)
 
-	rid, err := gm.Send(groupID, msg)
+	rid, timestamp, err := gm.Send(groupID, msg)
 	if err != nil {
 		jww.FATAL.Panicf("Sending message to group %s: %+v", groupID, err)
 	}
 
-	jww.INFO.Printf("Sent to group %s on round %d", groupID, rid)
+	jww.INFO.Printf("Sent to group %s on round %d at %s",
+		groupID, rid, timestamp)
 	fmt.Printf("Sent message %q to group.\n", msg)
 }
 
 // messageWait waits for the given number of messages to be received on the
 // groupChat.MessageReceive channel.
-func messageWait(numMessages uint, timeout time.Duration, recChan chan groupChat.MessageReceive) {
+func messageWait(numMessages uint, timeout time.Duration,
+	recChan chan groupChat.MessageReceive) {
 	jww.INFO.Printf("Waiting for %d group message(s) to be received.", numMessages)
 	fmt.Printf("Waiting for %d group message(s) to be received.\n", numMessages)
 
@@ -263,7 +268,8 @@ func showGroup(groupIdString string, gm *groupChat.Manager) {
 	}
 
 	jww.INFO.Printf("Show group %#v", grp)
-	fmt.Printf("Got group with name %q and message %q\n", grp.Name, grp.InitMessage)
+	fmt.Printf("Got group with name %q and message %q\n",
+		grp.Name, grp.InitMessage)
 }
 
 // ReadLines returns each line in a file as a string.
@@ -272,7 +278,12 @@ func ReadLines(fileName string) []string {
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err = file.Close()
+		if err != nil {
+			jww.FATAL.Panicf("Failed to close file: %+v", err)
+		}
+	}(file)
 
 	var res []string
 

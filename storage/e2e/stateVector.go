@@ -213,12 +213,12 @@ func (sv *stateVector) Delete() error {
 func (sv *stateVector) nextAvailable() {
 
 	//plus one so we start at the next one
-	pos := sv.firstAvailable+1
-	block := pos/64
+	pos := sv.firstAvailable + 1
+	block := pos / 64
 
 	for block < uint32(len(sv.vect)) && (sv.vect[block]>>(pos%64))&1 == 1 {
 		pos++
-		block = pos/64
+		block = pos / 64
 	}
 
 	sv.firstAvailable = pos

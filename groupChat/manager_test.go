@@ -31,7 +31,8 @@ func Test_newManager(t *testing.T) {
 	requestFunc := func(g gs.Group) { requestChan <- g }
 	receiveChan := make(chan MessageReceive)
 	receiveFunc := func(msg MessageReceive) { receiveChan <- msg }
-	m, err := newManager(nil, user.ID, user.DhKey, nil, nil, nil, nil, kv, requestFunc, receiveFunc)
+	m, err := newManager(nil, user.ID, user.DhKey, nil, nil, nil, nil, kv,
+		requestFunc, receiveFunc)
 	if err != nil {
 		t.Errorf("newManager() returned an error: %+v", err)
 	}
@@ -84,7 +85,8 @@ func Test_newManager_LoadStorage(t *testing.T) {
 		}
 	}
 
-	m, err := newManager(nil, user.ID, user.DhKey, nil, nil, nil, nil, kv, nil, nil)
+	m, err := newManager(
+		nil, user.ID, user.DhKey, nil, nil, nil, nil, kv, nil, nil)
 	if err != nil {
 		t.Errorf("newManager() returned an error: %+v", err)
 	}
@@ -125,7 +127,10 @@ func Test_newManager_LoadError(t *testing.T) {
 	}
 }
 
-//
+// FIXME: the test storage.Session used for each manager currently uses the same
+//  user. To fix this test, they need to use different users, which requires
+//  modifying
+// storage.InitTestingSession.
 // func TestManager_StartProcesses(t *testing.T) {
 // 	jww.SetLogThreshold(jww.LevelTrace)
 // 	jww.SetStdoutThreshold(jww.LevelTrace)
@@ -271,7 +276,8 @@ func Test_newManager_LoadError(t *testing.T) {
 func TestManager_JoinGroup(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
-	g := newTestGroup(m.store.E2e().GetGroup(), m.store.GetUser().E2eDhPrivateKey, prng, t)
+	g := newTestGroup(
+		m.store.E2e().GetGroup(), m.store.GetUser().E2eDhPrivateKey, prng, t)
 
 	err := m.JoinGroup(g)
 	if err != nil {

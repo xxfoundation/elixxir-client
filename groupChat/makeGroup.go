@@ -9,11 +9,15 @@ package groupChat
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
+	"gitlab.com/elixxir/client/interfaces/preimage"
+	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
 )
 
@@ -73,14 +77,30 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 	groupID := group.NewID(idPreimage, mem)
 	groupKey := group.NewKey(keyPreimage, mem)
 
+	// Generate group creation timestamp stripped of the monotonic clock
+	created := netTime.Now().Round(0)
+
 	// Create new group and add to manager
-	g := gs.NewGroup(name, groupID, groupKey, idPreimage, keyPreimage, msg, mem, dkl)
-	if err := m.gs.Add(g); err != nil {
+	g := gs.NewGroup(
+		name, groupID, groupKey, idPreimage, keyPreimage, msg, created, mem, dkl)
+	if err = m.gs.Add(g); err != nil {
 		return gs.Group{}, nil, NotSent, errors.Errorf(addGroupErr, err)
 	}
 
+	jww.DEBUG.Printf("Created new group %q with ID %s and %d members %s",
+		g.Name, g.ID, len(g.Members), g.Members)
+
 	// Send all group requests
 	roundIDs, status, err := m.sendRequests(g)
+
+	if err == nil {
+		edgeStore := m.store.GetEdge()
+		edgeStore.Add(edge.Preimage{
+			Data:   g.ID[:],
+			Type:   preimage.Group,
+			Source: g.ID[:],
+		}, m.store.GetUser().ReceptionID)
+	}
 
 	return g, roundIDs, status, err
 }
@@ -88,7 +108,8 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 // buildMembership retrieves the contact object for each member ID and creates a
 // new membership from them. The caller is set as the leader. For a member to be
 // added, the group leader must have an authenticated channel with the member.
-func (m Manager) buildMembership(members []*id.ID) (group.Membership, gs.DhKeyList, error) {
+func (m Manager) buildMembership(members []*id.ID) (group.Membership,
+	gs.DhKeyList, error) {
 	// Return an error if the membership list has too few or too many members
 	if len(members) < group.MinParticipants {
 		return nil, nil,

@@ -14,7 +14,7 @@ import (
 
 // SearchTag specifies which callback to trigger when UD receives a search
 // request.
-const SearchTag = "xxNetwork_UdLookup"
+const SearchTag = "xxNetwork_UdSearch"
 
 // TODO: reconsider where this comes from
 const maxSearchMessages = 20
@@ -28,9 +28,6 @@ type searchCallback func([]contact.Contact, error)
 // of information is known.
 func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout time.Duration) error {
 	jww.INFO.Printf("ud.Search(%s, %s)", list.Stringify(), timeout)
-	if !m.IsRegistered() {
-		return errors.New("Failed to search: client is not registered.")
-	}
 
 	factHashes, factMap := hashFactList(list)
 
@@ -45,7 +42,13 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 		m.searchResponseHandler(factMap, callback, payload, err)
 	}
 
-	err = m.single.TransmitSingleUse(m.udContact, requestMarshaled, SearchTag,
+	// Get UD contact
+	c, err := m.getContact()
+	if err != nil {
+		return err
+	}
+
+	err = m.single.TransmitSingleUse(c, requestMarshaled, SearchTag,
 		maxSearchMessages, f, timeout)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to transmit search request.")
@@ -86,7 +89,7 @@ func (m *Manager) searchResponseHandler(factMap map[string]fact.Fact,
 		return
 	}
 
-	//return an error if no facts are found
+	// return an error if no facts are found
 	if len(searchResponse.Contacts) == 0 {
 		go callback(nil, errors.New("No contacts found in search"))
 	}

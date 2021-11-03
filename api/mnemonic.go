@@ -24,7 +24,7 @@ const mnemonicFile = ".recovery"
 // This encrypted data saved in storage.
 func StoreSecretWithMnemonic(secret []byte, path string) (string, error) {
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rng := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG).GetStream()
+	rng := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG).GetStream()
 
 	// Ensure path is appended by filepath separator "/"
 	if !strings.HasSuffix(path, string(filepath.Separator)) {

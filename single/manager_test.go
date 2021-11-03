@@ -186,6 +186,11 @@ func TestManager_StartProcesses_Stop(t *testing.T) {
 		t.Errorf("Failed to close: %+v", err)
 	}
 
+	// Wait for the stoppable to close
+	for !stop.IsStopped() {
+		time.Sleep(10 * time.Millisecond)
+	}
+
 	m.swb.(*switchboard.Switchboard).Speak(receiveMsg)
 
 	timer := time.NewTimer(50 * time.Millisecond)

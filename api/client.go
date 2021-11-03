@@ -8,17 +8,20 @@
 package api
 
 import (
+	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/keyExchange"
 	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/registration"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -72,10 +75,11 @@ type Client struct {
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
-func NewClient(ndfJSON, storageDir string, password []byte, registrationCode string) error {
+func NewClient(ndfJSON, storageDir string, password []byte,
+	registrationCode string) error {
 	jww.INFO.Printf("NewClient(dir: %s)", storageDir)
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 
 	// Parse the NDF
 	def, err := parseNDF(ndfJSON)
@@ -88,7 +92,7 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 	protoUser := createNewUser(rngStreamGen, cmixGrp, e2eGrp)
 	jww.DEBUG.Printf("User generation took: %s", time.Now().Sub(start))
 
-	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
+	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
 		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
 	if err != nil {
 		return err
@@ -103,10 +107,11 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
-func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password []byte) error {
+func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
+	password []byte) error {
 	jww.INFO.Printf("NewPrecannedClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
 
 	// Parse the NDF
@@ -118,7 +123,7 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 
 	protoUser := createPrecannedUser(precannedID, rngStream, cmixGrp, e2eGrp)
 
-	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
+	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
 		cmixGrp, e2eGrp, rngStreamGen, true, "")
 	if err != nil {
 		return err
@@ -132,10 +137,11 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
-func NewVanityClient(ndfJSON, storageDir string, password []byte, registrationCode string, userIdPrefix string) error {
+func NewVanityClient(ndfJSON, storageDir string, password []byte,
+	registrationCode string, userIdPrefix string) error {
 	jww.INFO.Printf("NewVanityClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
 
 	// Parse the NDF
@@ -147,7 +153,7 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte, registrationCo
 
 	protoUser := createNewVanityUser(rngStream, cmixGrp, e2eGrp, userIdPrefix)
 
-	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
+	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
 		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
 	if err != nil {
 		return err
@@ -161,7 +167,7 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte, registrationCo
 func OpenClient(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("OpenClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 
 	// Get current client version
 	currentVersion, err := version.ParseVersion(SEMVER)
@@ -191,6 +197,55 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 	}
 
 	return c, nil
+}
+
+// NewProtoClient_Unsafe initializes a client object from a JSON containing
+// predefined cryptographic which defines a user. This is designed for some
+// specific deployment procedures and is generally unsafe.
+func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
+	protoClientJSON []byte) error {
+	jww.INFO.Printf("NewProtoClient_Unsafe")
+
+	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+
+	// Parse the NDF
+	def, err := parseNDF(ndfJSON)
+	if err != nil {
+		return err
+	}
+
+	cmixGrp, e2eGrp := decodeGroups(def)
+
+	// Pull the proto user from the JSON
+	protoUser := &user.Proto{}
+	err = json.Unmarshal(protoClientJSON, protoUser)
+	if err != nil {
+		return err
+	}
+
+	// Initialize a user object for storage set up
+	usr := user.NewUserFromProto(protoUser)
+
+	// Set up storage
+	storageSess, err := checkVersionAndSetupStorage(def, storageDir, password, usr,
+		cmixGrp, e2eGrp, rngStreamGen, false, protoUser.RegCode)
+	if err != nil {
+		return err
+	}
+
+	// Set registration values in storage
+	storageSess.User().SetReceptionRegistrationValidationSignature(protoUser.ReceptionRegValidationSig)
+	storageSess.User().SetTransmissionRegistrationValidationSignature(protoUser.TransmissionRegValidationSig)
+	storageSess.User().SetRegistrationTimestamp(protoUser.RegistrationTimestamp)
+
+	//move the registration state to indicate registered with registration on proto client
+	err = storageSess.ForwardRegistrationStatus(storage.PermissioningComplete)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Login initializes a client object from existing storage.
@@ -234,7 +289,8 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 		hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
 		hp.AuthEnabled = false
 		hp.MaxRetries = 5
-		_, err = c.comms.AddHost(&id.NotificationBot, def.Notification.Address, []byte(def.Notification.TlsCertificate), hp)
+		_, err = c.comms.AddHost(&id.NotificationBot, def.Notification.Address,
+			[]byte(def.Notification.TlsCertificate), hp)
 		if err != nil {
 			jww.WARN.Printf("Failed adding host for notifications: %+v", err)
 		}
@@ -380,7 +436,9 @@ func (c *Client) registerFollower() error {
 	}
 
 	//register the core follower service
-	err = c.followerServices.add(func() (stoppable.Stoppable, error) { return c.network.Follow(cer) })
+	err = c.followerServices.add(func() (stoppable.Stoppable, error) {
+		return c.network.Follow(cer)
+	})
 	if err != nil {
 		return errors.WithMessage(err, "Failed to start following "+
 			"the network")
@@ -555,13 +613,45 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 // DeleteContact is a function which removes a partner from Client's storage
 func (c *Client) DeleteContact(partnerId *id.ID) error {
 	jww.DEBUG.Printf("Deleting contact with ID %s", partnerId)
-	if err := c.storage.E2e().DeletePartner(partnerId); err != nil {
+	//get the partner so they can be removed from preiamge store
+	partner, err := c.storage.E2e().GetPartner(partnerId)
+	if err != nil {
+		return errors.WithMessagef(err, "Could not delete %s because "+
+			"they could not be found", partnerId)
+	}
+	e2ePreimage := partner.GetE2EPreimage()
+	rekeyPreimage := partner.GetRekeyPreimage()
+
+	//delete the partner
+	if err = c.storage.E2e().DeletePartner(partnerId); err != nil {
 		return err
 	}
-	if err := c.storage.Auth().Delete(partnerId); err != nil {
+	//delete the preimages
+	if err = c.storage.GetEdge().Remove(edge.Preimage{
+		Data:   e2ePreimage,
+		Type:   preimage.E2e,
+		Source: partnerId[:],
+	}, c.storage.GetUser().ReceptionID); err != nil {
+		jww.WARN.Printf("Failed delete the preimage for e2e "+
+			"from %s on contact deletion: %+v", partnerId, err)
+	}
+
+	if err = c.storage.GetEdge().Remove(edge.Preimage{
+		Data:   rekeyPreimage,
+		Type:   preimage.Rekey,
+		Source: partnerId[:],
+	}, c.storage.GetUser().ReceptionID); err != nil {
+		jww.WARN.Printf("Failed delete the preimage for rekey "+
+			"from %s on contact deletion: %+v", partnerId, err)
+	}
+
+	if err = c.storage.Auth().Delete(partnerId); err != nil {
 		return err
 	}
+
+	//delete conversations
 	c.storage.Conversations().Delete(partnerId)
+
 	return nil
 }
 
@@ -611,10 +701,20 @@ func (c *Client) GetPreferredBins(countryCode string) ([]string, error) {
 
 	// Add additional bins in special cases
 	switch bin {
-	case region.Africa:
-		bins = append(bins, region.WesternEurope.String())
+	case region.SouthAndCentralAmerica:
+		bins = append(bins, region.NorthAmerica.String())
 	case region.MiddleEast:
-		bins = append(bins, region.EasternEurope.String())
+		bins = append(bins, region.EasternEurope.String(), region.CentralEurope.String(), region.WesternAsia.String())
+	case region.NorthernAfrica:
+		bins = append(bins, region.WesternEurope.String(), region.CentralEurope.String())
+	case region.SouthernAfrica:
+		bins = append(bins, region.WesternEurope.String(), region.CentralEurope.String())
+	case region.EasternAsia:
+		bins = append(bins, region.WesternAsia.String(), region.Oceania.String(), region.NorthAmerica.String())
+	case region.WesternAsia:
+		bins = append(bins, region.EasternAsia.String(), region.Russia.String(), region.MiddleEast.String())
+	case region.Oceania:
+		bins = append(bins, region.EasternAsia.String(), region.NorthAmerica.String())
 	}
 
 	return bins, nil
@@ -654,13 +754,15 @@ func decodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 
 // checkVersionAndSetupStorage is common code shared by NewClient, NewPrecannedClient and NewVanityClient
 // it checks client version and creates a new storage for user data
-func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, password []byte,
-	protoUser user.User, cmixGrp, e2eGrp *cyclic.Group, rngStreamGen *fastRNG.StreamGenerator,
-	isPrecanned bool, registrationCode string) error {
+func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
+	storageDir string, password []byte,
+	protoUser user.User,
+	cmixGrp, e2eGrp *cyclic.Group, rngStreamGen *fastRNG.StreamGenerator,
+	isPrecanned bool, registrationCode string) (*storage.Session, error) {
 	// Get current client version
 	currentVersion, err := version.ParseVersion(SEMVER)
 	if err != nil {
-		return errors.WithMessage(err, "Could not parse version string.")
+		return nil, errors.WithMessage(err, "Could not parse version string.")
 	}
 
 	// Create Storage
@@ -668,7 +770,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, 
 	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
 		currentVersion, cmixGrp, e2eGrp, rngStreamGen)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Save NDF to be used in the future
@@ -684,10 +786,17 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, 
 		err = storageSess.ForwardRegistrationStatus(storage.PermissioningComplete)
 	}
 
+	//add the request preiamge
+	storageSess.GetEdge().Add(edge.Preimage{
+		Data:   preimage.GenerateRequest(protoUser.ReceptionID),
+		Type:   preimage.Request,
+		Source: protoUser.ReceptionID[:],
+	}, protoUser.ReceptionID)
+
 	if err != nil {
-		return errors.WithMessage(err, "Failed to denote state "+
+		return nil, errors.WithMessage(err, "Failed to denote state "+
 			"change in session")
 	}
 
-	return nil
+	return storageSess, nil
 }

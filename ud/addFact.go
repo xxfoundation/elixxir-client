@@ -17,9 +17,9 @@ type addFactComms interface {
 	SendRegisterFact(host *connect.Host, message *pb.FactRegisterRequest) (*pb.FactRegisterResponse, error)
 }
 
-// Adds a fact for the user to user discovery. Will only succeed if the
-// user is already registered and the system does not have the fact currently
-// registered for any user.
+// SendRegisterFact adds a fact for the user to user discovery. Will only
+// succeed if the user is already registered and the system does not have the
+// fact currently registered for any user.
 // This does not complete the fact registration process, it returns a
 // confirmation id instead. Over the communications system the fact is
 // associated with, a code will be sent. This confirmation ID needs to be
@@ -43,10 +43,10 @@ func (m *Manager) addFact(inFact fact.Fact, uid *id.ID, aFC addFactComms) (strin
 	}
 
 	// Create a hash of our fact
-	fhash := factID.Fingerprint(f)
+	fHash := factID.Fingerprint(f)
 
 	// Sign our inFact for putting into the request
-	fsig, err := rsa.Sign(rand.Reader, m.privKey, hash.CMixHash, fhash, nil)
+	fSig, err := rsa.Sign(rand.Reader, m.privKey, hash.CMixHash, fHash, nil)
 	if err != nil {
 		return "", err
 	}
@@ -58,11 +58,17 @@ func (m *Manager) addFact(inFact fact.Fact, uid *id.ID, aFC addFactComms) (strin
 			Fact:     inFact.Fact,
 			FactType: uint32(inFact.T),
 		},
-		FactSig: fsig,
+		FactSig: fSig,
+	}
+
+	// Get UD host
+	host, err := m.getHost()
+	if err != nil {
+		return "", err
 	}
 
 	// Send the message
-	response, err := aFC.SendRegisterFact(m.host, &remFactMsg)
+	response, err := aFC.SendRegisterFact(host, &remFactMsg)
 
 	confirmationID := ""
 	if response != nil {

@@ -123,17 +123,17 @@ type IdList struct {
 }
 
 // MakeIdList creates a new empty IdList.
-func MakeIdList() IdList {
-	return IdList{[]*id.ID{}}
+func MakeIdList() *IdList {
+	return &IdList{[]*id.ID{}}
 }
 
 // Len returns the number of IDs in the list.
-func (idl IdList) Len() int {
+func (idl *IdList) Len() int {
 	return len(idl.list)
 }
 
 // Add appends the ID bytes to the end of the list.
-func (idl IdList) Add(idBytes []byte) error {
+func (idl *IdList) Add(idBytes []byte) error {
 	newID, err := id.Unmarshal(idBytes)
 	if err != nil {
 		return err
@@ -145,7 +145,7 @@ func (idl IdList) Add(idBytes []byte) error {
 
 // Get returns the ID at the index. An error is returned if the index is out of
 // range.
-func (idl IdList) Get(i int) ([]byte, error) {
+func (idl *IdList) Get(i int) ([]byte, error) {
 	if i < 0 || i > len(idl.list) {
 		return nil, errors.Errorf("ID list index must be between %d and the "+
 			"last element %d.", 0, len(idl.list))

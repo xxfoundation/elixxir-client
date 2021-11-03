@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -22,6 +23,7 @@ import (
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/utils"
 	"io/ioutil"
 	"log"
 	"os"
@@ -187,14 +189,14 @@ var rootCmd = &cobra.Command{
 		}
 		paramsE2E := params.GetDefaultE2E()
 		paramsUnsafe := params.GetDefaultUnsafe()
-
+		wg := &sync.WaitGroup{}
 		sendCnt := int(viper.GetUint("sendCount"))
-		//sendDelay := time.Duration(viper.GetUint("sendDelay"))
-		wg := sync.WaitGroup{}
-		go func(){
+		wg.Add(sendCnt)
+		go func() {
+			//sendDelay := time.Duration(viper.GetUint("sendDelay"))
 			for i := 0; i < sendCnt; i++ {
-				wg.Add(1)
-				go func(locali int) {
+				go func(i int) {
+					defer wg.Done()
 					fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
 					var roundIDs []id.Round
 					var roundTimeout time.Duration
@@ -218,20 +220,15 @@ var rootCmd = &cobra.Command{
 					}
 
 					// Have the client report back the round results
-					for j:=0;j<5&&(err==nil || i==0);j++{
+					err = errors.New("derp")
+					for j := 0; j < 5 && err != nil; j++ {
 						err = client.GetRoundResults(roundIDs, roundTimeout, f)
-						if err != nil {
-							jww.WARN.Printf("Received error on send %d attempt %d: %+v", locali, j, err)
-						}
 					}
 
-					if err!=nil{
-						jww.FATAL.Panicf("%v",err)
+					if err != nil {
+						jww.FATAL.Panicf("Message sending for send %d failed: %+v", i, err)
 					}
-
 				}(i)
-
-				//time.Sleep(sendDelay * time.Millisecond)
 			}
 		}()
 
@@ -240,13 +237,15 @@ var rootCmd = &cobra.Command{
 		expectedCnt := viper.GetUint("receiveCount")
 		receiveCnt := uint(0)
 		waitSecs := viper.GetUint("waitTimeout")
-		waitTimeout := time.Duration(waitSecs)
+		waitTimeout := time.Duration(waitSecs) * time.Second
 		done := false
+
 		for !done && expectedCnt != 0 {
-			timeoutTimer := time.NewTimer(waitTimeout * time.Second)
+			timeoutTimer := time.NewTimer(waitTimeout)
 			select {
 			case <-timeoutTimer.C:
 				fmt.Println("Timed out!")
+				jww.ERROR.Printf("Timed out on message reception after %s!", waitTimeout)
 				done = true
 				break
 			case m := <-recvCh:
@@ -256,17 +255,33 @@ var rootCmd = &cobra.Command{
 				receiveCnt++
 				if receiveCnt == expectedCnt {
 					done = true
+					break
 				}
-				break
 			}
 		}
+
+		//wait an extra 5 seconds to make sure no messages were missed
+		done = false
+		timer := time.NewTimer(5 * time.Second)
+		for !done {
+			select {
+			case <-timer.C:
+				done = true
+				break
+			case m := <-recvCh:
+				fmt.Printf("Message received: %s\n", string(
+					m.Payload))
+				//fmt.Printf("%s", m.Timestamp)
+				receiveCnt++
+			}
+		}
+
+		jww.INFO.Printf("Received %d/%d Messages!", receiveCnt, expectedCnt)
 		fmt.Printf("Received %d\n", receiveCnt)
 		if roundsNotepad != nil {
 			roundsNotepad.INFO.Printf("\n%s", client.GetNetworkInterface().GetVerboseRounds())
 		}
-		jww.INFO.Printf("Waiting on all sending to finish to exit")
-		wg.Done()
-		jww.INFO.Printf("All sending to finished, exiting")
+		wg.Wait()
 		err = client.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf(
@@ -368,6 +383,8 @@ func createClient() *api.Client {
 	regCode := viper.GetString("regcode")
 	precannedID := viper.GetUint("sendid")
 	userIDprefix := viper.GetString("userid-prefix")
+	protoUserPath := viper.GetString("protoUserPath")
+
 	//create a new client if none exist
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
 		// Load NDF
@@ -380,14 +397,19 @@ func createClient() *api.Client {
 		if precannedID != 0 {
 			err = api.NewPrecannedClient(precannedID,
 				string(ndfJSON), storeDir, []byte(pass))
-		} else {
-			if userIDprefix != "" {
-				err = api.NewVanityClient(string(ndfJSON), storeDir,
-					[]byte(pass), regCode, userIDprefix)
-			} else {
-				err = api.NewClient(string(ndfJSON), storeDir,
-					[]byte(pass), regCode)
+		} else if protoUserPath != "" {
+			protoUserJson, err := utils.ReadFile(protoUserPath)
+			if err != nil {
+				jww.FATAL.Panicf("%v", err)
 			}
+			err = api.NewProtoClient_Unsafe(string(ndfJSON), storeDir,
+				[]byte(pass), protoUserJson)
+		} else if userIDprefix != "" {
+			err = api.NewVanityClient(string(ndfJSON), storeDir,
+				[]byte(pass), regCode, userIDprefix)
+		} else {
+			err = api.NewClient(string(ndfJSON), storeDir,
+				[]byte(pass), regCode)
 		}
 
 		if err != nil {
@@ -417,7 +439,7 @@ func initClient() *api.Client {
 
 	pass := viper.GetString("password")
 	storeDir := viper.GetString("session")
-
+	jww.DEBUG.Printf("sessionDur: %v", storeDir)
 	netParams := params.GetDefaultNetwork()
 	netParams.E2EParams.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
 	netParams.E2EParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
@@ -437,6 +459,20 @@ func initClient() *api.Client {
 	client, err := api.Login(storeDir, []byte(pass), netParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
+	}
+
+	if protoUser := viper.GetString("protoUserOut"); protoUser != "" {
+
+		jsonBytes, err := client.ConstructProtoUerFile()
+		if err != nil {
+			jww.FATAL.Panicf("Failed to construct proto user file: %v", err)
+		}
+
+		err = utils.WriteFileDef(protoUser, jsonBytes)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to write proto user to file: %v", err)
+		}
+
 	}
 
 	return client
@@ -809,30 +845,30 @@ func init() {
 	rootCmd.Flags().UintP("receiveCount",
 		"", 1, "How many messages we should wait for before quitting")
 	viper.BindPFlag("receiveCount", rootCmd.Flags().Lookup("receiveCount"))
-	rootCmd.Flags().UintP("waitTimeout", "", 15,
+	rootCmd.PersistentFlags().UintP("waitTimeout", "", 15,
 		"The number of seconds to wait for messages to arrive")
 	viper.BindPFlag("waitTimeout",
-		rootCmd.Flags().Lookup("waitTimeout"))
+		rootCmd.PersistentFlags().Lookup("waitTimeout"))
 
 	rootCmd.Flags().BoolP("unsafe", "", false,
 		"Send raw, unsafe messages without e2e encryption.")
 	viper.BindPFlag("unsafe", rootCmd.Flags().Lookup("unsafe"))
 
-	rootCmd.Flags().BoolP("unsafe-channel-creation", "", false,
+	rootCmd.PersistentFlags().BoolP("unsafe-channel-creation", "", false,
 		"Turns off the user identity authenticated channel check, "+
 			"automatically approving authenticated channels")
 	viper.BindPFlag("unsafe-channel-creation",
-		rootCmd.Flags().Lookup("unsafe-channel-creation"))
+		rootCmd.PersistentFlags().Lookup("unsafe-channel-creation"))
 
 	rootCmd.Flags().BoolP("accept-channel", "", false,
 		"Accept the channel request for the corresponding recipient ID")
 	viper.BindPFlag("accept-channel",
 		rootCmd.Flags().Lookup("accept-channel"))
 
-	rootCmd.Flags().Bool("delete-channel", false,
+	rootCmd.PersistentFlags().Bool("delete-channel", false,
 		"Delete the channel information for the corresponding recipient ID")
 	viper.BindPFlag("delete-channel",
-		rootCmd.Flags().Lookup("delete-channel"))
+		rootCmd.PersistentFlags().Lookup("delete-channel"))
 
 	rootCmd.Flags().BoolP("send-auth-request", "", false,
 		"Send an auth request to the specified destination and wait"+
@@ -879,6 +915,17 @@ func init() {
 	rootCmd.Flags().String("profile-cpu", "",
 		"Enable cpu profiling to this file")
 	viper.BindPFlag("profile-cpu", rootCmd.Flags().Lookup("profile-cpu"))
+
+	// Proto user flags
+	rootCmd.Flags().String("protoUserPath", "",
+		"Path to proto user JSON file containing cryptographic primitives "+
+			"the client will load")
+	viper.BindPFlag("protoUserPath", rootCmd.Flags().Lookup("protoUserPath"))
+	rootCmd.Flags().String("protoUserOut", "",
+		"Path to which a normally constructed client "+
+			"will write proto user JSON file")
+	viper.BindPFlag("protoUserOut", rootCmd.Flags().Lookup("protoUserOut"))
+
 }
 
 // initConfig reads in config file and ENV variables if set.

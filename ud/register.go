@@ -81,8 +81,14 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 		FactSig: signedFact,
 	}
 
+	// Get UD host
+	host, err := m.getHost()
+	if err != nil {
+		return err
+	}
+
 	// Register user with user discovery
-	_, err = comm.SendRegisterUser(m.host, msg)
+	_, err = comm.SendRegisterUser(host, msg)
 
 	if err == nil {
 		err = m.setRegistered()

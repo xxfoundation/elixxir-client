@@ -12,8 +12,9 @@ type confirmFactComm interface {
 	SendConfirmFact(host *connect.Host, message *pb.FactConfirmRequest) (*messages.Ack, error)
 }
 
-// Confirms a fact first registered via AddFact. The confirmation ID comes from
-// AddFact while the code will come over the associated communications system
+// SendConfirmFact confirms a fact first registered via AddFact. The
+// confirmation ID comes from AddFact while the code will come over the
+// associated communications system.
 func (m *Manager) SendConfirmFact(confirmationID, code string) error {
 	jww.INFO.Printf("ud.SendConfirmFact(%s, %s)", confirmationID, code)
 	if err := m.confirmFact(confirmationID, code, m.comms); err != nil {
@@ -28,10 +29,16 @@ func (m *Manager) confirmFact(confirmationID, code string, comm confirmFactComm)
 			"client is not registered")
 	}
 
+	// Get UD host
+	host, err := m.getHost()
+	if err != nil {
+		return err
+	}
+
 	msg := &pb.FactConfirmRequest{
 		ConfirmationID: confirmationID,
 		Code:           code,
 	}
-	_, err := comm.SendConfirmFact(m.host, msg)
+	_, err = comm.SendConfirmFact(host, msg)
 	return err
 }

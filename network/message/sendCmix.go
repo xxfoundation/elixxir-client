@@ -103,6 +103,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			jww.WARN.Printf("Failed to GetUpcomingRealtime (msgDigest: %s): %+v", msg.Digest(), err)
 		}
 		if bestRound == nil {
+			jww.WARN.Printf("Best round on send is nil")
 			continue
 		}
 
@@ -134,7 +135,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		stream := rng.GetStream()
 
 		wrappedMsg, encMsg, ephID, err := buildSlotMessage(msg, recipient,
-			firstGateway, stream, senderId, bestRound, roundKeys)
+			firstGateway, stream, senderId, bestRound, roundKeys, cmixParams)
 		if err != nil {
 			stream.Close()
 			return 0, ephemeral.Id{}, err

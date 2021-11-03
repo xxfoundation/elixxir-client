@@ -148,7 +148,8 @@ func sendManyCmixHelper(sender *gateway.Sender, msgs map[id.ID]format.Message,
 				err := handlePutMessageError(firstGateway, instance,
 					session, nodeRegistration, recipientString, bestRound, err)
 				return result, errors.WithMessagef(err,
-					"SendManyCMIX %s", unrecoverableError)
+					"SendManyCMIX %s (via %s): %s",
+					target, host, unrecoverableError)
 
 			}
 			return result, err

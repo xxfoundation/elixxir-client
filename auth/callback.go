@@ -8,6 +8,8 @@
 package auth
 
 import (
+	"github.com/cloudflare/circl/dh/sidh"
+	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -82,7 +84,8 @@ func (m *Manager) processAuthMessage(msg message.Receive) {
 func (m *Manager) handleRequest(cmixMsg format.Message,
 	myHistoricalPrivKey *cyclic.Int, grp *cyclic.Group) {
 	//decode the outer format
-	baseFmt, partnerPubKey, err := handleBaseFormat(cmixMsg, grp)
+	baseFmt, partnerPubKey, partnerSIDHPubKey, err := handleBaseFormat(
+		cmixMsg, grp)
 	if err != nil {
 		jww.WARN.Printf("Failed to handle auth request: %s", err)
 		return
@@ -193,7 +196,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 
 	//process the inner payload
 	facts, msg, err := fact.UnstringifyFactList(
-		string(requestFmt.msgPayload))
+		string(requestFmt.GetPayload()))
 	if err != nil {
 		em := fmt.Sprintf("failed to parse facts and message "+
 			"from Auth Request: %s", err)
@@ -213,7 +216,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	// fixme: the client will never be notified of the channel creation if a
 	// crash occurs after the store but before the conclusion of the callback
 	//create the auth storage
-	if err = m.storage.Auth().AddReceived(c); err != nil {
+	if err = m.storage.Auth().AddReceived(c, partnerSIDHPubKey); err != nil {
 		em := fmt.Sprintf("failed to store contact Auth "+
 			"Request: %s", err)
 		jww.WARN.Print(em)
@@ -246,7 +249,8 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	}
 
 	// extract the message
-	baseFmt, partnerPubKey, err := handleBaseFormat(cmixMsg, grp)
+	baseFmt, partnerPubKey, partnerSIDHPubKey, err := handleBaseFormat(
+		cmixMsg, grp)
 	if err != nil {
 		em := fmt.Sprintf("Failed to handle auth confirm: %s", err)
 		jww.WARN.Print(em)
@@ -256,6 +260,7 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	}
 
 	jww.TRACE.Printf("handleConfirm PARTNERPUBKEY: %v", partnerPubKey.Bytes())
+	jww.TRACE.Printf("handleConfirm PARTNERSIDHPUBKEY: %v", partnerSIDHPubKey)
 	jww.TRACE.Printf("handleConfirm SRMYPUBKEY: %v", sr.GetMyPubKey().Bytes())
 
 	// decrypt the payload
@@ -287,7 +292,8 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 
 	// finalize the confirmation
 	if err := m.doConfirm(sr, grp, partnerPubKey, sr.GetMyPrivKey(),
-		sr.GetPartnerHistoricalPubKey(), ecrFmt.GetOwnership()); err != nil {
+		sr.GetPartnerHistoricalPubKey(),
+		ecrFmt.GetOwnership()); err != nil {
 		em := fmt.Sprintf("Confirmation failed: %s", err)
 		jww.WARN.Print(em)
 		events.Report(10, "Auth", "ConfirmError", em)
@@ -383,19 +389,26 @@ func copySlice(s []byte) []byte {
 }
 
 func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
-	*cyclic.Int, error) {
+	*cyclic.Int, *sidh.PublicKey, error) {
 
 	baseFmt, err := unmarshalBaseFormat(cmixMsg.GetContents(),
-		grp.GetP().ByteLen())
+		grp.GetP().ByteLen(), sidhinterface.SidHPubKeyByteSize)
 	if err != nil {
-		return baseFormat{}, nil, errors.WithMessage(err, "Failed to"+
+		return baseFormat{}, nil, nil, errors.WithMessage(err, "Failed to"+
 			" unmarshal auth")
 	}
 
 	if !grp.BytesInside(baseFmt.pubkey) {
-		return baseFormat{}, nil, errors.WithMessage(err, "Received "+
+		return baseFormat{}, nil, nil, errors.WithMessage(err, "Received "+
 			"auth confirmation public key is not in the e2e cyclic group")
 	}
 	partnerPubKey := grp.NewIntFromBytes(baseFmt.pubkey)
-	return baseFmt, partnerPubKey, nil
+
+	partnerSIDHPubKey, err := baseFmt.GetSidhPubKey()
+	if err != nil {
+		return baseFormat{}, nil, nil, errors.WithMessage(err,
+			"Failed to unmarshal auth request's sidh Pubkey")
+	}
+
+	return baseFmt, partnerPubKey, partnerSIDHPubKey, nil
 }

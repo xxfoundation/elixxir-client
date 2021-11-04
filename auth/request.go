@@ -12,6 +12,7 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/preimage"
@@ -74,7 +75,7 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 
 	/*generate embedded message structures and check payload*/
 	cmixMsg := format.NewMessage(storage.Cmix().GetGroup().GetP().ByteLen())
-	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen(), interfaces.SidHPubKeyByteSize)
+	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen(), sidhinterface.SidHPubKeyByteSize)
 	ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
 	requestFmt, err := newRequestFormat(ecrFmt)
 	if err != nil {
@@ -106,8 +107,8 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 		newPrivKey = diffieHellman.GeneratePrivateKey(256, grp, rng)
 		newPubKey = diffieHellman.GeneratePublicKey(newPrivKey, grp)
 
-		sidHPrivKeyA = sidh.NewPrivateKey(interfaces.SidHKeyId, sidh.KeyVariantSidhA)
-		sidHPubKeyA = sidh.NewPublicKey(interfaces.SidHKeyId, sidh.KeyVariantSidhA)
+		sidHPrivKeyA = sidh.NewPrivateKey(sidhinterface.SidHKeyId, sidh.KeyVariantSidhA)
+		sidHPubKeyA = sidh.NewPublicKey(sidhinterface.SidHKeyId, sidh.KeyVariantSidhA)
 
 		if err = sidHPrivKeyA.Generate(rng); err!=nil{
 			return 0, errors.WithMessagef(err, "Failed to send requrest due to " +

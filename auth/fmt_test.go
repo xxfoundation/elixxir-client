@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"reflect"
 	"testing"
+	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 )
 
 // Tests newBaseFormat
@@ -20,7 +21,8 @@ func TestNewBaseFormat(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
 	payloadSize := saltSize + pubKeySize
-	baseMsg := newBaseFormat(payloadSize, pubKeySize)
+	baseMsg := newBaseFormat(payloadSize, pubKeySize,
+		sidhinterface.SidHPubKeyByteSize)
 
 	// Check that the base format was constructed properly
 	if !bytes.Equal(baseMsg.pubkey, make([]byte, pubKeySize)) {
@@ -53,7 +55,7 @@ func TestNewBaseFormat(t *testing.T) {
 		}
 	}()
 
-	newBaseFormat(0, pubKeySize)
+	newBaseFormat(0, pubKeySize, sidhinterface.SidHPubKeyByteSize)
 }
 
 /* Tests the setter/getter methods for baseFormat */
@@ -63,7 +65,8 @@ func TestBaseFormat_SetGetPubKey(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
 	payloadSize := saltSize + pubKeySize
-	baseMsg := newBaseFormat(payloadSize, pubKeySize)
+	baseMsg := newBaseFormat(payloadSize, pubKeySize,
+		sidhinterface.SidHPubKeyByteSize)
 
 	// Test setter
 	grp := getGroup()
@@ -91,7 +94,8 @@ func TestBaseFormat_SetGetSalt(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
 	payloadSize := saltSize + pubKeySize
-	baseMsg := newBaseFormat(payloadSize, pubKeySize)
+	baseMsg := newBaseFormat(payloadSize, pubKeySize,
+		sidhinterface.SidHPubKeyByteSize)
 
 	// Test setter
 	salt := newSalt("salt")
@@ -126,7 +130,8 @@ func TestBaseFormat_SetGetEcrPayload(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
 	payloadSize := (saltSize + pubKeySize) * 2
-	baseMsg := newBaseFormat(payloadSize, pubKeySize)
+	baseMsg := newBaseFormat(payloadSize, pubKeySize,
+		sidhinterface.SidHPubKeyByteSize)
 
 	// Test setter
 	ecrPayloadSize := payloadSize - (pubKeySize + saltSize)
@@ -163,7 +168,8 @@ func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 	// Construct a fully populated message
 	pubKeySize := 256
 	payloadSize := (saltSize + pubKeySize) * 2
-	baseMsg := newBaseFormat(payloadSize, pubKeySize)
+	baseMsg := newBaseFormat(payloadSize, pubKeySize,
+		sidhinterface.SidHPubKeyByteSize)
 	ecrPayloadSize := payloadSize - (pubKeySize + saltSize)
 	ecrPayload := newPayload(ecrPayloadSize, "ecrPayload")
 	baseMsg.SetEcrPayload(ecrPayload)
@@ -182,7 +188,8 @@ func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 	}
 
 	// Test unmarshal
-	newMsg, err := unmarshalBaseFormat(data, pubKeySize)
+	newMsg, err := unmarshalBaseFormat(data, pubKeySize,
+		sidhinterface.SidHPubKeyByteSize)
 	if err != nil {
 		t.Errorf("unmarshalBaseFormat() error: "+
 			"Could not unmarshal into baseFormat: %v", err)
@@ -195,7 +202,8 @@ func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 	}
 
 	// Unmarshal error test: Invalid size parameter
-	_, err = unmarshalBaseFormat(make([]byte, 0), pubKeySize)
+	_, err = unmarshalBaseFormat(make([]byte, 0), pubKeySize,
+		sidhinterface.SidHPubKeyByteSize)
 	if err == nil {
 		t.Errorf("unmarshalBaseFormat() error: " +
 			"Should not be able to unmarshal when baseFormat is too small")
@@ -370,11 +378,12 @@ func TestNewRequestFormat(t *testing.T) {
 			"\n\tReceived: %v", make([]byte, id.ArrIDLen), reqMsg.id)
 	}
 
-	if !bytes.Equal(reqMsg.msgPayload, make([]byte, 0)) {
+	if !bytes.Equal(reqMsg.GetPayload(), make([]byte, 0,
+		sidhinterface.SidHPubKeyByteSize)) {
 		t.Errorf("newRequestFormat() error: "+
 			"Unexpected msgPayload field in requestFormat."+
 			"\n\tExpected: %v"+
-			"\n\tReceived: %v", make([]byte, 0), reqMsg.msgPayload)
+			"\n\tReceived: %v", make([]byte, 0), reqMsg.GetPayload())
 	}
 
 	payloadSize = ownershipSize * 2
@@ -408,7 +417,7 @@ func TestRequestFormat_SetGetID(t *testing.T) {
 	if !bytes.Equal(reqMsg.id, expectedId.Bytes()) {
 		t.Errorf("SetID() error: "+
 			"Id field does not have expected value."+
-			"\n\tExpected: %v\n\tReceived: %v", expectedId, reqMsg.msgPayload)
+			"\n\tExpected: %v\n\tReceived: %v", expectedId, reqMsg.GetPayload())
 	}
 
 	// Test GetID
@@ -444,15 +453,15 @@ func TestRequestFormat_SetGetMsgPayload(t *testing.T) {
 
 	// Test SetMsgPayload
 	msgPayload := newPayload(id.ArrIDLen, "msgPayload")
-	reqMsg.SetMsgPayload(msgPayload)
-	if !bytes.Equal(reqMsg.msgPayload, msgPayload) {
+	reqMsg.SetPayload(msgPayload)
+	if !bytes.Equal(reqMsg.GetPayload(), msgPayload) {
 		t.Errorf("SetMsgPayload() error: "+
 			"MsgPayload has unexpected value: "+
-			"\n\tExpected: %v\n\tReceived: %v", msgPayload, reqMsg.msgPayload)
+			"\n\tExpected: %v\n\tReceived: %v", msgPayload, reqMsg.GetPayload())
 	}
 
 	// Test GetMsgPayload
-	retrievedMsgPayload := reqMsg.GetMsgPayload()
+	retrievedMsgPayload := reqMsg.GetPayload()
 	if !bytes.Equal(retrievedMsgPayload, msgPayload) {
 		t.Errorf("GetMsgPayload() error: "+
 			"MsgPayload has unexpected value: "+
@@ -468,5 +477,5 @@ func TestRequestFormat_SetGetMsgPayload(t *testing.T) {
 		}
 	}()
 	expectedPayload = append(expectedPayload, expectedPayload...)
-	reqMsg.SetMsgPayload(expectedPayload)
+	reqMsg.SetPayload(expectedPayload)
 }

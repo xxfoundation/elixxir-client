@@ -9,6 +9,7 @@ package auth
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
+	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -75,6 +76,13 @@ func (f baseFormat) SetPubKey(pubKey *cyclic.Int) {
 
 func (f baseFormat) SetSidHPubKey(pubKey *sidh.PublicKey) {
 	pubKey.Export(f.sidHpubkey)
+}
+
+func (f baseFormat) GetSidhPubKey() (*sidh.PublicKey, error) {
+	pubKey := sidh.NewPublicKey(sidhinterface.SidHKeyId,
+		sidh.KeyVariantSidhA)
+	err := pubKey.Import(f.sidHpubkey)
+	return pubKey, err
 }
 
 func (f baseFormat) GetSalt() []byte {

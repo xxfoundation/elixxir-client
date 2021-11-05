@@ -28,7 +28,7 @@ type baseFormat struct {
 }
 
 func newBaseFormat(payloadSize, sidHPubkeySize, pubkeySize int ) baseFormat {
-	total := pubkeySize+sidHPubkeySize+saltSize
+	total := pubkeySize + sidHPubkeySize + saltSize
 	if payloadSize < total {
 		jww.FATAL.Panicf("Size of baseFormat is too small (%d), must be big " +
 			"enough to contain public key (%d) sidHPublicKey (%d) and salt (%d) " +

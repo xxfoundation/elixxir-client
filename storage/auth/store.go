@@ -12,7 +12,7 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
+	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
@@ -243,7 +243,7 @@ func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey) error {
 		jww.FATAL.Panicf("Failed to save contact for partner %s", c.ID.String())
 	}
 
-	keyBytes :=make([]byte, interfaces.SidHPubKeyByteSize)
+	keyBytes :=make([]byte, sidhinterface.SidHPubKeyByteSize)
 	key.Export(keyBytes)
 	type Object struct {
 		// Used to determine version Upgrade, if any

@@ -3,7 +3,7 @@ package utility
 import (
 	"fmt"
 	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/interfaces"
+	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -32,7 +32,7 @@ func LoadSidHPubKeyA(kv *versioned.KV, cid *id.ID) (*sidh.PublicKey, error) {
 		return nil, err
 	}
 
-	sidHPubkey := sidh.NewPublicKey(interfaces.SidHKeyId, sidh.KeyVariantSidhA)
+	sidHPubkey := sidh.NewPublicKey(sidhinterface.SidHKeyId, sidh.KeyVariantSidhA)
 	return sidHPubkey, sidHPubkey.Import(vo.Data)
 }
 

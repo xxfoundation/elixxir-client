@@ -20,7 +20,7 @@ import (
 func TestNewBaseFormat(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
-	payloadSize := saltSize + pubKeySize
+	payloadSize := saltSize + pubKeySize + sidhinterface.SidHPubKeyByteSize
 	baseMsg := newBaseFormat(payloadSize, pubKeySize,
 		sidhinterface.SidHPubKeyByteSize)
 

@@ -13,7 +13,7 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
+	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
@@ -77,13 +77,13 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 			"key with %s for SentRequest Auth", partner)
 	}
 
-	mySidHPrivKeyA := sidh.NewPrivateKey(interfaces.SidHKeyId, sidh.KeyVariantSidhA)
+	mySidHPrivKeyA := sidh.NewPrivateKey(sidhinterface.SidHKeyId, sidh.KeyVariantSidhA)
 	if err = mySidHPrivKeyA.Import(srd.MySidHPrivKey); err != nil {
 		return nil, errors.WithMessagef(err, "Failed to decode sidh private key "+
 			"with %s for SentRequest Auth", partner)
 	}
 
-	mySidHPubKeyA := sidh.NewPublicKey(interfaces.SidHKeyId, sidh.KeyVariantSidhA)
+	mySidHPubKeyA := sidh.NewPublicKey(sidhinterface.SidHKeyId, sidh.KeyVariantSidhA)
 	if err = mySidHPubKeyA.Import(srd.mySidHPubKey); err != nil {
 		return nil, errors.WithMessagef(err, "Failed to decode sidh public "+
 			"key with %s for SentRequest Auth", partner)
@@ -141,8 +141,8 @@ func (sr *SentRequest) save() error {
 	jww.INFO.Printf("saveSentRequest fingerprint: %s",
 		hex.EncodeToString(sr.fingerprint[:]))
 
-	sidHPriv := make([]byte, interfaces.SidHPrivKeyByteSize)
-	sidHPub := make([]byte, interfaces.SidHPubKeyByteSize)
+	sidHPriv := make([]byte, sidhinterface.SidHPrivKeyByteSize)
+	sidHPub := make([]byte, sidhinterface.SidHPubKeyByteSize)
 	sr.mySidHPrivKeyA.Export(sidHPriv)
 	sr.mySidHPubKeyA.Export(sidHPub)
 

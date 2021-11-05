@@ -103,6 +103,7 @@ func sendManyCmixHelper(sender *gateway.Sender, msgs map[id.ID]format.Message,
 		firstGateway, roundKeys, err := processRound(instance, session,
 			nodeRegistration, bestRound, recipientString, msgDigests)
 		if err != nil {
+			jww.INFO.Printf("error processing round: %v", err)
 			jww.WARN.Printf("SendManyCMIX failed to process round %d "+
 				"(will retry): %+v", bestRound.ID, err)
 			continue
@@ -117,6 +118,7 @@ func sendManyCmixHelper(sender *gateway.Sender, msgs map[id.ID]format.Message,
 			slots[i], encMsgs[i], ephemeralIds[i], err = buildSlotMessage(
 				msg, &recipient, firstGateway, stream, senderId, bestRound, roundKeys, param)
 			if err != nil {
+				jww.INFO.Printf("error building slot received: %v", err)
 				return 0, []ephemeral.Id{}, errors.Errorf("failed to build "+
 					"slot message for %s: %+v", recipient, err)
 			}
@@ -162,9 +164,10 @@ func sendManyCmixHelper(sender *gateway.Sender, msgs map[id.ID]format.Message,
 				jww.ERROR.Printf("SendManyCMIX failed to send to EphIDs [%s] "+
 					"(sources: %s) on round %d, trying a new round %+v",
 					ephemeralIdsString, recipientString, bestRound.ID, err)
+				jww.INFO.Printf("error received, continuing: %v", err)
 				continue
 			}
-
+			jww.INFO.Printf("error received: %v", err)
 			return 0, []ephemeral.Id{}, err
 		}
 

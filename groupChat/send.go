@@ -36,41 +36,49 @@ const (
 
 // Send sends a message to all group members using Client.SendManyCMIX. The
 // send fails if the message is too long.
-func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, error) {
+func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time,
+	error) {
+	// Get the current time stripped of the monotonic clock
+	timeNow := netTime.Now().Round(0)
 
 	// Create a cMix message for each group member
-	messages, err := m.createMessages(groupID, message)
+	messages, err := m.createMessages(groupID, message, timeNow)
 	if err != nil {
-		return 0, errors.Errorf(newCmixMsgErr, err)
+		return 0, time.Time{}, errors.Errorf(newCmixMsgErr, err)
 	}
 
-	rid, _, err := m.net.SendManyCMIX(messages, params.GetDefaultCMIX())
+	param := params.GetDefaultCMIX()
+	param.IdentityPreimage = groupID[:]
+
+	rid, _, err := m.net.SendManyCMIX(messages, param)
 	if err != nil {
-		return 0, errors.Errorf(sendManyCmixErr, m.gs.GetUser().ID, groupID, err)
+		return 0, time.Time{},
+			errors.Errorf(sendManyCmixErr, m.gs.GetUser().ID, groupID, err)
 	}
 
-	jww.DEBUG.Printf("Sent message to group %s.", groupID)
+	jww.DEBUG.Printf("Sent message to %d members in group %s at %s.",
+		len(messages), groupID, timeNow)
 
-	return rid, nil
+	return rid, timeNow, nil
 }
 
 // createMessages generates a list of cMix messages and a list of corresponding
 // recipient IDs.
-func (m *Manager) createMessages(groupID *id.ID, msg []byte) (map[id.ID]format.Message, error) {
-	timeNow := netTime.Now()
+func (m *Manager) createMessages(groupID *id.ID, msg []byte,
+	timestamp time.Time) (map[id.ID]format.Message, error) {
 
 	g, exists := m.gs.Get(groupID)
 	if !exists {
 		return map[id.ID]format.Message{}, errors.Errorf(newNoGroupErr, groupID)
 	}
 
-	return m.newMessages(g, msg, timeNow)
+	return m.newMessages(g, msg, timestamp)
 }
 
 // newMessages is a private function that allows the passing in of a timestamp
 // and streamGen instead of a fastRNG.StreamGenerator for easier testing.
-func (m *Manager) newMessages(g gs.Group, msg []byte,
-	timestamp time.Time) (map[id.ID]format.Message, error) {
+func (m *Manager) newMessages(g gs.Group, msg []byte, timestamp time.Time) (
+	map[id.ID]format.Message, error) {
 	// Create list of cMix messages
 	messages := make(map[id.ID]format.Message)
 
@@ -125,15 +133,15 @@ func (m *Manager) newCmixMsg(g gs.Group, msg []byte, timestamp time.Time,
 
 	// Create three message layers
 	cmixMsg := format.NewMessage(m.store.Cmix().GetGroup().GetP().ByteLen())
-	publicMsg, internalMsg, err := newMessageParts(cmixMsg.ContentsSize())
+	pubMsg, intlMsg, err := newMessageParts(cmixMsg.ContentsSize())
 	if err != nil {
 		return cmixMsg, err
 	}
 
 	// Return an error if the message is too large to fit in the payload
-	if internalMsg.GetPayloadMaxSize() < len(msg) {
-		return cmixMsg, errors.Errorf(messageLenErr, len(msg),
-			internalMsg.GetPayloadMaxSize())
+	if intlMsg.GetPayloadMaxSize() < len(msg) {
+		return cmixMsg, errors.Errorf(
+			messageLenErr, len(msg), intlMsg.GetPayloadMaxSize())
 	}
 
 	// Generate 256-bit salt
@@ -152,13 +160,13 @@ func (m *Manager) newCmixMsg(g gs.Group, msg []byte, timestamp time.Time,
 	}
 
 	// Generate internal message
-	payload := setInternalPayload(internalMsg, timestamp, m.gs.GetUser().ID, msg)
+	payload := setInternalPayload(intlMsg, timestamp, m.gs.GetUser().ID, msg)
 
 	// Encrypt internal message
 	encryptedPayload := group.Encrypt(key, keyFp, payload)
 
 	// Generate public message
-	publicPayload := setPublicPayload(publicMsg, salt, encryptedPayload)
+	publicPayload := setPublicPayload(pubMsg, salt, encryptedPayload)
 
 	// Generate MAC
 	mac := group.NewMAC(key, encryptedPayload, g.DhKeys[*mem.ID])
@@ -174,17 +182,17 @@ func (m *Manager) newCmixMsg(g gs.Group, msg []byte, timestamp time.Time,
 // newMessageParts generates a public payload message and the internal payload
 // message. An error is returned if the messages cannot fit in the payloadSize.
 func newMessageParts(payloadSize int) (publicMsg, internalMsg, error) {
-	publicMsg, err := newPublicMsg(payloadSize)
+	pubMsg, err := newPublicMsg(payloadSize)
 	if err != nil {
-		return publicMsg, internalMsg{}, errors.Errorf(newPublicMsgErr, err)
+		return pubMsg, internalMsg{}, errors.Errorf(newPublicMsgErr, err)
 	}
 
-	internalMsg, err := newInternalMsg(publicMsg.GetPayloadSize())
+	intlMsg, err := newInternalMsg(pubMsg.GetPayloadSize())
 	if err != nil {
-		return publicMsg, internalMsg, errors.Errorf(newInternalMsgErr, err)
+		return pubMsg, intlMsg, errors.Errorf(newInternalMsgErr, err)
 	}
 
-	return publicMsg, internalMsg, nil
+	return pubMsg, intlMsg, nil
 }
 
 // newSalt generates a new salt of the specified size.

@@ -8,11 +8,14 @@
 package bindings
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	gc "gitlab.com/elixxir/client/groupChat"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
+	"time"
 )
 
 // GroupChat object contains the group chat manager.
@@ -61,9 +64,13 @@ func NewGroupManager(client *Client, requestFunc GroupRequestFunc,
 // MakeGroup creates a new group and sends a group request to all members in the
 // group. The ID of the new group, the rounds the requests were sent on, and the
 // status of the send are contained in NewGroupReport.
-func (g *GroupChat) MakeGroup(membership *IdList, name, message []byte) (*NewGroupReport, error) {
+func (g *GroupChat) MakeGroup(membership *IdList, name, message []byte)*NewGroupReport {
 	grp, rounds, status, err := g.m.MakeGroup(membership.list, name, message)
-	return &NewGroupReport{&Group{grp}, rounds, status}, err
+	errStr := ""
+	if err !=nil{
+		errStr = err.Error()
+	}
+	return &NewGroupReport{&Group{grp}, rounds, status, errStr}
 }
 
 // ResendRequest resends a group request to all members in the group. The rounds
@@ -75,9 +82,18 @@ func (g *GroupChat) ResendRequest(groupIdBytes []byte) (*NewGroupReport, error) 
 			errors.Errorf("Failed to unmarshal group ID: %+v", err)
 	}
 
+	grp, exists := g.m.GetGroup(groupID)
+	if !exists{
+		return nil,errors.Errorf("Failed to find group %s", groupID)
+	}
+
 	rounds, status, err := g.m.ResendRequest(groupID)
 
-	return &NewGroupReport{&Group{}, rounds, status}, nil
+	errStr := ""
+	if err !=nil{
+		errStr = err.Error()
+	}
+	return &NewGroupReport{&Group{grp}, rounds, status, errStr}, nil
 }
 
 // JoinGroup allows a user to join a group when they receive a request. The
@@ -102,14 +118,14 @@ func (g *GroupChat) LeaveGroup(groupIdBytes []byte) error {
 
 // Send sends the message to the specified group. Returns the round the messages
 // were sent on.
-func (g *GroupChat) Send(groupIdBytes, message []byte) (int64, error) {
+func (g *GroupChat) Send(groupIdBytes, message []byte) (*GroupSendReport, error) {
 	groupID, err := id.Unmarshal(groupIdBytes)
 	if err != nil {
-		return 0, errors.Errorf("Failed to unmarshal group ID: %+v", err)
+		return nil, errors.Errorf("Failed to unmarshal group ID: %+v", err)
 	}
 
-	round, err := g.m.Send(groupID, message)
-	return int64(round), err
+	round, timestamp, err := g.m.Send(groupID, message)
+	return &GroupSendReport{round, timestamp}, err
 }
 
 // GetGroups returns an IdList containing a list of group IDs that the user is a
@@ -139,6 +155,10 @@ func (g *GroupChat) NumGroups() int {
 	return g.m.NumGroups()
 }
 
+////
+// NewGroupReport Structure
+////
+
 // NewGroupReport is returned when creating a new group and contains the ID of
 // the group, a list of rounds that the group requests were sent on, and the
 // status of the send.
@@ -146,6 +166,13 @@ type NewGroupReport struct {
 	group  *Group
 	rounds []id.Round
 	status gc.RequestStatus
+	err string
+}
+
+type GroupReportDisk struct {
+	List []id.Round
+	GrpId  []byte
+	Status int
 }
 
 // GetGroup returns the Group.
@@ -161,11 +188,74 @@ func (ngr *NewGroupReport) GetRoundList() *RoundList {
 
 // GetStatus returns the status of the requests sent when creating a new group.
 // status = 0   an error occurred before any requests could be sent
-//          1   all requests failed to send
-//          2   some request failed and some succeeded
-//          3,  all requests sent successfully
+//          1   all requests failed to send (call Resend Group)
+//          2   some request failed and some succeeded (call Resend Group)
+//          3,  all requests sent successfully (call Resend Group)
 func (ngr *NewGroupReport) GetStatus() int {
 	return int(ngr.status)
+}
+
+// GetError returns the string of an error.
+// Will be an empty string if no error occured
+func (ngr *NewGroupReport) GetError() string {
+	return ngr.err
+}
+
+
+func (ngr *NewGroupReport) Marshal() ([]byte, error) {
+	grpReportDisk := GroupReportDisk{
+		List: ngr.rounds,
+		GrpId:  ngr.group.GetID()[:],
+		Status: ngr.GetStatus(),
+	}
+	return json.Marshal(&grpReportDisk)
+}
+
+func (ngr *NewGroupReport) Unmarshal(b []byte) error {
+	grpReportDisk := GroupReportDisk{}
+	if err := json.Unmarshal(b, &grpReportDisk); err != nil {
+		return errors.New(fmt.Sprintf("Failed to unmarshal group "+
+			"report: %s", err.Error()))
+	}
+
+	grpId, err := id.Unmarshal(grpReportDisk.GrpId)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to unmarshal group "+
+			"id: %s", err.Error()))
+	}
+
+	ngr.group.g.ID = grpId
+	ngr.rounds = grpReportDisk.List
+	ngr.status = gc.RequestStatus(grpReportDisk.Status)
+
+	return nil
+}
+
+////
+// NewGroupReport Structure
+////
+
+// GroupSendReport is returned when sending a group message. It contains the
+// round ID sent on and the timestamp of the send.
+type GroupSendReport struct {
+	roundID   id.Round
+	timestamp time.Time
+}
+
+// GetRoundID returns the ID of the round that the send occurred on.
+func (gsr *GroupSendReport) GetRoundID() int64 {
+	return int64(gsr.roundID)
+}
+
+// GetTimestampNano returns the timestamp of the send in nanoseconds.
+func (gsr *GroupSendReport) GetTimestampNano() int64 {
+	return gsr.timestamp.UnixNano()
+}
+
+// GetTimestampMS returns the timestamp of the send in milliseconds.
+func (gsr *GroupSendReport) GetTimestampMS() int64 {
+	ts := uint64(gsr.timestamp.UnixNano()) / uint64(time.Millisecond)
+	return int64(ts)
 }
 
 ////
@@ -186,6 +276,24 @@ func (g *Group) GetName() []byte {
 // GetID return the 33-byte unique group ID.
 func (g *Group) GetID() []byte {
 	return g.g.ID.Bytes()
+}
+
+// GetInitMessage returns initial message sent with the group request.
+func (g *Group) GetInitMessage() []byte {
+	return g.g.InitMessage
+}
+
+// GetCreatedNano returns the time the group was created in nanoseconds. This is
+// also the time the group requests were sent.
+func (g *Group) GetCreatedNano() int64 {
+	return g.g.Created.UnixNano()
+}
+
+// GetCreatedMS returns the time the group was created in milliseconds. This is
+// also the time the group requests were sent.
+func (g *Group) GetCreatedMS() int64 {
+	ts := uint64(g.g.Created.UnixNano()) / uint64(time.Millisecond)
+	return int64(ts)
 }
 
 // GetMembership returns a list of contacts, one for each member in the group.
@@ -291,7 +399,8 @@ func (gmr *GroupMessageReceive) GetTimestampNano() int64 {
 
 // GetTimestampMS returns the message timestamp in milliseconds.
 func (gmr *GroupMessageReceive) GetTimestampMS() int64 {
-	return gmr.Timestamp.UnixNano() / 1_000_000
+	ts := uint64(gmr.Timestamp.UnixNano()) / uint64(time.Millisecond)
+	return int64(ts)
 }
 
 // GetRoundID returns the ID of the round the message was sent on.
@@ -308,5 +417,6 @@ func (gmr *GroupMessageReceive) GetRoundTimestampNano() int64 {
 // GetRoundTimestampMS returns the timestamp, in milliseconds, of the round the
 // message was sent on.
 func (gmr *GroupMessageReceive) GetRoundTimestampMS() int64 {
-	return gmr.RoundTimestamp.UnixNano() / 1_000_000
+	ts := uint64(gmr.RoundTimestamp.UnixNano()) / uint64(time.Millisecond)
+	return int64(ts)
 }

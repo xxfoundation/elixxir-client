@@ -8,7 +8,9 @@
 package api
 
 import (
+	"encoding/json"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/storage"
 )
 
@@ -46,4 +48,42 @@ func (c *Client) registerWithPermissioning() error {
 			"after registration with permissioning")
 	}
 	return nil
+}
+
+// ConstructProtoUerFile is a helper function which is used for proto client testing.
+// This is used for development testing.
+func (c *Client) ConstructProtoUerFile() ([]byte, error) {
+
+	//load the registration code
+	regCode, err := c.storage.GetRegCode()
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to register with "+
+			"permissioning")
+	}
+
+	Usr := user.Proto{
+		TransmissionID:               c.GetUser().TransmissionID,
+		TransmissionSalt:             c.GetUser().TransmissionSalt,
+		TransmissionRSA:              c.GetUser().TransmissionRSA,
+		ReceptionID:                  c.GetUser().ReceptionID,
+		ReceptionSalt:                c.GetUser().ReceptionSalt,
+		ReceptionRSA:                 c.GetUser().ReceptionRSA,
+		Precanned:                    c.GetUser().Precanned,
+		RegistrationTimestamp:        c.GetUser().RegistrationTimestamp,
+		RegCode:                      regCode,
+		TransmissionRegValidationSig: c.storage.User().GetTransmissionRegistrationValidationSignature(),
+		ReceptionRegValidationSig:    c.storage.User().GetReceptionRegistrationValidationSignature(),
+		CmixDhPrivateKey:             c.GetStorage().Cmix().GetDHPrivateKey(),
+		CmixDhPublicKey:              c.GetStorage().Cmix().GetDHPublicKey(),
+		E2eDhPrivateKey:              c.GetStorage().E2e().GetDHPrivateKey(),
+		E2eDhPublicKey:               c.GetStorage().E2e().GetDHPublicKey(),
+	}
+
+	jsonBytes, err := json.Marshal(Usr)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to register with "+
+			"permissioning")
+	}
+
+	return jsonBytes, nil
 }

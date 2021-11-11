@@ -13,9 +13,11 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/auth"
 	"gitlab.com/elixxir/client/storage/e2e"
+	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -141,6 +143,12 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	cmixMsg.SetMac(mac)
 	cmixMsg.SetContents(baseFmt.Marshal())
 
+	storage.GetEdge().Add(edge.Preimage{
+		Data:   preimage.Generate(confirmFp[:], preimage.Confirm),
+		Type:   preimage.Confirm,
+		Source: partner.ID[:],
+	}, me.ID)
+
 	jww.TRACE.Printf("RequestAuth SALT: %v", salt)
 	jww.TRACE.Printf("RequestAuth ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
 	jww.TRACE.Printf("RequestAuth MAC: %v", mac)
@@ -160,8 +168,9 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 		partner.ID, cmixMsg.Digest())
 
 	/*send message*/
-	round, _, err := net.SendCMIX(cmixMsg, partner.ID,
-		params.GetDefaultCMIX())
+	p := params.GetDefaultCMIX()
+	p.IdentityPreimage = preimage.GenerateRequest(partner.ID)
+	round, _, err := net.SendCMIX(cmixMsg, partner.ID, p)
 	if err != nil {
 		// if the send fails just set it to failed, it will
 		// but automatically retried

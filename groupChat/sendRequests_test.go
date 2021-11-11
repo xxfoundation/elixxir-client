@@ -30,6 +30,7 @@ func TestManager_ResendRequest(t *testing.T) {
 		KeyPreimage: g.KeyPreimage.Bytes(),
 		Members:     g.Members.Serialize(),
 		Message:     g.InitMessage,
+		Created:     g.Created.UnixNano(),
 	}
 
 	_, status, err := m.ResendRequest(g.ID)
@@ -108,6 +109,7 @@ func TestManager_sendRequests(t *testing.T) {
 		KeyPreimage: g.KeyPreimage.Bytes(),
 		Members:     g.Members.Serialize(),
 		Message:     g.InitMessage,
+		Created:     g.Created.UnixNano(),
 	}
 
 	_, status, err := m.sendRequests(g)
@@ -185,8 +187,8 @@ func TestManager_sendRequests_SendAllFail(t *testing.T) {
 	}
 }
 
-// Tests that Manager.sendRequests returns the correct status when some of the
-// sends fail.
+// Tests that Manager.sendRequests returns the correct status when some sends
+// fail.
 func TestManager_sendRequests_SendPartialSent(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManagerWithStore(prng, 10, 2, nil, nil, t)

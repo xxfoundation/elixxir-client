@@ -62,8 +62,10 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 			"negotiating status: %s", session, session.NegotiationStatus())
 	}
 
+	rekeyPreimage := manager.GetRekeyPreimage()
+
 	// send the rekey notification to the partner
-	err := negotiate(instance, sendE2E, sess, negotiatingSession, sendTimeout, stop)
+	err := negotiate(instance, sendE2E, sess, negotiatingSession, sendTimeout, rekeyPreimage, stop)
 	// if sending the negotiation fails, revert the state of the session to
 	// unconfirmed so it will be triggered in the future
 	if err != nil {
@@ -74,7 +76,7 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 
 func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	sess *storage.Session, session *e2e.Session, sendTimeout time.Duration,
-	stop *stoppable.Single) error {
+	rekeyPreimage []byte, stop *stoppable.Single) error {
 	e2eStore := sess.E2e()
 
 	//generate public key
@@ -103,6 +105,7 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	//send the message under the key exchange
 	e2eParams := params.GetDefaultE2E()
 	e2eParams.Type = params.KeyExchange
+	e2eParams.IdentityPreimage = rekeyPreimage
 
 	rounds, _, _, err := sendE2E(m, e2eParams, stop)
 	// If the send fails, returns the error so it can be handled. The caller

@@ -18,6 +18,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"strings"
+	"time"
 )
 
 // Storage values.
@@ -41,9 +42,10 @@ type Group struct {
 	Name        []byte            // Name of the group set by the user
 	ID          *id.ID            // Group ID
 	Key         group.Key         // Group key
-	IdPreimage  group.IdPreimage  // 256-bit value from CRNG
-	KeyPreimage group.KeyPreimage // 256-bit value from CRNG
+	IdPreimage  group.IdPreimage  // 256-bit randomly generated value
+	KeyPreimage group.KeyPreimage // 256-bit randomly generated value
 	InitMessage []byte            // The original invite message
+	Created     time.Time         // Timestamp of when the group was created
 	Members     group.Membership  // Sorted list of members in group
 	DhKeys      DhKeyList         // List of shared DH keys
 }
@@ -51,7 +53,8 @@ type Group struct {
 // NewGroup creates a new Group from copies of the given data.
 func NewGroup(name []byte, groupID *id.ID, groupKey group.Key,
 	idPreimage group.IdPreimage, keyPreimage group.KeyPreimage,
-	initMessage []byte, members group.Membership, dhKeys DhKeyList) Group {
+	initMessage []byte, created time.Time, members group.Membership,
+	dhKeys DhKeyList) Group {
 	g := Group{
 		Name:        make([]byte, len(name)),
 		ID:          groupID.DeepCopy(),
@@ -59,6 +62,7 @@ func NewGroup(name []byte, groupID *id.ID, groupKey group.Key,
 		IdPreimage:  idPreimage,
 		KeyPreimage: keyPreimage,
 		InitMessage: make([]byte, len(initMessage)),
+		Created:     created.Round(0),
 		Members:     members.DeepCopy(),
 		DhKeys:      dhKeys,
 	}
@@ -78,6 +82,7 @@ func (g Group) DeepCopy() Group {
 		IdPreimage:  g.IdPreimage,
 		KeyPreimage: g.KeyPreimage,
 		InitMessage: make([]byte, len(g.InitMessage)),
+		Created:     g.Created,
 		Members:     g.Members.DeepCopy(),
 		DhKeys:      make(map[id.ID]*cyclic.Int, len(g.Members)-1),
 	}
@@ -118,7 +123,12 @@ func removeGroup(groupID *id.ID, kv *versioned.KV) error {
 	return kv.Delete(groupStoreKey(groupID), groupStoreVersion)
 }
 
-// Serialize serializes the Group and returns the byte slice.
+// Serialize serializes the Group and returns the byte slice. The serialized
+// data follows the following format.
+// +----------+----------+----------+----------+------------+-------------+-----------------+-------------+---------+-------------+----------+----------+
+// | Name len |   Name   |    ID    |    Key   | IdPreimage | KeyPreimage | InitMessage len | InitMessage | Created | Members len | Members  |  DhKeys  |
+// | 8 bytes  | variable | 33 bytes | 32 bytes |  32 bytes  |  32 bytes   |     8 bytes     |  variable   | 8 bytes |   8 bytes   | variable | variable |
+// +----------+----------+----------+----------+------------+-------------+-----------------+-------------+---------+-------------+----------+----------+
 func (g Group) Serialize() []byte {
 	buff := bytes.NewBuffer(nil)
 
@@ -145,6 +155,11 @@ func (g Group) Serialize() []byte {
 	binary.LittleEndian.PutUint64(b, uint64(len(g.InitMessage)))
 	buff.Write(b)
 	buff.Write(g.InitMessage)
+
+	// Write created timestamp as Unix nanoseconds
+	b = make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, uint64(g.Created.UnixNano()))
+	buff.Write(b)
 
 	// Write length of group membership and group membership
 	b = make([]byte, 8)
@@ -191,6 +206,14 @@ func DeserializeGroup(data []byte) (Group, error) {
 		g.InitMessage = buff.Next(int(initMessageLength))
 	}
 
+	// Get created timestamp
+	createdNano := int64(binary.LittleEndian.Uint64(buff.Next(8)))
+	if createdNano == (time.Time{}).UnixNano() {
+		g.Created = time.Time{}
+	} else {
+		g.Created = time.Unix(0, createdNano)
+	}
+
 	// Get member list
 	membersLength := binary.LittleEndian.Uint64(buff.Next(8))
 	g.Members, err = group.DeserializeMembership(buff.Next(int(membersLength)))
@@ -207,7 +230,8 @@ func DeserializeGroup(data []byte) (Group, error) {
 	return g, err
 }
 
-// groupStoreKey generates a unique key to save and load a Group to/from storage.
+// groupStoreKey generates a unique key to save and load a Group to/from
+// storage.
 func groupStoreKey(groupID *id.ID) string {
 	return groupStorageKey + groupID.String()
 }
@@ -220,7 +244,7 @@ func (g Group) GoString() string {
 		idString = g.ID.String()
 	}
 
-	str := make([]string, 8)
+	str := make([]string, 9)
 
 	str[0] = "Name:" + fmt.Sprintf("%q", g.Name)
 	str[1] = "ID:" + idString
@@ -228,8 +252,9 @@ func (g Group) GoString() string {
 	str[3] = "IdPreimage:" + g.IdPreimage.String()
 	str[4] = "KeyPreimage:" + g.KeyPreimage.String()
 	str[5] = "InitMessage:" + fmt.Sprintf("%q", g.InitMessage)
-	str[6] = "Members:" + g.Members.String()
-	str[7] = "DhKeys:" + g.DhKeys.GoString()
+	str[6] = "Created:" + g.Created.String()
+	str[7] = "Members:" + g.Members.String()
+	str[8] = "DhKeys:" + g.DhKeys.GoString()
 
 	return "{" + strings.Join(str, ", ") + "}"
 }

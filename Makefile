@@ -34,4 +34,4 @@ update_master:
 
 master: update_master clean build version
 
-release: update_release clean build version
+release: update_release clean build

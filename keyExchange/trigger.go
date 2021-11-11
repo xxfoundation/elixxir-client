@@ -122,6 +122,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 
 	//send the message under the key exchange
 	e2eParams := params.GetDefaultE2E()
+	e2eParams.IdentityPreimage = partner.GetRekeyPreimage()
 
 	// store in critical messages buffer first to ensure it is resent if the
 	// send fails

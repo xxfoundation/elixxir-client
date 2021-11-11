@@ -40,7 +40,8 @@ const (
 	setUserPanic      = "Store.SetUser is for testing only. Got %T"
 )
 
-// The maximum number of group chats that a user can be a part of at once.
+// MaxGroupChats is the maximum number of group chats that a user can be a part
+// of at once.
 const MaxGroupChats = 64
 
 // Store stores the list of Groups that a user is a part of.
@@ -265,7 +266,8 @@ func (s *Store) Get(groupID *id.ID) (Group, bool) {
 
 // GetByKeyFp returns the group with the matching key fingerprint and salt.
 // Returns false if no group is found.
-func (s *Store) GetByKeyFp(keyFp format.Fingerprint, salt [group.SaltLen]byte) (Group, bool) {
+func (s *Store) GetByKeyFp(keyFp format.Fingerprint, salt [group.SaltLen]byte) (
+	Group, bool) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 

@@ -13,7 +13,6 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 type User struct {
@@ -26,7 +25,7 @@ type User struct {
 	ReceptionRSA     *rsa.PrivateKey
 	Precanned        bool
 	// Timestamp in which user has registered with the network
-	RegistrationTimestamp time.Time
+	RegistrationTimestamp int64
 
 	//cmix Identity
 	CmixDhPrivateKey *cyclic.Int
@@ -42,5 +41,22 @@ func (u User) GetContact() contact.Contact {
 		ID:       u.ReceptionID.DeepCopy(),
 		DhPubKey: u.E2eDhPublicKey,
 		Facts:    make([]fact.Fact, 0),
+	}
+}
+
+func NewUserFromProto(proto *Proto) User {
+	return User{
+		TransmissionID:        proto.TransmissionID,
+		TransmissionSalt:      proto.TransmissionSalt,
+		TransmissionRSA:       proto.TransmissionRSA,
+		ReceptionID:           proto.ReceptionID,
+		ReceptionSalt:         proto.ReceptionSalt,
+		ReceptionRSA:          proto.ReceptionRSA,
+		Precanned:             proto.Precanned,
+		RegistrationTimestamp: proto.RegistrationTimestamp,
+		CmixDhPrivateKey:      proto.CmixDhPrivateKey,
+		CmixDhPublicKey:       proto.CmixDhPublicKey,
+		E2eDhPrivateKey:       proto.E2eDhPrivateKey,
+		E2eDhPublicKey:        proto.E2eDhPublicKey,
 	}
 }

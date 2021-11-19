@@ -500,7 +500,7 @@ func (c *Client) GetErrorsChannel() <-chan interfaces.ClientError {
 //      Handles both auth confirm and requests
 func (c *Client) StartNetworkFollower(timeout time.Duration) error {
 	u := c.GetUser()
-	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
+	jww.INFO.Printf("StartNetworkFollower() \n\tTransmissionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
 	return c.followerServices.start(timeout)
@@ -580,9 +580,9 @@ func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
 }
 
 // GetNodeRegistrationStatus gets the current state of node registration. It
-// returns the the total number of nodes in the NDF and the number of those
-// which are currently registers with. An error is returned if the network is
-// not healthy.
+// returns the total number of nodes in the NDF and the number of those which
+// are currently registers with. An error is returned if the network is not
+// healthy.
 func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	// Return an error if the network is not healthy
 	if !c.GetHealth().IsHealthy() {

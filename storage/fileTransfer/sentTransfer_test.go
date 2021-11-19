@@ -1,0 +1,1304 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                           //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
+package fileTransfer
+
+import (
+	"bytes"
+	"fmt"
+	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/client/storage/versioned"
+	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+	"reflect"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+)
+
+// Tests that NewSentTransfer creates the expected SentTransfer and that it is
+// saved to storage.
+func Test_NewSentTransfer(t *testing.T) {
+	prng := NewPrng(42)
+	kv := versioned.NewKV(make(ekv.Memstore))
+	recipient, _ := id.NewRandomID(prng, id.User)
+	tid, _ := ftCrypto.NewTransferID(prng)
+	key, _ := ftCrypto.NewTransferKey(prng)
+	kvPrefixed := kv.Prefix(makeSentTransferPrefix(tid))
+	parts := [][]byte{
+		[]byte("test0"), []byte("test1"), []byte("test2"),
+		[]byte("test3"), []byte("test4"), []byte("test5"),
+	}
+	numParts, numFps := uint16(len(parts)), uint16(float64(len(parts))*1.5)
+	fpVector, _ := utility.NewStateVector(
+		kvPrefixed, sentFpVectorKey, uint32(numFps))
+
+	type cbFields struct {
+		completed            bool
+		sent, arrived, total uint16
+		err                  error
+	}
+
+	expectedCB := cbFields{
+		completed: false,
+		sent:      0,
+		arrived:   0,
+		total:     numParts,
+		err:       nil,
+	}
+
+	cbChan := make(chan cbFields)
+	cb := func(completed bool, sent, arrived, total uint16, err error) {
+		cbChan <- cbFields{
+			completed: completed,
+			sent:      sent,
+			arrived:   arrived,
+			total:     total,
+			err:       err,
+		}
+	}
+
+	expectedPeriod := time.Second
+
+	expected := &SentTransfer{
+		recipient: recipient,
+		key:       key,
+		numParts:  numParts,
+		numFps:    numFps,
+		fpVector:  fpVector,
+		sentParts: &partStore{
+			parts:    partSliceToMap(parts...),
+			numParts: uint16(len(parts)),
+			kv:       kvPrefixed,
+		},
+		inProgressTransfers: &transferredBundle{
+			list: make(map[id.Round][]uint16),
+			key:  inProgressKey,
+			kv:   kvPrefixed,
+		},
+		finishedTransfers: &transferredBundle{
+			list: make(map[id.Round][]uint16),
+			key:  finishedKey,
+			kv:   kvPrefixed,
+		},
+		progressCallbacks: []*sentCallbackTracker{
+			newSentCallbackTracker(cb, expectedPeriod),
+		},
+		kv: kvPrefixed,
+	}
+
+	// Create new SentTransfer
+	st, err := NewSentTransfer(
+		recipient, tid, key, parts, numFps, cb, expectedPeriod, kv)
+	if err != nil {
+		t.Errorf("NewSentTransfer returned an error: %+v", err)
+	}
+
+	// Check that the callback is called when added
+	select {
+	case <-time.NewTimer(10 * time.Millisecond).C:
+		t.Error("Timed out waiting fpr progress callback to be called.")
+	case cbResults := <-cbChan:
+		if !reflect.DeepEqual(expectedCB, cbResults) {
+			t.Errorf("Did not receive correct results from callback."+
+				"\nexpected: %+v\nreceived: %+v", expectedCB, cbResults)
+		}
+	}
+
+	st.progressCallbacks = expected.progressCallbacks
+
+	// Check that the new object matches the expected
+	if !reflect.DeepEqual(expected, st) {
+		t.Errorf("New SentTransfer does not match expected."+
+			"\nexpected: %#v\nreceived: %#v", expected, st)
+	}
+
+	// Make sure it is saved to storage
+	_, err = kvPrefixed.Get(sentTransferKey, sentTransferVersion)
+	if err != nil {
+		t.Errorf("Failed to get new SentTransfer from storage: %+v", err)
+	}
+
+	// Check that the fingerprint vector has correct values
+	if st.fpVector.GetNumAvailable() != uint32(numFps) {
+		t.Errorf("Incorrect number of available keys in fingerprint list."+
+			"\nexpected: %d\nreceived: %d", numFps, st.fpVector.GetNumAvailable())
+	}
+	if st.fpVector.GetNumKeys() != uint32(numFps) {
+		t.Errorf("Incorrect number of keys in fingerprint list."+
+			"\nexpected: %d\nreceived: %d", numFps, st.fpVector.GetNumKeys())
+	}
+	if st.fpVector.GetNumUsed() != 0 {
+		t.Errorf("Incorrect number of used keys in fingerprint list."+
+			"\nexpected: %d\nreceived: %d", 0, st.fpVector.GetNumUsed())
+	}
+}
+
+// Tests that SentTransfer.ReInit overwrites the fingerprint vector, in-progress
+// transfer, finished transfers, and progress callbacks with new and empty
+// objects.
+func TestSentTransfer_ReInit(t *testing.T) {
+	prng := NewPrng(42)
+	kv := versioned.NewKV(make(ekv.Memstore))
+	recipient, _ := id.NewRandomID(prng, id.User)
+	tid, _ := ftCrypto.NewTransferID(prng)
+	key, _ := ftCrypto.NewTransferKey(prng)
+	kvPrefixed := kv.Prefix(makeSentTransferPrefix(tid))
+	parts := [][]byte{
+		[]byte("test0"), []byte("test1"), []byte("test2"),
+		[]byte("test3"), []byte("test4"), []byte("test5"),
+	}
+	numParts, numFps1 := uint16(len(parts)), uint16(float64(len(parts))*1.5)
+	numFps2 := 2 * numFps1
+	fpVector, _ := utility.NewStateVector(
+		kvPrefixed, sentFpVectorKey, uint32(numFps2))
+
+	type cbFields struct {
+		completed            bool
+		sent, arrived, total uint16
+		err                  error
+	}
+
+	expectedCB := cbFields{
+		completed: false,
+		sent:      0,
+		arrived:   0,
+		total:     numParts,
+		err:       nil,
+	}
+
+	cbChan := make(chan cbFields)
+	cb := func(completed bool, sent, arrived, total uint16, err error) {
+		cbChan <- cbFields{
+			completed: completed,
+			sent:      sent,
+			arrived:   arrived,
+			total:     total,
+			err:       err,
+		}
+	}
+
+	expectedPeriod := time.Millisecond
+
+	expected := &SentTransfer{
+		recipient: recipient,
+		key:       key,
+		numParts:  numParts,
+		numFps:    numFps2,
+		fpVector:  fpVector,
+		sentParts: &partStore{
+			parts:    partSliceToMap(parts...),
+			numParts: uint16(len(parts)),
+			kv:       kvPrefixed,
+		},
+		inProgressTransfers: &transferredBundle{
+			list: make(map[id.Round][]uint16),
+			key:  inProgressKey,
+			kv:   kvPrefixed,
+		},
+		finishedTransfers: &transferredBundle{
+			list: make(map[id.Round][]uint16),
+			key:  finishedKey,
+			kv:   kvPrefixed,
+		},
+		progressCallbacks: []*sentCallbackTracker{
+			newSentCallbackTracker(cb, expectedPeriod),
+		},
+		kv: kvPrefixed,
+	}
+
+	// Create new SentTransfer
+	st, err := NewSentTransfer(
+		recipient, tid, key, parts, numFps1, nil, 2*expectedPeriod, kv)
+	if err != nil {
+		t.Errorf("NewSentTransfer returned an error: %+v", err)
+	}
+
+	// Re-initialize SentTransfer with new number of fingerprints and callback
+	err = st.ReInit(numFps2, cb, expectedPeriod)
+	if err != nil {
+		t.Errorf("ReInit returned an error: %+v", err)
+	}
+
+	// Check that the callback is called when added
+	select {
+	case <-time.NewTimer(10 * time.Millisecond).C:
+		t.Error("Timed out waiting fpr progress callback to be called.")
+	case cbResults := <-cbChan:
+		if !reflect.DeepEqual(expectedCB, cbResults) {
+			t.Errorf("Did not receive correct results from callback."+
+				"\nexpected: %+v\nreceived: %+v", expectedCB, cbResults)
+		}
+	}
+
+	st.progressCallbacks = expected.progressCallbacks
+
+	// Check that the new object matches the expected
+	if !reflect.DeepEqual(expected, st) {
+		t.Errorf("New SentTransfer does not match expected."+
+			"\nexpected: %#v\nreceived: %#v", expected, st)
+	}
+
+	// Make sure it is saved to storage
+	_, err = kvPrefixed.Get(sentTransferKey, sentTransferVersion)
+	if err != nil {
+		t.Errorf("Failed to get new SentTransfer from storage: %+v", err)
+	}
+
+	// Check that the fingerprint vector has correct values
+	if st.fpVector.GetNumAvailable() != uint32(numFps2) {
+		t.Errorf("Incorrect number of available keys in fingerprint list."+
+			"\nexpected: %d\nreceived: %d", numFps2, st.fpVector.GetNumAvailable())
+	}
+	if st.fpVector.GetNumKeys() != uint32(numFps2) {
+		t.Errorf("Incorrect number of keys in fingerprint list."+
+			"\nexpected: %d\nreceived: %d", numFps2, st.fpVector.GetNumKeys())
+	}
+	if st.fpVector.GetNumUsed() != 0 {
+		t.Errorf("Incorrect number of used keys in fingerprint list."+
+			"\nexpected: %d\nreceived: %d", 0, st.fpVector.GetNumUsed())
+	}
+}
+
+// Tests that SentTransfer.GetRecipient returns the expected ID.
+func TestSentTransfer_GetRecipient(t *testing.T) {
+	prng := NewPrng(42)
+	kv := versioned.NewKV(make(ekv.Memstore))
+	expectedRecipient, _ := id.NewRandomID(prng, id.User)
+	tid, _ := ftCrypto.NewTransferID(prng)
+	key, _ := ftCrypto.NewTransferKey(prng)
+
+	// Create new SentTransfer
+	st, err := NewSentTransfer(
+		expectedRecipient, tid, key, [][]byte{}, 5, nil, 0, kv)
+	if err != nil {
+		t.Errorf("Failed to create new SentTransfer: %+v", err)
+	}
+
+	if expectedRecipient != st.GetRecipient() {
+		t.Errorf("Failed to get expected transfer key."+
+			"\nexpected: %s\nreceived: %s", expectedRecipient, st.GetRecipient())
+	}
+}
+
+// Tests that SentTransfer.GetTransferKey returns the expected transfer key.
+func TestSentTransfer_GetTransferKey(t *testing.T) {
+	prng := NewPrng(42)
+	kv := versioned.NewKV(make(ekv.Memstore))
+	recipient, _ := id.NewRandomID(prng, id.User)
+	tid, _ := ftCrypto.NewTransferID(prng)
+	expectedKey, _ := ftCrypto.NewTransferKey(prng)
+
+	// Create new SentTransfer
+	st, err := NewSentTransfer(
+		recipient, tid, expectedKey, [][]byte{}, 5, nil, 0, kv)
+	if err != nil {
+		t.Errorf("Failed to create new SentTransfer: %+v", err)
+	}
+
+	if expectedKey != st.GetTransferKey() {
+		t.Errorf("Failed to get expected transfer key."+
+			"\nexpected: %s\nreceived: %s", expectedKey, st.GetTransferKey())
+	}
+}
+
+// Tests that SentTransfer.GetNumParts returns the expected number of parts.
+func TestSentTransfer_GetNumParts(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	expectedNumParts := uint16(16)
+	_, st := newRandomSentTransfer(expectedNumParts, 24, kv, t)
+
+	if expectedNumParts != st.GetNumParts() {
+		t.Errorf("Failed to get expected number of parts."+
+			"\nexpected: %d\nreceived: %d", expectedNumParts, st.GetNumParts())
+	}
+}
+
+// Tests that SentTransfer.GetNumFps returns the expected number of
+// fingerprints.
+func TestSentTransfer_GetNumFps(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	expectedNumFps := uint16(24)
+	_, st := newRandomSentTransfer(16, expectedNumFps, kv, t)
+
+	if expectedNumFps != st.GetNumFps() {
+		t.Errorf("Failed to get expected number of fingerprints."+
+			"\nexpected: %d\nreceived: %d", expectedNumFps, st.GetNumFps())
+	}
+}
+
+// Tests that SentTransfer.GetNumAvailableFps returns the expected number of
+// available fingerprints.
+func TestSentTransfer_GetNumAvailableFps(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	numParts, numFps := uint16(16), uint16(24)
+	_, st := newRandomSentTransfer(numParts, numFps, kv, t)
+
+	if numFps != st.GetNumAvailableFps() {
+		t.Errorf("Failed to get expected number of available fingerprints."+
+			"\nexpected: %d\nreceived: %d",
+			numFps, st.GetNumAvailableFps())
+	}
+
+	for i := uint16(0); i < numParts; i++ {
+		_, _ = st.fpVector.Next()
+	}
+
+	if numFps-numParts != st.GetNumAvailableFps() {
+		t.Errorf("Failed to get expected number of available fingerprints."+
+			"\nexpected: %d\nreceived: %d",
+			numFps-numParts, st.GetNumAvailableFps())
+	}
+}
+
+// Tests that SentTransfer.GetProgress returns the expected progress metrics for
+// various transfer states.
+func TestSentTransfer_GetProgress(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	numParts := uint16(16)
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+
+	completed, sent, arrived, total := st.GetProgress()
+	err := checkSentProgress(
+		completed, sent, arrived, total, false, 0, 0, numParts)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, _ = st.SetInProgress(1, 0, 1, 2)
+
+	completed, sent, arrived, total = st.GetProgress()
+	err = checkSentProgress(completed, sent, arrived, total, false, 3, 0, numParts)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, _ = st.SetInProgress(2, 3, 4, 5)
+
+	completed, sent, arrived, total = st.GetProgress()
+	err = checkSentProgress(completed, sent, arrived, total, false, 6, 0, numParts)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_ = st.FinishTransfer(1)
+	_, _ = st.UnsetInProgress(2)
+
+	completed, sent, arrived, total = st.GetProgress()
+	err = checkSentProgress(completed, sent, arrived, total, false, 0, 3, numParts)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, _ = st.SetInProgress(3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+
+	completed, sent, arrived, total = st.GetProgress()
+	err = checkSentProgress(
+		completed, sent, arrived, total, false, 10, 3, numParts)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_ = st.FinishTransfer(3)
+	_, _ = st.SetInProgress(4, 3, 4, 5)
+
+	completed, sent, arrived, total = st.GetProgress()
+	err = checkSentProgress(
+		completed, sent, arrived, total, false, 3, 13, numParts)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_ = st.FinishTransfer(4)
+
+	completed, sent, arrived, total = st.GetProgress()
+	err = checkSentProgress(completed, sent, arrived, total, true, 0, 16, numParts)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+// Tests that 5 different callbacks all receive the expected data when
+// SentTransfer.CallProgressCB is called at different stages of transfer.
+func TestSentTransfer_CallProgressCB(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+
+	type progressResults struct {
+		completed            bool
+		sent, arrived, total uint16
+		err                  error
+	}
+
+	period := time.Millisecond
+
+	wg := sync.WaitGroup{}
+	var step0, step1, step2, step3 uint64
+	numCallbacks := 5
+
+	for i := 0; i < numCallbacks; i++ {
+		progressChan := make(chan progressResults)
+
+		cbFunc := func(completed bool, sent, arrived, total uint16, err error) {
+			progressChan <- progressResults{completed, sent, arrived, total, err}
+		}
+		wg.Add(1)
+
+		go func(i int) {
+			defer wg.Done()
+			n := 0
+			for {
+				select {
+				case <-time.NewTimer(time.Second).C:
+					t.Errorf("Timed out after %s waiting for callback (%d).",
+						period*5, i)
+					return
+				case r := <-progressChan:
+					switch n {
+					case 0:
+						if err := checkSentProgress(r.completed, r.sent, r.arrived,
+							r.total, false, 0, 0, st.numParts); err != nil {
+							t.Errorf("%2d: %+v", i, err)
+						}
+						atomic.AddUint64(&step0, 1)
+					case 1:
+						if err := checkSentProgress(r.completed, r.sent, r.arrived,
+							r.total, false, 0, 0, st.numParts); err != nil {
+							t.Errorf("%2d: %+v", i, err)
+						}
+						atomic.AddUint64(&step1, 1)
+					case 2:
+						if err := checkSentProgress(r.completed, r.sent, r.arrived,
+							r.total, false, 0, 6, st.numParts); err != nil {
+							t.Errorf("%2d: %+v", i, err)
+						}
+						atomic.AddUint64(&step2, 1)
+					case 3:
+						if err := checkSentProgress(r.completed, r.sent, r.arrived,
+							r.total, true, 0, 16, st.numParts); err != nil {
+							t.Errorf("%2d: %+v", i, err)
+						}
+						atomic.AddUint64(&step3, 1)
+						return
+					default:
+						t.Errorf("n (%d) is great than 3 (%d)", n, i)
+						return
+					}
+					n++
+				}
+			}
+		}(i)
+
+		st.AddProgressCB(cbFunc, period)
+	}
+
+	for !atomic.CompareAndSwapUint64(&step0, uint64(numCallbacks), 0) {
+	}
+
+	st.CallProgressCB(nil)
+
+	for !atomic.CompareAndSwapUint64(&step1, uint64(numCallbacks), 0) {
+	}
+
+	_, _ = st.SetInProgress(0, 0, 1, 2)
+	_, _ = st.SetInProgress(1, 3, 4, 5)
+	_, _ = st.SetInProgress(2, 6, 7, 8)
+	_, _ = st.UnsetInProgress(1)
+	_ = st.FinishTransfer(0)
+	_ = st.FinishTransfer(2)
+
+	st.CallProgressCB(nil)
+
+	for !atomic.CompareAndSwapUint64(&step2, uint64(numCallbacks), 0) {
+	}
+
+	_, _ = st.SetInProgress(4, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15)
+	_ = st.FinishTransfer(4)
+
+	st.CallProgressCB(nil)
+
+	wg.Wait()
+}
+
+// Tests that SentTransfer.AddProgressCB adds an item to the progress callback
+// list.
+func TestSentTransfer_AddProgressCB(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+
+	type callbackResults struct {
+		completed            bool
+		sent, arrived, total uint16
+		err                  error
+	}
+	cbChan := make(chan callbackResults)
+	cbFunc := interfaces.SentProgressCallback(
+		func(completed bool, sent, arrived, total uint16, err error) {
+			cbChan <- callbackResults{completed, sent, arrived, total, err}
+		})
+
+	done := make(chan bool)
+	go func() {
+		select {
+		case <-time.NewTimer(time.Millisecond).C:
+			t.Error("Timed out waiting for progress callback to be called.")
+		case r := <-cbChan:
+			err := checkSentProgress(
+				r.completed, r.sent, r.arrived, r.total, false, 0, 0, 16)
+			if err != nil {
+				t.Error(err)
+			}
+			if r.err != nil {
+				t.Errorf("Callback returned an error: %+v", err)
+			}
+		}
+		done <- true
+	}()
+
+	period := time.Millisecond
+	st.AddProgressCB(cbFunc, period)
+
+	if len(st.progressCallbacks) != 1 {
+		t.Errorf("Callback list should only have one item."+
+			"\nexpected: %d\nreceived: %d", 1, len(st.progressCallbacks))
+	}
+
+	if st.progressCallbacks[0].period != period {
+		t.Errorf("Callback has wrong lastCall.\nexpected: %s\nreceived: %s",
+			period, st.progressCallbacks[0].period)
+	}
+
+	if st.progressCallbacks[0].lastCall != (time.Time{}) {
+		t.Errorf("Callback has wrong time.\nexpected: %s\nreceived: %s",
+			time.Time{}, st.progressCallbacks[0].lastCall)
+	}
+
+	if st.progressCallbacks[0].scheduled {
+		t.Errorf("Callback has wrong scheduled.\nexpected: %t\nreceived: %t",
+			false, st.progressCallbacks[0].scheduled)
+	}
+	<-done
+}
+
+// Loops through each file part encrypting it with SentTransfer.GetEncryptedPart
+// and tests that it returns an encrypted part, MAC, and padding (nonce) that
+// can be used to successfully decrypt and get the original part. Also tests
+// that fingerprints are valid and not used more than once.
+// It also tests that
+func TestSentTransfer_GetEncryptedPart(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+	prng := NewPrng(42)
+
+	// Create and fill fingerprint map used to check fingerprint validity
+	// The first item in the uint16 slice is the fingerprint number and the
+	// second item is the number of times it has been used
+	fpMap := make(map[format.Fingerprint][]uint16, st.numFps)
+	for num, fp := range ftCrypto.GenerateFingerprints(st.key, st.numFps) {
+		fpMap[fp] = []uint16{uint16(num), 0}
+	}
+
+	for i := uint16(0); i < st.numFps; i++ {
+		partNum := i % st.numParts
+
+		encPart, mac, padding, fp, err := st.GetEncryptedPart(partNum, 16, prng)
+		if err != nil {
+			t.Fatalf("GetEncryptedPart returned an error for part number "+
+				"%d (%d): %+v", partNum, i, err)
+		}
+
+		// Check that the fingerprint is valid
+		fpNum, exists := fpMap[fp]
+		if !exists {
+			t.Errorf("Fingerprint %s invalid for part number %d (%d).",
+				fp, partNum, i)
+		}
+
+		// Check that the fingerprint has not been used
+		if fpNum[1] > 0 {
+			t.Errorf("Fingerprint %s for part number %d already used by %d "+
+				"other parts (%d).", fp, partNum, fpNum[1], i)
+		}
+
+		// Attempt to decrypt the part
+		part, err := ftCrypto.DecryptPart(st.key, encPart, padding, mac, fpNum[0])
+		if err != nil {
+			t.Errorf("Failed to decrypt file part number %d (%d): %+v",
+				partNum, i, err)
+		}
+
+		// Make sure the decrypted part matches the original
+		expectedPart, _ := st.sentParts.getPart(i % st.numParts)
+		if !bytes.Equal(expectedPart, part) {
+			t.Errorf("Decyrpted part number %d does not match expected (%d)."+
+				"\nexpected: %+v\nreceived: %+v", partNum, i, expectedPart, part)
+		}
+	}
+}
+
+// Error path: tests that SentTransfer.GetEncryptedPart returns the expected
+// error when no part for the given part number exists.
+func TestSentTransfer_GetEncryptedPart_NoPartError(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+	prng := NewPrng(42)
+
+	partNum := st.numParts + 1
+	expectedErr := fmt.Sprintf(noPartNumErr, partNum)
+
+	_, _, _, _, err := st.GetEncryptedPart(partNum, 16, prng)
+	if err == nil || err.Error() != expectedErr {
+		t.Errorf("GetEncryptedPart did not return the expected error for a "+
+			"nonexistent part number %d.\nexpected: %s\nreceived: %+v",
+			partNum, expectedErr, err)
+	}
+}
+
+// Error path: tests that SentTransfer.GetEncryptedPart returns the expected
+// error when no fingerprints are available.
+func TestSentTransfer_GetEncryptedPart_NoFingerprintsError(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+	prng := NewPrng(42)
+
+	// Use up all the fingerprints
+	for i := uint16(0); i < st.numFps; i++ {
+		partNum := i % st.numParts
+		_, _, _, _, err := st.GetEncryptedPart(partNum, 16, prng)
+		if err != nil {
+			t.Errorf("Error when encyrpting part number %d (%d): %+v",
+				partNum, i, err)
+		}
+	}
+
+	// Try to encrypt without any fingerprints
+	_, _, _, _, err := st.GetEncryptedPart(5, 16, prng)
+	if err != MaxRetriesErr {
+		t.Errorf("GetEncryptedPart did not return MaxRetriesErr when all "+
+			"fingerprints have been used.\nexpected: %s\nreceived: %+v",
+			MaxRetriesErr, err)
+	}
+}
+
+// Error path: tests that SentTransfer.GetEncryptedPart returns the expected
+// error when encrypting the part fails due to a PRNG error.
+func TestSentTransfer_GetEncryptedPart_EncryptPartError(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+	prng := NewPrngErr()
+
+	// Create and fill fingerprint map used to check fingerprint validity
+	// The first item in the uint16 slice is the fingerprint number and the
+	// second item is the number of times it has been used
+	fpMap := make(map[format.Fingerprint][]uint16, st.numFps)
+	for num, fp := range ftCrypto.GenerateFingerprints(st.key, st.numFps) {
+		fpMap[fp] = []uint16{uint16(num), 0}
+	}
+
+	partNum := uint16(0)
+	expectedErr := fmt.Sprintf(encryptPartErr, partNum, "")
+
+	_, _, _, _, err := st.GetEncryptedPart(partNum, 16, prng)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("GetEncryptedPart did not return the expected error when "+
+			"the PRNG should have errored.\nexpected: %s\nreceived: %+v",
+			expectedErr, err)
+	}
+}
+
+// Tests that SentTransfer.SetInProgress correctly adds the part numbers for the
+// given round ID to the in-progress map.
+func TestSentTransfer_SetInProgress(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+
+	rid := id.Round(5)
+	expectedPartNums := []uint16{1, 2, 3}
+
+	// Add parts to the in-progress list
+	err, exists := st.SetInProgress(rid, expectedPartNums...)
+	if err != nil {
+		t.Errorf("SetInProgress returned an error: %+v", err)
+	}
+
+	// Check that the round does not already exist
+	if exists {
+		t.Errorf("Round %d already exists.", rid)
+	}
+
+	// Check that the round ID is in the map
+	partNums, exists := st.inProgressTransfers.list[rid]
+	if !exists {
+		t.Errorf("Part numbers for round %d not found.", rid)
+	}
+
+	// Check that the returned part numbers are correct
+	if !reflect.DeepEqual(expectedPartNums, partNums) {
+		t.Errorf("Received part numbers do not match expected."+
+			"\nexpected: %v\nreceived: %v", expectedPartNums, partNums)
+	}
+
+	// Check that only one item was added to the list
+	if len(st.inProgressTransfers.list) > 1 {
+		t.Errorf("Extra items in in-progress list."+
+			"\nexpected: %d\nreceived: %d", 1, len(st.inProgressTransfers.list))
+	}
+
+	// Add more parts to the in-progress list
+	err, exists = st.SetInProgress(rid, expectedPartNums...)
+	if err != nil {
+		t.Errorf("SetInProgress returned an error: %+v", err)
+	}
+
+	// Check that the round already exists
+	if !exists {
+		t.Errorf("Round %d should already exist.", rid)
+	}
+}
+
+// Tests that SentTransfer.GetInProgress returns the correct part numbers for
+// the given round ID in the in-progress map.
+func TestSentTransfer_GetInProgress(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+
+	rid := id.Round(5)
+	expectedPartNums := []uint16{1, 2, 3, 4, 5, 6}
+
+	// Add parts to the in-progress list
+	err, _ := st.SetInProgress(rid, expectedPartNums[:3]...)
+	if err != nil {
+		t.Errorf("Failed to set parts %v to in-progress: %+v",
+			expectedPartNums[3:], err)
+	}
+
+	// Add parts to the in-progress list
+	err, _ = st.SetInProgress(rid, expectedPartNums[3:]...)
+	if err != nil {
+		t.Errorf("Failed to set parts %v to in-progress: %+v",
+			expectedPartNums[:3], err)
+	}
+
+	// Get the in-progress parts
+	receivedPartNums, exists := st.GetInProgress(rid)
+	if !exists {
+		t.Errorf("Failed to find parts for round %d that should exist.", rid)
+	}
+
+	// Check that the returned part numbers are correct
+	if !reflect.DeepEqual(expectedPartNums, receivedPartNums) {
+		t.Errorf("Received part numbers do not match expected."+
+			"\nexpected: %v\nreceived: %v", expectedPartNums, receivedPartNums)
+	}
+}
+
+// Tests that SentTransfer.UnsetInProgress correctly removes the part numbers
+// for the given round ID from the in-progress map.
+func TestSentTransfer_UnsetInProgress(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+
+	rid := id.Round(5)
+	expectedPartNums := []uint16{1, 2, 3, 4, 5, 6}
+
+	// Add parts to the in-progress list
+	if err, _ := st.SetInProgress(rid, expectedPartNums[:3]...); err != nil {
+		t.Errorf("Failed to set parts in-progress: %+v", err)
+	}
+	if err, _ := st.SetInProgress(rid, expectedPartNums[3:]...); err != nil {
+		t.Errorf("Failed to set parts in-progress: %+v", err)
+	}
+
+	// Remove parts from in-progress list
+	receivedPartNums, err := st.UnsetInProgress(rid)
+	if err != nil {
+		t.Errorf("UnsetInProgress returned an error: %+v", err)
+	}
+
+	if !reflect.DeepEqual(expectedPartNums, receivedPartNums) {
+		t.Errorf("Received part numbers do not match expected."+
+			"\nexpected: %v\nreceived: %v", expectedPartNums, receivedPartNums)
+	}
+
+	// Check that the round ID is not the map
+	partNums, exists := st.inProgressTransfers.list[rid]
+	if exists {
+		t.Errorf("Part numbers for round %d found: %v", rid, partNums)
+	}
+
+	// Check that the list is empty
+	if len(st.inProgressTransfers.list) != 0 {
+		t.Errorf("Extra items in in-progress list."+
+			"\nexpected: %d\nreceived: %d", 0, len(st.inProgressTransfers.list))
+	}
+}
+
+// Tests that SentTransfer.FinishTransfer removes the parts from the in-progress
+// list and moved them to the finished list.
+func TestSentTransfer_FinishTransfer(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+
+	rid := id.Round(5)
+	expectedPartNums := []uint16{1, 2, 3}
+
+	// Add parts to the in-progress list
+	err, _ := st.SetInProgress(rid, expectedPartNums...)
+	if err != nil {
+		t.Errorf("Failed to add parts to in-progress list: %+v", err)
+	}
+
+	// Move transfers to the finished list
+	err = st.FinishTransfer(rid)
+	if err != nil {
+		t.Errorf("FinishTransfer returned an error: %+v", err)
+	}
+
+	// Check that the round ID is not in the in-progress map
+	_, exists := st.inProgressTransfers.list[rid]
+	if exists {
+		t.Errorf("Found parts for round %d that should not be in map.", rid)
+	}
+
+	// Check that the round ID is in the finished map
+	partNums, exists := st.finishedTransfers.list[rid]
+	if !exists {
+		t.Errorf("Part numbers for round %d not found.", rid)
+	}
+
+	// Check that the returned part numbers are correct
+	if !reflect.DeepEqual(expectedPartNums, partNums) {
+		t.Errorf("Received part numbers do not match expected."+
+			"\nexpected: %+v\nreceived: %+v", expectedPartNums, partNums)
+	}
+
+	// Check that only one item was added to the list
+	if len(st.finishedTransfers.list) > 1 {
+		t.Errorf("Extra items in finished list."+
+			"\nexpected: %d\nreceived: %d", 1, len(st.finishedTransfers.list))
+	}
+}
+
+// Error path: tests that SentTransfer.FinishTransfer returns the expected error
+// when the round ID is found in the in-progress map.
+func TestSentTransfer_FinishTransfer_NoRoundErr(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+
+	rid := id.Round(5)
+	expectedErr := fmt.Sprintf(noPartsForRoundErr, rid)
+
+	// Move transfers to the finished list
+	err := st.FinishTransfer(rid)
+	if err == nil || err.Error() != expectedErr {
+		t.Errorf("Did not get expected error when round ID not in in-progress "+
+			"map.\nexpected: %s\nreceived: %+v", expectedErr, err)
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Storage Function Testing                                                   //
+////////////////////////////////////////////////////////////////////////////////
+
+// Tests that loadSentTransfer returns a SentTransfer that matches the original
+// object in memory.
+func Test_loadSentTransfer(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	tid, expectedST := newRandomSentTransfer(16, 24, kv, t)
+	err, _ := expectedST.SetInProgress(5, 3, 4, 5)
+	if err != nil {
+		t.Errorf("Failed to add parts to in-progress transfer: %+v", err)
+	}
+	err, _ = expectedST.SetInProgress(10, 10, 11, 12)
+	if err != nil {
+		t.Errorf("Failed to add parts to in-progress transfer: %+v", err)
+	}
+
+	err = expectedST.FinishTransfer(10)
+	if err != nil {
+		t.Errorf("Failed to move parts to finished transfer: %+v", err)
+	}
+
+	loadedST, err := loadSentTransfer(tid, kv)
+	if err != nil {
+		t.Errorf("loadSentTransfer returned an error: %+v", err)
+	}
+
+	loadedST.progressCallbacks = expectedST.progressCallbacks
+
+	if !reflect.DeepEqual(expectedST, loadedST) {
+		t.Errorf("Loaded SentTransfer does not match expected."+
+			"\nexpected: %+v\nreceived: %+v", expectedST, loadedST)
+	}
+}
+
+// Error path: tests that loadSentTransfer returns the expected error when no
+// transfer with the given ID exists in storage.
+func Test_loadSentTransfer_LoadInfoError(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	tid := ftCrypto.UnmarshalTransferID([]byte("invalidTransferID"))
+
+	expectedErr := strings.Split(loadSentStoreErr, "%")[0]
+	_, err := loadSentTransfer(tid, kv)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("loadSentTransfer did not return the expected error when no "+
+			"transfer with the ID %s exists in storage."+
+			"\nexpected: %s\nreceived: %+v", tid, expectedErr, err)
+	}
+}
+
+// Error path: tests that loadSentTransfer returns the expected error when the
+// fingerprint state vector was deleted from storage.
+func Test_loadSentTransfer_LoadStateVectorError(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	tid, st := newRandomSentTransfer(16, 24, kv, t)
+
+	// Delete the fingerprint state vector from storage
+	err := st.fpVector.Delete()
+	if err != nil {
+		t.Errorf("Failed to delete the fingerprint vector: %+v", err)
+	}
+
+	expectedErr := strings.Split(loadSentFpVectorErr, "%")[0]
+	_, err = loadSentTransfer(tid, kv)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("loadSentTransfer did not return the expected error when "+
+			"the fingerprint vector was delete from storage."+
+			"\nexpected: %s\nreceived: %+v", expectedErr, err)
+	}
+}
+
+// Error path: tests that loadSentTransfer returns the expected error when the
+// part store was deleted from storage.
+func Test_loadSentTransfer_LoadPartStoreError(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	tid, st := newRandomSentTransfer(16, 24, kv, t)
+
+	// Delete the part store from storage
+	err := st.sentParts.delete()
+	if err != nil {
+		t.Errorf("Failed to delete the part store: %+v", err)
+	}
+
+	expectedErr := strings.Split(loadSentPartStoreErr, "%")[0]
+	_, err = loadSentTransfer(tid, kv)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("loadSentTransfer did not return the expected error when "+
+			"the part store was delete from storage."+
+			"\nexpected: %s\nreceived: %+v", expectedErr, err)
+	}
+}
+
+// Error path: tests that loadSentTransfer returns the expected error when the
+// in-progress transfers bundle was deleted from storage.
+func Test_loadSentTransfer_LoadInProgressTransfersError(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	tid, st := newRandomSentTransfer(16, 24, kv, t)
+
+	// Delete the in-progress transfers bundle from storage
+	err := st.inProgressTransfers.delete()
+	if err != nil {
+		t.Errorf("Failed to delete the in-progress transfers bundle: %+v", err)
+	}
+
+	expectedErr := strings.Split(loadInProgressTransfersErr, "%")[0]
+	_, err = loadSentTransfer(tid, kv)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("loadSentTransfer did not return the expected error when "+
+			"the in-progress transfers bundle was delete from storage."+
+			"\nexpected: %s\nreceived: %+v", expectedErr, err)
+	}
+}
+
+// Error path: tests that loadSentTransfer returns the expected error when the
+// finished transfers bundle was deleted from storage.
+func Test_loadSentTransfer_LoadFinishedTransfersError(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	tid, st := newRandomSentTransfer(16, 24, kv, t)
+
+	// Delete the finished transfers bundle from storage
+	err := st.finishedTransfers.delete()
+	if err != nil {
+		t.Errorf("Failed to delete the finished transfers bundle: %+v", err)
+	}
+
+	expectedErr := strings.Split(loadFinishedTransfersErr, "%")[0]
+	_, err = loadSentTransfer(tid, kv)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("loadSentTransfer did not return the expected error when "+
+			"the finished transfers bundle was delete from storage."+
+			"\nexpected: %s\nreceived: %+v", expectedErr, err)
+	}
+}
+
+// Tests that SentTransfer.saveInfo saves the expected data to storage.
+func TestSentTransfer_saveInfo(t *testing.T) {
+	st := &SentTransfer{
+		key:      ftCrypto.UnmarshalTransferKey([]byte("key")),
+		numParts: 16,
+		kv:       versioned.NewKV(make(ekv.Memstore)),
+	}
+
+	err := st.saveInfo()
+	if err != nil {
+		t.Errorf("saveInfo returned an error: %+v", err)
+	}
+
+	vo, err := st.kv.Get(sentTransferKey, sentTransferVersion)
+	if err != nil {
+		t.Errorf("Failed to load SentTransfer from storage: %+v", err)
+	}
+
+	if !bytes.Equal(st.marshal(), vo.Data) {
+		t.Errorf("Marshalled data loaded from storage does not match expected."+
+			"\nexpected: %+v\nreceived: %+v", st.marshal(), vo.Data)
+	}
+}
+
+// Tests that SentTransfer.loadInfo loads a saved SentTransfer from storage.
+func TestSentTransfer_loadInfo(t *testing.T) {
+	st := &SentTransfer{
+		recipient: id.NewIdFromString("recipient", id.User, t),
+		key:       ftCrypto.UnmarshalTransferKey([]byte("key")),
+		numParts:  16,
+		kv:        versioned.NewKV(make(ekv.Memstore)),
+	}
+
+	err := st.saveInfo()
+	if err != nil {
+		t.Errorf("failed to save new SentTransfer to storage: %+v", err)
+	}
+
+	loadedST := &SentTransfer{kv: st.kv}
+	err = loadedST.loadInfo()
+	if err != nil {
+		t.Errorf("load returned an error: %+v", err)
+	}
+
+	if !reflect.DeepEqual(st, loadedST) {
+		t.Errorf("Loaded SentTransfer does not match expected."+
+			"\nexpected: %+v\nreceived: %+v", st, loadedST)
+	}
+}
+
+// Error path: tests that SentTransfer.loadInfo returns an error when there is
+// no object in storage to load
+func TestSentTransfer_loadInfo_Error(t *testing.T) {
+	loadedST := &SentTransfer{kv: versioned.NewKV(make(ekv.Memstore))}
+	err := loadedST.loadInfo()
+	if err == nil {
+		t.Errorf("Loaded object that should not be in storage: %+v", err)
+	}
+}
+
+// Tests that SentTransfer.delete removes all data from storage.
+func TestSentTransfer_delete(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+
+	// Add in-progress transfers
+	err, _ := st.SetInProgress(5, 3, 4, 5)
+	if err != nil {
+		t.Errorf("Failed to add parts to in-progress transfer: %+v", err)
+	}
+	err, _ = st.SetInProgress(10, 10, 11, 12)
+	if err != nil {
+		t.Errorf("Failed to add parts to in-progress transfer: %+v", err)
+	}
+
+	// Mark last in-progress transfer and finished
+	err = st.FinishTransfer(10)
+	if err != nil {
+		t.Errorf("Failed to move parts to finished transfer: %+v", err)
+	}
+
+	// Delete everything from storage
+	err = st.delete()
+	if err != nil {
+		t.Errorf("delete returned an error: %+v", err)
+	}
+
+	// Check that the SentTransfer info was deleted
+	err = st.loadInfo()
+	if err == nil {
+		t.Error("Successfully loaded SentTransfer info from storage when it " +
+			"should have been deleted.")
+	}
+
+	// Check that the parts store were deleted
+	_, err = loadPartStore(st.kv)
+	if err == nil {
+		t.Error("Successfully loaded file parts from storage when it should " +
+			"have been deleted.")
+	}
+
+	// Check that the in-progress transfers were deleted
+	_, err = loadTransferredBundle(inProgressKey, st.kv)
+	if err == nil {
+		t.Error("Successfully loaded in-progress transfers from storage when " +
+			"it should have been deleted.")
+	}
+
+	// Check that the finished transfers were deleted
+	_, err = loadTransferredBundle(finishedKey, st.kv)
+	if err == nil {
+		t.Error("Successfully loaded finished transfers from storage when " +
+			"it should have been deleted.")
+	}
+
+	// Check that the fingerprint vector was deleted
+	_, err = utility.LoadStateVector(st.kv, sentFpVectorKey)
+	if err == nil {
+		t.Error("Successfully loaded fingerprint vector from storage when it " +
+			"should have been deleted.")
+	}
+}
+
+// Tests that SentTransfer.deleteInfo removes the saved SentTransfer data from
+// storage.
+func TestSentTransfer_deleteInfo(t *testing.T) {
+	st := &SentTransfer{
+		key:      ftCrypto.UnmarshalTransferKey([]byte("key")),
+		numParts: 16,
+		kv:       versioned.NewKV(make(ekv.Memstore)),
+	}
+
+	// Save from storage
+	err := st.saveInfo()
+	if err != nil {
+		t.Errorf("failed to save new SentTransfer to storage: %+v", err)
+	}
+
+	// Delete from storage
+	err = st.deleteInfo()
+	if err != nil {
+		t.Errorf("deleteInfo returned an error: %+v", err)
+	}
+
+	// Make sure deleted object cannot be loaded from storage
+	_, err = st.kv.Get(sentTransferKey, sentTransferVersion)
+	if err == nil {
+		t.Error("Loaded object that should be deleted from storage.")
+	}
+}
+
+// Tests that a SentTransfer marshalled with SentTransfer.marshal and then
+// unmarshalled with unmarshalSentTransfer matches the original.
+func TestSentTransfer_marshal_unmarshalSentTransfer(t *testing.T) {
+	st := &SentTransfer{
+		recipient: id.NewIdFromString("testRecipient", id.User, t),
+		key:       ftCrypto.UnmarshalTransferKey([]byte("key")),
+		numParts:  16,
+		numFps:    20,
+	}
+
+	marshaledData := st.marshal()
+
+	recipient, key, numParts, numFps := unmarshalSentTransfer(marshaledData)
+
+	if !st.recipient.Cmp(recipient) {
+		t.Errorf("Failed to get recipient ID.\nexpected: %s\nreceived: %s",
+			st.recipient, recipient)
+	}
+
+	if st.key != key {
+		t.Errorf("Failed to get expected key.\nexpected: %s\nreceived: %s",
+			st.key, key)
+	}
+
+	if st.numParts != numParts {
+		t.Errorf("Failed to get expected number of parts."+
+			"\nexpected: %d\nreceived: %d", st.numParts, numParts)
+	}
+
+	if st.numFps != numFps {
+		t.Errorf("Failed to get expected number of fingerprints."+
+			"\nexpected: %d\nreceived: %d", st.numFps, numFps)
+	}
+}
+
+// Consistency test: tests that makeSentTransferPrefix returns the expected
+// prefixes for the provided transfer IDs.
+func Test_makeSentTransferPrefix_Consistency(t *testing.T) {
+	prng := NewPrng(42)
+	expectedPrefixes := []string{
+		"FileTransferSentTransferStoreU4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVI=",
+		"FileTransferSentTransferStore39ebTXZCm2F6DJ+fDTulWwzA1hRMiIU1hBrL4HCbB1g=",
+		"FileTransferSentTransferStoreCD9h03W8ArQd9PkZKeGP2p5vguVOdI6B555LvW/jTNw=",
+		"FileTransferSentTransferStoreuoQ+6NY+jE/+HOvqVG2PrBPdGqwEzi6ih3xVec+ix44=",
+		"FileTransferSentTransferStoreGwuvrogbgqdREIpC7TyQPKpDRlp4YgYWl4rtDOPGxPM=",
+		"FileTransferSentTransferStorernvD4ElbVxL+/b4MECiH4QDazS2IX2kstgfaAKEcHHA=",
+		"FileTransferSentTransferStoreceeWotwtwlpbdLLhKXBeJz8FySMmgo4rBW44F2WOEGE=",
+		"FileTransferSentTransferStoreSYlH/fNEQQ7UwRYCP6jjV2tv7Sf/iXS6wMr9mtBWkrE=",
+		"FileTransferSentTransferStoreNhnnOJZN/ceejVNDc2Yc/WbXT+weG4lJGrcjbkt1IWI=",
+		"FileTransferSentTransferStorekM8r60LDyicyhWDxqsBnzqbov0bUqytGgEAsX7KCDog=",
+	}
+
+	for i, expected := range expectedPrefixes {
+		tid, _ := ftCrypto.NewTransferID(prng)
+		prefix := makeSentTransferPrefix(tid)
+
+		if expected != prefix {
+			t.Errorf("New SentTransfer prefix does not match expected (%d)."+
+				"\nexpected: %s\nreceived: %s", i, expected, prefix)
+		}
+	}
+}
+
+// newRandomSentTransfer generates a new SentTransfer with random data.
+func newRandomSentTransfer(numParts, numFps uint16, kv *versioned.KV,
+	t *testing.T) (ftCrypto.TransferID, *SentTransfer) {
+	// Generate new PRNG with the seed generated by multiplying the pointer for
+	// numParts with the current UNIX time in nanoseconds
+	seed, _ := strconv.ParseInt(fmt.Sprintf("%d", &numParts), 10, 64)
+	seed *= netTime.Now().UnixNano()
+	prng := NewPrng(seed)
+
+	recipient, _ := id.NewRandomID(prng, id.User)
+	tid, _ := ftCrypto.NewTransferID(prng)
+	key, _ := ftCrypto.NewTransferKey(prng)
+	parts := make([][]byte, numParts)
+	for i := uint16(0); i < numParts; i++ {
+		parts[i] = make([]byte, 16)
+		_, err := prng.Read(parts[i])
+		if err != nil {
+			t.Errorf("Failed to generate random part: %+v", err)
+		}
+	}
+
+	st, err := NewSentTransfer(recipient, tid, key, parts, numFps, nil, 0, kv)
+	if err != nil {
+		t.Errorf("Failed to create new SentTansfer: %+v", err)
+	}
+
+	return tid, st
+}
+
+// checkSentProgress compares the output of SentTransfer.GetProgress to expected
+// values.
+func checkSentProgress(completed bool, sent, arrived, total uint16,
+	eCompleted bool, eSent, eArrived, eTotal uint16) error {
+	if eCompleted != completed || eSent != sent || eArrived != arrived ||
+		eTotal != total {
+		return errors.Errorf("Returned progress does not match expected."+
+			"\n          completed  sent  arrived  total"+
+			"\nexpected:     %5t   %3d      %3d    %3d"+
+			"\nreceived:     %5t   %3d      %3d    %3d",
+			eCompleted, eSent, eArrived, eTotal,
+			completed, sent, arrived, total)
+	}
+
+	return nil
+}

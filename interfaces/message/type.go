@@ -53,4 +53,8 @@ const (
 	/* Group chat message types */
 	// A group chat request message sent to all members in a group.
 	GroupCreationRequest = 40
+
+	// NewFileTransfer is the initial message that initiates a large file
+	// transfer.
+	NewFileTransfer = 50
 )

@@ -224,7 +224,7 @@ func TestStore_PopKey(t *testing.T) {
 	}
 	if key != nil {
 		t.Errorf("PopKey() did not return a nil Key when it should not exist."+
-			"\n\texpected: +%v\n\treceived: %+v", nil, key)
+			"\n\texpected: %+v\n\treceived: %+v", nil, key)
 	}
 
 	// Add a Key

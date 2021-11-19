@@ -9,6 +9,7 @@ package e2e
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
@@ -197,7 +198,7 @@ func getSession(t *testing.T) *Session {
 		grp: grp,
 	}
 
-	keyState, err := newStateVector(versioned.NewKV(make(ekv.Memstore)), "keyState", rand.Uint32())
+	keyState, err := utility.NewStateVector(versioned.NewKV(make(ekv.Memstore)), "keyState", rand.Uint32())
 	if err != nil {
 		panic(err)
 	}

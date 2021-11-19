@@ -29,6 +29,7 @@ import (
 // Unit test
 func Test_attemptSendManyCmix(t *testing.T) {
 	sess1 := storage.InitTestingSession(t)
+	events := &dummyEvent{}
 
 	numRecipients := 3
 	recipients := make([]*id.ID, numRecipients)
@@ -121,13 +122,17 @@ func Test_attemptSendManyCmix(t *testing.T) {
 		messages[i] = msgCmix
 	}
 
-	msgMap := make(map[id.ID]format.Message, numRecipients)
+	msgList := make([]message.TargetedCmixMessage, numRecipients)
 	for i := 0; i < numRecipients; i++ {
-		msgMap[*recipients[i]] = msgCmix
+		msgList[i] = message.TargetedCmixMessage{
+			Recipient: recipients[i],
+			Message:   msgCmix,
+		}
 	}
 
-	_, _, err = sendManyCmixHelper(sender, msgMap, params.GetDefaultCMIX(), m.Instance,
-		m.Session, m.nodeRegistration, m.Rng, m.TransmissionID, &MockSendCMIXComms{t: t})
+	_, _, err = sendManyCmixHelper(sender, msgList, params.GetDefaultCMIX(),
+		make(map[string]interface{}), m.Instance, m.Session, m.nodeRegistration,
+		m.Rng, events, m.TransmissionID, &MockSendCMIXComms{t: t}, nil)
 	if err != nil {
 		t.Errorf("Failed to sendcmix: %+v", err)
 	}

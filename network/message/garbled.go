@@ -8,11 +8,15 @@
 package message
 
 import (
+	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
+	"time"
 )
 
 // Messages can arrive in the network out of order. When message handling fails
@@ -76,6 +80,39 @@ func (m *Manager) handleGarbledMessages() {
 					continue
 				}
 			}
+		} else {
+			// todo: figure out how to get the ephermal reception id in here.
+			// we have the raw data, but do not know what address space was
+			// used int he round
+			// todo: figure out how to get the round id, the recipient id, and the round timestamp
+			/*
+				ephid, err := ephemeral.Marshal(garbledMsg.GetEphemeralRID())
+				if err!=nil{
+					jww.WARN.Printf("failed to get the ephemeral id for a garbled " +
+						"message, clearing the message: %+v", err)
+					garbledMsgs.Remove(garbledMsg)
+					continue
+				}
+
+				ephid.Clear(m.)*/
+
+			raw := message.Receive{
+				Payload:        grbldMsg.Marshal(),
+				MessageType:    message.Raw,
+				Sender:         &id.ID{},
+				EphemeralID:    ephemeral.Id{},
+				Timestamp:      time.Time{},
+				Encryption:     message.None,
+				RecipientID:    &id.ID{},
+				RoundId:        0,
+				RoundTimestamp: time.Time{},
+			}
+			im := fmt.Sprintf("Garbled/RAW Message reprecessed: keyFP: %v, "+
+				"msgDigest: %s", grbldMsg.GetKeyFP(), grbldMsg.Digest())
+			jww.INFO.Print(im)
+			m.Internal.Events.Report(1, "MessageReception", "Garbled", im)
+			m.Session.GetGarbledMessages().Add(grbldMsg)
+			m.Switchboard.Speak(raw)
 		}
 		// fail the message if any part of the decryption fails,
 		// unless it is the last attempts and has been in the buffer long

@@ -87,7 +87,7 @@ func (t *testNetworkManagerGeneric) SendCMIX(message format.Message, rid *id.ID,
 
 }
 
-func (t *testNetworkManagerGeneric) SendManyCMIX(messages map[id.ID]format.Message, p params.CMIX) (id.Round, []ephemeral.Id, error) {
+func (t *testNetworkManagerGeneric) SendManyCMIX(messages []message.TargetedCmixMessage, p params.CMIX) (id.Round, []ephemeral.Id, error) {
 	return id.Round(0), []ephemeral.Id{}, nil
 }
 
@@ -219,7 +219,7 @@ func (t *testNetworkManagerFullExchange) SendCMIX(message format.Message, eid *i
 	return id.Round(0), ephemeral.Id{}, nil
 }
 
-func (t *testNetworkManagerFullExchange) SendManyCMIX(messages map[id.ID]format.Message, p params.CMIX) (id.Round, []ephemeral.Id, error) {
+func (t *testNetworkManagerFullExchange) SendManyCMIX(messages []message.TargetedCmixMessage, p params.CMIX) (id.Round, []ephemeral.Id, error) {
 	return id.Round(0), []ephemeral.Id{}, nil
 }
 

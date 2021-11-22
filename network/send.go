@@ -36,10 +36,10 @@ func (m *manager) SendCMIX(msg format.Message, recipient *id.ID, param params.CM
 // SendManyCMIX sends many "raw" CMIX message payloads to each of the
 // provided recipients. Used for group chat functionality. Returns the
 // round ID of the round the payload was sent or an error if it fails.
-func (m *manager) SendManyCMIX(messages map[id.ID]format.Message,
+func (m *manager) SendManyCMIX(msgs []message.TargetedCmixMessage,
 	p params.CMIX) (id.Round, []ephemeral.Id, error) {
 
-	return m.message.SendManyCMIX(m.sender, messages, p)
+	return m.message.SendManyCMIX(m.sender, msgs, p, nil)
 }
 
 // SendUnsafe sends an unencrypted payload to the provided recipient

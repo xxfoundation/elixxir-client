@@ -129,6 +129,10 @@ func TestValidFilterRange(t *testing.T) {
 		RoundRange: roundRange,
 	}
 
+	// Fix for test on Windows machines: provides extra buffer between
+	// time.Now() for the reception.Identity and the mixmessages.ClientBlooms
+	time.Sleep(time.Millisecond)
+
 	msg := &mixmessages.ClientBlooms{
 		Period:         int64(12 * time.Hour),
 		FirstTimestamp: time.Now().UnixNano(),

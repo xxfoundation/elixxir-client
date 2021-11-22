@@ -1,0 +1,21 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
+syntax = "proto3";
+
+package parse;
+option go_package = "fileTransfer";
+
+message NewFileTransfer {
+    string fileName    = 1; // Name of the file; max 32 characters
+    bytes transferKey  = 2; // 256 bit encryption key to identify the transfer
+    bytes transferMac  = 3; // 256 bit MAC of the entire file
+    uint32 numParts    = 4; // Number of file parts
+    uint32 size        = 5; // The size of the file; max of 4 mB
+    float retry        = 6; // Used to determine how many times to retry sending
+    bytes preview      = 7; // A preview of the file; max of 4 kB
+}

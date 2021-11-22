@@ -8,6 +8,8 @@
 package bindings
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	gc "gitlab.com/elixxir/client/groupChat"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
@@ -167,6 +169,12 @@ type NewGroupReport struct {
 	err string
 }
 
+type GroupReportDisk struct {
+	List []id.Round
+	GrpId  []byte
+	Status int
+}
+
 // GetGroup returns the Group.
 func (ngr *NewGroupReport) GetGroup() *Group {
 	return ngr.group
@@ -191,6 +199,36 @@ func (ngr *NewGroupReport) GetStatus() int {
 // Will be an empty string if no error occured
 func (ngr *NewGroupReport) GetError() string {
 	return ngr.err
+}
+
+
+func (ngr *NewGroupReport) Marshal() ([]byte, error) {
+	grpReportDisk := GroupReportDisk{
+		List: ngr.rounds,
+		GrpId:  ngr.group.GetID()[:],
+		Status: ngr.GetStatus(),
+	}
+	return json.Marshal(&grpReportDisk)
+}
+
+func (ngr *NewGroupReport) Unmarshal(b []byte) error {
+	grpReportDisk := GroupReportDisk{}
+	if err := json.Unmarshal(b, &grpReportDisk); err != nil {
+		return errors.New(fmt.Sprintf("Failed to unmarshal group "+
+			"report: %s", err.Error()))
+	}
+
+	grpId, err := id.Unmarshal(grpReportDisk.GrpId)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to unmarshal group "+
+			"id: %s", err.Error()))
+	}
+
+	ngr.group.g.ID = grpId
+	ngr.rounds = grpReportDisk.List
+	ngr.status = gc.RequestStatus(grpReportDisk.Status)
+
+	return nil
 }
 
 ////

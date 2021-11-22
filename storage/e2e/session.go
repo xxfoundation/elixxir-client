@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
@@ -63,7 +64,7 @@ type Session struct {
 
 	// Received Keys dirty bits
 	// Each bit represents a single Key
-	keyState *stateVector
+	keyState *utility.StateVector
 
 	//mutex
 	mux sync.RWMutex
@@ -213,12 +214,12 @@ func (s *Session) Delete() {
 	sessionErr := s.kv.Delete(sessionKey, currentSessionVersion)
 
 	if stateVectorErr != nil && sessionErr != nil {
-		jww.ERROR.Printf("Error deleting state vector with key %v: %v", stateVectorKey, stateVectorErr.Error())
+		jww.ERROR.Printf("Error deleting state vector %s: %v", s.keyState, stateVectorErr.Error())
 		jww.ERROR.Panicf("Error deleting session with key %v: %v", sessionKey, sessionErr)
 	} else if sessionErr != nil {
 		jww.ERROR.Panicf("Error deleting session with key %v: %v", sessionKey, sessionErr)
 	} else if stateVectorErr != nil {
-		jww.ERROR.Panicf("Error deleting state vector with key %v: %v", stateVectorKey, stateVectorErr.Error())
+		jww.ERROR.Panicf("Error deleting state vector %s: %v", s.keyState, stateVectorErr.Error())
 	}
 }
 
@@ -330,7 +331,7 @@ func (s *Session) unmarshal(b []byte) error {
 	s.partner, _ = id.Unmarshal(sd.Partner)
 	copy(s.partnerSource[:], sd.Trigger)
 
-	s.keyState, err = loadStateVector(s.kv, "")
+	s.keyState, err = utility.LoadStateVector(s.kv, "")
 	if err != nil {
 		return err
 	}
@@ -582,7 +583,7 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 	// To generate the state vector key correctly,
 	// basekey must be computed as the session ID is the hash of basekey
 	var err error
-	s.keyState, err = newStateVector(kv, "", numKeys)
+	s.keyState, err = utility.NewStateVector(kv, "", numKeys)
 	if err != nil {
 		jww.FATAL.Printf("Failed key generation: %s", err)
 	}

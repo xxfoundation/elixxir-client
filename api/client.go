@@ -500,7 +500,7 @@ func (c *Client) GetErrorsChannel() <-chan interfaces.ClientError {
 //      Handles both auth confirm and requests
 func (c *Client) StartNetworkFollower(timeout time.Duration) error {
 	u := c.GetUser()
-	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
+	jww.INFO.Printf("StartNetworkFollower() \n\tTransmissionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
 	return c.followerServices.start(timeout)
@@ -580,9 +580,9 @@ func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
 }
 
 // GetNodeRegistrationStatus gets the current state of node registration. It
-// returns the the total number of nodes in the NDF and the number of those
-// which are currently registers with. An error is returned if the network is
-// not healthy.
+// returns the total number of nodes in the NDF and the number of those which
+// are currently registers with. An error is returned if the network is not
+// healthy.
 func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	// Return an error if the network is not healthy
 	if !c.GetHealth().IsHealthy() {
@@ -595,11 +595,16 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	cmixStore := c.storage.Cmix()
 
 	var numRegistered int
+	var numStale = 0
 	for i, n := range nodes {
 		nid, err := id.Unmarshal(n.ID)
 		if err != nil {
 			return 0, 0, errors.Errorf("Failed to unmarshal node ID %v "+
 				"(#%d): %s", n.ID, i, err.Error())
+		}
+		if n.Status == ndf.Stale {
+			numStale += 1
+			continue
 		}
 		if cmixStore.Has(nid) {
 			numRegistered++
@@ -607,7 +612,7 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	}
 
 	// Get the number of in progress node registrations
-	return numRegistered, len(nodes), nil
+	return numRegistered, len(nodes) - numStale, nil
 }
 
 // DeleteContact is a function which removes a partner from Client's storage

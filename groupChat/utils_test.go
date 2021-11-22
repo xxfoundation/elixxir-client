@@ -218,7 +218,7 @@ func newTestNetworkManager(sendErr int, t *testing.T) interfaces.NetworkManager 
 
 	return &testNetworkManager{
 		instance: thisInstance,
-		messages: []map[id.ID]format.Message{},
+		messages: [][]message.TargetedCmixMessage{},
 		sendErr:  sendErr,
 	}
 }
@@ -226,14 +226,14 @@ func newTestNetworkManager(sendErr int, t *testing.T) interfaces.NetworkManager 
 // testNetworkManager is a test implementation of NetworkManager interface.
 type testNetworkManager struct {
 	instance    *network.Instance
-	messages    []map[id.ID]format.Message
+	messages    [][]message.TargetedCmixMessage
 	e2eMessages []message.Send
 	errSkip     int
 	sendErr     int
 	sync.RWMutex
 }
 
-func (tnm *testNetworkManager) GetMsgMap(i int) map[id.ID]format.Message {
+func (tnm *testNetworkManager) GetMsgList(i int) []message.TargetedCmixMessage {
 	tnm.RLock()
 	defer tnm.RUnlock()
 	return tnm.messages[i]
@@ -274,8 +274,9 @@ func (tnm *testNetworkManager) SendCMIX(format.Message, *id.ID, params.CMIX) (id
 	return 0, ephemeral.Id{}, nil
 }
 
-func (tnm *testNetworkManager) SendManyCMIX(messages map[id.ID]format.Message,
-	_ params.CMIX) (id.Round, []ephemeral.Id, error) {
+func (tnm *testNetworkManager) SendManyCMIX(
+	messages []message.TargetedCmixMessage, _ params.CMIX) (id.Round,
+	[]ephemeral.Id, error) {
 	if tnm.sendErr == 1 {
 		return 0, nil, errors.New("SendManyCMIX error")
 	}

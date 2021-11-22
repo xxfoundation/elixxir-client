@@ -25,19 +25,20 @@ func TestManager_sendNewFileTransfer(t *testing.T) {
 
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	fileName := "testFile"
+	fileType := "txt"
 	key, _ := ftCrypto.NewTransferKey(NewPrng(42))
 	mac := []byte("transferMac")
 	numParts, fileSize, retry := uint16(16), uint32(256), float32(1.5)
 	preview := []byte("filePreview")
 
-	expected, err := newNewFileTransferE2eMessage(recipient, fileName, key, mac,
-		numParts, fileSize, retry, preview)
+	expected, err := newNewFileTransferE2eMessage(recipient, fileName, fileType,
+		key, mac, numParts, fileSize, retry, preview)
 	if err != nil {
 		t.Errorf("Failed to create new Send message: %+v", err)
 	}
 
-	err = m.sendNewFileTransfer(recipient, fileName, key, mac, numParts,
-		fileSize, retry, preview)
+	err = m.sendNewFileTransfer(recipient, fileName, fileType, key, mac,
+		numParts, fileSize, retry, preview)
 	if err != nil {
 		t.Errorf("sendNewFileTransfer returned an error: %+v", err)
 	}
@@ -60,7 +61,7 @@ func TestManager_sendNewFileTransfer_E2eError(t *testing.T) {
 	key, _ := ftCrypto.NewTransferKey(NewPrng(42))
 
 	expectedErr := fmt.Sprintf(sendE2eErr, recipient, "")
-	err := m.sendNewFileTransfer(recipient, "", key, nil, 16, 256, 1.5, nil)
+	err := m.sendNewFileTransfer(recipient, "", "", key, nil, 16, 256, 1.5, nil)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("sendNewFileTransfer di dnot return the expected error when "+
 			"SendE2E failed.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -80,6 +81,7 @@ func Test_newNewFileTransferE2eMessage(t *testing.T) {
 	key, _ := ftCrypto.NewTransferKey(NewPrng(42))
 	expected := &NewFileTransfer{
 		FileName:    "testFile",
+		FileType:    "txt",
 		TransferKey: key.Bytes(),
 		TransferMac: []byte("transferMac"),
 		NumParts:    16,
@@ -89,8 +91,8 @@ func Test_newNewFileTransferE2eMessage(t *testing.T) {
 	}
 
 	sendMsg, err := newNewFileTransferE2eMessage(recipient, expected.FileName,
-		key, expected.TransferMac, uint16(expected.NumParts), expected.Size,
-		expected.Retry, expected.Preview)
+		expected.FileType, key, expected.TransferMac, uint16(expected.NumParts),
+		expected.Size, expected.Retry, expected.Preview)
 	if err != nil {
 		t.Errorf("newNewFileTransferE2eMessage returned an error: %+v", err)
 	}
@@ -112,7 +114,7 @@ func Test_newNewFileTransferE2eMessage(t *testing.T) {
 		t.Errorf("Failed to unmarshal received NewFileTransfer: %+v", err)
 	}
 
-	if !reflect.DeepEqual(expected, received) {
+	if !proto.Equal(expected, received) {
 		t.Errorf("Received NewFileTransfer does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expected, received)
 	}

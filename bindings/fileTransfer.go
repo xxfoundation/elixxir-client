@@ -38,8 +38,8 @@ type FileTransferReceivedProgressFunc interface {
 // receiver of an incoming file transfer. It is called on the reception of the
 // initial file transfer message.
 type FileTransferReceiveFunc interface {
-	ReceiveCallback(tid []byte, fileName string, sender []byte, size int,
-		preview []byte)
+	ReceiveCallback(tid []byte, fileName, fileType string, sender []byte,
+		size int, preview []byte)
 }
 
 // NewFileTransferManager creates a new file transfer manager and starts the
@@ -50,10 +50,10 @@ type FileTransferReceiveFunc interface {
 func NewFileTransferManager(client *Client, receiveFunc FileTransferReceiveFunc,
 	parameters string) (FileTransfer, error) {
 
-	receiveCB := func(tid ftCrypto.TransferID, fileName string, sender *id.ID,
-		size uint32, preview []byte) {
+	receiveCB := func(tid ftCrypto.TransferID, fileName, fileType string,
+		sender *id.ID, size uint32, preview []byte) {
 		receiveFunc.ReceiveCallback(
-			tid.Bytes(), fileName, sender.Bytes(), int(size), preview)
+			tid.Bytes(), fileName, fileType, sender.Bytes(), int(size), preview)
 	}
 
 	// JSON unmarshal parameters string
@@ -83,7 +83,9 @@ func NewFileTransferManager(client *Client, receiveFunc FileTransferReceiveFunc,
 // Send sends a file to the recipient. The sender must have an E2E relationship
 // with the recipient.
 // The file name is the name of the file to show a user. It has a max length of
-// 32 bytes.
+// 48 bytes.
+// The file type identifies what type of file is being sent. It has a max length
+// of 8 bytes.
 // The file data cannot be larger than 4 mB
 // The retry float is the total amount of data to send relative to the data
 // size. Data will be resent on error and will resend up to [(1 + retry) *
@@ -93,9 +95,9 @@ func NewFileTransferManager(client *Client, receiveFunc FileTransferReceiveFunc,
 // Returns a unique transfer ID used to identify the transfer.
 // PeriodMS is the duration, in milliseconds, to wait between progress callback
 // calls. Set this large enough to prevent spamming.
-func (f FileTransfer) Send(fileName string, fileData []byte, recipientID []byte,
-	retry float32, preview []byte, progressFunc FileTransferSentProgressFunc,
-	periodMS int) ([]byte, error) {
+func (f FileTransfer) Send(fileName, fileType string, fileData []byte,
+	recipientID []byte, retry float32, preview []byte,
+	progressFunc FileTransferSentProgressFunc, periodMS int) ([]byte, error) {
 
 	// Create SentProgressCallback
 	progressCB := func(completed bool, sent, arrived, total uint16, err error) {
@@ -113,8 +115,8 @@ func (f FileTransfer) Send(fileName string, fileData []byte, recipientID []byte,
 	period := time.Duration(periodMS) * time.Millisecond
 
 	// Send file
-	tid, err := f.m.Send(
-		fileName, fileData, recipient, retry, preview, progressCB, period)
+	tid, err := f.m.Send(fileName, fileType, fileData, recipient, retry,
+		preview, progressCB, period)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +131,7 @@ func (f FileTransfer) Send(fileName string, fileData []byte, recipientID []byte,
 // It will then call every time a file part is sent, a file part arrives, the
 // transfer completes, or an error occurs. It is called at most once every
 // period, which means if events occur faster than the period, then they will
-// not be reported and instead the progress will be reported once at the end of
+// not be reported and instead, the progress will be reported once at the end of
 // the period.
 // The period is specified in milliseconds.
 func (f FileTransfer) RegisterSendProgressCallback(transferID []byte,
@@ -150,7 +152,8 @@ func (f FileTransfer) RegisterSendProgressCallback(transferID []byte,
 	return f.m.RegisterSendProgressCallback(tid, progressCB, period)
 }
 
-// Resend resends a file if Send fails.
+// Resend resends a file if sending fails. This function should only be called
+//if the interfaces.SentProgressCallback returns an error.
 func (f FileTransfer) Resend(transferID []byte) error {
 	// Unmarshal transfer ID
 	tid := ftCrypto.UnmarshalTransferID(transferID)
@@ -174,7 +177,7 @@ func (f FileTransfer) CloseSend(transferID []byte) error {
 // transfer. It will then call every time a file part is received, the transfer
 // completes, or an error occurs. It is called at most once ever period, which
 // means if events occur faster than the period, then they will not be reported
-// and instead the progress will be reported once at the end of the period.
+// and instead, the progress will be reported once at the end of the period.
 // Once the callback reports that the transfer has completed, the recipient
 // can get the full file by calling Receive.
 // The period is specified in milliseconds.
@@ -219,6 +222,12 @@ func (f FileTransfer) GetMaxFilePreviewSize() int {
 // file name.
 func (f FileTransfer) GetMaxFileNameByteLength() int {
 	return ft.FileNameMaxLen
+}
+
+// GetMaxFileTypeByteLength returns the maximum length, in bytes, allowed for a
+// file type.
+func (f FileTransfer) GetMaxFileTypeByteLength() int {
+	return ft.FileTypeMaxLen
 }
 
 // GetMaxFileSize returns the maximum file size, in bytes, allowed to be

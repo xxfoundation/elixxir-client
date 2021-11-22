@@ -42,6 +42,14 @@ var getNDFCmd = &cobra.Command{
 		"and print it.",
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Note: getndf prints to stdout, so we default to not do that
+		logLevel := viper.GetUint("logLevel")
+		logPath := viper.GetString("log")
+		if logPath == "-" || logPath == "" {
+			logPath = "getndf.log"
+		}
+		initLog(logLevel, logPath)
+		jww.INFO.Printf(Version())
 		gwHost := viper.GetString("gwhost")
 		permHost := viper.GetString("permhost")
 		certPath := viper.GetString("cert")

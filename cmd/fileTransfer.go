@@ -81,11 +81,12 @@ var ftCmd = &cobra.Command{
 		if viper.IsSet("sendFile") {
 			recipientContactPath := viper.GetString("sendFile")
 			filePath := viper.GetString("filePath")
+			fileType := viper.GetString("fileType")
 			filePreviewPath := viper.GetString("filePreviewPath")
 			filePreviewString := viper.GetString("filePreviewString")
 			retry := float32(viper.GetFloat64("retry"))
 
-			sendFile(filePath, filePreviewPath, filePreviewString,
+			sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 				recipientContactPath, retry, m, sendDone)
 		}
 
@@ -123,6 +124,7 @@ var ftCmd = &cobra.Command{
 type receivedFtResults struct {
 	tid      ftCrypto.TransferID
 	fileName string
+	fileType string
 	sender   *id.ID
 	size     uint32
 	preview  []byte
@@ -136,9 +138,10 @@ func initFileTransferManager(client *api.Client, maxThroughput int) (
 
 	// Create interfaces.ReceiveCallback that returns the results on a channel
 	receiveChan := make(chan receivedFtResults, 100)
-	receiveCB := func(tid ftCrypto.TransferID, fileName string, sender *id.ID,
-		size uint32, preview []byte) {
-		receiveChan <- receivedFtResults{tid, fileName, sender, size, preview}
+	receiveCB := func(tid ftCrypto.TransferID, fileName, fileType string,
+		sender *id.ID, size uint32, preview []byte) {
+		receiveChan <- receivedFtResults{
+			tid, fileName, fileType, sender, size, preview}
 	}
 
 	// Create new parameters
@@ -163,7 +166,7 @@ func initFileTransferManager(client *api.Client, maxThroughput int) (
 }
 
 // sendFile sends the file to the recipient and prints the progress.
-func sendFile(filePath, filePreviewPath, filePreviewString,
+func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 	recipientContactPath string, retry float32, m *ft.Manager,
 	done chan struct{}) {
 
@@ -211,8 +214,8 @@ func sendFile(filePath, filePreviewPath, filePreviewString,
 	}
 
 	// Send the file
-	_, err = m.Send(filePath, fileData, recipient.ID, retry, filePreviewData,
-		progressCB, callbackPeriod)
+	_, err = m.Send(filePath, fileType, fileData, recipient.ID, retry,
+		filePreviewData, progressCB, callbackPeriod)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to send file %q to %s: %+v",
 			filePath, recipient.ID, err)
@@ -303,6 +306,10 @@ func init() {
 
 	ftCmd.Flags().String("filePath", "testFile-"+timeNanoString()+".txt",
 		"The path to the file to send. Also used as the file name.")
+	bindPFlagCheckErr("filePath")
+
+	ftCmd.Flags().String("fileType", "txt",
+		"8-byte file type.")
 	bindPFlagCheckErr("filePath")
 
 	ftCmd.Flags().String("filePreviewPath", "",

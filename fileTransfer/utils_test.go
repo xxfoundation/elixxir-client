@@ -287,6 +287,7 @@ func newTestManagerWithTransfers(numParts []uint16, sendErr bool,
 type receivedFtResults struct {
 	tid      ftCrypto.TransferID
 	fileName string
+	fileType string
 	sender   *id.ID
 	size     uint32
 	preview  []byte

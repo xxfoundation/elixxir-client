@@ -23,13 +23,13 @@ const (
 )
 
 // sendNewFileTransfer sends the initial file transfer message over E2E.
-func (m *Manager) sendNewFileTransfer(recipient *id.ID, fileName string,
-	key ftCrypto.TransferKey, mac []byte, numParts uint16, fileSize uint32,
-	retry float32, preview []byte) error {
+func (m *Manager) sendNewFileTransfer(recipient *id.ID, fileName,
+	fileType string, key ftCrypto.TransferKey, mac []byte, numParts uint16,
+	fileSize uint32, retry float32, preview []byte) error {
 
 	// Create Send message with marshalled NewFileTransfer
-	sendMsg, err := newNewFileTransferE2eMessage(recipient, fileName, key, mac,
-		numParts, fileSize, retry, preview)
+	sendMsg, err := newNewFileTransferE2eMessage(recipient, fileName, fileType,
+		key, mac, numParts, fileSize, retry, preview)
 	if err != nil {
 		return errors.Errorf(protoMarshalErr, err)
 	}
@@ -45,13 +45,14 @@ func (m *Manager) sendNewFileTransfer(recipient *id.ID, fileName string,
 
 // newNewFileTransferE2eMessage generates the message.Send for the given
 // recipient containing the marshalled NewFileTransfer message.
-func newNewFileTransferE2eMessage(recipient *id.ID, fileName string,
+func newNewFileTransferE2eMessage(recipient *id.ID, fileName, fileType string,
 	key ftCrypto.TransferKey, mac []byte, numParts uint16, fileSize uint32,
 	retry float32, preview []byte) (message.Send, error) {
 
 	// Construct NewFileTransfer message
 	protoMsg := &NewFileTransfer{
 		FileName:    fileName,
+		FileType:    fileType,
 		TransferKey: key.Bytes(),
 		TransferMac: mac,
 		NumParts:    uint32(numParts),

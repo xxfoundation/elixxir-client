@@ -36,7 +36,7 @@ func (c *Client) RequestAuthenticatedChannel(recipient, me contact.Contact,
 			"creation when the network is not healthy")
 	}
 
-	return auth.RequestAuth(recipient, me, message, c.rng.GetStream(),
+	return auth.RequestAuth(recipient, me, c.rng.GetStream(),
 		c.storage, c.network)
 }
 

@@ -27,7 +27,7 @@ type baseFormat struct {
 	ecrPayload []byte
 }
 
-func newBaseFormat(payloadSize, sidHPubkeySize, pubkeySize int ) baseFormat {
+func newBaseFormat(payloadSize, pubkeySize, sidHPubkeySize int ) baseFormat {
 	total := pubkeySize + sidHPubkeySize + saltSize
 	if payloadSize < total {
 		jww.FATAL.Panicf("Size of baseFormat is too small (%d), must be big " +
@@ -36,7 +36,8 @@ func newBaseFormat(payloadSize, sidHPubkeySize, pubkeySize int ) baseFormat {
 			total)
 	}
 
-	f := buildBaseFormat(make([]byte, payloadSize), pubkeySize, sidHPubkeySize)
+	f := buildBaseFormat(make([]byte, payloadSize), pubkeySize,
+		sidHPubkeySize)
 
 	return f
 }

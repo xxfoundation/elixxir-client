@@ -39,8 +39,8 @@ type sentRequestDisk struct {
 	PartnerHistoricalPubKey []byte
 	MyPrivKey               []byte
 	MyPubKey                []byte
-	MySidHPrivKey			[]byte
-	mySidHPubKey			[]byte
+	MySidHPrivKeyA		[]byte
+	MySidHPubKeyA		[]byte
 	Fingerprint             []byte
 }
 
@@ -77,15 +77,19 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 			"key with %s for SentRequest Auth", partner)
 	}
 
-	mySidHPrivKeyA := sidh.NewPrivateKey(sidhinterface.SidHKeyId, sidh.KeyVariantSidhA)
-	if err = mySidHPrivKeyA.Import(srd.MySidHPrivKey); err != nil {
-		return nil, errors.WithMessagef(err, "Failed to decode sidh private key "+
+	mySidHPrivKeyA := sidh.NewPrivateKey(sidhinterface.SidHKeyId,
+		sidh.KeyVariantSidhA)
+	if err = mySidHPrivKeyA.Import(srd.MySidHPrivKeyA); err != nil {
+		return nil, errors.WithMessagef(err,
+			"Failed to decode sidh private key " +
 			"with %s for SentRequest Auth", partner)
 	}
 
-	mySidHPubKeyA := sidh.NewPublicKey(sidhinterface.SidHKeyId, sidh.KeyVariantSidhA)
-	if err = mySidHPubKeyA.Import(srd.mySidHPubKey); err != nil {
-		return nil, errors.WithMessagef(err, "Failed to decode sidh public "+
+	mySidHPubKeyA := sidh.NewPublicKey(sidhinterface.SidHKeyId,
+		sidh.KeyVariantSidhA)
+	if err = mySidHPubKeyA.Import(srd.MySidHPubKeyA); err != nil {
+		return nil, errors.WithMessagef(err,
+			"Failed to decode sidh public " +
 			"key with %s for SentRequest Auth", partner)
 	}
 
@@ -110,6 +114,8 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 		partnerHistoricalPubKey: historicalPubKey,
 		myPrivKey:               myPrivKey,
 		myPubKey:                myPubKey,
+		mySidHPrivKeyA:          mySidHPrivKeyA,
+		mySidHPubKeyA:           mySidHPubKeyA,
 		fingerprint:             fp,
 	}, nil
 }
@@ -150,8 +156,8 @@ func (sr *SentRequest) save() error {
 		PartnerHistoricalPubKey: historicalPubKey,
 		MyPrivKey:               privKey,
 		MyPubKey:                pubKey,
-		MySidHPrivKey: 		     sidHPriv,
-		mySidHPubKey: 			 sidHPub,
+		MySidHPrivKeyA:		 sidHPriv,
+		MySidHPubKeyA:           sidHPub,
 		Fingerprint:             sr.fingerprint[:],
 	}
 

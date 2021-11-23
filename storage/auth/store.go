@@ -12,7 +12,6 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
@@ -22,7 +21,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"time"
 )
 
 const NoRequest = "Request Not Found"
@@ -191,8 +189,8 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 		partnerHistoricalPubKey: partnerHistoricalPubKey,
 		myPrivKey:               myPrivKey,
 		myPubKey:                myPubKey,
-		mySidHPubKeyA: sidHPubA,
-		mySidHPrivKeyA: sidHPrivA,
+		mySidHPubKeyA:           sidHPubA,
+		mySidHPrivKeyA:          sidHPrivA,
 		fingerprint:             fp,
 	}
 
@@ -243,24 +241,12 @@ func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey) error {
 		jww.FATAL.Panicf("Failed to save contact for partner %s", c.ID.String())
 	}
 
-	keyBytes :=make([]byte, sidhinterface.SidHPubKeyByteSize)
-	key.Export(keyBytes)
-	type Object struct {
-		// Used to determine version Upgrade, if any
-		Version uint64
-
-		// Set when this object is written
-		Timestamp time.Time
-
-		// Serialized version of original object
-		Data []byte
-	}
-
 	r := &request{
-		rt:      Receive,
-		sent:    nil,
-		receive: &c,
-		mux:     sync.Mutex{},
+		rt:               Receive,
+		sent:             nil,
+		receive:          &c,
+		theirSidHPubKeyA: key,
+		mux:              sync.Mutex{},
 	}
 
 	s.requests[*c.ID] = r

@@ -25,7 +25,7 @@ type ReceivedProgressCallback func(completed bool, received, total uint16,
 
 // ReceiveCallback is a callback function that notifies the receiver of an
 // incoming file transfer.
-type ReceiveCallback func(tid ftCrypto.TransferID, fileName string,
+type ReceiveCallback func(tid ftCrypto.TransferID, fileName, fileType string,
 	sender *id.ID, size uint32, preview []byte)
 
 // FileTransfer facilities the sending and receiving of large file transfers.
@@ -39,9 +39,9 @@ type FileTransfer interface {
 	// The preview stores a preview of the data (such as a thumbnail) and is
 	// capped at 4 kB in size.
 	// Returns a unique transfer ID used to identify the transfer.
-	Send(fileName string, fileData []byte, recipient *id.ID, retry float32,
-		preview []byte, progressCB SentProgressCallback, period time.Duration) (
-		ftCrypto.TransferID, error)
+	Send(fileName, fileType string, fileData []byte, recipient *id.ID,
+		retry float32, preview []byte, progressCB SentProgressCallback,
+		period time.Duration) (ftCrypto.TransferID, error)
 
 	// RegisterSendProgressCallback allows for the registration of a callback to
 	// track the progress of an individual sent file transfer. The callback will
@@ -54,7 +54,7 @@ type FileTransfer interface {
 	RegisterSendProgressCallback(tid ftCrypto.TransferID,
 		progressCB SentProgressCallback, period time.Duration) error
 
-	// Resend resends a file if Send fails. Returns an error if CloseSend
+	// Resend resends a file if sending fails. Returns an error if CloseSend
 	// was already called or if the transfer did not run out of retries.
 	Resend(tid ftCrypto.TransferID) error
 

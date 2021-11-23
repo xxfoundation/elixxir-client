@@ -32,7 +32,7 @@ func Test_newManager(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
 	cbChan := make(chan bool)
-	cb := func(ftCrypto.TransferID, string, *id.ID, uint32, []byte) {
+	cb := func(ftCrypto.TransferID, string, string, *id.ID, uint32, []byte) {
 		cbChan <- true
 	}
 
@@ -56,7 +56,7 @@ func Test_newManager(t *testing.T) {
 	}
 
 	// Check that the callback is called
-	go m.receiveCB(ftCrypto.TransferID{}, "", nil, 0, nil)
+	go m.receiveCB(ftCrypto.TransferID{}, "", "", nil, 0, nil)
 	select {
 	case <-cbChan:
 	case <-time.NewTimer(time.Millisecond).C:
@@ -71,6 +71,7 @@ func TestManager_Send(t *testing.T) {
 	prng := NewPrng(42)
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	fileName := "testFile"
+	fileType := "txt"
 	numParts := uint16(16)
 	partSize, _ := m.getPartSize()
 	fileData, _ := newFile(numParts, uint32(partSize), prng, t)
@@ -78,7 +79,8 @@ func TestManager_Send(t *testing.T) {
 	retry := float32(1.5)
 	numFps := calcNumberOfFingerprints(numParts, retry)
 
-	tid, err := m.Send(fileName, fileData, recipient, retry, preview, nil, 0)
+	tid, err := m.Send(
+		fileName, fileType, fileData, recipient, retry, preview, nil, 0)
 	if err != nil {
 		t.Errorf("Send returned an error: %+v", err)
 	}
@@ -123,6 +125,7 @@ func TestManager_Send(t *testing.T) {
 	}
 	expectedNFT := &NewFileTransfer{
 		FileName:    fileName,
+		FileType:    fileType,
 		TransferKey: transfer.GetTransferKey().Bytes(),
 		TransferMac: ftCrypto.CreateTransferMAC(fileData, transfer.GetTransferKey()),
 		NumParts:    uint32(numParts),
@@ -130,7 +133,7 @@ func TestManager_Send(t *testing.T) {
 		Retry:       retry,
 		Preview:     preview,
 	}
-	if !reflect.DeepEqual(expectedNFT, receivedNFT) {
+	if !proto.Equal(expectedNFT, receivedNFT) {
 		t.Errorf("Received NewFileTransfer message does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expectedNFT, receivedNFT)
 	}
@@ -152,9 +155,24 @@ func TestManager_Send_FileNameLengthError(t *testing.T) {
 	fileName := strings.Repeat("A", FileNameMaxLen+1)
 	expectedErr := fmt.Sprintf(fileNameSizeErr, len(fileName), FileNameMaxLen)
 
-	_, err := m.Send(fileName, nil, nil, 0, nil, nil, 0)
+	_, err := m.Send(fileName, "", nil, nil, 0, nil, nil, 0)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Send did not return the expected error when the file name "+
+			"is too long.\nexpected: %s\nreceived: %+v", expectedErr, err)
+	}
+}
+
+// Error path: tests that Manager.Send returns the expected error when the
+// provided file type is longer than FileTypeMaxLen.
+func TestManager_Send_FileTypeLengthError(t *testing.T) {
+	m := newTestManager(false, nil, nil, nil, t)
+
+	fileType := strings.Repeat("A", FileTypeMaxLen+1)
+	expectedErr := fmt.Sprintf(fileTypeSizeErr, len(fileType), FileTypeMaxLen)
+
+	_, err := m.Send("", fileType, nil, nil, 0, nil, nil, 0)
+	if err == nil || err.Error() != expectedErr {
+		t.Errorf("Send did not return the expected error when the file type "+
 			"is too long.\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
@@ -167,7 +185,7 @@ func TestManager_Send_FileSizeError(t *testing.T) {
 	fileData := make([]byte, FileMaxSize+1)
 	expectedErr := fmt.Sprintf(fileSizeErr, len(fileData), FileMaxSize)
 
-	_, err := m.Send("", fileData, nil, 0, nil, nil, 0)
+	_, err := m.Send("", "", fileData, nil, 0, nil, nil, 0)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Send did not return the expected error when the file data "+
 			"is too large.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -182,7 +200,7 @@ func TestManager_Send_PreviewSizeError(t *testing.T) {
 	previewData := make([]byte, PreviewMaxSize+1)
 	expectedErr := fmt.Sprintf(previewSizeErr, len(previewData), PreviewMaxSize)
 
-	_, err := m.Send("", nil, nil, 0, previewData, nil, 0)
+	_, err := m.Send("", "", nil, nil, 0, previewData, nil, 0)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Send did not return the expected error when the preview "+
 			"data is too large.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -196,6 +214,7 @@ func TestManager_Send_SendE2eError(t *testing.T) {
 	prng := NewPrng(42)
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	fileName := "testFile"
+	fileType := "bytes"
 	numParts := uint16(16)
 	partSize, _ := m.getPartSize()
 	fileData, _ := newFile(numParts, uint32(partSize), prng, t)
@@ -204,7 +223,8 @@ func TestManager_Send_SendE2eError(t *testing.T) {
 
 	expectedErr := fmt.Sprintf(sendE2eErr, recipient, "")
 
-	_, err := m.Send(fileName, fileData, recipient, retry, preview, nil, 0)
+	_, err := m.Send(
+		fileName, fileType, fileData, recipient, retry, preview, nil, 0)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("Send did not return the expected error when the E2E message "+
 			"failed to send.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -528,9 +548,10 @@ func Test_FileTransfer(t *testing.T) {
 
 	// Create callback with channel for receiving new file transfer
 	receiveNewCbChan := make(chan receivedFtResults, 100)
-	receiveNewCB := func(tid ftCrypto.TransferID, fileName string,
+	receiveNewCB := func(tid ftCrypto.TransferID, fileName, fileType string,
 		sender *id.ID, size uint32, preview []byte) {
-		receiveNewCbChan <- receivedFtResults{tid, fileName, sender, size, preview}
+		receiveNewCbChan <- receivedFtResults{
+			tid, fileName, fileType, sender, size, preview}
 	}
 
 	// Create reception channels for both managers
@@ -580,13 +601,14 @@ func Test_FileTransfer(t *testing.T) {
 	prng := NewPrng(42)
 	partSize, _ := m1.getPartSize()
 	fileName := "testFile"
+	fileType := "file"
 	file, parts := newFile(32, uint32(partSize), prng, t)
 	preview := parts[0]
 	recipient := id.NewIdFromString("recipient", id.User, t)
 
 	// Send file
-	sendTid, err := m1.Send(
-		fileName, file, recipient, 0.5, preview, sentCb, time.Millisecond)
+	sendTid, err := m1.Send(fileName, fileType, file, recipient, 0.5, preview,
+		sentCb, time.Millisecond)
 	if err != nil {
 		t.Errorf("Send returned an error: %+v", err)
 	}

@@ -28,8 +28,12 @@ const (
 	PreviewMaxSize = 4_000
 
 	// FileNameMaxLen is the maximum size, in bytes, for a file name. Currently,
-	// it is set to 32 bytes.
-	FileNameMaxLen = 32
+	// it is set to 48 bytes.
+	FileNameMaxLen = 48
+
+	// FileTypeMaxLen is the maximum size, in bytes, for a file type. Currently,
+	// it is set to 8 bytes.
+	FileTypeMaxLen = 8
 
 	// FileMaxSize is the maximum file size that can be transferred. Currently,
 	// it is set to 4 mB.
@@ -56,6 +60,7 @@ const (
 
 	// Manager.Send
 	fileNameSizeErr = "length of filename (%d) greater than max allowed length (%d)"
+	fileTypeSizeErr = "length of file type (%d) greater than max allowed length (%d)"
 	fileSizeErr     = "size of file (%d bytes) greater than max allowed size (%d bytes)"
 	previewSizeErr  = "size of preview (%d bytes) greater than max allowed size (%d bytes)"
 	getPartSizeErr  = "failed to get file part size: %+v"
@@ -214,14 +219,21 @@ func (m *Manager) startProcesses(newFtChan, filePartChan chan message.Receive) (
 // initial NewFileTransfer E2E message to the recipient to inform them of the
 // incoming file parts. It partitions the file, puts it into storage, and queues
 // each file for sending. Returns a unique ID identifying the file transfer.
-func (m Manager) Send(fileName string, fileData []byte, recipient *id.ID,
-	retry float32, preview []byte, progressCB interfaces.SentProgressCallback,
-	period time.Duration) (ftCrypto.TransferID, error) {
+func (m Manager) Send(fileName, fileType string, fileData []byte,
+	recipient *id.ID, retry float32, preview []byte,
+	progressCB interfaces.SentProgressCallback, period time.Duration) (
+	ftCrypto.TransferID, error) {
 
 	// Return an error if the file name is too long
 	if len(fileName) > FileNameMaxLen {
 		return ftCrypto.TransferID{}, errors.Errorf(
 			fileNameSizeErr, len(fileName), FileNameMaxLen)
+	}
+
+	// Return an error if the file type is too long
+	if len(fileType) > FileTypeMaxLen {
+		return ftCrypto.TransferID{}, errors.Errorf(
+			fileTypeSizeErr, len(fileType), FileTypeMaxLen)
 	}
 
 	// Return an error if the file is too large
@@ -260,8 +272,8 @@ func (m Manager) Send(fileName string, fileData []byte, recipient *id.ID,
 	fileSize := uint32(len(fileData))
 
 	// Send the initial file transfer message over E2E
-	err = m.sendNewFileTransfer(recipient, fileName, transferKey, mac, numParts,
-		fileSize, retry, preview)
+	err = m.sendNewFileTransfer(recipient, fileName, fileType, transferKey, mac,
+		numParts, fileSize, retry, preview)
 	if err != nil {
 		return ftCrypto.TransferID{}, errors.Errorf(sendInitMsgErr, err)
 	}
@@ -301,8 +313,10 @@ func (m Manager) RegisterSendProgressCallback(tid ftCrypto.TransferID,
 	return nil
 }
 
-// Resend resends a file if Send fails. Returns an error if CloseSend
-// was already called or if the transfer did not run out of retries.
+// Resend resends a file if sending fails. Returns an error if CloseSend
+// was already called or if the transfer did not run out of retries. This
+//function should only be called if the interfaces.SentProgressCallback returns
+//an error.
 // TODO: add test
 // TODO: write test
 // TODO: can you resend? Can you reuse fingerprints?

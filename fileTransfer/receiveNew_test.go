@@ -24,9 +24,10 @@ import (
 func TestManager_receiveNewFileTransfer(t *testing.T) {
 	// Create new ReceiveCallback that sends the results on a channel
 	receiveChan := make(chan receivedFtResults)
-	receiveCB := func(tid ftCrypto.TransferID, fileName string, sender *id.ID,
-		size uint32, preview []byte) {
-		receiveChan <- receivedFtResults{tid, fileName, sender, size, preview}
+	receiveCB := func(tid ftCrypto.TransferID, fileName, fileType string,
+		sender *id.ID, size uint32, preview []byte) {
+		receiveChan <- receivedFtResults{
+			tid, fileName, fileType, sender, size, preview}
 	}
 
 	// Create new manager, stoppable, and channel to receive messages
@@ -92,9 +93,10 @@ func TestManager_receiveNewFileTransfer(t *testing.T) {
 func TestManager_receiveNewFileTransfer_Stop(t *testing.T) {
 	// Create new ReceiveCallback that sends the results on a channel
 	receiveChan := make(chan receivedFtResults)
-	receiveCB := func(tid ftCrypto.TransferID, fileName string, sender *id.ID,
-		size uint32, preview []byte) {
-		receiveChan <- receivedFtResults{tid, fileName, sender, size, preview}
+	receiveCB := func(tid ftCrypto.TransferID, fileName, fileType string,
+		sender *id.ID, size uint32, preview []byte) {
+		receiveChan <- receivedFtResults{
+			tid, fileName, fileType, sender, size, preview}
 	}
 
 	// Create new manager, stoppable, and channel to receive messages
@@ -152,9 +154,10 @@ func TestManager_receiveNewFileTransfer_Stop(t *testing.T) {
 func TestManager_receiveNewFileTransfer_InvalidMessageError(t *testing.T) {
 	// Create new ReceiveCallback that sends the results on a channel
 	receiveChan := make(chan receivedFtResults)
-	receiveCB := func(tid ftCrypto.TransferID, fileName string, sender *id.ID,
-		size uint32, preview []byte) {
-		receiveChan <- receivedFtResults{tid, fileName, sender, size, preview}
+	receiveCB := func(tid ftCrypto.TransferID, fileName, fileType string,
+		sender *id.ID, size uint32, preview []byte) {
+		receiveChan <- receivedFtResults{
+			tid, fileName, fileType, sender, size, preview}
 	}
 
 	// Create new manager, stoppable, and channel to receive messages
@@ -196,12 +199,14 @@ func TestManager_readNewFileTransferMessage(t *testing.T) {
 	// Create new message.Send containing marshalled NewFileTransfer
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	expectedFileName := "testFile"
+	expectedFileType := "txt"
 	key, _ := ftCrypto.NewTransferKey(NewPrng(42))
 	mac := []byte("transferMac")
 	numParts, expectedFileSize, retry := uint16(16), uint32(256), float32(1.5)
 	expectedPreview := []byte("filePreview")
-	sendMsg, err := newNewFileTransferE2eMessage(recipient, expectedFileName,
-		key, mac, numParts, expectedFileSize, retry, expectedPreview)
+	sendMsg, err := newNewFileTransferE2eMessage(
+		recipient, expectedFileName, expectedFileType, key, mac, numParts,
+		expectedFileSize, retry, expectedPreview)
 	if err != nil {
 		t.Errorf("Failed to create new Send message: %+v", err)
 	}
@@ -214,7 +219,8 @@ func TestManager_readNewFileTransferMessage(t *testing.T) {
 	}
 
 	// Read the message
-	_, fileName, sender, fileSize, preview, err := m.readNewFileTransferMessage(receiveMsg)
+	_, fileName, fileType, sender, fileSize, preview, err :=
+		m.readNewFileTransferMessage(receiveMsg)
 	if err != nil {
 		t.Errorf("readNewFileTransferMessage returned an error: %+v", err)
 	}
@@ -222,6 +228,11 @@ func TestManager_readNewFileTransferMessage(t *testing.T) {
 	if expectedFileName != fileName {
 		t.Errorf("Returned file name does not match expected."+
 			"\nexpected: %q\nreceived: %q", expectedFileName, fileName)
+	}
+
+	if expectedFileType != fileType {
+		t.Errorf("Returned file type does not match expected."+
+			"\nexpected: %q\nreceived: %q", expectedFileType, fileType)
 	}
 
 	if !receiveMsg.Sender.Cmp(sender) {
@@ -252,7 +263,7 @@ func TestManager_readNewFileTransferMessage_MessageTypeError(t *testing.T) {
 	}
 
 	// Read the message
-	_, _, _, _, _, err := m.readNewFileTransferMessage(receiveMsg)
+	_, _, _, _, _, _, err := m.readNewFileTransferMessage(receiveMsg)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("readNewFileTransferMessage did not return the expected "+
 			"error when the message.Receive has the wrong MessageType."+
@@ -274,7 +285,7 @@ func TestManager_readNewFileTransferMessage_ProtoUnmarshalError(t *testing.T) {
 	}
 
 	// Read the message
-	_, _, _, _, _, err := m.readNewFileTransferMessage(receiveMsg)
+	_, _, _, _, _, _, err := m.readNewFileTransferMessage(receiveMsg)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("readNewFileTransferMessage did not return the expected "+
 			"error when the payload could not be unmarshalled."+

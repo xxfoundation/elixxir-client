@@ -39,7 +39,7 @@ func (m *Manager) receiveNewFileTransfer(rawMsgs chan message.Receive,
 		case receivedMsg := <-rawMsgs:
 			jww.DEBUG.Print("New file transfer message thread received message.")
 
-			tid, fileName, sender, size, preview, err :=
+			tid, fileName, fileType, sender, size, preview, err :=
 				m.readNewFileTransferMessage(receivedMsg)
 			if err != nil {
 				if err.Error() == receiveMessageTypeErr {
@@ -53,7 +53,7 @@ func (m *Manager) receiveNewFileTransfer(rawMsgs chan message.Receive,
 			}
 
 			// Call the reception callback
-			go m.receiveCB(tid, fileName, sender, size, preview)
+			go m.receiveCB(tid, fileName, fileType, sender, size, preview)
 
 			// Trigger a resend of all garbled messages
 			m.net.CheckGarbledMessages()
@@ -65,20 +65,21 @@ func (m *Manager) receiveNewFileTransfer(rawMsgs chan message.Receive,
 // received transfer list. Returns the transfer ID, sender ID, file size, and
 // file preview.
 func (m *Manager) readNewFileTransferMessage(msg message.Receive) (
-	ftCrypto.TransferID, string, *id.ID, uint32, []byte, error) {
+	tid ftCrypto.TransferID, fileName, fileType string, sender *id.ID,
+	fileSize uint32, preview []byte, err error) {
 
 	// Return an error if the message is not a NewFileTransfer
 	if msg.MessageType != message.NewFileTransfer {
-		return ftCrypto.TransferID{}, "", nil, 0, nil,
-			errors.New(receiveMessageTypeErr)
+		err = errors.New(receiveMessageTypeErr)
+		return
 	}
 
 	// Unmarshal the request message
 	newFT := &NewFileTransfer{}
-	err := proto.Unmarshal(msg.Payload, newFT)
+	err = proto.Unmarshal(msg.Payload, newFT)
 	if err != nil {
-		return ftCrypto.TransferID{}, "", nil, 0, nil,
-			errors.Errorf(protoUnmarshalErr, err)
+		err = errors.Errorf(protoUnmarshalErr, err)
+		return
 	}
 
 	// Get RNG from stream
@@ -89,11 +90,12 @@ func (m *Manager) readNewFileTransferMessage(msg message.Receive) (
 	key := ftCrypto.UnmarshalTransferKey(newFT.TransferKey)
 	numParts := uint16(newFT.NumParts)
 	numFps := calcNumberOfFingerprints(numParts, newFT.Retry)
-	tid, err := m.received.AddTransfer(
+	tid, err = m.received.AddTransfer(
 		key, newFT.TransferMac, newFT.Size, numParts, numFps, rng)
 	if err != nil {
-		return ftCrypto.TransferID{}, "", nil, 0, nil, err
+		return
 	}
 
-	return tid, newFT.FileName, msg.Sender, newFT.Size, newFT.Preview, nil
+	return tid, newFT.FileName, newFT.FileType, msg.Sender, newFT.Size,
+		newFT.Preview, nil
 }

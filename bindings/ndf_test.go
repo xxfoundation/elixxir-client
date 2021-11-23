@@ -11,7 +11,7 @@ import "testing"
 
 func TestDownloadSignedNdf(t *testing.T) {
 	// Todo: test once a proper URL is hardcoded
-	//content, err :=	DownloadSignedNdf()
+	//content, err :=	DownloadAndVerifySignedNdf(testCert)
 	//if err != nil {
 	//	t.Errorf("Failed to download signed NDF: %v")
 	//}
@@ -21,7 +21,7 @@ func TestDownloadSignedNdf(t *testing.T) {
 
 func TestDownloadSignedNdfWithUrl(t *testing.T) {
 	// todo: write test once a proper URL can be passed in
-	//content, err :=	DownloadSignedNdfWithUrl(exampleURL)
+	//content, err :=	DownloadAndVerifySignedNdfWithUrl(exampleURL, testCert)
 	//if err != nil {
 	//	t.Errorf("Failed to download signed NDF: %v")
 	//}
@@ -31,7 +31,7 @@ func TestDownloadSignedNdfWithUrl(t *testing.T) {
 // Tests
 func TestVerifySignedNdf(t *testing.T) {
 	// todo write test once example data is collected
-	//ndf, err := VerifySignedNdf(testSignedNdf, testCert)
+	//ndf, err := processAndVerifySignedNdf(testSignedNdf, testCert)
 	//if err != nil {
 	//
 	//}

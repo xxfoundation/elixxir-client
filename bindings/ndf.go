@@ -22,12 +22,11 @@ import (
 // ndfUrl is a hardcoded url to a bucket containing the signed NDF message.
 const ndfUrl = `elixxir.io`
 
-// DownloadSignedNdf retrieves the NDF from a hardcoded bucket URL.
-// The NDF returned requires further processing and verification
-// before being used. Use ProcessSignedNdf to properly process
-// the downloaded data returned.
-// DO NOT USE THE RETURNED DATA TO START A CLIENT.
-func DownloadSignedNdf() ([]byte, error) {
+// DownloadAndVerifySignedNdf retrieves the NDF from a hardcoded bucket URL.
+// The NDF is processed into a protobuf containing a signature which
+// is verified using the cert string passed in. The NDF is returned as marshaled
+// byte data which may be used to start a client.
+func DownloadAndVerifySignedNdf(cert string) ([]byte, error) {
 	// Build a request for the file
 	resp, err := http.Get(ndfUrl)
 	if err != nil {
@@ -43,16 +42,16 @@ func DownloadSignedNdf() ([]byte, error) {
 			"NDF response request")
 	}
 
-	return signedNdfEncoded, nil
+	// Process the download NDF and return the marshaled NDF
+	return processAndVerifySignedNdf(signedNdfEncoded, cert)
 }
 
-// DownloadSignedNdfWithUrl retrieves the NDF from a specified URL.
-// The NDF returned requires further processing and verification
-// before being used. Use ProcessSignedNdf to properly process
-// the downloaded data returned.
-// DO NOT USE THE RETURNED DATA TO START A CLIENT.
-func DownloadSignedNdfWithUrl(url string) ([]byte, error) {
-	// Build a reqeust for the file
+// DownloadAndVerifySignedNdfWithUrl retrieves the NDF from a specified URL.
+// The NDF is processed into a protobuf containing a signature which
+// is verified using the cert string passed in. The NDF is returned as marshaled
+// byte data which may be used to start a client.
+func DownloadAndVerifySignedNdfWithUrl(url, cert string) ([]byte, error) {
+	// Build a request for the file
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to retrieve "+
@@ -67,16 +66,15 @@ func DownloadSignedNdfWithUrl(url string) ([]byte, error) {
 			"NDF response request")
 	}
 
-	return signedNdfEncoded, nil
+	// Process the download NDF and return the marshaled NDF
+	return processAndVerifySignedNdf(signedNdfEncoded, cert)
 }
 
-// ProcessSignedNdf takes the downloaded NDF from either
-// DownloadSignedNdf or DownloadSignedNdfWithUrl (signedNdfEncoded)
-// and the scheduling certificate (cert). The downloaded NDF is parsed
+// processAndVerifySignedNdf is a helper function which parses the downloaded NDF
 // into a protobuf containing a signature. The signature is verified using the
 // passed in cert. Upon successful parsing and verification, the NDF is
-// returned as byte data, which may be used to start a client.
-func ProcessSignedNdf(signedNdfEncoded []byte, cert string) ([]byte, error) {
+// returned as byte data.
+func processAndVerifySignedNdf(signedNdfEncoded []byte, cert string) ([]byte, error) {
 	// Base64 decode the signed NDF
 	signedNdfMarshaled, err := base64.StdEncoding.DecodeString(
 		string(signedNdfEncoded))

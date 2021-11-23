@@ -22,17 +22,16 @@ import (
 // ndfUrl is a hardcoded url to a bucket containing the signed NDF message.
 const ndfUrl = `elixxir.io`
 
-
 // DownloadSignedNdf retrieves the NDF from a hardcoded bucket URL.
 // The NDF returned requires further processing and verification
-// before being used. Use VerifySignedNdf to properly process
+// before being used. Use ProcessSignedNdf to properly process
 // the downloaded data returned.
 // DO NOT USE THE RETURNED DATA TO START A CLIENT.
 func DownloadSignedNdf() ([]byte, error) {
 	// Build a request for the file
 	resp, err := http.Get(ndfUrl)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to retrieve " +
+		return nil, errors.WithMessagef(err, "Failed to retrieve "+
 			"NDF from %s", ndfUrl)
 	}
 	defer resp.Body.Close()
@@ -40,7 +39,7 @@ func DownloadSignedNdf() ([]byte, error) {
 	// Download contents of the file
 	signedNdfEncoded, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to read signed " +
+		return nil, errors.WithMessage(err, "Failed to read signed "+
 			"NDF response request")
 	}
 
@@ -49,14 +48,14 @@ func DownloadSignedNdf() ([]byte, error) {
 
 // DownloadSignedNdfWithUrl retrieves the NDF from a specified URL.
 // The NDF returned requires further processing and verification
-// before being used. Use VerifySignedNdf to properly process
+// before being used. Use ProcessSignedNdf to properly process
 // the downloaded data returned.
 // DO NOT USE THE RETURNED DATA TO START A CLIENT.
-func DownloadSignedNdfWithUrl(url, cert string) ([]byte, error) {
+func DownloadSignedNdfWithUrl(url string) ([]byte, error) {
 	// Build a reqeust for the file
 	resp, err := http.Get(url)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to retrieve " +
+		return nil, errors.WithMessagef(err, "Failed to retrieve "+
 			"NDF from %s", url)
 	}
 	defer resp.Body.Close()
@@ -64,22 +63,22 @@ func DownloadSignedNdfWithUrl(url, cert string) ([]byte, error) {
 	// Download contents of the file
 	signedNdfEncoded, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to read signed " +
+		return nil, errors.WithMessage(err, "Failed to read signed "+
 			"NDF response request")
 	}
 
 	return signedNdfEncoded, nil
 }
 
-// VerifySignedNdf takes the downloaded NDF from either
+// ProcessSignedNdf takes the downloaded NDF from either
 // DownloadSignedNdf or DownloadSignedNdfWithUrl (signedNdfEncoded)
-// an the scheduling certificate (cert). The downloaded NDF is parsed
+// and the scheduling certificate (cert). The downloaded NDF is parsed
 // into a protobuf containing a signature. The signature is verified using the
 // passed in cert. Upon successful parsing and verification, the NDF is
-// returned. This may be used to start a client.
-func VerifySignedNdf(signedNdfEncoded []byte, cert string) ([]byte, error) {
+// returned as byte data, which may be used to start a client.
+func ProcessSignedNdf(signedNdfEncoded []byte, cert string) ([]byte, error) {
 	// Base64 decode the signed NDF
-	signedNdfMarshaled, err :=  base64.StdEncoding.DecodeString(
+	signedNdfMarshaled, err := base64.StdEncoding.DecodeString(
 		string(signedNdfEncoded))
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to decode signed NDF")
@@ -89,10 +88,9 @@ func VerifySignedNdf(signedNdfEncoded []byte, cert string) ([]byte, error) {
 	signedNdfMsg := &pb.NDF{}
 	err = proto.Unmarshal(signedNdfMarshaled, signedNdfMsg)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to unmarshal " +
+		return nil, errors.WithMessage(err, "Failed to unmarshal "+
 			"signed NDF into protobuf")
 	}
-
 
 	// Load the certificate from it's PEM contents
 	schedulingCert, err := tls.LoadCertificate(cert)
@@ -114,4 +112,3 @@ func VerifySignedNdf(signedNdfEncoded []byte, cert string) ([]byte, error) {
 
 	return signedNdfMsg.Ndf, nil
 }
-

@@ -44,6 +44,10 @@ func Test_NewSentTransfer(t *testing.T) {
 	numParts, numFps := uint16(len(parts)), uint16(float64(len(parts))*1.5)
 	fpVector, _ := utility.NewStateVector(
 		kvPrefixed, sentFpVectorKey, uint32(numFps))
+	inProgressStatus, _ := utility.NewStateVector(
+		kvPrefixed, sentInProgressVectorKey, uint32(numParts))
+	finishedStatus, _ := utility.NewStateVector(
+		kvPrefixed, sentFinishedVectorKey, uint32(numParts))
 
 	type cbFields struct {
 		completed            bool
@@ -60,7 +64,8 @@ func Test_NewSentTransfer(t *testing.T) {
 	}
 
 	cbChan := make(chan cbFields)
-	cb := func(completed bool, sent, arrived, total uint16, err error) {
+	cb := func(completed bool, sent, arrived, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		cbChan <- cbFields{
 			completed: completed,
 			sent:      sent,
@@ -93,10 +98,13 @@ func Test_NewSentTransfer(t *testing.T) {
 			key:  finishedKey,
 			kv:   kvPrefixed,
 		},
+		inProgressStatus: inProgressStatus,
+		finishedStatus:   finishedStatus,
 		progressCallbacks: []*sentCallbackTracker{
 			newSentCallbackTracker(cb, expectedPeriod),
 		},
-		kv: kvPrefixed,
+		status: running,
+		kv:     kvPrefixed,
 	}
 
 	// Create new SentTransfer
@@ -164,6 +172,10 @@ func TestSentTransfer_ReInit(t *testing.T) {
 	numFps2 := 2 * numFps1
 	fpVector, _ := utility.NewStateVector(
 		kvPrefixed, sentFpVectorKey, uint32(numFps2))
+	inProgressStatus, _ := utility.NewStateVector(
+		kvPrefixed, sentInProgressVectorKey, uint32(numParts))
+	finishedStatus, _ := utility.NewStateVector(
+		kvPrefixed, sentFinishedVectorKey, uint32(numParts))
 
 	type cbFields struct {
 		completed            bool
@@ -180,7 +192,8 @@ func TestSentTransfer_ReInit(t *testing.T) {
 	}
 
 	cbChan := make(chan cbFields)
-	cb := func(completed bool, sent, arrived, total uint16, err error) {
+	cb := func(completed bool, sent, arrived, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		cbChan <- cbFields{
 			completed: completed,
 			sent:      sent,
@@ -213,10 +226,13 @@ func TestSentTransfer_ReInit(t *testing.T) {
 			key:  finishedKey,
 			kv:   kvPrefixed,
 		},
+		inProgressStatus: inProgressStatus,
+		finishedStatus:   finishedStatus,
 		progressCallbacks: []*sentCallbackTracker{
 			newSentCallbackTracker(cb, expectedPeriod),
 		},
-		kv: kvPrefixed,
+		status: running,
+		kv:     kvPrefixed,
 	}
 
 	// Create new SentTransfer
@@ -363,6 +379,65 @@ func TestSentTransfer_GetNumAvailableFps(t *testing.T) {
 	}
 }
 
+// Tests that SentTransfer.IsPartInProgress returns false before a part is set
+// as in-progress and true after it is set via SentTransfer.SetInProgress. Also
+// tests that it returns false after the part has been unset via
+// SentTransfer.UnsetInProgress.
+func TestSentTransfer_IsPartInProgress(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+
+	rid := id.Round(0)
+	partNum := uint16(7)
+
+	// Test that the part has not been set to in-progress
+	if st.IsPartInProgress(partNum) {
+		t.Errorf("Part number %d set as in-progress.", partNum)
+	}
+
+	// Set the part number to in-progress
+	_, _ = st.SetInProgress(rid, partNum)
+
+	// Test that the part has been set to in-progress
+	if !st.IsPartInProgress(partNum) {
+		t.Errorf("Part number %d not set as in-progress.", partNum)
+	}
+
+	// Unset the part as in-progress
+	_, _ = st.UnsetInProgress(rid)
+
+	// Test that the part has been unset
+	if st.IsPartInProgress(partNum) {
+		t.Errorf("Part number %d set as in-progress.", partNum)
+	}
+}
+
+// Tests that SentTransfer.IsPartFinished returns false before a part is set as
+// finished and true after it is set via SentTransfer.FinishTransfer.
+func TestSentTransfer_IsPartFinished(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+
+	rid := id.Round(0)
+	partNum := uint16(7)
+
+	// Set the part number to in-progress
+	_, _ = st.SetInProgress(rid, partNum)
+
+	// Test that the part has not been set to finished
+	if st.IsPartFinished(partNum) {
+		t.Errorf("Part number %d set as finished.", partNum)
+	}
+
+	// Set the part number to finished
+	_ = st.FinishTransfer(rid)
+
+	// Test that the part has been set to finished
+	if !st.IsPartFinished(partNum) {
+		t.Errorf("Part number %d not set as finished.", partNum)
+	}
+}
+
 // Tests that SentTransfer.GetProgress returns the expected progress metrics for
 // various transfer states.
 func TestSentTransfer_GetProgress(t *testing.T) {
@@ -370,64 +445,74 @@ func TestSentTransfer_GetProgress(t *testing.T) {
 	numParts := uint16(16)
 	_, st := newRandomSentTransfer(16, 24, kv, t)
 
-	completed, sent, arrived, total := st.GetProgress()
+	completed, sent, arrived, total, track := st.GetProgress()
 	err := checkSentProgress(
 		completed, sent, arrived, total, false, 0, 0, numParts)
 	if err != nil {
 		t.Error(err)
 	}
+	checkSentTracker(track, st.numParts, nil, nil, t)
 
 	_, _ = st.SetInProgress(1, 0, 1, 2)
 
-	completed, sent, arrived, total = st.GetProgress()
+	completed, sent, arrived, total, track = st.GetProgress()
 	err = checkSentProgress(completed, sent, arrived, total, false, 3, 0, numParts)
 	if err != nil {
 		t.Error(err)
 	}
+	checkSentTracker(track, st.numParts, []uint16{0, 1, 2}, nil, t)
 
 	_, _ = st.SetInProgress(2, 3, 4, 5)
 
-	completed, sent, arrived, total = st.GetProgress()
+	completed, sent, arrived, total, track = st.GetProgress()
 	err = checkSentProgress(completed, sent, arrived, total, false, 6, 0, numParts)
 	if err != nil {
 		t.Error(err)
 	}
+	checkSentTracker(track, st.numParts, []uint16{0, 1, 2, 3, 4, 5}, nil, t)
 
 	_ = st.FinishTransfer(1)
 	_, _ = st.UnsetInProgress(2)
 
-	completed, sent, arrived, total = st.GetProgress()
+	completed, sent, arrived, total, track = st.GetProgress()
 	err = checkSentProgress(completed, sent, arrived, total, false, 0, 3, numParts)
 	if err != nil {
 		t.Error(err)
 	}
+	checkSentTracker(track, st.numParts, nil, []uint16{0, 1, 2}, t)
 
 	_, _ = st.SetInProgress(3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
 
-	completed, sent, arrived, total = st.GetProgress()
+	completed, sent, arrived, total, track = st.GetProgress()
 	err = checkSentProgress(
 		completed, sent, arrived, total, false, 10, 3, numParts)
 	if err != nil {
 		t.Error(err)
 	}
+	checkSentTracker(track, st.numParts,
+		[]uint16{6, 7, 8, 9, 10, 11, 12, 13, 14, 15}, []uint16{0, 1, 2}, t)
 
 	_ = st.FinishTransfer(3)
 	_, _ = st.SetInProgress(4, 3, 4, 5)
 
-	completed, sent, arrived, total = st.GetProgress()
+	completed, sent, arrived, total, track = st.GetProgress()
 	err = checkSentProgress(
 		completed, sent, arrived, total, false, 3, 13, numParts)
 	if err != nil {
 		t.Error(err)
 	}
+	checkSentTracker(track, st.numParts, []uint16{3, 4, 5},
+		[]uint16{0, 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}, t)
 
 	_ = st.FinishTransfer(4)
 
-	completed, sent, arrived, total = st.GetProgress()
+	completed, sent, arrived, total, track = st.GetProgress()
 	err = checkSentProgress(completed, sent, arrived, total, true, 0, 16, numParts)
 	if err != nil {
 		t.Error(err)
 	}
+	checkSentTracker(track, st.numParts, nil,
+		[]uint16{0, 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 3, 4, 5}, t)
 }
 
 // Tests that 5 different callbacks all receive the expected data when
@@ -451,7 +536,8 @@ func TestSentTransfer_CallProgressCB(t *testing.T) {
 	for i := 0; i < numCallbacks; i++ {
 		progressChan := make(chan progressResults)
 
-		cbFunc := func(completed bool, sent, arrived, total uint16, err error) {
+		cbFunc := func(completed bool, sent, arrived, total uint16,
+			t interfaces.FilePartTracker, err error) {
 			progressChan <- progressResults{completed, sent, arrived, total, err}
 		}
 		wg.Add(1)
@@ -545,7 +631,8 @@ func TestSentTransfer_AddProgressCB(t *testing.T) {
 	}
 	cbChan := make(chan callbackResults)
 	cbFunc := interfaces.SentProgressCallback(
-		func(completed bool, sent, arrived, total uint16, err error) {
+		func(completed bool, sent, arrived, total uint16,
+			t interfaces.FilePartTracker, err error) {
 			cbChan <- callbackResults{completed, sent, arrived, total, err}
 		})
 
@@ -719,7 +806,8 @@ func TestSentTransfer_GetEncryptedPart_EncryptPartError(t *testing.T) {
 }
 
 // Tests that SentTransfer.SetInProgress correctly adds the part numbers for the
-// given round ID to the in-progress map.
+// given round ID to the in-progress map and sets the correct parts as
+// in-progress in the state vector.
 func TestSentTransfer_SetInProgress(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	_, st := newRandomSentTransfer(16, 24, kv, t)
@@ -756,6 +844,22 @@ func TestSentTransfer_SetInProgress(t *testing.T) {
 			"\nexpected: %d\nreceived: %d", 1, len(st.inProgressTransfers.list))
 	}
 
+	// Check that the part numbers were set on the in-progress status vector
+	for i, partNum := range expectedPartNums {
+		if !st.inProgressStatus.Used(uint32(partNum)) {
+			t.Errorf("Part number %d not marked as used in status vector (%d).",
+				partNum, i)
+		}
+	}
+
+	// Check that the correct number of parts were marked as in-progress in the
+	// status vector
+	if int(st.inProgressStatus.GetNumUsed()) != len(expectedPartNums) {
+		t.Errorf("Incorrect number of parts marked as in-progress."+
+			"\nexpected: %d\nreceived: %d", len(expectedPartNums),
+			st.inProgressStatus.GetNumUsed())
+	}
+
 	// Add more parts to the in-progress list
 	err, exists = st.SetInProgress(rid, expectedPartNums...)
 	if err != nil {
@@ -765,6 +869,13 @@ func TestSentTransfer_SetInProgress(t *testing.T) {
 	// Check that the round already exists
 	if !exists {
 		t.Errorf("Round %d should already exist.", rid)
+	}
+
+	// Check that the number of parts were marked as in-progress is unchanged
+	if int(st.inProgressStatus.GetNumUsed()) != len(expectedPartNums) {
+		t.Errorf("Incorrect number of parts marked as in-progress."+
+			"\nexpected: %d\nreceived: %d", len(expectedPartNums),
+			st.inProgressStatus.GetNumUsed())
 	}
 }
 
@@ -805,7 +916,8 @@ func TestSentTransfer_GetInProgress(t *testing.T) {
 }
 
 // Tests that SentTransfer.UnsetInProgress correctly removes the part numbers
-// for the given round ID from the in-progress map.
+// for the given round ID from the in-progress map and unsets the correct parts
+// as in-progress in the state vector.
 func TestSentTransfer_UnsetInProgress(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	_, st := newRandomSentTransfer(16, 24, kv, t)
@@ -843,10 +955,17 @@ func TestSentTransfer_UnsetInProgress(t *testing.T) {
 		t.Errorf("Extra items in in-progress list."+
 			"\nexpected: %d\nreceived: %d", 0, len(st.inProgressTransfers.list))
 	}
+
+	// Check that there are no set parts in the in-progress status vector
+	if st.inProgressStatus.GetNumUsed() != 0 {
+		t.Errorf("Failed to unset all parts in the in-progress vector."+
+			"\nexpected: %d\nreceived: %d", 0, st.inProgressStatus.GetNumUsed())
+	}
 }
 
 // Tests that SentTransfer.FinishTransfer removes the parts from the in-progress
-// list and moved them to the finished list.
+// list and moved them to the finished list and that it unsets the correct parts
+// in the in-progress vector in the state vector.
 func TestSentTransfer_FinishTransfer(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	_, st := newRandomSentTransfer(16, 24, kv, t)
@@ -888,6 +1007,28 @@ func TestSentTransfer_FinishTransfer(t *testing.T) {
 	if len(st.finishedTransfers.list) > 1 {
 		t.Errorf("Extra items in finished list."+
 			"\nexpected: %d\nreceived: %d", 1, len(st.finishedTransfers.list))
+	}
+
+	// Check that there are no set parts in the in-progress status vector
+	if st.inProgressStatus.GetNumUsed() != 0 {
+		t.Errorf("Failed to unset all parts in the in-progress vector."+
+			"\nexpected: %d\nreceived: %d", 0, st.inProgressStatus.GetNumUsed())
+	}
+
+	// Check that the part numbers were set on the finished status vector
+	for i, partNum := range expectedPartNums {
+		if !st.finishedStatus.Used(uint32(partNum)) {
+			t.Errorf("Part number %d not marked as used in status vector (%d).",
+				partNum, i)
+		}
+	}
+
+	// Check that the correct number of parts were marked as finished in the
+	// status vector
+	if int(st.finishedStatus.GetNumUsed()) != len(expectedPartNums) {
+		t.Errorf("Incorrect number of parts marked as finished."+
+			"\nexpected: %d\nreceived: %d", len(expectedPartNums),
+			st.finishedStatus.GetNumUsed())
 	}
 }
 
@@ -961,7 +1102,7 @@ func Test_loadSentTransfer_LoadInfoError(t *testing.T) {
 
 // Error path: tests that loadSentTransfer returns the expected error when the
 // fingerprint state vector was deleted from storage.
-func Test_loadSentTransfer_LoadStateVectorError(t *testing.T) {
+func Test_loadSentTransfer_LoadFingerprintStateVectorError(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	tid, st := newRandomSentTransfer(16, 24, kv, t)
 
@@ -975,7 +1116,7 @@ func Test_loadSentTransfer_LoadStateVectorError(t *testing.T) {
 	_, err = loadSentTransfer(tid, kv)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("loadSentTransfer did not return the expected error when "+
-			"the fingerprint vector was delete from storage."+
+			"the fingerprint vector was deleted from storage."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
@@ -996,7 +1137,7 @@ func Test_loadSentTransfer_LoadPartStoreError(t *testing.T) {
 	_, err = loadSentTransfer(tid, kv)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("loadSentTransfer did not return the expected error when "+
-			"the part store was delete from storage."+
+			"the part store was deleted from storage."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
@@ -1017,7 +1158,7 @@ func Test_loadSentTransfer_LoadInProgressTransfersError(t *testing.T) {
 	_, err = loadSentTransfer(tid, kv)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("loadSentTransfer did not return the expected error when "+
-			"the in-progress transfers bundle was delete from storage."+
+			"the in-progress transfers bundle was deleted from storage."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
@@ -1038,7 +1179,49 @@ func Test_loadSentTransfer_LoadFinishedTransfersError(t *testing.T) {
 	_, err = loadSentTransfer(tid, kv)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("loadSentTransfer did not return the expected error when "+
-			"the finished transfers bundle was delete from storage."+
+			"the finished transfers bundle was deleted from storage."+
+			"\nexpected: %s\nreceived: %+v", expectedErr, err)
+	}
+}
+
+// Error path: tests that loadSentTransfer returns the expected error when the
+// in-progress status state vector was deleted from storage.
+func Test_loadSentTransfer_LoadInProgressStateVectorError(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	tid, st := newRandomSentTransfer(16, 24, kv, t)
+
+	// Delete the in-progress state vector from storage
+	err := st.inProgressStatus.Delete()
+	if err != nil {
+		t.Errorf("Failed to delete the in-progress vector: %+v", err)
+	}
+
+	expectedErr := strings.Split(loadSentInProgressVectorErr, "%")[0]
+	_, err = loadSentTransfer(tid, kv)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("loadSentTransfer did not return the expected error when "+
+			"the in-progress vector was deleted from storage."+
+			"\nexpected: %s\nreceived: %+v", expectedErr, err)
+	}
+}
+
+// Error path: tests that loadSentTransfer returns the expected error when the
+// finished status state vector was deleted from storage.
+func Test_loadSentTransfer_LoadFinishedStateVectorError(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	tid, st := newRandomSentTransfer(16, 24, kv, t)
+
+	// Delete the finished state vector from storage
+	err := st.finishedStatus.Delete()
+	if err != nil {
+		t.Errorf("Failed to delete the finished vector: %+v", err)
+	}
+
+	expectedErr := strings.Split(loadSentFinishedVectorErr, "%")[0]
+	_, err = loadSentTransfer(tid, kv)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("loadSentTransfer did not return the expected error when "+
+			"the finished vector was deleted from storage."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
@@ -1164,6 +1347,21 @@ func TestSentTransfer_delete(t *testing.T) {
 		t.Error("Successfully loaded fingerprint vector from storage when it " +
 			"should have been deleted.")
 	}
+
+	// Check that the in-progress status vector was deleted
+	_, err = utility.LoadStateVector(st.kv, sentInProgressVectorKey)
+	if err == nil {
+		t.Error("Successfully loaded in-progress vector from storage when it " +
+			"should have been deleted.")
+	}
+
+	// Check that the finished status vector was deleted
+	_, err = utility.LoadStateVector(st.kv, sentFinishedVectorKey)
+	if err == nil {
+		t.Error("Successfully loaded finished vector from storage when it " +
+			"should have been deleted.")
+	}
+
 }
 
 // Tests that SentTransfer.deleteInfo removes the saved SentTransfer data from
@@ -1202,11 +1400,12 @@ func TestSentTransfer_marshal_unmarshalSentTransfer(t *testing.T) {
 		key:       ftCrypto.UnmarshalTransferKey([]byte("key")),
 		numParts:  16,
 		numFps:    20,
+		status:    stopped,
 	}
 
 	marshaledData := st.marshal()
 
-	recipient, key, numParts, numFps := unmarshalSentTransfer(marshaledData)
+	recipient, key, numParts, numFps, status := unmarshalSentTransfer(marshaledData)
 
 	if !st.recipient.Cmp(recipient) {
 		t.Errorf("Failed to get recipient ID.\nexpected: %s\nreceived: %s",
@@ -1226,6 +1425,11 @@ func TestSentTransfer_marshal_unmarshalSentTransfer(t *testing.T) {
 	if st.numFps != numFps {
 		t.Errorf("Failed to get expected number of fingerprints."+
 			"\nexpected: %d\nreceived: %d", st.numFps, numFps)
+	}
+
+	if st.status != status {
+		t.Errorf("Failed to get expected transfer status."+
+			"\nexpected: %d\nreceived: %d", st.status, status)
 	}
 }
 
@@ -1301,4 +1505,55 @@ func checkSentProgress(completed bool, sent, arrived, total uint16,
 	}
 
 	return nil
+}
+
+// checkSentTracker checks that the SentPartTracker is reporting the correct
+// values for each part. Also checks that SentPartTracker.GetNumParts returns
+// the expected value (make sure numParts comes from a correct source).
+func checkSentTracker(track SentPartTracker, numParts uint16, inProgress,
+	finished []uint16, t *testing.T) {
+	if track.GetNumParts() != numParts {
+		t.Errorf("Tracker reported incorrect number of parts."+
+			"\nexpected: %d\nreceived: %d", numParts, track.GetNumParts())
+		return
+	}
+
+	for partNum := uint16(0); partNum < numParts; partNum++ {
+		var done bool
+		for _, inProgressNum := range inProgress {
+			if inProgressNum == partNum {
+				if track.GetPartStatus(partNum) != sentStatus {
+					t.Errorf("Part number %d has unexpected status."+
+						"\nexpected: %d\nreceived: %d", partNum, sentStatus,
+						track.GetPartStatus(partNum))
+				}
+				done = true
+				break
+			}
+		}
+		if done {
+			continue
+		}
+
+		for _, finishedNum := range finished {
+			if finishedNum == partNum {
+				if track.GetPartStatus(partNum) != arrivedStatus {
+					t.Errorf("Part number %d has unexpected status."+
+						"\nexpected: %d\nreceived: %d", partNum, arrivedStatus,
+						track.GetPartStatus(partNum))
+				}
+				done = true
+				break
+			}
+		}
+		if done {
+			continue
+		}
+
+		if track.GetPartStatus(partNum) != unsentStatus {
+			t.Errorf("Part number %d has incorrect status."+
+				"\nexpected: %d\nreceived: %d",
+				partNum, unsentStatus, track.GetPartStatus(partNum))
+		}
+	}
 }

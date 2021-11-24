@@ -60,7 +60,6 @@ func TestStateVector_Use(t *testing.T) {
 	usedKeys := []uint32{0, 2, 3, 4, 6, 39, 62, 70, 98, 100}
 	usedKeysMap := make(map[uint32]bool, len(usedKeys))
 	for i, keyNum := range usedKeys {
-
 		sv.Use(keyNum)
 
 		// Check if numAvailable is correct
@@ -88,6 +87,56 @@ func TestStateVector_Use(t *testing.T) {
 	if sv.numAvailable != sv.numKeys-uint32(len(usedKeys)) {
 		t.Errorf("numAvailable incorrect.\nexpected: %d\nreceived: %d",
 			sv.numKeys-uint32(len(usedKeys)), sv.numAvailable)
+	}
+}
+
+// Tests that StateVector.Unuse sets the correct keys to unused and does not
+// modify others keys and that numAvailable is correctly set.
+func TestStateVector_Unuse(t *testing.T) {
+	sv := newTestStateVector("StateVectorUse", 138, t)
+
+	// Set all the keys to used
+	for keyNum := uint32(0); keyNum < sv.numKeys; keyNum++ {
+		sv.Use(keyNum)
+	}
+
+	// Set some keys to unused
+	unusedKeys := []uint32{0, 2, 3, 4, 6, 39, 62, 70, 98, 100}
+	unusedKeysMap := make(map[uint32]bool, len(unusedKeys))
+	for i, keyNum := range unusedKeys {
+		sv.Unuse(keyNum)
+
+		// Check if numAvailable is correct
+		if sv.numAvailable != uint32(i)+1 {
+			t.Errorf("numAvailable incorrect (%d).\nexpected: %d\nreceived: %d",
+				i, uint32(i)+1, sv.numAvailable)
+		}
+
+		// Check if firstAvailable is correct
+		if sv.firstAvailable != unusedKeys[0] {
+			t.Errorf("firstAvailable incorrect (%d).\nexpected: %d\nreceived: %d",
+				i, unusedKeys[0], sv.firstAvailable)
+		}
+
+		unusedKeysMap[keyNum] = true
+	}
+
+	// Check all keys for their expected states
+	for i := uint32(0); i < sv.numKeys; i++ {
+		if unusedKeysMap[i] {
+			if sv.Used(i) {
+				t.Errorf("Key #%d should have been marked unused.", i)
+			}
+		} else if !sv.Used(i) {
+			t.Errorf("Key #%d should have been marked used.", i)
+		}
+	}
+
+	// Make sure numAvailable is not modified when the key is already used
+	sv.Unuse(unusedKeys[0])
+	if sv.numAvailable != uint32(len(unusedKeys)) {
+		t.Errorf("numAvailable incorrect.\nexpected: %d\nreceived: %d",
+			uint32(len(unusedKeys)), sv.numAvailable)
 	}
 }
 
@@ -340,6 +389,32 @@ func TestStateVector_GetUsedKeyNums(t *testing.T) {
 			t.Errorf("Key number #%d incorrect."+
 				"\nexpected: %d\nreceived: %d", i, 2*i, keyNum)
 		}
+	}
+}
+
+// Tests that StateVector.DeepCopy makes a copy of the values and not of the
+// pointers.
+func TestStateVector_DeepCopy(t *testing.T) {
+	sv := newTestStateVector("StateVectorGetUsedKeyNums", 1000, t)
+
+	newSV := sv.DeepCopy()
+	sv.kv = nil
+
+	// Check that the values are the same
+	if !reflect.DeepEqual(sv, newSV) {
+		t.Errorf("Original and copy do not match."+
+			"\nexpected: %#v\nreceived: %#v", sv, newSV)
+	}
+
+	// Check that the pointers are different
+	if sv == newSV {
+		t.Errorf("Original and copy do not match."+
+			"\nexpected: %p\nreceived: %p", sv, newSV)
+	}
+
+	if &sv.vect == &newSV.vect {
+		t.Errorf("Original and copy do not match."+
+			"\nexpected: %p\nreceived: %p", sv.vect, newSV.vect)
 	}
 }
 

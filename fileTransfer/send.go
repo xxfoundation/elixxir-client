@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	ftStorage "gitlab.com/elixxir/client/storage/fileTransfer"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
+	"gitlab.com/elixxir/crypto/shuffle"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
@@ -389,12 +390,28 @@ func (m *Manager) makeRoundEventCallback(rid id.Round, tid ftCrypto.TransferID,
 	}
 }
 
-// queueParts sends an entry for each part in a transfer into the sendQueue
-// channel.
+// queueParts adds an entry for each file part in a transfer into the sendQueue
+// channel in a random order.
 func (m *Manager) queueParts(tid ftCrypto.TransferID, numParts uint16) {
-	for i := uint16(0); i < numParts; i++ {
-		m.sendQueue <- queuedPart{tid, i}
+	// Add each part number to the buffer in the shuffled order
+	for _, partNum := range getShuffledPartNumList(numParts) {
+		m.sendQueue <- queuedPart{tid, uint16(partNum)}
 	}
+}
+
+// getShuffledPartNumList returns a list of number of file part, from 0 to
+// numParts, shuffled in a random order.
+func getShuffledPartNumList(numParts uint16) []uint64 {
+	// Create list of part numbers
+	partNumList := make([]uint64, numParts)
+	for i := range partNumList {
+		partNumList[i] = uint64(i)
+	}
+
+	// Shuffle list of part numbers
+	shuffle.Shuffle(&partNumList)
+
+	return partNumList
 }
 
 // getPartSize determines the maximum size for each file part in bytes. The size

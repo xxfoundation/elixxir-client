@@ -85,25 +85,25 @@ func (sct *sentCallbackTracker) call(tracker sentProgressTracker, err error) {
 
 // callNow calls the callback immediately regardless of the schedule or period.
 func (sct *sentCallbackTracker) callNow(tracker sentProgressTracker, err error) {
-	completed, sent, arrived, total := tracker.GetProgress()
-	go sct.cb(completed, sent, arrived, total, err)
+	completed, sent, arrived, total, t := tracker.GetProgress()
+	go sct.cb(completed, sent, arrived, total, t, err)
 }
 
 // callNowUnsafe calls the callback immediately regardless of the schedule or
 // period without taking a thread lock. This function should be used if a lock
 // is already taken on the sentProgressTracker.
 func (sct *sentCallbackTracker) callNowUnsafe(tracker sentProgressTracker, err error) {
-	completed, sent, arrived, total := tracker.getProgress()
-	go sct.cb(completed, sent, arrived, total, err)
+	completed, sent, arrived, total, t := tracker.getProgress()
+	go sct.cb(completed, sent, arrived, total, t, err)
 }
 
 // sentProgressTracker interface tracks the progress of a transfer.
 type sentProgressTracker interface {
 	// GetProgress returns the sent transfer progress in a thread-safe manner.
-	GetProgress() (completed bool, sent, arrived, total uint16)
+	GetProgress() (completed bool, sent, arrived, total uint16, t SentPartTracker)
 
 	// getProgress returns the sent transfer progress in a thread-unsafe manner.
 	// This function should be used if a lock is already taken on the sent
 	// transfer.
-	getProgress() (completed bool, sent, arrived, total uint16)
+	getProgress() (completed bool, sent, arrived, total uint16, t SentPartTracker)
 }

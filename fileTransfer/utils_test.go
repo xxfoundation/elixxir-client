@@ -231,7 +231,8 @@ func newTestManagerWithTransfers(numParts []uint16, sendErr bool,
 
 		cbChan := make(chan sentProgressResults, 6)
 
-		cb := func(completed bool, sent, arrived, total uint16, err error) {
+		cb := func(completed bool, sent, arrived, total uint16,
+			t interfaces.FilePartTracker, err error) {
 			cbChan <- sentProgressResults{completed, sent, arrived, total, err}
 		}
 
@@ -265,7 +266,8 @@ func newTestManagerWithTransfers(numParts []uint16, sendErr bool,
 
 		cbChan := make(chan receivedProgressResults, 6)
 
-		cb := func(completed bool, received, total uint16, err error) {
+		cb := func(completed bool, received, total uint16,
+			t interfaces.FilePartTracker, err error) {
 			cbChan <- receivedProgressResults{completed, received, total, err}
 		}
 

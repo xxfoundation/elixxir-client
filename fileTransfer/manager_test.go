@@ -240,7 +240,8 @@ func TestManager_RegisterSendProgressCallback(t *testing.T) {
 
 	// Create new callback and channel for the callback to trigger
 	cbChan := make(chan sentProgressResults, 6)
-	cb := func(completed bool, sent, arrived, total uint16, err error) {
+	cb := func(completed bool, sent, arrived, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		cbChan <- sentProgressResults{completed, sent, arrived, total, err}
 	}
 
@@ -416,6 +417,31 @@ func TestManager_CloseSend_NotCompleteErr(t *testing.T) {
 	}
 }
 
+// Error path: tests that Manager.Receive returns an error when no transfer with
+// the ID exists.
+func TestManager_Receive_NoTransferError(t *testing.T) {
+	m := newTestManager(false, nil, nil, nil, t)
+	tid := ftCrypto.UnmarshalTransferID([]byte("invalidID"))
+
+	_, err := m.Receive(tid)
+	if err == nil {
+		t.Error("Receive did not return an error when no transfer with the ID " +
+			"exists.")
+	}
+}
+
+// Error path: tests that Manager.Receive returns an error when the file is
+// incomplete.
+func TestManager_Receive_GetFileError(t *testing.T) {
+	m, _, rti := newTestManagerWithTransfers([]uint16{12, 4, 1}, false, nil, t)
+
+	_, err := m.Receive(rti[0].tid)
+	if err == nil || !strings.Contains(err.Error(), "missing") {
+		t.Error("Receive did not return the expected error when no transfer " +
+			"with the ID exists.")
+	}
+}
+
 // Tests that Manager.RegisterReceiveProgressCallback calls the callback when it
 // is added to the transfer and that the callback is associated with the
 // expected transfer and is called when calling from the transfer.
@@ -425,7 +451,8 @@ func TestManager_RegisterReceiveProgressCallback(t *testing.T) {
 
 	// Create new callback and channel for the callback to trigger
 	cbChan := make(chan receivedProgressResults, 6)
-	cb := func(completed bool, received, total uint16, err error) {
+	cb := func(completed bool, received, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		cbChan <- receivedProgressResults{completed, received, total, err}
 	}
 
@@ -482,31 +509,6 @@ func TestManager_RegisterReceiveProgressCallback_NoTransferError(t *testing.T) {
 	if err == nil {
 		t.Error("RegisterReceiveProgressCallback did not return an error " +
 			"when no transfer with the ID exists.")
-	}
-}
-
-// Error path: tests that Manager.Receive returns an error when no transfer with
-// the ID exists.
-func TestManager_Receive_NoTransferError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, t)
-	tid := ftCrypto.UnmarshalTransferID([]byte("invalidID"))
-
-	_, err := m.Receive(tid)
-	if err == nil {
-		t.Error("Receive did not return an error when no transfer with the ID " +
-			"exists.")
-	}
-}
-
-// Error path: tests that Manager.Receive returns an error when the file is
-// incomplete.
-func TestManager_Receive_GetFileError(t *testing.T) {
-	m, _, rti := newTestManagerWithTransfers([]uint16{12, 4, 1}, false, nil, t)
-
-	_, err := m.Receive(rti[0].tid)
-	if err == nil || !strings.Contains(err.Error(), "missing") {
-		t.Error("Receive did not return the expected error when no transfer " +
-			"with the ID exists.")
 	}
 }
 
@@ -576,7 +578,8 @@ func Test_FileTransfer(t *testing.T) {
 
 	// Create progress tracker for sending
 	sentCbChan := make(chan sentProgressResults, 20)
-	sentCb := func(completed bool, sent, arrived, total uint16, err error) {
+	sentCb := func(completed bool, sent, arrived, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		sentCbChan <- sentProgressResults{completed, sent, arrived, total, err}
 	}
 
@@ -633,7 +636,8 @@ func Test_FileTransfer(t *testing.T) {
 
 	// Register progress callback with receiving manager
 	receiveCbChan := make(chan receivedProgressResults, 100)
-	receiveCb := func(completed bool, received, total uint16, err error) {
+	receiveCb := func(completed bool, received, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		receiveCbChan <- receivedProgressResults{completed, received, total, err}
 	}
 
@@ -647,6 +651,26 @@ func Test_FileTransfer(t *testing.T) {
 				t.Errorf("Timed out waiting for receive progress callback %d.", i)
 			case r := <-receiveCbChan:
 				if r.completed {
+					// Count the number of parts marked as received
+					count := 0
+					for j := uint16(0); j < r.total; j++ {
+						status, err2 := m2.GetReceivedPartStatus(receiveTid, j)
+						if err2 != nil {
+							t.Errorf("Failed to get part %d status: %+v", j, err2)
+						}
+						if status == received {
+							count++
+						}
+					}
+
+					// Ensure that the number of parts received reported by the
+					// callback matches the number marked received
+					if count != int(r.received) {
+						t.Errorf("Number of parts marked received does not match "+
+							"number reported by callback.\nmarked: %d\ncallback: %d",
+							count, r.received)
+					}
+
 					return
 				}
 			}

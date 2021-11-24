@@ -10,6 +10,7 @@ package bindings
 import (
 	"encoding/json"
 	ft "gitlab.com/elixxir/client/fileTransfer"
+	"gitlab.com/elixxir/client/interfaces"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -24,14 +25,16 @@ type FileTransfer struct {
 // progress of sending a file. It is called when a file part is sent, a file
 // part arrives, the transfer completes, or on error.
 type FileTransferSentProgressFunc interface {
-	SentProgressCallback(completed bool, sent, arrived, total int, err error)
+	SentProgressCallback(completed bool, sent, arrived, total int,
+		t *FilePartTracker, err error)
 }
 
 // FileTransferReceivedProgressFunc contains a function callback that tracks the
 // progress of receiving a file. It is called when a file part is received, the
 // transfer completes, or on error.
 type FileTransferReceivedProgressFunc interface {
-	ReceivedProgressCallback(completed bool, received, total int, err error)
+	ReceivedProgressCallback(completed bool, received, total int,
+		t *FilePartTracker, err error)
 }
 
 // FileTransferReceiveFunc contains a function callback that notifies the
@@ -100,9 +103,10 @@ func (f *FileTransfer) Send(fileName, fileType string, fileData []byte,
 	progressFunc FileTransferSentProgressFunc, periodMS int) ([]byte, error) {
 
 	// Create SentProgressCallback
-	progressCB := func(completed bool, sent, arrived, total uint16, err error) {
+	progressCB := func(completed bool, sent, arrived, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		progressFunc.SentProgressCallback(
-			completed, int(sent), int(arrived), int(total), err)
+			completed, int(sent), int(arrived), int(total), &FilePartTracker{t}, err)
 	}
 
 	// Convert recipient ID bytes to id.ID
@@ -141,9 +145,10 @@ func (f *FileTransfer) RegisterSendProgressCallback(transferID []byte,
 	tid := ftCrypto.UnmarshalTransferID(transferID)
 
 	// Create SentProgressCallback
-	progressCB := func(completed bool, sent, arrived, total uint16, err error) {
+	progressCB := func(completed bool, sent, arrived, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		progressFunc.SentProgressCallback(
-			completed, int(sent), int(arrived), int(total), err)
+			completed, int(sent), int(arrived), int(total), &FilePartTracker{t}, err)
 	}
 
 	// Convert period to time.Duration
@@ -171,6 +176,17 @@ func (f *FileTransfer) CloseSend(transferID []byte) error {
 	return f.m.CloseSend(tid)
 }
 
+// Receive returns the fully assembled file on the completion of the transfer.
+// It deletes the transfer from the received transfer map and from storage.
+// Returns an error if the transfer is not complete, the full file cannot be
+// verified, or if the transfer cannot be found.
+func (f *FileTransfer) Receive(transferID []byte) ([]byte, error) {
+	// Unmarshal transfer ID
+	tid := ftCrypto.UnmarshalTransferID(transferID)
+
+	return f.m.Receive(tid)
+}
+
 // RegisterReceiveProgressCallback allows for the registration of a callback to
 // track the progress of an individual received file transfer. The callback will
 // be called immediately when added to report the current status of the
@@ -187,26 +203,16 @@ func (f *FileTransfer) RegisterReceiveProgressCallback(transferID []byte,
 	tid := ftCrypto.UnmarshalTransferID(transferID)
 
 	// Create ReceivedProgressCallback
-	progressCB := func(completed bool, received, total uint16, err error) {
+	progressCB := func(completed bool, received, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		progressFunc.ReceivedProgressCallback(
-			completed, int(received), int(total), err)
+			completed, int(received), int(total), &FilePartTracker{t}, err)
 	}
 
 	// Convert period to time.Duration
 	period := time.Duration(periodMS) * time.Millisecond
 
 	return f.m.RegisterReceiveProgressCallback(tid, progressCB, period)
-}
-
-// Receive returns the fully assembled file on the completion of the transfer.
-// It deletes the transfer from the received transfer map and from storage.
-// Returns an error if the transfer is not complete, the full file cannot be
-// verified, or if the transfer cannot be found.
-func (f *FileTransfer) Receive(transferID []byte) ([]byte, error) {
-	// Unmarshal transfer ID
-	tid := ftCrypto.UnmarshalTransferID(transferID)
-
-	return f.m.Receive(tid)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -234,4 +240,28 @@ func (f *FileTransfer) GetMaxFileTypeByteLength() int {
 // transferred.
 func (f *FileTransfer) GetMaxFileSize() int {
 	return ft.FileMaxSize
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// File Part Tracker                                                          //
+////////////////////////////////////////////////////////////////////////////////
+
+// FilePartTracker contains the interfaces.FilePartTracker.
+type FilePartTracker struct {
+	m interfaces.FilePartTracker
+}
+
+// GetPartStatus returns the status of the file part with the given part number.
+// The possible values for the status are:
+// 0 = unsent
+// 1 = sent (sender has sent a part, but it has not arrived)
+// 2 = arrived (sender has sent a part, and it has arrived)
+// 3 = received (receiver has received a part)
+func (fpt *FilePartTracker) GetPartStatus(partNum int) int {
+	return fpt.m.GetPartStatus(uint16(partNum))
+}
+
+// GetNumParts returns the total number of file parts in the transfer.
+func (fpt *FilePartTracker) GetNumParts() int {
+	return int(fpt.m.GetNumParts())
 }

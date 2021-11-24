@@ -26,20 +26,24 @@ const (
 	receivedTransferKey     = "ReceivedTransfer"
 	receivedTransferVersion = 0
 	receivedFpVectorKey     = "ReceivedFingerprintVector"
+	receivedVectorKey       = "ReceivedStatusVector"
 )
 
 // Error messages for ReceivedTransfer
 const (
-	newReceivedTransferPartStoreErr = "failed to create new part store: %+v"
 	newReceivedTransferFpVectorErr  = "failed to create new StateVector for fingerprints: %+v"
+	newReceivedTransferPartStoreErr = "failed to create new part store: %+v"
+	newReceivedVectorErr            = "failed to create new state vector for received status: %+v"
 	loadReceivedStoreErr            = "failed to load received transfer info from storage: %+v"
 	loadReceivePartStoreErr         = "failed to load received part store from storage: %+v"
+	loadReceivedVectorErr           = "failed to load new received status state vector from storage: %+v"
 	loadReceiveFpVectorErr          = "failed to load received fingerprint vector from storage: %+v"
 	getFileErr                      = "missing %d/%d parts of the file"
 	getTransferMacErr               = "failed to verify transfer MAC"
 	deleteReceivedTransferInfoErr   = "failed to delete received transfer info from storage: %+v"
 	deleteReceivedFpVectorErr       = "failed to delete received fingerprint vector from storage: %+v"
 	deleteReceivedFilePartsErr      = "failed to delete received file parts from storage: %+v"
+	deleteReceivedVectorErr         = "failed to delete received status state vector from storage: %+v"
 )
 
 // ReceivedTransfer contains information and progress data for receiving an in-
@@ -69,6 +73,9 @@ type ReceivedTransfer struct {
 	// Saves each part in order (has its own storage backend)
 	receivedParts *partStore
 
+	// Stores the received status for each file part in a bitstream format
+	receivedStatus *utility.StateVector
+
 	// List of callbacks to call for every send
 	progressCallbacks []*receivedCallbackTracker
 
@@ -83,7 +90,7 @@ func NewReceivedTransfer(tid ftCrypto.TransferID, key ftCrypto.TransferKey,
 	kv *versioned.KV) (*ReceivedTransfer, error) {
 
 	// Create the ReceivedTransfer object
-	rf := &ReceivedTransfer{
+	rt := &ReceivedTransfer{
 		key:               key,
 		transferMAC:       transferMAC,
 		fileSize:          fileSize,
@@ -96,20 +103,27 @@ func NewReceivedTransfer(tid ftCrypto.TransferID, key ftCrypto.TransferKey,
 	var err error
 
 	// Create new StateVector for storing fingerprint usage
-	rf.fpVector, err = utility.NewStateVector(
-		rf.kv, receivedFpVectorKey, uint32(numFps))
+	rt.fpVector, err = utility.NewStateVector(
+		rt.kv, receivedFpVectorKey, uint32(numFps))
 	if err != nil {
 		return nil, errors.Errorf(newReceivedTransferFpVectorErr, err)
 	}
 
 	// Create new part store
-	rf.receivedParts, err = newPartStore(rf.kv, numParts)
+	rt.receivedParts, err = newPartStore(rt.kv, numParts)
 	if err != nil {
 		return nil, errors.Errorf(newReceivedTransferPartStoreErr, err)
 	}
 
+	// Create new StateVector for storing received status
+	rt.receivedStatus, err = utility.NewStateVector(
+		rt.kv, receivedVectorKey, uint32(rt.numParts))
+	if err != nil {
+		return nil, errors.Errorf(newReceivedVectorErr, err)
+	}
+
 	// Save all fields without their own storage to storage
-	return rf, rf.saveInfo()
+	return rt, rt.saveInfo()
 }
 
 // GetTransferKey returns the transfer Key for this received transfer.
@@ -160,10 +174,20 @@ func (rt *ReceivedTransfer) GetFileSize() uint32 {
 	return rt.fileSize
 }
 
+// IsPartReceived returns true if the part has successfully been received.
+// Returns false if the part has not been received or if the part number is
+// invalid.
+func (rt *ReceivedTransfer) IsPartReceived(partNum uint16) bool {
+	_, exists := rt.receivedParts.getPart(partNum)
+	return exists
+}
+
 // GetProgress returns the current progress of the transfer. Completed is true
 // when all parts have been received, received is the number of parts received,
-// and total is the total number of parts excepted to be received.
-func (rt *ReceivedTransfer) GetProgress() (completed bool, received, total uint16) {
+// total is the total number of parts excepted to be received, and t is a part
+// status tracker that can be used to get the status of individual file parts.
+func (rt *ReceivedTransfer) GetProgress() (completed bool, received,
+	total uint16, t ReceivedPartTracker) {
 	rt.mux.RLock()
 	defer rt.mux.RUnlock()
 
@@ -174,7 +198,7 @@ func (rt *ReceivedTransfer) GetProgress() (completed bool, received, total uint1
 		completed = true
 	}
 
-	return completed, received, total
+	return completed, received, total, NewReceivedPartTracker(rt.receivedStatus)
 }
 
 // CallProgressCB calls all the progress callbacks with the most recent progress
@@ -227,6 +251,9 @@ func (rt *ReceivedTransfer) AddPart(encryptedPart, padding, mac []byte, partNum,
 
 	// Mark the fingerprint as used
 	rt.fpVector.Use(uint32(fpNum))
+
+	// Mark part as received
+	rt.receivedStatus.Use(uint32(partNum))
 
 	return nil
 }
@@ -283,6 +310,12 @@ func loadReceivedTransfer(tid ftCrypto.TransferID, kv *versioned.KV) (
 	rt.receivedParts, err = loadPartStore(rt.kv)
 	if err != nil {
 		return nil, errors.Errorf(loadReceivePartStoreErr, err)
+	}
+
+	// Load the received status StateVector from storage
+	rt.receivedStatus, err = utility.LoadStateVector(rt.kv, receivedVectorKey)
+	if err != nil {
+		return nil, errors.Errorf(loadReceivedVectorErr, err)
 	}
 
 	return rt, nil
@@ -342,6 +375,12 @@ func (rt *ReceivedTransfer) delete() error {
 	err = rt.receivedParts.delete()
 	if err != nil {
 		return errors.Errorf(deleteReceivedFilePartsErr, err)
+	}
+
+	// Delete the received status StateVector from storage
+	err = rt.receivedStatus.Delete()
+	if err != nil {
+		return errors.Errorf(deleteReceivedVectorErr, err)
 	}
 
 	return nil

@@ -27,6 +27,7 @@ const (
 // Error messages.
 const (
 	saveUsedKeyErr   = "Failed to save %s after marking key %d as used: %+v"
+	saveUnusedKeyErr = "Failed to save %s after marking key %d as unused: %+v"
 	saveNextErr      = "failed to save %s after getting next available key: %+v"
 	noKeysErr        = "all keys used"
 	loadUnmarshalErr = "failed to unmarshal from storage: %+v"
@@ -102,6 +103,43 @@ func (sv *StateVector) use(keyNum uint32) {
 	// If this is the first available key, then advanced to the next available
 	if keyNum == sv.firstAvailable {
 		sv.nextAvailable()
+	}
+}
+
+// Unuse marks the key as unused (sets it to 0).
+func (sv *StateVector) Unuse(keyNum uint32) {
+	sv.mux.Lock()
+	defer sv.mux.Unlock()
+
+	// Mark the key as used
+	sv.unuse(keyNum)
+
+	// Save changes to storage
+	if err := sv.save(); err != nil {
+		jww.FATAL.Printf(saveUnusedKeyErr, sv, keyNum, err)
+	}
+}
+
+// unuse marks the key as unused (sets it to 0). It is not thread-safe and does
+// not save to storage.
+func (sv *StateVector) unuse(keyNum uint32) {
+	// If the key is already unused, then exit
+	if !sv.used(keyNum) {
+		return
+	}
+
+	// Calculate block and position of the key
+	block, pos := getBlockAndPos(keyNum)
+
+	// Set the key to unused (0)
+	sv.vect[block] &= ^(1 << pos)
+
+	// Increment number available unused keys
+	sv.numAvailable++
+
+	// If this is before the first available key, then set to the next available
+	if keyNum < sv.firstAvailable {
+		sv.firstAvailable = keyNum
 	}
 }
 
@@ -217,6 +255,24 @@ func (sv *StateVector) GetUsedKeyNums() []uint32 {
 	}
 
 	return keyNums
+}
+
+// DeepCopy creates a deep copy of the StateVector without a storage backend.
+// The deep copy can only be used for functions that do not access storage.
+func (sv *StateVector) DeepCopy() *StateVector {
+	newSV := &StateVector{
+		vect:           make([]uint64, len(sv.vect)),
+		firstAvailable: sv.firstAvailable,
+		numKeys:        sv.numKeys,
+		numAvailable:   sv.numAvailable,
+		key:            sv.key,
+	}
+
+	for i, val := range sv.vect {
+		newSV.vect[i] = val
+	}
+
+	return newSV
 }
 
 // getBlockAndPos calculates the block index and the position within that block

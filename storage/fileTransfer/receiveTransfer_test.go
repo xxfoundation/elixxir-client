@@ -37,6 +37,8 @@ func Test_NewReceivedTransfer(t *testing.T) {
 	numParts, numFps := uint16(16), uint16(24)
 	fpVector, _ := utility.NewStateVector(
 		kvPrefixed, receivedFpVectorKey, uint32(numFps))
+	receivedVector, _ := utility.NewStateVector(
+		kvPrefixed, receivedVectorKey, uint32(numParts))
 
 	expected := &ReceivedTransfer{
 		key:         key,
@@ -50,7 +52,9 @@ func Test_NewReceivedTransfer(t *testing.T) {
 			numParts: numParts,
 			kv:       kvPrefixed,
 		},
+		receivedStatus:    receivedVector,
 		progressCallbacks: []*receivedCallbackTracker{},
+		mux:               sync.RWMutex{},
 		kv:                kvPrefixed,
 	}
 
@@ -178,6 +182,25 @@ func TestReceivedTransfer_GetFileSize(t *testing.T) {
 	}
 }
 
+// Tests that ReceivedTransfer.IsPartReceived returns false for unreceived file
+// parts and true when the file part has been received.
+func TestReceivedTransfer_IsPartReceived(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, rt, _ := newEmptyReceivedTransfer(16, 20, kv, t)
+
+	partNum := uint16(5)
+
+	if rt.IsPartReceived(partNum) {
+		t.Errorf("Part number %d received.", partNum)
+	}
+
+	_ = rt.receivedParts.addPart([]byte("part"), partNum)
+
+	if !rt.IsPartReceived(partNum) {
+		t.Errorf("Part number %d not received.", partNum)
+	}
+}
+
 // checkReceivedProgress compares the output of ReceivedTransfer.GetProgress to
 // expected values.
 func checkReceivedProgress(completed bool, received, total uint16,
@@ -194,6 +217,42 @@ func checkReceivedProgress(completed bool, received, total uint16,
 	return nil
 }
 
+// checkReceivedTracker checks that the ReceivedPartTracker is reporting the
+// correct values for each part. Also checks that ReceivedPartTracker.GetNumParts
+// returns the expected value (make sure numParts comes from a correct source).
+func checkReceivedTracker(track ReceivedPartTracker, numParts uint16,
+	received []uint16, t *testing.T) {
+	if track.GetNumParts() != numParts {
+		t.Errorf("Tracker reported incorrect number of parts."+
+			"\nexpected: %d\nreceived: %d", numParts, track.GetNumParts())
+		return
+	}
+
+	for partNum := uint16(0); partNum < numParts; partNum++ {
+		var done bool
+		for _, receivedNum := range received {
+			if receivedNum == partNum {
+				if track.GetPartStatus(partNum) != receivedStatus {
+					t.Errorf("Part number %d has unexpected status."+
+						"\nexpected: %d\nreceived: %d", partNum, receivedStatus,
+						track.GetPartStatus(partNum))
+				}
+				done = true
+				break
+			}
+		}
+		if done {
+			continue
+		}
+
+		if track.GetPartStatus(partNum) != unsentStatus {
+			t.Errorf("Part number %d has incorrect status."+
+				"\nexpected: %d\nreceived: %d",
+				partNum, unsentStatus, track.GetPartStatus(partNum))
+		}
+	}
+}
+
 // Tests that ReceivedTransfer.GetProgress returns the expected progress metrics
 // for various transfer states.
 func TestReceivedTransfer_GetProgress(t *testing.T) {
@@ -201,57 +260,70 @@ func TestReceivedTransfer_GetProgress(t *testing.T) {
 	numParts := uint16(16)
 	_, rt, _ := newEmptyReceivedTransfer(numParts, 20, kv, t)
 
-	completed, received, total := rt.GetProgress()
+	completed, received, total, track := rt.GetProgress()
 	err := checkReceivedProgress(completed, received, total, false, 0, numParts)
 	if err != nil {
 		t.Error(err)
 	}
+	checkReceivedTracker(track, rt.numParts, nil, t)
 
 	_, _ = rt.fpVector.Next()
+	_, _ = rt.receivedStatus.Next()
 
-	completed, received, total = rt.GetProgress()
+	completed, received, total, track = rt.GetProgress()
 	err = checkReceivedProgress(completed, received, total, false, 1, numParts)
 	if err != nil {
 		t.Error(err)
 	}
+	checkReceivedTracker(track, rt.numParts, []uint16{0}, t)
 
 	for i := 0; i < 4; i++ {
 		_, _ = rt.fpVector.Next()
+		_, _ = rt.receivedStatus.Next()
 	}
 
-	completed, received, total = rt.GetProgress()
+	completed, received, total, track = rt.GetProgress()
 	err = checkReceivedProgress(completed, received, total, false, 5, numParts)
 	if err != nil {
 		t.Error(err)
 	}
+	checkReceivedTracker(track, rt.numParts, []uint16{0, 1, 2, 3, 4}, t)
 
 	for i := 0; i < 6; i++ {
 		_, _ = rt.fpVector.Next()
+		_, _ = rt.receivedStatus.Next()
 	}
 
-	completed, received, total = rt.GetProgress()
+	completed, received, total, track = rt.GetProgress()
 	err = checkReceivedProgress(completed, received, total, false, 11, numParts)
 	if err != nil {
 		t.Error(err)
 	}
+	checkReceivedTracker(track, rt.numParts, []uint16{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, t)
 
 	for i := 0; i < 4; i++ {
 		_, _ = rt.fpVector.Next()
+		_, _ = rt.receivedStatus.Next()
 	}
 
-	completed, received, total = rt.GetProgress()
+	completed, received, total, track = rt.GetProgress()
 	err = checkReceivedProgress(completed, received, total, false, 15, numParts)
 	if err != nil {
 		t.Error(err)
 	}
+	checkReceivedTracker(track, rt.numParts, []uint16{0, 1, 2, 3, 4, 5, 6, 7, 8,
+		9, 10, 11, 12, 13, 14}, t)
 
 	_, _ = rt.fpVector.Next()
+	_, _ = rt.receivedStatus.Next()
 
-	completed, received, total = rt.GetProgress()
+	completed, received, total, track = rt.GetProgress()
 	err = checkReceivedProgress(completed, received, total, true, 16, numParts)
 	if err != nil {
 		t.Error(err)
 	}
+	checkReceivedTracker(track, rt.numParts, []uint16{0, 1, 2, 3, 4, 5, 6, 7, 8,
+		9, 10, 11, 12, 13, 14, 15}, t)
 }
 
 // Tests that 5 different callbacks all receive the expected data when
@@ -275,7 +347,8 @@ func TestReceivedTransfer_CallProgressCB(t *testing.T) {
 	for i := 0; i < numCallbacks; i++ {
 		progressChan := make(chan progressResults)
 
-		cbFunc := func(completed bool, received, total uint16, err error) {
+		cbFunc := func(completed bool, received, total uint16,
+			t interfaces.FilePartTracker, err error) {
 			progressChan <- progressResults{completed, received, total, err}
 		}
 		wg.Add(1)
@@ -367,7 +440,8 @@ func TestReceivedTransfer_AddProgressCB(t *testing.T) {
 	}
 	cbChan := make(chan callbackResults)
 	cbFunc := interfaces.ReceivedProgressCallback(
-		func(completed bool, received, total uint16, err error) {
+		func(completed bool, received, total uint16,
+			t interfaces.FilePartTracker, err error) {
 			cbChan <- callbackResults{completed, received, total, err}
 		})
 
@@ -453,6 +527,17 @@ func TestReceivedTransfer_AddPart(t *testing.T) {
 	if rt.fpVector.GetNumUsed() != 1 {
 		t.Errorf("Incorrect number of used keys in fingerprint list."+
 			"\nexpected: %d\nreceived: %d", 1, rt.fpVector.GetNumUsed())
+	}
+
+	// Check that the part was properly marked as received on the received
+	// status vector
+	if !rt.receivedStatus.Used(uint32(partNum)) {
+		t.Errorf("Part number %d not marked as used in received status vector.",
+			partNum)
+	}
+	if rt.receivedStatus.GetNumUsed() != 1 {
+		t.Errorf("Incorrect number of received parts in vector."+
+			"\nexpected: %d\nreceived: %d", 1, rt.receivedStatus.GetNumUsed())
 	}
 }
 
@@ -576,7 +661,7 @@ func Test_loadReceivedTransfer_LoadInfoError(t *testing.T) {
 
 // Error path: tests that loadReceivedTransfer returns the expected error when
 // the fingerprint state vector has been deleted from storage.
-func Test_loadReceivedTransfer_LoadStateVectorError(t *testing.T) {
+func Test_loadReceivedTransfer_LoadFpVectorError(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	tid, rt, _ := newRandomReceivedTransfer(16, 20, kv, t)
 
@@ -634,6 +719,38 @@ func Test_loadReceivedTransfer_LoadPartStoreError(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("loadReceivedTransfer did not return the expected error when "+
 			"the part store was deleted from storage."+
+			"\nexpected: %s\nreceived: %+v", expectedErr, err)
+	}
+}
+
+// Error path: tests that loadReceivedTransfer returns the expected error when
+// the received status state vector has been deleted from storage.
+func Test_loadReceivedTransfer_LoadReceivedVectorError(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	tid, rt, _ := newRandomReceivedTransfer(16, 20, kv, t)
+
+	// Create encrypted part
+	data := []byte("test")
+	partNum, fpNum := uint16(1), uint16(1)
+	encryptedPart, mac, padding := newEncryptedPartData(rt.key, data, fpNum, t)
+
+	// Add encrypted part
+	err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	if err != nil {
+		t.Errorf("Failed to add test part: %+v", err)
+	}
+
+	// Delete fingerprint state vector from storage
+	err = rt.receivedStatus.Delete()
+	if err != nil {
+		t.Errorf("Failed to received status vector: %+v", err)
+	}
+
+	expectedErr := strings.Split(loadReceivedVectorErr, "%")[0]
+	_, err = loadReceivedTransfer(tid, kv)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("loadReceivedTransfer did not return the expected error when "+
+			"the received status vector was deleted from storage."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
@@ -742,6 +859,13 @@ func TestReceivedTransfer_delete(t *testing.T) {
 	if err == nil {
 		t.Error("Successfully loaded fingerprint vector from storage when it " +
 			"should have been deleted.")
+	}
+
+	// Check that the received status vector was deleted
+	_, err = utility.LoadStateVector(rt.kv, receivedVectorKey)
+	if err == nil {
+		t.Error("Successfully loaded received status vector from storage when " +
+			"it should have been deleted.")
 	}
 }
 

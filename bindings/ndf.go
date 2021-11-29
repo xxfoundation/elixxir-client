@@ -18,33 +18,6 @@ import (
 	"net/http"
 )
 
-// ndfUrl is a hardcoded url to a bucket containing the signed NDF message.
-const ndfUrl = `https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/default.json`
-
-// DownloadAndVerifySignedNdf retrieves the NDF from a hardcoded bucket URL.
-// The NDF is processed into a protobuf containing a signature which
-// is verified using the cert string passed in. The NDF is returned as marshaled
-// byte data which may be used to start a client.
-func DownloadAndVerifySignedNdf(cert string) ([]byte, error) {
-	// Build a request for the file
-	resp, err := http.Get(ndfUrl)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to retrieve "+
-			"NDF from %s", ndfUrl)
-	}
-	defer resp.Body.Close()
-
-	// Download contents of the file
-	signedNdfEncoded, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to read signed "+
-			"NDF response request")
-	}
-
-	// Process the download NDF and return the marshaled NDF
-	return processAndVerifySignedNdf(signedNdfEncoded, cert)
-}
-
 // DownloadAndVerifySignedNdfWithUrl retrieves the NDF from a specified URL.
 // The NDF is processed into a protobuf containing a signature which
 // is verified using the cert string passed in. The NDF is returned as marshaled

@@ -51,11 +51,11 @@ pipz4Cfpkoc1Gc8xx91iBsWYBpqu4p7SXDU=
 -----END CERTIFICATE-----
 `
 
-// Unit test: Download and verify NDF from hosted location.
+// Unit Test: Call DownloadAndVerifySignedNdfWithUrl with a specified URL.
 // Ensure validity by unmarshalling NDF and checking the scheduling's cert.
-func TestDownloadSignedNdf(t *testing.T) {
-	// Download and verify the ndf
-	content, err := DownloadAndVerifySignedNdf(testCert)
+func TestDownloadSignedNdfWithUrl(t *testing.T) {
+	// Download and verify the cert with the specified URL
+	content, err := DownloadAndVerifySignedNdfWithUrl("https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/default.json", testCert)
 	if err != nil {
 		t.Errorf("Failed to download signed NDF: %v", err)
 	}
@@ -71,42 +71,21 @@ func TestDownloadSignedNdf(t *testing.T) {
 	if strings.Compare(downloadedNdf.Registration.TlsCertificate, testCert) != 0 {
 		t.Fatalf("Unexpected NDF downloaded, has the spec changed?")
 	}
-
 }
 
 // Error case: Pass in the incorrect cert forcing a verification failure.
-func TestDownloadSignedNdf_Fail(t *testing.T) {
+func TestDownloadSignedNdfWithUrl_BadCert(t *testing.T) {
 	// Load an unintended cert
 	badCert, err := utils.ReadFile(testkeys.GetGatewayCertPath())
 	if err != nil {
 		t.Fatalf("Failed to read test certificate: %v", err)
 	}
-	// Download and verify with unintended cert
-	_, err = DownloadAndVerifySignedNdf(string(badCert))
+
+	// Download and attempt to verify with unintended cert
+	_, err = DownloadAndVerifySignedNdfWithUrl("https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/default.json",
+		string(badCert))
 	if err == nil {
 		t.Fatalf("Expected failure, should not be able to verify with " +
 			"bad certificate")
-	}
-}
-
-// Unit Test: Call DownloadAndVerifySignedNdfWithUrl with a specified URL.
-// Ensure validity by unmarshalling NDF and checking the scheduling's cert.
-func TestDownloadSignedNdfWithUrl(t *testing.T) {
-	// todo: write test once a proper URL can be passed in
-	content, err := DownloadAndVerifySignedNdfWithUrl(ndfUrl, testCert)
-	if err != nil {
-		t.Errorf("Failed to download signed NDF: %v", err)
-	}
-	fmt.Printf("content: %s\n", string(content))
-
-	// Check that it is a marshallable NDF
-	downloadedNdf, err := ndf.Unmarshal(content)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal downloaded NDF: %v", err)
-	}
-
-	// Check validity of NDF
-	if strings.Compare(downloadedNdf.Registration.TlsCertificate, testCert) != 0 {
-		t.Fatalf("Unexpected NDF downloaded, has the spec changed?")
 	}
 }

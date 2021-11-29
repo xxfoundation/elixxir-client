@@ -18,9 +18,8 @@ import (
 	"net/http"
 )
 
-// todo: populate with actual URL
 // ndfUrl is a hardcoded url to a bucket containing the signed NDF message.
-const ndfUrl = `elixxir.io`
+const ndfUrl = `https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/default.json`
 
 // DownloadAndVerifySignedNdf retrieves the NDF from a hardcoded bucket URL.
 // The NDF is processed into a protobuf containing a signature which

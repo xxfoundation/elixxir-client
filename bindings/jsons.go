@@ -12,7 +12,8 @@ import (
 	"net/http"
 )
 
-// Returns a []byte containing the JSON data describing client errors.
+// DownloadErrorDB returns a []byte containing the JSON data
+// describing client errors.
 // See https://git.xx.network/elixxir/client-error-database/
 func DownloadErrorDB() ([]byte, error) {
 	// Build a request for the file
@@ -32,7 +33,8 @@ func DownloadErrorDB() ([]byte, error) {
 	return content, nil
 }
 
-// Returns a []byte containing the JSON data describing registered dApps.
+// DownloadDAppRegistrationDB returns a []byte containing
+// the JSON data describing registered dApps.
 // See https://git.xx.network/elixxir/registered-dapps
 func DownloadDAppRegistrationDB() ([]byte, error) {
 	// Build a request for the file

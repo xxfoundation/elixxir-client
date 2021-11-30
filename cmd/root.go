@@ -842,6 +842,10 @@ func init() {
 		"", 500, "The delay between sending the messages in ms")
 	viper.BindPFlag("sendDelay", rootCmd.Flags().Lookup("sendDelay"))
 
+	rootCmd.Flags().BoolP("verify-sends", "", false,
+		"Ensure successful message sending by checking for round completion")
+	viper.BindPFlag("verify-sends", rootCmd.Flags().Lookup("verify-sends"))
+
 	rootCmd.Flags().UintP("receiveCount",
 		"", 1, "How many messages we should wait for before quitting")
 	viper.BindPFlag("receiveCount", rootCmd.Flags().Lookup("receiveCount"))

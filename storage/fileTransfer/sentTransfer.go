@@ -447,9 +447,7 @@ func (st *SentTransfer) SetInProgress(rid id.Round, partNums ...uint16) (error, 
 	_, exists := st.inProgressTransfers.getPartNums(rid)
 
 	// Set parts as in-progress in status vector
-	for _, partNum := range partNums {
-		st.inProgressStatus.Use(uint32(partNum))
-	}
+	st.inProgressStatus.UseMany(uint16SliceToUint32Slice(partNums)...)
 
 	return st.inProgressTransfers.addPartNums(rid, partNums...), exists
 }
@@ -473,10 +471,8 @@ func (st *SentTransfer) UnsetInProgress(rid id.Round) ([]uint16, error) {
 	// Get the list of part numbers to be removed from list
 	partNums, _ := st.inProgressTransfers.getPartNums(rid)
 
-	// Unsets parts as in-progress in status vector
-	for _, partNum := range partNums {
-		st.inProgressStatus.Unuse(uint32(partNum))
-	}
+	// Unset parts as in-progress in status vector
+	st.inProgressStatus.UnuseMany(uint16SliceToUint32Slice(partNums)...)
 
 	return partNums, st.inProgressTransfers.deletePartNums(rid)
 }
@@ -500,10 +496,8 @@ func (st *SentTransfer) FinishTransfer(rid id.Round) error {
 		return errors.Errorf(deleteInProgressPartsErr, rid, err)
 	}
 
-	// Unsets parts as in-progress in status vector
-	for _, partNum := range partNums {
-		st.inProgressStatus.Unuse(uint32(partNum))
-	}
+	// Unset parts as in-progress in status vector
+	st.inProgressStatus.UnuseMany(uint16SliceToUint32Slice(partNums)...)
 
 	// Add the parts to the finished list
 	err = st.finishedTransfers.addPartNums(rid, partNums...)
@@ -512,9 +506,7 @@ func (st *SentTransfer) FinishTransfer(rid id.Round) error {
 	}
 
 	// Set parts as finished in status vector
-	for _, partNum := range partNums {
-		st.finishedStatus.Use(uint32(partNum))
-	}
+	st.finishedStatus.UseMany(uint16SliceToUint32Slice(partNums)...)
 
 	// If all parts have been moved to the finished list, then set the status
 	// to stopping
@@ -744,4 +736,13 @@ func unmarshalSentTransfer(b []byte) (recipient *id.ID,
 // store to store sent transfers for the given transfer ID.
 func makeSentTransferPrefix(tid ftCrypto.TransferID) string {
 	return sentTransferPrefix + tid.String()
+}
+
+// uint16SliceToUint32Slice converts a slice of uint16 to a slice of uint32.
+func uint16SliceToUint32Slice(slice []uint16) []uint32 {
+	newSlice := make([]uint32, len(slice))
+	for i, val := range slice {
+		newSlice[i] = uint32(val)
+	}
+	return newSlice
 }

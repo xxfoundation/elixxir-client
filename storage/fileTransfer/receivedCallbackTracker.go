@@ -85,11 +85,11 @@ func (rct *receivedCallbackTracker) call(tracker receivedProgressTracker, err er
 
 // callNow calls the callback immediately regardless of the schedule or period.
 func (rct *receivedCallbackTracker) callNow(tracker receivedProgressTracker, err error) {
-	completed, received, total := tracker.GetProgress()
-	go rct.cb(completed, received, total, err)
+	completed, received, total, t := tracker.GetProgress()
+	go rct.cb(completed, received, total, t, err)
 }
 
 // receivedProgressTracker interface tracks the progress of a transfer.
 type receivedProgressTracker interface {
-	GetProgress() (completed bool, received, total uint16)
+	GetProgress() (completed bool, received, total uint16, t ReceivedPartTracker)
 }

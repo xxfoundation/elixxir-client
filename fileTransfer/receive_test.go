@@ -9,6 +9,7 @@ package fileTransfer
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -58,7 +59,8 @@ func TestManager_receive(t *testing.T) {
 		err             error
 	}
 	cbChan := make(chan progressResults)
-	cb := func(completed bool, received, total uint16, err error) {
+	cb := func(completed bool, received, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		cbChan <- progressResults{completed, received, total, err}
 	}
 
@@ -175,7 +177,8 @@ func TestManager_receive_Stop(t *testing.T) {
 		err             error
 	}
 	cbChan := make(chan progressResults)
-	cb := func(completed bool, received, total uint16, err error) {
+	cb := func(completed bool, received, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		cbChan <- progressResults{completed, received, total, err}
 	}
 
@@ -280,7 +283,8 @@ func TestManager_readMessage(t *testing.T) {
 		err             error
 	}
 	cbChan := make(chan progressResults, 2)
-	cb := func(completed bool, received, total uint16, err error) {
+	cb := func(completed bool, received, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		cbChan <- progressResults{completed, received, total, err}
 	}
 

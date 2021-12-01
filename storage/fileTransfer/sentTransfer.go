@@ -25,10 +25,12 @@ import (
 
 // Storage keys and versions.
 const (
-	sentTransferPrefix  = "FileTransferSentTransferStore"
-	sentTransferKey     = "SentTransfer"
-	sentTransferVersion = 0
-	sentFpVectorKey     = "SentFingerprintVector"
+	sentTransferPrefix      = "FileTransferSentTransferStore"
+	sentTransferKey         = "SentTransfer"
+	sentTransferVersion     = 0
+	sentFpVectorKey         = "SentFingerprintVector"
+	sentInProgressVectorKey = "SentInProgressStatusVector"
+	sentFinishedVectorKey   = "SentFinishedStatusVector"
 )
 
 // Error messages.
@@ -38,25 +40,33 @@ const (
 	newSentTransferPartStoreErr = "failed to create new part store: %+v"
 	newInProgressTransfersErr   = "failed to create new in-progress transfers bundle: %+v"
 	newFinishedTransfersErr     = "failed to create new finished transfers bundle: %+v"
+	newSentInProgressVectorErr  = "failed to create new state vector for in-progress status: %+v"
+	newSentFinishedVectorErr    = "failed to create new state vector for finished status: %+v"
 
 	// SentTransfer.ReInit
 	reInitSentTransferFpVectorErr = "failed to overwrite fingerprint state vector with new vector: %+v"
 	reInitInProgressTransfersErr  = "failed to overwrite in-progress transfers bundle: %+v"
 	reInitFinishedTransfersErr    = "failed to overwrite finished transfers bundle: %+v"
+	reInitSentInProgressVectorErr = "failed to overwrite in-progress state vector with new vector: %+v"
+	reInitSentFinishedVectorErr   = "failed to overwrite finished state vector with new vector: %+v"
 
 	// loadSentTransfer
-	loadSentStoreErr           = "failed to load sent transfer info from storage: %+v"
-	loadSentFpVectorErr        = "failed to load sent fingerprint vector from storage: %+v"
-	loadSentPartStoreErr       = "failed to load sent part store from storage: %+v"
-	loadInProgressTransfersErr = "failed to load in-progress transfers bundle from storage: %+v"
-	loadFinishedTransfersErr   = "failed to load finished transfers bundle from storage: %+v"
+	loadSentStoreErr            = "failed to load sent transfer info from storage: %+v"
+	loadSentFpVectorErr         = "failed to load sent fingerprint vector from storage: %+v"
+	loadSentPartStoreErr        = "failed to load sent part store from storage: %+v"
+	loadInProgressTransfersErr  = "failed to load in-progress transfers bundle from storage: %+v"
+	loadFinishedTransfersErr    = "failed to load finished transfers bundle from storage: %+v"
+	loadSentInProgressVectorErr = "failed to load new in-progress status state vector from storage: %+v"
+	loadSentFinishedVectorErr   = "failed to load new finished status state vector from storage: %+v"
 
 	// SentTransfer.delete
-	deleteSentTransferInfoErr    = "failed to delete sent transfer info from storage: %+v"
-	deleteSentFpVectorErr        = "failed to delete sent fingerprint vector from storage: %+v"
-	deleteSentFilePartsErr       = "failed to delete sent file parts from storage: %+v"
-	deleteInProgressTransfersErr = "failed to delete in-progress transfers from storage: %+v"
-	deleteFinishedTransfersErr   = "failed to delete finished transfers from storage: %+v"
+	deleteSentTransferInfoErr     = "failed to delete sent transfer info from storage: %+v"
+	deleteSentFpVectorErr         = "failed to delete sent fingerprint vector from storage: %+v"
+	deleteSentFilePartsErr        = "failed to delete sent file parts from storage: %+v"
+	deleteInProgressTransfersErr  = "failed to delete in-progress transfers from storage: %+v"
+	deleteFinishedTransfersErr    = "failed to delete finished transfers from storage: %+v"
+	deleteSentInProgressVectorErr = "failed to delete in-progress status state vector from storage: %+v"
+	deleteSentFinishedVectorErr   = "failed to delete finished status state vector from storage: %+v"
 
 	// SentTransfer.FinishTransfer
 	noPartsForRoundErr       = "no file parts in-progress on round %d"
@@ -103,6 +113,12 @@ type SentTransfer struct {
 
 	// List of parts per round that finished transferring
 	finishedTransfers *transferredBundle
+
+	// Stores the in-progress status for each file part in a bitstream format
+	inProgressStatus *utility.StateVector
+
+	// Stores the finished status for each file part in a bitstream format
+	finishedStatus *utility.StateVector
 
 	// List of callbacks to call for every send
 	progressCallbacks []*sentCallbackTracker
@@ -168,6 +184,20 @@ func NewSentTransfer(recipient *id.ID, tid ftCrypto.TransferID,
 		return nil, errors.Errorf(newFinishedTransfersErr, err)
 	}
 
+	// Create new StateVector for storing in-progress status
+	st.inProgressStatus, err = utility.NewStateVector(
+		st.kv, sentInProgressVectorKey, uint32(st.numParts))
+	if err != nil {
+		return nil, errors.Errorf(newSentInProgressVectorErr, err)
+	}
+
+	// Create new StateVector for storing in-progress status
+	st.finishedStatus, err = utility.NewStateVector(
+		st.kv, sentFinishedVectorKey, uint32(st.numParts))
+	if err != nil {
+		return nil, errors.Errorf(newSentFinishedVectorErr, err)
+	}
+
 	// Add first progress callback
 	if progressCB != nil {
 		st.AddProgressCB(progressCB, period)
@@ -177,7 +207,7 @@ func NewSentTransfer(recipient *id.ID, tid ftCrypto.TransferID,
 }
 
 // ReInit resets the SentTransfer to its initial state so that sending can
-// resume from the beginning. ReInit is used when the sent transfer runs out of
+// restart from the beginning. ReInit is used when the sent transfer runs out of
 // retries and a user wants to attempt to resend the entire file again.
 func (st *SentTransfer) ReInit(numFps uint16,
 	progressCB interfaces.SentProgressCallback, period time.Duration) error {
@@ -206,6 +236,20 @@ func (st *SentTransfer) ReInit(numFps uint16,
 	st.finishedTransfers, err = newTransferredBundle(finishedKey, st.kv)
 	if err != nil {
 		return errors.Errorf(reInitFinishedTransfersErr, err)
+	}
+
+	// Overwrite in-progress status StateVector
+	st.inProgressStatus, err = utility.NewStateVector(
+		st.kv, sentInProgressVectorKey, uint32(st.numParts))
+	if err != nil {
+		return errors.Errorf(reInitSentInProgressVectorErr, err)
+	}
+
+	// Overwrite finished status StateVector
+	st.finishedStatus, err = utility.NewStateVector(
+		st.kv, sentFinishedVectorKey, uint32(st.numParts))
+	if err != nil {
+		return errors.Errorf(reInitSentFinishedVectorErr, err)
 	}
 
 	// Clear callbacks
@@ -264,11 +308,27 @@ func (st *SentTransfer) GetNumAvailableFps() uint16 {
 	return uint16(st.fpVector.GetNumAvailable())
 }
 
+// IsPartInProgress returns true if the part has successfully been sent. Returns
+// false if the part is unsent or finished sending or if the part number is
+// invalid.
+func (st *SentTransfer) IsPartInProgress(partNum uint16) bool {
+	return st.inProgressStatus.Used(uint32(partNum))
+}
+
+// IsPartFinished returns true if the part has successfully arrived. Returns
+// false if the part is unsent or in the process of sending or if the part
+// number is invalid.
+func (st *SentTransfer) IsPartFinished(partNum uint16) bool {
+	return st.finishedStatus.Used(uint32(partNum))
+}
+
 // GetProgress returns the current progress of the transfer. Completed is true
 // when all parts have arrived, sent is the number of in-progress parts, arrived
-// is the number of finished parts and total is the total number of parts being
-// sent.
-func (st *SentTransfer) GetProgress() (completed bool, sent, arrived, total uint16) {
+// is the number of finished parts, total is the total number of parts being
+// sent, and t is a part status tracker that can be used to get the status of
+// individual file parts.
+func (st *SentTransfer) GetProgress() (completed bool, sent, arrived,
+	total uint16, t SentPartTracker) {
 	st.mux.RLock()
 	defer st.mux.RUnlock()
 
@@ -276,7 +336,8 @@ func (st *SentTransfer) GetProgress() (completed bool, sent, arrived, total uint
 }
 
 // getProgress is the thread-unsafe helper function for GetProgress.
-func (st *SentTransfer) getProgress() (completed bool, sent, arrived, total uint16) {
+func (st *SentTransfer) getProgress() (completed bool, sent, arrived,
+	total uint16, t SentPartTracker) {
 	arrived = st.finishedTransfers.getNumParts()
 	sent = st.inProgressTransfers.getNumParts()
 	total = st.numParts
@@ -285,7 +346,8 @@ func (st *SentTransfer) getProgress() (completed bool, sent, arrived, total uint
 		completed = true
 	}
 
-	return completed, sent, arrived, total
+	return completed, sent, arrived, total,
+		NewSentPartTracker(st.inProgressStatus, st.finishedStatus)
 }
 
 // CallProgressCB calls all the progress callbacks with the most recent progress
@@ -381,7 +443,13 @@ func (st *SentTransfer) SetInProgress(rid id.Round, partNums ...uint16) (error, 
 	st.mux.Lock()
 	defer st.mux.Unlock()
 
+	// Set as in-progress in bundle
 	_, exists := st.inProgressTransfers.getPartNums(rid)
+
+	// Set parts as in-progress in status vector
+	for _, partNum := range partNums {
+		st.inProgressStatus.Use(uint32(partNum))
+	}
 
 	return st.inProgressTransfers.addPartNums(rid, partNums...), exists
 }
@@ -405,6 +473,11 @@ func (st *SentTransfer) UnsetInProgress(rid id.Round) ([]uint16, error) {
 	// Get the list of part numbers to be removed from list
 	partNums, _ := st.inProgressTransfers.getPartNums(rid)
 
+	// Unsets parts as in-progress in status vector
+	for _, partNum := range partNums {
+		st.inProgressStatus.Unuse(uint32(partNum))
+	}
+
 	return partNums, st.inProgressTransfers.deletePartNums(rid)
 }
 
@@ -427,10 +500,20 @@ func (st *SentTransfer) FinishTransfer(rid id.Round) error {
 		return errors.Errorf(deleteInProgressPartsErr, rid, err)
 	}
 
+	// Unsets parts as in-progress in status vector
+	for _, partNum := range partNums {
+		st.inProgressStatus.Unuse(uint32(partNum))
+	}
+
 	// Add the parts to the finished list
 	err = st.finishedTransfers.addPartNums(rid, partNums...)
 	if err != nil {
 		return err
+	}
+
+	// Set parts as finished in status vector
+	for _, partNum := range partNums {
+		st.finishedStatus.Use(uint32(partNum))
 	}
 
 	// If all parts have been moved to the finished list, then set the status
@@ -485,15 +568,26 @@ func loadSentTransfer(tid ftCrypto.TransferID, kv *versioned.KV) (*SentTransfer,
 		return nil, errors.Errorf(loadFinishedTransfersErr, err)
 	}
 
+	// Load the in-progress status StateVector from storage
+	st.inProgressStatus, err = utility.LoadStateVector(
+		st.kv, sentInProgressVectorKey)
+	if err != nil {
+		return nil, errors.Errorf(loadSentInProgressVectorErr, err)
+	}
+
+	// Load the finished status StateVector from storage
+	st.finishedStatus, err = utility.LoadStateVector(
+		st.kv, sentFinishedVectorKey)
+	if err != nil {
+		return nil, errors.Errorf(loadSentFinishedVectorErr, err)
+	}
+
 	return st, nil
 }
 
-// saveInfo saves the SentTransfer info (transfer key, number of file parts,
-// and number of fingerprints) to storage.
-
 // saveInfo saves all fields in SentTransfer that do not have their own storage
-// (recipient ID, transfer key, number of file parts, and number of
-// fingerprints) to storage.
+// (recipient ID, transfer key, number of file parts, number of fingerprints,
+// and transfer status) to storage.
 func (st *SentTransfer) saveInfo() error {
 	st.mux.Lock()
 	defer st.mux.Unlock()
@@ -509,8 +603,9 @@ func (st *SentTransfer) saveInfo() error {
 	return st.kv.Set(sentTransferKey, sentTransferVersion, obj)
 }
 
-// loadInfo gets the recipient ID, transfer key, number of part, and number of
-// fingerprints from storage and saves it to the SentTransfer.
+// loadInfo gets the recipient ID, transfer key, number of part, number of
+// fingerprints, and transfer status from storage and saves it to the
+// SentTransfer.
 func (st *SentTransfer) loadInfo() error {
 	vo, err := st.kv.Get(sentTransferKey, sentTransferVersion)
 	if err != nil {
@@ -518,7 +613,8 @@ func (st *SentTransfer) loadInfo() error {
 	}
 
 	// Unmarshal the transfer key and numParts
-	st.recipient, st.key, st.numParts, st.numFps = unmarshalSentTransfer(vo.Data)
+	st.recipient, st.key, st.numParts, st.numFps, st.status =
+		unmarshalSentTransfer(vo.Data)
 
 	return nil
 }
@@ -558,6 +654,18 @@ func (st *SentTransfer) delete() error {
 		return errors.Errorf(deleteFinishedTransfersErr, err)
 	}
 
+	// Delete the in-progress status StateVector from storage
+	err = st.inProgressStatus.Delete()
+	if err != nil {
+		return errors.Errorf(deleteSentInProgressVectorErr, err)
+	}
+
+	// Delete the finished status StateVector from storage
+	err = st.finishedStatus.Delete()
+	if err != nil {
+		return errors.Errorf(deleteSentFinishedVectorErr, err)
+	}
+
 	return nil
 }
 
@@ -570,7 +678,7 @@ func (st *SentTransfer) deleteInfo() error {
 // marshal serializes the transfer key, numParts, and numFps.
 
 // marshal serializes all primitive fields in SentTransfer (recipient, key,
-// numParts, and numFps).
+// numParts, numFps, and status).
 func (st *SentTransfer) marshal() []byte {
 	// Construct the buffer to the correct size
 	// (size of ID + size of key + numParts (2 bytes) + numFps (2 bytes))
@@ -597,14 +705,19 @@ func (st *SentTransfer) marshal() []byte {
 	binary.LittleEndian.PutUint16(b, st.numFps)
 	buff.Write(b)
 
+	// Write the transfer status to the buffer
+	b = make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, uint64(st.status))
+	buff.Write(b)
+
 	// Return the serialized data
 	return buff.Bytes()
 }
 
 // unmarshalSentTransfer deserializes a byte slice into the primitive fields
-// of SentTransfer (recipient, key, numParts, and numFps).
-func unmarshalSentTransfer(b []byte) (
-	recipient *id.ID, key ftCrypto.TransferKey, numParts, numFps uint16) {
+// of SentTransfer (recipient, key, numParts, numFps, and status).
+func unmarshalSentTransfer(b []byte) (recipient *id.ID,
+	key ftCrypto.TransferKey, numParts, numFps uint16, status transferStatus) {
 
 	buff := bytes.NewBuffer(b)
 
@@ -621,7 +734,10 @@ func unmarshalSentTransfer(b []byte) (
 	// Read the number of fingerprints from the buffer
 	numFps = binary.LittleEndian.Uint16(buff.Next(2))
 
-	return recipient, key, numParts, numFps
+	// Read the transfer status from the buffer
+	status = transferStatus(binary.LittleEndian.Uint64(buff.Next(8)))
+
+	return recipient, key, numParts, numFps, status
 }
 
 // makeSentTransferPrefix generates the unique prefix used on the key value

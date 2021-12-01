@@ -42,7 +42,6 @@ type partStore struct {
 
 // newPartStore generates a new empty partStore and saves it to storage.
 func newPartStore(kv *versioned.KV, numParts uint16) (*partStore, error) {
-
 	// Construct empty partStore of the specified size
 	ps := &partStore{
 		parts:    make(map[uint16][]byte, numParts),
@@ -130,6 +129,10 @@ func (ps *partStore) getFile() ([]byte, int) {
 func (ps *partStore) len() int {
 	return len(ps.parts)
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Storage Functions                                                          //
+////////////////////////////////////////////////////////////////////////////////
 
 // loadPartStore loads all the file parts from storage into memory.
 func loadPartStore(kv *versioned.KV) (*partStore, error) {

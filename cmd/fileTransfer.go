@@ -193,7 +193,8 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 		filePath, len(fileData), recipient.ID)
 
 	// Create sent progress callback that prints the results
-	progressCB := func(completed bool, sent, arrived, total uint16, err error) {
+	progressCB := func(completed bool, sent, arrived, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		jww.DEBUG.Printf("Sent progress callback for %q "+
 			"{completed: %t, sent: %d, arrived: %d, total: %d, err: %v}\n",
 			filePath, completed, sent, arrived, total, err)
@@ -253,7 +254,8 @@ func receiveNewFileTransfers(receive chan receivedFtResults, done,
 // the results to the log.
 func newReceiveProgressCB(tid ftCrypto.TransferID, done chan struct{},
 	m *ft.Manager) interfaces.ReceivedProgressCallback {
-	return func(completed bool, received, total uint16, err error) {
+	return func(completed bool, received, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		jww.DEBUG.Printf("Receive progress callback for transfer %s "+
 			"{completed: %t, received: %d, total: %d, err: %v}",
 			tid, completed, received, total, err)

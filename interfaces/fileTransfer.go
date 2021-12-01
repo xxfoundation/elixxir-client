@@ -16,12 +16,12 @@ import (
 // SentProgressCallback is a callback function that tracks the progress of
 // sending a file.
 type SentProgressCallback func(completed bool, sent, arrived, total uint16,
-	err error)
+	t FilePartTracker, err error)
 
 // ReceivedProgressCallback is a callback function that tracks the progress of
 // receiving a file.
 type ReceivedProgressCallback func(completed bool, received, total uint16,
-	err error)
+	t FilePartTracker, err error)
 
 // ReceiveCallback is a callback function that notifies the receiver of an
 // incoming file transfer.
@@ -63,6 +63,13 @@ type FileTransfer interface {
 	// has not run out of retries.
 	CloseSend(tid ftCrypto.TransferID) error
 
+	// Receive returns the full file on the completion of the transfer as
+	// reported by a registered ReceivedProgressCallback. It deletes internal
+	// references to the data and unregisters any attached progress callback.
+	// Returns an error if the transfer is not complete, the full file cannot be
+	// verified, or if the transfer cannot be found.
+	Receive(tid ftCrypto.TransferID) ([]byte, error)
+
 	// RegisterReceiveProgressCallback allows for the registration of a callback
 	// to track the progress of an individual received file transfer. The
 	// callback will be called immediately when added to report the current
@@ -75,11 +82,19 @@ type FileTransfer interface {
 	// can get the full file by calling Receive.
 	RegisterReceiveProgressCallback(tid ftCrypto.TransferID,
 		progressCB ReceivedProgressCallback, period time.Duration) error
+}
 
-	// Receive returns the full file on the completion of the transfer as
-	// reported by a registered ReceivedProgressCallback. It deletes internal
-	// references to the data and unregisters any attached progress callback.
-	// Returns an error if the transfer is not complete, the full file cannot be
-	// verified, or if the transfer cannot be found.
-	Receive(tid ftCrypto.TransferID) ([]byte, error)
+// FilePartTracker tracks the status of each file part in a sent or received
+// file transfer.
+type FilePartTracker interface {
+	// GetPartStatus returns the status of the file part with the given part
+	// number. The possible values for the status are:
+	// 0 = unsent
+	// 1 = sent (sender has sent a part, but it has not arrived)
+	// 2 = arrived (sender has sent a part, and it has arrived)
+	// 3 = received (receiver has received a part)
+	GetPartStatus(partNum uint16) int
+
+	// GetNumParts returns the total number of file parts in the transfer.
+	GetNumParts() uint16
 }

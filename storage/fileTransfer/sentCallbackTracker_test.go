@@ -8,6 +8,7 @@
 package fileTransfer
 
 import (
+	"gitlab.com/elixxir/client/interfaces"
 	"reflect"
 	"testing"
 	"time"
@@ -23,7 +24,8 @@ func Test_newSentCallbackTracker(t *testing.T) {
 	}
 
 	cbChan := make(chan cbFields)
-	cbFunc := func(completed bool, sent, arrived, total uint16, err error) {
+	cbFunc := func(completed bool, sent, arrived, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		cbChan <- cbFields{completed, sent, arrived, total, err}
 	}
 
@@ -36,7 +38,7 @@ func Test_newSentCallbackTracker(t *testing.T) {
 
 	receivedSCT := newSentCallbackTracker(expectedSCT.cb, expectedSCT.period)
 
-	go receivedSCT.cb(false, 0, 0, 0, nil)
+	go receivedSCT.cb(false, 0, 0, 0, SentPartTracker{}, nil)
 
 	select {
 	case <-time.NewTimer(time.Millisecond).C:
@@ -68,13 +70,14 @@ func Test_sentCallbackTracker_call(t *testing.T) {
 	}
 
 	cbChan := make(chan cbFields)
-	cbFunc := func(completed bool, sent, arrived, total uint16, err error) {
+	cbFunc := func(completed bool, sent, arrived, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		cbChan <- cbFields{completed, sent, arrived, total, err}
 	}
 
 	sct := newSentCallbackTracker(cbFunc, 50*time.Millisecond)
 
-	tracker := testSentTrack{false, 1, 2, 3}
+	tracker := testSentTrack{false, 1, 2, 3, SentPartTracker{}}
 	sct.call(tracker, nil)
 
 	select {
@@ -88,7 +91,7 @@ func Test_sentCallbackTracker_call(t *testing.T) {
 		}
 	}
 
-	tracker = testSentTrack{false, 1, 2, 3}
+	tracker = testSentTrack{false, 1, 2, 3, SentPartTracker{}}
 	sct.call(tracker, nil)
 
 	select {
@@ -125,13 +128,16 @@ func TestSentTransfer_SentProgressTrackerInterface(t *testing.T) {
 type testSentTrack struct {
 	completed            bool
 	sent, arrived, total uint16
+	t                    SentPartTracker
 }
 
-func (tst testSentTrack) getProgress() (completed bool, sent, arrived, total uint16) {
-	return tst.completed, tst.sent, tst.arrived, tst.total
+func (tst testSentTrack) getProgress() (completed bool, sent, arrived,
+	total uint16, t SentPartTracker) {
+	return tst.completed, tst.sent, tst.arrived, tst.total, tst.t
 }
 
 // GetProgress returns the values in the testTrack.
-func (tst testSentTrack) GetProgress() (completed bool, sent, arrived, total uint16) {
-	return tst.completed, tst.sent, tst.arrived, tst.total
+func (tst testSentTrack) GetProgress() (completed bool, sent, arrived,
+	total uint16, t SentPartTracker) {
+	return tst.completed, tst.sent, tst.arrived, tst.total, tst.t
 }

@@ -10,6 +10,7 @@ package fileTransfer
 import (
 	"bytes"
 	"fmt"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/stoppable"
 	ftStorage "gitlab.com/elixxir/client/storage/fileTransfer"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -430,7 +431,8 @@ func TestManager_buildMessages_MessageBuildFailureError(t *testing.T) {
 	}
 
 	callbackChan := make(chan callbackResults, 10)
-	progressCB := func(completed bool, sent, arrived, total uint16, err error) {
+	progressCB := func(completed bool, sent, arrived, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		callbackChan <- callbackResults{completed, sent, arrived, total, err}
 	}
 
@@ -609,7 +611,8 @@ func TestManager_makeRoundEventCallback(t *testing.T) {
 	}
 
 	callbackChan := make(chan callbackResults, 10)
-	progressCB := func(completed bool, sent, arrived, total uint16, err error) {
+	progressCB := func(completed bool, sent, arrived, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		callbackChan <- callbackResults{completed, sent, arrived, total, err}
 	}
 
@@ -687,7 +690,8 @@ func TestManager_makeRoundEventCallback_RoundFailure(t *testing.T) {
 	}
 
 	callbackChan := make(chan callbackResults, 10)
-	progressCB := func(completed bool, sent, arrived, total uint16, err error) {
+	progressCB := func(completed bool, sent, arrived, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		callbackChan <- callbackResults{completed, sent, arrived, total, err}
 	}
 
@@ -838,6 +842,26 @@ func TestManager_queueParts(t *testing.T) {
 				t.Errorf("Failed to read parts for %d/%d transfers.",
 					len(parts), n)
 			}
+		}
+	}
+}
+
+// Tests that getShuffledPartNumList returns a list with all the part numbers.
+func Test_getShuffledPartNumList(t *testing.T) {
+	n := 100
+	numList := getShuffledPartNumList(uint16(n))
+
+	if len(numList) != n {
+		t.Errorf("Length of shuffled list incorrect."+
+			"\nexpected: %d\nreceived: %d", n, len(numList))
+	}
+
+	for i := 0; i < n; i++ {
+		j := 0
+		for ; i != int(numList[j]); j++ {
+		}
+		if i != int(numList[j]) {
+			t.Errorf("Failed to find part number %d in shuffled list.", i)
 		}
 	}
 }

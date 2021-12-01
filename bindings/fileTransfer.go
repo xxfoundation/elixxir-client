@@ -10,6 +10,7 @@ package bindings
 import (
 	"encoding/json"
 	ft "gitlab.com/elixxir/client/fileTransfer"
+	"gitlab.com/elixxir/client/interfaces"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -24,14 +25,16 @@ type FileTransfer struct {
 // progress of sending a file. It is called when a file part is sent, a file
 // part arrives, the transfer completes, or on error.
 type FileTransferSentProgressFunc interface {
-	SentProgressCallback(completed bool, sent, arrived, total int, err error)
+	SentProgressCallback(completed bool, sent, arrived, total int,
+		t *FilePartTracker, err error)
 }
 
 // FileTransferReceivedProgressFunc contains a function callback that tracks the
 // progress of receiving a file. It is called when a file part is received, the
 // transfer completes, or on error.
 type FileTransferReceivedProgressFunc interface {
-	ReceivedProgressCallback(completed bool, received, total int, err error)
+	ReceivedProgressCallback(completed bool, received, total int,
+		t *FilePartTracker, err error)
 }
 
 // FileTransferReceiveFunc contains a function callback that notifies the
@@ -48,7 +51,7 @@ type FileTransferReceiveFunc interface {
 // fileTransfer.Params object. If it is left empty, then defaults are used. It
 // must match the following format: {"MaxThroughput":150000}
 func NewFileTransferManager(client *Client, receiveFunc FileTransferReceiveFunc,
-	parameters string) (FileTransfer, error) {
+	parameters string) (*FileTransfer, error) {
 
 	receiveCB := func(tid ftCrypto.TransferID, fileName, fileType string,
 		sender *id.ID, size uint32, preview []byte) {
@@ -61,23 +64,23 @@ func NewFileTransferManager(client *Client, receiveFunc FileTransferReceiveFunc,
 	if parameters != "" {
 		err := json.Unmarshal([]byte(parameters), &p)
 		if err != nil {
-			return FileTransfer{}, err
+			return nil, err
 		}
 	}
 
 	// Create new file transfer manager
 	m, err := ft.NewManager(&client.api, receiveCB, p)
 	if err != nil {
-		return FileTransfer{}, err
+		return nil, err
 	}
 
 	// Start sending and receiving threads
 	err = client.api.AddService(m.StartProcesses)
 	if err != nil {
-		return FileTransfer{}, err
+		return nil, err
 	}
 
-	return FileTransfer{m}, nil
+	return &FileTransfer{m}, nil
 }
 
 // Send sends a file to the recipient. The sender must have an E2E relationship
@@ -95,14 +98,15 @@ func NewFileTransferManager(client *Client, receiveFunc FileTransferReceiveFunc,
 // Returns a unique transfer ID used to identify the transfer.
 // PeriodMS is the duration, in milliseconds, to wait between progress callback
 // calls. Set this large enough to prevent spamming.
-func (f FileTransfer) Send(fileName, fileType string, fileData []byte,
+func (f *FileTransfer) Send(fileName, fileType string, fileData []byte,
 	recipientID []byte, retry float32, preview []byte,
 	progressFunc FileTransferSentProgressFunc, periodMS int) ([]byte, error) {
 
 	// Create SentProgressCallback
-	progressCB := func(completed bool, sent, arrived, total uint16, err error) {
+	progressCB := func(completed bool, sent, arrived, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		progressFunc.SentProgressCallback(
-			completed, int(sent), int(arrived), int(total), err)
+			completed, int(sent), int(arrived), int(total), &FilePartTracker{t}, err)
 	}
 
 	// Convert recipient ID bytes to id.ID
@@ -134,16 +138,17 @@ func (f FileTransfer) Send(fileName, fileType string, fileData []byte,
 // not be reported and instead, the progress will be reported once at the end of
 // the period.
 // The period is specified in milliseconds.
-func (f FileTransfer) RegisterSendProgressCallback(transferID []byte,
+func (f *FileTransfer) RegisterSendProgressCallback(transferID []byte,
 	progressFunc FileTransferSentProgressFunc, periodMS int) error {
 
 	// Unmarshal transfer ID
 	tid := ftCrypto.UnmarshalTransferID(transferID)
 
 	// Create SentProgressCallback
-	progressCB := func(completed bool, sent, arrived, total uint16, err error) {
+	progressCB := func(completed bool, sent, arrived, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		progressFunc.SentProgressCallback(
-			completed, int(sent), int(arrived), int(total), err)
+			completed, int(sent), int(arrived), int(total), &FilePartTracker{t}, err)
 	}
 
 	// Convert period to time.Duration
@@ -154,7 +159,7 @@ func (f FileTransfer) RegisterSendProgressCallback(transferID []byte,
 
 // Resend resends a file if sending fails. This function should only be called
 //if the interfaces.SentProgressCallback returns an error.
-func (f FileTransfer) Resend(transferID []byte) error {
+func (f *FileTransfer) Resend(transferID []byte) error {
 	// Unmarshal transfer ID
 	tid := ftCrypto.UnmarshalTransferID(transferID)
 
@@ -164,11 +169,22 @@ func (f FileTransfer) Resend(transferID []byte) error {
 // CloseSend deletes a sent file transfer from the sent transfer map and from
 // storage once a transfer has completed or reached the retry limit. Returns an
 // error if the transfer has not run out of retries.
-func (f FileTransfer) CloseSend(transferID []byte) error {
+func (f *FileTransfer) CloseSend(transferID []byte) error {
 	// Unmarshal transfer ID
 	tid := ftCrypto.UnmarshalTransferID(transferID)
 
 	return f.m.CloseSend(tid)
+}
+
+// Receive returns the fully assembled file on the completion of the transfer.
+// It deletes the transfer from the received transfer map and from storage.
+// Returns an error if the transfer is not complete, the full file cannot be
+// verified, or if the transfer cannot be found.
+func (f *FileTransfer) Receive(transferID []byte) ([]byte, error) {
+	// Unmarshal transfer ID
+	tid := ftCrypto.UnmarshalTransferID(transferID)
+
+	return f.m.Receive(tid)
 }
 
 // RegisterReceiveProgressCallback allows for the registration of a callback to
@@ -181,15 +197,16 @@ func (f FileTransfer) CloseSend(transferID []byte) error {
 // Once the callback reports that the transfer has completed, the recipient
 // can get the full file by calling Receive.
 // The period is specified in milliseconds.
-func (f FileTransfer) RegisterReceiveProgressCallback(transferID []byte,
+func (f *FileTransfer) RegisterReceiveProgressCallback(transferID []byte,
 	progressFunc FileTransferReceivedProgressFunc, periodMS int) error {
 	// Unmarshal transfer ID
 	tid := ftCrypto.UnmarshalTransferID(transferID)
 
 	// Create ReceivedProgressCallback
-	progressCB := func(completed bool, received, total uint16, err error) {
+	progressCB := func(completed bool, received, total uint16,
+		t interfaces.FilePartTracker, err error) {
 		progressFunc.ReceivedProgressCallback(
-			completed, int(received), int(total), err)
+			completed, int(received), int(total), &FilePartTracker{t}, err)
 	}
 
 	// Convert period to time.Duration
@@ -198,40 +215,53 @@ func (f FileTransfer) RegisterReceiveProgressCallback(transferID []byte,
 	return f.m.RegisterReceiveProgressCallback(tid, progressCB, period)
 }
 
-// Receive returns the fully assembled file on the completion of the transfer.
-// It deletes the transfer from the received transfer map and from storage.
-// Returns an error if the transfer is not complete, the full file cannot be
-// verified, or if the transfer cannot be found.
-func (f FileTransfer) Receive(transferID []byte) ([]byte, error) {
-	// Unmarshal transfer ID
-	tid := ftCrypto.UnmarshalTransferID(transferID)
-
-	return f.m.Receive(tid)
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // Utility Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
 // GetMaxFilePreviewSize returns the maximum file preview size, in bytes.
-func (f FileTransfer) GetMaxFilePreviewSize() int {
+func (f *FileTransfer) GetMaxFilePreviewSize() int {
 	return ft.PreviewMaxSize
 }
 
 // GetMaxFileNameByteLength returns the maximum length, in bytes, allowed for a
 // file name.
-func (f FileTransfer) GetMaxFileNameByteLength() int {
+func (f *FileTransfer) GetMaxFileNameByteLength() int {
 	return ft.FileNameMaxLen
 }
 
 // GetMaxFileTypeByteLength returns the maximum length, in bytes, allowed for a
 // file type.
-func (f FileTransfer) GetMaxFileTypeByteLength() int {
+func (f *FileTransfer) GetMaxFileTypeByteLength() int {
 	return ft.FileTypeMaxLen
 }
 
 // GetMaxFileSize returns the maximum file size, in bytes, allowed to be
 // transferred.
-func (f FileTransfer) GetMaxFileSize() int {
+func (f *FileTransfer) GetMaxFileSize() int {
 	return ft.FileMaxSize
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// File Part Tracker                                                          //
+////////////////////////////////////////////////////////////////////////////////
+
+// FilePartTracker contains the interfaces.FilePartTracker.
+type FilePartTracker struct {
+	m interfaces.FilePartTracker
+}
+
+// GetPartStatus returns the status of the file part with the given part number.
+// The possible values for the status are:
+// 0 = unsent
+// 1 = sent (sender has sent a part, but it has not arrived)
+// 2 = arrived (sender has sent a part, and it has arrived)
+// 3 = received (receiver has received a part)
+func (fpt *FilePartTracker) GetPartStatus(partNum int) int {
+	return fpt.m.GetPartStatus(uint16(partNum))
+}
+
+// GetNumParts returns the total number of file parts in the transfer.
+func (fpt *FilePartTracker) GetNumParts() int {
+	return int(fpt.m.GetNumParts())
 }

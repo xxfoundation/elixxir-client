@@ -52,6 +52,14 @@ const (
 	networkHealthBuffLen = 10_000
 )
 
+// Part status constants.
+const (
+	unsent   = 0
+	sent     = 1
+	arrived  = 2
+	received = 1
+)
+
 // Error messages.
 const (
 	// newManager
@@ -313,10 +321,33 @@ func (m Manager) RegisterSendProgressCallback(tid ftCrypto.TransferID,
 	return nil
 }
 
+// GetSentPartStatus returns the status of the sent file part number for the
+// given transfer ID. An error is returned if the sent transfer does not
+// exist. The possible values for the status are:
+// 0 = unsent
+// 1 = sent
+// 2 = arrived
+// TODO: test
+func (m Manager) GetSentPartStatus(tid ftCrypto.TransferID, partNum uint16) (int, error) {
+	// Get the transfer for the given ID
+	transfer, err := m.sent.GetTransfer(tid)
+	if err != nil {
+		return unsent, err
+	}
+
+	if transfer.IsPartInProgress(partNum) {
+		return sent, nil
+	} else if transfer.IsPartFinished(partNum) {
+		return arrived, nil
+	} else {
+		return unsent, nil
+	}
+}
+
 // Resend resends a file if sending fails. Returns an error if CloseSend
 // was already called or if the transfer did not run out of retries. This
-//function should only be called if the interfaces.SentProgressCallback returns
-//an error.
+// function should only be called if the interfaces.SentProgressCallback returns
+// an error.
 // TODO: add test
 // TODO: write test
 // TODO: can you resend? Can you reuse fingerprints?
@@ -349,31 +380,13 @@ func (m Manager) CloseSend(tid ftCrypto.TransferID) error {
 
 	// Check if the transfer has completed or run out of fingerprints, which
 	// occurs when the retry limit is reached
-	completed, _, _, _ := transfer.GetProgress()
+	completed, _, _, _, _ := transfer.GetProgress()
 	if transfer.GetNumAvailableFps() > 0 && !completed {
 		return errors.Errorf(transferInProgressErr, tid)
 	}
 
 	// Delete the transfer from storage
 	return m.sent.DeleteTransfer(tid)
-}
-
-// RegisterReceiveProgressCallback adds the reception progress callback to the
-// received transfer so that it will be called when updates for the transfer
-// occur. The progress callback is called when initially added and on transfer
-// updates, at most once per period.
-func (m Manager) RegisterReceiveProgressCallback(tid ftCrypto.TransferID,
-	progressCB interfaces.ReceivedProgressCallback, period time.Duration) error {
-	// Get the transfer for the given ID
-	transfer, err := m.received.GetTransfer(tid)
-	if err != nil {
-		return err
-	}
-
-	// Add the progress callback
-	transfer.AddProgressCB(progressCB, period)
-
-	return nil
 }
 
 // Receive returns the fully assembled file on the completion of the transfer.
@@ -395,6 +408,44 @@ func (m Manager) Receive(tid ftCrypto.TransferID) ([]byte, error) {
 
 	// Return the file and delete the transfer from storage
 	return file, m.received.DeleteTransfer(tid)
+}
+
+// RegisterReceiveProgressCallback adds the reception progress callback to the
+// received transfer so that it will be called when updates for the transfer
+// occur. The progress callback is called when initially added and on transfer
+// updates, at most once per period.
+func (m Manager) RegisterReceiveProgressCallback(tid ftCrypto.TransferID,
+	progressCB interfaces.ReceivedProgressCallback, period time.Duration) error {
+	// Get the transfer for the given ID
+	transfer, err := m.received.GetTransfer(tid)
+	if err != nil {
+		return err
+	}
+
+	// Add the progress callback
+	transfer.AddProgressCB(progressCB, period)
+
+	return nil
+}
+
+// GetReceivedPartStatus returns the status of the received file part number
+// for the given transfer ID. An error is returned if the received transfer
+// does not exist. The possible values for the status are:
+// 0 = unsent
+// 1 = received
+// TODO: test
+func (m Manager) GetReceivedPartStatus(tid ftCrypto.TransferID, partNum uint16) (int, error) {
+	// Get the transfer for the given ID
+	transfer, err := m.received.GetTransfer(tid)
+	if err != nil {
+		return unsent, err
+	}
+
+	if transfer.IsPartReceived(partNum) {
+		return received, nil
+	} else {
+		return unsent, nil
+	}
 }
 
 // calcNumberOfFingerprints is the formula used to calculate the number of

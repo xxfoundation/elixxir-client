@@ -26,12 +26,14 @@ const (
 
 // Error messages.
 const (
-	saveUsedKeyErr   = "Failed to save %s after marking key %d as used: %+v"
-	saveUnusedKeyErr = "Failed to save %s after marking key %d as unused: %+v"
-	saveNextErr      = "failed to save %s after getting next available key: %+v"
-	noKeysErr        = "all keys used"
-	loadUnmarshalErr = "failed to unmarshal from storage: %+v"
-	testInterfaceErr = "%s can only be used for testing."
+	saveUsedKeyErr    = "Failed to save %s after marking key %d as used: %+v"
+	saveUsedKeysErr   = "Failed to save %s after marking keys %d as used: %+v"
+	saveUnusedKeyErr  = "Failed to save %s after marking key %d as unused: %+v"
+	saveUnusedKeysErr = "Failed to save %s after marking keys %d as unused: %+v"
+	saveNextErr       = "failed to save %s after getting next available key: %+v"
+	noKeysErr         = "all keys used"
+	loadUnmarshalErr  = "failed to unmarshal from storage: %+v"
+	testInterfaceErr  = "%s can only be used for testing."
 )
 
 // StateVector stores a list of a set number of items and their binary state.
@@ -83,6 +85,23 @@ func (sv *StateVector) Use(keyNum uint32) {
 	}
 }
 
+// UseMany marks all of the keys as used (sets them to 1). Saves only after all
+// of the keys are set.
+func (sv *StateVector) UseMany(keyNums ...uint32) {
+	sv.mux.Lock()
+	defer sv.mux.Unlock()
+
+	// Mark the keys as used
+	for _, keyNum := range keyNums {
+		sv.use(keyNum)
+	}
+
+	// Save changes to storage
+	if err := sv.save(); err != nil {
+		jww.FATAL.Printf(saveUsedKeysErr, sv, keyNums, err)
+	}
+}
+
 // use marks the key as used (sets it to 1). It is not thread-safe and does not
 // save to storage.
 func (sv *StateVector) use(keyNum uint32) {
@@ -117,6 +136,23 @@ func (sv *StateVector) Unuse(keyNum uint32) {
 	// Save changes to storage
 	if err := sv.save(); err != nil {
 		jww.FATAL.Printf(saveUnusedKeyErr, sv, keyNum, err)
+	}
+}
+
+// UnuseMany marks all the key as unused (sets them to 0). Saves only after all
+// of the keys are set.
+func (sv *StateVector) UnuseMany(keyNums ...uint32) {
+	sv.mux.Lock()
+	defer sv.mux.Unlock()
+
+	// Mark all of the keys as unused
+	for _, keyNum := range keyNums {
+		sv.unuse(keyNum)
+	}
+
+	// Save changes to storage
+	if err := sv.save(); err != nil {
+		jww.FATAL.Printf(saveUnusedKeysErr, sv, keyNums, err)
 	}
 }
 

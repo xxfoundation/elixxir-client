@@ -12,8 +12,8 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -244,28 +244,27 @@ var rootCmd = &cobra.Command{
 								continue
 							case <-done:
 								// Close channels on verification success
-								close(retryChan)
 								close(done)
+								close(retryChan)
 								break
 							}
 
-						} else { // Does not verify successful sends
-							// Construct the callback function which prints out the rounds' results
-							f := func(allRoundsSucceeded, timedOut bool,
-								rounds map[id.Round]api.RoundResult) {
-								printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, msg)
-							}
+						}
 
-							// Have the client report back the round results
-							err = errors.New("derp")
-							for j := 0; j < 5 && err != nil; j++ {
-								err = client.GetRoundResults(roundIDs, roundTimeout, f)
-							}
+						// Construct the callback function which prints out the rounds' results
+						f := func(allRoundsSucceeded, timedOut bool,
+							rounds map[id.Round]api.RoundResult) {
+							printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, msg)
+						}
 
-							if err != nil {
-								jww.FATAL.Panicf("Message sending for send %d failed: %+v", i, err)
-							}
+						// Have the client report back the round results
+						err = errors.New("derp")
+						for j := 0; j < 5 && err != nil; j++ {
+							err = client.GetRoundResults(roundIDs, roundTimeout, f)
+						}
 
+						if err != nil {
+							jww.FATAL.Panicf("Message sending for send %d failed: %+v", i, err)
 						}
 
 						break

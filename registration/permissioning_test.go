@@ -8,11 +8,20 @@
 package registration
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/comms/client"
+	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"os"
 	"testing"
 )
+
+func TestMain(m *testing.M) {
+	jww.SetStdoutThreshold(jww.LevelTrace)
+	connect.TestingOnlyDisableTLS = true
+	os.Exit(m.Run())
+}
 
 // Init should create a valid Registration communications struct
 func TestInit(t *testing.T) {

@@ -15,7 +15,6 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 // GenerateE2ESessionBaseKey returns the baseKey symmetric encryption key root.

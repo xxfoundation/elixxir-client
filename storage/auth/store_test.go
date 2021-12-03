@@ -24,6 +24,7 @@ import (
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/xx_network/crypto/csprng"
+	util "gitlab.com/elixxir/client/storage/utility"
 )
 
 // Happy path.
@@ -110,9 +111,9 @@ func TestLoadStore(t *testing.T) {
 			"\n\texpected: %+v\n\treceived: %+v", c, testC)
 	}
 
-	keyBytes := make([]byte, sidhinterface.SidHPubKeyByteSize)
+	keyBytes := make([]byte, sidhinterface.PubKeyByteSize)
 	sidhPubKey.Export(keyBytes)
-	expKeyBytes := make([]byte, sidhinterface.SidHPubKeyByteSize)
+	expKeyBytes := make([]byte, sidhinterface.PubKeyByteSize)
 	testPubKeyA.Export(expKeyBytes)
 	if !reflect.DeepEqual(keyBytes, expKeyBytes) {
 		t.Errorf("GetReceivedRequest did not send proper sidh bytes")
@@ -417,9 +418,9 @@ func TestStore_GetReceivedRequest(t *testing.T) {
 		t.Errorf("GetReceivedRequest() did not lock mutex.")
 	}
 
-	keyBytes := make([]byte, sidhinterface.SidHPubKeyByteSize)
+	keyBytes := make([]byte, sidhinterface.PubKeyByteSize)
 	sidhPubKey.Export(keyBytes)
-	expKeyBytes := make([]byte, sidhinterface.SidHPubKeyByteSize)
+	expKeyBytes := make([]byte, sidhinterface.PubKeyByteSize)
 	testPubKeyA.Export(expKeyBytes)
 	if !reflect.DeepEqual(keyBytes, expKeyBytes) {
 		t.Errorf("GetReceivedRequest did not send proper sidh bytes")
@@ -780,10 +781,8 @@ func makeTestStore(t *testing.T) (*Store, *versioned.KV, []*cyclic.Int) {
 }
 
 func genSidhAKeys(rng io.Reader) (*sidh.PrivateKey, *sidh.PublicKey) {
-	sidHPrivKeyA := sidh.NewPrivateKey(sidhinterface.SidHKeyId,
-		sidh.KeyVariantSidhA)
-	sidHPubKeyA := sidh.NewPublicKey(sidhinterface.SidHKeyId,
-		sidh.KeyVariantSidhA)
+	sidHPrivKeyA := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	sidHPubKeyA := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
 
 	if err := sidHPrivKeyA.Generate(rng); err!=nil{
 		panic("failure to generate SidH A private key")
@@ -794,10 +793,8 @@ func genSidhAKeys(rng io.Reader) (*sidh.PrivateKey, *sidh.PublicKey) {
 }
 
 func genSidhBKeys(rng io.Reader) (*sidh.PrivateKey, *sidh.PublicKey) {
-	sidHPrivKeyB := sidh.NewPrivateKey(sidhinterface.SidHKeyId,
-		sidh.KeyVariantSidhB)
-	sidHPubKeyB := sidh.NewPublicKey(sidhinterface.SidHKeyId,
-		sidh.KeyVariantSidhB)
+	sidHPrivKeyB := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	sidHPubKeyB := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
 
 	if err := sidHPrivKeyB.Generate(rng); err!=nil{
 		panic("failure to generate SidH A private key")

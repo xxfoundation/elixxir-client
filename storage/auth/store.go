@@ -12,7 +12,7 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/utility"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -122,12 +122,13 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 			r.sent = sr
 
 		case Receive:
-			c, err := utility.LoadContact(kv, partner)
+			c, err := util.LoadContact(kv, partner)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to load stored contact for: %+v", err)
 			}
 
-			key, err := utility.LoadSidHPubKeyA(kv, c.ID)
+			key, err := util.LoadSIDHPublicKey(kv,
+				util.MakeSIDHPublicKeyKey(c.ID))
 			if err != nil {
 				jww.FATAL.Panicf("Failed to load stored contact for: %+v", err)
 			}
@@ -233,12 +234,14 @@ func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey) error {
 			"%s, one already exists", c.ID)
 	}
 
-	if err := utility.StoreContact(s.kv, c); err != nil {
+	if err := util.StoreContact(s.kv, c); err != nil {
 		jww.FATAL.Panicf("Failed to save contact for partner %s", c.ID.String())
 	}
 
-	if err := utility.StoreSidHPubKeyA(s.kv, c.ID, key); err != nil {
-		jww.FATAL.Panicf("Failed to save contact for partner %s", c.ID.String())
+	storeKey := util.MakeSIDHPublicKeyKey(c.ID)
+	if err := util.StoreSIDHPublicKey(s.kv, key, storeKey); err != nil {
+		jww.FATAL.Panicf("Failed to save contact pubKey for partner %s",
+			c.ID.String())
 	}
 
 	r := &request{
@@ -407,7 +410,7 @@ func (s *Store) Delete(partner *id.ID) error {
 		}
 
 	case Receive:
-		if err := utility.DeleteContact(s.kv, r.receive.ID); err != nil {
+		if err := util.DeleteContact(s.kv, r.receive.ID); err != nil {
 			jww.FATAL.Panicf("Failed to delete recieved request "+
 				"contact: %+v", err)
 		}

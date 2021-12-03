@@ -77,7 +77,7 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 			"key with %s for SentRequest Auth", partner)
 	}
 
-	mySidHPrivKeyA := sidh.NewPrivateKey(sidhinterface.SidHKeyId,
+	mySidHPrivKeyA := sidh.NewPrivateKey(sidhinterface.KeyId,
 		sidh.KeyVariantSidhA)
 	if err = mySidHPrivKeyA.Import(srd.MySidHPrivKeyA); err != nil {
 		return nil, errors.WithMessagef(err,
@@ -85,7 +85,7 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 			"with %s for SentRequest Auth", partner)
 	}
 
-	mySidHPubKeyA := sidh.NewPublicKey(sidhinterface.SidHKeyId,
+	mySidHPubKeyA := sidh.NewPublicKey(sidhinterface.KeyId,
 		sidh.KeyVariantSidhA)
 	if err = mySidHPubKeyA.Import(srd.MySidHPubKeyA); err != nil {
 		return nil, errors.WithMessagef(err,
@@ -147,8 +147,8 @@ func (sr *SentRequest) save() error {
 	jww.INFO.Printf("saveSentRequest fingerprint: %s",
 		hex.EncodeToString(sr.fingerprint[:]))
 
-	sidHPriv := make([]byte, sidhinterface.SidHPrivKeyByteSize)
-	sidHPub := make([]byte, sidhinterface.SidHPubKeyByteSize)
+	sidHPriv := make([]byte, sidhinterface.PrivKeyByteSize)
+	sidHPub := make([]byte, sidhinterface.PubKeyByteSize)
 	sr.mySidHPrivKeyA.Export(sidHPriv)
 	sr.mySidHPubKeyA.Export(sidHPub)
 

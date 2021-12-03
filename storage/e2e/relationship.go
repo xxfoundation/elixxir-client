@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
+	"github.com/cloudflare/circl/dh/sidh"
 )
 
 const maxUnconfirmed uint = 3
@@ -66,7 +67,8 @@ func NewRelationship(manager *Manager, t RelationshipType,
 	// set to confirmed because the first session is always confirmed as a
 	// result of the negotiation before creation
 	s := newSession(r, r.t, manager.originMyPrivKey,
-		manager.originPartnerPubKey, nil, SessionID{},
+		manager.originPartnerPubKey, nil, manager.originMySIDHPrivKey,
+		manager.originPartnerSIDHPubKey, SessionID{},
 		r.fingerprint, Confirmed, initialParams)
 
 	if err := s.save(); err != nil {
@@ -204,12 +206,14 @@ func (r *relationship) Delete() {
 }
 
 func (r *relationship) AddSession(myPrivKey, partnerPubKey, baseKey *cyclic.Int,
+	mySIDHPrivKey *sidh.PrivateKey, partnerSIDHPubKey *sidh.PublicKey,
 	trigger SessionID, negotiationStatus Negotiation,
 	e2eParams params.E2ESessionParams) *Session {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
-	s := newSession(r, r.t, myPrivKey, partnerPubKey, baseKey, trigger,
+	s := newSession(r, r.t, myPrivKey, partnerPubKey, baseKey,
+		mySIDHPrivKey, partnerSIDHPubKey, trigger,
 		r.fingerprint, negotiationStatus, e2eParams)
 
 	r.addSession(s)

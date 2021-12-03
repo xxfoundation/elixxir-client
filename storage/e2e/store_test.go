@@ -23,6 +23,9 @@ import (
 	"math/rand"
 	"reflect"
 	"testing"
+	"github.com/cloudflare/circl/dh/sidh"
+	"io"
+	util "gitlab.com/elixxir/client/storage/utility"
 )
 
 // Tests happy path of NewStore.
@@ -60,17 +63,19 @@ func TestNewStore(t *testing.T) {
 
 	if !reflect.DeepEqual(expectedStore, store) {
 		t.Errorf("NewStore() returned incorrect Store."+
-			"\n\texpected: %+v\n\treceived: %+v", expectedStore, store)
+			"\n\texpected: %+v\n\treceived: %+v", expectedStore,
+			store)
 	}
 
 	key, err := expectedStore.kv.Get(storeKey, 0)
 	if err != nil {
-		t.Errorf("Get() encoutnered an error when getting Store from KV: %v", err)
+		t.Errorf("Get() error when getting Store from KV: %v", err)
 	}
 
 	if !bytes.Equal(expectedData, key.Data) {
 		t.Errorf("NewStore() returned incorrect Store."+
-			"\n\texpected: %+v\n\treceived: %+v", expectedData, key.Data)
+			"\n\texpected: %+v\n\treceived: %+v", expectedData,
+			key.Data)
 	}
 }
 
@@ -85,45 +90,63 @@ func TestLoadStore(t *testing.T) {
 
 	if !reflect.DeepEqual(expectedStore, store) {
 		t.Errorf("LoadStore() returned incorrect Store."+
-			"\n\texpected: %#v\n\treceived: %#v", expectedStore, store)
+			"\n\texpected: %#v\n\treceived: %#v", expectedStore,
+			store)
 	}
 }
 
 // Tests happy path of Store.AddPartner.
 func TestStore_AddPartner(t *testing.T) {
+	rng := csprng.NewSystemRNG()
 	s, _, _ := makeTestStore()
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	pubKey := diffieHellman.GeneratePublicKey(s.dhPrivateKey, s.grp)
 	p := params.GetDefaultE2ESessionParams()
-	expectedManager := newManager(s.context, s.kv, partnerID, s.dhPrivateKey,
-		pubKey, p, p)
+	// NOTE: e2e store doesn't contain a private SIDH key, that's
+	// because they're completely ephemeral as part of the
+	// initiation of the connection.
+	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
+	privSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
+	expectedManager := newManager(s.context, s.kv, partnerID,
+		s.dhPrivateKey, pubKey,
+		privSIDHKey, pubSIDHKey,
+		p, p)
 
-	err := s.AddPartner(partnerID, pubKey, s.dhPrivateKey, p, p)
+	err := s.AddPartner(partnerID, pubKey, s.dhPrivateKey, pubSIDHKey,
+		privSIDHKey, p, p)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
 	}
 
 	m, exists := s.managers[*partnerID]
 	if !exists {
-		t.Errorf("Manager does not exist in map.\n\tmap: %+v", s.managers)
+		t.Errorf("Manager does not exist in map.\n\tmap: %+v",
+			s.managers)
 	}
 
 	if !reflect.DeepEqual(expectedManager, m) {
-		t.Errorf("Added Manager not expected.\n\texpected: %v\n\treceived: %v",
-			expectedManager, m)
+		t.Errorf("Added Manager not expected.\n\texpected: " +
+			"%v\n\treceived: %v", expectedManager, m)
 	}
 }
 
 // Unit test for DeletePartner
 func TestStore_DeletePartner(t *testing.T) {
+	rng := csprng.NewSystemRNG()
 	s, _, _ := makeTestStore()
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	pubKey := diffieHellman.GeneratePublicKey(s.dhPrivateKey, s.grp)
 	p := params.GetDefaultE2ESessionParams()
+	// NOTE: e2e store doesn't contain a private SIDH key, that's
+	// because they're completely ephemeral as part of the
+	// initiation of the connection.
+	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
+	privSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
 
-	err := s.AddPartner(partnerID, pubKey, s.dhPrivateKey, p, p)
+	err := s.AddPartner(partnerID, pubKey, s.dhPrivateKey, pubSIDHKey,
+		privSIDHKey, p, p)
 	if err != nil {
-		t.Fatalf("DeletePartner error: Could not add partner in set up: %v", err)
+		t.Fatalf("Could not add partner in set up: %v", err)
 	}
 
 	err = s.DeletePartner(partnerID)
@@ -133,20 +156,24 @@ func TestStore_DeletePartner(t *testing.T) {
 
 	_, err = s.GetPartner(partnerID)
 	if err == nil {
-		t.Errorf("DeletePartner error: Should not be able to pull deleted partner from store")
+		t.Errorf("Shouldn't be able to pull deleted partner from store")
 	}
 
 }
 
 // Tests happy path of Store.GetPartner.
 func TestStore_GetPartner(t *testing.T) {
+	rng := csprng.NewSystemRNG()
 	s, _, _ := makeTestStore()
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	pubKey := diffieHellman.GeneratePublicKey(s.dhPrivateKey, s.grp)
 	p := params.GetDefaultE2ESessionParams()
-	expectedManager := newManager(s.context, s.kv, partnerID, s.dhPrivateKey,
-		pubKey, p, p)
-	_ = s.AddPartner(partnerID, pubKey, s.dhPrivateKey, p, p)
+	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
+	privSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
+	expectedManager := newManager(s.context, s.kv, partnerID,
+		s.dhPrivateKey, pubKey, privSIDHKey, pubSIDHKey, p, p)
+	_ = s.AddPartner(partnerID, pubKey, s.dhPrivateKey, pubSIDHKey,
+		privSIDHKey, p, p)
 
 	m, err := s.GetPartner(partnerID)
 	if err != nil {
@@ -185,7 +212,12 @@ func TestStore_GetPartnerContact(t *testing.T) {
 		ID:       partnerID,
 		DhPubKey: pubKey,
 	}
-	_ = s.AddPartner(partnerID, pubKey, s.dhPrivateKey, p, p)
+	rng := csprng.NewSystemRNG()
+	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
+	privSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
+
+	_ = s.AddPartner(partnerID, pubKey, s.dhPrivateKey, pubSIDHKey,
+		privSIDHKey, p, p)
 
 	c, err := s.GetPartnerContact(partnerID)
 	if err != nil {
@@ -357,4 +389,16 @@ func makeTestStore() (*Store, *versioned.KV, *fastRNG.StreamGenerator) {
 		panic("NewStore() produced an error: " + err.Error())
 	}
 	return s, kv, rng
+}
+
+func genSidhKeys(rng io.Reader, variant sidh.KeyVariant) (*sidh.PrivateKey, *sidh.PublicKey) {
+	sidHPrivKey := util.NewSIDHPrivateKey(variant)
+	sidHPubKey := util.NewSIDHPublicKey(variant)
+
+	if err := sidHPrivKey.Generate(rng); err!=nil{
+		panic("failure to generate SidH A private key")
+	}
+	sidHPrivKey.GeneratePublicKey(sidHPubKey)
+
+	return sidHPrivKey, sidHPubKey
 }

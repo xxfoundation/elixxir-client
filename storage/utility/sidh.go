@@ -99,7 +99,7 @@ func DeleteSIDHPublicKey(kv *versioned.KV, key string) error {
 	return kv.Delete(key, currentSIDHPubKeyVersion)
 }
 
-func makeSIDHPublicKey(cid *id.ID) string {
+func MakeSIDHPublicKeyKey(cid *id.ID) string {
 	return fmt.Sprintf("SIDHPubKey:%s", cid)
 }
 
@@ -144,6 +144,6 @@ func DeleteSIDHPrivateKey(kv *versioned.KV, key string) error {
 	return kv.Delete(key, currentSIDHPrivKeyVersion)
 }
 
-func makeSIDHPrivateKey(cid *id.ID) string {
+func MakeSIDHPrivateKeyKey(cid *id.ID) string {
 	return fmt.Sprintf("SIDHPrivKey:%s", cid)
 }

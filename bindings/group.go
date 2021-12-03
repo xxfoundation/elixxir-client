@@ -64,10 +64,10 @@ func NewGroupManager(client *Client, requestFunc GroupRequestFunc,
 // MakeGroup creates a new group and sends a group request to all members in the
 // group. The ID of the new group, the rounds the requests were sent on, and the
 // status of the send are contained in NewGroupReport.
-func (g *GroupChat) MakeGroup(membership *IdList, name, message []byte)*NewGroupReport {
+func (g *GroupChat) MakeGroup(membership *IdList, name, message []byte) *NewGroupReport {
 	grp, rounds, status, err := g.m.MakeGroup(membership.list, name, message)
 	errStr := ""
-	if err !=nil{
+	if err != nil {
 		errStr = err.Error()
 	}
 	return &NewGroupReport{&Group{grp}, rounds, status, errStr}
@@ -83,14 +83,14 @@ func (g *GroupChat) ResendRequest(groupIdBytes []byte) (*NewGroupReport, error) 
 	}
 
 	grp, exists := g.m.GetGroup(groupID)
-	if !exists{
-		return nil,errors.Errorf("Failed to find group %s", groupID)
+	if !exists {
+		return nil, errors.Errorf("Failed to find group %s", groupID)
 	}
 
 	rounds, status, err := g.m.ResendRequest(groupID)
 
 	errStr := ""
-	if err !=nil{
+	if err != nil {
 		errStr = err.Error()
 	}
 	return &NewGroupReport{&Group{grp}, rounds, status, errStr}, nil
@@ -166,11 +166,11 @@ type NewGroupReport struct {
 	group  *Group
 	rounds []id.Round
 	status gc.RequestStatus
-	err string
+	err    string
 }
 
 type GroupReportDisk struct {
-	List []id.Round
+	List   []id.Round
 	GrpId  []byte
 	Status int
 }
@@ -201,10 +201,9 @@ func (ngr *NewGroupReport) GetError() string {
 	return ngr.err
 }
 
-
 func (ngr *NewGroupReport) Marshal() ([]byte, error) {
 	grpReportDisk := GroupReportDisk{
-		List: ngr.rounds,
+		List:   ngr.rounds,
 		GrpId:  ngr.group.GetID()[:],
 		Status: ngr.GetStatus(),
 	}

@@ -7,7 +7,7 @@ import (
 
 func Generate(data []byte, t string) []byte {
 
-	if t==Default{
+	if t == Default {
 		return data
 	}
 	// Hash fingerprints

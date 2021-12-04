@@ -80,7 +80,7 @@ func (f baseFormat) SetSidHPubKey(pubKey *sidh.PublicKey) {
 }
 
 func (f baseFormat) GetSidhPubKey() (*sidh.PublicKey, error) {
-	pubKey := sidh.NewPublicKey(sidhinterface.SidHKeyId,
+	pubKey := sidh.NewPublicKey(sidhinterface.KeyId,
 		sidh.KeyVariantSidhA)
 	err := pubKey.Import(f.sidHpubkey)
 	return pubKey, err

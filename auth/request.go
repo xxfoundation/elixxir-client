@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/auth"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/client/storage/edge"
@@ -75,7 +76,8 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 
 	/*generate embedded message structures and check payload*/
 	cmixMsg := format.NewMessage(storage.Cmix().GetGroup().GetP().ByteLen())
-	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen(), sidhinterface.SidHPubKeyByteSize)
+	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen(),
+		sidhinterface.PubKeyByteSize)
 	ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
 	requestFmt, err := newRequestFormat(ecrFmt)
 	if err != nil {
@@ -99,16 +101,16 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 	if resend {
 		newPrivKey = sr.GetMyPrivKey()
 		newPubKey = sr.GetMyPubKey()
-		sidHPrivKeyA = sr.GetMySidhPrivKeyA()
-		sidHPubKeyA = sr.GetMySidhPubKeyA()
+		sidHPrivKeyA = sr.GetMySIDHPrivKey()
+		sidHPubKeyA = sr.GetMySIDHPubKey()
 		//in this case it is a new request and we must generate new keys
 	} else {
 		//generate new keypair
 		newPrivKey = diffieHellman.GeneratePrivateKey(256, grp, rng)
 		newPubKey = diffieHellman.GeneratePublicKey(newPrivKey, grp)
 
-		sidHPrivKeyA = sidh.NewPrivateKey(sidhinterface.SidHKeyId, sidh.KeyVariantSidhA)
-		sidHPubKeyA = sidh.NewPublicKey(sidhinterface.SidHKeyId, sidh.KeyVariantSidhA)
+		sidHPrivKeyA = util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+		sidHPubKeyA = util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
 
 		if err = sidHPrivKeyA.Generate(rng); err!=nil{
 			return 0, errors.WithMessagef(err, "Failed to send requrest due to " +

@@ -180,8 +180,11 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 					" msgDigest: %s which has been requested, auto-confirming",
 					partnerID, cmixMsg.Digest())
 				// do the confirmation
-				if err := m.doConfirm(sr2, grp, partnerPubKey, m.storage.E2e().GetDHPrivateKey(),
-					sr2.GetPartnerHistoricalPubKey(), ecrFmt.GetOwnership()); err != nil {
+				if err := m.doConfirm(sr2, grp, partnerPubKey,
+					m.storage.E2e().GetDHPrivateKey(),
+					sr2.GetPartnerHistoricalPubKey(),
+					ecrFmt.GetOwnership(),
+					partnerSIDHPubKey); err != nil {
 					em := fmt.Sprintf("Auto Confirmation with %s failed: %s",
 						partnerID, err)
 					jww.WARN.Print(em)
@@ -293,7 +296,8 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	// finalize the confirmation
 	if err := m.doConfirm(sr, grp, partnerPubKey, sr.GetMyPrivKey(),
 		sr.GetPartnerHistoricalPubKey(),
-		ecrFmt.GetOwnership()); err != nil {
+		ecrFmt.GetOwnership(),
+		partnerSIDHPubKey); err != nil {
 		em := fmt.Sprintf("Confirmation failed: %s", err)
 		jww.WARN.Print(em)
 		events.Report(10, "Auth", "ConfirmError", em)
@@ -303,7 +307,8 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 }
 
 func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
-	partnerPubKey, myPrivateKeyOwnershipProof, partnerPubKeyOwnershipProof *cyclic.Int, ownershipProof []byte) error {
+	partnerPubKey, myPrivateKeyOwnershipProof, partnerPubKeyOwnershipProof *cyclic.Int,
+	ownershipProof []byte, partnerSIDHPubKey *sidh.PublicKey) error {
 	// verify the message came from the intended recipient
 	if !cAuth.VerifyOwnershipProof(myPrivateKeyOwnershipProof,
 		partnerPubKeyOwnershipProof, grp, ownershipProof) {
@@ -315,7 +320,8 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 	// the second does not
 	p := m.storage.E2e().GetE2ESessionParams()
 	if err := m.storage.E2e().AddPartner(sr.GetPartner(),
-		partnerPubKey, sr.GetMyPrivKey(), p, p); err != nil {
+		partnerPubKey, sr.GetMyPrivKey(), partnerSIDHPubKey,
+		sr.GetMySIDHPrivKey(), p, p); err != nil {
 		return errors.Errorf("Failed to create channel with partner (%s) "+
 			"after confirmation: %+v",
 			sr.GetPartner(), err)
@@ -392,7 +398,7 @@ func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
 	*cyclic.Int, *sidh.PublicKey, error) {
 
 	baseFmt, err := unmarshalBaseFormat(cmixMsg.GetContents(),
-		grp.GetP().ByteLen(), sidhinterface.SidHPubKeyByteSize)
+		grp.GetP().ByteLen(), sidhinterface.PubKeyByteSize)
 	if err != nil {
 		return baseFormat{}, nil, nil, errors.WithMessage(err, "Failed to"+
 			" unmarshal auth")

@@ -23,6 +23,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"io"
+	util "gitlab.com/elixxir/client/storage/utility"
 )
 
 func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
@@ -37,11 +38,13 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	}
 
 	// check if the partner has an auth in progress
-	// this takes the lock, from this point forward any errors need to release
-	// the lock
-	storedContact, _, err := storage.Auth().GetReceivedRequest(partner.ID)
+	// this takes the lock, from this point forward any errors need to
+	// release the lock
+	storedContact, theirSidhKey, err := storage.Auth().GetReceivedRequest(
+		partner.ID)
 	if err != nil {
-		return 0, errors.Errorf("failed to find a pending Auth Request: %s",
+		return 0, errors.Errorf(
+			"failed to find a pending Auth Request: %s",
 			err)
 	}
 	defer storage.Auth().Done(partner.ID)
@@ -49,8 +52,8 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	// verify the passed contact matches what is stored
 	if storedContact.DhPubKey.Cmp(partner.DhPubKey) != 0 {
 		storage.Auth().Done(partner.ID)
-		return 0, errors.WithMessage(err, "Pending Auth Request has different "+
-			"pubkey than stored")
+		return 0, errors.WithMessage(err,
+			"Pending Auth Request has different pubkey than stored")
 	}
 
 	grp := storage.E2e().GetGroup()
@@ -65,6 +68,10 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	newPrivKey := diffieHellman.GeneratePrivateKey(256, grp, rng)
 	newPubKey := diffieHellman.GeneratePublicKey(newPrivKey, grp)
 
+	sidhVariant := util.GetSIDHVariant(theirSidhKey.Variant())
+	newSIDHPrivKey := util.NewSIDHPrivateKey(sidhVariant)
+	newSIDHPubKey := util.NewSIDHPublicKey(sidhVariant)
+
 	//generate salt
 	salt := make([]byte, saltSize)
 	_, err = rng.Read(salt)
@@ -77,7 +84,8 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	// we build the payload before we save because it is technically fallible
 	// which can get into a bricked state if it fails
 	cmixMsg := format.NewMessage(storage.Cmix().GetGroup().GetP().ByteLen())
-	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen(), sidhinterface.SidHPubKeyByteSize)
+	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen(),
+		sidhinterface.PubKeyByteSize)
 	ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
 
 	// setup the encrypted payload
@@ -96,6 +104,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	baseFmt.SetEcrPayload(ecrPayload)
 	baseFmt.SetSalt(salt)
 	baseFmt.SetPubKey(newPubKey)
+	baseFmt.SetSidHPubKey(newSIDHPubKey)
 
 	cmixMsg.SetKeyFP(fp)
 	cmixMsg.SetMac(mac)
@@ -109,7 +118,8 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 
 	//create local relationship
 	p := storage.E2e().GetE2ESessionParams()
-	if err := storage.E2e().AddPartner(partner.ID, partner.DhPubKey, newPrivKey,
+	if err := storage.E2e().AddPartner(partner.ID, partner.DhPubKey,
+		newPrivKey, theirSidhKey, newSIDHPrivKey,
 		p, p); err != nil {
 		em := fmt.Sprintf("Failed to create channel with partner (%s) "+
 			"on confirmation, this is likley a replay: %s",

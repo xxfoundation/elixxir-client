@@ -22,6 +22,9 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
 	"time"
+	"math/rand"
+	util "gitlab.com/elixxir/client/storage/utility"
+	"github.com/cloudflare/circl/dh/sidh"
 )
 
 var exchangeAliceId, exchangeBobId *id.ID
@@ -48,11 +51,28 @@ func TestFullExchange(t *testing.T) {
 	newBobPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, genericGroup, csprng.NewSystemRNG())
 	newBobPubKey := dh.GeneratePublicKey(newBobPrivKey, genericGroup)
 
+	aliceVariant := sidh.KeyVariantSidhA
+	prng1 := rand.New(rand.NewSource(int64(1)))
+	aliceSIDHPrivKey := util.NewSIDHPrivateKey(aliceVariant)
+	aliceSIDHPubKey := util.NewSIDHPublicKey(aliceVariant)
+	aliceSIDHPrivKey.Generate(prng1)
+	aliceSIDHPrivKey.GeneratePublicKey(aliceSIDHPubKey)
+
+	bobVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
+	prng2 := rand.New(rand.NewSource(int64(2)))
+	bobSIDHPrivKey := util.NewSIDHPrivateKey(bobVariant)
+	bobSIDHPubKey := util.NewSIDHPublicKey(bobVariant)
+	bobSIDHPrivKey.Generate(prng2)
+	bobSIDHPrivKey.GeneratePublicKey(bobSIDHPubKey)
+
+
 	// Add Alice and Bob as partners
 	aliceSession.E2e().AddPartner(exchangeBobId, bobPubKey, alicePrivKey,
+		bobSIDHPubKey, aliceSIDHPrivKey,
 		params.GetDefaultE2ESessionParams(),
 		params.GetDefaultE2ESessionParams())
 	bobSession.E2e().AddPartner(exchangeAliceId, alicePubKey, bobPrivKey,
+		aliceSIDHPubKey, bobSIDHPrivKey,
 		params.GetDefaultE2ESessionParams(),
 		params.GetDefaultE2ESessionParams())
 
@@ -95,7 +115,8 @@ func TestFullExchange(t *testing.T) {
 	confirmedSession := receivedManager.GetSendSession(oldSessionID)
 
 	// Generate the new session ID based off of Bob's new keys
-	baseKey := dh.GenerateSessionKey(alicePrivKey, newBobPubKey, genericGroup)
+	baseKey := e2e.GenerateE2ESessionBaseKey(alicePrivKey, newBobPubKey,
+		genericGroup, aliceSIDHPrivKey, bobSIDHPubKey)
 	newSessionID := e2e.GetSessionIDFromBaseKeyForTesting(baseKey, t)
 
 	// Check that the Alice's session for Bob is in the proper status

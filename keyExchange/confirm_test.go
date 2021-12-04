@@ -15,6 +15,9 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
+	"math/rand"
+	util "gitlab.com/elixxir/client/storage/utility"
+	"github.com/cloudflare/circl/dh/sidh"
 )
 
 // Smoke test for handleTrigger
@@ -36,8 +39,23 @@ func TestHandleConfirm(t *testing.T) {
 	alicePrivKey := aliceSession.E2e().GetDHPrivateKey()
 	bobPubKey := bobSession.E2e().GetDHPublicKey()
 
+	aliceVariant := sidh.KeyVariantSidhA
+	prng1 := rand.New(rand.NewSource(int64(1)))
+	aliceSIDHPrivKey := util.NewSIDHPrivateKey(aliceVariant)
+	aliceSIDHPubKey := util.NewSIDHPublicKey(aliceVariant)
+	aliceSIDHPrivKey.Generate(prng1)
+	aliceSIDHPrivKey.GeneratePublicKey(aliceSIDHPubKey)
+
+	bobVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
+	prng2 := rand.New(rand.NewSource(int64(2)))
+	bobSIDHPrivKey := util.NewSIDHPrivateKey(bobVariant)
+	bobSIDHPubKey := util.NewSIDHPublicKey(bobVariant)
+	bobSIDHPrivKey.Generate(prng2)
+	bobSIDHPrivKey.GeneratePublicKey(bobSIDHPubKey)
+
 	// Add bob as a partner
 	aliceSession.E2e().AddPartner(bobID, bobPubKey, alicePrivKey,
+		bobSIDHPubKey, aliceSIDHPrivKey,
 		params.GetDefaultE2ESessionParams(),
 		params.GetDefaultE2ESessionParams())
 

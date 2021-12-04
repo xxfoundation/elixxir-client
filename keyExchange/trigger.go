@@ -84,9 +84,13 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 		return err
 	}
 
+	// NOTE: This seems broken -- should a new sidh pubkey be a part of the
+	// unmarshalled message like the new pubkey?
+	lastSIDHPubKey := oldSession.GetPartnerSIDHPubKey()
+
 	//create the new session
 	session, duplicate := partner.NewReceiveSession(PartnerPublicKey,
-		sess.E2e().GetE2ESessionParams(), oldSession)
+		lastSIDHPubKey, sess.E2e().GetE2ESessionParams(), oldSession)
 	// new session being nil means the session was a duplicate. This is possible
 	// in edge cases where the partner crashes during operation. The session
 	// creation in this case ignores the new session, but the confirmation

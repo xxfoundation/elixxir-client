@@ -19,6 +19,9 @@ import (
 	"google.golang.org/protobuf/proto"
 	"testing"
 	"time"
+	"math/rand"
+	util "gitlab.com/elixxir/client/storage/utility"
+	"github.com/cloudflare/circl/dh/sidh"
 )
 
 // Smoke test for handleTrigger
@@ -40,12 +43,28 @@ func TestHandleTrigger(t *testing.T) {
 	newBobPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, genericGroup, csprng.NewSystemRNG())
 	newBobPubKey := dh.GeneratePublicKey(newBobPrivKey, genericGroup)
 
+	aliceVariant := sidh.KeyVariantSidhA
+	prng1 := rand.New(rand.NewSource(int64(1)))
+	aliceSIDHPrivKey := util.NewSIDHPrivateKey(aliceVariant)
+	aliceSIDHPubKey := util.NewSIDHPublicKey(aliceVariant)
+	aliceSIDHPrivKey.Generate(prng1)
+	aliceSIDHPrivKey.GeneratePublicKey(aliceSIDHPubKey)
+
+	bobVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
+	prng2 := rand.New(rand.NewSource(int64(2)))
+	bobSIDHPrivKey := util.NewSIDHPrivateKey(bobVariant)
+	bobSIDHPubKey := util.NewSIDHPublicKey(bobVariant)
+	bobSIDHPrivKey.Generate(prng2)
+	bobSIDHPrivKey.GeneratePublicKey(bobSIDHPubKey)
+
+
 	// Maintain an ID for bob
 	bobID := id.NewIdFromBytes([]byte("test"), t)
 
 	// Add bob as a partner
 	aliceSession.E2e().AddPartner(bobID, bobSession.E2e().GetDHPublicKey(),
-		alicePrivKey, params.GetDefaultE2ESessionParams(),
+		alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey,
+		params.GetDefaultE2ESessionParams(),
 		params.GetDefaultE2ESessionParams())
 
 	// Generate a session ID, bypassing some business logic here
@@ -81,7 +100,8 @@ func TestHandleTrigger(t *testing.T) {
 	}
 
 	// Generate the new session ID based off of Bob's new keys
-	baseKey := dh.GenerateSessionKey(alicePrivKey, newBobPubKey, genericGroup)
+	baseKey := e2e.GenerateE2ESessionBaseKey(alicePrivKey, newBobPubKey,
+		genericGroup, aliceSIDHPrivKey, bobSIDHPubKey)
 	newSessionID := e2e.GetSessionIDFromBaseKeyForTesting(baseKey, t)
 
 	// Check that this new session ID is now in the manager

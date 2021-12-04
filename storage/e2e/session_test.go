@@ -605,7 +605,8 @@ func TestSession_GetTrigger(t *testing.T) {
 func makeTestSession() (*Session, *context) {
 	grp := getGroup()
 	rng := csprng.NewSystemRNG()
-	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
+	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength,
+		grp, rng)
 	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 

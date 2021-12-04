@@ -197,11 +197,11 @@ func (sr *SentRequest) GetMyPubKey() *cyclic.Int {
 	return sr.myPubKey
 }
 
-func (sr *SentRequest) GetMySidhPrivKeyA() *sidh.PrivateKey {
+func (sr *SentRequest) GetMySIDHPrivKey() *sidh.PrivateKey {
 	return sr.mySidHPrivKeyA
 }
 
-func (sr *SentRequest) GetMySidhPubKeyA() *sidh.PublicKey {
+func (sr *SentRequest) GetMySIDHPubKey() *sidh.PublicKey {
 	return sr.mySidHPubKeyA
 }
 

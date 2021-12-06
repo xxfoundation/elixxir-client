@@ -19,6 +19,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"math/rand"
 	"reflect"
 	"strconv"
 	"strings"
@@ -1457,6 +1458,27 @@ func Test_makeSentTransferPrefix_Consistency(t *testing.T) {
 		if expected != prefix {
 			t.Errorf("New SentTransfer prefix does not match expected (%d)."+
 				"\nexpected: %s\nreceived: %s", i, expected, prefix)
+		}
+	}
+}
+
+// Tests that each of the elements in the uint32 slice returned by
+// uint16SliceToUint32Slice matches the elements in the original uint16 slice.
+func Test_uint16SliceToUint32Slice(t *testing.T) {
+	prng := rand.New(rand.NewSource(42))
+	uint16Slice := make([]uint16, 100)
+
+	for i := range uint16Slice {
+		uint16Slice[i] = uint16(prng.Uint32())
+	}
+
+	uint32Slice := uint16SliceToUint32Slice(uint16Slice)
+
+	// Check that each element is correct
+	for i, expected := range uint16Slice {
+		if uint32(expected) != uint32Slice[i] {
+			t.Errorf("Element #%d is incorrect.\nexpected: %d\nreceived: %d",
+				i, uint32(expected), uint32Slice[i])
 		}
 	}
 }

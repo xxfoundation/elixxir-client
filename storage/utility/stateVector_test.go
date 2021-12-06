@@ -90,6 +90,41 @@ func TestStateVector_Use(t *testing.T) {
 	}
 }
 
+// Tests that StateVector.UseMany sets the correct keys to used at once and does
+// not modify others keys and that numAvailable is correctly set.
+func TestStateVector_UseMany(t *testing.T) {
+	sv := newTestStateVector("StateVectorUse", 138, t)
+
+	// Set some keys to used
+	usedKeys := []uint32{0, 2, 3, 4, 6, 39, 62, 70, 98, 100}
+	usedKeysMap := make(map[uint32]bool, len(usedKeys))
+	for _, keyNum := range usedKeys {
+		usedKeysMap[keyNum] = true
+	}
+
+	// Use all keys
+	sv.UseMany(usedKeys...)
+
+	// Check all keys for their expected states
+	for i := uint32(0); i < sv.numKeys; i++ {
+		if usedKeysMap[i] {
+			if !sv.Used(i) {
+				t.Errorf("Key #%d should have been marked used.", i)
+			}
+		} else if sv.Used(i) {
+			t.Errorf("Key #%d should have been marked unused.", i)
+		}
+	}
+
+	// Make sure numAvailable is not modified when the key is already used
+	sv.Use(usedKeys[0])
+	if sv.numAvailable != sv.numKeys-uint32(len(usedKeys)) {
+		t.Errorf("numAvailable incorrect.\nexpected: %d\nreceived: %d",
+			sv.numKeys-uint32(len(usedKeys)), sv.numAvailable)
+	}
+
+}
+
 // Tests that StateVector.Unuse sets the correct keys to unused and does not
 // modify others keys and that numAvailable is correctly set.
 func TestStateVector_Unuse(t *testing.T) {
@@ -120,6 +155,44 @@ func TestStateVector_Unuse(t *testing.T) {
 
 		unusedKeysMap[keyNum] = true
 	}
+
+	// Check all keys for their expected states
+	for i := uint32(0); i < sv.numKeys; i++ {
+		if unusedKeysMap[i] {
+			if sv.Used(i) {
+				t.Errorf("Key #%d should have been marked unused.", i)
+			}
+		} else if !sv.Used(i) {
+			t.Errorf("Key #%d should have been marked used.", i)
+		}
+	}
+
+	// Make sure numAvailable is not modified when the key is already used
+	sv.Unuse(unusedKeys[0])
+	if sv.numAvailable != uint32(len(unusedKeys)) {
+		t.Errorf("numAvailable incorrect.\nexpected: %d\nreceived: %d",
+			uint32(len(unusedKeys)), sv.numAvailable)
+	}
+}
+
+// Tests that StateVector.Unuse sets the correct keys to unused at the same time
+// and does not modify others keys and that numAvailable is correctly set.
+func TestStateVector_UnuseMany(t *testing.T) {
+	sv := newTestStateVector("StateVectorUse", 138, t)
+
+	// Set all the keys to used
+	for keyNum := uint32(0); keyNum < sv.numKeys; keyNum++ {
+		sv.Use(keyNum)
+	}
+
+	// Set some keys to unused
+	unusedKeys := []uint32{0, 2, 3, 4, 6, 39, 62, 70, 98, 100}
+	unusedKeysMap := make(map[uint32]bool, len(unusedKeys))
+	for _, keyNum := range unusedKeys {
+		unusedKeysMap[keyNum] = true
+	}
+
+	sv.UnuseMany(unusedKeys...)
 
 	// Check all keys for their expected states
 	for i := uint32(0); i < sv.numKeys; i++ {

@@ -12,7 +12,6 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -198,35 +197,61 @@ var rootCmd = &cobra.Command{
 				go func(i int) {
 					defer wg.Done()
 					fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
-					var roundIDs []id.Round
-					var roundTimeout time.Duration
-					if unsafe {
-						roundIDs, err = client.SendUnsafe(msg,
-							paramsUnsafe)
-						roundTimeout = paramsUnsafe.Timeout
-					} else {
-						roundIDs, _, _, err = client.SendE2E(msg,
-							paramsE2E)
-						roundTimeout = paramsE2E.Timeout
-					}
-					if err != nil {
-						jww.FATAL.Panicf("%+v", err)
-					}
+					for {
+						// Send messages
+						var roundIDs []id.Round
+						var roundTimeout time.Duration
+						if unsafe {
+							roundIDs, err = client.SendUnsafe(msg,
+								paramsUnsafe)
+							roundTimeout = paramsUnsafe.Timeout
+						} else {
+							roundIDs, _, _, err = client.SendE2E(msg,
+								paramsE2E)
+							roundTimeout = paramsE2E.Timeout
+						}
+						if err != nil {
+							jww.FATAL.Panicf("%+v", err)
+						}
 
-					// Construct the callback function which prints out the rounds' results
-					f := func(allRoundsSucceeded, timedOut bool,
-						rounds map[id.Round]api.RoundResult) {
-						printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, msg)
-					}
+						if viper.GetBool("verify-sends") { // Verify message sends were successful
+							retryChan := make(chan struct{})
+							done := make(chan struct{}, 1)
 
-					// Have the client report back the round results
-					err = errors.New("derp")
-					for j := 0; j < 5 && err != nil; j++ {
-						err = client.GetRoundResults(roundIDs, roundTimeout, f)
-					}
+							// Construct the callback function which
+							// verifies successful message send or retries
+							f := func(allRoundsSucceeded, timedOut bool,
+								rounds map[id.Round]api.RoundResult) {
+								printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, msg)
+								if !allRoundsSucceeded {
+									retryChan <- struct{}{}
+								} else {
+									done <- struct{}{}
+								}
+							}
 
-					if err != nil {
-						jww.FATAL.Panicf("Message sending for send %d failed: %+v", i, err)
+							// Monitor rounds for results
+							err = client.GetRoundResults(roundIDs, roundTimeout, f)
+							if err != nil {
+								jww.DEBUG.Printf("Could not verify messages were sent successfully, resending messages...")
+								continue
+							}
+
+							select {
+							case <-retryChan:
+								// On a retry, go to the top of the loop
+								jww.DEBUG.Printf("Messages were not sent successfully, resending messages...")
+								continue
+							case <-done:
+								// Close channels on verification success
+								close(done)
+								close(retryChan)
+								break
+							}
+
+						}
+
+						break
 					}
 				}(i)
 			}
@@ -841,6 +866,10 @@ func init() {
 	rootCmd.Flags().UintP("sendDelay",
 		"", 500, "The delay between sending the messages in ms")
 	viper.BindPFlag("sendDelay", rootCmd.Flags().Lookup("sendDelay"))
+
+	rootCmd.Flags().BoolP("verify-sends", "", false,
+		"Ensure successful message sending by checking for round completion")
+	viper.BindPFlag("verify-sends", rootCmd.Flags().Lookup("verify-sends"))
 
 	rootCmd.Flags().UintP("receiveCount",
 		"", 1, "How many messages we should wait for before quitting")

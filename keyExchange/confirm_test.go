@@ -60,7 +60,8 @@ func TestHandleConfirm(t *testing.T) {
 		params.GetDefaultE2ESessionParams())
 
 	// Generate a session ID, bypassing some business logic here
-	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup)
+	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup,
+		aliceSIDHPrivKey, bobSIDHPubKey)
 
 	// Get Alice's manager for Bob
 	receivedManager, err := aliceSession.E2e().GetPartner(bobID)

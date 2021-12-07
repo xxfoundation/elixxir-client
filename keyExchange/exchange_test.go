@@ -83,7 +83,8 @@ func TestFullExchange(t *testing.T) {
 	Start(bobSwitchboard, bobSession, bobManager, rekeyParams)
 
 	// Generate a session ID, bypassing some business logic here
-	oldSessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup)
+	oldSessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup,
+		aliceSIDHPrivKey, bobSIDHPubKey)
 
 	// Generate the message
 	rekeyTrigger, _ := proto.Marshal(&RekeyTrigger{

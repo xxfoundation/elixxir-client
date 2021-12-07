@@ -68,7 +68,8 @@ func TestHandleTrigger(t *testing.T) {
 		params.GetDefaultE2ESessionParams())
 
 	// Generate a session ID, bypassing some business logic here
-	oldSessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup)
+	oldSessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup,
+		aliceSIDHPrivKey, bobSIDHPubKey)
 
 	// Generate the message
 	rekey, _ := proto.Marshal(&RekeyTrigger{

@@ -119,7 +119,7 @@ ctzvAcXjhXm6ESRVVD/iZvkW5MP2mkgbDpW3RP9souK5JzbcpC7i3hEcAqPSPgzL
 tlqu6u77fbF9yaHtq7dvYxH1WioIUxMqbIC1CNgGC1Y/LhzgLRKPSTBCrbQyTcGc
 0b5cTzVKxdP6v6WOAXVOEkXTcBPZ4nEZxY0=
 -----END CERTIFICATE-----`
-	devCert     = `-----BEGIN CERTIFICATE-----
+	devCert = `-----BEGIN CERTIFICATE-----
 MIIF4DCCA8igAwIBAgIUegUvihtQooWNIzsNqj6lucXn6g8wDQYJKoZIhvcNAQEL
 BQAwgYwxCzAJBgNVBAYTAlVTMQswCQYDVQQIDAJDQTESMBAGA1UEBwwJQ2xhcmVt
 b250MRAwDgYDVQQKDAdFbGl4eGlyMRQwEgYDVQQLDAtEZXZlbG9wbWVudDETMBEG
@@ -155,7 +155,6 @@ EnretBzQkeKeBwoB2u6NTiOmUjk=
 -----END CERTIFICATE-----`
 	testNetCert = ``
 )
-
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to

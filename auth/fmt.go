@@ -37,6 +37,8 @@ func newBaseFormat(payloadSize, pubkeySize, sidHPubkeySize int ) baseFormat {
 			total)
 	}
 
+	jww.INFO.Printf("Empty Space RequestAuth: %d", payloadSize-total)
+
 	f := buildBaseFormat(make([]byte, payloadSize), pubkeySize,
 		sidHPubkeySize)
 
@@ -48,10 +50,20 @@ func buildBaseFormat(data []byte, pubkeySize, sidHPubkeySize int) baseFormat {
 		data: data,
 	}
 
-	f.pubkey = f.data[:pubkeySize]
-	f.sidHpubkey = f.data[pubkeySize: pubkeySize + sidHPubkeySize + 1]
-	f.salt = f.data[pubkeySize + sidHPubkeySize: pubkeySize+sidHPubkeySize+saltSize]
-	f.ecrPayload = f.data[pubkeySize+sidHPubkeySize+saltSize:]
+	start := 0
+	end := pubkeySize
+	f.pubkey = f.data[:end]
+
+	start = end
+	end = start + sidHPubkeySize + 1
+	f.sidHpubkey = f.data[start:end]
+
+	start = end
+	end = start + saltSize
+	f.salt = f.data[start:end]
+
+	start = end
+	f.ecrPayload = f.data[start:]
 	return f
 }
 

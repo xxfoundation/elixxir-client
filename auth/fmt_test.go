@@ -20,7 +20,7 @@ import (
 func TestNewBaseFormat(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
-	payloadSize := saltSize + pubKeySize + sidhinterface.PubKeyByteSize
+	payloadSize := saltSize + pubKeySize + sidhinterface.PubKeyByteSize + 1
 	baseMsg := newBaseFormat(payloadSize, pubKeySize,
 		sidhinterface.PubKeyByteSize)
 
@@ -65,7 +65,7 @@ func TestNewBaseFormat(t *testing.T) {
 func TestBaseFormat_SetGetPubKey(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
-	payloadSize := saltSize + pubKeySize + sidhinterface.PubKeyByteSize
+	payloadSize := saltSize + pubKeySize + sidhinterface.PubKeyByteSize + 1
 	baseMsg := newBaseFormat(payloadSize, pubKeySize,
 		sidhinterface.PubKeyByteSize)
 
@@ -94,7 +94,7 @@ func TestBaseFormat_SetGetPubKey(t *testing.T) {
 func TestBaseFormat_SetGetSalt(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
-	payloadSize := saltSize + pubKeySize + sidhinterface.PubKeyByteSize
+	payloadSize := saltSize + pubKeySize + sidhinterface.PubKeyByteSize + 1
 	baseMsg := newBaseFormat(payloadSize, pubKeySize,
 		sidhinterface.PubKeyByteSize)
 

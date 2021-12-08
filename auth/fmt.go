@@ -9,7 +9,7 @@ package auth
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
-	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -22,16 +22,17 @@ const saltSize = 32
 type baseFormat struct {
 	data       []byte
 	pubkey     []byte
-	sidHpubkey     []byte
+	sidHpubkey []byte
 	salt       []byte
 	ecrPayload []byte
 }
 
 func newBaseFormat(payloadSize, pubkeySize, sidHPubkeySize int ) baseFormat {
-	total := pubkeySize + sidHPubkeySize + saltSize
+	// NOTE: sidhPubKey needs an extra byte to hold the variant setting
+	total := pubkeySize + sidHPubkeySize + 1 + saltSize
 	if payloadSize < total {
 		jww.FATAL.Panicf("Size of baseFormat is too small (%d), must be big " +
-			"enough to contain public key (%d) sidHPublicKey (%d) and salt (%d) " +
+			"enough to contain public key (%d) sidHPublicKey (%d + 1) and salt (%d) " +
 			"which totals to %d", payloadSize, pubkeySize, sidHPubkeySize, saltSize,
 			total)
 	}
@@ -48,7 +49,7 @@ func buildBaseFormat(data []byte, pubkeySize, sidHPubkeySize int) baseFormat {
 	}
 
 	f.pubkey = f.data[:pubkeySize]
-	f.sidHpubkey = f.data[pubkeySize: pubkeySize + sidHPubkeySize]
+	f.sidHpubkey = f.data[pubkeySize: pubkeySize + sidHPubkeySize + 1]
 	f.salt = f.data[pubkeySize + sidHPubkeySize: pubkeySize+sidHPubkeySize+saltSize]
 	f.ecrPayload = f.data[pubkeySize+sidHPubkeySize+saltSize:]
 	return f
@@ -76,13 +77,14 @@ func (f baseFormat) SetPubKey(pubKey *cyclic.Int) {
 }
 
 func (f baseFormat) SetSidHPubKey(pubKey *sidh.PublicKey) {
-	pubKey.Export(f.sidHpubkey)
+	f.sidHpubkey[0] = byte(pubKey.Variant())
+	pubKey.Export(f.sidHpubkey[1:])
 }
 
 func (f baseFormat) GetSidhPubKey() (*sidh.PublicKey, error) {
-	pubKey := sidh.NewPublicKey(sidhinterface.KeyId,
-		sidh.KeyVariantSidhA)
-	err := pubKey.Import(f.sidHpubkey)
+	variant := sidh.KeyVariant(f.sidHpubkey[0])
+	pubKey := util.NewSIDHPublicKey(variant)
+	err := pubKey.Import(f.sidHpubkey[1:])
 	return pubKey, err
 }
 

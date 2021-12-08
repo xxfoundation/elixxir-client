@@ -15,6 +15,7 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 // GenerateE2ESessionBaseKey returns the baseKey symmetric encryption key root.
@@ -43,6 +44,8 @@ func GenerateE2ESessionBaseKey(myDHPrivKey, theirDHPubKey *cyclic.Int,
 	// downstream reliance on the size of the key for now.
 	baseKey := hash.ExpandKey(hash.CMixHash.New, dhGrp, keyDigest,
 		dhGrp.NewInt(1))
+
+	jww.INFO.Printf("Generated E2E Base Key: %s", baseKey.Text(16))
 
 	return baseKey
 }

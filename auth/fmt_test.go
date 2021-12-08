@@ -40,7 +40,7 @@ func TestNewBaseFormat(t *testing.T) {
 	}
 
 	expectedEcrPayloadSize := payloadSize - (pubKeySize +
-		sidhinterface.PubKeyByteSize + saltSize)
+		sidhinterface.PubKeyByteSize + saltSize + 1)
 	if !bytes.Equal(baseMsg.ecrPayload, make([]byte, expectedEcrPayloadSize)) {
 		t.Errorf("NewBaseFormat error: "+
 			"Unexpected payload field in base format."+
@@ -136,7 +136,7 @@ func TestBaseFormat_SetGetEcrPayload(t *testing.T) {
 
 	// Test setter
 	ecrPayloadSize := payloadSize - (pubKeySize + saltSize +
-		sidhinterface.PubKeyByteSize)
+		sidhinterface.PubKeyByteSize + 1)
 	ecrPayload := newPayload(ecrPayloadSize, "ecrPayload")
 	baseMsg.SetEcrPayload(ecrPayload)
 	if !bytes.Equal(ecrPayload, baseMsg.ecrPayload) {
@@ -173,7 +173,7 @@ func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 	baseMsg := newBaseFormat(payloadSize, pubKeySize,
 		sidhinterface.PubKeyByteSize)
 	ecrPayloadSize := payloadSize - (pubKeySize + saltSize +
-		sidhinterface.PubKeyByteSize)
+		sidhinterface.PubKeyByteSize + 1)
 	ecrPayload := newPayload(ecrPayloadSize, "ecrPayload")
 	baseMsg.SetEcrPayload(ecrPayload)
 	salt := newSalt("salt")

@@ -613,7 +613,8 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 		s.myPrivKey = dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength,
 			grp, stream)
 		// Get the variant opposite my partners variant
-		sidhVariant := utility.GetSIDHVariant(s.partnerSIDHPubKey.Variant())
+		sidhVariant := utility.GetCompatibleSIDHVariant(
+			s.partnerSIDHPubKey.Variant())
 		s.mySIDHPrivKey = utility.NewSIDHPrivateKey(sidhVariant)
 		s.mySIDHPrivKey.Generate(stream)
 		stream.Close()

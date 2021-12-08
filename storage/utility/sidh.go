@@ -15,6 +15,8 @@ import (
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/xx_network/primitives/id"
 	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
+	"io"
 )
 
 const currentSIDHVersion = 0
@@ -32,12 +34,26 @@ func NewSIDHPrivateKey(variant sidh.KeyVariant) *sidh.PrivateKey {
 }
 
 // GetSIDHVariant returns the variant opposite the otherVariant
-func GetSIDHVariant(otherVariant sidh.KeyVariant) sidh.KeyVariant {
+func GetCompatibleSIDHVariant(otherVariant sidh.KeyVariant) sidh.KeyVariant {
 	// Note -- this is taken from inside the sidh lib to look for the A flag
 	if (otherVariant & sidh.KeyVariantSidhA) == sidh.KeyVariantSidhA {
 		return sidh.KeyVariantSidhB
 	}
 	return sidh.KeyVariantSidhA
+}
+
+// GenerateSIDHKeyPair generates a SIDH keypair
+func GenerateSIDHKeyPair(variant sidh.KeyVariant, rng io.Reader) (
+	*sidh.PrivateKey, *sidh.PublicKey) {
+	priv := NewSIDHPrivateKey(variant)
+	pub := NewSIDHPublicKey(variant)
+
+	if err := priv.Generate(rng); err!=nil {
+		jww.FATAL.Panicf("Unable to generate SIDH private key: %+v",
+			err)
+	}
+	priv.GeneratePublicKey(pub)
+	return priv, pub
 }
 
 // String interface impl to dump the contents of the public key as b64 string

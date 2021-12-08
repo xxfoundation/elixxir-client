@@ -26,6 +26,9 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
 	"strings"
+	util "gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/crypto/csprng"
 )
 
 func (m *Manager) StartProcesses() (stoppable.Stoppable, error) {
@@ -179,6 +182,18 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				jww.INFO.Printf("Received AuthRequest from %s,"+
 					" msgDigest: %s which has been requested, auto-confirming",
 					partnerID, cmixMsg.Digest())
+				// Note that our sent request SIDH key needs to
+				// change to be compatible
+				rngGen := fastRNG.NewStreamGenerator(1, 1,
+					csprng.NewSystemRNG)
+				rng := rngGen.GetStream()
+				myVariant := util.GetCompatibleSIDHVariant(
+					partnerSIDHPubKey.Variant())
+				myPriv, myPub := util.GenerateSIDHKeyPair(
+					myVariant, rng)
+				sr2.OverwriteSIDHKeys(myPriv, myPub)
+				rng.Close()
+
 				// do the confirmation
 				if err := m.doConfirm(sr2, grp, partnerPubKey,
 					m.storage.E2e().GetDHPrivateKey(),
@@ -197,23 +212,12 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		}
 	}
 
-	//process the inner payload
-	facts, msg, err := fact.UnstringifyFactList(
-		string(requestFmt.GetPayload()))
-	if err != nil {
-		em := fmt.Sprintf("failed to parse facts and message "+
-			"from Auth Request: %s", err)
-		jww.WARN.Print(em)
-		events.Report(10, "Auth", "RequestError", em)
-		return
-	}
-
-	//create the contact
+	//create the contact, note that no facts are sent in the payload
 	c := contact.Contact{
 		ID:             partnerID,
 		DhPubKey:       partnerPubKey,
 		OwnershipProof: copySlice(ecrFmt.ownership),
-		Facts:          facts,
+		Facts:          make([]fact.Fact, 0),
 	}
 
 	// fixme: the client will never be notified of the channel creation if a
@@ -232,7 +236,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	cbList := m.requestCallbacks.Get(c.ID)
 	for _, cb := range cbList {
 		rcb := cb.(interfaces.RequestCallback)
-		go rcb(c, msg)
+		go rcb(c, "")
 	}
 	return
 }

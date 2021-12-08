@@ -205,6 +205,16 @@ func (sr *SentRequest) GetMySIDHPubKey() *sidh.PublicKey {
 	return sr.mySidHPubKeyA
 }
 
+// OverwriteSIDHKeys is used to temporarily overwrite sidh keys
+// to handle e.g., confirmation requests.
+// FIXME: this is a code smell but was the cleanest solution at
+// the time. Business logic should probably handle this better?
+func (sr *SentRequest) OverwriteSIDHKeys(priv *sidh.PrivateKey,
+	pub *sidh.PublicKey) {
+	sr.mySidHPrivKeyA = priv
+	sr.mySidHPubKeyA = pub
+}
+
 func (sr *SentRequest) GetFingerprint() format.Fingerprint {
 	return sr.fingerprint
 }

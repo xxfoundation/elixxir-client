@@ -68,7 +68,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	newPrivKey := diffieHellman.GeneratePrivateKey(256, grp, rng)
 	newPubKey := diffieHellman.GeneratePublicKey(newPrivKey, grp)
 
-	sidhVariant := util.GetSIDHVariant(theirSidhKey.Variant())
+	sidhVariant := util.GetCompatibleSIDHVariant(theirSidhKey.Variant())
 	newSIDHPrivKey := util.NewSIDHPrivateKey(sidhVariant)
 	newSIDHPubKey := util.NewSIDHPublicKey(sidhVariant)
 

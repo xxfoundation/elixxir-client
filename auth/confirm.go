@@ -71,6 +71,8 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	sidhVariant := util.GetCompatibleSIDHVariant(theirSidhKey.Variant())
 	newSIDHPrivKey := util.NewSIDHPrivateKey(sidhVariant)
 	newSIDHPubKey := util.NewSIDHPublicKey(sidhVariant)
+	newSIDHPrivKey.Generate(rng)
+	newSIDHPrivKey.GeneratePublicKey(newSIDHPubKey)
 
 	//generate salt
 	salt := make([]byte, saltSize)

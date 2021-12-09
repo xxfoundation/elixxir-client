@@ -38,8 +38,8 @@ func (nfmr *NotificationForMeReport) Source() []byte {
 // a Type, and a source. These are as follows:
 //	TYPE       	DESCRIPTION							SOURCE
 // 	"default"	A message with no association		recipient user ID
-//  "request"	A channel request has been received recipient user ID
-//  "confirm"	A channel request has been accepted sender user ID
+//	"request"	A channel request has been received recipient user ID
+//	"confirm"	A channel request has been accepted sender user ID
 //	"rekey"		keys with a user have been rotated	sender user ID
 //	"e2e"		reception of an E2E message			sender user ID
 //	"group"		eception of a group chat message	group ID

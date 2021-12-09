@@ -34,6 +34,15 @@ func (nfmr *NotificationForMeReport) Source() []byte {
 }
 
 // NotificationForMe Check if a notification received is for me
+// It returns a NotificationForMeReport which contains a ForMe bool stating if it is for the caller,
+// a Type, and a source. These are as follows:
+//	TYPE       	DESCRIPTION							SOURCE
+// 	"default"	A message with no association		recipient user ID
+//  "request"	A channel request has been received recipient user ID
+//  "confirm"	A channel request has been accepted sender user ID
+//	"rekey"		keys with a user have been rotated	sender user ID
+//	"e2e"		reception of an E2E message			sender user ID
+//	"group"		eception of a group chat message	group ID
 func NotificationForMe(messageHash, idFP string, preimages string) (*NotificationForMeReport, error) {
 	//handle message hash and idFP
 	messageHashBytes, err := base64.StdEncoding.DecodeString(messageHash)

@@ -36,7 +36,7 @@ func (nfmr *NotificationForMeReport) Source() []byte {
 // NotificationForMe Check if a notification received is for me
 // It returns a NotificationForMeReport which contains a ForMe bool stating if it is for the caller,
 // a Type, and a source. These are as follows:
-//	TYPE       	SOURCE				DESCRIPTION
+//	TYPE       	SOURCE			DESCRIPTION
 // 	"default"	recipient user ID	A message with no association
 //	"request"	sender user ID		A channel request has been received
 //	"confirm"	sender user ID		A channel request has been accepted 

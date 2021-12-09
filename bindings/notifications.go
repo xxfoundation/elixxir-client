@@ -42,7 +42,7 @@ func (nfmr *NotificationForMeReport) Source() []byte {
 //	"confirm"	sender user ID		A channel request has been accepted 
 //	"rekey"		sender user ID		keys with a user have been rotated	
 //	"e2e"		sender user ID		reception of an E2E message			
-//	"group"		group ID			reception of a group chat message	
+//	"group"		group ID		reception of a group chat message	
 func NotificationForMe(messageHash, idFP string, preimages string) (*NotificationForMeReport, error) {
 	//handle message hash and idFP
 	messageHashBytes, err := base64.StdEncoding.DecodeString(messageHash)

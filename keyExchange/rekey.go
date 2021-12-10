@@ -83,10 +83,17 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	pubKey := diffieHellman.GeneratePublicKey(session.GetMyPrivKey(),
 		e2eStore.GetGroup())
 
+	sidhPrivKey := session.GetMySIDHPrivKey()
+	sidhPubKey := util.NewSIDHPublicKey(sidhPrivKey.Variant())
+	sidhPrivKey.GeneratePublicKey(sidhPubKey)
+	sidhPubKeyBytes := make([]byte, sidhPubKey.Size())
+	sidhPubKey.Export(sidhPubKeyBytes)
+
 	//build the payload
 	payload, err := proto.Marshal(&RekeyTrigger{
-		PublicKey: pubKey.Bytes(),
-		SessionID: session.GetSource().Marshal(),
+		PublicKey:     pubKey.Bytes(),
+		SIDHPublicKey: sidhPubKeyBytes,
+		SessionID:     session.GetSource().Marshal(),
 	})
 
 	//If the payload cannot be marshaled, panic

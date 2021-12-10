@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/utility"
 	"gitlab.com/elixxir/client/storage/reception"
@@ -92,7 +93,7 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 		Source:      rid,
 		AddressSize: addressSize,
 		End:         timeStart.Add(2 * timeout),
-		ExtraChecks: 10,
+		ExtraChecks: interfaces.DefaultExtraChecks,
 		StartValid:  timeStart.Add(-2 * timeout),
 		EndValid:    timeStart.Add(2 * timeout),
 		Ephemeral:   true,

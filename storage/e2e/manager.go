@@ -163,7 +163,7 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int,
 	return session, false
 }
 
-// NewSendSession creates a new Receive session using the latest public key
+// NewSendSession creates a new Send session using the latest public key
 // received from the partner and a new private key for the user. Passing in a
 // private key is optional. A private key will be generated if none is passed.
 func (m *Manager) NewSendSession(myPrivKey *cyclic.Int,

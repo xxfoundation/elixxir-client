@@ -144,18 +144,21 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 
 	session.kv = session.generate(ship.kv)
 
+	grp := session.relationship.manager.ctx.grp
+	myPubKey := dh.GeneratePublicKey(myPrivKey, grp)
+
 	// FIXME: We really don't want to be dumping private keys to a log!
 	// This should probably go inside a Session String implementation.
 	jww.INFO.Printf("New Session with Partner %s:\n\tType: %s"+
 		"\n\tBaseKey: %s\n\tRelationship Fingerprint: %v\n\tNumKeys: %d"+
-		"\n\tMy Private Key: %s\n\tPartner Public Key: %s" +
+		"\n\tMy Public Key: %s\n\tPartner Public Key: %s" +
 		"\n\tMy Public SIDH: %s\n\tPartner Public SIDH: %s",
 		ship.manager.partner,
 		t,
 		session.baseKey.TextVerbose(16, 0),
 		session.relationshipFingerprint,
 		session.rekeyThreshold,
-		session.myPrivKey.TextVerbose(16, 0),
+		myPubKey.TextVerbose(16, 0),
 		session.partnerPubKey.TextVerbose(16, 0),
 		utility.StringSIDHPrivKey(session.mySIDHPrivKey),
 		utility.StringSIDHPubKey(session.partnerSIDHPubKey))
@@ -610,7 +613,7 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 	//generate private key if it is not present
 	if s.myPrivKey == nil {
 		stream := s.relationship.manager.ctx.rng.GetStream()
-		s.myPrivKey = dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength,
+		s.myPrivKey = dh.GeneratePrivateKey(len(grp.GetPBytes()),
 			grp, stream)
 		// Get the variant opposite my partners variant
 		sidhVariant := utility.GetCompatibleSIDHVariant(

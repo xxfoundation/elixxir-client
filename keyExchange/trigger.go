@@ -22,6 +22,8 @@ import (
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/states"
+	util "gitlab.com/elixxir/client/storage/utility"
+	"github.com/cloudflare/circl/dh/sidh"
 )
 
 const (
@@ -67,8 +69,8 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	}
 
 	//unmarshal the message
-	oldSessionID, PartnerPublicKey, err := unmarshalSource(
-		sess.E2e().GetGroup(), request.Payload)
+	oldSessionID, PartnerPublicKey, PartnerSIDHPublicKey, err := (
+		unmarshalSource(sess.E2e().GetGroup(), request.Payload))
 	if err != nil {
 		jww.ERROR.Printf("could not unmarshal partner %s: %s",
 			request.Sender, err)
@@ -84,13 +86,10 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 		return err
 	}
 
-	// NOTE: This seems broken -- should a new sidh pubkey be a part of the
-	// unmarshalled message like the new pubkey?
-	lastSIDHPubKey := oldSession.GetPartnerSIDHPubKey()
-
 	//create the new session
 	session, duplicate := partner.NewReceiveSession(PartnerPublicKey,
-		lastSIDHPubKey, sess.E2e().GetE2ESessionParams(), oldSession)
+		PartnerSIDHPublicKey, sess.E2e().GetE2ESessionParams(),
+		oldSession)
 	// new session being nil means the session was a duplicate. This is possible
 	// in edge cases where the partner crashes during operation. The session
 	// creation in this case ignores the new session, but the confirmation
@@ -169,27 +168,33 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 }
 
 func unmarshalSource(grp *cyclic.Group, payload []byte) (e2e.SessionID,
-	*cyclic.Int, error) {
+	*cyclic.Int, *sidh.PublicKey, error) {
 
 	msg := &RekeyTrigger{}
 	if err := proto.Unmarshal(payload, msg); err != nil {
-		return e2e.SessionID{}, nil, errors.Errorf("Failed to "+
-			"unmarshal payload: %s", err)
+		return e2e.SessionID{}, nil, nil, errors.Errorf(
+			"Failed to unmarshal payload: %s", err)
 	}
 
 	oldSessionID := e2e.SessionID{}
 
 	if err := oldSessionID.Unmarshal(msg.SessionID); err != nil {
-		return e2e.SessionID{}, nil, errors.Errorf("Failed to unmarshal"+
-			" sessionID: %s", err)
+		return e2e.SessionID{}, nil, nil, errors.Errorf(
+			"Failed to unmarshal sessionID: %s", err)
 	}
 
 	// checking it is inside the group is necessary because otherwise the
 	// creation of the cyclic int will crash below
 	if !grp.BytesInside(msg.PublicKey) {
-		return e2e.SessionID{}, nil, errors.Errorf("Public key not in e2e group; PublicKey %v",
+		return e2e.SessionID{}, nil, nil, errors.Errorf(
+			"Public key not in e2e group; PublicKey %v",
 			msg.PublicKey)
 	}
 
-	return oldSessionID, grp.NewIntFromBytes(msg.PublicKey), nil
+	theirSIDHVariant := sidh.KeyVariant(msg.SidhPublicKey[0])
+	theirSIDHPubKey := util.NewSIDHPublicKey(theirSIDHVariant)
+	theirSIDHPubKey.Import(msg.SidhPublicKey[1:])
+
+	return oldSessionID, grp.NewIntFromBytes(msg.PublicKey),
+		theirSIDHPubKey, nil
 }

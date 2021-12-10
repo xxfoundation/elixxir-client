@@ -22,6 +22,7 @@ import (
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/primitives/states"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"time"
 )
 
@@ -86,13 +87,14 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	sidhPrivKey := session.GetMySIDHPrivKey()
 	sidhPubKey := util.NewSIDHPublicKey(sidhPrivKey.Variant())
 	sidhPrivKey.GeneratePublicKey(sidhPubKey)
-	sidhPubKeyBytes := make([]byte, sidhPubKey.Size())
-	sidhPubKey.Export(sidhPubKeyBytes)
+	sidhPubKeyBytes := make([]byte, sidhPubKey.Size()+1)
+	sidhPubKeyBytes[0] = byte(sidhPubKey.Variant())
+	sidhPubKey.Export(sidhPubKeyBytes[1:])
 
 	//build the payload
 	payload, err := proto.Marshal(&RekeyTrigger{
 		PublicKey:     pubKey.Bytes(),
-		SIDHPublicKey: sidhPubKeyBytes,
+		SidhPublicKey: sidhPubKeyBytes,
 		SessionID:     session.GetSource().Marshal(),
 	})
 

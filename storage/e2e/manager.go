@@ -61,6 +61,10 @@ func newManager(ctx *context, kv *versioned.KV, partnerID *id.ID, myPrivKey,
 		partner:                 partnerID,
 	}
 
+	if ctx.grp == nil {
+		panic("group not set")
+	}
+
 	if err := utility.StoreCyclicKey(kv, myPrivKey, originMyPrivKeyKey); err != nil {
 		jww.FATAL.Panicf("Failed to store %s: %+v", originMyPrivKeyKey,
 			err)
@@ -86,6 +90,10 @@ func loadManager(ctx *context, kv *versioned.KV, partnerID *id.ID) (*Manager, er
 		ctx:     ctx,
 		partner: partnerID,
 		kv:      kv,
+	}
+
+	if ctx.grp == nil {
+		panic("group not set")
 	}
 
 	var err error

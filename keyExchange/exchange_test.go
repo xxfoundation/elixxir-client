@@ -65,6 +65,13 @@ func TestFullExchange(t *testing.T) {
 	bobSIDHPrivKey.Generate(prng2)
 	bobSIDHPrivKey.GeneratePublicKey(bobSIDHPubKey)
 
+	newBobSIDHPrivKey := util.NewSIDHPrivateKey(bobVariant)
+	newBobSIDHPubKey := util.NewSIDHPublicKey(bobVariant)
+	newBobSIDHPrivKey.Generate(prng2)
+	newBobSIDHPrivKey.GeneratePublicKey(newBobSIDHPubKey)
+	newBobSIDHPubKeyBytes := make([]byte, newBobSIDHPubKey.Size() + 1)
+	newBobSIDHPubKeyBytes[0] = byte(bobVariant)
+	newBobSIDHPubKey.Export(newBobSIDHPubKeyBytes[1:])
 
 	// Add Alice and Bob as partners
 	aliceSession.E2e().AddPartner(exchangeBobId, bobPubKey, alicePrivKey,
@@ -88,8 +95,9 @@ func TestFullExchange(t *testing.T) {
 
 	// Generate the message
 	rekeyTrigger, _ := proto.Marshal(&RekeyTrigger{
-		SessionID: oldSessionID.Marshal(),
-		PublicKey: newBobPubKey.Bytes(),
+		SessionID:     oldSessionID.Marshal(),
+		PublicKey:     newBobPubKey.Bytes(),
+		SidhPublicKey: newBobSIDHPubKeyBytes,
 	})
 
 	triggerMsg := message.Receive{
@@ -117,7 +125,7 @@ func TestFullExchange(t *testing.T) {
 
 	// Generate the new session ID based off of Bob's new keys
 	baseKey := e2e.GenerateE2ESessionBaseKey(alicePrivKey, newBobPubKey,
-		genericGroup, aliceSIDHPrivKey, bobSIDHPubKey)
+		genericGroup, aliceSIDHPrivKey, newBobSIDHPubKey)
 	newSessionID := e2e.GetSessionIDFromBaseKeyForTesting(baseKey, t)
 
 	// Check that the Alice's session for Bob is in the proper status

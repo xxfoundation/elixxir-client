@@ -145,7 +145,7 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 	session.kv = session.generate(ship.kv)
 
 	grp := session.relationship.manager.ctx.grp
-	myPubKey := dh.GeneratePublicKey(myPrivKey, grp)
+	myPubKey := dh.GeneratePublicKey(session.myPrivKey, grp)
 
 	// FIXME: We really don't want to be dumping private keys to a log!
 	// This should probably go inside a Session String implementation.

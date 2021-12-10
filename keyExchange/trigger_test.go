@@ -57,6 +57,13 @@ func TestHandleTrigger(t *testing.T) {
 	bobSIDHPrivKey.Generate(prng2)
 	bobSIDHPrivKey.GeneratePublicKey(bobSIDHPubKey)
 
+	newBobSIDHPrivKey := util.NewSIDHPrivateKey(bobVariant)
+	newBobSIDHPubKey := util.NewSIDHPublicKey(bobVariant)
+	newBobSIDHPrivKey.Generate(prng2)
+	newBobSIDHPrivKey.GeneratePublicKey(newBobSIDHPubKey)
+	newBobSIDHPubKeyBytes := make([]byte, newBobSIDHPubKey.Size() + 1)
+	newBobSIDHPubKeyBytes[0] = byte(bobVariant)
+	newBobSIDHPubKey.Export(newBobSIDHPubKeyBytes[1:])
 
 	// Maintain an ID for bob
 	bobID := id.NewIdFromBytes([]byte("test"), t)
@@ -73,8 +80,9 @@ func TestHandleTrigger(t *testing.T) {
 
 	// Generate the message
 	rekey, _ := proto.Marshal(&RekeyTrigger{
-		SessionID: oldSessionID.Marshal(),
-		PublicKey: newBobPubKey.Bytes(),
+		SessionID:     oldSessionID.Marshal(),
+		PublicKey:     newBobPubKey.Bytes(),
+		SidhPublicKey: newBobSIDHPubKeyBytes,
 	})
 
 	receiveMsg := message.Receive{
@@ -102,7 +110,7 @@ func TestHandleTrigger(t *testing.T) {
 
 	// Generate the new session ID based off of Bob's new keys
 	baseKey := e2e.GenerateE2ESessionBaseKey(alicePrivKey, newBobPubKey,
-		genericGroup, aliceSIDHPrivKey, bobSIDHPubKey)
+		genericGroup, aliceSIDHPrivKey, newBobSIDHPubKey)
 	newSessionID := e2e.GetSessionIDFromBaseKeyForTesting(baseKey, t)
 
 	// Check that this new session ID is now in the manager

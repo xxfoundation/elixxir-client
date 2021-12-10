@@ -161,7 +161,6 @@ Flags:
       --delete-channel            Delete the channel information for the corresponding recipient ID
       --destfile string           Read this contact file for the destination id
   -d, --destid string             ID to send message to (if below 40, will be precanned. Use '0x' or 'b64:' for hex and base64 representations) (default "0")
-      --download-ndf string       Downloads and verifies a signed NDF from a specified environment. Accepted environment flags include mainnet, release, testnet, and dev
       --e2eMaxKeys uint           Max keys used before blocking until a rekey completes (default 800)
       --e2eMinKeys uint           Minimum number of keys used before requesting rekey (default 500)
       --e2eNumReKeys uint         Number of rekeys reserved for rekey operations (default 16)

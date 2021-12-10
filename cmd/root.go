@@ -510,41 +510,9 @@ func createClient() *api.Client {
 	//create a new client if none exist
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
 		// Load NDF
-		var ndfJSON []byte
-		if viper.GetString("ndf") != "" {
-			ndfJSON, err = ioutil.ReadFile(viper.GetString("ndf"))
-			if err != nil {
-				jww.FATAL.Panicf(err.Error())
-			}
-		} else if viper.GetString("download-ndf") != "" {
-			switch viper.GetString("download-ndf") {
-			case mainnet:
-				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(mainNetUrl, mainNetCert)
-				if err != nil {
-					jww.FATAL.Panicf(err.Error())
-				}
-			case release:
-				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(releaseUrl, releaseCert)
-				if err != nil {
-					jww.FATAL.Panicf(err.Error())
-				}
-
-			case dev:
-				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(devUrl, devCert)
-				if err != nil {
-					jww.FATAL.Panicf(err.Error())
-				}
-			case testnet:
-				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(testNetUrl, testNetCert)
-				if err != nil {
-					jww.FATAL.Panicf(err.Error())
-				}
-			default:
-				jww.FATAL.Panicf("download-ndf flag with unknown flag (%s)",
-					viper.GetString("download-ndf"))
-			}
-		} else {
-			jww.FATAL.Panicf("Unspecified NDF in CLI, cannot create client!")
+		ndfJSON, err := ioutil.ReadFile(viper.GetString("ndf"))
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
 		}
 
 		if precannedID != 0 {
@@ -1017,12 +985,6 @@ func init() {
 		"Accept the channel request for the corresponding recipient ID")
 	viper.BindPFlag("accept-channel",
 		rootCmd.Flags().Lookup("accept-channel"))
-
-	rootCmd.Flags().StringP("download-ndf", "", "",
-		"Downloads and verifies a signed NDF from a specified environment. "+
-			"Accepted environment flags include mainnet, release, testnet, and dev")
-	viper.BindPFlag("download-ndf",
-		rootCmd.Flags().Lookup("download-ndf"))
 
 	rootCmd.PersistentFlags().Bool("delete-channel", false,
 		"Delete the channel information for the corresponding recipient ID")

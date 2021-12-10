@@ -10,7 +10,8 @@
 syntax = "proto3";
 
 package parse;
-option go_package = "keyExchange";
+option go_package = "gitlab.com/elixxir/client/keyExchange";
+
 
 message RekeyTrigger {
     // PublicKey used in the rekey

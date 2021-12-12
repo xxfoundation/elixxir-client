@@ -212,12 +212,24 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		}
 	}
 
+
+	//process the inner payload
+	facts, _, err := fact.UnstringifyFactList(
+		string(requestFmt.msgPayload))
+	if err != nil {
+		em := fmt.Sprintf("failed to parse facts and message "+
+			"from Auth Request: %s", err)
+		jww.WARN.Print(em)
+		events.Report(10, "Auth", "RequestError", em)
+		return
+	}
+
 	//create the contact, note that no facts are sent in the payload
 	c := contact.Contact{
 		ID:             partnerID,
 		DhPubKey:       partnerPubKey,
 		OwnershipProof: copySlice(ecrFmt.ownership),
-		Facts:          make([]fact.Fact, 0),
+		Facts:          facts,
 	}
 
 	// fixme: the client will never be notified of the channel creation if a

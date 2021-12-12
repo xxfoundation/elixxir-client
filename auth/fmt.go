@@ -203,6 +203,7 @@ func (f ecrFormat) SetPayload(p []byte) {
 type requestFormat struct {
 	ecrFormat
 	id         []byte
+	msgPayload []byte
 }
 
 func newRequestFormat(ecrFmt ecrFormat) (requestFormat, error) {
@@ -215,6 +216,7 @@ func newRequestFormat(ecrFmt ecrFormat) (requestFormat, error) {
 	}
 
 	rf.id = rf.payload[:id.ArrIDLen]
+	rf.msgPayload = rf.payload[id.ArrIDLen:]
 
 	return rf, nil
 }
@@ -225,4 +227,20 @@ func (rf requestFormat) GetID() (*id.ID, error) {
 
 func (rf requestFormat) SetID(myId *id.ID) {
 	copy(rf.id, myId.Marshal())
+}
+
+func (rf requestFormat) SetMsgPayload(b []byte) {
+	if len(b) > len(rf.msgPayload) {
+		jww.FATAL.Panicf("Message Payload is too long")
+	}
+
+	copy(rf.msgPayload, b)
+}
+
+func (rf requestFormat) MsgPayloadLen() int {
+	return len(rf.msgPayload)
+}
+
+func (rf requestFormat) GetMsgPayload() []byte {
+	return rf.msgPayload
 }

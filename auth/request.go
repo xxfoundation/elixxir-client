@@ -84,6 +84,11 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 		return 0, errors.Errorf("failed to make request format: %+v", err)
 	}
 
+	//check the payload fits
+	facts := me.Facts.Stringify()
+	msgPayload := facts + terminator
+	msgPayloadBytes := []byte(msgPayload)
+
 	/*cryptographic generation*/
 	//generate salt
 	salt := make([]byte, saltSize)
@@ -113,12 +118,19 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 		sidHPubKeyA = util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
 
 		if err = sidHPrivKeyA.Generate(rng); err!=nil{
-			return 0, errors.WithMessagef(err, "Failed to send requrest due to " +
-				"failure to generate SidH A private key")
+			return 0, errors.WithMessagef(err, "RequestAuth: " +
+				"could not generate SIDH private key")
 		}
 		sidHPrivKeyA.GeneratePublicKey(sidHPubKeyA)
 
 	}
+
+	if len(msgPayloadBytes) > requestFmt.MsgPayloadLen() {
+		return 0, errors.Errorf("Combined message longer than space "+
+			"available in payload; available: %v, length: %v",
+			requestFmt.MsgPayloadLen(), len(msgPayloadBytes))
+	}
+
 
 	//generate ownership proof
 	ownership := cAuth.MakeOwnershipProof(storage.E2e().GetDHPrivateKey(),
@@ -129,6 +141,7 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 
 	/*encrypt payload*/
 	requestFmt.SetID(storage.GetUser().ReceptionID)
+	requestFmt.SetMsgPayload(msgPayloadBytes)
 	ecrFmt.SetOwnership(ownership)
 	ecrPayload, mac := cAuth.Encrypt(newPrivKey, partner.DhPubKey,
 		salt, ecrFmt.data, grp)

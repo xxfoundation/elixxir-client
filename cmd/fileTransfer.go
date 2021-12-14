@@ -95,11 +95,11 @@ var ftCmd = &cobra.Command{
 		for done := false; !done; {
 			select {
 			case <-sendDone:
-				jww.DEBUG.Printf("Finished sending message. Stopping threads " +
+				jww.DEBUG.Printf("Finished sending file. Stopping threads " +
 					"and network follower.")
 				done = true
 			case <-receiveDone:
-				jww.DEBUG.Printf("Finished receiving message. Stopping " +
+				jww.DEBUG.Printf("Finished receiving file. Stopping " +
 					"threads and network follower.")
 				done = true
 			}
@@ -229,23 +229,25 @@ func receiveNewFileTransfers(receive chan receivedFtResults, done,
 	quit chan struct{}, m *ft.Manager) {
 	jww.DEBUG.Print("Starting thread waiting to receive NewFileTransfer " +
 		"E2E message.")
-	select {
-	case <-quit:
-		jww.DEBUG.Print("Quitting thread waiting for NewFileTransfer E2E " +
-			"message.")
-		return
-	case r := <-receive:
-		jww.DEBUG.Printf("Received new file %q transfer %s from %s of size %d "+
-			"bytes with preview: %q",
-			r.fileName, r.tid, r.sender, r.size, r.preview)
-		fmt.Printf("Received new file transfer %q of size %d "+
-			"bytes with preview: %q\n", r.fileName, r.size, r.preview)
+	for {
+		select {
+		case <-quit:
+			jww.DEBUG.Print("Quitting thread waiting for NewFileTransfer E2E " +
+				"message.")
+			return
+		case r := <-receive:
+			jww.DEBUG.Printf("Received new file %q transfer %s from %s of size %d "+
+				"bytes with preview: %q",
+				r.fileName, r.tid, r.sender, r.size, r.preview)
+			fmt.Printf("Received new file transfer %q of size %d "+
+				"bytes with preview: %q\n", r.fileName, r.size, r.preview)
 
-		cb := newReceiveProgressCB(r.tid, done, m)
-		err := m.RegisterReceiveProgressCallback(r.tid, cb, callbackPeriod)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to register new receive progress "+
-				"callback for transfer %s: %+v", r.tid, err)
+			cb := newReceiveProgressCB(r.tid, done, m)
+			err := m.RegisterReceiveProgressCallback(r.tid, cb, callbackPeriod)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to register new receive progress "+
+					"callback for transfer %s: %+v", r.tid, err)
+			}
 		}
 	}
 }

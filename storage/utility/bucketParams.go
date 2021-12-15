@@ -77,7 +77,7 @@ func (s *BucketParamStore) UpdateParams(capacity, leakedTokens uint32,
 
 // LoadBucketParamsStore loads the bucket params data from storage and constructs
 // a BucketParamStore.
-func (s *BucketParamStore) LoadBucketParamsStore(
+func LoadBucketParamsStore(
 	kv *versioned.KV) (*BucketParamStore, error) {
 	bps := &BucketParamStore{
 		params: &rateLimiting.MapParams{},

@@ -50,6 +50,7 @@ func (c *Client) SendUnsafe(m message.Send, param params.Unsafe) ([]id.Round,
 func (c *Client) SendCMIX(msg format.Message, recipientID *id.ID,
 	param params.CMIX) (id.Round, ephemeral.Id, error) {
 	jww.INFO.Printf("SendCMIX(%s)", string(msg.GetContents()))
+	c.OnSend(1)
 	return c.network.SendCMIX(msg, recipientID, param)
 }
 
@@ -58,6 +59,7 @@ func (c *Client) SendCMIX(msg format.Message, recipientID *id.ID,
 // round ID of the round the payload was sent or an error if it fails.
 func (c *Client) SendManyCMIX(messages []message.TargetedCmixMessage,
 	params params.CMIX) (id.Round, []ephemeral.Id, error) {
+	c.OnSend(uint32(len(messages)))
 	return c.network.SendManyCMIX(messages, params)
 }
 
@@ -72,4 +74,14 @@ func (c *Client) NewCMIXMessage(contents []byte) (format.Message, error) {
 	}
 	msg.SetContents(contents)
 	return msg, nil
+}
+
+// OnSend performs a bucket addition on a call to Client.SendCMIX or
+// Client.SendManyCMIX, updating the bucket for the amount of messages sent.
+func (c *Client) OnSend(messages uint32) {
+	rateLimitingParam := c.storage.GetBucketParams().Get()
+	c.storage.GetBucket().AddWithExternalParams(messages,
+		rateLimitingParam.Capacity, rateLimitingParam.LeakedTokens,
+		rateLimitingParam.LeakDuration)
+
 }

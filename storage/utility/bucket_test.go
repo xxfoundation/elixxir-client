@@ -13,7 +13,6 @@ import (
 	"gitlab.com/xx_network/primitives/rateLimiting"
 	"reflect"
 	"testing"
-	"time"
 )
 
 // NewBucketStore happy path.
@@ -34,7 +33,7 @@ func TestNewBucketStore(t *testing.T) {
 	}
 
 	// Load new bucket from storage
-	vo, err := bs.kv.Get(buckerStoreKey, bucketStoreVersion)
+	vo, err := bs.kv.Get(bucketStoreKey, bucketStoreVersion)
 	if err != nil {
 		t.Fatalf("Failed to get bucket from EKV: %v", err)
 	}
@@ -73,13 +72,13 @@ func TestBucketStore_AddWithExternalParams(t *testing.T) {
 	}
 
 	// Modify internal state of bucket
-	err = bs.AddWithExternalParams(10, 11, 12, 14*time.Second)
+	err = bs.AddWithExternalParams(10, 11, 12)
 	if err != nil {
 		t.Fatalf("AddWithExternalParams error: %v", err)
 	}
 
 	// Load stored bucket
-	vo, err := bs.kv.Get(buckerStoreKey, bucketStoreVersion)
+	vo, err := bs.kv.Get(bucketStoreKey, bucketStoreVersion)
 	if err != nil {
 		t.Fatalf("Failed to get bucket from EKV: %v", err)
 	}
@@ -127,49 +126,5 @@ func TestLoadBucketStore(t *testing.T) {
 		t.Fatalf("Loaded bucket store and created bucket did not match."+
 			"\n\tExpected: %v"+
 			"\n\tReceived: %v ", bs, receivedBs)
-	}
-}
-
-// BucketStore.Add happy path.
-func TestBucketStore_Add(t *testing.T) {
-	// Create initializers
-	params := &rateLimiting.BucketParams{
-		Capacity:   10,
-		Remaining:  11,
-		LeakRate:   12,
-		LastUpdate: time.Now().UnixNano(),
-	}
-	kv := versioned.NewKV(make(ekv.Memstore))
-
-	// Create bucket
-	bs, err := NewBucketStore(params, kv)
-	if err != nil {
-		t.Fatalf("Error received creating BucketStore: %v", err)
-	}
-
-	// Modify internal state of bucket
-	err = bs.Add(1)
-	if err != nil {
-		t.Fatalf("AddWithExternalParams error: %v", err)
-	}
-
-	// Load stored bucket
-	vo, err := bs.kv.Get(buckerStoreKey, bucketStoreVersion)
-	if err != nil {
-		t.Fatalf("Failed to get bucket from EKV: %v", err)
-	}
-
-	// Unmarshal stored data into separate bucket
-	receivedBs := rateLimiting.CreateBucketFromParams(params, nil)
-	err = receivedBs.UnmarshalJSON(vo.Data)
-	if err != nil {
-		t.Fatalf("UnmarshalJSON error: %v", err)
-	}
-
-	// Ensure bucket in RAM and bucket in storage are consistent
-	if !reflect.DeepEqual(receivedBs, bs.bucket) {
-		t.Fatalf("Loaded bucket and created bucket did not match."+
-			"\n\tExpected: %v"+
-			"\n\tReceived: %v ", bs.bucket, receivedBs)
 	}
 }

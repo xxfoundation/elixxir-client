@@ -25,17 +25,16 @@ func TestNewBucketStore(t *testing.T) {
 		LeakRate:   12,
 		LastUpdate: 13,
 	}
-	key := "1.2.3.4"
 	kv := versioned.NewKV(make(ekv.Memstore))
 
 	// Initialize bucket
-	bs, err := NewBucketStore(params, key, kv)
+	bs, err := NewBucketStore(params, kv)
 	if err != nil {
 		t.Fatalf("Error received creating BucketStore: %v", err)
 	}
 
 	// Load new bucket from storage
-	vo, err := bs.kv.Get(key, bucketStoreVersion)
+	vo, err := bs.kv.Get(buckerStoreKey, bucketStoreVersion)
 	if err != nil {
 		t.Fatalf("Failed to get bucket from EKV: %v", err)
 	}
@@ -65,11 +64,10 @@ func TestBucketStore_AddWithExternalParams(t *testing.T) {
 		LeakRate:   12,
 		LastUpdate: 13,
 	}
-	key := "1.2.3.4"
 	kv := versioned.NewKV(make(ekv.Memstore))
 
 	// Create bucket
-	bs, err := NewBucketStore(params, key, kv)
+	bs, err := NewBucketStore(params, kv)
 	if err != nil {
 		t.Fatalf("Error received creating BucketStore: %v", err)
 	}
@@ -81,7 +79,7 @@ func TestBucketStore_AddWithExternalParams(t *testing.T) {
 	}
 
 	// Load stored bucket
-	vo, err := bs.kv.Get(key, bucketStoreVersion)
+	vo, err := bs.kv.Get(buckerStoreKey, bucketStoreVersion)
 	if err != nil {
 		t.Fatalf("Failed to get bucket from EKV: %v", err)
 	}
@@ -111,16 +109,15 @@ func TestLoadBucketStore(t *testing.T) {
 		LeakRate:   12,
 		LastUpdate: 13,
 	}
-	key := "1.2.3.4"
 	kv := versioned.NewKV(make(ekv.Memstore))
 
 	// Create bucket
-	bs, err := NewBucketStore(params, key, kv)
+	bs, err := NewBucketStore(params, kv)
 	if err != nil {
 		t.Fatalf("Error received creating BucketStore: %v", err)
 	}
 
-	receivedBs, err := LoadBucketStore(params, key, kv)
+	receivedBs, err := LoadBucketStore(params, kv)
 	if err != nil {
 		t.Fatalf("LoadBucketStore error: %v", err)
 	}
@@ -142,11 +139,10 @@ func TestBucketStore_Add(t *testing.T) {
 		LeakRate:   12,
 		LastUpdate: time.Now().UnixNano(),
 	}
-	key := "1.2.3.4"
 	kv := versioned.NewKV(make(ekv.Memstore))
 
 	// Create bucket
-	bs, err := NewBucketStore(params, key, kv)
+	bs, err := NewBucketStore(params, kv)
 	if err != nil {
 		t.Fatalf("Error received creating BucketStore: %v", err)
 	}
@@ -158,7 +154,7 @@ func TestBucketStore_Add(t *testing.T) {
 	}
 
 	// Load stored bucket
-	vo, err := bs.kv.Get(key, bucketStoreVersion)
+	vo, err := bs.kv.Get(buckerStoreKey, bucketStoreVersion)
 	if err != nil {
 		t.Fatalf("Failed to get bucket from EKV: %v", err)
 	}

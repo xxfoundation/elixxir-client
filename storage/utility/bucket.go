@@ -18,6 +18,7 @@ import (
 
 const (
 	bucketStorePrefix  = "bucketStore"
+	buckerStoreKey     = "bucketStoreKey"
 	bucketStoreVersion = 0
 )
 
@@ -27,9 +28,6 @@ const (
 type BucketStore struct {
 	bucket *rateLimiting.Bucket
 
-	// key represents the identity of what the bucket is tracking, and
-	// is used as the kv's value on a save()
-	key string
 	kv  *versioned.KV
 	mux sync.Mutex
 }
@@ -38,12 +36,10 @@ type BucketStore struct {
 // If the primary method of modifying your BucketStore.bucket is via the method
 // BucketStore.AddWithExternalParams, then the params argument may be
 // default or junk data.
-func NewBucketStore(params *rateLimiting.BucketParams, key string,
-	kv *versioned.KV) (*BucketStore, error) {
+func NewBucketStore(params *rateLimiting.BucketParams, kv *versioned.KV) (*BucketStore, error) {
 	bs := &BucketStore{
 		bucket: rateLimiting.CreateBucketFromParams(params, nil),
 		kv:     kv.Prefix(bucketStorePrefix),
-		key:    key,
 		mux:    sync.Mutex{},
 	}
 
@@ -63,7 +59,7 @@ func (s *BucketStore) Add(tokens uint32) error {
 
 	if !success {
 		return errors.Errorf("Failed to add tokens %d "+
-			"to bucket %s", tokens, s.key)
+			"to bucket", tokens)
 	}
 
 	return nil
@@ -87,8 +83,8 @@ func (s *BucketStore) AddWithExternalParams(tokens,
 
 	if !success {
 		return errors.Errorf("Failed to AddWithExternalParams "+
-			"(tokens %d, capacity %d, leakedTokens %d) to bucket %s",
-			tokens, capacity, leakedTokens, s.key)
+			"(tokens %d, capacity %d, leakedTokens %d) to bucket",
+			tokens, capacity, leakedTokens)
 	}
 
 	return nil
@@ -100,11 +96,10 @@ func (s *BucketStore) AddWithExternalParams(tokens,
 
 // LoadBucketStore is a storage operation which loads a bucket from storage
 // given the key identifier.
-func LoadBucketStore(params *rateLimiting.BucketParams, key string,
+func LoadBucketStore(params *rateLimiting.BucketParams,
 	kv *versioned.KV) (*BucketStore, error) {
 	bs := &BucketStore{
 		bucket: rateLimiting.CreateBucketFromParams(params, nil),
-		key:    key,
 		kv:     kv.Prefix(bucketStorePrefix),
 		mux:    sync.Mutex{},
 	}
@@ -127,14 +122,14 @@ func (s *BucketStore) save() error {
 		Data:      data,
 	}
 
-	return s.kv.Set(s.key, bucketStoreVersion, &obj)
+	return s.kv.Set(buckerStoreKey, bucketStoreVersion, &obj)
 }
 
 // load is a helper function which extracts the bucket data from storage
 // and loads it back into BucketStore.
 func (s *BucketStore) load() error {
 	// Load the versioned object
-	vo, err := s.kv.Get(s.key, bucketStoreVersion)
+	vo, err := s.kv.Get(buckerStoreKey, bucketStoreVersion)
 	if err != nil {
 		return err
 	}

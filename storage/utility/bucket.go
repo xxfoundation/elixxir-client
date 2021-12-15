@@ -13,7 +13,6 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/rateLimiting"
 	"sync"
-	"time"
 )
 
 const (
@@ -26,20 +25,20 @@ const (
 // is saved in a JSON-able format.
 type BucketStore struct {
 	bucket *rateLimiting.Bucket
-	params *rateLimiting.MapParams
 	kv     *versioned.KV
-	mux    sync.RWMutex
+	mux    sync.Mutex
 }
 
 // NewBucketStore creates a new, empty BucketStore and saves it to storage.
 // If the primary method of modifying your BucketStore.bucket is via the method
 // BucketStore.AddWithExternalParams, then the params argument may be
 // default or junk data.
-func NewBucketStore(params *rateLimiting.BucketParams, kv *versioned.KV) (*BucketStore, error) {
+func NewBucketStore(params *rateLimiting.BucketParams,
+	kv *versioned.KV) (*BucketStore, error) {
 	bs := &BucketStore{
 		bucket: rateLimiting.CreateBucketFromParams(params, nil),
 		kv:     kv.Prefix(bucketStorePrefix),
-		mux:    sync.RWMutex{},
+		mux:    sync.Mutex{},
 	}
 
 	return bs, bs.save()
@@ -49,13 +48,14 @@ func NewBucketStore(params *rateLimiting.BucketParams, kv *versioned.KV) (*Bucke
 // given external bucket parameters rather than the params specified in
 // the bucket. If an add is unsuccessful, an error is returned.
 // Else the bucket is saved to storage.
-func (s *BucketStore) AddWithExternalParams(tokens uint32) error {
+func (s *BucketStore) AddWithExternalParams(tokens uint32,
+	params *rateLimiting.MapParams) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	success, _ := s.bucket.AddWithExternalParams(tokens,
-		s.params.Capacity, s.params.LeakedTokens,
-		s.params.LeakDuration)
+		params.Capacity, params.LeakedTokens,
+		params.LeakDuration)
 	if err := s.save(); err != nil {
 		return errors.WithMessagef(err, "Failed to save")
 	}
@@ -65,18 +65,6 @@ func (s *BucketStore) AddWithExternalParams(tokens uint32) error {
 	}
 
 	return nil
-}
-
-func (s *BucketStore) UpdateParams(capacity, leakedTokens uint32,
-	leakDuration time.Duration) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	s.params = &rateLimiting.MapParams{
-		Capacity:     capacity,
-		LeakedTokens: leakedTokens,
-		LeakDuration: leakDuration,
-	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -89,7 +77,7 @@ func LoadBucketStore(params *rateLimiting.BucketParams,
 	bs := &BucketStore{
 		bucket: rateLimiting.CreateBucketFromParams(params, nil),
 		kv:     kv.Prefix(bucketStorePrefix),
-		mux:    sync.RWMutex{},
+		mux:    sync.Mutex{},
 	}
 
 	return bs, bs.load()

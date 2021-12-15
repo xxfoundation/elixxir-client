@@ -1,3 +1,10 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package utility
 
 import (
@@ -63,6 +70,10 @@ func (s *BucketParamStore) UpdateParams(capacity, leakedTokens uint32,
 
 	return s.save()
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Storage Functions                                                          //
+////////////////////////////////////////////////////////////////////////////////
 
 // LoadBucketParamsStore loads the bucket params data from storage and constructs
 // a BucketParamStore.

@@ -773,7 +773,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
 	// Create Storage
 	passwordStr := string(password)
 	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
-		currentVersion, cmixGrp, e2eGrp, rngStreamGen)
+		currentVersion, cmixGrp, e2eGrp, rngStreamGen, def.RateLimits)
 	if err != nil {
 		return nil, err
 	}

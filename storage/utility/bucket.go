@@ -57,12 +57,16 @@ func (s *BucketStore) Add(tokens uint32) error {
 	defer s.mux.Unlock()
 
 	success, _ := s.bucket.Add(tokens)
+	if err := s.save(); err != nil {
+		return errors.WithMessagef(err, "Failed to save")
+	}
+
 	if !success {
 		return errors.Errorf("Failed to add tokens %d "+
 			"to bucket %s", tokens, s.key)
 	}
 
-	return s.save()
+	return nil
 }
 
 // AddWithExternalParams adds the specified number of tokens to the bucket
@@ -77,14 +81,22 @@ func (s *BucketStore) AddWithExternalParams(tokens,
 
 	success, _ := s.bucket.
 		AddWithExternalParams(tokens, capacity, leakedTokens, duration)
+	if err := s.save(); err != nil {
+		return errors.WithMessagef(err, "Failed to save")
+	}
+
 	if !success {
 		return errors.Errorf("Failed to AddWithExternalParams "+
 			"(tokens %d, capacity %d, leakedTokens %d) to bucket %s",
 			tokens, capacity, leakedTokens, s.key)
 	}
 
-	return s.save()
+	return nil
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Storage Functions                                                          //
+////////////////////////////////////////////////////////////////////////////////
 
 // LoadBucketStore is a storage operation which loads a bucket from storage
 // given the key identifier.

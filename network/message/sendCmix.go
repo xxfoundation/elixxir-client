@@ -110,6 +110,12 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		//add the round on to the list of attempted, so it is not tried again
 		attempted.Insert(bestRound)
 
+		// TODO: does this conflict with the attempted object?
+		// Check excluded rounds for the selected best round
+		if cmixParams.UseExcluded && cmixParams.ExcludedRounds != nil && cmixParams.ExcludedRounds.Has(bestRound.GetRoundId()) {
+			continue
+		}
+
 		// Determine whether the selected round contains any Nodes
 		// that are blacklisted by the params.Network object
 		containsBlacklisted := false
@@ -180,6 +186,9 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		// Return if it sends properly
 		gwSlotResp := result.(*pb.GatewaySlotResponse)
 		if gwSlotResp.Accepted {
+			if cmixParams.UseExcluded && cmixParams.ExcludedRounds != nil {
+				cmixParams.ExcludedRounds.Insert(bestRound.ID)
+			}
 			m := fmt.Sprintf("Successfully sent to EphID %v "+
 				"(source: %s) in round %d (msgDigest: %s), "+
 				"elapsed: %s numRoundTries: %d", ephID.Int64(),

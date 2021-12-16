@@ -100,6 +100,11 @@ func sendManyCmixHelper(sender *gateway.Sender,
 		// tried again
 		attempted.Insert(bestRound)
 
+		// Check excluded rounds for the selected best round
+		if param.UseExcluded && param.ExcludedRounds != nil && param.ExcludedRounds.Has(bestRound.GetRoundId()) {
+			continue
+		}
+
 		// Determine whether the selected round contains any nodes that are
 		// blacklisted by the params.Network object
 		containsBlacklisted := false
@@ -199,6 +204,9 @@ func sendManyCmixHelper(sender *gateway.Sender,
 		// Return if it sends properly
 		gwSlotResp := result.(*pb.GatewaySlotResponse)
 		if gwSlotResp.Accepted {
+			if param.UseExcluded && param.ExcludedRounds != nil {
+				param.ExcludedRounds.Insert(bestRound.ID)
+			}
 			m := fmt.Sprintf("Successfully sent to EphIDs %s (sources: [%s]) "+
 				"in round %d", ephemeralIDsString, recipientString, bestRound.ID)
 			jww.INFO.Print(m)

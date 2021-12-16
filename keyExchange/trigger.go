@@ -72,7 +72,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	oldSessionID, PartnerPublicKey, PartnerSIDHPublicKey, err := (
 		unmarshalSource(sess.E2e().GetGroup(), request.Payload))
 	if err != nil {
-		jww.ERROR.Printf("could not unmarshal partner %s: %s",
+		jww.ERROR.Printf("[REKEY] could not unmarshal partner %s: %s",
 			request.Sender, err)
 		return err
 	}
@@ -80,7 +80,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	//get the old session which triggered the exchange
 	oldSession := partner.GetSendSession(oldSessionID)
 	if oldSession == nil {
-		err := errors.Errorf("no session %s for partner %s: %s",
+		err := errors.Errorf("[REKEY] no session %s for partner %s: %s",
 			oldSession, request.Sender, err)
 		jww.ERROR.Printf(err.Error())
 		return err
@@ -95,7 +95,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	// creation in this case ignores the new session, but the confirmation
 	// message is still sent so the partner will know the session is confirmed
 	if duplicate {
-		jww.INFO.Printf("New session from Key Exchange Trigger to "+
+		jww.INFO.Printf("[REKEY] New session from Key Exchange Trigger to "+
 			"create session %s for partner %s is a duplicate, request ignored",
 			session.GetID(), request.Sender)
 	} else {
@@ -112,7 +112,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 
 	//If the payload cannot be marshaled, panic
 	if err != nil {
-		jww.FATAL.Panicf("Failed to marshal payload for Key "+
+		jww.FATAL.Panicf("[REKEY] Failed to marshal payload for Key "+
 			"Negotation Confirmation with %s", session.GetPartner())
 	}
 
@@ -145,12 +145,12 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	}
 
 	//Wait until the result tracking responds
-	success, numTimeOut, numRoundFail := utility.TrackResults(sendResults, len(rounds))
+	success, numRoundFail, numTimeOut := utility.TrackResults(sendResults, len(rounds))
 	// If a single partition of the Key Negotiation request does not
 	// transmit, the partner will not be able to read the confirmation. If
 	// such a failure occurs
 	if !success {
-		jww.ERROR.Printf("Key Negotiation for %s failed to "+
+		jww.ERROR.Printf("[REKEY] Key Negotiation trigger for %s failed to "+
 			"transmit %v/%v paritions: %v round failures, %v timeouts",
 			session, numRoundFail+numTimeOut, len(rounds), numRoundFail,
 			numTimeOut)
@@ -161,7 +161,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	// otherwise, the transmission is a success and this should be denoted
 	// in the session and the log
 	sess.GetCriticalMessages().Succeeded(m, e2eParams)
-	jww.INFO.Printf("Key Negotiation transmission for %s successfully",
+	jww.INFO.Printf("[REKEY] Key Negotiation trigger transmission for %s successfully",
 		session)
 
 	return nil

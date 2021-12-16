@@ -43,7 +43,7 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 	sess *storage.Session, manager *e2e.Manager, session *e2e.Session,
 	sendTimeout time.Duration, stop *stoppable.Single) {
 	var negotiatingSession *e2e.Session
-	jww.INFO.Printf("Negotation triggered for session %s with "+
+	jww.INFO.Printf("[REKEY] Negotiation triggered for session %s with "+
 		"status: %s", session, session.NegotiationStatus())
 	switch session.NegotiationStatus() {
 	// If the passed session is triggering a negotiation on a new session to
@@ -55,11 +55,11 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 		//move the state of the triggering session forward
 		session.SetNegotiationStatus(e2e.NewSessionCreated)
 
-	// If the session is set to send a negotation
+	// If the session is set to send a negotiation
 	case e2e.Sending:
 		negotiatingSession = session
 	default:
-		jww.FATAL.Panicf("Session %s provided invalid e2e "+
+		jww.FATAL.Panicf("[REKEY] Session %s provided invalid e2e "+
 			"negotiating status: %s", session, session.NegotiationStatus())
 	}
 
@@ -70,7 +70,7 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 	// if sending the negotiation fails, revert the state of the session to
 	// unconfirmed so it will be triggered in the future
 	if err != nil {
-		jww.ERROR.Printf("Failed to do Key Negotiation with "+
+		jww.ERROR.Printf("[REKEY] Failed to do Key Negotiation with "+
 			"session %s: %s", session, err)
 	}
 }
@@ -100,8 +100,8 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 
 	//If the payload cannot be marshaled, panic
 	if err != nil {
-		jww.FATAL.Printf("Failed to marshal payload for Key "+
-			"Negotation Trigger with %s", session.GetPartner())
+		jww.FATAL.Printf("[REKEY] Failed to marshal payload for Key "+
+			"Negotiation Trigger with %s", session.GetPartner())
 	}
 
 	//send session
@@ -121,7 +121,8 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	// should ensure the calling session is in a state where the Rekey will
 	// be triggered next time a key is used
 	if err != nil {
-		return errors.Errorf("Failed to send the key negotation message "+
+		return errors.Errorf(
+			"[REKEY] Failed to send the key negotiation message "+
 			"for %s: %s", session, err)
 	}
 
@@ -136,14 +137,15 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	}
 
 	//Wait until the result tracking responds
-	success, numTimeOut, numRoundFail := utility.TrackResults(sendResults, len(rounds))
+	success, numRoundFail, numTimeOut := utility.TrackResults(sendResults,
+		len(rounds))
 
 	// If a single partition of the Key Negotiation request does not
 	// transmit, the partner cannot read the result. Log the error and set
 	// the session as unconfirmed so it will re-trigger the negotiation
 	if !success {
 		session.SetNegotiationStatus(e2e.Unconfirmed)
-		return errors.Errorf("Key Negotiation for %s failed to "+
+		return errors.Errorf("[REKEY] Key Negotiation rekey for %s failed to "+
 			"transmit %v/%v paritions: %v round failures, %v timeouts",
 			session, numRoundFail+numTimeOut, len(rounds), numRoundFail,
 			numTimeOut)
@@ -151,7 +153,7 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 
 	// otherwise, the transmission is a success and this should be denoted
 	// in the session and the log
-	jww.INFO.Printf("Key Negotiation transmission for %s successful",
+	jww.INFO.Printf("[REKEY] Key Negotiation rekey transmission for %s successful",
 		session)
 	session.SetNegotiationStatus(e2e.Sent)
 

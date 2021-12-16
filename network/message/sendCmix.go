@@ -187,6 +187,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 				elapsed, numRoundTries)
 			jww.INFO.Print(m)
 			events.Report(1, "MessageSend", "Metric", m)
+			onSend(1, session)
 			return id.Round(bestRound.ID), ephID, nil
 		} else {
 			jww.FATAL.Panicf("Gateway %s returned no error, but failed "+
@@ -197,4 +198,14 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 	}
 	return 0, ephemeral.Id{}, errors.New("failed to send the message, " +
 		"unknown error")
+}
+
+// OnSend performs a bucket addition on a call to Manager.SendCMIX or
+// Manager.SendManyCMIX, updating the bucket for the amount of messages sent.
+func onSend(messages uint32, session *storage.Session) {
+	rateLimitingParam := session.GetBucketParams().Get()
+	session.GetBucket().AddWithExternalParams(messages,
+		rateLimitingParam.Capacity, rateLimitingParam.LeakedTokens,
+		rateLimitingParam.LeakDuration)
+
 }

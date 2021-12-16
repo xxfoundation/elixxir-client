@@ -203,6 +203,7 @@ func sendManyCmixHelper(sender *gateway.Sender,
 				"in round %d", ephemeralIDsString, recipientString, bestRound.ID)
 			jww.INFO.Print(m)
 			events.Report(1, "MessageSendMany", "Metric", m)
+			onSend(uint32(len(msgs)), session)
 			return id.Round(bestRound.ID), ephemeralIDs, nil
 		} else {
 			jww.FATAL.Panicf("Gateway %s returned no error, but failed to "+

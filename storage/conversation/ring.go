@@ -259,15 +259,15 @@ func (rb *Buff) saveMessage(msg *Message) error {
 }
 
 // unmarshal unmarshalls a byte slice into Buff information.
-func unmarshal(b []byte) (newest, oldest int,
+func unmarshal(b []byte) (newest, oldest uint32,
 	list []truncatedMessageId) {
 	buff := bytes.NewBuffer(b)
 
 	// Read the newest index from the buffer
-	newest = int(binary.LittleEndian.Uint32(buff.Next(4)))
+	newest = binary.LittleEndian.Uint32(buff.Next(4))
 
 	// Read the oldest index from the buffer
-	oldest = int(binary.LittleEndian.Uint32(buff.Next(4)))
+	oldest = binary.LittleEndian.Uint32(buff.Next(4))
 
 	// Initialize list to the number of truncated IDs
 	list = make([]truncatedMessageId, 0, buff.Len()/TruncatedMessageIdLen)

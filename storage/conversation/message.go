@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/binary"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"time"
 )
@@ -17,9 +18,8 @@ const (
 // MessageId is the ID of a message stored in a Message.
 type MessageId [MessageIdLen]byte
 
-// TruncatedMessageId represents the first64 bits of the MessageId.
-
-type TruncatedMessageId [TruncatedMessageIdLen]byte
+// truncatedMessageId represents the first64 bits of the MessageId.
+type truncatedMessageId [TruncatedMessageIdLen]byte
 
 // A Message is the structure held in a ring buffer.
 // It represents a received message by the user, which needs
@@ -32,9 +32,16 @@ type Message struct {
 	Timestamp time.Time
 }
 
-func (m *Message) save() error {
-	// todo: implement me
+// loadMessage loads a message given truncatedMessageId from storage.
+func loadMessage(tmid truncatedMessageId, kv *versioned.KV) (*Message, error) {
+	// Load message from storage
+	vo, err := kv.Get(makeMessageKey(tmid), messageVersion)
+	if err != nil {
+		return nil, errors.Errorf(loadMessageErr, tmid, err)
+	}
 
+	// Unmarshal message
+	return unmarshalMessage(vo.Data), nil
 }
 
 // marshal creates a byte buffer containing the serialized information
@@ -59,7 +66,7 @@ func (m *Message) marshal() []byte {
 }
 
 // unmarshalMessage deserializes byte data into a Message.
-func unmarshalMessage(kv *versioned.KV, data []byte) *Message {
+func unmarshalMessage(data []byte) *Message {
 	buff := bytes.NewBuffer(data)
 
 	// Deserialize the ID
@@ -87,9 +94,9 @@ func (mid MessageId) String() string {
 	return base64.StdEncoding.EncodeToString(mid[:])
 }
 
-// Truncate converts a MessageId into a TruncatedMessageId.
-func (mid MessageId) Truncate() TruncatedMessageId {
-	tmid := TruncatedMessageId{}
+// Truncate converts a MessageId into a truncatedMessageId.
+func (mid MessageId) Truncate() truncatedMessageId {
+	tmid := truncatedMessageId{}
 	copy(tmid[:], mid[:])
 	return tmid
 }
@@ -99,14 +106,14 @@ func (mid MessageId) Bytes() []byte {
 	return mid[:]
 }
 
-// String returns a base64 encode of the TruncatedMessageId. This functions
+// String returns a base64 encode of the truncatedMessageId. This functions
 // satisfies the fmt.Stringer interface.
-func (tmid TruncatedMessageId) String() string {
+func (tmid truncatedMessageId) String() string {
 	return base64.StdEncoding.EncodeToString(tmid[:])
 
 }
 
-// Bytes returns the byte data of the TruncatedMessageId.
-func (tmid TruncatedMessageId) Bytes() []byte {
+// Bytes returns the byte data of the truncatedMessageId.
+func (tmid truncatedMessageId) Bytes() []byte {
 	return tmid[:]
 }

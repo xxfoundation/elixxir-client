@@ -27,15 +27,16 @@ const (
 
 // Error messages.
 const (
-	saveMessageErr = "failed to save message with truncated ID %s to storage: %+v"
-	loadMessageErr = "failed to load message with truncated ID %s to storage: %+v"
-	loadBuffErr    = "failed to load ring buffer from storage: %+v"
+	saveMessageErr    = "failed to save message with message ID %s to storage: %+v"
+	loadMessageErr    = "failed to load message with truncated ID %s from storage: %+v"
+	loadBuffErr       = "failed to load ring buffer from storage: %+v"
+	noMessageFoundErr = "failed to find message with message ID %s "
 )
 
 // Buff is a circular buffer which containing Message's.
 type Buff struct {
 	buff           []*Message
-	lookup         map[TruncatedMessageId]*Message
+	lookup         map[truncatedMessageId]*Message
 	oldest, newest int
 	mux            sync.RWMutex
 	kv             *versioned.KV
@@ -44,47 +45,97 @@ type Buff struct {
 // NewBuff initializes a new ring buffer with size n.
 func NewBuff(kv *versioned.KV, n int) (*Buff, error) {
 	kv = kv.Prefix(ringBuffPrefix)
+
+	// Construct object
 	rb := &Buff{
 		buff:   make([]*Message, n),
-		lookup: make(map[TruncatedMessageId]*Message, n),
+		lookup: make(map[truncatedMessageId]*Message, n),
 		oldest: 0,
-		newest: -1,
+		newest: -1, // fixme: does this need to be neg, should this be a uint32 to match sequential message ID??
 		kv:     kv,
 	}
 
+	// Save to storage and return
 	return rb, rb.save()
+}
+
+// GetByMessageId looks up and returns the message with
+// MessageId id from Buff.lookup. If the message does not exist,
+// an error is returned.
+func (rb *Buff) GetByMessageId(id MessageId) (*Message, error) {
+	rb.mux.RLock()
+	defer rb.mux.RUnlock()
+
+	// Look up message
+	msg, exists := rb.lookup[id.Truncate()]
+	if !exists { // If message not found, return an error
+		return nil, errors.Errorf(noMessageFoundErr, id)
+	}
+
+	// Return message if found
+	return msg, nil
+}
+
+func (rb *Buff) GetNextMessage(id MessageId) (*Message, error) {
+	rb.mux.RLock()
+	defer rb.mux.RUnlock()
+
+	// Look up message
+	msg, exists := rb.lookup[id.Truncate()]
+	if !exists { // If message not found, return an error
+		return nil, errors.Errorf(noMessageFoundErr, id)
+	}
+
+	lookupId := msg.Id + 1
+
+	// Check it's not before our first known id
+	if lookupId < rb.oldest {
+		return nil, errors.Errorf("requested ID %d is lower than oldest id %d", id, rb.oldest)
+	}
+
+	// Check it's not after our last known id
+	if id > rb.newest {
+		return nil, errors.Errorf("requested id %d is higher than most recent id %d", id, rb.newest)
+	}
+
+	return rb.buff[id%len(rb.buff)], nil
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
+// LoadBuff loads the ring buffer from storage. It loads all
+// messages from storage and repopulates the buffer.
 func LoadBuff(kv *versioned.KV) (*Buff, error) {
+	kv = kv.Prefix(ringBuffPrefix)
+
+	// Extract ring buffer from storage
 	vo, err := kv.Get(ringBuffKey, ringBuffVersion)
 	if err != nil {
 		return nil, errors.Errorf(loadBuffErr, err)
 	}
 
+	// Unmarshal ring buffer from data
 	newest, oldest, list := unmarshal(vo.Data)
 
+	// Construct buffer
 	rb := &Buff{
 		buff:   make([]*Message, len(list)),
-		lookup: make(map[TruncatedMessageId]*Message, len(list)),
+		lookup: make(map[truncatedMessageId]*Message, len(list)),
 		oldest: oldest,
 		newest: newest,
 		mux:    sync.RWMutex{},
 		kv:     kv,
 	}
 
+	// Load each message from storage
 	for i, tmid := range list {
-		// Load message from storage
-		vo, err = kv.Get(makeMessageKey(tmid), messageVersion)
+		msg, err := loadMessage(tmid, kv)
 		if err != nil {
-			return nil, errors.Errorf(loadMessageErr, tmid, err)
+			return nil, err
 		}
-
-		// Unmarshal message
-		msg := unmarshalMessage(vo.Data)
 
 		// Place message into reconstructed buffer (RAM)
 		rb.lookup[tmid] = msg
@@ -103,7 +154,7 @@ func (rb *Buff) save() error {
 	for _, msg := range rb.buff {
 		if err := rb.saveMessage(msg); err != nil {
 			return errors.Errorf(saveMessageErr,
-				msg.MessageId.Truncate().String(), err)
+				msg.MessageId, err)
 		}
 	}
 
@@ -149,6 +200,8 @@ func (rb *Buff) marshal() []byte {
 	return buff.Bytes()
 }
 
+// saveMessage saves a Message to storage, using the truncatedMessageId
+// as the KV key.
 func (rb *Buff) saveMessage(msg *Message) error {
 	obj := &versioned.Object{
 		Version:   messageVersion,
@@ -163,7 +216,7 @@ func (rb *Buff) saveMessage(msg *Message) error {
 
 // unmarshal unmarshalls a byte slice into Buff information.
 func unmarshal(b []byte) (newest, oldest int,
-	list []TruncatedMessageId) {
+	list []truncatedMessageId) {
 	buff := bytes.NewBuffer(b)
 
 	// Read the newest index from the buffer
@@ -173,11 +226,11 @@ func unmarshal(b []byte) (newest, oldest int,
 	oldest = int(binary.LittleEndian.Uint32(buff.Next(4)))
 
 	// Initialize list to the number of truncated IDs
-	list = make([]TruncatedMessageId, 0, buff.Len()/TruncatedMessageIdLen)
+	list = make([]truncatedMessageId, 0, buff.Len()/TruncatedMessageIdLen)
 
-	// Read each TruncatedMessageId and save into list
+	// Read each truncatedMessageId and save into list
 	for next := buff.Next(TruncatedMessageIdLen); len(next) == TruncatedMessageIdLen; next = buff.Next(TruncatedMessageIdLen) {
-		tmid := TruncatedMessageId{}
+		tmid := truncatedMessageId{}
 		copy(tmid[:], next)
 		list = append(list, tmid)
 	}
@@ -186,6 +239,6 @@ func unmarshal(b []byte) (newest, oldest int,
 }
 
 // makeMessageKey generates te key used to save a message to storage.
-func makeMessageKey(tmid TruncatedMessageId) string {
+func makeMessageKey(tmid truncatedMessageId) string {
 	return messageKey + tmid.String()
 }

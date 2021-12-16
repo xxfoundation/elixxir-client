@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
+	"time"
 )
 
 // Storage keys and versions.
@@ -27,17 +28,19 @@ const (
 
 // Error messages.
 const (
-	saveMessageErr    = "failed to save message with message ID %s to storage: %+v"
-	loadMessageErr    = "failed to load message with truncated ID %s from storage: %+v"
-	loadBuffErr       = "failed to load ring buffer from storage: %+v"
-	noMessageFoundErr = "failed to find message with message ID %s "
+	saveMessageErr      = "failed to save message with message ID %s to storage: %+v"
+	loadMessageErr      = "failed to load message with truncated ID %s from storage: %+v"
+	loadBuffErr         = "failed to load ring buffer from storage: %+v"
+	noMessageFoundErr   = "failed to find message with message ID %s"
+	lookupTooOldErr     = "requested ID %d is lower than oldest id %d"
+	lookupPastRecentErr = "requested id %d is higher than most recent id %d"
 )
 
 // Buff is a circular buffer which containing Message's.
 type Buff struct {
 	buff           []*Message
 	lookup         map[truncatedMessageId]*Message
-	oldest, newest int
+	oldest, newest uint32
 	mux            sync.RWMutex
 	kv             *versioned.KV
 }
@@ -51,7 +54,7 @@ func NewBuff(kv *versioned.KV, n int) (*Buff, error) {
 		buff:   make([]*Message, n),
 		lookup: make(map[truncatedMessageId]*Message, n),
 		oldest: 0,
-		newest: -1, // fixme: does this need to be neg, should this be a uint32 to match sequential message ID??
+		newest: 0,
 		kv:     kv,
 	}
 
@@ -59,9 +62,34 @@ func NewBuff(kv *versioned.KV, n int) (*Buff, error) {
 	return rb, rb.save()
 }
 
-// GetByMessageId looks up and returns the message with
-// MessageId id from Buff.lookup. If the message does not exist,
-// an error is returned.
+// Add pushes a message to the circular buffer Buff.
+func (rb *Buff) Add(id MessageId, timestamp time.Time) {
+	rb.mux.Lock()
+	defer rb.mux.Unlock()
+	rb.next()
+
+	m := &Message{
+		Id:        rb.newest,
+		MessageId: id,
+		Timestamp: timestamp,
+	}
+
+	rb.push(m)
+
+}
+
+// Get retrieves the most recent entry.
+func (rb *Buff) Get() *Message {
+	rb.mux.RLock()
+	defer rb.mux.RUnlock()
+
+	mostRecentIndex := rb.newest % uint32(len(rb.buff))
+	return rb.buff[mostRecentIndex]
+
+}
+
+// GetByMessageId looks up and returns the message with MessageId id from
+// Buff.lookup. If the message does not exist, an error is returned.
 func (rb *Buff) GetByMessageId(id MessageId) (*Message, error) {
 	rb.mux.RLock()
 	defer rb.mux.RUnlock()
@@ -76,6 +104,8 @@ func (rb *Buff) GetByMessageId(id MessageId) (*Message, error) {
 	return msg, nil
 }
 
+// GetNextMessage looks up the Message with the next sequential Message.Id
+// in the ring buffer after the Message with the requested MessageId.
 func (rb *Buff) GetNextMessage(id MessageId) (*Message, error) {
 	rb.mux.RLock()
 	defer rb.mux.RUnlock()
@@ -90,16 +120,30 @@ func (rb *Buff) GetNextMessage(id MessageId) (*Message, error) {
 
 	// Check it's not before our first known id
 	if lookupId < rb.oldest {
-		return nil, errors.Errorf("requested ID %d is lower than oldest id %d", id, rb.oldest)
+		return nil, errors.Errorf(lookupTooOldErr, id, rb.oldest)
 	}
 
 	// Check it's not after our last known id
-	if id > rb.newest {
-		return nil, errors.Errorf("requested id %d is higher than most recent id %d", id, rb.newest)
+	if lookupId > rb.newest {
+		return nil, errors.Errorf(lookupPastRecentErr, id, rb.newest)
 	}
 
-	return rb.buff[id%len(rb.buff)], nil
+	return rb.buff[(lookupId % uint32(len(rb.buff)))], nil
+}
 
+// next is a helper function for Buff, which handles incrementing
+// the old & new markers.
+func (rb *Buff) next() {
+	rb.newest++
+	if rb.newest >= uint32(len(rb.buff)) {
+		rb.oldest++
+	}
+}
+
+// push a Message to the Buff.
+func (rb *Buff) push(val *Message) {
+	rb.next()
+	rb.buff[rb.newest%uint32(len(rb.buff))] = val
 }
 
 ////////////////////////////////////////////////////////////////////////////////

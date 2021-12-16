@@ -450,6 +450,12 @@ func InitTestingSession(i interface{}) *Session {
 	}
 	s.cmix = cmixStore
 
+	s.bucketParamStore, err = utility.NewBucketParamsStore(10, 11, 12, kv)
+	if err != nil {
+		jww.FATAL.Panicf("InitTestingSession failed to create NewBucketParamsStore session: %+v", err)
+	}
+	s.bucketStore = utility.NewStoredBucket(10, 11, 12, kv)
+
 	e2eStore, err := e2e.NewStore(cmixGrp, kv, cmixGrp.NewInt(2), uid,
 		fastRNG.NewStreamGenerator(7, 3, csprng.NewSystemRNG))
 	if err != nil {

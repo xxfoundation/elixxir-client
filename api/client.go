@@ -579,6 +579,13 @@ func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
 	return c.network
 }
 
+// GetRateLimitParams retrieves the rate limiting parameters.
+func (c *Client) GetRateLimitParams() (uint32, uint32, int64) {
+	rateLimitParams := c.storage.GetBucketParams().Get()
+	return rateLimitParams.Capacity, rateLimitParams.LeakedTokens,
+		rateLimitParams.LeakDuration.Nanoseconds()
+}
+
 // GetNodeRegistrationStatus gets the current state of node registration. It
 // returns the total number of nodes in the NDF and the number of those which
 // are currently registers with. An error is returned if the network is not

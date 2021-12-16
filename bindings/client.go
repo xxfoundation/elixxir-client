@@ -485,6 +485,11 @@ func (c *Client) GetPreferredBins(countryCode string) (string, error) {
 	return buff.String(), nil
 }
 
+// GetRateLimitParams retrieves the rate limiting parameters.
+func (c *Client) GetRateLimitParams() (uint32, uint32, int64) {
+	return c.api.GetRateLimitParams()
+}
+
 /*
 // SearchWithHandler is a non-blocking search that also registers
 // a callback interface for user disovery events.

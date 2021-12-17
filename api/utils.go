@@ -24,7 +24,7 @@ const (
 )
 
 // CompressJpeg takes a JPEG image in byte format
-// and compresses it based on the above consts
+// and compresses it based on desired output size
 func CompressJpeg(imgBytes []byte) ([]byte, error) {
 	// Convert bytes to a reader
 	imgBuf := bytes.NewReader(imgBytes)

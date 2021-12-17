@@ -60,6 +60,8 @@ func (m *Manager) handleGarbledMessages() {
 		fingerprint := grbldMsg.GetKeyFP()
 		// Check if the key is there, process it if it is
 		if key, isE2E := e2eKv.PopKey(fingerprint); isE2E {
+			jww.INFO.Printf("[GARBLE] Check E2E for %s, KEYFP: %s",
+				grbldMsg.Digest(), grbldMsg.GetKeyFP())
 			// Decrypt encrypted message
 			msg, err := key.Decrypt(grbldMsg)
 			if err == nil {
@@ -68,7 +70,7 @@ func (m *Manager) handleGarbledMessages() {
 				//remove from the buffer if decryption is successful
 				garbledMsgs.Remove(grbldMsg)
 
-				jww.INFO.Printf("Garbled message decoded as E2E from "+
+				jww.INFO.Printf("[GARBLE] message decoded as E2E from "+
 					"%s, msgDigest: %s", sender, grbldMsg.Digest())
 
 				//handle the successfully decrypted message
@@ -107,7 +109,7 @@ func (m *Manager) handleGarbledMessages() {
 				RoundId:        0,
 				RoundTimestamp: time.Time{},
 			}
-			im := fmt.Sprintf("Garbled/RAW Message reprecessed: keyFP: %v, "+
+			im := fmt.Sprintf("[GARBLE] RAW Message reprecessed: keyFP: %v, "+
 				"msgDigest: %s", grbldMsg.GetKeyFP(), grbldMsg.Digest())
 			jww.INFO.Print(im)
 			m.Internal.Events.Report(1, "MessageReception", "Garbled", im)

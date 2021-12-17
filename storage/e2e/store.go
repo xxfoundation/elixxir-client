@@ -372,6 +372,8 @@ func (f *fingerprints) add(keys []*Key) {
 
 	for _, k := range keys {
 		f.toKey[k.Fingerprint()] = k
+		jww.TRACE.Printf("Added Key Fingerprint: %s",
+			k.Fingerprint())
 	}
 }
 

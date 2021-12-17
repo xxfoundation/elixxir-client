@@ -338,6 +338,7 @@ func (r *relationship) getNewestRekeyableSession() *Session {
 	var unconfirmed *Session
 
 	for _, s := range r.sessions {
+		jww.TRACE.Printf("[REKEY] Looking at session %s", s)
 		//fmt.Println(i)
 		// This looks like it might not be thread safe, I think it is because
 		// the failure mode is it skips to a lower key to rekey with, which is
@@ -345,12 +346,16 @@ func (r *relationship) getNewestRekeyableSession() *Session {
 		// accessing the data in the same order it would be written (i think)
 		if s.Status() != RekeyEmpty {
 			if s.IsConfirmed() {
+				jww.TRACE.Printf("[REKEY] Selected rekey: %s",
+					s)
 				return s
 			} else if unconfirmed == nil {
 				unconfirmed = s
 			}
 		}
 	}
+	jww.WARN.Printf("[REKEY] Returning unconfirmed session rekey: %s",
+		unconfirmed)
 	return unconfirmed
 }
 

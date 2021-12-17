@@ -116,7 +116,7 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	e2eParams.Type = params.KeyExchange
 	e2eParams.IdentityPreimage = rekeyPreimage
 
-	rounds, _, _, err := sendE2E(m, e2eParams, stop)
+	rounds, msgID, _, err := sendE2E(m, e2eParams, stop)
 	// If the send fails, returns the error so it can be handled. The caller
 	// should ensure the calling session is in a state where the Rekey will
 	// be triggered next time a key is used
@@ -146,15 +146,15 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	if !success {
 		session.SetNegotiationStatus(e2e.Unconfirmed)
 		return errors.Errorf("[REKEY] Key Negotiation rekey for %s failed to "+
-			"transmit %v/%v paritions: %v round failures, %v timeouts",
+			"transmit %v/%v paritions: %v round failures, %v timeouts, msgID: %s",
 			session, numRoundFail+numTimeOut, len(rounds), numRoundFail,
-			numTimeOut)
+			numTimeOut, msgID)
 	}
 
 	// otherwise, the transmission is a success and this should be denoted
 	// in the session and the log
-	jww.INFO.Printf("[REKEY] Key Negotiation rekey transmission for %s successful",
-		session)
+	jww.INFO.Printf("[REKEY] Key Negotiation rekey transmission for %s, msgID %s successful",
+		session, msgID)
 	session.SetNegotiationStatus(e2e.Sent)
 
 	return nil

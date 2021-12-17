@@ -147,8 +147,6 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 	grp := session.relationship.manager.ctx.grp
 	myPubKey := dh.GeneratePublicKey(session.myPrivKey, grp)
 
-	// FIXME: We really don't want to be dumping private keys to a log!
-	// This should probably go inside a Session String implementation.
 	jww.INFO.Printf("New Session with Partner %s:\n\tType: %s"+
 		"\n\tBaseKey: %s\n\tRelationship Fingerprint: %v\n\tNumKeys: %d"+
 		"\n\tMy Public Key: %s\n\tPartner Public Key: %s" +

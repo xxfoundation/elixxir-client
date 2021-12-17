@@ -131,7 +131,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	// send fails
 	sess.GetCriticalMessages().AddProcessing(m, e2eParams)
 
-	rounds, _, _, err := net.SendE2E(m, e2eParams, stop)
+	rounds, msgID, _, err := net.SendE2E(m, e2eParams, stop)
 	if err != nil {
 		return err
 	}
@@ -145,15 +145,16 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	}
 
 	//Wait until the result tracking responds
-	success, numRoundFail, numTimeOut := utility.TrackResults(sendResults, len(rounds))
+	success, numRoundFail, numTimeOut := utility.TrackResults(sendResults,
+		len(rounds))
 	// If a single partition of the Key Negotiation request does not
 	// transmit, the partner will not be able to read the confirmation. If
 	// such a failure occurs
 	if !success {
 		jww.ERROR.Printf("[REKEY] Key Negotiation trigger for %s failed to "+
-			"transmit %v/%v paritions: %v round failures, %v timeouts",
+			"transmit %v/%v paritions: %v round failures, %v timeouts, msgID: %s",
 			session, numRoundFail+numTimeOut, len(rounds), numRoundFail,
-			numTimeOut)
+			numTimeOut, msgID)
 		sess.GetCriticalMessages().Failed(m, e2eParams)
 		return nil
 	}
@@ -161,8 +162,8 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	// otherwise, the transmission is a success and this should be denoted
 	// in the session and the log
 	sess.GetCriticalMessages().Succeeded(m, e2eParams)
-	jww.INFO.Printf("[REKEY] Key Negotiation trigger transmission for %s successfully",
-		session)
+	jww.INFO.Printf("[REKEY] Key Negotiation trigger transmission for %s, msgID: %s successfully",
+		session, msgID)
 
 	return nil
 }

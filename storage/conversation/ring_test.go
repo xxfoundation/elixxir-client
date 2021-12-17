@@ -11,6 +11,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"testing"
+	"time"
 )
 
 // TestNewBuff tests the creation of a Buff object.
@@ -30,4 +31,25 @@ func TestNewBuff(t *testing.T) {
 			buffLen, len(testBuff.lookup))
 	}
 
+	_, err = kv.Prefix(ringBuffPrefix).Get(ringBuffKey, ringBuffVersion)
+	if err != nil {
+		t.Fatalf("Could not pull Buff from KV: %v", err)
+	}
+
+}
+
+func TestBuff_Add(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	buffLen := 20
+	testBuff, err := NewBuff(kv, buffLen)
+	if err != nil {
+		t.Fatalf("NewBuff error: %v", err)
+	}
+
+	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
+	mid := NewMessageIdFromBytes([]byte("test"))
+	err = testBuff.Add(mid, timestamp)
+	if err != nil {
+		t.Fatalf("Add error: %v", err)
+	}
 }

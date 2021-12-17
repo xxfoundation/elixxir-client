@@ -151,7 +151,9 @@ func (rb *Buff) push(val *Message) {
 func (rb *Buff) handleMessageOverwrite() {
 	overwriteIndex := rb.newest % uint32(len(rb.buff))
 	messageToOverwrite := rb.buff[overwriteIndex]
-	delete(rb.lookup, messageToOverwrite.MessageId.truncate())
+	if messageToOverwrite != nil {
+		delete(rb.lookup, messageToOverwrite.MessageId.truncate())
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -198,9 +200,8 @@ func LoadBuff(kv *versioned.KV) (*Buff, error) {
 }
 
 // save stores the ring buffer and its elements to storage.
+// NOTE: save is unsafe, a lock should be held by the caller.
 func (rb *Buff) save() error {
-	rb.mux.Lock()
-	defer rb.mux.Unlock()
 
 	// Save each message individually to storage
 	for _, msg := range rb.buff {

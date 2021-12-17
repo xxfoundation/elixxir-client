@@ -208,3 +208,112 @@ func TestBuff_Get(t *testing.T) {
 	}
 
 }
+
+// TestBuff_GetByMessageId tests that Buff.GetByMessageId returns the Message with
+// the requested MessageId.
+func TestBuff_GetByMessageId(t *testing.T) {
+	// Initialize buffer
+	kv := versioned.NewKV(make(ekv.Memstore))
+	buffLen := 20
+	testBuff, err := NewBuff(kv, buffLen)
+	if err != nil {
+		t.Fatalf("NewBuff error: %v", err)
+	}
+
+	// Insert initial message
+	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
+	mid := NewMessageIdFromBytes([]byte("test"))
+	err = testBuff.Add(mid, timestamp)
+	if err != nil {
+		t.Fatalf("Add error: %v", err)
+	}
+
+	// Reconstruct expected message
+	expected := &Message{
+		MessageId: mid,
+		Timestamp: timestamp,
+		id:        0,
+	}
+
+	// Retrieve message using getter
+	received, err := testBuff.GetByMessageId(mid)
+	if err != nil {
+		t.Fatalf("GetMessageId error: %v", err)
+	}
+
+	// Check retrieved value matches expected
+	if !reflect.DeepEqual(received, expected) {
+		t.Fatalf("GetByMessageId retrieved unexpected value."+
+			"\n\tExpected: %v"+
+			"\n\tReceived: %v", expected, received)
+	}
+
+}
+
+// TestBuff_GetByMessageId_Error tests that Buff.GetByMessageId returns an error
+// when requesting a MessageId that does not exist in Buff.
+func TestBuff_GetByMessageId_Error(t *testing.T) {
+	// Initialize buffer
+	kv := versioned.NewKV(make(ekv.Memstore))
+	buffLen := 20
+	testBuff, err := NewBuff(kv, buffLen)
+	if err != nil {
+		t.Fatalf("NewBuff error: %v", err)
+	}
+
+	uninsertedMid := NewMessageIdFromBytes([]byte("test"))
+
+	// Un-inserted MessageId should not exist in Buff, causing an error
+	_, err = testBuff.GetByMessageId(uninsertedMid)
+	if err == nil {
+		t.Fatalf("GetByMessageId should error when requesting a " +
+			"MessageId not in the buffer")
+	}
+
+}
+
+// TestBuff_GetNextMessage tests whether
+func TestBuff_GetNextMessage(t *testing.T) {
+	// Initialize buffer
+	kv := versioned.NewKV(make(ekv.Memstore))
+	buffLen := 20
+	testBuff, err := NewBuff(kv, buffLen)
+	if err != nil {
+		t.Fatalf("NewBuff error: %v", err)
+	}
+
+	// Insert initial message
+	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
+	oldMsgId := NewMessageIdFromBytes([]byte("test"))
+	err = testBuff.Add(oldMsgId, timestamp)
+	if err != nil {
+		t.Fatalf("Add error: %v", err)
+	}
+
+	// Insert next message
+	nextMsgId := NewMessageIdFromBytes([]byte("test2"))
+	err = testBuff.Add(nextMsgId, timestamp)
+	if err != nil {
+		t.Fatalf("Add error: %v", err)
+	}
+
+	// Construct expected message (the newest message)
+	expected := &Message{
+		MessageId: nextMsgId,
+		Timestamp: timestamp,
+		id:        1,
+	}
+
+	// Retrieve message after the old message
+	received, err := testBuff.GetNextMessage(oldMsgId)
+	if err != nil {
+		t.Fatalf("GetNextMessage error: %v", err)
+	}
+
+	if !reflect.DeepEqual(expected, received) {
+		t.Fatalf("GetNextMessage did not retrieve expected value."+
+			"\n\tExpected: %v"+
+			"\n\tReceived: %v", expected, received)
+	}
+
+}

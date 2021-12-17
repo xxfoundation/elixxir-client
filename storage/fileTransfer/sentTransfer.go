@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -49,6 +50,9 @@ const (
 	reInitFinishedTransfersErr    = "failed to overwrite finished transfers bundle: %+v"
 	reInitSentInProgressVectorErr = "failed to overwrite in-progress state vector with new vector: %+v"
 	reInitSentFinishedVectorErr   = "failed to overwrite finished state vector with new vector: %+v"
+
+	// SentTransfer.StopScheduledProgressCB
+	cancelSentCallbacksErr = "could not cancel %d out of %d sent progress callbacks: %d"
 
 	// loadSentTransfer
 	loadSentStoreErr            = "failed to load sent transfer info from storage: %+v"
@@ -213,6 +217,7 @@ func (st *SentTransfer) ReInit(numFps uint16,
 	progressCB interfaces.SentProgressCallback, period time.Duration) error {
 	st.mux.Lock()
 	defer st.mux.Unlock()
+
 	var err error
 
 	// Mark the status as running
@@ -332,22 +337,24 @@ func (st *SentTransfer) GetProgress() (completed bool, sent, arrived,
 	st.mux.RLock()
 	defer st.mux.RUnlock()
 
-	return st.getProgress()
+	completed, sent, arrived, total, t = st.getProgress()
+	return completed, sent, arrived, total, t
 }
 
 // getProgress is the thread-unsafe helper function for GetProgress.
 func (st *SentTransfer) getProgress() (completed bool, sent, arrived,
 	total uint16, t SentPartTracker) {
-	arrived = st.finishedTransfers.getNumParts()
-	sent = st.inProgressTransfers.getNumParts()
+	arrived = uint16(st.finishedStatus.GetNumUsed())
+	sent = uint16(st.inProgressStatus.GetNumUsed())
 	total = st.numParts
 
 	if sent == 0 && arrived == total {
 		completed = true
 	}
 
-	return completed, sent, arrived, total,
-		NewSentPartTracker(st.inProgressStatus, st.finishedStatus)
+	partTracker := NewSentPartTracker(st.inProgressStatus, st.finishedStatus)
+
+	return completed, sent, arrived, total, partTracker
 }
 
 // CallProgressCB calls all the progress callbacks with the most recent progress
@@ -370,6 +377,30 @@ func (st *SentTransfer) CallProgressCB(err error) {
 	for _, cb := range st.progressCallbacks {
 		cb.call(st, err)
 	}
+}
+
+// StopScheduledProgressCB cancels all scheduled sent progress callbacks calls.
+func (st *SentTransfer) StopScheduledProgressCB() error {
+	st.mux.Lock()
+	defer st.mux.Unlock()
+
+	// Tracks the index of callbacks that failed to stop
+	var failedCallbacks []int
+
+	for i, cb := range st.progressCallbacks {
+		err := cb.stopThread()
+		if err != nil {
+			failedCallbacks = append(failedCallbacks, i)
+			jww.WARN.Print(err.Error())
+		}
+	}
+
+	if len(failedCallbacks) > 0 {
+		return errors.Errorf(cancelSentCallbacksErr, len(failedCallbacks),
+			len(st.progressCallbacks), failedCallbacks)
+	}
+
+	return nil
 }
 
 // AddProgressCB appends a new interfaces.SentProgressCallback to the list of

@@ -122,7 +122,7 @@ func TestManager_sendThread_Timeout(t *testing.T) {
 		go func(i int, st sentTransferInfo) {
 			for j := 0; j < 2; j++ {
 				select {
-				case <-time.NewTimer(20*time.Millisecond + pollSleepDuration).C:
+				case <-time.NewTimer(80*time.Millisecond + pollSleepDuration).C:
 					t.Errorf("Timed out waiting for callback #%d", i)
 				case r := <-st.cbChan:
 					if j > 0 {

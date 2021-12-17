@@ -74,8 +74,7 @@ func unmarshalMessage(data []byte) *Message {
 
 	// Deserialize the message ID
 	midData := buff.Next(MessageIdLen)
-	mid := MessageId{}
-	copy(mid[:], midData)
+	mid := NewMessageIdFromBytes(midData)
 
 	tsNano := binary.LittleEndian.Uint64(buff.Next(8))
 	ts := time.Unix(0, int64(tsNano))
@@ -88,22 +87,37 @@ func unmarshalMessage(data []byte) *Message {
 
 }
 
+// NewMessageIdFromBytes is a constructor for MessageId
+// creates a MessageId from byte data.
+func NewMessageIdFromBytes(data []byte) MessageId {
+	mid := MessageId{}
+	copy(mid[:], data)
+	return mid
+}
+
 // String returns a base64 encode of the MessageId. This functions
 // satisfies the fmt.Stringer interface.
 func (mid MessageId) String() string {
 	return base64.StdEncoding.EncodeToString(mid[:])
 }
 
-// Truncate converts a MessageId into a truncatedMessageId.
-func (mid MessageId) Truncate() truncatedMessageId {
-	tmid := truncatedMessageId{}
-	copy(tmid[:], mid[:])
-	return tmid
+// truncate converts a MessageId into a truncatedMessageId.
+func (mid MessageId) truncate() truncatedMessageId {
+	return newTruncatedMessageId(mid.Bytes())
 }
 
 // Bytes returns the byte data of the MessageId.
 func (mid MessageId) Bytes() []byte {
 	return mid[:]
+}
+
+// newTruncatedMessageId is a constructor for truncatedMessageId
+// creates a truncatedMessageId from byte data.
+func newTruncatedMessageId(data []byte) truncatedMessageId {
+	tmid := truncatedMessageId{}
+	copy(tmid[:], data)
+	return tmid
+
 }
 
 // String returns a base64 encode of the truncatedMessageId. This functions

@@ -95,7 +95,7 @@ func (rb *Buff) GetByMessageId(id MessageId) (*Message, error) {
 	defer rb.mux.RUnlock()
 
 	// Look up message
-	msg, exists := rb.lookup[id.Truncate()]
+	msg, exists := rb.lookup[id.truncate()]
 	if !exists { // If message not found, return an error
 		return nil, errors.Errorf(noMessageFoundErr, id)
 	}
@@ -111,7 +111,7 @@ func (rb *Buff) GetNextMessage(id MessageId) (*Message, error) {
 	defer rb.mux.RUnlock()
 
 	// Look up message
-	msg, exists := rb.lookup[id.Truncate()]
+	msg, exists := rb.lookup[id.truncate()]
 	if !exists { // If message not found, return an error
 		return nil, errors.Errorf(noMessageFoundErr, id)
 	}
@@ -238,7 +238,7 @@ func (rb *Buff) marshal() []byte {
 
 	// Write the truncated message IDs into buffer
 	for _, msg := range rb.buff {
-		buff.Write(msg.MessageId.Truncate().Bytes())
+		buff.Write(msg.MessageId.truncate().Bytes())
 	}
 
 	return buff.Bytes()
@@ -250,11 +250,11 @@ func (rb *Buff) saveMessage(msg *Message) error {
 	obj := &versioned.Object{
 		Version:   messageVersion,
 		Timestamp: netTime.Now(),
-		Data:      rb.marshal(),
+		Data:      msg.marshal(),
 	}
 
 	return rb.kv.Set(
-		makeMessageKey(msg.MessageId.Truncate()), messageVersion, obj)
+		makeMessageKey(msg.MessageId.truncate()), messageVersion, obj)
 
 }
 
@@ -274,9 +274,7 @@ func unmarshal(b []byte) (newest, oldest uint32,
 
 	// Read each truncatedMessageId and save into list
 	for next := buff.Next(TruncatedMessageIdLen); len(next) == TruncatedMessageIdLen; next = buff.Next(TruncatedMessageIdLen) {
-		tmid := truncatedMessageId{}
-		copy(tmid[:], next)
-		list = append(list, tmid)
+		list = append(list, newTruncatedMessageId(next))
 	}
 
 	return

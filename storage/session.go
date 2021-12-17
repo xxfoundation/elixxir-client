@@ -252,10 +252,11 @@ func Load(baseDir, password string, currentVersion version.Version,
 		return nil, errors.WithMessage(err, "Failed to load edge check store")
 	}
 
-	s.ringBuff, err = conversation.LoadBuff(s.kv)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load ring buffer store")
-	}
+	// todo: uncomment once NewBuff has been added properly
+	//s.ringBuff, err = conversation.LoadBuff(s.kv)
+	//if err != nil {
+	//	return nil, errors.WithMessage(err, "Failed to load ring buffer store")
+	//}
 
 	return s, nil
 }
@@ -454,10 +455,11 @@ func InitTestingSession(i interface{}) *Session {
 		jww.FATAL.Panicf("Failed to create new edge Store: %+v", err)
 	}
 
-	s.ringBuff, err = conversation.NewBuff(s.kv, 100)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to create ring buffer store: %+v", err)
-	}
+	// todo: uncomment once NewBuff has been added properly
+	//s.ringBuff, err = conversation.NewBuff(s.kv, 100)
+	//if err != nil {
+	//	jww.FATAL.Panicf("Failed to create ring buffer store: %+v", err)
+	//}
 
 	return s
 }

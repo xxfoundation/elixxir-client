@@ -20,7 +20,7 @@ require (
 	gitlab.com/elixxir/comms v0.0.4-0.20211208211635-ad88fa2850b0
 	gitlab.com/elixxir/crypto v0.0.7-0.20211208211534-e1c1462d945f
 	gitlab.com/elixxir/ekv v0.1.5
-	gitlab.com/elixxir/primitives v0.0.3-0.20211216205607-021a9c8c943a
+	gitlab.com/elixxir/primitives v0.0.3-0.20211217162004-35f6c2257db2
 	gitlab.com/xx_network/comms v0.0.4-0.20211202195810-9dfc0b6cdb28
 	gitlab.com/xx_network/crypto v0.0.5-0.20211014163843-57b345890686
 	gitlab.com/xx_network/primitives v0.0.4-0.20211014163031-53405cf191fb

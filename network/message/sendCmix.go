@@ -112,8 +112,14 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 		// TODO: does this conflict with the attempted object?
 		// Check excluded rounds for the selected best round
-		if cmixParams.UseExcluded && cmixParams.ExcludedRounds != nil && cmixParams.ExcludedRounds.Has(bestRound.GetRoundId()) {
-			continue
+		if cmixParams.UseExcluded && cmixParams.ExcludedRounds != nil {
+			if cmixParams.ExcludedRounds.Has(bestRound.GetRoundId()) {
+				jww.WARN.Printf("Round %d is excluded, skipping...", bestRound.ID)
+				continue
+			} else {
+				cmixParams.ExcludedRounds.Insert(bestRound.GetRoundId())
+				jww.WARN.Printf("Added %d to excluded rounds", bestRound.ID)
+			}
 		}
 
 		// Determine whether the selected round contains any Nodes
@@ -186,9 +192,6 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		// Return if it sends properly
 		gwSlotResp := result.(*pb.GatewaySlotResponse)
 		if gwSlotResp.Accepted {
-			if cmixParams.UseExcluded && cmixParams.ExcludedRounds != nil {
-				cmixParams.ExcludedRounds.Insert(bestRound.ID)
-			}
 			m := fmt.Sprintf("Successfully sent to EphID %v "+
 				"(source: %s) in round %d (msgDigest: %s), "+
 				"elapsed: %s numRoundTries: %d", ephID.Int64(),

@@ -312,7 +312,9 @@ var rootCmd = &cobra.Command{
 		paramsUnsafe := params.GetDefaultUnsafe()
 		wg := &sync.WaitGroup{}
 		sendCnt := int(viper.GetUint("sendCount"))
-		paramsE2E.UseExcluded = viper.GetBool("splitSends")
+		if viper.GetBool("splitSends") {
+			paramsE2E.UseExcluded = true
+		}
 		wg.Add(sendCnt)
 		go func() {
 			//sendDelay := time.Duration(viper.GetUint("sendDelay"))

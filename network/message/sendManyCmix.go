@@ -205,7 +205,7 @@ func sendManyCmixHelper(sender *gateway.Sender,
 		gwSlotResp := result.(*pb.GatewaySlotResponse)
 		if gwSlotResp.Accepted {
 			if param.UseExcluded && param.ExcludedRounds != nil {
-				param.ExcludedRounds.Insert(bestRound.ID)
+				param.ExcludedRounds.Insert(bestRound.GetRoundId())
 			}
 			m := fmt.Sprintf("Successfully sent to EphIDs %s (sources: [%s]) "+
 				"in round %d", ephemeralIDsString, recipientString, bestRound.ID)

@@ -101,8 +101,14 @@ func sendManyCmixHelper(sender *gateway.Sender,
 		attempted.Insert(bestRound)
 
 		// Check excluded rounds for the selected best round
-		if param.UseExcluded && param.ExcludedRounds != nil && param.ExcludedRounds.Has(bestRound.GetRoundId()) {
-			continue
+		if param.UseExcluded && param.ExcludedRounds != nil {
+			if param.ExcludedRounds.Has(bestRound.GetRoundId()) {
+				jww.WARN.Printf("Round %d is excluded, skipping...", bestRound.ID)
+				continue
+			} else {
+				param.ExcludedRounds.Insert(bestRound.GetRoundId())
+				jww.WARN.Printf("Added %d to excluded rounds", bestRound.ID)
+			}
 		}
 
 		// Determine whether the selected round contains any nodes that are
@@ -204,9 +210,6 @@ func sendManyCmixHelper(sender *gateway.Sender,
 		// Return if it sends properly
 		gwSlotResp := result.(*pb.GatewaySlotResponse)
 		if gwSlotResp.Accepted {
-			if param.UseExcluded && param.ExcludedRounds != nil {
-				param.ExcludedRounds.Insert(bestRound.GetRoundId())
-			}
 			m := fmt.Sprintf("Successfully sent to EphIDs %s (sources: [%s]) "+
 				"in round %d", ephemeralIDsString, recipientString, bestRound.ID)
 			jww.INFO.Print(m)

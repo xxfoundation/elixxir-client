@@ -10,6 +10,7 @@ package conversation
 import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -53,12 +54,27 @@ func TestBuff_Add(t *testing.T) {
 		t.Fatalf("Add error: %v", err)
 	}
 
+	if len(testBuff.lookup) != 1 {
+		t.Fatalf("Message was not added to buffer's map")
+	}
+
 	received, exists := testBuff.lookup[mid.truncate()]
 	if !exists {
 		t.Fatalf("Message does not exist in buffer after add.")
 	}
 
-	expected := &Message{}
+	expected := &Message{
+		MessageId: mid,
+		Timestamp: timestamp,
+		id:        0,
+	}
 
-	if
+	if !reflect.DeepEqual(expected, received) {
+		t.Fatalf("Expected Message not found in map."+
+			"\n\tExpected: %v"+
+			"\n\tReceived: %v", expected, received)
+	}
+
+	f
+
 }

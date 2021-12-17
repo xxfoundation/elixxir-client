@@ -335,6 +335,7 @@ func TestReceivedTransfer_CallProgressCB(t *testing.T) {
 	type progressResults struct {
 		completed       bool
 		received, total uint16
+		tr              interfaces.FilePartTracker
 		err             error
 	}
 
@@ -348,8 +349,8 @@ func TestReceivedTransfer_CallProgressCB(t *testing.T) {
 		progressChan := make(chan progressResults)
 
 		cbFunc := func(completed bool, received, total uint16,
-			t interfaces.FilePartTracker, err error) {
-			progressChan <- progressResults{completed, received, total, err}
+			tr interfaces.FilePartTracker, err error) {
+			progressChan <- progressResults{completed, received, total, tr, err}
 		}
 		wg.Add(1)
 
@@ -367,25 +368,25 @@ func TestReceivedTransfer_CallProgressCB(t *testing.T) {
 					case 0:
 						if err := checkReceivedProgress(r.completed, r.received,
 							r.total, false, 0, rt.numParts); err != nil {
-							t.Errorf("%2d: %+v", i, err)
+							t.Errorf("%2d: %v", i, err)
 						}
 						atomic.AddUint64(&step0, 1)
 					case 1:
 						if err := checkReceivedProgress(r.completed, r.received,
 							r.total, false, 0, rt.numParts); err != nil {
-							t.Errorf("%2d: %+v", i, err)
+							t.Errorf("%2d: %v", i, err)
 						}
 						atomic.AddUint64(&step1, 1)
 					case 2:
 						if err := checkReceivedProgress(r.completed, r.received,
 							r.total, false, 4, rt.numParts); err != nil {
-							t.Errorf("%2d: %+v", i, err)
+							t.Errorf("%2d: %v", i, err)
 						}
 						atomic.AddUint64(&step2, 1)
 					case 3:
 						if err := checkReceivedProgress(r.completed, r.received,
 							r.total, true, 16, rt.numParts); err != nil {
-							t.Errorf("%2d: %+v", i, err)
+							t.Errorf("%2d: %v", i, err)
 						}
 						atomic.AddUint64(&step3, 1)
 						return
@@ -410,7 +411,7 @@ func TestReceivedTransfer_CallProgressCB(t *testing.T) {
 	}
 
 	for i := 0; i < 4; i++ {
-		_, _ = rt.fpVector.Next()
+		_, _ = rt.receivedStatus.Next()
 	}
 
 	rt.CallProgressCB(nil)
@@ -419,12 +420,51 @@ func TestReceivedTransfer_CallProgressCB(t *testing.T) {
 	}
 
 	for i := 0; i < 12; i++ {
-		_, _ = rt.fpVector.Next()
+		_, _ = rt.receivedStatus.Next()
 	}
 
 	rt.CallProgressCB(nil)
 
 	wg.Wait()
+}
+
+// Tests that ReceivedTransfer.StopScheduledProgressCB stops a scheduled
+// callback from being triggered.
+func TestReceivedTransfer_StopScheduledProgressCB(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, rt, _ := newEmptyReceivedTransfer(16, 20, kv, t)
+
+	cbChan := make(chan struct{}, 5)
+	cbFunc := interfaces.ReceivedProgressCallback(
+		func(completed bool, received, total uint16,
+			t interfaces.FilePartTracker, err error) {
+			cbChan <- struct{}{}
+		})
+	rt.AddProgressCB(cbFunc, 150*time.Millisecond)
+	select {
+	case <-time.NewTimer(10 * time.Millisecond).C:
+		t.Error("Timed out waiting for callback.")
+	case <-cbChan:
+	}
+
+	rt.CallProgressCB(nil)
+	rt.CallProgressCB(nil)
+	select {
+	case <-time.NewTimer(10 * time.Millisecond).C:
+		t.Error("Timed out waiting for callback.")
+	case <-cbChan:
+	}
+
+	err := rt.StopScheduledProgressCB()
+	if err != nil {
+		t.Errorf("StopScheduledProgressCB returned an error: %+v", err)
+	}
+
+	select {
+	case <-time.NewTimer(200 * time.Millisecond).C:
+	case <-cbChan:
+		t.Error("Callback called when it should have been stopped.")
+	}
 }
 
 // Tests that ReceivedTransfer.AddProgressCB adds an item to the progress

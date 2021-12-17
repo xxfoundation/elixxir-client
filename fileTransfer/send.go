@@ -439,7 +439,9 @@ func partitionFile(file []byte, partSize int) [][]byte {
 	buff := bytes.NewBuffer(file)
 
 	for n := buff.Next(partSize); len(n) > 0; n = buff.Next(partSize) {
-		parts = append(parts, n)
+		newPart := make([]byte, partSize)
+		copy(newPart, n)
+		parts = append(parts, newPart)
 	}
 
 	return parts

@@ -619,6 +619,45 @@ func TestSentTransfer_CallProgressCB(t *testing.T) {
 	wg.Wait()
 }
 
+// Tests that SentTransfer.StopScheduledProgressCB stops a scheduled callback
+// from being triggered.
+func TestSentTransfer_StopScheduledProgressCB(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+
+	cbChan := make(chan struct{}, 5)
+	cbFunc := interfaces.SentProgressCallback(
+		func(completed bool, sent, arrived, total uint16,
+			t interfaces.FilePartTracker, err error) {
+			cbChan <- struct{}{}
+		})
+	st.AddProgressCB(cbFunc, 150*time.Millisecond)
+	select {
+	case <-time.NewTimer(10 * time.Millisecond).C:
+		t.Error("Timed out waiting for callback.")
+	case <-cbChan:
+	}
+
+	st.CallProgressCB(nil)
+	st.CallProgressCB(nil)
+	select {
+	case <-time.NewTimer(10 * time.Millisecond).C:
+		t.Error("Timed out waiting for callback.")
+	case <-cbChan:
+	}
+
+	err := st.StopScheduledProgressCB()
+	if err != nil {
+		t.Errorf("StopScheduledProgressCB returned an error: %+v", err)
+	}
+
+	select {
+	case <-time.NewTimer(200 * time.Millisecond).C:
+	case <-cbChan:
+		t.Error("Callback called when it should have been stopped.")
+	}
+}
+
 // Tests that SentTransfer.AddProgressCB adds an item to the progress callback
 // list.
 func TestSentTransfer_AddProgressCB(t *testing.T) {
@@ -1165,7 +1204,7 @@ func Test_loadSentTransfer_LoadInProgressTransfersError(t *testing.T) {
 }
 
 // Error path: tests that loadSentTransfer returns the expected error when the
-// finished transfers bundle was deleted from storage.
+// finished transfer bundle was deleted from storage.
 func Test_loadSentTransfer_LoadFinishedTransfersError(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	tid, st := newRandomSentTransfer(16, 24, kv, t)

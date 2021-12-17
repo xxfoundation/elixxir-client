@@ -647,7 +647,7 @@ func Test_FileTransfer(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < 20; i++ {
 			select {
-			case <-time.NewTimer(350 * time.Millisecond).C:
+			case <-time.NewTimer(450 * time.Millisecond).C:
 				t.Errorf("Timed out waiting for receive progress callback %d.", i)
 			case r := <-receiveCbChan:
 				if r.completed {

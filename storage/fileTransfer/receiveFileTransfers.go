@@ -10,6 +10,7 @@ package fileTransfer
 import (
 	"bytes"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/primitives/format"
@@ -134,6 +135,12 @@ func (rft *ReceivedFileTransfers) DeleteTransfer(tid ftCrypto.TransferID) error 
 		return errors.Errorf(getReceivedTransferErr, tid)
 	}
 
+	// Cancel any scheduled callbacks
+	err := rt.StopScheduledProgressCB()
+	if err != nil {
+		jww.WARN.Print(errors.Errorf(cancelCallbackErr, tid, err))
+	}
+
 	// Remove all unused fingerprints from map
 	for n, err := rt.fpVector.Next(); err == nil; n, err = rt.fpVector.Next() {
 		// Generate fingerprint
@@ -144,7 +151,7 @@ func (rft *ReceivedFileTransfers) DeleteTransfer(tid ftCrypto.TransferID) error 
 	}
 
 	// Delete all data the transfer saved to storage
-	err := rft.transfers[tid].delete()
+	err = rft.transfers[tid].delete()
 	if err != nil {
 		return errors.Errorf(deleteReceivedTransferErr, tid, err)
 	}

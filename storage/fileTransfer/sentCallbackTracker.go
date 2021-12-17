@@ -9,10 +9,14 @@ package fileTransfer
 
 import (
 	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
 )
+
+// sentCallbackTrackerStoppable is the name used for the tracker stoppable.
+const sentCallbackTrackerStoppable = "sentCallbackTrackerStoppable"
 
 // sentCallbackTracker tracks the interfaces.SentProgressCallback and
 // information on when to call it. The callback will be called on each send,
@@ -21,9 +25,10 @@ import (
 // period. A callback is called once every period, regardless of the number of
 // sends that occur.
 type sentCallbackTracker struct {
-	period    time.Duration // How often to call the callback
-	lastCall  time.Time     // Timestamp of the last call
-	scheduled bool          // Denotes if callback call is scheduled
+	period    time.Duration     // How often to call the callback
+	lastCall  time.Time         // Timestamp of the last call
+	scheduled bool              // Denotes if callback call is scheduled
+	stop      *stoppable.Single // Stops the scheduled callback from triggering
 	cb        interfaces.SentProgressCallback
 	mux       sync.RWMutex
 }
@@ -35,6 +40,7 @@ func newSentCallbackTracker(cb interfaces.SentProgressCallback,
 		period:    period,
 		lastCall:  time.Time{},
 		scheduled: false,
+		stop:      stoppable.NewSingle(sentCallbackTrackerStoppable),
 		cb:        cb,
 	}
 }
@@ -64,7 +70,7 @@ func (sct *sentCallbackTracker) call(tracker sentProgressTracker, err error) {
 	timeSinceLastCall := netTime.Since(sct.lastCall)
 	if timeSinceLastCall > sct.period {
 		// If no callback occurred, then trigger the callback now
-		sct.callNow(tracker, err)
+		sct.callNowUnsafe(tracker, err)
 		sct.lastCall = netTime.Now()
 	} else {
 		// If a callback did occur, then schedule a new callback to occur at the
@@ -72,6 +78,9 @@ func (sct *sentCallbackTracker) call(tracker sentProgressTracker, err error) {
 		sct.scheduled = true
 		go func() {
 			select {
+			case <-sct.stop.Quit():
+				sct.stop.ToStopped()
+				return
 			case <-time.NewTimer(sct.period - timeSinceLastCall).C:
 				sct.mux.Lock()
 				sct.callNow(tracker, err)
@@ -83,8 +92,14 @@ func (sct *sentCallbackTracker) call(tracker sentProgressTracker, err error) {
 	}
 }
 
+// stopThread stops all scheduled callbacks.
+func (sct *sentCallbackTracker) stopThread() error {
+	return sct.stop.Close()
+}
+
 // callNow calls the callback immediately regardless of the schedule or period.
-func (sct *sentCallbackTracker) callNow(tracker sentProgressTracker, err error) {
+func (sct *sentCallbackTracker) callNow(
+	tracker sentProgressTracker, err error) {
 	completed, sent, arrived, total, t := tracker.GetProgress()
 	go sct.cb(completed, sent, arrived, total, t, err)
 }
@@ -92,7 +107,8 @@ func (sct *sentCallbackTracker) callNow(tracker sentProgressTracker, err error) 
 // callNowUnsafe calls the callback immediately regardless of the schedule or
 // period without taking a thread lock. This function should be used if a lock
 // is already taken on the sentProgressTracker.
-func (sct *sentCallbackTracker) callNowUnsafe(tracker sentProgressTracker, err error) {
+func (sct *sentCallbackTracker) callNowUnsafe(
+	tracker sentProgressTracker, err error) {
 	completed, sent, arrived, total, t := tracker.getProgress()
 	go sct.cb(completed, sent, arrived, total, t, err)
 }
@@ -100,10 +116,12 @@ func (sct *sentCallbackTracker) callNowUnsafe(tracker sentProgressTracker, err e
 // sentProgressTracker interface tracks the progress of a transfer.
 type sentProgressTracker interface {
 	// GetProgress returns the sent transfer progress in a thread-safe manner.
-	GetProgress() (completed bool, sent, arrived, total uint16, t SentPartTracker)
+	GetProgress() (
+		completed bool, sent, arrived, total uint16, t SentPartTracker)
 
 	// getProgress returns the sent transfer progress in a thread-unsafe manner.
 	// This function should be used if a lock is already taken on the sent
 	// transfer.
-	getProgress() (completed bool, sent, arrived, total uint16, t SentPartTracker)
+	getProgress() (
+		completed bool, sent, arrived, total uint16, t SentPartTracker)
 }

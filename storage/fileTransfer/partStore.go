@@ -158,7 +158,7 @@ func loadPartStore(kv *versioned.KV) (*partStore, error) {
 
 	// Load each part from storage and add to the map
 	for _, partNum := range list {
-		vo, err := kv.Get(makePartsKey(partNum), partsStoreVersion)
+		vo, err = kv.Get(makePartsKey(partNum), partsStoreVersion)
 		if err != nil {
 			return nil, errors.Errorf(loadPartsErr, partNum, err)
 		}

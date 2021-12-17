@@ -68,6 +68,7 @@ func (rb *Buff) Add(id MessageId, timestamp time.Time) error {
 	defer rb.mux.Unlock()
 
 	rb.push(&Message{
+		id:        rb.newest,
 		MessageId: id,
 		Timestamp: timestamp,
 	})
@@ -142,9 +143,6 @@ func (rb *Buff) next() {
 func (rb *Buff) push(val *Message) {
 	// Update circular buffer trackers
 	rb.next()
-
-	// Set internal id value
-	val.id = rb.newest
 
 	// Handle overwrite of the oldest message
 	rb.handleMessageOverwrite()

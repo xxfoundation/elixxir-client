@@ -1,9 +1,8 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2021 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
 
 // Provides various utility functions for access over the bindings
 
@@ -65,7 +64,7 @@ func CompressJpeg(imgBytes []byte) ([]byte, error) {
 	newImg := resize.Resize(newWidth, 0, img, resize.Bicubic)
 
 	// Encode the new image to a buffer
-	var newImgBuf *bytes.Buffer
+	newImgBuf := new(bytes.Buffer)
 	err = jpeg.Encode(newImgBuf, newImg, nil)
 	if err != nil {
 		return nil, errors.Errorf("Unable to encode image: %+v", err)

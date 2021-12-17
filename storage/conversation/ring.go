@@ -74,7 +74,6 @@ func (rb *Buff) Add(id MessageId, timestamp time.Time) error {
 	})
 
 	return rb.save()
-
 }
 
 // Get retrieves the most recent entry.
@@ -205,9 +204,11 @@ func (rb *Buff) save() error {
 
 	// Save each message individually to storage
 	for _, msg := range rb.buff {
-		if err := rb.saveMessage(msg); err != nil {
-			return errors.Errorf(saveMessageErr,
-				msg.MessageId, err)
+		if msg != nil {
+			if err := rb.saveMessage(msg); err != nil {
+				return errors.Errorf(saveMessageErr,
+					msg.MessageId, err)
+			}
 		}
 	}
 
@@ -247,7 +248,9 @@ func (rb *Buff) marshal() []byte {
 
 	// Write the truncated message IDs into buffer
 	for _, msg := range rb.buff {
-		buff.Write(msg.MessageId.truncate().Bytes())
+		if msg != nil {
+			buff.Write(msg.MessageId.truncate().Bytes())
+		}
 	}
 
 	return buff.Bytes()

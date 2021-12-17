@@ -8,6 +8,7 @@
 package conversation
 
 import (
+	"bytes"
 	"reflect"
 	"testing"
 	"time"
@@ -50,5 +51,35 @@ func TestMessageId_truncate(t *testing.T) {
 			"\n\tExpected: %v"+
 			"\n\tReceived: %v", TruncatedMessageIdLen, expected, tmid)
 	}
+}
 
+// TestNewMessageIdFromBytes tests that NewMessageIdFromBytes
+// properly constructs a MessageId.
+func TestNewMessageIdFromBytes(t *testing.T) {
+	expected := make([]byte, 0, MessageIdLen)
+	for i := 0; i < MessageIdLen; i++ {
+		expected = append(expected, byte(i))
+	}
+	testId := NewMessageIdFromBytes(expected)
+	if !bytes.Equal(expected, testId.Bytes()) {
+		t.Fatalf("Unexpected output from NewMessageIdFromBytes."+
+			"\n\tExpected: %v"+
+			"\n\tReceived: %v", expected, testId.Bytes())
+	}
+
+}
+
+// TestNewTruncatedMessageId tests that newTruncatedMessageId
+// constructs a proper truncatedMessageId.
+func TestNewTruncatedMessageId(t *testing.T) {
+	expected := make([]byte, 0, TruncatedMessageIdLen)
+	for i := 0; i < TruncatedMessageIdLen; i++ {
+		expected = append(expected, byte(i))
+	}
+	testId := newTruncatedMessageId(expected)
+	if !bytes.Equal(expected, testId.Bytes()) {
+		t.Fatalf("Unexpected output from newTruncatedMessageId."+
+			"\n\tExpected: %v"+
+			"\n\tReceived: %v", expected, testId.Bytes())
+	}
 }

@@ -70,6 +70,7 @@ type Session struct {
 	uncheckedRounds     *rounds.UncheckedRoundStore
 	hostList            *hostList.Store
 	edgeCheck           *edge.Store
+	ringBuff            *conversation.Buff
 }
 
 // Initialize a new Session object
@@ -161,6 +162,13 @@ func New(baseDir, password string, u userInterface.User, currentVersion version.
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to edge check store")
 	}
+
+	// Todo: implement with a specified bufflen (from pareters or a
+	//  constant?
+	//s.ringBuff, err = conversation.NewBuff(s.kv, buffLen)
+	//if err != nil {
+	//	return nil, errors.WithMessage(err, "Failed to create ring buffer store")
+	//}
 	return s, nil
 }
 
@@ -242,6 +250,11 @@ func Load(baseDir, password string, currentVersion version.Version,
 	s.edgeCheck, err = edge.LoadStore(s.kv)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load edge check store")
+	}
+
+	s.ringBuff, err = conversation.LoadBuff(s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load ring buffer store")
 	}
 
 	return s, nil
@@ -439,6 +452,11 @@ func InitTestingSession(i interface{}) *Session {
 	s.edgeCheck, err = edge.NewStore(s.kv, uid)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to create new edge Store: %+v", err)
+	}
+
+	s.ringBuff, err = conversation.NewBuff(s.kv, 100)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to create ring buffer store: %+v", err)
 	}
 
 	return s

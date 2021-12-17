@@ -9,7 +9,6 @@ package message
 
 import (
 	"fmt"
-	"github.com/golang-collections/collections/set"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -20,6 +19,7 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
@@ -75,8 +75,14 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 	stop *stoppable.Single) (id.Round, ephemeral.Id, error) {
 
 	timeStart := netTime.Now()
-	attempted := set.New()
 	maxTimeout := sender.GetHostParams().SendTimeout
+
+	var attempted *excludedRounds.ExcludedRounds
+	if cmixParams.ExcludedRounds != nil {
+		attempted = cmixParams.ExcludedRounds
+	} else {
+		attempted = excludedRounds.New()
+	}
 
 	jww.INFO.Printf("Looking for round to send cMix message to %s "+
 		"(msgDigest: %s)", recipient, msg.Digest())
@@ -96,8 +102,8 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 				msg.Digest())
 		}
 
-		remainingTime := cmixParams.Timeout - elapsed
 		//find the best round to send to, excluding attempted rounds
+		remainingTime := cmixParams.Timeout - elapsed
 		bestRound, err := instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted, sendTimeBuffer)
 		if err != nil {
 			jww.WARN.Printf("Failed to GetUpcomingRealtime (msgDigest: %s): %+v", msg.Digest(), err)
@@ -108,19 +114,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		}
 
 		//add the round on to the list of attempted, so it is not tried again
-		attempted.Insert(bestRound)
-
-		// TODO: does this conflict with the attempted object?
-		// Check excluded rounds for the selected best round
-		if cmixParams.UseExcluded && cmixParams.ExcludedRounds != nil {
-			if cmixParams.ExcludedRounds.Has(bestRound.GetRoundId()) {
-				jww.WARN.Printf("Round %d is excluded, skipping...", bestRound.ID)
-				continue
-			} else {
-				cmixParams.ExcludedRounds.Insert(bestRound.GetRoundId())
-				jww.WARN.Printf("Added %d to excluded rounds", bestRound.ID)
-			}
-		}
+		attempted.Insert(bestRound.GetRoundId())
 
 		// Determine whether the selected round contains any Nodes
 		// that are blacklisted by the params.Network object

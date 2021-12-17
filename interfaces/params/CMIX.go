@@ -18,7 +18,6 @@ type CMIX struct {
 	RoundTries     uint
 	Timeout        time.Duration
 	RetryDelay     time.Duration
-	UseExcluded    bool
 	ExcludedRounds *excludedRounds.ExcludedRounds
 	// an alternate identity preimage to use on send. If not set, the default
 	// for the sending identity will be used
@@ -27,11 +26,9 @@ type CMIX struct {
 
 func GetDefaultCMIX() CMIX {
 	return CMIX{
-		RoundTries:     10,
-		Timeout:        25 * time.Second,
-		RetryDelay:     1 * time.Second,
-		UseExcluded:    false,
-		ExcludedRounds: excludedRounds.New(),
+		RoundTries: 10,
+		Timeout:    25 * time.Second,
+		RetryDelay: 1 * time.Second,
 	}
 }
 

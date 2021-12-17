@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
 	"io/ioutil"
@@ -313,7 +314,7 @@ var rootCmd = &cobra.Command{
 		wg := &sync.WaitGroup{}
 		sendCnt := int(viper.GetUint("sendCount"))
 		if viper.GetBool("splitSends") {
-			paramsE2E.UseExcluded = true
+			paramsE2E.ExcludedRounds = excludedRounds.New()
 		}
 		wg.Add(sendCnt)
 		go func() {

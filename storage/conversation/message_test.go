@@ -21,7 +21,7 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 	testId := NewMessageIdFromBytes([]byte("messageId123"))
 
 	message := &Message{
-		Id:        0,
+		id:        0,
 		MessageId: testId,
 		Timestamp: timestamp,
 	}

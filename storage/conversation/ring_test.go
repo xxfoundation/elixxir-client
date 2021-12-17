@@ -52,4 +52,13 @@ func TestBuff_Add(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Add error: %v", err)
 	}
+
+	received, exists := testBuff.lookup[mid.truncate()]
+	if !exists {
+		t.Fatalf("Message does not exist in buffer after add.")
+	}
+
+	expected := &Message{}
+
+	if
 }

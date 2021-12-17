@@ -30,11 +30,20 @@ type truncatedMessageId [TruncatedMessageIdLen]byte
 // It represents a received message by the user, which needs
 // its reception verified to the original sender of the message.
 type Message struct {
-	// Id is the sequential ID of the Message in the ring buffer
-	Id uint32
+	// id is the sequential ID of the Message in the ring buffer
+	id uint32
 	// The ID of the message
 	MessageId MessageId
 	Timestamp time.Time
+}
+
+// newMessage is the constructor for a Message object.
+func newMessage(id uint32, mid MessageId, timestamp time.Time) *Message {
+	return &Message{
+		id:        id,
+		MessageId: mid,
+		Timestamp: timestamp,
+	}
 }
 
 // marshal creates a byte buffer containing the serialized information
@@ -44,7 +53,7 @@ func (m *Message) marshal() []byte {
 
 	// Serialize and write the ID into a byte buffer
 	b := make([]byte, 4)
-	binary.LittleEndian.PutUint32(b, m.Id)
+	binary.LittleEndian.PutUint32(b, m.id)
 	buff.Write(b)
 
 	// Serialize and write the MessageID into a byte buffer
@@ -73,7 +82,7 @@ func unmarshalMessage(data []byte) *Message {
 	ts := time.Unix(0, int64(tsNano))
 
 	return &Message{
-		Id:        ID,
+		id:        ID,
 		MessageId: mid,
 		Timestamp: ts,
 	}

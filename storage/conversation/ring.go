@@ -68,7 +68,6 @@ func (rb *Buff) Add(id MessageId, timestamp time.Time) error {
 	defer rb.mux.Unlock()
 
 	rb.push(&Message{
-		Id:        rb.newest,
 		MessageId: id,
 		Timestamp: timestamp,
 	})
@@ -102,7 +101,7 @@ func (rb *Buff) GetByMessageId(id MessageId) (*Message, error) {
 	return msg, nil
 }
 
-// GetNextMessage looks up the Message with the next sequential Message.Id
+// GetNextMessage looks up the Message with the next sequential Message.id
 // in the ring buffer after the Message with the requested MessageId.
 func (rb *Buff) GetNextMessage(id MessageId) (*Message, error) {
 	rb.mux.RLock()
@@ -114,7 +113,7 @@ func (rb *Buff) GetNextMessage(id MessageId) (*Message, error) {
 		return nil, errors.Errorf(noMessageFoundErr, id)
 	}
 
-	lookupId := msg.Id + 1
+	lookupId := msg.id + 1
 
 	// Check it's not before our first known id
 	if lookupId < rb.oldest {
@@ -141,9 +140,19 @@ func (rb *Buff) next() {
 // push adds a Message to the Buff, clearing the overwritten message from
 // both the buff and the lookup structures.
 func (rb *Buff) push(val *Message) {
+	// Update circular buffer trackers
 	rb.next()
+
+	// Set internal id value
+	val.id = rb.newest
+
+	// Handle overwrite of the oldest message
 	rb.handleMessageOverwrite()
+
+	// Set message in RAM
 	rb.buff[rb.newest%uint32(len(rb.buff))] = val
+	rb.lookup[val.MessageId.truncate()] = val
+
 }
 
 // handleMessageOverwrite is a helper function which deletes the message

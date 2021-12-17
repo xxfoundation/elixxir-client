@@ -74,7 +74,8 @@ func (ps *partStore) addPart(part []byte, partNum uint16) error {
 	ps.mux.Lock()
 	defer ps.mux.Unlock()
 
-	ps.parts[partNum] = part
+	ps.parts[partNum] = make([]byte, len(part))
+	copy(ps.parts[partNum], part)
 
 	err := ps.savePart(partNum)
 	if err != nil {
@@ -90,7 +91,10 @@ func (ps *partStore) getPart(partNum uint16) ([]byte, bool) {
 	defer ps.mux.Unlock()
 
 	part, exists := ps.parts[partNum]
-	return part, exists
+	newPart := make([]byte, len(part))
+	copy(newPart, part)
+
+	return newPart, exists
 }
 
 // getFile returns all file parts concatenated into a single file. Returns the
@@ -154,7 +158,7 @@ func loadPartStore(kv *versioned.KV) (*partStore, error) {
 
 	// Load each part from storage and add to the map
 	for _, partNum := range list {
-		vo, err := kv.Get(makePartsKey(partNum), partsStoreVersion)
+		vo, err = kv.Get(makePartsKey(partNum), partsStoreVersion)
 		if err != nil {
 			return nil, errors.Errorf(loadPartsErr, partNum, err)
 		}
@@ -268,7 +272,8 @@ func partSliceToMap(parts ...[]byte) map[uint16][]byte {
 
 	// Add each file part to the map
 	for partNum, part := range parts {
-		partMap[uint16(partNum)] = part
+		partMap[uint16(partNum)] = make([]byte, len(part))
+		copy(partMap[uint16(partNum)], part)
 	}
 
 	return partMap

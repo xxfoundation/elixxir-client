@@ -18,10 +18,8 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/utils"
 	"io/ioutil"
-	"strconv"
 	"time"
 )
 
@@ -95,11 +93,11 @@ var ftCmd = &cobra.Command{
 		for done := false; !done; {
 			select {
 			case <-sendDone:
-				jww.DEBUG.Printf("Finished sending message. Stopping threads " +
+				jww.DEBUG.Printf("Finished sending file. Stopping threads " +
 					"and network follower.")
 				done = true
 			case <-receiveDone:
-				jww.DEBUG.Printf("Finished receiving message. Stopping " +
+				jww.DEBUG.Printf("Finished receiving file. Stopping " +
 					"threads and network follower.")
 				done = true
 			}
@@ -186,23 +184,29 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 		}
 	}
 
+	// Truncate file path if it is too long to be a file name
+	fileName := filePath
+	if len(fileName) > ft.FileNameMaxLen {
+		fileName = fileName[:ft.FileNameMaxLen]
+	}
+
 	// Get recipient contact from file
 	recipient := getContactFromFile(recipientContactPath)
 
 	jww.DEBUG.Printf("Sending file %q of size %d to recipient %s.",
-		filePath, len(fileData), recipient.ID)
+		fileName, len(fileData), recipient.ID)
 
 	// Create sent progress callback that prints the results
 	progressCB := func(completed bool, sent, arrived, total uint16,
 		t interfaces.FilePartTracker, err error) {
 		jww.DEBUG.Printf("Sent progress callback for %q "+
 			"{completed: %t, sent: %d, arrived: %d, total: %d, err: %v}\n",
-			filePath, completed, sent, arrived, total, err)
+			fileName, completed, sent, arrived, total, err)
 		if (sent == 0 && arrived == 0) || (arrived == total) || completed ||
 			err != nil {
 			fmt.Printf("Sent progress callback for %q "+
 				"{completed: %t, sent: %d, arrived: %d, total: %d, err: %v}\n",
-				filePath, completed, sent, arrived, total, err)
+				fileName, completed, sent, arrived, total, err)
 		}
 
 		if completed {
@@ -215,11 +219,11 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 	}
 
 	// Send the file
-	_, err = m.Send(filePath, fileType, fileData, recipient.ID, retry,
+	_, err = m.Send(fileName, fileType, fileData, recipient.ID, retry,
 		filePreviewData, progressCB, callbackPeriod)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to send file %q to %s: %+v",
-			filePath, recipient.ID, err)
+			fileName, recipient.ID, err)
 	}
 }
 
@@ -229,23 +233,25 @@ func receiveNewFileTransfers(receive chan receivedFtResults, done,
 	quit chan struct{}, m *ft.Manager) {
 	jww.DEBUG.Print("Starting thread waiting to receive NewFileTransfer " +
 		"E2E message.")
-	select {
-	case <-quit:
-		jww.DEBUG.Print("Quitting thread waiting for NewFileTransfer E2E " +
-			"message.")
-		return
-	case r := <-receive:
-		jww.DEBUG.Printf("Received new file %q transfer %s from %s of size %d "+
-			"bytes with preview: %q",
-			r.fileName, r.tid, r.sender, r.size, r.preview)
-		fmt.Printf("Received new file transfer %q of size %d "+
-			"bytes with preview: %q\n", r.fileName, r.size, r.preview)
+	for {
+		select {
+		case <-quit:
+			jww.DEBUG.Print("Quitting thread waiting for NewFileTransfer E2E " +
+				"message.")
+			return
+		case r := <-receive:
+			jww.DEBUG.Printf("Received new file %q transfer %s of type %q "+
+				"from %s of size %d bytes with preview: %q",
+				r.fileName, r.tid, r.fileType, r.sender, r.size, r.preview)
+			fmt.Printf("Received new file transfer %q of size %d "+
+				"bytes with preview: %q\n", r.fileName, r.size, r.preview)
 
-		cb := newReceiveProgressCB(r.tid, done, m)
-		err := m.RegisterReceiveProgressCallback(r.tid, cb, callbackPeriod)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to register new receive progress "+
-				"callback for transfer %s: %+v", r.tid, err)
+			cb := newReceiveProgressCB(r.tid, done, m)
+			err := m.RegisterReceiveProgressCallback(r.tid, cb, callbackPeriod)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to register new receive progress "+
+					"callback for transfer %s: %+v", r.tid, err)
+			}
 		}
 	}
 }
@@ -303,16 +309,16 @@ func getContactFromFile(path string) contact.Contact {
 // init initializes commands and flags for Cobra.
 func init() {
 	ftCmd.Flags().String("sendFile", "",
-		"Sends a file to a recipient with with the contact at this path.")
+		"Sends a file to a recipient with with the contact file at this path.")
 	bindPFlagCheckErr("sendFile")
 
-	ftCmd.Flags().String("filePath", "testFile-"+timeNanoString()+".txt",
+	ftCmd.Flags().String("filePath", "",
 		"The path to the file to send. Also used as the file name.")
 	bindPFlagCheckErr("filePath")
 
 	ftCmd.Flags().String("fileType", "txt",
 		"8-byte file type.")
-	bindPFlagCheckErr("filePath")
+	bindPFlagCheckErr("fileType")
 
 	ftCmd.Flags().String("filePreviewPath", "",
 		"The path to the file preview to send. Set either this flag or "+
@@ -332,11 +338,6 @@ func init() {
 	bindPFlagCheckErr("retry")
 
 	rootCmd.AddCommand(ftCmd)
-}
-
-// timeNanoString returns the current UNIX time in nanoseconds as a string.
-func timeNanoString() string {
-	return strconv.Itoa(int(netTime.Now().UnixNano()))
 }
 
 // bindPFlagCheckErr binds the key to a pflag.Flag used by Cobra and prints an

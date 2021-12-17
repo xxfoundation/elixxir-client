@@ -23,6 +23,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"google.golang.org/grpc/grpclog"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"time"
@@ -522,4 +523,14 @@ func (c *Client) getSingle() (*single.Manager, error) {
 	}
 
 	return c.single, nil
+}
+
+// DumpStack returns a string with the stack trace of every running thread.
+func DumpStack() (string, error) {
+	buf := new(bytes.Buffer)
+	err := pprof.Lookup("goroutine").WriteTo(buf, 2)
+	if err!=nil{
+		return "", err
+	}
+	return buf.String(), nil
 }

@@ -232,8 +232,8 @@ func newTestManagerWithTransfers(numParts []uint16, sendErr bool,
 		cbChan := make(chan sentProgressResults, 6)
 
 		cb := func(completed bool, sent, arrived, total uint16,
-			t interfaces.FilePartTracker, err error) {
-			cbChan <- sentProgressResults{completed, sent, arrived, total, err}
+			tr interfaces.FilePartTracker, err error) {
+			cbChan <- sentProgressResults{completed, sent, arrived, total, tr, err}
 		}
 
 		sti[i].cbChan = cbChan
@@ -267,8 +267,8 @@ func newTestManagerWithTransfers(numParts []uint16, sendErr bool,
 		cbChan := make(chan receivedProgressResults, 6)
 
 		cb := func(completed bool, received, total uint16,
-			t interfaces.FilePartTracker, err error) {
-			cbChan <- receivedProgressResults{completed, received, total, err}
+			tr interfaces.FilePartTracker, err error) {
+			cbChan <- receivedProgressResults{completed, received, total, tr, err}
 		}
 
 		rti[i].cbChan = cbChan
@@ -300,6 +300,7 @@ type receivedFtResults struct {
 type sentProgressResults struct {
 	completed            bool
 	sent, arrived, total uint16
+	tracker              interfaces.FilePartTracker
 	err                  error
 }
 
@@ -324,6 +325,7 @@ type sentTransferInfo struct {
 type receivedProgressResults struct {
 	completed       bool
 	received, total uint16
+	tracker         interfaces.FilePartTracker
 	err             error
 }
 

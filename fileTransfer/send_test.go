@@ -122,7 +122,7 @@ func TestManager_sendThread_Timeout(t *testing.T) {
 		go func(i int, st sentTransferInfo) {
 			for j := 0; j < 2; j++ {
 				select {
-				case <-time.NewTimer(20*time.Millisecond + pollSleepDuration).C:
+				case <-time.NewTimer(80*time.Millisecond + pollSleepDuration).C:
 					t.Errorf("Timed out waiting for callback #%d", i)
 				case r := <-st.cbChan:
 					if j > 0 {
@@ -751,10 +751,10 @@ func TestManager_makeRoundEventCallback_RoundFailure(t *testing.T) {
 	<-done1
 }
 
-// Error path: tests that Manager.makeRoundEventCallback panics when
+// Panic path: tests that Manager.makeRoundEventCallback panics when
 // SentTransfer.FinishTransfer returns an error because the file parts had not
 // previously been set to in-progress.
-func TestManager_makeRoundEventCallback_FinishTransferError(t *testing.T) {
+func TestManager_makeRoundEventCallback_FinishTransferPanic(t *testing.T) {
 	m := newTestManager(false, nil, nil, nil, t)
 
 	prng := NewPrng(42)
@@ -775,10 +775,10 @@ func TestManager_makeRoundEventCallback_FinishTransferError(t *testing.T) {
 
 	expectedErr := strings.Split(finishTransferPanic, "%")[0]
 	defer func() {
-		err := recover()
-		if err == nil || !strings.Contains(err.(string), expectedErr) {
+		err2 := recover()
+		if err2 == nil || !strings.Contains(err2.(string), expectedErr) {
 			t.Errorf("makeRoundEventCallback failed to panic or returned the "+
-				"wrong error.\nexpected: %s\nreceived: %+v", expectedErr, err)
+				"wrong error.\nexpected: %s\nreceived: %+v", expectedErr, err2)
 		}
 	}()
 

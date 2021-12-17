@@ -31,7 +31,7 @@ func (m *Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) 
 		select {
 		case <-stop.Quit():
 			jww.DEBUG.Print("Stopping file part reception thread: stoppable " +
-				"triggered")
+				"triggered.")
 			stop.ToStopped()
 			return
 		case receiveMsg := <-rawMsgs:

@@ -241,8 +241,8 @@ func TestManager_RegisterSendProgressCallback(t *testing.T) {
 	// Create new callback and channel for the callback to trigger
 	cbChan := make(chan sentProgressResults, 6)
 	cb := func(completed bool, sent, arrived, total uint16,
-		t interfaces.FilePartTracker, err error) {
-		cbChan <- sentProgressResults{completed, sent, arrived, total, err}
+		tr interfaces.FilePartTracker, err error) {
+		cbChan <- sentProgressResults{completed, sent, arrived, total, tr, err}
 	}
 
 	// Start thread waiting for callback to be called
@@ -452,8 +452,8 @@ func TestManager_RegisterReceiveProgressCallback(t *testing.T) {
 	// Create new callback and channel for the callback to trigger
 	cbChan := make(chan receivedProgressResults, 6)
 	cb := func(completed bool, received, total uint16,
-		t interfaces.FilePartTracker, err error) {
-		cbChan <- receivedProgressResults{completed, received, total, err}
+		tr interfaces.FilePartTracker, err error) {
+		cbChan <- receivedProgressResults{completed, received, total, tr, err}
 	}
 
 	// Start thread waiting for callback to be called
@@ -579,8 +579,8 @@ func Test_FileTransfer(t *testing.T) {
 	// Create progress tracker for sending
 	sentCbChan := make(chan sentProgressResults, 20)
 	sentCb := func(completed bool, sent, arrived, total uint16,
-		t interfaces.FilePartTracker, err error) {
-		sentCbChan <- sentProgressResults{completed, sent, arrived, total, err}
+		tr interfaces.FilePartTracker, err error) {
+		sentCbChan <- sentProgressResults{completed, sent, arrived, total, tr, err}
 	}
 
 	// Start threads that tracks sent progress until complete
@@ -637,8 +637,8 @@ func Test_FileTransfer(t *testing.T) {
 	// Register progress callback with receiving manager
 	receiveCbChan := make(chan receivedProgressResults, 100)
 	receiveCb := func(completed bool, received, total uint16,
-		t interfaces.FilePartTracker, err error) {
-		receiveCbChan <- receivedProgressResults{completed, received, total, err}
+		tr interfaces.FilePartTracker, err error) {
+		receiveCbChan <- receivedProgressResults{completed, received, total, tr, err}
 	}
 
 	// Start threads that tracks received progress until complete
@@ -647,18 +647,15 @@ func Test_FileTransfer(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < 20; i++ {
 			select {
-			case <-time.NewTimer(250 * time.Millisecond).C:
+			case <-time.NewTimer(450 * time.Millisecond).C:
 				t.Errorf("Timed out waiting for receive progress callback %d.", i)
 			case r := <-receiveCbChan:
 				if r.completed {
 					// Count the number of parts marked as received
 					count := 0
 					for j := uint16(0); j < r.total; j++ {
-						status, err2 := m2.GetReceivedPartStatus(receiveTid, j)
-						if err2 != nil {
-							t.Errorf("Failed to get part %d status: %+v", j, err2)
-						}
-						if status == received {
+						status := r.tracker.GetPartStatus(j)
+						if status == 3 {
 							count++
 						}
 					}
@@ -667,7 +664,7 @@ func Test_FileTransfer(t *testing.T) {
 					// callback matches the number marked received
 					if count != int(r.received) {
 						t.Errorf("Number of parts marked received does not match "+
-							"number reported by callback.\nmarked: %d\ncallback: %d",
+							"number reported by callback.\nmarked:   %d\ncallback: %d",
 							count, r.received)
 					}
 

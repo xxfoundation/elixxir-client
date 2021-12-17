@@ -296,7 +296,7 @@ func TestReceivedFileTransfers_DeleteTransfer(t *testing.T) {
 
 	// Check that all the fingerprints in the info map were deleted
 	for fpNum, fp := range ftCrypto.GenerateFingerprints(key, numFps) {
-		_, exists := rft.info[fp]
+		_, exists = rft.info[fp]
 		if exists {
 			t.Errorf("Part fingerprint %s (#%d) found in map when it should "+
 				"have been deleted.", fp, fpNum)

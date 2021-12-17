@@ -10,6 +10,7 @@ package fileTransfer
 import (
 	"bytes"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -35,6 +36,7 @@ const (
 
 	newSentTransferErr    = "failed to create new sent transfer: %+v"
 	getSentTransferErr    = "sent file transfer not found"
+	cancelCallbackErr     = "Transfer with ID %s: %+v"
 	deleteSentTransferErr = "failed to delete sent transfer with ID %s from store: %+v"
 )
 
@@ -109,13 +111,19 @@ func (sft *SentFileTransfers) DeleteTransfer(tid ftCrypto.TransferID) error {
 	defer sft.mux.Unlock()
 
 	// Return an error if the transfer does not exist
-	_, exists := sft.transfers[tid]
+	st, exists := sft.transfers[tid]
 	if !exists {
 		return errors.New(getSentTransferErr)
 	}
 
+	// Cancel any scheduled callbacks
+	err := st.StopScheduledProgressCB()
+	if err != nil {
+		jww.WARN.Print(errors.Errorf(cancelCallbackErr, tid, err))
+	}
+
 	// Delete all data the transfer saved to storage
-	err := sft.transfers[tid].delete()
+	err = st.delete()
 	if err != nil {
 		return errors.Errorf(deleteSentTransferErr, tid, err)
 	}

@@ -317,3 +317,36 @@ func TestBuff_GetNextMessage(t *testing.T) {
 	}
 
 }
+
+// TestBuff_marshalUnmarshal tests that the Buff's marshal and unmarshalBuffer functionality
+// are inverse methods.
+func TestLoadBuff(t *testing.T) {
+	// Initialize buffer
+	kv := versioned.NewKV(make(ekv.Memstore))
+	buffLen := 20
+	testBuff, err := NewBuff(kv, buffLen)
+	if err != nil {
+		t.Fatalf("NewBuff error: %v", err)
+	}
+
+	// Insert buffLen elements to overwrite element inserted above
+	for i := 0; i < buffLen; i++ {
+		timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
+		mid := NewMessageIdFromBytes([]byte(strconv.Itoa(i)))
+		err = testBuff.Add(mid, timestamp)
+		if err != nil {
+			t.Fatalf("Add error: %v", err)
+		}
+	}
+
+	// Load buffer from storage
+	received, err := LoadBuff(kv)
+	if err != nil {
+		t.Fatalf("LoadBuff error: %v", err)
+	}
+
+	if reflect.DeepEqual(testBuff, received) {
+		t.Fatalf("Loaded buffer does not match stored.")
+	}
+
+}

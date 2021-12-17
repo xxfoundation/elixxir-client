@@ -182,7 +182,7 @@ func LoadBuff(kv *versioned.KV) (*Buff, error) {
 	}
 
 	// Unmarshal ring buffer from data
-	newest, oldest, list := unmarshal(vo.Data)
+	newest, oldest, list := unmarshalBuffer(vo.Data)
 
 	// Construct buffer
 	rb := &Buff{
@@ -267,8 +267,8 @@ func (rb *Buff) marshal() []byte {
 	return buff.Bytes()
 }
 
-// unmarshal unmarshalls a byte slice into Buff information.
-func unmarshal(b []byte) (newest, oldest uint32,
+// unmarshalBuffer unmarshalls a byte slice into Buff information.
+func unmarshalBuffer(b []byte) (newest, oldest uint32,
 	list []truncatedMessageId) {
 	buff := bytes.NewBuffer(b)
 

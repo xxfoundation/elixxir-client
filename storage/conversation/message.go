@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/binary"
-	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage/versioned"
 	"time"
 )
 
@@ -30,18 +28,6 @@ type Message struct {
 	// The ID of the message
 	MessageId MessageId
 	Timestamp time.Time
-}
-
-// loadMessage loads a message given truncatedMessageId from storage.
-func loadMessage(tmid truncatedMessageId, kv *versioned.KV) (*Message, error) {
-	// Load message from storage
-	vo, err := kv.Get(makeMessageKey(tmid), messageVersion)
-	if err != nil {
-		return nil, errors.Errorf(loadMessageErr, tmid, err)
-	}
-
-	// Unmarshal message
-	return unmarshalMessage(vo.Data), nil
 }
 
 // marshal creates a byte buffer containing the serialized information

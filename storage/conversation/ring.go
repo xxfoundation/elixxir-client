@@ -66,7 +66,6 @@ func NewBuff(kv *versioned.KV, n int) (*Buff, error) {
 func (rb *Buff) Add(id MessageId, timestamp time.Time) {
 	rb.mux.Lock()
 	defer rb.mux.Unlock()
-	rb.next()
 
 	m := &Message{
 		Id:        rb.newest,
@@ -140,10 +139,20 @@ func (rb *Buff) next() {
 	}
 }
 
-// push a Message to the Buff.
+// push adds a Message to the Buff, clearing the overwritten message from
+// both the buff and the lookup structures.
 func (rb *Buff) push(val *Message) {
 	rb.next()
+	rb.handleMessageOverwrite()
 	rb.buff[rb.newest%uint32(len(rb.buff))] = val
+}
+
+// handleMessageOverwrite is a helper function which deletes the message
+// that will be overwritten by push from the lookup structure.
+func (rb *Buff) handleMessageOverwrite() {
+	overwriteIndex := rb.newest % uint32(len(rb.buff))
+	messageToOverwrite := rb.buff[overwriteIndex]
+	delete(rb.lookup, messageToOverwrite.MessageId.truncate())
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -244,20 +253,6 @@ func (rb *Buff) marshal() []byte {
 	return buff.Bytes()
 }
 
-// saveMessage saves a Message to storage, using the truncatedMessageId
-// as the KV key.
-func (rb *Buff) saveMessage(msg *Message) error {
-	obj := &versioned.Object{
-		Version:   messageVersion,
-		Timestamp: netTime.Now(),
-		Data:      msg.marshal(),
-	}
-
-	return rb.kv.Set(
-		makeMessageKey(msg.MessageId.truncate()), messageVersion, obj)
-
-}
-
 // unmarshal unmarshalls a byte slice into Buff information.
 func unmarshal(b []byte) (newest, oldest uint32,
 	list []truncatedMessageId) {
@@ -278,6 +273,32 @@ func unmarshal(b []byte) (newest, oldest uint32,
 	}
 
 	return
+}
+
+// saveMessage saves a Message to storage, using the truncatedMessageId
+// as the KV key.
+func (rb *Buff) saveMessage(msg *Message) error {
+	obj := &versioned.Object{
+		Version:   messageVersion,
+		Timestamp: netTime.Now(),
+		Data:      msg.marshal(),
+	}
+
+	return rb.kv.Set(
+		makeMessageKey(msg.MessageId.truncate()), messageVersion, obj)
+
+}
+
+// loadMessage loads a message given truncatedMessageId from storage.
+func loadMessage(tmid truncatedMessageId, kv *versioned.KV) (*Message, error) {
+	// Load message from storage
+	vo, err := kv.Get(makeMessageKey(tmid), messageVersion)
+	if err != nil {
+		return nil, errors.Errorf(loadMessageErr, tmid, err)
+	}
+
+	// Unmarshal message
+	return unmarshalMessage(vo.Data), nil
 }
 
 // makeMessageKey generates te key used to save a message to storage.

@@ -63,17 +63,17 @@ func NewBuff(kv *versioned.KV, n int) (*Buff, error) {
 }
 
 // Add pushes a message to the circular buffer Buff.
-func (rb *Buff) Add(id MessageId, timestamp time.Time) {
+func (rb *Buff) Add(id MessageId, timestamp time.Time) error {
 	rb.mux.Lock()
 	defer rb.mux.Unlock()
 
-	m := &Message{
+	rb.push(&Message{
 		Id:        rb.newest,
 		MessageId: id,
 		Timestamp: timestamp,
-	}
+	})
 
-	rb.push(m)
+	return rb.save()
 
 }
 

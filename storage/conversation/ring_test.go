@@ -69,12 +69,18 @@ func TestBuff_Add(t *testing.T) {
 		id:        0,
 	}
 
+	// Check map
 	if !reflect.DeepEqual(expected, received) {
 		t.Fatalf("Expected Message not found in map."+
 			"\n\tExpected: %v"+
 			"\n\tReceived: %v", expected, received)
 	}
 
-	f
+	// Check buffer
+	if !reflect.DeepEqual(testBuff.buff[0], expected) {
+		t.Fatalf("Expected message not found in buffer."+
+			"\n\tExpected: %v"+
+			"\n\tReceived: %v", expected, testBuff.buff[0])
+	}
 
 }

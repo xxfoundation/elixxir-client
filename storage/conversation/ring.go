@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
+	"math"
 	"sync"
 	"time"
 )
@@ -54,7 +55,9 @@ func NewBuff(kv *versioned.KV, n int) (*Buff, error) {
 		buff:   make([]*Message, n),
 		lookup: make(map[truncatedMessageId]*Message, n),
 		oldest: 0,
-		newest: 0,
+		// Set to max int since index is unsigned.
+		// Upon first insert, index will overflow back to zero.
+		newest: math.MaxUint32,
 		kv:     kv,
 	}
 
@@ -66,9 +69,7 @@ func NewBuff(kv *versioned.KV, n int) (*Buff, error) {
 func (rb *Buff) Add(id MessageId, timestamp time.Time) error {
 	rb.mux.Lock()
 	defer rb.mux.Unlock()
-
 	rb.push(&Message{
-		id:        rb.newest,
 		MessageId: id,
 		Timestamp: timestamp,
 	})
@@ -143,6 +144,8 @@ func (rb *Buff) next() {
 func (rb *Buff) push(val *Message) {
 	// Update circular buffer trackers
 	rb.next()
+
+	val.id = rb.newest
 
 	// Handle overwrite of the oldest message
 	rb.handleMessageOverwrite()

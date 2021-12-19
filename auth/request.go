@@ -90,13 +90,6 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 	msgPayloadBytes := []byte(msgPayload)
 
 	/*cryptographic generation*/
-	//generate salt
-	salt := make([]byte, saltSize)
-	_, err = rng.Read(salt)
-	if err != nil {
-		return 0, errors.Wrap(err, "Failed to generate salt")
-	}
-
 	var newPrivKey, newPubKey *cyclic.Int
 	var sidHPrivKeyA *sidh.PrivateKey
 	var sidHPubKeyA *sidh.PublicKey
@@ -144,13 +137,12 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 	requestFmt.SetMsgPayload(msgPayloadBytes)
 	ecrFmt.SetOwnership(ownership)
 	ecrPayload, mac := cAuth.Encrypt(newPrivKey, partner.DhPubKey,
-		salt, ecrFmt.data, grp)
+		ecrFmt.data, grp)
 	confirmFp := cAuth.MakeOwnershipProofFP(ownership)
 	requestfp := cAuth.MakeRequestFingerprint(partner.DhPubKey)
 
 	/*construct message*/
 	baseFmt.SetEcrPayload(ecrPayload)
-	baseFmt.SetSalt(salt)
 	baseFmt.SetSidHPubKey(sidHPubKeyA)
 	baseFmt.SetPubKey(newPubKey)
 
@@ -164,7 +156,6 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 		Source: partner.ID[:],
 	}, me.ID)
 
-	jww.TRACE.Printf("RequestAuth SALT: %v", salt)
 	jww.TRACE.Printf("RequestAuth ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
 	jww.TRACE.Printf("RequestAuth MAC: %v", mac)
 

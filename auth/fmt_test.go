@@ -20,7 +20,7 @@ import (
 func TestNewBaseFormat(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
-	payloadSize := saltSize + pubKeySize + sidhinterface.PubKeyByteSize + 1
+	payloadSize := pubKeySize + sidhinterface.PubKeyByteSize + 1
 	baseMsg := newBaseFormat(payloadSize, pubKeySize,
 		sidhinterface.PubKeyByteSize)
 
@@ -32,15 +32,8 @@ func TestNewBaseFormat(t *testing.T) {
 			"\n\tReceived: %v", make([]byte, pubKeySize), baseMsg.pubkey)
 	}
 
-	if !bytes.Equal(baseMsg.salt, make([]byte, saltSize)) {
-		t.Errorf("NewBaseFormat error: "+
-			"Unexpected salt field in base format."+
-			"\n\tExpected: %v"+
-			"\n\tReceived: %v", make([]byte, saltSize), baseMsg.salt)
-	}
-
 	expectedEcrPayloadSize := payloadSize - (pubKeySize +
-		sidhinterface.PubKeyByteSize + saltSize + 1)
+		sidhinterface.PubKeyByteSize + 1)
 	if !bytes.Equal(baseMsg.ecrPayload, make([]byte, expectedEcrPayloadSize)) {
 		t.Errorf("NewBaseFormat error: "+
 			"Unexpected payload field in base format."+
@@ -48,7 +41,7 @@ func TestNewBaseFormat(t *testing.T) {
 			"\n\tReceived: %v", make([]byte, expectedEcrPayloadSize), baseMsg.ecrPayload)
 	}
 
-	// Error case, where payload size is less than the public key plus salt
+	// Error case, where payload size is less than the public key 
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("newBaseFormat() did not panic when the size of " +
@@ -65,7 +58,7 @@ func TestNewBaseFormat(t *testing.T) {
 func TestBaseFormat_SetGetPubKey(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
-	payloadSize := saltSize + pubKeySize + sidhinterface.PubKeyByteSize + 1
+	payloadSize := pubKeySize + sidhinterface.PubKeyByteSize + 1
 	baseMsg := newBaseFormat(payloadSize, pubKeySize,
 		sidhinterface.PubKeyByteSize)
 
@@ -90,52 +83,17 @@ func TestBaseFormat_SetGetPubKey(t *testing.T) {
 
 }
 
-// Set/Get salt tests
-func TestBaseFormat_SetGetSalt(t *testing.T) {
-	// Construct message
-	pubKeySize := 256
-	payloadSize := saltSize + pubKeySize + sidhinterface.PubKeyByteSize + 1
-	baseMsg := newBaseFormat(payloadSize, pubKeySize,
-		sidhinterface.PubKeyByteSize)
-
-	// Test setter
-	salt := newSalt("salt")
-	baseMsg.SetSalt(salt)
-	if !bytes.Equal(salt, baseMsg.salt) {
-		t.Errorf("SetSalt() error: "+
-			"Salt field does not have expected value."+
-			"\n\tExpected: %v\n\tReceived: %v", salt, baseMsg.salt)
-	}
-
-	// Test getter
-	receivedSalt := baseMsg.GetSalt()
-	if !bytes.Equal(salt, receivedSalt) {
-		t.Errorf("GetSalt() error: "+
-			"Salt retrieved does not have expected value."+
-			"\n\tExpected: %v\n\tReceived: %v", salt, receivedSalt)
-	}
-
-	// Test setter error path: Setting salt of incorrect size
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("SetSalt() did not panic when the size of " +
-				"the salt is smaller than the required salt size.")
-		}
-	}()
-
-	baseMsg.SetSalt([]byte("salt"))
-}
 
 // Set/Get EcrPayload tests
 func TestBaseFormat_SetGetEcrPayload(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
-	payloadSize := (saltSize + pubKeySize + sidhinterface.PubKeyByteSize) * 2
+	payloadSize := (pubKeySize + sidhinterface.PubKeyByteSize) * 2
 	baseMsg := newBaseFormat(payloadSize, pubKeySize,
 		sidhinterface.PubKeyByteSize)
 
 	// Test setter
-	ecrPayloadSize := payloadSize - (pubKeySize + saltSize +
+	ecrPayloadSize := payloadSize - (pubKeySize +
 		sidhinterface.PubKeyByteSize + 1)
 	ecrPayload := newPayload(ecrPayloadSize, "ecrPayload")
 	baseMsg.SetEcrPayload(ecrPayload)
@@ -169,15 +127,13 @@ func TestBaseFormat_SetGetEcrPayload(t *testing.T) {
 func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 	// Construct a fully populated message
 	pubKeySize := 256
-	payloadSize := (saltSize + pubKeySize + sidhinterface.PubKeyByteSize) * 2
+	payloadSize := (pubKeySize + sidhinterface.PubKeyByteSize) * 2
 	baseMsg := newBaseFormat(payloadSize, pubKeySize,
 		sidhinterface.PubKeyByteSize)
-	ecrPayloadSize := payloadSize - (pubKeySize + saltSize +
+	ecrPayloadSize := payloadSize - (pubKeySize +
 		sidhinterface.PubKeyByteSize + 1)
 	ecrPayload := newPayload(ecrPayloadSize, "ecrPayload")
 	baseMsg.SetEcrPayload(ecrPayload)
-	salt := newSalt("salt")
-	baseMsg.SetSalt(salt)
 	grp := getGroup()
 	pubKey := grp.NewInt(25)
 	baseMsg.SetPubKey(pubKey)
@@ -235,7 +191,7 @@ func TestNewEcrFormat(t *testing.T) {
 			"\n\tReceived: %v", make([]byte, payloadSize-ownershipSize), ecrMsg.payload)
 	}
 
-	// Error case, where payload size is less than the public key plus salt
+	// Error case, where payload size is less than the public key
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("newEcrFormat() did not panic when the size of " +

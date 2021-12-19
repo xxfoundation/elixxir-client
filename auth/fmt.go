@@ -17,23 +17,20 @@ import (
 )
 
 //Basic Format//////////////////////////////////////////////////////////////////
-const saltSize = 32
-
 type baseFormat struct {
 	data       []byte
 	pubkey     []byte
 	sidHpubkey []byte
-	salt       []byte
 	ecrPayload []byte
 }
 
 func newBaseFormat(payloadSize, pubkeySize, sidHPubkeySize int ) baseFormat {
 	// NOTE: sidhPubKey needs an extra byte to hold the variant setting
-	total := pubkeySize + sidHPubkeySize + 1 + saltSize
+	total := pubkeySize + sidHPubkeySize + 1
 	if payloadSize < total {
 		jww.FATAL.Panicf("Size of baseFormat is too small (%d), must be big " +
-			"enough to contain public key (%d) sidHPublicKey (%d + 1) and salt (%d) " +
-			"which totals to %d", payloadSize, pubkeySize, sidHPubkeySize, saltSize,
+			"enough to contain public key (%d) sidHPublicKey (%d + 1) " +
+			"which totals to %d", payloadSize, pubkeySize, sidHPubkeySize,
 			total)
 	}
 
@@ -59,16 +56,12 @@ func buildBaseFormat(data []byte, pubkeySize, sidHPubkeySize int) baseFormat {
 	f.sidHpubkey = f.data[start:end]
 
 	start = end
-	end = start + saltSize
-	f.salt = f.data[start:end]
-
-	start = end
 	f.ecrPayload = f.data[start:]
 	return f
 }
 
 func unmarshalBaseFormat(b []byte, pubkeySize, sidHPubkeySize int) (baseFormat, error) {
-	if len(b) < pubkeySize+saltSize {
+	if len(b) < pubkeySize {
 		return baseFormat{}, errors.New("Received baseFormat too small")
 	}
 
@@ -98,18 +91,6 @@ func (f baseFormat) GetSidhPubKey() (*sidh.PublicKey, error) {
 	pubKey := util.NewSIDHPublicKey(variant)
 	err := pubKey.Import(f.sidHpubkey[1:])
 	return pubKey, err
-}
-
-func (f baseFormat) GetSalt() []byte {
-	return f.salt
-}
-
-func (f baseFormat) SetSalt(salt []byte) {
-	if len(salt) != saltSize {
-		jww.FATAL.Panicf("Salt incorrect size")
-	}
-
-	copy(f.salt, salt)
 }
 
 func (f baseFormat) GetEcrPayload() []byte {

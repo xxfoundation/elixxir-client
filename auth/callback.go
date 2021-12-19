@@ -100,12 +100,11 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	jww.TRACE.Printf("handleRequest PARTNERPUBKEY: %v", partnerPubKey.Bytes())
 
 	//decrypt the message
-	jww.TRACE.Printf("handleRequest SALT: %v", baseFmt.GetSalt())
 	jww.TRACE.Printf("handleRequest ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
 	jww.TRACE.Printf("handleRequest MAC: %v", cmixMsg.GetMac())
 
 	success, payload := cAuth.Decrypt(myHistoricalPrivKey,
-		partnerPubKey, baseFmt.GetSalt(), baseFmt.GetEcrPayload(),
+		partnerPubKey, baseFmt.GetEcrPayload(),
 		cmixMsg.GetMac(), grp)
 
 	if !success {
@@ -283,11 +282,10 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	jww.TRACE.Printf("handleConfirm SRMYPUBKEY: %v", sr.GetMyPubKey().Bytes())
 
 	// decrypt the payload
-	jww.TRACE.Printf("handleConfirm SALT: %v", baseFmt.GetSalt())
 	jww.TRACE.Printf("handleConfirm ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
 	jww.TRACE.Printf("handleConfirm MAC: %v", cmixMsg.GetMac())
 	success, payload := cAuth.Decrypt(sr.GetMyPrivKey(),
-		partnerPubKey, baseFmt.GetSalt(), baseFmt.GetEcrPayload(),
+		partnerPubKey, baseFmt.GetEcrPayload(),
 		cmixMsg.GetMac(), grp)
 
 	if !success {

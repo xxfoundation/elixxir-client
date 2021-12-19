@@ -74,14 +74,6 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	newSIDHPrivKey.Generate(rng)
 	newSIDHPrivKey.GeneratePublicKey(newSIDHPubKey)
 
-	//generate salt
-	salt := make([]byte, saltSize)
-	_, err = rng.Read(salt)
-	if err != nil {
-		return 0, errors.Wrap(err, "Failed to generate salt for "+
-			"confirmation")
-	}
-
 	/*construct message*/
 	// we build the payload before we save because it is technically fallible
 	// which can get into a bricked state if it fails
@@ -96,7 +88,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 
 	//encrypt the payload
 	ecrPayload, mac := cAuth.Encrypt(newPrivKey, partner.DhPubKey,
-		salt, ecrFmt.data, grp)
+		ecrFmt.data, grp)
 
 	//get the fingerprint from the old ownership proof
 	fp := cAuth.MakeOwnershipProofFP(storedContact.OwnershipProof)
@@ -104,7 +96,6 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 
 	//final construction
 	baseFmt.SetEcrPayload(ecrPayload)
-	baseFmt.SetSalt(salt)
 	baseFmt.SetPubKey(newPubKey)
 	baseFmt.SetSidHPubKey(newSIDHPubKey)
 

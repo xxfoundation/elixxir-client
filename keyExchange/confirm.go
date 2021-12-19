@@ -72,7 +72,7 @@ func handleConfirm(sess *storage.Session, confirmation message.Receive) {
 	if err := confirmedSession.TrySetNegotiationStatus(e2e.Confirmed); err != nil {
 		jww.WARN.Printf("[REKEY] Failed to set the negotiation status for the "+
 			"confirmation of session %s from partner %s. This is expected in "+
-			"some edge cases but could be a sign of an issue if it percists: %s",
+			"some edge cases but could be a sign of an issue if it persists: %s",
 			confirmedSession, partner.GetPartnerID(), err)
 	}
 

@@ -26,7 +26,6 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
 	"strings"
-	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 )
@@ -181,31 +180,66 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				jww.INFO.Printf("Received AuthRequest from %s,"+
 					" msgDigest: %s which has been requested, auto-confirming",
 					partnerID, cmixMsg.Digest())
-				// Note that our sent request SIDH key needs to
-				// change to be compatible
+
+				// Verify this request is legit
+				ownership := ecrFmt.GetOwnership()
+				if !cAuth.VerifyOwnershipProof(
+					myHistoricalPrivKey, partnerPubKey, grp,
+					ownership) {
+						jww.WARN.Printf("Invalid ownership proof from %s received, discarding msdDigest: %s",
+							partnerID, cmixMsg.Digest())
+				}
+
+				// Check if I need to resend by comparing the
+				// SIDH Keys
+				mySIDH := sr2.GetMySIDHPubKey()
+				theirSIDH := partnerSIDHPubKey
+				myBytes := make([]byte, mySIDH.Size())
+				theirBytes := make([]byte, theirSIDH.Size())
+				mySIDH.Export(myBytes)
+				theirSIDH.Export(theirBytes)
+				for i := 0; i < len(myBytes); i++ {
+					if myBytes[i] > theirBytes[i] {
+						// OK, this side is dropping
+						// the request
+						// Do we need to delete
+						// something here?
+						// No, because we will
+						// now wait to receive
+						// confirmation.
+						return
+					} else if myBytes[i] < theirBytes[i] {
+						break
+					}
+				}
+
+				// If I do, delete my request on disk
+				_, _, partnerContact, _ := m.storage.Auth().GetRequest(partnerID)
+				m.storage.Auth().Delete(partnerID)
+
+				// add a confirmation to disk
+				if err = m.storage.Auth().AddReceived(partnerContact,
+					partnerSIDHPubKey); err != nil {
+						em := fmt.Sprintf("failed to store contact Auth "+
+							"Request: %s", err)
+						jww.WARN.Print(em)
+						events.Report(10, "Auth", "RequestError", em)
+					}
+
+				// Call ConfirmRequestAuth to send confirmation
 				rngGen := fastRNG.NewStreamGenerator(1, 1,
 					csprng.NewSystemRNG)
 				rng := rngGen.GetStream()
-				myVariant := util.GetCompatibleSIDHVariant(
-					partnerSIDHPubKey.Variant())
-				myPriv, myPub := util.GenerateSIDHKeyPair(
-					myVariant, rng)
-				sr2.OverwriteSIDHKeys(myPriv, myPub)
-				rng.Close()
-
-				// do the confirmation
-				if err := m.doConfirm(sr2, grp, partnerPubKey,
-					m.storage.E2e().GetDHPrivateKey(),
-					sr2.GetPartnerHistoricalPubKey(),
-					ecrFmt.GetOwnership(),
-					partnerSIDHPubKey); err != nil {
-					em := fmt.Sprintf("Auto Confirmation with %s failed: %s",
-						partnerID, err)
-					jww.WARN.Print(em)
-					events.Report(10, "Auth",
-						"RequestError", em)
+				rndNum, err := ConfirmRequestAuth(partnerContact,
+					rng, m.storage, m.net)
+				if err != nil {
+					jww.ERROR.Printf("Could not ConfirmRequestAuth: %+v",
+						err)
+					return
 				}
-				//exit
+
+				jww.INFO.Printf("ConfirmRequestAuth to %s on round %d",
+					partnerID, rndNum)
 				return
 			}
 		}

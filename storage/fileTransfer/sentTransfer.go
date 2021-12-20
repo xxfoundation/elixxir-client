@@ -129,19 +129,11 @@ type SentTransfer struct {
 
 	// status indicates that the transfer is either done or errored out and
 	// that no more callbacks should be called
-	status transferStatus
+	status TransferStatus
 
 	mux sync.RWMutex
 	kv  *versioned.KV
 }
-
-type transferStatus int
-
-const (
-	running transferStatus = iota
-	stopping
-	stopped
-)
 
 // NewSentTransfer generates a new SentTransfer with the specified transfer key,
 // transfer ID, and number of parts.
@@ -157,7 +149,7 @@ func NewSentTransfer(recipient *id.ID, tid ftCrypto.TransferID,
 		numParts:          uint16(len(parts)),
 		numFps:            numFps,
 		progressCallbacks: []*sentCallbackTracker{},
-		status:            running,
+		status:            Running,
 		kv:                kv.Prefix(makeSentTransferPrefix(tid)),
 	}
 
@@ -221,7 +213,7 @@ func (st *SentTransfer) ReInit(numFps uint16,
 	var err error
 
 	// Mark the status as running
-	st.status = running
+	st.status = Running
 
 	// Update number of fingerprints and overwrite old fingerprint vector
 	st.numFps = numFps
@@ -267,7 +259,7 @@ func (st *SentTransfer) ReInit(numFps uint16,
 		st.progressCallbacks = append(st.progressCallbacks, sct)
 
 		// Trigger the initial call
-		sct.callNowUnsafe(st, nil)
+		sct.callNowUnsafe(true, st, nil)
 	}
 
 	return nil
@@ -311,6 +303,14 @@ func (st *SentTransfer) GetNumAvailableFps() uint16 {
 	defer st.mux.RUnlock()
 
 	return uint16(st.fpVector.GetNumAvailable())
+}
+
+// GetStatus returns the status of the sent transfer.
+func (st *SentTransfer) GetStatus() TransferStatus {
+	st.mux.RLock()
+	defer st.mux.RUnlock()
+
+	return st.status
 }
 
 // IsPartInProgress returns true if the part has successfully been sent. Returns
@@ -362,12 +362,8 @@ func (st *SentTransfer) getProgress() (completed bool, sent, arrived,
 func (st *SentTransfer) CallProgressCB(err error) {
 	st.mux.Lock()
 
-	switch st.status {
-	case stopped:
-		st.mux.Unlock()
-		return
-	case stopping:
-		st.status = stopped
+	if st.status == Stopping {
+		st.status = Stopped
 	}
 
 	st.mux.Unlock()
@@ -417,7 +413,7 @@ func (st *SentTransfer) AddProgressCB(cb interfaces.SentProgressCallback,
 	st.mux.Unlock()
 
 	// Trigger the initial call
-	sct.callNow(st, nil)
+	sct.callNow(true, st, nil)
 }
 
 // GetEncryptedPart gets the specified part, encrypts it, and returns the
@@ -439,7 +435,7 @@ func (st *SentTransfer) GetEncryptedPart(partNum uint16, partSize int,
 	// the status to stopping and return an error specifying that all the
 	// retries have been used
 	if st.fpVector.GetNumAvailable() < 1 {
-		st.status = stopping
+		st.status = Stopping
 		return nil, nil, nil, format.Fingerprint{}, MaxRetriesErr
 	}
 
@@ -509,8 +505,9 @@ func (st *SentTransfer) UnsetInProgress(rid id.Round) ([]uint16, error) {
 }
 
 // FinishTransfer moves the in-progress file parts for the given round to the
-// finished list.
-func (st *SentTransfer) FinishTransfer(rid id.Round) error {
+// finished list. Returns true if all file parts have been marked as finished
+// and false otherwise.
+func (st *SentTransfer) FinishTransfer(rid id.Round) (bool, error) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 
@@ -518,13 +515,13 @@ func (st *SentTransfer) FinishTransfer(rid id.Round) error {
 	// exist
 	partNums, exists := st.inProgressTransfers.getPartNums(rid)
 	if !exists {
-		return errors.Errorf(noPartsForRoundErr, rid)
+		return false, errors.Errorf(noPartsForRoundErr, rid)
 	}
 
 	// Delete the parts from the in-progress list
 	err := st.inProgressTransfers.deletePartNums(rid)
 	if err != nil {
-		return errors.Errorf(deleteInProgressPartsErr, rid, err)
+		return false, errors.Errorf(deleteInProgressPartsErr, rid, err)
 	}
 
 	// Unset parts as in-progress in status vector
@@ -533,7 +530,7 @@ func (st *SentTransfer) FinishTransfer(rid id.Round) error {
 	// Add the parts to the finished list
 	err = st.finishedTransfers.addPartNums(rid, partNums...)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// Set parts as finished in status vector
@@ -543,10 +540,45 @@ func (st *SentTransfer) FinishTransfer(rid id.Round) error {
 	// to stopping
 	if st.finishedTransfers.getNumParts() == st.numParts &&
 		st.inProgressTransfers.getNumParts() == 0 {
-		st.status = stopping
+		st.status = Stopping
+		return true, nil
 	}
 
-	return nil
+	return false, nil
+}
+
+// GetUnsentPartNums returns a list of part numbers that have not been sent.
+func (st *SentTransfer) GetUnsentPartNums() []uint16 {
+	st.mux.RLock()
+	defer st.mux.RUnlock()
+
+	// Initialize list with a capacity for all unsent parts
+	numUnsentParts := uint32(st.numParts) - st.inProgressStatus.GetNumUsed() -
+		st.finishedStatus.GetNumUsed()
+	unsentPartNums := make([]uint16, 0, numUnsentParts)
+
+	// Loop through each part and add it to the list if it is not marked as
+	// in-progress or finished
+	for i := uint16(0); i < st.numParts; i++ {
+		if !st.inProgressStatus.Used(uint32(i)) &&
+			!st.finishedStatus.Used(uint32(i)) {
+			unsentPartNums = append(unsentPartNums, i)
+		}
+	}
+
+	return unsentPartNums
+}
+
+// GetSentRounds returns a list of round IDs that parts were sent on (in-
+// progress parts) that were never marked as finished.
+func (st *SentTransfer) GetSentRounds() []id.Round {
+	sentRounds := make([]id.Round, 0, len(st.inProgressTransfers.list))
+
+	for rid := range st.inProgressTransfers.list {
+		sentRounds = append(sentRounds, rid)
+	}
+
+	return sentRounds
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -698,8 +730,6 @@ func (st *SentTransfer) deleteInfo() error {
 	return st.kv.Delete(sentTransferKey, sentTransferVersion)
 }
 
-// marshal serializes the transfer key, numParts, and numFps.
-
 // marshal serializes all primitive fields in SentTransfer (recipient, key,
 // numParts, numFps, and status).
 func (st *SentTransfer) marshal() []byte {
@@ -729,9 +759,7 @@ func (st *SentTransfer) marshal() []byte {
 	buff.Write(b)
 
 	// Write the transfer status to the buffer
-	b = make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, uint64(st.status))
-	buff.Write(b)
+	buff.Write(st.status.Marshal())
 
 	// Return the serialized data
 	return buff.Bytes()
@@ -740,7 +768,7 @@ func (st *SentTransfer) marshal() []byte {
 // unmarshalSentTransfer deserializes a byte slice into the primitive fields
 // of SentTransfer (recipient, key, numParts, numFps, and status).
 func unmarshalSentTransfer(b []byte) (recipient *id.ID,
-	key ftCrypto.TransferKey, numParts, numFps uint16, status transferStatus) {
+	key ftCrypto.TransferKey, numParts, numFps uint16, status TransferStatus) {
 
 	buff := bytes.NewBuffer(b)
 
@@ -758,7 +786,7 @@ func unmarshalSentTransfer(b []byte) (recipient *id.ID,
 	numFps = binary.LittleEndian.Uint16(buff.Next(2))
 
 	// Read the transfer status from the buffer
-	status = transferStatus(binary.LittleEndian.Uint64(buff.Next(8)))
+	status = UnmarshalTransferStatus(buff.Next(8))
 
 	return recipient, key, numParts, numFps, status
 }

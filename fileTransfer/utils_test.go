@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -43,14 +44,14 @@ import (
 // newFile generates a file with random data of size numParts * partSize.
 // Returns the full file and the file parts. If the partSize allows, each part
 // starts with a "|<[PART_001]" and ends with a ">|".
-func newFile(numParts uint16, partSize uint32, prng io.Reader, t *testing.T) (
+func newFile(numParts uint16, partSize int, prng io.Reader, t *testing.T) (
 	[]byte, [][]byte) {
 	const (
 		prefix = "|<[PART_%3d]"
 		suffix = ">|"
 	)
 	// Create file buffer of the expected size
-	fileBuff := bytes.NewBuffer(make([]byte, 0, uint32(numParts)*partSize))
+	fileBuff := bytes.NewBuffer(make([]byte, 0, int(numParts)*partSize))
 	partList := make([][]byte, numParts)
 
 	// Create new rand.Rand with the seed generated from the io.Reader
@@ -63,7 +64,7 @@ func newFile(numParts uint16, partSize uint32, prng io.Reader, t *testing.T) (
 	randPrng := rand.New(rand.NewSource(int64(seed)))
 
 	for partNum := range partList {
-		s := RandStringBytes(int(partSize), randPrng)
+		s := RandStringBytes(partSize, randPrng)
 		if len(s) >= (len(prefix) + len(suffix)) {
 			partList[partNum] = []byte(
 				prefix + s[:len(s)-(len(prefix)+len(suffix))] + suffix)
@@ -148,28 +149,34 @@ func (s *PrngErr) SetSeed([]byte) error     { return errors.New("SetSeedFailure"
 // newTestManager creates a new Manager that has groups stored for testing. One
 // of the groups in the list is also returned.
 func newTestManager(sendErr bool, sendChan, sendE2eChan chan message.Receive,
-	receiveCB interfaces.ReceiveCallback, t *testing.T) *Manager {
+	receiveCB interfaces.ReceiveCallback, kv *versioned.KV, t *testing.T) *Manager {
 
-	kv := versioned.NewKV(make(ekv.Memstore))
-	sent, err := ftStorage.NewSentFileTransfers(kv)
-	if err != nil {
-		t.Fatalf("Failed to createw new SentFileTransfers: %+v", err)
+	if kv == nil {
+		kv = versioned.NewKV(make(ekv.Memstore))
 	}
-	received, err := ftStorage.NewReceivedFileTransfers(kv)
+	sent, err := ftStorage.NewSentFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to createw new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to createw new SentFileTransfersStore: %+v", err)
+	}
+	received, err := ftStorage.NewReceivedFileTransfersStore(kv)
+	if err != nil {
+		t.Fatalf("Failed to createw new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	net := newTestNetworkManager(sendErr, sendChan, sendE2eChan, t)
 
-	// Register channel for health tracking
-	healthy := make(chan bool)
-	net.GetHealthTracker().AddChannel(healthy)
-
 	// Returns an error on function and round failure on callback if sendErr is
 	// set; otherwise, it reports round successes and returns nil
-	rr := func(_ []id.Round, _ time.Duration, cb api.RoundEventCallback) error {
-		cb(!sendErr, false, nil)
+	rr := func(rIDs []id.Round, _ time.Duration, cb api.RoundEventCallback) error {
+		rounds := make(map[id.Round]api.RoundResult, len(rIDs))
+		for _, rid := range rIDs {
+			if sendErr {
+				rounds[rid] = api.Failed
+			} else {
+				rounds[rid] = api.Succeeded
+			}
+		}
+		cb(!sendErr, false, rounds)
 		if sendErr {
 			return errors.New("SendError")
 		}
@@ -189,7 +196,6 @@ func newTestManager(sendErr bool, sendChan, sendE2eChan chan message.Receive,
 		store:           storage.InitTestingSession(t),
 		swb:             switchboard.New(),
 		net:             net,
-		healthy:         healthy,
 		rng:             fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 		getRoundResults: rr,
 	}
@@ -199,10 +205,10 @@ func newTestManager(sendErr bool, sendChan, sendE2eChan chan message.Receive,
 
 // newTestManagerWithTransfers creates a new test manager with transfers added
 // to it.
-func newTestManagerWithTransfers(numParts []uint16, sendErr bool,
-	receiveCB interfaces.ReceiveCallback, t *testing.T) (
+func newTestManagerWithTransfers(numParts []uint16, sendErr, addPartners bool,
+	receiveCB interfaces.ReceiveCallback, kv *versioned.KV, t *testing.T) (
 	*Manager, []sentTransferInfo, []receivedTransferInfo) {
-	m := newTestManager(sendErr, nil, nil, receiveCB, t)
+	m := newTestManager(sendErr, nil, nil, receiveCB, kv, t)
 	sti := make([]sentTransferInfo, len(numParts))
 	rti := make([]receivedTransferInfo, len(numParts))
 	var err error
@@ -212,13 +218,17 @@ func newTestManagerWithTransfers(numParts []uint16, sendErr bool,
 		t.Errorf("Failed to get part size: %+v", err)
 	}
 
+	// Add sent transfers to manager and populate the sentTransferInfo list
 	for i := range sti {
+		// Generate PRNG, the file and its parts, and the transfer key
 		prng := NewPrng(int64(42 + i))
-		file, parts := newFile(numParts[i], uint32(partSize), prng, t)
+		file, parts := newFile(numParts[i], partSize, prng, t)
 		key, _ := ftCrypto.NewTransferKey(prng)
+		recipient := id.NewIdFromString("recipient"+strconv.Itoa(i), id.User, t)
 
+		// Create a sentTransferInfo with all the transfer information
 		sti[i] = sentTransferInfo{
-			recipient: id.NewIdFromString("recipient"+strconv.Itoa(i), id.User, t),
+			recipient: recipient,
 			key:       key,
 			parts:     parts,
 			file:      file,
@@ -229,28 +239,46 @@ func newTestManagerWithTransfers(numParts []uint16, sendErr bool,
 			prng:      prng,
 		}
 
-		cbChan := make(chan sentProgressResults, 6)
-
+		// Create sent progress callback and channel
+		cbChan := make(chan sentProgressResults, 8)
 		cb := func(completed bool, sent, arrived, total uint16,
 			tr interfaces.FilePartTracker, err error) {
 			cbChan <- sentProgressResults{completed, sent, arrived, total, tr, err}
 		}
 
+		// Add callback and channel to the sentTransferInfo
 		sti[i].cbChan = cbChan
 		sti[i].cb = cb
 
-		sti[i].tid, err = m.sent.AddTransfer(sti[i].recipient, sti[i].key,
+		// Add the transfer to the manager
+		sti[i].tid, err = m.sent.AddTransfer(recipient, sti[i].key,
 			sti[i].parts, sti[i].numFps, sti[i].cb, sti[i].period, sti[i].prng)
 		if err != nil {
 			t.Errorf("Failed to add sent transfer #%d: %+v", i, err)
 		}
+
+		// Add recipient as partner
+		if addPartners {
+			grp := m.store.E2e().GetGroup()
+			dhKey := grp.NewInt(int64(i + 42))
+			pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
+			p := params.GetDefaultE2ESessionParams()
+			err = m.store.E2e().AddPartner(recipient, pubKey, dhKey, p, p)
+			if err != nil {
+				t.Errorf("Failed to add partner #%d %s: %+v", i, recipient, err)
+			}
+		}
 	}
 
+	// Add received transfers to manager and populate the receivedTransferInfo
+	// list
 	for i := range rti {
+		// Generate PRNG, the file and its parts, and the transfer key
 		prng := NewPrng(int64(42 + i))
-		file, parts := newFile(numParts[i], uint32(partSize), prng, t)
+		file, parts := newFile(numParts[i], partSize, prng, t)
 		key, _ := ftCrypto.NewTransferKey(prng)
 
+		// Create a receivedTransferInfo with all the transfer information
 		rti[i] = receivedTransferInfo{
 			key:      key,
 			mac:      ftCrypto.CreateTransferMAC(file, key),
@@ -264,16 +292,18 @@ func newTestManagerWithTransfers(numParts []uint16, sendErr bool,
 			prng:     prng,
 		}
 
-		cbChan := make(chan receivedProgressResults, 6)
-
+		// Create received progress callback and channel
+		cbChan := make(chan receivedProgressResults, 8)
 		cb := func(completed bool, received, total uint16,
 			tr interfaces.FilePartTracker, err error) {
 			cbChan <- receivedProgressResults{completed, received, total, tr, err}
 		}
 
+		// Add callback and channel to the receivedTransferInfo
 		rti[i].cbChan = cbChan
 		rti[i].cb = cb
 
+		// Add the transfer to the manager
 		rti[i].tid, err = m.received.AddTransfer(rti[i].key, rti[i].mac,
 			rti[i].fileSize, rti[i].numParts, rti[i].numFps, rti[i].prng)
 		if err != nil {
@@ -439,8 +469,8 @@ func (tnm *testNetworkManager) SendManyCMIX(messages []message.TargetedCmixMessa
 		} else {
 			tnm.updateRid = true
 		}
+		tnm.Unlock()
 	}()
-	defer tnm.Unlock()
 
 	if tnm.sendErr {
 		return 0, nil, errors.New("SendManyCMIX error")

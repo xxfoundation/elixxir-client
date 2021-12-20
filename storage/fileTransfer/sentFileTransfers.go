@@ -23,9 +23,9 @@ import (
 
 // Storage keys and versions.
 const (
-	sentFileTransfersPrefix  = "SentFileTransfersStore"
-	sentFileTransfersKey     = "SentFileTransfers"
-	sentFileTransfersVersion = 0
+	sentFileTransfersStorePrefix  = "SentFileTransfersStore"
+	sentFileTransfersStoreKey     = "SentFileTransfers"
+	sentFileTransfersStoreVersion = 0
 )
 
 // Error messages.
@@ -40,18 +40,19 @@ const (
 	deleteSentTransferErr = "failed to delete sent transfer with ID %s from store: %+v"
 )
 
-// SentFileTransfers contains information for tracking sent file transfers.
-type SentFileTransfers struct {
+// SentFileTransfersStore contains information for tracking sent file transfers.
+type SentFileTransfersStore struct {
 	transfers map[ftCrypto.TransferID]*SentTransfer
 	mux       sync.Mutex
 	kv        *versioned.KV
 }
 
-// NewSentFileTransfers creates a new SentFileTransfers with an empty map.
-func NewSentFileTransfers(kv *versioned.KV) (*SentFileTransfers, error) {
-	sft := &SentFileTransfers{
+// NewSentFileTransfersStore creates a new SentFileTransfersStore with an empty
+// map.
+func NewSentFileTransfersStore(kv *versioned.KV) (*SentFileTransfersStore, error) {
+	sft := &SentFileTransfersStore{
 		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
-		kv:        kv.Prefix(sentFileTransfersPrefix),
+		kv:        kv.Prefix(sentFileTransfersStorePrefix),
 	}
 
 	return sft, sft.saveTransfersList()
@@ -59,7 +60,7 @@ func NewSentFileTransfers(kv *versioned.KV) (*SentFileTransfers, error) {
 
 // AddTransfer creates a new empty SentTransfer and adds it to the transfers
 // map.
-func (sft *SentFileTransfers) AddTransfer(recipient *id.ID,
+func (sft *SentFileTransfersStore) AddTransfer(recipient *id.ID,
 	key ftCrypto.TransferKey, parts [][]byte, numFps uint16,
 	progressCB interfaces.SentProgressCallback, period time.Duration,
 	rng csprng.Source) (ftCrypto.TransferID, error) {
@@ -91,7 +92,7 @@ func (sft *SentFileTransfers) AddTransfer(recipient *id.ID,
 
 // GetTransfer returns the SentTransfer with the given transfer ID. An error is
 // returned if no corresponding transfer is found.
-func (sft *SentFileTransfers) GetTransfer(tid ftCrypto.TransferID) (
+func (sft *SentFileTransfersStore) GetTransfer(tid ftCrypto.TransferID) (
 	*SentTransfer, error) {
 	sft.mux.Lock()
 	defer sft.mux.Unlock()
@@ -106,7 +107,7 @@ func (sft *SentFileTransfers) GetTransfer(tid ftCrypto.TransferID) (
 
 // DeleteTransfer removes the SentTransfer with the associated transfer ID
 // from memory and storage.
-func (sft *SentFileTransfers) DeleteTransfer(tid ftCrypto.TransferID) error {
+func (sft *SentFileTransfersStore) DeleteTransfer(tid ftCrypto.TransferID) error {
 	sft.mux.Lock()
 	defer sft.mux.Unlock()
 
@@ -140,15 +141,78 @@ func (sft *SentFileTransfers) DeleteTransfer(tid ftCrypto.TransferID) error {
 	return nil
 }
 
+// GetUnsentParts returns a map of all transfers and a list of their parts that
+// have not been sent (parts that were never marked as in-progress).
+func (sft *SentFileTransfersStore) GetUnsentParts() map[ftCrypto.TransferID][]uint16 {
+	sft.mux.Lock()
+	defer sft.mux.Unlock()
+	unsentParts := map[ftCrypto.TransferID][]uint16{}
+
+	// Get list of unsent part numbers for each transfer
+	for tid, st := range sft.transfers {
+		unsentParts[tid] = st.GetUnsentPartNums()
+	}
+
+	return unsentParts
+}
+
+// GetSentRounds returns a map of all round IDs and which transfers have parts
+// sent on those rounds (parts marked in-progress).
+func (sft *SentFileTransfersStore) GetSentRounds() map[id.Round][]ftCrypto.TransferID {
+	sft.mux.Lock()
+	defer sft.mux.Unlock()
+	sentRounds := map[id.Round][]ftCrypto.TransferID{}
+
+	// Get list of round IDs that transfers have in-progress rounds on
+	for tid, st := range sft.transfers {
+		for _, rid := range st.GetSentRounds() {
+			sentRounds[rid] = append(sentRounds[rid], tid)
+		}
+	}
+
+	return sentRounds
+}
+
+// GetUnsentPartsAndSentRounds returns two maps. The first is a map of all
+// transfers and a list of their parts that have not been sent (parts that were
+// never marked as in-progress). The seconds is a map of all round IDs and which
+// transfers have parts sent on those rounds (parts marked in-progress). This
+// function performs the same operations as GetUnsentParts and GetSentRounds but
+// in a single loop.
+func (sft *SentFileTransfersStore) GetUnsentPartsAndSentRounds() (
+	map[ftCrypto.TransferID][]uint16, map[id.Round][]ftCrypto.TransferID) {
+	sft.mux.Lock()
+	defer sft.mux.Unlock()
+
+	unsentParts := map[ftCrypto.TransferID][]uint16{}
+	sentRounds := map[id.Round][]ftCrypto.TransferID{}
+
+	for tid, st := range sft.transfers {
+		// Get list of round IDs that transfers have in-progress rounds on
+		for _, rid := range st.GetSentRounds() {
+			sentRounds[rid] = append(sentRounds[rid], tid)
+		}
+
+		// Get list of unsent part numbers for each transfer
+		stUnsentParts := st.GetUnsentPartNums()
+		if len(stUnsentParts) > 0 {
+			unsentParts[tid] = stUnsentParts
+		}
+	}
+
+	return unsentParts, sentRounds
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// LoadSentFileTransfers loads all SentFileTransfers from storage.
-func LoadSentFileTransfers(kv *versioned.KV) (*SentFileTransfers, error) {
-	sft := &SentFileTransfers{
+// LoadSentFileTransfersStore loads all SentFileTransfersStore from storage.
+// Returns a list of unsent file parts.
+func LoadSentFileTransfersStore(kv *versioned.KV) (*SentFileTransfersStore, error) {
+	sft := &SentFileTransfersStore{
 		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
-		kv:        kv.Prefix(sentFileTransfersPrefix),
+		kv:        kv.Prefix(sentFileTransfersStorePrefix),
 	}
 
 	// Get the list of transfer IDs corresponding to each sent transfer from
@@ -167,19 +231,23 @@ func LoadSentFileTransfers(kv *versioned.KV) (*SentFileTransfers, error) {
 	return sft, nil
 }
 
-// NewOrLoadSentFileTransfers loads all SentFileTransfers from storage, if they
-// exist. Otherwise, a new SentFileTransfers is returned.
-func NewOrLoadSentFileTransfers(kv *versioned.KV) (*SentFileTransfers, error) {
-	sft := &SentFileTransfers{
+// NewOrLoadSentFileTransfersStore loads all SentFileTransfersStore from storage
+// and returns a list of unsent file parts, if they exist. Otherwise, a new
+// SentFileTransfersStore is returned.
+func NewOrLoadSentFileTransfersStore(kv *versioned.KV) (*SentFileTransfersStore,
+	error) {
+	sft := &SentFileTransfersStore{
 		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
-		kv:        kv.Prefix(sentFileTransfersPrefix),
+		kv:        kv.Prefix(sentFileTransfersStorePrefix),
 	}
 
 	// If the transfer list cannot be loaded from storage, then create a new
-	// SentFileTransfers
-	vo, err := sft.kv.Get(sentFileTransfersKey, sentFileTransfersVersion)
+	// SentFileTransfersStore
+	vo, err := sft.kv.Get(
+		sentFileTransfersStoreKey, sentFileTransfersStoreVersion)
 	if err != nil {
-		return NewSentFileTransfers(kv)
+		newSFT, err := NewSentFileTransfersStore(kv)
+		return newSFT, err
 	}
 
 	// Unmarshal data into list of saved transfer IDs
@@ -195,23 +263,26 @@ func NewOrLoadSentFileTransfers(kv *versioned.KV) (*SentFileTransfers, error) {
 }
 
 // saveTransfersList saves a list of items in the transfers map to storage.
-func (sft *SentFileTransfers) saveTransfersList() error {
+func (sft *SentFileTransfersStore) saveTransfersList() error {
 	// Create new versioned object with a list of items in the transfers map
 	obj := &versioned.Object{
-		Version:   sentFileTransfersVersion,
+		Version:   sentFileTransfersStoreVersion,
 		Timestamp: netTime.Now(),
 		Data:      sft.marshalTransfersList(),
 	}
 
 	// Save list of items in the transfers map to storage
-	return sft.kv.Set(sentFileTransfersKey, sentFileTransfersVersion, obj)
+	return sft.kv.Set(
+		sentFileTransfersStoreKey, sentFileTransfersStoreVersion, obj)
 }
 
 // loadTransfersList gets the list of transfer IDs corresponding to each saved
 // sent transfer from storage.
-func (sft *SentFileTransfers) loadTransfersList() ([]ftCrypto.TransferID, error) {
+func (sft *SentFileTransfersStore) loadTransfersList() ([]ftCrypto.TransferID,
+	error) {
 	// Get transfers list from storage
-	vo, err := sft.kv.Get(sentFileTransfersKey, sentFileTransfersVersion)
+	vo, err := sft.kv.Get(
+		sentFileTransfersStoreKey, sentFileTransfersStoreVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +292,9 @@ func (sft *SentFileTransfers) loadTransfersList() ([]ftCrypto.TransferID, error)
 }
 
 // loadTransfers loads each SentTransfer from the list and adds them to the map.
-func (sft *SentFileTransfers) loadTransfers(list []ftCrypto.TransferID) error {
+// Returns a map of all transfers and their unsent file part numbers to be used
+// to add them back into the queue.
+func (sft *SentFileTransfersStore) loadTransfers(list []ftCrypto.TransferID) error {
 	var err error
 
 	// Load each sentTransfer from storage into the map
@@ -237,7 +310,7 @@ func (sft *SentFileTransfers) loadTransfers(list []ftCrypto.TransferID) error {
 
 // marshalTransfersList creates a list of all transfer IDs in the transfers map
 // and serialises it.
-func (sft *SentFileTransfers) marshalTransfersList() []byte {
+func (sft *SentFileTransfersStore) marshalTransfersList() []byte {
 	buff := bytes.NewBuffer(nil)
 	buff.Grow(ftCrypto.TransferIdLength * len(sft.transfers))
 

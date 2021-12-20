@@ -21,7 +21,7 @@ import (
 // Tests that the E2E message sent via Manager.sendNewFileTransfer matches
 // expected.
 func TestManager_sendNewFileTransfer(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, t)
+	m := newTestManager(false, nil, nil, nil, nil, t)
 
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	fileName := "testFile"
@@ -55,12 +55,12 @@ func TestManager_sendNewFileTransfer(t *testing.T) {
 // when SendE2E fails.
 func TestManager_sendNewFileTransfer_E2eError(t *testing.T) {
 	// Create new test manager with a SendE2E error triggered
-	m := newTestManager(true, nil, nil, nil, t)
+	m := newTestManager(true, nil, nil, nil, nil, t)
 
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	key, _ := ftCrypto.NewTransferKey(NewPrng(42))
 
-	expectedErr := fmt.Sprintf(sendE2eErr, recipient, "")
+	expectedErr := fmt.Sprintf(newFtSendE2eErr, recipient, "")
 	err := m.sendNewFileTransfer(recipient, "", "", key, nil, 16, 256, 1.5, nil)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("sendNewFileTransfer di dnot return the expected error when "+

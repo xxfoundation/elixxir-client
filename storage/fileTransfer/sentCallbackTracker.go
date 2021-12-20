@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -28,6 +29,7 @@ type sentCallbackTracker struct {
 	period    time.Duration     // How often to call the callback
 	lastCall  time.Time         // Timestamp of the last call
 	scheduled bool              // Denotes if callback call is scheduled
+	completed uint64            // Atomic that tells if transfer is completed
 	stop      *stoppable.Single // Stops the scheduled callback from triggering
 	cb        interfaces.SentProgressCallback
 	mux       sync.RWMutex
@@ -40,6 +42,7 @@ func newSentCallbackTracker(cb interfaces.SentProgressCallback,
 		period:    period,
 		lastCall:  time.Time{},
 		scheduled: false,
+		completed: 0,
 		stop:      stoppable.NewSingle(sentCallbackTrackerStoppable),
 		cb:        cb,
 	}
@@ -53,7 +56,7 @@ func newSentCallbackTracker(cb interfaces.SentProgressCallback,
 func (sct *sentCallbackTracker) call(tracker sentProgressTracker, err error) {
 	sct.mux.RLock()
 	// Exit if a callback is already scheduled
-	if sct.scheduled {
+	if sct.scheduled || atomic.LoadUint64(&sct.completed) == 1 {
 		sct.mux.RUnlock()
 		return
 	}
@@ -70,7 +73,7 @@ func (sct *sentCallbackTracker) call(tracker sentProgressTracker, err error) {
 	timeSinceLastCall := netTime.Since(sct.lastCall)
 	if timeSinceLastCall > sct.period {
 		// If no callback occurred, then trigger the callback now
-		sct.callNowUnsafe(tracker, err)
+		sct.callNowUnsafe(false, tracker, err)
 		sct.lastCall = netTime.Now()
 	} else {
 		// If a callback did occur, then schedule a new callback to occur at the
@@ -83,7 +86,7 @@ func (sct *sentCallbackTracker) call(tracker sentProgressTracker, err error) {
 				return
 			case <-time.NewTimer(sct.period - timeSinceLastCall).C:
 				sct.mux.Lock()
-				sct.callNow(tracker, err)
+				sct.callNow(false, tracker, err)
 				sct.lastCall = netTime.Now()
 				sct.scheduled = false
 				sct.mux.Unlock()
@@ -98,19 +101,25 @@ func (sct *sentCallbackTracker) stopThread() error {
 }
 
 // callNow calls the callback immediately regardless of the schedule or period.
-func (sct *sentCallbackTracker) callNow(
+func (sct *sentCallbackTracker) callNow(skipCompletedCheck bool,
 	tracker sentProgressTracker, err error) {
 	completed, sent, arrived, total, t := tracker.GetProgress()
-	go sct.cb(completed, sent, arrived, total, t, err)
+	if skipCompletedCheck || !completed ||
+		atomic.CompareAndSwapUint64(&sct.completed, 0, 1) {
+		go sct.cb(completed, sent, arrived, total, t, err)
+	}
 }
 
 // callNowUnsafe calls the callback immediately regardless of the schedule or
 // period without taking a thread lock. This function should be used if a lock
 // is already taken on the sentProgressTracker.
-func (sct *sentCallbackTracker) callNowUnsafe(
+func (sct *sentCallbackTracker) callNowUnsafe(skipCompletedCheck bool,
 	tracker sentProgressTracker, err error) {
 	completed, sent, arrived, total, t := tracker.getProgress()
-	go sct.cb(completed, sent, arrived, total, t, err)
+	if skipCompletedCheck || !completed ||
+		atomic.CompareAndSwapUint64(&sct.completed, 0, 1) {
+		go sct.cb(completed, sent, arrived, total, t, err)
+	}
 }
 
 // sentProgressTracker interface tracks the progress of a transfer.

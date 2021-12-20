@@ -34,7 +34,7 @@ func (m *Message) GetPayload() []byte {
 
 // GetMessageType returns the message's type
 func (m *Message) GetMessageType() int {
-	return int(m.r.MessageType)
+	return m.r.MessageType
 }
 
 // GetTimestampMS returns the message's timestamp in milliseconds

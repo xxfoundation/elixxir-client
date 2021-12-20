@@ -4,7 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/primitives/id"
+	"reflect"
+	"unsafe"
 )
 
 type PreimageNotification interface {
@@ -23,19 +26,19 @@ func (c *Client) RegisterPreimageCallback(identity []byte, pin PreimageNotificat
 	c.api.GetStorage().GetEdge().AddUpdateCallback(iid, cb)
 }
 
-func (c *Client) GetPreimages(identity []byte) (string, error) {
-
+func (c *Client) GetPreimages(identity []byte) ([]byte, error) {
+	jww.FATAL.Printf("TEST")
 	iid := &id.ID{}
 	copy(iid[:], identity)
 
 	list, exist := c.api.GetStorage().GetEdge().Get(iid)
 	if !exist {
-		return "", errors.Errorf("Could not find a preimage list for %s", iid)
+		return []byte{}, errors.Errorf("Could not find a preimage list for %s", iid)
 	}
 
 	marshaled, err := json.Marshal(&list)
-
-	return string(marshaled), err
+	jww.FATAL.Printf("%d %v %d", reflect.TypeOf(marshaled).Align(), unsafe.Sizeof(marshaled), len(marshaled))
+	return marshaled, err
 }
 
 func (c *Client) GetPreimagesB64(identity string) (string, error) {
@@ -68,6 +71,5 @@ func (c *Client) GetPreimagesHack(dummy string, identity []byte) (string, error)
 	}
 
 	marshaled, err := json.Marshal(&list)
-
 	return string(marshaled), err
 }

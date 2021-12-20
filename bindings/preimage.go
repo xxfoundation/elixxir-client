@@ -26,19 +26,22 @@ func (c *Client) RegisterPreimageCallback(identity []byte, pin PreimageNotificat
 	c.api.GetStorage().GetEdge().AddUpdateCallback(iid, cb)
 }
 
-func (c *Client) GetPreimages(identity []byte) ([]byte, error) {
+func (c *Client) GetPreimages(identity []byte) []byte {
 	jww.FATAL.Printf("TEST")
 	iid := &id.ID{}
 	copy(iid[:], identity)
 
 	list, exist := c.api.GetStorage().GetEdge().Get(iid)
 	if !exist {
-		return []byte{}, errors.Errorf("Could not find a preimage list for %s", iid)
+		return []byte{}
 	}
 
 	marshaled, err := json.Marshal(&list)
+	if err != nil {
+		return []byte{}
+	}
 	jww.FATAL.Printf("%d %v %d", reflect.TypeOf(marshaled).Align(), unsafe.Sizeof(marshaled), len(marshaled))
-	return marshaled, err
+	return marshaled
 }
 
 func (c *Client) GetPreimagesB64(identity string) (string, error) {

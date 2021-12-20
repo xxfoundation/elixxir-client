@@ -266,3 +266,9 @@ func (m *Manager) GetE2EPreimage() []byte {
 func (m *Manager) GetRekeyPreimage() []byte {
 	return preimage.Generate(m.GetRelationshipFingerprintBytes(), preimage.Rekey)
 }
+
+// GetFileTransferPreimage returns a hash of the unique
+// fingerprint for an E2E end file transfer message.
+func (m *Manager) GetFileTransferPreimage() []byte {
+	return preimage.Generate(m.GetRelationshipFingerprintBytes(), preimage.EndFT)
+}

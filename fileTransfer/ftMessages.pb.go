@@ -27,6 +27,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// NewFileTransfer is transmitted first on the initialization of a file transfer
+// to inform the receiver about the incoming file.
 type NewFileTransfer struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

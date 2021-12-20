@@ -232,10 +232,10 @@ func checkReceivedTracker(track ReceivedPartTracker, numParts uint16,
 		var done bool
 		for _, receivedNum := range received {
 			if receivedNum == partNum {
-				if track.GetPartStatus(partNum) != receivedStatus {
+				if track.GetPartStatus(partNum) != interfaces.FpReceived {
 					t.Errorf("Part number %d has unexpected status."+
-						"\nexpected: %d\nreceived: %d", partNum, receivedStatus,
-						track.GetPartStatus(partNum))
+						"\nexpected: %d\nreceived: %d", partNum,
+						interfaces.FpReceived, track.GetPartStatus(partNum))
 				}
 				done = true
 				break
@@ -245,10 +245,10 @@ func checkReceivedTracker(track ReceivedPartTracker, numParts uint16,
 			continue
 		}
 
-		if track.GetPartStatus(partNum) != unsentStatus {
+		if track.GetPartStatus(partNum) != interfaces.FpUnsent {
 			t.Errorf("Part number %d has incorrect status."+
 				"\nexpected: %d\nreceived: %d",
-				partNum, unsentStatus, track.GetPartStatus(partNum))
+				partNum, interfaces.FpUnsent, track.GetPartStatus(partNum))
 		}
 	}
 }

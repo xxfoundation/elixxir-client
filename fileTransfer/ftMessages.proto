@@ -10,6 +10,8 @@ syntax = "proto3";
 package parse;
 option go_package = "fileTransfer/";
 
+// NewFileTransfer is transmitted first on the initialization of a file transfer
+// to inform the receiver about the incoming file.
 message NewFileTransfer {
     string fileName    = 1; // Name of the file; max 48 characters
     string fileType    = 2; // Type of file; max 8 characters

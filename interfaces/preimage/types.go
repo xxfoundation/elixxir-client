@@ -7,4 +7,5 @@ const (
 	Rekey   = "rekey"
 	E2e     = "e2e"
 	Group   = "group"
+	EndFT   = "endFT"
 )

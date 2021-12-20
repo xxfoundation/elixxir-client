@@ -8,6 +8,7 @@ require (
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mitchellh/mapstructure v1.4.0 // indirect
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/smartystreets/assertions v1.0.1 // indirect
@@ -17,8 +18,8 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.7.1
 	gitlab.com/elixxir/bloomfilter v0.0.0-20200930191214-10e9ac31b228
-	gitlab.com/elixxir/comms v0.0.4-0.20211208211635-ad88fa2850b0
-	gitlab.com/elixxir/crypto v0.0.7-0.20211208211534-e1c1462d945f
+	gitlab.com/elixxir/comms v0.0.4-0.20211215181643-55748529a237
+	gitlab.com/elixxir/crypto v0.0.7-0.20211218190454-ecf7e6e1f41f
 	gitlab.com/elixxir/ekv v0.1.5
 	gitlab.com/elixxir/primitives v0.0.3-0.20211208211148-752546cf2e46
 	gitlab.com/xx_network/comms v0.0.4-0.20211202195810-9dfc0b6cdb28

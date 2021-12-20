@@ -10,6 +10,7 @@ package fileTransfer
 import (
 	"bytes"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/primitives/format"
@@ -19,12 +20,12 @@ import (
 )
 
 const (
-	receivedFileTransfersPrefix  = "FileTransferReceivedFileTransfersStore"
-	receivedFileTransfersKey     = "ReceivedFileTransfers"
-	receivedFileTransfersVersion = 0
+	receivedFileTransfersStorePrefix  = "FileTransferReceivedFileTransfersStore"
+	receivedFileTransfersStoreKey     = "ReceivedFileTransfers"
+	receivedFileTransfersStoreVersion = 0
 )
 
-// Error messages for ReceivedFileTransfers.
+// Error messages for ReceivedFileTransfersStore.
 const (
 	saveReceivedTransfersListErr = "failed to save list of received items in transfer map to storage: %+v"
 	loadReceivedTransfersListErr = "failed to load list of received items in transfer map from storage: %+v"
@@ -38,22 +39,24 @@ const (
 	deleteReceivedTransferErr = "failed to delete received transfer with ID %s from store: %+v"
 )
 
-// ReceivedFileTransfers contains information for tracking a received
+// ReceivedFileTransfersStore contains information for tracking a received
 // ReceivedTransfer to its transfer ID. It also maps a received part, partInfo,
 // to the message fingerprint.
-type ReceivedFileTransfers struct {
+type ReceivedFileTransfersStore struct {
 	transfers map[ftCrypto.TransferID]*ReceivedTransfer
 	info      map[format.Fingerprint]*partInfo
 	mux       sync.Mutex
 	kv        *versioned.KV
 }
 
-// NewReceivedFileTransfers creates a new ReceivedFileTransfers with empty maps.
-func NewReceivedFileTransfers(kv *versioned.KV) (*ReceivedFileTransfers, error) {
-	rft := &ReceivedFileTransfers{
+// NewReceivedFileTransfersStore creates a new ReceivedFileTransfersStore with
+// empty maps.
+func NewReceivedFileTransfersStore(kv *versioned.KV) (
+	*ReceivedFileTransfersStore, error) {
+	rft := &ReceivedFileTransfersStore{
 		transfers: make(map[ftCrypto.TransferID]*ReceivedTransfer),
 		info:      make(map[format.Fingerprint]*partInfo),
-		kv:        kv.Prefix(receivedFileTransfersPrefix),
+		kv:        kv.Prefix(receivedFileTransfersStorePrefix),
 	}
 
 	return rft, rft.saveTransfersList()
@@ -61,7 +64,7 @@ func NewReceivedFileTransfers(kv *versioned.KV) (*ReceivedFileTransfers, error) 
 
 // AddTransfer creates a new empty ReceivedTransfer, adds it to the transfers
 // map, and adds an entry for each file part fingerprint to the fingerprint map.
-func (rft *ReceivedFileTransfers) AddTransfer(key ftCrypto.TransferKey,
+func (rft *ReceivedFileTransfersStore) AddTransfer(key ftCrypto.TransferKey,
 	transferMAC []byte, fileSize uint32, numParts, numFps uint16,
 	rng csprng.Source) (ftCrypto.TransferID, error) {
 
@@ -95,7 +98,7 @@ func (rft *ReceivedFileTransfers) AddTransfer(key ftCrypto.TransferKey,
 
 // addFingerprints generates numFps fingerprints, creates a new partInfo
 // for each, and adds each to the info map.
-func (rft *ReceivedFileTransfers) addFingerprints(key ftCrypto.TransferKey,
+func (rft *ReceivedFileTransfersStore) addFingerprints(key ftCrypto.TransferKey,
 	tid ftCrypto.TransferID, numFps uint16) {
 
 	// Generate list of fingerprints
@@ -109,7 +112,7 @@ func (rft *ReceivedFileTransfers) addFingerprints(key ftCrypto.TransferKey,
 
 // GetTransfer returns the ReceivedTransfer with the given transfer ID. An error
 // is returned if no corresponding transfer is found.
-func (rft *ReceivedFileTransfers) GetTransfer(tid ftCrypto.TransferID) (
+func (rft *ReceivedFileTransfersStore) GetTransfer(tid ftCrypto.TransferID) (
 	*ReceivedTransfer, error) {
 	rft.mux.Lock()
 	defer rft.mux.Unlock()
@@ -124,7 +127,7 @@ func (rft *ReceivedFileTransfers) GetTransfer(tid ftCrypto.TransferID) (
 
 // DeleteTransfer removes the ReceivedTransfer with the associated transfer ID
 // from memory and storage.
-func (rft *ReceivedFileTransfers) DeleteTransfer(tid ftCrypto.TransferID) error {
+func (rft *ReceivedFileTransfersStore) DeleteTransfer(tid ftCrypto.TransferID) error {
 	rft.mux.Lock()
 	defer rft.mux.Unlock()
 
@@ -132,6 +135,12 @@ func (rft *ReceivedFileTransfers) DeleteTransfer(tid ftCrypto.TransferID) error 
 	rt, exists := rft.transfers[tid]
 	if !exists {
 		return errors.Errorf(getReceivedTransferErr, tid)
+	}
+
+	// Cancel any scheduled callbacks
+	err := rt.StopScheduledProgressCB()
+	if err != nil {
+		jww.WARN.Print(errors.Errorf(cancelCallbackErr, tid, err))
 	}
 
 	// Remove all unused fingerprints from map
@@ -144,7 +153,7 @@ func (rft *ReceivedFileTransfers) DeleteTransfer(tid ftCrypto.TransferID) error 
 	}
 
 	// Delete all data the transfer saved to storage
-	err := rft.transfers[tid].delete()
+	err = rft.transfers[tid].delete()
 	if err != nil {
 		return errors.Errorf(deleteReceivedTransferErr, tid, err)
 	}
@@ -166,8 +175,8 @@ func (rft *ReceivedFileTransfers) DeleteTransfer(tid ftCrypto.TransferID) error 
 // added to the transfer with the corresponding transfer ID. Returns the
 // transfer that the part was added to so that a progress callback can be
 // called. Returns the transfer ID so that it can be used for logging.
-func (rft *ReceivedFileTransfers) AddPart(encryptedPart, padding, mac []byte,
-	partNum uint16, fp format.Fingerprint) (*ReceivedTransfer,
+func (rft *ReceivedFileTransfersStore) AddPart(encryptedPart, padding,
+	mac []byte, partNum uint16, fp format.Fingerprint) (*ReceivedTransfer,
 	ftCrypto.TransferID, error) {
 	rft.mux.Lock()
 	defer rft.mux.Unlock()
@@ -200,7 +209,8 @@ func (rft *ReceivedFileTransfers) AddPart(encryptedPart, padding, mac []byte,
 // GetFile returns the combined file parts as a single byte slice for the given
 // transfer ID. An error is returned if no file with the given transfer ID is
 // found or if the file is missing parts.
-func (rft *ReceivedFileTransfers) GetFile(tid ftCrypto.TransferID) ([]byte, error) {
+func (rft *ReceivedFileTransfersStore) GetFile(tid ftCrypto.TransferID) ([]byte,
+	error) {
 	rft.mux.Lock()
 	defer rft.mux.Unlock()
 
@@ -217,12 +227,14 @@ func (rft *ReceivedFileTransfers) GetFile(tid ftCrypto.TransferID) ([]byte, erro
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// LoadReceivedFileTransfers loads all ReceivedFileTransfers from storage.
-func LoadReceivedFileTransfers(kv *versioned.KV) (*ReceivedFileTransfers, error) {
-	rft := &ReceivedFileTransfers{
+// LoadReceivedFileTransfersStore loads all ReceivedFileTransfersStore from
+// storage.
+func LoadReceivedFileTransfersStore(kv *versioned.KV) (
+	*ReceivedFileTransfersStore, error) {
+	rft := &ReceivedFileTransfersStore{
 		transfers: make(map[ftCrypto.TransferID]*ReceivedTransfer),
 		info:      make(map[format.Fingerprint]*partInfo),
-		kv:        kv.Prefix(receivedFileTransfersPrefix),
+		kv:        kv.Prefix(receivedFileTransfersStorePrefix),
 	}
 
 	// Get the list of transfer IDs corresponding to each received transfer from
@@ -241,20 +253,22 @@ func LoadReceivedFileTransfers(kv *versioned.KV) (*ReceivedFileTransfers, error)
 	return rft, nil
 }
 
-// NewOrLoadReceivedFileTransfers loads all ReceivedFileTransfers from storage,
-// if they exist. Otherwise, a new ReceivedFileTransfers is returned.
-func NewOrLoadReceivedFileTransfers(kv *versioned.KV) (*ReceivedFileTransfers, error) {
-	rft := &ReceivedFileTransfers{
+// NewOrLoadReceivedFileTransfersStore loads all ReceivedFileTransfersStore from
+// storage, if they exist. Otherwise, a new ReceivedFileTransfersStore is
+// returned.
+func NewOrLoadReceivedFileTransfersStore(kv *versioned.KV) (
+	*ReceivedFileTransfersStore, error) {
+	rft := &ReceivedFileTransfersStore{
 		transfers: make(map[ftCrypto.TransferID]*ReceivedTransfer),
 		info:      make(map[format.Fingerprint]*partInfo),
-		kv:        kv.Prefix(receivedFileTransfersPrefix),
+		kv:        kv.Prefix(receivedFileTransfersStorePrefix),
 	}
 
 	// If the transfer list cannot be loaded from storage, then create a new
-	// ReceivedFileTransfers
-	vo, err := rft.kv.Get(receivedFileTransfersKey, receivedFileTransfersVersion)
+	// ReceivedFileTransfersStore
+	vo, err := rft.kv.Get(receivedFileTransfersStoreKey, receivedFileTransfersStoreVersion)
 	if err != nil {
-		return NewReceivedFileTransfers(kv)
+		return NewReceivedFileTransfersStore(kv)
 	}
 
 	// Unmarshal data into list of saved transfer IDs
@@ -270,23 +284,26 @@ func NewOrLoadReceivedFileTransfers(kv *versioned.KV) (*ReceivedFileTransfers, e
 }
 
 // saveTransfersList saves a list of items in the transfers map to storage.
-func (rft *ReceivedFileTransfers) saveTransfersList() error {
+func (rft *ReceivedFileTransfersStore) saveTransfersList() error {
 	// Create new versioned object with a list of items in the transfers map
 	obj := &versioned.Object{
-		Version:   receivedFileTransfersVersion,
+		Version:   receivedFileTransfersStoreVersion,
 		Timestamp: netTime.Now(),
 		Data:      rft.marshalTransfersList(),
 	}
 
 	// Save list of items in the transfers map to storage
-	return rft.kv.Set(receivedFileTransfersKey, receivedFileTransfersVersion, obj)
+	return rft.kv.Set(
+		receivedFileTransfersStoreKey, receivedFileTransfersStoreVersion, obj)
 }
 
 // loadTransfersList gets the list of transfer IDs corresponding to each saved
 // received transfer from storage.
-func (rft *ReceivedFileTransfers) loadTransfersList() ([]ftCrypto.TransferID, error) {
+func (rft *ReceivedFileTransfersStore) loadTransfersList() (
+	[]ftCrypto.TransferID, error) {
 	// Get transfers list from storage
-	vo, err := rft.kv.Get(receivedFileTransfersKey, receivedFileTransfersVersion)
+	vo, err := rft.kv.Get(
+		receivedFileTransfersStoreKey, receivedFileTransfersStoreVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +315,7 @@ func (rft *ReceivedFileTransfers) loadTransfersList() ([]ftCrypto.TransferID, er
 // load gets each ReceivedTransfer in the list from storage and adds them to the
 // map. Also adds all unused fingerprints in each ReceivedTransfer to the info
 // map.
-func (rft *ReceivedFileTransfers) load(list []ftCrypto.TransferID) error {
+func (rft *ReceivedFileTransfersStore) load(list []ftCrypto.TransferID) error {
 	// Load each sentTransfer from storage into the map
 	for _, tid := range list {
 		// Load the transfer with the given transfer ID from storage
@@ -329,7 +346,7 @@ func (rft *ReceivedFileTransfers) load(list []ftCrypto.TransferID) error {
 
 // marshalTransfersList creates a list of all transfer IDs in the transfers map
 // and serialises it.
-func (rft *ReceivedFileTransfers) marshalTransfersList() []byte {
+func (rft *ReceivedFileTransfersStore) marshalTransfersList() []byte {
 	buff := bytes.NewBuffer(nil)
 	buff.Grow(ftCrypto.TransferIdLength * len(rft.transfers))
 

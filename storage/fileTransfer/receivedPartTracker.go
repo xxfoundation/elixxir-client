@@ -7,7 +7,10 @@
 
 package fileTransfer
 
-import "gitlab.com/elixxir/client/storage/utility"
+import (
+	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/storage/utility"
+)
 
 // ReceivedPartTracker tracks the status of individual received file parts.
 type ReceivedPartTracker struct {
@@ -31,11 +34,11 @@ func NewReceivedPartTracker(received *utility.StateVector) ReceivedPartTracker {
 // number. The possible values for the status are:
 // 0 = unreceived
 // 3 = received (receiver has received a part)
-func (rpt ReceivedPartTracker) GetPartStatus(partNum uint16) int {
+func (rpt ReceivedPartTracker) GetPartStatus(partNum uint16) interfaces.FpStatus {
 	if rpt.receivedStatus.Used(uint32(partNum)) {
-		return receivedStatus
+		return interfaces.FpReceived
 	} else {
-		return unsentStatus
+		return interfaces.FpUnsent
 	}
 }
 

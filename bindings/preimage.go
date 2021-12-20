@@ -42,7 +42,6 @@ func (c *Client) GetPreimages(identity []byte) []byte {
 		return []byte{}
 	}
 	jww.FATAL.Printf("CAT %d %v %d", reflect.TypeOf(marshaled).Align(), unsafe.Sizeof(marshaled), len(marshaled))
-	jww.FATAL.Printf("DOG %d %v", reflect.TypeOf(err).Align(), unsafe.Sizeof(err))
 	return marshaled
 }
 

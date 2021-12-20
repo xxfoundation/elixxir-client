@@ -154,11 +154,11 @@ func (f *FileTransfer) RegisterSendProgressCallback(transferID []byte,
 	// Convert period to time.Duration
 	period := time.Duration(periodMS) * time.Millisecond
 
-	return f.m.RegisterSendProgressCallback(tid, progressCB, period)
+	return f.m.RegisterSentProgressCallback(tid, progressCB, period)
 }
 
 // Resend resends a file if sending fails. This function should only be called
-//if the interfaces.SentProgressCallback returns an error.
+// if the interfaces.SentProgressCallback returns an error.
 func (f *FileTransfer) Resend(transferID []byte) error {
 	// Unmarshal transfer ID
 	tid := ftCrypto.UnmarshalTransferID(transferID)
@@ -212,7 +212,7 @@ func (f *FileTransfer) RegisterReceiveProgressCallback(transferID []byte,
 	// Convert period to time.Duration
 	period := time.Duration(periodMS) * time.Millisecond
 
-	return f.m.RegisterReceiveProgressCallback(tid, progressCB, period)
+	return f.m.RegisterReceivedProgressCallback(tid, progressCB, period)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -258,7 +258,7 @@ type FilePartTracker struct {
 // 2 = arrived (sender has sent a part, and it has arrived)
 // 3 = received (receiver has received a part)
 func (fpt *FilePartTracker) GetPartStatus(partNum int) int {
-	return fpt.m.GetPartStatus(uint16(partNum))
+	return int(fpt.m.GetPartStatus(uint16(partNum)))
 }
 
 // GetNumParts returns the total number of file parts in the transfer.

@@ -51,14 +51,14 @@ func TestSentPartTracker_GetPartStatus(t *testing.T) {
 
 	// Set statuses of parts in the SentTransfer and a map randomly
 	prng := rand.New(rand.NewSource(42))
-	partStatuses := make(map[uint16]int, st.numParts)
+	partStatuses := make(map[uint16]interfaces.FpStatus, st.numParts)
 	for partNum := uint16(0); partNum < st.numParts; partNum++ {
-		partStatuses[partNum] = prng.Intn(3)
+		partStatuses[partNum] = interfaces.FpStatus(prng.Intn(3))
 
 		switch partStatuses[partNum] {
-		case sentStatus:
+		case interfaces.FpSent:
 			st.inProgressStatus.Use(uint32(partNum))
-		case arrivedStatus:
+		case interfaces.FpArrived:
 			st.finishedStatus.Use(uint32(partNum))
 		}
 	}

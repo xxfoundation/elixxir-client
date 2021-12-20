@@ -14,8 +14,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
 	ftStorage "gitlab.com/elixxir/client/storage/fileTransfer"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
@@ -41,17 +43,17 @@ func Test_newManager(t *testing.T) {
 		t.Errorf("newManager returned an error: %+v", err)
 	}
 
-	// Check that the SentFileTransfers is new and correct
-	expectedSent, _ := ftStorage.NewSentFileTransfers(kv)
+	// Check that the SentFileTransfersStore is new and correct
+	expectedSent, _ := ftStorage.NewSentFileTransfersStore(kv)
 	if !reflect.DeepEqual(expectedSent, m.sent) {
-		t.Errorf("SentFileTransfers in manager incorrect."+
+		t.Errorf("SentFileTransfersStore in manager incorrect."+
 			"\nexpected: %+v\nreceived: %+v", expectedSent, m.sent)
 	}
 
-	// Check that the ReceivedFileTransfers is new and correct
-	expectedReceived, _ := ftStorage.NewReceivedFileTransfers(kv)
+	// Check that the ReceivedFileTransfersStore is new and correct
+	expectedReceived, _ := ftStorage.NewReceivedFileTransfersStore(kv)
 	if !reflect.DeepEqual(expectedReceived, m.received) {
-		t.Errorf("ReceivedFileTransfers in manager incorrect."+
+		t.Errorf("ReceivedFileTransfersStore in manager incorrect."+
 			"\nexpected: %+v\nreceived: %+v", expectedReceived, m.received)
 	}
 
@@ -67,14 +69,14 @@ func Test_newManager(t *testing.T) {
 // Tests that Manager.Send adds a new sent transfer, sends the NewFileTransfer
 // E2E message, and adds all the file parts to the queue.
 func TestManager_Send(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, t)
+	m := newTestManager(false, nil, nil, nil, nil, t)
 	prng := NewPrng(42)
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	fileName := "testFile"
 	fileType := "txt"
 	numParts := uint16(16)
 	partSize, _ := m.getPartSize()
-	fileData, _ := newFile(numParts, uint32(partSize), prng, t)
+	fileData, _ := newFile(numParts, partSize, prng, t)
 	preview := []byte("filePreview")
 	retry := float32(1.5)
 	numFps := calcNumberOfFingerprints(numParts, retry)
@@ -148,9 +150,27 @@ func TestManager_Send(t *testing.T) {
 }
 
 // Error path: tests that Manager.Send returns the expected error when the
+// network is not healthy.
+func TestManager_Send_NetworkHealthError(t *testing.T) {
+	m := newTestManager(false, nil, nil, nil, nil, t)
+
+	fileName := "MySentFile"
+	recipient := id.NewIdFromString("recipient", id.User, t)
+	expectedErr := fmt.Sprintf(sendNetworkHealthErr, fileName, recipient)
+
+	m.net.(*testNetworkManager).health.healthy = false
+
+	_, err := m.Send(fileName, "", nil, recipient, 0, nil, nil, 0)
+	if err == nil || err.Error() != expectedErr {
+		t.Errorf("Send did not return the expected error when the network is "+
+			"not healthy.\nexpected: %s\nreceived: %+v", expectedErr, err)
+	}
+}
+
+// Error path: tests that Manager.Send returns the expected error when the
 // provided file name is longer than FileNameMaxLen.
 func TestManager_Send_FileNameLengthError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, t)
+	m := newTestManager(false, nil, nil, nil, nil, t)
 
 	fileName := strings.Repeat("A", FileNameMaxLen+1)
 	expectedErr := fmt.Sprintf(fileNameSizeErr, len(fileName), FileNameMaxLen)
@@ -165,7 +185,7 @@ func TestManager_Send_FileNameLengthError(t *testing.T) {
 // Error path: tests that Manager.Send returns the expected error when the
 // provided file type is longer than FileTypeMaxLen.
 func TestManager_Send_FileTypeLengthError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, t)
+	m := newTestManager(false, nil, nil, nil, nil, t)
 
 	fileType := strings.Repeat("A", FileTypeMaxLen+1)
 	expectedErr := fmt.Sprintf(fileTypeSizeErr, len(fileType), FileTypeMaxLen)
@@ -180,7 +200,7 @@ func TestManager_Send_FileTypeLengthError(t *testing.T) {
 // Error path: tests that Manager.Send returns the expected error when the
 // provided file is larger than FileMaxSize.
 func TestManager_Send_FileSizeError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, t)
+	m := newTestManager(false, nil, nil, nil, nil, t)
 
 	fileData := make([]byte, FileMaxSize+1)
 	expectedErr := fmt.Sprintf(fileSizeErr, len(fileData), FileMaxSize)
@@ -195,7 +215,7 @@ func TestManager_Send_FileSizeError(t *testing.T) {
 // Error path: tests that Manager.Send returns the expected error when the
 // provided preview is larger than PreviewMaxSize.
 func TestManager_Send_PreviewSizeError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, t)
+	m := newTestManager(false, nil, nil, nil, nil, t)
 
 	previewData := make([]byte, PreviewMaxSize+1)
 	expectedErr := fmt.Sprintf(previewSizeErr, len(previewData), PreviewMaxSize)
@@ -210,18 +230,18 @@ func TestManager_Send_PreviewSizeError(t *testing.T) {
 // Error path: tests that Manager.Send returns the expected error when the E2E
 // message fails to send.
 func TestManager_Send_SendE2eError(t *testing.T) {
-	m := newTestManager(true, nil, nil, nil, t)
+	m := newTestManager(true, nil, nil, nil, nil, t)
 	prng := NewPrng(42)
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	fileName := "testFile"
 	fileType := "bytes"
 	numParts := uint16(16)
 	partSize, _ := m.getPartSize()
-	fileData, _ := newFile(numParts, uint32(partSize), prng, t)
+	fileData, _ := newFile(numParts, partSize, prng, t)
 	preview := []byte("filePreview")
 	retry := float32(1.5)
 
-	expectedErr := fmt.Sprintf(sendE2eErr, recipient, "")
+	expectedErr := fmt.Sprintf(newFtSendE2eErr, recipient, "")
 
 	_, err := m.Send(
 		fileName, fileType, fileData, recipient, retry, preview, nil, 0)
@@ -231,11 +251,12 @@ func TestManager_Send_SendE2eError(t *testing.T) {
 	}
 }
 
-// Tests that Manager.RegisterSendProgressCallback calls the callback when it is
+// Tests that Manager.RegisterSentProgressCallback calls the callback when it is
 // added to the transfer and that the callback is associated with the expected
 // transfer and is called when calling from the transfer.
-func TestManager_RegisterSendProgressCallback(t *testing.T) {
-	m, sti, _ := newTestManagerWithTransfers([]uint16{12, 4, 1}, false, nil, t)
+func TestManager_RegisterSentProgressCallback(t *testing.T) {
+	m, sti, _ := newTestManagerWithTransfers(
+		[]uint16{12, 4, 1}, false, false, nil, nil, t)
 	expectedErr := errors.New("CallbackError")
 
 	// Create new callback and channel for the callback to trigger
@@ -275,9 +296,9 @@ func TestManager_RegisterSendProgressCallback(t *testing.T) {
 		}
 	}()
 
-	err := m.RegisterSendProgressCallback(sti[0].tid, cb, time.Millisecond)
+	err := m.RegisterSentProgressCallback(sti[0].tid, cb, 1*time.Millisecond)
 	if err != nil {
-		t.Errorf("RegisterSendProgressCallback returned an error: %+v", err)
+		t.Errorf("RegisterSentProgressCallback returned an error: %+v", err)
 	}
 	<-done0
 
@@ -288,15 +309,15 @@ func TestManager_RegisterSendProgressCallback(t *testing.T) {
 	<-done1
 }
 
-// Error path: tests that Manager.RegisterSendProgressCallback returns an error
+// Error path: tests that Manager.RegisterSentProgressCallback returns an error
 // when no transfer with the ID exists.
-func TestManager_RegisterSendProgressCallback_NoTransferError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, t)
+func TestManager_RegisterSentProgressCallback_NoTransferError(t *testing.T) {
+	m := newTestManager(false, nil, nil, nil, nil, t)
 	tid := ftCrypto.UnmarshalTransferID([]byte("invalidID"))
 
-	err := m.RegisterSendProgressCallback(tid, nil, 0)
+	err := m.RegisterSentProgressCallback(tid, nil, 0)
 	if err == nil {
-		t.Error("RegisterSendProgressCallback did not return an error when " +
+		t.Error("RegisterSentProgressCallback did not return an error when " +
 			"no transfer with the ID exists.")
 	}
 }
@@ -308,7 +329,7 @@ func TestManager_Resend(t *testing.T) {
 // Error path: tests that Manager.Resend returns an error when no transfer with
 // the ID exists.
 func TestManager_Resend_NoTransferError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, t)
+	m := newTestManager(false, nil, nil, nil, nil, t)
 	tid := ftCrypto.UnmarshalTransferID([]byte("invalidID"))
 
 	err := m.Resend(tid)
@@ -321,7 +342,8 @@ func TestManager_Resend_NoTransferError(t *testing.T) {
 // Error path: tests that Manager.Resend returns the error when the transfer has
 // not run out of fingerprints.
 func TestManager_Resend_NoFingerprints(t *testing.T) {
-	m, sti, _ := newTestManagerWithTransfers([]uint16{16}, false, nil, t)
+	m, sti, _ := newTestManagerWithTransfers(
+		[]uint16{16}, false, false, nil, nil, t)
 	expectedErr := fmt.Sprintf(transferNotFailedErr, sti[0].tid)
 	// Delete the transfer
 	err := m.Resend(sti[0].tid)
@@ -335,7 +357,8 @@ func TestManager_Resend_NoFingerprints(t *testing.T) {
 // Tests that Manager.CloseSend deletes the transfer when it has run out of
 // fingerprints but is not complete.
 func TestManager_CloseSend_NoFingerprints(t *testing.T) {
-	m, sti, _ := newTestManagerWithTransfers([]uint16{16}, false, nil, t)
+	m, sti, _ := newTestManagerWithTransfers(
+		[]uint16{16}, false, false, nil, nil, t)
 	prng := NewPrng(42)
 	partSize, _ := m.getPartSize()
 
@@ -365,7 +388,8 @@ func TestManager_CloseSend_NoFingerprints(t *testing.T) {
 // Tests that Manager.CloseSend deletes the transfer when it completed but has
 // fingerprints.
 func TestManager_CloseSend_Complete(t *testing.T) {
-	m, sti, _ := newTestManagerWithTransfers([]uint16{3}, false, nil, t)
+	m, sti, _ := newTestManagerWithTransfers(
+		[]uint16{3}, false, false, nil, nil, t)
 
 	// Set all parts to finished
 	transfer, _ := m.sent.GetTransfer(sti[0].tid)
@@ -373,9 +397,14 @@ func TestManager_CloseSend_Complete(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to set parts to in-progress: %+v", err)
 	}
-	err = transfer.FinishTransfer(0)
+	complete, err := transfer.FinishTransfer(0)
 	if err != nil {
 		t.Errorf("Failed to set parts to finished: %+v", err)
+	}
+
+	// Ensure that FinishTransfer reported the transfer as complete
+	if !complete {
+		t.Error("FinishTransfer did not report the transfer as complete.")
 	}
 
 	// Delete the transfer
@@ -394,7 +423,7 @@ func TestManager_CloseSend_Complete(t *testing.T) {
 // Error path: tests that Manager.CloseSend returns an error when no transfer
 // with the ID exists.
 func TestManager_CloseSend_NoTransferError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, t)
+	m := newTestManager(false, nil, nil, nil, nil, t)
 	tid := ftCrypto.UnmarshalTransferID([]byte("invalidID"))
 
 	err := m.CloseSend(tid)
@@ -407,7 +436,8 @@ func TestManager_CloseSend_NoTransferError(t *testing.T) {
 // Error path: tests that Manager.CloseSend returns an error when the transfer
 // has not run out of fingerprints and is not complete
 func TestManager_CloseSend_NotCompleteErr(t *testing.T) {
-	m, sti, _ := newTestManagerWithTransfers([]uint16{16}, false, nil, t)
+	m, sti, _ := newTestManagerWithTransfers(
+		[]uint16{16}, false, false, nil, nil, t)
 	expectedErr := fmt.Sprintf(transferInProgressErr, sti[0].tid)
 
 	err := m.CloseSend(sti[0].tid)
@@ -420,7 +450,7 @@ func TestManager_CloseSend_NotCompleteErr(t *testing.T) {
 // Error path: tests that Manager.Receive returns an error when no transfer with
 // the ID exists.
 func TestManager_Receive_NoTransferError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, t)
+	m := newTestManager(false, nil, nil, nil, nil, t)
 	tid := ftCrypto.UnmarshalTransferID([]byte("invalidID"))
 
 	_, err := m.Receive(tid)
@@ -433,7 +463,8 @@ func TestManager_Receive_NoTransferError(t *testing.T) {
 // Error path: tests that Manager.Receive returns an error when the file is
 // incomplete.
 func TestManager_Receive_GetFileError(t *testing.T) {
-	m, _, rti := newTestManagerWithTransfers([]uint16{12, 4, 1}, false, nil, t)
+	m, _, rti := newTestManagerWithTransfers(
+		[]uint16{12, 4, 1}, false, false, nil, nil, t)
 
 	_, err := m.Receive(rti[0].tid)
 	if err == nil || !strings.Contains(err.Error(), "missing") {
@@ -442,11 +473,12 @@ func TestManager_Receive_GetFileError(t *testing.T) {
 	}
 }
 
-// Tests that Manager.RegisterReceiveProgressCallback calls the callback when it
-// is added to the transfer and that the callback is associated with the
+// Tests that Manager.RegisterReceivedProgressCallback calls the callback when
+// it is added to the transfer and that the callback is associated with the
 // expected transfer and is called when calling from the transfer.
-func TestManager_RegisterReceiveProgressCallback(t *testing.T) {
-	m, _, rti := newTestManagerWithTransfers([]uint16{12, 4, 1}, false, nil, t)
+func TestManager_RegisterReceivedProgressCallback(t *testing.T) {
+	m, _, rti := newTestManagerWithTransfers(
+		[]uint16{12, 4, 1}, false, false, nil, nil, t)
 	expectedErr := errors.New("CallbackError")
 
 	// Create new callback and channel for the callback to trigger
@@ -486,9 +518,9 @@ func TestManager_RegisterReceiveProgressCallback(t *testing.T) {
 		}
 	}()
 
-	err := m.RegisterReceiveProgressCallback(rti[0].tid, cb, time.Millisecond)
+	err := m.RegisterReceivedProgressCallback(rti[0].tid, cb, time.Millisecond)
 	if err != nil {
-		t.Errorf("RegisterReceiveProgressCallback returned an error: %+v", err)
+		t.Errorf("RegisterReceivedProgressCallback returned an error: %+v", err)
 	}
 	<-done0
 
@@ -499,15 +531,15 @@ func TestManager_RegisterReceiveProgressCallback(t *testing.T) {
 	<-done1
 }
 
-// Error path: tests that Manager.RegisterReceiveProgressCallback returns an
+// Error path: tests that Manager.RegisterReceivedProgressCallback returns an
 // error when no transfer with the ID exists.
-func TestManager_RegisterReceiveProgressCallback_NoTransferError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, t)
+func TestManager_RegisterReceivedProgressCallback_NoTransferError(t *testing.T) {
+	m := newTestManager(false, nil, nil, nil, nil, t)
 	tid := ftCrypto.UnmarshalTransferID([]byte("invalidID"))
 
-	err := m.RegisterReceiveProgressCallback(tid, nil, 0)
+	err := m.RegisterReceivedProgressCallback(tid, nil, 0)
 	if err == nil {
-		t.Error("RegisterReceiveProgressCallback did not return an error " +
+		t.Error("RegisterReceivedProgressCallback did not return an error " +
 			"when no transfer with the ID exists.")
 	}
 }
@@ -563,8 +595,18 @@ func Test_FileTransfer(t *testing.T) {
 	filePartChan2 := make(chan message.Receive, rawMessageBuffSize)
 
 	// Generate sending and receiving managers
-	m1 := newTestManager(false, filePartChan2, newFtChan2, nil, t)
-	m2 := newTestManager(false, filePartChan1, newFtChan1, receiveNewCB, t)
+	m1 := newTestManager(false, filePartChan2, newFtChan2, nil, nil, t)
+	m2 := newTestManager(false, filePartChan1, newFtChan1, receiveNewCB, nil, t)
+
+	// Add partner
+	dhKey := m1.store.E2e().GetGroup().NewInt(42)
+	pubKey := diffieHellman.GeneratePublicKey(dhKey, m1.store.E2e().GetGroup())
+	p := params.GetDefaultE2ESessionParams()
+	recipient := id.NewIdFromString("recipient", id.User, t)
+	err := m1.store.E2e().AddPartner(recipient, pubKey, dhKey, p, p)
+	if err != nil {
+		t.Errorf("Failed to add partner %s: %+v", recipient, err)
+	}
 
 	stop1, err := m1.startProcesses(newFtChan1, filePartChan1)
 	if err != nil {
@@ -605,9 +647,8 @@ func Test_FileTransfer(t *testing.T) {
 	partSize, _ := m1.getPartSize()
 	fileName := "testFile"
 	fileType := "file"
-	file, parts := newFile(32, uint32(partSize), prng, t)
+	file, parts := newFile(32, partSize, prng, t)
 	preview := parts[0]
-	recipient := id.NewIdFromString("recipient", id.User, t)
 
 	// Send file
 	sendTid, err := m1.Send(fileName, fileType, file, recipient, 0.5, preview,
@@ -654,8 +695,7 @@ func Test_FileTransfer(t *testing.T) {
 					// Count the number of parts marked as received
 					count := 0
 					for j := uint16(0); j < r.total; j++ {
-						status := r.tracker.GetPartStatus(j)
-						if status == 3 {
+						if r.tracker.GetPartStatus(j) == interfaces.FpReceived {
 							count++
 						}
 					}
@@ -663,9 +703,9 @@ func Test_FileTransfer(t *testing.T) {
 					// Ensure that the number of parts received reported by the
 					// callback matches the number marked received
 					if count != int(r.received) {
-						t.Errorf("Number of parts marked received does not match "+
-							"number reported by callback.\nmarked:   %d\ncallback: %d",
-							count, r.received)
+						t.Errorf("Number of parts marked received does not "+
+							"match number reported by callback."+
+							"\nmarked:   %d\ncallback: %d", count, r.received)
 					}
 
 					return
@@ -675,7 +715,7 @@ func Test_FileTransfer(t *testing.T) {
 		t.Error("Receive progress callback never reported file finishing to receive.")
 	}()
 
-	err = m2.RegisterReceiveProgressCallback(receiveTid, receiveCb, time.Millisecond)
+	err = m2.RegisterReceivedProgressCallback(receiveTid, receiveCb, time.Millisecond)
 	if err != nil {
 		t.Errorf("Failed to register receive progress callback: %+v", err)
 	}

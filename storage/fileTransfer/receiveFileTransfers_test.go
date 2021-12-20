@@ -22,43 +22,43 @@ import (
 	"testing"
 )
 
-// Tests that NewReceivedFileTransfers creates a new object with empty maps and
-// that it is saved to storage
-func TestNewReceivedFileTransfers(t *testing.T) {
+// Tests that NewReceivedFileTransfersStore creates a new object with empty maps
+// and that it is saved to storage
+func TestNewReceivedFileTransfersStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	expectedRFT := &ReceivedFileTransfers{
+	expectedRFT := &ReceivedFileTransfersStore{
 		transfers: make(map[ftCrypto.TransferID]*ReceivedTransfer),
 		info:      make(map[format.Fingerprint]*partInfo),
-		kv:        kv.Prefix(receivedFileTransfersPrefix),
+		kv:        kv.Prefix(receivedFileTransfersStorePrefix),
 	}
 
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Errorf("NewReceivedFileTransfers returned an error: %+v", err)
+		t.Errorf("NewReceivedFileTransfersStore returned an error: %+v", err)
 	}
 
-	// Check that the new ReceivedFileTransfers matches the expected
+	// Check that the new ReceivedFileTransfersStore matches the expected
 	if !reflect.DeepEqual(expectedRFT, rft) {
-		t.Errorf("New ReceivedFileTransfers does not match expected."+
+		t.Errorf("New ReceivedFileTransfersStore does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expectedRFT, rft)
 	}
 
 	// Ensure that the transfer list is saved to storage
 	_, err = expectedRFT.kv.Get(
-		receivedFileTransfersKey, receivedFileTransfersVersion)
+		receivedFileTransfersStoreKey, receivedFileTransfersStoreVersion)
 	if err != nil {
 		t.Errorf("Failed to load transfer list from storage: %+v", err)
 	}
 }
 
-// Tests that ReceivedFileTransfers.AddTransfer adds a new transfer and adds all
-// the fingerprints to the info map.
-func TestReceivedFileTransfers_AddTransfer(t *testing.T) {
+// Tests that ReceivedFileTransfersStore.AddTransfer adds a new transfer and
+// adds all the fingerprints to the info map.
+func TestReceivedFileTransfersStore_AddTransfer(t *testing.T) {
 	prng := NewPrng(42)
 	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	// Generate info for new transfer
@@ -121,14 +121,14 @@ func TestReceivedFileTransfers_AddTransfer(t *testing.T) {
 	}
 }
 
-// Error path: tests that ReceivedFileTransfers.AddTransfer returns the expected
-// error when the PRNG returns an error.
-func TestReceivedFileTransfers_AddTransfer_NewTransferIdRngError(t *testing.T) {
+// Error path: tests that ReceivedFileTransfersStore.AddTransfer returns the
+// expected error when the PRNG returns an error.
+func TestReceivedFileTransfersStore_AddTransfer_NewTransferIdRngError(t *testing.T) {
 	prng := NewPrngErr()
 	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	// Add the transfer
@@ -141,14 +141,14 @@ func TestReceivedFileTransfers_AddTransfer_NewTransferIdRngError(t *testing.T) {
 
 }
 
-// Tests that ReceivedFileTransfers.addFingerprints adds all the fingerprints
-// to the map
-func TestReceivedFileTransfers_addFingerprints(t *testing.T) {
+// Tests that ReceivedFileTransfersStore.addFingerprints adds all the
+// fingerprints to the map
+func TestReceivedFileTransfersStore_addFingerprints(t *testing.T) {
 	prng := NewPrng(42)
 	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	key, _ := ftCrypto.NewTransferKey(prng)
@@ -176,14 +176,14 @@ func TestReceivedFileTransfers_addFingerprints(t *testing.T) {
 	}
 }
 
-// Tests that ReceivedFileTransfers.GetTransfer returns the newly added
+// Tests that ReceivedFileTransfersStore.GetTransfer returns the newly added
 // transfer.
-func TestReceivedFileTransfers_GetTransfer(t *testing.T) {
+func TestReceivedFileTransfersStore_GetTransfer(t *testing.T) {
 	prng := NewPrng(42)
 	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	// Generate random info for new transfer
@@ -225,14 +225,15 @@ func TestReceivedFileTransfers_GetTransfer(t *testing.T) {
 	}
 }
 
-// Error path: tests that ReceivedFileTransfers.GetTransfer returns the expected
-// error when the provided transfer ID does not correlate to any saved transfer.
-func TestReceivedFileTransfers_GetTransfer_NoTransferError(t *testing.T) {
+// Error path: tests that ReceivedFileTransfersStore.GetTransfer returns the
+// expected error when the provided transfer ID does not correlate to any saved
+// transfer.
+func TestReceivedFileTransfersStore_GetTransfer_NoTransferError(t *testing.T) {
 	prng := NewPrng(42)
 	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	// Generate random info for new transfer
@@ -257,12 +258,12 @@ func TestReceivedFileTransfers_GetTransfer_NoTransferError(t *testing.T) {
 }
 
 // Tests that DeleteTransfer removed a transfer from memory and storage.
-func TestReceivedFileTransfers_DeleteTransfer(t *testing.T) {
+func TestReceivedFileTransfersStore_DeleteTransfer(t *testing.T) {
 	prng := NewPrng(42)
 	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	// Add the transfer
@@ -304,15 +305,15 @@ func TestReceivedFileTransfers_DeleteTransfer(t *testing.T) {
 	}
 }
 
-// Error path: tests that ReceivedFileTransfers.DeleteTransfer returns the
+// Error path: tests that ReceivedFileTransfersStore.DeleteTransfer returns the
 // expected error when the provided transfer ID does not correlate to any saved
 // transfer.
-func TestReceivedFileTransfers_DeleteTransfer_NoTransferError(t *testing.T) {
+func TestReceivedFileTransfersStore_DeleteTransfer_NoTransferError(t *testing.T) {
 	prng := NewPrng(42)
 	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	// Delete the transfer
@@ -326,13 +327,13 @@ func TestReceivedFileTransfers_DeleteTransfer_NoTransferError(t *testing.T) {
 	}
 }
 
-// Tests that ReceivedFileTransfers.AddPart modifies the expected transfer in
-// memory.
-func TestReceivedFileTransfers_AddPart(t *testing.T) {
+// Tests that ReceivedFileTransfersStore.AddPart modifies the expected transfer
+// in memory.
+func TestReceivedFileTransfersStore_AddPart(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	prng := NewPrng(42)
@@ -379,13 +380,13 @@ func TestReceivedFileTransfers_AddPart(t *testing.T) {
 	}
 }
 
-// Error path: tests that ReceivedFileTransfers.AddPart returns the expected
-// error when the provided fingerprint does not correlate to any part.
-func TestReceivedFileTransfers_AddPart_NoFingerprintError(t *testing.T) {
+// Error path: tests that ReceivedFileTransfersStore.AddPart returns the
+// expected error when the provided fingerprint does not correlate to any part.
+func TestReceivedFileTransfersStore_AddPart_NoFingerprintError(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	// Create encrypted part
@@ -401,13 +402,14 @@ func TestReceivedFileTransfers_AddPart_NoFingerprintError(t *testing.T) {
 	}
 }
 
-// Error path: tests that ReceivedFileTransfers.AddPart returns the expected
-// error when the provided transfer ID does not correlate to any saved transfer.
-func TestReceivedFileTransfers_AddPart_NoTransferError(t *testing.T) {
+// Error path: tests that ReceivedFileTransfersStore.AddPart returns the
+// expected error when the provided transfer ID does not correlate to any saved
+// transfer.
+func TestReceivedFileTransfersStore_AddPart_NoTransferError(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	prng := NewPrng(42)
@@ -433,13 +435,13 @@ func TestReceivedFileTransfers_AddPart_NoTransferError(t *testing.T) {
 	}
 }
 
-// Error path: tests that ReceivedFileTransfers.AddPart returns the expected
-// error when the encrypted part data, MAC, and padding are invalid.
-func TestReceivedFileTransfers_AddPart_AddPartError(t *testing.T) {
+// Error path: tests that ReceivedFileTransfersStore.AddPart returns the
+// expected error when the encrypted part data, MAC, and padding are invalid.
+func TestReceivedFileTransfersStore_AddPart_AddPartError(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	prng := NewPrng(42)
@@ -469,12 +471,12 @@ func TestReceivedFileTransfers_AddPart_AddPartError(t *testing.T) {
 	}
 }
 
-// Tests that ReceivedFileTransfers.GetFile returns the complete file.
-func TestReceivedFileTransfers_GetFile(t *testing.T) {
+// Tests that ReceivedFileTransfersStore.GetFile returns the complete file.
+func TestReceivedFileTransfersStore_GetFile(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	prng := NewPrng(42)
@@ -514,13 +516,13 @@ func TestReceivedFileTransfers_GetFile(t *testing.T) {
 	}
 }
 
-// Error path: tests that ReceivedFileTransfers.GetFile returns the expected
-// error when no transfer with the ID exists.
-func TestReceivedFileTransfers_GetFile_NoTransferError(t *testing.T) {
+// Error path: tests that ReceivedFileTransfersStore.GetFile returns the
+// expected error when no transfer with the ID exists.
+func TestReceivedFileTransfersStore_GetFile_NoTransferError(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	tid := ftCrypto.UnmarshalTransferID([]byte("invalidID"))
@@ -537,13 +539,13 @@ func TestReceivedFileTransfers_GetFile_NoTransferError(t *testing.T) {
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Tests that the ReceivedFileTransfers loaded from storage by
-// LoadReceivedFileTransfers matches the original in memory.
-func TestLoadReceivedFileTransfers(t *testing.T) {
+// Tests that the ReceivedFileTransfersStore loaded from storage by
+// LoadReceivedFileTransfersStore matches the original in memory.
+func TestLoadReceivedFileTransfersStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to make new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to make new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	// Add 10 transfers to map in memory
@@ -571,152 +573,154 @@ func TestLoadReceivedFileTransfers(t *testing.T) {
 		t.Errorf("Faileds to save transfers list: %+v", err)
 	}
 
-	// Load ReceivedFileTransfers from storage
-	loadedRFT, err := LoadReceivedFileTransfers(kv)
+	// Load ReceivedFileTransfersStore from storage
+	loadedRFT, err := LoadReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Errorf("LoadReceivedFileTransfers returned an error: %+v", err)
+		t.Errorf("LoadReceivedFileTransfersStore returned an error: %+v", err)
 	}
 
 	if !reflect.DeepEqual(rft, loadedRFT) {
-		t.Errorf("Loaded ReceivedFileTransfers does not match original in "+
-			"memory.\nexpected: %+v\nreceived: %+v", rft, loadedRFT)
+		t.Errorf("Loaded ReceivedFileTransfersStore does not match original"+
+			"in  memory.\nexpected: %+v\nreceived: %+v", rft, loadedRFT)
 	}
 }
 
-// Error path: tests that ReceivedFileTransfers returns the expected error when
-// the transfer list cannot be loaded from storage.
-func TestLoadReceivedFileTransfers_NoListInStorageError(t *testing.T) {
+// Error path: tests that ReceivedFileTransfersStore returns the expected error
+// when the transfer list cannot be loaded from storage.
+func TestLoadReceivedFileTransfersStore_NoListInStorageError(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	expectedErr := strings.Split(loadReceivedTransfersListErr, "%")[0]
 
-	// Load ReceivedFileTransfers from storage
-	_, err := LoadReceivedFileTransfers(kv)
+	// Load ReceivedFileTransfersStore from storage
+	_, err := LoadReceivedFileTransfersStore(kv)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("LoadReceivedFileTransfers did not return the expected error "+
-			"when there is no transfer list saved in storage."+
+		t.Errorf("LoadReceivedFileTransfersStore did not return the expected "+
+			"error  when there is no transfer list saved in storage."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
 
-// Error path: tests that ReceivedFileTransfers returns the expected error when
-// the first transfer loaded from storage does not exist.
-func TestLoadReceivedFileTransfers_NoTransferInStorageError(t *testing.T) {
+// Error path: tests that ReceivedFileTransfersStore returns the expected error
+// when the first transfer loaded from storage does not exist.
+func TestLoadReceivedFileTransfersStore_NoTransferInStorageError(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	expectedErr := strings.Split(loadReceivedFileTransfersErr, "%")[0]
 
 	// Save list of one transfer ID to storage
 	obj := &versioned.Object{
-		Version:   receivedFileTransfersVersion,
+		Version:   receivedFileTransfersStoreVersion,
 		Timestamp: netTime.Now(),
 		Data:      ftCrypto.UnmarshalTransferID([]byte("testID_01")).Bytes(),
 	}
-	err := kv.Prefix(receivedFileTransfersPrefix).Set(
-		receivedFileTransfersKey, receivedFileTransfersVersion, obj)
+	err := kv.Prefix(receivedFileTransfersStorePrefix).Set(
+		receivedFileTransfersStoreKey, receivedFileTransfersStoreVersion, obj)
 
-	// Load ReceivedFileTransfers from storage
-	_, err = LoadReceivedFileTransfers(kv)
+	// Load ReceivedFileTransfersStore from storage
+	_, err = LoadReceivedFileTransfersStore(kv)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("LoadReceivedFileTransfers did not return the expected error "+
-			"when there is no transfer saved in storage."+
-			"\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Tests that the ReceivedFileTransfers loaded from storage by
-// NewOrLoadReceivedFileTransfers matches the original in memory.
-func TestNewOrLoadReceivedFileTransfers(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
-	if err != nil {
-		t.Fatalf("Failed to make new ReceivedFileTransfers: %+v", err)
-	}
-
-	// Add 10 transfers to map in memory
-	list := make([]ftCrypto.TransferID, 10)
-	for i := range list {
-		tid, rt, _ := newRandomReceivedTransfer(16, 24, rft.kv, t)
-
-		// Add to transfer
-		rft.transfers[tid] = rt
-
-		// Add unused fingerprints
-		for n := uint32(0); n < rt.fpVector.GetNumKeys(); n++ {
-			if !rt.fpVector.Used(n) {
-				fp := ftCrypto.GenerateFingerprint(rt.key, uint16(n))
-				rft.info[fp] = &partInfo{tid, uint16(n)}
-			}
-		}
-
-		// Add ID to list
-		list[i] = tid
-	}
-
-	// Save list to storage
-	if err = rft.saveTransfersList(); err != nil {
-		t.Errorf("Faileds to save transfers list: %+v", err)
-	}
-
-	// Load ReceivedFileTransfers from storage
-	loadedRFT, err := NewOrLoadReceivedFileTransfers(kv)
-	if err != nil {
-		t.Errorf("NewOrLoadReceivedFileTransfers returned an error: %+v", err)
-	}
-
-	if !reflect.DeepEqual(rft, loadedRFT) {
-		t.Errorf("Loaded ReceivedFileTransfers does not match original in "+
-			"memory.\nexpected: %+v\nreceived: %+v", rft, loadedRFT)
-	}
-}
-
-// Tests that NewOrLoadReceivedFileTransfers returns a new ReceivedFileTransfers
-// when there is none in storage.
-func TestNewOrLoadReceivedFileTransfers_NewSentFileTransfers(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
-
-	// Load ReceivedFileTransfers from storage
-	loadedRFT, err := NewOrLoadReceivedFileTransfers(kv)
-	if err != nil {
-		t.Errorf("NewOrLoadReceivedFileTransfers returned an error: %+v", err)
-	}
-
-	newRFT, _ := NewReceivedFileTransfers(kv)
-
-	if !reflect.DeepEqual(newRFT, loadedRFT) {
-		t.Errorf("Returned ReceivedFileTransfers does not match new."+
-			"\nexpected: %+v\nreceived: %+v", newRFT, loadedRFT)
-	}
-}
-
-// Error path: tests that NewOrLoadReceivedFileTransfers returns the expected
-// error when the first transfer loaded from storage does not exist.
-func TestNewOrLoadReceivedFileTransfers_NoTransferInStorageError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
-	expectedErr := strings.Split(loadReceivedFileTransfersErr, "%")[0]
-
-	// Save list of one transfer ID to storage
-	obj := &versioned.Object{
-		Version:   receivedFileTransfersVersion,
-		Timestamp: netTime.Now(),
-		Data:      ftCrypto.UnmarshalTransferID([]byte("testID_01")).Bytes(),
-	}
-	err := kv.Prefix(receivedFileTransfersPrefix).Set(
-		receivedFileTransfersKey, receivedFileTransfersVersion, obj)
-
-	// Load ReceivedFileTransfers from storage
-	_, err = NewOrLoadReceivedFileTransfers(kv)
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("NewOrLoadReceivedFileTransfers did not return the expected "+
+		t.Errorf("LoadReceivedFileTransfersStore did not return the expected "+
 			"error when there is no transfer saved in storage."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
 
-// Tests that the list saved by ReceivedFileTransfers.saveTransfersList matches
-// the list loaded by ReceivedFileTransfers.load.
-func TestLoadReceivedFileTransfers_saveTransfersList_loadTransfersList(t *testing.T) {
-	rft, err := NewReceivedFileTransfers(versioned.NewKV(make(ekv.Memstore)))
+// Tests that the ReceivedFileTransfersStore loaded from storage by
+// NewOrLoadReceivedFileTransfersStore matches the original in memory.
+func TestNewOrLoadReceivedFileTransfersStore(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to make new ReceivedFileTransfersStore: %+v", err)
+	}
+
+	// Add 10 transfers to map in memory
+	list := make([]ftCrypto.TransferID, 10)
+	for i := range list {
+		tid, rt, _ := newRandomReceivedTransfer(16, 24, rft.kv, t)
+
+		// Add to transfer
+		rft.transfers[tid] = rt
+
+		// Add unused fingerprints
+		for n := uint32(0); n < rt.fpVector.GetNumKeys(); n++ {
+			if !rt.fpVector.Used(n) {
+				fp := ftCrypto.GenerateFingerprint(rt.key, uint16(n))
+				rft.info[fp] = &partInfo{tid, uint16(n)}
+			}
+		}
+
+		// Add ID to list
+		list[i] = tid
+	}
+
+	// Save list to storage
+	if err = rft.saveTransfersList(); err != nil {
+		t.Errorf("Faileds to save transfers list: %+v", err)
+	}
+
+	// Load ReceivedFileTransfersStore from storage
+	loadedRFT, err := NewOrLoadReceivedFileTransfersStore(kv)
+	if err != nil {
+		t.Errorf("NewOrLoadReceivedFileTransfersStore returned an error: %+v",
+			err)
+	}
+
+	if !reflect.DeepEqual(rft, loadedRFT) {
+		t.Errorf("Loaded ReceivedFileTransfersStore does not match original "+
+			"in memory.\nexpected: %+v\nreceived: %+v", rft, loadedRFT)
+	}
+}
+
+// Tests that NewOrLoadReceivedFileTransfersStore returns a new
+// ReceivedFileTransfersStore when there is none in storage.
+func TestNewOrLoadReceivedFileTransfersStore_NewReceivedFileTransfersStore(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+
+	// Load ReceivedFileTransfersStore from storage
+	loadedRFT, err := NewOrLoadReceivedFileTransfersStore(kv)
+	if err != nil {
+		t.Errorf("NewOrLoadReceivedFileTransfersStore returned an error: %+v",
+			err)
+	}
+
+	newRFT, _ := NewReceivedFileTransfersStore(kv)
+
+	if !reflect.DeepEqual(newRFT, loadedRFT) {
+		t.Errorf("Returned ReceivedFileTransfersStore does not match new."+
+			"\nexpected: %+v\nreceived: %+v", newRFT, loadedRFT)
+	}
+}
+
+// Error path: tests that NewOrLoadReceivedFileTransfersStore returns the
+// expected error when the first transfer loaded from storage does not exist.
+func TestNewOrLoadReceivedFileTransfersStore_NoTransferInStorageError(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	expectedErr := strings.Split(loadReceivedFileTransfersErr, "%")[0]
+
+	// Save list of one transfer ID to storage
+	obj := &versioned.Object{
+		Version:   receivedFileTransfersStoreVersion,
+		Timestamp: netTime.Now(),
+		Data:      ftCrypto.UnmarshalTransferID([]byte("testID_01")).Bytes(),
+	}
+	err := kv.Prefix(receivedFileTransfersStorePrefix).Set(
+		receivedFileTransfersStoreKey, receivedFileTransfersStoreVersion, obj)
+
+	// Load ReceivedFileTransfersStore from storage
+	_, err = NewOrLoadReceivedFileTransfersStore(kv)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("NewOrLoadReceivedFileTransfersStore did not return the "+
+			"expected error when there is no transfer saved in storage."+
+			"\nexpected: %s\nreceived: %+v", expectedErr, err)
+	}
+}
+
+// Tests that the list saved by ReceivedFileTransfersStore.saveTransfersList
+// matches the list loaded by ReceivedFileTransfersStore.load.
+func TestReceivedFileTransfersStore_saveTransfersList_loadTransfersList(t *testing.T) {
+	rft, err := NewReceivedFileTransfersStore(versioned.NewKV(make(ekv.Memstore)))
+	if err != nil {
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	// Fill map with transfers
@@ -761,13 +765,13 @@ func TestLoadReceivedFileTransfers_saveTransfersList_loadTransfersList(t *testin
 	}
 }
 
-// Tests that the list loaded by ReceivedFileTransfers.load matches the original
-// saved to storage.
-func TestLoadReceivedFileTransfers_load(t *testing.T) {
+// Tests that the list loaded by ReceivedFileTransfersStore.load matches the
+// original saved to storage.
+func TestReceivedFileTransfersStore_load(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfers(kv)
+	rft, err := NewReceivedFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
 	}
 
 	// Fill map with transfers
@@ -789,11 +793,11 @@ func TestLoadReceivedFileTransfers_load(t *testing.T) {
 		t.Errorf("saveTransfersList returned an error: %+v", err)
 	}
 
-	// Build new ReceivedFileTransfers
-	newRFT := &ReceivedFileTransfers{
+	// Build new ReceivedFileTransfersStore
+	newRFT := &ReceivedFileTransfersStore{
 		transfers: make(map[ftCrypto.TransferID]*ReceivedTransfer),
 		info:      make(map[format.Fingerprint]*partInfo),
-		kv:        kv.Prefix(receivedFileTransfersPrefix),
+		kv:        kv.Prefix(receivedFileTransfersStorePrefix),
 	}
 
 	// Load saved transfers from storage
@@ -836,11 +840,11 @@ func TestLoadReceivedFileTransfers_load(t *testing.T) {
 }
 
 // Tests that a transfer list marshalled with
-// ReceivedFileTransfers.marshalTransfersList and unmarshalled with
+// ReceivedFileTransfersStore.marshalTransfersList and unmarshalled with
 // unmarshalTransfersList matches the original.
-func TestReceivedFileTransfers_marshalTransfersList_unmarshalTransfersList(t *testing.T) {
+func TestReceivedFileTransfersStore_marshalTransfersList_unmarshalTransfersList(t *testing.T) {
 	prng := NewPrng(42)
-	rft := &ReceivedFileTransfers{
+	rft := &ReceivedFileTransfersStore{
 		transfers: make(map[ftCrypto.TransferID]*ReceivedTransfer),
 	}
 

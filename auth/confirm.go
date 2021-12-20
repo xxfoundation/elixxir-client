@@ -142,6 +142,13 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 		Source: partner.ID[:],
 	}, me)
 
+	// File transfer end
+	storage.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetFileTransferPreimage(),
+		Type:   preimage.EndFT,
+		Source: partner.ID[:],
+	}, me)
+
 	// delete the in progress negotiation
 	// this unlocks the request lock
 	//fixme - do these deletes at a later date

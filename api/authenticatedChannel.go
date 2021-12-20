@@ -151,6 +151,13 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Co
 		Source: precan.ID[:],
 	}, me)
 
+	// File transfer end
+	c.storage.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetFileTransferPreimage(),
+		Type:   preimage.EndFT,
+		Source: precan.ID[:],
+	}, me)
+
 	return precan, err
 }
 

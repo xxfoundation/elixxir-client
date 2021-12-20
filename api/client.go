@@ -626,6 +626,7 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 	}
 	e2ePreimage := partner.GetE2EPreimage()
 	rekeyPreimage := partner.GetRekeyPreimage()
+	fileTransferPreimage := partner.GetFileTransferPreimage()
 
 	//delete the partner
 	if err = c.storage.E2e().DeletePartner(partnerId); err != nil {
@@ -647,6 +648,15 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 		Source: partnerId[:],
 	}, c.storage.GetUser().ReceptionID); err != nil {
 		jww.WARN.Printf("Failed delete the preimage for rekey "+
+			"from %s on contact deletion: %+v", partnerId, err)
+	}
+
+	if err = c.storage.GetEdge().Remove(edge.Preimage{
+		Data:   fileTransferPreimage,
+		Type:   preimage.EndFT,
+		Source: partnerId[:],
+	}, c.storage.GetUser().ReceptionID); err != nil {
+		jww.WARN.Printf("Failed delete the preimage for file transfer "+
 			"from %s on contact deletion: %+v", partnerId, err)
 	}
 

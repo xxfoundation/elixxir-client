@@ -407,6 +407,13 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 		Source: sr.GetPartner()[:],
 	}, me)
 
+	// File transfer end
+	m.storage.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetFileTransferPreimage(),
+		Type:   preimage.EndFT,
+		Source: sr.GetPartner()[:],
+	}, me)
+
 	// delete the in progress negotiation
 	// this undoes the request lock
 	if err := m.storage.Auth().Delete(sr.GetPartner()); err != nil {

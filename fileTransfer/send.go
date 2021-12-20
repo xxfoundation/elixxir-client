@@ -15,11 +15,14 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/interfaces/utility"
 	"gitlab.com/elixxir/client/stoppable"
 	ftStorage "gitlab.com/elixxir/client/storage/fileTransfer"
+	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/crypto/shuffle"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -31,7 +34,7 @@ const (
 	// Manager.sendParts
 	sendManyCmixWarn   = "Failed to send %d file parts %v via SendManyCMIX: %+v"
 	setInProgressErr   = "Failed to set parts %v to in-progress for transfer %s"
-	getRoundResultsErr = "Failed to get round results for round %d: %+v"
+	getRoundResultsErr = "Failed to get round results for round %d for file transfers %v: %+v"
 
 	// Manager.buildMessages
 	noSentTransferWarn = "Could not get transfer %s for part %d: %+v"
@@ -39,12 +42,17 @@ const (
 	newCmixMessageErr  = "Failed to assemble cMix message for file part %d on transfer %s: %+v"
 
 	// Manager.makeRoundEventCallback
-	finishTransferPanic  = "Failed to set part(s) to finished for transfer %s: %+v"
-	roundFailureWarn     = "Failed to send file parts for transmission %s on round %d: %s"
-	unsetInProgressPanic = "Failed to remove parts from in-progress list for transfer %s after %s"
-	roundFailureCbErr    = "Failed to send parts %v for transfer %s on round %d: %s"
-	roundFailErr         = "round failed"
-	trackerTimeoutErr    = "tracker timed out"
+	finishPassNoTransferErr = "Failed to mark in-progress parts as finished on success of round %d for transfer %s: %+v"
+	finishTransferErr       = "Failed to set part(s) to finished for transfer %s: %+v"
+	finishedEndE2eMsfErr    = "Failed to send E2E message to %s on completion of file transfer %s: %+v"
+	finishFailNoTransferErr = "Failed to requeue in-progress parts on failure of round %d for transfer %s: %+v"
+	roundFailureWarn        = "Failed to send file parts for file transfers %v on round %d: round %s"
+	unsetInProgressErr      = "Failed to remove parts from in-progress list for transfer %s: round %s"
+	roundFailureCbErr       = "Failed to send parts %d for transfer %s on round %d: round %s"
+
+	// Manager.sendEndE2eMessage
+	endE2eGetPartnerErr = "failed to get file transfer partner %s: %+v"
+	endE2eSendErr       = "failed to send end file transfer message: %+v"
 
 	// getRandomNumParts
 	getRandomNumPartsRandPanic = "Failed to generate random number of file parts to send: %+v"
@@ -60,7 +68,7 @@ const pollSleepDuration = 100 * time.Millisecond
 // receives a random number between 1 and 11 of file parts, they are encrypted,
 // put into cMix messages, and sent to their recipients. Failed messages are
 // added to the end of the queue.
-func (m *Manager) sendThread(stop *stoppable.Single, getNumParts getRngNum) {
+func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool, getNumParts getRngNum) {
 	jww.DEBUG.Print("Starting file part sending thread.")
 
 	// Calculate the average amount of data sent via SendManyCMIX
@@ -91,15 +99,16 @@ func (m *Manager) sendThread(stop *stoppable.Single, getNumParts getRngNum) {
 			m.closeSendThread(partList, stop)
 
 			return
-		case healthy := <-m.healthy:
+		case healthy := <-healthChan:
 			// If the network is unhealthy, wait until it becomes healthy
-			jww.TRACE.Print("Suspending file part sending thread: network is " +
-				"unhealthy")
-			for !healthy {
-				healthy = <-m.healthy
+			if !healthy {
+				jww.TRACE.Print("Suspending file part sending thread: " +
+					"network is unhealthy.")
 			}
-			jww.TRACE.Print("Resuming file part sending thread: network is " +
-				"healthy")
+			for !healthy {
+				healthy = <-healthChan
+			}
+			jww.TRACE.Print("File part sending thread: network is healthy.")
 		case part := <-m.sendQueue:
 			// When a part is received from the queue, add it to the list of
 			// parts to be sent
@@ -144,7 +153,7 @@ func (m *Manager) sendThread(stop *stoppable.Single, getNumParts getRngNum) {
 // queue and setting the stoppable to stopped.
 func (m *Manager) closeSendThread(partList []queuedPart, stop *stoppable.Single) {
 	// Exit the thread if the stoppable is triggered
-	jww.DEBUG.Print("Stopping file part sending thread: stoppable triggered")
+	jww.DEBUG.Print("Stopping file part sending thread: stoppable triggered.")
 
 	// Add all the unsent parts back in the queue
 	for _, part := range partList {
@@ -175,13 +184,11 @@ func (m *Manager) handleSend(partList *[]queuedPart, lastSend *time.Time,
 	}
 
 	// Send all the messages
-	rng := m.rng.GetStream()
-	err := m.sendParts(*partList, rng)
+	err := m.sendParts(*partList)
 	*lastSend = netTime.Now()
 	if err != nil {
 		jww.FATAL.Panic(err)
 	}
-	rng.Close()
 
 	// Clear partList once done
 	*partList = nil
@@ -191,11 +198,11 @@ func (m *Manager) handleSend(partList *[]queuedPart, lastSend *time.Time,
 
 // sendParts handles the composing and sending of a cMix message for each part
 // in the list. All errors returned are fatal errors.
-func (m *Manager) sendParts(partList []queuedPart, rng csprng.Source) error {
+func (m *Manager) sendParts(partList []queuedPart) error {
 
 	// Build cMix messages
-	messages, transfers, groupedParts, partsToResend, err := m.buildMessages(
-		partList, rng)
+	messages, transfers, groupedParts, partsToResend, err :=
+		m.buildMessages(partList)
 	if err != nil {
 		return err
 	}
@@ -220,6 +227,9 @@ func (m *Manager) sendParts(partList []queuedPart, rng csprng.Source) error {
 		return nil
 	}
 
+	// Create list for transfer IDs to watch with the round results callback
+	tIDs := make([]ftCrypto.TransferID, 0, len(transfers))
+
 	// Set all parts to in-progress
 	for tid, transfer := range transfers {
 		err, exists := transfer.SetInProgress(rid, groupedParts[tid]...)
@@ -229,17 +239,21 @@ func (m *Manager) sendParts(partList []queuedPart, rng csprng.Source) error {
 
 		transfer.CallProgressCB(nil)
 
-		// Set up tracker waiting for the round to end to update state and
-		// progress; skip if the tracker has already been launched for this
-		// transfer and round ID
+		// Add transfer ID to list to be tracked; skip if the tracker has
+		// already been launched for this transfer and round ID
 		if !exists {
-			roundResultCB := m.makeRoundEventCallback(rid, tid, transfer)
-			err = m.getRoundResults(
-				[]id.Round{rid}, roundResultsTimeout, roundResultCB)
-			if err != nil {
-				return errors.Errorf(getRoundResultsErr, rid, err)
-			}
+			tIDs = append(tIDs, tid)
 		}
+	}
+
+	// Set up tracker waiting for the round to end to update state and update
+	// progress
+	roundResultCB := m.makeRoundEventCallback(
+		map[id.Round][]ftCrypto.TransferID{rid: tIDs})
+	err = m.getRoundResults(
+		[]id.Round{rid}, roundResultsTimeout, roundResultCB)
+	if err != nil {
+		return errors.Errorf(getRoundResultsErr, rid, tIDs, err)
 	}
 
 	return nil
@@ -252,13 +266,16 @@ func (m *Manager) sendParts(partList []queuedPart, rng csprng.Source) error {
 // of partList index of parts that will be sent. Any part that encounters a
 // non-fatal error will be skipped and will not be included in an of the lists.
 // All errors returned are fatal errors.
-func (m *Manager) buildMessages(partList []queuedPart, rng csprng.Source) (
+func (m *Manager) buildMessages(partList []queuedPart) (
 	[]message.TargetedCmixMessage, map[ftCrypto.TransferID]*ftStorage.SentTransfer,
 	map[ftCrypto.TransferID][]uint16, []int, error) {
 	messages := make([]message.TargetedCmixMessage, 0, len(partList))
 	transfers := map[ftCrypto.TransferID]*ftStorage.SentTransfer{}
 	groupedParts := map[ftCrypto.TransferID][]uint16{}
 	partsToResend := make([]int, 0, len(partList))
+
+	rng := m.rng.GetStream()
+	defer rng.Close()
 
 	for i, part := range partList {
 		// Lookup the transfer by the ID; if the transfer does not exist, then
@@ -337,79 +354,159 @@ func (m *Manager) newCmixMessage(transfer *ftStorage.SentTransfer,
 }
 
 // makeRoundEventCallback returns an api.RoundEventCallback that is called once
-// the round file parts were sent on either succeeds or fails. If the round
-// succeeds, then all file parts are marked as finished and the progress
-// callback is called with the current progress. If the round fails, then each
-// part is removed from the in-progress list, added to the end of the sending
-// queue, and the callback called with an error.
-func (m *Manager) makeRoundEventCallback(rid id.Round, tid ftCrypto.TransferID,
-	transfer *ftStorage.SentTransfer) api.RoundEventCallback {
+// the round that file parts were sent on either succeeds or fails. If the round
+// succeeds, then all file parts for each transfer are marked as finished and
+// the progress callback is called with the current progress. If the round
+// fails, then each part for each transfer is removed from the in-progress list,
+// added to the end of the sending queue, and the callback called with an error.
+func (m *Manager) makeRoundEventCallback(
+	sentRounds map[id.Round][]ftCrypto.TransferID) api.RoundEventCallback {
 
-	return func(allSucceeded, timedOut bool, _ map[id.Round]api.RoundResult) {
-		if allSucceeded {
-			// If the round succeeded, then set all parts for this round to
-			// finished and call the progress callback
-			err := transfer.FinishTransfer(rid)
-			if err != nil {
-				jww.FATAL.Panicf(finishTransferPanic, tid, err)
-			}
+	return func(allSucceeded, timedOut bool, rounds map[id.Round]api.RoundResult) {
+		for rid, roundResult := range rounds {
+			if roundResult == api.Succeeded {
+				// If the round succeeded, then set all parts for each transfer
+				// for this round to finished and call the progress callback
+				for _, tid := range sentRounds[rid] {
+					transfer, err := m.sent.GetTransfer(tid)
+					if err != nil {
+						jww.ERROR.Printf(finishPassNoTransferErr, rid, tid, err)
+						continue
+					}
 
-			transfer.CallProgressCB(nil)
-		} else {
-			// If the round failed, then remove all parts for this round from
-			// the in-progress list, call the progress callback with an error,
-			// and add the parts back into the queue
+					// Mark as finished
+					completed, err := transfer.FinishTransfer(rid)
+					if err != nil {
+						jww.ERROR.Printf(finishTransferErr, tid, err)
+						continue
+					}
 
-			// Determine the correct error message, for logging
-			roundErr := roundFailErr
-			if timedOut {
-				roundErr = trackerTimeoutErr
-			}
+					// If the transfer is complete, send an E2E message to the
+					// recipient informing them
+					if completed {
+						go func(tid ftCrypto.TransferID, recipient *id.ID) {
+							err = m.sendEndE2eMessage(recipient)
+							if err != nil {
+								jww.ERROR.Printf(finishedEndE2eMsfErr,
+									recipient, tid, err)
+							}
+						}(tid, transfer.GetRecipient())
+					}
 
-			jww.WARN.Printf(roundFailureWarn, tid, rid, roundErr)
+					transfer.CallProgressCB(nil)
+				}
+			} else {
 
-			// Remove parts from in-progress list
-			partsToResend, err := transfer.UnsetInProgress(rid)
-			if err != nil {
-				jww.FATAL.Panicf(unsetInProgressPanic, tid, roundErr)
-			}
+				jww.WARN.Printf(roundFailureWarn, sentRounds[rid], rid, roundResult)
 
-			// Return the error on the progress callback
-			cbErr := errors.Errorf(
-				roundFailureCbErr, partsToResend, tid, rid, roundErr)
-			transfer.CallProgressCB(cbErr)
+				// If the round failed, then remove all parts for each transfer
+				// for this round from the in-progress list, call the progress
+				// callback with an error, and add the parts back into the queue
+				for _, tid := range sentRounds[rid] {
+					transfer, err := m.sent.GetTransfer(tid)
+					if err != nil {
+						jww.ERROR.Printf(finishFailNoTransferErr, rid, tid, err)
+						continue
+					}
 
-			// Add all the unsent parts back in the queue
-			for _, partNum := range partsToResend {
-				m.sendQueue <- queuedPart{
-					tid:     tid,
-					partNum: partNum,
+					// Remove parts from in-progress list
+					partsToResend, err := transfer.UnsetInProgress(rid)
+					if err != nil {
+						jww.ERROR.Printf(unsetInProgressErr, tid, roundResult)
+					}
+
+					// Return the error on the progress callback
+					cbErr := errors.Errorf(
+						roundFailureCbErr, partsToResend, tid, rid, roundResult)
+					transfer.CallProgressCB(cbErr)
+
+					// Add all the unsent parts back in the queue
+					m.queueParts(tid, partsToResend)
 				}
 			}
 		}
 	}
 }
 
-// queueParts adds an entry for each file part in a transfer into the sendQueue
+// sendEndE2eMessage sends an E2E message to the recipient once the transfer
+// complete information them that all file parts have been sent.
+// TODO: test
+func (m *Manager) sendEndE2eMessage(recipient *id.ID) error {
+	// Get the partner
+	partner, err := m.store.E2e().GetPartner(recipient)
+	if err != nil {
+		return errors.Errorf(endE2eGetPartnerErr, recipient, err)
+	}
+
+	// Build the message
+	sendMsg := message.Send{
+		Recipient:   recipient,
+		MessageType: message.EndFileTransfer,
+	}
+
+	// Send the message under file transfer preimage
+	e2eParams := params.GetDefaultE2E()
+	e2eParams.IdentityPreimage = partner.GetFileTransferPreimage()
+
+	// Store the message in the critical messages buffer first to ensure it is
+	// present if the send fails
+	m.store.GetCriticalMessages().AddProcessing(sendMsg, e2eParams)
+
+	rounds, e2eMsgID, _, err := m.net.SendE2E(sendMsg, e2eParams, nil)
+	if err != nil {
+		return errors.Errorf(endE2eSendErr, err)
+	}
+
+	// Register the event for all rounds
+	sendResults := make(chan ds.EventReturn, len(rounds))
+	roundEvents := m.net.GetInstance().GetRoundEvents()
+	for _, r := range rounds {
+		roundEvents.AddRoundEventChan(r, sendResults, 10*time.Second,
+			states.COMPLETED, states.FAILED)
+	}
+
+	// Wait until the result tracking responds
+	success, numTimeOut, numRoundFail := utility.TrackResults(
+		sendResults, len(rounds))
+
+	// If a single partition of the end file transfer message does not transmit,
+	// then the partner will not be able to read the confirmation
+	if !success {
+		jww.ERROR.Printf("Sending E2E message %s to end file transfer with "+
+			"%s failed to transmit %d/%d partitions: %d round failures, %d "+
+			"timeouts", recipient, e2eMsgID, numRoundFail+numTimeOut,
+			len(rounds), numRoundFail, numTimeOut)
+		m.store.GetCriticalMessages().Failed(sendMsg, e2eParams)
+		return nil
+	}
+
+	// Otherwise, the transmission is a success and this should be denoted in
+	// the session and the log
+	m.store.GetCriticalMessages().Succeeded(sendMsg, e2eParams)
+	jww.INFO.Printf("Sending of message %s informing %s that a transfer ended"+
+		"successful.", e2eMsgID, recipient)
+
+	return nil
+}
+
+// queueParts adds an entry for each file part in the list into the sendQueue
 // channel in a random order.
-func (m *Manager) queueParts(tid ftCrypto.TransferID, numParts uint16) {
-	// Add each part number to the buffer in the shuffled order
-	for _, partNum := range getShuffledPartNumList(numParts) {
-		m.sendQueue <- queuedPart{tid, uint16(partNum)}
+func (m *Manager) queueParts(tid ftCrypto.TransferID, partNums []uint16) {
+	// Shuffle the list
+	shuffle.Shuffle16(&partNums)
+
+	// Add each part to the queue
+	for _, partNum := range partNums {
+		m.sendQueue <- queuedPart{tid, partNum}
 	}
 }
 
-// getShuffledPartNumList returns a list of number of file part, from 0 to
-// numParts, shuffled in a random order.
-func getShuffledPartNumList(numParts uint16) []uint64 {
-	// Create list of part numbers
-	partNumList := make([]uint64, numParts)
+// makeListOfPartNums returns a list of number of file part, from 0 to numParts.
+func makeListOfPartNums(numParts uint16) []uint16 {
+	partNumList := make([]uint16, numParts)
 	for i := range partNumList {
-		partNumList[i] = uint64(i)
+		partNumList[i] = uint16(i)
 	}
-
-	// Shuffle list of part numbers
-	shuffle.Shuffle(&partNumList)
 
 	return partNumList
 }

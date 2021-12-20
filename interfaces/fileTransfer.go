@@ -10,6 +10,7 @@ package interfaces
 import (
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
+	"strconv"
 	"time"
 )
 
@@ -43,7 +44,7 @@ type FileTransfer interface {
 		retry float32, preview []byte, progressCB SentProgressCallback,
 		period time.Duration) (ftCrypto.TransferID, error)
 
-	// RegisterSendProgressCallback allows for the registration of a callback to
+	// RegisterSentProgressCallback allows for the registration of a callback to
 	// track the progress of an individual sent file transfer. The callback will
 	// be called immediately when added to report the current status of the
 	// transfer. It will then call every time a file part is sent, a file part
@@ -51,7 +52,7 @@ type FileTransfer interface {
 	// once ever period, which means if events occur faster than the period,
 	// then they will not be reported and instead the progress will be reported
 	// once at the end of the period.
-	RegisterSendProgressCallback(tid ftCrypto.TransferID,
+	RegisterSentProgressCallback(tid ftCrypto.TransferID,
 		progressCB SentProgressCallback, period time.Duration) error
 
 	// Resend resends a file if sending fails. Returns an error if CloseSend
@@ -70,9 +71,9 @@ type FileTransfer interface {
 	// verified, or if the transfer cannot be found.
 	Receive(tid ftCrypto.TransferID) ([]byte, error)
 
-	// RegisterReceiveProgressCallback allows for the registration of a callback
-	// to track the progress of an individual received file transfer. The
-	// callback will be called immediately when added to report the current
+	// RegisterReceivedProgressCallback allows for the registration of a
+	// callback to track the progress of an individual received file transfer.
+	// The callback will be called immediately when added to report the current
 	// status of the transfer. It will then call every time a file part is
 	// received, the transfer completes, or an error occurs. It is called at
 	// most once ever period, which means if events occur faster than the
@@ -80,7 +81,7 @@ type FileTransfer interface {
 	// reported once at the end of the period.
 	// Once the callback reports that the transfer has completed, the recipient
 	// can get the full file by calling Receive.
-	RegisterReceiveProgressCallback(tid ftCrypto.TransferID,
+	RegisterReceivedProgressCallback(tid ftCrypto.TransferID,
 		progressCB ReceivedProgressCallback, period time.Duration) error
 }
 
@@ -93,8 +94,47 @@ type FilePartTracker interface {
 	// 1 = sent (sender has sent a part, but it has not arrived)
 	// 2 = arrived (sender has sent a part, and it has arrived)
 	// 3 = received (receiver has received a part)
-	GetPartStatus(partNum uint16) int
+	GetPartStatus(partNum uint16) FpStatus
 
 	// GetNumParts returns the total number of file parts in the transfer.
 	GetNumParts() uint16
+}
+
+// FpStatus is the file part status and indicates the status of individual file
+// parts in a file transfer.
+type FpStatus int
+
+// Possible values for FpStatus.
+const (
+	// FpUnsent indicates that the file part has not been sent
+	FpUnsent FpStatus = iota
+
+	// FpSent indicates that the file part has been sent (sender has sent a
+	// part, but it has not arrived)
+	FpSent
+
+	// FpArrived indicates that the file part has arrived (sender has sent a
+	// part, and it has arrived)
+	FpArrived
+
+	// FpReceived indicates that the file part has been received (receiver has
+	// received a part)
+	FpReceived
+)
+
+// String returns the string representing of the FpStatus. This functions
+// satisfies the fmt.Stringer interface.
+func (fps FpStatus) String() string {
+	switch fps {
+	case FpUnsent:
+		return "unsent"
+	case FpSent:
+		return "sent"
+	case FpArrived:
+		return "arrived"
+	case FpReceived:
+		return "received"
+	default:
+		return "INVALID FpStatus: " + strconv.Itoa(int(fps))
+	}
 }

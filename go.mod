@@ -20,7 +20,7 @@ require (
 	github.com/spf13/viper v1.7.1
 	gitlab.com/elixxir/bloomfilter v0.0.0-20200930191214-10e9ac31b228
 	gitlab.com/elixxir/comms v0.0.4-0.20211215224705-8972e6ae132f
-	gitlab.com/elixxir/crypto v0.0.7-0.20211219201929-667b9e8151f3
+	gitlab.com/elixxir/crypto v0.0.7-0.20211220170925-8df0791ba4ca
 	gitlab.com/elixxir/ekv v0.1.5
 	gitlab.com/elixxir/primitives v0.0.3-0.20211208211148-752546cf2e46
 	gitlab.com/xx_network/comms v0.0.4-0.20211215181459-0918c1141509

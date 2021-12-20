@@ -50,11 +50,11 @@ func TestReceivedPartTracker_GetPartStatus(t *testing.T) {
 
 	// Set statuses of parts in the ReceivedTransfer and a map randomly
 	prng := rand.New(rand.NewSource(42))
-	partStatuses := make(map[uint16]int, rt.numParts)
+	partStatuses := make(map[uint16]interfaces.FpStatus, rt.numParts)
 	for partNum := uint16(0); partNum < rt.numParts; partNum++ {
-		partStatuses[partNum] = prng.Intn(2) * receivedStatus
+		partStatuses[partNum] = interfaces.FpStatus(prng.Intn(2)) * interfaces.FpReceived
 
-		if partStatuses[partNum] == receivedStatus {
+		if partStatuses[partNum] == interfaces.FpReceived {
 			rt.receivedStatus.Use(uint32(partNum))
 		}
 	}

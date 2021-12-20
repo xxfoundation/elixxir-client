@@ -270,7 +270,7 @@ func (rt *ReceivedTransfer) AddProgressCB(
 	rt.mux.Unlock()
 
 	// Trigger the initial call
-	rct.callNow(rt, nil)
+	rct.callNow(true, rt, nil)
 }
 
 // AddPart decrypts an encrypted file part, adds it to the list of received

@@ -38,9 +38,11 @@ func (c *Client) GetPreimages(identity []byte) []byte {
 
 	marshaled, err := json.Marshal(&list)
 	if err != nil {
+		jww.FATAL.Printf("TESTTEST: %+v", err)
 		return []byte{}
 	}
-	jww.FATAL.Printf("%d %v %d", reflect.TypeOf(marshaled).Align(), unsafe.Sizeof(marshaled), len(marshaled))
+	jww.FATAL.Printf("CAT %d %v %d", reflect.TypeOf(marshaled).Align(), unsafe.Sizeof(marshaled), len(marshaled))
+	jww.FATAL.Printf("DOG %d %v %d", reflect.TypeOf(err).Align(), unsafe.Sizeof(err))
 	return marshaled
 }
 

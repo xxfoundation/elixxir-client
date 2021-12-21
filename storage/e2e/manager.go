@@ -261,10 +261,10 @@ func (m *Manager) GetE2EPreimage() []byte {
 	return preimage.Generate(m.GetRelationshipFingerprintBytes(), preimage.E2e)
 }
 
-// GetRekeyPreimage returns a hash of the unique
-// fingerprint for an E2E rekey message.
-func (m *Manager) GetRekeyPreimage() []byte {
-	return preimage.Generate(m.GetRelationshipFingerprintBytes(), preimage.Rekey)
+// GetSilentPreimage returns a hash of the unique
+// fingerprint for silent messages like E2E rekey message.
+func (m *Manager) GetSilentPreimage() []byte {
+	return preimage.Generate(m.GetRelationshipFingerprintBytes(), preimage.Silent)
 }
 
 // GetFileTransferPreimage returns a hash of the unique

@@ -93,9 +93,12 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 		jww.INFO.Printf("E2E sending %d/%d to %s with msgDigest: %s, key fp: %s",
 			i+i, len(partitions), msg.Recipient, msgEnc.Digest(), key.Fingerprint())
 
+		localParam := param
 		//set the preimage to the default e2e one if it is not already set
-		if param.IdentityPreimage == nil {
-			param.IdentityPreimage = partner.GetE2EPreimage()
+		if localParam.OnlyNotifyOnLastSend && i < len(partitions)-1{
+			localParam.IdentityPreimage = partner.GetSilentPreimage()
+		}else if localParam.IdentityPreimage == nil {
+			localParam.IdentityPreimage = partner.GetE2EPreimage()
 		}
 
 		//send the cmix message, each partition in its own thread
@@ -103,7 +106,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 		go func(i int) {
 			var err error
 			roundIds[i], _, err = m.SendCMIX(m.sender, msgEnc, msg.Recipient,
-				param.CMIX, stop)
+				localParam.CMIX, stop)
 			if err != nil {
 				errCh <- err
 			}

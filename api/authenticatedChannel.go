@@ -119,10 +119,10 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Co
 		Source: precan.ID[:],
 	}, me)
 
-	//rekey
+	//slient (rekey)
 	c.storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetRekeyPreimage(),
-		Type:   preimage.Rekey,
+		Data:   sessionPartner.GetSilentPreimage(),
+		Type:   preimage.Silent,
 		Source: precan.ID[:],
 	}, me)
 

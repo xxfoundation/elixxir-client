@@ -27,12 +27,14 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// NewFileTransfer is transmitted first on the initialization of a file transfer
+// to inform the receiver about the incoming file.
 type NewFileTransfer struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	FileName    string  `protobuf:"bytes,1,opt,name=fileName,proto3" json:"fileName,omitempty"`       // Name of the file; max 32 characters
+	FileName    string  `protobuf:"bytes,1,opt,name=fileName,proto3" json:"fileName,omitempty"`       // Name of the file; max 48 characters
 	FileType    string  `protobuf:"bytes,2,opt,name=fileType,proto3" json:"fileType,omitempty"`       // Type of file; max 8 characters
 	TransferKey []byte  `protobuf:"bytes,3,opt,name=transferKey,proto3" json:"transferKey,omitempty"` // 256 bit encryption key to identify the transfer
 	TransferMac []byte  `protobuf:"bytes,4,opt,name=transferMac,proto3" json:"transferMac,omitempty"` // 256 bit MAC of the entire file

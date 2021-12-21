@@ -54,7 +54,11 @@ const (
 	// A group chat request message sent to all members in a group.
 	GroupCreationRequest = 40
 
-	// NewFileTransfer is the initial message that initiates a large file
-	// transfer.
+	// NewFileTransfer is transmitted first on the initialization of a file
+	// transfer to inform the receiver about the incoming file.
 	NewFileTransfer = 50
+
+	// EndFileTransfer is sent once all file parts have been transmitted to
+	// inform the receiver that the file transfer has ended.
+	EndFileTransfer = 51
 )

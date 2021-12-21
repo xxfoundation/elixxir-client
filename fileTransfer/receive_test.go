@@ -24,8 +24,8 @@ import (
 // receiving a single message.
 func TestManager_receive(t *testing.T) {
 	// Build a manager for sending and a manger for receiving
-	m1 := newTestManager(false, nil, nil, nil, t)
-	m2 := newTestManager(false, nil, nil, nil, t)
+	m1 := newTestManager(false, nil, nil, nil, nil, t)
+	m2 := newTestManager(false, nil, nil, nil, nil, t)
 
 	// Create transfer components
 	prng := NewPrng(42)
@@ -34,7 +34,7 @@ func TestManager_receive(t *testing.T) {
 	numParts := uint16(16)
 	numFps := calcNumberOfFingerprints(numParts, 0.5)
 	partSize, _ := m1.getPartSize()
-	file, parts := newFile(numParts, uint32(partSize), prng, t)
+	file, parts := newFile(numParts, partSize, prng, t)
 	fileSize := uint32(len(file))
 	mac := ftCrypto.CreateTransferMAC(file, key)
 
@@ -142,8 +142,8 @@ func TestManager_receive(t *testing.T) {
 // stoppable is triggered.
 func TestManager_receive_Stop(t *testing.T) {
 	// Build a manager for sending and a manger for receiving
-	m1 := newTestManager(false, nil, nil, nil, t)
-	m2 := newTestManager(false, nil, nil, nil, t)
+	m1 := newTestManager(false, nil, nil, nil, nil, t)
+	m2 := newTestManager(false, nil, nil, nil, nil, t)
 
 	// Create transfer components
 	prng := NewPrng(42)
@@ -152,7 +152,7 @@ func TestManager_receive_Stop(t *testing.T) {
 	numParts := uint16(16)
 	numFps := calcNumberOfFingerprints(numParts, 0.5)
 	partSize, _ := m1.getPartSize()
-	file, parts := newFile(numParts, uint32(partSize), prng, t)
+	file, parts := newFile(numParts, partSize, prng, t)
 	fileSize := uint32(len(file))
 	mac := ftCrypto.CreateTransferMAC(file, key)
 
@@ -248,8 +248,8 @@ func TestManager_receive_Stop(t *testing.T) {
 func TestManager_readMessage(t *testing.T) {
 
 	// Build a manager for sending and a manger for receiving
-	m1 := newTestManager(false, nil, nil, nil, t)
-	m2 := newTestManager(false, nil, nil, nil, t)
+	m1 := newTestManager(false, nil, nil, nil, nil, t)
+	m2 := newTestManager(false, nil, nil, nil, nil, t)
 
 	// Create transfer components
 	prng := NewPrng(42)
@@ -258,7 +258,7 @@ func TestManager_readMessage(t *testing.T) {
 	numParts := uint16(16)
 	numFps := calcNumberOfFingerprints(numParts, 0.5)
 	partSize, _ := m1.getPartSize()
-	file, parts := newFile(numParts, uint32(partSize), prng, t)
+	file, parts := newFile(numParts, partSize, prng, t)
 	fileSize := uint32(len(file))
 	mac := ftCrypto.CreateTransferMAC(file, key)
 

@@ -8,15 +8,8 @@
 package fileTransfer
 
 import (
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/utility"
-)
-
-// Part statuses.
-const (
-	unsentStatus   = 0
-	sentStatus     = 1
-	arrivedStatus  = 2
-	receivedStatus = 3
 )
 
 // SentPartTracker tracks the status of individual sent file parts.
@@ -46,13 +39,13 @@ func NewSentPartTracker(inProgress, finished *utility.StateVector) SentPartTrack
 // 0 = unsent
 // 1 = sent (sender has sent a part, but it has not arrived)
 // 2 = arrived (sender has sent a part, and it has arrived)
-func (spt SentPartTracker) GetPartStatus(partNum uint16) int {
+func (spt SentPartTracker) GetPartStatus(partNum uint16) interfaces.FpStatus {
 	if spt.inProgressStatus.Used(uint32(partNum)) {
-		return sentStatus
+		return interfaces.FpSent
 	} else if spt.finishedStatus.Used(uint32(partNum)) {
-		return arrivedStatus
+		return interfaces.FpArrived
 	} else {
-		return unsentStatus
+		return interfaces.FpUnsent
 	}
 }
 

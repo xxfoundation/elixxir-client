@@ -14,42 +14,44 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 )
 
-// Tests that NewSentFileTransfers creates a new object with empty maps and that
-// it is saved to storage
-func TestNewSentFileTransfers(t *testing.T) {
+// Tests that NewSentFileTransfersStore creates a new object with empty maps and
+// that it is saved to storage
+func TestNewSentFileTransfersStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	expectedSFT := &SentFileTransfers{
+	expectedSFT := &SentFileTransfersStore{
 		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
-		kv:        kv.Prefix(sentFileTransfersPrefix),
+		kv:        kv.Prefix(sentFileTransfersStorePrefix),
 	}
 
-	sft, err := NewSentFileTransfers(kv)
+	sft, err := NewSentFileTransfersStore(kv)
 
-	// Check that the new SentFileTransfers matches the expected
+	// Check that the new SentFileTransfersStore matches the expected
 	if !reflect.DeepEqual(expectedSFT, sft) {
-		t.Errorf("New SentFileTransfers does not match expected."+
+		t.Errorf("New SentFileTransfersStore does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expectedSFT, sft)
 	}
 
 	// Ensure that the transfer list is saved to storage
-	_, err = expectedSFT.kv.Get(sentFileTransfersKey, sentFileTransfersVersion)
+	_, err = expectedSFT.kv.Get(
+		sentFileTransfersStoreKey, sentFileTransfersStoreVersion)
 	if err != nil {
 		t.Errorf("Failed to load transfer list from storage: %+v", err)
 	}
 }
 
-// Tests that SentFileTransfers.AddTransfer adds a new transfer to the map and
-// that its ID is saved to the list in storage.
-func TestSentFileTransfers_AddTransfer(t *testing.T) {
+// Tests that SentFileTransfersStore.AddTransfer adds a new transfer to the map
+// and that its ID is saved to the list in storage.
+func TestSentFileTransfersStore_AddTransfer(t *testing.T) {
 	prng := NewPrng(42)
 	kv := versioned.NewKV(make(ekv.Memstore))
-	sft, err := NewSentFileTransfers(kv)
+	sft, err := NewSentFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new SentFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new SentFileTransfersStore: %+v", err)
 	}
 
 	// Generate info for new transfer
@@ -80,14 +82,14 @@ func TestSentFileTransfers_AddTransfer(t *testing.T) {
 	}
 }
 
-// Error path: tests that SentFileTransfers.AddTransfer returns the expected
-// error when the PRNG returns an error.
-func TestSentFileTransfers_AddTransfer_NewTransferIdRngError(t *testing.T) {
+// Error path: tests that SentFileTransfersStore.AddTransfer returns the
+// expected error when the PRNG returns an error.
+func TestSentFileTransfersStore_AddTransfer_NewTransferIdRngError(t *testing.T) {
 	prng := NewPrngErr()
 	kv := versioned.NewKV(make(ekv.Memstore))
-	sft, err := NewSentFileTransfers(kv)
+	sft, err := NewSentFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new SentFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new SentFileTransfersStore: %+v", err)
 	}
 
 	// Add the transfer
@@ -99,14 +101,14 @@ func TestSentFileTransfers_AddTransfer_NewTransferIdRngError(t *testing.T) {
 	}
 }
 
-// Tests that SentFileTransfers.GetTransfer returns the expected transfer from
-// the map.
-func TestSentFileTransfers_GetTransfer(t *testing.T) {
+// Tests that SentFileTransfersStore.GetTransfer returns the expected transfer
+// from the map.
+func TestSentFileTransfersStore_GetTransfer(t *testing.T) {
 	prng := NewPrng(42)
 	kv := versioned.NewKV(make(ekv.Memstore))
-	sft, err := NewSentFileTransfers(kv)
+	sft, err := NewSentFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new SentFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new SentFileTransfersStore: %+v", err)
 	}
 
 	// Generate info for new transfer
@@ -131,14 +133,15 @@ func TestSentFileTransfers_GetTransfer(t *testing.T) {
 	}
 }
 
-// Error path: tests that SentFileTransfers.GetTransfer returns the expected
-// error when the map is empty/there is no transfer with the given transfer ID.
-func TestSentFileTransfers_GetTransfer_NoTransferError(t *testing.T) {
+// Error path: tests that SentFileTransfersStore.GetTransfer returns the
+// expected error when the map is empty/there is no transfer with the given
+// transfer ID.
+func TestSentFileTransfersStore_GetTransfer_NoTransferError(t *testing.T) {
 	prng := NewPrng(42)
 	kv := versioned.NewKV(make(ekv.Memstore))
-	sft, err := NewSentFileTransfers(kv)
+	sft, err := NewSentFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new SentFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new SentFileTransfersStore: %+v", err)
 	}
 
 	tid, _ := ftCrypto.NewTransferID(prng)
@@ -150,14 +153,14 @@ func TestSentFileTransfers_GetTransfer_NoTransferError(t *testing.T) {
 	}
 }
 
-// Tests that SentFileTransfers.DeleteTransfer removes the transfer from the map
-// in memory and from the list in storage.
-func TestSentFileTransfers_DeleteTransfer(t *testing.T) {
+// Tests that SentFileTransfersStore.DeleteTransfer removes the transfer from
+// the map in memory and from the list in storage.
+func TestSentFileTransfersStore_DeleteTransfer(t *testing.T) {
 	prng := NewPrng(42)
 	kv := versioned.NewKV(make(ekv.Memstore))
-	sft, err := NewSentFileTransfers(kv)
+	sft, err := NewSentFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new SentFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new SentFileTransfersStore: %+v", err)
 	}
 
 	// Generate info for new transfer
@@ -178,7 +181,8 @@ func TestSentFileTransfers_DeleteTransfer(t *testing.T) {
 
 	transfer, err := sft.GetTransfer(tid)
 	if err == nil {
-		t.Errorf("No error getting transfer that should be deleted: %+v", transfer)
+		t.Errorf("No error getting transfer that should be deleted: %+v",
+			transfer)
 	}
 
 	list, err := sft.loadTransfersList()
@@ -191,14 +195,15 @@ func TestSentFileTransfers_DeleteTransfer(t *testing.T) {
 	}
 }
 
-// Error path: tests that SentFileTransfers.DeleteTransfer returns the expected
-// error when the map is empty/there is no transfer with the given transfer ID.
-func TestSentFileTransfers_DeleteTransfer_NoTransferError(t *testing.T) {
+// Error path: tests that SentFileTransfersStore.DeleteTransfer returns the
+// expected error when the map is empty/there is no transfer with the given
+// transfer ID.
+func TestSentFileTransfersStore_DeleteTransfer_NoTransferError(t *testing.T) {
 	prng := NewPrng(42)
 	kv := versioned.NewKV(make(ekv.Memstore))
-	sft, err := NewSentFileTransfers(kv)
+	sft, err := NewSentFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to create new SentFileTransfers: %+v", err)
+		t.Fatalf("Failed to create new SentFileTransfersStore: %+v", err)
 	}
 
 	tid, _ := ftCrypto.NewTransferID(prng)
@@ -210,17 +215,232 @@ func TestSentFileTransfers_DeleteTransfer_NoTransferError(t *testing.T) {
 	}
 }
 
+// Tests that SentFileTransfersStore.GetUnsentParts returns the expected unsent
+// parts for each transfer. Transfers are created with increasing number of
+// parts. Each part of each transfer is set as either in-progress, finished, or
+// unsent.
+func TestSentFileTransfersStore_GetUnsentParts(t *testing.T) {
+	prng := NewPrng(42)
+	kv := versioned.NewKV(make(ekv.Memstore))
+	sft, err := NewSentFileTransfersStore(kv)
+	if err != nil {
+		t.Fatalf("Failed to create new SentFileTransfersStore: %+v", err)
+	}
+
+	n := uint16(3)
+	expectedParts := make(map[ftCrypto.TransferID][]uint16, n)
+
+	// Add new transfers
+	for i := uint16(0); i < n; i++ {
+		recipient := id.NewIdFromUInt(uint64(i), id.User, t)
+		key, _ := ftCrypto.NewTransferKey(prng)
+		parts, _ := newRandomPartSlice((i+1)*6, prng, t)
+		numParts := uint16(len(parts))
+		numFps := numParts * 3 / 2
+
+		tid, err := sft.AddTransfer(recipient, key, parts, numFps, nil, 0, prng)
+		if err != nil {
+			t.Errorf("Failed to add transfer %d: %+v", i, err)
+		}
+
+		// Loop through each part and set it individually
+		for j := uint16(0); j < numParts; j++ {
+			switch ((j + i) % numParts) % 3 {
+			case 0:
+				// Part is sent (in-progress)
+				_, _ = sft.transfers[tid].SetInProgress(id.Round(j), j)
+			case 1:
+				// Part is sent and arrived (finished)
+				_, _ = sft.transfers[tid].SetInProgress(id.Round(j), j)
+				_, _ = sft.transfers[tid].FinishTransfer(id.Round(j))
+			case 2:
+				// Part is unsent (neither in-progress nor arrived)
+				expectedParts[tid] = append(expectedParts[tid], j)
+			}
+		}
+	}
+
+	unsentParts := sft.GetUnsentParts()
+
+	if !reflect.DeepEqual(expectedParts, unsentParts) {
+		t.Errorf("Unexpected unsent parts map.\nexpected: %+v\nreceived: %+v",
+			expectedParts, unsentParts)
+	}
+}
+
+// Tests that SentFileTransfersStore.GetSentRounds returns the expected transfer
+// ID for each unfinished round. Transfers are created with increasing number of
+// parts. Each part of each transfer is set as either in-progress, finished, or
+// unsent.
+func TestSentFileTransfersStore_GetSentRounds(t *testing.T) {
+	prng := NewPrng(42)
+	kv := versioned.NewKV(make(ekv.Memstore))
+	sft, err := NewSentFileTransfersStore(kv)
+	if err != nil {
+		t.Fatalf("Failed to create new SentFileTransfersStore: %+v", err)
+	}
+
+	n := uint16(3)
+	expectedRounds := make(map[id.Round][]ftCrypto.TransferID)
+
+	// Add new transfers
+	for i := uint16(0); i < n; i++ {
+		recipient := id.NewIdFromUInt(uint64(i), id.User, t)
+		key, _ := ftCrypto.NewTransferKey(prng)
+		parts, _ := newRandomPartSlice((i+1)*6, prng, t)
+		numParts := uint16(len(parts))
+		numFps := numParts * 3 / 2
+
+		tid, err := sft.AddTransfer(recipient, key, parts, numFps, nil, 0, prng)
+		if err != nil {
+			t.Errorf("Failed to add transfer %d: %+v", i, err)
+		}
+
+		// Loop through each part and set it individually
+		for j := uint16(0); j < numParts; j++ {
+			rid := id.Round(j)
+			switch j % 3 {
+			case 0:
+				// Part is sent (in-progress)
+				_, _ = sft.transfers[tid].SetInProgress(id.Round(j), j)
+				expectedRounds[rid] = append(expectedRounds[rid], tid)
+			case 1:
+				// Part is sent and arrived (finished)
+				_, _ = sft.transfers[tid].SetInProgress(id.Round(j), j)
+				_, _ = sft.transfers[tid].FinishTransfer(id.Round(j))
+			case 2:
+				// Part is unsent (neither in-progress nor arrived)
+			}
+		}
+	}
+
+	// Sort expected rounds map transfer IDs
+	for _, tIDs := range expectedRounds {
+		sort.Slice(tIDs,
+			func(i, j int) bool { return tIDs[i].String() < tIDs[j].String() })
+	}
+
+	sentRounds := sft.GetSentRounds()
+
+	// Sort sent rounds map transfer IDs
+	for _, tIDs := range sentRounds {
+		sort.Slice(tIDs,
+			func(i, j int) bool { return tIDs[i].String() < tIDs[j].String() })
+	}
+
+	if !reflect.DeepEqual(expectedRounds, sentRounds) {
+		t.Errorf("Unexpected sent rounds map.\nexpected: %+v\nreceived: %+v",
+			expectedRounds, sentRounds)
+	}
+}
+
+// Tests that SentFileTransfersStore.GetUnsentPartsAndSentRounds
+func TestSentFileTransfersStore_GetUnsentPartsAndSentRounds(t *testing.T) {
+	prng := NewPrng(42)
+	kv := versioned.NewKV(make(ekv.Memstore))
+	sft, err := NewSentFileTransfersStore(kv)
+	if err != nil {
+		t.Fatalf("Failed to create new SentFileTransfersStore: %+v", err)
+	}
+
+	n := uint16(3)
+	expectedParts := make(map[ftCrypto.TransferID][]uint16, n)
+	expectedRounds := make(map[id.Round][]ftCrypto.TransferID)
+
+	// Add new transfers
+	for i := uint16(0); i < n; i++ {
+		recipient := id.NewIdFromUInt(uint64(i), id.User, t)
+		key, _ := ftCrypto.NewTransferKey(prng)
+		parts, _ := newRandomPartSlice((i+1)*6, prng, t)
+		numParts := uint16(len(parts))
+		numFps := numParts * 3 / 2
+
+		tid, err := sft.AddTransfer(recipient, key, parts, numFps, nil, 0, prng)
+		if err != nil {
+			t.Errorf("Failed to add transfer %d: %+v", i, err)
+		}
+
+		// Loop through each part and set it individually
+		for j := uint16(0); j < numParts; j++ {
+			rid := id.Round(j)
+			switch j % 3 {
+			case 0:
+				// Part is sent (in-progress)
+				_, _ = sft.transfers[tid].SetInProgress(rid, j)
+				expectedRounds[rid] = append(expectedRounds[rid], tid)
+			case 1:
+				// Part is sent and arrived (finished)
+				_, _ = sft.transfers[tid].SetInProgress(rid, j)
+				_, _ = sft.transfers[tid].FinishTransfer(rid)
+			case 2:
+				// Part is unsent (neither in-progress nor arrived)
+				expectedParts[tid] = append(expectedParts[tid], j)
+			}
+		}
+	}
+
+	// Sort expected rounds map transfer IDs
+	for _, tIDs := range expectedRounds {
+		sort.Slice(tIDs,
+			func(i, j int) bool { return tIDs[i].String() < tIDs[j].String() })
+	}
+
+	unsentParts, sentRounds := sft.GetUnsentPartsAndSentRounds()
+
+	// Sort sent rounds map transfer IDs
+	for _, tIDs := range sentRounds {
+		sort.Slice(tIDs,
+			func(i, j int) bool { return tIDs[i].String() < tIDs[j].String() })
+	}
+
+	if !reflect.DeepEqual(expectedParts, unsentParts) {
+		t.Errorf("Unexpected unsent parts map.\nexpected: %+v\nreceived: %+v",
+			expectedParts, unsentParts)
+	}
+
+	if !reflect.DeepEqual(expectedRounds, sentRounds) {
+		t.Errorf("Unexpected sent rounds map.\nexpected: %+v\nreceived: %+v",
+			expectedRounds, sentRounds)
+	}
+
+	unsentParts2 := sft.GetUnsentParts()
+
+	if !reflect.DeepEqual(unsentParts, unsentParts2) {
+		t.Errorf("Unsent parts from GetUnsentParts and "+
+			"GetUnsentPartsAndSentRounds do not match."+
+			"\nGetUnsentParts:              %+v"+
+			"\nGetUnsentPartsAndSentRounds: %+v",
+			unsentParts, unsentParts2)
+	}
+
+	sentRounds2 := sft.GetSentRounds()
+
+	// Sort sent rounds map transfer IDs
+	for _, tIDs := range sentRounds2 {
+		sort.Slice(tIDs,
+			func(i, j int) bool { return tIDs[i].String() < tIDs[j].String() })
+	}
+
+	if !reflect.DeepEqual(sentRounds, sentRounds2) {
+		t.Errorf("Sent rounds map from GetSentRounds and "+
+			"GetUnsentPartsAndSentRounds do not match."+
+			"\nGetSentRounds:               %+v"+
+			"\nGetUnsentPartsAndSentRounds: %+v",
+			sentRounds, sentRounds2)
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Tests that the SentFileTransfers loaded from storage by LoadSentFileTransfers
-// matches the original in memory.
-func TestLoadSentFileTransfers(t *testing.T) {
+// Tests that the SentFileTransfersStore loaded from storage by
+// LoadSentFileTransfersStore matches the original in memory.
+func TestLoadSentFileTransfersStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	sft, err := NewSentFileTransfers(kv)
+	sft, err := NewSentFileTransfersStore(kv)
 	if err != nil {
-		t.Fatalf("Failed to make new SentFileTransfers: %+v", err)
+		t.Fatalf("Failed to make new SentFileTransfersStore: %+v", err)
 	}
 
 	// Add 10 transfers to map in memory
@@ -236,153 +456,155 @@ func TestLoadSentFileTransfers(t *testing.T) {
 		t.Errorf("Faileds to save transfers list: %+v", err)
 	}
 
-	// Load SentFileTransfers from storage
-	loadedSFT, err := LoadSentFileTransfers(kv)
+	// Load SentFileTransfersStore from storage
+	loadedSFT, err := LoadSentFileTransfersStore(kv)
 	if err != nil {
-		t.Errorf("LoadSentFileTransfers returned an error: %+v", err)
+		t.Errorf("LoadSentFileTransfersStore returned an error: %+v", err)
 	}
 
-	// Equalize all progressCallbacks because reflect.DeepEqual does not seem
-	// to work on function pointers
+	// Equalize all progressCallbacks because reflect.DeepEqual does not seem to
+	// work on function pointers
 	for _, tid := range list {
 		loadedSFT.transfers[tid].progressCallbacks = sft.transfers[tid].progressCallbacks
 	}
 
 	if !reflect.DeepEqual(sft, loadedSFT) {
-		t.Errorf("Loaded SentFileTransfers does not match original in memory."+
-			"\nexpected: %+v\nreceived: %+v", sft, loadedSFT)
+		t.Errorf("Loaded SentFileTransfersStore does not match original in "+
+			"memory.\nexpected: %+v\nreceived: %+v", sft, loadedSFT)
 	}
 }
 
-// Error path: tests that LoadSentFileTransfers returns the expected error when
-// the transfer list cannot be loaded from storage.
-func TestLoadSentFileTransfers_NoListInStorageError(t *testing.T) {
+// Error path: tests that LoadSentFileTransfersStore returns the expected error
+// when the transfer list cannot be loaded from storage.
+func TestLoadSentFileTransfersStore_NoListInStorageError(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	expectedErr := strings.Split(loadSentTransfersListErr, "%")[0]
 
-	// Load SentFileTransfers from storage
-	_, err := LoadSentFileTransfers(kv)
+	// Load SentFileTransfersStore from storage
+	_, err := LoadSentFileTransfersStore(kv)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("LoadSentFileTransfers did not return the expected error "+
-			"when there is no transfer list saved in storage."+
+		t.Errorf("LoadSentFileTransfersStore did not return the expected "+
+			"error when there is no transfer list saved in storage."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
 
-// Error path: tests that LoadSentFileTransfers returns the expected error when
-// the first transfer loaded from storage does not exist.
-func TestLoadSentFileTransfers_NoTransferInStorageError(t *testing.T) {
+// Error path: tests that LoadSentFileTransfersStore returns the expected error
+// when the first transfer loaded from storage does not exist.
+func TestLoadSentFileTransfersStore_NoTransferInStorageError(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	expectedErr := strings.Split(loadSentTransfersErr, "%")[0]
 
 	// Save list of one transfer ID to storage
 	obj := &versioned.Object{
-		Version:   sentFileTransfersVersion,
+		Version:   sentFileTransfersStoreVersion,
 		Timestamp: netTime.Now(),
 		Data:      ftCrypto.UnmarshalTransferID([]byte("testID_01")).Bytes(),
 	}
-	err := kv.Prefix(sentFileTransfersPrefix).Set(
-		sentFileTransfersKey, sentFileTransfersVersion, obj)
+	err := kv.Prefix(sentFileTransfersStorePrefix).Set(
+		sentFileTransfersStoreKey, sentFileTransfersStoreVersion, obj)
 
-	// Load SentFileTransfers from storage
-	_, err = LoadSentFileTransfers(kv)
+	// Load SentFileTransfersStore from storage
+	_, err = LoadSentFileTransfersStore(kv)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("LoadSentFileTransfers did not return the expected error "+
-			"when there is no transfer saved in storage."+
-			"\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Tests that the SentFileTransfers loaded from storage by
-// NewOrLoadSentFileTransfers matches the original in memory.
-func TestNewOrLoadSentFileTransfers(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
-	sft, err := NewSentFileTransfers(kv)
-	if err != nil {
-		t.Fatalf("Failed to make new SentFileTransfers: %+v", err)
-	}
-
-	// Add 10 transfers to map in memory
-	list := make([]ftCrypto.TransferID, 10)
-	for i := range list {
-		tid, st := newRandomSentTransfer(16, 24, sft.kv, t)
-		sft.transfers[tid] = st
-		list[i] = tid
-	}
-
-	// Save list to storage
-	if err = sft.saveTransfersList(); err != nil {
-		t.Errorf("Faileds to save transfers list: %+v", err)
-	}
-
-	// Load SentFileTransfers from storage
-	loadedSFT, err := NewOrLoadSentFileTransfers(kv)
-	if err != nil {
-		t.Errorf("NewOrLoadSentFileTransfers returned an error: %+v", err)
-	}
-
-	// Equalize all progressCallbacks because reflect.DeepEqual does not seem
-	// to work on function pointers
-	for _, tid := range list {
-		loadedSFT.transfers[tid].progressCallbacks = sft.transfers[tid].progressCallbacks
-	}
-
-	if !reflect.DeepEqual(sft, loadedSFT) {
-		t.Errorf("Loaded SentFileTransfers does not match original in memory."+
-			"\nexpected: %+v\nreceived: %+v", sft, loadedSFT)
-	}
-}
-
-// Tests that NewOrLoadSentFileTransfers returns a new SentFileTransfers when
-// there is none in storage.
-func TestNewOrLoadSentFileTransfers_NewSentFileTransfers(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
-	// Load SentFileTransfers from storage
-	loadedSFT, err := NewOrLoadSentFileTransfers(kv)
-	if err != nil {
-		t.Errorf("NewOrLoadSentFileTransfers returned an error: %+v", err)
-	}
-
-	newSFT, _ := NewSentFileTransfers(kv)
-
-	if !reflect.DeepEqual(newSFT, loadedSFT) {
-		t.Errorf("Returned SentFileTransfers does not match new."+
-			"\nexpected: %+v\nreceived: %+v", newSFT, loadedSFT)
-	}
-}
-
-// Error path: tests that the NewOrLoadSentFileTransfers returns the expected
-// error when the first transfer loaded from storage does not exist.
-func TestNewOrLoadSentFileTransfers_NoTransferInStorageError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
-	expectedErr := strings.Split(loadSentTransfersErr, "%")[0]
-
-	// Save list of one transfer ID to storage
-	obj := &versioned.Object{
-		Version:   sentFileTransfersVersion,
-		Timestamp: netTime.Now(),
-		Data:      ftCrypto.UnmarshalTransferID([]byte("testID_01")).Bytes(),
-	}
-	err := kv.Prefix(sentFileTransfersPrefix).Set(
-		sentFileTransfersKey, sentFileTransfersVersion, obj)
-
-	// Load SentFileTransfers from storage
-	_, err = NewOrLoadSentFileTransfers(kv)
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("NewOrLoadSentFileTransfers did not return the expected "+
+		t.Errorf("LoadSentFileTransfersStore did not return the expected "+
 			"error when there is no transfer saved in storage."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
 
-// Tests that SentFileTransfers.saveTransfersList saves all the transfer IDs to
-// storage by loading them from storage via SentFileTransfers.loadTransfersList
-// and comparing the list to the list in memory.
-func TestSentFileTransfers_saveTransfersList_loadTransfersList(t *testing.T) {
+// Tests that the SentFileTransfersStore loaded from storage by
+// NewOrLoadSentFileTransfersStore matches the original in memory.
+func TestNewOrLoadSentFileTransfersStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	sft := &SentFileTransfers{
+	sft, err := NewSentFileTransfersStore(kv)
+	if err != nil {
+		t.Fatalf("Failed to make new SentFileTransfersStore: %+v", err)
+	}
+
+	// Add 10 transfers to map in memory
+	list := make([]ftCrypto.TransferID, 10)
+	for i := range list {
+		tid, st := newRandomSentTransfer(16, 24, sft.kv, t)
+		sft.transfers[tid] = st
+		list[i] = tid
+	}
+
+	// Save list to storage
+	if err = sft.saveTransfersList(); err != nil {
+		t.Errorf("Faileds to save transfers list: %+v", err)
+	}
+
+	// Load SentFileTransfersStore from storage
+	loadedSFT, err := NewOrLoadSentFileTransfersStore(kv)
+	if err != nil {
+		t.Errorf("NewOrLoadSentFileTransfersStore returned an error: %+v", err)
+	}
+
+	// Equalize all progressCallbacks because reflect.DeepEqual does not seem
+	// to work on function pointers
+	for _, tid := range list {
+		loadedSFT.transfers[tid].progressCallbacks =
+			sft.transfers[tid].progressCallbacks
+	}
+
+	if !reflect.DeepEqual(sft, loadedSFT) {
+		t.Errorf("Loaded SentFileTransfersStore does not match original in "+
+			"memory.\nexpected: %+v\nreceived: %+v", sft, loadedSFT)
+	}
+}
+
+// Tests that NewOrLoadSentFileTransfersStore returns a new
+// SentFileTransfersStore when there is none in storage.
+func TestNewOrLoadSentFileTransfersStore_NewSentFileTransfersStore(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	// Load SentFileTransfersStore from storage
+	loadedSFT, err := NewOrLoadSentFileTransfersStore(kv)
+	if err != nil {
+		t.Errorf("NewOrLoadSentFileTransfersStore returned an error: %+v", err)
+	}
+
+	newSFT, _ := NewSentFileTransfersStore(kv)
+
+	if !reflect.DeepEqual(newSFT, loadedSFT) {
+		t.Errorf("Returned SentFileTransfersStore does not match new."+
+			"\nexpected: %+v\nreceived: %+v", newSFT, loadedSFT)
+	}
+}
+
+// Error path: tests that the NewOrLoadSentFileTransfersStore returns the
+// expected error when the first transfer loaded from storage does not exist.
+func TestNewOrLoadSentFileTransfersStore_NoTransferInStorageError(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	expectedErr := strings.Split(loadSentTransfersErr, "%")[0]
+
+	// Save list of one transfer ID to storage
+	obj := &versioned.Object{
+		Version:   sentFileTransfersStoreVersion,
+		Timestamp: netTime.Now(),
+		Data:      ftCrypto.UnmarshalTransferID([]byte("testID_01")).Bytes(),
+	}
+	err := kv.Prefix(sentFileTransfersStorePrefix).Set(
+		sentFileTransfersStoreKey, sentFileTransfersStoreVersion, obj)
+
+	// Load SentFileTransfersStore from storage
+	_, err = NewOrLoadSentFileTransfersStore(kv)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("NewOrLoadSentFileTransfersStore did not return the expected "+
+			"error when there is no transfer saved in storage."+
+			"\nexpected: %s\nreceived: %+v", expectedErr, err)
+	}
+}
+
+// Tests that SentFileTransfersStore.saveTransfersList saves all the transfer
+// IDs to storage by loading them from storage via
+// SentFileTransfersStore.loadTransfersList and comparing the list to the list
+// in memory.
+func TestSentFileTransfersStore_saveTransfersList_loadTransfersList(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	sft := &SentFileTransfersStore{
 		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
-		kv:        kv.Prefix(sentFileTransfersPrefix),
+		kv:        kv.Prefix(sentFileTransfersStorePrefix),
 	}
 
 	// Add 10 transfers to map in memory
@@ -413,13 +635,13 @@ func TestSentFileTransfers_saveTransfersList_loadTransfersList(t *testing.T) {
 	}
 }
 
-// Tests that the transfer loaded by SentFileTransfers.loadTransfers from
+// Tests that the transfer loaded by SentFileTransfersStore.loadTransfers from
 // storage matches the original in memory
-func TestSentFileTransfers_loadTransfers(t *testing.T) {
+func TestSentFileTransfersStore_loadTransfers(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	sft := &SentFileTransfers{
+	sft := &SentFileTransfersStore{
 		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
-		kv:        kv.Prefix(sentFileTransfersPrefix),
+		kv:        kv.Prefix(sentFileTransfersStorePrefix),
 	}
 
 	// Add 10 transfers to map in memory
@@ -430,10 +652,10 @@ func TestSentFileTransfers_loadTransfers(t *testing.T) {
 		list[i] = tid
 	}
 
-	// Load the transfers into a new SentFileTransfers
-	loadedSft := &SentFileTransfers{
+	// Load the transfers into a new SentFileTransfersStore
+	loadedSft := &SentFileTransfersStore{
 		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
-		kv:        kv.Prefix(sentFileTransfersPrefix),
+		kv:        kv.Prefix(sentFileTransfersStorePrefix),
 	}
 	err := loadedSft.loadTransfers(list)
 	if err != nil {
@@ -443,21 +665,23 @@ func TestSentFileTransfers_loadTransfers(t *testing.T) {
 	// Equalize all progressCallbacks because reflect.DeepEqual does not seem
 	// to work on function pointers
 	for _, tid := range list {
-		loadedSft.transfers[tid].progressCallbacks = sft.transfers[tid].progressCallbacks
+		loadedSft.transfers[tid].progressCallbacks =
+			sft.transfers[tid].progressCallbacks
 	}
 
 	if !reflect.DeepEqual(sft.transfers, loadedSft.transfers) {
-		t.Errorf("Transfers loaded from storage does not match transfers in memory."+
-			"\nexpected: %+v\nreceived: %+v", sft.transfers, loadedSft.transfers)
+		t.Errorf("Transfers loaded from storage does not match transfers in "+
+			"memory.\nexpected: %+v\nreceived: %+v",
+			sft.transfers, loadedSft.transfers)
 	}
 }
 
 // Tests that a transfer list marshalled with
-// SentFileTransfers.marshalTransfersList and unmarshalled with
+// SentFileTransfersStore.marshalTransfersList and unmarshalled with
 // unmarshalTransfersList matches the original.
-func TestSentFileTransfers_marshalTransfersList_unmarshalTransfersList(t *testing.T) {
+func TestSentFileTransfersStore_marshalTransfersList_unmarshalTransfersList(t *testing.T) {
 	prng := NewPrng(42)
-	sft := &SentFileTransfers{
+	sft := &SentFileTransfersStore{
 		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
 	}
 

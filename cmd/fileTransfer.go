@@ -247,7 +247,7 @@ func receiveNewFileTransfers(receive chan receivedFtResults, done,
 				"bytes with preview: %q\n", r.fileName, r.size, r.preview)
 
 			cb := newReceiveProgressCB(r.tid, done, m)
-			err := m.RegisterReceiveProgressCallback(r.tid, cb, callbackPeriod)
+			err := m.RegisterReceivedProgressCallback(r.tid, cb, callbackPeriod)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to register new receive progress "+
 					"callback for transfer %s: %+v", r.tid, err)

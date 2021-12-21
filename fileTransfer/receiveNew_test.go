@@ -31,7 +31,7 @@ func TestManager_receiveNewFileTransfer(t *testing.T) {
 	}
 
 	// Create new manager, stoppable, and channel to receive messages
-	m := newTestManager(false, nil, nil, receiveCB, t)
+	m := newTestManager(false, nil, nil, receiveCB, nil, t)
 	stop := stoppable.NewSingle(newFtStoppableName)
 	rawMsgs := make(chan message.Receive, rawMessageBuffSize)
 
@@ -100,7 +100,7 @@ func TestManager_receiveNewFileTransfer_Stop(t *testing.T) {
 	}
 
 	// Create new manager, stoppable, and channel to receive messages
-	m := newTestManager(false, nil, nil, receiveCB, t)
+	m := newTestManager(false, nil, nil, receiveCB, nil, t)
 	stop := stoppable.NewSingle(newFtStoppableName)
 	rawMsgs := make(chan message.Receive, rawMessageBuffSize)
 
@@ -161,7 +161,7 @@ func TestManager_receiveNewFileTransfer_InvalidMessageError(t *testing.T) {
 	}
 
 	// Create new manager, stoppable, and channel to receive messages
-	m := newTestManager(false, nil, nil, receiveCB, t)
+	m := newTestManager(false, nil, nil, receiveCB, nil, t)
 	stop := stoppable.NewSingle(newFtStoppableName)
 	rawMsgs := make(chan message.Receive, rawMessageBuffSize)
 
@@ -194,7 +194,7 @@ func TestManager_receiveNewFileTransfer_InvalidMessageError(t *testing.T) {
 // Tests that Manager.readNewFileTransferMessage returns the expected sender ID,
 // file size, and preview.
 func TestManager_readNewFileTransferMessage(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, t)
+	m := newTestManager(false, nil, nil, nil, nil, t)
 
 	// Create new message.Send containing marshalled NewFileTransfer
 	recipient := id.NewIdFromString("recipient", id.User, t)
@@ -254,7 +254,7 @@ func TestManager_readNewFileTransferMessage(t *testing.T) {
 // Error path: tests that Manager.readNewFileTransferMessage returns the
 // expected error when the message.Receive has the wrong MessageType.
 func TestManager_readNewFileTransferMessage_MessageTypeError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, t)
+	m := newTestManager(false, nil, nil, nil, nil, t)
 	expectedErr := receiveMessageTypeErr
 
 	// Create message.Receive with marshalled NewFileTransfer
@@ -275,7 +275,7 @@ func TestManager_readNewFileTransferMessage_MessageTypeError(t *testing.T) {
 // expected error when the payload of the message.Receive cannot be
 // unmarshalled.
 func TestManager_readNewFileTransferMessage_ProtoUnmarshalError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, t)
+	m := newTestManager(false, nil, nil, nil, nil, t)
 	expectedErr := strings.Split(protoUnmarshalErr, "%")[0]
 
 	// Create message.Receive with marshalled NewFileTransfer

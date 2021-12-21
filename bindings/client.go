@@ -23,6 +23,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"google.golang.org/grpc/grpclog"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"time"
@@ -485,6 +486,11 @@ func (c *Client) GetPreferredBins(countryCode string) (string, error) {
 	return buff.String(), nil
 }
 
+// GetRateLimitParams retrieves the rate limiting parameters.
+func (c *Client) GetRateLimitParams() (uint32, uint32, int64) {
+	return c.api.GetRateLimitParams()
+}
+
 /*
 // SearchWithHandler is a non-blocking search that also registers
 // a callback interface for user disovery events.
@@ -522,4 +528,14 @@ func (c *Client) getSingle() (*single.Manager, error) {
 	}
 
 	return c.single, nil
+}
+
+// DumpStack returns a string with the stack trace of every running thread.
+func DumpStack() (string, error) {
+	buf := new(bytes.Buffer)
+	err := pprof.Lookup("goroutine").WriteTo(buf, 2)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }

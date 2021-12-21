@@ -18,8 +18,8 @@ import (
 
 // Error messages.
 const (
-	protoMarshalErr = "failed to form new file transfer message: %+v"
-	sendE2eErr      = "failed to send new file transfer message via E2E to recipient %s: %+v"
+	newFtProtoMarshalErr = "failed to form new file transfer message: %+v"
+	newFtSendE2eErr      = "failed to send new file transfer message via E2E to recipient %s: %+v"
 )
 
 // sendNewFileTransfer sends the initial file transfer message over E2E.
@@ -31,13 +31,13 @@ func (m *Manager) sendNewFileTransfer(recipient *id.ID, fileName,
 	sendMsg, err := newNewFileTransferE2eMessage(recipient, fileName, fileType,
 		key, mac, numParts, fileSize, retry, preview)
 	if err != nil {
-		return errors.Errorf(protoMarshalErr, err)
+		return errors.Errorf(newFtProtoMarshalErr, err)
 	}
 
 	// Send E2E message
 	rounds, _, _, err := m.net.SendE2E(sendMsg, params.GetDefaultE2E(), nil)
 	if err != nil && len(rounds) == 0 {
-		return errors.Errorf(sendE2eErr, recipient, err)
+		return errors.Errorf(newFtSendE2eErr, recipient, err)
 	}
 
 	return nil

@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
 	"reflect"
 	"sort"
 	"strings"
@@ -467,70 +466,6 @@ func TestReceivedFileTransfersStore_AddPart_AddPartError(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("AddPart did not return the expected error when the "+
 			"encrypted part, padding, and MAC are invalid."+
-			"\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Tests that ReceivedFileTransfersStore.GetFile returns the complete file.
-func TestReceivedFileTransfersStore_GetFile(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfersStore(kv)
-	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
-	}
-
-	prng := NewPrng(42)
-	numParts := uint16(16)
-
-	// Generate file parts and expected file
-	parts, expectedFile := newRandomPartStore(
-		numParts, kv.Prefix("test"), rand.New(rand.NewSource(42)), t)
-
-	key, _ := ftCrypto.NewTransferKey(prng)
-	mac := ftCrypto.CreateTransferMAC(expectedFile, key)
-
-	fileSize := uint32(len(expectedFile))
-
-	tid, err := rft.AddTransfer(key, mac, fileSize, numParts, 24, prng)
-	if err != nil {
-		t.Errorf("Failed to add new transfer: %+v", err)
-	}
-
-	for partNum, part := range parts.parts {
-		fp := ftCrypto.GenerateFingerprint(key, partNum)
-		encPart, partMac, padding := newEncryptedPartData(key, part, partNum, t)
-		_, _, err = rft.AddPart(encPart, padding, partMac, partNum, fp)
-		if err != nil {
-			t.Errorf("AddPart encountered an error: %+v", err)
-		}
-	}
-
-	receivedFile, err := rft.GetFile(tid)
-	if err != nil {
-		t.Errorf("GetFile returned an error: %+v", err)
-	}
-
-	if !bytes.Equal(expectedFile, receivedFile) {
-		t.Errorf("Received file does not match expected."+
-			"\nexpected: %q\nreceived: %q", expectedFile, receivedFile)
-	}
-}
-
-// Error path: tests that ReceivedFileTransfersStore.GetFile returns the
-// expected error when no transfer with the ID exists.
-func TestReceivedFileTransfersStore_GetFile_NoTransferError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
-	rft, err := NewReceivedFileTransfersStore(kv)
-	if err != nil {
-		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
-	}
-
-	tid := ftCrypto.UnmarshalTransferID([]byte("invalidID"))
-
-	expectedErr := fmt.Sprintf(getReceivedTransferErr, tid)
-	_, err = rft.GetFile(tid)
-	if err == nil || err.Error() != expectedErr {
-		t.Errorf("GetFile did not return the expected error."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }

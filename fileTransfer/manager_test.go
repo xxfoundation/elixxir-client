@@ -155,11 +155,11 @@ func TestManager_Send_NetworkHealthError(t *testing.T) {
 	m := newTestManager(false, nil, nil, nil, nil, t)
 
 	fileName := "MySentFile"
-	recipient := id.NewIdFromString("recipient", id.User, t)
-	expectedErr := fmt.Sprintf(sendNetworkHealthErr, fileName, recipient)
+	expectedErr := fmt.Sprintf(sendNetworkHealthErr, fileName)
 
 	m.net.(*testNetworkManager).health.healthy = false
 
+	recipient := id.NewIdFromString("recipient", id.User, t)
 	_, err := m.Send(fileName, "", nil, recipient, 0, nil, nil, 0)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Send did not return the expected error when the network is "+
@@ -256,7 +256,7 @@ func TestManager_Send_SendE2eError(t *testing.T) {
 // transfer and is called when calling from the transfer.
 func TestManager_RegisterSentProgressCallback(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{12, 4, 1}, false, false, nil, nil, t)
+		[]uint16{12, 4, 1}, false, false, nil, nil, nil, t)
 	expectedErr := errors.New("CallbackError")
 
 	// Create new callback and channel for the callback to trigger
@@ -343,7 +343,7 @@ func TestManager_Resend_NoTransferError(t *testing.T) {
 // not run out of fingerprints.
 func TestManager_Resend_NoFingerprints(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{16}, false, false, nil, nil, t)
+		[]uint16{16}, false, false, nil, nil, nil, t)
 	expectedErr := fmt.Sprintf(transferNotFailedErr, sti[0].tid)
 	// Delete the transfer
 	err := m.Resend(sti[0].tid)
@@ -358,7 +358,7 @@ func TestManager_Resend_NoFingerprints(t *testing.T) {
 // fingerprints but is not complete.
 func TestManager_CloseSend_NoFingerprints(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{16}, false, false, nil, nil, t)
+		[]uint16{16}, false, false, nil, nil, nil, t)
 	prng := NewPrng(42)
 	partSize, _ := m.getPartSize()
 
@@ -389,7 +389,7 @@ func TestManager_CloseSend_NoFingerprints(t *testing.T) {
 // fingerprints.
 func TestManager_CloseSend_Complete(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{3}, false, false, nil, nil, t)
+		[]uint16{3}, false, false, nil, nil, nil, t)
 
 	// Set all parts to finished
 	transfer, _ := m.sent.GetTransfer(sti[0].tid)
@@ -437,7 +437,7 @@ func TestManager_CloseSend_NoTransferError(t *testing.T) {
 // has not run out of fingerprints and is not complete
 func TestManager_CloseSend_NotCompleteErr(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{16}, false, false, nil, nil, t)
+		[]uint16{16}, false, false, nil, nil, nil, t)
 	expectedErr := fmt.Sprintf(transferInProgressErr, sti[0].tid)
 
 	err := m.CloseSend(sti[0].tid)
@@ -464,7 +464,7 @@ func TestManager_Receive_NoTransferError(t *testing.T) {
 // incomplete.
 func TestManager_Receive_GetFileError(t *testing.T) {
 	m, _, rti := newTestManagerWithTransfers(
-		[]uint16{12, 4, 1}, false, false, nil, nil, t)
+		[]uint16{12, 4, 1}, false, false, nil, nil, nil, t)
 
 	_, err := m.Receive(rti[0].tid)
 	if err == nil || !strings.Contains(err.Error(), "missing") {
@@ -478,7 +478,7 @@ func TestManager_Receive_GetFileError(t *testing.T) {
 // expected transfer and is called when calling from the transfer.
 func TestManager_RegisterReceivedProgressCallback(t *testing.T) {
 	m, _, rti := newTestManagerWithTransfers(
-		[]uint16{12, 4, 1}, false, false, nil, nil, t)
+		[]uint16{12, 4, 1}, false, false, nil, nil, nil, t)
 	expectedErr := errors.New("CallbackError")
 
 	// Create new callback and channel for the callback to trigger
@@ -715,7 +715,8 @@ func Test_FileTransfer(t *testing.T) {
 		t.Error("Receive progress callback never reported file finishing to receive.")
 	}()
 
-	err = m2.RegisterReceivedProgressCallback(receiveTid, receiveCb, time.Millisecond)
+	err = m2.RegisterReceivedProgressCallback(
+		receiveTid, receiveCb, time.Millisecond)
 	if err != nil {
 		t.Errorf("Failed to register receive progress callback: %+v", err)
 	}

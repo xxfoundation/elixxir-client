@@ -651,9 +651,9 @@ func TestSentTransfer_CallProgressCB(t *testing.T) {
 	wg.Wait()
 }
 
-// Tests that SentTransfer.StopScheduledProgressCB stops a scheduled callback
+// Tests that SentTransfer.stopScheduledProgressCB stops a scheduled callback
 // from being triggered.
-func TestSentTransfer_StopScheduledProgressCB(t *testing.T) {
+func TestSentTransfer_stopScheduledProgressCB(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	_, st := newRandomSentTransfer(16, 24, kv, t)
 
@@ -678,9 +678,9 @@ func TestSentTransfer_StopScheduledProgressCB(t *testing.T) {
 	case <-cbChan:
 	}
 
-	err := st.StopScheduledProgressCB()
+	err := st.stopScheduledProgressCB()
 	if err != nil {
-		t.Errorf("StopScheduledProgressCB returned an error: %+v", err)
+		t.Errorf("stopScheduledProgressCB returned an error: %+v", err)
 	}
 
 	select {
@@ -1591,7 +1591,8 @@ func TestSentTransfer_marshal_unmarshalSentTransfer(t *testing.T) {
 
 	marshaledData := st.marshal()
 
-	recipient, key, numParts, numFps, status := unmarshalSentTransfer(marshaledData)
+	recipient, key, numParts, numFps, status :=
+		unmarshalSentTransfer(marshaledData)
 
 	if !st.recipient.Cmp(recipient) {
 		t.Errorf("Failed to get recipient ID.\nexpected: %s\nreceived: %s",
@@ -1714,11 +1715,11 @@ func checkSentProgress(completed bool, sent, arrived, total uint16,
 	return nil
 }
 
-// checkSentTracker checks that the SentPartTracker is reporting the correct
-// values for each part. Also checks that SentPartTracker.GetNumParts returns
+// checkSentTracker checks that the sentPartTracker is reporting the correct
+// values for each part. Also checks that sentPartTracker.GetNumParts returns
 // the expected value (make sure numParts comes from a correct source).
-func checkSentTracker(track SentPartTracker, numParts uint16, inProgress,
-	finished []uint16, t *testing.T) {
+func checkSentTracker(track interfaces.FilePartTracker, numParts uint16,
+	inProgress, finished []uint16, t *testing.T) {
 	if track.GetNumParts() != numParts {
 		t.Errorf("Tracker reported incorrect number of parts."+
 			"\nexpected: %d\nreceived: %d", numParts, track.GetNumParts())

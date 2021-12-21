@@ -48,7 +48,8 @@ func Test_newPartMessage_SmallPayloadSizeError(t *testing.T) {
 // partMessage.
 func Test_mapPartMessage(t *testing.T) {
 	// Generate expected values
-	_, expectedData, expectedPadding, expectedPartNum, expectedFile := newRandomFileMessage()
+	_, expectedData, expectedPadding, expectedPartNum, expectedFile :=
+		newRandomFileMessage()
 
 	fm := mapPartMessage(expectedData)
 
@@ -78,7 +79,8 @@ func Test_mapPartMessage(t *testing.T) {
 // values.
 func Test_unmarshalPartMessage(t *testing.T) {
 	// Generate expected values
-	_, expectedData, expectedPadding, expectedPartNumb, expectedFile := newRandomFileMessage()
+	_, expectedData, expectedPadding, expectedPartNumb, expectedFile :=
+		newRandomFileMessage()
 
 	fm, err := unmarshalPartMessage(expectedData)
 	if err != nil {

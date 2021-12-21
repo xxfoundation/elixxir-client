@@ -16,9 +16,16 @@ import (
 type TransferStatus int
 
 const (
-	Running  TransferStatus = iota // Sending parts
-	Stopping                       // Sent last part but not callback
-	Stopped                        // Sent last part and callback
+	// Running indicates that the transfer is in the processes of sending
+	Running TransferStatus = iota
+
+	// Stopping indicates that the last part has been sent but the callback
+	// indicating a completed transfer has not been called
+	Stopping
+
+	// Stopped indicates that the last part in the transfer has been sent and
+	// the last callback has been called
+	Stopped
 )
 
 const invalidTransferStatusStringErr = "INVALID TransferStatus: "

@@ -40,7 +40,7 @@ func Test_newSentCallbackTracker(t *testing.T) {
 
 	receivedSCT := newSentCallbackTracker(expectedSCT.cb, expectedSCT.period)
 
-	go receivedSCT.cb(false, 0, 0, 0, SentPartTracker{}, nil)
+	go receivedSCT.cb(false, 0, 0, 0, sentPartTracker{}, nil)
 
 	select {
 	case <-time.NewTimer(time.Millisecond).C:
@@ -83,7 +83,7 @@ func Test_sentCallbackTracker_call(t *testing.T) {
 
 	sct := newSentCallbackTracker(cbFunc, 50*time.Millisecond)
 
-	tracker := testSentTrack{false, 1, 2, 3, SentPartTracker{}}
+	tracker := testSentTrack{false, 1, 2, 3, sentPartTracker{}}
 	sct.call(tracker, nil)
 
 	select {
@@ -97,7 +97,7 @@ func Test_sentCallbackTracker_call(t *testing.T) {
 		}
 	}
 
-	tracker = testSentTrack{false, 1, 2, 3, SentPartTracker{}}
+	tracker = testSentTrack{false, 1, 2, 3, sentPartTracker{}}
 	sct.call(tracker, nil)
 
 	select {
@@ -141,7 +141,7 @@ func Test_sentCallbackTracker_stopThread(t *testing.T) {
 
 	sct := newSentCallbackTracker(cbFunc, 50*time.Millisecond)
 
-	tracker := testSentTrack{false, 1, 2, 3, SentPartTracker{}}
+	tracker := testSentTrack{false, 1, 2, 3, sentPartTracker{}}
 	sct.call(tracker, nil)
 
 	select {
@@ -155,7 +155,7 @@ func Test_sentCallbackTracker_stopThread(t *testing.T) {
 		}
 	}
 
-	tracker = testSentTrack{false, 1, 2, 3, SentPartTracker{}}
+	tracker = testSentTrack{false, 1, 2, 3, sentPartTracker{}}
 	sct.call(tracker, nil)
 
 	select {
@@ -193,16 +193,16 @@ func TestSentTransfer_SentProgressTrackerInterface(t *testing.T) {
 type testSentTrack struct {
 	completed            bool
 	sent, arrived, total uint16
-	t                    SentPartTracker
+	t                    sentPartTracker
 }
 
 func (tst testSentTrack) getProgress() (completed bool, sent, arrived,
-	total uint16, t SentPartTracker) {
+	total uint16, t interfaces.FilePartTracker) {
 	return tst.completed, tst.sent, tst.arrived, tst.total, tst.t
 }
 
 // GetProgress returns the values in the testTrack.
 func (tst testSentTrack) GetProgress() (completed bool, sent, arrived,
-	total uint16, t SentPartTracker) {
+	total uint16, t interfaces.FilePartTracker) {
 	return tst.completed, tst.sent, tst.arrived, tst.total, tst.t
 }

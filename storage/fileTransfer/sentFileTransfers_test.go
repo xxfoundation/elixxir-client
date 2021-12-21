@@ -465,7 +465,8 @@ func TestLoadSentFileTransfersStore(t *testing.T) {
 	// Equalize all progressCallbacks because reflect.DeepEqual does not seem to
 	// work on function pointers
 	for _, tid := range list {
-		loadedSFT.transfers[tid].progressCallbacks = sft.transfers[tid].progressCallbacks
+		loadedSFT.transfers[tid].progressCallbacks =
+			sft.transfers[tid].progressCallbacks
 	}
 
 	if !reflect.DeepEqual(sft, loadedSFT) {

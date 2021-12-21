@@ -450,7 +450,8 @@ func Test_partStore_marshalList_unmarshalPartList(t *testing.T) {
 	}
 
 	sort.SliceStable(list, func(i, j int) bool { return list[i] < list[j] })
-	sort.SliceStable(expected, func(i, j int) bool { return expected[i] < expected[j] })
+	sort.SliceStable(expected,
+		func(i, j int) bool { return expected[i] < expected[j] })
 
 	if !reflect.DeepEqual(expected, list) {
 		t.Errorf("Failed to marshal and unmarshal part list."+
@@ -543,7 +544,8 @@ func newRandomPartStore(numParts uint16, kv *versioned.KV, prng io.Reader,
 }
 
 // newRandomPartSlice returns a list of file parts and the file in one piece.
-func newRandomPartSlice(numParts uint16, prng io.Reader, t *testing.T) ([][]byte, []byte) {
+func newRandomPartSlice(numParts uint16, prng io.Reader, t *testing.T) (
+	[][]byte, []byte) {
 	partSize := 64
 	fileBuff := bytes.NewBuffer(make([]byte, 0, int(numParts)*partSize))
 	partList := make([][]byte, numParts)

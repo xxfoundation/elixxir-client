@@ -108,7 +108,7 @@ func (s *BucketParamStore) load() error {
 	// Load params from KV
 	vo, err := s.kv.Get(bucketParamsKey, bucketParamsVersion)
 	if err != nil {
-		return errors.Errorf("Failed to load from KV: %v", err)
+		return errors.Errorf("Failed to load from KV: %s", err.Error())
 	}
 
 	// Unmarshal bucket params

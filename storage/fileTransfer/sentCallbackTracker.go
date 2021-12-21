@@ -126,11 +126,11 @@ func (sct *sentCallbackTracker) callNowUnsafe(skipCompletedCheck bool,
 type sentProgressTracker interface {
 	// GetProgress returns the sent transfer progress in a thread-safe manner.
 	GetProgress() (
-		completed bool, sent, arrived, total uint16, t SentPartTracker)
+		completed bool, sent, arrived, total uint16, t interfaces.FilePartTracker)
 
 	// getProgress returns the sent transfer progress in a thread-unsafe manner.
 	// This function should be used if a lock is already taken on the sent
 	// transfer.
 	getProgress() (
-		completed bool, sent, arrived, total uint16, t SentPartTracker)
+		completed bool, sent, arrived, total uint16, t interfaces.FilePartTracker)
 }

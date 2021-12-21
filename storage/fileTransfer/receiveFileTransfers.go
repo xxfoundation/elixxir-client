@@ -138,7 +138,7 @@ func (rft *ReceivedFileTransfersStore) DeleteTransfer(tid ftCrypto.TransferID) e
 	}
 
 	// Cancel any scheduled callbacks
-	err := rt.StopScheduledProgressCB()
+	err := rt.stopScheduledProgressCB()
 	if err != nil {
 		jww.WARN.Print(errors.Errorf(cancelCallbackErr, tid, err))
 	}
@@ -206,23 +206,6 @@ func (rft *ReceivedFileTransfersStore) AddPart(encryptedPart, padding,
 	return transfer, info.id, nil
 }
 
-// GetFile returns the combined file parts as a single byte slice for the given
-// transfer ID. An error is returned if no file with the given transfer ID is
-// found or if the file is missing parts.
-func (rft *ReceivedFileTransfersStore) GetFile(tid ftCrypto.TransferID) ([]byte,
-	error) {
-	rft.mux.Lock()
-	defer rft.mux.Unlock()
-
-	// Check if the transfer exists
-	rt, exists := rft.transfers[tid]
-	if !exists {
-		return nil, errors.Errorf(getReceivedTransferErr, tid)
-	}
-
-	return rt.GetFile()
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // Storage Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
@@ -266,7 +249,8 @@ func NewOrLoadReceivedFileTransfersStore(kv *versioned.KV) (
 
 	// If the transfer list cannot be loaded from storage, then create a new
 	// ReceivedFileTransfersStore
-	vo, err := rft.kv.Get(receivedFileTransfersStoreKey, receivedFileTransfersStoreVersion)
+	vo, err := rft.kv.Get(
+		receivedFileTransfersStoreKey, receivedFileTransfersStoreVersion)
 	if err != nil {
 		return NewReceivedFileTransfersStore(kv)
 	}

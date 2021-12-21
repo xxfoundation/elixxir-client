@@ -40,7 +40,7 @@ func (nfmr *NotificationForMeReport) Source() []byte {
 // 	"default"	recipient user ID	A message with no association
 //	"request"	sender user ID		A channel request has been received
 //	"confirm"	sender user ID		A channel request has been accepted
-//	"rekey"		sender user ID		keys with a user have been rotated
+//	"silent"	sender user ID		A message which should not be notified on
 //	"e2e"		sender user ID		reception of an E2E message
 //	"group"		group ID			reception of a group chat message
 //  "endFT"     sender user ID		Last message sent confirming end of file transfer

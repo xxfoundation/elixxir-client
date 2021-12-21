@@ -127,11 +127,11 @@ type receivedProgressTracker interface {
 	// GetProgress returns the received transfer progress in a thread-safe
 	// manner.
 	GetProgress() (
-		completed bool, received, total uint16, t ReceivedPartTracker)
+		completed bool, received, total uint16, t interfaces.FilePartTracker)
 
 	// getProgress returns the received transfer progress in a thread-unsafe
 	// manner. This function should be used if a lock is already taken on the
 	// sent transfer.
 	getProgress() (
-		completed bool, received, total uint16, t ReceivedPartTracker)
+		completed bool, received, total uint16, t interfaces.FilePartTracker)
 }

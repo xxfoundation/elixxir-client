@@ -16,6 +16,7 @@ import (
 type E2E struct {
 	Type       SendType
 	RetryCount int
+	OnlyNotifyOnLastSend bool
 	CMIX
 }
 
@@ -23,6 +24,7 @@ func GetDefaultE2E() E2E {
 	return E2E{
 		Type:       Standard,
 		CMIX:       GetDefaultCMIX(),
+		OnlyNotifyOnLastSend: true,
 		RetryCount: 10,
 	}
 }

@@ -16,32 +16,32 @@ import (
 	"testing"
 )
 
-// Tests that ReceivedPartTracker satisfies the interfaces.FilePartTracker
+// Tests that receivedPartTracker satisfies the interfaces.FilePartTracker
 // interface.
 func TestReceivedPartTracker_FilePartTrackerInterface(t *testing.T) {
-	var _ interfaces.FilePartTracker = ReceivedPartTracker{}
+	var _ interfaces.FilePartTracker = receivedPartTracker{}
 }
 
-// Tests that NewReceivedPartTracker returns a new ReceivedPartTracker with the
+// Tests that newReceivedPartTracker returns a new receivedPartTracker with the
 // expected values.
-func TestNewReceivedPartTracker(t *testing.T) {
+func Test_newReceivedPartTracker(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	_, rt, _ := newRandomReceivedTransfer(16, 24, kv, t)
 
-	expected := ReceivedPartTracker{
+	expected := receivedPartTracker{
 		numParts:       rt.numParts,
 		receivedStatus: rt.receivedStatus.DeepCopy(),
 	}
 
-	newRPT := NewReceivedPartTracker(rt.receivedStatus)
+	newRPT := newReceivedPartTracker(rt.receivedStatus)
 
 	if !reflect.DeepEqual(expected, newRPT) {
-		t.Errorf("New ReceivedPartTracker does not match expected."+
+		t.Errorf("New receivedPartTracker does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expected, newRPT)
 	}
 }
 
-// Tests that ReceivedPartTracker.GetPartStatus returns the expected status for
+// Tests that receivedPartTracker.GetPartStatus returns the expected status for
 // each part loaded from a preconfigured ReceivedTransfer.
 func TestReceivedPartTracker_GetPartStatus(t *testing.T) {
 	// Create new ReceivedTransfer
@@ -52,15 +52,16 @@ func TestReceivedPartTracker_GetPartStatus(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	partStatuses := make(map[uint16]interfaces.FpStatus, rt.numParts)
 	for partNum := uint16(0); partNum < rt.numParts; partNum++ {
-		partStatuses[partNum] = interfaces.FpStatus(prng.Intn(2)) * interfaces.FpReceived
+		partStatuses[partNum] =
+			interfaces.FpStatus(prng.Intn(2)) * interfaces.FpReceived
 
 		if partStatuses[partNum] == interfaces.FpReceived {
 			rt.receivedStatus.Use(uint32(partNum))
 		}
 	}
 
-	// Create a new ReceivedPartTracker from the ReceivedTransfer
-	rpt := NewReceivedPartTracker(rt.receivedStatus)
+	// Create a new receivedPartTracker from the ReceivedTransfer
+	rpt := newReceivedPartTracker(rt.receivedStatus)
 
 	// Check that the statuses for each part matches the map
 	for partNum := uint16(0); partNum < rt.numParts; partNum++ {
@@ -72,15 +73,15 @@ func TestReceivedPartTracker_GetPartStatus(t *testing.T) {
 	}
 }
 
-// Tests that ReceivedPartTracker.GetNumParts returns the same number of parts
-// as the ReceivedPartTracker it was created from.
+// Tests that receivedPartTracker.GetNumParts returns the same number of parts
+// as the receivedPartTracker it was created from.
 func TestReceivedPartTracker_GetNumParts(t *testing.T) {
 	// Create new ReceivedTransfer
 	kv := versioned.NewKV(make(ekv.Memstore))
 	_, rt, _ := newEmptyReceivedTransfer(16, 24, kv, t)
 
-	// Create a new ReceivedPartTracker from the ReceivedTransfer
-	rpt := NewReceivedPartTracker(rt.receivedStatus)
+	// Create a new receivedPartTracker from the ReceivedTransfer
+	rpt := newReceivedPartTracker(rt.receivedStatus)
 
 	if rpt.GetNumParts() != rt.GetNumParts() {
 		t.Errorf("Number of parts incorrect.\nexpected: %d\nreceived: %d",

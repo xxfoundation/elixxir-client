@@ -80,7 +80,7 @@ func Test_receivedCallbackTracker_call(t *testing.T) {
 
 	rct := newReceivedCallbackTracker(cbFunc, 50*time.Millisecond)
 
-	tracker := testReceiveTrack{false, 1, 3, ReceivedPartTracker{}}
+	tracker := testReceiveTrack{false, 1, 3, receivedPartTracker{}}
 	rct.call(tracker, nil)
 
 	select {
@@ -93,7 +93,7 @@ func Test_receivedCallbackTracker_call(t *testing.T) {
 		}
 	}
 
-	tracker = testReceiveTrack{true, 3, 3, ReceivedPartTracker{}}
+	tracker = testReceiveTrack{true, 3, 3, receivedPartTracker{}}
 	rct.call(tracker, nil)
 
 	select {
@@ -136,7 +136,7 @@ func Test_receivedCallbackTracker_stopThread(t *testing.T) {
 
 	rct := newReceivedCallbackTracker(cbFunc, 50*time.Millisecond)
 
-	tracker := testReceiveTrack{false, 1, 3, ReceivedPartTracker{}}
+	tracker := testReceiveTrack{false, 1, 3, receivedPartTracker{}}
 	rct.call(tracker, nil)
 
 	select {
@@ -149,7 +149,7 @@ func Test_receivedCallbackTracker_stopThread(t *testing.T) {
 		}
 	}
 
-	tracker = testReceiveTrack{true, 3, 3, ReceivedPartTracker{}}
+	tracker = testReceiveTrack{true, 3, 3, receivedPartTracker{}}
 	rct.call(tracker, nil)
 
 	select {
@@ -187,16 +187,16 @@ func TestReceivedTransfer_ReceivedProgressTrackerInterface(t *testing.T) {
 type testReceiveTrack struct {
 	completed       bool
 	received, total uint16
-	t               ReceivedPartTracker
+	t               receivedPartTracker
 }
 
 func (trt testReceiveTrack) getProgress() (completed bool, received,
-	total uint16, t ReceivedPartTracker) {
+	total uint16, t interfaces.FilePartTracker) {
 	return trt.completed, trt.received, trt.total, trt.t
 }
 
 // GetProgress returns the values in the testTrack.
 func (trt testReceiveTrack) GetProgress() (completed bool, received,
-	total uint16, t ReceivedPartTracker) {
+	total uint16, t interfaces.FilePartTracker) {
 	return trt.completed, trt.received, trt.total, trt.t
 }

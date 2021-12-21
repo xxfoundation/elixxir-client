@@ -314,7 +314,7 @@ var rootCmd = &cobra.Command{
 		sendCnt := int(viper.GetUint("sendCount"))
 		wg.Add(sendCnt)
 		go func() {
-			//sendDelay := time.Duration(viper.GetUint("sendDelay"))
+			sendDelay := time.Duration(viper.GetUint("sendDelay"))
 			for i := 0; i < sendCnt; i++ {
 				go func(i int) {
 					defer wg.Done()
@@ -376,6 +376,7 @@ var rootCmd = &cobra.Command{
 						break
 					}
 				}(i)
+				time.Sleep(sendDelay * time.Millisecond)
 			}
 		}()
 

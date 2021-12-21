@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/client/storage/hostList"
 	"gitlab.com/elixxir/client/storage/rounds"
+	"gitlab.com/xx_network/primitives/rateLimiting"
 	"sync"
 	"testing"
 	"time"
@@ -64,6 +65,8 @@ type Session struct {
 	auth                *auth.Store
 	criticalMessages    *utility.E2eMessageBuffer
 	criticalRawMessages *utility.CmixMessageBuffer
+	bucketStore         *rateLimiting.Bucket
+	bucketParamStore    *utility.BucketParamStore
 	garbledMessages     *utility.MeteredCmixMessageBuffer
 	reception           *reception.Store
 	clientVersion       *clientVersion.Store
@@ -89,8 +92,10 @@ func initStore(baseDir, password string) (*Session, error) {
 }
 
 // Creates new UserData in the session
-func New(baseDir, password string, u userInterface.User, currentVersion version.Version,
-	cmixGrp, e2eGrp *cyclic.Group, rng *fastRNG.StreamGenerator) (*Session, error) {
+func New(baseDir, password string, u userInterface.User,
+	currentVersion version.Version, cmixGrp, e2eGrp *cyclic.Group,
+	rng *fastRNG.StreamGenerator,
+	rateLimitParams ndf.RateLimiting) (*Session, error) {
 
 	s, err := initStore(baseDir, password)
 	if err != nil {
@@ -159,8 +164,19 @@ func New(baseDir, password string, u userInterface.User, currentVersion version.
 
 	s.edgeCheck, err = edge.NewStore(s.kv, u.ReceptionID)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to edge check store")
+		return nil, errors.WithMessage(err, "Failed to create edge check store")
 	}
+
+	s.bucketParamStore, err = utility.NewBucketParamsStore(
+		uint32(rateLimitParams.Capacity), uint32(rateLimitParams.LeakedTokens),
+		time.Duration(rateLimitParams.LeakDuration), s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create bucket params store")
+	}
+
+	s.bucketStore = utility.NewStoredBucket(uint32(rateLimitParams.Capacity), uint32(rateLimitParams.LeakedTokens),
+		time.Duration(rateLimitParams.LeakDuration), s.kv)
+
 	return s, nil
 }
 
@@ -242,6 +258,20 @@ func Load(baseDir, password string, currentVersion version.Version,
 	s.edgeCheck, err = edge.LoadStore(s.kv)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load edge check store")
+	}
+
+	s.bucketParamStore, err = utility.LoadBucketParamsStore(s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"Failed to load bucket params store")
+	}
+
+	params := s.bucketParamStore.Get()
+	s.bucketStore, err = utility.LoadBucket(params.Capacity, params.LeakedTokens,
+		params.LeakDuration, s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"Failed to load bucket store")
 	}
 
 	return s, nil
@@ -333,6 +363,19 @@ func (s *Session) GetEdge() *edge.Store {
 	return s.edgeCheck
 }
 
+// GetBucketParams returns the bucket params store.
+func (s *Session) GetBucketParams() *utility.BucketParamStore {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.bucketParamStore
+}
+
+func (s *Session) GetBucket() *rateLimiting.Bucket {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.bucketStore
+}
+
 // Get an object from the session
 func (s *Session) Get(key string) (*versioned.Object, error) {
 	return s.kv.Get(key, currentSessionVersion)
@@ -406,6 +449,12 @@ func InitTestingSession(i interface{}) *Session {
 		jww.FATAL.Panicf("InitTestingSession failed to create dummy cmix session: %+v", err)
 	}
 	s.cmix = cmixStore
+
+	s.bucketParamStore, err = utility.NewBucketParamsStore(10, 11, 12, kv)
+	if err != nil {
+		jww.FATAL.Panicf("InitTestingSession failed to create NewBucketParamsStore session: %+v", err)
+	}
+	s.bucketStore = utility.NewStoredBucket(10, 11, 12, kv)
 
 	e2eStore, err := e2e.NewStore(cmixGrp, kv, cmixGrp.NewInt(2), uid,
 		fastRNG.NewStreamGenerator(7, 3, csprng.NewSystemRNG))

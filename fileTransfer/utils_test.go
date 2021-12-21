@@ -208,9 +208,10 @@ func newTestManager(sendErr bool, sendChan, sendE2eChan chan message.Receive,
 // newTestManagerWithTransfers creates a new test manager with transfers added
 // to it.
 func newTestManagerWithTransfers(numParts []uint16, sendErr, addPartners bool,
-	receiveCB interfaces.ReceiveCallback, kv *versioned.KV, t *testing.T) (
-	*Manager, []sentTransferInfo, []receivedTransferInfo) {
-	m := newTestManager(sendErr, nil, nil, receiveCB, kv, t)
+	sendE2eChan chan message.Receive, receiveCB interfaces.ReceiveCallback,
+	kv *versioned.KV, t *testing.T) (*Manager, []sentTransferInfo,
+	[]receivedTransferInfo) {
+	m := newTestManager(sendErr, sendE2eChan, nil, receiveCB, kv, t)
 	sti := make([]sentTransferInfo, len(numParts))
 	rti := make([]receivedTransferInfo, len(numParts))
 	var err error
@@ -452,6 +453,8 @@ func (tnm *testNetworkManager) SendE2E(msg message.Send, _ params.E2E, _ *stoppa
 		tnm.sendE2eChan <- message.Receive{
 			Payload:     msg.Payload,
 			MessageType: msg.MessageType,
+			Sender:      &id.ID{},
+			RecipientID: msg.Recipient,
 		}
 	}
 

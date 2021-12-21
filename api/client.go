@@ -632,7 +632,7 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 			"they could not be found", partnerId)
 	}
 	e2ePreimage := partner.GetE2EPreimage()
-	rekeyPreimage := partner.GetRekeyPreimage()
+	rekeyPreimage := partner.GetSilentPreimage()
 	fileTransferPreimage := partner.GetFileTransferPreimage()
 
 	//delete the partner
@@ -651,7 +651,7 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 
 	if err = c.storage.GetEdge().Remove(edge.Preimage{
 		Data:   rekeyPreimage,
-		Type:   preimage.Rekey,
+		Type:   preimage.Silent,
 		Source: partnerId[:],
 	}, c.storage.GetUser().ReceptionID); err != nil {
 		jww.WARN.Printf("Failed delete the preimage for rekey "+

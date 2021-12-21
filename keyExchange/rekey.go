@@ -62,7 +62,7 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 			"negotiating status: %s", session, session.NegotiationStatus())
 	}
 
-	rekeyPreimage := manager.GetRekeyPreimage()
+	rekeyPreimage := manager.GetSilentPreimage()
 
 	// send the rekey notification to the partner
 	err := negotiate(instance, sendE2E, sess, negotiatingSession, sendTimeout, rekeyPreimage, stop)

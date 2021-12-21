@@ -166,7 +166,6 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 					} else {
 						roundsResults[roundId] = Failed
 						allRoundsSucceeded = false
-
 					}
 				}
 			}

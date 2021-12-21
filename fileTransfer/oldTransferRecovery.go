@@ -26,7 +26,7 @@ const roundResultsMaxAttempts = 5
 
 // oldTransferRecovery adds all unsent file parts back into the queue and
 // updates the in-progress file parts by getting round updates.
-func (m Manager) oldTransferRecovery(healthyChan chan bool) {
+func (m Manager) oldTransferRecovery(healthyChan chan bool, chanID uint64) {
 
 	// Exit if old transfers have already been recovered
 	if m.oldTransfersRecovered {
@@ -45,12 +45,16 @@ func (m Manager) oldTransferRecovery(healthyChan chan bool) {
 
 	// Update parts that were sent by looking up the status of the rounds they
 	// were sent on
-	go func() {
+	go func(healthyChan chan bool, chanID uint64,
+		sentRounds map[id.Round][]ftCrypto.TransferID) {
 		err := m.updateSentRounds(healthyChan, sentRounds)
 		if err != nil {
 			jww.ERROR.Print(err)
 		}
-	}()
+
+		// Remove channel from tacker once done with it
+		m.net.GetHealthTracker().RemoveChannel(chanID)
+	}(healthyChan, chanID, sentRounds)
 }
 
 // updateSentRounds looks up the status of each round that parts were sent on

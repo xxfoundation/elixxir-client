@@ -12,8 +12,8 @@ import (
 	"gitlab.com/elixxir/client/storage/utility"
 )
 
-// SentPartTracker tracks the status of individual sent file parts.
-type SentPartTracker struct {
+// sentPartTracker tracks the status of individual sent file parts.
+type sentPartTracker struct {
 	// The number of file parts in the file
 	numParts uint16
 
@@ -24,10 +24,10 @@ type SentPartTracker struct {
 	finishedStatus *utility.StateVector
 }
 
-// NewSentPartTracker creates a new SentPartTracker with copies of the
+// newSentPartTracker creates a new sentPartTracker with copies of the
 // in-progress and finished status state vectors.
-func NewSentPartTracker(inProgress, finished *utility.StateVector) SentPartTracker {
-	return SentPartTracker{
+func newSentPartTracker(inProgress, finished *utility.StateVector) sentPartTracker {
+	return sentPartTracker{
 		numParts:         uint16(inProgress.GetNumKeys()),
 		inProgressStatus: inProgress.DeepCopy(),
 		finishedStatus:   finished.DeepCopy(),
@@ -39,7 +39,7 @@ func NewSentPartTracker(inProgress, finished *utility.StateVector) SentPartTrack
 // 0 = unsent
 // 1 = sent (sender has sent a part, but it has not arrived)
 // 2 = arrived (sender has sent a part, and it has arrived)
-func (spt SentPartTracker) GetPartStatus(partNum uint16) interfaces.FpStatus {
+func (spt sentPartTracker) GetPartStatus(partNum uint16) interfaces.FpStatus {
 	if spt.inProgressStatus.Used(uint32(partNum)) {
 		return interfaces.FpSent
 	} else if spt.finishedStatus.Used(uint32(partNum)) {
@@ -50,6 +50,6 @@ func (spt SentPartTracker) GetPartStatus(partNum uint16) interfaces.FpStatus {
 }
 
 // GetNumParts returns the total number of file parts in the transfer.
-func (spt SentPartTracker) GetNumParts() uint16 {
+func (spt sentPartTracker) GetNumParts() uint16 {
 	return spt.numParts
 }

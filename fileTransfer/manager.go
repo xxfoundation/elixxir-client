@@ -49,7 +49,7 @@ const (
 	sendQueueBuffLen = 10_000
 
 	// Size of the buffered channel that reports if the network is healthy
-	networkHealthBuffLen = 10_000
+	networkHealthBuffLen = 100
 )
 
 // Error messages.
@@ -59,7 +59,7 @@ const (
 	newManagerReceivedErr = "failed to load or create new list of received file transfers: %+v"
 
 	// Manager.Send
-	sendNetworkHealthErr = "cannot initiate file transfer of %q to %s when network is not healthy."
+	sendNetworkHealthErr = "cannot initiate file transfer of %q when network is not healthy."
 	fileNameSizeErr      = "length of filename (%d) greater than max allowed length (%d)"
 	fileTypeSizeErr      = "length of file type (%d) greater than max allowed length (%d)"
 	fileSizeErr          = "size of file (%d bytes) greater than max allowed size (%d bytes)"
@@ -193,12 +193,12 @@ func (m *Manager) startProcesses(newFtChan, filePartChan chan message.Receive) (
 	// Register network health channel that is used by the sending thread to
 	// ensure the network is healthy before sending
 	healthyRecover := make(chan bool, networkHealthBuffLen)
-	m.net.GetHealthTracker().AddChannel(healthyRecover)
+	healthyRecoverID := m.net.GetHealthTracker().AddChannel(healthyRecover)
 	healthySend := make(chan bool, networkHealthBuffLen)
-	m.net.GetHealthTracker().AddChannel(healthySend)
+	healthySendID := m.net.GetHealthTracker().AddChannel(healthySend)
 
 	// Recover unsent parts from storage
-	m.oldTransferRecovery(healthyRecover)
+	m.oldTransferRecovery(healthyRecover, healthyRecoverID)
 
 	// Start the new file transfer message reception thread
 	newFtStop := stoppable.NewSingle(newFtStoppableName)
@@ -214,7 +214,7 @@ func (m *Manager) startProcesses(newFtChan, filePartChan chan message.Receive) (
 
 	// Start the file part sending thread
 	sendStop := stoppable.NewSingle(sendStoppableName)
-	go m.sendThread(sendStop, healthySend, getRandomNumParts)
+	go m.sendThread(sendStop, healthySend, healthySendID, getRandomNumParts)
 
 	// Create a multi stoppable
 	multiStoppable := stoppable.NewMulti(fileTransferStoppableName)
@@ -229,6 +229,7 @@ func (m *Manager) startProcesses(newFtChan, filePartChan chan message.Receive) (
 // initial NewFileTransfer E2E message to the recipient to inform them of the
 // incoming file parts. It partitions the file, puts it into storage, and queues
 // each file for sending. Returns a unique ID identifying the file transfer.
+// Returns an error if the network is not healthy.
 func (m Manager) Send(fileName, fileType string, fileData []byte,
 	recipient *id.ID, retry float32, preview []byte,
 	progressCB interfaces.SentProgressCallback, period time.Duration) (
@@ -236,8 +237,8 @@ func (m Manager) Send(fileName, fileType string, fileData []byte,
 
 	// Return an error if the network is not healthy
 	if !m.net.GetHealthTracker().IsHealthy() {
-		return ftCrypto.TransferID{}, errors.Errorf(
-			sendNetworkHealthErr, fileName, recipient)
+		return ftCrypto.TransferID{},
+			errors.Errorf(sendNetworkHealthErr, fileName)
 	}
 
 	// Return an error if the file name is too long

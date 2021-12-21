@@ -46,7 +46,8 @@ type transferredBundle struct {
 
 // newTransferredBundle generates a new transferredBundle and saves it to
 // storage.
-func newTransferredBundle(key string, kv *versioned.KV) (*transferredBundle, error) {
+func newTransferredBundle(key string, kv *versioned.KV) (
+	*transferredBundle, error) {
 	tb := &transferredBundle{
 		list: make(map[id.Round][]uint16),
 		key:  key,
@@ -95,7 +96,8 @@ func (tb *transferredBundle) deletePartNums(rid id.Round) error {
 ////////////////////////////////////////////////////////////////////////////////
 
 // loadTransferredBundle loads a transferredBundle from storage.
-func loadTransferredBundle(key string, kv *versioned.KV) (*transferredBundle, error) {
+func loadTransferredBundle(key string, kv *versioned.KV) (*transferredBundle,
+	error) {
 	vo, err := kv.Get(makeTransferredBundleKey(key), transferredBundleVersion)
 	if err != nil {
 		return nil, errors.Errorf(loadTransferredBundleErr, err)

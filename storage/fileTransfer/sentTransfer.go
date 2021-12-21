@@ -51,7 +51,7 @@ const (
 	reInitSentInProgressVectorErr = "failed to overwrite in-progress state vector with new vector: %+v"
 	reInitSentFinishedVectorErr   = "failed to overwrite finished state vector with new vector: %+v"
 
-	// SentTransfer.StopScheduledProgressCB
+	// SentTransfer.stopScheduledProgressCB
 	cancelSentCallbacksErr = "could not cancel %d out of %d sent progress callbacks: %d"
 
 	// loadSentTransfer
@@ -333,7 +333,7 @@ func (st *SentTransfer) IsPartFinished(partNum uint16) bool {
 // sent, and t is a part status tracker that can be used to get the status of
 // individual file parts.
 func (st *SentTransfer) GetProgress() (completed bool, sent, arrived,
-	total uint16, t SentPartTracker) {
+	total uint16, t interfaces.FilePartTracker) {
 	st.mux.RLock()
 	defer st.mux.RUnlock()
 
@@ -343,7 +343,7 @@ func (st *SentTransfer) GetProgress() (completed bool, sent, arrived,
 
 // getProgress is the thread-unsafe helper function for GetProgress.
 func (st *SentTransfer) getProgress() (completed bool, sent, arrived,
-	total uint16, t SentPartTracker) {
+	total uint16, t interfaces.FilePartTracker) {
 	arrived = uint16(st.finishedStatus.GetNumUsed())
 	sent = uint16(st.inProgressStatus.GetNumUsed())
 	total = st.numParts
@@ -352,7 +352,7 @@ func (st *SentTransfer) getProgress() (completed bool, sent, arrived,
 		completed = true
 	}
 
-	partTracker := NewSentPartTracker(st.inProgressStatus, st.finishedStatus)
+	partTracker := newSentPartTracker(st.inProgressStatus, st.finishedStatus)
 
 	return completed, sent, arrived, total, partTracker
 }
@@ -375,8 +375,8 @@ func (st *SentTransfer) CallProgressCB(err error) {
 	}
 }
 
-// StopScheduledProgressCB cancels all scheduled sent progress callbacks calls.
-func (st *SentTransfer) StopScheduledProgressCB() error {
+// stopScheduledProgressCB cancels all scheduled sent progress callbacks calls.
+func (st *SentTransfer) stopScheduledProgressCB() error {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 
@@ -466,7 +466,8 @@ func (st *SentTransfer) GetEncryptedPart(partNum uint16, partSize int,
 // SetInProgress adds the specified file part numbers to the in-progress
 // transfers for the given round ID. Returns whether the round already exists in
 // the list.
-func (st *SentTransfer) SetInProgress(rid id.Round, partNums ...uint16) (error, bool) {
+func (st *SentTransfer) SetInProgress(rid id.Round, partNums ...uint16) (
+	error, bool) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 

@@ -217,10 +217,11 @@ func checkReceivedProgress(completed bool, received, total uint16,
 	return nil
 }
 
-// checkReceivedTracker checks that the ReceivedPartTracker is reporting the
-// correct values for each part. Also checks that ReceivedPartTracker.GetNumParts
-// returns the expected value (make sure numParts comes from a correct source).
-func checkReceivedTracker(track ReceivedPartTracker, numParts uint16,
+// checkReceivedTracker checks that the receivedPartTracker is reporting the
+// correct values for each part. Also checks that
+// receivedPartTracker.GetNumParts returns the expected value (make sure
+// numParts comes from a correct source).
+func checkReceivedTracker(track interfaces.FilePartTracker, numParts uint16,
 	received []uint16, t *testing.T) {
 	if track.GetNumParts() != numParts {
 		t.Errorf("Tracker reported incorrect number of parts."+
@@ -299,7 +300,8 @@ func TestReceivedTransfer_GetProgress(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	checkReceivedTracker(track, rt.numParts, []uint16{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, t)
+	checkReceivedTracker(
+		track, rt.numParts, []uint16{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, t)
 
 	for i := 0; i < 4; i++ {
 		_, _ = rt.fpVector.Next()
@@ -428,9 +430,9 @@ func TestReceivedTransfer_CallProgressCB(t *testing.T) {
 	wg.Wait()
 }
 
-// Tests that ReceivedTransfer.StopScheduledProgressCB stops a scheduled
+// Tests that ReceivedTransfer.stopScheduledProgressCB stops a scheduled
 // callback from being triggered.
-func TestReceivedTransfer_StopScheduledProgressCB(t *testing.T) {
+func TestReceivedTransfer_stopScheduledProgressCB(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	_, rt, _ := newEmptyReceivedTransfer(16, 20, kv, t)
 
@@ -455,9 +457,9 @@ func TestReceivedTransfer_StopScheduledProgressCB(t *testing.T) {
 	case <-cbChan:
 	}
 
-	err := rt.StopScheduledProgressCB()
+	err := rt.stopScheduledProgressCB()
 	if err != nil {
-		t.Errorf("StopScheduledProgressCB returned an error: %+v", err)
+		t.Errorf("stopScheduledProgressCB returned an error: %+v", err)
 	}
 
 	select {

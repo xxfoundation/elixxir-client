@@ -53,7 +53,7 @@ const (
 	deleteReceivedFilePartsErr    = "failed to delete received file parts from storage: %+v"
 	deleteReceivedVectorErr       = "failed to delete received status state vector from storage: %+v"
 
-	// ReceivedTransfer.StopScheduledProgressCB
+	// ReceivedTransfer.stopScheduledProgressCB
 	cancelReceivedCallbacksErr = "could not cancel %d out of %d received progress callbacks: %d"
 )
 
@@ -198,7 +198,7 @@ func (rt *ReceivedTransfer) IsPartReceived(partNum uint16) bool {
 // total is the total number of parts excepted to be received, and t is a part
 // status tracker that can be used to get the status of individual file parts.
 func (rt *ReceivedTransfer) GetProgress() (completed bool, received,
-	total uint16, t ReceivedPartTracker) {
+	total uint16, t interfaces.FilePartTracker) {
 	rt.mux.RLock()
 	defer rt.mux.RUnlock()
 
@@ -208,7 +208,7 @@ func (rt *ReceivedTransfer) GetProgress() (completed bool, received,
 
 // getProgress is the thread-unsafe helper function for GetProgress.
 func (rt *ReceivedTransfer) getProgress() (completed bool, received,
-	total uint16, t ReceivedPartTracker) {
+	total uint16, t interfaces.FilePartTracker) {
 
 	received = uint16(rt.receivedStatus.GetNumUsed())
 	total = rt.numParts
@@ -217,7 +217,7 @@ func (rt *ReceivedTransfer) getProgress() (completed bool, received,
 		completed = true
 	}
 
-	return completed, received, total, NewReceivedPartTracker(rt.receivedStatus)
+	return completed, received, total, newReceivedPartTracker(rt.receivedStatus)
 }
 
 // CallProgressCB calls all the progress callbacks with the most recent progress
@@ -231,9 +231,9 @@ func (rt *ReceivedTransfer) CallProgressCB(err error) {
 	}
 }
 
-// StopScheduledProgressCB cancels all scheduled received progress callbacks
+// stopScheduledProgressCB cancels all scheduled received progress callbacks
 // calls.
-func (rt *ReceivedTransfer) StopScheduledProgressCB() error {
+func (rt *ReceivedTransfer) stopScheduledProgressCB() error {
 	rt.mux.Lock()
 	defer rt.mux.Unlock()
 

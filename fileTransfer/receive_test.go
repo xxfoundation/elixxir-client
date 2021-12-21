@@ -53,15 +53,10 @@ func TestManager_receive(t *testing.T) {
 	}
 
 	// Generate receive callback that should be called when a message is read
-	type progressResults struct {
-		completed       bool
-		received, total uint16
-		err             error
-	}
-	cbChan := make(chan progressResults)
+	cbChan := make(chan receivedProgressResults)
 	cb := func(completed bool, received, total uint16,
-		t interfaces.FilePartTracker, err error) {
-		cbChan <- progressResults{completed, received, total, err}
+		tr interfaces.FilePartTracker, err error) {
+		cbChan <- receivedProgressResults{completed, received, total, tr, err}
 	}
 
 	done0, done1 := make(chan bool), make(chan bool)
@@ -171,15 +166,10 @@ func TestManager_receive_Stop(t *testing.T) {
 	}
 
 	// Generate receive callback that should be called when a message is read
-	type progressResults struct {
-		completed       bool
-		received, total uint16
-		err             error
-	}
-	cbChan := make(chan progressResults)
+	cbChan := make(chan receivedProgressResults)
 	cb := func(completed bool, received, total uint16,
-		t interfaces.FilePartTracker, err error) {
-		cbChan <- progressResults{completed, received, total, err}
+		tr interfaces.FilePartTracker, err error) {
+		cbChan <- receivedProgressResults{completed, received, total, tr, err}
 	}
 
 	done0, done1 := make(chan bool), make(chan bool)
@@ -277,15 +267,10 @@ func TestManager_readMessage(t *testing.T) {
 	}
 
 	// Generate receive callback that should be called when a message is read
-	type progressResults struct {
-		completed       bool
-		received, total uint16
-		err             error
-	}
-	cbChan := make(chan progressResults, 2)
+	cbChan := make(chan receivedProgressResults, 2)
 	cb := func(completed bool, received, total uint16,
-		t interfaces.FilePartTracker, err error) {
-		cbChan <- progressResults{completed, received, total, err}
+		tr interfaces.FilePartTracker, err error) {
+		cbChan <- receivedProgressResults{completed, received, total, tr, err}
 	}
 
 	done0, done1 := make(chan bool), make(chan bool)

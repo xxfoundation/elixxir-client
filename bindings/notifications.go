@@ -9,10 +9,13 @@ package bindings
 
 import (
 	"encoding/base64"
+	"encoding/csv"
 	"encoding/json"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/edge"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fingerprint"
+	"strings"
 )
 
 type NotificationForMeReport struct {
@@ -33,7 +36,24 @@ func (nfmr *NotificationForMeReport) Source() []byte {
 	return nfmr.source
 }
 
-// NotificationForMe Check if a notification received is for me
+type ManyNotificationForMeReport struct {
+	many []*NotificationForMeReport
+}
+
+func (mnfmr *ManyNotificationForMeReport) Get(i int) (*NotificationForMeReport, error) {
+	if len(mnfmr.many)>=i{
+		return nil, errors.New("Cannot get, too long")
+	}
+	return mnfmr.many[i], nil
+}
+
+func (mnfmr *ManyNotificationForMeReport) Len() int {
+	return len(mnfmr.many)
+}
+
+
+
+// NotificationsForMe Check if a notification received is for me
 // It returns a NotificationForMeReport which contains a ForMe bool stating if it is for the caller,
 // a Type, and a source. These are as follows:
 //	TYPE       	SOURCE				DESCRIPTION
@@ -44,17 +64,7 @@ func (nfmr *NotificationForMeReport) Source() []byte {
 //	"e2e"		sender user ID		reception of an E2E message
 //	"group"		group ID			reception of a group chat message
 //  "endFT"     sender user ID		Last message sent confirming end of file transfer
-func NotificationForMe(messageHash, idFP string, preimages string) (*NotificationForMeReport, error) {
-	//handle message hash and idFP
-	messageHashBytes, err := base64.StdEncoding.DecodeString(messageHash)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to decode message ID")
-	}
-	idFpBytes, err := base64.StdEncoding.DecodeString(idFP)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to decode identity fingerprint")
-	}
-
+func NotificationsForMe(notifCSV, preimages string) (*ManyNotificationForMeReport, error) {
 	//handle deserialization of preimages
 	var preimageList []edge.Preimage
 	if err := json.Unmarshal([]byte(preimages), &preimageList); err != nil {
@@ -62,22 +72,36 @@ func NotificationForMe(messageHash, idFP string, preimages string) (*Notificatio
 			"cannot check if notification is for me")
 	}
 
-	//check if any preimages match with the passed in data
-	for _, preimage := range preimageList {
-		if fingerprint.CheckIdentityFpFromMessageHash(idFpBytes, messageHashBytes, preimage.Data) {
-			return &NotificationForMeReport{
-				forMe:  true,
-				tYpe:   preimage.Type,
-				source: preimage.Source,
-			}, nil
-		}
+	list, err := DecodeNotificationsCSV(notifCSV)
+	if err != nil {
+		return nil, err
 	}
-	return &NotificationForMeReport{
-		forMe:  false,
-		tYpe:   "",
-		source: nil,
-	}, nil
+
+	notifList := make( []*NotificationForMeReport, 0, len(list))
+
+	for _, notifData := range list {
+		n := &NotificationForMeReport{
+			forMe:  false,
+			tYpe:   "",
+			source: nil,
+		}
+		//check if any preimages match with the passed in data
+		for _, preimage := range preimageList {
+			if fingerprint.CheckIdentityFpFromMessageHash(notifData.IdentityFP, notifData.MessageHash, preimage.Data) {
+				n = &NotificationForMeReport{
+					forMe:  true,
+					tYpe:   preimage.Type,
+					source: preimage.Source,
+				}
+			}
+			break
+		}
+		notifList = append(notifList, n)
+	}
+
+	return &ManyNotificationForMeReport{many: notifList}, nil
 }
+
 
 // RegisterForNotifications accepts firebase messaging token
 func (c *Client) RegisterForNotifications(token string) error {
@@ -88,3 +112,30 @@ func (c *Client) RegisterForNotifications(token string) error {
 func (c *Client) UnregisterForNotifications() error {
 	return c.api.UnregisterForNotifications()
 }
+
+func DecodeNotificationsCSV(data string)([]*pb.NotificationData, error){
+	r := csv.NewReader(strings.NewReader(data))
+	read, err := r.ReadAll()
+	if err!=nil{
+		return nil, errors.WithMessage(err,"Failed to decode notifications CSV")
+	}
+
+	l := make([]*pb.NotificationData, len(read))
+	for i, touple := range read{
+		messageHash, err := base64.StdEncoding.DecodeString(touple[0])
+		if err!=nil{
+			return nil, errors.WithMessage(err,"Failed decode an element")
+		}
+		identityFP, err := base64.StdEncoding.DecodeString(touple[1])
+		if err!=nil{
+			return nil, errors.WithMessage(err,"Failed decode an element")
+		}
+		l[i] = &pb.NotificationData{
+			EphemeralID: 0,
+			IdentityFP:  identityFP,
+			MessageHash: messageHash,
+		}
+	}
+	return l, nil
+}
+

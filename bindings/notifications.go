@@ -8,14 +8,11 @@
 package bindings
 
 import (
-	"encoding/base64"
-	"encoding/csv"
 	"encoding/json"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/edge"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fingerprint"
-	"strings"
 )
 
 type NotificationForMeReport struct {
@@ -41,7 +38,7 @@ type ManyNotificationForMeReport struct {
 }
 
 func (mnfmr *ManyNotificationForMeReport) Get(i int) (*NotificationForMeReport, error) {
-	if len(mnfmr.many)>=i{
+	if i>=len(mnfmr.many){
 		return nil, errors.New("Cannot get, too long")
 	}
 	return mnfmr.many[i], nil
@@ -72,7 +69,7 @@ func NotificationsForMe(notifCSV, preimages string) (*ManyNotificationForMeRepor
 			"cannot check if notification is for me")
 	}
 
-	list, err := DecodeNotificationsCSV(notifCSV)
+	list, err := pb.DecodeNotificationsCSV(notifCSV)
 	if err != nil {
 		return nil, err
 	}
@@ -93,8 +90,8 @@ func NotificationsForMe(notifCSV, preimages string) (*ManyNotificationForMeRepor
 					tYpe:   preimage.Type,
 					source: preimage.Source,
 				}
+				break
 			}
-			break
 		}
 		notifList = append(notifList, n)
 	}
@@ -113,29 +110,4 @@ func (c *Client) UnregisterForNotifications() error {
 	return c.api.UnregisterForNotifications()
 }
 
-func DecodeNotificationsCSV(data string)([]*pb.NotificationData, error){
-	r := csv.NewReader(strings.NewReader(data))
-	read, err := r.ReadAll()
-	if err!=nil{
-		return nil, errors.WithMessage(err,"Failed to decode notifications CSV")
-	}
-
-	l := make([]*pb.NotificationData, len(read))
-	for i, touple := range read{
-		messageHash, err := base64.StdEncoding.DecodeString(touple[0])
-		if err!=nil{
-			return nil, errors.WithMessage(err,"Failed decode an element")
-		}
-		identityFP, err := base64.StdEncoding.DecodeString(touple[1])
-		if err!=nil{
-			return nil, errors.WithMessage(err,"Failed decode an element")
-		}
-		l[i] = &pb.NotificationData{
-			EphemeralID: 0,
-			IdentityFP:  identityFP,
-			MessageHash: messageHash,
-		}
-	}
-	return l, nil
-}
 

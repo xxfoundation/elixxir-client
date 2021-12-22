@@ -41,8 +41,8 @@ type ManyNotificationForMeReport struct {
 }
 
 func (mnfmr *ManyNotificationForMeReport) Get(i int) (*NotificationForMeReport, error) {
-	if len(mnfmr.many)>=i{
-		return nil, errors.New("Cannot get, too long")
+	if i>=len(mnfmr.many){
+		return nil, errors.New("Cannot get, index out of range")
 	}
 	return mnfmr.many[i], nil
 }

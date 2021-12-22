@@ -9,7 +9,7 @@ require (
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mitchellh/mapstructure v1.4.0 // indirect
-	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/smartystreets/assertions v1.0.1 // indirect
@@ -19,12 +19,12 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.7.1
 	gitlab.com/elixxir/bloomfilter v0.0.0-20200930191214-10e9ac31b228
-	gitlab.com/elixxir/comms v0.0.4-0.20211215224705-8972e6ae132f
-	gitlab.com/elixxir/crypto v0.0.7-0.20211220170925-8df0791ba4ca
+	gitlab.com/elixxir/comms v0.0.4-0.20211222013410-ab4a1dfdccbb
+	gitlab.com/elixxir/crypto v0.0.7-0.20211222013304-77d915ce9680
 	gitlab.com/elixxir/ekv v0.1.5
-	gitlab.com/elixxir/primitives v0.0.3-0.20211208211148-752546cf2e46
-	gitlab.com/xx_network/comms v0.0.4-0.20211215181459-0918c1141509
-	gitlab.com/xx_network/crypto v0.0.5-0.20211215175729-3c916d3c5344
+	gitlab.com/elixxir/primitives v0.0.3-0.20211222013232-ca2b60b300d6
+	gitlab.com/xx_network/comms v0.0.4-0.20211222013220-8f44b195da6f
+	gitlab.com/xx_network/crypto v0.0.5-0.20211222013155-abd407ebe74f
 	gitlab.com/xx_network/primitives v0.0.4-0.20211220222437-cfa4d22efd35
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5

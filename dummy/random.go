@@ -14,6 +14,7 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"time"
 ) // Error messages.
+
 const (
 	payloadSizeRngErr = "failed to generate random payload size: %+v"
 )

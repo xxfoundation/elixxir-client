@@ -151,13 +151,17 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 				roundCallback(false, true, roundsResults)
 				return
 			case roundReport := <-sendResults:
-
-				numResults--
-
 				// Skip if the round is nil (unknown from historical rounds)
 				// they default to timed out, so correct behavior is preserved
-				if roundReport.RoundInfo == nil || roundReport.TimedOut {
+				if roundReport.RoundInfo == nil {
 					allRoundsSucceeded = false
+					numResults--
+				} else if roundReport.TimedOut {
+					// Generate a message to track all timed out rounds
+					timeoutRequest := &pb.HistoricalRounds{
+						Rounds: []uint64{},
+					}
+					go c.getHistoricalRounds(timeoutRequest, sendResults, commsInterface)
 				} else {
 					// If available, denote the result
 					roundId := id.Round(roundReport.RoundInfo.ID)
@@ -167,6 +171,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 						roundsResults[roundId] = Failed
 						allRoundsSucceeded = false
 					}
+					numResults--
 				}
 			}
 		}

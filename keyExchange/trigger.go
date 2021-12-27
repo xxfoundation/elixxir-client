@@ -9,6 +9,7 @@ package keyExchange
 
 import (
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -19,6 +20,7 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
+	util "gitlab.com/elixxir/client/storage/utility"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/states"
@@ -67,10 +69,9 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	}
 
 	//unmarshal the message
-	oldSessionID, PartnerPublicKey, err := unmarshalSource(
-		sess.E2e().GetGroup(), request.Payload)
+	oldSessionID, PartnerPublicKey, PartnerSIDHPublicKey, err := (unmarshalSource(sess.E2e().GetGroup(), request.Payload))
 	if err != nil {
-		jww.ERROR.Printf("could not unmarshal partner %s: %s",
+		jww.ERROR.Printf("[REKEY] could not unmarshal partner %s: %s",
 			request.Sender, err)
 		return err
 	}
@@ -78,7 +79,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	//get the old session which triggered the exchange
 	oldSession := partner.GetSendSession(oldSessionID)
 	if oldSession == nil {
-		err := errors.Errorf("no session %s for partner %s: %s",
+		err := errors.Errorf("[REKEY] no session %s for partner %s: %s",
 			oldSession, request.Sender, err)
 		jww.ERROR.Printf(err.Error())
 		return err
@@ -86,13 +87,14 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 
 	//create the new session
 	session, duplicate := partner.NewReceiveSession(PartnerPublicKey,
-		sess.E2e().GetE2ESessionParams(), oldSession)
+		PartnerSIDHPublicKey, sess.E2e().GetE2ESessionParams(),
+		oldSession)
 	// new session being nil means the session was a duplicate. This is possible
 	// in edge cases where the partner crashes during operation. The session
 	// creation in this case ignores the new session, but the confirmation
 	// message is still sent so the partner will know the session is confirmed
 	if duplicate {
-		jww.INFO.Printf("New session from Key Exchange Trigger to "+
+		jww.INFO.Printf("[REKEY] New session from Key Exchange Trigger to "+
 			"create session %s for partner %s is a duplicate, request ignored",
 			session.GetID(), request.Sender)
 	} else {
@@ -109,7 +111,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 
 	//If the payload cannot be marshaled, panic
 	if err != nil {
-		jww.FATAL.Panicf("Failed to marshal payload for Key "+
+		jww.FATAL.Panicf("[REKEY] Failed to marshal payload for Key "+
 			"Negotation Confirmation with %s", session.GetPartner())
 	}
 
@@ -128,7 +130,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	// send fails
 	sess.GetCriticalMessages().AddProcessing(m, e2eParams)
 
-	rounds, _, _, err := net.SendE2E(m, e2eParams, stop)
+	rounds, msgID, _, err := net.SendE2E(m, e2eParams, stop)
 	if err != nil {
 		return err
 	}
@@ -142,15 +144,16 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	}
 
 	//Wait until the result tracking responds
-	success, numTimeOut, numRoundFail := utility.TrackResults(sendResults, len(rounds))
+	success, numRoundFail, numTimeOut := utility.TrackResults(sendResults,
+		len(rounds))
 	// If a single partition of the Key Negotiation request does not
 	// transmit, the partner will not be able to read the confirmation. If
 	// such a failure occurs
 	if !success {
-		jww.ERROR.Printf("Key Negotiation for %s failed to "+
-			"transmit %v/%v paritions: %v round failures, %v timeouts",
+		jww.ERROR.Printf("[REKEY] Key Negotiation trigger for %s failed to "+
+			"transmit %v/%v paritions: %v round failures, %v timeouts, msgID: %s",
 			session, numRoundFail+numTimeOut, len(rounds), numRoundFail,
-			numTimeOut)
+			numTimeOut, msgID)
 		sess.GetCriticalMessages().Failed(m, e2eParams)
 		return nil
 	}
@@ -158,34 +161,40 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	// otherwise, the transmission is a success and this should be denoted
 	// in the session and the log
 	sess.GetCriticalMessages().Succeeded(m, e2eParams)
-	jww.INFO.Printf("Key Negotiation transmission for %s successfully",
-		session)
+	jww.INFO.Printf("[REKEY] Key Negotiation trigger transmission for %s, msgID: %s successfully",
+		session, msgID)
 
 	return nil
 }
 
 func unmarshalSource(grp *cyclic.Group, payload []byte) (e2e.SessionID,
-	*cyclic.Int, error) {
+	*cyclic.Int, *sidh.PublicKey, error) {
 
 	msg := &RekeyTrigger{}
 	if err := proto.Unmarshal(payload, msg); err != nil {
-		return e2e.SessionID{}, nil, errors.Errorf("Failed to "+
-			"unmarshal payload: %s", err)
+		return e2e.SessionID{}, nil, nil, errors.Errorf(
+			"Failed to unmarshal payload: %s", err)
 	}
 
 	oldSessionID := e2e.SessionID{}
 
 	if err := oldSessionID.Unmarshal(msg.SessionID); err != nil {
-		return e2e.SessionID{}, nil, errors.Errorf("Failed to unmarshal"+
-			" sessionID: %s", err)
+		return e2e.SessionID{}, nil, nil, errors.Errorf(
+			"Failed to unmarshal sessionID: %s", err)
 	}
 
 	// checking it is inside the group is necessary because otherwise the
 	// creation of the cyclic int will crash below
 	if !grp.BytesInside(msg.PublicKey) {
-		return e2e.SessionID{}, nil, errors.Errorf("Public key not in e2e group; PublicKey %v",
+		return e2e.SessionID{}, nil, nil, errors.Errorf(
+			"Public key not in e2e group; PublicKey %v",
 			msg.PublicKey)
 	}
 
-	return oldSessionID, grp.NewIntFromBytes(msg.PublicKey), nil
+	theirSIDHVariant := sidh.KeyVariant(msg.SidhPublicKey[0])
+	theirSIDHPubKey := util.NewSIDHPublicKey(theirSIDHVariant)
+	theirSIDHPubKey.Import(msg.SidhPublicKey[1:])
+
+	return oldSessionID, grp.NewIntFromBytes(msg.PublicKey),
+		theirSIDHPubKey, nil
 }

@@ -9,6 +9,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -66,7 +67,8 @@ func NewRelationship(manager *Manager, t RelationshipType,
 	// set to confirmed because the first session is always confirmed as a
 	// result of the negotiation before creation
 	s := newSession(r, r.t, manager.originMyPrivKey,
-		manager.originPartnerPubKey, nil, SessionID{},
+		manager.originPartnerPubKey, nil, manager.originMySIDHPrivKey,
+		manager.originPartnerSIDHPubKey, SessionID{},
 		r.fingerprint, Confirmed, initialParams)
 
 	if err := s.save(); err != nil {
@@ -204,12 +206,14 @@ func (r *relationship) Delete() {
 }
 
 func (r *relationship) AddSession(myPrivKey, partnerPubKey, baseKey *cyclic.Int,
+	mySIDHPrivKey *sidh.PrivateKey, partnerSIDHPubKey *sidh.PublicKey,
 	trigger SessionID, negotiationStatus Negotiation,
 	e2eParams params.E2ESessionParams) *Session {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
-	s := newSession(r, r.t, myPrivKey, partnerPubKey, baseKey, trigger,
+	s := newSession(r, r.t, myPrivKey, partnerPubKey, baseKey,
+		mySIDHPrivKey, partnerSIDHPubKey, trigger,
 		r.fingerprint, negotiationStatus, e2eParams)
 
 	r.addSession(s)
@@ -334,6 +338,7 @@ func (r *relationship) getNewestRekeyableSession() *Session {
 	var unconfirmed *Session
 
 	for _, s := range r.sessions {
+		jww.TRACE.Printf("[REKEY] Looking at session %s", s)
 		//fmt.Println(i)
 		// This looks like it might not be thread safe, I think it is because
 		// the failure mode is it skips to a lower key to rekey with, which is
@@ -341,12 +346,16 @@ func (r *relationship) getNewestRekeyableSession() *Session {
 		// accessing the data in the same order it would be written (i think)
 		if s.Status() != RekeyEmpty {
 			if s.IsConfirmed() {
+				jww.TRACE.Printf("[REKEY] Selected rekey: %s",
+					s)
 				return s
 			} else if unconfirmed == nil {
 				unconfirmed = s
 			}
 		}
 	}
+	jww.WARN.Printf("[REKEY] Returning unconfirmed session rekey: %s",
+		unconfirmed)
 	return unconfirmed
 }
 

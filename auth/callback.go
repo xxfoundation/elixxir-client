@@ -9,6 +9,7 @@ package auth
 
 import (
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -21,8 +22,10 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/crypto/csprng"
 	"strings"
 )
 
@@ -82,7 +85,8 @@ func (m *Manager) processAuthMessage(msg message.Receive) {
 func (m *Manager) handleRequest(cmixMsg format.Message,
 	myHistoricalPrivKey *cyclic.Int, grp *cyclic.Group) {
 	//decode the outer format
-	baseFmt, partnerPubKey, err := handleBaseFormat(cmixMsg, grp)
+	baseFmt, partnerPubKey, err := handleBaseFormat(
+		cmixMsg, grp)
 	if err != nil {
 		jww.WARN.Printf("Failed to handle auth request: %s", err)
 		return
@@ -94,12 +98,11 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	jww.TRACE.Printf("handleRequest PARTNERPUBKEY: %v", partnerPubKey.Bytes())
 
 	//decrypt the message
-	jww.TRACE.Printf("handleRequest SALT: %v", baseFmt.GetSalt())
 	jww.TRACE.Printf("handleRequest ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
 	jww.TRACE.Printf("handleRequest MAC: %v", cmixMsg.GetMac())
 
 	success, payload := cAuth.Decrypt(myHistoricalPrivKey,
-		partnerPubKey, baseFmt.GetSalt(), baseFmt.GetEcrPayload(),
+		partnerPubKey, baseFmt.GetEcrPayload(),
 		cmixMsg.GetMac(), grp)
 
 	if !success {
@@ -114,6 +117,11 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		jww.WARN.Printf("Failed to unmarshal auth "+
 			"request's encrypted payload: %s", err)
 		return
+	}
+	partnerSIDHPubKey, err := ecrFmt.GetSidhPubKey()
+	if err != nil {
+		jww.WARN.Printf("Could not unmarshal partner SIDH Pubkey: %s",
+			err)
 	}
 
 	//decode the request format
@@ -176,23 +184,73 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				jww.INFO.Printf("Received AuthRequest from %s,"+
 					" msgDigest: %s which has been requested, auto-confirming",
 					partnerID, cmixMsg.Digest())
-				// do the confirmation
-				if err := m.doConfirm(sr2, grp, partnerPubKey, m.storage.E2e().GetDHPrivateKey(),
-					sr2.GetPartnerHistoricalPubKey(), ecrFmt.GetOwnership()); err != nil {
-					em := fmt.Sprintf("Auto Confirmation with %s failed: %s",
-						partnerID, err)
-					jww.WARN.Print(em)
-					events.Report(10, "Auth",
-						"RequestError", em)
+
+				// Verify this request is legit
+				ownership := ecrFmt.GetOwnership()
+				if !cAuth.VerifyOwnershipProof(
+					myHistoricalPrivKey, partnerPubKey, grp,
+					ownership) {
+					jww.WARN.Printf("Invalid ownership proof from %s received, discarding msdDigest: %s",
+						partnerID, cmixMsg.Digest())
 				}
-				//exit
+
+				// Check if I need to resend by comparing the
+				// SIDH Keys
+				mySIDH := sr2.GetMySIDHPubKey()
+				theirSIDH := partnerSIDHPubKey
+				myBytes := make([]byte, mySIDH.Size())
+				theirBytes := make([]byte, theirSIDH.Size())
+				mySIDH.Export(myBytes)
+				theirSIDH.Export(theirBytes)
+				for i := 0; i < len(myBytes); i++ {
+					if myBytes[i] > theirBytes[i] {
+						// OK, this side is dropping
+						// the request
+						// Do we need to delete
+						// something here?
+						// No, because we will
+						// now wait to receive
+						// confirmation.
+						return
+					} else if myBytes[i] < theirBytes[i] {
+						break
+					}
+				}
+
+				// If I do, delete my request on disk
+				_, _, partnerContact, _ := m.storage.Auth().GetRequest(partnerID)
+				m.storage.Auth().Delete(partnerID)
+
+				// add a confirmation to disk
+				if err = m.storage.Auth().AddReceived(partnerContact,
+					partnerSIDHPubKey); err != nil {
+					em := fmt.Sprintf("failed to store contact Auth "+
+						"Request: %s", err)
+					jww.WARN.Print(em)
+					events.Report(10, "Auth", "RequestError", em)
+				}
+
+				// Call ConfirmRequestAuth to send confirmation
+				rngGen := fastRNG.NewStreamGenerator(1, 1,
+					csprng.NewSystemRNG)
+				rng := rngGen.GetStream()
+				rndNum, err := ConfirmRequestAuth(partnerContact,
+					rng, m.storage, m.net)
+				if err != nil {
+					jww.ERROR.Printf("Could not ConfirmRequestAuth: %+v",
+						err)
+					return
+				}
+
+				jww.INFO.Printf("ConfirmRequestAuth to %s on round %d",
+					partnerID, rndNum)
 				return
 			}
 		}
 	}
 
 	//process the inner payload
-	facts, msg, err := fact.UnstringifyFactList(
+	facts, _, err := fact.UnstringifyFactList(
 		string(requestFmt.msgPayload))
 	if err != nil {
 		em := fmt.Sprintf("failed to parse facts and message "+
@@ -202,7 +260,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		return
 	}
 
-	//create the contact
+	//create the contact, note that no facts are sent in the payload
 	c := contact.Contact{
 		ID:             partnerID,
 		DhPubKey:       partnerPubKey,
@@ -213,7 +271,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	// fixme: the client will never be notified of the channel creation if a
 	// crash occurs after the store but before the conclusion of the callback
 	//create the auth storage
-	if err = m.storage.Auth().AddReceived(c); err != nil {
+	if err = m.storage.Auth().AddReceived(c, partnerSIDHPubKey); err != nil {
 		em := fmt.Sprintf("failed to store contact Auth "+
 			"Request: %s", err)
 		jww.WARN.Print(em)
@@ -226,7 +284,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	cbList := m.requestCallbacks.Get(c.ID)
 	for _, cb := range cbList {
 		rcb := cb.(interfaces.RequestCallback)
-		go rcb(c, msg)
+		go rcb(c, "")
 	}
 	return
 }
@@ -246,7 +304,8 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	}
 
 	// extract the message
-	baseFmt, partnerPubKey, err := handleBaseFormat(cmixMsg, grp)
+	baseFmt, partnerPubKey, err := handleBaseFormat(
+		cmixMsg, grp)
 	if err != nil {
 		em := fmt.Sprintf("Failed to handle auth confirm: %s", err)
 		jww.WARN.Print(em)
@@ -259,11 +318,10 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	jww.TRACE.Printf("handleConfirm SRMYPUBKEY: %v", sr.GetMyPubKey().Bytes())
 
 	// decrypt the payload
-	jww.TRACE.Printf("handleConfirm SALT: %v", baseFmt.GetSalt())
 	jww.TRACE.Printf("handleConfirm ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
 	jww.TRACE.Printf("handleConfirm MAC: %v", cmixMsg.GetMac())
 	success, payload := cAuth.Decrypt(sr.GetMyPrivKey(),
-		partnerPubKey, baseFmt.GetSalt(), baseFmt.GetEcrPayload(),
+		partnerPubKey, baseFmt.GetEcrPayload(),
 		cmixMsg.GetMac(), grp)
 
 	if !success {
@@ -285,9 +343,23 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 		return
 	}
 
+	partnerSIDHPubKey, err := ecrFmt.GetSidhPubKey()
+	if err != nil {
+		em := fmt.Sprintf("Could not get auth conf SIDH Pubkey: %s",
+			err)
+		jww.WARN.Print(em)
+		events.Report(10, "Auth", "ConfirmError", em)
+		m.storage.Auth().Done(sr.GetPartner())
+		return
+	}
+	jww.TRACE.Printf("handleConfirm PARTNERSIDHPUBKEY: %v",
+		partnerSIDHPubKey)
+
 	// finalize the confirmation
 	if err := m.doConfirm(sr, grp, partnerPubKey, sr.GetMyPrivKey(),
-		sr.GetPartnerHistoricalPubKey(), ecrFmt.GetOwnership()); err != nil {
+		sr.GetPartnerHistoricalPubKey(),
+		ecrFmt.GetOwnership(),
+		partnerSIDHPubKey); err != nil {
 		em := fmt.Sprintf("Confirmation failed: %s", err)
 		jww.WARN.Print(em)
 		events.Report(10, "Auth", "ConfirmError", em)
@@ -297,7 +369,8 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 }
 
 func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
-	partnerPubKey, myPrivateKeyOwnershipProof, partnerPubKeyOwnershipProof *cyclic.Int, ownershipProof []byte) error {
+	partnerPubKey, myPrivateKeyOwnershipProof, partnerPubKeyOwnershipProof *cyclic.Int,
+	ownershipProof []byte, partnerSIDHPubKey *sidh.PublicKey) error {
 	// verify the message came from the intended recipient
 	if !cAuth.VerifyOwnershipProof(myPrivateKeyOwnershipProof,
 		partnerPubKeyOwnershipProof, grp, ownershipProof) {
@@ -309,7 +382,8 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 	// the second does not
 	p := m.storage.E2e().GetE2ESessionParams()
 	if err := m.storage.E2e().AddPartner(sr.GetPartner(),
-		partnerPubKey, sr.GetMyPrivKey(), p, p); err != nil {
+		partnerPubKey, sr.GetMyPrivKey(), partnerSIDHPubKey,
+		sr.GetMySIDHPrivKey(), p, p); err != nil {
 		return errors.Errorf("Failed to create channel with partner (%s) "+
 			"after confirmation: %+v",
 			sr.GetPartner(), err)
@@ -404,5 +478,6 @@ func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
 			"auth confirmation public key is not in the e2e cyclic group")
 	}
 	partnerPubKey := grp.NewIntFromBytes(baseFmt.pubkey)
+
 	return baseFmt, partnerPubKey, nil
 }

@@ -8,6 +8,7 @@
 package keyExchange
 
 import (
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -17,10 +18,10 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
-	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	cE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
@@ -30,14 +31,17 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
+	"math/rand"
 	"testing"
 	"time"
 )
 
 // Generate partner ID for two people, used for smoke tests
 func GeneratePartnerID(aliceKey, bobKey *cyclic.Int,
-	group *cyclic.Group) e2e.SessionID {
-	baseKey := dh.GenerateSessionKey(aliceKey, bobKey, group)
+	group *cyclic.Group, alicePrivKey *sidh.PrivateKey,
+	bobPubKey *sidh.PublicKey) e2e.SessionID {
+	baseKey := e2e.GenerateE2ESessionBaseKey(aliceKey, bobKey, group,
+		alicePrivKey, bobPubKey)
 
 	h, _ := hash.NewCMixHash()
 	h.Write(baseKey.Bytes())
@@ -190,7 +194,22 @@ func (t *testNetworkManagerFullExchange) SendE2E(message.Send, params.E2E, *stop
 	alicePrivKey := aliceSession.E2e().GetDHPrivateKey()
 	bobPubKey := bobSession.E2e().GetDHPublicKey()
 
-	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup)
+	aliceVariant := sidh.KeyVariantSidhA
+	prng1 := rand.New(rand.NewSource(int64(1)))
+	aliceSIDHPrivKey := util.NewSIDHPrivateKey(aliceVariant)
+	aliceSIDHPubKey := util.NewSIDHPublicKey(aliceVariant)
+	aliceSIDHPrivKey.Generate(prng1)
+	aliceSIDHPrivKey.GeneratePublicKey(aliceSIDHPubKey)
+
+	bobVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
+	prng2 := rand.New(rand.NewSource(int64(2)))
+	bobSIDHPrivKey := util.NewSIDHPrivateKey(bobVariant)
+	bobSIDHPubKey := util.NewSIDHPublicKey(bobVariant)
+	bobSIDHPrivKey.Generate(prng2)
+	bobSIDHPrivKey.GeneratePublicKey(bobSIDHPubKey)
+
+	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup,
+		aliceSIDHPrivKey, bobSIDHPubKey)
 
 	rekeyConfirm, _ := proto.Marshal(&RekeyConfirm{
 		SessionID: sessionID.Marshal(),

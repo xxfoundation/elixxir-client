@@ -38,22 +38,22 @@ func TestNotificationForMe(t *testing.T) {
 
 	dataSources := []int{0, 1, -1, 2, 3, 4, -1, 0, 1, 2, 3, 4, -1, 2, 2, 2}
 
-	notifData := make([]*mixmessages.NotificationData,0,len(dataSources))
+	notifData := make([]*mixmessages.NotificationData, 0, len(dataSources))
 
-	for _, index := range dataSources{
+	for _, index := range dataSources {
 		var preimage []byte
-		if index==-1{
-			preimage = make([]byte,32)
+		if index == -1 {
+			preimage = make([]byte, 32)
 			rng.Read(preimage)
-		}else{
+		} else {
 			preimage = preimageList[index].Data
 		}
 
-		msg := make([]byte,32)
+		msg := make([]byte, 32)
 		rng.Read(msg)
 		msgHash := fingerprint.GetMessageHash(msg)
 
-		identityFP := fingerprint.IdentityFP(msg,preimage)
+		identityFP := fingerprint.IdentityFP(msg, preimage)
 
 		n := &mixmessages.NotificationData{
 			EphemeralID: 0,
@@ -61,46 +61,45 @@ func TestNotificationForMe(t *testing.T) {
 			MessageHash: msgHash,
 		}
 
-		notifData = append(notifData,n)
+		notifData = append(notifData, n)
 	}
 
 	notfsCSV := mixmessages.MakeNotificationsCSV(notifData)
 
-
-	notifsForMe, err := NotificationsForMe(notfsCSV,string(preimagesJson))
-	if err!=nil{
+	notifsForMe, err := NotificationsForMe(notfsCSV, string(preimagesJson))
+	if err != nil {
 		t.Errorf("Got error from NotificationsForMe: %+v", err)
 	}
 
-	for i:=0;i<notifsForMe.Len();i++{
+	for i := 0; i < notifsForMe.Len(); i++ {
 		nfm, err := notifsForMe.Get(i)
-		if err!=nil{
+		if err != nil {
 			t.Errorf("Got error in getting notif: %+v", err)
 		}
-		if dataSources[i]==-1{
-			if nfm.ForMe(){
+		if dataSources[i] == -1 {
+			if nfm.ForMe() {
 				t.Errorf("Notification %d should not be for me", i)
 			}
-			if nfm.Type()!=""{
-				t.Errorf("Notification %d shoudl not have a type, " +
+			if nfm.Type() != "" {
+				t.Errorf("Notification %d shoudl not have a type, "+
 					"has: %s", i, nfm.Type())
 			}
-			if nfm.Source()!=nil{
-				t.Errorf("Notification %d shoudl not have a source, " +
+			if nfm.Source() != nil {
+				t.Errorf("Notification %d shoudl not have a source, "+
 					"has: %v", i, nfm.Source())
 			}
-		}else{
-			if !nfm.ForMe(){
+		} else {
+			if !nfm.ForMe() {
 				t.Errorf("Notification %d should be for me", i)
-			}else{
+			} else {
 				expectedType := types[dataSources[i]]
-				if nfm.Type()!=expectedType{
-					t.Errorf("Notification %d has the wrong type, " +
+				if nfm.Type() != expectedType {
+					t.Errorf("Notification %d has the wrong type, "+
 						"Expected: %s, Received: %s", i, nfm.Type(), expectedType)
 				}
 				expectedSource := sourceList[dataSources[i]]
-				if !bytes.Equal(nfm.Source(),expectedSource){
-					t.Errorf("Notification %d source does not match: " +
+				if !bytes.Equal(nfm.Source(), expectedSource) {
+					t.Errorf("Notification %d source does not match: "+
 						"Expected: %v, Received: %v", i, expectedSource,
 						nfm.Source())
 				}
@@ -114,13 +113,13 @@ func TestManyNotificationForMeReport_Get(t *testing.T) {
 
 	//not too long
 	_, err := ManyNotificationForMeReport.Get(2)
-	if err!=nil{
+	if err != nil {
 		t.Errorf("Got error when not too long: %+v", err)
 	}
 
 	//too long
 	_, err = ManyNotificationForMeReport.Get(69)
-	if err==nil{
+	if err == nil {
 		t.Errorf("Didnt get error when too long")
 	}
 }

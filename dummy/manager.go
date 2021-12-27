@@ -11,16 +11,32 @@
 package dummy
 
 import (
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"sync/atomic"
 	"time"
 )
 
 const (
 	dummyTrafficStoppableName = "DummyTraffic"
+	statusChanLen             = 100
+)
+
+// Thread status.
+const (
+	notStarted uint32 = iota
+	running
+	paused
+	stopped
+)
+
+// Error messages.
+const (
+	setStatusErr = "Failed to change status of dummy traffic send thread to %t: channel full"
 )
 
 // Manager manages the sending of dummy messages.
@@ -33,6 +49,12 @@ type Manager struct {
 
 	// Upper limit for random duration that modified avgSendDelta
 	randomRange time.Duration
+
+	// Indicates the current status of the thread (0 = paused, 1 = running)
+	status uint32
+
+	// Pauses/Resumes the dummy send thread when triggered
+	statusChan chan bool
 
 	// Client interfaces
 	client *api.Client
@@ -58,6 +80,8 @@ func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 		maxNumMessages: maxNumMessages,
 		avgSendDelta:   avgSendDelta,
 		randomRange:    randomRange,
+		status:         notStarted,
+		statusChan:     make(chan bool, statusChanLen),
 		client:         client,
 		store:          store,
 		net:            net,
@@ -72,4 +96,36 @@ func (m *Manager) StartDummyTraffic() (stoppable.Stoppable, error) {
 	go m.sendThread(stop)
 
 	return stop, nil
+}
+
+// SetStatus sets the state of the dummy traffic send thread, which determines
+// if the thread is running or paused. The possible statuses are:
+//  true  = send thread is sending dummy messages
+//  false = send thread is paused/stopped and not sending dummy messages
+// Returns an error if the channel is full.
+// Note that this function cannot change the status of the send thread if it has
+// yet to be started via StartDummyTraffic or if it has been stopped.
+func (m *Manager) SetStatus(status bool) error {
+	select {
+	case m.statusChan <- status:
+		return nil
+	default:
+		return errors.Errorf(setStatusErr, status)
+	}
+}
+
+// GetStatus returns the current state of the dummy traffic send thread. It has
+// the following return values:
+//  true  = send thread is sending dummy messages
+//  false = send thread is paused/stopped and not sending dummy messages
+// Note that this function does not return the status set by SetStatus directly;
+// it returns the current status of the send thread, which means any call to
+// SetStatus will have a small delay before it is returned by GetStatus.
+func (m *Manager) GetStatus() bool {
+	switch atomic.LoadUint32(&m.status) {
+	case running:
+		return true
+	default:
+		return false
+	}
 }

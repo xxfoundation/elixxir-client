@@ -534,7 +534,7 @@ func (c *Client) getSingle() (*single.Manager, error) {
 func DumpStack() (string, error) {
 	buf := new(bytes.Buffer)
 	err := pprof.Lookup("goroutine").WriteTo(buf, 2)
-	if err!=nil{
+	if err != nil {
 		return "", err
 	}
 	return buf.String(), nil

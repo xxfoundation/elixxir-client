@@ -11,12 +11,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/stoppable"
 	ftStorage "gitlab.com/elixxir/client/storage/fileTransfer"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -680,14 +682,33 @@ func TestManager_newCmixMessage(t *testing.T) {
 // Tests that Manager.makeRoundEventCallback returns a callback that calls the
 // progress callback when a round succeeds.
 func TestManager_makeRoundEventCallback(t *testing.T) {
-	sendE2eChan := make(chan message.Receive, 10)
+	sendE2eChan := make(chan message.Receive, 100)
 	m := newTestManager(false, nil, sendE2eChan, nil, nil, t)
 
-	callbackChan := make(chan sentProgressResults, 10)
+	callbackChan := make(chan sentProgressResults, 100)
 	progressCB := func(completed bool, sent, arrived, total uint16,
 		tr interfaces.FilePartTracker, err error) {
 		callbackChan <- sentProgressResults{
 			completed, sent, arrived, total, tr, err}
+	}
+
+	// Add recipient as partner
+	recipient := id.NewIdFromString("recipient", id.User, t)
+	grp := m.store.E2e().GetGroup()
+	dhKey := grp.NewInt(42)
+	pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
+	p := params.GetDefaultE2ESessionParams()
+
+	rng := csprng.NewSystemRNG()
+	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA,
+		rng)
+	theirSidhPub, _ := util.GenerateSIDHKeyPair(
+		sidh.KeyVariantSidhB, rng)
+
+	err := m.store.E2e().AddPartner(recipient, pubKey, dhKey, mySidhPriv,
+		theirSidhPub, p, p)
+	if err != nil {
+		t.Errorf("Failed to add partner %s: %+v", recipient, err)
 	}
 
 	done0, done1 := make(chan bool), make(chan bool)
@@ -712,17 +733,6 @@ func TestManager_makeRoundEventCallback(t *testing.T) {
 			}
 		}
 	}()
-
-	// Add recipient as partner
-	recipient := id.NewIdFromString("recipient", id.User, t)
-	grp := m.store.E2e().GetGroup()
-	dhKey := grp.NewInt(42)
-	pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
-	p := params.GetDefaultE2ESessionParams()
-	err := m.store.E2e().AddPartner(recipient, pubKey, dhKey, p, p)
-	if err != nil {
-		t.Errorf("Failed to add partner %s: %+v", recipient, err)
-	}
 
 	prng := NewPrng(42)
 	key, _ := ftCrypto.NewTransferKey(prng)
@@ -857,7 +867,15 @@ func TestManager_sendEndE2eMessage(t *testing.T) {
 	dhKey := grp.NewInt(42)
 	pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
 	p := params.GetDefaultE2ESessionParams()
-	err := m.store.E2e().AddPartner(recipient, pubKey, dhKey, p, p)
+
+	rng := csprng.NewSystemRNG()
+	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA,
+		rng)
+	theirSidhPub, _ := util.GenerateSIDHKeyPair(
+		sidh.KeyVariantSidhB, rng)
+
+	err := m.store.E2e().AddPartner(recipient, pubKey, dhKey, mySidhPriv,
+		theirSidhPub, p, p)
 	if err != nil {
 		t.Errorf("Failed to add partner %s: %+v", recipient, err)
 	}

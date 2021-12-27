@@ -13,7 +13,7 @@ func TestGetDefaultE2E(t *testing.T) {
 	if GetDefaultE2E().Type != Standard {
 		t.Errorf("GetDefaultE2E did not return Standard")
 	}
-	if !GetDefaultE2E().OnlyNotifyOnLastSend  {
+	if !GetDefaultE2E().OnlyNotifyOnLastSend {
 		t.Errorf("GetDefaultE2E did not return OnlyNotifyOnLastSend == true")
 	}
 }

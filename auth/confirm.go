@@ -16,13 +16,13 @@ import (
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/edge"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"io"
-	util "gitlab.com/elixxir/client/storage/utility"
 )
 
 func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,

@@ -18,11 +18,11 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/comms/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/primitives/states"
-	util "gitlab.com/elixxir/client/storage/utility"
 	"time"
 )
 
@@ -123,7 +123,7 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	if err != nil {
 		return errors.Errorf(
 			"[REKEY] Failed to send the key negotiation message "+
-			"for %s: %s", session, err)
+				"for %s: %s", session, err)
 	}
 
 	//create the runner which will handle the result of sending the messages

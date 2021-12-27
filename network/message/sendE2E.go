@@ -101,10 +101,10 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 
 		// set all non last partitions to the silent type so they
 		// dont cause notificatons if OnlyNotifyOnLastSend is true
-		lastPartition:= len(partitions)-1
+		lastPartition := len(partitions) - 1
 		if localParam.OnlyNotifyOnLastSend && i != lastPartition {
 			localParam.IdentityPreimage = partner.GetSilentPreimage()
-		}else if localParam.IdentityPreimage == nil {
+		} else if localParam.IdentityPreimage == nil {
 			//set the preimage to the default e2e one if it is not already set
 			localParam.IdentityPreimage = partner.GetE2EPreimage()
 		}

@@ -10,6 +10,7 @@ package fileTransfer
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
@@ -19,6 +20,7 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	ftStorage "gitlab.com/elixxir/client/storage/fileTransfer"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/network"
@@ -39,8 +41,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"github.com/cloudflare/circl/dh/sidh"
 )
 
 // newFile generates a file with random data of size numParts * partSize.

@@ -10,6 +10,7 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -24,7 +25,6 @@ import (
 	"math/big"
 	"sync"
 	"testing"
-	"github.com/cloudflare/circl/dh/sidh"
 )
 
 const currentSessionVersion = 0
@@ -52,7 +52,7 @@ type Session struct {
 	partnerPubKey *cyclic.Int
 
 	// SIDH Keys of the same
-	mySIDHPrivKey *sidh.PrivateKey
+	mySIDHPrivKey     *sidh.PrivateKey
 	partnerSIDHPubKey *sidh.PublicKey
 
 	// ID of the session which teh partner public key comes from for this
@@ -123,7 +123,7 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 	e2eParams params.E2ESessionParams) *Session {
 
 	if e2eParams.MinKeys < 10 {
-		jww.FATAL.Panicf("Cannot create a session with a minimum " +
+		jww.FATAL.Panicf("Cannot create a session with a minimum "+
 			"number of keys (%d) less than 10", e2eParams.MinKeys)
 	}
 
@@ -149,7 +149,7 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 
 	jww.INFO.Printf("New Session with Partner %s:\n\tType: %s"+
 		"\n\tBaseKey: %s\n\tRelationship Fingerprint: %v\n\tNumKeys: %d"+
-		"\n\tMy Public Key: %s\n\tPartner Public Key: %s" +
+		"\n\tMy Public Key: %s\n\tPartner Public Key: %s"+
 		"\n\tMy Public SIDH: %s\n\tPartner Public SIDH: %s",
 		ship.manager.partner,
 		t,
@@ -273,7 +273,6 @@ func (s *Session) GetPartnerSIDHPubKey() *sidh.PublicKey {
 	// no lock is needed because this should never be edited
 	return s.partnerSIDHPubKey
 }
-
 
 func (s *Session) GetSource() SessionID {
 	// no lock is needed because this cannot be edited

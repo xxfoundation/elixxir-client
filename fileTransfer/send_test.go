@@ -11,12 +11,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/stoppable"
 	ftStorage "gitlab.com/elixxir/client/storage/fileTransfer"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -31,8 +33,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"github.com/cloudflare/circl/dh/sidh"
 )
 
 // Tests that Manager.sendThread successfully sends the parts and reports their
@@ -733,7 +733,6 @@ func TestManager_makeRoundEventCallback(t *testing.T) {
 			}
 		}
 	}()
-
 
 	prng := NewPrng(42)
 	key, _ := ftCrypto.NewTransferKey(prng)

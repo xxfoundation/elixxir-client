@@ -9,22 +9,22 @@ package keyExchange
 
 import (
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/switchboard"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"math/rand"
 	"testing"
 	"time"
-	"math/rand"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"github.com/cloudflare/circl/dh/sidh"
 )
 
 var exchangeAliceId, exchangeBobId *id.ID
@@ -69,7 +69,7 @@ func TestFullExchange(t *testing.T) {
 	newBobSIDHPubKey := util.NewSIDHPublicKey(bobVariant)
 	newBobSIDHPrivKey.Generate(prng2)
 	newBobSIDHPrivKey.GeneratePublicKey(newBobSIDHPubKey)
-	newBobSIDHPubKeyBytes := make([]byte, newBobSIDHPubKey.Size() + 1)
+	newBobSIDHPubKeyBytes := make([]byte, newBobSIDHPubKey.Size()+1)
 	newBobSIDHPubKeyBytes[0] = byte(bobVariant)
 	newBobSIDHPubKey.Export(newBobSIDHPubKeyBytes[1:])
 

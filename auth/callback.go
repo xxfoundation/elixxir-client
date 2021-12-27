@@ -8,8 +8,8 @@
 package auth
 
 import (
-	"github.com/cloudflare/circl/dh/sidh"
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -22,11 +22,11 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
-	"strings"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
+	"strings"
 )
 
 func (m *Manager) StartProcesses() (stoppable.Stoppable, error) {
@@ -190,8 +190,8 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				if !cAuth.VerifyOwnershipProof(
 					myHistoricalPrivKey, partnerPubKey, grp,
 					ownership) {
-						jww.WARN.Printf("Invalid ownership proof from %s received, discarding msdDigest: %s",
-							partnerID, cmixMsg.Digest())
+					jww.WARN.Printf("Invalid ownership proof from %s received, discarding msdDigest: %s",
+						partnerID, cmixMsg.Digest())
 				}
 
 				// Check if I need to resend by comparing the
@@ -224,11 +224,11 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				// add a confirmation to disk
 				if err = m.storage.Auth().AddReceived(partnerContact,
 					partnerSIDHPubKey); err != nil {
-						em := fmt.Sprintf("failed to store contact Auth "+
-							"Request: %s", err)
-						jww.WARN.Print(em)
-						events.Report(10, "Auth", "RequestError", em)
-					}
+					em := fmt.Sprintf("failed to store contact Auth "+
+						"Request: %s", err)
+					jww.WARN.Print(em)
+					events.Report(10, "Auth", "RequestError", em)
+				}
 
 				// Call ConfirmRequestAuth to send confirmation
 				rngGen := fastRNG.NewStreamGenerator(1, 1,
@@ -248,7 +248,6 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 			}
 		}
 	}
-
 
 	//process the inner payload
 	facts, _, err := fact.UnstringifyFactList(
@@ -355,8 +354,6 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	}
 	jww.TRACE.Printf("handleConfirm PARTNERSIDHPUBKEY: %v",
 		partnerSIDHPubKey)
-
-
 
 	// finalize the confirmation
 	if err := m.doConfirm(sr, grp, partnerPubKey, sr.GetMyPrivKey(),

@@ -2,6 +2,7 @@ package message
 
 import (
 	"encoding/binary"
+	"github.com/cloudflare/circl/dh/sidh"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -10,6 +11,7 @@ import (
 	"gitlab.com/elixxir/client/network/message/parse"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -21,8 +23,6 @@ import (
 	"os"
 	"testing"
 	"time"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"github.com/cloudflare/circl/dh/sidh"
 )
 
 func TestMain(m *testing.M) {

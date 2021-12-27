@@ -8,12 +8,12 @@
 package utility
 
 import (
+	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/csprng"
 	"testing"
-	"github.com/cloudflare/circl/dh/sidh"
 )
 
 // TestStoreLoadDeleteSIDHPublicKey tests the load/store/delete functions
@@ -81,7 +81,6 @@ func TestStoreLoadDeleteSIDHPublicKey(t *testing.T) {
 
 	myRng.Close()
 }
-
 
 // TestStoreLoadDeleteSIDHPublicKey tests the load/store/delete functions
 // for SIDH Private Keys

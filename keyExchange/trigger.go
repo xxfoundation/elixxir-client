@@ -9,6 +9,7 @@ package keyExchange
 
 import (
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -19,11 +20,10 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
+	util "gitlab.com/elixxir/client/storage/utility"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/states"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"github.com/cloudflare/circl/dh/sidh"
 )
 
 const (
@@ -69,8 +69,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	}
 
 	//unmarshal the message
-	oldSessionID, PartnerPublicKey, PartnerSIDHPublicKey, err := (
-		unmarshalSource(sess.E2e().GetGroup(), request.Payload))
+	oldSessionID, PartnerPublicKey, PartnerSIDHPublicKey, err := (unmarshalSource(sess.E2e().GetGroup(), request.Payload))
 	if err != nil {
 		jww.ERROR.Printf("[REKEY] could not unmarshal partner %s: %s",
 			request.Sender, err)

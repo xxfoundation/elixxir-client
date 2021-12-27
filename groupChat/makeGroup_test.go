@@ -10,8 +10,10 @@ package groupChat
 import (
 	"bytes"
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/interfaces/params"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -21,8 +23,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"github.com/cloudflare/circl/dh/sidh"
 )
 
 // Tests that Manager.MakeGroup adds a group and returns the expected status.
@@ -293,7 +293,7 @@ func addPartners(m *Manager, t *testing.T) ([]*id.ID, group.Membership,
 		dhKey := m.store.E2e().GetGroup().NewInt(int64(i + 42))
 
 		myVariant := sidh.KeyVariantSidhA
-		prng := rand.New(rand.NewSource(int64(i+42)))
+		prng := rand.New(rand.NewSource(int64(i + 42)))
 		mySIDHPrivKey := util.NewSIDHPrivateKey(myVariant)
 		mySIDHPubKey := util.NewSIDHPublicKey(myVariant)
 		mySIDHPrivKey.Generate(prng)

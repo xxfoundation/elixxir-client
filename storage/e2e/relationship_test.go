@@ -9,15 +9,15 @@ package e2e
 
 import (
 	"bytes"
+	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/interfaces/params"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"
-	"gitlab.com/xx_network/crypto/csprng"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"github.com/cloudflare/circl/dh/sidh"
 )
 
 // Subtest: unmarshal/marshal with one session in the buff
@@ -586,11 +586,11 @@ func makeTestRelationshipManager(t *testing.T) *Manager {
 			grp:  g,
 			myID: &id.ID{},
 		},
-		kv:                  versioned.NewKV(make(ekv.Memstore)),
-		partner:             id.NewIdFromUInt(8, id.User, t),
-		originMyPrivKey:     g.NewInt(2),
-		originPartnerPubKey: g.NewInt(3),
-		originMySIDHPrivKey: mySIDHPrivKey,
+		kv:                      versioned.NewKV(make(ekv.Memstore)),
+		partner:                 id.NewIdFromUInt(8, id.User, t),
+		originMyPrivKey:         g.NewInt(2),
+		originPartnerPubKey:     g.NewInt(3),
+		originMySIDHPrivKey:     mySIDHPrivKey,
 		originPartnerSIDHPubKey: partnerSIDHPubKey,
 	}
 }

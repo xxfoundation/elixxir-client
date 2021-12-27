@@ -8,14 +8,14 @@
 package utility
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/xx_network/primitives/netTime"
-	"github.com/cloudflare/circl/dh/sidh"
 	"encoding/base64"
-	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
-	"gitlab.com/xx_network/primitives/id"
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	jww "github.com/spf13/jwalterweatherman"
+	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
+	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"io"
 )
 
@@ -48,7 +48,7 @@ func GenerateSIDHKeyPair(variant sidh.KeyVariant, rng io.Reader) (
 	priv := NewSIDHPrivateKey(variant)
 	pub := NewSIDHPublicKey(variant)
 
-	if err := priv.Generate(rng); err!=nil {
+	if err := priv.Generate(rng); err != nil {
 		jww.FATAL.Panicf("Unable to generate SIDH private key: %+v",
 			err)
 	}
@@ -71,8 +71,6 @@ func StringSIDHPrivKey(k *sidh.PrivateKey) string {
 	k.GeneratePublicKey(pubK)
 	return StringSIDHPubKey(pubK)
 }
-
-
 
 ////
 // Public Key Storage utility functions

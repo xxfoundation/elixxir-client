@@ -39,8 +39,8 @@ type sentRequestDisk struct {
 	PartnerHistoricalPubKey []byte
 	MyPrivKey               []byte
 	MyPubKey                []byte
-	MySidHPrivKeyA		[]byte
-	MySidHPubKeyA		[]byte
+	MySidHPrivKeyA          []byte
+	MySidHPubKeyA           []byte
 	Fingerprint             []byte
 }
 
@@ -81,18 +81,17 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 		sidh.KeyVariantSidhA)
 	if err = mySidHPrivKeyA.Import(srd.MySidHPrivKeyA); err != nil {
 		return nil, errors.WithMessagef(err,
-			"Failed to decode sidh private key " +
-			"with %s for SentRequest Auth", partner)
+			"Failed to decode sidh private key "+
+				"with %s for SentRequest Auth", partner)
 	}
 
 	mySidHPubKeyA := sidh.NewPublicKey(sidhinterface.KeyId,
 		sidh.KeyVariantSidhA)
 	if err = mySidHPubKeyA.Import(srd.MySidHPubKeyA); err != nil {
 		return nil, errors.WithMessagef(err,
-			"Failed to decode sidh public " +
-			"key with %s for SentRequest Auth", partner)
+			"Failed to decode sidh public "+
+				"key with %s for SentRequest Auth", partner)
 	}
-
 
 	fp := format.Fingerprint{}
 	copy(fp[:], srd.Fingerprint)
@@ -156,7 +155,7 @@ func (sr *SentRequest) save() error {
 		PartnerHistoricalPubKey: historicalPubKey,
 		MyPrivKey:               privKey,
 		MyPubKey:                pubKey,
-		MySidHPrivKeyA:		 sidHPriv,
+		MySidHPrivKeyA:          sidHPriv,
 		MySidHPubKeyA:           sidHPub,
 		Fingerprint:             sr.fingerprint[:],
 	}

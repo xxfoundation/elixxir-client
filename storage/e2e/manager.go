@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -20,7 +21,6 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
 	"golang.org/x/crypto/blake2b"
-	"github.com/cloudflare/circl/dh/sidh"
 )
 
 const managerPrefix = "Manager{partner:%s}"
@@ -36,7 +36,7 @@ type Manager struct {
 	originMyPrivKey     *cyclic.Int
 	originPartnerPubKey *cyclic.Int
 
-	originMySIDHPrivKey *sidh.PrivateKey
+	originMySIDHPrivKey     *sidh.PrivateKey
 	originPartnerSIDHPubKey *sidh.PublicKey
 
 	receive *relationship

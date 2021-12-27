@@ -9,8 +9,10 @@ package e2e
 
 import (
 	"errors"
+	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/utility"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -21,8 +23,6 @@ import (
 	"reflect"
 	"testing"
 	"time"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"github.com/cloudflare/circl/dh/sidh"
 )
 
 func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
@@ -47,9 +47,9 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 
 	// build the session
 	s := &Session{
-		partnerPubKey: partnerPubKey,
+		partnerPubKey:     partnerPubKey,
 		partnerSIDHPubKey: partnerSIDHPubKey,
-		e2eParams:     params.GetDefaultE2ESessionParams(),
+		e2eParams:         params.GetDefaultE2ESessionParams(),
 		relationship: &relationship{
 			manager: &Manager{ctx: ctx},
 		},
@@ -118,11 +118,11 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 
 	// build the session
 	s := &Session{
-		myPrivKey:     myPrivKey,
-		partnerPubKey: partnerPubKey,
-		mySIDHPrivKey: mySIDHPrivKey,
+		myPrivKey:         myPrivKey,
+		partnerPubKey:     partnerPubKey,
+		mySIDHPrivKey:     mySIDHPrivKey,
 		partnerSIDHPubKey: partnerSIDHPubKey,
-		e2eParams:     params.GetDefaultE2ESessionParams(),
+		e2eParams:         params.GetDefaultE2ESessionParams(),
 		relationship: &relationship{
 			manager: &Manager{ctx: ctx},
 		},
@@ -633,12 +633,12 @@ func makeTestSession() (*Session, *context) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
 	s := &Session{
-		baseKey:       baseKey,
-		myPrivKey:     myPrivKey,
-		partnerPubKey: partnerPubKey,
-		mySIDHPrivKey: mySIDHPrivKey,
+		baseKey:           baseKey,
+		myPrivKey:         myPrivKey,
+		partnerPubKey:     partnerPubKey,
+		mySIDHPrivKey:     mySIDHPrivKey,
 		partnerSIDHPubKey: partnerSIDHPubKey,
-		e2eParams:     params.GetDefaultE2ESessionParams(),
+		e2eParams:         params.GetDefaultE2ESessionParams(),
 		relationship: &relationship{
 			manager: &Manager{
 				ctx:     ctx,

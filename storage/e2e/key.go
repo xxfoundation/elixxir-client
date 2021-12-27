@@ -8,14 +8,14 @@
 package e2e
 
 import (
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/crypto/cyclic"
+	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
-	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/crypto/cyclic"
-	dh "gitlab.com/elixxir/crypto/diffieHellman"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 // GenerateE2ESessionBaseKey returns the baseKey symmetric encryption key root.

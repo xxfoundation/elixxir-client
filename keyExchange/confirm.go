@@ -36,7 +36,7 @@ func handleConfirm(sess *storage.Session, confirmation message.Receive) {
 	if confirmation.Encryption != message.E2E {
 		jww.ERROR.Printf(
 			"[REKEY] Received non-e2e encrypted Key Exchange "+
-			"confirm from partner %s", confirmation.Sender)
+				"confirm from partner %s", confirmation.Sender)
 		return
 	}
 
@@ -45,7 +45,7 @@ func handleConfirm(sess *storage.Session, confirmation message.Receive) {
 	if err != nil {
 		jww.ERROR.Printf(
 			"[REKEY] Received Key Exchange Confirmation with unknown "+
-			"partner %s", confirmation.Sender)
+				"partner %s", confirmation.Sender)
 		return
 	}
 
@@ -76,7 +76,7 @@ func handleConfirm(sess *storage.Session, confirmation message.Receive) {
 			confirmedSession, partner.GetPartnerID(), err)
 	}
 
-	jww.DEBUG.Printf("[REKEY] handled confirmation for session " +
+	jww.DEBUG.Printf("[REKEY] handled confirmation for session "+
 		"%s from partner %s.", confirmedSession, partner.GetPartnerID())
 }
 

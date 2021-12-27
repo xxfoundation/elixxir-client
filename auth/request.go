@@ -16,10 +16,10 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage"
-	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/auth"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/client/storage/edge"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -108,8 +108,8 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 		sidHPrivKeyA = util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
 		sidHPubKeyA = util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
 
-		if err = sidHPrivKeyA.Generate(rng); err!=nil{
-			return 0, errors.WithMessagef(err, "RequestAuth: " +
+		if err = sidHPrivKeyA.Generate(rng); err != nil {
+			return 0, errors.WithMessagef(err, "RequestAuth: "+
 				"could not generate SIDH private key")
 		}
 		sidHPrivKeyA.GeneratePublicKey(sidHPubKeyA)
@@ -121,7 +121,6 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 			"available in payload; available: %v, length: %v",
 			requestFmt.MsgPayloadLen(), len(msgPayloadBytes))
 	}
-
 
 	//generate ownership proof
 	ownership := cAuth.MakeOwnershipProof(storage.E2e().GetDHPrivateKey(),

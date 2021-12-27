@@ -106,13 +106,13 @@ func TestManager_NewReceiveSession(t *testing.T) {
 	se, exists := m.NewReceiveSession(s.partnerPubKey, s.partnerSIDHPubKey,
 		s.e2eParams, s)
 	if exists {
-		t.Errorf("NewReceiveSession() incorrect return value." +
+		t.Errorf("NewReceiveSession() incorrect return value."+
 			"\n\texpected: %v\n\treceived: %v", false, exists)
 	}
 	if !m.partner.Cmp(se.GetPartner()) || !bytes.Equal(s.GetID().Marshal(),
 		se.GetID().Marshal()) {
-		t.Errorf("NewReceiveSession() incorrect session." +
-			"\n\texpected partner: %v\n\treceived partner: %v" +
+		t.Errorf("NewReceiveSession() incorrect session."+
+			"\n\texpected partner: %v\n\treceived partner: %v"+
 			"\n\texpected ID: %v\n\treceived ID: %v",
 			m.partner, se.GetPartner(), s.GetID(), se.GetID())
 	}
@@ -125,8 +125,8 @@ func TestManager_NewReceiveSession(t *testing.T) {
 	}
 	if !m.partner.Cmp(se.GetPartner()) || !bytes.Equal(s.GetID().Marshal(),
 		se.GetID().Marshal()) {
-		t.Errorf("NewReceiveSession() incorrect session." +
-			"\n\texpected partner: %v\n\treceived partner: %v" +
+		t.Errorf("NewReceiveSession() incorrect session."+
+			"\n\texpected partner: %v\n\treceived partner: %v"+
 			"\n\texpected ID: %v\n\treceived ID: %v",
 			m.partner, se.GetPartner(), s.GetID(), se.GetID())
 	}

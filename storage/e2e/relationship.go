@@ -9,6 +9,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -16,7 +17,6 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"github.com/cloudflare/circl/dh/sidh"
 )
 
 const maxUnconfirmed uint = 3

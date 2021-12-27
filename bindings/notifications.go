@@ -38,7 +38,7 @@ type ManyNotificationForMeReport struct {
 }
 
 func (mnfmr *ManyNotificationForMeReport) Get(i int) (*NotificationForMeReport, error) {
-	if i>=len(mnfmr.many){
+	if i >= len(mnfmr.many) {
 		return nil, errors.New("Cannot get, too long")
 	}
 	return mnfmr.many[i], nil
@@ -47,8 +47,6 @@ func (mnfmr *ManyNotificationForMeReport) Get(i int) (*NotificationForMeReport, 
 func (mnfmr *ManyNotificationForMeReport) Len() int {
 	return len(mnfmr.many)
 }
-
-
 
 // NotificationsForMe Check if a notification received is for me
 // It returns a NotificationForMeReport which contains a ForMe bool stating if it is for the caller,
@@ -74,7 +72,7 @@ func NotificationsForMe(notifCSV, preimages string) (*ManyNotificationForMeRepor
 		return nil, err
 	}
 
-	notifList := make( []*NotificationForMeReport, 0, len(list))
+	notifList := make([]*NotificationForMeReport, 0, len(list))
 
 	for _, notifData := range list {
 		n := &NotificationForMeReport{
@@ -99,7 +97,6 @@ func NotificationsForMe(notifCSV, preimages string) (*ManyNotificationForMeRepor
 	return &ManyNotificationForMeReport{many: notifList}, nil
 }
 
-
 // RegisterForNotifications accepts firebase messaging token
 func (c *Client) RegisterForNotifications(token string) error {
 	return c.api.RegisterForNotifications(token)
@@ -109,5 +106,3 @@ func (c *Client) RegisterForNotifications(token string) error {
 func (c *Client) UnregisterForNotifications() error {
 	return c.api.UnregisterForNotifications()
 }
-
-

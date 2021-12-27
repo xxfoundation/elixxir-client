@@ -9,11 +9,13 @@ package e2e
 
 import (
 	"bytes"
+	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -22,10 +24,7 @@ import (
 	"math/rand"
 	"reflect"
 	"testing"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"github.com/cloudflare/circl/dh/sidh"
 )
-
 
 // TestGenerateE2ESessionBaseKey smoke tests the GenerateE2ESessionBaseKey
 // function to ensure that it produces the correct key on both sides of the

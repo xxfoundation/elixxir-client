@@ -331,7 +331,7 @@ func (s *Store) GetReceivedRequest(partner *id.ID) (contact.Contact, *sidh.Publi
 			"found: %s", partner)
 	}
 
-	return *r.receive,r.theirSidHPubKeyA, nil
+	return *r.receive, r.theirSidHPubKeyA, nil
 }
 
 // GetReceivedRequestData returns the contact representing the receive request

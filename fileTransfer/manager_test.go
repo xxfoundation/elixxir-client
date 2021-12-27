@@ -11,26 +11,25 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	ftStorage "gitlab.com/elixxir/client/storage/fileTransfer"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"strings"
 	"sync"
 	"testing"
 	"time"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/xx_network/crypto/csprng"
-	"github.com/cloudflare/circl/dh/sidh"
 )
-
 
 // Tests that newManager does not return errors, that the sent and received
 // transfer lists are new, and that the callback works.

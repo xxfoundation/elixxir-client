@@ -9,6 +9,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -22,7 +23,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"github.com/cloudflare/circl/dh/sidh"
 )
 
 const (
@@ -67,24 +67,24 @@ func NewStore(grp *cyclic.Group, kv *versioned.KV, privKey *cyclic.Int,
 	fingerprints := newFingerprints()
 
 	s := &Store{
-		managers:       make(map[id.ID]*Manager),
+		managers: make(map[id.ID]*Manager),
 
-		dhPrivateKey:   privKey,
-		dhPublicKey:    pubKey,
-		grp:            grp,
+		dhPrivateKey: privKey,
+		dhPublicKey:  pubKey,
+		grp:          grp,
 
-		fingerprints:   &fingerprints,
+		fingerprints: &fingerprints,
 
-		kv:             kv,
+		kv: kv,
 
-		context:        &context{
-			          fa:   &fingerprints,
-			          grp:  grp,
-			          rng:  rng,
-			          myID: myID,
-		                },
+		context: &context{
+			fa:   &fingerprints,
+			grp:  grp,
+			rng:  rng,
+			myID: myID,
+		},
 
-		e2eParams:      params.GetDefaultE2ESessionParams(),
+		e2eParams: params.GetDefaultE2ESessionParams(),
 	}
 
 	err := util.StoreCyclicKey(kv, pubKey, pubKeyKey)

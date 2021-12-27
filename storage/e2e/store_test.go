@@ -9,7 +9,9 @@ package e2e
 
 import (
 	"bytes"
+	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/interfaces/params"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -20,12 +22,10 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
+	"io"
 	"math/rand"
 	"reflect"
 	"testing"
-	"github.com/cloudflare/circl/dh/sidh"
-	"io"
-	util "gitlab.com/elixxir/client/storage/utility"
 )
 
 // Tests happy path of NewStore.
@@ -125,7 +125,7 @@ func TestStore_AddPartner(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(expectedManager, m) {
-		t.Errorf("Added Manager not expected.\n\texpected: " +
+		t.Errorf("Added Manager not expected.\n\texpected: "+
 			"%v\n\treceived: %v", expectedManager, m)
 	}
 }
@@ -395,7 +395,7 @@ func genSidhKeys(rng io.Reader, variant sidh.KeyVariant) (*sidh.PrivateKey, *sid
 	sidHPrivKey := util.NewSIDHPrivateKey(variant)
 	sidHPubKey := util.NewSIDHPublicKey(variant)
 
-	if err := sidHPrivKey.Generate(rng); err!=nil{
+	if err := sidHPrivKey.Generate(rng); err != nil {
 		panic("failure to generate SidH A private key")
 	}
 	sidHPrivKey.GeneratePublicKey(sidHPubKey)

@@ -8,18 +8,18 @@
 package groupChat
 
 import (
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/stoppable"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"github.com/cloudflare/circl/dh/sidh"
 )
 
 // Tests that the correct group is received from the request.
@@ -61,7 +61,6 @@ func TestManager_receiveRequest(t *testing.T) {
 	theirSIDHPubKey := util.NewSIDHPublicKey(theirVariant)
 	theirSIDHPrivKey.Generate(prng)
 	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
-
 
 	_ = m.store.E2e().AddPartner(
 		g.Members[0].ID,

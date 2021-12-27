@@ -8,23 +8,23 @@
 package auth
 
 import (
+	"github.com/cloudflare/circl/dh/sidh"
+	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
+	"io"
 	"math/rand"
 	"reflect"
 	"sync"
 	"testing"
-	"io"
-	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
-	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/xx_network/crypto/csprng"
-	util "gitlab.com/elixxir/client/storage/utility"
 )
 
 // Happy path.
@@ -121,7 +121,7 @@ func TestLoadStore(t *testing.T) {
 
 	partner := sr.partner
 	if s.requests[*partner] == nil {
-		t.Errorf("AddSent() failed to add request to map for " +
+		t.Errorf("AddSent() failed to add request to map for "+
 			"partner ID %s.", partner)
 	} else if !reflect.DeepEqual(sr, s.requests[*partner].sent) {
 		t.Errorf("AddSent() failed store the correct SentRequest."+
@@ -134,7 +134,7 @@ func TestLoadStore(t *testing.T) {
 		Request: &request{Sent, sr, nil, nil, sync.Mutex{}},
 	}
 	if _, exists := s.fingerprints[sr.fingerprint]; !exists {
-		t.Errorf("AddSent() failed to add fingerprint to map for " +
+		t.Errorf("AddSent() failed to add fingerprint to map for "+
 			"fingerprint %s.", sr.fingerprint)
 	} else if !reflect.DeepEqual(expectedFP,
 		s.fingerprints[sr.fingerprint]) {
@@ -183,7 +183,7 @@ func TestStore_AddSent(t *testing.T) {
 	}
 
 	if s.requests[*partner] == nil {
-		t.Errorf("AddSent() failed to add request to map for " +
+		t.Errorf("AddSent() failed to add request to map for "+
 			"partner ID %s.", partner)
 	} else if !reflect.DeepEqual(sr, s.requests[*partner].sent) {
 		t.Errorf("AddSent() failed store the correct SentRequest."+
@@ -192,7 +192,7 @@ func TestStore_AddSent(t *testing.T) {
 	}
 
 	if _, exists := s.fingerprints[sr.fingerprint]; !exists {
-		t.Errorf("AddSent() failed to add fingerprint to map for " +
+		t.Errorf("AddSent() failed to add fingerprint to map for "+
 			"fingerprint %s.", sr.fingerprint)
 	} else if !reflect.DeepEqual(expectedFP,
 		s.fingerprints[sr.fingerprint]) {
@@ -242,10 +242,10 @@ func TestStore_AddReceived(t *testing.T) {
 	}
 
 	if s.requests[*c.ID] == nil {
-		t.Errorf("AddReceived() failed to add request to map for " +
+		t.Errorf("AddReceived() failed to add request to map for "+
 			"partner ID %s.", c.ID)
 	} else if !reflect.DeepEqual(c, *s.requests[*c.ID].receive) {
-		t.Errorf("AddReceived() failed store the correct Contact." +
+		t.Errorf("AddReceived() failed store the correct Contact."+
 			"\n\texpected: %+v\n\treceived: %+v", c,
 			*s.requests[*c.ID].receive)
 	}
@@ -377,16 +377,16 @@ func TestStore_GetFingerprint_InvalidFingerprintType(t *testing.T) {
 			"FingerprintType is invalid.")
 	}
 	if fpType != 0 {
-		t.Errorf("GetFingerprint() returned incorrect " +
+		t.Errorf("GetFingerprint() returned incorrect "+
 			"FingerprintType.\n\texpected: %d\n\treceived: %d",
 			0, fpType)
 	}
 	if request != nil {
-		t.Errorf("GetFingerprint() returned incorrect request." +
+		t.Errorf("GetFingerprint() returned incorrect request."+
 			"\n\texpected: %+v\n\treceived: %+v", nil, request)
 	}
 	if key != nil {
-		t.Errorf("GetFingerprint() returned incorrect key." +
+		t.Errorf("GetFingerprint() returned incorrect key."+
 			"\n\texpected: %v\n\treceived: %v", nil, key)
 	}
 }
@@ -469,7 +469,7 @@ func TestStore_GetReceivedRequest_RequestNotInMap(t *testing.T) {
 
 	testC, testPubKeyA, err := s.GetReceivedRequest(
 		id.NewIdFromUInt(rand.Uint64(),
-		id.User, t))
+			id.User, t))
 	if err == nil {
 		t.Errorf("GetReceivedRequest() did not return an error " +
 			"when the request should not exist.")
@@ -784,7 +784,7 @@ func genSidhAKeys(rng io.Reader) (*sidh.PrivateKey, *sidh.PublicKey) {
 	sidHPrivKeyA := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
 	sidHPubKeyA := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
 
-	if err := sidHPrivKeyA.Generate(rng); err!=nil{
+	if err := sidHPrivKeyA.Generate(rng); err != nil {
 		panic("failure to generate SidH A private key")
 	}
 	sidHPrivKeyA.GeneratePublicKey(sidHPubKeyA)
@@ -796,7 +796,7 @@ func genSidhBKeys(rng io.Reader) (*sidh.PrivateKey, *sidh.PublicKey) {
 	sidHPrivKeyB := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
 	sidHPubKeyB := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
 
-	if err := sidHPrivKeyB.Generate(rng); err!=nil{
+	if err := sidHPrivKeyB.Generate(rng); err != nil {
 		panic("failure to generate SidH A private key")
 	}
 	sidHPrivKeyB.GeneratePublicKey(sidHPubKeyB)

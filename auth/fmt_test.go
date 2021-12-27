@@ -9,11 +9,11 @@ package auth
 
 import (
 	"bytes"
+	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
 	"reflect"
 	"testing"
-	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 )
 
 // Tests newBaseFormat
@@ -39,7 +39,7 @@ func TestNewBaseFormat(t *testing.T) {
 			"\n\tReceived: %v", make([]byte, expectedEcrPayloadSize), baseMsg.ecrPayload)
 	}
 
-	// Error case, where payload size is less than the public key 
+	// Error case, where payload size is less than the public key
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("newBaseFormat() did not panic when the size of " +
@@ -79,7 +79,6 @@ func TestBaseFormat_SetGetPubKey(t *testing.T) {
 	}
 
 }
-
 
 // Set/Get EcrPayload tests
 func TestBaseFormat_SetGetEcrPayload(t *testing.T) {
@@ -164,7 +163,7 @@ func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 // Tests newEcrFormat
 func TestNewEcrFormat(t *testing.T) {
 	// Construct message
-	payloadSize := ownershipSize * 2 + sidhinterface.PubKeyByteSize + 1
+	payloadSize := ownershipSize*2 + sidhinterface.PubKeyByteSize + 1
 	ecrMsg := newEcrFormat(payloadSize)
 
 	// Check that the ecrFormat was constructed properly
@@ -199,7 +198,7 @@ func TestNewEcrFormat(t *testing.T) {
 // Set/Get ownership tests
 func TestEcrFormat_SetGetOwnership(t *testing.T) {
 	// Construct message
-	payloadSize := ownershipSize * 2 + sidhinterface.PubKeyByteSize + 1
+	payloadSize := ownershipSize*2 + sidhinterface.PubKeyByteSize + 1
 	ecrMsg := newEcrFormat(payloadSize)
 
 	// Test setter
@@ -235,7 +234,7 @@ func TestEcrFormat_SetGetOwnership(t *testing.T) {
 // Set/Get payload tests
 func TestEcrFormat_SetGetPayload(t *testing.T) {
 	// Construct message
-	payloadSize := ownershipSize * 2 + sidhinterface.PubKeyByteSize + 1
+	payloadSize := ownershipSize*2 + sidhinterface.PubKeyByteSize + 1
 	ecrMsg := newEcrFormat(payloadSize)
 
 	// Test set
@@ -273,10 +272,10 @@ func TestEcrFormat_SetGetPayload(t *testing.T) {
 // Marshal/ unmarshal tests
 func TestEcrFormat_MarshalUnmarshal(t *testing.T) {
 	// Construct message
-	payloadSize := ownershipSize * 2 + sidhinterface.PubKeyByteSize + 1
+	payloadSize := ownershipSize*2 + sidhinterface.PubKeyByteSize + 1
 	ecrMsg := newEcrFormat(payloadSize)
 	expectedPayload := newPayload(
-		payloadSize-ownershipSize - sidhinterface.PubKeyByteSize - 1,
+		payloadSize-ownershipSize-sidhinterface.PubKeyByteSize-1,
 		"ownership")
 	ecrMsg.SetPayload(expectedPayload)
 	ownership := newOwnership("owner")
@@ -342,7 +341,7 @@ func TestNewRequestFormat(t *testing.T) {
 	// 		"\n\tReceived: %v", make([]byte, 0), reqMsg.GetPayload())
 	// }
 
-	payloadSize = ownershipSize * 2 + sidhinterface.PubKeyByteSize + 1
+	payloadSize = ownershipSize*2 + sidhinterface.PubKeyByteSize + 1
 	ecrMsg = newEcrFormat(payloadSize)
 	reqMsg, err = newRequestFormat(ecrMsg)
 	if err == nil {

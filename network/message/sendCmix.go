@@ -88,7 +88,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 	// flip leading bits randomly to thwart a tagging attack.
 	// See SetGroupBits for more info
-	cmix.SetGroupBits(msg,grp,stream)
+	cmix.SetGroupBits(msg, grp, stream)
 
 	for numRoundTries := uint(0); numRoundTries < cmixParams.RoundTries; numRoundTries++ {
 		elapsed := netTime.Since(timeStart)
@@ -142,13 +142,11 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 		// Build the messages to send
 
-
 		wrappedMsg, encMsg, ephID, err := buildSlotMessage(msg, recipient,
 			firstGateway, stream, senderId, bestRound, roundKeys, cmixParams)
 		if err != nil {
 			return 0, ephemeral.Id{}, err
 		}
-
 
 		jww.INFO.Printf("Sending to EphID %d (%s) on round %d, "+
 			"(msgDigest: %s, ecrMsgDigest: %s) via gateway %s",

@@ -10,6 +10,7 @@ package rounds
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -184,6 +185,7 @@ func (s *UncheckedRoundStore) AddRound(rid id.Round, ri *pb.RoundInfo,
 
 	if !exists || stored.Info == nil {
 		newUncheckedRound := UncheckedRound{
+			Id: rid,
 			Info: ri,
 			Identity: Identity{
 				EpdId:  ephID,
@@ -222,6 +224,7 @@ func (s *UncheckedRoundStore) IterateOverList(iterator func(rid id.Round,
 	defer s.mux.RUnlock()
 
 	for _, rnd := range s.list {
+		fmt.Printf("rnd for lookup: %d, %+v\n", rnd.Id, rnd)
 		go func(localRid id.Round,
 			localRnd UncheckedRound){
 			iterator(localRid, localRnd)

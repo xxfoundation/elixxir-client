@@ -51,7 +51,7 @@ type MessageDeliveryCallback interface {
 // AuthRequestCallback notifies the register whenever they receive an auth
 // request
 type AuthRequestCallback interface {
-	Callback(requestor *Contact, message string)
+	Callback(requestor *Contact)
 }
 
 // AuthConfirmCallback notifies the register whenever they receive an auth

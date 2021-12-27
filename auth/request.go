@@ -9,12 +9,14 @@ package auth
 
 import (
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/auth"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/client/storage/edge"
@@ -30,7 +32,7 @@ import (
 
 const terminator = ";"
 
-func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
+func RequestAuth(partner, me contact.Contact, rng io.Reader,
 	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
 	/*edge checks generation*/
 
@@ -45,11 +47,6 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	if !me.ID.Cmp(storage.GetUser().ReceptionID) {
 		return 0, errors.Errorf("Authenticated channel request " +
 			"can only be sent from user's identity")
-	}
-
-	// check that the message is properly formed
-	if strings.Contains(message, terminator) {
-		return 0, errors.Errorf("Message cannot contain '%s'", terminator)
 	}
 
 	//denote if this is a resend of an old request
@@ -87,8 +84,37 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 
 	//check the payload fits
 	facts := me.Facts.Stringify()
-	msgPayload := facts + message + terminator
+	msgPayload := facts + terminator
 	msgPayloadBytes := []byte(msgPayload)
+
+	/*cryptographic generation*/
+	var newPrivKey, newPubKey *cyclic.Int
+	var sidHPrivKeyA *sidh.PrivateKey
+	var sidHPubKeyA *sidh.PublicKey
+
+	// in this case we have an ongoing request so we can resend the extant
+	// request
+	if resend {
+		newPrivKey = sr.GetMyPrivKey()
+		newPubKey = sr.GetMyPubKey()
+		sidHPrivKeyA = sr.GetMySIDHPrivKey()
+		sidHPubKeyA = sr.GetMySIDHPubKey()
+		//in this case it is a new request and we must generate new keys
+	} else {
+		//generate new keypair
+		newPrivKey = diffieHellman.GeneratePrivateKey(256, grp, rng)
+		newPubKey = diffieHellman.GeneratePublicKey(newPrivKey, grp)
+
+		sidHPrivKeyA = util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+		sidHPubKeyA = util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+
+		if err = sidHPrivKeyA.Generate(rng); err!=nil{
+			return 0, errors.WithMessagef(err, "RequestAuth: " +
+				"could not generate SIDH private key")
+		}
+		sidHPrivKeyA.GeneratePublicKey(sidHPubKeyA)
+
+	}
 
 	if len(msgPayloadBytes) > requestFmt.MsgPayloadLen() {
 		return 0, errors.Errorf("Combined message longer than space "+
@@ -96,27 +122,6 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 			requestFmt.MsgPayloadLen(), len(msgPayloadBytes))
 	}
 
-	/*cryptographic generation*/
-	//generate salt
-	salt := make([]byte, saltSize)
-	_, err = rng.Read(salt)
-	if err != nil {
-		return 0, errors.Wrap(err, "Failed to generate salt")
-	}
-
-	var newPrivKey, newPubKey *cyclic.Int
-
-	// in this case we have an ongoing request so we can resend the extant
-	// request
-	if resend {
-		newPrivKey = sr.GetMyPrivKey()
-		newPubKey = sr.GetMyPubKey()
-		//in this case it is a new request and we must generate new keys
-	} else {
-		//generate new keypair
-		newPrivKey = diffieHellman.GeneratePrivateKey(256, grp, rng)
-		newPubKey = diffieHellman.GeneratePublicKey(newPrivKey, grp)
-	}
 
 	//generate ownership proof
 	ownership := cAuth.MakeOwnershipProof(storage.E2e().GetDHPrivateKey(),
@@ -129,14 +134,14 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	requestFmt.SetID(storage.GetUser().ReceptionID)
 	requestFmt.SetMsgPayload(msgPayloadBytes)
 	ecrFmt.SetOwnership(ownership)
+	ecrFmt.SetSidHPubKey(sidHPubKeyA)
 	ecrPayload, mac := cAuth.Encrypt(newPrivKey, partner.DhPubKey,
-		salt, ecrFmt.data, grp)
+		ecrFmt.data, grp)
 	confirmFp := cAuth.MakeOwnershipProofFP(ownership)
 	requestfp := cAuth.MakeRequestFingerprint(partner.DhPubKey)
 
 	/*construct message*/
 	baseFmt.SetEcrPayload(ecrPayload)
-	baseFmt.SetSalt(salt)
 	baseFmt.SetPubKey(newPubKey)
 
 	cmixMsg.SetKeyFP(requestfp)
@@ -149,7 +154,6 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 		Source: partner.ID[:],
 	}, me.ID)
 
-	jww.TRACE.Printf("RequestAuth SALT: %v", salt)
 	jww.TRACE.Printf("RequestAuth ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
 	jww.TRACE.Printf("RequestAuth MAC: %v", mac)
 
@@ -158,7 +162,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	//store the in progress auth
 	if !resend {
 		err = storage.Auth().AddSent(partner.ID, partner.DhPubKey, newPrivKey,
-			newPubKey, confirmFp)
+			newPubKey, sidHPrivKeyA, sidHPubKeyA, confirmFp)
 		if err != nil {
 			return 0, errors.Errorf("Failed to store auth request: %s", err)
 		}

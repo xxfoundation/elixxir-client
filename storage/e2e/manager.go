@@ -18,9 +18,9 @@ import (
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
-	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/primitives/id"
 	"golang.org/x/crypto/blake2b"
+	"github.com/cloudflare/circl/dh/sidh"
 )
 
 const managerPrefix = "Manager{partner:%s}"
@@ -36,23 +36,33 @@ type Manager struct {
 	originMyPrivKey     *cyclic.Int
 	originPartnerPubKey *cyclic.Int
 
+	originMySIDHPrivKey *sidh.PrivateKey
+	originPartnerSIDHPubKey *sidh.PublicKey
+
 	receive *relationship
 	send    *relationship
 }
 
 // newManager creates the relationship and its first Send and Receive sessions.
 func newManager(ctx *context, kv *versioned.KV, partnerID *id.ID, myPrivKey,
-	partnerPubKey *cyclic.Int,
-	sendParams, receiveParams params.E2ESessionParams) *Manager {
+	partnerPubKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
+	partnerSIDHPubKey *sidh.PublicKey, sendParams,
+	receiveParams params.E2ESessionParams) *Manager {
 
 	kv = kv.Prefix(fmt.Sprintf(managerPrefix, partnerID))
 
 	m := &Manager{
-		ctx:                 ctx,
-		kv:                  kv,
-		originMyPrivKey:     myPrivKey,
-		originPartnerPubKey: partnerPubKey,
-		partner:             partnerID,
+		ctx:                     ctx,
+		kv:                      kv,
+		originMyPrivKey:         myPrivKey,
+		originPartnerPubKey:     partnerPubKey,
+		originMySIDHPrivKey:     mySIDHPrivKey,
+		originPartnerSIDHPubKey: partnerSIDHPubKey,
+		partner:                 partnerID,
+	}
+
+	if ctx.grp == nil {
+		panic("group not set")
 	}
 
 	if err := utility.StoreCyclicKey(kv, myPrivKey, originMyPrivKeyKey); err != nil {
@@ -80,6 +90,10 @@ func loadManager(ctx *context, kv *versioned.KV, partnerID *id.ID) (*Manager, er
 		ctx:     ctx,
 		partner: partnerID,
 		kv:      kv,
+	}
+
+	if ctx.grp == nil {
+		panic("group not set")
 	}
 
 	var err error
@@ -136,11 +150,13 @@ func clearManager(m *Manager, kv *versioned.KV) error {
 // session already exists, then it will not be overwritten and the extant
 // session will be returned with the bool set to true denoting a duplicate. This
 // allows for support of duplicate key exchange triggering.
-func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, e2eParams params.E2ESessionParams,
+func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int,
+	partnerSIDHPubKey *sidh.PublicKey, e2eParams params.E2ESessionParams,
 	source *Session) (*Session, bool) {
 
 	// Check if the session already exists
-	baseKey := dh.GenerateSessionKey(source.myPrivKey, partnerPubKey, m.ctx.grp)
+	baseKey := GenerateE2ESessionBaseKey(source.myPrivKey, partnerPubKey,
+		m.ctx.grp, source.mySIDHPrivKey, partnerSIDHPubKey)
 	sessionID := getSessionIDFromBaseKey(baseKey)
 
 	if s := m.receive.GetByID(sessionID); s != nil {
@@ -149,20 +165,24 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, e2eParams params.
 
 	// Add the session to the buffer
 	session := m.receive.AddSession(source.myPrivKey, partnerPubKey, baseKey,
+		source.mySIDHPrivKey, partnerSIDHPubKey,
 		source.GetID(), Confirmed, e2eParams)
 
 	return session, false
 }
 
-// NewSendSession creates a new Receive session using the latest public key
+// NewSendSession creates a new Send session using the latest public key
 // received from the partner and a new private key for the user. Passing in a
 // private key is optional. A private key will be generated if none is passed.
-func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, e2eParams params.E2ESessionParams) *Session {
+func (m *Manager) NewSendSession(myPrivKey *cyclic.Int,
+	mySIDHPrivKey *sidh.PrivateKey,
+	e2eParams params.E2ESessionParams) *Session {
 	// Find the latest public key from the other party
 	sourceSession := m.receive.getNewestRekeyableSession()
 
 	// Add the session to the Send session buffer and return
 	return m.send.AddSession(myPrivKey, sourceSession.partnerPubKey, nil,
+		mySIDHPrivKey, sourceSession.partnerSIDHPubKey,
 		sourceSession.GetID(), Sending, e2eParams)
 }
 

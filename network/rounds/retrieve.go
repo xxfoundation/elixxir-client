@@ -1,3 +1,4 @@
+
 ///////////////////////////////////////////////////////////////////////////////
 // Copyright © 2020 xx network SEZC                                          //
 //                                                                           //
@@ -64,6 +65,10 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				}
 				gwId.SetType(id.Gateway)
 				gwIds[i] = gwId
+			}
+			if len(gwIds) == 0 {
+				jww.WARN.Printf("Empty gateway ID List")
+				continue
 			}
 			// Target the last node in the team first because it has
 			// messages first, randomize other members of the team

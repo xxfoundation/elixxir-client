@@ -31,12 +31,6 @@ func randID(rng *rand.Rand, t id.Type) *id.ID {
 	return newID
 }
 
-func newSalt(s string) []byte {
-	salt := make([]byte, saltSize)
-	copy(salt[:], s)
-	return salt
-}
-
 func newPayload(size int, s string) []byte {
 	b := make([]byte, size)
 	copy(b[:], s)

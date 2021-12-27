@@ -9,9 +9,10 @@ package auth
 
 import (
 	"encoding/json"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/utility"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -121,13 +122,20 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 			r.sent = sr
 
 		case Receive:
-			c, err := utility.LoadContact(kv, partner)
+			c, err := util.LoadContact(kv, partner)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to load stored contact for: %+v", err)
+			}
+
+			key, err := util.LoadSIDHPublicKey(kv,
+				util.MakeSIDHPublicKeyKey(c.ID))
 			if err != nil {
 				jww.FATAL.Panicf("Failed to load stored contact for: %+v", err)
 			}
 
 			rid = c.ID
 			r.receive = &c
+			r.theirSidHPubKeyA = key
 
 		default:
 			jww.FATAL.Panicf("Unknown request type: %d", r.rt)
@@ -166,7 +174,8 @@ func (s *Store) save() error {
 }
 
 func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
-	myPubKey *cyclic.Int, fp format.Fingerprint) error {
+	myPubKey *cyclic.Int, sidHPrivA *sidh.PrivateKey, sidHPubA *sidh.PublicKey,
+	fp format.Fingerprint) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -181,6 +190,8 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 		partnerHistoricalPubKey: partnerHistoricalPubKey,
 		myPrivKey:               myPrivKey,
 		myPubKey:                myPubKey,
+		mySidHPubKeyA:           sidHPubA,
+		mySidHPrivKeyA:          sidHPrivA,
 		fingerprint:             fp,
 	}
 
@@ -214,7 +225,7 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 	return nil
 }
 
-func (s *Store) AddReceived(c contact.Contact) error {
+func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	jww.DEBUG.Printf("AddReceived new contact: %s", c.ID)
@@ -223,15 +234,22 @@ func (s *Store) AddReceived(c contact.Contact) error {
 			"%s, one already exists", c.ID)
 	}
 
-	if err := utility.StoreContact(s.kv, c); err != nil {
+	if err := util.StoreContact(s.kv, c); err != nil {
 		jww.FATAL.Panicf("Failed to save contact for partner %s", c.ID.String())
 	}
 
+	storeKey := util.MakeSIDHPublicKeyKey(c.ID)
+	if err := util.StoreSIDHPublicKey(s.kv, key, storeKey); err != nil {
+		jww.FATAL.Panicf("Failed to save contact pubKey for partner %s",
+			c.ID.String())
+	}
+
 	r := &request{
-		rt:      Receive,
-		sent:    nil,
-		receive: &c,
-		mux:     sync.Mutex{},
+		rt:               Receive,
+		sent:             nil,
+		receive:          &c,
+		theirSidHPubKeyA: key,
+		mux:              sync.Mutex{},
 	}
 
 	s.requests[*c.ID] = r
@@ -288,13 +306,13 @@ func (s *Store) GetFingerprint(fp format.Fingerprint) (FingerprintType,
 // it exists. If it returns, then it takes the lock to ensure that there is only
 // one operator at a time. The user of the API must release the lock by calling
 // store.delete() or store.Failed() with the partner ID.
-func (s *Store) GetReceivedRequest(partner *id.ID) (contact.Contact, error) {
+func (s *Store) GetReceivedRequest(partner *id.ID) (contact.Contact, *sidh.PublicKey, error) {
 	s.mux.RLock()
 	r, ok := s.requests[*partner]
 	s.mux.RUnlock()
 
 	if !ok {
-		return contact.Contact{}, errors.Errorf("Received request not "+
+		return contact.Contact{}, nil, errors.Errorf("Received request not "+
 			"found: %s", partner)
 	}
 
@@ -309,11 +327,11 @@ func (s *Store) GetReceivedRequest(partner *id.ID) (contact.Contact, error) {
 
 	if !ok {
 		r.mux.Unlock()
-		return contact.Contact{}, errors.Errorf("Received request not "+
+		return contact.Contact{}, nil, errors.Errorf("Received request not "+
 			"found: %s", partner)
 	}
 
-	return *r.receive, nil
+	return *r.receive,r.theirSidHPubKeyA, nil
 }
 
 // GetReceivedRequestData returns the contact representing the receive request
@@ -392,7 +410,7 @@ func (s *Store) Delete(partner *id.ID) error {
 		}
 
 	case Receive:
-		if err := utility.DeleteContact(s.kv, r.receive.ID); err != nil {
+		if err := util.DeleteContact(s.kv, r.receive.ID); err != nil {
 			jww.FATAL.Panicf("Failed to delete recieved request "+
 				"contact: %+v", err)
 		}

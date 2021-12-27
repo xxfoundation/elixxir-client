@@ -21,6 +21,8 @@ import (
 	"os"
 	"testing"
 	"time"
+	util "gitlab.com/elixxir/client/storage/utility"
+	"github.com/cloudflare/circl/dh/sidh"
 )
 
 func TestMain(m *testing.M) {
@@ -81,8 +83,20 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 		GarbledMessageWait:             time.Hour,
 	}}, nil, sender)
 
+	rng := csprng.NewSystemRNG()
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
+
 	e2ekv := i.Session.E2e()
-	err = e2ekv.AddPartner(sess2.GetUser().TransmissionID, sess2.E2e().GetDHPublicKey(), e2ekv.GetDHPrivateKey(),
+	err = e2ekv.AddPartner(sess2.GetUser().TransmissionID,
+		sess2.E2e().GetDHPublicKey(), e2ekv.GetDHPrivateKey(),
+		partnerSIDHPubKey, mySIDHPrivKey,
 		params.GetDefaultE2ESessionParams(),
 		params.GetDefaultE2ESessionParams())
 	if err != nil {
@@ -92,6 +106,7 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 
 	err = sess2.E2e().AddPartner(sess1.GetUser().TransmissionID,
 		sess1.E2e().GetDHPublicKey(), sess2.E2e().GetDHPrivateKey(),
+		mySIDHPubKey, partnerSIDHPrivKey,
 		params.GetDefaultE2ESessionParams(),
 		params.GetDefaultE2ESessionParams())
 	if err != nil {

@@ -39,6 +39,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+	util "gitlab.com/elixxir/client/storage/utility"
+	"github.com/cloudflare/circl/dh/sidh"
 )
 
 // newFile generates a file with random data of size numParts * partSize.
@@ -264,7 +266,13 @@ func newTestManagerWithTransfers(numParts []uint16, sendErr, addPartners bool,
 			dhKey := grp.NewInt(int64(i + 42))
 			pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
 			p := params.GetDefaultE2ESessionParams()
-			err = m.store.E2e().AddPartner(recipient, pubKey, dhKey, p, p)
+			rng := csprng.NewSystemRNG()
+			_, mySidhPriv := util.GenerateSIDHKeyPair(
+				sidh.KeyVariantSidhA, rng)
+			theirSidhPub, _ := util.GenerateSIDHKeyPair(
+				sidh.KeyVariantSidhB, rng)
+			err = m.store.E2e().AddPartner(recipient, pubKey, dhKey,
+				mySidhPriv, theirSidhPub, p, p)
 			if err != nil {
 				t.Errorf("Failed to add partner #%d %s: %+v", i, recipient, err)
 			}

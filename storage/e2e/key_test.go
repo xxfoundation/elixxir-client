@@ -22,7 +22,50 @@ import (
 	"math/rand"
 	"reflect"
 	"testing"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"github.com/cloudflare/circl/dh/sidh"
 )
+
+
+// TestGenerateE2ESessionBaseKey smoke tests the GenerateE2ESessionBaseKey
+// function to ensure that it produces the correct key on both sides of the
+// connection.
+func TestGenerateE2ESessionBaseKey(t *testing.T) {
+	rng := fastRNG.NewStreamGenerator(1, 3, csprng.NewSystemRNG)
+	myRng := rng.GetStream()
+
+	// DH Keys
+	grp := getGroup()
+	dhPrivateKeyA := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp,
+		myRng)
+	dhPublicKeyA := dh.GeneratePublicKey(dhPrivateKeyA, grp)
+	dhPrivateKeyB := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp,
+		myRng)
+	dhPublicKeyB := dh.GeneratePublicKey(dhPrivateKeyB, grp)
+
+	// SIDH keys
+	pubA := sidh.NewPublicKey(sidh.Fp434, sidh.KeyVariantSidhA)
+	privA := sidh.NewPrivateKey(sidh.Fp434, sidh.KeyVariantSidhA)
+	privA.Generate(myRng)
+	privA.GeneratePublicKey(pubA)
+	pubB := sidh.NewPublicKey(sidh.Fp434, sidh.KeyVariantSidhB)
+	privB := sidh.NewPrivateKey(sidh.Fp434, sidh.KeyVariantSidhB)
+	privB.Generate(myRng)
+	privB.GeneratePublicKey(pubB)
+
+	myRng.Close()
+
+	baseKey1 := GenerateE2ESessionBaseKey(dhPrivateKeyA, dhPublicKeyB,
+		grp, privA, pubB)
+	baseKey2 := GenerateE2ESessionBaseKey(dhPrivateKeyB, dhPublicKeyA,
+		grp, privB, pubA)
+
+	if !reflect.DeepEqual(baseKey1, baseKey2) {
+		t.Errorf("Cannot produce the same session key:\n%v\n%v",
+			baseKey1, baseKey2)
+	}
+
+}
 
 // Happy path of newKey().
 func Test_newKey(t *testing.T) {
@@ -190,7 +233,19 @@ func getSession(t *testing.T) *Session {
 	// generate the baseKey and session
 	privateKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 	publicKey := dh.GeneratePublicKey(privateKey, grp)
-	baseKey := dh.GenerateSessionKey(privateKey, publicKey, grp)
+
+	// SIDH keys
+	pubA := sidh.NewPublicKey(sidh.Fp434, sidh.KeyVariantSidhA)
+	privA := sidh.NewPrivateKey(sidh.Fp434, sidh.KeyVariantSidhA)
+	privA.Generate(rng)
+	privA.GeneratePublicKey(pubA)
+	pubB := sidh.NewPublicKey(sidh.Fp434, sidh.KeyVariantSidhB)
+	privB := sidh.NewPrivateKey(sidh.Fp434, sidh.KeyVariantSidhB)
+	privB.Generate(rng)
+	privB.GeneratePublicKey(pubB)
+
+	baseKey := GenerateE2ESessionBaseKey(privateKey, publicKey, grp, privA,
+		pubB)
 
 	fps := newFingerprints()
 	ctx := &context{

@@ -17,6 +17,10 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
+	"encoding/binary"
+	"math/rand"
+	util "gitlab.com/elixxir/client/storage/utility"
+	"github.com/cloudflare/circl/dh/sidh"
 )
 
 // RequestAuthenticatedChannel sends a request to another party to establish an
@@ -36,7 +40,7 @@ func (c *Client) RequestAuthenticatedChannel(recipient, me contact.Contact,
 			"creation when the network is not healthy")
 	}
 
-	return auth.RequestAuth(recipient, me, message, c.rng.GetStream(),
+	return auth.RequestAuth(recipient, me, c.rng.GetStream(),
 		c.storage, c.network)
 }
 
@@ -96,10 +100,31 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Co
 
 	precan := c.MakePrecannedContact(precannedID)
 
+	myID := binary.BigEndian.Uint64(c.GetUser().GetContact().ID[:])
+	// Pick a variant based on if their ID is bigger than mine.
+	myVariant := sidh.KeyVariantSidhA
+	theirVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
+	if myID > uint64(precannedID) {
+		myVariant = sidh.KeyVariantSidhB
+		theirVariant = sidh.KeyVariantSidhA
+	}
+	prng1 := rand.New(rand.NewSource(int64(precannedID)))
+	theirSIDHPrivKey := util.NewSIDHPrivateKey(theirVariant)
+	theirSIDHPubKey := util.NewSIDHPublicKey(theirVariant)
+	theirSIDHPrivKey.Generate(prng1)
+	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
+
+	prng2 := rand.New(rand.NewSource(int64(myID)))
+	mySIDHPrivKey := util.NewSIDHPrivateKey(myVariant)
+	mySIDHPubKey := util.NewSIDHPublicKey(myVariant)
+	mySIDHPrivKey.Generate(prng2)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
+
 	// add the precanned user as a e2e contact
 	sesParam := c.parameters.E2EParams
 	err := c.storage.E2e().AddPartner(precan.ID, precan.DhPubKey,
-		c.storage.E2e().GetDHPrivateKey(), sesParam, sesParam)
+		c.storage.E2e().GetDHPrivateKey(), theirSIDHPubKey,
+		mySIDHPrivKey, sesParam, sesParam)
 
 	// check garbled messages in case any messages arrived before creating
 	// the channel

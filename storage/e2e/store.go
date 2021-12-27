@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/storage/utility"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -22,6 +22,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
+	"github.com/cloudflare/circl/dh/sidh"
 )
 
 const (
@@ -31,6 +32,8 @@ const (
 	pubKeyKey           = "DhPubKey"
 	privKeyKey          = "DhPrivKey"
 	grpKey              = "Group"
+	sidhPubKeyKey       = "SidhPubKey"
+	sidhPrivKeyKey      = "SidhPrivKey"
 )
 
 var NoPartnerErrorStr = "No relationship with partner found"
@@ -64,37 +67,39 @@ func NewStore(grp *cyclic.Group, kv *versioned.KV, privKey *cyclic.Int,
 	fingerprints := newFingerprints()
 
 	s := &Store{
-		managers: make(map[id.ID]*Manager),
+		managers:       make(map[id.ID]*Manager),
 
-		dhPrivateKey: privKey,
-		dhPublicKey:  pubKey,
-		grp:          grp,
+		dhPrivateKey:   privKey,
+		dhPublicKey:    pubKey,
+		grp:            grp,
 
-		fingerprints: &fingerprints,
+		fingerprints:   &fingerprints,
 
-		kv: kv,
+		kv:             kv,
 
-		context: &context{
-			fa:   &fingerprints,
-			grp:  grp,
-			rng:  rng,
-			myID: myID,
-		},
+		context:        &context{
+			          fa:   &fingerprints,
+			          grp:  grp,
+			          rng:  rng,
+			          myID: myID,
+		                },
 
-		e2eParams: params.GetDefaultE2ESessionParams(),
+		e2eParams:      params.GetDefaultE2ESessionParams(),
 	}
 
-	err := utility.StoreCyclicKey(kv, pubKey, pubKeyKey)
+	err := util.StoreCyclicKey(kv, pubKey, pubKeyKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to store e2e DH public key")
+		return nil, errors.WithMessage(err,
+			"Failed to store e2e DH public key")
 	}
 
-	err = utility.StoreCyclicKey(kv, privKey, privKeyKey)
+	err = util.StoreCyclicKey(kv, privKey, privKeyKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to store e2e DH private key")
+		return nil, errors.WithMessage(err,
+			"Failed to store e2e DH private key")
 	}
 
-	err = utility.StoreGroup(kv, grp, grpKey)
+	err = util.StoreGroup(kv, grp, grpKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to store e2e group")
 	}
@@ -106,7 +111,7 @@ func LoadStore(kv *versioned.KV, myID *id.ID, rng *fastRNG.StreamGenerator) (*St
 	fingerprints := newFingerprints()
 	kv = kv.Prefix(packagePrefix)
 
-	grp, err := utility.LoadGroup(kv, grpKey)
+	grp, err := util.LoadGroup(kv, grpKey)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +166,9 @@ func (s *Store) save() error {
 	return s.kv.Set(storeKey, currentStoreVersion, &obj)
 }
 
-func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int,
+func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey,
+	myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
+	mySIDHPrivKey *sidh.PrivateKey,
 	sendParams, receiveParams params.E2ESessionParams) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -177,6 +184,7 @@ func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.In
 	}
 
 	m := newManager(s.context, s.kv, partnerID, myPrivKey, partnerPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sendParams, receiveParams)
 
 	s.managers[*partnerID] = m
@@ -307,14 +315,22 @@ func (s *Store) unmarshal(b []byte) error {
 		s.managers[*partnerID] = manager
 	}
 
-	s.dhPrivateKey, err = utility.LoadCyclicKey(s.kv, privKeyKey)
+	s.dhPrivateKey, err = util.LoadCyclicKey(s.kv, privKeyKey)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to load e2e DH private key")
+		return errors.WithMessage(err,
+			"Failed to load e2e DH private key")
 	}
 
-	s.dhPublicKey, err = utility.LoadCyclicKey(s.kv, pubKeyKey)
+	s.dhPublicKey, err = util.LoadCyclicKey(s.kv, pubKeyKey)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to load e2e DH public key")
+		return errors.WithMessage(err,
+			"Failed to load e2e DH public key")
+	}
+
+	s.grp, err = util.LoadGroup(s.kv, grpKey)
+	if err != nil {
+		return errors.WithMessage(err,
+			"Failed to load e2e DH group")
 	}
 
 	return nil
@@ -356,6 +372,8 @@ func (f *fingerprints) add(keys []*Key) {
 
 	for _, k := range keys {
 		f.toKey[k.Fingerprint()] = k
+		jww.TRACE.Printf("Added Key Fingerprint: %s",
+			k.Fingerprint())
 	}
 }
 

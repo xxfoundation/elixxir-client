@@ -26,7 +26,11 @@ import (
 	"sync"
 	"testing"
 	"time"
+	util "gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/xx_network/crypto/csprng"
+	"github.com/cloudflare/circl/dh/sidh"
 )
+
 
 // Tests that newManager does not return errors, that the sent and received
 // transfer lists are new, and that the callback works.
@@ -603,7 +607,15 @@ func Test_FileTransfer(t *testing.T) {
 	pubKey := diffieHellman.GeneratePublicKey(dhKey, m1.store.E2e().GetGroup())
 	p := params.GetDefaultE2ESessionParams()
 	recipient := id.NewIdFromString("recipient", id.User, t)
-	err := m1.store.E2e().AddPartner(recipient, pubKey, dhKey, p, p)
+
+	rng := csprng.NewSystemRNG()
+	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA,
+		rng)
+	theirSidhPub, _ := util.GenerateSIDHKeyPair(
+		sidh.KeyVariantSidhB, rng)
+
+	err := m1.store.E2e().AddPartner(recipient, pubKey, dhKey,
+		mySidhPriv, theirSidhPub, p, p)
 	if err != nil {
 		t.Errorf("Failed to add partner %s: %+v", recipient, err)
 	}

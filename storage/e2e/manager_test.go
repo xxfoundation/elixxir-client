@@ -29,11 +29,13 @@ func Test_newManager(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	partnerID := id.NewIdFromUInt(100, id.User, t)
 	expectedM := &Manager{
-		ctx:                 ctx,
-		kv:                  kv.Prefix(fmt.Sprintf(managerPrefix, partnerID)),
-		partner:             partnerID,
-		originPartnerPubKey: s.partnerPubKey,
-		originMyPrivKey:     s.myPrivKey,
+		ctx:                     ctx,
+		kv:                      kv.Prefix(fmt.Sprintf(managerPrefix, partnerID)),
+		partner:                 partnerID,
+		originPartnerPubKey:     s.partnerPubKey,
+		originMyPrivKey:         s.myPrivKey,
+		originPartnerSIDHPubKey: s.partnerSIDHPubKey,
+		originMySIDHPrivKey:     s.mySIDHPrivKey,
 	}
 	expectedM.send = NewRelationship(expectedM, Send,
 		params.GetDefaultE2ESessionParams())
@@ -42,6 +44,7 @@ func Test_newManager(t *testing.T) {
 
 	// Create new relationship
 	m := newManager(ctx, kv, partnerID, s.myPrivKey, s.partnerPubKey,
+		s.mySIDHPrivKey, s.partnerSIDHPubKey,
 		s.e2eParams,
 		s.e2eParams)
 
@@ -100,26 +103,30 @@ func TestManager_NewReceiveSession(t *testing.T) {
 	m, _ := newTestManager(t)
 	s, _ := makeTestSession()
 
-	se, exists := m.NewReceiveSession(s.partnerPubKey, s.e2eParams, s)
+	se, exists := m.NewReceiveSession(s.partnerPubKey, s.partnerSIDHPubKey,
+		s.e2eParams, s)
 	if exists {
-		t.Errorf("NewReceiveSession() did not return the correct value."+
+		t.Errorf("NewReceiveSession() incorrect return value." +
 			"\n\texpected: %v\n\treceived: %v", false, exists)
 	}
-	if !m.partner.Cmp(se.GetPartner()) || !bytes.Equal(s.GetID().Marshal(), se.GetID().Marshal()) {
-		t.Errorf("NewReceiveSession() did not return the correct session."+
-			"\n\texpected partner: %v\n\treceived partner: %v"+
+	if !m.partner.Cmp(se.GetPartner()) || !bytes.Equal(s.GetID().Marshal(),
+		se.GetID().Marshal()) {
+		t.Errorf("NewReceiveSession() incorrect session." +
+			"\n\texpected partner: %v\n\treceived partner: %v" +
 			"\n\texpected ID: %v\n\treceived ID: %v",
 			m.partner, se.GetPartner(), s.GetID(), se.GetID())
 	}
 
-	se, exists = m.NewReceiveSession(s.partnerPubKey, s.e2eParams, s)
+	se, exists = m.NewReceiveSession(s.partnerPubKey, s.partnerSIDHPubKey,
+		s.e2eParams, s)
 	if !exists {
-		t.Errorf("NewReceiveSession() did not return the correct value."+
+		t.Errorf("NewReceiveSession() incorrect return value."+
 			"\n\texpected: %v\n\treceived: %v", true, exists)
 	}
-	if !m.partner.Cmp(se.GetPartner()) || !bytes.Equal(s.GetID().Marshal(), se.GetID().Marshal()) {
-		t.Errorf("NewReceiveSession() did not return the correct session."+
-			"\n\texpected partner: %v\n\treceived partner: %v"+
+	if !m.partner.Cmp(se.GetPartner()) || !bytes.Equal(s.GetID().Marshal(),
+		se.GetID().Marshal()) {
+		t.Errorf("NewReceiveSession() incorrect session." +
+			"\n\texpected partner: %v\n\treceived partner: %v" +
 			"\n\texpected ID: %v\n\treceived ID: %v",
 			m.partner, se.GetPartner(), s.GetID(), se.GetID())
 	}
@@ -131,14 +138,15 @@ func TestManager_NewSendSession(t *testing.T) {
 	m, _ := newTestManager(t)
 	s, _ := makeTestSession()
 
-	se := m.NewSendSession(s.myPrivKey, s.e2eParams)
+	se := m.NewSendSession(s.myPrivKey, s.mySIDHPrivKey, s.e2eParams)
 	if !m.partner.Cmp(se.GetPartner()) {
 		t.Errorf("NewSendSession() did not return the correct session."+
 			"\n\texpected partner: %v\n\treceived partner: %v",
 			m.partner, se.GetPartner())
 	}
 
-	se = m.NewSendSession(s.partnerPubKey, s.e2eParams)
+	se, _ = m.NewReceiveSession(s.partnerPubKey, s.partnerSIDHPubKey,
+		s.e2eParams, s)
 	if !m.partner.Cmp(se.GetPartner()) {
 		t.Errorf("NewSendSession() did not return the correct session."+
 			"\n\texpected partner: %v\n\treceived partner: %v",
@@ -268,6 +276,7 @@ func newTestManager(t *testing.T) (*Manager, *versioned.KV) {
 
 	// Create new relationship
 	m := newManager(ctx, kv, partnerID, s.myPrivKey, s.partnerPubKey,
+		s.mySIDHPrivKey, s.partnerSIDHPubKey,
 		s.e2eParams,
 		s.e2eParams)
 

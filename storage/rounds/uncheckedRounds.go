@@ -221,16 +221,12 @@ func (s *UncheckedRoundStore) IterateOverList(iterator func(rid id.Round,
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 
-	wg := sync.WaitGroup{}
 	for _, rnd := range s.list {
-		wg.Add(1)
 		go func(localRid id.Round,
 			localRnd UncheckedRound){
 			iterator(localRid, localRnd)
-			wg.Done()
 		}(rnd.Id, rnd)
 	}
-	wg.Wait()
 }
 
 // IncrementCheck increments the amount of checks performed on this stored

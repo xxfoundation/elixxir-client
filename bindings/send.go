@@ -188,6 +188,7 @@ type SendReport struct {
 type SendReportDisk struct {
 	List []id.Round
 	Mid  []byte
+	Ts int64
 }
 
 func (sr *SendReport) GetRoundList() *RoundList {
@@ -214,6 +215,7 @@ func (sr *SendReport) Marshal() ([]byte, error) {
 	srd := SendReportDisk{
 		List: sr.rl.list,
 		Mid:  sr.mid[:],
+		Ts: sr.ts.UnixNano(),
 	}
 	return json.Marshal(&srd)
 }
@@ -227,5 +229,6 @@ func (sr *SendReport) Unmarshal(b []byte) error {
 
 	copy(sr.mid[:], srd.Mid)
 	sr.rl = &RoundList{list: srd.List}
+	sr.ts = time.Unix(0,srd.Ts)
 	return nil
 }

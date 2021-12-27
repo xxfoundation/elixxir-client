@@ -12,7 +12,6 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/preimage"
@@ -76,8 +75,7 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 
 	/*generate embedded message structures and check payload*/
 	cmixMsg := format.NewMessage(storage.Cmix().GetGroup().GetP().ByteLen())
-	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen(),
-		sidhinterface.PubKeyByteSize)
+	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen())
 	ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
 	requestFmt, err := newRequestFormat(ecrFmt)
 	if err != nil {
@@ -136,6 +134,7 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 	requestFmt.SetID(storage.GetUser().ReceptionID)
 	requestFmt.SetMsgPayload(msgPayloadBytes)
 	ecrFmt.SetOwnership(ownership)
+	ecrFmt.SetSidHPubKey(sidHPubKeyA)
 	ecrPayload, mac := cAuth.Encrypt(newPrivKey, partner.DhPubKey,
 		ecrFmt.data, grp)
 	confirmFp := cAuth.MakeOwnershipProofFP(ownership)
@@ -143,7 +142,6 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 
 	/*construct message*/
 	baseFmt.SetEcrPayload(ecrPayload)
-	baseFmt.SetSidHPubKey(sidHPubKeyA)
 	baseFmt.SetPubKey(newPubKey)
 
 	cmixMsg.SetKeyFP(requestfp)

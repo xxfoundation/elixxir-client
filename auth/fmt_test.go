@@ -21,8 +21,7 @@ func TestNewBaseFormat(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
 	payloadSize := pubKeySize + sidhinterface.PubKeyByteSize + 1
-	baseMsg := newBaseFormat(payloadSize, pubKeySize,
-		sidhinterface.PubKeyByteSize)
+	baseMsg := newBaseFormat(payloadSize, pubKeySize)
 
 	// Check that the base format was constructed properly
 	if !bytes.Equal(baseMsg.pubkey, make([]byte, pubKeySize)) {
@@ -32,8 +31,7 @@ func TestNewBaseFormat(t *testing.T) {
 			"\n\tReceived: %v", make([]byte, pubKeySize), baseMsg.pubkey)
 	}
 
-	expectedEcrPayloadSize := payloadSize - (pubKeySize +
-		sidhinterface.PubKeyByteSize + 1)
+	expectedEcrPayloadSize := payloadSize - (pubKeySize)
 	if !bytes.Equal(baseMsg.ecrPayload, make([]byte, expectedEcrPayloadSize)) {
 		t.Errorf("NewBaseFormat error: "+
 			"Unexpected payload field in base format."+
@@ -49,7 +47,7 @@ func TestNewBaseFormat(t *testing.T) {
 		}
 	}()
 
-	newBaseFormat(0, pubKeySize, sidhinterface.PubKeyByteSize)
+	newBaseFormat(0, pubKeySize)
 }
 
 /* Tests the setter/getter methods for baseFormat */
@@ -59,8 +57,7 @@ func TestBaseFormat_SetGetPubKey(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
 	payloadSize := pubKeySize + sidhinterface.PubKeyByteSize + 1
-	baseMsg := newBaseFormat(payloadSize, pubKeySize,
-		sidhinterface.PubKeyByteSize)
+	baseMsg := newBaseFormat(payloadSize, pubKeySize)
 
 	// Test setter
 	grp := getGroup()
@@ -89,12 +86,10 @@ func TestBaseFormat_SetGetEcrPayload(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
 	payloadSize := (pubKeySize + sidhinterface.PubKeyByteSize) * 2
-	baseMsg := newBaseFormat(payloadSize, pubKeySize,
-		sidhinterface.PubKeyByteSize)
+	baseMsg := newBaseFormat(payloadSize, pubKeySize)
 
 	// Test setter
-	ecrPayloadSize := payloadSize - (pubKeySize +
-		sidhinterface.PubKeyByteSize + 1)
+	ecrPayloadSize := payloadSize - (pubKeySize)
 	ecrPayload := newPayload(ecrPayloadSize, "ecrPayload")
 	baseMsg.SetEcrPayload(ecrPayload)
 	if !bytes.Equal(ecrPayload, baseMsg.ecrPayload) {
@@ -128,10 +123,8 @@ func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 	// Construct a fully populated message
 	pubKeySize := 256
 	payloadSize := (pubKeySize + sidhinterface.PubKeyByteSize) * 2
-	baseMsg := newBaseFormat(payloadSize, pubKeySize,
-		sidhinterface.PubKeyByteSize)
-	ecrPayloadSize := payloadSize - (pubKeySize +
-		sidhinterface.PubKeyByteSize + 1)
+	baseMsg := newBaseFormat(payloadSize, pubKeySize)
+	ecrPayloadSize := payloadSize - (pubKeySize)
 	ecrPayload := newPayload(ecrPayloadSize, "ecrPayload")
 	baseMsg.SetEcrPayload(ecrPayload)
 	grp := getGroup()
@@ -147,8 +140,7 @@ func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 	}
 
 	// Test unmarshal
-	newMsg, err := unmarshalBaseFormat(data, pubKeySize,
-		sidhinterface.PubKeyByteSize)
+	newMsg, err := unmarshalBaseFormat(data, pubKeySize)
 	if err != nil {
 		t.Errorf("unmarshalBaseFormat() error: "+
 			"Could not unmarshal into baseFormat: %v", err)
@@ -161,8 +153,7 @@ func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 	}
 
 	// Unmarshal error test: Invalid size parameter
-	_, err = unmarshalBaseFormat(make([]byte, 0), pubKeySize,
-		sidhinterface.PubKeyByteSize)
+	_, err = unmarshalBaseFormat(make([]byte, 0), pubKeySize)
 	if err == nil {
 		t.Errorf("unmarshalBaseFormat() error: " +
 			"Should not be able to unmarshal when baseFormat is too small")
@@ -173,7 +164,7 @@ func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 // Tests newEcrFormat
 func TestNewEcrFormat(t *testing.T) {
 	// Construct message
-	payloadSize := ownershipSize * 2
+	payloadSize := ownershipSize * 2 + sidhinterface.PubKeyByteSize + 1
 	ecrMsg := newEcrFormat(payloadSize)
 
 	// Check that the ecrFormat was constructed properly
@@ -184,7 +175,8 @@ func TestNewEcrFormat(t *testing.T) {
 			"\n\tReceived: %v", make([]byte, payloadSize), ecrMsg.ownership)
 	}
 
-	if !bytes.Equal(ecrMsg.payload, make([]byte, payloadSize-ownershipSize)) {
+	if !bytes.Equal(ecrMsg.payload, make([]byte,
+		payloadSize-ownershipSize-sidhinterface.PubKeyByteSize-1)) {
 		t.Errorf("newEcrFormat error: "+
 			"Unexpected ownership field in ecrFormat."+
 			"\n\tExpected: %v"+
@@ -207,7 +199,7 @@ func TestNewEcrFormat(t *testing.T) {
 // Set/Get ownership tests
 func TestEcrFormat_SetGetOwnership(t *testing.T) {
 	// Construct message
-	payloadSize := ownershipSize * 2
+	payloadSize := ownershipSize * 2 + sidhinterface.PubKeyByteSize + 1
 	ecrMsg := newEcrFormat(payloadSize)
 
 	// Test setter
@@ -243,11 +235,13 @@ func TestEcrFormat_SetGetOwnership(t *testing.T) {
 // Set/Get payload tests
 func TestEcrFormat_SetGetPayload(t *testing.T) {
 	// Construct message
-	payloadSize := ownershipSize * 2
+	payloadSize := ownershipSize * 2 + sidhinterface.PubKeyByteSize + 1
 	ecrMsg := newEcrFormat(payloadSize)
 
 	// Test set
-	expectedPayload := newPayload(payloadSize-ownershipSize, "ownership")
+	expectedPayload := newPayload(
+		payloadSize-ownershipSize-sidhinterface.PubKeyByteSize-1,
+		"ownership")
 	ecrMsg.SetPayload(expectedPayload)
 
 	if !bytes.Equal(expectedPayload, ecrMsg.payload) {
@@ -279,9 +273,11 @@ func TestEcrFormat_SetGetPayload(t *testing.T) {
 // Marshal/ unmarshal tests
 func TestEcrFormat_MarshalUnmarshal(t *testing.T) {
 	// Construct message
-	payloadSize := ownershipSize * 2
+	payloadSize := ownershipSize * 2 + sidhinterface.PubKeyByteSize + 1
 	ecrMsg := newEcrFormat(payloadSize)
-	expectedPayload := newPayload(payloadSize-ownershipSize, "ownership")
+	expectedPayload := newPayload(
+		payloadSize-ownershipSize - sidhinterface.PubKeyByteSize - 1,
+		"ownership")
 	ecrMsg.SetPayload(expectedPayload)
 	ownership := newOwnership("owner")
 	ecrMsg.SetOwnership(ownership)
@@ -319,7 +315,7 @@ func TestEcrFormat_MarshalUnmarshal(t *testing.T) {
 // Tests newRequestFormat
 func TestNewRequestFormat(t *testing.T) {
 	// Construct message
-	payloadSize := id.ArrIDLen*2 - 1
+	payloadSize := id.ArrIDLen*2 - 1 + sidhinterface.PubKeyByteSize + 1
 	ecrMsg := newEcrFormat(payloadSize)
 	expectedPayload := newPayload(id.ArrIDLen, "ownership")
 	ecrMsg.SetPayload(expectedPayload)
@@ -346,7 +342,7 @@ func TestNewRequestFormat(t *testing.T) {
 	// 		"\n\tReceived: %v", make([]byte, 0), reqMsg.GetPayload())
 	// }
 
-	payloadSize = ownershipSize * 2
+	payloadSize = ownershipSize * 2 + sidhinterface.PubKeyByteSize + 1
 	ecrMsg = newEcrFormat(payloadSize)
 	reqMsg, err = newRequestFormat(ecrMsg)
 	if err == nil {
@@ -360,7 +356,7 @@ func TestNewRequestFormat(t *testing.T) {
 // Unit test for Get/SetID
 func TestRequestFormat_SetGetID(t *testing.T) {
 	// Construct message
-	payloadSize := id.ArrIDLen*2 - 1
+	payloadSize := id.ArrIDLen*2 - 1 + sidhinterface.PubKeyByteSize + 1
 	ecrMsg := newEcrFormat(payloadSize)
 	expectedPayload := newPayload(id.ArrIDLen, "ownership")
 	ecrMsg.SetPayload(expectedPayload)
@@ -401,10 +397,9 @@ func TestRequestFormat_SetGetID(t *testing.T) {
 // Unit test for Get/SetMsgPayload
 func TestRequestFormat_SetGetMsgPayload(t *testing.T) {
 	// Construct message
-	payloadSize := id.ArrIDLen*3 - 1 + sidhinterface.PubKeyByteSize
+	payloadSize := id.ArrIDLen*3 - 1 + sidhinterface.PubKeyByteSize + 1
 	ecrMsg := newEcrFormat(payloadSize)
-	expectedPayload := newPayload(id.ArrIDLen*2 +
-		sidhinterface.PubKeyByteSize, "ownership")
+	expectedPayload := newPayload(id.ArrIDLen*2, "ownership")
 	ecrMsg.SetPayload(expectedPayload)
 	reqMsg, err := newRequestFormat(ecrMsg)
 	if err != nil {
@@ -413,7 +408,7 @@ func TestRequestFormat_SetGetMsgPayload(t *testing.T) {
 	}
 
 	// Test SetMsgPayload
-	msgPayload := newPayload(id.ArrIDLen*2 + sidhinterface.PubKeyByteSize,
+	msgPayload := newPayload(id.ArrIDLen*2,
 		"msgPayload")
 	reqMsg.SetPayload(msgPayload)
 	if !bytes.Equal(reqMsg.GetPayload(), msgPayload) {

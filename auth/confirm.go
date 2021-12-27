@@ -21,7 +21,6 @@ import (
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"io"
 	util "gitlab.com/elixxir/client/storage/utility"
 )
@@ -78,12 +77,12 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	// we build the payload before we save because it is technically fallible
 	// which can get into a bricked state if it fails
 	cmixMsg := format.NewMessage(storage.Cmix().GetGroup().GetP().ByteLen())
-	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen(),
-		sidhinterface.PubKeyByteSize)
+	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen())
 	ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
 
 	// setup the encrypted payload
 	ecrFmt.SetOwnership(ownership)
+	ecrFmt.SetSidHPubKey(newSIDHPubKey)
 	// confirmation has no custom payload
 
 	//encrypt the payload
@@ -97,7 +96,6 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	//final construction
 	baseFmt.SetEcrPayload(ecrPayload)
 	baseFmt.SetPubKey(newPubKey)
-	baseFmt.SetSidHPubKey(newSIDHPubKey)
 
 	cmixMsg.SetKeyFP(fp)
 	cmixMsg.SetMac(mac)

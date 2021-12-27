@@ -9,7 +9,6 @@ package auth
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
-	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -86,7 +85,7 @@ func (m *Manager) processAuthMessage(msg message.Receive) {
 func (m *Manager) handleRequest(cmixMsg format.Message,
 	myHistoricalPrivKey *cyclic.Int, grp *cyclic.Group) {
 	//decode the outer format
-	baseFmt, partnerPubKey, partnerSIDHPubKey, err := handleBaseFormat(
+	baseFmt, partnerPubKey, err := handleBaseFormat(
 		cmixMsg, grp)
 	if err != nil {
 		jww.WARN.Printf("Failed to handle auth request: %s", err)
@@ -118,6 +117,11 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		jww.WARN.Printf("Failed to unmarshal auth "+
 			"request's encrypted payload: %s", err)
 		return
+	}
+	partnerSIDHPubKey, err := ecrFmt.GetSidhPubKey()
+	if err != nil {
+		jww.WARN.Printf("Could not unmarshal partner SIDH Pubkey: %s",
+			err)
 	}
 
 	//decode the request format
@@ -301,7 +305,7 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	}
 
 	// extract the message
-	baseFmt, partnerPubKey, partnerSIDHPubKey, err := handleBaseFormat(
+	baseFmt, partnerPubKey, err := handleBaseFormat(
 		cmixMsg, grp)
 	if err != nil {
 		em := fmt.Sprintf("Failed to handle auth confirm: %s", err)
@@ -312,7 +316,6 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	}
 
 	jww.TRACE.Printf("handleConfirm PARTNERPUBKEY: %v", partnerPubKey.Bytes())
-	jww.TRACE.Printf("handleConfirm PARTNERSIDHPUBKEY: %v", partnerSIDHPubKey)
 	jww.TRACE.Printf("handleConfirm SRMYPUBKEY: %v", sr.GetMyPubKey().Bytes())
 
 	// decrypt the payload
@@ -340,6 +343,20 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 		m.storage.Auth().Done(sr.GetPartner())
 		return
 	}
+
+	partnerSIDHPubKey, err := ecrFmt.GetSidhPubKey()
+	if err != nil {
+		em := fmt.Sprintf("Could not get auth conf SIDH Pubkey: %s",
+			err)
+		jww.WARN.Print(em)
+		events.Report(10, "Auth", "ConfirmError", em)
+		m.storage.Auth().Done(sr.GetPartner())
+		return
+	}
+	jww.TRACE.Printf("handleConfirm PARTNERSIDHPUBKEY: %v",
+		partnerSIDHPubKey)
+
+
 
 	// finalize the confirmation
 	if err := m.doConfirm(sr, grp, partnerPubKey, sr.GetMyPrivKey(),
@@ -450,26 +467,20 @@ func copySlice(s []byte) []byte {
 }
 
 func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
-	*cyclic.Int, *sidh.PublicKey, error) {
+	*cyclic.Int, error) {
 
 	baseFmt, err := unmarshalBaseFormat(cmixMsg.GetContents(),
-		grp.GetP().ByteLen(), sidhinterface.PubKeyByteSize)
+		grp.GetP().ByteLen())
 	if err != nil {
-		return baseFormat{}, nil, nil, errors.WithMessage(err, "Failed to"+
+		return baseFormat{}, nil, errors.WithMessage(err, "Failed to"+
 			" unmarshal auth")
 	}
 
 	if !grp.BytesInside(baseFmt.pubkey) {
-		return baseFormat{}, nil, nil, errors.WithMessage(err, "Received "+
+		return baseFormat{}, nil, errors.WithMessage(err, "Received "+
 			"auth confirmation public key is not in the e2e cyclic group")
 	}
 	partnerPubKey := grp.NewIntFromBytes(baseFmt.pubkey)
 
-	partnerSIDHPubKey, err := baseFmt.GetSidhPubKey()
-	if err != nil {
-		return baseFormat{}, nil, nil, errors.WithMessage(err,
-			"Failed to unmarshal auth request's sidh Pubkey")
-	}
-
-	return baseFmt, partnerPubKey, partnerSIDHPubKey, nil
+	return baseFmt, partnerPubKey, nil
 }

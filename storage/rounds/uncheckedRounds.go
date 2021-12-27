@@ -222,7 +222,10 @@ func (s *UncheckedRoundStore) IterateOverList(iterator func(rid id.Round,
 	defer s.mux.RUnlock()
 
 	for _, rnd := range s.list {
-		go iterator(rnd.Id, rnd)
+		go func(localRid id.Round,
+			localRnd UncheckedRound){
+			iterator(localRid, localRnd)
+		}(rnd.Id, rnd)
 	}
 }
 

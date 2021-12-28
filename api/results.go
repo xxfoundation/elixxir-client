@@ -157,10 +157,11 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 					allRoundsSucceeded = false
 					numResults--
 				} else if roundReport.TimedOut {
-					// Generate a message to track all timed out rounds
+					// Generate a message to track the timed out round
 					timeoutRequest := &pb.HistoricalRounds{
-						Rounds: []uint64{},
+						Rounds: []uint64{roundReport.RoundInfo.ID},
 					}
+					// Request that round's information, feeding back into sendResults
 					go c.getHistoricalRounds(timeoutRequest, sendResults, commsInterface)
 				} else {
 					// If available, denote the result

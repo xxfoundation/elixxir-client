@@ -529,7 +529,7 @@ func (c *Client) NetworkFollowerStatus() Status {
 // HasRunningProcessies checks if any background threads are running
 // and returns true if one or more are
 func (c *Client) HasRunningProcessies() bool {
-	return c.followerServices.stoppable.IsStopped()
+	return !c.followerServices.stoppable.IsStopped()
 }
 
 // Returns the health tracker for registration and polling

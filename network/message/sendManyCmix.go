@@ -9,7 +9,6 @@ package message
 
 import (
 	"fmt"
-	"github.com/golang-collections/collections/set"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -21,6 +20,7 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -63,7 +63,12 @@ func sendManyCmixHelper(sender *gateway.Sender,
 	id.Round, []ephemeral.Id, error) {
 
 	timeStart := netTime.Now()
-	attempted := set.New()
+	var attempted *excludedRounds.ExcludedRounds
+	if param.ExcludedRounds != nil {
+		attempted = param.ExcludedRounds
+	} else {
+		attempted = excludedRounds.New()
+	}
 
 	maxTimeout := sender.GetHostParams().SendTimeout
 
@@ -98,7 +103,7 @@ func sendManyCmixHelper(sender *gateway.Sender,
 
 		// Add the round on to the list of attempted rounds so that it is not
 		// tried again
-		attempted.Insert(bestRound)
+		attempted.Insert(bestRound.GetRoundId())
 
 		// Determine whether the selected round contains any nodes that are
 		// blacklisted by the params.Network object

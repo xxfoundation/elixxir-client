@@ -118,7 +118,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			jww.WARN.Printf("Best round on send is nil")
 			continue
 		}
-		jww.INFO.Printf("[sendCMIX] bestRound: %d", bestRound)
+		jww.INFO.Printf("[sendCMIX] bestRound: %v", bestRound)
 
 		//add the round on to the list of attempted, so it is not tried again
 		attempted.Insert(bestRound)
@@ -144,7 +144,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			continue
 		}
 
-		jww.INFO.Printf("[sendCMIX] round %d processed, firstGW: %s",
+		jww.INFO.Printf("[sendCMIX] round %v processed, firstGW: %s",
 			bestRound, firstGateway)
 
 		// Build the messages to send
@@ -168,7 +168,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			jww.INFO.Printf("[sendCMIX] sendFunc %s", host)
 			timeout := calculateSendTimeout(bestRound, maxTimeout)
 			jww.INFO.Printf("[sendCMIX] sendFunc %s timeout %s",
-				timeout)
+				host, timeout)
 			result, err := comms.SendPutMessage(host, wrappedMsg,
 				timeout)
 			jww.INFO.Printf("[sendCMIX] sendFunc %s putmsg", host)

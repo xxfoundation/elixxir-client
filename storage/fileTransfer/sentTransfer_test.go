@@ -46,10 +46,7 @@ func Test_NewSentTransfer(t *testing.T) {
 	numParts, numFps := uint16(len(parts)), uint16(float64(len(parts))*1.5)
 	fpVector, _ := utility.NewStateVector(
 		kvPrefixed, sentFpVectorKey, uint32(numFps))
-	inProgressStatus, _ := utility.NewStateVector(
-		kvPrefixed, sentInProgressVectorKey, uint32(numParts))
-	finishedStatus, _ := utility.NewStateVector(
-		kvPrefixed, sentFinishedVectorKey, uint32(numParts))
+	partStats, _ := utility.NewMultiStateVector(numParts, 3, nil, sentPartStatsVectorKey, kvPrefixed)
 
 	type cbFields struct {
 		completed            bool
@@ -100,8 +97,7 @@ func Test_NewSentTransfer(t *testing.T) {
 			key:  finishedKey,
 			kv:   kvPrefixed,
 		},
-		inProgressStatus: inProgressStatus,
-		finishedStatus:   finishedStatus,
+		partStats: partStats,
 		progressCallbacks: []*sentCallbackTracker{
 			newSentCallbackTracker(cb, expectedPeriod),
 		},
@@ -174,10 +170,7 @@ func TestSentTransfer_ReInit(t *testing.T) {
 	numFps2 := 2 * numFps1
 	fpVector, _ := utility.NewStateVector(
 		kvPrefixed, sentFpVectorKey, uint32(numFps2))
-	inProgressStatus, _ := utility.NewStateVector(
-		kvPrefixed, sentInProgressVectorKey, uint32(numParts))
-	finishedStatus, _ := utility.NewStateVector(
-		kvPrefixed, sentFinishedVectorKey, uint32(numParts))
+	partStats, _ := utility.NewMultiStateVector(numParts, 3, nil, sentPartStatsVectorKey, kvPrefixed)
 
 	type cbFields struct {
 		completed            bool
@@ -228,8 +221,7 @@ func TestSentTransfer_ReInit(t *testing.T) {
 			key:  finishedKey,
 			kv:   kvPrefixed,
 		},
-		inProgressStatus: inProgressStatus,
-		finishedStatus:   finishedStatus,
+		partStats: partStats,
 		progressCallbacks: []*sentCallbackTracker{
 			newSentCallbackTracker(cb, expectedPeriod),
 		},
@@ -424,7 +416,11 @@ func TestSentTransfer_IsPartInProgress(t *testing.T) {
 	partNum := uint16(7)
 
 	// Test that the part has not been set to in-progress
-	if st.IsPartInProgress(partNum) {
+	inProgress, err := st.IsPartInProgress(partNum)
+	if err != nil {
+		t.Errorf("IsPartInProgress returned an error: %+v", err)
+	}
+	if inProgress {
 		t.Errorf("Part number %d set as in-progress.", partNum)
 	}
 
@@ -432,7 +428,11 @@ func TestSentTransfer_IsPartInProgress(t *testing.T) {
 	_, _ = st.SetInProgress(rid, partNum)
 
 	// Test that the part has been set to in-progress
-	if !st.IsPartInProgress(partNum) {
+	inProgress, err = st.IsPartInProgress(partNum)
+	if err != nil {
+		t.Errorf("IsPartInProgress returned an error: %+v", err)
+	}
+	if !inProgress {
 		t.Errorf("Part number %d not set as in-progress.", partNum)
 	}
 
@@ -440,8 +440,27 @@ func TestSentTransfer_IsPartInProgress(t *testing.T) {
 	_, _ = st.UnsetInProgress(rid)
 
 	// Test that the part has been unset
-	if st.IsPartInProgress(partNum) {
+	inProgress, err = st.IsPartInProgress(partNum)
+	if err != nil {
+		t.Errorf("IsPartInProgress returned an error: %+v", err)
+	}
+	if inProgress {
 		t.Errorf("Part number %d set as in-progress.", partNum)
+	}
+}
+
+// Error path: tests that SentTransfer.IsPartInProgress returns the expected
+// error when the part number is out of range.
+func TestSentTransfer_IsPartInProgress_InvalidPartNumError(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+
+	expectedErr := fmt.Sprintf(getStatusErr, st.numParts, "")
+	_, err := st.IsPartInProgress(st.numParts)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("IsPartInProgress did not return the expected error when the "+
+			"part number is out of range.\nexpected: %s\nreceived: %v",
+			expectedErr, err)
 	}
 }
 
@@ -458,7 +477,11 @@ func TestSentTransfer_IsPartFinished(t *testing.T) {
 	_, _ = st.SetInProgress(rid, partNum)
 
 	// Test that the part has not been set to finished
-	if st.IsPartFinished(partNum) {
+	isFinished, err := st.IsPartFinished(partNum)
+	if err != nil {
+		t.Errorf("IsPartFinished returned an error: %+v", err)
+	}
+	if isFinished {
 		t.Errorf("Part number %d set as finished.", partNum)
 	}
 
@@ -466,8 +489,27 @@ func TestSentTransfer_IsPartFinished(t *testing.T) {
 	_, _ = st.FinishTransfer(rid)
 
 	// Test that the part has been set to finished
-	if !st.IsPartFinished(partNum) {
+	isFinished, err = st.IsPartFinished(partNum)
+	if err != nil {
+		t.Errorf("IsPartFinished returned an error: %+v", err)
+	}
+	if !isFinished {
 		t.Errorf("Part number %d not set as finished.", partNum)
+	}
+}
+
+// Error path: tests that SentTransfer.IsPartFinished returns the expected
+// error when the part number is out of range.
+func TestSentTransfer_IsPartFinished_InvalidPartNumError(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, st := newRandomSentTransfer(16, 24, kv, t)
+
+	expectedErr := fmt.Sprintf(getStatusErr, st.numParts, "")
+	_, err := st.IsPartFinished(st.numParts)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("IsPartFinished did not return the expected error when the "+
+			"part number is out of range.\nexpected: %s\nreceived: %v",
+			expectedErr, err)
 	}
 }
 
@@ -888,7 +930,7 @@ func TestSentTransfer_SetInProgress(t *testing.T) {
 	expectedPartNums := []uint16{1, 2, 3}
 
 	// Add parts to the in-progress list
-	err, exists := st.SetInProgress(rid, expectedPartNums...)
+	exists, err := st.SetInProgress(rid, expectedPartNums...)
 	if err != nil {
 		t.Errorf("SetInProgress returned an error: %+v", err)
 	}
@@ -918,7 +960,7 @@ func TestSentTransfer_SetInProgress(t *testing.T) {
 
 	// Check that the part numbers were set on the in-progress status vector
 	for i, partNum := range expectedPartNums {
-		if !st.inProgressStatus.Used(uint32(partNum)) {
+		if status, _ := st.partStats.Get(partNum); status != 1 {
 			t.Errorf("Part number %d not marked as used in status vector (%d).",
 				partNum, i)
 		}
@@ -926,14 +968,14 @@ func TestSentTransfer_SetInProgress(t *testing.T) {
 
 	// Check that the correct number of parts were marked as in-progress in the
 	// status vector
-	if int(st.inProgressStatus.GetNumUsed()) != len(expectedPartNums) {
+	count, _ := st.partStats.GetCount(1)
+	if int(count) != len(expectedPartNums) {
 		t.Errorf("Incorrect number of parts marked as in-progress."+
-			"\nexpected: %d\nreceived: %d", len(expectedPartNums),
-			st.inProgressStatus.GetNumUsed())
+			"\nexpected: %d\nreceived: %d", len(expectedPartNums), count)
 	}
 
 	// Add more parts to the in-progress list
-	err, exists = st.SetInProgress(rid, expectedPartNums...)
+	exists, err = st.SetInProgress(rid, expectedPartNums...)
 	if err != nil {
 		t.Errorf("SetInProgress returned an error: %+v", err)
 	}
@@ -944,10 +986,10 @@ func TestSentTransfer_SetInProgress(t *testing.T) {
 	}
 
 	// Check that the number of parts were marked as in-progress is unchanged
-	if int(st.inProgressStatus.GetNumUsed()) != len(expectedPartNums) {
+	count, _ = st.partStats.GetCount(1)
+	if int(count) != len(expectedPartNums) {
 		t.Errorf("Incorrect number of parts marked as in-progress."+
-			"\nexpected: %d\nreceived: %d", len(expectedPartNums),
-			st.inProgressStatus.GetNumUsed())
+			"\nexpected: %d\nreceived: %d", len(expectedPartNums), count)
 	}
 }
 
@@ -961,14 +1003,14 @@ func TestSentTransfer_GetInProgress(t *testing.T) {
 	expectedPartNums := []uint16{1, 2, 3, 4, 5, 6}
 
 	// Add parts to the in-progress list
-	err, _ := st.SetInProgress(rid, expectedPartNums[:3]...)
+	_, err := st.SetInProgress(rid, expectedPartNums[:3]...)
 	if err != nil {
 		t.Errorf("Failed to set parts %v to in-progress: %+v",
 			expectedPartNums[3:], err)
 	}
 
 	// Add parts to the in-progress list
-	err, _ = st.SetInProgress(rid, expectedPartNums[3:]...)
+	_, err = st.SetInProgress(rid, expectedPartNums[3:]...)
 	if err != nil {
 		t.Errorf("Failed to set parts %v to in-progress: %+v",
 			expectedPartNums[:3], err)
@@ -998,10 +1040,10 @@ func TestSentTransfer_UnsetInProgress(t *testing.T) {
 	expectedPartNums := []uint16{1, 2, 3, 4, 5, 6}
 
 	// Add parts to the in-progress list
-	if err, _ := st.SetInProgress(rid, expectedPartNums[:3]...); err != nil {
+	if _, err := st.SetInProgress(rid, expectedPartNums[:3]...); err != nil {
 		t.Errorf("Failed to set parts in-progress: %+v", err)
 	}
-	if err, _ := st.SetInProgress(rid, expectedPartNums[3:]...); err != nil {
+	if _, err := st.SetInProgress(rid, expectedPartNums[3:]...); err != nil {
 		t.Errorf("Failed to set parts in-progress: %+v", err)
 	}
 
@@ -1029,9 +1071,10 @@ func TestSentTransfer_UnsetInProgress(t *testing.T) {
 	}
 
 	// Check that there are no set parts in the in-progress status vector
-	if st.inProgressStatus.GetNumUsed() != 0 {
+	status, _ := st.partStats.Get(1)
+	if status != 0 {
 		t.Errorf("Failed to unset all parts in the in-progress vector."+
-			"\nexpected: %d\nreceived: %d", 0, st.inProgressStatus.GetNumUsed())
+			"\nexpected: %d\nreceived: %d", 0, status)
 	}
 }
 
@@ -1046,7 +1089,7 @@ func TestSentTransfer_FinishTransfer(t *testing.T) {
 	expectedPartNums := []uint16{1, 2, 3}
 
 	// Add parts to the in-progress list
-	err, _ := st.SetInProgress(rid, expectedPartNums...)
+	_, err := st.SetInProgress(rid, expectedPartNums...)
 	if err != nil {
 		t.Errorf("Failed to add parts to in-progress list: %+v", err)
 	}
@@ -1087,14 +1130,17 @@ func TestSentTransfer_FinishTransfer(t *testing.T) {
 	}
 
 	// Check that there are no set parts in the in-progress status vector
-	if st.inProgressStatus.GetNumUsed() != 0 {
+	count, _ := st.partStats.GetCount(1)
+	if count != 0 {
 		t.Errorf("Failed to unset all parts in the in-progress vector."+
-			"\nexpected: %d\nreceived: %d", 0, st.inProgressStatus.GetNumUsed())
+			"\nexpected: %d\nreceived: %d", 0, count)
 	}
 
 	// Check that the part numbers were set on the finished status vector
 	for i, partNum := range expectedPartNums {
-		if !st.finishedStatus.Used(uint32(partNum)) {
+
+		status, _ := st.partStats.Get(1)
+		if status != 2 {
 			t.Errorf("Part number %d not marked as used in status vector (%d).",
 				partNum, i)
 		}
@@ -1102,10 +1148,10 @@ func TestSentTransfer_FinishTransfer(t *testing.T) {
 
 	// Check that the correct number of parts were marked as finished in the
 	// status vector
-	if int(st.finishedStatus.GetNumUsed()) != len(expectedPartNums) {
+	count, _ = st.partStats.GetCount(2)
+	if int(count) != len(expectedPartNums) {
 		t.Errorf("Incorrect number of parts marked as finished."+
-			"\nexpected: %d\nreceived: %d", len(expectedPartNums),
-			st.finishedStatus.GetNumUsed())
+			"\nexpected: %d\nreceived: %d", len(expectedPartNums), count)
 	}
 }
 
@@ -1122,7 +1168,7 @@ func TestSentTransfer_FinishTransfer_Complete(t *testing.T) {
 	}
 
 	// Add parts to the in-progress list
-	err, _ := st.SetInProgress(rid, expectedPartNums...)
+	_, err := st.SetInProgress(rid, expectedPartNums...)
 	if err != nil {
 		t.Errorf("Failed to add parts to in-progress list: %+v", err)
 	}
@@ -1191,7 +1237,11 @@ func TestSentTransfer_GetUnsentPartNums(t *testing.T) {
 		}
 	}
 
-	unsentPartNums := st.GetUnsentPartNums()
+	unsentPartNums, err := st.GetUnsentPartNums()
+	if err != nil {
+		t.Errorf("GetUnsentPartNums returned an error: %+v", err)
+	}
+
 	if !reflect.DeepEqual(expectedPartNums, unsentPartNums) {
 		t.Errorf("Unexpected unsent part numbers.\nexpected: %d\nreceived: %d",
 			expectedPartNums, unsentPartNums)
@@ -1243,11 +1293,11 @@ func TestSentTransfer_GetSentRounds(t *testing.T) {
 func Test_loadSentTransfer(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	tid, expectedST := newRandomSentTransfer(16, 24, kv, t)
-	err, _ := expectedST.SetInProgress(5, 3, 4, 5)
+	_, err := expectedST.SetInProgress(5, 3, 4, 5)
 	if err != nil {
 		t.Errorf("Failed to add parts to in-progress transfer: %+v", err)
 	}
-	err, _ = expectedST.SetInProgress(10, 10, 11, 12)
+	_, err = expectedST.SetInProgress(10, 10, 11, 12)
 	if err != nil {
 		t.Errorf("Failed to add parts to in-progress transfer: %+v", err)
 	}
@@ -1371,43 +1421,22 @@ func Test_loadSentTransfer_LoadFinishedTransfersError(t *testing.T) {
 }
 
 // Error path: tests that loadSentTransfer returns the expected error when the
-// in-progress status state vector was deleted from storage.
-func Test_loadSentTransfer_LoadInProgressStateVectorError(t *testing.T) {
+// part statuses multi state vector was deleted from storage.
+func Test_loadSentTransfer_LoadPartStatsMultiStateVectorError(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	tid, st := newRandomSentTransfer(16, 24, kv, t)
 
 	// Delete the in-progress state vector from storage
-	err := st.inProgressStatus.Delete()
+	err := st.partStats.Delete()
 	if err != nil {
-		t.Errorf("Failed to delete the in-progress vector: %+v", err)
+		t.Errorf("Failed to delete the partStats vector: %+v", err)
 	}
 
-	expectedErr := strings.Split(loadSentInProgressVectorErr, "%")[0]
+	expectedErr := strings.Split(loadSentPartStatusVectorErr, "%")[0]
 	_, err = loadSentTransfer(tid, kv)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("loadSentTransfer did not return the expected error when "+
-			"the in-progress vector was deleted from storage."+
-			"\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Error path: tests that loadSentTransfer returns the expected error when the
-// finished status state vector was deleted from storage.
-func Test_loadSentTransfer_LoadFinishedStateVectorError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
-	tid, st := newRandomSentTransfer(16, 24, kv, t)
-
-	// Delete the finished state vector from storage
-	err := st.finishedStatus.Delete()
-	if err != nil {
-		t.Errorf("Failed to delete the finished vector: %+v", err)
-	}
-
-	expectedErr := strings.Split(loadSentFinishedVectorErr, "%")[0]
-	_, err = loadSentTransfer(tid, kv)
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("loadSentTransfer did not return the expected error when "+
-			"the finished vector was deleted from storage."+
+			"the partStats vector was deleted from storage."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
@@ -1478,11 +1507,11 @@ func TestSentTransfer_delete(t *testing.T) {
 	_, st := newRandomSentTransfer(16, 24, kv, t)
 
 	// Add in-progress transfers
-	err, _ := st.SetInProgress(5, 3, 4, 5)
+	_, err := st.SetInProgress(5, 3, 4, 5)
 	if err != nil {
 		t.Errorf("Failed to add parts to in-progress transfer: %+v", err)
 	}
-	err, _ = st.SetInProgress(10, 10, 11, 12)
+	_, err = st.SetInProgress(10, 10, 11, 12)
 	if err != nil {
 		t.Errorf("Failed to add parts to in-progress transfer: %+v", err)
 	}
@@ -1730,10 +1759,11 @@ func checkSentTracker(track interfaces.FilePartTracker, numParts uint16,
 		var done bool
 		for _, inProgressNum := range inProgress {
 			if inProgressNum == partNum {
-				if track.GetPartStatus(partNum) != interfaces.FpSent {
+				status := track.GetPartStatus(partNum)
+				if status != interfaces.FpSent {
 					t.Errorf("Part number %d has unexpected status."+
-						"\nexpected: %d\nreceived: %d", partNum,
-						interfaces.FpSent, track.GetPartStatus(partNum))
+						"\nexpected: %d\nreceived: %d",
+						partNum, interfaces.FpSent, status)
 				}
 				done = true
 				break
@@ -1745,10 +1775,11 @@ func checkSentTracker(track interfaces.FilePartTracker, numParts uint16,
 
 		for _, finishedNum := range finished {
 			if finishedNum == partNum {
-				if track.GetPartStatus(partNum) != interfaces.FpArrived {
+				status := track.GetPartStatus(partNum)
+				if status != interfaces.FpArrived {
 					t.Errorf("Part number %d has unexpected status."+
-						"\nexpected: %d\nreceived: %d", partNum,
-						interfaces.FpArrived, track.GetPartStatus(partNum))
+						"\nexpected: %d\nreceived: %d",
+						partNum, interfaces.FpArrived, status)
 				}
 				done = true
 				break
@@ -1758,10 +1789,11 @@ func checkSentTracker(track interfaces.FilePartTracker, numParts uint16,
 			continue
 		}
 
-		if track.GetPartStatus(partNum) != interfaces.FpUnsent {
+		status := track.GetPartStatus(partNum)
+		if status != interfaces.FpUnsent {
 			t.Errorf("Part number %d has incorrect status."+
 				"\nexpected: %d\nreceived: %d",
-				partNum, interfaces.FpUnsent, track.GetPartStatus(partNum))
+				partNum, interfaces.FpUnsent, status)
 		}
 	}
 }

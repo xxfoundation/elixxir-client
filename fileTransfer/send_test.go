@@ -9,12 +9,18 @@ package fileTransfer
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/stoppable"
 	ftStorage "gitlab.com/elixxir/client/storage/fileTransfer"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
@@ -33,7 +39,7 @@ import (
 // progress on the callback.
 func TestManager_sendThread(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{12, 4, 1}, false, true, nil, nil, t)
+		[]uint16{12, 4, 1}, false, true, nil, nil, nil, t)
 
 	// Add three transfers
 	partsToSend := [][]uint16{
@@ -79,18 +85,16 @@ func TestManager_sendThread(t *testing.T) {
 		queuedParts[i], queuedParts[j] = queuedParts[j], queuedParts[i]
 	})
 
-	// Crate custom getRngNum function that always returns 11
+	// Create custom RNG function that always returns 11
 	getNumParts := func(rng csprng.Source) int {
 		return len(queuedParts)
 	}
 
-	// Register channel for health tracking
-	healthyChan := make(chan bool)
-	m.net.GetHealthTracker().AddChannel(healthyChan)
-
 	// Start sending thread
 	stop := stoppable.NewSingle("testSendThreadStoppable")
-	go m.sendThread(stop, healthyChan, getNumParts)
+	healthyChan := make(chan bool, 8)
+	healthyChan <- true
+	go m.sendThread(stop, healthyChan, 0, getNumParts)
 
 	// Add parts to queue
 	for _, part := range queuedParts {
@@ -110,11 +114,53 @@ func TestManager_sendThread(t *testing.T) {
 	}
 }
 
+// Tests that Manager.sendThread successfully sends the parts and reports their
+// progress on the callback.
+func TestManager_sendThread_NetworkNotHealthy(t *testing.T) {
+	m, _, _ := newTestManagerWithTransfers(
+		[]uint16{12, 4, 1}, false, true, nil, nil, nil, t)
+
+	sendingChan := make(chan bool, 4)
+	getNumParts := func(csprng.Source) int {
+		sendingChan <- true
+		return 0
+	}
+
+	// Start sending thread
+	stop := stoppable.NewSingle("testSendThreadStoppable")
+	healthyChan := make(chan bool, 8)
+	go m.sendThread(stop, healthyChan, 0, getNumParts)
+
+	for i := 0; i < 15; i++ {
+		healthyChan <- false
+	}
+	m.sendQueue <- queuedPart{ftCrypto.TransferID{5}, 0}
+
+	select {
+	case <-time.NewTimer(150 * time.Millisecond).C:
+		healthyChan <- true
+	case r := <-sendingChan:
+		t.Errorf("sendThread tried to send even though the network is "+
+			"unhealthy. %t", r)
+	}
+
+	select {
+	case <-time.NewTimer(150 * time.Millisecond).C:
+		t.Errorf("Timed out waiting for sending to start.")
+	case <-sendingChan:
+	}
+
+	err := stop.Close()
+	if err != nil {
+		t.Errorf("Failed to stop stoppable: %+v", err)
+	}
+}
+
 // Tests that Manager.sendThread successfully sends a partially filled batch
 // of the correct length when its times out waiting for messages.
 func TestManager_sendThread_Timeout(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{12, 4, 1}, false, false, nil, nil, t)
+		[]uint16{12, 4, 1}, false, false, nil, nil, nil, t)
 
 	// Add three transfers
 	partsToSend := [][]uint16{
@@ -162,13 +208,9 @@ func TestManager_sendThread_Timeout(t *testing.T) {
 		return len(queuedParts)
 	}
 
-	// Register channel for health tracking
-	healthyChan := make(chan bool)
-	m.net.GetHealthTracker().AddChannel(healthyChan)
-
 	// Start sending thread
 	stop := stoppable.NewSingle("testSendThreadStoppable")
-	go m.sendThread(stop, healthyChan, getNumParts)
+	go m.sendThread(stop, make(chan bool), 0, getNumParts)
 
 	// Add parts to queue
 	for _, part := range queuedParts[:5] {
@@ -194,7 +236,7 @@ func TestManager_sendThread_Timeout(t *testing.T) {
 // the progress callbacks with the correct values.
 func TestManager_sendParts(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{12, 4, 1}, false, true, nil, nil, t)
+		[]uint16{12, 4, 1}, false, true, nil, nil, nil, t)
 
 	// Add three transfers
 	partsToSend := [][]uint16{
@@ -279,7 +321,7 @@ func TestManager_sendParts(t *testing.T) {
 // the progress.
 func TestManager_sendParts_SendManyCmixError(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{12, 4, 1}, true, false, nil, nil, t)
+		[]uint16{12, 4, 1}, true, false, nil, nil, nil, t)
 	partsToSend := [][]uint16{
 		{0, 1, 3, 5, 6, 7},
 		{1, 2, 3, 0},
@@ -332,11 +374,47 @@ func TestManager_sendParts_SendManyCmixError(t *testing.T) {
 	wg.Wait()
 }
 
+// Error path: tests that Manager.sendParts returns the expected error whe
+// getRoundResults returns an error.
+func TestManager_sendParts_RoundResultsError(t *testing.T) {
+	m, sti, _ := newTestManagerWithTransfers(
+		[]uint16{12}, false, true, nil, nil, nil, t)
+
+	grrErr := errors.New("GetRoundResultsError")
+	m.getRoundResults =
+		func([]id.Round, time.Duration, api.RoundEventCallback) error {
+			return grrErr
+		}
+
+	// Add three transfers
+	partsToSend := [][]uint16{
+		{0, 1, 3, 5, 6, 7},
+	}
+
+	// Create queued part list, add parts from each transfer, and shuffle
+	queuedParts := make([]queuedPart, 0, 11)
+	tIDs := make([]ftCrypto.TransferID, 0, len(sti))
+	for i, sendingParts := range partsToSend {
+		for _, part := range sendingParts {
+			queuedParts = append(queuedParts, queuedPart{sti[i].tid, part})
+		}
+		tIDs = append(tIDs, sti[i].tid)
+	}
+
+	expectedErr := fmt.Sprintf(getRoundResultsErr, 0, tIDs, grrErr)
+	err := m.sendParts(queuedParts)
+	if err == nil || err.Error() != expectedErr {
+		t.Errorf("sendParts did not return the expected error when "+
+			"GetRoundResults should have returned an error."+
+			"\nexpected: %s\nreceived: %+v", expectedErr, err)
+	}
+}
+
 // Tests that Manager.buildMessages returns the expected values for a group
 // of 11 file parts from three different transfers.
 func TestManager_buildMessages(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{12, 4, 1}, false, false, nil, nil, t)
+		[]uint16{12, 4, 1}, false, false, nil, nil, nil, t)
 	partsToSend := [][]uint16{
 		{0, 1, 3, 5, 6, 7},
 		{1, 2, 3, 0},
@@ -432,18 +510,11 @@ func TestManager_buildMessages(t *testing.T) {
 func TestManager_buildMessages_MessageBuildFailureError(t *testing.T) {
 	m := newTestManager(false, nil, nil, nil, nil, t)
 
-	// Add transfer
-
-	type callbackResults struct {
-		completed            bool
-		sent, arrived, total uint16
-		err                  error
-	}
-
-	callbackChan := make(chan callbackResults, 10)
+	callbackChan := make(chan sentProgressResults, 10)
 	progressCB := func(completed bool, sent, arrived, total uint16,
-		t interfaces.FilePartTracker, err error) {
-		callbackChan <- callbackResults{completed, sent, arrived, total, err}
+		tr interfaces.FilePartTracker, err error) {
+		callbackChan <- sentProgressResults{
+			completed, sent, arrived, total, tr, err}
 	}
 
 	done0, done1 := make(chan bool), make(chan bool)
@@ -611,19 +682,33 @@ func TestManager_newCmixMessage(t *testing.T) {
 // Tests that Manager.makeRoundEventCallback returns a callback that calls the
 // progress callback when a round succeeds.
 func TestManager_makeRoundEventCallback(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, nil, t)
+	sendE2eChan := make(chan message.Receive, 100)
+	m := newTestManager(false, nil, sendE2eChan, nil, nil, t)
 
-	// Add transfer
-	type callbackResults struct {
-		completed            bool
-		sent, arrived, total uint16
-		err                  error
+	callbackChan := make(chan sentProgressResults, 100)
+	progressCB := func(completed bool, sent, arrived, total uint16,
+		tr interfaces.FilePartTracker, err error) {
+		callbackChan <- sentProgressResults{
+			completed, sent, arrived, total, tr, err}
 	}
 
-	callbackChan := make(chan callbackResults, 10)
-	progressCB := func(completed bool, sent, arrived, total uint16,
-		t interfaces.FilePartTracker, err error) {
-		callbackChan <- callbackResults{completed, sent, arrived, total, err}
+	// Add recipient as partner
+	recipient := id.NewIdFromString("recipient", id.User, t)
+	grp := m.store.E2e().GetGroup()
+	dhKey := grp.NewInt(42)
+	pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
+	p := params.GetDefaultE2ESessionParams()
+
+	rng := csprng.NewSystemRNG()
+	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA,
+		rng)
+	theirSidhPub, _ := util.GenerateSIDHKeyPair(
+		sidh.KeyVariantSidhB, rng)
+
+	err := m.store.E2e().AddPartner(recipient, pubKey, dhKey, mySidhPriv,
+		theirSidhPub, p, p)
+	if err != nil {
+		t.Errorf("Failed to add partner %s: %+v", recipient, err)
 	}
 
 	done0, done1 := make(chan bool), make(chan bool)
@@ -650,7 +735,6 @@ func TestManager_makeRoundEventCallback(t *testing.T) {
 	}()
 
 	prng := NewPrng(42)
-	recipient := id.NewIdFromString("recipient", id.User, t)
 	key, _ := ftCrypto.NewTransferKey(prng)
 	_, parts := newFile(4, 64, prng, t)
 	tid, err := m.sent.AddTransfer(
@@ -684,6 +768,19 @@ func TestManager_makeRoundEventCallback(t *testing.T) {
 	roundEventCB(true, false, map[id.Round]api.RoundResult{rid: api.Succeeded})
 
 	<-done1
+
+	select {
+	case <-time.NewTimer(50 * time.Millisecond).C:
+		t.Errorf("Timed out waiting for end E2E message.")
+	case msg := <-sendE2eChan:
+		if msg.MessageType != message.EndFileTransfer {
+			t.Errorf("E2E message has wrong type.\nexpected: %d\nreceived: %d",
+				message.EndFileTransfer, msg.MessageType)
+		} else if !msg.RecipientID.Cmp(recipient) {
+			t.Errorf("E2E message has wrong recipient."+
+				"\nexpected: %d\nreceived: %d", recipient, msg.RecipientID)
+		}
+	}
 }
 
 // Tests that Manager.makeRoundEventCallback returns a callback that calls the
@@ -693,17 +790,11 @@ func TestManager_makeRoundEventCallback_RoundFailure(t *testing.T) {
 
 	rid := id.Round(42)
 
-	// Add transfer
-	type callbackResults struct {
-		completed            bool
-		sent, arrived, total uint16
-		err                  error
-	}
-
-	callbackChan := make(chan callbackResults, 10)
+	callbackChan := make(chan sentProgressResults, 10)
 	progressCB := func(completed bool, sent, arrived, total uint16,
-		t interfaces.FilePartTracker, err error) {
-		callbackChan <- callbackResults{completed, sent, arrived, total, err}
+		tr interfaces.FilePartTracker, err error) {
+		callbackChan <- sentProgressResults{
+			completed, sent, arrived, total, tr, err}
 	}
 
 	prng := NewPrng(42)
@@ -761,6 +852,53 @@ func TestManager_makeRoundEventCallback_RoundFailure(t *testing.T) {
 	roundEventCB(false, false, map[id.Round]api.RoundResult{rid: api.Failed})
 
 	<-done1
+}
+
+// Tests that Manager.sendEndE2eMessage sends an E2E message with the expected
+// recipient and message type. This does not test round tracking or critical
+// messages.
+func TestManager_sendEndE2eMessage(t *testing.T) {
+	sendE2eChan := make(chan message.Receive, 10)
+	m := newTestManager(false, nil, sendE2eChan, nil, nil, t)
+
+	// Add recipient as partner
+	recipient := id.NewIdFromString("recipient", id.User, t)
+	grp := m.store.E2e().GetGroup()
+	dhKey := grp.NewInt(42)
+	pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
+	p := params.GetDefaultE2ESessionParams()
+
+	rng := csprng.NewSystemRNG()
+	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA,
+		rng)
+	theirSidhPub, _ := util.GenerateSIDHKeyPair(
+		sidh.KeyVariantSidhB, rng)
+
+	err := m.store.E2e().AddPartner(recipient, pubKey, dhKey, mySidhPriv,
+		theirSidhPub, p, p)
+	if err != nil {
+		t.Errorf("Failed to add partner %s: %+v", recipient, err)
+	}
+
+	go func() {
+		err = m.sendEndE2eMessage(recipient)
+		if err != nil {
+			t.Errorf("sendEndE2eMessage returned an error: %+v", err)
+		}
+	}()
+
+	select {
+	case <-time.NewTimer(50 * time.Millisecond).C:
+		t.Errorf("Timed out waiting for end E2E message.")
+	case msg := <-sendE2eChan:
+		if msg.MessageType != message.EndFileTransfer {
+			t.Errorf("E2E message has wrong type.\nexpected: %d\nreceived: %d",
+				message.EndFileTransfer, msg.MessageType)
+		} else if !msg.RecipientID.Cmp(recipient) {
+			t.Errorf("E2E message has wrong recipient."+
+				"\nexpected: %d\nreceived: %d", recipient, msg.RecipientID)
+		}
+	}
 }
 
 // Tests that Manager.queueParts adds all the expected parts to the sendQueue

@@ -16,35 +16,35 @@ import (
 	"testing"
 )
 
-// Tests that SentPartTracker satisfies the interfaces.FilePartTracker
+// Tests that sentPartTracker satisfies the interfaces.FilePartTracker
 // interface.
-func TestSentPartTracker_FilePartTrackerInterface(t *testing.T) {
-	var _ interfaces.FilePartTracker = SentPartTracker{}
+func Test_sentPartTracker_FilePartTrackerInterface(t *testing.T) {
+	var _ interfaces.FilePartTracker = sentPartTracker{}
 }
 
-// Tests that NewSentPartTracker returns a new SentPartTracker with the expected
+// Tests that newSentPartTracker returns a new sentPartTracker with the expected
 // values.
-func TestNewSentPartTracker(t *testing.T) {
+func Test_newSentPartTracker(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	_, st := newRandomSentTransfer(16, 24, kv, t)
 
-	expected := SentPartTracker{
+	expected := sentPartTracker{
 		numParts:         st.numParts,
 		inProgressStatus: st.inProgressStatus.DeepCopy(),
 		finishedStatus:   st.finishedStatus.DeepCopy(),
 	}
 
-	newSPT := NewSentPartTracker(st.inProgressStatus, st.finishedStatus)
+	newSPT := newSentPartTracker(st.inProgressStatus, st.finishedStatus)
 
 	if !reflect.DeepEqual(expected, newSPT) {
-		t.Errorf("New SentPartTracker does not match expected."+
+		t.Errorf("New sentPartTracker does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expected, newSPT)
 	}
 }
 
-// Tests that SentPartTracker.GetPartStatus returns the expected status for each
+// Tests that sentPartTracker.GetPartStatus returns the expected status for each
 // part loaded from a preconfigured SentTransfer.
-func TestSentPartTracker_GetPartStatus(t *testing.T) {
+func Test_sentPartTracker_GetPartStatus(t *testing.T) {
 	// Create new SentTransfer
 	kv := versioned.NewKV(make(ekv.Memstore))
 	_, st := newRandomSentTransfer(16, 24, kv, t)
@@ -63,8 +63,8 @@ func TestSentPartTracker_GetPartStatus(t *testing.T) {
 		}
 	}
 
-	// Create a new SentPartTracker from the SentTransfer
-	spt := NewSentPartTracker(st.inProgressStatus, st.finishedStatus)
+	// Create a new sentPartTracker from the SentTransfer
+	spt := newSentPartTracker(st.inProgressStatus, st.finishedStatus)
 
 	// Check that the statuses for each part matches the map
 	for partNum := uint16(0); partNum < st.numParts; partNum++ {
@@ -76,15 +76,15 @@ func TestSentPartTracker_GetPartStatus(t *testing.T) {
 	}
 }
 
-// Tests that SentPartTracker.GetNumParts returns the same number of parts as
+// Tests that sentPartTracker.GetNumParts returns the same number of parts as
 // the SentTransfer it was created from.
-func TestSentPartTracker_GetNumParts(t *testing.T) {
+func Test_sentPartTracker_GetNumParts(t *testing.T) {
 	// Create new SentTransfer
 	kv := versioned.NewKV(make(ekv.Memstore))
 	_, st := newRandomSentTransfer(16, 24, kv, t)
 
-	// Create a new SentPartTracker from the SentTransfer
-	spt := NewSentPartTracker(st.inProgressStatus, st.finishedStatus)
+	// Create a new sentPartTracker from the SentTransfer
+	spt := newSentPartTracker(st.inProgressStatus, st.finishedStatus)
 
 	if spt.GetNumParts() != st.GetNumParts() {
 		t.Errorf("Number of parts incorrect.\nexpected: %d\nreceived: %d",

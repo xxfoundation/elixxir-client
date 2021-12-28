@@ -10,6 +10,7 @@ package fileTransfer
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
@@ -19,6 +20,7 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	ftStorage "gitlab.com/elixxir/client/storage/fileTransfer"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/network"
@@ -206,9 +208,10 @@ func newTestManager(sendErr bool, sendChan, sendE2eChan chan message.Receive,
 // newTestManagerWithTransfers creates a new test manager with transfers added
 // to it.
 func newTestManagerWithTransfers(numParts []uint16, sendErr, addPartners bool,
-	receiveCB interfaces.ReceiveCallback, kv *versioned.KV, t *testing.T) (
-	*Manager, []sentTransferInfo, []receivedTransferInfo) {
-	m := newTestManager(sendErr, nil, nil, receiveCB, kv, t)
+	sendE2eChan chan message.Receive, receiveCB interfaces.ReceiveCallback,
+	kv *versioned.KV, t *testing.T) (*Manager, []sentTransferInfo,
+	[]receivedTransferInfo) {
+	m := newTestManager(sendErr, sendE2eChan, nil, receiveCB, kv, t)
 	sti := make([]sentTransferInfo, len(numParts))
 	rti := make([]receivedTransferInfo, len(numParts))
 	var err error
@@ -263,7 +266,13 @@ func newTestManagerWithTransfers(numParts []uint16, sendErr, addPartners bool,
 			dhKey := grp.NewInt(int64(i + 42))
 			pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
 			p := params.GetDefaultE2ESessionParams()
-			err = m.store.E2e().AddPartner(recipient, pubKey, dhKey, p, p)
+			rng := csprng.NewSystemRNG()
+			_, mySidhPriv := util.GenerateSIDHKeyPair(
+				sidh.KeyVariantSidhA, rng)
+			theirSidhPub, _ := util.GenerateSIDHKeyPair(
+				sidh.KeyVariantSidhB, rng)
+			err = m.store.E2e().AddPartner(recipient, pubKey, dhKey,
+				mySidhPriv, theirSidhPub, p, p)
 			if err != nil {
 				t.Errorf("Failed to add partner #%d %s: %+v", i, recipient, err)
 			}
@@ -444,6 +453,8 @@ func (tnm *testNetworkManager) SendE2E(msg message.Send, _ params.E2E, _ *stoppa
 		tnm.sendE2eChan <- message.Receive{
 			Payload:     msg.Payload,
 			MessageType: msg.MessageType,
+			Sender:      &id.ID{},
+			RecipientID: msg.Recipient,
 		}
 	}
 

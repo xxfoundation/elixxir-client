@@ -68,7 +68,8 @@ const pollSleepDuration = 100 * time.Millisecond
 // receives a random number between 1 and 11 of file parts, they are encrypted,
 // put into cMix messages, and sent to their recipients. Failed messages are
 // added to the end of the queue.
-func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool, getNumParts getRngNum) {
+func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool,
+	healthChanID uint64, getNumParts getRngNum) {
 	jww.DEBUG.Print("Starting file part sending thread.")
 
 	// Calculate the average amount of data sent via SendManyCMIX
@@ -96,7 +97,7 @@ func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool, getNu
 		select {
 		case <-stop.Quit():
 			// Close the thread when the stoppable is triggered
-			m.closeSendThread(partList, stop)
+			m.closeSendThread(partList, stop, healthChanID)
 
 			return
 		case healthy := <-healthChan:
@@ -125,7 +126,8 @@ func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool, getNu
 
 			// If the batch is full, then send the parts
 			if len(partList) == numParts {
-				quit := m.handleSend(&partList, &lastSend, delay, stop)
+				quit := m.handleSend(
+					&partList, &lastSend, delay, stop, healthChan, healthChanID)
 				if quit {
 					return
 				}
@@ -141,7 +143,8 @@ func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool, getNu
 				continue
 			}
 
-			quit := m.handleSend(&partList, &lastSend, delay, stop)
+			quit := m.handleSend(
+				&partList, &lastSend, delay, stop, healthChan, healthChanID)
 			if quit {
 				return
 			}
@@ -151,7 +154,8 @@ func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool, getNu
 
 // closeSendThread safely stops the sending thread by saving unsent parts to the
 // queue and setting the stoppable to stopped.
-func (m *Manager) closeSendThread(partList []queuedPart, stop *stoppable.Single) {
+func (m *Manager) closeSendThread(partList []queuedPart, stop *stoppable.Single,
+	healthChanID uint64) {
 	// Exit the thread if the stoppable is triggered
 	jww.DEBUG.Print("Stopping file part sending thread: stoppable triggered.")
 
@@ -160,6 +164,10 @@ func (m *Manager) closeSendThread(partList []queuedPart, stop *stoppable.Single)
 		m.sendQueue <- part
 	}
 
+	// Unregister network health channel
+	m.net.GetHealthTracker().RemoveChannel(healthChanID)
+
+	// Mark stoppable as stopped
 	stop.ToStopped()
 }
 
@@ -169,16 +177,31 @@ func (m *Manager) closeSendThread(partList []queuedPart, stop *stoppable.Single)
 // Returns true if the stoppable has been triggered and the sending thread
 // should quit.
 func (m *Manager) handleSend(partList *[]queuedPart, lastSend *time.Time,
-	delay time.Duration, stop *stoppable.Single) bool {
+	delay time.Duration, stop *stoppable.Single, _ chan bool,
+	healthChanID uint64) bool {
 	// Bandwidth limiter: wait to send until the delay has been reached so that
 	// the bandwidth is limited to the maximum throughput
 	if netTime.Since(*lastSend) < delay {
+		waitingTime := delay - netTime.Since(*lastSend)
+		jww.TRACE.Printf("Suspending file part sending: "+
+			"bandwidth limit reached; waiting %s to send.", waitingTime)
 		select {
 		case <-stop.Quit():
 			// Close the thread when the stoppable is triggered
-			m.closeSendThread(*partList, stop)
+			m.closeSendThread(*partList, stop, healthChanID)
 
 			return true
+		// TODO: is this needed?
+		// case healthy := <-healthChan:
+		// 	// If the network is unhealthy, wait until it becomes healthy
+		// 	if !healthy {
+		// 		jww.TRACE.Print("Suspending file part sending: " +
+		// 			"network is unhealthy.")
+		// 	}
+		// 	for !healthy {
+		// 		healthy = <-healthChan
+		// 	}
+		// 	jww.TRACE.Print("File part sending continuing: network is healthy.")
 		case <-time.NewTimer(delay - netTime.Since(*lastSend)).C:
 		}
 	}
@@ -430,7 +453,6 @@ func (m *Manager) makeRoundEventCallback(
 
 // sendEndE2eMessage sends an E2E message to the recipient once the transfer
 // complete information them that all file parts have been sent.
-// TODO: test
 func (m *Manager) sendEndE2eMessage(recipient *id.ID) error {
 	// Get the partner
 	partner, err := m.store.E2e().GetPartner(recipient)

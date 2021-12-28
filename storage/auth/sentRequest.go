@@ -10,8 +10,10 @@ package auth
 import (
 	"encoding/hex"
 	"encoding/json"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
@@ -28,6 +30,8 @@ type SentRequest struct {
 	partnerHistoricalPubKey *cyclic.Int
 	myPrivKey               *cyclic.Int
 	myPubKey                *cyclic.Int
+	mySidHPrivKeyA          *sidh.PrivateKey
+	mySidHPubKeyA           *sidh.PublicKey
 	fingerprint             format.Fingerprint
 }
 
@@ -35,6 +39,8 @@ type sentRequestDisk struct {
 	PartnerHistoricalPubKey []byte
 	MyPrivKey               []byte
 	MyPubKey                []byte
+	MySidHPrivKeyA          []byte
+	MySidHPubKeyA           []byte
 	Fingerprint             []byte
 }
 
@@ -71,6 +77,22 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 			"key with %s for SentRequest Auth", partner)
 	}
 
+	mySidHPrivKeyA := sidh.NewPrivateKey(sidhinterface.KeyId,
+		sidh.KeyVariantSidhA)
+	if err = mySidHPrivKeyA.Import(srd.MySidHPrivKeyA); err != nil {
+		return nil, errors.WithMessagef(err,
+			"Failed to decode sidh private key "+
+				"with %s for SentRequest Auth", partner)
+	}
+
+	mySidHPubKeyA := sidh.NewPublicKey(sidhinterface.KeyId,
+		sidh.KeyVariantSidhA)
+	if err = mySidHPubKeyA.Import(srd.MySidHPubKeyA); err != nil {
+		return nil, errors.WithMessagef(err,
+			"Failed to decode sidh public "+
+				"key with %s for SentRequest Auth", partner)
+	}
+
 	fp := format.Fingerprint{}
 	copy(fp[:], srd.Fingerprint)
 
@@ -91,6 +113,8 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 		partnerHistoricalPubKey: historicalPubKey,
 		myPrivKey:               myPrivKey,
 		myPubKey:                myPubKey,
+		mySidHPrivKeyA:          mySidHPrivKeyA,
+		mySidHPubKeyA:           mySidHPubKeyA,
 		fingerprint:             fp,
 	}, nil
 }
@@ -122,10 +146,17 @@ func (sr *SentRequest) save() error {
 	jww.INFO.Printf("saveSentRequest fingerprint: %s",
 		hex.EncodeToString(sr.fingerprint[:]))
 
+	sidHPriv := make([]byte, sidhinterface.PrivKeyByteSize)
+	sidHPub := make([]byte, sidhinterface.PubKeyByteSize)
+	sr.mySidHPrivKeyA.Export(sidHPriv)
+	sr.mySidHPubKeyA.Export(sidHPub)
+
 	ipd := sentRequestDisk{
 		PartnerHistoricalPubKey: historicalPubKey,
 		MyPrivKey:               privKey,
 		MyPubKey:                pubKey,
+		MySidHPrivKeyA:          sidHPriv,
+		MySidHPubKeyA:           sidHPub,
 		Fingerprint:             sr.fingerprint[:],
 	}
 
@@ -163,6 +194,24 @@ func (sr *SentRequest) GetMyPrivKey() *cyclic.Int {
 
 func (sr *SentRequest) GetMyPubKey() *cyclic.Int {
 	return sr.myPubKey
+}
+
+func (sr *SentRequest) GetMySIDHPrivKey() *sidh.PrivateKey {
+	return sr.mySidHPrivKeyA
+}
+
+func (sr *SentRequest) GetMySIDHPubKey() *sidh.PublicKey {
+	return sr.mySidHPubKeyA
+}
+
+// OverwriteSIDHKeys is used to temporarily overwrite sidh keys
+// to handle e.g., confirmation requests.
+// FIXME: this is a code smell but was the cleanest solution at
+// the time. Business logic should probably handle this better?
+func (sr *SentRequest) OverwriteSIDHKeys(priv *sidh.PrivateKey,
+	pub *sidh.PublicKey) {
+	sr.mySidHPrivKeyA = priv
+	sr.mySidHPubKeyA = pub
 }
 
 func (sr *SentRequest) GetFingerprint() format.Fingerprint {

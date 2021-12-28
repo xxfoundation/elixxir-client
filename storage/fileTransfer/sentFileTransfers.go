@@ -118,7 +118,7 @@ func (sft *SentFileTransfersStore) DeleteTransfer(tid ftCrypto.TransferID) error
 	}
 
 	// Cancel any scheduled callbacks
-	err := st.StopScheduledProgressCB()
+	err := st.stopScheduledProgressCB()
 	if err != nil {
 		jww.WARN.Print(errors.Errorf(cancelCallbackErr, tid, err))
 	}
@@ -175,7 +175,7 @@ func (sft *SentFileTransfersStore) GetSentRounds() map[id.Round][]ftCrypto.Trans
 
 // GetUnsentPartsAndSentRounds returns two maps. The first is a map of all
 // transfers and a list of their parts that have not been sent (parts that were
-// never marked as in-progress). The seconds is a map of all round IDs and which
+// never marked as in-progress). The second is a map of all round IDs and which
 // transfers have parts sent on those rounds (parts marked in-progress). This
 // function performs the same operations as GetUnsentParts and GetSentRounds but
 // in a single loop.

@@ -8,12 +8,15 @@
 package keyExchange
 
 import (
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/e2e"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"math/rand"
 	"testing"
 )
 
@@ -36,13 +39,29 @@ func TestHandleConfirm(t *testing.T) {
 	alicePrivKey := aliceSession.E2e().GetDHPrivateKey()
 	bobPubKey := bobSession.E2e().GetDHPublicKey()
 
+	aliceVariant := sidh.KeyVariantSidhA
+	prng1 := rand.New(rand.NewSource(int64(1)))
+	aliceSIDHPrivKey := util.NewSIDHPrivateKey(aliceVariant)
+	aliceSIDHPubKey := util.NewSIDHPublicKey(aliceVariant)
+	aliceSIDHPrivKey.Generate(prng1)
+	aliceSIDHPrivKey.GeneratePublicKey(aliceSIDHPubKey)
+
+	bobVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
+	prng2 := rand.New(rand.NewSource(int64(2)))
+	bobSIDHPrivKey := util.NewSIDHPrivateKey(bobVariant)
+	bobSIDHPubKey := util.NewSIDHPublicKey(bobVariant)
+	bobSIDHPrivKey.Generate(prng2)
+	bobSIDHPrivKey.GeneratePublicKey(bobSIDHPubKey)
+
 	// Add bob as a partner
 	aliceSession.E2e().AddPartner(bobID, bobPubKey, alicePrivKey,
+		bobSIDHPubKey, aliceSIDHPrivKey,
 		params.GetDefaultE2ESessionParams(),
 		params.GetDefaultE2ESessionParams())
 
 	// Generate a session ID, bypassing some business logic here
-	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup)
+	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup,
+		aliceSIDHPrivKey, bobSIDHPubKey)
 
 	// Get Alice's manager for Bob
 	receivedManager, err := aliceSession.E2e().GetPartner(bobID)

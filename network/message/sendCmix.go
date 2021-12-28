@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/elixxir/primitives/format"
@@ -87,6 +88,14 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 	jww.INFO.Printf("Looking for round to send cMix message to %s "+
 		"(msgDigest: %s)", recipient, msg.Digest())
 
+	stream := rng.GetStream()
+	defer stream.Close()
+	grp := session.Cmix().GetGroup()
+
+	// flip leading bits randomly to thwart a tagging attack.
+	// See SetGroupBits for more info
+	cmix.SetGroupBits(msg, grp, stream)
+
 	for numRoundTries := uint(0); numRoundTries < cmixParams.RoundTries; numRoundTries++ {
 		elapsed := netTime.Since(timeStart)
 
@@ -138,15 +147,12 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		}
 
 		// Build the messages to send
-		stream := rng.GetStream()
 
 		wrappedMsg, encMsg, ephID, err := buildSlotMessage(msg, recipient,
 			firstGateway, stream, senderId, bestRound, roundKeys, cmixParams)
 		if err != nil {
-			stream.Close()
 			return 0, ephemeral.Id{}, err
 		}
-		stream.Close()
 
 		jww.INFO.Printf("Sending to EphID %d (%s) on round %d, "+
 			"(msgDigest: %s, ecrMsgDigest: %s) via gateway %s",

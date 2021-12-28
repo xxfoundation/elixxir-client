@@ -9,8 +9,10 @@ package e2e
 
 import (
 	"errors"
+	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/utility"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -30,6 +32,11 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
 
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+
 	// create context objects for general use
 	fps := newFingerprints()
 	ctx := &context{
@@ -40,8 +47,9 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 
 	// build the session
 	s := &Session{
-		partnerPubKey: partnerPubKey,
-		e2eParams:     params.GetDefaultE2ESessionParams(),
+		partnerPubKey:     partnerPubKey,
+		partnerSIDHPubKey: partnerSIDHPubKey,
+		e2eParams:         params.GetDefaultE2ESessionParams(),
 		relationship: &relationship{
 			manager: &Manager{ctx: ctx},
 		},
@@ -57,7 +65,8 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 	}
 
 	// verify the base key is correct
-	expectedBaseKey := dh.GenerateSessionKey(s.myPrivKey, s.partnerPubKey, grp)
+	expectedBaseKey := GenerateE2ESessionBaseKey(s.myPrivKey,
+		s.partnerPubKey, grp, s.mySIDHPrivKey, s.partnerSIDHPubKey)
 
 	if expectedBaseKey.Cmp(s.baseKey) != 0 {
 		t.Errorf("generated base key does not match expected base key")
@@ -91,6 +100,15 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
+
 	// create context objects for general use
 	fps := newFingerprints()
 	ctx := &context{
@@ -100,9 +118,11 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 
 	// build the session
 	s := &Session{
-		myPrivKey:     myPrivKey,
-		partnerPubKey: partnerPubKey,
-		e2eParams:     params.GetDefaultE2ESessionParams(),
+		myPrivKey:         myPrivKey,
+		partnerPubKey:     partnerPubKey,
+		mySIDHPrivKey:     mySIDHPrivKey,
+		partnerSIDHPubKey: partnerSIDHPubKey,
+		e2eParams:         params.GetDefaultE2ESessionParams(),
 		relationship: &relationship{
 			manager: &Manager{ctx: ctx},
 		},
@@ -118,7 +138,8 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 	}
 
 	// verify the base key is correct
-	expectedBaseKey := dh.GenerateSessionKey(s.myPrivKey, s.partnerPubKey, grp)
+	expectedBaseKey := GenerateE2ESessionBaseKey(s.myPrivKey,
+		s.partnerPubKey, grp, s.mySIDHPrivKey, s.partnerSIDHPubKey)
 
 	if expectedBaseKey.Cmp(s.baseKey) != 0 {
 		t.Errorf("generated base key does not match expected base key")
@@ -149,9 +170,11 @@ func TestNewSession(t *testing.T) {
 	sessionA, _ := makeTestSession()
 
 	// Make a new session with the variables we got from makeTestSession
-	sessionB := newSession(sessionA.relationship, sessionA.t, sessionA.myPrivKey,
-		sessionA.partnerPubKey, sessionA.baseKey, sessionA.GetID(), []byte(""),
-		sessionA.negotiationStatus, sessionA.e2eParams)
+	sessionB := newSession(sessionA.relationship, sessionA.t,
+		sessionA.myPrivKey, sessionA.partnerPubKey, sessionA.baseKey,
+		sessionA.mySIDHPrivKey, sessionA.partnerSIDHPubKey,
+		sessionA.GetID(), []byte(""), sessionA.negotiationStatus,
+		sessionA.e2eParams)
 
 	err := cmpSerializedFields(sessionA, sessionB)
 	if err != nil {
@@ -582,10 +605,22 @@ func TestSession_GetTrigger(t *testing.T) {
 func makeTestSession() (*Session, *context) {
 	grp := getGroup()
 	rng := csprng.NewSystemRNG()
-	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
+	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength,
+		grp, rng)
 	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
-	baseKey := dh.GenerateSessionKey(myPrivKey, partnerPubKey, grp)
+
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
+
+	baseKey := GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
+		mySIDHPrivKey, partnerSIDHPubKey)
 
 	// create context objects for general use
 	fps := newFingerprints()
@@ -598,10 +633,12 @@ func makeTestSession() (*Session, *context) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
 	s := &Session{
-		baseKey:       baseKey,
-		myPrivKey:     myPrivKey,
-		partnerPubKey: partnerPubKey,
-		e2eParams:     params.GetDefaultE2ESessionParams(),
+		baseKey:           baseKey,
+		myPrivKey:         myPrivKey,
+		partnerPubKey:     partnerPubKey,
+		mySIDHPrivKey:     mySIDHPrivKey,
+		partnerSIDHPubKey: partnerSIDHPubKey,
+		e2eParams:         params.GetDefaultE2ESessionParams(),
 		relationship: &relationship{
 			manager: &Manager{
 				ctx:     ctx,

@@ -127,7 +127,8 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 	}
 
 	im := fmt.Sprintf("Received message of type %s from %s in round %d,"+
-		" msgDigest: %s", encTy, sender, bundle.Round, msgDigest)
+		" msgDigest: %s, keyFP: %v", encTy, sender, bundle.Round,
+		msgDigest, msg.GetKeyFP())
 	jww.INFO.Print(im)
 	m.Internal.Events.Report(2, "MessageReception", "MessagePart", im)
 
@@ -145,7 +146,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 		xxMsg.RoundId = id.Round(bundle.RoundInfo.ID)
 		xxMsg.RoundTimestamp = time.Unix(0, int64(bundle.RoundInfo.Timestamps[states.QUEUED]))
 		if xxMsg.MessageType == message.Raw {
-			rm := fmt.Sprintf("Recieved a message of type 'Raw' from %s."+
+			rm := fmt.Sprintf("Received a message of type 'Raw' from %s."+
 				"Message Ignored, 'Raw' is a reserved type. Message supressed.",
 				xxMsg.ID)
 			jww.WARN.Print(rm)

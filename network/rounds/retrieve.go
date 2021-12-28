@@ -49,7 +49,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 		case rl := <-m.lookupRoundMessages:
 			ri := rl.roundInfo
 			jww.DEBUG.Printf("Checking for messages in round %d", ri.ID)
-			err := m.Session.UncheckedRounds().AddRound(id.Round(ri.ID), nil,
+			err := m.Session.UncheckedRounds().AddRound(id.Round(ri.ID), ri,
 				rl.identity.Source, rl.identity.EphId)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to denote Unchecked Round for round %d", id.Round(ri.ID))
@@ -64,6 +64,10 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				}
 				gwId.SetType(id.Gateway)
 				gwIds[i] = gwId
+			}
+			if len(gwIds) == 0 {
+				jww.WARN.Printf("Empty gateway ID List")
+				continue
 			}
 			// Target the last node in the team first because it has
 			// messages first, randomize other members of the team
@@ -119,6 +123,11 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			}
 
 			if len(bundle.Messages) != 0 {
+				// If successful and there are messages, we send them to another thread
+				bundle.Identity = rl.identity
+				bundle.RoundInfo = rl.roundInfo
+				m.messageBundles <- bundle
+
 				jww.DEBUG.Printf("Removing round %d from unchecked store", ri.ID)
 				err = m.Session.UncheckedRounds().Remove(id.Round(ri.ID), rl.identity.Source, rl.identity.EphId)
 				if err != nil {
@@ -126,10 +135,6 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 						"from unchecked rounds store: %v", ri.ID, err)
 				}
 
-				// If successful and there are messages, we send them to another thread
-				bundle.Identity = rl.identity
-				bundle.RoundInfo = rl.roundInfo
-				m.messageBundles <- bundle
 			}
 
 		}

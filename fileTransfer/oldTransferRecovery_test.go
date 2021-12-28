@@ -8,6 +8,8 @@
 package fileTransfer
 
 import (
+	"fmt"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -18,6 +20,7 @@ import (
 	"reflect"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -26,7 +29,7 @@ import (
 func TestManager_oldTransferRecovery(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{6, 12, 18}, false, true, nil, kv, t)
+		[]uint16{6, 12, 18}, false, true, nil, nil, kv, t)
 
 	finishedRounds := make(map[id.Round][]ftCrypto.TransferID)
 	expectedStatus := make(
@@ -89,20 +92,29 @@ func TestManager_oldTransferRecovery(t *testing.T) {
 	}
 
 	// Load new manager from the original manager's storage
+	net := newTestNetworkManager(false, nil, nil, t)
 	loadedManager, err := newManager(
-		nil, nil, nil, nil, nil, rr, kv, nil, DefaultParams())
+		nil, nil, nil, net, nil, rr, kv, nil, DefaultParams())
 	if err != nil {
 		t.Errorf("Failed to create new manager from KV: %+v", err)
 	}
 
-	// Register new sent progress callbacks
+	// Create new progress callbacks with channels
 	cbChans := make([]chan sentProgressResults, len(sti))
+	numCbCalls2 := make(map[ftCrypto.TransferID]int, len(sti))
 	for i, st := range sti {
 		// Create sent progress callback and channel
-		cbChan := make(chan sentProgressResults, 8)
+		cbChan := make(chan sentProgressResults, 32)
+		numCbCalls2[st.tid] = 0
+		tid := st.tid
+		numCalls, maxNumCalls := int64(0), int64(numCbCalls[tid])
 		cb := func(completed bool, sent, arrived, total uint16,
 			tr interfaces.FilePartTracker, err error) {
-			cbChan <- sentProgressResults{completed, sent, arrived, total, tr, err}
+			if atomic.CompareAndSwapInt64(&numCalls, maxNumCalls, maxNumCalls) {
+				cbChan <- sentProgressResults{
+					completed, sent, arrived, total, tr, err}
+			}
+			atomic.AddInt64(&numCalls, 1)
 		}
 		cbChans[i] = cbChan
 
@@ -113,10 +125,6 @@ func TestManager_oldTransferRecovery(t *testing.T) {
 		}
 	}
 
-	// Create health chan
-	healthyRecover := make(chan bool, networkHealthBuffLen)
-	healthyRecover <- true
-
 	// Wait until callbacks have been called to know the transfers have been
 	// recovered
 	var wg sync.WaitGroup
@@ -124,19 +132,19 @@ func TestManager_oldTransferRecovery(t *testing.T) {
 		wg.Add(1)
 		go func(i, callNum int, cbChan chan sentProgressResults, st sentTransferInfo) {
 			defer wg.Done()
-			for j := 0; j < callNum; j++ {
-				select {
-				case <-time.NewTimer(250 * time.Millisecond).C:
-					t.Errorf("Timed out waiting for SentProgressCallback #%d "+
-						"for transfer #%d %s", j, i, st.tid)
-					return
-				case <-cbChan:
-				}
+			select {
+			case <-time.NewTimer(150 * time.Millisecond).C:
+			case <-cbChan:
 			}
 		}(i, numCbCalls[st.tid], cbChans[i], st)
 	}
 
-	loadedManager.oldTransferRecovery(healthyRecover)
+	// Create health chan
+	healthyRecover := make(chan bool, networkHealthBuffLen)
+	chanID := net.GetHealthTracker().AddChannel(healthyRecover)
+	healthyRecover <- true
+
+	loadedManager.oldTransferRecovery(healthyRecover, chanID)
 
 	wg.Wait()
 
@@ -186,7 +194,7 @@ func TestManager_oldTransferRecovery(t *testing.T) {
 func TestManager_updateSentRounds(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{6, 12, 18}, false, true, nil, kv, t)
+		[]uint16{6, 12, 18}, false, true, nil, nil, kv, t)
 
 	finishedRounds := make(map[id.Round][]ftCrypto.TransferID)
 	expectedStatus := make(
@@ -302,6 +310,43 @@ func TestManager_updateSentRounds(t *testing.T) {
 		t.Errorf("Number of items incorrect.\nexpected: %d\nreceived: %d",
 			numUnsent, queueCount)
 	}
+}
+
+// Error path: tests that Manager.updateSentRounds returns the expected error
+// when getRoundResults returns only errors.
+func TestManager_updateSentRounds_Error(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	m, _, _ := newTestManagerWithTransfers(
+		[]uint16{6, 12, 18}, false, true, nil, nil, kv, t)
+
+	// Returns an error on function and round failure on callback if sendErr is
+	// set; otherwise, it reports round successes and returns nil
+	m.getRoundResults = func(
+		[]id.Round, time.Duration, api.RoundEventCallback) error {
+		return errors.Errorf("GetRoundResults error")
+	}
+
+	// Create health chan
+	healthyRecover := make(chan bool, roundResultsMaxAttempts)
+	for i := 0; i < roundResultsMaxAttempts; i++ {
+		healthyRecover <- true
+	}
+
+	sentRounds := map[id.Round][]ftCrypto.TransferID{
+		0: {{1}, {2}, {3}},
+		5: {{4}, {2}, {6}},
+		9: {{3}, {9}, {8}},
+	}
+
+	expectedErr := fmt.Sprintf(
+		oldTransfersRoundResultsErr, len(sentRounds), roundResultsMaxAttempts)
+	err := m.updateSentRounds(healthyRecover, sentRounds)
+	if err == nil || err.Error() != expectedErr {
+		t.Errorf("updateSentRounds did not return the expected error when "+
+			"getRoundResults returns only errors.\nexpected: %s\nreceived: %+v",
+			expectedErr, err)
+	}
+
 }
 
 // Tests that roundIdMapToList returns all the round IDs in the map.

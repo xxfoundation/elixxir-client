@@ -91,6 +91,13 @@ const (
 // been used.
 var MaxRetriesErr = errors.New(maxRetriesErr)
 
+// sentTransferStateMap prevents illegal state changes for part statuses.
+var sentTransferStateMap = [][]bool{
+	{false, true, false},
+	{true, false, true},
+	{false, false, false},
+}
+
 // SentTransfer contains information and progress data for sending and in-
 // progress file transfer.
 type SentTransfer struct {
@@ -182,7 +189,7 @@ func NewSentTransfer(recipient *id.ID, tid ftCrypto.TransferID,
 
 	// Create new MultiStateVector for storing part statuses
 	st.partStats, err = utility.NewMultiStateVector(
-		st.numParts, 3, nil, sentPartStatsVectorKey, st.kv)
+		st.numParts, 3, sentTransferStateMap, sentPartStatsVectorKey, st.kv)
 	if err != nil {
 		return nil, errors.Errorf(newSentPartStatusVectorErr, err)
 	}
@@ -230,7 +237,7 @@ func (st *SentTransfer) ReInit(numFps uint16,
 
 	// Overwrite new part status MultiStateVector
 	st.partStats, err = utility.NewMultiStateVector(
-		st.numParts, 3, nil, sentPartStatsVectorKey, st.kv)
+		st.numParts, 3, sentTransferStateMap, sentPartStatsVectorKey, st.kv)
 	if err != nil {
 		return errors.Errorf(reInitSentPartStatusVectorErr, err)
 	}
@@ -618,7 +625,7 @@ func loadSentTransfer(tid ftCrypto.TransferID, kv *versioned.KV) (*SentTransfer,
 
 	// Load the part status MultiStateVector from storage
 	st.partStats, err = utility.LoadMultiStateVector(
-		nil, sentPartStatsVectorKey, st.kv)
+		sentTransferStateMap, sentPartStatsVectorKey, st.kv)
 	if err != nil {
 		return nil, errors.Errorf(loadSentPartStatusVectorErr, err)
 	}

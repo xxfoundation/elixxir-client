@@ -46,7 +46,8 @@ func Test_NewSentTransfer(t *testing.T) {
 	numParts, numFps := uint16(len(parts)), uint16(float64(len(parts))*1.5)
 	fpVector, _ := utility.NewStateVector(
 		kvPrefixed, sentFpVectorKey, uint32(numFps))
-	partStats, _ := utility.NewMultiStateVector(numParts, 3, nil, sentPartStatsVectorKey, kvPrefixed)
+	partStats, _ := utility.NewMultiStateVector(
+		numParts, 3, sentTransferStateMap, sentPartStatsVectorKey, kvPrefixed)
 
 	type cbFields struct {
 		completed            bool
@@ -170,7 +171,8 @@ func TestSentTransfer_ReInit(t *testing.T) {
 	numFps2 := 2 * numFps1
 	fpVector, _ := utility.NewStateVector(
 		kvPrefixed, sentFpVectorKey, uint32(numFps2))
-	partStats, _ := utility.NewMultiStateVector(numParts, 3, nil, sentPartStatsVectorKey, kvPrefixed)
+	partStats, _ := utility.NewMultiStateVector(
+		numParts, 3, sentTransferStateMap, sentPartStatsVectorKey, kvPrefixed)
 
 	type cbFields struct {
 		completed            bool
@@ -975,7 +977,8 @@ func TestSentTransfer_SetInProgress(t *testing.T) {
 	}
 
 	// Add more parts to the in-progress list
-	exists, err = st.SetInProgress(rid, expectedPartNums...)
+	expectedPartNums2 := []uint16{4, 5, 6}
+	exists, err = st.SetInProgress(rid, expectedPartNums2...)
 	if err != nil {
 		t.Errorf("SetInProgress returned an error: %+v", err)
 	}
@@ -987,9 +990,10 @@ func TestSentTransfer_SetInProgress(t *testing.T) {
 
 	// Check that the number of parts were marked as in-progress is unchanged
 	count, _ = st.partStats.GetCount(1)
-	if int(count) != len(expectedPartNums) {
+	if int(count) != len(expectedPartNums2)+len(expectedPartNums) {
 		t.Errorf("Incorrect number of parts marked as in-progress."+
-			"\nexpected: %d\nreceived: %d", len(expectedPartNums), count)
+			"\nexpected: %d\nreceived: %d",
+			len(expectedPartNums2)+len(expectedPartNums), count)
 	}
 }
 

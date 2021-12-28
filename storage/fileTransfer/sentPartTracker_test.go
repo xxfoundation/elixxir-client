@@ -62,7 +62,12 @@ func Test_sentPartTracker_GetPartStatus(t *testing.T) {
 					partNum, interfaces.FpSent, err)
 			}
 		case interfaces.FpArrived:
-			err := st.partStats.Set(partNum, uint8(interfaces.FpArrived))
+			err := st.partStats.Set(partNum, uint8(interfaces.FpSent))
+			if err != nil {
+				t.Errorf("Failed to set part %d to %s: %+v",
+					partNum, interfaces.FpSent, err)
+			}
+			err = st.partStats.Set(partNum, uint8(interfaces.FpArrived))
 			if err != nil {
 				t.Errorf("Failed to set part %d to %s: %+v",
 					partNum, interfaces.FpArrived, err)

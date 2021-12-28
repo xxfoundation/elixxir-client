@@ -92,6 +92,9 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 	for numRoundTries := uint(0); numRoundTries < cmixParams.RoundTries; numRoundTries++ {
 		elapsed := netTime.Since(timeStart)
+		jww.INFO.Printf("[SendCMIX] try %d, elapsed: %s",
+			numRoundTries, elapsed)
+
 
 		if elapsed > cmixParams.Timeout {
 			jww.INFO.Printf("No rounds to send to %s (msgDigest: %s) "+
@@ -115,6 +118,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			jww.WARN.Printf("Best round on send is nil")
 			continue
 		}
+		jww.INFO.Printf("[sendCMIX] bestRound: %d", bestRound)
 
 		//add the round on to the list of attempted, so it is not tried again
 		attempted.Insert(bestRound)
@@ -140,6 +144,9 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			continue
 		}
 
+		jww.INFO.Printf("[sendCMIX] round %d processed, firstGW: %s",
+			bestRound, firstGateway)
+
 		// Build the messages to send
 
 		wrappedMsg, encMsg, ephID, err := buildSlotMessage(msg, recipient,
@@ -148,8 +155,9 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			return 0, ephemeral.Id{}, err
 		}
 
-		jww.INFO.Printf("Sending to EphID %d (%s) on round %d, "+
-			"(msgDigest: %s, ecrMsgDigest: %s) via gateway %s",
+		jww.INFO.Printf("[sendCMIX] Sending to EphID %d (%s), " +
+			"on round %d (msgDigest: %s, ecrMsgDigest: %s) " +
+			"via gateway %s",
 			ephID.Int64(), recipient, bestRound.ID, msg.Digest(),
 			encMsg.Digest(), firstGateway.String())
 
@@ -157,18 +165,30 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		sendFunc := func(host *connect.Host, target *id.ID) (interface{}, error) {
 			wrappedMsg.Target = target.Marshal()
 
+			jww.INFO.Printf("[sendCMIX] sendFunc %s", host)
 			timeout := calculateSendTimeout(bestRound, maxTimeout)
+			jww.INFO.Printf("[sendCMIX] sendFunc %s timeout %s",
+				timeout)
 			result, err := comms.SendPutMessage(host, wrappedMsg,
 				timeout)
+			jww.INFO.Printf("[sendCMIX] sendFunc %s putmsg", host)
 			if err != nil {
 				// fixme: should we provide as a slice the whole topology?
-				err := handlePutMessageError(firstGateway, instance, session, nodeRegistration, recipient.String(), bestRound, err)
-				return result, errors.WithMessagef(err, "SendCmix %s", unrecoverableError)
-
+				err := handlePutMessageError(firstGateway,
+					instance, session, nodeRegistration,
+					recipient.String(), bestRound, err)
+				jww.INFO.Printf("[sendCMIX] sendFunc %s err %+v",
+					host, err)
+				return result, errors.WithMessagef(err,
+					"SendCmix %s", unrecoverableError)
 			}
 			return result, err
 		}
+		jww.INFO.Printf("[sendCMIX] sendToPreferred %s", firstGateway)
 		result, err := sender.SendToPreferred([]*id.ID{firstGateway}, sendFunc, stop)
+		jww.INFO.Printf("[sendCMIX] sendToPreferred %s returned",
+			firstGateway)
+
 
 		// Exit if the thread has been stopped
 		if stoppable.CheckErr(err) {

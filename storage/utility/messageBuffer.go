@@ -270,6 +270,7 @@ func (mb *MessageBuffer) Next() (interface{}, bool) {
 		// Retrieve the message for storage
 		m, err = mb.handler.LoadMessage(mb.kv, makeStoredMessageKey(mb.key, h))
 		if err != nil {
+			m=nil
 			jww.ERROR.Printf("Failed to load message %s from store, "+
 				"this may happen on occasion due to replays to increase "+
 				"reliability: %v", h, err)

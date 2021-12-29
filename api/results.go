@@ -98,8 +98,12 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 		// Every round is timed out by default, until proven to have finished
 		roundsResults[rnd] = TimeOut
 		roundInfo, err := networkInstance.GetRound(rnd)
-		// If we have the round in the buffer
-		if err == nil {
+		if err != nil && rnd < oldestRound {
+			// If round is older that oldest round in our buffer
+			// Add it to the historical round request (performed later)
+			historicalRequest.Rounds = append(historicalRequest.Rounds, uint64(rnd))
+			numResults++
+		} else {
 			// Check if the round is done (completed or failed) or in progress
 			if states.Round(roundInfo.State) == states.COMPLETED {
 				roundsResults[rnd] = Succeeded
@@ -109,20 +113,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 			} else {
 				// If in progress, add a channel monitoring its state
 				roundEvents.AddRoundEventChan(rnd, sendResults,
-					timeout-time.Millisecond, states.COMPLETED, states.FAILED)
-				numResults++
-			}
-		} else {
-			// Update the oldest round (buffer may have updated externally)
-			if rnd < oldestRound {
-				// If round is older that oldest round in our buffer
-				// Add it to the historical round request (performed later)
-				historicalRequest.Rounds = append(historicalRequest.Rounds, uint64(rnd))
-				numResults++
-			} else {
-				// Otherwise, monitor its progress
-				roundEvents.AddRoundEventChan(rnd, sendResults,
-					timeout-time.Millisecond, states.COMPLETED, states.FAILED)
+					timeout/2, states.COMPLETED, states.FAILED)
 				numResults++
 			}
 		}

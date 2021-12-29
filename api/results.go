@@ -113,14 +113,14 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 				numResults++
 			}
 		} else {
-			// Update oldest round (buffer may have updated externally)
+			// Update the oldest round (buffer may have updated externally)
 			if rnd < oldestRound {
 				// If round is older that oldest round in our buffer
 				// Add it to the historical round request (performed later)
 				historicalRequest.Rounds = append(historicalRequest.Rounds, uint64(rnd))
 				numResults++
 			} else {
-				// Otherwise, monitor it's progress
+				// Otherwise, monitor its progress
 				roundEvents.AddRoundEventChan(rnd, sendResults,
 					timeout-time.Millisecond, states.COMPLETED, states.FAILED)
 				numResults++
@@ -162,6 +162,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 						Rounds: []uint64{roundReport.RoundInfo.ID},
 					}
 					// Request that round's information, feeding back into sendResults
+					jww.DEBUG.Printf("Sending HistoricalRounds retry for Round %d", roundReport.RoundInfo.ID)
 					go c.getHistoricalRounds(timeoutRequest, sendResults, commsInterface)
 				} else {
 					// If available, denote the result
@@ -182,7 +183,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 }
 
 // Helper function which asynchronously pings a random gateway until
-// it gets information on it's requested historical rounds
+// it gets information on its requested historical rounds
 func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
 	sendResults chan ds.EventReturn, comms historicalRoundsComm) {
 

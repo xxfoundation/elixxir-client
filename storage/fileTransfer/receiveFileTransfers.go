@@ -174,36 +174,40 @@ func (rft *ReceivedFileTransfersStore) DeleteTransfer(tid ftCrypto.TransferID) e
 // number and transfer ID are looked up using the fingerprint. Then the part is
 // added to the transfer with the corresponding transfer ID. Returns the
 // transfer that the part was added to so that a progress callback can be
-// called. Returns the transfer ID so that it can be used for logging.
+// called. Returns the transfer ID so that it can be used for logging. Also
+// returns of the transfer is complete after adding the part.
 func (rft *ReceivedFileTransfersStore) AddPart(encryptedPart, padding,
 	mac []byte, partNum uint16, fp format.Fingerprint) (*ReceivedTransfer,
-	ftCrypto.TransferID, error) {
+	ftCrypto.TransferID, bool, error) {
 	rft.mux.Lock()
 	defer rft.mux.Unlock()
 
 	// Lookup the part info for the given fingerprint
 	info, exists := rft.info[fp]
 	if !exists {
-		return nil, ftCrypto.TransferID{}, errors.Errorf(noFingerprintErr, fp)
+		return nil, ftCrypto.TransferID{}, false,
+			errors.Errorf(noFingerprintErr, fp)
 	}
 
 	// Lookup the transfer with the ID in the part info
 	transfer, exists := rft.transfers[info.id]
 	if !exists {
-		return nil, info.id, errors.Errorf(getReceivedTransferErr, info.id)
+		return nil, info.id, false,
+			errors.Errorf(getReceivedTransferErr, info.id)
 	}
 
 	// Add the part to the transfer
-	err := transfer.AddPart(encryptedPart, padding, mac, partNum, info.fpNum)
+	completed, err := transfer.AddPart(
+		encryptedPart, padding, mac, partNum, info.fpNum)
 	if err != nil {
-		return transfer, info.id, errors.Errorf(
+		return transfer, info.id, false, errors.Errorf(
 			addPartErr, partNum, transfer.numParts, info.id, err)
 	}
 
 	// Remove the part info from the map
 	delete(rft.info, fp)
 
-	return transfer, info.id, nil
+	return transfer, info.id, completed, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

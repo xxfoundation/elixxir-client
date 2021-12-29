@@ -43,7 +43,7 @@ func (m *Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) 
 				if strings.Contains(err.Error(), "fingerprint") {
 					jww.INFO.Printf("[FT] %+v", err)
 				} else {
-					jww.WARN.Print("[FT] %+v", err)
+					jww.WARN.Printf("[FT] %+v", err)
 				}
 				continue
 			}

@@ -51,7 +51,7 @@ func (m Manager) oldTransferRecovery(healthyChan chan bool, chanID uint64) {
 
 	// Return if there are no parts to recover
 	if len(sentRounds) == 0 {
-		jww.TRACE.Print(
+		jww.DEBUG.Print(
 			"[FT] No in-progress rounds from old transfers to recover.")
 		return
 	}

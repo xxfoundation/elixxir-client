@@ -78,11 +78,11 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 	timeStart := netTime.Now()
 	maxTimeout := sender.GetHostParams().SendTimeout
 
-	var attempted *excludedRounds.ExcludedRounds
+	var attempted excludedRounds.ExcludedRounds
 	if cmixParams.ExcludedRounds != nil {
 		attempted = cmixParams.ExcludedRounds
 	} else {
-		attempted = excludedRounds.New()
+		attempted = excludedRounds.NewSet()
 	}
 
 	jww.INFO.Printf("Looking for round to send cMix message to %s "+
@@ -111,7 +111,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 				msg.Digest())
 		}
 
-		//find the best round to send to, excluding attempted rounds
+		// find the best round to send to, excluding attempted rounds
 		remainingTime := cmixParams.Timeout - elapsed
 		bestRound, err := instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted, sendTimeBuffer)
 		if err != nil {
@@ -122,7 +122,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			continue
 		}
 
-		//add the round on to the list of attempted, so it is not tried again
+		// add the round on to the list of attempted, so it is not tried again
 		attempted.Insert(bestRound.GetRoundId())
 
 		// Determine whether the selected round contains any Nodes
@@ -181,7 +181,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			return 0, ephemeral.Id{}, err
 		}
 
-		//if the comm errors or the message fails to send, continue retrying.
+		// if the comm errors or the message fails to send, continue retrying.
 		if err != nil {
 			jww.ERROR.Printf("SendCmix failed to send to EphID %d (%s) on "+
 				"round %d, trying a new round: %+v", ephID.Int64(), recipient,

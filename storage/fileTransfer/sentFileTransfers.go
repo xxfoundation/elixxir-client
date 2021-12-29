@@ -143,17 +143,22 @@ func (sft *SentFileTransfersStore) DeleteTransfer(tid ftCrypto.TransferID) error
 
 // GetUnsentParts returns a map of all transfers and a list of their parts that
 // have not been sent (parts that were never marked as in-progress).
-func (sft *SentFileTransfersStore) GetUnsentParts() map[ftCrypto.TransferID][]uint16 {
+func (sft *SentFileTransfersStore) GetUnsentParts() (
+	map[ftCrypto.TransferID][]uint16, error) {
 	sft.mux.Lock()
 	defer sft.mux.Unlock()
 	unsentParts := map[ftCrypto.TransferID][]uint16{}
 
 	// Get list of unsent part numbers for each transfer
 	for tid, st := range sft.transfers {
-		unsentParts[tid] = st.GetUnsentPartNums()
+		unsentPartNums, err := st.GetUnsentPartNums()
+		if err != nil {
+			return nil, err
+		}
+		unsentParts[tid] = unsentPartNums
 	}
 
-	return unsentParts
+	return unsentParts, nil
 }
 
 // GetSentRounds returns a map of all round IDs and which transfers have parts
@@ -180,7 +185,7 @@ func (sft *SentFileTransfersStore) GetSentRounds() map[id.Round][]ftCrypto.Trans
 // function performs the same operations as GetUnsentParts and GetSentRounds but
 // in a single loop.
 func (sft *SentFileTransfersStore) GetUnsentPartsAndSentRounds() (
-	map[ftCrypto.TransferID][]uint16, map[id.Round][]ftCrypto.TransferID) {
+	map[ftCrypto.TransferID][]uint16, map[id.Round][]ftCrypto.TransferID, error) {
 	sft.mux.Lock()
 	defer sft.mux.Unlock()
 
@@ -194,13 +199,16 @@ func (sft *SentFileTransfersStore) GetUnsentPartsAndSentRounds() (
 		}
 
 		// Get list of unsent part numbers for each transfer
-		stUnsentParts := st.GetUnsentPartNums()
+		stUnsentParts, err := st.GetUnsentPartNums()
+		if err != nil {
+			return nil, nil, err
+		}
 		if len(stUnsentParts) > 0 {
 			unsentParts[tid] = stUnsentParts
 		}
 	}
 
-	return unsentParts, sentRounds
+	return unsentParts, sentRounds, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

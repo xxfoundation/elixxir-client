@@ -265,7 +265,7 @@ func TestManager_updateSentRounds(t *testing.T) {
 	healthyRecover <- true
 
 	// Get list of rounds that parts were sent on
-	_, loadedSentRounds := m.sent.GetUnsentPartsAndSentRounds()
+	_, loadedSentRounds, _ := m.sent.GetUnsentPartsAndSentRounds()
 
 	err = loadedManager.updateSentRounds(healthyRecover, loadedSentRounds)
 	if err != nil {

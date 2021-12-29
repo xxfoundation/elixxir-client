@@ -29,12 +29,11 @@ func Test_newSentPartTracker(t *testing.T) {
 	_, st := newRandomSentTransfer(16, 24, kv, t)
 
 	expected := sentPartTracker{
-		numParts:         st.numParts,
-		inProgressStatus: st.inProgressStatus.DeepCopy(),
-		finishedStatus:   st.finishedStatus.DeepCopy(),
+		numParts:  st.numParts,
+		partStats: st.partStats.DeepCopy(),
 	}
 
-	newSPT := newSentPartTracker(st.inProgressStatus, st.finishedStatus)
+	newSPT := newSentPartTracker(st.partStats)
 
 	if !reflect.DeepEqual(expected, newSPT) {
 		t.Errorf("New sentPartTracker does not match expected."+
@@ -57,21 +56,35 @@ func Test_sentPartTracker_GetPartStatus(t *testing.T) {
 
 		switch partStatuses[partNum] {
 		case interfaces.FpSent:
-			st.inProgressStatus.Use(uint32(partNum))
+			err := st.partStats.Set(partNum, uint8(interfaces.FpSent))
+			if err != nil {
+				t.Errorf("Failed to set part %d to %s: %+v",
+					partNum, interfaces.FpSent, err)
+			}
 		case interfaces.FpArrived:
-			st.finishedStatus.Use(uint32(partNum))
+			err := st.partStats.Set(partNum, uint8(interfaces.FpSent))
+			if err != nil {
+				t.Errorf("Failed to set part %d to %s: %+v",
+					partNum, interfaces.FpSent, err)
+			}
+			err = st.partStats.Set(partNum, uint8(interfaces.FpArrived))
+			if err != nil {
+				t.Errorf("Failed to set part %d to %s: %+v",
+					partNum, interfaces.FpArrived, err)
+			}
 		}
 	}
 
 	// Create a new sentPartTracker from the SentTransfer
-	spt := newSentPartTracker(st.inProgressStatus, st.finishedStatus)
+	spt := newSentPartTracker(st.partStats)
 
 	// Check that the statuses for each part matches the map
 	for partNum := uint16(0); partNum < st.numParts; partNum++ {
-		if spt.GetPartStatus(partNum) != partStatuses[partNum] {
+		status := spt.GetPartStatus(partNum)
+		if status != partStatuses[partNum] {
 			t.Errorf("Part number %d does not have expected status."+
 				"\nexpected: %d\nreceived: %d",
-				partNum, partStatuses[partNum], spt.GetPartStatus(partNum))
+				partNum, partStatuses[partNum], status)
 		}
 	}
 }
@@ -84,7 +97,7 @@ func Test_sentPartTracker_GetNumParts(t *testing.T) {
 	_, st := newRandomSentTransfer(16, 24, kv, t)
 
 	// Create a new sentPartTracker from the SentTransfer
-	spt := newSentPartTracker(st.inProgressStatus, st.finishedStatus)
+	spt := newSentPartTracker(st.partStats)
 
 	if spt.GetNumParts() != st.GetNumParts() {
 		t.Errorf("Number of parts incorrect.\nexpected: %d\nreceived: %d",

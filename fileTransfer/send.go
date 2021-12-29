@@ -255,7 +255,7 @@ func (m *Manager) sendParts(partList []queuedPart) error {
 
 	// Set all parts to in-progress
 	for tid, transfer := range transfers {
-		err, exists := transfer.SetInProgress(rid, groupedParts[tid]...)
+		exists, err := transfer.SetInProgress(rid, groupedParts[tid]...)
 		if err != nil {
 			return errors.Errorf(setInProgressErr, groupedParts[tid], tid)
 		}

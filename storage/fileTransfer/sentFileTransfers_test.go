@@ -260,7 +260,10 @@ func TestSentFileTransfersStore_GetUnsentParts(t *testing.T) {
 		}
 	}
 
-	unsentParts := sft.GetUnsentParts()
+	unsentParts, err := sft.GetUnsentParts()
+	if err != nil {
+		t.Errorf("GetUnsentParts returned an error: %+v", err)
+	}
 
 	if !reflect.DeepEqual(expectedParts, unsentParts) {
 		t.Errorf("Unexpected unsent parts map.\nexpected: %+v\nreceived: %+v",
@@ -385,7 +388,10 @@ func TestSentFileTransfersStore_GetUnsentPartsAndSentRounds(t *testing.T) {
 			func(i, j int) bool { return tIDs[i].String() < tIDs[j].String() })
 	}
 
-	unsentParts, sentRounds := sft.GetUnsentPartsAndSentRounds()
+	unsentParts, sentRounds, err := sft.GetUnsentPartsAndSentRounds()
+	if err != nil {
+		t.Errorf("GetUnsentPartsAndSentRounds returned an error: %+v", err)
+	}
 
 	// Sort sent rounds map transfer IDs
 	for _, tIDs := range sentRounds {
@@ -403,7 +409,10 @@ func TestSentFileTransfersStore_GetUnsentPartsAndSentRounds(t *testing.T) {
 			expectedRounds, sentRounds)
 	}
 
-	unsentParts2 := sft.GetUnsentParts()
+	unsentParts2, err := sft.GetUnsentParts()
+	if err != nil {
+		t.Errorf("GetUnsentParts returned an error: %+v", err)
+	}
 
 	if !reflect.DeepEqual(unsentParts, unsentParts2) {
 		t.Errorf("Unsent parts from GetUnsentParts and "+

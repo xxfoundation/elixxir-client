@@ -36,11 +36,18 @@ func (m Manager) oldTransferRecovery(healthyChan chan bool, chanID uint64) {
 	}
 
 	// Get list of unsent parts and rounds that parts were sent on
-	unsentParts, sentRounds := m.sent.GetUnsentPartsAndSentRounds()
+	// TODO: handle error
+	unsentParts, sentRounds, err := m.sent.GetUnsentPartsAndSentRounds()
 
 	// Add all unsent parts to the queue
 	for tid, partNums := range unsentParts {
 		m.queueParts(tid, partNums)
+	}
+
+	if err != nil {
+		jww.ERROR.Printf("Failed to get sent rounds: %+v", err)
+		m.net.GetHealthTracker().RemoveChannel(chanID)
+		return
 	}
 
 	// Update parts that were sent by looking up the status of the rounds they

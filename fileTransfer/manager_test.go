@@ -396,7 +396,7 @@ func TestManager_CloseSend_Complete(t *testing.T) {
 
 	// Set all parts to finished
 	transfer, _ := m.sent.GetTransfer(sti[0].tid)
-	err, _ := transfer.SetInProgress(0, 0, 1, 2)
+	_, err := transfer.SetInProgress(0, 0, 1, 2)
 	if err != nil {
 		t.Errorf("Failed to set parts to in-progress: %+v", err)
 	}

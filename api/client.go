@@ -526,6 +526,12 @@ func (c *Client) NetworkFollowerStatus() Status {
 	return c.followerServices.status()
 }
 
+// HasRunningProcessies checks if any background threads are running
+// and returns true if one or more are
+func (c *Client) HasRunningProcessies() bool {
+	return !c.followerServices.stoppable.IsStopped()
+}
+
 // Returns the health tracker for registration and polling
 func (c *Client) GetHealth() interfaces.HealthTracker {
 	jww.INFO.Printf("GetHealth()")

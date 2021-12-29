@@ -10,7 +10,6 @@ package rounds
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -21,6 +20,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 const (
@@ -224,7 +224,7 @@ func (s *UncheckedRoundStore) IterateOverList(iterator func(rid id.Round,
 	defer s.mux.RUnlock()
 
 	for _, rnd := range s.list {
-		fmt.Printf("rnd for lookup: %d, %+v\n", rnd.Id, rnd)
+		jww.DEBUG.Printf("rnd for lookup: %d, %+v\n", rnd.Id, rnd)
 		go func(localRid id.Round,
 			localRnd UncheckedRound) {
 			iterator(localRid, localRnd)

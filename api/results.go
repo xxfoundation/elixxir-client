@@ -93,6 +93,13 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 
 	oldestRound := networkInstance.GetOldestRoundID()
 
+	// Set a lower timeout so there is room for retries,
+	// while ensuring it does not go too low and cause too many timeouts
+	roundEventTimeout := 5 * time.Second
+	if timeout < roundEventTimeout {
+		roundEventTimeout = timeout
+	}
+
 	// Parse and adjudicate every round
 	for _, rnd := range roundList {
 		// Every round is timed out by default, until proven to have finished
@@ -109,7 +116,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 			} else {
 				// If in progress, add a channel monitoring its state
 				roundEvents.AddRoundEventChan(rnd, sendResults,
-					timeout-time.Millisecond, states.COMPLETED, states.FAILED)
+					roundEventTimeout, states.COMPLETED, states.FAILED)
 				numResults++
 			}
 		} else {
@@ -122,7 +129,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 			} else {
 				// Otherwise, monitor its progress
 				roundEvents.AddRoundEventChan(rnd, sendResults,
-					timeout-time.Millisecond, states.COMPLETED, states.FAILED)
+					roundEventTimeout, states.COMPLETED, states.FAILED)
 				numResults++
 			}
 		}

@@ -274,9 +274,10 @@ func (rt *ReceivedTransfer) AddProgressCB(
 }
 
 // AddPart decrypts an encrypted file part, adds it to the list of received
-// parts and marks its fingerprint as used.
+// parts and marks its fingerprint as used. Returns true if the part added was
+// the last in the transfer.
 func (rt *ReceivedTransfer) AddPart(encryptedPart, padding, mac []byte, partNum,
-	fpNum uint16) error {
+	fpNum uint16) (bool, error) {
 	rt.mux.Lock()
 	defer rt.mux.Unlock()
 
@@ -284,13 +285,13 @@ func (rt *ReceivedTransfer) AddPart(encryptedPart, padding, mac []byte, partNum,
 	decryptedPart, err := ftCrypto.DecryptPart(
 		rt.key, encryptedPart, padding, mac, fpNum)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// Add the part to the list of parts
 	err = rt.receivedParts.addPart(decryptedPart, partNum)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// Mark the fingerprint as used
@@ -299,7 +300,11 @@ func (rt *ReceivedTransfer) AddPart(encryptedPart, padding, mac []byte, partNum,
 	// Mark part as received
 	rt.receivedStatus.Use(uint32(partNum))
 
-	return nil
+	if rt.receivedStatus.GetNumUsed() >= uint32(rt.numParts) {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // GetFile returns all the file parts combined into a single byte slice. An

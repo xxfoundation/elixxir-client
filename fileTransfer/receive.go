@@ -41,7 +41,7 @@ func (m *Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) 
 				// which means this message is not of the correct type and will
 				// be ignored
 				if strings.Contains(err.Error(), "fingerprint") {
-					jww.INFO.Printf("[FT] %+v", err)
+					jww.TRACE.Printf("[FT] %+v", err)
 				} else {
 					jww.WARN.Printf("[FT] %+v", err)
 				}
@@ -68,15 +68,23 @@ func (m *Manager) readMessage(msg message.Receive) (format.Message, error) {
 	}
 
 	// Add part to received transfer
-	transfer, _, err := m.received.AddPart(partMsg.getPart(),
+	rt, tid, completed, err := m.received.AddPart(partMsg.getPart(),
 		partMsg.getPadding(), cMixMsg.GetMac(), partMsg.getPartNum(),
 		cMixMsg.GetKeyFP())
 	if err != nil {
 		return cMixMsg, err
 	}
 
+	// Print debug message on completion
+	if completed {
+		jww.DEBUG.Printf("[FT] Received last part for file transfer %s from "+
+			"%s {size: %d, parts: %d, numFps: %d/%d}", tid, msg.Sender,
+			rt.GetFileSize(), rt.GetNumParts(),
+			rt.GetNumFps()-rt.GetNumAvailableFps(), rt.GetNumFps())
+	}
+
 	// Call callback with updates
-	transfer.CallProgressCB(nil)
+	rt.CallProgressCB(nil)
 
 	return cMixMsg, nil
 }

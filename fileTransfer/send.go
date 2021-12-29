@@ -412,14 +412,14 @@ func (m *Manager) makeRoundEventCallback(
 				// If the round succeeded, then set all parts for each transfer
 				// for this round to finished and call the progress callback
 				for _, tid := range sentRounds[rid] {
-					transfer, err := m.sent.GetTransfer(tid)
+					st, err := m.sent.GetTransfer(tid)
 					if err != nil {
 						jww.ERROR.Printf(finishPassNoTransferErr, rid, tid, err)
 						continue
 					}
 
 					// Mark as finished
-					completed, err := transfer.FinishTransfer(rid)
+					completed, err := st.FinishTransfer(rid)
 					if err != nil {
 						jww.ERROR.Printf(finishTransferErr, tid, err)
 						continue
@@ -428,17 +428,23 @@ func (m *Manager) makeRoundEventCallback(
 					// If the transfer is complete, send an E2E message to the
 					// recipient informing them
 					if completed {
+						jww.DEBUG.Printf("[FT] Finished sending file "+
+							"transfer %s to %s {parts: %d, numFps: %d/%d}",
+							tid, st.GetRecipient(), st.GetNumParts(),
+							st.GetNumFps()-st.GetNumAvailableFps(),
+							st.GetNumFps())
+
 						go func(tid ftCrypto.TransferID, recipient *id.ID) {
 							err = m.sendEndE2eMessage(recipient)
 							if err != nil {
 								jww.ERROR.Printf(finishedEndE2eMsfErr,
 									recipient, tid, err)
 							}
-						}(tid, transfer.GetRecipient())
+						}(tid, st.GetRecipient())
 					}
 
 					// Call progress callback after change in progress
-					transfer.CallProgressCB(nil)
+					st.CallProgressCB(nil)
 				}
 			} else {
 
@@ -448,20 +454,20 @@ func (m *Manager) makeRoundEventCallback(
 				// for this round from the in-progress list, call the progress
 				// callback with an error, and add the parts back into the queue
 				for _, tid := range sentRounds[rid] {
-					transfer, err := m.sent.GetTransfer(tid)
+					st, err := m.sent.GetTransfer(tid)
 					if err != nil {
 						jww.ERROR.Printf(finishFailNoTransferErr, rid, tid, err)
 						continue
 					}
 
 					// Remove parts from in-progress list
-					partsToResend, err := transfer.UnsetInProgress(rid)
+					partsToResend, err := st.UnsetInProgress(rid)
 					if err != nil {
 						jww.ERROR.Printf(unsetInProgressErr, tid, roundResult)
 					}
 
 					// Call progress callback after change in progress
-					transfer.CallProgressCB(nil)
+					st.CallProgressCB(nil)
 
 					// Add all the unsent parts back in the queue
 					m.queueParts(tid, partsToResend)

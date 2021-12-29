@@ -93,11 +93,11 @@ var ftCmd = &cobra.Command{
 		for done := false; !done; {
 			select {
 			case <-sendDone:
-				jww.DEBUG.Printf("[FT] Finished sending file. Stopping " +
+				jww.INFO.Printf("[FT] Finished sending file. Stopping " +
 					"threads and network follower.")
 				done = true
 			case <-receiveDone:
-				jww.DEBUG.Printf("[FT] Finished receiving file. Stopping " +
+				jww.INFO.Printf("[FT] Finished receiving file. Stopping " +
 					"threads and network follower.")
 				done = true
 			}
@@ -109,10 +109,10 @@ var ftCmd = &cobra.Command{
 		// Stop network follower
 		err = client.StopNetworkFollower()
 		if err != nil {
-			jww.WARN.Printf("[FT] "+"Failed to stop network follower: %+v", err)
+			jww.WARN.Printf("[FT] Failed to stop network follower: %+v", err)
 		}
 
-		jww.DEBUG.Print("[FT] File transfer finished stopping threads and " +
+		jww.INFO.Print("[FT] File transfer finished stopping threads and " +
 			"network follower.")
 	},
 }
@@ -151,13 +151,14 @@ func initFileTransferManager(client *api.Client, maxThroughput int) (
 	// Create new manager
 	manager, err := ft.NewManager(client, receiveCB, p)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to create new file transfer manager: %+v", err)
+		jww.FATAL.Panicf(
+			"[FT] Failed to create new file transfer manager: %+v", err)
 	}
 
 	// Start the file transfer sending and receiving threads
 	err = client.AddService(manager.StartProcesses)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to start file transfer threads: %+v", err)
+		jww.FATAL.Panicf("[FT] Failed to start file transfer threads: %+v", err)
 	}
 
 	return manager, receiveChan
@@ -171,7 +172,7 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 	// Get file from path
 	fileData, err := utils.ReadFile(filePath)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to read file %q: %+v", filePath, err)
+		jww.FATAL.Panicf("[FT] Failed to read file %q: %+v", filePath, err)
 	}
 
 	// Get file preview from path
@@ -179,7 +180,7 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 	if filePreviewPath != "" {
 		filePreviewData, err = utils.ReadFile(filePreviewPath)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to read file preview %q: %+v",
+			jww.FATAL.Panicf("[FT] Failed to read file preview %q: %+v",
 				filePreviewPath, err)
 		}
 	}
@@ -193,15 +194,15 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 	// Get recipient contact from file
 	recipient := getContactFromFile(recipientContactPath)
 
-	jww.DEBUG.Printf("[FT] Sending file %q to recipient %s: "+
-		"{size: %d, type: %q, path: %q, previewPath: %q, preview: %q}",
-		fileName, recipient.ID, len(fileData), fileType, filePath,
+	jww.INFO.Printf("[FT] Going to start sending file %q to %s {type: %q, "+
+		"size: %d, retry: %f, path: %q, previewPath: %q, preview: %q}",
+		fileName, recipient.ID, fileType, len(fileData), retry, filePath,
 		filePreviewPath, filePreviewData)
 
 	// Create sent progress callback that prints the results
 	progressCB := func(completed bool, sent, arrived, total uint16,
 		t interfaces.FilePartTracker, err error) {
-		jww.DEBUG.Printf("[FT] Sent progress callback for %q "+
+		jww.INFO.Printf("[FT] Sent progress callback for %q "+
 			"{completed: %t, sent: %d, arrived: %d, total: %d, err: %v}",
 			fileName, completed, sent, arrived, total, err)
 		if (sent == 0 && arrived == 0) || (arrived == total) || completed ||
@@ -221,28 +222,32 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 	}
 
 	// Send the file
-	_, err = m.Send(fileName, fileType, fileData, recipient.ID, retry,
+	tid, err := m.Send(fileName, fileType, fileData, recipient.ID, retry,
 		filePreviewData, progressCB, callbackPeriod)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to send file %q to %s: %+v",
+		jww.FATAL.Panicf("[FT] Failed to send file %q to %s: %+v",
 			fileName, recipient.ID, err)
 	}
+
+	jww.INFO.Printf("[FT] Sending new file transfer %s to %s {name: %s, "+
+		"type: %q, size: %d, retry: %f}",
+		tid, recipient, fileName, fileType, len(fileData), retry)
 }
 
 // receiveNewFileTransfers waits to receive new file transfers and prints its
 // information to the log.
 func receiveNewFileTransfers(receive chan receivedFtResults, done,
 	quit chan struct{}, m *ft.Manager) {
-	jww.DEBUG.Print("[FT] Starting thread waiting to receive NewFileTransfer " +
+	jww.INFO.Print("[FT] Starting thread waiting to receive NewFileTransfer " +
 		"E2E message.")
 	for {
 		select {
 		case <-quit:
-			jww.DEBUG.Print("[FT] Quitting thread waiting for NewFileTransfer " +
+			jww.INFO.Print("[FT] Quitting thread waiting for NewFileTransfer " +
 				"E2E message.")
 			return
 		case r := <-receive:
-			jww.DEBUG.Printf("[FT] Received new file %q transfer %s of type "+
+			jww.INFO.Printf("[FT] Received new file %q transfer %s of type "+
 				"%q from %s of size %d bytes with preview: %q",
 				r.fileName, r.tid, r.fileType, r.sender, r.size, r.preview)
 			fmt.Printf("Received new file transfer %q of size %d "+
@@ -251,8 +256,8 @@ func receiveNewFileTransfers(receive chan receivedFtResults, done,
 			cb := newReceiveProgressCB(r.tid, done, m)
 			err := m.RegisterReceivedProgressCallback(r.tid, cb, callbackPeriod)
 			if err != nil {
-				jww.FATAL.Panicf("Failed to register new receive progress "+
-					"callback for transfer %s: %+v", r.tid, err)
+				jww.FATAL.Panicf("[FT] Failed to register new receive "+
+					"progress callback for transfer %s: %+v", r.tid, err)
 			}
 		}
 	}
@@ -264,7 +269,7 @@ func newReceiveProgressCB(tid ftCrypto.TransferID, done chan struct{},
 	m *ft.Manager) interfaces.ReceivedProgressCallback {
 	return func(completed bool, received, total uint16,
 		t interfaces.FilePartTracker, err error) {
-		jww.DEBUG.Printf("[FT] Receive progress callback for transfer %s "+
+		jww.INFO.Printf("[FT] Receive progress callback for transfer %s "+
 			"{completed: %t, received: %d, total: %d, err: %v}",
 			tid, completed, received, total, err)
 
@@ -277,7 +282,8 @@ func newReceiveProgressCB(tid ftCrypto.TransferID, done chan struct{},
 		if completed {
 			receivedFile, err2 := m.Receive(tid)
 			if err2 != nil {
-				jww.FATAL.Panicf("Failed to receive file %s: %+v", tid, err)
+				jww.FATAL.Panicf(
+					"[FT] Failed to receive file %s: %+v", tid, err)
 			}
 			fmt.Printf("Completed receiving file:\n%s\n", receivedFile)
 			done <- struct{}{}

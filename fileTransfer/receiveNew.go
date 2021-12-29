@@ -37,14 +37,14 @@ func (m *Manager) receiveNewFileTransfer(rawMsgs chan message.Receive,
 			stop.ToStopped()
 			return
 		case receivedMsg := <-rawMsgs:
-			jww.DEBUG.Print(
+			jww.TRACE.Print(
 				"[FT] New file transfer message thread received message.")
 
 			tid, fileName, fileType, sender, size, preview, err :=
 				m.readNewFileTransferMessage(receivedMsg)
 			if err != nil {
 				if err.Error() == receiveMessageTypeErr {
-					jww.INFO.Printf("[FT] Failed to read message as new file "+
+					jww.DEBUG.Printf("[FT] Failed to read message as new file "+
 						"transfer message: %+v", err)
 				} else {
 					jww.WARN.Printf("[FT] Failed to read message as new file "+
@@ -83,10 +83,6 @@ func (m *Manager) readNewFileTransferMessage(msg message.Receive) (
 		return
 	}
 
-	jww.DEBUG.Printf("[FT] Received new file transfer %q from %s {parts: %d, "+
-		"size: %d, type: %q}",
-		newFT.FileName, msg.Sender, newFT.NumParts, newFT.Size, newFT.FileType)
-
 	// Get RNG from stream
 	rng := m.rng.GetStream()
 	defer rng.Close()
@@ -100,6 +96,10 @@ func (m *Manager) readNewFileTransferMessage(msg message.Receive) (
 	if err != nil {
 		return
 	}
+
+	jww.DEBUG.Printf("[FT] Received new file transfer %s from %s {name: %q, "+
+		"type: %q, size: %d, parts: %d, numFps: %d, retry: %f}", tid, msg.Sender,
+		newFT.FileName, newFT.FileType, newFT.Size, numParts, numFps, newFT.Retry)
 
 	return tid, newFT.FileName, newFT.FileType, msg.Sender, newFT.Size,
 		newFT.Preview, nil

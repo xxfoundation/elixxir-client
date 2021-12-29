@@ -160,12 +160,17 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			encMsg.Digest(), firstGateway.String())
 
 		// Send the payload
-		sendFunc := func(host *connect.Host, target *id.ID) (interface{}, error) {
+		sendFunc := func(host *connect.Host, target *id.ID,
+			timeout time.Duration) (interface{}, error) {
 			wrappedMsg.Target = target.Marshal()
 
-			timeout := calculateSendTimeout(bestRound, maxTimeout)
-			result, err := comms.SendPutMessage(host, wrappedMsg,
-				timeout)
+			// Use the smaller of the two timeout durations
+			calculatedTimeout := calculateSendTimeout(bestRound, maxTimeout)
+			if calculatedTimeout < timeout {
+				timeout = calculatedTimeout
+			}
+
+			result, err := comms.SendPutMessage(host, wrappedMsg, timeout)
 			if err != nil {
 				// fixme: should we provide as a slice the whole topology?
 				err := handlePutMessageError(firstGateway, instance, session, nodeRegistration, recipient.String(), bestRound, err)

@@ -93,6 +93,8 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 
 	oldestRound := networkInstance.GetOldestRoundID()
 
+	// Set a lower timeout so there is room for retries,
+	// while ensuring it does not go too low and cause too many timeouts
 	roundEventTimeout := 5 * time.Second
 	if timeout < roundEventTimeout {
 		roundEventTimeout = timeout

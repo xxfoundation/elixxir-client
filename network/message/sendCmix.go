@@ -174,7 +174,8 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			}
 			return result, err
 		}
-		result, err := sender.SendToPreferred([]*id.ID{firstGateway}, sendFunc, stop)
+		result, err := sender.SendToPreferred(
+			[]*id.ID{firstGateway}, sendFunc, stop, cmixParams.SendTimeout)
 
 		// Exit if the thread has been stopped
 		if stoppable.CheckErr(err) {

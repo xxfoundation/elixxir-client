@@ -18,7 +18,9 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"gitlab.com/xx_network/primitives/netTime"
 	"strings"
+	"time"
 )
 
 // Sender Object used for sending that wraps the HostPool for providing destinations
@@ -76,16 +78,26 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 	return nil, errors.Errorf("Unable to send to any proxies")
 }
 
-// SendToPreferred Call given sendFunc to any Host in the HostPool, attempting with up to numProxies destinations
+// SendToPreferred Call given sendFunc to any Host in the HostPool, attempting
+// with up to numProxies destinations. Returns an error if the timeout is
+// reached.
 func (s *Sender) SendToPreferred(targets []*id.ID,
 	sendFunc func(host *connect.Host, target *id.ID) (interface{}, error),
-	stop *stoppable.Single) (interface{}, error) {
+	stop *stoppable.Single, timeout time.Duration) (interface{}, error) {
+
+	startTime := netTime.Now()
 
 	// Get the hosts and shuffle randomly
 	targetHosts := s.getPreferred(targets)
 
 	// Attempt to send directly to targets if they are in the HostPool
 	for i := range targetHosts {
+		// Return an error if the timeout duration is reached
+		if netTime.Since(startTime) > timeout {
+			return nil, errors.Errorf(
+				"sending to targets in HostPool timed out after %s", timeout)
+		}
+
 		result, err := sendFunc(targetHosts[i], targets[i])
 		if stop != nil && !stop.IsRunning() {
 			return nil, errors.Errorf(stoppable.ErrMsg, stop.Name(), "SendToPreferred")
@@ -135,6 +147,12 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 
 	for proxyIdx := uint32(0); proxyIdx < s.poolParams.ProxyAttempts; proxyIdx++ {
 		for targetIdx := range proxies {
+			// Return an error if the timeout duration is reached
+			if netTime.Since(startTime) > timeout {
+				return nil, errors.Errorf("iterating over target's procies "+
+					"timed out after %s", timeout)
+			}
+
 			target := targets[targetIdx]
 			targetProxies := proxies[targetIdx]
 			if !(int(proxyIdx) < len(targetProxies)) {

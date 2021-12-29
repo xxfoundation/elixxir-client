@@ -9,6 +9,7 @@ package rounds
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage"
@@ -28,6 +29,7 @@ func newManager(face interface{}) *Manager {
 	sess1 := storage.InitTestingSession(face)
 
 	testManager := &Manager{
+		params:              params.GetDefaultRounds(),
 		lookupRoundMessages: make(chan roundLookup),
 		messageBundles:      make(chan message.Bundle),
 		Internal: internal.Internal{

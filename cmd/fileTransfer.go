@@ -93,11 +93,11 @@ var ftCmd = &cobra.Command{
 		for done := false; !done; {
 			select {
 			case <-sendDone:
-				jww.DEBUG.Printf("Finished sending file. Stopping threads " +
-					"and network follower.")
+				jww.DEBUG.Printf("[FT] Finished sending file. Stopping " +
+					"threads and network follower.")
 				done = true
 			case <-receiveDone:
-				jww.DEBUG.Printf("Finished receiving file. Stopping " +
+				jww.DEBUG.Printf("[FT] Finished receiving file. Stopping " +
 					"threads and network follower.")
 				done = true
 			}
@@ -109,11 +109,11 @@ var ftCmd = &cobra.Command{
 		// Stop network follower
 		err = client.StopNetworkFollower()
 		if err != nil {
-			jww.WARN.Printf("Failed to stop network follower: %+v", err)
+			jww.WARN.Printf("[FT] "+"Failed to stop network follower: %+v", err)
 		}
 
-		jww.DEBUG.Print("File transfer finished stopping threads and network " +
-			"follower.")
+		jww.DEBUG.Print("[FT] File transfer finished stopping threads and " +
+			"network follower.")
 	},
 }
 
@@ -193,14 +193,16 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 	// Get recipient contact from file
 	recipient := getContactFromFile(recipientContactPath)
 
-	jww.DEBUG.Printf("Sending file %q of size %d to recipient %s.",
-		fileName, len(fileData), recipient.ID)
+	jww.DEBUG.Printf("[FT] Sending file %q to recipient %s: "+
+		"{size: %d, type: %q, path: %q, previewPath: %q, preview: %q}",
+		fileName, recipient.ID, len(fileData), fileType, filePath,
+		filePreviewPath, filePreviewData)
 
 	// Create sent progress callback that prints the results
 	progressCB := func(completed bool, sent, arrived, total uint16,
 		t interfaces.FilePartTracker, err error) {
-		jww.DEBUG.Printf("Sent progress callback for %q "+
-			"{completed: %t, sent: %d, arrived: %d, total: %d, err: %v}\n",
+		jww.DEBUG.Printf("[FT] Sent progress callback for %q "+
+			"{completed: %t, sent: %d, arrived: %d, total: %d, err: %v}",
 			fileName, completed, sent, arrived, total, err)
 		if (sent == 0 && arrived == 0) || (arrived == total) || completed ||
 			err != nil {
@@ -231,17 +233,17 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 // information to the log.
 func receiveNewFileTransfers(receive chan receivedFtResults, done,
 	quit chan struct{}, m *ft.Manager) {
-	jww.DEBUG.Print("Starting thread waiting to receive NewFileTransfer " +
+	jww.DEBUG.Print("[FT] Starting thread waiting to receive NewFileTransfer " +
 		"E2E message.")
 	for {
 		select {
 		case <-quit:
-			jww.DEBUG.Print("Quitting thread waiting for NewFileTransfer E2E " +
-				"message.")
+			jww.DEBUG.Print("[FT] Quitting thread waiting for NewFileTransfer " +
+				"E2E message.")
 			return
 		case r := <-receive:
-			jww.DEBUG.Printf("Received new file %q transfer %s of type %q "+
-				"from %s of size %d bytes with preview: %q",
+			jww.DEBUG.Printf("[FT] Received new file %q transfer %s of type "+
+				"%q from %s of size %d bytes with preview: %q",
 				r.fileName, r.tid, r.fileType, r.sender, r.size, r.preview)
 			fmt.Printf("Received new file transfer %q of size %d "+
 				"bytes with preview: %q\n", r.fileName, r.size, r.preview)
@@ -262,7 +264,7 @@ func newReceiveProgressCB(tid ftCrypto.TransferID, done chan struct{},
 	m *ft.Manager) interfaces.ReceivedProgressCallback {
 	return func(completed bool, received, total uint16,
 		t interfaces.FilePartTracker, err error) {
-		jww.DEBUG.Printf("Receive progress callback for transfer %s "+
+		jww.DEBUG.Printf("[FT] Receive progress callback for transfer %s "+
 			"{completed: %t, received: %d, total: %d, err: %v}",
 			tid, completed, received, total, err)
 

@@ -23,7 +23,7 @@ func TestManager_receiveTransmissionHandler(t *testing.T) {
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
 	}
 	tag := "Test tag"
-	payload := make([]byte, 132)
+	payload := make([]byte, 131)
 	rand.New(rand.NewSource(42)).Read(payload)
 	callback, callbackChan := createReceiveComm()
 
@@ -91,7 +91,7 @@ func TestManager_receiveTransmissionHandler_FingerPrintError(t *testing.T) {
 		DhPubKey: m.store.E2e().GetGroup().NewInt(42),
 	}
 	tag := "Test tag"
-	payload := make([]byte, 132)
+	payload := make([]byte, 131)
 	rand.New(rand.NewSource(42)).Read(payload)
 	callback, callbackChan := createReceiveComm()
 
@@ -128,7 +128,7 @@ func TestManager_receiveTransmissionHandler_ProcessMessageError(t *testing.T) {
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
 	}
 	tag := "Test tag"
-	payload := make([]byte, 132)
+	payload := make([]byte, 131)
 	rand.New(rand.NewSource(42)).Read(payload)
 	callback, callbackChan := createReceiveComm()
 
@@ -167,7 +167,7 @@ func TestManager_receiveTransmissionHandler_TagFpError(t *testing.T) {
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
 	}
 	tag := "Test tag"
-	payload := make([]byte, 132)
+	payload := make([]byte, 131)
 	rand.New(rand.NewSource(42)).Read(payload)
 
 	msg, _, _, _, err := m.makeTransmitCmixMessage(partner, payload, tag, 8, 32,

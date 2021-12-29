@@ -27,8 +27,9 @@ func Test_newTransmitMessage(t *testing.T) {
 	pubKeySize := prng.Intn(externalPayloadSize)
 	expected := transmitMessage{
 		data:    make([]byte, externalPayloadSize),
+		version: make([]byte, transmitMessageVersionSize),
 		pubKey:  make([]byte, pubKeySize),
-		payload: make([]byte, externalPayloadSize-pubKeySize),
+		payload: make([]byte, externalPayloadSize-pubKeySize-transmitMessageVersionSize),
 	}
 
 	m := newTransmitMessage(externalPayloadSize, pubKeySize)
@@ -60,7 +61,9 @@ func Test_mapTransmitMessage(t *testing.T) {
 	prng.Read(pubKey)
 	payload := make([]byte, externalPayloadSize-pubKeySize)
 	prng.Read(payload)
+	version := make([]byte, 1)
 	var data []byte
+	data = append(data, version...)
 	data = append(data, pubKey...)
 	data = append(data, payload...)
 	m := mapTransmitMessage(data, pubKeySize)
@@ -137,7 +140,8 @@ func TestTransmitMessage_SetPayload_GetPayload_GetPayloadSize(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	externalPayloadSize := prng.Intn(2000)
 	pubKeySize := prng.Intn(externalPayloadSize)
-	payload := make([]byte, externalPayloadSize-pubKeySize)
+	payloadSize := externalPayloadSize - pubKeySize-transmitMessageVersionSize
+	payload := make([]byte, payloadSize)
 	prng.Read(payload)
 	m := newTransmitMessage(externalPayloadSize, pubKeySize)
 
@@ -149,7 +153,7 @@ func TestTransmitMessage_SetPayload_GetPayload_GetPayloadSize(t *testing.T) {
 			"\nexpected: %+v\nreceived: %+v", payload, testPayload)
 	}
 
-	payloadSize := externalPayloadSize - pubKeySize
+
 	if payloadSize != m.GetPayloadSize() {
 		t.Errorf("GetContentsSize() returned incorrect content size."+
 			"\nexpected: %d\nreceived: %d", payloadSize, m.GetPayloadSize())

@@ -86,6 +86,7 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 			}
 			// No need to register with stale nodes
 			if isStale := gw.Node.Status == ndf.Stale; isStale {
+				jww.DEBUG.Printf("Skipping registration with stale node %s", nidStr)
 				continue
 			}
 			err := registerWithNode(sender, comms, gw, regSignature,

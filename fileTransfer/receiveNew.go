@@ -82,6 +82,10 @@ func (m *Manager) readNewFileTransferMessage(msg message.Receive) (
 		return
 	}
 
+	jww.DEBUG.Printf("[FT] Received new file transfer %q from %s {parts: %d, "+
+		"size: %d, type: %q}",
+		newFT.FileName, msg.Sender, newFT.NumParts, newFT.Size, newFT.FileType)
+
 	// Get RNG from stream
 	rng := m.rng.GetStream()
 	defer rng.Close()

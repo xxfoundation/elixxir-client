@@ -25,12 +25,12 @@ const (
 // receive runs a loop that receives file message parts and stores them in their
 // appropriate transfer.
 func (m *Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) {
-	jww.DEBUG.Print("Starting file part reception thread.")
+	jww.DEBUG.Print("[FT] Starting file part reception thread.")
 
 	for {
 		select {
 		case <-stop.Quit():
-			jww.DEBUG.Print("Stopping file part reception thread: stoppable " +
+			jww.DEBUG.Print("[FT] Stopping file part reception thread: stoppable " +
 				"triggered.")
 			stop.ToStopped()
 			return
@@ -41,9 +41,9 @@ func (m *Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) 
 				// which means this message is not of the correct type and will
 				// be ignored
 				if strings.Contains(err.Error(), "fingerprint") {
-					jww.INFO.Print(err)
+					jww.INFO.Printf("[FT] %+v", err)
 				} else {
-					jww.WARN.Print(err)
+					jww.WARN.Print("[FT] %+v", err)
 				}
 				continue
 			}

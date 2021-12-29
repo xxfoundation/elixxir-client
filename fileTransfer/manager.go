@@ -9,6 +9,7 @@ package fileTransfer
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
@@ -307,6 +308,10 @@ func (m Manager) Send(fileName, fileType string, fileData []byte,
 	}
 	rng.Close()
 
+	jww.DEBUG.Printf("[FT] Sending new file transfer %q to %s {parts: %d, "+
+		"size: %d, type: %q, ID: %s}",
+		fileName, recipient, numParts, fileSize, fileType, transferID)
+
 	// Add all parts to queue
 	m.queueParts(transferID, makeListOfPartNums(numParts))
 
@@ -371,6 +376,10 @@ func (m Manager) CloseSend(tid ftCrypto.TransferID) error {
 	if transfer.GetNumAvailableFps() > 0 && !completed {
 		return errors.Errorf(transferInProgressErr, tid)
 	}
+
+	jww.DEBUG.Printf("[FT] Closing file transfer %s sent to %s "+
+		"{completed: %t, parts: %d}",
+		tid, transfer.GetRecipient(), completed, transfer.GetNumParts())
 
 	// Delete the transfer from storage
 	return m.sent.DeleteTransfer(tid)

@@ -312,6 +312,11 @@ func (m *Manager) buildMessages(partList []queuedPart) (
 		// Generate new cMix message with encrypted file part
 		cmixMsg, err := m.newCmixMessage(transfer, part.partNum, rng)
 		if err == ftStorage.MaxRetriesErr {
+			jww.DEBUG.Printf("[FT] File transfer %s sent to %s ran out of "+
+				"retries {parts: %d, fingerprints: %d}",
+				part.tid, transfer.GetRecipient(), transfer.GetNumParts(),
+				transfer.GetNumFps())
+
 			// If the max number of retries has been reached, then report the
 			// error on the callback, delete the transfer, and skip to the next
 			// message

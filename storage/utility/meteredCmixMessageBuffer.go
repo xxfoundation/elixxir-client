@@ -56,7 +56,7 @@ func (*meteredCmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (int
 	// Load the versioned object
 	vo, err := kv.Get(key, currentMeteredCmixMessageVersion)
 	if err != nil {
-		return format.Message{}, err
+		return nil, err
 	}
 
 	msg := meteredCmixMessage{}

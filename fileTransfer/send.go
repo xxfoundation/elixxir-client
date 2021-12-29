@@ -66,6 +66,9 @@ const (
 
 	// Age when rounds that files were sent from are deleted from the tracker
 	clearSentRoundsAge = 10 * time.Second
+
+	// Duration before sending on a round times out
+	sendTimeout = 500 * time.Millisecond
 )
 
 // sendThread waits on the sendQueue channel for parts to send. Once its
@@ -245,6 +248,7 @@ func (m *Manager) sendParts(partList []queuedPart,
 
 	// Create cMix parameters with round exclusion list
 	p := params.GetDefaultCMIX()
+	p.SendTimeout = sendTimeout
 	p.ExcludedRounds = sentRounds
 
 	// Send parts

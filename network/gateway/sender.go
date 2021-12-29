@@ -78,11 +78,14 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 	return nil, errors.Errorf("Unable to send to any proxies")
 }
 
+// sendToPreferredFunc is the send function passed into Sender.SendToPreferred.
+type sendToPreferredFunc func(host *connect.Host, target *id.ID,
+	timeout time.Duration) (interface{}, error)
+
 // SendToPreferred Call given sendFunc to any Host in the HostPool, attempting
 // with up to numProxies destinations. Returns an error if the timeout is
 // reached.
-func (s *Sender) SendToPreferred(targets []*id.ID,
-	sendFunc func(host *connect.Host, target *id.ID) (interface{}, error),
+func (s *Sender) SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
 	stop *stoppable.Single, timeout time.Duration) (interface{}, error) {
 
 	startTime := netTime.Now()
@@ -98,7 +101,8 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 				"sending to targets in HostPool timed out after %s", timeout)
 		}
 
-		result, err := sendFunc(targetHosts[i], targets[i])
+		remainingTimeout := timeout - netTime.Since(startTime)
+		result, err := sendFunc(targetHosts[i], targets[i], remainingTimeout)
 		if stop != nil && !stop.IsRunning() {
 			return nil, errors.Errorf(stoppable.ErrMsg, stop.Name(), "SendToPreferred")
 		} else if err == nil {
@@ -168,7 +172,8 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 				continue
 			}
 
-			result, err := sendFunc(proxy, target)
+			remainingTimeout := timeout - netTime.Since(startTime)
+			result, err := sendFunc(proxy, target, remainingTimeout)
 			if stop != nil && !stop.IsRunning() {
 				return nil, errors.Errorf(stoppable.ErrMsg, stop.Name(), "SendToPreferred")
 			} else if err == nil {

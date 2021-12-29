@@ -15,7 +15,6 @@
 package fileTransfer
 
 import (
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
@@ -65,8 +64,6 @@ func (srt *sentRoundTracker) Insert(rid id.Round) {
 	timeNow := netTime.Now()
 	srt.mux.Lock()
 	defer srt.mux.Unlock()
-
-	jww.DEBUG.Printf("[FT]\tInsert round %d into tracker at time %s\n", rid, timeNow.Format("03:04:05.9999999 PM"))
 
 	srt.rounds[rid] = timeNow
 }

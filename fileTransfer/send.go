@@ -32,37 +32,41 @@ import (
 // Error messages.
 const (
 	// Manager.sendParts
-	sendManyCmixWarn   = "Failed to send %d file parts %v via SendManyCMIX: %+v"
-	setInProgressErr   = "Failed to set parts %v to in-progress for transfer %s"
-	getRoundResultsErr = "Failed to get round results for round %d for file transfers %v: %+v"
+	sendManyCmixWarn   = "[FT] Failed to send %d file parts %v via SendManyCMIX: %+v"
+	setInProgressErr   = "[FT] Failed to set parts %v to in-progress for transfer %s"
+	getRoundResultsErr = "[FT] Failed to get round results for round %d for file transfers %v: %+v"
 
 	// Manager.buildMessages
-	noSentTransferWarn = "Could not get transfer %s for part %d: %+v"
+	noSentTransferWarn = "[FT] Could not get transfer %s for part %d: %+v"
 	maxRetriesErr      = "Stopping message transfer: %+v"
-	newCmixMessageErr  = "Failed to assemble cMix message for file part %d on transfer %s: %+v"
+	newCmixMessageErr  = "[FT] Failed to assemble cMix message for file part %d on transfer %s: %+v"
 
 	// Manager.makeRoundEventCallback
-	finishPassNoTransferErr = "Failed to mark in-progress parts as finished on success of round %d for transfer %s: %+v"
-	finishTransferErr       = "Failed to set part(s) to finished for transfer %s: %+v"
-	finishedEndE2eMsfErr    = "Failed to send E2E message to %s on completion of file transfer %s: %+v"
-	finishFailNoTransferErr = "Failed to requeue in-progress parts on failure of round %d for transfer %s: %+v"
-	roundFailureWarn        = "Failed to send file parts for file transfers %v on round %d: round %s"
-	unsetInProgressErr      = "Failed to remove parts from in-progress list for transfer %s: round %s"
-	roundFailureCbErr       = "Failed to send parts %d for transfer %s on round %d: round %s"
+	finishPassNoTransferErr = "[FT] Failed to mark in-progress parts as finished on success of round %d for transfer %s: %+v"
+	finishTransferErr       = "[FT] Failed to set part(s) to finished for transfer %s: %+v"
+	finishedEndE2eMsfErr    = "[FT] Failed to send E2E message to %s on completion of file transfer %s: %+v"
+	roundFailureWarn        = "[FT] Failed to send file parts for file transfers %v on round %d: round %s"
+	finishFailNoTransferErr = "[FT] Failed to requeue in-progress parts on failure of round %d for transfer %s: %+v"
+	unsetInProgressErr      = "[FT] Failed to remove parts from in-progress list for transfer %s: round %s"
 
 	// Manager.sendEndE2eMessage
 	endE2eGetPartnerErr = "failed to get file transfer partner %s: %+v"
 	endE2eSendErr       = "failed to send end file transfer message: %+v"
 
 	// getRandomNumParts
-	getRandomNumPartsRandPanic = "Failed to generate random number of file parts to send: %+v"
+	getRandomNumPartsRandPanic = "[FT] Failed to generate random number of file parts to send: %+v"
 )
 
-// Duration to wait for round to finish before timing out.
-const roundResultsTimeout = 60 * time.Second
+const (
+	// Duration to wait for round to finish before timing out.
+	roundResultsTimeout = 60 * time.Second
 
-// Duration to wait for send batch to fill before sending partial batch.
-const pollSleepDuration = 100 * time.Millisecond
+	// Duration to wait for send batch to fill before sending partial batch.
+	pollSleepDuration = 100 * time.Millisecond
+
+	// Age when rounds that files were sent from are deleted from the tracker
+	clearSentRoundsAge = 10 * time.Second
+)
 
 // sendThread waits on the sendQueue channel for parts to send. Once its
 // receives a random number between 1 and 11 of file parts, they are encrypted,
@@ -70,7 +74,7 @@ const pollSleepDuration = 100 * time.Millisecond
 // added to the end of the queue.
 func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool,
 	healthChanID uint64, getNumParts getRngNum) {
-	jww.DEBUG.Print("Starting file part sending thread.")
+	jww.DEBUG.Print("[FT] Starting file part sending thread.")
 
 	// Calculate the average amount of data sent via SendManyCMIX
 	avgNumMessages := (minPartsSendPerRound + maxPartsSendPerRound) / 2
@@ -82,11 +86,19 @@ func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool,
 	// Batch of parts read from the queue to be sent
 	var partList []queuedPart
 
+	// Create new sent round tracker that tracks which recent rounds file parts
+	// were sent on so that they can be avoided on subsequent sends
+	sentRounds := newSentRoundTracker(clearSentRoundsAge)
+
 	// The size of each batch
 	var numParts int
 
+	// Timer triggers sending of unfilled batch to prevent hanging when the
+	// file part queue has fewer items then the batch size
 	timer := time.NewTimer(pollSleepDuration)
-	lastSend := time.Time{}
+
+	// Tracks time that the last send completed
+	var lastSend time.Time
 
 	// Loop forever polling the sendQueue channel for new file parts to send. If
 	// the channel is empty, then polling is suspended for pollSleepDuration. If
@@ -103,13 +115,13 @@ func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool,
 		case healthy := <-healthChan:
 			// If the network is unhealthy, wait until it becomes healthy
 			if !healthy {
-				jww.TRACE.Print("Suspending file part sending thread: " +
+				jww.TRACE.Print("[FT] Suspending file part sending thread: " +
 					"network is unhealthy.")
 			}
 			for !healthy {
 				healthy = <-healthChan
 			}
-			jww.TRACE.Print("File part sending thread: network is healthy.")
+			jww.TRACE.Print("[FT] File part sending thread: network is healthy.")
 		case part := <-m.sendQueue:
 			// When a part is received from the queue, add it to the list of
 			// parts to be sent
@@ -127,7 +139,7 @@ func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool,
 			// If the batch is full, then send the parts
 			if len(partList) == numParts {
 				quit := m.handleSend(
-					&partList, &lastSend, delay, stop, healthChan, healthChanID)
+					&partList, &lastSend, delay, stop, healthChanID, sentRounds)
 				if quit {
 					return
 				}
@@ -144,7 +156,7 @@ func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool,
 			}
 
 			quit := m.handleSend(
-				&partList, &lastSend, delay, stop, healthChan, healthChanID)
+				&partList, &lastSend, delay, stop, healthChanID, sentRounds)
 			if quit {
 				return
 			}
@@ -157,7 +169,8 @@ func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool,
 func (m *Manager) closeSendThread(partList []queuedPart, stop *stoppable.Single,
 	healthChanID uint64) {
 	// Exit the thread if the stoppable is triggered
-	jww.DEBUG.Print("Stopping file part sending thread: stoppable triggered.")
+	jww.DEBUG.Print("[FT] Stopping file part sending thread: stoppable " +
+		"triggered.")
 
 	// Add all the unsent parts back in the queue
 	for _, part := range partList {
@@ -177,13 +190,13 @@ func (m *Manager) closeSendThread(partList []queuedPart, stop *stoppable.Single,
 // Returns true if the stoppable has been triggered and the sending thread
 // should quit.
 func (m *Manager) handleSend(partList *[]queuedPart, lastSend *time.Time,
-	delay time.Duration, stop *stoppable.Single, _ chan bool,
-	healthChanID uint64) bool {
+	delay time.Duration, stop *stoppable.Single, healthChanID uint64,
+	sentRounds *sentRoundTracker) bool {
 	// Bandwidth limiter: wait to send until the delay has been reached so that
 	// the bandwidth is limited to the maximum throughput
 	if netTime.Since(*lastSend) < delay {
 		waitingTime := delay - netTime.Since(*lastSend)
-		jww.TRACE.Printf("Suspending file part sending: "+
+		jww.TRACE.Printf("[FT] Suspending file part sending: "+
 			"bandwidth limit reached; waiting %s to send.", waitingTime)
 		select {
 		case <-stop.Quit():
@@ -191,27 +204,18 @@ func (m *Manager) handleSend(partList *[]queuedPart, lastSend *time.Time,
 			m.closeSendThread(*partList, stop, healthChanID)
 
 			return true
-		// TODO: is this needed?
-		// case healthy := <-healthChan:
-		// 	// If the network is unhealthy, wait until it becomes healthy
-		// 	if !healthy {
-		// 		jww.TRACE.Print("Suspending file part sending: " +
-		// 			"network is unhealthy.")
-		// 	}
-		// 	for !healthy {
-		// 		healthy = <-healthChan
-		// 	}
-		// 	jww.TRACE.Print("File part sending continuing: network is healthy.")
 		case <-time.NewTimer(delay - netTime.Since(*lastSend)).C:
 		}
 	}
 
 	// Send all the messages
-	err := m.sendParts(*partList)
-	*lastSend = netTime.Now()
+	err := m.sendParts(*partList, sentRounds)
 	if err != nil {
 		jww.FATAL.Panic(err)
 	}
+
+	// Update the timestamp of the send
+	*lastSend = netTime.Now()
 
 	// Clear partList once done
 	*partList = nil
@@ -221,7 +225,8 @@ func (m *Manager) handleSend(partList *[]queuedPart, lastSend *time.Time,
 
 // sendParts handles the composing and sending of a cMix message for each part
 // in the list. All errors returned are fatal errors.
-func (m *Manager) sendParts(partList []queuedPart) error {
+func (m *Manager) sendParts(partList []queuedPart,
+	sentRounds *sentRoundTracker) error {
 
 	// Build cMix messages
 	messages, transfers, groupedParts, partsToResend, err :=
@@ -235,8 +240,15 @@ func (m *Manager) sendParts(partList []queuedPart) error {
 		return nil
 	}
 
+	// Clear all old rounds from the sent rounds list
+	sentRounds.removeOldRounds()
+
+	// Create cMix parameters with round exclusion list
+	p := params.GetDefaultCMIX()
+	p.ExcludedRounds = sentRounds
+
 	// Send parts
-	rid, _, err := m.net.SendManyCMIX(messages, params.GetDefaultCMIX())
+	rid, _, err := m.net.SendManyCMIX(messages, p)
 	if err != nil {
 		// If an error occurs, then print a warning and add the file parts back
 		// to the queue to try sending again
@@ -416,6 +428,7 @@ func (m *Manager) makeRoundEventCallback(
 						}(tid, transfer.GetRecipient())
 					}
 
+					// Call progress callback after change in progress
 					transfer.CallProgressCB(nil)
 				}
 			} else {
@@ -438,10 +451,8 @@ func (m *Manager) makeRoundEventCallback(
 						jww.ERROR.Printf(unsetInProgressErr, tid, roundResult)
 					}
 
-					// Return the error on the progress callback
-					cbErr := errors.Errorf(
-						roundFailureCbErr, partsToResend, tid, rid, roundResult)
-					transfer.CallProgressCB(cbErr)
+					// Call progress callback after change in progress
+					transfer.CallProgressCB(nil)
 
 					// Add all the unsent parts back in the queue
 					m.queueParts(tid, partsToResend)
@@ -494,9 +505,9 @@ func (m *Manager) sendEndE2eMessage(recipient *id.ID) error {
 	// If a single partition of the end file transfer message does not transmit,
 	// then the partner will not be able to read the confirmation
 	if !success {
-		jww.ERROR.Printf("Sending E2E message %s to end file transfer with "+
-			"%s failed to transmit %d/%d partitions: %d round failures, %d "+
-			"timeouts", recipient, e2eMsgID, numRoundFail+numTimeOut,
+		jww.ERROR.Printf("[FT] Sending E2E message %s to end file transfer "+
+			"with %s failed to transmit %d/%d partitions: %d round failures, "+
+			"%d timeouts", recipient, e2eMsgID, numRoundFail+numTimeOut,
 			len(rounds), numRoundFail, numTimeOut)
 		m.store.GetCriticalMessages().Failed(sendMsg, e2eParams)
 		return nil
@@ -505,8 +516,8 @@ func (m *Manager) sendEndE2eMessage(recipient *id.ID) error {
 	// Otherwise, the transmission is a success and this should be denoted in
 	// the session and the log
 	m.store.GetCriticalMessages().Succeeded(sendMsg, e2eParams)
-	jww.INFO.Printf("Sending of message %s informing %s that a transfer ended"+
-		"successful.", e2eMsgID, recipient)
+	jww.INFO.Printf("[FT] Sending of message %s informing %s that a transfer "+
+		"ended successful.", e2eMsgID, recipient)
 
 	return nil
 }

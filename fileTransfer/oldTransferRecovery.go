@@ -36,7 +36,6 @@ func (m Manager) oldTransferRecovery(healthyChan chan bool, chanID uint64) {
 	}
 
 	// Get list of unsent parts and rounds that parts were sent on
-	// TODO: handle error
 	unsentParts, sentRounds, err := m.sent.GetUnsentPartsAndSentRounds()
 
 	// Add all unsent parts to the queue

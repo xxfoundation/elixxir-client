@@ -282,7 +282,7 @@ func TestManager_sendParts(t *testing.T) {
 		queuedParts[i], queuedParts[j] = queuedParts[j], queuedParts[i]
 	})
 
-	err := m.sendParts(queuedParts)
+	err := m.sendParts(queuedParts, newSentRoundTracker(clearSentRoundsAge))
 	if err != nil {
 		t.Errorf("sendParts returned an error: %+v", err)
 	}
@@ -356,7 +356,7 @@ func TestManager_sendParts_SendManyCmixError(t *testing.T) {
 		}
 	}
 
-	err := m.sendParts(queuedParts)
+	err := m.sendParts(queuedParts, newSentRoundTracker(clearSentRoundsAge))
 	if err != nil {
 		t.Errorf("sendParts returned an error: %+v", err)
 	}
@@ -402,7 +402,7 @@ func TestManager_sendParts_RoundResultsError(t *testing.T) {
 	}
 
 	expectedErr := fmt.Sprintf(getRoundResultsErr, 0, tIDs, grrErr)
-	err := m.sendParts(queuedParts)
+	err := m.sendParts(queuedParts, newSentRoundTracker(clearSentRoundsAge))
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("sendParts did not return the expected error when "+
 			"GetRoundResults should have returned an error."+
@@ -784,7 +784,8 @@ func TestManager_makeRoundEventCallback(t *testing.T) {
 }
 
 // Tests that Manager.makeRoundEventCallback returns a callback that calls the
-// progress callback with the correct error when a round fails.
+// progress callback with no parts sent on round failure. Also checks that the
+// file parts were added back into the queue.
 func TestManager_makeRoundEventCallback_RoundFailure(t *testing.T) {
 	m := newTestManager(false, nil, nil, nil, nil, t)
 
@@ -806,6 +807,7 @@ func TestManager_makeRoundEventCallback_RoundFailure(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
+
 	partsToSend := []uint16{0, 1, 2, 3}
 
 	done0, done1 := make(chan bool), make(chan bool)
@@ -819,11 +821,11 @@ func TestManager_makeRoundEventCallback_RoundFailure(t *testing.T) {
 				case 0:
 					done0 <- true
 				case 1:
-					expectedErr := fmt.Sprintf(
-						roundFailureCbErr, partsToSend, tid, rid, api.Failed)
-					if r.err == nil || !strings.Contains(r.err.Error(), expectedErr) {
-						t.Errorf("Callback received unexpected error when round "+
-							"failed.\nexpected: %s\nreceived: %v", expectedErr, r.err)
+					expectedResult := sentProgressResults{
+						false, 0, 0, uint16(len(partsToSend)), r.tracker, nil}
+					if !reflect.DeepEqual(expectedResult, r) {
+						t.Errorf("Callback returned unexpected values."+
+							"\nexpected: %+v\nreceived: %+v", expectedResult, r)
 					}
 					done1 <- true
 				}
@@ -832,9 +834,11 @@ func TestManager_makeRoundEventCallback_RoundFailure(t *testing.T) {
 	}()
 
 	// Create queued part list add parts
+	partsMap := make(map[uint16]queuedPart, len(partsToSend))
 	queuedParts := make([]queuedPart, len(partsToSend))
 	for i := range queuedParts {
 		queuedParts[i] = queuedPart{tid, uint16(i)}
+		partsMap[uint16(i)] = queuedParts[i]
 	}
 
 	_, transfers, groupedParts, _, err := m.buildMessages(queuedParts)
@@ -852,6 +856,21 @@ func TestManager_makeRoundEventCallback_RoundFailure(t *testing.T) {
 	roundEventCB(false, false, map[id.Round]api.RoundResult{rid: api.Failed})
 
 	<-done1
+
+	// Check that the parts were added to the queue
+	for i := range partsToSend {
+		select {
+		case <-time.NewTimer(10 * time.Millisecond).C:
+			t.Errorf("Timed out waiting for part %d.", i)
+		case r := <-m.sendQueue:
+			if partsMap[r.partNum] != r {
+				t.Errorf("Incorrect part in queue (%d)."+
+					"\nexpected: %+v\nreceived: %+v", i, partsMap[r.partNum], r)
+			} else {
+				delete(partsMap, r.partNum)
+			}
+		}
+	}
 }
 
 // Tests that Manager.sendEndE2eMessage sends an E2E message with the expected

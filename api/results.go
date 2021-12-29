@@ -93,7 +93,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 
 	oldestRound := networkInstance.GetOldestRoundID()
 
-	roundEventTimeout := 7 * time.Second
+	roundEventTimeout := 5 * time.Second
 	if timeout < roundEventTimeout {
 		roundEventTimeout = timeout
 	}

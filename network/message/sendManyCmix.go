@@ -63,11 +63,11 @@ func sendManyCmixHelper(sender *gateway.Sender,
 	id.Round, []ephemeral.Id, error) {
 
 	timeStart := netTime.Now()
-	var attempted *excludedRounds.ExcludedRounds
+	var attempted excludedRounds.ExcludedRounds
 	if param.ExcludedRounds != nil {
 		attempted = param.ExcludedRounds
 	} else {
-		attempted = excludedRounds.New()
+		attempted = excludedRounds.NewSet()
 	}
 
 	maxTimeout := sender.GetHostParams().SendTimeout

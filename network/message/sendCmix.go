@@ -101,7 +101,6 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		jww.TRACE.Printf("[SendCMIX] try %d, elapsed: %s",
 			numRoundTries, elapsed)
 
-
 		if elapsed > cmixParams.Timeout {
 			jww.INFO.Printf("No rounds to send to %s (msgDigest: %s) "+
 				"were found before timeout %s", recipient, msg.Digest(),
@@ -161,8 +160,8 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			return 0, ephemeral.Id{}, err
 		}
 
-		jww.INFO.Printf("[sendCMIX] Sending to EphID %d (%s), " +
-			"on round %d (msgDigest: %s, ecrMsgDigest: %s) " +
+		jww.INFO.Printf("[sendCMIX] Sending to EphID %d (%s), "+
+			"on round %d (msgDigest: %s, ecrMsgDigest: %s) "+
 			"via gateway %s",
 			ephID.Int64(), recipient, bestRound.ID, msg.Digest(),
 			encMsg.Digest(), firstGateway.String())
@@ -194,7 +193,6 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		result, err := sender.SendToPreferred([]*id.ID{firstGateway}, sendFunc, stop)
 		jww.DEBUG.Printf("[sendCMIX] sendToPreferred %s returned",
 			firstGateway)
-
 
 		// Exit if the thread has been stopped
 		if stoppable.CheckErr(err) {

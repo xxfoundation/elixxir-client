@@ -227,10 +227,10 @@ var rootCmd = &cobra.Command{
 		client.GetHealth().AddChannel(connected)
 		waitUntilConnected(connected)
 
-		//err = client.RegisterForNotifications("dJwuGGX3KUyKldWK5PgQH8:APA91bFjuvimRc4LqOyMDiy124aLedifA8DhldtaB_b76ggphnFYQWJc_fq0hzQ-Jk4iYp2wPpkwlpE1fsOjs7XWBexWcNZoU-zgMiM0Mso9vTN53RhbXUferCbAiEylucEOacy9pniN")
-		//if err != nil {
+		// err = client.RegisterForNotifications("dJwuGGX3KUyKldWK5PgQH8:APA91bFjuvimRc4LqOyMDiy124aLedifA8DhldtaB_b76ggphnFYQWJc_fq0hzQ-Jk4iYp2wPpkwlpE1fsOjs7XWBexWcNZoU-zgMiM0Mso9vTN53RhbXUferCbAiEylucEOacy9pniN")
+		// if err != nil {
 		//	jww.FATAL.Panicf("Failed to register for notifications: %+v", err)
-		//}
+		// }
 
 		// After connection, make sure we have registered with at least
 		// 85% of the nodes
@@ -399,7 +399,7 @@ var rootCmd = &cobra.Command{
 			case m := <-recvCh:
 				fmt.Printf("Message received: %s\n", string(
 					m.Payload))
-				//fmt.Printf("%s", m.Timestamp)
+				// fmt.Printf("%s", m.Timestamp)
 				receiveCnt++
 				if receiveCnt == expectedCnt {
 					done = true
@@ -408,7 +408,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		//wait an extra 5 seconds to make sure no messages were missed
+		// wait an extra 5 seconds to make sure no messages were missed
 		done = false
 		timer := time.NewTimer(5 * time.Second)
 		for !done {
@@ -419,7 +419,7 @@ var rootCmd = &cobra.Command{
 			case m := <-recvCh:
 				fmt.Printf("Message received: %s\n", string(
 					m.Payload))
-				//fmt.Printf("%s", m.Timestamp)
+				// fmt.Printf("%s", m.Timestamp)
 				receiveCnt++
 			}
 		}
@@ -533,7 +533,7 @@ func createClient() *api.Client {
 	userIDprefix := viper.GetString("userid-prefix")
 	protoUserPath := viper.GetString("protoUserPath")
 
-	//create a new client if none exist
+	// create a new client if none exist
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
 		// Load NDF
 		ndfJSON, err := ioutil.ReadFile(viper.GetString("ndf"))
@@ -602,7 +602,7 @@ func initClient() *api.Client {
 	}
 	netParams.VerboseRoundTracking = viper.GetBool("verboseRoundTracking")
 
-	//load the client
+	// load the client
 	client, err := api.Login(storeDir, []byte(pass), netParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
@@ -680,7 +680,7 @@ func printChanRequest(requestor contact.Contact, message string) {
 	fmt.Printf(msg)
 	msg = fmt.Sprintf("Authentication channel request message: %s\n", message)
 	jww.INFO.Printf(msg)
-	//fmt.Printf(msg)
+	// fmt.Printf(msg)
 }
 
 func addPrecanAuthenticatedChannel(client *api.Client, recipientID *id.ID,
@@ -743,7 +743,7 @@ func waitUntilConnected(connected chan bool) {
 	waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
 	timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 	isConnected := false
-	//Wait until we connect or panic if we can't by a timeout
+	// Wait until we connect or panic if we can't by a timeout
 	for !isConnected {
 		select {
 		case isConnected = <-connected:

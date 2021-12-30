@@ -9,6 +9,7 @@ package fileTransfer
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
@@ -99,12 +100,12 @@ type Manager struct {
 	// Queue of parts to send
 	sendQueue chan queuedPart
 
-	// Maximum data transfer speed in bytes per second
-	maxThroughput int
-
 	// Indicates if old transfers saved to storage have been recovered after
 	// file transfer is closed and reopened
 	oldTransfersRecovered bool
+
+	// File transfer parameters
+	p Params
 
 	// Client interfaces
 	client          *api.Client
@@ -157,13 +158,16 @@ func newManager(client *api.Client, store *storage.Session,
 		return nil, errors.Errorf(newManagerReceivedErr, err)
 	}
 
+	jww.DEBUG.Printf(""+
+		"[FT] Created mew file transfer manager with params: %+v", p)
+
 	return &Manager{
 		receiveCB:             receiveCB,
 		sent:                  sent,
 		received:              received,
 		sendQueue:             make(chan queuedPart, sendQueueBuffLen),
-		maxThroughput:         p.MaxThroughput,
 		oldTransfersRecovered: false,
+		p:                     p,
 		client:                client,
 		store:                 store,
 		swb:                   swb,
@@ -300,17 +304,21 @@ func (m Manager) Send(fileName, fileType string, fileData []byte,
 
 	// Add the transfer to storage
 	rng = m.rng.GetStream()
-	transferID, err := m.sent.AddTransfer(
+	tid, err := m.sent.AddTransfer(
 		recipient, transferKey, parts, numFps, progressCB, period, rng)
 	if err != nil {
 		return ftCrypto.TransferID{}, err
 	}
 	rng.Close()
 
-	// Add all parts to queue
-	m.queueParts(transferID, makeListOfPartNums(numParts))
+	jww.DEBUG.Printf("[FT] Sending new file transfer %s to %s {name: %s, "+
+		"type: %q, size: %d, parts: %d, numFps: %d, retry: %f}",
+		tid, recipient, fileName, fileType, fileSize, numParts, numFps, retry)
 
-	return transferID, nil
+	// Add all parts to queue
+	m.queueParts(tid, makeListOfPartNums(numParts))
+
+	return tid, nil
 }
 
 // RegisterSentProgressCallback adds the sent progress callback to the sent
@@ -360,17 +368,21 @@ func (m Manager) Resend(tid ftCrypto.TransferID) error {
 // error if the transfer has not run out of retries.
 func (m Manager) CloseSend(tid ftCrypto.TransferID) error {
 	// Get the transfer for the given ID
-	transfer, err := m.sent.GetTransfer(tid)
+	st, err := m.sent.GetTransfer(tid)
 	if err != nil {
 		return err
 	}
 
 	// Check if the transfer has completed or run out of fingerprints, which
 	// occurs when the retry limit is reached
-	completed, _, _, _, _ := transfer.GetProgress()
-	if transfer.GetNumAvailableFps() > 0 && !completed {
+	completed, _, _, _, _ := st.GetProgress()
+	if st.GetNumAvailableFps() > 0 && !completed {
 		return errors.Errorf(transferInProgressErr, tid)
 	}
+
+	jww.DEBUG.Printf("[FT] Closing file transfer %s to %s {completed: %t, "+
+		"parts: %d, numFps: %d/%d,}", tid, st.GetRecipient(), completed,
+		st.GetNumParts(), st.GetNumFps()-st.GetNumAvailableFps(), st.GetNumFps())
 
 	// Delete the transfer from storage
 	return m.sent.DeleteTransfer(tid)
@@ -382,16 +394,20 @@ func (m Manager) CloseSend(tid ftCrypto.TransferID) error {
 // verified, or if the transfer cannot be found.
 func (m Manager) Receive(tid ftCrypto.TransferID) ([]byte, error) {
 	// Get the transfer for the given ID
-	transfer, err := m.received.GetTransfer(tid)
+	rt, err := m.received.GetTransfer(tid)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get the file from the transfer
-	file, err := transfer.GetFile()
+	file, err := rt.GetFile()
 	if err != nil {
 		return nil, err
 	}
+
+	jww.DEBUG.Printf("[FT] Receiver completed transfer %s {size: %d, "+
+		"parts: %d, numFps: %d/%d}", tid, rt.GetFileSize(), rt.GetNumParts(),
+		rt.GetNumFps()-rt.GetNumAvailableFps(), rt.GetNumFps())
 
 	// Return the file and delete the transfer from storage
 	return file, m.received.DeleteTransfer(tid)

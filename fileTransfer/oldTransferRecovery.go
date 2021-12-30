@@ -16,8 +16,8 @@ import (
 
 // Error messages.
 const (
-	oldTransfersRoundResultsErr = "failed to recover round information for " +
-		"%d rounds for old file transfers after %d attempts"
+	oldTransfersRoundResultsErr = "[FT] failed to recover round information " +
+		"for %d rounds for old file transfers after %d attempts"
 )
 
 // roundResultsMaxAttempts is the maximum number of attempts to get round
@@ -30,13 +30,12 @@ func (m Manager) oldTransferRecovery(healthyChan chan bool, chanID uint64) {
 
 	// Exit if old transfers have already been recovered
 	if m.oldTransfersRecovered {
-		jww.DEBUG.Printf("Old file transfer recovery thread not starting: " +
-			"none to recover (app was not closed)")
+		jww.DEBUG.Printf("[FT] Old file transfer recovery thread not " +
+			"starting: none to recover (app was not closed)")
 		return
 	}
 
 	// Get list of unsent parts and rounds that parts were sent on
-	// TODO: handle error
 	unsentParts, sentRounds, err := m.sent.GetUnsentPartsAndSentRounds()
 
 	// Add all unsent parts to the queue
@@ -45,8 +44,15 @@ func (m Manager) oldTransferRecovery(healthyChan chan bool, chanID uint64) {
 	}
 
 	if err != nil {
-		jww.ERROR.Printf("Failed to get sent rounds: %+v", err)
+		jww.ERROR.Printf("[FT] Failed to get sent rounds: %+v", err)
 		m.net.GetHealthTracker().RemoveChannel(chanID)
+		return
+	}
+
+	// Return if there are no parts to recover
+	if len(sentRounds) == 0 {
+		jww.DEBUG.Print(
+			"[FT] No in-progress rounds from old transfers to recover.")
 		return
 	}
 
@@ -72,7 +78,7 @@ func (m Manager) updateSentRounds(healthyChan chan bool,
 	// Tracks the number of attempts to get round results
 	var getRoundResultsAttempts int
 
-	jww.DEBUG.Print("Starting old file transfer recovery thread.")
+	jww.DEBUG.Print("[FT] Starting old file transfer recovery thread.")
 
 	// Wait for network to be healthy to attempt to get round states
 	for getRoundResultsAttempts < roundResultsMaxAttempts {
@@ -80,13 +86,13 @@ func (m Manager) updateSentRounds(healthyChan chan bool,
 		case healthy := <-healthyChan:
 			// If the network is unhealthy, wait until it becomes healthy
 			if !healthy {
-				jww.DEBUG.Print("Suspending old file transfer recovery " +
+				jww.DEBUG.Print("[FT] Suspending old file transfer recovery " +
 					"thread: network is unhealthy.")
 			}
 			for !healthy {
 				healthy = <-healthyChan
 			}
-			jww.DEBUG.Print("Old file transfer recovery thread: " +
+			jww.DEBUG.Print("[FT] Old file transfer recovery thread: " +
 				"network is healthy.")
 
 			// Register callback to get Round results and retry on error
@@ -94,12 +100,13 @@ func (m Manager) updateSentRounds(healthyChan chan bool,
 			err := m.getRoundResults(roundList, roundResultsTimeout,
 				m.makeRoundEventCallback(sentRounds))
 			if err != nil {
-				jww.WARN.Printf("Failed to get round results for old "+
+				jww.WARN.Printf("[FT] Failed to get round results for old "+
 					"transfers for rounds %d (attempt %d/%d): %+v",
 					getRoundResultsAttempts, roundResultsMaxAttempts,
 					roundList, err)
 			} else {
-				jww.INFO.Printf("Successfully recovered old file transfers.")
+				jww.INFO.Printf(
+					"[FT] Successfully recovered old file transfers.")
 				return nil
 			}
 			getRoundResultsAttempts++

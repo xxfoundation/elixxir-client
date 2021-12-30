@@ -25,12 +25,12 @@ const (
 // receive runs a loop that receives file message parts and stores them in their
 // appropriate transfer.
 func (m *Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) {
-	jww.DEBUG.Print("Starting file part reception thread.")
+	jww.DEBUG.Print("[FT] Starting file part reception thread.")
 
 	for {
 		select {
 		case <-stop.Quit():
-			jww.DEBUG.Print("Stopping file part reception thread: stoppable " +
+			jww.DEBUG.Print("[FT] Stopping file part reception thread: stoppable " +
 				"triggered.")
 			stop.ToStopped()
 			return
@@ -41,9 +41,9 @@ func (m *Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) 
 				// which means this message is not of the correct type and will
 				// be ignored
 				if strings.Contains(err.Error(), "fingerprint") {
-					jww.INFO.Print(err)
+					jww.TRACE.Printf("[FT] %+v", err)
 				} else {
-					jww.WARN.Print(err)
+					jww.WARN.Printf("[FT] %+v", err)
 				}
 				continue
 			}
@@ -68,15 +68,23 @@ func (m *Manager) readMessage(msg message.Receive) (format.Message, error) {
 	}
 
 	// Add part to received transfer
-	transfer, _, err := m.received.AddPart(partMsg.getPart(),
+	rt, tid, completed, err := m.received.AddPart(partMsg.getPart(),
 		partMsg.getPadding(), cMixMsg.GetMac(), partMsg.getPartNum(),
 		cMixMsg.GetKeyFP())
 	if err != nil {
 		return cMixMsg, err
 	}
 
+	// Print debug message on completion
+	if completed {
+		jww.DEBUG.Printf("[FT] Received last part for file transfer %s from "+
+			"%s {size: %d, parts: %d, numFps: %d/%d}", tid, msg.Sender,
+			rt.GetFileSize(), rt.GetNumParts(),
+			rt.GetNumFps()-rt.GetNumAvailableFps(), rt.GetNumFps())
+	}
+
 	// Call callback with updates
-	transfer.CallProgressCB(nil)
+	rt.CallProgressCB(nil)
 
 	return cMixMsg, nil
 }

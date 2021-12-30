@@ -186,15 +186,17 @@ func newTestManager(sendErr bool, sendChan, sendE2eChan chan message.Receive,
 		return nil
 	}
 
+	p := DefaultParams()
 	avgNumMessages := (minPartsSendPerRound + maxPartsSendPerRound) / 2
 	avgSendSize := avgNumMessages * (8192 / 8)
+	p.MaxThroughput = int(time.Second) * avgSendSize
 
 	m := &Manager{
 		receiveCB:       receiveCB,
 		sent:            sent,
 		received:        received,
 		sendQueue:       make(chan queuedPart, sendQueueBuffLen),
-		maxThroughput:   int(time.Second) * avgSendSize,
+		p:               p,
 		store:           storage.InitTestingSession(t),
 		swb:             switchboard.New(),
 		net:             net,

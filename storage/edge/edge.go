@@ -177,7 +177,6 @@ func (s *Store) Check(identity *id.ID, identityFP []byte, messageContents []byte
 	}
 
 	for _, preimage := range preimages {
-		jww.INFO.Printf("checking  ifp: %v, msg: %v, preimage %v", identityFP, messageContents, preimage)
 		if fingerprint2.CheckIdentityFP(identityFP, messageContents, preimage.Data) {
 			return true, true, preimage
 		}

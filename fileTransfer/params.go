@@ -18,13 +18,6 @@ type Params struct {
 	MaxThroughput int
 }
 
-// NewParams generates a new Params object filled with the given parameters.
-func NewParams(maxThroughput int) Params {
-	return Params{
-		MaxThroughput: maxThroughput,
-	}
-}
-
 // DefaultParams returns a Params object filled with the default values.
 func DefaultParams() Params {
 	return Params{

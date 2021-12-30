@@ -13,7 +13,7 @@ import (
 )
 
 type CMIX struct {
-	//maximum number of rounds to try and send on
+	// maximum number of rounds to try and send on
 	RoundTries uint
 	Timeout    time.Duration
 	RetryDelay time.Duration
@@ -34,7 +34,7 @@ func (c CMIX) Marshal() ([]byte, error) {
 	return json.Marshal(c)
 }
 
-// Obtain default CMIX parameters, or override with given parameters if set
+// GetCMIXParameters func obtains default CMIX parameters, or overrides with given parameters if set
 func GetCMIXParameters(params string) (CMIX, error) {
 	p := GetDefaultCMIX()
 	if len(params) > 0 {

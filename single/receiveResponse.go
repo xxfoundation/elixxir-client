@@ -33,7 +33,7 @@ func (m *Manager) receiveResponseHandler(rawMessages chan message.Receive,
 			stop.ToStopped()
 			return
 		case msg := <-rawMessages:
-			jww.DEBUG.Printf("Received CMIX message; checking if it is a " +
+			jww.TRACE.Printf("Received CMIX message; checking if it is a " +
 				"single-use response.")
 
 			// Process CMIX message

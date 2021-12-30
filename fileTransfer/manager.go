@@ -37,8 +37,8 @@ const (
 	FileTypeMaxLen = 8
 
 	// FileMaxSize is the maximum file size that can be transferred. Currently,
-	// it is set to 4 mB.
-	FileMaxSize = 4_000_000
+	// it is set to 250 kB.
+	FileMaxSize = 250_000
 
 	// minPartsSendPerRound is the minimum number of file parts sent each round.
 	minPartsSendPerRound = 1
@@ -100,12 +100,12 @@ type Manager struct {
 	// Queue of parts to send
 	sendQueue chan queuedPart
 
-	// Maximum data transfer speed in bytes per second
-	maxThroughput int
-
 	// Indicates if old transfers saved to storage have been recovered after
 	// file transfer is closed and reopened
 	oldTransfersRecovered bool
+
+	// File transfer parameters
+	p Params
 
 	// Client interfaces
 	client          *api.Client
@@ -166,8 +166,8 @@ func newManager(client *api.Client, store *storage.Session,
 		sent:                  sent,
 		received:              received,
 		sendQueue:             make(chan queuedPart, sendQueueBuffLen),
-		maxThroughput:         p.MaxThroughput,
 		oldTransfersRecovered: false,
+		p:                     p,
 		client:                client,
 		store:                 store,
 		swb:                   swb,

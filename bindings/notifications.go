@@ -11,8 +11,8 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/edge"
-	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fingerprint"
+	"gitlab.com/elixxir/primitives/notifications"
 )
 
 type NotificationForMeReport struct {
@@ -67,7 +67,8 @@ func NotificationsForMe(notifCSV, preimages string) (*ManyNotificationForMeRepor
 			"cannot check if notification is for me")
 	}
 
-	list, err := pb.DecodeNotificationsCSV(notifCSV)
+	list, err := notifications.DecodeNotificationsCSV(notifCSV)
+
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,6 @@ package message
 
 import (
 	"fmt"
-	"github.com/golang-collections/collections/set"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -21,6 +20,7 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
@@ -76,8 +76,14 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 	stop *stoppable.Single) (id.Round, ephemeral.Id, error) {
 
 	timeStart := netTime.Now()
-	attempted := set.New()
 	maxTimeout := sender.GetHostParams().SendTimeout
+
+	var attempted excludedRounds.ExcludedRounds
+	if cmixParams.ExcludedRounds != nil {
+		attempted = cmixParams.ExcludedRounds
+	} else {
+		attempted = excludedRounds.NewSet()
+	}
 
 	jww.INFO.Printf("Looking for round to send cMix message to %s "+
 		"(msgDigest: %s)", recipient, msg.Digest())
@@ -121,7 +127,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		jww.DEBUG.Printf("[sendCMIX] bestRound: %v", bestRound)
 
 		// add the round on to the list of attempted, so it is not tried again
-		attempted.Insert(bestRound)
+		attempted.Insert(bestRound.GetRoundId())
 
 		// Determine whether the selected round contains any Nodes
 		// that are blacklisted by the params.Network object

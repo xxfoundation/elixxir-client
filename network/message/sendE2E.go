@@ -110,6 +110,8 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 			localParam.IdentityPreimage = partner.GetE2EPreimage()
 		}
 
+		jww.DEBUG.Printf("Excluded %+v", param.ExcludedRounds)
+
 		//send the cmix message, each partition in its own thread
 		wg.Add(1)
 		go func(i int) {

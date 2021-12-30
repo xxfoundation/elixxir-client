@@ -36,7 +36,7 @@ const (
 
 	newSentTransferErr    = "failed to create new sent transfer: %+v"
 	getSentTransferErr    = "sent file transfer not found"
-	cancelCallbackErr     = "Transfer with ID %s: %+v"
+	cancelCallbackErr     = "[FT] Transfer with ID %s: %+v"
 	deleteSentTransferErr = "failed to delete sent transfer with ID %s from store: %+v"
 )
 

@@ -26,7 +26,7 @@ func TestManager_GetMaxTransmissionPayloadSize(t *testing.T) {
 	m := newTestManager(0, false, t)
 	cmixPrimeSize := m.store.Cmix().GetGroup().GetP().ByteLen()
 	e2ePrimeSize := m.store.E2e().GetGroup().GetP().ByteLen()
-	expectedSize := 2*cmixPrimeSize - e2ePrimeSize - format.KeyFPLen - format.MacLen - format.RecipientIDLen - transmitPlMinSize
+	expectedSize := 2*cmixPrimeSize - e2ePrimeSize - format.KeyFPLen - format.MacLen - format.RecipientIDLen - transmitPlMinSize - transmitMessageVersionSize
 	testSize := m.GetMaxTransmissionPayloadSize()
 
 	if expectedSize != testSize {
@@ -260,7 +260,7 @@ func TestManager_makeTransmitCmixMessage(t *testing.T) {
 		DhPubKey: m.store.E2e().GetGroup().NewInt(42),
 	}
 	tag := "Test tag"
-	payload := make([]byte, 132)
+	payload := make([]byte, 131)
 	rand.New(rand.NewSource(42)).Read(payload)
 	maxMsgs := uint8(8)
 	timeNow := netTime.Now()

@@ -12,6 +12,7 @@ import (
 	"encoding/binary"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
@@ -20,7 +21,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 const (

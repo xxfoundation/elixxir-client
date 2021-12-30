@@ -71,7 +71,7 @@ func (c *Client) SendCmix(recipient, contents []byte, parameters string) (int, e
 // on failure a round id of -1 is returned
 // fixme: cannot use a slice of slices over bindings. Will need to modify this function once
 //  a proper input format has been specified
-//func (c *Client) SendManyCMIX(recipients, contents [][]byte, parameters string) (int, error) {
+// func (c *Client) SendManyCMIX(recipients, contents [][]byte, parameters string) (int, error) {
 //
 //	p, err := params.GetCMIXParameters(parameters)
 //	if err != nil {
@@ -103,7 +103,7 @@ func (c *Client) SendCmix(recipient, contents []byte, parameters string) (int, e
 //			err))
 //	}
 //	return int(rid), nil
-//}
+// }
 
 // SendUnsafe sends an unencrypted payload to the provided recipient
 // with the provided msgType. Returns the list of rounds in which parts

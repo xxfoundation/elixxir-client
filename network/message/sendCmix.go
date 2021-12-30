@@ -105,8 +105,8 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 				msg.Digest())
 		}
 
+		// find the best round to send to, excluding attempted rounds
 		remainingTime := cmixParams.Timeout - elapsed
-		//find the best round to send to, excluding attempted rounds
 		bestRound, err := instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted, sendTimeBuffer)
 		if err != nil {
 			jww.WARN.Printf("Failed to GetUpcomingRealtime (msgDigest: %s): %+v", msg.Digest(), err)
@@ -116,7 +116,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			continue
 		}
 
-		//add the round on to the list of attempted, so it is not tried again
+		// add the round on to the list of attempted, so it is not tried again
 		attempted.Insert(bestRound)
 
 		// Determine whether the selected round contains any Nodes
@@ -175,7 +175,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			return 0, ephemeral.Id{}, err
 		}
 
-		//if the comm errors or the message fails to send, continue retrying.
+		// if the comm errors or the message fails to send, continue retrying.
 		if err != nil {
 			jww.ERROR.Printf("SendCmix failed to send to EphID %d (%s) on "+
 				"round %d, trying a new round: %+v", ephID.Int64(), recipient,

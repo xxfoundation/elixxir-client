@@ -163,7 +163,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 		msgResp, err := comms.RequestMessages(host, msgReq)
 
 		if err != nil {
-			//you need to default to a retryable errors because otherwise we cannot enumerate all errors
+			// you need to default to a retryable errors because otherwise we cannot enumerate all errors
 			return nil, errors.WithMessage(err, gateway.RetryableError)
 		}
 
@@ -202,7 +202,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 	jww.INFO.Printf("Received %d messages in Round %v for %d (%s) in %s",
 		len(msgs), roundID, identity.EphId.Int64(), identity.Source, time.Now().Sub(start))
 
-	//build the bundle of messages to send to the message processor
+	// build the bundle of messages to send to the message processor
 	bundle := message.Bundle{
 		Round:    roundID,
 		Messages: make([]format.Message, len(msgs)),

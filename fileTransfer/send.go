@@ -78,7 +78,7 @@ func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool,
 	avgSendSize := avgNumMessages * (8192 / 8)
 
 	// Calculate the delay needed to reach max throughput
-	delay := time.Duration((int(time.Second) * avgSendSize) / m.maxThroughput)
+	delay := time.Duration((int(time.Second) * avgSendSize) / m.p.MaxThroughput)
 
 	// Batch of parts read from the queue to be sent
 	var partList []queuedPart
@@ -299,24 +299,24 @@ func (m *Manager) buildMessages(partList []queuedPart) (
 	for i, part := range partList {
 		// Lookup the transfer by the ID; if the transfer does not exist, then
 		// print a warning and skip this message
-		transfer, err := m.sent.GetTransfer(part.tid)
+		st, err := m.sent.GetTransfer(part.tid)
 		if err != nil {
 			jww.WARN.Printf(noSentTransferWarn, part.tid, part.partNum, err)
 			continue
 		}
 
 		// Generate new cMix message with encrypted file part
-		cmixMsg, err := m.newCmixMessage(transfer, part.partNum, rng)
+		cmixMsg, err := m.newCmixMessage(st, part.partNum, rng)
 		if err == ftStorage.MaxRetriesErr {
 			jww.DEBUG.Printf("[FT] File transfer %s sent to %s ran out of "+
-				"retries {parts: %d, fingerprints: %d}",
-				part.tid, transfer.GetRecipient(), transfer.GetNumParts(),
-				transfer.GetNumFps())
+				"retries {parts: %d, numFps: %d/%d}",
+				part.tid, st.GetRecipient(), st.GetNumParts(),
+				st.GetNumFps()-st.GetNumAvailableFps(), st.GetNumFps())
 
 			// If the max number of retries has been reached, then report the
 			// error on the callback, delete the transfer, and skip to the next
 			// message
-			go transfer.CallProgressCB(errors.Errorf(maxRetriesErr, err))
+			go st.CallProgressCB(errors.Errorf(maxRetriesErr, err))
 			continue
 		} else if err != nil {
 			// For all other errors, return an error
@@ -326,13 +326,13 @@ func (m *Manager) buildMessages(partList []queuedPart) (
 
 		// Construct TargetedCmixMessage
 		msg := message.TargetedCmixMessage{
-			Recipient: transfer.GetRecipient(),
+			Recipient: st.GetRecipient(),
 			Message:   cmixMsg,
 		}
 
 		// Add to list of messages to send
 		messages = append(messages, msg)
-		transfers[part.tid] = transfer
+		transfers[part.tid] = st
 		groupedParts[part.tid] = append(groupedParts[part.tid], part.partNum)
 		partsToResend = append(partsToResend, i)
 	}

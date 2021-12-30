@@ -244,7 +244,7 @@ func (rt *ReceivedTransfer) stopScheduledProgressCB() error {
 		err := cb.stopThread()
 		if err != nil {
 			failedCallbacks = append(failedCallbacks, i)
-			jww.WARN.Print(err.Error())
+			jww.WARN.Printf("[FT] %s", err)
 		}
 	}
 

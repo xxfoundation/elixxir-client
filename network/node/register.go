@@ -31,6 +31,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/crypto/tls"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
 	"sync"
@@ -81,6 +82,11 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 		case gw := <-c:
 			nidStr := fmt.Sprintf("%x", gw.Node.ID)
 			if _, operating := inProgress.LoadOrStore(nidStr, struct{}{}); operating {
+				continue
+			}
+			// No need to register with stale nodes
+			if isStale := gw.Node.Status == ndf.Stale; isStale {
+				jww.DEBUG.Printf("Skipping registration with stale node %s", nidStr)
 				continue
 			}
 			err := registerWithNode(sender, comms, gw, regSignature,

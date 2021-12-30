@@ -126,16 +126,18 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 		return
 	}
 
-	im := fmt.Sprintf("Received message of type %s from %s in round %d,"+
-		" msgDigest: %s, keyFP: %v", encTy, sender, bundle.Round,
-		msgDigest, msg.GetKeyFP())
-	jww.INFO.Print(im)
-	m.Internal.Events.Report(2, "MessageReception", "MessagePart", im)
+
 
 	// Process the decrypted/unencrypted message partition, to see if
 	// we get a full message
 	xxMsg, ok := m.partitioner.HandlePartition(sender, encTy, msg.GetContents(),
 		relationshipFingerprint)
+
+	im := fmt.Sprintf("Received message of ecr type %s and msg type " +
+		"%d from %s in round %d,msgDigest: %s, keyFP: %v", encTy,
+		xxMsg.MessageType, sender, bundle.Round, msgDigest, msg.GetKeyFP())
+	jww.INFO.Print(im)
+	m.Internal.Events.Report(2, "MessageReception", "MessagePart", im)
 
 	// If the reception completed a message, hear it on the switchboard
 	if ok {

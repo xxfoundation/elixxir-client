@@ -13,6 +13,12 @@ import (
 	"gitlab.com/elixxir/client/storage/utility"
 )
 
+// Error messages.
+const (
+	// sentPartTracker.GetPartStatus
+	getInvalidPartErr = "[FT] Failed to get status for part %d: %+v"
+)
+
 // sentPartTracker tracks the status of individual sent file parts.
 type sentPartTracker struct {
 	// The number of file parts in the file
@@ -39,7 +45,7 @@ func newSentPartTracker(partStats *utility.MultiStateVector) sentPartTracker {
 func (spt sentPartTracker) GetPartStatus(partNum uint16) interfaces.FpStatus {
 	status, err := spt.partStats.Get(partNum)
 	if err != nil {
-		jww.FATAL.Fatalf("failed to get status for part %d: %+v", partNum, err)
+		jww.FATAL.Fatalf(getInvalidPartErr, partNum, err)
 	}
 	return interfaces.FpStatus(status)
 }

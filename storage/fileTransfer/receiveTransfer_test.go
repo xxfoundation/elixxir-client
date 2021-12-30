@@ -544,9 +544,13 @@ func TestReceivedTransfer_AddPart(t *testing.T) {
 		rt.key, expectedData, fpNum, t)
 
 	// Add encrypted part
-	err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	complete, err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
 	if err != nil {
 		t.Errorf("AddPart returned an error: %+v", err)
+	}
+
+	if complete {
+		t.Errorf("Transfer complete when it should not be.")
 	}
 
 	receivedData, exists := rt.receivedParts.parts[partNum]
@@ -597,7 +601,7 @@ func TestReceivedTransfer_AddPart_DecryptPartError(t *testing.T) {
 
 	// Add encrypted part
 	expectedErr := "reconstructed MAC from decrypting does not match MAC from sender"
-	err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	_, err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("AddPart did not return the expected error when the MAC is "+
 			"invalid.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -670,7 +674,7 @@ func Test_loadReceivedTransfer(t *testing.T) {
 		expectedRT.key, expectedData, fpNum, t)
 
 	// Add encrypted part
-	err := expectedRT.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	_, err := expectedRT.AddPart(encryptedPart, padding, mac, partNum, fpNum)
 	if err != nil {
 		t.Errorf("Failed to add test part: %+v", err)
 	}
@@ -713,7 +717,7 @@ func Test_loadReceivedTransfer_LoadFpVectorError(t *testing.T) {
 	encryptedPart, mac, padding := newEncryptedPartData(rt.key, data, fpNum, t)
 
 	// Add encrypted part
-	err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	_, err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
 	if err != nil {
 		t.Errorf("Failed to add test part: %+v", err)
 	}
@@ -745,7 +749,7 @@ func Test_loadReceivedTransfer_LoadPartStoreError(t *testing.T) {
 	encryptedPart, mac, padding := newEncryptedPartData(rt.key, data, fpNum, t)
 
 	// Add encrypted part
-	err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	_, err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
 	if err != nil {
 		t.Errorf("Failed to add test part: %+v", err)
 	}
@@ -777,7 +781,7 @@ func Test_loadReceivedTransfer_LoadReceivedVectorError(t *testing.T) {
 	encryptedPart, mac, padding := newEncryptedPartData(rt.key, data, fpNum, t)
 
 	// Add encrypted part
-	err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	_, err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
 	if err != nil {
 		t.Errorf("Failed to add test part: %+v", err)
 	}
@@ -871,7 +875,7 @@ func TestReceivedTransfer_delete(t *testing.T) {
 		rt.key, expectedData, fpNum, t)
 
 	// Add encrypted part
-	err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	_, err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
 	if err != nil {
 		t.Fatalf("Failed to add test part: %+v", err)
 	}
@@ -1027,7 +1031,7 @@ func newRandomReceivedTransfer(numParts, numFps uint16, kv *versioned.KV,
 
 	for partNum, part := range parts.parts {
 		encryptedPart, mac, padding := newEncryptedPartData(key, part, partNum, t)
-		err := rt.AddPart(encryptedPart, padding, mac, partNum, partNum)
+		_, err := rt.AddPart(encryptedPart, padding, mac, partNum, partNum)
 		if err != nil {
 			t.Errorf("Failed to add part #%d: %+v", partNum, err)
 		}

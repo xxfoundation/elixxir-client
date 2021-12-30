@@ -31,7 +31,7 @@ func (m *Manager) receiveTransmissionHandler(rawMessages chan message.Receive,
 			stop.ToStopped()
 			return
 		case msg := <-rawMessages:
-			jww.DEBUG.Printf("Received CMIX message; checking if it is a " +
+			jww.TRACE.Printf("Received CMIX message; checking if it is a " +
 				"single-use transmission.")
 
 			// Check if message is a single-use transmit message
@@ -39,7 +39,7 @@ func (m *Manager) receiveTransmissionHandler(rawMessages chan message.Receive,
 			if fp != cmixMsg.GetKeyFP() {
 				// If the verification fails, then ignore the message as it is
 				// likely garbled or for a different protocol
-				jww.INFO.Print("Failed to read single-use CMIX message: " +
+				jww.TRACE.Print("Failed to read single-use CMIX message: " +
 					"fingerprint verification failed.")
 				continue
 			}

@@ -144,6 +144,7 @@ func initFileTransferManager(client *api.Client, maxThroughput int) (
 
 	// Create new parameters
 	p := ft.DefaultParams()
+	p.SendTimeout = 10 * time.Second
 	if maxThroughput != 0 {
 		p.MaxThroughput = maxThroughput
 	}

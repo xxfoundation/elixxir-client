@@ -16,6 +16,7 @@ import (
 func TestDefaultParams(t *testing.T) {
 	expected := Params{
 		MaxThroughput: defaultMaxThroughput,
+		SendTimeout:   defaultSendTimeout,
 	}
 	received := DefaultParams()
 

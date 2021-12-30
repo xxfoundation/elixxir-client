@@ -282,7 +282,7 @@ func TestManager_sendParts(t *testing.T) {
 		queuedParts[i], queuedParts[j] = queuedParts[j], queuedParts[i]
 	})
 
-	err := m.sendParts(queuedParts)
+	err := m.sendParts(queuedParts, newSentRoundTracker(clearSentRoundsAge))
 	if err != nil {
 		t.Errorf("sendParts returned an error: %+v", err)
 	}
@@ -356,7 +356,7 @@ func TestManager_sendParts_SendManyCmixError(t *testing.T) {
 		}
 	}
 
-	err := m.sendParts(queuedParts)
+	err := m.sendParts(queuedParts, newSentRoundTracker(clearSentRoundsAge))
 	if err != nil {
 		t.Errorf("sendParts returned an error: %+v", err)
 	}
@@ -402,7 +402,7 @@ func TestManager_sendParts_RoundResultsError(t *testing.T) {
 	}
 
 	expectedErr := fmt.Sprintf(getRoundResultsErr, 0, tIDs, grrErr)
-	err := m.sendParts(queuedParts)
+	err := m.sendParts(queuedParts, newSentRoundTracker(clearSentRoundsAge))
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("sendParts did not return the expected error when "+
 			"GetRoundResults should have returned an error."+

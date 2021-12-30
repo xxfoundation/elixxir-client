@@ -16,6 +16,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"
+	"time"
 )
 
 // Unit test
@@ -139,7 +140,8 @@ func TestSender_SendToPreferred(t *testing.T) {
 	preferredHost := sender.hostList[preferredIndex]
 
 	// Happy path
-	result, err := sender.SendToPreferred([]*id.ID{preferredHost.GetId()}, SendToPreferred_HappyPath, nil)
+	result, err := sender.SendToPreferred([]*id.ID{preferredHost.GetId()},
+		SendToPreferred_HappyPath, nil, 250*time.Millisecond)
 	if err != nil {
 		t.Errorf("Should not error in SendToPreferred happy path: %v", err)
 	}
@@ -151,7 +153,8 @@ func TestSender_SendToPreferred(t *testing.T) {
 	}
 
 	// Call a send which returns an error which triggers replacement
-	_, err = sender.SendToPreferred([]*id.ID{preferredHost.GetId()}, SendToPreferred_KnownError, nil)
+	_, err = sender.SendToPreferred([]*id.ID{preferredHost.GetId()},
+		SendToPreferred_KnownError, nil, 250*time.Millisecond)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}
@@ -171,7 +174,8 @@ func TestSender_SendToPreferred(t *testing.T) {
 	preferredHost = sender.hostList[preferredIndex]
 
 	// Unknown error return will not trigger replacement
-	_, err = sender.SendToPreferred([]*id.ID{preferredHost.GetId()}, SendToPreferred_UnknownError, nil)
+	_, err = sender.SendToPreferred([]*id.ID{preferredHost.GetId()},
+		SendToPreferred_UnknownError, nil, 250*time.Millisecond)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}

@@ -8,6 +8,7 @@
 package auth
 
 import (
+	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/crypto/contact"
 	"sync"
 )
@@ -27,6 +28,9 @@ type request struct {
 
 	// Data if receive
 	receive *contact.Contact
+
+	//sidHPublic key of partner
+	theirSidHPubKeyA *sidh.PublicKey
 
 	// mux to ensure there is not concurrent access
 	mux sync.Mutex

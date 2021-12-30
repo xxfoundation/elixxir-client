@@ -27,26 +27,27 @@ const (
 // messages.
 func (m *Manager) receiveNewFileTransfer(rawMsgs chan message.Receive,
 	stop *stoppable.Single) {
-	jww.DEBUG.Print("Starting new file transfer message reception thread.")
+	jww.DEBUG.Print("[FT] Starting new file transfer message reception thread.")
 
 	for {
 		select {
 		case <-stop.Quit():
-			jww.DEBUG.Print("Stopping new file transfer message reception " +
-				"thread: stoppable triggered")
+			jww.DEBUG.Print("[FT] Stopping new file transfer message " +
+				"reception thread: stoppable triggered")
 			stop.ToStopped()
 			return
 		case receivedMsg := <-rawMsgs:
-			jww.DEBUG.Print("New file transfer message thread received message.")
+			jww.TRACE.Print(
+				"[FT] New file transfer message thread received message.")
 
 			tid, fileName, fileType, sender, size, preview, err :=
 				m.readNewFileTransferMessage(receivedMsg)
 			if err != nil {
 				if err.Error() == receiveMessageTypeErr {
-					jww.INFO.Printf("Failed to read message as new file "+
+					jww.DEBUG.Printf("[FT] Failed to read message as new file "+
 						"transfer message: %+v", err)
 				} else {
-					jww.WARN.Printf("Failed to read message as new file "+
+					jww.WARN.Printf("[FT] Failed to read message as new file "+
 						"transfer message: %+v", err)
 				}
 				continue
@@ -95,6 +96,10 @@ func (m *Manager) readNewFileTransferMessage(msg message.Receive) (
 	if err != nil {
 		return
 	}
+
+	jww.DEBUG.Printf("[FT] Received new file transfer %s from %s {name: %q, "+
+		"type: %q, size: %d, parts: %d, numFps: %d, retry: %f}", tid, msg.Sender,
+		newFT.FileName, newFT.FileType, newFT.Size, numParts, numFps, newFT.Retry)
 
 	return tid, newFT.FileName, newFT.FileType, msg.Sender, newFT.Size,
 		newFT.Preview, nil

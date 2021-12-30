@@ -2,8 +2,10 @@ package bindings
 
 import (
 	"encoding/json"
-	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/primitives/id"
+	"reflect"
+	"unsafe"
 )
 
 type PreimageNotification interface {
@@ -22,33 +24,23 @@ func (c *Client) RegisterPreimageCallback(identity []byte, pin PreimageNotificat
 	c.api.GetStorage().GetEdge().AddUpdateCallback(iid, cb)
 }
 
-func (c *Client) GetPreimages(identity []byte) (string, error) {
-
+func (c *Client) GetPreimages(identity []byte) string {
 	iid := &id.ID{}
 	copy(iid[:], identity)
 
 	list, exist := c.api.GetStorage().GetEdge().Get(iid)
 	if !exist {
-		return "", errors.Errorf("Could not find a preimage list for %s", iid)
+		jww.ERROR.Printf("Preimage for %s does not exist", iid.String())
+		return ""
 	}
 
 	marshaled, err := json.Marshal(&list)
-
-	return string(marshaled), err
-}
-
-// hack on getPreimages so it works on iOS per https://github.com/golang/go/issues/46893
-func (c *Client) GetPreimagesHack(dummy string, identity []byte) (string, error) {
-
-	iid := &id.ID{}
-	copy(iid[:], identity)
-
-	list, exist := c.api.GetStorage().GetEdge().Get(iid)
-	if !exist {
-		return "", errors.Errorf("Could not find a preimage list for %s", iid)
+	if err != nil {
+		jww.ERROR.Printf("Error marshaling preimages: %s", err.Error())
+		return ""
 	}
 
-	marshaled, err := json.Marshal(&list)
-
-	return string(marshaled), err
+	jww.DEBUG.Printf("Preimages size: %v %v %d",
+		reflect.TypeOf(marshaled).Align(), unsafe.Sizeof(marshaled), len(marshaled))
+	return string(marshaled)
 }

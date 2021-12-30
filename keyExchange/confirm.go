@@ -34,23 +34,25 @@ func startConfirm(sess *storage.Session, c chan message.Receive,
 func handleConfirm(sess *storage.Session, confirmation message.Receive) {
 	//ensure the message was encrypted properly
 	if confirmation.Encryption != message.E2E {
-		jww.ERROR.Printf("Received non-e2e encrypted Key Exchange "+
-			"confirm from partner %s", confirmation.Sender)
+		jww.ERROR.Printf(
+			"[REKEY] Received non-e2e encrypted Key Exchange "+
+				"confirm from partner %s", confirmation.Sender)
 		return
 	}
 
 	//Get the partner
 	partner, err := sess.E2e().GetPartner(confirmation.Sender)
 	if err != nil {
-		jww.ERROR.Printf("Received Key Exchange Confirmation with unknown "+
-			"partner %s", confirmation.Sender)
+		jww.ERROR.Printf(
+			"[REKEY] Received Key Exchange Confirmation with unknown "+
+				"partner %s", confirmation.Sender)
 		return
 	}
 
 	//unmarshal the payload
 	confimedSessionID, err := unmarshalConfirm(confirmation.Payload)
 	if err != nil {
-		jww.ERROR.Printf("Failed to unmarshal Key Exchange Trigger with "+
+		jww.ERROR.Printf("[REKEY] Failed to unmarshal Key Exchange Trigger with "+
 			"partner %s: %s", confirmation.Sender, err)
 		return
 	}
@@ -58,7 +60,7 @@ func handleConfirm(sess *storage.Session, confirmation message.Receive) {
 	//get the confirmed session
 	confirmedSession := partner.GetSendSession(confimedSessionID)
 	if confirmedSession == nil {
-		jww.ERROR.Printf("Failed to find confirmed session %s from "+
+		jww.ERROR.Printf("[REKEY] Failed to find confirmed session %s from "+
 			"partner %s: %s", confimedSessionID, confirmation.Sender, err)
 		return
 	}
@@ -68,11 +70,14 @@ func handleConfirm(sess *storage.Session, confirmation message.Receive) {
 	// sends. For example if the sending device runs out of battery after it
 	// sends but before it records the send it will resend on reload
 	if err := confirmedSession.TrySetNegotiationStatus(e2e.Confirmed); err != nil {
-		jww.WARN.Printf("Failed to set the negotiation status for the "+
+		jww.WARN.Printf("[REKEY] Failed to set the negotiation status for the "+
 			"confirmation of session %s from partner %s. This is expected in "+
-			"some edge cases but could be a sign of an issue if it percists: %s",
+			"some edge cases but could be a sign of an issue if it persists: %s",
 			confirmedSession, partner.GetPartnerID(), err)
 	}
+
+	jww.DEBUG.Printf("[REKEY] handled confirmation for session "+
+		"%s from partner %s.", confirmedSession, partner.GetPartnerID())
 }
 
 func unmarshalConfirm(payload []byte) (e2e.SessionID, error) {

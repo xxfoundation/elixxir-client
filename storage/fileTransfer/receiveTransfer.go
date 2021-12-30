@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -31,19 +32,29 @@ const (
 
 // Error messages for ReceivedTransfer
 const (
+	// NewReceivedTransfer
 	newReceivedTransferFpVectorErr  = "failed to create new StateVector for fingerprints: %+v"
 	newReceivedTransferPartStoreErr = "failed to create new part store: %+v"
 	newReceivedVectorErr            = "failed to create new state vector for received status: %+v"
-	loadReceivedStoreErr            = "failed to load received transfer info from storage: %+v"
-	loadReceivePartStoreErr         = "failed to load received part store from storage: %+v"
-	loadReceivedVectorErr           = "failed to load new received status state vector from storage: %+v"
-	loadReceiveFpVectorErr          = "failed to load received fingerprint vector from storage: %+v"
-	getFileErr                      = "missing %d/%d parts of the file"
-	getTransferMacErr               = "failed to verify transfer MAC"
-	deleteReceivedTransferInfoErr   = "failed to delete received transfer info from storage: %+v"
-	deleteReceivedFpVectorErr       = "failed to delete received fingerprint vector from storage: %+v"
-	deleteReceivedFilePartsErr      = "failed to delete received file parts from storage: %+v"
-	deleteReceivedVectorErr         = "failed to delete received status state vector from storage: %+v"
+
+	// ReceivedTransfer.GetFile
+	getFileErr        = "missing %d/%d parts of the file"
+	getTransferMacErr = "failed to verify transfer MAC"
+
+	// loadReceivedTransfer
+	loadReceivedStoreErr    = "failed to load received transfer info from storage: %+v"
+	loadReceivePartStoreErr = "failed to load received part store from storage: %+v"
+	loadReceivedVectorErr   = "failed to load new received status state vector from storage: %+v"
+	loadReceiveFpVectorErr  = "failed to load received fingerprint vector from storage: %+v"
+
+	// ReceivedTransfer.delete
+	deleteReceivedTransferInfoErr = "failed to delete received transfer info from storage: %+v"
+	deleteReceivedFpVectorErr     = "failed to delete received fingerprint vector from storage: %+v"
+	deleteReceivedFilePartsErr    = "failed to delete received file parts from storage: %+v"
+	deleteReceivedVectorErr       = "failed to delete received status state vector from storage: %+v"
+
+	// ReceivedTransfer.stopScheduledProgressCB
+	cancelReceivedCallbacksErr = "could not cancel %d out of %d received progress callbacks: %d"
 )
 
 // ReceivedTransfer contains information and progress data for receiving an in-
@@ -187,18 +198,26 @@ func (rt *ReceivedTransfer) IsPartReceived(partNum uint16) bool {
 // total is the total number of parts excepted to be received, and t is a part
 // status tracker that can be used to get the status of individual file parts.
 func (rt *ReceivedTransfer) GetProgress() (completed bool, received,
-	total uint16, t ReceivedPartTracker) {
+	total uint16, t interfaces.FilePartTracker) {
 	rt.mux.RLock()
 	defer rt.mux.RUnlock()
 
-	received = uint16(rt.fpVector.GetNumUsed())
+	completed, received, total, t = rt.getProgress()
+	return completed, received, total, t
+}
+
+// getProgress is the thread-unsafe helper function for GetProgress.
+func (rt *ReceivedTransfer) getProgress() (completed bool, received,
+	total uint16, t interfaces.FilePartTracker) {
+
+	received = uint16(rt.receivedStatus.GetNumUsed())
 	total = rt.numParts
 
 	if received == total {
 		completed = true
 	}
 
-	return completed, received, total, NewReceivedPartTracker(rt.receivedStatus)
+	return completed, received, total, newReceivedPartTracker(rt.receivedStatus)
 }
 
 // CallProgressCB calls all the progress callbacks with the most recent progress
@@ -210,6 +229,31 @@ func (rt *ReceivedTransfer) CallProgressCB(err error) {
 	for _, cb := range rt.progressCallbacks {
 		cb.call(rt, err)
 	}
+}
+
+// stopScheduledProgressCB cancels all scheduled received progress callbacks
+// calls.
+func (rt *ReceivedTransfer) stopScheduledProgressCB() error {
+	rt.mux.Lock()
+	defer rt.mux.Unlock()
+
+	// Tracks the index of callbacks that failed to stop
+	var failedCallbacks []int
+
+	for i, cb := range rt.progressCallbacks {
+		err := cb.stopThread()
+		if err != nil {
+			failedCallbacks = append(failedCallbacks, i)
+			jww.WARN.Printf("[FT] %s", err)
+		}
+	}
+
+	if len(failedCallbacks) > 0 {
+		return errors.Errorf(cancelReceivedCallbacksErr, len(failedCallbacks),
+			len(rt.progressCallbacks), failedCallbacks)
+	}
+
+	return nil
 }
 
 // AddProgressCB appends a new interfaces.ReceivedProgressCallback to the list
@@ -226,13 +270,14 @@ func (rt *ReceivedTransfer) AddProgressCB(
 	rt.mux.Unlock()
 
 	// Trigger the initial call
-	rct.callNow(rt, nil)
+	rct.callNow(true, rt, nil)
 }
 
 // AddPart decrypts an encrypted file part, adds it to the list of received
-// parts and marks its fingerprint as used.
+// parts and marks its fingerprint as used. Returns true if the part added was
+// the last in the transfer.
 func (rt *ReceivedTransfer) AddPart(encryptedPart, padding, mac []byte, partNum,
-	fpNum uint16) error {
+	fpNum uint16) (bool, error) {
 	rt.mux.Lock()
 	defer rt.mux.Unlock()
 
@@ -240,13 +285,13 @@ func (rt *ReceivedTransfer) AddPart(encryptedPart, padding, mac []byte, partNum,
 	decryptedPart, err := ftCrypto.DecryptPart(
 		rt.key, encryptedPart, padding, mac, fpNum)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// Add the part to the list of parts
 	err = rt.receivedParts.addPart(decryptedPart, partNum)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// Mark the fingerprint as used
@@ -255,7 +300,11 @@ func (rt *ReceivedTransfer) AddPart(encryptedPart, padding, mac []byte, partNum,
 	// Mark part as received
 	rt.receivedStatus.Use(uint32(partNum))
 
-	return nil
+	if rt.receivedStatus.GetNumUsed() >= uint32(rt.numParts) {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // GetFile returns all the file parts combined into a single byte slice. An

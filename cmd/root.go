@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
 	"io/ioutil"
@@ -227,10 +228,10 @@ var rootCmd = &cobra.Command{
 		client.GetHealth().AddChannel(connected)
 		waitUntilConnected(connected)
 
-		//err = client.RegisterForNotifications("dJwuGGX3KUyKldWK5PgQH8:APA91bFjuvimRc4LqOyMDiy124aLedifA8DhldtaB_b76ggphnFYQWJc_fq0hzQ-Jk4iYp2wPpkwlpE1fsOjs7XWBexWcNZoU-zgMiM0Mso9vTN53RhbXUferCbAiEylucEOacy9pniN")
-		//if err != nil {
+		// err = client.RegisterForNotifications("dJwuGGX3KUyKldWK5PgQH8:APA91bFjuvimRc4LqOyMDiy124aLedifA8DhldtaB_b76ggphnFYQWJc_fq0hzQ-Jk4iYp2wPpkwlpE1fsOjs7XWBexWcNZoU-zgMiM0Mso9vTN53RhbXUferCbAiEylucEOacy9pniN")
+		// if err != nil {
 		//	jww.FATAL.Panicf("Failed to register for notifications: %+v", err)
-		//}
+		// }
 
 		// After connection, make sure we have registered with at least
 		// 85% of the nodes
@@ -312,9 +313,12 @@ var rootCmd = &cobra.Command{
 		paramsUnsafe := params.GetDefaultUnsafe()
 		wg := &sync.WaitGroup{}
 		sendCnt := int(viper.GetUint("sendCount"))
+		if viper.GetBool("splitSends") {
+			paramsE2E.ExcludedRounds = excludedRounds.NewSet()
+		}
 		wg.Add(sendCnt)
 		go func() {
-			//sendDelay := time.Duration(viper.GetUint("sendDelay"))
+			sendDelay := time.Duration(viper.GetUint("sendDelay"))
 			for i := 0; i < sendCnt; i++ {
 				go func(i int) {
 					defer wg.Done()
@@ -376,6 +380,7 @@ var rootCmd = &cobra.Command{
 						break
 					}
 				}(i)
+				time.Sleep(sendDelay * time.Millisecond)
 			}
 		}()
 
@@ -398,7 +403,7 @@ var rootCmd = &cobra.Command{
 			case m := <-recvCh:
 				fmt.Printf("Message received: %s\n", string(
 					m.Payload))
-				//fmt.Printf("%s", m.Timestamp)
+				// fmt.Printf("%s", m.Timestamp)
 				receiveCnt++
 				if receiveCnt == expectedCnt {
 					done = true
@@ -407,7 +412,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		//wait an extra 5 seconds to make sure no messages were missed
+		// wait an extra 5 seconds to make sure no messages were missed
 		done = false
 		timer := time.NewTimer(5 * time.Second)
 		for !done {
@@ -418,7 +423,7 @@ var rootCmd = &cobra.Command{
 			case m := <-recvCh:
 				fmt.Printf("Message received: %s\n", string(
 					m.Payload))
-				//fmt.Printf("%s", m.Timestamp)
+				// fmt.Printf("%s", m.Timestamp)
 				receiveCnt++
 			}
 		}
@@ -532,7 +537,7 @@ func createClient() *api.Client {
 	userIDprefix := viper.GetString("userid-prefix")
 	protoUserPath := viper.GetString("protoUserPath")
 
-	//create a new client if none exist
+	// create a new client if none exist
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
 		// Load NDF
 		ndfJSON, err := ioutil.ReadFile(viper.GetString("ndf"))
@@ -601,7 +606,7 @@ func initClient() *api.Client {
 	}
 	netParams.VerboseRoundTracking = viper.GetBool("verboseRoundTracking")
 
-	//load the client
+	// load the client
 	client, err := api.Login(storeDir, []byte(pass), netParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
@@ -679,7 +684,7 @@ func printChanRequest(requestor contact.Contact, message string) {
 	fmt.Printf(msg)
 	msg = fmt.Sprintf("Authentication channel request message: %s\n", message)
 	jww.INFO.Printf(msg)
-	//fmt.Printf(msg)
+	// fmt.Printf(msg)
 }
 
 func addPrecanAuthenticatedChannel(client *api.Client, recipientID *id.ID,
@@ -742,7 +747,7 @@ func waitUntilConnected(connected chan bool) {
 	waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
 	timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 	isConnected := false
-	//Wait until we connect or panic if we can't by a timeout
+	// Wait until we connect or panic if we can't by a timeout
 	for !isConnected {
 		select {
 		case isConnected = <-connected:
@@ -987,6 +992,9 @@ func init() {
 	rootCmd.Flags().UintP("sendDelay",
 		"", 500, "The delay between sending the messages in ms")
 	viper.BindPFlag("sendDelay", rootCmd.Flags().Lookup("sendDelay"))
+	rootCmd.Flags().BoolP("splitSends",
+		"", true, "Force sends to go over multiple rounds if possible")
+	viper.BindPFlag("splitSends", rootCmd.Flags().Lookup("splitSends"))
 
 	rootCmd.Flags().BoolP("verify-sends", "", false,
 		"Ensure successful message sending by checking for round completion")

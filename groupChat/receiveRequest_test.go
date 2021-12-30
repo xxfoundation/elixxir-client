@@ -8,11 +8,13 @@
 package groupChat
 
 import (
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/stoppable"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"math/rand"
 	"reflect"
 	"strings"
@@ -48,10 +50,23 @@ func TestManager_receiveRequest(t *testing.T) {
 		MessageType: message.GroupCreationRequest,
 	}
 
+	myVariant := sidh.KeyVariantSidhA
+	mySIDHPrivKey := util.NewSIDHPrivateKey(myVariant)
+	mySIDHPubKey := util.NewSIDHPublicKey(myVariant)
+	mySIDHPrivKey.Generate(prng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
+
+	theirVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
+	theirSIDHPrivKey := util.NewSIDHPrivateKey(theirVariant)
+	theirSIDHPubKey := util.NewSIDHPublicKey(theirVariant)
+	theirSIDHPrivKey.Generate(prng)
+	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
+
 	_ = m.store.E2e().AddPartner(
 		g.Members[0].ID,
 		g.Members[0].DhKey,
 		m.store.E2e().GetGroup().NewInt(2),
+		theirSIDHPubKey, mySIDHPrivKey,
 		params.GetDefaultE2ESessionParams(),
 		params.GetDefaultE2ESessionParams(),
 	)
@@ -161,11 +176,26 @@ func TestManager_receiveRequest_SendMessageTypeError(t *testing.T) {
 
 // Unit test of readRequest.
 func TestManager_readRequest(t *testing.T) {
-	m, g := newTestManager(rand.New(rand.NewSource(42)), t)
+	prng := rand.New(rand.NewSource(42))
+	m, g := newTestManager(prng, t)
+
+	myVariant := sidh.KeyVariantSidhA
+	mySIDHPrivKey := util.NewSIDHPrivateKey(myVariant)
+	mySIDHPubKey := util.NewSIDHPublicKey(myVariant)
+	mySIDHPrivKey.Generate(prng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
+
+	theirVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
+	theirSIDHPrivKey := util.NewSIDHPrivateKey(theirVariant)
+	theirSIDHPubKey := util.NewSIDHPublicKey(theirVariant)
+	theirSIDHPrivKey.Generate(prng)
+	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
+
 	_ = m.store.E2e().AddPartner(
 		g.Members[0].ID,
 		g.Members[0].DhKey,
 		m.store.E2e().GetGroup().NewInt(2),
+		theirSIDHPubKey, mySIDHPrivKey,
 		params.GetDefaultE2ESessionParams(),
 		params.GetDefaultE2ESessionParams(),
 	)

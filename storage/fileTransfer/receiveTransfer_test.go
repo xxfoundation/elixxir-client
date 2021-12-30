@@ -217,10 +217,11 @@ func checkReceivedProgress(completed bool, received, total uint16,
 	return nil
 }
 
-// checkReceivedTracker checks that the ReceivedPartTracker is reporting the
-// correct values for each part. Also checks that ReceivedPartTracker.GetNumParts
-// returns the expected value (make sure numParts comes from a correct source).
-func checkReceivedTracker(track ReceivedPartTracker, numParts uint16,
+// checkReceivedTracker checks that the receivedPartTracker is reporting the
+// correct values for each part. Also checks that
+// receivedPartTracker.GetNumParts returns the expected value (make sure
+// numParts comes from a correct source).
+func checkReceivedTracker(track interfaces.FilePartTracker, numParts uint16,
 	received []uint16, t *testing.T) {
 	if track.GetNumParts() != numParts {
 		t.Errorf("Tracker reported incorrect number of parts."+
@@ -232,10 +233,10 @@ func checkReceivedTracker(track ReceivedPartTracker, numParts uint16,
 		var done bool
 		for _, receivedNum := range received {
 			if receivedNum == partNum {
-				if track.GetPartStatus(partNum) != receivedStatus {
+				if track.GetPartStatus(partNum) != interfaces.FpReceived {
 					t.Errorf("Part number %d has unexpected status."+
-						"\nexpected: %d\nreceived: %d", partNum, receivedStatus,
-						track.GetPartStatus(partNum))
+						"\nexpected: %d\nreceived: %d", partNum,
+						interfaces.FpReceived, track.GetPartStatus(partNum))
 				}
 				done = true
 				break
@@ -245,10 +246,10 @@ func checkReceivedTracker(track ReceivedPartTracker, numParts uint16,
 			continue
 		}
 
-		if track.GetPartStatus(partNum) != unsentStatus {
+		if track.GetPartStatus(partNum) != interfaces.FpUnsent {
 			t.Errorf("Part number %d has incorrect status."+
 				"\nexpected: %d\nreceived: %d",
-				partNum, unsentStatus, track.GetPartStatus(partNum))
+				partNum, interfaces.FpUnsent, track.GetPartStatus(partNum))
 		}
 	}
 }
@@ -299,7 +300,8 @@ func TestReceivedTransfer_GetProgress(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	checkReceivedTracker(track, rt.numParts, []uint16{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, t)
+	checkReceivedTracker(
+		track, rt.numParts, []uint16{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, t)
 
 	for i := 0; i < 4; i++ {
 		_, _ = rt.fpVector.Next()
@@ -335,6 +337,7 @@ func TestReceivedTransfer_CallProgressCB(t *testing.T) {
 	type progressResults struct {
 		completed       bool
 		received, total uint16
+		tr              interfaces.FilePartTracker
 		err             error
 	}
 
@@ -348,8 +351,8 @@ func TestReceivedTransfer_CallProgressCB(t *testing.T) {
 		progressChan := make(chan progressResults)
 
 		cbFunc := func(completed bool, received, total uint16,
-			t interfaces.FilePartTracker, err error) {
-			progressChan <- progressResults{completed, received, total, err}
+			tr interfaces.FilePartTracker, err error) {
+			progressChan <- progressResults{completed, received, total, tr, err}
 		}
 		wg.Add(1)
 
@@ -367,25 +370,25 @@ func TestReceivedTransfer_CallProgressCB(t *testing.T) {
 					case 0:
 						if err := checkReceivedProgress(r.completed, r.received,
 							r.total, false, 0, rt.numParts); err != nil {
-							t.Errorf("%2d: %+v", i, err)
+							t.Errorf("%2d: %v", i, err)
 						}
 						atomic.AddUint64(&step0, 1)
 					case 1:
 						if err := checkReceivedProgress(r.completed, r.received,
 							r.total, false, 0, rt.numParts); err != nil {
-							t.Errorf("%2d: %+v", i, err)
+							t.Errorf("%2d: %v", i, err)
 						}
 						atomic.AddUint64(&step1, 1)
 					case 2:
 						if err := checkReceivedProgress(r.completed, r.received,
 							r.total, false, 4, rt.numParts); err != nil {
-							t.Errorf("%2d: %+v", i, err)
+							t.Errorf("%2d: %v", i, err)
 						}
 						atomic.AddUint64(&step2, 1)
 					case 3:
 						if err := checkReceivedProgress(r.completed, r.received,
 							r.total, true, 16, rt.numParts); err != nil {
-							t.Errorf("%2d: %+v", i, err)
+							t.Errorf("%2d: %v", i, err)
 						}
 						atomic.AddUint64(&step3, 1)
 						return
@@ -410,7 +413,7 @@ func TestReceivedTransfer_CallProgressCB(t *testing.T) {
 	}
 
 	for i := 0; i < 4; i++ {
-		_, _ = rt.fpVector.Next()
+		_, _ = rt.receivedStatus.Next()
 	}
 
 	rt.CallProgressCB(nil)
@@ -419,12 +422,51 @@ func TestReceivedTransfer_CallProgressCB(t *testing.T) {
 	}
 
 	for i := 0; i < 12; i++ {
-		_, _ = rt.fpVector.Next()
+		_, _ = rt.receivedStatus.Next()
 	}
 
 	rt.CallProgressCB(nil)
 
 	wg.Wait()
+}
+
+// Tests that ReceivedTransfer.stopScheduledProgressCB stops a scheduled
+// callback from being triggered.
+func TestReceivedTransfer_stopScheduledProgressCB(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	_, rt, _ := newEmptyReceivedTransfer(16, 20, kv, t)
+
+	cbChan := make(chan struct{}, 5)
+	cbFunc := interfaces.ReceivedProgressCallback(
+		func(completed bool, received, total uint16,
+			t interfaces.FilePartTracker, err error) {
+			cbChan <- struct{}{}
+		})
+	rt.AddProgressCB(cbFunc, 150*time.Millisecond)
+	select {
+	case <-time.NewTimer(10 * time.Millisecond).C:
+		t.Error("Timed out waiting for callback.")
+	case <-cbChan:
+	}
+
+	rt.CallProgressCB(nil)
+	rt.CallProgressCB(nil)
+	select {
+	case <-time.NewTimer(10 * time.Millisecond).C:
+		t.Error("Timed out waiting for callback.")
+	case <-cbChan:
+	}
+
+	err := rt.stopScheduledProgressCB()
+	if err != nil {
+		t.Errorf("stopScheduledProgressCB returned an error: %+v", err)
+	}
+
+	select {
+	case <-time.NewTimer(200 * time.Millisecond).C:
+	case <-cbChan:
+		t.Error("Callback called when it should have been stopped.")
+	}
 }
 
 // Tests that ReceivedTransfer.AddProgressCB adds an item to the progress
@@ -502,9 +544,13 @@ func TestReceivedTransfer_AddPart(t *testing.T) {
 		rt.key, expectedData, fpNum, t)
 
 	// Add encrypted part
-	err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	complete, err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
 	if err != nil {
 		t.Errorf("AddPart returned an error: %+v", err)
+	}
+
+	if complete {
+		t.Errorf("Transfer complete when it should not be.")
 	}
 
 	receivedData, exists := rt.receivedParts.parts[partNum]
@@ -555,7 +601,7 @@ func TestReceivedTransfer_AddPart_DecryptPartError(t *testing.T) {
 
 	// Add encrypted part
 	expectedErr := "reconstructed MAC from decrypting does not match MAC from sender"
-	err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	_, err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("AddPart did not return the expected error when the MAC is "+
 			"invalid.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -628,7 +674,7 @@ func Test_loadReceivedTransfer(t *testing.T) {
 		expectedRT.key, expectedData, fpNum, t)
 
 	// Add encrypted part
-	err := expectedRT.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	_, err := expectedRT.AddPart(encryptedPart, padding, mac, partNum, fpNum)
 	if err != nil {
 		t.Errorf("Failed to add test part: %+v", err)
 	}
@@ -671,7 +717,7 @@ func Test_loadReceivedTransfer_LoadFpVectorError(t *testing.T) {
 	encryptedPart, mac, padding := newEncryptedPartData(rt.key, data, fpNum, t)
 
 	// Add encrypted part
-	err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	_, err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
 	if err != nil {
 		t.Errorf("Failed to add test part: %+v", err)
 	}
@@ -703,7 +749,7 @@ func Test_loadReceivedTransfer_LoadPartStoreError(t *testing.T) {
 	encryptedPart, mac, padding := newEncryptedPartData(rt.key, data, fpNum, t)
 
 	// Add encrypted part
-	err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	_, err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
 	if err != nil {
 		t.Errorf("Failed to add test part: %+v", err)
 	}
@@ -735,7 +781,7 @@ func Test_loadReceivedTransfer_LoadReceivedVectorError(t *testing.T) {
 	encryptedPart, mac, padding := newEncryptedPartData(rt.key, data, fpNum, t)
 
 	// Add encrypted part
-	err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	_, err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
 	if err != nil {
 		t.Errorf("Failed to add test part: %+v", err)
 	}
@@ -829,7 +875,7 @@ func TestReceivedTransfer_delete(t *testing.T) {
 		rt.key, expectedData, fpNum, t)
 
 	// Add encrypted part
-	err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	_, err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
 	if err != nil {
 		t.Fatalf("Failed to add test part: %+v", err)
 	}
@@ -985,7 +1031,7 @@ func newRandomReceivedTransfer(numParts, numFps uint16, kv *versioned.KV,
 
 	for partNum, part := range parts.parts {
 		encryptedPart, mac, padding := newEncryptedPartData(key, part, partNum, t)
-		err := rt.AddPart(encryptedPart, padding, mac, partNum, partNum)
+		_, err := rt.AddPart(encryptedPart, padding, mac, partNum, partNum)
 		if err != nil {
 			t.Errorf("Failed to add part #%d: %+v", partNum, err)
 		}

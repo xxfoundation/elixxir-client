@@ -36,9 +36,9 @@ func Test_newReceivedCallbackTracker(t *testing.T) {
 		cb:        cbFunc,
 	}
 
-	receivedSCT := newReceivedCallbackTracker(expectedRCT.cb, expectedRCT.period)
+	receivedRCT := newReceivedCallbackTracker(expectedRCT.cb, expectedRCT.period)
 
-	go receivedSCT.cb(false, 0, 0, nil, nil)
+	go receivedRCT.cb(false, 0, 0, nil, nil)
 
 	select {
 	case <-time.NewTimer(time.Millisecond).C:
@@ -51,16 +51,20 @@ func Test_newReceivedCallbackTracker(t *testing.T) {
 	}
 
 	// Nil the callbacks so that DeepEqual works
-	receivedSCT.cb = nil
+	receivedRCT.cb = nil
 	expectedRCT.cb = nil
 
-	if !reflect.DeepEqual(expectedRCT, receivedSCT) {
+	receivedRCT.stop = expectedRCT.stop
+
+	if !reflect.DeepEqual(expectedRCT, receivedRCT) {
 		t.Errorf("New receivedCallbackTracker does not match expected."+
-			"\nexpected: %+v\nreceived: %+v", expectedRCT, receivedSCT)
+			"\nexpected: %+v\nreceived: %+v", expectedRCT, receivedRCT)
 	}
 }
 
-// Tests that receivedCallbackTracker.call triggers the proper callback.
+// Tests that receivedCallbackTracker.call calls the tracker immediately when
+// no other calls are scheduled and that it schedules a call to the tracker when
+// one has been called recently.
 func Test_receivedCallbackTracker_call(t *testing.T) {
 	type cbFields struct {
 		completed       bool
@@ -74,10 +78,10 @@ func Test_receivedCallbackTracker_call(t *testing.T) {
 		cbChan <- cbFields{completed, received, total, err}
 	}
 
-	sct := newReceivedCallbackTracker(cbFunc, 50*time.Millisecond)
+	rct := newReceivedCallbackTracker(cbFunc, 50*time.Millisecond)
 
-	tracker := testReceiveTrack{false, 1, 3, ReceivedPartTracker{}}
-	sct.call(tracker, nil)
+	tracker := testReceiveTrack{false, 1, 3, receivedPartTracker{}}
+	rct.call(tracker, nil)
 
 	select {
 	case <-time.NewTimer(10 * time.Millisecond).C:
@@ -89,20 +93,20 @@ func Test_receivedCallbackTracker_call(t *testing.T) {
 		}
 	}
 
-	tracker = testReceiveTrack{true, 3, 3, ReceivedPartTracker{}}
-	sct.call(tracker, nil)
+	tracker = testReceiveTrack{true, 3, 3, receivedPartTracker{}}
+	rct.call(tracker, nil)
 
 	select {
 	case <-time.NewTimer(10 * time.Millisecond).C:
-		if !sct.scheduled {
+		if !rct.scheduled {
 			t.Error("Callback should be scheduled.")
 		}
 	case r := <-cbChan:
 		t.Errorf("Received message when period of %s should not have been "+
-			"reached: %+v", sct.period, r)
+			"reached: %+v", rct.period, r)
 	}
 
-	sct.call(tracker, nil)
+	rct.call(tracker, nil)
 
 	select {
 	case <-time.NewTimer(60 * time.Millisecond).C:
@@ -112,6 +116,64 @@ func Test_receivedCallbackTracker_call(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
+	}
+}
+
+// Tests that receivedCallbackTracker.stopThread prevents a scheduled call to
+// the tracker from occurring.
+func Test_receivedCallbackTracker_stopThread(t *testing.T) {
+	type cbFields struct {
+		completed       bool
+		received, total uint16
+		err             error
+	}
+
+	cbChan := make(chan cbFields)
+	cbFunc := func(completed bool, received, total uint16,
+		t interfaces.FilePartTracker, err error) {
+		cbChan <- cbFields{completed, received, total, err}
+	}
+
+	rct := newReceivedCallbackTracker(cbFunc, 50*time.Millisecond)
+
+	tracker := testReceiveTrack{false, 1, 3, receivedPartTracker{}}
+	rct.call(tracker, nil)
+
+	select {
+	case <-time.NewTimer(10 * time.Millisecond).C:
+		t.Error("Timed out waiting for callback to be called.")
+	case r := <-cbChan:
+		err := checkReceivedProgress(r.completed, r.received, r.total, false, 1, 3)
+		if err != nil {
+			t.Error(err)
+		}
+	}
+
+	tracker = testReceiveTrack{true, 3, 3, receivedPartTracker{}}
+	rct.call(tracker, nil)
+
+	select {
+	case <-time.NewTimer(10 * time.Millisecond).C:
+		if !rct.scheduled {
+			t.Error("Callback should be scheduled.")
+		}
+	case r := <-cbChan:
+		t.Errorf("Received message when period of %s should not have been "+
+			"reached: %+v", rct.period, r)
+	}
+
+	rct.call(tracker, nil)
+
+	err := rct.stopThread()
+	if err != nil {
+		t.Errorf("stopThread returned an error: %+v", err)
+	}
+
+	select {
+	case <-time.NewTimer(60 * time.Millisecond).C:
+	case r := <-cbChan:
+		t.Errorf("Received message when period of %s should not have been "+
+			"reached: %+v", rct.period, r)
 	}
 }
 
@@ -125,10 +187,16 @@ func TestReceivedTransfer_ReceivedProgressTrackerInterface(t *testing.T) {
 type testReceiveTrack struct {
 	completed       bool
 	received, total uint16
-	t               ReceivedPartTracker
+	t               receivedPartTracker
+}
+
+func (trt testReceiveTrack) getProgress() (completed bool, received,
+	total uint16, t interfaces.FilePartTracker) {
+	return trt.completed, trt.received, trt.total, trt.t
 }
 
 // GetProgress returns the values in the testTrack.
-func (trt testReceiveTrack) GetProgress() (completed bool, received, total uint16, t ReceivedPartTracker) {
+func (trt testReceiveTrack) GetProgress() (completed bool, received,
+	total uint16, t interfaces.FilePartTracker) {
 	return trt.completed, trt.received, trt.total, trt.t
 }

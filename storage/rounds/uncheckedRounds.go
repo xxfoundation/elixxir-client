@@ -12,6 +12,7 @@ import (
 	"encoding/binary"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
@@ -184,6 +185,7 @@ func (s *UncheckedRoundStore) AddRound(rid id.Round, ri *pb.RoundInfo,
 
 	if !exists || stored.Info == nil {
 		newUncheckedRound := UncheckedRound{
+			Id:   rid,
 			Info: ri,
 			Identity: Identity{
 				EpdId:  ephID,
@@ -222,7 +224,11 @@ func (s *UncheckedRoundStore) IterateOverList(iterator func(rid id.Round,
 	defer s.mux.RUnlock()
 
 	for _, rnd := range s.list {
-		go iterator(rnd.Id, rnd)
+		jww.DEBUG.Printf("rnd for lookup: %d, %+v\n", rnd.Id, rnd)
+		go func(localRid id.Round,
+			localRnd UncheckedRound) {
+			iterator(localRid, localRnd)
+		}(rnd.Id, rnd)
 	}
 }
 

@@ -96,10 +96,4 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 			"\n\tReceived: %v", expectedEphID, testBundle.Identity.EphId)
 	}
 
-	_, exists := testManager.Session.UncheckedRounds().GetRound(
-		roundId, testBundle.Identity.Source, testBundle.Identity.EphId)
-	if exists {
-		t.Fatalf("Expected round %d to be removed after being processed", roundId)
-	}
-
 }

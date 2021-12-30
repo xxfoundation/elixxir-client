@@ -137,6 +137,11 @@ func (v *KV) Set(key string, version uint64, object *Object) error {
 	return v.r.data.Set(key, object)
 }
 
+// GetPrefix returns the prefix of the KV.
+func (v *KV) GetPrefix() string {
+	return v.prefix
+}
+
 //Returns a new KV with the new prefix
 func (v *KV) Prefix(prefix string) *KV {
 	kvPrefix := KV{

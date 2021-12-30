@@ -8,36 +8,32 @@
 package fileTransfer
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/utility"
 )
 
-// Part statuses.
+// Error messages.
 const (
-	unsentStatus   = 0
-	sentStatus     = 1
-	arrivedStatus  = 2
-	receivedStatus = 3
+	// sentPartTracker.GetPartStatus
+	getInvalidPartErr = "[FT] Failed to get status for part %d: %+v"
 )
 
-// SentPartTracker tracks the status of individual sent file parts.
-type SentPartTracker struct {
+// sentPartTracker tracks the status of individual sent file parts.
+type sentPartTracker struct {
 	// The number of file parts in the file
 	numParts uint16
 
-	// Stores the in-progress status for each file part in a bitstream format
-	inProgressStatus *utility.StateVector
-
-	// Stores the finished status for each file part in a bitstream format
-	finishedStatus *utility.StateVector
+	// Stores the status for each file part in a bitstream format
+	partStats *utility.MultiStateVector
 }
 
-// NewSentPartTracker creates a new SentPartTracker with copies of the
+// newSentPartTracker creates a new sentPartTracker with copies of the
 // in-progress and finished status state vectors.
-func NewSentPartTracker(inProgress, finished *utility.StateVector) SentPartTracker {
-	return SentPartTracker{
-		numParts:         uint16(inProgress.GetNumKeys()),
-		inProgressStatus: inProgress.DeepCopy(),
-		finishedStatus:   finished.DeepCopy(),
+func newSentPartTracker(partStats *utility.MultiStateVector) sentPartTracker {
+	return sentPartTracker{
+		numParts:  partStats.GetNumKeys(),
+		partStats: partStats.DeepCopy(),
 	}
 }
 
@@ -46,17 +42,15 @@ func NewSentPartTracker(inProgress, finished *utility.StateVector) SentPartTrack
 // 0 = unsent
 // 1 = sent (sender has sent a part, but it has not arrived)
 // 2 = arrived (sender has sent a part, and it has arrived)
-func (spt SentPartTracker) GetPartStatus(partNum uint16) int {
-	if spt.inProgressStatus.Used(uint32(partNum)) {
-		return sentStatus
-	} else if spt.finishedStatus.Used(uint32(partNum)) {
-		return arrivedStatus
-	} else {
-		return unsentStatus
+func (spt sentPartTracker) GetPartStatus(partNum uint16) interfaces.FpStatus {
+	status, err := spt.partStats.Get(partNum)
+	if err != nil {
+		jww.FATAL.Fatalf(getInvalidPartErr, partNum, err)
 	}
+	return interfaces.FpStatus(status)
 }
 
 // GetNumParts returns the total number of file parts in the transfer.
-func (spt SentPartTracker) GetNumParts() uint16 {
+func (spt sentPartTracker) GetNumParts() uint16 {
 	return spt.numParts
 }

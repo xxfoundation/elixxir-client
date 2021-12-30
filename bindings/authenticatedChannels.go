@@ -65,7 +65,7 @@ func (c *Client) RegisterAuthCallbacks(request AuthRequestCallback,
 
 	requestFunc := func(requestor contact.Contact, message string) {
 		requestorBind := &Contact{c: &requestor}
-		request.Callback(requestorBind, message)
+		request.Callback(requestorBind)
 	}
 
 	confirmFunc := func(partner contact.Contact) {

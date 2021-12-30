@@ -270,6 +270,7 @@ func (mb *MessageBuffer) Next() (interface{}, bool) {
 		// Retrieve the message for storage
 		m, err = mb.handler.LoadMessage(mb.kv, makeStoredMessageKey(mb.key, h))
 		if err != nil {
+			m=nil
 			jww.ERROR.Printf("Failed to load message %s from store, "+
 				"this may happen on occasion due to replays to increase "+
 				"reliability: %v", h, err)
@@ -300,20 +301,19 @@ func (mb *MessageBuffer) Succeeded(m interface{}) {
 	delete(mb.processingMessages, h)
 	delete(mb.messages, h)
 
-	// Save modified buffer to key value store
-	err := mb.save()
-	if err != nil {
-		jww.FATAL.Fatalf("Failed to save: %v", err)
-	}
-
 	// Done message from key value store
-	err = mb.handler.DeleteMessage(mb.kv, makeStoredMessageKey(mb.key, h))
+	err := mb.handler.DeleteMessage(mb.kv, makeStoredMessageKey(mb.key, h))
 	if err != nil {
 		jww.ERROR.Printf("Failed to delete message from store, "+
 			"this may happen on occasion due to replays to increase "+
 			"reliability: %v", err)
 	}
 
+	// Save modified buffer to key value store
+	err = mb.save()
+	if err != nil {
+		jww.FATAL.Fatalf("Failed to save: %v", err)
+	}
 }
 
 // Failed sets a message as failed to process. It changes the message back to
@@ -337,9 +337,15 @@ func (mb *MessageBuffer) Failed(m interface{}) {
 
 	// Add to "not processed" state
 	mb.messages[h] = struct{}{}
+
+	// Save buffer
+	err = mb.save()
+	if err != nil {
+		jww.FATAL.Panicf("Error whilse saving buffer: %v", err)
+	}
 }
 
 // makeStoredMessageKey generates a new key for the message based on its has.
 func makeStoredMessageKey(key string, h MessageHash) string {
-	return key + messageSubKey + string(h[:])
+	return key + messageSubKey + base64.StdEncoding.EncodeToString(h[:])
 }

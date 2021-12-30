@@ -23,6 +23,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"google.golang.org/grpc/grpclog"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"time"
@@ -264,6 +265,15 @@ func (c *Client) WaitForNetwork(timeoutMS int) bool {
 func (c *Client) NetworkFollowerStatus() int {
 	return int(c.api.NetworkFollowerStatus())
 }
+// HasRunningProcessies checks if any background threads are running.
+// returns true if none are running. This is meant to be
+// used when NetworkFollowerStatus() returns Stopping.
+// Due to the handling of comms on iOS, where the OS can
+// block indefiently, it may not enter the stopped
+// state apropreatly. This can be used instead.
+func (c *Client) HasRunningProcessies() bool {
+	return c.api.HasRunningProcessies()
+}
 
 // returns true if the network is read to be in a healthy state where
 // messages can be sent
@@ -485,6 +495,11 @@ func (c *Client) GetPreferredBins(countryCode string) (string, error) {
 	return buff.String(), nil
 }
 
+// GetRateLimitParams retrieves the rate limiting parameters.
+func (c *Client) GetRateLimitParams() (uint32, uint32, int64) {
+	return c.api.GetRateLimitParams()
+}
+
 /*
 // SearchWithHandler is a non-blocking search that also registers
 // a callback interface for user disovery events.
@@ -522,4 +537,14 @@ func (c *Client) getSingle() (*single.Manager, error) {
 	}
 
 	return c.single, nil
+}
+
+// DumpStack returns a string with the stack trace of every running thread.
+func DumpStack() (string, error) {
+	buf := new(bytes.Buffer)
+	err := pprof.Lookup("goroutine").WriteTo(buf, 2)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }

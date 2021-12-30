@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -29,6 +30,7 @@ const (
 	sentTransferKey         = "SentTransfer"
 	sentTransferVersion     = 0
 	sentFpVectorKey         = "SentFingerprintVector"
+	sentPartStatsVectorKey  = "SentPartStatsVector"
 	sentInProgressVectorKey = "SentInProgressStatusVector"
 	sentFinishedVectorKey   = "SentFinishedStatusVector"
 )
@@ -40,15 +42,22 @@ const (
 	newSentTransferPartStoreErr = "failed to create new part store: %+v"
 	newInProgressTransfersErr   = "failed to create new in-progress transfers bundle: %+v"
 	newFinishedTransfersErr     = "failed to create new finished transfers bundle: %+v"
-	newSentInProgressVectorErr  = "failed to create new state vector for in-progress status: %+v"
-	newSentFinishedVectorErr    = "failed to create new state vector for finished status: %+v"
+	newSentPartStatusVectorErr  = "failed to create new multi state vector for part statuses: %+v"
 
 	// SentTransfer.ReInit
 	reInitSentTransferFpVectorErr = "failed to overwrite fingerprint state vector with new vector: %+v"
 	reInitInProgressTransfersErr  = "failed to overwrite in-progress transfers bundle: %+v"
 	reInitFinishedTransfersErr    = "failed to overwrite finished transfers bundle: %+v"
-	reInitSentInProgressVectorErr = "failed to overwrite in-progress state vector with new vector: %+v"
-	reInitSentFinishedVectorErr   = "failed to overwrite finished state vector with new vector: %+v"
+	reInitSentPartStatusVectorErr = "failed to overwrite multi state vector for part statuses: %+v"
+
+	// SentTransfer.IsPartInProgress and SentTransfer.IsPartFinished
+	getStatusErr = "failed to get status of part %d: %+v"
+
+	// SentTransfer.stopScheduledProgressCB
+	cancelSentCallbacksErr = "could not cancel %d out of %d sent progress callbacks: %d"
+
+	// SentTransfer.GetUnsentPartNums
+	getUnsentPartsErr = "cannot get unsent parts: %+v"
 
 	// loadSentTransfer
 	loadSentStoreErr            = "failed to load sent transfer info from storage: %+v"
@@ -56,8 +65,7 @@ const (
 	loadSentPartStoreErr        = "failed to load sent part store from storage: %+v"
 	loadInProgressTransfersErr  = "failed to load in-progress transfers bundle from storage: %+v"
 	loadFinishedTransfersErr    = "failed to load finished transfers bundle from storage: %+v"
-	loadSentInProgressVectorErr = "failed to load new in-progress status state vector from storage: %+v"
-	loadSentFinishedVectorErr   = "failed to load new finished status state vector from storage: %+v"
+	loadSentPartStatusVectorErr = "failed to load multi state vector for part statuses from storage: %+v"
 
 	// SentTransfer.delete
 	deleteSentTransferInfoErr     = "failed to delete sent transfer info from storage: %+v"
@@ -65,8 +73,7 @@ const (
 	deleteSentFilePartsErr        = "failed to delete sent file parts from storage: %+v"
 	deleteInProgressTransfersErr  = "failed to delete in-progress transfers from storage: %+v"
 	deleteFinishedTransfersErr    = "failed to delete finished transfers from storage: %+v"
-	deleteSentInProgressVectorErr = "failed to delete in-progress status state vector from storage: %+v"
-	deleteSentFinishedVectorErr   = "failed to delete finished status state vector from storage: %+v"
+	deleteSentPartStatusVectorErr = "failed to delete multi state vector for part statuses from storage: %+v"
 
 	// SentTransfer.FinishTransfer
 	noPartsForRoundErr       = "no file parts in-progress on round %d"
@@ -83,6 +90,13 @@ const (
 // retries runs out. This occurs when all the fingerprints in a transfer have
 // been used.
 var MaxRetriesErr = errors.New(maxRetriesErr)
+
+// sentTransferStateMap prevents illegal state changes for part statuses.
+var sentTransferStateMap = [][]bool{
+	{false, true, false},
+	{true, false, true},
+	{false, false, false},
+}
 
 // SentTransfer contains information and progress data for sending and in-
 // progress file transfer.
@@ -114,30 +128,19 @@ type SentTransfer struct {
 	// List of parts per round that finished transferring
 	finishedTransfers *transferredBundle
 
-	// Stores the in-progress status for each file part in a bitstream format
-	inProgressStatus *utility.StateVector
-
-	// Stores the finished status for each file part in a bitstream format
-	finishedStatus *utility.StateVector
+	// Stores the status of each part in a bitstream format
+	partStats *utility.MultiStateVector
 
 	// List of callbacks to call for every send
 	progressCallbacks []*sentCallbackTracker
 
 	// status indicates that the transfer is either done or errored out and
 	// that no more callbacks should be called
-	status transferStatus
+	status TransferStatus
 
 	mux sync.RWMutex
 	kv  *versioned.KV
 }
-
-type transferStatus int
-
-const (
-	running transferStatus = iota
-	stopping
-	stopped
-)
 
 // NewSentTransfer generates a new SentTransfer with the specified transfer key,
 // transfer ID, and number of parts.
@@ -153,7 +156,7 @@ func NewSentTransfer(recipient *id.ID, tid ftCrypto.TransferID,
 		numParts:          uint16(len(parts)),
 		numFps:            numFps,
 		progressCallbacks: []*sentCallbackTracker{},
-		status:            running,
+		status:            Running,
 		kv:                kv.Prefix(makeSentTransferPrefix(tid)),
 	}
 
@@ -184,18 +187,11 @@ func NewSentTransfer(recipient *id.ID, tid ftCrypto.TransferID,
 		return nil, errors.Errorf(newFinishedTransfersErr, err)
 	}
 
-	// Create new StateVector for storing in-progress status
-	st.inProgressStatus, err = utility.NewStateVector(
-		st.kv, sentInProgressVectorKey, uint32(st.numParts))
+	// Create new MultiStateVector for storing part statuses
+	st.partStats, err = utility.NewMultiStateVector(
+		st.numParts, 3, sentTransferStateMap, sentPartStatsVectorKey, st.kv)
 	if err != nil {
-		return nil, errors.Errorf(newSentInProgressVectorErr, err)
-	}
-
-	// Create new StateVector for storing in-progress status
-	st.finishedStatus, err = utility.NewStateVector(
-		st.kv, sentFinishedVectorKey, uint32(st.numParts))
-	if err != nil {
-		return nil, errors.Errorf(newSentFinishedVectorErr, err)
+		return nil, errors.Errorf(newSentPartStatusVectorErr, err)
 	}
 
 	// Add first progress callback
@@ -213,10 +209,11 @@ func (st *SentTransfer) ReInit(numFps uint16,
 	progressCB interfaces.SentProgressCallback, period time.Duration) error {
 	st.mux.Lock()
 	defer st.mux.Unlock()
+
 	var err error
 
 	// Mark the status as running
-	st.status = running
+	st.status = Running
 
 	// Update number of fingerprints and overwrite old fingerprint vector
 	st.numFps = numFps
@@ -238,18 +235,11 @@ func (st *SentTransfer) ReInit(numFps uint16,
 		return errors.Errorf(reInitFinishedTransfersErr, err)
 	}
 
-	// Overwrite in-progress status StateVector
-	st.inProgressStatus, err = utility.NewStateVector(
-		st.kv, sentInProgressVectorKey, uint32(st.numParts))
+	// Overwrite new part status MultiStateVector
+	st.partStats, err = utility.NewMultiStateVector(
+		st.numParts, 3, sentTransferStateMap, sentPartStatsVectorKey, st.kv)
 	if err != nil {
-		return errors.Errorf(reInitSentInProgressVectorErr, err)
-	}
-
-	// Overwrite finished status StateVector
-	st.finishedStatus, err = utility.NewStateVector(
-		st.kv, sentFinishedVectorKey, uint32(st.numParts))
-	if err != nil {
-		return errors.Errorf(reInitSentFinishedVectorErr, err)
+		return errors.Errorf(reInitSentPartStatusVectorErr, err)
 	}
 
 	// Clear callbacks
@@ -262,7 +252,7 @@ func (st *SentTransfer) ReInit(numFps uint16,
 		st.progressCallbacks = append(st.progressCallbacks, sct)
 
 		// Trigger the initial call
-		sct.callNowUnsafe(st, nil)
+		sct.callNowUnsafe(true, st, nil)
 	}
 
 	return nil
@@ -308,18 +298,34 @@ func (st *SentTransfer) GetNumAvailableFps() uint16 {
 	return uint16(st.fpVector.GetNumAvailable())
 }
 
+// GetStatus returns the status of the sent transfer.
+func (st *SentTransfer) GetStatus() TransferStatus {
+	st.mux.RLock()
+	defer st.mux.RUnlock()
+
+	return st.status
+}
+
 // IsPartInProgress returns true if the part has successfully been sent. Returns
 // false if the part is unsent or finished sending or if the part number is
 // invalid.
-func (st *SentTransfer) IsPartInProgress(partNum uint16) bool {
-	return st.inProgressStatus.Used(uint32(partNum))
+func (st *SentTransfer) IsPartInProgress(partNum uint16) (bool, error) {
+	status, err := st.partStats.Get(partNum)
+	if err != nil {
+		return false, errors.Errorf(getStatusErr, partNum, err)
+	}
+	return status == 1, nil
 }
 
 // IsPartFinished returns true if the part has successfully arrived. Returns
 // false if the part is unsent or in the process of sending or if the part
 // number is invalid.
-func (st *SentTransfer) IsPartFinished(partNum uint16) bool {
-	return st.finishedStatus.Used(uint32(partNum))
+func (st *SentTransfer) IsPartFinished(partNum uint16) (bool, error) {
+	status, err := st.partStats.Get(partNum)
+	if err != nil {
+		return false, errors.Errorf(getStatusErr, partNum, err)
+	}
+	return status == 2, nil
 }
 
 // GetProgress returns the current progress of the transfer. Completed is true
@@ -328,26 +334,28 @@ func (st *SentTransfer) IsPartFinished(partNum uint16) bool {
 // sent, and t is a part status tracker that can be used to get the status of
 // individual file parts.
 func (st *SentTransfer) GetProgress() (completed bool, sent, arrived,
-	total uint16, t SentPartTracker) {
+	total uint16, t interfaces.FilePartTracker) {
 	st.mux.RLock()
 	defer st.mux.RUnlock()
 
-	return st.getProgress()
+	completed, sent, arrived, total, t = st.getProgress()
+	return completed, sent, arrived, total, t
 }
 
 // getProgress is the thread-unsafe helper function for GetProgress.
 func (st *SentTransfer) getProgress() (completed bool, sent, arrived,
-	total uint16, t SentPartTracker) {
-	arrived = st.finishedTransfers.getNumParts()
-	sent = st.inProgressTransfers.getNumParts()
+	total uint16, t interfaces.FilePartTracker) {
+	arrived, _ = st.partStats.GetCount(2)
+	sent, _ = st.partStats.GetCount(1)
 	total = st.numParts
 
 	if sent == 0 && arrived == total {
 		completed = true
 	}
 
-	return completed, sent, arrived, total,
-		NewSentPartTracker(st.inProgressStatus, st.finishedStatus)
+	partTracker := newSentPartTracker(st.partStats)
+
+	return completed, sent, arrived, total, partTracker
 }
 
 // CallProgressCB calls all the progress callbacks with the most recent progress
@@ -355,12 +363,8 @@ func (st *SentTransfer) getProgress() (completed bool, sent, arrived,
 func (st *SentTransfer) CallProgressCB(err error) {
 	st.mux.Lock()
 
-	switch st.status {
-	case stopped:
-		st.mux.Unlock()
-		return
-	case stopping:
-		st.status = stopped
+	if st.status == Stopping {
+		st.status = Stopped
 	}
 
 	st.mux.Unlock()
@@ -370,6 +374,30 @@ func (st *SentTransfer) CallProgressCB(err error) {
 	for _, cb := range st.progressCallbacks {
 		cb.call(st, err)
 	}
+}
+
+// stopScheduledProgressCB cancels all scheduled sent progress callbacks calls.
+func (st *SentTransfer) stopScheduledProgressCB() error {
+	st.mux.Lock()
+	defer st.mux.Unlock()
+
+	// Tracks the index of callbacks that failed to stop
+	var failedCallbacks []int
+
+	for i, cb := range st.progressCallbacks {
+		err := cb.stopThread()
+		if err != nil {
+			failedCallbacks = append(failedCallbacks, i)
+			jww.WARN.Printf("[FT] %s", err)
+		}
+	}
+
+	if len(failedCallbacks) > 0 {
+		return errors.Errorf(cancelSentCallbacksErr, len(failedCallbacks),
+			len(st.progressCallbacks), failedCallbacks)
+	}
+
+	return nil
 }
 
 // AddProgressCB appends a new interfaces.SentProgressCallback to the list of
@@ -386,7 +414,7 @@ func (st *SentTransfer) AddProgressCB(cb interfaces.SentProgressCallback,
 	st.mux.Unlock()
 
 	// Trigger the initial call
-	sct.callNow(st, nil)
+	sct.callNow(true, st, nil)
 }
 
 // GetEncryptedPart gets the specified part, encrypts it, and returns the
@@ -408,7 +436,7 @@ func (st *SentTransfer) GetEncryptedPart(partNum uint16, partSize int,
 	// the status to stopping and return an error specifying that all the
 	// retries have been used
 	if st.fpVector.GetNumAvailable() < 1 {
-		st.status = stopping
+		st.status = Stopping
 		return nil, nil, nil, format.Fingerprint{}, MaxRetriesErr
 	}
 
@@ -439,17 +467,21 @@ func (st *SentTransfer) GetEncryptedPart(partNum uint16, partSize int,
 // SetInProgress adds the specified file part numbers to the in-progress
 // transfers for the given round ID. Returns whether the round already exists in
 // the list.
-func (st *SentTransfer) SetInProgress(rid id.Round, partNums ...uint16) (error, bool) {
+func (st *SentTransfer) SetInProgress(rid id.Round, partNums ...uint16) (bool,
+	error) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 
-	// Set as in-progress in bundle
+	// Check if there is already a round in-progress
 	_, exists := st.inProgressTransfers.getPartNums(rid)
 
-	// Set parts as in-progress in status vector
-	st.inProgressStatus.UseMany(uint16SliceToUint32Slice(partNums)...)
+	// Set parts as in-progress in part status vector
+	err := st.partStats.SetMany(partNums, 1)
+	if err != nil {
+		return false, err
+	}
 
-	return st.inProgressTransfers.addPartNums(rid, partNums...), exists
+	return exists, st.inProgressTransfers.addPartNums(rid, partNums...)
 }
 
 // GetInProgress returns a list of all part number in the in-progress transfers
@@ -471,15 +503,19 @@ func (st *SentTransfer) UnsetInProgress(rid id.Round) ([]uint16, error) {
 	// Get the list of part numbers to be removed from list
 	partNums, _ := st.inProgressTransfers.getPartNums(rid)
 
-	// Unset parts as in-progress in status vector
-	st.inProgressStatus.UnuseMany(uint16SliceToUint32Slice(partNums)...)
+	// Set parts as unsent in part status vector
+	err := st.partStats.SetMany(partNums, 0)
+	if err != nil {
+		return nil, err
+	}
 
 	return partNums, st.inProgressTransfers.deletePartNums(rid)
 }
 
 // FinishTransfer moves the in-progress file parts for the given round to the
-// finished list.
-func (st *SentTransfer) FinishTransfer(rid id.Round) error {
+// finished list. Returns true if all file parts have been marked as finished
+// and false otherwise.
+func (st *SentTransfer) FinishTransfer(rid id.Round) (bool, error) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 
@@ -487,35 +523,62 @@ func (st *SentTransfer) FinishTransfer(rid id.Round) error {
 	// exist
 	partNums, exists := st.inProgressTransfers.getPartNums(rid)
 	if !exists {
-		return errors.Errorf(noPartsForRoundErr, rid)
+		return false, errors.Errorf(noPartsForRoundErr, rid)
 	}
 
 	// Delete the parts from the in-progress list
 	err := st.inProgressTransfers.deletePartNums(rid)
 	if err != nil {
-		return errors.Errorf(deleteInProgressPartsErr, rid, err)
+		return false, errors.Errorf(deleteInProgressPartsErr, rid, err)
 	}
-
-	// Unset parts as in-progress in status vector
-	st.inProgressStatus.UnuseMany(uint16SliceToUint32Slice(partNums)...)
 
 	// Add the parts to the finished list
 	err = st.finishedTransfers.addPartNums(rid, partNums...)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	// Set parts as finished in status vector
-	st.finishedStatus.UseMany(uint16SliceToUint32Slice(partNums)...)
+	// Set parts as finished in part status vector
+	err = st.partStats.SetMany(partNums, 2)
+	if err != nil {
+		return false, err
+	}
 
 	// If all parts have been moved to the finished list, then set the status
 	// to stopping
 	if st.finishedTransfers.getNumParts() == st.numParts &&
 		st.inProgressTransfers.getNumParts() == 0 {
-		st.status = stopping
+		st.status = Stopping
+		return true, nil
 	}
 
-	return nil
+	return false, nil
+}
+
+// GetUnsentPartNums returns a list of part numbers that have not been sent.
+func (st *SentTransfer) GetUnsentPartNums() ([]uint16, error) {
+	st.mux.RLock()
+	defer st.mux.RUnlock()
+
+	// Get list of parts with a status of unsent
+	unsentPartNums, err := st.partStats.GetKeys(0)
+	if err != nil {
+		return nil, errors.Errorf(getUnsentPartsErr, err)
+	}
+
+	return unsentPartNums, nil
+}
+
+// GetSentRounds returns a list of round IDs that parts were sent on (in-
+// progress parts) that were never marked as finished.
+func (st *SentTransfer) GetSentRounds() []id.Round {
+	sentRounds := make([]id.Round, 0, len(st.inProgressTransfers.list))
+
+	for rid := range st.inProgressTransfers.list {
+		sentRounds = append(sentRounds, rid)
+	}
+
+	return sentRounds
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -560,18 +623,11 @@ func loadSentTransfer(tid ftCrypto.TransferID, kv *versioned.KV) (*SentTransfer,
 		return nil, errors.Errorf(loadFinishedTransfersErr, err)
 	}
 
-	// Load the in-progress status StateVector from storage
-	st.inProgressStatus, err = utility.LoadStateVector(
-		st.kv, sentInProgressVectorKey)
+	// Load the part status MultiStateVector from storage
+	st.partStats, err = utility.LoadMultiStateVector(
+		sentTransferStateMap, sentPartStatsVectorKey, st.kv)
 	if err != nil {
-		return nil, errors.Errorf(loadSentInProgressVectorErr, err)
-	}
-
-	// Load the finished status StateVector from storage
-	st.finishedStatus, err = utility.LoadStateVector(
-		st.kv, sentFinishedVectorKey)
-	if err != nil {
-		return nil, errors.Errorf(loadSentFinishedVectorErr, err)
+		return nil, errors.Errorf(loadSentPartStatusVectorErr, err)
 	}
 
 	return st, nil
@@ -646,16 +702,10 @@ func (st *SentTransfer) delete() error {
 		return errors.Errorf(deleteFinishedTransfersErr, err)
 	}
 
-	// Delete the in-progress status StateVector from storage
-	err = st.inProgressStatus.Delete()
+	// Delete the part status MultiStateVector from storage
+	err = st.partStats.Delete()
 	if err != nil {
-		return errors.Errorf(deleteSentInProgressVectorErr, err)
-	}
-
-	// Delete the finished status StateVector from storage
-	err = st.finishedStatus.Delete()
-	if err != nil {
-		return errors.Errorf(deleteSentFinishedVectorErr, err)
+		return errors.Errorf(deleteSentPartStatusVectorErr, err)
 	}
 
 	return nil
@@ -666,8 +716,6 @@ func (st *SentTransfer) delete() error {
 func (st *SentTransfer) deleteInfo() error {
 	return st.kv.Delete(sentTransferKey, sentTransferVersion)
 }
-
-// marshal serializes the transfer key, numParts, and numFps.
 
 // marshal serializes all primitive fields in SentTransfer (recipient, key,
 // numParts, numFps, and status).
@@ -698,9 +746,7 @@ func (st *SentTransfer) marshal() []byte {
 	buff.Write(b)
 
 	// Write the transfer status to the buffer
-	b = make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, uint64(st.status))
-	buff.Write(b)
+	buff.Write(st.status.Marshal())
 
 	// Return the serialized data
 	return buff.Bytes()
@@ -709,7 +755,7 @@ func (st *SentTransfer) marshal() []byte {
 // unmarshalSentTransfer deserializes a byte slice into the primitive fields
 // of SentTransfer (recipient, key, numParts, numFps, and status).
 func unmarshalSentTransfer(b []byte) (recipient *id.ID,
-	key ftCrypto.TransferKey, numParts, numFps uint16, status transferStatus) {
+	key ftCrypto.TransferKey, numParts, numFps uint16, status TransferStatus) {
 
 	buff := bytes.NewBuffer(b)
 
@@ -727,7 +773,7 @@ func unmarshalSentTransfer(b []byte) (recipient *id.ID,
 	numFps = binary.LittleEndian.Uint16(buff.Next(2))
 
 	// Read the transfer status from the buffer
-	status = transferStatus(binary.LittleEndian.Uint64(buff.Next(8)))
+	status = UnmarshalTransferStatus(buff.Next(8))
 
 	return recipient, key, numParts, numFps, status
 }

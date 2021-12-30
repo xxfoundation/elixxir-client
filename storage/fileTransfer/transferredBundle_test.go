@@ -311,7 +311,7 @@ func Test_transferredBundle_marshal_unmarshal(t *testing.T) {
 	tb.unmarshal(b)
 
 	if !reflect.DeepEqual(expectedTB, tb) {
-		t.Errorf("Failed to marshal and unmarshal transferredBundle into original."+
-			"\nexpected: %+v\nreceived: %+v", expectedTB, tb)
+		t.Errorf("Failed to marshal and unmarshal transferredBundle into "+
+			"original.\nexpected: %+v\nreceived: %+v", expectedTB, tb)
 	}
 }

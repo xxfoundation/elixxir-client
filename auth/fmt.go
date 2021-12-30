@@ -8,28 +8,32 @@
 package auth
 
 import (
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
 )
 
 //Basic Format//////////////////////////////////////////////////////////////////
-const saltSize = 32
-
 type baseFormat struct {
 	data       []byte
 	pubkey     []byte
-	salt       []byte
 	ecrPayload []byte
 }
 
 func newBaseFormat(payloadSize, pubkeySize int) baseFormat {
-
-	if payloadSize < pubkeySize+saltSize {
-		jww.FATAL.Panicf("Size of baseFormat is too small, must be big " +
-			"enough to contain public key and salt")
+	total := pubkeySize + sidhinterface.PubKeyByteSize + 1
+	if payloadSize < total {
+		jww.FATAL.Panicf("Size of baseFormat is too small (%d), must be big "+
+			"enough to contain public key (%d) and sidh key (%d)"+
+			"which totals to %d", payloadSize, pubkeySize,
+			sidhinterface.PubKeyByteSize+1, total)
 	}
+
+	jww.INFO.Printf("Empty Space RequestAuth: %d", payloadSize-total)
 
 	f := buildBaseFormat(make([]byte, payloadSize), pubkeySize)
 
@@ -41,14 +45,17 @@ func buildBaseFormat(data []byte, pubkeySize int) baseFormat {
 		data: data,
 	}
 
-	f.pubkey = f.data[:pubkeySize]
-	f.salt = f.data[pubkeySize : pubkeySize+saltSize]
-	f.ecrPayload = f.data[pubkeySize+saltSize:]
+	start := 0
+	end := pubkeySize
+	f.pubkey = f.data[:end]
+
+	start = end
+	f.ecrPayload = f.data[start:]
 	return f
 }
 
 func unmarshalBaseFormat(b []byte, pubkeySize int) (baseFormat, error) {
-	if len(b) < pubkeySize+saltSize {
+	if len(b) < pubkeySize {
 		return baseFormat{}, errors.New("Received baseFormat too small")
 	}
 
@@ -68,18 +75,7 @@ func (f baseFormat) SetPubKey(pubKey *cyclic.Int) {
 	copy(f.pubkey, pubKeyBytes)
 }
 
-func (f baseFormat) GetSalt() []byte {
-	return f.salt
-}
-
-func (f baseFormat) SetSalt(salt []byte) {
-	if len(salt) != saltSize {
-		jww.FATAL.Panicf("Salt incorrect size")
-	}
-
-	copy(f.salt, salt)
-}
-
+// GetEcrPayload is the data that is encrypted
 func (f baseFormat) GetEcrPayload() []byte {
 	return f.ecrPayload
 }
@@ -101,13 +97,14 @@ func (f baseFormat) SetEcrPayload(ecr []byte) {
 const ownershipSize = 32
 
 type ecrFormat struct {
-	data      []byte
-	ownership []byte
-	payload   []byte
+	data       []byte
+	ownership  []byte
+	sidHpubkey []byte
+	payload    []byte
 }
 
 func newEcrFormat(size int) ecrFormat {
-	if size < ownershipSize {
+	if size < (ownershipSize + sidhinterface.PubKeyByteSize + 1) {
 		jww.FATAL.Panicf("Size too small to hold")
 	}
 
@@ -122,8 +119,16 @@ func buildEcrFormat(data []byte) ecrFormat {
 		data: data,
 	}
 
-	f.ownership = f.data[:ownershipSize]
-	f.payload = f.data[ownershipSize:]
+	start := 0
+	end := ownershipSize
+	f.ownership = f.data[start:end]
+
+	start = end
+	end = start + sidhinterface.PubKeyByteSize + 1
+	f.sidHpubkey = f.data[start:end]
+
+	start = end
+	f.payload = f.data[start:]
 	return f
 }
 
@@ -149,6 +154,18 @@ func (f ecrFormat) SetOwnership(ownership []byte) {
 	}
 
 	copy(f.ownership, ownership)
+}
+
+func (f ecrFormat) SetSidHPubKey(pubKey *sidh.PublicKey) {
+	f.sidHpubkey[0] = byte(pubKey.Variant())
+	pubKey.Export(f.sidHpubkey[1:])
+}
+
+func (f ecrFormat) GetSidhPubKey() (*sidh.PublicKey, error) {
+	variant := sidh.KeyVariant(f.sidHpubkey[0])
+	pubKey := util.NewSIDHPublicKey(variant)
+	err := pubKey.Import(f.sidHpubkey[1:])
+	return pubKey, err
 }
 
 func (f ecrFormat) GetPayload() []byte {

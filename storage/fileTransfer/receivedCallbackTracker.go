@@ -9,10 +9,15 @@ package fileTransfer
 
 import (
 	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
+	"sync/atomic"
 	"time"
 )
+
+// receivedCallbackTrackerStoppable is the name used for the tracker stoppable.
+const receivedCallbackTrackerStoppable = "receivedCallbackTrackerStoppable"
 
 // receivedCallbackTracker tracks the interfaces.ReceivedProgressCallback and
 // information on when to call it. The callback will be called on each file part
@@ -21,9 +26,11 @@ import (
 // end of the period. A callback is called once every period, regardless of the
 // number of receptions that occur.
 type receivedCallbackTracker struct {
-	period    time.Duration // How often to call the callback
-	lastCall  time.Time     // Timestamp of the last call
-	scheduled bool          // Denotes if callback call is scheduled
+	period    time.Duration     // How often to call the callback
+	lastCall  time.Time         // Timestamp of the last call
+	scheduled bool              // Denotes if callback call is scheduled
+	completed uint64            // Atomic that tells if transfer is completed
+	stop      *stoppable.Single // Stops the scheduled callback from triggering
 	cb        interfaces.ReceivedProgressCallback
 	mux       sync.RWMutex
 }
@@ -35,6 +42,8 @@ func newReceivedCallbackTracker(cb interfaces.ReceivedProgressCallback,
 		period:    period,
 		lastCall:  time.Time{},
 		scheduled: false,
+		completed: 0,
+		stop:      stoppable.NewSingle(receivedCallbackTrackerStoppable),
 		cb:        cb,
 	}
 }
@@ -47,7 +56,7 @@ func newReceivedCallbackTracker(cb interfaces.ReceivedProgressCallback,
 func (rct *receivedCallbackTracker) call(tracker receivedProgressTracker, err error) {
 	rct.mux.RLock()
 	// Exit if a callback is already scheduled
-	if rct.scheduled {
+	if rct.scheduled || atomic.LoadUint64(&rct.completed) == 1 {
 		rct.mux.RUnlock()
 		return
 	}
@@ -64,7 +73,7 @@ func (rct *receivedCallbackTracker) call(tracker receivedProgressTracker, err er
 	timeSinceLastCall := netTime.Since(rct.lastCall)
 	if timeSinceLastCall > rct.period {
 		// If no callback occurred, then trigger the callback now
-		rct.callNow(tracker, err)
+		rct.callNowUnsafe(false, tracker, err)
 		rct.lastCall = netTime.Now()
 	} else {
 		// If a callback did occur, then schedule a new callback to occur at the
@@ -72,9 +81,12 @@ func (rct *receivedCallbackTracker) call(tracker receivedProgressTracker, err er
 		rct.scheduled = true
 		go func() {
 			select {
+			case <-rct.stop.Quit():
+				rct.stop.ToStopped()
+				return
 			case <-time.NewTimer(rct.period - timeSinceLastCall).C:
 				rct.mux.Lock()
-				rct.callNow(tracker, err)
+				rct.callNow(false, tracker, err)
 				rct.lastCall = netTime.Now()
 				rct.scheduled = false
 				rct.mux.Unlock()
@@ -83,13 +95,43 @@ func (rct *receivedCallbackTracker) call(tracker receivedProgressTracker, err er
 	}
 }
 
+// stopThread stops all scheduled callbacks.
+func (rct *receivedCallbackTracker) stopThread() error {
+	return rct.stop.Close()
+}
+
 // callNow calls the callback immediately regardless of the schedule or period.
-func (rct *receivedCallbackTracker) callNow(tracker receivedProgressTracker, err error) {
+func (rct *receivedCallbackTracker) callNow(skipCompletedCheck bool,
+	tracker receivedProgressTracker, err error) {
 	completed, received, total, t := tracker.GetProgress()
-	go rct.cb(completed, received, total, t, err)
+	if skipCompletedCheck || !completed ||
+		atomic.CompareAndSwapUint64(&rct.completed, 0, 1) {
+		go rct.cb(completed, received, total, t, err)
+	}
+}
+
+// callNowUnsafe calls the callback immediately regardless of the schedule or
+// period without taking a thread lock. This function should be used if a lock
+// is already taken on the receivedProgressTracker.
+func (rct *receivedCallbackTracker) callNowUnsafe(skipCompletedCheck bool,
+	tracker receivedProgressTracker, err error) {
+	completed, received, total, t := tracker.getProgress()
+	if skipCompletedCheck || !completed ||
+		atomic.CompareAndSwapUint64(&rct.completed, 0, 1) {
+		go rct.cb(completed, received, total, t, err)
+	}
 }
 
 // receivedProgressTracker interface tracks the progress of a transfer.
 type receivedProgressTracker interface {
-	GetProgress() (completed bool, received, total uint16, t ReceivedPartTracker)
+	// GetProgress returns the received transfer progress in a thread-safe
+	// manner.
+	GetProgress() (
+		completed bool, received, total uint16, t interfaces.FilePartTracker)
+
+	// getProgress returns the received transfer progress in a thread-unsafe
+	// manner. This function should be used if a lock is already taken on the
+	// sent transfer.
+	getProgress() (
+		completed bool, received, total uint16, t interfaces.FilePartTracker)
 }

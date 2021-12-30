@@ -38,6 +38,9 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 		return nil, e2e.MessageID{}, time.Time{}, errors.WithMessage(err, "failed to send unsafe message")
 	}
 
+	jww.INFO.Printf("E2E sending %d messages to %s",
+		len(partitions), msg.Recipient)
+
 	//encrypt then send the partitions over cmix
 	roundIds := make([]id.Round, len(partitions))
 	errCh := make(chan error, len(partitions))
@@ -50,17 +53,18 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 				"message, no relationship found with %s", msg.Recipient)
 	}
 
-	wg := sync.WaitGroup{}
+	//return the rounds if everything send successfully
+	msgID := e2e.NewMessageID(partner.GetSendRelationshipFingerprint(), internalMsgId)
 
-	jww.INFO.Printf("E2E sending %d messages to %s",
-		len(partitions), msg.Recipient)
+	wg := sync.WaitGroup{}
 
 	for i, p := range partitions {
 
 		if msg.MessageType != message.KeyExchangeTrigger {
 			// check if any rekeys need to happen and trigger them
 			keyExchange.CheckKeyExchanges(m.Instance, m.SendE2E,
-				m.Session, partner, 1*time.Minute, stop)
+				m.Events, m.Session, partner,
+				1*time.Minute, stop)
 		}
 
 		//create the cmix message
@@ -90,20 +94,30 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 		//end to end encrypt the cmix message
 		msgEnc := key.Encrypt(msgCmix)
 
-		jww.INFO.Printf("E2E sending %d/%d to %s with msgDigest: %s, key fp: %s",
-			i+i, len(partitions), msg.Recipient, msgEnc.Digest(), key.Fingerprint())
+		jww.INFO.Printf("E2E sending %d/%d to %s with msgDigest: %s, key fp: %s, msgID: %s",
+			i+i, len(partitions), msg.Recipient, msgEnc.Digest(),
+			key.Fingerprint(), msgID)
 
-		//set the preimage to the default e2e one if it is not already set
-		if param.IdentityPreimage == nil {
-			param.IdentityPreimage = partner.GetE2EPreimage()
+		localParam := param
+
+		// set all non last partitions to the silent type so they
+		// dont cause notificatons if OnlyNotifyOnLastSend is true
+		lastPartition := len(partitions) - 1
+		if localParam.OnlyNotifyOnLastSend && i != lastPartition {
+			localParam.IdentityPreimage = partner.GetSilentPreimage()
+		} else if localParam.IdentityPreimage == nil {
+			//set the preimage to the default e2e one if it is not already set
+			localParam.IdentityPreimage = partner.GetE2EPreimage()
 		}
+
+		jww.DEBUG.Printf("Excluded %+v", param.ExcludedRounds)
 
 		//send the cmix message, each partition in its own thread
 		wg.Add(1)
 		go func(i int) {
 			var err error
 			roundIds[i], _, err = m.SendCMIX(m.sender, msgEnc, msg.Recipient,
-				param.CMIX, stop)
+				localParam.CMIX, stop)
 			if err != nil {
 				errCh <- err
 			}
@@ -126,6 +140,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 	}
 
 	//return the rounds if everything send successfully
-	msgID := e2e.NewMessageID(partner.GetSendRelationshipFingerprint(), internalMsgId)
+	jww.INFO.Printf("Successful E2E Send of %d messages to %s with msgID %s",
+		len(partitions), msg.Recipient, msgID)
 	return roundIds, msgID, ts, nil
 }

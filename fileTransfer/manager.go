@@ -9,6 +9,7 @@ package fileTransfer
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
@@ -49,7 +50,7 @@ const (
 	sendQueueBuffLen = 10_000
 
 	// Size of the buffered channel that reports if the network is healthy
-	networkHealthBuffLen = 10_000
+	networkHealthBuffLen = 100
 )
 
 // Error messages.
@@ -59,12 +60,13 @@ const (
 	newManagerReceivedErr = "failed to load or create new list of received file transfers: %+v"
 
 	// Manager.Send
-	fileNameSizeErr = "length of filename (%d) greater than max allowed length (%d)"
-	fileTypeSizeErr = "length of file type (%d) greater than max allowed length (%d)"
-	fileSizeErr     = "size of file (%d bytes) greater than max allowed size (%d bytes)"
-	previewSizeErr  = "size of preview (%d bytes) greater than max allowed size (%d bytes)"
-	getPartSizeErr  = "failed to get file part size: %+v"
-	sendInitMsgErr  = "failed to send initial file transfer message: %+v"
+	sendNetworkHealthErr = "cannot initiate file transfer of %q when network is not healthy."
+	fileNameSizeErr      = "length of filename (%d) greater than max allowed length (%d)"
+	fileTypeSizeErr      = "length of file type (%d) greater than max allowed length (%d)"
+	fileSizeErr          = "size of file (%d bytes) greater than max allowed size (%d bytes)"
+	previewSizeErr       = "size of preview (%d bytes) greater than max allowed size (%d bytes)"
+	getPartSizeErr       = "failed to get file part size: %+v"
+	sendInitMsgErr       = "failed to send initial file transfer message: %+v"
 
 	// Manager.Resend
 	transferNotFailedErr = "transfer %s has not failed"
@@ -90,23 +92,26 @@ type Manager struct {
 	receiveCB interfaces.ReceiveCallback
 
 	// Storage-backed structure for tracking sent file transfers
-	sent *ftStorage.SentFileTransfers
+	sent *ftStorage.SentFileTransfersStore
 
 	// Storage-backed structure for tracking received file transfers
-	received *ftStorage.ReceivedFileTransfers
+	received *ftStorage.ReceivedFileTransfersStore
 
 	// Queue of parts to send
 	sendQueue chan queuedPart
 
-	// Maximum data transfer speed in bytes per second
-	maxThroughput int
+	// Indicates if old transfers saved to storage have been recovered after
+	// file transfer is closed and reopened
+	oldTransfersRecovered bool
+
+	// File transfer parameters
+	p Params
 
 	// Client interfaces
 	client          *api.Client
 	store           *storage.Session
 	swb             interfaces.Switchboard
 	net             interfaces.NetworkManager
-	healthy         chan bool
 	rng             *fastRNG.StreamGenerator
 	getRoundResults getRoundResultsFunc
 }
@@ -141,31 +146,34 @@ func newManager(client *api.Client, store *storage.Session,
 
 	// Create a new list of sent file transfers or load one if it exists in
 	// storage
-	sent, err := ftStorage.NewOrLoadSentFileTransfers(kv)
+	sent, err := ftStorage.NewOrLoadSentFileTransfersStore(kv)
 	if err != nil {
 		return nil, errors.Errorf(newManagerSentErr, err)
 	}
 
 	// Create a new list of received file transfers or load one if it exists in
 	// storage
-	received, err := ftStorage.NewOrLoadReceivedFileTransfers(kv)
+	received, err := ftStorage.NewOrLoadReceivedFileTransfersStore(kv)
 	if err != nil {
 		return nil, errors.Errorf(newManagerReceivedErr, err)
 	}
 
+	jww.DEBUG.Printf(""+
+		"[FT] Created mew file transfer manager with params: %+v", p)
+
 	return &Manager{
-		receiveCB:       receiveCB,
-		sent:            sent,
-		received:        received,
-		sendQueue:       make(chan queuedPart, sendQueueBuffLen),
-		maxThroughput:   p.MaxThroughput,
-		client:          client,
-		store:           store,
-		swb:             swb,
-		net:             net,
-		healthy:         make(chan bool, networkHealthBuffLen),
-		rng:             rng,
-		getRoundResults: getRoundResults,
+		receiveCB:             receiveCB,
+		sent:                  sent,
+		received:              received,
+		sendQueue:             make(chan queuedPart, sendQueueBuffLen),
+		oldTransfersRecovered: false,
+		p:                     p,
+		client:                client,
+		store:                 store,
+		swb:                   swb,
+		net:                   net,
+		rng:                   rng,
+		getRoundResults:       getRoundResults,
 	}, nil
 }
 
@@ -188,7 +196,13 @@ func (m *Manager) startProcesses(newFtChan, filePartChan chan message.Receive) (
 
 	// Register network health channel that is used by the sending thread to
 	// ensure the network is healthy before sending
-	m.net.GetHealthTracker().AddChannel(m.healthy)
+	healthyRecover := make(chan bool, networkHealthBuffLen)
+	healthyRecoverID := m.net.GetHealthTracker().AddChannel(healthyRecover)
+	healthySend := make(chan bool, networkHealthBuffLen)
+	healthySendID := m.net.GetHealthTracker().AddChannel(healthySend)
+
+	// Recover unsent parts from storage
+	m.oldTransferRecovery(healthyRecover, healthyRecoverID)
 
 	// Start the new file transfer message reception thread
 	newFtStop := stoppable.NewSingle(newFtStoppableName)
@@ -204,7 +218,7 @@ func (m *Manager) startProcesses(newFtChan, filePartChan chan message.Receive) (
 
 	// Start the file part sending thread
 	sendStop := stoppable.NewSingle(sendStoppableName)
-	go m.sendThread(sendStop, getRandomNumParts)
+	go m.sendThread(sendStop, healthySend, healthySendID, getRandomNumParts)
 
 	// Create a multi stoppable
 	multiStoppable := stoppable.NewMulti(fileTransferStoppableName)
@@ -219,10 +233,17 @@ func (m *Manager) startProcesses(newFtChan, filePartChan chan message.Receive) (
 // initial NewFileTransfer E2E message to the recipient to inform them of the
 // incoming file parts. It partitions the file, puts it into storage, and queues
 // each file for sending. Returns a unique ID identifying the file transfer.
+// Returns an error if the network is not healthy.
 func (m Manager) Send(fileName, fileType string, fileData []byte,
 	recipient *id.ID, retry float32, preview []byte,
 	progressCB interfaces.SentProgressCallback, period time.Duration) (
 	ftCrypto.TransferID, error) {
+
+	// Return an error if the network is not healthy
+	if !m.net.GetHealthTracker().IsHealthy() {
+		return ftCrypto.TransferID{},
+			errors.Errorf(sendNetworkHealthErr, fileName)
+	}
 
 	// Return an error if the file name is too long
 	if len(fileName) > FileNameMaxLen {
@@ -283,23 +304,28 @@ func (m Manager) Send(fileName, fileType string, fileData []byte,
 
 	// Add the transfer to storage
 	rng = m.rng.GetStream()
-	transferID, err := m.sent.AddTransfer(
+	tid, err := m.sent.AddTransfer(
 		recipient, transferKey, parts, numFps, progressCB, period, rng)
 	if err != nil {
 		return ftCrypto.TransferID{}, err
 	}
 	rng.Close()
 
-	m.queueParts(transferID, numParts)
+	jww.DEBUG.Printf("[FT] Sending new file transfer %s to %s {name: %s, "+
+		"type: %q, size: %d, parts: %d, numFps: %d, retry: %f}",
+		tid, recipient, fileName, fileType, fileSize, numParts, numFps, retry)
 
-	return transferID, nil
+	// Add all parts to queue
+	m.queueParts(tid, makeListOfPartNums(numParts))
+
+	return tid, nil
 }
 
-// RegisterSendProgressCallback adds the sent progress callback to the sent
+// RegisterSentProgressCallback adds the sent progress callback to the sent
 // transfer so that it will be called when updates for the transfer occur. The
 // progress callback is called when initially added and on transfer updates, at
 // most once per period.
-func (m Manager) RegisterSendProgressCallback(tid ftCrypto.TransferID,
+func (m Manager) RegisterSentProgressCallback(tid ftCrypto.TransferID,
 	progressCB interfaces.SentProgressCallback, period time.Duration) error {
 	// Get the transfer for the given ID
 	transfer, err := m.sent.GetTransfer(tid)
@@ -317,10 +343,10 @@ func (m Manager) RegisterSendProgressCallback(tid ftCrypto.TransferID,
 // was already called or if the transfer did not run out of retries. This
 // function should only be called if the interfaces.SentProgressCallback returns
 // an error.
-// TODO: add test
-// TODO: write test
-// TODO: can you resend? Can you reuse fingerprints?
-// TODO: what to do if sendE2E fails?
+// TODO: Need to implement Resend but there are some unanswered questions.
+//  - Can you resend?
+//  - Can you reuse fingerprints?
+//  - What to do if sendE2E fails?
 func (m Manager) Resend(tid ftCrypto.TransferID) error {
 	// Get the transfer for the given ID
 	transfer, err := m.sent.GetTransfer(tid)
@@ -342,17 +368,21 @@ func (m Manager) Resend(tid ftCrypto.TransferID) error {
 // error if the transfer has not run out of retries.
 func (m Manager) CloseSend(tid ftCrypto.TransferID) error {
 	// Get the transfer for the given ID
-	transfer, err := m.sent.GetTransfer(tid)
+	st, err := m.sent.GetTransfer(tid)
 	if err != nil {
 		return err
 	}
 
 	// Check if the transfer has completed or run out of fingerprints, which
 	// occurs when the retry limit is reached
-	completed, _, _, _, _ := transfer.GetProgress()
-	if transfer.GetNumAvailableFps() > 0 && !completed {
+	completed, _, _, _, _ := st.GetProgress()
+	if st.GetNumAvailableFps() > 0 && !completed {
 		return errors.Errorf(transferInProgressErr, tid)
 	}
+
+	jww.DEBUG.Printf("[FT] Closing file transfer %s to %s {completed: %t, "+
+		"parts: %d, numFps: %d/%d,}", tid, st.GetRecipient(), completed,
+		st.GetNumParts(), st.GetNumFps()-st.GetNumAvailableFps(), st.GetNumFps())
 
 	// Delete the transfer from storage
 	return m.sent.DeleteTransfer(tid)
@@ -364,26 +394,30 @@ func (m Manager) CloseSend(tid ftCrypto.TransferID) error {
 // verified, or if the transfer cannot be found.
 func (m Manager) Receive(tid ftCrypto.TransferID) ([]byte, error) {
 	// Get the transfer for the given ID
-	transfer, err := m.received.GetTransfer(tid)
+	rt, err := m.received.GetTransfer(tid)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get the file from the transfer
-	file, err := transfer.GetFile()
+	file, err := rt.GetFile()
 	if err != nil {
 		return nil, err
 	}
+
+	jww.DEBUG.Printf("[FT] Receiver completed transfer %s {size: %d, "+
+		"parts: %d, numFps: %d/%d}", tid, rt.GetFileSize(), rt.GetNumParts(),
+		rt.GetNumFps()-rt.GetNumAvailableFps(), rt.GetNumFps())
 
 	// Return the file and delete the transfer from storage
 	return file, m.received.DeleteTransfer(tid)
 }
 
-// RegisterReceiveProgressCallback adds the reception progress callback to the
+// RegisterReceivedProgressCallback adds the reception progress callback to the
 // received transfer so that it will be called when updates for the transfer
 // occur. The progress callback is called when initially added and on transfer
 // updates, at most once per period.
-func (m Manager) RegisterReceiveProgressCallback(tid ftCrypto.TransferID,
+func (m Manager) RegisterReceivedProgressCallback(tid ftCrypto.TransferID,
 	progressCB interfaces.ReceivedProgressCallback, period time.Duration) error {
 	// Get the transfer for the given ID
 	transfer, err := m.received.GetTransfer(tid)

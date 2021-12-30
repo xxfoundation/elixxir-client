@@ -378,7 +378,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 //// procedures and is generally unsafe.
 func LoginWithProtoClient(storageDir string, password []byte, protoClientJSON []byte,
 	newBaseNdf string, parameters params.Network) (*Client, error) {
-	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
+	jww.INFO.Printf("LoginWithProtoClient()")
 
 	// Parse the NDF
 	def, err := parseNDF(newBaseNdf)
@@ -406,6 +406,11 @@ func LoginWithProtoClient(storageDir string, password []byte, protoClientJSON []
 
 	//store the updated base NDF
 	c.storage.SetNDF(def)
+
+	err = c.initPermissioning(def)
+	if err != nil {
+		return nil, err
+	}
 
 	// Initialize network and link it to context
 	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng,

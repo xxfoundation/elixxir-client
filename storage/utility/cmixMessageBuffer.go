@@ -137,7 +137,11 @@ func (cmb *CmixMessageBuffer) Next() (format.Message, *id.ID, bool) {
 	}
 
 	sm := m.(storedMessage)
-	msg := format.Unmarshal(sm.Msg)
+	msg, err := format.Unmarshal(sm.Msg)
+	if err != nil {
+		jww.FATAL.Panicf("Could not unmarshal for stored cmix "+
+			"message buffer: %+v", err)
+	}
 	recpient, err := id.Unmarshal(sm.Recipient)
 	if err != nil {
 		jww.FATAL.Panicf("Could nto get an id for stored cmix "+

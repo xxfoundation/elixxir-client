@@ -172,7 +172,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			wrappedMsg.Target = target.Marshal()
 
 			jww.TRACE.Printf("[sendCMIX] sendFunc %s", host)
-			timeout := calculateSendTimeout(bestRound, maxTimeout)
+			timeout = calculateSendTimeout(bestRound, maxTimeout)
 			jww.TRACE.Printf("[sendCMIX] sendFunc %s timeout %s",
 				host, timeout)
 			result, err := comms.SendPutMessage(host, wrappedMsg,
@@ -184,7 +184,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 				timeout = calculatedTimeout
 			}
 
-			result, err := comms.SendPutMessage(host, wrappedMsg,
+			result, err = comms.SendPutMessage(host, wrappedMsg,
 				timeout)
 			jww.TRACE.Printf("[sendCMIX] sendFunc %s putmsg", host)
 			if err != nil {

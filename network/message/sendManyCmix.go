@@ -27,6 +27,7 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
 	"strings"
+	"time"
 )
 
 // SendManyCMIX sends many "raw" cMix message payloads to each of the provided
@@ -165,11 +166,17 @@ func sendManyCmixHelper(sender *gateway.Sender,
 		}
 
 		// Send the payload
-		sendFunc := func(host *connect.Host, target *id.ID) (interface{}, error) {
+		sendFunc := func(host *connect.Host, target *id.ID,
+			timeout time.Duration) (interface{}, error) {
+			// Use the smaller of the two timeout durations
+			calculatedTimeout := calculateSendTimeout(bestRound, maxTimeout)
+			if calculatedTimeout < timeout {
+				timeout = calculatedTimeout
+			}
+
 			wrappedMessage.Target = target.Marshal()
-			timeout := calculateSendTimeout(bestRound, maxTimeout)
-			result, err := comms.SendPutManyMessages(host,
-				wrappedMessage, timeout)
+			result, err := comms.SendPutManyMessages(
+				host, wrappedMessage, timeout)
 			if err != nil {
 				err := handlePutMessageError(firstGateway, instance,
 					session, nodeRegistration, recipientString, bestRound, err)
@@ -181,7 +188,7 @@ func sendManyCmixHelper(sender *gateway.Sender,
 			return result, err
 		}
 		result, err := sender.SendToPreferred(
-			[]*id.ID{firstGateway}, sendFunc, stop)
+			[]*id.ID{firstGateway}, sendFunc, stop, param.SendTimeout)
 
 		// Exit if the thread has been stopped
 		if stoppable.CheckErr(err) {

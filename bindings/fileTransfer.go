@@ -47,9 +47,13 @@ type FileTransferReceiveFunc interface {
 
 // NewFileTransferManager creates a new file transfer manager and starts the
 // sending and receiving threads. The receiveFunc is called everytime a new file
-// transfer is received. The parameters string is a JSON formatted string of the
-// fileTransfer.Params object. If it is left empty, then defaults are used. It
-// must match the following format: {"MaxThroughput":150000}
+// transfer is received.
+// The parameters string contains file transfer network configuration options
+// and is a JSON formatted string of the fileTransfer.Params object. If it is
+// left empty, then defaults are used. It is highly recommended that defaults
+// are used. If it is set, it must match the following format:
+//  {"MaxThroughput":150000,"SendTimeout":500000000}
+// MaxThroughput is in bytes/sec and SendTimeout is in nanoseconds.
 func NewFileTransferManager(client *Client, receiveFunc FileTransferReceiveFunc,
 	parameters string) (*FileTransfer, error) {
 
@@ -89,7 +93,7 @@ func NewFileTransferManager(client *Client, receiveFunc FileTransferReceiveFunc,
 // 48 bytes.
 // The file type identifies what type of file is being sent. It has a max length
 // of 8 bytes.
-// The file data cannot be larger than 4 mB
+// The file data cannot be larger than 256 kB
 // The retry float is the total amount of data to send relative to the data
 // size. Data will be resent on error and will resend up to [(1 + retry) *
 // fileSize].

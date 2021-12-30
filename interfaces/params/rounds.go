@@ -39,6 +39,10 @@ type Rounds struct {
 	// Toggles if message pickup retrying mechanism if forced
 	// by intentionally not looking up messages
 	ForceMessagePickupRetry bool
+
+	// Duration to wait before sending on a round times out and a new round is
+	// tried
+	SendTimeout time.Duration
 }
 
 func GetDefaultRounds() Rounds {
@@ -53,5 +57,6 @@ func GetDefaultRounds() Rounds {
 		MaxHistoricalRoundsRetries: 3,
 		UncheckRoundPeriod:         20 * time.Second,
 		ForceMessagePickupRetry:    false,
+		SendTimeout:                1 * time.Second,
 	}
 }

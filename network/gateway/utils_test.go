@@ -13,6 +13,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"time"
 )
 
 // Mock structure adhering to HostManager to be used for happy path
@@ -142,15 +143,15 @@ func getTestNdf(face interface{}) *ndf.NetworkDefinition {
 
 const happyPathReturn = "happyPathReturn"
 
-func SendToPreferred_HappyPath(*connect.Host, *id.ID) (interface{}, error) {
+func SendToPreferred_HappyPath(*connect.Host, *id.ID, time.Duration) (interface{}, error) {
 	return happyPathReturn, nil
 }
 
-func SendToPreferred_KnownError(*connect.Host, *id.ID) (interface{}, error) {
+func SendToPreferred_KnownError(*connect.Host, *id.ID, time.Duration) (interface{}, error) {
 	return nil, errors.Errorf(errorsList[0])
 }
 
-func SendToPreferred_UnknownError(*connect.Host, *id.ID) (interface{}, error) {
+func SendToPreferred_UnknownError(*connect.Host, *id.ID, time.Duration) (interface{}, error) {
 	return nil, errors.Errorf("Unexpected error: Oopsie")
 }
 

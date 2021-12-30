@@ -19,6 +19,11 @@ type CMIX struct {
 	Timeout        time.Duration
 	RetryDelay     time.Duration
 	ExcludedRounds excludedRounds.ExcludedRounds
+
+	// Duration to wait before sending on a round times out and a new round is
+	// tried
+	SendTimeout time.Duration
+
 	// an alternate identity preimage to use on send. If not set, the default
 	// for the sending identity will be used
 	IdentityPreimage []byte
@@ -26,9 +31,10 @@ type CMIX struct {
 
 func GetDefaultCMIX() CMIX {
 	return CMIX{
-		RoundTries: 10,
-		Timeout:    25 * time.Second,
-		RetryDelay: 1 * time.Second,
+		RoundTries:  10,
+		Timeout:     25 * time.Second,
+		RetryDelay:  1 * time.Second,
+		SendTimeout: 3 * time.Second,
 	}
 }
 

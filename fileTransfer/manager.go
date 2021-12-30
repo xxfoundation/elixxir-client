@@ -37,8 +37,8 @@ const (
 	FileTypeMaxLen = 8
 
 	// FileMaxSize is the maximum file size that can be transferred. Currently,
-	// it is set to 4 mB.
-	FileMaxSize = 4_000_000
+	// it is set to 250 kB.
+	FileMaxSize = 250_000
 
 	// minPartsSendPerRound is the minimum number of file parts sent each round.
 	minPartsSendPerRound = 1

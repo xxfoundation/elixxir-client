@@ -59,10 +59,13 @@ const (
 
 const (
 	// Duration to wait for round to finish before timing out.
-	roundResultsTimeout = 60 * time.Second
+	roundResultsTimeout = 15 * time.Second
 
 	// Duration to wait for send batch to fill before sending partial batch.
 	pollSleepDuration = 100 * time.Millisecond
+
+	// Age when rounds that files were sent from are deleted from the tracker
+	clearSentRoundsAge = 10 * time.Second
 )
 
 // sendThread waits on the sendQueue channel for parts to send. Once its
@@ -82,6 +85,10 @@ func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool,
 
 	// Batch of parts read from the queue to be sent
 	var partList []queuedPart
+
+	// Create new sent round tracker that tracks which recent rounds file parts
+	// were sent on so that they can be avoided on subsequent sends
+	sentRounds := newSentRoundTracker(clearSentRoundsAge)
 
 	// The size of each batch
 	var numParts int
@@ -132,7 +139,7 @@ func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool,
 			// If the batch is full, then send the parts
 			if len(partList) == numParts {
 				quit := m.handleSend(
-					&partList, &lastSend, delay, stop, healthChanID)
+					&partList, &lastSend, delay, stop, healthChanID, sentRounds)
 				if quit {
 					return
 				}
@@ -149,7 +156,7 @@ func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool,
 			}
 
 			quit := m.handleSend(
-				&partList, &lastSend, delay, stop, healthChanID)
+				&partList, &lastSend, delay, stop, healthChanID, sentRounds)
 			if quit {
 				return
 			}
@@ -183,7 +190,8 @@ func (m *Manager) closeSendThread(partList []queuedPart, stop *stoppable.Single,
 // Returns true if the stoppable has been triggered and the sending thread
 // should quit.
 func (m *Manager) handleSend(partList *[]queuedPart, lastSend *time.Time,
-	delay time.Duration, stop *stoppable.Single, healthChanID uint64) bool {
+	delay time.Duration, stop *stoppable.Single, healthChanID uint64,
+	sentRounds *sentRoundTracker) bool {
 	// Bandwidth limiter: wait to send until the delay has been reached so that
 	// the bandwidth is limited to the maximum throughput
 	if netTime.Since(*lastSend) < delay {
@@ -201,7 +209,7 @@ func (m *Manager) handleSend(partList *[]queuedPart, lastSend *time.Time,
 	}
 
 	// Send all the messages
-	err := m.sendParts(*partList)
+	err := m.sendParts(*partList, sentRounds)
 	if err != nil {
 		jww.FATAL.Panic(err)
 	}
@@ -217,7 +225,8 @@ func (m *Manager) handleSend(partList *[]queuedPart, lastSend *time.Time,
 
 // sendParts handles the composing and sending of a cMix message for each part
 // in the list. All errors returned are fatal errors.
-func (m *Manager) sendParts(partList []queuedPart) error {
+func (m *Manager) sendParts(partList []queuedPart,
+	sentRounds *sentRoundTracker) error {
 
 	// Build cMix messages
 	messages, transfers, groupedParts, partsToResend, err :=
@@ -231,8 +240,16 @@ func (m *Manager) sendParts(partList []queuedPart) error {
 		return nil
 	}
 
+	// Clear all old rounds from the sent rounds list
+	sentRounds.removeOldRounds()
+
+	// Create cMix parameters with round exclusion list
+	p := params.GetDefaultCMIX()
+	p.SendTimeout = m.p.SendTimeout
+	p.ExcludedRounds = sentRounds
+
 	// Send parts
-	rid, _, err := m.net.SendManyCMIX(messages, params.GetDefaultCMIX())
+	rid, _, err := m.net.SendManyCMIX(messages, p)
 	if err != nil {
 		// If an error occurs, then print a warning and add the file parts back
 		// to the queue to try sending again

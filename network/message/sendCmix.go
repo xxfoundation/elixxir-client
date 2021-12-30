@@ -167,13 +167,23 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			encMsg.Digest(), firstGateway.String())
 
 		// Send the payload
-		sendFunc := func(host *connect.Host, target *id.ID) (interface{}, error) {
+		sendFunc := func(host *connect.Host, target *id.ID,
+			timeout time.Duration) (interface{}, error) {
 			wrappedMsg.Target = target.Marshal()
 
 			jww.TRACE.Printf("[sendCMIX] sendFunc %s", host)
 			timeout := calculateSendTimeout(bestRound, maxTimeout)
 			jww.TRACE.Printf("[sendCMIX] sendFunc %s timeout %s",
 				host, timeout)
+			result, err := comms.SendPutMessage(host, wrappedMsg,
+				timeout)
+			jww.TRACE.Printf("[sendCMIX] sendFunc %s putmsg", host)
+			// Use the smaller of the two timeout durations
+			calculatedTimeout := calculateSendTimeout(bestRound, maxTimeout)
+			if calculatedTimeout < timeout {
+				timeout = calculatedTimeout
+			}
+
 			result, err := comms.SendPutMessage(host, wrappedMsg,
 				timeout)
 			jww.TRACE.Printf("[sendCMIX] sendFunc %s putmsg", host)
@@ -190,7 +200,8 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			return result, err
 		}
 		jww.DEBUG.Printf("[sendCMIX] sendToPreferred %s", firstGateway)
-		result, err := sender.SendToPreferred([]*id.ID{firstGateway}, sendFunc, stop)
+		result, err := sender.SendToPreferred(
+			[]*id.ID{firstGateway}, sendFunc, stop, cmixParams.SendTimeout)
 		jww.DEBUG.Printf("[sendCMIX] sendToPreferred %s returned",
 			firstGateway)
 

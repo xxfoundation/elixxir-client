@@ -9,16 +9,14 @@ package params
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/primitives/excludedRounds"
 	"time"
 )
 
 type CMIX struct {
 	// maximum number of rounds to try and send on
-	RoundTries     uint
-	Timeout        time.Duration
-	RetryDelay     time.Duration
-	ExcludedRounds excludedRounds.ExcludedRounds
+	RoundTries uint
+	Timeout    time.Duration
+	RetryDelay time.Duration
 	// an alternate identity preimage to use on send. If not set, the default
 	// for the sending identity will be used
 	IdentityPreimage []byte

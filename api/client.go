@@ -330,7 +330,6 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 
 	//Open the client
 	c, err := OpenClient(storageDir, password, parameters)
-
 	if err != nil {
 		return nil, err
 	}
@@ -355,6 +354,58 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 			"blank permissionign address. Client will not be able to register " +
 			"or track network.")
 	}
+
+	// Initialize network and link it to context
+	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng,
+		c.events, c.comms, parameters, def)
+	if err != nil {
+		return nil, err
+	}
+
+	// initialize the auth tracker
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
+
+	err = c.registerFollower()
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+// LoginWithProtoClient creates a client object with a protoclient JSON containing the
+// cryptographic primitives. This is designed for some specific deployment
+//// procedures and is generally unsafe.
+func LoginWithProtoClient(storageDir string, password []byte, protoClientJSON []byte,
+	newBaseNdf string, parameters params.Network) (*Client, error) {
+	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
+
+	// Parse the NDF
+	def, err := parseNDF(newBaseNdf)
+	if err != nil {
+		return nil, err
+	}
+
+	//Open the client
+	err = NewProtoClient_Unsafe(newBaseNdf, storageDir, password, protoClientJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	//Open the client
+	c, err := OpenClient(storageDir, password, parameters)
+	if err != nil {
+		return nil, err
+	}
+
+	//initialize comms
+	err = c.initComms()
+	if err != nil {
+		return nil, err
+	}
+
+	//store the updated base NDF
+	c.storage.SetNDF(def)
 
 	// Initialize network and link it to context
 	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng,

@@ -92,7 +92,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 	for numRoundTries := uint(0); numRoundTries < cmixParams.RoundTries; numRoundTries++ {
 		elapsed := netTime.Since(timeStart)
-		jww.INFO.Printf("[SendCMIX] try %d, elapsed: %s",
+		jww.TRACE.Printf("[SendCMIX] try %d, elapsed: %s",
 			numRoundTries, elapsed)
 
 
@@ -118,7 +118,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			jww.WARN.Printf("Best round on send is nil")
 			continue
 		}
-		jww.INFO.Printf("[sendCMIX] bestRound: %v", bestRound)
+		jww.DEBUG.Printf("[sendCMIX] bestRound: %v", bestRound)
 
 		//add the round on to the list of attempted, so it is not tried again
 		attempted.Insert(bestRound)
@@ -144,7 +144,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			continue
 		}
 
-		jww.INFO.Printf("[sendCMIX] round %v processed, firstGW: %s",
+		jww.DEBUG.Printf("[sendCMIX] round %v processed, firstGW: %s",
 			bestRound, firstGateway)
 
 		// Build the messages to send
@@ -165,28 +165,28 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		sendFunc := func(host *connect.Host, target *id.ID) (interface{}, error) {
 			wrappedMsg.Target = target.Marshal()
 
-			jww.INFO.Printf("[sendCMIX] sendFunc %s", host)
+			jww.TRACE.Printf("[sendCMIX] sendFunc %s", host)
 			timeout := calculateSendTimeout(bestRound, maxTimeout)
-			jww.INFO.Printf("[sendCMIX] sendFunc %s timeout %s",
+			jww.TRACE.Printf("[sendCMIX] sendFunc %s timeout %s",
 				host, timeout)
 			result, err := comms.SendPutMessage(host, wrappedMsg,
 				timeout)
-			jww.INFO.Printf("[sendCMIX] sendFunc %s putmsg", host)
+			jww.TRACE.Printf("[sendCMIX] sendFunc %s putmsg", host)
 			if err != nil {
 				// fixme: should we provide as a slice the whole topology?
 				err := handlePutMessageError(firstGateway,
 					instance, session, nodeRegistration,
 					recipient.String(), bestRound, err)
-				jww.INFO.Printf("[sendCMIX] sendFunc %s err %+v",
+				jww.TRACE.Printf("[sendCMIX] sendFunc %s err %+v",
 					host, err)
 				return result, errors.WithMessagef(err,
 					"SendCmix %s", unrecoverableError)
 			}
 			return result, err
 		}
-		jww.INFO.Printf("[sendCMIX] sendToPreferred %s", firstGateway)
+		jww.DEBUG.Printf("[sendCMIX] sendToPreferred %s", firstGateway)
 		result, err := sender.SendToPreferred([]*id.ID{firstGateway}, sendFunc, stop)
-		jww.INFO.Printf("[sendCMIX] sendToPreferred %s returned",
+		jww.DEBUG.Printf("[sendCMIX] sendToPreferred %s returned",
 			firstGateway)
 
 

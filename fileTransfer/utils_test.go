@@ -186,10 +186,9 @@ func newTestManager(sendErr bool, sendChan, sendE2eChan chan message.Receive,
 		return nil
 	}
 
+	p := DefaultParams()
 	avgNumMessages := (minPartsSendPerRound + maxPartsSendPerRound) / 2
 	avgSendSize := avgNumMessages * (8192 / 8)
-
-	p := DefaultParams()
 	p.MaxThroughput = int(time.Second) * avgSendSize
 
 	m := &Manager{

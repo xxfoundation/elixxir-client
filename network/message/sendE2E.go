@@ -63,7 +63,8 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 		if msg.MessageType != message.KeyExchangeTrigger {
 			// check if any rekeys need to happen and trigger them
 			keyExchange.CheckKeyExchanges(m.Instance, m.SendE2E,
-				m.Session, partner, 1*time.Minute, stop)
+				m.Events, m.Session, partner,
+				1*time.Minute, stop)
 		}
 
 		//create the cmix message

@@ -73,6 +73,7 @@ type Session struct {
 	uncheckedRounds     *rounds.UncheckedRoundStore
 	hostList            *hostList.Store
 	edgeCheck           *edge.Store
+	ringBuff            *conversation.Buff
 }
 
 // Initialize a new Session object
@@ -489,6 +490,12 @@ func InitTestingSession(i interface{}) *Session {
 	if err != nil {
 		jww.FATAL.Panicf("Failed to create new edge Store: %+v", err)
 	}
+
+	// todo: uncomment once NewBuff has been added properly
+	//s.ringBuff, err = conversation.NewBuff(s.kv, 100)
+	//if err != nil {
+	//	jww.FATAL.Panicf("Failed to create ring buffer store: %+v", err)
+	//}
 
 	return s
 }

@@ -573,6 +573,7 @@ func createClient() *api.Client {
 	netParams.E2EParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
 	netParams.E2EParams.NumRekeys = uint16(
 		viper.GetUint("e2eNumReKeys"))
+	netParams.E2EParams.RekeyThreshold = viper.GetFloat64("e2eRekeyThreshold")
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 	netParams.FastPolling = !viper.GetBool("slowPolling")
 	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
@@ -596,6 +597,7 @@ func initClient() *api.Client {
 	netParams.E2EParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
 	netParams.E2EParams.NumRekeys = uint16(
 		viper.GetUint("e2eNumReKeys"))
+	netParams.E2EParams.RekeyThreshold = viper.GetFloat64("e2eRekeyThreshold")
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 	netParams.FastPolling = viper.GetBool(" slowPolling")
 	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
@@ -1069,6 +1071,10 @@ func init() {
 		"", uint(defaultE2EParams.NumRekeys),
 		"Number of rekeys reserved for rekey operations")
 	viper.BindPFlag("e2eNumReKeys", rootCmd.Flags().Lookup("e2eNumReKeys"))
+	rootCmd.Flags().Float64P("e2eRekeyThreshold",
+		"", defaultE2EParams.RekeyThreshold,
+		"Number between 0 an 1. Percent of keys used before a rekey is started")
+	viper.BindPFlag("e2eRekeyThreshold", rootCmd.Flags().Lookup("e2eRekeyThreshold"))
 
 	rootCmd.Flags().String("profile-cpu", "",
 		"Enable cpu profiling to this file")

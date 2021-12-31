@@ -58,7 +58,7 @@ func CompressJpeg(imgBytes []byte) ([]byte, error) {
 	}
 
 	// Determine the new width of the image based on desiredSize
-	newWidth := uint(math.Sqrt(float64(desiredSize * (imgInfo.Width / imgInfo.Height))))
+	newWidth := uint(math.Sqrt(float64(desiredSize) * (float64(imgInfo.Width) / float64(imgInfo.Height))))
 
 	// Resize the image based on newWidth while preserving aspect ratio
 	newImg := resize.Resize(newWidth, 0, img, resize.Bicubic)

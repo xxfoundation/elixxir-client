@@ -173,20 +173,17 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 			jww.TRACE.Printf("[sendCMIX] sendFunc %s", host)
 			timeout = calculateSendTimeout(bestRound, maxTimeout)
-			jww.TRACE.Printf("[sendCMIX] sendFunc %s timeout %s",
-				host, timeout)
-			result, err := comms.SendPutMessage(host, wrappedMsg,
-				timeout)
-			jww.TRACE.Printf("[sendCMIX] sendFunc %s putmsg", host)
 			// Use the smaller of the two timeout durations
 			calculatedTimeout := calculateSendTimeout(bestRound, maxTimeout)
 			if calculatedTimeout < timeout {
 				timeout = calculatedTimeout
 			}
 
-			result, err = comms.SendPutMessage(host, wrappedMsg,
+			//send the message
+			result, err := comms.SendPutMessage(host, wrappedMsg,
 				timeout)
 			jww.TRACE.Printf("[sendCMIX] sendFunc %s putmsg", host)
+
 			if err != nil {
 				// fixme: should we provide as a slice the whole topology?
 				err := handlePutMessageError(firstGateway,

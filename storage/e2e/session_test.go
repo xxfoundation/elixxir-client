@@ -263,12 +263,6 @@ func cmpSerializedFields(a *Session, b *Session) error {
 	if a.e2eParams.NumRekeys != b.e2eParams.NumRekeys {
 		return errors.New("NumRekeys differed")
 	}
-	if a.e2eParams.MinNumKeys != b.e2eParams.MinNumKeys {
-		return errors.New("minNumKeys differed")
-	}
-	if a.e2eParams.TTLScalar != b.e2eParams.TTLScalar {
-		return errors.New("ttlScalar differed")
-	}
 	if a.baseKey.Cmp(b.baseKey) != 0 {
 		return errors.New("baseKey differed")
 	}

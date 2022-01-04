@@ -22,6 +22,7 @@ import (
 	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"math"
 	"math/big"
 	"sync"
 	"testing"
@@ -637,8 +638,8 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 		int64(p.MaxKeys-p.MinKeys)),
 		s.baseKey.Bytes(), h).Int64() + int64(p.MinKeys))
 
-	// start rekeying when 75% of keys have been used
-	s.rekeyThreshold = (numKeys * 3) / 4
+	// start rekeying when enough keys have been used
+	s.rekeyThreshold = uint32(math.Ceil(s.e2eParams.RekeyThreshold*float64(numKeys)))
 
 	// the total number of keys should be the number of rekeys plus the
 	// number of keys to use

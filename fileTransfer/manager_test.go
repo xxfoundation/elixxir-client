@@ -84,6 +84,19 @@ func TestManager_Send(t *testing.T) {
 	retry := float32(1.5)
 	numFps := calcNumberOfFingerprints(numParts, retry)
 
+	rng := csprng.NewSystemRNG()
+	dhKey := m.store.E2e().GetGroup().NewInt(42)
+	pubKey := diffieHellman.GeneratePublicKey(dhKey, m.store.E2e().GetGroup())
+	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA, rng)
+	theirSidhPub, _ := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhB, rng)
+	p := params.GetDefaultE2ESessionParams()
+
+	err := m.store.E2e().AddPartner(recipient, pubKey, dhKey,
+		mySidhPriv, theirSidhPub, p, p)
+	if err != nil {
+		t.Errorf("Failed to add partner %s: %+v", recipient, err)
+	}
+
 	tid, err := m.Send(
 		fileName, fileType, fileData, recipient, retry, preview, nil, 0)
 	if err != nil {
@@ -244,9 +257,22 @@ func TestManager_Send_SendE2eError(t *testing.T) {
 	preview := []byte("filePreview")
 	retry := float32(1.5)
 
+	rng := csprng.NewSystemRNG()
+	dhKey := m.store.E2e().GetGroup().NewInt(42)
+	pubKey := diffieHellman.GeneratePublicKey(dhKey, m.store.E2e().GetGroup())
+	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA, rng)
+	theirSidhPub, _ := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhB, rng)
+	p := params.GetDefaultE2ESessionParams()
+
+	err := m.store.E2e().AddPartner(recipient, pubKey, dhKey,
+		mySidhPriv, theirSidhPub, p, p)
+	if err != nil {
+		t.Errorf("Failed to add partner %s: %+v", recipient, err)
+	}
+
 	expectedErr := fmt.Sprintf(newFtSendE2eErr, recipient, "")
 
-	_, err := m.Send(
+	_, err = m.Send(
 		fileName, fileType, fileData, recipient, retry, preview, nil, 0)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("Send did not return the expected error when the E2E message "+

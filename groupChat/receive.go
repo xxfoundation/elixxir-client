@@ -87,8 +87,11 @@ func (m Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) {
 func (m *Manager) readMessage(msg message.Receive) (gs.Group, group.MessageID,
 	time.Time, *id.ID, []byte, bool, error) {
 	// Unmarshal payload into cMix message
-	cMixMsg := format.Unmarshal(msg.Payload)
-
+	cMixMsg, err := format.Unmarshal(msg.Payload)
+	if err != nil {
+		return gs.Group{}, group.MessageID{}, time.Time{}, nil, nil,
+			false, err
+	}
 	// Unmarshal cMix message contents to get public message format
 	pubMsg, err := unmarshalPublicMsg(cMixMsg.GetContents())
 	if err != nil {

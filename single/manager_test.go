@@ -64,7 +64,7 @@ func TestManager_StartProcesses(t *testing.T) {
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
 	}
 	tag := "Test tag"
-	payload := make([]byte, 132)
+	payload := make([]byte, 130)
 	rand.New(rand.NewSource(42)).Read(payload)
 	callback, callbackChan := createReceiveComm()
 
@@ -150,7 +150,7 @@ func TestManager_StartProcesses_Stop(t *testing.T) {
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
 	}
 	tag := "Test tag"
-	payload := make([]byte, 132)
+	payload := make([]byte, 130)
 	rand.New(rand.NewSource(42)).Read(payload)
 	callback, callbackChan := createReceiveComm()
 

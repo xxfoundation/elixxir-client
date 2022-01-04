@@ -59,7 +59,10 @@ func (m *Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) 
 // error, it can be either marked as used not used.
 func (m *Manager) readMessage(msg message.Receive) (format.Message, error) {
 	// Unmarshal payload into cMix message
-	cMixMsg := format.Unmarshal(msg.Payload)
+	cMixMsg, err := format.Unmarshal(msg.Payload)
+	if err != nil {
+		return cMixMsg, err
+	}
 
 	// Unmarshal cMix message contents into a file part message
 	partMsg, err := unmarshalPartMessage(cMixMsg.GetContents())

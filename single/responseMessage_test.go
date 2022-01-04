@@ -21,10 +21,11 @@ func Test_newResponseMessagePart(t *testing.T) {
 	payloadSize := prng.Intn(2000)
 	expected := responseMessagePart{
 		data:     make([]byte, payloadSize),
+		version: make([]byte,  receptionMessageVersionLen),
 		partNum:  make([]byte, partNumLen),
 		maxParts: make([]byte, maxPartsLen),
 		size:     make([]byte, sizeSize),
-		contents: make([]byte, payloadSize-partNumLen-maxPartsLen-sizeSize),
+		contents: make([]byte, payloadSize-partNumLen-maxPartsLen-sizeSize-receptionMessageVersionLen),
 	}
 
 	rmp := newResponseMessagePart(payloadSize)
@@ -50,13 +51,14 @@ func Test_newResponseMessagePart_PayloadSizeError(t *testing.T) {
 // Happy path.
 func Test_mapResponseMessagePart(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
+	expectedVersion := uint8(0)
 	expectedPartNum := uint8(prng.Uint32())
 	expectedMaxParts := uint8(prng.Uint32())
 	size := []byte{uint8(prng.Uint64()), uint8(prng.Uint64())}
 	expectedContents := make([]byte, prng.Intn(2000))
 	prng.Read(expectedContents)
 	var data []byte
-	data = append(data, expectedPartNum, expectedMaxParts)
+	data = append(data, expectedVersion, expectedPartNum, expectedMaxParts)
 	data = append(data, size...)
 	data = append(data, expectedContents...)
 

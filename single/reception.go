@@ -35,7 +35,12 @@ func (m *Manager) receiveTransmissionHandler(rawMessages chan message.Receive,
 				"single-use transmission.")
 
 			// Check if message is a single-use transmit message
-			cmixMsg := format.Unmarshal(msg.Payload)
+			cmixMsg, err := format.Unmarshal(msg.Payload)
+			if err != nil {
+				jww.ERROR.Printf("Could not unmarshal msg: %s",
+					err.Error())
+				continue
+			}
 			if fp != cmixMsg.GetKeyFP() {
 				// If the verification fails, then ignore the message as it is
 				// likely garbled or for a different protocol

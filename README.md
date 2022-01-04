@@ -166,6 +166,7 @@ Flags:
       --e2eMaxKeys uint           Max keys used before blocking until a rekey completes (default 800)
       --e2eMinKeys uint           Minimum number of keys used before requesting rekey (default 500)
       --e2eNumReKeys uint         Number of rekeys reserved for rekey operations (default 16)
+      --e2eRekeyThreshold float64 Number between 0 an 1. Percent of keys used before a rekey is started
       --forceHistoricalRounds     Force all rounds to be sent to historical round retrieval
       --forceMessagePickupRetry   Enable a mechanism which forces a 50% chance of no message pickup, instead triggering the message pickup retry mechanism
   -h, --help                      help for client

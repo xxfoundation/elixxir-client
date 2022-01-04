@@ -50,7 +50,13 @@ func (m *Manager) StartProcesses() (stoppable.Stoppable, error) {
 func (m *Manager) processAuthMessage(msg message.Receive) {
 	authStore := m.storage.Auth()
 	//lookup the message, check if it is an auth request
-	cmixMsg := format.Unmarshal(msg.Payload)
+	cmixMsg, err := format.Unmarshal(msg.Payload)
+	if err != nil {
+		jww.WARN.Printf("Invalid message when unmarshalling: %s",
+			err.Error())
+		// Ignore this message
+		return
+	}
 	fp := cmixMsg.GetKeyFP()
 	jww.INFO.Printf("RAW AUTH FP: %v", fp)
 	// this takes the request lock if it is a specific fp, all

@@ -70,7 +70,10 @@ func (m *Manager) processesResponse(rid *id.ID, ephID ephemeral.Id,
 	}
 
 	// Unmarshal CMIX message
-	cmixMsg := format.Unmarshal(msgBytes)
+	cmixMsg, err := format.Unmarshal(msgBytes)
+	if err != nil {
+		return err
+	}
 
 	// Ensure the fingerprints match
 	fp := cmixMsg.GetKeyFP()

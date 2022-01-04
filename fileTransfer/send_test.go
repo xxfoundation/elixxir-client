@@ -1007,7 +1007,7 @@ func TestManager_getPartSize(t *testing.T) {
 	primeByteLen := m.store.Cmix().GetGroup().GetP().ByteLen()
 	cmixMsgUsedLen := format.AssociatedDataSize
 	filePartMsgUsedLen := fmMinSize
-	expected := 2*primeByteLen - cmixMsgUsedLen - filePartMsgUsedLen
+	expected := 2*primeByteLen - cmixMsgUsedLen - filePartMsgUsedLen-1
 
 	// Get the part size
 	partSize, err := m.getPartSize()

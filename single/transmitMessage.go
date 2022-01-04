@@ -19,19 +19,23 @@ import (
 )
 
 /*
-+-----------------------------------------------------------------+
-|                      CMIX Message Contents                      |
-+------------+----------------------------------------------------+
-|   pubKey   |          payload (transmitMessagePayload)          |
-| pubKeySize |          externalPayloadSize - pubKeySize          |
-+------------+----------+---------+----------+---------+----------+
-             |  Tag FP  |  nonce  | maxParts |  size   | contents |
-             | 16 bytes | 8 bytes |  1 byte  | 2 bytes | variable |
-             +----------+---------+----------+---------+----------+
++------------------------------------------------------------------------------+
+|                              CMIX Message Contents                           |
++------------+--------------------------------------------             --------+
+|   Version  |   pubKey   |          payload (transmitMessagePayload)          |
+|    1 byte  | pubKeySize |          externalPayloadSize - pubKeySize          |
++------------+------------+----------+---------+----------+---------+----------+
+                          |  Tag FP  |  nonce  | maxParts |  size   | contents |
+                          | 16 bytes | 8 bytes |  1 byte  | 2 bytes | variable |
+                          +----------+---------+----------+---------+----------+
 */
+
+const transmitMessageVersion = 0
+const transmitMessageVersionSize = 1
 
 type transmitMessage struct {
 	data    []byte // Serial of all contents
+	version []byte
 	pubKey  []byte
 	payload []byte // The encrypted payload containing reception ID and contents
 }
@@ -45,7 +49,10 @@ func newTransmitMessage(externalPayloadSize, pubKeySize int) transmitMessage {
 			externalPayloadSize, pubKeySize)
 	}
 
-	return mapTransmitMessage(make([]byte, externalPayloadSize), pubKeySize)
+	tm := mapTransmitMessage(make([]byte, externalPayloadSize), pubKeySize)
+	tm.version[0] = transmitMessageVersion
+
+	return tm
 }
 
 // mapTransmitMessage builds a message mapped to the passed in data. It is
@@ -53,8 +60,9 @@ func newTransmitMessage(externalPayloadSize, pubKeySize int) transmitMessage {
 func mapTransmitMessage(data []byte, pubKeySize int) transmitMessage {
 	return transmitMessage{
 		data:    data,
-		pubKey:  data[:pubKeySize],
-		payload: data[pubKeySize:],
+		version: data[:transmitMessageVersionSize],
+		pubKey:  data[transmitMessageVersionSize:transmitMessageVersionSize+pubKeySize],
+		payload: data[transmitMessageVersionSize+pubKeySize:],
 	}
 }
 
@@ -77,6 +85,11 @@ func (m transmitMessage) Marshal() []byte {
 // GetPubKey returns the public key that is part of the given group.
 func (m transmitMessage) GetPubKey(grp *cyclic.Group) *cyclic.Int {
 	return grp.NewIntFromBytes(m.pubKey)
+}
+
+// Version returns the version of the message.
+func (m transmitMessage) Version() uint8 {
+	return m.version[0]
 }
 
 // GetPubKeySize returns the length of the public key.

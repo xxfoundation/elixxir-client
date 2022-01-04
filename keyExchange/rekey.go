@@ -24,14 +24,17 @@ import (
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/primitives/states"
 	"time"
+	"fmt"
 )
 
 func CheckKeyExchanges(instance *network.Instance, sendE2E interfaces.SendE2E,
-	sess *storage.Session, manager *e2e.Manager, sendTimeout time.Duration,
+	events interfaces.EventManager, sess *storage.Session,
+	manager *e2e.Manager, sendTimeout time.Duration,
 	stop *stoppable.Single) {
 	sessions := manager.TriggerNegotiations()
 	for _, session := range sessions {
-		go trigger(instance, sendE2E, sess, manager, session, sendTimeout, stop)
+		go trigger(instance, sendE2E, events, sess, manager, session,
+			sendTimeout, stop)
 	}
 }
 
@@ -40,7 +43,8 @@ func CheckKeyExchanges(instance *network.Instance, sendE2E interfaces.SendE2E,
 // session. They run the same negotiation, the former does it on a newly created
 // session while the latter on an extant session
 func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
-	sess *storage.Session, manager *e2e.Manager, session *e2e.Session,
+	events interfaces.EventManager, sess *storage.Session,
+	manager *e2e.Manager, session *e2e.Session,
 	sendTimeout time.Duration, stop *stoppable.Single) {
 	var negotiatingSession *e2e.Session
 	jww.INFO.Printf("[REKEY] Negotiation triggered for session %s with "+
@@ -66,12 +70,14 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 	rekeyPreimage := manager.GetSilentPreimage()
 
 	// send the rekey notification to the partner
-	err := negotiate(instance, sendE2E, sess, negotiatingSession, sendTimeout, rekeyPreimage, stop)
+	err := negotiate(instance, sendE2E, sess, negotiatingSession,
+		sendTimeout, rekeyPreimage, stop)
 	// if sending the negotiation fails, revert the state of the session to
 	// unconfirmed so it will be triggered in the future
 	if err != nil {
 		jww.ERROR.Printf("[REKEY] Failed to do Key Negotiation with "+
 			"session %s: %s", session, err)
+		events.Report(1, "Rekey", "NegotiationFailed", err.Error())
 	}
 }
 
@@ -155,7 +161,13 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	// in the session and the log
 	jww.INFO.Printf("[REKEY] Key Negotiation rekey transmission for %s, msgID %s successful",
 		session, msgID)
-	session.SetNegotiationStatus(e2e.Sent)
-
-	return nil
+	err = session.TrySetNegotiationStatus(e2e.Sent)
+	if err != nil {
+		if (session.NegotiationStatus() == e2e.NewSessionTriggered) {
+			msg := fmt.Sprintf("All channels exhausted for %s, " +
+				"rekey impossible.", session)
+			return errors.WithMessage(err, msg)
+		}
+	}
+	return err
 }

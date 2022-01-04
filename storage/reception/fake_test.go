@@ -19,8 +19,7 @@ func Test_generateFakeIdentity(t *testing.T) {
 	startValid, _ := json.Marshal(time.Unix(0, 1258407803759765625))
 	endValid, _ := json.Marshal(time.Unix(0, 1258494203759765625))
 	expected := "{\"EphId\":[0,0,0,0,0,0,46,197]," +
-		"\"Source\":[83,140,127,150,177,100,191,27,151,187,159,75,180,114," +
-		"232,159,91,20,132,242,82,9,201,217,52,62,146,186,9,221,157,82,3]," +
+		"\"Source\":\"U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID\"," +
 		"\"AddressSize\":" + strconv.Itoa(int(addressSize)) + "," +
 		"\"End\":" + string(end) + ",\"ExtraChecks\":0," +
 		"\"StartValid\":" + string(startValid) + "," +

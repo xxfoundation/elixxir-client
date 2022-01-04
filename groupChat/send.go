@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
+	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
@@ -64,12 +65,13 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time,
 
 // createMessages generates a list of cMix messages and a list of corresponding
 // recipient IDs.
-func (m *Manager) createMessages(groupID *id.ID, msg []byte,
-	timestamp time.Time) (map[id.ID]format.Message, error) {
+func (m *Manager) createMessages(groupID *id.ID, msg []byte, timestamp time.Time) (
+	[]message.TargetedCmixMessage, error) {
 
 	g, exists := m.gs.Get(groupID)
 	if !exists {
-		return map[id.ID]format.Message{}, errors.Errorf(newNoGroupErr, groupID)
+		return []message.TargetedCmixMessage{},
+			errors.Errorf(newNoGroupErr, groupID)
 	}
 
 	return m.newMessages(g, msg, timestamp)
@@ -78,9 +80,9 @@ func (m *Manager) createMessages(groupID *id.ID, msg []byte,
 // newMessages is a private function that allows the passing in of a timestamp
 // and streamGen instead of a fastRNG.StreamGenerator for easier testing.
 func (m *Manager) newMessages(g gs.Group, msg []byte, timestamp time.Time) (
-	map[id.ID]format.Message, error) {
+	[]message.TargetedCmixMessage, error) {
 	// Create list of cMix messages
-	messages := make(map[id.ID]format.Message)
+	messages := make([]message.TargetedCmixMessage, 0, len(g.Members))
 
 	// Create channels to receive messages and errors on
 	type msgInfo struct {
@@ -120,7 +122,10 @@ func (m *Manager) newMessages(g gs.Group, msg []byte, timestamp time.Time) (
 			// Return on the first error that occurs
 			return nil, err
 		case info := <-msgChan:
-			messages[*info.id] = info.msg
+			messages = append(messages, message.TargetedCmixMessage{
+				Recipient: info.id,
+				Message:   info.msg,
+			})
 		}
 	}
 

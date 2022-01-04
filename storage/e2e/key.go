@@ -8,11 +8,47 @@
 package e2e
 
 import (
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/crypto/cyclic"
+	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
 )
+
+// GenerateE2ESessionBaseKey returns the baseKey symmetric encryption key root.
+// The baseKey is created by hashing the results of the diffie-helman (DH) key
+// exchange with the post-quantum secure Supersingular Isogeny DH exchange
+// results.
+func GenerateE2ESessionBaseKey(myDHPrivKey, theirDHPubKey *cyclic.Int,
+	dhGrp *cyclic.Group, mySIDHPrivKey *sidh.PrivateKey,
+	theirSIDHPubKey *sidh.PublicKey) *cyclic.Int {
+	// DH Key Gen
+	dhKey := dh.GenerateSessionKey(myDHPrivKey, theirDHPubKey, dhGrp)
+
+	// SIDH Key Gen
+	sidhKey := make([]byte, mySIDHPrivKey.SharedSecretSize())
+	mySIDHPrivKey.DeriveSecret(sidhKey, theirSIDHPubKey)
+
+	// Derive key
+	h := hash.CMixHash.New()
+	h.Write(dhKey.Bytes())
+	h.Write(sidhKey)
+	keyDigest := h.Sum(nil)
+	// NOTE: Sadly the baseKey was a full DH key, and that key was used
+	// to create an "IDF" as well as in key generation and potentially other
+	// downstream code. We use a KDF to limit scope of the change,'
+	// generating into the same group as DH to preserve any kind of
+	// downstream reliance on the size of the key for now.
+	baseKey := hash.ExpandKey(hash.CMixHash.New, dhGrp, keyDigest,
+		dhGrp.NewInt(1))
+
+	jww.INFO.Printf("Generated E2E Base Key: %s", baseKey.Text(16))
+
+	return baseKey
+}
 
 type Key struct {
 	// Links
@@ -96,7 +132,8 @@ func (k *Key) denoteUse() {
 	k.session.useKey(k.keyNum)
 }
 
-// Generates the key and returns it
+// generateKey derives the current e2e key from the baseKey and the index
+// keyNum and returns it
 func (k *Key) generateKey() e2eCrypto.Key {
 	return e2eCrypto.DeriveKey(k.session.baseKey, k.keyNum,
 		k.session.relationshipFingerprint)

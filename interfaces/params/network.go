@@ -57,6 +57,7 @@ func GetDefaultNetwork() Network {
 	}
 	n.Rounds = GetDefaultRounds()
 	n.Messages = GetDefaultMessage()
+	n.Rekey = GetDefaultRekey()
 	return n
 }
 

@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -24,6 +25,16 @@ func TestManager_sendThread(t *testing.T) {
 
 	stop := stoppable.NewSingle("sendThreadTest")
 	go m.sendThread(stop)
+
+	if stat := atomic.LoadUint32(&m.status); stat != notStarted {
+		t.Errorf("Unexpected thread status.\nexpected: %d\nreceived: %d",
+			notStarted, stat)
+	}
+
+	err := m.SetStatus(true)
+	if err != nil {
+		t.Errorf("Failed to set status to true.")
+	}
 
 	msgChan := make(chan bool, 10)
 	go func() {
@@ -58,7 +69,7 @@ func TestManager_sendThread(t *testing.T) {
 		}
 	}
 
-	err := stop.Close()
+	err = stop.Close()
 	if err != nil {
 		t.Errorf("Failed to close stoppable: %+v", err)
 	}
@@ -67,6 +78,12 @@ func TestManager_sendThread(t *testing.T) {
 	if !stop.IsStopped() {
 		t.Error("Stoppable never stopped.")
 	}
+
+	if stat := atomic.LoadUint32(&m.status); stat != stopped {
+		t.Errorf("Unexpected thread status.\nexpected: %d\nreceived: %d",
+			stopped, stat)
+	}
+
 }
 
 // Tests that Manager.sendMessages sends all the messages with the correct

@@ -9,7 +9,10 @@ package e2e
 
 import (
 	"errors"
+	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/storage/utility"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -29,7 +32,12 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
 
-	//create context objects for general use
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+
+	// create context objects for general use
 	fps := newFingerprints()
 	ctx := &context{
 		fa:  &fps,
@@ -37,43 +45,45 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 		rng: fastRNG.NewStreamGenerator(1, 0, csprng.NewSystemRNG),
 	}
 
-	//build the session
+	// build the session
 	s := &Session{
-		partnerPubKey: partnerPubKey,
-		e2eParams:     params.GetDefaultE2ESessionParams(),
+		partnerPubKey:     partnerPubKey,
+		partnerSIDHPubKey: partnerSIDHPubKey,
+		e2eParams:         params.GetDefaultE2ESessionParams(),
 		relationship: &relationship{
 			manager: &Manager{ctx: ctx},
 		},
 		t: Receive,
 	}
 
-	//run the generate command
+	// run the generate command
 	s.generate(versioned.NewKV(make(ekv.Memstore)))
 
-	//check that it generated a private key
+	// check that it generated a private key
 	if s.myPrivKey == nil {
 		t.Errorf("Private key was not generated when missing")
 	}
 
-	//verify the basekey is correct
-	expectedBaseKey := dh.GenerateSessionKey(s.myPrivKey, s.partnerPubKey, grp)
+	// verify the base key is correct
+	expectedBaseKey := GenerateE2ESessionBaseKey(s.myPrivKey,
+		s.partnerPubKey, grp, s.mySIDHPrivKey, s.partnerSIDHPubKey)
 
 	if expectedBaseKey.Cmp(s.baseKey) != 0 {
 		t.Errorf("generated base key does not match expected base key")
 	}
 
-	//verify the rekeyThreshold was generated
+	// verify the rekeyThreshold was generated
 	if s.rekeyThreshold == 0 {
 		t.Errorf("rekeyThreshold not generated")
 	}
 
-	//verify keystates where created
+	// verify key states was created
 	if s.keyState == nil {
 		t.Errorf("keystates not generated")
 	}
 
-	//verify keys were registered in the fingerprintMap
-	for keyNum := uint32(0); keyNum < s.keyState.numkeys; keyNum++ {
+	// verify keys were registered in the fingerprintMap
+	for keyNum := uint32(0); keyNum < s.keyState.GetNumKeys(); keyNum++ {
 		key := newKey(s, keyNum)
 		if _, ok := fps.toKey[key.Fingerprint()]; !ok {
 			t.Errorf("key %v not in fingerprint map", keyNum)
@@ -90,51 +100,63 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 
-	//create context objects for general use
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
+
+	// create context objects for general use
 	fps := newFingerprints()
 	ctx := &context{
 		fa:  &fps,
 		grp: grp,
 	}
 
-	//build the session
+	// build the session
 	s := &Session{
-		myPrivKey:     myPrivKey,
-		partnerPubKey: partnerPubKey,
-		e2eParams:     params.GetDefaultE2ESessionParams(),
+		myPrivKey:         myPrivKey,
+		partnerPubKey:     partnerPubKey,
+		mySIDHPrivKey:     mySIDHPrivKey,
+		partnerSIDHPubKey: partnerSIDHPubKey,
+		e2eParams:         params.GetDefaultE2ESessionParams(),
 		relationship: &relationship{
 			manager: &Manager{ctx: ctx},
 		},
 		t: Send,
 	}
 
-	//run the generate command
+	// run the generate command
 	s.generate(versioned.NewKV(make(ekv.Memstore)))
 
-	//check that it generated a private key
+	// check that it generated a private key
 	if s.myPrivKey.Cmp(myPrivKey) != 0 {
 		t.Errorf("Public key was generated when not missing")
 	}
 
-	//verify the basekey is correct
-	expectedBaseKey := dh.GenerateSessionKey(s.myPrivKey, s.partnerPubKey, grp)
+	// verify the base key is correct
+	expectedBaseKey := GenerateE2ESessionBaseKey(s.myPrivKey,
+		s.partnerPubKey, grp, s.mySIDHPrivKey, s.partnerSIDHPubKey)
 
 	if expectedBaseKey.Cmp(s.baseKey) != 0 {
 		t.Errorf("generated base key does not match expected base key")
 	}
 
-	//verify the rekeyThreshold was generated
+	// verify the rekeyThreshold was generated
 	if s.rekeyThreshold == 0 {
 		t.Errorf("rekeyThreshold not generated")
 	}
 
-	//verify keystates where created
+	// verify keyState was created
 	if s.keyState == nil {
 		t.Errorf("keystates not generated")
 	}
 
-	//verify keys were not registered in the fingerprintMap
-	for keyNum := uint32(0); keyNum < s.keyState.numkeys; keyNum++ {
+	// verify keys were not registered in the fingerprintMap
+	for keyNum := uint32(0); keyNum < s.keyState.GetNumKeys(); keyNum++ {
 		key := newKey(s, keyNum)
 		if _, ok := fps.toKey[key.Fingerprint()]; ok {
 			t.Errorf("key %v in fingerprint map", keyNum)
@@ -148,9 +170,11 @@ func TestNewSession(t *testing.T) {
 	sessionA, _ := makeTestSession()
 
 	// Make a new session with the variables we got from makeTestSession
-	sessionB := newSession(sessionA.relationship, sessionA.t, sessionA.myPrivKey,
-		sessionA.partnerPubKey, sessionA.baseKey, sessionA.GetID(), []byte(""),
-		sessionA.negotiationStatus, sessionA.e2eParams)
+	sessionB := newSession(sessionA.relationship, sessionA.t,
+		sessionA.myPrivKey, sessionA.partnerPubKey, sessionA.baseKey,
+		sessionA.mySIDHPrivKey, sessionA.partnerSIDHPubKey,
+		sessionA.GetID(), []byte(""), sessionA.negotiationStatus,
+		sessionA.e2eParams)
 
 	err := cmpSerializedFields(sessionA, sessionB)
 	if err != nil {
@@ -187,9 +211,9 @@ func TestSession_Load(t *testing.T) {
 	}
 	// Key state should also be loaded and equivalent to the other session
 	// during loadSession()
-	err = cmpKeyState(sessionA.keyState, sessionB.keyState)
-	if err != nil {
-		t.Error(err)
+	if !reflect.DeepEqual(sessionA.keyState, sessionB.keyState) {
+		t.Errorf("Two key states do not match.\nsessionA: %+v\nsessionB: %+v",
+			sessionA.keyState, sessionB.keyState)
 	}
 	// For everything else, just make sure it's populated
 	if sessionB.relationship == nil {
@@ -198,31 +222,6 @@ func TestSession_Load(t *testing.T) {
 	if sessionB.rekeyThreshold == 0 {
 		t.Error("load should populate rekeyThreshold")
 	}
-}
-
-func cmpKeyState(a *stateVector, b *stateVector) error {
-	// ignore ctx, mux
-	if a.key != b.key {
-		return errors.New("keys differed")
-	}
-	if a.numAvailable != b.numAvailable {
-		return errors.New("numAvailable differed")
-	}
-	if a.firstAvailable != b.firstAvailable {
-		return errors.New("firstAvailable differed")
-	}
-	if a.numkeys != b.numkeys {
-		return errors.New("numkeys differed")
-	}
-	if len(a.vect) != len(b.vect) {
-		return errors.New("vect differed")
-	}
-	for i := range a.vect {
-		if a.vect[i] != b.vect[i] {
-			return errors.New("vect differed")
-		}
-	}
-	return nil
 }
 
 // Create a new session. Marshal and unmarshal it
@@ -262,13 +261,7 @@ func cmpSerializedFields(a *Session, b *Session) error {
 		return errors.New("minKeys differed")
 	}
 	if a.e2eParams.NumRekeys != b.e2eParams.NumRekeys {
-		return errors.New("numRekeys differed")
-	}
-	if a.e2eParams.MinNumKeys != b.e2eParams.MinNumKeys {
-		return errors.New("minNumKeys differed")
-	}
-	if a.e2eParams.TTLScalar != b.e2eParams.TTLScalar {
-		return errors.New("ttlScalar differed")
+		return errors.New("NumRekeys differed")
 	}
 	if a.baseKey.Cmp(b.baseKey) != 0 {
 		return errors.New("baseKey differed")
@@ -297,7 +290,7 @@ func TestSession_PopKey(t *testing.T) {
 	}
 	// PopKey should return the first available key
 	if key.keyNum != 0 {
-		t.Error("First key popped should have keynum 0")
+		t.Error("First key popped should have keyNum 0")
 	}
 }
 
@@ -311,7 +304,7 @@ func TestSession_Delete(t *testing.T) {
 	s.Delete()
 
 	// Getting the keys that should have been stored should now result in an error
-	_, err = s.kv.Get(stateVectorKey, 0)
+	_, err = utility.LoadStateVector(s.kv, "")
 	if err == nil {
 		t.Error("State vector was gettable")
 	}
@@ -330,7 +323,7 @@ func TestSession_PopKey_Error(t *testing.T) {
 	s, _ := makeTestSession()
 	// Construct a specific state vector that will quickly run out of keys
 	var err error
-	s.keyState, err = newStateVector(s.kv, "", 0)
+	s.keyState, err = utility.NewStateVector(s.kv, "", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,7 +335,7 @@ func TestSession_PopKey_Error(t *testing.T) {
 }
 
 // PopRekey should return the next key
-// There's no boundary, except for the number of keynums in the state vector
+// There's no boundary, except for the number of keyNums in the state vector
 func TestSession_PopReKey(t *testing.T) {
 	s, _ := makeTestSession()
 	key, err := s.PopReKey()
@@ -357,7 +350,7 @@ func TestSession_PopReKey(t *testing.T) {
 	}
 	// PopReKey should return the first available key
 	if key.keyNum != 0 {
-		t.Error("First key popped should have keynum 0")
+		t.Error("First key popped should have keyNum 0")
 	}
 }
 
@@ -367,7 +360,7 @@ func TestSession_PopReKey_Err(t *testing.T) {
 	s, _ := makeTestSession()
 	// Construct a specific state vector that will quickly run out of keys
 	var err error
-	s.keyState, err = newStateVector(s.kv, "", 0)
+	s.keyState, err = utility.NewStateVector(s.kv, "", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -377,7 +370,7 @@ func TestSession_PopReKey_Err(t *testing.T) {
 	}
 }
 
-// Simple test that shows the base key can get got
+// Simple test that shows the base key can be got
 func TestSession_GetBaseKey(t *testing.T) {
 	s, _ := makeTestSession()
 	baseKey := s.GetBaseKey()
@@ -389,8 +382,8 @@ func TestSession_GetBaseKey(t *testing.T) {
 // Smoke test for GetID
 func TestSession_GetID(t *testing.T) {
 	s, _ := makeTestSession()
-	id := s.GetID()
-	if len(id.Marshal()) == 0 {
+	sid := s.GetID()
+	if len(sid.Marshal()) == 0 {
 		t.Error("Zero length for session ID!")
 	}
 }
@@ -430,24 +423,24 @@ func TestSession_IsConfirmed(t *testing.T) {
 func TestSession_Status(t *testing.T) {
 	s, _ := makeTestSession()
 	var err error
-	s.keyState, err = newStateVector(s.kv, "", 500)
+	s.keyState, err = utility.NewStateVector(s.kv, "", 500)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.keyState.numAvailable = 0
+	s.keyState.SetNumAvailableTEST(0, t)
 	if s.Status() != RekeyEmpty {
 		t.Error("status should have been rekey empty with no keys left")
 	}
-	s.keyState.numAvailable = 1
+	s.keyState.SetNumAvailableTEST(1, t)
 	if s.Status() != Empty {
 		t.Error("Status should have been empty")
 	}
 	// Passing the rekeyThreshold should result in a rekey being needed
-	s.keyState.numAvailable = s.keyState.numkeys - s.rekeyThreshold
+	s.keyState.SetNumAvailableTEST(s.keyState.GetNumKeys()-s.rekeyThreshold, t)
 	if s.Status() != RekeyNeeded {
 		t.Error("Just past the rekeyThreshold, rekey should be needed")
 	}
-	s.keyState.numAvailable = s.keyState.numkeys
+	s.keyState.SetNumAvailableTEST(s.keyState.GetNumKeys(), t)
 	s.rekeyThreshold = 450
 	if s.Status() != Active {
 		t.Errorf("If all keys available, session should be active, recieved: %s", s.Status())
@@ -539,8 +532,8 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 func TestSession_TriggerNegotiation(t *testing.T) {
 	s, _ := makeTestSession()
 	// Set up num keys used to be > rekeyThreshold: should partnerSource negotiation
-	s.keyState.numAvailable = 50
-	s.keyState.numkeys = 100
+	s.keyState.SetNumAvailableTEST(50, t)
+	s.keyState.SetNumKeysTEST(100, t)
 	s.rekeyThreshold = 49
 	s.negotiationStatus = Confirmed
 
@@ -606,12 +599,24 @@ func TestSession_GetTrigger(t *testing.T) {
 func makeTestSession() (*Session, *context) {
 	grp := getGroup()
 	rng := csprng.NewSystemRNG()
-	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
+	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength,
+		grp, rng)
 	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
-	baseKey := dh.GenerateSessionKey(myPrivKey, partnerPubKey, grp)
 
-	//create context objects for general use
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
+
+	baseKey := GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
+		mySIDHPrivKey, partnerSIDHPubKey)
+
+	// create context objects for general use
 	fps := newFingerprints()
 	ctx := &context{
 		fa:   &fps,
@@ -622,10 +627,12 @@ func makeTestSession() (*Session, *context) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
 	s := &Session{
-		baseKey:       baseKey,
-		myPrivKey:     myPrivKey,
-		partnerPubKey: partnerPubKey,
-		e2eParams:     params.GetDefaultE2ESessionParams(),
+		baseKey:           baseKey,
+		myPrivKey:         myPrivKey,
+		partnerPubKey:     partnerPubKey,
+		mySIDHPrivKey:     mySIDHPrivKey,
+		partnerSIDHPubKey: partnerSIDHPubKey,
+		e2eParams:         params.GetDefaultE2ESessionParams(),
 		relationship: &relationship{
 			manager: &Manager{
 				ctx:     ctx,
@@ -641,7 +648,7 @@ func makeTestSession() (*Session, *context) {
 		partner:           &id.ID{},
 	}
 	var err error
-	s.keyState, err = newStateVector(s.kv,
+	s.keyState, err = utility.NewStateVector(s.kv,
 		"", 1024)
 	if err != nil {
 		panic(err)

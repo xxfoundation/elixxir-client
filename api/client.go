@@ -330,7 +330,6 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 
 	//Open the client
 	c, err := OpenClient(storageDir, password, parameters)
-
 	if err != nil {
 		return nil, err
 	}
@@ -354,6 +353,63 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		jww.WARN.Printf("Registration with permissioning skipped due to " +
 			"blank permissionign address. Client will not be able to register " +
 			"or track network.")
+	}
+
+	// Initialize network and link it to context
+	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng,
+		c.events, c.comms, parameters, def)
+	if err != nil {
+		return nil, err
+	}
+
+	// initialize the auth tracker
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
+
+	err = c.registerFollower()
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+// LoginWithProtoClient creates a client object with a protoclient JSON containing the
+// cryptographic primitives. This is designed for some specific deployment
+//// procedures and is generally unsafe.
+func LoginWithProtoClient(storageDir string, password []byte, protoClientJSON []byte,
+	newBaseNdf string, parameters params.Network) (*Client, error) {
+	jww.INFO.Printf("LoginWithProtoClient()")
+
+	// Parse the NDF
+	def, err := parseNDF(newBaseNdf)
+	if err != nil {
+		return nil, err
+	}
+
+	//Open the client
+	err = NewProtoClient_Unsafe(newBaseNdf, storageDir, password, protoClientJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	//Open the client
+	c, err := OpenClient(storageDir, password, parameters)
+	if err != nil {
+		return nil, err
+	}
+
+	//initialize comms
+	err = c.initComms()
+	if err != nil {
+		return nil, err
+	}
+
+	//store the updated base NDF
+	c.storage.SetNDF(def)
+
+	err = c.initPermissioning(def)
+	if err != nil {
+		return nil, err
 	}
 
 	// Initialize network and link it to context
@@ -500,7 +556,7 @@ func (c *Client) GetErrorsChannel() <-chan interfaces.ClientError {
 //      Handles both auth confirm and requests
 func (c *Client) StartNetworkFollower(timeout time.Duration) error {
 	u := c.GetUser()
-	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
+	jww.INFO.Printf("StartNetworkFollower() \n\tTransmissionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
 	return c.followerServices.start(timeout)
@@ -524,6 +580,12 @@ func (c *Client) StopNetworkFollower() error {
 func (c *Client) NetworkFollowerStatus() Status {
 	jww.INFO.Printf("NetworkFollowerStatus()")
 	return c.followerServices.status()
+}
+
+// HasRunningProcessies checks if any background threads are running
+// and returns true if one or more are
+func (c *Client) HasRunningProcessies() bool {
+	return !c.followerServices.stoppable.IsStopped()
 }
 
 // Returns the health tracker for registration and polling
@@ -579,10 +641,17 @@ func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
 	return c.network
 }
 
+// GetRateLimitParams retrieves the rate limiting parameters.
+func (c *Client) GetRateLimitParams() (uint32, uint32, int64) {
+	rateLimitParams := c.storage.GetBucketParams().Get()
+	return rateLimitParams.Capacity, rateLimitParams.LeakedTokens,
+		rateLimitParams.LeakDuration.Nanoseconds()
+}
+
 // GetNodeRegistrationStatus gets the current state of node registration. It
-// returns the the total number of nodes in the NDF and the number of those
-// which are currently registers with. An error is returned if the network is
-// not healthy.
+// returns the total number of nodes in the NDF and the number of those which
+// are currently registers with. An error is returned if the network is not
+// healthy.
 func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	// Return an error if the network is not healthy
 	if !c.GetHealth().IsHealthy() {
@@ -625,7 +694,8 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 			"they could not be found", partnerId)
 	}
 	e2ePreimage := partner.GetE2EPreimage()
-	rekeyPreimage := partner.GetRekeyPreimage()
+	rekeyPreimage := partner.GetSilentPreimage()
+	fileTransferPreimage := partner.GetFileTransferPreimage()
 
 	//delete the partner
 	if err = c.storage.E2e().DeletePartner(partnerId); err != nil {
@@ -643,10 +713,19 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 
 	if err = c.storage.GetEdge().Remove(edge.Preimage{
 		Data:   rekeyPreimage,
-		Type:   preimage.Rekey,
+		Type:   preimage.Silent,
 		Source: partnerId[:],
 	}, c.storage.GetUser().ReceptionID); err != nil {
 		jww.WARN.Printf("Failed delete the preimage for rekey "+
+			"from %s on contact deletion: %+v", partnerId, err)
+	}
+
+	if err = c.storage.GetEdge().Remove(edge.Preimage{
+		Data:   fileTransferPreimage,
+		Type:   preimage.EndFT,
+		Source: partnerId[:],
+	}, c.storage.GetUser().ReceptionID); err != nil {
+		jww.WARN.Printf("Failed delete the preimage for file transfer "+
 			"from %s on contact deletion: %+v", partnerId, err)
 	}
 
@@ -773,7 +852,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
 	// Create Storage
 	passwordStr := string(password)
 	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
-		currentVersion, cmixGrp, e2eGrp, rngStreamGen)
+		currentVersion, cmixGrp, e2eGrp, rngStreamGen, def.RateLimits)
 	if err != nil {
 		return nil, err
 	}

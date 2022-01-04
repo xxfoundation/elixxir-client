@@ -42,65 +42,107 @@ var getNDFCmd = &cobra.Command{
 		"and print it.",
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		gwHost := viper.GetString("gwhost")
-		permHost := viper.GetString("permhost")
-		certPath := viper.GetString("cert")
+		if viper.GetString("env") != "" {
+			var ndfJSON []byte
+			var err error
+			switch viper.GetString("env") {
+			case mainnet:
+				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(mainNetUrl, mainNetCert)
+				if err != nil {
+					jww.FATAL.Panicf(err.Error())
+				}
+			case release:
+				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(releaseUrl, releaseCert)
+				if err != nil {
+					jww.FATAL.Panicf(err.Error())
+				}
 
-		// Load the certificate
-		var cert []byte
-		if certPath != "" {
-			cert, _ = utils.ReadFile(certPath)
-		}
-		if len(cert) == 0 {
-			jww.FATAL.Panicf("Could not load a certificate, "+
-				"provide a certificate file with --cert.\n\n"+
-				"You can download a cert using openssl:\n\n%s",
-				opensslCertDL)
-		}
+			case dev:
+				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(devUrl, devCert)
+				if err != nil {
+					jww.FATAL.Panicf(err.Error())
+				}
+			case testnet:
+				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(testNetUrl, testNetCert)
+				if err != nil {
+					jww.FATAL.Panicf(err.Error())
+				}
+			default:
+				jww.FATAL.Panicf("env flag with unknown flag (%s)",
+					viper.GetString("env"))
+			}
+			// Print to stdout
+			fmt.Printf("%s", ndfJSON)
+		} else {
 
-		params := connect.GetDefaultHostParams()
-		params.AuthEnabled = false
-		comms, _ := client.NewClientComms(nil, nil, nil, nil)
-		// Gateway lookup
-		if gwHost != "" {
-			host, _ := connect.NewHost(&id.TempGateway, gwHost,
-				cert, params)
-			dummyID := ephemeral.ReservedIDs[0]
-			pollMsg := &pb.GatewayPoll{
-				Partial: &pb.NDFHash{
-					Hash: nil,
-				},
-				LastUpdate:    uint64(0),
-				ReceptionID:   dummyID[:],
-				ClientVersion: []byte(api.SEMVER),
+			// Note: getndf prints to stdout, so we default to not do that
+			logLevel := viper.GetUint("logLevel")
+			logPath := viper.GetString("log")
+			if logPath == "-" || logPath == "" {
+				logPath = "getndf.log"
 			}
-			resp, err := comms.SendPoll(host, pollMsg)
-			if err != nil {
-				jww.FATAL.Panicf("Unable to poll %s for NDF:"+
-					" %+v",
-					gwHost, err)
-			}
-			fmt.Printf("%s", resp.PartialNDF.Ndf)
-			return
-		}
+			initLog(logLevel, logPath)
+			jww.INFO.Printf(Version())
+			gwHost := viper.GetString("gwhost")
+			permHost := viper.GetString("permhost")
+			certPath := viper.GetString("cert")
 
-		if permHost != "" {
-			host, _ := connect.NewHost(&id.Permissioning, permHost,
-				cert, params)
-			pollMsg := &pb.NDFHash{
-				Hash: []byte("DummyUserRequest"),
+			// Load the certificate
+			var cert []byte
+			if certPath != "" {
+				cert, _ = utils.ReadFile(certPath)
 			}
-			resp, err := comms.RequestNdf(host, pollMsg)
-			if err != nil {
-				jww.FATAL.Panicf("Unable to ask %s for NDF:"+
-					" %+v",
-					permHost, err)
+			if len(cert) == 0 {
+				jww.FATAL.Panicf("Could not load a certificate, "+
+					"provide a certificate file with --cert.\n\n"+
+					"You can download a cert using openssl:\n\n%s",
+					opensslCertDL)
 			}
-			fmt.Printf("%s", resp.Ndf)
-			return
-		}
 
-		fmt.Println("Enter --gwhost or --permhost and --cert please")
+			params := connect.GetDefaultHostParams()
+			params.AuthEnabled = false
+			comms, _ := client.NewClientComms(nil, nil, nil, nil)
+			// Gateway lookup
+			if gwHost != "" {
+				host, _ := connect.NewHost(&id.TempGateway, gwHost,
+					cert, params)
+				dummyID := ephemeral.ReservedIDs[0]
+				pollMsg := &pb.GatewayPoll{
+					Partial: &pb.NDFHash{
+						Hash: nil,
+					},
+					LastUpdate:    uint64(0),
+					ReceptionID:   dummyID[:],
+					ClientVersion: []byte(api.SEMVER),
+				}
+				resp, err := comms.SendPoll(host, pollMsg)
+				if err != nil {
+					jww.FATAL.Panicf("Unable to poll %s for NDF:"+
+						" %+v",
+						gwHost, err)
+				}
+				fmt.Printf("%s", resp.PartialNDF.Ndf)
+				return
+			}
+
+			if permHost != "" {
+				host, _ := connect.NewHost(&id.Permissioning, permHost,
+					cert, params)
+				pollMsg := &pb.NDFHash{
+					Hash: []byte("DummyUserRequest"),
+				}
+				resp, err := comms.RequestNdf(host, pollMsg)
+				if err != nil {
+					jww.FATAL.Panicf("Unable to ask %s for NDF:"+
+						" %+v",
+						permHost, err)
+				}
+				fmt.Printf("%s", resp.Ndf)
+				return
+			}
+
+			fmt.Println("Enter --gwhost or --permhost and --cert please")
+		}
 	},
 }
 
@@ -118,6 +160,12 @@ func init() {
 		"Check with the TLS certificate at this path")
 	viper.BindPFlag("cert",
 		getNDFCmd.Flags().Lookup("cert"))
+
+	getNDFCmd.Flags().StringP("env", "", "",
+		"Downloads and verifies a signed NDF from a specified environment. "+
+			"Accepted environment flags include mainnet, release, testnet, and dev")
+	viper.BindPFlag("env",
+		getNDFCmd.Flags().Lookup("env"))
 
 	rootCmd.AddCommand(getNDFCmd)
 }

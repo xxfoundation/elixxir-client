@@ -10,20 +10,21 @@ package params
 import (
 	"encoding/json"
 	"fmt"
-	"gitlab.com/elixxir/crypto/e2e"
 )
 
 type E2E struct {
-	Type       SendType
-	RetryCount int
+	Type                 SendType
+	RetryCount           int
+	OnlyNotifyOnLastSend bool
 	CMIX
 }
 
 func GetDefaultE2E() E2E {
 	return E2E{
-		Type:       Standard,
-		CMIX:       GetDefaultCMIX(),
-		RetryCount: 10,
+		Type:                 Standard,
+		CMIX:                 GetDefaultCMIX(),
+		OnlyNotifyOnLastSend: true,
+		RetryCount:           10,
 	}
 }
 func (e E2E) Marshal() ([]byte, error) {
@@ -62,35 +63,37 @@ func (st SendType) String() string {
 
 // Network E2E Params
 
-// DEFAULT KEY GENERATION PARAMETERS
-// Hardcoded limits for keys
-// With 16 receiving states we can hold
-// 16*64=1024 dirty bits for receiving keys
-// With that limit, and setting maxKeys to 800,
-// we need a Threshold of 224, and a scalar
-// smaller than 1.28 to ensure we never generate
-// more than 1024 keys
-// With 1 receiving states for ReKeys we can hold
-// 64 Rekeys
-const (
-	minKeys   uint16  = 500
-	maxKeys   uint16  = 800
-	ttlScalar float64 = 1.2 // generate 20% extra keys
-	threshold uint16  = 224
-	numReKeys uint16  = 16
-)
+
 
 type E2ESessionParams struct {
-	MinKeys   uint16
-	MaxKeys   uint16
-	NumRekeys uint16
-	e2e.TTLParams
+	// using the DH as a seed, both sides generate a number
+	// of keys to use before they must rekey because
+	// there are no keys to use.
+	MinKeys   		uint16
+	MaxKeys   		uint16
+	// the percent of keys before a rekey is attempted. must be <0
+	RekeyThreshold 	float64
+	// extra keys generated and reserved for rekey attempts. This
+	// many keys are not allowed to be used for sending messages
+	// in order to ensure there are extras for rekeying.
+	NumRekeys 		uint16
 }
+
+// DEFAULT KEY GENERATION PARAMETERS
+// Hardcoded limits for keys
+// sets the number of keys very high, but with a low rekey threshold. In this case, if the other party is online, you will read
+const (
+	minKeys   		uint16  = 1000
+	maxKeys   		uint16  = 2000
+	rekeyThrshold 	float64	= 0.05
+	numReKeys 		uint16  = 16
+)
 
 func GetDefaultE2ESessionParams() E2ESessionParams {
 	return E2ESessionParams{
 		MinKeys:   minKeys,
 		MaxKeys:   maxKeys,
+		RekeyThreshold: rekeyThrshold,
 		NumRekeys: numReKeys,
 	}
 }

@@ -33,7 +33,7 @@ func (m *Manager) receiveResponseHandler(rawMessages chan message.Receive,
 			stop.ToStopped()
 			return
 		case msg := <-rawMessages:
-			jww.DEBUG.Printf("Received CMIX message; checking if it is a " +
+			jww.TRACE.Printf("Received CMIX message; checking if it is a " +
 				"single-use response.")
 
 			// Process CMIX message
@@ -70,7 +70,10 @@ func (m *Manager) processesResponse(rid *id.ID, ephID ephemeral.Id,
 	}
 
 	// Unmarshal CMIX message
-	cmixMsg := format.Unmarshal(msgBytes)
+	cmixMsg, err := format.Unmarshal(msgBytes)
+	if err != nil {
+		return err
+	}
 
 	// Ensure the fingerprints match
 	fp := cmixMsg.GetKeyFP()

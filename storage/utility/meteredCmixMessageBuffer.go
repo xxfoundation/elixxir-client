@@ -56,7 +56,7 @@ func (*meteredCmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (int
 	// Load the versioned object
 	vo, err := kv.Get(key, currentMeteredCmixMessageVersion)
 	if err != nil {
-		return format.Message{}, err
+		return nil, err
 	}
 
 	msg := meteredCmixMessage{}
@@ -149,7 +149,11 @@ func (mcmb *MeteredCmixMessageBuffer) Next() (format.Message, uint, time.Time, b
 			"update: %s", err)
 	}
 
-	msfFormat := format.Unmarshal(msg.M)
+	msfFormat, err := format.Unmarshal(msg.M)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to unmarshal message after count "+
+			"update: %s", err)
+	}
 	return msfFormat, rtnCnt, msg.Timestamp, true
 }
 

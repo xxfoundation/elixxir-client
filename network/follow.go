@@ -194,6 +194,28 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		m.Session.SetNDF(m.GetInstance().GetPartialNdf().Get())
 	}
 
+	// Pull rate limiting parameter values from NDF
+	ndfRateLimitParam := m.Instance.GetPartialNdf().Get().RateLimits
+	ndfCapacity, ndfLeakedTokens, ndfLeakDuration := uint32(ndfRateLimitParam.Capacity),
+		uint32(ndfRateLimitParam.LeakedTokens), time.Duration(ndfRateLimitParam.LeakDuration)
+
+	// Pull internal rate limiting parameters from RAM
+	internalRateLimitParams := m.Internal.Session.GetBucketParams().Get()
+
+	// If any param value in our internal store does not
+	// match the NDF's corresponding value, update our internal store
+	if ndfCapacity != internalRateLimitParams.Capacity ||
+		ndfLeakedTokens != internalRateLimitParams.LeakedTokens ||
+		ndfLeakDuration != internalRateLimitParams.LeakDuration {
+		// Update internally stored params
+		err = m.Internal.Session.GetBucketParams().
+			UpdateParams(ndfCapacity, ndfLeakedTokens, ndfLeakDuration)
+		if err != nil {
+			jww.ERROR.Printf("%+v", err)
+			return
+		}
+	}
+
 	// Update the address space size
 	// todo: this is a fix for incompatibility with the live network
 	// remove once the live network has been pushed to

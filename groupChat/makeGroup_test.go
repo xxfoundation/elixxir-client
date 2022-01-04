@@ -10,8 +10,10 @@ package groupChat
 import (
 	"bytes"
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/interfaces/params"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -290,14 +292,30 @@ func addPartners(m *Manager, t *testing.T) ([]*id.ID, group.Membership,
 		uid := id.NewIdFromUInt(uint64(i), id.User, t)
 		dhKey := m.store.E2e().GetGroup().NewInt(int64(i + 42))
 
+		myVariant := sidh.KeyVariantSidhA
+		prng := rand.New(rand.NewSource(int64(i + 42)))
+		mySIDHPrivKey := util.NewSIDHPrivateKey(myVariant)
+		mySIDHPubKey := util.NewSIDHPublicKey(myVariant)
+		mySIDHPrivKey.Generate(prng)
+		mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
+
+		theirVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
+		theirSIDHPrivKey := util.NewSIDHPrivateKey(theirVariant)
+		theirSIDHPubKey := util.NewSIDHPublicKey(theirVariant)
+		theirSIDHPrivKey.Generate(prng)
+		theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
+
 		// Add to lists
 		memberIDs[i] = uid
 		members = append(members, group.Member{ID: uid, DhKey: dhKey})
-		dkl.Add(dhKey, group.Member{ID: uid, DhKey: dhKey}, m.store.E2e().GetGroup())
+		dkl.Add(dhKey, group.Member{ID: uid, DhKey: dhKey},
+			m.store.E2e().GetGroup())
 
 		// Add partner
 		err := m.store.E2e().AddPartner(uid, dhKey, dhKey,
-			params.GetDefaultE2ESessionParams(), params.GetDefaultE2ESessionParams())
+			theirSIDHPubKey, mySIDHPrivKey,
+			params.GetDefaultE2ESessionParams(),
+			params.GetDefaultE2ESessionParams())
 		if err != nil {
 			t.Errorf("Failed to add partner %d: %+v", i, err)
 		}

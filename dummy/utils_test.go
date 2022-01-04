@@ -54,6 +54,7 @@ func newTestManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 		maxNumMessages: maxNumMessages,
 		avgSendDelta:   avgSendDelta,
 		randomRange:    randomRange,
+		statusChan:     make(chan bool, statusChanLen),
 		store:          storage.InitTestingSession(t),
 		net:            newTestNetworkManager(sendErr, t),
 		rng:            fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
@@ -133,7 +134,7 @@ func (tnm *testNetworkManager) SendCMIX(message format.Message,
 	return 0, ephemeral.Id{}, nil
 }
 
-func (tnm *testNetworkManager) SendManyCMIX(map[id.ID]format.Message, params.CMIX) (
+func (tnm *testNetworkManager) SendManyCMIX([]message.TargetedCmixMessage, params.CMIX) (
 	id.Round, []ephemeral.Id, error) {
 	return 0, nil, nil
 }

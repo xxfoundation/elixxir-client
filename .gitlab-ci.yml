@@ -81,7 +81,7 @@ bindings-ios:
   tags:
     - ios
   script:
-    - go get -u golang.org/x/mobile/cmd/gomobile@76c259c465ba39f84de7e2751a666612ddca556b
+    - go get -u golang.org/x/mobile/cmd/gomobile
     - gomobile init
     - gomobile bind -target ios gitlab.com/elixxir/client/bindings
     - ls

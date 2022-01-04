@@ -49,7 +49,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 		case rl := <-m.lookupRoundMessages:
 			ri := rl.roundInfo
 			jww.DEBUG.Printf("Checking for messages in round %d", ri.ID)
-			err := m.Session.UncheckedRounds().AddRound(id.Round(ri.ID), nil,
+			err := m.Session.UncheckedRounds().AddRound(id.Round(ri.ID), ri,
 				rl.identity.Source, rl.identity.EphId)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to denote Unchecked Round for round %d", id.Round(ri.ID))
@@ -64,6 +64,10 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				}
 				gwId.SetType(id.Gateway)
 				gwIds[i] = gwId
+			}
+			if len(gwIds) == 0 {
+				jww.WARN.Printf("Empty gateway ID List")
+				continue
 			}
 			// Target the last node in the team first because it has
 			// messages first, randomize other members of the team
@@ -119,6 +123,11 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			}
 
 			if len(bundle.Messages) != 0 {
+				// If successful and there are messages, we send them to another thread
+				bundle.Identity = rl.identity
+				bundle.RoundInfo = rl.roundInfo
+				m.messageBundles <- bundle
+
 				jww.DEBUG.Printf("Removing round %d from unchecked store", ri.ID)
 				err = m.Session.UncheckedRounds().Remove(id.Round(ri.ID), rl.identity.Source, rl.identity.EphId)
 				if err != nil {
@@ -126,10 +135,6 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 						"from unchecked rounds store: %v", ri.ID, err)
 				}
 
-				// If successful and there are messages, we send them to another thread
-				bundle.Identity = rl.identity
-				bundle.RoundInfo = rl.roundInfo
-				m.messageBundles <- bundle
 			}
 
 		}
@@ -143,7 +148,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 	stop *stoppable.Single) (message.Bundle, error) {
 	start := time.Now()
 	// Send to the gateways using backup proxies
-	result, err := m.sender.SendToPreferred(gwIds, func(host *connect.Host, target *id.ID) (interface{}, error) {
+	result, err := m.sender.SendToPreferred(gwIds, func(host *connect.Host, target *id.ID, _ time.Duration) (interface{}, error) {
 		jww.DEBUG.Printf("Trying to get messages for round %v for ephemeralID %d (%v)  "+
 			"via Gateway: %s", roundID, identity.EphId.Int64(), identity.Source.String(), host.GetId())
 
@@ -158,7 +163,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 		msgResp, err := comms.RequestMessages(host, msgReq)
 
 		if err != nil {
-			//you need to default to a retryable errors because otherwise we cannot enumerate all errors
+			// you need to default to a retryable errors because otherwise we cannot enumerate all errors
 			return nil, errors.WithMessage(err, gateway.RetryableError)
 		}
 
@@ -168,7 +173,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 		}
 
 		return msgResp, nil
-	}, stop)
+	}, stop, m.params.SendTimeout)
 	jww.INFO.Printf("Received message for round %d, processing...", roundID)
 	// Fail the round if an error occurs so it can be tried again later
 	if err != nil {
@@ -197,7 +202,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 	jww.INFO.Printf("Received %d messages in Round %v for %d (%s) in %s",
 		len(msgs), roundID, identity.EphId.Int64(), identity.Source, time.Now().Sub(start))
 
-	//build the bundle of messages to send to the message processor
+	// build the bundle of messages to send to the message processor
 	bundle := message.Bundle{
 		Round:    roundID,
 		Messages: make([]format.Message, len(msgs)),

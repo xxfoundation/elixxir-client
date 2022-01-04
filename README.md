@@ -140,20 +140,22 @@ Full usage of client can be found with `client --help`:
 
 ```
 $ ./client --help
+Runs a client for cMix anonymous communication platform
+
 Usage:
   client [flags]
   client [command]
 
 Available Commands:
-  generate    Generates version and dependency information for the Elixxir binary
-  getndf      Download the network definition file from the network and print it.
-  group       Group commands for cMix client
-  help        Help about any command
-  init        Initialize a user ID but do not connect to the network
-  proto       Load client with a proto client JSON file.
-  single      Send and respond to single-use messages.
-  ud          Register for and search users using the xx network user discovery service.
-  version     Print the version and dependency information for the Elixxir binary
+  fileTransfer Send and receive file for cMix client
+  generate     Generates version and dependency information for the Elixxir binary
+  getndf       Download the network definition file from the network and print it.
+  group        Group commands for cMix client
+  help         Help about any command
+  init         Initialize a user ID but do not connect to the network
+  single       Send and respond to single-use messages.
+  ud           Register for and search users using the xx network user discovery service.
+  version      Print the version and dependency information for the Elixxir binary
 
 Flags:
       --accept-channel            Accept the channel request for the corresponding recipient ID
@@ -164,6 +166,7 @@ Flags:
       --e2eMaxKeys uint           Max keys used before blocking until a rekey completes (default 800)
       --e2eMinKeys uint           Minimum number of keys used before requesting rekey (default 500)
       --e2eNumReKeys uint         Number of rekeys reserved for rekey operations (default 16)
+      --e2eRekeyThreshold float64 Number between 0 an 1. Percent of keys used before a rekey is started
       --forceHistoricalRounds     Force all rounds to be sent to historical round retrieval
       --forceMessagePickupRetry   Enable a mechanism which forces a 50% chance of no message pickup, instead triggering the message pickup retry mechanism
   -h, --help                      help for client
@@ -173,8 +176,8 @@ Flags:
   -n, --ndf string                Path to the network definition JSON file (default "ndf.json")
   -p, --password string           Password to the session file
       --profile-cpu string        Enable cpu profiling to this file
-      --protoUserOut string       Path to which a normally constructed client will write proto user JSON file (default "protoUser.json")
-      --protoUserPath string      Path to proto user JSON file containing cryptographic primitives the client will load (default "protoUser.json")
+      --protoUserOut string       Path to which a normally constructed client will write proto user JSON file
+      --protoUserPath string      Path to proto user JSON file containing cryptographic primitives the client will load
       --receiveCount uint         How many messages we should wait for before quitting (default 1)
       --regcode string            Identity code (optional)
       --send-auth-request         Send an auth request to the specified destination and waitfor confirmation
@@ -186,9 +189,9 @@ Flags:
       --unsafe                    Send raw, unsafe messages without e2e encryption.
       --unsafe-channel-creation   Turns off the user identity authenticated channel check, automatically approving authenticated channels
       --verboseRoundTracking      Verbose round tracking, keeps track and prints all rounds the client was aware of while running. Defaults to false if not set.
+      --verify-sends              Ensure successful message sending by checking for round completion
       --waitTimeout uint          The number of seconds to wait for messages to arrive (default 15)
   -w, --writeContact string       Write contact information, if any, to this file,  defaults to stdout (default "-")
-                                  file
 
 Use "client [command] --help" for more information about a command.
 ```

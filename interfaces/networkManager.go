@@ -25,7 +25,7 @@ type NetworkManager interface {
 	SendE2E(m message.Send, p params.E2E, stop *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error)
 	SendUnsafe(m message.Send, p params.Unsafe) ([]id.Round, error)
 	SendCMIX(message format.Message, recipient *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error)
-	SendManyCMIX(messages map[id.ID]format.Message, p params.CMIX) (id.Round, []ephemeral.Id, error)
+	SendManyCMIX(messages []message.TargetedCmixMessage, p params.CMIX) (id.Round, []ephemeral.Id, error)
 	GetInstance() *network.Instance
 	GetHealthTracker() HealthTracker
 	GetEventManager() EventManager

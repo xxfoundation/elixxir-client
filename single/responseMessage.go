@@ -16,20 +16,23 @@ import (
 const (
 	partNumLen      = 1
 	maxPartsLen     = 1
-	responseMinSize = partNumLen + maxPartsLen + sizeSize
+	responseMinSize = receptionMessageVersionLen + partNumLen + maxPartsLen + sizeSize
+	receptionMessageVersion    = 0
+    receptionMessageVersionLen = 1
 )
 
 /*
-+-----------------------------------------+
-|          CMIX Message Contents          |
-+---------+----------+---------+----------+
-| partNum | maxParts |  size   | contents |
-| 1 bytes |  1 byte  | 2 bytes | variable |
-+------------+----------+---------+-------+
++---------------------------------------------------+
+|                CMIX Message Contents              |
++---------+----------+---------+---------+----------+
+| version | maxParts |  size   | partNum | contents |
+| 1 bytes |  1 byte  | 2 bytes | 1 bytes | variable |
++------------+----------+---------+------+----------+
 */
 
 type responseMessagePart struct {
 	data     []byte // Serial of all contents
+	version  []byte // Version of the message
 	partNum  []byte // Index of message in a series of messages
 	maxParts []byte // The number of parts in this message.
 	size     []byte // Size of the contents
@@ -46,7 +49,9 @@ func newResponseMessagePart(externalPayloadSize int) responseMessagePart {
 			externalPayloadSize, responseMinSize)
 	}
 
-	return mapResponseMessagePart(make([]byte, externalPayloadSize))
+	rmp := mapResponseMessagePart(make([]byte, externalPayloadSize))
+	rmp.version[0] = receptionMessageVersion
+	return rmp
 }
 
 // mapResponseMessagePart builds a message part mapped to the passed in data.
@@ -54,9 +59,10 @@ func newResponseMessagePart(externalPayloadSize int) responseMessagePart {
 func mapResponseMessagePart(data []byte) responseMessagePart {
 	return responseMessagePart{
 		data:     data,
-		partNum:  data[:partNumLen],
-		maxParts: data[partNumLen : maxPartsLen+partNumLen],
-		size:     data[maxPartsLen+partNumLen : responseMinSize],
+		version:  data[:receptionMessageVersionLen],
+		partNum:  data[receptionMessageVersionLen:receptionMessageVersionLen+partNumLen],
+		maxParts: data[receptionMessageVersionLen+partNumLen : receptionMessageVersionLen+maxPartsLen+partNumLen],
+		size:     data[receptionMessageVersionLen+maxPartsLen+partNumLen : responseMinSize],
 		contents: data[responseMinSize:],
 	}
 }

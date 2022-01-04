@@ -176,7 +176,7 @@ func (s *Store) AddIdentity(identity Identity) error {
 	// Do not make duplicates of IDs
 	if _, ok := s.present[idH]; ok {
 		jww.DEBUG.Printf("Ignoring duplicate identity for %d (%s)",
-			identity.EphId, identity.Source)
+			identity.EphId.Int64(), identity.Source)
 		return nil
 	}
 
@@ -248,6 +248,7 @@ func (s *Store) SetToExpire(addressSize uint8) {
 
 func (s *Store) prune(now time.Time) {
 	lengthBefore := len(s.active)
+	var pruned []int64
 
 	// Prune the list
 	for i := 0; i < len(s.active); i++ {
@@ -257,6 +258,7 @@ func (s *Store) prune(now time.Time) {
 				jww.ERROR.Printf("Failed to delete Identity for %s: %+v",
 					inQuestion, err)
 			}
+			pruned = append(pruned, inQuestion.EphId.Int64())
 
 			s.active = append(s.active[:i], s.active[i+1:]...)
 
@@ -266,7 +268,7 @@ func (s *Store) prune(now time.Time) {
 
 	// Save the list if it changed
 	if lengthBefore != len(s.active) {
-		jww.INFO.Printf("Pruned %d identities", lengthBefore-len(s.active))
+		jww.INFO.Printf("Pruned %d identities [%+v]", lengthBefore-len(s.active), pruned)
 		if err := s.save(); err != nil {
 			jww.FATAL.Panicf("Failed to store reception storage: %+v", err)
 		}

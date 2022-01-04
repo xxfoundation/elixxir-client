@@ -10,13 +10,16 @@
 syntax = "proto3";
 
 package parse;
-option go_package = "keyExchange";
+option go_package = "gitlab.com/elixxir/client/keyExchange";
+
 
 message RekeyTrigger {
-    // PublicKey used in the registration
+    // PublicKey used in the rekey
     bytes publicKey = 1;
+    // SIDHPublicKey used in the rekey
+    bytes sidhPublicKey = 2;
     // ID of the session used to create this session
-    bytes sessionID = 2;
+    bytes sessionID = 3;
 }
 
 message RekeyConfirm {

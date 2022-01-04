@@ -2,6 +2,8 @@ package message
 
 import (
 	"encoding/binary"
+	"github.com/cloudflare/circl/dh/sidh"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
@@ -9,16 +11,25 @@ import (
 	"gitlab.com/elixxir/client/network/message/parse"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 )
+
+func TestMain(m *testing.M) {
+	jww.SetStdoutThreshold(jww.LevelTrace)
+	connect.TestingOnlyDisableTLS = true
+	os.Exit(m.Run())
+}
 
 type TestListener struct {
 	ch chan bool
@@ -72,8 +83,20 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 		GarbledMessageWait:             time.Hour,
 	}}, nil, sender)
 
+	rng := csprng.NewSystemRNG()
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
+
 	e2ekv := i.Session.E2e()
-	err = e2ekv.AddPartner(sess2.GetUser().TransmissionID, sess2.E2e().GetDHPublicKey(), e2ekv.GetDHPrivateKey(),
+	err = e2ekv.AddPartner(sess2.GetUser().TransmissionID,
+		sess2.E2e().GetDHPublicKey(), e2ekv.GetDHPrivateKey(),
+		partnerSIDHPubKey, mySIDHPrivKey,
 		params.GetDefaultE2ESessionParams(),
 		params.GetDefaultE2ESessionParams())
 	if err != nil {
@@ -83,6 +106,7 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 
 	err = sess2.E2e().AddPartner(sess1.GetUser().TransmissionID,
 		sess1.E2e().GetDHPublicKey(), sess2.E2e().GetDHPrivateKey(),
+		mySIDHPubKey, partnerSIDHPrivKey,
 		params.GetDefaultE2ESessionParams(),
 		params.GetDefaultE2ESessionParams())
 	if err != nil {

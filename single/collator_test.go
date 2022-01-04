@@ -33,7 +33,7 @@ func TestCollator_collate(t *testing.T) {
 
 	buff := bytes.NewBuffer(expectedData)
 	for i := 0; i < messageCount; i++ {
-		msgParts[i] = newResponseMessagePart(msgPayloadSize + 4)
+		msgParts[i] = newResponseMessagePart(msgPayloadSize + 5)
 		msgParts[i].SetMaxParts(uint8(messageCount))
 		msgParts[i].SetPartNum(uint8(i))
 		msgParts[i].SetContents(buff.Next(msgPayloadSize))
@@ -88,7 +88,7 @@ func TestCollator_collate_UnmarshalError(t *testing.T) {
 
 // Error path: max reported parts by payload larger then set in collator
 func TestCollator_collate_MaxPartsError(t *testing.T) {
-	payloadBytes := []byte{0xFF, 0xFF, 0xFF, 0xFF}
+	payloadBytes := []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 	c := newCollator(1)
 	payload, collated, err := c.collate(payloadBytes)
 
@@ -105,7 +105,7 @@ func TestCollator_collate_MaxPartsError(t *testing.T) {
 
 // Error path: the message part number is greater than the max number of parts.
 func TestCollator_collate_PartNumTooLargeError(t *testing.T) {
-	payloadBytes := []byte{25, 5, 5, 5}
+	payloadBytes := []byte{25, 5, 5, 5, 5}
 	c := newCollator(5)
 	payload, collated, err := c.collate(payloadBytes)
 
@@ -122,7 +122,7 @@ func TestCollator_collate_PartNumTooLargeError(t *testing.T) {
 
 // Error path: a message with the part number already exists.
 func TestCollator_collate_PartExistsError(t *testing.T) {
-	payloadBytes := []byte{1, 5, 0, 1, 20}
+	payloadBytes := []byte{0, 1, 5, 0, 1, 20}
 	c := newCollator(5)
 	payload, collated, err := c.collate(payloadBytes)
 	if err != nil {

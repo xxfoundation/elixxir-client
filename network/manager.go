@@ -99,10 +99,10 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	earliest := uint64(0)
 	// create manager object
 	m := manager{
-		param:     params,
-		tracker:   &tracker,
-		addrSpace: ephemeral.NewAddressSpace(),
-		events:    events,
+		param:         params,
+		tracker:       &tracker,
+		addrSpace:     ephemeral.NewAddressSpace(),
+		events:        events,
 		earliestRound: &earliest,
 	}
 
@@ -258,19 +258,18 @@ func (m *manager) GetVerboseRounds() string {
 	return m.verboseRounds.String()
 }
 
-
-func (m *manager) SetFakeEarliestRound(rnd id.Round)   {
+func (m *manager) SetFakeEarliestRound(rnd id.Round) {
 	atomic.StoreUint64(m.earliestRound, uint64(rnd))
 }
 
 // GetFakeEarliestRound generates a random earliest round for a fake identity.
-func (m *manager) GetFakeEarliestRound() id.Round   {
+func (m *manager) GetFakeEarliestRound() id.Round {
 	b, err := csprng.Generate(8, rand.Reader)
 	if err != nil {
 		jww.FATAL.Panicf("Could not get random number: %v", err)
 	}
 
-	rangeVal :=  binary.LittleEndian.Uint64(b) % 800
+	rangeVal := binary.LittleEndian.Uint64(b) % 800
 
 	earliestKnown := atomic.LoadUint64(m.earliestRound)
 

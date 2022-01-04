@@ -64,7 +64,7 @@ func TestManager_StartProcesses(t *testing.T) {
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
 	}
 	tag := "Test tag"
-	payload := make([]byte, 132)
+	payload := make([]byte, 130)
 	rand.New(rand.NewSource(42)).Read(payload)
 	callback, callbackChan := createReceiveComm()
 
@@ -150,7 +150,7 @@ func TestManager_StartProcesses_Stop(t *testing.T) {
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
 	}
 	tag := "Test tag"
-	payload := make([]byte, 132)
+	payload := make([]byte, 130)
 	rand.New(rand.NewSource(42)).Read(payload)
 	callback, callbackChan := createReceiveComm()
 
@@ -315,7 +315,7 @@ func (tnm *testNetworkManager) SendCMIX(msg format.Message, _ *id.ID, _ params.C
 	return id.Round(rand.Uint64()), ephemeral.Id{}, nil
 }
 
-func (tnm *testNetworkManager) SendManyCMIX(messages map[id.ID]format.Message, p params.CMIX) (id.Round, []ephemeral.Id, error) {
+func (tnm *testNetworkManager) SendManyCMIX(messages []message.TargetedCmixMessage, p params.CMIX) (id.Round, []ephemeral.Id, error) {
 	if tnm.cmixTimeout != 0 {
 		time.Sleep(tnm.cmixTimeout)
 	} else if tnm.cmixErr {
@@ -326,7 +326,7 @@ func (tnm *testNetworkManager) SendManyCMIX(messages map[id.ID]format.Message, p
 	defer tnm.Unlock()
 
 	for _, msg := range messages {
-		tnm.msgs = append(tnm.msgs, msg)
+		tnm.msgs = append(tnm.msgs, msg.Message)
 	}
 
 	return id.Round(rand.Uint64()), []ephemeral.Id{}, nil

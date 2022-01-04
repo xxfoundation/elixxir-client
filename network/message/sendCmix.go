@@ -9,7 +9,6 @@ package message
 
 import (
 	"fmt"
-	"github.com/golang-collections/collections/set"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -19,7 +18,9 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
@@ -75,14 +76,30 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 	stop *stoppable.Single) (id.Round, ephemeral.Id, error) {
 
 	timeStart := netTime.Now()
-	attempted := set.New()
 	maxTimeout := sender.GetHostParams().SendTimeout
+
+	var attempted excludedRounds.ExcludedRounds
+	if cmixParams.ExcludedRounds != nil {
+		attempted = cmixParams.ExcludedRounds
+	} else {
+		attempted = excludedRounds.NewSet()
+	}
 
 	jww.INFO.Printf("Looking for round to send cMix message to %s "+
 		"(msgDigest: %s)", recipient, msg.Digest())
 
+	stream := rng.GetStream()
+	defer stream.Close()
+	grp := session.Cmix().GetGroup()
+
+	// flip leading bits randomly to thwart a tagging attack.
+	// See SetGroupBits for more info
+	cmix.SetGroupBits(msg, grp, stream)
+
 	for numRoundTries := uint(0); numRoundTries < cmixParams.RoundTries; numRoundTries++ {
 		elapsed := netTime.Since(timeStart)
+		jww.TRACE.Printf("[SendCMIX] try %d, elapsed: %s",
+			numRoundTries, elapsed)
 
 		if elapsed > cmixParams.Timeout {
 			jww.INFO.Printf("No rounds to send to %s (msgDigest: %s) "+
@@ -96,8 +113,8 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 				msg.Digest())
 		}
 
+		// find the best round to send to, excluding attempted rounds
 		remainingTime := cmixParams.Timeout - elapsed
-		//find the best round to send to, excluding attempted rounds
 		bestRound, err := instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted, sendTimeBuffer)
 		if err != nil {
 			jww.WARN.Printf("Failed to GetUpcomingRealtime (msgDigest: %s): %+v", msg.Digest(), err)
@@ -106,9 +123,10 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			jww.WARN.Printf("Best round on send is nil")
 			continue
 		}
+		jww.DEBUG.Printf("[sendCMIX] bestRound: %v", bestRound)
 
-		//add the round on to the list of attempted, so it is not tried again
-		attempted.Insert(bestRound)
+		// add the round on to the list of attempted, so it is not tried again
+		attempted.Insert(bestRound.GetRoundId())
 
 		// Determine whether the selected round contains any Nodes
 		// that are blacklisted by the params.Network object
@@ -131,45 +149,65 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			continue
 		}
 
+		jww.DEBUG.Printf("[sendCMIX] round %v processed, firstGW: %s",
+			bestRound, firstGateway)
+
 		// Build the messages to send
-		stream := rng.GetStream()
 
 		wrappedMsg, encMsg, ephID, err := buildSlotMessage(msg, recipient,
 			firstGateway, stream, senderId, bestRound, roundKeys, cmixParams)
 		if err != nil {
-			stream.Close()
 			return 0, ephemeral.Id{}, err
 		}
-		stream.Close()
 
-		jww.INFO.Printf("Sending to EphID %d (%s) on round %d, "+
-			"(msgDigest: %s, ecrMsgDigest: %s) via gateway %s",
+		jww.INFO.Printf("[sendCMIX] Sending to EphID %d (%s), "+
+			"on round %d (msgDigest: %s, ecrMsgDigest: %s) "+
+			"via gateway %s",
 			ephID.Int64(), recipient, bestRound.ID, msg.Digest(),
 			encMsg.Digest(), firstGateway.String())
 
 		// Send the payload
-		sendFunc := func(host *connect.Host, target *id.ID) (interface{}, error) {
+		sendFunc := func(host *connect.Host, target *id.ID,
+			timeout time.Duration) (interface{}, error) {
 			wrappedMsg.Target = target.Marshal()
 
-			timeout := calculateSendTimeout(bestRound, maxTimeout)
+			jww.TRACE.Printf("[sendCMIX] sendFunc %s", host)
+			timeout = calculateSendTimeout(bestRound, maxTimeout)
+			// Use the smaller of the two timeout durations
+			calculatedTimeout := calculateSendTimeout(bestRound, maxTimeout)
+			if calculatedTimeout < timeout {
+				timeout = calculatedTimeout
+			}
+
+			//send the message
 			result, err := comms.SendPutMessage(host, wrappedMsg,
 				timeout)
+			jww.TRACE.Printf("[sendCMIX] sendFunc %s putmsg", host)
+
 			if err != nil {
 				// fixme: should we provide as a slice the whole topology?
-				err := handlePutMessageError(firstGateway, instance, session, nodeRegistration, recipient.String(), bestRound, err)
-				return result, errors.WithMessagef(err, "SendCmix %s", unrecoverableError)
-
+				err := handlePutMessageError(firstGateway,
+					instance, session, nodeRegistration,
+					recipient.String(), bestRound, err)
+				jww.TRACE.Printf("[sendCMIX] sendFunc %s err %+v",
+					host, err)
+				return result, errors.WithMessagef(err,
+					"SendCmix %s", unrecoverableError)
 			}
 			return result, err
 		}
-		result, err := sender.SendToPreferred([]*id.ID{firstGateway}, sendFunc, stop)
+		jww.DEBUG.Printf("[sendCMIX] sendToPreferred %s", firstGateway)
+		result, err := sender.SendToPreferred(
+			[]*id.ID{firstGateway}, sendFunc, stop, cmixParams.SendTimeout)
+		jww.DEBUG.Printf("[sendCMIX] sendToPreferred %s returned",
+			firstGateway)
 
 		// Exit if the thread has been stopped
 		if stoppable.CheckErr(err) {
 			return 0, ephemeral.Id{}, err
 		}
 
-		//if the comm errors or the message fails to send, continue retrying.
+		// if the comm errors or the message fails to send, continue retrying.
 		if err != nil {
 			jww.ERROR.Printf("SendCmix failed to send to EphID %d (%s) on "+
 				"round %d, trying a new round: %+v", ephID.Int64(), recipient,
@@ -187,6 +225,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 				elapsed, numRoundTries)
 			jww.INFO.Print(m)
 			events.Report(1, "MessageSend", "Metric", m)
+			onSend(1, session)
 			return id.Round(bestRound.ID), ephID, nil
 		} else {
 			jww.FATAL.Panicf("Gateway %s returned no error, but failed "+
@@ -197,4 +236,14 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 	}
 	return 0, ephemeral.Id{}, errors.New("failed to send the message, " +
 		"unknown error")
+}
+
+// OnSend performs a bucket addition on a call to Manager.SendCMIX or
+// Manager.SendManyCMIX, updating the bucket for the amount of messages sent.
+func onSend(messages uint32, session *storage.Session) {
+	rateLimitingParam := session.GetBucketParams().Get()
+	session.GetBucket().AddWithExternalParams(messages,
+		rateLimitingParam.Capacity, rateLimitingParam.LeakedTokens,
+		rateLimitingParam.LeakDuration)
+
 }

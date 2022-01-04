@@ -10,6 +10,7 @@ package message
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	preimage2 "gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage"
@@ -121,7 +122,8 @@ func processRound(instance *network.Instance, session *storage.Session,
 // the recipient.
 func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	stream *fastRNG.Stream, senderId *id.ID, bestRound *pb.RoundInfo,
-	roundKeys *cmix.RoundKeys, param params.CMIX) (*pb.GatewaySlot, format.Message, ephemeral.Id,
+	roundKeys *cmix.RoundKeys, param params.CMIX) (*pb.GatewaySlot,
+	format.Message, ephemeral.Id,
 	error) {
 
 	// Set the ephemeral ID
@@ -214,38 +216,42 @@ func handleMissingNodeKeys(instance *network.Instance,
 	}
 }
 
-// messageMapToStrings serializes a map of IDs and messages into a string of IDs
-// and a string of message digests. Intended for use in printing to logs.
-func messageMapToStrings(msgList map[id.ID]format.Message) (string, string) {
+// messageListToStrings serializes a list of message.TargetedCmixMessage into a
+// string of comma seperated recipient IDs and a string of comma seperated
+// message digests. Duplicate recipient IDs are printed once. Intended for use
+// in printing to log.
+func messageListToStrings(msgList []message.TargetedCmixMessage) (string, string) {
 	idStrings := make([]string, 0, len(msgList))
-	msgDigests := make([]string, 0, len(msgList))
-	for uid, msg := range msgList {
-		idStrings = append(idStrings, uid.String())
-		msgDigests = append(msgDigests, msg.Digest())
+	idMap := make(map[id.ID]bool, len(msgList))
+	msgDigests := make([]string, len(msgList))
+	for i, msg := range msgList {
+		if !idMap[*msg.Recipient] {
+			idStrings = append(idStrings, msg.Recipient.String())
+			idMap[*msg.Recipient] = true
+		}
+		msgDigests[i] = msg.Message.Digest()
 	}
 
-	return strings.Join(idStrings, ","), strings.Join(msgDigests, ",")
+	return strings.Join(idStrings, ", "), strings.Join(msgDigests, ", ")
 }
 
-// messagesToDigestString serializes a list of messages into a string of message
-// digests. Intended for use in printing to the logs.
+// messagesToDigestString serializes a list of cMix messages into a string of
+// comma seperated message digests. Intended for use in printing to log.
 func messagesToDigestString(msgs []format.Message) string {
-	msgDigests := make([]string, 0, len(msgs))
-	for _, msg := range msgs {
-		msgDigests = append(msgDigests, msg.Digest())
+	msgDigests := make([]string, len(msgs))
+	for i, msg := range msgs {
+		msgDigests[i] = msg.Digest()
 	}
 
-	return strings.Join(msgDigests, ",")
+	return strings.Join(msgDigests, ", ")
 }
 
-// ephemeralIdListToString serializes a list of ephemeral IDs into a human-
-// readable format. Intended for use in printing to logs.
+// ephemeralIdListToString serializes a list of ephemeral IDs into a string of
+// comma seperated integer representations. Intended for use in printing to log.
 func ephemeralIdListToString(idList []ephemeral.Id) string {
-	idStrings := make([]string, 0, len(idList))
-
-	for i := 0; i < len(idList); i++ {
-		ephIdStr := strconv.FormatInt(idList[i].Int64(), 10)
-		idStrings = append(idStrings, ephIdStr)
+	idStrings := make([]string, len(idList))
+	for i, ephID := range idList {
+		idStrings[i] = strconv.FormatInt(ephID.Int64(), 10)
 	}
 
 	return strings.Join(idStrings, ",")

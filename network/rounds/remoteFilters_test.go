@@ -8,16 +8,25 @@
 package rounds
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	bloom "gitlab.com/elixxir/bloomfilter"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"os"
 	"reflect"
 	"testing"
 	"time"
 )
+
+func TestMain(m *testing.M) {
+	jww.SetStdoutThreshold(jww.LevelTrace)
+	connect.TestingOnlyDisableTLS = true
+	os.Exit(m.Run())
+}
 
 // Unit test NewRemoteFilter
 func TestNewRemoteFilter(t *testing.T) {
@@ -128,6 +137,10 @@ func TestValidFilterRange(t *testing.T) {
 		FirstRound: firstRound,
 		RoundRange: roundRange,
 	}
+
+	// Fix for test on Windows machines: provides extra buffer between
+	// time.Now() for the reception.Identity and the mixmessages.ClientBlooms
+	time.Sleep(time.Millisecond)
 
 	msg := &mixmessages.ClientBlooms{
 		Period:         int64(12 * time.Hour),

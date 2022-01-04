@@ -68,7 +68,7 @@ func (tnm *testNetworkManager) SendCMIX(format.Message, *id.ID, params.CMIX) (id
 	return 0, ephemeral.Id{}, nil
 }
 
-func (tnm *testNetworkManager) SendManyCMIX(map[id.ID]format.Message, params.CMIX) (id.Round, []ephemeral.Id, error) {
+func (tnm *testNetworkManager) SendManyCMIX([]message.TargetedCmixMessage, params.CMIX) (id.Round, []ephemeral.Id, error) {
 	return 0, nil, nil
 }
 

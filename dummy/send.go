@@ -33,32 +33,53 @@ const (
 func (m *Manager) sendThread(stop *stoppable.Single) {
 	jww.DEBUG.Print("Starting dummy traffic sending thread.")
 
-	timer := m.randomTimer()
+	nextSendChan := make(<-chan time.Time)
+	nextSendChanPtr := &(nextSendChan)
 
 	for {
 		select {
 		case <-stop.Quit():
-			jww.DEBUG.Print("Stopping dummy traffic sending thread: stoppable " +
-				"triggered")
-			stop.ToStopped()
+			m.stopSendThread(stop)
 			return
-		case <-timer.C:
-			timer = m.randomTimer()
-
-			// Get list of random messages and recipients
-			rng := m.rng.GetStream()
-			msgs, err := m.newRandomMessages(rng)
-			if err != nil {
-				jww.FATAL.Panicf("Failed to generate dummy messages: %+v", err)
+		case status := <-m.statusChan:
+			if status {
+				atomic.StoreUint32(&m.status, running)
+				nextSendChanPtr = &(m.randomTimer().C)
+			} else {
+				atomic.StoreUint32(&m.status, paused)
+				nextSendChan = make(<-chan time.Time)
+				nextSendChanPtr = &nextSendChan
 			}
-			rng.Close()
+		case <-*nextSendChanPtr:
+			nextSendChanPtr = &(m.randomTimer().C)
 
-			err = m.sendMessages(msgs)
-			if err != nil {
-				jww.FATAL.Panicf("Failed to send dummy messages: %+v", err)
-			}
+			go func() {
+				// Get list of random messages and recipients
+				rng := m.rng.GetStream()
+				msgs, err := m.newRandomMessages(rng)
+				if err != nil {
+					jww.FATAL.Panicf("Failed to generate dummy messages: %+v", err)
+				}
+				rng.Close()
+
+				err = m.sendMessages(msgs)
+				if err != nil {
+					jww.FATAL.Panicf("Failed to send dummy messages: %+v", err)
+				}
+			}()
+
 		}
 	}
+}
+
+// stopSendThread is triggered when the stoppable is triggered. It prints a
+// debug message, sets the thread status to stopped, and sets the status of the
+// stoppable to stopped.
+func (m *Manager) stopSendThread(stop *stoppable.Single) {
+	jww.DEBUG.Print(
+		"Stopping dummy traffic sending thread: stoppable triggered")
+	atomic.StoreUint32(&m.status, stopped)
+	stop.ToStopped()
 }
 
 // sendMessages generates and sends random messages.
@@ -70,24 +91,25 @@ func (m *Manager) sendMessages(msgs map[id.ID]format.Message) error {
 		wg.Add(1)
 
 		go func(i int64, recipient id.ID, msg format.Message) {
-			//fill the preiamge with random data to ensure it isnt repeatable
+			defer wg.Done()
+
+			// Fill the preimage with random data to ensure it is not repeatable
 			p := params.GetDefaultCMIX()
 			p.IdentityPreimage = make([]byte, 32)
 			rng := m.rng.GetStream()
 			if _, err := rng.Read(p.IdentityPreimage); err != nil {
-				jww.FATAL.Panicf("Failed to generate data for random "+
-					"identity preimage in e2e send: %+v", err)
+				jww.FATAL.Panicf("Failed to generate data for random identity "+
+					"preimage in e2e send: %+v", err)
 			}
 			rng.Close()
+
 			_, _, err := m.net.SendCMIX(msg, &recipient, p)
 			if err != nil {
-				jww.WARN.Printf("failed to send dummy message %d/%d: %+v",
-					i, len(msgs), err)
+				jww.WARN.Printf("Failed to send dummy message %d/%d via "+
+					"SendCMIX: %+v", i, len(msgs), err)
 			} else {
 				atomic.AddInt64(&sent, 1)
 			}
-
-			wg.Done()
 		}(i, recipient, msg)
 
 		i++

@@ -9,9 +9,14 @@ package fileTransfer
 
 import (
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
+	util "gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"strings"
@@ -30,6 +35,19 @@ func TestManager_sendNewFileTransfer(t *testing.T) {
 	mac := []byte("transferMac")
 	numParts, fileSize, retry := uint16(16), uint32(256), float32(1.5)
 	preview := []byte("filePreview")
+
+	rng := csprng.NewSystemRNG()
+	dhKey := m.store.E2e().GetGroup().NewInt(42)
+	pubKey := diffieHellman.GeneratePublicKey(dhKey, m.store.E2e().GetGroup())
+	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA, rng)
+	theirSidhPub, _ := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhB, rng)
+	p := params.GetDefaultE2ESessionParams()
+
+	err := m.store.E2e().AddPartner(recipient, pubKey, dhKey,
+		mySidhPriv, theirSidhPub, p, p)
+	if err != nil {
+		t.Errorf("Failed to add partner %s: %+v", recipient, err)
+	}
 
 	expected, err := newNewFileTransferE2eMessage(recipient, fileName, fileType,
 		key, mac, numParts, fileSize, retry, preview)
@@ -60,8 +78,21 @@ func TestManager_sendNewFileTransfer_E2eError(t *testing.T) {
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	key, _ := ftCrypto.NewTransferKey(NewPrng(42))
 
+	rng := csprng.NewSystemRNG()
+	dhKey := m.store.E2e().GetGroup().NewInt(42)
+	pubKey := diffieHellman.GeneratePublicKey(dhKey, m.store.E2e().GetGroup())
+	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA, rng)
+	theirSidhPub, _ := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhB, rng)
+	p := params.GetDefaultE2ESessionParams()
+
+	err := m.store.E2e().AddPartner(recipient, pubKey, dhKey,
+		mySidhPriv, theirSidhPub, p, p)
+	if err != nil {
+		t.Errorf("Failed to add partner %s: %+v", recipient, err)
+	}
+
 	expectedErr := fmt.Sprintf(newFtSendE2eErr, recipient, "")
-	err := m.sendNewFileTransfer(recipient, "", "", key, nil, 16, 256, 1.5, nil)
+	err = m.sendNewFileTransfer(recipient, "", "", key, nil, 16, 256, 1.5, nil)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("sendNewFileTransfer di dnot return the expected error when "+
 			"SendE2E failed.\nexpected: %s\nreceived: %+v", expectedErr, err)

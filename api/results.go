@@ -206,7 +206,7 @@ func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
 	}
 
 	// Service historical rounds, sending back to the caller thread
-	for _, ri := range resp.Rounds {
+	for i, ri := range resp.Rounds {
 		if ri == nil {
 			// Handle unknown by historical rounds
 			sendResults <- ds.EventReturn{

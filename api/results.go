@@ -93,13 +93,6 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 
 	oldestRound := networkInstance.GetOldestRoundID()
 
-	// Set a lower timeout so there is room for retries,
-	// while ensuring it does not go too low and cause too many timeouts
-	roundEventTimeout := 5 * time.Second
-	if timeout < roundEventTimeout {
-		roundEventTimeout = timeout
-	}
-
 	// Parse and adjudicate every round
 	for _, rnd := range roundList {
 		// Every round is timed out by default, until proven to have finished
@@ -116,7 +109,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 			} else {
 				// If in progress, add a channel monitoring its state
 				roundEvents.AddRoundEventChan(rnd, sendResults,
-					roundEventTimeout, states.COMPLETED, states.FAILED)
+					timeout-time.Millisecond, states.COMPLETED, states.FAILED)
 				numResults++
 			}
 		} else {
@@ -129,7 +122,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 			} else {
 				// Otherwise, monitor its progress
 				roundEvents.AddRoundEventChan(rnd, sendResults,
-					roundEventTimeout, states.COMPLETED, states.FAILED)
+					timeout-time.Millisecond, states.COMPLETED, states.FAILED)
 				numResults++
 			}
 		}
@@ -158,16 +151,13 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 				roundCallback(false, true, roundsResults)
 				return
 			case roundReport := <-sendResults:
-				// Skip if the round is timed out, meaning unknown from historical rounds
-				// or timed out on RoundEvents channel
-				if roundReport.TimedOut {
-					// Generate a message to track the timed out round
-					timeoutRequest := &pb.HistoricalRounds{
-						Rounds: []uint64{roundReport.RoundInfo.ID},
-					}
-					// Request that round's information, feeding back into sendResults
-					jww.DEBUG.Printf("Sending HistoricalRounds retry for Round %d", roundReport.RoundInfo.ID)
-					go c.getHistoricalRounds(timeoutRequest, sendResults, commsInterface)
+
+				numResults--
+
+				// Skip if the round is nil (unknown from historical rounds)
+				// they default to timed out, so correct behavior is preserved
+				if roundReport.RoundInfo == nil || roundReport.TimedOut {
+					allRoundsSucceeded = false
 				} else {
 					// If available, denote the result
 					roundId := id.Round(roundReport.RoundInfo.ID)
@@ -176,8 +166,8 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 					} else {
 						roundsResults[roundId] = Failed
 						allRoundsSucceeded = false
+
 					}
-					numResults--
 				}
 			}
 		}
@@ -216,17 +206,9 @@ func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
 	}
 
 	// Service historical rounds, sending back to the caller thread
-	for i, ri := range resp.Rounds {
-		if ri == nil {
-			// Handle unknown by historical rounds
-			sendResults <- ds.EventReturn{
-				RoundInfo: &pb.RoundInfo{ID: msg.Rounds[i]},
-				TimedOut:  true,
-			}
-		} else {
-			sendResults <- ds.EventReturn{
-				RoundInfo: ri,
-			}
+	for _, ri := range resp.Rounds {
+		sendResults <- ds.EventReturn{
+			RoundInfo: ri,
 		}
 	}
 }

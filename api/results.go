@@ -89,6 +89,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 	roundEvents := c.GetRoundEvents()
 	roundsResults := make(map[id.Round]RoundResult)
 	allRoundsSucceeded := true
+	anyRoundTimedOut := false
 	numResults := 0
 
 	oldestRound := networkInstance.GetOldestRoundID()
@@ -141,7 +142,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 
 			// If we know about all rounds, return
 			if numResults == 0 {
-				roundCallback(allRoundsSucceeded, false, roundsResults)
+				roundCallback(allRoundsSucceeded, anyRoundTimedOut, roundsResults)
 				return
 			}
 
@@ -158,6 +159,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 				// they default to timed out, so correct behavior is preserved
 				if roundReport.TimedOut {
 					allRoundsSucceeded = false
+					anyRoundTimedOut = true
 				} else {
 					// If available, denote the result
 					roundId := id.Round(roundReport.RoundInfo.ID)
@@ -166,7 +168,6 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 					} else {
 						roundsResults[roundId] = Failed
 						allRoundsSucceeded = false
-
 					}
 				}
 			}

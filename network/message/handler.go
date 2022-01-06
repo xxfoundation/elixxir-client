@@ -54,23 +54,27 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 	var relationshipFingerprint []byte
 
 	//if it exists, check against all in the list
-	has, forMe, _ := m.Session.GetEdge().Check(identity.Source, ecrMsg.GetIdentityFP(), ecrMsg.GetContents())
+	modifiedContents := append([]byte{0}, ecrMsg.GetContents()...)
+	has, forMe, _ := m.Session.GetEdge().Check(identity.Source, ecrMsg.GetIdentityFP(), modifiedContents)
 	if !has {
 		jww.INFO.Printf("checking backup %v", preimage.MakeDefault(identity.Source))
 		//if it doesnt exist, check against the default fingerprint for the identity
 		forMe = fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
-			ecrMsg.GetContents(), preimage.MakeDefault(identity.Source))
+			modifiedContents, preimage.MakeDefault(identity.Source))
 	}
 
 	if !forMe {
 		if jww.GetLogThreshold() == jww.LevelTrace {
-			expectedFP := fingerprint2.IdentityFP(ecrMsg.GetContents(),
+			expectedFP := fingerprint2.IdentityFP(modifiedContents,
 				preimage.MakeDefault(identity.Source))
 			jww.TRACE.Printf("Message for %d (%s) failed identity "+
 				"check: %v (expected-default) vs %v (received)", identity.EphId,
 				identity.Source, expectedFP, ecrMsg.GetIdentityFP())
 		}
-
+		im := fmt.Sprintf("Garbled/RAW Message: keyFP: %v, round: %d"+
+			"msgDigest: %s, not determined to be for client", msg.GetKeyFP(), bundle.Round, msg.Digest())
+		m.Internal.Events.Report(1, "MessageReception", "Garbled", im)
+		m.Session.GetGarbledMessages().Add(msg)
 		return
 	}
 
@@ -126,14 +130,12 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 		return
 	}
 
-
-
 	// Process the decrypted/unencrypted message partition, to see if
 	// we get a full message
 	xxMsg, ok := m.partitioner.HandlePartition(sender, encTy, msg.GetContents(),
 		relationshipFingerprint)
 
-	im := fmt.Sprintf("Received message of ecr type %s and msg type " +
+	im := fmt.Sprintf("Received message of ecr type %s and msg type "+
 		"%d from %s in round %d,msgDigest: %s, keyFP: %v", encTy,
 		xxMsg.MessageType, sender, bundle.Round, msgDigest, msg.GetKeyFP())
 	jww.INFO.Print(im)

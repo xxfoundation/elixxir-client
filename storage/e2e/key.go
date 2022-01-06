@@ -8,9 +8,13 @@
 package e2e
 
 import (
+	"crypto/rand"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"golang.org/x/crypto"
+
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
@@ -94,7 +98,18 @@ func (k *Key) Encrypt(msg format.Message) format.Message {
 	msg.SetKeyFP(fp)
 
 	// encrypt the payload
-	encPayload := e2eCrypto.Crypt(key, fp, msg.GetContents())
+	aead, err := crypto.NewX(key)
+	if err != nil {
+		panic(err)
+	}
+	nonce := make([]byte, aead.NonceSize(), aead.NonceSize()+msg.ContentsSize()+aead.Overhead())
+	if _, err := rand.Read(nonce); err != nil {
+		panic(err)
+	}
+
+	// Encrypt the message and append the ciphertext to the nonce.
+	encPayload := aead.Seal(nonce, nonce, msg, nil)
+
 	msg.SetContents(encPayload)
 
 	// create the MAC

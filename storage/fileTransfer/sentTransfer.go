@@ -91,6 +91,14 @@ const (
 // been used.
 var MaxRetriesErr = errors.New(maxRetriesErr)
 
+// States for parts in the partStats MultiStateVector.
+const (
+	unsent = iota
+	inProgress
+	finished
+	numStates // The number of part states (for initialisation of the vector)
+)
+
 // sentTransferStateMap prevents illegal state changes for part statuses.
 var sentTransferStateMap = [][]bool{
 	{false, true, false},
@@ -188,8 +196,8 @@ func NewSentTransfer(recipient *id.ID, tid ftCrypto.TransferID,
 	}
 
 	// Create new MultiStateVector for storing part statuses
-	st.partStats, err = utility.NewMultiStateVector(
-		st.numParts, 3, sentTransferStateMap, sentPartStatsVectorKey, st.kv)
+	st.partStats, err = utility.NewMultiStateVector(st.numParts, numStates,
+		sentTransferStateMap, sentPartStatsVectorKey, st.kv)
 	if err != nil {
 		return nil, errors.Errorf(newSentPartStatusVectorErr, err)
 	}
@@ -236,8 +244,8 @@ func (st *SentTransfer) ReInit(numFps uint16,
 	}
 
 	// Overwrite new part status MultiStateVector
-	st.partStats, err = utility.NewMultiStateVector(
-		st.numParts, 3, sentTransferStateMap, sentPartStatsVectorKey, st.kv)
+	st.partStats, err = utility.NewMultiStateVector(st.numParts, numStates,
+		sentTransferStateMap, sentPartStatsVectorKey, st.kv)
 	if err != nil {
 		return errors.Errorf(reInitSentPartStatusVectorErr, err)
 	}
@@ -314,7 +322,7 @@ func (st *SentTransfer) IsPartInProgress(partNum uint16) (bool, error) {
 	if err != nil {
 		return false, errors.Errorf(getStatusErr, partNum, err)
 	}
-	return status == 1, nil
+	return status == inProgress, nil
 }
 
 // IsPartFinished returns true if the part has successfully arrived. Returns
@@ -325,7 +333,7 @@ func (st *SentTransfer) IsPartFinished(partNum uint16) (bool, error) {
 	if err != nil {
 		return false, errors.Errorf(getStatusErr, partNum, err)
 	}
-	return status == 2, nil
+	return status == finished, nil
 }
 
 // GetProgress returns the current progress of the transfer. Completed is true
@@ -345,8 +353,8 @@ func (st *SentTransfer) GetProgress() (completed bool, sent, arrived,
 // getProgress is the thread-unsafe helper function for GetProgress.
 func (st *SentTransfer) getProgress() (completed bool, sent, arrived,
 	total uint16, t interfaces.FilePartTracker) {
-	arrived, _ = st.partStats.GetCount(2)
-	sent, _ = st.partStats.GetCount(1)
+	arrived, _ = st.partStats.GetCount(finished)
+	sent, _ = st.partStats.GetCount(inProgress)
 	total = st.numParts
 
 	if sent == 0 && arrived == total {
@@ -476,7 +484,7 @@ func (st *SentTransfer) SetInProgress(rid id.Round, partNums ...uint16) (bool,
 	_, exists := st.inProgressTransfers.getPartNums(rid)
 
 	// Set parts as in-progress in part status vector
-	err := st.partStats.SetMany(partNums, 1)
+	err := st.partStats.SetMany(partNums, inProgress)
 	if err != nil {
 		return false, err
 	}
@@ -503,8 +511,16 @@ func (st *SentTransfer) UnsetInProgress(rid id.Round) ([]uint16, error) {
 	// Get the list of part numbers to be removed from list
 	partNums, _ := st.inProgressTransfers.getPartNums(rid)
 
+	// The part status is set in partStats before the parts and round ID so that
+	// in the event of recovery after a crash, the parts will be resent on a new
+	// round and the parts in the inProgressTransfers will be left until deleted
+	// with the rest of the storage on transfer completion. The side effect is
+	// that on recovery, the status of the round will be looked up again and the
+	// progress callback will be called for an event that has already been
+	// called on the callback.
+
 	// Set parts as unsent in part status vector
-	err := st.partStats.SetMany(partNums, 0)
+	err := st.partStats.SetMany(partNums, unsent)
 	if err != nil {
 		return nil, err
 	}
@@ -539,7 +555,7 @@ func (st *SentTransfer) FinishTransfer(rid id.Round) (bool, error) {
 	}
 
 	// Set parts as finished in part status vector
-	err = st.partStats.SetMany(partNums, 2)
+	err = st.partStats.SetMany(partNums, finished)
 	if err != nil {
 		return false, err
 	}
@@ -561,7 +577,7 @@ func (st *SentTransfer) GetUnsentPartNums() ([]uint16, error) {
 	defer st.mux.RUnlock()
 
 	// Get list of parts with a status of unsent
-	unsentPartNums, err := st.partStats.GetKeys(0)
+	unsentPartNums, err := st.partStats.GetKeys(unsent)
 	if err != nil {
 		return nil, errors.Errorf(getUnsentPartsErr, err)
 	}

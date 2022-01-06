@@ -962,15 +962,15 @@ func TestSentTransfer_SetInProgress(t *testing.T) {
 
 	// Check that the part numbers were set on the in-progress status vector
 	for i, partNum := range expectedPartNums {
-		if status, _ := st.partStats.Get(partNum); status != 1 {
-			t.Errorf("Part number %d not marked as used in status vector (%d).",
-				partNum, i)
+		if status, _ := st.partStats.Get(partNum); status != inProgress {
+			t.Errorf("Part number %d not marked as in-progress in status "+
+				"vector (%d).", partNum, i)
 		}
 	}
 
 	// Check that the correct number of parts were marked as in-progress in the
 	// status vector
-	count, _ := st.partStats.GetCount(1)
+	count, _ := st.partStats.GetCount(inProgress)
 	if int(count) != len(expectedPartNums) {
 		t.Errorf("Incorrect number of parts marked as in-progress."+
 			"\nexpected: %d\nreceived: %d", len(expectedPartNums), count)
@@ -989,7 +989,7 @@ func TestSentTransfer_SetInProgress(t *testing.T) {
 	}
 
 	// Check that the number of parts were marked as in-progress is unchanged
-	count, _ = st.partStats.GetCount(1)
+	count, _ = st.partStats.GetCount(inProgress)
 	if int(count) != len(expectedPartNums2)+len(expectedPartNums) {
 		t.Errorf("Incorrect number of parts marked as in-progress."+
 			"\nexpected: %d\nreceived: %d",
@@ -1075,10 +1075,10 @@ func TestSentTransfer_UnsetInProgress(t *testing.T) {
 	}
 
 	// Check that there are no set parts in the in-progress status vector
-	status, _ := st.partStats.Get(1)
-	if status != 0 {
+	status, _ := st.partStats.Get(inProgress)
+	if status != unsent {
 		t.Errorf("Failed to unset all parts in the in-progress vector."+
-			"\nexpected: %d\nreceived: %d", 0, status)
+			"\nexpected: %d\nreceived: %d", unsent, status)
 	}
 }
 
@@ -1134,7 +1134,7 @@ func TestSentTransfer_FinishTransfer(t *testing.T) {
 	}
 
 	// Check that there are no set parts in the in-progress status vector
-	count, _ := st.partStats.GetCount(1)
+	count, _ := st.partStats.GetCount(inProgress)
 	if count != 0 {
 		t.Errorf("Failed to unset all parts in the in-progress vector."+
 			"\nexpected: %d\nreceived: %d", 0, count)
@@ -1142,17 +1142,16 @@ func TestSentTransfer_FinishTransfer(t *testing.T) {
 
 	// Check that the part numbers were set on the finished status vector
 	for i, partNum := range expectedPartNums {
-
-		status, _ := st.partStats.Get(1)
-		if status != 2 {
-			t.Errorf("Part number %d not marked as used in status vector (%d).",
-				partNum, i)
+		status, _ := st.partStats.Get(inProgress)
+		if status != finished {
+			t.Errorf("Part number %d not marked as finished in status vector "+
+				"(%d).", partNum, i)
 		}
 	}
 
 	// Check that the correct number of parts were marked as finished in the
 	// status vector
-	count, _ = st.partStats.GetCount(2)
+	count, _ = st.partStats.GetCount(finished)
 	if int(count) != len(expectedPartNums) {
 		t.Errorf("Incorrect number of parts marked as finished."+
 			"\nexpected: %d\nreceived: %d", len(expectedPartNums), count)

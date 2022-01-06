@@ -106,7 +106,8 @@ func (m Manager) updateSentRounds(healthyChan chan bool,
 					roundList, err)
 			} else {
 				jww.INFO.Printf(
-					"[FT] Successfully recovered old file transfers.")
+					"[FT] Successfully recovered old file transfers: %v",
+					sentRounds)
 				return nil
 			}
 			getRoundResultsAttempts++

@@ -33,7 +33,7 @@ import (
 const (
 	// Manager.sendParts
 	sendManyCmixWarn   = "[FT] Failed to send %d file parts %v via SendManyCMIX: %+v"
-	setInProgressErr   = "[FT] Failed to set parts %v to in-progress for transfer %s"
+	setInProgressErr   = "[FT] Failed to set parts %v to in-progress for transfer %s: %+v"
 	getRoundResultsErr = "[FT] Failed to get round results for round %d for file transfers %v: %+v"
 
 	// Manager.buildMessages
@@ -47,7 +47,7 @@ const (
 	finishedEndE2eMsfErr    = "[FT] Failed to send E2E message to %s on completion of file transfer %s: %+v"
 	roundFailureWarn        = "[FT] Failed to send file parts for file transfers %v on round %d: round %s"
 	finishFailNoTransferErr = "[FT] Failed to requeue in-progress parts on failure of round %d for transfer %s: %+v"
-	unsetInProgressErr      = "[FT] Failed to remove parts from in-progress list for transfer %s: round %s"
+	unsetInProgressErr      = "[FT] Failed to remove parts from in-progress list for transfer %s: round %s: %+v"
 
 	// Manager.sendEndE2eMessage
 	endE2eGetPartnerErr = "failed to get file transfer partner %s: %+v"
@@ -211,7 +211,7 @@ func (m *Manager) handleSend(partList *[]queuedPart, lastSend *time.Time,
 	// Send all the messages
 	err := m.sendParts(*partList, sentRounds)
 	if err != nil {
-		jww.FATAL.Panic(err)
+		jww.ERROR.Print(err)
 	}
 
 	// Update the timestamp of the send
@@ -270,7 +270,7 @@ func (m *Manager) sendParts(partList []queuedPart,
 	for tid, transfer := range transfers {
 		exists, err := transfer.SetInProgress(rid, groupedParts[tid]...)
 		if err != nil {
-			return errors.Errorf(setInProgressErr, groupedParts[tid], tid)
+			return errors.Errorf(setInProgressErr, groupedParts[tid], tid, err)
 		}
 
 		transfer.CallProgressCB(nil)
@@ -460,7 +460,8 @@ func (m *Manager) makeRoundEventCallback(
 					// Remove parts from in-progress list
 					partsToResend, err := st.UnsetInProgress(rid)
 					if err != nil {
-						jww.ERROR.Printf(unsetInProgressErr, tid, roundResult)
+						jww.ERROR.Printf(
+							unsetInProgressErr, tid, roundResult, err)
 					}
 
 					// Call progress callback after change in progress

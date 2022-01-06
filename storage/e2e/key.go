@@ -98,7 +98,7 @@ func (k *Key) Encrypt(msg format.Message) format.Message {
 	msg.SetKeyFP(fp)
 
 	// encrypt the payload
-	aead, err := chacha20poly1305.NewX(key)
+	aead, err := chacha20poly1305.NewX(key[:])
 	if err != nil {
 		panic(err)
 	}
@@ -108,7 +108,7 @@ func (k *Key) Encrypt(msg format.Message) format.Message {
 	}
 
 	// Encrypt the message and append the ciphertext to the nonce.
-	encPayload := aead.Seal(nonce, nonce, msg, nil)
+	encPayload := aead.Seal(nonce, nonce, msg.GetContents(), nil)
 
 	msg.SetContents(encPayload)
 
@@ -125,7 +125,6 @@ func (k *Key) Encrypt(msg format.Message) format.Message {
 // It returns an error in case of HMAC verification failure
 // or in case of a decryption error (related to padding)
 func (k *Key) Decrypt(msg format.Message) (format.Message, error) {
-	fp := k.Fingerprint()
 	key := k.generateKey()
 
 	// Verify the MAC is correct
@@ -134,7 +133,7 @@ func (k *Key) Decrypt(msg format.Message) (format.Message, error) {
 	}
 
 	// Decrypt the payload
-	aead, err := chacha20poly1305.NewX(key)
+	aead, err := chacha20poly1305.NewX(key[:])
 	if err != nil {
 		panic(err)
 	}

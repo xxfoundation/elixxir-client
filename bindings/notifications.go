@@ -9,7 +9,6 @@ package bindings
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/crypto/fingerprint"
@@ -69,7 +68,6 @@ func NotificationsForMe(notifCSV, preimages string) (*ManyNotificationForMeRepor
 	}
 
 	list, err := notifications.DecodeNotificationsCSV(notifCSV)
-	fmt.Printf("%+v, %+v", list[0], list[1])
 
 	if err != nil {
 		return nil, err

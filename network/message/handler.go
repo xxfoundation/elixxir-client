@@ -74,10 +74,6 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 		return
 	}
 
-	im := fmt.Sprintf("Received message of msg type %d from %s in round %d,msgDigest: %s, keyFP: %v",
-		encTy, sender, bundle.Round, msgDigest, msg.GetKeyFP())
-	jww.INFO.Print(im)
-
 	// try to get the key fingerprint, process as e2e encryption if
 	// the fingerprint is found
 	if key, isE2E := e2eKv.PopKey(fingerprint); isE2E {
@@ -121,7 +117,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 			RoundId:        id.Round(bundle.RoundInfo.ID),
 			RoundTimestamp: time.Unix(0, int64(bundle.RoundInfo.Timestamps[states.QUEUED])),
 		}
-		im := fmt.Sprintf("Garbled/RAW Message: keyFP: %v, round: %d, "+
+		im := fmt.Sprintf("Received message of type Garbled/RAW: keyFP: %v, round: %d, "+
 			"msgDigest: %s", msg.GetKeyFP(), bundle.Round, msg.Digest())
 		jww.INFO.Print(im)
 		m.Internal.Events.Report(1, "MessageReception", "Garbled", im)
@@ -135,6 +131,10 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 	xxMsg, ok := m.partitioner.HandlePartition(sender, encTy, msg.GetContents(),
 		relationshipFingerprint)
 
+	im := fmt.Sprintf("Received message of ecr type %s and msg type "+
+		"%d from %s in round %d,msgDigest: %s, keyFP: %v", encTy,
+		xxMsg.MessageType, sender, bundle.Round, msgDigest, msg.GetKeyFP())
+	jww.INFO.Print(im)
 	m.Internal.Events.Report(2, "MessageReception", "MessagePart", im)
 
 	// If the reception completed a message, hear it on the switchboard

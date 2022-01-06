@@ -134,10 +134,17 @@ func (k *Key) Decrypt(msg format.Message) (format.Message, error) {
 	}
 
 	// Decrypt the payload
-	decryptedPayload := e2eCrypto.Crypt(key, fp, msg.GetContents())
+	encryptedMsg := msg.GetContents()
+	nonce, ciphertext := encryptedMsg[:aead.NonceSize()], encryptedMsg[aead.NonceSize():]
+
+	// Decrypt the message and check it wasn't tampered with.
+	plaintext, err := aead.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		panic(err)
+	}
 
 	//put the decrypted payload back in the message
-	msg.SetContents(decryptedPayload)
+	msg.SetContents(plaintext)
 
 	return msg, nil
 }

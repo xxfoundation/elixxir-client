@@ -54,7 +54,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 	var relationshipFingerprint []byte
 
 	//if it exists, check against all in the list
-	has, forMe, _ := m.Session.GetEdge().Check(identity.Source, ecrMsg.GetIdentityFP(), ecrMsg.GetContents())
+	has, forMe, _ := m.Session.GetEdge().Check(identity.Source, ecrMsg.GetIdentityFP(), append([]byte{0}, ecrMsg.GetContents()...))
 	if !has {
 		jww.INFO.Printf("checking backup %v", preimage.MakeDefault(identity.Source))
 		//if it doesnt exist, check against the default fingerprint for the identity
@@ -126,14 +126,12 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 		return
 	}
 
-
-
 	// Process the decrypted/unencrypted message partition, to see if
 	// we get a full message
 	xxMsg, ok := m.partitioner.HandlePartition(sender, encTy, msg.GetContents(),
 		relationshipFingerprint)
 
-	im := fmt.Sprintf("Received message of ecr type %s and msg type " +
+	im := fmt.Sprintf("Received message of ecr type %s and msg type "+
 		"%d from %s in round %d,msgDigest: %s, keyFP: %v", encTy,
 		xxMsg.MessageType, sender, bundle.Round, msgDigest, msg.GetKeyFP())
 	jww.INFO.Print(im)

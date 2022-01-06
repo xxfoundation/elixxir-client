@@ -193,11 +193,6 @@ func (sft *SentFileTransfersStore) GetUnsentPartsAndSentRounds() (
 	sentRounds := map[id.Round][]ftCrypto.TransferID{}
 
 	for tid, st := range sft.transfers {
-		// Get list of round IDs that transfers have in-progress rounds on
-		for _, rid := range st.GetSentRounds() {
-			sentRounds[rid] = append(sentRounds[rid], tid)
-		}
-
 		// Get list of unsent part numbers for each transfer
 		stUnsentParts, err := st.GetUnsentPartNums()
 		if err != nil {
@@ -205,6 +200,11 @@ func (sft *SentFileTransfersStore) GetUnsentPartsAndSentRounds() (
 		}
 		if len(stUnsentParts) > 0 {
 			unsentParts[tid] = stUnsentParts
+		}
+
+		// Get list of round IDs that transfers have in-progress rounds on
+		for _, rid := range st.GetSentRounds() {
+			sentRounds[rid] = append(sentRounds[rid], tid)
 		}
 	}
 

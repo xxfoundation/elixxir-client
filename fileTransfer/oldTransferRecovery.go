@@ -12,6 +12,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
+	"sync/atomic"
 )
 
 // Error messages.
@@ -29,7 +30,9 @@ const roundResultsMaxAttempts = 5
 func (m Manager) oldTransferRecovery(healthyChan chan bool, chanID uint64) {
 
 	// Exit if old transfers have already been recovered
-	if m.oldTransfersRecovered {
+	// TODO: move GetUnsentPartsAndSentRounds to manager creation and remove the
+	//  atomic
+	if !atomic.CompareAndSwapUint32(m.oldTransfersRecovered, 0, 1) {
 		jww.DEBUG.Printf("[FT] Old file transfer recovery thread not " +
 			"starting: none to recover (app was not closed)")
 		return
@@ -37,6 +40,9 @@ func (m Manager) oldTransferRecovery(healthyChan chan bool, chanID uint64) {
 
 	// Get list of unsent parts and rounds that parts were sent on
 	unsentParts, sentRounds, err := m.sent.GetUnsentPartsAndSentRounds()
+
+	jww.DEBUG.Printf("Adding unsent parts from %d recovered transfers: %v",
+		len(unsentParts), unsentParts)
 
 	// Add all unsent parts to the queue
 	for tid, partNums := range unsentParts {
@@ -106,7 +112,9 @@ func (m Manager) updateSentRounds(healthyChan chan bool,
 					roundList, err)
 			} else {
 				jww.INFO.Printf(
-					"[FT] Successfully recovered old file transfers.")
+					"[FT] Successfully recovered old file transfers: %v",
+					sentRounds)
+
 				return nil
 			}
 			getRoundResultsAttempts++

@@ -47,7 +47,7 @@ func Test_NewSentTransfer(t *testing.T) {
 	fpVector, _ := utility.NewStateVector(
 		kvPrefixed, sentFpVectorKey, uint32(numFps))
 	partStats, _ := utility.NewMultiStateVector(
-		numParts, 3, sentTransferStateMap, sentPartStatsVectorKey, kvPrefixed)
+		numParts, 3, nil, sentPartStatsVectorKey, kvPrefixed)
 
 	type cbFields struct {
 		completed            bool
@@ -172,7 +172,7 @@ func TestSentTransfer_ReInit(t *testing.T) {
 	fpVector, _ := utility.NewStateVector(
 		kvPrefixed, sentFpVectorKey, uint32(numFps2))
 	partStats, _ := utility.NewMultiStateVector(
-		numParts, 3, sentTransferStateMap, sentPartStatsVectorKey, kvPrefixed)
+		numParts, 3, nil, sentPartStatsVectorKey, kvPrefixed)
 
 	type cbFields struct {
 		completed            bool

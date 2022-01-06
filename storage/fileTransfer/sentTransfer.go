@@ -99,13 +99,6 @@ const (
 	numStates // The number of part states (for initialisation of the vector)
 )
 
-// sentTransferStateMap prevents illegal state changes for part statuses.
-var sentTransferStateMap = [][]bool{
-	{false, true, false},
-	{true, false, true},
-	{false, false, false},
-}
-
 // SentTransfer contains information and progress data for sending and in-
 // progress file transfer.
 type SentTransfer struct {
@@ -196,8 +189,8 @@ func NewSentTransfer(recipient *id.ID, tid ftCrypto.TransferID,
 	}
 
 	// Create new MultiStateVector for storing part statuses
-	st.partStats, err = utility.NewMultiStateVector(st.numParts, numStates,
-		sentTransferStateMap, sentPartStatsVectorKey, st.kv)
+	st.partStats, err = utility.NewMultiStateVector(
+		st.numParts, numStates, nil, sentPartStatsVectorKey, st.kv)
 	if err != nil {
 		return nil, errors.Errorf(newSentPartStatusVectorErr, err)
 	}
@@ -244,8 +237,8 @@ func (st *SentTransfer) ReInit(numFps uint16,
 	}
 
 	// Overwrite new part status MultiStateVector
-	st.partStats, err = utility.NewMultiStateVector(st.numParts, numStates,
-		sentTransferStateMap, sentPartStatsVectorKey, st.kv)
+	st.partStats, err = utility.NewMultiStateVector(
+		st.numParts, numStates, nil, sentPartStatsVectorKey, st.kv)
 	if err != nil {
 		return errors.Errorf(reInitSentPartStatusVectorErr, err)
 	}
@@ -483,13 +476,24 @@ func (st *SentTransfer) SetInProgress(rid id.Round, partNums ...uint16) (bool,
 	// Check if there is already a round in-progress
 	_, exists := st.inProgressTransfers.getPartNums(rid)
 
-	// Set parts as in-progress in part status vector
-	err := st.partStats.SetMany(partNums, inProgress)
+	// The parts and round ID are added to the inProgressTransfers before
+	// setting the statuses in partStats to ensure that if it crashes, on
+	// recovery, the status of the part can still be looked up using the round
+	// ID. The side effect is that the part remains marked as unsent and would
+	// be resent again on recovery and use up another fingerprint/retry.
+	// The alternative would result in the part being lost and picked up by
+	// neither the in-progress part checker nor the unsent part sender.
+
+	// Add parts as in-progress for the round
+	err := st.inProgressTransfers.addPartNums(rid, partNums...)
 	if err != nil {
-		return false, err
+		return exists, err
 	}
 
-	return exists, st.inProgressTransfers.addPartNums(rid, partNums...)
+	// Set parts as in-progress in part status vector
+	err = st.partStats.SetMany(partNums, inProgress)
+
+	return exists, err
 }
 
 // GetInProgress returns a list of all part number in the in-progress transfers
@@ -535,6 +539,13 @@ func (st *SentTransfer) FinishTransfer(rid id.Round) (bool, error) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 
+	// Set the status as finished before modifying the transfer bundles so that
+	// in the event of recovery from a crash here, the in-progress round will be
+	// picked up again and the round status checked, which will cause them to be
+	// marked as finished again. Otherwise, the part sends successfully, but the
+	// part is never marked completed and the sender will not know the transfer
+	// is done.
+
 	// Get the parts in-progress for the round ID or return an error if none
 	// exist
 	partNums, exists := st.inProgressTransfers.getPartNums(rid)
@@ -542,10 +553,10 @@ func (st *SentTransfer) FinishTransfer(rid id.Round) (bool, error) {
 		return false, errors.Errorf(noPartsForRoundErr, rid)
 	}
 
-	// Delete the parts from the in-progress list
-	err := st.inProgressTransfers.deletePartNums(rid)
+	// Set parts as finished in part status vector
+	err := st.partStats.SetMany(partNums, finished)
 	if err != nil {
-		return false, errors.Errorf(deleteInProgressPartsErr, rid, err)
+		return false, err
 	}
 
 	// Add the parts to the finished list
@@ -554,16 +565,17 @@ func (st *SentTransfer) FinishTransfer(rid id.Round) (bool, error) {
 		return false, err
 	}
 
-	// Set parts as finished in part status vector
-	err = st.partStats.SetMany(partNums, finished)
+	// Delete the parts from the in-progress list
+	err = st.inProgressTransfers.deletePartNums(rid)
 	if err != nil {
-		return false, err
+		return false, errors.Errorf(deleteInProgressPartsErr, rid, err)
 	}
 
 	// If all parts have been moved to the finished list, then set the status
 	// to stopping
-	if st.finishedTransfers.getNumParts() == st.numParts &&
-		st.inProgressTransfers.getNumParts() == 0 {
+	arrived, _ := st.partStats.GetCount(finished)
+	sent, _ := st.partStats.GetCount(inProgress)
+	if sent == 0 && arrived == st.numParts {
 		st.status = Stopping
 		return true, nil
 	}
@@ -641,7 +653,7 @@ func loadSentTransfer(tid ftCrypto.TransferID, kv *versioned.KV) (*SentTransfer,
 
 	// Load the part status MultiStateVector from storage
 	st.partStats, err = utility.LoadMultiStateVector(
-		sentTransferStateMap, sentPartStatsVectorKey, st.kv)
+		nil, sentPartStatsVectorKey, st.kv)
 	if err != nil {
 		return nil, errors.Errorf(loadSentPartStatusVectorErr, err)
 	}

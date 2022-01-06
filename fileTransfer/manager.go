@@ -102,7 +102,7 @@ type Manager struct {
 
 	// Indicates if old transfers saved to storage have been recovered after
 	// file transfer is closed and reopened
-	oldTransfersRecovered bool
+	oldTransfersRecovered uint32
 
 	// File transfer parameters
 	p Params
@@ -166,7 +166,7 @@ func newManager(client *api.Client, store *storage.Session,
 		sent:                  sent,
 		received:              received,
 		sendQueue:             make(chan queuedPart, sendQueueBuffLen),
-		oldTransfersRecovered: false,
+		oldTransfersRecovered: 0,
 		p:                     p,
 		client:                client,
 		store:                 store,

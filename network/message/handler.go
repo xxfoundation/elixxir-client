@@ -107,7 +107,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 		msg = ecrMsg
 		encTy = message.None
 	} else {
-		// if it doesnt match any form of encrypted, hear it as a raw message
+		// if it doesn't match any form of encrypted, hear it as a raw message
 		// and add it to garbled messages to be handled later
 		msg = ecrMsg
 		raw := message.Receive{
@@ -121,7 +121,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 			RoundId:        id.Round(bundle.RoundInfo.ID),
 			RoundTimestamp: time.Unix(0, int64(bundle.RoundInfo.Timestamps[states.QUEUED])),
 		}
-		im := fmt.Sprintf("Garbled/RAW Message: keyFP: %v, round: %d"+
+		im := fmt.Sprintf("Received message of type Garbled/RAW: keyFP: %v, round: %d, "+
 			"msgDigest: %s", msg.GetKeyFP(), bundle.Round, msg.Digest())
 		jww.INFO.Print(im)
 		m.Internal.Events.Report(1, "MessageReception", "Garbled", im)

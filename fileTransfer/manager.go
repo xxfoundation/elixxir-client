@@ -164,8 +164,6 @@ func newManager(client *api.Client, store *storage.Session,
 	jww.DEBUG.Printf(""+
 		"[FT] Creating new file transfer manager with params: %+v", p)
 
-	oldTransfersRecovered := uint32(0)
-
 	// Get list of unsent parts and rounds that parts were sent on
 	unsentParts, sentRounds, err := sent.GetUnsentPartsAndSentRounds()
 	if err != nil {
@@ -179,7 +177,6 @@ func newManager(client *api.Client, store *storage.Session,
 		received:              received,
 		sendQueue:             make(chan queuedPart, sendQueueBuffLen),
 		recoveredSentRounds:   sentRounds,
-		oldTransfersRecovered: &oldTransfersRecovered,
 		p:                     p,
 		client:                client,
 		store:                 store,

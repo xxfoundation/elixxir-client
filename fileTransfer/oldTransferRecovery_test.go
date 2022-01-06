@@ -234,6 +234,7 @@ func TestManager_updateSentRounds(t *testing.T) {
 			case 2:
 				// Part is unsent (neither in-progress nor arrived)
 				expectedStatus[st.tid][j] = 0
+				numUnsent++
 			}
 		}
 	}
@@ -264,10 +265,7 @@ func TestManager_updateSentRounds(t *testing.T) {
 	healthyRecover := make(chan bool, networkHealthBuffLen)
 	healthyRecover <- true
 
-	// Get list of rounds that parts were sent on
-	_, loadedSentRounds, _ := m.sent.GetUnsentPartsAndSentRounds()
-
-	err = loadedManager.updateSentRounds(healthyRecover, loadedSentRounds)
+	err = loadedManager.updateSentRounds(healthyRecover, loadedManager.recoveredSentRounds)
 	if err != nil {
 		t.Errorf("updateSentRounds returned an error: %+v", err)
 	}
@@ -307,8 +305,8 @@ func TestManager_updateSentRounds(t *testing.T) {
 
 	// Check that the number of items in the queue is correct
 	if queueCount != numUnsent {
-		t.Errorf("Number of items incorrect.\nexpected: %d\nreceived: %d",
-			numUnsent, queueCount)
+		t.Errorf("Number of items in queue incorrect."+
+			"\nexpected: %d\nreceived: %d", numUnsent, queueCount)
 	}
 }
 

@@ -100,6 +100,9 @@ type Manager struct {
 	// Queue of parts to send
 	sendQueue chan queuedPart
 
+	// List of recovered in-progress transfers and their round ID
+	recoveredSentRounds map[id.Round][]ftCrypto.TransferID
+
 	// Indicates if old transfers saved to storage have been recovered after
 	// file transfer is closed and reopened; this is an atomic
 	oldTransfersRecovered *uint32
@@ -159,15 +162,23 @@ func newManager(client *api.Client, store *storage.Session,
 	}
 
 	jww.DEBUG.Printf(""+
-		"[FT] Created new file transfer manager with params: %+v", p)
+		"[FT] Creating new file transfer manager with params: %+v", p)
 
 	oldTransfersRecovered := uint32(0)
 
-	return &Manager{
+	// Get list of unsent parts and rounds that parts were sent on
+	unsentParts, sentRounds, err := sent.GetUnsentPartsAndSentRounds()
+	if err != nil {
+		jww.ERROR.Printf(
+			"[FT] Failed to get unsent parts or sent rounds: %+v", err)
+	}
+
+	m := &Manager{
 		receiveCB:             receiveCB,
 		sent:                  sent,
 		received:              received,
 		sendQueue:             make(chan queuedPart, sendQueueBuffLen),
+		recoveredSentRounds:   sentRounds,
 		oldTransfersRecovered: &oldTransfersRecovered,
 		p:                     p,
 		client:                client,
@@ -176,7 +187,19 @@ func newManager(client *api.Client, store *storage.Session,
 		net:                   net,
 		rng:                   rng,
 		getRoundResults:       getRoundResults,
-	}, nil
+	}
+
+	if len(unsentParts) > 0 {
+		jww.DEBUG.Printf("Adding unsent parts from %d recovered transfers: %v",
+			len(unsentParts), unsentParts)
+
+		// Add all unsent parts to the queue
+		for tid, partNums := range unsentParts {
+			m.queueParts(tid, partNums)
+		}
+	}
+
+	return m, nil
 }
 
 // StartProcesses starts the processes needed to send and receive file parts. It
@@ -204,7 +227,7 @@ func (m *Manager) startProcesses(newFtChan, filePartChan chan message.Receive) (
 	healthySendID := m.net.GetHealthTracker().AddChannel(healthySend)
 
 	// Recover unsent parts from storage
-	m.oldTransferRecovery(healthyRecover, healthyRecoverID)
+	go m.oldTransferRecovery(healthyRecover, healthyRecoverID)
 
 	// Start the new file transfer message reception thread
 	newFtStop := stoppable.NewSingle(newFtStoppableName)

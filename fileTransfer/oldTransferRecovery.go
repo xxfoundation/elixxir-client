@@ -12,7 +12,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
-	"sync/atomic"
 )
 
 // Error messages.
@@ -28,35 +27,8 @@ const roundResultsMaxAttempts = 5
 // oldTransferRecovery adds all unsent file parts back into the queue and
 // updates the in-progress file parts by getting round updates.
 func (m Manager) oldTransferRecovery(healthyChan chan bool, chanID uint64) {
-
-	// Exit if old transfers have already been recovered
-	// TODO: move GetUnsentPartsAndSentRounds to manager creation and remove the
-	//  atomic
-	if !atomic.CompareAndSwapUint32(m.oldTransfersRecovered, 0, 1) {
-		jww.DEBUG.Printf("[FT] Old file transfer recovery thread not " +
-			"starting: none to recover (app was not closed)")
-		return
-	}
-
-	// Get list of unsent parts and rounds that parts were sent on
-	unsentParts, sentRounds, err := m.sent.GetUnsentPartsAndSentRounds()
-
-	jww.DEBUG.Printf("Adding unsent parts from %d recovered transfers: %v",
-		len(unsentParts), unsentParts)
-
-	// Add all unsent parts to the queue
-	for tid, partNums := range unsentParts {
-		m.queueParts(tid, partNums)
-	}
-
-	if err != nil {
-		jww.ERROR.Printf("[FT] Failed to get sent rounds: %+v", err)
-		m.net.GetHealthTracker().RemoveChannel(chanID)
-		return
-	}
-
 	// Return if there are no parts to recover
-	if len(sentRounds) == 0 {
+	if len(m.recoveredSentRounds) == 0 {
 		jww.DEBUG.Print(
 			"[FT] No in-progress rounds from old transfers to recover.")
 		return
@@ -64,16 +36,13 @@ func (m Manager) oldTransferRecovery(healthyChan chan bool, chanID uint64) {
 
 	// Update parts that were sent by looking up the status of the rounds they
 	// were sent on
-	go func(healthyChan chan bool, chanID uint64,
-		sentRounds map[id.Round][]ftCrypto.TransferID) {
-		err := m.updateSentRounds(healthyChan, sentRounds)
-		if err != nil {
-			jww.ERROR.Print(err)
-		}
+	err := m.updateSentRounds(healthyChan, m.recoveredSentRounds)
+	if err != nil {
+		jww.ERROR.Print(err)
+	}
 
-		// Remove channel from tacker once done with it
-		m.net.GetHealthTracker().RemoveChannel(chanID)
-	}(healthyChan, chanID, sentRounds)
+	// Remove channel from tacker once done with it
+	m.net.GetHealthTracker().RemoveChannel(chanID)
 }
 
 // updateSentRounds looks up the status of each round that parts were sent on

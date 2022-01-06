@@ -123,23 +123,3 @@ func TestManyNotificationForMeReport_Get(t *testing.T) {
 		t.Errorf("Didnt get error when too long")
 	}
 }
-
-func TestManyNotificationForMeReport_Get2(t *testing.T) {
-	//preimages := "[{\"Data\":\"+imfMoh4wSvzdqlXvkeM8HK37NSrcWWzNIQuN2SAWzQD\",\"Type\":\"default\",\"Source\":\"+imfMoh4wSvzdqlXvkeM8HK37NSrcWWzNIQuN2SAWzQD\"},{\"Data\":\"KyX9P0GJy1tGpX2Kl0RSHO7liXh8WZ3lVmgh0luiyPc=\",\"Type\":\"request\",\"Source\":\"+imfMoh4wSvzdqlXvkeM8HK37NSrcWWzNIQuN2SAWzQD\"},{\"Data\":\"AKpMwY5PX3A3VA+xW2P96XoAxm+w/qODIoCOv/C1jmg=\",\"Type\":\"e2e\",\"Source\":\"k2aR7LPdbI825ZM15PPQGgA5xHi5uj+945ozTWHXYn8D\"},{\"Data\":\"sFu5vVtjkpvyF9aRGadbEFpI1HtFfoz3o2y2wAcq7GE=\",\"Type\":\"silent\",\"Source\":\"k2aR7LPdbI825ZM15PPQGgA5xHi5uj+945ozTWHXYn8D\"},{\"Data\":\"fejEMJllneWUvTwG5xsk921iZymizzRakowl1odzMHM=\",\"Type\":\"endFT\",\"Source\":\"k2aR7LPdbI825ZM15PPQGgA5xHi5uj+945ozTWHXYn8D\"}]"
-	//csv := "LfDJYRwrmSBc9Y9Kt1C0TpxezIp42QUxZytbnoAkJrU=,NBWOG68cZhzmPrcnv0VbmuAutZ+Mfyx7vQ=="
-	preimages := "[{\"Data\":\"6i0/uGCZWM5CMfyS5TtqgZziDiwr62jkqI2VGP2OsfY=\",\"Type\":\"endFT\",\"Source\":\"yVbuL00vkMOMOq+9dzk7qUmc9KDUpK4QH5wxohURU7cD\"},{\"Data\":\"+imfMoh4wSvzdqlXvkeM8HK37NSrcWWzNIQuN2SAWzQD\",\"Type\":\"default\",\"Source\":\"+imfMoh4wSvzdqlXvkeM8HK37NSrcWWzNIQuN2SAWzQD\"},{\"Data\":\"AKpMwY5PX3A3VA+xW2P96XoAxm+w/qODIoCOv/C1jmg=\",\"Type\":\"e2e\",\"Source\":\"k2aR7LPdbI825ZM15PPQGgA5xHi5uj+945ozTWHXYn8D\"},{\"Data\":\"KyX9P0GJy1tGpX2Kl0RSHO7liXh8WZ3lVmgh0luiyPc=\",\"Type\":\"request\",\"Source\":\"+imfMoh4wSvzdqlXvkeM8HK37NSrcWWzNIQuN2SAWzQD\"},{\"Data\":\"fejEMJllneWUvTwG5xsk921iZymizzRakowl1odzMHM=\",\"Type\":\"endFT\",\"Source\":\"k2aR7LPdbI825ZM15PPQGgA5xHi5uj+945ozTWHXYn8D\"},{\"Data\":\"sFu5vVtjkpvyF9aRGadbEFpI1HtFfoz3o2y2wAcq7GE=\",\"Type\":\"silent\",\"Source\":\"k2aR7LPdbI825ZM15PPQGgA5xHi5uj+945ozTWHXYn8D\"},{\"Data\":\"z8jcb8HmzayFuzOGiPATJE7eaLCbu6p5TVky7zt9WWs=\",\"Type\":\"e2e\",\"Source\":\"yVbuL00vkMOMOq+9dzk7qUmc9KDUpK4QH5wxohURU7cD\"},{\"Data\":\"kMwwG5wg5/d7C5ptV/5qxOCcvXPNu1zEqAJJhAzpN1o=\",\"Type\":\"silent\",\"Source\":\"yVbuL00vkMOMOq+9dzk7qUmc9KDUpK4QH5wxohURU7cD\"}]"
-	// csv := "sonu7rdo4fnDnQr/EYcYfpdU3TOnZ/A+fvM5C9wYVRk=,6FZ+fEXi6DTbimit3xQv+629eXBd6cy7/w=="
-	csv := "dVRQWAgW7PD88S5LZQ2XehPSJn7U0h1cJT5b01Qesvw=,xFrwD5n5UmYNXAHPChpFmV6OecAJNxGP+w==\n2yDqIz9z01Pq+tV13HW/9TO4umz3jU6DaOhKATCRpqc=,kkKWe1VSwYEtiyKg6W4S5Q8Rzv53aLU6yQ=="
-
-	report, err := NotificationsForMe(csv, preimages)
-	if err != nil {
-		t.Errorf("Failed to check if notifications are for me: %+v", err)
-	}
-	var found bool
-	for _, i := range report.many {
-		found = found || i.forMe
-	}
-	if !found {
-		t.Errorf("No notifications for me :(")
-	}
-}

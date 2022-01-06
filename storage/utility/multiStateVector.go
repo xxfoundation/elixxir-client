@@ -43,7 +43,7 @@ const (
 	saveSetStateErr = "failed to save MultiStateVector after setting key %d state to %d: %+v"
 
 	// MultiStateVector.SetMany
-	setManyStateErr     = "failed to set state of key %d (%d/%d): %+v"
+	setManyStateErr     = "failed to set state of key %d (%d of %d): %+v"
 	saveManySetStateErr = "failed to save MultiStateVector after setting keys %d state to %d: %+v"
 
 	// MultiStateVector.set

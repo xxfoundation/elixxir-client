@@ -530,7 +530,7 @@ func (m *Manager) sendEndE2eMessage(recipient *id.ID) error {
 	// the session and the log
 	m.store.GetCriticalMessages().Succeeded(sendMsg, e2eParams)
 	jww.INFO.Printf("[FT] Sending of message %s informing %s that a transfer "+
-		"ended successful.", e2eMsgID, recipient)
+		"completed successfully.", e2eMsgID, recipient)
 
 	return nil
 }

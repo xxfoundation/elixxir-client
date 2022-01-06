@@ -159,7 +159,7 @@ func newManager(client *api.Client, store *storage.Session,
 	}
 
 	jww.DEBUG.Printf(""+
-		"[FT] Created mew file transfer manager with params: %+v", p)
+		"[FT] Created new file transfer manager with params: %+v", p)
 
 	return &Manager{
 		receiveCB:             receiveCB,

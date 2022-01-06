@@ -495,6 +495,7 @@ func (tnm *testNetworkManager) SendManyCMIX(messages []message.TargetedCmixMessa
 		for _, msg := range messages {
 			tnm.sendChan <- message.Receive{
 				Payload: msg.Message.Marshal(),
+				Sender:  &id.ID{0},
 				RoundId: tnm.rid,
 			}
 		}

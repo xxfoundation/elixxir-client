@@ -11,10 +11,12 @@ import (
 	"gitlab.com/elixxir/client/network/message/parse"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/edge"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/fingerprint"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -104,6 +106,13 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 		t.FailNow()
 	}
 
+	preimage := edge.Preimage{
+		Data:   []byte{0},
+		Type:   "test",
+		Source: nil,
+	}
+	m.Session.GetEdge().Add(preimage, sess2.GetUser().ReceptionID)
+
 	err = sess2.E2e().AddPartner(sess1.GetUser().TransmissionID,
 		sess1.E2e().GetDHPublicKey(), sess2.E2e().GetDHPrivateKey(),
 		mySIDHPubKey, partnerSIDHPrivKey,
@@ -143,6 +152,7 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	copy(fmp.Timestamp, ts)
 	msg.SetContents(fmp.Bytes())
 	encryptedMsg := key.Encrypt(msg)
+	msg.SetIdentityFP(fingerprint.IdentityFP(append([]byte{0}, msg.GetContents()...), preimage.Data)) // TODO: back this out after network update
 	i.Session.GetGarbledMessages().Add(encryptedMsg)
 
 	stop := stoppable.NewSingle("stop")

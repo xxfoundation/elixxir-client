@@ -191,17 +191,20 @@ func newTestManager(sendErr bool, sendChan, sendE2eChan chan message.Receive,
 	avgSendSize := avgNumMessages * (8192 / 8)
 	p.MaxThroughput = int(time.Second) * avgSendSize
 
+	oldTransfersRecovered := uint32(0)
+
 	m := &Manager{
-		receiveCB:       receiveCB,
-		sent:            sent,
-		received:        received,
-		sendQueue:       make(chan queuedPart, sendQueueBuffLen),
-		p:               p,
-		store:           storage.InitTestingSession(t),
-		swb:             switchboard.New(),
-		net:             net,
-		rng:             fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
-		getRoundResults: rr,
+		receiveCB:             receiveCB,
+		sent:                  sent,
+		received:              received,
+		sendQueue:             make(chan queuedPart, sendQueueBuffLen),
+		oldTransfersRecovered: &oldTransfersRecovered,
+		p:                     p,
+		store:                 storage.InitTestingSession(t),
+		swb:                   switchboard.New(),
+		net:                   net,
+		rng:                   fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
+		getRoundResults:       rr,
 	}
 
 	return m

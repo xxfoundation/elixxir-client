@@ -101,8 +101,8 @@ type Manager struct {
 	sendQueue chan queuedPart
 
 	// Indicates if old transfers saved to storage have been recovered after
-	// file transfer is closed and reopened
-	oldTransfersRecovered uint32
+	// file transfer is closed and reopened; this is an atomic
+	oldTransfersRecovered *uint32
 
 	// File transfer parameters
 	p Params
@@ -161,12 +161,14 @@ func newManager(client *api.Client, store *storage.Session,
 	jww.DEBUG.Printf(""+
 		"[FT] Created new file transfer manager with params: %+v", p)
 
+	oldTransfersRecovered := uint32(0)
+
 	return &Manager{
 		receiveCB:             receiveCB,
 		sent:                  sent,
 		received:              received,
 		sendQueue:             make(chan queuedPart, sendQueueBuffLen),
-		oldTransfersRecovered: 0,
+		oldTransfersRecovered: &oldTransfersRecovered,
 		p:                     p,
 		client:                client,
 		store:                 store,

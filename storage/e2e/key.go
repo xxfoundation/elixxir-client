@@ -13,7 +13,7 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"golang.org/x/crypto"
+	"golang.org/x/crypto/chacha20poly1305"
 
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
@@ -98,7 +98,7 @@ func (k *Key) Encrypt(msg format.Message) format.Message {
 	msg.SetKeyFP(fp)
 
 	// encrypt the payload
-	aead, err := crypto.NewX(key)
+	aead, err := chacha20poly1305.NewX(key)
 	if err != nil {
 		panic(err)
 	}
@@ -134,6 +134,11 @@ func (k *Key) Decrypt(msg format.Message) (format.Message, error) {
 	}
 
 	// Decrypt the payload
+	aead, err := chacha20poly1305.NewX(key)
+	if err != nil {
+		panic(err)
+	}
+
 	encryptedMsg := msg.GetContents()
 	nonce, ciphertext := encryptedMsg[:aead.NonceSize()], encryptedMsg[aead.NonceSize():]
 

@@ -72,9 +72,9 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 				identity.Source, expectedFP, ecrMsg.GetIdentityFP())
 		}
 		im := fmt.Sprintf("Garbled/RAW Message: keyFP: %v, round: %d"+
-			"msgDigest: %s, not determined to be for client", msg.GetKeyFP(), bundle.Round, msg.Digest())
+			"msgDigest: %s, not determined to be for client", ecrMsg.GetKeyFP(), bundle.Round, ecrMsg.Digest())
 		m.Internal.Events.Report(1, "MessageReception", "Garbled", im)
-		m.Session.GetGarbledMessages().Add(msg)
+		m.Session.GetGarbledMessages().Add(ecrMsg)
 		return
 	}
 

@@ -114,6 +114,10 @@ func LoadMeteredCmixMessageBuffer(kv *versioned.KV, key string) (*MeteredCmixMes
 }
 
 func (mcmb *MeteredCmixMessageBuffer) Add(m format.Message) {
+	if m.GetPrimeByteLen()==0{
+		jww.FATAL.Panicf("Cannot handle a metered " +
+			"cmix message with a length of 0")
+	}
 	msg := meteredCmixMessage{
 		M:         m.Marshal(),
 		Count:     0,

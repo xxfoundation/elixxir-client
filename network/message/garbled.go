@@ -45,6 +45,7 @@ func (m *Manager) processGarbledMessages(stop *stoppable.Single) {
 			stop.ToStopped()
 			return
 		case <-m.triggerGarbled:
+			jww.INFO.Printf("[GARBLE] Checking Garbled messages")
 			m.handleGarbledMessages()
 		}
 	}
@@ -59,7 +60,7 @@ func (m *Manager) handleGarbledMessages() {
 	for grbldMsg, count, timestamp, has := garbledMsgs.Next(); has; grbldMsg, count, timestamp, has = garbledMsgs.Next() {
 		//if it exists, check against all in the list
 		modifiedContents := append([]byte{0}, grbldMsg.GetContents()...)
-		identity := m.Session.GetUser().GetContact().ID
+		identity := m.Session.GetUser().ReceptionID
 		_, forMe, _ := m.Session.GetEdge().Check(identity, grbldMsg.GetIdentityFP(), modifiedContents)
 		if forMe {
 			fingerprint := grbldMsg.GetKeyFP()

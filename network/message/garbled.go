@@ -57,7 +57,6 @@ func (m *Manager) handleGarbledMessages() {
 	e2eKv := m.Session.E2e()
 	var failedMsgs []format.Message
 	//try to decrypt every garbled message, excising those who's counts are too high
-	i:=0
 	for grbldMsg, count, timestamp, has := garbledMsgs.Next(); has; grbldMsg, count, timestamp, has = garbledMsgs.Next() {
 		//if it exists, check against all in the list
 		modifiedContents := append([]byte{0}, grbldMsg.GetContents()...)
@@ -123,7 +122,6 @@ func (m *Manager) handleGarbledMessages() {
 				m.Session.GetGarbledMessages().Add(grbldMsg)
 				m.Switchboard.Speak(raw)
 			}
-			i++
 		}
 
 		// fail the message if any part of the decryption fails,

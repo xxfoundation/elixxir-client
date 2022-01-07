@@ -15,3 +15,9 @@ import "gitlab.com/elixxir/client/api"
 func CompressJpeg(imgBytes []byte) ([]byte, error) {
 	return api.CompressJpeg(imgBytes)
 }
+
+// CompressJpegForPreview takes a JPEG image in byte format
+// and compresses it based on desired output size
+func CompressJpegForPreview(imgBytes []byte) ([]byte, error) {
+	return api.CompressJpegForPreview(imgBytes)
+}

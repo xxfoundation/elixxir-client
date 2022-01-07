@@ -8,12 +8,10 @@
 package message
 
 import (
-	"encoding/base64"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/crypto/fingerprint"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -64,11 +62,7 @@ func (m *Manager) handleGarbledMessages() {
 		//if it exists, check against all in the list
 		modifiedContents := append([]byte{0}, grbldMsg.GetContents()...)
 		identity := m.Session.GetUser().ReceptionID
-		hasID, forMe, _ := m.Session.GetEdge().Check(identity, grbldMsg.GetIdentityFP(), modifiedContents)
-		jww.INFO.Printf("[GARBLE] Msg %d -- hasID: %t, forMe: %t, identity: %s, " +
-			"fp: %s, contentsHash: %s", i, hasID, forMe, identity,
-			base64.StdEncoding.EncodeToString(grbldMsg.GetIdentityFP()),
-			base64.StdEncoding.EncodeToString(fingerprint.GetMessageHash(modifiedContents)))
+		_, forMe, _ := m.Session.GetEdge().Check(identity, grbldMsg.GetIdentityFP(), modifiedContents)
 		if forMe {
 			fingerprint := grbldMsg.GetKeyFP()
 			// Check if the key is there, process it if it is

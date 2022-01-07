@@ -409,6 +409,8 @@ func (m *Manager) makeRoundEventCallback(
 				// If the round succeeded, then set all parts for each transfer
 				// for this round to finished and call the progress callback
 				for _, tid := range sentRounds[rid] {
+					delete(sentRounds, rid)
+
 					st, err := m.sent.GetTransfer(tid)
 					if err != nil {
 						jww.ERROR.Printf(finishPassNoTransferErr, rid, tid, err)
@@ -451,6 +453,8 @@ func (m *Manager) makeRoundEventCallback(
 				// for this round from the in-progress list, call the progress
 				// callback with an error, and add the parts back into the queue
 				for _, tid := range sentRounds[rid] {
+					delete(sentRounds, rid)
+
 					st, err := m.sent.GetTransfer(tid)
 					if err != nil {
 						jww.ERROR.Printf(finishFailNoTransferErr, rid, tid, err)

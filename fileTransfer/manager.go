@@ -103,10 +103,6 @@ type Manager struct {
 	// List of recovered in-progress transfers and their round ID
 	recoveredSentRounds map[id.Round][]ftCrypto.TransferID
 
-	// Indicates if old transfers saved to storage have been recovered after
-	// file transfer is closed and reopened; this is an atomic
-	oldTransfersRecovered *uint32
-
 	// File transfer parameters
 	p Params
 
@@ -172,18 +168,18 @@ func newManager(client *api.Client, store *storage.Session,
 	}
 
 	m := &Manager{
-		receiveCB:             receiveCB,
-		sent:                  sent,
-		received:              received,
-		sendQueue:             make(chan queuedPart, sendQueueBuffLen),
-		recoveredSentRounds:   sentRounds,
-		p:                     p,
-		client:                client,
-		store:                 store,
-		swb:                   swb,
-		net:                   net,
-		rng:                   rng,
-		getRoundResults:       getRoundResults,
+		receiveCB:           receiveCB,
+		sent:                sent,
+		received:            received,
+		sendQueue:           make(chan queuedPart, sendQueueBuffLen),
+		recoveredSentRounds: sentRounds,
+		p:                   p,
+		client:              client,
+		store:               store,
+		swb:                 swb,
+		net:                 net,
+		rng:                 rng,
+		getRoundResults:     getRoundResults,
 	}
 
 	if len(unsentParts) > 0 {

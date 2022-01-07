@@ -186,6 +186,11 @@ func TestManager_oldTransferRecovery(t *testing.T) {
 		t.Errorf("Number of items incorrect.\nexpected: %d\nreceived: %d",
 			numUnsent, queueCount)
 	}
+
+	if len(loadedManager.recoveredSentRounds) > 0 {
+		t.Errorf("recoveredSentRounds not cleared after recovery: %+v",
+			loadedManager.recoveredSentRounds)
+	}
 }
 
 // Tests that Manager.updateSentRounds updates the status of each round
@@ -265,7 +270,7 @@ func TestManager_updateSentRounds(t *testing.T) {
 	healthyRecover := make(chan bool, networkHealthBuffLen)
 	healthyRecover <- true
 
-	err = loadedManager.updateSentRounds(healthyRecover, loadedManager.recoveredSentRounds)
+	err = loadedManager.updateSentRounds(healthyRecover)
 	if err != nil {
 		t.Errorf("updateSentRounds returned an error: %+v", err)
 	}
@@ -330,15 +335,15 @@ func TestManager_updateSentRounds_Error(t *testing.T) {
 		healthyRecover <- true
 	}
 
-	sentRounds := map[id.Round][]ftCrypto.TransferID{
+	m.recoveredSentRounds = map[id.Round][]ftCrypto.TransferID{
 		0: {{1}, {2}, {3}},
 		5: {{4}, {2}, {6}},
 		9: {{3}, {9}, {8}},
 	}
 
-	expectedErr := fmt.Sprintf(
-		oldTransfersRoundResultsErr, len(sentRounds), roundResultsMaxAttempts)
-	err := m.updateSentRounds(healthyRecover, sentRounds)
+	expectedErr := fmt.Sprintf(oldTransfersRoundResultsErr,
+		len(m.recoveredSentRounds), roundResultsMaxAttempts)
+	err := m.updateSentRounds(healthyRecover)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("updateSentRounds did not return the expected error when "+
 			"getRoundResults returns only errors.\nexpected: %s\nreceived: %+v",

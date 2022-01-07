@@ -36,7 +36,7 @@ func (m Manager) oldTransferRecovery(healthyChan chan bool, chanID uint64) {
 
 	// Update parts that were sent by looking up the status of the rounds they
 	// were sent on
-	err := m.updateSentRounds(healthyChan, m.recoveredSentRounds)
+	err := m.updateSentRounds(healthyChan)
 	if err != nil {
 		jww.ERROR.Print(err)
 	}
@@ -48,10 +48,13 @@ func (m Manager) oldTransferRecovery(healthyChan chan bool, chanID uint64) {
 // updateSentRounds looks up the status of each round that parts were sent on
 // but never arrived. It updates the status of each part depending on if the
 // round failed or succeeded.
-func (m Manager) updateSentRounds(healthyChan chan bool,
-	sentRounds map[id.Round][]ftCrypto.TransferID) error {
+func (m Manager) updateSentRounds(healthyChan chan bool) error {
 	// Tracks the number of attempts to get round results
 	var getRoundResultsAttempts int
+
+	sentRounds := copySentRounds(m.recoveredSentRounds)
+	roundList := roundIdMapToList(sentRounds)
+	callback := m.makeRoundEventCallback(m.recoveredSentRounds)
 
 	jww.DEBUG.Print("[FT] Starting old file transfer recovery thread.")
 
@@ -71,9 +74,7 @@ func (m Manager) updateSentRounds(healthyChan chan bool,
 				"network is healthy.")
 
 			// Register callback to get Round results and retry on error
-			roundList := roundIdMapToList(sentRounds)
-			err := m.getRoundResults(roundList, roundResultsTimeout,
-				m.makeRoundEventCallback(sentRounds))
+			err := m.getRoundResults(roundList, roundResultsTimeout, callback)
 			if err != nil {
 				jww.WARN.Printf("[FT] Failed to get round results for old "+
 					"transfers for rounds %d (attempt %d/%d): %+v",
@@ -101,4 +102,18 @@ func roundIdMapToList(roundMap map[id.Round][]ftCrypto.TransferID) []id.Round {
 		roundSlice = append(roundSlice, rid)
 	}
 	return roundSlice
+}
+
+// copySentRounds makes a copy of the sent rounds map.
+func copySentRounds(
+	sentRounds map[id.Round][]ftCrypto.TransferID) map[id.Round][]ftCrypto.TransferID {
+	sentRoundsCopy := make(
+		map[id.Round][]ftCrypto.TransferID, len(sentRounds))
+
+	for rid, transfers := range sentRounds {
+		sentRoundsCopy[rid] = make([]ftCrypto.TransferID, len(transfers))
+		copy(sentRoundsCopy[rid], transfers)
+	}
+
+	return sentRoundsCopy
 }

@@ -8,6 +8,7 @@
 package message
 
 import (
+	"encoding/base64"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
@@ -159,7 +160,8 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 
 	msg.SetIdentityFP(ifp)
 
-	jww.INFO.Printf("Sending to %s with preimage %v, ifp: %v", recipient, preimage, ifp)
+	jww.INFO.Printf("Sending to %s with preimage %v, ifp: %v, messageHash: %s", recipient, preimage,
+		ifp, base64.StdEncoding.EncodeToString(append([]byte{0}, msg.GetContents()...)))
 
 	// Encrypt the message
 	salt := make([]byte, 32)

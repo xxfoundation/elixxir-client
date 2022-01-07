@@ -20,9 +20,9 @@ const (
 	// Maximum input image size (in bytes)
 	maxSize int64 = 12000000
 	// Desired number of pixels in output image
-	desiredSize = 307200
+	desiredSize = 640*480
 	// Desired number of pixels in output image for preview
-	desiredPreviewSize = 165
+	desiredPreviewSize = 32*24
 )
 
 // CompressJpeg takes a JPEG image in byte format

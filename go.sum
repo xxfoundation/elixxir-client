@@ -276,6 +276,8 @@ gitlab.com/elixxir/crypto v0.0.0-20200804182833-984246dea2c4/go.mod h1:ucm9SFKJo
 gitlab.com/elixxir/crypto v0.0.3/go.mod h1:ZNgBOblhYToR4m8tj4cMvJ9UsJAUKq+p0gCp07WQmhA=
 gitlab.com/elixxir/crypto v0.0.7-0.20220107212555-7b80ecaff6d6 h1:/ZZzlUqeeN+VWnaU+MfOJ743VnkhrUrSWO9pdz9PJHU=
 gitlab.com/elixxir/crypto v0.0.7-0.20220107212555-7b80ecaff6d6/go.mod h1:qmW0OGPB21GcaGg1Jvt527/qUw7ke6W8DKCiYBfsx48=
+gitlab.com/elixxir/crypto v0.0.7-0.20220107220614-ebd5833c6a97 h1:SPfQBMMCKJHHG5ceKsrYzdixzCGQFf2sL0dO+FeLqks=
+gitlab.com/elixxir/crypto v0.0.7-0.20220107220614-ebd5833c6a97/go.mod h1:qmW0OGPB21GcaGg1Jvt527/qUw7ke6W8DKCiYBfsx48=
 gitlab.com/elixxir/crypto v0.0.7-0.20220107220814-3dc5e0f3df54 h1:mWxjZTVPV4nxdz7IAWWGUoARWGCKhEhagaq89uSkPBA=
 gitlab.com/elixxir/crypto v0.0.7-0.20220107220814-3dc5e0f3df54/go.mod h1:qmW0OGPB21GcaGg1Jvt527/qUw7ke6W8DKCiYBfsx48=
 gitlab.com/elixxir/crypto v0.0.7-0.20220107220916-b98ad66916dd h1:OKbDcBirU3zCG+1K/FGu1Z/chjxXEsUGzyQtEQHRm4Q=

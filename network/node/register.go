@@ -272,7 +272,7 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	// Verify the HMAC
 	h.Reset()
 	if !registration.VerifyClientHMAC(sessionKey.Bytes(), keyResponse.EncryptedClientKey,
-		opts.Hash.New, keyResponse.EncryptedClientKeyHMAC) {
+		h, keyResponse.EncryptedClientKeyHMAC) {
 		return nil, nil, 0, errors.WithMessagef(err, "Failed to verify client HMAC")
 	}
 

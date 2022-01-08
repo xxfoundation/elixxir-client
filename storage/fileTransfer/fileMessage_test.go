@@ -33,8 +33,8 @@ func Test_newPartMessage(t *testing.T) {
 // Error path: tests that NewPartMessage returns the expected error when the
 // external payload size is too small.
 func Test_newPartMessage_SmallPayloadSizeError(t *testing.T) {
-	externalPayloadSize := fmMinSize - 1
-	expectedErr := fmt.Sprintf(newFmSizeErr, externalPayloadSize, fmMinSize)
+	externalPayloadSize := FmMinSize - 1
+	expectedErr := fmt.Sprintf(newFmSizeErr, externalPayloadSize, FmMinSize)
 
 	_, err := NewPartMessage(externalPayloadSize)
 	if err == nil || err.Error() != expectedErr {
@@ -101,8 +101,8 @@ func Test_unmarshalPartMessage(t *testing.T) {
 // Error path: tests that UnmarshalPartMessage returns the expected error when
 // the provided data is too small to be unmarshalled into a PartMessage.
 func Test_unmarshalPartMessage_SizeError(t *testing.T) {
-	data := make([]byte, fmMinSize-1)
-	expectedErr := fmt.Sprintf(unmarshalFmSizeErr, len(data), fmMinSize)
+	data := make([]byte, FmMinSize-1)
+	expectedErr := fmt.Sprintf(unmarshalFmSizeErr, len(data), FmMinSize)
 
 	_, err := UnmarshalPartMessage(data)
 	if err == nil || err.Error() != expectedErr {
@@ -194,7 +194,7 @@ func Test_fileMessage_setFile(t *testing.T) {
 // Error path: tests that PartMessage.SetPart returns the expected error when
 // the provided part data is too large for the message.
 func Test_fileMessage_setFile_FileTooLargeError(t *testing.T) {
-	fm, err := NewPartMessage(fmMinSize + 1)
+	fm, err := NewPartMessage(FmMinSize + 1)
 	if err != nil {
 		t.Errorf("Failed to create new PartMessage: %+v", err)
 	}
@@ -214,7 +214,7 @@ func Test_fileMessage_setFile_FileTooLargeError(t *testing.T) {
 func Test_fileMessage_getFileSize(t *testing.T) {
 	expectedSize := 256
 
-	fm, err := NewPartMessage(fmMinSize + expectedSize)
+	fm, err := NewPartMessage(FmMinSize + expectedSize)
 	if err != nil {
 		t.Errorf("Failed to create new PartMessage: %+v", err)
 	}

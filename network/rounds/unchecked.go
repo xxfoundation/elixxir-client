@@ -28,7 +28,7 @@ const (
 	trySix   = 24 * time.Hour
 	// Amount of tries past which the
 	// backoff will not increase
-	cappedTries = 7
+	cappedTries = 6
 )
 
 var backOffTable = [cappedTries]time.Duration{tryZero, tryOne, tryTwo, tryThree, tryFour, tryFive, trySix}

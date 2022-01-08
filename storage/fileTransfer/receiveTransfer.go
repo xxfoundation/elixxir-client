@@ -329,8 +329,6 @@ func (rt *ReceivedTransfer) GetFile() ([]byte, error) {
 	// Remove extra data added when sending as parts
 	fileData = fileData[:rt.fileSize]
 
-	fmt.Println(fileData)
-
 	if !ftCrypto.VerifyTransferMAC(fileData, rt.key, rt.transferMAC) {
 		return fileData, errors.New(getTransferMacErr)
 	}

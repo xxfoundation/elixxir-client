@@ -10,12 +10,14 @@ package fileTransfer
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
@@ -276,20 +278,25 @@ func (rt *ReceivedTransfer) AddProgressCB(
 // AddPart decrypts an encrypted file part, adds it to the list of received
 // parts and marks its fingerprint as used. Returns true if the part added was
 // the last in the transfer.
-func (rt *ReceivedTransfer) AddPart(encryptedPart, padding, mac []byte, partNum,
+func (rt *ReceivedTransfer) AddPart(cmixMsg format.Message,
 	fpNum uint16) (bool, error) {
 	rt.mux.Lock()
 	defer rt.mux.Unlock()
 
 	// Decrypt the encrypted file part
-	decryptedPart, err := ftCrypto.DecryptPart(
-		rt.key, encryptedPart, padding, mac, fpNum)
+	decryptedPart, err := ftCrypto.DecryptPart(rt.key,
+		cmixMsg.GetContents(), cmixMsg.GetMac(), fpNum, cmixMsg.GetKeyFP())
+	if err != nil {
+		return false, err
+	}
+
+	part, err := UnmarshalPartMessage(decryptedPart)
 	if err != nil {
 		return false, err
 	}
 
 	// Add the part to the list of parts
-	err = rt.receivedParts.addPart(decryptedPart, partNum)
+	err = rt.receivedParts.addPart(part.GetPart(), part.GetPartNum())
 	if err != nil {
 		return false, err
 	}
@@ -298,7 +305,7 @@ func (rt *ReceivedTransfer) AddPart(encryptedPart, padding, mac []byte, partNum,
 	rt.fpVector.Use(uint32(fpNum))
 
 	// Mark part as received
-	rt.receivedStatus.Use(uint32(partNum))
+	rt.receivedStatus.Use(uint32(part.GetPartNum()))
 
 	if rt.receivedStatus.GetNumUsed() >= uint32(rt.numParts) {
 		return true, nil
@@ -321,6 +328,8 @@ func (rt *ReceivedTransfer) GetFile() ([]byte, error) {
 
 	// Remove extra data added when sending as parts
 	fileData = fileData[:rt.fileSize]
+
+	fmt.Println(fileData)
 
 	if !ftCrypto.VerifyTransferMAC(fileData, rt.key, rt.transferMAC) {
 		return fileData, errors.New(getTransferMacErr)

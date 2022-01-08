@@ -345,14 +345,26 @@ func TestReceivedFileTransfersStore_AddPart(t *testing.T) {
 	}
 
 	// Create encrypted part
+
+	cmixMsg := format.NewMessage(format.MinimumPrimeSize)
+
 	expectedData := []byte("test")
+
 	partNum, fpNum := uint16(1), uint16(1)
-	encryptedPart, mac, padding := newEncryptedPartData(
-		key, expectedData, fpNum, t)
+
+	partData, _ := NewPartMessage(cmixMsg.ContentsSize())
+	partData.SetPartNum(partNum)
+	_ = partData.SetPart(expectedData)
+
 	fp := ftCrypto.GenerateFingerprint(key, fpNum)
+	encryptedPart, mac, err := ftCrypto.EncryptPart(key, partData.Marshal(), fpNum, fp)
+
+	cmixMsg.SetKeyFP(fp)
+	cmixMsg.SetContents(encryptedPart)
+	cmixMsg.SetMac(mac)
 
 	// Add encrypted part
-	rt, _, _, err := rft.AddPart(encryptedPart, padding, mac, partNum, fp)
+	rt, _, _, err := rft.AddPart(cmixMsg)
 	if err != nil {
 		t.Errorf("AddPart returned an error: %+v", err)
 	}
@@ -461,14 +473,25 @@ func TestReceivedFileTransfersStore_AddPart_AddPartError(t *testing.T) {
 
 	// Create encrypted part
 	partNum, fpNum := uint16(1), uint16(1)
-	encryptedPart := []byte("invalidPart")
-	mac = []byte("invalidMAC")
-	padding := make([]byte, 24)
+	part := []byte("invalidPart")
+	mac = make([]byte, format.MacLen)
 	fp := ftCrypto.GenerateFingerprint(key, fpNum)
 
 	// Add encrypted part
 	expectedErr := fmt.Sprintf(addPartErr, partNum, numParts, tid, "")
-	_, _, _, err = rft.AddPart(encryptedPart, padding, mac, partNum, fp)
+
+	cmixMsg := format.NewMessage(format.MinimumPrimeSize)
+
+	partData, _ := NewPartMessage(cmixMsg.ContentsSize())
+	partData.SetPartNum(partNum)
+	_ = partData.SetPart(part)
+
+	cmixMsg.SetKeyFP(fp)
+	cmixMsg.SetContents(partData.Marshal())
+	cmixMsg.SetMac(mac)
+
+
+	_, _, _, err = rft.AddPart(cmixMsg)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("AddPart did not return the expected error when the "+
 			"encrypted part, padding, and MAC are invalid."+

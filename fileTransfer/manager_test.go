@@ -394,7 +394,7 @@ func TestManager_CloseSend_NoFingerprints(t *testing.T) {
 	transfer, _ := m.sent.GetTransfer(sti[0].tid)
 	for fpNum := uint16(0); fpNum < sti[0].numFps; fpNum++ {
 		partNum := fpNum % sti[0].numParts
-		_, _, _, _, err := transfer.GetEncryptedPart(partNum, partSize, prng)
+		_, _, _, err := transfer.GetEncryptedPart(partNum, partSize)
 		if err != nil {
 			t.Errorf("Failed to encrypt part %d (%d): %+v", partNum, fpNum, err)
 		}

@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/primitives/format"
 	"reflect"
 	"strings"
 	"sync"
@@ -538,13 +539,25 @@ func TestReceivedTransfer_AddPart(t *testing.T) {
 	_, rt, _ := newEmptyReceivedTransfer(16, 20, kv, t)
 
 	// Create encrypted part
+	cmixMsg := format.NewMessage(format.MinimumPrimeSize)
+
 	expectedData := []byte("test")
+
 	partNum, fpNum := uint16(1), uint16(1)
-	encryptedPart, mac, padding := newEncryptedPartData(
-		rt.key, expectedData, fpNum, t)
+
+	partData, _ := NewPartMessage(cmixMsg.ContentsSize())
+	partData.SetPartNum(partNum)
+	_ = partData.SetPart(expectedData)
+
+	fp := ftCrypto.GenerateFingerprint(rt.key, fpNum)
+	encryptedPart, mac, err := ftCrypto.EncryptPart(rt.key, partData.Marshal(), fpNum, fp)
+
+	cmixMsg.SetKeyFP(fp)
+	cmixMsg.SetContents(encryptedPart)
+	cmixMsg.SetMac(mac)
 
 	// Add encrypted part
-	complete, err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	complete, err := rt.AddPart(cmixMsg,fpNum)
 	if err != nil {
 		t.Errorf("AddPart returned an error: %+v", err)
 	}
@@ -594,14 +607,27 @@ func TestReceivedTransfer_AddPart_DecryptPartError(t *testing.T) {
 	_, rt, _ := newEmptyReceivedTransfer(16, 20, kv, t)
 
 	// Create encrypted part
-	Data := []byte("test")
+	cmixMsg := format.NewMessage(format.MinimumPrimeSize)
+
+	expectedData := []byte("test")
+
 	partNum, fpNum := uint16(1), uint16(1)
-	encryptedPart, _, padding := newEncryptedPartData(rt.key, Data, fpNum, t)
-	mac := []byte("invalidMAC")
+
+	partData, _ := NewPartMessage(cmixMsg.ContentsSize())
+	partData.SetPartNum(partNum)
+	_ = partData.SetPart(expectedData)
+
+	fp := ftCrypto.GenerateFingerprint(rt.key, fpNum)
+	encryptedPart, _, err := ftCrypto.EncryptPart(rt.key, partData.Marshal(), fpNum, fp)
+	badMac := make([]byte, format.MacLen)
+
+	cmixMsg.SetKeyFP(fp)
+	cmixMsg.SetContents(encryptedPart)
+	cmixMsg.SetMac(badMac)
 
 	// Add encrypted part
 	expectedErr := "reconstructed MAC from decrypting does not match MAC from sender"
-	_, err := rt.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	_, err = rt.AddPart(cmixMsg, fpNum)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("AddPart did not return the expected error when the MAC is "+
 			"invalid.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -670,11 +696,22 @@ func Test_loadReceivedTransfer(t *testing.T) {
 	// Create encrypted part
 	expectedData := []byte("test")
 	partNum, fpNum := uint16(1), uint16(1)
-	encryptedPart, mac, padding := newEncryptedPartData(
-		expectedRT.key, expectedData, fpNum, t)
+
+	cmixMsg := format.NewMessage(format.MinimumPrimeSize)
+
+	partData, _ := NewPartMessage(cmixMsg.ContentsSize())
+	partData.SetPartNum(partNum)
+	_ = partData.SetPart(expectedData)
+
+	fp := ftCrypto.GenerateFingerprint(expectedRT.key, fpNum)
+	encryptedPart, mac, err := ftCrypto.EncryptPart(expectedRT.key, partData.Marshal(), fpNum, fp)
+
+	cmixMsg.SetKeyFP(fp)
+	cmixMsg.SetContents(encryptedPart)
+	cmixMsg.SetMac(mac)
 
 	// Add encrypted part
-	_, err := expectedRT.AddPart(encryptedPart, padding, mac, partNum, fpNum)
+	_, err = expectedRT.AddPart(cmixMsg, fpNum)
 	if err != nil {
 		t.Errorf("Failed to add test part: %+v", err)
 	}
@@ -1059,18 +1096,4 @@ func newEmptyReceivedTransfer(numParts, numFps uint16, kv *versioned.KV,
 	}
 
 	return tid, rt, fileData
-}
-
-// newEncryptedPartData encrypts the part data and returns the encrypted part
-// its MAC, and its padding.
-func newEncryptedPartData(key ftCrypto.TransferKey, part []byte, fpNum uint16,
-	t *testing.T) ([]byte, []byte, []byte) {
-	// Create encrypted part
-	prng := NewPrng(42)
-	encPart, mac, padding, err := ftCrypto.EncryptPart(key, part, fpNum, prng)
-	if err != nil {
-		t.Fatalf("Failed to encrypt data: %+v", err)
-	}
-
-	return encPart, mac, padding
 }

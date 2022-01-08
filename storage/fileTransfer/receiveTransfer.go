@@ -10,6 +10,7 @@ package fileTransfer
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -327,6 +328,8 @@ func (rt *ReceivedTransfer) GetFile() ([]byte, error) {
 
 	// Remove extra data added when sending as parts
 	fileData = fileData[:rt.fileSize]
+
+	fmt.Println(fileData)
 
 	if !ftCrypto.VerifyTransferMAC(fileData, rt.key, rt.transferMAC) {
 		return fileData, errors.New(getTransferMacErr)

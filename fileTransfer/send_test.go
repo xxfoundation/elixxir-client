@@ -662,20 +662,20 @@ func TestManager_newCmixMessage(t *testing.T) {
 			"\nexpected: %s\nrecieved: %s", fp, cmixMsg.GetKeyFP())
 	}
 
-	partMsg, err := ftStorage.UnmarshalPartMessage(cmixMsg.GetContents())
-	if err != nil {
-		t.Errorf("Failed to unmarshal part message: %+v", err)
-	}
-
-	decrPart, err := ftCrypto.DecryptPart(key, partMsg.GetPart(),
-		 cmixMsg.GetMac(), partMsg.GetPartNum(),cmixMsg.GetKeyFP())
+	decrPart, err := ftCrypto.DecryptPart(key, cmixMsg.GetContents(),
+		 cmixMsg.GetMac(), 0,cmixMsg.GetKeyFP())
 	if err != nil {
 		t.Errorf("Failed to decrypt file part: %+v", err)
 	}
 
-	if !bytes.Equal(decrPart, parts[0]) {
+	partMsg, err := ftStorage.UnmarshalPartMessage(decrPart)
+	if err != nil {
+		t.Errorf("Failed to unmarshal part message: %+v", err)
+	}
+
+	if !bytes.Equal(partMsg.GetPart(), parts[0]) {
 		t.Errorf("Decrypted part does not match expected."+
-			"\nexpected: %q\nreceived: %q", parts[0], decrPart)
+			"\nexpected: %q\nreceived: %q", parts[0], partMsg.GetPart())
 	}
 }
 

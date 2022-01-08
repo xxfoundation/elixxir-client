@@ -176,17 +176,18 @@ func (rft *ReceivedFileTransfersStore) DeleteTransfer(tid ftCrypto.TransferID) e
 // transfer that the part was added to so that a progress callback can be
 // called. Returns the transfer ID so that it can be used for logging. Also
 // returns of the transfer is complete after adding the part.
-func (rft *ReceivedFileTransfersStore) AddPart(encryptedPart, padding,
-	mac []byte, partNum uint16, fp format.Fingerprint) (*ReceivedTransfer,
+func (rft *ReceivedFileTransfersStore) AddPart(cmixMsg format.Message) (*ReceivedTransfer,
 	ftCrypto.TransferID, bool, error) {
 	rft.mux.Lock()
 	defer rft.mux.Unlock()
 
+	keyfp := cmixMsg.GetKeyFP()
+
 	// Lookup the part info for the given fingerprint
-	info, exists := rft.info[fp]
+	info, exists := rft.info[cmixMsg.GetKeyFP()]
 	if !exists {
 		return nil, ftCrypto.TransferID{}, false,
-			errors.Errorf(noFingerprintErr, fp)
+			errors.Errorf(noFingerprintErr, keyfp)
 	}
 
 	// Lookup the transfer with the ID in the part info
@@ -197,15 +198,14 @@ func (rft *ReceivedFileTransfersStore) AddPart(encryptedPart, padding,
 	}
 
 	// Add the part to the transfer
-	completed, err := transfer.AddPart(
-		encryptedPart, padding, mac, partNum, info.fpNum)
+	completed, err := transfer.AddPart(cmixMsg, info.fpNum)
 	if err != nil {
 		return transfer, info.id, false, errors.Errorf(
-			addPartErr, partNum, transfer.numParts, info.id, err)
+			addPartErr, transfer.numParts, info.id, err)
 	}
 
 	// Remove the part info from the map
-	delete(rft.info, fp)
+	delete(rft.info, keyfp)
 
 	return transfer, info.id, completed, nil
 }

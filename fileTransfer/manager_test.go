@@ -388,7 +388,6 @@ func TestManager_Resend_NoFingerprints(t *testing.T) {
 func TestManager_CloseSend_NoFingerprints(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
 		[]uint16{16}, false, false, nil, nil, nil, t)
-	prng := NewPrng(42)
 	partSize, _ := m.getPartSize()
 
 	// Use up all the fingerprints in the transfer

@@ -61,7 +61,7 @@ func handleConfirm(sess *storage.Session, confirmation message.Receive) {
 	confirmedSession := partner.GetSendSession(confimedSessionID)
 	if confirmedSession == nil {
 		jww.ERROR.Printf("[REKEY] Failed to find confirmed session %s from "+
-			"partner %s: %s", confimedSessionID, confirmation.Sender, err)
+			"partner %s", confimedSessionID, confirmation.Sender)
 		return
 	}
 

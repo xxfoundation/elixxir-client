@@ -8,7 +8,6 @@
 package fileTransfer
 
 import (
-	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
@@ -64,16 +63,8 @@ func (m *Manager) readMessage(msg message.Receive) (format.Message, error) {
 		return cMixMsg, err
 	}
 
-	// Unmarshal cMix message contents into a file part message
-	partMsg, err := unmarshalPartMessage(cMixMsg.GetContents())
-	if err != nil {
-		return cMixMsg, errors.Errorf(unmarshalPartMessageErr, err)
-	}
-
 	// Add part to received transfer
-	rt, tid, completed, err := m.received.AddPart(partMsg.getPart(),
-		partMsg.getPadding(), cMixMsg.GetMac(), partMsg.getPartNum(),
-		cMixMsg.GetKeyFP())
+	rt, tid, completed, err := m.received.AddPart(cMixMsg)
 	if err != nil {
 		return cMixMsg, err
 	}

@@ -391,9 +391,12 @@ func TestReceivedFileTransfersStore_AddPart_NoFingerprintError(t *testing.T) {
 	// Create encrypted part
 	fp := format.NewFingerprint([]byte("invalidTransferKey"))
 
+	msg := format.NewMessage(1000)
+	msg.SetKeyFP(fp)
+
 	// Add encrypted part
 	expectedErr := fmt.Sprintf(noFingerprintErr, fp)
-	_, _, _, err = rft.AddPart([]byte{}, []byte{}, []byte{}, 0, fp)
+	_, _, _, err = rft.AddPart(msg)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("AddPart did not return the expected error when no part for "+
 			"the fingerprint exists.\nexpected: %s\nreceived: %+v",
@@ -425,9 +428,12 @@ func TestReceivedFileTransfersStore_AddPart_NoTransferError(t *testing.T) {
 	invalidTid, _ := ftCrypto.NewTransferID(prng)
 	rft.info[fp].id = invalidTid
 
+	msg := format.NewMessage(1000)
+	msg.SetKeyFP(fp)
+
 	// Add encrypted part
 	expectedErr := fmt.Sprintf(getReceivedTransferErr, invalidTid)
-	_, _, _, err = rft.AddPart([]byte{}, []byte{}, []byte{}, 0, fp)
+	_, _, _, err = rft.AddPart(msg)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("AddPart did not return the expected error when no transfer "+
 			"for the ID exists.\nexpected: %s\nreceived: %+v", expectedErr, err)

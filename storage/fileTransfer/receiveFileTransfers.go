@@ -35,7 +35,7 @@ const (
 	getReceivedTransferErr    = "received transfer with ID %s not found"
 	addTransferNewIdErr       = "could not generate new transfer ID: %+v"
 	noFingerprintErr          = "no part found with fingerprint %s"
-	addPartErr                = "failed to add part number %d/%d to transfer %s: %+v"
+	addPartErr                = "failed to add part to transfer %s: %+v"
 	deleteReceivedTransferErr = "failed to delete received transfer with ID %s from store: %+v"
 )
 
@@ -201,7 +201,7 @@ func (rft *ReceivedFileTransfersStore) AddPart(cmixMsg format.Message) (*Receive
 	completed, err := transfer.AddPart(cmixMsg, info.fpNum)
 	if err != nil {
 		return transfer, info.id, false, errors.Errorf(
-			addPartErr, transfer.numParts, info.id, err)
+			addPartErr, info.id, err)
 	}
 
 	// Remove the part info from the map

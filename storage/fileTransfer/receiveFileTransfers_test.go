@@ -478,7 +478,7 @@ func TestReceivedFileTransfersStore_AddPart_AddPartError(t *testing.T) {
 	fp := ftCrypto.GenerateFingerprint(key, fpNum)
 
 	// Add encrypted part
-	expectedErr := fmt.Sprintf(addPartErr, partNum, numParts, tid, "")
+	expectedErr := fmt.Sprintf(addPartErr, tid, "")
 
 	cmixMsg := format.NewMessage(format.MinimumPrimeSize)
 
@@ -489,7 +489,6 @@ func TestReceivedFileTransfersStore_AddPart_AddPartError(t *testing.T) {
 	cmixMsg.SetKeyFP(fp)
 	cmixMsg.SetContents(partData.Marshal())
 	cmixMsg.SetMac(mac)
-
 
 	_, _, _, err = rft.AddPart(cmixMsg)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {

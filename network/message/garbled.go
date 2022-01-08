@@ -115,7 +115,7 @@ func (m *Manager) handleGarbledMessages() {
 					RoundId:        0,
 					RoundTimestamp: time.Time{},
 				}
-				im := fmt.Sprintf("[GARBLE] RAW Message reprecessed: keyFP: %v, "+
+				im := fmt.Sprintf("[GARBLE] RAW Message reprocessed: keyFP: %v, "+
 					"msgDigest: %s", grbldMsg.GetKeyFP(), grbldMsg.Digest())
 				jww.INFO.Print(im)
 				m.Internal.Events.Report(1, "MessageReception", "Garbled", im)

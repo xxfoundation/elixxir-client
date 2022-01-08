@@ -385,9 +385,9 @@ func TestReceivedFileTransfersStore_AddPart(t *testing.T) {
 
 	// Check that the correct part was stored
 	receivedPart := expectedRT.receivedParts.parts[partNum]
-	if !bytes.Equal(receivedPart, expectedData) {
+	if !bytes.Equal(receivedPart[:len(expectedData)], expectedData) {
 		t.Errorf("Part in memory is not expected."+
-			"\nexpected: %q\nreceived: %q", expectedData, receivedPart)
+			"\nexpected: %q\nreceived: %q", expectedData, receivedPart[:len(expectedData)])
 	}
 }
 

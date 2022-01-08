@@ -569,9 +569,9 @@ func TestReceivedTransfer_AddPart(t *testing.T) {
 	receivedData, exists := rt.receivedParts.parts[partNum]
 	if !exists {
 		t.Errorf("Part #%d not found in part map.", partNum)
-	} else if !bytes.Equal(expectedData, receivedData) {
+	} else if !bytes.Equal(expectedData, receivedData[:len(expectedData)]) {
 		t.Fatalf("Part data in list does not match expected."+
-			"\nexpected: %+v\nreceived: %+v", expectedData, receivedData)
+			"\nexpected: %+v\nreceived: %+v", expectedData, receivedData[:len(expectedData)])
 	}
 
 	// Check that the fingerprint vector has correct values

@@ -15,7 +15,7 @@ import (
 // Size constants.
 const (
 	partNumLen = 2          // The length of the part number in bytes
-	fmMinSize  = partNumLen // Minimum size for the PartMessage
+	FmMinSize  = partNumLen // Minimum size for the PartMessage
 )
 
 // Error messages.
@@ -46,9 +46,9 @@ type PartMessage struct {
 // external payload size. An error is returned if the external payload size is
 // too small to fit the part message.
 func NewPartMessage(externalPayloadSize int) (PartMessage, error) {
-	if externalPayloadSize < fmMinSize {
+	if externalPayloadSize < FmMinSize {
 		return PartMessage{},
-			errors.Errorf(newFmSizeErr, externalPayloadSize, fmMinSize)
+			errors.Errorf(newFmSizeErr, externalPayloadSize, FmMinSize)
 	}
 
 	return MapPartMessage(make([]byte, externalPayloadSize)), nil
@@ -67,9 +67,9 @@ func MapPartMessage(data []byte) PartMessage {
 // UnmarshalPartMessage converts the bytes into a PartMessage. An error is
 // returned if the size of the data is too small for a PartMessage.
 func UnmarshalPartMessage(b []byte) (PartMessage, error) {
-	if len(b) < fmMinSize {
+	if len(b) < FmMinSize {
 		return PartMessage{},
-			errors.Errorf(unmarshalFmSizeErr, len(b), fmMinSize)
+			errors.Errorf(unmarshalFmSizeErr, len(b), FmMinSize)
 	}
 
 	return MapPartMessage(b), nil

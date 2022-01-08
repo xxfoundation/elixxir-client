@@ -668,7 +668,7 @@ func TestManager_newCmixMessage(t *testing.T) {
 	}
 
 	decrPart, err := ftCrypto.DecryptPart(key, partMsg.GetPart(),
-		partMsg.getNonce(), cmixMsg.GetMac(), partMsg.GetPartNum())
+		 cmixMsg.GetMac(), partMsg.GetPartNum(),cmixMsg.GetKeyFP())
 	if err != nil {
 		t.Errorf("Failed to decrypt file part: %+v", err)
 	}
@@ -1006,7 +1006,7 @@ func TestManager_getPartSize(t *testing.T) {
 	// Calculate the expected part size
 	primeByteLen := m.store.Cmix().GetGroup().GetP().ByteLen()
 	cmixMsgUsedLen := format.AssociatedDataSize
-	filePartMsgUsedLen := ftStorage.fmMinSize
+	filePartMsgUsedLen := ftStorage.FmMinSize
 	expected := 2*primeByteLen - cmixMsgUsedLen - filePartMsgUsedLen-1
 
 	// Get the part size

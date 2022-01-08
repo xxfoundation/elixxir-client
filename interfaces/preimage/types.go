@@ -8,4 +8,5 @@ const (
 	E2e     = "e2e"
 	Group   = "group"
 	EndFT   = "endFT"
+	GroupRq = "groupRq"
 )

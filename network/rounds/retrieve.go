@@ -193,7 +193,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 
 		err = m.Session.UncheckedRounds().Remove(roundID, identity.Source, identity.EphId)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to remove round %d: %+v", roundID, err)
+			jww.ERROR.Printf("Failed to remove round %d: %+v", roundID, err)
 		}
 
 		return message.Bundle{}, nil

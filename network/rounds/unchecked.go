@@ -115,8 +115,8 @@ func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 func isRoundCheckDue(tries uint64, ts time.Time, backoffTable [cappedTries]time.Duration) bool {
 	now := netTime.Now()
 
-	if tries > cappedTries {
-		tries = cappedTries
+	if tries >= uint64(len(backoffTable)) {
+		tries = uint64(len(backoffTable))-1
 	}
 	roundCheckTime := ts.Add(backoffTable[tries])
 

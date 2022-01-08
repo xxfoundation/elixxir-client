@@ -28,7 +28,7 @@ const (
 	trySix   = 24 * time.Hour
 	// Amount of tries past which the
 	// backoff will not increase
-	cappedTries = 6
+	cappedTries = 7
 )
 
 var backOffTable = [cappedTries]time.Duration{tryZero, tryOne, tryTwo, tryThree, tryFour, tryFive, trySix}
@@ -115,8 +115,8 @@ func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 func isRoundCheckDue(tries uint64, ts time.Time, backoffTable [cappedTries]time.Duration) bool {
 	now := netTime.Now()
 
-	if tries > cappedTries {
-		tries = cappedTries
+	if tries > uint64(len(backoffTable)) {
+		tries = uint64(len(backoffTable))
 	}
 	roundCheckTime := ts.Add(backoffTable[tries])
 

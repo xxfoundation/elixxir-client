@@ -59,9 +59,9 @@ func (m *Manager) handleGarbledMessages() {
 	//try to decrypt every garbled message, excising those who's counts are too high
 	for grbldMsg, count, timestamp, has := garbledMsgs.Next(); has; grbldMsg, count, timestamp, has = garbledMsgs.Next() {
 		//if it exists, check against all in the list
-		modifiedContents := append([]byte{0}, grbldMsg.GetContents()...)
+		grbldContents := grbldMsg.GetContents()
 		identity := m.Session.GetUser().ReceptionID
-		_, forMe, _ := m.Session.GetEdge().Check(identity, grbldMsg.GetIdentityFP(), modifiedContents)
+		_, forMe, _ := m.Session.GetEdge().Check(identity, grbldMsg.GetIdentityFP(), grbldContents)
 		if forMe {
 			fingerprint := grbldMsg.GetKeyFP()
 			// Check if the key is there, process it if it is

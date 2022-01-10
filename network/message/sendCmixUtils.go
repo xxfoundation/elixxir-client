@@ -155,7 +155,7 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 
 	// Set the identity fingerprint
 
-	ifp := fingerprint.IdentityFP(append([]byte{0}, msg.GetContents()...), preimage)
+	ifp := fingerprint.IdentityFP(msg.GetContents(), preimage)
 
 	msg.SetIdentityFP(ifp)
 

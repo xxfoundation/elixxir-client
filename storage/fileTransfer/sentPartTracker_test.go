@@ -56,21 +56,20 @@ func Test_sentPartTracker_GetPartStatus(t *testing.T) {
 
 		switch partStatuses[partNum] {
 		case interfaces.FpSent:
-			err := st.partStats.Set(partNum, uint8(interfaces.FpSent))
+			err := st.partStats.Set(partNum, inProgress)
 			if err != nil {
-				t.Errorf("Failed to set part %d to %s: %+v",
-					partNum, interfaces.FpSent, err)
+				t.Errorf(
+					"Failed to set part %d to in-progress: %+v", partNum, err)
 			}
 		case interfaces.FpArrived:
-			err := st.partStats.Set(partNum, uint8(interfaces.FpSent))
+			err := st.partStats.Set(partNum, inProgress)
 			if err != nil {
-				t.Errorf("Failed to set part %d to %s: %+v",
-					partNum, interfaces.FpSent, err)
+				t.Errorf(
+					"Failed to set part %d to in-progress: %+v", partNum, err)
 			}
-			err = st.partStats.Set(partNum, uint8(interfaces.FpArrived))
+			err = st.partStats.Set(partNum, finished)
 			if err != nil {
-				t.Errorf("Failed to set part %d to %s: %+v",
-					partNum, interfaces.FpArrived, err)
+				t.Errorf("Failed to set part %d to finished: %+v", partNum, err)
 			}
 		}
 	}

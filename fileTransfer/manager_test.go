@@ -388,14 +388,13 @@ func TestManager_Resend_NoFingerprints(t *testing.T) {
 func TestManager_CloseSend_NoFingerprints(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
 		[]uint16{16}, false, false, nil, nil, nil, t)
-	prng := NewPrng(42)
 	partSize, _ := m.getPartSize()
 
 	// Use up all the fingerprints in the transfer
 	transfer, _ := m.sent.GetTransfer(sti[0].tid)
 	for fpNum := uint16(0); fpNum < sti[0].numFps; fpNum++ {
 		partNum := fpNum % sti[0].numParts
-		_, _, _, _, err := transfer.GetEncryptedPart(partNum, partSize, prng)
+		_, _, _, err := transfer.GetEncryptedPart(partNum, partSize+2)
 		if err != nil {
 			t.Errorf("Failed to encrypt part %d (%d): %+v", partNum, fpNum, err)
 		}

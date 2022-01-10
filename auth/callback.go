@@ -434,6 +434,13 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 		Source: sr.GetPartner()[:],
 	}, me)
 
+	//group Request
+	m.storage.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetGroupRequestPreimage(),
+		Type:   preimage.GroupRq,
+		Source: sr.GetPartner()[:],
+	}, me)
+
 	// delete the in progress negotiation
 	// this undoes the request lock
 	if err := m.storage.Auth().Delete(sr.GetPartner()); err != nil {

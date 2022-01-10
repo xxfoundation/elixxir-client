@@ -117,7 +117,17 @@ func (m Manager) sendRequest(memberID *id.ID, request []byte) ([]id.Round, error
 		MessageType: message.GroupCreationRequest,
 	}
 
-	rounds, _, _, err := m.net.SendE2E(sendMsg, params.GetDefaultE2E(), nil)
+
+	recipent, err := m.store.E2e().GetPartner(memberID)
+	if err!=nil{
+		return nil, errors.WithMessagef(err,"Failed to send request to %s " +
+			"because e2e relationship could not be found", memberID)
+	}
+
+	p := params.GetDefaultE2E()
+	p.IdentityPreimage = recipent.GetGroupRequestPreimage()
+
+	rounds, _, _, err := m.net.SendE2E(sendMsg, p, nil)
 	if err != nil {
 		return nil, errors.Errorf(sendE2eErr, memberID, err)
 	}

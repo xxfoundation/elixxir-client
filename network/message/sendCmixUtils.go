@@ -154,11 +154,10 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	}
 
 	// Set the identity fingerprint
+
 	ifp := fingerprint.IdentityFP(msg.GetContents(), preimage)
 
 	msg.SetIdentityFP(ifp)
-
-	jww.INFO.Printf(" Sending to %s with preimage %v, ifp: %v, contents: %v", recipient, preimage, ifp, msg.GetContents())
 
 	// Encrypt the message
 	salt := make([]byte, 32)

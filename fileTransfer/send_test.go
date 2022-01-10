@@ -662,20 +662,20 @@ func TestManager_newCmixMessage(t *testing.T) {
 			"\nexpected: %s\nrecieved: %s", fp, cmixMsg.GetKeyFP())
 	}
 
-	partMsg, err := unmarshalPartMessage(cmixMsg.GetContents())
-	if err != nil {
-		t.Errorf("Failed to unmarshal part message: %+v", err)
-	}
-
-	decrPart, err := ftCrypto.DecryptPart(key, partMsg.getPart(),
-		partMsg.getPadding(), cmixMsg.GetMac(), partMsg.getPartNum())
+	decrPart, err := ftCrypto.DecryptPart(key, cmixMsg.GetContents(),
+		 cmixMsg.GetMac(), 0,cmixMsg.GetKeyFP())
 	if err != nil {
 		t.Errorf("Failed to decrypt file part: %+v", err)
 	}
 
-	if !bytes.Equal(decrPart, parts[0]) {
+	partMsg, err := ftStorage.UnmarshalPartMessage(decrPart)
+	if err != nil {
+		t.Errorf("Failed to unmarshal part message: %+v", err)
+	}
+
+	if !bytes.Equal(partMsg.GetPart(), parts[0]) {
 		t.Errorf("Decrypted part does not match expected."+
-			"\nexpected: %q\nreceived: %q", parts[0], decrPart)
+			"\nexpected: %q\nreceived: %q", parts[0], partMsg.GetPart())
 	}
 }
 
@@ -998,7 +998,7 @@ func Test_makeListOfPartNums(t *testing.T) {
 	}
 }
 
-// Tests that the part size returned by Manager.getPartSize matches the manually
+// Tests that the part size returned by Manager.GetPartSize matches the manually
 // calculated part size.
 func TestManager_getPartSize(t *testing.T) {
 	m := newTestManager(false, nil, nil, nil, nil, t)
@@ -1006,13 +1006,13 @@ func TestManager_getPartSize(t *testing.T) {
 	// Calculate the expected part size
 	primeByteLen := m.store.Cmix().GetGroup().GetP().ByteLen()
 	cmixMsgUsedLen := format.AssociatedDataSize
-	filePartMsgUsedLen := fmMinSize
+	filePartMsgUsedLen := ftStorage.FmMinSize
 	expected := 2*primeByteLen - cmixMsgUsedLen - filePartMsgUsedLen-1
 
 	// Get the part size
 	partSize, err := m.getPartSize()
 	if err != nil {
-		t.Errorf("getPartSize returned an error: %+v", err)
+		t.Errorf("GetPartSize returned an error: %+v", err)
 	}
 
 	if expected != partSize {

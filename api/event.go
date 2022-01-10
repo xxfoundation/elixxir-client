@@ -94,7 +94,7 @@ func (e *eventManager) reportEventsHandler(stop *stoppable.Single) {
 			stop.ToStopped()
 			return
 		case evt := <-e.eventCh:
-			jww.DEBUG.Printf("Received event: %s", evt)
+			jww.TRACE.Printf("Received event: %s", evt)
 			// NOTE: We could call each in a routine but decided
 			// against it. It's the users responsibility not to let
 			// the event queue explode. The API will report errors

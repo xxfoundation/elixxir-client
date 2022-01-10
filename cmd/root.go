@@ -599,7 +599,7 @@ func initClient() *api.Client {
 		viper.GetUint("e2eNumReKeys"))
 	netParams.E2EParams.RekeyThreshold = viper.GetFloat64("e2eRekeyThreshold")
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
-	netParams.FastPolling = viper.GetBool(" slowPolling")
+	netParams.FastPolling = !viper.GetBool("slowPolling")
 	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
 	if netParams.ForceMessagePickupRetry {
 		period := 3 * time.Second

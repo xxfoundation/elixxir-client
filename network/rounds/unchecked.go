@@ -116,7 +116,7 @@ func isRoundCheckDue(tries uint64, ts time.Time, backoffTable [cappedTries]time.
 	now := netTime.Now()
 
 	if tries >= uint64(len(backoffTable)) {
-		tries = uint64(len(backoffTable))-1
+		tries = uint64(len(backoffTable)) - 1
 	}
 	roundCheckTime := ts.Add(backoffTable[tries])
 

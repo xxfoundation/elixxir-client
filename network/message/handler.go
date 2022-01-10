@@ -54,18 +54,18 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 	var relationshipFingerprint []byte
 
 	//if it exists, check against all in the list
-	modifiedContents := append([]byte{0}, ecrMsg.GetContents()...)
-	has, forMe, _ := m.Session.GetEdge().Check(identity.Source, ecrMsg.GetIdentityFP(), modifiedContents)
+	ecrMsgContents := ecrMsg.GetContents()
+	has, forMe, _ := m.Session.GetEdge().Check(identity.Source, ecrMsg.GetIdentityFP(), ecrMsgContents)
 	if !has {
 		jww.INFO.Printf("checking backup %v", preimage.MakeDefault(identity.Source))
 		//if it doesnt exist, check against the default fingerprint for the identity
 		forMe = fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
-			modifiedContents, preimage.MakeDefault(identity.Source))
+			ecrMsgContents, preimage.MakeDefault(identity.Source))
 	}
 
 	if !forMe {
 		if jww.GetLogThreshold() == jww.LevelTrace {
-			expectedFP := fingerprint2.IdentityFP(modifiedContents,
+			expectedFP := fingerprint2.IdentityFP(ecrMsgContents,
 				preimage.MakeDefault(identity.Source))
 			jww.TRACE.Printf("Message for %d (%s) failed identity "+
 				"check: %v (expected-default) vs %v (received)", identity.EphId,

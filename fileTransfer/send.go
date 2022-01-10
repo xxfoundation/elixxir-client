@@ -364,30 +364,14 @@ func (m *Manager) newCmixMessage(transfer *ftStorage.SentTransfer,
 	// Create new empty cMix message
 	cmixMsg := format.NewMessage(m.store.Cmix().GetGroup().GetP().ByteLen())
 
-	// Create new empty file part message of size equal to the available payload
-	// size in the cMix message
-	partMsg, err := newPartMessage(cmixMsg.ContentsSize())
+	// Get encrypted file part, file part MAC, nonce (nonce), and fingerprint
+	encPart, mac, fp, err := transfer.GetEncryptedPart(partNum, cmixMsg.ContentsSize())
 	if err != nil {
-		return cmixMsg, err
-	}
-
-	// Get encrypted file part, file part MAC, padding (nonce), and fingerprint
-	encPart, mac, padding, fp, err := transfer.GetEncryptedPart(
-		partNum, partMsg.getPartSize(), rng)
-	if err != nil {
-		return cmixMsg, err
-	}
-
-	// Construct file part message from padding (
-	partMsg.setPadding(padding)
-	partMsg.setPartNum(partNum)
-	err = partMsg.setPart(encPart)
-	if err != nil {
-		return cmixMsg, err
+		return format.Message{}, err
 	}
 
 	// Construct cMix message
-	cmixMsg.SetContents(partMsg.marshal())
+	cmixMsg.SetContents(encPart)
 	cmixMsg.SetKeyFP(fp)
 	cmixMsg.SetMac(mac)
 
@@ -566,12 +550,12 @@ func (m *Manager) getPartSize() (int, error) {
 
 	// Create new empty file part message of size equal to the available payload
 	// size in the cMix message
-	partMsg, err := newPartMessage(cmixMsg.ContentsSize())
+	partMsg, err := ftStorage.NewPartMessage(cmixMsg.ContentsSize())
 	if err != nil {
 		return 0, err
 	}
 
-	return partMsg.getPartSize(), nil
+	return partMsg.GetPartSize(), nil
 }
 
 // partitionFile splits the file into parts of the specified part size.

@@ -803,7 +803,6 @@ func TestSentTransfer_AddProgressCB(t *testing.T) {
 func TestSentTransfer_GetEncryptedPart(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	_, st := newRandomSentTransfer(16, 24, kv, t)
-	prng := NewPrng(42)
 
 	// Create and fill fingerprint map used to check fingerprint validity
 	// The first item in the uint16 slice is the fingerprint number and the
@@ -816,7 +815,7 @@ func TestSentTransfer_GetEncryptedPart(t *testing.T) {
 	for i := uint16(0); i < st.numFps; i++ {
 		partNum := i % st.numParts
 
-		encPart, mac, padding, fp, err := st.GetEncryptedPart(partNum, 16, prng)
+		encPart, mac, fp, err := st.GetEncryptedPart(partNum, 18)
 		if err != nil {
 			t.Fatalf("GetEncryptedPart returned an error for part number "+
 				"%d (%d): %+v", partNum, i, err)
@@ -836,17 +835,24 @@ func TestSentTransfer_GetEncryptedPart(t *testing.T) {
 		}
 
 		// Attempt to decrypt the part
-		part, err := ftCrypto.DecryptPart(st.key, encPart, padding, mac, fpNum[0])
+		partMarshaled, err := ftCrypto.DecryptPart(st.key, encPart, mac, fpNum[0], fp)
 		if err != nil {
 			t.Errorf("Failed to decrypt file part number %d (%d): %+v",
 				partNum, i, err)
 		}
 
+		partMsg, _ := UnmarshalPartMessage(partMarshaled)
+
 		// Make sure the decrypted part matches the original
 		expectedPart, _ := st.sentParts.getPart(i % st.numParts)
-		if !bytes.Equal(expectedPart, part) {
+		if !bytes.Equal(expectedPart, partMsg.GetPart()) {
 			t.Errorf("Decyrpted part number %d does not match expected (%d)."+
-				"\nexpected: %+v\nreceived: %+v", partNum, i, expectedPart, part)
+				"\nexpected: %+v\nreceived: %+v", partNum, i, expectedPart, partMsg.GetPart())
+		}
+
+		if partMsg.GetPartNum()!=i % st.numParts{
+			t.Errorf("Number of part did not match, expected: %d, " +
+				"received: %d", i % st.numParts, partMsg.GetPartNum())
 		}
 	}
 }
@@ -856,12 +862,11 @@ func TestSentTransfer_GetEncryptedPart(t *testing.T) {
 func TestSentTransfer_GetEncryptedPart_NoPartError(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	_, st := newRandomSentTransfer(16, 24, kv, t)
-	prng := NewPrng(42)
 
 	partNum := st.numParts + 1
 	expectedErr := fmt.Sprintf(noPartNumErr, partNum)
 
-	_, _, _, _, err := st.GetEncryptedPart(partNum, 16, prng)
+	_, _, _, err := st.GetEncryptedPart(partNum, 16)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("GetEncryptedPart did not return the expected error for a "+
 			"nonexistent part number %d.\nexpected: %s\nreceived: %+v",
@@ -874,12 +879,11 @@ func TestSentTransfer_GetEncryptedPart_NoPartError(t *testing.T) {
 func TestSentTransfer_GetEncryptedPart_NoFingerprintsError(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	_, st := newRandomSentTransfer(16, 24, kv, t)
-	prng := NewPrng(42)
 
 	// Use up all the fingerprints
 	for i := uint16(0); i < st.numFps; i++ {
 		partNum := i % st.numParts
-		_, _, _, _, err := st.GetEncryptedPart(partNum, 16, prng)
+		_, _, _, err := st.GetEncryptedPart(partNum, 18)
 		if err != nil {
 			t.Errorf("Error when encyrpting part number %d (%d): %+v",
 				partNum, i, err)
@@ -887,37 +891,11 @@ func TestSentTransfer_GetEncryptedPart_NoFingerprintsError(t *testing.T) {
 	}
 
 	// Try to encrypt without any fingerprints
-	_, _, _, _, err := st.GetEncryptedPart(5, 16, prng)
+	_, _, _, err := st.GetEncryptedPart(5, 18)
 	if err != MaxRetriesErr {
 		t.Errorf("GetEncryptedPart did not return MaxRetriesErr when all "+
 			"fingerprints have been used.\nexpected: %s\nreceived: %+v",
 			MaxRetriesErr, err)
-	}
-}
-
-// Error path: tests that SentTransfer.GetEncryptedPart returns the expected
-// error when encrypting the part fails due to a PRNG error.
-func TestSentTransfer_GetEncryptedPart_EncryptPartError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
-	_, st := newRandomSentTransfer(16, 24, kv, t)
-	prng := NewPrngErr()
-
-	// Create and fill fingerprint map used to check fingerprint validity
-	// The first item in the uint16 slice is the fingerprint number and the
-	// second item is the number of times it has been used
-	fpMap := make(map[format.Fingerprint][]uint16, st.numFps)
-	for num, fp := range ftCrypto.GenerateFingerprints(st.key, st.numFps) {
-		fpMap[fp] = []uint16{uint16(num), 0}
-	}
-
-	partNum := uint16(0)
-	expectedErr := fmt.Sprintf(encryptPartErr, partNum, "")
-
-	_, _, _, _, err := st.GetEncryptedPart(partNum, 16, prng)
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("GetEncryptedPart did not return the expected error when "+
-			"the PRNG should have errored.\nexpected: %s\nreceived: %+v",
-			expectedErr, err)
 	}
 }
 

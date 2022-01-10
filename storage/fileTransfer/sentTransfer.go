@@ -17,7 +17,6 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
@@ -427,17 +426,30 @@ func (st *SentTransfer) AddProgressCB(cb interfaces.SentProgressCallback,
 
 // GetEncryptedPart gets the specified part, encrypts it, and returns the
 // encrypted part along with its MAC, padding, and fingerprint.
-func (st *SentTransfer) GetEncryptedPart(partNum uint16, partSize int,
-	rng csprng.Source) (encPart, mac, padding []byte, fp format.Fingerprint,
-	err error) {
+func (st *SentTransfer) GetEncryptedPart(partNum uint16, contentsSize int) (encPart, mac []byte,
+	fp format.Fingerprint, err error) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
+
+	// Create new empty file part message of size equal to the available payload
+	// size in the cMix message
+	partMsg, err := NewPartMessage(contentsSize)
+	if err != nil {
+		return nil, nil, format.Fingerprint{}, err
+	}
+
+	partMsg.SetPartNum(partNum)
 
 	// Lookup part
 	part, exists := st.sentParts.getPart(partNum)
 	if !exists {
-		return nil, nil, nil, format.Fingerprint{},
+		return nil, nil, format.Fingerprint{},
 			errors.Errorf(noPartNumErr, partNum)
+	}
+
+	if err = partMsg.SetPart(part); err != nil{
+		return nil, nil, format.Fingerprint{},
+			err
 	}
 
 	// If all fingerprints have been used but parts still remain, then change
@@ -445,13 +457,13 @@ func (st *SentTransfer) GetEncryptedPart(partNum uint16, partSize int,
 	// retries have been used
 	if st.fpVector.GetNumAvailable() < 1 {
 		st.status = Stopping
-		return nil, nil, nil, format.Fingerprint{}, MaxRetriesErr
+		return nil, nil, format.Fingerprint{}, MaxRetriesErr
 	}
 
 	// Get next unused fingerprint number and mark it as used
 	nextKey, err := st.fpVector.Next()
 	if err != nil {
-		return nil, nil, nil, format.Fingerprint{},
+		return nil, nil, format.Fingerprint{},
 			errors.Errorf(fingerprintErr, err)
 	}
 	fpNum := uint16(nextKey)
@@ -460,16 +472,13 @@ func (st *SentTransfer) GetEncryptedPart(partNum uint16, partSize int,
 	fp = ftCrypto.GenerateFingerprint(st.key, fpNum)
 
 	// Encrypt the file part and generate the file part MAC and padding (nonce)
-	maxLengthPart := make([]byte, partSize)
-	copy(maxLengthPart, part)
-	encPart, mac, padding, err = ftCrypto.EncryptPart(
-		st.key, maxLengthPart, fpNum, rng)
+	encPart, mac, err = ftCrypto.EncryptPart(st.key, partMsg.Marshal(), fpNum, fp)
 	if err != nil {
-		return nil, nil, nil, format.Fingerprint{},
+		return nil, nil, format.Fingerprint{},
 			errors.Errorf(encryptPartErr, partNum, err)
 	}
 
-	return encPart, mac, padding, fp, err
+	return encPart, mac, fp, err
 }
 
 // SetInProgress adds the specified file part numbers to the in-progress

@@ -12,6 +12,7 @@ import (
 	"encoding/binary"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/primitives/format"
 	"io"
 	"math/rand"
 	"reflect"
@@ -521,7 +522,10 @@ func Test_makePartsKey_consistency(t *testing.T) {
 func newRandomPartStore(numParts uint16, kv *versioned.KV, prng io.Reader,
 	t *testing.T) (*partStore, []byte) {
 
-	partSize := 64
+	cmixMsg := format.NewMessage(format.MinimumPrimeSize)
+
+	partData, _ := NewPartMessage(cmixMsg.ContentsSize())
+	partSize := partData.GetPartSize()
 
 	ps, err := newPartStore(kv, numParts)
 	if err != nil {

@@ -147,6 +147,13 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 		Source: partner.ID[:],
 	}, me)
 
+	//group Request
+	storage.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetGroupRequestPreimage(),
+		Type:   preimage.GroupRq,
+		Source: partner.ID[:],
+	}, me)
+
 	// delete the in progress negotiation
 	// this unlocks the request lock
 	//fixme - do these deletes at a later date

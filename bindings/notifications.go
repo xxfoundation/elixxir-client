@@ -59,6 +59,7 @@ func (mnfmr *ManyNotificationForMeReport) Len() int {
 //	"e2e"		sender user ID		reception of an E2E message
 //	"group"		group ID			reception of a group chat message
 //  "endFT"     sender user ID		Last message sent confirming end of file transfer
+//  "groupRQ"   sender user ID		Request from sender to join a group chat
 func NotificationsForMe(notifCSV, preimages string) (*ManyNotificationForMeReport, error) {
 	//handle deserialization of preimages
 	var preimageList []edge.Preimage

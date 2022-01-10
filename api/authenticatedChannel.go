@@ -158,6 +158,14 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Co
 		Source: precan.ID[:],
 	}, me)
 
+	// group request
+	c.storage.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetGroupRequestPreimage(),
+		Type:   preimage.GroupRq,
+		Source: precan.ID[:],
+	}, me)
+
+
 	return precan, err
 }
 

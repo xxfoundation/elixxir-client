@@ -42,7 +42,7 @@ var udCmd = &cobra.Command{
 		swBoard := client.GetSwitchboard()
 		recvCh := make(chan message.Receive, 10000)
 		listenerID := swBoard.RegisterChannel("DefaultCLIReceiver",
-			switchboard.AnyUser(), message.Text, recvCh)
+			switchboard.AnyUser(), message.XxMessage, recvCh)
 		jww.INFO.Printf("Message ListenerID: %v", listenerID)
 
 		// Set up auth request handler, which simply prints the user ID of the

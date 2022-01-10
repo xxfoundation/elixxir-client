@@ -36,7 +36,7 @@ var efmp = firstMessagePart{
 // Test that newFirstMessagePart returns a correctly made firstMessagePart
 func TestNewFirstMessagePart(t *testing.T) {
 	fmp := newFirstMessagePart(
-		message.Text,
+		message.XxMessage,
 		1077,
 		2,
 		time.Unix(1609786229, 0).UTC(),
@@ -67,8 +67,8 @@ func TestFirstMessagePartFromBytes(t *testing.T) {
 
 // Test that GetType returns the correct type for a firstMessagePart
 func TestFirstMessagePart_GetType(t *testing.T) {
-	if efmp.GetType() != message.Text {
-		t.Errorf("Got %v, expected %v", efmp.GetType(), message.Text)
+	if efmp.GetType() != message.XxMessage {
+		t.Errorf("Got %v, expected %v", efmp.GetType(), message.XxMessage)
 	}
 }
 

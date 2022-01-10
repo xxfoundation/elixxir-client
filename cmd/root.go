@@ -307,7 +307,7 @@ var rootCmd = &cobra.Command{
 		msg := message.Send{
 			Recipient:   recipientID,
 			Payload:     []byte(msgBody),
-			MessageType: message.Text,
+			MessageType: message.XxMessage,
 		}
 		paramsE2E := params.GetDefaultE2E()
 		paramsUnsafe := params.GetDefaultUnsafe()
@@ -453,7 +453,7 @@ func initClientCallbacks(client *api.Client) (chan *id.ID,
 	swboard := client.GetSwitchboard()
 	recvCh := make(chan message.Receive, 10000)
 	listenerID := swboard.RegisterChannel("DefaultCLIReceiver",
-		switchboard.AnyUser(), message.Text, recvCh)
+		switchboard.AnyUser(), message.XxMessage, recvCh)
 	jww.INFO.Printf("Message ListenerID: %v", listenerID)
 
 	// Set up auth request handler, which simply prints the

@@ -23,8 +23,8 @@ const (
 	// non Cmix messages will be ignored
 	Raw Type = 1
 
-	//General text message, contains human readable text
-	Text Type = 2
+	//Type of message sent by the xx messenger
+	XxMessage Type = 2
 
 	/*User Discovery message types*/
 	//Message structures defined in the UD package

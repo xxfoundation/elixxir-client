@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// DownloadBannedUsers returns a byte array representing banned user IDs.
+// DownloadBannedUsers returns a byte array representing banned user IDs in CSV format.
 // See https://git.xx.network/elixxir/banned-users.
 func DownloadBannedUsers() ([]byte, error) {
 	// Build a request for the file

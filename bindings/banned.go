@@ -16,7 +16,7 @@ import (
 // See https://git.xx.network/elixxir/banned-users.
 func DownloadBannedUsers() ([]byte, error) {
 	// Build a request for the file
-	resp, err := http.Get("") // todo: populate URL
+	resp, err := http.Get("https://elixxir-bins.s3-us-west-1.amazonaws.com/client/banned/bannedClientList.csv")
 	if err != nil {
 		return nil, err
 	}

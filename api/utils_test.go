@@ -68,7 +68,10 @@ func newTestingClient(face interface{}) (*Client, error) {
 
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
-	sender, _ := gateway.NewSender(p, c.rng, def, commsManager, c.storage, nil)
+	sender, err := gateway.NewSender(p, c.rng, def, commsManager, c.storage, nil)
+	if err != nil {
+		return nil, err
+	}
 	c.network = &testNetworkManagerGeneric{instance: thisInstance, sender: sender}
 
 	return c, nil
@@ -85,6 +88,8 @@ func getNDF(face interface{}) *ndf.NetworkDefinition {
 
 	cert, _ := utils.ReadFile(testkeys.GetNodeCertPath())
 	nodeID := id.NewIdFromBytes([]byte("gateway"), face)
+	gwId := nodeID.DeepCopy()
+	gwId.SetType(id.Gateway)
 	return &ndf.NetworkDefinition{
 		Registration: ndf.Registration{
 			TlsCertificate: string(cert),
@@ -100,7 +105,7 @@ func getNDF(face interface{}) *ndf.NetworkDefinition {
 		},
 		Gateways: []ndf.Gateway{
 			{
-				ID:             nodeID.Bytes(),
+				ID:             gwId.Bytes(),
 				Address:        "",
 				TlsCertificate: string(cert),
 			},

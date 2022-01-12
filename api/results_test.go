@@ -40,7 +40,7 @@ func TestClient_GetRoundResults(t *testing.T) {
 	// Create a new copy of the test client for this test
 	client, err := newTestingClient(t)
 	if err != nil {
-		t.Fatalf("Failed in setup: %v", err)
+		t.Fatalf("Failed in setup: %+v", err)
 	}
 
 	// Construct the round call back function signature

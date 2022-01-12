@@ -46,7 +46,7 @@ func GetDefaultNetwork() Network {
 	n := Network{
 		TrackNetworkPeriod:        100 * time.Millisecond,
 		MaxCheckedRounds:          500,
-		RegNodesBufferLen:         500,
+		RegNodesBufferLen:         1000,
 		NetworkHealthTimeout:      30 * time.Second,
 		E2EParams:                 GetDefaultE2ESessionParams(),
 		ParallelNodeRegistrations: 20,

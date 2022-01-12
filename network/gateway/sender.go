@@ -153,7 +153,7 @@ func (s *Sender) SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
 		for targetIdx := range proxies {
 			// Return an error if the timeout duration is reached
 			if netTime.Since(startTime) > timeout {
-				return nil, errors.Errorf("iterating over target's procies "+
+				return nil, errors.Errorf("iterating over target's proxies "+
 					"timed out after %s", timeout)
 			}
 

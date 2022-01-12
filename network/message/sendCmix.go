@@ -85,8 +85,8 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		attempted = excludedRounds.NewSet()
 	}
 
-	jww.INFO.Printf("Looking for round to send cMix message to %s "+
-		"(msgDigest: %s)", recipient, msg.Digest())
+	jww.INFO.Printf("[SendCMIX-%s]Looking for round to send cMix message to %s "+
+		"(msgDigest: %s)", cmixParams.DebugTag, recipient, msg.Digest())
 
 	stream := rng.GetStream()
 	defer stream.Close()
@@ -98,18 +98,18 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 	for numRoundTries := uint(0); numRoundTries < cmixParams.RoundTries; numRoundTries++ {
 		elapsed := netTime.Since(timeStart)
-		jww.TRACE.Printf("[SendCMIX] try %d, elapsed: %s",
-			numRoundTries, elapsed)
+		jww.TRACE.Printf("[SendCMIX-%s] try %d, elapsed: %s",
+			cmixParams.DebugTag, numRoundTries, elapsed)
 
 		if elapsed > cmixParams.Timeout {
-			jww.INFO.Printf("No rounds to send to %s (msgDigest: %s) "+
-				"were found before timeout %s", recipient, msg.Digest(),
+			jww.INFO.Printf("[SendCMIX-%s] No rounds to send to %s (msgDigest: %s) "+
+				"were found before timeout %s", cmixParams.DebugTag, recipient, msg.Digest(),
 				cmixParams.Timeout)
 			return 0, ephemeral.Id{}, errors.New("Sending cmix message timed out")
 		}
 		if numRoundTries > 0 {
-			jww.INFO.Printf("Attempt %d to find round to send message "+
-				"to %s (msgDigest: %s)", numRoundTries+1, recipient,
+			jww.INFO.Printf("[SendCMIX-%s] Attempt %d to find round to send message "+
+				"to %s (msgDigest: %s)", cmixParams.DebugTag, numRoundTries+1, recipient,
 				msg.Digest())
 		}
 
@@ -117,13 +117,14 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		remainingTime := cmixParams.Timeout - elapsed
 		bestRound, err := instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted, sendTimeBuffer)
 		if err != nil {
-			jww.WARN.Printf("Failed to GetUpcomingRealtime (msgDigest: %s): %+v", msg.Digest(), err)
+			jww.WARN.Printf("[SendCMIX-%s] Failed to GetUpcomingRealtime " +
+				"(msgDigest: %s): %+v", cmixParams.DebugTag, msg.Digest(), err)
 		}
 		if bestRound == nil {
-			jww.WARN.Printf("Best round on send is nil")
+			jww.WARN.Printf("[SendCMIX-%s], Best round on send is nil", cmixParams.DebugTag)
 			continue
 		}
-		jww.TRACE.Printf("[sendCMIX] bestRound: %v", bestRound)
+		jww.TRACE.Printf("[SendCMIX-%s] bestRound: %v", cmixParams.DebugTag, bestRound)
 
 		// add the round on to the list of attempted, so it is not tried again
 		attempted.Insert(bestRound.GetRoundId())
@@ -138,19 +139,21 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			}
 		}
 		if containsBlacklisted {
-			jww.WARN.Printf("Round %d contains blacklisted node, skipping...", bestRound.ID)
+			jww.WARN.Printf("[SendCMIX-%s]Round %d contains blacklisted node, " +
+				"skipping...", cmixParams.DebugTag, bestRound.ID)
 			continue
 		}
 
 		// Retrieve host and key information from round
 		firstGateway, roundKeys, err := processRound(instance, session, nodeRegistration, bestRound, recipient.String(), msg.Digest())
 		if err != nil {
-			jww.WARN.Printf("SendCmix failed to process round (will retry): %v", err)
+			jww.WARN.Printf("[SendCMIX-%s]SendCmix failed to process round" +
+				" (will retry): %v", cmixParams.DebugTag, err)
 			continue
 		}
 
-		jww.TRACE.Printf("[sendCMIX] round %v processed, firstGW: %s",
-			bestRound, firstGateway)
+		jww.TRACE.Printf("[SendCMIX-%s]round %v processed, firstGW: %s",
+			cmixParams.DebugTag, bestRound, firstGateway)
 
 		// Build the messages to send
 
@@ -160,9 +163,9 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			return 0, ephemeral.Id{}, err
 		}
 
-		jww.INFO.Printf("[sendCMIX] Sending to EphID %d (%s), "+
+		jww.INFO.Printf("[SendCMIX-%s] Sending to EphID %d (%s), "+
 			"on round %d (msgDigest: %s, ecrMsgDigest: %s) "+
-			"via gateway %s",
+			"via gateway %s",  cmixParams.DebugTag,
 			ephID.Int64(), recipient, bestRound.ID, msg.Digest(),
 			encMsg.Digest(), firstGateway.String())
 
@@ -171,7 +174,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			timeout time.Duration) (interface{}, error) {
 			wrappedMsg.Target = target.Marshal()
 
-			jww.TRACE.Printf("[sendCMIX] sendFunc %s", host)
+			jww.TRACE.Printf("[SendCMIX-%s]sendFunc %s", cmixParams.DebugTag, host)
 			timeout = calculateSendTimeout(bestRound, maxTimeout)
 			// Use the smaller of the two timeout durations
 			calculatedTimeout := calculateSendTimeout(bestRound, maxTimeout)
@@ -182,24 +185,24 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			//send the message
 			result, err := comms.SendPutMessage(host, wrappedMsg,
 				timeout)
-			jww.TRACE.Printf("[sendCMIX] sendFunc %s putmsg", host)
+			jww.TRACE.Printf("[SendCMIX-%s]sendFunc %s putmsg", cmixParams.DebugTag, host)
 
 			if err != nil {
 				// fixme: should we provide as a slice the whole topology?
 				err := handlePutMessageError(firstGateway,
 					instance, session, nodeRegistration,
 					recipient.String(), bestRound, err)
-				jww.TRACE.Printf("[sendCMIX] sendFunc %s err %+v",
-					host, err)
+				jww.TRACE.Printf("[SendCMIX-%s] sendFunc %s err %+v",
+					cmixParams.DebugTag, host, err)
 				return result, errors.WithMessagef(err,
 					"SendCmix %s", unrecoverableError)
 			}
 			return result, err
 		}
-		jww.TRACE.Printf("[sendCMIX] sendToPreferred %s", firstGateway)
+		jww.TRACE.Printf("[SendCMIX-%s] sendToPreferred %s", firstGateway)
 		result, err := sender.SendToPreferred(
 			[]*id.ID{firstGateway}, sendFunc, stop, cmixParams.SendTimeout)
-		jww.DEBUG.Printf("[sendCMIX] sendToPreferred %s returned",
+		jww.DEBUG.Printf("[SendCMIX-%s] sendToPreferred %s returned",
 			firstGateway)
 
 		// Exit if the thread has been stopped
@@ -209,8 +212,8 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 		// if the comm errors or the message fails to send, continue retrying.
 		if err != nil {
-			jww.ERROR.Printf("SendCmix failed to send to EphID %d (%s) on "+
-				"round %d, trying a new round: %+v", ephID.Int64(), recipient,
+			jww.ERROR.Printf("[SendCMIX-%s] SendCmix failed to send to EphID %d (%s) on "+
+				"round %d, trying a new round: %+v", cmixParams.DebugTag, ephID.Int64(), recipient,
 				bestRound.ID, err)
 			continue
 		}
@@ -218,9 +221,9 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		// Return if it sends properly
 		gwSlotResp := result.(*pb.GatewaySlotResponse)
 		if gwSlotResp.Accepted {
-			m := fmt.Sprintf("Successfully sent to EphID %v "+
+			m := fmt.Sprintf("[SendCMIX-%s] Successfully sent to EphID %v "+
 				"(source: %s) in round %d (msgDigest: %s), "+
-				"elapsed: %s numRoundTries: %d", ephID.Int64(),
+				"elapsed: %s numRoundTries: %d", cmixParams.DebugTag, ephID.Int64(),
 				recipient, bestRound.ID, msg.Digest(),
 				elapsed, numRoundTries)
 			jww.INFO.Print(m)
@@ -228,9 +231,9 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			onSend(1, session)
 			return id.Round(bestRound.ID), ephID, nil
 		} else {
-			jww.FATAL.Panicf("Gateway %s returned no error, but failed "+
+			jww.FATAL.Panicf("[SendCMIX-%s] Gateway %s returned no error, but failed "+
 				"to accept message when sending to EphID %d (%s) on round %d",
-				firstGateway, ephID.Int64(), recipient, bestRound.ID)
+				cmixParams.DebugTag, firstGateway, ephID.Int64(), recipient, bestRound.ID)
 		}
 
 	}

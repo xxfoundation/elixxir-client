@@ -43,6 +43,7 @@ func (m *Manager) sendNewFileTransfer(recipient *id.ID, fileName,
 	// Sends as a silent message to avoid a notification
 	p := params.GetDefaultE2E()
 	p.CMIX.IdentityPreimage = relationship.GetSilentPreimage()
+	p.DebugTag = "ft.New"
 
 	// Send E2E message
 	rounds, _, _, err := m.net.SendE2E(sendMsg, p, nil)

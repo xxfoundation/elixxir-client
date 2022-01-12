@@ -50,6 +50,7 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time,
 
 	param := params.GetDefaultCMIX()
 	param.IdentityPreimage = groupID[:]
+	param.DebugTag = "group.Message"
 
 	rid, _, err := m.net.SendManyCMIX(messages, param)
 	if err != nil {

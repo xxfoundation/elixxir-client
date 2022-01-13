@@ -328,10 +328,12 @@ var rootCmd = &cobra.Command{
 						var roundIDs []id.Round
 						var roundTimeout time.Duration
 						if unsafe {
+							paramsE2E.DebugTag = "cmd.Unsafe"
 							roundIDs, err = client.SendUnsafe(msg,
 								paramsUnsafe)
 							roundTimeout = paramsUnsafe.Timeout
 						} else {
+							paramsE2E.DebugTag = "cmd.E2E"
 							roundIDs, _, _, err = client.SendE2E(msg,
 								paramsE2E)
 							roundTimeout = paramsE2E.Timeout

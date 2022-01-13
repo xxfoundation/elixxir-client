@@ -247,6 +247,7 @@ func (m *Manager) sendParts(partList []queuedPart,
 	p := params.GetDefaultCMIX()
 	p.SendTimeout = m.p.SendTimeout
 	p.ExcludedRounds = sentRounds
+	p.DebugTag = "ft.Part"
 
 	// Send parts
 	rid, _, err := m.net.SendManyCMIX(messages, p)
@@ -477,6 +478,7 @@ func (m *Manager) sendEndE2eMessage(recipient *id.ID) error {
 	// Send the message under file transfer preimage
 	e2eParams := params.GetDefaultE2E()
 	e2eParams.IdentityPreimage = partner.GetFileTransferPreimage()
+	e2eParams.DebugTag = "ft.End"
 
 	// Store the message in the critical messages buffer first to ensure it is
 	// present if the send fails

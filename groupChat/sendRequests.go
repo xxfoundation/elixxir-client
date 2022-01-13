@@ -126,6 +126,7 @@ func (m Manager) sendRequest(memberID *id.ID, request []byte) ([]id.Round, error
 
 	p := params.GetDefaultE2E()
 	p.IdentityPreimage = recipent.GetGroupRequestPreimage()
+	p.DebugTag = "group.Request"
 
 	rounds, _, _, err := m.net.SendE2E(sendMsg, p, nil)
 	if err != nil {

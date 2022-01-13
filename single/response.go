@@ -74,7 +74,9 @@ func (m *Manager) respondSingleUse(partner Contact, payload []byte,
 		go func() {
 			defer wg.Done()
 			// Send Message
-			round, ephID, err := m.net.SendCMIX(cmixMsgFunc, partner.partner, params.GetDefaultCMIX())
+			p := params.GetDefaultCMIX()
+			p.DebugTag = "single.Response"
+			round, ephID, err := m.net.SendCMIX(cmixMsgFunc, partner.partner, p)
 			if err != nil {
 				jww.ERROR.Printf("Failed to send single-use response CMIX "+
 					"message part %d: %+v", j, err)

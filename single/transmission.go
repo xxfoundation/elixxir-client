@@ -116,7 +116,9 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 		// Send Message
 		jww.DEBUG.Printf("Sending single-use transmission CMIX "+
 			"message to %s.", partner.ID)
-		round, _, err := m.net.SendCMIX(cmixMsg, partner.ID, params.GetDefaultCMIX())
+		p :=  params.GetDefaultCMIX()
+		p.DebugTag = "single.Transmit"
+		round, _, err := m.net.SendCMIX(cmixMsg, partner.ID,p)
 		if err != nil {
 			errorString := fmt.Sprintf("failed to send single-use transmission "+
 				"CMIX message: %+v", err)

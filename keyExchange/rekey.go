@@ -8,6 +8,7 @@
 package keyExchange
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -24,7 +25,6 @@ import (
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/primitives/states"
 	"time"
-	"fmt"
 )
 
 func CheckKeyExchanges(instance *network.Instance, sendE2E interfaces.SendE2E,
@@ -121,6 +121,7 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	e2eParams := params.GetDefaultE2E()
 	e2eParams.Type = params.KeyExchange
 	e2eParams.IdentityPreimage = rekeyPreimage
+	e2eParams.DebugTag = "kx.Request"
 
 	rounds, msgID, _, err := sendE2E(m, e2eParams, stop)
 	// If the send fails, returns the error so it can be handled. The caller

@@ -173,6 +173,7 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 	/*send message*/
 	p := params.GetDefaultCMIX()
 	p.IdentityPreimage = preimage.GenerateRequest(partner.ID)
+	p.DebugTag = "auth.Request"
 	round, _, err := net.SendCMIX(cmixMsg, partner.ID, p)
 	if err != nil {
 		// if the send fails just set it to failed, it will

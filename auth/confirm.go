@@ -168,6 +168,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 
 	param := params.GetDefaultCMIX()
 	param.IdentityPreimage = preimg
+	param.DebugTag = "auth.Confirm"
 	/*send message*/
 	round, _, err := net.SendCMIX(cmixMsg, partner.ID, param)
 	if err != nil {

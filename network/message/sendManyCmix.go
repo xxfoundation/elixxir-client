@@ -76,7 +76,7 @@ func sendManyCmixHelper(sender *gateway.Sender,
 	recipientString, msgDigests := messageListToStrings(msgs)
 
 	jww.INFO.Printf("[SendManyCMIX-%s]Looking for round to send cMix messages to [%s] "+
-		"(msgDigest: %s)", recipientString, msgDigests)
+		"(msgDigest: %s)", param.DebugTag, recipientString, msgDigests)
 
 	for numRoundTries := uint(0); numRoundTries < param.RoundTries; numRoundTries++ {
 		elapsed := netTime.Since(timeStart)
@@ -220,7 +220,7 @@ func sendManyCmixHelper(sender *gateway.Sender,
 		} else {
 			jww.FATAL.Panicf("Gateway %s returned no error, but failed to "+
 				"accept message when sending to EphIDs [%s] (%s) on round %d",
-				param.DebugTag, firstGateway, ephemeralIDsString, recipientString, bestRound.ID)
+				firstGateway, ephemeralIDsString, recipientString, bestRound.ID)
 		}
 	}
 

@@ -199,11 +199,12 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			}
 			return result, err
 		}
-		jww.TRACE.Printf("[SendCMIX-%s] sendToPreferred %s", firstGateway)
+		jww.TRACE.Printf("[SendCMIX-%s] sendToPreferred %s",
+			cmixParams.DebugTag, firstGateway)
 		result, err := sender.SendToPreferred(
 			[]*id.ID{firstGateway}, sendFunc, stop, cmixParams.SendTimeout)
 		jww.DEBUG.Printf("[SendCMIX-%s] sendToPreferred %s returned",
-			firstGateway)
+			cmixParams.DebugTag, firstGateway)
 
 		// Exit if the thread has been stopped
 		if stoppable.CheckErr(err) {

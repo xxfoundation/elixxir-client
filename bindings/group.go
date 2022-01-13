@@ -124,8 +124,8 @@ func (g *GroupChat) Send(groupIdBytes, message []byte) (*GroupSendReport, error)
 		return nil, errors.Errorf("Failed to unmarshal group ID: %+v", err)
 	}
 
-	round, timestamp, err := g.m.Send(groupID, message)
-	return &GroupSendReport{round, timestamp}, err
+	round, timestamp, msgID, err := g.m.Send(groupID, message)
+	return &GroupSendReport{round, timestamp, msgID}, err
 }
 
 // GetGroups returns an IdList containing a list of group IDs that the user is a
@@ -239,6 +239,7 @@ func (ngr *NewGroupReport) Unmarshal(b []byte) error {
 type GroupSendReport struct {
 	roundID   id.Round
 	timestamp time.Time
+	messageID group.MessageID
 }
 
 // GetRoundID returns the ID of the round that the send occurred on.
@@ -255,6 +256,11 @@ func (gsr *GroupSendReport) GetTimestampNano() int64 {
 func (gsr *GroupSendReport) GetTimestampMS() int64 {
 	ts := uint64(gsr.timestamp.UnixNano()) / uint64(time.Millisecond)
 	return int64(ts)
+}
+
+// GetMessageID returns the ID of the round that the send occurred on.
+func (gsr *GroupSendReport) GetMessageID() []byte {
+	return gsr.messageID[:]
 }
 
 ////

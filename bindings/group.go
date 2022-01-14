@@ -263,6 +263,11 @@ func (gsr *GroupSendReport) GetMessageID() []byte {
 	return gsr.messageID[:]
 }
 
+// GetRoundURL returns the URL of the round that the send occurred on.
+func (gsr *GroupSendReport) GetRoundURL() string {
+	return getRoundURL(gsr.roundID)
+}
+
 ////
 // Group Structure
 ////
@@ -411,6 +416,11 @@ func (gmr *GroupMessageReceive) GetTimestampMS() int64 {
 // GetRoundID returns the ID of the round the message was sent on.
 func (gmr *GroupMessageReceive) GetRoundID() int64 {
 	return int64(gmr.RoundID)
+}
+
+// GetRoundURL returns the ID of the round the message was sent on.
+func (gmr *GroupMessageReceive) GetRoundURL() string {
+	return getRoundURL(gmr.RoundID)
 }
 
 // GetRoundTimestampNano returns the timestamp, in nanoseconds, of the round the

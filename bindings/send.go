@@ -199,6 +199,13 @@ func (sr *SendReport) GetMessageID() []byte {
 	return sr.mid[:]
 }
 
+func (sr *SendReport) GetRoundURL() string {
+	if sr.rl != nil && sr.rl.Len() > 0 {
+		return getRoundURL(sr.rl.list[0])
+	}
+	return dashboardBaseURL
+}
+
 // GetTimestampMS returns the message's timestamp in milliseconds
 func (sr *SendReport) GetTimestampMS() int64 {
 	ts := sr.ts.UnixNano()

@@ -65,3 +65,8 @@ func (m *Message) GetRoundTimestampNano() int64 {
 func (m *Message) GetRoundId() int64 {
 	return int64(m.r.RoundId)
 }
+
+// GetRoundURL returns the message's round URL
+func (m *Message) GetRoundURL() string {
+	return getRoundURL(m.r.RoundId)
+}

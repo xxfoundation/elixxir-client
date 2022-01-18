@@ -16,5 +16,5 @@ import (
 const dashboardBaseURL = "https://dashboard.xx.network"
 
 func getRoundURL(round id.Round) string {
-	return fmt.Sprintf("%s/rounds/%d", dashboardBaseURL, round)
+	return fmt.Sprintf("%s/rounds/%d?xxmessenger=true", dashboardBaseURL, round)
 }

@@ -171,7 +171,7 @@ func TestClient_GetRoundResults_HistoricalRounds(t *testing.T) {
 			t.Errorf("Failed to sign round in set up: %v", err)
 		}
 
-		err = client.network.GetInstance().RoundUpdate(ri)
+		_, err = client.network.GetInstance().RoundUpdate(ri)
 		if err != nil {
 			t.Errorf("Failed to upsert round in set up: %v", err)
 		}

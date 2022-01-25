@@ -165,7 +165,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		return
 	} else {
 		//check if the relationship already exists,
-		rType, sr2, _, err := m.storage.Auth().GetRequest(partnerID)
+		rType, _, _, err := m.storage.Auth().GetRequest(partnerID)
 		if err != nil && !strings.Contains(err.Error(), auth.NoRequest) {
 			// if another error is received, print it and exit
 			em := fmt.Sprintf("Received new Auth request for %s, "+
@@ -201,13 +201,9 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				}
 
 				// Check if I need to resend by comparing the
-				// SIDH Keys
-				mySIDH := sr2.GetMySIDHPubKey()
-				theirSIDH := partnerSIDHPubKey
-				myBytes := make([]byte, mySIDH.Size())
-				theirBytes := make([]byte, theirSIDH.Size())
-				mySIDH.Export(myBytes)
-				theirSIDH.Export(theirBytes)
+				// IDs
+				myBytes := m.storage.GetUser().ReceptionID.Bytes()
+				theirBytes := partnerID.Bytes()
 				for i := 0; i < len(myBytes); i++ {
 					if myBytes[i] > theirBytes[i] {
 						// OK, this side is dropping

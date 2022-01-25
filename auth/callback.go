@@ -227,6 +227,10 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				_, _, partnerContact, _ := m.storage.Auth().GetRequest(partnerID)
 				m.storage.Auth().Delete(partnerID)
 
+				// Use the public key sent to me, not the one I
+				// first retrieved to initiate the auth request
+				partnerContact.DhPubKey = partnerPubKey
+
 				// add a confirmation to disk
 				if err = m.storage.Auth().AddReceived(partnerContact,
 					partnerSIDHPubKey); err != nil {

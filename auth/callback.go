@@ -254,6 +254,12 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 
 				jww.INFO.Printf("ConfirmRequestAuth to %s on round %d",
 					partnerID, rndNum)
+				c := partnerContact
+				cbList := m.confirmCallbacks.Get(c.ID)
+				for _, cb := range cbList {
+					ccb := cb.(interfaces.ConfirmCallback)
+					go ccb(c)
+				}
 				return
 			}
 		}

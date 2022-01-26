@@ -347,7 +347,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// tracked round if it is behind
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
 	m.SetFakeEarliestRound(earliestTrackedRound)
-	updated, old, _ := identity.ER.Set(earliestTrackedRound)
+	updatedEarliestRound, old, _ := identity.ER.Set(earliestTrackedRound)
 
 	// If there was no registered rounds for the identity
 	if old == 0 {
@@ -359,29 +359,30 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			roundsDelta = m.param.KnownRoundsThreshold
 		}
 		if id.Round(roundsDelta) > lastCheckedRound {
-			updated = 1
+			// Handles edge case for new networks to prevent starting at negative rounds
+			updatedEarliestRound = 1
 		} else {
-			updated = lastCheckedRound - id.Round(roundsDelta)
+			updatedEarliestRound = lastCheckedRound - id.Round(roundsDelta)
 			earliestFilterRound := filterList[0].FirstRound() // Length of filterList always > 0
 			// If the network appears to be moving faster than our estimate, causing
 			// earliestFilterRound to be lower, we will instead use the earliestFilterRound
 			// which will ensure messages are not dropped as long as contacted gateway has all data
-			if updated > earliestFilterRound {
-				updated = earliestFilterRound
+			if updatedEarliestRound > earliestFilterRound {
+				updatedEarliestRound = earliestFilterRound
 			}
 		}
-		identity.ER.Set(updated)
+		identity.ER.Set(updatedEarliestRound)
 	}
 
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)
 	//threshold is the earliest round that will not be excluded from earliest remaining
-	earliestRemaining, roundsWithMessages, roundsUnknown := gwRoundsState.RangeUnchecked(updated,
+	earliestRemaining, roundsWithMessages, roundsUnknown := gwRoundsState.RangeUnchecked(updatedEarliestRound,
 		m.param.KnownRoundsThreshold, roundChecker)
 	jww.DEBUG.Printf("Processed RangeUnchecked, Oldest: %d, firstUnchecked: %d, "+
 		"last Checked: %d, threshold: %d, NewEarliestRemaning: %d, NumWithMessages: %d, "+
-		"NumUnknown: %d", updated, gwRoundsState.GetFirstUnchecked(), gwRoundsState.GetLastChecked(),
+		"NumUnknown: %d", updatedEarliestRound, gwRoundsState.GetFirstUnchecked(), gwRoundsState.GetLastChecked(),
 		m.param.KnownRoundsThreshold, earliestRemaining, len(roundsWithMessages), len(roundsUnknown))
 
 	_, _, changed := identity.ER.Set(earliestRemaining)
@@ -416,8 +417,8 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	}
 
 	if m.verboseRounds != nil {
-		trackingStart := updated
-		if uint(earliestRemaining-updated) > m.param.KnownRoundsThreshold {
+		trackingStart := updatedEarliestRound
+		if uint(earliestRemaining-updatedEarliestRound) > m.param.KnownRoundsThreshold {
 			trackingStart = earliestRemaining - id.Round(m.param.KnownRoundsThreshold)
 		}
 		jww.DEBUG.Printf("Rounds tracked: %v to %v", trackingStart, earliestRemaining)

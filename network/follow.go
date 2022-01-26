@@ -362,6 +362,10 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			updated = 1
 		} else {
 			updated = lastCheckedRound - id.Round(roundsDelta)
+			earliestFilterRound := filterList[0].FirstRound() // Length of filterList always > 0
+			if updated > earliestFilterRound {
+				updated = earliestFilterRound
+			}
 		}
 		identity.ER.Set(updated)
 	}

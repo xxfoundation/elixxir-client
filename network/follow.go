@@ -41,7 +41,14 @@ import (
 	"time"
 )
 
-const debugTrackPeriod = 1 * time.Minute
+const (
+	debugTrackPeriod = 1 * time.Minute
+
+	// Estimate the number of rounds per second in the network. Will need updated someday
+	// in order to correctly determine how far back to search rounds for messages
+	// as the network continues to grow, otherwise message drops occur.
+	estimatedRoundsPerSecond = 5
+)
 
 //comms interface makes testing easier
 type followNetworkComms interface {
@@ -341,11 +348,27 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
 	m.SetFakeEarliestRound(earliestTrackedRound)
 	updated, old, _ := identity.ER.Set(earliestTrackedRound)
+
+	// If there was no registered rounds for the identity
 	if old == 0 {
-		if gwRoundsState.GetLastChecked() > id.Round(m.param.KnownRoundsThreshold) {
-			updated = gwRoundsState.GetLastChecked() - id.Round(m.param.KnownRoundsThreshold)
-		} else {
+		lastCheckedRound := gwRoundsState.GetLastChecked()
+		// Approximate the earliest possible round that messages could be received on this ID
+		// by using an estimate of how many rounds the network runs per second
+		roundsDelta := uint(time.Now().Sub(identity.StartValid) / time.Second * estimatedRoundsPerSecond)
+		if roundsDelta < m.param.KnownRoundsThreshold {
+			roundsDelta = m.param.KnownRoundsThreshold
+		}
+		if id.Round(roundsDelta) > lastCheckedRound {
 			updated = 1
+		} else {
+			updated = lastCheckedRound - id.Round(roundsDelta)
+			earliestFilterRound := filterList[0].FirstRound() // Length of filterList always > 0
+			// If the network appears to be moving faster than our estimate, causing
+			// earliestFilterRound to be lower, we will instead use the earliestFilterRound
+			// which will ensure messages are not dropped as long as contacted gateway has all data
+			if updated > earliestFilterRound {
+				updated = earliestFilterRound
+			}
 		}
 		identity.ER.Set(updated)
 	}

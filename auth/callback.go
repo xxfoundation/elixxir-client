@@ -165,7 +165,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		return
 	} else {
 		//check if the relationship already exists,
-		rType, sr2, _, err := m.storage.Auth().GetRequest(partnerID)
+		rType, _, _, err := m.storage.Auth().GetRequest(partnerID)
 		if err != nil && !strings.Contains(err.Error(), auth.NoRequest) {
 			// if another error is received, print it and exit
 			em := fmt.Sprintf("Received new Auth request for %s, "+
@@ -201,13 +201,9 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				}
 
 				// Check if I need to resend by comparing the
-				// SIDH Keys
-				mySIDH := sr2.GetMySIDHPubKey()
-				theirSIDH := partnerSIDHPubKey
-				myBytes := make([]byte, mySIDH.Size())
-				theirBytes := make([]byte, theirSIDH.Size())
-				mySIDH.Export(myBytes)
-				theirSIDH.Export(theirBytes)
+				// IDs
+				myBytes := m.storage.GetUser().ReceptionID.Bytes()
+				theirBytes := partnerID.Bytes()
 				for i := 0; i < len(myBytes); i++ {
 					if myBytes[i] > theirBytes[i] {
 						// OK, this side is dropping
@@ -226,6 +222,10 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				// If I do, delete my request on disk
 				_, _, partnerContact, _ := m.storage.Auth().GetRequest(partnerID)
 				m.storage.Auth().Delete(partnerID)
+
+				// Use the public key sent to me, not the one I
+				// first retrieved to initiate the auth request
+				partnerContact.DhPubKey = partnerPubKey
 
 				// add a confirmation to disk
 				if err = m.storage.Auth().AddReceived(partnerContact,
@@ -250,6 +250,12 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 
 				jww.INFO.Printf("ConfirmRequestAuth to %s on round %d",
 					partnerID, rndNum)
+				c := partnerContact
+				cbList := m.confirmCallbacks.Get(c.ID)
+				for _, cb := range cbList {
+					ccb := cb.(interfaces.ConfirmCallback)
+					go ccb(c)
+				}
 				return
 			}
 		}

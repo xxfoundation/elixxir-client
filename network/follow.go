@@ -341,9 +341,19 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
 	m.SetFakeEarliestRound(earliestTrackedRound)
 	updated, old, _ := identity.ER.Set(earliestTrackedRound)
+
+	// If there was no registered rounds for the identity
 	if old == 0 {
 		if gwRoundsState.GetLastChecked() > id.Round(m.param.KnownRoundsThreshold) {
-			updated = gwRoundsState.GetLastChecked() - id.Round(m.param.KnownRoundsThreshold)
+			earliestFilterRound := filterList[0].FirstRound() // Length of filterList always > 0
+			startTrackingRound := gwRoundsState.GetLastChecked() - id.Round(m.param.KnownRoundsThreshold)
+
+			// Set updated to minimum of the two
+			if earliestFilterRound < startTrackingRound {
+				updated = earliestFilterRound
+			} else {
+				updated = startTrackingRound
+			}
 		} else {
 			updated = 1
 		}

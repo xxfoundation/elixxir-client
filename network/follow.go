@@ -41,7 +41,14 @@ import (
 	"time"
 )
 
-const debugTrackPeriod = 1 * time.Minute
+const (
+	debugTrackPeriod = 1 * time.Minute
+
+	// Estimate the number of rounds per second in the network. Will need updated someday
+	// in order to correctly determine how far back to search rounds for messages
+	// as the network continues to grow, otherwise message drops occur.
+	estimatedRoundsPerSecond = 5
+)
 
 //comms interface makes testing easier
 type followNetworkComms interface {
@@ -344,18 +351,17 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 
 	// If there was no registered rounds for the identity
 	if old == 0 {
-		if gwRoundsState.GetLastChecked() > id.Round(m.param.KnownRoundsThreshold) {
-			earliestFilterRound := filterList[0].FirstRound() // Length of filterList always > 0
-			startTrackingRound := gwRoundsState.GetLastChecked() - id.Round(m.param.KnownRoundsThreshold)
-
-			// Set updated to minimum of the two
-			if earliestFilterRound < startTrackingRound {
-				updated = earliestFilterRound
-			} else {
-				updated = startTrackingRound
-			}
-		} else {
+		lastCheckedRound := gwRoundsState.GetLastChecked()
+		// Approximate the earliest possible round that messages could be received on this ID
+		// by using an estimate of how many rounds the network runs per second
+		roundsDelta := uint(time.Now().Sub(identity.StartValid) / time.Second * estimatedRoundsPerSecond)
+		if roundsDelta < m.param.KnownRoundsThreshold {
+			roundsDelta = m.param.KnownRoundsThreshold
+		}
+		if id.Round(roundsDelta) > lastCheckedRound {
 			updated = 1
+		} else {
+			updated = lastCheckedRound - id.Round(roundsDelta)
 		}
 		identity.ER.Set(updated)
 	}

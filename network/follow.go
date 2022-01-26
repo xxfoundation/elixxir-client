@@ -363,6 +363,9 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		} else {
 			updated = lastCheckedRound - id.Round(roundsDelta)
 			earliestFilterRound := filterList[0].FirstRound() // Length of filterList always > 0
+			// If the network appears to be moving faster than our estimate, causing
+			// earliestFilterRound to be lower, we will instead use the earliestFilterRound
+			// which will ensure messages are not dropped as long as contacted gateway has all data
 			if updated > earliestFilterRound {
 				updated = earliestFilterRound
 			}

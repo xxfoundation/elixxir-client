@@ -315,18 +315,9 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		return
 	}
 
-	//get the range fo filters which are valid for the identity
-	filtersStart, filtersEnd, outOfBounds := rounds.ValidFilterRange(identity, pollResp.Filters)
-
-	//check if there are any valid filters returned
-	if outOfBounds {
-		jww.WARN.Printf("No filters processed, none in valid range")
-		return
-	}
-
 	//prepare the filter objects for processing
-	filterList := make([]*rounds.RemoteFilter, 0, filtersEnd-filtersStart)
-	for i := filtersStart; i < filtersEnd; i++ {
+	filterList := make([]*rounds.RemoteFilter, 0, len(pollResp.Filters.Filters))
+	for i := range pollResp.Filters.Filters {
 		if len(pollResp.Filters.Filters[i].Filter) != 0 {
 			filterList = append(filterList, rounds.NewRemoteFilter(pollResp.Filters.Filters[i]))
 		}

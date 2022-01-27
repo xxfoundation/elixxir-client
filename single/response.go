@@ -81,6 +81,16 @@ func (m *Manager) respondSingleUse(partner Contact, payload []byte,
 				jww.ERROR.Printf("Failed to send single-use response CMIX "+
 					"message part %d: %+v", j, err)
 			}
+			for i := 0; i < 5; i++ {
+				go func() {
+					time.Sleep(time.Duration(i+1) * time.Second)
+					_, _, err := m.net.SendCMIX(cmixMsgFunc, partner.partner, p)
+					if err != nil {
+						jww.ERROR.Printf("Failed to send single-use response CMIX "+
+							"message part %d: %+v", j, err)
+					}
+				}()
+			}
 			jww.DEBUG.Printf("Sending single-use response CMIX message part "+
 				"%d on round %d to ephemeral ID %d.", j, round, ephID.Int64())
 			rounds[j] = round

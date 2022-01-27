@@ -122,7 +122,7 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 		if err != nil {
 			errorString := fmt.Sprintf("failed to send single-use transmission "+
 				"CMIX message: %+v", err)
-			jww.ERROR.Print(errorString)
+			jww.ERROR.Printf(errorString)
 
 			// Exit the state timeout handler, delete the state from map, and
 			// return an error on the callback
@@ -139,14 +139,9 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 				"message because the timeout handler quit.")
 			return
 		}
-
-		im := fmt.Sprintf("Sent single-use transmission CMIX "+
+		jww.DEBUG.Printf("Sent single-use transmission CMIX "+
 			"message to %s and ephemeral ID %d on round %d.",
 			partner.ID, ephID.Int64(), round)
-		jww.DEBUG.Print(im)
-		if m.client != nil {
-			m.client.ReportEvent(1, "SingleUse", "MessageSend", im)
-		}
 	}()
 
 	return nil

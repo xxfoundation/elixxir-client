@@ -82,6 +82,7 @@ func (m *Manager) respondSingleUse(partner Contact, payload []byte,
 					"message part %d: %+v", j, err)
 			}
 			for i := 0; i < 5; i++ {
+				i := i
 				go func() {
 					time.Sleep(time.Duration(i+1) * time.Second)
 					_, _, err := m.net.SendCMIX(cmixMsgFunc, partner.partner, p)

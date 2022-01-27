@@ -13,7 +13,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/interfaces/utility"
 	"gitlab.com/elixxir/client/storage/reception"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	contact2 "gitlab.com/elixxir/crypto/contact"
@@ -141,14 +140,6 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 			return
 		}
 
-		// Update the timeout for the elapsed time
-		roundEventTimeout := timeout - netTime.Since(timeStart) - time.Millisecond
-
-		// Check message delivery
-		sendResults := make(chan ds.EventReturn, 1)
-		roundEvents.AddRoundEventChan(round, sendResults, roundEventTimeout,
-			states.COMPLETED, states.FAILED)
-
 		im := fmt.Sprintf("Sent single-use transmission CMIX "+
 			"message to %s and ephemeral ID %d on round %d.",
 			partner.ID, ephID.Int64(), round)
@@ -156,24 +147,6 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 		if m.client != nil {
 			m.client.ReportEvent(1, "SingleUse", "MessageSend", im)
 		}
-
-		// Wait until the result tracking responds
-		success, numRoundFail, numTimeOut := utility.TrackResults(sendResults, 1)
-		if !success {
-			errorString := fmt.Sprintf("failed to send single-use transmission "+
-				"message: %d round failures, %d round event time outs.",
-				numRoundFail, numTimeOut)
-			jww.ERROR.Print(errorString)
-
-			// Exit the state timeout handler, delete the state from map, and
-			// return an error on the callback
-			quitChan <- struct{}{}
-			m.p.Lock()
-			delete(m.p.singleUse, *rid)
-			m.p.Unlock()
-			go callback(nil, errors.New(errorString))
-		}
-		jww.DEBUG.Print("Tracked single-use transmission message round.")
 	}()
 
 	return nil

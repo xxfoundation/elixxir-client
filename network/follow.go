@@ -150,7 +150,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	result, err := m.GetSender().SendToAny(func(host *connect.Host) (interface{}, error) {
 		jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
 			identity.EphId.Int64(), identity.Source, identity.StartValid,
-			identity.EndValid, identity.StartValid.Sub(identity.EndValid), host.GetId())
+			identity.EndValid, identity.EndValid.Sub(identity.StartValid), host.GetId())
 		return comms.SendPoll(host, &pollReq)
 	}, stop)
 

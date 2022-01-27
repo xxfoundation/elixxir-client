@@ -50,8 +50,7 @@ func (m *Manager) TransmitSingleUse(partner contact2.Contact, payload []byte,
 	rngReader := m.rng.GetStream()
 	defer rngReader.Close()
 
-	return m.transmitSingleUse(partner, payload, tag, maxMsgs, rngReader,
-		callback, timeout, m.net.GetInstance().GetRoundEvents())
+	return m.transmitSingleUse(partner, payload, tag, maxMsgs, rngReader, callback, timeout)
 }
 
 // roundEvents interface allows custom round events to be passed in for testing.
@@ -62,7 +61,7 @@ type roundEvents interface {
 
 // transmitSingleUse has the fields passed in for easier testing.
 func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
-	tag string, MaxMsgs uint8, rng io.Reader, callback ReplyComm, timeout time.Duration, roundEvents roundEvents) error {
+	tag string, MaxMsgs uint8, rng io.Reader, callback ReplyComm, timeout time.Duration) error {
 
 	// Get ephemeral ID address space size; this blocks until the address space
 	// size is set for the first time

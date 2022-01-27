@@ -68,15 +68,15 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 	// Get ephemeral ID address space size; this blocks until the address space
 	// size is set for the first time
 	addressSize := m.net.GetAddressSize()
+	timeStart := netTime.Now()
 
 	// Create new CMIX message containing the transmission payload
 	cmixMsg, dhKey, rid, ephID, err := m.makeTransmitCmixMessage(partner,
-		payload, tag, MaxMsgs, addressSize, timeout, netTime.Now(), rng)
+		payload, tag, MaxMsgs, addressSize, timeout, timeStart, rng)
 	if err != nil {
 		return errors.Errorf("failed to create new CMIX message: %+v", err)
 	}
 
-	timeStart := netTime.Now()
 	startValid := timeStart.Add(-2 * timeout)
 	endValid := timeStart.Add(2 * timeout)
 	jww.DEBUG.Printf("Created single-use transmission CMIX message with new ID "+

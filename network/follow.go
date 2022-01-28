@@ -223,6 +223,11 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		}
 	}
 
+	// Update the address space size
+	if len(m.Instance.GetPartialNdf().Get().AddressSpace) != 0 {
+		m.addrSpace.Update(m.Instance.GetPartialNdf().Get().AddressSpace[0].Size)
+	}
+
 	// NOTE: this updates rounds and updates the tracking of the health of the network
 	if pollResp.Updates != nil {
 		// TODO: ClientErr needs to know the source of the error and it doesn't yet

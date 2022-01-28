@@ -64,7 +64,7 @@ func (b *Backup) Load(filepath string, key []byte) error {
 		return errors.New("ciphertext size is too small")
 	}
 
-	offset := chacha20poly1305.NonceSize
+	offset := chacha20poly1305.NonceSizeX
 	nonce := blob[:offset]
 	ciphertext := blob[offset:]
 

@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/client/storage/hostList"
 	"gitlab.com/elixxir/client/storage/rounds"
 	"gitlab.com/xx_network/primitives/rateLimiting"
-	"math/rand"
 	"sync"
 	"testing"
 	"time"
@@ -487,15 +486,14 @@ func InitTestingSession(i interface{}) *Session {
 
 	s.hostList = hostList.NewStore(s.kv)
 
-	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 	privKeys := make([]*cyclic.Int, 10)
 	pubKeys := make([]*cyclic.Int, 10)
 	for i := range privKeys {
-		privKeys[i] = grp.NewInt(rand.Int63n(172))
-		pubKeys[i] = grp.ExpG(privKeys[i], grp.NewInt(1))
+		privKeys[i] = cmixGrp.NewInt(5)
+		pubKeys[i] = cmixGrp.ExpG(privKeys[i], cmixGrp.NewInt(1))
 	}
 
-	s.auth, err = auth.NewStore(s.kv, grp, privKeys)
+	s.auth, err = auth.NewStore(s.kv, cmixGrp, privKeys)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to create auth store: %v", err)
 	}

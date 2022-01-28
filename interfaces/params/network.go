@@ -34,6 +34,8 @@ type Network struct {
 	// Determines if the state of every round processed is tracked in ram.
 	// This is very memory intensive and is primarily used for debugging
 	VerboseRoundTracking bool
+	// Resends auth requests up the stack if received multiple times
+	ReplayRequests bool
 
 	Rounds
 	Messages
@@ -54,6 +56,7 @@ func GetDefaultNetwork() Network {
 		FastPolling:               true,
 		BlacklistedNodes:          make([]string, 0),
 		VerboseRoundTracking:      false,
+		ReplayRequests:            true,
 	}
 	n.Rounds = GetDefaultRounds()
 	n.Messages = GetDefaultMessage()

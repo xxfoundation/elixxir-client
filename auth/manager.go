@@ -23,16 +23,19 @@ type Manager struct {
 
 	storage *storage.Session
 	net     interfaces.NetworkManager
+
+	replayRequests bool
 }
 
 func NewManager(sw interfaces.Switchboard, storage *storage.Session,
-	net interfaces.NetworkManager) *Manager {
+	net interfaces.NetworkManager, replayRequests bool) *Manager {
 	m := &Manager{
 		requestCallbacks: newCallbackMap(),
 		confirmCallbacks: newCallbackMap(),
 		rawMessages:      make(chan message.Receive, 1000),
 		storage:          storage,
 		net:              net,
+		replayRequests:   replayRequests,
 	}
 
 	sw.RegisterChannel("Auth", switchboard.AnyUser(), message.Raw, m.rawMessages)
@@ -88,4 +91,16 @@ func (m *Manager) AddSpecificConfirmCallback(id *id.ID, cb interfaces.ConfirmCal
 // Removes a specific callback to be used on auth confirm.
 func (m *Manager) RemoveSpecificConfirmCallback(id *id.ID) {
 	m.confirmCallbacks.RemoveSpecific(id)
+}
+
+func (m *Manager)ReplayRequests(){
+	cList := m.storage.Auth().GetAllReceived()
+	for i := range cList{
+		c := cList[i]
+		cbList := m.requestCallbacks.Get(c.ID)
+		for _, cb := range cbList {
+			rcb := cb.(interfaces.RequestCallback)
+			go rcb(c)
+		}
+	}
 }

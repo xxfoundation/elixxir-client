@@ -165,7 +165,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		return
 	} else {
 		//check if the relationship already exists,
-		rType, _, _, err := m.storage.Auth().GetRequest(partnerID)
+		rType, _, c, err := m.storage.Auth().GetRequest(partnerID)
 		if err != nil && !strings.Contains(err.Error(), auth.NoRequest) {
 			// if another error is received, print it and exit
 			em := fmt.Sprintf("Received new Auth request for %s, "+
@@ -183,6 +183,15 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 					"is a duplicate", partnerID)
 				jww.WARN.Print(em)
 				events.Report(5, "Auth", "DuplicateRequest", em)
+				// if the caller of the API wants requests replayed,
+				// replay the duplicate request
+				if m.replayRequests{
+					cbList := m.requestCallbacks.Get(c.ID)
+					for _, cb := range cbList {
+						rcb := cb.(interfaces.RequestCallback)
+						go rcb(c)
+					}
+				}
 				return
 			// if we sent a request, then automatically confirm
 			// then exit, nothing else needed
@@ -296,7 +305,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	cbList := m.requestCallbacks.Get(c.ID)
 	for _, cb := range cbList {
 		rcb := cb.(interfaces.RequestCallback)
-		go rcb(c, "")
+		go rcb(c)
 	}
 	return
 }

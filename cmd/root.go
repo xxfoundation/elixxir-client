@@ -473,7 +473,7 @@ func initClientCallbacks(client *api.Client) (chan *id.ID,
 	})
 	if viper.GetBool("unsafe-channel-creation") {
 		authMgr.AddGeneralRequestCallback(func(
-			requestor contact.Contact, message string) {
+			requestor contact.Contact) {
 			jww.INFO.Printf("Channel Request: %s",
 				requestor.ID)
 			_, err := client.ConfirmAuthenticatedChannel(
@@ -681,13 +681,11 @@ func deleteChannel(client *api.Client, partnerId *id.ID) {
 	}
 }
 
-func printChanRequest(requestor contact.Contact, message string) {
+func printChanRequest(requestor contact.Contact) {
 	msg := fmt.Sprintf("Authentication channel request from: %s\n",
 		requestor.ID)
 	jww.INFO.Printf(msg)
 	fmt.Printf(msg)
-	msg = fmt.Sprintf("Authentication channel request message: %s\n", message)
-	jww.INFO.Printf(msg)
 	// fmt.Printf(msg)
 }
 

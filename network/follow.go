@@ -224,23 +224,12 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	}
 
 	// Update the address space size
-	// todo: this is a fix for incompatibility with the live network
-	// remove once the live network has been pushed to
 	if len(m.Instance.GetPartialNdf().Get().AddressSpace) != 0 {
 		m.addrSpace.Update(m.Instance.GetPartialNdf().Get().AddressSpace[0].Size)
-	} else {
-		m.addrSpace.Update(18)
 	}
 
-	// NOTE: this updates rounds and updates the tracking of the health of the
-	// network
+	// NOTE: this updates rounds and updates the tracking of the health of the network
 	if pollResp.Updates != nil {
-		err = m.Instance.RoundUpdates(pollResp.Updates)
-		if err != nil {
-			jww.ERROR.Printf("%+v", err)
-			return
-		}
-
 		// TODO: ClientErr needs to know the source of the error and it doesn't yet
 		// Iterate over ClientErrors for each RoundUpdate
 		for _, update := range pollResp.Updates {
@@ -266,25 +255,24 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 						return
 					}
 
+					// Mutate the update to indicate failure due to a ClientError
 					// FIXME: Should be able to trigger proper type of round event
 					// FIXME: without mutating the RoundInfo. Signature also needs verified
 					// FIXME: before keys are deleted
 					update.State = uint32(states.FAILED)
-					rnd, err := m.Instance.GetWrappedRound(id.Round(update.ID))
-					if err != nil {
-						jww.ERROR.Printf("Failed to report client error: "+
-							"Could not get round for event triggering: "+
-							"Unable to get round %d from instance: %+v",
-							id.Round(update.ID), err)
-						break
-					}
-					m.Instance.GetRoundEvents().TriggerRoundEvent(rnd)
 
 					// delete all existing keys and trigger a re-registration with the relevant Node
 					m.Session.Cmix().Remove(nid)
 					m.Instance.GetAddGatewayChan() <- nGw
 				}
 			}
+		}
+
+		// Trigger RoundEvents for all polled updates, including modified rounds with ClientErrors
+		err = m.Instance.RoundUpdates(pollResp.Updates)
+		if err != nil {
+			jww.ERROR.Printf("%+v", err)
+			return
 		}
 
 		newestTS := uint64(0)

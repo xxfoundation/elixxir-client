@@ -152,17 +152,28 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 				roundCallback(false, true, roundsResults)
 				return
 			case roundReport := <-sendResults:
-
 				numResults--
 
 				// Skip if the round is nil (unknown from historical rounds)
 				// they default to timed out, so correct behavior is preserved
+				roundId := roundReport.RoundInfo.GetRoundId()
 				if roundReport.TimedOut {
+					roundInfo, err := networkInstance.GetRound(roundId)
+					// If we have the round in the buffer
+					if err == nil {
+						// Check if the round is done (completed or failed) or in progress
+						if states.Round(roundInfo.State) == states.COMPLETED {
+							roundsResults[roundId] = Succeeded
+						} else if states.Round(roundInfo.State) == states.FAILED {
+							roundsResults[roundId] = Failed
+							allRoundsSucceeded = false
+						}
+						return
+					}
 					allRoundsSucceeded = false
 					anyRoundTimedOut = true
 				} else {
 					// If available, denote the result
-					roundId := id.Round(roundReport.RoundInfo.ID)
 					if states.Round(roundReport.RoundInfo.State) == states.COMPLETED {
 						roundsResults[roundId] = Succeeded
 					} else {

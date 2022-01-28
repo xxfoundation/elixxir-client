@@ -68,18 +68,19 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 	// Get ephemeral ID address space size; this blocks until the address space
 	// size is set for the first time
 	addressSize := m.net.GetAddressSize()
+	timeStart := netTime.Now()
 
 	// Create new CMIX message containing the transmission payload
 	cmixMsg, dhKey, rid, ephID, err := m.makeTransmitCmixMessage(partner,
-		payload, tag, MaxMsgs, addressSize, timeout, netTime.Now(), rng)
+		payload, tag, MaxMsgs, addressSize, timeout, timeStart, rng)
 	if err != nil {
 		return errors.Errorf("failed to create new CMIX message: %+v", err)
 	}
 
+	startValid := timeStart.Add(-2 * timeout)
+	endValid := timeStart.Add(2 * timeout)
 	jww.DEBUG.Printf("Created single-use transmission CMIX message with new ID "+
-		"%s and ephemeral ID %d", rid, ephID.Int64())
-
-	timeStart := netTime.Now()
+		"%s and EphID %d (Valid %s - %s)", rid, ephID.Int64(), startValid.String(), endValid.String())
 
 	// Add message state to map
 	quitChan, quit, err := m.p.addState(rid, dhKey, MaxMsgs, callback, timeout)
@@ -92,10 +93,10 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 		EphId:       ephID,
 		Source:      rid,
 		AddressSize: addressSize,
-		End:         timeStart.Add(2 * timeout),
+		End:         endValid,
 		ExtraChecks: interfaces.DefaultExtraChecks,
-		StartValid:  timeStart.Add(-2 * timeout),
-		EndValid:    timeStart.Add(2 * timeout),
+		StartValid:  startValid,
+		EndValid:    endValid,
 		Ephemeral:   true,
 	})
 	if err != nil {
@@ -116,9 +117,9 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 		// Send Message
 		jww.DEBUG.Printf("Sending single-use transmission CMIX "+
 			"message to %s.", partner.ID)
-		p :=  params.GetDefaultCMIX()
+		p := params.GetDefaultCMIX()
 		p.DebugTag = "single.Transmit"
-		round, _, err := m.net.SendCMIX(cmixMsg, partner.ID,p)
+		round, _, err := m.net.SendCMIX(cmixMsg, partner.ID, p)
 		if err != nil {
 			errorString := fmt.Sprintf("failed to send single-use transmission "+
 				"CMIX message: %+v", err)

@@ -41,7 +41,14 @@ import (
 	"time"
 )
 
-const debugTrackPeriod = 1 * time.Minute
+const (
+	debugTrackPeriod = 1 * time.Minute
+
+	// Estimate the number of rounds per second in the network. Will need updated someday
+	// in order to correctly determine how far back to search rounds for messages
+	// as the network continues to grow, otherwise message drops occur.
+	estimatedRoundsPerSecond = 5
+)
 
 //comms interface makes testing easier
 type followNetworkComms interface {
@@ -143,7 +150,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	result, err := m.GetSender().SendToAny(func(host *connect.Host) (interface{}, error) {
 		jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
 			identity.EphId.Int64(), identity.Source, identity.StartValid,
-			identity.EndValid, identity.StartValid.Sub(identity.EndValid), host.GetId())
+			identity.EndValid, identity.EndValid.Sub(identity.StartValid), host.GetId())
 		return comms.SendPoll(host, &pollReq)
 	}, stop)
 
@@ -308,18 +315,9 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		return
 	}
 
-	//get the range fo filters which are valid for the identity
-	filtersStart, filtersEnd, outOfBounds := rounds.ValidFilterRange(identity, pollResp.Filters)
-
-	//check if there are any valid filters returned
-	if outOfBounds {
-		jww.WARN.Printf("No filters processed, none in valid range")
-		return
-	}
-
 	//prepare the filter objects for processing
-	filterList := make([]*rounds.RemoteFilter, 0, filtersEnd-filtersStart)
-	for i := filtersStart; i < filtersEnd; i++ {
+	filterList := make([]*rounds.RemoteFilter, 0, len(pollResp.Filters.Filters))
+	for i := range pollResp.Filters.Filters {
 		if len(pollResp.Filters.Filters[i].Filter) != 0 {
 			filterList = append(filterList, rounds.NewRemoteFilter(pollResp.Filters.Filters[i]))
 		}
@@ -340,25 +338,42 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// tracked round if it is behind
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
 	m.SetFakeEarliestRound(earliestTrackedRound)
-	updated, old, _ := identity.ER.Set(earliestTrackedRound)
+	updatedEarliestRound, old, _ := identity.ER.Set(earliestTrackedRound)
+
+	// If there was no registered rounds for the identity
 	if old == 0 {
-		if gwRoundsState.GetLastChecked() > id.Round(m.param.KnownRoundsThreshold) {
-			updated = gwRoundsState.GetLastChecked() - id.Round(m.param.KnownRoundsThreshold)
-		} else {
-			updated = 1
+		lastCheckedRound := gwRoundsState.GetLastChecked()
+		// Approximate the earliest possible round that messages could be received on this ID
+		// by using an estimate of how many rounds the network runs per second
+		roundsDelta := uint(time.Now().Sub(identity.StartValid) / time.Second * estimatedRoundsPerSecond)
+		if roundsDelta < m.param.KnownRoundsThreshold {
+			roundsDelta = m.param.KnownRoundsThreshold
 		}
-		identity.ER.Set(updated)
+		if id.Round(roundsDelta) > lastCheckedRound {
+			// Handles edge case for new networks to prevent starting at negative rounds
+			updatedEarliestRound = 1
+		} else {
+			updatedEarliestRound = lastCheckedRound - id.Round(roundsDelta)
+			earliestFilterRound := filterList[0].FirstRound() // Length of filterList always > 0
+			// If the network appears to be moving faster than our estimate, causing
+			// earliestFilterRound to be lower, we will instead use the earliestFilterRound
+			// which will ensure messages are not dropped as long as contacted gateway has all data
+			if updatedEarliestRound > earliestFilterRound {
+				updatedEarliestRound = earliestFilterRound
+			}
+		}
+		identity.ER.Set(updatedEarliestRound)
 	}
 
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)
 	//threshold is the earliest round that will not be excluded from earliest remaining
-	earliestRemaining, roundsWithMessages, roundsUnknown := gwRoundsState.RangeUnchecked(updated,
+	earliestRemaining, roundsWithMessages, roundsUnknown := gwRoundsState.RangeUnchecked(updatedEarliestRound,
 		m.param.KnownRoundsThreshold, roundChecker)
 	jww.DEBUG.Printf("Processed RangeUnchecked, Oldest: %d, firstUnchecked: %d, "+
 		"last Checked: %d, threshold: %d, NewEarliestRemaning: %d, NumWithMessages: %d, "+
-		"NumUnknown: %d", updated, gwRoundsState.GetFirstUnchecked(), gwRoundsState.GetLastChecked(),
+		"NumUnknown: %d", updatedEarliestRound, gwRoundsState.GetFirstUnchecked(), gwRoundsState.GetLastChecked(),
 		m.param.KnownRoundsThreshold, earliestRemaining, len(roundsWithMessages), len(roundsUnknown))
 
 	_, _, changed := identity.ER.Set(earliestRemaining)
@@ -398,8 +413,8 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	}
 
 	if m.verboseRounds != nil {
-		trackingStart := updated
-		if uint(earliestRemaining-updated) > m.param.KnownRoundsThreshold {
+		trackingStart := updatedEarliestRound
+		if uint(earliestRemaining-updatedEarliestRound) > m.param.KnownRoundsThreshold {
 			trackingStart = earliestRemaining - id.Round(m.param.KnownRoundsThreshold)
 		}
 		jww.DEBUG.Printf("Rounds tracked: %v to %v", trackingStart, earliestRemaining)

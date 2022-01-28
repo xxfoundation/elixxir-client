@@ -25,11 +25,6 @@ type SingleInterface interface {
 	StartProcesses() (stoppable.Stoppable, error)
 }
 
-type alternateUd struct {
-	host     *connect.Host
-	dhPubKey []byte
-}
-
 type Manager struct {
 	// External
 	client  *api.Client
@@ -51,6 +46,14 @@ type Manager struct {
 	alternativeUd *alternateUd
 
 	registered *uint32
+}
+
+// alternateUd is an alternative user discovery service.
+// This is used for testing, so client can avoid using
+// the production server.
+type alternateUd struct {
+	host     *connect.Host
+	dhPubKey []byte
 }
 
 // NewManager builds a new user discovery manager. It requires that an updated
@@ -102,7 +105,11 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 	return m, nil
 }
 
-func (m *Manager) SetAlternativeUserDiscovery(altId []byte, altCert []byte, altAddress string, dhPubKey []byte) error {
+// SetAlternativeUserDiscovery sets the alternativeUd object within manager.
+// Once set, any user discovery operation will go through the alternative
+// user discovery service.
+// To undo this operation, use UnsetAlternativeUserDiscovery.
+func (m *Manager) SetAlternativeUserDiscovery(altId, altCert, altAddress, dhPubKey []byte) error {
 	params := connect.GetDefaultHostParams()
 	params.AuthEnabled = false
 
@@ -112,7 +119,7 @@ func (m *Manager) SetAlternativeUserDiscovery(altId []byte, altCert []byte, altA
 	}
 
 	// Add a new host and return it if it does not already exist
-	host, err := m.comms.AddHost(udID, altAddress,
+	host, err := m.comms.AddHost(udID, string(altAddress),
 		altCert, params)
 	if err != nil {
 		return errors.WithMessage(err, "User Discovery host object could "+
@@ -124,6 +131,17 @@ func (m *Manager) SetAlternativeUserDiscovery(altId []byte, altCert []byte, altA
 		dhPubKey: dhPubKey,
 	}
 
+	return nil
+}
+
+// UnsetAlternativeUserDiscovery clears out the information from
+// the Manager object.
+func (m *Manager) UnsetAlternativeUserDiscovery() error {
+	if m.alternativeUd == nil {
+		return errors.New("Alternative User Discovery is already unset.")
+	}
+
+	m.alternativeUd = nil
 	return nil
 }
 
@@ -164,6 +182,7 @@ func (m *Manager) getHost() (*connect.Host, error) {
 
 // getContact returns the contact for UD as retrieved from the NDF.
 func (m *Manager) getContact() (contact.Contact, error) {
+	// Return alternative User discovery contact if set
 	if m.alternativeUd != nil {
 		// Unmarshal UD DH public key
 		alternativeDhPubKey := m.storage.E2e().GetGroup().NewInt(1)

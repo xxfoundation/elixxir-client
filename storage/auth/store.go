@@ -261,14 +261,15 @@ func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey) error {
 	return nil
 }
 
-func (s *Store)GetAllReceived()[]contact.Contact{
+// GetAllReceived returns all pending received contact requests from storage.
+func (s *Store) GetAllReceived() []contact.Contact {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	cList := make([]contact.Contact, 0, len(s.requests))
-	for key := range s.requests{
+	for key := range s.requests {
 		r := s.requests[key]
-		if r.rt == Receive{
-			cList = append(cList,*r.receive)
+		if r.rt == Receive {
+			cList = append(cList, *r.receive)
 		}
 	}
 	return cList

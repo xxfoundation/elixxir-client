@@ -93,9 +93,11 @@ func (m *Manager) RemoveSpecificConfirmCallback(id *id.ID) {
 	m.confirmCallbacks.RemoveSpecific(id)
 }
 
-func (m *Manager)ReplayRequests(){
+// ReplayRequests will iterate through all pending contact requests and resend them
+// to the desired contact.
+func (m *Manager) ReplayRequests() {
 	cList := m.storage.Auth().GetAllReceived()
-	for i := range cList{
+	for i := range cList {
 		c := cList[i]
 		cbList := m.requestCallbacks.Get(c.ID)
 		for _, cb := range cbList {

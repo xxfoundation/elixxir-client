@@ -49,8 +49,38 @@ type Backup struct {
 	Contacts                  Contacts
 }
 
-func (b *Backup) Load(filepath string) error {
-	return nil // fixme
+func (b *Backup) Load(filepath string, key []byte) error {
+
+	if len(key) != chacha20poly1305.KeySize {
+		return errors.New("Backup.Store: incorrect key size")
+	}
+
+	blob, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return err
+	}
+
+	if len(blob) < chacha20poly1305.NonceSize+chacha20poly1305.Overhead+1 {
+		return errors.New("ciphertext size is too small")
+	}
+
+	offset := chacha20poly1305.NonceSize
+	nonce := blob[:offset]
+	ciphertext := blob[offset:]
+
+	cipher, err := chacha20poly1305.NewX(key)
+	if err != nil {
+		return err
+	}
+
+	plaintext, err := cipher.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(plaintext, b)
+
+	return err
 }
 
 func (b *Backup) Store(filepath string, key []byte, nonce []byte) error {

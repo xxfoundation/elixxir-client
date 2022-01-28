@@ -25,6 +25,11 @@ type SingleInterface interface {
 	StartProcesses() (stoppable.Stoppable, error)
 }
 
+type alternateUd struct {
+	host     *connect.Host
+	dhPubKey []byte
+}
+
 type Manager struct {
 	// External
 	client  *api.Client
@@ -41,6 +46,9 @@ type Manager struct {
 	// internal structures
 	single SingleInterface
 	myID   *id.ID
+
+	// alternate User discovery service to circumvent production
+	alternativeUd *alternateUd
 
 	registered *uint32
 }
@@ -94,11 +102,40 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 	return m, nil
 }
 
+func (m *Manager) SetAlternativeUserDiscovery(altId []byte, altCert []byte, altAddress string, dhPubKey []byte) error {
+	params := connect.GetDefaultHostParams()
+	params.AuthEnabled = false
+
+	udID, err := id.Unmarshal(altId)
+	if err != nil {
+		return err
+	}
+
+	// Add a new host and return it if it does not already exist
+	host, err := m.comms.AddHost(udID, altAddress,
+		altCert, params)
+	if err != nil {
+		return errors.WithMessage(err, "User Discovery host object could "+
+			"not be constructed.")
+	}
+
+	m.alternativeUd = &alternateUd{
+		host:     host,
+		dhPubKey: dhPubKey,
+	}
+
+	return nil
+}
+
 // getHost returns the current UD host for the UD ID found in the NDF. If the
 // host does not exist, then it is added and returned
 func (m *Manager) getHost() (*connect.Host, error) {
-	netDef := m.net.GetInstance().GetPartialNdf().Get()
+	// Return alternative User discovery service if it has been set
+	if m.alternativeUd != nil {
+		return m.alternativeUd.host, nil
+	}
 
+	netDef := m.net.GetInstance().GetPartialNdf().Get()
 	// Unmarshal UD ID from the NDF
 	udID, err := id.Unmarshal(netDef.UDB.ID)
 	if err != nil {
@@ -127,6 +164,22 @@ func (m *Manager) getHost() (*connect.Host, error) {
 
 // getContact returns the contact for UD as retrieved from the NDF.
 func (m *Manager) getContact() (contact.Contact, error) {
+	if m.alternativeUd != nil {
+		// Unmarshal UD DH public key
+		alternativeDhPubKey := m.storage.E2e().GetGroup().NewInt(1)
+		if err := alternativeDhPubKey.UnmarshalJSON(m.alternativeUd.dhPubKey); err != nil {
+			return contact.Contact{},
+				errors.WithMessage(err, "Failed to unmarshal UD DH public key.")
+		}
+
+		return contact.Contact{
+			ID:             m.alternativeUd.host.GetId(),
+			DhPubKey:       alternativeDhPubKey,
+			OwnershipProof: nil,
+			Facts:          nil,
+		}, nil
+	}
+
 	netDef := m.net.GetInstance().GetPartialNdf().Get()
 
 	// Unmarshal UD ID from the NDF

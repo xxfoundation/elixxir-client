@@ -46,6 +46,11 @@ func NewUserDiscovery(client *Client) (*UserDiscovery, error) {
 	}
 }
 
+// todo: docstring
+func (ud *UserDiscovery) SetAlternativeUserDiscovery(address, cert, id, dhPubKey []byte) error {
+	return ud.SetAlternativeUserDiscovery(id, cert, address, dhPubKey)
+}
+
 // Register registers a user with user discovery. Will return an error if the
 // network signatures are malformed or if the username is taken. Usernames
 // cannot be changed after registration at this time. Will fail if the user is

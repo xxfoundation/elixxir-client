@@ -265,6 +265,7 @@ func (c *Client) WaitForNetwork(timeoutMS int) bool {
 func (c *Client) NetworkFollowerStatus() int {
 	return int(c.api.NetworkFollowerStatus())
 }
+
 // HasRunningProcessies checks if any background threads are running.
 // returns true if none are running. This is meant to be
 // used when NetworkFollowerStatus() returns Stopping.

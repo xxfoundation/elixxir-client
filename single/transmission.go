@@ -13,7 +13,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/interfaces/utility"
 	"gitlab.com/elixxir/client/storage/reception"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	contact2 "gitlab.com/elixxir/crypto/contact"
@@ -51,8 +50,7 @@ func (m *Manager) TransmitSingleUse(partner contact2.Contact, payload []byte,
 	rngReader := m.rng.GetStream()
 	defer rngReader.Close()
 
-	return m.transmitSingleUse(partner, payload, tag, maxMsgs, rngReader,
-		callback, timeout, m.net.GetInstance().GetRoundEvents())
+	return m.transmitSingleUse(partner, payload, tag, maxMsgs, rngReader, callback, timeout)
 }
 
 // roundEvents interface allows custom round events to be passed in for testing.
@@ -63,7 +61,7 @@ type roundEvents interface {
 
 // transmitSingleUse has the fields passed in for easier testing.
 func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
-	tag string, MaxMsgs uint8, rng io.Reader, callback ReplyComm, timeout time.Duration, roundEvents roundEvents) error {
+	tag string, MaxMsgs uint8, rng io.Reader, callback ReplyComm, timeout time.Duration) error {
 
 	// Get ephemeral ID address space size; this blocks until the address space
 	// size is set for the first time
@@ -123,7 +121,7 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 		if err != nil {
 			errorString := fmt.Sprintf("failed to send single-use transmission "+
 				"CMIX message: %+v", err)
-			jww.ERROR.Print(errorString)
+			jww.ERROR.Printf(errorString)
 
 			// Exit the state timeout handler, delete the state from map, and
 			// return an error on the callback
@@ -140,40 +138,9 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 				"message because the timeout handler quit.")
 			return
 		}
-
-		// Update the timeout for the elapsed time
-		roundEventTimeout := timeout - netTime.Since(timeStart) - time.Millisecond
-
-		// Check message delivery
-		sendResults := make(chan ds.EventReturn, 1)
-		roundEvents.AddRoundEventChan(round, sendResults, roundEventTimeout,
-			states.COMPLETED, states.FAILED)
-
-		im := fmt.Sprintf("Sent single-use transmission CMIX "+
+		jww.DEBUG.Printf("Sent single-use transmission CMIX "+
 			"message to %s and ephemeral ID %d on round %d.",
 			partner.ID, ephID.Int64(), round)
-		jww.DEBUG.Print(im)
-		if m.client != nil {
-			m.client.ReportEvent(1, "SingleUse", "MessageSend", im)
-		}
-
-		// Wait until the result tracking responds
-		success, numRoundFail, numTimeOut := utility.TrackResults(sendResults, 1)
-		if !success {
-			errorString := fmt.Sprintf("failed to send single-use transmission "+
-				"message: %d round failures, %d round event time outs.",
-				numRoundFail, numTimeOut)
-			jww.ERROR.Print(errorString)
-
-			// Exit the state timeout handler, delete the state from map, and
-			// return an error on the callback
-			quitChan <- struct{}{}
-			m.p.Lock()
-			delete(m.p.singleUse, *rid)
-			m.p.Unlock()
-			go callback(nil, errors.New(errorString))
-		}
-		jww.DEBUG.Print("Tracked single-use transmission message round.")
 	}()
 
 	return nil

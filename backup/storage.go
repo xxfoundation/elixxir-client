@@ -14,6 +14,8 @@ import (
 	"os"
 
 	"golang.org/x/crypto/chacha20poly1305"
+
+	"gitlab.com/xx_network/primitives/id"
 )
 
 type TransmissionIdentity struct {
@@ -39,7 +41,7 @@ type UserDiscoveryRegistration struct {
 }
 
 type Contacts struct {
-	Usernames []string
+	UserIdentities []id.ID
 }
 
 type Backup struct {

@@ -265,6 +265,7 @@ func (c *Client) WaitForNetwork(timeoutMS int) bool {
 func (c *Client) NetworkFollowerStatus() int {
 	return int(c.api.NetworkFollowerStatus())
 }
+
 // HasRunningProcessies checks if any background threads are running.
 // returns true if none are running. This is meant to be
 // used when NetworkFollowerStatus() returns Stopping.
@@ -447,6 +448,21 @@ func (c *Client) GetNodeRegistrationStatus() (*NodeRegistrationsStatus, error) {
 	registered, total, err := c.api.GetNodeRegistrationStatus()
 
 	return &NodeRegistrationsStatus{registered, total}, err
+}
+
+// DeleteAllRequests clears all requests from Client's auth storage.
+func (c *Client) DeleteAllRequests() error {
+	return c.api.DeleteAllRequests()
+}
+
+// DeleteSentRequests clears sent requests from Client's auth storage.
+func (c *Client) DeleteSentRequests() error {
+	return c.api.DeleteSentRequests()
+}
+
+// DeleteReceiveRequests clears receive requests from Client's auth storage.
+func (c *Client) DeleteReceiveRequests() error {
+	return c.api.DeleteReceiveRequests()
 }
 
 // DeleteContact is a function which removes a contact from Client's storage

@@ -105,6 +105,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		events:        events,
 		earliestRound: &earliest,
 	}
+	m.addrSpace.Update(18)
 
 	if params.VerboseRoundTracking {
 		m.verboseRounds = NewRoundTracker()

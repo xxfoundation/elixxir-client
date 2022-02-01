@@ -486,6 +486,18 @@ func InitTestingSession(i interface{}) *Session {
 
 	s.hostList = hostList.NewStore(s.kv)
 
+	privKeys := make([]*cyclic.Int, 10)
+	pubKeys := make([]*cyclic.Int, 10)
+	for i := range privKeys {
+		privKeys[i] = cmixGrp.NewInt(5)
+		pubKeys[i] = cmixGrp.ExpG(privKeys[i], cmixGrp.NewInt(1))
+	}
+
+	s.auth, err = auth.NewStore(s.kv, cmixGrp, privKeys)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to create auth store: %v", err)
+	}
+
 	s.edgeCheck, err = edge.NewStore(s.kv, uid)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to create new edge Store: %+v", err)

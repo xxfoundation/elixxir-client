@@ -304,7 +304,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	// initialize the auth tracker
-	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, parameters.ReplayRequests)
 
 	// Add all processes to the followerServices
 	err = c.registerFollower()
@@ -363,7 +363,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	}
 
 	// initialize the auth tracker
-	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, parameters.ReplayRequests)
 
 	err = c.registerFollower()
 	if err != nil {
@@ -420,7 +420,7 @@ func LoginWithProtoClient(storageDir string, password []byte, protoClientJSON []
 	}
 
 	// initialize the auth tracker
-	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, parameters.ReplayRequests)
 
 	err = c.registerFollower()
 	if err != nil {

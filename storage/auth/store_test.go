@@ -8,6 +8,7 @@
 package auth
 
 import (
+	"bytes"
 	"github.com/cloudflare/circl/dh/sidh"
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	util "gitlab.com/elixxir/client/storage/utility"
@@ -23,6 +24,7 @@ import (
 	"io"
 	"math/rand"
 	"reflect"
+	"sort"
 	"sync"
 	"testing"
 )
@@ -762,6 +764,145 @@ func TestStore_Delete_RequestNotInMap(t *testing.T) {
 		t.Errorf("delete() did not return an error when the request " +
 			"was not in the map.")
 	}
+}
+
+// Unit test of Store.GetAllReceived.
+func TestStore_GetAllReceived(t *testing.T) {
+	s, _, _ := makeTestStore(t)
+	numReceived := 10
+
+	expectContactList := make([]contact.Contact, 0, numReceived)
+	// Add multiple received contact requests
+	for i := 0; i < numReceived; i++ {
+		c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+		rng := csprng.NewSystemRNG()
+		_, sidhPubKey := genSidhAKeys(rng)
+
+		if err := s.AddReceived(c, sidhPubKey); err != nil {
+			t.Fatalf("AddReceived() returned an error: %+v", err)
+		}
+
+		expectContactList = append(expectContactList, c)
+	}
+
+	// Check that GetAllReceived returns all contacts
+	receivedContactList := s.GetAllReceived()
+	if len(receivedContactList) != numReceived {
+		t.Errorf("GetAllReceived did not return expected amount of contacts."+
+			"\nExpected: %d"+
+			"\nReceived: %d", numReceived, len(receivedContactList))
+	}
+
+	// Sort expected and received lists so that they are in the same order
+	// since extraction from a map does not maintain order
+	sort.Slice(expectContactList, func(i, j int) bool {
+		return bytes.Compare(expectContactList[i].ID.Bytes(), expectContactList[j].ID.Bytes()) == -1
+	})
+	sort.Slice(receivedContactList, func(i, j int) bool {
+		return bytes.Compare(receivedContactList[i].ID.Bytes(), receivedContactList[j].ID.Bytes()) == -1
+	})
+
+	// Check validity of contacts
+	if !reflect.DeepEqual(expectContactList, receivedContactList) {
+		t.Errorf("GetAllReceived did not return expected contact list."+
+			"\nExpected: %+v"+
+			"\nReceived: %+v", expectContactList, receivedContactList)
+	}
+
+}
+
+// Tests that Store.GetAllReceived returns an empty list when there are no
+// received requests.
+func TestStore_GetAllReceived_EmptyList(t *testing.T) {
+	s, _, _ := makeTestStore(t)
+
+	// Check that GetAllReceived returns all contacts
+	receivedContactList := s.GetAllReceived()
+	if len(receivedContactList) != 0 {
+		t.Errorf("GetAllReceived did not return expected amount of contacts."+
+			"\nExpected: %d"+
+			"\nReceived: %d", 0, len(receivedContactList))
+	}
+
+	// Add Sent and Receive requests
+	for i := 0; i < 10; i++ {
+		partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+		rng := csprng.NewSystemRNG()
+		sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
+		sr := &SentRequest{
+			kv:                      s.kv,
+			partner:                 partnerID,
+			partnerHistoricalPubKey: s.grp.NewInt(1),
+			myPrivKey:               s.grp.NewInt(2),
+			myPubKey:                s.grp.NewInt(3),
+			mySidHPrivKeyA:          sidhPrivKey,
+			mySidHPubKeyA:           sidhPubKey,
+			fingerprint:             format.Fingerprint{5},
+		}
+		if err := s.AddSent(sr.partner, sr.partnerHistoricalPubKey,
+			sr.myPrivKey, sr.myPubKey, sr.mySidHPrivKeyA,
+			sr.mySidHPubKeyA, sr.fingerprint); err != nil {
+			t.Fatalf("AddSent() returned an error: %+v", err)
+		}
+	}
+
+	// Check that GetAllReceived returns all contacts
+	receivedContactList = s.GetAllReceived()
+	if len(receivedContactList) != 0 {
+		t.Errorf("GetAllReceived did not return expected amount of contacts. "+
+			"It may be pulling from Sent Requests."+
+			"\nExpected: %d"+
+			"\nReceived: %d", 0, len(receivedContactList))
+	}
+
+}
+
+// Tests that Store.GetAllReceived returns only Sent requests when there
+// are both Sent and Receive requests in Store.
+func TestStore_GetAllReceived_MixSentReceived(t *testing.T) {
+	s, _, _ := makeTestStore(t)
+	numReceived := 10
+
+	// Add multiple received contact requests
+	for i := 0; i < numReceived; i++ {
+		// Add received request
+		c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+		rng := csprng.NewSystemRNG()
+		_, sidhPubKey := genSidhAKeys(rng)
+
+		if err := s.AddReceived(c, sidhPubKey); err != nil {
+			t.Fatalf("AddReceived() returned an error: %+v", err)
+		}
+
+		// Add sent request
+		partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+		sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
+		sr := &SentRequest{
+			kv:                      s.kv,
+			partner:                 partnerID,
+			partnerHistoricalPubKey: s.grp.NewInt(1),
+			myPrivKey:               s.grp.NewInt(2),
+			myPubKey:                s.grp.NewInt(3),
+			mySidHPrivKeyA:          sidhPrivKey,
+			mySidHPubKeyA:           sidhPubKey,
+			fingerprint:             format.Fingerprint{5},
+		}
+		if err := s.AddSent(sr.partner, sr.partnerHistoricalPubKey,
+			sr.myPrivKey, sr.myPubKey, sr.mySidHPrivKeyA,
+			sr.mySidHPubKeyA, sr.fingerprint); err != nil {
+			t.Fatalf("AddSent() returned an error: %+v", err)
+		}
+	}
+
+	// Check that GetAllReceived returns all contacts
+	receivedContactList := s.GetAllReceived()
+	if len(receivedContactList) != numReceived {
+		t.Errorf("GetAllReceived did not return expected amount of contacts. "+
+			"It may be pulling from Sent Requests."+
+			"\nExpected: %d"+
+			"\nReceived: %d", numReceived, len(receivedContactList))
+	}
+
 }
 
 func makeTestStore(t *testing.T) (*Store, *versioned.KV, []*cyclic.Int) {

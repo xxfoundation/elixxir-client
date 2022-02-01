@@ -12,7 +12,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-type RequestCallback func(requestor contact.Contact, message string)
+type RequestCallback func(requestor contact.Contact)
 type ConfirmCallback func(partner contact.Contact)
 
 type Auth interface {
@@ -42,4 +42,6 @@ type Auth interface {
 	AddSpecificConfirmCallback(id *id.ID, cb ConfirmCallback)
 	// Removes a specific callback to be used on auth confirm.
 	RemoveSpecificConfirmCallback(id *id.ID)
+	//Replays all pending received requests over tha callbacks
+	ReplayRequests()
 }

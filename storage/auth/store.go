@@ -261,6 +261,20 @@ func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey) error {
 	return nil
 }
 
+// GetAllReceived returns all pending received contact requests from storage.
+func (s *Store) GetAllReceived() []contact.Contact {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	cList := make([]contact.Contact, 0, len(s.requests))
+	for key := range s.requests {
+		r := s.requests[key]
+		if r.rt == Receive {
+			cList = append(cList, *r.receive)
+		}
+	}
+	return cList
+}
+
 // GetFingerprint can return either a private key or a sentRequest if the
 // fingerprint is found. If it returns a sentRequest, then it takes the lock to
 // ensure there is only one operator at a time. The user of the API must release

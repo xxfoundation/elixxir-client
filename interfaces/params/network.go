@@ -58,11 +58,8 @@ func GetDefaultNetwork() Network {
 		FastPolling:               true,
 		BlacklistedNodes:          make([]string, 0),
 		VerboseRoundTracking:      false,
-<<<<<<< interfaces/params/network.go
 		RealtimeOnly:              false,
-=======
 		ReplayRequests:            true,
->>>>>>> interfaces/params/network.go
 	}
 	n.Rounds = GetDefaultRounds()
 	n.Messages = GetDefaultMessage()

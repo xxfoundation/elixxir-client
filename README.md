@@ -160,7 +160,10 @@ Available Commands:
 Flags:
       --accept-channel            Accept the channel request for the corresponding recipient ID
       --auth-timeout uint         The number of seconds to wait for an authentication channelto confirm (default 120)
+      --delete-all-requests       Delete the all contact requests, both sent and received.
       --delete-channel            Delete the channel information for the corresponding recipient ID
+      --delete-receive-requests   Delete the all received contact requests.
+      --delete-sent-requests      Delete the all sent contact requests.
       --destfile string           Read this contact file for the destination id
   -d, --destid string             ID to send message to (if below 40, will be precanned. Use '0x' or 'b64:' for hex and base64 representations) (default "0")
       --e2eMaxKeys uint           Max keys used before blocking until a rekey completes (default 800)

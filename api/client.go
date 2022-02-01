@@ -686,16 +686,19 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 
 // DeleteAllRequests clears all requests from client's auth storage.
 func (c *Client) DeleteAllRequests() error {
+	jww.DEBUG.Printf("Deleting all requests")
 	return c.GetStorage().Auth().DeleteAllRequests()
 }
 
 // DeleteSentRequests clears sent requests from client's auth storage.
 func (c *Client) DeleteSentRequests() error {
+	jww.DEBUG.Printf("Deleting all sent requests")
 	return c.GetStorage().Auth().DeleteSentRequests()
 }
 
 // DeleteReceiveRequests clears receive requests from client's auth storage.
 func (c *Client) DeleteReceiveRequests() error {
+	jww.DEBUG.Printf("Deleting all received requests")
 	return c.GetStorage().Auth().DeleteReceiveRequests()
 }
 

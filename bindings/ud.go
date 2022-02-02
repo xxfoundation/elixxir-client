@@ -73,8 +73,8 @@ func (ud *UserDiscovery) AddFact(fStr string) (string, error) {
 	return ud.ud.SendRegisterFact(f)
 }
 
-// Confirms a fact first registered via AddFact. The confirmation ID comes from
-// AddFact while the code will come over the associated communications system
+// Confirms a fact first registered via StoreFact. The confirmation ID comes from
+// StoreFact while the code will come over the associated communications system
 func (ud *UserDiscovery) ConfirmFact(confirmationID, code string) error {
 	return ud.ud.SendConfirmFact(confirmationID, code)
 }
@@ -101,6 +101,17 @@ func (ud *UserDiscovery) RemoveUser(fStr string) error {
 			"malformed fact")
 	}
 	return ud.ud.RemoveUser(f)
+}
+
+// StoreFact adds a fact to storage. The fact should already be registered.
+func (ud *UserDiscovery) StoreFact(fStr string) error {
+	f, err := fact.UnstringifyFact(fStr)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to remove due to "+
+			"malformed fact")
+	}
+
+	return ud.ud.StoreFact(f)
 }
 
 // SearchCallback returns the result of a search

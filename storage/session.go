@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/client/storage/hostList"
 	"gitlab.com/elixxir/client/storage/rounds"
+	"gitlab.com/elixxir/client/storage/ud"
 	"gitlab.com/xx_network/primitives/rateLimiting"
 	"sync"
 	"testing"
@@ -74,6 +75,7 @@ type Session struct {
 	hostList            *hostList.Store
 	edgeCheck           *edge.Store
 	ringBuff            *conversation.Buff
+	ud                  *ud.Store
 }
 
 // Initialize a new Session object
@@ -178,6 +180,11 @@ func New(baseDir, password string, u userInterface.User,
 	s.bucketStore = utility.NewStoredBucket(uint32(rateLimitParams.Capacity), uint32(rateLimitParams.LeakedTokens),
 		time.Duration(rateLimitParams.LeakDuration), s.kv)
 
+	s.ud, err = ud.NewStore(s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create ud store")
+	}
+
 	return s, nil
 }
 
@@ -275,6 +282,11 @@ func Load(baseDir, password string, currentVersion version.Version,
 			"Failed to load bucket store")
 	}
 
+	s.ud, err = ud.LoadStore(s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load ud store")
+	}
+
 	return s, nil
 }
 
@@ -362,6 +374,12 @@ func (s *Session) GetEdge() *edge.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.edgeCheck
+}
+
+func (s *Session) GetUd() *ud.Store {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.ud
 }
 
 // GetBucketParams returns the bucket params store.
@@ -508,6 +526,11 @@ func InitTestingSession(i interface{}) *Session {
 	//if err != nil {
 	//	jww.FATAL.Panicf("Failed to create ring buffer store: %+v", err)
 	//}
+
+	s.ud, err = ud.NewStore(s.kv)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to create ud store: %v", err)
+	}
 
 	return s
 }

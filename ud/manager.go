@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -92,6 +93,18 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 	m.grp = m.storage.E2e().GetGroup()
 
 	return m, nil
+}
+
+func (m *Manager) StoreFact(f fact.Fact) error {
+	return m.storage.GetUd().StoreFact(f)
+}
+
+func (m *Manager) GetFacts() []fact.Fact {
+	return m.storage.GetUd().GetFacts()
+}
+
+func (m *Manager) GetStringifiedFact() []string {
+	return m.storage.GetUd().GetStringifiedFacts()
 }
 
 // getHost returns the current UD host for the UD ID found in the NDF. If the

@@ -26,6 +26,7 @@ import (
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -636,6 +637,16 @@ func (c *Client) GetStorage() *storage.Session {
 	return c.storage
 }
 
+// GetFacts returns all stored facts from the UD store.
+func (c *Client) GetFacts() []fact.Fact {
+	return c.GetStorage().GetUd().GetFacts()
+}
+
+// GetStringifiedFacts returns all stored facts from te UD store Stringify'd.
+func (c *Client) GetStringifiedFacts() []string {
+	return c.GetStorage().GetUd().GetStringifiedFacts()
+}
+
 // GetNetworkInterface returns the client Network Interface
 func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
 	return c.network
@@ -742,8 +753,8 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 	//delete conversations
 	c.storage.Conversations().Delete(partnerId)
 
-	// call delete requests to make sure nothing is lingering. 
-	// this is for saftey to ensure the contact can be readded 
+	// call delete requests to make sure nothing is lingering.
+	// this is for saftey to ensure the contact can be readded
 	// in the future
 	_ = c.storage.Auth().Delete(partnerId)
 

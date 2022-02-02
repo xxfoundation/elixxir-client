@@ -99,9 +99,25 @@ func NotificationsForMe(notifCSV, preimages string) (*ManyNotificationForMeRepor
 	return &ManyNotificationForMeReport{many: notifList}, nil
 }
 
-// RegisterForNotifications accepts firebase messaging token
-func (c *Client) RegisterForNotifications(token string) error {
-	return c.api.RegisterForNotifications(token)
+// RegisterForNotificationsFCM will register a client
+// for push notifications using the notifications system
+// specific to Android devices.
+func (c *Client) RegisterForNotificationsFCM(token string) error {
+	return c.api.RegisterForNotificationsFCM(token)
+}
+
+// RegisterForNotificationsAPNS will register a client
+// for push notifications using the notifications system
+// specific to Apple iOS devices.
+func (c *Client) RegisterForNotificationsAPNS(token string) error {
+	return c.api.RegisterForNotificationsAPNS(token)
+}
+
+// RegisterForNotificationsHuawei will register a client
+// for push notifications using the notifications system
+// specific to Huawei devices.
+func (c *Client) RegisterForNotificationsHuawei(token string) error {
+	return c.api.RegisterForNotificationsHuawei(token)
 }
 
 // UnregisterForNotifications unregister user for notifications

@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"reflect"
 	"sort"
-	"strconv"
 	"testing"
 )
 
@@ -78,7 +77,7 @@ func TestStore_AddFact(t *testing.T) {
 
 	expected := fact.Fact{
 		Fact: "josh",
-		T:    fact.Username,
+		T:    fact.Email,
 	}
 
 	err = expectedStore.StoreFact(expected)
@@ -86,9 +85,11 @@ func TestStore_AddFact(t *testing.T) {
 		t.Fatalf("StoreFact() produced an error: %v", err)
 	}
 
-	_, exists := expectedStore.registeredFacts[expected]
-	if !exists {
-		t.Fatalf("Fact %s does not exist in map", expected)
+	f := expectedStore.registeredFacts[emailIndex]
+	if !reflect.DeepEqual(f, expected) {
+		t.Fatalf("Fact in store does not match expected value."+
+			"\nExpected: %v"+
+			"\nReceived: %v", expected, f)
 	}
 
 }
@@ -101,21 +102,27 @@ func TestStore_GetFacts(t *testing.T) {
 		t.Errorf("NewStore() produced an error: %v", err)
 	}
 
-	expectedFacts := make([]fact.Fact, 0)
-	for i := 0; i < 100; i++ {
-
-		f := fact.Fact{
-			Fact: strconv.Itoa(i),
-			T:    fact.Username,
-		}
-
-		err = testStore.StoreFact(f)
-		if err != nil {
-			t.Fatalf("Faild to add fact %v: %v", f, err)
-		}
-		expectedFacts = append(expectedFacts, f)
-
+	emailFact := fact.Fact{
+		Fact: "josh@elixxir.io",
+		T:    fact.Email,
 	}
+
+	err = testStore.StoreFact(emailFact)
+	if err != nil {
+		t.Fatalf("Faild to add fact %v: %v", emailFact, err)
+	}
+
+	phoneFact := fact.Fact{
+		Fact: "6175555212",
+		T:    fact.Phone,
+	}
+
+	err = testStore.StoreFact(phoneFact)
+	if err != nil {
+		t.Fatalf("Faild to add fact %v: %v", phoneFact, err)
+	}
+
+	expectedFacts := []fact.Fact{emailFact, phoneFact}
 
 	receivedFacts := testStore.GetFacts()
 
@@ -142,20 +149,27 @@ func TestStore_GetFactStrings(t *testing.T) {
 		t.Errorf("NewStore() produced an error: %v", err)
 	}
 
-	expectedFacts := make([]string, 0)
-	for i := 0; i < 100; i++ {
-
-		f := fact.Fact{
-			Fact: strconv.Itoa(i),
-			T:    fact.Username,
-		}
-
-		err = testStore.StoreFact(f)
-		if err != nil {
-			t.Fatalf("Faild to add fact %v: %v", f, err)
-		}
-		expectedFacts = append(expectedFacts, f.Stringify())
+	emailFact := fact.Fact{
+		Fact: "josh@elixxir.io",
+		T:    fact.Email,
 	}
+
+	err = testStore.StoreFact(emailFact)
+	if err != nil {
+		t.Fatalf("Faild to add fact %v: %v", emailFact, err)
+	}
+
+	phoneFact := fact.Fact{
+		Fact: "6175555212",
+		T:    fact.Phone,
+	}
+
+	err = testStore.StoreFact(phoneFact)
+	if err != nil {
+		t.Fatalf("Faild to add fact %v: %v", phoneFact, err)
+	}
+
+	expectedFacts := []string{emailFact.Stringify(), phoneFact.Stringify()}
 
 	receivedFacts := testStore.GetStringifiedFacts()
 	sort.SliceStable(receivedFacts, func(i, j int) bool {

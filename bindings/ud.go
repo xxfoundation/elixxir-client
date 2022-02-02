@@ -103,7 +103,11 @@ func (ud *UserDiscovery) RemoveUser(fStr string) error {
 	return ud.ud.RemoveUser(f)
 }
 
-// StoreFact adds a fact to storage. The fact should already be registered.
+// StoreFact adds a registered fact to the Store object.
+// It checks for the fact type, and accepts only Email and Phone types; once each.
+// Any other fact.FactType is not accepted and returns an error. If trying to add a
+// fact.Fact with a fact.FactType that has already been added, an error will be returned.
+// Otherwise, it adds the fact and returns whether the Store saved successfully.
 func (ud *UserDiscovery) StoreFact(fStr string) error {
 	f, err := fact.UnstringifyFact(fStr)
 	if err != nil {

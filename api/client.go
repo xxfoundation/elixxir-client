@@ -647,6 +647,11 @@ func (c *Client) GetStringifiedFacts() []string {
 	return c.GetStorage().GetUd().GetStringifiedFacts()
 }
 
+// Returns a list of all partner ID's.
+func (c *Client) GetPartners() []id.ID {
+	return c.GetStorage().E2e().GetPartners()
+}
+
 // GetNetworkInterface returns the client Network Interface
 func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
 	return c.network

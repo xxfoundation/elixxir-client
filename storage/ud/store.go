@@ -85,9 +85,9 @@ func LoadStore(kv *versioned.KV) (*Store, error) {
 // BackUpMissingFacts adds a registered fact to the Store object. It can take in both an
 // email and a phone number. One or the other may be nil, however both is considered
 // an error. It checks for the proper fact type for the associated fact.
-// It checks for the fact type, and accepts only fact.Email and fact.Phone.
-// Any other fact.FactType is not accepted and returns an error. If trying to add a
-// fact.Fact with a fact.FactType that has already been added, an error will be returned.
+// Any other fact.FactType is not accepted and returns an error and nothing is backed up.
+// If you attempt to back up a fact type that has already been backed up,
+// an error will be returned and nothing will be backed up.
 // Otherwise, it adds the fact and returns whether the Store saved successfully.
 func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 	s.mux.Lock()
@@ -97,7 +97,7 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 		return errors.New("Cannot backup missing facts: Both email and phone facts are empty!")
 	}
 
-	modifiedState := false
+	modifiedEmail, modifiedPhone := false, false
 
 	if !isFactZero(email) {
 		if email.T != fact.Email {
@@ -107,8 +107,7 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 			return errors.Errorf(factTypeExistsErr, email, fact.Email)
 		}
 
-		s.registeredFacts[emailIndex] = email
-		modifiedState = true
+		modifiedEmail = true
 
 	}
 
@@ -120,11 +119,18 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 			return errors.Errorf(factTypeExistsErr, phone, fact.Phone)
 		}
 
-		s.registeredFacts[phoneIndex] = phone
-		modifiedState = true
+		modifiedPhone = true
 	}
 
-	if modifiedState {
+	if modifiedEmail || modifiedPhone {
+		if modifiedEmail {
+			s.registeredFacts[emailIndex] = email
+		}
+
+		if modifiedPhone {
+			s.registeredFacts[phoneIndex] = phone
+		}
+
 		return s.save()
 	}
 

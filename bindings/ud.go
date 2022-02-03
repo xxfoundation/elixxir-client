@@ -73,8 +73,8 @@ func (ud *UserDiscovery) AddFact(fStr string) (string, error) {
 	return ud.ud.SendRegisterFact(f)
 }
 
-// Confirms a fact first registered via BackUpMissingFacts. The confirmation ID comes from
-// BackUpMissingFacts while the code will come over the associated communications system
+// Confirms a fact first registered via AddFact. The confirmation ID comes from
+// AddFact while the code will come over the associated communications system
 func (ud *UserDiscovery) ConfirmFact(confirmationID, code string) error {
 	return ud.ud.SendConfirmFact(confirmationID, code)
 }

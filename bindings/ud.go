@@ -73,8 +73,8 @@ func (ud *UserDiscovery) AddFact(fStr string) (string, error) {
 	return ud.ud.SendRegisterFact(f)
 }
 
-// Confirms a fact first registered via BackUpMissingFacts. The confirmation ID comes from
-// BackUpMissingFacts while the code will come over the associated communications system
+// Confirms a fact first registered via AddFact. The confirmation ID comes from
+// AddFact while the code will come over the associated communications system
 func (ud *UserDiscovery) ConfirmFact(confirmationID, code string) error {
 	return ud.ud.SendConfirmFact(confirmationID, code)
 }
@@ -103,10 +103,12 @@ func (ud *UserDiscovery) RemoveUser(fStr string) error {
 	return ud.ud.RemoveUser(f)
 }
 
-// BackUpMissingFacts adds a registered fact to the Store object.
-// It checks for the fact type, and accepts only Email and Phone types; once each.
-// Any other fact.FactType is not accepted and returns an error. If trying to add a
-// fact.Fact with a fact.FactType that has already been added, an error will be returned.
+// BackUpMissingFacts adds a registered fact to the Store object. It can take in both an
+// email and a phone number. One or the other may be nil, however both is considered
+// an error. It checks for the proper fact type for the associated fact.
+// Any other fact.FactType is not accepted and returns an error and nothing is backed up.
+// If you attempt to back up a fact type that has already been backed up,
+// an error will be returned and nothing will be backed up.
 // Otherwise, it adds the fact and returns whether the Store saved successfully.
 func (ud *UserDiscovery) BackUpMissingFacts(email, phone string) error {
 	var emailFact, phoneFact fact.Fact

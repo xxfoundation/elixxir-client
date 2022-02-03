@@ -67,7 +67,7 @@ func TestLoadStore(t *testing.T) {
 
 }
 
-func TestStore_AddFact(t *testing.T) {
+func TestStore_BackUpMissingFacts(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
 	expectedStore, err := NewStore(kv)
@@ -75,21 +75,70 @@ func TestStore_AddFact(t *testing.T) {
 		t.Errorf("NewStore() produced an error: %v", err)
 	}
 
-	expected := fact.Fact{
-		Fact: "josh",
+	email := fact.Fact{
+		Fact: "josh@elixxir.io",
 		T:    fact.Email,
 	}
 
-	err = expectedStore.BackUpMissingFacts(expected)
+	phone := fact.Fact{
+		Fact: "6175555678",
+		T:    fact.Phone,
+	}
+
+	err = expectedStore.BackUpMissingFacts(email, phone)
 	if err != nil {
 		t.Fatalf("BackUpMissingFacts() produced an error: %v", err)
 	}
 
 	f := expectedStore.registeredFacts[emailIndex]
-	if !reflect.DeepEqual(f, expected) {
+	if !reflect.DeepEqual(f, email) {
 		t.Fatalf("Fact in store does not match expected value."+
 			"\nExpected: %v"+
-			"\nReceived: %v", expected, f)
+			"\nReceived: %v", email, f)
+	}
+
+	f = expectedStore.registeredFacts[phoneIndex]
+	if !reflect.DeepEqual(f, phone) {
+		t.Fatalf("Fact in store does not match expected value."+
+			"\nExpected: %v"+
+			"\nReceived: %v", phone, f)
+	}
+
+}
+
+func TestStore_BackUpMissingFacts_DuplicateFactType(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+
+	expectedStore, err := NewStore(kv)
+	if err != nil {
+		t.Errorf("NewStore() produced an error: %v", err)
+	}
+
+	email := fact.Fact{
+		Fact: "josh@elixxir.io",
+		T:    fact.Email,
+	}
+
+	phone := fact.Fact{
+		Fact: "6175555678",
+		T:    fact.Phone,
+	}
+
+	err = expectedStore.BackUpMissingFacts(email, phone)
+	if err != nil {
+		t.Fatalf("BackUpMissingFacts() produced an error: %v", err)
+	}
+
+	err = expectedStore.BackUpMissingFacts(email, fact.Fact{})
+	if err == nil {
+		t.Fatalf("BackUpMissingFacts() should not allow backing up an "+
+			"email when an email has already been backed up: %v", err)
+	}
+
+	err = expectedStore.BackUpMissingFacts(fact.Fact{}, phone)
+	if err == nil {
+		t.Fatalf("BackUpMissingFacts() should not allow backing up a "+
+			"phone number when a phone number has already been backed up: %v", err)
 	}
 
 }
@@ -107,7 +156,9 @@ func TestStore_GetFacts(t *testing.T) {
 		T:    fact.Email,
 	}
 
-	err = testStore.BackUpMissingFacts(emailFact)
+	emptyFact := fact.Fact{}
+
+	err = testStore.BackUpMissingFacts(emailFact, emptyFact)
 	if err != nil {
 		t.Fatalf("Faild to add fact %v: %v", emailFact, err)
 	}
@@ -117,7 +168,7 @@ func TestStore_GetFacts(t *testing.T) {
 		T:    fact.Phone,
 	}
 
-	err = testStore.BackUpMissingFacts(phoneFact)
+	err = testStore.BackUpMissingFacts(emptyFact, phoneFact)
 	if err != nil {
 		t.Fatalf("Faild to add fact %v: %v", phoneFact, err)
 	}
@@ -154,7 +205,9 @@ func TestStore_GetFactStrings(t *testing.T) {
 		T:    fact.Email,
 	}
 
-	err = testStore.BackUpMissingFacts(emailFact)
+	emptyFact := fact.Fact{}
+
+	err = testStore.BackUpMissingFacts(emailFact, emptyFact)
 	if err != nil {
 		t.Fatalf("Faild to add fact %v: %v", emailFact, err)
 	}
@@ -164,7 +217,7 @@ func TestStore_GetFactStrings(t *testing.T) {
 		T:    fact.Phone,
 	}
 
-	err = testStore.BackUpMissingFacts(phoneFact)
+	err = testStore.BackUpMissingFacts(emptyFact, phoneFact)
 	if err != nil {
 		t.Fatalf("Faild to add fact %v: %v", phoneFact, err)
 	}

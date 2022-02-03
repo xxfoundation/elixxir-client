@@ -106,10 +106,14 @@ func (m *Manager) BackUpMissingFacts(email, phone fact.Fact) error {
 	return m.storage.GetUd().BackUpMissingFacts(email, phone)
 }
 
+// GetFacts returns a list of fact.Fact objects that exist within the
+// Store's registeredFacts map.
 func (m *Manager) GetFacts() []fact.Fact {
 	return m.storage.GetUd().GetFacts()
 }
 
+// GetStringifiedFacts returns a list of stringified facts from the Store's
+// registeredFacts map.
 func (m *Manager) GetStringifiedFact() []string {
 	return m.storage.GetUd().GetStringifiedFacts()
 }

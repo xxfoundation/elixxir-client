@@ -81,6 +81,19 @@ func NewPrecannedClient(precannedID int, network, storageDir string, password []
 	return nil
 }
 
+// NewClientFromBackup constructs a new Client from an encrypted backup. The backup
+// is decrypted using the backupPassphrase.
+func NewClientFromBackup(ndfJSON, storageDir, sessionPassword,
+	backupPassphrase string, backupFileContents []byte) error {
+	if err := api.NewClientFromBackup(ndfJSON, storageDir, sessionPassword,
+		backupPassphrase, backupFileContents); err != nil {
+		return errors.New(fmt.Sprintf("Failed to create new "+
+			"client from backup: %+v", err))
+	}
+
+	return nil
+}
+
 // Login will load an existing client from the storageDir
 // using the password. This will fail if the client doesn't exist or
 // the password is incorrect.
@@ -265,6 +278,7 @@ func (c *Client) WaitForNetwork(timeoutMS int) bool {
 func (c *Client) NetworkFollowerStatus() int {
 	return int(c.api.NetworkFollowerStatus())
 }
+
 // HasRunningProcessies checks if any background threads are running.
 // returns true if none are running. This is meant to be
 // used when NetworkFollowerStatus() returns Stopping.

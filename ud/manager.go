@@ -95,8 +95,8 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 	return m, nil
 }
 
-func (m *Manager) StoreFact(f fact.Fact) error {
-	return m.storage.GetUd().StoreFact(f)
+func (m *Manager) BackUpMissingFacts(email, phone fact.Fact) error {
+	return m.storage.GetUd().BackUpMissingFacts(email, phone)
 }
 
 func (m *Manager) GetFacts() []fact.Fact {

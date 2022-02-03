@@ -80,9 +80,9 @@ func TestStore_AddFact(t *testing.T) {
 		T:    fact.Email,
 	}
 
-	err = expectedStore.StoreFact(expected)
+	err = expectedStore.BackUpMissingFacts(expected)
 	if err != nil {
-		t.Fatalf("StoreFact() produced an error: %v", err)
+		t.Fatalf("BackUpMissingFacts() produced an error: %v", err)
 	}
 
 	f := expectedStore.registeredFacts[emailIndex]
@@ -107,7 +107,7 @@ func TestStore_GetFacts(t *testing.T) {
 		T:    fact.Email,
 	}
 
-	err = testStore.StoreFact(emailFact)
+	err = testStore.BackUpMissingFacts(emailFact)
 	if err != nil {
 		t.Fatalf("Faild to add fact %v: %v", emailFact, err)
 	}
@@ -117,7 +117,7 @@ func TestStore_GetFacts(t *testing.T) {
 		T:    fact.Phone,
 	}
 
-	err = testStore.StoreFact(phoneFact)
+	err = testStore.BackUpMissingFacts(phoneFact)
 	if err != nil {
 		t.Fatalf("Faild to add fact %v: %v", phoneFact, err)
 	}
@@ -154,7 +154,7 @@ func TestStore_GetFactStrings(t *testing.T) {
 		T:    fact.Email,
 	}
 
-	err = testStore.StoreFact(emailFact)
+	err = testStore.BackUpMissingFacts(emailFact)
 	if err != nil {
 		t.Fatalf("Faild to add fact %v: %v", emailFact, err)
 	}
@@ -164,7 +164,7 @@ func TestStore_GetFactStrings(t *testing.T) {
 		T:    fact.Phone,
 	}
 
-	err = testStore.StoreFact(phoneFact)
+	err = testStore.BackUpMissingFacts(phoneFact)
 	if err != nil {
 		t.Fatalf("Faild to add fact %v: %v", phoneFact, err)
 	}

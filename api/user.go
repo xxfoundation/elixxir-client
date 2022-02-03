@@ -93,7 +93,7 @@ func createDhKeys(rng *fastRNG.StreamGenerator,
 	transmissionRsaKey, receptionRsaKey *rsa.PrivateKey) {
 	wg := sync.WaitGroup{}
 
-	wg.Add(4)
+	wg.Add(3)
 
 	go func() {
 		defer wg.Done()

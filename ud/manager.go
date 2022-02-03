@@ -114,7 +114,7 @@ func (m *Manager) GetFacts() []fact.Fact {
 
 // GetStringifiedFacts returns a list of stringified facts from the Store's
 // registeredFacts map.
-func (m *Manager) GetStringifiedFact() []string {
+func (m *Manager) GetStringifiedFacts() []string {
 	return m.storage.GetUd().GetStringifiedFacts()
 }
 

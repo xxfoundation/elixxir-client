@@ -248,14 +248,14 @@ func (s *Store) GetPartnerContact(partnerID *id.ID) (contact.Contact, error) {
 
 // GetPartners returns a list of all partner IDs that the user has
 // an E2E relationship with.
-func (s *Store) GetPartners() []id.ID {
+func (s *Store) GetPartners() []*id.ID {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 
-	partnerIds := make([]id.ID, 0, len(s.managers))
+	partnerIds := make([]*id.ID, 0, len(s.managers))
 
 	for partnerId := range s.managers {
-		partnerIds = append(partnerIds, partnerId)
+		partnerIds = append(partnerIds, &partnerId)
 	}
 
 	return partnerIds

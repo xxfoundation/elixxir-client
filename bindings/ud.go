@@ -73,8 +73,8 @@ func (ud *UserDiscovery) AddFact(fStr string) (string, error) {
 	return ud.ud.SendRegisterFact(f)
 }
 
-// Confirms a fact first registered via AddFact. The confirmation ID comes from
-// AddFact while the code will come over the associated communications system
+// Confirms a fact first registered via BackUpMissingFacts. The confirmation ID comes from
+// BackUpMissingFacts while the code will come over the associated communications system
 func (ud *UserDiscovery) ConfirmFact(confirmationID, code string) error {
 	return ud.ud.SendConfirmFact(confirmationID, code)
 }
@@ -101,6 +101,31 @@ func (ud *UserDiscovery) RemoveUser(fStr string) error {
 			"malformed fact")
 	}
 	return ud.ud.RemoveUser(f)
+}
+
+// BackUpMissingFacts adds a registered fact to the Store object.
+// It checks for the fact type, and accepts only Email and Phone types; once each.
+// Any other fact.FactType is not accepted and returns an error. If trying to add a
+// fact.Fact with a fact.FactType that has already been added, an error will be returned.
+// Otherwise, it adds the fact and returns whether the Store saved successfully.
+func (ud *UserDiscovery) BackUpMissingFacts(email, phone string) error {
+	var emailFact, phoneFact fact.Fact
+	var err error
+	if len(email) > 2 {
+		emailFact, err = fact.UnstringifyFact(email)
+		if err != nil {
+			return errors.WithMessagef(err, "Failed to parse malformed email fact: %s", email)
+		}
+	}
+
+	if len(phone) > 2 {
+		phoneFact, err = fact.UnstringifyFact(phone)
+		if err != nil {
+			return errors.WithMessagef(err, "Failed to parse malformed phone fact: %s", phone)
+		}
+	}
+
+	return ud.ud.BackUpMissingFacts(emailFact, phoneFact)
 }
 
 // SearchCallback returns the result of a search

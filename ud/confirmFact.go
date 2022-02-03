@@ -12,8 +12,8 @@ type confirmFactComm interface {
 	SendConfirmFact(host *connect.Host, message *pb.FactConfirmRequest) (*messages.Ack, error)
 }
 
-// SendConfirmFact confirms a fact first registered via AddFact. The
-// confirmation ID comes from AddFact while the code will come over the
+// SendConfirmFact confirms a fact first registered via BackUpMissingFacts. The
+// confirmation ID comes from BackUpMissingFacts while the code will come over the
 // associated communications system.
 func (m *Manager) SendConfirmFact(confirmationID, code string) error {
 	jww.INFO.Printf("ud.SendConfirmFact(%s, %s)", confirmationID, code)

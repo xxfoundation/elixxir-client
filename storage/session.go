@@ -116,7 +116,7 @@ func New(baseDir, password string, u userInterface.User,
 	}
 	uid := s.user.GetCryptographicIdentity().GetReceptionID()
 
-	s.cmix, err = cmix.NewStore(cmixGrp, s.kv, u.CmixDhPrivateKey)
+	s.cmix, err = cmix.NewStore(cmixGrp, s.kv)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create cmix store")
 	}
@@ -445,7 +445,7 @@ func InitTestingSession(i interface{}) *Session {
 			"3A10B1C4D203CC76A470A33AFDCBDD92959859ABD8B56E1725252D78EAC66E71"+
 			"BA9AE3F1DD2487199874393CD4D832186800654760E1E34C09E4D155179F9EC0"+
 			"DC4473F996BDCE6EED1CABED8B6F116F7AD9CF505DF0F998E34AB27514B0FFE7", 16))
-	cmixStore, err := cmix.NewStore(cmixGrp, kv, cmixGrp.NewInt(2))
+	cmixStore, err := cmix.NewStore(cmixGrp, kv)
 	if err != nil {
 		jww.FATAL.Panicf("InitTestingSession failed to create dummy cmix session: %+v", err)
 	}

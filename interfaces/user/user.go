@@ -27,10 +27,6 @@ type User struct {
 	// Timestamp in which user has registered with the network
 	RegistrationTimestamp int64
 
-	//cmix Identity
-	CmixDhPrivateKey *cyclic.Int
-	CmixDhPublicKey  *cyclic.Int
-
 	//e2e Identity
 	E2eDhPrivateKey *cyclic.Int
 	E2eDhPublicKey  *cyclic.Int
@@ -54,8 +50,6 @@ func NewUserFromProto(proto *Proto) User {
 		ReceptionRSA:          proto.ReceptionRSA,
 		Precanned:             proto.Precanned,
 		RegistrationTimestamp: proto.RegistrationTimestamp,
-		CmixDhPrivateKey:      proto.CmixDhPrivateKey,
-		CmixDhPublicKey:       proto.CmixDhPublicKey,
 		E2eDhPrivateKey:       proto.E2eDhPrivateKey,
 		E2eDhPublicKey:        proto.E2eDhPublicKey,
 	}

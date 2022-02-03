@@ -21,6 +21,7 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/registration"
@@ -154,7 +155,20 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source,
 	stop *stoppable.Single) (*cyclic.Int, []byte, uint64, error) {
 
-	dhPub := store.GetDHPublicKey().Bytes()
+
+	grp := store.GetGroup()
+
+	// FIXME: Why 256 bits? -- this is spec but not explained, it has
+	// to do with optimizing operations on one side and still preserves
+	// decent security -- cite this.
+	dhPrivBytes, err := csprng.GenerateInGroup(store.GetGroup().GetPBytes(), 256, rng)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+
+	dhPriv := grp.NewIntFromBytes(dhPrivBytes)
+
+	dhPub := diffieHellman.GeneratePublicKey(dhPriv, grp)
 
 	// Reconstruct client confirmation message
 	userPubKeyRSA := rsa.CreatePublicKeyPem(uci.GetTransmissionRSA().GetPublic())
@@ -170,7 +184,7 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 			RegistrarSignature:             &messages.RSASignature{Signature: regSig},
 			ClientRegistrationConfirmation: confirmationSerialized,
 		},
-		ClientDHPubKey:        dhPub,
+		ClientDHPubKey:        dhPub.Bytes(),
 		RegistrationTimestamp: registrationTimestampNano,
 		RequestTimestamp:      netTime.Now().UnixNano(),
 	}
@@ -262,12 +276,11 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	h.Reset()
 
 	// Convert Node DH Public key to a cyclic.Int
-	grp := store.GetGroup()
 	nodeDHPub := grp.NewIntFromBytes(keyResponse.NodeDHPubKey)
 
 	// Construct the session key
 	sessionKey := registration.GenerateBaseKey(grp,
-		nodeDHPub, store.GetDHPrivateKey(), h)
+		nodeDHPub, dhPriv, h)
 
 	// Verify the HMAC
 	h.Reset()

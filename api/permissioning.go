@@ -73,8 +73,6 @@ func (c *Client) ConstructProtoUerFile() ([]byte, error) {
 		RegCode:                      regCode,
 		TransmissionRegValidationSig: c.storage.User().GetTransmissionRegistrationValidationSignature(),
 		ReceptionRegValidationSig:    c.storage.User().GetReceptionRegistrationValidationSignature(),
-		CmixDhPrivateKey:             c.GetStorage().Cmix().GetDHPrivateKey(),
-		CmixDhPublicKey:              c.GetStorage().Cmix().GetDHPublicKey(),
 		E2eDhPrivateKey:              c.GetStorage().E2e().GetDHPrivateKey(),
 		E2eDhPublicKey:               c.GetStorage().E2e().GetDHPublicKey(),
 	}

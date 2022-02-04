@@ -16,9 +16,11 @@ import (
 )
 
 const (
-	factTypeExistsErr    = "Fact %v cannot be added as fact type %s has already been stored. Cancelling backup operation!"
-	backupMissingFactErr = "BackUpMissingFacts expects input in the order (email, phone). " +
+	factTypeExistsErr               = "Fact %v cannot be added as fact type %s has already been stored. Cancelling backup operation!"
+	backupMissingInvalidFactTypeErr = "BackUpMissingFacts expects input in the order (email, phone). " +
 		"%s (%s) is non-empty but not an email. Cancelling backup operation"
+	backupMissingAllZeroesFactErr = "Cannot backup missing facts: Both email and phone facts are empty!"
+	factNotInStoreErr             = "Fact %v does not exist in store"
 )
 
 // Store is the storage object for the higher level ud.Manager object.
@@ -93,7 +95,7 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 	defer s.mux.Unlock()
 
 	if isFactZero(email) && isFactZero(phone) {
-		return errors.New("Cannot backup missing facts: Both email and phone facts are empty!")
+		return errors.New(backupMissingAllZeroesFactErr)
 	}
 
 	modifiedEmail, modifiedPhone := false, false
@@ -102,7 +104,7 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 	if !isFactZero(email) {
 		// check if fact is expected type
 		if email.T != fact.Email {
-			return errors.New(fmt.Sprintf(backupMissingFactErr, fact.Email, email.Fact))
+			return errors.New(fmt.Sprintf(backupMissingInvalidFactTypeErr, fact.Email, email.Fact))
 		}
 
 		// Check if fact type is already in map. See docstring NOTE for explanation
@@ -117,7 +119,7 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 	if !isFactZero(phone) {
 		// check if fact is expected type
 		if phone.T != fact.Phone {
-			return errors.New(fmt.Sprintf(backupMissingFactErr, fact.Phone, phone.Fact))
+			return errors.New(fmt.Sprintf(backupMissingInvalidFactTypeErr, fact.Phone, phone.Fact))
 		}
 
 		// Check if fact type is already in map. See docstring NOTE for explanation
@@ -153,7 +155,7 @@ func (s *Store) DeleteFact(f fact.Fact) error {
 	defer s.mux.Unlock()
 
 	if _, exists := s.confirmedFacts[f]; !exists {
-		return errors.Errorf("Fact %v does not exist in store", f)
+		return errors.Errorf(factNotInStoreErr, f)
 	}
 
 	delete(s.confirmedFacts, f)

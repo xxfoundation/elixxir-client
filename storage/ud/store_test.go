@@ -54,6 +54,16 @@ func TestStore_MarshalUnmarshal_ConfirmedFacts(t *testing.T) {
 			data.Data)
 	}
 
+	recieved, err := expectedStore.unmarshalConfirmedFacts(data.Data)
+	if err != nil {
+		t.Fatalf("unmarshalUnconfirmedFacts error: %v", err)
+	}
+
+	if !reflect.DeepEqual(recieved, expectedStore.confirmedFacts) {
+		t.Fatalf("Marshal/Unmarshal did not produce identical data"+
+			"\nExpected: %v "+
+			"\nReceived: %v", expectedStore.confirmedFacts, recieved)
+	}
 }
 
 func TestStore_MarshalUnmarshal_UnconfirmedFacts(t *testing.T) {
@@ -64,12 +74,7 @@ func TestStore_MarshalUnmarshal_UnconfirmedFacts(t *testing.T) {
 		t.Errorf("NewStore() produced an error: %v", err)
 	}
 
-	data, err := expectedStore.kv.Get(confirmedFactKey, version)
-	if err != nil {
-		t.Errorf("Get() error when getting Store from KV: %v", err)
-	}
-
-	data, err = expectedStore.kv.Get(unconfirmedFactKey, version)
+	data, err := expectedStore.kv.Get(unconfirmedFactKey, version)
 	if err != nil {
 		t.Errorf("Get() error when getting Store from KV: %v", err)
 	}
@@ -85,4 +90,14 @@ func TestStore_MarshalUnmarshal_UnconfirmedFacts(t *testing.T) {
 			data.Data)
 	}
 
+	recieved, err := expectedStore.unmarshalUnconfirmedFacts(data.Data)
+	if err != nil {
+		t.Fatalf("unmarshalUnconfirmedFacts error: %v", err)
+	}
+
+	if !reflect.DeepEqual(recieved, expectedStore.unconfirmedFacts) {
+		t.Fatalf("Marshal/Unmarshal did not produce identical data"+
+			"\nExpected: %v "+
+			"\nReceived: %v", expectedStore.unconfirmedFacts, recieved)
+	}
 }

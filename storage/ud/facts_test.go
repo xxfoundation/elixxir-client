@@ -27,31 +27,71 @@ func TestNewStore(t *testing.T) {
 
 }
 
-//
-//func TestStore_StoreFact(t *testing.T) {
-//	kv := versioned.NewKV(make(ekv.Memstore))
-//
-//	expectedStore, err := NewStore(kv)
-//	if err != nil {
-//		t.Errorf("NewStore() produced an error: %v", err)
-//	}
-//
-//	expected := fact.Fact{
-//		Fact: "josh",
-//		T:    fact.Username,
-//	}
-//
-//	err = expectedStore.ConfirmFact(expected)
-//	if err != nil {
-//		t.Fatalf("ConfirmFact() produced an error: %v", err)
-//	}
-//
-//	_, exists := expectedStore.confirmedFacts[expected]
-//	if !exists {
-//		t.Fatalf("Fact %s does not exist in map", expected)
-//	}
-//
-//}
+func TestStore_ConfirmFact(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+
+	expectedStore, err := NewStore(kv)
+	if err != nil {
+		t.Errorf("NewStore() produced an error: %v", err)
+	}
+
+	confirmId := "confirm"
+
+	expected := fact.Fact{
+		Fact: "josh",
+		T:    fact.Username,
+	}
+
+	err = expectedStore.StoreUnconfirmedFact(confirmId, expected)
+	if err != nil {
+		t.Fatalf("StoreUnconfirmedFact error: %v", err)
+	}
+
+	err = expectedStore.ConfirmFact(confirmId)
+	if err != nil {
+		t.Fatalf("ConfirmFact() produced an error: %v", err)
+	}
+
+	_, exists := expectedStore.confirmedFacts[expected]
+	if !exists {
+		t.Fatalf("Fact %s does not exist in map", expected)
+	}
+
+	// Check that fact was removed from unconfirmed
+	_, exists = expectedStore.unconfirmedFacts[confirmId]
+	if exists {
+		t.Fatalf("Confirmed fact %v should be removed from unconfirmed"+
+			" map", expected)
+	}
+}
+
+func TestStore_StoreUnconfirmedFact(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+
+	expectedStore, err := NewStore(kv)
+	if err != nil {
+		t.Errorf("NewStore() produced an error: %v", err)
+	}
+
+	confirmId := "confirm"
+
+	expected := fact.Fact{
+		Fact: "josh",
+		T:    fact.Username,
+	}
+
+	err = expectedStore.StoreUnconfirmedFact(confirmId, expected)
+	if err != nil {
+		t.Fatalf("StoreUnconfirmedFact error: %v", err)
+	}
+
+	// Check that fact exists in unconfirmed
+	_, exists := expectedStore.unconfirmedFacts[confirmId]
+	if !exists {
+		t.Fatalf("Confirmed fact %v should be removed from unconfirmed"+
+			" map", expected)
+	}
+}
 
 func TestStore_DeleteFact(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))

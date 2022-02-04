@@ -15,10 +15,10 @@
 package backup
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -38,18 +38,19 @@ const (
 // Backup stores the user's key and backup callback used to encrypt and transmit
 // the backup data.
 type Backup struct {
-
 	// User provided key used to encrypt the backup
 	key []byte
+
 	// Callback that is called with the encrypted backup
 	cb GetBackup
 
 	mux sync.RWMutex
 
 	// Client structures
-	client *api.Client
-	store  *storage.Session
-	rng    *fastRNG.StreamGenerator
+	client          *api.Client
+	store           *storage.Session
+	backupContainer *interfaces.BackupContainer
+	rng             *fastRNG.StreamGenerator
 }
 
 // GetBackup is the callback that encrypted backup data is returned on
@@ -59,19 +60,22 @@ type GetBackup func(encryptedBackup []byte)
 // initializes the callback to return backups when triggered. Call this to turn
 // on backups for the first time or to replace the user's key.
 func InitializeBackup(key []byte, cb GetBackup, c *api.Client) (*Backup, error) {
-	return initializeBackup(key, cb, c, c.GetStorage(), c.GetRng())
+	return initializeBackup(
+		key, cb, c, c.GetStorage(), c.GetBackup(), c.GetRng())
 }
 
 // initializeBackup is a helper function that takes in all the fields for Backup
 // as parameters for easier testing.
 func initializeBackup(key []byte, cb GetBackup, c *api.Client,
-	store *storage.Session, rng *fastRNG.StreamGenerator) (*Backup, error) {
+	store *storage.Session, backupContainer *interfaces.BackupContainer,
+	rng *fastRNG.StreamGenerator) (*Backup, error) {
 	b := &Backup{
-		key:    make([]byte, len(key)),
-		cb:     cb,
-		client: c,
-		store:  store,
-		rng:    rng,
+		key:             make([]byte, len(key)),
+		cb:              cb,
+		client:          c,
+		store:           store,
+		backupContainer: backupContainer,
+		rng:             rng,
 	}
 
 	// Copy key
@@ -83,6 +87,9 @@ func initializeBackup(key []byte, cb GetBackup, c *api.Client,
 		return nil, errors.Errorf(errSaveKey, err)
 	}
 
+	// Setting backup trigger in client
+	b.backupContainer.SetBackup(b.TriggerBackup)
+
 	jww.INFO.Print("Initializing backup with new user key.")
 
 	return b, nil
@@ -92,25 +99,30 @@ func initializeBackup(key []byte, cb GetBackup, c *api.Client,
 // a new callback. Call this to resume backups that have already been
 // initialized. Returns an error if backups have not already been initialized.
 func ResumeBackup(cb GetBackup, c *api.Client) (*Backup, error) {
-	return resumeBackup(cb, c, c.GetStorage(), c.GetRng())
+	return resumeBackup(cb, c, c.GetStorage(), c.GetBackup(), c.GetRng())
 }
 
 // resumeBackup is a helper function that takes in all the fields for Backup as
 // parameters for easier testing.
 func resumeBackup(cb GetBackup, c *api.Client, store *storage.Session,
-	rng *fastRNG.StreamGenerator) (*Backup, error) {
+	backupContainer *interfaces.BackupContainer, rng *fastRNG.StreamGenerator) (
+	*Backup, error) {
 	key, err := loadKey(store.GetKV())
 	if err != nil {
 		return nil, errors.Errorf(errLoadKey, err)
 	}
 
 	b := &Backup{
-		key:    key,
-		cb:     cb,
-		client: c,
-		store:  store,
-		rng:    rng,
+		key:             key,
+		cb:              cb,
+		client:          c,
+		store:           store,
+		backupContainer: backupContainer,
+		rng:             rng,
 	}
+
+	// Setting backup trigger in client
+	b.backupContainer.SetBackup(b.TriggerBackup)
 
 	jww.INFO.Print("Resuming backup with loaded user key.")
 
@@ -119,7 +131,11 @@ func resumeBackup(cb GetBackup, c *api.Client, store *storage.Session,
 
 // TriggerBackup collates the backup and calls it on the registered backup
 // callback. Does nothing if no encryption key or backup callback is registered.
-func (b *Backup) TriggerBackup() {
+// The passed in reason will be printed to the log when the backup is sent. It
+// should be in the paste tense. For example, if a contact is deleted, the
+// reason can be "contact deleted" and the log will show:
+//	Triggering backup: contact deleted
+func (b *Backup) TriggerBackup(reason string) {
 	b.mux.RLock()
 	defer b.mux.RUnlock()
 
@@ -135,8 +151,6 @@ func (b *Backup) TriggerBackup() {
 	// Grab backup data
 	collatedBackup := b.collateBackup()
 
-	fmt.Printf("%+v\n", collatedBackup)
-
 	// Encrypt backup data with user key
 	rand := b.rng.GetStream()
 	encryptedBackup, err := collatedBackup.Encrypt(rand, b.key)
@@ -145,7 +159,7 @@ func (b *Backup) TriggerBackup() {
 	}
 	rand.Close()
 
-	jww.INFO.Print("Triggering backup.")
+	jww.INFO.Printf("Backup triggered: %s", reason)
 
 	// Send backup on callback
 	go b.cb(encryptedBackup)
@@ -157,6 +171,7 @@ func (b *Backup) StopBackup() error {
 	defer b.mux.Unlock()
 	b.cb = nil
 	b.key = nil
+	jww.INFO.Print("Stopping backup.")
 	return deleteKey(b.store.GetKV())
 }
 

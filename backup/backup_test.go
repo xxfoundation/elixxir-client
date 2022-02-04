@@ -9,6 +9,7 @@ package backup
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -26,8 +27,8 @@ func Test_initializeBackup(t *testing.T) {
 	cbChan := make(chan []byte)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
 	expectedKey := []byte("MyTestKey")
-	b, err := initializeBackup(
-		expectedKey, cb, nil, storage.InitTestingSession(t), nil)
+	b, err := initializeBackup(expectedKey, cb, nil,
+		storage.InitTestingSession(t), &interfaces.BackupContainer{}, nil)
 	if err != nil {
 		t.Errorf("initializeBackup returned an error: %+v", err)
 	}
@@ -73,7 +74,8 @@ func Test_resumeBackup(t *testing.T) {
 	cb1 := func(encryptedBackup []byte) { cbChan1 <- encryptedBackup }
 	s := storage.InitTestingSession(t)
 	expectedKey := []byte("MyTestKey")
-	_, err := initializeBackup(expectedKey, cb1, nil, s, nil)
+	_, err := initializeBackup(
+		expectedKey, cb1, nil, s, &interfaces.BackupContainer{}, nil)
 	if err != nil {
 		t.Errorf("Failed to initialize new Backup: %+v", err)
 	}
@@ -81,7 +83,7 @@ func Test_resumeBackup(t *testing.T) {
 	// Resume the backup with a new callback
 	cbChan2 := make(chan []byte)
 	cb2 := func(encryptedBackup []byte) { cbChan2 <- encryptedBackup }
-	b2, err := resumeBackup(cb2, nil, s, nil)
+	b2, err := resumeBackup(cb2, nil, s, &interfaces.BackupContainer{}, nil)
 	if err != nil {
 		t.Errorf("resumeBackup returned an error: %+v", err)
 	}
@@ -126,7 +128,7 @@ func Test_resumeBackup(t *testing.T) {
 func Test_resumeBackup_NoKeyError(t *testing.T) {
 	expectedErr := strings.Split(errLoadKey, "%")[0]
 	s := storage.InitTestingSession(t)
-	_, err := resumeBackup(nil, nil, s, nil)
+	_, err := resumeBackup(nil, nil, s, &interfaces.BackupContainer{}, nil)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("resumeBackup did not return the expected error when no key"+
 			"is present.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -142,7 +144,7 @@ func TestBackup_TriggerBackup(t *testing.T) {
 
 	collatedBackup := b.collateBackup()
 
-	b.TriggerBackup()
+	b.TriggerBackup("")
 
 	select {
 	case r := <-cbChan:
@@ -164,7 +166,7 @@ func TestBackup_TriggerBackup(t *testing.T) {
 func TestBackup_TriggerBackup_NoCallback(t *testing.T) {
 	b := newTestBackup(nil, t)
 
-	b.TriggerBackup()
+	b.TriggerBackup("")
 }
 
 // Tests that Backup.TriggerBackup does not call the callback if there is no
@@ -175,7 +177,7 @@ func TestBackup_TriggerBackup_NoKey(t *testing.T) {
 	b := newTestBackup(cb, t)
 	b.key = nil
 
-	b.TriggerBackup()
+	b.TriggerBackup("")
 
 	select {
 	case r := <-cbChan:
@@ -203,7 +205,7 @@ func TestBackup_StopBackup(t *testing.T) {
 		t.Errorf("Key not cleared: %v", b.key)
 	}
 
-	b.TriggerBackup()
+	b.TriggerBackup("")
 
 	select {
 	case r := <-cbChan:
@@ -263,6 +265,7 @@ func newTestBackup(cb GetBackup, t *testing.T) *Backup {
 		cb,
 		nil,
 		storage.InitTestingSession(t),
+		&interfaces.BackupContainer{},
 		fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 	)
 	if err != nil {

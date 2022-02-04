@@ -24,12 +24,6 @@ const (
 	key     = "udStoreKey"
 )
 
-// Fact indexing constants
-const (
-	emailIndex = 0
-	phoneIndex = 1
-)
-
 // Error constants
 const (
 	factTypeExistsErr          = "Fact %v cannot be added as fact type %s has already been stored. Cancelling backup operation!"
@@ -42,7 +36,7 @@ const (
 type Store struct {
 	// registeredFacts contains only 2 registered facts: an email and a phone number.
 	// These are definitely indexed, as defined above.
-	registeredFacts [2]fact.Fact
+	registeredFacts map[fact.Fact]struct{}
 	kv              *versioned.KV
 	mux             sync.RWMutex
 }
@@ -52,7 +46,7 @@ func NewStore(kv *versioned.KV) (*Store, error) {
 	kv = kv.Prefix(prefix)
 
 	s := &Store{
-		registeredFacts: [2]fact.Fact{},
+		registeredFacts: make(map[fact.Fact]struct{}, 0),
 		kv:              kv,
 	}
 
@@ -69,7 +63,7 @@ func LoadStore(kv *versioned.KV) (*Store, error) {
 	}
 
 	s := &Store{
-		registeredFacts: [2]fact.Fact{},
+		registeredFacts: make(map[fact.Fact]struct{}, 0),
 		kv:              kv,
 	}
 
@@ -83,8 +77,16 @@ func LoadStore(kv *versioned.KV) (*Store, error) {
 }
 
 // BackUpMissingFacts adds a registered fact to the Store object. It can take in both an
-// email and a phone number. One or the other may be nil, however both is considered
-// an error. It checks for the proper fact type for the associated fact.
+// email and a phone number. One or the other may be an empty string, however both is considered
+// an error. It checks for each whether that fact type already exists in the structure. If a fact
+// type already exists, an error is returned.
+// ************************************************************************
+// NOTE: This is done since BackUpMissingFacts is exposed to the
+// bindings layer. This prevents front end from using this as the method
+// to store facts on their end, which is not its intended use case. It's intended use
+// case is to store already registered facts, prior to the creation of this function.
+// We handle storage of newly registered internally using Store.StoreFact.
+// ************************************************************************
 // Any other fact.FactType is not accepted and returns an error and nothing is backed up.
 // If you attempt to back up a fact type that has already been backed up,
 // an error will be returned and nothing will be backed up.
@@ -99,36 +101,46 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 
 	modifiedEmail, modifiedPhone := false, false
 
+	// Handle email if it is not zero (empty string)
 	if !isFactZero(email) {
+		// check if fact is expected type
 		if email.T != fact.Email {
-			return errors.New(fmt.Sprintf(unrecognizedFactErr, email, fact.Email))
+			return errors.New(fmt.Sprintf("BackUpMissingFacts expects input in the order (email, phone). "+
+				"Email (%s) is non-empty but not an email. Cancelling backup operation", email.Fact))
 		}
-		if !isFactZero(s.registeredFacts[emailIndex]) {
+
+		// Check if fact type is already in map. See docstring NOTE for explanation
+		if isFactTypeInMap(fact.Email, s.registeredFacts) {
+			// If an email exists in memory, return an error
 			return errors.Errorf(factTypeExistsErr, email, fact.Email)
+		} else {
+			modifiedEmail = true
 		}
-
-		modifiedEmail = true
-
 	}
 
 	if !isFactZero(phone) {
+		// check if fact is expected type
 		if phone.T != fact.Phone {
-			return errors.New(fmt.Sprintf(unrecognizedFactErr, phone, fact.Phone))
-		}
-		if !isFactZero(s.registeredFacts[phoneIndex]) {
-			return errors.Errorf(factTypeExistsErr, phone, fact.Phone)
+			return errors.New(fmt.Sprintf("BackUpMissingFacts expects input in the order (email, phone). "+
+				"Phone (%s) is non-empty but not an phone. Cancelling backup operation", phone.Fact))
 		}
 
-		modifiedPhone = true
+		// Check if fact type is already in map. See docstring NOTE for explanation
+		if isFactTypeInMap(fact.Phone, s.registeredFacts) {
+			// If a phone exists in memory, return an error
+			return errors.Errorf(factTypeExistsErr, phone, fact.Phone)
+		} else {
+			modifiedPhone = true
+		}
 	}
 
-	if modifiedEmail || modifiedPhone {
+	if modifiedPhone || modifiedEmail {
 		if modifiedEmail {
-			s.registeredFacts[emailIndex] = email
+			s.registeredFacts[email] = struct{}{}
 		}
 
 		if modifiedPhone {
-			s.registeredFacts[phoneIndex] = phone
+			s.registeredFacts[phone] = struct{}{}
 		}
 
 		return s.save()
@@ -136,6 +148,30 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 
 	return nil
 
+}
+
+// StoreFact is our internal use function which will add the fact to
+// memory and save to storage. THIS IS FOR REGISTERED FACTS ONLY.
+func (s *Store) StoreFact(f fact.Fact) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	s.registeredFacts[f] = struct{}{}
+	return s.save()
+}
+
+// DeleteFact is our internal use function which will delete the fact to
+// memory and save to storage. An error is returned if the fact does not exist in memory.
+func (s *Store) DeleteFact(f fact.Fact) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	if _, exists := s.registeredFacts[f]; !exists {
+		return errors.Errorf("Fact %v does not exist in store", f)
+	}
+
+	delete(s.registeredFacts, f)
+	return s.save()
 }
 
 // GetStringifiedFacts returns a list of stringified facts from the Store's
@@ -153,7 +189,13 @@ func (s *Store) GetFacts() []fact.Fact {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 
-	return s.registeredFacts[:]
+	// Flatten the facts into a slice
+	facts := make([]fact.Fact, 0, len(s.registeredFacts))
+	for f := range s.registeredFacts {
+		facts = append(facts, f)
+	}
+
+	return facts
 }
 
 // save serializes the state within Store into byte data and stores
@@ -197,7 +239,7 @@ func (s *Store) unmarshal(data []byte) error {
 // a fact.Fact that has been Stringified.
 func (s *Store) serializeFacts() []string {
 	fStrings := make([]string, 0, len(s.registeredFacts))
-	for _, f := range s.registeredFacts {
+	for f := range s.registeredFacts {
 		fStrings = append(fStrings, f.Stringify())
 	}
 
@@ -208,31 +250,19 @@ func (s *Store) serializeFacts() []string {
 // them into fact.Fact objects. These objects are them placed into Store's
 // registeredFacts map.
 func (s *Store) deserializeFacts(fStrings []string) error {
+	facts := make(map[fact.Fact]struct{}, 0)
 	for _, fStr := range fStrings {
-		// Since the length of s.registeredFacts is predefined,
-		// indices wil be initialized with zero values, which
-		// are not valid facts.
-		//Skip by this initial value if this is the case
-		if len(fStr) < 2 {
-			continue
-		}
-
 		f, err := fact.UnstringifyFact(fStr)
 		if err != nil {
 			return errors.WithMessage(err, "Failed to load due to "+
 				"malformed fact")
 		}
 
-		switch f.T {
-		case fact.Email:
-			s.registeredFacts[emailIndex] = f
-		case fact.Phone:
-			s.registeredFacts[phoneIndex] = f
-		default:
-			return errors.New(fmt.Sprintf(unrecognizedFactInStoreErr, f.Fact, f.T))
-		}
-
+		facts[f] = struct{}{}
 	}
+
+	s.registeredFacts = facts
+
 	return nil
 }
 
@@ -240,4 +270,16 @@ func (s *Store) deserializeFacts(fStrings []string) error {
 // isFactZero tests whether a fact has been uninitialized.
 func isFactZero(f fact.Fact) bool {
 	return f.T == fact.Username && f.Fact == ""
+}
+
+// isFactTypeInMap is a helper function which determines whether a fact type exists within
+// the data structure.
+func isFactTypeInMap(factType fact.FactType, facts map[fact.Fact]struct{}) bool {
+	for f := range facts {
+		if f.T == factType {
+			return true
+		}
+	}
+
+	return false
 }

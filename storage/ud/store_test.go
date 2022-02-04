@@ -67,6 +67,66 @@ func TestLoadStore(t *testing.T) {
 
 }
 
+func TestStore_StoreFact(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+
+	expectedStore, err := NewStore(kv)
+	if err != nil {
+		t.Errorf("NewStore() produced an error: %v", err)
+	}
+
+	expected := fact.Fact{
+		Fact: "josh",
+		T:    fact.Username,
+	}
+
+	err = expectedStore.StoreFact(expected)
+	if err != nil {
+		t.Fatalf("StoreFact() produced an error: %v", err)
+	}
+
+	_, exists := expectedStore.registeredFacts[expected]
+	if !exists {
+		t.Fatalf("Fact %s does not exist in map", expected)
+	}
+
+}
+
+func TestStore_DeleteFact(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+
+	expectedStore, err := NewStore(kv)
+	if err != nil {
+		t.Errorf("NewStore() produced an error: %v", err)
+	}
+
+	expected := fact.Fact{
+		Fact: "josh",
+		T:    fact.Username,
+	}
+
+	err = expectedStore.StoreFact(expected)
+	if err != nil {
+		t.Fatalf("StoreFact() produced an error: %v", err)
+	}
+
+	_, exists := expectedStore.registeredFacts[expected]
+	if !exists {
+		t.Fatalf("Fact %s does not exist in map", expected)
+	}
+
+	err = expectedStore.DeleteFact(expected)
+	if err != nil {
+		t.Fatalf("DeleteFact() produced an error: %v", err)
+	}
+
+	err = expectedStore.DeleteFact(expected)
+	if err == nil {
+		t.Fatalf("DeleteFact should produce an error when deleting a fact not in store")
+	}
+
+}
+
 func TestStore_BackUpMissingFacts(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
@@ -90,18 +150,14 @@ func TestStore_BackUpMissingFacts(t *testing.T) {
 		t.Fatalf("BackUpMissingFacts() produced an error: %v", err)
 	}
 
-	f := expectedStore.registeredFacts[emailIndex]
-	if !reflect.DeepEqual(f, email) {
-		t.Fatalf("Fact in store does not match expected value."+
-			"\nExpected: %v"+
-			"\nReceived: %v", email, f)
+	_, exists := expectedStore.registeredFacts[email]
+	if !exists {
+		t.Fatalf("Fact %v not found in store.", email)
 	}
 
-	f = expectedStore.registeredFacts[phoneIndex]
-	if !reflect.DeepEqual(f, phone) {
-		t.Fatalf("Fact in store does not match expected value."+
-			"\nExpected: %v"+
-			"\nReceived: %v", phone, f)
+	_, exists = expectedStore.registeredFacts[phone]
+	if !exists {
+		t.Fatalf("Fact %v not found in store.", phone)
 	}
 
 }

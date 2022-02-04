@@ -184,8 +184,37 @@ func TestBackup_TriggerBackup_NoKey(t *testing.T) {
 	}
 }
 
-// Tests Backup.StopBackup.
+// Tests that Backup.StopBackup prevents the callback from triggering and that
+// the key was deleted.
 func TestBackup_StopBackup(t *testing.T) {
+	cbChan := make(chan []byte)
+	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
+	b := newTestBackup(cb, t)
+
+	err := b.StopBackup()
+	if err != nil {
+		t.Errorf("StopBackup returned an error: %+v", err)
+	}
+
+	if b.cb != nil {
+		t.Error("Callback not cleared.")
+	}
+	if b.key != nil {
+		t.Errorf("Key not cleared: %v", b.key)
+	}
+
+	b.TriggerBackup()
+
+	select {
+	case r := <-cbChan:
+		t.Errorf("Callback received when it should not have been called: %q", r)
+	case <-time.After(10 * time.Millisecond):
+	}
+
+	key, err := loadKey(b.store.GetKV())
+	if err == nil || len(key) != 0 {
+		t.Errorf("Loaded key that should be deleted: %q", key)
+	}
 }
 
 // Tests that Backup.collateBackup returns the backup.Backup with the expected

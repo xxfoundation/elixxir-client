@@ -18,6 +18,16 @@ const (
 	confirmedFactKey   = "confirmedFactKey"
 )
 
+// Error constants
+const (
+	malformedFactErr = "Failed to load due to " +
+		"malformed fact"
+	loadConfirmedFactErr   = "Failed to load confirmed facts"
+	loadUnconfirmedFactErr = "Failed to load unconfirmed facts"
+	saveUnconfirmedFactErr = "Failed to save unconfirmed facts"
+	saveConfirmedFactErr   = "Failed to save confirmed facts"
+)
+
 // unconfirmedFactDisk is an object used to store the data of an unconfirmed fact.
 // It combines the key (confirmationId) and fact data (stringifiedFact) into a
 // single JSON-able object.
@@ -36,12 +46,12 @@ func (s *Store) save() error {
 
 	err := s.saveUnconfirmedFacts()
 	if err != nil {
-		return errors.WithMessage(err, "Failed to save unconfirmed facts")
+		return errors.WithMessage(err, saveUnconfirmedFactErr)
 	}
 
 	err = s.saveConfirmedFacts()
 	if err != nil {
-		return errors.WithMessage(err, "Failed to save confirmed facts")
+		return errors.WithMessage(err, saveConfirmedFactErr)
 	}
 
 	return nil
@@ -108,14 +118,15 @@ func LoadStore(kv *versioned.KV) (*Store, error) {
 // load is a helper function which loads all data stored in storage from
 // the save operation.
 func (s *Store) load() error {
-	err := s.loadConfirmedFacts()
+
+	err := s.loadUnconfirmedFacts()
 	if err != nil {
-		return errors.WithMessage(err, "Failed to load confirmed facts")
+		return errors.WithMessage(err, loadUnconfirmedFactErr)
 	}
 
-	err = s.loadUnconfirmedFacts()
+	err = s.loadConfirmedFacts()
 	if err != nil {
-		return errors.WithMessage(err, "Failed to load unconfirmed facts")
+		return errors.WithMessage(err, loadConfirmedFactErr)
 	}
 
 	return nil
@@ -196,8 +207,7 @@ func (s *Store) unmarshalConfirmedFacts(data []byte) (map[fact.Fact]struct{}, er
 	for _, fStr := range fStrings {
 		f, err := fact.UnstringifyFact(fStr)
 		if err != nil {
-			return nil, errors.WithMessage(err, "Failed to load due to "+
-				"malformed fact")
+			return nil, errors.WithMessage(err, malformedFactErr)
 		}
 
 		confirmedFacts[f] = struct{}{}
@@ -221,8 +231,7 @@ func (s *Store) unmarshalUnconfirmedFacts(data []byte) (map[string]fact.Fact, er
 	for _, ufd := range ufdList {
 		f, err := fact.UnstringifyFact(ufd.stringifiedFact)
 		if err != nil {
-			return nil, errors.WithMessage(err, "Failed to load due to "+
-				"malformed fact")
+			return nil, errors.WithMessage(err, malformedFactErr)
 		}
 
 		unconfirmedFacts[ufd.confirmationId] = f

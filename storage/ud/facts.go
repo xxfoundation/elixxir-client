@@ -15,11 +15,10 @@ import (
 	"sync"
 )
 
-// Error constants
 const (
-	factTypeExistsErr          = "Fact %v cannot be added as fact type %s has already been stored. Cancelling backup operation!"
-	unrecognizedFactErr        = "Fact %v is not of expected type (%s). Cancelling backup operation!"
-	unrecognizedFactInStoreErr = "Fact %s with type %s loaded from memory is invalid"
+	factTypeExistsErr    = "Fact %v cannot be added as fact type %s has already been stored. Cancelling backup operation!"
+	backupMissingFactErr = "BackUpMissingFacts expects input in the order (email, phone). " +
+		"%s (%s) is non-empty but not an email. Cancelling backup operation"
 )
 
 // Store is the storage object for the higher level ud.Manager object.
@@ -45,6 +44,33 @@ func NewStore(kv *versioned.KV) (*Store, error) {
 	}
 
 	return s, s.save()
+}
+
+// StoreUnconfirmedFact stores a fact that has been added to UD but has not been
+// confirmed by the user. It is keyed on the confirmation ID given by UD.
+func (s *Store) StoreUnconfirmedFact(confirmationId string, f fact.Fact) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	s.unconfirmedFacts[confirmationId] = f
+	return s.saveUnconfirmedFacts()
+}
+
+// ConfirmFact will delete the fact from the unconfirmed store and
+// add it to the confirmed fact store. The Store will then be saved
+func (s *Store) ConfirmFact(confirmationId string) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	f, exists := s.unconfirmedFacts[confirmationId]
+	if !exists {
+		return errors.New(fmt.Sprintf("No fact exists in store "+
+			"with confirmation ID %q", confirmationId))
+	}
+
+	delete(s.unconfirmedFacts, confirmationId)
+	s.confirmedFacts[f] = struct{}{}
+	return s.save()
 }
 
 // BackUpMissingFacts adds a registered fact to the Store object. It can take in both an
@@ -76,8 +102,7 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 	if !isFactZero(email) {
 		// check if fact is expected type
 		if email.T != fact.Email {
-			return errors.New(fmt.Sprintf("BackUpMissingFacts expects input in the order (email, phone). "+
-				"Email (%s) is non-empty but not an email. Cancelling backup operation", email.Fact))
+			return errors.New(fmt.Sprintf(backupMissingFactErr, fact.Email, email.Fact))
 		}
 
 		// Check if fact type is already in map. See docstring NOTE for explanation
@@ -92,8 +117,7 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 	if !isFactZero(phone) {
 		// check if fact is expected type
 		if phone.T != fact.Phone {
-			return errors.New(fmt.Sprintf("BackUpMissingFacts expects input in the order (email, phone). "+
-				"Phone (%s) is non-empty but not an phone. Cancelling backup operation", phone.Fact))
+			return errors.New(fmt.Sprintf(backupMissingFactErr, fact.Phone, phone.Fact))
 		}
 
 		// Check if fact type is already in map. See docstring NOTE for explanation
@@ -114,38 +138,11 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 			s.confirmedFacts[phone] = struct{}{}
 		}
 
-		return s.save()
+		return s.saveConfirmedFacts()
 	}
 
 	return nil
 
-}
-
-// ConfirmFact will delete the fact from the unconfirmed store and
-// add it to the confirmed fact store.
-func (s *Store) ConfirmFact(confirmationId string) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	f, exists := s.unconfirmedFacts[confirmationId]
-	if !exists {
-		return errors.New(fmt.Sprintf("No fact exists in store "+
-			"with confirmation ID %q", confirmationId))
-	}
-
-	delete(s.unconfirmedFacts, confirmationId)
-	s.confirmedFacts[f] = struct{}{}
-	return s.save()
-}
-
-// StoreUnconfirmedFact stores a fact that has been added to UD but has not been
-// confirmed by the user. It is keyed on the confirmation ID given by UD.
-func (s *Store) StoreUnconfirmedFact(confirmationId string, f fact.Fact) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	s.unconfirmedFacts[confirmationId] = f
-	return s.save()
 }
 
 // DeleteFact is our internal use function which will delete the registered fact
@@ -160,7 +157,7 @@ func (s *Store) DeleteFact(f fact.Fact) error {
 	}
 
 	delete(s.confirmedFacts, f)
-	return s.save()
+	return s.saveConfirmedFacts()
 }
 
 // GetStringifiedFacts returns a list of stringified facts from the Store's

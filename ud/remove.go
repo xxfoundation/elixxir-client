@@ -66,7 +66,7 @@ func (m *Manager) removeFact(fact fact.Fact, rFC removeFactComms) error {
 	}
 
 	// Remove from storage
-	return m.storage.GetUd().StoreFact(fact)
+	return m.storage.GetUd().DeleteFact(fact)
 }
 
 type removeUserComms interface {

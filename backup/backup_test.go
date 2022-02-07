@@ -190,19 +190,6 @@ func TestBackup_TriggerBackup(t *testing.T) {
 	}
 }
 
-// Tests that Backup.TriggerBackup does not panic if there is no callback.
-func TestBackup_TriggerBackup_NoCallback(t *testing.T) {
-	b := newTestBackup("MySuperSecurePassword", nil, t)
-
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("TriggerBackup panicked when no callback is present: %+v", r)
-		}
-	}()
-
-	b.TriggerBackup("")
-}
-
 // Tests that Backup.TriggerBackup does not call the callback if there is no
 // key, salt, and params in storage.
 func TestBackup_TriggerBackup_NoKey(t *testing.T) {

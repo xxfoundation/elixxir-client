@@ -160,6 +160,9 @@ Available Commands:
 Flags:
       --accept-channel            Accept the channel request for the corresponding recipient ID
       --auth-timeout uint         The number of seconds to wait for an authentication channelto confirm (default 120)
+      --backupIn string           Path to load backup client from
+      --backupOut string          Path to output backup client.
+      --backupPass string         Passphrase to encrypt/decrypt backup
       --delete-channel            Delete the channel information for the corresponding recipient ID
       --destfile string           Read this contact file for the destination id
   -d, --destid string             ID to send message to (if below 40, will be precanned. Use '0x' or 'b64:' for hex and base64 representations) (default "0")

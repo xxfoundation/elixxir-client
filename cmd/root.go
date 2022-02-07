@@ -538,7 +538,7 @@ func createClient() *api.Client {
 	precannedID := viper.GetUint("sendid")
 	userIDprefix := viper.GetString("userid-prefix")
 	protoUserPath := viper.GetString("protoUserPath")
-
+	backupPath := viper.GetString("backupIn")
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
 		// Load NDF
@@ -560,6 +560,13 @@ func createClient() *api.Client {
 		} else if userIDprefix != "" {
 			err = api.NewVanityClient(string(ndfJSON), storeDir,
 				[]byte(pass), regCode, userIDprefix)
+		} else if backupPath != "" {
+			backupFile, err := utils.ReadFile(backupPath)
+			if err != nil {
+				jww.FATAL.Panicf("%v", err)
+			}
+			err = api.NewClientFromBackup(string(ndfJSON), storeDir,
+				pass, viper.GetString("backUpPass"), backupFile)
 		} else {
 			err = api.NewClient(string(ndfJSON), storeDir,
 				[]byte(pass), regCode)
@@ -628,6 +635,10 @@ func initClient() *api.Client {
 			jww.FATAL.Panicf("Failed to write proto user to file: %v", err)
 		}
 
+	}
+
+	if backupOut := viper.GetString("backupOut"); backupOut != "" {
+		// todo; construct back up
 	}
 
 	return client
@@ -1089,6 +1100,17 @@ func init() {
 		"Path to which a normally constructed client "+
 			"will write proto user JSON file")
 	viper.BindPFlag("protoUserOut", rootCmd.Flags().Lookup("protoUserOut"))
+
+	// backup flags
+	rootCmd.Flags().String("backupOut", "",
+		"Path to output backup client.")
+	viper.BindPFlag("backupOut", rootCmd.Flags().Lookup("backupOut"))
+	rootCmd.Flags().String("backupIn", "",
+		"Path to load backup client from")
+	viper.BindPFlag("backupIn", rootCmd.Flags().Lookup("backupIn"))
+	rootCmd.Flags().String("backupPass", "",
+		"Passphrase to encrypt/decrypt backup")
+	viper.BindPFlag("backupPass", rootCmd.Flags().Lookup("backupPass"))
 
 }
 

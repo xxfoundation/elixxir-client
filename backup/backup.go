@@ -120,7 +120,7 @@ func ResumeBackup(cb UpdateBackup, c *api.Client) (*Backup, error) {
 func resumeBackup(cb UpdateBackup, c *api.Client, store *storage.Session,
 	backupContainer *interfaces.BackupContainer, rng *fastRNG.StreamGenerator) (
 	*Backup, error) {
-	password, err := loadPassword(store.GetKV())
+	_, err := loadPassword(store.GetKV())
 	if err != nil {
 		return nil, errors.Errorf(errLoadPassword, err)
 	}
@@ -131,18 +131,6 @@ func resumeBackup(cb UpdateBackup, c *api.Client, store *storage.Session,
 		store:           store,
 		backupContainer: backupContainer,
 		rng:             rng,
-	}
-
-	// Derive key and get generated salt and parameters
-	key, salt, p, err := b.getKeySaltParams(password)
-	if err != nil {
-		return nil, err
-	}
-
-	// Save key, salt, and parameters to storage
-	err = saveBackup(key, salt, p, b.store.GetKV())
-	if err != nil {
-		return nil, errors.Errorf(errSaveKeySaltParams, err)
 	}
 
 	// Setting backup trigger in client

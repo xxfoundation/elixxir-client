@@ -742,8 +742,8 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 	//delete conversations
 	c.storage.Conversations().Delete(partnerId)
 
-	// call delete requests to make sure nothing is lingering. 
-	// this is for saftey to ensure the contact can be readded 
+	// call delete requests to make sure nothing is lingering.
+	// this is for saftey to ensure the contact can be readded
 	// in the future
 	_ = c.storage.Auth().Delete(partnerId)
 

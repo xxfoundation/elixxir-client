@@ -2,6 +2,7 @@ package ud
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/fact"
@@ -50,6 +51,7 @@ func TestAddFact(t *testing.T) {
 		net:        newTestNetworkManager(t),
 		privKey:    cpk,
 		registered: &isReg,
+		storage:    storage.InitTestingSession(t),
 	}
 
 	// Create our test fact

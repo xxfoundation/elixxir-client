@@ -222,6 +222,14 @@ func (b *Backup) StopBackup() error {
 	return nil
 }
 
+// IsBackupRunning returns true if the backup has been initialized and is
+// running. Returns false if it has been stopped.
+func (b *Backup) IsBackupRunning() bool {
+	b.mux.RLock()
+	defer b.mux.RUnlock()
+	return b.updateBackupCb != nil
+}
+
 // assembleBackup gathers all the contents of the backup and stores them in a
 // backup.Backup. This backup contains:
 //  1. Cryptographic information for the transmission identity

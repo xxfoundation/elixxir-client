@@ -248,6 +248,28 @@ func TestBackup_StopBackup(t *testing.T) {
 	}
 }
 
+func TestBackup_IsBackupRunning(t *testing.T) {
+	cbChan := make(chan []byte)
+	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
+	b := newTestBackup("MySuperSecurePassword", cb, t)
+
+	// Check that the backup is running after being initialized
+	if !b.IsBackupRunning() {
+		t.Error("Backup is not running after initialization.")
+	}
+
+	// Stop the backup
+	err := b.StopBackup()
+	if err != nil {
+		t.Errorf("Failed to stop backup: %+v", err)
+	}
+
+	// Check that the backup is stopped
+	if b.IsBackupRunning() {
+		t.Error("Backup is running after being stopped.")
+	}
+}
+
 // Tests that Backup.assembleBackup returns the backup.Backup with the expected
 // results.
 func TestBackup_assembleBackup(t *testing.T) {

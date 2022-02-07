@@ -173,7 +173,7 @@ func NewClientFromBackup(ndfJSON, storageDir, sessionPassword,
 	backupPassphrase string, backupFileContents []byte) error {
 
 	backUp := &backup.Backup{}
-	err := backUp.Decrypt([]byte(backupPassphrase), backupFileContents)
+	err := backUp.Decrypt(backupPassphrase, backupFileContents)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to unmarshal decrypted client contents.")
 	}

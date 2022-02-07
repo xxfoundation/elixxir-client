@@ -17,6 +17,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/backup"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/switchboard"
@@ -566,7 +567,7 @@ func createClient() *api.Client {
 				jww.FATAL.Panicf("%v", err)
 			}
 			err = api.NewClientFromBackup(string(ndfJSON), storeDir,
-				pass, viper.GetString("backUpPass"), backupFile)
+				pass, viper.GetString("backupPass"), backupFile)
 		} else {
 			err = api.NewClient(string(ndfJSON), storeDir,
 				[]byte(pass), regCode)
@@ -638,7 +639,20 @@ func initClient() *api.Client {
 	}
 
 	if backupOut := viper.GetString("backupOut"); backupOut != "" {
-		// todo; construct back up
+		cb := func(encryptedBackup []byte) {
+			jww.INFO.Printf("Backup update received, size %d", len(encryptedBackup))
+			fmt.Println("Backup update received.")
+			err = utils.WriteFileDef(backupOut, encryptedBackup)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
+			}
+		}
+		backupPass := viper.GetString("backupPass")
+		_, err = backup.InitializeBackup(backupPass, cb, client)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to initialize backup with key %q: %+v",
+				backupPass, err)
+		}
 	}
 
 	return client

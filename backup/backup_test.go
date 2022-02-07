@@ -271,7 +271,7 @@ func TestBackup_assembleBackup(t *testing.T) {
 			DHPublicKey:          s.GetUser().E2eDhPublicKey,
 		},
 		UserDiscoveryRegistration: backup.UserDiscoveryRegistration{
-			Username: &s.GetUd().GetFacts()[0],
+			FactList: s.GetUd().GetFacts(),
 		},
 		Contacts: backup.Contacts{Identities: s.E2e().GetPartners()},
 	}

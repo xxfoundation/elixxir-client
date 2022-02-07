@@ -22,7 +22,6 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/primitives/fact"
 	"sync"
 )
 
@@ -271,17 +270,7 @@ func (b *Backup) assembleBackup() backup.Backup {
 	}
 
 	// Get facts
-	facts := b.store.GetUd().GetFacts()
-	for _, userFact := range facts {
-		switch userFact.T {
-		case fact.Username:
-			bu.UserDiscoveryRegistration.Username = &userFact
-		case fact.Email:
-			bu.UserDiscoveryRegistration.Email = &userFact
-		case fact.Phone:
-			bu.UserDiscoveryRegistration.Phone = &userFact
-		}
-	}
+	bu.UserDiscoveryRegistration.FactList = b.store.GetUd().GetFacts()
 
 	// Get contacts
 	bu.Contacts.Identities = b.store.E2e().GetPartners()

@@ -170,7 +170,7 @@ func TestBackup_TriggerBackup(t *testing.T) {
 		t.Errorf("Failed to load password from storage: %+v", err)
 	}
 
-	collatedBackup := b.collateBackup()
+	collatedBackup := b.assembleBackup()
 
 	b.TriggerBackup("")
 
@@ -248,9 +248,9 @@ func TestBackup_StopBackup(t *testing.T) {
 	}
 }
 
-// Tests that Backup.collateBackup returns the backup.Backup with the expected
+// Tests that Backup.assembleBackup returns the backup.Backup with the expected
 // results.
-func TestBackup_collateBackup(t *testing.T) {
+func TestBackup_assembleBackup(t *testing.T) {
 	b := newTestBackup("MySuperSecurePassword", nil, t)
 	s := b.store
 
@@ -276,7 +276,7 @@ func TestBackup_collateBackup(t *testing.T) {
 		Contacts: backup.Contacts{Identities: s.E2e().GetPartners()},
 	}
 
-	collatedBackup := b.collateBackup()
+	collatedBackup := b.assembleBackup()
 
 	if !reflect.DeepEqual(expectedCollatedBackup, collatedBackup) {
 		t.Errorf("Collated backup does not match expected."+

@@ -43,7 +43,7 @@ const (
 // Backup stores the user's key and backup callback used to encrypt and transmit
 // the backup data.
 type Backup struct {
-	// Callback that is called with the encrypted backup
+	// Callback that is called with the encrypted backup when triggered
 	cb UpdateBackup
 
 	mux sync.RWMutex
@@ -189,7 +189,7 @@ func (b *Backup) TriggerBackup(reason string) {
 	}
 
 	// Grab backup data
-	collatedBackup := b.collateBackup()
+	collatedBackup := b.assembleBackup()
 
 	// Encrypt backup data with user key
 	rand := b.rng.GetStream()
@@ -227,13 +227,13 @@ func (b *Backup) StopBackup() error {
 	return nil
 }
 
-// collateBackup gathers all the contents of the backup and stores them in a
+// assembleBackup gathers all the contents of the backup and stores them in a
 // backup.Backup. This backup contains:
 //  1. Cryptographic information for the transmission identity
 //  2. Cryptographic information for the reception identity
 //  3. User's UD facts (username, email, phone number)
 //  4. Contact list
-func (b *Backup) collateBackup() backup.Backup {
+func (b *Backup) assembleBackup() backup.Backup {
 	bu := backup.Backup{
 		TransmissionIdentity:      backup.TransmissionIdentity{},
 		ReceptionIdentity:         backup.ReceptionIdentity{},

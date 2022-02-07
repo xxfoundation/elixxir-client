@@ -60,7 +60,7 @@ func Test_initializeBackup(t *testing.T) {
 	}
 
 	encryptedBackup := []byte("encryptedBackup")
-	go b.cb(encryptedBackup)
+	go b.updateBackupCb(encryptedBackup)
 
 	select {
 	case r := <-cbChan:
@@ -130,7 +130,7 @@ func Test_resumeBackup(t *testing.T) {
 	}
 
 	encryptedBackup := []byte("encryptedBackup")
-	go b2.cb(encryptedBackup)
+	go b2.updateBackupCb(encryptedBackup)
 
 	select {
 	case r := <-cbChan1:
@@ -223,7 +223,7 @@ func TestBackup_StopBackup(t *testing.T) {
 		t.Errorf("StopBackup returned an error: %+v", err)
 	}
 
-	if b.cb != nil {
+	if b.updateBackupCb != nil {
 		t.Error("Callback not cleared.")
 	}
 
@@ -286,7 +286,7 @@ func TestBackup_assembleBackup(t *testing.T) {
 }
 
 // newTestBackup creates a new Backup for testing.
-func newTestBackup(password string, cb UpdateBackup, t *testing.T) *Backup {
+func newTestBackup(password string, cb UpdateBackupFn, t *testing.T) *Backup {
 	b, err := initializeBackup(
 		password,
 		cb,

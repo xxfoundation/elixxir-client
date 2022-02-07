@@ -121,12 +121,12 @@ func Test_resumeBackup(t *testing.T) {
 			"backup: %+v", err)
 	}
 
-	// Check that a new key and salt were generated
-	if bytes.Equal(key1, key2) {
-		t.Errorf("New key matches old key.\nold: %v\nnew: %v", key1, key2)
+	// Check that the loaded key and salt are the same
+	if !bytes.Equal(key1, key2) {
+		t.Errorf("New key does not match old key.\nold: %v\nnew: %v", key1, key2)
 	}
-	if bytes.Equal(salt1, salt2) {
-		t.Errorf("New salt matches old salt.\nold: %v\nnew: %v", salt1, salt2)
+	if !bytes.Equal(salt1, salt2) {
+		t.Errorf("New salt does not match old salt.\nold: %v\nnew: %v", salt1, salt2)
 	}
 
 	encryptedBackup := []byte("encryptedBackup")

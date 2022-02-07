@@ -69,6 +69,9 @@ type Client struct {
 
 	// Event reporting in event.go
 	events *eventManager
+
+	// Handles the triggering and delivery of backups
+	backup *interfaces.BackupContainer
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -304,7 +307,8 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	// initialize the auth tracker
-	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, parameters.ReplayRequests)
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, c.rng,
+		c.backup.TriggerBackup, parameters.ReplayRequests)
 
 	// Add all processes to the followerServices
 	err = c.registerFollower()
@@ -363,7 +367,8 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	}
 
 	// initialize the auth tracker
-	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, parameters.ReplayRequests)
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, c.rng,
+		c.backup.TriggerBackup, parameters.ReplayRequests)
 
 	err = c.registerFollower()
 	if err != nil {
@@ -420,7 +425,8 @@ func LoginWithProtoClient(storageDir string, password []byte, protoClientJSON []
 	}
 
 	// initialize the auth tracker
-	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, parameters.ReplayRequests)
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, c.rng,
+		c.backup.TriggerBackup, parameters.ReplayRequests)
 
 	err = c.registerFollower()
 	if err != nil {
@@ -641,6 +647,12 @@ func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
 	return c.network
 }
 
+// GetBackup returns a pointer to the backup container so that the backup can be
+// set and triggered.
+func (c *Client) GetBackup() *interfaces.BackupContainer {
+	return c.backup
+}
+
 // GetRateLimitParams retrieves the rate limiting parameters.
 func (c *Client) GetRateLimitParams() (uint32, uint32, int64) {
 	rateLimitParams := c.storage.GetBucketParams().Get()
@@ -687,7 +699,7 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 // DeleteContact is a function which removes a partner from Client's storage
 func (c *Client) DeleteContact(partnerId *id.ID) error {
 	jww.DEBUG.Printf("Deleting contact with ID %s", partnerId)
-	//get the partner so they can be removed from preiamge store
+	// get the partner so that they can be removed from preimage store
 	partner, err := c.storage.E2e().GetPartner(partnerId)
 	if err != nil {
 		return errors.WithMessagef(err, "Could not delete %s because "+
@@ -702,6 +714,10 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 	if err = c.storage.E2e().DeletePartner(partnerId); err != nil {
 		return err
 	}
+
+	// Trigger backup
+	c.backup.TriggerBackup("contact deleted")
+
 	//delete the preimages
 	if err = c.storage.GetEdge().Remove(edge.Preimage{
 		Data:   e2ePreimage,

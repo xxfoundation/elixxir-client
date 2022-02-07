@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -21,20 +22,25 @@ type Manager struct {
 
 	rawMessages chan message.Receive
 
-	storage *storage.Session
-	net     interfaces.NetworkManager
+	storage       *storage.Session
+	net           interfaces.NetworkManager
+	rng           *fastRNG.StreamGenerator
+	backupTrigger interfaces.TriggerBackup
 
 	replayRequests bool
 }
 
 func NewManager(sw interfaces.Switchboard, storage *storage.Session,
-	net interfaces.NetworkManager, replayRequests bool) *Manager {
+	net interfaces.NetworkManager, rng *fastRNG.StreamGenerator,
+	backupTrigger interfaces.TriggerBackup, replayRequests bool) *Manager {
 	m := &Manager{
 		requestCallbacks: newCallbackMap(),
 		confirmCallbacks: newCallbackMap(),
 		rawMessages:      make(chan message.Receive, 1000),
 		storage:          storage,
 		net:              net,
+		rng:              rng,
+		backupTrigger:    backupTrigger,
 		replayRequests:   replayRequests,
 	}
 

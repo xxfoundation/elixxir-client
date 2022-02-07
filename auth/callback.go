@@ -22,10 +22,8 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
 	"strings"
 )
 
@@ -185,7 +183,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				events.Report(5, "Auth", "DuplicateRequest", em)
 				// if the caller of the API wants requests replayed,
 				// replay the duplicate request
-				if m.replayRequests{
+				if m.replayRequests {
 					cbList := m.requestCallbacks.Get(c.ID)
 					for _, cb := range cbList {
 						rcb := cb.(interfaces.RequestCallback)
@@ -246,14 +244,9 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				}
 
 				// Call ConfirmRequestAuth to send confirmation
-				rngGen := fastRNG.NewStreamGenerator(1, 1,
-					csprng.NewSystemRNG)
-				rng := rngGen.GetStream()
-				rndNum, err := ConfirmRequestAuth(partnerContact,
-					rng, m.storage, m.net)
+				rndNum, err := m.ConfirmRequestAuth(partnerContact)
 				if err != nil {
-					jww.ERROR.Printf("Could not ConfirmRequestAuth: %+v",
-						err)
+					jww.ERROR.Printf("Could not ConfirmRequestAuth: %+v", err)
 					return
 				}
 
@@ -409,6 +402,8 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 			"after confirmation: %+v",
 			sr.GetPartner(), err)
 	}
+
+	m.backupTrigger("received confirmation from request")
 
 	//remove the confirm fingerprint
 	fp := sr.GetFingerprint()

@@ -43,7 +43,7 @@ const (
 // the backup data.
 type Backup struct {
 	// Callback that is called with the encrypted backup when triggered
-	cb UpdateBackup
+	updateBackupCb UpdateBackupFn
 
 	mux sync.RWMutex
 
@@ -54,8 +54,8 @@ type Backup struct {
 	rng             *fastRNG.StreamGenerator
 }
 
-// UpdateBackup is the callback that encrypted backup data is returned on
-type UpdateBackup func(encryptedBackup []byte)
+// UpdateBackupFn is the callback that encrypted backup data is returned on
+type UpdateBackupFn func(encryptedBackup []byte)
 
 // InitializeBackup creates a new Backup object with the callback to return
 // backups when triggered. On initialization, 32-bit key is derived from the
@@ -64,18 +64,20 @@ type UpdateBackup func(encryptedBackup []byte)
 // new backups.
 // Call this to turn on backups for the first time or to replace the user's
 // password.
-func InitializeBackup(password string, cb UpdateBackup, c *api.Client) (*Backup, error) {
+func InitializeBackup(password string, updateBackupCb UpdateBackupFn,
+	c *api.Client) (*Backup, error) {
 	return initializeBackup(
-		password, cb, c, c.GetStorage(), c.GetBackup(), c.GetRng())
+		password, updateBackupCb, c, c.GetStorage(), c.GetBackup(), c.GetRng())
 }
 
 // initializeBackup is a helper function that takes in all the fields for Backup
 // as parameters for easier testing.
-func initializeBackup(password string, cb UpdateBackup, c *api.Client,
-	store *storage.Session, backupContainer *interfaces.BackupContainer,
-	rng *fastRNG.StreamGenerator) (*Backup, error) {
+func initializeBackup(password string, updateBackupCb UpdateBackupFn,
+	c *api.Client, store *storage.Session,
+	backupContainer *interfaces.BackupContainer, rng *fastRNG.StreamGenerator) (
+	*Backup, error) {
 	b := &Backup{
-		cb:              cb,
+		updateBackupCb:  updateBackupCb,
 		client:          c,
 		store:           store,
 		backupContainer: backupContainer,
@@ -89,13 +91,18 @@ func initializeBackup(password string, cb UpdateBackup, c *api.Client,
 	}
 
 	// Derive key and get generated salt and parameters
-	key, salt, p, err := b.getKeySaltParams(password)
+	rand := b.rng.GetStream()
+	salt, err := backup.MakeSalt(rand)
 	if err != nil {
 		return nil, err
 	}
+	rand.Close()
+
+	params := backup.DefaultParams()
+	key := backup.DeriveKey(password, salt, params)
 
 	// Save key, salt, and parameters to storage
-	err = saveBackup(key, salt, p, b.store.GetKV())
+	err = saveBackup(key, salt, params, b.store.GetKV())
 	if err != nil {
 		return nil, errors.Errorf(errSaveKeySaltParams, err)
 	}
@@ -111,22 +118,23 @@ func initializeBackup(password string, cb UpdateBackup, c *api.Client,
 // ResumeBackup resumes a backup by restoring the Backup object and registering
 // a new callback. Call this to resume backups that have already been
 // initialized. Returns an error if backups have not already been initialized.
-func ResumeBackup(cb UpdateBackup, c *api.Client) (*Backup, error) {
-	return resumeBackup(cb, c, c.GetStorage(), c.GetBackup(), c.GetRng())
+func ResumeBackup(updateBackupCb UpdateBackupFn, c *api.Client) (*Backup, error) {
+	return resumeBackup(
+		updateBackupCb, c, c.GetStorage(), c.GetBackup(), c.GetRng())
 }
 
 // resumeBackup is a helper function that takes in all the fields for Backup as
 // parameters for easier testing.
-func resumeBackup(cb UpdateBackup, c *api.Client, store *storage.Session,
-	backupContainer *interfaces.BackupContainer, rng *fastRNG.StreamGenerator) (
-	*Backup, error) {
+func resumeBackup(updateBackupCb UpdateBackupFn, c *api.Client,
+	store *storage.Session, backupContainer *interfaces.BackupContainer,
+	rng *fastRNG.StreamGenerator) (*Backup, error) {
 	_, err := loadPassword(store.GetKV())
 	if err != nil {
 		return nil, errors.Errorf(errLoadPassword, err)
 	}
 
 	b := &Backup{
-		cb:              cb,
+		updateBackupCb:  updateBackupCb,
 		client:          c,
 		store:           store,
 		backupContainer: backupContainer,
@@ -144,7 +152,7 @@ func resumeBackup(cb UpdateBackup, c *api.Client, store *storage.Session,
 // getKeySaltParams derives a key from the user's password, a generated salt,
 // and the default parameters and return all three.
 func (b *Backup) getKeySaltParams(password string) (
-	key, salt []byte, p backup.Params, err error) {
+	key, salt []byte, params backup.Params, err error) {
 	rand := b.rng.GetStream()
 	salt, err = backup.MakeSalt(rand)
 	if err != nil {
@@ -152,23 +160,23 @@ func (b *Backup) getKeySaltParams(password string) (
 	}
 	rand.Close()
 
-	p = backup.DefaultParams()
-	key = backup.DeriveKey(password, salt, p)
+	params = backup.DefaultParams()
+	key = backup.DeriveKey(password, salt, params)
 
 	return
 }
 
-// TriggerBackup collates the backup and calls it on the registered backup
+// TriggerBackup assembles the backup and calls it on the registered backup
 // callback. Does nothing if no encryption key or backup callback is registered.
 // The passed in reason will be printed to the log when the backup is sent. It
-// should be in the paste tense. For example, if a contact is deleted, the
+// should be in the past tense. For example, if a contact is deleted, the
 // reason can be "contact deleted" and the log will show:
 //	Triggering backup: contact deleted
 func (b *Backup) TriggerBackup(reason string) {
 	b.mux.RLock()
 	defer b.mux.RUnlock()
 
-	key, salt, p, err := loadBackup(b.store.GetKV())
+	key, salt, params, err := loadBackup(b.store.GetKV())
 	if err != nil {
 		jww.ERROR.Printf("Backup Failed: could not load key, salt, and "+
 			"parameters for encrypting backup from storage: %+v", err)
@@ -180,7 +188,7 @@ func (b *Backup) TriggerBackup(reason string) {
 
 	// Encrypt backup data with user key
 	rand := b.rng.GetStream()
-	encryptedBackup, err := collatedBackup.Encrypt(rand, key, salt, p)
+	encryptedBackup, err := collatedBackup.Encrypt(rand, key, salt, params)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to encrypt backup: %+v", err)
 	}
@@ -189,7 +197,7 @@ func (b *Backup) TriggerBackup(reason string) {
 	jww.INFO.Printf("Backup triggered: %s", reason)
 
 	// Send backup on callback
-	go b.cb(encryptedBackup)
+	go b.updateBackupCb(encryptedBackup)
 }
 
 // StopBackup stops the backup processes and deletes the user's password, key,
@@ -197,7 +205,7 @@ func (b *Backup) TriggerBackup(reason string) {
 func (b *Backup) StopBackup() error {
 	b.mux.Lock()
 	defer b.mux.Unlock()
-	b.cb = nil
+	b.updateBackupCb = nil
 
 	err := deletePassword(b.store.GetKV())
 	if err != nil {
@@ -212,6 +220,14 @@ func (b *Backup) StopBackup() error {
 	jww.INFO.Print("Stopped backups.")
 
 	return nil
+}
+
+// IsBackupRunning returns true if the backup has been initialized and is
+// running. Returns false if it has been stopped.
+func (b *Backup) IsBackupRunning() bool {
+	b.mux.RLock()
+	defer b.mux.RUnlock()
+	return b.updateBackupCb != nil
 }
 
 // assembleBackup gathers all the contents of the backup and stores them in a

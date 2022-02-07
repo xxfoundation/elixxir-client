@@ -60,7 +60,7 @@ func Test_initializeBackup(t *testing.T) {
 	}
 
 	encryptedBackup := []byte("encryptedBackup")
-	go b.cb(encryptedBackup)
+	go b.updateBackupCb(encryptedBackup)
 
 	select {
 	case r := <-cbChan:
@@ -130,7 +130,7 @@ func Test_resumeBackup(t *testing.T) {
 	}
 
 	encryptedBackup := []byte("encryptedBackup")
-	go b2.cb(encryptedBackup)
+	go b2.updateBackupCb(encryptedBackup)
 
 	select {
 	case r := <-cbChan1:
@@ -223,7 +223,7 @@ func TestBackup_StopBackup(t *testing.T) {
 		t.Errorf("StopBackup returned an error: %+v", err)
 	}
 
-	if b.cb != nil {
+	if b.updateBackupCb != nil {
 		t.Error("Callback not cleared.")
 	}
 
@@ -245,6 +245,28 @@ func TestBackup_StopBackup(t *testing.T) {
 	key, salt, p, err := loadBackup(b.store.GetKV())
 	if err == nil || len(key) != 0 || len(salt) != 0 || p != (backup.Params{}) {
 		t.Errorf("Loaded key, salt, and params that should be deleted.")
+	}
+}
+
+func TestBackup_IsBackupRunning(t *testing.T) {
+	cbChan := make(chan []byte)
+	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
+	b := newTestBackup("MySuperSecurePassword", cb, t)
+
+	// Check that the backup is running after being initialized
+	if !b.IsBackupRunning() {
+		t.Error("Backup is not running after initialization.")
+	}
+
+	// Stop the backup
+	err := b.StopBackup()
+	if err != nil {
+		t.Errorf("Failed to stop backup: %+v", err)
+	}
+
+	// Check that the backup is stopped
+	if b.IsBackupRunning() {
+		t.Error("Backup is running after being stopped.")
 	}
 }
 
@@ -286,7 +308,7 @@ func TestBackup_assembleBackup(t *testing.T) {
 }
 
 // newTestBackup creates a new Backup for testing.
-func newTestBackup(password string, cb UpdateBackup, t *testing.T) *Backup {
+func newTestBackup(password string, cb UpdateBackupFn, t *testing.T) *Backup {
 	b, err := initializeBackup(
 		password,
 		cb,

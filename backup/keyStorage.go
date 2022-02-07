@@ -30,19 +30,19 @@ const (
 )
 
 // saveBackup saves the key, salt, and params to storage.
-func saveBackup(key, salt []byte, p backup.Params, kv *versioned.KV) error {
+func saveBackup(key, salt []byte, params backup.Params, kv *versioned.KV) error {
 
 	obj := &versioned.Object{
 		Version:   cryptoStorageVersion,
 		Timestamp: netTime.Now(),
-		Data:      marshalBackup(key, salt, p),
+		Data:      marshalBackup(key, salt, params),
 	}
 
 	return kv.Set(cryptoStorageKey, cryptoStorageVersion, obj)
 }
 
 // loadBackup loads the key, salt, and params from storage.
-func loadBackup(kv *versioned.KV) (key, salt []byte, p backup.Params, err error) {
+func loadBackup(kv *versioned.KV) (key, salt []byte, params backup.Params, err error) {
 	obj, err := kv.Get(cryptoStorageKey, cryptoStorageVersion)
 	if err != nil {
 		return
@@ -57,7 +57,7 @@ func deleteBackup(kv *versioned.KV) error {
 }
 
 // marshalBackup marshals the backup's key, salt, and params into a byte slice.
-func marshalBackup(key, salt []byte, p backup.Params) []byte {
+func marshalBackup(key, salt []byte, params backup.Params) []byte {
 	buff := bytes.NewBuffer(nil)
 	buff.Grow(keyLen + saltLen + paramsLen)
 
@@ -68,13 +68,13 @@ func marshalBackup(key, salt []byte, p backup.Params) []byte {
 	buff.Write(salt)
 
 	// Write marshalled params to buffer
-	buff.Write(p.Marshal())
+	buff.Write(params.Marshal())
 
 	return buff.Bytes()
 }
 
 // unmarshalBackup unmarshalls the byte slice into a key, salt, and params.
-func unmarshalBackup(buf []byte) (key, salt []byte, p backup.Params, err error) {
+func unmarshalBackup(buf []byte) (key, salt []byte, params backup.Params, err error) {
 	buff := bytes.NewBuffer(buf)
 	// Get key
 	key = make([]byte, keyLen)
@@ -93,7 +93,7 @@ func unmarshalBackup(buf []byte) (key, salt []byte, p backup.Params, err error) 
 	}
 
 	// Get params from remaining bytes
-	err = p.Unmarshal(buff.Bytes())
+	err = params.Unmarshal(buff.Bytes())
 	if err != nil {
 		err = errors.Errorf("reading params failed: %+v", err)
 	}

@@ -298,8 +298,9 @@ func (ud UserDiscovery) MultiLookup(ids *IdList, callback MultiLookupCallback,
 // Once set, any user discovery operation will go through the alternative
 // user discovery service.
 // To undo this operation, use UnsetAlternativeUserDiscovery.
-func (ud *UserDiscovery) SetAlternativeUserDiscovery(address, cert, id, dhPubKey []byte) error {
-	return ud.ud.SetAlternativeUserDiscovery(id, cert, address, dhPubKey)
+// The contact file is the already read in bytes, not the file path for the contact file.
+func (ud *UserDiscovery) SetAlternativeUserDiscovery(address, cert, contactFile []byte) error {
+	return ud.ud.SetAlternativeUserDiscovery(cert, address, contactFile)
 }
 
 // UnsetAlternativeUserDiscovery clears out the information from

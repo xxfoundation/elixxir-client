@@ -109,11 +109,12 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 // Once set, any user discovery operation will go through the alternative
 // user discovery service.
 // To undo this operation, use UnsetAlternativeUserDiscovery.
-func (m *Manager) SetAlternativeUserDiscovery(altId, altCert, altAddress, dhPubKey []byte) error {
+func (m *Manager) SetAlternativeUserDiscovery(altCert, altAddress, contactFile []byte) error {
 	params := connect.GetDefaultHostParams()
 	params.AuthEnabled = false
 
-	udID, err := id.Unmarshal(altId)
+	udIdBytes, dhPubKey := contact.ReadContactFromFile(contactFile)
+	udID, err := id.Unmarshal(udIdBytes)
 	if err != nil {
 		return err
 	}

@@ -113,7 +113,11 @@ func (m *Manager) SetAlternativeUserDiscovery(altCert, altAddress, contactFile [
 	params := connect.GetDefaultHostParams()
 	params.AuthEnabled = false
 
-	udIdBytes, dhPubKey := contact.ReadContactFromFile(contactFile)
+	udIdBytes, dhPubKey, err := contact.ReadContactFromFile(contactFile)
+	if err != nil {
+		return err
+	}
+
 	udID, err := id.Unmarshal(udIdBytes)
 	if err != nil {
 		return err

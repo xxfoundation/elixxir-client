@@ -11,7 +11,6 @@ import (
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/primitives/id"
 	"testing"
 )
 
@@ -51,6 +50,8 @@ EnretBzQkeKeBwoB2u6NTiOmUjk=
 -----END CERTIFICATE-----
 `
 
+var testContact = `<xxc(2)LF2ccT+sdqh0AIKlFFeDOJdnxzbQQYhGStgxhOXmijIDkAZiB9kZo+Dl3bRSbBi5pXZ82rOu2IQXz9+5sspChvoccZqgC/dXGhlesmiNy/EbKxWtptTF4tcNyQxtnmCXg1p/HwKey4G2XDekTw86lq6Lpmj72jozvRWlQisqvWz/5deiPaeFGKDKC0OrrDFnIib7WnKqdYt4XyTKdmObnmbvdCbliZq0zBl7J40qKy5FypYXGlZjStIm0R1qtD4XHMZMsrMJEGxdM55zJdSzknXbR8MNahUrGMyUOTivXLHzojYLht0gFQifKMVWhrDjUoVQV43KOLPmdBwY/2Kc5KvVloDeuDXYY0i7tD63gNIp9JA3gJQUJymDdwqbS13riT1DMHHkdTzKEyGdHS+v2l7AVSlJBiTKuyM00FBNuXhhIcFR7ONFCf8cRPOPPBx3Q6iHNsvsca3KPNhwOJBgaQvHSkjIMsudiR954QbwG9rbi2vxVobIgWYMl5j6vlBS/9rfbE/uLdTEQZfNsLKDCIVCCI4I1bYZxZrDLPrfXTrN6W0sCLE7a/kRBQAAAgA7+LwJqiv9O1ogLnS4TYkSEg==xxc>`
+
 func TestManager_SetAlternativeUserDiscovery(t *testing.T) {
 	isReg := uint32(1)
 
@@ -74,10 +75,8 @@ func TestManager_SetAlternativeUserDiscovery(t *testing.T) {
 		registered: &isReg,
 	}
 
-	altId := id.NewIdFromBytes([]byte("test"), t)
 	altAddr := "0.0.0.0:11420"
-	altDhPubKey := []byte("dhPubKey")
-	err = m.SetAlternativeUserDiscovery(altId.Bytes(), []byte(testCert), []byte(altAddr), altDhPubKey)
+	err = m.SetAlternativeUserDiscovery([]byte(testCert), []byte(altAddr), []byte(testContact))
 	if err != nil {
 		t.Fatalf("Unexpected error in SetAlternativeUserDiscovery: %v", err)
 	}

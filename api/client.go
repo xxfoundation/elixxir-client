@@ -304,7 +304,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	// initialize the auth tracker
-	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, parameters.ReplayRequests)
 
 	// Add all processes to the followerServices
 	err = c.registerFollower()
@@ -363,7 +363,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	}
 
 	// initialize the auth tracker
-	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, parameters.ReplayRequests)
 
 	err = c.registerFollower()
 	if err != nil {
@@ -420,7 +420,7 @@ func LoginWithProtoClient(storageDir string, password []byte, protoClientJSON []
 	}
 
 	// initialize the auth tracker
-	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, parameters.ReplayRequests)
 
 	err = c.registerFollower()
 	if err != nil {
@@ -684,6 +684,24 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	return numRegistered, len(nodes) - numStale, nil
 }
 
+// DeleteAllRequests clears all requests from client's auth storage.
+func (c *Client) DeleteAllRequests() error {
+	jww.DEBUG.Printf("Deleting all requests")
+	return c.GetStorage().Auth().DeleteAllRequests()
+}
+
+// DeleteSentRequests clears sent requests from client's auth storage.
+func (c *Client) DeleteSentRequests() error {
+	jww.DEBUG.Printf("Deleting all sent requests")
+	return c.GetStorage().Auth().DeleteSentRequests()
+}
+
+// DeleteReceiveRequests clears receive requests from client's auth storage.
+func (c *Client) DeleteReceiveRequests() error {
+	jww.DEBUG.Printf("Deleting all received requests")
+	return c.GetStorage().Auth().DeleteReceiveRequests()
+}
+
 // DeleteContact is a function which removes a partner from Client's storage
 func (c *Client) DeleteContact(partnerId *id.ID) error {
 	jww.DEBUG.Printf("Deleting contact with ID %s", partnerId)
@@ -742,8 +760,8 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 	//delete conversations
 	c.storage.Conversations().Delete(partnerId)
 
-	// call delete requests to make sure nothing is lingering. 
-	// this is for saftey to ensure the contact can be readded 
+	// call delete requests to make sure nothing is lingering.
+	// this is for saftey to ensure the contact can be readded
 	// in the future
 	_ = c.storage.Auth().Delete(partnerId)
 

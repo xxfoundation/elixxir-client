@@ -169,6 +169,7 @@ func (m *Manager) getHost() (*connect.Host, error) {
 
 	params := connect.GetDefaultHostParams()
 	params.AuthEnabled = false
+	params.SendTimeout = 20 * time.Second
 
 	// Add a new host and return it if it does not already exist
 	host, err = m.comms.AddHost(udID, netDef.UDB.Address,

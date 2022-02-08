@@ -450,6 +450,21 @@ func (c *Client) GetNodeRegistrationStatus() (*NodeRegistrationsStatus, error) {
 	return &NodeRegistrationsStatus{registered, total}, err
 }
 
+// DeleteAllRequests clears all requests from Client's auth storage.
+func (c *Client) DeleteAllRequests() error {
+	return c.api.DeleteAllRequests()
+}
+
+// DeleteSentRequests clears sent requests from Client's auth storage.
+func (c *Client) DeleteSentRequests() error {
+	return c.api.DeleteSentRequests()
+}
+
+// DeleteReceiveRequests clears receive requests from Client's auth storage.
+func (c *Client) DeleteReceiveRequests() error {
+	return c.api.DeleteReceiveRequests()
+}
+
 // DeleteContact is a function which removes a contact from Client's storage
 func (c *Client) DeleteContact(b []byte) error {
 	contactObj, err := UnmarshalContact(b)

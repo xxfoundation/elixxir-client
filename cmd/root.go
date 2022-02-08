@@ -304,6 +304,18 @@ var rootCmd = &cobra.Command{
 			deleteChannel(client, recipientID)
 		}
 
+		if viper.GetBool("delete-receive-requests") {
+			client.DeleteReceiveRequests()
+		}
+
+		if viper.GetBool("delete-sent-requests") {
+			client.DeleteSentRequests()
+		}
+
+		if viper.GetBool("delete-all-requests") {
+			client.DeleteAllRequests()
+		}
+
 		msg := message.Send{
 			Recipient:   recipientID,
 			Payload:     []byte(msgBody),
@@ -473,7 +485,7 @@ func initClientCallbacks(client *api.Client) (chan *id.ID,
 	})
 	if viper.GetBool("unsafe-channel-creation") {
 		authMgr.AddGeneralRequestCallback(func(
-			requestor contact.Contact, message string) {
+			requestor contact.Contact) {
 			jww.INFO.Printf("Channel Request: %s",
 				requestor.ID)
 			_, err := client.ConfirmAuthenticatedChannel(
@@ -681,13 +693,11 @@ func deleteChannel(client *api.Client, partnerId *id.ID) {
 	}
 }
 
-func printChanRequest(requestor contact.Contact, message string) {
+func printChanRequest(requestor contact.Contact) {
 	msg := fmt.Sprintf("Authentication channel request from: %s\n",
 		requestor.ID)
 	jww.INFO.Printf(msg)
 	fmt.Printf(msg)
-	msg = fmt.Sprintf("Authentication channel request message: %s\n", message)
-	jww.INFO.Printf(msg)
 	// fmt.Printf(msg)
 }
 
@@ -1031,6 +1041,21 @@ func init() {
 		"Delete the channel information for the corresponding recipient ID")
 	viper.BindPFlag("delete-channel",
 		rootCmd.PersistentFlags().Lookup("delete-channel"))
+
+	rootCmd.PersistentFlags().Bool("delete-receive-requests", false,
+		"Delete the all received contact requests.")
+	viper.BindPFlag("delete-receive-requests",
+		rootCmd.PersistentFlags().Lookup("delete-receive-requests"))
+
+	rootCmd.PersistentFlags().Bool("delete-sent-requests", false,
+		"Delete the all sent contact requests.")
+	viper.BindPFlag("delete-sent-requests",
+		rootCmd.PersistentFlags().Lookup("delete-sent-requests"))
+
+	rootCmd.PersistentFlags().Bool("delete-all-requests", false,
+		"Delete the all contact requests, both sent and received.")
+	viper.BindPFlag("delete-all-requests",
+		rootCmd.PersistentFlags().Lookup("delete-all-requests"))
 
 	rootCmd.Flags().BoolP("send-auth-request", "", false,
 		"Send an auth request to the specified destination and wait"+

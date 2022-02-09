@@ -9,7 +9,6 @@ package registration
 
 import (
 	"bytes"
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/testkeys"
@@ -19,6 +18,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
+	"google.golang.org/protobuf/proto"
 	"testing"
 	"time"
 )

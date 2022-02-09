@@ -1,3 +1,3 @@
 #!/bin/bash
 
-protoc --go_out=. udMessages.proto
+protoc --go_out=paths=source_relative:. udMessages.proto

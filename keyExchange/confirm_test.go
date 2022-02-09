@@ -9,13 +9,13 @@ package keyExchange
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
-	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/e2e"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"google.golang.org/protobuf/proto"
 	"math/rand"
 	"testing"
 )

@@ -9,7 +9,6 @@ package keyExchange
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
-	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
@@ -31,6 +30,7 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
+	"google.golang.org/protobuf/proto"
 	"math/rand"
 	"testing"
 	"time"

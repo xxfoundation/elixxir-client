@@ -81,9 +81,9 @@ bindings-ios:
   tags:
     - ios
   script:
+    - rm -fr vendor/ || true
     - go install golang.org/x/mobile/cmd/gomobile@v0.0.0-20220112015953-858099ff7816
-    - go install golang.org/x/mobile/cmd/gobind@latest
-    - go mod vendor
+    - go get golang.org/x/mobile/cmd/gobind
     - gomobile init
     - gomobile bind -target ios gitlab.com/elixxir/client/bindings
     - ls
@@ -101,9 +101,9 @@ bindings-android:
   script:
     - export ANDROID_HOME=/android-sdk
     - export PATH=$PATH:/android-sdk/platform-tools/:/usr/local/go/bin
+    - rm -fr vendor/ || true
     - go install golang.org/x/mobile/cmd/gomobile@v0.0.0-20220112015953-858099ff7816
-    - go install golang.org/x/mobile/cmd/gobind@latest
-    - go mod vendor
+    - go get golang.org/x/mobile/cmd/gobind
     - gomobile init
     - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
   artifacts:

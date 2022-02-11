@@ -12,13 +12,13 @@ require (
 	github.com/spf13/viper v1.7.1
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
 	gitlab.com/elixxir/comms v0.0.4-0.20220128193157-34178165415d
-	gitlab.com/elixxir/crypto v0.0.7-0.20220209170739-af304c494917
+	gitlab.com/elixxir/crypto v0.0.7-0.20220211025605-ac03c30475ae
 	gitlab.com/elixxir/ekv v0.1.6
-	gitlab.com/elixxir/primitives v0.0.3-0.20220104173924-275cb9d7834f
+	gitlab.com/elixxir/primitives v0.0.3-0.20220209225643-ae03845af237
 	gitlab.com/xx_network/comms v0.0.4-0.20220126231737-fe2338016cce
-	gitlab.com/xx_network/crypto v0.0.5-0.20211227194420-f311e8920467
-	gitlab.com/xx_network/primitives v0.0.4-0.20211222205802-03e9d7d835b0
-	golang.org/x/crypto v0.0.0-20220128200615-198e4374d7ed
+	gitlab.com/xx_network/crypto v0.0.5-0.20220209220237-f1e27faab497
+	gitlab.com/xx_network/primitives v0.0.4-0.20220209215928-ebad9b1d4f04
+	golang.org/x/crypto v0.0.0-20220209195652-db638375bc3a
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
 	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1
@@ -47,7 +47,7 @@ require (
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
 	github.com/zeebo/blake3 v0.1.1 // indirect
 	gitlab.com/xx_network/ring v0.0.3-0.20210527191221-ce3f170aabd5 // indirect
-	golang.org/x/sys v0.0.0-20220207234003-57398862261d // indirect
+	golang.org/x/sys v0.0.0-20220209214540-3681064d5158 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/genproto v0.0.0-20220208230804-65c12eb4c068 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect

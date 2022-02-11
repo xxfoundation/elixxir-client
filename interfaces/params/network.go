@@ -34,6 +34,8 @@ type Network struct {
 	// Determines if the state of every round processed is tracked in ram.
 	// This is very memory intensive and is primarily used for debugging
 	VerboseRoundTracking bool
+	//disables all attempts to pick up dropped or missed messages
+	RealtimeOnly bool
 	// Resends auth requests up the stack if received multiple times
 	ReplayRequests bool
 
@@ -56,6 +58,7 @@ func GetDefaultNetwork() Network {
 		FastPolling:               true,
 		BlacklistedNodes:          make([]string, 0),
 		VerboseRoundTracking:      false,
+		RealtimeOnly:              false,
 		ReplayRequests:            true,
 	}
 	n.Rounds = GetDefaultRounds()
@@ -66,6 +69,13 @@ func GetDefaultNetwork() Network {
 
 func (n Network) Marshal() ([]byte, error) {
 	return json.Marshal(n)
+}
+
+func (n Network) SetRealtimeOnlyAll()Network {
+	n.RealtimeOnly = true
+	n.Rounds.RealtimeOnly = true
+	n.Messages.RealtimeOnly = true
+	return n
 }
 
 // Obtain default Network parameters, or override with given parameters if set

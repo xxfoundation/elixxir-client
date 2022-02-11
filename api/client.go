@@ -740,6 +740,24 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	return numRegistered, len(nodes) - numStale, nil
 }
 
+// DeleteAllRequests clears all requests from client's auth storage.
+func (c *Client) DeleteAllRequests() error {
+	jww.DEBUG.Printf("Deleting all requests")
+	return c.GetStorage().Auth().DeleteAllRequests()
+}
+
+// DeleteSentRequests clears sent requests from client's auth storage.
+func (c *Client) DeleteSentRequests() error {
+	jww.DEBUG.Printf("Deleting all sent requests")
+	return c.GetStorage().Auth().DeleteSentRequests()
+}
+
+// DeleteReceiveRequests clears receive requests from client's auth storage.
+func (c *Client) DeleteReceiveRequests() error {
+	jww.DEBUG.Printf("Deleting all received requests")
+	return c.GetStorage().Auth().DeleteReceiveRequests()
+}
+
 // DeleteContact is a function which removes a partner from Client's storage
 func (c *Client) DeleteContact(partnerId *id.ID) error {
 	jww.DEBUG.Printf("Deleting contact with ID %s", partnerId)

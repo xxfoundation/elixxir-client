@@ -58,9 +58,12 @@ func (m *Manager) StartProcessors() stoppable.Stoppable {
 	}
 
 	// Start the periodic unchecked round worker
-	stopper := stoppable.NewSingle("UncheckRound")
-	go m.processUncheckedRounds(m.params.UncheckRoundPeriod, backOffTable, stopper)
-	multi.Add(stopper)
+	if !m.params.RealtimeOnly{
+		stopper := stoppable.NewSingle("UncheckRound")
+		go m.processUncheckedRounds(m.params.UncheckRoundPeriod, backOffTable, stopper)
+		multi.Add(stopper)
+	}
+
 
 	return multi
 }

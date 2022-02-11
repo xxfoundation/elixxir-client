@@ -434,16 +434,9 @@ func (s *Store) Delete(partner *id.ID) error {
 
 	switch r.rt {
 	case Sent:
-		delete(s.fingerprints, r.sent.fingerprint)
-		if err := r.sent.delete(); err != nil {
-			jww.FATAL.Panicf("Failed to delete sent request: %+v", err)
-		}
-
+		s.deleteSentRequest(r)
 	case Receive:
-		if err := util.DeleteContact(s.kv, r.receive.ID); err != nil {
-			jww.FATAL.Panicf("Failed to delete recieved request "+
-				"contact: %+v", err)
-		}
+		s.deleteReceiveRequest(r)
 	}
 
 	delete(s.requests, *partner)
@@ -458,4 +451,92 @@ func (s *Store) Delete(partner *id.ID) error {
 	}
 
 	return nil
+}
+
+// DeleteAllRequests clears the request map and all associated storage objects
+// containing request data.
+func (s *Store) DeleteAllRequests() error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	for partnerId, req := range s.requests {
+		switch req.rt {
+		case Sent:
+			s.deleteSentRequest(req)
+			delete(s.requests, partnerId)
+		case Receive:
+			s.deleteReceiveRequest(req)
+			delete(s.requests, partnerId)
+		}
+
+	}
+
+	if err := s.save(); err != nil {
+		jww.FATAL.Panicf("Failed to store updated request map after "+
+			"deleting all requests: %+v", err)
+	}
+
+	return nil
+}
+
+// DeleteSentRequests deletes all Sent requests from Store.
+func (s *Store) DeleteSentRequests() error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	for partnerId, req := range s.requests {
+		switch req.rt {
+		case Sent:
+			s.deleteSentRequest(req)
+			delete(s.requests, partnerId)
+		case Receive:
+			continue
+		}
+	}
+
+	if err := s.save(); err != nil {
+		jww.FATAL.Panicf("Failed to store updated request map after "+
+			"deleting all sent requests: %+v", err)
+	}
+
+	return nil
+}
+
+// DeleteReceiveRequests deletes all Receive requests from Store.
+func (s *Store) DeleteReceiveRequests() error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	for partnerId, req := range s.requests {
+		switch req.rt {
+		case Sent:
+			continue
+		case Receive:
+			s.deleteReceiveRequest(req)
+			delete(s.requests, partnerId)
+		}
+	}
+
+	if err := s.save(); err != nil {
+		jww.FATAL.Panicf("Failed to store updated request map after "+
+			"deleting all receive requests: %+v", err)
+	}
+
+	return nil
+}
+
+// deleteSentRequest is a helper function which deletes a Sent request from storage.
+func (s *Store) deleteSentRequest(r *request) {
+	delete(s.fingerprints, r.sent.fingerprint)
+	if err := r.sent.delete(); err != nil {
+		jww.FATAL.Panicf("Failed to delete sent request: %+v", err)
+	}
+}
+
+// deleteReceiveRequest is a helper function which deletes a Receive request from storage.
+func (s *Store) deleteReceiveRequest(r *request) {
+	if err := util.DeleteContact(s.kv, r.receive.ID); err != nil {
+		jww.FATAL.Panicf("Failed to delete recieved request "+
+			"contact: %+v", err)
+	}
 }

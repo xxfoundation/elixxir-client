@@ -48,7 +48,7 @@ func ResetSession(partner, me contact.Contact, rng io.Reader,
 
 	// Delete authenticated channel if it exists.
 	if err := storage.E2e().DeletePartner(partner.ID); err == nil {
-		return 0, errors.Errorf("Unable to delete partner when "+
+		jww.WARN.Printf("Unable to delete partner when "+
 			"resetting session: %+v", err)
 	}
 

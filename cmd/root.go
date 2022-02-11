@@ -13,6 +13,15 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+	"runtime/pprof"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -24,14 +33,6 @@ import (
 	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
-	"io/ioutil"
-	"log"
-	"os"
-	"runtime/pprof"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 )
 
 // Deployment environment constants for the download-ndf code path
@@ -278,6 +279,12 @@ var rootCmd = &cobra.Command{
 			addPrecanAuthenticatedChannel(client,
 				recipientID, recipientContact)
 			authConfirmed = true
+		} else if !unsafe && authConfirmed && !isPrecanPartner &&
+			sendAuthReq {
+			jww.WARN.Printf("Resetting negotiated auth channel")
+			resetAuthenticatedChannel(client, recipientID,
+				recipientContact)
+			authConfirmed = false
 		}
 
 		if !unsafe && !authConfirmed {
@@ -753,6 +760,43 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 		}
 	} else {
 		jww.ERROR.Printf("Could not add auth channel for %s",
+			recipientID)
+	}
+}
+
+func resetAuthenticatedChannel(client *api.Client, recipientID *id.ID,
+	recipient contact.Contact) {
+	var allowed bool
+	if viper.GetBool("unsafe-channel-creation") {
+		msg := "unsafe channel creation enabled\n"
+		jww.WARN.Printf(msg)
+		fmt.Printf("WARNING: %s", msg)
+		allowed = true
+	} else {
+		allowed = askToCreateChannel(recipientID)
+	}
+	if !allowed {
+		jww.FATAL.Panicf("User did not allow channel reset!")
+	}
+
+	msg := fmt.Sprintf("Resetting authenticated channel for: %s\n",
+		recipientID)
+	jww.INFO.Printf(msg)
+	fmt.Printf(msg)
+
+	recipientContact := recipient
+
+	if recipientContact.ID != nil && recipientContact.DhPubKey != nil {
+		me := client.GetUser().GetContact()
+		jww.INFO.Printf("Requesting auth channel from: %s",
+			recipientID)
+		_, err := client.ResetSession(recipientContact,
+			me, msg)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+	} else {
+		jww.ERROR.Printf("Could not reset auth channel for %s",
 			recipientID)
 	}
 }

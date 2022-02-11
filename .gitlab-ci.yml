@@ -82,6 +82,7 @@ bindings-ios:
     - ios
   script:
     - go install golang.org/x/mobile/cmd/gomobile
+    - go mod vendor
     - gomobile init
     - gomobile bind -target ios gitlab.com/elixxir/client/bindings
     - ls
@@ -100,6 +101,7 @@ bindings-android:
     - export ANDROID_HOME=/android-sdk
     - export PATH=$PATH:/android-sdk/platform-tools/:/usr/local/go/bin
     - go install golang.org/x/mobile/cmd/gomobile
+    - go mod vendor
     - gomobile init
     - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
   artifacts:

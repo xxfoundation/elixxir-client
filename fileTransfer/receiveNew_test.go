@@ -9,11 +9,11 @@ package fileTransfer
 
 import (
 	"bytes"
+	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
-	"google.golang.org/protobuf/proto"
 	"strings"
 	"testing"
 	"time"

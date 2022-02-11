@@ -2,13 +2,13 @@ package ud
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/factID"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
-	"google.golang.org/protobuf/proto"
 	"time"
 )
 

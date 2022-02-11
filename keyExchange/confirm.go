@@ -8,13 +8,13 @@
 package keyExchange
 
 import (
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
-	"google.golang.org/protobuf/proto"
 )
 
 func startConfirm(sess *storage.Session, c chan message.Receive,

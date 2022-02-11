@@ -46,19 +46,17 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 func ResetSession(partner, me contact.Contact, rng io.Reader,
 	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
 
+	rqType, _, _, err := storage.Auth().GetRequest(partner.ID)
+	if err == nil && rqType == auth.Sent {
+		return 0, errors.New("Cannot reset a session after " +
+			"sending request, caller must resend request instead")
+	}
+
 	// Delete authenticated channel if it exists.
 	if err := storage.E2e().DeletePartner(partner.ID); err == nil {
 		jww.WARN.Printf("Unable to delete partner when "+
 			"resetting session: %+v", err)
 	}
-
-	// Delete existing ongoing request, if it exists.
-	if err := storage.Auth().Delete(partner.ID); err != nil {
-		jww.WARN.Printf("Failed to delete in progress negotiation "+
-			"with partner (%s): %+v", partner.ID, err)
-	}
-
-	// TODO: Do we delete any edges? How?
 
 	// Try to initiate a clean session request
 	return requestAuth(partner, me, rng, true, storage, net)
@@ -88,6 +86,8 @@ func requestAuth(partner, me contact.Contact, rng io.Reader, reset bool,
 
 	switch rqType {
 	case auth.Receive:
+		// TODO: We've already received a request, so send a
+		//       confirmation instead?
 		return 0, errors.Errorf("Cannot send a request after " +
 			"receiving a request")
 	case auth.Sent:

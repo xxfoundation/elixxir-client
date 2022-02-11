@@ -186,8 +186,27 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 			m.storage.Auth().Delete(partnerID)
 		}
 
-		// If we've Sent, then we should auto-confirm as below, if it's
-		// not an existing request, we also do nothing.
+		// If we've already Sent and are now receiving,
+		// then we attempt auto-confirm as below
+		// This poses a potential problem if it is truly a session
+		// reset by the other user, because we may not actually
+		// autoconfirm based on our public key compared to theirs.
+		// This could result in a permanently broken association, as
+		// the other side has attempted to reset it's session and
+		// can no longer detect a sent request collision, so this side
+		// cannot ever successfully resend.
+		// We prevent this by stopping session resets if they
+		// are called when the other side is in the "Sent" state.
+		// If the other side is in the "received" state we also block,
+		// but we could autoconfirm.
+		// Note that you can still get into this state by one side
+		// deleting requests. In that case, both sides need to clear
+		// out all requests and retry negotiation from scratch.
+		// NOTE: This protocol part could use an overhaul/second look,
+		//       there's got to be a way to do this with far less state
+		//       but this is the spec so we're sticking with it for now.
+
+		// If not an existing request, we do nothing.
 	}
 
 	// check if a relationship already exists.

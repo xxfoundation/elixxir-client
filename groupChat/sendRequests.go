@@ -8,7 +8,6 @@
 package groupChat
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
@@ -16,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
+	"google.golang.org/protobuf/proto"
 	"strings"
 )
 
@@ -117,10 +117,9 @@ func (m Manager) sendRequest(memberID *id.ID, request []byte) ([]id.Round, error
 		MessageType: message.GroupCreationRequest,
 	}
 
-
 	recipent, err := m.store.E2e().GetPartner(memberID)
-	if err!=nil{
-		return nil, errors.WithMessagef(err,"Failed to send request to %s " +
+	if err != nil {
+		return nil, errors.WithMessagef(err, "Failed to send request to %s "+
 			"because e2e relationship could not be found", memberID)
 	}
 

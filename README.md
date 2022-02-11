@@ -27,7 +27,9 @@ The client is open source software released under the simplified BSD License.
 The command line tool is intended for testing xx network functionality and not
 for regular user use. 
 
-Compilation (assuming golang 1.13 or newer):
+These instructions assume that you have [Go 1.17.X installed](https://go.dev/doc/install), and GCC installed for Cgo (such as `build-essential` on Debian or Ubuntu).
+
+Compilation steps:
 
 ```
 git clone https://gitlab.com/elixxir/client.git client

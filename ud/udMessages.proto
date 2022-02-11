@@ -10,7 +10,7 @@
 syntax = "proto3";
 
 package parse;
-option go_package = "ud";
+option go_package = "ud/";
 
 // Contains the Hash and its Type
 message HashFact {

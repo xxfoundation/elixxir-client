@@ -10,7 +10,6 @@ package node
 import (
 	"crypto/sha256"
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/network/gateway"
@@ -33,6 +32,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
+	"google.golang.org/protobuf/proto"
 	"strconv"
 	"sync"
 	"time"

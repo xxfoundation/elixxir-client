@@ -9,12 +9,12 @@ package groupChat
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
-	"github.com/golang/protobuf/proto"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/stoppable"
 	util "gitlab.com/elixxir/client/storage/utility"
+	"google.golang.org/protobuf/proto"
 	"math/rand"
 	"reflect"
 	"strings"

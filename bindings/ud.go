@@ -103,13 +103,17 @@ func (ud *UserDiscovery) RemoveUser(fStr string) error {
 	return ud.ud.RemoveUser(f)
 }
 
-// BackUpMissingFacts adds a registered fact to the Store object. It can take in both an
-// email and a phone number. One or the other may be nil, however both is considered
-// an error. It checks for the proper fact type for the associated fact.
-// Any other fact.FactType is not accepted and returns an error and nothing is backed up.
-// If you attempt to back up a fact type that has already been backed up,
-// an error will be returned and nothing will be backed up.
-// Otherwise, it adds the fact and returns whether the Store saved successfully.
+//BackUpMissingFacts adds a registered fact to the Store object and saves
+// it to storage. It can take in both an email or a phone number, passed into
+// the function in that order.  Any one of these fields may be empty,
+// however both fields being empty will cause an error. Any other fact that is not
+// an email or phone number will return an error. You may only add a fact for the
+// accepted types once each. If you attempt to back up a fact type that has already
+// been backed up, an error will be returned. Anytime an error is returned, it means
+// the backup was not successful.
+// NOTE: Do not use this as a direct store operation. This feature is intended to add facts
+// to a backend store that have ALREADY BEEN REGISTERED on the account.
+// THIS IS NOT FOR ADDING NEWLY REGISTERED FACTS. That is handled on the backend.
 func (ud *UserDiscovery) BackUpMissingFacts(email, phone string) error {
 	var emailFact, phoneFact fact.Fact
 	var err error

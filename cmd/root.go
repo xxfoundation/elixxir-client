@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -26,9 +27,11 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/backup"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/switchboard"
+	backupCrypto "gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/xx_network/primitives/id"
@@ -247,6 +250,8 @@ var rootCmd = &cobra.Command{
 			jww.INFO.Printf("Registering with nodes (%d/%d)...",
 				numReg, total)
 		}
+
+		client.GetBackup().TriggerBackup("Integration test.")
 
 		// Send Messages
 		msgBody := viper.GetString("message")
@@ -558,6 +563,7 @@ func createClient() *api.Client {
 	userIDprefix := viper.GetString("userid-prefix")
 	protoUserPath := viper.GetString("protoUserPath")
 	backupPath := viper.GetString("backupIn")
+	backupPass := viper.GetString("backupPass")
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
 		// Load NDF
@@ -584,8 +590,25 @@ func createClient() *api.Client {
 			if err != nil {
 				jww.FATAL.Panicf("%v", err)
 			}
+
+			var b backupCrypto.Backup
+			err = b.Decrypt(backupPass, backupFile)
+			if err != nil {
+				jww.ERROR.Printf("Failed to decrypt backup: %+v", err)
+			}
+
+			backupJson, err := json.Marshal(b)
+			if err != nil {
+				jww.ERROR.Printf("Failed to JSON unmarshal backup: %+v", err)
+			}
+
+			err = utils.WriteFileDef(viper.GetString("backupJsonOut"), backupJson)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
+			}
+
 			err = api.NewClientFromBackup(string(ndfJSON), storeDir,
-				pass, viper.GetString("backUpPass"), backupFile)
+				pass, backupPass, backupFile)
 		} else {
 			err = api.NewClient(string(ndfJSON), storeDir,
 				[]byte(pass), regCode)
@@ -657,7 +680,40 @@ func initClient() *api.Client {
 	}
 
 	if backupOut := viper.GetString("backupOut"); backupOut != "" {
-		// todo; construct back up
+		backupPass := viper.GetString("backupPass")
+		updateBackupCb := func(encryptedBackup []byte) {
+			jww.INFO.Printf("Backup update received, size %d", len(encryptedBackup))
+			fmt.Println("Backup update received.")
+			err = utils.WriteFileDef(backupOut, encryptedBackup)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
+			}
+
+			backupJsonPath := viper.GetString("backupJsonOut")
+
+			if backupJsonPath != "" {
+				var b backupCrypto.Backup
+				err = b.Decrypt(backupPass, encryptedBackup)
+				if err != nil {
+					jww.ERROR.Printf("Failed to decrypt backup: %+v", err)
+				}
+
+				backupJson, err := json.Marshal(b)
+				if err != nil {
+					jww.ERROR.Printf("Failed to JSON unmarshal backup: %+v", err)
+				}
+
+				err = utils.WriteFileDef(backupJsonPath, backupJson)
+				if err != nil {
+					jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
+				}
+			}
+		}
+		_, err = backup.InitializeBackup(backupPass, updateBackupCb, client)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to initialize backup with key %q: %+v",
+				backupPass, err)
+		}
 	}
 
 	return client
@@ -1172,10 +1228,14 @@ func init() {
 			"will write proto user JSON file")
 	viper.BindPFlag("protoUserOut", rootCmd.Flags().Lookup("protoUserOut"))
 
-	// backup flags
+	// Backup flags
 	rootCmd.Flags().String("backupOut", "",
-		"Path to output backup client.")
+		"Path to output encrypted client backup. If no path is supplied, the "+
+			"backup system is not started.")
 	viper.BindPFlag("backupOut", rootCmd.Flags().Lookup("backupOut"))
+	rootCmd.Flags().String("backupJsonOut", "",
+		"Path to output unencrypted client JSON backup.")
+	viper.BindPFlag("backupJsonOut", rootCmd.Flags().Lookup("backupJsonOut"))
 	rootCmd.Flags().String("backupIn", "",
 		"Path to load backup client from")
 	viper.BindPFlag("backupIn", rootCmd.Flags().Lookup("backupIn"))

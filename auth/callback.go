@@ -24,10 +24,8 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -334,11 +332,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	var rndNum id.Round
 	if autoConfirm || resetSession {
 		// Call ConfirmRequestAuth to send confirmation
-		rngGen := fastRNG.NewStreamGenerator(1, 1,
-			csprng.NewSystemRNG)
-		rng := rngGen.GetStream()
-		rndNum, err = ConfirmRequestAuth(c,
-			rng, m.storage, m.net)
+		rndNum, err = m.ConfirmRequestAuth(c)
 		if err != nil {
 			jww.ERROR.Printf("Could not ConfirmRequestAuth: %+v",
 				err)
@@ -474,6 +468,8 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 			"after confirmation: %+v",
 			sr.GetPartner(), err)
 	}
+
+	m.backupTrigger("received confirmation from request")
 
 	//remove the confirm fingerprint
 	fp := sr.GetFingerprint()

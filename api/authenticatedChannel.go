@@ -91,8 +91,7 @@ func (c *Client) ConfirmAuthenticatedChannel(recipient contact.Contact) (id.Roun
 			"creation when the network is not healthy")
 	}
 
-	return auth.ConfirmRequestAuth(recipient, c.rng.GetStream(),
-		c.storage, c.network)
+	return c.auth.ConfirmRequestAuth(recipient)
 }
 
 // VerifyOwnership checks if the ownership proof on a passed contact matches the
@@ -159,7 +158,7 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Co
 		Source: precan.ID[:],
 	}, me)
 
-	//slient (rekey)
+	// slient (rekey)
 	c.storage.GetEdge().Add(edge.Preimage{
 		Data:   sessionPartner.GetSilentPreimage(),
 		Type:   preimage.Silent,

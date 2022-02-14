@@ -283,6 +283,8 @@ gitlab.com/elixxir/crypto v0.0.7-0.20220209170739-af304c494917 h1:tXphTxkgKdJbO9
 gitlab.com/elixxir/crypto v0.0.7-0.20220209170739-af304c494917/go.mod h1:WyLFCxOOgaCHElpH0Ha893tfjxg3HXYU7lSJz2M4JUE=
 gitlab.com/elixxir/crypto v0.0.7-0.20220211025605-ac03c30475ae h1:FWluQgiS4zJsfyNiPc2xwmvVLnTD3Q0Rfov1JFCOAsk=
 gitlab.com/elixxir/crypto v0.0.7-0.20220211025605-ac03c30475ae/go.mod h1:fKKB1/bJ7D3uZ61yBWCydiE2EBCV6l8IN00IIwzcpyw=
+gitlab.com/elixxir/crypto v0.0.7-0.20220214184248-2b6499b3c024 h1:uF6X1josZiOWt6v4Ym2b4IHN1v+UF7xbSxebiV3NFlk=
+gitlab.com/elixxir/crypto v0.0.7-0.20220214184248-2b6499b3c024/go.mod h1:WyLFCxOOgaCHElpH0Ha893tfjxg3HXYU7lSJz2M4JUE=
 gitlab.com/elixxir/ekv v0.1.6 h1:M2hUSNhH/ChxDd+s8xBqSEKgoPtmE6hOEBqQ73KbN6A=
 gitlab.com/elixxir/ekv v0.1.6/go.mod h1:e6WPUt97taFZe5PFLPb1Dupk7tqmDCTQu1kkstqJvw4=
 gitlab.com/elixxir/primitives v0.0.0-20200731184040-494269b53b4d/go.mod h1:OQgUZq7SjnE0b+8+iIAT2eqQF+2IFHn73tOo+aV11mg=
@@ -372,6 +374,7 @@ golang.org/x/net v0.0.0-20200822124328-c89045814202/go.mod h1:/O7V0waA8r7cgGh81R
 golang.org/x/net v0.0.0-20210226172049-e18ecbb05110/go.mod h1:m0MpNAwzfU5UDzcl9v0D8zg8gWTRqZa9RBIspLL5mdg=
 golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4/go.mod h1:p54w0d4576C0XHj96bSt6lcn1PtDYWL6XObtHCRCNQM=
 golang.org/x/net v0.0.0-20210525063256-abc453219eb5/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
+golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
 golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd h1:O7DYs+zxREGLKzKoMQrtrEacpb0ZVXA5rIwylE2Xchk=
 golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd/go.mod h1:CfG3xpIq0wQ8r1q4Su4UZFWDARRcnwPjda9FqA0JpMk=
 golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be/go.mod h1:N/0e6XlmueqKjAGxoOufVs8QHGRruUQn6yWY3a++T0U=

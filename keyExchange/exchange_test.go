@@ -10,7 +10,6 @@ package keyExchange
 import (
 	"fmt"
 	"github.com/cloudflare/circl/dh/sidh"
-	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -22,6 +21,7 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"google.golang.org/protobuf/proto"
 	"math/rand"
 	"testing"
 	"time"

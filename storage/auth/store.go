@@ -31,11 +31,12 @@ const requestMapKey = "map"
 const requestMapVersion = 0
 
 type Store struct {
-	kv           *versioned.KV
-	grp          *cyclic.Group
-	requests     map[id.ID]*request
-	fingerprints map[format.Fingerprint]fingerprint
-	mux          sync.RWMutex
+	kv                   *versioned.KV
+	grp                  *cyclic.Group
+	requests             map[id.ID]*request
+	fingerprints         map[format.Fingerprint]fingerprint
+	previousNegotiations map[id.ID]struct{}
+	mux                  sync.RWMutex
 }
 
 // NewStore creates a new store. All passed in private keys are added as
@@ -43,10 +44,11 @@ type Store struct {
 func NewStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*Store, error) {
 	kv = kv.Prefix(storePrefix)
 	s := &Store{
-		kv:           kv,
-		grp:          grp,
-		requests:     make(map[id.ID]*request),
-		fingerprints: make(map[format.Fingerprint]fingerprint),
+		kv:                   kv,
+		grp:                  grp,
+		requests:             make(map[id.ID]*request),
+		fingerprints:         make(map[format.Fingerprint]fingerprint),
+		previousNegotiations: make(map[id.ID]struct{}),
 	}
 
 	for _, key := range privKeys {
@@ -57,6 +59,12 @@ func NewStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*Sto
 			PrivKey: key,
 			Request: nil,
 		}
+	}
+
+	err := s.savePreviousNegotiations()
+	if err != nil {
+		return nil, errors.Errorf(
+			"failed to load previousNegotiations partners: %+v", err)
 	}
 
 	return s, s.save()
@@ -72,10 +80,11 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 	}
 
 	s := &Store{
-		kv:           kv,
-		grp:          grp,
-		requests:     make(map[id.ID]*request),
-		fingerprints: make(map[format.Fingerprint]fingerprint),
+		kv:                   kv,
+		grp:                  grp,
+		requests:             make(map[id.ID]*request),
+		fingerprints:         make(map[format.Fingerprint]fingerprint),
+		previousNegotiations: make(map[id.ID]struct{}),
 	}
 
 	for _, key := range privKeys {
@@ -141,8 +150,15 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 			jww.FATAL.Panicf("Unknown request type: %d", r.rt)
 		}
 
-		//store in the request map
+		// store in the request map
 		s.requests[*rid] = r
+	}
+
+	// Load previous negotiations from storage
+	s.previousNegotiations, err = s.loadPreviousNegotiations()
+	if err != nil {
+		return nil, errors.Errorf("failed to load list of previouse "+
+			"negotation partner IDs: %+v", err)
 	}
 
 	return s, nil
@@ -403,7 +419,7 @@ func (s *Store) Done(partner *id.ID) {
 	r.mux.Unlock()
 }
 
-// delete is one of two calls after using a request. This one is to be used when
+// Delete is one of two calls after using a request. This one is to be used when
 // the use is unsuccessful. It deletes all references to the request associated
 // with the passed partner, if it exists. It will allow any thread waiting on
 // access to continue. They should fail due to the deletion of the structure.
@@ -418,16 +434,9 @@ func (s *Store) Delete(partner *id.ID) error {
 
 	switch r.rt {
 	case Sent:
-		delete(s.fingerprints, r.sent.fingerprint)
-		if err := r.sent.delete(); err != nil {
-			jww.FATAL.Panicf("Failed to delete sent request: %+v", err)
-		}
-
+		s.deleteSentRequest(r)
 	case Receive:
-		if err := util.DeleteContact(s.kv, r.receive.ID); err != nil {
-			jww.FATAL.Panicf("Failed to delete recieved request "+
-				"contact: %+v", err)
-		}
+		s.deleteReceiveRequest(r)
 	}
 
 	delete(s.requests, *partner)
@@ -436,5 +445,98 @@ func (s *Store) Delete(partner *id.ID) error {
 			"deletion: %+v", err)
 	}
 
+	err := s.deletePreviousNegotiationPartner(partner)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to delete partner negotiations: %+v", err)
+	}
+
 	return nil
+}
+
+// DeleteAllRequests clears the request map and all associated storage objects
+// containing request data.
+func (s *Store) DeleteAllRequests() error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	for partnerId, req := range s.requests {
+		switch req.rt {
+		case Sent:
+			s.deleteSentRequest(req)
+			delete(s.requests, partnerId)
+		case Receive:
+			s.deleteReceiveRequest(req)
+			delete(s.requests, partnerId)
+		}
+
+	}
+
+	if err := s.save(); err != nil {
+		jww.FATAL.Panicf("Failed to store updated request map after "+
+			"deleting all requests: %+v", err)
+	}
+
+	return nil
+}
+
+// DeleteSentRequests deletes all Sent requests from Store.
+func (s *Store) DeleteSentRequests() error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	for partnerId, req := range s.requests {
+		switch req.rt {
+		case Sent:
+			s.deleteSentRequest(req)
+			delete(s.requests, partnerId)
+		case Receive:
+			continue
+		}
+	}
+
+	if err := s.save(); err != nil {
+		jww.FATAL.Panicf("Failed to store updated request map after "+
+			"deleting all sent requests: %+v", err)
+	}
+
+	return nil
+}
+
+// DeleteReceiveRequests deletes all Receive requests from Store.
+func (s *Store) DeleteReceiveRequests() error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	for partnerId, req := range s.requests {
+		switch req.rt {
+		case Sent:
+			continue
+		case Receive:
+			s.deleteReceiveRequest(req)
+			delete(s.requests, partnerId)
+		}
+	}
+
+	if err := s.save(); err != nil {
+		jww.FATAL.Panicf("Failed to store updated request map after "+
+			"deleting all receive requests: %+v", err)
+	}
+
+	return nil
+}
+
+// deleteSentRequest is a helper function which deletes a Sent request from storage.
+func (s *Store) deleteSentRequest(r *request) {
+	delete(s.fingerprints, r.sent.fingerprint)
+	if err := r.sent.delete(); err != nil {
+		jww.FATAL.Panicf("Failed to delete sent request: %+v", err)
+	}
+}
+
+// deleteReceiveRequest is a helper function which deletes a Receive request from storage.
+func (s *Store) deleteReceiveRequest(r *request) {
+	if err := util.DeleteContact(s.kv, r.receive.ID); err != nil {
+		jww.FATAL.Panicf("Failed to delete recieved request "+
+			"contact: %+v", err)
+	}
 }

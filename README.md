@@ -27,7 +27,9 @@ The client is open source software released under the simplified BSD License.
 The command line tool is intended for testing xx network functionality and not
 for regular user use. 
 
-Compilation (assuming golang 1.13 or newer):
+These instructions assume that you have [Go 1.17.X installed](https://go.dev/doc/install), and GCC installed for Cgo (such as `build-essential` on Debian or Ubuntu).
+
+Compilation steps:
 
 ```
 git clone https://gitlab.com/elixxir/client.git client
@@ -160,10 +162,13 @@ Available Commands:
 Flags:
       --accept-channel            Accept the channel request for the corresponding recipient ID
       --auth-timeout uint         The number of seconds to wait for an authentication channelto confirm (default 120)
+      --delete-all-requests       Delete the all contact requests, both sent and received.
       --backupIn string           Path to load backup client from
       --backupOut string          Path to output backup client.
       --backupPass string         Passphrase to encrypt/decrypt backup
       --delete-channel            Delete the channel information for the corresponding recipient ID
+      --delete-receive-requests   Delete the all received contact requests.
+      --delete-sent-requests      Delete the all sent contact requests.
       --destfile string           Read this contact file for the destination id
   -d, --destid string             ID to send message to (if below 40, will be precanned. Use '0x' or 'b64:' for hex and base64 representations) (default "0")
       --e2eMaxKeys uint           Max keys used before blocking until a rekey completes (default 800)

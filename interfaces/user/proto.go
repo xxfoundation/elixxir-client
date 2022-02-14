@@ -23,10 +23,6 @@ type Proto struct {
 	TransmissionRegValidationSig []byte
 	ReceptionRegValidationSig    []byte
 
-	//cmix Identity
-	CmixDhPrivateKey *cyclic.Int
-	CmixDhPublicKey  *cyclic.Int
-
 	//e2e Identity
 	E2eDhPrivateKey *cyclic.Int
 	E2eDhPublicKey  *cyclic.Int

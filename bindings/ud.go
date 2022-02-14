@@ -103,6 +103,33 @@ func (ud *UserDiscovery) RemoveUser(fStr string) error {
 	return ud.ud.RemoveUser(f)
 }
 
+// BackUpMissingFacts adds a registered fact to the Store object. It can take in both an
+// email and a phone number. One or the other may be nil, however both is considered
+// an error. It checks for the proper fact type for the associated fact.
+// Any other fact.FactType is not accepted and returns an error and nothing is backed up.
+// If you attempt to back up a fact type that has already been backed up,
+// an error will be returned and nothing will be backed up.
+// Otherwise, it adds the fact and returns whether the Store saved successfully.
+func (ud *UserDiscovery) BackUpMissingFacts(email, phone string) error {
+	var emailFact, phoneFact fact.Fact
+	var err error
+	if len(email) > 2 {
+		emailFact, err = fact.UnstringifyFact(email)
+		if err != nil {
+			return errors.WithMessagef(err, "Failed to parse malformed email fact: %s", email)
+		}
+	}
+
+	if len(phone) > 2 {
+		phoneFact, err = fact.UnstringifyFact(phone)
+		if err != nil {
+			return errors.WithMessagef(err, "Failed to parse malformed phone fact: %s", phone)
+		}
+	}
+
+	return ud.ud.BackUpMissingFacts(emailFact, phoneFact)
+}
+
 // SearchCallback returns the result of a search
 type SearchCallback interface {
 	Callback(contacts *ContactList, error string)

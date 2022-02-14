@@ -24,6 +24,7 @@ import (
 	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
+	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/version"
@@ -160,6 +161,49 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 	}
 
 	//TODO: close the session
+	return nil
+}
+
+// NewClientFromBackup constructs a new Client from an encrypted backup. The backup
+// is decrypted using the backupPassphrase.
+func NewClientFromBackup(ndfJSON, storageDir, sessionPassword,
+	backupPassphrase string, backupFileContents []byte) error {
+
+	backUp := &backup.Backup{}
+	err := backUp.Decrypt([]byte(backupPassphrase), backupFileContents)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to unmarshal decrypted client contents.")
+	}
+
+	usr := user.NewUserFromBackup(backUp)
+
+	// Parse the NDF
+	def, err := parseNDF(ndfJSON)
+	if err != nil {
+		return err
+	}
+
+	cmixGrp, e2eGrp := decodeGroups(def)
+
+	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+
+	// Create storage object.
+	// Note we do not need registration
+	storageSess, err := checkVersionAndSetupStorage(def, storageDir, []byte(sessionPassword), usr,
+		cmixGrp, e2eGrp, rngStreamGen, false, backUp.RegistrationCode)
+
+	// Set registration values in storage
+	storageSess.User().SetReceptionRegistrationValidationSignature(backUp.ReceptionIdentity.RegistrarSignature)
+	storageSess.User().SetTransmissionRegistrationValidationSignature(backUp.TransmissionIdentity.RegistrarSignature)
+	storageSess.User().SetRegistrationTimestamp(backUp.RegistrationTimestamp)
+
+	//move the registration state to indicate registered with registration on proto client
+	err = storageSess.ForwardRegistrationStatus(storage.PermissioningComplete)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

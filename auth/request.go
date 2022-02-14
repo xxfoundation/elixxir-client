@@ -82,20 +82,20 @@ func requestAuth(partner, me contact.Contact, rng io.Reader, reset bool,
 		return 0, errors.WithMessage(err,
 			"Cannot send a request after receiving unknown error "+
 				"on requesting contact status")
-	}
-
-	switch rqType {
-	case auth.Receive:
-		// TODO: We've already received a request, so send a
-		//       confirmation instead?
-		return 0, errors.Errorf("Cannot send a request after " +
-			"receiving a request")
-	case auth.Sent:
-		resend = true
-	default:
-		return 0, errors.Errorf("Cannot send a request after "+
-			" a stored request with unknown rqType: %d",
-			rqType)
+	} else if err == nil {
+		switch rqType {
+		case auth.Receive:
+			// TODO: We've already received a request, so send a
+			//       confirmation instead?
+			return 0, errors.Errorf("Cannot send a request after " +
+				"receiving a request")
+		case auth.Sent:
+			resend = true
+		default:
+			return 0, errors.Errorf("Cannot send a request after "+
+				"a stored request with unknown rqType: %d",
+				rqType)
+		}
 	}
 
 	/*cryptographic generation*/

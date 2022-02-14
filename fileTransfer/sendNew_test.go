@@ -10,7 +10,6 @@ package fileTransfer
 import (
 	"fmt"
 	"github.com/cloudflare/circl/dh/sidh"
-	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	util "gitlab.com/elixxir/client/storage/utility"
@@ -18,6 +17,7 @@ import (
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
+	"google.golang.org/protobuf/proto"
 	"reflect"
 	"strings"
 	"testing"

@@ -9,7 +9,6 @@ package keyExchange
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -24,6 +23,7 @@ import (
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/primitives/states"
+	"google.golang.org/protobuf/proto"
 	"time"
 )
 
@@ -164,8 +164,8 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 		session, msgID)
 	err = session.TrySetNegotiationStatus(e2e.Sent)
 	if err != nil {
-		if (session.NegotiationStatus() == e2e.NewSessionTriggered) {
-			msg := fmt.Sprintf("All channels exhausted for %s, " +
+		if session.NegotiationStatus() == e2e.NewSessionTriggered {
+			msg := fmt.Sprintf("All channels exhausted for %s, "+
 				"rekey impossible.", session)
 			return errors.WithMessage(err, msg)
 		}

@@ -88,6 +88,9 @@ func TestLoadStore(t *testing.T) {
 		t.Fatalf("AddSent() produced an error: %+v", err)
 	}
 
+	s.AddIfNew(
+		sr.partner, auth.CreateNegotiationFingerprint(privKeys[0], sidhPubKey))
+
 	// Attempt to load the store
 	store, err := LoadStore(kv, s.grp, privKeys)
 	if err != nil {
@@ -901,6 +904,170 @@ func TestStore_GetAllReceived_MixSentReceived(t *testing.T) {
 			"It may be pulling from Sent Requests."+
 			"\nExpected: %d"+
 			"\nReceived: %d", numReceived, len(receivedContactList))
+	}
+
+}
+
+// Unit test.
+func TestStore_DeleteReceiveRequests(t *testing.T) {
+	s, _, _ := makeTestStore(t)
+	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+	rng := csprng.NewSystemRNG()
+	_, sidhPubKey := genSidhAKeys(rng)
+	if err := s.AddReceived(c, sidhPubKey); err != nil {
+		t.Fatalf("AddReceived() returned an error: %+v", err)
+	}
+	if _, _, err := s.GetReceivedRequest(c.ID); err != nil {
+		t.Fatalf("GetReceivedRequest() returned an error: %+v", err)
+	}
+
+	err := s.DeleteReceiveRequests()
+	if err != nil {
+		t.Fatalf("DeleteReceiveRequests returned an error: %+v", err)
+	}
+
+	if s.requests[*c.ID] != nil {
+		t.Errorf("delete() failed to delete request for user %s.", c.ID)
+	}
+}
+
+// Unit test.
+func TestStore_DeleteSentRequests(t *testing.T) {
+	s, _, _ := makeTestStore(t)
+	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+	rng := csprng.NewSystemRNG()
+	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
+	sr := &SentRequest{
+		kv:                      s.kv,
+		partner:                 partnerID,
+		partnerHistoricalPubKey: s.grp.NewInt(1),
+		myPrivKey:               s.grp.NewInt(2),
+		myPubKey:                s.grp.NewInt(3),
+		mySidHPrivKeyA:          sidhPrivKey,
+		mySidHPubKeyA:           sidhPubKey,
+		fingerprint:             format.Fingerprint{5},
+	}
+	if err := s.AddSent(sr.partner, sr.partnerHistoricalPubKey,
+		sr.myPrivKey, sr.myPubKey, sr.mySidHPrivKeyA,
+		sr.mySidHPubKeyA, sr.fingerprint); err != nil {
+		t.Fatalf("AddSent() returned an error: %+v", err)
+	}
+
+	err := s.DeleteSentRequests()
+	if err != nil {
+		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
+	}
+
+	if s.requests[*sr.partner] != nil {
+		t.Errorf("delete() failed to delete request for user %s.",
+			sr.partner)
+	}
+
+	if _, exists := s.fingerprints[sr.fingerprint]; exists {
+		t.Errorf("delete() failed to delete fingerprint for fp %v.",
+			sr.fingerprint)
+	}
+}
+
+// Tests that DeleteSentRequests does not affect receive requests in map
+func TestStore_DeleteSentRequests_ReceiveInMap(t *testing.T) {
+	s, _, _ := makeTestStore(t)
+	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+	rng := csprng.NewSystemRNG()
+	_, sidhPubKey := genSidhAKeys(rng)
+	if err := s.AddReceived(c, sidhPubKey); err != nil {
+		t.Fatalf("AddReceived() returned an error: %+v", err)
+	}
+
+	err := s.DeleteSentRequests()
+	if err != nil {
+		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
+	}
+
+	if s.requests[*c.ID] == nil {
+		t.Fatalf("DeleteSentRequests removes receive requests!")
+	}
+
+}
+
+// Tests that DeleteReceiveRequests does not affect sent requests in map
+func TestStore_DeleteReceiveRequests_SentInMap(t *testing.T) {
+	s, _, _ := makeTestStore(t)
+	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+	rng := csprng.NewSystemRNG()
+	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
+	sr := &SentRequest{
+		kv:                      s.kv,
+		partner:                 partnerID,
+		partnerHistoricalPubKey: s.grp.NewInt(1),
+		myPrivKey:               s.grp.NewInt(2),
+		myPubKey:                s.grp.NewInt(3),
+		mySidHPrivKeyA:          sidhPrivKey,
+		mySidHPubKeyA:           sidhPubKey,
+		fingerprint:             format.Fingerprint{5},
+	}
+	if err := s.AddSent(sr.partner, sr.partnerHistoricalPubKey,
+		sr.myPrivKey, sr.myPubKey, sr.mySidHPrivKeyA,
+		sr.mySidHPubKeyA, sr.fingerprint); err != nil {
+		t.Fatalf("AddSent() returned an error: %+v", err)
+	}
+
+	err := s.DeleteReceiveRequests()
+	if err != nil {
+		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
+	}
+
+	if s.requests[*partnerID] == nil {
+		t.Fatalf("DeleteReceiveRequests removes sent requests!")
+	}
+
+}
+
+// Unit test.
+func TestStore_DeleteAllRequests(t *testing.T) {
+	s, _, _ := makeTestStore(t)
+	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+	rng := csprng.NewSystemRNG()
+	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
+	sr := &SentRequest{
+		kv:                      s.kv,
+		partner:                 partnerID,
+		partnerHistoricalPubKey: s.grp.NewInt(1),
+		myPrivKey:               s.grp.NewInt(2),
+		myPubKey:                s.grp.NewInt(3),
+		mySidHPrivKeyA:          sidhPrivKey,
+		mySidHPubKeyA:           sidhPubKey,
+		fingerprint:             format.Fingerprint{5},
+	}
+	if err := s.AddSent(sr.partner, sr.partnerHistoricalPubKey,
+		sr.myPrivKey, sr.myPubKey, sr.mySidHPrivKeyA,
+		sr.mySidHPubKeyA, sr.fingerprint); err != nil {
+		t.Fatalf("AddSent() returned an error: %+v", err)
+	}
+
+	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+	_, sidhPubKey = genSidhAKeys(rng)
+	if err := s.AddReceived(c, sidhPubKey); err != nil {
+		t.Fatalf("AddReceived() returned an error: %+v", err)
+	}
+
+	err := s.DeleteAllRequests()
+	if err != nil {
+		t.Fatalf("DeleteAllRequests returned an error: %+v", err)
+	}
+
+	if s.requests[*sr.partner] != nil {
+		t.Errorf("delete() failed to delete request for user %s.",
+			sr.partner)
+	}
+
+	if _, exists := s.fingerprints[sr.fingerprint]; exists {
+		t.Errorf("delete() failed to delete fingerprint for fp %v.",
+			sr.fingerprint)
+	}
+
+	if s.requests[*c.ID] != nil {
+		t.Errorf("delete() failed to delete request for user %s.", c.ID)
 	}
 
 }

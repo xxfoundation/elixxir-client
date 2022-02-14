@@ -43,7 +43,18 @@ type Manager struct {
 	single SingleInterface
 	myID   *id.ID
 
+	// alternate User discovery service to circumvent production
+	alternativeUd *alternateUd
+
 	registered *uint32
+}
+
+// alternateUd is an alternative user discovery service.
+// This is used for testing, so client can avoid using
+// the production server.
+type alternateUd struct {
+	host     *connect.Host
+	dhPubKey []byte
 }
 
 // NewManager builds a new user discovery manager. It requires that an updated
@@ -95,6 +106,51 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 	return m, nil
 }
 
+// SetAlternativeUserDiscovery sets the alternativeUd object within manager.
+// Once set, any user discovery operation will go through the alternative
+// user discovery service.
+// To undo this operation, use UnsetAlternativeUserDiscovery.
+func (m *Manager) SetAlternativeUserDiscovery(altCert, altAddress, contactFile []byte) error {
+	params := connect.GetDefaultHostParams()
+	params.AuthEnabled = false
+
+	udIdBytes, dhPubKey, err := contact.ReadContactFromFile(contactFile)
+	if err != nil {
+		return err
+	}
+
+	udID, err := id.Unmarshal(udIdBytes)
+	if err != nil {
+		return err
+	}
+
+	// Add a new host and return it if it does not already exist
+	host, err := m.comms.AddHost(udID, string(altAddress),
+		altCert, params)
+	if err != nil {
+		return errors.WithMessage(err, "User Discovery host object could "+
+			"not be constructed.")
+	}
+
+	m.alternativeUd = &alternateUd{
+		host:     host,
+		dhPubKey: dhPubKey,
+	}
+
+	return nil
+}
+
+// UnsetAlternativeUserDiscovery clears out the information from
+// the Manager object.
+func (m *Manager) UnsetAlternativeUserDiscovery() error {
+	if m.alternativeUd == nil {
+		return errors.New("Alternative User Discovery is already unset.")
+	}
+
+	m.alternativeUd = nil
+	return nil
+}
+
 // BackUpMissingFacts adds a registered fact to the Store object. It can take in both an
 // email and a phone number. One or the other may be nil, however both is considered
 // an error. It checks for the proper fact type for the associated fact.
@@ -121,8 +177,12 @@ func (m *Manager) GetStringifiedFacts() []string {
 // getHost returns the current UD host for the UD ID found in the NDF. If the
 // host does not exist, then it is added and returned
 func (m *Manager) getHost() (*connect.Host, error) {
-	netDef := m.net.GetInstance().GetPartialNdf().Get()
+	// Return alternative User discovery service if it has been set
+	if m.alternativeUd != nil {
+		return m.alternativeUd.host, nil
+	}
 
+	netDef := m.net.GetInstance().GetPartialNdf().Get()
 	// Unmarshal UD ID from the NDF
 	udID, err := id.Unmarshal(netDef.UDB.ID)
 	if err != nil {
@@ -137,6 +197,7 @@ func (m *Manager) getHost() (*connect.Host, error) {
 
 	params := connect.GetDefaultHostParams()
 	params.AuthEnabled = false
+	params.SendTimeout = 20 * time.Second
 
 	// Add a new host and return it if it does not already exist
 	host, err = m.comms.AddHost(udID, netDef.UDB.Address,
@@ -151,6 +212,23 @@ func (m *Manager) getHost() (*connect.Host, error) {
 
 // getContact returns the contact for UD as retrieved from the NDF.
 func (m *Manager) getContact() (contact.Contact, error) {
+	// Return alternative User discovery contact if set
+	if m.alternativeUd != nil {
+		// Unmarshal UD DH public key
+		alternativeDhPubKey := m.storage.E2e().GetGroup().NewInt(1)
+		if err := alternativeDhPubKey.UnmarshalJSON(m.alternativeUd.dhPubKey); err != nil {
+			return contact.Contact{},
+				errors.WithMessage(err, "Failed to unmarshal UD DH public key.")
+		}
+
+		return contact.Contact{
+			ID:             m.alternativeUd.host.GetId(),
+			DhPubKey:       alternativeDhPubKey,
+			OwnershipProof: nil,
+			Facts:          nil,
+		}, nil
+	}
+
 	netDef := m.net.GetInstance().GetPartialNdf().Get()
 
 	// Unmarshal UD ID from the NDF

@@ -13,6 +13,15 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+	"runtime/pprof"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -24,14 +33,6 @@ import (
 	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
-	"io/ioutil"
-	"log"
-	"os"
-	"runtime/pprof"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 )
 
 // Deployment environment constants for the download-ndf code path
@@ -278,6 +279,12 @@ var rootCmd = &cobra.Command{
 			addPrecanAuthenticatedChannel(client,
 				recipientID, recipientContact)
 			authConfirmed = true
+		} else if !unsafe && authConfirmed && !isPrecanPartner &&
+			sendAuthReq {
+			jww.WARN.Printf("Resetting negotiated auth channel")
+			resetAuthenticatedChannel(client, recipientID,
+				recipientContact)
+			authConfirmed = false
 		}
 
 		if !unsafe && !authConfirmed {
@@ -302,6 +309,18 @@ var rootCmd = &cobra.Command{
 		// Delete this recipient
 		if viper.GetBool("delete-channel") {
 			deleteChannel(client, recipientID)
+		}
+
+		if viper.GetBool("delete-receive-requests") {
+			client.DeleteReceiveRequests()
+		}
+
+		if viper.GetBool("delete-sent-requests") {
+			client.DeleteSentRequests()
+		}
+
+		if viper.GetBool("delete-all-requests") {
+			client.DeleteAllRequests()
 		}
 
 		msg := message.Send{
@@ -745,6 +764,43 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 	}
 }
 
+func resetAuthenticatedChannel(client *api.Client, recipientID *id.ID,
+	recipient contact.Contact) {
+	var allowed bool
+	if viper.GetBool("unsafe-channel-creation") {
+		msg := "unsafe channel creation enabled\n"
+		jww.WARN.Printf(msg)
+		fmt.Printf("WARNING: %s", msg)
+		allowed = true
+	} else {
+		allowed = askToCreateChannel(recipientID)
+	}
+	if !allowed {
+		jww.FATAL.Panicf("User did not allow channel reset!")
+	}
+
+	msg := fmt.Sprintf("Resetting authenticated channel for: %s\n",
+		recipientID)
+	jww.INFO.Printf(msg)
+	fmt.Printf(msg)
+
+	recipientContact := recipient
+
+	if recipientContact.ID != nil && recipientContact.DhPubKey != nil {
+		me := client.GetUser().GetContact()
+		jww.INFO.Printf("Requesting auth channel from: %s",
+			recipientID)
+		_, err := client.ResetSession(recipientContact,
+			me, msg)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+	} else {
+		jww.ERROR.Printf("Could not reset auth channel for %s",
+			recipientID)
+	}
+}
+
 func waitUntilConnected(connected chan bool) {
 	waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
 	timeoutTimer := time.NewTimer(waitTimeout * time.Second)
@@ -1029,6 +1085,21 @@ func init() {
 		"Delete the channel information for the corresponding recipient ID")
 	viper.BindPFlag("delete-channel",
 		rootCmd.PersistentFlags().Lookup("delete-channel"))
+
+	rootCmd.PersistentFlags().Bool("delete-receive-requests", false,
+		"Delete the all received contact requests.")
+	viper.BindPFlag("delete-receive-requests",
+		rootCmd.PersistentFlags().Lookup("delete-receive-requests"))
+
+	rootCmd.PersistentFlags().Bool("delete-sent-requests", false,
+		"Delete the all sent contact requests.")
+	viper.BindPFlag("delete-sent-requests",
+		rootCmd.PersistentFlags().Lookup("delete-sent-requests"))
+
+	rootCmd.PersistentFlags().Bool("delete-all-requests", false,
+		"Delete the all contact requests, both sent and received.")
+	viper.BindPFlag("delete-all-requests",
+		rootCmd.PersistentFlags().Lookup("delete-all-requests"))
 
 	rootCmd.Flags().BoolP("send-auth-request", "", false,
 		"Send an auth request to the specified destination and wait"+

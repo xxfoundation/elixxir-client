@@ -28,6 +28,7 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 func (m *Manager) StartProcesses() (stoppable.Stoppable, error) {
@@ -92,6 +93,7 @@ func (m *Manager) processAuthMessage(msg message.Receive) {
 func (m *Manager) handleRequest(cmixMsg format.Message,
 	myHistoricalPrivKey *cyclic.Int, grp *cyclic.Group) {
 	//decode the outer format
+	fp := cmixMsg.GetKeyFP()
 	baseFmt, partnerPubKey, err := handleBaseFormat(
 		cmixMsg, grp)
 	if err != nil {
@@ -153,6 +155,60 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	events.Report(1, "Auth", "RequestReceived", em)
 
 	/*do state edge checks*/
+	// Check if this is a reset, which are valid as of version 1
+	// Resets happen when our fingerprint is new AND we are
+	// the latest fingerprint to be added to the list and we already have
+	// a negotiation or authenticated channel in progress
+	newFP, latest := m.storage.Auth().AddIfNew(partnerID, fp[:])
+	resetSession := false
+	autoConfirm := false
+	if baseFmt.GetVersion() >= 1 && newFP && latest {
+		// If we had an existing session and it's new, then yes, we
+		// want to reset
+		if _, err := m.storage.E2e().GetPartner(partnerID); err == nil {
+			resetSession = true
+			// Most likely, we got 2 reset sessions at once, so this
+			// is a non-fatal error but we will record a warning
+			// just in case.
+			err = m.storage.E2e().DeletePartner(partnerID)
+			if err != nil {
+				jww.WARN.Printf("Unable to delete channel: %+v",
+					err)
+			}
+		}
+		// If we had an existing negotiation open, then it depends
+
+		// If we've only received, then user has not confirmed, treat as
+		// a non-duplicate request, so delete the old one (to cause new
+		// callback to be called)
+		rType, _, _, err := m.storage.Auth().GetRequest(partnerID)
+		if err != nil && rType == auth.Receive {
+			m.storage.Auth().Delete(partnerID)
+		}
+
+		// If we've already Sent and are now receiving,
+		// then we attempt auto-confirm as below
+		// This poses a potential problem if it is truly a session
+		// reset by the other user, because we may not actually
+		// autoconfirm based on our public key compared to theirs.
+		// This could result in a permanently broken association, as
+		// the other side has attempted to reset it's session and
+		// can no longer detect a sent request collision, so this side
+		// cannot ever successfully resend.
+		// We prevent this by stopping session resets if they
+		// are called when the other side is in the "Sent" state.
+		// If the other side is in the "received" state we also block,
+		// but we could autoconfirm.
+		// Note that you can still get into this state by one side
+		// deleting requests. In that case, both sides need to clear
+		// out all requests and retry negotiation from scratch.
+		// NOTE: This protocol part could use an overhaul/second look,
+		//       there's got to be a way to do this with far less state
+		//       but this is the spec so we're sticking with it for now.
+
+		// If not an existing request, we do nothing.
+	}
+
 	// check if a relationship already exists.
 	// if it does and the keys used are the same as we have, send a
 	// confirmation in case there are state issues.
@@ -232,57 +288,13 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				// If I do, delete my request on disk
 				m.storage.Auth().Delete(partnerID)
 
-				//process the inner payload
-				facts, _, err := fact.UnstringifyFactList(
-					string(requestFmt.msgPayload))
-				if err != nil {
-					em := fmt.Sprintf("failed to parse facts and message "+
-						"from Auth Request: %s", err)
-					jww.WARN.Print(em)
-					events.Report(10, "Auth", "RequestError", em)
-					return
-				}
-
+				// Do the normal, fall out of this if block and
 				// create the contact, note that we use the data
 				// sent in the request and not any data we had
 				// already
-				partnerContact := contact.Contact{
-					ID:             partnerID,
-					DhPubKey:       partnerPubKey,
-					OwnershipProof: copySlice(ownership),
-					Facts:          facts,
-				}
 
-				// add a confirmation to disk
-				if err = m.storage.Auth().AddReceived(partnerContact,
-					partnerSIDHPubKey); err != nil {
-					em := fmt.Sprintf("failed to store contact Auth "+
-						"Request: %s", err)
-					jww.WARN.Print(em)
-					events.Report(10, "Auth", "RequestError", em)
-				}
+				autoConfirm = true
 
-				// Call ConfirmRequestAuth to send confirmation
-				rngGen := fastRNG.NewStreamGenerator(1, 1,
-					csprng.NewSystemRNG)
-				rng := rngGen.GetStream()
-				rndNum, err := ConfirmRequestAuth(partnerContact,
-					rng, m.storage, m.net)
-				if err != nil {
-					jww.ERROR.Printf("Could not ConfirmRequestAuth: %+v",
-						err)
-					return
-				}
-
-				jww.INFO.Printf("ConfirmRequestAuth to %s on round %d",
-					partnerID, rndNum)
-				c := partnerContact
-				cbList := m.confirmCallbacks.Get(c.ID)
-				for _, cb := range cbList {
-					ccb := cb.(interfaces.ConfirmCallback)
-					go ccb(c)
-				}
-				return
 			}
 		}
 	}
@@ -315,6 +327,42 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		jww.WARN.Print(em)
 		events.Report(10, "Auth", "RequestError", em)
 		return
+	}
+
+	// We autoconfirm anytime we had already sent a request OR we are
+	// resetting an existing session
+	var rndNum id.Round
+	if autoConfirm || resetSession {
+		// Call ConfirmRequestAuth to send confirmation
+		rngGen := fastRNG.NewStreamGenerator(1, 1,
+			csprng.NewSystemRNG)
+		rng := rngGen.GetStream()
+		rndNum, err = ConfirmRequestAuth(c,
+			rng, m.storage, m.net)
+		if err != nil {
+			jww.ERROR.Printf("Could not ConfirmRequestAuth: %+v",
+				err)
+			return
+		}
+
+		if autoConfirm {
+			jww.INFO.Printf("ConfirmRequestAuth to %s on round %d",
+				partnerID, rndNum)
+			cbList := m.confirmCallbacks.Get(c.ID)
+			for _, cb := range cbList {
+				ccb := cb.(interfaces.ConfirmCallback)
+				go ccb(c)
+			}
+		}
+		if resetSession {
+			jww.INFO.Printf("ConfirmRequestAuth to %s on round %d",
+				partnerID, rndNum)
+			cbList := m.resetCallbacks.Get(c.ID)
+			for _, cb := range cbList {
+				ccb := cb.(interfaces.ResetCallback)
+				go ccb(c)
+			}
+		}
 	}
 
 	//  fixme: if a crash occurs before or during the calls, the notification

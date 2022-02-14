@@ -18,6 +18,7 @@ import (
 type Manager struct {
 	requestCallbacks *callbackMap
 	confirmCallbacks *callbackMap
+	resetCallbacks   *callbackMap
 
 	rawMessages chan message.Receive
 
@@ -32,6 +33,7 @@ func NewManager(sw interfaces.Switchboard, storage *storage.Session,
 	m := &Manager{
 		requestCallbacks: newCallbackMap(),
 		confirmCallbacks: newCallbackMap(),
+		resetCallbacks:   newCallbackMap(),
 		rawMessages:      make(chan message.Receive, 1000),
 		storage:          storage,
 		net:              net,
@@ -91,6 +93,11 @@ func (m *Manager) AddSpecificConfirmCallback(id *id.ID, cb interfaces.ConfirmCal
 // Removes a specific callback to be used on auth confirm.
 func (m *Manager) RemoveSpecificConfirmCallback(id *id.ID) {
 	m.confirmCallbacks.RemoveSpecific(id)
+}
+
+// Adds a general callback to be used on auth session renegotiations.
+func (m *Manager) AddResetCallback(cb interfaces.ResetCallback) {
+	m.resetCallbacks.AddOverride(cb)
 }
 
 // ReplayRequests will iterate through all pending contact requests and resend them

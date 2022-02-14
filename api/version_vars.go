@@ -12,7 +12,7 @@ go 1.13
 require (
 	github.com/cloudflare/circl v1.0.1-0.20211008185751-59b49bc148ce
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
-	google.golang.org/protobuf v1.5.2
+	github.com/golang/protobuf v1.5.2
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mitchellh/mapstructure v1.4.0 // indirect

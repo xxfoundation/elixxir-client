@@ -1,6 +1,7 @@
 package ud
 
 import (
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/stoppable"
@@ -10,7 +11,6 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
-	"google.golang.org/protobuf/proto"
 	"math/rand"
 	"reflect"
 	"strings"

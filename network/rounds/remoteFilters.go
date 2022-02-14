@@ -23,10 +23,10 @@ func NewRemoteFilter(data *mixmessages.ClientBloom) *RemoteFilter {
 
 type RemoteFilter struct {
 	data   *mixmessages.ClientBloom
-	filter *bloom.Bloom
+	filter *bloom.Ring
 }
 
-func (rf *RemoteFilter) GetFilter() *bloom.Bloom {
+func (rf *RemoteFilter) GetFilter() *bloom.Ring {
 
 	if rf.filter == nil {
 		var err error

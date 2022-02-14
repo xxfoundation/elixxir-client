@@ -8,12 +8,12 @@
 package registration
 
 import (
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	"google.golang.org/protobuf/proto"
 )
 
 func (perm *Registration) Register(transmissionPublicKey, receptionPublicKey *rsa.PublicKey,

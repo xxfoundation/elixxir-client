@@ -10,13 +10,13 @@ package groupChat
 import (
 	"fmt"
 	"github.com/cloudflare/circl/dh/sidh"
+	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"google.golang.org/protobuf/proto"
 	"math/rand"
 	"reflect"
 	"sort"
@@ -38,7 +38,7 @@ func TestManager_ResendRequest(t *testing.T) {
 		Created:     g.Created.UnixNano(),
 	}
 
-	for i := range g.Members {
+	for i := range g.Members{
 		grp := m.store.E2e().GetGroup()
 		dhKey := grp.NewInt(int64(i + 42))
 		pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
@@ -59,6 +59,7 @@ func TestManager_ResendRequest(t *testing.T) {
 	if err != nil {
 		t.Errorf("ResendRequest() returned an error: %+v", err)
 	}
+
 
 	if status != AllSent {
 		t.Errorf("ResendRequest() failed to return the expected status."+
@@ -134,7 +135,7 @@ func TestManager_sendRequests(t *testing.T) {
 		Created:     g.Created.UnixNano(),
 	}
 
-	for i := range g.Members {
+	for i := range g.Members{
 		grp := m.store.E2e().GetGroup()
 		dhKey := grp.NewInt(int64(i + 42))
 		pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
@@ -234,7 +235,7 @@ func TestManager_sendRequests_SendPartialSent(t *testing.T) {
 	expectedErr := fmt.Sprintf(sendRequestPartialErr, (len(g.Members)-1)/2,
 		len(g.Members)-1, "")
 
-	for i := range g.Members {
+	for i := range g.Members{
 		grp := m.store.E2e().GetGroup()
 		dhKey := grp.NewInt(int64(i + 42))
 		pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
@@ -273,7 +274,7 @@ func TestManager_sendRequest(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
 
-	for i := range g.Members {
+	for i := range g.Members{
 		grp := m.store.E2e().GetGroup()
 		dhKey := grp.NewInt(int64(i + 42))
 		pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
@@ -330,6 +331,7 @@ func TestManager_sendRequest_SendE2eError(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to add partner %s: %+v", recipientID, err)
 	}
+
 
 	_, err = m.sendRequest(recipientID, nil)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {

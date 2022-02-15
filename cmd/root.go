@@ -14,8 +14,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"gitlab.com/elixxir/client/single"
-	"gitlab.com/elixxir/client/ud"
 	"io/ioutil"
 	"log"
 	"os"
@@ -526,7 +524,6 @@ func createClient() *api.Client {
 	protoUserPath := viper.GetString("protoUserPath")
 	backupPath := viper.GetString("backupIn")
 	backupPass := viper.GetString("backupPass")
-	backupPartnerList := viper.GetString("backupPartnerList")
 
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
@@ -581,20 +578,6 @@ func createClient() *api.Client {
 			err = api.NewClientFromBackup(string(ndfJSON), storeDir,
 				pass, backupPass, backupFile)
 
-			// Make single-use manager and start receiving process
-			singleMng := single.NewManager(client)
-			err = client.AddService(singleMng.StartProcesses)
-			if err != nil {
-				jww.FATAL.Panicf("Failed to add single use process: %+v", err)
-			}
-
-			// Make user discovery manager
-			userDiscoveryMgr, err := ud.NewManager(client, singleMng)
-			if err != nil {
-				jww.FATAL.Panicf("Failed to create new UD manager: %+v", err)
-			}
-
-			userDiscoveryMgr.BatchLookup(b.Contacts)
 		} else {
 			err = api.NewClient(string(ndfJSON), storeDir,
 				[]byte(pass), regCode)

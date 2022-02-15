@@ -91,7 +91,6 @@ func (m *Manager) processAuthMessage(msg message.Receive) {
 func (m *Manager) handleRequest(cmixMsg format.Message,
 	myHistoricalPrivKey *cyclic.Int, grp *cyclic.Group) {
 	//decode the outer format
-	fp := cmixMsg.GetKeyFP()
 	baseFmt, partnerPubKey, err := handleBaseFormat(
 		cmixMsg, grp)
 	if err != nil {
@@ -157,13 +156,16 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	// Resets happen when our fingerprint is new AND we are
 	// the latest fingerprint to be added to the list and we already have
 	// a negotiation or authenticated channel in progress
-	newFP, latest := m.storage.Auth().AddIfNew(partnerID, fp[:])
+	fp := cAuth.CreateNegotiationFingerprint(partnerPubKey,
+		partnerSIDHPubKey)
+	newFP, latest := m.storage.Auth().AddIfNew(partnerID, fp)
 	resetSession := false
 	autoConfirm := false
 	if baseFmt.GetVersion() >= 1 && newFP && latest {
 		// If we had an existing session and it's new, then yes, we
 		// want to reset
 		if _, err := m.storage.E2e().GetPartner(partnerID); err == nil {
+			jww.INFO.Printf("Resetting session for %s", partnerID)
 			resetSession = true
 			// Most likely, we got 2 reset sessions at once, so this
 			// is a non-fatal error but we will record a warning
@@ -173,6 +175,8 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				jww.WARN.Printf("Unable to delete channel: %+v",
 					err)
 			}
+			// Also delete any existing request, sent or received
+			m.storage.Auth().Delete(partnerID)
 		}
 		// If we had an existing negotiation open, then it depends
 
@@ -205,6 +209,9 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		//       but this is the spec so we're sticking with it for now.
 
 		// If not an existing request, we do nothing.
+	} else {
+		jww.WARN.Printf("Version: %d, newFP: %v, latest: %v", baseFmt.GetVersion(),
+			newFP, latest)
 	}
 
 	// check if a relationship already exists.

@@ -46,16 +46,19 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 func ResetSession(partner, me contact.Contact, rng io.Reader,
 	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
 
+	// Delete authenticated channel if it exists.
+	if err := storage.E2e().DeletePartner(partner.ID); err != nil {
+		jww.WARN.Printf("Unable to delete partner when "+
+			"resetting session: %+v", err)
+	} else {
+		// Delete any stored sent/received requests
+		storage.Auth().Delete(partner.ID)
+	}
+
 	rqType, _, _, err := storage.Auth().GetRequest(partner.ID)
 	if err == nil && rqType == auth.Sent {
 		return 0, errors.New("Cannot reset a session after " +
 			"sending request, caller must resend request instead")
-	}
-
-	// Delete authenticated channel if it exists.
-	if err := storage.E2e().DeletePartner(partner.ID); err == nil {
-		jww.WARN.Printf("Unable to delete partner when "+
-			"resetting session: %+v", err)
 	}
 
 	// Try to initiate a clean session request

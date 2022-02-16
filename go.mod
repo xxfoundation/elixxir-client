@@ -15,10 +15,10 @@ require (
 	gitlab.com/elixxir/comms v0.0.4-0.20220214214811-4a1bd320aa45
 	gitlab.com/elixxir/crypto v0.0.7-0.20220211185439-4a6d9f41f8ab
 	gitlab.com/elixxir/ekv v0.1.6
-	gitlab.com/elixxir/primitives v0.0.3-0.20220211185255-f9bc3df21e1d
-	gitlab.com/xx_network/comms v0.0.4-0.20220211184526-00dc9cfe8e2e
-	gitlab.com/xx_network/crypto v0.0.5-0.20220211184244-5803ecaafd59
-	gitlab.com/xx_network/primitives v0.0.4-0.20220211183913-d6f5fd114a2a
+	gitlab.com/elixxir/primitives v0.0.3-0.20220104173924-275cb9d7834f
+	gitlab.com/xx_network/comms v0.0.4-0.20220126231737-fe2338016cce
+	gitlab.com/xx_network/crypto v0.0.5-0.20211227194420-f311e8920467
+	gitlab.com/xx_network/primitives v0.0.4-0.20220214225457-636c7b31cb78
 	golang.org/x/crypto v0.0.0-20220128200615-198e4374d7ed
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
 	google.golang.org/grpc v1.42.0

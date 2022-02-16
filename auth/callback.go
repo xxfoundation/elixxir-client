@@ -356,7 +356,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 			}
 		}
 		if resetSession {
-			jww.INFO.Printf("ConfirmRequestAuth to %s on round %d",
+			jww.INFO.Printf("Reset Auth %s on round %d",
 				partnerID, rndNum)
 			cbList := m.resetCallbacks.Get(c.ID)
 			for _, cb := range cbList {
@@ -364,14 +364,14 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				go ccb(c)
 			}
 		}
-	}
-
-	//  fixme: if a crash occurs before or during the calls, the notification
-	//  will never be sent.
-	cbList := m.requestCallbacks.Get(c.ID)
-	for _, cb := range cbList {
-		rcb := cb.(interfaces.RequestCallback)
-		go rcb(c)
+	} else {
+		//  fixme: if a crash occurs before or during the calls, the notification
+		//  will never be sent.
+		cbList := m.requestCallbacks.Get(c.ID)
+		for _, cb := range cbList {
+			rcb := cb.(interfaces.RequestCallback)
+			go rcb(c)
+		}
 	}
 	return
 }
@@ -489,40 +489,7 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 			sr.GetPartner(), err)
 	}
 
-	//add the e2e and rekey firngeprints
-	//e2e
-	sessionPartner, err := m.storage.E2e().GetPartner(sr.GetPartner())
-	if err != nil {
-		jww.FATAL.Panicf("Cannot find %s right after creating: %+v", sr.GetPartner(), err)
-	}
-	me := m.storage.GetUser().ReceptionID
-
-	m.storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetE2EPreimage(),
-		Type:   preimage.E2e,
-		Source: sr.GetPartner()[:],
-	}, me)
-
-	//silent (rekey)
-	m.storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetSilentPreimage(),
-		Type:   preimage.Silent,
-		Source: sr.GetPartner()[:],
-	}, me)
-
-	// File transfer end
-	m.storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetFileTransferPreimage(),
-		Type:   preimage.EndFT,
-		Source: sr.GetPartner()[:],
-	}, me)
-
-	//group Request
-	m.storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetGroupRequestPreimage(),
-		Type:   preimage.GroupRq,
-		Source: sr.GetPartner()[:],
-	}, me)
+	addPreimages(sr.GetPartner(), m.storage)
 
 	// delete the in progress negotiation
 	// this undoes the request lock

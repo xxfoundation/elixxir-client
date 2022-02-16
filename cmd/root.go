@@ -440,7 +440,12 @@ var rootCmd = &cobra.Command{
 
 		// wait an extra 5 seconds to make sure no messages were missed
 		done = false
-		timer := time.NewTimer(5 * time.Second)
+		waitTime := time.Duration(5 * time.Second)
+		if expectedCnt == 0 {
+			// Wait longer if we didn't expect to receive anything
+			waitTime = time.Duration(15 * time.Second)
+		}
+		timer := time.NewTimer(waitTime)
 		for !done {
 			select {
 			case <-timer.C:

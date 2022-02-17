@@ -316,6 +316,18 @@ var rootCmd = &cobra.Command{
 			client.DeleteAllRequests()
 		}
 
+		if viper.GetBool("delete-receive-request") {
+			client.DeleteReceiveRequest(recipientID)
+		}
+
+		if viper.GetBool("delete-sent-request") {
+			client.DeleteSentRequest(recipientID)
+		}
+
+		if viper.GetBool("delete-request") {
+			client.DeleteRequest(recipientID)
+		}
+
 		msg := message.Send{
 			Recipient:   recipientID,
 			Payload:     []byte(msgBody),
@@ -1056,6 +1068,24 @@ func init() {
 		"Delete the all contact requests, both sent and received.")
 	viper.BindPFlag("delete-all-requests",
 		rootCmd.PersistentFlags().Lookup("delete-all-requests"))
+
+	rootCmd.PersistentFlags().Bool("delete-receive-request", false,
+		"Delete receive request for the specified ID given by the  "+
+			"destfile contact file.")
+	viper.BindPFlag("delete-receive-request",
+		rootCmd.PersistentFlags().Lookup("delete-receive-request"))
+
+	rootCmd.PersistentFlags().Bool("delete-sent-request", false,
+		"Delete sent request for the specified ID given by the "+
+			"destfile flag's contact file.")
+	viper.BindPFlag("delete-sent-request",
+		rootCmd.PersistentFlags().Lookup("delete-sent-request"))
+
+	rootCmd.PersistentFlags().Bool("delete-request", false,
+		"Delete the request for the specified ID given by the "+
+			"destfile flag's contact file.")
+	viper.BindPFlag("delete-request",
+		rootCmd.PersistentFlags().Lookup("delete-request"))
 
 	rootCmd.Flags().BoolP("send-auth-request", "", false,
 		"Send an auth request to the specified destination and wait"+

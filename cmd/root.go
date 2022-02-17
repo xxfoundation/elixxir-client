@@ -562,21 +562,21 @@ func createClient() *api.Client {
 				jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
 			}
 
+			// Construct client from backup data
+			backupIdList, err := api.NewClientFromBackup(string(ndfJSON), storeDir,
+				pass, backupPass, backupFile)
+
 			// Marshal backed up ID list to JSON
-			backedUpIdList, err := json.Marshal(b.Contacts.Identities)
+			backedUpIdListJson, err := json.Marshal(backupIdList)
 			if err != nil {
 				jww.ERROR.Printf("Failed to JSON Marshal backed up IDs: %+v", err)
 			}
 
 			// Write backed up ID list to file
-			err = utils.WriteFileDef(viper.GetString("backupIdList"), backedUpIdList)
+			err = utils.WriteFileDef(viper.GetString("backupIdList"), backedUpIdListJson)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to write backed up IDs to file: %+v", err)
 			}
-
-			// Construct client from backup data
-			err = api.NewClientFromBackup(string(ndfJSON), storeDir,
-				pass, backupPass, backupFile)
 
 		} else {
 			err = api.NewClient(string(ndfJSON), storeDir,

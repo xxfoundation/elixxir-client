@@ -516,46 +516,6 @@ func initClientCallbacks(client *api.Client) (chan *id.ID,
 	return authConfirmed, recvCh
 }
 
-// Helper function which prints the round resuls
-func printRoundResults(allRoundsSucceeded, timedOut bool,
-	rounds map[id.Round]api.RoundResult, roundIDs []id.Round, msg message.Send) {
-
-	// Done as string slices for easy and human readable printing
-	successfulRounds := make([]string, 0)
-	failedRounds := make([]string, 0)
-	timedOutRounds := make([]string, 0)
-
-	for _, r := range roundIDs {
-		// Group all round reports into a category based on their
-		// result (successful, failed, or timed out)
-		if result, exists := rounds[r]; exists {
-			if result == api.Succeeded {
-				successfulRounds = append(successfulRounds, strconv.Itoa(int(r)))
-			} else if result == api.Failed {
-				failedRounds = append(failedRounds, strconv.Itoa(int(r)))
-			} else {
-				timedOutRounds = append(timedOutRounds, strconv.Itoa(int(r)))
-			}
-		}
-	}
-
-	jww.INFO.Printf("Result of sending message \"%s\" to \"%v\":",
-		msg.Payload, msg.Recipient)
-
-	// Print out all rounds results, if they are populated
-	if len(successfulRounds) > 0 {
-		jww.INFO.Printf("\tRound(s) %v successful", strings.Join(successfulRounds, ","))
-	}
-	if len(failedRounds) > 0 {
-		jww.ERROR.Printf("\tRound(s) %v failed", strings.Join(failedRounds, ","))
-	}
-	if len(timedOutRounds) > 0 {
-		jww.ERROR.Printf("\tRound(s) %v timed "+
-			"\n\tout (no network resolution could be found)", strings.Join(timedOutRounds, ","))
-	}
-
-}
-
 func createClient() *api.Client {
 	logLevel := viper.GetUint("logLevel")
 	initLog(logLevel, viper.GetString("log"))
@@ -569,6 +529,7 @@ func createClient() *api.Client {
 	protoUserPath := viper.GetString("protoUserPath")
 	backupPath := viper.GetString("backupIn")
 	backupPass := viper.GetString("backupPass")
+
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
 		// Load NDF
@@ -591,29 +552,37 @@ func createClient() *api.Client {
 			err = api.NewVanityClient(string(ndfJSON), storeDir,
 				[]byte(pass), regCode, userIDprefix)
 		} else if backupPath != "" {
-			backupFile, err := utils.ReadFile(backupPath)
-			if err != nil {
-				jww.FATAL.Panicf("%v", err)
-			}
 
-			var b backupCrypto.Backup
-			err = b.Decrypt(backupPass, backupFile)
-			if err != nil {
-				jww.ERROR.Printf("Failed to decrypt backup: %+v", err)
-			}
+			b, backupFile := loadBackup(backupPath, backupPass)
 
+			// Marshal the backup object in JSON
 			backupJson, err := json.Marshal(b)
 			if err != nil {
-				jww.ERROR.Printf("Failed to JSON unmarshal backup: %+v", err)
+				jww.ERROR.Printf("Failed to JSON Marshal backup: %+v", err)
 			}
 
+			// Write the backup JSON to file
 			err = utils.WriteFileDef(viper.GetString("backupJsonOut"), backupJson)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
 			}
 
-			err = api.NewClientFromBackup(string(ndfJSON), storeDir,
+			// Construct client from backup data
+			backupIdList, err := api.NewClientFromBackup(string(ndfJSON), storeDir,
 				pass, backupPass, backupFile)
+
+			// Marshal backed up ID list to JSON
+			backedUpIdListJson, err := json.Marshal(backupIdList)
+			if err != nil {
+				jww.ERROR.Printf("Failed to JSON Marshal backed up IDs: %+v", err)
+			}
+
+			// Write backed up ID list to file
+			err = utils.WriteFileDef(viper.GetString("backupIdList"), backedUpIdListJson)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to write backed up IDs to file: %+v", err)
+			}
+
 		} else {
 			err = api.NewClient(string(ndfJSON), storeDir,
 				[]byte(pass), regCode)
@@ -724,34 +693,6 @@ func initClient() *api.Client {
 	return client
 }
 
-func writeContact(c contact.Contact) {
-	outfilePath := viper.GetString("writeContact")
-	if outfilePath == "" {
-		return
-	}
-	err := ioutil.WriteFile(outfilePath, c.Marshal(), 0644)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-}
-
-func readContact() contact.Contact {
-	inputFilePath := viper.GetString("destfile")
-	if inputFilePath == "" {
-		return contact.Contact{}
-	}
-	data, err := ioutil.ReadFile(inputFilePath)
-	jww.INFO.Printf("Contact file size read in: %d", len(data))
-	if err != nil {
-		jww.FATAL.Panicf("Failed to read contact file: %+v", err)
-	}
-	c, err := contact.Unmarshal(data)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal contact: %+v", err)
-	}
-	return c
-}
-
 func acceptChannel(client *api.Client, recipientID *id.ID) {
 	recipientContact, err := client.GetAuthenticatedChannelRequest(
 		recipientID)
@@ -770,14 +711,6 @@ func deleteChannel(client *api.Client, partnerId *id.ID) {
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-}
-
-func printChanRequest(requestor contact.Contact) {
-	msg := fmt.Sprintf("Authentication channel request from: %s\n",
-		requestor.ID)
-	jww.INFO.Printf(msg)
-	fmt.Printf(msg)
-	// fmt.Printf(msg)
 }
 
 func addPrecanAuthenticatedChannel(client *api.Client, recipientID *id.ID,
@@ -1238,15 +1171,22 @@ func init() {
 		"Path to output encrypted client backup. If no path is supplied, the "+
 			"backup system is not started.")
 	viper.BindPFlag("backupOut", rootCmd.Flags().Lookup("backupOut"))
+
 	rootCmd.Flags().String("backupJsonOut", "",
 		"Path to output unencrypted client JSON backup.")
 	viper.BindPFlag("backupJsonOut", rootCmd.Flags().Lookup("backupJsonOut"))
+
 	rootCmd.Flags().String("backupIn", "",
 		"Path to load backup client from")
 	viper.BindPFlag("backupIn", rootCmd.Flags().Lookup("backupIn"))
+
 	rootCmd.Flags().String("backupPass", "",
 		"Passphrase to encrypt/decrypt backup")
 	viper.BindPFlag("backupPass", rootCmd.Flags().Lookup("backupPass"))
+
+	rootCmd.Flags().String("backupIdList", "",
+		"JSON file containing the backed up partner IDs")
+	viper.BindPFlag("backupIdList", rootCmd.Flags().Lookup("backupIdList"))
 
 }
 

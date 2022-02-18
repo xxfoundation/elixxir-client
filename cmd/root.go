@@ -571,16 +571,20 @@ func createClient() *api.Client {
 			backupIdList, err := api.NewClientFromBackup(string(ndfJSON), storeDir,
 				pass, backupPass, backupFile)
 
-			// Marshal backed up ID list to JSON
-			backedUpIdListJson, err := json.Marshal(backupIdList)
-			if err != nil {
-				jww.ERROR.Printf("Failed to JSON Marshal backed up IDs: %+v", err)
-			}
+			backupIdListPath := viper.GetString("backupIdList")
+			if backupIdListPath != "" {
+				// Marshal backed up ID list to JSON
+				backedUpIdListJson, err := json.Marshal(backupIdList)
+				if err != nil {
+					jww.ERROR.Printf("Failed to JSON Marshal backed up IDs: %+v", err)
+				}
 
-			// Write backed up ID list to file
-			err = utils.WriteFileDef(viper.GetString("backupIdList"), backedUpIdListJson)
-			if err != nil {
-				jww.FATAL.Panicf("Failed to write backed up IDs to file: %+v", err)
+				// Write backed up ID list to file
+				err = utils.WriteFileDef(backupIdListPath, backedUpIdListJson)
+				if err != nil {
+					jww.FATAL.Panicf("Failed to write backed up IDs to file %q: %+v",
+						backupIdListPath, err)
+				}
 			}
 
 		} else {

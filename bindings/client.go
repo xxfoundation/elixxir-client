@@ -450,22 +450,6 @@ func (c *Client) GetNodeRegistrationStatus() (*NodeRegistrationsStatus, error) {
 	return &NodeRegistrationsStatus{registered, total}, err
 }
 
-// DeleteSentRequest will delete a Sent request for the given partner ID.
-// If no request exists for this partner ID, or the request is not
-// a Sent request, an error will be returned.
-func (c *Client) DeleteSentRequest(partnerId *id.ID) error {
-	jww.DEBUG.Printf("Deleting sent request for partner ID: %s", partnerId)
-	return c.api.DeleteSentRequest(partnerId)
-}
-
-// DeleteReceiveRequest will delete a Receive request for the given partner ID.
-// If no request exists for this partner ID, or the request is not
-// a Receive request, an error will be returned.
-func (c *Client) DeleteReceiveRequest(partnerId *id.ID) error {
-	jww.DEBUG.Printf("Deleting receive request for partner ID: %s", partnerId)
-	return c.api.DeleteReceiveRequest(partnerId)
-}
-
 // DeleteRequest will delete a request, agnostic of request type
 // for the given partner ID. If no request exists for this
 // partner ID an error will be returned.

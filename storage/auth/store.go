@@ -458,66 +458,6 @@ func (s *Store) DeleteAllRequests() error {
 	return nil
 }
 
-// DeleteSentRequest deletes a Sent request from Store given a partner ID.
-// If the partner ID exists as a request, and the request is of type Sent,
-// then the request will be deleted and the state stored. If either of
-// those conditions are not met, then an error will be returned.
-func (s *Store) DeleteSentRequest(partnerId *id.ID) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	req, ok := s.requests[*partnerId]
-	if !ok {
-		return errors.Errorf("Sent request for %s does not exist", partnerId)
-	}
-
-	if req.rt != Sent {
-		return errors.Errorf("Request for partner %s is not a sent request, "+
-			"cannot delete using DeleteSentRequest()", partnerId)
-	}
-
-	s.deleteSentRequest(req)
-
-	delete(s.requests, *partnerId)
-
-	if err := s.save(); err != nil {
-		jww.FATAL.Panicf("Failed to store updated request map after "+
-			"deleting sent request for partner %s: %+v", partnerId, err)
-	}
-
-	return nil
-}
-
-// DeleteReceiveRequest deletes a Receive request from Store given a partner ID.
-// If the partner ID exists as a request, and the request is of type Receive,
-// then the request will be deleted and the state stored. If either of
-// those conditions are not met, then an error will be returned.
-func (s *Store) DeleteReceiveRequest(partnerId *id.ID) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	req, ok := s.requests[*partnerId]
-	if !ok {
-		return errors.Errorf("Receive request for %s does not exist", partnerId)
-	}
-
-	if req.rt != Receive {
-		return errors.Errorf("Request for partner %s is not a receive request, "+
-			"cannot delete using DeleteReceiveRequest()", partnerId)
-	}
-
-	s.deleteReceiveRequest(req)
-
-	delete(s.requests, *partnerId)
-
-	if err := s.save(); err != nil {
-		jww.FATAL.Panicf("Failed to store updated request map after "+
-			"deleting receive request for partner %s: %+v", partnerId, err)
-	}
-
-	return nil
-}
-
 // DeleteRequest deletes a request from Store given a partner ID.
 // If the partner ID exists as a request,  then the request will be deleted
 // and the state stored. If the partner does not exist, then an error will

@@ -27,6 +27,8 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
+	"gitlab.com/xx_network/primitives/rateLimiting"
+	"strings"
 	"time"
 )
 
@@ -117,7 +119,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		remainingTime := cmixParams.Timeout - elapsed
 		bestRound, err := instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted, sendTimeBuffer)
 		if err != nil {
-			jww.WARN.Printf("[SendCMIX-%s] Failed to GetUpcomingRealtime " +
+			jww.WARN.Printf("[SendCMIX-%s] Failed to GetUpcomingRealtime "+
 				"(msgDigest: %s): %+v", cmixParams.DebugTag, msg.Digest(), err)
 		}
 		if bestRound == nil {
@@ -139,7 +141,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			}
 		}
 		if containsBlacklisted {
-			jww.WARN.Printf("[SendCMIX-%s]Round %d contains blacklisted node, " +
+			jww.WARN.Printf("[SendCMIX-%s]Round %d contains blacklisted node, "+
 				"skipping...", cmixParams.DebugTag, bestRound.ID)
 			continue
 		}
@@ -147,7 +149,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		// Retrieve host and key information from round
 		firstGateway, roundKeys, err := processRound(instance, session, nodeRegistration, bestRound, recipient.String(), msg.Digest())
 		if err != nil {
-			jww.WARN.Printf("[SendCMIX-%s]SendCmix failed to process round" +
+			jww.WARN.Printf("[SendCMIX-%s]SendCmix failed to process round"+
 				" (will retry): %v", cmixParams.DebugTag, err)
 			continue
 		}
@@ -165,7 +167,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 		jww.INFO.Printf("[SendCMIX-%s] Sending to EphID %d (%s), "+
 			"on round %d (msgDigest: %s, ecrMsgDigest: %s) "+
-			"via gateway %s",  cmixParams.DebugTag,
+			"via gateway %s", cmixParams.DebugTag,
 			ephID.Int64(), recipient, bestRound.ID, msg.Digest(),
 			encMsg.Digest(), firstGateway.String())
 
@@ -213,6 +215,13 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 		// if the comm errors or the message fails to send, continue retrying.
 		if err != nil {
+			if strings.Contains(err.Error(), rateLimiting.ClientRateLimitErr) {
+				jww.ERROR.Printf("[SendCMIX-%s] SendCmix failed to send to EphID %d (%s) on "+
+					"round %d: %+v", cmixParams.DebugTag, ephID.Int64(), recipient,
+					bestRound.ID, err)
+				return 0, ephemeral.Id{}, err
+			}
+
 			jww.ERROR.Printf("[SendCMIX-%s] SendCmix failed to send to EphID %d (%s) on "+
 				"round %d, trying a new round: %+v", cmixParams.DebugTag, ephID.Int64(), recipient,
 				bestRound.ID, err)

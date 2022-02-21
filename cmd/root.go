@@ -1060,7 +1060,7 @@ func init() {
 		"", 500, "The delay between sending the messages in ms")
 	viper.BindPFlag("sendDelay", rootCmd.Flags().Lookup("sendDelay"))
 	rootCmd.Flags().BoolP("splitSends",
-		"", true, "Force sends to go over multiple rounds if possible")
+		"", false, "Force sends to go over multiple rounds if possible")
 	viper.BindPFlag("splitSends", rootCmd.Flags().Lookup("splitSends"))
 
 	rootCmd.Flags().BoolP("verify-sends", "", false,

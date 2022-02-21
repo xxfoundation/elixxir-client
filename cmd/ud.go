@@ -146,16 +146,16 @@ var udCmd = &cobra.Command{
 			err = userDiscoveryMgr.Lookup(lookupID,
 				func(newContact contact.Contact, err error) {
 					if err != nil {
-						jww.FATAL.Panicf("%+v", err)
+						jww.FATAL.Panicf("UserDiscovery Lookup error: %+v", err)
 					}
 					printContact(newContact)
-				}, 90*time.Second)
+				}, 30*time.Second)
 
 			if err != nil {
 				jww.WARN.Printf("Failed UD lookup: %+v", err)
 			}
 
-			time.Sleep(91 * time.Second)
+			time.Sleep(31 * time.Second)
 		}
 
 		usernameSearchStr := viper.GetString("searchusername")

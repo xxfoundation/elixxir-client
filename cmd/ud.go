@@ -186,12 +186,17 @@ var udCmd = &cobra.Command{
 
 				jww.INFO.Printf("BATCHADD: contact %s", newContact)
 
-				addAuthenticatedChannel(client, newContact.ID,
-					newContact)
+				addAuthenticatedChannel(client, newContact.ID, newContact)
 			}
 
 			userDiscoveryMgr.BatchLookup(idList, cb, 90*time.Second)
 
+			for _, uid := range idList {
+				for client.HasAuthenticatedChannel(uid) == false {
+					time.Sleep(time.Second)
+				}
+				jww.INFO.Printf("Authenticated channel established for %s", uid)
+			}
 		}
 		usernameSearchStr := viper.GetString("searchusername")
 		emailSearchStr := viper.GetString("searchemail")

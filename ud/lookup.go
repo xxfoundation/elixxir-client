@@ -39,7 +39,6 @@ func (m *Manager) BatchLookup(uids []*id.ID, callback lookupCallback, timeout ti
 				jww.WARN.Printf("Failed batch lookup on user %s: %v", localUid, err)
 			}
 		}(uid)
-
 	}
 
 	return

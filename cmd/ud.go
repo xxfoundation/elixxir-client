@@ -176,11 +176,15 @@ var udCmd = &cobra.Command{
 				jww.FATAL.Panicf("BATCHADD: Couldn't read file: %+v", err)
 			}
 
+			jww.INFO.Printf("BATCHADD: %d IDs: %v", len(idList), idList)
+
 			cb := func(newContact contact.Contact, err error) {
 				if err != nil {
-					jww.WARN.Printf("%+v", err)
+					jww.WARN.Printf("BATCHADD: %+v", err)
 					return
 				}
+
+				jww.INFO.Printf("BATCHADD: contact %s", newContact)
 
 				addAuthenticatedChannel(client, newContact.ID,
 					newContact)

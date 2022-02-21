@@ -127,7 +127,6 @@ var udCmd = &cobra.Command{
 
 		confirmID := viper.GetString("confirm")
 		if confirmID != "" {
-			// TODO: Lookup code
 			err = userDiscoveryMgr.SendConfirmFact(confirmID, confirmID)
 			if err != nil {
 				fmt.Printf("Couldn't confirm fact: %s\n",
@@ -136,6 +135,8 @@ var udCmd = &cobra.Command{
 			}
 		}
 
+		// Handle lookup (verification) process
+		// Note: Cryptographic verification occurs above the bindings layer
 		lookupIDStr := viper.GetString("lookup")
 		if lookupIDStr != "" {
 			lookupID, ok := parseRecipient(lookupIDStr)

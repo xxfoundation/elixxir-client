@@ -139,10 +139,10 @@ var udCmd = &cobra.Command{
 		// Note: Cryptographic verification occurs above the bindings layer
 		lookupIDStr := viper.GetString("lookup")
 		if lookupIDStr != "" {
-			lookupID, ok := parseRecipient(lookupIDStr)
-			if !ok {
-				jww.FATAL.Panicf("Could not parse recipient: %s", lookupIDStr)
-			}
+			lookupID, _ := parseRecipient(lookupIDStr)
+			//if !ok {
+			//	jww.FATAL.Panicf("Could not parse recipient: %s", lookupIDStr)
+			//}
 			err = userDiscoveryMgr.Lookup(lookupID,
 				func(newContact contact.Contact, err error) {
 					if err != nil {

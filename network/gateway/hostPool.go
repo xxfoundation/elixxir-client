@@ -462,10 +462,7 @@ func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) (bool, error) {
 		}
 		h.hostMux.Unlock()
 	}
-	if err != nil {
-		return false, err
-	}
-	return doReplace, err
+	return doReplace && err != nil, err
 }
 
 // Select a viable HostPool candidate from the NDF

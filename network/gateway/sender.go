@@ -64,6 +64,8 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 				proxies[proxy].GetId(), err)
 			continue
 		}
+
+		// Not retryable, now we must check whether the Host should be replaced
 		replaced, checkReplaceErr := s.checkReplace(proxies[proxy].GetId(), err)
 		if replaced {
 			jww.WARN.Printf("Unable to SendToAny, replaced a proxy %s with error %s",
@@ -125,6 +127,8 @@ func (s *Sender) SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
 				targets[i], targetHosts[i].GetId(), err)
 			continue
 		}
+
+		// Not retryable, now we must check whether the Host should be replaced
 		replaced, checkReplaceErr := s.checkReplace(targetHosts[i].GetId(), err)
 		if replaced {
 			jww.WARN.Printf("Unable to SendToPreferred first pass via %s, replaced a proxy %s with error %s",
@@ -194,6 +198,8 @@ func (s *Sender) SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
 					target, proxy, err)
 				continue
 			}
+
+			// Not retryable, now we must check whether the Host should be replaced
 			replaced, checkReplaceErr := s.checkReplace(proxy.GetId(), err)
 			badProxies[proxy.String()] = nil
 			if replaced {

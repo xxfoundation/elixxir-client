@@ -178,7 +178,7 @@ var udCmd = &cobra.Command{
 
 			jww.INFO.Printf("BATCHADD: %d IDs: %v", len(idList), idList)
 
-			cb := func(newContact contact.Contact, err error) {
+			cb := func(newContact contact.Contact, index int, uid *id.ID, err error) {
 				if err != nil {
 					jww.WARN.Printf("BATCHADD: %+v", err)
 					return

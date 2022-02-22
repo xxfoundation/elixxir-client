@@ -189,7 +189,14 @@ var udCmd = &cobra.Command{
 				addAuthenticatedChannel(client, newContact.ID, newContact)
 			}
 
-			userDiscoveryMgr.BatchLookup(idList, cb, 90*time.Second)
+			for _, uid := range idList {
+				go func(localUid *id.ID) {
+					err := userDiscoveryMgr.Lookup(localUid, cb, 90*time.Second)
+					if err != nil {
+						jww.WARN.Printf("Failed batch lookup on user %s: %v", localUid, err)
+					}
+				}(uid)
+			}
 
 			for _, uid := range idList {
 				for client.HasAuthenticatedChannel(uid) == false {

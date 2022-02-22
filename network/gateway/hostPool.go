@@ -465,7 +465,7 @@ func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return true, err
+	return doReplace, err
 }
 
 // Select a viable HostPool candidate from the NDF

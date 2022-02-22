@@ -19,6 +19,16 @@ const maxLookupMessages = 20
 
 type lookupCallback func(contact.Contact, error)
 
+// MultiLookupCallback returns the result of many paralel lookups
+type multiLookupCallback func(c contact.Contact, index int, uid *id.ID, err error)
+
+type lookupResponse struct {
+	C     contact.Contact
+	err   error
+	index int
+	id    *id.ID
+}
+
 // Lookup returns the public key of the passed ID as known by the user discovery
 // system or returns by the timeout.
 func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Duration) error {
@@ -26,17 +36,23 @@ func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Durat
 	return m.lookup(uid, callback, timeout)
 }
 
-// BatchLookup performs a Lookup operation on a list of user IDs.
+// MultiLookup performs a Lookup operation on a list of user IDs.
 // The lookup performs a callback on each lookup on the returned contact object
 // constructed from the response.
-func (m *Manager) BatchLookup(uids []*id.ID, callback lookupCallback, timeout time.Duration) {
-	jww.INFO.Printf("ud.BatchLookup(%s, %s)", uids, timeout)
+func (m *Manager) MultiLookup(idList []*id.ID, callback multiLookupCallback,
+	timeout time.Duration) {
+	jww.INFO.Printf("ud.MultiLookup(%s, %s)", idList, timeout)
 
-	for _, uid := range uids {
-		go func(localUid *id.ID) {
-			err := m.lookup(localUid, callback, timeout)
+	//loop through the IDs and send the lookup
+	for index, uid := range idList {
+		cb := func(c contact.Contact, err error) {
+			callback(c, index, uid, err)
+		}
+
+		go func(localId *id.ID) {
+			err := m.Lookup(localId, cb, timeout)
 			if err != nil {
-				jww.WARN.Printf("Failed batch lookup on user %s: %v", localUid, err)
+				jww.WARN.Printf("Failed batch lookup on user %s: %v", localId, err)
 			}
 		}(uid)
 	}

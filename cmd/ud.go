@@ -189,7 +189,7 @@ var udCmd = &cobra.Command{
 				addAuthenticatedChannel(client, newContact.ID, newContact)
 			}
 
-			userDiscoveryMgr.BatchLookup(idList, cb, 90*time.Second)
+			userDiscoveryMgr.MultiLookup(idList, cb, 90*time.Second)
 
 			for _, uid := range idList {
 				for client.HasAuthenticatedChannel(uid) == false {

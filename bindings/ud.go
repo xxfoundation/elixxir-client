@@ -272,34 +272,18 @@ func (ud UserDiscovery) MultiLookup(ids *IdList, callback MultiLookupCallback,
 	//make the channels for the requests
 	results := make(chan lookupResponse, len(idList))
 
+	cb := func(c contact.Contact, index int, uid *id.ID, err error) {
+		results <- lookupResponse{
+			C:     c,
+			err:   err,
+			index: index,
+			id:    uid,
+		}
+	}
+
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 
-	//loop through the IDs and send the lookup
-	for i := range idList {
-		locali := i
-		localID := idList[locali]
-		cb := func(c contact.Contact, err error) {
-			results <- lookupResponse{
-				C:     c,
-				err:   err,
-				index: locali,
-				id:    localID,
-			}
-		}
-
-		go func() {
-			err := ud.ud.Lookup(localID, cb, timeout)
-			if err != nil {
-				results <- lookupResponse{
-					C: contact.Contact{},
-					err: errors.WithMessagef(err, "Failed to send lookup "+
-						"for user %s[%d]", localID, locali),
-					index: locali,
-					id:    localID,
-				}
-			}
-		}()
-	}
+	ud.ud.MultiLookup(idList, cb, timeout)
 
 	//run the result gathering in its own thread
 	go func() {

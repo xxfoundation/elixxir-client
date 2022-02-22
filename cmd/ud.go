@@ -11,6 +11,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -22,7 +24,6 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
-	"time"
 )
 
 // udCmd is the user discovery subcommand, which allows for user lookup,
@@ -187,7 +188,7 @@ var udCmd = &cobra.Command{
 
 				jww.INFO.Printf("BATCHADD: contact %s", newContact)
 
-				addAuthenticatedChannel(client, newContact.ID, newContact)
+				resetAuthenticatedChannel(client, newContact.ID, newContact)
 			}
 
 			userDiscoveryMgr.BatchLookup(idList, cb, 90*time.Second)

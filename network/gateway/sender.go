@@ -64,11 +64,11 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 			continue
 		} else if replaced, checkReplaceErr := s.checkReplace(proxies[proxy].GetId(), err); replaced {
 			if checkReplaceErr != nil {
-				jww.WARN.Printf("Unable to SendToAny, replaced a proxy %s with error %s",
-					proxies[proxy].GetId().String(), checkReplaceErr)
+				jww.WARN.Printf("Unable to SendToAny, unable to replace a proxy %s with error %s: %+v",
+					proxies[proxy].GetId().String(), err.Error(), checkReplaceErr)
 			} else {
-				jww.WARN.Printf("Unable to SendToAny, replaced a proxy %s",
-					proxies[proxy].GetId().String())
+				jww.WARN.Printf("Unable to SendToAny, replaced a proxy %s with error %s",
+					proxies[proxy].GetId().String(), err.Error())
 			}
 		} else {
 			return nil, errors.WithMessage(err, "Received error with SendToAny")
@@ -120,16 +120,12 @@ func (s *Sender) SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
 			continue
 		} else if replaced, checkReplaceErr := s.checkReplace(targetHosts[i].GetId(), err); replaced {
 			if checkReplaceErr != nil {
-				jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s, "+
-					"proxy failed, was replaced with error: %s",
-					targets[i], targetHosts[i].GetId(), checkReplaceErr)
+				jww.WARN.Printf("Unable to SendToPreferred first pass via %s, unable to replace a proxy %s with error %s: %+v",
+					targets[i], targetHosts[i].GetId(), err.Error(), checkReplaceErr)
 			} else {
-				jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s, "+
-					"proxy failed, was replaced",
-					targets[i], targetHosts[i].GetId())
+				jww.WARN.Printf("Unable to SendToPreferred first pass via %s, replaced a proxy %s with error %s",
+					targets[i], targetHosts[i].GetId(), err.Error())
 			}
-			jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s: %s, proxy failed, was replaced",
-				targets[i], targetHosts[i].GetId(), checkReplaceErr)
 			continue
 		} else {
 			jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s: %s, comm returned an error",
@@ -191,14 +187,12 @@ func (s *Sender) SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
 				continue
 			} else if replaced, checkReplaceErr := s.checkReplace(proxy.GetId(), err); replaced {
 				if checkReplaceErr != nil {
-					jww.WARN.Printf("Unable to SendToPreferred second pass %s via %s,"+
-						"proxy failed, was replaced with error: %s", target, proxy.GetId(),
-						checkReplaceErr)
+					jww.WARN.Printf("Unable to SendToPreferred second pass via %s, unable to replace a proxy %s with error %s: %+v",
+						target, proxy.GetId(), err.Error(), checkReplaceErr)
 				} else {
-					jww.WARN.Printf("Unable to SendToPreferred second pass %s via %s, "+
-						"proxy failed, was replaced", target, proxy.GetId())
+					jww.WARN.Printf("Unable to SendToPreferred second pass via %s, replaced a proxy %s with error %s",
+						target, proxy.GetId(), err.Error())
 				}
-
 				badProxies[proxy.String()] = nil
 				continue
 			} else {

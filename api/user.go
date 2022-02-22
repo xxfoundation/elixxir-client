@@ -34,10 +34,10 @@ func createNewUser(rng *fastRNG.StreamGenerator, cmix, e2e *cyclic.Group) user.U
 	// CMIX Keygen
 	var transmissionRsaKey, receptionRsaKey *rsa.PrivateKey
 
-	var cMixKeyBytes, e2eKeyBytes, transmissionSalt, receptionSalt []byte
+	var e2eKeyBytes, transmissionSalt, receptionSalt []byte
 
-	cMixKeyBytes, e2eKeyBytes, transmissionSalt, receptionSalt,
-		transmissionRsaKey, receptionRsaKey = createDhKeys(rng, cmix, e2e)
+	e2eKeyBytes, transmissionSalt, receptionSalt,
+		transmissionRsaKey, receptionRsaKey = createDhKeys(rng, e2e)
 
 	// Salt, UID, etc gen
 	stream := rng.GetStream()
@@ -83,32 +83,17 @@ func createNewUser(rng *fastRNG.StreamGenerator, cmix, e2e *cyclic.Group) user.U
 		ReceptionSalt:    receptionSalt,
 		ReceptionRSA:     receptionRsaKey,
 		Precanned:        false,
-		CmixDhPrivateKey: cmix.NewIntFromBytes(cMixKeyBytes),
 		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
 	}
 }
 
 func createDhKeys(rng *fastRNG.StreamGenerator,
-	cmix, e2e *cyclic.Group) (cMixKeyBytes, e2eKeyBytes,
+	e2e *cyclic.Group) (e2eKeyBytes,
 	transmissionSalt, receptionSalt []byte,
 	transmissionRsaKey, receptionRsaKey *rsa.PrivateKey) {
 	wg := sync.WaitGroup{}
 
-	wg.Add(4)
-
-	go func() {
-		defer wg.Done()
-		var err error
-		// FIXME: Why 256 bits? -- this is spec but not explained, it has
-		// to do with optimizing operations on one side and still preserves
-		// decent security -- cite this.
-		stream := rng.GetStream()
-		cMixKeyBytes, err = csprng.GenerateInGroup(cmix.GetPBytes(), 256, stream)
-		stream.Close()
-		if err != nil {
-			jww.FATAL.Panicf(err.Error())
-		}
-	}()
+	wg.Add(3)
 
 	go func() {
 		defer wg.Done()
@@ -186,8 +171,6 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.
 		ReceptionSalt:    salt,
 		Precanned:        true,
 		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
-		// NOTE: These are dummy/not used
-		CmixDhPrivateKey: cmix.NewInt(1),
 		TransmissionRSA:  rsaKey,
 		ReceptionRSA:     rsaKey,
 	}
@@ -196,15 +179,6 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.
 // createNewVanityUser generates an identity for cMix
 // The identity's ReceptionID is not random but starts with the supplied prefix
 func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix string) user.User {
-	// CMIX Keygen
-	// FIXME: Why 256 bits? -- this is spec but not explained, it has
-	// to do with optimizing operations on one side and still preserves
-	// decent security -- cite this.
-	cMixKeyBytes, err := csprng.GenerateInGroup(cmix.GetPBytes(), 256, rng)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-
 	// DH Keygen
 	// FIXME: Why 256 bits? -- this is spec but not explained, it has
 	// to do with optimizing operations on one side and still preserves
@@ -311,7 +285,6 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 		ReceptionSalt:    receptionSalt,
 		ReceptionRSA:     receptionRsaKey,
 		Precanned:        false,
-		CmixDhPrivateKey: cmix.NewIntFromBytes(cMixKeyBytes),
 		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
 	}
 }

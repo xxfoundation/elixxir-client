@@ -9,6 +9,8 @@ package api
 
 import (
 	"encoding/binary"
+	"math/rand"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -20,7 +22,6 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
 )
 
 // RequestAuthenticatedChannel sends a request to another party to establish an
@@ -41,6 +42,20 @@ func (c *Client) RequestAuthenticatedChannel(recipient, me contact.Contact,
 	}
 
 	return auth.RequestAuth(recipient, me, c.rng.GetStream(),
+		c.storage, c.network)
+}
+
+// ResetSession resets an authenticate channel that already exists
+func (c *Client) ResetSession(recipient, me contact.Contact,
+	message string) (id.Round, error) {
+	jww.INFO.Printf("ResetSession(%s)", recipient.ID)
+
+	if !c.network.GetHealthTracker().IsHealthy() {
+		return 0, errors.New("Cannot request authenticated channel " +
+			"creation when the network is not healthy")
+	}
+
+	return auth.ResetSession(recipient, me, c.rng.GetStream(),
 		c.storage, c.network)
 }
 
@@ -76,8 +91,7 @@ func (c *Client) ConfirmAuthenticatedChannel(recipient contact.Contact) (id.Roun
 			"creation when the network is not healthy")
 	}
 
-	return auth.ConfirmRequestAuth(recipient, c.rng.GetStream(),
-		c.storage, c.network)
+	return c.auth.ConfirmRequestAuth(recipient)
 }
 
 // VerifyOwnership checks if the ownership proof on a passed contact matches the
@@ -144,7 +158,7 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Co
 		Source: precan.ID[:],
 	}, me)
 
-	//slient (rekey)
+	// slient (rekey)
 	c.storage.GetEdge().Add(edge.Preimage{
 		Data:   sessionPartner.GetSilentPreimage(),
 		Type:   preimage.Silent,
@@ -164,7 +178,6 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Co
 		Type:   preimage.GroupRq,
 		Source: precan.ID[:],
 	}, me)
-
 
 	return precan, err
 }

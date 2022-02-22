@@ -9,6 +9,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -19,6 +20,8 @@ import (
 	"gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/utils"
 	"time"
 )
 
@@ -158,6 +161,44 @@ var udCmd = &cobra.Command{
 			time.Sleep(31 * time.Second)
 		}
 
+		if viper.GetString("batchadd") != "" {
+			idListFile, err := utils.ReadFile(viper.GetString("batchadd"))
+			if err != nil {
+				fmt.Printf("BATCHADD: Couldn't read file: %s\n",
+					err.Error())
+				jww.FATAL.Panicf("BATCHADD: Couldn't read file: %+v", err)
+			}
+
+			var idList []*id.ID
+			err = json.Unmarshal(idListFile, &idList)
+			if err != nil {
+				fmt.Printf("BATCHADD: Couldn't umarshal id list: %s\n",
+					err.Error())
+				jww.FATAL.Panicf("BATCHADD: Couldn't read file: %+v", err)
+			}
+
+			jww.INFO.Printf("BATCHADD: %d IDs: %v", len(idList), idList)
+
+			cb := func(newContact contact.Contact, err error) {
+				if err != nil {
+					jww.WARN.Printf("BATCHADD: %+v", err)
+					return
+				}
+
+				jww.INFO.Printf("BATCHADD: contact %s", newContact)
+
+				addAuthenticatedChannel(client, newContact.ID, newContact)
+			}
+
+			userDiscoveryMgr.BatchLookup(idList, cb, 90*time.Second)
+
+			for _, uid := range idList {
+				for client.HasAuthenticatedChannel(uid) == false {
+					time.Sleep(time.Second)
+				}
+				jww.INFO.Printf("Authenticated channel established for %s", uid)
+			}
+		}
 		usernameSearchStr := viper.GetString("searchusername")
 		emailSearchStr := viper.GetString("searchemail")
 		phoneSearchStr := viper.GetString("searchphone")
@@ -269,6 +310,10 @@ func init() {
 	udCmd.Flags().String("searchphone", "",
 		"Search for users with this email address.")
 	_ = viper.BindPFlag("searchphone", udCmd.Flags().Lookup("searchphone"))
+
+	udCmd.Flags().String("batchadd", "",
+		"Path to JSON marshalled slice of partner IDs that will be looked up on UD.")
+	_ = viper.BindPFlag("batchadd", udCmd.Flags().Lookup("batchadd"))
 
 	rootCmd.AddCommand(udCmd)
 }

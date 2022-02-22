@@ -10,6 +10,7 @@ package bindings
 import (
 	"bytes"
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
@@ -79,6 +80,22 @@ func NewPrecannedClient(precannedID int, network, storageDir string, password []
 			"client: %+v", err))
 	}
 	return nil
+}
+
+// NewClientFromBackup constructs a new Client from an encrypted backup. The backup
+// is decrypted using the backupPassphrase. On success a successful client creation,
+// the function will return a JSON encoded list of the E2E partners
+// contained in the backup.
+func NewClientFromBackup(ndfJSON, storageDir, sessionPassword,
+	backupPassphrase string, backupFileContents []byte) ([]byte, error) {
+	backupPartnerIds, err := api.NewClientFromBackup(ndfJSON, storageDir,
+		sessionPassword, backupPassphrase, backupFileContents)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to create new "+
+			"client from backup: %+v", err))
+	}
+
+	return json.Marshal(backupPartnerIds)
 }
 
 // Login will load an existing client from the storageDir

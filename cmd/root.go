@@ -12,18 +12,8 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"github.com/spf13/cobra"
-	jww "github.com/spf13/jwalterweatherman"
-	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/switchboard"
-	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/primitives/excludedRounds"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/utils"
 	"io/ioutil"
 	"log"
 	"os"
@@ -32,6 +22,20 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/spf13/cobra"
+	jww "github.com/spf13/jwalterweatherman"
+	"github.com/spf13/viper"
+	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/backup"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/switchboard"
+	backupCrypto "gitlab.com/elixxir/crypto/backup"
+	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/elixxir/primitives/excludedRounds"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/utils"
 )
 
 // Deployment environment constants for the download-ndf code path
@@ -247,6 +251,8 @@ var rootCmd = &cobra.Command{
 				numReg, total)
 		}
 
+		client.GetBackup().TriggerBackup("Integration test.")
+
 		// Send Messages
 		msgBody := viper.GetString("message")
 
@@ -278,6 +284,12 @@ var rootCmd = &cobra.Command{
 			addPrecanAuthenticatedChannel(client,
 				recipientID, recipientContact)
 			authConfirmed = true
+		} else if !unsafe && authConfirmed && !isPrecanPartner &&
+			sendAuthReq {
+			jww.WARN.Printf("Resetting negotiated auth channel")
+			resetAuthenticatedChannel(client, recipientID,
+				recipientContact)
+			authConfirmed = false
 		}
 
 		if !unsafe && !authConfirmed {
@@ -428,7 +440,12 @@ var rootCmd = &cobra.Command{
 
 		// wait an extra 5 seconds to make sure no messages were missed
 		done = false
-		timer := time.NewTimer(5 * time.Second)
+		waitTime := time.Duration(5 * time.Second)
+		if expectedCnt == 0 {
+			// Wait longer if we didn't expect to receive anything
+			waitTime = time.Duration(15 * time.Second)
+		}
+		timer := time.NewTimer(waitTime)
 		for !done {
 			select {
 			case <-timer.C:
@@ -499,46 +516,6 @@ func initClientCallbacks(client *api.Client) (chan *id.ID,
 	return authConfirmed, recvCh
 }
 
-// Helper function which prints the round resuls
-func printRoundResults(allRoundsSucceeded, timedOut bool,
-	rounds map[id.Round]api.RoundResult, roundIDs []id.Round, msg message.Send) {
-
-	// Done as string slices for easy and human readable printing
-	successfulRounds := make([]string, 0)
-	failedRounds := make([]string, 0)
-	timedOutRounds := make([]string, 0)
-
-	for _, r := range roundIDs {
-		// Group all round reports into a category based on their
-		// result (successful, failed, or timed out)
-		if result, exists := rounds[r]; exists {
-			if result == api.Succeeded {
-				successfulRounds = append(successfulRounds, strconv.Itoa(int(r)))
-			} else if result == api.Failed {
-				failedRounds = append(failedRounds, strconv.Itoa(int(r)))
-			} else {
-				timedOutRounds = append(timedOutRounds, strconv.Itoa(int(r)))
-			}
-		}
-	}
-
-	jww.INFO.Printf("Result of sending message \"%s\" to \"%v\":",
-		msg.Payload, msg.Recipient)
-
-	// Print out all rounds results, if they are populated
-	if len(successfulRounds) > 0 {
-		jww.INFO.Printf("\tRound(s) %v successful", strings.Join(successfulRounds, ","))
-	}
-	if len(failedRounds) > 0 {
-		jww.ERROR.Printf("\tRound(s) %v failed", strings.Join(failedRounds, ","))
-	}
-	if len(timedOutRounds) > 0 {
-		jww.ERROR.Printf("\tRound(s) %v timed "+
-			"\n\tout (no network resolution could be found)", strings.Join(timedOutRounds, ","))
-	}
-
-}
-
 func createClient() *api.Client {
 	logLevel := viper.GetUint("logLevel")
 	initLog(logLevel, viper.GetString("log"))
@@ -550,6 +527,8 @@ func createClient() *api.Client {
 	precannedID := viper.GetUint("sendid")
 	userIDprefix := viper.GetString("userid-prefix")
 	protoUserPath := viper.GetString("protoUserPath")
+	backupPath := viper.GetString("backupIn")
+	backupPass := viper.GetString("backupPass")
 
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
@@ -572,6 +551,42 @@ func createClient() *api.Client {
 		} else if userIDprefix != "" {
 			err = api.NewVanityClient(string(ndfJSON), storeDir,
 				[]byte(pass), regCode, userIDprefix)
+		} else if backupPath != "" {
+
+			b, backupFile := loadBackup(backupPath, backupPass)
+
+			// Marshal the backup object in JSON
+			backupJson, err := json.Marshal(b)
+			if err != nil {
+				jww.ERROR.Printf("Failed to JSON Marshal backup: %+v", err)
+			}
+
+			// Write the backup JSON to file
+			err = utils.WriteFileDef(viper.GetString("backupJsonOut"), backupJson)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
+			}
+
+			// Construct client from backup data
+			backupIdList, err := api.NewClientFromBackup(string(ndfJSON), storeDir,
+				pass, backupPass, backupFile)
+
+			backupIdListPath := viper.GetString("backupIdList")
+			if backupIdListPath != "" {
+				// Marshal backed up ID list to JSON
+				backedUpIdListJson, err := json.Marshal(backupIdList)
+				if err != nil {
+					jww.ERROR.Printf("Failed to JSON Marshal backed up IDs: %+v", err)
+				}
+
+				// Write backed up ID list to file
+				err = utils.WriteFileDef(backupIdListPath, backedUpIdListJson)
+				if err != nil {
+					jww.FATAL.Panicf("Failed to write backed up IDs to file %q: %+v",
+						backupIdListPath, err)
+				}
+			}
+
 		} else {
 			err = api.NewClient(string(ndfJSON), storeDir,
 				[]byte(pass), regCode)
@@ -642,35 +657,44 @@ func initClient() *api.Client {
 
 	}
 
+	if backupOut := viper.GetString("backupOut"); backupOut != "" {
+		backupPass := viper.GetString("backupPass")
+		updateBackupCb := func(encryptedBackup []byte) {
+			jww.INFO.Printf("Backup update received, size %d", len(encryptedBackup))
+			fmt.Println("Backup update received.")
+			err = utils.WriteFileDef(backupOut, encryptedBackup)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
+			}
+
+			backupJsonPath := viper.GetString("backupJsonOut")
+
+			if backupJsonPath != "" {
+				var b backupCrypto.Backup
+				err = b.Decrypt(backupPass, encryptedBackup)
+				if err != nil {
+					jww.ERROR.Printf("Failed to decrypt backup: %+v", err)
+				}
+
+				backupJson, err := json.Marshal(b)
+				if err != nil {
+					jww.ERROR.Printf("Failed to JSON unmarshal backup: %+v", err)
+				}
+
+				err = utils.WriteFileDef(backupJsonPath, backupJson)
+				if err != nil {
+					jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
+				}
+			}
+		}
+		_, err = backup.InitializeBackup(backupPass, updateBackupCb, client)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to initialize backup with key %q: %+v",
+				backupPass, err)
+		}
+	}
+
 	return client
-}
-
-func writeContact(c contact.Contact) {
-	outfilePath := viper.GetString("writeContact")
-	if outfilePath == "" {
-		return
-	}
-	err := ioutil.WriteFile(outfilePath, c.Marshal(), 0644)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-}
-
-func readContact() contact.Contact {
-	inputFilePath := viper.GetString("destfile")
-	if inputFilePath == "" {
-		return contact.Contact{}
-	}
-	data, err := ioutil.ReadFile(inputFilePath)
-	jww.INFO.Printf("Contact file size read in: %d", len(data))
-	if err != nil {
-		jww.FATAL.Panicf("Failed to read contact file: %+v", err)
-	}
-	c, err := contact.Unmarshal(data)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal contact: %+v", err)
-	}
-	return c
 }
 
 func acceptChannel(client *api.Client, recipientID *id.ID) {
@@ -691,14 +715,6 @@ func deleteChannel(client *api.Client, partnerId *id.ID) {
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-}
-
-func printChanRequest(requestor contact.Contact) {
-	msg := fmt.Sprintf("Authentication channel request from: %s\n",
-		requestor.ID)
-	jww.INFO.Printf(msg)
-	fmt.Printf(msg)
-	// fmt.Printf(msg)
 }
 
 func addPrecanAuthenticatedChannel(client *api.Client, recipientID *id.ID,
@@ -753,6 +769,43 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 		}
 	} else {
 		jww.ERROR.Printf("Could not add auth channel for %s",
+			recipientID)
+	}
+}
+
+func resetAuthenticatedChannel(client *api.Client, recipientID *id.ID,
+	recipient contact.Contact) {
+	var allowed bool
+	if viper.GetBool("unsafe-channel-creation") {
+		msg := "unsafe channel creation enabled\n"
+		jww.WARN.Printf(msg)
+		fmt.Printf("WARNING: %s", msg)
+		allowed = true
+	} else {
+		allowed = askToCreateChannel(recipientID)
+	}
+	if !allowed {
+		jww.FATAL.Panicf("User did not allow channel reset!")
+	}
+
+	msg := fmt.Sprintf("Resetting authenticated channel for: %s\n",
+		recipientID)
+	jww.INFO.Printf(msg)
+	fmt.Printf(msg)
+
+	recipientContact := recipient
+
+	if recipientContact.ID != nil && recipientContact.DhPubKey != nil {
+		me := client.GetUser().GetContact()
+		jww.INFO.Printf("Requesting auth channel from: %s",
+			recipientID)
+		_, err := client.ResetSession(recipientContact,
+			me, msg)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+	} else {
+		jww.ERROR.Printf("Could not reset auth channel for %s",
 			recipientID)
 	}
 }
@@ -1116,6 +1169,28 @@ func init() {
 		"Path to which a normally constructed client "+
 			"will write proto user JSON file")
 	viper.BindPFlag("protoUserOut", rootCmd.Flags().Lookup("protoUserOut"))
+
+	// Backup flags
+	rootCmd.Flags().String("backupOut", "",
+		"Path to output encrypted client backup. If no path is supplied, the "+
+			"backup system is not started.")
+	viper.BindPFlag("backupOut", rootCmd.Flags().Lookup("backupOut"))
+
+	rootCmd.Flags().String("backupJsonOut", "",
+		"Path to output unencrypted client JSON backup.")
+	viper.BindPFlag("backupJsonOut", rootCmd.Flags().Lookup("backupJsonOut"))
+
+	rootCmd.Flags().String("backupIn", "",
+		"Path to load backup client from")
+	viper.BindPFlag("backupIn", rootCmd.Flags().Lookup("backupIn"))
+
+	rootCmd.Flags().String("backupPass", "",
+		"Passphrase to encrypt/decrypt backup")
+	viper.BindPFlag("backupPass", rootCmd.Flags().Lookup("backupPass"))
+
+	rootCmd.Flags().String("backupIdList", "",
+		"JSON file containing the backed up partner IDs")
+	viper.BindPFlag("backupIdList", rootCmd.Flags().Lookup("backupIdList"))
 
 }
 

@@ -61,9 +61,12 @@ func (m *Manager) removeFact(fact fact.Fact, rFC removeFactComms) error {
 
 	// Send the message
 	_, err = rFC.SendRemoveFact(host, &remFactMsg)
+	if err != nil {
+		return err
+	}
 
-	// Return the error
-	return err
+	// Remove from storage
+	return m.storage.GetUd().DeleteFact(fact)
 }
 
 type removeUserComms interface {

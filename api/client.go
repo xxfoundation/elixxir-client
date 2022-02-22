@@ -24,6 +24,7 @@ import (
 	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
+	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/version"
@@ -69,6 +70,9 @@ type Client struct {
 
 	// Event reporting in event.go
 	events *eventManager
+
+	// Handles the triggering and delivery of backups
+	backup *interfaces.BackupContainer
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -163,6 +167,51 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 	return nil
 }
 
+// NewClientFromBackup constructs a new Client from an encrypted backup. The backup
+// is decrypted using the backupPassphrase. On success a successful client creation,
+//// the function will return a JSON encoded list of the E2E partners
+//// contained in the backup.
+func NewClientFromBackup(ndfJSON, storageDir, sessionPassword,
+	backupPassphrase string, backupFileContents []byte) ([]*id.ID, error) {
+
+	backUp := &backup.Backup{}
+	err := backUp.Decrypt(backupPassphrase, backupFileContents)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to unmarshal decrypted client contents.")
+	}
+
+	usr := user.NewUserFromBackup(backUp)
+
+	// Parse the NDF
+	def, err := parseNDF(ndfJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	cmixGrp, e2eGrp := decodeGroups(def)
+
+	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+
+	// Create storage object.
+	// Note we do not need registration
+	storageSess, err := checkVersionAndSetupStorage(def, storageDir, []byte(sessionPassword), usr,
+		cmixGrp, e2eGrp, rngStreamGen, false, backUp.RegistrationCode)
+
+	// Set registration values in storage
+	storageSess.User().SetReceptionRegistrationValidationSignature(backUp.ReceptionIdentity.RegistrarSignature)
+	storageSess.User().SetTransmissionRegistrationValidationSignature(backUp.TransmissionIdentity.RegistrarSignature)
+	storageSess.User().SetRegistrationTimestamp(backUp.RegistrationTimestamp)
+
+	//move the registration state to indicate registered with registration on proto client
+	err = storageSess.ForwardRegistrationStatus(storage.PermissioningComplete)
+	if err != nil {
+		return nil, err
+	}
+
+	return backUp.Contacts.Identities, nil
+}
+
 // OpenClient session, but don't connect to the network or log in
 func OpenClient(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("OpenClient()")
@@ -194,6 +243,7 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 		parameters:         parameters,
 		clientErrorChannel: make(chan interfaces.ClientError, 1000),
 		events:             newEventManager(),
+		backup:             &interfaces.BackupContainer{},
 	}
 
 	return c, nil
@@ -304,7 +354,8 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	// initialize the auth tracker
-	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, parameters.ReplayRequests)
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, c.rng,
+		c.backup.TriggerBackup, parameters.ReplayRequests)
 
 	// Add all processes to the followerServices
 	err = c.registerFollower()
@@ -363,7 +414,8 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	}
 
 	// initialize the auth tracker
-	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, parameters.ReplayRequests)
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, c.rng,
+		c.backup.TriggerBackup, parameters.ReplayRequests)
 
 	err = c.registerFollower()
 	if err != nil {
@@ -420,7 +472,8 @@ func LoginWithProtoClient(storageDir string, password []byte, protoClientJSON []
 	}
 
 	// initialize the auth tracker
-	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, parameters.ReplayRequests)
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network, c.rng,
+		c.backup.TriggerBackup, parameters.ReplayRequests)
 
 	err = c.registerFollower()
 	if err != nil {
@@ -641,6 +694,12 @@ func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
 	return c.network
 }
 
+// GetBackup returns a pointer to the backup container so that the backup can be
+// set and triggered.
+func (c *Client) GetBackup() *interfaces.BackupContainer {
+	return c.backup
+}
+
 // GetRateLimitParams retrieves the rate limiting parameters.
 func (c *Client) GetRateLimitParams() (uint32, uint32, int64) {
 	rateLimitParams := c.storage.GetBucketParams().Get()
@@ -705,7 +764,7 @@ func (c *Client) DeleteReceiveRequests() error {
 // DeleteContact is a function which removes a partner from Client's storage
 func (c *Client) DeleteContact(partnerId *id.ID) error {
 	jww.DEBUG.Printf("Deleting contact with ID %s", partnerId)
-	//get the partner so they can be removed from preiamge store
+	// get the partner so that they can be removed from preimage store
 	partner, err := c.storage.E2e().GetPartner(partnerId)
 	if err != nil {
 		return errors.WithMessagef(err, "Could not delete %s because "+
@@ -720,6 +779,10 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 	if err = c.storage.E2e().DeletePartner(partnerId); err != nil {
 		return err
 	}
+
+	// Trigger backup
+	c.backup.TriggerBackup("contact deleted")
+
 	//delete the preimages
 	if err = c.storage.GetEdge().Remove(edge.Preimage{
 		Data:   e2ePreimage,

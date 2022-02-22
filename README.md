@@ -163,6 +163,9 @@ Flags:
       --accept-channel            Accept the channel request for the corresponding recipient ID
       --auth-timeout uint         The number of seconds to wait for an authentication channelto confirm (default 120)
       --delete-all-requests       Delete the all contact requests, both sent and received.
+      --backupIn string           Path to load backup client from
+      --backupOut string          Path to output backup client.
+      --backupPass string         Passphrase to encrypt/decrypt backup
       --delete-channel            Delete the channel information for the corresponding recipient ID
       --delete-receive-requests   Delete the all received contact requests.
       --delete-sent-requests      Delete the all sent contact requests.

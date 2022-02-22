@@ -14,6 +14,7 @@ import (
 
 type RequestCallback func(requestor contact.Contact)
 type ConfirmCallback func(partner contact.Contact)
+type ResetCallback func(partner contact.Contact)
 
 type Auth interface {
 	// Adds a general callback to be used on auth requests. This will be preempted
@@ -42,6 +43,8 @@ type Auth interface {
 	AddSpecificConfirmCallback(id *id.ID, cb ConfirmCallback)
 	// Removes a specific callback to be used on auth confirm.
 	RemoveSpecificConfirmCallback(id *id.ID)
+	// Add a callback to receive session renegotiations
+	AddResetCallback(cb ResetCallback)
 	//Replays all pending received requests over tha callbacks
 	ReplayRequests()
 }

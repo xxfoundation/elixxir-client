@@ -31,11 +31,12 @@ const requestMapKey = "map"
 const requestMapVersion = 0
 
 type Store struct {
-	kv           *versioned.KV
-	grp          *cyclic.Group
-	requests     map[id.ID]*request
-	fingerprints map[format.Fingerprint]fingerprint
-	mux          sync.RWMutex
+	kv                   *versioned.KV
+	grp                  *cyclic.Group
+	requests             map[id.ID]*request
+	fingerprints         map[format.Fingerprint]fingerprint
+	previousNegotiations map[id.ID]struct{}
+	mux                  sync.RWMutex
 }
 
 // NewStore creates a new store. All passed in private keys are added as
@@ -43,10 +44,11 @@ type Store struct {
 func NewStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*Store, error) {
 	kv = kv.Prefix(storePrefix)
 	s := &Store{
-		kv:           kv,
-		grp:          grp,
-		requests:     make(map[id.ID]*request),
-		fingerprints: make(map[format.Fingerprint]fingerprint),
+		kv:                   kv,
+		grp:                  grp,
+		requests:             make(map[id.ID]*request),
+		fingerprints:         make(map[format.Fingerprint]fingerprint),
+		previousNegotiations: make(map[id.ID]struct{}),
 	}
 
 	for _, key := range privKeys {
@@ -57,6 +59,12 @@ func NewStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*Sto
 			PrivKey: key,
 			Request: nil,
 		}
+	}
+
+	err := s.savePreviousNegotiations()
+	if err != nil {
+		return nil, errors.Errorf(
+			"failed to load previousNegotiations partners: %+v", err)
 	}
 
 	return s, s.save()
@@ -72,10 +80,11 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 	}
 
 	s := &Store{
-		kv:           kv,
-		grp:          grp,
-		requests:     make(map[id.ID]*request),
-		fingerprints: make(map[format.Fingerprint]fingerprint),
+		kv:                   kv,
+		grp:                  grp,
+		requests:             make(map[id.ID]*request),
+		fingerprints:         make(map[format.Fingerprint]fingerprint),
+		previousNegotiations: make(map[id.ID]struct{}),
 	}
 
 	for _, key := range privKeys {
@@ -141,8 +150,15 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 			jww.FATAL.Panicf("Unknown request type: %d", r.rt)
 		}
 
-		//store in the request map
+		// store in the request map
 		s.requests[*rid] = r
+	}
+
+	// Load previous negotiations from storage
+	s.previousNegotiations, err = s.loadPreviousNegotiations()
+	if err != nil {
+		return nil, errors.Errorf("failed to load list of previouse "+
+			"negotation partner IDs: %+v", err)
 	}
 
 	return s, nil
@@ -427,6 +443,11 @@ func (s *Store) Delete(partner *id.ID) error {
 	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to store updated request map after "+
 			"deletion: %+v", err)
+	}
+
+	err := s.deletePreviousNegotiationPartner(partner)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to delete partner negotiations: %+v", err)
 	}
 
 	return nil

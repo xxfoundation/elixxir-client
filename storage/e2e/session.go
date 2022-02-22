@@ -639,7 +639,7 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 		s.baseKey.Bytes(), h).Int64() + int64(p.MinKeys))
 
 	// start rekeying when enough keys have been used
-	s.rekeyThreshold = uint32(math.Ceil(s.e2eParams.RekeyThreshold*float64(numKeys)))
+	s.rekeyThreshold = uint32(math.Ceil(s.e2eParams.RekeyThreshold * float64(numKeys)))
 
 	// the total number of keys should be the number of rekeys plus the
 	// number of keys to use

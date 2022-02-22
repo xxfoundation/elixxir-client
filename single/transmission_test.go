@@ -26,7 +26,7 @@ func TestManager_GetMaxTransmissionPayloadSize(t *testing.T) {
 	m := newTestManager(0, false, t)
 	cmixPrimeSize := m.store.Cmix().GetGroup().GetP().ByteLen()
 	e2ePrimeSize := m.store.E2e().GetGroup().GetP().ByteLen()
-	expectedSize := 2*cmixPrimeSize - e2ePrimeSize - format.KeyFPLen - format.MacLen - format.RecipientIDLen - transmitPlMinSize - transmitMessageVersionSize-1
+	expectedSize := 2*cmixPrimeSize - e2ePrimeSize - format.KeyFPLen - format.MacLen - format.RecipientIDLen - transmitPlMinSize - transmitMessageVersionSize - 1
 	testSize := m.GetMaxTransmissionPayloadSize()
 
 	if expectedSize != testSize {
@@ -50,8 +50,7 @@ func TestManager_transmitSingleUse(t *testing.T) {
 	callback, callbackChan := createReplyComm()
 	timeout := 15 * time.Millisecond
 
-	err := m.transmitSingleUse(partner, payload, tag, maxMsgs, prng,
-		callback, timeout, newTestRoundEvents(false))
+	err := m.transmitSingleUse(partner, payload, tag, maxMsgs, prng, callback, timeout)
 	if err != nil {
 		t.Errorf("transmitSingleUse() returned an error: %+v", err)
 	}
@@ -93,7 +92,7 @@ func TestManager_transmitSingleUse_QuitChanError(t *testing.T) {
 	timeout := 15 * time.Millisecond
 
 	err := m.transmitSingleUse(partner, []byte{}, "testTag", 9,
-		rand.New(rand.NewSource(42)), callback, timeout, newTestRoundEvents(false))
+		rand.New(rand.NewSource(42)), callback, timeout)
 	if err != nil {
 		t.Errorf("transmitSingleUse() returned an error: %+v", err)
 	}
@@ -125,7 +124,7 @@ func TestManager_transmitSingleUse_AddIdentityError(t *testing.T) {
 	callback, callbackChan := createReplyComm()
 
 	err := m.transmitSingleUse(partner, []byte{}, "testTag", 9,
-		rand.New(rand.NewSource(42)), callback, timeout, newTestRoundEvents(false))
+		rand.New(rand.NewSource(42)), callback, timeout)
 	if err != nil {
 		t.Errorf("transmitSingleUse() returned an error: %+v", err)
 	}
@@ -158,7 +157,7 @@ func TestManager_transmitSingleUse_SendCMIXError(t *testing.T) {
 	timeout := 15 * time.Millisecond
 
 	err := m.transmitSingleUse(partner, []byte{}, "testTag", 9,
-		rand.New(rand.NewSource(42)), callback, timeout, newTestRoundEvents(false))
+		rand.New(rand.NewSource(42)), callback, timeout)
 	if err != nil {
 		t.Errorf("transmitSingleUse() returned an error: %+v", err)
 	}
@@ -182,7 +181,7 @@ func TestManager_transmitSingleUse_MakeTransmitCmixMessageError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	payload := make([]byte, m.store.Cmix().GetGroup().GetP().ByteLen())
 
-	err := m.transmitSingleUse(contact2.Contact{}, payload, "", 0, prng, nil, 0, nil)
+	err := m.transmitSingleUse(contact2.Contact{}, payload, "", 0, prng, nil, 0)
 	if err == nil {
 		t.Error("transmitSingleUse() did not return an error when the payload " +
 			"is too large.")
@@ -212,7 +211,7 @@ func TestManager_transmitSingleUse_AddStateError(t *testing.T) {
 	m.p.singleUse[*rid] = newState(dhKey, maxMsgs, nil)
 
 	err = m.transmitSingleUse(partner, payload, tag, maxMsgs,
-		rand.New(rand.NewSource(42)), callback, timeout, nil)
+		rand.New(rand.NewSource(42)), callback, timeout)
 	if !check(err, "failed to add pending state") {
 		t.Errorf("transmitSingleUse() failed to error when on adding state "+
 			"when the state already exists: %+v", err)
@@ -232,8 +231,7 @@ func TestManager_transmitSingleUse_RoundTimeoutError(t *testing.T) {
 	callback, callbackChan := createReplyComm()
 	timeout := 15 * time.Millisecond
 
-	err := m.transmitSingleUse(partner, payload, "testTag", 8, prng, callback,
-		timeout, newTestRoundEvents(true))
+	err := m.transmitSingleUse(partner, payload, "testTag", 8, prng, callback, timeout)
 	if err != nil {
 		t.Errorf("transmitSingleUse() returned an error: %+v", err)
 	}
@@ -242,7 +240,7 @@ func TestManager_transmitSingleUse_RoundTimeoutError(t *testing.T) {
 
 	select {
 	case results := <-callbackChan:
-		if results.payload != nil || !check(results.err, "round failures") {
+		if results.payload != nil || !check(results.err, "timed out") {
 			t.Errorf("Callback did not return the correct error when it "+
 				"should have timed out.\npayload: %+v\nerror:   %+v",
 				results.payload, results.err)

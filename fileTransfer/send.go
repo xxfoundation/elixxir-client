@@ -33,7 +33,7 @@ import (
 const (
 	// Manager.sendParts
 	sendManyCmixWarn   = "[FT] Failed to send %d file parts %v via SendManyCMIX: %+v"
-	setInProgressErr   = "[FT] Failed to set parts %v to in-progress for transfer %s"
+	setInProgressErr   = "[FT] Failed to set parts %v to in-progress for transfer %s: %+v"
 	getRoundResultsErr = "[FT] Failed to get round results for round %d for file transfers %v: %+v"
 
 	// Manager.buildMessages
@@ -47,7 +47,7 @@ const (
 	finishedEndE2eMsfErr    = "[FT] Failed to send E2E message to %s on completion of file transfer %s: %+v"
 	roundFailureWarn        = "[FT] Failed to send file parts for file transfers %v on round %d: round %s"
 	finishFailNoTransferErr = "[FT] Failed to requeue in-progress parts on failure of round %d for transfer %s: %+v"
-	unsetInProgressErr      = "[FT] Failed to remove parts from in-progress list for transfer %s: round %s"
+	unsetInProgressErr      = "[FT] Failed to remove parts from in-progress list for transfer %s: round %s: %+v"
 
 	// Manager.sendEndE2eMessage
 	endE2eGetPartnerErr = "failed to get file transfer partner %s: %+v"
@@ -211,7 +211,7 @@ func (m *Manager) handleSend(partList *[]queuedPart, lastSend *time.Time,
 	// Send all the messages
 	err := m.sendParts(*partList, sentRounds)
 	if err != nil {
-		jww.FATAL.Panic(err)
+		jww.ERROR.Print(err)
 	}
 
 	// Update the timestamp of the send
@@ -247,6 +247,7 @@ func (m *Manager) sendParts(partList []queuedPart,
 	p := params.GetDefaultCMIX()
 	p.SendTimeout = m.p.SendTimeout
 	p.ExcludedRounds = sentRounds
+	p.DebugTag = "ft.Part"
 
 	// Send parts
 	rid, _, err := m.net.SendManyCMIX(messages, p)
@@ -270,7 +271,7 @@ func (m *Manager) sendParts(partList []queuedPart,
 	for tid, transfer := range transfers {
 		exists, err := transfer.SetInProgress(rid, groupedParts[tid]...)
 		if err != nil {
-			return errors.Errorf(setInProgressErr, groupedParts[tid], tid)
+			return errors.Errorf(setInProgressErr, groupedParts[tid], tid, err)
 		}
 
 		transfer.CallProgressCB(nil)
@@ -364,30 +365,14 @@ func (m *Manager) newCmixMessage(transfer *ftStorage.SentTransfer,
 	// Create new empty cMix message
 	cmixMsg := format.NewMessage(m.store.Cmix().GetGroup().GetP().ByteLen())
 
-	// Create new empty file part message of size equal to the available payload
-	// size in the cMix message
-	partMsg, err := newPartMessage(cmixMsg.ContentsSize())
+	// Get encrypted file part, file part MAC, nonce (nonce), and fingerprint
+	encPart, mac, fp, err := transfer.GetEncryptedPart(partNum, cmixMsg.ContentsSize())
 	if err != nil {
-		return cmixMsg, err
-	}
-
-	// Get encrypted file part, file part MAC, padding (nonce), and fingerprint
-	encPart, mac, padding, fp, err := transfer.GetEncryptedPart(
-		partNum, partMsg.getPartSize(), rng)
-	if err != nil {
-		return cmixMsg, err
-	}
-
-	// Construct file part message from padding (
-	partMsg.setPadding(padding)
-	partMsg.setPartNum(partNum)
-	err = partMsg.setPart(encPart)
-	if err != nil {
-		return cmixMsg, err
+		return format.Message{}, err
 	}
 
 	// Construct cMix message
-	cmixMsg.SetContents(partMsg.marshal())
+	cmixMsg.SetContents(encPart)
 	cmixMsg.SetKeyFP(fp)
 	cmixMsg.SetMac(mac)
 
@@ -460,7 +445,8 @@ func (m *Manager) makeRoundEventCallback(
 					// Remove parts from in-progress list
 					partsToResend, err := st.UnsetInProgress(rid)
 					if err != nil {
-						jww.ERROR.Printf(unsetInProgressErr, tid, roundResult)
+						jww.ERROR.Printf(
+							unsetInProgressErr, tid, roundResult, err)
 					}
 
 					// Call progress callback after change in progress
@@ -492,6 +478,7 @@ func (m *Manager) sendEndE2eMessage(recipient *id.ID) error {
 	// Send the message under file transfer preimage
 	e2eParams := params.GetDefaultE2E()
 	e2eParams.IdentityPreimage = partner.GetFileTransferPreimage()
+	e2eParams.DebugTag = "ft.End"
 
 	// Store the message in the critical messages buffer first to ensure it is
 	// present if the send fails
@@ -529,7 +516,7 @@ func (m *Manager) sendEndE2eMessage(recipient *id.ID) error {
 	// the session and the log
 	m.store.GetCriticalMessages().Succeeded(sendMsg, e2eParams)
 	jww.INFO.Printf("[FT] Sending of message %s informing %s that a transfer "+
-		"ended successful.", e2eMsgID, recipient)
+		"completed successfully.", e2eMsgID, recipient)
 
 	return nil
 }
@@ -565,12 +552,12 @@ func (m *Manager) getPartSize() (int, error) {
 
 	// Create new empty file part message of size equal to the available payload
 	// size in the cMix message
-	partMsg, err := newPartMessage(cmixMsg.ContentsSize())
+	partMsg, err := ftStorage.NewPartMessage(cmixMsg.ContentsSize())
 	if err != nil {
 		return 0, err
 	}
 
-	return partMsg.getPartSize(), nil
+	return partMsg.GetPartSize(), nil
 }
 
 // partitionFile splits the file into parts of the specified part size.

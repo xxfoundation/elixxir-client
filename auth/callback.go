@@ -9,6 +9,8 @@ package auth
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -26,7 +28,6 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
-	"strings"
 )
 
 func (m *Manager) StartProcesses() (stoppable.Stoppable, error) {
@@ -165,7 +166,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		return
 	} else {
 		//check if the relationship already exists,
-		rType, sr2, _, err := m.storage.Auth().GetRequest(partnerID)
+		rType, _, c, err := m.storage.Auth().GetRequest(partnerID)
 		if err != nil && !strings.Contains(err.Error(), auth.NoRequest) {
 			// if another error is received, print it and exit
 			em := fmt.Sprintf("Received new Auth request for %s, "+
@@ -183,6 +184,15 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 					"is a duplicate", partnerID)
 				jww.WARN.Print(em)
 				events.Report(5, "Auth", "DuplicateRequest", em)
+				// if the caller of the API wants requests replayed,
+				// replay the duplicate request
+				if m.replayRequests {
+					cbList := m.requestCallbacks.Get(c.ID)
+					for _, cb := range cbList {
+						rcb := cb.(interfaces.RequestCallback)
+						go rcb(c)
+					}
+				}
 				return
 			// if we sent a request, then automatically confirm
 			// then exit, nothing else needed
@@ -201,13 +211,9 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				}
 
 				// Check if I need to resend by comparing the
-				// SIDH Keys
-				mySIDH := sr2.GetMySIDHPubKey()
-				theirSIDH := partnerSIDHPubKey
-				myBytes := make([]byte, mySIDH.Size())
-				theirBytes := make([]byte, theirSIDH.Size())
-				mySIDH.Export(myBytes)
-				theirSIDH.Export(theirBytes)
+				// IDs
+				myBytes := m.storage.GetUser().ReceptionID.Bytes()
+				theirBytes := partnerID.Bytes()
 				for i := 0; i < len(myBytes); i++ {
 					if myBytes[i] > theirBytes[i] {
 						// OK, this side is dropping
@@ -224,8 +230,28 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				}
 
 				// If I do, delete my request on disk
-				_, _, partnerContact, _ := m.storage.Auth().GetRequest(partnerID)
 				m.storage.Auth().Delete(partnerID)
+
+				//process the inner payload
+				facts, _, err := fact.UnstringifyFactList(
+					string(requestFmt.msgPayload))
+				if err != nil {
+					em := fmt.Sprintf("failed to parse facts and message "+
+						"from Auth Request: %s", err)
+					jww.WARN.Print(em)
+					events.Report(10, "Auth", "RequestError", em)
+					return
+				}
+
+				// create the contact, note that we use the data
+				// sent in the request and not any data we had
+				// already
+				partnerContact := contact.Contact{
+					ID:             partnerID,
+					DhPubKey:       partnerPubKey,
+					OwnershipProof: copySlice(ownership),
+					Facts:          facts,
+				}
 
 				// add a confirmation to disk
 				if err = m.storage.Auth().AddReceived(partnerContact,
@@ -250,6 +276,12 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 
 				jww.INFO.Printf("ConfirmRequestAuth to %s on round %d",
 					partnerID, rndNum)
+				c := partnerContact
+				cbList := m.confirmCallbacks.Get(c.ID)
+				for _, cb := range cbList {
+					ccb := cb.(interfaces.ConfirmCallback)
+					go ccb(c)
+				}
 				return
 			}
 		}
@@ -290,7 +322,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	cbList := m.requestCallbacks.Get(c.ID)
 	for _, cb := range cbList {
 		rcb := cb.(interfaces.RequestCallback)
-		go rcb(c, "")
+		go rcb(c)
 	}
 	return
 }
@@ -431,6 +463,13 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 	m.storage.GetEdge().Add(edge.Preimage{
 		Data:   sessionPartner.GetFileTransferPreimage(),
 		Type:   preimage.EndFT,
+		Source: sr.GetPartner()[:],
+	}, me)
+
+	//group Request
+	m.storage.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetGroupRequestPreimage(),
+		Type:   preimage.GroupRq,
 		Source: sr.GetPartner()[:],
 	}, me)
 

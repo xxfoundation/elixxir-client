@@ -304,10 +304,22 @@ var rootCmd = &cobra.Command{
 			deleteChannel(client, recipientID)
 		}
 
+		if viper.GetBool("delete-receive-requests") {
+			client.DeleteReceiveRequests()
+		}
+
+		if viper.GetBool("delete-sent-requests") {
+			client.DeleteSentRequests()
+		}
+
+		if viper.GetBool("delete-all-requests") {
+			client.DeleteAllRequests()
+		}
+
 		msg := message.Send{
 			Recipient:   recipientID,
 			Payload:     []byte(msgBody),
-			MessageType: message.Text,
+			MessageType: message.XxMessage,
 		}
 		paramsE2E := params.GetDefaultE2E()
 		paramsUnsafe := params.GetDefaultUnsafe()
@@ -328,10 +340,12 @@ var rootCmd = &cobra.Command{
 						var roundIDs []id.Round
 						var roundTimeout time.Duration
 						if unsafe {
+							paramsE2E.DebugTag = "cmd.Unsafe"
 							roundIDs, err = client.SendUnsafe(msg,
 								paramsUnsafe)
 							roundTimeout = paramsUnsafe.Timeout
 						} else {
+							paramsE2E.DebugTag = "cmd.E2E"
 							roundIDs, _, _, err = client.SendE2E(msg,
 								paramsE2E)
 							roundTimeout = paramsE2E.Timeout
@@ -453,7 +467,7 @@ func initClientCallbacks(client *api.Client) (chan *id.ID,
 	swboard := client.GetSwitchboard()
 	recvCh := make(chan message.Receive, 10000)
 	listenerID := swboard.RegisterChannel("DefaultCLIReceiver",
-		switchboard.AnyUser(), message.Text, recvCh)
+		switchboard.AnyUser(), message.XxMessage, recvCh)
 	jww.INFO.Printf("Message ListenerID: %v", listenerID)
 
 	// Set up auth request handler, which simply prints the
@@ -471,7 +485,7 @@ func initClientCallbacks(client *api.Client) (chan *id.ID,
 	})
 	if viper.GetBool("unsafe-channel-creation") {
 		authMgr.AddGeneralRequestCallback(func(
-			requestor contact.Contact, message string) {
+			requestor contact.Contact) {
 			jww.INFO.Printf("Channel Request: %s",
 				requestor.ID)
 			_, err := client.ConfirmAuthenticatedChannel(
@@ -599,7 +613,7 @@ func initClient() *api.Client {
 		viper.GetUint("e2eNumReKeys"))
 	netParams.E2EParams.RekeyThreshold = viper.GetFloat64("e2eRekeyThreshold")
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
-	netParams.FastPolling = viper.GetBool(" slowPolling")
+	netParams.FastPolling = !viper.GetBool("slowPolling")
 	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
 	if netParams.ForceMessagePickupRetry {
 		period := 3 * time.Second
@@ -679,13 +693,11 @@ func deleteChannel(client *api.Client, partnerId *id.ID) {
 	}
 }
 
-func printChanRequest(requestor contact.Contact, message string) {
+func printChanRequest(requestor contact.Contact) {
 	msg := fmt.Sprintf("Authentication channel request from: %s\n",
 		requestor.ID)
 	jww.INFO.Printf(msg)
 	fmt.Printf(msg)
-	msg = fmt.Sprintf("Authentication channel request message: %s\n", message)
-	jww.INFO.Printf(msg)
 	// fmt.Printf(msg)
 }
 
@@ -995,7 +1007,7 @@ func init() {
 		"", 500, "The delay between sending the messages in ms")
 	viper.BindPFlag("sendDelay", rootCmd.Flags().Lookup("sendDelay"))
 	rootCmd.Flags().BoolP("splitSends",
-		"", true, "Force sends to go over multiple rounds if possible")
+		"", false, "Force sends to go over multiple rounds if possible")
 	viper.BindPFlag("splitSends", rootCmd.Flags().Lookup("splitSends"))
 
 	rootCmd.Flags().BoolP("verify-sends", "", false,
@@ -1029,6 +1041,21 @@ func init() {
 		"Delete the channel information for the corresponding recipient ID")
 	viper.BindPFlag("delete-channel",
 		rootCmd.PersistentFlags().Lookup("delete-channel"))
+
+	rootCmd.PersistentFlags().Bool("delete-receive-requests", false,
+		"Delete the all received contact requests.")
+	viper.BindPFlag("delete-receive-requests",
+		rootCmd.PersistentFlags().Lookup("delete-receive-requests"))
+
+	rootCmd.PersistentFlags().Bool("delete-sent-requests", false,
+		"Delete the all sent contact requests.")
+	viper.BindPFlag("delete-sent-requests",
+		rootCmd.PersistentFlags().Lookup("delete-sent-requests"))
+
+	rootCmd.PersistentFlags().Bool("delete-all-requests", false,
+		"Delete the all contact requests, both sent and received.")
+	viper.BindPFlag("delete-all-requests",
+		rootCmd.PersistentFlags().Lookup("delete-all-requests"))
 
 	rootCmd.Flags().BoolP("send-auth-request", "", false,
 		"Send an auth request to the specified destination and wait"+

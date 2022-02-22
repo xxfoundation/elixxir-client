@@ -40,7 +40,7 @@ func TestClient_GetRoundResults(t *testing.T) {
 	// Create a new copy of the test client for this test
 	client, err := newTestingClient(t)
 	if err != nil {
-		t.Fatalf("Failed in setup: %v", err)
+		t.Fatalf("Failed in setup: %+v", err)
 	}
 
 	// Construct the round call back function signature
@@ -171,7 +171,7 @@ func TestClient_GetRoundResults_HistoricalRounds(t *testing.T) {
 			t.Errorf("Failed to sign round in set up: %v", err)
 		}
 
-		err = client.network.GetInstance().RoundUpdate(ri)
+		_, err = client.network.GetInstance().RoundUpdate(ri)
 		if err != nil {
 			t.Errorf("Failed to upsert round in set up: %v", err)
 		}

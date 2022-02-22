@@ -66,7 +66,7 @@ func TestPartitioner_Partition(t *testing.T) {
 	storeSession := storage.InitTestingSession(t)
 	p := NewPartitioner(len(ipsumTestStr), storeSession)
 
-	_, _, err := p.Partition(&id.DummyUser, message.Text,
+	_, _, err := p.Partition(&id.DummyUser, message.XxMessage,
 		netTime.Now(), []byte(ipsumTestStr))
 	if err != nil {
 		t.Error(err)
@@ -94,7 +94,7 @@ func TestPartitioner_HandleFirstPartition(t *testing.T) {
 	storeSession := storage.InitTestingSession(t)
 	p := NewPartitioner(len(ipsumTestStr), storeSession)
 
-	m := newFirstMessagePart(message.Text, 1107, 1, netTime.Now(), []byte(ipsumTestStr))
+	m := newFirstMessagePart(message.XxMessage, 1107, 1, netTime.Now(), []byte(ipsumTestStr))
 
 	_, _ = p.HandlePartition(
 		&id.DummyUser,

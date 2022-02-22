@@ -203,7 +203,7 @@ func TestMultiPartMessage_IsComplete(t *testing.T) {
 		t.Error("IsComplete() returned true when NumParts == 0.")
 	}
 
-	mpm.AddFirst(message.Text, partNums[0], 75, netTime.Now(), netTime.Now(), parts[0])
+	mpm.AddFirst(message.XxMessage, partNums[0], 75, netTime.Now(), netTime.Now(), parts[0])
 	for i := range partNums {
 		if i > 0 {
 			mpm.Add(partNums[i], parts[i])

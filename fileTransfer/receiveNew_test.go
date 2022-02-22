@@ -51,7 +51,7 @@ func TestManager_receiveNewFileTransfer(t *testing.T) {
 	}
 	marshalledMsg, err := proto.Marshal(protoMsg)
 	if err != nil {
-		t.Errorf("Failed to marshal proto message: %+v", err)
+		t.Errorf("Failed to Marshal proto message: %+v", err)
 	}
 	receiveMsg := message.Receive{
 		Payload:     marshalledMsg,
@@ -120,7 +120,7 @@ func TestManager_receiveNewFileTransfer_Stop(t *testing.T) {
 	}
 	marshalledMsg, err := proto.Marshal(protoMsg)
 	if err != nil {
-		t.Errorf("Failed to marshal proto message: %+v", err)
+		t.Errorf("Failed to Marshal proto message: %+v", err)
 	}
 	receiveMsg := message.Receive{
 		Payload:     marshalledMsg,

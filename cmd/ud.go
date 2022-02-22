@@ -42,7 +42,7 @@ var udCmd = &cobra.Command{
 		swBoard := client.GetSwitchboard()
 		recvCh := make(chan message.Receive, 10000)
 		listenerID := swBoard.RegisterChannel("DefaultCLIReceiver",
-			switchboard.AnyUser(), message.Text, recvCh)
+			switchboard.AnyUser(), message.XxMessage, recvCh)
 		jww.INFO.Printf("Message ListenerID: %v", listenerID)
 
 		// Set up auth request handler, which simply prints the user ID of the
@@ -53,7 +53,7 @@ var udCmd = &cobra.Command{
 		// If unsafe channels, add auto-acceptor
 		if viper.GetBool("unsafe-channel-creation") {
 			authMgr.AddGeneralRequestCallback(func(
-				requester contact.Contact, message string) {
+				requester contact.Contact) {
 				jww.INFO.Printf("Got Request: %s", requester.ID)
 				_, err := client.ConfirmAuthenticatedChannel(requester)
 				if err != nil {
@@ -127,7 +127,6 @@ var udCmd = &cobra.Command{
 
 		confirmID := viper.GetString("confirm")
 		if confirmID != "" {
-			// TODO: Lookup code
 			err = userDiscoveryMgr.SendConfirmFact(confirmID, confirmID)
 			if err != nil {
 				fmt.Printf("Couldn't confirm fact: %s\n",
@@ -136,25 +135,27 @@ var udCmd = &cobra.Command{
 			}
 		}
 
+		// Handle lookup (verification) process
+		// Note: Cryptographic verification occurs above the bindings layer
 		lookupIDStr := viper.GetString("lookup")
 		if lookupIDStr != "" {
-			lookupID, ok := parseRecipient(lookupIDStr)
-			if !ok {
-				jww.FATAL.Panicf("Could not parse recipient: %s", lookupIDStr)
-			}
+			lookupID, _ := parseRecipient(lookupIDStr)
+			//if !ok {
+			//	jww.FATAL.Panicf("Could not parse recipient: %s", lookupIDStr)
+			//}
 			err = userDiscoveryMgr.Lookup(lookupID,
 				func(newContact contact.Contact, err error) {
 					if err != nil {
-						jww.FATAL.Panicf("%+v", err)
+						jww.FATAL.Panicf("UserDiscovery Lookup error: %+v", err)
 					}
 					printContact(newContact)
-				}, 90*time.Second)
+				}, 30*time.Second)
 
 			if err != nil {
 				jww.WARN.Printf("Failed UD lookup: %+v", err)
 			}
 
-			time.Sleep(91 * time.Second)
+			time.Sleep(31 * time.Second)
 		}
 
 		usernameSearchStr := viper.GetString("searchusername")

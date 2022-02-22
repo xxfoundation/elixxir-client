@@ -90,7 +90,7 @@ func Test_attemptSendCmix(t *testing.T) {
 		t.Errorf("Failed to load a key for testing: %v", err)
 	}
 	rnd := ds.NewRound(ri, pubKey, nil)
-	inst.GetWaitingRounds().Insert(rnd)
+	inst.GetWaitingRounds().Insert([]*ds.Round{rnd}, nil)
 	i := internal.Internal{
 		Session:          sess1,
 		Switchboard:      sw,

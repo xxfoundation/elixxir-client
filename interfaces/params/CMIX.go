@@ -27,6 +27,10 @@ type CMIX struct {
 	// an alternate identity preimage to use on send. If not set, the default
 	// for the sending identity will be used
 	IdentityPreimage []byte
+
+	// Tag which prints with sending logs to help localize the source
+	// All internal sends are tagged, so the default tag is "External"
+	DebugTag string
 }
 
 func GetDefaultCMIX() CMIX {
@@ -35,6 +39,7 @@ func GetDefaultCMIX() CMIX {
 		Timeout:     25 * time.Second,
 		RetryDelay:  1 * time.Second,
 		SendTimeout: 3 * time.Second,
+		DebugTag: 	 "External",
 	}
 }
 

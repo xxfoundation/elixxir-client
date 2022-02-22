@@ -43,6 +43,9 @@ type Rounds struct {
 	// Duration to wait before sending on a round times out and a new round is
 	// tried
 	SendTimeout time.Duration
+
+	//disables all attempts to pick up dropped or missed messages
+	RealtimeOnly bool
 }
 
 func GetDefaultRounds() Rounds {
@@ -58,5 +61,6 @@ func GetDefaultRounds() Rounds {
 		UncheckRoundPeriod:         20 * time.Second,
 		ForceMessagePickupRetry:    false,
 		SendTimeout:                1 * time.Second,
+		RealtimeOnly: false,
 	}
 }

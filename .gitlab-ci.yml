@@ -76,12 +76,15 @@ tag:
 
 bindings-ios:
   stage: build
+  dependencies: []
   except:
     - tags
   tags:
     - ios
   script:
-    - go get -u golang.org/x/mobile/cmd/gomobile
+    - export PATH=$PATH:$HOME/go/bin
+    - go install golang.org/x/mobile/cmd/gomobile@latest
+    - go get golang.org/x/mobile/cmd/gobind
     - gomobile init
     - gomobile bind -target ios gitlab.com/elixxir/client/bindings
     - ls
@@ -92,14 +95,18 @@ bindings-ios:
 
 bindings-android:
   stage: build
+  dependencies: []
   except:
     - tags
   tags:
     - android
   script:
+    - export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin:/android-sdk/platform-tools/
     - export ANDROID_HOME=/android-sdk
-    - export PATH=$PATH:/android-sdk/platform-tools/:/usr/local/go/bin
-    - go get -u golang.org/x/mobile/cmd/gomobile
+
+    # Build the bindings
+    - go install golang.org/x/mobile/cmd/gomobile@latest
+    - go get golang.org/x/mobile/cmd/gobind
     - gomobile init
     - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
   artifacts:

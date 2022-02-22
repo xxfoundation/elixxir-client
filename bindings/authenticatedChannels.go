@@ -63,7 +63,7 @@ func (c *Client) RequestAuthenticatedChannel(recipientMarshaled,
 func (c *Client) RegisterAuthCallbacks(request AuthRequestCallback,
 	confirm AuthConfirmCallback) {
 
-	requestFunc := func(requestor contact.Contact, message string) {
+	requestFunc := func(requestor contact.Contact) {
 		requestorBind := &Contact{c: &requestor}
 		request.Callback(requestorBind)
 	}
@@ -135,4 +135,9 @@ func (c *Client) GetRelationshipFingerprint(partnerID []byte) (string, error) {
 	}
 
 	return c.api.GetRelationshipFingerprint(partner)
+}
+
+// ReplayRequests Resends all pending requests over the normal callbacks
+func (c *Client) ReplayRequests() () {
+	c.api.GetAuthRegistrar().ReplayRequests()
 }

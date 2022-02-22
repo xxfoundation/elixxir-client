@@ -30,7 +30,7 @@ func TestManager_Send(t *testing.T) {
 	messageBytes := []byte("Group chat message.")
 	sender := m.gs.GetUser().DeepCopy()
 
-	_, _, err := m.Send(g.ID, messageBytes)
+	_, _, _, err := m.Send(g.ID, messageBytes)
 	if err != nil {
 		t.Errorf("Send() returned an error: %+v", err)
 	}
@@ -110,7 +110,7 @@ func TestManager_Send_CmixMessageError(t *testing.T) {
 	expectedErr := strings.SplitN(newCmixMsgErr, "%", 2)[0]
 
 	// Send message
-	_, _, err := m.Send(g.ID, make([]byte, 400))
+	_, _, _, err := m.Send(g.ID, make([]byte, 400))
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("Send() failed to return the expected error."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -125,7 +125,7 @@ func TestManager_Send_SendManyCMIXError(t *testing.T) {
 	expectedErr := strings.SplitN(sendManyCmixErr, "%", 2)[0]
 
 	// Send message
-	_, _, err := m.Send(g.ID, []byte("message"))
+	_, _, _, err := m.Send(g.ID, []byte("message"))
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("Send() failed to return the expected error."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -145,7 +145,7 @@ func TestManager_createMessages(t *testing.T) {
 
 	testMsg := []byte("Test group message.")
 	sender := m.gs.GetUser()
-	messages, err := m.createMessages(g.ID, testMsg, netTime.Now())
+	messages, _, err := m.createMessages(g.ID, testMsg, netTime.Now())
 	if err != nil {
 		t.Errorf("createMessages() returned an error: %+v", err)
 	}
@@ -205,7 +205,7 @@ func TestManager_createMessages_InvalidGroupIdError(t *testing.T) {
 	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
 
 	// Read message and make sure the error is expected
-	_, err := m.createMessages(
+	_, _, err := m.createMessages(
 		id.NewIdFromString("invalidID", id.Group, t), nil, time.Time{})
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("createMessages() did not return the expected error."+

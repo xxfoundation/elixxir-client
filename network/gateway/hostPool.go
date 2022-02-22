@@ -578,7 +578,7 @@ func (h *HostPool) updateConns() error {
 		return errors.Errorf("Unable to convert new NDF to set: %+v", err)
 	}
 
-	// Filter out gateway IDs
+	// Filter out unwanted gateway IDs
 	newMap = h.getFilter()(newMap, h.ndf)
 
 	// Keep track of the old NDF set
@@ -588,7 +588,7 @@ func (h *HostPool) updateConns() error {
 
 	// Handle adding Gateways
 	for gwId, ndfIdx := range newMap {
-		if _, ok := oldMap[gwId]; !ok {
+		if _, ok := oldMap[gwId]; !ok && gwId.GetType() == id.Gateway {
 			// If GwId in newMap is not in ndfMap, add the Gateway
 			h.addGateway(gwId.DeepCopy(), ndfIdx)
 		}
@@ -596,7 +596,7 @@ func (h *HostPool) updateConns() error {
 
 	// Handle removing Gateways
 	for gwId := range oldMap {
-		if _, ok := newMap[gwId]; !ok {
+		if _, ok := newMap[gwId]; !ok && gwId.GetType() == id.Gateway {
 			// If GwId in ndfMap is not in newMap, remove the Gateway
 			h.removeGateway(gwId.DeepCopy())
 		}

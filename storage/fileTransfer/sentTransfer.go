@@ -17,7 +17,6 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
@@ -90,6 +89,14 @@ const (
 // retries runs out. This occurs when all the fingerprints in a transfer have
 // been used.
 var MaxRetriesErr = errors.New(maxRetriesErr)
+
+// States for parts in the partStats MultiStateVector.
+const (
+	unsent = iota
+	inProgress
+	finished
+	numStates // The number of part states (for initialisation of the vector)
+)
 
 // sentTransferStateMap prevents illegal state changes for part statuses.
 var sentTransferStateMap = [][]bool{
@@ -188,8 +195,8 @@ func NewSentTransfer(recipient *id.ID, tid ftCrypto.TransferID,
 	}
 
 	// Create new MultiStateVector for storing part statuses
-	st.partStats, err = utility.NewMultiStateVector(
-		st.numParts, 3, sentTransferStateMap, sentPartStatsVectorKey, st.kv)
+	st.partStats, err = utility.NewMultiStateVector(st.numParts, numStates,
+		sentTransferStateMap, sentPartStatsVectorKey, st.kv)
 	if err != nil {
 		return nil, errors.Errorf(newSentPartStatusVectorErr, err)
 	}
@@ -236,8 +243,8 @@ func (st *SentTransfer) ReInit(numFps uint16,
 	}
 
 	// Overwrite new part status MultiStateVector
-	st.partStats, err = utility.NewMultiStateVector(
-		st.numParts, 3, sentTransferStateMap, sentPartStatsVectorKey, st.kv)
+	st.partStats, err = utility.NewMultiStateVector(st.numParts, numStates,
+		sentTransferStateMap, sentPartStatsVectorKey, st.kv)
 	if err != nil {
 		return errors.Errorf(reInitSentPartStatusVectorErr, err)
 	}
@@ -314,7 +321,7 @@ func (st *SentTransfer) IsPartInProgress(partNum uint16) (bool, error) {
 	if err != nil {
 		return false, errors.Errorf(getStatusErr, partNum, err)
 	}
-	return status == 1, nil
+	return status == inProgress, nil
 }
 
 // IsPartFinished returns true if the part has successfully arrived. Returns
@@ -325,7 +332,7 @@ func (st *SentTransfer) IsPartFinished(partNum uint16) (bool, error) {
 	if err != nil {
 		return false, errors.Errorf(getStatusErr, partNum, err)
 	}
-	return status == 2, nil
+	return status == finished, nil
 }
 
 // GetProgress returns the current progress of the transfer. Completed is true
@@ -345,8 +352,8 @@ func (st *SentTransfer) GetProgress() (completed bool, sent, arrived,
 // getProgress is the thread-unsafe helper function for GetProgress.
 func (st *SentTransfer) getProgress() (completed bool, sent, arrived,
 	total uint16, t interfaces.FilePartTracker) {
-	arrived, _ = st.partStats.GetCount(2)
-	sent, _ = st.partStats.GetCount(1)
+	arrived, _ = st.partStats.GetCount(finished)
+	sent, _ = st.partStats.GetCount(inProgress)
 	total = st.numParts
 
 	if sent == 0 && arrived == total {
@@ -419,17 +426,30 @@ func (st *SentTransfer) AddProgressCB(cb interfaces.SentProgressCallback,
 
 // GetEncryptedPart gets the specified part, encrypts it, and returns the
 // encrypted part along with its MAC, padding, and fingerprint.
-func (st *SentTransfer) GetEncryptedPart(partNum uint16, partSize int,
-	rng csprng.Source) (encPart, mac, padding []byte, fp format.Fingerprint,
-	err error) {
+func (st *SentTransfer) GetEncryptedPart(partNum uint16, contentsSize int) (encPart, mac []byte,
+	fp format.Fingerprint, err error) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
+
+	// Create new empty file part message of size equal to the available payload
+	// size in the cMix message
+	partMsg, err := NewPartMessage(contentsSize)
+	if err != nil {
+		return nil, nil, format.Fingerprint{}, err
+	}
+
+	partMsg.SetPartNum(partNum)
 
 	// Lookup part
 	part, exists := st.sentParts.getPart(partNum)
 	if !exists {
-		return nil, nil, nil, format.Fingerprint{},
+		return nil, nil, format.Fingerprint{},
 			errors.Errorf(noPartNumErr, partNum)
+	}
+
+	if err = partMsg.SetPart(part); err != nil{
+		return nil, nil, format.Fingerprint{},
+			err
 	}
 
 	// If all fingerprints have been used but parts still remain, then change
@@ -437,13 +457,13 @@ func (st *SentTransfer) GetEncryptedPart(partNum uint16, partSize int,
 	// retries have been used
 	if st.fpVector.GetNumAvailable() < 1 {
 		st.status = Stopping
-		return nil, nil, nil, format.Fingerprint{}, MaxRetriesErr
+		return nil, nil, format.Fingerprint{}, MaxRetriesErr
 	}
 
 	// Get next unused fingerprint number and mark it as used
 	nextKey, err := st.fpVector.Next()
 	if err != nil {
-		return nil, nil, nil, format.Fingerprint{},
+		return nil, nil, format.Fingerprint{},
 			errors.Errorf(fingerprintErr, err)
 	}
 	fpNum := uint16(nextKey)
@@ -452,16 +472,13 @@ func (st *SentTransfer) GetEncryptedPart(partNum uint16, partSize int,
 	fp = ftCrypto.GenerateFingerprint(st.key, fpNum)
 
 	// Encrypt the file part and generate the file part MAC and padding (nonce)
-	maxLengthPart := make([]byte, partSize)
-	copy(maxLengthPart, part)
-	encPart, mac, padding, err = ftCrypto.EncryptPart(
-		st.key, maxLengthPart, fpNum, rng)
+	encPart, mac, err = ftCrypto.EncryptPart(st.key, partMsg.Marshal(), fpNum, fp)
 	if err != nil {
-		return nil, nil, nil, format.Fingerprint{},
+		return nil, nil, format.Fingerprint{},
 			errors.Errorf(encryptPartErr, partNum, err)
 	}
 
-	return encPart, mac, padding, fp, err
+	return encPart, mac, fp, err
 }
 
 // SetInProgress adds the specified file part numbers to the in-progress
@@ -476,7 +493,7 @@ func (st *SentTransfer) SetInProgress(rid id.Round, partNums ...uint16) (bool,
 	_, exists := st.inProgressTransfers.getPartNums(rid)
 
 	// Set parts as in-progress in part status vector
-	err := st.partStats.SetMany(partNums, 1)
+	err := st.partStats.SetMany(partNums, inProgress)
 	if err != nil {
 		return false, err
 	}
@@ -503,8 +520,16 @@ func (st *SentTransfer) UnsetInProgress(rid id.Round) ([]uint16, error) {
 	// Get the list of part numbers to be removed from list
 	partNums, _ := st.inProgressTransfers.getPartNums(rid)
 
+	// The part status is set in partStats before the parts and round ID so that
+	// in the event of recovery after a crash, the parts will be resent on a new
+	// round and the parts in the inProgressTransfers will be left until deleted
+	// with the rest of the storage on transfer completion. The side effect is
+	// that on recovery, the status of the round will be looked up again and the
+	// progress callback will be called for an event that has already been
+	// called on the callback.
+
 	// Set parts as unsent in part status vector
-	err := st.partStats.SetMany(partNums, 0)
+	err := st.partStats.SetMany(partNums, unsent)
 	if err != nil {
 		return nil, err
 	}
@@ -539,7 +564,7 @@ func (st *SentTransfer) FinishTransfer(rid id.Round) (bool, error) {
 	}
 
 	// Set parts as finished in part status vector
-	err = st.partStats.SetMany(partNums, 2)
+	err = st.partStats.SetMany(partNums, finished)
 	if err != nil {
 		return false, err
 	}
@@ -561,7 +586,7 @@ func (st *SentTransfer) GetUnsentPartNums() ([]uint16, error) {
 	defer st.mux.RUnlock()
 
 	// Get list of parts with a status of unsent
-	unsentPartNums, err := st.partStats.GetKeys(0)
+	unsentPartNums, err := st.partStats.GetKeys(unsent)
 	if err != nil {
 		return nil, errors.Errorf(getUnsentPartsErr, err)
 	}

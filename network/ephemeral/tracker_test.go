@@ -107,7 +107,7 @@ func setupInstance(instance interfaces.NetworkManager) error {
 	if err = signature.SignRsa(ri, testCert); err != nil {
 		return errors.Errorf("Failed to sign round info: %+v", err)
 	}
-	if err = instance.GetInstance().RoundUpdate(ri); err != nil {
+	if _, err = instance.GetInstance().RoundUpdate(ri); err != nil {
 		return errors.Errorf("Failed to RoundUpdate from from file: %+v", err)
 	}
 
@@ -117,7 +117,7 @@ func setupInstance(instance interfaces.NetworkManager) error {
 	if err = signature.SignRsa(ri, testCert); err != nil {
 		return errors.Errorf("Failed to sign round info: %+v", err)
 	}
-	if err = instance.GetInstance().RoundUpdate(ri); err != nil {
+	if _, err = instance.GetInstance().RoundUpdate(ri); err != nil {
 		return errors.Errorf("Failed to RoundUpdate from from file: %v", err)
 	}
 

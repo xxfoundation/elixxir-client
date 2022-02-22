@@ -5,26 +5,16 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package params
+package bindings
+
 
 import (
-	"time"
+	"gitlab.com/xx_network/primitives/id"
+	"fmt"
 )
 
-type Messages struct {
-	MessageReceptionBuffLen        uint
-	MessageReceptionWorkerPoolSize uint
-	MaxChecksGarbledMessage        uint
-	GarbledMessageWait             time.Duration
-	RealtimeOnly 					bool
-}
+const dashboardBaseURL = "https://dashboard.xx.network"
 
-func GetDefaultMessage() Messages {
-	return Messages{
-		MessageReceptionBuffLen:        500,
-		MessageReceptionWorkerPoolSize: 4,
-		MaxChecksGarbledMessage:        10,
-		GarbledMessageWait:             15 * time.Minute,
-		RealtimeOnly: 				    false,
-	}
+func getRoundURL(round id.Round) string {
+	return fmt.Sprintf("%s/rounds/%d?xxmessenger=true", dashboardBaseURL, round)
 }

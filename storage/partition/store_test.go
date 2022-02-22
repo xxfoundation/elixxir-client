@@ -41,7 +41,7 @@ func TestStore_AddFirst(t *testing.T) {
 	s := New(versioned.NewKV(ekv.Memstore{}))
 
 	msg, complete := s.AddFirst(id.NewIdFromString("User", id.User, t),
-		message.Text, 5, 0, 1, netTime.Now(), netTime.Now(), part,
+		message.XxMessage, 5, 0, 1, netTime.Now(), netTime.Now(), part,
 		[]byte{0})
 
 	if !complete {
@@ -61,7 +61,7 @@ func TestStore_Add(t *testing.T) {
 	s := New(versioned.NewKV(ekv.Memstore{}))
 
 	msg, complete := s.AddFirst(id.NewIdFromString("User", id.User, t),
-		message.Text, 5, 0, 2, netTime.Now(), netTime.Now(), part1,
+		message.XxMessage, 5, 0, 2, netTime.Now(), netTime.Now(), part1,
 		[]byte{0})
 
 	if complete {
@@ -92,7 +92,7 @@ func TestStore_ClearMessages(t *testing.T) {
 	messageId1 := uint64(5)
 	oldTimestamp := netTime.Now().Add(-2 * clearPartitionThreshold)
 	s.AddFirst(partner1,
-		message.Text, messageId1, 0, 2, netTime.Now(),
+		message.XxMessage, messageId1, 0, 2, netTime.Now(),
 		oldTimestamp, part1,
 		[]byte{0})
 	s.Add(partner1, messageId1, 1, part2, []byte{0})
@@ -100,7 +100,7 @@ func TestStore_ClearMessages(t *testing.T) {
 	partner2 := id.NewIdFromString("User1", id.User, t)
 	messageId2 := uint64(6)
 	newTimestamp := netTime.Now()
-	s.AddFirst(partner2, message.Text, messageId2, 0, 2, netTime.Now(),
+	s.AddFirst(partner2, message.XxMessage, messageId2, 0, 2, netTime.Now(),
 		newTimestamp, part1,
 		[]byte{0})
 

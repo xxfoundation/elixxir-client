@@ -292,3 +292,9 @@ func (m *Manager) GetSilentPreimage() []byte {
 func (m *Manager) GetFileTransferPreimage() []byte {
 	return preimage.Generate(m.GetRelationshipFingerprintBytes(), preimage.EndFT)
 }
+
+// GetGroupRequestPreimage returns a hash of the unique
+// fingerprint for group requests received from this user.
+func (m *Manager) GetGroupRequestPreimage() []byte {
+	return preimage.Generate(m.GetRelationshipFingerprintBytes(), preimage.GroupRq)
+}

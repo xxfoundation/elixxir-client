@@ -37,44 +37,55 @@ const (
 
 // Send sends a message to all group members using Client.SendManyCMIX. The
 // send fails if the message is too long.
-func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time,
+func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time, group.MessageID,
 	error) {
 	// Get the current time stripped of the monotonic clock
 	timeNow := netTime.Now().Round(0)
 
 	// Create a cMix message for each group member
-	messages, err := m.createMessages(groupID, message, timeNow)
+	messages, msgID, err := m.createMessages(groupID, message, timeNow)
 	if err != nil {
-		return 0, time.Time{}, errors.Errorf(newCmixMsgErr, err)
+		return 0, time.Time{}, group.MessageID{}, errors.Errorf(newCmixMsgErr, err)
 	}
 
 	param := params.GetDefaultCMIX()
 	param.IdentityPreimage = groupID[:]
+	param.DebugTag = "group.Message"
 
 	rid, _, err := m.net.SendManyCMIX(messages, param)
 	if err != nil {
-		return 0, time.Time{},
+		return 0, time.Time{}, group.MessageID{},
 			errors.Errorf(sendManyCmixErr, m.gs.GetUser().ID, groupID, err)
 	}
 
 	jww.DEBUG.Printf("Sent message to %d members in group %s at %s.",
 		len(messages), groupID, timeNow)
 
-	return rid, timeNow, nil
+	return rid, timeNow, msgID, nil
 }
 
 // createMessages generates a list of cMix messages and a list of corresponding
 // recipient IDs.
 func (m *Manager) createMessages(groupID *id.ID, msg []byte, timestamp time.Time) (
-	[]message.TargetedCmixMessage, error) {
+	[]message.TargetedCmixMessage, group.MessageID, error) {
+
+	//make the message ID
+	cmixMsg := format.NewMessage(m.store.Cmix().GetGroup().GetP().ByteLen())
+	_, intlMsg, err := newMessageParts(cmixMsg.ContentsSize())
+	if err != nil {
+		return nil, group.MessageID{},errors.WithMessage(err,"Failed to make message parts for message ID")
+	}
+	messageID := group.NewMessageID(groupID, setInternalPayload(intlMsg, timestamp, m.gs.GetUser().ID, msg))
 
 	g, exists := m.gs.Get(groupID)
 	if !exists {
-		return []message.TargetedCmixMessage{},
+		return []message.TargetedCmixMessage{}, group.MessageID{},
 			errors.Errorf(newNoGroupErr, groupID)
 	}
 
-	return m.newMessages(g, msg, timestamp)
+	NewMessages, err := m.newMessages(g, msg, timestamp)
+
+	return NewMessages, messageID, err
 }
 
 // newMessages is a private function that allows the passing in of a timestamp

@@ -102,7 +102,7 @@ func (m *Manager) sendMessages(msgs map[id.ID]format.Message) error {
 					"preimage in e2e send: %+v", err)
 			}
 			rng.Close()
-
+			p.DebugTag = "dummy"
 			_, _, err := m.net.SendCMIX(msg, &recipient, p)
 			if err != nil {
 				jww.WARN.Printf("Failed to send dummy message %d/%d via "+

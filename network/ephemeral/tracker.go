@@ -78,7 +78,7 @@ func track(session *storage.Session, addrSpace *AddressSpace, ourId *id.ID, stop
 
 		// Generates the IDs since the last track
 		protoIds, err := ephemeral.GetIdsByRange(
-			ourId, uint(addressSize), lastCheck, now.Sub(lastCheck))
+			ourId, uint(addressSize), lastCheck, now.Add(validityGracePeriod).Sub(lastCheck))
 
 		jww.DEBUG.Printf("Now: %s, LastCheck: %s, Different: %s",
 			now, lastCheck, now.Sub(lastCheck))

@@ -130,7 +130,6 @@ var udCmd = &cobra.Command{
 
 		confirmID := viper.GetString("confirm")
 		if confirmID != "" {
-			// TODO: Lookup code
 			err = userDiscoveryMgr.SendConfirmFact(confirmID, confirmID)
 			if err != nil {
 				fmt.Printf("Couldn't confirm fact: %s\n",
@@ -139,25 +138,27 @@ var udCmd = &cobra.Command{
 			}
 		}
 
+		// Handle lookup (verification) process
+		// Note: Cryptographic verification occurs above the bindings layer
 		lookupIDStr := viper.GetString("lookup")
 		if lookupIDStr != "" {
-			lookupID, ok := parseRecipient(lookupIDStr)
-			if !ok {
-				jww.FATAL.Panicf("Could not parse recipient: %s", lookupIDStr)
-			}
+			lookupID, _ := parseRecipient(lookupIDStr)
+			//if !ok {
+			//	jww.FATAL.Panicf("Could not parse recipient: %s", lookupIDStr)
+			//}
 			err = userDiscoveryMgr.Lookup(lookupID,
 				func(newContact contact.Contact, err error) {
 					if err != nil {
-						jww.FATAL.Panicf("%+v", err)
+						jww.FATAL.Panicf("UserDiscovery Lookup error: %+v", err)
 					}
 					printContact(newContact)
-				}, 90*time.Second)
+				}, 30*time.Second)
 
 			if err != nil {
 				jww.WARN.Printf("Failed UD lookup: %+v", err)
 			}
 
-			time.Sleep(91 * time.Second)
+			time.Sleep(31 * time.Second)
 		}
 
 		if viper.GetString("batchadd") != "" {

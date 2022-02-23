@@ -163,7 +163,8 @@ func (s *Store) savePreviousNegotiations() error {
 func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]struct{}, error) {
 	obj, err := s.kv.Get(negotiationPartnersKey, negotiationPartnersVersion)
 	if err != nil {
-		if strings.Contains(err.Error(), "object not found") {
+		if strings.Contains(err.Error(), "object not found") ||
+			strings.Contains(err.Error(), "no such file or directory") {
 			return make(map[id.ID]struct{}), nil
 		}
 		return nil, err

@@ -229,9 +229,9 @@ func TestStore_deletePreviousNegotiationPartner(t *testing.T) {
 		}
 
 		// Check previousNegotiations in storage
-		previousNegotiations, err := s.loadPreviousNegotiations()
+		previousNegotiations, err := s.newOrLoadPreviousNegotiations()
 		if err != nil {
-			t.Errorf("loadPreviousNegotiations returned an error (%d): %+v",
+			t.Errorf("newOrLoadPreviousNegotiations returned an error (%d): %+v",
 				i, err)
 		}
 		_, exists = previousNegotiations[*v.partner]
@@ -260,8 +260,8 @@ func TestStore_deletePreviousNegotiationPartner(t *testing.T) {
 }
 
 // Tests that Store.previousNegotiations can be saved and loaded from storage
-// via Store.savePreviousNegotiations andStore.loadPreviousNegotiations.
-func TestStore_savePreviousNegotiations_loadPreviousNegotiations(t *testing.T) {
+// via Store.savePreviousNegotiations andStore.newOrLoadPreviousNegotiations.
+func TestStore_savePreviousNegotiations_newOrLoadPreviousNegotiations(t *testing.T) {
 	s := &Store{
 		kv:                   versioned.NewKV(make(ekv.Memstore)),
 		previousNegotiations: make(map[id.ID]struct{}),
@@ -280,9 +280,9 @@ func TestStore_savePreviousNegotiations_loadPreviousNegotiations(t *testing.T) {
 				i, err)
 		}
 
-		s.previousNegotiations, err = s.loadPreviousNegotiations()
+		s.previousNegotiations, err = s.newOrLoadPreviousNegotiations()
 		if err != nil {
-			t.Errorf("loadPreviousNegotiations returned an error (%d): %+v",
+			t.Errorf("newOrLoadPreviousNegotiations returned an error (%d): %+v",
 				i, err)
 		}
 
@@ -290,6 +290,26 @@ func TestStore_savePreviousNegotiations_loadPreviousNegotiations(t *testing.T) {
 			t.Errorf("Loaded previousNegotiations does not match expected (%d)."+
 				"\nexpected: %v\nreceived: %v", i, expected, s.previousNegotiations)
 		}
+	}
+}
+
+// Tests that Store.newOrLoadPreviousNegotiations returns blank negotiations if
+// they do not exist.
+func TestStore_newOrLoadPreviousNegotiations_noNegotiations(t *testing.T) {
+	s := &Store{
+		kv:                   versioned.NewKV(make(ekv.Memstore)),
+		previousNegotiations: make(map[id.ID]struct{}),
+	}
+	expected := make(map[id.ID]struct{})
+
+	blankNegotations, err := s.newOrLoadPreviousNegotiations()
+	if err != nil {
+		t.Errorf("newOrLoadPreviousNegotiations returned an error: %+v", err)
+	}
+
+	if !reflect.DeepEqual(expected, blankNegotations) {
+		t.Errorf("Loaded previousNegotiations does not match expected."+
+			"\nexpected: %v\nreceived: %v", expected, blankNegotations)
 	}
 }
 

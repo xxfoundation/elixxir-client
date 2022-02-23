@@ -55,6 +55,7 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 			// Retry of the proxy could not communicate
 			jww.INFO.Printf("Unable to SendToAny via %s: non-fatal error received, retrying: %s",
 				proxies[proxy].GetId().String(), err)
+			continue
 		} else if strings.Contains(err.Error(), "unable to connect to target host") ||
 			strings.Contains(err.Error(), "unable to find target host") {
 			// Retry of the proxy could not communicate
@@ -62,15 +63,21 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 				" proxy could not contact requested host",
 				proxies[proxy].GetId(), err)
 			continue
-		} else if replaced, checkReplaceErr := s.checkReplace(proxies[proxy].GetId(), err); replaced {
-			if checkReplaceErr != nil {
-				jww.WARN.Printf("Unable to SendToAny, replaced a proxy %s with error %s",
-					proxies[proxy].GetId().String(), checkReplaceErr)
-			} else {
-				jww.WARN.Printf("Unable to SendToAny, replaced a proxy %s",
-					proxies[proxy].GetId().String())
-			}
+		}
+
+		// Not retryable, now we must check whether the Host should be replaced
+		replaced, checkReplaceErr := s.checkReplace(proxies[proxy].GetId(), err)
+		if replaced {
+			jww.WARN.Printf("Unable to SendToAny, replaced a proxy %s with error %s",
+				proxies[proxy].GetId().String(), err.Error())
 		} else {
+			if checkReplaceErr != nil {
+				jww.WARN.Printf("Unable to SendToAny via %s: %s. Unable to replace host: %+v",
+					proxies[proxy].GetId().String(), err.Error(), checkReplaceErr)
+			} else {
+				jww.WARN.Printf("Unable to SendToAny via %s: %s. Did not replace host.",
+					proxies[proxy].GetId().String(), err.Error())
+			}
 			return nil, errors.WithMessage(err, "Received error with SendToAny")
 		}
 	}
@@ -111,6 +118,7 @@ func (s *Sender) SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
 			// Retry of the proxy could not communicate
 			jww.INFO.Printf("Unable to to SendToPreferred first pass %s via %s: non-fatal error received, retrying: %s",
 				targets[i], targetHosts[i].GetId(), err)
+			continue
 		} else if strings.Contains(err.Error(), "unable to connect to target host") ||
 			strings.Contains(err.Error(), "unable to find target host") {
 			// Retry of the proxy could not communicate
@@ -118,22 +126,21 @@ func (s *Sender) SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
 				"proxy could not contact requested host",
 				targets[i], targetHosts[i].GetId(), err)
 			continue
-		} else if replaced, checkReplaceErr := s.checkReplace(targetHosts[i].GetId(), err); replaced {
-			if checkReplaceErr != nil {
-				jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s, "+
-					"proxy failed, was replaced with error: %s",
-					targets[i], targetHosts[i].GetId(), checkReplaceErr)
-			} else {
-				jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s, "+
-					"proxy failed, was replaced",
-					targets[i], targetHosts[i].GetId())
-			}
-			jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s: %s, proxy failed, was replaced",
-				targets[i], targetHosts[i].GetId(), checkReplaceErr)
-			continue
+		}
+
+		// Not retryable, now we must check whether the Host should be replaced
+		replaced, checkReplaceErr := s.checkReplace(targetHosts[i].GetId(), err)
+		if replaced {
+			jww.WARN.Printf("Unable to SendToPreferred first pass via %s, replaced a proxy %s with error %s",
+				targets[i], targetHosts[i].GetId(), err.Error())
 		} else {
-			jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s: %s, comm returned an error",
-				targets[i], targetHosts[i].GetId(), err)
+			if checkReplaceErr != nil {
+				jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s: %s. Unable to replace host: %+v",
+					targets[i], targetHosts[i].GetId(), err.Error(), checkReplaceErr)
+			} else {
+				jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s: %s. Did not replace host.",
+					targets[i], targetHosts[i].GetId(), err.Error())
+			}
 			return result, err
 		}
 	}
@@ -182,6 +189,7 @@ func (s *Sender) SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
 				// Retry of the proxy could not communicate
 				jww.INFO.Printf("Unable to SendToPreferred second pass %s via %s: non-fatal error received, retrying: %s",
 					target, proxy, err)
+				continue
 			} else if strings.Contains(err.Error(), "unable to connect to target host") ||
 				strings.Contains(err.Error(), "unable to find target host") {
 				// Retry of the proxy could not communicate
@@ -189,21 +197,22 @@ func (s *Sender) SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
 					" proxy could not contact requested host",
 					target, proxy, err)
 				continue
-			} else if replaced, checkReplaceErr := s.checkReplace(proxy.GetId(), err); replaced {
-				if checkReplaceErr != nil {
-					jww.WARN.Printf("Unable to SendToPreferred second pass %s via %s,"+
-						"proxy failed, was replaced with error: %s", target, proxy.GetId(),
-						checkReplaceErr)
-				} else {
-					jww.WARN.Printf("Unable to SendToPreferred second pass %s via %s, "+
-						"proxy failed, was replaced", target, proxy.GetId())
-				}
+			}
 
-				badProxies[proxy.String()] = nil
-				continue
+			// Not retryable, now we must check whether the Host should be replaced
+			replaced, checkReplaceErr := s.checkReplace(proxy.GetId(), err)
+			badProxies[proxy.String()] = nil
+			if replaced {
+				jww.WARN.Printf("Unable to SendToPreferred second pass via %s, replaced a proxy %s with error %s",
+					target, proxy.GetId(), err.Error())
 			} else {
-				jww.WARN.Printf("Unable to SendToPreferred second pass %s via %s: %s, comm returned an error",
-					target, proxy.GetId(), err)
+				if checkReplaceErr != nil {
+					jww.WARN.Printf("Unable to SendToPreferred second pass %s via %s: %s. Unable to replace host: %+v",
+						target, proxy.GetId(), err.Error(), checkReplaceErr)
+				} else {
+					jww.WARN.Printf("Unable to SendToPreferred second pass %s via %s: %s. Did not replace host.",
+						target, proxy.GetId(), err.Error())
+				}
 				return result, err
 			}
 		}

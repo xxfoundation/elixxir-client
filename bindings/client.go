@@ -13,6 +13,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime/pprof"
+	"strings"
+	"sync"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/message"
@@ -24,10 +29,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"google.golang.org/grpc/grpclog"
-	"runtime/pprof"
-	"strings"
-	"sync"
-	"time"
 )
 
 var extantClient bool
@@ -570,6 +571,12 @@ func (c *Client) getSingle() (*single.Manager, error) {
 	}
 
 	return c.single, nil
+}
+
+// GetInternalClient returns a reference to the client api. This is for internal
+// use only and should not be called by bindings clients.
+func (c *Client) GetInternalClient() api.Client {
+	return c.api
 }
 
 // DumpStack returns a string with the stack trace of every running thread.

@@ -91,11 +91,12 @@ func DefaultPoolParams() PoolParams {
 		HostParams:    connect.GetDefaultHostParams(),
 	}
 	p.HostParams.MaxRetries = 1
+	p.HostParams.MaxSendRetries = 1
 	p.HostParams.AuthEnabled = false
 	p.HostParams.EnableCoolOff = false
 	p.HostParams.NumSendsBeforeCoolOff = 1
 	p.HostParams.CoolOffTimeout = 5 * time.Minute
-	p.HostParams.SendTimeout = 2000 * time.Millisecond
+	p.HostParams.SendTimeout = 1 * time.Second
 	p.HostParams.PingTimeout = 1 * time.Second
 	return p
 }

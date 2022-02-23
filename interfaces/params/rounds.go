@@ -60,7 +60,7 @@ func GetDefaultRounds() Rounds {
 		MaxHistoricalRoundsRetries: 3,
 		UncheckRoundPeriod:         20 * time.Second,
 		ForceMessagePickupRetry:    false,
-		SendTimeout:                1 * time.Second,
-		RealtimeOnly: false,
+		SendTimeout:                3 * time.Second,
+		RealtimeOnly:               false,
 	}
 }

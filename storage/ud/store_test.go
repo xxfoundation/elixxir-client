@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/primitives/fact"
 	"reflect"
 	"testing"
 )
 
-func TestLoadStore(t *testing.T) {
+// Test it loads a Store from storage if it exists.
+func TestNewOrLoadStore_LoadStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
 	expectedStore, err := NewStore(kv)
@@ -16,13 +18,37 @@ func TestLoadStore(t *testing.T) {
 		t.Errorf("NewStore() produced an error: %v", err)
 	}
 
-	receivedStore, err := LoadStore(kv)
+	receivedStore, err := NewOrLoadStore(kv)
 	if err != nil {
-		t.Fatalf("LoadStore() produced an error: %v", err)
+		t.Fatalf("NewOrLoadStore() produced an error: %v", err)
 	}
 
 	if !reflect.DeepEqual(expectedStore, receivedStore) {
-		t.Errorf("LoadStore() returned incorrect Store."+
+		t.Errorf("NewOrLoadStore() returned incorrect Store."+
+			"\nexpected: %#v\nreceived: %#v", expectedStore,
+			receivedStore)
+
+	}
+
+}
+
+// Test that it creates a new store if an old one is not in storage.
+func TestNewOrLoadStore_NewStore(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+
+	receivedStore, err := NewOrLoadStore(kv)
+	if err != nil {
+		t.Fatalf("NewOrLoadStore() produced an error: %v", err)
+	}
+
+	expectedStore := &Store{
+		confirmedFacts:   make(map[fact.Fact]struct{}, 0),
+		unconfirmedFacts: make(map[string]fact.Fact, 0),
+		kv:               kv.Prefix(prefix),
+	}
+
+	if !reflect.DeepEqual(expectedStore, receivedStore) {
+		t.Errorf("NewOrLoadStore() returned incorrect Store."+
 			"\nexpected: %#v\nreceived: %#v", expectedStore,
 			receivedStore)
 

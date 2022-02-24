@@ -87,6 +87,13 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 	maxChanSize := 10000
 	restoreTimeout := time.Duration(30 * time.Second)
 
+	update := func(numFound, numRestored, total int, err string) {
+		if updatesCb != nil {
+			updatesCb.RestoreContactsCallback(numFound, numRestored,
+				total, err)
+		}
+	}
+
 	api := client.GetInternalClient()
 
 	store := stateStore{
@@ -112,7 +119,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 	}
 
 	// Before we start, report initial state
-	updatesCb.RestoreContactsCallback(lookupCnt, resetCnt, totalCnt, "")
+	update(lookupCnt, resetCnt, totalCnt, "")
 
 	// Initialize channels
 	chanSize := int(math.Min(float64(maxChanSize), float64(len(idList))))
@@ -183,8 +190,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 		if resetCnt == totalCnt {
 			done = true
 		}
-		updatesCb.RestoreContactsCallback(lookupCnt, resetCnt, totalCnt,
-			"")
+		update(lookupCnt, resetCnt, totalCnt, "")
 	}
 
 	// Cleanup

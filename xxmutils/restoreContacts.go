@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,14 +37,50 @@ type RestoreContactsUpdater interface {
 	RestoreContactsCallback(numFound, numRestored, total int, err string)
 }
 
+// RestoreContactsReport is a gomobile friendly report structure
+// for determining which IDs restored, which failed, and why.
+type RestoreContactsReport struct {
+	restored []*id.ID
+	failed   []*id.ID
+	errs     []error
+}
+
+// LenRestored returns the length of ID's restored.
+func (r *RestoreContactsReport) LenRestored() int {
+	return len(r.restored)
+}
+
+// LenFailed returns the length of the ID's failed.
+func (r *RestoreContactsReport) LenFailed() int {
+	return len(r.failed)
+}
+
+// GetRestoredAt returns the restored ID at index
+func (r *RestoreContactsReport) GetRestoredAt(index int) []byte {
+	return r.restored[index].Bytes()
+}
+
+// GetFailedAt returns the failed ID at index
+func (r *RestoreContactsReport) GetFailedAt(index int) []byte {
+	return r.failed[index].Bytes()
+}
+
+// GetErrorAt returns the error string at index
+func (r *RestoreContactsReport) GetErrorAt(index int) string {
+	return r.errs[index].Error()
+}
+
 // RestoreContactsFromBackup takes as input the jason output of the
 // `NewClientFromBackup` function, unmarshals it into IDs, looks up
 // each ID in user discovery, and initiates a session reset request.
 // This function will not return until every id in the list has been sent a
 // request. It should be called again and again until it completes.
+// xxDK users should not use this function. This function is used by
+// the mobile phone apps and are not intended to be part of the xxDK. It
+// should be treated as internal functions specific to the phone apps.
 func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 	udManager *bindings.UserDiscovery,
-	updatesCb RestoreContactsUpdater) error {
+	updatesCb RestoreContactsUpdater) (*RestoreContactsReport, error) {
 
 	// Constants/control settings
 	numRoutines := 8
@@ -59,15 +96,20 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 	// Unmarshal IDs and then check restore state
 	var idList []*id.ID
 	if err := json.Unmarshal(backupPartnerIDs, &idList); err != nil {
-		return err
+		return nil, err
 	}
-	lookupIDs, resetContacts := checkRestoreState(idList, store)
+	lookupIDs, resetContacts, restored := checkRestoreState(idList, store)
 
 	// State variables, how many we have looked up successfully
 	// and how many we have already reset.
 	totalCnt := len(idList)
 	lookupCnt := len(resetContacts)
 	resetCnt := totalCnt - len(resetContacts) - len(lookupIDs)
+	report := &RestoreContactsReport{
+		restored: restored,
+		failed:   make([]*id.ID, 0),
+		errs:     make([]error, 0),
+	}
 
 	// Before we start, report initial state
 	updatesCb.RestoreContactsCallback(lookupCnt, resetCnt, totalCnt, "")
@@ -81,6 +123,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 	foundCh := make(chan *contact.Contact, chanSize)
 	resetContactCh := make(chan *contact.Contact, chanSize)
 	restoredCh := make(chan *contact.Contact, chanSize)
+	failCh := make(chan failure, chanSize)
 
 	// Start routines for processing
 	lcWg := sync.WaitGroup{}
@@ -88,8 +131,8 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 	rsWg := sync.WaitGroup{}
 	rsWg.Add(numRoutines)
 	for i := 0; i < numRoutines; i++ {
-		go LookupContacts(lookupCh, foundCh, udManager, lcWg)
-		go ResetSessions(resetContactCh, restoredCh, api, rsWg)
+		go LookupContacts(lookupCh, foundCh, failCh, udManager, lcWg)
+		go ResetSessions(resetContactCh, restoredCh, failCh, api, rsWg)
 	}
 
 	// Load channels based on previous state
@@ -102,6 +145,18 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 		for i := range resetContacts {
 			lookupCnt += 1
 			resetContactCh <- resetContacts[i]
+		}
+	}()
+
+	// Failure processing, done separately (in a single thread)
+	// because failures should not reset the timer
+	failWg := sync.WaitGroup{}
+	failWg.Add(1)
+	go func() {
+		defer failWg.Done()
+		for fail := range failCh {
+			report.failed = append(report.failed, fail.ID)
+			report.errs = append(report.errs, fail.Err)
 		}
 	}()
 
@@ -122,6 +177,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 			go func() { resetContactCh <- c }()
 		case c := <-restoredCh:
 			store.set(c, contactRestored)
+			report.restored = append(report.restored, c.ID)
 			resetCnt += 1
 		}
 		if resetCnt == totalCnt {
@@ -134,52 +190,72 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 	// Cleanup
 	close(lookupCh)
 	close(resetContactCh)
+	close(failCh)
 	// Now wait for subroutines to close before closing their output chans
 	lcWg.Wait()
 	close(foundCh)
 	rsWg.Wait()
 	close(restoredCh)
+	failWg.Wait()
 
-	return err
+	return report, err
 }
 
 // LookupContacts routine looks up contacts
+// xxDK users should not use this function. This function is used by
+// the mobile phone apps and are not intended to be part of the xxDK. It
+// should be treated as internal functions specific to the phone apps.
 func LookupContacts(in chan *id.ID, out chan *contact.Contact,
-	udManager *bindings.UserDiscovery, wg sync.WaitGroup) {
+	failCh chan failure, udManager *bindings.UserDiscovery,
+	wg sync.WaitGroup) {
 	defer wg.Done()
 	// Start looking up contacts with user discovery and feed this
 	// contacts channel.
 	for lookupID := range in {
 		c, err := LookupContact(lookupID, udManager)
-		if err != nil {
-			jww.WARN.Printf("could not lookup %s: %v", lookupID,
-				err)
-			// Retry later
-			in <- lookupID
-		} else {
+		if err == nil {
 			out <- c
+			continue
 		}
+		// If an error, figure out if I should report or retry
+		errStr := err.Error()
+		if strings.Contains(errStr, "failed to lookup ID") {
+			failCh <- failure{ID: lookupID, Err: err}
+			continue
+		}
+		jww.WARN.Printf("could not lookup %s: %v", lookupID, err)
+		// Retry later
+		in <- lookupID
 	}
 }
 
-func ResetSessions(in, out chan *contact.Contact, api api.Client,
-	wg sync.WaitGroup) {
+// ResetSessions routine reads the in channel, sends a reset session
+// request, then marks it done by sending to the out channel.
+// xxDK users should not use this function. This function is used by
+// the mobile phone apps and are not intended to be part of the xxDK. It
+// should be treated as internal functions specific to the phone apps.
+func ResetSessions(in, out chan *contact.Contact, failCh chan failure,
+	api api.Client, wg sync.WaitGroup) {
 	defer wg.Done()
 	me := api.GetUser().GetContact()
 	msg := "Account reset from backup"
 	for c := range in {
 		_, err := api.ResetSession(*c, me, msg)
-		if err != nil {
-			jww.WARN.Printf("could not reset %s: %v",
-				c.ID, err)
-			in <- c
-		} else {
+		if err == nil {
 			out <- c
+			continue
 		}
+		// If an error, figure out if I should report or retry
+		// Note: Always retry here for now.
+		jww.WARN.Printf("could not reset %s: %v", c.ID, err)
+		in <- c
 	}
 }
 
 // LookupContact lookups up a contact using the user discovery manager
+// xxDK users should not use this function. This function is used by
+// the mobile phone apps and are not intended to be part of the xxDK. It
+// should be treated as internal functions specific to the phone apps.
 func LookupContact(userID *id.ID, udManager *bindings.UserDiscovery) (
 	*contact.Contact, error) {
 	// This is a little wonky, but wait until we get called then
@@ -227,6 +303,11 @@ const (
 	contactRestored
 )
 
+type failure struct {
+	ID  *id.ID
+	Err error
+}
+
 ////
 // stateStore wraps a kv and stores contact state for the restoration
 // TODO: Right now, it uses 1 contact-per-key approach, but it might make sense
@@ -272,9 +353,10 @@ func (s stateStore) get(id *id.ID) (restoreState, *contact.Contact, error) {
 // stateStore END
 
 func checkRestoreState(IDs []*id.ID, store stateStore) ([]*id.ID,
-	[]*contact.Contact) {
+	[]*contact.Contact, []*id.ID) {
 	var idsToLookup []*id.ID
 	var contactsToReset []*contact.Contact
+	var contactsRestored []*id.ID
 	for i := range IDs {
 		id := IDs[i]
 		idState, user, err := store.get(id)
@@ -289,8 +371,9 @@ func checkRestoreState(IDs []*id.ID, store stateStore) ([]*id.ID,
 			idsToLookup = append(idsToLookup, id)
 		case contactFound:
 			contactsToReset = append(contactsToReset, user)
+		case contactRestored:
+			contactsRestored = append(contactsRestored, user.ID)
 		}
-		// Restored state means we do nothing.
 	}
-	return idsToLookup, contactsToReset
+	return idsToLookup, contactsToReset, contactsRestored
 }

@@ -9,17 +9,18 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
+	"gitlab.com/elixxir/client/bindings"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/ud"
+	"gitlab.com/elixxir/client/xxmutils"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
@@ -169,32 +170,18 @@ var udCmd = &cobra.Command{
 					err.Error())
 				jww.FATAL.Panicf("BATCHADD: Couldn't read file: %+v", err)
 			}
-
-			var idList []*id.ID
-			err = json.Unmarshal(idListFile, &idList)
+			bindingsClient := bindings.WrapAPIClient(client)
+			bindingsUdMgr := bindings.WrapUserDiscovery(
+				userDiscoveryMgr)
+			report, err := xxmutils.RestoreContactsFromBackup(
+				idListFile, bindingsClient, bindingsUdMgr, nil)
 			if err != nil {
-				fmt.Printf("BATCHADD: Couldn't umarshal id list: %s\n",
-					err.Error())
-				jww.FATAL.Panicf("BATCHADD: Couldn't read file: %+v", err)
+				jww.FATAL.Panicf("%+v", err)
 			}
-
-			jww.INFO.Printf("BATCHADD: %d IDs: %v", len(idList), idList)
-
-			cb := func(newContact contact.Contact, err error) {
-				if err != nil {
-					jww.WARN.Printf("BATCHADD: %+v", err)
-					return
-				}
-
-				jww.INFO.Printf("BATCHADD: contact %s", newContact)
-
-				resetAuthenticatedChannel(client, newContact.ID, newContact)
-			}
-
-			userDiscoveryMgr.BatchLookup(idList, cb, 90*time.Second)
-
-			for _, uid := range idList {
-				for client.HasAuthenticatedChannel(uid) == false {
+			for i := 0; i < report.LenRestored(); i++ {
+				idBytes := report.GetRestoredAt(i)
+				uid, _ := id.Unmarshal(idBytes)
+				for !client.HasAuthenticatedChannel(uid) {
 					time.Sleep(time.Second)
 				}
 				jww.INFO.Printf("Authenticated channel established for %s", uid)

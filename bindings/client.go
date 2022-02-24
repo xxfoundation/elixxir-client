@@ -579,6 +579,10 @@ func (c *Client) GetInternalClient() api.Client {
 	return c.api
 }
 
+func WrapAPIClient(c *api.Client) *Client {
+	return &Client{api: *c}
+}
+
 // DumpStack returns a string with the stack trace of every running thread.
 func DumpStack() (string, error) {
 	buf := new(bytes.Buffer)

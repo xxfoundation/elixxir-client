@@ -9,12 +9,13 @@ package bindings
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 // This package wraps the user discovery system
@@ -337,4 +338,8 @@ func (ud *UserDiscovery) SetAlternativeUserDiscovery(address, cert, contactFile 
 // the Manager object.
 func (ud *UserDiscovery) UnsetAlternativeUserDiscovery() error {
 	return ud.ud.UnsetAlternativeUserDiscovery()
+}
+
+func WrapUserDiscovery(ud *ud.Manager) *UserDiscovery {
+	return &UserDiscovery{ud: ud}
 }

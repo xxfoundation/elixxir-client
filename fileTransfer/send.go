@@ -324,7 +324,7 @@ func (m *Manager) buildMessages(partList []queuedPart) (
 		}
 
 		// Generate new cMix message with encrypted file part
-		cmixMsg, err := m.newCmixMessage(st, part.partNum, rng)
+		cmixMsg, err := m.newCmixMessage(st, part.partNum)
 		if err == ftStorage.MaxRetriesErr {
 			jww.DEBUG.Printf("[FT] File transfer %s sent to %s ran out of "+
 				"retries {parts: %d, numFps: %d/%d}",
@@ -361,7 +361,7 @@ func (m *Manager) buildMessages(partList []queuedPart) (
 // newCmixMessage creates a new cMix message with an encrypted file part, its
 // MAC, and fingerprint.
 func (m *Manager) newCmixMessage(transfer *ftStorage.SentTransfer,
-	partNum uint16, rng csprng.Source) (format.Message, error) {
+	partNum uint16) (format.Message, error) {
 	// Create new empty cMix message
 	cmixMsg := format.NewMessage(m.store.Cmix().GetGroup().GetP().ByteLen())
 

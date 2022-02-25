@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"strings"
 )
 
 const (
@@ -157,11 +158,15 @@ func (s *Store) savePreviousNegotiations() error {
 	return s.kv.Set(negotiationPartnersKey, negotiationPartnersVersion, obj)
 }
 
-// loadPreviousNegotiations loads the list of previousNegotiations partners from
-// storage.
-func (s *Store) loadPreviousNegotiations() (map[id.ID]struct{}, error) {
+// newOrLoadPreviousNegotiations loads the list of previousNegotiations partners
+// from storage.
+func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]struct{}, error) {
 	obj, err := s.kv.Get(negotiationPartnersKey, negotiationPartnersVersion)
 	if err != nil {
+		if strings.Contains(err.Error(), "object not found") ||
+			strings.Contains(err.Error(), "no such file or directory") {
+			return make(map[id.ID]struct{}), nil
+		}
 		return nil, err
 	}
 

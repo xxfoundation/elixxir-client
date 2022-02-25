@@ -282,7 +282,7 @@ func Load(baseDir, password string, currentVersion version.Version,
 			"Failed to load bucket store")
 	}
 
-	s.ud, err = ud.LoadStore(s.kv)
+	s.ud, err = ud.NewOrLoadStore(s.kv)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load ud store")
 	}

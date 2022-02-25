@@ -56,11 +56,6 @@ func serializeRound(roundId id.Round) []byte {
 func (m *Manager) GetMessagesFromRound(roundID id.Round, identity reception.IdentityUse) {
 	ri, err := m.Instance.GetRound(roundID)
 	if err != nil || m.params.ForceHistoricalRounds {
-		if m.params.RealtimeOnly {
-			jww.WARN.Printf("Skipping round %d because it is not in ram and we are realtime only mode",
-				roundID)
-			return
-		}
 		if m.params.ForceHistoricalRounds {
 			jww.WARN.Printf("Forcing use of historical rounds for round ID %d.",
 				roundID)

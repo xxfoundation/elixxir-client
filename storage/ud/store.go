@@ -8,6 +8,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/netTime"
+	"strings"
 )
 
 // Storage constants
@@ -101,17 +102,23 @@ func (s *Store) saveUnconfirmedFacts() error {
 // LOAD FUNCTIONS
 /////////////////////////////////////////////////////////////////
 
-// LoadStore loads the Store object from the provided versioned.KV.
-func LoadStore(kv *versioned.KV) (*Store, error) {
-	kv = kv.Prefix(prefix)
+// NewOrLoadStore loads the Store object from the provided versioned.KV.
+func NewOrLoadStore(kv *versioned.KV) (*Store, error) {
 
 	s := &Store{
 		confirmedFacts:   make(map[fact.Fact]struct{}, 0),
 		unconfirmedFacts: make(map[string]fact.Fact, 0),
-		kv:               kv,
+		kv:               kv.Prefix(prefix),
 	}
 
-	return s, s.load()
+	if err := s.load(); err != nil {
+		if strings.Contains(err.Error(), "object not found") ||
+			strings.Contains(err.Error(), "no such file or directory") {
+			return s, s.save()
+		}
+	}
+
+	return s, nil
 
 }
 
@@ -143,6 +150,9 @@ func (s *Store) loadConfirmedFacts() error {
 
 	// Place the map in memory
 	s.confirmedFacts, err = s.unmarshalConfirmedFacts(obj.Data)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -158,6 +168,9 @@ func (s *Store) loadUnconfirmedFacts() error {
 
 	// Place the map in memory
 	s.unconfirmedFacts, err = s.unmarshalUnconfirmedFacts(obj.Data)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

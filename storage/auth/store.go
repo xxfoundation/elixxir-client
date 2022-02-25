@@ -155,7 +155,7 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 	}
 
 	// Load previous negotiations from storage
-	s.previousNegotiations, err = s.loadPreviousNegotiations()
+	s.previousNegotiations, err = s.newOrLoadPreviousNegotiations()
 	if err != nil {
 		return nil, errors.Errorf("failed to load list of previouse "+
 			"negotation partner IDs: %+v", err)

@@ -8,8 +8,8 @@
 package bindings
 
 import (
-	"errors"
 	"fmt"
+
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -18,8 +18,8 @@ import (
 func (c *Client) MakePrecannedAuthenticatedChannel(precannedID int) (*Contact, error) {
 	precannedContact, err := c.api.MakePrecannedAuthenticatedChannel(uint(precannedID))
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to "+
-			"MakePrecannedAuthenticatedChannel: %+v", err))
+		return nil, fmt.Errorf("Failed to "+
+			"MakePrecannedAuthenticatedChannel: %+v", err)
 	}
 	return &Contact{c: &precannedContact}, nil
 }
@@ -41,16 +41,16 @@ func (c *Client) RequestAuthenticatedChannel(recipientMarshaled,
 	recipent, err := contact.Unmarshal(recipientMarshaled)
 
 	if err != nil {
-		return 0, errors.New(fmt.Sprintf("Failed to "+
+		return 0, fmt.Errorf("Failed to "+
 			"RequestAuthenticatedChannel: Failed to Unmarshal Recipent: "+
-			"%+v", err))
+			"%+v", err)
 	}
 
 	me, err := contact.Unmarshal(meMarshaled)
 
 	if err != nil {
-		return 0, errors.New(fmt.Sprintf("Failed to "+
-			"RequestAuthenticatedChannel: Failed to Unmarshal Me: %+v", err))
+		return 0, fmt.Errorf("Failed to "+
+			"RequestAuthenticatedChannel: Failed to Unmarshal Me: %+v", err)
 	}
 
 	rid, err := c.api.RequestAuthenticatedChannel(recipent, me, message)
@@ -95,9 +95,9 @@ func (c *Client) ConfirmAuthenticatedChannel(recipientMarshaled []byte) (int, er
 	recipent, err := contact.Unmarshal(recipientMarshaled)
 
 	if err != nil {
-		return 0, errors.New(fmt.Sprintf("Failed to "+
+		return 0, fmt.Errorf("Failed to "+
 			"ConfirmAuthenticatedChannel: Failed to Unmarshal Recipient: "+
-			"%+v", err))
+			"%+v", err)
 	}
 
 	rid, err := c.api.ConfirmAuthenticatedChannel(recipent)
@@ -111,15 +111,15 @@ func (c *Client) VerifyOwnership(receivedMarshaled, verifiedMarshaled []byte) (b
 	received, err := contact.Unmarshal(receivedMarshaled)
 
 	if err != nil {
-		return false, errors.New(fmt.Sprintf("Failed to "+
-			"VerifyOwnership: Failed to Unmarshal Received: %+v", err))
+		return false, fmt.Errorf("Failed to "+
+			"VerifyOwnership: Failed to Unmarshal Received: %+v", err)
 	}
 
 	verified, err := contact.Unmarshal(verifiedMarshaled)
 
 	if err != nil {
-		return false, errors.New(fmt.Sprintf("Failed to "+
-			"VerifyOwnership: Failed to Unmarshal Verified: %+v", err))
+		return false, fmt.Errorf("Failed to "+
+			"VerifyOwnership: Failed to Unmarshal Verified: %+v", err)
 	}
 
 	return c.api.VerifyOwnership(received, verified), nil
@@ -138,6 +138,6 @@ func (c *Client) GetRelationshipFingerprint(partnerID []byte) (string, error) {
 }
 
 // ReplayRequests Resends all pending requests over the normal callbacks
-func (c *Client) ReplayRequests() () {
+func (c *Client) ReplayRequests() {
 	c.api.GetAuthRegistrar().ReplayRequests()
 }

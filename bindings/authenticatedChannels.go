@@ -58,14 +58,42 @@ func (c *Client) RequestAuthenticatedChannel(recipientMarshaled,
 	return int(rid), err
 }
 
-// RegisterAuthCallbacks registers both callbacks for authenticated channels.
+// ResetSession resets an authenticated channel that already exists
+func (c *Client) ResetSession(recipientMarshaled,
+	meMarshaled []byte, message string) (int, error) {
+	recipent, err := contact.Unmarshal(recipientMarshaled)
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to "+
+			"ResetSession: failed to Unmarshal Recipent: "+
+			"%+v", err)
+	}
+
+	me, err := contact.Unmarshal(meMarshaled)
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to "+
+			"ResetSession: Failed to Unmarshal Me: %+v", err)
+	}
+
+	rid, err := c.api.ResetSession(recipent, me, message)
+
+	return int(rid), err
+}
+
+// RegisterAuthCallbacks registers all callbacks for authenticated channels.
 // This can only be called once
 func (c *Client) RegisterAuthCallbacks(request AuthRequestCallback,
-	confirm AuthConfirmCallback) {
+	confirm AuthConfirmCallback, reset AuthResetCallback) {
 
 	requestFunc := func(requestor contact.Contact) {
 		requestorBind := &Contact{c: &requestor}
 		request.Callback(requestorBind)
+	}
+
+	resetFunc := func(resetor contact.Contact) {
+		resetorBind := &Contact{c: &resetor}
+		reset.Callback(resetorBind)
 	}
 
 	confirmFunc := func(partner contact.Contact) {
@@ -75,8 +103,7 @@ func (c *Client) RegisterAuthCallbacks(request AuthRequestCallback,
 
 	c.api.GetAuthRegistrar().AddGeneralConfirmCallback(confirmFunc)
 	c.api.GetAuthRegistrar().AddGeneralRequestCallback(requestFunc)
-
-	return
+	c.api.GetAuthRegistrar().AddResetCallback(resetFunc)
 }
 
 // ConfirmAuthenticatedChannel creates an authenticated channel out of a valid

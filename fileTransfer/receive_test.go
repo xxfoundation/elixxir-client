@@ -97,7 +97,7 @@ func TestManager_receive(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to get sent transfer %s: %+v", stID, err)
 	}
-	cMixMsg, err := m1.newCmixMessage(st, 0, prng)
+	cMixMsg, err := m1.newCmixMessage(st, 0)
 	if err != nil {
 		t.Errorf("Failed to create new cMix message: %+v", err)
 	}
@@ -203,7 +203,7 @@ func TestManager_receive_Stop(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to get sent transfer %s: %+v", stID, err)
 	}
-	cMixMsg, err := m1.newCmixMessage(st, 0, prng)
+	cMixMsg, err := m1.newCmixMessage(st, 0)
 	if err != nil {
 		t.Errorf("Failed to create new cMix message: %+v", err)
 	}
@@ -311,7 +311,7 @@ func TestManager_readMessage(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to get sent transfer %s: %+v", stID, err)
 	}
-	cMixMsg, err := m1.newCmixMessage(st, 0, prng)
+	cMixMsg, err := m1.newCmixMessage(st, 0)
 	if err != nil {
 		t.Errorf("Failed to create new cMix message: %+v", err)
 	}

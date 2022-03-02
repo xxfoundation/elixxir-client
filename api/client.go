@@ -743,6 +743,14 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	return numRegistered, len(nodes) - numStale, nil
 }
 
+// DeleteRequest will delete a request, agnostic of request type
+// for the given partner ID. If no request exists for this
+// partner ID an error will be returned.
+func (c *Client) DeleteRequest(partnerId *id.ID) error {
+	jww.DEBUG.Printf("Deleting request for partner ID: %s", partnerId)
+	return c.GetStorage().Auth().DeleteRequest(partnerId)
+}
+
 // DeleteAllRequests clears all requests from client's auth storage.
 func (c *Client) DeleteAllRequests() error {
 	jww.DEBUG.Printf("Deleting all requests")

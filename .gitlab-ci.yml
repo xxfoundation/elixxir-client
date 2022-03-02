@@ -52,6 +52,7 @@ build:
   except:
     - tags
   script:
+    - go mod vendor -v
     - make version
     - mkdir -p release
 #    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' ./...
@@ -84,6 +85,7 @@ bindings-ios:
   script:
     - export PATH=$PATH:$HOME/go/bin
     - go install golang.org/x/mobile/cmd/gomobile@latest
+    - go mod vendor
     - go get golang.org/x/mobile/cmd/gobind
     - gomobile init
     - gomobile bind -target ios gitlab.com/elixxir/client/bindings
@@ -103,7 +105,7 @@ bindings-android:
   script:
     - export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin:/android-sdk/platform-tools/
     - export ANDROID_HOME=/android-sdk
-
+    - go mod vendor
     # Build the bindings
     - go install golang.org/x/mobile/cmd/gomobile@latest
     - go get golang.org/x/mobile/cmd/gobind

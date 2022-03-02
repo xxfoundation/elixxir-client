@@ -532,7 +532,7 @@ func createClient() *api.Client {
 	userIDprefix := viper.GetString("userid-prefix")
 	protoUserPath := viper.GetString("protoUserPath")
 	backupPath := viper.GetString("backupIn")
-	backupPass := viper.GetString("backupPass")
+	backupPass := []byte(viper.GetString("backupPass"))
 
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
@@ -557,7 +557,7 @@ func createClient() *api.Client {
 				[]byte(pass), regCode, userIDprefix)
 		} else if backupPath != "" {
 
-			b, backupFile := loadBackup(backupPath, backupPass)
+			b, backupFile := loadBackup(backupPath, string(backupPass))
 
 			// Marshal the backup object in JSON
 			backupJson, err := json.Marshal(b)
@@ -573,7 +573,7 @@ func createClient() *api.Client {
 
 			// Construct client from backup data
 			backupIdList, err := api.NewClientFromBackup(string(ndfJSON), storeDir,
-				pass, backupPass, backupFile)
+				[]byte(pass), backupPass, backupFile)
 
 			backupIdListPath := viper.GetString("backupIdList")
 			if backupIdListPath != "" {

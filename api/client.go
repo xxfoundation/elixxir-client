@@ -171,11 +171,11 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 // is decrypted using the backupPassphrase. On success a successful client creation,
 //// the function will return a JSON encoded list of the E2E partners
 //// contained in the backup.
-func NewClientFromBackup(ndfJSON, storageDir, sessionPassword,
-	backupPassphrase string, backupFileContents []byte) ([]*id.ID, error) {
+func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
+	backupPassphrase []byte, backupFileContents []byte) ([]*id.ID, error) {
 
 	backUp := &backup.Backup{}
-	err := backUp.Decrypt(backupPassphrase, backupFileContents)
+	err := backUp.Decrypt(string(backupPassphrase), backupFileContents)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to unmarshal decrypted client contents.")
 	}

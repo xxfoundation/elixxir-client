@@ -87,8 +87,8 @@ func NewPrecannedClient(precannedID int, network, storageDir string, password []
 // is decrypted using the backupPassphrase. On success a successful client creation,
 // the function will return a JSON encoded list of the E2E partners
 // contained in the backup.
-func NewClientFromBackup(ndfJSON, storageDir, sessionPassword,
-	backupPassphrase string, backupFileContents []byte) ([]byte, error) {
+func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
+	backupPassphrase, backupFileContents []byte) ([]byte, error) {
 	backupPartnerIds, err := api.NewClientFromBackup(ndfJSON, storageDir,
 		sessionPassword, backupPassphrase, backupFileContents)
 	if err != nil {

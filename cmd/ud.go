@@ -15,15 +15,13 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/bindings"
-	"gitlab.com/elixxir/client/bindings/xxmutils"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/ud"
+	"gitlab.com/elixxir/client/xxmutils"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
 )
 
@@ -170,17 +168,13 @@ var udCmd = &cobra.Command{
 					err.Error())
 				jww.FATAL.Panicf("BATCHADD: Couldn't read file: %+v", err)
 			}
-			bindingsClient := bindings.WrapAPIClient(client)
-			bindingsUdMgr := bindings.WrapUserDiscovery(
-				userDiscoveryMgr)
-			report, err := xxmutils.RestoreContactsFromBackup(
-				idListFile, bindingsClient, bindingsUdMgr, nil)
+			restored, _, _, err := xxmutils.RestoreContactsFromBackup(
+				idListFile, client, userDiscoveryMgr, nil)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
-			for i := 0; i < report.LenRestored(); i++ {
-				idBytes := report.GetRestoredAt(i)
-				uid, _ := id.Unmarshal(idBytes)
+			for i := 0; i < len(restored); i++ {
+				uid := restored[i]
 				for !client.HasAuthenticatedChannel(uid) {
 					time.Sleep(time.Second)
 				}

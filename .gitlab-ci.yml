@@ -86,7 +86,7 @@ bindings-ios:
     - go install golang.org/x/mobile/cmd/gomobile@latest
     - go get golang.org/x/mobile/cmd/gobind
     - gomobile init
-    - gomobile bind -target ios gitlab.com/elixxir/client/bindings gitlab.com/elixxir/client/bindings/xxmutils
+    - gomobile bind -target ios gitlab.com/elixxir/client/bindings
     - ls
     - zip -r iOS.zip Bindings.xcframework
   artifacts:
@@ -108,7 +108,7 @@ bindings-android:
     - go install golang.org/x/mobile/cmd/gomobile@latest
     - go get golang.org/x/mobile/cmd/gobind
     - gomobile init
-    - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings gitlab.com/elixxir/client/bindings/xxmutils
+    - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
   artifacts:
     paths:
       - bindings.aar

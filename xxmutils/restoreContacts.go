@@ -19,56 +19,13 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/bindings"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 )
-
-// RestoreContactsUpdater interface provides a callback function
-// for receiving update information from RestoreContactsFromBackup.
-type RestoreContactsUpdater interface {
-	// RestoreContactsCallback is called to report the current # of contacts
-	// that have been found and how many have been restored
-	// against the total number that need to be
-	// processed. If an error occurs it it set on the err variable as a
-	// plain string.
-	RestoreContactsCallback(numFound, numRestored, total int, err string)
-}
-
-// RestoreContactsReport is a gomobile friendly report structure
-// for determining which IDs restored, which failed, and why.
-type RestoreContactsReport struct {
-	restored []*id.ID
-	failed   []*id.ID
-	errs     []error
-}
-
-// LenRestored returns the length of ID's restored.
-func (r *RestoreContactsReport) LenRestored() int {
-	return len(r.restored)
-}
-
-// LenFailed returns the length of the ID's failed.
-func (r *RestoreContactsReport) LenFailed() int {
-	return len(r.failed)
-}
-
-// GetRestoredAt returns the restored ID at index
-func (r *RestoreContactsReport) GetRestoredAt(index int) []byte {
-	return r.restored[index].Bytes()
-}
-
-// GetFailedAt returns the failed ID at index
-func (r *RestoreContactsReport) GetFailedAt(index int) []byte {
-	return r.failed[index].Bytes()
-}
-
-// GetErrorAt returns the error string at index
-func (r *RestoreContactsReport) GetErrorAt(index int) string {
-	return r.errs[index].Error()
-}
 
 // RestoreContactsFromBackup takes as input the jason output of the
 // `NewClientFromBackup` function, unmarshals it into IDs, looks up
@@ -78,9 +35,13 @@ func (r *RestoreContactsReport) GetErrorAt(index int) string {
 // xxDK users should not use this function. This function is used by
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
-func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
-	udManager *bindings.UserDiscovery,
-	updatesCb RestoreContactsUpdater) (*RestoreContactsReport, error) {
+func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
+	udManager *ud.Manager,
+	updatesCb interfaces.RestoreContactsUpdater) ([]*id.ID, []*id.ID,
+	[]error, error) {
+
+	var restored, failed []*id.ID
+	var errs []error
 
 	// Constants/control settings
 	numRoutines := 8
@@ -94,16 +55,14 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 		}
 	}
 
-	api := client.GetInternalClient()
-
 	store := stateStore{
-		apiStore: api.GetStorage(),
+		apiStore: client.GetStorage(),
 	}
 
 	// Unmarshal IDs and then check restore state
 	var idList []*id.ID
 	if err := json.Unmarshal(backupPartnerIDs, &idList); err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	lookupIDs, resetContacts, restored := checkRestoreState(idList, store)
 
@@ -112,11 +71,6 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 	totalCnt := len(idList)
 	lookupCnt := len(resetContacts)
 	resetCnt := totalCnt - len(resetContacts) - len(lookupIDs)
-	report := &RestoreContactsReport{
-		restored: restored,
-		failed:   make([]*id.ID, 0),
-		errs:     make([]error, 0),
-	}
 
 	// Before we start, report initial state
 	update(lookupCnt, resetCnt, totalCnt, "")
@@ -139,7 +93,8 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 	rsWg.Add(numRoutines)
 	for i := 0; i < numRoutines; i++ {
 		go LookupContacts(lookupCh, foundCh, failCh, udManager, lcWg)
-		go ResetSessions(resetContactCh, restoredCh, failCh, api, rsWg)
+		go ResetSessions(resetContactCh, restoredCh, failCh, *client,
+			rsWg)
 	}
 
 	// Load channels based on previous state
@@ -162,14 +117,14 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 	go func() {
 		defer failWg.Done()
 		for fail := range failCh {
-			report.failed = append(report.failed, fail.ID)
-			report.errs = append(report.errs, fail.Err)
+			failed = append(failed, fail.ID)
+			errs = append(errs, fail.Err)
 		}
 	}()
 
 	// Event Processing
 	done := false
-	var err error
+	var err error = nil
 	for !done {
 		// NOTE: Timer is reset every loop
 		timeoutTimer := time.NewTimer(restoreTimeout)
@@ -184,7 +139,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 			go func() { resetContactCh <- c }()
 		case c := <-restoredCh:
 			store.set(c, contactRestored)
-			report.restored = append(report.restored, c.ID)
+			restored = append(restored, c.ID)
 			resetCnt += 1
 		}
 		if resetCnt == totalCnt {
@@ -204,7 +159,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 	close(restoredCh)
 	failWg.Wait()
 
-	return report, err
+	return restored, failed, errs, err
 }
 
 // LookupContacts routine looks up contacts
@@ -212,7 +167,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *bindings.Client,
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
 func LookupContacts(in chan *id.ID, out chan *contact.Contact,
-	failCh chan failure, udManager *bindings.UserDiscovery,
+	failCh chan failure, udManager *ud.Manager,
 	wg sync.WaitGroup) {
 	defer wg.Done()
 	// Start looking up contacts with user discovery and feed this
@@ -241,12 +196,12 @@ func LookupContacts(in chan *id.ID, out chan *contact.Contact,
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
 func ResetSessions(in, out chan *contact.Contact, failCh chan failure,
-	api api.Client, wg sync.WaitGroup) {
+	client api.Client, wg sync.WaitGroup) {
 	defer wg.Done()
-	me := api.GetUser().GetContact()
+	me := client.GetUser().GetContact()
 	msg := "Account reset from backup"
 	for c := range in {
-		_, err := api.ResetSession(*c, me, msg)
+		_, err := client.ResetSession(*c, me, msg)
 		if err == nil {
 			out <- c
 			continue
@@ -262,28 +217,27 @@ func ResetSessions(in, out chan *contact.Contact, failCh chan failure,
 // xxDK users should not use this function. This function is used by
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
-func LookupContact(userID *id.ID, udManager *bindings.UserDiscovery) (
+func LookupContact(userID *id.ID, udManager *ud.Manager) (
 	*contact.Contact, error) {
 	// This is a little wonky, but wait until we get called then
 	// set the result to the contact objects details if there is
 	// no error
-	lookup := &lookupcb{}
 	waiter := sync.Mutex{}
 	var result *contact.Contact
 	var err error
-	lookup.CB = func(c *bindings.Contact, errStr string) {
+	lookupCB := func(c contact.Contact, myErr error) {
 		defer waiter.Unlock()
-		if errStr != "" {
-			err = errors.New(errStr)
+		if myErr != nil {
+			err = myErr
 		}
-		result = c.GetAPIContact()
+		result = &c
 	}
 	// Take lock once to make sure I will wait
 	waiter.Lock()
 
 	// in MS, so 90 seconds
-	timeout := 90 * 1000
-	udManager.Lookup(userID[:], lookup, timeout)
+	timeout := time.Duration(90 * time.Second)
+	udManager.Lookup(userID, lookupCB, timeout)
 
 	// Now force a wait for callback to exit
 	waiter.Lock()
@@ -291,14 +245,6 @@ func LookupContact(userID *id.ID, udManager *bindings.UserDiscovery) (
 
 	return result, err
 }
-
-// lookupcb provides the callback interface for UserDiscovery lookup function.
-type lookupcb struct {
-	CB func(c *bindings.Contact, err string)
-}
-
-// Callback implements desired interface
-func (l *lookupcb) Callback(c *bindings.Contact, err string) { l.CB(c, err) }
 
 // restoreState is the internal state of a contact
 type restoreState byte

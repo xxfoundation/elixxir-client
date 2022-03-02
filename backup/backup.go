@@ -15,6 +15,8 @@
 package backup
 
 import (
+	"sync"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
@@ -22,7 +24,6 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"sync"
 )
 
 // Error messages.
@@ -110,6 +111,7 @@ func initializeBackup(password string, updateBackupCb UpdateBackupFn,
 	// Setting backup trigger in client
 	b.backupContainer.SetBackup(b.TriggerBackup)
 
+	b.TriggerBackup("initializeBackup")
 	jww.INFO.Print("Initialized backup with new user key.")
 
 	return b, nil
@@ -197,7 +199,13 @@ func (b *Backup) TriggerBackup(reason string) {
 	jww.INFO.Printf("Backup triggered: %s", reason)
 
 	// Send backup on callback
-	go b.updateBackupCb(encryptedBackup)
+	b.mux.RLock()
+	defer b.mux.RUnlock()
+	if b.updateBackupCb != nil {
+		go b.updateBackupCb(encryptedBackup)
+	} else {
+		jww.WARN.Printf("could not call backup callback, stopped...")
+	}
 }
 
 // StopBackup stops the backup processes and deletes the user's password, key,

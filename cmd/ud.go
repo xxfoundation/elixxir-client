@@ -9,7 +9,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -20,9 +19,9 @@ import (
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/ud"
+	"gitlab.com/elixxir/client/xxmutils"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
 )
 
@@ -169,32 +168,14 @@ var udCmd = &cobra.Command{
 					err.Error())
 				jww.FATAL.Panicf("BATCHADD: Couldn't read file: %+v", err)
 			}
-
-			var idList []*id.ID
-			err = json.Unmarshal(idListFile, &idList)
+			restored, _, _, err := xxmutils.RestoreContactsFromBackup(
+				idListFile, client, userDiscoveryMgr, nil)
 			if err != nil {
-				fmt.Printf("BATCHADD: Couldn't umarshal id list: %s\n",
-					err.Error())
-				jww.FATAL.Panicf("BATCHADD: Couldn't read file: %+v", err)
+				jww.FATAL.Panicf("%+v", err)
 			}
-
-			jww.INFO.Printf("BATCHADD: %d IDs: %v", len(idList), idList)
-
-			cb := func(newContact contact.Contact, err error) {
-				if err != nil {
-					jww.WARN.Printf("BATCHADD: %+v", err)
-					return
-				}
-
-				jww.INFO.Printf("BATCHADD: contact %s", newContact)
-
-				resetAuthenticatedChannel(client, newContact.ID, newContact)
-			}
-
-			userDiscoveryMgr.BatchLookup(idList, cb, 90*time.Second)
-
-			for _, uid := range idList {
-				for client.HasAuthenticatedChannel(uid) == false {
+			for i := 0; i < len(restored); i++ {
+				uid := restored[i]
+				for !client.HasAuthenticatedChannel(uid) {
 					time.Sleep(time.Second)
 				}
 				jww.INFO.Printf("Authenticated channel established for %s", uid)

@@ -9,15 +9,16 @@ package backup
 
 import (
 	"bytes"
+	"reflect"
+	"strings"
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
-	"reflect"
-	"strings"
-	"testing"
-	"time"
 )
 
 // Tests that Backup.initializeBackup returns a new Backup with a copy of the
@@ -196,6 +197,11 @@ func TestBackup_TriggerBackup_NoKey(t *testing.T) {
 	cbChan := make(chan []byte)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
 	b := newTestBackup("MySuperSecurePassword", cb, t)
+	select {
+	case <-cbChan:
+	case <-time.After(10 * time.Millisecond):
+		t.Errorf("backup not called")
+	}
 
 	err := deleteBackup(b.store.GetKV())
 	if err != nil {
@@ -209,6 +215,7 @@ func TestBackup_TriggerBackup_NoKey(t *testing.T) {
 		t.Errorf("Callback received when it should not have been called: %q", r)
 	case <-time.After(10 * time.Millisecond):
 	}
+
 }
 
 // Tests that Backup.StopBackup prevents the callback from triggering and that
@@ -217,6 +224,11 @@ func TestBackup_StopBackup(t *testing.T) {
 	cbChan := make(chan []byte)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
 	b := newTestBackup("MySuperSecurePassword", cb, t)
+	select {
+	case <-cbChan:
+	case <-time.After(1000 * time.Millisecond):
+		t.Errorf("backup not called")
+	}
 
 	err := b.StopBackup()
 	if err != nil {

@@ -31,7 +31,7 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
-var extantClient bool
+var extantClient bool = false
 var loginMux sync.Mutex
 
 var clientSingleton *Client

@@ -39,6 +39,10 @@ import (
 	"time"
 )
 
+
+const maxAttempts = 5
+var delayTable = [5]time.Duration{0,5*time.Second,30*time.Second,60*time.Second,120*time.Second}
+
 type RegisterNodeCommsInterface interface {
 	SendRequestClientKeyMessage(host *connect.Host,
 		message *pb.SignedClientKeyRequest) (*pb.SignedKeyResponse, error)
@@ -49,12 +53,16 @@ func StartRegistration(sender *gateway.Sender, session *storage.Session, rngGen 
 
 	multi := stoppable.NewMulti("NodeRegistrations")
 
+
 	inProgess := &sync.Map{}
+	// we are relying on the in progress check to
+	// ensure there is only a single operator at a time, as a result this is a map of ID -> int
+	attempts := &sync.Map{}
 
 	for i := uint(0); i < numParallel; i++ {
 		stop := stoppable.NewSingle(fmt.Sprintf("NodeRegistration %d", i))
 
-		go registerNodes(sender, session, rngGen, comms, stop, c, inProgess)
+		go registerNodes(sender, session, rngGen, comms, stop, c, inProgess, attempts)
 		multi.Add(stop)
 	}
 
@@ -63,7 +71,7 @@ func StartRegistration(sender *gateway.Sender, session *storage.Session, rngGen 
 
 func registerNodes(sender *gateway.Sender, session *storage.Session,
 	rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
-	stop *stoppable.Single, c chan network.NodeGateway, inProgress *sync.Map) {
+	stop *stoppable.Single, c chan network.NodeGateway, inProgress, attempts *sync.Map) {
 	u := session.User()
 	regSignature := u.GetTransmissionRegistrationValidationSignature()
 	// Timestamp in which user has registered with registration
@@ -85,6 +93,14 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 			if _, operating := inProgress.LoadOrStore(nidStr, struct{}{}); operating {
 				continue
 			}
+
+			//keep track of how many times this has been attempted
+			numAttempts := uint(1)
+			if nunAttemptsInterface, hasValue := attempts.LoadOrStore(nidStr, numAttempts); hasValue{
+				numAttempts = nunAttemptsInterface.(uint)
+				attempts.Store(nidStr, numAttempts+1)
+			}
+
 			// No need to register with stale nodes
 			if isStale := gw.Node.Status == ndf.Stale; isStale {
 				jww.DEBUG.Printf("Skipping registration with stale node %s", nidStr)
@@ -95,11 +111,21 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 			inProgress.Delete(nidStr)
 			if err != nil {
 				jww.ERROR.Printf("Failed to register node: %+v", err)
+				//if we have not reached the attempt limit for this gateway, send it back into the channel to retry
+				if numAttempts <maxAttempts{
+					go func(){
+						//delay the send for a backoff
+						time.Sleep(delayTable[numAttempts-1])
+						c<-gw
+					}()
+				}
 			}
 		case <-t.C:
 		}
 	}
 }
+
+
 
 //registerWithNode serves as a helper for RegisterWithNodes
 // It registers a user with a specific in the client's ndf.

@@ -151,10 +151,10 @@ func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 			"Could not unmarshal into baseFormat: %v", err)
 	}
 
-	if !reflect.DeepEqual(newMsg, baseMsg) {
+	if !reflect.DeepEqual(*newMsg, baseMsg) {
 		t.Errorf("unmarshalBaseFormat() error: "+
 			"Unmarshalled message does not match originally marshalled message."+
-			"\n\tExpected: %v\n\tRecieved: %v", baseMsg, newMsg)
+			"\n\tExpected: %v\n\tRecieved: %v", baseMsg, *newMsg)
 	}
 
 	// Unmarshal error test: Invalid size parameter

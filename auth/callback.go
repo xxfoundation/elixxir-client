@@ -531,7 +531,7 @@ func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
 
 	baseFmt, err := unmarshalBaseFormat(cmixMsg.GetContents(),
 		grp.GetP().ByteLen())
-	if err != nil {
+	if err != nil && baseFmt == nil {
 		return baseFormat{}, nil, errors.WithMessage(err, "Failed to"+
 			" unmarshal auth")
 	}
@@ -542,5 +542,5 @@ func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
 	}
 	partnerPubKey := grp.NewIntFromBytes(baseFmt.pubkey)
 
-	return baseFmt, partnerPubKey, nil
+	return *baseFmt, partnerPubKey, nil
 }

@@ -65,18 +65,18 @@ func buildBaseFormat(data []byte, pubkeySize int) baseFormat {
 	return f
 }
 
-func unmarshalBaseFormat(b []byte, pubkeySize int) (baseFormat, error) {
+func unmarshalBaseFormat(b []byte, pubkeySize int) (*baseFormat, error) {
 	if len(b) < pubkeySize {
-		return baseFormat{}, errors.New("Received baseFormat too small")
+		return nil, errors.New("Received baseFormat too small")
 	}
 	bfmt := buildBaseFormat(b, pubkeySize)
 	version := bfmt.GetVersion()
 	if version != requestFmtVersion {
-		return baseFormat{}, errors.Errorf(
+		return &bfmt, errors.Errorf(
 			"Unknown baseFormat version: %d", version)
 	}
 
-	return bfmt, nil
+	return &bfmt, nil
 }
 
 func (f baseFormat) Marshal() []byte {

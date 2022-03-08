@@ -55,46 +55,70 @@ type NetworkManager interface {
 	SetPoolFilter(f gateway.Filter)
 
 	/* Identities are all network identites which the client is currently
-	 trying to pick up message on. Each identity has a defult edge
-	 pickup that it will receive on, but this default is generally
-	 low privacy and an alternative should be used in most cases
-	 all identities imply a default edge. An identity must be added,
-	 fake ones will be used to poll the network if none are present */
+	trying to pick up message on. Each identity has a default trigger
+	pickup that it will receive on, but this default is generally
+	low privacy and an alternative should be used in most cases. An identity must be added
+	to receive messages, fake ones will be used to poll the network
+	if none are present.  */
 
 	// AddIdentity adds an identity to be tracked
-	AddIdentity(identity Identity)
+	AddIdentity(Identity, IdentityParams)
 	// RemoveIdentity removes a currently tracked identity.
-	RemoveIdentity(ephID ephemeral.Id)
+	RemoveIdentity(Identity)
 
 	//fingerprints
-	AddFingerprint(fingerprint format.Fingerprint, response FingerprintResponse)
-	CheckFingerprint(fingerprint format.Fingerprint)bool
-	RemoveFingerprint(fingerprint format.Fingerprint)bool
-
+	AddFingerprint(fp format.Fingerprint, processor MessageProcessorFP)
+	AddFingerprints(map[format.Fingerprint]MessageProcessorFP)
+	CheckFingerprint(fingerprint format.Fingerprint) bool
+	RemoveFingerprint(fingerprint format.Fingerprint) bool
 
 	/* trigger - predefined hash based tags appended to all cmix messages
-	 which, though trial hashing, are used to determine if a message
-	 is for a specific identity, can can contain metadata about
-	 the sending party
-	 These can be processed by the notifications system, or can be used to*/
+	which, though trial hashing, are used to determine if a message applies
+	to this client
 
+	Triggers are used for 2 purposes -  can be processed by the notifications system,
+	or can be used to implement custom non fingerprint processing of payloads.
+	I.E. key negotiation, broadcast negotiation
 
-	AddEdge(preimage EdgePreimage, identity *id.ID)
-	RemoveEdge(preimage EdgePreimage, identity *id.ID) error
+	A tag is appended to the message of the format tag = H(H(messageContents),preimage)
+	and trial hashing is used to determine if a message adheres to a tag.
+	WARNING: If a preiamge is known by an adversary, they can determine which messages
+	are for the client.
 
+	Due to the extra overhead of trial hashing, triggers are processed after fingerprints.
+	If a fingerprint match occurs on the message, triggers will not be handled.
 
-}
+	Triggers are ephemeral to the session. When starting a new client, all triggers must be
+	re-added before StartNetworkFollower is called.
+	*/
 
-type EdgePreimage struct{
-	Data   []byte
-	Type   string
-	Source []byte
+	// AddTrigger - Adds a trigger which can call a message
+	// handing function or be used for notifications.
+	// Multiple triggers can be registered for the same preimage.
+	//   preimage - the preimage which is triggered on
+	//   type - a descriptive string of the trigger. Generally used in notifications
+	//   source - a byte buffer of related data. Generally used in notifications.
+	//     Example: Sender ID
+	AddTrigger(trigger Trigger, response MessageProcessorTrigger) error
+
+	// RemoveTrigger - If only a single response is associated with the preimage, the entire
+	// preimage is removed. If there is more than one response, only the given response is removed
+	// if nil is passed in for response, all triggers for the preimage will be removed
+	RemoveTrigger(preimage []byte, response MessageProcessorTrigger) error
+
+	// TrackTriggers - Registers a callback which will get called every time triggers change.
+	// It will receive the triggers list every time it is modified.
+	// Will only get callbacks while the Network Follower is running.
+	// Multiple trackTriggers can be registered
+	TrackTriggers(func(triggers []Trigger))
 }
 
 type Identity struct {
 	// Identity
-	EphId       ephemeral.Id
-	Source      *id.ID
+	EphId  ephemeral.Id
+	Source *id.ID
+}
+type IdentityParams struct {
 	AddressSize uint8
 
 	// Usage variables
@@ -110,8 +134,19 @@ type Identity struct {
 	Ephemeral bool
 }
 
-type FingerprintResponse func(format.Message)
+type Trigger struct {
+	Preimage []byte
+	Type     string
+	Source   []byte
+}
 
+type MessageProcessorFP interface {
+	Process(message format.Message)
+}
+
+type MessageProcessorTrigger interface {
+	Process(message format.Message, preimage []byte, Type string, source []byte)
+}
 
 type Ratchet interface {
 	SendE2E(m message.Send, p params.E2E, stop *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error)
@@ -123,8 +158,6 @@ type Ratchet interface {
 	GetPartner(partnerID *id.ID) (*Manager, error)
 	DeletePartner(partnerId *id.ID)
 	GetAllPartnerIDs() []*id.ID
-
-
 }
 
 //for use in key exchange which needs to be callable inside of network

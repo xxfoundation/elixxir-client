@@ -3,22 +3,24 @@
 [![pipeline status](https://gitlab.com/elixxir/client/badges/master/pipeline.svg)](https://gitlab.com/elixxir/client/commits/master)
 [![coverage report](https://gitlab.com/elixxir/client/badges/master/coverage.svg)](https://gitlab.com/elixxir/client/commits/master)
 
-The xx network client is a library and related command line tool 
+The xx network client interfaces with the cMix system, enabling access
+to all of the xx network messaging features, including end-to-end encryption and metadata protection. 
+
+The client is a library and related command line tool 
 that facilitate making full-featured xx clients for all platforms. The
 command line tool can be built for any platform supported by
 golang. The libraries are built for iOS and Android using
 [gomobile](https://godoc.org/golang.org/x/mobile/cmd/gomobile).
 
 This repository contains everything necessary to implement all of the
-xx network messaging features. These include the end-to-end encryption
-and metadata protection. It also contains features to extend the base 
+xx network messaging features. It also contains features to extend the base 
 messaging protocols.
 
 For library writers, the client requires a writable folder to store
 data, functions for receiving and approving requests for creating
 secure end-to-end messaging channels, for discovering users, and for
 receiving different types of messages. Details for implementing these
-features are in the Library Overview section below.
+features are in the [Library Overview section](#library-overview) below.
 
 The client is open source software released under the simplified BSD License.
 
@@ -47,15 +49,26 @@ GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/clien
 GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.darwin64 main.go
 ```
 
-To get an NDF from a network gateway and the permissioning server, use the `getndf` subcommand.  The `getndf` subcommand allows command line users to poll the NDF from both a gateway and the permissioning server without any pre-established client connection. It requires an IP address, port, and ssl certificate. You can download an ssl cert with:
+#### Fetching an NDF
+
+All actions performed with the client require a current [NDF](https://xxdk-dev.xx.network/technical-glossary#network-definition-file-ndf). The NDF is downloadable from the command line or via an access point from the Client API.
+
+To fetch the NDF via the command  line, use the `getndf` command. `getndf` enables command line users to poll the NDF from a network gateway without any pre-established client connection:
 ```
-openssl s_client -showcerts -connect permissioning.prod.cmix.rip:11420 < /dev/null 2>&1 | openssl x509 -outform PEM > certfile.pem
+// Fetch NDF (example usage for Gateways, assumes you are running a gateway locally)
+$ go run main.go getndf --gwhost localhost:8440 --cert certfile.pem | jq . >ndf.json
 ```
 
-Example usage for Gateways:
+You can also download an NDF directly for different environments by using the `--env` flag:
 
+```go
+$ go run main.go getndf --env mainnet | jq . >ndf.json
+// Or, run via the binary (assuming 64-bit Windows): 
+$ client getndf --env mainnet | jq . >ndf.json
 ```
-$ go run main.go getndf --gwhost localhost:8440 --cert ~/integration/keys/cmix.rip.crt | jq . | head
+
+Sample output of `ndf.json`:
+```
 {
   "Timestamp": "2021-01-29T01:19:49.227246827Z",
   "Gateways": [
@@ -66,77 +79,76 @@ $ go run main.go getndf --gwhost localhost:8440 --cert ~/integration/keys/cmix.r
     },
     {
       "Id": "JCBd9mAQb2BW8hc8H9avy1ubcjUAa7MHrPp0dBU/VqQB",
+	  .....
 ```
 
-Example usage for the Permissioning server:
+#### Sending safe messages between 2 users
+
+To send messages with end to end encryption, you must first establish a connection
+or [authenticated channel](https://xxdk-dev.xx.network/technical-glossary#authenticated-channel) with the other user:
 
 ```
-$ go run main.go getndf --permhost localhost:18000 --cert ~/integration/keys/cmix.rip.crt  | jq . | head
-{
-  "Timestamp": "2021-01-29T01:19:49.227246827Z",
-  "Gateways": [
-    {
-      "Id": "BRM+Iotl6ujIGhjRddZMBdauapS7Z6jL0FJGq7IkUdYB",
-      "Address": ":8440",
-      "Tls_certificate": "-----BEGIN CERTIFICATE-----\nMIIDbDCCAlSgAwIBAgIJAOUNtZneIYECMA0GCSqGSIb3DQEBBQUAMGgxCzAJBgNV\nBAYTAlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMRIwEAYDVQQHDAlDbGFyZW1vbnQx\nGzAZBgNVBAoMElByaXZhdGVncml0eSBDb3JwLjETMBEGA1UEAwwKKi5jbWl4LnJp\ncDAeFw0xOTAzMDUxODM1NDNaFw0yOTAzMDIxODM1NDNaMGgxCzAJBgNVBAYTAlVT\nMRMwEQYDVQQIDApDYWxpZm9ybmlhMRIwEAYDVQQHDAlDbGFyZW1vbnQxGzAZBgNV\nBAoMElByaXZhdGVncml0eSBDb3JwLjETMBEGA1UEAwwKKi5jbWl4LnJpcDCCASIw\nDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAPP0WyVkfZA/CEd2DgKpcudn0oDh\nDwsjmx8LBDWsUgQzyLrFiVigfUmUefknUH3dTJjmiJtGqLsayCnWdqWLHPJYvFfs\nWYW0IGF93UG/4N5UAWO4okC3CYgKSi4ekpfw2zgZq0gmbzTnXcHF9gfmQ7jJUKSE\ntJPSNzXq+PZeJTC9zJAb4Lj8QzH18rDM8DaL2y1ns0Y2Hu0edBFn/OqavBJKb/uA\nm3AEjqeOhC7EQUjVamWlTBPt40+B/6aFJX5BYm2JFkRsGBIyBVL46MvC02MgzTT9\nbJIJfwqmBaTruwemNgzGu7Jk03hqqS1TUEvSI6/x8bVoba3orcKkf9HsDjECAwEA\nAaMZMBcwFQYDVR0RBA4wDIIKKi5jbWl4LnJpcDANBgkqhkiG9w0BAQUFAAOCAQEA\nneUocN4AbcQAC1+b3To8u5UGdaGxhcGyZBlAoenRVdjXK3lTjsMdMWb4QctgNfIf\nU/zuUn2mxTmF/ekP0gCCgtleZr9+DYKU5hlXk8K10uKxGD6EvoiXZzlfeUuotgp2\nqvI3ysOm/hvCfyEkqhfHtbxjV7j7v7eQFPbvNaXbLa0yr4C4vMK/Z09Ui9JrZ/Z4\ncyIkxfC6/rOqAirSdIp09EGiw7GM8guHyggE4IiZrDslT8V3xIl985cbCxSxeW1R\ntgH4rdEXuVe9+31oJhmXOE9ux2jCop9tEJMgWg7HStrJ5plPbb+HmjoX3nBO04E5\n6m52PyzMNV+2N21IPppKwA==\n-----END CERTIFICATE-----\n"
-    },
-    {
-      "Id": "JCBd9mAQb2BW8hc8H9avy1ubcjUAa7MHrPp0dBU/VqQB",
-```
+# Get user contact jsons for each client
+$ client --password user1-password --ndf ndf.json -l client1.log -s user1session --writeContact user1-contact.json --unsafe -m "Hi to me, without E2E Encryption"
+$ client --password user2-password --ndf ndf.json -l client2.log -s user2session --writeContact user2-contact.json --unsafe -m "Hi to me, without E2E Encryption"
 
-Basic command line usage, sending unsafe, unencrypted messages to yourself:
+# Request authenticated channel from other client. Note that the receiving client
+# is expected to confirm request before any specified timeout (default 120s)
+$ client --password password --ndf ndf.json -l client.log -s session-directory --destfile user2-contact.json --waitTimeout 360 --unsafe-channel-creation --send-auth-request
+WARNING: unsafe channel creation enabled
+Adding authenticated channel for: Qm40C5hRUm7uhp5aATVWhSL6Mt+Z4JVBQrsEDvMORh4D
+Message received:
+Sending to Qm40C5hRUm7uhp5aATVWhSL6Mt+Z4JVBQrsEDvMORh4D:
+Received 1
 
-```
-client --password user-password --ndf ndf.json -l client.log -s session-directory --writeContact user-contact.json --unsafe -m \"Hello World, without E2E Encryption\"
-```
-
-* `--password` is the password used to encrypt and load the session.
-* `--ndf` is the network definition file, downloadable from the xx network
-  website when available.
-* `-l` the file to write logs (user messages are still printed to stdout)
-* `--writeContact` Output the user's contact information to this file.
-* `--unsafe` Send message without encryption (necessary whenever you have not
-  already established an e2e channel)
-* `-m` The message to send
-
-The client defaults to sending to itself when not supplied.
-
-Sending unsafe messages between 2 users:
-
-```
-# Get user contact jsons
-client --password user1-password --ndf ndf.json -l client1.log -s user1session --writeContact user1-contact.json --unsafe -m "Hi"
-client --password user2-password --ndf ndf.json -l client2.log -s user2session --writeContact user2-contact.json --unsafe -m "Hi"
-
-# Send messages to each other, run them in the background so they both receive
-# each other's messages
-client --password user1-password --ndf ndf.json -l client1.log -s user1session --destfile user2-contact.json --unsafe -m "Hi User 2, from User 1 without E2E Encryption" &
-client --password user2-password --ndf ndf.json -l client2.log -s user2session --destfile user1-contact.json --unsafe -m "Hi User 1, from User 2 without E2E Encryption" &
-```
-
-* `--destfile` is used to specify the recipient. You can also use
-  `--destid b64:...` using the user's base64 id which is printed in the logs.
-
-To send with end to end encryption, you must first establish a connection
-with the other user:
-
-```
-# Get user contact jsons
-client --password user1-password --ndf ndf.json -l client1.log -s user1session --writeContact user1-contact.json --unsafe -m "Hi"
-client --password user2-password --ndf ndf.json -l client2.log -s user2session --writeContact user2-contact.json --unsafe -m "Hi"
+# Alternatively, to accept an authenticated channel request implicitly
+# (should be within the timeout window of requesting client or the request will need to be resent):
+$ client --password "password" --ndf ndf.json -l client.log -s session-directory --destfile user2-contact.json" --unsafe-channel-creation --waitTimeout 200
+Authentication channel request from: o+QpswTmnsuZve/QRz0j0RYNWqjgx4R5pACfO00Pe0cD
+Sending to o+QpswTmnsuZve/QRz0j0RYNWqjgx4R5pACfO00Pe0cD:
+Message received:
+Received 1
 
 # Send E2E Messages
-client --password user1-password --ndf ndf.json -l client1.log -s user1session --destfile user1-contact.json --unsafe-channel-creation -m "Hi User 2, from User 1 with E2E Encryption" &
-client --password user2-password --ndf ndf.json -l client2.log -s user2session --destfile user1-contact.json --unsafe-channel-creation -m "Hi User 1, from User 2 with E2E Encryption" &
+$ client --password user1-password --ndf ndf.json -l client1.log -s user1session --destfile user2-contact.json -m "Hi User 2, from User 1 with E2E Encryption"
+Sending to Qm40C5hRUm7uhp5aATVWhSL6Mt+Z4JVBQrsEDvMORh4D: Hi User 2, from User 1 with E2E Encryption
+Timed out!
+Received 0
+
+$ client --password user2-password --ndf ndf.json -l client1.log -s user2session --destfile user1-contact.json -m "Hi User 1, from User 2 with E2E Encryption"
+Sending to o+QpswTmnsuZve/QRz0j0RYNWqjgx4R5pACfO00Pe0cD: Hi User 1, from User 2 with E2E Encryption
+Timed out!
+Received 0
 ```
 
-Note that we have dropped the `--unsafe` in exchange for:
+* `--password`: The password used to encrypt and load the session.
+* `--ndf`: The network definition file.
+* `-l`: The file to write logs (user messages are still printed to stdout).
+* `-s`: The storage directory for client session data.
+* `--writeContact`: Output the user's contact information to this file.
+* `--destfile` is used to specify the recipient. You can also use
+  `--destid b64:...` using the user's base64 id which is printed in the logs.
+* `--unsafe`: Send message without encryption (necessary whenever you have not
+  already established an e2e channel).
 * `--unsafe-channel-creation` Auto-create and auto-accept channel requests.
+* `-m`: The message to send.
+
+Note that the client defaults to sending to itself when a destination is not supplied.
+This is why we've used the `--unsafe` flag when creating the user contact jsons.
+However when sending between users, it is dropped in exchange for `--unsafe-channel-creation`.
 
 To be considered "safe" the user should be prompted. You can do this
-with the command line by explicitly accepting the channel creation
+on the command line by explicitly accepting the channel creation
 when sending and/or explicitly accepting a request with
-`--accept-channel`.
+`--accept-channel`:
+
+```
+$ client --password user-password --ndf ndf.json -l client.log -s session-directory --destfile user-contact.json --accept-channel
+Authentication channel request from: yYAztmoCoAH2VIr00zPxnj/ZRvdiDdURjdDWys0KYI4D
+Sending to yYAztmoCoAH2VIr00zPxnj/ZRvdiDdURjdDWys0KYI4D:
+Message received:
+Received 1
+```
 
 Full usage of client can be found with `client --help`:
 
@@ -204,7 +216,7 @@ Flags:
 Use "client [command] --help" for more information about a command.
 ```
 
-Note that the client cannot be used on the betanet with precanned user ids.
+**Note:** The client cannot be used on the betanet with precanned user ids.
 
 ## Library Overview
 
@@ -219,175 +231,13 @@ platforms.
 
 Clients need to perform the same actions *in the same order* as shown in
 `cmd/root.go`. Specifically, certain handlers need to be registered and
-set up before starting network threads (i.e., before StartNetworkFollowers
--- #2 below) and you cannot perform certain actions until the network
-connection reaches the "healthy" state. Below are relevant code listings for
-how to do these actions.
+set up before starting network threads. Additionally, you cannot perform certain actions until the network connection reaches the "healthy" state.
 
-the ndf is the network definition file, downloadable from the xx network 
-website when available.
+See [main.go](https://git.xx.network/elixxir/xxdk-examples/-/blob/sample-messaging-app/sample-messaging-app/main.go) for relevant code listings on when and how to perform these actions.
+The [Getting Started](https://xxdk-dev.xx.network/getting-started) guide provides further detail.
 
-1. Creating and/or Loading a client:
-```
-	//create a new client if none exist
-	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
-		// Load NDF
-		ndfPath := viper.GetString("ndf")
-		ndfJSON, err := ioutil.ReadFile(ndfPath)
-		if err != nil {
-			jww.FATAL.Panicf(err.Error())
-		}
-		err = api.NewClient(string(ndfJSON), storeDir,
-			[]byte(pass), regCode)
-		}
-
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-	}
-
-	//load the client
-	client, err := api.Login(storeDir, []byte(pass))
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-```
-2. Set up registration, authorization request handlers
-```
-	user := client.GetUser()
-
-	// Set up reception handler
-	swboard := client.GetSwitchboard()
-	recvCh := make(chan message.Receive, 10000) // Needs to be large
-	// Note the name below is arbitrary
-	listenerID := swboard.RegisterChannel("DefaultCLIReceiver",
-		switchboard.AnyUser(), message.Text, recvCh)
-	jww.INFO.Printf("Message ListenerID: %v", listenerID)
-
-	// Set up auth request handler, which simply prints the
-	// user id of the requestor.
-	authMgr := client.GetAuthRegistrar()
-	authMgr.AddGeneralRequestCallback(printChanRequest)
-...
-func printChanRequest(requestor contact.Contact, message string) {
-	msg := fmt.Sprintf("Authentication channel request from: %s\n",
-		requestor.ID)
-	jww.INFO.Printf(msg)
-	fmt.Printf(msg)
-	msg = fmt.Sprintf("Authentication channel request message: %s\n", message)
-	jww.INFO.Printf(msg)
-	fmt.Printf(msg)
-	// Or you can auto confirm with:
-	// err := client.ConfirmAuthenticatedChannel(
-	//	requestor)
-
-}
-```
-
-3. Start network threads and wait until network is healthy:
-```
-	err = client.StartNetworkFollower()
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-
-	// Wait until connected or crash on timeout
-	connected := make(chan bool, 10)
-	client.GetHealth().AddChannel(connected)
-	waitUntilConnected(connected)
-...
-func waitUntilConnected(connected chan bool) {
-	waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
-	timeoutTimer := time.NewTimer(waitTimeout * time.Second)
-	isConnected := false
-	//Wait until we connect or panic if we can't by a timeout
-	for !isConnected {
-		select {
-		case isConnected = <-connected:
-			jww.INFO.Printf("Network Status: %v\n",
-				isConnected)
-			break
-		case <-timeoutTimer.C:
-			jww.FATAL.Panic("timeout on connection")
-		}
-	}
-}
-```
-
-4. Adding authenticated channels (if we haven't done it yet)
-```
-	if client.HasAuthenticatedChannel(recipientID) {
-		jww.INFO.Printf("Authenticated channel already in place for %s",
-			recipientID)
-		return
-	}
-	// Check if a channel exists for this recipientID
-	recipientContact, err := client.GetAuthenticatedChannelRequest(
-		recipientID)
-	if err == nil {
-		jww.INFO.Printf("Accepting existing channel request for %s",
-			recipientID)
-		err := client.ConfirmAuthenticatedChannel(recipientContact)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-		return
-	} else {
-		recipientContact = recipient
-	}
-
-	me := client.GetUser().GetContact()
-	jww.INFO.Printf("Requesting auth channel from: %s",
-		recipientID)
-	err := client.RequestAuthenticatedChannel(recipientContact,
-		me, msg)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-```
-
-5. Sending E2E and Unsafe Messages
-```
-	msg := message.Send{
-		Recipient:   recipientID,
-		Payload:     []byte(msgBody),
-		MessageType: message.Text,
-	}
-	paramsE2E := params.GetDefaultE2E()
-	paramsUnsafe := params.GetDefaultUnsafe()
-
-	fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
-	var roundIDs []id.Round
-	if unsafe {
-		roundIDs, err = client.SendUnsafe(msg,
-			paramsUnsafe)
-	} else {
-		roundIDs, _, err = client.SendE2E(msg,
-			paramsE2E)
-	}
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-	jww.INFO.Printf("RoundIDs: %+v\n", roundIDs)
-```
-The "RoundIDs" are the rounds in which your message parts were sent. After those
-rounds have completed on the network, you can assume that the message has "sent"
-successfully. See the client interface section for info on how to access round
-state changes.
-
-6. Receiving Messages (assuming you set the receiver above in step 2)
-```
-	timeoutTimer := time.NewTimer(waitTimeout * time.Second)
-	select {
-	case <-timeoutTimer.C:
-		fmt.Println("Timed out!")
-		break
-	case m := <-recvCh:
-		fmt.Printf("Message received: %s\n", string(
-			m.Payload))
-		break
-	}
-```
+You can also visit the [API Quick Reference](https://xxdk-dev.xx.network/quick-reference)
+for information on the types and functions exposed by the Client API.
 
 The main entry point for developing with the client is `api/client` (or
 `bindings/client`). We recommend using go doc to explore:

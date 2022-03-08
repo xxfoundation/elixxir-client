@@ -26,13 +26,29 @@ require (
 )
 
 require (
+	github.com/badoux/checkmail v1.2.1 // indirect
+	github.com/elliotchance/orderedmap v1.4.0 // indirect
+	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
+	github.com/hashicorp/hcl v1.0.0 // indirect
+	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/magiconair/properties v1.8.4 // indirect
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.0 // indirect
 	github.com/pelletier/go-toml v1.8.1 // indirect
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
 	github.com/smartystreets/assertions v1.0.1 // indirect
 	github.com/spf13/afero v1.5.1 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/subosito/gotenv v1.2.0 // indirect
+	github.com/ttacon/builder v0.0.0-20170518171403-c099f663e1c2 // indirect
+	github.com/ttacon/libphonenumber v1.2.1 // indirect
+	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
+	github.com/zeebo/blake3 v0.1.1 // indirect
+	gitlab.com/xx_network/ring v0.0.3-0.20220222211904-da613960ad93 // indirect
+	golang.org/x/sys v0.0.0-20211007075335-d3039528d8ac // indirect
+	golang.org/x/text v0.3.6 // indirect
 	google.golang.org/genproto v0.0.0-20210105202744-fe13368bc0e1 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

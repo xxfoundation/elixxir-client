@@ -3,18 +3,18 @@
 [![pipeline status](https://gitlab.com/elixxir/client/badges/master/pipeline.svg)](https://gitlab.com/elixxir/client/commits/master)
 [![coverage report](https://gitlab.com/elixxir/client/badges/master/coverage.svg)](https://gitlab.com/elixxir/client/commits/master)
 
-The xx network client interfaces with the cMix system, enabling access
-to all of the xx network messaging features, including end-to-end encryption and metadata protection. 
 
-The client is a library and related command line tool 
-that facilitate making full-featured xx clients for all platforms. The
-command line tool can be built for any platform supported by
-golang. The libraries are built for iOS and Android using
-[gomobile](https://godoc.org/golang.org/x/mobile/cmd/gomobile).
+The client is a library and related command-line tool 
+that facilitates making full-featured xx clients for all platforms. It interfaces with the cMix system, enabling access
+to all xx network messaging features, including end-to-end encryption and metadata protection.
 
 This repository contains everything necessary to implement all of the
 xx network messaging features. It also contains features to extend the base 
 messaging protocols.
+
+The command-line tool accompanying the client library can be built for any platform supported by
+golang. The libraries are built for iOS and Android using
+[gomobile](https://godoc.org/golang.org/x/mobile/cmd/gomobile).
 
 For library writers, the client requires a writable folder to store
 data, functions for receiving and approving requests for creating
@@ -22,11 +22,11 @@ secure end-to-end messaging channels, for discovering users, and for
 receiving different types of messages. Details for implementing these
 features are in the [Library Overview section](#library-overview) below.
 
-The client is open source software released under the simplified BSD License.
+The client is open-source software released under the simplified BSD License.
 
 ## Command Line Usage
 
-The command line tool is intended for testing xx network functionality and not
+The command-line tool is intended for testing xx network functionality and not
 for regular user use. 
 
 These instructions assume that you have [Go 1.17.X installed](https://go.dev/doc/install), and GCC installed for Cgo (such as `build-essential` on Debian or Ubuntu).
@@ -51,9 +51,10 @@ GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/clie
 
 #### Fetching an NDF
 
-All actions performed with the client require a current [NDF](https://xxdk-dev.xx.network/technical-glossary#network-definition-file-ndf). The NDF is downloadable from the command line or via an access point from the Client API.
+All actions performed with the client require a current [NDF](https://xxdk-dev.xx.network/technical-glossary#network-definition-file-ndf). The NDF is downloadable from the command line or [via an access point](https://xxdk-dev.xx.network/quick-reference#func-downloadandverifysignedndfwithurl) in the Client API.
 
-To fetch the NDF via the command  line, use the `getndf` command. `getndf` enables command line users to poll the NDF from a network gateway without any pre-established client connection:
+Use the `getndf` command to fetch the NDF via the command  line. `getndf` enables command-line users to poll the NDF from a network gateway without any pre-established client connection: 
+
 ```
 // Fetch NDF (example usage for Gateways, assumes you are running a gateway locally)
 $ go run main.go getndf --gwhost localhost:8440 --cert certfile.pem | jq . >ndf.json
@@ -64,10 +65,10 @@ You can also download an NDF directly for different environments by using the `-
 ```go
 $ go run main.go getndf --env mainnet | jq . >ndf.json
 // Or, run via the binary (assuming 64-bit Windows): 
-$ client getndf --env mainnet | jq . >ndf.json
+$ ./client.win64 getndf --env mainnet | jq . >ndf.json
 ```
 
-Sample output of `ndf.json`:
+Sample content of `ndf.json`:
 ```
 {
   "Timestamp": "2021-01-29T01:19:49.227246827Z",
@@ -84,7 +85,7 @@ Sample output of `ndf.json`:
 
 #### Sending safe messages between 2 users
 
-To send messages with end to end encryption, you must first establish a connection
+To send messages with end-to-end encryption, you must first establish a connection
 or [authenticated channel](https://xxdk-dev.xx.network/technical-glossary#authenticated-channel) with the other user:
 
 ```
@@ -92,8 +93,8 @@ or [authenticated channel](https://xxdk-dev.xx.network/technical-glossary#authen
 $ client --password user1-password --ndf ndf.json -l client1.log -s user1session --writeContact user1-contact.json --unsafe -m "Hi to me, without E2E Encryption"
 $ client --password user2-password --ndf ndf.json -l client2.log -s user2session --writeContact user2-contact.json --unsafe -m "Hi to me, without E2E Encryption"
 
-# Request authenticated channel from other client. Note that the receiving client
-# is expected to confirm request before any specified timeout (default 120s)
+# Request authenticated channel from another client. Note that the receiving client
+# is expected to confirm the request before any specified timeout (default 120s)
 $ client --password password --ndf ndf.json -l client.log -s session-directory --destfile user2-contact.json --waitTimeout 360 --unsafe-channel-creation --send-auth-request
 WARNING: unsafe channel creation enabled
 Adding authenticated channel for: Qm40C5hRUm7uhp5aATVWhSL6Mt+Z4JVBQrsEDvMORh4D
@@ -102,7 +103,7 @@ Sending to Qm40C5hRUm7uhp5aATVWhSL6Mt+Z4JVBQrsEDvMORh4D:
 Received 1
 
 # Alternatively, to accept an authenticated channel request implicitly
-# (should be within the timeout window of requesting client or the request will need to be resent):
+# (should be within the timeout window of requesting client, or the request will need to be resent):
 $ client --password "password" --ndf ndf.json -l client.log -s session-directory --destfile user2-contact.json" --unsafe-channel-creation --waitTimeout 200
 Authentication channel request from: o+QpswTmnsuZve/QRz0j0RYNWqjgx4R5pACfO00Pe0cD
 Sending to o+QpswTmnsuZve/QRz0j0RYNWqjgx4R5pACfO00Pe0cD:
@@ -135,11 +136,11 @@ Received 0
 
 Note that the client defaults to sending to itself when a destination is not supplied.
 This is why we've used the `--unsafe` flag when creating the user contact jsons.
-However when sending between users, it is dropped in exchange for `--unsafe-channel-creation`.
+However, when sending between users it is dropped in exchange for `--unsafe-channel-creation`.
 
-To be considered "safe" the user should be prompted. You can do this
+For the authenticated channel creation to be considered "safe" the user should be prompted. You can do this
 on the command line by explicitly accepting the channel creation
-when sending and/or explicitly accepting a request with
+when sending a request with `--send-auth-request` and/or explicitly accepting a request with
 `--accept-channel`:
 
 ```
@@ -231,7 +232,7 @@ platforms.
 
 Clients need to perform the same actions *in the same order* as shown in
 `cmd/root.go`. Specifically, certain handlers need to be registered and
-set up before starting network threads. Additionally, you cannot perform certain actions until the network connection reaches the "healthy" state.
+set up before starting network threads. Additionally, you cannot perform certain actions until the network connection reaches a "healthy" state.
 
 See [main.go](https://git.xx.network/elixxir/xxdk-examples/-/blob/sample-messaging-app/sample-messaging-app/main.go) for relevant code listings on when and how to perform these actions.
 The [Getting Started](https://xxdk-dev.xx.network/getting-started) guide provides further detail.
@@ -342,4 +343,4 @@ parts of the roadmap that are intended for the client:
 * Efficiency improvements - mechanisms for message pickup and network tracking 
 * will evolve to allow tradeoffs and options for use
 
-We also are always looking at how to simplify and improve the library interface.
+We are also always looking at simplifying and improving the library interface.

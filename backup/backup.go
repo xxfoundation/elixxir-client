@@ -215,8 +215,7 @@ func (b *Backup) AddJson(newJson string) {
 	b.mux.Lock()
 	defer b.mux.Unlock()
 
-	currentJson := loadJson(b.store.GetKV())
-	if newJson != currentJson {
+	if newJson != b.jsonParams {
 		b.jsonParams = newJson
 		if err := storeJson(newJson, b.store.GetKV()); err != nil {
 			jww.FATAL.Panicf("Failed to store json: %+v", err)

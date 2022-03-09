@@ -135,7 +135,7 @@ func Test_resumeBackup(t *testing.T) {
 
 	select {
 	case r := <-cbChan1:
-		t.Errorf("Callback of first Backup called: %q", r)
+		t.Errorf("Callback of first Backup called: %q", r) // TODO: i think there is a race condition here
 	case r := <-cbChan2:
 		if !bytes.Equal(encryptedBackup, r) {
 			t.Errorf("Callback has unexepected data."+
@@ -279,6 +279,82 @@ func TestBackup_IsBackupRunning(t *testing.T) {
 	// Check that the backup is stopped
 	if b.IsBackupRunning() {
 		t.Error("Backup is running after being stopped.")
+	}
+}
+
+func TestBackup_AddJson(t *testing.T) {
+	b := newTestBackup("MySuperSecurePassword", nil, t)
+	s := b.store
+	json := "{'data': {'one': 1}}"
+
+	expectedCollatedBackup := backup.Backup{
+		RegistrationTimestamp: s.GetUser().RegistrationTimestamp,
+		TransmissionIdentity: backup.TransmissionIdentity{
+			RSASigningPrivateKey: s.GetUser().TransmissionRSA,
+			RegistrarSignature:   s.User().GetTransmissionRegistrationValidationSignature(),
+			Salt:                 s.GetUser().TransmissionSalt,
+			ComputedID:           s.GetUser().TransmissionID,
+		},
+		ReceptionIdentity: backup.ReceptionIdentity{
+			RSASigningPrivateKey: s.GetUser().ReceptionRSA,
+			RegistrarSignature:   s.User().GetReceptionRegistrationValidationSignature(),
+			Salt:                 s.GetUser().ReceptionSalt,
+			ComputedID:           s.GetUser().ReceptionID,
+			DHPrivateKey:         s.GetUser().E2eDhPrivateKey,
+			DHPublicKey:          s.GetUser().E2eDhPublicKey,
+		},
+		UserDiscoveryRegistration: backup.UserDiscoveryRegistration{
+			FactList: s.GetUd().GetFacts(),
+		},
+		Contacts:   backup.Contacts{Identities: s.E2e().GetPartners()},
+		JSONParams: json,
+	}
+
+	b.AddJson(json)
+
+	collatedBackup := b.assembleBackup()
+	if !reflect.DeepEqual(expectedCollatedBackup, collatedBackup) {
+		t.Errorf("Collated backup does not match expected."+
+			"\nexpected: %+v\nreceived: %+v",
+			expectedCollatedBackup, collatedBackup)
+	}
+}
+
+func TestBackup_AddJson_badJson(t *testing.T) {
+	b := newTestBackup("MySuperSecurePassword", nil, t)
+	s := b.store
+	json := "abc{'i'm a bad json: 'one': 1'''}}"
+
+	expectedCollatedBackup := backup.Backup{
+		RegistrationTimestamp: s.GetUser().RegistrationTimestamp,
+		TransmissionIdentity: backup.TransmissionIdentity{
+			RSASigningPrivateKey: s.GetUser().TransmissionRSA,
+			RegistrarSignature:   s.User().GetTransmissionRegistrationValidationSignature(),
+			Salt:                 s.GetUser().TransmissionSalt,
+			ComputedID:           s.GetUser().TransmissionID,
+		},
+		ReceptionIdentity: backup.ReceptionIdentity{
+			RSASigningPrivateKey: s.GetUser().ReceptionRSA,
+			RegistrarSignature:   s.User().GetReceptionRegistrationValidationSignature(),
+			Salt:                 s.GetUser().ReceptionSalt,
+			ComputedID:           s.GetUser().ReceptionID,
+			DHPrivateKey:         s.GetUser().E2eDhPrivateKey,
+			DHPublicKey:          s.GetUser().E2eDhPublicKey,
+		},
+		UserDiscoveryRegistration: backup.UserDiscoveryRegistration{
+			FactList: s.GetUd().GetFacts(),
+		},
+		Contacts:   backup.Contacts{Identities: s.E2e().GetPartners()},
+		JSONParams: json,
+	}
+
+	b.AddJson(json)
+
+	collatedBackup := b.assembleBackup()
+	if !reflect.DeepEqual(expectedCollatedBackup, collatedBackup) {
+		t.Errorf("Collated backup does not match expected."+
+			"\nexpected: %+v\nreceived: %+v",
+			expectedCollatedBackup, collatedBackup)
 	}
 }
 

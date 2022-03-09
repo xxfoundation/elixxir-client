@@ -65,3 +65,8 @@ func (b *Backup) StopBackup() error {
 func (b *Backup) IsBackupRunning() bool {
 	return b.b.IsBackupRunning()
 }
+
+// AddJson stores a passed in json string in the backup structure
+func (b *Backup) AddJson(json string) {
+	b.b.AddJson(json)
+}

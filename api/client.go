@@ -169,15 +169,15 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 
 // NewClientFromBackup constructs a new Client from an encrypted backup. The backup
 // is decrypted using the backupPassphrase. On success a successful client creation,
-//// the function will return a JSON encoded list of the E2E partners
-//// contained in the backup.
+// the function will return a JSON encoded list of the E2E partners
+// contained in the backup and a json-encoded string containing parameters stored in the backup
 func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
-	backupPassphrase []byte, backupFileContents []byte) ([]*id.ID, error) {
+	backupPassphrase []byte, backupFileContents []byte) ([]*id.ID, string, error) {
 
 	backUp := &backup.Backup{}
 	err := backUp.Decrypt(string(backupPassphrase), backupFileContents)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to unmarshal decrypted client contents.")
+		return nil, "", errors.WithMessage(err, "Failed to unmarshal decrypted client contents.")
 	}
 
 	usr := user.NewUserFromBackup(backUp)
@@ -185,7 +185,7 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 	// Parse the NDF
 	def, err := parseNDF(ndfJSON)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	cmixGrp, e2eGrp := decodeGroups(def)
@@ -206,10 +206,10 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 	//move the registration state to indicate registered with registration on proto client
 	err = storageSess.ForwardRegistrationStatus(storage.PermissioningComplete)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	return backUp.Contacts.Identities, nil
+	return backUp.Contacts.Identities, backUp.JSONParams, nil
 }
 
 // OpenClient session, but don't connect to the network or log in

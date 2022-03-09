@@ -282,6 +282,44 @@ func TestBackup_IsBackupRunning(t *testing.T) {
 	}
 }
 
+func TestBackup_AddJson(t *testing.T) {
+	b := newTestBackup("MySuperSecurePassword", nil, t)
+	s := b.store
+	json := "{'data': {'one': 1}}"
+
+	expectedCollatedBackup := backup.Backup{
+		RegistrationTimestamp: s.GetUser().RegistrationTimestamp,
+		TransmissionIdentity: backup.TransmissionIdentity{
+			RSASigningPrivateKey: s.GetUser().TransmissionRSA,
+			RegistrarSignature:   s.User().GetTransmissionRegistrationValidationSignature(),
+			Salt:                 s.GetUser().TransmissionSalt,
+			ComputedID:           s.GetUser().TransmissionID,
+		},
+		ReceptionIdentity: backup.ReceptionIdentity{
+			RSASigningPrivateKey: s.GetUser().ReceptionRSA,
+			RegistrarSignature:   s.User().GetReceptionRegistrationValidationSignature(),
+			Salt:                 s.GetUser().ReceptionSalt,
+			ComputedID:           s.GetUser().ReceptionID,
+			DHPrivateKey:         s.GetUser().E2eDhPrivateKey,
+			DHPublicKey:          s.GetUser().E2eDhPublicKey,
+		},
+		UserDiscoveryRegistration: backup.UserDiscoveryRegistration{
+			FactList: s.GetUd().GetFacts(),
+		},
+		Contacts:   backup.Contacts{Identities: s.E2e().GetPartners()},
+		JSONParams: json,
+	}
+
+	b.AddJson(json)
+
+	collatedBackup := b.assembleBackup()
+	if !reflect.DeepEqual(expectedCollatedBackup, collatedBackup) {
+		t.Errorf("Collated backup does not match expected."+
+			"\nexpected: %+v\nreceived: %+v",
+			expectedCollatedBackup, collatedBackup)
+	}
+}
+
 // Tests that Backup.assembleBackup returns the backup.Backup with the expected
 // results.
 func TestBackup_assembleBackup(t *testing.T) {

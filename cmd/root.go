@@ -572,7 +572,7 @@ func createClient() *api.Client {
 			}
 
 			// Construct client from backup data
-			backupIdList, err := api.NewClientFromBackup(string(ndfJSON), storeDir,
+			backupIdList, _, err := api.NewClientFromBackup(string(ndfJSON), storeDir,
 				[]byte(pass), backupPass, backupFile)
 
 			backupIdListPath := viper.GetString("backupIdList")

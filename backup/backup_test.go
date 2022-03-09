@@ -135,7 +135,7 @@ func Test_resumeBackup(t *testing.T) {
 
 	select {
 	case r := <-cbChan1:
-		t.Errorf("Callback of first Backup called: %q", r)
+		t.Errorf("Callback of first Backup called: %q", r) // TODO: i think there is a race condition here
 	case r := <-cbChan2:
 		if !bytes.Equal(encryptedBackup, r) {
 			t.Errorf("Callback has unexepected data."+

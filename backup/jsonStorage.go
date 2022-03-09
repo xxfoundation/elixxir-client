@@ -21,7 +21,7 @@ func storeJson(json string, kv *versioned.KV) error {
 }
 
 func loadJson(kv *versioned.KV) string {
-	obj, err := kv.Get(passwordStorageKey, passwordStorageVersion)
+	obj, err := kv.Get(jsonStorageKey, jsonStorageVersion)
 	if err != nil {
 		return ""
 	}

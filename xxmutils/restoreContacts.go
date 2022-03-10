@@ -87,9 +87,9 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
 	failCh := make(chan failure, chanSize)
 
 	// Start routines for processing
-	lcWg := sync.WaitGroup{}
+	lcWg := &sync.WaitGroup{}
 	lcWg.Add(numRoutines)
-	rsWg := sync.WaitGroup{}
+	rsWg := &sync.WaitGroup{}
 	rsWg.Add(numRoutines)
 	for i := 0; i < numRoutines; i++ {
 		go LookupContacts(lookupCh, foundCh, failCh, udManager, lcWg)
@@ -168,7 +168,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
 // should be treated as internal functions specific to the phone apps.
 func LookupContacts(in chan *id.ID, out chan *contact.Contact,
 	failCh chan failure, udManager *ud.Manager,
-	wg sync.WaitGroup) {
+	wg *sync.WaitGroup) {
 	defer wg.Done()
 	// Start looking up contacts with user discovery and feed this
 	// contacts channel.
@@ -196,7 +196,7 @@ func LookupContacts(in chan *id.ID, out chan *contact.Contact,
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
 func ResetSessions(in, out chan *contact.Contact, failCh chan failure,
-	client api.Client, wg sync.WaitGroup) {
+	client api.Client, wg *sync.WaitGroup) {
 	defer wg.Done()
 	me := client.GetUser().GetContact()
 	msg := "Account reset from backup"

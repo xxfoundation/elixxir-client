@@ -24,16 +24,20 @@ import (
 )
 
 type NetworkManager interface {
-	// The stoppable can be nil.
-	SendCMIX(message format.Message, recipient *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error)
-	SendManyCMIX(messages []message.TargetedCmixMessage, p params.CMIX) (id.Round, []ephemeral.Id, error)
+	/* Process contol */
+	Follow(report ClientErrorReport) (stoppable.Stoppable, error)
+	// GetSender - Object that all gateway I/O goes though. It handles
+	// selecting gateways and proxying messages through them
+	GetSender() *gateway.Sender
+
+	/* Parameters and events */
 	GetInstance() *network.Instance
 	GetHealthTracker() HealthTracker
 	GetEventManager() EventManager
-	GetSender() *gateway.Sender
-	Follow(report ClientErrorReport) (stoppable.Stoppable, error)
-	CheckGarbledMessages()
 	InProgressRegistrations() int
+
+	CheckGarbledMessages()
+
 
 	// GetAddressSize returns the current address size of IDs. Blocks until an
 	// address size is known.
@@ -52,8 +56,16 @@ type NetworkManager interface {
 	UnregisterAddressSizeNotification(tag string)
 
 	// SetPoolFilter sets the filter used to filter gateway IDs.
+	// allows you to disable proxying through certain gateways
 	SetPoolFilter(f gateway.Filter)
 
+	/* Message Sending */
+	SendCMIX(message format.Message, recipient *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error)
+	SendManyCMIX(messages []message.TargetedCmixMessage, p params.CMIX) (id.Round, []ephemeral.Id, error)
+
+
+
+	/* Message Receiving */
 	/* Identities are all network identites which the client is currently
 	trying to pick up message on. Each identity has a default trigger
 	pickup that it will receive on, but this default is generally
@@ -62,15 +74,26 @@ type NetworkManager interface {
 	if none are present.  */
 
 	// AddIdentity adds an identity to be tracked
+	// and Identity is Defined by a source ID and a current EphemeralID
+	// In its IdentityParams, paremeters describing the properties
+	// of the identity as well as how long it will last are described
 	AddIdentity(Identity, IdentityParams)
 	// RemoveIdentity removes a currently tracked identity.
 	RemoveIdentity(Identity)
 
-	//fingerprints
-	AddFingerprint(fp format.Fingerprint, processor MessageProcessorFP)
-	AddFingerprints(map[format.Fingerprint]MessageProcessorFP)
+	/* Fingerprints are the primary mechanisim of identifying a picked up message over
+	   cMix. They are a unique one time use 255 bit vector generally
+	   assoceated with a specific encryption key, but can be used for an alternative proptocol.
+	   When registering a fingeprprint, a MessageProcessorFP is registered to handle the message.
+	   The */
+
+	//AddFingerprint - Adds a fingerprint which will be handled by a specific processor
+	AddFingerprint(fingerprint format.Fingerprint, processor MessageProcessorFP)
+	AddFingerprints(fingerprints map[format.Fingerprint]MessageProcessorFP)
+	RemoveFingerprint(fingerprint format.Fingerprint)
+	RemoveFingerprints(fingerprints []format.Fingerprint)
 	CheckFingerprint(fingerprint format.Fingerprint) bool
-	RemoveFingerprint(fingerprint format.Fingerprint) bool
+
 
 	/* trigger - predefined hash based tags appended to all cmix messages
 	which, though trial hashing, are used to determine if a message applies
@@ -141,7 +164,7 @@ type Trigger struct {
 }
 
 type MessageProcessorFP interface {
-	Process(message format.Message)
+	Process(message format.Message, fingerprint format.Fingerprint)error
 }
 
 type MessageProcessorTrigger interface {

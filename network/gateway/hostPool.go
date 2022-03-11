@@ -539,7 +539,7 @@ func (h *HostPool) replaceHostNoStore(newId *id.ID, oldPoolIndex uint32) error {
 	// Use the GwId to keep track of the new random Host's index in the hostList
 	h.hostMap[*newId] = oldPoolIndex
 
-	// Clean up and move onto next Host
+	// Clean up and disconnect old Host
 	oldHostIDStr := "unknown"
 	if oldHost != nil {
 		oldHostIDStr = oldHost.GetId().String()
@@ -547,9 +547,16 @@ func (h *HostPool) replaceHostNoStore(newId *id.ID, oldPoolIndex uint32) error {
 		go oldHost.Disconnect()
 	}
 
+	// Manually connect the new Host
+	go func() {
+		err := newHost.Connect()
+		if err != nil {
+			jww.WARN.Printf("Unable to initialize Host connection: %+v", err)
+		}
+	}()
+
 	jww.DEBUG.Printf("Replaced Host at %d [%s] with new Host %s", oldPoolIndex, oldHostIDStr,
 		newId.String())
-
 	return nil
 }
 

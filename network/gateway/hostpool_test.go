@@ -485,11 +485,12 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 
 	// Construct a manager (bypass business logic in constructor)
 	hostPool := &HostPool{
-		manager:  manager,
-		hostList: make([]*connect.Host, newIndex+1),
-		hostMap:  make(map[id.ID]uint32),
-		ndf:      testNdf,
-		storage:  storage.InitTestingSession(t),
+		manager:    manager,
+		hostList:   make([]*connect.Host, newIndex+1),
+		hostMap:    make(map[id.ID]uint32),
+		ndf:        testNdf,
+		storage:    storage.InitTestingSession(t),
+		poolParams: DefaultPoolParams(),
 		filter: func(m map[id.ID]int, _ *ndf.NetworkDefinition) map[id.ID]int {
 			return m
 		},
@@ -855,6 +856,7 @@ func TestHostPool_AddGateway(t *testing.T) {
 		hostList:       make([]*connect.Host, newIndex+1),
 		hostMap:        make(map[id.ID]uint32),
 		ndf:            testNdf,
+		poolParams:     params,
 		addGatewayChan: make(chan network.NodeGateway),
 		storage:        storage.InitTestingSession(t),
 	}
@@ -888,6 +890,7 @@ func TestHostPool_RemoveGateway(t *testing.T) {
 		hostList:       make([]*connect.Host, newIndex+1),
 		hostMap:        make(map[id.ID]uint32),
 		ndf:            testNdf,
+		poolParams:     params,
 		addGatewayChan: make(chan network.NodeGateway),
 		storage:        storage.InitTestingSession(t),
 		rng:            fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),

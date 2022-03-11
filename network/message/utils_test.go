@@ -17,10 +17,10 @@ func (mc *MockSendCMIXComms) GetHost(*id.ID) (*connect.Host, bool) {
 	nid1 := id.NewIdFromString("zezima", id.Node, mc.t)
 	gwID := nid1.DeepCopy()
 	gwID.SetType(id.Gateway)
-	h, _ := connect.NewHost(gwID, "0.0.0.0", []byte(""), connect.HostParams{
-		MaxRetries:  0,
-		AuthEnabled: false,
-	})
+	p := connect.GetDefaultHostParams()
+	p.MaxRetries = 0
+	p.AuthEnabled = false
+	h, _ := connect.NewHost(gwID, "0.0.0.0", []byte(""), p)
 	return h, true
 }
 

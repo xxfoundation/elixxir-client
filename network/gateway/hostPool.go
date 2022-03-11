@@ -74,23 +74,23 @@ type HostPool struct {
 
 // PoolParams Allows configuration of HostPool parameters
 type PoolParams struct {
-	MaxPoolSize    uint32             // Maximum number of Hosts in the HostPool
-	PoolSize       uint32             // Allows override of HostPool size. Set to zero for dynamic size calculation
-	ProxyAttempts  uint32             // How many proxies will be used in event of send failure
-	MaxPings       uint32             // How many gateways to concurrently test when initializing HostPool. Disabled if zero.
-	LazyConnection bool               // Flag determining whether Host connections are initialized when added to HostPool
-	HostParams     connect.HostParams // Parameters for the creation of new Host objects
+	MaxPoolSize     uint32             // Maximum number of Hosts in the HostPool
+	PoolSize        uint32             // Allows override of HostPool size. Set to zero for dynamic size calculation
+	ProxyAttempts   uint32             // How many proxies will be used in event of send failure
+	MaxPings        uint32             // How many gateways to concurrently test when initializing HostPool. Disabled if zero.
+	ForceConnection bool               // Flag determining whether Host connections are initialized when added to HostPool
+	HostParams      connect.HostParams // Parameters for the creation of new Host objects
 }
 
 // DefaultPoolParams Returns a default set of PoolParams
 func DefaultPoolParams() PoolParams {
 	p := PoolParams{
-		MaxPoolSize:    30,
-		ProxyAttempts:  5,
-		PoolSize:       0,
-		MaxPings:       0,
-		LazyConnection: true,
-		HostParams:     connect.GetDefaultHostParams(),
+		MaxPoolSize:     30,
+		ProxyAttempts:   5,
+		PoolSize:        0,
+		MaxPings:        0,
+		ForceConnection: false,
+		HostParams:      connect.GetDefaultHostParams(),
 	}
 	p.HostParams.MaxRetries = 1
 	p.HostParams.MaxSendRetries = 1
@@ -550,7 +550,7 @@ func (h *HostPool) replaceHostNoStore(newId *id.ID, oldPoolIndex uint32) error {
 	}
 
 	// Manually connect the new Host
-	if !h.poolParams.LazyConnection {
+	if h.poolParams.ForceConnection {
 		go func() {
 			err := newHost.Connect()
 			if err != nil {
@@ -664,7 +664,6 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 	// Check if the host exists
 	host, ok := h.manager.GetHost(gwId)
 	if !ok {
-
 		// Check if gateway ID collides with an existing hard coded ID
 		if id.CollidesWithHardCodedID(gwId) {
 			jww.ERROR.Printf("Gateway ID invalid, collides with a "+

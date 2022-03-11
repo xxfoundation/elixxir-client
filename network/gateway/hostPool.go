@@ -74,21 +74,23 @@ type HostPool struct {
 
 // PoolParams Allows configuration of HostPool parameters
 type PoolParams struct {
-	MaxPoolSize   uint32             // Maximum number of Hosts in the HostPool
-	PoolSize      uint32             // Allows override of HostPool size. Set to zero for dynamic size calculation
-	ProxyAttempts uint32             // How many proxies will be used in event of send failure
-	MaxPings      uint32             // How many gateways to concurrently test when initializing HostPool. Disabled if zero.
-	HostParams    connect.HostParams // Parameters for the creation of new Host objects
+	MaxPoolSize    uint32             // Maximum number of Hosts in the HostPool
+	PoolSize       uint32             // Allows override of HostPool size. Set to zero for dynamic size calculation
+	ProxyAttempts  uint32             // How many proxies will be used in event of send failure
+	MaxPings       uint32             // How many gateways to concurrently test when initializing HostPool. Disabled if zero.
+	LazyConnection bool               // Flag determining whether Host connections are initialized when added to HostPool
+	HostParams     connect.HostParams // Parameters for the creation of new Host objects
 }
 
 // DefaultPoolParams Returns a default set of PoolParams
 func DefaultPoolParams() PoolParams {
 	p := PoolParams{
-		MaxPoolSize:   30,
-		ProxyAttempts: 5,
-		PoolSize:      0,
-		MaxPings:      0,
-		HostParams:    connect.GetDefaultHostParams(),
+		MaxPoolSize:    30,
+		ProxyAttempts:  5,
+		PoolSize:       0,
+		MaxPings:       0,
+		LazyConnection: true,
+		HostParams:     connect.GetDefaultHostParams(),
 	}
 	p.HostParams.MaxRetries = 1
 	p.HostParams.MaxSendRetries = 1
@@ -548,12 +550,14 @@ func (h *HostPool) replaceHostNoStore(newId *id.ID, oldPoolIndex uint32) error {
 	}
 
 	// Manually connect the new Host
-	go func() {
-		err := newHost.Connect()
-		if err != nil {
-			jww.WARN.Printf("Unable to initialize Host connection: %+v", err)
-		}
-	}()
+	if !h.poolParams.LazyConnection {
+		go func() {
+			err := newHost.Connect()
+			if err != nil {
+				jww.WARN.Printf("Unable to initialize Host connection: %+v", err)
+			}
+		}()
+	}
 
 	jww.DEBUG.Printf("Replaced Host at %d [%s] with new Host %s", oldPoolIndex, oldHostIDStr,
 		newId.String())
@@ -721,8 +725,8 @@ func readUint32(rng io.Reader) uint32 {
 func readRangeUint32(start, end uint32, rng io.Reader) uint32 {
 	size := end - start
 	// note we could just do the part inside the () here, but then extra
-	// can == size which means a little bit of range is wastes, either
-	// choice seems negligible so we went with the "more correct"
+	// can == size which means a little range is wasted, either
+	// choice seems negligible, so we went with the "more correct"
 	extra := (math.MaxUint32%size + 1) % size
 	limit := math.MaxUint32 - extra
 	// Loop until we read something inside the limit

@@ -21,7 +21,7 @@ func Test_newResponseMessagePart(t *testing.T) {
 	payloadSize := prng.Intn(2000)
 	expected := responseMessagePart{
 		data:     make([]byte, payloadSize),
-		version: make([]byte,  receptionMessageVersionLen),
+		version:  make([]byte, receptionMessageVersionLen),
 		partNum:  make([]byte, partNumLen),
 		maxParts: make([]byte, maxPartsLen),
 		size:     make([]byte, sizeSize),

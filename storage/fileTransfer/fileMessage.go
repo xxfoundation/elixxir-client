@@ -78,7 +78,7 @@ func UnmarshalPartMessage(b []byte) (PartMessage, error) {
 // Marshal returns the byte representation of the PartMessage.
 func (m PartMessage) Marshal() []byte {
 	b := make([]byte, len(m.data))
-	copy(b,m.data)
+	copy(b, m.data)
 	return b
 }
 
@@ -97,7 +97,7 @@ func (m PartMessage) SetPartNum(num uint16) {
 // GetPart returns the file part data from the message.
 func (m PartMessage) GetPart() []byte {
 	b := make([]byte, len(m.part))
-	copy(b,m.part)
+	copy(b, m.part)
 	return b
 }
 

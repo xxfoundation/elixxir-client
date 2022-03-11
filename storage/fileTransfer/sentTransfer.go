@@ -447,7 +447,7 @@ func (st *SentTransfer) GetEncryptedPart(partNum uint16, contentsSize int) (encP
 			errors.Errorf(noPartNumErr, partNum)
 	}
 
-	if err = partMsg.SetPart(part); err != nil{
+	if err = partMsg.SetPart(part); err != nil {
 		return nil, nil, format.Fingerprint{},
 			err
 	}

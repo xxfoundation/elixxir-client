@@ -16,7 +16,7 @@ type Messages struct {
 	MessageReceptionWorkerPoolSize uint
 	MaxChecksGarbledMessage        uint
 	GarbledMessageWait             time.Duration
-	RealtimeOnly 					bool
+	RealtimeOnly                   bool
 }
 
 func GetDefaultMessage() Messages {
@@ -25,6 +25,6 @@ func GetDefaultMessage() Messages {
 		MessageReceptionWorkerPoolSize: 4,
 		MaxChecksGarbledMessage:        10,
 		GarbledMessageWait:             15 * time.Minute,
-		RealtimeOnly: 				    false,
+		RealtimeOnly:                   false,
 	}
 }

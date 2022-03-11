@@ -20,9 +20,9 @@ const (
 	// Maximum input image size (in bytes)
 	maxSize int64 = 12000000
 	// Desired number of pixels in output image
-	desiredSize = 640*480
+	desiredSize = 640 * 480
 	// Desired number of pixels in output image for preview
-	desiredPreviewSize = 32*24
+	desiredPreviewSize = 32 * 24
 )
 
 // CompressJpeg takes a JPEG image in byte format
@@ -75,7 +75,6 @@ func CompressJpeg(imgBytes []byte) ([]byte, error) {
 	// Return the compressed image in byte form
 	return newImgBuf.Bytes(), nil
 }
-
 
 // CompressJpeg takes a JPEG image in byte format
 // and compresses it based on desired output size

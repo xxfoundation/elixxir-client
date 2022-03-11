@@ -14,11 +14,11 @@ import (
 )
 
 const (
-	partNumLen      = 1
-	maxPartsLen     = 1
-	responseMinSize = receptionMessageVersionLen + partNumLen + maxPartsLen + sizeSize
+	partNumLen                 = 1
+	maxPartsLen                = 1
+	responseMinSize            = receptionMessageVersionLen + partNumLen + maxPartsLen + sizeSize
 	receptionMessageVersion    = 0
-    receptionMessageVersionLen = 1
+	receptionMessageVersionLen = 1
 )
 
 /*
@@ -60,7 +60,7 @@ func mapResponseMessagePart(data []byte) responseMessagePart {
 	return responseMessagePart{
 		data:     data,
 		version:  data[:receptionMessageVersionLen],
-		partNum:  data[receptionMessageVersionLen:receptionMessageVersionLen+partNumLen],
+		partNum:  data[receptionMessageVersionLen : receptionMessageVersionLen+partNumLen],
 		maxParts: data[receptionMessageVersionLen+partNumLen : receptionMessageVersionLen+maxPartsLen+partNumLen],
 		size:     data[receptionMessageVersionLen+maxPartsLen+partNumLen : responseMinSize],
 		contents: data[responseMinSize:],

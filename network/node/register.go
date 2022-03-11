@@ -39,9 +39,9 @@ import (
 	"time"
 )
 
-
 const maxAttempts = 5
-var delayTable = [5]time.Duration{0,5*time.Second,30*time.Second,60*time.Second,120*time.Second}
+
+var delayTable = [5]time.Duration{0, 5 * time.Second, 30 * time.Second, 60 * time.Second, 120 * time.Second}
 
 type RegisterNodeCommsInterface interface {
 	SendRequestClientKeyMessage(host *connect.Host,
@@ -52,7 +52,6 @@ func StartRegistration(sender *gateway.Sender, session *storage.Session, rngGen 
 	c chan network.NodeGateway, numParallel uint) stoppable.Stoppable {
 
 	multi := stoppable.NewMulti("NodeRegistrations")
-
 
 	inProgess := &sync.Map{}
 	// we are relying on the in progress check to
@@ -96,7 +95,7 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 
 			//keep track of how many times this has been attempted
 			numAttempts := uint(1)
-			if nunAttemptsInterface, hasValue := attempts.LoadOrStore(nidStr, numAttempts); hasValue{
+			if nunAttemptsInterface, hasValue := attempts.LoadOrStore(nidStr, numAttempts); hasValue {
 				numAttempts = nunAttemptsInterface.(uint)
 				attempts.Store(nidStr, numAttempts+1)
 			}
@@ -112,11 +111,11 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 			if err != nil {
 				jww.ERROR.Printf("Failed to register node: %+v", err)
 				//if we have not reached the attempt limit for this gateway, send it back into the channel to retry
-				if numAttempts <maxAttempts{
-					go func(){
+				if numAttempts < maxAttempts {
+					go func() {
 						//delay the send for a backoff
 						time.Sleep(delayTable[numAttempts-1])
-						c<-gw
+						c <- gw
 					}()
 				}
 			}
@@ -124,8 +123,6 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 		}
 	}
 }
-
-
 
 //registerWithNode serves as a helper for RegisterWithNodes
 // It registers a user with a specific in the client's ndf.
@@ -180,7 +177,6 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	ngw network.NodeGateway, regSig []byte, registrationTimestampNano int64,
 	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source,
 	stop *stoppable.Single) (*cyclic.Int, []byte, uint64, error) {
-
 
 	grp := store.GetGroup()
 

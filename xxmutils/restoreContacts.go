@@ -149,13 +149,18 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
 	}
 
 	// Cleanup
+	//   lookupCh -> foundCh -> resetContactCh -> restoredCh
 	close(lookupCh)
-	close(resetContactCh)
-	close(failCh)
 	// Now wait for subroutines to close before closing their output chans
 	lcWg.Wait()
+	// Close input to reset chan after lookup is done to avoid writes after
+	// close
 	close(foundCh)
+	close(resetContactCh)
 	rsWg.Wait()
+	// failCh is closed after exit of the threads to avoid writes after
+	// close
+	close(failCh)
 	close(restoredCh)
 	failWg.Wait()
 
@@ -185,8 +190,6 @@ func LookupContacts(in chan *id.ID, out chan *contact.Contact,
 			continue
 		}
 		jww.WARN.Printf("could not lookup %s: %v", lookupID, err)
-		// Retry later
-		in <- lookupID
 	}
 }
 
@@ -207,9 +210,9 @@ func ResetSessions(in, out chan *contact.Contact, failCh chan failure,
 			continue
 		}
 		// If an error, figure out if I should report or retry
-		// Note: Always retry here for now.
+		// Note: Always fail here for now.
 		jww.WARN.Printf("could not reset %s: %v", c.ID, err)
-		in <- c
+		failCh <- failure{ID: c.ID, Err: err}
 	}
 }
 

@@ -234,38 +234,16 @@ func (m *Manager) handleMessage2(ecrMsg format.Message, bundle Bundle) {
 		ephID ephemeral.Id
 	}
 
-	fpLock := m.getFPLock(fingerprint) {
-		m.superLock.Lock()
-		defer m.superLock.Unlock()
-		fpLock, ok := m.fpLocks[fingerprint]
-		if !ok {
-			m.fpLocks[fingerprint] = &sync.Mutex{}
-			return m.fpLocks[fingerprint]
-		}
-	}
-	fpLock.Lock()
-
 	// If we have a fingerprint, process it.
-	messageProc, exists := m.fingerprints.Lookup(fingerprint)//  {
-	// 	// note scope here is all broken, fix...
-	// 	m.fingers.Lock()
-	// 	defer m.fingersUnlock()
-	// 	mp, ok := m.fingers[fingerprint]
-	// 	if ok {
-	// 		mp.MarkFingerprintUsed(fingerprint)
-	// 		delete(m.fingers, fingerprint)
-	// 		return mp, true
-	// 	}
-	// 	return nil, false
-	// }
+	//Lock
+	messageProc, fpLock, exists := m.fingerprints[fingerprint]
+	// Unlock
 	if exists {
-		// in progress is a future project. 
-		// m.inprogress.Add({fingerprint, ecrMsg, newID, round})
-		m.fingerprints.Delete(fingerprint)
+		fpLock.Lock()
+		defer fpLock.Unlock()
+		messageProc.MarkFingerprintUsed(fingerprint)
 		messageProc.Process(ecrMsg, newID, round)
-		messageProc.MarkUsed(fingerprint)
-		fpLock.Unlock()
-		// delete from fpLocks as well.
+		delete(m.fingerprints, fingerprint)
 		return
 	}
 

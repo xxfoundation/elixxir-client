@@ -133,6 +133,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	poolParams.HostParams.KaClientOpts.Time = time.Duration(math.MaxInt64)
 	// Enable optimized HostPool initialization
 	poolParams.MaxPings = 50
+	poolParams.ForceConnection = true
 	m.sender, err = gateway.NewSender(poolParams, rng,
 		ndf, comms, session, m.NodeRegistration)
 	if err != nil {

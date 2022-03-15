@@ -24,7 +24,7 @@ import (
 // Tests that Backup.initializeBackup returns a new Backup with a copy of the
 // key and the callback.
 func Test_initializeBackup(t *testing.T) {
-	cbChan := make(chan []byte)
+	cbChan := make(chan []byte, 2)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
 	expectedPassword := "MySuperSecurePassword"
 	b, err := initializeBackup(expectedPassword, cb, nil,
@@ -32,6 +32,12 @@ func Test_initializeBackup(t *testing.T) {
 		fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG))
 	if err != nil {
 		t.Errorf("initializeBackup returned an error: %+v", err)
+	}
+
+	select {
+	case <-cbChan:
+	case <-time.After(10 * time.Millisecond):
+		t.Error("Timed out waiting for callback.")
 	}
 
 	// Check that the correct password is in storage
@@ -89,6 +95,12 @@ func Test_resumeBackup(t *testing.T) {
 		t.Errorf("Failed to initialize new Backup: %+v", err)
 	}
 
+	select {
+	case <-cbChan1:
+	case <-time.After(10 * time.Millisecond):
+		t.Error("Timed out waiting for callback.")
+	}
+
 	// Get key and salt to compare to later
 	key1, salt1, _, err := loadBackup(b.store.GetKV())
 	if err != nil {
@@ -135,7 +147,7 @@ func Test_resumeBackup(t *testing.T) {
 
 	select {
 	case r := <-cbChan1:
-		t.Errorf("Callback of first Backup called: %q", r) // TODO: i think there is a race condition here
+		t.Errorf("Callback of first Backup called: %q", r)
 	case r := <-cbChan2:
 		if !bytes.Equal(encryptedBackup, r) {
 			t.Errorf("Callback has unexepected data."+

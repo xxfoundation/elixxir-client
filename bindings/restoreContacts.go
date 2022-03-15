@@ -29,6 +29,7 @@ type RestoreContactsReport struct {
 	restored []*id.ID
 	failed   []*id.ID
 	errs     []error
+	restErr  error
 }
 
 // LenRestored returns the length of ID's restored.
@@ -56,6 +57,14 @@ func (r *RestoreContactsReport) GetErrorAt(index int) string {
 	return r.errs[index].Error()
 }
 
+// GetRestoreContactsError returns an error string. Empty if no error.
+func (r *RestoreContactsReport) GetRestoreContactsError() string {
+	if r.restErr == nil {
+		return ""
+	}
+	return r.restErr.Error()
+}
+
 // RestoreContactsFromBackup takes as input the jason output of the
 // `NewClientFromBackup` function, unmarshals it into IDs, looks up
 // each ID in user discovery, and initiates a session reset request.
@@ -65,8 +74,8 @@ func (r *RestoreContactsReport) GetErrorAt(index int) string {
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
 func RestoreContactsFromBackup(backupPartnerIDs []byte, client *Client,
-	udManager *UserDiscovery, updatesCb RestoreContactsUpdater) (
-	*RestoreContactsReport, error) {
+	udManager *UserDiscovery,
+	updatesCb RestoreContactsUpdater) *RestoreContactsReport {
 
 	restored, failed, errs, err := xxmutils.RestoreContactsFromBackup(
 		backupPartnerIDs, &client.api, udManager.ud, updatesCb)
@@ -75,6 +84,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *Client,
 		restored: restored,
 		failed:   failed,
 		errs:     errs,
-	}, err
+		restErr:  err,
+	}
 
 }

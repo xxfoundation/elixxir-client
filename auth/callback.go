@@ -369,7 +369,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				partnerID, rndNum)
 			cbList := m.resetCallbacks.Get(c.ID)
 			for _, cb := range cbList {
-				ccb := cb.(interfaces.ResetCallback)
+				ccb := cb.(interfaces.ResetNotificationCallback)
 				go ccb(c)
 			}
 		}

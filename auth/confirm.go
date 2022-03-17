@@ -35,7 +35,7 @@ func (m *Manager) ConfirmRequestAuth(partner contact.Contact) (id.Round, error) 
 
 	// Cannot confirm already established channels
 	if _, err := m.storage.E2e().GetPartner(partner.ID); err == nil {
-		em := fmt.Sprintf("Cannot FonritmRequestAuth for %s, "+
+		em := fmt.Sprintf("Cannot ConfirmRequestAuth for %s, "+
 			"channel already exists. Ignoring", partner.ID)
 		jww.WARN.Print(em)
 		m.net.GetEventManager().Report(5, "Auth",

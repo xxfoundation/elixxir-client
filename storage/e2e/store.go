@@ -9,8 +9,6 @@ package e2e
 
 import (
 	"encoding/json"
-	"sync"
-
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -24,6 +22,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"sync"
 )
 
 const (
@@ -87,8 +86,6 @@ func NewStore(grp *cyclic.Group, kv *versioned.KV, privKey *cyclic.Int,
 
 		e2eParams: params.GetDefaultE2ESessionParams(),
 	}
-
-	jww.INFO.Printf("[E2E Store] Created with empty managers map")
 
 	err := util.StoreCyclicKey(kv, pubKey, pubKeyKey)
 	if err != nil {
@@ -175,8 +172,6 @@ func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey,
 	sendParams, receiveParams params.E2ESessionParams) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	jww.INFO.Printf("[E2E Store] AddPartner START")
-	printManagersState(s.managers)
 
 	jww.INFO.Printf("Adding Partner %s:\n\tMy Private Key: %s"+
 		"\n\tPartner Public Key: %s",
@@ -198,17 +193,11 @@ func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey,
 			partnerID, err)
 	}
 
-	jww.INFO.Printf("[E2E Store] AddPartner END")
-	printManagersState(s.managers)
-
 	return nil
 }
 
 // DeletePartner removes the associated contact from the E2E store
 func (s *Store) DeletePartner(partnerId *id.ID) error {
-	jww.INFO.Printf("[E2E Store] DeletePartner START")
-	printManagersState(s.managers)
-
 	m, ok := s.managers[*partnerId]
 	if !ok {
 		return errors.New(NoPartnerErrorStr)
@@ -219,9 +208,6 @@ func (s *Store) DeletePartner(partnerId *id.ID) error {
 	}
 
 	delete(s.managers, *partnerId)
-	jww.INFO.Printf("[E2E Store] DeletePartner END")
-	printManagersState(s.managers)
-
 	return s.save()
 }
 
@@ -235,8 +221,6 @@ func (s *Store) GetPartner(partnerID *id.ID) (*Manager, error) {
 		return nil, errors.New(NoPartnerErrorStr)
 	}
 
-	jww.INFO.Printf("[E2E Store] GetPartner")
-	printManagersState(s.managers)
 	return m, nil
 }
 
@@ -258,8 +242,6 @@ func (s *Store) GetPartnerContact(partnerID *id.ID) (contact.Contact, error) {
 		ID:       m.GetPartnerID(),
 		DhPubKey: m.GetPartnerOriginPublicKey(),
 	}
-	jww.INFO.Printf("[E2E Store] GetPartnerContact")
-	printManagersState(s.managers)
 
 	return c, nil
 }
@@ -347,8 +329,6 @@ func (s *Store) unmarshal(b []byte) error {
 
 		s.managers[*partnerID] = manager
 	}
-	jww.INFO.Printf("[E2E Store] Managers Loaded!")
-	printManagersState(s.managers)
 
 	s.dhPrivateKey, err = util.LoadCyclicKey(s.kv, privKeyKey)
 	if err != nil {
@@ -445,13 +425,4 @@ func (f *fingerprints) Pop(fingerprint format.Fingerprint) (*Key, bool) {
 	key.fp = &fingerprint
 
 	return key, true
-}
-
-func printManagersState(managers map[id.ID]*Manager) {
-	jww.INFO.Printf("[E2E Store] Managers State Change: %d partners",
-		len(managers))
-	for partner, mgr := range managers {
-		jww.INFO.Printf("[E2E Store] Partner %s: %s", partner,
-			mgr.GetRelationshipFingerprint())
-	}
 }

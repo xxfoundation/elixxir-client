@@ -8,14 +8,12 @@
 package interfaces
 
 import (
-	"github.com/cloudflare/circl/dh/sidh"
+	"encoding/base64"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/network"
-	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -37,7 +35,6 @@ type NetworkManager interface {
 	InProgressRegistrations() int
 
 	CheckGarbledMessages()
-
 
 	// GetAddressSize returns the current address size of IDs. Blocks until an
 	// address size is known.
@@ -62,8 +59,6 @@ type NetworkManager interface {
 	/* Message Sending */
 	SendCMIX(message format.Message, recipient *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error)
 	SendManyCMIX(messages []message.TargetedCmixMessage, p params.CMIX) (id.Round, []ephemeral.Id, error)
-
-
 
 	/* Message Receiving */
 	/* Identities are all network identites which the client is currently
@@ -93,7 +88,6 @@ type NetworkManager interface {
 	RemoveFingerprint(fingerprint format.Fingerprint)
 	RemoveFingerprints(fingerprints []format.Fingerprint)
 	CheckFingerprint(fingerprint format.Fingerprint) bool
-
 
 	/* trigger - predefined hash based tags appended to all cmix messages
 	which, though trial hashing, are used to determine if a message applies
@@ -157,31 +151,40 @@ type IdentityParams struct {
 	Ephemeral bool
 }
 
+type Preimage []byte
+
+// key returns the key used to identify the Preimage in a map.
+func (pi Preimage) String() string {
+	return base64.StdEncoding.EncodeToString(pi)
+}
+
 type Trigger struct {
-	Preimage []byte
+	Preimage Preimage
 	Type     string
 	Source   []byte
 }
 
 type MessageProcessorFP interface {
-	Process(message format.Message, fingerprint format.Fingerprint)error
+	Process(message format.Message, fingerprint format.Fingerprint)
+	MarkFingerprintUsed(fingerprint format.Fingerprint)
 }
 
 type MessageProcessorTrigger interface {
 	Process(message format.Message, preimage []byte, Type string, source []byte)
+	Equals(trigger MessageProcessorTrigger) bool
 }
 
-type Ratchet interface {
-	SendE2E(m message.Send, p params.E2E, stop *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error)
-	SendUnsafe(m message.Send, p params.Unsafe) ([]id.Round, error)
-	AddPartner(partnerID *id.ID, partnerPubKey,
-		myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
-		mySIDHPrivKey *sidh.PrivateKey,
-		sendParams, receiveParams params.E2ESessionParams)
-	GetPartner(partnerID *id.ID) (*Manager, error)
-	DeletePartner(partnerId *id.ID)
-	GetAllPartnerIDs() []*id.ID
-}
+//type Ratchet interface {
+//	SendE2E(m message.Send, p params.E2E, stop *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error)
+//	SendUnsafe(m message.Send, p params.Unsafe) ([]id.Round, error)
+//	AddPartner(partnerID *id.ID, partnerPubKey,
+//		myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
+//		mySIDHPrivKey *sidh.PrivateKey,
+//		sendParams, receiveParams params.E2ESessionParams)
+//	GetPartner(partnerID *id.ID) (*Manager, error)
+//	DeletePartner(partnerId *id.ID)
+//	GetAllPartnerIDs() []*id.ID
+//}
 
 //for use in key exchange which needs to be callable inside of network
 type SendE2E func(m message.Send, p params.E2E, stop *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error)

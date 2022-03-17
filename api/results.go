@@ -4,6 +4,7 @@
 // Use of this source code is governed by a license that can be found in the //
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
+
 package api
 
 import (
@@ -18,7 +19,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// Enum of possible round results to pass back
+// RoundResult is the enum of possible round results to pass back
 type RoundResult uint
 
 const (
@@ -40,7 +41,7 @@ func (rr RoundResult) String() string {
 	}
 }
 
-// Callback interface which reports the requested rounds.
+// RoundEventCallback interface which reports the requested rounds.
 // Designed such that the caller may decide how much detail they need.
 // allRoundsSucceeded:
 //   Returns false if any rounds in the round map were unsuccessful.
@@ -60,7 +61,7 @@ type historicalRoundsComm interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 }
 
-// Adjudicates on the rounds requested. Checks if they are
+// GetRoundResults adjudicates on the rounds requested. Checks if they are
 // older rounds or in progress rounds.
 func (c *Client) GetRoundResults(roundList []id.Round, timeout time.Duration,
 	roundCallback RoundEventCallback) error {
@@ -168,7 +169,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 							roundsResults[roundId] = Failed
 							allRoundsSucceeded = false
 						}
-						return
+						continue
 					}
 					allRoundsSucceeded = false
 					anyRoundTimedOut = true

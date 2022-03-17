@@ -62,10 +62,10 @@ func (mmrc *mockMessageRetrievalComms) RemoveHost(hid *id.ID) {
 }
 
 func (mmrc *mockMessageRetrievalComms) GetHost(hostId *id.ID) (*connect.Host, bool) {
-	h, _ := connect.NewHost(hostId, "0.0.0.0", []byte(""), connect.HostParams{
-		MaxRetries:  0,
-		AuthEnabled: false,
-	})
+	p := connect.GetDefaultHostParams()
+	p.MaxRetries = 0
+	p.AuthEnabled = false
+	h, _ := connect.NewHost(hostId, "0.0.0.0", []byte(""), p)
 	return h, true
 }
 

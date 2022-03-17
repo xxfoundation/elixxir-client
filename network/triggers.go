@@ -50,19 +50,38 @@ func NewTriggers() *Triggers {
 	return nil
 }
 
-func (t *Triggers) Lookup(identityFp,
-	ecrMsgContents []byte) ([]*Trigger, bool) {
+// Lookup will see if a trigger exists for the given preimage and message
+// contents. It will do this by trial hashing the preimages in the map with
+// the received message contents, until either a match to the
+// received identity fingerprint is received or it has exhausted the map.
+// If a match is found, this means the message received is for the client,
+// and that one or multiple triggers exist to process this message.
+// These triggers are returned to the caller along with the a true boolean.
+// If the map has been exhausted with no matches found, it returns nil and false.
+// todo: reorganize this interface. Lookup needs to be called
+//  by handleMessage, which should not have access to the other
+//  state modifying methods below. Possible options include:
+//  - privatizing the state-changing methods
+//  - leaking lookup on this layer and migrating the state modifiation methods
+//    a layer down in a sepearate package
+func (t *Triggers) Lookup(receivedIdentityFp,
+	ecrMsgContents []byte) (triggers []*Trigger, forMe bool) {
 	t.RLock()
 	defer t.RUnlock()
 
-	for preimage, triggers := range t.triggers {
+	for preimage, triggerList := range t.triggers {
 		preimageBytes, err := unmarshalPreimage(preimage)
 		if err != nil {
-			// fixme: panic here, this error would mean bad data is in the map
+			// fixme: panic here?, An error here would mean there's a bad
+			//  key-value pair in the map (specifically the preimage-key is bad,
+			//  as it should be base64 encoded).
 		}
-
-		if fingerprint2.CheckIdentityFP(identityFp, ecrMsgContents, preimageBytes) {
-			return triggers, true
+		// fixme, there probably needs to be a small refactor.
+		//  Terminology and variable names are being used misused. For example:
+		//  phrases like tag, preimage and identityFP are being used
+		//  interchangeably in the code and it's getting unwieldy.
+		if fingerprint2.CheckIdentityFP(receivedIdentityFp, ecrMsgContents, preimageBytes) {
+			return triggerList, true
 		}
 	}
 
@@ -133,10 +152,15 @@ func (t *Triggers) RemoveTrigger(preimage []byte,
 }
 
 // fixme: maybe make preimage a type or struct and place this in primitives?
+
+// marshalPreimage is a helper which encodes the preimage byte data to
+// a base64 encoded string.
 func marshalPreimage(pi []byte) string {
 	return base64.StdEncoding.EncodeToString(pi)
 }
 
+// unmarshalPreimage is a helper which decodes the preimage base64 string to
+// bytes.
 func unmarshalPreimage(data string) ([]byte, error) {
 	decoded, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {

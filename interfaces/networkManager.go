@@ -8,7 +8,6 @@
 package interfaces
 
 import (
-	"encoding/base64"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
@@ -151,15 +150,8 @@ type IdentityParams struct {
 	Ephemeral bool
 }
 
-type Preimage []byte
-
-// key returns the key used to identify the Preimage in a map.
-func (pi Preimage) String() string {
-	return base64.StdEncoding.EncodeToString(pi)
-}
-
 type Trigger struct {
-	Preimage Preimage
+	Preimage []byte
 	Type     string
 	Source   []byte
 }
@@ -172,6 +164,7 @@ type MessageProcessorFP interface {
 type MessageProcessorTrigger interface {
 	Process(message format.Message, preimage []byte, Type string, source []byte)
 	Equals(trigger MessageProcessorTrigger) bool
+	String() string
 }
 
 //type Ratchet interface {

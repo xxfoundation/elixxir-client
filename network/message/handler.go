@@ -161,3 +161,115 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 		}
 	}
 }
+
+
+func (m *Manager) handleMessage2(ecrMsg format.Message, bundle Bundle) {
+	fingerprint := ecrMsg.GetKeyFP()
+	msgDigest := ecrMsg.Digest()
+	identity := bundle.Identity
+
+	round := bundle.RoundInfo
+	newID := // todo use new id systme from ticket
+		{
+		ID id.ID
+		ephID ephemeral.Id
+	}
+
+	// If we have a fingerprint, process it.
+	messageProc, exists := m.fingerprints.Pop(fingerprint) {
+		// note scope here is all broken, fix...
+		m.fingers.Lock()
+		defer m.fingersUnlock()
+		mp, ok := m.fingers[fingerprint]
+		if ok {
+			mp.MarkFingerprintUsed(fingerprint)
+			delete(m.fingers, fingerprint)
+			return mp, true
+		}
+		return nil, false
+	}
+	if exists {
+		// in progress is a future project. 
+		// m.inprogress.Add({fingerprint, ecrMsg, newID, round})
+		go messageProc.Process(ecrMsg, newID, round)
+		return
+	}
+
+	triggerProc, trigger, exists := m.triggers.Lookup(
+		ecrMsg.GetIdentityFP(), ecrMsgContents)
+	if exists {
+		go triggerProc.Process(ecrMsg, newID, round, trigger)
+		return
+	} else {
+		// TODO: delete this else block because it should not be needed.
+		jww.INFO.Printf("checking backup %v", preimage.MakeDefault(identity.Source))
+		// //if it doesnt exist, check against the default fingerprint for the identity
+		// forMe = fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
+		// 	ecrMsgContents, preimage.MakeDefault(identity.Source))
+	}
+
+	if jww.GetLogThreshold() == jww.LevelTrace {
+		expectedFP := fingerprint2.IdentityFP(ecrMsgContents,
+			preimage.MakeDefault(identity.Source))
+		jww.TRACE.Printf("Message for %d (%s) failed identity "+
+			"check: %v (expected-default) vs %v (received)",
+			identity.EphId,
+			identity.Source, expectedFP, ecrMsg.GetIdentityFP())
+	}
+	im := fmt.Sprintf("Garbled/RAW Message: keyFP: %v, round: %d"+
+		"msgDigest: %s, not determined to be for client", ecrMsg.GetKeyFP(), bundle.Round, ecrMsg.Digest())
+	m.Internal.Events.Report(1, "MessageReception", "Garbled", im)
+	m.Session.GetGarbledMessages().Add(ecrMsg)
+}
+
+func (m *Manager) handleMessage2(ecrMsg format.Message, bundle Bundle) {
+	fingerprint := ecrMsg.GetKeyFP()
+	msgDigest := ecrMsg.Digest()
+	identity := bundle.Identity
+
+	round := bundle.RoundInfo
+	newID := // todo use new id systme from ticket
+		{
+		ID id.ID
+		ephID ephemeral.Id
+	}
+
+	// If we have a fingerprint, process it.
+	//Lock
+	messageProc, fpLock, exists := m.fingerprints[fingerprint]
+	// Unlock
+	if exists {
+		fpLock.Lock()
+		defer fpLock.Unlock()
+		messageProc.MarkFingerprintUsed(fingerprint)
+		messageProc.Process(ecrMsg, newID, round)
+		delete(m.fingerprints, fingerprint)
+		return
+	}
+
+	triggerProc, trigger, exists := m.triggers.Lookup(
+		ecrMsg.GetIdentityFP(), ecrMsgContents)
+	if exists {
+		go triggerProc.Process(ecrMsg, newID, round, trigger)
+		return
+	} else {
+		// TODO: delete this else block because it should not be needed.
+		jww.INFO.Printf("checking backup %v", preimage.MakeDefault(identity.Source))
+		// //if it doesnt exist, check against the default fingerprint for the identity
+		// forMe = fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
+		// 	ecrMsgContents, preimage.MakeDefault(identity.Source))
+	}
+
+	if jww.GetLogThreshold() == jww.LevelTrace {
+		expectedFP := fingerprint2.IdentityFP(ecrMsgContents,
+			preimage.MakeDefault(identity.Source))
+		jww.TRACE.Printf("Message for %d (%s) failed identity "+
+			"check: %v (expected-default) vs %v (received)",
+			identity.EphId,
+			identity.Source, expectedFP, ecrMsg.GetIdentityFP())
+	}
+	im := fmt.Sprintf("Garbled/RAW Message: keyFP: %v, round: %d"+
+		"msgDigest: %s, not determined to be for client", ecrMsg.GetKeyFP(), bundle.Round, ecrMsg.Digest())
+	m.Internal.Events.Report(1, "MessageReception", "Garbled", im)
+	m.Session.GetGarbledMessages().Add(ecrMsg)
+}

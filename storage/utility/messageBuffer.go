@@ -270,7 +270,7 @@ func (mb *MessageBuffer) Next() (interface{}, bool) {
 		// Retrieve the message for storage
 		m, err = mb.handler.LoadMessage(mb.kv, makeStoredMessageKey(mb.key, h))
 		if err != nil {
-			m=nil
+			m = nil
 			jww.ERROR.Printf("Failed to load message %s from store, "+
 				"this may happen on occasion due to replays to increase "+
 				"reliability: %v", h, err)
@@ -292,7 +292,7 @@ func next(msgMap map[MessageHash]struct{}) MessageHash {
 func (mb *MessageBuffer) Succeeded(m interface{}) {
 	h := mb.handler.HashMessage(m)
 	jww.TRACE.Printf("Critical Messages Succeeded(%s)",
-		base64.StdEncoding.EncodeToString((h[:])))
+		base64.StdEncoding.EncodeToString(h[:]))
 
 	mb.mux.Lock()
 	defer mb.mux.Unlock()

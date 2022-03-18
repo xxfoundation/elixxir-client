@@ -23,7 +23,7 @@ import (
 func TestManager_GetMaxResponsePayloadSize(t *testing.T) {
 	m := newTestManager(0, false, t)
 	cmixPrimeSize := m.store.Cmix().GetGroup().GetP().ByteLen()
-	expectedSize := 2*cmixPrimeSize - format.KeyFPLen - format.MacLen - format.RecipientIDLen - responseMinSize-1
+	expectedSize := 2*cmixPrimeSize - format.KeyFPLen - format.MacLen - format.RecipientIDLen - responseMinSize - 1
 	testSize := m.GetMaxResponsePayloadSize()
 
 	if expectedSize != testSize {

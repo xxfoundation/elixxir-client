@@ -53,6 +53,8 @@ type Backup struct {
 	store           *storage.Session
 	backupContainer *interfaces.BackupContainer
 	rng             *fastRNG.StreamGenerator
+
+	jsonParams string
 }
 
 // UpdateBackupFn is the callback that encrypted backup data is returned on
@@ -141,6 +143,7 @@ func resumeBackup(updateBackupCb UpdateBackupFn, c *api.Client,
 		store:           store,
 		backupContainer: backupContainer,
 		rng:             rng,
+		jsonParams:      loadJson(store.GetKV()),
 	}
 
 	// Setting backup trigger in client
@@ -205,6 +208,19 @@ func (b *Backup) TriggerBackup(reason string) {
 		go b.updateBackupCb(encryptedBackup)
 	} else {
 		jww.WARN.Printf("could not call backup callback, stopped...")
+	}
+}
+
+func (b *Backup) AddJson(newJson string) {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+
+	if newJson != b.jsonParams {
+		b.jsonParams = newJson
+		if err := storeJson(newJson, b.store.GetKV()); err != nil {
+			jww.FATAL.Panicf("Failed to store json: %+v", err)
+		}
+		go b.TriggerBackup("New Json")
 	}
 }
 
@@ -286,6 +302,9 @@ func (b *Backup) assembleBackup() backup.Backup {
 
 	// Get contacts
 	bu.Contacts.Identities = b.store.E2e().GetPartners()
+
+	//add the memoized json params
+	bu.JSONParams = b.jsonParams
 
 	return bu
 }

@@ -23,17 +23,17 @@ import (
 const prefix = "cmix"
 const currentStoreVersion = 0
 const (
-	storeKey   = "KeyStore"
-	grpKey     = "GroupKey"
+	storeKey = "KeyStore"
+	grpKey   = "GroupKey"
 )
 
 type Store struct {
-	nodes        map[id.ID]*key
-	validUntil   uint64
-	keyId        []byte
-	grp          *cyclic.Group
-	kv           *versioned.KV
-	mux          sync.RWMutex
+	nodes      map[id.ID]*key
+	validUntil uint64
+	keyId      []byte
+	grp        *cyclic.Group
+	kv         *versioned.KV
+	mux        sync.RWMutex
 }
 
 // NewStore returns a new cMix storage object.
@@ -42,9 +42,9 @@ func NewStore(grp *cyclic.Group, kv *versioned.KV) (*Store, error) {
 	kv = kv.Prefix(prefix)
 
 	s := &Store{
-		nodes:        make(map[id.ID]*key),
-		grp:          grp,
-		kv:           kv,
+		nodes: make(map[id.ID]*key),
+		grp:   grp,
+		kv:    kv,
 	}
 
 	err := utility.StoreGroup(kv, grp, grpKey)

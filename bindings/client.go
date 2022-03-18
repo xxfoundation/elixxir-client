@@ -83,20 +83,30 @@ func NewPrecannedClient(precannedID int, network, storageDir string, password []
 	return nil
 }
 
+type BackupReport struct {
+	RestoredContacts []*id.ID
+	Params           string
+}
+
 // NewClientFromBackup constructs a new Client from an encrypted backup. The backup
 // is decrypted using the backupPassphrase. On success a successful client creation,
 // the function will return a JSON encoded list of the E2E partners
-// contained in the backup.
+// contained in the backup and a json-encoded string of the parameters stored in the backup
 func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 	backupPassphrase, backupFileContents []byte) ([]byte, error) {
-	backupPartnerIds, err := api.NewClientFromBackup(ndfJSON, storageDir,
+	backupPartnerIds, jsonParams, err := api.NewClientFromBackup(ndfJSON, storageDir,
 		sessionPassword, backupPassphrase, backupFileContents)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to create new "+
 			"client from backup: %+v", err))
 	}
 
-	return json.Marshal(backupPartnerIds)
+	report := BackupReport{
+		RestoredContacts: backupPartnerIds,
+		Params:           jsonParams,
+	}
+
+	return json.Marshal(report)
 }
 
 // Login will load an existing client from the storageDir

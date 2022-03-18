@@ -102,7 +102,7 @@ func (m *Manager) RemoveSpecificConfirmCallback(id *id.ID) {
 }
 
 // Adds a general callback to be used on auth session renegotiations.
-func (m *Manager) AddResetCallback(cb interfaces.ResetCallback) {
+func (m *Manager) AddResetNotificationCallback(cb interfaces.ResetNotificationCallback) {
 	m.resetCallbacks.AddOverride(cb)
 }
 

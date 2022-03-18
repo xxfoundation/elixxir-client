@@ -61,7 +61,7 @@ func mapTransmitMessage(data []byte, pubKeySize int) transmitMessage {
 	return transmitMessage{
 		data:    data,
 		version: data[:transmitMessageVersionSize],
-		pubKey:  data[transmitMessageVersionSize:transmitMessageVersionSize+pubKeySize],
+		pubKey:  data[transmitMessageVersionSize : transmitMessageVersionSize+pubKeySize],
 		payload: data[transmitMessageVersionSize+pubKeySize:],
 	}
 }

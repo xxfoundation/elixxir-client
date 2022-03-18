@@ -107,9 +107,18 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	jww.TRACE.Printf("handleRequest ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
 	jww.TRACE.Printf("handleRequest MAC: %v", cmixMsg.GetMac())
 
+	ecrPayload := baseFmt.GetEcrPayload()
 	success, payload := cAuth.Decrypt(myHistoricalPrivKey,
-		partnerPubKey, baseFmt.GetEcrPayload(),
+		partnerPubKey, ecrPayload,
 		cmixMsg.GetMac(), grp)
+
+	if !success {
+		jww.WARN.Printf("Attempting to decrypt old request packet...")
+		ecrPayload = append(ecrPayload, baseFmt.GetVersion())
+		success, payload = cAuth.Decrypt(myHistoricalPrivKey,
+			partnerPubKey, ecrPayload,
+			cmixMsg.GetMac(), grp)
+	}
 
 	if !success {
 		jww.WARN.Printf("Received auth request failed " +
@@ -317,8 +326,8 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 
 	//create the contact, note that no facts are sent in the payload
 	c := contact.Contact{
-		ID:             partnerID,
-		DhPubKey:       partnerPubKey,
+		ID:             partnerID.DeepCopy(),
+		DhPubKey:       partnerPubKey.DeepCopy(),
 		OwnershipProof: copySlice(ecrFmt.ownership),
 		Facts:          facts,
 	}
@@ -360,7 +369,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				partnerID, rndNum)
 			cbList := m.resetCallbacks.Get(c.ID)
 			for _, cb := range cbList {
-				ccb := cb.(interfaces.ResetCallback)
+				ccb := cb.(interfaces.ResetNotificationCallback)
 				go ccb(c)
 			}
 		}
@@ -531,7 +540,7 @@ func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
 
 	baseFmt, err := unmarshalBaseFormat(cmixMsg.GetContents(),
 		grp.GetP().ByteLen())
-	if err != nil {
+	if err != nil && baseFmt == nil {
 		return baseFormat{}, nil, errors.WithMessage(err, "Failed to"+
 			" unmarshal auth")
 	}
@@ -542,5 +551,5 @@ func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
 	}
 	partnerPubKey := grp.NewIntFromBytes(baseFmt.pubkey)
 
-	return baseFmt, partnerPubKey, nil
+	return *baseFmt, partnerPubKey, nil
 }

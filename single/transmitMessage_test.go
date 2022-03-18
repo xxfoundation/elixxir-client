@@ -140,7 +140,7 @@ func TestTransmitMessage_SetPayload_GetPayload_GetPayloadSize(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	externalPayloadSize := prng.Intn(2000)
 	pubKeySize := prng.Intn(externalPayloadSize)
-	payloadSize := externalPayloadSize - pubKeySize-transmitMessageVersionSize
+	payloadSize := externalPayloadSize - pubKeySize - transmitMessageVersionSize
 	payload := make([]byte, payloadSize)
 	prng.Read(payload)
 	m := newTransmitMessage(externalPayloadSize, pubKeySize)
@@ -152,7 +152,6 @@ func TestTransmitMessage_SetPayload_GetPayload_GetPayloadSize(t *testing.T) {
 		t.Errorf("GetContents() returned incorrect payload."+
 			"\nexpected: %+v\nreceived: %+v", payload, testPayload)
 	}
-
 
 	if payloadSize != m.GetPayloadSize() {
 		t.Errorf("GetContentsSize() returned incorrect content size."+

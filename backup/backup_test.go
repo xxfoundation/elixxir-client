@@ -24,7 +24,7 @@ import (
 // Tests that Backup.initializeBackup returns a new Backup with a copy of the
 // key and the callback.
 func Test_initializeBackup(t *testing.T) {
-	cbChan := make(chan []byte)
+	cbChan := make(chan []byte, 2)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
 	expectedPassword := "MySuperSecurePassword"
 	b, err := initializeBackup(expectedPassword, cb, nil,
@@ -32,6 +32,12 @@ func Test_initializeBackup(t *testing.T) {
 		fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG))
 	if err != nil {
 		t.Errorf("initializeBackup returned an error: %+v", err)
+	}
+
+	select {
+	case <-cbChan:
+	case <-time.After(10 * time.Millisecond):
+		t.Error("Timed out waiting for callback.")
 	}
 
 	// Check that the correct password is in storage
@@ -87,6 +93,12 @@ func Test_resumeBackup(t *testing.T) {
 		fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG))
 	if err != nil {
 		t.Errorf("Failed to initialize new Backup: %+v", err)
+	}
+
+	select {
+	case <-cbChan1:
+	case <-time.After(10 * time.Millisecond):
+		t.Error("Timed out waiting for callback.")
 	}
 
 	// Get key and salt to compare to later
@@ -279,6 +291,82 @@ func TestBackup_IsBackupRunning(t *testing.T) {
 	// Check that the backup is stopped
 	if b.IsBackupRunning() {
 		t.Error("Backup is running after being stopped.")
+	}
+}
+
+func TestBackup_AddJson(t *testing.T) {
+	b := newTestBackup("MySuperSecurePassword", nil, t)
+	s := b.store
+	json := "{'data': {'one': 1}}"
+
+	expectedCollatedBackup := backup.Backup{
+		RegistrationTimestamp: s.GetUser().RegistrationTimestamp,
+		TransmissionIdentity: backup.TransmissionIdentity{
+			RSASigningPrivateKey: s.GetUser().TransmissionRSA,
+			RegistrarSignature:   s.User().GetTransmissionRegistrationValidationSignature(),
+			Salt:                 s.GetUser().TransmissionSalt,
+			ComputedID:           s.GetUser().TransmissionID,
+		},
+		ReceptionIdentity: backup.ReceptionIdentity{
+			RSASigningPrivateKey: s.GetUser().ReceptionRSA,
+			RegistrarSignature:   s.User().GetReceptionRegistrationValidationSignature(),
+			Salt:                 s.GetUser().ReceptionSalt,
+			ComputedID:           s.GetUser().ReceptionID,
+			DHPrivateKey:         s.GetUser().E2eDhPrivateKey,
+			DHPublicKey:          s.GetUser().E2eDhPublicKey,
+		},
+		UserDiscoveryRegistration: backup.UserDiscoveryRegistration{
+			FactList: s.GetUd().GetFacts(),
+		},
+		Contacts:   backup.Contacts{Identities: s.E2e().GetPartners()},
+		JSONParams: json,
+	}
+
+	b.AddJson(json)
+
+	collatedBackup := b.assembleBackup()
+	if !reflect.DeepEqual(expectedCollatedBackup, collatedBackup) {
+		t.Errorf("Collated backup does not match expected."+
+			"\nexpected: %+v\nreceived: %+v",
+			expectedCollatedBackup, collatedBackup)
+	}
+}
+
+func TestBackup_AddJson_badJson(t *testing.T) {
+	b := newTestBackup("MySuperSecurePassword", nil, t)
+	s := b.store
+	json := "abc{'i'm a bad json: 'one': 1'''}}"
+
+	expectedCollatedBackup := backup.Backup{
+		RegistrationTimestamp: s.GetUser().RegistrationTimestamp,
+		TransmissionIdentity: backup.TransmissionIdentity{
+			RSASigningPrivateKey: s.GetUser().TransmissionRSA,
+			RegistrarSignature:   s.User().GetTransmissionRegistrationValidationSignature(),
+			Salt:                 s.GetUser().TransmissionSalt,
+			ComputedID:           s.GetUser().TransmissionID,
+		},
+		ReceptionIdentity: backup.ReceptionIdentity{
+			RSASigningPrivateKey: s.GetUser().ReceptionRSA,
+			RegistrarSignature:   s.User().GetReceptionRegistrationValidationSignature(),
+			Salt:                 s.GetUser().ReceptionSalt,
+			ComputedID:           s.GetUser().ReceptionID,
+			DHPrivateKey:         s.GetUser().E2eDhPrivateKey,
+			DHPublicKey:          s.GetUser().E2eDhPublicKey,
+		},
+		UserDiscoveryRegistration: backup.UserDiscoveryRegistration{
+			FactList: s.GetUd().GetFacts(),
+		},
+		Contacts:   backup.Contacts{Identities: s.E2e().GetPartners()},
+		JSONParams: json,
+	}
+
+	b.AddJson(json)
+
+	collatedBackup := b.assembleBackup()
+	if !reflect.DeepEqual(expectedCollatedBackup, collatedBackup) {
+		t.Errorf("Collated backup does not match expected."+
+			"\nexpected: %+v\nreceived: %+v",
+			expectedCollatedBackup, collatedBackup)
 	}
 }
 

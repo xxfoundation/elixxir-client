@@ -62,7 +62,7 @@ type AuthConfirmCallback interface {
 
 // AuthRequestCallback notifies the register whenever they receive an auth
 // request
-type AuthResetCallback interface {
+type AuthResetNotificationCallback interface {
 	Callback(requestor *Contact)
 }
 

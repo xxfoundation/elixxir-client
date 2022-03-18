@@ -84,7 +84,7 @@ func (c *Client) ResetSession(recipientMarshaled,
 // RegisterAuthCallbacks registers all callbacks for authenticated channels.
 // This can only be called once
 func (c *Client) RegisterAuthCallbacks(request AuthRequestCallback,
-	confirm AuthConfirmCallback, reset AuthResetCallback) {
+	confirm AuthConfirmCallback, reset AuthResetNotificationCallback) {
 
 	requestFunc := func(requestor contact.Contact) {
 		requestorBind := &Contact{c: &requestor}
@@ -103,7 +103,7 @@ func (c *Client) RegisterAuthCallbacks(request AuthRequestCallback,
 
 	c.api.GetAuthRegistrar().AddGeneralConfirmCallback(confirmFunc)
 	c.api.GetAuthRegistrar().AddGeneralRequestCallback(requestFunc)
-	c.api.GetAuthRegistrar().AddResetCallback(resetFunc)
+	c.api.GetAuthRegistrar().AddResetNotificationCallback(resetFunc)
 }
 
 // ConfirmAuthenticatedChannel creates an authenticated channel out of a valid

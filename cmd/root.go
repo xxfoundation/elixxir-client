@@ -525,7 +525,7 @@ func createClient() *api.Client {
 	initLog(logLevel, viper.GetString("log"))
 	jww.INFO.Printf(Version())
 
-	pass := viper.GetString("password")
+	pass := parsePassword(viper.GetString("password"))
 	storeDir := viper.GetString("session")
 	regCode := viper.GetString("regcode")
 	precannedID := viper.GetUint("sendid")
@@ -544,17 +544,17 @@ func createClient() *api.Client {
 
 		if precannedID != 0 {
 			err = api.NewPrecannedClient(precannedID,
-				string(ndfJSON), storeDir, []byte(pass))
+				string(ndfJSON), storeDir, pass)
 		} else if protoUserPath != "" {
 			protoUserJson, err := utils.ReadFile(protoUserPath)
 			if err != nil {
 				jww.FATAL.Panicf("%v", err)
 			}
 			err = api.NewProtoClient_Unsafe(string(ndfJSON), storeDir,
-				[]byte(pass), protoUserJson)
+				pass, protoUserJson)
 		} else if userIDprefix != "" {
 			err = api.NewVanityClient(string(ndfJSON), storeDir,
-				[]byte(pass), regCode, userIDprefix)
+				pass, regCode, userIDprefix)
 		} else if backupPath != "" {
 
 			b, backupFile := loadBackup(backupPath, string(backupPass))
@@ -573,7 +573,7 @@ func createClient() *api.Client {
 
 			// Construct client from backup data
 			backupIdList, _, err := api.NewClientFromBackup(string(ndfJSON), storeDir,
-				[]byte(pass), backupPass, backupFile)
+				pass, backupPass, backupFile)
 
 			backupIdListPath := viper.GetString("backupIdList")
 			if backupIdListPath != "" {
@@ -593,7 +593,7 @@ func createClient() *api.Client {
 
 		} else {
 			err = api.NewClient(string(ndfJSON), storeDir,
-				[]byte(pass), regCode)
+				pass, regCode)
 		}
 
 		if err != nil {
@@ -612,7 +612,7 @@ func createClient() *api.Client {
 	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
 	netParams.VerboseRoundTracking = viper.GetBool("verboseRoundTracking")
 
-	client, err := api.OpenClient(storeDir, []byte(pass), netParams)
+	client, err := api.OpenClient(storeDir, pass, netParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -622,7 +622,7 @@ func createClient() *api.Client {
 func initClient() *api.Client {
 	createClient()
 
-	pass := viper.GetString("password")
+	pass := parsePassword(viper.GetString("password"))
 	storeDir := viper.GetString("session")
 	jww.DEBUG.Printf("sessionDur: %v", storeDir)
 	netParams := params.GetDefaultNetwork()
@@ -642,7 +642,7 @@ func initClient() *api.Client {
 	netParams.VerboseRoundTracking = viper.GetBool("verboseRoundTracking")
 
 	// load the client
-	client, err := api.Login(storeDir, []byte(pass), netParams)
+	client, err := api.Login(storeDir, pass, netParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -853,6 +853,16 @@ func getPrecanID(recipientID *id.ID) uint {
 	return uint(recipientID.Bytes()[7])
 }
 
+func parsePassword(pwStr string) []byte {
+	if strings.HasPrefix(pwStr, "0x") {
+		return getPWFromHexString(pwStr[2:])
+	} else if strings.HasPrefix(pwStr, "b64:") {
+		return getPWFromb64String(pwStr[4:])
+	} else {
+		return []byte(pwStr)
+	}
+}
+
 func parseRecipient(idStr string) (*id.ID, bool) {
 	if idStr == "0" {
 		return nil, false
@@ -903,6 +913,23 @@ func getUIDFromb64String(idStr string) *id.ID {
 		jww.FATAL.Panicf("%+v", err)
 	}
 	return ID
+}
+
+func getPWFromHexString(pwStr string) []byte {
+	pwBytes, err := hex.DecodeString(fmt.Sprintf("%0*d%s",
+		66-len(pwStr), 0, pwStr))
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	return pwBytes
+}
+
+func getPWFromb64String(pwStr string) []byte {
+	pwBytes, err := base64.StdEncoding.DecodeString(pwStr)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	return pwBytes
 }
 
 func getUIDFromString(idStr string) *id.ID {

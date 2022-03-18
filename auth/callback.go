@@ -326,8 +326,8 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 
 	//create the contact, note that no facts are sent in the payload
 	c := contact.Contact{
-		ID:             partnerID,
-		DhPubKey:       partnerPubKey,
+		ID:             partnerID.DeepCopy(),
+		DhPubKey:       partnerPubKey.DeepCopy(),
 		OwnershipProof: copySlice(ecrFmt.ownership),
 		Facts:          facts,
 	}
@@ -369,7 +369,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				partnerID, rndNum)
 			cbList := m.resetCallbacks.Get(c.ID)
 			for _, cb := range cbList {
-				ccb := cb.(interfaces.ResetCallback)
+				ccb := cb.(interfaces.ResetNotificationCallback)
 				go ccb(c)
 			}
 		}

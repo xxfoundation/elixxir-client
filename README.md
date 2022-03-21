@@ -92,10 +92,10 @@ Sample content of `ndf.json`:
 	  .....
 ```
 
-#### Sending safe messages between 2 users
+**Note:** For information on receiving messages and troubleshooting authenticated channel requests, see [Receiving Messages](#receiving-messages) and [Confirming authenticated channel requests](#confirming-authenticated-channel-requests).
 
 To send messages with end-to-end encryption, you must first establish a connection
-or [authenticated channel](https://xxdk-dev.xx.network/technical-glossary#authenticated-channel) with the other user:
+or [authenticated channel](https://xxdk-dev.xx.network/technical-glossary#authenticated-channel) with the other user. See below for example commands for sending or confirming authenticated channel requests, as well as for sending E2E messages:
 
 ```
 # Get user contact jsons for each client
@@ -159,6 +159,51 @@ Sending to yYAztmoCoAH2VIr00zPxnj/ZRvdiDdURjdDWys0KYI4D:
 Message received:
 Received 1
 ```
+
+#### Receiving Messages
+
+There is no explicit command for receiving messages. Instead, the client will attempt to fetch pending messages on each run.
+
+You can use the `--receiveCount` flag to limit the number of messages the client waits for before a timeout occurs:
+
+```
+$ client --password <password> --ndf <NDF JSON file> -l client.log -s <session directory> --destfile <contact JSON file> --receiveCount <integer count>
+```
+
+#### Sending Authenticated Channel Requests
+
+See [Sending Safe Messages Between Two (2) Users](#sending-safe-messages-between-two-2-users)
+
+#### Confirming Authenticated Channel Requests
+
+Setting up an authenticated channel between clients is a back-and-forth process that happens in sequence. One client sends a request and waits for the other to accept it.
+
+See the previous section, [Sending safe messages between 2 users](#sending-safe-messages-between-2-users), for example commands showing how to set up an end-to-end connection between clients before sending messages.
+
+As with received messages, there is no command for checking for authenticated channel requests; you'll be notified of any pending requests whenever the client is run.
+
+```
+$ ./client.win64 --password password --ndf ndf.json -l client.log -s session-directory --destfile user-contact8.json --waitTimeout 120 -m "Hi User 7, from User 8 with E2E Encryption"
+Authentication channel request from: 8zAWY69UUK/FkMBGY3ViR5MMfcp1GoKn6Y3c/64NYNYD
+Sending to yYAztmoCoAH2VIr00zPxnj/ZRvdiDdURjdDWys0KYI4D: Hi User 7, from User 8 with E2E Encryption
+Timed out!
+Received 0
+
+```
+
+##### Troubleshooting
+
+**`panic: Could not confirm authentication channel for ...`**
+
+Suppose the receiving client does not confirm the authentication channel before the requesting client reaches a timeout (default 120s). In that case, the request eventually terminates in a `panic: Could not confirm authentication channel for ...` error.
+
+Retrying the request should fix this. If necessary, you may increase the time the client waits to confirm the channel before timeout using the `--auth-timeout` flag (default 120s).
+
+This error will also occur with the receiving client if it received the request but failed to confirm it before the requesting client reached a timeout. In this case, the request needs to be resent while the other client reattempts to confirm the channel. 
+
+**`panic: Received request not found`**
+
+You may also run into the `panic: Received request not found` error when attempting to confirm an authenticated channel request. This means your client has not received the request. If one has been sent, simply retrying should fix this.  
 
 Full usage of client can be found with `client --help`:
 

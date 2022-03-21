@@ -10,6 +10,7 @@ package message
 import (
 	"encoding/base64"
 	"fmt"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
@@ -31,6 +32,9 @@ type Manager struct {
 	nodeRegistration chan network.NodeGateway
 	networkIsHealthy chan bool
 	triggerGarbled   chan struct{}
+
+	FingerprintsManager
+	TriggersManager
 }
 
 func NewManager(internal internal.Internal, param params.Network,
@@ -54,6 +58,9 @@ func NewManager(internal internal.Internal, param params.Network,
 		}
 		m.blacklistedNodes[string(decodedId)] = nil
 	}
+
+	m.FingerprintsManager = *NewFingerprints()
+	m.TriggersManager = *NewTriggers()
 	return &m
 }
 

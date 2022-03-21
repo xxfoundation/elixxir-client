@@ -5,14 +5,15 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package network
+package message
 
 import (
-	"encoding/base64"
+	"sync"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/interfaces"
-	fingerprint2 "gitlab.com/elixxir/crypto/fingerprint"
-	"sync"
+	"gitlab.com/elixxir/crypto/fingerprint"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 /* Trigger - predefined hash based tags appended to all cmix messages
@@ -35,17 +36,17 @@ Triggers are ephemeral to the session. When starting a new client, all triggers 
 re-added before StartNetworkFollower is called.
 */
 
-type Triggers struct {
-	triggers map[string][]*Trigger
-	sync.RWMutex
+type TriggersManager struct {
+	tmap map[id.ID]map[interfaces.Preimage][]trigger
+	sync.Mutex
 }
 
-type Trigger struct {
+type trigger struct {
 	interfaces.Trigger
-	interfaces.MessageProcessorTrigger
+	interfaces.MessageProcessor
 }
 
-func NewTriggers() *Triggers {
+func NewTriggers() *TriggersManager {
 	// todo: implement me
 	return nil
 }
@@ -64,23 +65,21 @@ func NewTriggers() *Triggers {
 //  - privatizing the state-changing methods
 //  - leaking lookup on this layer and migrating the state modifiation methods
 //    a layer down in a sepearate package
-func (t *Triggers) Lookup(receivedIdentityFp,
-	ecrMsgContents []byte) (triggers []*Trigger, forMe bool) {
-	t.RLock()
-	defer t.RUnlock()
+func (t *TriggersManager) get(clientID *id.ID, receivedIdentityFp,
+	ecrMsgContents []byte) ([]trigger,
+	bool) {
+	t.Lock()
+	defer t.Unlock()
+	cid := *clientID
 
-	for preimage, triggerList := range t.triggers {
-		preimageBytes, err := unmarshalPreimage(preimage)
-		if err != nil {
-			// fixme: panic here?, An error here would mean there's a bad
-			//  key-value pair in the map (specifically the preimage-key is bad,
-			//  as it should be base64 encoded).
-		}
-		// fixme, there probably needs to be a small refactor.
-		//  Terminology and variable names are being used misused. For example:
-		//  phrases like tag, preimage and identityFP are being used
-		//  interchangeably in the code and it's getting unwieldy.
-		if fingerprint2.CheckIdentityFP(receivedIdentityFp, ecrMsgContents, preimageBytes) {
+	triggers, exists := t.tmap[cid]
+	if !exists {
+		return nil, false
+	}
+
+	for pi, triggerList := range triggers {
+		if fingerprint.CheckIdentityFP(receivedIdentityFp,
+			ecrMsgContents, pi[:]) {
 			return triggerList, true
 		}
 	}
@@ -95,77 +94,78 @@ func (t *Triggers) Lookup(receivedIdentityFp,
 //   type - a descriptive string of the trigger. Generally used in notifications
 //   source - a byte buffer of related data. Generally used in notifications.
 //     Example: Sender ID
-func (t *Triggers) Add(trigger interfaces.Trigger,
-	response interfaces.MessageProcessorTrigger) error {
+func (t *TriggersManager) Add(clientID *id.ID, newTrigger interfaces.Trigger,
+	response interfaces.MessageProcessor) {
 	t.Lock()
 	defer t.Unlock()
 
-	marshalledPreimage := marshalPreimage(trigger.Preimage)
-
-	newTrigger := &Trigger{
-		Trigger:                 trigger,
-		MessageProcessorTrigger: response,
+	newEntry := trigger{
+		Trigger:          newTrigger,
+		MessageProcessor: response,
 	}
 
-	if existingTriggers, exists := t.triggers[marshalledPreimage]; exists {
-		// fixme Should there be a check if this response exists already?
-		t.triggers[marshalledPreimage] = append(existingTriggers, newTrigger)
-		return nil
+	cid := *clientID
+	if _, exists := t.tmap[cid]; !exists {
+		t.tmap[cid] = make(map[interfaces.Preimage][]trigger)
 	}
 
-	t.triggers[marshalledPreimage] = []*Trigger{newTrigger}
+	pi := newTrigger.Preimage
+	if existingTriggers, exists := t.tmap[cid][pi]; exists {
+		t.tmap[cid][pi] = append(existingTriggers, newEntry)
+	}
 
-	return nil
+	t.tmap[cid][pi] = []trigger{newEntry}
+
 }
 
-// RemoveTrigger - If only a single response is associated with the preimage,
+// Delete - If only a single response is associated with the preimage,
 // the entire preimage is removed. If there is more than one response, only
 // the given response is removed. If nil is passed in for response,
 // all triggers for the preimage will be removed.
-func (t *Triggers) RemoveTrigger(preimage []byte,
-	response interfaces.MessageProcessorTrigger) error {
+func (t *TriggersManager) Delete(clientID *id.ID, preimage interfaces.Preimage,
+	response interfaces.MessageProcessor) error {
 	t.Lock()
 	defer t.Unlock()
 
-	marshalledPreimage := marshalPreimage(preimage)
-
-	triggers, exists := t.triggers[marshalledPreimage]
-	if !exists {
-		return errors.Errorf("No trigger with preimage %q found",
-			marshalledPreimage)
+	if response == nil {
+		return errors.Errorf("response cannot be nil when deleting")
 	}
 
-	if response == nil {
-		delete(t.triggers, marshalledPreimage)
+	cid := *clientID
+
+	idTmap, exists := t.tmap[cid]
+	if !exists {
 		return nil
 	}
 
-	for _, trigger := range triggers {
-		if trigger.Equals(response) {
-			delete(t.triggers, marshalPreimage(trigger.Preimage))
+	triggers, exists := idTmap[preimage]
+	if !exists {
+		return nil
+	}
+
+	if len(triggers) == 1 && triggers[0].MessageProcessor == response {
+		if len(idTmap) == 1 {
+			delete(t.tmap, cid)
+		} else {
+			delete(t.tmap[cid], preimage)
+		}
+	}
+
+	for idx, cur := range triggers {
+		if cur.MessageProcessor == response {
+			t.tmap[cid][preimage] = append(triggers[:idx],
+				triggers[idx+1:]...)
 			return nil
 		}
 	}
 
-	return errors.Errorf("No response (%q) exists with preimage %q",
-		response.String(), marshalledPreimage)
+	return nil
 }
 
-// fixme: maybe make preimage a type or struct and place this in primitives?
+// DeleteClient - delete the mapping associated with an ID
+func (t *TriggersManager) DeleteClient(clientID *id.ID) {
+	t.Lock()
+	defer t.Unlock()
 
-// marshalPreimage is a helper which encodes the preimage byte data to
-// a base64 encoded string.
-func marshalPreimage(pi []byte) string {
-	return base64.StdEncoding.EncodeToString(pi)
-}
-
-// unmarshalPreimage is a helper which decodes the preimage base64 string to
-// bytes.
-func unmarshalPreimage(data string) ([]byte, error) {
-	decoded, err := base64.StdEncoding.DecodeString(data)
-	if err != nil {
-		return nil, err
-	}
-
-	return decoded, nil
+	delete(t.tmap, *clientID)
 }

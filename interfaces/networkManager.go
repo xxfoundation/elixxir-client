@@ -8,16 +8,18 @@
 package interfaces
 
 import (
+	"time"
+
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"time"
 )
 
 type NetworkManager interface {
@@ -115,12 +117,12 @@ type NetworkManager interface {
 	//   type - a descriptive string of the trigger. Generally used in notifications
 	//   source - a byte buffer of related data. Generally used in notifications.
 	//     Example: Sender ID
-	AddTrigger(trigger Trigger, response MessageProcessorTrigger) error
+	AddTrigger(trigger Trigger, response MessageProcessor) error
 
 	// RemoveTrigger - If only a single response is associated with the preimage, the entire
 	// preimage is removed. If there is more than one response, only the given response is removed
 	// if nil is passed in for response, all triggers for the preimage will be removed
-	RemoveTrigger(preimage []byte, response MessageProcessorTrigger) error
+	RemoveTrigger(preimage Preimage, response MessageProcessor) error
 
 	// TrackTriggers - Registers a callback which will get called every time triggers change.
 	// It will receive the triggers list every time it is modified.
@@ -128,6 +130,8 @@ type NetworkManager interface {
 	// Multiple trackTriggers can be registered
 	TrackTriggers(func(triggers []Trigger))
 }
+
+type Preimage [32]byte
 
 type Identity struct {
 	// Identity
@@ -147,24 +151,30 @@ type IdentityParams struct {
 	EndValid   time.Time // Timestamp when the ephID stops being valid
 
 	// Makes the identity not store on disk
+	// When an ephemeral identity is deleted, all fingerprints & triggers
+	// associated with it also delete.
+	// TODO: This should not be confused with EphID for checking
+	// when messages are for the the user. That's a different type
+	// of Ephemeral in this context.
 	Ephemeral bool
 }
 
 type Trigger struct {
-	Preimage []byte
-	Type     string
-	Source   []byte
+	Preimage
+	Type   string
+	Source []byte
 }
 
-type MessageProcessorFP interface {
-	Process(message format.Message, fingerprint format.Fingerprint)
-	MarkFingerprintUsed(fingerprint format.Fingerprint)
-}
-
-type MessageProcessorTrigger interface {
-	Process(message format.Message, preimage []byte, Type string, source []byte)
-	Equals(trigger MessageProcessorTrigger) bool
-	String() string
+type MessageProcessor interface {
+	// Process decrypts and hands off the message to its internal down
+	// stream message processing system.
+	// CRITICAL: Fingerprints should never be used twice. Process must
+	// denote, in long term storage, usage of a fingerprint and that
+	// fingerprint must not be added again during application load.
+	// It is a security vulnerability to reuse a fingerprint. It leaks
+	// privacy and can lead to compromise of message contents and integrity.
+	Process(message format.Message, receptionID Identity,
+		round *mixmessages.RoundInfo)
 }
 
 //type Ratchet interface {

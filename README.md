@@ -53,10 +53,19 @@ GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/clie
 
 All actions performed with the client require a current [NDF](https://xxdk-dev.xx.network/technical-glossary#network-definition-file-ndf). The NDF is downloadable from the command line or [via an access point](https://xxdk-dev.xx.network/quick-reference#func-downloadandverifysignedndfwithurl) in the Client API.
 
-Use the `getndf` command to fetch the NDF via the command  line. `getndf` enables command-line users to poll the NDF from a network gateway without any pre-established client connection: 
+Use the `getndf` command to fetch the NDF via the command  line. `getndf` enables command-line users to poll the NDF from a network gateway without any pre-established client connection.
+
+First, you'll want to download an SSL certificate:
 
 ```
-// Fetch NDF (example usage for Gateways, assumes you are running a gateway locally)
+// Assumes you are running a gateway locally
+openssl s_client -showcerts -connect localhost:8440 < /dev/null 2>&1 | openssl x509 -outform PEM > certfile.pem
+```
+
+Now you can fetch the NDF:
+
+```
+// Example usage for Gateways, assumes you are running a gateway locally
 $ go run main.go getndf --gwhost localhost:8440 --cert certfile.pem | jq . >ndf.json
 ```
 

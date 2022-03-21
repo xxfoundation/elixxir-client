@@ -92,6 +92,8 @@ Sample content of `ndf.json`:
 	  .....
 ```
 
+#### Sending Safe Messages Between Two (2) Users
+
 **Note:** For information on receiving messages and troubleshooting authenticated channel requests, see [Receiving Messages](#receiving-messages) and [Confirming authenticated channel requests](#confirming-authenticated-channel-requests).
 
 To send messages with end-to-end encryption, you must first establish a connection
@@ -111,9 +113,9 @@ Message received:
 Sending to Qm40C5hRUm7uhp5aATVWhSL6Mt+Z4JVBQrsEDvMORh4D:
 Received 1
 
-# Alternatively, to accept an authenticated channel request implicitly
-# (should be within the timeout window of requesting client, or the request will need to be resent):
-$ client --password "password" --ndf ndf.json -l client.log -s session-directory --destfile user2-contact.json" --unsafe-channel-creation --waitTimeout 200
+# Accept/Confirm an authenticated channel request implicitly
+# (should be within the timeout window of requesting client, or the request will need to be re-sent):
+$ client --password "password" --ndf ndf.json -l client.log -s session-directory --destfile user2-contact.json --unsafe-channel-creation --waitTimeout 200
 Authentication channel request from: o+QpswTmnsuZve/QRz0j0RYNWqjgx4R5pACfO00Pe0cD
 Sending to o+QpswTmnsuZve/QRz0j0RYNWqjgx4R5pACfO00Pe0cD:
 Message received:
@@ -137,7 +139,7 @@ Received 0
 * `-s`: The storage directory for client session data.
 * `--writeContact`: Output the user's contact information to this file.
 * `--destfile` is used to specify the recipient. You can also use
-  `--destid b64:...` using the user's base64 id which is printed in the logs.
+  `--destid b64:...` using the user's base64 id, which is printed in the logs.
 * `--unsafe`: Send message without encryption (necessary whenever you have not
   already established an e2e channel).
 * `--unsafe-channel-creation` Auto-create and auto-accept channel requests.
@@ -145,12 +147,10 @@ Received 0
 
 Note that the client defaults to sending to itself when a destination is not supplied.
 This is why we've used the `--unsafe` flag when creating the user contact jsons.
-However, when sending between users it is dropped in exchange for `--unsafe-channel-creation`.
+However, when sending between users, it is dropped in exchange for `--unsafe-channel-creation`.
 
-For the authenticated channel creation to be considered "safe" the user should be prompted. You can do this
-on the command line by explicitly accepting the channel creation
-when sending a request with `--send-auth-request` and/or explicitly accepting a request with
-`--accept-channel`:
+For the authenticated channel creation to be considered "safe", the user should be prompted. You can do this by explicitly accepting the channel creation
+when sending a request with `--send-auth-request` (while excluding the `--unsafe-channel-creation` flag) or explicitly accepting a request with `--accept-channel`:
 
 ```
 $ client --password user-password --ndf ndf.json -l client.log -s session-directory --destfile user-contact.json --accept-channel

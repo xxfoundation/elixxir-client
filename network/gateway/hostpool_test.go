@@ -78,7 +78,7 @@ func TestNewHostPool_HostListStore(t *testing.T) {
 		id.NewIdFromString("testID2", id.Gateway, t),
 		id.NewIdFromString("testID3", id.Gateway, t),
 	}
-	err := testStorage.HostList().Store(addedIDs)
+	err := saveHostList(testStorage.GetKV().Prefix(hostListPrefix), addedIDs)
 	if err != nil {
 		t.Fatalf("Failed to store host list: %+v", err)
 	}
@@ -94,7 +94,7 @@ func TestNewHostPool_HostListStore(t *testing.T) {
 	}
 
 	// Check that the host list was saved to storage
-	hostList, err := hp.storage.HostList().Get()
+	hostList, err := getHostList(hp.kv)
 	if err != nil {
 		t.Errorf("Failed to get host list: %+v", err)
 	}
@@ -180,13 +180,15 @@ func TestHostPool_ReplaceHost(t *testing.T) {
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
 
+	testStorage := storage.InitTestingSession(t)
+
 	// Construct a manager (bypass business logic in constructor)
 	hostPool := &HostPool{
 		manager:  manager,
 		hostList: make([]*connect.Host, newIndex+1),
 		hostMap:  make(map[id.ID]uint32),
 		ndf:      testNdf,
-		storage:  storage.InitTestingSession(t),
+		kv:       testStorage.GetKV().Prefix(hostListPrefix),
 	}
 
 	/* "Replace" a host with no entry */
@@ -281,7 +283,7 @@ func TestHostPool_ReplaceHost(t *testing.T) {
 	}
 
 	// Check that the host list was saved to storage
-	hostList, err := hostPool.storage.HostList().Get()
+	hostList, err := getHostList(hostPool.kv)
 	if err != nil {
 		t.Errorf("Failed to get host list: %+v", err)
 	}
@@ -483,13 +485,15 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
 
+	testStorage := storage.InitTestingSession(t)
+
 	// Construct a manager (bypass business logic in constructor)
 	hostPool := &HostPool{
 		manager:    manager,
 		hostList:   make([]*connect.Host, newIndex+1),
 		hostMap:    make(map[id.ID]uint32),
 		ndf:        testNdf,
-		storage:    storage.InitTestingSession(t),
+		kv:         testStorage.GetKV().Prefix(hostListPrefix),
 		poolParams: DefaultPoolParams(),
 		filter: func(m map[id.ID]int, _ *ndf.NetworkDefinition) map[id.ID]int {
 			return m
@@ -850,6 +854,8 @@ func TestHostPool_AddGateway(t *testing.T) {
 	params := DefaultPoolParams()
 	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
+	testStorage := storage.InitTestingSession(t)
+
 	// Construct a manager (bypass business logic in constructor)
 	hostPool := &HostPool{
 		manager:        manager,
@@ -858,7 +864,7 @@ func TestHostPool_AddGateway(t *testing.T) {
 		ndf:            testNdf,
 		poolParams:     params,
 		addGatewayChan: make(chan network.NodeGateway),
-		storage:        storage.InitTestingSession(t),
+		kv:             testStorage.GetKV().Prefix(hostListPrefix),
 	}
 
 	ndfIndex := 0
@@ -892,7 +898,6 @@ func TestHostPool_RemoveGateway(t *testing.T) {
 		ndf:            testNdf,
 		poolParams:     params,
 		addGatewayChan: make(chan network.NodeGateway),
-		storage:        storage.InitTestingSession(t),
 		rng:            fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 	}
 

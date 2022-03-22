@@ -65,7 +65,6 @@ type HostPool struct {
 
 	poolParams     PoolParams
 	rng            *fastRNG.StreamGenerator
-	storage        *storage.Session
 	manager        HostManager
 	addGatewayChan chan<- network.NodeGateway
 
@@ -128,7 +127,6 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 		poolParams:     poolParams,
 		ndf:            netDef.DeepCopy(),
 		rng:            rng,
-		storage:        storage,
 		addGatewayChan: addGateway,
 		kv:             storage.GetKV().Prefix(hostListPrefix),
 

@@ -54,6 +54,16 @@ func registerNodes(r *registrar, stop *stoppable.Single, inProgress, attempts *s
 		case gw := <-r.c:
 			rng := r.rng.GetStream()
 			nidStr := fmt.Sprintf("%x", gw.Node.ID)
+			nid, err := gw.Node.GetNodeId()
+			if err != nil {
+				jww.WARN.Printf("Could not process node ID for registration: %s", err)
+				continue
+			}
+
+			if r.Has(nid) {
+				jww.INFO.Printf("not registering node %s, already registered", nid)
+			}
+
 			if _, operating := inProgress.LoadOrStore(nidStr, struct{}{}); operating {
 				continue
 			}
@@ -70,7 +80,7 @@ func registerNodes(r *registrar, stop *stoppable.Single, inProgress, attempts *s
 				jww.DEBUG.Printf("Skipping registration with stale nodes %s", nidStr)
 				continue
 			}
-			err := registerWithNode(r.sender, r.comms, gw, regSignature,
+			err = registerWithNode(r.sender, r.comms, gw, regSignature,
 				regTimestamp, uci, r, rng, stop)
 			inProgress.Delete(nidStr)
 			if err != nil {

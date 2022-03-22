@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/shuffle"
@@ -66,7 +67,9 @@ type HostPool struct {
 	rng            *fastRNG.StreamGenerator
 	storage        *storage.Session
 	manager        HostManager
-	addGatewayChan chan network.NodeGateway
+	addGatewayChan chan<- network.NodeGateway
+
+	kv *versioned.KV
 
 	filterMux sync.Mutex
 	filter    Filter
@@ -106,7 +109,7 @@ func DefaultPoolParams() PoolParams {
 // Build and return new HostPool object
 func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 	netDef *ndf.NetworkDefinition, getter HostManager, storage *storage.Session,
-	addGateway chan network.NodeGateway) (*HostPool, error) {
+	addGateway chan<- network.NodeGateway) (*HostPool, error) {
 	var err error
 
 	// Determine size of HostPool
@@ -127,6 +130,7 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 		rng:            rng,
 		storage:        storage,
 		addGatewayChan: addGateway,
+		kv:             storage.GetKV().Prefix(hostListPrefix),
 
 		// Initialise the filter so it does not filter any IDs
 		filter: func(m map[id.ID]int, _ *ndf.NetworkDefinition) map[id.ID]int {
@@ -141,7 +145,7 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 	}
 
 	// get the last used list of hosts and use it to seed the host pool list
-	hostList, err := storage.HostList().Get()
+	hostList, err := getHostList(result.kv)
 	numHostsAdded := 0
 	if err == nil {
 		for _, hid := range hostList {
@@ -519,7 +523,7 @@ func (h *HostPool) replaceHost(newId *id.ID, oldPoolIndex uint32) error {
 	}
 
 	// Save the list to storage
-	return h.storage.HostList().Store(idList)
+	return saveHostList(h.kv, idList)
 }
 
 // replaceHostNoStore replaces the given slot in the HostPool with a new Gateway
@@ -677,17 +681,16 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 		}
 
 		// Send AddGateway event if we do not already possess keys for the GW
-		if !h.storage.Cmix().Has(gwId) {
-			ng := network.NodeGateway{
-				Node:    h.ndf.Nodes[ndfIndex],
-				Gateway: gw,
-			}
+		// the recipient of the channel checks if it should process
+		ng := network.NodeGateway{
+			Node:    h.ndf.Nodes[ndfIndex],
+			Gateway: gw,
+		}
 
-			select {
-			case h.addGatewayChan <- ng:
-			default:
-				jww.WARN.Printf("Unable to send AddGateway event for id %s", gwId.String())
-			}
+		select {
+		case h.addGatewayChan <- ng:
+		default:
+			jww.WARN.Printf("Unable to send AddGateway event for id %s", gwId.String())
 		}
 
 	} else if host.GetAddress() != gw.Address {

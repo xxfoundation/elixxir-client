@@ -12,7 +12,7 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package hostList
+package gateway
 
 import (
 	"fmt"

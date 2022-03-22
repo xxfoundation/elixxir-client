@@ -12,7 +12,7 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package hostList
+package gateway
 
 import (
 	"bytes"
@@ -36,31 +36,19 @@ const (
 	unmarshallLenErr = "malformed data: length of data %d incorrect"
 )
 
-type Store struct {
-	kv *versioned.KV
-}
-
-// NewStore creates a new Store with a prefixed KV.
-func NewStore(kv *versioned.KV) *Store {
-	return &Store{
-		kv: kv.Prefix(hostListPrefix),
-	}
-}
-
-// Store saves the list of host IDs to storage.
-func (s *Store) Store(list []*id.ID) error {
+func saveHostList(kv *versioned.KV, list []*id.ID) error {
 	obj := &versioned.Object{
 		Version:   hostListVersion,
 		Data:      marshalHostList(list),
 		Timestamp: netTime.Now(),
 	}
 
-	return s.kv.Set(hostListKey, hostListVersion, obj)
+	return kv.Set(hostListKey, hostListVersion, obj)
 }
 
 // Get returns the host list from storage.
-func (s *Store) Get() ([]*id.ID, error) {
-	obj, err := s.kv.Get(hostListKey, hostListVersion)
+func getHostList(kv *versioned.KV) ([]*id.ID, error) {
+	obj, err := kv.Get(hostListKey, hostListVersion)
 	if err != nil {
 		return nil, errors.Errorf(getStorageErr, err)
 	}

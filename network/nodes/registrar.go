@@ -32,9 +32,11 @@ var delayTable = [5]time.Duration{
 type Registrar interface {
 	StartProcesses(numParallel uint) stoppable.Stoppable
 	Has(nid *id.ID) bool
+	Remove(nid *id.ID)
 	GetKeys(topology *connect.Circuit) (MixCypher, error)
 	NumRegistered() int
 	GetInputChannel() chan<- network.NodeGateway
+	TriggerRegistration(nid *id.ID)
 }
 
 type RegisterNodeCommsInterface interface {
@@ -112,6 +114,13 @@ func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 func (r *registrar) GetInputChannel() chan<- network.NodeGateway {
 	return r.c
 }
+func (r *registrar) TriggerRegistration(nid *id.ID) {
+	r.c <- network.NodeGateway{
+		Node: ndf.Node{ID: nid.Marshal(),
+			//status must be active because it is in a round
+			Status: ndf.Active},
+	}
+}
 
 // GetKeys returns a MixCypher for the topology and a list of nodes it did
 // not have a key for. If there are missing keys, then returns nil MixCypher.
@@ -154,6 +163,10 @@ func (r *registrar) Has(nid *id.ID) bool {
 	_, exists := r.nodes[*nid]
 	r.mux.RUnlock()
 	return exists
+}
+
+func (r *registrar) Remove(nid *id.ID) {
+	r.remove(nid)
 }
 
 // NumRegistered returns the number of registered nodes.

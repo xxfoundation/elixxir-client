@@ -113,7 +113,7 @@ func CheckMultiPartMessages(expectedMpm *multiPartMessage, mpm *multiPartMessage
 	}
 }
 
-// Tests happy path of multiPartMessage.Add().
+// Tests happy path of multiPartMessage.AddFingerprint().
 func TestMultiPartMessage_Add(t *testing.T) {
 	// Generate test values
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))

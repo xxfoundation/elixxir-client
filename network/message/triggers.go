@@ -87,14 +87,14 @@ func (t *TriggersManager) get(clientID *id.ID, receivedIdentityFp,
 	return nil, false
 }
 
-// Add - Adds a trigger which can call a message
+// AddTrigger - Adds a trigger which can call a message
 // handing function or be used for notifications.
 // Multiple triggers can be registered for the same preimage.
 //   preimage - the preimage which is triggered on
 //   type - a descriptive string of the trigger. Generally used in notifications
 //   source - a byte buffer of related data. Generally used in notifications.
 //     Example: Sender ID
-func (t *TriggersManager) Add(clientID *id.ID, newTrigger interfaces.Trigger,
+func (t *TriggersManager) AddTrigger(clientID *id.ID, newTrigger interfaces.Trigger,
 	response interfaces.MessageProcessor) {
 	t.Lock()
 	defer t.Unlock()
@@ -118,11 +118,11 @@ func (t *TriggersManager) Add(clientID *id.ID, newTrigger interfaces.Trigger,
 
 }
 
-// Delete - If only a single response is associated with the preimage,
+// DeleteTriggers - If only a single response is associated with the preimage,
 // the entire preimage is removed. If there is more than one response, only
 // the given response is removed. If nil is passed in for response,
 // all triggers for the preimage will be removed.
-func (t *TriggersManager) Delete(clientID *id.ID, preimage interfaces.Preimage,
+func (t *TriggersManager) DeleteTriggers(clientID *id.ID, preimage interfaces.Preimage,
 	response interfaces.MessageProcessor) error {
 	t.Lock()
 	defer t.Unlock()
@@ -162,8 +162,8 @@ func (t *TriggersManager) Delete(clientID *id.ID, preimage interfaces.Preimage,
 	return nil
 }
 
-// DeleteClient - delete the mapping associated with an ID
-func (t *TriggersManager) DeleteClient(clientID *id.ID) {
+// DeleteClientTriggers - delete the mapping associated with an ID
+func (t *TriggersManager) DeleteClientTriggers(clientID *id.ID) {
 	t.Lock()
 	defer t.Unlock()
 

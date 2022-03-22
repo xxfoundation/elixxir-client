@@ -29,7 +29,7 @@ func (m MessageHash) String() string {
 const messageSubKey = "bufferedMessage"
 
 // Version of the file saved to the key value store
-const currentMessageBufferVersion = 0
+const CurrentMessageBufferVersion = 0
 
 // MessageHandler interface used to handle the passed in message type so the
 // buffer can be used at different layers of the stack.
@@ -123,13 +123,13 @@ func (mb *MessageBuffer) save() error {
 
 	// Create versioned object with data
 	obj := versioned.Object{
-		Version:   currentMessageBufferVersion,
+		Version:   CurrentMessageBufferVersion,
 		Timestamp: now,
 		Data:      data,
 	}
 
 	// Save versioned object
-	return mb.kv.Set(mb.key, currentMessageBufferVersion, &obj)
+	return mb.kv.Set(mb.key, CurrentMessageBufferVersion, &obj)
 }
 
 // getMessageList returns a list of all message hashes stored in messages and
@@ -145,7 +145,7 @@ func (mb *MessageBuffer) getMessageList() []MessageHash {
 		i++
 	}
 
-	// Add messages from the "processing" list
+	// AddFingerprint messages from the "processing" list
 	for msg := range mb.processingMessages {
 		msgs[i] = msg
 		i++
@@ -159,7 +159,7 @@ func (mb *MessageBuffer) getMessageList() []MessageHash {
 func (mb *MessageBuffer) load() error {
 
 	// Load the versioned object
-	vo, err := mb.kv.Get(mb.key, currentMessageBufferVersion)
+	vo, err := mb.kv.Get(mb.key, CurrentMessageBufferVersion)
 	if err != nil {
 		return err
 	}
@@ -180,26 +180,27 @@ func (mb *MessageBuffer) load() error {
 }
 
 // Add adds a message to the buffer in "not processing" state.
-func (mb *MessageBuffer) Add(m interface{}) {
+func (mb *MessageBuffer) Add(m interface{}) interface{} {
 	h := mb.handler.HashMessage(m)
 
 	mb.mux.Lock()
 	defer mb.mux.Unlock()
 
 	// Ensure message does not already exist in buffer
-	_, exists1 := mb.messages[h]
-	_, exists2 := mb.processingMessages[h]
-	if exists1 || exists2 {
-		return
+	if face1, exists1 := mb.messages[h]; exists1 {
+		return face1
+	}
+	if face2, exists2 := mb.processingMessages[h]; exists2 {
+		return face2
 	}
 
 	// Save message as versioned object
-	err := mb.handler.SaveMessage(mb.kv, m, makeStoredMessageKey(mb.key, h))
+	err := mb.handler.SaveMessage(mb.kv, m, MakeStoredMessageKey(mb.key, h))
 	if err != nil {
 		jww.FATAL.Panicf("Error saving message: %v", err)
 	}
 
-	// Add message to the buffer
+	// AddFingerprint message to the buffer
 	mb.messages[h] = struct{}{}
 
 	// Save buffer
@@ -207,10 +208,12 @@ func (mb *MessageBuffer) Add(m interface{}) {
 	if err != nil {
 		jww.FATAL.Panicf("Error whilse saving buffer: %v", err)
 	}
+
+	return m
 }
 
 // Add adds a message to the buffer in "processing" state.
-func (mb *MessageBuffer) AddProcessing(m interface{}) {
+func (mb *MessageBuffer) AddProcessing(m interface{}) interface{} {
 	h := mb.handler.HashMessage(m)
 	jww.TRACE.Printf("Critical Messages AddProcessing(%s)",
 		base64.StdEncoding.EncodeToString(h[:]))
@@ -219,19 +222,20 @@ func (mb *MessageBuffer) AddProcessing(m interface{}) {
 	defer mb.mux.Unlock()
 
 	// Ensure message does not already exist in buffer
-	_, exists1 := mb.messages[h]
-	_, exists2 := mb.processingMessages[h]
-	if exists1 || exists2 {
-		return
+	if face1, exists1 := mb.messages[h]; exists1 {
+		return face1
+	}
+	if face2, exists2 := mb.processingMessages[h]; exists2 {
+		return face2
 	}
 
 	// Save message as versioned object
-	err := mb.handler.SaveMessage(mb.kv, m, makeStoredMessageKey(mb.key, h))
+	err := mb.handler.SaveMessage(mb.kv, m, MakeStoredMessageKey(mb.key, h))
 	if err != nil {
 		jww.FATAL.Panicf("Error saving message: %v", err)
 	}
 
-	// Add message to the buffer
+	// AddFingerprint message to the buffer
 	mb.processingMessages[h] = struct{}{}
 
 	// Save buffer
@@ -239,6 +243,8 @@ func (mb *MessageBuffer) AddProcessing(m interface{}) {
 	if err != nil {
 		jww.FATAL.Panicf("Error whilse saving buffer: %v", err)
 	}
+
+	return m
 }
 
 // Next gets the next message from the buffer whose state is "not processing".
@@ -264,11 +270,11 @@ func (mb *MessageBuffer) Next() (interface{}, bool) {
 
 		delete(mb.messages, h)
 
-		// Add message to list of processing messages
+		// AddFingerprint message to list of processing messages
 		mb.processingMessages[h] = struct{}{}
 
 		// Retrieve the message for storage
-		m, err = mb.handler.LoadMessage(mb.kv, makeStoredMessageKey(mb.key, h))
+		m, err = mb.handler.LoadMessage(mb.kv, MakeStoredMessageKey(mb.key, h))
 		if err != nil {
 			m = nil
 			jww.ERROR.Printf("Failed to load message %s from store, "+
@@ -302,7 +308,7 @@ func (mb *MessageBuffer) Succeeded(m interface{}) {
 	delete(mb.messages, h)
 
 	// Done message from key value store
-	err := mb.handler.DeleteMessage(mb.kv, makeStoredMessageKey(mb.key, h))
+	err := mb.handler.DeleteMessage(mb.kv, MakeStoredMessageKey(mb.key, h))
 	if err != nil {
 		jww.ERROR.Printf("Failed to delete message from store, "+
 			"this may happen on occasion due to replays to increase "+
@@ -330,12 +336,12 @@ func (mb *MessageBuffer) Failed(m interface{}) {
 	delete(mb.processingMessages, h)
 
 	// Save message as versioned object
-	err := mb.handler.SaveMessage(mb.kv, m, makeStoredMessageKey(mb.key, h))
+	err := mb.handler.SaveMessage(mb.kv, m, MakeStoredMessageKey(mb.key, h))
 	if err != nil {
 		jww.FATAL.Panicf("Error saving message: %v", err)
 	}
 
-	// Add to "not processed" state
+	// AddFingerprint to "not processed" state
 	mb.messages[h] = struct{}{}
 
 	// Save buffer
@@ -345,7 +351,7 @@ func (mb *MessageBuffer) Failed(m interface{}) {
 	}
 }
 
-// makeStoredMessageKey generates a new key for the message based on its has.
-func makeStoredMessageKey(key string, h MessageHash) string {
+// MakeStoredMessageKey generates a new key for the message based on its has.
+func MakeStoredMessageKey(key string, h MessageHash) string {
 	return key + messageSubKey + base64.StdEncoding.EncodeToString(h[:])
 }

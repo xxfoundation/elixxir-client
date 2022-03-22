@@ -1,4 +1,4 @@
-package message
+package network
 
 import (
 	"github.com/pkg/errors"
@@ -6,6 +6,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/internal"
+	message2 "gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
@@ -34,7 +35,7 @@ func Test_attemptSendManyCmix(t *testing.T) {
 	numRecipients := 3
 	recipients := make([]*id.ID, numRecipients)
 	sw := switchboard.New()
-	l := TestListener{
+	l := message2.TestListener{
 		ch: make(chan bool),
 	}
 	for i := 0; i < numRecipients; i++ {
@@ -47,7 +48,7 @@ func Test_attemptSendManyCmix(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to start client comms: %+v", err)
 	}
-	inst, err := network.NewInstanceTesting(comms.ProtoComms, getNDF(), nil, nil, nil, t)
+	inst, err := network.NewInstanceTesting(comms.ProtoComms, message2.getNDF(), nil, nil, nil, t)
 	if err != nil {
 		t.Errorf("Failed to start instance: %+v", err)
 	}
@@ -103,16 +104,16 @@ func Test_attemptSendManyCmix(t *testing.T) {
 	}
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
-	sender, err := gateway.NewSender(p, i.Rng, getNDF(), &MockSendCMIXComms{t: t}, i.Session, nil)
+	sender, err := gateway.NewSender(p, i.Rng, message2.getNDF(), &message2.MockSendCMIXComms{t: t}, i.Session, nil)
 	if err != nil {
 		t.Errorf("%+v", errors.New(err.Error()))
 		return
 	}
-	m := NewManager(i, params.Network{Messages: params.Messages{
+	m := message2.NewManager(i, params.Network{Messages: params.Messages{
 		MessageReceptionBuffLen:        20,
 		MessageReceptionWorkerPoolSize: 20,
-		MaxChecksGarbledMessage:        20,
-		GarbledMessageWait:             time.Hour,
+		MaxChecksRetryMessage:          20,
+		RetryMessageWait:               time.Hour,
 	}}, nil, sender)
 	msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 	msgCmix.SetContents([]byte("test"))
@@ -132,7 +133,7 @@ func Test_attemptSendManyCmix(t *testing.T) {
 
 	_, _, err = sendManyCmixHelper(sender, msgList, params.GetDefaultCMIX(),
 		make(map[string]interface{}), m.Instance, m.Session, m.nodeRegistration,
-		m.Rng, events, m.TransmissionID, &MockSendCMIXComms{t: t}, nil)
+		m.Rng, events, m.TransmissionID, &message2.MockSendCMIXComms{t: t}, nil)
 	if err != nil {
 		t.Errorf("Failed to sendcmix: %+v", err)
 	}

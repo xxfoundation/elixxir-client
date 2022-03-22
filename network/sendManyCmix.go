@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package message
+package network
 
 import (
 	"fmt"
@@ -35,7 +35,7 @@ import (
 // with this call and can leak data about yourself. Returns the round ID of the
 // round the payload was sent or an error if it fails.
 // WARNING: Potentially Unsafe
-func (m *Manager) SendManyCMIX(sender *gateway.Sender,
+func (m *message2.manager) SendManyCMIX(sender *gateway.Sender,
 	messages []message.TargetedCmixMessage, p params.CMIX,
 	stop *stoppable.Single) (id.Round, []ephemeral.Id, error) {
 
@@ -44,7 +44,7 @@ func (m *Manager) SendManyCMIX(sender *gateway.Sender,
 		m.TransmissionID, m.Comms, stop)
 }
 
-// sendManyCmixHelper is a helper function for Manager.SendManyCMIX.
+// sendManyCmixHelper is a helper function for manager.SendManyCMIX.
 //
 // NOTE: Payloads sent are not end-to-end encrypted, metadata is NOT protected
 // with this call; see SendE2E for end-to-end encryption and full privacy
@@ -215,7 +215,7 @@ func sendManyCmixHelper(sender *gateway.Sender,
 				"in round %d", param.DebugTag, ephemeralIDsString, recipientString, bestRound.ID)
 			jww.INFO.Print(m)
 			events.Report(1, "MessageSendMany", "Metric", m)
-			onSend(uint32(len(msgs)), session)
+			trackNetworkRateLimit(uint32(len(msgs)), session)
 			return id.Round(bestRound.ID), ephemeralIDs, nil
 		} else {
 			jww.FATAL.Panicf("Gateway %s returned no error, but failed to "+

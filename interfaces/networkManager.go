@@ -138,6 +138,7 @@ type Identity struct {
 	EphId  ephemeral.Id
 	Source *id.ID
 }
+
 type IdentityParams struct {
 	AddressSize uint8
 
@@ -184,7 +185,7 @@ type MessageProcessor interface {
 //		myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
 //		mySIDHPrivKey *sidh.PrivateKey,
 //		sendParams, receiveParams params.E2ESessionParams)
-//	GetPartner(partnerID *id.ID) (*Manager, error)
+//	GetPartner(partnerID *id.ID) (*manager, error)
 //	DeletePartner(partnerId *id.ID)
 //	GetAllPartnerIDs() []*id.ID
 //}

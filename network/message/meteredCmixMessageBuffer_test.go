@@ -5,11 +5,12 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package utility
+package message
 
 import (
 	"bytes"
 	"encoding/json"
+	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
@@ -27,7 +28,7 @@ func Test_meteredCmixMessageHandler_SaveMessage(t *testing.T) {
 	testMsgs, _ := makeTestMeteredCmixMessage(10)
 
 	for _, msg := range testMsgs {
-		key := makeStoredMessageKey("testKey", mcmh.HashMessage(msg))
+		key := utility.MakeStoredMessageKey("testKey", mcmh.HashMessage(msg))
 
 		// Save message
 		err := mcmh.SaveMessage(kv, msg, key)
@@ -64,7 +65,7 @@ func Test_meteredCmixMessageHandler_LoadMessage(t *testing.T) {
 	testMsgs, _ := makeTestMeteredCmixMessage(10)
 
 	for i, msg := range testMsgs {
-		key := makeStoredMessageKey("testKey", mcmh.HashMessage(msg))
+		key := utility.MakeStoredMessageKey("testKey", mcmh.HashMessage(msg))
 
 		// Save message
 		if err := mcmh.SaveMessage(kv, msg, key); err != nil {
@@ -96,7 +97,7 @@ func Test_meteredCmixMessageHandler_DeleteMessage(t *testing.T) {
 	testMsgs, _ := makeTestMeteredCmixMessage(10)
 
 	for _, msg := range testMsgs {
-		key := makeStoredMessageKey("testKey", mcmh.HashMessage(msg))
+		key := utility.MakeStoredMessageKey("testKey", mcmh.HashMessage(msg))
 
 		// Save message
 		err := mcmh.SaveMessage(kv, msg, key)
@@ -130,7 +131,7 @@ func Test_meteredCmixMessageHandler_Smoke(t *testing.T) {
 			"\n\texpected: %v\n\trecieved: %v", nil, err)
 	}
 
-	// Add two messages
+	// AddFingerprint two messages
 
 	mcmb.Add(testMsgs[0])
 	mcmb.Add(testMsgs[1])
@@ -187,10 +188,10 @@ func Test_meteredCmixMessageHandler_Smoke(t *testing.T) {
 
 // makeTestMeteredCmixMessage creates a list of messages with random data and the
 // expected map after they are added to the buffer.
-func makeTestMeteredCmixMessage(n int) ([]meteredCmixMessage, map[MessageHash]struct{}) {
+func makeTestMeteredCmixMessage(n int) ([]meteredCmixMessage, map[utility.MessageHash]struct{}) {
 	mcmh := &meteredCmixMessageHandler{}
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
-	mh := map[MessageHash]struct{}{}
+	mh := map[utility.MessageHash]struct{}{}
 	msgs := make([]meteredCmixMessage, n)
 	for i := range msgs {
 		payload := make([]byte, 128)

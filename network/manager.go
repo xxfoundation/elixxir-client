@@ -45,7 +45,7 @@ import (
 // fake identity.
 const fakeIdentityRange = 800
 
-// Manager implements the NetworkManager interface inside context. It
+// manager implements the NetworkManager interface inside context. It
 // controls access to network resources and implements all the communications
 // functions used by the client.
 type manager struct {
@@ -59,7 +59,7 @@ type manager struct {
 
 	//sub-managers
 	round   *rounds.Manager
-	message *message.Manager
+	message *message.manager
 
 	// Earliest tracked round
 	earliestRound *uint64
@@ -160,7 +160,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 //	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
 //	 - Message Handling Worker Group (/network/message/handle.go)
 //	 - Health Tracker (/network/health)
-//	 - Garbled Messages (/network/message/garbled.go)
+//	 - Garbled Messages (/network/message/inProgress.go)
 //	 - Critical Messages (/network/message/critical.go)
 //   - Ephemeral ID tracking (network/ephemeral/tracker.go)
 func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
@@ -177,7 +177,7 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	multi.Add(nodes.StartRegistration(m.GetSender(), m.Session, m.Rng,
 		m.Comms, m.NodeRegistration, m.param.ParallelNodeRegistrations)) // Adding/MixCypher
 	//TODO-remover
-	//m.runners.Add(StartNodeRemover(m.Context))        // Removing
+	//m.runners.AddFingerprint(StartNodeRemover(m.Context))        // Removing
 
 	// Start the Network Tracker
 	trackNetworkStopper := stoppable.NewSingle("TrackNetwork")

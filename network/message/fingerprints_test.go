@@ -24,7 +24,7 @@ func TestNewFingerprints(t *testing.T) {
 		RWMutex:      sync.RWMutex{},
 	}
 
-	received := NewFingerprints()
+	received := newFingerprints()
 
 	if !reflect.DeepEqual(expected, received) {
 		t.Fatalf("NewFingerprint error: Did not construct expected object."+
@@ -36,7 +36,7 @@ func TestNewFingerprints(t *testing.T) {
 // Unit test.
 func TestFingerprints_Get(t *testing.T) {
 	// Construct fingerprint map
-	fpTracker := NewFingerprints()
+	fpTracker := newFingerprints()
 
 	// Construct fingerprint and processor values
 	fp := format.NewFingerprint([]byte("test"))
@@ -65,7 +65,7 @@ func TestFingerprints_Get(t *testing.T) {
 // Unit test.
 func TestFingerprints_AddFingerprint(t *testing.T) {
 	// Construct fingerprint map
-	fpTracker := NewFingerprints()
+	fpTracker := newFingerprints()
 
 	// Construct fingerprint and processor values
 	fp := format.NewFingerprint([]byte("test"))
@@ -77,14 +77,14 @@ func TestFingerprints_AddFingerprint(t *testing.T) {
 	// Check that the fingerprint key has a map entry
 	received, exists := fpTracker.fingerprints[fp]
 	if !exists {
-		t.Fatalf("AddFingerprint did not write to map as expected. "+
+		t.Fatalf("Add did not write to map as expected. "+
 			"Fingerprint %s not found in map", fp)
 	}
 
 	// Check that received value contains the expected data
 	expected := newProcessor(mp)
 	if !reflect.DeepEqual(received, expected) {
-		t.Fatalf("AddFingerprint error: Map does not contain expected data."+
+		t.Fatalf("Add error: Map does not contain expected data."+
 			"\nExpected: %v"+
 			"\nReceived: %v", expected, received)
 	}
@@ -93,7 +93,7 @@ func TestFingerprints_AddFingerprint(t *testing.T) {
 // Unit test.
 func TestFingerprints_AddFingerprints(t *testing.T) {
 	// Construct fingerprints map
-	fpTracker := NewFingerprints()
+	fpTracker := newFingerprints()
 
 	// Construct slices of fingerprints and processors
 	numTests := 100
@@ -110,19 +110,19 @@ func TestFingerprints_AddFingerprints(t *testing.T) {
 	// Add slices to map
 	err := fpTracker.AddFingerprints(fingerprints, processors)
 	if err != nil {
-		t.Fatalf("AddFingerprints unexpected error: %v", err)
+		t.Fatalf("Adds unexpected error: %v", err)
 	}
 
 	// Make sure every fingerprint is mapped to it's expected processor
 	for i, expected := range fingerprints {
 		received, exists := fpTracker.fingerprints[expected]
 		if !exists {
-			t.Errorf("AddFingerprints did not write to map as expected. "+
+			t.Errorf("Adds did not write to map as expected. "+
 				"Fingerprint number %d (value: %s) not found in map", i, expected)
 		}
 
 		if !reflect.DeepEqual(received, expected) {
-			t.Fatalf("AddFingerprints error: Map does not contain expected data for "+
+			t.Fatalf("Adds error: Map does not contain expected data for "+
 				"fingerprint number %d."+
 				"\nExpected: %v"+
 				"\nReceived: %v", i, expected, received)
@@ -135,7 +135,7 @@ func TestFingerprints_AddFingerprints(t *testing.T) {
 // slices of different lengths.
 func TestFingerprints_AddFingerprints_Error(t *testing.T) {
 	// Construct fingerprint map
-	fpTracker := NewFingerprints()
+	fpTracker := newFingerprints()
 
 	// Construct 2 slices of different lengths
 	fingerprints := []format.Fingerprint{
@@ -150,7 +150,7 @@ func TestFingerprints_AddFingerprints_Error(t *testing.T) {
 	// Attempt to add fingerprints
 	err := fpTracker.AddFingerprints(fingerprints, processors)
 	if err == nil {
-		t.Fatalf("AddFingerprints should have received an error with mismatched " +
+		t.Fatalf("Add should have received an error with mismatched " +
 			"slices length")
 	}
 
@@ -159,7 +159,7 @@ func TestFingerprints_AddFingerprints_Error(t *testing.T) {
 func TestFingerprints_RemoveFingerprint(t *testing.T) {
 
 	// Construct fingerprint map
-	fpTracker := NewFingerprints()
+	fpTracker := newFingerprints()
 
 	// Construct fingerprint and processor values
 	fp := format.NewFingerprint([]byte("test"))
@@ -181,7 +181,7 @@ func TestFingerprints_RemoveFingerprint(t *testing.T) {
 // Unit test.
 func TestFingerprints_RemoveFingerprints(t *testing.T) {
 	// Construct fingerprints map
-	fpTracker := NewFingerprints()
+	fpTracker := newFingerprints()
 
 	// Construct slices of fingerprints and processors
 	numTests := 100
@@ -198,7 +198,7 @@ func TestFingerprints_RemoveFingerprints(t *testing.T) {
 	// Add slices to map
 	err := fpTracker.AddFingerprints(fingerprints, processors)
 	if err != nil {
-		t.Fatalf("AddFingerprints unexpected error: %v", err)
+		t.Fatalf("Add unexpected error: %v", err)
 	}
 
 	fpTracker.RemoveFingerprints(fingerprints)

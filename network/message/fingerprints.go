@@ -23,8 +23,8 @@ type FingerprintsManager struct {
 	sync.Mutex
 }
 
-// NewFingerprints is a constructor function for the Fingerprints tracker.
-func NewFingerprints() *FingerprintsManager {
+// newFingerprints is a constructor function for the Fingerprints tracker.
+func newFingerprints() *FingerprintsManager {
 	return &FingerprintsManager{
 		fpMap: make(map[id.ID]map[format.Fingerprint]interfaces.MessageProcessor),
 	}
@@ -57,7 +57,7 @@ func (f *FingerprintsManager) pop(clientID *id.ID,
 // map. AddFingerprint maps the given fingerprint key to the processor
 // value. If there is already an entry for this fingerprint, the
 // method returns with no write operation.
-func (f *FingerprintsManager) Add(clientID *id.ID,
+func (f *FingerprintsManager) AddFingerprint(clientID *id.ID,
 	fingerprint format.Fingerprint,
 	mp interfaces.MessageProcessor) error {
 	f.Lock()
@@ -79,9 +79,9 @@ func (f *FingerprintsManager) Add(clientID *id.ID,
 	return nil
 }
 
-// Delete is a thread-safe deletion operation on the Fingerprints map.
+// DeleteFingerprint is a thread-safe deletion operation on the Fingerprints map.
 // It will remove the entry for the given fingerprint from the map.
-func (f *FingerprintsManager) Delete(clientID *id.ID,
+func (f *FingerprintsManager) DeleteFingerprint(clientID *id.ID,
 	fingerprint format.Fingerprint) {
 	f.Lock()
 	defer f.Unlock()
@@ -98,14 +98,10 @@ func (f *FingerprintsManager) Delete(clientID *id.ID,
 	}
 }
 
-// DeleteClient is a thread-safe deletion operation on the Fingerprints map.
+// DeleteClientFingerprints is a thread-safe deletion operation on the Fingerprints map.
 // It will remove all entres for the given clientID from the map.
-func (f *FingerprintsManager) DeleteClient(clientID *id.ID,
-	fingerprint format.Fingerprint) {
+func (f *FingerprintsManager) DeleteClientFingerprints(clientID *id.ID) {
 	f.Lock()
 	defer f.Unlock()
-
-	cid := *clientID
-
-	delete(f.fpMap, cid)
+	delete(f.fpMap, *clientID)
 }

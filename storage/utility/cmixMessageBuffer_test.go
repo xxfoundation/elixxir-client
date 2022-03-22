@@ -31,7 +31,7 @@ func TestCmixMessageHandler_SaveMessage(t *testing.T) {
 			Msg:       testMsgs[i].Marshal(),
 			Recipient: ids[i].Marshal(),
 		}
-		key := makeStoredMessageKey("testKey", cmh.HashMessage(msg))
+		key := MakeStoredMessageKey("testKey", cmh.HashMessage(msg))
 
 		// Save message
 		err := cmh.SaveMessage(kv, msg, key)
@@ -67,7 +67,7 @@ func TestCmixMessageHandler_LoadMessage(t *testing.T) {
 			Msg:       testMsgs[i].Marshal(),
 			Recipient: ids[i].Marshal(),
 		}
-		key := makeStoredMessageKey("testKey", cmh.HashMessage(msg))
+		key := MakeStoredMessageKey("testKey", cmh.HashMessage(msg))
 
 		// Save message
 		if err := cmh.SaveMessage(kv, msg, key); err != nil {

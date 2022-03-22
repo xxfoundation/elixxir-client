@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package message
+package network
 
 import (
 	"github.com/pkg/errors"
@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	preimage2 "gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/network/nodes"
-	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -51,8 +50,7 @@ const unrecoverableError = "failed with an unrecoverable error"
 // boolean will be returned false. If the error is among recoverable errors,
 // then the boolean will return true.
 // recoverable means we should try resending to the round
-func handlePutMessageError(firstGateway *id.ID, instance *network.Instance,
-	session *storage.Session, nodeRegistration chan network.NodeGateway,
+func handlePutMessageError(firstGateway *id.ID, nodes nodes.Registrar,
 	recipientString string, bestRound *pb.RoundInfo,
 	err error) (returnErr error) {
 
@@ -69,11 +67,9 @@ func handlePutMessageError(firstGateway *id.ID, instance *network.Instance,
 		nodeID := firstGateway.DeepCopy()
 		nodeID.SetType(id.Node)
 
-		// Delete the keys
-		session.Cmix().Remove(nodeID)
-
-		// Trigger
-		go handleMissingNodeKeys(instance, nodeRegistration, []*id.ID{nodeID})
+		// DeleteFingerprint the keys and re-register
+		nodes.Remove(nodeID)
+		nodes.TriggerRegistration(nodeID)
 
 		return errors.WithMessagef(err, "Failed to send to [%s] via %s "+
 			"due to failed authentication, retrying...",
@@ -86,9 +82,8 @@ func handlePutMessageError(firstGateway *id.ID, instance *network.Instance,
 
 // processRound is a helper function that determines the gateway to send to for
 // a round and retrieves the round keys.
-func processRound(instance *network.Instance, session *storage.Session,
-	nodeRegistration chan network.NodeGateway, bestRound *pb.RoundInfo,
-	recipientString, messageDigest string) (*id.ID, *nodes.MixCypher, error) {
+func processRound(nodes nodes.Registrar, bestRound *pb.RoundInfo,
+	recipientString, messageDigest string) (*id.ID, nodes.MixCypher, error) {
 
 	// Build the topology
 	idList, err := id.NewIDListFromBytes(bestRound.Topology)
@@ -101,13 +96,9 @@ func processRound(instance *network.Instance, session *storage.Session,
 
 	// get the keys for the round, reject if any nodes do not have keying
 	// relationships
-	roundKeys, missingKeys := session.Cmix().GetRoundKeys(topology)
-	if len(missingKeys) > 0 {
-		go handleMissingNodeKeys(instance, nodeRegistration, missingKeys)
-
-		return nil, nil, errors.Errorf("Failed to send on round %d to [%s] "+
-			"(msgDigest(s): %s) due to missing relationships with nodes: %s",
-			bestRound.ID, recipientString, messageDigest, missingKeys)
+	roundKeys, err := nodes.GetKeys(topology)
+	if err != nil {
+		return nil, nil, errors.WithMessagef(err, "Failed to get keys for round %d", bestRound.ID)
 	}
 
 	// get the gateway to transmit to
@@ -122,7 +113,7 @@ func processRound(instance *network.Instance, session *storage.Session,
 // the recipient.
 func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	stream *fastRNG.Stream, senderId *id.ID, bestRound *pb.RoundInfo,
-	roundKeys *nodes.MixCypher, param params.CMIX) (*pb.GatewaySlot,
+	mixCrypt nodes.MixCypher, param params.CMIX) (*pb.GatewaySlot,
 	format.Message, ephemeral.Id,
 	error) {
 
@@ -169,7 +160,7 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 			"Failed to generate salt, this should never happen")
 	}
 
-	encMsg, kmacs := roundKeys.Encrypt(msg, salt, id.Round(bestRound.ID))
+	encMsg, kmacs := mixCrypt.Encrypt(msg, salt, id.Round(bestRound.ID))
 
 	// Build the message payload
 	msgPacket := &pb.Slot{
@@ -188,7 +179,7 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	}
 
 	// Add the mac proving ownership
-	slot.MAC = roundKeys.MakeClientGatewayKey(salt,
+	slot.MAC = mixCrypt.MakeClientGatewayKey(salt,
 		network.GenerateSlotDigest(slot))
 
 	return slot, encMsg, ephID, nil

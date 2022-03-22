@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package message
+package network
 
 import (
 	"fmt"
@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -34,13 +35,13 @@ import (
 
 // WARNING: Potentially Unsafe
 // Public manager function to send a message over CMIX
-func (m *Manager) SendCMIX(sender *gateway.Sender, msg format.Message,
+func (m *message.manager) SendCMIX(sender *gateway.Sender, msg format.Message,
 	recipient *id.ID, cmixParams params.CMIX,
 	stop *stoppable.Single) (id.Round, ephemeral.Id, error) {
 
 	msgCopy := msg.Copy()
-	return sendCmixHelper(sender, msgCopy, recipient, cmixParams, m.blacklistedNodes, m.Instance,
-		m.Session, m.nodeRegistration, m.Rng, m.Internal.Events,
+	return sendCmixHelper(sender, msgCopy, recipient, cmixParams, m.blacklistedNodes, m.instance,
+		m.session, m.nodeRegistration, m.rng, m.Internal.Events,
 		m.TransmissionID, m.Comms, stop)
 }
 
@@ -72,7 +73,7 @@ func calculateSendTimeout(best *pb.RoundInfo, max time.Duration) time.Duration {
 // its status
 func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 	recipient *id.ID, cmixParams params.CMIX, blacklistedNodes map[string]interface{}, instance *network.Instance,
-	session *storage.Session, nodeRegistration chan network.NodeGateway,
+	session *storage.Session, nodes nodes.Registrar,
 	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
 	senderId *id.ID, comms SendCmixCommsInterface,
 	stop *stoppable.Single) (id.Round, ephemeral.Id, error) {
@@ -92,7 +93,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 	stream := rng.GetStream()
 	defer stream.Close()
-	grp := session.Cmix().GetGroup()
+	grp := session.GetCmixGroup()
 
 	// flip leading bits randomly to thwart a tagging attack.
 	// See SetGroupBits for more info
@@ -147,7 +148,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		}
 
 		// Retrieve host and key information from round
-		firstGateway, roundKeys, err := processRound(instance, session, nodeRegistration, bestRound, recipient.String(), msg.Digest())
+		firstGateway, roundKeys, err := processRound(nodes, bestRound, recipient.String(), msg.Digest())
 		if err != nil {
 			jww.WARN.Printf("[SendCMIX-%s]SendCmix failed to process round"+
 				" (will retry): %v", cmixParams.DebugTag, err)
@@ -190,9 +191,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			jww.TRACE.Printf("[SendCMIX-%s]sendFunc %s putmsg", cmixParams.DebugTag, host)
 
 			if err != nil {
-				// fixme: should we provide as a slice the whole topology?
-				err := handlePutMessageError(firstGateway,
-					instance, session, nodeRegistration,
+				err := handlePutMessageError(firstGateway, nodes,
 					recipient.String(), bestRound, err)
 				jww.TRACE.Printf("[SendCMIX-%s] sendFunc %s err %+v",
 					cmixParams.DebugTag, host, err)
@@ -238,7 +237,6 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 				elapsed, numRoundTries)
 			jww.INFO.Print(m)
 			events.Report(1, "MessageSend", "Metric", m)
-			onSend(1, session)
 			return id.Round(bestRound.ID), ephID, nil
 		} else {
 			jww.FATAL.Panicf("[SendCMIX-%s] Gateway %s returned no error, but failed "+
@@ -249,14 +247,4 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 	}
 	return 0, ephemeral.Id{}, errors.New("failed to send the message, " +
 		"unknown error")
-}
-
-// OnSend performs a bucket addition on a call to Manager.SendCMIX or
-// Manager.SendManyCMIX, updating the bucket for the amount of messages sent.
-func onSend(messages uint32, session *storage.Session) {
-	rateLimitingParam := session.GetBucketParams().Get()
-	session.GetBucket().AddWithExternalParams(messages,
-		rateLimitingParam.Capacity, rateLimitingParam.LeakedTokens,
-		rateLimitingParam.LeakDuration)
-
 }

@@ -196,7 +196,7 @@ func TestMessageBuffer_Add(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(expectedMessages, testMB.messages) {
-		t.Errorf("Add() failed to add messages correctly into the buffer."+
+		t.Errorf("AddFingerprint() failed to add messages correctly into the buffer."+
 			"\n\texpected: %v\n\trecieved: %v",
 			expectedMessages, testMB.messages)
 	}
@@ -207,7 +207,7 @@ func TestMessageBuffer_Add(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(expectedMessages, testMB.messages) {
-		t.Errorf("Add() failed to add messages correctly into the buffer."+
+		t.Errorf("AddFingerprint() failed to add messages correctly into the buffer."+
 			"\n\texpected: %v\n\trecieved: %v",
 			expectedMessages, testMB.messages)
 	}
@@ -253,7 +253,7 @@ func TestMessageBuffer_InvalidNext(t *testing.T) {
 	m := []byte("This is a message that should fail")
 	h := testMB.handler.HashMessage(m)
 	testMB.Add(m)
-	err = testMB.handler.DeleteMessage(testMB.kv, makeStoredMessageKey(testMB.key, h))
+	err = testMB.handler.DeleteMessage(testMB.kv, MakeStoredMessageKey(testMB.key, h))
 	if err != nil {
 		t.Fatalf("Failed to set up test (delete from kv failed): %+v", err)
 	}

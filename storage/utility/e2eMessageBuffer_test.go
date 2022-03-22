@@ -29,7 +29,7 @@ func TestE2EMessageHandler_SaveMessage(t *testing.T) {
 	testMsgs, _ := makeTestE2EMessages(10, t)
 
 	for _, msg := range testMsgs {
-		key := makeStoredMessageKey("testKey", emg.HashMessage(msg))
+		key := MakeStoredMessageKey("testKey", emg.HashMessage(msg))
 
 		// Save message
 		err := emg.SaveMessage(kv, msg, key)
@@ -65,7 +65,7 @@ func TestE2EMessageHandler_LoadMessage(t *testing.T) {
 	testMsgs, _ := makeTestE2EMessages(10, t)
 
 	for _, msg := range testMsgs {
-		key := makeStoredMessageKey("testKey", cmh.HashMessage(msg))
+		key := MakeStoredMessageKey("testKey", cmh.HashMessage(msg))
 
 		// Save message
 		if err := cmh.SaveMessage(kv, msg, key); err != nil {

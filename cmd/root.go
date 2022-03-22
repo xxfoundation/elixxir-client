@@ -311,7 +311,7 @@ var rootCmd = &cobra.Command{
 				" took %d seconds", scnt)
 		}
 
-		// Delete this recipient
+		// DeleteFingerprint this recipient
 		if viper.GetBool("delete-channel") {
 			deleteChannel(client, recipientID)
 		}
@@ -1122,27 +1122,27 @@ func init() {
 		rootCmd.Flags().Lookup("accept-channel"))
 
 	rootCmd.PersistentFlags().Bool("delete-channel", false,
-		"Delete the channel information for the corresponding recipient ID")
+		"DeleteFingerprint the channel information for the corresponding recipient ID")
 	viper.BindPFlag("delete-channel",
 		rootCmd.PersistentFlags().Lookup("delete-channel"))
 
 	rootCmd.PersistentFlags().Bool("delete-receive-requests", false,
-		"Delete the all received contact requests.")
+		"DeleteFingerprint the all received contact requests.")
 	viper.BindPFlag("delete-receive-requests",
 		rootCmd.PersistentFlags().Lookup("delete-receive-requests"))
 
 	rootCmd.PersistentFlags().Bool("delete-sent-requests", false,
-		"Delete the all sent contact requests.")
+		"DeleteFingerprint the all sent contact requests.")
 	viper.BindPFlag("delete-sent-requests",
 		rootCmd.PersistentFlags().Lookup("delete-sent-requests"))
 
 	rootCmd.PersistentFlags().Bool("delete-all-requests", false,
-		"Delete the all contact requests, both sent and received.")
+		"DeleteFingerprint the all contact requests, both sent and received.")
 	viper.BindPFlag("delete-all-requests",
 		rootCmd.PersistentFlags().Lookup("delete-all-requests"))
 
 	rootCmd.PersistentFlags().Bool("delete-request", false,
-		"Delete the request for the specified ID given by the "+
+		"DeleteFingerprint the request for the specified ID given by the "+
 			"destfile flag's contact file.")
 	viper.BindPFlag("delete-request",
 		rootCmd.PersistentFlags().Lookup("delete-request"))

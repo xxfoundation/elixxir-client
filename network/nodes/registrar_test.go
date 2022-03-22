@@ -11,10 +11,9 @@ import (
 	"bytes"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/versioned"
+	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
@@ -26,7 +25,6 @@ import (
 // Tests that LoadRegistrar returns a new Registrar when none exists in the KV.
 func TestLoadRegistrar_New(t *testing.T) {
 	connect.TestingOnlyDisableTLS = true
-	kv := versioned.NewKV(make(ekv.Memstore))
 	session := storage.InitTestingSession(t)
 	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	p := gateway.DefaultPoolParams()
@@ -36,8 +34,9 @@ func TestLoadRegistrar_New(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create new sender: %+v", err)
 	}
+	nodeChan := make(chan commNetwork.NodeGateway, InputChanLen)
 
-	r, err := LoadRegistrar(kv, session, sender, NewMockClientComms(), rngGen)
+	r, err := LoadRegistrar(session, sender, NewMockClientComms(), rngGen, nodeChan)
 	if err != nil {
 		t.Fatalf("Failed to create new registrar: %+v", err)
 	}
@@ -51,7 +50,7 @@ func TestLoadRegistrar_New(t *testing.T) {
 }
 
 func TestLoadRegistrar_Load(t *testing.T) {
-	testR, kv := makeTestRegistrar(t)
+	testR := makeTestRegistrar(t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
 	// Add a test nodes key
@@ -69,7 +68,7 @@ func TestLoadRegistrar_Load(t *testing.T) {
 	testR.add(nodeId, k, expectedValid, expectedKeyId)
 
 	// Load the store and check its attributes
-	r, err := LoadRegistrar(kv, testR.session, testR.sender, testR.comms, testR.rng)
+	r, err := LoadRegistrar(testR.session, testR.sender, testR.comms, testR.rng, testR.c)
 	if err != nil {
 		t.Fatalf("Unable to load store: %+v", err)
 	}
@@ -90,7 +89,7 @@ func TestLoadRegistrar_Load(t *testing.T) {
 }
 
 func Test_registrar_GetKeys(t *testing.T) {
-	r, _ := makeTestRegistrar(t)
+	r := makeTestRegistrar(t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
 	// Set up the circuit
@@ -116,7 +115,7 @@ func Test_registrar_GetKeys(t *testing.T) {
 }
 
 func Test_registrar_GetKeys_Missing(t *testing.T) {
-	r, _ := makeTestRegistrar(t)
+	r := makeTestRegistrar(t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
 	// Set up the circuit
@@ -147,7 +146,7 @@ func Test_registrar_GetKeys_Missing(t *testing.T) {
 }
 
 func Test_registrar_Has(t *testing.T) {
-	r, _ := makeTestRegistrar(t)
+	r := makeTestRegistrar(t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
 	nodeId := id.NewIdFromString("test", id.Node, t)
@@ -165,7 +164,7 @@ func Test_registrar_Has(t *testing.T) {
 
 // Tests that Has returns false when it does not have.
 func Test_registrar_Has_Not(t *testing.T) {
-	r, _ := makeTestRegistrar(t)
+	r := makeTestRegistrar(t)
 
 	nodeId := id.NewIdFromString("test", id.Node, t)
 
@@ -175,7 +174,7 @@ func Test_registrar_Has_Not(t *testing.T) {
 }
 
 func Test_registrar_NumRegistered(t *testing.T) {
-	r, _ := makeTestRegistrar(t)
+	r := makeTestRegistrar(t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
 	if r.NumRegistered() != 0 {

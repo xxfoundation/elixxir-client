@@ -56,19 +56,21 @@ func registerNodes(r *registrar, stop *stoppable.Single, inProgress, attempts *s
 			nidStr := fmt.Sprintf("%x", gw.Node.ID)
 			nid, err := gw.Node.GetNodeId()
 			if err != nil {
-				jww.WARN.Printf("Could not process node ID for registration: %s", err)
+				jww.WARN.Printf(
+					"Could not process node ID for registration: %s", err)
 				continue
 			}
 
 			if r.Has(nid) {
-				jww.INFO.Printf("not registering node %s, already registered", nid)
+				jww.INFO.Printf(
+					"Not registering node %s, already registered", nid)
 			}
 
 			if _, operating := inProgress.LoadOrStore(nidStr, struct{}{}); operating {
 				continue
 			}
 
-			//keep track of how many times this has been attempted
+			// Keep track of how many times this has been attempted
 			numAttempts := uint(1)
 			if nunAttemptsInterface, hasValue := attempts.LoadOrStore(nidStr, numAttempts); hasValue {
 				numAttempts = nunAttemptsInterface.(uint)
@@ -85,10 +87,11 @@ func registerNodes(r *registrar, stop *stoppable.Single, inProgress, attempts *s
 			inProgress.Delete(nidStr)
 			if err != nil {
 				jww.ERROR.Printf("Failed to register nodes: %+v", err)
-				//if we have not reached the attempt limit for this gateway, send it back into the channel to retry
+				// If we have not reached the attempt limit for this gateway,
+				// then send it back into the channel to retry
 				if numAttempts < maxAttempts {
 					go func() {
-						//delay the send for a backoff
+						// Delay the send for a backoff
 						time.Sleep(delayTable[numAttempts-1])
 						r.c <- gw
 					}()
@@ -100,8 +103,8 @@ func registerNodes(r *registrar, stop *stoppable.Single, inProgress, attempts *s
 	}
 }
 
-//registerWithNode serves as a helper for RegisterWithNodes
-// It registers a user with a specific in the client's ndf.
+// registerWithNode serves as a helper for RegisterWithNodes.
+// It registers a user with a specific in the client's NDF.
 func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	ngw network.NodeGateway, regSig []byte, registrationTimestampNano int64,
 	uci *user.CryptographicIdentity, r *registrar, rng csprng.Source,
@@ -133,8 +136,8 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 		jww.INFO.Printf("transmissionKey: %v", transmissionKey.Bytes())
 	} else {
 		// Request key from server
-		transmissionKey, keyId, validUntil, err = requestKey(sender, comms, ngw, regSig,
-			registrationTimestampNano, uci, r, rng, stop)
+		transmissionKey, keyId, validUntil, err = requestKey(sender, comms, ngw,
+			regSig, registrationTimestampNano, uci, r, rng, stop)
 
 		if err != nil {
 			return errors.Errorf("Failed to request key: %+v", err)
@@ -156,9 +159,9 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 
 	grp := r.session.GetCmixGroup()
 
-	// FIXME: Why 256 bits? -- this is spec but not explained, it has
-	// to do with optimizing operations on one side and still preserves
-	// decent security -- cite this.
+	// FIXME: Why 256 bits? -- this is spec but not explained, it has to do with
+	//  optimizing operations on one side and still preserves decent security --
+	//  cite this.
 	dhPrivBytes, err := csprng.GenerateInGroup(grp.GetPBytes(), 256, rng)
 	if err != nil {
 		return nil, nil, 0, err
@@ -170,7 +173,10 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 
 	// Reconstruct client confirmation message
 	userPubKeyRSA := rsa.CreatePublicKeyPem(uci.GetTransmissionRSA().GetPublic())
-	confirmation := &pb.ClientRegistrationConfirmation{RSAPubKey: string(userPubKeyRSA), Timestamp: registrationTimestampNano}
+	confirmation := &pb.ClientRegistrationConfirmation{
+		RSAPubKey: string(userPubKeyRSA),
+		Timestamp: registrationTimestampNano,
+	}
 	confirmationSerialized, err := proto.Marshal(confirmation)
 	if err != nil {
 		return nil, nil, 0, err
@@ -205,15 +211,15 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 		return nil, nil, 0, err
 	}
 
-	gwid := ngw.Gateway.ID
-	gatewayID, err := id.Unmarshal(gwid)
+	gwId := ngw.Gateway.ID
+	gatewayID, err := id.Unmarshal(gwId)
 	if err != nil {
 		jww.ERROR.Println("registerWithNode() failed to decode gatewayID")
 		return nil, nil, 0, err
 	}
 
 	// Request nonce message from gateway
-	jww.INFO.Printf("Register: Requesting client key from gateway %v", gatewayID.String())
+	jww.INFO.Printf("Register: Requesting client key from gateway %s", gatewayID)
 
 	result, err := sender.SendToAny(func(host *connect.Host) (interface{}, error) {
 		keyResponse, err := comms.SendRequestClientKeyMessage(host,
@@ -223,10 +229,12 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 				Target:                    gatewayID.Bytes(),
 			})
 		if err != nil {
-			return nil, errors.WithMessage(err, "Register: Failed requesting client key from gateway")
+			return nil, errors.WithMessage(err,
+				"Register: Failed requesting client key from gateway")
 		}
 		if keyResponse.Error != "" {
-			return nil, errors.WithMessage(err, "requestKey: clientKeyResponse error")
+			return nil, errors.WithMessage(err,
+				"requestKey: clientKeyResponse error")
 		}
 		return keyResponse, nil
 	}, stop)
@@ -248,27 +256,31 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	// Load nodes certificate
 	gatewayCert, err := tls.LoadCertificate(ngw.Gateway.TlsCertificate)
 	if err != nil {
-		return nil, nil, 0, errors.WithMessagef(err, "Unable to load nodes's certificate")
+		return nil, nil, 0,
+			errors.WithMessagef(err, "Unable to load nodes's certificate")
 	}
 
 	// Extract public key
 	nodePubKey, err := tls.ExtractPublicKey(gatewayCert)
 	if err != nil {
-		return nil, nil, 0, errors.WithMessagef(err, "Unable to load nodes's public key")
+		return nil, nil, 0,
+			errors.WithMessagef(err, "Unable to load node's public key")
 	}
 
 	// Verify the response signature
 	err = rsa.Verify(nodePubKey, opts.Hash, hashedResponse,
 		signedKeyResponse.KeyResponseSignedByGateway.Signature, opts)
 	if err != nil {
-		return nil, nil, 0, errors.WithMessagef(err, "Could not verify nodes's signature")
+		return nil, nil, 0,
+			errors.WithMessagef(err, "Could not verify nodes's signature")
 	}
 
 	// Unmarshal the response
 	keyResponse := &pb.ClientKeyResponse{}
 	err = proto.Unmarshal(signedKeyResponse.KeyResponse, keyResponse)
 	if err != nil {
-		return nil, nil, 0, errors.WithMessagef(err, "Failed to unmarshal client key response")
+		return nil, nil, 0,
+			errors.WithMessagef(err, "Failed to unmarshal client key response")
 	}
 
 	h.Reset()
@@ -288,9 +300,11 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	}
 
 	// Decrypt the client key
-	clientKey, err := chacha.Decrypt(sessionKey.Bytes(), keyResponse.EncryptedClientKey)
+	clientKey, err := chacha.Decrypt(
+		sessionKey.Bytes(), keyResponse.EncryptedClientKey)
 	if err != nil {
-		return nil, nil, 0, errors.WithMessagef(err, "Failed to decrypt client key")
+		return nil, nil, 0,
+			errors.WithMessagef(err, "Failed to decrypt client key")
 	}
 
 	// Construct the transmission key from the client key

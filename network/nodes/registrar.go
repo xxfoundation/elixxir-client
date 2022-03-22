@@ -21,10 +21,16 @@ import (
 const InputChanLen = 1000
 const maxAttempts = 5
 
-var delayTable = [5]time.Duration{0, 5 * time.Second, 30 * time.Second, 60 * time.Second, 120 * time.Second}
+var delayTable = [5]time.Duration{
+	0,
+	5 * time.Second,
+	30 * time.Second,
+	60 * time.Second,
+	120 * time.Second,
+}
 
 type Registrar interface {
-	StartProcessies(numParallel uint) stoppable.Stoppable
+	StartProcesses(numParallel uint) stoppable.Stoppable
 	Has(nid *id.ID) bool
 	GetKeys(topology *connect.Circuit) (MixCypher, error)
 	NumRegistered() int
@@ -49,7 +55,8 @@ type registrar struct {
 	c chan network.NodeGateway
 }
 
-// LoadRegistrar loads a registrar from disk, and creates a new one if it doesnt exist
+// LoadRegistrar loads a registrar from disk, and creates a new one if it does
+// not exist.
 func LoadRegistrar(kv *versioned.KV, session *storage.Session,
 	sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	rngGen *fastRNG.StreamGenerator) (Registrar, error) {
@@ -60,7 +67,7 @@ func LoadRegistrar(kv *versioned.KV, session *storage.Session,
 	}
 
 	obj, err := kv.Get(storeKey, currentKeyVersion)
-	//if there is no stored data, make a new node handler
+	// If there is no stored data, make a new node handler
 	if err != nil {
 		jww.WARN.Printf("Failed to load Node Registrar, creating a new object")
 		err = r.save()
@@ -84,19 +91,18 @@ func LoadRegistrar(kv *versioned.KV, session *storage.Session,
 	return r, nil
 }
 
-func (r *registrar) StartProcessies(numParallel uint) stoppable.Stoppable {
-
+func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 	multi := stoppable.NewMulti("NodeRegistrations")
 
-	inProgess := &sync.Map{}
-	// we are relying on the in progress check to
-	// ensure there is only a single operator at a time, as a result this is a map of ID -> int
+	inProgress := &sync.Map{}
+	// We are relying on the in progress check to ensure there is only a single
+	// operator at a time, as a result this is a map of ID -> int
 	attempts := &sync.Map{}
 
 	for i := uint(0); i < numParallel; i++ {
 		stop := stoppable.NewSingle(fmt.Sprintf("NodeRegistration %d", i))
 
-		go registerNodes(r, stop, inProgess, attempts)
+		go registerNodes(r, stop, inProgress, attempts)
 		multi.Add(stop)
 	}
 
@@ -115,18 +121,20 @@ func (r *registrar) GetKeys(topology *connect.Circuit) (MixCypher, error) {
 
 	keys := make([]*key, topology.Len())
 
-	// get keys for every node. If it cannot be found, add
-	// it to the missing nodes list so it can be
+	// Get keys for every node. If it cannot be found, thn add it to the missing
+	// nodes list so that it can be
 	for i := 0; i < topology.Len(); i++ {
 		nid := topology.GetNodeAtIndex(i)
 		k, ok := r.nodes[*nid]
 		if !ok {
 			r.c <- network.NodeGateway{
-				Node: ndf.Node{ID: nid.Marshal(),
-					//status must be active because it is in a round
-					Status: ndf.Active},
+				Node: ndf.Node{
+					ID:     nid.Marshal(),
+					Status: ndf.Active, // Status must be active because it is in a round
+				},
 			}
-			return nil, errors.Errorf("cannot get key for %s, triggered registration", nid)
+			return nil, errors.Errorf(
+				"cannot get key for %s, triggered registration", nid)
 		} else {
 			keys[i] = k
 		}
@@ -140,7 +148,7 @@ func (r *registrar) GetKeys(topology *connect.Circuit) (MixCypher, error) {
 	return rk, nil
 }
 
-// Returns if the store has the nodes
+// Has returns if the store has the nodes.
 func (r *registrar) Has(nid *id.ID) bool {
 	r.mux.RLock()
 	_, exists := r.nodes[*nid]

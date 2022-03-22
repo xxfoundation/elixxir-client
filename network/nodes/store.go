@@ -76,7 +76,7 @@ func (r *registrar) save() error {
 	return r.kv.Set(storeKey, currentKeyVersion, &obj)
 }
 
-// marshal builds a byte representation of the Store.
+// marshal builds a byte representation of the registrar.
 func (r *registrar) marshal() ([]byte, error) {
 	nodes := make([]id.ID, len(r.nodes))
 
@@ -89,8 +89,8 @@ func (r *registrar) marshal() ([]byte, error) {
 	return json.Marshal(&nodes)
 }
 
-// unmarshal restores the data for a Store from the byte representation of the
-// Store
+// unmarshal restores the data for a registrar from the byte representation of
+// the registrar.
 func (r *registrar) unmarshal(b []byte) error {
 	var nodes []id.ID
 
@@ -102,7 +102,8 @@ func (r *registrar) unmarshal(b []byte) error {
 	for _, nid := range nodes {
 		k, err := loadKey(r.kv, &nid)
 		if err != nil {
-			return errors.WithMessagef(err, "could not load nodes key for %s", &nid)
+			return errors.WithMessagef(
+				err, "could not load nodes key for %s", &nid)
 		}
 		r.nodes[nid] = k
 	}

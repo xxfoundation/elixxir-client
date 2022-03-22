@@ -27,8 +27,8 @@ type mixCypher struct {
 	g    *cyclic.Group
 }
 
-// Encrypts the given message for CMIX
-// Panics if the passed message is not sized correctly for the group
+// Encrypt encrypts the given message for CMIX.
+// Panics if the passed message is not sized correctly for the group.
 func (mc *mixCypher) Encrypt(msg format.Message,
 	salt []byte, roundID id.Round) (format.Message, [][]byte) {
 
@@ -48,7 +48,7 @@ func (mc *mixCypher) Encrypt(msg format.Message,
 
 	h, err := hash.NewCMixHash()
 	if err != nil {
-		jww.FATAL.Panicf("Cound not get hash for KMAC generation: %+v", h)
+		jww.FATAL.Panicf("Could not get hash for KMAC generation: %+v", h)
 	}
 
 	KMAC := cmix.GenerateKMACs(salt, keys, roundID, h)
@@ -72,13 +72,13 @@ func clientEncrypt(grp *cyclic.Group, msg format.Message,
 	salt []byte, roundID id.Round, baseKeys []*cyclic.Int) format.Message {
 
 	// get the salt for associated data
-	hash, err := blake2b.New256(nil)
+	h, err := blake2b.New256(nil)
 	if err != nil {
 		panic("E2E Client Encrypt could not get blake2b Hash")
 	}
-	hash.Reset()
-	hash.Write(salt)
-	salt2 := hash.Sum(nil)
+	h.Reset()
+	h.Write(salt)
+	salt2 := h.Sum(nil)
 
 	// get encryption keys
 	keyEcrA := cmix.ClientKeyGen(grp, salt, roundID, baseKeys)

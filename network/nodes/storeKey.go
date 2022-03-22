@@ -27,7 +27,8 @@ type key struct {
 	storeKey   string
 }
 
-func newKey(kv *versioned.KV, k *cyclic.Int, id *id.ID, validUntil uint64, keyId []byte) *key {
+func newKey(kv *versioned.KV, k *cyclic.Int, id *id.ID, validUntil uint64,
+	keyId []byte) *key {
 	nk := &key{
 		kv:         kv,
 		k:          k,
@@ -43,12 +44,12 @@ func newKey(kv *versioned.KV, k *cyclic.Int, id *id.ID, validUntil uint64, keyId
 	return nk
 }
 
-// get returns the cyclic key
+// get returns the cyclic key.
 func (k *key) get() *cyclic.Int {
 	return k.k
 }
 
-// loads the key for the given nodes id from the versioned keystore
+// loadKey loads the key for the given node ID from the versioned keystore.
 func loadKey(kv *versioned.KV, id *id.ID) (*key, error) {
 	k := &key{}
 
@@ -68,7 +69,7 @@ func loadKey(kv *versioned.KV, id *id.ID) (*key, error) {
 	return k, nil
 }
 
-// saves the key as the key for the given nodes ID in the passed keystore
+// save stores the key as the key for the given nodes ID in the keystore.
 func (k *key) save() error {
 	now := netTime.Now()
 
@@ -86,7 +87,7 @@ func (k *key) save() error {
 	return k.kv.Set(k.storeKey, currentKeyVersion, &obj)
 }
 
-// deletes the key from the versioned keystore
+// delete deletes the key from the versioned keystore.
 func (k *key) delete(kv *versioned.KV, id *id.ID) {
 	key := keyKey(id)
 	if err := kv.Delete(key, currentKeyVersion); err != nil {
@@ -94,8 +95,8 @@ func (k *key) delete(kv *versioned.KV, id *id.ID) {
 	}
 }
 
-// makes a binary representation of the given key and key values
-// in the keystore
+// marshal makes a binary representation of the given key and key values in the
+// keystore.
 func (k *key) marshal() ([]byte, error) {
 	buff := bytes.NewBuffer(nil)
 	keyBytes, err := k.k.GobEncode()
@@ -125,7 +126,8 @@ func (k *key) marshal() ([]byte, error) {
 	return buff.Bytes(), nil
 }
 
-// resets the data of the key from the binary representation of the key passed in
+// unmarshal resets the data of the key from the binary representation of the
+// key passed in.
 func (k *key) unmarshal(b []byte) error {
 	buff := bytes.NewBuffer(b)
 
@@ -149,13 +151,13 @@ func (k *key) unmarshal(b []byte) error {
 	return nil
 }
 
-// Adheres to the stringer interface
+// String returns a string representation of key. This functions adheres to the
+// fmt.Stringer interface.
 func (k *key) String() string {
 	return k.storeKey
-
 }
 
-// generates the key used in the keystore for the given key
+// keyKey generates the key used in the keystore for the given key.
 func keyKey(id *id.ID) string {
 	return "nodeKey:" + id.String()
 }

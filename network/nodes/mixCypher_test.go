@@ -19,7 +19,7 @@ import (
 	"testing"
 )
 
-// tests that the encrypted paylaods and kmacs generated are consistent
+// Tests that the encrypted payloads and KMACs generated are consistent.
 func TestRoundKeys_Encrypt_Consistency(t *testing.T) {
 	const numKeys = 5
 
@@ -111,7 +111,7 @@ func TestRoundKeys_Encrypt_Consistency(t *testing.T) {
 	prng.Read(contents)
 	msg.SetContents(contents)
 
-	rk := MixCypher{
+	rk := mixCypher{
 		keys: keys,
 		g:    cmixGrp,
 	}

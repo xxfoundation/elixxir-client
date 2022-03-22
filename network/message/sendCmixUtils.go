@@ -30,7 +30,7 @@ import (
 )
 
 // Interface for SendCMIX comms; allows mocking this in testing.
-type sendCmixCommsInterface interface {
+type SendCmixCommsInterface interface {
 	// SendPutMessage places a cMix message on the gateway to be
 	// sent through cMix.
 	SendPutMessage(host *connect.Host, message *pb.GatewaySlot,

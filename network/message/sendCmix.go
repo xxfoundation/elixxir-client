@@ -74,7 +74,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 	recipient *id.ID, cmixParams params.CMIX, blacklistedNodes map[string]interface{}, instance *network.Instance,
 	session *storage.Session, nodeRegistration chan network.NodeGateway,
 	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
-	senderId *id.ID, comms sendCmixCommsInterface,
+	senderId *id.ID, comms SendCmixCommsInterface,
 	stop *stoppable.Single) (id.Round, ephemeral.Id, error) {
 
 	timeStart := netTime.Now()

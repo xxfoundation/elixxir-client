@@ -23,9 +23,9 @@ import (
 
 // CheckInProgressMessages triggers rechecking all in progress messages
 // if the queue is not full Exposed on the network pickup
-func (m *pickup) CheckInProgressMessages() {
+func (p *pickup) CheckInProgressMessages() {
 	select {
-	case m.checkInProgress <- struct{}{}:
+	case p.checkInProgress <- struct{}{}:
 	default:
 		jww.WARN.Println("Failed to check garbled messages " +
 			"due to full channel")
@@ -33,23 +33,23 @@ func (m *pickup) CheckInProgressMessages() {
 }
 
 //long running thread which processes messages that need to be checked
-func (m *pickup) recheckInProgressRunner(stop *stoppable.Single) {
+func (p *pickup) recheckInProgressRunner(stop *stoppable.Single) {
 	for {
 		select {
 		case <-stop.Quit():
 			stop.ToStopped()
 			return
-		case <-m.checkInProgress:
+		case <-p.checkInProgress:
 			jww.INFO.Printf("[GARBLE] Checking Garbled messages")
-			m.recheckInProgress()
+			p.recheckInProgress()
 		}
 	}
 }
 
 //handler for a single run of recheck messages
-func (m *pickup) recheckInProgress() {
+func (p *pickup) recheckInProgress() {
 	//try to decrypt every garbled message, excising those who's counts are too high
-	for grbldMsg, ri, identity, has := m.inProcess.Next(); has; grbldMsg, ri, identity, has = m.inProcess.Next() {
+	for grbldMsg, ri, identity, has := p.inProcess.Next(); has; grbldMsg, ri, identity, has = p.inProcess.Next() {
 		bundle := Bundle{
 			Round:     id.Round(ri.ID),
 			RoundInfo: ri,
@@ -58,7 +58,7 @@ func (m *pickup) recheckInProgress() {
 			Identity:  identity,
 		}
 		select {
-		case m.messageReception <- bundle:
+		case p.messageReception <- bundle:
 		default:
 			jww.WARN.Printf("failed to send bundle, channel full")
 

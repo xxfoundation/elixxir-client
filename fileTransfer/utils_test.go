@@ -538,7 +538,7 @@ type testHealthTracker struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Test Health Tracker                                                        //
+// Test health Tracker                                                        //
 ////////////////////////////////////////////////////////////////////////////////
 
 func newTestHealthTracker() testHealthTracker {

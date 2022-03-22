@@ -9,7 +9,9 @@ package params
 
 import (
 	"encoding/json"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/primitives/excludedRounds"
+	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
@@ -31,6 +33,13 @@ type CMIX struct {
 	// Tag which prints with sending logs to help localize the source
 	// All internal sends are tagged, so the default tag is "External"
 	DebugTag string
+
+	//Threading interface, can be used to stop the send early
+	Stop *stoppable.Single
+
+	//List of nodes to not send to, will skip a round with these
+	//nodes in it
+	BlacklistedNodes map[id.ID]interface{}
 }
 
 func GetDefaultCMIX() CMIX {

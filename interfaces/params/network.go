@@ -18,7 +18,7 @@ type Network struct {
 	MaxCheckedRounds uint
 	// Size of the buffer of nodes to register
 	RegNodesBufferLen uint
-	// Longest delay between network events for Health tracker to denote that
+	// Longest delay between network events for health tracker to denote that
 	// the network is in a bad state
 	NetworkHealthTimeout time.Duration
 	//Number of parallel nodes registration the client is capable of

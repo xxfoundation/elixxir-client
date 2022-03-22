@@ -23,6 +23,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
 	"strings"
 	"time"
@@ -245,4 +246,21 @@ func ephemeralIdListToString(idList []ephemeral.Id) string {
 	}
 
 	return strings.Join(idStrings, ",")
+}
+
+func calculateSendTimeout(best *pb.RoundInfo, max time.Duration) time.Duration {
+	RoundStartTime := time.Unix(0,
+		int64(best.Timestamps[states.QUEUED]))
+	// 250ms AFTER the round starts to hear the response.
+	timeout := RoundStartTime.Sub(
+		netTime.Now().Add(250 * time.Millisecond))
+	if timeout > max {
+		timeout = max
+	}
+	// time.Duration is a signed int, so check for negative
+	if timeout < 0 {
+		// TODO: should this produce a warning?
+		timeout = 100 * time.Millisecond
+	}
+	return timeout
 }

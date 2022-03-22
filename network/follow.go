@@ -62,7 +62,7 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport,
 	stop *stoppable.Single) {
 	ticker := time.NewTicker(m.param.TrackNetworkPeriod)
 	TrackTicker := time.NewTicker(debugTrackPeriod)
-	rng := m.Rng.GetStream()
+	rng := m.rng.GetStream()
 
 	abandon := func(round id.Round) { return }
 	if m.verboseRounds != nil {
@@ -112,7 +112,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	comms followNetworkComms, stop *stoppable.Single, abandon func(round id.Round)) {
 
 	//get the identity we will poll for
-	identity, err := m.Session.Reception().GetIdentity(rng, m.addrSpace.GetWithoutWait())
+	identity, err := m.session.Reception().GetIdentity(rng, m.addrSpace.GetWithoutWait())
 	if err != nil {
 		jww.FATAL.Panicf("Failed to get an identity, this should be "+
 			"impossible: %+v", err)
@@ -131,7 +131,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	atomic.AddUint64(m.tracker, 1)
 
 	// get client version for poll
-	version := m.Session.GetClientVersion()
+	version := m.session.GetClientVersion()
 
 	// Poll network updates
 	pollReq := pb.GatewayPoll{
@@ -198,7 +198,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 
 		// update gateway connections
 		m.GetSender().UpdateNdf(m.GetInstance().GetPartialNdf().Get())
-		m.Session.SetNDF(m.GetInstance().GetPartialNdf().Get())
+		m.session.SetNDF(m.GetInstance().GetPartialNdf().Get())
 	}
 
 	// Pull rate limiting parameter values from NDF
@@ -241,7 +241,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 
 			for _, clientErr := range update.ClientErrors {
 				// If this Client appears in the ClientError
-				if bytes.Equal(clientErr.ClientId, m.Session.GetUser().TransmissionID.Marshal()) {
+				if bytes.Equal(clientErr.ClientId, m.session.GetUser().TransmissionID.Marshal()) {
 
 					// Obtain relevant NodeGateway information
 					nid, err := id.Unmarshal(clientErr.Source)
@@ -262,7 +262,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 					update.State = uint32(states.FAILED)
 
 					// delete all existing keys and trigger a re-registration with the relevant Node
-					m.Session.Cmix().Remove(nid)
+					m.session.Cmix().Remove(nid)
 					m.Instance.GetAddGatewayChan() <- nGw
 				}
 			}

@@ -53,7 +53,7 @@ func newTestingClient(face interface{}) (*Client, error) {
 
 	cert, err := utils.ReadFile(testkeys.GetNodeCertPath())
 	if err != nil {
-		jww.FATAL.Panicf("Failed to create new test Instance: %v", err)
+		jww.FATAL.Panicf("Failed to create new test instance: %v", err)
 	}
 
 	commsManager.AddHost(&id.Permissioning, "", cert, connect.GetDefaultHostParams())

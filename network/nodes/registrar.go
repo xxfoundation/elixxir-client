@@ -59,10 +59,10 @@ type registrar struct {
 
 // LoadRegistrar loads a registrar from disk, and creates a new one if it does
 // not exist.
-func LoadRegistrar(kv *versioned.KV, session *storage.Session,
+func LoadRegistrar(session *storage.Session,
 	sender *gateway.Sender, comms RegisterNodeCommsInterface,
-	rngGen *fastRNG.StreamGenerator) (Registrar, error) {
-	kv = kv.Prefix(prefix)
+	rngGen *fastRNG.StreamGenerator, c chan network.NodeGateway) (Registrar, error) {
+	kv := session.GetKV().Prefix(prefix)
 	r := &registrar{
 		nodes: make(map[id.ID]*key),
 		kv:    kv,
@@ -88,7 +88,7 @@ func LoadRegistrar(kv *versioned.KV, session *storage.Session,
 	r.comms = comms
 	r.rng = rngGen
 
-	r.c = make(chan network.NodeGateway, InputChanLen)
+	r.c = c
 
 	return r, nil
 }

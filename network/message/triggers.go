@@ -48,7 +48,9 @@ type trigger struct {
 
 func NewTriggers() *TriggersManager {
 	// todo: implement me
-	return nil
+	return &TriggersManager{
+		tmap: make(map[id.ID]map[interfaces.Preimage][]trigger, 0),
+	}
 }
 
 // Lookup will see if a trigger exists for the given preimage and message
@@ -59,12 +61,6 @@ func NewTriggers() *TriggersManager {
 // that one or multiple triggers exist to process this message.
 // These triggers are returned to the caller along with the a true boolean.
 // If the map has been exhausted with no matches found, it returns nil and false.
-// TODO: reorganize this interface. Lookup needs to be called by handleMessage,
-//  which should not have access to the other state modifying methods below.
-//  Possible options include:
-//  - privatizing the state-changing methods
-//  - leaking lookup on this layer and migrating the state modification methods
-//    a layer down in a separate package
 func (t *TriggersManager) get(clientID *id.ID, receivedIdentityFp,
 	ecrMsgContents []byte) ([]trigger,
 	bool) {

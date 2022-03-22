@@ -11,7 +11,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"gitlab.com/elixxir/client/interfaces"
-	network2 "gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/utility"
@@ -61,7 +60,6 @@ type pickup struct {
 
 	rng      *fastRNG.StreamGenerator
 	events   interfaces.EventManager
-	comms    network2.SendCmixCommsInterface
 	session  *storage.Session
 	nodes    nodes.Registrar
 	instance *network.Instance
@@ -77,8 +75,8 @@ type pickup struct {
 func NewPickup(param params.Network,
 	nodeRegistration chan network.NodeGateway, sender *gateway.Sender,
 	session *storage.Session, rng *fastRNG.StreamGenerator,
-	events interfaces.EventManager, comms network2.SendCmixCommsInterface,
-	nodes nodes.Registrar, instance *network.Instance) Pickup {
+	events interfaces.EventManager, nodes nodes.Registrar,
+	instance *network.Instance) Pickup {
 
 	garbled, err := NewOrLoadMeteredCmixMessageBuffer(session.GetKV(), inProcessKey)
 	if err != nil {
@@ -95,7 +93,6 @@ func NewPickup(param params.Network,
 		inProcess:        garbled,
 		rng:              rng,
 		events:           events,
-		comms:            comms,
 		session:          session,
 		nodes:            nodes,
 		instance:         instance,

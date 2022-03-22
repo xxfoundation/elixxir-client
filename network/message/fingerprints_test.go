@@ -10,211 +10,146 @@ package message
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"strconv"
-	"sync"
 	"testing"
 )
 
 // Unit test.
-func TestNewFingerprints(t *testing.T) {
-	expected := &Fingerprints{
-		fingerprints: make(map[format.Fingerprint]*Processor),
-		RWMutex:      sync.RWMutex{},
+func Test_newFingerprints(t *testing.T) {
+	expected := &FingerprintsManager{
+		fpMap: make(map[id.ID]map[format.Fingerprint]interfaces.MessageProcessor),
 	}
 
 	received := newFingerprints()
-
 	if !reflect.DeepEqual(expected, received) {
-		t.Fatalf("NewFingerprint error: Did not construct expected object."+
-			"\nExpected: %v"+
-			"\nReceived: %v", expected, received)
+		t.Fatalf("New FingerprintsManager did not match expected."+
+			"\nexpected: %+v\nreceived: %+v", expected, received)
 	}
 }
 
 // Unit test.
-func TestFingerprints_Get(t *testing.T) {
+func TestFingerprintsManager_pop(t *testing.T) {
 	// Construct fingerprint map
 	fpTracker := newFingerprints()
 
 	// Construct fingerprint and processor values
+	cid := id.NewIdFromString("clientID", id.User, t)
 	fp := format.NewFingerprint([]byte("test"))
 	mp := NewMockMsgProcessor(t)
 
 	// Add the values to the tracker
-	fpTracker.AddFingerprint(fp, mp)
+	err := fpTracker.AddFingerprint(cid, fp, mp)
+	if err != nil {
+		t.Errorf("Failed to add fingerprint: %+v", err)
+	}
 
 	// Attempt to retrieve value from map
-	received, exists := fpTracker.Get(fp)
+	received, exists := fpTracker.pop(cid, fp)
 	if !exists {
 		t.Fatalf("get error: Did not retrieve fingerprint (%s) that "+
 			"should have been in map.", fp)
 	}
 
 	// Check that received value contains the expected data
-	expected := newProcessor(mp)
+	expected := NewMockMsgProcessor(t)
 	if !reflect.DeepEqual(received, expected) {
 		t.Fatalf("get error: Map does not contain expected data."+
-			"\nExpected: %v"+
-			"\nReceived: %v", expected, received)
+			"\nexpected: %#v\nreceived: %#v", expected, received)
 	}
 
 }
 
 // Unit test.
-func TestFingerprints_AddFingerprint(t *testing.T) {
+func TestFingerprintsManager_AddFingerprint(t *testing.T) {
 	// Construct fingerprint map
 	fpTracker := newFingerprints()
 
 	// Construct fingerprint and processor values
+	cid := id.NewIdFromString("clientID", id.User, t)
 	fp := format.NewFingerprint([]byte("test"))
 	mp := NewMockMsgProcessor(t)
 
 	// Add the values to the tracker
-	fpTracker.AddFingerprint(fp, mp)
+	err := fpTracker.AddFingerprint(cid, fp, mp)
+	if err != nil {
+		t.Errorf("Failed to add fingerprint: %+v", err)
+	}
 
 	// Check that the fingerprint key has a map entry
-	received, exists := fpTracker.fingerprints[fp]
+	received, exists := fpTracker.fpMap[*cid]
 	if !exists {
 		t.Fatalf("Add did not write to map as expected. "+
 			"Fingerprint %s not found in map", fp)
 	}
 
 	// Check that received value contains the expected data
-	expected := newProcessor(mp)
+	expected := map[format.Fingerprint]interfaces.MessageProcessor{fp: mp}
 	if !reflect.DeepEqual(received, expected) {
 		t.Fatalf("Add error: Map does not contain expected data."+
-			"\nExpected: %v"+
-			"\nReceived: %v", expected, received)
+			"\nexpected: %v\nreceived: %v", expected, received)
 	}
 }
 
-// Unit test.
-func TestFingerprints_AddFingerprints(t *testing.T) {
-	// Construct fingerprints map
-	fpTracker := newFingerprints()
-
-	// Construct slices of fingerprints and processors
-	numTests := 100
-	fingerprints := make([]format.Fingerprint, 0, numTests)
-	processors := make([]interfaces.MessageProcessorFP, 0, numTests)
-	for i := 0; i < numTests; i++ {
-		fp := format.NewFingerprint([]byte(strconv.Itoa(i)))
-		mp := NewMockMsgProcessor(t)
-
-		fingerprints = append(fingerprints, fp)
-		processors = append(processors, mp)
-	}
-
-	// Add slices to map
-	err := fpTracker.AddFingerprints(fingerprints, processors)
-	if err != nil {
-		t.Fatalf("Adds unexpected error: %v", err)
-	}
-
-	// Make sure every fingerprint is mapped to it's expected processor
-	for i, expected := range fingerprints {
-		received, exists := fpTracker.fingerprints[expected]
-		if !exists {
-			t.Errorf("Adds did not write to map as expected. "+
-				"Fingerprint number %d (value: %s) not found in map", i, expected)
-		}
-
-		if !reflect.DeepEqual(received, expected) {
-			t.Fatalf("Adds error: Map does not contain expected data for "+
-				"fingerprint number %d."+
-				"\nExpected: %v"+
-				"\nReceived: %v", i, expected, received)
-		}
-	}
-
-}
-
-// Error case: Call Fingerprints.AddFingerprints with fingerprint and processor
-// slices of different lengths.
-func TestFingerprints_AddFingerprints_Error(t *testing.T) {
-	// Construct fingerprint map
-	fpTracker := newFingerprints()
-
-	// Construct 2 slices of different lengths
-	fingerprints := []format.Fingerprint{
-		format.NewFingerprint([]byte("1")),
-		format.NewFingerprint([]byte("2")),
-		format.NewFingerprint([]byte("3")),
-	}
-	processors := []interfaces.MessageProcessorFP{
-		NewMockMsgProcessor(t),
-	}
-
-	// Attempt to add fingerprints
-	err := fpTracker.AddFingerprints(fingerprints, processors)
-	if err == nil {
-		t.Fatalf("Add should have received an error with mismatched " +
-			"slices length")
-	}
-
-}
-
-func TestFingerprints_RemoveFingerprint(t *testing.T) {
+func TestFingerprintsManager_DeleteFingerprint(t *testing.T) {
 
 	// Construct fingerprint map
 	fpTracker := newFingerprints()
 
 	// Construct fingerprint and processor values
+	cid := id.NewIdFromString("clientID", id.User, t)
 	fp := format.NewFingerprint([]byte("test"))
 	mp := NewMockMsgProcessor(t)
 
 	// Add the values to the tracker
-	fpTracker.AddFingerprint(fp, mp)
+	err := fpTracker.AddFingerprint(cid, fp, mp)
+	if err != nil {
+		t.Errorf("Failed to add fingerprint: %+v", err)
+	}
 
 	// Remove value from tracker
-	fpTracker.RemoveFingerprint(fp)
+	fpTracker.DeleteFingerprint(cid, fp)
 
 	// Check that value no longer exists within the map
-	if _, exists := fpTracker.fingerprints[fp]; exists {
+	if _, exists := fpTracker.fpMap[*cid][fp]; exists {
 		t.Fatalf("RemoveFingerprint error: "+
 			"Fingerprint %s exists in map after a RemoveFingerprint call", fp)
 	}
 }
 
 // Unit test.
-func TestFingerprints_RemoveFingerprints(t *testing.T) {
+func TestFingerprintsManager_DeleteClientFingerprints(t *testing.T) {
 	// Construct fingerprints map
 	fpTracker := newFingerprints()
 
 	// Construct slices of fingerprints and processors
 	numTests := 100
+	cid := id.NewIdFromString("clientID", id.User, t)
 	fingerprints := make([]format.Fingerprint, 0, numTests)
-	processors := make([]interfaces.MessageProcessorFP, 0, numTests)
+	processors := make([]interfaces.MessageProcessor, 0, numTests)
 	for i := 0; i < numTests; i++ {
 		fp := format.NewFingerprint([]byte(strconv.Itoa(i)))
 		mp := NewMockMsgProcessor(t)
+
+		// Add the values to the tracker
+		err := fpTracker.AddFingerprint(cid, fp, mp)
+		if err != nil {
+			t.Errorf("Failed to add fingerprint: %+v", err)
+		}
 
 		fingerprints = append(fingerprints, fp)
 		processors = append(processors, mp)
 	}
 
-	// Add slices to map
-	err := fpTracker.AddFingerprints(fingerprints, processors)
-	if err != nil {
-		t.Fatalf("Add unexpected error: %v", err)
-	}
-
-	fpTracker.RemoveFingerprints(fingerprints)
+	fpTracker.DeleteClientFingerprints(cid)
 
 	// Make sure every fingerprint is mapped to it's expected processor
-	for i, expected := range fingerprints {
-
-		if received, exists := fpTracker.fingerprints[expected]; !exists {
-			t.Fatalf("RemoveFingerprints error: Map does not contain "+
-				"expected data for fingerprint number %d."+
-				"\nExpected: %v"+
-				"\nReceived: %v", i, expected, received)
-		}
-
+	if _, exists := fpTracker.fpMap[*cid]; exists {
+		t.Fatalf("RemoveFingerprints error: failed to delete client.")
 	}
-
 }
 
 // todo: consider moving this to a test utils somewhere else.. maybe in the interfaces package?
@@ -231,10 +166,11 @@ func NewMockMsgProcessor(face interface{}) *MockMsgProcessor {
 	return &MockMsgProcessor{}
 }
 
-func (mock *MockMsgProcessor) MarkFingerprintUsed(fingerprint format.Fingerprint) {
+func (mock *MockMsgProcessor) MarkFingerprintUsed(_ format.Fingerprint) {
 	return
 }
 
-func (mock *MockMsgProcessor) Process(message format.Message, fingerprint format.Fingerprint) {
+func (mock *MockMsgProcessor) Process(format.Message, interfaces.Identity,
+	*mixmessages.RoundInfo) {
 	return
 }

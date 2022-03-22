@@ -24,7 +24,8 @@ func (mc *MockSendCMIXComms) GetHost(*id.ID) (*connect.Host, bool) {
 	return h, true
 }
 
-func (mc *MockSendCMIXComms) AddHost(*id.ID, string, []byte, connect.HostParams) (host *connect.Host, err error) {
+func (mc *MockSendCMIXComms) AddHost(
+	*id.ID, string, []byte, connect.HostParams) (host *connect.Host, err error) {
 	host, _ = mc.GetHost(nil)
 	return host, nil
 }
@@ -33,14 +34,16 @@ func (mc *MockSendCMIXComms) RemoveHost(*id.ID) {
 
 }
 
-func (mc *MockSendCMIXComms) SendPutMessage(*connect.Host, *mixmessages.GatewaySlot, time.Duration) (*mixmessages.GatewaySlotResponse, error) {
+func (mc *MockSendCMIXComms) SendPutMessage(*connect.Host,
+	*mixmessages.GatewaySlot, time.Duration) (*mixmessages.GatewaySlotResponse, error) {
 	return &mixmessages.GatewaySlotResponse{
 		Accepted: true,
 		RoundID:  3,
 	}, nil
 }
 
-func (mc *MockSendCMIXComms) SendPutManyMessages(*connect.Host, *mixmessages.GatewaySlots, time.Duration) (*mixmessages.GatewaySlotResponse, error) {
+func (mc *MockSendCMIXComms) SendPutManyMessages(*connect.Host,
+	*mixmessages.GatewaySlots, time.Duration) (*mixmessages.GatewaySlotResponse, error) {
 	return &mixmessages.GatewaySlotResponse{
 		Accepted: true,
 		RoundID:  3,

@@ -40,8 +40,8 @@ func (f *FingerprintsManager) pop(clientID *id.ID,
 	f.Lock()
 	defer f.Unlock()
 	cid := *clientID
-	if idFpmap, exists := f.fpMap[cid]; exists {
-		if proc, exists := idFpmap[fingerprint]; exists {
+	if idFpMap, exists := f.fpMap[cid]; exists {
+		if proc, exists := idFpMap[fingerprint]; exists {
 			delete(f.fpMap[cid], fingerprint)
 			if len(f.fpMap[cid]) == 0 {
 				delete(f.fpMap, cid)
@@ -58,8 +58,7 @@ func (f *FingerprintsManager) pop(clientID *id.ID,
 // value. If there is already an entry for this fingerprint, the
 // method returns with no write operation.
 func (f *FingerprintsManager) AddFingerprint(clientID *id.ID,
-	fingerprint format.Fingerprint,
-	mp interfaces.MessageProcessor) error {
+	fingerprint format.Fingerprint, mp interfaces.MessageProcessor) error {
 	f.Lock()
 	defer f.Unlock()
 
@@ -98,8 +97,9 @@ func (f *FingerprintsManager) DeleteFingerprint(clientID *id.ID,
 	}
 }
 
-// DeleteClientFingerprints is a thread-safe deletion operation on the Fingerprints map.
-// It will remove all entres for the given clientID from the map.
+// DeleteClientFingerprints is a thread-safe deletion operation on the
+// fingerprints map. It will remove all entries for the given clientID from the
+// map.
 func (f *FingerprintsManager) DeleteClientFingerprints(clientID *id.ID) {
 	f.Lock()
 	defer f.Unlock()

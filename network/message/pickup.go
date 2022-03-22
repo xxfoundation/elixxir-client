@@ -10,14 +10,20 @@ package message
 import (
 	"encoding/base64"
 	"fmt"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/network/nodes"
+	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/rateLimiting"
+
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/elixxir/comms/network"
 )
 
 const (
@@ -26,15 +32,15 @@ const (
 
 type Pickup interface {
 	GetMessageReceptionChannel() chan<- Bundle
-	StartProcessies() stoppable.Stoppable
+	StartProcesses() stoppable.Stoppable
 	CheckInProgressMessages()
 
-	//Fingerprints
+	// Fingerprints
 	AddFingerprint(clientID *id.ID, fingerprint format.Fingerprint, mp interfaces.MessageProcessor) error
 	DeleteFingerprint(clientID *id.ID, fingerprint format.Fingerprint)
 	DeleteClientFingerprints(clientID *id.ID)
 
-	//Triggers
+	// Triggers
 	AddTrigger(clientID *id.ID, newTrigger interfaces.Trigger, response interfaces.MessageProcessor)
 	DeleteTriggers(clientID *id.ID, preimage interfaces.Preimage, response interfaces.MessageProcessor) error
 	DeleteClientTriggers(clientID *id.ID)
@@ -61,7 +67,7 @@ func NewPickup(param params.Network, sender *gateway.Sender,
 
 	garbled, err := NewOrLoadMeteredCmixMessageBuffer(session.GetKV(), inProcessKey)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to load or new the Garbled Messages system")
+		jww.FATAL.Panicf("Failed to load or new the Garbled Messages system: %v", err)
 	}
 
 	m := pickup{
@@ -86,23 +92,24 @@ func NewPickup(param params.Network, sender *gateway.Sender,
 	return &m
 }
 
-//Gets the channel to send received messages on
+// GetMessageReceptionChannel gets the channel to send received messages on.
 func (p *pickup) GetMessageReceptionChannel() chan<- Bundle {
 	return p.messageReception
 }
 
-//Starts all worker pool
-func (p *pickup) StartProcessies() stoppable.Stoppable {
+// StartProcesses starts all worker pool.
+func (p *pickup) StartProcesses() stoppable.Stoppable {
 	multi := stoppable.NewMulti("MessageReception")
 
-	//create the message handler workers
+	// create the message handler workers
 	for i := uint(0); i < p.param.MessageReceptionWorkerPoolSize; i++ {
-		stop := stoppable.NewSingle(fmt.Sprintf("MessageReception Worker %v", i))
+		stop := stoppable.NewSingle(
+			"MessageReception Worker " + strconv.Itoa(int(i)))
 		go p.handleMessages(stop)
 		multi.Add(stop)
 	}
 
-	//create the in progress messages thread
+	// create the in progress messages thread
 	garbledStop := stoppable.NewSingle("GarbledMessages")
 	go p.recheckInProgressRunner(garbledStop)
 	multi.Add(garbledStop)

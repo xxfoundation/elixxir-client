@@ -10,10 +10,13 @@ package message
 import (
 	"bytes"
 	"encoding/json"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"testing"
@@ -128,62 +131,37 @@ func Test_meteredCmixMessageHandler_Smoke(t *testing.T) {
 	mcmb, err := NewMeteredCmixMessageBuffer(versioned.NewKV(make(ekv.Memstore)), "testKey")
 	if err != nil {
 		t.Errorf("NewMeteredCmixMessageBuffer() returned an error."+
-			"\n\texpected: %v\n\trecieved: %v", nil, err)
+			"\nexpected: %v\nrecieved: %v", nil, err)
 	}
 
 	// AddFingerprint two messages
+	mcmb.Add(testMsgs[0], &pb.RoundInfo{ID: 1, Timestamps: []uint64{0, 1, 2, 3}}, interfaces.Identity{
+		Source: id.NewIdFromString("user1", id.User, t)})
+	mcmb.Add(testMsgs[1], &pb.RoundInfo{ID: 2, Timestamps: []uint64{0, 1, 2, 3}}, interfaces.Identity{
+		Source: id.NewIdFromString("user2", id.User, t)})
 
-	mcmb.Add(testMsgs[0])
-	mcmb.Add(testMsgs[1])
-
-	if len(mcmb.mb.messages) != 2 {
-		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
-			2, len(mcmb.mb.messages))
-	}
-
-	msg, _, _, exists := mcmb.Next()
+	msg, ri, identity, exists := mcmb.Next()
 	if !exists {
 		t.Error("Next() did not find any messages in buffer.")
 	}
-	mcmb.Remove(msg)
+	mcmb.Remove(msg, ri, identity)
 
-	if len(mcmb.mb.messages) != 1 {
-		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
-			1, len(mcmb.mb.messages))
-	}
-
-	msg, _, _, exists = mcmb.Next()
+	msg, ri, identity, exists = mcmb.Next()
 	if !exists {
 		t.Error("Next() did not find any messages in buffer.")
 	}
-	if len(mcmb.mb.messages) != 0 {
-		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
-			0, len(mcmb.mb.messages))
-	}
-	mcmb.Failed(msg)
+	mcmb.Failed(msg, ri, identity)
 
-	if len(mcmb.mb.messages) != 1 {
-		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
-			1, len(mcmb.mb.messages))
-	}
-
-	msg, _, _, exists = mcmb.Next()
+	msg, ri, identity, exists = mcmb.Next()
 	if !exists {
 		t.Error("Next() did not find any messages in buffer.")
 	}
-	mcmb.Remove(msg)
+	mcmb.Remove(msg, ri, identity)
 
 	msg, _, _, exists = mcmb.Next()
 	if exists {
 		t.Error("Next() found a message in the buffer when it should be empty.")
 	}
-	mcmb.Remove(msg)
-
-	if len(mcmb.mb.messages) != 0 {
-		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
-			0, len(mcmb.mb.messages))
-	}
-
 }
 
 // makeTestMeteredCmixMessage creates a list of messages with random data and the

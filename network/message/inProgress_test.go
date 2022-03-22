@@ -36,13 +36,12 @@ type TestListener struct {
 	ch chan bool
 }
 
-// the Hear function is called to exercise the listener, passing in the
-// data as an item
+// Hear is called to exercise the listener, passing in the data as an item.
 func (l TestListener) Hear(item message.Receive) {
 	l.ch <- true
 }
 
-// Returns a name, used for debugging
+// Name returns a name; used for debugging.
 func (l TestListener) Name() string {
 	return "TEST LISTENER FOR GARBLED MESSAGES"
 }
@@ -64,7 +63,6 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	i := internal.Internal{
 		Session:          sess1,
 		Switchboard:      sw,
-		Rng:              fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		Comms:            comms,
 		Health:           nil,
 		TransmissionID:   sess1.GetUser().TransmissionID,

@@ -18,21 +18,21 @@ import (
 // to decrypt a message, it is added to the garbled message buffer (which is
 // stored on disk) and the message decryption is retried here whenever triggered.
 
-// This can be triggered through the CheckInProgressMessages on the network pickup
-// and is used in the /keyExchange package on successful rekey triggering
+// This can be triggered through the CheckInProgressMessages on the network
+// pickup and is used in the /keyExchange package on successful rekey triggering.
 
-// CheckInProgressMessages triggers rechecking all in progress messages
-// if the queue is not full Exposed on the network pickup
+// CheckInProgressMessages triggers rechecking all in progress messages if the
+// queue is not full Exposed on the network pickup.
 func (p *pickup) CheckInProgressMessages() {
 	select {
 	case p.checkInProgress <- struct{}{}:
 	default:
-		jww.WARN.Println("Failed to check garbled messages " +
-			"due to full channel")
+		jww.WARN.Print("Failed to check garbled messages due to full channel.")
 	}
 }
 
-//long running thread which processes messages that need to be checked
+// recheckInProgressRunner is a long-running thread which processes messages
+// that need to be checked.
 func (p *pickup) recheckInProgressRunner(stop *stoppable.Single) {
 	for {
 		select {
@@ -46,9 +46,10 @@ func (p *pickup) recheckInProgressRunner(stop *stoppable.Single) {
 	}
 }
 
-//handler for a single run of recheck messages
+// recheckInProgress is the handler for a single run of recheck messages.
 func (p *pickup) recheckInProgress() {
-	//try to decrypt every garbled message, excising those who's counts are too high
+	// Try to decrypt every garbled message, excising those whose counts are too
+	// high
 	for grbldMsg, ri, identity, has := p.inProcess.Next(); has; grbldMsg, ri, identity, has = p.inProcess.Next() {
 		bundle := Bundle{
 			Round:     id.Round(ri.ID),
@@ -57,12 +58,11 @@ func (p *pickup) recheckInProgress() {
 			Finish:    func() {},
 			Identity:  identity,
 		}
+
 		select {
 		case p.messageReception <- bundle:
 		default:
-			jww.WARN.Printf("failed to send bundle, channel full")
-
+			jww.WARN.Printf("Failed to send bundle, channel full.")
 		}
-
 	}
 }

@@ -1,26 +1,19 @@
 package message
 
 import (
-	"encoding/binary"
-	"github.com/cloudflare/circl/dh/sidh"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
-	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/edge"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/client/switchboard"
-	"gitlab.com/elixxir/comms/client"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/crypto/fingerprint"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
+	"gitlab.com/xx_network/primitives/id"
 	"os"
 	"testing"
 	"time"
@@ -46,123 +39,122 @@ func (l TestListener) Name() string {
 	return "TEST LISTENER FOR GARBLED MESSAGES"
 }
 
-func TestManager_CheckGarbledMessages(t *testing.T) {
-	sess1 := storage.InitTestingSession(t)
+func Test_pickup_CheckInProgressMessages(t *testing.T) {
+	sess := storage.InitTestingSession(t)
+	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
-	sess2 := storage.InitTestingSession(t)
-
-	sw := switchboard.New()
-	l := TestListener{
-		ch: make(chan bool),
-	}
-	sw.RegisterListener(sess2.GetUser().TransmissionID, message.Raw, l)
-	comms, err := client.NewClientComms(sess1.GetUser().TransmissionID, nil, nil, nil)
+	poolParams := gateway.DefaultPoolParams()
+	poolParams.MaxPoolSize = 1
+	sender, err := gateway.NewSender(
+		poolParams, rngGen, getNDF(), &MockSendCMIXComms{t}, sess, nil)
 	if err != nil {
-		t.Errorf("Failed to start client comms: %+v", err)
+		t.Errorf("Failed to make new sender: %+v", err)
 	}
-	i := internal.Internal{
-		Session:          sess1,
-		Switchboard:      sw,
-		Comms:            comms,
-		Health:           nil,
-		TransmissionID:   sess1.GetUser().TransmissionID,
-		Instance:         nil,
-		NodeRegistration: nil,
-	}
-	p := gateway.DefaultPoolParams()
-	p.MaxPoolSize = 1
-	sender, err := gateway.NewSender(p, i.Rng, getNDF(), &MockSendCMIXComms{t: t}, i.Session, nil)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-	m := NewPickup(i, params.Network{Messages: params.Messages{
+	newPickup := NewPickup(params.Network{Messages: params.Messages{
 		MessageReceptionBuffLen:        20,
 		MessageReceptionWorkerPoolSize: 20,
 		MaxChecksInProcessMessage:      20,
 		InProcessMessageWait:           time.Hour,
-	}}, nil, sender)
+	}}, sender, sess, nil)
+	p := newPickup.(*pickup)
 
-	rng := csprng.NewSystemRNG()
-	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
-	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
-	partnerSIDHPrivKey.Generate(rng)
-	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
-	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
-	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
-	mySIDHPrivKey.Generate(rng)
-	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
+	// rng := csprng.NewSystemRNG()
+	// partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	// partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	// partnerSIDHPrivKey.Generate(rng)
+	// partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	// mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	// mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	// mySIDHPrivKey.Generate(rng)
+	// mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
+	//
+	// e2ekv := i.Session.E2e()
+	// err = e2ekv.AddPartner(sess2.GetUser().TransmissionID,
+	// 	sess2.E2e().GetDHPublicKey(), e2ekv.GetDHPrivateKey(),
+	// 	partnerSIDHPubKey, mySIDHPrivKey,
+	// 	params.GetDefaultE2ESessionParams(),
+	// 	params.GetDefaultE2ESessionParams())
+	// if err != nil {
+	// 	t.Errorf("Failed to add e2e partner: %+v", err)
+	// 	t.FailNow()
+	// }
+	//
+	// preimage := edge.Preimage{
+	// 	Data:   []byte{0},
+	// 	Type:   "test",
+	// 	Source: nil,
+	// }
+	// p.Session.GetEdge().Add(preimage, sess2.GetUser().ReceptionID)
+	//
+	// err = sess2.E2e().AddPartner(sess.GetUser().TransmissionID,
+	// 	sess.E2e().GetDHPublicKey(), sess2.E2e().GetDHPrivateKey(),
+	// 	mySIDHPubKey, partnerSIDHPrivKey,
+	// 	params.GetDefaultE2ESessionParams(),
+	// 	params.GetDefaultE2ESessionParams())
+	// if err != nil {
+	// 	t.Errorf("Failed to add e2e partner: %+v", err)
+	// 	t.FailNow()
+	// }
+	// partner1, err := sess2.E2e().GetPartner(sess.GetUser().ReceptionID)
+	// if err != nil {
+	// 	t.Errorf("Failed to get partner: %+v", err)
+	// 	t.FailNow()
+	// }
 
-	e2ekv := i.Session.E2e()
-	err = e2ekv.AddPartner(sess2.GetUser().TransmissionID,
-		sess2.E2e().GetDHPublicKey(), e2ekv.GetDHPrivateKey(),
-		partnerSIDHPubKey, mySIDHPrivKey,
-		params.GetDefaultE2ESessionParams(),
-		params.GetDefaultE2ESessionParams())
+	// msg := format.NewMessage(format.MinimumPrimeSize)
+	//
+	// key, err := partner1.GetKeyForSending(params.Standard)
+	// if err != nil {
+	// 	t.Errorf("failed to get key: %+v", err)
+	// 	t.FailNow()
+	// }
+	//
+	// contents := make([]byte, msg.ContentsSize())
+	// prng := rand.New(rand.NewSource(42))
+	// prng.Read(contents)
+	// contents[len(contents)-1] = 0
+	// fmp := parse.FirstMessagePartFromBytes(contents)
+	// binary.BigEndian.PutUint32(fmp.Type, message.Raw)
+	// fmp.NumParts[0] = uint8(1)
+	// binary.BigEndian.PutUint16(fmp.Len, 256)
+	// fmp.Part[0] = 0
+	// ts, err := netTime.Now().MarshalBinary()
+	// if err != nil {
+	// 	t.Errorf("failed to martial ts: %+v", err)
+	// }
+	// copy(fmp.Timestamp, ts)
+	// msg.SetContents(fmp.Bytes())
+	// encryptedMsg := key.Encrypt(msg)
+	// msg.SetIdentityFP(fingerprint.IdentityFP(msg.GetContents(), preimage.Data))
+	// i.Session.GetGarbledMessages().Add(encryptedMsg)
+
+	msg := makeTestFormatMessages(1)[0]
+
+	cid := id.NewIdFromString("clientID", id.User, t)
+	fp := format.NewFingerprint([]byte("test"))
+	mp := NewMockMsgProcessor(t)
+	err = p.AddFingerprint(cid, fp, mp)
 	if err != nil {
-		t.Errorf("Failed to add e2e partner: %+v", err)
-		t.FailNow()
+		t.Errorf("Failed to add fingerprint: %+v", err)
 	}
-
-	preimage := edge.Preimage{
-		Data:   []byte{0},
-		Type:   "test",
-		Source: nil,
-	}
-	m.Session.GetEdge().Add(preimage, sess2.GetUser().ReceptionID)
-
-	err = sess2.E2e().AddPartner(sess1.GetUser().TransmissionID,
-		sess1.E2e().GetDHPublicKey(), sess2.E2e().GetDHPrivateKey(),
-		mySIDHPubKey, partnerSIDHPrivKey,
-		params.GetDefaultE2ESessionParams(),
-		params.GetDefaultE2ESessionParams())
-	if err != nil {
-		t.Errorf("Failed to add e2e partner: %+v", err)
-		t.FailNow()
-	}
-	partner1, err := sess2.E2e().GetPartner(sess1.GetUser().ReceptionID)
-	if err != nil {
-		t.Errorf("Failed to get partner: %+v", err)
-		t.FailNow()
-	}
-
-	msg := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
-
-	key, err := partner1.GetKeyForSending(params.Standard)
-	if err != nil {
-		t.Errorf("failed to get key: %+v", err)
-		t.FailNow()
-	}
-
-	contents := make([]byte, msg.ContentsSize())
-	prng := rand.New(rand.NewSource(42))
-	prng.Read(contents)
-	contents[len(contents)-1] = 0
-	fmp := parse.FirstMessagePartFromBytes(contents)
-	binary.BigEndian.PutUint32(fmp.Type, uint32(message.Raw))
-	fmp.NumParts[0] = uint8(1)
-	binary.BigEndian.PutUint16(fmp.Len, 256)
-	fmp.Part[0] = 0
-	ts, err := netTime.Now().MarshalBinary()
-	if err != nil {
-		t.Errorf("failed to martial ts: %+v", err)
-	}
-	copy(fmp.Timestamp, ts)
-	msg.SetContents(fmp.Bytes())
-	encryptedMsg := key.Encrypt(msg)
-	msg.SetIdentityFP(fingerprint.IdentityFP(msg.GetContents(), preimage.Data))
-	i.Session.GetGarbledMessages().Add(encryptedMsg)
+	p.inProcess.Add(msg,
+		&pb.RoundInfo{ID: 1, Timestamps: []uint64{0, 1, 2, 3}},
+		interfaces.Identity{Source: cid})
 
 	stop := stoppable.NewSingle("stop")
-	go m.processGarbledMessages(stop)
+	go p.recheckInProgressRunner(stop)
 
-	m.CheckGarbledMessages()
+	p.CheckInProgressMessages()
 
-	ticker := time.NewTicker(time.Second)
 	select {
-	case <-ticker.C:
+	case <-time.After(1000 * time.Millisecond):
 		t.Error("Didn't hear anything")
-	case <-l.ch:
+	case <-p.messageReception:
 		t.Log("Heard something")
 	}
 
+	err = stop.Close()
+	if err != nil {
+		t.Errorf("Failed to close stoppable: %+v", err)
+	}
 }

@@ -135,10 +135,12 @@ func Test_meteredCmixMessageHandler_Smoke(t *testing.T) {
 	}
 
 	// AddFingerprint two messages
-	mcmb.Add(testMsgs[0], &pb.RoundInfo{ID: 1, Timestamps: []uint64{0, 1, 2, 3}}, interfaces.Identity{
-		Source: id.NewIdFromString("user1", id.User, t)})
-	mcmb.Add(testMsgs[1], &pb.RoundInfo{ID: 2, Timestamps: []uint64{0, 1, 2, 3}}, interfaces.Identity{
-		Source: id.NewIdFromString("user2", id.User, t)})
+	mcmb.Add(testMsgs[0],
+		&pb.RoundInfo{ID: 1, Timestamps: []uint64{0, 1, 2, 3}},
+		interfaces.Identity{Source: id.NewIdFromString("user1", id.User, t)})
+	mcmb.Add(testMsgs[1],
+		&pb.RoundInfo{ID: 2, Timestamps: []uint64{0, 1, 2, 3}},
+		interfaces.Identity{Source: id.NewIdFromString("user2", id.User, t)})
 
 	msg, ri, identity, exists := mcmb.Next()
 	if !exists {

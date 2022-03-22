@@ -9,21 +9,16 @@ package message
 
 import (
 	"encoding/base64"
-	"fmt"
 	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/rateLimiting"
+	"strconv"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/comms/network"
 )
 
 const (

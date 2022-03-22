@@ -10,10 +10,9 @@ package nodes
 import (
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
@@ -22,9 +21,9 @@ import (
 )
 
 // Creates new registrar for testing.
-func makeTestRegistrar(t *testing.T) (*registrar, *versioned.KV) {
+func makeTestRegistrar(t *testing.T) *registrar {
 	connect.TestingOnlyDisableTLS = true
-	kv := versioned.NewKV(make(ekv.Memstore))
+
 	session := storage.InitTestingSession(t)
 	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	p := gateway.DefaultPoolParams()
@@ -35,12 +34,14 @@ func makeTestRegistrar(t *testing.T) (*registrar, *versioned.KV) {
 		t.Fatalf("Failed to create new sender: %+v", err)
 	}
 
-	r, err := LoadRegistrar(kv, session, sender, NewMockClientComms(), rngGen)
+	nodeChan := make(chan commNetwork.NodeGateway, InputChanLen)
+
+	r, err := LoadRegistrar(session, sender, NewMockClientComms(), rngGen, nodeChan)
 	if err != nil {
 		t.Fatalf("Failed to create new registrar: %+v", err)
 	}
 
-	return r.(*registrar), kv
+	return r.(*registrar)
 }
 
 // Mock client comms object adhering to RegisterNodeCommsInterface for testing.

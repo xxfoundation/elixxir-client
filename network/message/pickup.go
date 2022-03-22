@@ -10,14 +10,13 @@ package message
 import (
 	"encoding/base64"
 	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"strconv"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 )
 
@@ -43,7 +42,6 @@ type Pickup interface {
 
 type pickup struct {
 	param            params.Network
-	sender           *gateway.Sender
 	blacklistedNodes map[string]interface{}
 
 	messageReception chan Bundle
@@ -57,10 +55,9 @@ type pickup struct {
 	TriggersManager
 }
 
-func NewPickup(param params.Network, sender *gateway.Sender,
-	session *storage.Session, events interfaces.EventManager) Pickup {
+func NewPickup(param params.Network, kv *versioned.KV, events interfaces.EventManager) Pickup {
 
-	garbled, err := NewOrLoadMeteredCmixMessageBuffer(session.GetKV(), inProcessKey)
+	garbled, err := NewOrLoadMeteredCmixMessageBuffer(kv, inProcessKey)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to load or new the Garbled Messages system: %v", err)
 	}
@@ -69,7 +66,6 @@ func NewPickup(param params.Network, sender *gateway.Sender,
 		param:            param,
 		messageReception: make(chan Bundle, param.MessageReceptionBuffLen),
 		checkInProgress:  make(chan struct{}, 100),
-		sender:           sender,
 		inProcess:        garbled,
 		events:           events,
 	}

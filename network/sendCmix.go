@@ -23,7 +23,6 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -33,33 +32,21 @@ import (
 	"time"
 )
 
-// WARNING: Potentially Unsafe
-// Public manager function to send a message over CMIX
-func (m *message.manager) SendCMIX(sender *gateway.Sender, msg format.Message,
-	recipient *id.ID, cmixParams params.CMIX,
-	stop *stoppable.Single) (id.Round, ephemeral.Id, error) {
+// SendCMIX sends a "raw" CMIX message payload to the provided
+// recipient. Note that both SendE2E and SendUnsafe call SendCMIX.
+// Returns the round ID of the round the payload was sent or an error
+// if it fails.
+func (m *manager) SendCMIX(msg format.Message,
+	recipient *id.ID, cmixParams params.CMIX) (id.Round, ephemeral.Id, error) {
+	if !m.health.IsHealthy() {
+		return 0, ephemeral.Id{}, errors.New("Cannot send cmix message when the " +
+			"network is not healthy")
+	}
 
 	msgCopy := msg.Copy()
-	return sendCmixHelper(sender, msgCopy, recipient, cmixParams, m.blacklistedNodes, m.instance,
-		m.session, m.nodeRegistration, m.rng, m.Internal.Events,
-		m.TransmissionID, m.Comms, stop)
-}
-
-func calculateSendTimeout(best *pb.RoundInfo, max time.Duration) time.Duration {
-	RoundStartTime := time.Unix(0,
-		int64(best.Timestamps[states.QUEUED]))
-	// 250ms AFTER the round starts to hear the response.
-	timeout := RoundStartTime.Sub(
-		netTime.Now().Add(250 * time.Millisecond))
-	if timeout > max {
-		timeout = max
-	}
-	// time.Duration is a signed int, so check for negative
-	if timeout < 0 {
-		// TODO: should this produce a warning?
-		timeout = 100 * time.Millisecond
-	}
-	return timeout
+	return sendCmixHelper(m.sender, msgCopy, recipient, cmixParams, m.instance,
+		m.session, m.Registrar, m.rng, m.events,
+		m.session.User().GetCryptographicIdentity().GetTransmissionID(), m.comms)
 }
 
 // Helper function for sendCmix
@@ -72,11 +59,10 @@ func calculateSendTimeout(best *pb.RoundInfo, max time.Duration) time.Duration {
 // which can be registered with the network instance to get a callback on
 // its status
 func sendCmixHelper(sender *gateway.Sender, msg format.Message,
-	recipient *id.ID, cmixParams params.CMIX, blacklistedNodes map[string]interface{}, instance *network.Instance,
+	recipient *id.ID, cmixParams params.CMIX, instance *network.Instance,
 	session *storage.Session, nodes nodes.Registrar,
 	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
-	senderId *id.ID, comms SendCmixCommsInterface,
-	stop *stoppable.Single) (id.Round, ephemeral.Id, error) {
+	senderId *id.ID, comms SendCmixCommsInterface) (id.Round, ephemeral.Id, error) {
 
 	timeStart := netTime.Now()
 	maxTimeout := sender.GetHostParams().SendTimeout
@@ -135,12 +121,17 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		// Determine whether the selected round contains any Nodes
 		// that are blacklisted by the params.Network object
 		containsBlacklisted := false
-		for _, nodeId := range bestRound.Topology {
-			if _, isBlacklisted := blacklistedNodes[string(nodeId)]; isBlacklisted {
-				containsBlacklisted = true
-				break
+		if cmixParams.BlacklistedNodes != nil {
+			for _, nodeId := range bestRound.Topology {
+				nid := &id.ID{}
+				copy(nid[:], nodeId)
+				if _, isBlacklisted := cmixParams.BlacklistedNodes[*nid]; isBlacklisted {
+					containsBlacklisted = true
+					break
+				}
 			}
 		}
+
 		if containsBlacklisted {
 			jww.WARN.Printf("[SendCMIX-%s]Round %d contains blacklisted nodes, "+
 				"skipping...", cmixParams.DebugTag, bestRound.ID)
@@ -203,7 +194,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		jww.TRACE.Printf("[SendCMIX-%s] sendToPreferred %s",
 			cmixParams.DebugTag, firstGateway)
 		result, err := sender.SendToPreferred(
-			[]*id.ID{firstGateway}, sendFunc, stop, cmixParams.SendTimeout)
+			[]*id.ID{firstGateway}, sendFunc, cmixParams.Stop, cmixParams.SendTimeout)
 		jww.DEBUG.Printf("[SendCMIX-%s] sendToPreferred %s returned",
 			cmixParams.DebugTag, firstGateway)
 

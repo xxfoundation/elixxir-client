@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -35,13 +36,13 @@ import (
 // with this call and can leak data about yourself. Returns the round ID of the
 // round the payload was sent or an error if it fails.
 // WARNING: Potentially Unsafe
-func (m *message2.manager) SendManyCMIX(sender *gateway.Sender,
+func (m *manager) SendManyCMIX(sender *gateway.Sender,
 	messages []message.TargetedCmixMessage, p params.CMIX,
 	stop *stoppable.Single) (id.Round, []ephemeral.Id, error) {
 
-	return sendManyCmixHelper(sender, messages, p, m.blacklistedNodes,
-		m.Instance, m.Session, m.nodeRegistration, m.Rng, m.Internal.Events,
-		m.TransmissionID, m.Comms, stop)
+	return sendManyCmixHelper(sender, messages, p,
+		m.instance, m.session, m.Registrar, m.rng, m.events,
+		m.session.GetUser().TransmissionID, m.comms, stop)
 }
 
 // sendManyCmixHelper is a helper function for manager.SendManyCMIX.
@@ -56,9 +57,8 @@ func (m *message2.manager) SendManyCMIX(sender *gateway.Sender,
 // which can be registered with the network instance to get a callback on its
 // status.
 func sendManyCmixHelper(sender *gateway.Sender,
-	msgs []message.TargetedCmixMessage, param params.CMIX,
-	blacklistedNodes map[string]interface{}, instance *network.Instance,
-	session *storage.Session, nodeRegistration chan network.NodeGateway,
+	msgs []message.TargetedCmixMessage, param params.CMIX, instance *network.Instance,
+	session *storage.Session, registrar nodes.Registrar,
 	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
 	senderId *id.ID, comms SendCmixCommsInterface, stop *stoppable.Single) (
 	id.Round, []ephemeral.Id, error) {
@@ -109,10 +109,14 @@ func sendManyCmixHelper(sender *gateway.Sender,
 		// Determine whether the selected round contains any nodes that are
 		// blacklisted by the params.Network object
 		containsBlacklisted := false
-		for _, nodeId := range bestRound.Topology {
-			if _, isBlacklisted := blacklistedNodes[string(nodeId)]; isBlacklisted {
-				containsBlacklisted = true
-				break
+		if param.BlacklistedNodes != nil {
+			for _, nodeId := range bestRound.Topology {
+				nid := &id.ID{}
+				copy(nid[:], nodeId)
+				if _, isBlacklisted := param.BlacklistedNodes[*nid]; isBlacklisted {
+					containsBlacklisted = true
+					break
+				}
 			}
 		}
 		if containsBlacklisted {
@@ -122,8 +126,8 @@ func sendManyCmixHelper(sender *gateway.Sender,
 		}
 
 		// Retrieve host and key information from round
-		firstGateway, roundKeys, err := processRound(instance, session,
-			nodeRegistration, bestRound, recipientString, msgDigests)
+		firstGateway, roundKeys, err := processRound(
+			registrar, bestRound, recipientString, msgDigests)
 		if err != nil {
 			jww.INFO.Printf("[SendManyCMIX-%s]error processing round: %v", param.DebugTag, err)
 			jww.WARN.Printf("[SendManyCMIX-%s]SendManyCMIX failed to process round %d "+
@@ -178,8 +182,8 @@ func sendManyCmixHelper(sender *gateway.Sender,
 			result, err := comms.SendPutManyMessages(
 				host, wrappedMessage, timeout)
 			if err != nil {
-				err := handlePutMessageError(firstGateway, instance,
-					session, nodeRegistration, recipientString, bestRound, err)
+				err := handlePutMessageError(firstGateway, registrar,
+					recipientString, bestRound, err)
 				return result, errors.WithMessagef(err,
 					"SendManyCMIX %s (via %s): %s",
 					target, host, unrecoverableError)
@@ -215,7 +219,6 @@ func sendManyCmixHelper(sender *gateway.Sender,
 				"in round %d", param.DebugTag, ephemeralIDsString, recipientString, bestRound.ID)
 			jww.INFO.Print(m)
 			events.Report(1, "MessageSendMany", "Metric", m)
-			trackNetworkRateLimit(uint32(len(msgs)), session)
 			return id.Round(bestRound.ID), ephemeralIDs, nil
 		} else {
 			jww.FATAL.Panicf("Gateway %s returned no error, but failed to "+

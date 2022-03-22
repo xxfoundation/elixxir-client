@@ -74,7 +74,7 @@ type pickup struct {
 	rateLimitParams utility.BucketParamStore
 }
 
-func NewManager(param params.Network,
+func NewPickup(param params.Network,
 	nodeRegistration chan network.NodeGateway, sender *gateway.Sender,
 	session *storage.Session, rng *fastRNG.StreamGenerator,
 	events interfaces.EventManager, comms network2.SendCmixCommsInterface,

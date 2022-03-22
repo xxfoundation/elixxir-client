@@ -77,7 +77,7 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	m := NewManager(i, params.Network{Messages: params.Messages{
+	m := NewPickup(i, params.Network{Messages: params.Messages{
 		MessageReceptionBuffLen:        20,
 		MessageReceptionWorkerPoolSize: 20,
 		MaxChecksInProcessMessage:      20,

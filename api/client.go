@@ -593,7 +593,7 @@ func (c *Client) GetErrorsChannel() <-chan interfaces.ClientError {
 //		Requests all messages in a given round from the gateway of the last nodes
 //	 - Message Handling Worker Group (/network/message/handle.go)
 //		Decrypts and partitions messages when signals via the Switchboard
-//	 - Health Tracker (/network/health)
+//	 - health Tracker (/network/health)
 //		Via the network instance tracks the state of the network
 //	 - Garbled Messages (/network/message/garbled.go)
 //		Can be signaled to check all recent messages which could be be decoded

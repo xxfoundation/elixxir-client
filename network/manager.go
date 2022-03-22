@@ -21,13 +21,11 @@ import (
 	"gitlab.com/elixxir/client/network/ephemeral"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/health"
-	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/network/rounds"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
 	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -49,17 +47,27 @@ const fakeIdentityRange = 800
 // controls access to network resources and implements all the communications
 // functions used by the client.
 type manager struct {
+	//User Identity Storage
+	session *storage.Session
+	//generic RNG for client
+	rng *fastRNG.StreamGenerator
+	// comms pointer to send/recv messages
+	comms *client.Comms
+	//contains the health tracker which keeps track of if from the client's
+	//perspective, the network is in good condition
+	health *health.Tracker
+	//contains the network instance
+	instance *commNetwork.Instance
+
 	// parameters of the network
 	param params.Network
 	// handles message sending
 	sender *gateway.Sender
 
-	//Shared data with all sub managers
-	internal.Internal
-
 	//sub-managers
-	round   *rounds.Manager
-	message *message.manager
+	message.Pickup
+	nodes.Registrar
+	round *rounds.Manager
 
 	// Earliest tracked round
 	earliestRound *uint64
@@ -78,7 +86,7 @@ type manager struct {
 }
 
 // NewManager builds a new reception manager object using inputted key fields
-func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
+func NewManager(session *storage.Session,
 	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
 	comms *client.Comms, params params.Network,
 	ndf *ndf.NetworkDefinition) (interfaces.NetworkManager, error) {
@@ -90,11 +98,6 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 			" client network manager")
 	}
 
-	// Note: These are not loaded/stored in E2E Store, but the
-	// E2E Session Params are a part of the network parameters, so we
-	// set them here when they are needed on startup
-	session.E2e().SetE2ESessionParams(params.E2EParams)
-
 	tracker := uint64(0)
 	earliest := uint64(0)
 	// create manager object
@@ -104,6 +107,11 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		addrSpace:     ephemeral.NewAddressSpace(),
 		events:        events,
 		earliestRound: &earliest,
+		session:       session,
+		rng:           rng,
+		comms:         comms,
+		health:        health.Init(instance, params.NetworkHealthTimeout),
+		instance:      instance,
 	}
 	m.addrSpace.Update(18)
 
@@ -111,21 +119,9 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		m.verboseRounds = NewRoundTracker()
 	}
 
-	m.Internal = internal.Internal{
-		Session:          session,
-		Switchboard:      switchboard,
-		Rng:              rng,
-		Comms:            comms,
-		Health:           health.Init(instance, params.NetworkHealthTimeout),
-		NodeRegistration: make(chan commNetwork.NodeGateway, params.RegNodesBufferLen),
-		Instance:         instance,
-		TransmissionID:   session.User().GetCryptographicIdentity().GetTransmissionID(),
-		ReceptionID:      session.User().GetCryptographicIdentity().GetReceptionID(),
-		Events:           events,
-	}
+	/* set up modules */
 
-	// Set up nodes registration chan for network instance
-	m.Instance.SetAddGatewayChan(m.NodeRegistration)
+	nodechan := make(chan commNetwork.NodeGateway, nodes.InputChanLen)
 
 	// Set up gateway.Sender
 	poolParams := gateway.DefaultPoolParams()
@@ -135,20 +131,32 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	poolParams.MaxPings = 50
 	poolParams.ForceConnection = true
 	m.sender, err = gateway.NewSender(poolParams, rng,
-		ndf, comms, session, m.NodeRegistration)
+		ndf, comms, session, nodechan)
 	if err != nil {
 		return nil, err
 	}
 
+	//setup the node registrar
+	m.Registrar, err = nodes.LoadRegistrar(session, m.sender, m.comms, m.rng, nodechan)
+	if err != nil {
+		return nil, err
+	}
+
+	//set up round handler
+	m.round = rounds.NewManager(m.Internal, m.param.Rounds, m.Pickup.GetMessageReceptionChannel(), m.sender)
+
+	//Set up Message Pickup
+	m.Pickup = message.NewPickup(params, nodechan, m.sender, m.session, m.rng,
+		m.events, m.comms, m.Registrar, m.instance)
+
+	// Set upthe ability to register with new nodes when they appear
+	m.instance.SetAddGatewayChan(nodechan)
+
 	// Report health events
-	m.Internal.Health.AddFunc(func(isHealthy bool) {
-		m.Internal.Events.Report(5, "Health", "IsHealthy",
+	m.health.AddFunc(func(isHealthy bool) {
+		m.events.Report(5, "health", "IsHealthy",
 			fmt.Sprintf("%v", isHealthy))
 	})
-
-	//create sub managers
-	m.message = message.NewManager(m.Internal, m.param, m.NodeRegistration, m.sender)
-	m.round = rounds.NewManager(m.Internal, m.param.Rounds, m.message.GetMessageReceptionChannel(), m.sender)
 
 	return &m, nil
 }
@@ -159,7 +167,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 //   - Historical Round Retrieval (/network/rounds/historical.go)
 //	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
 //	 - Message Handling Worker Group (/network/message/handle.go)
-//	 - Health Tracker (/network/health)
+//	 - health Tracker (/network/health)
 //	 - Garbled Messages (/network/message/inProgress.go)
 //	 - Critical Messages (/network/message/critical.go)
 //   - Ephemeral ID tracking (network/ephemeral/tracker.go)
@@ -167,17 +175,15 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	multi := stoppable.NewMulti("networkManager")
 
 	// health tracker
-	healthStop, err := m.Health.Start()
+	healthStop, err := m.health.Start()
 	if err != nil {
 		return nil, errors.Errorf("failed to follow")
 	}
 	multi.Add(healthStop)
 
 	// Node Updates
-	multi.Add(nodes.StartRegistration(m.GetSender(), m.Session, m.Rng,
-		m.Comms, m.NodeRegistration, m.param.ParallelNodeRegistrations)) // Adding/MixCypher
-	//TODO-remover
-	//m.runners.AddFingerprint(StartNodeRemover(m.Context))        // Removing
+	multi.Add(m.Registrar.StartProcesses(m.param.ParallelNodeRegistrations)) // Adding/MixCypher
+	//TODO-node remover
 
 	// Start the Network Tracker
 	trackNetworkStopper := stoppable.NewSingle("TrackNetwork")
@@ -185,12 +191,12 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	multi.Add(trackNetworkStopper)
 
 	// Message reception
-	multi.Add(m.message.StartProcessies())
+	multi.Add(m.Pickup.StartProcessies())
 
 	// Round processing
 	multi.Add(m.round.StartProcessors())
 
-	multi.Add(ephemeral.Track(m.Session, m.addrSpace, m.ReceptionID))
+	multi.Add(ephemeral.Track(m.session, m.addrSpace, m.ReceptionID))
 
 	return multi, nil
 }
@@ -202,30 +208,17 @@ func (m *manager) GetEventManager() interfaces.EventManager {
 
 // GetHealthTracker returns the health tracker
 func (m *manager) GetHealthTracker() interfaces.HealthTracker {
-	return m.Health
+	return m.health
 }
 
 // GetInstance returns the network instance object (ndf state)
 func (m *manager) GetInstance() *commNetwork.Instance {
-	return m.Instance
+	return m.instance
 }
 
 // GetSender returns the gateway.Sender object
 func (m *manager) GetSender() *gateway.Sender {
 	return m.sender
-}
-
-// CheckGarbledMessages triggers a check on garbled messages to see if they can be decrypted
-// this should be done when a new e2e client is added in case messages were
-// received early or arrived out of order
-func (m *manager) CheckGarbledMessages() {
-	m.message.CheckGarbledMessages()
-}
-
-// InProgressRegistrations returns an approximation of the number of in progress
-// nodes registrations.
-func (m *manager) InProgressRegistrations() int {
-	return len(m.Internal.NodeRegistration)
 }
 
 // GetAddressSize returns the current address space size. It blocks until an

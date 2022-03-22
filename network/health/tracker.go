@@ -145,7 +145,7 @@ func (t *Tracker) Start() (stoppable.Stoppable, error) {
 	t.mux.Lock()
 	if t.running {
 		t.mux.Unlock()
-		return nil, errors.New("cannot start Health tracker threads, " +
+		return nil, errors.New("cannot start health tracker threads, " +
 			"they are already running")
 	}
 	t.running = true
@@ -153,7 +153,7 @@ func (t *Tracker) Start() (stoppable.Stoppable, error) {
 	t.isHealthy = false
 	t.mux.Unlock()
 
-	stop := stoppable.NewSingle("Health Tracker")
+	stop := stoppable.NewSingle("health Tracker")
 
 	go t.start(stop)
 
@@ -197,7 +197,7 @@ func (t *Tracker) transmit(health bool) {
 		select {
 		case c <- health:
 		default:
-			jww.DEBUG.Printf("Unable to send Health event")
+			jww.DEBUG.Printf("Unable to send health event")
 		}
 	}
 

@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/network"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -22,7 +21,6 @@ type Internal struct {
 	Session     *storage.Session
 	Switchboard *switchboard.Switchboard
 	//generic RNG for client
-	Rng *fastRNG.StreamGenerator
 
 	// Comms pointer to send/recv messages
 	Comms *client.Comms

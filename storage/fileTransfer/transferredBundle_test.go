@@ -137,7 +137,7 @@ func Test_transferredBundle_getNumParts(t *testing.T) {
 		}
 	}
 
-	// Get number of parts
+	// get number of parts
 	receivedNumParts := tb.getNumParts()
 
 	if expectedNumParts != receivedNumParts {

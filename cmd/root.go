@@ -191,7 +191,7 @@ var rootCmd = &cobra.Command{
 		jww.INFO.Printf("User: %s", user.ReceptionID)
 		writeContact(user.GetContact())
 
-		// Get Recipient and/or set it to myself
+		// get Recipient and/or set it to myself
 		isPrecanPartner := false
 		recipientContact := readContact()
 		recipientID := recipientContact.ID

@@ -629,7 +629,7 @@ func TestSentFileTransfersStore_saveTransfersList_loadTransfersList(t *testing.T
 		t.Errorf("saveTransfersList returned an error: %+v", err)
 	}
 
-	// Get list from storage
+	// get list from storage
 	list, err := sft.loadTransfersList()
 	if err != nil {
 		t.Errorf("loadTransfersList returned an error: %+v", err)

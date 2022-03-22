@@ -460,7 +460,7 @@ func (st *SentTransfer) GetEncryptedPart(partNum uint16, contentsSize int) (encP
 		return nil, nil, format.Fingerprint{}, MaxRetriesErr
 	}
 
-	// Get next unused fingerprint number and mark it as used
+	// get next unused fingerprint number and mark it as used
 	nextKey, err := st.fpVector.Next()
 	if err != nil {
 		return nil, nil, format.Fingerprint{},
@@ -517,7 +517,7 @@ func (st *SentTransfer) UnsetInProgress(rid id.Round) ([]uint16, error) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 
-	// Get the list of part numbers to be removed from list
+	// get the list of part numbers to be removed from list
 	partNums, _ := st.inProgressTransfers.getPartNums(rid)
 
 	// The part status is set in partStats before the parts and round ID so that
@@ -544,7 +544,7 @@ func (st *SentTransfer) FinishTransfer(rid id.Round) (bool, error) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 
-	// Get the parts in-progress for the round ID or return an error if none
+	// get the parts in-progress for the round ID or return an error if none
 	// exist
 	partNums, exists := st.inProgressTransfers.getPartNums(rid)
 	if !exists {
@@ -585,7 +585,7 @@ func (st *SentTransfer) GetUnsentPartNums() ([]uint16, error) {
 	st.mux.RLock()
 	defer st.mux.RUnlock()
 
-	// Get list of parts with a status of unsent
+	// get list of parts with a status of unsent
 	unsentPartNums, err := st.partStats.GetKeys(unsent)
 	if err != nil {
 		return nil, errors.Errorf(getUnsentPartsErr, err)

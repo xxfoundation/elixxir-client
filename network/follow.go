@@ -13,9 +13,9 @@ package network
 //   3. Node addition and removal
 // This information is tracked by polling a gateway for the network definition
 // file (NDF). Once it detects an event it sends it off to the proper channel
-// for a worker to update the client state (add/remove a node, check for
+// for a worker to update the client state (add/remove a nodes, check for
 // messages at a gateway, etc). See:
-//   - /node/register.go for add/remove node events
+//   - /nodes/register.go for add/remove nodes events
 //   - /rounds/historical.go for old round retrieval
 //   - /rounds/retrieve.go for message retrieval
 //   - /message/handle.go decryption, partitioning, and signaling of messages
@@ -111,7 +111,7 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport,
 func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	comms followNetworkComms, stop *stoppable.Single, abandon func(round id.Round)) {
 
-	//Get the identity we will poll for
+	//get the identity we will poll for
 	identity, err := m.Session.Reception().GetIdentity(rng, m.addrSpace.GetWithoutWait())
 	if err != nil {
 		jww.FATAL.Panicf("Failed to get an identity, this should be "+
@@ -130,7 +130,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 
 	atomic.AddUint64(m.tracker, 1)
 
-	// Get client version for poll
+	// get client version for poll
 	version := m.Session.GetClientVersion()
 
 	// Poll network updates
@@ -187,7 +187,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	}
 
 	// ---- Node Events ----
-	// NOTE: this updates the structure, AND sends events over the node
+	// NOTE: this updates the structure, AND sends events over the nodes
 	//       update channels about new and removed nodes
 	if pollResp.PartialNDF != nil {
 		err = m.Instance.UpdatePartialNdf(pollResp.PartialNDF)

@@ -21,7 +21,7 @@ type Network struct {
 	// Longest delay between network events for Health tracker to denote that
 	// the network is in a bad state
 	NetworkHealthTimeout time.Duration
-	//Number of parallel node registration the client is capable of
+	//Number of parallel nodes registration the client is capable of
 	ParallelNodeRegistrations uint
 	//How far back in rounds the network should actually check
 	KnownRoundsThreshold uint

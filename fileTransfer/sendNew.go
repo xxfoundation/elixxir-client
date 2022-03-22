@@ -34,7 +34,7 @@ func (m *Manager) sendNewFileTransfer(recipient *id.ID, fileName,
 		return errors.Errorf(newFtProtoMarshalErr, err)
 	}
 
-	// Get partner relationship so that the silent preimage can be generated
+	// get partner relationship so that the silent preimage can be generated
 	relationship, err := m.store.E2e().GetPartner(recipient)
 	if err != nil {
 		return err

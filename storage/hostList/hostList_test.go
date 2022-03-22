@@ -55,7 +55,7 @@ func TestStore_Store_Get(t *testing.T) {
 
 	newList, err := s.Get()
 	if err != nil {
-		t.Errorf("Get returned an error: %+v", err)
+		t.Errorf("get returned an error: %+v", err)
 	}
 
 	if !reflect.DeepEqual(list, newList) {
@@ -72,7 +72,7 @@ func TestStore_Get_StorageError(t *testing.T) {
 
 	_, err := s.Get()
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("Get failed to return the expected error."+
+		t.Errorf("get failed to return the expected error."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }

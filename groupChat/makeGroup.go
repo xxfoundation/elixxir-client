@@ -158,7 +158,7 @@ func (m Manager) buildMembership(members []*id.ID) (group.Membership,
 func getPreimages(streamGen *fastRNG.StreamGenerator) (group.IdPreimage,
 	group.KeyPreimage, error) {
 
-	// Get new stream and defer its close
+	// get new stream and defer its close
 	rng := streamGen.GetStream()
 	defer rng.Close()
 

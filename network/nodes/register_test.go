@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package node
+package nodes
 
 import (
 	//"crypto/rand"

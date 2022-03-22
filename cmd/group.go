@@ -63,7 +63,7 @@ var groupCmd = &cobra.Command{
 			jww.INFO.Printf("Registering with nodes (%d/%d)...", numReg, total)
 		}
 
-		// Get group message and name
+		// get group message and name
 		msgBody := []byte(viper.GetString("message"))
 		name := []byte(viper.GetString("name"))
 		timeout := viper.GetDuration("receiveTimeout")

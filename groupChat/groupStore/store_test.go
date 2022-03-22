@@ -440,11 +440,11 @@ func TestStore_Get(t *testing.T) {
 	// Attempt to get group
 	retrieved, exists := store.Get(grp.ID)
 	if !exists {
-		t.Errorf("Get failed to return the expected group: %#v", grp)
+		t.Errorf("get failed to return the expected group: %#v", grp)
 	}
 
 	if !reflect.DeepEqual(grp, retrieved) {
-		t.Errorf("Get did not return the expected group."+
+		t.Errorf("get did not return the expected group."+
 			"\nexpected: %#v\nreceived: %#v", grp, retrieved)
 	}
 }
@@ -462,7 +462,7 @@ func TestStore_Get_NoGroupError(t *testing.T) {
 	// Attempt to get group
 	retrieved, exists := store.Get(id.NewIdFromString("testID", id.Group, t))
 	if exists {
-		t.Errorf("Get returned a group that should not exist: %#v", retrieved)
+		t.Errorf("get returned a group that should not exist: %#v", retrieved)
 	}
 }
 
@@ -483,7 +483,7 @@ func TestStore_GetByKeyFp(t *testing.T) {
 		t.Fatalf("Failed to add group: %+v", err)
 	}
 
-	// Get group by fingerprint
+	// get group by fingerprint
 	salt := newSalt(groupSalt)
 	generatedFP := group.NewKeyFingerprint(grp.Key, salt, store.user.ID)
 	retrieved, exists := store.GetByKeyFp(generatedFP, salt)
@@ -510,7 +510,7 @@ func TestStore_GetByKeyFp_NoGroupError(t *testing.T) {
 		t.Fatalf("Failed to make new Store: %+v", err)
 	}
 
-	// Get group by fingerprint
+	// get group by fingerprint
 	grp := createTestGroup(prng, t)
 	salt := newSalt(groupSalt)
 	generatedFP := group.NewKeyFingerprint(grp.Key, salt, store.user.ID)

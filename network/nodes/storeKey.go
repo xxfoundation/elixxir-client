@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package cmix
+package nodes
 
 import (
 	"bytes"
@@ -43,12 +43,12 @@ func newKey(kv *versioned.KV, k *cyclic.Int, id *id.ID, validUntil uint64, keyId
 	return nk
 }
 
-// returns the cyclic key
-func (k *key) Get() *cyclic.Int {
+// get returns the cyclic key
+func (k *key) get() *cyclic.Int {
 	return k.k
 }
 
-// loads the key for the given node id from the versioned keystore
+// loads the key for the given nodes id from the versioned keystore
 func loadKey(kv *versioned.KV, id *id.ID) (*key, error) {
 	k := &key{}
 
@@ -68,7 +68,7 @@ func loadKey(kv *versioned.KV, id *id.ID) (*key, error) {
 	return k, nil
 }
 
-// saves the key as the key for the given node ID in the passed keystore
+// saves the key as the key for the given nodes ID in the passed keystore
 func (k *key) save() error {
 	now := netTime.Now()
 
@@ -129,7 +129,7 @@ func (k *key) marshal() ([]byte, error) {
 func (k *key) unmarshal(b []byte) error {
 	buff := bytes.NewBuffer(b)
 
-	// Get the key length
+	// get the key length
 	keyLen := int(binary.LittleEndian.Uint64(buff.Next(8)))
 
 	// Decode the key length
@@ -139,11 +139,11 @@ func (k *key) unmarshal(b []byte) error {
 		return err
 	}
 
-	// Get the keyID length
+	// get the keyID length
 	keyIDLen := int(binary.LittleEndian.Uint64(buff.Next(8)))
 	k.keyId = buff.Next(keyIDLen)
 
-	// Get the valid until value
+	// get the valid until value
 	k.validUntil = binary.LittleEndian.Uint64(buff.Next(8))
 
 	return nil

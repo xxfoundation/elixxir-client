@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package node
+package nodes
 
 import (
 	"crypto/sha256"
@@ -15,14 +15,11 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/cmix"
 	"gitlab.com/elixxir/client/storage/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/xx_network/comms/connect"
@@ -39,46 +36,13 @@ import (
 	"time"
 )
 
-const maxAttempts = 5
-
-var delayTable = [5]time.Duration{0, 5 * time.Second, 30 * time.Second, 60 * time.Second, 120 * time.Second}
-
-type RegisterNodeCommsInterface interface {
-	SendRequestClientKeyMessage(host *connect.Host,
-		message *pb.SignedClientKeyRequest) (*pb.SignedKeyResponse, error)
-}
-
-func StartRegistration(sender *gateway.Sender, session *storage.Session, rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
-	c chan network.NodeGateway, numParallel uint) stoppable.Stoppable {
-
-	multi := stoppable.NewMulti("NodeRegistrations")
-
-	inProgess := &sync.Map{}
-	// we are relying on the in progress check to
-	// ensure there is only a single operator at a time, as a result this is a map of ID -> int
-	attempts := &sync.Map{}
-
-	for i := uint(0); i < numParallel; i++ {
-		stop := stoppable.NewSingle(fmt.Sprintf("NodeRegistration %d", i))
-
-		go registerNodes(sender, session, rngGen, comms, stop, c, inProgess, attempts)
-		multi.Add(stop)
-	}
-
-	return multi
-}
-
-func registerNodes(sender *gateway.Sender, session *storage.Session,
-	rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
-	stop *stoppable.Single, c chan network.NodeGateway, inProgress, attempts *sync.Map) {
-	u := session.User()
+func registerNodes(r *registrar, stop *stoppable.Single, inProgress, attempts *sync.Map) {
+	u := r.session.User()
 	regSignature := u.GetTransmissionRegistrationValidationSignature()
 	// Timestamp in which user has registered with registration
 	regTimestamp := u.GetRegistrationTimestamp().UnixNano()
 	uci := u.GetCryptographicIdentity()
-	cmix := session.Cmix()
 
-	rng := rngGen.GetStream()
 	interval := time.Duration(500) * time.Millisecond
 	t := time.NewTicker(interval)
 	for {
@@ -87,7 +51,8 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 			t.Stop()
 			stop.ToStopped()
 			return
-		case gw := <-c:
+		case gw := <-r.c:
+			rng := r.rng.GetStream()
 			nidStr := fmt.Sprintf("%x", gw.Node.ID)
 			if _, operating := inProgress.LoadOrStore(nidStr, struct{}{}); operating {
 				continue
@@ -102,23 +67,24 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 
 			// No need to register with stale nodes
 			if isStale := gw.Node.Status == ndf.Stale; isStale {
-				jww.DEBUG.Printf("Skipping registration with stale node %s", nidStr)
+				jww.DEBUG.Printf("Skipping registration with stale nodes %s", nidStr)
 				continue
 			}
-			err := registerWithNode(sender, comms, gw, regSignature,
-				regTimestamp, uci, cmix, rng, stop)
+			err := registerWithNode(r.sender, r.comms, gw, regSignature,
+				regTimestamp, uci, r, rng, stop)
 			inProgress.Delete(nidStr)
 			if err != nil {
-				jww.ERROR.Printf("Failed to register node: %+v", err)
+				jww.ERROR.Printf("Failed to register nodes: %+v", err)
 				//if we have not reached the attempt limit for this gateway, send it back into the channel to retry
 				if numAttempts < maxAttempts {
 					go func() {
 						//delay the send for a backoff
 						time.Sleep(delayTable[numAttempts-1])
-						c <- gw
+						r.c <- gw
 					}()
 				}
 			}
+			rng.Close()
 		case <-t.C:
 		}
 	}
@@ -128,7 +94,7 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 // It registers a user with a specific in the client's ndf.
 func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	ngw network.NodeGateway, regSig []byte, registrationTimestampNano int64,
-	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source,
+	uci *user.CryptographicIdentity, r *registrar, rng csprng.Source,
 	stop *stoppable.Single) error {
 
 	nodeID, err := ngw.Node.GetNodeId()
@@ -137,11 +103,11 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 		return err
 	}
 
-	if store.IsRegistered(nodeID) {
+	if r.Has(nodeID) {
 		return nil
 	}
 
-	jww.INFO.Printf("registerWithNode() begin registration with node: %s", nodeID)
+	jww.INFO.Printf("registerWithNode() begin registration with nodes: %s", nodeID)
 
 	var transmissionKey *cyclic.Int
 	var validUntil uint64
@@ -153,12 +119,12 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 		h.Reset()
 		h.Write([]byte(strconv.Itoa(4000 + userNum)))
 
-		transmissionKey = store.GetGroup().NewIntFromBytes(h.Sum(nil))
+		transmissionKey = r.session.GetCmixGroup().NewIntFromBytes(h.Sum(nil))
 		jww.INFO.Printf("transmissionKey: %v", transmissionKey.Bytes())
 	} else {
 		// Request key from server
 		transmissionKey, keyId, validUntil, err = requestKey(sender, comms, ngw, regSig,
-			registrationTimestampNano, uci, store, rng, stop)
+			registrationTimestampNano, uci, r, rng, stop)
 
 		if err != nil {
 			return errors.Errorf("Failed to request key: %+v", err)
@@ -166,24 +132,24 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 
 	}
 
-	store.Add(nodeID, transmissionKey, validUntil, keyId)
+	r.add(nodeID, transmissionKey, validUntil, keyId)
 
-	jww.INFO.Printf("Completed registration with node %s", nodeID)
+	jww.INFO.Printf("Completed registration with nodes %s", nodeID)
 
 	return nil
 }
 
 func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	ngw network.NodeGateway, regSig []byte, registrationTimestampNano int64,
-	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source,
+	uci *user.CryptographicIdentity, r *registrar, rng csprng.Source,
 	stop *stoppable.Single) (*cyclic.Int, []byte, uint64, error) {
 
-	grp := store.GetGroup()
+	grp := r.session.GetCmixGroup()
 
 	// FIXME: Why 256 bits? -- this is spec but not explained, it has
 	// to do with optimizing operations on one side and still preserves
 	// decent security -- cite this.
-	dhPrivBytes, err := csprng.GenerateInGroup(store.GetGroup().GetPBytes(), 256, rng)
+	dhPrivBytes, err := csprng.GenerateInGroup(grp.GetPBytes(), 256, rng)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -269,23 +235,23 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	h.Write(signedKeyResponse.KeyResponse)
 	hashedResponse := h.Sum(nil)
 
-	// Load node certificate
+	// Load nodes certificate
 	gatewayCert, err := tls.LoadCertificate(ngw.Gateway.TlsCertificate)
 	if err != nil {
-		return nil, nil, 0, errors.WithMessagef(err, "Unable to load node's certificate")
+		return nil, nil, 0, errors.WithMessagef(err, "Unable to load nodes's certificate")
 	}
 
 	// Extract public key
 	nodePubKey, err := tls.ExtractPublicKey(gatewayCert)
 	if err != nil {
-		return nil, nil, 0, errors.WithMessagef(err, "Unable to load node's public key")
+		return nil, nil, 0, errors.WithMessagef(err, "Unable to load nodes's public key")
 	}
 
 	// Verify the response signature
 	err = rsa.Verify(nodePubKey, opts.Hash, hashedResponse,
 		signedKeyResponse.KeyResponseSignedByGateway.Signature, opts)
 	if err != nil {
-		return nil, nil, 0, errors.WithMessagef(err, "Could not verify node's signature")
+		return nil, nil, 0, errors.WithMessagef(err, "Could not verify nodes's signature")
 	}
 
 	// Unmarshal the response
@@ -318,7 +284,7 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	}
 
 	// Construct the transmission key from the client key
-	transmissionKey := store.GetGroup().NewIntFromBytes(clientKey)
+	transmissionKey := grp.NewIntFromBytes(clientKey)
 
 	// Use Client keypair to sign Server nonce
 	return transmissionKey, keyResponse.KeyID, keyResponse.ValidUntil, nil

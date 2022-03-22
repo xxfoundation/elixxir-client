@@ -48,7 +48,7 @@ type HostManager interface {
 // Filter filters out IDs from the provided map based on criteria in the NDF.
 // The passed in map is a map of the NDF for easier acesss.  The map is ID -> index in the NDF
 // There is no multithreading, the filter function can either edit the passed map or make a new one
-// and return it.  The general pattern is to loop through the map, then look up data about the node
+// and return it.  The general pattern is to loop through the map, then look up data about the nodes
 // in the ndf to make a filtering decision, then add them to a new map if they are accepted.
 type Filter func(map[id.ID]int, *ndf.NetworkDefinition) map[id.ID]int
 
@@ -140,7 +140,7 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 		return nil, err
 	}
 
-	// Get the last used list of hosts and use it to seed the host pool list
+	// get the last used list of hosts and use it to seed the host pool list
 	hostList, err := storage.HostList().Get()
 	numHostsAdded := 0
 	if err == nil {
@@ -491,7 +491,7 @@ func (h *HostPool) selectGateway() *id.ID {
 		nodeNdfIdx := h.ndfMap[*nodeId]
 		isNodeStale := h.ndf.Nodes[nodeNdfIdx].Status == ndf.Stale
 		if isNodeStale {
-			jww.DEBUG.Printf("Ignoring stale node: %s", nodeId.String())
+			jww.DEBUG.Printf("Ignoring stale nodes: %s", nodeId.String())
 			continue
 		}
 

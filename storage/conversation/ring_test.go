@@ -176,12 +176,12 @@ func TestBuff_Get(t *testing.T) {
 		id:        0,
 	}
 
-	// Retrieve newly inserted value using Get()
+	// Retrieve newly inserted value using get()
 	received := testBuff.Get()
 
 	// Check that retrieved value is expected
 	if !reflect.DeepEqual(received, expected) {
-		t.Fatalf("Get() did not retrieve expected value."+
+		t.Fatalf("get() did not retrieve expected value."+
 			"\n\tExpected: %v"+
 			"\n\tReceived: %v", expected, received)
 	}
@@ -200,9 +200,9 @@ func TestBuff_Get(t *testing.T) {
 		t.Fatalf("Add error: %v", err)
 	}
 
-	// Ensure newly inserted message is returned by Get()
+	// Ensure newly inserted message is returned by get()
 	if !reflect.DeepEqual(testBuff.Get(), newlyInserted) {
-		t.Fatalf("Get() did not retrieve expected value."+
+		t.Fatalf("get() did not retrieve expected value."+
 			"\n\tExpected: %v"+
 			"\n\tReceived: %v", expected, received)
 	}

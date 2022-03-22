@@ -54,7 +54,7 @@ func (m *Manager) sendThread(stop *stoppable.Single) {
 			nextSendChanPtr = &(m.randomTimer().C)
 
 			go func() {
-				// Get list of random messages and recipients
+				// get list of random messages and recipients
 				rng := m.rng.GetStream()
 				msgs, err := m.newRandomMessages(rng)
 				if err != nil {

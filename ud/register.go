@@ -81,7 +81,7 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 		FactSig: signedFact,
 	}
 
-	// Get UD host
+	// get UD host
 	host, err := m.getHost()
 	if err != nil {
 		return err

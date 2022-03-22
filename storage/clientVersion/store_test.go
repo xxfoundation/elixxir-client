@@ -95,7 +95,7 @@ func TestStore_Get(t *testing.T) {
 
 	test := s.Get()
 	if !reflect.DeepEqual(expected, test) {
-		t.Errorf("Get() failed to return the expected version."+
+		t.Errorf("get() failed to return the expected version."+
 			"\nexpected: %s\nreceived: %s", &expected, &test)
 	}
 }

@@ -169,7 +169,7 @@ func TestSender_SendToPreferred(t *testing.T) {
 		t.Errorf("ForceReplace error: Failed to disconnect from old host %s", preferredHost)
 	}
 
-	// Get a new host to test on
+	// get a new host to test on
 	preferredIndex = 4
 	preferredHost = sender.hostList[preferredIndex]
 

@@ -224,7 +224,7 @@ func LoadReceivedFileTransfersStore(kv *versioned.KV) (
 		kv:        kv.Prefix(receivedFileTransfersStorePrefix),
 	}
 
-	// Get the list of transfer IDs corresponding to each received transfer from
+	// get the list of transfer IDs corresponding to each received transfer from
 	// storage
 	transfersList, err := rft.loadTransfersList()
 	if err != nil {
@@ -289,7 +289,7 @@ func (rft *ReceivedFileTransfersStore) saveTransfersList() error {
 // received transfer from storage.
 func (rft *ReceivedFileTransfersStore) loadTransfersList() (
 	[]ftCrypto.TransferID, error) {
-	// Get transfers list from storage
+	// get transfers list from storage
 	vo, err := rft.kv.Get(
 		receivedFileTransfersStoreKey, receivedFileTransfersStoreVersion)
 	if err != nil {

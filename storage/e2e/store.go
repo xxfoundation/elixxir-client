@@ -231,7 +231,7 @@ func (s *Store) GetPartnerContact(partnerID *id.ID) (contact.Contact, error) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 
-	// Get partner
+	// get partner
 	m, exists := s.managers[*partnerID]
 	if !exists {
 		return contact.Contact{}, errors.New(NoPartnerErrorStr)

@@ -180,13 +180,13 @@ func DeserializeGroup(data []byte) (Group, error) {
 	var g Group
 	var err error
 
-	// Get name
+	// get name
 	nameLen := binary.LittleEndian.Uint64(buff.Next(8))
 	if nameLen > 0 {
 		g.Name = buff.Next(int(nameLen))
 	}
 
-	// Get group ID
+	// get group ID
 	var groupID id.ID
 	copy(groupID[:], buff.Next(id.ArrIDLen))
 	if groupID == [id.ArrIDLen]byte{} {
@@ -195,18 +195,18 @@ func DeserializeGroup(data []byte) (Group, error) {
 		g.ID = &groupID
 	}
 
-	// Get group key and preimages
+	// get group key and preimages
 	copy(g.Key[:], buff.Next(group.KeyLen))
 	copy(g.IdPreimage[:], buff.Next(group.IdPreimageLen))
 	copy(g.KeyPreimage[:], buff.Next(group.KeyPreimageLen))
 
-	// Get InitMessage
+	// get InitMessage
 	initMessageLength := binary.LittleEndian.Uint64(buff.Next(8))
 	if initMessageLength > 0 {
 		g.InitMessage = buff.Next(int(initMessageLength))
 	}
 
-	// Get created timestamp
+	// get created timestamp
 	createdNano := int64(binary.LittleEndian.Uint64(buff.Next(8)))
 	if createdNano == (time.Time{}).UnixNano() {
 		g.Created = time.Time{}
@@ -214,14 +214,14 @@ func DeserializeGroup(data []byte) (Group, error) {
 		g.Created = time.Unix(0, createdNano)
 	}
 
-	// Get member list
+	// get member list
 	membersLength := binary.LittleEndian.Uint64(buff.Next(8))
 	g.Members, err = group.DeserializeMembership(buff.Next(int(membersLength)))
 	if err != nil {
 		return Group{}, errors.Errorf(membershipErr, err)
 	}
 
-	// Get DH key list
+	// get DH key list
 	g.DhKeys, err = DeserializeDhKeyList(buff.Bytes())
 	if err != nil {
 		return Group{}, errors.Errorf(dhKeyListErr, err)

@@ -1009,7 +1009,7 @@ func TestManager_getPartSize(t *testing.T) {
 	filePartMsgUsedLen := ftStorage.FmMinSize
 	expected := 2*primeByteLen - cmixMsgUsedLen - filePartMsgUsedLen - 1
 
-	// Get the part size
+	// get the part size
 	partSize, err := m.getPartSize()
 	if err != nil {
 		t.Errorf("GetPartSize returned an error: %+v", err)

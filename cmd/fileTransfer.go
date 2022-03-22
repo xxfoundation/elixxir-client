@@ -62,7 +62,7 @@ var ftCmd = &cobra.Command{
 
 			numReg, total, err = client.GetNodeRegistrationStatus()
 			if err != nil {
-				jww.FATAL.Panicf("Failed to get node registration status: %+v",
+				jww.FATAL.Panicf("Failed to get nodes registration status: %+v",
 					err)
 			}
 
@@ -170,13 +170,13 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 	recipientContactPath string, retry float32, m *ft.Manager,
 	done chan struct{}) {
 
-	// Get file from path
+	// get file from path
 	fileData, err := utils.ReadFile(filePath)
 	if err != nil {
 		jww.FATAL.Panicf("[FT] Failed to read file %q: %+v", filePath, err)
 	}
 
-	// Get file preview from path
+	// get file preview from path
 	filePreviewData := []byte(filePreviewString)
 	if filePreviewPath != "" {
 		filePreviewData, err = utils.ReadFile(filePreviewPath)
@@ -192,7 +192,7 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 		fileName = fileName[:ft.FileNameMaxLen]
 	}
 
-	// Get recipient contact from file
+	// get recipient contact from file
 	recipient := getContactFromFile(recipientContactPath)
 
 	jww.INFO.Printf("[FT] Going to start sending file %q to %s {type: %q, "+

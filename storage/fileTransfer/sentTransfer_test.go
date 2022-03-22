@@ -998,7 +998,7 @@ func TestSentTransfer_GetInProgress(t *testing.T) {
 			expectedPartNums[:3], err)
 	}
 
-	// Get the in-progress parts
+	// get the in-progress parts
 	receivedPartNums, exists := st.GetInProgress(rid)
 	if !exists {
 		t.Errorf("Failed to find parts for round %d that should exist.", rid)
@@ -1254,7 +1254,7 @@ func TestSentTransfer_GetSentRounds(t *testing.T) {
 		}
 	}
 
-	// Get the sent
+	// get the sent
 	sentRounds := st.GetSentRounds()
 	sort.SliceStable(sentRounds,
 		func(i, j int) bool { return sentRounds[i] < sentRounds[j] })

@@ -27,7 +27,7 @@ func TestRekey(t *testing.T) {
 	aliceSession.E2e().AddPartner(bobID, bobPubKey, alicePrivKey,
 		e2e.GetDefaultSessionParams(), e2e.GetDefaultSessionParams())
 
-	// Get Alice's manager for Bob
+	// get Alice's manager for Bob
 	bobManager, err := aliceSession.E2e().GetPartner(bobID)
 	if err != nil {
 		t.Errorf("Bob is not recognized as Alice's partner: %v", err)

@@ -42,7 +42,7 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 		m.searchResponseHandler(factMap, callback, payload, err)
 	}
 
-	// Get UD contact
+	// get UD contact
 	c, err := m.getContact()
 	if err != nil {
 		return err

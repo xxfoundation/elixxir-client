@@ -61,7 +61,7 @@ func (m *Manager) addFact(inFact fact.Fact, uid *id.ID, aFC addFactComms) (strin
 		FactSig: fSig,
 	}
 
-	// Get UD host
+	// get UD host
 	host, err := m.getHost()
 	if err != nil {
 		return "", err

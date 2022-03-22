@@ -75,7 +75,7 @@ var singleCmd = &cobra.Command{
 		// Make single-use manager and start receiving process
 		singleMng := single.NewManager(client)
 
-		// Get the tag
+		// get the tag
 		tag := viper.GetString("tag")
 
 		// Register the callback
@@ -103,7 +103,7 @@ var singleCmd = &cobra.Command{
 
 		// If the send flag is set, then send a message
 		if viper.GetBool("send") {
-			// Get message details
+			// get message details
 			payload := []byte(viper.GetString("message"))
 			partner := readSingleUseContact("contact")
 			maxMessages := uint8(viper.GetUint("maxMessages"))
@@ -260,7 +260,7 @@ func makeResponsePayloadPart(m *single.Manager, payload []byte) []byte {
 // readSingleUseContact opens the contact specified in the CLI flags. Panics if
 // no file provided or if an error occurs while reading or unmarshalling it.
 func readSingleUseContact(key string) contact.Contact {
-	// Get path
+	// get path
 	filePath := viper.GetString(key)
 	if filePath == "" {
 		jww.FATAL.Panicf("Failed to read contact file: no file path provided.")

@@ -218,7 +218,7 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 
-	// Get current client version
+	// get current client version
 	currentVersion, err := version.ParseVersion(SEMVER)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Could not parse version string.")
@@ -590,7 +590,7 @@ func (c *Client) GetErrorsChannel() <-chan interfaces.ClientError {
 //   - Historical Round Retrieval (/network/rounds/historical.go)
 //		Retrieves data about rounds which are too old to be stored by the client
 //	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
-//		Requests all messages in a given round from the gateway of the last node
+//		Requests all messages in a given round from the gateway of the last nodes
 //	 - Message Handling Worker Group (/network/message/handle.go)
 //		Decrypts and partitions messages when signals via the Switchboard
 //	 - Health Tracker (/network/health)
@@ -707,14 +707,14 @@ func (c *Client) GetRateLimitParams() (uint32, uint32, int64) {
 		rateLimitParams.LeakDuration.Nanoseconds()
 }
 
-// GetNodeRegistrationStatus gets the current state of node registration. It
+// GetNodeRegistrationStatus gets the current state of nodes registration. It
 // returns the total number of nodes in the NDF and the number of those which
 // are currently registers with. An error is returned if the network is not
 // healthy.
 func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	// Return an error if the network is not healthy
 	if !c.GetHealth().IsHealthy() {
-		return 0, 0, errors.New("Cannot get number of node registrations when " +
+		return 0, 0, errors.New("Cannot get number of nodes registrations when " +
 			"network is not healthy")
 	}
 
@@ -727,7 +727,7 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	for i, n := range nodes {
 		nid, err := id.Unmarshal(n.ID)
 		if err != nil {
-			return 0, 0, errors.Errorf("Failed to unmarshal node ID %v "+
+			return 0, 0, errors.Errorf("Failed to unmarshal nodes ID %v "+
 				"(#%d): %s", n.ID, i, err.Error())
 		}
 		if n.Status == ndf.Stale {
@@ -739,7 +739,7 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 		}
 	}
 
-	// Get the number of in progress node registrations
+	// get the number of in progress nodes registrations
 	return numRegistered, len(nodes) - numStale, nil
 }
 
@@ -873,7 +873,7 @@ func (c *Client) SetProxiedBins(binStrings []string) error {
 // GetPreferredBins returns the geographic bin or bins that the provided two
 // character country code is a part of.
 func (c *Client) GetPreferredBins(countryCode string) ([]string, error) {
-	// Get the bin that the country is in
+	// get the bin that the country is in
 	bin, exists := region.GetCountryBin(countryCode)
 	if !exists {
 		return nil, errors.Errorf("failed to find geographic bin for country %q",
@@ -943,7 +943,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
 	protoUser user.User,
 	cmixGrp, e2eGrp *cyclic.Group, rngStreamGen *fastRNG.StreamGenerator,
 	isPrecanned bool, registrationCode string) (*storage.Session, error) {
-	// Get current client version
+	// get current client version
 	currentVersion, err := version.ParseVersion(SEMVER)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Could not parse version string.")

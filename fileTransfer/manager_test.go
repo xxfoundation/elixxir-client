@@ -125,7 +125,7 @@ func TestManager_Send(t *testing.T) {
 	}
 
 	////
-	// Get NewFileTransfer E2E message
+	// get NewFileTransfer E2E message
 	////
 	sendMsg := m.net.(*testNetworkManager).GetE2eMsg(0)
 	if sendMsg.MessageType != message.NewFileTransfer {

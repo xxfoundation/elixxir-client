@@ -99,9 +99,9 @@ func TestKnownRounds_save(t *testing.T) {
 		t.Errorf("save() returned an error: %v", err)
 	}
 
-	obj, err := expectedKR.kv.Get(expectedKR.key)
+	obj, err := expectedKR.kv.get(expectedKR.key)
 	if err != nil {
-		t.Errorf("Get() returned an error: %v", err)
+		t.Errorf("get() returned an error: %v", err)
 	}
 
 	if !reflect.DeepEqual(expectedData, obj.Data) {

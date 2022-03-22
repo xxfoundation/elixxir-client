@@ -108,7 +108,7 @@ func TestMultiStateVector_Get(t *testing.T) {
 	for keyNum := uint16(0); keyNum < msv.numKeys; keyNum++ {
 		state, err := msv.Get(keyNum)
 		if err != nil {
-			t.Errorf("Get returned an error for key %d: %+v", keyNum, err)
+			t.Errorf("get returned an error for key %d: %+v", keyNum, err)
 		}
 		if state != 0 {
 			t.Errorf("Key %d has unexpected state.\nexpected: %d\nreceived: %d",
@@ -151,7 +151,7 @@ func TestMultiStateVector_Get(t *testing.T) {
 	for keyNum, expectedState := range expectedStates {
 		state, err := msv.Get(uint16(keyNum))
 		if err != nil {
-			t.Errorf("Get returned an error for key %d: %+v", keyNum, err)
+			t.Errorf("get returned an error for key %d: %+v", keyNum, err)
 		}
 
 		if expectedState != state {

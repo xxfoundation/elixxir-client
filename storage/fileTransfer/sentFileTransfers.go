@@ -149,7 +149,7 @@ func (sft *SentFileTransfersStore) GetUnsentParts() (
 	defer sft.mux.Unlock()
 	unsentParts := map[ftCrypto.TransferID][]uint16{}
 
-	// Get list of unsent part numbers for each transfer
+	// get list of unsent part numbers for each transfer
 	for tid, st := range sft.transfers {
 		unsentPartNums, err := st.GetUnsentPartNums()
 		if err != nil {
@@ -168,7 +168,7 @@ func (sft *SentFileTransfersStore) GetSentRounds() map[id.Round][]ftCrypto.Trans
 	defer sft.mux.Unlock()
 	sentRounds := map[id.Round][]ftCrypto.TransferID{}
 
-	// Get list of round IDs that transfers have in-progress rounds on
+	// get list of round IDs that transfers have in-progress rounds on
 	for tid, st := range sft.transfers {
 		for _, rid := range st.GetSentRounds() {
 			sentRounds[rid] = append(sentRounds[rid], tid)
@@ -193,7 +193,7 @@ func (sft *SentFileTransfersStore) GetUnsentPartsAndSentRounds() (
 	sentRounds := map[id.Round][]ftCrypto.TransferID{}
 
 	for tid, st := range sft.transfers {
-		// Get list of unsent part numbers for each transfer
+		// get list of unsent part numbers for each transfer
 		stUnsentParts, err := st.GetUnsentPartNums()
 		if err != nil {
 			return nil, nil, err
@@ -202,7 +202,7 @@ func (sft *SentFileTransfersStore) GetUnsentPartsAndSentRounds() (
 			unsentParts[tid] = stUnsentParts
 		}
 
-		// Get list of round IDs that transfers have in-progress rounds on
+		// get list of round IDs that transfers have in-progress rounds on
 		for _, rid := range st.GetSentRounds() {
 			sentRounds[rid] = append(sentRounds[rid], tid)
 		}
@@ -223,7 +223,7 @@ func LoadSentFileTransfersStore(kv *versioned.KV) (*SentFileTransfersStore, erro
 		kv:        kv.Prefix(sentFileTransfersStorePrefix),
 	}
 
-	// Get the list of transfer IDs corresponding to each sent transfer from
+	// get the list of transfer IDs corresponding to each sent transfer from
 	// storage
 	transfersList, err := sft.loadTransfersList()
 	if err != nil {
@@ -288,7 +288,7 @@ func (sft *SentFileTransfersStore) saveTransfersList() error {
 // sent transfer from storage.
 func (sft *SentFileTransfersStore) loadTransfersList() ([]ftCrypto.TransferID,
 	error) {
-	// Get transfers list from storage
+	// get transfers list from storage
 	vo, err := sft.kv.Get(
 		sentFileTransfersStoreKey, sentFileTransfersStoreVersion)
 	if err != nil {

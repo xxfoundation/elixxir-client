@@ -99,7 +99,7 @@ func (m *Manager) readMessage(msg message.Receive) (gs.Group, group.MessageID,
 			errors.Errorf(unmarshalPublicMsgErr, err)
 	}
 
-	// Get the group from storage via key fingerprint lookup
+	// get the group from storage via key fingerprint lookup
 	g, exists := m.gs.GetByKeyFp(cMixMsg.GetKeyFP(), pubMsg.GetSalt())
 	if !exists {
 		return gs.Group{}, group.MessageID{}, time.Time{}, nil, nil, true,

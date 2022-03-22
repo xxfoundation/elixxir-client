@@ -10,11 +10,7 @@
 package storage
 
 import (
-	"gitlab.com/elixxir/client/storage/edge"
-	"gitlab.com/elixxir/client/storage/hostList"
-	"gitlab.com/elixxir/client/storage/rounds"
-	"gitlab.com/elixxir/client/storage/ud"
-	"gitlab.com/xx_network/primitives/rateLimiting"
+	"gitlab.com/elixxir/client/storage/utility"
 	"sync"
 	"testing"
 	"time"
@@ -22,22 +18,13 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	userInterface "gitlab.com/elixxir/client/interfaces/user"
-	"gitlab.com/elixxir/client/storage/auth"
 	"gitlab.com/elixxir/client/storage/clientVersion"
-	"gitlab.com/elixxir/client/storage/cmix"
-	"gitlab.com/elixxir/client/storage/conversation"
-	"gitlab.com/elixxir/client/storage/e2e"
-	"gitlab.com/elixxir/client/storage/partition"
-	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/client/storage/user"
-	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/version"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
@@ -46,6 +33,8 @@ import (
 // Number of rounds to store in the CheckedRound buffer
 const CheckRoundsMaxSize = 1000000 / 64
 const currentSessionVersion = 0
+const cmixGroupKey = "cmixGroup"
+const e2eGroupKey = "e2eGroup"
 
 // Session object, backed by encrypted filestore
 type Session struct {
@@ -56,26 +45,12 @@ type Session struct {
 	//memoized data
 	regStatus RegistrationStatus
 	ndf       *ndf.NetworkDefinition
+	cmixGroup *cyclic.Group
+	e2eGroup  *cyclic.Group
 
 	//sub-stores
-	e2e                 *e2e.Store
-	cmix                *cmix.Store
-	user                *user.User
-	conversations       *conversation.Store
-	partition           *partition.Store
-	auth                *auth.Store
-	criticalMessages    *utility.E2eMessageBuffer
-	criticalRawMessages *utility.CmixMessageBuffer
-	bucketStore         *rateLimiting.Bucket
-	bucketParamStore    *utility.BucketParamStore
-	garbledMessages     *utility.MeteredCmixMessageBuffer
-	reception           *reception.Store
-	clientVersion       *clientVersion.Store
-	uncheckedRounds     *rounds.UncheckedRoundStore
-	hostList            *hostList.Store
-	edgeCheck           *edge.Store
-	ringBuff            *conversation.Buff
-	ud                  *ud.Store
+	user          *user.User
+	clientVersion *clientVersion.Store
 }
 
 // Initialize a new Session object
@@ -97,8 +72,7 @@ func initStore(baseDir, password string) (*Session, error) {
 // Creates new UserData in the session
 func New(baseDir, password string, u userInterface.User,
 	currentVersion version.Version, cmixGrp, e2eGrp *cyclic.Group,
-	rng *fastRNG.StreamGenerator,
-	rateLimitParams ndf.RateLimiting) (*Session, error) {
+) (*Session, error) {
 
 	s, err := initStore(baseDir, password)
 	if err != nil {
@@ -116,75 +90,19 @@ func New(baseDir, password string, u userInterface.User,
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create user")
 	}
-	uid := s.user.GetCryptographicIdentity().GetReceptionID()
-
-	s.cmix, err = cmix.NewStore(cmixGrp, s.kv)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create cmix store")
-	}
-
-	s.e2e, err = e2e.NewStore(e2eGrp, s.kv, u.E2eDhPrivateKey, uid, rng)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create e2e store")
-	}
-
-	s.auth, err = auth.NewStore(s.kv, e2eGrp, []*cyclic.Int{u.E2eDhPrivateKey})
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create auth store")
-	}
-
-	s.garbledMessages, err = utility.NewMeteredCmixMessageBuffer(s.kv, garbledMessagesKey)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create garbledMessages buffer")
-	}
-
-	s.criticalMessages, err = utility.NewE2eMessageBuffer(s.kv, criticalMessagesKey)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create e2e critical message buffer")
-	}
-
-	s.criticalRawMessages, err = utility.NewCmixMessageBuffer(s.kv, criticalRawMessagesKey)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create raw critical message buffer")
-	}
-
-	s.conversations = conversation.NewStore(s.kv)
-	s.partition = partition.New(s.kv)
-
-	s.reception = reception.NewStore(s.kv)
 
 	s.clientVersion, err = clientVersion.NewStore(currentVersion, s.kv)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create client version store.")
+
+	if err = utility.StoreGroup(s.kv, cmixGrp, cmixGroupKey); err != nil {
+		return nil, err
 	}
 
-	s.uncheckedRounds, err = rounds.NewUncheckedStore(s.kv)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create unchecked round store")
+	if err = utility.StoreGroup(s.kv, e2eGrp, e2eGroupKey); err != nil {
+		return nil, err
 	}
 
-	s.hostList = hostList.NewStore(s.kv)
-
-	s.edgeCheck, err = edge.NewStore(s.kv, u.ReceptionID)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create edge check store")
-	}
-
-	s.bucketParamStore, err = utility.NewBucketParamsStore(
-		uint32(rateLimitParams.Capacity), uint32(rateLimitParams.LeakedTokens),
-		time.Duration(rateLimitParams.LeakDuration), s.kv)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create bucket params store")
-	}
-
-	s.bucketStore = utility.NewStoredBucket(uint32(rateLimitParams.Capacity), uint32(rateLimitParams.LeakedTokens),
-		time.Duration(rateLimitParams.LeakDuration), s.kv)
-
-	s.ud, err = ud.NewStore(s.kv)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create ud store")
-	}
-
+	s.cmixGroup = cmixGrp
+	s.e2eGroup = e2eGrp
 	return s, nil
 }
 
@@ -218,73 +136,14 @@ func Load(baseDir, password string, currentVersion version.Version,
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
-	s.cmix, err = cmix.LoadStore(s.kv)
+	s.cmixGroup, err = utility.LoadGroup(s.kv, cmixGroupKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
-	uid := s.user.GetCryptographicIdentity().GetReceptionID()
-
-	s.e2e, err = e2e.LoadStore(s.kv, uid, rng)
+	s.e2eGroup, err = utility.LoadGroup(s.kv, e2eGroupKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load Session")
-	}
-
-	s.auth, err = auth.LoadStore(s.kv, s.e2e.GetGroup(),
-		[]*cyclic.Int{s.e2e.GetDHPrivateKey()})
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load auth store")
-	}
-
-	s.criticalMessages, err = utility.LoadE2eMessageBuffer(s.kv, criticalMessagesKey)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load session")
-	}
-
-	s.criticalRawMessages, err = utility.LoadCmixMessageBuffer(s.kv, criticalRawMessagesKey)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load raw critical message buffer")
-	}
-
-	s.garbledMessages, err = utility.LoadMeteredCmixMessageBuffer(s.kv, garbledMessagesKey)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load session")
-	}
-
-	s.conversations = conversation.NewStore(s.kv)
-	s.partition = partition.Load(s.kv)
-
-	s.reception = reception.LoadStore(s.kv)
-
-	s.uncheckedRounds, err = rounds.LoadUncheckedStore(s.kv)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load unchecked round store")
-	}
-
-	s.hostList = hostList.NewStore(s.kv)
-
-	s.edgeCheck, err = edge.LoadStore(s.kv)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load edge check store")
-	}
-
-	s.bucketParamStore, err = utility.LoadBucketParamsStore(s.kv)
-	if err != nil {
-		return nil, errors.WithMessage(err,
-			"Failed to load bucket params store")
-	}
-
-	params := s.bucketParamStore.Get()
-	s.bucketStore, err = utility.LoadBucket(params.Capacity, params.LeakedTokens,
-		params.LeakDuration, s.kv)
-	if err != nil {
-		return nil, errors.WithMessage(err,
-			"Failed to load bucket store")
-	}
-
-	s.ud, err = ud.NewOrLoadStore(s.kv)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load ud store")
 	}
 
 	return s, nil
@@ -296,103 +155,11 @@ func (s *Session) User() *user.User {
 	return s.user
 }
 
-func (s *Session) Cmix() *cmix.Store {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.cmix
-}
-
-func (s *Session) E2e() *e2e.Store {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.e2e
-}
-
-func (s *Session) Auth() *auth.Store {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.auth
-}
-
-func (s *Session) Reception() *reception.Store {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.reception
-}
-
-func (s *Session) GetCriticalMessages() *utility.E2eMessageBuffer {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.criticalMessages
-}
-
-func (s *Session) GetCriticalRawMessages() *utility.CmixMessageBuffer {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.criticalRawMessages
-}
-
-func (s *Session) GetGarbledMessages() *utility.MeteredCmixMessageBuffer {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.garbledMessages
-}
-
 // GetClientVersion returns the version of the client storage.
 func (s *Session) GetClientVersion() version.Version {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.clientVersion.Get()
-}
-
-func (s *Session) Conversations() *conversation.Store {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.conversations
-}
-
-func (s *Session) Partition() *partition.Store {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.partition
-}
-
-func (s *Session) UncheckedRounds() *rounds.UncheckedRoundStore {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.uncheckedRounds
-}
-
-func (s *Session) HostList() *hostList.Store {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.hostList
-}
-
-// GetEdge returns the edge preimage store.
-func (s *Session) GetEdge() *edge.Store {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.edgeCheck
-}
-
-func (s *Session) GetUd() *ud.Store {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.ud
-}
-
-// GetBucketParams returns the bucket params store.
-func (s *Session) GetBucketParams() *utility.BucketParamStore {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.bucketParamStore
-}
-
-func (s *Session) GetBucket() *rateLimiting.Bucket {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.bucketStore
 }
 
 // Get an object from the session
@@ -415,6 +182,16 @@ func (s *Session) GetKV() *versioned.KV {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.kv
+}
+
+// GetCmixGrouo returns cMix Group
+func (s *Session) GetCmixGroup() *cyclic.Group {
+	return s.cmixGroup
+}
+
+// GetE2EGrouo returns cMix Group
+func (s *Session) GetE2EGroup() *cyclic.Group {
+	return s.e2eGroup
 }
 
 // Initializes a Session object wrapped around a MemStore object.
@@ -446,91 +223,6 @@ func InitTestingSession(i interface{}) *Session {
 	u.SetRegistrationTimestamp(testTime.UnixNano())
 
 	s.user = u
-	cmixGrp := cyclic.NewGroup(
-		large.NewIntFromString("9DB6FB5951B66BB6FE1E140F1D2CE5502374161FD6538DF1648218642F0B5C48"+
-			"C8F7A41AADFA187324B87674FA1822B00F1ECF8136943D7C55757264E5A1A44F"+
-			"FE012E9936E00C1D3E9310B01C7D179805D3058B2A9F4BB6F9716BFE6117C6B5"+
-			"B3CC4D9BE341104AD4A80AD6C94E005F4B993E14F091EB51743BF33050C38DE2"+
-			"35567E1B34C3D6A5C0CEAA1A0F368213C3D19843D0B4B09DCB9FC72D39C8DE41"+
-			"F1BF14D4BB4563CA28371621CAD3324B6A2D392145BEBFAC748805236F5CA2FE"+
-			"92B871CD8F9C36D3292B5509CA8CAA77A2ADFC7BFD77DDA6F71125A7456FEA15"+
-			"3E433256A2261C6A06ED3693797E7995FAD5AABBCFBE3EDA2741E375404AE25B", 16),
-		large.NewIntFromString("5C7FF6B06F8F143FE8288433493E4769C4D988ACE5BE25A0E24809670716C613"+
-			"D7B0CEE6932F8FAA7C44D2CB24523DA53FBE4F6EC3595892D1AA58C4328A06C4"+
-			"6A15662E7EAA703A1DECF8BBB2D05DBE2EB956C142A338661D10461C0D135472"+
-			"085057F3494309FFA73C611F78B32ADBB5740C361C9F35BE90997DB2014E2EF5"+
-			"AA61782F52ABEB8BD6432C4DD097BC5423B285DAFB60DC364E8161F4A2A35ACA"+
-			"3A10B1C4D203CC76A470A33AFDCBDD92959859ABD8B56E1725252D78EAC66E71"+
-			"BA9AE3F1DD2487199874393CD4D832186800654760E1E34C09E4D155179F9EC0"+
-			"DC4473F996BDCE6EED1CABED8B6F116F7AD9CF505DF0F998E34AB27514B0FFE7", 16))
-	cmixStore, err := cmix.NewStore(cmixGrp, kv)
-	if err != nil {
-		jww.FATAL.Panicf("InitTestingSession failed to create dummy cmix session: %+v", err)
-	}
-	s.cmix = cmixStore
-
-	s.bucketParamStore, err = utility.NewBucketParamsStore(10, 11, 12, kv)
-	if err != nil {
-		jww.FATAL.Panicf("InitTestingSession failed to create NewBucketParamsStore session: %+v", err)
-	}
-	s.bucketStore = utility.NewStoredBucket(10, 11, 12, kv)
-
-	e2eStore, err := e2e.NewStore(cmixGrp, kv, cmixGrp.NewInt(2), uid,
-		fastRNG.NewStreamGenerator(7, 3, csprng.NewSystemRNG))
-	if err != nil {
-		jww.FATAL.Panicf("InitTestingSession failed to create dummy cmix session: %+v", err)
-	}
-	s.e2e = e2eStore
-
-	s.criticalMessages, err = utility.NewE2eMessageBuffer(s.kv, criticalMessagesKey)
-	if err != nil {
-		jww.FATAL.Panicf("InitTestingSession failed to create dummy critical messages: %+v", err)
-	}
-
-	s.garbledMessages, err = utility.NewMeteredCmixMessageBuffer(s.kv, garbledMessagesKey)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to create garbledMessages buffer: %+v", err)
-	}
-
-	s.conversations = conversation.NewStore(s.kv)
-	s.partition = partition.New(s.kv)
-
-	s.reception = reception.NewStore(s.kv)
-
-	s.uncheckedRounds, err = rounds.NewUncheckedStore(s.kv)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to create uncheckRound store: %v", err)
-	}
-
-	s.hostList = hostList.NewStore(s.kv)
-
-	privKeys := make([]*cyclic.Int, 10)
-	pubKeys := make([]*cyclic.Int, 10)
-	for i := range privKeys {
-		privKeys[i] = cmixGrp.NewInt(5)
-		pubKeys[i] = cmixGrp.ExpG(privKeys[i], cmixGrp.NewInt(1))
-	}
-
-	s.auth, err = auth.NewStore(s.kv, cmixGrp, privKeys)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to create auth store: %v", err)
-	}
-
-	s.edgeCheck, err = edge.NewStore(s.kv, uid)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to create new edge Store: %+v", err)
-	}
-
-	// todo: uncomment once NewBuff has been added properly
-	//s.ringBuff, err = conversation.NewBuff(s.kv, 100)
-	//if err != nil {
-	//	jww.FATAL.Panicf("Failed to create ring buffer store: %+v", err)
-	//}
-
-	s.ud, err = ud.NewStore(s.kv)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to create ud store: %v", err)
-	}
 
 	return s
 }

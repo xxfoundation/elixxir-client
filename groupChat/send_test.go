@@ -35,7 +35,7 @@ func TestManager_Send(t *testing.T) {
 		t.Errorf("Send() returned an error: %+v", err)
 	}
 
-	// Get messages sent with or return an error if no messages were sent
+	// get messages sent with or return an error if no messages were sent
 	var messages []message.TargetedCmixMessage
 	if len(m.net.(*testNetworkManager).messages) > 0 {
 		messages = m.net.(*testNetworkManager).GetMsgList(0)

@@ -60,7 +60,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 		return errors.New(errMsg)
 	}
 
-	//Get the partner
+	//get the partner
 	partner, err := sess.E2e().GetPartner(request.Sender)
 	if err != nil {
 		errMsg := fmt.Sprintf(errUnknown, request.Sender)

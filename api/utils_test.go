@@ -147,7 +147,7 @@ func getNDF(face interface{}) *ndf.NetworkDefinition {
 	}
 }
 
-// Signs a passed round info with the key tied to the test node cert
+// Signs a passed round info with the key tied to the test nodes cert
 // used throughout utils and other tests
 func signRoundInfo(ri *pb.RoundInfo) error {
 	privKeyFromFile := testkeys.LoadFromPath(testkeys.GetNodeKeyPath())

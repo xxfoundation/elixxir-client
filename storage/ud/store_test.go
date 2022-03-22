@@ -66,7 +66,7 @@ func TestStore_MarshalUnmarshal_ConfirmedFacts(t *testing.T) {
 
 	data, err := expectedStore.kv.Get(confirmedFactKey, version)
 	if err != nil {
-		t.Errorf("Get() error when getting Store from KV: %v", err)
+		t.Errorf("get() error when getting Store from KV: %v", err)
 	}
 
 	expectedData, err := expectedStore.marshalConfirmedFacts()
@@ -102,7 +102,7 @@ func TestStore_MarshalUnmarshal_UnconfirmedFacts(t *testing.T) {
 
 	data, err := expectedStore.kv.Get(unconfirmedFactKey, version)
 	if err != nil {
-		t.Errorf("Get() error when getting Store from KV: %v", err)
+		t.Errorf("get() error when getting Store from KV: %v", err)
 	}
 
 	expectedData, err := expectedStore.marshalUnconfirmedFacts()

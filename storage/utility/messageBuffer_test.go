@@ -276,7 +276,7 @@ func TestMessageBuffer_Succeeded(t *testing.T) {
 		testMB.Add(m)
 	}
 
-	// Get message
+	// get message
 	m, _ := testMB.Next()
 
 	testMB.Succeeded(m)
@@ -302,7 +302,7 @@ func TestMessageBuffer_Failed(t *testing.T) {
 		testMB.Add(m)
 	}
 
-	// Get message
+	// get message
 	m, _ := testMB.Next()
 
 	testMB.Failed(m)

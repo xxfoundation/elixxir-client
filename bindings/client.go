@@ -227,7 +227,7 @@ func UnmarshalSendReport(b []byte) (*SendReport, error) {
 //   - Historical Round Retrieval (/network/rounds/historical.go)
 //		Retrieves data about rounds which are too old to be stored by the client
 //	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
-//		Requests all messages in a given round from the gateway of the last node
+//		Requests all messages in a given round from the gateway of the last nodes
 //	 - Message Handling Worker Group (/network/message/handle.go)
 //		Decrypts and partitions messages when signals via the Switchboard
 //	 - Health Tracker (/network/health)

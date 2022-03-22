@@ -94,7 +94,7 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 
 	m.myID = m.storage.User().GetCryptographicIdentity().GetReceptionID()
 
-	// Get the commonly used data from storage
+	// get the commonly used data from storage
 	m.privKey = m.storage.GetUser().ReceptionRSA
 
 	// Load if the client is registered

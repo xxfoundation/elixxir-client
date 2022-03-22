@@ -96,7 +96,7 @@ func DeserializeDhKeyList(data []byte) (DhKeyList, error) {
 			return nil, errors.Errorf(idUnmarshalErr, err)
 		}
 
-		// Get length of DH key
+		// get length of DH key
 		keyLen := int(binary.LittleEndian.Uint64(buff.Next(8)))
 
 		// Read and decode DH key

@@ -48,7 +48,7 @@ func Test_loadOrCreateMultiPartMessage_Create(t *testing.T) {
 
 	obj, err := mpm.kv.Get(messageKey, 0)
 	if err != nil {
-		t.Errorf("Get() failed to get multiPartMessage from key value store: %v", err)
+		t.Errorf("get() failed to get multiPartMessage from key value store: %v", err)
 	}
 
 	if !bytes.Equal(expectedData, obj.Data) {
@@ -144,7 +144,7 @@ func TestMultiPartMessage_Add(t *testing.T) {
 
 	obj, err := mpm.kv.Get(messageKey, 0)
 	if err != nil {
-		t.Errorf("Get() failed to get multiPartMessage from key value store: %v", err)
+		t.Errorf("get() failed to get multiPartMessage from key value store: %v", err)
 	}
 
 	if !bytes.Equal(expectedData, obj.Data) {

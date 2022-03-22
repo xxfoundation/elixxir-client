@@ -91,7 +91,7 @@ func LoadUnknownRounds(kv *versioned.KV,
 
 	urs := newUnknownRounds(kv, params)
 
-	// Get the versioned data from the kv
+	// get the versioned data from the kv
 	obj, err := kv.Get(unknownRoundsStorageKey, unknownRoundsStorageVersion)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to load UnknownRounds: %+v", err)

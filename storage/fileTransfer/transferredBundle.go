@@ -165,10 +165,10 @@ func (tb *transferredBundle) unmarshal(b []byte) {
 
 	// Iterate over all map entries
 	for n := buff.Next(8); len(n) == 8; n = buff.Next(8) {
-		// Get the round ID from the first 8 bytes
+		// get the round ID from the first 8 bytes
 		rid := id.Round(binary.LittleEndian.Uint64(n))
 
-		// Get number of part numbers listed
+		// get number of part numbers listed
 		partNumsLen := binary.LittleEndian.Uint16(buff.Next(2))
 
 		// Increment number of parts

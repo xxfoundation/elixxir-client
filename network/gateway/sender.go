@@ -89,7 +89,7 @@ func (s *Sender) SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
 
 	startTime := netTime.Now()
 
-	// Get the hosts and shuffle randomly
+	// get the hosts and shuffle randomly
 	targetHosts := s.getPreferred(targets)
 
 	// Attempt to send directly to targets if they are in the HostPool

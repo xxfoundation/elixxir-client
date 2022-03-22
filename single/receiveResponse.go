@@ -59,7 +59,7 @@ func (m *Manager) receiveResponseHandler(rawMessages chan message.Receive,
 func (m *Manager) processesResponse(rid *id.ID, ephID ephemeral.Id,
 	msgBytes []byte) error {
 
-	// Get the state from the map
+	// get the state from the map
 	m.p.RLock()
 	state, exists := m.p.singleUse[*rid]
 	m.p.RUnlock()

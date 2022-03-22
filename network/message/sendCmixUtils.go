@@ -13,8 +13,8 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	preimage2 "gitlab.com/elixxir/client/interfaces/preimage"
+	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/cmix"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -63,9 +63,9 @@ func handlePutMessageError(firstGateway *id.ID, instance *network.Instance,
 			"round error with round %d, bailing...",
 			recipientString, bestRound.ID)
 	} else if strings.Contains(err.Error(), "Could not authenticate client. "+
-		"Is the client registered with this node?") {
+		"Is the client registered with this nodes?") {
 		// If send failed due to the gateway not recognizing the authorization,
-		// then renegotiate with the node to refresh it
+		// then renegotiate with the nodes to refresh it
 		nodeID := firstGateway.DeepCopy()
 		nodeID.SetType(id.Node)
 
@@ -88,7 +88,7 @@ func handlePutMessageError(firstGateway *id.ID, instance *network.Instance,
 // a round and retrieves the round keys.
 func processRound(instance *network.Instance, session *storage.Session,
 	nodeRegistration chan network.NodeGateway, bestRound *pb.RoundInfo,
-	recipientString, messageDigest string) (*id.ID, *cmix.RoundKeys, error) {
+	recipientString, messageDigest string) (*id.ID, *nodes.MixCypher, error) {
 
 	// Build the topology
 	idList, err := id.NewIDListFromBytes(bestRound.Topology)
@@ -99,7 +99,7 @@ func processRound(instance *network.Instance, session *storage.Session,
 	}
 	topology := connect.NewCircuit(idList)
 
-	// Get the keys for the round, reject if any nodes do not have keying
+	// get the keys for the round, reject if any nodes do not have keying
 	// relationships
 	roundKeys, missingKeys := session.Cmix().GetRoundKeys(topology)
 	if len(missingKeys) > 0 {
@@ -110,7 +110,7 @@ func processRound(instance *network.Instance, session *storage.Session,
 			bestRound.ID, recipientString, messageDigest, missingKeys)
 	}
 
-	// Get the gateway to transmit to
+	// get the gateway to transmit to
 	firstGateway := topology.GetNodeAtIndex(0).DeepCopy()
 	firstGateway.SetType(id.Gateway)
 
@@ -122,7 +122,7 @@ func processRound(instance *network.Instance, session *storage.Session,
 // the recipient.
 func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	stream *fastRNG.Stream, senderId *id.ID, bestRound *pb.RoundInfo,
-	roundKeys *cmix.RoundKeys, param params.CMIX) (*pb.GatewaySlot,
+	roundKeys *nodes.MixCypher, param params.CMIX) (*pb.GatewaySlot,
 	format.Message, ephemeral.Id,
 	error) {
 
@@ -194,8 +194,8 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	return slot, encMsg, ephID, nil
 }
 
-// handleMissingNodeKeys signals to the node registration thread to register a
-// node if keys are missing. Identity is triggered automatically when the node
+// handleMissingNodeKeys signals to the nodes registration thread to register a
+// nodes if keys are missing. Identity is triggered automatically when the nodes
 // is first seen, so this should on trigger on rare events.
 func handleMissingNodeKeys(instance *network.Instance,
 	newNodeChan chan network.NodeGateway, nodes []*id.ID) {
@@ -209,7 +209,7 @@ func handleMissingNodeKeys(instance *network.Instance,
 		select {
 		case newNodeChan <- ng:
 		default:
-			jww.ERROR.Printf("Failed to send node registration for %s", n)
+			jww.ERROR.Printf("Failed to send nodes registration for %s", n)
 		}
 
 	}

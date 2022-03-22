@@ -197,7 +197,7 @@ func TestReceivedFileTransfersStore_GetTransfer(t *testing.T) {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
 
-	// Get the transfer
+	// get the transfer
 	transfer, err := rft.GetTransfer(tid)
 	if err != nil {
 		t.Errorf("GetTransfer returned an error: %+v", err)
@@ -245,7 +245,7 @@ func TestReceivedFileTransfersStore_GetTransfer_NoTransferError(t *testing.T) {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
 
-	// Get the transfer
+	// get the transfer
 	invalidTid, _ := ftCrypto.NewTransferID(prng)
 	expectedErr := fmt.Sprintf(getReceivedTransferErr, invalidTid)
 	_, err = rft.GetTransfer(invalidTid)

@@ -63,7 +63,7 @@ func TestHandleConfirm(t *testing.T) {
 	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup,
 		aliceSIDHPrivKey, bobSIDHPubKey)
 
-	// Get Alice's manager for Bob
+	// get Alice's manager for Bob
 	receivedManager, err := aliceSession.E2e().GetPartner(bobID)
 	if err != nil {
 		t.Errorf("Bob is not recognized as Alice's partner: %v", err)
@@ -89,7 +89,7 @@ func TestHandleConfirm(t *testing.T) {
 	// Handle the confirmation
 	handleConfirm(aliceSession, receiveMsg)
 
-	// Get Alice's session for Bob
+	// get Alice's session for Bob
 	confirmedSession := receivedManager.GetSendSession(sessionID)
 
 	// Check that the session is in the proper status

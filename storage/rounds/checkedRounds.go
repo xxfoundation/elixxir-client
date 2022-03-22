@@ -60,7 +60,7 @@ func newCheckedRounds(maxRounds int, store *utility.BlockStore) *CheckedRounds {
 
 // LoadCheckedRounds restores the list from storage.
 func LoadCheckedRounds(maxRounds int, kv *versioned.KV) (*CheckedRounds, error) {
-	// Get rounds from storage
+	// get rounds from storage
 	store, rounds, err := utility.LoadBlockStore(kv)
 	if err != nil {
 		return nil, errors.Errorf("failed to load CheckedRounds from storage: %+v", err)

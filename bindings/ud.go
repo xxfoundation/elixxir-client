@@ -307,7 +307,7 @@ func (ud UserDiscovery) MultiLookup(ids *IdList, callback MultiLookupCallback,
 		failedIDList := make([]*id.ID, 0, len(idList))
 		var concatonatedErrs string
 
-		//Get the responses and return
+		//get the responses and return
 		for numReturned := 0; numReturned < len(idList); numReturned++ {
 			response := <-results
 			if response.err == nil {

@@ -225,7 +225,7 @@ func (msv *MultiStateVector) set(keyNum uint16, state uint8) error {
 		return errors.Errorf(stateMaxErr, state, msv.numStates-1)
 	}
 
-	// Get the current state
+	// get the current state
 	oldState, err := msv.get(keyNum)
 	if err != nil {
 		return errors.Errorf(setGetStateErr, keyNum, err)
@@ -385,7 +385,7 @@ func checkStateMap(numStates uint8, stateMap [][]bool) error {
 // state bit size. The masks for each state is found by right shifting
 // bitSize * keyNum.
 func getSelectionMask(keyNum uint16, bitSize uint8) uint64 {
-	// Get the mask at the zeroth position at the bit size; these masks look
+	// get the mask at the zeroth position at the bit size; these masks look
 	// like the following for bit sizes 1 through 4
 	//	0b1000000000000000000000000000000000000000000000000000000000000000
 	//	0b1100000000000000000000000000000000000000000000000000000000000000

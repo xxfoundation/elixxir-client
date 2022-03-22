@@ -46,7 +46,7 @@ func TestNewUnknownRoundsStore(t *testing.T) {
 
 	key, err := store.kv.Get(unknownRoundsStorageKey, unknownRoundsStorageVersion)
 	if err != nil {
-		t.Fatalf("Get() encoutnered an error when getting Store from KV: %v", err)
+		t.Fatalf("get() encoutnered an error when getting Store from KV: %v", err)
 	}
 
 	// Check that the stored data is the data outputted by marshal

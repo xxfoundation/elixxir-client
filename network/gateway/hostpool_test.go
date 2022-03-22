@@ -327,7 +327,7 @@ func TestHostPool_ForceReplace(t *testing.T) {
 	params := DefaultPoolParams()
 	params.PoolSize = uint32(len(testNdf.Gateways))
 
-	// Add a stale node
+	// Add a stale nodes
 	newGateway := ndf.Gateway{
 		ID: id.NewIdFromUInt(27, id.Gateway, t).Bytes(),
 	}

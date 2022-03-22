@@ -40,7 +40,7 @@ func handleConfirm(sess *storage.Session, confirmation message.Receive) {
 		return
 	}
 
-	//Get the partner
+	//get the partner
 	partner, err := sess.E2e().GetPartner(confirmation.Sender)
 	if err != nil {
 		jww.ERROR.Printf(

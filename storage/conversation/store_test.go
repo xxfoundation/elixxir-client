@@ -18,7 +18,7 @@ import (
 
 // Read jww trace output to determine if key names are ok
 func TestStore_Get_Prefix(t *testing.T) {
-	// Uncomment to print keys that Set and Get are called on
+	// Uncomment to print keys that Set and get are called on
 	jww.SetStdoutThreshold(jww.LevelTrace)
 
 	// It's a conversation with a partner, so does there need to be an additional layer of hierarchy here later?

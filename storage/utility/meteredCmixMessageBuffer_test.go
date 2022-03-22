@@ -39,7 +39,7 @@ func Test_meteredCmixMessageHandler_SaveMessage(t *testing.T) {
 		// Try to get message
 		obj, err := kv.Get(key, 0)
 		if err != nil {
-			t.Errorf("Get() returned an error: %v", err)
+			t.Errorf("get() returned an error: %v", err)
 		}
 
 		msgData, err := json.Marshal(&msg)
@@ -113,7 +113,7 @@ func Test_meteredCmixMessageHandler_DeleteMessage(t *testing.T) {
 		// Try to get message
 		_, err = kv.Get(key, 0)
 		if err == nil {
-			t.Error("Get() did not return an error.")
+			t.Error("get() did not return an error.")
 		}
 	}
 }

@@ -104,7 +104,7 @@ func (ps *partStore) getFile() ([]byte, int) {
 	ps.mux.Lock()
 	defer ps.mux.Unlock()
 
-	// Get the length of one of the parts (all parts should be the same size)
+	// get the length of one of the parts (all parts should be the same size)
 	partLength := 0
 	for _, part := range ps.parts {
 		partLength = len(part)
@@ -140,7 +140,7 @@ func (ps *partStore) len() int {
 
 // loadPartStore loads all the file parts from storage into memory.
 func loadPartStore(kv *versioned.KV) (*partStore, error) {
-	// Get list of saved file parts
+	// get list of saved file parts
 	vo, err := kv.Get(partsListKey, partsListVersion)
 	if err != nil {
 		return nil, errors.Errorf(loadPartListErr, err)

@@ -69,7 +69,7 @@ func TestNewStore(t *testing.T) {
 
 	key, err := expectedStore.kv.Get(storeKey, 0)
 	if err != nil {
-		t.Errorf("Get() error when getting Store from KV: %v", err)
+		t.Errorf("get() error when getting Store from KV: %v", err)
 	}
 
 	if !bytes.Equal(expectedData, key.Data) {

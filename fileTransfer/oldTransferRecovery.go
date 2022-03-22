@@ -38,7 +38,7 @@ func (m Manager) oldTransferRecovery(healthyChan chan bool, chanID uint64) {
 		return
 	}
 
-	// Get list of unsent parts and rounds that parts were sent on
+	// get list of unsent parts and rounds that parts were sent on
 	unsentParts, sentRounds, err := m.sent.GetUnsentPartsAndSentRounds()
 
 	jww.DEBUG.Printf("Adding unsent parts from %d recovered transfers: %v",

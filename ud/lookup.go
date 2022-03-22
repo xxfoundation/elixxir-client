@@ -59,7 +59,7 @@ func (m *Manager) lookup(uid *id.ID, callback lookupCallback, timeout time.Durat
 		m.lookupResponseProcess(uid, callback, payload, err)
 	}
 
-	// Get UD contact
+	// get UD contact
 	c, err := m.getContact()
 	if err != nil {
 		return err

@@ -85,7 +85,7 @@ func (kr *KnownRounds) save() error {
 func (kr *KnownRounds) load() error {
 
 	// Load the versioned object
-	vo, err := kr.kv.Get(kr.key)
+	vo, err := kr.kv.get(kr.key)
 	if err != nil {
 		return err
 	}

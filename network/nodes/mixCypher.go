@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package cmix
+package nodes
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
@@ -17,29 +17,34 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-type RoundKeys struct {
+type MixCypher interface {
+	Encrypt(msg format.Message, salt []byte, roundID id.Round) (format.Message, [][]byte)
+	MakeClientGatewayKey(salt, digest []byte) []byte
+}
+
+type mixCypher struct {
 	keys []*key
 	g    *cyclic.Group
 }
 
 // Encrypts the given message for CMIX
 // Panics if the passed message is not sized correctly for the group
-func (rk *RoundKeys) Encrypt(msg format.Message,
+func (mc *mixCypher) Encrypt(msg format.Message,
 	salt []byte, roundID id.Round) (format.Message, [][]byte) {
 
-	if msg.GetPrimeByteLen() != rk.g.GetP().ByteLen() {
+	if msg.GetPrimeByteLen() != mc.g.GetP().ByteLen() {
 		jww.FATAL.Panicf("Cannot encrypt message whose size does not " +
 			"align with the size of the prime")
 	}
 
-	keys := make([]*cyclic.Int, len(rk.keys))
+	keys := make([]*cyclic.Int, len(mc.keys))
 
-	for i, k := range rk.keys {
-		jww.TRACE.Printf("CMIXKEY: num: %d, key: %s", i, k.Get().Text(16))
-		keys[i] = k.Get()
+	for i, k := range mc.keys {
+		jww.TRACE.Printf("CMIXKEY: num: %d, key: %s", i, k.get().Text(16))
+		keys[i] = k.get()
 	}
 
-	ecrMsg := ClientEncrypt(rk.g, msg, salt, roundID, keys)
+	ecrMsg := clientEncrypt(mc.g, msg, salt, roundID, keys)
 
 	h, err := hash.NewCMixHash()
 	if err != nil {
@@ -51,8 +56,8 @@ func (rk *RoundKeys) Encrypt(msg format.Message,
 	return ecrMsg, KMAC
 }
 
-func (rk *RoundKeys) MakeClientGatewayKey(salt, digest []byte) []byte {
-	clientGatewayKey := cmix.GenerateClientGatewayKey(rk.keys[0].k)
+func (mc *mixCypher) MakeClientGatewayKey(salt, digest []byte) []byte {
+	clientGatewayKey := cmix.GenerateClientGatewayKey(mc.keys[0].k)
 	h, _ := hash.NewCMixHash()
 	h.Write(clientGatewayKey)
 	h.Write(salt)
@@ -63,10 +68,10 @@ func (rk *RoundKeys) MakeClientGatewayKey(salt, digest []byte) []byte {
 	return h.Sum(nil)
 }
 
-func ClientEncrypt(grp *cyclic.Group, msg format.Message,
+func clientEncrypt(grp *cyclic.Group, msg format.Message,
 	salt []byte, roundID id.Round, baseKeys []*cyclic.Int) format.Message {
 
-	// Get the salt for associated data
+	// get the salt for associated data
 	hash, err := blake2b.New256(nil)
 	if err != nil {
 		panic("E2E Client Encrypt could not get blake2b Hash")
@@ -75,11 +80,11 @@ func ClientEncrypt(grp *cyclic.Group, msg format.Message,
 	hash.Write(salt)
 	salt2 := hash.Sum(nil)
 
-	// Get encryption keys
+	// get encryption keys
 	keyEcrA := cmix.ClientKeyGen(grp, salt, roundID, baseKeys)
 	keyEcrB := cmix.ClientKeyGen(grp, salt2, roundID, baseKeys)
 
-	// Get message payloads as cyclic integers
+	// get message payloads as cyclic integers
 	payloadA := grp.NewIntFromBytes(msg.GetPayloadA())
 	payloadB := grp.NewIntFromBytes(msg.GetPayloadB())
 

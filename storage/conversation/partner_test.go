@@ -19,7 +19,7 @@ import (
 
 // Tests happy path of LoadOrMakeConversation() when making a new Conversation.
 func TestLoadOrMakeConversation_Make(t *testing.T) {
-	// Uncomment to print keys that Set and Get are called on
+	// Uncomment to print keys that Set and get are called on
 	jww.SetStdoutThreshold(jww.LevelTrace)
 	// Set up test values
 	kv := versioned.NewKV(make(ekv.Memstore))

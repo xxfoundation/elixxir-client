@@ -68,7 +68,7 @@ func (pis Preimages) remove(data []byte) {
 // loadPreimages loads a Preimages object for the given identity.
 func loadPreimages(kv *versioned.KV, identity *id.ID) (Preimages, error) {
 
-	// Get the data from storage
+	// get the data from storage
 	obj, err := kv.Get(preimagesKey(identity), preimageStoreVersion)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to load edge Preimages "+

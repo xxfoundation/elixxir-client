@@ -108,7 +108,7 @@ func TestFullExchange(t *testing.T) {
 		Encryption:  message.E2E,
 	}
 
-	// Get Alice's manager for reception from Bob
+	// get Alice's manager for reception from Bob
 	receivedManager, err := aliceSession.E2e().GetPartner(exchangeBobId)
 	if err != nil {
 		t.Errorf("Failed to get bob's manager: %v", err)
@@ -120,7 +120,7 @@ func TestFullExchange(t *testing.T) {
 	// Allow the test time to work it's goroutines
 	time.Sleep(1 * time.Second)
 
-	// Get Alice's session for Bob
+	// get Alice's session for Bob
 	confirmedSession := receivedManager.GetSendSession(oldSessionID)
 
 	// Generate the new session ID based off of Bob's new keys

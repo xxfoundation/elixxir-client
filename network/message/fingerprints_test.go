@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package network
+package message
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
@@ -48,14 +48,14 @@ func TestFingerprints_Get(t *testing.T) {
 	// Attempt to retrieve value from map
 	received, exists := fpTracker.Get(fp)
 	if !exists {
-		t.Fatalf("Get error: Did not retrieve fingerprint (%s) that "+
+		t.Fatalf("get error: Did not retrieve fingerprint (%s) that "+
 			"should have been in map.", fp)
 	}
 
 	// Check that received value contains the expected data
 	expected := newProcessor(mp)
 	if !reflect.DeepEqual(received, expected) {
-		t.Fatalf("Get error: Map does not contain expected data."+
+		t.Fatalf("get error: Map does not contain expected data."+
 			"\nExpected: %v"+
 			"\nReceived: %v", expected, received)
 	}

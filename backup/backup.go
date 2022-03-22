@@ -268,18 +268,18 @@ func (b *Backup) assembleBackup() backup.Backup {
 		Contacts:                  backup.Contacts{},
 	}
 
-	// Get user and storage user
+	// get user and storage user
 	u := b.store.GetUser()
 	su := b.store.User()
 
-	// Get registration timestamp
+	// get registration timestamp
 	bu.RegistrationTimestamp = u.RegistrationTimestamp
 
-	// Get registration code; ignore the error because if there is no
+	// get registration code; ignore the error because if there is no
 	// registration, then an empty string is returned
 	bu.RegistrationCode, _ = b.store.GetRegCode()
 
-	// Get transmission identity
+	// get transmission identity
 	bu.TransmissionIdentity = backup.TransmissionIdentity{
 		RSASigningPrivateKey: u.TransmissionRSA,
 		RegistrarSignature:   su.GetTransmissionRegistrationValidationSignature(),
@@ -287,7 +287,7 @@ func (b *Backup) assembleBackup() backup.Backup {
 		ComputedID:           u.TransmissionID,
 	}
 
-	// Get reception identity
+	// get reception identity
 	bu.ReceptionIdentity = backup.ReceptionIdentity{
 		RSASigningPrivateKey: u.ReceptionRSA,
 		RegistrarSignature:   su.GetReceptionRegistrationValidationSignature(),
@@ -297,10 +297,10 @@ func (b *Backup) assembleBackup() backup.Backup {
 		DHPublicKey:          u.E2eDhPublicKey,
 	}
 
-	// Get facts
+	// get facts
 	bu.UserDiscoveryRegistration.FactList = b.store.GetUd().GetFacts()
 
-	// Get contacts
+	// get contacts
 	bu.Contacts.Identities = b.store.E2e().GetPartners()
 
 	//add the memoized json params

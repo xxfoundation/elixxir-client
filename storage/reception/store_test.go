@@ -97,7 +97,7 @@ func TestStore_save(t *testing.T) {
 
 	obj, err := kv.Prefix(receptionPrefix).Get(receptionStoreStorageKey, 0)
 	if err != nil {
-		t.Errorf("Get() produced an error: %+v", err)
+		t.Errorf("get() produced an error: %+v", err)
 	}
 
 	expectedData, err := json.Marshal(expected)

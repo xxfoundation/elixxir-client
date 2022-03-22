@@ -7,7 +7,7 @@
 
 package bindings
 
-// NodeRegistrationsStatus structure for returning node registration statuses
+// NodeRegistrationsStatus structure for returning nodes registration statuses
 // for bindings.
 type NodeRegistrationsStatus struct {
 	registered int

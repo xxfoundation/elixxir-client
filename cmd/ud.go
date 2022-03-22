@@ -36,7 +36,7 @@ var udCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		client := initClient()
 
-		// Get user and save contact to file
+		// get user and save contact to file
 		user := client.GetUser()
 		jww.INFO.Printf("User: %s", user.ReceptionID)
 		writeContact(user.GetContact())

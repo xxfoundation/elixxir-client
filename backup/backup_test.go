@@ -101,7 +101,7 @@ func Test_resumeBackup(t *testing.T) {
 		t.Error("Timed out waiting for callback.")
 	}
 
-	// Get key and salt to compare to later
+	// get key and salt to compare to later
 	key1, salt1, _, err := loadBackup(b.store.GetKV())
 	if err != nil {
 		t.Errorf("Failed to load key, salt, and params from newly "+
@@ -127,7 +127,7 @@ func Test_resumeBackup(t *testing.T) {
 			expectedPassword, loadedPassword)
 	}
 
-	// Get key, salt, and parameters of resumed backup
+	// get key, salt, and parameters of resumed backup
 	key2, salt2, _, err := loadBackup(b.store.GetKV())
 	if err != nil {
 		t.Errorf("Failed to load key, salt, and params from resumed "+
@@ -177,7 +177,7 @@ func TestBackup_TriggerBackup(t *testing.T) {
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
 	b := newTestBackup("MySuperSecurePassword", cb, t)
 
-	// Get password
+	// get password
 	password, err := loadPassword(b.store.GetKV())
 	if err != nil {
 		t.Errorf("Failed to load password from storage: %+v", err)

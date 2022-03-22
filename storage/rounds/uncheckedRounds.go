@@ -353,7 +353,7 @@ func (s *UncheckedRoundStore) marshal() ([]byte, error) {
 func (s *UncheckedRoundStore) unmarshal(data []byte) error {
 	buff := bytes.NewBuffer(data)
 
-	// Get number of rounds in list
+	// get number of rounds in list
 	length := binary.BigEndian.Uint32(buff.Next(8))
 
 	for i := 0; i < int(length); i++ {

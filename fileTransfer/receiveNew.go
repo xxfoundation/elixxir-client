@@ -83,7 +83,7 @@ func (m *Manager) readNewFileTransferMessage(msg message.Receive) (
 		return
 	}
 
-	// Get RNG from stream
+	// get RNG from stream
 	rng := m.rng.GetStream()
 	defer rng.Close()
 

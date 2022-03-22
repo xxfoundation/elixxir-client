@@ -141,7 +141,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			}
 		}
 		if containsBlacklisted {
-			jww.WARN.Printf("[SendCMIX-%s]Round %d contains blacklisted node, "+
+			jww.WARN.Printf("[SendCMIX-%s]Round %d contains blacklisted nodes, "+
 				"skipping...", cmixParams.DebugTag, bestRound.ID)
 			continue
 		}

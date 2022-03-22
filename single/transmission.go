@@ -63,7 +63,7 @@ type roundEvents interface {
 func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 	tag string, MaxMsgs uint8, rng io.Reader, callback ReplyComm, timeout time.Duration) error {
 
-	// Get ephemeral ID address space size; this blocks until the address space
+	// get ephemeral ID address space size; this blocks until the address space
 	// size is set for the first time
 	addressSize := m.net.GetAddressSize()
 	timeStart := netTime.Now()

@@ -47,7 +47,7 @@ func track(session *storage.Session, addrSpace *AddressSpace, ourId *id.ID, stop
 			"tracking: %+v", err)
 	}
 
-	// Get the latest timestamp from store
+	// get the latest timestamp from store
 	lastTimestampObj, err := session.Get(TimestampKey)
 	if err != nil {
 		jww.FATAL.Panicf("Could not get timestamp: %+v", err)
@@ -206,7 +206,7 @@ func calculateTickerTime(baseIDs []ephemeral.ProtoIdentity, now time.Time) time.
 		return time.Duration(0)
 	}
 
-	// Get the last identity in the list
+	// get the last identity in the list
 	lastIdentity := baseIDs[len(baseIDs)-1]
 
 	// Factor out the grace period previously expanded upon

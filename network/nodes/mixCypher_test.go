@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package cmix
+package nodes
 
 import (
 	"bytes"
@@ -111,7 +111,7 @@ func TestRoundKeys_Encrypt_Consistency(t *testing.T) {
 	prng.Read(contents)
 	msg.SetContents(contents)
 
-	rk := RoundKeys{
+	rk := MixCypher{
 		keys: keys,
 		g:    cmixGrp,
 	}

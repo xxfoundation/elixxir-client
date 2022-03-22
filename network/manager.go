@@ -23,13 +23,13 @@ import (
 	"gitlab.com/elixxir/client/network/health"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
-	"gitlab.com/elixxir/client/network/node"
+	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/network/rounds"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
-	"gitlab.com/elixxir/comms/network"
+	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
@@ -84,7 +84,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	ndf *ndf.NetworkDefinition) (interfaces.NetworkManager, error) {
 
 	//start network instance
-	instance, err := network.NewInstance(comms.ProtoComms, ndf, nil, nil, network.None, params.FastPolling)
+	instance, err := commNetwork.NewInstance(comms.ProtoComms, ndf, nil, nil, commNetwork.None, params.FastPolling)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create"+
 			" client network manager")
@@ -117,14 +117,14 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		Rng:              rng,
 		Comms:            comms,
 		Health:           health.Init(instance, params.NetworkHealthTimeout),
-		NodeRegistration: make(chan network.NodeGateway, params.RegNodesBufferLen),
+		NodeRegistration: make(chan commNetwork.NodeGateway, params.RegNodesBufferLen),
 		Instance:         instance,
 		TransmissionID:   session.User().GetCryptographicIdentity().GetTransmissionID(),
 		ReceptionID:      session.User().GetCryptographicIdentity().GetReceptionID(),
 		Events:           events,
 	}
 
-	// Set up node registration chan for network instance
+	// Set up nodes registration chan for network instance
 	m.Instance.SetAddGatewayChan(m.NodeRegistration)
 
 	// Set up gateway.Sender
@@ -174,8 +174,8 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	multi.Add(healthStop)
 
 	// Node Updates
-	multi.Add(node.StartRegistration(m.GetSender(), m.Session, m.Rng,
-		m.Comms, m.NodeRegistration, m.param.ParallelNodeRegistrations)) // Adding/Keys
+	multi.Add(nodes.StartRegistration(m.GetSender(), m.Session, m.Rng,
+		m.Comms, m.NodeRegistration, m.param.ParallelNodeRegistrations)) // Adding/MixCypher
 	//TODO-remover
 	//m.runners.Add(StartNodeRemover(m.Context))        // Removing
 
@@ -206,7 +206,7 @@ func (m *manager) GetHealthTracker() interfaces.HealthTracker {
 }
 
 // GetInstance returns the network instance object (ndf state)
-func (m *manager) GetInstance() *network.Instance {
+func (m *manager) GetInstance() *commNetwork.Instance {
 	return m.Instance
 }
 
@@ -223,7 +223,7 @@ func (m *manager) CheckGarbledMessages() {
 }
 
 // InProgressRegistrations returns an approximation of the number of in progress
-// node registrations.
+// nodes registrations.
 func (m *manager) InProgressRegistrations() int {
 	return len(m.Internal.NodeRegistration)
 }

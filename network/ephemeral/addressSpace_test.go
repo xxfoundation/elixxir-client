@@ -30,12 +30,12 @@ func Test_addressSpace_Get(t *testing.T) {
 	as := NewAddressSpace()
 	expectedSize := uint8(42)
 
-	// Call Get and error if it does not block
+	// Call get and error if it does not block
 	wait := make(chan uint8)
 	go func() { wait <- as.Get() }()
 	select {
 	case size := <-wait:
-		t.Errorf("Get failed to block and returned size %d.", size)
+		t.Errorf("get failed to block and returned size %d.", size)
 	case <-time.NewTimer(10 * time.Millisecond).C:
 	}
 
@@ -44,17 +44,17 @@ func Test_addressSpace_Get(t *testing.T) {
 	as.size = expectedSize
 	as.cond.L.Unlock()
 
-	// Call Get and error if it does block
+	// Call get and error if it does block
 	wait = make(chan uint8)
 	go func() { wait <- as.Get() }()
 	select {
 	case size := <-wait:
 		if size != expectedSize {
-			t.Errorf("Get returned the wrong size.\nexpected: %d\nreceived: %d",
+			t.Errorf("get returned the wrong size.\nexpected: %d\nreceived: %d",
 				expectedSize, size)
 		}
 	case <-time.NewTimer(15 * time.Millisecond).C:
-		t.Error("Get blocking when the size has been updated.")
+		t.Error("get blocking when the size has been updated.")
 	}
 }
 
@@ -69,11 +69,11 @@ func Test_addressSpace_Get_WaitBroadcast(t *testing.T) {
 		select {
 		case size := <-wait:
 			if size != initSize {
-				t.Errorf("Get returned the wrong size.\nexpected: %d\nreceived: %d",
+				t.Errorf("get returned the wrong size.\nexpected: %d\nreceived: %d",
 					initSize, size)
 			}
 		case <-time.NewTimer(25 * time.Millisecond).C:
-			t.Error("Get blocking when the Cond has broadcast.")
+			t.Error("get blocking when the Cond has broadcast.")
 		}
 	}()
 
@@ -138,7 +138,7 @@ func Test_addressSpace_update_GetAndChannels(t *testing.T) {
 						"\nexpected: %d\nreceived: %d", i, expectedSize, size)
 				}
 			case <-time.NewTimer(20 * time.Millisecond).C:
-				t.Errorf("Timed out waiting for Get to return on thread %d.", i)
+				t.Errorf("Timed out waiting for get to return on thread %d.", i)
 			}
 		}(i, waitChan)
 	}

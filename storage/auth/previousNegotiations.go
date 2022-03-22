@@ -71,7 +71,7 @@ func (s *Store) AddIfNew(partner *id.ID, negotiationFingerprint []byte) (
 		return
 	}
 
-	// Get the fingerprint list from storage
+	// get the fingerprint list from storage
 	fingerprints, err := s.loadNegotiationFingerprints(partner)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to load negotiation fingerprints for "+

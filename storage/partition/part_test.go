@@ -35,7 +35,7 @@ func Test_savePart(t *testing.T) {
 	// Attempt to get from key value store
 	obj, err := kv.Get(key, 0)
 	if err != nil {
-		t.Errorf("Get() produced an error: %v", err)
+		t.Errorf("get() produced an error: %v", err)
 	}
 
 	// Check if the data is correct

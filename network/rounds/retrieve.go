@@ -71,7 +71,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				jww.WARN.Printf("Empty gateway ID List")
 				continue
 			}
-			// Target the last node in the team first because it has
+			// Target the last nodes in the team first because it has
 			// messages first, randomize other members of the team
 			var rndBytes [32]byte
 			stream := m.Rng.GetStream()

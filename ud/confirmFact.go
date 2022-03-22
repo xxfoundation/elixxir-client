@@ -29,7 +29,7 @@ func (m *Manager) confirmFact(confirmationID, code string, comm confirmFactComm)
 			"client is not registered")
 	}
 
-	// Get UD host
+	// get UD host
 	host, err := m.getHost()
 	if err != nil {
 		return err

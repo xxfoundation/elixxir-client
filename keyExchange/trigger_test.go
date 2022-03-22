@@ -102,7 +102,7 @@ func TestHandleTrigger(t *testing.T) {
 		t.Errorf("Handle trigger error: %v", err)
 	}
 
-	// Get Alice's manager for reception from Bob
+	// get Alice's manager for reception from Bob
 	receivedManager, err := aliceSession.E2e().GetPartner(bobID)
 	if err != nil {
 		t.Errorf("Failed to get bob's manager: %v", err)

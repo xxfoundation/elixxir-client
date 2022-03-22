@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-// KV Get should call the Upgrade function when it's available
+// KV get should call the Upgrade function when it's available
 func TestVersionedKV_Get_Err(t *testing.T) {
 	kv := make(ekv.Memstore)
 	vkv := NewKV(kv)
@@ -141,7 +141,7 @@ func TestVersionedKV_Delete(t *testing.T) {
 	}
 }
 
-// Test Get without Upgrade path
+// Test get without Upgrade path
 func TestVersionedKV_Get(t *testing.T) {
 	// Set up a dummy KV with the required data
 	kv := make(ekv.Memstore)

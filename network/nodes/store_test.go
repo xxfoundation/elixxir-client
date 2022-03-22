@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package cmix
+package nodes
 
 import (
 	"bytes"
@@ -44,7 +44,7 @@ func TestNewStore(t *testing.T) {
 
 // Happy path Add/Done test
 func TestStore_AddRemove(t *testing.T) {
-	// Uncomment to print keys that Set and Get are called on
+	// Uncomment to print keys that Set and get are called on
 	// jww.SetStdoutThreshold(jww.LevelTrace)
 
 	testStore, _ := makeTestStore()
@@ -54,18 +54,18 @@ func TestStore_AddRemove(t *testing.T) {
 	keyId := []byte("keyId")
 	testStore.Add(nodeId, k, 0, keyId)
 	if _, exists := testStore.nodes[*nodeId]; !exists {
-		t.Fatal("Failed to add node key")
+		t.Fatal("Failed to add nodes key")
 	}
 
 	testStore.Remove(nodeId)
 	if _, exists := testStore.nodes[*nodeId]; exists {
-		t.Fatal("Failed to remove node key")
+		t.Fatal("Failed to remove nodes key")
 	}
 }
 
 // Happy path Add/Has test
 func TestStore_AddHas(t *testing.T) {
-	// Uncomment to print keys that Set and Get are called on
+	// Uncomment to print keys that Set and get are called on
 	// jww.SetStdoutThreshold(jww.LevelTrace)
 
 	testStore, _ := makeTestStore()
@@ -75,17 +75,17 @@ func TestStore_AddHas(t *testing.T) {
 
 	testStore.Add(nodeId, key, 0, nil)
 	if _, exists := testStore.nodes[*nodeId]; !exists {
-		t.Fatal("Failed to add node key")
+		t.Fatal("Failed to add nodes key")
 	}
 
 	if !testStore.Has(nodeId) {
-		t.Fatal("cannot find the node id that that was added")
+		t.Fatal("cannot find the nodes id that that was added")
 	}
 }
 
 // Tests that has returns false when it doesnt have
 func TestStore_DoesntHave(t *testing.T) {
-	// Uncomment to print keys that Set and Get are called on
+	// Uncomment to print keys that Set and get are called on
 	// jww.SetStdoutThreshold(jww.LevelTrace)
 
 	testStore, _ := makeTestStore()
@@ -93,18 +93,18 @@ func TestStore_DoesntHave(t *testing.T) {
 	nodeId := id.NewIdFromString("test", id.Node, t)
 
 	if testStore.Has(nodeId) {
-		t.Fatal("found the node when it shouldnt have been found")
+		t.Fatal("found the nodes when it shouldnt have been found")
 	}
 }
 
 // Happy path
 func TestLoadStore(t *testing.T) {
-	// Uncomment to print keys that Set and Get are called on
+	// Uncomment to print keys that Set and get are called on
 	// jww.SetStdoutThreshold(jww.LevelTrace)
 
 	testStore, kv := makeTestStore()
 
-	// Add a test node key
+	// Add a test nodes key
 	nodeId := id.NewIdFromString("test", id.Node, t)
 	k := testStore.grp.NewInt(5)
 	testTime, err := time.Parse(time.RFC3339,
@@ -124,7 +124,7 @@ func TestLoadStore(t *testing.T) {
 		t.Fatalf("Unable to load store: %+v", err)
 	}
 	if len(store.nodes) != len(testStore.nodes) {
-		t.Errorf("LoadStore failed to load node keys")
+		t.Errorf("LoadStore failed to load nodes keys")
 	}
 
 	circuit := connect.NewCircuit([]*id.ID{nodeId})
@@ -142,7 +142,7 @@ func TestLoadStore(t *testing.T) {
 
 // Happy path
 func TestStore_GetRoundKeys(t *testing.T) {
-	// Uncomment to print keys that Set and Get are called on
+	// Uncomment to print keys that Set and get are called on
 	// jww.SetStdoutThreshold(jww.LevelTrace)
 
 	testStore, _ := makeTestStore()
@@ -164,13 +164,13 @@ func TestStore_GetRoundKeys(t *testing.T) {
 		t.Errorf("Expected to have no missing keys, got %d", len(missing))
 	}
 	if result == nil || len(result.keys) != numIds {
-		t.Errorf("Expected to have %d node keys", numIds)
+		t.Errorf("Expected to have %d nodes keys", numIds)
 	}
 }
 
 // Missing keys path
 func TestStore_GetRoundKeys_Missing(t *testing.T) {
-	// Uncomment to print keys that Set and Get are called on
+	// Uncomment to print keys that Set and get are called on
 	// jww.SetStdoutThreshold(jww.LevelTrace)
 
 	testStore, _ := makeTestStore()
@@ -181,7 +181,7 @@ func TestStore_GetRoundKeys_Missing(t *testing.T) {
 		nodeIds[i] = id.NewIdFromUInt(uint64(i)+1, id.Node, t)
 		key := testStore.grp.NewInt(int64(i) + 1)
 
-		// Only add every other node so there are missing nodes
+		// Only add every other nodes so there are missing nodes
 		if i%2 == 0 {
 			testStore.Add(nodeIds[i], key, 0, nil)
 			testStore.Add(nodeIds[i], key, 0, nil)

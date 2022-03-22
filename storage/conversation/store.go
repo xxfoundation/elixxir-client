@@ -56,7 +56,7 @@ func (s *Store) Delete(partner *id.ID) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	// Get contact from memory
+	// get contact from memory
 	c, exists := s.loadedConversations[*partner]
 	if !exists {
 		return

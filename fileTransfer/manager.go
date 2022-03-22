@@ -280,7 +280,7 @@ func (m Manager) Send(fileName, fileType string, fileData []byte,
 	}
 	rng.Close()
 
-	// Get the size of each file part
+	// get the size of each file part
 	partSize, err := m.getPartSize()
 	if err != nil {
 		return ftCrypto.TransferID{}, errors.Errorf(getPartSizeErr, err)
@@ -329,7 +329,7 @@ func (m Manager) Send(fileName, fileType string, fileData []byte,
 // most once per period.
 func (m Manager) RegisterSentProgressCallback(tid ftCrypto.TransferID,
 	progressCB interfaces.SentProgressCallback, period time.Duration) error {
-	// Get the transfer for the given ID
+	// get the transfer for the given ID
 	transfer, err := m.sent.GetTransfer(tid)
 	if err != nil {
 		return err
@@ -350,7 +350,7 @@ func (m Manager) RegisterSentProgressCallback(tid ftCrypto.TransferID,
 //  - Can you reuse fingerprints?
 //  - What to do if sendE2E fails?
 func (m Manager) Resend(tid ftCrypto.TransferID) error {
-	// Get the transfer for the given ID
+	// get the transfer for the given ID
 	transfer, err := m.sent.GetTransfer(tid)
 	if err != nil {
 		return err
@@ -369,7 +369,7 @@ func (m Manager) Resend(tid ftCrypto.TransferID) error {
 // storage once a transfer has completed or reached the retry limit. Returns an
 // error if the transfer has not run out of retries.
 func (m Manager) CloseSend(tid ftCrypto.TransferID) error {
-	// Get the transfer for the given ID
+	// get the transfer for the given ID
 	st, err := m.sent.GetTransfer(tid)
 	if err != nil {
 		return err
@@ -395,13 +395,13 @@ func (m Manager) CloseSend(tid ftCrypto.TransferID) error {
 // Returns an error if the transfer is not complete, the full file cannot be
 // verified, or if the transfer cannot be found.
 func (m Manager) Receive(tid ftCrypto.TransferID) ([]byte, error) {
-	// Get the transfer for the given ID
+	// get the transfer for the given ID
 	rt, err := m.received.GetTransfer(tid)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get the file from the transfer
+	// get the file from the transfer
 	file, err := rt.GetFile()
 	if err != nil {
 		return nil, err
@@ -421,7 +421,7 @@ func (m Manager) Receive(tid ftCrypto.TransferID) ([]byte, error) {
 // updates, at most once per period.
 func (m Manager) RegisterReceivedProgressCallback(tid ftCrypto.TransferID,
 	progressCB interfaces.ReceivedProgressCallback, period time.Duration) error {
-	// Get the transfer for the given ID
+	// get the transfer for the given ID
 	transfer, err := m.received.GetTransfer(tid)
 	if err != nil {
 		return err

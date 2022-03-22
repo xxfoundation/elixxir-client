@@ -39,7 +39,7 @@ const (
 // send fails if the message is too long.
 func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time, group.MessageID,
 	error) {
-	// Get the current time stripped of the monotonic clock
+	// get the current time stripped of the monotonic clock
 	timeNow := netTime.Now().Round(0)
 
 	// Create a cMix message for each group member

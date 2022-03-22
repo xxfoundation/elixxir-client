@@ -53,7 +53,7 @@ func (m *Manager) removeFact(fact fact.Fact, rFC removeFactComms) error {
 		FactSig:     fSig,
 	}
 
-	// Get UD host
+	// get UD host
 	host, err := m.getHost()
 	if err != nil {
 		return err
@@ -109,7 +109,7 @@ func (m *Manager) removeUser(fact fact.Fact, rFC removeUserComms) error {
 		FactSig:     fsig,
 	}
 
-	// Get UD host
+	// get UD host
 	host, err := m.getHost()
 	if err != nil {
 		return err

@@ -43,7 +43,7 @@ func TestCmixMessageHandler_SaveMessage(t *testing.T) {
 		// Try to get message
 		obj, err := kv.Get(key, 0)
 		if err != nil {
-			t.Errorf("Get() returned an error: %v", err)
+			t.Errorf("get() returned an error: %v", err)
 		}
 
 		// Test if message retrieved matches expected

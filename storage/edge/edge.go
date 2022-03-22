@@ -58,7 +58,7 @@ func (s *Store) Add(preimage Preimage, identity *id.ID) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	// Get the list to update, create if needed
+	// get the list to update, create if needed
 	preimages, exists := s.edge[*identity]
 	if !exists {
 		preimages = newPreimages(identity)

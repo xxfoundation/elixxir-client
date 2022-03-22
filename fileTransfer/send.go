@@ -365,7 +365,7 @@ func (m *Manager) newCmixMessage(transfer *ftStorage.SentTransfer,
 	// Create new empty cMix message
 	cmixMsg := format.NewMessage(m.store.Cmix().GetGroup().GetP().ByteLen())
 
-	// Get encrypted file part, file part MAC, nonce (nonce), and fingerprint
+	// get encrypted file part, file part MAC, nonce (nonce), and fingerprint
 	encPart, mac, fp, err := transfer.GetEncryptedPart(partNum, cmixMsg.ContentsSize())
 	if err != nil {
 		return format.Message{}, err
@@ -463,7 +463,7 @@ func (m *Manager) makeRoundEventCallback(
 // sendEndE2eMessage sends an E2E message to the recipient once the transfer
 // complete information them that all file parts have been sent.
 func (m *Manager) sendEndE2eMessage(recipient *id.ID) error {
-	// Get the partner
+	// get the partner
 	partner, err := m.store.E2e().GetPartner(recipient)
 	if err != nil {
 		return errors.Errorf(endE2eGetPartnerErr, recipient, err)

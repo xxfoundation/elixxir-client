@@ -14,8 +14,8 @@ import (
 type Messages struct {
 	MessageReceptionBuffLen        uint
 	MessageReceptionWorkerPoolSize uint
-	MaxChecksGarbledMessage        uint
-	GarbledMessageWait             time.Duration
+	MaxChecksInProcessMessage      uint
+	InProcessMessageWait           time.Duration
 	RealtimeOnly                   bool
 }
 
@@ -23,8 +23,8 @@ func GetDefaultMessage() Messages {
 	return Messages{
 		MessageReceptionBuffLen:        500,
 		MessageReceptionWorkerPoolSize: 4,
-		MaxChecksGarbledMessage:        10,
-		GarbledMessageWait:             15 * time.Minute,
+		MaxChecksInProcessMessage:      10,
+		InProcessMessageWait:           15 * time.Minute,
 		RealtimeOnly:                   false,
 	}
 }

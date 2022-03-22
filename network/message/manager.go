@@ -115,24 +115,24 @@ func NewManager(param params.Network,
 }
 
 //Gets the channel to send received messages on
-func (m *pickup) GetMessageReceptionChannel() chan<- Bundle {
-	return m.messageReception
+func (p *pickup) GetMessageReceptionChannel() chan<- Bundle {
+	return p.messageReception
 }
 
 //Starts all worker pool
-func (m *pickup) StartProcessies() stoppable.Stoppable {
+func (p *pickup) StartProcessies() stoppable.Stoppable {
 	multi := stoppable.NewMulti("MessageReception")
 
 	//create the message handler workers
-	for i := uint(0); i < m.param.MessageReceptionWorkerPoolSize; i++ {
+	for i := uint(0); i < p.param.MessageReceptionWorkerPoolSize; i++ {
 		stop := stoppable.NewSingle(fmt.Sprintf("MessageReception Worker %v", i))
-		go m.handleMessages(stop)
+		go p.handleMessages(stop)
 		multi.Add(stop)
 	}
 
 	//create the in progress messages thread
 	garbledStop := stoppable.NewSingle("GarbledMessages")
-	go m.recheckInProgressRunner(garbledStop)
+	go p.recheckInProgressRunner(garbledStop)
 	multi.Add(garbledStop)
 
 	return multi

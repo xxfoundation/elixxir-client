@@ -9,74 +9,71 @@ package message
 
 import (
 	"fmt"
-	"sync"
-	"time"
-
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/edge"
-	"gitlab.com/elixxir/crypto/e2e"
 	fingerprint2 "gitlab.com/elixxir/crypto/fingerprint"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/states"
-	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+	"sync"
 )
 
-func (m *Manager) handleMessages(stop *stoppable.Single) {
+func (p *pickup) handleMessages(stop *stoppable.Single) {
 	for {
 		select {
 		case <-stop.Quit():
 			stop.ToStopped()
 			return
-		case bundle := <-m.messageReception:
-				go func(){
-					wg := sync.WaitGroup{}
-					wg.Add(len(bundle.Messages))
-					for _, msg := range bundle.Messages {
-						go func() {
-							m.handleMessage(msg, bundle)
-							wg.Done()
-						}()
-					}
-					wg.Wait()
-					bundle.Finish()
-				}()
+		case bundle := <-p.messageReception:
+			go func() {
+				wg := sync.WaitGroup{}
+				wg.Add(len(bundle.Messages))
+				for i := range bundle.Messages {
+					msg := bundle.Messages[i]
+					go func() {
+						count, ts := p.inProcess.Add(msg, bundle.RoundInfo, bundle.Identity)
+						wg.Done()
+						success := p.handleMessage(msg, bundle)
+						if success {
+							p.inProcess.Remove(msg, bundle.RoundInfo, bundle.Identity)
+						} else {
+							// fail the message if any part of the decryption fails,
+							// unless it is the last attempts and has been in the buffer long
+							// enough, in which case remove it
+							if count == p.param.MaxChecksInProcessMessage &&
+								netTime.Since(ts) > p.param.InProcessMessageWait {
+								p.inProcess.Remove(msg, bundle.RoundInfo, bundle.Identity)
+							} else {
+								p.inProcess.Failed(msg, bundle.RoundInfo, bundle.Identity)
+							}
 
-			}
+						}
 
+					}()
+				}
+				wg.Wait()
+				bundle.Finish()
+			}()
 		}
 	}
 
 }
 
-func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle) {
+func (p *pickup) handleMessage(ecrMsg format.Message, bundle Bundle) bool {
 	fingerprint := ecrMsg.GetKeyFP()
-	// msgDigest := ecrMsg.Digest()
 	identity := bundle.Identity
-
 	round := bundle.RoundInfo
-	// newID := *id.ID{} // todo use new id systme from ticket
-	// 	{
-	// 	ID id.ID
-	// 	ephID ephemeral.Id
-	// }
-
-	//save to garbled
-	m.garbledStore.Add(ecrMsg)
 
 	var receptionID interfaces.Identity
 
 	// If we have a fingerprint, process it.
-	if proc, exists := m.pop(fingerprint); exists {
+	if proc, exists := p.pop(identity.Source, fingerprint); exists {
 		proc.Process(ecrMsg, receptionID, round)
-		m.garbledStore.Remove(ecrMsg)
-		return
+		return true
 	}
 
-	triggers, exists := m.get(ecrMsg.GetIdentityFP(), ecrMsg.GetContents())
+	triggers, exists := p.get(identity.Source, ecrMsg.GetIdentityFP(), ecrMsg.GetContents())
 	if exists {
 		for _, t := range triggers {
 			go t.Process(ecrMsg, receptionID, round)
@@ -85,8 +82,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle) {
 			jww.ERROR.Printf("empty trigger list for %s",
 				ecrMsg.GetIdentityFP()) // get preimage
 		}
-		m.garbledStore.Remove(ecrMsg)
-		return
+		return true
 	} else {
 		// TODO: delete this else block because it should not be needed.
 		jww.INFO.Printf("checking backup %v", preimage.MakeDefault(identity.Source))
@@ -106,7 +102,6 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle) {
 	im := fmt.Sprintf("Garbled/RAW Message: keyFP: %v, round: %d"+
 		"msgDigest: %s, not determined to be for client",
 		ecrMsg.GetKeyFP(), bundle.Round, ecrMsg.Digest())
-	m.Internal.Events.Report(1, "MessageReception", "Garbled", im)
-	//denote as active in garbled
-	m.garbledStore.Failed(ecrMsg)
+	p.events.Report(1, "MessageReception", "Garbled", im)
+	return false
 }

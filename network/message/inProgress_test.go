@@ -80,8 +80,8 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	m := NewManager(i, params.Network{Messages: params.Messages{
 		MessageReceptionBuffLen:        20,
 		MessageReceptionWorkerPoolSize: 20,
-		MaxChecksGarbledMessage:        20,
-		GarbledMessageWait:             time.Hour,
+		MaxChecksInProcessMessage:      20,
+		InProcessMessageWait:           time.Hour,
 	}}, nil, sender)
 
 	rng := csprng.NewSystemRNG()

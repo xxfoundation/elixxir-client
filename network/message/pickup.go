@@ -10,20 +10,14 @@ package message
 import (
 	"encoding/base64"
 	"fmt"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/network/nodes"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/rateLimiting"
-
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 const (
@@ -52,31 +46,18 @@ type pickup struct {
 	blacklistedNodes map[string]interface{}
 
 	messageReception chan Bundle
-	nodeRegistration chan network.NodeGateway
-	networkIsHealthy chan bool
 	checkInProgress  chan struct{}
 
 	inProcess *MeteredCmixMessageBuffer
 
-	rng      *fastRNG.StreamGenerator
-	events   interfaces.EventManager
-	session  *storage.Session
-	nodes    nodes.Registrar
-	instance *network.Instance
+	events interfaces.EventManager
 
 	FingerprintsManager
 	TriggersManager
-
-	//sending rate limit tracker
-	rateLimitBucket *rateLimiting.Bucket
-	rateLimitParams utility.BucketParamStore
 }
 
-func NewPickup(param params.Network,
-	nodeRegistration chan network.NodeGateway, sender *gateway.Sender,
-	session *storage.Session, rng *fastRNG.StreamGenerator,
-	events interfaces.EventManager, nodes nodes.Registrar,
-	instance *network.Instance) Pickup {
+func NewPickup(param params.Network, sender *gateway.Sender,
+	session *storage.Session, events interfaces.EventManager) Pickup {
 
 	garbled, err := NewOrLoadMeteredCmixMessageBuffer(session.GetKV(), inProcessKey)
 	if err != nil {
@@ -86,16 +67,10 @@ func NewPickup(param params.Network,
 	m := pickup{
 		param:            param,
 		messageReception: make(chan Bundle, param.MessageReceptionBuffLen),
-		networkIsHealthy: make(chan bool, 1),
 		checkInProgress:  make(chan struct{}, 100),
-		nodeRegistration: nodeRegistration,
 		sender:           sender,
 		inProcess:        garbled,
-		rng:              rng,
 		events:           events,
-		session:          session,
-		nodes:            nodes,
-		instance:         instance,
 	}
 	for _, nodeId := range param.BlacklistedNodes {
 		decodedId, err := base64.StdEncoding.DecodeString(nodeId)

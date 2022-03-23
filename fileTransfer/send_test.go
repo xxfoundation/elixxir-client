@@ -888,13 +888,11 @@ func TestManager_sendEndE2eMessage(t *testing.T) {
 	p := params.GetDefaultE2ESessionParams()
 
 	rng := csprng.NewSystemRNG()
-	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA,
-		rng)
-	theirSidhPub, _ := util.GenerateSIDHKeyPair(
-		sidh.KeyVariantSidhB, rng)
+	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA, rng)
+	theirSidhPub, _ := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhB, rng)
 
-	err := m.store.E2e().AddPartner(recipient, pubKey, dhKey, mySidhPriv,
-		theirSidhPub, p, p)
+	err := m.store.E2e().AddPartner(
+		recipient, pubKey, dhKey, mySidhPriv, theirSidhPub, p, p)
 	if err != nil {
 		t.Errorf("Failed to add partner %s: %+v", recipient, err)
 	}

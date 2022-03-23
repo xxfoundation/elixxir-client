@@ -40,9 +40,9 @@ func (m *Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) 
 				// which means this message is not of the correct type and will
 				// be ignored
 				if strings.Contains(err.Error(), "fingerprint") {
-					jww.TRACE.Printf("[FT] %+v", err)
+					jww.TRACE.Printf("[FT] %v", err)
 				} else {
-					jww.WARN.Printf("[FT] %+v", err)
+					jww.WARN.Printf("[FT] %v", err)
 				}
 				continue
 			}

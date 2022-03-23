@@ -185,7 +185,7 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	multi.Add(trackNetworkStopper)
 
 	// Message reception
-	multi.Add(m.message.StartProcessies())
+	multi.Add(m.message.StartProcesses())
 
 	// Round processing
 	multi.Add(m.round.StartProcessors())

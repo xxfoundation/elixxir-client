@@ -33,10 +33,18 @@ import (
 	"time"
 )
 
-// List of errors that initiate a Host replacement
-var errorsList = []string{context.DeadlineExceeded.Error(), "connection refused", "host disconnected",
-	"transport is closing", balancer.ErrTransientFailure.Error(), "Last try to connect",
-	ndf.NO_NDF, "Host is in cool down", grpc.ErrClientConnClosing.Error()}
+// List of errors that initiate a Host replacement.
+var errorsList = []string{
+	context.DeadlineExceeded.Error(),
+	"connection refused",
+	"host disconnected",
+	"transport is closing",
+	balancer.ErrTransientFailure.Error(),
+	"Last try to connect",
+	ndf.NO_NDF,
+	"Host is in cool down",
+	grpc.ErrClientConnClosing.Error(),
+}
 
 // HostManager Interface allowing storage and retrieval of Host objects
 type HostManager interface {
@@ -46,7 +54,7 @@ type HostManager interface {
 }
 
 // Filter filters out IDs from the provided map based on criteria in the NDF.
-// The passed in map is a map of the NDF for easier acesss.  The map is ID -> index in the NDF
+// The passed in map is a map of the NDF for easier access.  The map is ID -> index in the NDF
 // There is no multithreading, the filter function can either edit the passed map or make a new one
 // and return it.  The general pattern is to loop through the map, then look up data about the node
 // in the ndf to make a filtering decision, then add them to a new map if they are accepted.
@@ -98,8 +106,8 @@ func DefaultPoolParams() PoolParams {
 	p.HostParams.EnableCoolOff = false
 	p.HostParams.NumSendsBeforeCoolOff = 1
 	p.HostParams.CoolOffTimeout = 5 * time.Minute
-	p.HostParams.SendTimeout = 1 * time.Second
-	p.HostParams.PingTimeout = 1 * time.Second
+	p.HostParams.SendTimeout = 1000 * time.Millisecond
+	p.HostParams.PingTimeout = 1000 * time.Millisecond
 	return p
 }
 
@@ -188,8 +196,16 @@ func (h *HostPool) initialize(startIdx uint32) error {
 	}
 
 	// Randomly shuffle gateways in NDF
-	randomGateways := make([]ndf.Gateway, len(h.ndf.Gateways))
-	copy(randomGateways, h.ndf.Gateways)
+	randomGateways := make([]ndf.Gateway, 0, len(h.ndf.Gateways))
+
+	// Filter out not active gateways
+	for i := 0; i < len(h.ndf.Gateways); i++ {
+		if h.ndf.Nodes[i].Status == ndf.Active {
+			randomGateways = append(randomGateways, h.ndf.Gateways[i])
+		}
+	}
+
+	// Randomize the gateway order
 	var rndBytes [32]byte
 	stream := h.rng.GetStream()
 	_, err := stream.Read(rndBytes[:])
@@ -247,14 +263,15 @@ func (h *HostPool) initialize(startIdx uint32) error {
 				}
 
 				// Ping the Host latency and send the result
-				jww.DEBUG.Printf("Testing host %s...", gwId.String())
+				jww.DEBUG.Printf("Testing host %s...", gwId)
 				latency, _ := newHost.IsOnline()
 				c <- gatewayDuration{gwId, latency}
 			}()
 		}
 
 		// Collect ping results
-		timer := time.NewTimer(2 * h.poolParams.HostParams.PingTimeout)
+		pingTimeout := 2 * h.poolParams.HostParams.PingTimeout
+		timer := time.NewTimer(pingTimeout)
 	innerLoop:
 		for {
 			select {
@@ -263,16 +280,18 @@ func (h *HostPool) initialize(startIdx uint32) error {
 				if gw.latency > 0 {
 					resultList = append(resultList, gw)
 					jww.DEBUG.Printf("Adding HostPool result %d/%d: %s: %d",
-						len(resultList), numGatewaysToTry, gw.id.String(), gw.latency)
+						len(resultList), numGatewaysToTry, gw.id, gw.latency)
 				}
 
 				// Break if we have all needed slots
 				if uint32(len(resultList)) == numGatewaysToTry {
 					exit = true
+					timer.Stop()
 					break innerLoop
 				}
 			case <-timer.C:
-				jww.INFO.Printf("HostPool initialization timed out!")
+				jww.INFO.Printf("HostPool initialization timed out after %s.",
+					pingTimeout)
 				break innerLoop
 			}
 		}
@@ -489,9 +508,9 @@ func (h *HostPool) selectGateway() *id.ID {
 		nodeId := gwId.DeepCopy()
 		nodeId.SetType(id.Node)
 		nodeNdfIdx := h.ndfMap[*nodeId]
-		isNodeStale := h.ndf.Nodes[nodeNdfIdx].Status == ndf.Stale
-		if isNodeStale {
-			jww.DEBUG.Printf("Ignoring stale node: %s", nodeId.String())
+		isNodeIsNotActive := h.ndf.Nodes[nodeNdfIdx].Status != ndf.Active
+		if isNodeIsNotActive {
+			jww.DEBUG.Printf("Ignoring stale node: %s", nodeId)
 			continue
 		}
 
@@ -554,13 +573,14 @@ func (h *HostPool) replaceHostNoStore(newId *id.ID, oldPoolIndex uint32) error {
 		go func() {
 			err := newHost.Connect()
 			if err != nil {
-				jww.WARN.Printf("Unable to initialize Host connection: %+v", err)
+				jww.WARN.Printf("Unable to initialize Host connection to %s: "+
+					"%+v", newId, err)
 			}
 		}()
 	}
 
-	jww.DEBUG.Printf("Replaced Host at %d [%s] with new Host %s", oldPoolIndex, oldHostIDStr,
-		newId.String())
+	jww.DEBUG.Printf("Replaced Host at %d [%s] with new Host %s",
+		oldPoolIndex, oldHostIDStr, newId)
 	return nil
 }
 
@@ -686,7 +706,8 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 			select {
 			case h.addGatewayChan <- ng:
 			default:
-				jww.WARN.Printf("Unable to send AddGateway event for id %s", gwId.String())
+				jww.WARN.Printf(
+					"Unable to send AddGateway event for id %s", gwId)
 			}
 		}
 
@@ -723,9 +744,9 @@ func readUint32(rng io.Reader) uint32 {
 // readRangeUint32 reduces an integer from 0, MaxUint32 to the range start, end
 func readRangeUint32(start, end uint32, rng io.Reader) uint32 {
 	size := end - start
-	// note we could just do the part inside the () here, but then extra
-	// can == size which means a little range is wasted, either
-	// choice seems negligible, so we went with the "more correct"
+	// Note that we could just do the part inside the () here, but then extra
+	// can == size which means a little range is wasted; either choice seems
+	// negligible, so we went with the "more correct"
 	extra := (math.MaxUint32%size + 1) % size
 	limit := math.MaxUint32 - extra
 	// Loop until we read something inside the limit

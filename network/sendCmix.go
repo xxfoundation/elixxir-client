@@ -115,9 +115,6 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		}
 		jww.TRACE.Printf("[SendCMIX-%s] bestRound: %v", cmixParams.DebugTag, bestRound)
 
-		// add the round on to the list of attempted, so it is not tried again
-		attempted.Insert(bestRound.GetRoundId())
-
 		// Determine whether the selected round contains any Nodes
 		// that are blacklisted by the params.Network object
 		containsBlacklisted := false
@@ -176,7 +173,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 				timeout = calculatedTimeout
 			}
 
-			//send the message
+			// Send the message
 			result, err := comms.SendPutMessage(host, wrappedMsg,
 				timeout)
 			jww.TRACE.Printf("[SendCMIX-%s]sendFunc %s putmsg", cmixParams.DebugTag, host)

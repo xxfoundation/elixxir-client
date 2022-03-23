@@ -264,7 +264,7 @@ func TestManager_updateSentRounds(t *testing.T) {
 	healthyRecover := make(chan bool, networkHealthBuffLen)
 	healthyRecover <- true
 
-	// get list of rounds that parts were sent on
+	// Get list of rounds that parts were sent on
 	_, loadedSentRounds, _ := m.sent.GetUnsentPartsAndSentRounds()
 
 	err = loadedManager.updateSentRounds(healthyRecover, loadedSentRounds)

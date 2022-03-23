@@ -34,7 +34,7 @@ func (m *Manager) sendNewFileTransfer(recipient *id.ID, fileName,
 		return errors.Errorf(newFtProtoMarshalErr, err)
 	}
 
-	// get partner relationship so that the silent preimage can be generated
+	// Get partner relationship so that the silent preimage can be generated
 	relationship, err := m.store.E2e().GetPartner(recipient)
 	if err != nil {
 		return err
@@ -43,11 +43,11 @@ func (m *Manager) sendNewFileTransfer(recipient *id.ID, fileName,
 	// Sends as a silent message to avoid a notification
 	p := params.GetDefaultE2E()
 	p.CMIX.IdentityPreimage = relationship.GetSilentPreimage()
-	p.DebugTag = "ft.New"
+	p.DebugTag = "FT.New"
 
 	// Send E2E message
-	rounds, _, _, err := m.net.SendE2E(sendMsg, p, nil)
-	if err != nil && len(rounds) == 0 {
+	_, _, _, err = m.net.SendE2E(sendMsg, p, nil)
+	if err != nil {
 		return errors.Errorf(newFtSendE2eErr, recipient, err)
 	}
 

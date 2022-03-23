@@ -249,10 +249,10 @@ func ephemeralIdListToString(idList []ephemeral.Id) string {
 }
 
 func calculateSendTimeout(best *pb.RoundInfo, max time.Duration) time.Duration {
-	RoundStartTime := time.Unix(0,
+	roundStartTime := time.Unix(0,
 		int64(best.Timestamps[states.QUEUED]))
 	// 250ms AFTER the round starts to hear the response.
-	timeout := RoundStartTime.Sub(
+	timeout := roundStartTime.Sub(
 		netTime.Now().Add(250 * time.Millisecond))
 	if timeout > max {
 		timeout = max

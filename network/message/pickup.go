@@ -72,7 +72,8 @@ func NewPickup(param params.Network, kv *versioned.KV, events interfaces.EventMa
 	for _, nodeId := range param.BlacklistedNodes {
 		decodedId, err := base64.StdEncoding.DecodeString(nodeId)
 		if err != nil {
-			jww.ERROR.Printf("Unable to decode blacklisted Node ID %s: %+v", decodedId, err)
+			jww.ERROR.Printf("Unable to decode blacklisted Node ID %s: %+v",
+				decodedId, err)
 			continue
 		}
 		m.blacklistedNodes[string(decodedId)] = nil
@@ -92,7 +93,7 @@ func (p *pickup) GetMessageReceptionChannel() chan<- Bundle {
 func (p *pickup) StartProcesses() stoppable.Stoppable {
 	multi := stoppable.NewMulti("MessageReception")
 
-	// create the message handler workers
+	// Create the message handler workers
 	for i := uint(0); i < p.param.MessageReceptionWorkerPoolSize; i++ {
 		stop := stoppable.NewSingle(
 			"MessageReception Worker " + strconv.Itoa(int(i)))
@@ -100,7 +101,7 @@ func (p *pickup) StartProcesses() stoppable.Stoppable {
 		multi.Add(stop)
 	}
 
-	// create the in progress messages thread
+	// Create the in progress messages thread
 	garbledStop := stoppable.NewSingle("GarbledMessages")
 	go p.recheckInProgressRunner(garbledStop)
 	multi.Add(garbledStop)

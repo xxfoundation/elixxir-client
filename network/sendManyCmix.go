@@ -102,10 +102,6 @@ func sendManyCmixHelper(sender *gateway.Sender,
 			continue
 		}
 
-		// Add the round on to the list of attempted rounds so that it is not
-		// tried again
-		attempted.Insert(bestRound.GetRoundId())
-
 		// Determine whether the selected round contains any nodes that are
 		// blacklisted by the params.Network object
 		containsBlacklisted := false
@@ -207,8 +203,9 @@ func sendManyCmixHelper(sender *gateway.Sender,
 					param.DebugTag, ephemeralIDsString, recipientString, bestRound.ID, err)
 				jww.INFO.Printf("[SendManyCMIX-%s]error received, continuing: %v", param.DebugTag, err)
 				continue
+			} else {
+				jww.INFO.Printf("[SendManyCMIX-%s]Error received: %v", param.DebugTag, err)
 			}
-			jww.INFO.Printf("error received: %v", err)
 			return 0, []ephemeral.Id{}, err
 		}
 
@@ -216,13 +213,13 @@ func sendManyCmixHelper(sender *gateway.Sender,
 		gwSlotResp := result.(*pb.GatewaySlotResponse)
 		if gwSlotResp.Accepted {
 			m := fmt.Sprintf("[SendManyCMIX-%s]Successfully sent to EphIDs %s (sources: [%s]) "+
-				"in round %d", param.DebugTag, ephemeralIDsString, recipientString, bestRound.ID)
+				"in round %d (msgDigest: %s)", param.DebugTag, ephemeralIDsString, recipientString, bestRound.ID, msgDigests)
 			jww.INFO.Print(m)
 			events.Report(1, "MessageSendMany", "Metric", m)
 			return id.Round(bestRound.ID), ephemeralIDs, nil
 		} else {
-			jww.FATAL.Panicf("Gateway %s returned no error, but failed to "+
-				"accept message when sending to EphIDs [%s] (%s) on round %d",
+			jww.FATAL.Panicf("[SendManyCMIX-%s]Gateway %s returned no error, but failed to "+
+				"accept message when sending to EphIDs [%s] (%s) on round %d", param.DebugTag,
 				firstGateway, ephemeralIDsString, recipientString, bestRound.ID)
 		}
 	}

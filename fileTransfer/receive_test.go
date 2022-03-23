@@ -332,7 +332,7 @@ func TestManager_readMessage(t *testing.T) {
 
 	<-done1
 
-	// get the file and check that the part was added to it
+	// Get the file and check that the part was added to it
 	fileData, err := rt.GetFile()
 	if err == nil {
 		t.Error("GetFile did not return an error when parts are missing.")

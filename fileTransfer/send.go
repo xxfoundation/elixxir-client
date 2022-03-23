@@ -51,7 +51,8 @@ const (
 
 	// Manager.sendEndE2eMessage
 	endE2eGetPartnerErr = "failed to get file transfer partner %s: %+v"
-	endE2eSendErr       = "failed to send end file transfer message: %+v"
+	endE2eHealthTimeout = "waiting for network to become healthy timed out after %s."
+	endE2eSendErr       = "failed to send end file transfer message via E2E to recipient %s: %+v"
 
 	// getRandomNumParts
 	getRandomNumPartsRandPanic = "[FT] Failed to generate random number of file parts to send: %+v"
@@ -64,8 +65,15 @@ const (
 	// Duration to wait for send batch to fill before sending partial batch.
 	pollSleepDuration = 100 * time.Millisecond
 
-	// Age when rounds that files were sent from are deleted from the tracker
+	// Age when rounds that files were sent from are deleted from the tracker.
 	clearSentRoundsAge = 10 * time.Second
+
+	// Duration to wait for network to become healthy to send end E2E message
+	// before timing out.
+	sendEndE2eHealthTimeout = 5 * time.Second
+
+	// Tag that prints with cMix sending logs.
+	cMixDebugTag = "FT.Part"
 )
 
 // sendThread waits on the sendQueue channel for parts to send. Once its
@@ -108,20 +116,27 @@ func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool,
 		timer = time.NewTimer(pollSleepDuration)
 		select {
 		case <-stop.Quit():
+			timer.Stop()
+
 			// Close the thread when the stoppable is triggered
 			m.closeSendThread(partList, stop, healthChanID)
 
 			return
 		case healthy := <-healthChan:
+			var wasNotHealthy bool
 			// If the network is unhealthy, wait until it becomes healthy
 			if !healthy {
 				jww.TRACE.Print("[FT] Suspending file part sending thread: " +
 					"network is unhealthy.")
+				wasNotHealthy = true
 			}
 			for !healthy {
 				healthy = <-healthChan
 			}
-			jww.TRACE.Print("[FT] File part sending thread: network is healthy.")
+			if wasNotHealthy {
+				jww.TRACE.Print("[FT] File part sending thread: " +
+					"network is healthy.")
+			}
 		case part := <-m.sendQueue:
 			// When a part is received from the queue, add it to the list of
 			// parts to be sent
@@ -141,17 +156,15 @@ func (m *Manager) sendThread(stop *stoppable.Single, healthChan chan bool,
 				quit := m.handleSend(
 					&partList, &lastSend, delay, stop, healthChanID, sentRounds)
 				if quit {
+					timer.Stop()
 					return
 				}
-			} else {
-				timer = time.NewTimer(pollSleepDuration)
 			}
 		case <-timer.C:
 			// If the timeout is reached, send an incomplete batch
 
 			// Skip if there are no parts to send
 			if len(partList) == 0 {
-				timer = time.NewTimer(pollSleepDuration)
 				continue
 			}
 
@@ -196,23 +209,33 @@ func (m *Manager) handleSend(partList *[]queuedPart, lastSend *time.Time,
 	// the bandwidth is limited to the maximum throughput
 	if netTime.Since(*lastSend) < delay {
 		waitingTime := delay - netTime.Since(*lastSend)
-		jww.TRACE.Printf("[FT] Suspending file part sending: "+
-			"bandwidth limit reached; waiting %s to send.", waitingTime)
+		jww.TRACE.Printf("[FT] Suspending file part sending (%d parts): "+
+			"bandwidth limit reached; waiting %s to send.",
+			len(*partList), waitingTime)
+
+		waitingTimer := time.NewTimer(waitingTime)
 		select {
 		case <-stop.Quit():
+			waitingTimer.Stop()
+
 			// Close the thread when the stoppable is triggered
 			m.closeSendThread(*partList, stop, healthChanID)
 
 			return true
-		case <-time.NewTimer(delay - netTime.Since(*lastSend)).C:
+		case <-waitingTimer.C:
+			jww.TRACE.Printf("[FT] Resuming file part sending (%d parts) "+
+				"after waiting %s for bandwidth limiting.",
+				len(*partList), waitingTime)
 		}
 	}
 
 	// Send all the messages
-	err := m.sendParts(*partList, sentRounds)
-	if err != nil {
-		jww.ERROR.Print(err)
-	}
+	go func(partList []queuedPart, sentRounds *sentRoundTracker) {
+		err := m.sendParts(partList, sentRounds)
+		if err != nil {
+			jww.ERROR.Print(err)
+		}
+	}(copyPartList(*partList), sentRounds)
 
 	// Update the timestamp of the send
 	*lastSend = netTime.Now()
@@ -221,6 +244,13 @@ func (m *Manager) handleSend(partList *[]queuedPart, lastSend *time.Time,
 	*partList = nil
 
 	return false
+}
+
+// copyPartList makes a copy of the list of queuedPart.
+func copyPartList(partList []queuedPart) []queuedPart {
+	newPartList := make([]queuedPart, len(partList))
+	copy(newPartList, partList)
+	return newPartList
 }
 
 // sendParts handles the composing and sending of a cMix message for each part
@@ -247,7 +277,10 @@ func (m *Manager) sendParts(partList []queuedPart,
 	p := params.GetDefaultCMIX()
 	p.SendTimeout = m.p.SendTimeout
 	p.ExcludedRounds = sentRounds
-	p.DebugTag = "ft.Part"
+	p.DebugTag = cMixDebugTag
+
+	jww.TRACE.Printf("[FT] Sending %d file parts via SendManyCMIX with "+
+		"parameters %+v", len(messages), p)
 
 	// Send parts
 	rid, _, err := m.net.SendManyCMIX(messages, p)
@@ -365,7 +398,7 @@ func (m *Manager) newCmixMessage(transfer *ftStorage.SentTransfer,
 	// Create new empty cMix message
 	cmixMsg := format.NewMessage(m.store.Cmix().GetGroup().GetP().ByteLen())
 
-	// get encrypted file part, file part MAC, nonce (nonce), and fingerprint
+	// Get encrypted file part, file part MAC, nonce (nonce), and fingerprint
 	encPart, mac, fp, err := transfer.GetEncryptedPart(partNum, cmixMsg.ContentsSize())
 	if err != nil {
 		return format.Message{}, err
@@ -407,6 +440,9 @@ func (m *Manager) makeRoundEventCallback(
 						continue
 					}
 
+					// Call progress callback after change in progress
+					st.CallProgressCB(nil)
+
 					// If the transfer is complete, send an E2E message to the
 					// recipient informing them
 					if completed {
@@ -424,9 +460,6 @@ func (m *Manager) makeRoundEventCallback(
 							}
 						}(tid, st.GetRecipient())
 					}
-
-					// Call progress callback after change in progress
-					st.CallProgressCB(nil)
 				}
 			} else {
 
@@ -463,7 +496,7 @@ func (m *Manager) makeRoundEventCallback(
 // sendEndE2eMessage sends an E2E message to the recipient once the transfer
 // complete information them that all file parts have been sent.
 func (m *Manager) sendEndE2eMessage(recipient *id.ID) error {
-	// get the partner
+	// Get the partner
 	partner, err := m.store.E2e().GetPartner(recipient)
 	if err != nil {
 		return errors.Errorf(endE2eGetPartnerErr, recipient, err)
@@ -478,15 +511,31 @@ func (m *Manager) sendEndE2eMessage(recipient *id.ID) error {
 	// Send the message under file transfer preimage
 	e2eParams := params.GetDefaultE2E()
 	e2eParams.IdentityPreimage = partner.GetFileTransferPreimage()
-	e2eParams.DebugTag = "ft.End"
+	e2eParams.DebugTag = "FT.End"
 
 	// Store the message in the critical messages buffer first to ensure it is
 	// present if the send fails
 	m.store.GetCriticalMessages().AddProcessing(sendMsg, e2eParams)
 
+	// Register health channel and wait for network to become healthy
+	healthChan := make(chan bool, networkHealthBuffLen)
+	healthChanID := m.net.GetHealthTracker().AddChannel(healthChan)
+	defer m.net.GetHealthTracker().RemoveChannel(healthChanID)
+	isHealthy := m.net.GetHealthTracker().IsHealthy()
+	healthCheckTimer := time.NewTimer(sendEndE2eHealthTimeout)
+	for !isHealthy {
+		select {
+		case isHealthy = <-healthChan:
+		case <-healthCheckTimer.C:
+			return errors.Errorf(endE2eHealthTimeout, sendEndE2eHealthTimeout)
+		}
+	}
+	healthCheckTimer.Stop()
+
+	// Send E2E message
 	rounds, e2eMsgID, _, err := m.net.SendE2E(sendMsg, e2eParams, nil)
 	if err != nil {
-		return errors.Errorf(endE2eSendErr, err)
+		return errors.Errorf(endE2eSendErr, recipient, err)
 	}
 
 	// Register the event for all rounds

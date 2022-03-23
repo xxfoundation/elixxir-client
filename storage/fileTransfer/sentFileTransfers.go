@@ -32,12 +32,16 @@ const (
 const (
 	saveSentTransfersListErr = "failed to save list of sent items in transfer map to storage: %+v"
 	loadSentTransfersListErr = "failed to load list of sent items in transfer map from storage: %+v"
-	loadSentTransfersErr     = "failed to load sent transfers from storage: %+v"
+	loadSentTransfersErr     = "[FT] Failed to load sent transfers from storage: %+v"
 
 	newSentTransferErr    = "failed to create new sent transfer: %+v"
 	getSentTransferErr    = "sent file transfer not found"
 	cancelCallbackErr     = "[FT] Transfer with ID %s: %+v"
 	deleteSentTransferErr = "failed to delete sent transfer with ID %s from store: %+v"
+
+	// SentFileTransfersStore.loadTransfers
+	loadSentTransferWarn    = "[FT] Failed to load sent file transfer %d of %d with ID %s: %v"
+	loadSentTransfersAllErr = "failed to load all %d transfers"
 )
 
 // SentFileTransfersStore contains information for tracking sent file transfers.
@@ -254,8 +258,7 @@ func NewOrLoadSentFileTransfersStore(kv *versioned.KV) (*SentFileTransfersStore,
 	vo, err := sft.kv.Get(
 		sentFileTransfersStoreKey, sentFileTransfersStoreVersion)
 	if err != nil {
-		newSFT, err := NewSentFileTransfersStore(kv)
-		return newSFT, err
+		return NewSentFileTransfersStore(kv)
 	}
 
 	// Unmarshal data into list of saved transfer IDs
@@ -264,7 +267,8 @@ func NewOrLoadSentFileTransfersStore(kv *versioned.KV) (*SentFileTransfersStore,
 	// Load each transfer in the list from storage into the map
 	err = sft.loadTransfers(transfersList)
 	if err != nil {
-		return nil, errors.Errorf(loadSentTransfersErr, err)
+		jww.WARN.Printf(loadSentTransfersErr, err)
+		return NewSentFileTransfersStore(kv)
 	}
 
 	return sft, nil
@@ -304,13 +308,20 @@ func (sft *SentFileTransfersStore) loadTransfersList() ([]ftCrypto.TransferID,
 // to add them back into the queue.
 func (sft *SentFileTransfersStore) loadTransfers(list []ftCrypto.TransferID) error {
 	var err error
+	var errCount int
 
 	// Load each sentTransfer from storage into the map
-	for _, tid := range list {
+	for i, tid := range list {
 		sft.transfers[tid], err = loadSentTransfer(tid, sft.kv)
 		if err != nil {
-			return err
+			jww.WARN.Printf(loadSentTransferWarn, i, len(list), tid, err)
+			errCount++
 		}
+	}
+
+	// Return an error if all transfers failed to load
+	if errCount == len(list) {
+		return errors.Errorf(loadSentTransfersAllErr, len(list))
 	}
 
 	return nil

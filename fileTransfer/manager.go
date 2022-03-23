@@ -50,7 +50,7 @@ const (
 	sendQueueBuffLen = 10_000
 
 	// Size of the buffered channel that reports if the network is healthy
-	networkHealthBuffLen = 100
+	networkHealthBuffLen = 10
 )
 
 // Error messages.

@@ -39,17 +39,19 @@ func NewManager(internal internal.Internal, param params.Network,
 	m := Manager{
 		param:            param,
 		partitioner:      parse.NewPartitioner(dummyMessage.ContentsSize(), internal.Session),
+		Internal:         internal,
+		sender:           sender,
+		blacklistedNodes: make(map[string]interface{}, len(param.BlacklistedNodes)),
 		messageReception: make(chan Bundle, param.MessageReceptionBuffLen),
+		nodeRegistration: nodeRegistration,
 		networkIsHealthy: make(chan bool, 1),
 		triggerGarbled:   make(chan struct{}, 100),
-		nodeRegistration: nodeRegistration,
-		sender:           sender,
-		Internal:         internal,
 	}
 	for _, nodeId := range param.BlacklistedNodes {
 		decodedId, err := base64.StdEncoding.DecodeString(nodeId)
 		if err != nil {
-			jww.ERROR.Printf("Unable to decode blacklisted Node ID %s: %+v", decodedId, err)
+			jww.ERROR.Printf("Unable to decode blacklisted Node ID %s: %+v",
+				decodedId, err)
 			continue
 		}
 		m.blacklistedNodes[string(decodedId)] = nil
@@ -57,29 +59,29 @@ func NewManager(internal internal.Internal, param params.Network,
 	return &m
 }
 
-//Gets the channel to send received messages on
+// GetMessageReceptionChannel gets the channel to send received messages on.
 func (m *Manager) GetMessageReceptionChannel() chan<- Bundle {
 	return m.messageReception
 }
 
-//Starts all worker pool
-func (m *Manager) StartProcessies() stoppable.Stoppable {
+// StartProcesses starts all worker pool.
+func (m *Manager) StartProcesses() stoppable.Stoppable {
 	multi := stoppable.NewMulti("MessageReception")
 
-	//create the message handler workers
+	// Create the message handler workers
 	for i := uint(0); i < m.param.MessageReceptionWorkerPoolSize; i++ {
 		stop := stoppable.NewSingle(fmt.Sprintf("MessageReception Worker %v", i))
 		go m.handleMessages(stop)
 		multi.Add(stop)
 	}
 
-	//create the critical messages thread
+	// Create the critical messages thread
 	critStop := stoppable.NewSingle("CriticalMessages")
 	go m.processCriticalMessages(critStop)
 	m.Health.AddChannel(m.networkIsHealthy)
 	multi.Add(critStop)
 
-	//create the garbled messages thread
+	// Create the garbled messages thread
 	garbledStop := stoppable.NewSingle("GarbledMessages")
 	go m.processGarbledMessages(garbledStop)
 	multi.Add(garbledStop)

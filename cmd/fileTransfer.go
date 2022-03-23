@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/utils"
 	"io/ioutil"
 	"time"
@@ -90,17 +91,13 @@ var ftCmd = &cobra.Command{
 
 		// Wait until either the file finishes sending or the file finishes
 		// being received, stop the receiving thread, and exit
-		for done := false; !done; {
-			select {
-			case <-sendDone:
-				jww.INFO.Printf("[FT] Finished sending file. Stopping " +
-					"threads and network follower.")
-				done = true
-			case <-receiveDone:
-				jww.INFO.Printf("[FT] Finished receiving file. Stopping " +
-					"threads and network follower.")
-				done = true
-			}
+		select {
+		case <-sendDone:
+			jww.INFO.Printf("[FT] Finished sending file. Stopping threads " +
+				"and network follower.")
+		case <-receiveDone:
+			jww.INFO.Printf("[FT] Finished receiving file. Stopping threads " +
+				"and network follower.")
 		}
 
 		// Stop reception thread
@@ -200,6 +197,8 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 		fileName, recipient.ID, fileType, len(fileData), retry, filePath,
 		filePreviewPath, filePreviewData)
 
+	var sendStart time.Time
+
 	// Create sent progress callback that prints the results
 	progressCB := func(completed bool, sent, arrived, total uint16,
 		t interfaces.FilePartTracker, err error) {
@@ -214,13 +213,23 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 		}
 
 		if completed {
+			fileSize := len(fileData)
+			sendTime := netTime.Since(sendStart)
+			fileSizeKb := float32(fileSize) * .001
+			speed := fileSizeKb * float32(time.Second) / (float32(sendTime))
+			jww.INFO.Printf("[FT] Completed sending file %q in %s (%.2f kb @ %.2f kb/s).",
+				fileName, sendTime, fileSizeKb, speed)
 			fmt.Printf("Completed sending file.\n")
 			done <- struct{}{}
 		} else if err != nil {
+			jww.ERROR.Printf("[FT] Failed sending file %q in %s: %+v",
+				fileName, netTime.Since(sendStart), err)
 			fmt.Printf("Failed sending file: %+v\n", err)
 			done <- struct{}{}
 		}
 	}
+
+	sendStart = netTime.Now()
 
 	// Send the file
 	tid, err := m.Send(fileName, fileType, fileData, recipient.ID, retry,
@@ -248,13 +257,14 @@ func receiveNewFileTransfers(receive chan receivedFtResults, done,
 				"E2E message.")
 			return
 		case r := <-receive:
+			receiveStart := netTime.Now()
 			jww.INFO.Printf("[FT] Received new file %q transfer %s of type "+
 				"%q from %s of size %d bytes with preview: %q",
 				r.fileName, r.tid, r.fileType, r.sender, r.size, r.preview)
 			fmt.Printf("Received new file transfer %q of size %d "+
 				"bytes with preview: %q\n", r.fileName, r.size, r.preview)
 
-			cb := newReceiveProgressCB(r.tid, done, m)
+			cb := newReceiveProgressCB(r.tid, r.fileName, done, receiveStart, m)
 			err := m.RegisterReceivedProgressCallback(r.tid, cb, callbackPeriod)
 			if err != nil {
 				jww.FATAL.Panicf("[FT] Failed to register new receive "+
@@ -266,7 +276,8 @@ func receiveNewFileTransfers(receive chan receivedFtResults, done,
 
 // newReceiveProgressCB creates a new reception progress callback that prints
 // the results to the log.
-func newReceiveProgressCB(tid ftCrypto.TransferID, done chan struct{},
+func newReceiveProgressCB(tid ftCrypto.TransferID, fileName string,
+	done chan struct{}, receiveStart time.Time,
 	m *ft.Manager) interfaces.ReceivedProgressCallback {
 	return func(completed bool, received, total uint16,
 		t interfaces.FilePartTracker, err error) {
@@ -286,9 +297,13 @@ func newReceiveProgressCB(tid ftCrypto.TransferID, done chan struct{},
 				jww.FATAL.Panicf(
 					"[FT] Failed to receive file %s: %+v", tid, err)
 			}
+			jww.INFO.Printf("[FT] Completed receiving file %q in %s.",
+				fileName, netTime.Since(receiveStart))
 			fmt.Printf("Completed receiving file:\n%s\n", receivedFile)
 			done <- struct{}{}
 		} else if err != nil {
+			jww.INFO.Printf("[FT] Failed receiving file %q in %s.",
+				fileName, netTime.Since(receiveStart))
 			fmt.Printf("Failed sending file: %+v\n", err)
 			done <- struct{}{}
 		}

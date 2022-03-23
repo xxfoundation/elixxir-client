@@ -32,12 +32,16 @@ const (
 const (
 	saveSentTransfersListErr = "failed to save list of sent items in transfer map to storage: %+v"
 	loadSentTransfersListErr = "failed to load list of sent items in transfer map from storage: %+v"
-	loadSentTransfersErr     = "failed to load sent transfers from storage: %+v"
+	loadSentTransfersErr     = "[FT] Failed to load sent transfers from storage: %+v"
 
 	newSentTransferErr    = "failed to create new sent transfer: %+v"
 	getSentTransferErr    = "sent file transfer not found"
 	cancelCallbackErr     = "[FT] Transfer with ID %s: %+v"
 	deleteSentTransferErr = "failed to delete sent transfer with ID %s from store: %+v"
+
+	// SentFileTransfersStore.loadTransfers
+	loadSentTransferWarn    = "[FT] Failed to load sent file transfer %d of %d with ID %s: %v"
+	loadSentTransfersAllErr = "failed to load all %d transfers"
 )
 
 // SentFileTransfersStore contains information for tracking sent file transfers.
@@ -149,7 +153,7 @@ func (sft *SentFileTransfersStore) GetUnsentParts() (
 	defer sft.mux.Unlock()
 	unsentParts := map[ftCrypto.TransferID][]uint16{}
 
-	// get list of unsent part numbers for each transfer
+	// Get list of unsent part numbers for each transfer
 	for tid, st := range sft.transfers {
 		unsentPartNums, err := st.GetUnsentPartNums()
 		if err != nil {
@@ -168,7 +172,7 @@ func (sft *SentFileTransfersStore) GetSentRounds() map[id.Round][]ftCrypto.Trans
 	defer sft.mux.Unlock()
 	sentRounds := map[id.Round][]ftCrypto.TransferID{}
 
-	// get list of round IDs that transfers have in-progress rounds on
+	// Get list of round IDs that transfers have in-progress rounds on
 	for tid, st := range sft.transfers {
 		for _, rid := range st.GetSentRounds() {
 			sentRounds[rid] = append(sentRounds[rid], tid)
@@ -193,7 +197,7 @@ func (sft *SentFileTransfersStore) GetUnsentPartsAndSentRounds() (
 	sentRounds := map[id.Round][]ftCrypto.TransferID{}
 
 	for tid, st := range sft.transfers {
-		// get list of unsent part numbers for each transfer
+		// Get list of unsent part numbers for each transfer
 		stUnsentParts, err := st.GetUnsentPartNums()
 		if err != nil {
 			return nil, nil, err
@@ -202,7 +206,7 @@ func (sft *SentFileTransfersStore) GetUnsentPartsAndSentRounds() (
 			unsentParts[tid] = stUnsentParts
 		}
 
-		// get list of round IDs that transfers have in-progress rounds on
+		// Get list of round IDs that transfers have in-progress rounds on
 		for _, rid := range st.GetSentRounds() {
 			sentRounds[rid] = append(sentRounds[rid], tid)
 		}
@@ -223,7 +227,7 @@ func LoadSentFileTransfersStore(kv *versioned.KV) (*SentFileTransfersStore, erro
 		kv:        kv.Prefix(sentFileTransfersStorePrefix),
 	}
 
-	// get the list of transfer IDs corresponding to each sent transfer from
+	// Get the list of transfer IDs corresponding to each sent transfer from
 	// storage
 	transfersList, err := sft.loadTransfersList()
 	if err != nil {
@@ -254,8 +258,7 @@ func NewOrLoadSentFileTransfersStore(kv *versioned.KV) (*SentFileTransfersStore,
 	vo, err := sft.kv.Get(
 		sentFileTransfersStoreKey, sentFileTransfersStoreVersion)
 	if err != nil {
-		newSFT, err := NewSentFileTransfersStore(kv)
-		return newSFT, err
+		return NewSentFileTransfersStore(kv)
 	}
 
 	// Unmarshal data into list of saved transfer IDs
@@ -264,7 +267,8 @@ func NewOrLoadSentFileTransfersStore(kv *versioned.KV) (*SentFileTransfersStore,
 	// Load each transfer in the list from storage into the map
 	err = sft.loadTransfers(transfersList)
 	if err != nil {
-		return nil, errors.Errorf(loadSentTransfersErr, err)
+		jww.WARN.Printf(loadSentTransfersErr, err)
+		return NewSentFileTransfersStore(kv)
 	}
 
 	return sft, nil
@@ -288,7 +292,7 @@ func (sft *SentFileTransfersStore) saveTransfersList() error {
 // sent transfer from storage.
 func (sft *SentFileTransfersStore) loadTransfersList() ([]ftCrypto.TransferID,
 	error) {
-	// get transfers list from storage
+	// Get transfers list from storage
 	vo, err := sft.kv.Get(
 		sentFileTransfersStoreKey, sentFileTransfersStoreVersion)
 	if err != nil {
@@ -304,13 +308,20 @@ func (sft *SentFileTransfersStore) loadTransfersList() ([]ftCrypto.TransferID,
 // to add them back into the queue.
 func (sft *SentFileTransfersStore) loadTransfers(list []ftCrypto.TransferID) error {
 	var err error
+	var errCount int
 
 	// Load each sentTransfer from storage into the map
-	for _, tid := range list {
+	for i, tid := range list {
 		sft.transfers[tid], err = loadSentTransfer(tid, sft.kv)
 		if err != nil {
-			return err
+			jww.WARN.Printf(loadSentTransferWarn, i, len(list), tid, err)
+			errCount++
 		}
+	}
+
+	// Return an error if all transfers failed to load
+	if errCount == len(list) {
+		return errors.Errorf(loadSentTransfersAllErr, len(list))
 	}
 
 	return nil

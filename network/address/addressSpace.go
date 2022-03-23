@@ -1,4 +1,4 @@
-package ephemeral
+package address
 
 import (
 	"github.com/pkg/errors"
@@ -13,18 +13,18 @@ const (
 	initSize = 1
 )
 
-// AddressSpace contains the current address space size used for creating
-// ephemeral IDs and the infrastructure to alert other processes when an Update
+// Space contains the current address space size used for creating
+// address IDs and the infrastructure to alert other processes when an Update
 // occurs.
-type AddressSpace struct {
+type Space struct {
 	size      uint8
 	notifyMap map[string]chan uint8
 	cond      *sync.Cond
 }
 
 // NewAddressSpace initialises a new AddressSpace and returns it.
-func NewAddressSpace() *AddressSpace {
-	return &AddressSpace{
+func NewAddressSpace() *Space {
+	return &Space{
 		size:      initSize,
 		notifyMap: make(map[string]chan uint8),
 		cond:      sync.NewCond(&sync.Mutex{}),
@@ -33,7 +33,7 @@ func NewAddressSpace() *AddressSpace {
 
 // Get returns the current address space size. It blocks until an address space
 // size is set.
-func (as *AddressSpace) Get() uint8 {
+func (as *Space) Get() uint8 {
 	as.cond.L.Lock()
 	defer as.cond.L.Unlock()
 
@@ -50,7 +50,7 @@ func (as *AddressSpace) Get() uint8 {
 
 // GetWithoutWait returns the current address space size regardless if it has
 // been set yet.
-func (as *AddressSpace) GetWithoutWait() uint8 {
+func (as *Space) GetWithoutWait() uint8 {
 	as.cond.L.Lock()
 	defer as.cond.L.Unlock()
 	return as.size
@@ -60,7 +60,7 @@ func (as *AddressSpace) GetWithoutWait() uint8 {
 // each registered channel is notified of the Update. If this was the first time
 // that the address space size was set, then the conditional broadcasts to stop
 // blocking for all threads waiting on Get.
-func (as *AddressSpace) Update(newSize uint8) {
+func (as *Space) Update(newSize uint8) {
 	as.cond.L.Lock()
 	defer as.cond.L.Unlock()
 
@@ -93,7 +93,7 @@ func (as *AddressSpace) Update(newSize uint8) {
 // RegisterNotification returns a channel that will trigger for every address
 // space size Update. The provided tag is the unique ID for the channel.
 // Returns an error if the tag is already used.
-func (as *AddressSpace) RegisterNotification(tag string) (chan uint8, error) {
+func (as *Space) RegisterNotification(tag string) (chan uint8, error) {
 	as.cond.L.Lock()
 	defer as.cond.L.Unlock()
 
@@ -108,7 +108,7 @@ func (as *AddressSpace) RegisterNotification(tag string) (chan uint8, error) {
 
 // UnregisterNotification stops broadcasting address space size updates on the
 // channel with the specified tag.
-func (as *AddressSpace) UnregisterNotification(tag string) {
+func (as *Space) UnregisterNotification(tag string) {
 	as.cond.L.Lock()
 	defer as.cond.L.Unlock()
 
@@ -117,7 +117,7 @@ func (as *AddressSpace) UnregisterNotification(tag string) {
 
 // NewTestAddressSpace initialises a new AddressSpace for testing with the given
 // size.
-func NewTestAddressSpace(newSize uint8, x interface{}) *AddressSpace {
+func NewTestAddressSpace(newSize uint8, x interface{}) *Space {
 	switch x.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
@@ -126,7 +126,7 @@ func NewTestAddressSpace(newSize uint8, x interface{}) *AddressSpace {
 			"Got %T", x)
 	}
 
-	as := &AddressSpace{
+	as := &Space{
 		size:      initSize,
 		notifyMap: make(map[string]chan uint8),
 		cond:      sync.NewCond(&sync.Mutex{}),

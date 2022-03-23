@@ -12,9 +12,9 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -33,7 +33,7 @@ type Manager struct {
 	// Client and its field
 	client    *api.Client
 	store     *storage.Session
-	reception *reception.Store
+	reception *receptionID.Store
 	swb       interfaces.Switchboard
 	net       interfaces.NetworkManager
 	rng       *fastRNG.StreamGenerator
@@ -54,7 +54,7 @@ func NewManager(client *api.Client) *Manager {
 	return newManager(client, client.GetStorage().Reception())
 }
 
-func newManager(client *api.Client, reception *reception.Store) *Manager {
+func newManager(client *api.Client, reception *receptionID.Store) *Manager {
 	return &Manager{
 		client:      client,
 		store:       client.GetStorage(),

@@ -91,7 +91,7 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 	}
 
 	if testBundle.Identity.EphId.Int64() != expectedEphID.Int64() {
-		t.Errorf("Unexpected ephemeral ID in bundle."+
+		t.Errorf("Unexpected address ID in bundle."+
 			"\n\tExpected: %v"+
 			"\n\tReceived: %v", expectedEphID, testBundle.Identity.EphId)
 	}

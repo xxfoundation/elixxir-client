@@ -9,8 +9,8 @@ package rounds
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/client/storage/rounds"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -65,8 +65,8 @@ func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 					// If we didn't find it, send to Historical Rounds Retrieval
 					m.historicalRounds <- historicalRoundRequest{
 						rid: rnd.Id,
-						identity: reception.IdentityUse{
-							Identity: reception.Identity{
+						identity: receptionID.IdentityUse{
+							Identity: receptionID.Identity{
 								EphId:  rnd.EpdId,
 								Source: rnd.Source,
 							},
@@ -79,8 +79,8 @@ func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 					// Construct roundLookup object to send
 					rl := roundLookup{
 						roundInfo: rnd.Info,
-						identity: reception.IdentityUse{
-							Identity: reception.Identity{
+						identity: receptionID.IdentityUse{
+							Identity: receptionID.Identity{
 								EphId:  rnd.EpdId,
 								Source: rnd.Source,
 							},

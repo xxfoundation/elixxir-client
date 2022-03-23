@@ -1,4 +1,4 @@
-package reception
+package receptionID
 
 import (
 	"github.com/pkg/errors"
@@ -55,7 +55,7 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 	}
 	r.CR = cr
 
-	// If this is not ephemeral, then store everything
+	// If this is not address, then store everything
 	if !reg.Ephemeral {
 		// Store known rounds
 		var err error

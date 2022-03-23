@@ -10,8 +10,8 @@ package rounds
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/reception"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -36,7 +36,7 @@ type historicalRoundsComms interface {
 //structure which contains a historical round lookup
 type historicalRoundRequest struct {
 	rid         id.Round
-	identity    reception.IdentityUse
+	identity    receptionID.IdentityUse
 	numAttempts uint
 }
 

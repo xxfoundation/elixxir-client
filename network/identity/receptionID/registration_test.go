@@ -1,4 +1,4 @@
-package reception
+package receptionID
 
 import (
 	"gitlab.com/elixxir/client/storage/versioned"

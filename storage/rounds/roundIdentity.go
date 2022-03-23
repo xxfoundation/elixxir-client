@@ -15,7 +15,7 @@ const roundIdentitySize = 32
 type roundIdentity [roundIdentitySize]byte
 
 // newRoundIdentity generates a new unique round identifier for the round ID,
-// recipient ID, and ephemeral ID.
+// recipient ID, and address ID.
 func newRoundIdentity(rid id.Round, recipient *id.ID, ephID ephemeral.Id) roundIdentity {
 	h, _ := hash.NewCMixHash()
 	ridBytes := make([]byte, 8)

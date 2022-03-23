@@ -138,7 +138,7 @@ func TestManager_processesResponse(t *testing.T) {
 	rid := id.NewIdFromString("test RID", id.User, t)
 	ephID, _, _, err := ephemeral.GetId(rid, id.ArrIDLen, netTime.Now().UnixNano())
 	if err != nil {
-		t.Fatalf("Failed to create ephemeral ID: %+v", err)
+		t.Fatalf("Failed to create address ID: %+v", err)
 	}
 	dhKey := getGroup().NewInt(5)
 	maxMsgs := uint8(6)

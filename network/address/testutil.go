@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package ephemeral
+package address
 
 import (
 	"gitlab.com/elixxir/client/network/gateway"

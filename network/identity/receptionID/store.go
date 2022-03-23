@@ -1,4 +1,4 @@
-package reception
+package receptionID
 
 import (
 	"encoding/json"
@@ -117,7 +117,7 @@ func (s *Store) save() error {
 	return nil
 }
 
-// makeStoredReferences generates a reference of any non-ephemeral identities
+// makeStoredReferences generates a reference of any non-address identities
 // for storage.
 func (s *Store) makeStoredReferences() []storedReference {
 	identities := make([]storedReference, len(s.active))
@@ -249,7 +249,6 @@ func (s *Store) SetToExpire(addressSize uint8) {
 func (s *Store) prune(now time.Time) {
 	lengthBefore := len(s.active)
 	var pruned []int64
-
 	// Prune the list
 	for i := 0; i < len(s.active); i++ {
 		inQuestion := s.active[i]
@@ -268,6 +267,7 @@ func (s *Store) prune(now time.Time) {
 
 	// Save the list if it changed
 	if lengthBefore != len(s.active) {
+
 		jww.INFO.Printf("Pruned %d identities [%+v]", lengthBefore-len(s.active), pruned)
 		if err := s.save(); err != nil {
 			jww.FATAL.Panicf("Failed to store reception storage: %+v", err)

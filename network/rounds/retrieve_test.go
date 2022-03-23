@@ -9,9 +9,9 @@ package rounds
 import (
 	"bytes"
 	"gitlab.com/elixxir/client/network/gateway"
+	ephemeral2 "gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/reception"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -64,8 +64,8 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 		requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
 
 		// Construct the round lookup
-		iu := reception.IdentityUse{
-			Identity: reception.Identity{
+		iu := ephemeral2.IdentityUse{
+			Identity: ephemeral2.Identity{
 				EphId:  expectedEphID,
 				Source: requestGateway,
 			},
@@ -107,13 +107,13 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 	}
 
 	if testBundle.Identity.EphId.Int64() != expectedEphID.Int64() {
-		t.Errorf("Unexpected ephemeral ID in bundle."+
+		t.Errorf("Unexpected address ID in bundle."+
 			"\n\tExpected: %v"+
 			"\n\tReceived: %v", expectedEphID, testBundle.Identity.EphId)
 	}
 
 	if !bytes.Equal(expectedPayload, testBundle.Messages[0].GetPayloadA()) {
-		t.Errorf("Unexpected ephemeral ID in bundle."+
+		t.Errorf("Unexpected address ID in bundle."+
 			"\n\tExpected: %v"+
 			"\n\tReceived: %v", expectedPayload, testBundle.Messages[0].GetPayloadA())
 
@@ -157,8 +157,8 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 
 	go func() {
 		// Construct the round lookup
-		iu := reception.IdentityUse{
-			Identity: reception.Identity{
+		iu := ephemeral2.IdentityUse{
+			Identity: ephemeral2.Identity{
 				EphId:  expectedEphID,
 				Source: dummyGateway,
 			},
@@ -236,8 +236,8 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 
 	go func() {
 		// Construct the round lookup
-		iu := reception.IdentityUse{
-			Identity: reception.Identity{
+		iu := ephemeral2.IdentityUse{
+			Identity: ephemeral2.Identity{
 				EphId:  expectedEphID,
 				Source: id.NewIdFromString("Source", id.User, t),
 			},
@@ -314,8 +314,8 @@ func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
 
 	go func() {
 		// Construct the round lookup
-		iu := reception.IdentityUse{
-			Identity: reception.Identity{
+		iu := ephemeral2.IdentityUse{
+			Identity: ephemeral2.Identity{
 				EphId: expectedEphID,
 			},
 		}
@@ -391,8 +391,8 @@ func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 		requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
 		errorGateway := id.NewIdFromString(ErrorGateway, id.Gateway, t)
 		// Construct the round lookup
-		iu := reception.IdentityUse{
-			Identity: reception.Identity{
+		iu := ephemeral2.IdentityUse{
+			Identity: ephemeral2.Identity{
 				EphId:  expectedEphID,
 				Source: requestGateway,
 			},
@@ -435,13 +435,13 @@ func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 	}
 
 	if testBundle.Identity.EphId.Int64() != expectedEphID.Int64() {
-		t.Errorf("Unexpected ephemeral ID in bundle."+
+		t.Errorf("Unexpected address ID in bundle."+
 			"\n\tExpected: %v"+
 			"\n\tReceived: %v", expectedEphID, testBundle.Identity.EphId)
 	}
 
 	if !bytes.Equal(expectedPayload, testBundle.Messages[0].GetPayloadA()) {
-		t.Errorf("Unexpected ephemeral ID in bundle."+
+		t.Errorf("Unexpected address ID in bundle."+
 			"\n\tExpected: %v"+
 			"\n\tReceived: %v", expectedPayload, testBundle.Messages[0].GetPayloadA())
 

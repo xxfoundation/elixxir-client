@@ -5,11 +5,12 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package ephemeral
+package identity
 
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/interfaces"
+	ephemeral2 "gitlab.com/elixxir/client/network/address"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/mixmessages"
@@ -27,7 +28,7 @@ import (
 // Smoke test for Track function
 func TestCheck(t *testing.T) {
 	session := storage.InitTestingSession(t)
-	instance := NewTestNetworkManager(t)
+	instance := ephemeral2.NewTestNetworkManager(t)
 	if err := setupInstance(instance); err != nil {
 		t.Errorf("Could not set up instance: %+v", err)
 	}
@@ -46,7 +47,7 @@ func TestCheck(t *testing.T) {
 	}
 
 	ourId := id.NewIdFromBytes([]byte("Sauron"), t)
-	stop := Track(session, NewTestAddressSpace(15, t), ourId)
+	stop := Track(session, ephemeral2.NewTestAddressSpace(15, t), ourId)
 
 	err = stop.Close()
 	if err != nil {
@@ -58,7 +59,7 @@ func TestCheck(t *testing.T) {
 // Unit test for track.
 func TestCheck_Thread(t *testing.T) {
 	session := storage.InitTestingSession(t)
-	instance := NewTestNetworkManager(t)
+	instance := ephemeral2.NewTestNetworkManager(t)
 	if err := setupInstance(instance); err != nil {
 		t.Errorf("Could not set up instance: %v", err)
 	}
@@ -80,7 +81,7 @@ func TestCheck_Thread(t *testing.T) {
 
 	// Run the tracker
 	go func() {
-		track(session, NewTestAddressSpace(15, t), ourId, stop)
+		track(session, ephemeral2.NewTestAddressSpace(15, t), ourId, stop)
 	}()
 	time.Sleep(3 * time.Second)
 

@@ -12,9 +12,9 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/reception"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/shuffle"
 	"gitlab.com/elixxir/primitives/format"
@@ -31,7 +31,7 @@ type messageRetrievalComms interface {
 
 type roundLookup struct {
 	roundInfo *pb.RoundInfo
-	identity  reception.IdentityUse
+	identity  receptionID.IdentityUse
 }
 
 const noRoundError = "does not have round %d"
@@ -148,7 +148,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 // getMessagesFromGateway attempts to get messages from their assigned
 // gateway host in the round specified. If successful
 func (m *Manager) getMessagesFromGateway(roundID id.Round,
-	identity reception.IdentityUse, comms messageRetrievalComms, gwIds []*id.ID,
+	identity receptionID.IdentityUse, comms messageRetrievalComms, gwIds []*id.ID,
 	stop *stoppable.Single) (message.Bundle, error) {
 	start := time.Now()
 	// Send to the gateways using backup proxies

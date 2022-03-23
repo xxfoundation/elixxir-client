@@ -18,9 +18,10 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/network/ephemeral"
+	"gitlab.com/elixxir/client/network/address"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/health"
+	"gitlab.com/elixxir/client/network/identity"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/network/rounds"
@@ -79,7 +80,7 @@ type manager struct {
 	verboseRounds *RoundTracker
 
 	// Address space size
-	addrSpace *ephemeral.AddressSpace
+	addrSpace *address.AddressSpace
 
 	// Event reporting api
 	events interfaces.EventManager
@@ -104,7 +105,7 @@ func NewManager(session *storage.Session,
 	m := manager{
 		param:         params,
 		tracker:       &tracker,
-		addrSpace:     ephemeral.NewAddressSpace(),
+		addrSpace:     address.NewAddressSpace(),
 		events:        events,
 		earliestRound: &earliest,
 		session:       session,
@@ -170,7 +171,7 @@ func NewManager(session *storage.Session,
 //	 - health Tracker (/network/health)
 //	 - Garbled Messages (/network/message/inProgress.go)
 //	 - Critical Messages (/network/message/critical.go)
-//   - Ephemeral ID tracking (network/ephemeral/tracker.go)
+//   - Ephemeral ID tracking (network/address/tracker.go)
 func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
 	multi := stoppable.NewMulti("networkManager")
 
@@ -196,7 +197,7 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	// Round processing
 	multi.Add(m.round.StartProcessors())
 
-	multi.Add(ephemeral.Track(m.session, m.addrSpace, m.ReceptionID))
+	multi.Add(identity.Track(m.session, m.addrSpace, m.ReceptionID))
 
 	return multi, nil
 }

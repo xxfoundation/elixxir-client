@@ -32,7 +32,7 @@ Due to the extra overhead of trial hashing, triggers are processed after
 fingerprints. If a fingerprint match occurs on the message, triggers will not be
 handled.
 
-Triggers are ephemeral to the session. When starting a new client, all triggers
+Triggers are address to the session. When starting a new client, all triggers
 must be re-added before StartNetworkFollower is called.
 */
 

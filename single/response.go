@@ -82,7 +82,7 @@ func (m *Manager) respondSingleUse(partner Contact, payload []byte,
 					"message part %d: %+v", j, err)
 			}
 			jww.DEBUG.Printf("Sending single-use response CMIX message part "+
-				"%d on round %d to ephemeral ID %d.", j, round, ephID.Int64())
+				"%d on round %d to address ID %d.", j, round, ephID.Int64())
 			rounds[j] = round
 
 			roundEvents.AddRoundEventChan(round, sendResults, timeout,

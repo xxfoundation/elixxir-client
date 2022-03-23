@@ -10,7 +10,7 @@ package rounds
 import (
 	"encoding/binary"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/reception"
+	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/storage/rounds"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -53,7 +53,7 @@ func serializeRound(roundId id.Round) []byte {
 	return b
 }
 
-func (m *Manager) GetMessagesFromRound(roundID id.Round, identity reception.IdentityUse) {
+func (m *Manager) GetMessagesFromRound(roundID id.Round, identity receptionID.IdentityUse) {
 	ri, err := m.Instance.GetRound(roundID)
 	if err != nil || m.params.ForceHistoricalRounds {
 		if m.params.ForceHistoricalRounds {

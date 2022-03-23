@@ -15,9 +15,9 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
+	ephemeral2 "gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/network"
@@ -47,7 +47,7 @@ func Test_newManager(t *testing.T) {
 		client: client,
 		p:      newPending(),
 	}
-	m := newManager(client, &reception.Store{})
+	m := newManager(client, &ephemeral2.Store{})
 
 	if e.client != m.client || e.store != m.store || e.net != m.net ||
 		e.rng != m.rng || !reflect.DeepEqual(e.p, m.p) {
@@ -245,7 +245,7 @@ func newTestManager(timeout time.Duration, cmixErr bool, t *testing.T) *Manager 
 	return &Manager{
 		client:      nil,
 		store:       storage.InitTestingSession(t),
-		reception:   reception.NewStore(versioned.NewKV(make(ekv.Memstore))),
+		reception:   ephemeral2.NewStore(versioned.NewKV(make(ekv.Memstore))),
 		swb:         switchboard.New(),
 		net:         newTestNetworkManager(timeout, cmixErr, t),
 		rng:         fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),

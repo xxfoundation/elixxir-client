@@ -73,9 +73,9 @@ type NetworkManager interface {
 	// and Identity is Defined by a source ID and a current EphemeralID
 	// In its IdentityParams, paremeters describing the properties
 	// of the identity as well as how long it will last are described
-	AddIdentity(Identity, IdentityParams)
+	AddIdentity(id *id.ID, validUntil time.Time, persistent bool) error
 	// RemoveIdentity removes a currently tracked identity.
-	RemoveIdentity(Identity)
+	RemoveIdentity(id *id.ID)
 
 	/* Fingerprints are the primary mechanisim of identifying a picked up message over
 	   cMix. They are a unique one time use 255 bit vector generally
@@ -84,8 +84,7 @@ type NetworkManager interface {
 	   The */
 
 	//AddFingerprint - Adds a fingerprint which will be handled by a specific processor
-	AddFingerprint(fingerprint format.Fingerprint, processor MessageProcessorFP)
-	AddFingerprints(fingerprints map[format.Fingerprint]MessageProcessorFP)
+	AddFingerprint(fingerprint format.Fingerprint, processor MessageProcessor)
 	RemoveFingerprint(fingerprint format.Fingerprint)
 	RemoveFingerprints(fingerprints []format.Fingerprint)
 	CheckFingerprint(fingerprint format.Fingerprint) bool
@@ -106,7 +105,7 @@ type NetworkManager interface {
 	Due to the extra overhead of trial hashing, triggers are processed after fingerprints.
 	If a fingerprint match occurs on the message, triggers will not be handled.
 
-	Triggers are ephemeral to the session. When starting a new client, all triggers must be
+	Triggers are address to the session. When starting a new client, all triggers must be
 	re-added before StartNetworkFollower is called.
 	*/
 
@@ -152,7 +151,7 @@ type IdentityParams struct {
 	EndValid   time.Time // Timestamp when the ephID stops being valid
 
 	// Makes the identity not store on disk
-	// When an ephemeral identity is deleted, all fingerprints & triggers
+	// When an address identity is deleted, all fingerprints & triggers
 	// associated with it also delete.
 	// TODO: This should not be confused with EphID for checking
 	// when messages are for the the user. That's a different type

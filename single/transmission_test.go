@@ -397,11 +397,11 @@ func Test_makeIDs_Consistency(t *testing.T) {
 	expectedEphID, _, _, err := ephemeral.GetId(expectedPayload.GetRID(publicKey),
 		uint(addressSize), timeNow.UnixNano())
 	if err != nil {
-		t.Fatalf("Failed to generate expected ephemeral ID: %+v", err)
+		t.Fatalf("Failed to generate expected address ID: %+v", err)
 	}
 
 	if expectedEphID != ephID {
-		t.Errorf("makeIDs() did not return the expected ephemeral ID."+
+		t.Errorf("makeIDs() did not return the expected address ID."+
 			"\nexpected: %d\nreceived: %d", expectedEphID.Int64(), ephID.Int64())
 	}
 }

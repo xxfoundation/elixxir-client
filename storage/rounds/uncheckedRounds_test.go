@@ -107,7 +107,7 @@ func TestLoadUncheckedStore(t *testing.T) {
 	// Check if set values are expected
 	if !bytes.Equal(rnd.EpdId[:], ephId[:]) || !source.Cmp(rnd.Source) {
 		t.Fatalf("Values in loaded round %d are not expected."+
-			"\nexpected ephemeral: %d\nreceived ephemeral: %d"+
+			"\nexpected address: %d\nreceived address: %d"+
 			"\nexpected source: %s\nreceived source: %s",
 			rid, ephId.Int64(), rnd.EpdId.Int64(), source, rnd.Source)
 	}
@@ -165,7 +165,7 @@ func TestUncheckedRoundStore_GetRound(t *testing.T) {
 	}
 
 	if !bytes.Equal(retrievedRound.EpdId[:], ephId[:]) {
-		t.Fatalf("Retrieved ephemeral ID for round %d does not match expected."+
+		t.Fatalf("Retrieved address ID for round %d does not match expected."+
 			"\nexpected: %d\nreceived: %d", rid, ephId.Int64(),
 			retrievedRound.EpdId.Int64())
 	}
@@ -231,7 +231,7 @@ func TestUncheckedRoundStore_GetRound_TwoIDs(t *testing.T) {
 	}
 
 	if !bytes.Equal(retrievedRound.EpdId[:], ephId1[:]) {
-		t.Fatalf("Retrieved ephemeral ID for round %d does not match expected."+
+		t.Fatalf("Retrieved address ID for round %d does not match expected."+
 			"\nexpected: %d\nreceived: %d", rid, ephId1.Int64(),
 			retrievedRound.EpdId.Int64())
 	}
@@ -247,7 +247,7 @@ func TestUncheckedRoundStore_GetRound_TwoIDs(t *testing.T) {
 	}
 
 	if !bytes.Equal(retrievedRound.EpdId[:], ephId2[:]) {
-		t.Fatalf("Retrieved ephemeral ID for round %d does not match expected."+
+		t.Fatalf("Retrieved address ID for round %d does not match expected."+
 			"\nexpected: %d\nreceived: %d", rid, ephId2.Int64(),
 			retrievedRound.EpdId.Int64())
 	}

@@ -110,7 +110,7 @@ func processRound(nodes nodes.Registrar, bestRound *pb.RoundInfo,
 }
 
 // buildSlotMessage is a helper function which forms a slotted message to send
-// to a gateway. It encrypts passed in message and generates an ephemeral ID for
+// to a gateway. It encrypts passed in message and generates an address ID for
 // the recipient.
 func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	stream *fastRNG.Stream, senderId *id.ID, bestRound *pb.RoundInfo,
@@ -118,12 +118,12 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	format.Message, ephemeral.Id,
 	error) {
 
-	// Set the ephemeral ID
+	// Set the address ID
 	ephID, _, _, err := ephemeral.GetId(recipient,
 		uint(bestRound.AddressSpaceSize),
 		int64(bestRound.Timestamps[states.QUEUED]))
 	if err != nil {
-		jww.FATAL.Panicf("Failed to generate ephemeral ID when sending to %s "+
+		jww.FATAL.Panicf("Failed to generate address ID when sending to %s "+
 			"(msgDigest: %s):  %+v", err, recipient, msg.Digest())
 	}
 
@@ -237,7 +237,7 @@ func messagesToDigestString(msgs []format.Message) string {
 	return strings.Join(msgDigests, ", ")
 }
 
-// ephemeralIdListToString serializes a list of ephemeral IDs into a string of
+// ephemeralIdListToString serializes a list of address IDs into a string of
 // comma seperated integer representations. Intended for use in printing to log.
 func ephemeralIdListToString(idList []ephemeral.Id) string {
 	idStrings := make([]string, len(idList))

@@ -1,4 +1,4 @@
-package reception
+package receptionID
 
 import (
 	"encoding/json"
@@ -54,14 +54,14 @@ func Test_generateFakeIdentity_RngError(t *testing.T) {
 	}
 }
 
-// Error path: fails to get the ephemeral ID.
+// Error path: fails to get the address ID.
 func Test_generateFakeIdentity_GetEphemeralIdError(t *testing.T) {
 	rng := rand.New(rand.NewSource(42))
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 
 	_, err := generateFakeIdentity(rng, math.MaxInt8, timestamp)
-	if err == nil || !strings.Contains(err.Error(), "ephemeral ID") {
+	if err == nil || !strings.Contains(err.Error(), "address ID") {
 		t.Errorf("generateFakeIdentity() did not return the correct error on "+
-			"failure to generate ephemeral ID: %+v", err)
+			"failure to generate address ID: %+v", err)
 	}
 }

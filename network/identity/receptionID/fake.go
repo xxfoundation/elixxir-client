@@ -1,4 +1,4 @@
-package reception
+package receptionID
 
 import (
 	"github.com/pkg/errors"
@@ -23,12 +23,12 @@ func generateFakeIdentity(rng io.Reader, addressSize uint8,
 	copy(randID[:id.ArrIDLen-1], randIdBytes)
 	randID.SetType(id.User)
 
-	// Generate the current ephemeral ID from the random identity
+	// Generate the current address ID from the random identity
 	ephID, start, end, err := ephemeral.GetId(
 		randID, uint(addressSize), now.UnixNano())
 	if err != nil {
 		return IdentityUse{}, errors.WithMessage(err, "failed to generate an "+
-			"ephemeral ID for random identity when none is available")
+			"address ID for random identity when none is available")
 	}
 
 	return IdentityUse{

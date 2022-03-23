@@ -397,7 +397,7 @@ func (gmr *GroupMessageReceive) GetRecipientID() []byte {
 	return gmr.RecipientID.Bytes()
 }
 
-// GetEphemeralID returns the ephemeral ID of the recipient.
+// GetEphemeralID returns the address ID of the recipient.
 func (gmr *GroupMessageReceive) GetEphemeralID() int64 {
 	return gmr.EphemeralID.Int64()
 }

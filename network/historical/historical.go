@@ -5,12 +5,15 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package rounds
+package historical
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/network/identity/receptionID"
+	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/comms/connect"
@@ -26,42 +29,99 @@ import (
 // Historical Rounds sends the output to:
 //	 - Message Retrieval Workers (/network/round/retrieve.go)
 
-//interface to increase east of testing of historical rounds
-type historicalRoundsComms interface {
+type Retriever interface {
+	StartProcessies() *stoppable.Single
+	LookupHistoricalRound(rid id.Round, callback RoundResultCallback) error
+}
+
+// manager is the controlling structure
+type manager struct {
+	params params.Historical
+
+	comms  RoundsComms
+	sender gateway.Sender
+	events interfaces.EventManager
+
+	c chan roundRequest
+}
+
+//RoundsComms interface to increase east of testing of historical rounds
+type RoundsComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	RequestHistoricalRounds(host *connect.Host,
 		message *pb.HistoricalRounds) (*pb.HistoricalRoundsResponse, error)
 }
 
-//structure which contains a historical round lookup
-type historicalRoundRequest struct {
-	rid         id.Round
-	identity    receptionID.IdentityUse
+//RoundResultCallback is the used callback when a round is found
+type RoundResultCallback func(info *pb.RoundInfo, success bool)
+
+//roundRequest is an internal structure which tracks a request
+type roundRequest struct {
+	rid id.Round
+	RoundResultCallback
 	numAttempts uint
 }
 
-// Long running thread which process historical rounds
-// Can be killed by sending a signal to the quit channel
-// takes a comms interface to aid in testing
-func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, stop *stoppable.Single) {
+func NewRetriever(param params.Historical, comms RoundsComms,
+	sender gateway.Sender, events interfaces.EventManager) Retriever {
+	return &manager{
+		params: param,
+		comms:  comms,
+		sender: sender,
+		events: events,
+		c:      make(chan roundRequest, param.HistoricalRoundsBufferLen),
+	}
+}
+
+// LookupHistoricalRound sends the lookup request to the internal handler
+// and will return the result on the callback when it returns
+func (m *manager) LookupHistoricalRound(rid id.Round, callback RoundResultCallback) error {
+	if rid == 0 {
+		return errors.Errorf("Cannot lookup round 0, rounds start at 1")
+	}
+	select {
+	case m.c <- roundRequest{
+		rid:                 rid,
+		RoundResultCallback: callback,
+		numAttempts:         0,
+	}:
+		return nil
+	default:
+		return errors.Errorf("Cannot lookup round %d, "+
+			"channel is full", rid)
+	}
+}
+
+// StartProcessies starts the Long running thread which
+// process historical rounds. Can be killed by sending a
+// signal to the quit channel
+func (m *manager) StartProcessies() *stoppable.Single {
+	stop := stoppable.NewSingle("TrackNetwork")
+	go m.processHistoricalRounds(m.comms, stop)
+	return stop
+}
+
+// processHistoricalRounds is a long running thread which
+// process historical rounds. Can be killed by sending
+// a signal to the quit channel takes a comms interface to aid in testing
+func (m *manager) processHistoricalRounds(comm RoundsComms, stop *stoppable.Single) {
 
 	timerCh := make(<-chan time.Time)
 
-	rng := m.Rng.GetStream()
-	var roundRequests []historicalRoundRequest
+	var roundRequests []roundRequest
 
 	for {
+
 		shouldProcess := false
 		// wait for a quit or new round to check
 		select {
 		case <-stop.Quit():
-			rng.Close()
 			// return all roundRequests in the queue to the input channel so they can
 			// be checked in the future. If the queue is full, disable them as
 			// processing so they are picked up from the beginning
 			for _, r := range roundRequests {
 				select {
-				case m.historicalRounds <- r:
+				case m.c <- r:
 				default:
 				}
 			}
@@ -73,7 +133,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, stop *stop
 				shouldProcess = true
 			}
 		// get new round to lookup and force a lookup if
-		case r := <-m.historicalRounds:
+		case r := <-m.c:
 			jww.DEBUG.Printf("Received and queueing round %d for "+
 				"historical rounds lookup", r.rid)
 			roundRequests = append(roundRequests, r)
@@ -129,9 +189,10 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, stop *stop
 					errMsg = fmt.Sprintf("Failed to retreive historical "+
 						"round %d on last attempt, will not try again",
 						roundRequests[i].rid)
+					go roundRequests[i].RoundResultCallback(nil, false)
 				} else {
 					select {
-					case m.historicalRounds <- roundRequests[i]:
+					case m.c <- roundRequests[i]:
 						errMsg = fmt.Sprintf("Failed to retreive historical "+
 							"round %d, will try up to %d more times",
 							roundRequests[i].rid, m.params.MaxHistoricalRoundsRetries-roundRequests[i].numAttempts)
@@ -142,26 +203,22 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, stop *stop
 					}
 				}
 				jww.WARN.Printf(errMsg)
-				m.Internal.Events.Report(5, "HistoricalRounds",
+				m.events.Report(5, "HistoricalRounds",
 					"Error", errMsg)
 				continue
 			}
-			// Successfully retrieved roundRequests are sent to the Message
-			// Retrieval Workers
-			rl := roundLookup{
-				roundInfo: roundInfo,
-				identity:  roundRequests[i].identity,
-			}
-			m.lookupRoundMessages <- rl
+			// Successfully retrieved roundRequests are returned on the callback
+			go roundRequests[i].RoundResultCallback(roundInfo, true)
+
 			rids = append(rids, roundInfo.ID)
 		}
 
-		m.Internal.Events.Report(1, "HistoricalRounds", "Metrics",
+		m.events.Report(1, "HistoricalRounds", "Metrics",
 			fmt.Sprintf("Received %d historical rounds from"+
 				" gateway %s: %v", len(response.Rounds), gwHost,
 				rids))
 
 		//clear the buffer now that all have been checked
-		roundRequests = make([]historicalRoundRequest, 0)
+		roundRequests = make([]roundRequest, 0)
 	}
 }

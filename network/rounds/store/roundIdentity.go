@@ -1,4 +1,4 @@
-package rounds
+package store
 
 import (
 	"encoding/base64"

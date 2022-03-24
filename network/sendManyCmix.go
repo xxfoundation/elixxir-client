@@ -17,9 +17,10 @@ import (
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/cmix"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/elixxir/primitives/format"
@@ -36,13 +37,11 @@ import (
 // with this call and can leak data about yourself. Returns the round ID of the
 // round the payload was sent or an error if it fails.
 // WARNING: Potentially Unsafe
-func (m *manager) SendManyCMIX(sender *gateway.Sender,
-	messages []message.TargetedCmixMessage, p params.CMIX,
-	stop *stoppable.Single) (id.Round, []ephemeral.Id, error) {
+func (m *manager) SendManyCMIX(messages []message.TargetedCmixMessage, p params.CMIX) (id.Round, []ephemeral.Id, error) {
 
-	return sendManyCmixHelper(sender, messages, p,
-		m.instance, m.session, m.Registrar, m.rng, m.events,
-		m.session.GetUser().TransmissionID, m.comms, stop)
+	return sendManyCmixHelper(m.Sender, messages, p,
+		m.instance, m.session.GetCmixGroup(), m.Registrar, m.rng, m.events,
+		m.session.GetTransmissionID(), m.comms)
 }
 
 // sendManyCmixHelper is a helper function for manager.SendManyCMIX.
@@ -56,11 +55,11 @@ func (m *manager) SendManyCMIX(sender *gateway.Sender,
 // If the message is successfully sent, the ID of the round sent it is returned,
 // which can be registered with the network instance to get a callback on its
 // status.
-func sendManyCmixHelper(sender *gateway.Sender,
+func sendManyCmixHelper(sender gateway.Sender,
 	msgs []message.TargetedCmixMessage, param params.CMIX, instance *network.Instance,
-	session *storage.Session, registrar nodes.Registrar,
+	grp *cyclic.Group, registrar nodes.Registrar,
 	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
-	senderId *id.ID, comms SendCmixCommsInterface, stop *stoppable.Single) (
+	senderId *id.ID, comms SendCmixCommsInterface) (
 	id.Round, []ephemeral.Id, error) {
 
 	timeStart := netTime.Now()
@@ -77,6 +76,15 @@ func sendManyCmixHelper(sender *gateway.Sender,
 
 	jww.INFO.Printf("[SendManyCMIX-%s]Looking for round to send cMix messages to [%s] "+
 		"(msgDigest: %s)", param.DebugTag, recipientString, msgDigests)
+
+	stream := rng.GetStream()
+	defer stream.Close()
+
+	// flip leading bits randomly to thwart a tagging attack.
+	// See SetGroupBits for more info
+	for i := range msgs {
+		cmix.SetGroupBits(msgs[i].Message, grp, stream)
+	}
 
 	for numRoundTries := uint(0); numRoundTries < param.RoundTries; numRoundTries++ {
 		elapsed := netTime.Since(timeStart)
@@ -188,7 +196,7 @@ func sendManyCmixHelper(sender *gateway.Sender,
 			return result, err
 		}
 		result, err := sender.SendToPreferred(
-			[]*id.ID{firstGateway}, sendFunc, stop, param.SendTimeout)
+			[]*id.ID{firstGateway}, sendFunc, param.Stop, param.SendTimeout)
 
 		// Exit if the thread has been stopped
 		if stoppable.CheckErr(err) {

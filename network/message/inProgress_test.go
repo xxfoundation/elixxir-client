@@ -39,12 +39,12 @@ func (l TestListener) Name() string {
 
 func Test_pickup_CheckInProgressMessages(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	p := NewPickup(params.Network{Messages: params.Messages{
+	p := NewHandler(params.Network{Messages: params.Messages{
 		MessageReceptionBuffLen:        20,
 		MessageReceptionWorkerPoolSize: 20,
 		MaxChecksInProcessMessage:      20,
 		InProcessMessageWait:           time.Hour,
-	}}, kv, nil).(*pickup)
+	}}, kv, nil).(*handler)
 
 	msg := makeTestFormatMessages(1)[0]
 	cid := id.NewIdFromString("clientID", id.User, t)
@@ -56,7 +56,7 @@ func Test_pickup_CheckInProgressMessages(t *testing.T) {
 	}
 	p.inProcess.Add(msg,
 		&pb.RoundInfo{ID: 1, Timestamps: []uint64{0, 1, 2, 3}},
-		interfaces.Identity{Source: cid})
+		interfaces.EphemeralIdentity{Source: cid})
 
 	stop := stoppable.NewSingle("stop")
 	go p.recheckInProgressRunner(stop)

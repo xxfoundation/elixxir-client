@@ -24,7 +24,16 @@ import (
 )
 
 // Sender Object used for sending that wraps the HostPool for providing destinations
-type Sender struct {
+type Sender interface {
+	SendToAny(sendFunc func(host *connect.Host) (interface{}, error), stop *stoppable.Single) (interface{}, error)
+	SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
+		stop *stoppable.Single, timeout time.Duration) (interface{}, error)
+	UpdateNdf(ndf *ndf.NetworkDefinition)
+	SetHostPoolFilter(f Filter)
+	GetHostParams() connect.HostParams
+}
+
+type sender struct {
 	*HostPool
 }
 
@@ -32,17 +41,17 @@ const RetryableError = "Nonfatal error occurred, please retry"
 
 // NewSender Create a new Sender object wrapping a HostPool object
 func NewSender(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.NetworkDefinition, getter HostManager,
-	storage *storage.Session, addGateway chan network.NodeGateway) (*Sender, error) {
+	storage storage.Session, addGateway chan network.NodeGateway) (Sender, error) {
 
 	hostPool, err := newHostPool(poolParams, rng, ndf, getter, storage, addGateway)
 	if err != nil {
 		return nil, err
 	}
-	return &Sender{hostPool}, nil
+	return &sender{hostPool}, nil
 }
 
 // SendToAny Call given sendFunc to any Host in the HostPool, attempting with up to numProxies destinations
-func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error), stop *stoppable.Single) (interface{}, error) {
+func (s *sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error), stop *stoppable.Single) (interface{}, error) {
 
 	proxies := s.getAny(s.poolParams.ProxyAttempts, nil)
 	for proxy := range proxies {
@@ -84,7 +93,7 @@ type sendToPreferredFunc func(host *connect.Host, target *id.ID,
 // SendToPreferred Call given sendFunc to any Host in the HostPool, attempting
 // with up to numProxies destinations. Returns an error if the timeout is
 // reached.
-func (s *Sender) SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
+func (s *sender) SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
 	stop *stoppable.Single, timeout time.Duration) (interface{}, error) {
 
 	startTime := netTime.Now()

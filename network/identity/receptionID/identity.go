@@ -3,9 +3,8 @@ package receptionID
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
 	"strings"
@@ -17,8 +16,7 @@ const identityStorageVersion = 0
 
 type Identity struct {
 	// Identity
-	EphId       ephemeral.Id
-	Source      *id.ID
+	interfaces.EphemeralIdentity
 	AddressSize uint8
 
 	// Usage variables

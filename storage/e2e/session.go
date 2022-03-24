@@ -24,6 +24,7 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"math/big"
+	"math/rand"
 	"sync"
 	"testing"
 )
@@ -550,7 +551,7 @@ func (s *Session) triggerNegotiation() bool {
 			s.mux.Unlock()
 			return false
 		}
-	} else if s.negotiationStatus == Unconfirmed {
+	} else if s.negotiationStatus == Unconfirmed && rand.Uint64()%s.rekeyThreshold == 0 {
 		// retrigger this sessions negotiation
 		s.mux.RUnlock()
 		s.mux.Lock()

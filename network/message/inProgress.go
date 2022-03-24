@@ -19,11 +19,11 @@ import (
 // stored on disk) and the message decryption is retried here whenever triggered.
 
 // This can be triggered through the CheckInProgressMessages on the network
-// pickup and is used in the /keyExchange package on successful rekey triggering.
+// handler and is used in the /keyExchange package on successful rekey triggering.
 
 // CheckInProgressMessages triggers rechecking all in progress messages if the
-// queue is not full Exposed on the network pickup.
-func (p *pickup) CheckInProgressMessages() {
+// queue is not full Exposed on the network handler.
+func (p *handler) CheckInProgressMessages() {
 	select {
 	case p.checkInProgress <- struct{}{}:
 	default:
@@ -33,7 +33,7 @@ func (p *pickup) CheckInProgressMessages() {
 
 // recheckInProgressRunner is a long-running thread which processes messages
 // that need to be checked.
-func (p *pickup) recheckInProgressRunner(stop *stoppable.Single) {
+func (p *handler) recheckInProgressRunner(stop *stoppable.Single) {
 	for {
 		select {
 		case <-stop.Quit():
@@ -47,7 +47,7 @@ func (p *pickup) recheckInProgressRunner(stop *stoppable.Single) {
 }
 
 // recheckInProgress is the handler for a single run of recheck messages.
-func (p *pickup) recheckInProgress() {
+func (p *handler) recheckInProgress() {
 	// Try to decrypt every garbled message, excising those whose counts are too
 	// high
 	for grbldMsg, ri, identity, has := p.inProcess.Next(); has; grbldMsg, ri, identity, has = p.inProcess.Next() {

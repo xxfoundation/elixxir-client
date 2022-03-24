@@ -11,16 +11,14 @@ package network
 // and intraclient state are accessible through the context object.
 
 import (
-	"crypto/rand"
-	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/address"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/health"
+	"gitlab.com/elixxir/client/network/historical"
 	"gitlab.com/elixxir/client/network/identity"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/network/nodes"
@@ -30,7 +28,6 @@ import (
 	"gitlab.com/elixxir/comms/client"
 	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"math"
@@ -47,9 +44,12 @@ const fakeIdentityRange = 800
 // manager implements the NetworkManager interface inside context. It
 // controls access to network resources and implements all the communications
 // functions used by the client.
+// CRITICAL: Manager must be private. It embeds sub moduals which
+// export functions for it, but not for public consumption. By being private
+// and returning ass the public interface, these can be kept private.
 type manager struct {
 	//User Identity Storage
-	session *storage.Session
+	session storage.Session
 	//generic RNG for client
 	rng *fastRNG.StreamGenerator
 	// comms pointer to send/recv messages
@@ -62,13 +62,15 @@ type manager struct {
 
 	// parameters of the network
 	param params.Network
-	// handles message sending
-	sender *gateway.Sender
 
 	//sub-managers
-	message.Pickup
+	gateway.Sender
+	message.Handler
 	nodes.Registrar
-	round *rounds.Manager
+	historical.Retriever
+	rounds.Pickup
+	address.Space
+	identity.Tracker
 
 	// Earliest tracked round
 	earliestRound *uint64
@@ -79,18 +81,14 @@ type manager struct {
 	numLatencies  uint64
 	verboseRounds *RoundTracker
 
-	// Address space size
-	addrSpace *address.AddressSpace
-
 	// Event reporting api
 	events interfaces.EventManager
 }
 
 // NewManager builds a new reception manager object using inputted key fields
-func NewManager(session *storage.Session,
-	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
-	comms *client.Comms, params params.Network,
-	ndf *ndf.NetworkDefinition) (interfaces.NetworkManager, error) {
+func NewManager(params params.Network, comms *client.Comms, session storage.Session,
+	ndf *ndf.NetworkDefinition, rng *fastRNG.StreamGenerator, events interfaces.EventManager,
+) (interfaces.NetworkManager, error) {
 
 	//start network instance
 	instance, err := commNetwork.NewInstance(comms.ProtoComms, ndf, nil, nil, commNetwork.None, params.FastPolling)
@@ -105,7 +103,7 @@ func NewManager(session *storage.Session,
 	m := manager{
 		param:         params,
 		tracker:       &tracker,
-		addrSpace:     address.NewAddressSpace(),
+		Space:         address.NewAddressSpace(),
 		events:        events,
 		earliestRound: &earliest,
 		session:       session,
@@ -114,7 +112,7 @@ func NewManager(session *storage.Session,
 		health:        health.Init(instance, params.NetworkHealthTimeout),
 		instance:      instance,
 	}
-	m.addrSpace.Update(18)
+	m.UpdateAddressSpace(18)
 
 	if params.VerboseRoundTracking {
 		m.verboseRounds = NewRoundTracker()
@@ -131,24 +129,30 @@ func NewManager(session *storage.Session,
 	// Enable optimized HostPool initialization
 	poolParams.MaxPings = 50
 	poolParams.ForceConnection = true
-	m.sender, err = gateway.NewSender(poolParams, rng,
+	m.Sender, err = gateway.NewSender(poolParams, rng,
 		ndf, comms, session, nodechan)
 	if err != nil {
 		return nil, err
 	}
 
 	//setup the node registrar
-	m.Registrar, err = nodes.LoadRegistrar(session, m.sender, m.comms, m.rng, nodechan)
+	m.Registrar, err = nodes.LoadRegistrar(session, m.Sender, m.comms, m.rng, nodechan)
 	if err != nil {
 		return nil, err
 	}
 
-	//set up round handler
-	m.round = rounds.NewManager(m.Internal, m.param.Rounds, m.Pickup.GetMessageReceptionChannel(), m.sender)
+	//setup the historical rounds handler
+	m.Retriever = historical.NewRetriever(params.Historical, comms, m.Sender, events)
 
-	//Set up Message Pickup
-	m.Pickup = message.NewPickup(params, nodechan, m.sender, m.session, m.rng,
-		m.events, m.comms, m.Registrar, m.instance)
+	//Set up Message Handler
+	m.Handler = message.NewHandler(params, m.session.GetKV(), m.events)
+
+	//set up round handler
+	m.Pickup = rounds.NewPickup(m.param.Rounds, m.Handler.GetMessageReceptionChannel(),
+		m.Sender, m.Retriever, m.rng, m.instance, m.session.GetKV())
+
+	//add the identity system
+	m.Tracker = identity.NewOrLoadTracker(m.session, m.Space)
 
 	// Set upthe ability to register with new nodes when they appear
 	m.instance.SetAddGatewayChan(nodechan)
@@ -187,24 +191,23 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	//TODO-node remover
 
 	// Start the Network Tracker
-	trackNetworkStopper := stoppable.NewSingle("TrackNetwork")
-	go m.followNetwork(report, trackNetworkStopper)
-	multi.Add(trackNetworkStopper)
+	followNetworkStopper := stoppable.NewSingle("FollowNetwork")
+	go m.followNetwork(report, followNetworkStopper)
+	multi.Add(followNetworkStopper)
 
 	// Message reception
-	multi.Add(m.Pickup.StartProcessies())
+	multi.Add(m.Handler.StartProcesses())
 
 	// Round processing
-	multi.Add(m.round.StartProcessors())
+	multi.Add(m.Pickup.StartProcessors())
 
-	multi.Add(identity.Track(m.session, m.addrSpace, m.ReceptionID))
+	// Historical rounds processing
+	multi.Add(m.Retriever.StartProcessies())
+
+	//start the processies for the identity handler
+	multi.Add(m.Tracker.StartProcessies())
 
 	return multi, nil
-}
-
-// GetEventManager returns the health tracker
-func (m *manager) GetEventManager() interfaces.EventManager {
-	return m.events
 }
 
 // GetHealthTracker returns the health tracker
@@ -217,35 +220,6 @@ func (m *manager) GetInstance() *commNetwork.Instance {
 	return m.instance
 }
 
-// GetSender returns the gateway.Sender object
-func (m *manager) GetSender() *gateway.Sender {
-	return m.sender
-}
-
-// GetAddressSize returns the current address space size. It blocks until an
-// address space size is set.
-func (m *manager) GetAddressSize() uint8 {
-	return m.addrSpace.Get()
-}
-
-// RegisterAddressSizeNotification returns a channel that will trigger for every
-// address space size update. The provided tag is the unique ID for the channel.
-// Returns an error if the tag is already used.
-func (m *manager) RegisterAddressSizeNotification(tag string) (chan uint8, error) {
-	return m.addrSpace.RegisterNotification(tag)
-}
-
-// UnregisterAddressSizeNotification stops broadcasting address space size
-// updates on the channel with the specified tag.
-func (m *manager) UnregisterAddressSizeNotification(tag string) {
-	m.addrSpace.UnregisterNotification(tag)
-}
-
-// SetPoolFilter sets the filter used to filter gateway IDs.
-func (m *manager) SetPoolFilter(f gateway.Filter) {
-	m.sender.SetFilter(f)
-}
-
 // GetVerboseRounds returns verbose round information
 func (m *manager) GetVerboseRounds() string {
 	if m.verboseRounds == nil {
@@ -256,18 +230,4 @@ func (m *manager) GetVerboseRounds() string {
 
 func (m *manager) SetFakeEarliestRound(rnd id.Round) {
 	atomic.StoreUint64(m.earliestRound, uint64(rnd))
-}
-
-// GetFakeEarliestRound generates a random earliest round for a fake identity.
-func (m *manager) GetFakeEarliestRound() id.Round {
-	b, err := csprng.Generate(8, rand.Reader)
-	if err != nil {
-		jww.FATAL.Panicf("Could not get random number: %v", err)
-	}
-
-	rangeVal := binary.LittleEndian.Uint64(b) % 800
-
-	earliestKnown := atomic.LoadUint64(m.earliestRound)
-
-	return id.Round(earliestKnown - rangeVal)
 }

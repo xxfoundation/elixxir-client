@@ -31,12 +31,12 @@ var delayTable = [5]time.Duration{
 
 type Registrar interface {
 	StartProcesses(numParallel uint) stoppable.Stoppable
-	Has(nid *id.ID) bool
-	Remove(nid *id.ID)
-	GetKeys(topology *connect.Circuit) (MixCypher, error)
-	NumRegistered() int
+	HasNode(nid *id.ID) bool
+	RemoveNode(nid *id.ID)
+	GetNodeKeys(topology *connect.Circuit) (MixCypher, error)
+	NumRegisteredNodes() int
 	GetInputChannel() chan<- network.NodeGateway
-	TriggerRegistration(nid *id.ID)
+	TriggerNodeRegistration(nid *id.ID)
 }
 
 type RegisterNodeCommsInterface interface {
@@ -49,8 +49,8 @@ type registrar struct {
 	kv    *versioned.KV
 	mux   sync.RWMutex
 
-	session *storage.Session
-	sender  *gateway.Sender
+	session storage.Session
+	sender  gateway.Sender
 	comms   RegisterNodeCommsInterface
 	rng     *fastRNG.StreamGenerator
 
@@ -59,8 +59,8 @@ type registrar struct {
 
 // LoadRegistrar loads a registrar from disk, and creates a new one if it does
 // not exist.
-func LoadRegistrar(session *storage.Session,
-	sender *gateway.Sender, comms RegisterNodeCommsInterface,
+func LoadRegistrar(session storage.Session,
+	sender gateway.Sender, comms RegisterNodeCommsInterface,
 	rngGen *fastRNG.StreamGenerator, c chan network.NodeGateway) (Registrar, error) {
 	kv := session.GetKV().Prefix(prefix)
 	r := &registrar{
@@ -114,7 +114,7 @@ func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 func (r *registrar) GetInputChannel() chan<- network.NodeGateway {
 	return r.c
 }
-func (r *registrar) TriggerRegistration(nid *id.ID) {
+func (r *registrar) TriggerNodeRegistration(nid *id.ID) {
 	r.c <- network.NodeGateway{
 		Node: ndf.Node{ID: nid.Marshal(),
 			//status must be active because it is in a round
@@ -124,7 +124,7 @@ func (r *registrar) TriggerRegistration(nid *id.ID) {
 
 // GetKeys returns a MixCypher for the topology and a list of nodes it did
 // not have a key for. If there are missing keys, then returns nil MixCypher.
-func (r *registrar) GetKeys(topology *connect.Circuit) (MixCypher, error) {
+func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 
@@ -158,19 +158,19 @@ func (r *registrar) GetKeys(topology *connect.Circuit) (MixCypher, error) {
 }
 
 // Has returns if the store has the nodes.
-func (r *registrar) Has(nid *id.ID) bool {
+func (r *registrar) HasNode(nid *id.ID) bool {
 	r.mux.RLock()
 	_, exists := r.nodes[*nid]
 	r.mux.RUnlock()
 	return exists
 }
 
-func (r *registrar) Remove(nid *id.ID) {
+func (r *registrar) RemoveNode(nid *id.ID) {
 	r.remove(nid)
 }
 
 // NumRegistered returns the number of registered nodes.
-func (r *registrar) NumRegistered() int {
+func (r *registrar) NumRegisteredNodes() int {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 	return len(r.nodes)

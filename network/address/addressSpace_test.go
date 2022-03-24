@@ -32,7 +32,7 @@ func Test_addressSpace_Get(t *testing.T) {
 
 	// Call get and error if it does not block
 	wait := make(chan uint8)
-	go func() { wait <- as.Get() }()
+	go func() { wait <- as.GetAddressSpace() }()
 	select {
 	case size := <-wait:
 		t.Errorf("get failed to block and returned size %d.", size)
@@ -46,7 +46,7 @@ func Test_addressSpace_Get(t *testing.T) {
 
 	// Call get and error if it does block
 	wait = make(chan uint8)
-	go func() { wait <- as.Get() }()
+	go func() { wait <- as.GetAddressSpace() }()
 	select {
 	case size := <-wait:
 		if size != expectedSize {
@@ -63,7 +63,7 @@ func Test_addressSpace_Get_WaitBroadcast(t *testing.T) {
 	as := NewAddressSpace()
 
 	wait := make(chan uint8)
-	go func() { wait <- as.Get() }()
+	go func() { wait <- as.GetAddressSpace() }()
 
 	go func() {
 		select {
@@ -82,13 +82,13 @@ func Test_addressSpace_Get_WaitBroadcast(t *testing.T) {
 	as.cond.Broadcast()
 }
 
-// Unit test of AddressSpace.GetWithoutWait.
+// Unit test of AddressSpace.GetAddressSpaceWithoutWait.
 func Test_addressSpace_GetWithoutWait(t *testing.T) {
 	as := NewAddressSpace()
 
-	size := as.GetWithoutWait()
+	size := as.GetAddressSpaceWithoutWait()
 	if size != initSize {
-		t.Errorf("GetWithoutWait returned the wrong size."+
+		t.Errorf("GetAddressSpaceWithoutWait returned the wrong size."+
 			"\nexpected: %d\nreceived: %d", initSize, size)
 	}
 }
@@ -99,14 +99,14 @@ func Test_addressSpace_update(t *testing.T) {
 	expectedSize := uint8(42)
 
 	// Attempt to Update to larger size
-	as.Update(expectedSize)
+	as.UpdateAddressSpace(expectedSize)
 	if as.size != expectedSize {
 		t.Errorf("Update failed to set the new size."+
 			"\nexpected: %d\nreceived: %d", expectedSize, as.size)
 	}
 
 	// Attempt to Update to smaller size
-	as.Update(expectedSize - 1)
+	as.UpdateAddressSpace(expectedSize - 1)
 	if as.size != expectedSize {
 		t.Errorf("Update failed to set the new size."+
 			"\nexpected: %d\nreceived: %d", expectedSize, as.size)
@@ -122,7 +122,7 @@ func Test_addressSpace_update_GetAndChannels(t *testing.T) {
 	// Start threads that are waiting for an Update
 	wait := []chan uint8{make(chan uint8), make(chan uint8), make(chan uint8)}
 	for _, waitChan := range wait {
-		go func(waitChan chan uint8) { waitChan <- as.Get() }(waitChan)
+		go func(waitChan chan uint8) { waitChan <- as.GetAddressSpace() }(waitChan)
 	}
 
 	// Wait on threads
@@ -150,7 +150,7 @@ func Test_addressSpace_update_GetAndChannels(t *testing.T) {
 	var chanID string
 	for i := 0; i < 3; i++ {
 		chanID = strconv.Itoa(i)
-		notifyChannels[chanID], err = as.RegisterNotification(chanID)
+		notifyChannels[chanID], err = as.RegisterAddressSpaceNotification(chanID)
 		if err != nil {
 			t.Errorf("Failed to regisdter channel: %+v", err)
 		}
@@ -174,13 +174,13 @@ func Test_addressSpace_update_GetAndChannels(t *testing.T) {
 	time.Sleep(5 * time.Millisecond)
 
 	// Attempt to Update to larger size
-	as.Update(expectedSize)
+	as.UpdateAddressSpace(expectedSize)
 
 	wg.Wait()
 
 	// Unregistered one channel and make sure it will not receive
 	delete(notifyChannels, chanID)
-	as.UnregisterNotification(chanID)
+	as.UnregisterAddressSpaceNotification(chanID)
 
 	expectedSize++
 
@@ -218,7 +218,7 @@ func Test_addressSpace_update_GetAndChannels(t *testing.T) {
 	time.Sleep(5 * time.Millisecond)
 
 	// Attempt to Update to larger size
-	as.Update(expectedSize)
+	as.UpdateAddressSpace(expectedSize)
 
 	wg.Wait()
 }
@@ -231,7 +231,7 @@ func Test_addressSpace_RegisterNotification(t *testing.T) {
 
 	// Register channel
 	chanID := "chanID"
-	sizeChan, err := as.RegisterNotification(chanID)
+	sizeChan, err := as.RegisterAddressSpaceNotification(chanID)
 	if err != nil {
 		t.Errorf("RegisterNotification returned an error: %+v", err)
 	}
@@ -257,7 +257,7 @@ func Test_addressSpace_RegisterNotification(t *testing.T) {
 	}
 }
 
-// Tests that when AddressSpace.UnregisterNotification unregisters a channel,
+// Tests that when AddressSpace.UnregisterAddressSpaceNotification unregisters a channel,
 // it no longer can be triggered from the map.
 func Test_addressSpace_UnregisterNotification(t *testing.T) {
 	as := NewAddressSpace()
@@ -265,11 +265,11 @@ func Test_addressSpace_UnregisterNotification(t *testing.T) {
 
 	// Register channel and then unregister it
 	chanID := "chanID"
-	sizeChan, err := as.RegisterNotification(chanID)
+	sizeChan, err := as.RegisterAddressSpaceNotification(chanID)
 	if err != nil {
 		t.Errorf("RegisterNotification returned an error: %+v", err)
 	}
-	as.UnregisterNotification(chanID)
+	as.UnregisterAddressSpaceNotification(chanID)
 
 	// Wait for timeout or error if the channel receives
 	go func() {

@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
+	"gitlab.com/elixxir/client/network/pickup"
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/testkeys"
@@ -25,12 +26,12 @@ import (
 	"time"
 )
 
-func newManager(face interface{}) *Manager {
+func newManager(face interface{}) *manager {
 	sess1 := storage.InitTestingSession(face)
 
-	testManager := &Manager{
+	testManager := &manager{
 		params:              params.GetDefaultRounds(),
-		lookupRoundMessages: make(chan roundLookup),
+		lookupRoundMessages: make(chan pickup.roundLookup),
 		messageBundles:      make(chan message.Bundle),
 		Internal: internal.Internal{
 			Session:        sess1,

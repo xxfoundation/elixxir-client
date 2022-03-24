@@ -13,7 +13,7 @@ import (
 )
 
 type User struct {
-	u *user.User
+	u *user.Info
 }
 
 func (u *User) GetTransmissionID() []byte {

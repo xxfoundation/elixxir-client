@@ -60,7 +60,8 @@ func TestSender_SendToAny(t *testing.T) {
 
 	}
 
-	sender, err := NewSender(params, rng, testNdf, manager, testStorage, addGwChan)
+	senderFace, err := NewSender(params, rng, testNdf, manager, testStorage, addGwChan)
+	s := senderFace.(*sender)
 	if err != nil {
 		t.Fatalf("Failed to create mock sender: %v", err)
 	}
@@ -72,14 +73,14 @@ func TestSender_SendToAny(t *testing.T) {
 			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
 		}
 
-		err = sender.replaceHost(gwId, uint32(index))
+		err = s.replaceHost(gwId, uint32(index))
 		if err != nil {
 			t.Fatalf("Failed to replace host in set-up: %v", err)
 		}
 	}
 
 	// Test sendToAny with test interfaces
-	result, err := sender.SendToAny(SendToAny_HappyPath, nil)
+	result, err := s.SendToAny(SendToAny_HappyPath, nil)
 	if err != nil {
 		t.Errorf("Should not error in SendToAny happy path: %v", err)
 	}
@@ -90,12 +91,12 @@ func TestSender_SendToAny(t *testing.T) {
 			"\n\tReceived: %v", happyPathReturn, result)
 	}
 
-	_, err = sender.SendToAny(SendToAny_KnownError, nil)
+	_, err = s.SendToAny(SendToAny_KnownError, nil)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}
 
-	_, err = sender.SendToAny(SendToAny_UnknownError, nil)
+	_, err = s.SendToAny(SendToAny_UnknownError, nil)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}
@@ -131,16 +132,17 @@ func TestSender_SendToPreferred(t *testing.T) {
 
 	}
 
-	sender, err := NewSender(params, rng, testNdf, manager, testStorage, addGwChan)
+	sFace, err := NewSender(params, rng, testNdf, manager, testStorage, addGwChan)
 	if err != nil {
 		t.Fatalf("Failed to create mock sender: %v", err)
 	}
+	s := sFace.(*sender)
 
 	preferredIndex := 0
-	preferredHost := sender.hostList[preferredIndex]
+	preferredHost := s.hostList[preferredIndex]
 
 	// Happy path
-	result, err := sender.SendToPreferred([]*id.ID{preferredHost.GetId()},
+	result, err := s.SendToPreferred([]*id.ID{preferredHost.GetId()},
 		SendToPreferred_HappyPath, nil, 250*time.Millisecond)
 	if err != nil {
 		t.Errorf("Should not error in SendToPreferred happy path: %v", err)
@@ -153,14 +155,14 @@ func TestSender_SendToPreferred(t *testing.T) {
 	}
 
 	// Call a send which returns an error which triggers replacement
-	_, err = sender.SendToPreferred([]*id.ID{preferredHost.GetId()},
+	_, err = s.SendToPreferred([]*id.ID{preferredHost.GetId()},
 		SendToPreferred_KnownError, nil, 250*time.Millisecond)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}
 
 	// Check the host has been replaced
-	if _, ok := sender.hostMap[*preferredHost.GetId()]; ok {
+	if _, ok := s.hostMap[*preferredHost.GetId()]; ok {
 		t.Errorf("Expected host %s to be removed due to error", preferredHost)
 	}
 
@@ -171,17 +173,17 @@ func TestSender_SendToPreferred(t *testing.T) {
 
 	// get a new host to test on
 	preferredIndex = 4
-	preferredHost = sender.hostList[preferredIndex]
+	preferredHost = s.hostList[preferredIndex]
 
 	// Unknown error return will not trigger replacement
-	_, err = sender.SendToPreferred([]*id.ID{preferredHost.GetId()},
+	_, err = s.SendToPreferred([]*id.ID{preferredHost.GetId()},
 		SendToPreferred_UnknownError, nil, 250*time.Millisecond)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}
 
 	// Check the host has not been replaced
-	if _, ok := sender.hostMap[*preferredHost.GetId()]; !ok {
+	if _, ok := s.hostMap[*preferredHost.GetId()]; !ok {
 		t.Errorf("Host %s should not have been removed due on an unknown error", preferredHost)
 	}
 

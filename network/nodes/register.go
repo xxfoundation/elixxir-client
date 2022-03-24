@@ -61,7 +61,7 @@ func registerNodes(r *registrar, stop *stoppable.Single, inProgress, attempts *s
 				continue
 			}
 
-			if r.Has(nid) {
+			if r.HasNode(nid) {
 				jww.INFO.Printf(
 					"Not registering node %s, already registered", nid)
 			}
@@ -116,7 +116,7 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 		return err
 	}
 
-	if r.Has(nodeID) {
+	if r.HasNode(nodeID) {
 		return nil
 	}
 

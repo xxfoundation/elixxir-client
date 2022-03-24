@@ -30,7 +30,7 @@ const (
 )
 
 // createNewUser generates an identity for cMix
-func createNewUser(rng *fastRNG.StreamGenerator, cmix, e2e *cyclic.Group) user.User {
+func createNewUser(rng *fastRNG.StreamGenerator, cmix, e2e *cyclic.Group) user.Info {
 	// CMIX Keygen
 	var transmissionRsaKey, receptionRsaKey *rsa.PrivateKey
 
@@ -75,7 +75,7 @@ func createNewUser(rng *fastRNG.StreamGenerator, cmix, e2e *cyclic.Group) user.U
 		jww.FATAL.Panicf(err.Error())
 	}
 
-	return user.User{
+	return user.Info{
 		TransmissionID:   transmissionID.DeepCopy(),
 		TransmissionSalt: transmissionSalt,
 		TransmissionRSA:  transmissionRsaKey,
@@ -140,7 +140,7 @@ func createDhKeys(rng *fastRNG.StreamGenerator,
 
 // TODO: Add precanned user code structures here.
 // creates a precanned user
-func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.Group) user.User {
+func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.Group) user.Info {
 	// DH Keygen
 	// FIXME: Why 256 bits? -- this is spec but not explained, it has
 	// to do with optimizing operations on one side and still preserves
@@ -164,7 +164,7 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.
 		jww.FATAL.Panicf(err.Error())
 	}
 
-	return user.User{
+	return user.Info{
 		TransmissionID:   &userID,
 		TransmissionSalt: salt,
 		ReceptionID:      &userID,
@@ -178,7 +178,7 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.
 
 // createNewVanityUser generates an identity for cMix
 // The identity's ReceptionID is not random but starts with the supplied prefix
-func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix string) user.User {
+func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix string) user.Info {
 	// DH Keygen
 	// FIXME: Why 256 bits? -- this is spec but not explained, it has
 	// to do with optimizing operations on one side and still preserves
@@ -277,7 +277,7 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 	<-found
 	close(done)
 	wg.Wait()
-	return user.User{
+	return user.Info{
 		TransmissionID:   transmissionID.DeepCopy(),
 		TransmissionSalt: transmissionSalt,
 		TransmissionRSA:  transmissionRsaKey,

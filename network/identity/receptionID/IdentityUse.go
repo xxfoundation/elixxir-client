@@ -2,7 +2,7 @@ package receptionID
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/storage/rounds"
+	"gitlab.com/elixxir/client/network/identity/receptionID/store"
 	"strconv"
 	"strings"
 )
@@ -13,9 +13,9 @@ type IdentityUse struct {
 	// Denotes if the identity is fake, in which case we do not process messages
 	Fake bool
 
-	UR *rounds.UnknownRounds
-	ER *rounds.EarliestRound
-	CR *rounds.CheckedRounds
+	UR *store.UnknownRounds
+	ER *store.EarliestRound
+	CR *store.CheckedRounds
 }
 
 func (iu IdentityUse) GoString() string {

@@ -94,7 +94,7 @@ func NewClient(ndfJSON, storageDir string, password []byte,
 	cmixGrp, e2eGrp := decodeGroups(def)
 	start := time.Now()
 	protoUser := createNewUser(rngStreamGen, cmixGrp, e2eGrp)
-	jww.DEBUG.Printf("User generation took: %s", time.Now().Sub(start))
+	jww.DEBUG.Printf("PortableUserInfo generation took: %s", time.Now().Sub(start))
 
 	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
 		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
@@ -669,7 +669,7 @@ func (c *Client) AddService(sp Service) error {
 
 // GetUser returns the current user Identity for this client. This
 // can be serialized into a byte stream for out-of-band sharing.
-func (c *Client) GetUser() user.User {
+func (c *Client) GetUser() user.Info {
 	jww.INFO.Printf("GetUser()")
 	return c.storage.GetUser()
 }
@@ -940,7 +940,7 @@ func decodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 // it checks client version and creates a new storage for user data
 func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
 	storageDir string, password []byte,
-	protoUser user.User,
+	protoUser user.Info,
 	cmixGrp, e2eGrp *cyclic.Group, rngStreamGen *fastRNG.StreamGenerator,
 	isPrecanned bool, registrationCode string) (*storage.Session, error) {
 	// get current client version

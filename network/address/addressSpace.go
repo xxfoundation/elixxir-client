@@ -16,24 +16,32 @@ const (
 // Space contains the current address space size used for creating
 // address IDs and the infrastructure to alert other processes when an Update
 // occurs.
-type Space struct {
+type Space interface {
+	GetAddressSpace() uint8
+	GetAddressSpaceWithoutWait() uint8
+	UpdateAddressSpace(newSize uint8)
+	RegisterAddressSpaceNotification(tag string) (chan uint8, error)
+	UnregisterAddressSpaceNotification(tag string)
+}
+
+type space struct {
 	size      uint8
 	notifyMap map[string]chan uint8
 	cond      *sync.Cond
 }
 
 // NewAddressSpace initialises a new AddressSpace and returns it.
-func NewAddressSpace() *Space {
-	return &Space{
+func NewAddressSpace() Space {
+	return &space{
 		size:      initSize,
 		notifyMap: make(map[string]chan uint8),
 		cond:      sync.NewCond(&sync.Mutex{}),
 	}
 }
 
-// Get returns the current address space size. It blocks until an address space
+// GetAddressSpace returns the current address space size. It blocks until an address space
 // size is set.
-func (as *Space) Get() uint8 {
+func (as *space) GetAddressSpace() uint8 {
 	as.cond.L.Lock()
 	defer as.cond.L.Unlock()
 
@@ -48,19 +56,19 @@ func (as *Space) Get() uint8 {
 	return as.size
 }
 
-// GetWithoutWait returns the current address space size regardless if it has
+// GetAddressSpaceWithoutWait returns the current address space size regardless if it has
 // been set yet.
-func (as *Space) GetWithoutWait() uint8 {
+func (as *space) GetAddressSpaceWithoutWait() uint8 {
 	as.cond.L.Lock()
 	defer as.cond.L.Unlock()
 	return as.size
 }
 
-// Update updates the address space size to the new size, if it is larger. Then,
+// UpdateAddressSpace updates the address space size to the new size, if it is larger. Then,
 // each registered channel is notified of the Update. If this was the first time
 // that the address space size was set, then the conditional broadcasts to stop
 // blocking for all threads waiting on Get.
-func (as *Space) Update(newSize uint8) {
+func (as *space) UpdateAddressSpace(newSize uint8) {
 	as.cond.L.Lock()
 	defer as.cond.L.Unlock()
 
@@ -90,10 +98,10 @@ func (as *Space) Update(newSize uint8) {
 	}
 }
 
-// RegisterNotification returns a channel that will trigger for every address
+// RegisterAddressSpaceNotification returns a channel that will trigger for every address
 // space size Update. The provided tag is the unique ID for the channel.
 // Returns an error if the tag is already used.
-func (as *Space) RegisterNotification(tag string) (chan uint8, error) {
+func (as *space) RegisterAddressSpaceNotification(tag string) (chan uint8, error) {
 	as.cond.L.Lock()
 	defer as.cond.L.Unlock()
 
@@ -106,9 +114,9 @@ func (as *Space) RegisterNotification(tag string) (chan uint8, error) {
 	return as.notifyMap[tag], nil
 }
 
-// UnregisterNotification stops broadcasting address space size updates on the
+// UnregisterAddressSpaceNotification stops broadcasting address space size updates on the
 // channel with the specified tag.
-func (as *Space) UnregisterNotification(tag string) {
+func (as *space) UnregisterAddressSpaceNotification(tag string) {
 	as.cond.L.Lock()
 	defer as.cond.L.Unlock()
 
@@ -117,7 +125,7 @@ func (as *Space) UnregisterNotification(tag string) {
 
 // NewTestAddressSpace initialises a new AddressSpace for testing with the given
 // size.
-func NewTestAddressSpace(newSize uint8, x interface{}) *Space {
+func NewTestAddressSpace(newSize uint8, x interface{}) *space {
 	switch x.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
@@ -126,13 +134,13 @@ func NewTestAddressSpace(newSize uint8, x interface{}) *Space {
 			"Got %T", x)
 	}
 
-	as := &Space{
+	as := &space{
 		size:      initSize,
 		notifyMap: make(map[string]chan uint8),
 		cond:      sync.NewCond(&sync.Mutex{}),
 	}
 
-	as.Update(newSize)
+	as.UpdateAddressSpace(newSize)
 
 	return as
 }

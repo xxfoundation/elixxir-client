@@ -115,7 +115,7 @@ func DefaultPoolParams() PoolParams {
 
 // Build and return new HostPool object
 func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
-	netDef *ndf.NetworkDefinition, getter HostManager, storage *storage.Session,
+	netDef *ndf.NetworkDefinition, getter HostManager, storage storage.Session,
 	addGateway chan<- network.NodeGateway) (*HostPool, error) {
 	var err error
 
@@ -345,8 +345,8 @@ func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 	h.ndfMux.Unlock()
 }
 
-// SetFilter sets the filter used to filter gateways from the ID map.
-func (h *HostPool) SetFilter(f Filter) {
+// SetPoolFilter sets the filter used to filter gateways from the ID map.
+func (h *HostPool) SetHostPoolFilter(f Filter) {
 	h.filterMux.Lock()
 	defer h.filterMux.Unlock()
 

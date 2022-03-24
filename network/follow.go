@@ -24,12 +24,13 @@ package network
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/network/rounds"
+	"gitlab.com/elixxir/client/network/identity/receptionID/store"
 	"gitlab.com/elixxir/client/stoppable"
-	rounds2 "gitlab.com/elixxir/client/storage/rounds"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/elixxir/primitives/states"
@@ -78,7 +79,7 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport,
 			stop.ToStopped()
 			return
 		case <-ticker.C:
-			m.follow(report, rng, m.Comms, stop, abandon)
+			m.follow(report, rng, m.comms, stop, abandon)
 		case <-TrackTicker.C:
 			numPolls := atomic.SwapUint64(m.tracker, 0)
 			if m.numLatencies != 0 {
@@ -92,7 +93,7 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport,
 					numPolls, debugTrackPeriod, latencyAvg)
 
 				jww.INFO.Printf(infoMsg)
-				m.Internal.Events.Report(1, "Polling",
+				m.events.Report(1, "Polling",
 					"MetricsWithLatency", infoMsg)
 			} else {
 				infoMsg := fmt.Sprintf("Polled the network "+
@@ -100,7 +101,7 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport,
 					debugTrackPeriod)
 
 				jww.INFO.Printf(infoMsg)
-				m.Internal.Events.Report(1, "Polling",
+				m.events.Report(1, "Polling",
 					"Metrics", infoMsg)
 			}
 		}
@@ -112,7 +113,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	comms followNetworkComms, stop *stoppable.Single, abandon func(round id.Round)) {
 
 	//get the identity we will poll for
-	identity, err := m.session.Reception().GetIdentity(rng, m.addrSpace.GetWithoutWait())
+	identity, err := m.GetEphemeralIdentity(rng, m.Space.GetAddressSpaceWithoutWait())
 	if err != nil {
 		jww.FATAL.Panicf("Failed to get an identity, this should be "+
 			"impossible: %+v", err)
@@ -123,8 +124,8 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// we want the values to be randomly generated rather than based on
 	// actual state.
 	if identity.Fake {
-		fakeEr := &rounds2.EarliestRound{}
-		fakeEr.Set(m.GetFakeEarliestRound())
+		fakeEr := &store.EarliestRound{}
+		fakeEr.Set(m.getFakeEarliestRound())
 		identity.ER = fakeEr
 	}
 
@@ -136,9 +137,9 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// Poll network updates
 	pollReq := pb.GatewayPoll{
 		Partial: &pb.NDFHash{
-			Hash: m.Instance.GetPartialNdf().GetHash(),
+			Hash: m.instance.GetPartialNdf().GetHash(),
 		},
-		LastUpdate:     uint64(m.Instance.GetLastUpdateID()),
+		LastUpdate:     uint64(m.instance.GetLastUpdateID()),
 		ReceptionID:    identity.EphId[:],
 		StartTimestamp: identity.StartValid.UnixNano(),
 		EndTimestamp:   identity.EndValid.UnixNano(),
@@ -147,7 +148,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		LastRound:      uint64(identity.ER.Get()),
 	}
 
-	result, err := m.GetSender().SendToAny(func(host *connect.Host) (interface{}, error) {
+	result, err := m.SendToAny(func(host *connect.Host) (interface{}, error) {
 		jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
 			identity.EphId.Int64(), identity.Source, identity.StartValid,
 			identity.EndValid, identity.EndValid.Sub(identity.StartValid), host.GetId())
@@ -171,7 +172,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			)
 		}
 		errMsg := fmt.Sprintf("Unable to poll gateway: %+v", err)
-		m.Internal.Events.Report(10, "Polling", "Error", errMsg)
+		m.events.Report(10, "Polling", "Error", errMsg)
 		jww.ERROR.Printf(errMsg)
 		return
 	}
@@ -190,42 +191,20 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// NOTE: this updates the structure, AND sends events over the nodes
 	//       update channels about new and removed nodes
 	if pollResp.PartialNDF != nil {
-		err = m.Instance.UpdatePartialNdf(pollResp.PartialNDF)
+		err = m.instance.UpdatePartialNdf(pollResp.PartialNDF)
 		if err != nil {
 			jww.ERROR.Printf("Unable to update partial NDF: %+v", err)
 			return
 		}
 
 		// update gateway connections
-		m.GetSender().UpdateNdf(m.GetInstance().GetPartialNdf().Get())
+		m.UpdateNdf(m.GetInstance().GetPartialNdf().Get())
 		m.session.SetNDF(m.GetInstance().GetPartialNdf().Get())
 	}
 
-	// Pull rate limiting parameter values from NDF
-	ndfRateLimitParam := m.Instance.GetPartialNdf().Get().RateLimits
-	ndfCapacity, ndfLeakedTokens, ndfLeakDuration := uint32(ndfRateLimitParam.Capacity),
-		uint32(ndfRateLimitParam.LeakedTokens), time.Duration(ndfRateLimitParam.LeakDuration)
-
-	// Pull internal rate limiting parameters from RAM
-	internalRateLimitParams := m.Internal.Session.GetBucketParams().Get()
-
-	// If any param value in our internal store does not
-	// match the NDF's corresponding value, update our internal store
-	if ndfCapacity != internalRateLimitParams.Capacity ||
-		ndfLeakedTokens != internalRateLimitParams.LeakedTokens ||
-		ndfLeakDuration != internalRateLimitParams.LeakDuration {
-		// Update internally stored params
-		err = m.Internal.Session.GetBucketParams().
-			UpdateParams(ndfCapacity, ndfLeakedTokens, ndfLeakDuration)
-		if err != nil {
-			jww.ERROR.Printf("%+v", err)
-			return
-		}
-	}
-
 	// Update the address space size
-	if len(m.Instance.GetPartialNdf().Get().AddressSpace) != 0 {
-		m.addrSpace.Update(m.Instance.GetPartialNdf().Get().AddressSpace[0].Size)
+	if len(m.instance.GetPartialNdf().Get().AddressSpace) != 0 {
+		m.UpdateAddressSpace(m.instance.GetPartialNdf().Get().AddressSpace[0].Size)
 	}
 
 	// NOTE: this updates rounds and updates the tracking of the health of the network
@@ -239,19 +218,15 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 				continue
 			}
 
+			marshaledTid := m.session.GetTransmissionID().Marshal()
 			for _, clientErr := range update.ClientErrors {
 				// If this Client appears in the ClientError
-				if bytes.Equal(clientErr.ClientId, m.session.GetUser().TransmissionID.Marshal()) {
+				if bytes.Equal(clientErr.ClientId, marshaledTid) {
 
 					// Obtain relevant NodeGateway information
 					nid, err := id.Unmarshal(clientErr.Source)
 					if err != nil {
 						jww.ERROR.Printf("Unable to get NodeID: %+v", err)
-						return
-					}
-					nGw, err := m.Instance.GetNodeAndGateway(nid)
-					if err != nil {
-						jww.ERROR.Printf("Unable to get gateway: %+v", err)
 						return
 					}
 
@@ -261,15 +236,14 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 					// FIXME: before keys are deleted
 					update.State = uint32(states.FAILED)
 
-					// delete all existing keys and trigger a re-registration with the relevant Node
-					m.session.Cmix().Remove(nid)
-					m.Instance.GetAddGatewayChan() <- nGw
+					//trigger a reregistration with the node
+					m.Registrar.TriggerNodeRegistration(nid)
 				}
 			}
 		}
 
 		// Trigger RoundEvents for all polled updates, including modified rounds with ClientErrors
-		err = m.Instance.RoundUpdates(pollResp.Updates)
+		err = m.instance.RoundUpdates(pollResp.Updates)
 		if err != nil {
 			jww.ERROR.Printf("%+v", err)
 			return
@@ -304,10 +278,10 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	}
 
 	//prepare the filter objects for processing
-	filterList := make([]*rounds.RemoteFilter, 0, len(pollResp.Filters.Filters))
+	filterList := make([]*RemoteFilter, 0, len(pollResp.Filters.Filters))
 	for i := range pollResp.Filters.Filters {
 		if len(pollResp.Filters.Filters[i].Filter) != 0 {
-			filterList = append(filterList, rounds.NewRemoteFilter(pollResp.Filters.Filters[i]))
+			filterList = append(filterList, NewRemoteFilter(pollResp.Filters.Filters[i]))
 		}
 	}
 
@@ -315,7 +289,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
-		hasMessage := rounds.Checker(rid, filterList, identity.CR)
+		hasMessage := Checker(rid, filterList, identity.CR)
 		if !hasMessage && m.verboseRounds != nil {
 			m.verboseRounds.denote(rid, RoundState(NoMessageAvailable))
 		}
@@ -375,7 +349,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	if !m.param.RealtimeOnly {
 		roundsWithMessages2 = identity.UR.Iterate(func(rid id.Round) bool {
 			if gwRoundsState.Checked(rid) {
-				return rounds.Checker(rid, filterList, identity.CR)
+				return Checker(rid, filterList, identity.CR)
 			}
 			return false
 		}, roundsUnknown, abandon)
@@ -384,7 +358,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	for _, rid := range roundsWithMessages {
 		//denote that the round has been looked at in the tracking store
 		if identity.CR.Check(rid) {
-			m.round.GetMessagesFromRound(rid, identity)
+			m.GetMessagesFromRound(rid, identity.EphemeralIdentity)
 		}
 	}
 
@@ -396,7 +370,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	}
 
 	for _, rid := range roundsWithMessages2 {
-		m.round.GetMessagesFromRound(rid, identity)
+		m.GetMessagesFromRound(rid, identity.EphemeralIdentity)
 	}
 
 	if m.verboseRounds != nil {
@@ -426,4 +400,18 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		}
 	}
 
+}
+
+// getFakeEarliestRound generates a random earliest round for a fake identity.
+func (m *manager) getFakeEarliestRound() id.Round {
+	b, err := csprng.Generate(8, rand.Reader)
+	if err != nil {
+		jww.FATAL.Panicf("Could not get random number: %v", err)
+	}
+
+	rangeVal := binary.LittleEndian.Uint64(b) % 800
+
+	earliestKnown := atomic.LoadUint64(m.earliestRound)
+
+	return id.Round(earliestKnown - rangeVal)
 }

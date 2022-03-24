@@ -495,7 +495,7 @@ func TestMultiStateVector_GetKeys(t *testing.T) {
 	for state, expected := range expectedKeys {
 		keys, err := msv.GetKeys(uint8(state))
 		if err != nil {
-			t.Errorf("GetKeys returned an error: %+v", err)
+			t.Errorf("GetNodeKeys returned an error: %+v", err)
 		}
 		if !reflect.DeepEqual(expected, keys) {
 			t.Errorf("Incorrect keys for state %d.\nexpected: %d\nreceived: %d",
@@ -517,7 +517,7 @@ func TestMultiStateVector_GetKeys_NewStateMaxError(t *testing.T) {
 	expectedErr := fmt.Sprintf(stateMaxErr, state, msv.numStates-1)
 	_, err = msv.GetKeys(state)
 	if err == nil || err.Error() != expectedErr {
-		t.Errorf("GetKeys did not return the expected error when the state is "+
+		t.Errorf("GetNodeKeys did not return the expected error when the state is "+
 			"larger than the max number of states.\nexpected: %s\nreceived: %v",
 			expectedErr, err)
 	}

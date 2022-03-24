@@ -42,6 +42,7 @@ type Network struct {
 	Rounds
 	Messages
 	Rekey
+	Historical
 
 	E2EParams E2ESessionParams
 }

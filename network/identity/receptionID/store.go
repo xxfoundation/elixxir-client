@@ -47,34 +47,39 @@ func makeIdHash(ephID ephemeral.Id, source *id.ID) idHash {
 }
 
 // NewStore creates a new reception store that starts empty.
-func NewStore(kv *versioned.KV) *Store {
-	s := &Store{
-		active:  []*registration{},
-		present: make(map[idHash]struct{}),
-		kv:      kv.Prefix(receptionPrefix),
-	}
+func NewOrLoadStore(kv *versioned.KV) *Store {
 
-	// Store the empty list
-	if err := s.save(); err != nil {
-		jww.FATAL.Panicf("Failed to save new reception store: %+v", err)
+	s, err := loadStore(kv)
+	if err != nil {
+		jww.WARN.Printf("ReceptionID store not found, creating a new one: %+v", err)
+		s = &Store{
+			active:  []*registration{},
+			present: make(map[idHash]struct{}),
+			kv:      kv.Prefix(receptionPrefix),
+		}
+
+		// Store the empty list
+		if err := s.save(); err != nil {
+			jww.FATAL.Panicf("Failed to save new reception store: %+v", err)
+		}
 	}
 
 	return s
 }
 
-func LoadStore(kv *versioned.KV) *Store {
+func loadStore(kv *versioned.KV) (*Store, error) {
 	kv = kv.Prefix(receptionPrefix)
 
 	// Load the versioned object for the reception list
 	vo, err := kv.Get(receptionStoreStorageKey, receptionStoreStorageVersion)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to get the reception storage list: %+v", err)
+		return nil, errors.WithMessage(err, "Failed to get the reception storage list")
 	}
 
 	// JSON unmarshal identities list
 	var identities []storedReference
 	if err = json.Unmarshal(vo.Data, &identities); err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal the stored identity list: %+v", err)
+		return nil, errors.WithMessage(err, "Failed to unmarshal the stored identity list")
 	}
 
 	s := &Store{
@@ -86,13 +91,13 @@ func LoadStore(kv *versioned.KV) *Store {
 	for i, sr := range identities {
 		s.active[i], err = loadRegistration(sr.Eph, sr.Source, sr.StartValid, s.kv)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to load registration for %s: %+v",
-				regPrefix(sr.Eph, sr.Source, sr.StartValid), err)
+			return nil, errors.WithMessagef(err, "failed to load registration for: %+v",
+				regPrefix(sr.Eph, sr.Source, sr.StartValid))
 		}
 		s.present[makeIdHash(sr.Eph, sr.Source)] = struct{}{}
 	}
 
-	return s
+	return s, nil
 }
 
 func (s *Store) save() error {
@@ -225,6 +230,31 @@ func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 			}
 
 			return
+		}
+	}
+}
+
+func (s *Store) RemoveIdentities(source *id.ID) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	doSave := false
+	for i, inQuestion := range s.active {
+		if inQuestion.Source.Cmp(source) {
+			s.active = append(s.active[:i], s.active[i+1:]...)
+
+			err := inQuestion.Delete()
+			if err != nil {
+				jww.FATAL.Panicf("Failed to delete identity: %+v", err)
+			}
+
+			doSave = doSave || !inQuestion.Ephemeral
+		}
+	}
+	if doSave {
+		if err := s.save(); err != nil {
+			jww.FATAL.Panicf("Failed to save reception store after "+
+				"identity removal: %+v", err)
 		}
 	}
 }

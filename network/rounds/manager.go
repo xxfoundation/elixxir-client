@@ -8,52 +8,72 @@
 package rounds
 
 import (
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
-	"gitlab.com/elixxir/client/network/internal"
+	"gitlab.com/elixxir/client/network/historical"
 	"gitlab.com/elixxir/client/network/message"
+	"gitlab.com/elixxir/client/network/rounds/store"
 	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/primitives/id"
 	"strconv"
 )
 
-type Manager struct {
-	params params.Rounds
-	internal.Internal
-	sender *gateway.Sender
-
-	historicalRounds    chan historicalRoundRequest
-	lookupRoundMessages chan roundLookup
-	messageBundles      chan<- message.Bundle
+type Pickup interface {
+	StartProcessors() stoppable.Stoppable
+	GetMessagesFromRound(roundID id.Round, identity interfaces.EphemeralIdentity)
 }
 
-func NewManager(internal internal.Internal, params params.Rounds,
-	bundles chan<- message.Bundle, sender *gateway.Sender) *Manager {
-	m := &Manager{
-		params: params,
+type manager struct {
+	params  params.Rounds
+	sender  gateway.Sender
+	session *storage.Session
 
-		historicalRounds:    make(chan historicalRoundRequest, params.HistoricalRoundsBufferLen),
+	comms MessageRetrievalComms
+
+	historical historical.Retriever
+
+	rng *fastRNG.StreamGenerator
+
+	instance RoundGetter
+
+	lookupRoundMessages chan roundLookup
+	messageBundles      chan<- message.Bundle
+
+	unchecked *store.UncheckedRoundStore
+}
+
+func NewPickup(params params.Rounds, bundles chan<- message.Bundle,
+	sender gateway.Sender, historical historical.Retriever, rng *fastRNG.StreamGenerator,
+	instance RoundGetter, kv *versioned.KV) Pickup {
+	unchecked := store.NewOrLoadUncheckedStore(kv)
+	m := &manager{
+		params:              params,
 		lookupRoundMessages: make(chan roundLookup, params.LookupRoundsBufferLen),
 		messageBundles:      bundles,
 		sender:              sender,
+		historical:          historical,
+		rng:                 rng,
+		instance:            instance,
+		unchecked:           unchecked,
 	}
 
-	m.Internal = internal
 	return m
 }
 
-func (m *Manager) StartProcessors() stoppable.Stoppable {
+func (m *manager) StartProcessors() stoppable.Stoppable {
 
 	multi := stoppable.NewMulti("Rounds")
 
 	//start the historical rounds thread
-	historicalRoundsStopper := stoppable.NewSingle("ProcessHistoricalRounds")
-	go m.processHistoricalRounds(m.Comms, historicalRoundsStopper)
-	multi.Add(historicalRoundsStopper)
 
 	//start the message retrieval worker pool
 	for i := uint(0); i < m.params.NumMessageRetrievalWorkers; i++ {
 		stopper := stoppable.NewSingle("Message Retriever " + strconv.Itoa(int(i)))
-		go m.processMessageRetrieval(m.Comms, stopper)
+		go m.processMessageRetrieval(m.comms, stopper)
 		multi.Add(stopper)
 	}
 

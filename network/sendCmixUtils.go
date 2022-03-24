@@ -69,8 +69,8 @@ func handlePutMessageError(firstGateway *id.ID, nodes nodes.Registrar,
 		nodeID.SetType(id.Node)
 
 		// DeleteFingerprint the keys and re-register
-		nodes.Remove(nodeID)
-		nodes.TriggerRegistration(nodeID)
+		nodes.RemoveNode(nodeID)
+		nodes.TriggerNodeRegistration(nodeID)
 
 		return errors.WithMessagef(err, "Failed to send to [%s] via %s "+
 			"due to failed authentication, retrying...",
@@ -97,7 +97,7 @@ func processRound(nodes nodes.Registrar, bestRound *pb.RoundInfo,
 
 	// get the keys for the round, reject if any nodes do not have keying
 	// relationships
-	roundKeys, err := nodes.GetKeys(topology)
+	roundKeys, err := nodes.GetNodeKeys(topology)
 	if err != nil {
 		return nil, nil, errors.WithMessagef(err, "Failed to get keys for round %d", bestRound.ID)
 	}

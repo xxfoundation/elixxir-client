@@ -16,10 +16,10 @@ import (
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cmix"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/elixxir/primitives/format"
@@ -32,8 +32,7 @@ import (
 	"time"
 )
 
-// SendCMIX sends a "raw" CMIX message payload to the provided
-// recipient. Note that both SendE2E and SendUnsafe call SendCMIX.
+// SendCMIX sends a "raw" CMIX message payload to the provided recipient.
 // Returns the round ID of the round the payload was sent or an error
 // if it fails.
 func (m *manager) SendCMIX(msg format.Message,
@@ -44,9 +43,9 @@ func (m *manager) SendCMIX(msg format.Message,
 	}
 
 	msgCopy := msg.Copy()
-	return sendCmixHelper(m.sender, msgCopy, recipient, cmixParams, m.instance,
-		m.session, m.Registrar, m.rng, m.events,
-		m.session.User().GetCryptographicIdentity().GetTransmissionID(), m.comms)
+	return sendCmixHelper(m.Sender, msgCopy, recipient, cmixParams, m.instance,
+		m.session.GetCmixGroup(), m.Registrar, m.rng, m.events,
+		m.session.GetTransmissionID(), m.comms)
 }
 
 // Helper function for sendCmix
@@ -58,9 +57,9 @@ func (m *manager) SendCMIX(msg format.Message,
 // If the message is successfully sent, the id of the round sent it is returned,
 // which can be registered with the network instance to get a callback on
 // its status
-func sendCmixHelper(sender *gateway.Sender, msg format.Message,
+func sendCmixHelper(sender gateway.Sender, msg format.Message,
 	recipient *id.ID, cmixParams params.CMIX, instance *network.Instance,
-	session *storage.Session, nodes nodes.Registrar,
+	grp *cyclic.Group, nodes nodes.Registrar,
 	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
 	senderId *id.ID, comms SendCmixCommsInterface) (id.Round, ephemeral.Id, error) {
 
@@ -79,7 +78,6 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 	stream := rng.GetStream()
 	defer stream.Close()
-	grp := session.GetCmixGroup()
 
 	// flip leading bits randomly to thwart a tagging attack.
 	// See SetGroupBits for more info

@@ -19,5 +19,5 @@ type Bundle struct {
 	RoundInfo *pb.RoundInfo
 	Messages  []format.Message
 	Finish    func()
-	Identity  interfaces.Identity
+	Identity  interfaces.EphemeralIdentity
 }

@@ -15,7 +15,7 @@ import (
 
 const ndfKey = "ndf"
 
-func (s *Session) SetNDF(def *ndf.NetworkDefinition) {
+func (s *session) SetNDF(def *ndf.NetworkDefinition) {
 	err := utility.SaveNDF(s.kv, ndfKey, def)
 	if err != nil {
 		jww.FATAL.Printf("Failed to dave the NDF: %+v", err)
@@ -23,7 +23,7 @@ func (s *Session) SetNDF(def *ndf.NetworkDefinition) {
 	s.ndf = def
 }
 
-func (s *Session) GetNDF() *ndf.NetworkDefinition {
+func (s *session) GetNDF() *ndf.NetworkDefinition {
 	if s.ndf != nil {
 		return s.ndf
 	}

@@ -17,7 +17,7 @@ import (
 )
 
 // FingerprintsManager is a thread-safe map, mapping format.Fingerprint's to
-// a Processor object.
+// a Handler object.
 type FingerprintsManager struct {
 	fpMap map[id.ID]map[format.Fingerprint]interfaces.MessageProcessor
 	sync.Mutex
@@ -30,7 +30,7 @@ func newFingerprints() *FingerprintsManager {
 	}
 }
 
-// Pop returns the associated processor to the fingerprint and removes
+// Pop returns the associated handler to the fingerprint and removes
 // it from our list.
 // CRITICAL: it is never ok to process a fingerprint twice. This is a security
 // vulnerability.
@@ -54,7 +54,7 @@ func (f *FingerprintsManager) pop(clientID *id.ID,
 }
 
 // AddFingerprint is a thread-safe setter for the Fingerprints
-// map. AddFingerprint maps the given fingerprint key to the processor
+// map. AddFingerprint maps the given fingerprint key to the handler
 // value. If there is already an entry for this fingerprint, the
 // method returns with no write operation.
 func (f *FingerprintsManager) AddFingerprint(clientID *id.ID,

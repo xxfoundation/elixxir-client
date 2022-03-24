@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package rounds
+package network
 
 import (
 	jww "github.com/spf13/jwalterweatherman"

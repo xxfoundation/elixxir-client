@@ -77,7 +77,7 @@ func TestLoadRegistrar_Load(t *testing.T) {
 	}
 
 	circuit := connect.NewCircuit([]*id.ID{nodeId})
-	keys, _ := r.GetKeys(circuit)
+	keys, _ := r.GetNodeKeys(circuit)
 	if keys.(*mixCypher).keys[0].validUntil != expectedValid {
 		t.Errorf("Unexpected valid until value loaded from store."+
 			"\n\tExpected: %v\n\tReceived: %v", expectedValid, keys.(*mixCypher).keys[0].validUntil)
@@ -105,9 +105,9 @@ func Test_registrar_GetKeys(t *testing.T) {
 	}
 
 	circuit := connect.NewCircuit(nodeIds)
-	result, err := r.GetKeys(circuit)
+	result, err := r.GetNodeKeys(circuit)
 	if err != nil {
-		t.Errorf("GetKeys returrned an error: %+v", err)
+		t.Errorf("GetNodeKeys returrned an error: %+v", err)
 	}
 	if result == nil || len(result.(*mixCypher).keys) != numIds {
 		t.Errorf("Expected to have %d nodes keys", numIds)
@@ -136,9 +136,9 @@ func Test_registrar_GetKeys_Missing(t *testing.T) {
 	}
 
 	circuit := connect.NewCircuit(nodeIds)
-	result, err := r.GetKeys(circuit)
+	result, err := r.GetNodeKeys(circuit)
 	if err == nil {
-		t.Error("GetKeys did not return an error when keys should be missing.")
+		t.Error("GetNodeKeys did not return an error when keys should be missing.")
 	}
 	if result != nil {
 		t.Errorf("Expected nil value for result due to missing keys!")
@@ -157,7 +157,7 @@ func Test_registrar_Has(t *testing.T) {
 		t.Fatal("Failed to add node's key.")
 	}
 
-	if !r.Has(nodeId) {
+	if !r.HasNode(nodeId) {
 		t.Fatal("Cannot find the node's ID that that was added.")
 	}
 }
@@ -168,7 +168,7 @@ func Test_registrar_Has_Not(t *testing.T) {
 
 	nodeId := id.NewIdFromString("test", id.Node, t)
 
-	if r.Has(nodeId) {
+	if r.HasNode(nodeId) {
 		t.Fatal("Found the node when it should not have been found.")
 	}
 }
@@ -177,9 +177,9 @@ func Test_registrar_NumRegistered(t *testing.T) {
 	r := makeTestRegistrar(t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
-	if r.NumRegistered() != 0 {
-		t.Errorf("Unexpected NumRegistered for a new Registrar."+
-			"\nexpected: %d\nreceived: %d", 0, r.NumRegistered())
+	if r.NumRegisteredNodes() != 0 {
+		t.Errorf("Unexpected NumRegisteredNodes for a new Registrar."+
+			"\nexpected: %d\nreceived: %d", 0, r.NumRegisteredNodes())
 	}
 
 	count := 50
@@ -188,8 +188,8 @@ func Test_registrar_NumRegistered(t *testing.T) {
 			grp.NewInt(int64(42+i)), 0, nil)
 	}
 
-	if r.NumRegistered() != count {
-		t.Errorf("Unexpected NumRegistered."+
-			"\nexpected: %d\nreceived: %d", count, r.NumRegistered())
+	if r.NumRegisteredNodes() != count {
+		t.Errorf("Unexpected NumRegisteredNodes."+
+			"\nexpected: %d\nreceived: %d", count, r.NumRegisteredNodes())
 	}
 }

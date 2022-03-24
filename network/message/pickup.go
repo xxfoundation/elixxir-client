@@ -24,7 +24,7 @@ const (
 	inProcessKey = "InProcessMessagesKey"
 )
 
-type Pickup interface {
+type Handler interface {
 	GetMessageReceptionChannel() chan<- Bundle
 	StartProcesses() stoppable.Stoppable
 	CheckInProgressMessages()
@@ -40,7 +40,7 @@ type Pickup interface {
 	DeleteClientTriggers(clientID *id.ID)
 }
 
-type pickup struct {
+type handler struct {
 	param            params.Network
 	blacklistedNodes map[string]interface{}
 
@@ -55,14 +55,14 @@ type pickup struct {
 	TriggersManager
 }
 
-func NewPickup(param params.Network, kv *versioned.KV, events interfaces.EventManager) Pickup {
+func NewHandler(param params.Network, kv *versioned.KV, events interfaces.EventManager) Handler {
 
 	garbled, err := NewOrLoadMeteredCmixMessageBuffer(kv, inProcessKey)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to load or new the Garbled Messages system: %v", err)
 	}
 
-	m := pickup{
+	m := handler{
 		param:            param,
 		messageReception: make(chan Bundle, param.MessageReceptionBuffLen),
 		checkInProgress:  make(chan struct{}, 100),
@@ -85,12 +85,12 @@ func NewPickup(param params.Network, kv *versioned.KV, events interfaces.EventMa
 }
 
 // GetMessageReceptionChannel gets the channel to send received messages on.
-func (p *pickup) GetMessageReceptionChannel() chan<- Bundle {
+func (p *handler) GetMessageReceptionChannel() chan<- Bundle {
 	return p.messageReception
 }
 
 // StartProcesses starts all worker pool.
-func (p *pickup) StartProcesses() stoppable.Stoppable {
+func (p *handler) StartProcesses() stoppable.Stoppable {
 	multi := stoppable.NewMulti("MessageReception")
 
 	// Create the message handler workers

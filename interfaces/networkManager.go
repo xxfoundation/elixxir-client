@@ -5,14 +5,16 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
+/*===Sending==============================================================*/
+
 package interfaces
 
 import (
+	"gitlab.com/elixxir/client/network/gateway"
 	"time"
 
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
@@ -23,43 +25,34 @@ import (
 )
 
 type NetworkManager interface {
-	/* Process contol */
+	// Follow starts the tracking of the network in a new thread.
+	// Errors that occur are reported on the ClientErrorReport function if
+	// passed. The returned stopable can be used to stop the follower.
+	// Only one follower may run at a time.
 	Follow(report ClientErrorReport) (stoppable.Stoppable, error)
-	// GetSender - Object that all gateway I/O goes though. It handles
-	// selecting gateways and proxying messages through them
-	GetSender() *gateway.Sender
 
-	/* Parameters and events */
+	// SendCMIX sends a "raw" CMIX message payload to the provided recipient.
+	// Returns the round ID of the round the payload was sent or an error
+	// if it fails.
+	SendCMIX(message format.Message, recipient *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error)
+	SendManyCMIX(messages []message.TargetedCmixMessage, p params.CMIX) (id.Round, []ephemeral.Id, error)
+
+	/*===Accessors============================================================*/
+	/* Accessors */
+	// GetInstance returns the network instance object, which tracks the
+	// state of the network
 	GetInstance() *network.Instance
+
+	// GetInstance returns the health tracker, which using a polling or
+	// event api lets you determine if network following is functioning
 	GetHealthTracker() HealthTracker
-	GetEventManager() EventManager
-	InProgressRegistrations() int
-
-	CheckGarbledMessages()
-
-	// GetAddressSize returns the current address size of IDs. Blocks until an
-	// address size is known.
-	GetAddressSize() uint8
 
 	// GetVerboseRounds returns stringification of verbose round info
 	GetVerboseRounds() string
 
-	// RegisterAddressSizeNotification returns a channel that will trigger for
-	// every address space size update. The provided tag is the unique ID for
-	// the channel. Returns an error if the tag is already used.
-	RegisterAddressSizeNotification(tag string) (chan uint8, error)
-
-	// UnregisterAddressSizeNotification stops broadcasting address space size
-	// updates on the channel with the specified tag.
-	UnregisterAddressSizeNotification(tag string)
-
 	// SetPoolFilter sets the filter used to filter gateway IDs.
 	// allows you to disable proxying through certain gateways
 	SetPoolFilter(f gateway.Filter)
-
-	/* Message Sending */
-	SendCMIX(message format.Message, recipient *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error)
-	SendManyCMIX(messages []message.TargetedCmixMessage, p params.CMIX) (id.Round, []ephemeral.Id, error)
 
 	/* Message Receiving */
 	/* Identities are all network identites which the client is currently
@@ -128,35 +121,27 @@ type NetworkManager interface {
 	// Will only get callbacks while the Network Follower is running.
 	// Multiple trackTriggers can be registered
 	TrackTriggers(func(triggers []Trigger))
+
+	/*Address Space*/
+	// GetAddressSpace GetAddressSize returns the current address size of IDs. Blocks until an
+	// address size is known.
+	GetAddressSpace() uint8
+
+	// RegisterAddressSpaceNotification returns a channel that will trigger for
+	// every address space size update. The provided tag is the unique ID for
+	// the channel. Returns an error if the tag is already used.
+	RegisterAddressSpaceNotification(tag string) (chan uint8, error)
+	// UnregisterAddressSpaceNotification stops broadcasting address space size
+	// updates on the channel with the specified tag.
+	UnregisterAddressSpaceNotification(tag string)
 }
 
 type Preimage [32]byte
 
-type Identity struct {
+type EphemeralIdentity struct {
 	// Identity
 	EphId  ephemeral.Id
 	Source *id.ID
-}
-
-type IdentityParams struct {
-	AddressSize uint8
-
-	// Usage variables
-	End         time.Time // Timestamp when active polling will stop
-	ExtraChecks uint      // Number of extra checks executed as active after the
-	// ID exits active
-
-	// Polling parameters
-	StartValid time.Time // Timestamp when the ephID begins being valid
-	EndValid   time.Time // Timestamp when the ephID stops being valid
-
-	// Makes the identity not store on disk
-	// When an address identity is deleted, all fingerprints & triggers
-	// associated with it also delete.
-	// TODO: This should not be confused with EphID for checking
-	// when messages are for the the user. That's a different type
-	// of Ephemeral in this context.
-	Ephemeral bool
 }
 
 type Trigger struct {
@@ -173,7 +158,7 @@ type MessageProcessor interface {
 	// fingerprint must not be added again during application load.
 	// It is a security vulnerability to reuse a fingerprint. It leaks
 	// privacy and can lead to compromise of message contents and integrity.
-	Process(message format.Message, receptionID Identity,
+	Process(message format.Message, receptionID EphemeralIdentity,
 		round *mixmessages.RoundInfo)
 }
 

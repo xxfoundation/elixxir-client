@@ -16,7 +16,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-type User struct {
+type Info struct {
 	//General Identity
 	TransmissionID   *id.ID
 	TransmissionSalt []byte
@@ -33,7 +33,7 @@ type User struct {
 	E2eDhPublicKey  *cyclic.Int
 }
 
-func (u User) GetContact() contact.Contact {
+func (u Info) GetContact() contact.Contact {
 	return contact.Contact{
 		ID:       u.ReceptionID.DeepCopy(),
 		DhPubKey: u.E2eDhPublicKey,
@@ -41,8 +41,8 @@ func (u User) GetContact() contact.Contact {
 	}
 }
 
-func NewUserFromProto(proto *Proto) User {
-	return User{
+func NewUserFromProto(proto *Proto) Info {
+	return Info{
 		TransmissionID:        proto.TransmissionID,
 		TransmissionSalt:      proto.TransmissionSalt,
 		TransmissionRSA:       proto.TransmissionRSA,
@@ -56,8 +56,8 @@ func NewUserFromProto(proto *Proto) User {
 	}
 }
 
-func NewUserFromBackup(backup *backup.Backup) User {
-	return User{
+func NewUserFromBackup(backup *backup.Backup) Info {
+	return Info{
 		TransmissionID:        backup.TransmissionIdentity.ComputedID,
 		TransmissionSalt:      backup.TransmissionIdentity.Salt,
 		TransmissionRSA:       backup.TransmissionIdentity.RSASigningPrivateKey,

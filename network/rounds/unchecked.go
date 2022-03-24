@@ -9,15 +9,16 @@ package rounds
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/network/identity/receptionID"
+	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/network/rounds/store"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/rounds"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"time"
 )
 
 // Constants for message retrieval backoff delays
+// todo - make this a real backoff
 const (
 	tryZero  = 10 * time.Second
 	tryOne   = 30 * time.Second
@@ -38,18 +39,20 @@ var backOffTable = [cappedTries]time.Duration{tryZero, tryOne, tryTwo, tryThree,
 // Rounds will have a backoff duration in which they will be tried again.
 // If a round is found to be due on a periodical check, the round is sent
 // back to processMessageRetrieval.
-func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTable [cappedTries]time.Duration,
+// todo - make this system know which rounds are still in progress instead of just assume by time
+func (m *manager) processUncheckedRounds(checkInterval time.Duration, backoffTable [cappedTries]time.Duration,
 	stop *stoppable.Single) {
 	ticker := time.NewTicker(checkInterval)
-	uncheckedRoundStore := m.Session.UncheckedRounds()
+	uncheckedRoundStore := m.unchecked
 	for {
 		select {
 		case <-stop.Quit():
+			ticker.Stop()
 			stop.ToStopped()
 			return
 
 		case <-ticker.C:
-			iterator := func(rid id.Round, rnd rounds.UncheckedRound) {
+			iterator := func(rid id.Round, rnd store.UncheckedRound) {
 				jww.DEBUG.Printf("checking if %d due for a message lookup", rid)
 				// If this round is due for a round check, send the round over
 				// to the retrieval thread. If not due, check next round.
@@ -58,53 +61,19 @@ func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 				}
 				jww.INFO.Printf("Round %d due for a message lookup, retrying...", rid)
 				//check if it needs to be processed by historical Rounds
-				if rnd.Info == nil {
-					jww.INFO.Printf("Messages in round %d for %d (%s) loaded from unchecked rounds, looking "+
-						"up messages via historical lookup", rnd.Id, rnd.EpdId.Int64(),
-						rnd.Source)
-					// If we didn't find it, send to Historical Rounds Retrieval
-					m.historicalRounds <- historicalRoundRequest{
-						rid: rnd.Id,
-						identity: receptionID.IdentityUse{
-							Identity: receptionID.Identity{
-								EphId:  rnd.EpdId,
-								Source: rnd.Source,
-							},
-						},
-						numAttempts: 0,
-					}
-					return
-				} else {
-
-					// Construct roundLookup object to send
-					rl := roundLookup{
-						roundInfo: rnd.Info,
-						identity: receptionID.IdentityUse{
-							Identity: receptionID.Identity{
-								EphId:  rnd.EpdId,
-								Source: rnd.Source,
-							},
-						},
-					}
-
-					// Send to processMessageRetrieval
-					select {
-					case m.lookupRoundMessages <- rl:
-					case <-time.After(1 * time.Second):
-						jww.WARN.Printf("Timing out, not retrying round %d", rl.roundInfo.ID)
-					}
-
-					// Update the state of the round for next look-up (if needed)
-					err := uncheckedRoundStore.IncrementCheck(rid, rnd.Source, rnd.EpdId)
-					if err != nil {
-						jww.ERROR.Printf("processUncheckedRounds error: Could not "+
-							"increment check attempts for round %d: %v", rid, err)
-					}
-
+				m.GetMessagesFromRound(rid, interfaces.EphemeralIdentity{
+					EphId:  rnd.EpdId,
+					Source: rnd.Source,
+				})
+				// Update the state of the round for next look-up (if needed)
+				err := uncheckedRoundStore.IncrementCheck(rid, rnd.Source, rnd.EpdId)
+				if err != nil {
+					jww.ERROR.Printf("processUncheckedRounds error: Could not "+
+						"increment check attempts for round %d: %v", rid, err)
 				}
 			}
 			// Pull and iterate through uncheckedRound list
-			m.Session.UncheckedRounds().IterateOverList(iterator)
+			m.unchecked.IterateOverList(iterator)
 		}
 	}
 }

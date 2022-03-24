@@ -4,7 +4,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/storage/rounds"
+	"gitlab.com/elixxir/client/network/identity/receptionID/store"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -17,9 +17,9 @@ const knownRoundsStorageKey = "krStorage"
 
 type registration struct {
 	Identity
-	UR *rounds.UnknownRounds
-	ER *rounds.EarliestRound
-	CR *rounds.CheckedRounds
+	UR *store.UnknownRounds
+	ER *store.EarliestRound
+	CR *store.CheckedRounds
 	kv *versioned.KV
 }
 
@@ -45,11 +45,11 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 		kv:       kv,
 	}
 
-	urParams := rounds.DefaultUnknownRoundsParams()
+	urParams := store.DefaultUnknownRoundsParams()
 	urParams.Stored = !reg.Ephemeral
-	r.UR = rounds.NewUnknownRounds(kv, urParams)
-	r.ER = rounds.NewEarliestRound(!reg.Ephemeral, kv)
-	cr, err := rounds.NewCheckedRounds(int(params.GetDefaultNetwork().KnownRoundsThreshold), kv)
+	r.UR = store.NewUnknownRounds(kv, urParams)
+	r.ER = store.NewEarliestRound(!reg.Ephemeral, kv)
+	cr, err := store.NewCheckedRounds(int(params.GetDefaultNetwork().KnownRoundsThreshold), kv)
 	if err != nil {
 		jww.FATAL.Printf("Failed to create new CheckedRounds for registration: %+v", err)
 	}
@@ -79,12 +79,12 @@ func loadRegistration(EphId ephemeral.Id, Source *id.ID, startValid time.Time,
 			"for %s", regPrefix(EphId, Source, startValid))
 	}
 
-	cr, err := rounds.LoadCheckedRounds(int(params.GetDefaultNetwork().KnownRoundsThreshold), kv)
+	cr, err := store.LoadCheckedRounds(int(params.GetDefaultNetwork().KnownRoundsThreshold), kv)
 	if err != nil {
 		jww.ERROR.Printf("Making new CheckedRounds, loading of CheckedRounds "+
 			"failed: %+v", err)
 
-		cr, err = rounds.NewCheckedRounds(int(params.GetDefaultNetwork().KnownRoundsThreshold), kv)
+		cr, err = store.NewCheckedRounds(int(params.GetDefaultNetwork().KnownRoundsThreshold), kv)
 		if err != nil {
 			jww.FATAL.Printf("Failed to create new CheckedRounds for "+
 				"registration after CheckedRounds load failure: %+v", err)
@@ -94,8 +94,8 @@ func loadRegistration(EphId ephemeral.Id, Source *id.ID, startValid time.Time,
 	r := &registration{
 		Identity: reg,
 		kv:       kv,
-		UR:       rounds.LoadUnknownRounds(kv, rounds.DefaultUnknownRoundsParams()),
-		ER:       rounds.LoadEarliestRound(kv),
+		UR:       store.LoadUnknownRounds(kv, store.DefaultUnknownRoundsParams()),
+		ER:       store.LoadEarliestRound(kv),
 		CR:       cr,
 	}
 

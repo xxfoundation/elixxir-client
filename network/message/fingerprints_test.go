@@ -36,7 +36,7 @@ func TestFingerprintsManager_pop(t *testing.T) {
 	// Construct fingerprint map
 	fpTracker := newFingerprints()
 
-	// Construct fingerprint and processor values
+	// Construct fingerprint and handler values
 	cid := id.NewIdFromString("clientID", id.User, t)
 	fp := format.NewFingerprint([]byte("test"))
 	mp := NewMockMsgProcessor(t)
@@ -68,7 +68,7 @@ func TestFingerprintsManager_AddFingerprint(t *testing.T) {
 	// Construct fingerprint map
 	fpTracker := newFingerprints()
 
-	// Construct fingerprint and processor values
+	// Construct fingerprint and handler values
 	cid := id.NewIdFromString("clientID", id.User, t)
 	fp := format.NewFingerprint([]byte("test"))
 	mp := NewMockMsgProcessor(t)
@@ -99,7 +99,7 @@ func TestFingerprintsManager_DeleteFingerprint(t *testing.T) {
 	// Construct fingerprint map
 	fpTracker := newFingerprints()
 
-	// Construct fingerprint and processor values
+	// Construct fingerprint and handler values
 	cid := id.NewIdFromString("clientID", id.User, t)
 	fp := format.NewFingerprint([]byte("test"))
 	mp := NewMockMsgProcessor(t)
@@ -146,7 +146,7 @@ func TestFingerprintsManager_DeleteClientFingerprints(t *testing.T) {
 
 	fpTracker.DeleteClientFingerprints(cid)
 
-	// Make sure every fingerprint is mapped to it's expected processor
+	// Make sure every fingerprint is mapped to it's expected handler
 	if _, exists := fpTracker.fpMap[*cid]; exists {
 		t.Fatalf("RemoveFingerprints error: failed to delete client.")
 	}
@@ -170,7 +170,7 @@ func (mock *MockMsgProcessor) MarkFingerprintUsed(_ format.Fingerprint) {
 	return
 }
 
-func (mock *MockMsgProcessor) Process(format.Message, interfaces.Identity,
+func (mock *MockMsgProcessor) Process(format.Message, interfaces.EphemeralIdentity,
 	*mixmessages.RoundInfo) {
 	return
 }

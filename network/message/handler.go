@@ -19,7 +19,7 @@ import (
 	"sync"
 )
 
-func (p *pickup) handleMessages(stop *stoppable.Single) {
+func (p *handler) handleMessages(stop *stoppable.Single) {
 	for {
 		select {
 		case <-stop.Quit():
@@ -60,12 +60,12 @@ func (p *pickup) handleMessages(stop *stoppable.Single) {
 
 }
 
-func (p *pickup) handleMessage(ecrMsg format.Message, bundle Bundle) bool {
+func (p *handler) handleMessage(ecrMsg format.Message, bundle Bundle) bool {
 	fingerprint := ecrMsg.GetKeyFP()
 	identity := bundle.Identity
 	round := bundle.RoundInfo
 
-	var receptionID interfaces.Identity
+	var receptionID interfaces.EphemeralIdentity
 
 	// If we have a fingerprint, process it.
 	if proc, exists := p.pop(identity.Source, fingerprint); exists {

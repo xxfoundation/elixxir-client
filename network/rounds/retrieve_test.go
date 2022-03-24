@@ -11,6 +11,7 @@ import (
 	"gitlab.com/elixxir/client/network/gateway"
 	ephemeral2 "gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/network/message"
+	"gitlab.com/elixxir/client/network/pickup"
 	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -79,7 +80,7 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 		}
 
 		// Send a round look up request
-		testManager.lookupRoundMessages <- roundLookup{
+		testManager.lookupRoundMessages <- pickup.roundLookup{
 			roundInfo: roundInfo,
 			identity:  iu,
 		}
@@ -172,7 +173,7 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 		}
 
 		// Send a round look up request
-		testManager.lookupRoundMessages <- roundLookup{
+		testManager.lookupRoundMessages <- pickup.roundLookup{
 			roundInfo: roundInfo,
 			identity:  iu,
 		}
@@ -253,7 +254,7 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 		}
 
 		// Send a round look up request
-		testManager.lookupRoundMessages <- roundLookup{
+		testManager.lookupRoundMessages <- pickup.roundLookup{
 			roundInfo: roundInfo,
 			identity:  iu,
 		}
@@ -330,7 +331,7 @@ func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
 		}
 
 		// Send a round look up request
-		testManager.lookupRoundMessages <- roundLookup{
+		testManager.lookupRoundMessages <- pickup.roundLookup{
 			roundInfo: roundInfo,
 			identity:  iu,
 		}
@@ -407,7 +408,7 @@ func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 		}
 
 		// Send a round look up request
-		testManager.lookupRoundMessages <- roundLookup{
+		testManager.lookupRoundMessages <- pickup.roundLookup{
 			roundInfo: roundInfo,
 			identity:  iu,
 		}

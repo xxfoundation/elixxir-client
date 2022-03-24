@@ -109,7 +109,7 @@ func Test_attemptSendManyCmix(t *testing.T) {
 		t.Errorf("%+v", errors.New(err.Error()))
 		return
 	}
-	m := message2.NewPickup(i, params.Network{Messages: params.Messages{
+	m := message2.NewHandler(i, params.Network{Messages: params.Messages{
 		MessageReceptionBuffLen:        20,
 		MessageReceptionWorkerPoolSize: 20,
 		MaxChecksRetryMessage:          20,

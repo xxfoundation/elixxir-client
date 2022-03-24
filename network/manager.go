@@ -13,8 +13,7 @@ package network
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/network/address"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/health"
@@ -54,14 +53,11 @@ type manager struct {
 	rng *fastRNG.StreamGenerator
 	// comms pointer to send/recv messages
 	comms *client.Comms
-	//contains the health tracker which keeps track of if from the client's
-	//perspective, the network is in good condition
-	health *health.Tracker
 	//contains the network instance
 	instance *commNetwork.Instance
 
 	// parameters of the network
-	param params.Network
+	param Params
 
 	//sub-managers
 	gateway.Sender
@@ -71,6 +67,7 @@ type manager struct {
 	rounds.Pickup
 	address.Space
 	identity.Tracker
+	health.Monitor
 
 	// Earliest tracked round
 	earliestRound *uint64
@@ -82,13 +79,13 @@ type manager struct {
 	verboseRounds *RoundTracker
 
 	// Event reporting api
-	events interfaces.EventManager
+	events event.Manager
 }
 
 // NewManager builds a new reception manager object using inputted key fields
-func NewManager(params params.Network, comms *client.Comms, session storage.Session,
-	ndf *ndf.NetworkDefinition, rng *fastRNG.StreamGenerator, events interfaces.EventManager,
-) (interfaces.NetworkManager, error) {
+func NewManager(params Params, comms *client.Comms, session storage.Session,
+	ndf *ndf.NetworkDefinition, rng *fastRNG.StreamGenerator, events event.Manager,
+) (Manager, error) {
 
 	//start network instance
 	instance, err := commNetwork.NewInstance(comms.ProtoComms, ndf, nil, nil, commNetwork.None, params.FastPolling)
@@ -100,7 +97,7 @@ func NewManager(params params.Network, comms *client.Comms, session storage.Sess
 	tracker := uint64(0)
 	earliest := uint64(0)
 	// create manager object
-	m := manager{
+	m := &manager{
 		param:         params,
 		tracker:       &tracker,
 		Space:         address.NewAddressSpace(),
@@ -109,7 +106,6 @@ func NewManager(params params.Network, comms *client.Comms, session storage.Sess
 		session:       session,
 		rng:           rng,
 		comms:         comms,
-		health:        health.Init(instance, params.NetworkHealthTimeout),
 		instance:      instance,
 	}
 	m.UpdateAddressSpace(18)
@@ -145,11 +141,11 @@ func NewManager(params params.Network, comms *client.Comms, session storage.Sess
 	m.Retriever = historical.NewRetriever(params.Historical, comms, m.Sender, events)
 
 	//Set up Message Handler
-	m.Handler = message.NewHandler(params, m.session.GetKV(), m.events)
+	m.Handler = message.NewHandler(params.Message, m.session.GetKV(), m.events)
 
 	//set up round handler
-	m.Pickup = rounds.NewPickup(m.param.Rounds, m.Handler.GetMessageReceptionChannel(),
-		m.Sender, m.Retriever, m.rng, m.instance, m.session.GetKV())
+	m.Pickup = rounds.NewPickup(params.Rounds, m.Handler.GetMessageReceptionChannel(),
+		m.Sender, m.Retriever, m.rng, m.instance, m.session)
 
 	//add the identity system
 	m.Tracker = identity.NewOrLoadTracker(m.session, m.Space)
@@ -157,13 +153,15 @@ func NewManager(params params.Network, comms *client.Comms, session storage.Sess
 	// Set upthe ability to register with new nodes when they appear
 	m.instance.SetAddGatewayChan(nodechan)
 
+	m.Monitor = health.Init(instance, params.NetworkHealthTimeout)
+
 	// Report health events
-	m.health.AddFunc(func(isHealthy bool) {
+	m.Monitor.AddHealthCallback(func(isHealthy bool) {
 		m.events.Report(5, "health", "IsHealthy",
 			fmt.Sprintf("%v", isHealthy))
 	})
 
-	return &m, nil
+	return m, nil
 }
 
 // Follow StartRunners kicks off all network reception goroutines ("threads").
@@ -172,15 +170,15 @@ func NewManager(params params.Network, comms *client.Comms, session storage.Sess
 //   - Historical Round Retrieval (/network/rounds/historical.go)
 //	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
 //	 - Message Handling Worker Group (/network/message/handle.go)
-//	 - health Tracker (/network/health)
+//	 - health tracker (/network/health)
 //	 - Garbled Messages (/network/message/inProgress.go)
 //	 - Critical Messages (/network/message/critical.go)
 //   - Ephemeral ID tracking (network/address/tracker.go)
-func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
+func (m *manager) Follow(report ClientErrorReport) (stoppable.Stoppable, error) {
 	multi := stoppable.NewMulti("networkManager")
 
 	// health tracker
-	healthStop, err := m.health.Start()
+	healthStop, err := m.Monitor.StartProcessies()
 	if err != nil {
 		return nil, errors.Errorf("failed to follow")
 	}
@@ -190,7 +188,7 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	multi.Add(m.Registrar.StartProcesses(m.param.ParallelNodeRegistrations)) // Adding/MixCypher
 	//TODO-node remover
 
-	// Start the Network Tracker
+	// Start the Network tracker
 	followNetworkStopper := stoppable.NewSingle("FollowNetwork")
 	go m.followNetwork(report, followNetworkStopper)
 	multi.Add(followNetworkStopper)
@@ -208,11 +206,6 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	multi.Add(m.Tracker.StartProcessies())
 
 	return multi, nil
-}
-
-// GetHealthTracker returns the health tracker
-func (m *manager) GetHealthTracker() interfaces.HealthTracker {
-	return m.health
 }
 
 // GetInstance returns the network instance object (ndf state)

@@ -5,22 +5,12 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package message
+package event
 
-type EncryptionType uint8
+// Callback defines the callback functions for client event reports
+type Callback func(priority int, category, evtType, details string)
 
-const (
-	None EncryptionType = 0
-	E2E  EncryptionType = 1
-)
-
-func (et EncryptionType) String() string {
-	switch et {
-	case None:
-		return "None"
-	case E2E:
-		return "E2E"
-	default:
-		return "Unknown"
-	}
+// Manager reporting api (used internally)
+type Manager interface {
+	Report(priority int, category, evtType, details string)
 }

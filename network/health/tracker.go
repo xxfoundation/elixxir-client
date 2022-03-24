@@ -19,12 +19,19 @@ import (
 	"time"
 )
 
-type Tracker struct {
+type Monitor interface {
+	AddHealthCallback(f func(bool)) uint64
+	RemoveHealthCallback(uint64)
+	IsHealthy() bool
+	WasHealthy() bool
+	StartProcessies() (stoppable.Stoppable, error)
+}
+
+type tracker struct {
 	timeout time.Duration
 
 	heartbeat chan network.Heartbeat
 
-	channels   map[uint64]chan bool
 	funcs      map[uint64]func(isHealthy bool)
 	channelsID uint64
 	funcsID    uint64
@@ -42,18 +49,17 @@ type Tracker struct {
 
 // Init creates a single HealthTracker thread, starts it, and returns a tracker
 // and a stoppable.
-func Init(instance *network.Instance, timeout time.Duration) *Tracker {
+func Init(instance *network.Instance, timeout time.Duration) Monitor {
 	tracker := newTracker(timeout)
 	instance.SetNetworkHealthChan(tracker.heartbeat)
 
 	return tracker
 }
 
-// newTracker builds and returns a new Tracker object given a Context.
-func newTracker(timeout time.Duration) *Tracker {
-	return &Tracker{
+// newTracker builds and returns a new tracker object given a Context.
+func newTracker(timeout time.Duration) *tracker {
+	return &tracker{
 		timeout:   timeout,
-		channels:  map[uint64]chan bool{},
 		funcs:     map[uint64]func(isHealthy bool){},
 		heartbeat: make(chan network.Heartbeat, 100),
 		isHealthy: false,
@@ -61,38 +67,10 @@ func newTracker(timeout time.Duration) *Tracker {
 	}
 }
 
-// AddChannel adds a channel to the list of Tracker channels such that each
-// channel can be notified of network changes.  Returns a unique ID for the
-// channel.
-func (t *Tracker) AddChannel(c chan bool) uint64 {
-	var currentID uint64
-
-	t.mux.Lock()
-	t.channels[t.channelsID] = c
-	currentID = t.channelsID
-	t.channelsID++
-	t.mux.Unlock()
-
-	select {
-	case c <- t.IsHealthy():
-	default:
-	}
-
-	return currentID
-}
-
-// RemoveChannel removes the channel with the given ID from the list of Tracker
-// channels so that it will not longer be notified of network changes.
-func (t *Tracker) RemoveChannel(chanID uint64) {
-	t.mux.Lock()
-	delete(t.channels, chanID)
-	t.mux.Unlock()
-}
-
-// AddFunc adds a function to the list of Tracker functions such that each
+// AddFunc adds a function to the list of tracker functions such that each
 // function can be run after network changes. Returns a unique ID for the
 // function.
-func (t *Tracker) AddFunc(f func(isHealthy bool)) uint64 {
+func (t *tracker) AddHealthCallback(f func(isHealthy bool)) uint64 {
 	var currentID uint64
 
 	t.mux.Lock()
@@ -106,15 +84,15 @@ func (t *Tracker) AddFunc(f func(isHealthy bool)) uint64 {
 	return currentID
 }
 
-// RemoveFunc removes the function with the given ID from the list of Tracker
+// RemoveFunc removes the function with the given ID from the list of tracker
 // functions so that it will not longer be run.
-func (t *Tracker) RemoveFunc(chanID uint64) {
+func (t *tracker) RemoveHealthCallback(chanID uint64) {
 	t.mux.Lock()
-	delete(t.channels, chanID)
+	delete(t.funcs, chanID)
 	t.mux.Unlock()
 }
 
-func (t *Tracker) IsHealthy() bool {
+func (t *tracker) IsHealthy() bool {
 	t.mux.RLock()
 	defer t.mux.RUnlock()
 
@@ -122,14 +100,14 @@ func (t *Tracker) IsHealthy() bool {
 }
 
 // WasHealthy returns true if isHealthy has ever been true.
-func (t *Tracker) WasHealthy() bool {
+func (t *tracker) WasHealthy() bool {
 	t.mux.RLock()
 	defer t.mux.RUnlock()
 
 	return t.wasHealthy
 }
 
-func (t *Tracker) setHealth(h bool) {
+func (t *tracker) setHealth(h bool) {
 	t.mux.Lock()
 	// Only set wasHealthy to true if either
 	//  wasHealthy is true or
@@ -141,7 +119,7 @@ func (t *Tracker) setHealth(h bool) {
 	t.transmit(h)
 }
 
-func (t *Tracker) Start() (stoppable.Stoppable, error) {
+func (t *tracker) StartProcessies() (stoppable.Stoppable, error) {
 	t.mux.Lock()
 	if t.running {
 		t.mux.Unlock()
@@ -153,7 +131,7 @@ func (t *Tracker) Start() (stoppable.Stoppable, error) {
 	t.isHealthy = false
 	t.mux.Unlock()
 
-	stop := stoppable.NewSingle("health Tracker")
+	stop := stoppable.NewSingle("health tracker")
 
 	go t.start(stop)
 
@@ -162,7 +140,7 @@ func (t *Tracker) Start() (stoppable.Stoppable, error) {
 
 // start starts a long-running thread used to monitor and report on network
 // health.
-func (t *Tracker) start(stop *stoppable.Single) {
+func (t *tracker) start(stop *stoppable.Single) {
 	for {
 		var heartbeat network.Heartbeat
 		select {
@@ -192,15 +170,7 @@ func (t *Tracker) start(stop *stoppable.Single) {
 	}
 }
 
-func (t *Tracker) transmit(health bool) {
-	for _, c := range t.channels {
-		select {
-		case c <- health:
-		default:
-			jww.DEBUG.Printf("Unable to send health event")
-		}
-	}
-
+func (t *tracker) transmit(health bool) {
 	// Run all listening functions
 	for _, f := range t.funcs {
 		go f(health)

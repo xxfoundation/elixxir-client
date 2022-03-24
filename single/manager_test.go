@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"errors"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -339,7 +340,7 @@ func (tnm *testNetworkManager) GetInstance() *network.Instance {
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(p int, a, b, c string) {}
-func (t *testNetworkManager) GetEventManager() interfaces.EventManager {
+func (t *testNetworkManager) GetEventManager() event.Manager {
 	return &dummyEventMgr{}
 }
 

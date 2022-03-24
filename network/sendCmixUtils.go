@@ -10,8 +10,6 @@ package network
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
 	preimage2 "gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/network/nodes"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -114,7 +112,7 @@ func processRound(nodes nodes.Registrar, bestRound *pb.RoundInfo,
 // the recipient.
 func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	stream *fastRNG.Stream, senderId *id.ID, bestRound *pb.RoundInfo,
-	mixCrypt nodes.MixCypher, param params.CMIX) (*pb.GatewaySlot,
+	mixCrypt nodes.MixCypher, param CMIXParams) (*pb.GatewaySlot,
 	format.Message, ephemeral.Id,
 	error) {
 
@@ -211,7 +209,7 @@ func handleMissingNodeKeys(instance *network.Instance,
 // string of comma seperated recipient IDs and a string of comma seperated
 // message digests. Duplicate recipient IDs are printed once. Intended for use
 // in printing to log.
-func messageListToStrings(msgList []message.TargetedCmixMessage) (string, string) {
+func messageListToStrings(msgList []TargetedCmixMessage) (string, string) {
 	idStrings := make([]string, 0, len(msgList))
 	idMap := make(map[id.ID]bool, len(msgList))
 	msgDigests := make([]string, len(msgList))

@@ -13,6 +13,7 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -510,7 +511,7 @@ func (tnm *testNetworkManager) SendManyCMIX(messages []message.TargetedCmixMessa
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(int, string, string, string) {}
-func (tnm *testNetworkManager) GetEventManager() interfaces.EventManager {
+func (tnm *testNetworkManager) GetEventManager() event.Manager {
 	return &dummyEventMgr{}
 }
 

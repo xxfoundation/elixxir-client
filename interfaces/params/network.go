@@ -29,8 +29,6 @@ type Network struct {
 	// If true, client receives a filtered set of updates
 	// If false, client receives the full list of network updates
 	FastPolling bool
-	// Messages will not be sent to Rounds containing these Nodes
-	BlacklistedNodes []string
 	// Determines if the state of every round processed is tracked in ram.
 	// This is very memory intensive and is primarily used for debugging
 	VerboseRoundTracking bool

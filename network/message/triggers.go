@@ -37,7 +37,9 @@ must be re-added before StartNetworkFollower is called.
 */
 
 type TriggersManager struct {
-	tmap map[id.ID]map[interfaces.Preimage][]trigger
+	tmap        map[id.ID]map[interfaces.Preimage][]trigger
+	trackers    []interfaces.TriggerTracker
+	numTriggers uint
 	sync.Mutex
 }
 
@@ -112,13 +114,15 @@ func (t *TriggersManager) AddTrigger(clientID *id.ID, newTrigger interfaces.Trig
 
 	t.tmap[cid][pi] = []trigger{newEntry}
 
+	t.numTriggers++
+	t.triggerTriggerTracking()
 }
 
-// DeleteTriggers - If only a single response is associated with the preimage,
+// DeleteTrigger - If only a single response is associated with the preimage,
 // the entire preimage is removed. If there is more than one response, only the
 // given response is removed. If nil is passed in for response, all triggers for
 // the preimage will be removed.
-func (t *TriggersManager) DeleteTriggers(clientID *id.ID, preimage interfaces.Preimage,
+func (t *TriggersManager) DeleteTrigger(clientID *id.ID, preimage interfaces.Preimage,
 	response interfaces.MessageProcessor) error {
 	t.Lock()
 	defer t.Unlock()
@@ -154,7 +158,8 @@ func (t *TriggersManager) DeleteTriggers(clientID *id.ID, preimage interfaces.Pr
 			return nil
 		}
 	}
-
+	t.numTriggers--
+	t.triggerTriggerTracking()
 	return nil
 }
 
@@ -164,4 +169,36 @@ func (t *TriggersManager) DeleteClientTriggers(clientID *id.ID) {
 	defer t.Unlock()
 
 	delete(t.tmap, *clientID)
+}
+
+// TrackTriggers adds a trigger tracker to be triggered when a nee trigger
+// as added.
+func (t *TriggersManager) TrackTriggers(triggerTracker interfaces.TriggerTracker) {
+	if triggerTracker == nil {
+		return
+	}
+	t.Lock()
+	defer t.Unlock()
+
+	t.trackers = append(t.trackers, triggerTracker)
+}
+
+//triggerTriggerTracking triggers the tracking of triggers
+func (t *TriggersManager) triggerTriggerTracking() {
+	if len(t.trackers) == 0 {
+		return
+	}
+
+	triggers := make([]interfaces.Trigger, 0, t.numTriggers)
+	for _, tmap := range t.tmap {
+		for _, tlist := range tmap {
+			for i := range tlist {
+				triggers = append(triggers, tlist[i].Trigger)
+			}
+		}
+	}
+
+	for _, callback := range t.trackers {
+		go callback(triggers)
+	}
 }

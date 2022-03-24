@@ -11,8 +11,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -36,11 +35,11 @@ type Retriever interface {
 
 // manager is the controlling structure
 type manager struct {
-	params params.Historical
+	params Params
 
 	comms  RoundsComms
 	sender gateway.Sender
-	events interfaces.EventManager
+	events event.Manager
 
 	c chan roundRequest
 }
@@ -62,8 +61,8 @@ type roundRequest struct {
 	numAttempts uint
 }
 
-func NewRetriever(param params.Historical, comms RoundsComms,
-	sender gateway.Sender, events interfaces.EventManager) Retriever {
+func NewRetriever(param Params, comms RoundsComms,
+	sender gateway.Sender, events event.Manager) Retriever {
 	return &manager{
 		params: param,
 		comms:  comms,

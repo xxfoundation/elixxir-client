@@ -33,8 +33,8 @@ func TestNewTracker(t *testing.T) {
 			counter--
 		}
 	}
-	tracker.AddChannel(listenChan)
-	tracker.AddFunc(listenFunc)
+	tracker.AddHealthChannelCallback(listenChan)
+	tracker.AddHealthCallback(listenFunc)
 	go func() {
 		for isHealthy := range listenChan {
 			if isHealthy {
@@ -66,12 +66,12 @@ func TestNewTracker(t *testing.T) {
 
 	// Verify the network was marked as healthy
 	if !tracker.IsHealthy() {
-		t.Fatal("Tracker did not become healthy.")
+		t.Fatal("tracker did not become healthy.")
 	}
 
 	// Check if the tracker was ever healthy
 	if !tracker.WasHealthy() {
-		t.Fatal("Tracker did not become healthy.")
+		t.Fatal("tracker did not become healthy.")
 	}
 
 	// Verify the heartbeat triggered the listening chan/func
@@ -85,12 +85,12 @@ func TestNewTracker(t *testing.T) {
 
 	// Verify the network was marked as NOT healthy
 	if tracker.IsHealthy() {
-		t.Fatal("Tracker should not report healthy.")
+		t.Fatal("tracker should not report healthy.")
 	}
 
 	// Check if the tracker was ever healthy, after setting healthy to false
 	if !tracker.WasHealthy() {
-		t.Fatal("Tracker was healthy previously but not reported healthy.")
+		t.Fatal("tracker was healthy previously but not reported healthy.")
 	}
 
 	// Verify the timeout triggered the listening chan/func

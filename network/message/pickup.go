@@ -8,7 +8,7 @@
 package message
 
 import (
-	"encoding/base64"
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
@@ -16,7 +16,6 @@ import (
 	"strconv"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/stoppable"
 )
 
@@ -36,26 +35,26 @@ type Handler interface {
 
 	// Triggers
 	AddTrigger(clientID *id.ID, newTrigger interfaces.Trigger, response interfaces.MessageProcessor)
-	DeleteTriggers(clientID *id.ID, preimage interfaces.Preimage, response interfaces.MessageProcessor) error
+	DeleteTrigger(clientID *id.ID, preimage interfaces.Preimage, response interfaces.MessageProcessor) error
 	DeleteClientTriggers(clientID *id.ID)
+	TrackTriggers(triggerTracker interfaces.TriggerTracker)
 }
 
 type handler struct {
-	param            params.Network
-	blacklistedNodes map[string]interface{}
+	param Params
 
 	messageReception chan Bundle
 	checkInProgress  chan struct{}
 
 	inProcess *MeteredCmixMessageBuffer
 
-	events interfaces.EventManager
+	events event.Manager
 
 	FingerprintsManager
 	TriggersManager
 }
 
-func NewHandler(param params.Network, kv *versioned.KV, events interfaces.EventManager) Handler {
+func NewHandler(param Params, kv *versioned.KV, events event.Manager) Handler {
 
 	garbled, err := NewOrLoadMeteredCmixMessageBuffer(kv, inProcessKey)
 	if err != nil {
@@ -68,15 +67,6 @@ func NewHandler(param params.Network, kv *versioned.KV, events interfaces.EventM
 		checkInProgress:  make(chan struct{}, 100),
 		inProcess:        garbled,
 		events:           events,
-	}
-	for _, nodeId := range param.BlacklistedNodes {
-		decodedId, err := base64.StdEncoding.DecodeString(nodeId)
-		if err != nil {
-			jww.ERROR.Printf("Unable to decode blacklisted Node ID %s: %+v",
-				decodedId, err)
-			continue
-		}
-		m.blacklistedNodes[string(decodedId)] = nil
 	}
 
 	m.FingerprintsManager = *newFingerprints()

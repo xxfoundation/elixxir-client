@@ -346,7 +346,7 @@ func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 }
 
 // SetPoolFilter sets the filter used to filter gateways from the ID map.
-func (h *HostPool) SetHostPoolFilter(f Filter) {
+func (h *HostPool) SetGatewayFilter(f Filter) {
 	h.filterMux.Lock()
 	defer h.filterMux.Unlock()
 

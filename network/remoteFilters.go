@@ -10,10 +10,12 @@ package network
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	bloom "gitlab.com/elixxir/bloomfilter"
-	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
 )
+
+const BloomFilterSize = 648 // In Bits
+const BloomFilterHashes = 10
 
 func NewRemoteFilter(data *mixmessages.ClientBloom) *RemoteFilter {
 	return &RemoteFilter{
@@ -30,8 +32,8 @@ func (rf *RemoteFilter) GetFilter() *bloom.Ring {
 
 	if rf.filter == nil {
 		var err error
-		rf.filter, _ = bloom.InitByParameters(interfaces.BloomFilterSize,
-			interfaces.BloomFilterHashes)
+		rf.filter, _ = bloom.InitByParameters(BloomFilterSize,
+			BloomFilterHashes)
 		err = rf.filter.UnmarshalBinary(rf.data.Filter)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to properly unmarshal the bloom filter: %+v", err)

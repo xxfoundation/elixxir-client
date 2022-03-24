@@ -1,28 +1,20 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
-
-package interfaces
+package network
 
 import (
-	"gitlab.com/elixxir/comms/network"
-	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/primitives/ndf"
-	"time"
-
 	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/ndf"
+	"time"
 )
 
-type NetworkManager interface {
+type Manager interface {
 	// Follow starts the tracking of the network in a new thread.
 	// Errors that occur are reported on the ClientErrorReport function if
 	// passed. The returned stopable can be used to stop the follower.
@@ -34,7 +26,7 @@ type NetworkManager interface {
 	// SendCMIX sends a "raw" CMIX message payload to the provided recipient.
 	// Returns the round ID of the round the payload was sent or an error
 	// if it fails.
-	SendCMIX(message format.Message, recipient *id.ID, p params.CMIX) (
+	SendCMIX(message format.Message, recipient *id.ID, p CMIXParams) (
 		id.Round, ephemeral.Id, error)
 
 	// SendManyCMIX sends many "raw" cMix message payloads to each of the provided
@@ -43,7 +35,7 @@ type NetworkManager interface {
 	// replaced with multiple uses of SendCmix in most cases. Returns the round
 	// ID of the round the payload was sent or an error if it fails.
 	// WARNING: Potentially Unsafe
-	SendManyCMIX(messages []message.TargetedCmixMessage, p params.CMIX) (
+	SendManyCMIX(messages []message.TargetedCmixMessage, p CMIXParams) (
 		id.Round, []ephemeral.Id, error)
 
 	/*===Message Reception====================================================*/
@@ -73,8 +65,8 @@ type NetworkManager interface {
 
 	// DeleteFingerprint deletes a single fingerprint associated with the given
 	// identity if it exists
-
 	DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint)
+
 	// DeleteClientFingerprints deletes al fingerprint associated with the given
 	// identity if it exists
 	DeleteClientFingerprints(identity *id.ID)
@@ -135,6 +127,24 @@ type NetworkManager interface {
 	//while the follower is running.
 	CheckInProgressMessages()
 
+	/*===Health Monitor=======================================================*/
+	// The health monitor is a system which tracks if the client sees a live
+	// network. It can either be polled or set up with events
+
+	// IsHealthy Returns true if currently healthy
+	IsHealthy() bool
+
+	// WasHealthy returns true if the network has ever been healthy in this run
+	WasHealthy() bool
+
+	// AddHealthCallback - adds a callback which gets called whenever the heal
+	// changes. Returns a registration ID which can be used to unregister
+	AddHealthCallback(f func(bool)) uint64
+
+	// RemoveHealthCallback - Removes a health callback using its
+	// registration ID
+	RemoveHealthCallback(uint64)
+
 	/*===Nodes================================================================*/
 	/* Keys must be registed with nodes in order to send messages throug them.
 	this process is in general automatically handled by the Network Manager*/
@@ -147,7 +157,8 @@ type NetworkManager interface {
 	// relationship with
 	NumRegisteredNodes() int
 
-	// Triggers the generation of a keying relationship with a given node
+	// TriggerNodeRegistration Triggers the negotiation of a keying
+	// relationship with a given node
 	TriggerNodeRegistration(nid *id.ID)
 
 	/*===Historical Rounds====================================================*/
@@ -209,10 +220,6 @@ type NetworkManager interface {
 	// state of the network
 	GetInstance() *network.Instance
 
-	// GetHealthTracker returns the health tracker, which using a polling or
-	// event api lets you determine if network following is functioning
-	GetHealthTracker() HealthTracker
-
 	// GetVerboseRounds returns stringification of verbose round info
 	GetVerboseRounds() string
 }
@@ -235,23 +242,8 @@ type MessageProcessor interface {
 	// fingerprint must not be added again during application load.
 	// It is a security vulnerability to reuse a fingerprint. It leaks
 	// privacy and can lead to compromise of message contents and integrity.
-	Process(message format.Message, receptionID EphemeralIdentity,
+	Process(message format.Message, receptionID receptionID.EphemeralIdentity,
 		round *mixmessages.RoundInfo)
 }
 
 type ClientErrorReport func(source, message, trace string)
-
-//type Ratchet interface {
-//	SendE2E(m message.Send, p params.E2E, stop *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error)
-//	SendUnsafe(m message.Send, p params.Unsafe) ([]id.Round, error)
-//	AddPartner(partnerID *id.ID, partnerPubKey,
-//		myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
-//		mySIDHPrivKey *sidh.PrivateKey,
-//		sendParams, receiveParams params.E2ESessionParams)
-//	GetPartner(partnerID *id.ID) (*manager, error)
-//	DeletePartner(partnerId *id.ID)
-//	GetAllPartnerIDs() []*id.ID
-//}
-
-//for use in key exchange which needs to be callable inside of network
-///type SendE2E func(m message.Send, p params.E2E, stop *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error)

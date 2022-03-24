@@ -7,6 +7,7 @@
 package api
 
 import (
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -86,7 +87,7 @@ type testNetworkManagerGeneric struct {
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(p int, a, b, c string) {}
-func (t *testNetworkManagerGeneric) GetEventManager() interfaces.EventManager {
+func (t *testNetworkManagerGeneric) GetEventManager() event.Manager {
 	return &dummyEventMgr{}
 }
 

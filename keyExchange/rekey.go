@@ -12,6 +12,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -28,7 +29,7 @@ import (
 )
 
 func CheckKeyExchanges(instance *network.Instance, sendE2E interfaces.SendE2E,
-	events interfaces.EventManager, sess *storage.Session,
+	events event.Manager, sess *storage.Session,
 	manager *e2e.Manager, sendTimeout time.Duration,
 	stop *stoppable.Single) {
 	sessions := manager.TriggerNegotiations()
@@ -43,7 +44,7 @@ func CheckKeyExchanges(instance *network.Instance, sendE2E interfaces.SendE2E,
 // session. They run the same negotiation, the former does it on a newly created
 // session while the latter on an extant session
 func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
-	events interfaces.EventManager, sess *storage.Session,
+	events event.Manager, sess *storage.Session,
 	manager *e2e.Manager, session *e2e.Session,
 	sendTimeout time.Duration, stop *stoppable.Single) {
 	var negotiatingSession *e2e.Session

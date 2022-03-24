@@ -10,7 +10,6 @@ package network
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	bloom "gitlab.com/elixxir/bloomfilter"
-	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -43,8 +42,8 @@ func TestNewRemoteFilter(t *testing.T) {
 
 // Unit test GetFilter
 func TestRemoteFilter_GetFilter(t *testing.T) {
-	testFilter, err := bloom.InitByParameters(interfaces.BloomFilterSize,
-		interfaces.BloomFilterHashes)
+	testFilter, err := bloom.InitByParameters(BloomFilterSize,
+		BloomFilterHashes)
 	if err != nil {
 		t.Fatalf("GetFilter error: "+
 			"Cannot initialize bloom filter for setup: %v", err)

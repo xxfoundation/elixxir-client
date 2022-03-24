@@ -15,6 +15,7 @@
 package ud
 
 import (
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -75,7 +76,7 @@ func (tnm *testNetworkManager) SendManyCMIX([]message.TargetedCmixMessage, param
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(int, string, string, string) {}
-func (tnm *testNetworkManager) GetEventManager() interfaces.EventManager {
+func (tnm *testNetworkManager) GetEventManager() event.Manager {
 	return &dummyEventMgr{}
 }
 

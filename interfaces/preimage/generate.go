@@ -6,7 +6,6 @@ import (
 )
 
 func Generate(data []byte, t string) []byte {
-
 	if t == Default {
 		return data
 	}

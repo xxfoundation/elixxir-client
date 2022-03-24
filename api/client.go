@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/preimage"
@@ -69,7 +70,7 @@ type Client struct {
 	clientErrorChannel chan interfaces.ClientError
 
 	// Event reporting in event.go
-	events *eventManager
+	events *event.eventManager
 
 	// Handles the triggering and delivery of backups
 	backup *interfaces.BackupContainer
@@ -242,7 +243,7 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 		followerServices:   newServices(),
 		parameters:         parameters,
 		clientErrorChannel: make(chan interfaces.ClientError, 1000),
-		events:             newEventManager(),
+		events:             event.newEventManager(),
 		backup:             &interfaces.BackupContainer{},
 	}
 

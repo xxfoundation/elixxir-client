@@ -28,7 +28,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/network/identity/receptionID/store"
 	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -59,7 +58,7 @@ type followNetworkComms interface {
 
 // followNetwork polls the network to get updated on the state of nodes, the
 // round status, and informs the client when messages can be retrieved.
-func (m *manager) followNetwork(report interfaces.ClientErrorReport,
+func (m *manager) followNetwork(report ClientErrorReport,
 	stop *stoppable.Single) {
 	ticker := time.NewTicker(m.param.TrackNetworkPeriod)
 	TrackTicker := time.NewTicker(debugTrackPeriod)
@@ -109,7 +108,7 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport,
 }
 
 // executes each iteration of the follower
-func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
+func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 	comms followNetworkComms, stop *stoppable.Single, abandon func(round id.Round)) {
 
 	//get the identity we will poll for

@@ -11,9 +11,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/stoppable"
@@ -32,12 +30,24 @@ import (
 	"time"
 )
 
+// TargetedCmixMessage defines a recipient target pair in a sendMany cMix
+// message.
+type TargetedCmixMessage struct {
+	Recipient *id.ID
+	Message   format.Message
+}
+
 // SendManyCMIX sends many "raw" cMix message payloads to each of the provided
 // recipients. Used to send messages in group chats. Metadata is NOT protected
 // with this call and can leak data about yourself. Returns the round ID of the
 // round the payload was sent or an error if it fails.
 // WARNING: Potentially Unsafe
-func (m *manager) SendManyCMIX(messages []message.TargetedCmixMessage, p params.CMIX) (id.Round, []ephemeral.Id, error) {
+func (m *manager) SendManyCMIX(messages []TargetedCmixMessage,
+	p CMIXParams) (id.Round, []ephemeral.Id, error) {
+	if !m.Monitor.IsHealthy() {
+		return 0, []ephemeral.Id{}, errors.New("Cannot send cmix " +
+			"message when the network is not healthy")
+	}
 
 	return sendManyCmixHelper(m.Sender, messages, p,
 		m.instance, m.session.GetCmixGroup(), m.Registrar, m.rng, m.events,
@@ -56,9 +66,9 @@ func (m *manager) SendManyCMIX(messages []message.TargetedCmixMessage, p params.
 // which can be registered with the network instance to get a callback on its
 // status.
 func sendManyCmixHelper(sender gateway.Sender,
-	msgs []message.TargetedCmixMessage, param params.CMIX, instance *network.Instance,
+	msgs []TargetedCmixMessage, param CMIXParams, instance *network.Instance,
 	grp *cyclic.Group, registrar nodes.Registrar,
-	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
+	rng *fastRNG.StreamGenerator, events event.Manager,
 	senderId *id.ID, comms SendCmixCommsInterface) (
 	id.Round, []ephemeral.Id, error) {
 

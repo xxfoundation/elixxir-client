@@ -11,6 +11,7 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -100,7 +101,7 @@ func (t *testNetworkManagerGeneric) GetInstance() *network.Instance {
 
 }
 
-func (t *testNetworkManagerGeneric) GetEventManager() interfaces.EventManager {
+func (t *testNetworkManagerGeneric) GetEventManager() event.Manager {
 	return &dummyEventMgr{}
 }
 
@@ -167,7 +168,7 @@ type testNetworkManagerFullExchange struct {
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(p int, a, b, c string) {}
-func (t *testNetworkManagerFullExchange) GetEventManager() interfaces.EventManager {
+func (t *testNetworkManagerFullExchange) GetEventManager() event.Manager {
 	return &dummyEventMgr{}
 }
 

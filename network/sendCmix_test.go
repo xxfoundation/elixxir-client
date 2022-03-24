@@ -5,7 +5,6 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
-	"gitlab.com/elixxir/client/network/internal"
 	message2 "gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"

@@ -9,14 +9,12 @@ package rounds
 
 import (
 	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/historical"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/network/rounds/store"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 	"strconv"
@@ -28,9 +26,9 @@ type Pickup interface {
 }
 
 type manager struct {
-	params  params.Rounds
+	params  Params
 	sender  gateway.Sender
-	session *storage.Session
+	session storage.Session
 
 	comms MessageRetrievalComms
 
@@ -46,10 +44,10 @@ type manager struct {
 	unchecked *store.UncheckedRoundStore
 }
 
-func NewPickup(params params.Rounds, bundles chan<- message.Bundle,
+func NewPickup(params Params, bundles chan<- message.Bundle,
 	sender gateway.Sender, historical historical.Retriever, rng *fastRNG.StreamGenerator,
-	instance RoundGetter, kv *versioned.KV) Pickup {
-	unchecked := store.NewOrLoadUncheckedStore(kv)
+	instance RoundGetter, session storage.Session) Pickup {
+	unchecked := store.NewOrLoadUncheckedStore(session.GetKV())
 	m := &manager{
 		params:              params,
 		lookupRoundMessages: make(chan roundLookup, params.LookupRoundsBufferLen),
@@ -59,6 +57,7 @@ func NewPickup(params params.Rounds, bundles chan<- message.Bundle,
 		rng:                 rng,
 		instance:            instance,
 		unchecked:           unchecked,
+		session:             session,
 	}
 
 	return m
@@ -67,8 +66,6 @@ func NewPickup(params params.Rounds, bundles chan<- message.Bundle,
 func (m *manager) StartProcessors() stoppable.Stoppable {
 
 	multi := stoppable.NewMulti("Rounds")
-
-	//start the historical rounds thread
 
 	//start the message retrieval worker pool
 	for i := uint(0); i < m.params.NumMessageRetrievalWorkers; i++ {

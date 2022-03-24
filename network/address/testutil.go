@@ -8,6 +8,7 @@
 package address
 
 import (
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/network/gateway"
 	"testing"
 	"time"
@@ -74,7 +75,7 @@ func (t *testNetworkManager) GetInstance() *network.Instance {
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(p int, a, b, c string) {}
-func (t *testNetworkManager) GetEventManager() interfaces.EventManager {
+func (t *testNetworkManager) GetEventManager() event.Manager {
 	return &dummyEventMgr{}
 }
 

@@ -11,8 +11,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/stoppable"
@@ -36,8 +35,8 @@ import (
 // Returns the round ID of the round the payload was sent or an error
 // if it fails.
 func (m *manager) SendCMIX(msg format.Message,
-	recipient *id.ID, cmixParams params.CMIX) (id.Round, ephemeral.Id, error) {
-	if !m.health.IsHealthy() {
+	recipient *id.ID, cmixParams CMIXParams) (id.Round, ephemeral.Id, error) {
+	if !m.Monitor.IsHealthy() {
 		return 0, ephemeral.Id{}, errors.New("Cannot send cmix message when the " +
 			"network is not healthy")
 	}
@@ -58,9 +57,9 @@ func (m *manager) SendCMIX(msg format.Message,
 // which can be registered with the network instance to get a callback on
 // its status
 func sendCmixHelper(sender gateway.Sender, msg format.Message,
-	recipient *id.ID, cmixParams params.CMIX, instance *network.Instance,
+	recipient *id.ID, cmixParams CMIXParams, instance *network.Instance,
 	grp *cyclic.Group, nodes nodes.Registrar,
-	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
+	rng *fastRNG.StreamGenerator, events event.Manager,
 	senderId *id.ID, comms SendCmixCommsInterface) (id.Round, ephemeral.Id, error) {
 
 	timeStart := netTime.Now()

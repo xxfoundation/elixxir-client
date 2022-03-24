@@ -10,6 +10,7 @@ package groupChat
 import (
 	"encoding/base64"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/event"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
@@ -292,7 +293,7 @@ func (tnm *testNetworkManager) SendManyCMIX(
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(int, string, string, string) {}
-func (tnm *testNetworkManager) GetEventManager() interfaces.EventManager {
+func (tnm *testNetworkManager) GetEventManager() event.Manager {
 	return &dummyEventMgr{}
 }
 

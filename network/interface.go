@@ -1,7 +1,6 @@
 package network
 
 import (
-	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/mixmessages"
@@ -35,7 +34,7 @@ type Manager interface {
 	// replaced with multiple uses of SendCmix in most cases. Returns the round
 	// ID of the round the payload was sent or an error if it fails.
 	// WARNING: Potentially Unsafe
-	SendManyCMIX(messages []message.TargetedCmixMessage, p CMIXParams) (
+	SendManyCMIX(messages []TargetedCmixMessage, p CMIXParams) (
 		id.Round, []ephemeral.Id, error)
 
 	/*===Message Reception====================================================*/
@@ -116,6 +115,11 @@ type Manager interface {
 	// Will only get callbacks while the Network Follower is running.
 	// Multiple trackTriggers can be registered
 	TrackTriggers(TriggerTracker)
+
+
+	//Dropped Messages Pickup
+	RegisterDroppedMessagesPickup(response MessageProcessor)
+	DenoteReception(msgId uint)
 
 	/* In inProcess */
 	// it is possible to receive a message over cMix before the fingerprints or

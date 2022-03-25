@@ -8,6 +8,7 @@
 package message
 
 import (
+	"golang.org/x/crypto/blake2b"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -102,20 +103,35 @@ func (t *TriggersManager) AddTrigger(clientID *id.ID, newTrigger interfaces.Trig
 		MessageProcessor: response,
 	}
 
+	realTrigger := Generate(newTrigger.Preimage,newTrigger.Type)
+
 	cid := *clientID
 	if _, exists := t.tmap[cid]; !exists {
 		t.tmap[cid] = make(map[interfaces.Preimage][]trigger)
 	}
 
-	pi := newTrigger.Preimage
-	if existingTriggers, exists := t.tmap[cid][pi]; exists {
-		t.tmap[cid][pi] = append(existingTriggers, newEntry)
+
+	if existingTriggers, exists := t.tmap[cid][realTrigger]; exists {
+		t.tmap[cid][realTrigger] = append(existingTriggers, newEntry)
 	}
 
-	t.tmap[cid][pi] = []trigger{newEntry}
+	t.tmap[cid][realTrigger] = []trigger{newEntry}
 
 	t.numTriggers++
-	t.triggerTriggerTracking()
+	t.triggerTracking()
+}
+
+func Generate(data []byte, t string) []byte {
+	if t == Default {
+		return data
+	}
+	// Hash fingerprints
+	h, _ := blake2b.New256(nil)
+	h.Write(data)
+	h.Write([]byte(t))
+
+	// Base 64 encode hash and truncate
+	return h.Sum(nil)
 }
 
 // DeleteTrigger - If only a single response is associated with the preimage,
@@ -159,7 +175,7 @@ func (t *TriggersManager) DeleteTrigger(clientID *id.ID, preimage interfaces.Pre
 		}
 	}
 	t.numTriggers--
-	t.triggerTriggerTracking()
+	t.triggerTracking()
 	return nil
 }
 
@@ -183,8 +199,8 @@ func (t *TriggersManager) TrackTriggers(triggerTracker interfaces.TriggerTracker
 	t.trackers = append(t.trackers, triggerTracker)
 }
 
-//triggerTriggerTracking triggers the tracking of triggers
-func (t *TriggersManager) triggerTriggerTracking() {
+//triggerTracking triggers the tracking of triggers
+func (t *TriggersManager) triggerTracking() {
 	if len(t.trackers) == 0 {
 		return
 	}

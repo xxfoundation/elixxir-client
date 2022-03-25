@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/event"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/stoppable"
@@ -31,11 +32,48 @@ import (
 	"time"
 )
 
+
+type StandardSendable struct{
+	Recipient *id.ID
+	Payload []byte
+	Fingerprint format.Fingerprint
+	Trigger StandardTrigger
+}
+
+type StandardTrigger struct{
+	Preimage
+	Type   string
+	Source []byte
+	crystal []byte
+}
+
+func (t *trigger)Crystalize()[]byte{
+	if t.crystal==nil{
+		t.crystal=t.generate()
+	}
+	return copy(t.crystal)
+}
+
+type Sendable interface{
+	GetRecipient()*id.ID
+	GetPayload()[]byte
+	GetMac()[]byte
+	GetFingerprint()format.Fingerprint
+	GetTriggerPreimage()PreimagePrefix
+}
+
+type Trigger interface{
+	GetPreimage()[]byte
+	GetSource()format.Fingerprint
+	GetType()string
+	Crystalize()[]byte
+}
+
+
 // SendCMIX sends a "raw" CMIX message payload to the provided recipient.
 // Returns the round ID of the round the payload was sent or an error
 // if it fails.
-func (m *manager) SendCMIX(msg format.Message,
-	recipient *id.ID, cmixParams CMIXParams) (id.Round, ephemeral.Id, error) {
+func (m *manager) SendCMIX(message Sendable, cmixParams CMIXParams) (id.Round, ephemeral.Id, error) {
 	if !m.Monitor.IsHealthy() {
 		return 0, ephemeral.Id{}, errors.New("Cannot send cmix message when the " +
 			"network is not healthy")

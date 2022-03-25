@@ -73,21 +73,21 @@ func (p *handler) handleMessage(ecrMsg format.Message, bundle Bundle) bool {
 		return true
 	}
 
-	triggers, exists := p.get(identity.Source, ecrMsg.GetIdentityFP(), ecrMsg.GetContents())
+	triggers, exists := p.get(identity.Source, ecrMsg.GetSIH(), ecrMsg.GetContents())
 	if exists {
 		for _, t := range triggers {
 			go t.Process(ecrMsg, receptionID, round)
 		}
 		if len(triggers) == 0 {
 			jww.ERROR.Printf("empty trigger list for %s",
-				ecrMsg.GetIdentityFP()) // get preimage
+				ecrMsg.GetSIH()) // get preimage
 		}
 		return true
 	} else {
 		// TODO: delete this else block because it should not be needed.
 		jww.INFO.Printf("checking backup %v", preimage.MakeDefault(identity.Source))
 		// //if it doesnt exist, check against the default fingerprint for the identity
-		// forMe = fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
+		// forMe = fingerprint2.CheckIdentityFP(ecrMsg.GetSIH(),
 		// 	ecrMsgContents, preimage.MakeDefault(identity.Source))
 	}
 
@@ -97,7 +97,7 @@ func (p *handler) handleMessage(ecrMsg format.Message, bundle Bundle) bool {
 		jww.TRACE.Printf("Message for %d (%s) failed identity "+
 			"check: %v (expected-default) vs %v (received)",
 			identity.EphId,
-			identity.Source, expectedFP, ecrMsg.GetIdentityFP())
+			identity.Source, expectedFP, ecrMsg.GetSIH())
 	}
 	im := fmt.Sprintf("Garbled/RAW Message: keyFP: %v, round: %d"+
 		"msgDigest: %s, not determined to be for client",

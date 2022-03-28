@@ -38,7 +38,6 @@ type Store struct {
 // NewStore creates a new, empty Store object.
 func NewStore(kv *versioned.KV) (*Store, error) {
 	kv = kv.Prefix(prefix)
-
 	s := &Store{
 		confirmedFacts:   make(map[fact.Fact]struct{}, 0),
 		unconfirmedFacts: make(map[string]fact.Fact, 0),
@@ -46,6 +45,24 @@ func NewStore(kv *versioned.KV) (*Store, error) {
 	}
 
 	return s, s.save()
+}
+
+// RestoreFromBackUp initializes the confirmedFacts map
+// with the backed up fact data. This will error if
+// the store is already stateful.
+func (s *Store) RestoreFromBackUp(backupData fact.FactList) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	if len(s.confirmedFacts) != 0 || len(s.unconfirmedFacts) != 0 {
+		return errors.New("cannot overwrite ud store with existing data")
+	}
+
+	for _, f := range backupData {
+		s.confirmedFacts[f] = struct{}{}
+	}
+
+	return nil
 }
 
 // StoreUnconfirmedFact stores a fact that has been added to UD but has not been

@@ -9,7 +9,7 @@ package message
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -21,7 +21,7 @@ import (
 // Unit test.
 func Test_newFingerprints(t *testing.T) {
 	expected := &FingerprintsManager{
-		fpMap: make(map[id.ID]map[format.Fingerprint]interfaces.MessageProcessor),
+		fpMap: make(map[id.ID]map[format.Fingerprint]Processor),
 	}
 
 	received := newFingerprints()
@@ -87,7 +87,7 @@ func TestFingerprintsManager_AddFingerprint(t *testing.T) {
 	}
 
 	// Check that received value contains the expected data
-	expected := map[format.Fingerprint]interfaces.MessageProcessor{fp: mp}
+	expected := map[format.Fingerprint]Processor{fp: mp}
 	if !reflect.DeepEqual(received, expected) {
 		t.Fatalf("Add error: Map does not contain expected data."+
 			"\nexpected: %v\nreceived: %v", expected, received)
@@ -129,7 +129,7 @@ func TestFingerprintsManager_DeleteClientFingerprints(t *testing.T) {
 	numTests := 100
 	cid := id.NewIdFromString("clientID", id.User, t)
 	fingerprints := make([]format.Fingerprint, 0, numTests)
-	processors := make([]interfaces.MessageProcessor, 0, numTests)
+	processors := make([]Processor, 0, numTests)
 	for i := 0; i < numTests; i++ {
 		fp := format.NewFingerprint([]byte(strconv.Itoa(i)))
 		mp := NewMockMsgProcessor(t)
@@ -170,7 +170,7 @@ func (mock *MockMsgProcessor) MarkFingerprintUsed(_ format.Fingerprint) {
 	return
 }
 
-func (mock *MockMsgProcessor) Process(format.Message, interfaces.EphemeralIdentity,
+func (mock *MockMsgProcessor) Process(format.Message, receptionID.EphemeralIdentity,
 	*mixmessages.RoundInfo) {
 	return
 }

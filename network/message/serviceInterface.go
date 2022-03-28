@@ -10,10 +10,10 @@ import (
 type Service struct {
 	Identifier []byte
 	Tag        string
-	Source     []byte //optional metadata field, only used on reception
+	Source     []byte // Optional metadata field, only used on reception
 
-	//private field for lazy evaluation of preimage
-	//Nil denotes not yet evaluated
+	// Private field for lazy evaluation of preimage
+	// A value of nil denotes not yet evaluated
 	lazyPreimage *sih.Preimage
 }
 
@@ -28,7 +28,6 @@ func (si Service) HashFromMessageHash(messageHash []byte) []byte {
 }
 
 func (si Service) preimage() sih.Preimage {
-	// calculate
 	if si.lazyPreimage == nil {
 		p := sih.MakePreimage(si.Identifier, si.Tag)
 		si.lazyPreimage = &p

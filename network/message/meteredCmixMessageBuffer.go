@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -131,7 +131,8 @@ func NewOrLoadMeteredCmixMessageBuffer(kv *versioned.KV, key string) (
 	*MeteredCmixMessageBuffer, error) {
 	mb, err := utility.LoadMessageBuffer(kv, &meteredCmixMessageHandler{}, key)
 	if err != nil {
-		jww.WARN.Printf("Failed to find MeteredCmixMessageBuffer %s, making a new one", key)
+		jww.WARN.Printf(
+			"Failed to find MeteredCmixMessageBuffer %s, making a new one", key)
 		return NewMeteredCmixMessageBuffer(kv, key)
 	}
 
@@ -139,10 +140,10 @@ func NewOrLoadMeteredCmixMessageBuffer(kv *versioned.KV, key string) (
 }
 
 func (mcmb *MeteredCmixMessageBuffer) Add(m format.Message, ri *pb.RoundInfo,
-	identity interfaces.EphemeralIdentity) (uint, time.Time) {
+	identity receptionID.EphemeralIdentity) (uint, time.Time) {
 	if m.GetPrimeByteLen() == 0 {
-		jww.FATAL.Panicf("Cannot handle a metered " +
-			"cmix message with a length of 0")
+		jww.FATAL.Panic(
+			"Cannot handle a metered cMix message with a length of 0.")
 	}
 
 	msg := buildMsg(m, ri, identity)
@@ -153,10 +154,10 @@ func (mcmb *MeteredCmixMessageBuffer) Add(m format.Message, ri *pb.RoundInfo,
 }
 
 func (mcmb *MeteredCmixMessageBuffer) AddProcessing(m format.Message,
-	ri *pb.RoundInfo, identity interfaces.EphemeralIdentity) (uint, time.Time) {
+	ri *pb.RoundInfo, identity receptionID.EphemeralIdentity) (uint, time.Time) {
 	if m.GetPrimeByteLen() == 0 {
-		jww.FATAL.Panicf("Cannot handle a metered " +
-			"cmix message with a length of 0")
+		jww.FATAL.Panic(
+			"Cannot handle a metered cMix message with a length of 0.")
 	}
 
 	msg := buildMsg(m, ri, identity)
@@ -167,68 +168,71 @@ func (mcmb *MeteredCmixMessageBuffer) AddProcessing(m format.Message,
 }
 
 func (mcmb *MeteredCmixMessageBuffer) Next() (format.Message, *pb.RoundInfo,
-	interfaces.EphemeralIdentity, bool) {
+	receptionID.EphemeralIdentity, bool) {
 	m, ok := mcmb.mb.Next()
 	if !ok {
-		return format.Message{}, nil, interfaces.EphemeralIdentity{}, false
+		return format.Message{}, nil, receptionID.EphemeralIdentity{}, false
 	}
 
 	msg := m.(meteredCmixMessage)
 
-	// increment the count and save
+	// Increment the count and save
 	msg.Count++
 	mcmh := &meteredCmixMessageHandler{}
 	err := mcmh.SaveMessage(mcmb.kv, msg,
 		utility.MakeStoredMessageKey(mcmb.key, mcmh.HashMessage(msg)))
 	if err != nil {
-		jww.FATAL.Panicf("Failed to save metered message after count "+
-			"update: %s", err)
+		jww.FATAL.Panicf(
+			"Failed to save metered message after count update: %s", err)
 	}
 
 	msfFormat, err := format.Unmarshal(msg.M)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal message after count "+
-			"update: %s", err)
+		jww.FATAL.Panicf(
+			"Failed to unmarshal message after count update: %s", err)
 	}
 
 	ri := &pb.RoundInfo{}
 	err = proto.Unmarshal(msg.Ri, ri)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal round info from msg format")
+		jww.FATAL.Panicf(
+			"Failed to unmarshal round info from msg format: %s", err)
 	}
 
-	identity := interfaces.EphemeralIdentity{}
+	identity := receptionID.EphemeralIdentity{}
 	err = json.Unmarshal(msg.Identity, &identity)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal identity from msg format")
+		jww.FATAL.Panicf(
+			"Failed to unmarshal identity from msg format: %s", err)
 	}
 
 	return msfFormat, ri, identity, true
 }
 
 func (mcmb *MeteredCmixMessageBuffer) Remove(m format.Message, ri *pb.RoundInfo,
-	identity interfaces.EphemeralIdentity) {
+	identity receptionID.EphemeralIdentity) {
 	mcmb.mb.Succeeded(buildMsg(m, ri, identity))
 }
 
 func (mcmb *MeteredCmixMessageBuffer) Failed(m format.Message, ri *pb.RoundInfo,
-	identity interfaces.EphemeralIdentity) {
+	identity receptionID.EphemeralIdentity) {
 	mcmb.mb.Failed(buildMsg(m, ri, identity))
 }
 
-func buildMsg(m format.Message, ri *pb.RoundInfo, identity interfaces.EphemeralIdentity) meteredCmixMessage {
+func buildMsg(m format.Message, ri *pb.RoundInfo,
+	identity receptionID.EphemeralIdentity) meteredCmixMessage {
 	if m.GetPrimeByteLen() == 0 {
-		jww.FATAL.Panicf("Cannot handle a metered " +
-			"cmix message with a length of 0")
+		jww.FATAL.Panic(
+			"Cannot handle a metered cMix message with a length of 0.")
 	}
 	riMarshal, err := proto.Marshal(ri)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to marshal round info")
+		jww.FATAL.Panicf("Failed to marshal round info: %s", err)
 	}
 
 	identityMarshal, err := json.Marshal(&identity)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to marshal identity")
+		jww.FATAL.Panicf("Failed to marshal identity: %s", err)
 	}
 
 	return meteredCmixMessage{

@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/client/storage/hostList"
 	"gitlab.com/elixxir/client/storage/rounds"
 	"gitlab.com/elixxir/client/storage/ud"
-	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/rateLimiting"
 	"sync"
 	"testing"
@@ -99,7 +98,7 @@ func initStore(baseDir, password string) (*Session, error) {
 func New(baseDir, password string, u userInterface.User,
 	currentVersion version.Version, cmixGrp, e2eGrp *cyclic.Group,
 	rng *fastRNG.StreamGenerator,
-	rateLimitParams ndf.RateLimiting, backupFacts fact.FactList) (*Session, error) {
+	rateLimitParams ndf.RateLimiting) (*Session, error) {
 
 	s, err := initStore(baseDir, password)
 	if err != nil {
@@ -181,7 +180,7 @@ func New(baseDir, password string, u userInterface.User,
 	s.bucketStore = utility.NewStoredBucket(uint32(rateLimitParams.Capacity), uint32(rateLimitParams.LeakedTokens),
 		time.Duration(rateLimitParams.LeakDuration), s.kv)
 
-	s.ud, err = ud.NewStore(s.kv, backupFacts)
+	s.ud, err = ud.NewStore(s.kv)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create ud store")
 	}
@@ -528,7 +527,7 @@ func InitTestingSession(i interface{}) *Session {
 	//	jww.FATAL.Panicf("Failed to create ring buffer store: %+v", err)
 	//}
 
-	s.ud, err = ud.NewStore(s.kv, nil)
+	s.ud, err = ud.NewStore(s.kv)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to create ud store: %v", err)
 	}

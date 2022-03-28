@@ -5,10 +5,11 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package utility
+package network
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
@@ -31,7 +32,7 @@ func TestCmixMessageHandler_SaveMessage(t *testing.T) {
 			Msg:       testMsgs[i].Marshal(),
 			Recipient: ids[i].Marshal(),
 		}
-		key := MakeStoredMessageKey("testKey", cmh.HashMessage(msg))
+		key := utility.MakeStoredMessageKey("testKey", cmh.HashMessage(msg))
 
 		// Save message
 		err := cmh.SaveMessage(kv, msg, key)
@@ -67,7 +68,7 @@ func TestCmixMessageHandler_LoadMessage(t *testing.T) {
 			Msg:       testMsgs[i].Marshal(),
 			Recipient: ids[i].Marshal(),
 		}
-		key := MakeStoredMessageKey("testKey", cmh.HashMessage(msg))
+		key := utility.MakeStoredMessageKey("testKey", cmh.HashMessage(msg))
 
 		// Save message
 		if err := cmh.SaveMessage(kv, msg, key); err != nil {
@@ -157,10 +158,10 @@ func TestCmixMessageBuffer_Smoke(t *testing.T) {
 
 // makeTestCmixMessages creates a list of messages with random data and the
 // expected map after they are added to the buffer.
-func makeTestCmixMessages(n int) ([]format.Message, []*id.ID, map[MessageHash]struct{}) {
+func makeTestCmixMessages(n int) ([]format.Message, []*id.ID, map[utility.MessageHash]struct{}) {
 	cmh := &cmixMessageHandler{}
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
-	mh := map[MessageHash]struct{}{}
+	mh := map[utility.MessageHash]struct{}{}
 	msgs := make([]format.Message, n)
 	ids := make([]*id.ID, n)
 	for i := range msgs {

@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -19,14 +18,14 @@ import (
 // FingerprintsManager is a thread-safe map, mapping format.Fingerprint's to
 // a Handler object.
 type FingerprintsManager struct {
-	fpMap map[id.ID]map[format.Fingerprint]interfaces.MessageProcessor
+	fpMap map[id.ID]map[format.Fingerprint]Processor
 	sync.Mutex
 }
 
 // newFingerprints is a constructor function for the Fingerprints tracker.
 func newFingerprints() *FingerprintsManager {
 	return &FingerprintsManager{
-		fpMap: make(map[id.ID]map[format.Fingerprint]interfaces.MessageProcessor),
+		fpMap: make(map[id.ID]map[format.Fingerprint]Processor),
 	}
 }
 
@@ -36,7 +35,7 @@ func newFingerprints() *FingerprintsManager {
 // vulnerability.
 func (f *FingerprintsManager) pop(clientID *id.ID,
 	fingerprint format.Fingerprint) (
-	interfaces.MessageProcessor, bool) {
+	Processor, bool) {
 	f.Lock()
 	defer f.Unlock()
 	cid := *clientID
@@ -58,7 +57,7 @@ func (f *FingerprintsManager) pop(clientID *id.ID,
 // value. If there is already an entry for this fingerprint, the
 // method returns with no write operation.
 func (f *FingerprintsManager) AddFingerprint(clientID *id.ID,
-	fingerprint format.Fingerprint, mp interfaces.MessageProcessor) error {
+	fingerprint format.Fingerprint, mp Processor) error {
 	f.Lock()
 	defer f.Unlock()
 
@@ -66,7 +65,7 @@ func (f *FingerprintsManager) AddFingerprint(clientID *id.ID,
 
 	if _, exists := f.fpMap[cid]; !exists {
 		f.fpMap[cid] = make(
-			map[format.Fingerprint]interfaces.MessageProcessor)
+			map[format.Fingerprint]Processor)
 	}
 
 	if _, exists := f.fpMap[cid][fingerprint]; exists {

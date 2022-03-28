@@ -92,7 +92,7 @@ func TestSwitchboard_RegisterListener(t *testing.T) {
 	setType := sw.messageType.Get(mt)
 
 	if !setType.Has(l) {
-		t.Errorf("Listener is not registered by Message Type")
+		t.Errorf("Listener is not registered by Message Tag")
 	}
 
 }
@@ -159,7 +159,7 @@ func TestSwitchboard_RegisterFunc(t *testing.T) {
 	setType := sw.messageType.Get(mt)
 
 	if !setType.Has(lid.listener) {
-		t.Errorf("Listener is not registered by Message Type")
+		t.Errorf("Listener is not registered by Message Tag")
 	}
 
 	lid.listener.Hear(message.Receive{})
@@ -228,7 +228,7 @@ func TestSwitchboard_RegisterChan(t *testing.T) {
 	setType := sw.messageType.Get(mt)
 
 	if !setType.Has(lid.listener) {
-		t.Errorf("Listener is not registered by Message Type")
+		t.Errorf("Listener is not registered by Message Tag")
 	}
 
 	lid.listener.Hear(message.Receive{})
@@ -335,7 +335,7 @@ func TestSwitchboard_Unregister(t *testing.T) {
 	}
 
 	if setType.Has(lid1.listener) {
-		t.Errorf("Removed Listener not registered by Message Type, " +
+		t.Errorf("Removed Listener not registered by Message Tag, " +
 			"should not be")
 	}
 
@@ -345,6 +345,6 @@ func TestSwitchboard_Unregister(t *testing.T) {
 	}
 
 	if !setType.Has(lid2.listener) {
-		t.Errorf("Remaining Listener is not registered by Message Type")
+		t.Errorf("Remaining Listener is not registered by Message Tag")
 	}
 }

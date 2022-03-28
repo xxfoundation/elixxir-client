@@ -27,6 +27,7 @@ import (
 	"gitlab.com/elixxir/comms/client"
 	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"math"
@@ -80,6 +81,9 @@ type manager struct {
 
 	// Event reporting api
 	events event.Manager
+
+	//storage of the max message length
+	maxMsgLen int
 }
 
 // NewManager builds a new reception manager object using inputted key fields
@@ -94,6 +98,8 @@ func NewManager(params Params, comms *client.Comms, session storage.Session,
 			" client network manager")
 	}
 
+	tmpMsg := format.NewMessage(session.GetCmixGroup().GetP().ByteLen())
+
 	tracker := uint64(0)
 	earliest := uint64(0)
 	// create manager object
@@ -107,6 +113,7 @@ func NewManager(params Params, comms *client.Comms, session storage.Session,
 		rng:           rng,
 		comms:         comms,
 		instance:      instance,
+		maxMsgLen:     tmpMsg.ContentsSize(),
 	}
 	m.UpdateAddressSpace(18)
 
@@ -223,4 +230,9 @@ func (m *manager) GetVerboseRounds() string {
 
 func (m *manager) SetFakeEarliestRound(rnd id.Round) {
 	atomic.StoreUint64(m.earliestRound, uint64(rnd))
+}
+
+// GetMaxMessageLength returns the maximum length of a cmix message
+func (m *manager) GetMaxMessageLength() int {
+	return m.maxMsgLen
 }

@@ -13,6 +13,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -33,15 +34,36 @@ import (
 // TargetedCmixMessage defines a recipient target pair in a sendMany cMix
 // message.
 type TargetedCmixMessage struct {
-	Recipient *id.ID
-	Message   format.Message
+	Recipient   *id.ID
+	Payload     []byte
+	Fingerprint format.Fingerprint
+	Service     message.Service
+	Mac         []byte
 }
 
-// SendManyCMIX sends many "raw" cMix message payloads to each of the provided
-// recipients. Used to send messages in group chats. Metadata is NOT protected
-// with this call and can leak data about yourself. Returns the round ID of the
-// round the payload was sent or an error if it fails.
-// WARNING: Potentially Unsafe
+// SendManyCMIX sends many "raw" CMIX message payloads to the provided
+// recipients all in the same round.
+// Returns the round ID of the round the payloads was sent or an error
+// if it fails.
+// This does not have end to end encryption on it and is used exclusively as a
+// send for higher order cryptographic protocols. Do not use unless implementing
+// a protocol on top.
+// Due to sending multiple payloads, this leaks more metadata than a standard
+// cmix send and should be in general avoided.
+//   recipient - cMix ID of the recipient
+//   fingerprint - Key Fingerprint. 256 bit field to store a 255 bit
+//      fingerprint, highest order bit must be 0 (panic otherwise). If your
+//      system does not use key fingerprints, this must be random bits.
+//   service - Reception Service. The backup way for a client to identify
+//      messages on receipt via trial hashing and to identify notifications.
+//      If unused, use messages.RandomService to fill the field with random data
+//   payload - Contents of the message. Cannot exceed the payload size for a
+//      cMix message (panic otherwise).
+//   mac - 256 bit field to store a 255 bit mac, highest order bit must be 0
+//      (panic otherwise). If used, fill with random bits.
+// Will return an error if the network is unhealthy or if it fails to send
+// (along with the reason). Blocks until successful send or err.
+// WARNING: Do not roll your own crypto
 func (m *manager) SendManyCMIX(messages []TargetedCmixMessage,
 	p CMIXParams) (id.Round, []ephemeral.Id, error) {
 	if !m.Monitor.IsHealthy() {
@@ -49,9 +71,28 @@ func (m *manager) SendManyCMIX(messages []TargetedCmixMessage,
 			"message when the network is not healthy")
 	}
 
-	return sendManyCmixHelper(m.Sender, messages, p,
+	acms := make([]assembeledCmixMessage, len(messages))
+	for i := range messages {
+		msg := format.NewMessage(m.session.GetCmixGroup().GetP().ByteLen())
+		msg.SetKeyFP(messages[i].Fingerprint)
+		msg.SetContents(messages[i].Payload)
+		msg.SetMac(messages[i].Mac)
+		msg.SetSIH(messages[i].Service.Hash(msg.GetContents()))
+
+		acms[i] = assembeledCmixMessage{
+			Recipient: messages[i].Recipient,
+			Message:   msg,
+		}
+	}
+
+	return sendManyCmixHelper(m.Sender, acms, p,
 		m.instance, m.session.GetCmixGroup(), m.Registrar, m.rng, m.events,
 		m.session.GetTransmissionID(), m.comms)
+}
+
+type assembeledCmixMessage struct {
+	Recipient *id.ID
+	Message   format.Message
 }
 
 // sendManyCmixHelper is a helper function for manager.SendManyCMIX.
@@ -66,7 +107,7 @@ func (m *manager) SendManyCMIX(messages []TargetedCmixMessage,
 // which can be registered with the network instance to get a callback on its
 // status.
 func sendManyCmixHelper(sender gateway.Sender,
-	msgs []TargetedCmixMessage, param CMIXParams, instance *network.Instance,
+	msgs []assembeledCmixMessage, param CMIXParams, instance *network.Instance,
 	grp *cyclic.Group, registrar nodes.Registrar,
 	rng *fastRNG.StreamGenerator, events event.Manager,
 	senderId *id.ID, comms SendCmixCommsInterface) (
@@ -157,7 +198,7 @@ func sendManyCmixHelper(sender gateway.Sender,
 		for i, msg := range msgs {
 			slots[i], encMsgs[i], ephemeralIDs[i], err = buildSlotMessage(
 				msg.Message, msg.Recipient, firstGateway, stream, senderId,
-				bestRound, roundKeys, param)
+				bestRound, roundKeys)
 			if err != nil {
 				stream.Close()
 				jww.INFO.Printf("[SendManyCMIX-%s]error building slot received: %v", param.DebugTag, err)

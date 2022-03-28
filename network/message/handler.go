@@ -10,10 +10,8 @@ package message
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/stoppable"
-	fingerprint2 "gitlab.com/elixxir/crypto/fingerprint"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
@@ -65,21 +63,19 @@ func (p *handler) handleMessage(ecrMsg format.Message, bundle Bundle) bool {
 	identity := bundle.Identity
 	round := bundle.RoundInfo
 
-	var receptionID interfaces.EphemeralIdentity
-
 	// If we have a fingerprint, process it.
 	if proc, exists := p.pop(identity.Source, fingerprint); exists {
-		proc.Process(ecrMsg, receptionID, round)
+		proc.Process(ecrMsg, identity, round)
 		return true
 	}
 
 	triggers, exists := p.get(identity.Source, ecrMsg.GetSIH(), ecrMsg.GetContents())
 	if exists {
 		for _, t := range triggers {
-			go t.Process(ecrMsg, receptionID, round)
+			go t.Process(ecrMsg, identity, round)
 		}
 		if len(triggers) == 0 {
-			jww.ERROR.Printf("empty trigger list for %s",
+			jww.ERROR.Printf("empty service list for %s",
 				ecrMsg.GetSIH()) // get preimage
 		}
 		return true
@@ -91,17 +87,10 @@ func (p *handler) handleMessage(ecrMsg format.Message, bundle Bundle) bool {
 		// 	ecrMsgContents, preimage.MakeDefault(identity.Source))
 	}
 
-	if jww.GetLogThreshold() == jww.LevelTrace {
-		expectedFP := fingerprint2.IdentityFP(ecrMsg.GetContents(),
-			preimage.MakeDefault(identity.Source))
-		jww.TRACE.Printf("Message for %d (%s) failed identity "+
-			"check: %v (expected-default) vs %v (received)",
-			identity.EphId,
-			identity.Source, expectedFP, ecrMsg.GetSIH())
-	}
-	im := fmt.Sprintf("Garbled/RAW Message: keyFP: %v, round: %d"+
+	im := fmt.Sprintf("Message cannot be identify: keyFP: %v, round: %d"+
 		"msgDigest: %s, not determined to be for client",
 		ecrMsg.GetKeyFP(), bundle.Round, ecrMsg.Digest())
+	jww.TRACE.Printf(im)
 	p.events.Report(1, "MessageReception", "Garbled", im)
 	return false
 }

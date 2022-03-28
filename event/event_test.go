@@ -35,7 +35,7 @@ func TestEventReporting(t *testing.T) {
 
 	// Send a few events
 	evtMgr.Report(10, "Hi", "TypityType", "I'm an event")
-	evtMgr.Report(1, "Hi", "TypeII", "Type II errors are the worst")
+	evtMgr.Report(1, "Hi", "TypeII", "Tag II errors are the worst")
 	evtMgr.Report(20, "Hi", "TypityType3", "eventy details")
 	evtMgr.Report(22, "Hi", "TypityType4", "I'm an event 2")
 
@@ -68,7 +68,7 @@ func TestEventReporting(t *testing.T) {
 	evtMgr.UnregisterEventCallback("test")
 	// Send more events
 	evtMgr.Report(10, "Hi", "TypityType", "I'm an event")
-	evtMgr.Report(1, "Hi", "TypeII", "Type II errors are the worst")
+	evtMgr.Report(1, "Hi", "TypeII", "Tag II errors are the worst")
 	evtMgr.Report(20, "Hi", "TypityType3", "eventy details")
 	evtMgr.Report(22, "Hi", "TypityType4", "I'm an event 2")
 

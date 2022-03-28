@@ -10,12 +10,10 @@ package network
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	preimage2 "gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/network/nodes"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/crypto/fingerprint"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
@@ -112,7 +110,7 @@ func processRound(nodes nodes.Registrar, bestRound *pb.RoundInfo,
 // the recipient.
 func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	stream *fastRNG.Stream, senderId *id.ID, bestRound *pb.RoundInfo,
-	mixCrypt nodes.MixCypher, param CMIXParams) (*pb.GatewaySlot,
+	mixCrypt nodes.MixCypher) (*pb.GatewaySlot,
 	format.Message, ephemeral.Id,
 	error) {
 
@@ -132,22 +130,6 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	}
 
 	msg.SetEphemeralRID(ephIdFilled[:])
-
-	// use the alternate identity preimage if it is set
-	var preimage []byte
-	if param.IdentityPreimage != nil {
-		preimage = param.IdentityPreimage
-		jww.INFO.Printf("Sending to %s with override preimage %v", recipient, preimage)
-	} else {
-		preimage = preimage2.MakeDefault(recipient)
-		jww.INFO.Printf("Sending to %s with default preimage %v", recipient, preimage)
-	}
-
-	// Set the identity fingerprint
-
-	ifp := fingerprint.IdentityFP(msg.GetContents(), preimage)
-
-	msg.SetIdentityFP(ifp)
 
 	// Encrypt the message
 	salt := make([]byte, 32)
@@ -209,7 +191,7 @@ func handleMissingNodeKeys(instance *network.Instance,
 // string of comma seperated recipient IDs and a string of comma seperated
 // message digests. Duplicate recipient IDs are printed once. Intended for use
 // in printing to log.
-func messageListToStrings(msgList []TargetedCmixMessage) (string, string) {
+func messageListToStrings(msgList []assembeledCmixMessage) (string, string) {
 	idStrings := make([]string, 0, len(msgList))
 	idMap := make(map[id.ID]bool, len(msgList))
 	msgDigests := make([]string, len(msgList))

@@ -219,26 +219,6 @@ type NetworkManager interface {
 
 type Preimage [32]byte
 
-type Trigger struct {
-	Preimage
-	Type   string
-	Source []byte
-}
-
-type TriggerTracker func(triggers []Trigger)
-
-type MessageProcessor interface {
-	// Process decrypts and hands off the message to its internal down
-	// stream message processing system.
-	// CRITICAL: Fingerprints should never be used twice. Process must
-	// denote, in long term storage, usage of a fingerprint and that
-	// fingerprint must not be added again during application load.
-	// It is a security vulnerability to reuse a fingerprint. It leaks
-	// privacy and can lead to compromise of message contents and integrity.
-	Process(message format.Message, receptionID EphemeralIdentity,
-		round *mixmessages.RoundInfo)
-}
-
 type ClientErrorReport func(source, message, trace string)
 
 //type Ratchet interface {

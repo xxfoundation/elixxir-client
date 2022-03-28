@@ -397,7 +397,7 @@ func (s *Store) GetRequest(partner *id.ID) (RequestType, *SentRequest, contact.C
 		return Receive, nil, *r.receive, nil
 	default:
 		return 0, nil, contact.Contact{},
-			errors.Errorf("invalid Type: %d", r.rt)
+			errors.Errorf("invalid Tag: %d", r.rt)
 	}
 }
 

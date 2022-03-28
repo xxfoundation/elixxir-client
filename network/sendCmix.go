@@ -12,8 +12,8 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -32,55 +32,41 @@ import (
 	"time"
 )
 
-
-type StandardSendable struct{
-	Recipient *id.ID
-	Payload []byte
-	Fingerprint format.Fingerprint
-	Trigger StandardTrigger
-}
-
-type StandardTrigger struct{
-	Preimage
-	Type   string
-	Source []byte
-	crystal []byte
-}
-
-func (t *trigger)Crystalize()[]byte{
-	if t.crystal==nil{
-		t.crystal=t.generate()
-	}
-	return copy(t.crystal)
-}
-
-type Sendable interface{
-	GetRecipient()*id.ID
-	GetPayload()[]byte
-	GetMac()[]byte
-	GetFingerprint()format.Fingerprint
-	GetTriggerPreimage()PreimagePrefix
-}
-
-type Trigger interface{
-	GetPreimage()[]byte
-	GetSource()format.Fingerprint
-	GetType()string
-	Crystalize()[]byte
-}
-
-
 // SendCMIX sends a "raw" CMIX message payload to the provided recipient.
 // Returns the round ID of the round the payload was sent or an error
 // if it fails.
-func (m *manager) SendCMIX(message Sendable, cmixParams CMIXParams) (id.Round, ephemeral.Id, error) {
+// This does not have end to end encryption on it and is used exclusively as a
+// send for higher order cryptographic protocols. Do not use unless implementing
+// a protocol on top.
+//   recipient - cMix ID of the recipient
+//   fingerprint - Key Fingerprint. 256 bit field to store a 255 bit
+//      fingerprint, highest order bit must be 0 (panic otherwise). If your
+//      system does not use key fingerprints, this must be random bits.
+//   service - Reception Service. The backup way for a client to identify
+//      messages on receipt via trial hashing and to identify notifications.
+//      If unused, use messages.RandomService to fill the field with random data
+//   payload - Contents of the message. Cannot exceed the payload size for a
+//      cMix message (panic otherwise).
+//   mac - 256 bit field to store a 255 bit mac, highest order bit must be 0
+//      (panic otherwise). If used, fill with random bits.
+// Will return an error if the network is unhealthy or if it fails to send
+// (along with the reason). Blocks until successful send or err.
+// WARNING: Do not roll your own crypto
+func (m *manager) SendCMIX(recipient *id.ID, fingerprint format.Fingerprint, service message.Service,
+	payload, mac []byte, cmixParams CMIXParams) (id.Round, ephemeral.Id, error) {
 	if !m.Monitor.IsHealthy() {
 		return 0, ephemeral.Id{}, errors.New("Cannot send cmix message when the " +
 			"network is not healthy")
 	}
 
-	msgCopy := msg.Copy()
-	return sendCmixHelper(m.Sender, msgCopy, recipient, cmixParams, m.instance,
+	//Build message. Will panic if inputs are not correct.
+	msg := format.NewMessage(m.session.GetCmixGroup().GetP().ByteLen())
+	msg.SetKeyFP(fingerprint)
+	msg.SetContents(payload)
+	msg.SetMac(mac)
+	msg.SetSIH(service.Hash(msg.GetContents()))
+
+	return sendCmixHelper(m.Sender, msg, recipient, cmixParams, m.instance,
 		m.session.GetCmixGroup(), m.Registrar, m.rng, m.events,
 		m.session.GetTransmissionID(), m.comms)
 }
@@ -184,7 +170,7 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message,
 		// Build the messages to send
 
 		wrappedMsg, encMsg, ephID, err := buildSlotMessage(msg, recipient,
-			firstGateway, stream, senderId, bestRound, roundKeys, cmixParams)
+			firstGateway, stream, senderId, bestRound, roundKeys)
 		if err != nil {
 			return 0, ephemeral.Id{}, err
 		}

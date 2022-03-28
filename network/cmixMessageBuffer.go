@@ -5,12 +5,13 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package utility
+package network
 
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -25,6 +26,7 @@ type cmixMessageHandler struct{}
 type storedMessage struct {
 	Msg       []byte
 	Recipient []byte
+	Params    []byte
 }
 
 func (sm storedMessage) Marshal() []byte {
@@ -79,12 +81,12 @@ func (cmh *cmixMessageHandler) DeleteMessage(kv *versioned.KV, key string) error
 }
 
 // HashMessage generates a hash of the message.
-func (cmh *cmixMessageHandler) HashMessage(m interface{}) MessageHash {
+func (cmh *cmixMessageHandler) HashMessage(m interface{}) utility.MessageHash {
 	h, _ := blake2b.New256(nil)
 
 	h.Write(m.(storedMessage).Marshal())
 
-	var messageHash MessageHash
+	var messageHash utility.MessageHash
 	copy(messageHash[:], h.Sum(nil))
 
 	return messageHash
@@ -93,11 +95,11 @@ func (cmh *cmixMessageHandler) HashMessage(m interface{}) MessageHash {
 // CmixMessageBuffer wraps the message buffer to store and load raw cmix
 // messages.
 type CmixMessageBuffer struct {
-	mb *MessageBuffer
+	mb *utility.MessageBuffer
 }
 
 func NewCmixMessageBuffer(kv *versioned.KV, key string) (*CmixMessageBuffer, error) {
-	mb, err := NewMessageBuffer(kv, &cmixMessageHandler{}, key)
+	mb, err := utility.NewMessageBuffer(kv, &cmixMessageHandler{}, key)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +108,7 @@ func NewCmixMessageBuffer(kv *versioned.KV, key string) (*CmixMessageBuffer, err
 }
 
 func LoadCmixMessageBuffer(kv *versioned.KV, key string) (*CmixMessageBuffer, error) {
-	mb, err := LoadMessageBuffer(kv, &cmixMessageHandler{}, key)
+	mb, err := utility.LoadMessageBuffer(kv, &cmixMessageHandler{}, key)
 	if err != nil {
 		return nil, err
 	}

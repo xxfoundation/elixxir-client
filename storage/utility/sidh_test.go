@@ -50,7 +50,7 @@ func TestStoreLoadDeleteSIDHPublicKey(t *testing.T) {
 		t.Errorf("Should not load deleted key: %+v", err)
 	}
 
-	// Now do the same for Type B keys
+	// Now do the same for Tag B keys
 
 	x2 := NewSIDHPublicKey(sidh.KeyVariantSidhB)
 	p2 := NewSIDHPrivateKey(sidh.KeyVariantSidhB)
@@ -114,7 +114,7 @@ func TestStoreLoadDeleteSIDHPrivateKey(t *testing.T) {
 		t.Errorf("Should not load deleted key: %+v", err)
 	}
 
-	// Now do the same for Type B keys
+	// Now do the same for Tag B keys
 
 	p2 := NewSIDHPrivateKey(sidh.KeyVariantSidhB)
 	p2.Generate(myRng)

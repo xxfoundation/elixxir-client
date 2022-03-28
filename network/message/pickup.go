@@ -9,7 +9,6 @@ package message
 
 import (
 	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -29,15 +28,15 @@ type Handler interface {
 	CheckInProgressMessages()
 
 	// Fingerprints
-	AddFingerprint(clientID *id.ID, fingerprint format.Fingerprint, mp interfaces.MessageProcessor) error
+	AddFingerprint(clientID *id.ID, fingerprint format.Fingerprint, mp Processor) error
 	DeleteFingerprint(clientID *id.ID, fingerprint format.Fingerprint)
 	DeleteClientFingerprints(clientID *id.ID)
 
 	// Triggers
-	AddTrigger(clientID *id.ID, newTrigger interfaces.Trigger, response interfaces.MessageProcessor)
-	DeleteTrigger(clientID *id.ID, preimage interfaces.Preimage, response interfaces.MessageProcessor) error
-	DeleteClientTriggers(clientID *id.ID)
-	TrackTriggers(triggerTracker interfaces.TriggerTracker)
+	AddService(clientID *id.ID, newService Service, response Processor)
+	DeleteService(clientID *id.ID, toDelete Service, response Processor)
+	DeleteClientService(clientID *id.ID)
+	TrackServices(triggerTracker ServicesTracker)
 }
 
 type handler struct {
@@ -51,7 +50,7 @@ type handler struct {
 	events event.Manager
 
 	FingerprintsManager
-	TriggersManager
+	ServicesManager
 }
 
 func NewHandler(param Params, kv *versioned.KV, events event.Manager) Handler {
@@ -70,7 +69,7 @@ func NewHandler(param Params, kv *versioned.KV, events event.Manager) Handler {
 	}
 
 	m.FingerprintsManager = *newFingerprints()
-	m.TriggersManager = *NewTriggers()
+	m.ServicesManager = *NewServices()
 	return &m
 }
 

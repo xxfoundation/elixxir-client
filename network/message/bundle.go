@@ -8,7 +8,7 @@
 package message
 
 import (
-	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/network/identity/receptionID"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -19,5 +19,5 @@ type Bundle struct {
 	RoundInfo *pb.RoundInfo
 	Messages  []format.Message
 	Finish    func()
-	Identity  interfaces.EphemeralIdentity
+	Identity  receptionID.EphemeralIdentity
 }

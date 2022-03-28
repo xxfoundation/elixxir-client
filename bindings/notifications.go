@@ -50,7 +50,7 @@ func (mnfmr *ManyNotificationForMeReport) Len() int {
 
 // NotificationsForMe Check if a notification received is for me
 // It returns a NotificationForMeReport which contains a ForMe bool stating if it is for the caller,
-// a Type, and a source. These are as follows:
+// a Tag, and a source. These are as follows:
 //	TYPE       	SOURCE				DESCRIPTION
 // 	"default"	recipient user ID	A message with no association
 //	"request"	sender user ID		A channel request has been received

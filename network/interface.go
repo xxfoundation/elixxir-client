@@ -1,7 +1,7 @@
 package network
 
 import (
-	"gitlab.com/elixxir/client/network/identity/receptionID"
+	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
@@ -22,18 +22,55 @@ type Manager interface {
 
 	/*===Sending==============================================================*/
 
+	// GetMaxMessageLength returns the max message size for the current network
+	GetMaxMessageLength() int
+
 	// SendCMIX sends a "raw" CMIX message payload to the provided recipient.
 	// Returns the round ID of the round the payload was sent or an error
 	// if it fails.
+	// This does not have end to end encryption on it and is used exclusively as a
+	// send for higher order cryptographic protocols. Do not use unless implementing
+	// a protocol on top.
+	//   recipient - cMix ID of the recipient
+	//   fingerprint - Key Fingerprint. 256 bit field to store a 255 bit
+	//      fingerprint, highest order bit must be 0 (panic otherwise). If your
+	//      system does not use key fingerprints, this must be random bits.
+	//   service - Reception Service. The backup way for a client to identify
+	//      messages on receipt via trial hashing and to identify notifications.
+	//      If unused, use messages.RandomService to fill the field with random data
+	//   payload - Contents of the message. Cannot exceed the payload size for a
+	//      cMix message (panic otherwise).
+	//   mac - 256 bit field to store a 255 bit mac, highest order bit must be 0
+	//      (panic otherwise). If used, fill with random bits.
+	// Will return an error if the network is unhealthy or if it fails to send
+	// (along with the reason). Blocks until successful send or err.
+	// WARNING: Do not roll your own crypto
 	SendCMIX(message format.Message, recipient *id.ID, p CMIXParams) (
 		id.Round, ephemeral.Id, error)
 
-	// SendManyCMIX sends many "raw" cMix message payloads to each of the provided
-	// recipients. Used to send messages in group chats. Metadata is NOT as well
-	// protected with this call and can leak data about yourself. Should be
-	// replaced with multiple uses of SendCmix in most cases. Returns the round
-	// ID of the round the payload was sent or an error if it fails.
-	// WARNING: Potentially Unsafe
+	// SendManyCMIX sends many "raw" CMIX message payloads to the provided
+	// recipients all in the same round.
+	// Returns the round ID of the round the payloads was sent or an error
+	// if it fails.
+	// This does not have end to end encryption on it and is used exclusively as a
+	// send for higher order cryptographic protocols. Do not use unless implementing
+	// a protocol on top.
+	// Due to sending multiple payloads, this leaks more metadata than a standard
+	// cmix send and should be in general avoided.
+	//   recipient - cMix ID of the recipient
+	//   fingerprint - Key Fingerprint. 256 bit field to store a 255 bit
+	//      fingerprint, highest order bit must be 0 (panic otherwise). If your
+	//      system does not use key fingerprints, this must be random bits.
+	//   service - Reception Service. The backup way for a client to identify
+	//      messages on receipt via trial hashing and to identify notifications.
+	//      If unused, use messages.RandomService to fill the field with random data
+	//   payload - Contents of the message. Cannot exceed the payload size for a
+	//      cMix message (panic otherwise).
+	//   mac - 256 bit field to store a 255 bit mac, highest order bit must be 0
+	//      (panic otherwise). If used, fill with random bits.
+	// Will return an error if the network is unhealthy or if it fails to send
+	// (along with the reason). Blocks until successful send or err.
+	// WARNING: Do not roll your own crypto
 	SendManyCMIX(messages []TargetedCmixMessage, p CMIXParams) (
 		id.Round, []ephemeral.Id, error)
 
@@ -60,7 +97,7 @@ type Manager interface {
 	// AddFingerprint - Adds a fingerprint which will be handled by a
 	// specific processor for messages received by the given identity
 	AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,
-		mp MessageProcessor) error
+		mp message.Processor) error
 
 	// DeleteFingerprint deletes a single fingerprint associated with the given
 	// identity if it exists
@@ -70,11 +107,11 @@ type Manager interface {
 	// identity if it exists
 	DeleteClientFingerprints(identity *id.ID)
 
-	/* trigger - predefined hash based tags appended to all cMix messages
+	/* Service - predefined hash based tags appended to all cMix messages
 	which, though trial hashing, are used to determine if a message applies
 	to this client
 
-	Triggers are used for 2 purposes - They can be processed by the
+	Services are used for 2 purposes - They can be processed by the
 	notifications system, or can be used to implement custom non fingerprint
 	processing of payloads. I.E. key negotiation, broadcast negotiation
 
@@ -85,41 +122,38 @@ type Manager interface {
 	messages are for the client on reception (which is normally hidden due to
 	collision between ephemeral IDs.
 
-	Due to the extra overhead of trial hashing, triggers are processed after fingerprints.
-	If a fingerprint match occurs on the message, triggers will not be handled.
+	Due to the extra overhead of trial hashing, services  are processed after
+	fingerprints. If a fingerprint match occurs on the message, services will
+	not be handled.
 
-	Triggers are address to the session. When starting a new client, all triggers must be
-	re-added before StartNetworkFollower is called.
+	Services are address to the session. When starting a new client, all
+	services must be re-added before StartNetworkFollower is called.
 	*/
 
-	// AddTrigger - Adds a trigger which can call a message handing function or
-	// be used for notifications. Multiple triggers can be registered for the
-	// same preimage.
+	// AddService adds a service which can call a message handing function or be
+	// used for notifications. In general a single service can only be registered
+	// for the same identifier/tag pair.
 	//   preimage - the preimage which is triggered on
-	//   type - a descriptive string of the trigger. Generally used in notifications
+	//   type - a descriptive string of the service. Generally used in notifications
 	//   source - a byte buffer of related data. Generally used in notifications.
 	//     Example: Sender ID
-	AddTrigger(identity *id.ID, newTrigger Trigger, response MessageProcessor)
+	AddService(AddService *id.ID, newService message.Service, response message.Processor)
 
-	// DeleteTrigger - If only a single response is associated with the
-	// preimage, the entire preimage is removed. If there is more than one
-	// response, only the given response is removed if nil is passed in for
-	// response, all triggers for the preimage will be removed
-	DeleteTrigger(identity *id.ID, preimage Preimage, response MessageProcessor) error
+	// DeleteService - If only a single response is associated with the preimage,
+	// the entire preimage is removed. If there is more than one response, only the
+	// given response is removed. If nil is passed in for response, all triggers for
+	// the preimage will be removed.
+	DeleteService(clientID *id.ID, toDelete message.Service, processor message.Processor)
 
-	// DeleteClientTriggers - deletes all triggers assoseated with the given identity
-	DeleteClientTriggers(identity *id.ID)
+	// DeleteClientService deletes the mapping associated with an ID.
+	DeleteClientService(clientID *id.ID)
 
-	// TrackTriggers - Registers a callback which will get called every time triggers change.
+	// TrackServices - Registers a callback which will get called every time a
+	// service is added or removed.
 	// It will receive the triggers list every time it is modified.
 	// Will only get callbacks while the Network Follower is running.
 	// Multiple trackTriggers can be registered
-	TrackTriggers(TriggerTracker)
-
-
-	//Dropped Messages Pickup
-	RegisterDroppedMessagesPickup(response MessageProcessor)
-	DenoteReception(msgId uint)
+	TrackServices(tracker message.ServicesTracker)
 
 	/* In inProcess */
 	// it is possible to receive a message over cMix before the fingerprints or
@@ -226,28 +260,6 @@ type Manager interface {
 
 	// GetVerboseRounds returns stringification of verbose round info
 	GetVerboseRounds() string
-}
-
-type Preimage [32]byte
-
-type Trigger struct {
-	Preimage
-	Type   string
-	Source []byte
-}
-
-type TriggerTracker func(triggers []Trigger)
-
-type MessageProcessor interface {
-	// Process decrypts and hands off the message to its internal down
-	// stream message processing system.
-	// CRITICAL: Fingerprints should never be used twice. Process must
-	// denote, in long term storage, usage of a fingerprint and that
-	// fingerprint must not be added again during application load.
-	// It is a security vulnerability to reuse a fingerprint. It leaks
-	// privacy and can lead to compromise of message contents and integrity.
-	Process(message format.Message, receptionID receptionID.EphemeralIdentity,
-		round *mixmessages.RoundInfo)
 }
 
 type ClientErrorReport func(source, message, trace string)

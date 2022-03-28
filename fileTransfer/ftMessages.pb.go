@@ -35,7 +35,7 @@ type NewFileTransfer struct {
 	unknownFields protoimpl.UnknownFields
 
 	FileName    string  `protobuf:"bytes,1,opt,name=fileName,proto3" json:"fileName,omitempty"`       // Name of the file; max 48 characters
-	FileType    string  `protobuf:"bytes,2,opt,name=fileType,proto3" json:"fileType,omitempty"`       // Type of file; max 8 characters
+	FileType    string  `protobuf:"bytes,2,opt,name=fileType,proto3" json:"fileType,omitempty"`       // Tag of file; max 8 characters
 	TransferKey []byte  `protobuf:"bytes,3,opt,name=transferKey,proto3" json:"transferKey,omitempty"` // 256 bit encryption key to identify the transfer
 	TransferMac []byte  `protobuf:"bytes,4,opt,name=transferMac,proto3" json:"transferMac,omitempty"` // 256 bit MAC of the entire file
 	NumParts    uint32  `protobuf:"varint,5,opt,name=numParts,proto3" json:"numParts,omitempty"`      // Number of file parts

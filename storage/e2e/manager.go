@@ -197,7 +197,7 @@ func (m *Manager) GetKeyForSending(st params.SendType) (*Key, error) {
 	default:
 	}
 
-	return nil, errors.Errorf("Cannot get session for invalid Send Type: %s", st)
+	return nil, errors.Errorf("Cannot get session for invalid Send Tag: %s", st)
 }
 
 // GetPartnerID returns a copy of the ID of the partner.

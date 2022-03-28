@@ -7,6 +7,7 @@
 
 package utility
 
+/*
 import (
 	"encoding/binary"
 	"encoding/json"
@@ -164,3 +165,4 @@ func (emb *E2eMessageBuffer) Failed(m message.Send, p params.E2E) {
 	emb.mb.Failed(e2eMessage{m.Recipient.Marshal(),
 		m.Payload, uint32(m.MessageType), p})
 }
+*/

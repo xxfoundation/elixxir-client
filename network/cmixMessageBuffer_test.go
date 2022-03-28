@@ -97,61 +97,66 @@ func TestCmixMessageBuffer_Smoke(t *testing.T) {
 	testMsgs, ids, _ := makeTestCmixMessages(2)
 
 	// Create new buffer
-	cmb, err := NewCmixMessageBuffer(versioned.NewKV(make(ekv.Memstore)), "testKey")
+	cmb, err := NewOrLoadCmixMessageBuffer(versioned.NewKV(make(ekv.Memstore)), "testKey")
 	if err != nil {
 		t.Errorf("NewCmixMessageBuffer() returned an error."+
 			"\n\texpected: %v\n\trecieved: %v", nil, err)
 	}
 
 	// Add two messages
-	cmb.Add(testMsgs[0], ids[0])
-	cmb.Add(testMsgs[1], ids[1])
+	cmb.Add(testMsgs[0], ids[0], GetDefaultCMIXParams())
+	cmb.Add(testMsgs[1], ids[1], GetDefaultCMIXParams())
 
-	if len(cmb.mb.messages) != 2 {
+	if cmb.mb.Len() != 2 {
 		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
-			2, len(cmb.mb.messages))
+			2, cmb.mb.Len())
 	}
 
-	msg, rid, exists := cmb.Next()
+	msg, rid, _, exists := cmb.Next()
 	if !exists {
 		t.Error("Next() did not find any messages in buffer.")
 	}
 	cmb.Succeeded(msg, rid)
 
-	if len(cmb.mb.messages) != 1 {
+	l := cmb.mb.Len()
+	if l != 1 {
 		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
-			1, len(cmb.mb.messages))
+			1, l)
 	}
 
-	msg, rid, exists = cmb.Next()
+	msg, rid, _, exists = cmb.Next()
 	if !exists {
 		t.Error("Next() did not find any messages in buffer.")
 	}
-	if len(cmb.mb.messages) != 0 {
+
+	l = cmb.mb.Len()
+	if l != 0 {
 		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
-			0, len(cmb.mb.messages))
+			0, l)
 	}
 	cmb.Failed(msg, rid)
 
-	if len(cmb.mb.messages) != 1 {
+	l = cmb.mb.Len()
+	if l != 1 {
 		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
-			1, len(cmb.mb.messages))
+			1, l)
 	}
 
-	msg, rid, exists = cmb.Next()
+	msg, rid, _, exists = cmb.Next()
 	if !exists {
 		t.Error("Next() did not find any messages in buffer.")
 	}
 	cmb.Succeeded(msg, rid)
 
-	msg, rid, exists = cmb.Next()
+	msg, rid, _, exists = cmb.Next()
 	if exists {
 		t.Error("Next() found a message in the buffer when it should be empty.")
 	}
 
-	if len(cmb.mb.messages) != 0 {
+	l = cmb.mb.Len()
+	if l != 0 {
 		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
-			0, len(cmb.mb.messages))
+			0, l)
 	}
 
 }

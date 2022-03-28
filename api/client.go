@@ -96,8 +96,7 @@ func NewClient(ndfJSON, storageDir string, password []byte,
 	protoUser := createNewUser(rngStreamGen, cmixGrp, e2eGrp)
 	jww.DEBUG.Printf("User generation took: %s", time.Now().Sub(start))
 
-	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
-		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
+	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser, cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
 	if err != nil {
 		return err
 	}
@@ -127,8 +126,7 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
 
 	protoUser := createPrecannedUser(precannedID, rngStream, cmixGrp, e2eGrp)
 
-	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
-		cmixGrp, e2eGrp, rngStreamGen, true, "")
+	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser, cmixGrp, e2eGrp, rngStreamGen, true, "")
 	if err != nil {
 		return err
 	}
@@ -157,8 +155,7 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 
 	protoUser := createNewVanityUser(rngStream, cmixGrp, e2eGrp, userIdPrefix)
 
-	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
-		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
+	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser, cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
 	if err != nil {
 		return err
 	}
@@ -167,17 +164,19 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 	return nil
 }
 
-// NewClientFromBackup constructs a new Client from an encrypted backup. The backup
-// is decrypted using the backupPassphrase. On success a successful client creation,
-// the function will return a JSON encoded list of the E2E partners
-// contained in the backup and a json-encoded string containing parameters stored in the backup
+// NewClientFromBackup constructs a new Client from an encrypted backup.
+// The backup is decrypted using the backupPassphrase. On success a
+// successful client creation, the function will return a JSON encoded
+// list of the E2E partners contained in the backup and a json-encoded
+//string containing parameters stored in the backup.
 func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 	backupPassphrase []byte, backupFileContents []byte) ([]*id.ID, string, error) {
 
 	backUp := &backup.Backup{}
 	err := backUp.Decrypt(string(backupPassphrase), backupFileContents)
 	if err != nil {
-		return nil, "", errors.WithMessage(err, "Failed to unmarshal decrypted client contents.")
+		return nil, "", errors.WithMessage(err, "Failed to "+
+			"unmarshal decrypted client contents.")
 	}
 
 	usr := user.NewUserFromBackup(backUp)
@@ -195,15 +194,17 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 
 	// Create storage object.
 	// Note we do not need registration
-	storageSess, err := checkVersionAndSetupStorage(def, storageDir, []byte(sessionPassword), usr,
-		cmixGrp, e2eGrp, rngStreamGen, false, backUp.RegistrationCode)
+	storageSess, err := checkVersionAndSetupStorage(def, storageDir, []byte(sessionPassword), usr, cmixGrp, e2eGrp, rngStreamGen, false, backUp.RegistrationCode)
 
 	// Set registration values in storage
-	storageSess.User().SetReceptionRegistrationValidationSignature(backUp.ReceptionIdentity.RegistrarSignature)
-	storageSess.User().SetTransmissionRegistrationValidationSignature(backUp.TransmissionIdentity.RegistrarSignature)
+	storageSess.User().SetReceptionRegistrationValidationSignature(backUp.
+		ReceptionIdentity.RegistrarSignature)
+	storageSess.User().SetTransmissionRegistrationValidationSignature(backUp.
+		TransmissionIdentity.RegistrarSignature)
 	storageSess.User().SetRegistrationTimestamp(backUp.RegistrationTimestamp)
 
-	//move the registration state to indicate registered with registration on proto client
+	//move the registration state to indicate registered with registration
+	//on proto client
 	err = storageSess.ForwardRegistrationStatus(storage.PermissioningComplete)
 	if err != nil {
 		return nil, "", err
@@ -278,8 +279,7 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
 	usr := user.NewUserFromProto(protoUser)
 
 	// Set up storage
-	storageSess, err := checkVersionAndSetupStorage(def, storageDir, password, usr,
-		cmixGrp, e2eGrp, rngStreamGen, false, protoUser.RegCode)
+	storageSess, err := checkVersionAndSetupStorage(def, storageDir, password, usr, cmixGrp, e2eGrp, rngStreamGen, false, protoUser.RegCode)
 	if err != nil {
 		return err
 	}
@@ -939,8 +939,7 @@ func decodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 // checkVersionAndSetupStorage is common code shared by NewClient, NewPrecannedClient and NewVanityClient
 // it checks client version and creates a new storage for user data
 func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
-	storageDir string, password []byte,
-	protoUser user.User,
+	storageDir string, password []byte, protoUser user.User,
 	cmixGrp, e2eGrp *cyclic.Group, rngStreamGen *fastRNG.StreamGenerator,
 	isPrecanned bool, registrationCode string) (*storage.Session, error) {
 	// Get current client version

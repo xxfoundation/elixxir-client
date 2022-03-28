@@ -106,6 +106,68 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 	return m, nil
 }
 
+// NewManagerFromBackup builds a new user discover manager from a backup.
+// It will construct a manager that is already registered and restore
+// already registered facts into store.
+func NewManagerFromBackup(client *api.Client, single *single.Manager,
+	fl fact.FactList) (*Manager, error) {
+	jww.INFO.Println("ud.NewManager()")
+	if client.NetworkFollowerStatus() != api.Running {
+		return nil, errors.New(
+			"cannot start UD Manager when network follower is not running.")
+	}
+
+	m := &Manager{
+		client:  client,
+		comms:   client.GetComms(),
+		rng:     client.GetRng(),
+		sw:      client.GetSwitchboard(),
+		storage: client.GetStorage(),
+		net:     client.GetNetworkInterface(),
+		single:  single,
+	}
+
+	err := m.client.GetStorage().GetUd().
+		RestoreFromBackUp(fl)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to restore UD store "+
+			"from backup")
+	}
+
+	// check that user discovery is available in the NDF
+	def := m.net.GetInstance().GetPartialNdf().Get()
+
+	if def.UDB.Cert == "" {
+		return nil, errors.New("NDF does not have User Discovery information, " +
+			"is there network access?: Cert not present.")
+	}
+
+	// Create the user discovery host object
+	hp := connect.GetDefaultHostParams()
+	// Client will not send KeepAlive packets
+	hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
+	hp.MaxRetries = 3
+	hp.SendTimeout = 3 * time.Second
+	hp.AuthEnabled = false
+
+	m.myID = m.storage.User().GetCryptographicIdentity().GetReceptionID()
+
+	// Get the commonly used data from storage
+	m.privKey = m.storage.GetUser().ReceptionRSA
+
+	// Set as registered. Since it's from a backup,
+	// the client is already registered
+	if err = m.setRegistered(); err != nil {
+		return nil, errors.WithMessage(err, "failed to set client as "+
+			"registered with user discovery.")
+	}
+
+	// Store the pointer to the group locally for easy access
+	m.grp = m.storage.E2e().GetGroup()
+
+	return m, nil
+}
+
 // SetAlternativeUserDiscovery sets the alternativeUd object within manager.
 // Once set, any user discovery operation will go through the alternative
 // user discovery service.

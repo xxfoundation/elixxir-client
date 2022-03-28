@@ -24,5 +24,5 @@ type Receive struct {
 	RoundId        id.Round
 	RoundTimestamp time.Time
 	Timestamp      time.Time // Message timestamp of when the user sent
-	Encryption     EncryptionType
+	Encryption     string
 }

@@ -104,7 +104,7 @@ func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 	for i := uint(0); i < numParallel; i++ {
 		stop := stoppable.NewSingle(fmt.Sprintf("NodeRegistration %d", i))
 
-		go registerNodes(r, stop, inProgress, attempts)
+		go registerNodes(r, r.session, stop, inProgress, attempts)
 		multi.Add(stop)
 	}
 

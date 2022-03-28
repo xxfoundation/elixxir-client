@@ -15,7 +15,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/user"
+	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -36,13 +36,8 @@ import (
 	"time"
 )
 
-func registerNodes(r *registrar, stop *stoppable.Single, inProgress, attempts *sync.Map) {
-	u := r.session.User()
-	regSignature := u.GetTransmissionRegistrationValidationSignature()
-	// Timestamp in which user has registered with registration
-	regTimestamp := u.GetRegistrationTimestamp().UnixNano()
-	uci := u.GetCryptographicIdentity()
-
+func registerNodes(r *registrar, s storage.Session, stop *stoppable.Single,
+	inProgress, attempts *sync.Map) {
 	interval := time.Duration(500) * time.Millisecond
 	t := time.NewTicker(interval)
 	for {
@@ -82,8 +77,7 @@ func registerNodes(r *registrar, stop *stoppable.Single, inProgress, attempts *s
 				jww.DEBUG.Printf("Skipping registration with stale nodes %s", nidStr)
 				continue
 			}
-			err = registerWithNode(r.sender, r.comms, gw, regSignature,
-				regTimestamp, uci, r, rng, stop)
+			err = registerWithNode(r.sender, r.comms, gw, s, r, rng, stop)
 			inProgress.Delete(nidStr)
 			if err != nil {
 				jww.ERROR.Printf("Failed to register nodes: %+v", err)
@@ -105,9 +99,8 @@ func registerNodes(r *registrar, stop *stoppable.Single, inProgress, attempts *s
 
 // registerWithNode serves as a helper for RegisterWithNodes.
 // It registers a user with a specific in the client's NDF.
-func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
-	ngw network.NodeGateway, regSig []byte, registrationTimestampNano int64,
-	uci *user.CryptographicIdentity, r *registrar, rng csprng.Source,
+func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
+	ngw network.NodeGateway, s storage.Session, r *registrar, rng csprng.Source,
 	stop *stoppable.Single) error {
 
 	nodeID, err := ngw.Node.GetNodeId()
@@ -126,8 +119,8 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	var validUntil uint64
 	var keyId []byte
 	// TODO: should move this to a precanned user initialization
-	if uci.IsPrecanned() {
-		userNum := int(uci.GetTransmissionID().Bytes()[7])
+	if s.IsPrecanned() {
+		userNum := int(s.GetTransmissionID().Bytes()[7])
 		h := sha256.New()
 		h.Reset()
 		h.Write([]byte(strconv.Itoa(4000 + userNum)))
@@ -136,8 +129,8 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 		jww.INFO.Printf("transmissionKey: %v", transmissionKey.Bytes())
 	} else {
 		// Request key from server
-		transmissionKey, keyId, validUntil, err = requestKey(sender, comms, ngw,
-			regSig, registrationTimestampNano, uci, r, rng, stop)
+		transmissionKey, keyId, validUntil, err = requestKey(
+			sender, comms, ngw, s, r, rng, stop)
 
 		if err != nil {
 			return errors.Errorf("Failed to request key: %+v", err)
@@ -152,9 +145,8 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	return nil
 }
 
-func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
-	ngw network.NodeGateway, regSig []byte, registrationTimestampNano int64,
-	uci *user.CryptographicIdentity, r *registrar, rng csprng.Source,
+func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
+	ngw network.NodeGateway, s storage.Session, r *registrar, rng csprng.Source,
 	stop *stoppable.Single) (*cyclic.Int, []byte, uint64, error) {
 
 	grp := r.session.GetCmixGroup()
@@ -172,10 +164,10 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	dhPub := diffieHellman.GeneratePublicKey(dhPriv, grp)
 
 	// Reconstruct client confirmation message
-	userPubKeyRSA := rsa.CreatePublicKeyPem(uci.GetTransmissionRSA().GetPublic())
+	userPubKeyRSA := rsa.CreatePublicKeyPem(s.GetTransmissionRSA().GetPublic())
 	confirmation := &pb.ClientRegistrationConfirmation{
 		RSAPubKey: string(userPubKeyRSA),
-		Timestamp: registrationTimestampNano,
+		Timestamp: s.GetRegistrationTimestamp().UnixNano(),
 	}
 	confirmationSerialized, err := proto.Marshal(confirmation)
 	if err != nil {
@@ -183,13 +175,14 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	}
 
 	keyRequest := &pb.ClientKeyRequest{
-		Salt: uci.GetTransmissionSalt(),
+		Salt: s.GetTransmissionSalt(),
 		ClientTransmissionConfirmation: &pb.SignedRegistrationConfirmation{
-			RegistrarSignature:             &messages.RSASignature{Signature: regSig},
+			RegistrarSignature: &messages.RSASignature{
+				Signature: s.GetTransmissionRegistrationValidationSignature()},
 			ClientRegistrationConfirmation: confirmationSerialized,
 		},
 		ClientDHPubKey:        dhPub.Bytes(),
-		RegistrationTimestamp: registrationTimestampNano,
+		RegistrationTimestamp: s.GetRegistrationTimestamp().UnixNano(),
 		RequestTimestamp:      netTime.Now().UnixNano(),
 	}
 
@@ -205,7 +198,7 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	data := h.Sum(nil)
 
 	// Sign DH pubkey
-	clientSig, err := rsa.Sign(rng, uci.GetTransmissionRSA(), opts.Hash,
+	clientSig, err := rsa.Sign(rng, s.GetTransmissionRSA(), opts.Hash,
 		data, opts)
 	if err != nil {
 		return nil, nil, 0, err

@@ -9,10 +9,7 @@ package rounds
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
-	"gitlab.com/elixxir/client/network/pickup"
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/testkeys"
@@ -30,15 +27,13 @@ func newManager(face interface{}) *manager {
 	sess1 := storage.InitTestingSession(face)
 
 	testManager := &manager{
-		params:              params.GetDefaultRounds(),
-		lookupRoundMessages: make(chan pickup.roundLookup),
+		params:              GetDefaultParams(),
+		lookupRoundMessages: make(chan roundLookup),
 		messageBundles:      make(chan message.Bundle),
-		Internal: internal.Internal{
-			Session:        sess1,
-			TransmissionID: sess1.GetUser().TransmissionID,
-			Rng:            fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		},
+		session:             sess1,
+		rng:                 fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 	}
+
 	return testManager
 }
 

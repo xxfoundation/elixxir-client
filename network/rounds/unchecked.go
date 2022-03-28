@@ -9,7 +9,7 @@ package rounds
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/network/rounds/store"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/xx_network/primitives/id"
@@ -61,7 +61,7 @@ func (m *manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 				}
 				jww.INFO.Printf("Round %d due for a message lookup, retrying...", rid)
 				//check if it needs to be processed by historical Rounds
-				m.GetMessagesFromRound(rid, interfaces.EphemeralIdentity{
+				m.GetMessagesFromRound(rid, receptionID.EphemeralIdentity{
 					EphId:  rnd.EpdId,
 					Source: rnd.Source,
 				})

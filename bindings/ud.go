@@ -46,6 +46,48 @@ func NewUserDiscovery(client *Client) (*UserDiscovery, error) {
 	}
 }
 
+// NewUserDiscoveryFromBackup returns a new user discovery object. It
+// wil set up the manager with the backup data. Pass into it the backed up
+// facts, one email, phone and username each.
+// Only call this once. It must be called after StartNetworkFollower
+// is called and will fail if the network has never been contacted.
+// This function technically has a memory leak because it causes both sides of
+// the bindings to think the other is in charge of the client object.
+// In general this is not an issue because the client object should exist
+// for the life of the program.
+// This must be called while start network follower is running.
+func NewUserDiscoveryFromBackup(client *Client,
+	email, phone, username string) (*UserDiscovery, error) {
+	single, err := client.getSingle()
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
+	}
+	userFact, err := fact.NewFact(fact.Username, username)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "Failed to parse "+
+			"stringified username fact %q", username)
+	}
+
+	emailFact, err := fact.NewFact(fact.Email, email)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "Failed to parse "+
+			"stringified email fact %q", email)
+	}
+
+	phoneFact, err := fact.NewFact(fact.Phone, phone)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "Failed to parse "+
+			"stringified phone fact %q", phone)
+	}
+
+	m, err := ud.NewManagerFromBackup(&client.api, single, fact.FactList{userFact, emailFact, phoneFact})
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
+	} else {
+		return &UserDiscovery{ud: m}, nil
+	}
+}
+
 // Register registers a user with user discovery. Will return an error if the
 // network signatures are malformed or if the username is taken. Usernames
 // cannot be changed after registration at this time. Will fail if the user is

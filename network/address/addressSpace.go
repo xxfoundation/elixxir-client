@@ -13,9 +13,8 @@ const (
 	initSize = 1
 )
 
-// Space contains the current address space size used for creating
-// address IDs and the infrastructure to alert other processes when an Update
-// occurs.
+// Space contains the current address space size used for creating address IDs
+// and the infrastructure to alert other processes when an update occurs.
 type Space interface {
 	GetAddressSpace() uint8
 	GetAddressSpaceWithoutWait() uint8
@@ -30,7 +29,7 @@ type space struct {
 	cond      *sync.Cond
 }
 
-// NewAddressSpace initialises a new AddressSpace and returns it.
+// NewAddressSpace initialises a new Space and returns it.
 func NewAddressSpace() Space {
 	return &space{
 		size:      initSize,
@@ -39,8 +38,8 @@ func NewAddressSpace() Space {
 	}
 }
 
-// GetAddressSpace returns the current address space size. It blocks until an address space
-// size is set.
+// GetAddressSpace returns the current address space size. It blocks until an
+// address space size is set.
 func (as *space) GetAddressSpace() uint8 {
 	as.cond.L.Lock()
 	defer as.cond.L.Unlock()
@@ -56,18 +55,18 @@ func (as *space) GetAddressSpace() uint8 {
 	return as.size
 }
 
-// GetAddressSpaceWithoutWait returns the current address space size regardless if it has
-// been set yet.
+// GetAddressSpaceWithoutWait returns the current address space size regardless
+// if it has been set yet.
 func (as *space) GetAddressSpaceWithoutWait() uint8 {
 	as.cond.L.Lock()
 	defer as.cond.L.Unlock()
 	return as.size
 }
 
-// UpdateAddressSpace updates the address space size to the new size, if it is larger. Then,
-// each registered channel is notified of the Update. If this was the first time
-// that the address space size was set, then the conditional broadcasts to stop
-// blocking for all threads waiting on Get.
+// UpdateAddressSpace updates the address space size to the new size, if it is
+// larger. Then, each registered channel is notified of the Update. If this was
+// the first time that the address space size was set, then the conditional
+// broadcasts to stop blocking for all threads waiting on GetAddressSpace.
 func (as *space) UpdateAddressSpace(newSize uint8) {
 	as.cond.L.Lock()
 	defer as.cond.L.Unlock()
@@ -91,22 +90,22 @@ func (as *space) UpdateAddressSpace(newSize uint8) {
 			select {
 			case sizeChan <- as.size:
 			default:
-				jww.ERROR.Printf("Failed to send address space Update of %d on "+
-					"channel with ID %s", as.size, chanID)
+				jww.ERROR.Printf("Failed to send address space Update of %d "+
+					"on channel with ID %s", as.size, chanID)
 			}
 		}
 	}
 }
 
-// RegisterAddressSpaceNotification returns a channel that will trigger for every address
-// space size Update. The provided tag is the unique ID for the channel.
-// Returns an error if the tag is already used.
+// RegisterAddressSpaceNotification returns a channel that will trigger for
+// every address space size update. The provided tag is the unique ID for the
+// channel. Returns an error if the tag is already used.
 func (as *space) RegisterAddressSpaceNotification(tag string) (chan uint8, error) {
 	as.cond.L.Lock()
 	defer as.cond.L.Unlock()
 
 	if _, exists := as.notifyMap[tag]; exists {
-		return nil, errors.Errorf("tag \"%s\" already exists in notify map", tag)
+		return nil, errors.Errorf("tag %q already exists in notify map", tag)
 	}
 
 	as.notifyMap[tag] = make(chan uint8, 1)
@@ -114,8 +113,8 @@ func (as *space) RegisterAddressSpaceNotification(tag string) (chan uint8, error
 	return as.notifyMap[tag], nil
 }
 
-// UnregisterAddressSpaceNotification stops broadcasting address space size updates on the
-// channel with the specified tag.
+// UnregisterAddressSpaceNotification stops broadcasting address space size
+// updates on the channel with the specified tag.
 func (as *space) UnregisterAddressSpaceNotification(tag string) {
 	as.cond.L.Lock()
 	defer as.cond.L.Unlock()
@@ -130,8 +129,8 @@ func NewTestAddressSpace(newSize uint8, x interface{}) *space {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
 	default:
-		jww.FATAL.Panicf("NewTestAddressSpace is restricted to testing only. "+
-			"Got %T", x)
+		jww.FATAL.Panicf(
+			"NewTestAddressSpace is restricted to testing only. Got %T", x)
 	}
 
 	as := &space{

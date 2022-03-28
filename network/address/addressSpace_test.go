@@ -10,7 +10,7 @@ import (
 
 // Unit test of NewAddressSpace.
 func Test_newAddressSpace(t *testing.T) {
-	expected := &AddressSpace{
+	expected := &space{
 		size:      initSize,
 		notifyMap: make(map[string]chan uint8),
 		cond:      sync.NewCond(&sync.Mutex{}),
@@ -40,9 +40,9 @@ func Test_addressSpace_Get(t *testing.T) {
 	}
 
 	// Update address size
-	as.cond.L.Lock()
-	as.size = expectedSize
-	as.cond.L.Unlock()
+	as.(*space).cond.L.Lock()
+	as.(*space).size = expectedSize
+	as.(*space).cond.L.Unlock()
 
 	// Call get and error if it does block
 	wait = make(chan uint8)
@@ -79,7 +79,7 @@ func Test_addressSpace_Get_WaitBroadcast(t *testing.T) {
 
 	time.Sleep(5 * time.Millisecond)
 
-	as.cond.Broadcast()
+	as.(*space).cond.Broadcast()
 }
 
 // Unit test of AddressSpace.GetAddressSpaceWithoutWait.
@@ -100,16 +100,16 @@ func Test_addressSpace_update(t *testing.T) {
 
 	// Attempt to Update to larger size
 	as.UpdateAddressSpace(expectedSize)
-	if as.size != expectedSize {
+	if as.(*space).size != expectedSize {
 		t.Errorf("Update failed to set the new size."+
-			"\nexpected: %d\nreceived: %d", expectedSize, as.size)
+			"\nexpected: %d\nreceived: %d", expectedSize, as.(*space).size)
 	}
 
 	// Attempt to Update to smaller size
 	as.UpdateAddressSpace(expectedSize - 1)
-	if as.size != expectedSize {
+	if as.(*space).size != expectedSize {
 		t.Errorf("Update failed to set the new size."+
-			"\nexpected: %d\nreceived: %d", expectedSize, as.size)
+			"\nexpected: %d\nreceived: %d", expectedSize, as.(*space).size)
 	}
 }
 
@@ -251,7 +251,7 @@ func Test_addressSpace_RegisterNotification(t *testing.T) {
 
 	// Send on channel
 	select {
-	case as.notifyMap[chanID] <- expectedSize:
+	case as.(*space).notifyMap[chanID] <- expectedSize:
 	default:
 		t.Errorf("Sent on channel %s that should not be in map.", chanID)
 	}
@@ -283,7 +283,7 @@ func Test_addressSpace_UnregisterNotification(t *testing.T) {
 
 	// Send on channel
 	select {
-	case as.notifyMap[chanID] <- expectedSize:
+	case as.(*space).notifyMap[chanID] <- expectedSize:
 		t.Errorf("Sent size %d on channel %s that should not be in map.",
 			expectedSize, chanID)
 	default:

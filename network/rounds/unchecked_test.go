@@ -13,11 +13,11 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"reflect"
 	"testing"
 	"time"
 )
@@ -25,6 +25,7 @@ import (
 // Happy path
 func TestUncheckedRoundScheduler(t *testing.T) {
 	// General initializations
+	connect.TestingOnlyDisableTLS = true
 	testManager := newManager(t)
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
@@ -37,9 +38,9 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
-	testManager.sender, _ = gateway.NewSender(p,
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		testNdf, mockComms, testManager.Session, nil)
+	rngGen := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+	testManager.sender, _ = gateway.NewSender(
+		p, rngGen, testNdf, mockComms, testManager.session, nil)
 
 	// Create a local channel so reception is possible (testManager.messageBundles is
 	// send only via newManager call above)
@@ -62,32 +63,25 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 		Topology: idList,
 	}
 
-	// Add round ot check
-	err := testManager.Session.UncheckedRounds().AddRound(roundId, roundInfo, requestGateway, expectedEphID)
+	// Add round to check
+	err := testManager.unchecked.AddRound(roundId, roundInfo, requestGateway, expectedEphID)
 	if err != nil {
 		t.Fatalf("Could not add round to session: %v", err)
 	}
 
 	var testBundle message.Bundle
-	go func() {
-		// Receive the bundle over the channel
-		time.Sleep(1 * time.Second)
-		testBundle = <-messageBundleChan
-
-		// Close the process
-		if err := stop1.Close(); err != nil {
-			t.Errorf("Failed to signal close to process: %+v", err)
-		}
-		if err := stop2.Close(); err != nil {
-			t.Errorf("Failed to signal close to process: %+v", err)
-		}
-
-	}()
-
-	// Ensure bundle received and has expected values
-	time.Sleep(2 * time.Second)
-	if reflect.DeepEqual(testBundle, message.Bundle{}) {
+	select {
+	case testBundle = <-messageBundleChan:
+	case <-time.After(500 * time.Millisecond):
 		t.Fatalf("Did not receive a message bundle over the channel")
+	}
+
+	// Close the process
+	if err = stop1.Close(); err != nil {
+		t.Errorf("Failed to signal close to process: %+v", err)
+	}
+	if err = stop2.Close(); err != nil {
+		t.Errorf("Failed to signal close to process: %+v", err)
 	}
 
 	if testBundle.Identity.EphId.Int64() != expectedEphID.Int64() {

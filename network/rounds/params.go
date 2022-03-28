@@ -12,8 +12,8 @@ type Params struct {
 	// Maximum number of times a historical round lookup will be attempted
 	MaxHistoricalRoundsRetries uint
 
-	// Interval between checking for rounds in UncheckedRoundStore
-	// due for a message retrieval retry
+	// Interval between checking for rounds in UncheckedRoundStore due for a
+	// message retrieval retry
 	UncheckRoundPeriod time.Duration
 
 	// Toggles if message pickup retrying mechanism if forced
@@ -24,7 +24,7 @@ type Params struct {
 	// tried
 	SendTimeout time.Duration
 
-	//disables all attempts to pick up dropped or missed messages
+	// Disables all attempts to pick up dropped or missed messages
 	RealtimeOnly bool
 
 	// Toggles if historical rounds should always be used

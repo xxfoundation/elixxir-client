@@ -11,6 +11,7 @@ package storage
 
 import (
 	"gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/xx_network/crypto/large"
 	"sync"
 	"testing"
 	"time"
@@ -71,16 +72,16 @@ type Session interface {
 type session struct {
 	kv *versioned.KV
 
-	//memoized data
+	// memoized data
 	mux       sync.RWMutex
 	regStatus RegistrationStatus
 	ndf       *ndf.NetworkDefinition
 
-	//network parameters
+	// network parameters
 	cmixGroup *cyclic.Group
 	e2eGroup  *cyclic.Group
 
-	//sub-stores
+	// sub-stores
 	*user.User
 	clientVersion *clientVersion.Store
 }
@@ -138,7 +139,7 @@ func New(baseDir, password string, u userInterface.Info,
 }
 
 // Loads existing user data into the session
-func Load(baseDir, password string, currentVersion version.Version) (*Session, error) {
+func Load(baseDir, password string, currentVersion version.Version) (Session, error) {
 
 	s, err := initStore(baseDir, password)
 	if err != nil {
@@ -243,6 +244,26 @@ func InitTestingSession(i interface{}) Session {
 	u.SetRegistrationTimestamp(testTime.UnixNano())
 
 	s.User = u
+	s.cmixGroup = cyclic.NewGroup(
+		large.NewIntFromString("9DB6FB5951B66BB6FE1E140F1D2CE5502374161FD6538DF1648218642"+
+			"F0B5C48C8F7A41AADFA187324B87674FA1822B00F1ECF8136943D7C55757"+
+			"264E5A1A44FFE012E9936E00C1D3E9310B01C7D179805D3058B2A9F4BB6F"+
+			"9716BFE6117C6B5B3CC4D9BE341104AD4A80AD6C94E005F4B993E14F091E"+
+			"B51743BF33050C38DE235567E1B34C3D6A5C0CEAA1A0F368213C3D19843D"+
+			"0B4B09DCB9FC72D39C8DE41F1BF14D4BB4563CA28371621CAD3324B6A2D3"+
+			"92145BEBFAC748805236F5CA2FE92B871CD8F9C36D3292B5509CA8CAA77A"+
+			"2ADFC7BFD77DDA6F71125A7456FEA153E433256A2261C6A06ED3693797E7"+
+			"995FAD5AABBCFBE3EDA2741E375404AE25B", 16),
+		large.NewIntFromString("5C7FF6B06F8F143FE8288433493E4769C4D988ACE5BE25A0E2480"+
+			"9670716C613D7B0CEE6932F8FAA7C44D2CB24523DA53FBE4F6EC3595892D"+
+			"1AA58C4328A06C46A15662E7EAA703A1DECF8BBB2D05DBE2EB956C142A33"+
+			"8661D10461C0D135472085057F3494309FFA73C611F78B32ADBB5740C361"+
+			"C9F35BE90997DB2014E2EF5AA61782F52ABEB8BD6432C4DD097BC5423B28"+
+			"5DAFB60DC364E8161F4A2A35ACA3A10B1C4D203CC76A470A33AFDCBDD929"+
+			"59859ABD8B56E1725252D78EAC66E71BA9AE3F1DD2487199874393CD4D83"+
+			"2186800654760E1E34C09E4D155179F9EC0DC4473F996BDCE6EED1CABED8"+
+			"B6F116F7AD9CF505DF0F998E34AB27514B0FFE7", 16),
+	)
 
 	return s
 }

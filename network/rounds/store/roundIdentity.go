@@ -31,7 +31,7 @@ func newRoundIdentity(rid id.Round, recipient *id.ID, ephID ephemeral.Id) roundI
 }
 
 // String prints a base 64 string representation of roundIdentity. This function
-// satisfies the fmt.Stringer interface.
+// adheres to the fmt.Stringer interface.
 func (ri roundIdentity) String() string {
 	return base64.StdEncoding.EncodeToString(ri[:])
 }

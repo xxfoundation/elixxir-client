@@ -33,7 +33,7 @@ func NewUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
 	return urs, urs.save()
 }
 
-// NewUncheckedStore is a constructor for a UncheckedRoundStore.
+// NewOrLoadUncheckedStore is a constructor for a UncheckedRoundStore.
 func NewOrLoadUncheckedStore(kv *versioned.KV) *UncheckedRoundStore {
 	kv = kv.Prefix(uncheckedRoundPrefix)
 
@@ -48,7 +48,7 @@ func NewOrLoadUncheckedStore(kv *versioned.KV) *UncheckedRoundStore {
 	}
 
 	if err = urs.save(); err != nil {
-		jww.FATAL.Panicf("failed to save a new unchecked round store")
+		jww.FATAL.Panicf("Failed to save a new unchecked round store: %v", err)
 	}
 
 	return urs
@@ -56,7 +56,6 @@ func NewOrLoadUncheckedStore(kv *versioned.KV) *UncheckedRoundStore {
 
 // LoadUncheckedStore loads a deserializes a UncheckedRoundStore from memory.
 func LoadUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
-
 	kv = kv.Prefix(uncheckedRoundPrefix)
 	vo, err := kv.Get(uncheckedRoundKey, uncheckedRoundVersion)
 	if err != nil {
@@ -126,9 +125,8 @@ func (s *UncheckedRoundStore) IterateOverList(iterator func(rid id.Round,
 	defer s.mux.RUnlock()
 
 	for _, rnd := range s.list {
-		jww.DEBUG.Printf("rnd for lookup: %d, %+v\n", rnd.Id, rnd)
-		go func(localRid id.Round,
-			localRnd UncheckedRound) {
+		jww.DEBUG.Printf("Round for lookup: %d, %+v\n", rnd.Id, rnd)
+		go func(localRid id.Round, localRnd UncheckedRound) {
 			iterator(localRid, localRnd)
 		}(rnd.Id, rnd)
 	}

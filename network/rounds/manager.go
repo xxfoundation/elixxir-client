@@ -45,8 +45,9 @@ type manager struct {
 }
 
 func NewPickup(params Params, bundles chan<- message.Bundle,
-	sender gateway.Sender, historical historical.Retriever, rng *fastRNG.StreamGenerator,
-	instance RoundGetter, session storage.Session) Pickup {
+	sender gateway.Sender, historical historical.Retriever,
+	rng *fastRNG.StreamGenerator, instance RoundGetter,
+	session storage.Session) Pickup {
 	unchecked := store.NewOrLoadUncheckedStore(session.GetKV())
 	m := &manager{
 		params:              params,
@@ -67,9 +68,10 @@ func (m *manager) StartProcessors() stoppable.Stoppable {
 
 	multi := stoppable.NewMulti("Rounds")
 
-	//start the message retrieval worker pool
+	// Start the message retrieval worker pool
 	for i := uint(0); i < m.params.NumMessageRetrievalWorkers; i++ {
-		stopper := stoppable.NewSingle("Message Retriever " + strconv.Itoa(int(i)))
+		stopper := stoppable.NewSingle(
+			"Message Retriever " + strconv.Itoa(int(i)))
 		go m.processMessageRetrieval(m.comms, stopper)
 		multi.Add(stopper)
 	}
@@ -77,7 +79,8 @@ func (m *manager) StartProcessors() stoppable.Stoppable {
 	// Start the periodic unchecked round worker
 	if !m.params.RealtimeOnly {
 		stopper := stoppable.NewSingle("UncheckRound")
-		go m.processUncheckedRounds(m.params.UncheckRoundPeriod, backOffTable, stopper)
+		go m.processUncheckedRounds(
+			m.params.UncheckRoundPeriod, backOffTable, stopper)
 		multi.Add(stopper)
 	}
 

@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -26,6 +27,7 @@ import (
 // Happy path
 func TestManager_ProcessMessageRetrieval(t *testing.T) {
 	// General initializations
+	connect.TestingOnlyDisableTLS = true
 	testManager := newManager(t)
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
@@ -139,8 +141,8 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 		testNdf, mockComms, testManager.session, nil)
 	stop := stoppable.NewSingle("singleStoppable")
 
-	// Create a local channel so reception is possible (testManager.messageBundles is
-	// send only via newManager call above)
+	// Create a local channel so reception is possible
+	// (testManager.messageBundles is sent only via newManager call above)
 	messageBundleChan := make(chan message.Bundle)
 	testManager.messageBundles = messageBundleChan
 

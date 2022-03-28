@@ -21,6 +21,7 @@ const (
 		"%s (%s) is non-empty but not an email. Cancelling backup operation"
 	backupMissingAllZeroesFactErr = "Cannot backup missing facts: Both email and phone facts are empty!"
 	factNotInStoreErr             = "Fact %v does not exist in store"
+	storeStatefulErr              = "cannot overwrite ud store which already contains state"
 )
 
 // Store is the storage object for the higher level ud.Manager object.
@@ -55,7 +56,7 @@ func (s *Store) RestoreFromBackUp(backupData fact.FactList) error {
 	defer s.mux.Unlock()
 
 	if len(s.confirmedFacts) != 0 || len(s.unconfirmedFacts) != 0 {
-		return errors.New("cannot overwrite ud store with existing data")
+		return errors.New(storeStatefulErr)
 	}
 
 	for _, f := range backupData {

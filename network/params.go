@@ -2,7 +2,6 @@ package network
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/network/historical"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/network/rounds"
@@ -90,29 +89,34 @@ type CMIXParams struct {
 	RoundTries     uint
 	Timeout        time.Duration
 	RetryDelay     time.Duration
-	ExcludedRounds excludedRounds.ExcludedRounds
+	ExcludedRounds excludedRounds.ExcludedRounds `json:"-"`
 
 	// Duration to wait before sending on a round times out and a new round is
 	// tried
 	SendTimeout time.Duration
-
-	// an alternate identity preimage to use on send. If not set, the default
-	// for the sending identity will be used
-	trigger interfaces.Trigger
 
 	// Tag which prints with sending logs to help localize the source
 	// All internal sends are tagged, so the default tag is "External"
 	DebugTag string
 
 	//Threading interface, can be used to stop the send early
-	Stop *stoppable.Single
+	Stop *stoppable.Single `json:"-"`
 
 	//List of nodes to not send to, will skip a round with these
 	//nodes in it
-	BlacklistedNodes map[id.ID]interface{}
+	//todo - do not omit this on json
+	BlacklistedNodes map[id.ID]bool `json:"-"`
+
+	// Sets the message as critical. The system will track that the round it
+	// sends on completes and will auto resend in the event the round fails or
+	// completion cannot be determined.  The sent data will be byte identical,
+	// so this has a high chance of metadata leak. This system should only be
+	// used in cases where repeats cannot be different
+	// Only used in sendCmix, not sendManyCmix
+	Critical bool
 }
 
-func GetDefaultCMIX() CMIXParams {
+func GetDefaultCMIXParams() CMIXParams {
 	return CMIXParams{
 		RoundTries:  10,
 		Timeout:     25 * time.Second,
@@ -122,13 +126,17 @@ func GetDefaultCMIX() CMIXParams {
 	}
 }
 
-func (c CMIXParams) Marshal() ([]byte, error) {
+func (c CMIXParams) MarshalJSON() ([]byte, error) {
 	return json.Marshal(c)
+}
+
+func (c CMIXParams) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, &c)
 }
 
 // GetCMIXParameters func obtains default CMIX parameters, or overrides with given parameters if set
 func GetCMIXParameters(params string) (CMIXParams, error) {
-	p := GetDefaultCMIX()
+	p := GetDefaultCMIXParams()
 	if len(params) > 0 {
 		err := json.Unmarshal([]byte(params), &p)
 		if err != nil {

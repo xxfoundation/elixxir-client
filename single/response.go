@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/interfaces/utility"
+	"gitlab.com/elixxir/client/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
@@ -101,7 +101,7 @@ func (m *Manager) respondSingleUse(partner Contact, payload []byte,
 	}
 
 	// Wait until the result tracking responds
-	success, numRoundFail, numTimeOut := utility.TrackResults(sendResults, len(roundMap))
+	success, numRoundFail, numTimeOut := network.TrackResults(sendResults, len(roundMap))
 	if !success {
 		return errors.Errorf("tracking results of %d rounds: %d round "+
 			"failures, %d round event time outs; the send cannot be retried.",

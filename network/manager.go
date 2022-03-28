@@ -29,6 +29,7 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
 	"math"
 	"sync/atomic"
@@ -69,6 +70,7 @@ type manager struct {
 	address.Space
 	identity.Tracker
 	health.Monitor
+	crit *critical
 
 	// Earliest tracked round
 	earliestRound *uint64
@@ -122,7 +124,6 @@ func NewManager(params Params, comms *client.Comms, session storage.Session,
 	}
 
 	/* set up modules */
-
 	nodechan := make(chan commNetwork.NodeGateway, nodes.InputChanLen)
 
 	// Set up gateway.Sender
@@ -160,7 +161,19 @@ func NewManager(params Params, comms *client.Comms, session storage.Session,
 	// Set upthe ability to register with new nodes when they appear
 	m.instance.SetAddGatewayChan(nodechan)
 
+	// set up the health monitor
 	m.Monitor = health.Init(instance, params.NetworkHealthTimeout)
+
+	//set up critical message tracking (sendCmix only)
+	critSender := func(msg format.Message, recipient *id.ID,
+		params CMIXParams) (id.Round, ephemeral.Id, error) {
+		return sendCmixHelper(m.Sender, msg, recipient, params, m.instance,
+			m.session.GetCmixGroup(), m.Registrar, m.rng, m.events,
+			m.session.GetTransmissionID(), m.comms)
+	}
+
+	m.crit = newCritical(session.GetKV(), m.Monitor,
+		m.instance.GetRoundEvents(), critSender)
 
 	// Report health events
 	m.Monitor.AddHealthCallback(func(isHealthy bool) {

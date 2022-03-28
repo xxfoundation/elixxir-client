@@ -16,7 +16,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/interfaces/utility"
+	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
@@ -145,7 +145,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	}
 
 	//Wait until the result tracking responds
-	success, numRoundFail, numTimeOut := utility.TrackResults(sendResults,
+	success, numRoundFail, numTimeOut := network.TrackResults(sendResults,
 		len(rounds))
 	// If a single partition of the Key Negotiation request does not
 	// transmit, the partner will not be able to read the confirmation. If

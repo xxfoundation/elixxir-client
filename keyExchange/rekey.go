@@ -16,7 +16,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/interfaces/utility"
+	network2 "gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
@@ -145,7 +145,7 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	}
 
 	//Wait until the result tracking responds
-	success, numRoundFail, numTimeOut := utility.TrackResults(sendResults,
+	success, numRoundFail, numTimeOut := network2.TrackResults(sendResults,
 		len(rounds))
 
 	// If a single partition of the Key Negotiation request does not

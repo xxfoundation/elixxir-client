@@ -15,7 +15,7 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/interfaces/utility"
+	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/stoppable"
 	ftStorage "gitlab.com/elixxir/client/storage/fileTransfer"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
@@ -547,7 +547,7 @@ func (m *Manager) sendEndE2eMessage(recipient *id.ID) error {
 	}
 
 	// Wait until the result tracking responds
-	success, numTimeOut, numRoundFail := utility.TrackResults(
+	success, numTimeOut, numRoundFail := network.TrackResults(
 		sendResults, len(rounds))
 
 	// If a single partition of the end file transfer message does not transmit,

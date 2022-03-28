@@ -52,8 +52,9 @@ import (
 // Will return an error if the network is unhealthy or if it fails to send
 // (along with the reason). Blocks until successful send or err.
 // WARNING: Do not roll your own crypto
-func (m *manager) SendCMIX(recipient *id.ID, fingerprint format.Fingerprint, service message.Service,
-	payload, mac []byte, cmixParams CMIXParams) (id.Round, ephemeral.Id, error) {
+func (m *manager) SendCMIX(recipient *id.ID, fingerprint format.Fingerprint,
+	service message.Service, payload, mac []byte, cmixParams CMIXParams) (
+	id.Round, ephemeral.Id, error) {
 	if !m.Monitor.IsHealthy() {
 		return 0, ephemeral.Id{}, errors.New("Cannot send cmix message when the " +
 			"network is not healthy")
@@ -66,9 +67,19 @@ func (m *manager) SendCMIX(recipient *id.ID, fingerprint format.Fingerprint, ser
 	msg.SetMac(mac)
 	msg.SetSIH(service.Hash(msg.GetContents()))
 
-	return sendCmixHelper(m.Sender, msg, recipient, cmixParams, m.instance,
-		m.session.GetCmixGroup(), m.Registrar, m.rng, m.events,
+	if cmixParams.Critical {
+		m.crit.AddProcessing(msg, recipient, cmixParams)
+	}
+
+	rid, ephID, rtnErr := sendCmixHelper(m.Sender, msg, recipient, cmixParams,
+		m.instance, m.session.GetCmixGroup(), m.Registrar, m.rng, m.events,
 		m.session.GetTransmissionID(), m.comms)
+
+	if cmixParams.Critical {
+		m.crit.handle(msg, recipient, rid, rtnErr)
+	}
+
+	return rid, ephID, rtnErr
 }
 
 // Helper function for sendCmix

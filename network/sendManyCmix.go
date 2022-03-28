@@ -63,6 +63,7 @@ type TargetedCmixMessage struct {
 //      (panic otherwise). If used, fill with random bits.
 // Will return an error if the network is unhealthy or if it fails to send
 // (along with the reason). Blocks until successful send or err.
+// Does not support Critical Messages
 // WARNING: Do not roll your own crypto
 func (m *manager) SendManyCMIX(messages []TargetedCmixMessage,
 	p CMIXParams) (id.Round, []ephemeral.Id, error) {

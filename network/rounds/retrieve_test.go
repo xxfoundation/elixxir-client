@@ -11,7 +11,6 @@ import (
 	"gitlab.com/elixxir/client/network/gateway"
 	ephemeral2 "gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/network/message"
-	"gitlab.com/elixxir/client/network/pickup"
 	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -36,13 +35,13 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 	gwId := nodeId.DeepCopy()
 	gwId.SetType(id.Gateway)
 	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
-	testManager.Rng = fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+	testManager.rng = fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
 	var err error
-	testManager.sender, err = gateway.NewSender(p, testManager.Rng,
-		testNdf, mockComms, testManager.Session, nil)
+	testManager.sender, err = gateway.NewSender(p, testManager.rng,
+		testNdf, mockComms, testManager.session, nil)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -65,11 +64,9 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 		requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
 
 		// Construct the round lookup
-		iu := ephemeral2.IdentityUse{
-			Identity: ephemeral2.Identity{
-				EphId:  expectedEphID,
-				Source: requestGateway,
-			},
+		ephIdentity := ephemeral2.EphemeralIdentity{
+			EphId:  expectedEphID,
+			Source: requestGateway,
 		}
 
 		idList := [][]byte{requestGateway.Bytes()}
@@ -80,9 +77,9 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 		}
 
 		// Send a round look up request
-		testManager.lookupRoundMessages <- pickup.roundLookup{
-			roundInfo: roundInfo,
-			identity:  iu,
+		testManager.lookupRoundMessages <- roundLookup{
+			RoundInfo: roundInfo,
+			Identity:  ephIdentity,
 		}
 
 	}()
@@ -135,11 +132,11 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 	gwId := nodeId.DeepCopy()
 	gwId.SetType(id.Gateway)
 	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
-	testManager.Rng = fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+	testManager.rng = fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
 	testManager.sender, _ = gateway.NewSender(p,
-		testManager.Rng,
-		testNdf, mockComms, testManager.Session, nil)
+		testManager.rng,
+		testNdf, mockComms, testManager.session, nil)
 	stop := stoppable.NewSingle("singleStoppable")
 
 	// Create a local channel so reception is possible (testManager.messageBundles is
@@ -158,11 +155,9 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 
 	go func() {
 		// Construct the round lookup
-		iu := ephemeral2.IdentityUse{
-			Identity: ephemeral2.Identity{
-				EphId:  expectedEphID,
-				Source: dummyGateway,
-			},
+		identity := ephemeral2.EphemeralIdentity{
+			EphId:  expectedEphID,
+			Source: dummyGateway,
 		}
 
 		idList := [][]byte{dummyGateway.Marshal()}
@@ -173,9 +168,9 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 		}
 
 		// Send a round look up request
-		testManager.lookupRoundMessages <- pickup.roundLookup{
-			roundInfo: roundInfo,
-			identity:  iu,
+		testManager.lookupRoundMessages <- roundLookup{
+			RoundInfo: roundInfo,
+			Identity:  identity,
 		}
 
 	}()
@@ -213,13 +208,13 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 	gwId := nodeId.DeepCopy()
 	gwId.SetType(id.Gateway)
 	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
-	testManager.Rng = fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+	testManager.rng = fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
 	testManager.sender, _ = gateway.NewSender(p,
-		testManager.Rng,
-		testNdf, mockComms, testManager.Session, nil)
+		testManager.rng,
+		testNdf, mockComms, testManager.session, nil)
 
 	// Create a local channel so reception is possible (testManager.messageBundles is
 	// send only via newManager call above)
@@ -237,11 +232,9 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 
 	go func() {
 		// Construct the round lookup
-		iu := ephemeral2.IdentityUse{
-			Identity: ephemeral2.Identity{
-				EphId:  expectedEphID,
-				Source: id.NewIdFromString("Source", id.User, t),
-			},
+		identity := ephemeral2.EphemeralIdentity{
+			EphId:  expectedEphID,
+			Source: id.NewIdFromString("Source", id.User, t),
 		}
 
 		requestGateway := id.NewIdFromString(FalsePositive, id.Gateway, t)
@@ -254,9 +247,9 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 		}
 
 		// Send a round look up request
-		testManager.lookupRoundMessages <- pickup.roundLookup{
-			roundInfo: roundInfo,
-			identity:  iu,
+		testManager.lookupRoundMessages <- roundLookup{
+			RoundInfo: roundInfo,
+			Identity:  identity,
 		}
 
 	}()
@@ -315,10 +308,8 @@ func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
 
 	go func() {
 		// Construct the round lookup
-		iu := ephemeral2.IdentityUse{
-			Identity: ephemeral2.Identity{
-				EphId: expectedEphID,
-			},
+		identity := ephemeral2.EphemeralIdentity{
+			EphId: expectedEphID,
 		}
 
 		requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
@@ -331,9 +322,9 @@ func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
 		}
 
 		// Send a round look up request
-		testManager.lookupRoundMessages <- pickup.roundLookup{
-			roundInfo: roundInfo,
-			identity:  iu,
+		testManager.lookupRoundMessages <- roundLookup{
+			RoundInfo: roundInfo,
+			Identity:  identity,
 		}
 
 	}()
@@ -366,13 +357,13 @@ func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 	gwId := nodeId.DeepCopy()
 	gwId.SetType(id.Gateway)
 	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
-	testManager.Rng = fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+	testManager.rng = fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
 	testManager.sender, _ = gateway.NewSender(p,
-		testManager.Rng,
-		testNdf, mockComms, testManager.Session, nil)
+		testManager.rng,
+		testNdf, mockComms, testManager.session, nil)
 
 	// Create a local channel so reception is possible (testManager.messageBundles is
 	// send only via newManager call above)
@@ -392,11 +383,9 @@ func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 		requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
 		errorGateway := id.NewIdFromString(ErrorGateway, id.Gateway, t)
 		// Construct the round lookup
-		iu := ephemeral2.IdentityUse{
-			Identity: ephemeral2.Identity{
-				EphId:  expectedEphID,
-				Source: requestGateway,
-			},
+		identity := ephemeral2.EphemeralIdentity{
+			EphId:  expectedEphID,
+			Source: requestGateway,
 		}
 
 		// Create a list of ID's in which some error gateways must be contacted before the happy path
@@ -408,9 +397,9 @@ func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 		}
 
 		// Send a round look up request
-		testManager.lookupRoundMessages <- pickup.roundLookup{
-			roundInfo: roundInfo,
-			identity:  iu,
+		testManager.lookupRoundMessages <- roundLookup{
+			RoundInfo: roundInfo,
+			Identity:  identity,
 		}
 
 	}()

@@ -10,7 +10,6 @@ package message
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -29,21 +28,27 @@ func (p *handler) handleMessages(stop *stoppable.Single) {
 				wg.Add(len(bundle.Messages))
 				for i := range bundle.Messages {
 					msg := bundle.Messages[i]
+
 					go func() {
-						count, ts := p.inProcess.Add(msg, bundle.RoundInfo, bundle.Identity)
+						count, ts := p.inProcess.Add(
+							msg, bundle.RoundInfo, bundle.Identity)
 						wg.Done()
 						success := p.handleMessage(msg, bundle)
 						if success {
-							p.inProcess.Remove(msg, bundle.RoundInfo, bundle.Identity)
+							p.inProcess.Remove(
+								msg, bundle.RoundInfo, bundle.Identity)
 						} else {
-							// fail the message if any part of the decryption fails,
-							// unless it is the last attempts and has been in the buffer long
-							// enough, in which case remove it
+							// Fail the message if any part of the decryption
+							// fails, unless it is the last attempts and has
+							// been in the buffer long enough, in which case
+							// remove it
 							if count == p.param.MaxChecksInProcessMessage &&
 								netTime.Since(ts) > p.param.InProcessMessageWait {
-								p.inProcess.Remove(msg, bundle.RoundInfo, bundle.Identity)
+								p.inProcess.Remove(
+									msg, bundle.RoundInfo, bundle.Identity)
 							} else {
-								p.inProcess.Failed(msg, bundle.RoundInfo, bundle.Identity)
+								p.inProcess.Failed(
+									msg, bundle.RoundInfo, bundle.Identity)
 							}
 
 						}
@@ -63,34 +68,36 @@ func (p *handler) handleMessage(ecrMsg format.Message, bundle Bundle) bool {
 	identity := bundle.Identity
 	round := bundle.RoundInfo
 
-	// If we have a fingerprint, process it.
+	// If we have a fingerprint, process it
 	if proc, exists := p.pop(identity.Source, fingerprint); exists {
 		proc.Process(ecrMsg, identity, round)
 		return true
 	}
 
-	triggers, exists := p.get(identity.Source, ecrMsg.GetSIH(), ecrMsg.GetContents())
+	triggers, exists := p.get(
+		identity.Source, ecrMsg.GetSIH(), ecrMsg.GetContents())
 	if exists {
 		for _, t := range triggers {
 			go t.Process(ecrMsg, identity, round)
 		}
 		if len(triggers) == 0 {
-			jww.ERROR.Printf("empty service list for %s",
-				ecrMsg.GetSIH()) // get preimage
+			jww.ERROR.Printf("empty service list for %s", ecrMsg.GetSIH())
 		}
 		return true
 	} else {
-		// TODO: delete this else block because it should not be needed.
-		jww.INFO.Printf("checking backup %v", preimage.MakeDefault(identity.Source))
-		// //if it doesnt exist, check against the default fingerprint for the identity
+		// TODO: Delete this else block because it should not be needed.
+		jww.INFO.Printf("checking backup %v", identity.Source)
+		// //if it does not exist, check against the default fingerprint for the identity
 		// forMe = fingerprint2.CheckIdentityFP(ecrMsg.GetSIH(),
 		// 	ecrMsgContents, preimage.MakeDefault(identity.Source))
 	}
 
-	im := fmt.Sprintf("Message cannot be identify: keyFP: %v, round: %d"+
+	im := fmt.Sprintf("Message cannot be identify: keyFP: %v, round: %d "+
 		"msgDigest: %s, not determined to be for client",
 		ecrMsg.GetKeyFP(), bundle.Round, ecrMsg.Digest())
 	jww.TRACE.Printf(im)
+
 	p.events.Report(1, "MessageReception", "Garbled", im)
+
 	return false
 }

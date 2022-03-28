@@ -15,23 +15,23 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// FingerprintsManager is a thread-safe map, mapping format.Fingerprint's to
-// a Handler object.
+// FingerprintsManager is a thread-safe map, mapping format.Fingerprint's to a
+// Handler object.
 type FingerprintsManager struct {
 	fpMap map[id.ID]map[format.Fingerprint]Processor
 	sync.Mutex
 }
 
-// newFingerprints is a constructor function for the Fingerprints tracker.
+// newFingerprints is a constructor function for the fingerprints tracker.
 func newFingerprints() *FingerprintsManager {
 	return &FingerprintsManager{
 		fpMap: make(map[id.ID]map[format.Fingerprint]Processor),
 	}
 }
 
-// Pop returns the associated handler to the fingerprint and removes
-// it from our list.
-// CRITICAL: it is never ok to process a fingerprint twice. This is a security
+// pop returns the associated handler to the fingerprint and removes it from the
+// list.
+// CRITICAL: It is never ok to process a fingerprint twice. This is a security
 // vulnerability.
 func (f *FingerprintsManager) pop(clientID *id.ID,
 	fingerprint format.Fingerprint) (
@@ -52,10 +52,10 @@ func (f *FingerprintsManager) pop(clientID *id.ID,
 	return nil, false
 }
 
-// AddFingerprint is a thread-safe setter for the Fingerprints
-// map. AddFingerprint maps the given fingerprint key to the handler
-// value. If there is already an entry for this fingerprint, the
-// method returns with no write operation.
+// AddFingerprint is a thread-safe setter for the FingerprintsManager map.
+// AddFingerprint maps the given fingerprint key to the handler value. If there
+// is already an entry for this fingerprint, the method returns with no write
+// operation.
 func (f *FingerprintsManager) AddFingerprint(clientID *id.ID,
 	fingerprint format.Fingerprint, mp Processor) error {
 	f.Lock()
@@ -69,16 +69,15 @@ func (f *FingerprintsManager) AddFingerprint(clientID *id.ID,
 	}
 
 	if _, exists := f.fpMap[cid][fingerprint]; exists {
-		return errors.Errorf("fingerprint %s already exists",
-			fingerprint)
+		return errors.Errorf("fingerprint %s already exists", fingerprint)
 	}
 
 	f.fpMap[cid][fingerprint] = mp
 	return nil
 }
 
-// DeleteFingerprint is a thread-safe deletion operation on the Fingerprints map.
-// It will remove the entry for the given fingerprint from the map.
+// DeleteFingerprint is a thread-safe deletion operation on the Fingerprints
+// map. It will remove the entry for the given fingerprint from the map.
 func (f *FingerprintsManager) DeleteFingerprint(clientID *id.ID,
 	fingerprint format.Fingerprint) {
 	f.Lock()

@@ -57,7 +57,8 @@ func NewHandler(param Params, kv *versioned.KV, events event.Manager) Handler {
 
 	garbled, err := NewOrLoadMeteredCmixMessageBuffer(kv, inProcessKey)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to load or new the Garbled Messages system: %v", err)
+		jww.FATAL.Panicf(
+			"Failed to load or new the Garbled Messages system: %v", err)
 	}
 
 	m := handler{

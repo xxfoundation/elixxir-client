@@ -16,9 +16,9 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-/* Service Identification Hash - predefined hash based tags appended to
-all cMix messages which,though trial hashing, are used to determine if a message
-applies to this client.
+/* Service Identification Hash - predefined hash based tags appended to all cMix
+messages which,though trial hashing, are used to determine if a message applies
+to this client.
 
 Services are used for 2 purposes - can be processed by the notification system,
 or can be used to implement custom non fingerprint processing of payloads (i.e.
@@ -63,7 +63,7 @@ func NewServices() *ServicesManager {
 // fingerprint is received or it has exhausted the map.
 // If a match is found, this means the message received is for the client, and
 // that one or multiple services exist to process this message.
-// These services are returned to the caller along with the a true boolean.
+// These services are returned to the caller along with a true boolean.
 // If the map has been exhausted with no matches found, it returns nil and false.
 func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
 	ecrMsgContents []byte) ([]Processor,
@@ -77,17 +77,18 @@ func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
 		return nil, false
 	}
 	for _, s := range services {
-		// check if the sih matches this service
+		// Check if the SIH matches this service
 		if s.ForMe(ecrMsgContents, receivedSIH) {
-			// return this service directly if not the default service
 			if s.defaultList == nil && s.Tag != sih.Default {
+				// Return this service directly if not the default service
 				return []Processor{s}, true
-				// if it is default, and the default list isn't empty,
-				// return the default list
 			} else if s.defaultList != nil {
+				// If it is default and the default list is not empty, then
+				// return the default list
 				return s.defaultList, true
 			}
-			// return false if its for me but i have nothing registered to
+
+			// Return false if it is for me, but I have nothing registered to
 			// respond to default queries
 			return []Processor{}, false
 		}
@@ -157,8 +158,8 @@ func (sm *ServicesManager) DeleteService(clientID *id.ID, toDelete Service,
 		return
 	}
 
-	// do unique handling if this is a default service and there is more
-	// then one registered
+	// Do unique handling if this is a default service and there is more than
+	// one registered
 	if services.defaultList != nil && len(services.defaultList) > 1 {
 		for i, p := range services.defaultList {
 			if p == processor {

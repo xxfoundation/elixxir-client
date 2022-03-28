@@ -7,9 +7,9 @@ import (
 
 type ServicesTracker func(ServiceList)
 
-// TrackServices adds a service tracker to be triggered when a nee service
-// as added. Generally used for notificatiosn to use this system to identify a
-// received message
+// TrackServices adds a service tracker to be triggered when a new service is
+// added. Generally used for notification to use this system to identify a
+// received message.
 func (sm *ServicesManager) TrackServices(tracker ServicesTracker) {
 	if tracker == nil {
 		return
@@ -20,8 +20,8 @@ func (sm *ServicesManager) TrackServices(tracker ServicesTracker) {
 	sm.trackers = append(sm.trackers, tracker)
 }
 
-// triggerServiceTracking triggers the tracking of services.
-// Is it called when a service is added or removed.
+// triggerServiceTracking triggers the tracking of services. Is it called when a
+// service is added or removed.
 func (sm *ServicesManager) triggerServiceTracking() {
 	if len(sm.trackers) == 0 {
 		return
@@ -44,15 +44,15 @@ func (sm *ServicesManager) triggerServiceTracking() {
 // The ServiceList holds all services.
 type ServiceList map[id.ID][]Service
 
-type slMarshled struct {
+type slMarshaled struct {
 	Id       id.ID
 	Services []Service
 }
 
 func (sl ServiceList) MarshalJSON() ([]byte, error) {
-	slList := make([]slMarshled, 0, len(sl))
+	slList := make([]slMarshaled, 0, len(sl))
 	for uid, s := range sl {
-		slList = append(slList, slMarshled{
+		slList = append(slList, slMarshaled{
 			Id:       uid,
 			Services: s,
 		})
@@ -61,7 +61,7 @@ func (sl ServiceList) MarshalJSON() ([]byte, error) {
 }
 
 func (sl ServiceList) UnmarshalJSON(b []byte) error {
-	slList := make([]slMarshled, 0)
+	slList := make([]slMarshaled, 0)
 	if err := json.Unmarshal(b, &slList); err != nil {
 		return err
 	}

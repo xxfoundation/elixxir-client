@@ -8,9 +8,9 @@
 package rounds
 
 import (
-	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/historical"
+	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/network/rounds/store"
 	"gitlab.com/elixxir/client/stoppable"
@@ -22,7 +22,7 @@ import (
 
 type Pickup interface {
 	StartProcessors() stoppable.Stoppable
-	GetMessagesFromRound(roundID id.Round, identity interfaces.EphemeralIdentity)
+	GetMessagesFromRound(roundID id.Round, identity receptionID.EphemeralIdentity)
 }
 
 type manager struct {

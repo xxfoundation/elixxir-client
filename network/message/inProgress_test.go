@@ -2,9 +2,7 @@ package message
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -23,28 +21,14 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-type TestListener struct {
-	ch chan bool
-}
-
-// Hear is called to exercise the listener, passing in the data as an item.
-func (l TestListener) Hear(item message.Receive) {
-	l.ch <- true
-}
-
-// Name returns a name; used for debugging.
-func (l TestListener) Name() string {
-	return "TEST LISTENER FOR GARBLED MESSAGES"
-}
-
 func Test_pickup_CheckInProgressMessages(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	p := NewHandler(params.Network{Messages: params.Messages{
+	p := NewHandler(Params{
 		MessageReceptionBuffLen:        20,
 		MessageReceptionWorkerPoolSize: 20,
 		MaxChecksInProcessMessage:      20,
 		InProcessMessageWait:           time.Hour,
-	}}, kv, nil).(*handler)
+	}, kv, nil).(*handler)
 
 	msg := makeTestFormatMessages(1)[0]
 	cid := id.NewIdFromString("clientID", id.User, t)
@@ -56,7 +40,7 @@ func Test_pickup_CheckInProgressMessages(t *testing.T) {
 	}
 	p.inProcess.Add(msg,
 		&pb.RoundInfo{ID: 1, Timestamps: []uint64{0, 1, 2, 3}},
-		interfaces.EphemeralIdentity{Source: cid})
+		receptionID.EphemeralIdentity{Source: cid})
 
 	stop := stoppable.NewSingle("stop")
 	go p.recheckInProgressRunner(stop)

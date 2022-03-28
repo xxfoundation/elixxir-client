@@ -11,8 +11,8 @@ import (
 	"encoding/binary"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -31,7 +31,7 @@ type MessageRetrievalComms interface {
 
 type roundLookup struct {
 	RoundInfo *pb.RoundInfo
-	Identity  interfaces.EphemeralIdentity
+	Identity  receptionID.EphemeralIdentity
 }
 
 const noRoundError = "does not have round %d"
@@ -126,7 +126,7 @@ func (m *manager) processMessageRetrieval(comms MessageRetrievalComms,
 
 			if len(bundle.Messages) != 0 {
 				// If successful and there are messages, we send them to another thread
-				bundle.Identity = interfaces.EphemeralIdentity{
+				bundle.Identity = receptionID.EphemeralIdentity{
 					EphId:  rl.Identity.EphId,
 					Source: rl.Identity.Source,
 				}
@@ -151,7 +151,7 @@ func (m *manager) processMessageRetrieval(comms MessageRetrievalComms,
 // getMessagesFromGateway attempts to get messages from their assigned
 // gateway host in the round specified. If successful
 func (m *manager) getMessagesFromGateway(roundID id.Round,
-	identity interfaces.EphemeralIdentity, comms MessageRetrievalComms, gwIds []*id.ID,
+	identity receptionID.EphemeralIdentity, comms MessageRetrievalComms, gwIds []*id.ID,
 	stop *stoppable.Single) (message.Bundle, error) {
 	start := time.Now()
 	// Send to the gateways using backup proxies

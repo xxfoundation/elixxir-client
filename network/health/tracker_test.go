@@ -17,7 +17,7 @@ import (
 func TestNewTracker(t *testing.T) {
 	// Initialize required variables
 	timeout := 250 * time.Millisecond
-	tracker := newTracker(timeout)
+	trkr := newTracker(timeout)
 	counter := 2 // First signal is "false/unhealthy"
 	positiveHb := network.Heartbeat{
 		HasWaitingRound: true,
@@ -33,8 +33,8 @@ func TestNewTracker(t *testing.T) {
 			counter--
 		}
 	}
-	tracker.AddHealthChannelCallback(listenChan)
-	tracker.AddHealthCallback(listenFunc)
+	trkr.AddHealthCallback(listenFunc)
+	trkr.AddHealthCallback(listenFunc)
 	go func() {
 		for isHealthy := range listenChan {
 			if isHealthy {
@@ -46,18 +46,18 @@ func TestNewTracker(t *testing.T) {
 	}()
 
 	// Begin the health tracker
-	_, err := tracker.Start()
+	_, err := trkr.StartProcessies()
 	if err != nil {
 		t.Fatalf("Unable to start tracker: %+v", err)
 	}
 
 	// Send a positive health heartbeat
 	expectedCount := 2
-	tracker.heartbeat <- positiveHb
+	trkr.heartbeat <- positiveHb
 
 	// Wait for the heartbeat to register
 	for i := 0; i < 4; i++ {
-		if tracker.IsHealthy() && counter == expectedCount {
+		if trkr.IsHealthy() && counter == expectedCount {
 			break
 		} else {
 			time.Sleep(50 * time.Millisecond)
@@ -65,12 +65,12 @@ func TestNewTracker(t *testing.T) {
 	}
 
 	// Verify the network was marked as healthy
-	if !tracker.IsHealthy() {
+	if !trkr.IsHealthy() {
 		t.Fatal("tracker did not become healthy.")
 	}
 
 	// Check if the tracker was ever healthy
-	if !tracker.WasHealthy() {
+	if !trkr.WasHealthy() {
 		t.Fatal("tracker did not become healthy.")
 	}
 
@@ -84,12 +84,12 @@ func TestNewTracker(t *testing.T) {
 	time.Sleep(timeout)
 
 	// Verify the network was marked as NOT healthy
-	if tracker.IsHealthy() {
+	if trkr.IsHealthy() {
 		t.Fatal("tracker should not report healthy.")
 	}
 
 	// Check if the tracker was ever healthy, after setting healthy to false
-	if !tracker.WasHealthy() {
+	if !trkr.WasHealthy() {
 		t.Fatal("tracker was healthy previously but not reported healthy.")
 	}
 

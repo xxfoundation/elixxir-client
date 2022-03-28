@@ -9,12 +9,12 @@ package rounds
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/network/identity/receptionID"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
 )
 
-func (m *manager) GetMessagesFromRound(roundID id.Round, identity interfaces.EphemeralIdentity) {
+func (m *manager) GetMessagesFromRound(roundID id.Round, identity receptionID.EphemeralIdentity) {
 	//get the round from the in ram store
 	ri, err := m.instance.GetRound(roundID)
 

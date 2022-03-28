@@ -1,31 +1,6 @@
 package network
 
-import (
-	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/network/gateway"
-	message2 "gitlab.com/elixxir/client/network/message"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/switchboard"
-	"gitlab.com/elixxir/comms/client"
-	"gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/comms/network"
-	ds "gitlab.com/elixxir/comms/network/dataStructures"
-	"gitlab.com/elixxir/comms/testutils"
-	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/states"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
-	"testing"
-	"time"
-)
-
+/*
 type dummyEvent struct{}
 
 func (e *dummyEvent) Report(priority int, category, evtType, details string) {}
@@ -125,4 +100,4 @@ func Test_attemptSendCmix(t *testing.T) {
 		panic("t")
 		return
 	}
-}
+}*/

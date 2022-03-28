@@ -21,9 +21,69 @@ func TestNewStore(t *testing.T) {
 
 	kv := versioned.NewKV(make(ekv.Memstore))
 
-	_, err := NewStore(kv, nil)
+	_, err := NewStore(kv)
 	if err != nil {
 		t.Errorf("NewStore() produced an error: %v", err)
+	}
+
+}
+
+// Unit test
+func TestStore_RestoreFromBackUp(t *testing.T) {
+
+	kv := versioned.NewKV(make(ekv.Memstore))
+
+	s, err := NewStore(kv)
+	if err != nil {
+		t.Errorf("NewStore() produced an error: %v", err)
+	}
+
+	expected := fact.Fact{
+		Fact: "josh",
+		T:    fact.Username,
+	}
+
+	fl := fact.FactList{expected}
+
+	err = s.RestoreFromBackUp(fl)
+	if err != nil {
+		t.Fatalf("RestoreFromBackup err: %v", err)
+	}
+
+	_, exists := s.confirmedFacts[expected]
+	if !exists {
+		t.Fatalf("Fact %s does not exist in map", expected)
+	}
+
+}
+
+// Error case.
+func TestStore_RestoreFromBackUp_StatefulStore(t *testing.T) {
+
+	kv := versioned.NewKV(make(ekv.Memstore))
+
+	s, err := NewStore(kv)
+	if err != nil {
+		t.Errorf("NewStore() produced an error: %v", err)
+	}
+
+	confirmId := "confirm"
+	expected := fact.Fact{
+		Fact: "josh",
+		T:    fact.Username,
+	}
+
+	err = s.StoreUnconfirmedFact(confirmId, expected)
+	if err != nil {
+		t.Fatalf("StoreUnconfirmedFact error: %v", err)
+	}
+
+	// Expected error: should error when restoring on
+	// a stateful store.
+	fl := fact.FactList{expected}
+	err = s.RestoreFromBackUp(fl)
+	if err == nil {
+		t.Fatalf("RestoreFromBackup err: %v", err)
 	}
 
 }
@@ -32,7 +92,7 @@ func TestNewStore(t *testing.T) {
 func TestStore_ConfirmFact(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
-	expectedStore, err := NewStore(kv, nil)
+	expectedStore, err := NewStore(kv)
 	if err != nil {
 		t.Errorf("NewStore() produced an error: %v", err)
 	}
@@ -70,7 +130,7 @@ func TestStore_ConfirmFact(t *testing.T) {
 func TestStore_StoreUnconfirmedFact(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
-	expectedStore, err := NewStore(kv, nil)
+	expectedStore, err := NewStore(kv)
 	if err != nil {
 		t.Errorf("NewStore() produced an error: %v", err)
 	}
@@ -132,7 +192,7 @@ func TestStore_DeleteFact(t *testing.T) {
 func TestStore_BackUpMissingFacts(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
-	expectedStore, err := NewStore(kv, nil)
+	expectedStore, err := NewStore(kv)
 	if err != nil {
 		t.Errorf("NewStore() produced an error: %v", err)
 	}
@@ -168,7 +228,7 @@ func TestStore_BackUpMissingFacts(t *testing.T) {
 func TestStore_BackUpMissingFacts_DuplicateFactType(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
-	expectedStore, err := NewStore(kv, nil)
+	expectedStore, err := NewStore(kv)
 	if err != nil {
 		t.Errorf("NewStore() produced an error: %v", err)
 	}
@@ -206,7 +266,7 @@ func TestStore_BackUpMissingFacts_DuplicateFactType(t *testing.T) {
 func TestStore_GetFacts(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
-	testStore, err := NewStore(kv, nil)
+	testStore, err := NewStore(kv)
 	if err != nil {
 		t.Errorf("NewStore() produced an error: %v", err)
 	}
@@ -256,7 +316,7 @@ func TestStore_GetFacts(t *testing.T) {
 func TestStore_GetFactStrings(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
-	testStore, err := NewStore(kv, nil)
+	testStore, err := NewStore(kv)
 	if err != nil {
 		t.Errorf("NewStore() produced an error: %v", err)
 	}

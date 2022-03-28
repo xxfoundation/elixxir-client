@@ -27,6 +27,7 @@ import (
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -97,7 +98,7 @@ func NewClient(ndfJSON, storageDir string, password []byte,
 	jww.DEBUG.Printf("User generation took: %s", time.Now().Sub(start))
 
 	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
-		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
+		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode, nil)
 	if err != nil {
 		return err
 	}
@@ -128,7 +129,7 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
 	protoUser := createPrecannedUser(precannedID, rngStream, cmixGrp, e2eGrp)
 
 	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
-		cmixGrp, e2eGrp, rngStreamGen, true, "")
+		cmixGrp, e2eGrp, rngStreamGen, true, "", nil)
 	if err != nil {
 		return err
 	}
@@ -158,7 +159,7 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 	protoUser := createNewVanityUser(rngStream, cmixGrp, e2eGrp, userIdPrefix)
 
 	_, err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
-		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
+		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode, nil)
 	if err != nil {
 		return err
 	}
@@ -199,7 +200,7 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 	// Note we do not need registration
 	storageSess, err := checkVersionAndSetupStorage(def, storageDir,
 		[]byte(sessionPassword), usr, cmixGrp, e2eGrp, rngStreamGen,
-		false, backUp.RegistrationCode)
+		false, backUp.RegistrationCode, backUp.UserDiscoveryRegistration.FactList)
 
 	// Set registration values in storage
 	storageSess.User().SetReceptionRegistrationValidationSignature(backUp.
@@ -213,13 +214,6 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 	err = storageSess.ForwardRegistrationStatus(storage.PermissioningComplete)
 	if err != nil {
 		return nil, "", err
-	}
-
-	err = storageSess.GetUd().RestoreFromBackUp(backUp.
-		UserDiscoveryRegistration.FactList)
-	if err != nil {
-		return nil, "", errors.WithMessage(err, "Could not restore user "+
-			"discover storage")
 	}
 
 	return backUp.Contacts.Identities, backUp.JSONParams, nil
@@ -292,7 +286,7 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
 
 	// Set up storage
 	storageSess, err := checkVersionAndSetupStorage(def, storageDir, password, usr,
-		cmixGrp, e2eGrp, rngStreamGen, false, protoUser.RegCode)
+		cmixGrp, e2eGrp, rngStreamGen, false, protoUser.RegCode, nil)
 	if err != nil {
 		return err
 	}
@@ -955,7 +949,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
 	storageDir string, password []byte,
 	protoUser user.User,
 	cmixGrp, e2eGrp *cyclic.Group, rngStreamGen *fastRNG.StreamGenerator,
-	isPrecanned bool, registrationCode string) (*storage.Session, error) {
+	isPrecanned bool, registrationCode string, backupFacts fact.FactList) (*storage.Session, error) {
 	// Get current client version
 	currentVersion, err := version.ParseVersion(SEMVER)
 	if err != nil {
@@ -965,7 +959,8 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
 	// Create Storage
 	passwordStr := string(password)
 	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
-		currentVersion, cmixGrp, e2eGrp, rngStreamGen, def.RateLimits)
+		currentVersion, cmixGrp, e2eGrp, rngStreamGen, def.RateLimits,
+		backupFacts)
 	if err != nil {
 		return nil, err
 	}

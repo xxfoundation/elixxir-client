@@ -21,7 +21,6 @@ const (
 		"%s (%s) is non-empty but not an email. Cancelling backup operation"
 	backupMissingAllZeroesFactErr = "Cannot backup missing facts: Both email and phone facts are empty!"
 	factNotInStoreErr             = "Fact %v does not exist in store"
-	storeStatefulErr              = "cannot overwrite ud store which already contains state"
 )
 
 // Store is the storage object for the higher level ud.Manager object.
@@ -36,8 +35,10 @@ type Store struct {
 	mux              sync.RWMutex
 }
 
-// NewStore creates a new, empty Store object.
-func NewStore(kv *versioned.KV) (*Store, error) {
+// NewStore creates a new Store object. If we are initializing from a backup,
+// the backupFacts fact.FactList will be non-nil and initialize the state
+// with the backed up data.
+func NewStore(kv *versioned.KV, backupFacts fact.FactList) (*Store, error) {
 	kv = kv.Prefix(prefix)
 	s := &Store{
 		confirmedFacts:   make(map[fact.Fact]struct{}, 0),
@@ -45,25 +46,11 @@ func NewStore(kv *versioned.KV) (*Store, error) {
 		kv:               kv,
 	}
 
-	return s, s.save()
-}
-
-// RestoreFromBackUp initializes the confirmedFacts map
-// with the backed up fact data. This will error if
-// the store is already stateful.
-func (s *Store) RestoreFromBackUp(backupData fact.FactList) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	if len(s.confirmedFacts) != 0 || len(s.unconfirmedFacts) != 0 {
-		return errors.New(storeStatefulErr)
-	}
-
-	for _, f := range backupData {
+	for _, f := range backupFacts {
 		s.confirmedFacts[f] = struct{}{}
 	}
 
-	return nil
+	return s, s.save()
 }
 
 // StoreUnconfirmedFact stores a fact that has been added to UD but has not been

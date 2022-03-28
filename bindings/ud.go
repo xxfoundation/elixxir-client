@@ -9,6 +9,7 @@ package bindings
 
 import (
 	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
 	"time"
 
 	"github.com/pkg/errors"
@@ -62,22 +63,35 @@ func NewUserDiscoveryFromBackup(client *Client,
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
 	}
+
+	// Parse username as a fact, which should not be empty
 	userFact, err := fact.NewFact(fact.Username, username)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to parse "+
 			"stringified username fact %q", username)
 	}
 
-	emailFact, err := fact.NewFact(fact.Email, email)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to parse "+
-			"stringified email fact %q", email)
+	var emailFact, phoneFact fact.Fact
+	// Parse email as a fact, if it exists
+	if email != "" {
+		emailFact, err = fact.NewFact(fact.Email, email)
+		if err != nil {
+			return nil, errors.WithMessagef(err, "Failed to parse "+
+				"stringified email fact %q", email)
+		}
+	} else {
+		jww.WARN.Printf("Loading manager without a registered email")
 	}
 
-	phoneFact, err := fact.NewFact(fact.Phone, phone)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to parse "+
-			"stringified phone fact %q", phone)
+	// Parse phone number as a fact, if it exists
+	if phone != "" {
+		phoneFact, err = fact.NewFact(fact.Phone, phone)
+		if err != nil {
+			return nil, errors.WithMessagef(err, "Failed to parse "+
+				"stringified phone fact %q", phone)
+		}
+	} else {
+		jww.WARN.Printf("Loading manager without a registered phone number")
 	}
 
 	m, err := ud.NewManagerFromBackup(&client.api, single, fact.FactList{userFact, emailFact, phoneFact})

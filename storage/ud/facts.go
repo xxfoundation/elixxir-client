@@ -62,7 +62,9 @@ func (s *Store) RestoreFromBackUp(backupData fact.FactList) error {
 	}
 
 	for _, f := range backupData {
-		s.confirmedFacts[f] = struct{}{}
+		if !isFactZero(f) {
+			s.confirmedFacts[f] = struct{}{}
+		}
 	}
 
 	return s.save()

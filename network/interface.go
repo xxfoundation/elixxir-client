@@ -1,15 +1,15 @@
 package network
 
 import (
+	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/network/historical"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"gitlab.com/xx_network/primitives/ndf"
 	"time"
 )
 
@@ -45,7 +45,8 @@ type Manager interface {
 	// Will return an error if the network is unhealthy or if it fails to send
 	// (along with the reason). Blocks until successful send or err.
 	// WARNING: Do not roll your own crypto
-	SendCMIX(message format.Message, recipient *id.ID, p CMIXParams) (
+	SendCMIX(recipient *id.ID, fingerprint format.Fingerprint,
+		service message.Service, payload, mac []byte, cmixParams CMIXParams) (
 		id.Round, ephemeral.Id, error)
 
 	// SendManyCMIX sends many "raw" CMIX message payloads to the provided
@@ -84,7 +85,7 @@ type Manager interface {
 	// AddIdentity adds an identity to be tracked
 	// If persistent is false, the identity will not be stored to disk and
 	// will be dropped on reload.
-	AddIdentity(id *id.ID, validUntil time.Time, persistent bool) error
+	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
 	// RemoveIdentity removes a currently tracked identity.
 	RemoveIdentity(id *id.ID)
 
@@ -207,8 +208,7 @@ type Manager interface {
 
 	// LookupHistoricalRound - looks up the passed historical round on the
 	// network
-	LookupHistoricalRound(rid id.Round, callback func(info *mixmessages.RoundInfo,
-		success bool)) error
+	LookupHistoricalRound(rid id.Round, callback historical.RoundResultCallback) error
 
 	/*===Sender===============================================================*/
 	/* The sender handles sending comms to the network. It tracks connections to
@@ -217,18 +217,17 @@ type Manager interface {
 	the network package*/
 
 	// SendToAny can be used to send the comm to any gateway in the network.
-	SendToAny(sendFunc func(host *connect.Host) (interface{}, error), stop *stoppable.Single) (interface{}, error)
+	SendToAny(sendFunc func(host *connect.Host) (interface{}, error),
+		stop *stoppable.Single) (interface{}, error)
 
 	// SendToPreferred sends to a specific gateway, doing so through another
 	// gateway as a proxy if not directly connected.
-	SendToPreferred(targets []*id.ID, sendFunc func(host *connect.Host,
-		target *id.ID, timeout time.Duration) (interface{}, error),
+	SendToPreferred(targets []*id.ID, sendFunc gateway.SendToPreferredFunc,
 		stop *stoppable.Single, timeout time.Duration) (interface{}, error)
 
 	// SetGatewayFilter sets a function which will be used to filter gateways
 	// before connecting.
-	SetGatewayFilter(f func(map[id.ID]int,
-		*ndf.NetworkDefinition) map[id.ID]int)
+	SetGatewayFilter(f gateway.Filter)
 
 	// GetHostParams - returns the host params used when connectign to gateways
 	GetHostParams() connect.HostParams

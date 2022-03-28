@@ -26,7 +26,7 @@ import (
 // Sender Object used for sending that wraps the HostPool for providing destinations
 type Sender interface {
 	SendToAny(sendFunc func(host *connect.Host) (interface{}, error), stop *stoppable.Single) (interface{}, error)
-	SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
+	SendToPreferred(targets []*id.ID, sendFunc SendToPreferredFunc,
 		stop *stoppable.Single, timeout time.Duration) (interface{}, error)
 	UpdateNdf(ndf *ndf.NetworkDefinition)
 	SetGatewayFilter(f Filter)
@@ -86,14 +86,14 @@ func (s *sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 	return nil, errors.Errorf("Unable to send to any proxies")
 }
 
-// sendToPreferredFunc is the send function passed into Sender.SendToPreferred.
-type sendToPreferredFunc func(host *connect.Host, target *id.ID,
+// SendToPreferredFunc is the send function passed into Sender.SendToPreferred.
+type SendToPreferredFunc func(host *connect.Host, target *id.ID,
 	timeout time.Duration) (interface{}, error)
 
 // SendToPreferred Call given sendFunc to any Host in the HostPool, attempting
 // with up to numProxies destinations. Returns an error if the timeout is
 // reached.
-func (s *sender) SendToPreferred(targets []*id.ID, sendFunc sendToPreferredFunc,
+func (s *sender) SendToPreferred(targets []*id.ID, sendFunc SendToPreferredFunc,
 	stop *stoppable.Single, timeout time.Duration) (interface{}, error) {
 
 	startTime := netTime.Now()

@@ -15,7 +15,7 @@ import (
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
+
 	"gitlab.com/elixxir/client/network/address"
 	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/stoppable"
@@ -37,6 +37,9 @@ var Forever = time.Time{}
 
 const trackedIDChanSize = 1000
 const deleteIDChanSize = 1000
+
+// DefaultExtraChecks is the default value for ExtraChecks on reception.Identity
+const DefaultExtraChecks = 10
 
 type Tracker interface {
 	StartProcessies() stoppable.Stoppable
@@ -299,7 +302,7 @@ func generateIdentitiesOverRange(lastGeneration, generateThrough time.Time,
 	for i, eid := range protoIds {
 		// Expand the grace period for both start and end
 		identities[i] = receptionID.Identity{
-			EphemeralIdentity: interfaces.EphemeralIdentity{
+			EphemeralIdentity: receptionID.EphemeralIdentity{
 				EphId:  eid.Id,
 				Source: source,
 			},
@@ -308,7 +311,7 @@ func generateIdentitiesOverRange(lastGeneration, generateThrough time.Time,
 			StartValid:  eid.Start.Add(-validityGracePeriod),
 			EndValid:    eid.End.Add(validityGracePeriod),
 			Ephemeral:   false,
-			ExtraChecks: interfaces.DefaultExtraChecks,
+			ExtraChecks: DefaultExtraChecks,
 		}
 
 	}

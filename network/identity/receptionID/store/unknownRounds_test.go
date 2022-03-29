@@ -19,7 +19,7 @@ import (
 )
 
 // Happy path
-func TestNewUnknownRoundsStore(t *testing.T) {
+func TestNewUnknownRounds(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	expectedStore := &UnknownRounds{
 		rounds: make(map[id.Round]*uint64),
@@ -29,30 +29,30 @@ func TestNewUnknownRoundsStore(t *testing.T) {
 
 	store := NewUnknownRounds(kv, DefaultUnknownRoundsParams())
 
-	// Compare manually created object with NewUnknownRoundsStore
+	// Compare manually created object with NewUnknownRounds
 	if !reflect.DeepEqual(expectedStore, store) {
-		t.Errorf("NewUnknownRoundsStore() returned incorrect Store."+
-			"\n\texpected: %+v\n\treceived: %+v", expectedStore, store)
+		t.Errorf("NewUnknownRounds returned incorrect Store."+
+			"\nexpected: %+v\nreceived: %+v", expectedStore, store)
 	}
 
 	if err := store.save(); err != nil {
-		t.Fatalf("save() could not write to disk: %v", err)
+		t.Fatalf("save could not write to disk: %v", err)
 	}
 
 	expectedData, err := json.Marshal(store.rounds)
 	if err != nil {
-		t.Fatalf("json.Marshal() produced an error: %v", err)
+		t.Fatalf("json.Marshal produced an error: %v", err)
 	}
 
 	key, err := store.kv.Get(unknownRoundsStorageKey, unknownRoundsStorageVersion)
 	if err != nil {
-		t.Fatalf("get() encoutnered an error when getting Store from KV: %v", err)
+		t.Fatalf("get encoutnered an error when getting Store from KV: %v", err)
 	}
 
 	// Check that the stored data is the data outputted by marshal
 	if !bytes.Equal(expectedData, key.Data) {
-		t.Errorf("NewUnknownRoundsStore() returned incorrect Store."+
-			"\n\texpected: %+v\n\treceived: %+v", expectedData, key.Data)
+		t.Errorf("NewUnknownRounds returned incorrect Store."+
+			"\nexpected: %+v\nreceived: %+v", expectedData, key.Data)
 	}
 
 }
@@ -72,9 +72,9 @@ func TestUnknownRoundsStore_Iterate(t *testing.T) {
 	unknownRounds := make([]id.Round, roundListLen)
 	roundListEven := make([]id.Round, roundListLen)
 	for i := 0; i < roundListLen; i++ {
-		// Will contain a list of round Ids in range [0,25)
+		// Will contain a list of round Ids in range [0, 25)
 		unknownRounds[i] = id.Round(i)
-		// Will contain even round Id's in range [50,100)
+		// Will contain even round ID's in range [50, 100)
 		roundListEven[i] = id.Round((i + roundListLen) * 2)
 
 	}
@@ -94,29 +94,29 @@ func TestUnknownRoundsStore_Iterate(t *testing.T) {
 	for _, rnd := range received {
 		// Our returned list should contain only even rounds.
 		if uint64(rnd)%2 != 0 {
-			t.Errorf("Unexpected result from iterate(). "+
+			t.Errorf("Unexpected result from iterate. "+
 				"Round %d should not be in received list", rnd)
 		}
+
 		// Elements in the returned list should be deleted from the map.
 		if _, ok := store.rounds[rnd]; ok {
-			t.Errorf("Returned rounds from iterate should be removed from map"+
-				"\n\tFound round %d in map", rnd)
+			t.Errorf("Returned rounds from iterate should be removed from "+
+				"map. Found round %d in map", rnd)
 		}
 
 	}
 
 	// Add even round list to map
-	received = store.Iterate(mockChecker, roundListEven, func(round id.Round) { return })
+	received = store.Iterate(mockChecker, roundListEven, func(_ id.Round) {})
 
 	if len(received) != 0 {
-		t.Errorf("Second iteration should return an empty list (no even rounds are left)."+
-			"\n\tReturned: %v", received)
+		t.Errorf("Second iteration should return an empty list (no even "+
+			"rounds are left).\nreturned: %v", received)
 	}
 
-	// Iterate over map until all rounds have checks incremented over
-	// maxCheck
+	// Iterate over map until all rounds have checks incremented over maxCheck
 	for i := 0; i < defaultMaxCheck+1; i++ {
-		_ = store.Iterate(mockChecker, []id.Round{}, func(round id.Round) { return })
+		_ = store.Iterate(mockChecker, []id.Round{}, func(_ id.Round) {})
 
 	}
 
@@ -135,7 +135,7 @@ func TestLoadUnknownRoundsStore(t *testing.T) {
 	roundListLen := 25
 	expectedRounds := make([]id.Round, roundListLen)
 	for i := 0; i < roundListLen; i++ {
-		// Will contain a list of round Ids in range [0,25)
+		// Will contain a list of round IDs in range [0, 25)
 		expectedRounds[i] = id.Round(i)
 
 	}
@@ -163,21 +163,21 @@ func TestLoadUnknownRoundsStore(t *testing.T) {
 
 		if atomic.LoadUint64(check) != 0 {
 			t.Fatalf("Loaded value in map is unexpected."+
-				"\n\tExpected: %v"+
-				"\n\tReceived: %v", expectedCheckVal, atomic.LoadUint64(check))
+				"\nexpected: %v\nreceived: %v",
+				expectedCheckVal, atomic.LoadUint64(check))
 		}
 	}
 
-	/* Check save used in iterate call */
+	// Check save used in iterate call
 
 	// Check that LoadStore works after iterate call (which implicitly saves)
 	mockChecker := func(round id.Round) bool { return false }
-	received := store.Iterate(mockChecker, nil, func(round id.Round) { return })
+	received := store.Iterate(mockChecker, nil, func(_ id.Round) {})
 
 	// Iterate is being called as a dummy, should not return anything
 	if len(received) != 0 {
 		t.Fatalf("Returned list from iterate should not return any rounds."+
-			"\n\tReceived: %v", received)
+			"\nreceived: %v", received)
 	}
 
 	// Increment check value (iterate will increment all rounds' checked value)
@@ -195,8 +195,8 @@ func TestLoadUnknownRoundsStore(t *testing.T) {
 
 		if atomic.LoadUint64(check) != uint64(expectedCheckVal) {
 			t.Fatalf("Loaded value in map is unexpected."+
-				"\n\tExpected: %v"+
-				"\n\tReceived: %v", expectedCheckVal, atomic.LoadUint64(check))
+				"\nexpected: %v\nreceived: %v",
+				expectedCheckVal, atomic.LoadUint64(check))
 		}
 	}
 

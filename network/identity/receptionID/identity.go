@@ -86,16 +86,16 @@ func (i Identity) String() string {
 }
 
 func (i Identity) GoString() string {
-	str := make([]string, 0, 9)
-
-	str = append(str, "EphId:"+strconv.FormatInt(i.EphId.Int64(), 16))
-	str = append(str, "Source:"+i.Source.String())
-	str = append(str, "AddressSize:"+strconv.FormatUint(uint64(i.AddressSize), 10))
-	str = append(str, "End:"+i.End.String())
-	str = append(str, "ExtraChecks:"+strconv.FormatUint(uint64(i.ExtraChecks), 10))
-	str = append(str, "StartValid:"+i.StartValid.String())
-	str = append(str, "EndValid:"+i.EndValid.String())
-	str = append(str, "Ephemeral:"+strconv.FormatBool(i.Ephemeral))
+	str := []string{
+		"EphId:" + strconv.FormatInt(i.EphId.Int64(), 16),
+		"Source:" + i.Source.String(),
+		"AddressSize:" + strconv.FormatUint(uint64(i.AddressSize), 10),
+		"End:" + i.End.String(),
+		"ExtraChecks:" + strconv.FormatUint(uint64(i.ExtraChecks), 10),
+		"StartValid:" + i.StartValid.String(),
+		"EndValid:" + i.EndValid.String(),
+		"Ephemeral:" + strconv.FormatBool(i.Ephemeral),
+	}
 
 	return "{" + strings.Join(str, ", ") + "}"
 }

@@ -35,10 +35,13 @@ const addressSpaceSizeChanTag = "ephemeralTracker"
 
 var Forever = time.Time{}
 
-const trackedIDChanSize = 1000
-const deleteIDChanSize = 1000
+const (
+	trackedIDChanSize = 1000
+	deleteIDChanSize  = 1000
+)
 
-// DefaultExtraChecks is the default value for ExtraChecks on reception.Identity
+// DefaultExtraChecks is the default value for ExtraChecks on
+// receptionID.Identity.
 const DefaultExtraChecks = 10
 
 type Tracker interface {
@@ -67,7 +70,7 @@ type trackedID struct {
 }
 
 func NewOrLoadTracker(session storage.Session, addrSpace address.Space) *manager {
-	//intilization
+	// Initialization
 	t := &manager{
 		tracked:        make([]trackedID, 0),
 		session:        session,
@@ -76,30 +79,37 @@ func NewOrLoadTracker(session storage.Session, addrSpace address.Space) *manager
 		addrSpace:      addrSpace,
 		mux:            &sync.Mutex{},
 	}
-	//Load this structure
+
+	// Load this structure
 	err := t.load()
 	if err != nil && os.IsNotExist(err) {
-		oldTimestamp, err := getOldTimestampStore(t.session)
-		if err == nil {
-			jww.WARN.Printf("No tracked identities found, " +
-				"creating a new tracked identity from legacy stored timestamp")
+		oldTimestamp, err2 := getOldTimestampStore(t.session)
+		if err2 == nil {
+			jww.WARN.Printf("No tracked identities found, creating a new " +
+				"tracked identity from legacy stored timestamp.")
+
 			t.tracked = append(t.tracked, trackedID{
-				// make the next generation now so a generation triggers on first run
+				// Make the next generation now so a generation triggers on
+				// first run
 				NextGeneration: netTime.Now(),
-				// it generated previously though oldTimestamp, denote that
+				// It generated previously though oldTimestamp, denote that
 				LastGeneration: oldTimestamp,
 				Source:         t.session.GetReceptionID(),
 				ValidUntil:     Forever,
 				Persistent:     true,
 			})
 		} else {
-			jww.WARN.Printf("No tracked identities found and no  legacy stored " +
-				"timestamp found, creating a new tracked identity from scratch")
+			jww.WARN.Printf("No tracked identities found and no legacy " +
+				"stored timestamp found; creating a new tracked identity " +
+				"from scratch.")
+
 			t.tracked = append(t.tracked, trackedID{
-				// make the next generation now so a generation triggers on first run
+				// Make the next generation now so a generation triggers on
+				// first run
 				NextGeneration: netTime.Now(),
-				// start generation 24 hours ago to make sure all rescent ephemerals do pickups
-				// todo: should we go back farther?
+				// Start generation 24 hours ago to make sure all resent
+				// ephemeral do pickups
+				// TODO: Should we go back farther?
 				LastGeneration: netTime.Now().Add(-time.Duration(ephemeral.Period)),
 				Source:         t.session.GetReceptionID(),
 				ValidUntil:     Forever,
@@ -107,7 +117,7 @@ func NewOrLoadTracker(session storage.Session, addrSpace address.Space) *manager
 			})
 		}
 	} else if err != nil {
-		jww.FATAL.Panicf("unable to create new Tracker: %+v", err)
+		jww.FATAL.Panicf("Unable to create new Tracker: %+v", err)
 	}
 
 	t.store = receptionID.NewOrLoadStore(session.GetKV())
@@ -115,18 +125,19 @@ func NewOrLoadTracker(session storage.Session, addrSpace address.Space) *manager
 	return t
 }
 
-// Track runs a thread which checks for past and present address ID.
-func (tracker manager) StartProcessies() stoppable.Stoppable {
+// StartProcessies track runs a thread which checks for past and present address
+// ID.
+func (t manager) StartProcessies() stoppable.Stoppable {
 	stop := stoppable.NewSingle(ephemeralStoppable)
 
-	go tracker.track(stop)
+	go t.track(stop)
 
 	return stop
 }
 
-// AddIdentity adds an identity to be tracked
-func (tracker *manager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
-	tracker.newIdentity <- trackedID{
+// AddIdentity adds an identity to be tracked.
+func (t *manager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
+	t.newIdentity <- trackedID{
 		NextGeneration: netTime.Now().Add(-time.Second),
 		LastGeneration: time.Time{},
 		Source:         id,
@@ -136,66 +147,75 @@ func (tracker *manager) AddIdentity(id *id.ID, validUntil time.Time, persistent 
 }
 
 // RemoveIdentity removes a currently tracked identity.
-func (tracker *manager) RemoveIdentity(id *id.ID) {
-	tracker.deleteIdentity <- id
+func (t *manager) RemoveIdentity(id *id.ID) {
+	t.deleteIdentity <- id
 }
 
 // GetEphemeralIdentity returns an ephemeral Identity to poll the network with.
-func (tracker *manager) GetEphemeralIdentity(rng io.Reader, addressSize uint8) (receptionID.IdentityUse, error) {
-	return tracker.store.GetIdentity(rng, addressSize)
+func (t *manager) GetEphemeralIdentity(rng io.Reader, addressSize uint8) (
+	receptionID.IdentityUse, error) {
+	return t.store.GetIdentity(rng, addressSize)
 }
 
-func (tracker *manager) track(stop *stoppable.Single) {
+func (t *manager) track(stop *stoppable.Single) {
+	// Wait until the ID size is retrieved from the network
+	addressSize := t.addrSpace.GetAddressSpace()
 
-	// Wait until we get the ID size from the network
-	addressSize := tracker.addrSpace.GetAddressSpace()
-
-	/*wait for next event*/
+	// Wait for next event
 trackerLoop:
 	for {
 		edits := false
 		var toRemove map[int]struct{}
-		nextEvent := tracker.tracked[0].ValidUntil
+		nextEvent := t.tracked[0].ValidUntil
 
-		//loop through every tracked ID and see if any operatrions are needed
-		for i := range tracker.tracked {
-			inQuestion := tracker.tracked[i]
+		// Loop through every tracked ID and see if any operations are needed
+		for i := range t.tracked {
+			inQuestion := t.tracked[i]
 
-			//generate new ephmerals if is time for it
+			// Generate new ephemeral if is time for it
 			if netTime.Now().After(inQuestion.NextGeneration) {
 				edits = true
 
-				//ensure that ephemerals will not be generated after the identity is invalid
+				// Ensure that ephemeral IDs will not be generated after the
+				// identity is invalid
 				generateUntil := inQuestion.NextGeneration
-				if inQuestion.ValidUntil != Forever && generateUntil.After(inQuestion.ValidUntil) {
+				if inQuestion.ValidUntil != Forever &&
+					generateUntil.After(inQuestion.ValidUntil) {
 					generateUntil = inQuestion.ValidUntil
 				}
-				//generate all not yet existing ephemerals
-				identities, nextNextGeneration := generateIdentitiesOverRange(inQuestion.LastGeneration,
-					inQuestion.NextGeneration, inQuestion.Source, addressSize)
-				//add all ephemerals to the ephemeral handler
+
+				// Generate all not yet existing ephemeral IDs
+				identities, nextNextGeneration := generateIdentitiesOverRange(
+					inQuestion.LastGeneration, inQuestion.NextGeneration,
+					inQuestion.Source, addressSize)
+
+				// Add all ephemeral IDs to the ephemeral handler
 				for _, identity := range identities {
-					// move up the end time if the source identity is invalid before the natural end
-					// of the ephemeral identity.
-					if inQuestion.ValidUntil != Forever && identity.End.After(inQuestion.ValidUntil) {
+					// Move up the end time if the source identity is invalid
+					// before the natural end of the ephemeral identity
+					if inQuestion.ValidUntil != Forever &&
+						identity.End.After(inQuestion.ValidUntil) {
 						identity.End = inQuestion.ValidUntil
 					}
+
 					identity.Ephemeral = !inQuestion.Persistent
-					if err := tracker.store.AddIdentity(identity); err != nil {
+					if err := t.store.AddIdentity(identity); err != nil {
 						jww.FATAL.Panicf("Could not insert identity: %+v", err)
 					}
 				}
-				//move forward the tracking of when generation should occur
+
+				// Move forward the tracking of when generation should occur
 				inQuestion.LastGeneration = inQuestion.NextGeneration
 				inQuestion.NextGeneration = nextNextGeneration.Add(time.Millisecond)
 			}
 
-			// if it is time to delete the id, process the delete
-			if inQuestion.ValidUntil != Forever && netTime.Now().After(inQuestion.ValidUntil) {
+			// If it is time to delete the ID, then process the deletion
+			if inQuestion.ValidUntil != Forever &&
+				netTime.Now().After(inQuestion.ValidUntil) {
 				edits = true
 				toRemove[i] = struct{}{}
 			} else {
-				// otherwise see if it is responsible for the next event
+				// Otherwise, see if it is responsible for the next event
 				if inQuestion.NextGeneration.Before(nextEvent) {
 					nextEvent = inQuestion.NextGeneration
 				}
@@ -205,57 +225,60 @@ trackerLoop:
 			}
 		}
 
-		//process any deletions
+		// Process any deletions
 		if len(toRemove) > 0 {
-			newTracked := make([]trackedID, len(tracker.tracked))
-			for i := range tracker.tracked {
+			newTracked := make([]trackedID, 0, len(t.tracked))
+			for i := range t.tracked {
 				if _, remove := toRemove[i]; !remove {
-					newTracked = append(newTracked, tracker.tracked[i])
+					newTracked = append(newTracked, t.tracked[i])
 				}
 			}
-			tracker.tracked = newTracked
+
+			t.tracked = newTracked
 		}
 
 		if edits {
-			tracker.save()
+			t.save()
 		}
 
-		// trigger events early. this will cause generations to happen
-		// early as well as message pickup. As a result, if there
-		// are time sync issues between clients and they begin sending
-		// to ephemerals early, messages will still be picked up
+		// Trigger events early. This will cause generations to happen early as
+		// well as message pickup. As a result, if there are time sync issues
+		// between clients, and they begin sending to ephemeral IDs early, then
+		// messages will still be picked up.
 		nextUpdate := nextEvent.Add(-validityGracePeriod)
 
 		// Sleep until the last ID has expired
 		select {
 		case <-time.NewTimer(nextUpdate.Sub(nextUpdate)).C:
-		case newIdentity := <-tracker.newIdentity:
-			// if the identity is old, just update its properties
-			for i := range tracker.tracked {
-				inQuestion := tracker.tracked[i]
+		case newIdentity := <-t.newIdentity:
+			// If the identity is old, then update its properties
+			for i := range t.tracked {
+				inQuestion := t.tracked[i]
 				if inQuestion.Source.Cmp(newIdentity.Source) {
 					inQuestion.Persistent = newIdentity.Persistent
 					inQuestion.ValidUntil = newIdentity.ValidUntil
-					tracker.save()
+					t.save()
 					continue trackerLoop
 				}
 			}
-			//otherwise, add it to the list and run
-			tracker.tracked = append(tracker.tracked, newIdentity)
-			tracker.save()
+
+			// Otherwise, add it to the list and run
+			t.tracked = append(t.tracked, newIdentity)
+			t.save()
 			continue trackerLoop
-		case deleteID := <-tracker.deleteIdentity:
-			for i := range tracker.tracked {
-				inQuestion := tracker.tracked[i]
+
+		case deleteID := <-t.deleteIdentity:
+			for i := range t.tracked {
+				inQuestion := t.tracked[i]
 				if inQuestion.Source.Cmp(deleteID) {
-					tracker.tracked = append(tracker.tracked[:i], tracker.tracked[i+1:]...)
-					tracker.save()
-					tracker.store.RemoveIdentities(deleteID)
+					t.tracked = append(t.tracked[:i], t.tracked[i+1:]...)
+					t.save()
+					t.store.RemoveIdentities(deleteID)
 					break
 				}
 			}
 		case <-stop.Quit():
-			tracker.addrSpace.UnregisterAddressSpaceNotification(addressSpaceSizeChanTag)
+			t.addrSpace.UnregisterAddressSpaceNotification(addressSpaceSizeChanTag)
 			stop.ToStopped()
 			return
 		}
@@ -284,12 +307,12 @@ func unmarshalTimestamp(lastTimestampObj *versioned.Object) (time.Time, error) {
 
 func generateIdentitiesOverRange(lastGeneration, generateThrough time.Time,
 	source *id.ID, addressSize uint8) ([]receptionID.Identity, time.Time) {
-	protoIds, err := ephemeral.GetIdsByRange(
-		source, uint(addressSize), lastGeneration, generateThrough.Sub(lastGeneration))
+	protoIds, err := ephemeral.GetIdsByRange(source, uint(addressSize),
+		lastGeneration, generateThrough.Sub(lastGeneration))
 
 	jww.DEBUG.Printf("Now: %s, LastCheck: %s, Different: %s",
 		generateThrough, generateThrough, generateThrough.Sub(lastGeneration))
-	jww.DEBUG.Printf("protoIds Count: %d", len(protoIds))
+	jww.DEBUG.Printf("protoIds count: %d", len(protoIds))
 
 	if err != nil {
 		jww.FATAL.Panicf("Could not generate upcoming IDs: %+v", err)
@@ -316,7 +339,7 @@ func generateIdentitiesOverRange(lastGeneration, generateThrough time.Time,
 
 	}
 
-	jww.INFO.Printf("Number of Identities Generated: %d", len(identities))
+	jww.INFO.Printf("Number of identities generated: %d", len(identities))
 	jww.INFO.Printf("Current Identity: %d (source: %s), Start: %s, End: %s",
 		identities[len(identities)-1].EphId.Int64(),
 		identities[len(identities)-1].Source,
@@ -326,24 +349,24 @@ func generateIdentitiesOverRange(lastGeneration, generateThrough time.Time,
 	return identities, identities[len(identities)-1].End
 }
 
-func (tracker *manager) save() {
-	tracker.mux.Lock()
-	defer tracker.mux.Unlock()
-	persistant := make([]trackedID, 0, len(tracker.tracked))
+func (t *manager) save() {
+	t.mux.Lock()
+	defer t.mux.Unlock()
+	persistent := make([]trackedID, 0, len(t.tracked))
 
-	for i := range tracker.tracked {
-		if tracker.tracked[i].Persistent {
-			persistant = append(persistant, tracker.tracked[i])
+	for i := range t.tracked {
+		if t.tracked[i].Persistent {
+			persistent = append(persistent, t.tracked[i])
 		}
 	}
 
-	if len(persistant) == 0 {
+	if len(persistent) == 0 {
 		return
 	}
 
-	data, err := json.Marshal(&persistant)
+	data, err := json.Marshal(&persistent)
 	if err != nil {
-		jww.FATAL.Panicf("unable to marshal trackedID list: %+v", err)
+		jww.FATAL.Panicf("Unable to marshal trackedID list: %+v", err)
 	}
 
 	obj := &versioned.Object{
@@ -352,10 +375,9 @@ func (tracker *manager) save() {
 		Data:      data,
 	}
 
-	err = tracker.session.GetKV().Set(TrackerListKey, TrackerListVersion,
-		obj)
+	err = t.session.GetKV().Set(TrackerListKey, TrackerListVersion, obj)
 	if err != nil {
-		jww.FATAL.Panicf("unable to save trackedID list: %+v", err)
+		jww.FATAL.Panicf("Unable to save trackedID list: %+v", err)
 	}
 }
 

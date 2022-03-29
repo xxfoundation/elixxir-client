@@ -24,13 +24,13 @@ const (
 	defaultMaxCheck             = 3
 )
 
-// UnknownRounds tracks data for unknown rounds
-// Should adhere to UnknownRounds interface
+// UnknownRounds tracks data for unknown rounds. Should adhere to UnknownRounds
+// interface.
 type UnknownRounds struct {
-	// Maps an unknown round to how many times the round
-	// has been checked
+	// Maps an unknown round to how many times the round has been checked
 	rounds map[id.Round]*uint64
-	// Configurations of UnknownRoundStore
+
+	// Configurations of UnknownRounds
 	params UnknownRoundsParams
 
 	// Key Value store to save data to disk
@@ -39,16 +39,17 @@ type UnknownRounds struct {
 	mux sync.Mutex
 }
 
-// Allows configuration of UnknownRounds parameters
+// UnknownRoundsParams allows configuration of UnknownRounds parameters.
 type UnknownRoundsParams struct {
-	// Maximum amount of checks of a round
-	// before that round gets discarded
+	// MaxChecks is the maximum amount of checks of a round before that round
+	// gets discarded
 	MaxChecks uint64
-	//Determines if the unknown rounds is stored to disk
+
+	// Stored determines if the unknown rounds is stored to disk
 	Stored bool
 }
 
-// Returns a default set of UnknownRoundsParams
+// DefaultUnknownRoundsParams returns a default set of UnknownRoundsParams.
 func DefaultUnknownRoundsParams() UnknownRoundsParams {
 	return UnknownRoundsParams{
 		MaxChecks: defaultMaxCheck,
@@ -56,23 +57,20 @@ func DefaultUnknownRoundsParams() UnknownRoundsParams {
 	}
 }
 
-// Build and return new UnknownRounds object
+// NewUnknownRounds builds and returns a new UnknownRounds object.
 func NewUnknownRounds(kv *versioned.KV,
 	params UnknownRoundsParams) *UnknownRounds {
 
 	urs := newUnknownRounds(kv, params)
 
 	if err := urs.save(); err != nil {
-		jww.FATAL.Printf("Failed to store New Unknown Rounds: %+v", err)
+		jww.FATAL.Printf("Failed to store new UnknownRounds: %+v", err)
 	}
 
 	return urs
 }
 
-func newUnknownRounds(kv *versioned.KV,
-	params UnknownRoundsParams) *UnknownRounds {
-	// Build the UnmixedMessagesMap
-	// Modify the prefix of the KV
+func newUnknownRounds(kv *versioned.KV, params UnknownRoundsParams) *UnknownRounds {
 	kv = kv.Prefix(unknownRoundPrefix)
 
 	urs := &UnknownRounds{
@@ -84,7 +82,8 @@ func newUnknownRounds(kv *versioned.KV,
 	return urs
 }
 
-// LoadUnknownRounds loads the data for a UnknownRoundStore from disk into an object
+// LoadUnknownRounds loads the data for a UnknownRounds from disk into an
+// object.
 func LoadUnknownRounds(kv *versioned.KV,
 	params UnknownRoundsParams) *UnknownRounds {
 	kv = kv.Prefix(unknownRoundPrefix)
@@ -106,32 +105,33 @@ func LoadUnknownRounds(kv *versioned.KV,
 	return urs
 }
 
-// Iterate iterates over all rounds. First it runs the
-// checker function on the stored rounds:
-// If true, it removes from the map and adds to the return slice
-// If false, it increments the counter and if it has passed the maxChecks
-// in params, it removes from the map
-// Afterwards it adds the roundToAdd to the map if an entry isn't present
-// Finally it saves the modified map to disk.
-// The abandon function can be used to pass the abandoned round somewhere else
+// Iterate iterates over all rounds. First it runs the checker function on the
+// stored rounds:
+// If true, it removes from the map and adds to the return slice.
+// If false, it increments the counter and if it has passed the maxChecks in
+// params, it removes from the map.
+// Afterwards it adds the roundToAdd to the map if an entry isn't present.
+// Finally, it saves the modified map to disk.
+// The abandon function can be used to pass the abandoned round somewhere else.
 func (urs *UnknownRounds) Iterate(checker func(rid id.Round) bool,
 	roundsToAdd []id.Round, abandon func(round id.Round)) []id.Round {
 	returnSlice := make([]id.Round, 0)
 	urs.mux.Lock()
 	defer urs.mux.Unlock()
+
 	// Check the rounds stored
 	for rnd := range urs.rounds {
 		ok := checker(rnd)
 		if ok {
-			// If true, Append to the return list and remove from the map
+			// If true, append to the return list and remove from the map
 			returnSlice = append(returnSlice, rnd)
 			delete(urs.rounds, rnd)
 		} else {
 			// If false, we increment the check counter for that round
 			totalChecks := atomic.AddUint64(urs.rounds[rnd], 1)
 
-			// If the round has been checked the maximum amount,
-			// the rond is removed from the map
+			// If the round has been checked the maximum amount, then the rond
+			// is removed from the map
 			if totalChecks > urs.params.MaxChecks {
 				localRnd := rnd
 				go abandon(localRnd)
@@ -151,8 +151,7 @@ func (urs *UnknownRounds) Iterate(checker func(rid id.Round) bool,
 	}
 
 	if err := urs.save(); err != nil {
-		jww.FATAL.Panicf("Failed to save unknown reounds after "+
-			"edit: %+v", err)
+		jww.FATAL.Panicf("Failed to save unknown rounds after edit: %+v", err)
 	}
 
 	return returnSlice
@@ -172,22 +171,22 @@ func (urs *UnknownRounds) save() error {
 	}
 
 	// Construct versioning object
-	obj := versioned.Object{
+	obj := &versioned.Object{
 		Version:   unknownRoundsStorageVersion,
 		Timestamp: now,
 		Data:      data,
 	}
 
 	// Save to disk
-	return urs.kv.Set(unknownRoundsStorageKey, unknownRoundsStorageVersion, &obj)
+	return urs.kv.Set(unknownRoundsStorageKey, unknownRoundsStorageVersion, obj)
 }
 
-// save stores the unknown rounds store.
 func (urs *UnknownRounds) Delete() {
 	urs.mux.Lock()
 	defer urs.mux.Unlock()
 	if urs.params.Stored {
-		if err := urs.kv.Delete(unknownRoundPrefix, unknownRoundsStorageVersion); err != nil {
+		err := urs.kv.Delete(unknownRoundPrefix, unknownRoundsStorageVersion)
+		if err != nil {
 			jww.FATAL.Panicf("Failed to delete unknown rounds: %+v", err)
 		}
 	}
@@ -196,18 +195,18 @@ func (urs *UnknownRounds) Delete() {
 	urs.rounds = nil
 }
 
-// unmarshal loads the serialized round data into the UnknownRounds map
+// unmarshal loads the serialized round data into the UnknownRounds map.
 func (urs *UnknownRounds) unmarshal(b []byte) error {
 	return json.Unmarshal(b, &urs.rounds)
 }
 
-func (urs *UnknownRounds) Get(round id.Round) (present bool, numchecked uint64) {
+func (urs *UnknownRounds) Get(round id.Round) (bool, uint64) {
 	urs.mux.Lock()
 	defer urs.mux.Unlock()
-	numcheck, exist := urs.rounds[round]
+	numCheck, exist := urs.rounds[round]
 	if !exist {
 		return false, 0
 	}
-	return exist, *numcheck
+	return exist, *numCheck
 
 }

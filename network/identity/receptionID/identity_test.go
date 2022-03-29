@@ -14,8 +14,10 @@ import (
 func TestIdentity_EncodeDecode(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	r := Identity{
-		EphId:       ephemeral.Id{},
-		Source:      &id.Permissioning,
+		EphemeralIdentity: EphemeralIdentity{
+			EphId:  ephemeral.Id{},
+			Source: &id.Permissioning,
+		},
 		AddressSize: 15,
 		End:         netTime.Now().Round(0),
 		ExtraChecks: 12,
@@ -35,7 +37,7 @@ func TestIdentity_EncodeDecode(t *testing.T) {
 	}
 
 	if !r.Equal(rLoad) {
-		t.Errorf("Registrations are not the same\nsaved:  %+v\nloaded: %+v",
+		t.Errorf("Registrations are not the same.\nsaved:  %+v\nloaded: %+v",
 			r, rLoad)
 	}
 }
@@ -43,8 +45,10 @@ func TestIdentity_EncodeDecode(t *testing.T) {
 func TestIdentity_Delete(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	r := Identity{
-		EphId:       ephemeral.Id{},
-		Source:      &id.Permissioning,
+		EphemeralIdentity: EphemeralIdentity{
+			EphId:  ephemeral.Id{},
+			Source: &id.Permissioning,
+		},
 		AddressSize: 15,
 		End:         netTime.Now().Round(0),
 		ExtraChecks: 12,

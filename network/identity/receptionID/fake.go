@@ -9,14 +9,15 @@ import (
 )
 
 // generateFakeIdentity generates a fake identity of the given size with the
-// given random number generator
+// given random number generator.
 func generateFakeIdentity(rng io.Reader, addressSize uint8,
 	now time.Time) (IdentityUse, error) {
+
 	// Randomly generate an identity
 	randIdBytes := make([]byte, id.ArrIDLen-1)
 	if _, err := rng.Read(randIdBytes); err != nil {
-		return IdentityUse{}, errors.WithMessage(err, "failed to "+
-			"generate a random identity when none is available")
+		return IdentityUse{}, errors.WithMessage(err,
+			"failed to generate a random identity when none is available")
 	}
 
 	randID := &id.ID{}
@@ -33,8 +34,10 @@ func generateFakeIdentity(rng io.Reader, addressSize uint8,
 
 	return IdentityUse{
 		Identity: Identity{
-			EphId:       ephID,
-			Source:      randID,
+			EphemeralIdentity: EphemeralIdentity{
+				EphId:  ephID,
+				Source: randID,
+			},
 			AddressSize: addressSize,
 			End:         end,
 			ExtraChecks: 0,

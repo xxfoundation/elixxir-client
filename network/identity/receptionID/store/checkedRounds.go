@@ -40,7 +40,8 @@ func NewCheckedRounds(maxRounds int, kv *versioned.KV) (*CheckedRounds, error) {
 	// Create a new BlockStore for storing the round IDs to storage
 	store, err := utility.NewBlockStore(itemsPerBlock, numBlocks, kv)
 	if err != nil {
-		return nil, errors.Errorf("failed to save new checked rounds to storage: %+v", err)
+		return nil, errors.Errorf(
+			"failed to save new checked rounds to storage: %+v", err)
 	}
 
 	// Create new CheckedRounds
@@ -63,7 +64,8 @@ func LoadCheckedRounds(maxRounds int, kv *versioned.KV) (*CheckedRounds, error) 
 	// get rounds from storage
 	store, rounds, err := utility.LoadBlockStore(kv)
 	if err != nil {
-		return nil, errors.Errorf("failed to load CheckedRounds from storage: %+v", err)
+		return nil, errors.Errorf(
+			"failed to load CheckedRounds from storage: %+v", err)
 	}
 
 	// Create new CheckedRounds

@@ -15,9 +15,11 @@ import (
 	"time"
 )
 
-const receptionPrefix = "reception"
-const receptionStoreStorageKey = "receptionStoreKey"
-const receptionStoreStorageVersion = 0
+const (
+	receptionPrefix              = "reception"
+	receptionStoreStorageKey     = "receptionStoreKey"
+	receptionStoreStorageVersion = 0
+)
 
 type Store struct {
 	// Identities which are being actively checked
@@ -46,12 +48,14 @@ func makeIdHash(ephID ephemeral.Id, source *id.ID) idHash {
 	return idH
 }
 
-// NewStore creates a new reception store that starts empty.
+// NewOrLoadStore creates a new reception store that starts empty.
 func NewOrLoadStore(kv *versioned.KV) *Store {
 
 	s, err := loadStore(kv)
 	if err != nil {
-		jww.WARN.Printf("ReceptionID store not found, creating a new one: %+v", err)
+		jww.WARN.Printf(
+			"ReceptionID store not found, creating a new one: %+v", err)
+
 		s = &Store{
 			active:  []*registration{},
 			present: make(map[idHash]struct{}),
@@ -73,13 +77,15 @@ func loadStore(kv *versioned.KV) (*Store, error) {
 	// Load the versioned object for the reception list
 	vo, err := kv.Get(receptionStoreStorageKey, receptionStoreStorageVersion)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to get the reception storage list")
+		return nil, errors.WithMessage(err,
+			"Failed to get the reception storage list")
 	}
 
 	// JSON unmarshal identities list
 	var identities []storedReference
 	if err = json.Unmarshal(vo.Data, &identities); err != nil {
-		return nil, errors.WithMessage(err, "Failed to unmarshal the stored identity list")
+		return nil, errors.WithMessage(err,
+			"Failed to unmarshal the stored identity list")
 	}
 
 	s := &Store{
@@ -89,9 +95,11 @@ func loadStore(kv *versioned.KV) (*Store, error) {
 	}
 
 	for i, sr := range identities {
-		s.active[i], err = loadRegistration(sr.Eph, sr.Source, sr.StartValid, s.kv)
+		s.active[i], err = loadRegistration(
+			sr.Eph, sr.Source, sr.StartValid, s.kv)
 		if err != nil {
-			return nil, errors.WithMessagef(err, "failed to load registration for: %+v",
+			return nil, errors.WithMessagef(err,
+				"failed to load registration for: %+v",
 				regPrefix(sr.Eph, sr.Source, sr.StartValid))
 		}
 		s.present[makeIdHash(sr.Eph, sr.Source)] = struct{}{}
@@ -154,14 +162,14 @@ func (s *Store) GetIdentity(rng io.Reader, addressSize uint8) (IdentityUse, erro
 	var identity IdentityUse
 	var err error
 
-	// If the list is empty, then we return a randomly generated identity to
-	// poll with so we can continue tracking the network and to further
+	// If the list is empty, then return a randomly generated identity to poll
+	// with so that we can continue tracking the network and to further
 	// obfuscate network identities.
 	if len(s.active) == 0 {
 		identity, err = generateFakeIdentity(rng, addressSize, now)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to generate a new ID when none "+
-				"available: %+v", err)
+			jww.FATAL.Panicf(
+				"Failed to generate a new ID when none available: %+v", err)
 		}
 	} else {
 		identity, err = s.selectIdentity(rng, now)
@@ -193,14 +201,14 @@ func (s *Store) AddIdentity(identity Identity) error {
 
 	reg, err := newRegistration(identity, s.kv)
 	if err != nil {
-		return errors.WithMessage(err, "failed to add new identity to "+
-			"reception store")
+		return errors.WithMessage(err,
+			"Failed to add new identity to reception store")
 	}
 
 	s.active = append(s.active, reg)
 	s.present[idH] = struct{}{}
 	if !identity.Ephemeral {
-		if err := s.save(); err != nil {
+		if err = s.save(); err != nil {
 			jww.FATAL.Panicf("Failed to save reception store after identity "+
 				"addition: %+v", err)
 		}
@@ -297,8 +305,8 @@ func (s *Store) prune(now time.Time) {
 
 	// Save the list if it changed
 	if lengthBefore != len(s.active) {
-
-		jww.INFO.Printf("Pruned %d identities [%+v]", lengthBefore-len(s.active), pruned)
+		jww.INFO.Printf(
+			"Pruned %d identities [%+v]", lengthBefore-len(s.active), pruned)
 		if err := s.save(); err != nil {
 			jww.FATAL.Panicf("Failed to store reception storage: %+v", err)
 		}

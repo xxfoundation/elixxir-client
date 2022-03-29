@@ -12,14 +12,14 @@ import (
 	"time"
 )
 
-func TestNewStore(t *testing.T) {
+func TestNewOrLoadStore_New(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	expected := &Store{
 		active: make([]*registration, 0),
 		kv:     kv,
 	}
 
-	s := NewStore(kv)
+	s := NewOrLoadStore(kv)
 
 	if !reflect.DeepEqual([]*registration{}, s.active) {
 		t.Errorf("NewStore() failed to return the expected Store."+
@@ -42,9 +42,9 @@ func TestNewStore(t *testing.T) {
 	}
 }
 
-func TestLoadStore(t *testing.T) {
+func TestNewOrLoadStore_Load(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	s := NewStore(kv)
+	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 
 	// Fill active registration with fake identities
@@ -64,7 +64,7 @@ func TestLoadStore(t *testing.T) {
 		t.Errorf("save() produced an error: %+v", err)
 	}
 
-	testStore := LoadStore(kv)
+	testStore := NewOrLoadStore(kv)
 	for i, active := range testStore.active {
 		if !s.active[i].Equal(active.Identity) {
 			t.Errorf("Failed to generate expected Store."+
@@ -75,7 +75,7 @@ func TestLoadStore(t *testing.T) {
 
 func TestStore_save(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	s := NewStore(kv)
+	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 
 	// Fill active registration with fake identities
@@ -113,7 +113,7 @@ func TestStore_save(t *testing.T) {
 }
 
 func TestStore_makeStoredReferences(t *testing.T) {
-	s := NewStore(versioned.NewKV(make(ekv.Memstore)))
+	s := NewOrLoadStore(versioned.NewKV(make(ekv.Memstore)))
 	prng := rand.New(rand.NewSource(42))
 	expected := make([]storedReference, 0)
 
@@ -143,7 +143,7 @@ func TestStore_makeStoredReferences(t *testing.T) {
 
 func TestStore_GetIdentity(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	s := NewStore(kv)
+	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 	testID, err := generateFakeIdentity(prng, 15, netTime.Now())
 	if err != nil {
@@ -166,7 +166,7 @@ func TestStore_GetIdentity(t *testing.T) {
 
 func TestStore_AddIdentity(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	s := NewStore(kv)
+	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 	testID, err := generateFakeIdentity(prng, 15, netTime.Now())
 	if err != nil {
@@ -186,7 +186,7 @@ func TestStore_AddIdentity(t *testing.T) {
 
 func TestStore_RemoveIdentity(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	s := NewStore(kv)
+	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 	testID, err := generateFakeIdentity(prng, 15, netTime.Now())
 	if err != nil {
@@ -205,7 +205,7 @@ func TestStore_RemoveIdentity(t *testing.T) {
 
 func TestStore_prune(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	s := NewStore(kv)
+	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 	runs := 10
 	expected := make([]*registration, runs/2)
@@ -240,7 +240,7 @@ func TestStore_prune(t *testing.T) {
 
 func TestStore_selectIdentity(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	s := NewStore(kv)
+	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 	runs := 10
 	expectedReg := make([]*registration, runs)

@@ -12,8 +12,6 @@ import (
 	"time"
 )
 
-const knownRoundsStorageKey = "krStorage"
-
 type registration struct {
 	Identity
 	UR *store.UnknownRounds
@@ -28,9 +26,8 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 	reg.EndValid = reg.EndValid.Round(0)
 	reg.End = reg.End.Round(0)
 
-	// now := netTime.Now()
-
 	// Do edge checks to determine if the identity is valid
+	// now := netTime.Now()
 	// if now.After(reg.End) && reg.ExtraChecks < 1 {
 	// 	return nil, errors.New("Cannot create a registration for an " +
 	// 		"identity which has expired")
@@ -50,14 +47,13 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 	r.ER = store.NewEarliestRound(!reg.Ephemeral, kv)
 	cr, err := store.NewCheckedRounds(1500, kv)
 	if err != nil {
-		jww.FATAL.Printf("Failed to create new CheckedRounds for registration: %+v", err)
+		jww.FATAL.Printf(
+			"Failed to create new CheckedRounds for registration: %+v", err)
 	}
 	r.CR = cr
 
 	// If this is not address, then store everything
 	if !reg.Ephemeral {
-		// Store known rounds
-		var err error
 		// Store the registration
 		if err = reg.store(kv); err != nil {
 			return nil, errors.WithMessage(err, "failed to store registration")
@@ -105,8 +101,8 @@ func (r *registration) Delete() error {
 	if !r.Ephemeral {
 		r.UR.Delete()
 		if err := r.delete(r.kv); err != nil {
-			return errors.WithMessagef(err, "Failed to delete registration "+
-				"public data %s", r)
+			return errors.WithMessagef(
+				err, "Failed to delete registration public data %s", r)
 		}
 	}
 

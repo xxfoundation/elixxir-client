@@ -9,8 +9,10 @@ import (
 	"sync"
 )
 
-const earliestRoundStorageKey = "unknownRoundStorage"
-const earliestRoundStorageVersion = 0
+const (
+	earliestRoundStorageKey     = "unknownRoundStorage"
+	earliestRoundStorageVersion = 0
+)
 
 type EarliestRound struct {
 	stored bool
@@ -25,6 +27,7 @@ func NewEarliestRound(stored bool, kv *versioned.KV) *EarliestRound {
 		kv:     kv,
 		rid:    0,
 	}
+
 	ur.save()
 	return ur
 }
@@ -38,7 +41,7 @@ func LoadEarliestRound(kv *versioned.KV) *EarliestRound {
 
 	obj, err := kv.Get(earliestRoundStorageKey, earliestRoundStorageVersion)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to get the earlest round: %+v", err)
+		jww.FATAL.Panicf("Failed to get the earliest round: %+v", err)
 	}
 
 	err = json.Unmarshal(obj.Data, &ur.rid)
@@ -71,8 +74,8 @@ func (ur *EarliestRound) save() {
 	}
 }
 
-// Set returns the updated earliest round, the old earliest round, and if they are changed.
-// Updates the earliest round if it is newer than stored one
+// Set returns the updated earliest round, the old earliest round, and if they
+// are changed. Updates the earliest round if it is newer than stored one.
 func (ur *EarliestRound) Set(rid id.Round) (id.Round, id.Round, bool) {
 	ur.mux.Lock()
 	defer ur.mux.Unlock()

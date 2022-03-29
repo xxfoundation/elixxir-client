@@ -23,7 +23,7 @@ type FingerprintsManager struct {
 	sync.Mutex
 }
 
-// newFingerprints is a constructor function for the fingerprints tracker.
+// newFingerprints is a constructor function for the FingerprintsManager.
 func newFingerprints(standardID *id.ID) *FingerprintsManager {
 	return &FingerprintsManager{
 		fpMap:      make(map[id.ID]map[format.Fingerprint]Processor),

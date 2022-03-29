@@ -108,7 +108,7 @@ func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
 
 	nodeID, err := ngw.Node.GetNodeId()
 	if err != nil {
-		jww.ERROR.Print("registerWithNode failed to decode node ID: %v", err)
+		jww.ERROR.Printf("registerWithNode failed to decode node ID: %v", err)
 		return err
 	}
 

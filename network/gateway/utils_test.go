@@ -16,12 +16,13 @@ import (
 	"time"
 )
 
-// Mock structure adhering to HostManager to be used for happy path
+// mockManager is a mock structure adhering to HostManager to be used for happy
+// path.
 type mockManager struct {
 	hosts map[string]*connect.Host
 }
 
-// Constructor for mockManager
+// newMockManager is the constructor for mockManager.
 func newMockManager() *mockManager {
 	return &mockManager{
 		hosts: make(map[string]*connect.Host),
@@ -143,34 +144,34 @@ func getTestNdf(face interface{}) *ndf.NetworkDefinition {
 
 const happyPathReturn = "happyPathReturn"
 
-func SendToPreferred_HappyPath(*connect.Host, *id.ID, time.Duration) (interface{}, error) {
+func SendToPreferredHappyPath(*connect.Host, *id.ID, time.Duration) (interface{}, error) {
 	return happyPathReturn, nil
 }
 
-func SendToPreferred_KnownError(*connect.Host, *id.ID, time.Duration) (interface{}, error) {
+func SendToPreferredKnownError(*connect.Host, *id.ID, time.Duration) (interface{}, error) {
 	return nil, errors.Errorf(errorsList[0])
 }
 
-func SendToPreferred_UnknownError(*connect.Host, *id.ID, time.Duration) (interface{}, error) {
+func SendToPreferredUnknownError(*connect.Host, *id.ID, time.Duration) (interface{}, error) {
 	return nil, errors.Errorf("Unexpected error: Oopsie")
 }
 
-func SendToAny_HappyPath(host *connect.Host) (interface{}, error) {
+func SendToAnyHappyPath(*connect.Host) (interface{}, error) {
 	return happyPathReturn, nil
 }
 
-func SendToAny_KnownError(host *connect.Host) (interface{}, error) {
+func SendToAnyKnownError(*connect.Host) (interface{}, error) {
 	return nil, fmt.Errorf(errorsList[0])
 }
 
-func SendToAny_UnknownError(host *connect.Host) (interface{}, error) {
-	return nil, fmt.Errorf("Unexpected error: Oopsie")
+func SendToAnyUnknownError(*connect.Host) (interface{}, error) {
+	return nil, errors.Errorf("Unexpected error: Oopsie")
 }
 
-func SendToSpecific_HappyPath(host *connect.Host, target *id.ID) (interface{}, bool, error) {
+func SendToSpecificHappyPath(_ *connect.Host, _ *id.ID) (interface{}, bool, error) {
 	return happyPathReturn, false, nil
 }
 
-func SendToSpecific_Abort(host *connect.Host, target *id.ID) (interface{}, bool, error) {
+func SendToSpecificAbort(_ *connect.Host, _ *id.ID) (interface{}, bool, error) {
 	return nil, true, fmt.Errorf(errorsList[0])
 }

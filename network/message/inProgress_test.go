@@ -28,7 +28,7 @@ func Test_pickup_CheckInProgressMessages(t *testing.T) {
 		MessageReceptionWorkerPoolSize: 20,
 		MaxChecksInProcessMessage:      20,
 		InProcessMessageWait:           time.Hour,
-	}, kv, nil).(*handler)
+	}, kv, nil, nil).(*handler)
 
 	msg := makeTestFormatMessages(1)[0]
 	cid := id.NewIdFromString("clientID", id.User, t)

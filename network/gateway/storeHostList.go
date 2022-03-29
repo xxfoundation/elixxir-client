@@ -46,7 +46,7 @@ func saveHostList(kv *versioned.KV, list []*id.ID) error {
 	return kv.Set(hostListKey, hostListVersion, obj)
 }
 
-// Get returns the host list from storage.
+// getHostList returns the host list from storage.
 func getHostList(kv *versioned.KV) ([]*id.ID, error) {
 	obj, err := kv.Get(hostListKey, hostListVersion)
 	if err != nil {

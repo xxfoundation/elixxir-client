@@ -21,20 +21,20 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// Historical Rounds looks up the round history via random gateways.
-// It batches these quests but never waits longer than
-// params.HistoricalRoundsPeriod to do a lookup.
+// Historical Rounds looks up the round history via random gateways. It batches
+// these quests but never waits longer than params.HistoricalRoundsPeriod to d
+// a lookup.
 // Historical rounds receives input from:
 //   - Network Follower (/network/follow.go)
 // Historical Rounds sends the output to:
 //	 - Message Retrieval Workers (/network/round/retrieve.go)
 
 type Retriever interface {
-	StartProcessies() *stoppable.Single
+	StartProcesses() *stoppable.Single
 	LookupHistoricalRound(rid id.Round, callback RoundResultCallback) error
 }
 
-// manager is the controlling structure
+// manager is the controlling structure.
 type manager struct {
 	params Params
 
@@ -45,25 +45,25 @@ type manager struct {
 	c chan roundRequest
 }
 
-//RoundsComms interface to increase east of testing of historical rounds
+// RoundsComms interface to increase east of testing of historical rounds.
 type RoundsComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
-	RequestHistoricalRounds(host *connect.Host,
-		message *pb.HistoricalRounds) (*pb.HistoricalRoundsResponse, error)
+	RequestHistoricalRounds(host *connect.Host, message *pb.HistoricalRounds) (
+		*pb.HistoricalRoundsResponse, error)
 }
 
-//RoundResultCallback is the used callback when a round is found
+// RoundResultCallback is the used callback when a round is found.
 type RoundResultCallback func(info *pb.RoundInfo, success bool)
 
-//roundRequest is an internal structure which tracks a request
+// roundRequest is an internal structure that tracks a request.
 type roundRequest struct {
 	rid id.Round
 	RoundResultCallback
 	numAttempts uint
 }
 
-func NewRetriever(param Params, comms RoundsComms,
-	sender gateway.Sender, events event.Manager) Retriever {
+func NewRetriever(param Params, comms RoundsComms, sender gateway.Sender,
+	events event.Manager) Retriever {
 	return &manager{
 		params: param,
 		comms:  comms,
@@ -73,81 +73,79 @@ func NewRetriever(param Params, comms RoundsComms,
 	}
 }
 
-// LookupHistoricalRound sends the lookup request to the internal handler
-// and will return the result on the callback when it returns
-func (m *manager) LookupHistoricalRound(rid id.Round, callback RoundResultCallback) error {
+// LookupHistoricalRound sends the lookup request to the internal handler and
+// returns the result on the callback.
+func (m *manager) LookupHistoricalRound(
+	rid id.Round, callback RoundResultCallback) error {
 	if rid == 0 {
-		return errors.Errorf("Cannot lookup round 0, rounds start at 1")
+		return errors.New("Cannot look up round 0, rounds start at 1")
 	}
+
 	select {
-	case m.c <- roundRequest{
-		rid:                 rid,
-		RoundResultCallback: callback,
-		numAttempts:         0,
-	}:
+	case m.c <- roundRequest{rid, callback, 0}:
 		return nil
 	default:
-		return errors.Errorf("Cannot lookup round %d, "+
-			"channel is full", rid)
+		return errors.Errorf("Cannot look up round %d, channel is full", rid)
 	}
 }
 
-// StartProcessies starts the Long running thread which
-// process historical rounds. Can be killed by sending a
-// signal to the quit channel
-func (m *manager) StartProcessies() *stoppable.Single {
+// StartProcesses starts the Long running thread that process historical rounds.
+// The thread can be killed by sending a signal to the returned stoppable.
+func (m *manager) StartProcesses() *stoppable.Single {
 	stop := stoppable.NewSingle("TrackNetwork")
 	go m.processHistoricalRounds(m.comms, stop)
 	return stop
 }
 
-// processHistoricalRounds is a long running thread which
-// process historical rounds. Can be killed by sending
-// a signal to the quit channel takes a comms interface to aid in testing
-func (m *manager) processHistoricalRounds(comm RoundsComms,
-	stop *stoppable.Single) {
-
+// processHistoricalRounds is a long-running thread that process historical
+// rounds. The thread can be killed by triggering the stoppable. It takes a
+// comms interface to aid in testing.
+func (m *manager) processHistoricalRounds(comm RoundsComms, stop *stoppable.Single) {
 	timerCh := make(<-chan time.Time)
-
 	var roundRequests []roundRequest
 
 	for {
-
 		shouldProcess := false
-		// wait for a quit or new round to check
+
+		// Wait for a quit or new round to check
 		select {
 		case <-stop.Quit():
-			// return all roundRequests in the queue to
-			// the input channel so they can be checked in
-			// the future. If the queue is full, disable
-			// them as processing so they are picked up
-			// from the beginning
+			// Return all roundRequests in the queue to the input channel so
+			// that they can be checked in the future. If the queue is full,
+			// then disable them as processing so that they are picked up from
+			// the beginning.
 			for _, r := range roundRequests {
 				select {
 				case m.c <- r:
 				default:
 				}
 			}
+
 			stop.ToStopped()
 			return
-		// if the timer elapses process roundRequests to
-		// ensure the delay isn't too long
+
 		case <-timerCh:
+			// If the timer elapses, then process roundRequests to ensure that
+			// the delay is not too long
 			if len(roundRequests) > 0 {
 				shouldProcess = true
 			}
-		// get new round to lookup and force a lookup if
+
 		case r := <-m.c:
-			jww.DEBUG.Printf("Received and queueing round %d for "+
-				"historical rounds lookup", r.rid)
+			// Get new round to look up and force a lookup if
+			jww.DEBUG.Printf("Received and queueing round %d for historical "+
+				"rounds lookup.", r.rid)
+
 			roundRequests = append(roundRequests, r)
+
 			if len(roundRequests) > int(m.params.MaxHistoricalRounds) {
 				shouldProcess = true
 			} else if len(roundRequests) != 0 {
-				//if this is the first round, start the timeout
+				// If this is the first round, start the timeout
 				timerCh = time.NewTimer(m.params.HistoricalRoundsPeriod).C
 			}
 		}
+
 		if !shouldProcess {
 			continue
 		}
@@ -157,86 +155,82 @@ func (m *manager) processHistoricalRounds(comm RoundsComms,
 			rounds[i] = uint64(rr.rid)
 		}
 
-		//send the historical roundRequests request
-		hr := &pb.HistoricalRounds{
-			Rounds: rounds,
-		}
+		// Send the historical roundRequests request
+		hr := &pb.HistoricalRounds{Rounds: rounds}
 
 		var gwHost *connect.Host
 		result, err := m.sender.SendToAny(
 			func(host *connect.Host) (interface{}, error) {
-				jww.DEBUG.Printf("Requesting Historical "+
-					"rounds %v from gateway %s", rounds,
-					host.GetId())
+				jww.DEBUG.Printf("Requesting Historical rounds %v from "+
+					"gateway %s", rounds, host.GetId())
+
 				gwHost = host
+
 				return comm.RequestHistoricalRounds(host, hr)
 			}, stop)
 
 		if err != nil {
-			jww.ERROR.Printf("Failed to request historical "+
-				"roundRequests data for rounds %v: %s",
-				rounds, err)
-			// if the check fails to resolve, break the
-			// loop and so they will be checked again
+			jww.ERROR.Printf("Failed to request historical roundRequests "+
+				"data for rounds %v: %s", rounds, err)
+
+			// If the check fails to resolve, then break the loop so that they
+			// will be checked again
 			timerCh = time.NewTimer(m.params.HistoricalRoundsPeriod).C
 			continue
 		}
+
 		response := result.(*pb.HistoricalRoundsResponse)
 
 		rids, retries := processHistoricalRoundsResponse(response,
-			roundRequests, m.params.MaxHistoricalRoundsRetries,
-			m.events)
+			roundRequests, m.params.MaxHistoricalRoundsRetries, m.events)
 
 		m.events.Report(1, "HistoricalRounds", "Metrics",
-			fmt.Sprintf("Received %d historical rounds from"+
-				" gateway %s: %v", len(response.Rounds), gwHost,
-				rids))
+			fmt.Sprintf("Received %d historical rounds from gateway %s: %v",
+				len(response.Rounds), gwHost, rids))
 
-		// reset the buffer to those left to retry now that all
-		// have been checked
+		// Reset the buffer to those left to retry now that all have been
+		// checked
 		roundRequests = retries
-		// Now reset the timer, this prevents immediate reprocessing
-		// of the retries, limiting it to the next historical round
-		// request when buffer is full OR next timer tick
+
+		// Now reset the timer, this prevents immediate reprocessing of the
+		// retries, limiting it to the next historical round request when buffer
+		// is full OR next timer tick
 		timerCh = time.NewTimer(m.params.HistoricalRoundsPeriod).C
 	}
 }
 
 func processHistoricalRoundsResponse(response *pb.HistoricalRoundsResponse,
-	roundRequests []roundRequest, maxRetries uint,
-	events event.Manager) ([]uint64, []roundRequest) {
+	roundRequests []roundRequest, maxRetries uint, events event.Manager) (
+	[]uint64, []roundRequest) {
 	retries := make([]roundRequest, 0)
 	rids := make([]uint64, 0)
-	// process the returned historical roundRequests.
+
+	// Process the returned historical roundRequests
 	for i, roundInfo := range response.Rounds {
-		// The interface has missing returns returned as nil,
-		// such roundRequests need be be removes as processing
-		// so the network follower will pick them up in the
-		// future.
+		// The interface has missing returns returned as nil, such roundRequests
+		// need to be removed as processing so that the network follower will
+		// pick them up in the future.
 		if roundInfo == nil {
 			var errMsg string
 			roundRequests[i].numAttempts++
+
 			if roundRequests[i].numAttempts == maxRetries {
-				errMsg = fmt.Sprintf("Failed to retrieve "+
-					"historical round %d on last attempt,"+
-					" will not try again",
-					roundRequests[i].rid)
-				go roundRequests[i].RoundResultCallback(nil,
-					false)
+				errMsg = fmt.Sprintf("Failed to retrieve historical round %d "+
+					"on last attempt, will not try again", roundRequests[i].rid)
+				go roundRequests[i].RoundResultCallback(nil, false)
 			} else {
 				retries = append(retries, roundRequests[i])
-				errMsg = fmt.Sprintf("Failed to retrieve "+
-					"historical round %d, will try up to "+
-					"%d more times", roundRequests[i].rid,
+				errMsg = fmt.Sprintf("Failed to retrieve historical round "+
+					"%d, will try up to %d more times", roundRequests[i].rid,
 					maxRetries-roundRequests[i].numAttempts)
 			}
+
 			jww.WARN.Printf(errMsg)
-			events.Report(5, "HistoricalRounds",
-				"Error", errMsg)
+			events.Report(5, "HistoricalRounds", "Error", errMsg)
 			continue
 		}
-		// Successfully retrieved roundRequests are returned
-		// on the callback
+
+		// Successfully retrieved roundRequests are returned on the callback
 		go roundRequests[i].RoundResultCallback(roundInfo, true)
 
 		rids = append(rids, roundInfo.ID)

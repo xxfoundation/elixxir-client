@@ -24,7 +24,7 @@ type Monitor interface {
 	RemoveHealthCallback(uint64)
 	IsHealthy() bool
 	WasHealthy() bool
-	StartProcessies() (stoppable.Stoppable, error)
+	StartProcesses() (stoppable.Stoppable, error)
 }
 
 type tracker struct {
@@ -67,8 +67,8 @@ func newTracker(timeout time.Duration) *tracker {
 	}
 }
 
-// AddFunc adds a function to the list of tracker functions such that each
-// function can be run after network changes. Returns a unique ID for the
+// AddHealthCallback adds a function to the list of tracker functions such that
+// each function can be run after network changes. Returns a unique ID for the
 // function.
 func (t *tracker) AddHealthCallback(f func(isHealthy bool)) uint64 {
 	var currentID uint64
@@ -84,8 +84,8 @@ func (t *tracker) AddHealthCallback(f func(isHealthy bool)) uint64 {
 	return currentID
 }
 
-// RemoveFunc removes the function with the given ID from the list of tracker
-// functions so that it will not longer be run.
+// RemoveHealthCallback removes the function with the given ID from the list of
+// tracker functions so that it will no longer be run.
 func (t *tracker) RemoveHealthCallback(chanID uint64) {
 	t.mux.Lock()
 	delete(t.funcs, chanID)
@@ -119,12 +119,12 @@ func (t *tracker) setHealth(h bool) {
 	t.transmit(h)
 }
 
-func (t *tracker) StartProcessies() (stoppable.Stoppable, error) {
+func (t *tracker) StartProcesses() (stoppable.Stoppable, error) {
 	t.mux.Lock()
 	if t.running {
 		t.mux.Unlock()
-		return nil, errors.New("cannot start health tracker threads, " +
-			"they are already running")
+		return nil, errors.New(
+			"cannot start health tracker threads, they are already running")
 	}
 	t.running = true
 
@@ -155,15 +155,15 @@ func (t *tracker) start(stop *stoppable.Single) {
 
 			return
 		case heartbeat = <-t.heartbeat:
-			// FIXME: There's no transition to unhealthy here
-			// and there needs to be after some number of bad
-			// polls
+			// FIXME: There's no transition to unhealthy here and there needs to
+			//  be after some number of bad polls
 			if healthy(heartbeat) {
 				t.setHealth(true)
 			}
 		case <-time.After(t.timeout):
 			if !t.isHealthy {
-				jww.WARN.Printf("Network health tracker timed out, network is no longer healthy...")
+				jww.WARN.Printf("Network health tracker timed out, network " +
+					"is no longer healthy...")
 			}
 			t.setHealth(false)
 		}

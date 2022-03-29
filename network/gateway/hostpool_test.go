@@ -222,12 +222,11 @@ func TestHostPool_ReplaceHost(t *testing.T) {
 			"\n\tReceived: %d", newIndex, retrievedIndex)
 	}
 
-	// Check that the state of the list list been correctly updated
+	// Check that the state of the list been correctly updated
 	retrievedHost := hostPool.hostList[newIndex]
 	if !gwIdOne.Cmp(retrievedHost.GetId()) {
-		t.Errorf("Id pulled from list is not expected."+
-			"\n\tExpected: %s"+
-			"\n\tReceived: %s", gwIdOne, retrievedHost.GetId())
+		t.Errorf("ID pulled from list is not expected."+
+			"\nexpected: %s\nreceived: %s", gwIdOne, retrievedHost.GetId())
 	}
 
 	/* Replace the initial host with a new host */
@@ -253,9 +252,8 @@ func TestHostPool_ReplaceHost(t *testing.T) {
 	// Check that the state of the list been correctly updated for new host
 	retrievedHost = hostPool.hostList[newIndex]
 	if !gwIdTwo.Cmp(retrievedHost.GetId()) {
-		t.Errorf("Id pulled from list is not expected."+
-			"\n\tExpected: %s"+
-			"\n\tReceived: %s", gwIdTwo, retrievedHost.GetId())
+		t.Errorf("ID pulled from list is not expected."+
+			"\nexpected: %s\nreceived: %s", gwIdTwo, retrievedHost.GetId())
 	}
 
 	// Check the state of the map has been correctly removed for the old gateway

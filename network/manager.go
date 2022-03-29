@@ -203,7 +203,7 @@ func (m *manager) Follow(report ClientErrorReport) (stoppable.Stoppable, error) 
 	multi := stoppable.NewMulti("networkManager")
 
 	// health tracker
-	healthStop, err := m.Monitor.StartProcessies()
+	healthStop, err := m.Monitor.StartProcesses()
 	if err != nil {
 		return nil, errors.Errorf("failed to follow")
 	}
@@ -225,10 +225,10 @@ func (m *manager) Follow(report ClientErrorReport) (stoppable.Stoppable, error) 
 	multi.Add(m.Pickup.StartProcessors())
 
 	// Historical rounds processing
-	multi.Add(m.Retriever.StartProcessies())
+	multi.Add(m.Retriever.StartProcesses())
 
 	// Start the processes for the identity handler
-	multi.Add(m.Tracker.StartProcessies())
+	multi.Add(m.Tracker.StartProcesses())
 
 	return multi, nil
 }

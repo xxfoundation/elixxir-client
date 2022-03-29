@@ -45,7 +45,7 @@ const (
 const DefaultExtraChecks = 10
 
 type Tracker interface {
-	StartProcessies() stoppable.Stoppable
+	StartProcesses() stoppable.Stoppable
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
 	RemoveIdentity(id *id.ID)
 	GetEphemeralIdentity(rng io.Reader, addressSize uint8) (receptionID.IdentityUse, error)
@@ -125,9 +125,9 @@ func NewOrLoadTracker(session storage.Session, addrSpace address.Space) *manager
 	return t
 }
 
-// StartProcessies track runs a thread which checks for past and present address
+// StartProcesses track runs a thread which checks for past and present address
 // ID.
-func (t manager) StartProcessies() stoppable.Stoppable {
+func (t manager) StartProcesses() stoppable.Stoppable {
 	stop := stoppable.NewSingle(ephemeralStoppable)
 
 	go t.track(stop)

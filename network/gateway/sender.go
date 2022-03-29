@@ -25,7 +25,8 @@ import (
 
 // Sender Object used for sending that wraps the HostPool for providing destinations
 type Sender interface {
-	SendToAny(sendFunc func(host *connect.Host) (interface{}, error), stop *stoppable.Single) (interface{}, error)
+	SendToAny(sendFunc func(host *connect.Host) (interface{}, error),
+		stop *stoppable.Single) (interface{}, error)
 	SendToPreferred(targets []*id.ID, sendFunc SendToPreferredFunc,
 		stop *stoppable.Single, timeout time.Duration) (interface{}, error)
 	UpdateNdf(ndf *ndf.NetworkDefinition)
@@ -40,18 +41,22 @@ type sender struct {
 const RetryableError = "Nonfatal error occurred, please retry"
 
 // NewSender Create a new Sender object wrapping a HostPool object
-func NewSender(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.NetworkDefinition, getter HostManager,
-	storage storage.Session, addGateway chan network.NodeGateway) (Sender, error) {
+func NewSender(poolParams PoolParams, rng *fastRNG.StreamGenerator,
+	ndf *ndf.NetworkDefinition, getter HostManager, storage storage.Session,
+	addGateway chan network.NodeGateway) (Sender, error) {
 
-	hostPool, err := newHostPool(poolParams, rng, ndf, getter, storage, addGateway)
+	hostPool, err := newHostPool(
+		poolParams, rng, ndf, getter, storage, addGateway)
 	if err != nil {
 		return nil, err
 	}
 	return &sender{hostPool}, nil
 }
 
-// SendToAny Call given sendFunc to any Host in the HostPool, attempting with up to numProxies destinations
-func (s *sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error), stop *stoppable.Single) (interface{}, error) {
+// SendToAny call given sendFunc to any Host in the HostPool, attempting with up
+// to numProxies destinations.
+func (s *sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error),
+	stop *stoppable.Single) (interface{}, error) {
 
 	proxies := s.getAny(s.poolParams.ProxyAttempts, nil)
 	for proxy := range proxies {
@@ -106,7 +111,7 @@ func (s *sender) SendToPreferred(targets []*id.ID, sendFunc SendToPreferredFunc,
 		// Return an error if the timeout duration is reached
 		if netTime.Since(startTime) > timeout {
 			return nil, errors.Errorf(
-				"sending to targets in HostPool timed out after %s", timeout)
+				"sending to target in HostPool timed out after %s", timeout)
 		}
 
 		remainingTimeout := timeout - netTime.Since(startTime)

@@ -19,8 +19,8 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 )
 
-// TestHistoricalRounds provides a smoke test to run through most of the code
-// paths for historical round lookup.
+// Provides a smoke test to run through most of the code paths for historical
+// round lookup.
 func TestHistoricalRounds(t *testing.T) {
 	params := GetDefaultParams()
 	params.HistoricalRoundsPeriod = 500 * time.Millisecond
@@ -29,89 +29,91 @@ func TestHistoricalRounds(t *testing.T) {
 	sender := &testGWSender{sendCnt: 0}
 	events := &testEventMgr{}
 	hMgr := NewRetriever(params, comms, sender, events)
-	stopper := hMgr.StartProcessies()
+	stopper := hMgr.StartProcesses()
 
-	// case 1: Send a round request and wait for timeout for
-	//         processing
-	hMgr.LookupHistoricalRound(42, func(info *pb.RoundInfo, success bool) {
-		t.Errorf("first called when it shouldn't")
+	// Case 1: Send a round request and wait for timeout for processing
+	err := hMgr.LookupHistoricalRound(42, func(*pb.RoundInfo, bool) {
+		t.Error("Called when it should not have been.")
 	})
+	if err != nil {
+		t.Errorf("Failed to look up historical round: %+v", err)
+	}
 	time.Sleep(501 * time.Millisecond)
 
 	if sender.sendCnt != 1 {
-		t.Errorf("did not send as expected")
+		t.Errorf("Did not send as expected")
 	}
 
-	// case 2: make round requests up to m.params.MaxHistoricalRounds
-	for i := 0; i < 3; i++ {
-		hMgr.LookupHistoricalRound(id.Round(40+i),
-			func(info *pb.RoundInfo, success bool) {
-				t.Errorf("i called when it shouldn't")
-			})
+	// Case 2: make round requests up to m.params.MaxHistoricalRounds
+	for i := id.Round(0); i < 3; i++ {
+		err = hMgr.LookupHistoricalRound(40+i, func(*pb.RoundInfo, bool) {
+			t.Errorf("%d called when it should not have been.", i)
+		})
+		if err != nil {
+			t.Errorf("Failed to look up historical round (%d): %+v", i, err)
+		}
 	}
 
 	time.Sleep(10 * time.Millisecond)
 
 	if sender.sendCnt != 2 {
-		t.Errorf("unexpected send count: %d != 2", sender.sendCnt)
+		t.Errorf("Unexpected send count.\nexpected: %d\nreceived: %d",
+			2, sender.sendCnt)
 	}
 
-	err := stopper.Close()
+	err = stopper.Close()
 	if err != nil {
-		t.Errorf("%+v", err)
+		t.Error(err)
 	}
 	if stopper.IsRunning() {
-		t.Errorf("historical rounds routine failed to close")
+		t.Errorf("Historical rounds routine failed to close.")
 	}
 }
 
-// TestHistoricalRoundsProcessing exercises the
 func TestProcessHistoricalRoundsResponse(t *testing.T) {
 	params := GetDefaultParams()
-	bad_rr := roundRequest{
+	badRR := roundRequest{
 		rid: id.Round(41),
-		RoundResultCallback: func(info *pb.RoundInfo, success bool) {
-			t.Errorf("bad called when it shouldn't")
+		RoundResultCallback: func(*pb.RoundInfo, bool) {
+			t.Error("Called when it should not have been.")
 		},
 		numAttempts: params.MaxHistoricalRoundsRetries - 2,
 	}
-	expired_rr := roundRequest{
+	expiredRR := roundRequest{
 		rid: id.Round(42),
 		RoundResultCallback: func(info *pb.RoundInfo, success bool) {
 			if info == nil && !success {
 				return
 			}
-			t.Errorf("expired called with bad params")
+			t.Errorf("Expired called with bad params.")
 		},
 		numAttempts: params.MaxHistoricalRoundsRetries - 1,
 	}
 	x := false
 	callbackCalled := &x
-	good_rr := roundRequest{
+	goodRR := roundRequest{
 		rid: id.Round(43),
 		RoundResultCallback: func(info *pb.RoundInfo, success bool) {
 			*callbackCalled = true
 		},
 		numAttempts: 0,
 	}
-	rrs := []roundRequest{bad_rr, expired_rr, good_rr}
-	rifs := make([]*pb.RoundInfo, 3)
-	rifs[0] = nil
-	rifs[1] = nil
-	rifs[2] = &pb.RoundInfo{ID: 43}
-	response := &pb.HistoricalRoundsResponse{
-		Rounds: rifs,
-	}
+	rrs := []roundRequest{badRR, expiredRR, goodRR}
+	infos := make([]*pb.RoundInfo, 3)
+	infos[0] = nil
+	infos[1] = nil
+	infos[2] = &pb.RoundInfo{ID: 43}
+	response := &pb.HistoricalRoundsResponse{Rounds: infos}
 	events := &testEventMgr{}
 
 	rids, retries := processHistoricalRoundsResponse(response, rrs,
 		params.MaxHistoricalRoundsRetries, events)
 
 	if len(rids) != 1 || rids[0] != 43 {
-		t.Errorf("bad return: %v, expected [43]", rids)
+		t.Errorf("Bad return: %v, expected [43]", rids)
 	}
 
-	// Note: 1 of the entries was expired, thats why this is not 2.
+	// Note: one of the entries was expired, that is why this is not 2.
 	if len(retries) != 1 {
 		t.Errorf("retries not right length: %d != 1", len(retries))
 	}
@@ -123,14 +125,14 @@ func TestProcessHistoricalRoundsResponse(t *testing.T) {
 	}
 }
 
-// Test structure implementations
+// Test structure implementations.
 type testRoundsComms struct{}
 
-func (t *testRoundsComms) GetHost(hostId *id.ID) (*connect.Host, bool) {
+func (t *testRoundsComms) GetHost(*id.ID) (*connect.Host, bool) {
 	return nil, false
 }
-func (t *testRoundsComms) RequestHistoricalRounds(host *connect.Host,
-	message *pb.HistoricalRounds) (*pb.HistoricalRoundsResponse, error) {
+func (t *testRoundsComms) RequestHistoricalRounds(*connect.Host,
+	*pb.HistoricalRounds) (*pb.HistoricalRoundsResponse, error) {
 	return nil, nil
 }
 
@@ -138,27 +140,28 @@ type testGWSender struct {
 	sendCnt int
 }
 
-func (t *testGWSender) SendToAny(sendFunc func(host *connect.Host) (interface{},
-	error), stop *stoppable.Single) (interface{}, error) {
-	// this is always called with at least 1 round info set
-	rifs := make([]*pb.RoundInfo, 1)
-	rifs[0] = nil
-	m := &pb.HistoricalRoundsResponse{Rounds: rifs}
+func (t *testGWSender) SendToAny(func(host *connect.Host) (interface{}, error),
+	*stoppable.Single) (interface{}, error) {
+	// This is always called with at least one round info set
+	infos := make([]*pb.RoundInfo, 1)
+	infos[0] = nil
+	m := &pb.HistoricalRoundsResponse{Rounds: infos}
 	t.sendCnt += 1
+
 	return m, nil
 }
-func (t *testGWSender) SendToPreferred(targets []*id.ID, sendFunc gateway.SendToPreferredFunc,
-	stop *stoppable.Single, timeout time.Duration) (interface{}, error) {
+
+func (t *testGWSender) SendToPreferred([]*id.ID, gateway.SendToPreferredFunc,
+	*stoppable.Single, time.Duration) (interface{}, error) {
 	return t, nil
 }
-func (t *testGWSender) UpdateNdf(ndf *ndf.NetworkDefinition) {
-}
-func (t *testGWSender) SetGatewayFilter(f gateway.Filter) {}
+
+func (t *testGWSender) UpdateNdf(*ndf.NetworkDefinition) {}
+func (t *testGWSender) SetGatewayFilter(gateway.Filter)  {}
 func (t *testGWSender) GetHostParams() connect.HostParams {
 	return connect.GetDefaultHostParams()
 }
 
 type testEventMgr struct{}
 
-func (t *testEventMgr) Report(priority int, category, evtType, details string) {
-}
+func (t *testEventMgr) Report(int, string, string, string) {}

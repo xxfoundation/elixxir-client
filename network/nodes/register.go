@@ -9,7 +9,7 @@ package nodes
 
 import (
 	"crypto/sha256"
-	"fmt"
+	"encoding/hex"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -38,6 +38,7 @@ import (
 
 func registerNodes(r *registrar, s storage.Session, stop *stoppable.Single,
 	inProgress, attempts *sync.Map) {
+
 	interval := time.Duration(500) * time.Millisecond
 	t := time.NewTicker(interval)
 	for {
@@ -46,9 +47,10 @@ func registerNodes(r *registrar, s storage.Session, stop *stoppable.Single,
 			t.Stop()
 			stop.ToStopped()
 			return
+
 		case gw := <-r.c:
 			rng := r.rng.GetStream()
-			nidStr := fmt.Sprintf("%x", gw.Node.ID)
+			nidStr := hex.EncodeToString(gw.Node.ID)
 			nid, err := gw.Node.GetNodeId()
 			if err != nil {
 				jww.WARN.Printf(
@@ -74,7 +76,8 @@ func registerNodes(r *registrar, s storage.Session, stop *stoppable.Single,
 
 			// No need to register with stale nodes
 			if isStale := gw.Node.Status == ndf.Stale; isStale {
-				jww.DEBUG.Printf("Skipping registration with stale nodes %s", nidStr)
+				jww.DEBUG.Printf(
+					"Skipping registration with stale nodes %s", nidStr)
 				continue
 			}
 			err = registerWithNode(r.sender, r.comms, gw, s, r, rng, stop)
@@ -97,15 +100,15 @@ func registerNodes(r *registrar, s storage.Session, stop *stoppable.Single,
 	}
 }
 
-// registerWithNode serves as a helper for RegisterWithNodes.
-// It registers a user with a specific in the client's NDF.
+// registerWithNode serves as a helper for registerNodes. It registers a user
+// with a specific in the client's NDF.
 func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	ngw network.NodeGateway, s storage.Session, r *registrar, rng csprng.Source,
 	stop *stoppable.Single) error {
 
 	nodeID, err := ngw.Node.GetNodeId()
 	if err != nil {
-		jww.ERROR.Println("registerWithNode() failed to decode nodeId")
+		jww.ERROR.Print("registerWithNode failed to decode node ID: %v", err)
 		return err
 	}
 
@@ -113,12 +116,12 @@ func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
 		return nil
 	}
 
-	jww.INFO.Printf("registerWithNode() begin registration with nodes: %s", nodeID)
+	jww.INFO.Printf("registerWithNode begin registration with node: %s", nodeID)
 
 	var transmissionKey *cyclic.Int
 	var validUntil uint64
 	var keyId []byte
-	// TODO: should move this to a precanned user initialization
+	// TODO: should move this to a pre-canned user initialization
 	if s.IsPrecanned() {
 		userNum := int(s.GetTransmissionID().Bytes()[7])
 		h := sha256.New()
@@ -140,7 +143,7 @@ func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
 
 	r.add(nodeID, transmissionKey, validUntil, keyId)
 
-	jww.INFO.Printf("Completed registration with nodes %s", nodeID)
+	jww.INFO.Printf("Completed registration with node %s", nodeID)
 
 	return nil
 }
@@ -198,8 +201,7 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	data := h.Sum(nil)
 
 	// Sign DH pubkey
-	clientSig, err := rsa.Sign(rng, s.GetTransmissionRSA(), opts.Hash,
-		data, opts)
+	clientSig, err := rsa.Sign(rng, s.GetTransmissionRSA(), opts.Hash, data, opts)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -207,7 +209,7 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	gwId := ngw.Gateway.ID
 	gatewayID, err := id.Unmarshal(gwId)
 	if err != nil {
-		jww.ERROR.Println("registerWithNode() failed to decode gatewayID")
+		jww.ERROR.Printf("registerWithNode failed to decode gateway ID: %v", err)
 		return nil, nil, 0, err
 	}
 
@@ -215,20 +217,21 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	jww.INFO.Printf("Register: Requesting client key from gateway %s", gatewayID)
 
 	result, err := sender.SendToAny(func(host *connect.Host) (interface{}, error) {
-		keyResponse, err := comms.SendRequestClientKeyMessage(host,
+		keyResponse, err2 := comms.SendRequestClientKeyMessage(host,
 			&pb.SignedClientKeyRequest{
 				ClientKeyRequest:          serializedMessage,
 				ClientKeyRequestSignature: &messages.RSASignature{Signature: clientSig},
 				Target:                    gatewayID.Bytes(),
 			})
-		if err != nil {
-			return nil, errors.WithMessage(err,
+		if err2 != nil {
+			return nil, errors.WithMessage(err2,
 				"Register: Failed requesting client key from gateway")
 		}
 		if keyResponse.Error != "" {
-			return nil, errors.WithMessage(err,
+			return nil, errors.WithMessage(err2,
 				"requestKey: clientKeyResponse error")
 		}
+
 		return keyResponse, nil
 	}, stop)
 
@@ -287,8 +290,9 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 
 	// Verify the HMAC
 	h.Reset()
-	if !registration.VerifyClientHMAC(sessionKey.Bytes(), keyResponse.EncryptedClientKey,
-		opts.Hash.New, keyResponse.EncryptedClientKeyHMAC) {
+	if !registration.VerifyClientHMAC(sessionKey.Bytes(),
+		keyResponse.EncryptedClientKey, opts.Hash.New,
+		keyResponse.EncryptedClientKeyHMAC) {
 		return nil, nil, 0, errors.New("Failed to verify client HMAC")
 	}
 

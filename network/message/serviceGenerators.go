@@ -17,7 +17,7 @@ func GetDefaultService(recipient *id.ID) Service {
 	return Service{
 		Identifier: recipient[:],
 		Tag:        sih.Default,
-		Source:     recipient[:],
+		Metadata:   recipient[:],
 	}
 }
 
@@ -32,6 +32,6 @@ func GetRandomService(rng csprng.Source) Service {
 	return Service{
 		Identifier: identifier,
 		Tag:        "Random",
-		Source:     identifier,
+		Metadata:   identifier,
 	}
 }

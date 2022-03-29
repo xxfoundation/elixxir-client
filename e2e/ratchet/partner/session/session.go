@@ -303,7 +303,7 @@ func GetSessionIDFromBaseKeyForTesting(baseKey *cyclic.Int, i interface{}) Sessi
 	default:
 		jww.FATAL.Panicf("GetSessionIDFromBaseKeyForTesting is restricted to testing only. Got %T", i)
 	}
-	return getSessionIDFromBaseKey(baseKey)
+	return GetSessionIDFromBaseKey(baseKey)
 }
 
 //Blake2B hash of base key used for storage
@@ -632,7 +632,7 @@ func (s *Session) finalizeKeyNegotiation() {
 			s.partnerSIDHPubKey)
 	}
 
-	s.sID = getSessionIDFromBaseKey(s.baseKey)
+	s.sID = GetSessionIDFromBaseKey(s.baseKey)
 }
 
 func (s *Session) buildChildKeys() {

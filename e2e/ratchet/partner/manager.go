@@ -14,12 +14,11 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/interfaces/preimage"
+	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
@@ -92,7 +91,7 @@ func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
 }
 
 //loads a relationship and all buffers and sessions from disk
-func loadManager(kv *versioned.KV, myID, partnerID *id.ID,
+func LoadManager(kv *versioned.KV, myID, partnerID *id.ID,
 	cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (*Manager, error) {
 
@@ -130,7 +129,7 @@ func loadManager(kv *versioned.KV, myID, partnerID *id.ID,
 	}
 
 	m.receive, err = LoadRelationship(m.kv, session.Receive, myID, partnerID,
-		cyHandler, grp, rng))
+		cyHandler, grp, rng)
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"Failed to load partner key relationship due to failure to "+
@@ -140,10 +139,10 @@ func loadManager(kv *versioned.KV, myID, partnerID *id.ID,
 	return m, nil
 }
 
-// clearManager removes the relationship between the partner
+// ClearManager removes the relationship between the partner
 // and deletes the Send and Receive sessions. This includes the
 // sessions and the key vectors
-func clearManager(m *Manager, kv *versioned.KV) error {
+func ClearManager(m *Manager, kv *versioned.KV) error {
 	kv = kv.Prefix(fmt.Sprintf(managerPrefix, m.partner))
 
 	if err := DeleteRelationship(m); err != nil {
@@ -166,21 +165,22 @@ func clearManager(m *Manager, kv *versioned.KV) error {
 // allows for support of duplicate key exchange triggering.
 func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int,
 	partnerSIDHPubKey *sidh.PublicKey, e2eParams session.Params,
-	source *session2.Session) (*session2.Session, bool) {
+	source *session.Session) (*session.Session, bool) {
 
 	// Check if the session already exists
-	baseKey := session2.GenerateE2ESessionBaseKey(source.myPrivKey, partnerPubKey,
-		m.ctx.grp, source.mySIDHPrivKey, partnerSIDHPubKey)
-	sessionID := session.getSessionIDFromBaseKey(baseKey)
+	baseKey := session.GenerateE2ESessionBaseKey(source.GetMyPrivKey(), partnerPubKey,
+		m.grp, source.GetMySIDHPrivKey(), partnerSIDHPubKey)
+
+	sessionID := session.GetSessionIDFromBaseKey(baseKey)
 
 	if s := m.receive.GetByID(sessionID); s != nil {
 		return s, true
 	}
 
 	// Add the session to the buffer
-	session := m.receive.AddSession(source.myPrivKey, partnerPubKey, baseKey,
-		source.mySIDHPrivKey, partnerSIDHPubKey,
-		source.GetID(), session2.Confirmed, e2eParams)
+	session := m.receive.AddSession(source.GetMyPrivKey(), partnerPubKey, baseKey,
+		source.GetMySIDHPrivKey(), partnerSIDHPubKey,
+		source.GetID(), session.Confirmed, e2eParams)
 
 	return session, false
 }
@@ -189,29 +189,27 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int,
 // received from the partner and a new private key for the user. Passing in a
 // private key is optional. A private key will be generated if none is passed.
 func (m *Manager) NewSendSession(myPrivKey *cyclic.Int,
-	mySIDHPrivKey *sidh.PrivateKey,
-	e2eParams params.E2ESessionParams) *session2.Session {
+	mySIDHPrivKey *sidh.PrivateKey, e2eParams session.Params) *session.Session {
 	// Find the latest public key from the other party
 	sourceSession := m.receive.getNewestRekeyableSession()
 
 	// Add the session to the Send session buffer and return
-	return m.send.AddSession(myPrivKey, sourceSession.partnerPubKey, nil,
-		mySIDHPrivKey, sourceSession.partnerSIDHPubKey,
-		sourceSession.GetID(), session2.Sending, e2eParams)
+	return m.send.AddSession(myPrivKey, sourceSession.GetPartnerPubKey(), nil,
+		mySIDHPrivKey, sourceSession.GetPartnerSIDHPubKey(),
+		sourceSession.GetID(), session.Sending, e2eParams)
 }
 
-// GetKeyForSending gets the correct session to Send with depending on the type
+// PopSendCypher gets the correct session to Send with depending on the type
 // of Send.
-func (m *Manager) GetKeyForSending(st params.SendType) (*session2.Cypher, error) {
-	switch st {
-	case params.Standard:
-		return m.send.getKeyForSending()
-	case params.KeyExchange:
-		return m.send.getKeyForRekey()
-	default:
-	}
+func (m *Manager) PopSendCypher() (*session.Cypher, error) {
+	return m.send.getKeyForSending()
+}
 
-	return nil, errors.Errorf("Cannot get session for invalid Send Tag: %s", st)
+// PopRekeyCypher gets the correct session to Send with depending on the type
+// of Send.
+func (m *Manager) PopRekeyCypher() (*session.Cypher, error) {
+	return m.send.getKeyForRekey()
+
 }
 
 // GetPartnerID returns a copy of the ID of the partner.
@@ -221,8 +219,14 @@ func (m *Manager) GetPartnerID() *id.ID {
 
 // GetSendSession gets the Send session of the passed ID. Returns nil if no
 // session is found.
-func (m *Manager) GetSendSession(sid session2.SessionID) *session2.Session {
+func (m *Manager) GetSendSession(sid session.SessionID) *session.Session {
 	return m.send.GetByID(sid)
+}
+
+// GetReceiveSession gets the Receive session of the passed ID. Returns nil if
+// no session is found.
+func (m *Manager) GetReceiveSession(sid session.SessionID) *session.Session {
+	return m.receive.GetByID(sid)
 }
 
 // GetSendSession gets the Send session of the passed ID. Returns nil if no
@@ -231,20 +235,14 @@ func (m *Manager) GetSendRelationshipFingerprint() []byte {
 	return m.send.fingerprint
 }
 
-// GetReceiveSession gets the Receive session of the passed ID. Returns nil if
-// no session is found.
-func (m *Manager) GetReceiveSession(sid session2.SessionID) *session2.Session {
-	return m.receive.GetByID(sid)
-}
-
 // Confirm confirms a Send session is known about by the partner.
-func (m *Manager) Confirm(sid session2.SessionID) error {
+func (m *Manager) Confirm(sid session.SessionID) error {
 	return m.send.Confirm(sid)
 }
 
 // TriggerNegotiations returns a list of key exchange operations if any are
 // necessary.
-func (m *Manager) TriggerNegotiations() []*session2.Session {
+func (m *Manager) TriggerNegotiations() []*session.Session {
 	return m.send.TriggerNegotiation()
 }
 
@@ -289,28 +287,25 @@ func (m *Manager) GetRelationshipFingerprintBytes() []byte {
 	return h.Sum(nil)
 }
 
-// GetE2EPreimage returns a hash of the unique
-// fingerprint for an E2E relationship message.
-func (m *Manager) GetE2EPreimage() []byte {
-	return preimage.Generate(m.GetRelationshipFingerprintBytes(), preimage.E2e)
+// MakeService Returns a service interface with the
+// appropriate identifier for who is being sent to. Will populate
+// the metadata with the partner
+func (m *Manager) MakeService(tag string) message.Service {
+	return message.Service{
+		Identifier: m.GetRelationshipFingerprintBytes(),
+		Tag:        tag,
+		Metadata:   m.partner[:],
+	}
 }
 
-// GetSilentPreimage returns a hash of the unique
-// fingerprint for silent messages like E2E rekey message.
-func (m *Manager) GetSilentPreimage() []byte {
-	return preimage.Generate(m.GetRelationshipFingerprintBytes(), preimage.Silent)
-}
-
-// GetFileTransferPreimage returns a hash of the unique
-// fingerprint for an E2E end file transfer message.
-func (m *Manager) GetFileTransferPreimage() []byte {
-	return preimage.Generate(m.GetRelationshipFingerprintBytes(), preimage.EndFT)
-}
-
-// GetGroupRequestPreimage returns a hash of the unique
-// fingerprint for group requests received from this user.
-func (m *Manager) GetGroupRequestPreimage() []byte {
-	return preimage.Generate(m.GetRelationshipFingerprintBytes(), preimage.GroupRq)
+// GetContact assembles and returns a contact.Contact with the partner's ID
+// and DH key.
+func (m *Manager) GetContact() contact.Contact {
+	// Assemble Contact
+	return contact.Contact{
+		ID:       m.GetPartnerID(),
+		DhPubKey: m.GetPartnerOriginPublicKey(),
+	}
 }
 
 func makeManagerPrefix(pid *id.ID) string {

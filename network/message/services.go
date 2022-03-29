@@ -125,7 +125,7 @@ func (sm *ServicesManager) AddService(clientID *id.ID, newService Service,
 			newEntry = oldDefault
 			oldDefault.defaultList = append(oldDefault.defaultList, response)
 		} else {
-			newEntry.Source = clientID[:]
+			newEntry.Metadata = clientID[:]
 		}
 	} else if _, exists := sm.tmap[*clientID][newService.preimage()]; exists {
 		jww.FATAL.Panicf("Cannot add service %s, an identical "+

@@ -57,20 +57,20 @@ func Test_newManager(t *testing.T) {
 	}
 }
 
-// Tests happy path of loadManager.
+// Tests happy path of LoadManager.
 func TestLoadManager(t *testing.T) {
 	// Set up expected and test values
 	expectedM, kv := newTestManager(t)
 
 	// Attempt to load relationship
-	m, err := loadManager(expectedM.ctx, kv, expectedM.partner)
+	m, err := LoadManager(expectedM.ctx, kv, expectedM.partner)
 	if err != nil {
-		t.Errorf("loadManager() returned an error: %v", err)
+		t.Errorf("LoadManager() returned an error: %v", err)
 	}
 
 	// Check if the loaded relationship matches the expected
 	if !managersEqual(expectedM, m, t) {
-		t.Errorf("loadManager() did not produce the expected Manager."+
+		t.Errorf("LoadManager() did not produce the expected Manager."+
 			"\n\texpected: %+v\n\treceived: %+v", expectedM, m)
 	}
 }
@@ -93,9 +93,9 @@ func TestManager_ClearManager(t *testing.T) {
 	}
 
 	// Attempt to load relationship
-	_, err = loadManager(expectedM.ctx, kv, expectedM.partner)
+	_, err = LoadManager(expectedM.ctx, kv, expectedM.partner)
 	if err != nil {
-		t.Errorf("loadManager() returned an error: %v", err)
+		t.Errorf("LoadManager() returned an error: %v", err)
 	}
 }
 

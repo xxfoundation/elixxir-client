@@ -13,15 +13,13 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
-	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/network/message"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
@@ -33,7 +31,6 @@ const (
 	storeKey            = "Store"
 	pubKeyKey           = "DhPubKey"
 	privKeyKey          = "DhPrivKey"
-	grpKey              = "Group"
 	sidhPubKeyKey       = "SidhPubKey"
 	sidhPrivKeyKey      = "SidhPrivKey"
 )
@@ -44,49 +41,43 @@ type Store struct {
 	managers map[id.ID]*partner.Manager
 	mux      sync.RWMutex
 
+	myID         *id.ID
 	dhPrivateKey *cyclic.Int
 	dhPublicKey  *cyclic.Int
-	grp          *cyclic.Group
+
+	grp       *cyclic.Group
+	cyHandler session.CypherHandler
+	rng       *fastRNG.StreamGenerator
+
+	//services handler
+	services    map[string]message.Processor
+	sInteface   Services
+	servicesmux sync.RWMutex
 
 	kv *versioned.KV
-
-	*fingerprints
-
-	*context
-
-	e2eParams params.E2ESessionParams
 }
 
-func NewStore(grp *cyclic.Group, kv *versioned.KV, privKey *cyclic.Int,
-	myID *id.ID, rng *fastRNG.StreamGenerator) (*Store, error) {
+func NewStore(kv *versioned.KV, privKey *cyclic.Int,
+	myID *id.ID, grp *cyclic.Group, cyHandler session.CypherHandler,
+	rng *fastRNG.StreamGenerator) (*Store, error) {
 	// Generate public key
 	pubKey := diffieHellman.GeneratePublicKey(privKey, grp)
 
 	// Modify the prefix of the KV
 	kv = kv.Prefix(packagePrefix)
 
-	// Create new fingerprint map
-	fingerprints := newFingerprints()
-
 	s := &Store{
 		managers: make(map[id.ID]*partner.Manager),
 
+		myID:         myID,
 		dhPrivateKey: privKey,
 		dhPublicKey:  pubKey,
-		grp:          grp,
-
-		fingerprints: &fingerprints,
 
 		kv: kv,
 
-		context: &context{
-			fa:   &fingerprints,
-			grp:  grp,
-			rng:  rng,
-			myID: myID,
-		},
-
-		e2eParams: params.GetDefaultE2ESessionParams(),
+		cyHandler: cyHandler,
+		grp:       grp,
+		rng:       rng,
 	}
 
 	err := util.StoreCyclicKey(kv, pubKey, pubKeyKey)
@@ -101,39 +92,24 @@ func NewStore(grp *cyclic.Group, kv *versioned.KV, privKey *cyclic.Int,
 			"Failed to store e2e DH private key")
 	}
 
-	err = util.StoreGroup(kv, grp, grpKey)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to store e2e group")
-	}
-
 	return s, s.save()
 }
 
-func LoadStore(kv *versioned.KV, myID *id.ID, rng *fastRNG.StreamGenerator) (*Store, error) {
-	fingerprints := newFingerprints()
+func LoadStore(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
+	cyHandler session.CypherHandler, rng *fastRNG.StreamGenerator) (
+	*Store, error) {
 	kv = kv.Prefix(packagePrefix)
-
-	grp, err := util.LoadGroup(kv, grpKey)
-	if err != nil {
-		return nil, err
-	}
 
 	s := &Store{
 		managers: make(map[id.ID]*partner.Manager),
 
-		fingerprints: &fingerprints,
+		myID: myID,
 
-		kv:  kv,
-		grp: grp,
+		kv: kv,
 
-		context: &context{
-			fa:   &fingerprints,
-			rng:  rng,
-			myID: myID,
-			grp:  grp,
-		},
-
-		e2eParams: params.GetDefaultE2ESessionParams(),
+		cyHandler: cyHandler,
+		grp:       grp,
+		rng:       rng,
 	}
 
 	obj, err := kv.Get(storeKey, currentStoreVersion)
@@ -145,8 +121,6 @@ func LoadStore(kv *versioned.KV, myID *id.ID, rng *fastRNG.StreamGenerator) (*St
 	if err != nil {
 		return nil, err
 	}
-
-	s.context.grp = s.grp
 
 	return s, nil
 }
@@ -170,8 +144,8 @@ func (s *Store) save() error {
 
 func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey,
 	myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
-	mySIDHPrivKey *sidh.PrivateKey,
-	sendParams, receiveParams params.E2ESessionParams) error {
+	mySIDHPrivKey *sidh.PrivateKey, sendParams,
+	receiveParams session.Params) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -185,9 +159,9 @@ func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey,
 		return errors.New("Cannot overwrite existing partner")
 	}
 
-	m := partner.newManager(s.context, s.kv, partnerID, myPrivKey, partnerPubKey,
+	m := partner.NewManager(s.kv, s.myID, partnerID, myPrivKey, partnerPubKey,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sendParams, receiveParams)
+		sendParams, receiveParams, s.cyHandler, s.grp, s.rng)
 
 	s.managers[*partnerID] = m
 	if err := s.save(); err != nil {
@@ -205,7 +179,7 @@ func (s *Store) DeletePartner(partnerId *id.ID) error {
 		return errors.New(NoPartnerErrorStr)
 	}
 
-	if err := partner.clearManager(m, s.kv); err != nil {
+	if err := partner.ClearManager(m, s.kv); err != nil {
 		return errors.WithMessagef(err, "Could not remove partner %s from store", partnerId)
 	}
 
@@ -226,31 +200,9 @@ func (s *Store) GetPartner(partnerID *id.ID) (*partner.Manager, error) {
 	return m, nil
 }
 
-// GetPartnerContact find the partner with the given ID and assembles and
-// returns a contact.Contact with their ID and DH key. An error is returned if
-// no partner exists for the given ID.
-func (s *Store) GetPartnerContact(partnerID *id.ID) (contact.Contact, error) {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-
-	// get partner
-	m, exists := s.managers[*partnerID]
-	if !exists {
-		return contact.Contact{}, errors.New(NoPartnerErrorStr)
-	}
-
-	// Assemble Contact
-	c := contact.Contact{
-		ID:       m.GetPartnerID(),
-		DhPubKey: m.GetPartnerOriginPublicKey(),
-	}
-
-	return c, nil
-}
-
-// GetPartners returns a list of all partner IDs that the user has
+// GetAllPartnerIDs returns a list of all partner IDs that the user has
 // an E2E relationship with.
-func (s *Store) GetPartners() []*id.ID {
+func (s *Store) GetAllPartnerIDs() []*id.ID {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 
@@ -263,16 +215,6 @@ func (s *Store) GetPartners() []*id.ID {
 	return partnerIds
 }
 
-// PopKey pops a key for use based upon its fingerprint.
-func (s *Store) PopKey(f format.Fingerprint) (*session2.Cypher, bool) {
-	return s.fingerprints.Pop(f)
-}
-
-// CheckKey checks that a key exists for the key fingerprint.
-func (s *Store) CheckKey(f format.Fingerprint) bool {
-	return s.fingerprints.Check(f)
-}
-
 // GetDHPrivateKey returns the diffie hellman private key.
 func (s *Store) GetDHPrivateKey() *cyclic.Int {
 	return s.dhPrivateKey
@@ -283,13 +225,7 @@ func (s *Store) GetDHPublicKey() *cyclic.Int {
 	return s.dhPublicKey
 }
 
-// GetGroup returns the cyclic group used for cMix.
-func (s *Store) GetGroup() *cyclic.Group {
-	return s.grp
-}
-
 // ekv functions
-
 func (s *Store) marshal() ([]byte, error) {
 	contacts := make([]id.ID, len(s.managers))
 
@@ -317,7 +253,8 @@ func (s *Store) unmarshal(b []byte) error {
 		partnerID := (&contacts[i]).DeepCopy()
 		// Load the relationship. The relationship handles adding the fingerprints via the
 		// context object
-		manager, err := partner.loadManager(s.context, s.kv, partnerID)
+		manager, err := partner.LoadManager(s.kv, s.myID, partnerID,
+			s.cyHandler, s.grp, s.rng)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load relationship for partner %s: %s",
 				partnerID, err.Error())
@@ -344,87 +281,5 @@ func (s *Store) unmarshal(b []byte) error {
 			"Failed to load e2e DH public key")
 	}
 
-	s.grp, err = util.LoadGroup(s.kv, grpKey)
-	if err != nil {
-		return errors.WithMessage(err,
-			"Failed to load e2e DH group")
-	}
-
 	return nil
-}
-
-// GetE2ESessionParams returns a copy of the session params object
-func (s *Store) GetE2ESessionParams() params.E2ESessionParams {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	jww.DEBUG.Printf("Using Session Params: %s", s.e2eParams)
-	return s.e2eParams
-}
-
-// SetE2ESessionParams overwrites the current session params
-func (s *Store) SetE2ESessionParams(newParams params.E2ESessionParams) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	jww.DEBUG.Printf("Setting Session Params: %s", newParams)
-	s.e2eParams = newParams
-}
-
-type fingerprints struct {
-	toKey map[format.Fingerprint]*session2.Cypher
-	mux   sync.RWMutex
-}
-
-// newFingerprints creates a new fingerprints with an empty map.
-func newFingerprints() fingerprints {
-	return fingerprints{
-		toKey: make(map[format.Fingerprint]*session2.Cypher),
-	}
-}
-
-// fingerprints adheres to the fingerprintAccess interface.
-
-func (f *fingerprints) add(keys []*session2.Cypher) {
-	f.mux.Lock()
-	defer f.mux.Unlock()
-
-	for _, k := range keys {
-		f.toKey[k.Fingerprint()] = k
-		jww.TRACE.Printf("Added Key Fingerprint: %s",
-			k.Fingerprint())
-	}
-}
-
-func (f *fingerprints) remove(keys []*session2.Cypher) {
-	f.mux.Lock()
-	defer f.mux.Unlock()
-
-	for _, k := range keys {
-		delete(f.toKey, k.Fingerprint())
-	}
-}
-
-func (f *fingerprints) Check(fingerprint format.Fingerprint) bool {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
-
-	_, ok := f.toKey[fingerprint]
-	return ok
-}
-
-func (f *fingerprints) Pop(fingerprint format.Fingerprint) (*session2.Cypher, bool) {
-	f.mux.Lock()
-	defer f.mux.Unlock()
-	key, ok := f.toKey[fingerprint]
-
-	if !ok {
-		return nil, false
-	}
-
-	delete(f.toKey, fingerprint)
-
-	key.denoteUse()
-
-	key.fp = &fingerprint
-
-	return key, true
 }

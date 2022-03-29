@@ -10,7 +10,7 @@ import (
 type Service struct {
 	Identifier []byte
 	Tag        string
-	Source     []byte // Optional metadata field, only used on reception
+	Metadata   []byte // Optional metadata field, only used on reception
 
 	// Private field for lazy evaluation of preimage
 	// A value of nil denotes not yet evaluated
@@ -56,6 +56,6 @@ func (si Service) String() string {
 	p := si.preimage()
 	return fmt.Sprintf("Tag: %s, Identifier: %s, source: %s, "+
 		"preimage:%s", si.Tag, base64.StdEncoding.EncodeToString(si.Identifier),
-		base64.StdEncoding.EncodeToString(si.Source),
+		base64.StdEncoding.EncodeToString(si.Metadata),
 		base64.StdEncoding.EncodeToString(p[:]))
 }

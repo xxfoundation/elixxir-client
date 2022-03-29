@@ -35,7 +35,7 @@ func (sid *SessionID) Unmarshal(b []byte) error {
 }
 
 //underlying definition of session id
-func getSessionIDFromBaseKey(baseKey *cyclic.Int) SessionID {
+func GetSessionIDFromBaseKey(baseKey *cyclic.Int) SessionID {
 	// no lock is needed because this cannot be edited
 	sid := SessionID{}
 	h, _ := hash.NewCMixHash()

@@ -110,7 +110,7 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 // It will construct a manager that is already registered and restore
 // already registered facts into store.
 func NewManagerFromBackup(client *api.Client, single *single.Manager,
-	fl fact.FactList) (*Manager, error) {
+	email, phone fact.Fact) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
 	if client.NetworkFollowerStatus() != api.Running {
 		return nil, errors.New(
@@ -128,7 +128,7 @@ func NewManagerFromBackup(client *api.Client, single *single.Manager,
 	}
 
 	err := m.client.GetStorage().GetUd().
-		RestoreFromBackUp(fl)
+		BackUpMissingFacts(email, phone)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to restore UD store "+
 			"from backup")
@@ -211,17 +211,6 @@ func (m *Manager) UnsetAlternativeUserDiscovery() error {
 
 	m.alternativeUd = nil
 	return nil
-}
-
-// BackUpMissingFacts adds a registered fact to the Store object. It can take in both an
-// email and a phone number. One or the other may be nil, however both is considered
-// an error. It checks for the proper fact type for the associated fact.
-// Any other fact.FactType is not accepted and returns an error and nothing is backed up.
-// If you attempt to back up a fact type that has already been backed up,
-// an error will be returned and nothing will be backed up.
-// Otherwise, it adds the fact and returns whether the Store saved successfully.
-func (m *Manager) BackUpMissingFacts(email, phone fact.Fact) error {
-	return m.storage.GetUd().BackUpMissingFacts(email, phone)
 }
 
 // GetFacts returns a list of fact.Fact objects that exist within the

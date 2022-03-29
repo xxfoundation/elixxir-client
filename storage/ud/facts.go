@@ -116,10 +116,6 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	if isFactZero(email) && isFactZero(phone) {
-		return errors.New(backupMissingAllZeroesFactErr)
-	}
-
 	modifiedEmail, modifiedPhone := false, false
 
 	// Handle email if it is not zero (empty string)

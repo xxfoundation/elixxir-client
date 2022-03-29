@@ -13,7 +13,7 @@ func newPollTracker() *pollTracker {
 	return &pt
 }
 
-// Track tracks a single poll
+// Track tracks a single poll.
 func (pt *pollTracker) Track(ephID ephemeral.Id, source *id.ID) {
 	if _, exists := (*pt)[*source]; !exists {
 		(*pt)[*source] = make(map[int64]uint)
@@ -25,7 +25,7 @@ func (pt *pollTracker) Track(ephID ephemeral.Id, source *id.ID) {
 	}
 }
 
-// Report reports all recent polls
+// Report reports all recent polls.
 func (pt *pollTracker) Report() string {
 	report := ""
 	numReports := uint(0)

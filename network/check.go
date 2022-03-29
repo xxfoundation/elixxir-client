@@ -6,17 +6,16 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// Checker is a single use function which is meant to be wrapped
-// and adhere to the knownRounds checker interface. it receives a round ID and
-// looks up the state of that round to determine if the client has a message
-// waiting in it.
-// It will return true if it can conclusively determine no message exists,
-// returning false and set the round to processing if it needs further
+// Checker is a single use function that is meant to be wrapped and adhere to
+// the knownRounds checker interface. It receives a round ID and looks up the
+// state of that round to determine if the client has a message waiting in it.
+// It will return true if it can conclusively determine no message exists, and
+// it will return false and set the round to processing if it needs further
 // investigation.
 // Once it determines messages might be waiting in a round, it determines
-// if the information about that round is already present, if it is the data is
-// sent to Message Retrieval Workers, otherwise it is sent to Historical Round
-// Retrieval
+// if the information about that round is already present. If it is, then the
+// data is sent to Message Retrieval Workers; otherwise, it is sent to
+// Historical Round Retrieval
 // false: no message
 // true: message
 func Checker(roundID id.Round, filters []*RemoteFilter, cr *store.CheckedRounds) bool {
@@ -25,7 +24,7 @@ func Checker(roundID id.Round, filters []*RemoteFilter, cr *store.CheckedRounds)
 		return true
 	}
 
-	//find filters that could have the round and check them
+	// Find filters that could have the round and check them
 	serialRid := serializeRound(roundID)
 	for _, filter := range filters {
 		if filter != nil && filter.FirstRound() <= roundID &&
@@ -35,6 +34,7 @@ func Checker(roundID id.Round, filters []*RemoteFilter, cr *store.CheckedRounds)
 			}
 		}
 	}
+
 	return false
 }
 

@@ -8,10 +8,9 @@
 package network
 
 // tracker.go controls access to network resources. Interprocess communications
-// and intraclient state are accessible through the context object.
+// and intra-client state are accessible through the context object.
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/network/address"
@@ -32,36 +31,36 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
 	"math"
+	"strconv"
 	"sync/atomic"
 	"time"
 )
 
-// fakeIdentityRange indicates the range generated between
-// 0 (most current) and fakeIdentityRange rounds behind the earliest known
-// round that will be used as the earliest round when polling with a
-// fake identity.
+// fakeIdentityRange indicates the range generated between 0 (most current) and
+// fakeIdentityRange rounds behind the earliest known round that will be used as
+// the earliest round when polling with a fake identity.
 const fakeIdentityRange = 800
 
-// manager implements the NetworkManager interface inside context. It
-// controls access to network resources and implements all the communications
-// functions used by the client.
-// CRITICAL: Manager must be private. It embeds sub moduals which
-// export functions for it, but not for public consumption. By being private
-// and returning ass the public interface, these can be kept private.
+// manager implements the Manager interface inside context. It controls access
+// to network resources and implements all the communications functions used by
+// the client.
+// CRITICAL: Manager must be private. It embeds submodules that export functions
+// for it, but not for public consumption. By being private and returning as the
+// public interface, these can be kept private.
 type manager struct {
-	//User Identity Storage
+	// User Identity Storage
 	session storage.Session
-	//generic RNG for client
+	// Generic RNG for client
 	rng *fastRNG.StreamGenerator
-	// comms pointer to send/recv messages
+	// Comms pointer to send/receive messages
 	comms *client.Comms
-	//contains the network instance
+	// Contains the network instance
 	instance *commNetwork.Instance
 
-	// parameters of the network
+	// Parameters of the network
 	param Params
 
-	//sub-managers
+	// Sub-managers
 	gateway.Sender
 	message.Handler
 	nodes.Registrar
@@ -75,36 +74,38 @@ type manager struct {
 	// Earliest tracked round
 	earliestRound *uint64
 
-	//number of polls done in a period of time
+	// Number of polls done in a period of time
 	tracker       *uint64
 	latencySum    uint64
 	numLatencies  uint64
 	verboseRounds *RoundTracker
 
-	// Event reporting api
+	// Event reporting API
 	events event.Manager
 
-	//storage of the max message length
+	// Storage of the max message length
 	maxMsgLen int
 }
 
-// NewManager builds a new reception manager object using inputted key fields
+// NewManager builds a new reception manager object using inputted key fields.
 func NewManager(params Params, comms *client.Comms, session storage.Session,
-	ndf *ndf.NetworkDefinition, rng *fastRNG.StreamGenerator, events event.Manager,
-) (Manager, error) {
+	ndf *ndf.NetworkDefinition, rng *fastRNG.StreamGenerator,
+	events event.Manager) (Manager, error) {
 
-	//start network instance
-	instance, err := commNetwork.NewInstance(comms.ProtoComms, ndf, nil, nil, commNetwork.None, params.FastPolling)
+	// Start network instance
+	instance, err := commNetwork.NewInstance(
+		comms.ProtoComms, ndf, nil, nil, commNetwork.None, params.FastPolling)
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed to create"+
-			" client network manager")
+		return nil, errors.WithMessage(
+			err, "failed to create client network manager")
 	}
 
 	tmpMsg := format.NewMessage(session.GetCmixGroup().GetP().ByteLen())
 
 	tracker := uint64(0)
 	earliest := uint64(0)
-	// create manager object
+
+	// Create manager object
 	m := &manager{
 		param:         params,
 		tracker:       &tracker,
@@ -123,63 +124,66 @@ func NewManager(params Params, comms *client.Comms, session storage.Session,
 		m.verboseRounds = NewRoundTracker()
 	}
 
-	/* set up modules */
-	nodechan := make(chan commNetwork.NodeGateway, nodes.InputChanLen)
+	/* Set up modules */
+	nodeChan := make(chan commNetwork.NodeGateway, nodes.InputChanLen)
 
 	// Set up gateway.Sender
 	poolParams := gateway.DefaultPoolParams()
+
 	// Client will not send KeepAlive packets
 	poolParams.HostParams.KaClientOpts.Time = time.Duration(math.MaxInt64)
+
 	// Enable optimized HostPool initialization
 	poolParams.MaxPings = 50
 	poolParams.ForceConnection = true
-	m.Sender, err = gateway.NewSender(poolParams, rng,
-		ndf, comms, session, nodechan)
+	m.Sender, err = gateway.NewSender(
+		poolParams, rng, ndf, comms, session, nodeChan)
 	if err != nil {
 		return nil, err
 	}
 
-	//setup the node registrar
-	m.Registrar, err = nodes.LoadRegistrar(session, m.Sender, m.comms, m.rng, nodechan)
+	// Set up the node registrar
+	m.Registrar, err = nodes.LoadRegistrar(
+		session, m.Sender, m.comms, m.rng, nodeChan)
 	if err != nil {
 		return nil, err
 	}
 
-	//setup the historical rounds handler
-	m.Retriever = historical.NewRetriever(params.Historical, comms, m.Sender, events)
+	// Set up the historical rounds handler
+	m.Retriever = historical.NewRetriever(
+		params.Historical, comms, m.Sender, events)
 
-	//Set up Message Handler
+	// Set up Message Handler
 	m.Handler = message.NewHandler(params.Message, m.session.GetKV(), m.events,
 		m.session.GetReceptionID())
 
-	//set up round handler
+	// Set up round handler
 	m.Pickup = rounds.NewPickup(params.Rounds, m.Handler.GetMessageReceptionChannel(),
 		m.Sender, m.Retriever, m.rng, m.instance, m.session)
 
-	//add the identity system
+	// Add the identity system
 	m.Tracker = identity.NewOrLoadTracker(m.session, m.Space)
 
-	// Set upthe ability to register with new nodes when they appear
-	m.instance.SetAddGatewayChan(nodechan)
+	// Set up the ability to register with new nodes when they appear
+	m.instance.SetAddGatewayChan(nodeChan)
 
-	// set up the health monitor
+	// Set up the health monitor
 	m.Monitor = health.Init(instance, params.NetworkHealthTimeout)
 
-	//set up critical message tracking (sendCmix only)
-	critSender := func(msg format.Message, recipient *id.ID,
-		params CMIXParams) (id.Round, ephemeral.Id, error) {
+	// Set up critical message tracking (sendCmix only)
+	critSender := func(msg format.Message, recipient *id.ID, params CMIXParams,
+	) (id.Round, ephemeral.Id, error) {
 		return sendCmixHelper(m.Sender, msg, recipient, params, m.instance,
 			m.session.GetCmixGroup(), m.Registrar, m.rng, m.events,
 			m.session.GetTransmissionID(), m.comms)
 	}
 
-	m.crit = newCritical(session.GetKV(), m.Monitor,
-		m.instance.GetRoundEvents(), critSender)
+	m.crit = newCritical(
+		session.GetKV(), m.Monitor, m.instance.GetRoundEvents(), critSender)
 
 	// Report health events
 	m.Monitor.AddHealthCallback(func(isHealthy bool) {
-		m.events.Report(5, "health", "IsHealthy",
-			fmt.Sprintf("%v", isHealthy))
+		m.events.Report(5, "health", "IsHealthy", strconv.FormatBool(isHealthy))
 	})
 
 	return m, nil
@@ -207,7 +211,7 @@ func (m *manager) Follow(report ClientErrorReport) (stoppable.Stoppable, error) 
 
 	// Node Updates
 	multi.Add(m.Registrar.StartProcesses(m.param.ParallelNodeRegistrations)) // Adding/MixCypher
-	//TODO-node remover
+	// TODO-node remover
 
 	// Start the Network tracker
 	followNetworkStopper := stoppable.NewSingle("FollowNetwork")
@@ -223,18 +227,18 @@ func (m *manager) Follow(report ClientErrorReport) (stoppable.Stoppable, error) 
 	// Historical rounds processing
 	multi.Add(m.Retriever.StartProcessies())
 
-	//start the processies for the identity handler
+	// Start the processes for the identity handler
 	multi.Add(m.Tracker.StartProcessies())
 
 	return multi, nil
 }
 
-// GetInstance returns the network instance object (ndf state)
+// GetInstance returns the network instance object (NDF state).
 func (m *manager) GetInstance() *commNetwork.Instance {
 	return m.instance
 }
 
-// GetVerboseRounds returns verbose round information
+// GetVerboseRounds returns verbose round information.
 func (m *manager) GetVerboseRounds() string {
 	if m.verboseRounds == nil {
 		return "Verbose Round tracking not enabled"
@@ -246,7 +250,7 @@ func (m *manager) SetFakeEarliestRound(rnd id.Round) {
 	atomic.StoreUint64(m.earliestRound, uint64(rnd))
 }
 
-// GetMaxMessageLength returns the maximum length of a cmix message
+// GetMaxMessageLength returns the maximum length of a cMix message.
 func (m *manager) GetMaxMessageLength() int {
 	return m.maxMsgLen
 }

@@ -41,38 +41,38 @@ type TargetedCmixMessage struct {
 	Mac         []byte
 }
 
-// SendManyCMIX sends many "raw" CMIX message payloads to the provided
+// SendManyCMIX sends many "raw" cMix message payloads to the provided
 // recipients all in the same round.
-// Returns the round ID of the round the payloads was sent or an error
-// if it fails.
-// This does not have end to end encryption on it and is used exclusively as a
-// send for higher order cryptographic protocols. Do not use unless implementing
-// a protocol on top.
-// Due to sending multiple payloads, this leaks more metadata than a standard
-// cmix send and should be in general avoided.
-//   recipient - cMix ID of the recipient
-//   fingerprint - Key Fingerprint. 256 bit field to store a 255 bit
+// Returns the round ID of the round the payloads was sent or an error if it
+// fails.
+// This does not have end-to-end encryption on it and is used exclusively as
+// a send for higher order cryptographic protocols. Do not use unless
+// implementing a protocol on top.
+// Due to sending multiple payloads, this leaks more metadata than a
+// standard cMix send and should be in general avoided.
+//   recipient - cMix ID of the recipient.
+//   fingerprint - Key Fingerprint. 256-bit field to store a 255-bit
 //      fingerprint, highest order bit must be 0 (panic otherwise). If your
 //      system does not use key fingerprints, this must be random bits.
 //   service - Reception Service. The backup way for a client to identify
 //      messages on receipt via trial hashing and to identify notifications.
-//      If unused, use messages.RandomService to fill the field with random data
+//      If unused, use message.GetRandomService to fill the field with
+//      random data.
 //   payload - Contents of the message. Cannot exceed the payload size for a
 //      cMix message (panic otherwise).
-//   mac - 256 bit field to store a 255 bit mac, highest order bit must be 0
+//   mac - 256-bit field to store a 255-bit mac, highest order bit must be 0
 //      (panic otherwise). If used, fill with random bits.
 // Will return an error if the network is unhealthy or if it fails to send
 // (along with the reason). Blocks until successful send or err.
-// Does not support Critical Messages
 // WARNING: Do not roll your own crypto
 func (m *manager) SendManyCMIX(messages []TargetedCmixMessage,
 	p CMIXParams) (id.Round, []ephemeral.Id, error) {
 	if !m.Monitor.IsHealthy() {
-		return 0, []ephemeral.Id{}, errors.New("Cannot send cmix " +
-			"message when the network is not healthy")
+		return 0, []ephemeral.Id{}, errors.New(
+			"Cannot send cMix message when the network is not healthy")
 	}
 
-	acms := make([]assembeledCmixMessage, len(messages))
+	acms := make([]assembledCmixMessage, len(messages))
 	for i := range messages {
 		msg := format.NewMessage(m.session.GetCmixGroup().GetP().ByteLen())
 		msg.SetKeyFP(messages[i].Fingerprint)
@@ -80,7 +80,7 @@ func (m *manager) SendManyCMIX(messages []TargetedCmixMessage,
 		msg.SetMac(messages[i].Mac)
 		msg.SetSIH(messages[i].Service.Hash(msg.GetContents()))
 
-		acms[i] = assembeledCmixMessage{
+		acms[i] = assembledCmixMessage{
 			Recipient: messages[i].Recipient,
 			Message:   msg,
 		}
@@ -91,7 +91,7 @@ func (m *manager) SendManyCMIX(messages []TargetedCmixMessage,
 		m.session.GetTransmissionID(), m.comms)
 }
 
-type assembeledCmixMessage struct {
+type assembledCmixMessage struct {
 	Recipient *id.ID
 	Message   format.Message
 }
@@ -108,7 +108,7 @@ type assembeledCmixMessage struct {
 // which can be registered with the network instance to get a callback on its
 // status.
 func sendManyCmixHelper(sender gateway.Sender,
-	msgs []assembeledCmixMessage, param CMIXParams, instance *network.Instance,
+	msgs []assembledCmixMessage, param CMIXParams, instance *network.Instance,
 	grp *cyclic.Group, registrar nodes.Registrar,
 	rng *fastRNG.StreamGenerator, events event.Manager,
 	senderId *id.ID, comms SendCmixCommsInterface) (

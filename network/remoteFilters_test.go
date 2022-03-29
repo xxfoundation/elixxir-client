@@ -24,7 +24,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// Unit test NewRemoteFilter
+// Unit test NewRemoteFilter.
 func TestNewRemoteFilter(t *testing.T) {
 	bloomFilter := &mixmessages.ClientBloom{
 		Filter:     nil,
@@ -34,25 +34,22 @@ func TestNewRemoteFilter(t *testing.T) {
 
 	rf := NewRemoteFilter(bloomFilter)
 	if !reflect.DeepEqual(rf.data, bloomFilter) {
-		t.Fatalf("NewRemoteFilter() error: "+
-			"RemoteFilter not initialized as expected."+
-			"\n\tExpected: %v\n\tReceived: %v", bloomFilter, rf.data)
+		t.Fatalf("RemoteFilter not initialized as expected."+
+			"\nexpected: %+v\nreceived: %+v", bloomFilter, rf.data)
 	}
 }
 
-// Unit test GetFilter
+// Unit test RemoteFilter.GetFilter.
 func TestRemoteFilter_GetFilter(t *testing.T) {
 	testFilter, err := bloom.InitByParameters(BloomFilterSize,
 		BloomFilterHashes)
 	if err != nil {
-		t.Fatalf("GetFilter error: "+
-			"Cannot initialize bloom filter for setup: %v", err)
+		t.Fatalf("Cannot initialize bloom filter for setup: %+v", err)
 	}
 
 	data, err := testFilter.MarshalBinary()
 	if err != nil {
-		t.Fatalf("GetFilter error: "+
-			"Cannot marshal filter for setup: %v", err)
+		t.Fatalf("Cannot marshal filter for setup: %+v", err)
 	}
 
 	bloomFilter := &mixmessages.ClientBloom{
@@ -64,14 +61,13 @@ func TestRemoteFilter_GetFilter(t *testing.T) {
 	rf := NewRemoteFilter(bloomFilter)
 	retrievedFilter := rf.GetFilter()
 	if !reflect.DeepEqual(retrievedFilter, testFilter) {
-		t.Fatalf("GetFilter error: "+
-			"Did not retrieve expected filter."+
-			"\n\tExpected: %v\n\tReceived: %v", testFilter, retrievedFilter)
+		t.Fatalf("Did not retrieve expected filter."+
+			"\nexpected: %+v\nreceived: %+v", testFilter, retrievedFilter)
 	}
 }
 
-// Unit test fro FirstRound and LastRound
-func TestRemoteFilter_FirstLastRound(t *testing.T) {
+// Unit test for RemoteFilter.FirstRound and RemoteFilter.LastRound.
+func TestRemoteFilter_FirstRound_LastRound(t *testing.T) {
 	firstRound := uint64(25)
 	roundRange := uint32(75)
 	bloomFilter := &mixmessages.ClientBloom{
@@ -84,17 +80,15 @@ func TestRemoteFilter_FirstLastRound(t *testing.T) {
 	// Test FirstRound
 	receivedFirstRound := rf.FirstRound()
 	if receivedFirstRound != id.Round(firstRound) {
-		t.Fatalf("FirstRound error: "+
-			"Did not receive expected round."+
-			"\n\tExpected: %v\n\tReceived: %v", firstRound, receivedFirstRound)
+		t.Fatalf("Did not receive expected round.\nexpected: %d\nreceived: %d",
+			firstRound, receivedFirstRound)
 	}
 
 	// Test LastRound
 	receivedLastRound := rf.LastRound()
 	if receivedLastRound != id.Round(firstRound+uint64(roundRange)) {
-		t.Fatalf("LastRound error: "+
-			"Did not receive expected round."+
-			"\n\tExpected: %v\n\tReceived: %v", receivedLastRound, firstRound+uint64(roundRange))
+		t.Fatalf("Did not receive expected round.\nexpected: %d\nreceived: %d",
+			receivedLastRound, firstRound+uint64(roundRange))
 	}
 
 }

@@ -36,7 +36,8 @@ func (rf *RemoteFilter) GetFilter() *bloom.Ring {
 			BloomFilterHashes)
 		err = rf.filter.UnmarshalBinary(rf.data.Filter)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to properly unmarshal the bloom filter: %+v", err)
+			jww.FATAL.Panicf(
+				"Failed to properly unmarshal the bloom filter: %+v", err)
 		}
 	}
 	return rf.filter

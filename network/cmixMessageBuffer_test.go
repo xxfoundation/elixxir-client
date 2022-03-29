@@ -20,8 +20,8 @@ import (
 	"testing"
 )
 
-// Test happy path of cmixMessageHandler.SaveMessage().
-func TestCmixMessageHandler_SaveMessage(t *testing.T) {
+// Test happy path of cmixMessageHandler.SaveMessage.
+func Test_cmixMessageHandler_SaveMessage(t *testing.T) {
 	// Set up test values
 	cmh := &cmixMessageHandler{}
 	kv := versioned.NewKV(make(ekv.Memstore))
@@ -32,32 +32,31 @@ func TestCmixMessageHandler_SaveMessage(t *testing.T) {
 			Msg:       testMsgs[i].Marshal(),
 			Recipient: ids[i].Marshal(),
 		}
+
 		key := utility.MakeStoredMessageKey("testKey", cmh.HashMessage(msg))
 
 		// Save message
 		err := cmh.SaveMessage(kv, msg, key)
 		if err != nil {
-			t.Errorf("SaveMessage() returned an error."+
-				"\n\texpected: %v\n\trecieved: %v", nil, err)
+			t.Errorf("SaveMessage returned an error: %+v", err)
 		}
 
 		// Try to get message
 		obj, err := kv.Get(key, 0)
 		if err != nil {
-			t.Errorf("get() returned an error: %v", err)
+			t.Errorf("Failed to get message: %v", err)
 		}
 
 		// Test if message retrieved matches expected
 		if !bytes.Equal(msg.Marshal(), obj.Data) {
-			t.Errorf("SaveMessage() returned versioned object with incorrect data."+
-				"\n\texpected: %v\n\treceived: %v",
-				msg, obj.Data)
+			t.Errorf("Failed to get expected message from storage."+
+				"\nexpected: %v\nreceived: %v", msg, obj.Data)
 		}
 	}
 }
 
-// Test happy path of cmixMessageHandler.LoadMessage().
-func TestCmixMessageHandler_LoadMessage(t *testing.T) {
+// Test happy path of cmixMessageHandler.LoadMessage.
+func Test_cmixMessageHandler_LoadMessage(t *testing.T) {
 	// Set up test values
 	cmh := &cmixMessageHandler{}
 	kv := versioned.NewKV(make(ekv.Memstore))
@@ -72,98 +71,68 @@ func TestCmixMessageHandler_LoadMessage(t *testing.T) {
 
 		// Save message
 		if err := cmh.SaveMessage(kv, msg, key); err != nil {
-			t.Errorf("SaveMessage() returned an error: %v", err)
+			t.Errorf("Failed to save message to storage: %v", err)
 		}
 
 		// Try to load message
 		testMsg, err := cmh.LoadMessage(kv, key)
 		if err != nil {
-			t.Errorf("LoadMessage() returned an error."+
-				"\n\texpected: %v\n\trecieved: %v", nil, err)
+			t.Errorf("LoadMessage returned an error: %v", err)
 		}
 
 		// Test if message loaded matches expected
 		if !reflect.DeepEqual(msg, testMsg) {
-			t.Errorf("LoadMessage() returned an unexpected object."+
-				"\n\texpected: %v\n\treceived: %v",
-				msg, testMsg)
+			t.Errorf("Failed to load expected message from storage."+
+				"\nexpected: %v\nreceived: %v", msg, testMsg)
 		}
 	}
 }
 
 // Smoke test of cmixMessageHandler.
-func TestCmixMessageBuffer_Smoke(t *testing.T) {
+func Test_cmixMessageBuffer_Smoke(t *testing.T) {
 	// Set up test messages
 	testMsgs, ids, _ := makeTestCmixMessages(2)
 
 	// Create new buffer
 	cmb, err := NewOrLoadCmixMessageBuffer(versioned.NewKV(make(ekv.Memstore)), "testKey")
 	if err != nil {
-		t.Errorf("NewCmixMessageBuffer() returned an error."+
-			"\n\texpected: %v\n\trecieved: %v", nil, err)
+		t.Errorf("Failed to make new cmixMessageHandler: %+v", err)
 	}
 
 	// Add two messages
 	cmb.Add(testMsgs[0], ids[0], GetDefaultCMIXParams())
 	cmb.Add(testMsgs[1], ids[1], GetDefaultCMIXParams())
 
-	if cmb.mb.Len() != 2 {
-		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
-			2, cmb.mb.Len())
-	}
-
 	msg, rid, _, exists := cmb.Next()
 	if !exists {
-		t.Error("Next() did not find any messages in buffer.")
+		t.Error("Next did not find any messages in buffer.")
 	}
 	cmb.Succeeded(msg, rid)
 
-	l := cmb.mb.Len()
-	if l != 1 {
-		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
-			1, l)
-	}
-
 	msg, rid, _, exists = cmb.Next()
 	if !exists {
-		t.Error("Next() did not find any messages in buffer.")
+		t.Error("Next did not find any messages in buffer.")
 	}
 
-	l = cmb.mb.Len()
-	if l != 0 {
-		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
-			0, l)
-	}
 	cmb.Failed(msg, rid)
 
-	l = cmb.mb.Len()
-	if l != 1 {
-		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
-			1, l)
-	}
-
 	msg, rid, _, exists = cmb.Next()
 	if !exists {
-		t.Error("Next() did not find any messages in buffer.")
+		t.Error("Next did not find any messages in buffer.")
 	}
 	cmb.Succeeded(msg, rid)
 
 	msg, rid, _, exists = cmb.Next()
 	if exists {
-		t.Error("Next() found a message in the buffer when it should be empty.")
-	}
-
-	l = cmb.mb.Len()
-	if l != 0 {
-		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
-			0, l)
+		t.Error("Next found a message in the buffer when it should be empty.")
 	}
 
 }
 
 // makeTestCmixMessages creates a list of messages with random data and the
 // expected map after they are added to the buffer.
-func makeTestCmixMessages(n int) ([]format.Message, []*id.ID, map[utility.MessageHash]struct{}) {
+func makeTestCmixMessages(n int) (
+	[]format.Message, []*id.ID, map[utility.MessageHash]struct{}) {
 	cmh := &cmixMessageHandler{}
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	mh := map[utility.MessageHash]struct{}{}

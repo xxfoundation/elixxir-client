@@ -44,13 +44,14 @@ import (
 const (
 	debugTrackPeriod = 1 * time.Minute
 
-	// Estimate the number of rounds per second in the network. Will need updated someday
-	// in order to correctly determine how far back to search rounds for messages
-	// as the network continues to grow, otherwise message drops occur.
+	// Estimate the number of rounds per second in the network. Will need
+	// updated someday in order to correctly determine how far back to search
+	// rounds for messages as the network continues to grow, otherwise message
+	// drops occur.
 	estimatedRoundsPerSecond = 5
 )
 
-//comms interface makes testing easier
+// followNetworkComms is a comms interface to make testing easier.
 type followNetworkComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	SendPoll(host *connect.Host, message *pb.GatewayPoll) (*pb.GatewayPollResponse, error)
@@ -86,42 +87,38 @@ func (m *manager) followNetwork(report ClientErrorReport,
 					m.latencySum/m.numLatencies)
 				m.latencySum, m.numLatencies = 0, 0
 
-				infoMsg := fmt.Sprintf("Polled the network "+
-					"%d times in the last %s, with an "+
-					"average newest packet latency of %s",
+				infoMsg := fmt.Sprintf("Polled the network %d times in the "+
+					"last %s, with an average newest packet latency of %s",
 					numPolls, debugTrackPeriod, latencyAvg)
 
 				jww.INFO.Printf(infoMsg)
-				m.events.Report(1, "Polling",
-					"MetricsWithLatency", infoMsg)
+				m.events.Report(1, "Polling", "MetricsWithLatency", infoMsg)
 			} else {
-				infoMsg := fmt.Sprintf("Polled the network "+
-					"%d times in the last %s", numPolls,
+				infoMsg := fmt.Sprintf(
+					"Polled the network %d times in the last %s", numPolls,
 					debugTrackPeriod)
 
 				jww.INFO.Printf(infoMsg)
-				m.events.Report(1, "Polling",
-					"Metrics", infoMsg)
+				m.events.Report(1, "Polling", "Metrics", infoMsg)
 			}
 		}
 	}
 }
 
-// executes each iteration of the follower
+// follow executes each iteration of the follower.
 func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 	comms followNetworkComms, stop *stoppable.Single, abandon func(round id.Round)) {
 
-	//get the identity we will poll for
+	// Get the identity we will poll for
 	identity, err := m.GetEphemeralIdentity(rng, m.Space.GetAddressSpaceWithoutWait())
 	if err != nil {
-		jww.FATAL.Panicf("Failed to get an identity, this should be "+
-			"impossible: %+v", err)
+		jww.FATAL.Panicf(
+			"Failed to get an identity, this should be impossible: %+v", err)
 	}
 
-	// While polling with a fake identity, it is necessary to have
-	// populated earliestRound data. However, as with fake identities
-	// we want the values to be randomly generated rather than based on
-	// actual state.
+	// While polling with a fake identity, it is necessary to have populated
+	// earliestRound data. However, as with fake identities, we want the values
+	// to be randomly generated rather than based on actual state.
 	if identity.Fake {
 		fakeEr := &store.EarliestRound{}
 		fakeEr.Set(m.getFakeEarliestRound())
@@ -130,7 +127,7 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 
 	atomic.AddUint64(m.tracker, 1)
 
-	// get client version for poll
+	// Get client version for poll
 	version := m.session.GetClientVersion()
 
 	// Poll network updates
@@ -150,7 +147,8 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 	result, err := m.SendToAny(func(host *connect.Host) (interface{}, error) {
 		jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
 			identity.EphId.Int64(), identity.Source, identity.StartValid,
-			identity.EndValid, identity.EndValid.Sub(identity.StartValid), host.GetId())
+			identity.EndValid, identity.EndValid.Sub(identity.StartValid),
+			host.GetId())
 		return comms.SendPoll(host, &pollReq)
 	}, stop)
 
@@ -172,7 +170,7 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 		}
 		errMsg := fmt.Sprintf("Unable to poll gateway: %+v", err)
 		m.events.Report(10, "Polling", "Error", errMsg)
-		jww.ERROR.Printf(errMsg)
+		jww.ERROR.Print(errMsg)
 		return
 	}
 
@@ -187,8 +185,8 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 	}
 
 	// ---- Node Events ----
-	// NOTE: this updates the structure, AND sends events over the nodes
-	//       update channels about new and removed nodes
+	// NOTE: this updates the structure, AND sends events over the nodes update
+	//       channels about new and removed nodes
 	if pollResp.PartialNDF != nil {
 		err = m.instance.UpdatePartialNdf(pollResp.PartialNDF)
 		if err != nil {
@@ -206,7 +204,8 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 		m.UpdateAddressSpace(m.instance.GetPartialNdf().Get().AddressSpace[0].Size)
 	}
 
-	// NOTE: this updates rounds and updates the tracking of the health of the network
+	// NOTE: this updates rounds and updates the tracking of the health of the
+	// network
 	if pollResp.Updates != nil {
 		// TODO: ClientErr needs to know the source of the error and it doesn't yet
 		// Iterate over ClientErrors for each RoundUpdate
@@ -235,13 +234,14 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 					// FIXME: before keys are deleted
 					update.State = uint32(states.FAILED)
 
-					//trigger a reregistration with the node
+					// trigger a reregistration with the node
 					m.Registrar.TriggerNodeRegistration(nid)
 				}
 			}
 		}
 
-		// Trigger RoundEvents for all polled updates, including modified rounds with ClientErrors
+		// Trigger RoundEvents for all polled updates, including modified rounds
+		// with ClientErrors
 		err = m.instance.RoundUpdates(pollResp.Updates)
 		if err != nil {
 			jww.ERROR.Printf("%+v", err)
@@ -266,7 +266,7 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 
 	// ---- Identity Specific Round Processing -----
 	if identity.Fake {
-		jww.DEBUG.Printf("not processing result, identity.Fake == true")
+		jww.DEBUG.Printf("Not processing result, identity.Fake == true")
 		return
 	}
 
@@ -276,15 +276,16 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 		return
 	}
 
-	//prepare the filter objects for processing
+	// Prepare the filter objects for processing
 	filterList := make([]*RemoteFilter, 0, len(pollResp.Filters.Filters))
 	for i := range pollResp.Filters.Filters {
 		if len(pollResp.Filters.Filters[i].Filter) != 0 {
-			filterList = append(filterList, NewRemoteFilter(pollResp.Filters.Filters[i]))
+			filterList = append(filterList,
+				NewRemoteFilter(pollResp.Filters.Filters[i]))
 		}
 	}
 
-	// check rounds using the round checker function which determines if there
+	// Check rounds using the round checker function, which determines if there
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
@@ -295,8 +296,8 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 		return hasMessage
 	}
 
-	// move the earliest unknown round tracker forward to the earliest
-	// tracked round if it is behind
+	// Move the earliest unknown round tracker forward to the earliest tracked
+	// round if it is behind
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
 	m.SetFakeEarliestRound(earliestTrackedRound)
 	updatedEarliestRound, old, _ := identity.ER.Set(earliestTrackedRound)
@@ -304,21 +305,26 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 	// If there was no registered rounds for the identity
 	if old == 0 {
 		lastCheckedRound := gwRoundsState.GetLastChecked()
-		// Approximate the earliest possible round that messages could be received on this ID
-		// by using an estimate of how many rounds the network runs per second
+		// Approximate the earliest possible round that messages could be
+		// received on this ID by using an estimate of how many rounds the
+		// network runs per second
 		roundsDelta := uint(time.Now().Sub(identity.StartValid) / time.Second * estimatedRoundsPerSecond)
 		if roundsDelta < m.param.KnownRoundsThreshold {
 			roundsDelta = m.param.KnownRoundsThreshold
 		}
+
 		if id.Round(roundsDelta) > lastCheckedRound {
-			// Handles edge case for new networks to prevent starting at negative rounds
+			// Handles edge case for new networks to prevent starting at
+			// negative rounds
 			updatedEarliestRound = 1
 		} else {
 			updatedEarliestRound = lastCheckedRound - id.Round(roundsDelta)
 			earliestFilterRound := filterList[0].FirstRound() // Length of filterList always > 0
-			// If the network appears to be moving faster than our estimate, causing
-			// earliestFilterRound to be lower, we will instead use the earliestFilterRound
-			// which will ensure messages are not dropped as long as contacted gateway has all data
+
+			// If the network appears to be moving faster than our estimate,
+			// causing earliestFilterRound to be lower, we will instead use the
+			// earliestFilterRound, which will ensure messages are not dropped
+			// as long as contacted gateway has all data
 			if updatedEarliestRound > earliestFilterRound {
 				updatedEarliestRound = earliestFilterRound
 			}
@@ -326,21 +332,28 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 		identity.ER.Set(updatedEarliestRound)
 	}
 
-	// loop through all rounds the client does not know about and the gateway
-	// does, checking the bloom filter for the user to see if there are
-	// messages for the user (bloom not implemented yet)
-	//threshold is the earliest round that will not be excluded from earliest remaining
-	earliestRemaining, roundsWithMessages, roundsUnknown := gwRoundsState.RangeUnchecked(updatedEarliestRound,
-		m.param.KnownRoundsThreshold, roundChecker)
+	// Loop through all rounds the client does not know about and the gateway
+	// does, checking the bloom filter for the user to see if there are messages
+	// for the user (bloom not implemented yet)
+	// Threshold is the earliest round that will not be excluded from earliest
+	// remaining
+	earliestRemaining, roundsWithMessages, roundsUnknown :=
+		gwRoundsState.RangeUnchecked(
+			updatedEarliestRound, m.param.KnownRoundsThreshold, roundChecker)
+
 	jww.DEBUG.Printf("Processed RangeUnchecked, Oldest: %d, firstUnchecked: %d, "+
-		"last Checked: %d, threshold: %d, NewEarliestRemaning: %d, NumWithMessages: %d, "+
-		"NumUnknown: %d", updatedEarliestRound, gwRoundsState.GetFirstUnchecked(), gwRoundsState.GetLastChecked(),
-		m.param.KnownRoundsThreshold, earliestRemaining, len(roundsWithMessages), len(roundsUnknown))
+		"last Checked: %d, threshold: %d, NewEarliestRemaining: %d, NumWithMessages: %d, "+
+		"NumUnknown: %d", updatedEarliestRound,
+		gwRoundsState.GetFirstUnchecked(), gwRoundsState.GetLastChecked(),
+		m.param.KnownRoundsThreshold, earliestRemaining,
+		len(roundsWithMessages), len(roundsUnknown))
 
 	_, _, changed := identity.ER.Set(earliestRemaining)
 	if changed {
-		jww.TRACE.Printf("External returns of RangeUnchecked: %d, %v, %v", earliestRemaining, roundsWithMessages, roundsUnknown)
-		jww.DEBUG.Printf("New Earliest Remaining: %d, Gateways last checked: %d", earliestRemaining, gwRoundsState.GetLastChecked())
+		jww.TRACE.Printf("External returns of RangeUnchecked: %d, %v, %v",
+			earliestRemaining, roundsWithMessages, roundsUnknown)
+		jww.DEBUG.Printf("New Earliest Remaining: %d, Gateways last checked: %d",
+			earliestRemaining, gwRoundsState.GetLastChecked())
 	}
 
 	var roundsWithMessages2 []id.Round
@@ -355,7 +368,7 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 	}
 
 	for _, rid := range roundsWithMessages {
-		//denote that the round has been looked at in the tracking store
+		// Denote that the round has been looked at in the tracking store
 		if identity.CR.Check(rid) {
 			m.GetMessagesFromRound(rid, identity.EphemeralIdentity)
 		}
@@ -377,7 +390,9 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 		if uint(earliestRemaining-updatedEarliestRound) > m.param.KnownRoundsThreshold {
 			trackingStart = earliestRemaining - id.Round(m.param.KnownRoundsThreshold)
 		}
+
 		jww.DEBUG.Printf("Rounds tracked: %v to %v", trackingStart, earliestRemaining)
+
 		for i := trackingStart; i <= earliestRemaining; i++ {
 			state := Unchecked
 			for _, rid := range roundsWithMessages {
@@ -405,7 +420,7 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 func (m *manager) getFakeEarliestRound() id.Round {
 	b, err := csprng.Generate(8, rand.Reader)
 	if err != nil {
-		jww.FATAL.Panicf("Could not get random number: %v", err)
+		jww.FATAL.Panicf("Could not get random number: %+v", err)
 	}
 
 	rangeVal := binary.LittleEndian.Uint64(b) % 800

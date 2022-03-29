@@ -4,10 +4,10 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-// this is an in memory track of rounds that have been processed in this run of the
-// xxdk. It only is enabled when loglevel is debug or higher. It will accumulate all
-// rounds and then dump on exist. Is only enabled when run though the command line
-// interface unless enabled explicitly in code.
+// This is an in-memory track of rounds that have been processed in this run of
+// the xxdk. It only is enabled when loglevel is debug or higher. It will
+// accumulate all rounds and then dump on exit. Is only enabled when run through
+// the command line interface unless enabled explicitly in code.
 
 package network
 
@@ -16,6 +16,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/primitives/id"
 	"sort"
+	"strconv"
 	"sync"
 )
 
@@ -42,7 +43,7 @@ func (rs RoundState) String() string {
 	case Abandoned:
 		return "Abandoned"
 	default:
-		return fmt.Sprintf("Unregistered Round State: %d", rs)
+		return "Unregistered Round State: " + strconv.FormatUint(uint64(rs), 10)
 	}
 }
 
@@ -60,14 +61,16 @@ func NewRoundTracker() *RoundTracker {
 func (rt *RoundTracker) denote(rid id.Round, state RoundState) {
 	rt.mux.Lock()
 	defer rt.mux.Unlock()
-	// this ensures a lower state will not overwrite a higher state.
-	// eg. Unchecked does not overwrite MessageAvailable
+
+	// This ensures that a lower state will not overwrite a higher state.
+	// e.g. Unchecked does not overwrite MessageAvailable.
 	if storedState, exists := rt.state[rid]; exists && storedState > state {
-		jww.TRACE.Printf("did not denote round %d because "+
-			"stored state of %s (%d) > passed state %s (%d)",
+		jww.TRACE.Printf("Did not denote round %d because stored state of %s "+
+			"(%d) > passed state %s (%d)",
 			rid, storedState, storedState, state, state)
 		return
 	}
+
 	rt.state[rid] = state
 }
 
@@ -84,7 +87,8 @@ func (rt *RoundTracker) String() string {
 
 	stringification := ""
 	for _, key := range keys {
-		stringification += fmt.Sprintf("Round: %d, state:%s \n", key, rt.state[id.Round(key)])
+		stringification += fmt.Sprintf(
+			"Round: %d, state:%s\n", key, rt.state[id.Round(key)])
 	}
 
 	return stringification

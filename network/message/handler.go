@@ -74,13 +74,13 @@ func (p *handler) handleMessage(ecrMsg format.Message, bundle Bundle) bool {
 		return true
 	}
 
-	triggers, exists := p.get(
+	services, exists := p.get(
 		identity.Source, ecrMsg.GetSIH(), ecrMsg.GetContents())
 	if exists {
-		for _, t := range triggers {
+		for _, t := range services {
 			go t.Process(ecrMsg, identity, round)
 		}
-		if len(triggers) == 0 {
+		if len(services) == 0 {
 			jww.ERROR.Printf("empty service list for %s", ecrMsg.GetSIH())
 		}
 		return true

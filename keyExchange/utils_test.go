@@ -11,6 +11,7 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
+	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
@@ -18,7 +19,6 @@ import (
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/e2e"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/network"
@@ -40,14 +40,14 @@ import (
 // Generate partner ID for two people, used for smoke tests
 func GeneratePartnerID(aliceKey, bobKey *cyclic.Int,
 	group *cyclic.Group, alicePrivKey *sidh.PrivateKey,
-	bobPubKey *sidh.PublicKey) e2e.SessionID {
-	baseKey := e2e.GenerateE2ESessionBaseKey(aliceKey, bobKey, group,
+	bobPubKey *sidh.PublicKey) session2.SessionID {
+	baseKey := session2.GenerateE2ESessionBaseKey(aliceKey, bobKey, group,
 		alicePrivKey, bobPubKey)
 
 	h, _ := hash.NewCMixHash()
 	h.Write(baseKey.Bytes())
 
-	sid := e2e.SessionID{}
+	sid := session2.SessionID{}
 
 	copy(sid[:], h.Sum(nil))
 

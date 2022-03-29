@@ -5,29 +5,20 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package e2e
+package ratchet
 
 import (
-	"encoding/base64"
-	"github.com/pkg/errors"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/primitives/id"
 )
 
-const sessionIDLen = 32
+type context struct {
+	fa fingerprintAccess
 
-type SessionID [sessionIDLen]byte
+	grp *cyclic.Group
 
-func (sid SessionID) Marshal() []byte {
-	return sid[:]
-}
+	rng *fastRNG.StreamGenerator
 
-func (sid SessionID) String() string {
-	return base64.StdEncoding.EncodeToString(sid[:])
-}
-
-func (sid *SessionID) Unmarshal(b []byte) error {
-	if len(b) != sessionIDLen {
-		return errors.New("SessionID of invalid length received")
-	}
-	copy(sid[:], b)
-	return nil
+	myID *id.ID
 }

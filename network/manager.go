@@ -149,7 +149,8 @@ func NewManager(params Params, comms *client.Comms, session storage.Session,
 	m.Retriever = historical.NewRetriever(params.Historical, comms, m.Sender, events)
 
 	//Set up Message Handler
-	m.Handler = message.NewHandler(params.Message, m.session.GetKV(), m.events)
+	m.Handler = message.NewHandler(params.Message, m.session.GetKV(), m.events,
+		m.session.GetReceptionID())
 
 	//set up round handler
 	m.Pickup = rounds.NewPickup(params.Rounds, m.Handler.GetMessageReceptionChannel(),

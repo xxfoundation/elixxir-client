@@ -5,12 +5,14 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package e2e
+package partner
 
 import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/e2e/ratchet/session"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
@@ -25,7 +27,7 @@ import (
 // Tests happy path of newManager.
 func Test_newManager(t *testing.T) {
 	// Set up expected and test values
-	s, ctx := makeTestSession()
+	s, ctx := session.makeTestSession()
 	kv := versioned.NewKV(make(ekv.Memstore))
 	partnerID := id.NewIdFromUInt(100, id.User, t)
 	expectedM := &Manager{
@@ -37,9 +39,9 @@ func Test_newManager(t *testing.T) {
 		originPartnerSIDHPubKey: s.partnerSIDHPubKey,
 		originMySIDHPrivKey:     s.mySIDHPrivKey,
 	}
-	expectedM.send = NewRelationship(expectedM, Send,
+	expectedM.send = NewRelationship(expectedM, session2.Send,
 		params.GetDefaultE2ESessionParams())
-	expectedM.receive = NewRelationship(expectedM, Receive,
+	expectedM.receive = NewRelationship(expectedM, session2.Receive,
 		params.GetDefaultE2ESessionParams())
 
 	// Create new relationship
@@ -101,7 +103,7 @@ func TestManager_ClearManager(t *testing.T) {
 func TestManager_NewReceiveSession(t *testing.T) {
 	// Set up test values
 	m, _ := newTestManager(t)
-	s, _ := makeTestSession()
+	s, _ := session.makeTestSession()
 
 	se, exists := m.NewReceiveSession(s.partnerPubKey, s.partnerSIDHPubKey,
 		s.e2eParams, s)
@@ -136,7 +138,7 @@ func TestManager_NewReceiveSession(t *testing.T) {
 func TestManager_NewSendSession(t *testing.T) {
 	// Set up test values
 	m, _ := newTestManager(t)
-	s, _ := makeTestSession()
+	s, _ := session.makeTestSession()
 
 	se := m.NewSendSession(s.myPrivKey, s.mySIDHPrivKey, s.e2eParams)
 	if !m.partner.Cmp(se.GetPartner()) {
@@ -159,7 +161,7 @@ func TestManager_GetKeyForSending(t *testing.T) {
 	// Set up test values
 	m, _ := newTestManager(t)
 	p := params.GetDefaultE2E()
-	expectedKey := &Key{
+	expectedKey := &session2.Cypher{
 		session: m.send.sessions[0],
 	}
 
@@ -175,7 +177,7 @@ func TestManager_GetKeyForSending(t *testing.T) {
 	}
 
 	p.Type = params.KeyExchange
-	m.send.sessions[0].negotiationStatus = NewSessionTriggered
+	m.send.sessions[0].negotiationStatus = session2.NewSessionTriggered
 	expectedKey.keyNum++
 
 	key, err = m.GetKeyForSending(p.Type)
@@ -248,7 +250,7 @@ func TestManager_GetReceiveSession(t *testing.T) {
 // Tests happy path of Manager.Confirm.
 func TestManager_Confirm(t *testing.T) {
 	m, _ := newTestManager(t)
-	m.send.sessions[0].negotiationStatus = Sent
+	m.send.sessions[0].negotiationStatus = session2.Sent
 	err := m.Confirm(m.send.sessions[0].GetID())
 	if err != nil {
 		t.Errorf("Confirm produced an error: %v", err)
@@ -258,7 +260,7 @@ func TestManager_Confirm(t *testing.T) {
 // Tests happy path of Manager.TriggerNegotiations.
 func TestManager_TriggerNegotiations(t *testing.T) {
 	m, _ := newTestManager(t)
-	m.send.sessions[0].negotiationStatus = Unconfirmed
+	m.send.sessions[0].negotiationStatus = session2.Unconfirmed
 	sessions := m.TriggerNegotiations()
 	if !reflect.DeepEqual(m.send.sessions, sessions) {
 		t.Errorf("TriggerNegotiations() returned incorrect sessions."+
@@ -269,7 +271,7 @@ func TestManager_TriggerNegotiations(t *testing.T) {
 // newTestManager returns a new relationship for testing.
 func newTestManager(t *testing.T) (*Manager, *versioned.KV) {
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
-	s, ctx := makeTestSession()
+	s, ctx := session.makeTestSession()
 	kv := versioned.NewKV(make(ekv.Memstore))
 	partnerID := id.NewIdFromUInts([4]uint64{prng.Uint64(), prng.Uint64(),
 		prng.Uint64(), prng.Uint64()}, id.User, t)

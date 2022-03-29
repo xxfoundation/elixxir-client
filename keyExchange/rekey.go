@@ -12,6 +12,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner"
+	session3 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
@@ -19,7 +21,6 @@ import (
 	network2 "gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/e2e"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/comms/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
@@ -30,7 +31,7 @@ import (
 
 func CheckKeyExchanges(instance *network.Instance, sendE2E interfaces.SendE2E,
 	events event.Manager, sess *storage.Session,
-	manager *e2e.Manager, sendTimeout time.Duration,
+	manager *partner.Manager, sendTimeout time.Duration,
 	stop *stoppable.Single) {
 	sessions := manager.TriggerNegotiations()
 	for _, session := range sessions {
@@ -45,23 +46,23 @@ func CheckKeyExchanges(instance *network.Instance, sendE2E interfaces.SendE2E,
 // session while the latter on an extant session
 func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 	events event.Manager, sess *storage.Session,
-	manager *e2e.Manager, session *e2e.Session,
+	manager *partner.Manager, session *session3.Session,
 	sendTimeout time.Duration, stop *stoppable.Single) {
-	var negotiatingSession *e2e.Session
+	var negotiatingSession *session3.Session
 	jww.INFO.Printf("[REKEY] Negotiation triggered for session %s with "+
 		"status: %s", session, session.NegotiationStatus())
 	switch session.NegotiationStatus() {
 	// If the passed session is triggering a negotiation on a new session to
 	// replace itself, then create the session
-	case e2e.NewSessionTriggered:
+	case session3.NewSessionTriggered:
 		//create the session, pass a nil private key to generate a new one
 		negotiatingSession = manager.NewSendSession(nil, nil,
 			sess.E2e().GetE2ESessionParams())
 		//move the state of the triggering session forward
-		session.SetNegotiationStatus(e2e.NewSessionCreated)
+		session.SetNegotiationStatus(session3.NewSessionCreated)
 
 	// If the session is set to send a negotiation
-	case e2e.Sending:
+	case session3.Sending:
 		negotiatingSession = session
 	default:
 		jww.FATAL.Panicf("[REKEY] Session %s provided invalid e2e "+
@@ -83,7 +84,7 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 }
 
 func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
-	sess *storage.Session, session *e2e.Session, sendTimeout time.Duration,
+	sess *storage.Session, session *session3.Session, sendTimeout time.Duration,
 	rekeyPreimage []byte, stop *stoppable.Single) error {
 	e2eStore := sess.E2e()
 
@@ -152,7 +153,7 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	// transmit, the partner cannot read the result. Log the error and set
 	// the session as unconfirmed so it will re-trigger the negotiation
 	if !success {
-		session.SetNegotiationStatus(e2e.Unconfirmed)
+		session.SetNegotiationStatus(session3.Unconfirmed)
 		return errors.Errorf("[REKEY] Key Negotiation rekey for %s failed to "+
 			"transmit %v/%v paritions: %v round failures, %v timeouts, msgID: %s",
 			session, numRoundFail+numTimeOut, len(rounds), numRoundFail,
@@ -163,9 +164,9 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	// in the session and the log
 	jww.INFO.Printf("[REKEY] Key Negotiation rekey transmission for %s, msgID %s successful",
 		session, msgID)
-	err = session.TrySetNegotiationStatus(e2e.Sent)
+	err = session.TrySetNegotiationStatus(session3.Sent)
 	if err != nil {
-		if session.NegotiationStatus() == e2e.NewSessionTriggered {
+		if session.NegotiationStatus() == session3.NewSessionTriggered {
 			msg := fmt.Sprintf("All channels exhausted for %s, "+
 				"rekey impossible.", session)
 			return errors.WithMessage(err, msg)

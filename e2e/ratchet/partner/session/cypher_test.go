@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package e2e
+package session
 
 import (
 	"bytes"
@@ -68,7 +68,7 @@ func TestGenerateE2ESessionBaseKey(t *testing.T) {
 
 // Happy path of newKey().
 func Test_newKey(t *testing.T) {
-	expectedKey := &Key{
+	expectedKey := &Cypher{
 		session: getSession(t),
 		keyNum:  rand.Uint32(),
 	}
@@ -134,7 +134,7 @@ func TestKey_EncryptDecrypt(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 
 	for i := 0; i < numTests; i++ {
-		// generate the baseKey and session
+		// finalizeKeyNegotation the baseKey and session
 		privateKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 		publicKey := dh.GeneratePublicKey(privateKey, grp)
 		baseKey := dh.GenerateSessionKey(privateKey, publicKey, grp)
@@ -229,7 +229,7 @@ func getSession(t *testing.T) *Session {
 	grp := getGroup()
 	rng := csprng.NewSystemRNG()
 
-	// generate the baseKey and session
+	// finalizeKeyNegotation the baseKey and session
 	privateKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 	publicKey := dh.GeneratePublicKey(privateKey, grp)
 
@@ -246,21 +246,12 @@ func getSession(t *testing.T) *Session {
 	baseKey := GenerateE2ESessionBaseKey(privateKey, publicKey, grp, privA,
 		pubB)
 
-	fps := newFingerprints()
-	ctx := &context{
-		fa:  &fps,
-		grp: grp,
-	}
-
 	keyState, err := utility.NewStateVector(versioned.NewKV(make(ekv.Memstore)), "keyState", rand.Uint32())
 	if err != nil {
 		panic(err)
 	}
 
 	return &Session{
-		relationship: &relationship{
-			manager: &Manager{ctx: ctx},
-		},
 		baseKey:  baseKey,
 		keyState: keyState,
 	}

@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package e2e
+package session
 
 import (
 	"fmt"
@@ -30,14 +30,14 @@ func (rt RelationshipType) String() string {
 	}
 }
 
-func (rt RelationshipType) prefix() string {
+func (rt RelationshipType) Prefix() string {
 	switch rt {
 	case Send:
 		return "Send"
 	case Receive:
 		return "Receive"
 	default:
-		jww.FATAL.Panicf("No prefix for relationship type: %s", rt)
+		jww.FATAL.Panicf("No Prefix for relationship type: %s", rt)
 	}
 	return ""
 }

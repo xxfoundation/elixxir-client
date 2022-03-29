@@ -8,6 +8,7 @@
 package auth
 
 import (
+	e2e2 "gitlab.com/elixxir/client/e2e/ratchet"
 	"io"
 	"strings"
 
@@ -19,7 +20,6 @@ import (
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/auth"
-	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/client/storage/edge"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
@@ -35,7 +35,7 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
 	// check that an authenticated channel does not already exist
 	if _, err := storage.E2e().GetPartner(partner.ID); err == nil ||
-		!strings.Contains(err.Error(), e2e.NoPartnerErrorStr) {
+		!strings.Contains(err.Error(), e2e2.NoPartnerErrorStr) {
 		return 0, errors.Errorf("Authenticated channel already " +
 			"established with partner")
 	}

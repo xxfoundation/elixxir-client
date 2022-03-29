@@ -11,11 +11,11 @@ import (
 	"fmt"
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
+	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/e2e"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/switchboard"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
@@ -124,14 +124,14 @@ func TestFullExchange(t *testing.T) {
 	confirmedSession := receivedManager.GetSendSession(oldSessionID)
 
 	// Generate the new session ID based off of Bob's new keys
-	baseKey := e2e.GenerateE2ESessionBaseKey(alicePrivKey, newBobPubKey,
+	baseKey := session2.GenerateE2ESessionBaseKey(alicePrivKey, newBobPubKey,
 		genericGroup, aliceSIDHPrivKey, newBobSIDHPubKey)
-	newSessionID := e2e.GetSessionIDFromBaseKeyForTesting(baseKey, t)
+	newSessionID := session2.GetSessionIDFromBaseKeyForTesting(baseKey, t)
 
 	// Check that the Alice's session for Bob is in the proper status
 	newSession := receivedManager.GetReceiveSession(newSessionID)
 	fmt.Printf("newSession: %v\n", newSession)
-	if newSession == nil || newSession.NegotiationStatus() != e2e.Confirmed {
+	if newSession == nil || newSession.NegotiationStatus() != session2.Confirmed {
 		t.Errorf("Session not in confirmed status!"+
 			"\n\tExpected: Confirmed"+
 			"\n\tReceived: %s", confirmedSession.NegotiationStatus())

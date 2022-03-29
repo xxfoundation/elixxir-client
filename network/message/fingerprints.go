@@ -18,14 +18,16 @@ import (
 // FingerprintsManager is a thread-safe map, mapping format.Fingerprint's to a
 // Handler object.
 type FingerprintsManager struct {
-	fpMap map[id.ID]map[format.Fingerprint]Processor
+	fpMap      map[id.ID]map[format.Fingerprint]Processor
+	standardID *id.ID
 	sync.Mutex
 }
 
 // newFingerprints is a constructor function for the fingerprints tracker.
-func newFingerprints() *FingerprintsManager {
+func newFingerprints(standardID *id.ID) *FingerprintsManager {
 	return &FingerprintsManager{
-		fpMap: make(map[id.ID]map[format.Fingerprint]Processor),
+		fpMap:      make(map[id.ID]map[format.Fingerprint]Processor),
+		standardID: standardID,
 	}
 }
 
@@ -56,10 +58,16 @@ func (f *FingerprintsManager) pop(clientID *id.ID,
 // AddFingerprint maps the given fingerprint key to the handler value. If there
 // is already an entry for this fingerprint, the method returns with no write
 // operation.
+// If a nil identity is passed, it will automatically use the default
+// identity in the session
 func (f *FingerprintsManager) AddFingerprint(clientID *id.ID,
 	fingerprint format.Fingerprint, mp Processor) error {
 	f.Lock()
 	defer f.Unlock()
+
+	if clientID == nil {
+		clientID = f.standardID
+	}
 
 	cid := *clientID
 
@@ -82,6 +90,10 @@ func (f *FingerprintsManager) DeleteFingerprint(clientID *id.ID,
 	fingerprint format.Fingerprint) {
 	f.Lock()
 	defer f.Unlock()
+
+	if clientID == nil {
+		clientID = f.standardID
+	}
 
 	cid := *clientID
 

@@ -10,9 +10,9 @@ package keyExchange
 import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
+	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/storage/e2e"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -94,7 +94,7 @@ func TestHandleConfirm(t *testing.T) {
 
 	// Check that the session is in the proper status
 	newSession := receivedManager.GetSendSession(sessionID)
-	if newSession.NegotiationStatus() != e2e.Confirmed {
+	if newSession.NegotiationStatus() != session2.Confirmed {
 		t.Errorf("Session not in confirmed status!"+
 			"\n\tExpected: Confirmed"+
 			"\n\tReceived: %s", confirmedSession.NegotiationStatus())

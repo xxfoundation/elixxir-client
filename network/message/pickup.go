@@ -53,7 +53,8 @@ type handler struct {
 	ServicesManager
 }
 
-func NewHandler(param Params, kv *versioned.KV, events event.Manager) Handler {
+func NewHandler(param Params, kv *versioned.KV, events event.Manager,
+	standardID *id.ID) Handler {
 
 	garbled, err := NewOrLoadMeteredCmixMessageBuffer(kv, inProcessKey)
 	if err != nil {
@@ -69,7 +70,7 @@ func NewHandler(param Params, kv *versioned.KV, events event.Manager) Handler {
 		events:           events,
 	}
 
-	m.FingerprintsManager = *newFingerprints()
+	m.FingerprintsManager = *newFingerprints(standardID)
 	m.ServicesManager = *NewServices()
 	return &m
 }

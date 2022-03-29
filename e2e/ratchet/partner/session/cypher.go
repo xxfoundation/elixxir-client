@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package e2e
+package session
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
@@ -50,7 +50,7 @@ func GenerateE2ESessionBaseKey(myDHPrivKey, theirDHPubKey *cyclic.Int,
 	return baseKey
 }
 
-type Key struct {
+type Cypher struct {
 	// Links
 	session *Session
 
@@ -61,21 +61,21 @@ type Key struct {
 	keyNum uint32
 }
 
-func newKey(session *Session, keynum uint32) *Key {
-	return &Key{
+func newKey(session *Session, keynum uint32) *Cypher {
+	return &Cypher{
 		session: session,
 		keyNum:  keynum,
 	}
 }
 
 // return pointers to higher level management structures
-func (k *Key) GetSession() *Session { return k.session }
+func (k *Cypher) GetSession() *Session { return k.session }
 
 // returns the key fingerprint if it has it, otherwise generates it
 // this function does not memoize the fingerprint if it doesnt have it because
 // in most cases it will not be used for a long time and as a result should not
 // be stored in ram.
-func (k *Key) Fingerprint() format.Fingerprint {
+func (k *Cypher) Fingerprint() format.Fingerprint {
 	if k.fp != nil {
 		return *k.fp
 	}
@@ -86,7 +86,7 @@ func (k *Key) Fingerprint() format.Fingerprint {
 // the E2E key to encrypt msg to its intended recipient
 // It also properly populates the associated data, including the MAC, fingerprint,
 // and encrypted timestamp
-func (k *Key) Encrypt(msg format.Message) format.Message {
+func (k *Cypher) Encrypt(msg format.Message) format.Message {
 	fp := k.Fingerprint()
 	key := k.generateKey()
 
@@ -109,7 +109,7 @@ func (k *Key) Encrypt(msg format.Message) format.Message {
 // Decrypt uses the E2E key to decrypt the message
 // It returns an error in case of HMAC verification failure
 // or in case of a decryption error (related to padding)
-func (k *Key) Decrypt(msg format.Message) (format.Message, error) {
+func (k *Cypher) Decrypt(msg format.Message) (format.Message, error) {
 	fp := k.Fingerprint()
 	key := k.generateKey()
 
@@ -128,13 +128,13 @@ func (k *Key) Decrypt(msg format.Message) (format.Message, error) {
 }
 
 // Sets the key as used
-func (k *Key) denoteUse() {
+func (k *Cypher) denoteUse() {
 	k.session.useKey(k.keyNum)
 }
 
 // generateKey derives the current e2e key from the baseKey and the index
 // keyNum and returns it
-func (k *Key) generateKey() e2eCrypto.Key {
+func (k *Cypher) generateKey() e2eCrypto.Key {
 	return e2eCrypto.DeriveKey(k.session.baseKey, k.keyNum,
 		k.session.relationshipFingerprint)
 }

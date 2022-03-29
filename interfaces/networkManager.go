@@ -221,17 +221,5 @@ type Preimage [32]byte
 
 type ClientErrorReport func(source, message, trace string)
 
-//type Ratchet interface {
-//	SendE2E(m message.Send, p params.E2E, stop *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error)
-//	SendUnsafe(m message.Send, p params.Unsafe) ([]id.Round, error)
-//	AddPartner(partnerID *id.ID, partnerPubKey,
-//		myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
-//		mySIDHPrivKey *sidh.PrivateKey,
-//		sendParams, receiveParams params.E2ESessionParams)
-//	GetPartner(partnerID *id.ID) (*manager, error)
-//	DeletePartner(partnerId *id.ID)
-//	GetAllPartnerIDs() []*id.ID
-//}
-
 //for use in key exchange which needs to be callable inside of network
 ///type SendE2E func(m message.Send, p params.E2E, stop *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error)

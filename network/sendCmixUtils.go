@@ -160,7 +160,7 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	}
 
 	// Add the mac proving ownership
-	slot.MAC = mixCrypt.MakeClientGatewayKey(salt,
+	slot.MAC = mixCrypt.MakeClientGatewayAuthMAC(salt,
 		network.GenerateSlotDigest(slot))
 
 	return slot, encMsg, ephID, nil

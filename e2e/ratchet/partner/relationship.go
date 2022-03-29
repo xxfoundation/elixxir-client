@@ -5,16 +5,18 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package e2e
+package partner
 
 import (
 	"encoding/json"
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 )
@@ -26,29 +28,49 @@ const relationshipKey = "relationship"
 const relationshipFingerprintKey = "relationshipFingerprint"
 
 type relationship struct {
-	manager *Manager
-	t       RelationshipType
+	t session.RelationshipType
 
 	kv *versioned.KV
 
-	sessions    []*Session
-	sessionByID map[SessionID]*Session
+	sessions    []*session.Session
+	sessionByID map[session.SessionID]*session.Session
 
 	fingerprint []byte
 
 	mux     sync.RWMutex
 	sendMux sync.Mutex
+
+	grp       *cyclic.Group
+	myID      *id.ID
+	partnerID *id.ID
+
+	cyHandler session.CypherHandler
+	rng       *fastRNG.StreamGenerator
+
+	serviceHandler ServiceHandler
 }
 
-func NewRelationship(manager *Manager, t RelationshipType,
-	initialParams params.E2ESessionParams) *relationship {
+type ServiceHandler interface {
+	AddService(identifier []byte, tag string, source []byte)
+	DeleteKey(identifier []byte, tag string)
+}
 
-	kv := manager.kv.Prefix(t.prefix())
+// fixme - this is weird becasue it creates the relationsip and the session.
+// Should be refactored to create an empty relationship, with a second call
+// adding the session
+func NewRelationship(kv *versioned.KV, t session.RelationshipType,
+	myID, partnerID *id.ID, myOriginPrivateKey,
+	partnerOriginPublicKey *cyclic.Int, originMySIDHPrivKey *sidh.PrivateKey,
+	originPartnerSIDHPubKey *sidh.PublicKey, initialParams session.Params,
+	cyHandler session.CypherHandler, grp *cyclic.Group,
+	rng *fastRNG.StreamGenerator) *relationship {
+
+	kv = kv.Prefix(t.Prefix())
 
 	//build the fingerprint
-	fingerprint := makeRelationshipFingerprint(t, manager.ctx.grp,
-		manager.originMyPrivKey, manager.originPartnerPubKey, manager.ctx.myID,
-		manager.partner)
+	fingerprint := makeRelationshipFingerprint(t, grp,
+		myOriginPrivateKey, partnerOriginPublicKey, myID,
+		partnerID)
 
 	if err := storeRelationshipFingerprint(fingerprint, kv); err != nil {
 		jww.FATAL.Panicf("Failed to store relationship fingerpint "+
@@ -56,22 +78,24 @@ func NewRelationship(manager *Manager, t RelationshipType,
 	}
 
 	r := &relationship{
-		manager:     manager,
 		t:           t,
-		sessions:    make([]*Session, 0),
-		sessionByID: make(map[SessionID]*Session),
+		sessions:    make([]*session.Session, 0),
+		sessionByID: make(map[session.SessionID]*session.Session),
 		fingerprint: fingerprint,
 		kv:          kv,
+		grp:         grp,
+		cyHandler:   cyHandler,
+		rng:         rng,
 	}
 
 	// set to confirmed because the first session is always confirmed as a
 	// result of the negotiation before creation
-	s := newSession(r, r.t, manager.originMyPrivKey,
-		manager.originPartnerPubKey, nil, manager.originMySIDHPrivKey,
-		manager.originPartnerSIDHPubKey, SessionID{},
-		r.fingerprint, Confirmed, initialParams)
+	s := session.NewSession(r.kv, r.t, partnerID, myOriginPrivateKey,
+		partnerOriginPublicKey, nil, originMySIDHPrivKey,
+		originPartnerSIDHPubKey, session.SessionID{},
+		r.fingerprint, session.Confirmed, initialParams, cyHandler, grp, rng)
 
-	if err := s.save(); err != nil {
+	if err := s.Save(); err != nil {
 		jww.FATAL.Panicf("Failed to Send session after setting to "+
 			"confirmed: %+v", err)
 	}
@@ -86,42 +110,21 @@ func NewRelationship(manager *Manager, t RelationshipType,
 	return r
 }
 
-// DeleteRelationship removes all relationship and
-// relationship adjacent information from storage
-func DeleteRelationship(manager *Manager) error {
+func LoadRelationship(kv *versioned.KV, t session.RelationshipType, myID,
+	partnerID *id.ID, cyHandler session.CypherHandler, grp *cyclic.Group,
+	rng *fastRNG.StreamGenerator) (*relationship, error) {
 
-	// Delete the send information
-	sendKv := manager.kv.Prefix(Send.prefix())
-	manager.send.Delete()
-	if err := deleteRelationshipFingerprint(sendKv); err != nil {
-		return err
-	}
-	if err := sendKv.Delete(relationshipKey, currentRelationshipVersion); err != nil {
-		return errors.Errorf("Could not delete send relationship: %v", err)
-	}
-
-	// Delete the receive information
-	receiveKv := manager.kv.Prefix(Receive.prefix())
-	manager.receive.Delete()
-	if err := deleteRelationshipFingerprint(receiveKv); err != nil {
-		return err
-	}
-	if err := receiveKv.Delete(relationshipKey, currentRelationshipVersion); err != nil {
-		return errors.Errorf("Could not delete receive relationship: %v", err)
-	}
-
-	return nil
-}
-
-func LoadRelationship(manager *Manager, t RelationshipType) (*relationship, error) {
-
-	kv := manager.kv.Prefix(t.prefix())
+	kv = kv.Prefix(t.Prefix())
 
 	r := &relationship{
 		t:           t,
-		manager:     manager,
-		sessionByID: make(map[SessionID]*Session),
+		sessionByID: make(map[session.SessionID]*session.Session),
 		kv:          kv,
+		myID:        myID,
+		partnerID:   partnerID,
+		cyHandler:   cyHandler,
+		grp:         grp,
+		rng:         rng,
 	}
 
 	obj, err := kv.Get(relationshipKey, currentRelationshipVersion)
@@ -136,6 +139,33 @@ func LoadRelationship(manager *Manager, t RelationshipType) (*relationship, erro
 	}
 
 	return r, nil
+}
+
+// DeleteRelationship removes all relationship and
+// relationship adjacent information from storage
+func DeleteRelationship(manager *Manager) error {
+
+	// Delete the send information
+	sendKv := manager.kv.Prefix(session.Send.Prefix())
+	manager.send.Delete()
+	if err := deleteRelationshipFingerprint(sendKv); err != nil {
+		return err
+	}
+	if err := sendKv.Delete(relationshipKey, currentRelationshipVersion); err != nil {
+		return errors.Errorf("Could not delete send relationship: %v", err)
+	}
+
+	// Delete the receive information
+	receiveKv := manager.kv.Prefix(session.Receive.Prefix())
+	manager.receive.Delete()
+	if err := deleteRelationshipFingerprint(receiveKv); err != nil {
+		return err
+	}
+	if err := receiveKv.Delete(relationshipKey, currentRelationshipVersion); err != nil {
+		return errors.Errorf("Could not delete receive relationship: %v", err)
+	}
+
+	return nil
 }
 
 func (r *relationship) save() error {
@@ -158,7 +188,7 @@ func (r *relationship) save() error {
 
 //ekv functions
 func (r *relationship) marshal() ([]byte, error) {
-	sessions := make([]SessionID, len(r.sessions))
+	sessions := make([]session.SessionID, len(r.sessions))
 
 	index := 0
 	for sid := range r.sessionByID {
@@ -170,11 +200,9 @@ func (r *relationship) marshal() ([]byte, error) {
 }
 
 func (r *relationship) unmarshal(b []byte) error {
-	var sessions []SessionID
+	var sessions []session.SessionID
 
-	err := json.Unmarshal(b, &sessions)
-
-	if err != nil {
+	if err := json.Unmarshal(b, &sessions); err != nil {
 		return err
 	}
 
@@ -183,13 +211,13 @@ func (r *relationship) unmarshal(b []byte) error {
 
 	//load all the sessions
 	for _, sid := range sessions {
-		sessionKV := r.kv.Prefix(makeSessionPrefix(sid))
-		session, err := loadSession(r, sessionKV, r.fingerprint)
+		s, err := session.LoadSession(r.kv, sid, r.fingerprint,
+			r.cyHandler, r.grp, r.rng)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load session %s for %s: %+v",
-				makeSessionPrefix(sid), r.manager.partner, err)
+				session.MakeSessionPrefix(sid), r.partnerID, err)
 		}
-		r.addSession(session)
+		r.addSession(s)
 	}
 
 	return nil
@@ -202,19 +230,18 @@ func (r *relationship) Delete() {
 		delete(r.sessionByID, s.GetID())
 		s.Delete()
 	}
-
 }
 
 func (r *relationship) AddSession(myPrivKey, partnerPubKey, baseKey *cyclic.Int,
 	mySIDHPrivKey *sidh.PrivateKey, partnerSIDHPubKey *sidh.PublicKey,
-	trigger SessionID, negotiationStatus Negotiation,
-	e2eParams params.E2ESessionParams) *Session {
+	trigger session.SessionID, negotiationStatus session.Negotiation,
+	e2eParams session.Params) *session.Session {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
-	s := newSession(r, r.t, myPrivKey, partnerPubKey, baseKey,
+	s := session.NewSession(r.kv, r.t, r.partnerID, myPrivKey, partnerPubKey, baseKey,
 		mySIDHPrivKey, partnerSIDHPubKey, trigger,
-		r.fingerprint, negotiationStatus, e2eParams)
+		r.fingerprint, negotiationStatus, e2eParams, r.cyHandler, r.grp, r.rng)
 
 	r.addSession(s)
 	if err := r.save(); err != nil {
@@ -225,13 +252,13 @@ func (r *relationship) AddSession(myPrivKey, partnerPubKey, baseKey *cyclic.Int,
 	return s
 }
 
-func (r *relationship) addSession(s *Session) {
-	r.sessions = append([]*Session{s}, r.sessions...)
+func (r *relationship) addSession(s *session.Session) {
+	r.sessions = append([]*session.Session{s}, r.sessions...)
 	r.sessionByID[s.GetID()] = s
 	return
 }
 
-func (r *relationship) GetNewest() *Session {
+func (r *relationship) GetNewest() *session.Session {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 	if len(r.sessions) == 0 {
@@ -241,7 +268,7 @@ func (r *relationship) GetNewest() *Session {
 }
 
 // returns the key  which is most likely to be successful for sending
-func (r *relationship) getKeyForSending() (*Key, error) {
+func (r *relationship) getKeyForSending() (*session.Cypher, error) {
 	r.sendMux.Lock()
 	defer r.sendMux.Unlock()
 	s := r.getSessionForSending()
@@ -253,12 +280,12 @@ func (r *relationship) getKeyForSending() (*Key, error) {
 }
 
 // returns the session which is most likely to be successful for sending
-func (r *relationship) getSessionForSending() *Session {
+func (r *relationship) getSessionForSending() *session.Session {
 	sessions := r.sessions
 
-	var confirmedRekey []*Session
-	var unconfirmedActive []*Session
-	var unconfirmedRekey []*Session
+	var confirmedRekey []*session.Session
+	var unconfirmedActive []*session.Session
+	var unconfirmedRekey []*session.Session
 
 	jww.TRACE.Printf("[REKEY] Sessions Available: %d", len(sessions))
 
@@ -267,14 +294,14 @@ func (r *relationship) getSessionForSending() *Session {
 		confirmed := s.IsConfirmed()
 		jww.TRACE.Printf("[REKEY] Session Status/Confirmed: %v, %v",
 			status, confirmed)
-		if status == Active && confirmed {
+		if status == session.Active && confirmed {
 			//always return the first confirmed active, happy path
 			return s
-		} else if status == RekeyNeeded && confirmed {
+		} else if status == session.RekeyNeeded && confirmed {
 			confirmedRekey = append(confirmedRekey, s)
-		} else if status == Active && !confirmed {
+		} else if status == session.Active && !confirmed {
 			unconfirmedActive = append(unconfirmedActive, s)
-		} else if status == RekeyNeeded && !confirmed {
+		} else if status == session.RekeyNeeded && !confirmed {
 			unconfirmedRekey = append(unconfirmedRekey, s)
 		}
 	}
@@ -303,12 +330,12 @@ func (r *relationship) getSessionForSending() *Session {
 
 // returns a list of session that need rekeys. Nil instances mean a new rekey
 // from scratch
-func (r *relationship) TriggerNegotiation() []*Session {
+func (r *relationship) TriggerNegotiation() []*session.Session {
 	//dont need to take the lock due to the use of a copy of the buffer
 	sessions := r.getInternalBufferShallowCopy()
-	var instructions []*Session
+	var instructions []*session.Session
 	for _, ses := range sessions {
-		if ses.triggerNegotiation() {
+		if ses.TriggerNegotiation() {
 			instructions = append(instructions, ses)
 		}
 	}
@@ -316,7 +343,7 @@ func (r *relationship) TriggerNegotiation() []*Session {
 }
 
 // returns a key which should be used for rekeying
-func (r *relationship) getKeyForRekey() (*Key, error) {
+func (r *relationship) getKeyForRekey() (*session.Cypher, error) {
 	r.sendMux.Lock()
 	defer r.sendMux.Unlock()
 	s := r.getNewestRekeyableSession()
@@ -328,14 +355,14 @@ func (r *relationship) getKeyForRekey() (*Key, error) {
 }
 
 // returns the newest session which can be used to start a key negotiation
-func (r *relationship) getNewestRekeyableSession() *Session {
+func (r *relationship) getNewestRekeyableSession() *session.Session {
 	//dont need to take the lock due to the use of a copy of the buffer
 	sessions := r.getInternalBufferShallowCopy()
 	if len(sessions) == 0 {
 		return nil
 	}
 
-	var unconfirmed *Session
+	var unconfirmed *session.Session
 
 	for _, s := range r.sessions {
 		jww.TRACE.Printf("[REKEY] Looking at session %s", s)
@@ -344,7 +371,7 @@ func (r *relationship) getNewestRekeyableSession() *Session {
 		// the failure mode is it skips to a lower key to rekey with, which is
 		// always valid. It isn't clear it can fail though because we are
 		// accessing the data in the same order it would be written (i think)
-		if s.Status() != RekeyEmpty {
+		if s.Status() != session.RekeyEmpty {
 			if s.IsConfirmed() {
 				jww.TRACE.Printf("[REKEY] Selected rekey: %s",
 					s)
@@ -359,7 +386,7 @@ func (r *relationship) getNewestRekeyableSession() *Session {
 	return unconfirmed
 }
 
-func (r *relationship) GetByID(id SessionID) *Session {
+func (r *relationship) GetByID(id session.SessionID) *session.Session {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 	return r.sessionByID[id]
@@ -368,7 +395,7 @@ func (r *relationship) GetByID(id SessionID) *Session {
 // sets the passed session ID as confirmed. Call "GetSessionRotation" after
 // to get any sessions that are to be deleted and then "DeleteSession" to
 // remove them
-func (r *relationship) Confirm(id SessionID) error {
+func (r *relationship) Confirm(id session.SessionID) error {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
@@ -377,7 +404,7 @@ func (r *relationship) Confirm(id SessionID) error {
 		return errors.Errorf("Could not confirm session %s, does not exist", id)
 	}
 
-	s.SetNegotiationStatus(Confirmed)
+	s.SetNegotiationStatus(session.Confirmed)
 
 	r.clean()
 
@@ -387,7 +414,7 @@ func (r *relationship) Confirm(id SessionID) error {
 // adding or removing a session is always done via replacing the entire
 // slice, this allow us to copy the slice under the read lock and do the
 // rest of the work while not taking the lock
-func (r *relationship) getInternalBufferShallowCopy() []*Session {
+func (r *relationship) getInternalBufferShallowCopy() []*session.Session {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 	return r.sessions
@@ -397,7 +424,7 @@ func (r *relationship) clean() {
 
 	numConfirmed := uint(0)
 
-	var newSessions []*Session
+	var newSessions []*session.Session
 	editsMade := false
 
 	for _, s := range r.sessions {

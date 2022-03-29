@@ -24,7 +24,7 @@ func Test_newFingerprints(t *testing.T) {
 		fpMap: make(map[id.ID]map[format.Fingerprint]Processor),
 	}
 
-	received := newFingerprints()
+	received := newFingerprints(&id.ID{})
 	if !reflect.DeepEqual(expected, received) {
 		t.Fatalf("New FingerprintsManager did not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expected, received)
@@ -34,7 +34,7 @@ func Test_newFingerprints(t *testing.T) {
 // Unit test.
 func TestFingerprintsManager_pop(t *testing.T) {
 	// Construct fingerprint map
-	fpTracker := newFingerprints()
+	fpTracker := newFingerprints(&id.ID{})
 
 	// Construct fingerprint and handler values
 	cid := id.NewIdFromString("clientID", id.User, t)
@@ -66,7 +66,7 @@ func TestFingerprintsManager_pop(t *testing.T) {
 // Unit test.
 func TestFingerprintsManager_AddFingerprint(t *testing.T) {
 	// Construct fingerprint map
-	fpTracker := newFingerprints()
+	fpTracker := newFingerprints(&id.ID{})
 
 	// Construct fingerprint and handler values
 	cid := id.NewIdFromString("clientID", id.User, t)
@@ -97,7 +97,7 @@ func TestFingerprintsManager_AddFingerprint(t *testing.T) {
 func TestFingerprintsManager_DeleteFingerprint(t *testing.T) {
 
 	// Construct fingerprint map
-	fpTracker := newFingerprints()
+	fpTracker := newFingerprints(&id.ID{})
 
 	// Construct fingerprint and handler values
 	cid := id.NewIdFromString("clientID", id.User, t)
@@ -123,7 +123,7 @@ func TestFingerprintsManager_DeleteFingerprint(t *testing.T) {
 // Unit test.
 func TestFingerprintsManager_DeleteClientFingerprints(t *testing.T) {
 	// Construct fingerprints map
-	fpTracker := newFingerprints()
+	fpTracker := newFingerprints(&id.ID{})
 
 	// Construct slices of fingerprints and processors
 	numTests := 100

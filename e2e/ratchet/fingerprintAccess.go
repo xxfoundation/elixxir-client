@@ -5,11 +5,15 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package e2e
+package ratchet
+
+import (
+	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+)
 
 type fingerprintAccess interface {
 	// Receives a list of fingerprints to add. Overrides on collision.
-	add([]*Key)
+	add([]*session2.Cypher)
 	// Receives a list of fingerprints to delete. Ignores any not available Keys
-	remove([]*Key)
+	remove([]*session2.Cypher)
 }

@@ -5,13 +5,15 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package e2e
+package ratchet
 
 import (
 	"encoding/json"
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner"
+	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/interfaces/params"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -39,7 +41,7 @@ const (
 var NoPartnerErrorStr = "No relationship with partner found"
 
 type Store struct {
-	managers map[id.ID]*Manager
+	managers map[id.ID]*partner.Manager
 	mux      sync.RWMutex
 
 	dhPrivateKey *cyclic.Int
@@ -67,7 +69,7 @@ func NewStore(grp *cyclic.Group, kv *versioned.KV, privKey *cyclic.Int,
 	fingerprints := newFingerprints()
 
 	s := &Store{
-		managers: make(map[id.ID]*Manager),
+		managers: make(map[id.ID]*partner.Manager),
 
 		dhPrivateKey: privKey,
 		dhPublicKey:  pubKey,
@@ -117,7 +119,7 @@ func LoadStore(kv *versioned.KV, myID *id.ID, rng *fastRNG.StreamGenerator) (*St
 	}
 
 	s := &Store{
-		managers: make(map[id.ID]*Manager),
+		managers: make(map[id.ID]*partner.Manager),
 
 		fingerprints: &fingerprints,
 
@@ -183,7 +185,7 @@ func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey,
 		return errors.New("Cannot overwrite existing partner")
 	}
 
-	m := newManager(s.context, s.kv, partnerID, myPrivKey, partnerPubKey,
+	m := partner.newManager(s.context, s.kv, partnerID, myPrivKey, partnerPubKey,
 		mySIDHPrivKey, partnerSIDHPubKey,
 		sendParams, receiveParams)
 
@@ -203,7 +205,7 @@ func (s *Store) DeletePartner(partnerId *id.ID) error {
 		return errors.New(NoPartnerErrorStr)
 	}
 
-	if err := clearManager(m, s.kv); err != nil {
+	if err := partner.clearManager(m, s.kv); err != nil {
 		return errors.WithMessagef(err, "Could not remove partner %s from store", partnerId)
 	}
 
@@ -211,7 +213,7 @@ func (s *Store) DeletePartner(partnerId *id.ID) error {
 	return s.save()
 }
 
-func (s *Store) GetPartner(partnerID *id.ID) (*Manager, error) {
+func (s *Store) GetPartner(partnerID *id.ID) (*partner.Manager, error) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 
@@ -262,7 +264,7 @@ func (s *Store) GetPartners() []*id.ID {
 }
 
 // PopKey pops a key for use based upon its fingerprint.
-func (s *Store) PopKey(f format.Fingerprint) (*Key, bool) {
+func (s *Store) PopKey(f format.Fingerprint) (*session2.Cypher, bool) {
 	return s.fingerprints.Pop(f)
 }
 
@@ -315,7 +317,7 @@ func (s *Store) unmarshal(b []byte) error {
 		partnerID := (&contacts[i]).DeepCopy()
 		// Load the relationship. The relationship handles adding the fingerprints via the
 		// context object
-		manager, err := loadManager(s.context, s.kv, partnerID)
+		manager, err := partner.loadManager(s.context, s.kv, partnerID)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load relationship for partner %s: %s",
 				partnerID, err.Error())
@@ -368,20 +370,20 @@ func (s *Store) SetE2ESessionParams(newParams params.E2ESessionParams) {
 }
 
 type fingerprints struct {
-	toKey map[format.Fingerprint]*Key
+	toKey map[format.Fingerprint]*session2.Cypher
 	mux   sync.RWMutex
 }
 
 // newFingerprints creates a new fingerprints with an empty map.
 func newFingerprints() fingerprints {
 	return fingerprints{
-		toKey: make(map[format.Fingerprint]*Key),
+		toKey: make(map[format.Fingerprint]*session2.Cypher),
 	}
 }
 
 // fingerprints adheres to the fingerprintAccess interface.
 
-func (f *fingerprints) add(keys []*Key) {
+func (f *fingerprints) add(keys []*session2.Cypher) {
 	f.mux.Lock()
 	defer f.mux.Unlock()
 
@@ -392,7 +394,7 @@ func (f *fingerprints) add(keys []*Key) {
 	}
 }
 
-func (f *fingerprints) remove(keys []*Key) {
+func (f *fingerprints) remove(keys []*session2.Cypher) {
 	f.mux.Lock()
 	defer f.mux.Unlock()
 
@@ -409,7 +411,7 @@ func (f *fingerprints) Check(fingerprint format.Fingerprint) bool {
 	return ok
 }
 
-func (f *fingerprints) Pop(fingerprint format.Fingerprint) (*Key, bool) {
+func (f *fingerprints) Pop(fingerprint format.Fingerprint) (*session2.Cypher, bool) {
 	f.mux.Lock()
 	defer f.mux.Unlock()
 	key, ok := f.toKey[fingerprint]

@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package e2e
+package partner
 
 import (
 	"bytes"
@@ -14,11 +14,14 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/e2e/ratchet"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 	"golang.org/x/crypto/blake2b"
 )
@@ -28,9 +31,9 @@ const originMyPrivKeyKey = "originMyPrivKey"
 const originPartnerPubKey = "originPartnerPubKey"
 
 type Manager struct {
-	ctx *context
-	kv  *versioned.KV
+	kv *versioned.KV
 
+	myID    *id.ID
 	partner *id.ID
 
 	originMyPrivKey     *cyclic.Int
@@ -41,30 +44,33 @@ type Manager struct {
 
 	receive *relationship
 	send    *relationship
+
+	grp       *cyclic.Group
+	cyHandler session.CypherHandler
+	rng       *fastRNG.StreamGenerator
 }
 
-// newManager creates the relationship and its first Send and Receive sessions.
-func newManager(ctx *context, kv *versioned.KV, partnerID *id.ID, myPrivKey,
+// NewManager creates the relationship and its first Send and Receive sessions.
+func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
 	partnerPubKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
 	partnerSIDHPubKey *sidh.PublicKey, sendParams,
-	receiveParams params.E2ESessionParams) *Manager {
+	receiveParams session.Params, cyHandler session.CypherHandler,
+	grp *cyclic.Group, rng *fastRNG.StreamGenerator) *Manager {
 
-	kv = kv.Prefix(fmt.Sprintf(managerPrefix, partnerID))
+	kv = kv.Prefix(makeManagerPrefix(partnerID))
 
 	m := &Manager{
-		ctx:                     ctx,
 		kv:                      kv,
 		originMyPrivKey:         myPrivKey,
 		originPartnerPubKey:     partnerPubKey,
 		originMySIDHPrivKey:     mySIDHPrivKey,
 		originPartnerSIDHPubKey: partnerSIDHPubKey,
+		myID:                    myID,
 		partner:                 partnerID,
+		cyHandler:               cyHandler,
+		grp:                     grp,
+		rng:                     rng,
 	}
-
-	if ctx.grp == nil {
-		panic("group not set")
-	}
-
 	if err := utility.StoreCyclicKey(kv, myPrivKey, originMyPrivKeyKey); err != nil {
 		jww.FATAL.Panicf("Failed to store %s: %+v", originMyPrivKeyKey,
 			err)
@@ -75,28 +81,34 @@ func newManager(ctx *context, kv *versioned.KV, partnerID *id.ID, myPrivKey,
 			err)
 	}
 
-	m.send = NewRelationship(m, Send, sendParams)
-	m.receive = NewRelationship(m, Receive, receiveParams)
+	m.send = NewRelationship(m.kv, session.Send, myID, partnerID, myPrivKey,
+		partnerPubKey, mySIDHPrivKey, partnerSIDHPubKey, sendParams, cyHandler,
+		grp, rng)
+	m.receive = NewRelationship(m.kv, session.Receive, myID, partnerID,
+		myPrivKey, partnerPubKey, mySIDHPrivKey, partnerSIDHPubKey,
+		receiveParams, cyHandler, grp, rng)
 
 	return m
 }
 
 //loads a relationship and all buffers and sessions from disk
-func loadManager(ctx *context, kv *versioned.KV, partnerID *id.ID) (*Manager, error) {
+func loadManager(kv *versioned.KV, myID, partnerID *id.ID,
+	cyHandler session.CypherHandler, grp *cyclic.Group,
+	rng *fastRNG.StreamGenerator) (*Manager, error) {
 
 	kv = kv.Prefix(fmt.Sprintf(managerPrefix, partnerID))
 
 	m := &Manager{
-		ctx:     ctx,
-		partner: partnerID,
-		kv:      kv,
-	}
-
-	if ctx.grp == nil {
-		panic("group not set")
+		kv:        kv,
+		myID:      myID,
+		partner:   partnerID,
+		cyHandler: cyHandler,
+		grp:       grp,
+		rng:       rng,
 	}
 
 	var err error
+
 	m.originMyPrivKey, err = utility.LoadCyclicKey(kv, originMyPrivKeyKey)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to load %s: %+v", originMyPrivKeyKey,
@@ -109,14 +121,16 @@ func loadManager(ctx *context, kv *versioned.KV, partnerID *id.ID) (*Manager, er
 			err)
 	}
 
-	m.send, err = LoadRelationship(m, Send)
+	m.send, err = LoadRelationship(m.kv, session.Send, myID, partnerID,
+		cyHandler, grp, rng)
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"Failed to load partner key relationship due to failure to "+
 				"load the Send session buffer")
 	}
 
-	m.receive, err = LoadRelationship(m, Receive)
+	m.receive, err = LoadRelationship(m.kv, session.Receive, myID, partnerID,
+		cyHandler, grp, rng))
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"Failed to load partner key relationship due to failure to "+
@@ -151,13 +165,13 @@ func clearManager(m *Manager, kv *versioned.KV) error {
 // session will be returned with the bool set to true denoting a duplicate. This
 // allows for support of duplicate key exchange triggering.
 func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int,
-	partnerSIDHPubKey *sidh.PublicKey, e2eParams params.E2ESessionParams,
-	source *Session) (*Session, bool) {
+	partnerSIDHPubKey *sidh.PublicKey, e2eParams session.Params,
+	source *session2.Session) (*session2.Session, bool) {
 
 	// Check if the session already exists
-	baseKey := GenerateE2ESessionBaseKey(source.myPrivKey, partnerPubKey,
+	baseKey := session2.GenerateE2ESessionBaseKey(source.myPrivKey, partnerPubKey,
 		m.ctx.grp, source.mySIDHPrivKey, partnerSIDHPubKey)
-	sessionID := getSessionIDFromBaseKey(baseKey)
+	sessionID := session.getSessionIDFromBaseKey(baseKey)
 
 	if s := m.receive.GetByID(sessionID); s != nil {
 		return s, true
@@ -166,7 +180,7 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int,
 	// Add the session to the buffer
 	session := m.receive.AddSession(source.myPrivKey, partnerPubKey, baseKey,
 		source.mySIDHPrivKey, partnerSIDHPubKey,
-		source.GetID(), Confirmed, e2eParams)
+		source.GetID(), session2.Confirmed, e2eParams)
 
 	return session, false
 }
@@ -176,19 +190,19 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int,
 // private key is optional. A private key will be generated if none is passed.
 func (m *Manager) NewSendSession(myPrivKey *cyclic.Int,
 	mySIDHPrivKey *sidh.PrivateKey,
-	e2eParams params.E2ESessionParams) *Session {
+	e2eParams params.E2ESessionParams) *session2.Session {
 	// Find the latest public key from the other party
 	sourceSession := m.receive.getNewestRekeyableSession()
 
 	// Add the session to the Send session buffer and return
 	return m.send.AddSession(myPrivKey, sourceSession.partnerPubKey, nil,
 		mySIDHPrivKey, sourceSession.partnerSIDHPubKey,
-		sourceSession.GetID(), Sending, e2eParams)
+		sourceSession.GetID(), session2.Sending, e2eParams)
 }
 
 // GetKeyForSending gets the correct session to Send with depending on the type
 // of Send.
-func (m *Manager) GetKeyForSending(st params.SendType) (*Key, error) {
+func (m *Manager) GetKeyForSending(st params.SendType) (*session2.Cypher, error) {
 	switch st {
 	case params.Standard:
 		return m.send.getKeyForSending()
@@ -207,7 +221,7 @@ func (m *Manager) GetPartnerID() *id.ID {
 
 // GetSendSession gets the Send session of the passed ID. Returns nil if no
 // session is found.
-func (m *Manager) GetSendSession(sid SessionID) *Session {
+func (m *Manager) GetSendSession(sid session2.SessionID) *session2.Session {
 	return m.send.GetByID(sid)
 }
 
@@ -219,18 +233,18 @@ func (m *Manager) GetSendRelationshipFingerprint() []byte {
 
 // GetReceiveSession gets the Receive session of the passed ID. Returns nil if
 // no session is found.
-func (m *Manager) GetReceiveSession(sid SessionID) *Session {
+func (m *Manager) GetReceiveSession(sid session2.SessionID) *session2.Session {
 	return m.receive.GetByID(sid)
 }
 
 // Confirm confirms a Send session is known about by the partner.
-func (m *Manager) Confirm(sid SessionID) error {
+func (m *Manager) Confirm(sid session2.SessionID) error {
 	return m.send.Confirm(sid)
 }
 
 // TriggerNegotiations returns a list of key exchange operations if any are
 // necessary.
-func (m *Manager) TriggerNegotiations() []*Session {
+func (m *Manager) TriggerNegotiations() []*session2.Session {
 	return m.send.TriggerNegotiation()
 }
 
@@ -297,4 +311,8 @@ func (m *Manager) GetFileTransferPreimage() []byte {
 // fingerprint for group requests received from this user.
 func (m *Manager) GetGroupRequestPreimage() []byte {
 	return preimage.Generate(m.GetRelationshipFingerprintBytes(), preimage.GroupRq)
+}
+
+func makeManagerPrefix(pid *id.ID) string {
+	return fmt.Sprintf(managerPrefix, pid)
 }

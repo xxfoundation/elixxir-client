@@ -13,13 +13,13 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/e2e"
 	util "gitlab.com/elixxir/client/storage/utility"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -168,26 +168,26 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	return nil
 }
 
-func unmarshalSource(grp *cyclic.Group, payload []byte) (e2e.SessionID,
+func unmarshalSource(grp *cyclic.Group, payload []byte) (session2.SessionID,
 	*cyclic.Int, *sidh.PublicKey, error) {
 
 	msg := &RekeyTrigger{}
 	if err := proto.Unmarshal(payload, msg); err != nil {
-		return e2e.SessionID{}, nil, nil, errors.Errorf(
+		return session2.SessionID{}, nil, nil, errors.Errorf(
 			"Failed to unmarshal payload: %s", err)
 	}
 
-	oldSessionID := e2e.SessionID{}
+	oldSessionID := session2.SessionID{}
 
 	if err := oldSessionID.Unmarshal(msg.SessionID); err != nil {
-		return e2e.SessionID{}, nil, nil, errors.Errorf(
+		return session2.SessionID{}, nil, nil, errors.Errorf(
 			"Failed to unmarshal sessionID: %s", err)
 	}
 
 	// checking it is inside the group is necessary because otherwise the
 	// creation of the cyclic int will crash below
 	if !grp.BytesInside(msg.PublicKey) {
-		return e2e.SessionID{}, nil, nil, errors.Errorf(
+		return session2.SessionID{}, nil, nil, errors.Errorf(
 			"Public key not in e2e group; PublicKey %v",
 			msg.PublicKey)
 	}

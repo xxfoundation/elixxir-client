@@ -19,7 +19,7 @@ import (
 
 type MixCypher interface {
 	Encrypt(msg format.Message, salt []byte, roundID id.Round) (format.Message, [][]byte)
-	MakeClientGatewayKey(salt, digest []byte) []byte
+	MakeClientGatewayAuthMAC(salt, digest []byte) []byte
 }
 
 type mixCypher struct {
@@ -56,7 +56,7 @@ func (mc *mixCypher) Encrypt(msg format.Message,
 	return ecrMsg, KMAC
 }
 
-func (mc *mixCypher) MakeClientGatewayKey(salt, digest []byte) []byte {
+func (mc *mixCypher) MakeClientGatewayAuthMAC(salt, digest []byte) []byte {
 	clientGatewayKey := cmix.GenerateClientGatewayKey(mc.keys[0].k)
 	h, _ := hash.NewCMixHash()
 	h.Write(clientGatewayKey)

@@ -97,15 +97,21 @@ type Manager interface {
 
 	// AddFingerprint - Adds a fingerprint which will be handled by a
 	// specific processor for messages received by the given identity
+	// If a nil identity is passed, it will automatically use the default
+	// identity in the session
 	AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,
 		mp message.Processor) error
 
 	// DeleteFingerprint deletes a single fingerprint associated with the given
 	// identity if it exists
+	// If a nil identity is passed, it will automatically use the default
+	// identity in the session
 	DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint)
 
 	// DeleteClientFingerprints deletes al fingerprint associated with the given
 	// identity if it exists
+	// A sepecific identity must be supplied, a nil identity will result in a
+	// panic
 	DeleteClientFingerprints(identity *id.ID)
 
 	/* Service - predefined hash based tags appended to all cMix messages

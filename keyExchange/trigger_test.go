@@ -9,10 +9,10 @@ package keyExchange
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
+	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/e2e"
 	util "gitlab.com/elixxir/client/storage/utility"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -109,9 +109,9 @@ func TestHandleTrigger(t *testing.T) {
 	}
 
 	// Generate the new session ID based off of Bob's new keys
-	baseKey := e2e.GenerateE2ESessionBaseKey(alicePrivKey, newBobPubKey,
+	baseKey := session2.GenerateE2ESessionBaseKey(alicePrivKey, newBobPubKey,
 		genericGroup, aliceSIDHPrivKey, newBobSIDHPubKey)
-	newSessionID := e2e.GetSessionIDFromBaseKeyForTesting(baseKey, t)
+	newSessionID := session2.GetSessionIDFromBaseKeyForTesting(baseKey, t)
 
 	// Check that this new session ID is now in the manager
 	newSession := receivedManager.GetReceiveSession(newSessionID)
@@ -124,7 +124,7 @@ func TestHandleTrigger(t *testing.T) {
 	unknownPubliceKey := dh.GeneratePublicKey(unknownPrivateKey, genericGroup)
 
 	// Generate a new session ID based off of these unrecognized keys
-	badSessionID := e2e.GetSessionIDFromBaseKeyForTesting(unknownPubliceKey, t)
+	badSessionID := session2.GetSessionIDFromBaseKeyForTesting(unknownPubliceKey, t)
 
 	// Check that this session with unrecognized keys is not valid
 	badSession := receivedManager.GetReceiveSession(badSessionID)

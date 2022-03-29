@@ -11,10 +11,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/e2e"
 )
 
 func startConfirm(sess *storage.Session, c chan message.Receive,
@@ -69,7 +69,7 @@ func handleConfirm(sess *storage.Session, confirmation message.Receive) {
 	// This is expected sometimes because some errors cases can cause multiple
 	// sends. For example if the sending device runs out of battery after it
 	// sends but before it records the send it will resend on reload
-	if err := confirmedSession.TrySetNegotiationStatus(e2e.Confirmed); err != nil {
+	if err := confirmedSession.TrySetNegotiationStatus(session2.Confirmed); err != nil {
 		jww.WARN.Printf("[REKEY] Failed to set the negotiation status for the "+
 			"confirmation of session %s from partner %s. This is expected in "+
 			"some edge cases but could be a sign of an issue if it persists: %s",
@@ -80,17 +80,17 @@ func handleConfirm(sess *storage.Session, confirmation message.Receive) {
 		"%s from partner %s.", confirmedSession, partner.GetPartnerID())
 }
 
-func unmarshalConfirm(payload []byte) (e2e.SessionID, error) {
+func unmarshalConfirm(payload []byte) (session2.SessionID, error) {
 
 	msg := &RekeyConfirm{}
 	if err := proto.Unmarshal(payload, msg); err != nil {
-		return e2e.SessionID{}, errors.Errorf("Failed to "+
+		return session2.SessionID{}, errors.Errorf("Failed to "+
 			"unmarshal payload: %s", err)
 	}
 
-	confirmedSessionID := e2e.SessionID{}
+	confirmedSessionID := session2.SessionID{}
 	if err := confirmedSessionID.Unmarshal(msg.SessionID); err != nil {
-		return e2e.SessionID{}, errors.Errorf("Failed to unmarshal"+
+		return session2.SessionID{}, errors.Errorf("Failed to unmarshal"+
 			" sessionID: %s", err)
 	}
 

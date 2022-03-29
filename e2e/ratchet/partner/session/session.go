@@ -5,26 +5,26 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package e2e
+package session
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"math/big"
-	"math/rand"
 	"sync"
 	"testing"
 )
@@ -34,12 +34,12 @@ const sessionPrefix = "session{ID:%s}"
 const sessionKey = "session"
 
 type Session struct {
-	//pointer to relationship
-	relationship *relationship
 	//prefixed kv
 	kv *versioned.KV
 	//params
-	e2eParams params.E2ESessionParams
+	e2eParams Params
+
+	sID SessionID
 
 	partner *id.ID
 
@@ -76,13 +76,18 @@ type Session struct {
 
 	//mutex
 	mux sync.RWMutex
+
+	//interfaces
+	cyHandler CypherHandler
+	grp       *cyclic.Group
+	rng       *fastRNG.StreamGenerator
 }
 
 // As this is serialized by json, any field that should be serialized
 // must be exported
 // Utility struct to write part of session data to disk
 type SessionDisk struct {
-	E2EParams params.E2ESessionParams
+	E2EParams Params
 
 	//session type
 	Type uint8
@@ -117,12 +122,14 @@ type SessionDisk struct {
 }
 
 /*CONSTRUCTORS*/
-//Generator which creates all keys and structures
-func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey,
-	baseKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
+
+//NewSession - Generator which creates all keys and structures
+func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
+	partnerPubKey, baseKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
 	partnerSIDHPubKey *sidh.PublicKey, trigger SessionID,
 	relationshipFingerprint []byte, negotiationStatus Negotiation,
-	e2eParams params.E2ESessionParams) *Session {
+	e2eParams Params, cyHandler CypherHandler, grp *cyclic.Group,
+	rng *fastRNG.StreamGenerator) *Session {
 
 	if e2eParams.MinKeys < 10 {
 		jww.FATAL.Panicf("Cannot create a session with a minimum "+
@@ -131,7 +138,6 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 
 	session := &Session{
 		e2eParams:               e2eParams,
-		relationship:            ship,
 		t:                       t,
 		myPrivKey:               myPrivKey,
 		partnerPubKey:           partnerPubKey,
@@ -141,19 +147,23 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 		relationshipFingerprint: relationshipFingerprint,
 		negotiationStatus:       negotiationStatus,
 		partnerSource:           trigger,
-		partner:                 ship.manager.partner.DeepCopy(),
+		partner:                 partner,
+		cyHandler:               cyHandler,
+		grp:                     grp,
+		rng:                     rng,
 	}
 
-	session.kv = session.generate(ship.kv)
+	session.finalizeKeyNegotiation()
+	session.kv = kv.Prefix(MakeSessionPrefix(session.sID))
+	session.buildChildKeys()
 
-	grp := session.relationship.manager.ctx.grp
 	myPubKey := dh.GeneratePublicKey(session.myPrivKey, grp)
 
 	jww.INFO.Printf("New Session with Partner %s:\n\tType: %s"+
 		"\n\tBaseKey: %s\n\tRelationship Fingerprint: %v\n\tNumKeys: %d"+
 		"\n\tMy Public Key: %s\n\tPartner Public Key: %s"+
 		"\n\tMy Public SIDH: %s\n\tPartner Public SIDH: %s",
-		ship.manager.partner,
+		partner,
 		t,
 		session.baseKey.TextVerbose(16, 0),
 		session.relationshipFingerprint,
@@ -163,22 +173,26 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 		utility.StringSIDHPrivKey(session.mySIDHPrivKey),
 		utility.StringSIDHPubKey(session.partnerSIDHPubKey))
 
-	err := session.save()
+	err := session.Save()
 	if err != nil {
 		jww.FATAL.Printf("Failed to make new session for Partner %s: %s",
-			ship.manager.partner, err)
+			partner, err)
 	}
 
 	return session
 }
 
 // Load session and state vector from kv and populate runtime fields
-func loadSession(ship *relationship, kv *versioned.KV,
-	relationshipFingerprint []byte) (*Session, error) {
+func LoadSession(kv *versioned.KV, sessionID SessionID,
+	relationshipFingerprint []byte, cyHandler CypherHandler,
+	grp *cyclic.Group, rng *fastRNG.StreamGenerator) (*Session, error) {
 
 	session := Session{
-		relationship: ship,
-		kv:           kv,
+		kv:        kv.Prefix(MakeSessionPrefix(sessionID)),
+		sID:       sessionID,
+		cyHandler: cyHandler,
+		grp:       grp,
+		rng:       rng,
 	}
 
 	obj, err := kv.Get(sessionKey, currentSessionVersion)
@@ -197,19 +211,16 @@ func loadSession(ship *relationship, kv *versioned.KV,
 
 	if session.t == Receive {
 		// register key fingerprints
-		ship.manager.ctx.fa.add(session.getUnusedKeys())
+		for _, cy := range session.getUnusedKeys() {
+			cyHandler.AddKey(cy)
+		}
 	}
 	session.relationshipFingerprint = relationshipFingerprint
-
-	if !session.partner.Cmp(ship.manager.partner) {
-		return nil, errors.Errorf("Stored partner (%s) did not match "+
-			"relationship partner (%s)", session.partner, ship.manager.partner)
-	}
 
 	return &session, nil
 }
 
-func (s *Session) save() error {
+func (s *Session) Save() error {
 
 	now := netTime.Now()
 
@@ -235,7 +246,9 @@ func (s *Session) Delete() {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	s.relationship.manager.ctx.fa.remove(s.getUnusedKeys())
+	for _, cy := range s.getUnusedKeys() {
+		s.cyHandler.DeleteKey(cy)
+	}
 
 	stateVectorErr := s.keyState.Delete()
 	sessionErr := s.kv.Delete(sessionKey, currentSessionVersion)
@@ -282,16 +295,6 @@ func (s *Session) GetSource() SessionID {
 }
 
 //underlying definition of session id
-func getSessionIDFromBaseKey(baseKey *cyclic.Int) SessionID {
-	// no lock is needed because this cannot be edited
-	sid := SessionID{}
-	h, _ := hash.NewCMixHash()
-	h.Write(baseKey.Bytes())
-	copy(sid[:], h.Sum(nil))
-	return sid
-}
-
-//underlying definition of session id
 // FOR TESTING PURPOSES ONLY
 func GetSessionIDFromBaseKeyForTesting(baseKey *cyclic.Int, i interface{}) SessionID {
 	switch i.(type) {
@@ -305,13 +308,13 @@ func GetSessionIDFromBaseKeyForTesting(baseKey *cyclic.Int, i interface{}) Sessi
 
 //Blake2B hash of base key used for storage
 func (s *Session) GetID() SessionID {
-	return getSessionIDFromBaseKey(s.baseKey)
+	return s.sID
 }
 
 // returns the ID of the partner for this session
 func (s *Session) GetPartner() *id.ID {
-	if s.relationship != nil {
-		return s.relationship.manager.partner.DeepCopy()
+	if s.partner != nil {
+		return s.partner
 	} else {
 		return nil
 	}
@@ -364,7 +367,7 @@ func (s *Session) unmarshal(b []byte) error {
 		return err
 	}
 
-	grp := s.relationship.manager.ctx.grp
+	grp := s.grp
 
 	s.e2eParams = sd.E2EParams
 	s.t = RelationshipType(sd.Type)
@@ -403,7 +406,7 @@ func (s *Session) unmarshal(b []byte) error {
 //key usage
 // Pops the first unused key, skipping any which are denoted as used.
 // will return if the remaining keys are designated as rekeys
-func (s *Session) PopKey() (*Key, error) {
+func (s *Session) PopKey() (*Cypher, error) {
 	if s.keyState.GetNumAvailable() <= uint32(s.e2eParams.NumRekeys) {
 		return nil, errors.New("no more keys left, remaining reserved " +
 			"for rekey")
@@ -416,7 +419,7 @@ func (s *Session) PopKey() (*Key, error) {
 	return newKey(s, keyNum), nil
 }
 
-func (s *Session) PopReKey() (*Key, error) {
+func (s *Session) PopReKey() (*Cypher, error) {
 	keyNum, err := s.keyState.Next()
 	if err != nil {
 		return nil, err
@@ -459,7 +462,7 @@ func (s *Session) Status() Status {
 // will be redone if it was in the process of sending
 
 // Moving from Unconfirmed to Sending and from Confirmed to NewSessionTriggered
-// is handled by  Session.triggerNegotiation() which is called by the
+// is handled by  Session.TriggerNegotiation() which is called by the
 // Manager as part of Manager.TriggerNegotiations() and will be rejected
 // from this function
 
@@ -501,7 +504,7 @@ func (s *Session) TrySetNegotiationStatus(status Negotiation) error {
 
 	//save the status if appropriate
 	if save {
-		if err := s.save(); err != nil {
+		if err := s.Save(); err != nil {
 			jww.FATAL.Panicf("Failed to save Session %s when moving from %s to %s", s, oldStatus, status)
 		}
 	}
@@ -521,7 +524,7 @@ func (s *Session) TrySetNegotiationStatus(status Negotiation) error {
 // In order to ensure the session creation is not triggered again after the
 // reload, it is the responsibility of the caller to call
 // Session.SetConfirmationStatus(NewSessionCreated) .
-func (s *Session) triggerNegotiation() bool {
+func (s *Session) TriggerNegotiation() bool {
 	// Due to the fact that a read lock cannot be transitioned to a
 	// write lock, the state checks need to happen a second time because it
 	// is possible for another thread to take the read lock and update the
@@ -551,7 +554,7 @@ func (s *Session) triggerNegotiation() bool {
 			s.mux.Unlock()
 			return false
 		}
-	} else if s.negotiationStatus == Unconfirmed && rand.Uint64()%s.rekeyThreshold == 0 {
+	} else if s.negotiationStatus == Unconfirmed && decideIfResendRekey(s.rng, 1/10) {
 		// retrigger this sessions negotiation
 		s.mux.RUnlock()
 		s.mux.Lock()
@@ -604,14 +607,14 @@ func (s *Session) useKey(keynum uint32) {
 	s.keyState.Use(keynum)
 }
 
-// generates keys from the base data stored in the session object.
+// finalizeKeyNegotiation generates keys from the base data stored in the session object.
 // myPrivKey will be generated if not present
-func (s *Session) generate(kv *versioned.KV) *versioned.KV {
-	grp := s.relationship.manager.ctx.grp
+func (s *Session) finalizeKeyNegotiation() {
+	grp := s.grp
 
-	//generate private key if it is not present
+	//Generates private key if it is not present
 	if s.myPrivKey == nil {
-		stream := s.relationship.manager.ctx.rng.GetStream()
+		stream := s.rng.GetStream()
 		s.myPrivKey = dh.GeneratePrivateKey(len(grp.GetPBytes()),
 			grp, stream)
 		// get the variant opposite my partners variant
@@ -629,12 +632,14 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 			s.partnerSIDHPubKey)
 	}
 
-	kv = kv.Prefix(makeSessionPrefix(s.GetID()))
+	s.sID = getSessionIDFromBaseKey(s.baseKey)
+}
 
+func (s *Session) buildChildKeys() {
 	p := s.e2eParams
 	h, _ := hash.NewCMixHash()
 
-	//generate rekeyThreshold and keying info
+	//generates rekeyThreshold and keying info
 	numKeys := uint32(randomness.RandInInterval(big.NewInt(
 		int64(p.MaxKeys-p.MinKeys)),
 		s.baseKey.Bytes(), h).Int64() + int64(p.MinKeys))
@@ -652,25 +657,24 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 	// To generate the state vector key correctly,
 	// basekey must be computed as the session ID is the hash of basekey
 	var err error
-	s.keyState, err = utility.NewStateVector(kv, "", numKeys)
+	s.keyState, err = utility.NewStateVector(s.kv, "", numKeys)
 	if err != nil {
 		jww.FATAL.Printf("Failed key generation: %s", err)
 	}
 
 	//register keys for reception if this is a reception session
 	if s.t == Receive {
-		//register keys
-		s.relationship.manager.ctx.fa.add(s.getUnusedKeys())
+		for _, cy := range s.getUnusedKeys() {
+			s.cyHandler.AddKey(cy)
+		}
 	}
-
-	return kv
 }
 
 //returns key objects for all unused keys
-func (s *Session) getUnusedKeys() []*Key {
+func (s *Session) getUnusedKeys() []*Cypher {
 	keyNums := s.keyState.GetUnusedKeyNums()
 
-	keys := make([]*Key, len(keyNums))
+	keys := make([]*Cypher, len(keyNums))
 	for i, keyNum := range keyNums {
 		keys[i] = newKey(s, keyNum)
 	}
@@ -679,6 +683,16 @@ func (s *Session) getUnusedKeys() []*Key {
 }
 
 //builds the
-func makeSessionPrefix(sid SessionID) string {
+func MakeSessionPrefix(sid SessionID) string {
 	return fmt.Sprintf(sessionPrefix, sid)
+}
+
+func decideIfResendRekey(genRng *fastRNG.StreamGenerator, ratio float64) bool {
+	stream := genRng.GetStream()
+	b := make([]byte, 8)
+	stream.Read(b)
+	stream.Close()
+	randNum := binary.BigEndian.Uint64(b)
+	max := uint64(float64(math.MaxUint64) * ratio)
+	return randNum < max
 }

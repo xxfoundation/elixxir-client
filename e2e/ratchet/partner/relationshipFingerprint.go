@@ -5,10 +5,11 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package e2e
+package partner
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
+	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -16,16 +17,16 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-func makeRelationshipFingerprint(t RelationshipType, grp *cyclic.Group,
+func makeRelationshipFingerprint(t session2.RelationshipType, grp *cyclic.Group,
 	myPrivKey, partnerPubKey *cyclic.Int, me, partner *id.ID) []byte {
 
 	myPubKey := grp.ExpG(myPrivKey, grp.NewIntFromUInt(1))
 
 	switch t {
-	case Send:
+	case session2.Send:
 		return e2e.MakeRelationshipFingerprint(myPubKey, partnerPubKey,
 			me, partner)
-	case Receive:
+	case session2.Receive:
 		return e2e.MakeRelationshipFingerprint(myPubKey, partnerPubKey,
 			partner, me)
 	default:

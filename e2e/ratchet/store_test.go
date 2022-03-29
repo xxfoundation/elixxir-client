@@ -5,11 +5,14 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package e2e
+package ratchet
 
 import (
 	"bytes"
 	"github.com/cloudflare/circl/dh/sidh"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner"
+	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/e2e/ratchet/session"
 	"gitlab.com/elixxir/client/interfaces/params"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -37,7 +40,7 @@ func TestNewStore(t *testing.T) {
 	rng := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 	e2eP := params.GetDefaultE2ESessionParams()
 	expectedStore := &Store{
-		managers:     make(map[id.ID]*Manager),
+		managers:     make(map[id.ID]*partner.Manager),
 		dhPrivateKey: privKey,
 		dhPublicKey:  diffieHellman.GeneratePublicKey(privKey, grp),
 		grp:          grp,
@@ -107,7 +110,7 @@ func TestStore_AddPartner(t *testing.T) {
 	// initiation of the connection.
 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
 	privSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
-	expectedManager := newManager(s.context, s.kv, partnerID,
+	expectedManager := partner.newManager(s.context, s.kv, partnerID,
 		s.dhPrivateKey, pubKey,
 		privSIDHKey, pubSIDHKey,
 		p, p)
@@ -170,7 +173,7 @@ func TestStore_GetPartner(t *testing.T) {
 	p := params.GetDefaultE2ESessionParams()
 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
 	privSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
-	expectedManager := newManager(s.context, s.kv, partnerID,
+	expectedManager := partner.newManager(s.context, s.kv, partnerID,
 		s.dhPrivateKey, pubKey, privSIDHKey, pubSIDHKey, p, p)
 	_ = s.AddPartner(partnerID, pubKey, s.dhPrivateKey, pubSIDHKey,
 		privSIDHKey, p, p)
@@ -245,7 +248,7 @@ func TestStore_GetPartnerContact_Error(t *testing.T) {
 // Tests happy path of Store.PopKey.
 func TestStore_PopKey(t *testing.T) {
 	s, _, _ := makeTestStore()
-	se, _ := makeTestSession()
+	se, _ := session.makeTestSession()
 
 	// Pop Key that does not exist
 	fp := format.Fingerprint{0xF, 0x6, 0x2}
@@ -260,7 +263,7 @@ func TestStore_PopKey(t *testing.T) {
 	}
 
 	// Add a Key
-	keys := []*Key{newKey(se, 0), newKey(se, 1), newKey(se, 2)}
+	keys := []*session2.Cypher{session.newKey(se, 0), session.newKey(se, 1), session.newKey(se, 2)}
 	s.add(keys)
 	fp = keys[0].Fingerprint()
 
@@ -279,7 +282,7 @@ func TestStore_PopKey(t *testing.T) {
 // Tests happy path of Store.CheckKey.
 func TestStore_CheckKey(t *testing.T) {
 	s, _, _ := makeTestStore()
-	se, _ := makeTestSession()
+	se, _ := session.makeTestSession()
 
 	// Check for a Key that does not exist
 	fp := format.Fingerprint{0xF, 0x6, 0x2}
@@ -289,7 +292,7 @@ func TestStore_CheckKey(t *testing.T) {
 	}
 
 	// Add Keys
-	keys := []*Key{newKey(se, 0), newKey(se, 1), newKey(se, 2)}
+	keys := []*session2.Cypher{session.newKey(se, 0), session.newKey(se, 1), session.newKey(se, 2)}
 	s.add(keys)
 	fp = keys[0].Fingerprint()
 
@@ -335,7 +338,7 @@ func TestStore_GetGroup(t *testing.T) {
 
 // Tests happy path of newFingerprints.
 func Test_newFingerprints(t *testing.T) {
-	expectedFp := fingerprints{toKey: make(map[format.Fingerprint]*Key)}
+	expectedFp := fingerprints{toKey: make(map[format.Fingerprint]*session2.Cypher)}
 	fp := newFingerprints()
 
 	if !reflect.DeepEqual(&expectedFp, &fp) {
@@ -346,8 +349,8 @@ func Test_newFingerprints(t *testing.T) {
 
 // Tests happy path of fingerprints.add.
 func TestFingerprints_add(t *testing.T) {
-	se, _ := makeTestSession()
-	keys := []*Key{newKey(se, 0), newKey(se, 1), newKey(se, 2)}
+	se, _ := session.makeTestSession()
+	keys := []*session2.Cypher{session.newKey(se, 0), session.newKey(se, 1), session.newKey(se, 2)}
 	fps := newFingerprints()
 	fps.add(keys)
 
@@ -368,8 +371,8 @@ func TestFingerprints_add(t *testing.T) {
 
 // Tests happy path of fingerprints.remove.
 func TestFingerprints_remove(t *testing.T) {
-	se, _ := makeTestSession()
-	keys := []*Key{newKey(se, 0), newKey(se, 1), newKey(se, 2)}
+	se, _ := session.makeTestSession()
+	keys := []*session2.Cypher{session.newKey(se, 0), session.newKey(se, 1), session.newKey(se, 2)}
 	fps := newFingerprints()
 	fps.add(keys)
 	fps.remove(keys)

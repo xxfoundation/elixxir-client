@@ -5,11 +5,13 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package e2e
+package session
 
 import (
 	"errors"
 	"github.com/cloudflare/circl/dh/sidh"
+	"gitlab.com/elixxir/client/e2e/ratchet"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/utility"
 	util "gitlab.com/elixxir/client/storage/utility"
@@ -38,8 +40,8 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
 
 	// create context objects for general use
-	fps := newFingerprints()
-	ctx := &context{
+	fps := ratchet.newFingerprints()
+	ctx := &ratchet.context{
 		fa:  &fps,
 		grp: grp,
 		rng: fastRNG.NewStreamGenerator(1, 0, csprng.NewSystemRNG),
@@ -50,14 +52,14 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 		partnerPubKey:     partnerPubKey,
 		partnerSIDHPubKey: partnerSIDHPubKey,
 		e2eParams:         params.GetDefaultE2ESessionParams(),
-		relationship: &relationship{
-			manager: &Manager{ctx: ctx},
+		relationship: &ratchet.relationship{
+			manager: &partner.Manager{ctx: ctx},
 		},
 		t: Receive,
 	}
 
-	// run the generate command
-	s.generate(versioned.NewKV(make(ekv.Memstore)))
+	// run the finalizeKeyNegotation command
+	s.finalizeKeyNegotation(versioned.NewKV(make(ekv.Memstore)))
 
 	// check that it generated a private key
 	if s.myPrivKey == nil {
@@ -110,8 +112,8 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
 	// create context objects for general use
-	fps := newFingerprints()
-	ctx := &context{
+	fps := ratchet.newFingerprints()
+	ctx := &ratchet.context{
 		fa:  &fps,
 		grp: grp,
 	}
@@ -123,14 +125,14 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 		mySIDHPrivKey:     mySIDHPrivKey,
 		partnerSIDHPubKey: partnerSIDHPubKey,
 		e2eParams:         params.GetDefaultE2ESessionParams(),
-		relationship: &relationship{
-			manager: &Manager{ctx: ctx},
+		relationship: &ratchet.relationship{
+			manager: &partner.Manager{ctx: ctx},
 		},
 		t: Send,
 	}
 
-	// run the generate command
-	s.generate(versioned.NewKV(make(ekv.Memstore)))
+	// run the finalizeKeyNegotation command
+	s.finalizeKeyNegotation(versioned.NewKV(make(ekv.Memstore)))
 
 	// check that it generated a private key
 	if s.myPrivKey.Cmp(myPrivKey) != 0 {
@@ -164,13 +166,13 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 	}
 }
 
-// Shows that newSession can result in all the fields being populated
+// Shows that NewSession can result in all the fields being populated
 func TestNewSession(t *testing.T) {
 	// Make a test session to easily populate all the fields
 	sessionA, _ := makeTestSession()
 
 	// Make a new session with the variables we got from makeTestSession
-	sessionB := newSession(sessionA.relationship, sessionA.t,
+	sessionB := NewSession(sessionA.relationship, sessionA.t,
 		sessionA.myPrivKey, sessionA.partnerPubKey, sessionA.baseKey,
 		sessionA.mySIDHPrivKey, sessionA.partnerSIDHPubKey,
 		sessionA.GetID(), []byte(""), sessionA.negotiationStatus,
@@ -182,26 +184,26 @@ func TestNewSession(t *testing.T) {
 	}
 	// For everything else, just make sure it's populated
 	if sessionB.keyState == nil {
-		t.Error("newSession should populate keyState")
+		t.Error("NewSession should populate keyState")
 	}
 	if sessionB.relationship == nil {
-		t.Error("newSession should populate relationship")
+		t.Error("NewSession should populate relationship")
 	}
 	if sessionB.rekeyThreshold == 0 {
-		t.Error("newSession should populate rekeyThreshold")
+		t.Error("NewSession should populate rekeyThreshold")
 	}
 }
 
-// Shows that loadSession can result in all the fields being populated
+// Shows that LoadSession can result in all the fields being populated
 func TestSession_Load(t *testing.T) {
 	// Make a test session to easily populate all the fields
 	sessionA, _ := makeTestSession()
-	err := sessionA.save()
+	err := sessionA.Save()
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Load another, hopefully identical session from the storage
-	sessionB, err := loadSession(sessionA.relationship, sessionA.kv, []byte(""))
+	sessionB, err := LoadSession(sessionA.relationship, sessionA.kv, []byte(""))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +212,7 @@ func TestSession_Load(t *testing.T) {
 		t.Error(err)
 	}
 	// Key state should also be loaded and equivalent to the other session
-	// during loadSession()
+	// during LoadSession()
 	if !reflect.DeepEqual(sessionA.keyState, sessionB.keyState) {
 		t.Errorf("Two key states do not match.\nsessionA: %+v\nsessionB: %+v",
 			sessionA.keyState, sessionB.keyState)
@@ -233,8 +235,8 @@ func TestSession_Serialization(t *testing.T) {
 	}
 
 	sDeserialized := &Session{
-		relationship: &relationship{
-			manager: &Manager{ctx: ctx},
+		relationship: &ratchet.relationship{
+			manager: &partner.Manager{ctx: ctx},
 		},
 		kv: s.kv,
 	}
@@ -297,7 +299,7 @@ func TestSession_PopKey(t *testing.T) {
 // delete should remove unused keys from this session
 func TestSession_Delete(t *testing.T) {
 	s, _ := makeTestSession()
-	err := s.save()
+	err := s.Save()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -537,7 +539,7 @@ func TestSession_TriggerNegotiation(t *testing.T) {
 	s.rekeyThreshold = 49
 	s.negotiationStatus = Confirmed
 
-	if !s.triggerNegotiation() {
+	if !s.TriggerNegotiation() {
 		t.Error("partnerSource negotiation unexpectedly failed")
 	}
 	if s.negotiationStatus != NewSessionTriggered {
@@ -548,7 +550,7 @@ func TestSession_TriggerNegotiation(t *testing.T) {
 	s.rekeyThreshold = 50
 	s.negotiationStatus = Confirmed
 
-	if !s.triggerNegotiation() {
+	if !s.TriggerNegotiation() {
 		t.Error("partnerSource negotiation unexpectedly failed")
 	}
 	if s.negotiationStatus != NewSessionTriggered {
@@ -559,7 +561,7 @@ func TestSession_TriggerNegotiation(t *testing.T) {
 	s.rekeyThreshold = 51
 	s.negotiationStatus = Confirmed
 
-	if s.triggerNegotiation() {
+	if s.TriggerNegotiation() {
 		t.Error("trigger negotiation unexpectedly failed")
 	}
 	if s.negotiationStatus != Confirmed {
@@ -568,7 +570,7 @@ func TestSession_TriggerNegotiation(t *testing.T) {
 
 	// Test other case: partnerSource sending	confirmation message on unconfirmed session
 	s.negotiationStatus = Unconfirmed
-	if !s.triggerNegotiation() {
+	if !s.TriggerNegotiation() {
 		t.Error("partnerSource negotiation unexpectedly failed")
 	}
 	if s.negotiationStatus != Sending {
@@ -596,7 +598,7 @@ func TestSession_GetTrigger(t *testing.T) {
 }
 
 // Make a default test session with some things populated
-func makeTestSession() (*Session, *context) {
+func makeTestSession() (*Session, *ratchet.context) {
 	grp := getGroup()
 	rng := csprng.NewSystemRNG()
 	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength,
@@ -617,8 +619,8 @@ func makeTestSession() (*Session, *context) {
 		mySIDHPrivKey, partnerSIDHPubKey)
 
 	// create context objects for general use
-	fps := newFingerprints()
-	ctx := &context{
+	fps := ratchet.newFingerprints()
+	ctx := &ratchet.context{
 		fa:   &fps,
 		grp:  grp,
 		myID: &id.ID{},
@@ -633,8 +635,8 @@ func makeTestSession() (*Session, *context) {
 		mySIDHPrivKey:     mySIDHPrivKey,
 		partnerSIDHPubKey: partnerSIDHPubKey,
 		e2eParams:         params.GetDefaultE2ESessionParams(),
-		relationship: &relationship{
-			manager: &Manager{
+		relationship: &ratchet.relationship{
+			manager: &partner.Manager{
 				ctx:     ctx,
 				kv:      kv,
 				partner: &id.ID{},

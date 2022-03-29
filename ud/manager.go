@@ -111,20 +111,23 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 // already registered facts into store.
 func NewManagerFromBackup(client *api.Client, single *single.Manager,
 	email, phone fact.Fact) (*Manager, error) {
-	jww.INFO.Println("ud.NewManager()")
+	jww.INFO.Println("ud.NewManagerFromBackup()")
 	if client.NetworkFollowerStatus() != api.Running {
 		return nil, errors.New(
 			"cannot start UD Manager when network follower is not running.")
 	}
 
+	registered := uint32(0)
+
 	m := &Manager{
-		client:  client,
-		comms:   client.GetComms(),
-		rng:     client.GetRng(),
-		sw:      client.GetSwitchboard(),
-		storage: client.GetStorage(),
-		net:     client.GetNetworkInterface(),
-		single:  single,
+		client:     client,
+		comms:      client.GetComms(),
+		rng:        client.GetRng(),
+		sw:         client.GetSwitchboard(),
+		storage:    client.GetStorage(),
+		net:        client.GetNetworkInterface(),
+		single:     single,
+		registered: &registered,
 	}
 
 	err := m.client.GetStorage().GetUd().

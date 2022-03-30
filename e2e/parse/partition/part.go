@@ -8,9 +8,9 @@
 package partition
 
 import (
-	"fmt"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
+	"strconv"
 )
 
 const currentMultiPartMessagePartVersion = 0
@@ -43,12 +43,7 @@ func deletePart(kv *versioned.KV, partNum uint8) error {
 	return kv.Delete(key, currentMultiPartMessageVersion)
 }
 
-// Make the key for a part
+// makeMultiPartMessagePartKey makes the key for a part.
 func makeMultiPartMessagePartKey(part uint8) string {
-	return fmt.Sprintf("part:%v", part)
+	return "part:" + strconv.FormatUint(uint64(part), 10)
 }
-
-//func multiPartMessagePartPrefix(kv *versioned.KV, id uint64) *versioned.KV {
-//	return kv.prefix(keyMultiPartMessagePartPrefix).
-//		prefix(strconv.FormatUint(id, 32))
-//}

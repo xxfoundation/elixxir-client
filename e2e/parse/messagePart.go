@@ -87,32 +87,32 @@ func messagePartFromBytesVer0(data []byte) messagePart {
 	}
 }
 
-// GetID returns the message ID.
-func (m messagePart) GetID() uint32 {
+// getID returns the message ID.
+func (m messagePart) getID() uint32 {
 	return binary.BigEndian.Uint32(m.Id)
 }
 
-// GetPart returns the message part number.
-func (m messagePart) GetPart() uint8 {
+// getPart returns the message part number.
+func (m messagePart) getPart() uint8 {
 	return m.Part[0]
 }
 
-// GetContents returns the entire contents slice.
-func (m messagePart) GetContents() []byte {
+// getContents returns the entire contents slice.
+func (m messagePart) getContents() []byte {
 	return m.Contents
 }
 
-// GetSizedContents returns the contents truncated to include only stored data.
-func (m messagePart) GetSizedContents() []byte {
-	return m.Contents[:m.GetContentsLength()]
+// getSizedContents returns the contents truncated to include only stored data.
+func (m messagePart) getSizedContents() []byte {
+	return m.Contents[:m.getContentsLength()]
 }
 
-// GetContentsLength returns the length of the data in the contents.
-func (m messagePart) GetContentsLength() int {
+// getContentsLength returns the length of the data in the contents.
+func (m messagePart) getContentsLength() int {
 	return int(binary.BigEndian.Uint16(m.Len))
 }
 
-// Bytes returns the serialised message data.
-func (m messagePart) Bytes() []byte {
+// bytes returns the serialised message data.
+func (m messagePart) bytes() []byte {
 	return m.Data
 }

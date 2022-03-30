@@ -22,17 +22,16 @@ type Store struct {
 	mux                 sync.RWMutex
 }
 
-// NewStore returns a new conversation store made off of the KV.
+// NewStore returns a new conversation Store made off of the KV.
 func NewStore(kv *versioned.KV) *Store {
-	kv = kv.Prefix(conversationKeyPrefix)
 	return &Store{
 		loadedConversations: make(map[id.ID]*Conversation),
-		kv:                  kv,
+		kv:                  kv.Prefix(conversationKeyPrefix),
 	}
 }
 
-// Get gets the conversation with the given partner ID from RAM, if it is there.
-// Otherwise, it loads it from disk.
+// Get gets the conversation with the given partner ID from memory, if it is
+// there. Otherwise, it loads it from disk.
 func (s *Store) Get(partner *id.ID) *Conversation {
 	s.mux.RLock()
 	c, ok := s.loadedConversations[*partner]
@@ -50,25 +49,25 @@ func (s *Store) Get(partner *id.ID) *Conversation {
 	return c
 }
 
-// delete deletes the conversation with the given partner ID from memory and
+// Delete deletes the conversation with the given partner ID from memory and
 // storage. Panics if the object cannot be deleted from storage.
 func (s *Store) Delete(partner *id.ID) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	// get contact from memory
+	// Get contact from memory
 	c, exists := s.loadedConversations[*partner]
 	if !exists {
 		return
 	}
 
-	// delete contact from storage
+	// Delete contact from storage
 	err := c.delete()
 	if err != nil {
-		jww.FATAL.Panicf("Failed to remover conversation with ID %s from "+
+		jww.FATAL.Panicf("Failed to remove conversation with ID %s from "+
 			"storage: %+v", partner, err)
 	}
 
-	// delete contact from memory
+	// Delete contact from memory
 	delete(s.loadedConversations, *partner)
 }

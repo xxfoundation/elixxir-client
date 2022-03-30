@@ -9,7 +9,6 @@ package partition
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
@@ -19,21 +18,26 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"strconv"
 	"sync"
 	"time"
 )
 
-const currentMultiPartMessageVersion = 0
-const messageKey = "MultiPart"
+const (
+	currentMultiPartMessageVersion = 0
+	messageKey                     = "MultiPart"
+)
 
 type multiPartMessage struct {
 	Sender       *id.ID
 	MessageID    uint64
 	NumParts     uint8
 	PresentParts uint8
-	// Timestamp of message from sender
+
+	// SenderTimestamp is the timestamp of message from sender.
 	SenderTimestamp time.Time
-	// Timestamp in which message was stored in RAM
+
+	// StorageTimestamp is the timestamp in which message was stored in RAM
 	StorageTimestamp time.Time
 	MessageType      catalog.MessageType
 
@@ -46,7 +50,8 @@ type multiPartMessage struct {
 // creates a new one and saves it if one does not exist.
 func loadOrCreateMultiPartMessage(sender *id.ID, messageID uint64,
 	kv *versioned.KV) *multiPartMessage {
-	kv = kv.Prefix(versioned.MakePartnerPrefix(sender)).Prefix(fmt.Sprintf("MessageID:%d", messageID))
+	kv = kv.Prefix(versioned.MakePartnerPrefix(sender)).
+		Prefix(makeMultiPartMessagePrefix(messageID))
 
 	obj, err := kv.Get(messageKey, currentMultiPartMessageVersion)
 	if err != nil {
@@ -60,23 +65,24 @@ func loadOrCreateMultiPartMessage(sender *id.ID, messageID uint64,
 				MessageType:     0,
 				kv:              kv,
 			}
+
 			if err = mpm.save(); err != nil {
-				jww.FATAL.Panicf("Failed to save new multi part "+
-					"message from %s messageID %v: %s", sender, messageID, err)
+				jww.FATAL.Panicf("Failed to save new multipart message from "+
+					"%s messageID %d: %+v", sender, messageID, err)
 			}
+
 			return mpm
 		}
-		jww.FATAL.Panicf("Failed to open multi part "+
-			"message from %s messageID %v: %s", sender, messageID, err)
+
+		jww.FATAL.Panicf("Failed to open multipart message from %s messageID "+
+			"%d: %+v", sender, messageID, err)
 	}
 
-	mpm := &multiPartMessage{
-		kv: kv,
-	}
+	mpm := &multiPartMessage{kv: kv}
 
 	if err = json.Unmarshal(obj.Data, mpm); err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal multi part "+
-			"message from %s messageID %v: %s", sender, messageID, err)
+		jww.FATAL.Panicf("Failed to unmarshal multipart message from %s "+
+			"messageID %d: %+v", sender, messageID, err)
 	}
 
 	return mpm
@@ -85,7 +91,7 @@ func loadOrCreateMultiPartMessage(sender *id.ID, messageID uint64,
 func (mpm *multiPartMessage) save() error {
 	data, err := json.Marshal(mpm)
 	if err != nil {
-		return errors.Wrap(err, "Failed to unmarshal multi-part message")
+		return errors.Wrap(err, "Failed to unmarshal multipart message")
 	}
 
 	obj := versioned.Object{
@@ -103,22 +109,22 @@ func (mpm *multiPartMessage) Add(partNumber uint8, part []byte) {
 
 	// Extend the list if needed
 	if len(mpm.parts) <= int(partNumber) {
-		mpm.parts = append(mpm.parts, make([][]byte, int(partNumber)-len(mpm.parts)+1)...)
+		mpm.parts = append(mpm.parts,
+			make([][]byte, int(partNumber)-len(mpm.parts)+1)...)
 	}
 
 	mpm.parts[partNumber] = part
 	mpm.PresentParts++
 
 	if err := savePart(mpm.kv, partNumber, part); err != nil {
-		jww.FATAL.Panicf("Failed to save multi part "+
-			"message part %v from %s messageID %v: %s", partNumber, mpm.Sender,
-			mpm.MessageID, err)
+		jww.FATAL.Panicf("Failed to save multipart message part %d from %s "+
+			"messageID %d: %+v", partNumber, mpm.Sender, mpm.MessageID, err)
 	}
 
 	if err := mpm.save(); err != nil {
-		jww.FATAL.Panicf("Failed to save multi part "+
-			"message after adding part %v from %s messageID %v: %s", partNumber,
-			mpm.Sender, mpm.MessageID, err)
+		jww.FATAL.Panicf("Failed to save multipart message after adding part "+
+			"%d from %s messageID %d: %+v", partNumber, mpm.Sender,
+			mpm.MessageID, err)
 	}
 }
 
@@ -129,7 +135,8 @@ func (mpm *multiPartMessage) AddFirst(mt catalog.MessageType, partNumber uint8,
 
 	// Extend the list if needed
 	if len(mpm.parts) <= int(partNumber) {
-		mpm.parts = append(mpm.parts, make([][]byte, int(partNumber)-len(mpm.parts)+1)...)
+		mpm.parts = append(mpm.parts,
+			make([][]byte, int(partNumber)-len(mpm.parts)+1)...)
 	}
 
 	mpm.NumParts = numParts
@@ -140,20 +147,21 @@ func (mpm *multiPartMessage) AddFirst(mt catalog.MessageType, partNumber uint8,
 	mpm.StorageTimestamp = storageTimestamp
 
 	if err := savePart(mpm.kv, partNumber, part); err != nil {
-		jww.FATAL.Panicf("Failed to save multi part "+
-			"message part %v from %s messageID %v: %s", partNumber, mpm.Sender,
-			mpm.MessageID, err)
+		jww.FATAL.Panicf("Failed to save multipart message part %d from %s "+
+			"messageID %d: %+v", partNumber, mpm.Sender, mpm.MessageID, err)
 	}
 
 	if err := mpm.save(); err != nil {
-		jww.FATAL.Panicf("Failed to save multi part message after adding part "+
-			"%v from %s messageID %v: %s",
-			partNumber, mpm.Sender, mpm.MessageID, err)
+		jww.FATAL.Panicf("Failed to save multipart message after adding part "+
+			"%d from %s messageID %d: %+v", partNumber, mpm.Sender,
+			mpm.MessageID, err)
 	}
 }
 
-func (mpm *multiPartMessage) IsComplete(relationshipFingerprint []byte) (receive.Message, bool) {
+func (mpm *multiPartMessage) IsComplete(relationshipFingerprint []byte) (
+	receive.Message, bool) {
 	mpm.mux.Lock()
+
 	if mpm.NumParts == 0 || mpm.NumParts != mpm.PresentParts {
 		mpm.mux.Unlock()
 		return receive.Message{}, false
@@ -161,10 +169,11 @@ func (mpm *multiPartMessage) IsComplete(relationshipFingerprint []byte) (receive
 
 	// Make sure the parts buffer is large enough to load all parts from disk
 	if len(mpm.parts) < int(mpm.NumParts) {
-		mpm.parts = append(mpm.parts, make([][]byte, int(mpm.NumParts)-len(mpm.parts))...)
+		mpm.parts = append(mpm.parts,
+			make([][]byte, int(mpm.NumParts)-len(mpm.parts))...)
 	}
 
-	// delete the multipart message
+	// Delete the multipart message
 	lenMsg := mpm.delete()
 	mpm.mux.Unlock()
 
@@ -193,34 +202,41 @@ func (mpm *multiPartMessage) IsComplete(relationshipFingerprint []byte) (receive
 	return m, true
 }
 
-// deletes all parts from disk and RAM. Returns the message length for reconstruction
+// delete removes all parts from disk and memory. Returns the message length for
+// reconstruction.
 func (mpm *multiPartMessage) delete() int {
-	// Load all parts from disk, deleting files from disk as we go along
 	var err error
 	lenMsg := 0
+
+	// Load all parts from disk, deleting files from disk as we go along
 	for i := uint8(0); i < mpm.NumParts; i++ {
 		if mpm.parts[i] == nil {
 			if mpm.parts[i], err = loadPart(mpm.kv, i); err != nil {
-				jww.FATAL.Panicf("Failed to load multi part "+
-					"message part %v from %s messageID %v: %s", i, mpm.Sender,
-					mpm.MessageID, err)
+				jww.FATAL.Panicf("Failed to load multipart message part %d "+
+					"from %s messageID %d: %+v",
+					i, mpm.Sender, mpm.MessageID, err)
 			}
+
 			if err = deletePart(mpm.kv, i); err != nil {
-				jww.FATAL.Panicf("Failed to delete  multi part "+
-					"message part %v from %s messageID %v: %s", i, mpm.Sender,
-					mpm.MessageID, err)
+				jww.FATAL.Panicf("Failed to delete  multipart message part "+
+					"%d from %s messageID %d: %+v",
+					i, mpm.Sender, mpm.MessageID, err)
 			}
 		}
+
 		lenMsg += len(mpm.parts[i])
 	}
 
-	//key := makeMultiPartMessageKey(mpm.MessageID)
-	if err := mpm.kv.Delete(messageKey,
-		currentMultiPartMessageVersion); err != nil {
-		jww.FATAL.Panicf("Failed to delete multi part "+
-			"message from %s messageID %v: %s", mpm.Sender,
-			mpm.MessageID, err)
+	// key := makeMultiPartMessageKey(mpm.MessageID)
+	err = mpm.kv.Delete(messageKey, currentMultiPartMessageVersion)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to delete multipart message from %s "+
+			"messageID %d: %+v", mpm.Sender, mpm.MessageID, err)
 	}
 
 	return lenMsg
+}
+
+func makeMultiPartMessagePrefix(messageID uint64) string {
+	return "MessageID:" + strconv.FormatUint(messageID, 10)
 }

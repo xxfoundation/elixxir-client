@@ -742,7 +742,7 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 		case h.addGatewayChan <- ng:
 		default:
 			jww.WARN.Printf(
-				"Unable to send AddGateway event for id %s", gwId)
+				"Unable to send AddGateway event for ID %s", gwId)
 		}
 
 	} else if host.GetAddress() != gw.Address {

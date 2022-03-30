@@ -14,9 +14,9 @@ import (
 	"time"
 )
 
-// TestMessage_MarshalUnmarshal tests whether a marshalled Message deserializes into
-// the same Message using unmarshalMessage.
-func TestMessage_MarshalUnmarshal(t *testing.T) {
+// Tests whether a marshalled Message deserializes into the same Message using
+// unmarshalMessage.
+func TestMessage_Marshal_unmarshalMessage(t *testing.T) {
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.Local)
 	testId := NewMessageIdFromBytes([]byte("messageId123"))
 
@@ -31,55 +31,49 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 	unmarshalled := unmarshalMessage(serialized)
 
 	if !reflect.DeepEqual(unmarshalled, message) {
-		t.Fatalf("Unmarshal did not output expected data."+
-			"\n\tExpected: %v"+
-			"\n\tReceived: %v", message, unmarshalled)
+		t.Errorf("Unmarshal did not output expected data."+
+			"\nexpected: %v\nreceived: %v", message, unmarshalled)
 	}
 
 }
 
-// TestMessageId_truncate tests the MessageId truncate function.
-func TestMessageId_truncate(t *testing.T) {
-	testId := NewMessageIdFromBytes([]byte("This is going to be 32 bytes...."))
+// Tests the MessageID truncate function.
+func TestMessageID_truncate(t *testing.T) {
+	testID := NewMessageIdFromBytes([]byte("This is going to be 32 bytes..."))
 
-	tmid := testId.truncate()
-	expected := truncatedMessageId{}
-	copy(expected[:], testId.Bytes())
-	if len(tmid.Bytes()) != TruncatedMessageIdLen {
-		t.Fatalf("MessageId.Truncate() did not produce a truncatedMessageId of "+
-			"TruncatedMessageIdLen (%d)."+
-			"\n\tExpected: %v"+
-			"\n\tReceived: %v", TruncatedMessageIdLen, expected, tmid)
+	tmID := testID.truncate()
+	expected := truncatedMessageID{}
+	copy(expected[:], testID.Bytes())
+	if len(tmID.Bytes()) != TruncatedMessageIdLen {
+		t.Errorf("truncatedMessageID has incorrect length."+
+			"\nexpected: %v\nreceived: %v", expected, tmID)
 	}
 }
 
-// TestNewMessageIdFromBytes tests that NewMessageIdFromBytes
-// properly constructs a MessageId.
+// Tests that NewMessageIdFromBytes properly constructs a MessageID.
 func TestNewMessageIdFromBytes(t *testing.T) {
-	expected := make([]byte, 0, MessageIdLen)
-	for i := 0; i < MessageIdLen; i++ {
-		expected = append(expected, byte(i))
+	expected := make([]byte, MessageIdLen)
+	for i := range expected {
+		expected[i] = byte(i)
 	}
+
 	testId := NewMessageIdFromBytes(expected)
 	if !bytes.Equal(expected, testId.Bytes()) {
-		t.Fatalf("Unexpected output from NewMessageIdFromBytes."+
-			"\n\tExpected: %v"+
-			"\n\tReceived: %v", expected, testId.Bytes())
+		t.Errorf("Unexpected output from NewMessageIdFromBytes."+
+			"\nexpected: %v\nreceived: %v", expected, testId.Bytes())
 	}
 
 }
 
-// TestNewTruncatedMessageId tests that newTruncatedMessageId
-// constructs a proper truncatedMessageId.
+// Tests that newTruncatedMessageID constructs a proper truncatedMessageID.
 func TestNewTruncatedMessageId(t *testing.T) {
 	expected := make([]byte, 0, TruncatedMessageIdLen)
 	for i := 0; i < TruncatedMessageIdLen; i++ {
 		expected = append(expected, byte(i))
 	}
-	testId := newTruncatedMessageId(expected)
+	testId := newTruncatedMessageID(expected)
 	if !bytes.Equal(expected, testId.Bytes()) {
-		t.Fatalf("Unexpected output from newTruncatedMessageId."+
-			"\n\tExpected: %v"+
-			"\n\tReceived: %v", expected, testId.Bytes())
+		t.Fatalf("Unexpected output from newTruncatedMessageID."+
+			"\nexpected: %v\nreceived: %v", expected, testId.Bytes())
 	}
 }

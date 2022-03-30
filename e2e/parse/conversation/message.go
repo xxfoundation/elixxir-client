@@ -20,25 +20,23 @@ const (
 	TruncatedMessageIdLen = 8
 )
 
-// MessageId is the ID of a message stored in a Message.
-type MessageId [MessageIdLen]byte
+// MessageID is the ID of a message stored in a Message.
+type MessageID [MessageIdLen]byte
 
-// truncatedMessageId represents the first64 bits of the MessageId.
-type truncatedMessageId [TruncatedMessageIdLen]byte
+// truncatedMessageID represents the first64 bits of the MessageID.
+type truncatedMessageID [TruncatedMessageIdLen]byte
 
-// A Message is the structure held in a ring buffer.
-// It represents a received message by the user, which needs
-// its reception verified to the original sender of the message.
+// Message is the structure held in a ring buffer. It represents a received
+// message by the user, which needs its reception verified to the original
+// sender of the message.
 type Message struct {
-	// id is the sequential ID of the Message in the ring buffer
-	id uint32
-	// The ID of the message
-	MessageId MessageId
+	id        uint32    // The sequential ID of the Message in the ring buffer
+	MessageId MessageID // The ID of the message
 	Timestamp time.Time
 }
 
 // newMessage is the constructor for a Message object.
-func newMessage(id uint32, mid MessageId, timestamp time.Time) *Message {
+func newMessage(id uint32, mid MessageID, timestamp time.Time) *Message {
 	return &Message{
 		id:        id,
 		MessageId: mid,
@@ -46,8 +44,8 @@ func newMessage(id uint32, mid MessageId, timestamp time.Time) *Message {
 	}
 }
 
-// marshal creates a byte buffer containing the serialized information
-// of a Message.
+// marshal creates a byte buffer containing the serialized information of a
+// Message.
 func (m *Message) marshal() []byte {
 	buff := bytes.NewBuffer(nil)
 
@@ -86,50 +84,47 @@ func unmarshalMessage(data []byte) *Message {
 		MessageId: mid,
 		Timestamp: ts,
 	}
-
 }
 
-// NewMessageIdFromBytes is a constructor for MessageId
-// creates a MessageId from byte data.
-func NewMessageIdFromBytes(data []byte) MessageId {
-	mid := MessageId{}
+// NewMessageIdFromBytes creates a MessageID from byte data.
+func NewMessageIdFromBytes(data []byte) MessageID {
+	mid := MessageID{}
 	copy(mid[:], data)
 	return mid
 }
 
-// String returns a base64 encode of the MessageId. This functions
-// satisfies the fmt.Stringer interface.
-func (mid MessageId) String() string {
+// String returns a base 64 encoding of the MessageID. This functions adheres to
+// the fmt.Stringer interface.
+func (mid MessageID) String() string {
 	return base64.StdEncoding.EncodeToString(mid[:])
 }
 
-// truncate converts a MessageId into a truncatedMessageId.
-func (mid MessageId) truncate() truncatedMessageId {
-	return newTruncatedMessageId(mid.Bytes())
+// truncate converts a MessageID into a truncatedMessageID.
+func (mid MessageID) truncate() truncatedMessageID {
+	return newTruncatedMessageID(mid.Bytes())
 }
 
-// Bytes returns the byte data of the MessageId.
-func (mid MessageId) Bytes() []byte {
+// Bytes returns the byte data of the MessageID.
+func (mid MessageID) Bytes() []byte {
 	return mid[:]
 }
 
-// newTruncatedMessageId is a constructor for truncatedMessageId
-// creates a truncatedMessageId from byte data.
-func newTruncatedMessageId(data []byte) truncatedMessageId {
-	tmid := truncatedMessageId{}
-	copy(tmid[:], data)
-	return tmid
+// newTruncatedMessageID creates a truncatedMessageID from byte data.
+func newTruncatedMessageID(data []byte) truncatedMessageID {
+	tmID := truncatedMessageID{}
+	copy(tmID[:], data)
+	return tmID
 
 }
 
-// String returns a base64 encode of the truncatedMessageId. This functions
-// satisfies the fmt.Stringer interface.
-func (tmid truncatedMessageId) String() string {
-	return base64.StdEncoding.EncodeToString(tmid[:])
+// String returns the base 64 encoding of the truncatedMessageID. This functions
+// adheres to the fmt.Stringer interface.
+func (tmID truncatedMessageID) String() string {
+	return base64.StdEncoding.EncodeToString(tmID[:])
 
 }
 
-// Bytes returns the byte data of the truncatedMessageId.
-func (tmid truncatedMessageId) Bytes() []byte {
-	return tmid[:]
+// Bytes returns the byte data of the truncatedMessageID.
+func (tmID truncatedMessageID) Bytes() []byte {
+	return tmID[:]
 }

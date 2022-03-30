@@ -8,8 +8,9 @@
 package parse
 
 import (
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
@@ -23,81 +24,69 @@ var ipsumTestStr = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cra
 
 // Test that NewPartitioner outputs a correctly made Partitioner
 func TestNewPartitioner(t *testing.T) {
-	storeSession := storage.InitTestingSession(t)
-	p := NewPartitioner(4096, storeSession)
+	p := NewPartitioner(4096, versioned.NewKV(make(ekv.Memstore)))
 
 	if p.baseMessageSize != 4096 {
-		t.Errorf("baseMessageSize content mismatch"+
-			"\n\texpected: %v\n\treceived: %v",
-			4096, p.baseMessageSize)
+		t.Errorf("baseMessageSize content mismatch."+
+			"\nexpected: %d\nreceived: %d", 4096, p.baseMessageSize)
 	}
 
 	if p.deltaFirstPart != firstHeaderLen-headerLen {
-		t.Errorf("deltaFirstPart content mismatch"+
-			"\n\texpected: %v\n\treceived: %v",
+		t.Errorf("deltaFirstPart content mismatch.\nexpected: %d\nreceived: %d",
 			firstHeaderLen-headerLen, p.deltaFirstPart)
 	}
 
 	if p.firstContentsSize != 4096-firstHeaderLen {
-		t.Errorf("firstContentsSize content mismatch"+
-			"\n\texpected: %v\n\treceived: %v",
+		t.Errorf("firstContentsSize content mismatch."+
+			"\nexpected: %d\nreceived: %d",
 			4096-firstHeaderLen, p.firstContentsSize)
 	}
 
 	if p.maxSize != (4096-firstHeaderLen)+(MaxMessageParts-1)*(4096-headerLen) {
-		t.Errorf("maxSize content mismatch"+
-			"\n\texpected: %v\n\treceived: %v",
-			(4096-firstHeaderLen)+(MaxMessageParts-1)*(4096-headerLen), p.maxSize)
+		t.Errorf("maxSize content mismatch.\nexpected: %d\nreceived: %d",
+			(4096-firstHeaderLen)+(MaxMessageParts-1)*(4096-headerLen),
+			p.maxSize)
 	}
 
 	if p.partContentsSize != 4088 {
-		t.Errorf("partContentsSize content mismatch"+
-			"\n\texpected: %v\n\treceived: %v",
-			4088, p.partContentsSize)
+		t.Errorf("partContentsSize content mismatch."+
+			"\nexpected: %d\nreceived: %d", 4088, p.partContentsSize)
 	}
 
 }
 
-// Test that no error is returned running Partition
+// Test that no error is returned running Partitioner.Partition.
 func TestPartitioner_Partition(t *testing.T) {
-	storeSession := storage.InitTestingSession(t)
-	p := NewPartitioner(len(ipsumTestStr), storeSession)
+	p := NewPartitioner(len(ipsumTestStr), versioned.NewKV(make(ekv.Memstore)))
 
-	_, _, err := p.Partition(&id.DummyUser, message.XxMessage,
-		netTime.Now(), []byte(ipsumTestStr))
+	_, _, err := p.Partition(
+		&id.DummyUser, catalog.XxMessage, netTime.Now(), []byte(ipsumTestStr))
 	if err != nil {
 		t.Error(err)
 	}
 }
 
-// Test that HandlePartition can handle a message part
+// Test that Partitioner.HandlePartition can handle a message part.
 func TestPartitioner_HandlePartition(t *testing.T) {
-	storeSession := storage.InitTestingSession(t)
-	p := NewPartitioner(len(ipsumTestStr), storeSession)
-
+	p := NewPartitioner(len(ipsumTestStr), versioned.NewKV(make(ekv.Memstore)))
 	m := newMessagePart(1107, 1, []byte(ipsumTestStr))
 
 	_, _ = p.HandlePartition(
 		&id.DummyUser,
-		message.None,
-		m.Bytes(),
-		[]byte{'t', 'e', 's', 't', 'i', 'n', 'g',
-			's', 't', 'r', 'i', 'n', 'g'},
+		m.bytes(),
+		[]byte{'t', 'e', 's', 't', 'i', 'n', 'g', 's', 't', 'r', 'i', 'n', 'g'},
 	)
 }
 
 // Test that HandlePartition can handle a first message part
 func TestPartitioner_HandleFirstPartition(t *testing.T) {
-	storeSession := storage.InitTestingSession(t)
-	p := NewPartitioner(len(ipsumTestStr), storeSession)
-
-	m := newFirstMessagePart(message.XxMessage, 1107, 1, netTime.Now(), []byte(ipsumTestStr))
+	p := NewPartitioner(len(ipsumTestStr), versioned.NewKV(make(ekv.Memstore)))
+	m := newFirstMessagePart(
+		catalog.XxMessage, 1107, 1, netTime.Now(), []byte(ipsumTestStr))
 
 	_, _ = p.HandlePartition(
 		&id.DummyUser,
-		message.None,
-		m.Bytes(),
-		[]byte{'t', 'e', 's', 't', 'i', 'n', 'g',
-			's', 't', 'r', 'i', 'n', 'g'},
+		m.bytes(),
+		[]byte{'t', 'e', 's', 't', 'i', 'n', 'g', 's', 't', 'r', 'i', 'n', 'g'},
 	)
 }

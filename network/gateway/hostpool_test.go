@@ -165,7 +165,7 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 	for _, ndfGw := range testNdf.Gateways {
 		gwId, err := id.Unmarshal(ndfGw.ID)
 		if err != nil {
-			t.Fatalf("Failed to marshal gateway id for %v", ndfGw)
+			t.Fatalf("Failed to marshal gateway ID for %v", ndfGw)
 		}
 		if _, ok := testPool.hostMap[*gwId]; ok {
 			t.Errorf("Expected gateway %v to be removed from pool", gwId)
@@ -765,7 +765,7 @@ func TestHostPool_updateConns_AddGateways(t *testing.T) {
 	for _, ndfGw := range newGateways {
 		gwId, err := id.Unmarshal(ndfGw.ID)
 		if err != nil {
-			t.Errorf("Failed to marshal gateway id for %v", ndfGw)
+			t.Errorf("Failed to marshal gateway ID for %v", ndfGw)
 		}
 		_, ok := testPool.getSpecific(gwId)
 		if !ok {
@@ -840,7 +840,7 @@ func TestHostPool_updateConns_RemoveGateways(t *testing.T) {
 	for _, ndfGw := range testNdf.Gateways {
 		gwId, err := id.Unmarshal(ndfGw.ID)
 		if err != nil {
-			t.Fatalf("Failed to marshal gateway id for %v", ndfGw)
+			t.Fatalf("Failed to marshal gateway ID for %v", ndfGw)
 		}
 		if _, ok := testPool.hostMap[*gwId]; ok {
 			t.Errorf("Expected gateway %v to be removed from pool", gwId)

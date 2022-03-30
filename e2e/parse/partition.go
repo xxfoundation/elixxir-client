@@ -41,6 +41,7 @@ func NewPartitioner(messageSize int, kv *versioned.KV) Partitioner {
 		partition:         partition.NewOrLoad(kv),
 	}
 	p.maxSize = p.firstContentsSize + (MaxMessageParts-1)*p.partContentsSize
+
 	return p
 }
 
@@ -63,12 +64,12 @@ func (p Partitioner) Partition(recipient *id.ID, mt catalog.MessageType,
 	// Create the first message part
 	var sub []byte
 	sub, payload = splitPayload(payload, p.firstContentsSize)
-	parts[0] = newFirstMessagePart(mt, messageID, numParts, timestamp, sub).Bytes()
+	parts[0] = newFirstMessagePart(mt, messageID, numParts, timestamp, sub).bytes()
 
 	// Create all subsequent message parts
 	for i := uint8(1); i < numParts; i++ {
 		sub, payload = splitPayload(payload, p.partContentsSize)
-		parts[i] = newMessagePart(messageID, i, sub).Bytes()
+		parts[i] = newMessagePart(messageID, i, sub).bytes()
 	}
 
 	return parts, fullMessageID, nil
@@ -81,23 +82,23 @@ func (p Partitioner) HandlePartition(sender *id.ID,
 		// If it is the first message in a set, then handle it as so
 
 		// Decode the message structure
-		fm := FirstMessagePartFromBytes(contents)
+		fm := firstMessagePartFromBytes(contents)
 
 		// Handle the message ID
 		messageID := p.conversation.Get(sender).
-			ProcessReceivedMessageID(fm.GetID())
-		storeageTimestamp := netTime.Now()
-		return p.partition.AddFirst(sender, fm.GetType(),
-			messageID, fm.GetPart(), fm.GetNumParts(), fm.GetTimestamp(), storeageTimestamp,
-			fm.GetSizedContents(), relationshipFingerprint)
+			ProcessReceivedMessageID(fm.getID())
+		storageTimestamp := netTime.Now()
+		return p.partition.AddFirst(sender, fm.getType(), messageID,
+			fm.getPart(), fm.getNumParts(), fm.getTimestamp(), storageTimestamp,
+			fm.getSizedContents(), relationshipFingerprint)
 	} else {
 		// If it is a subsequent message part, handle it as so
 		mp := messagePartFromBytes(contents)
-		messageID := p.conversation.Get(sender).
-			ProcessReceivedMessageID(mp.GetID())
+		messageID :=
+			p.conversation.Get(sender).ProcessReceivedMessageID(mp.getID())
 
-		return p.partition.Add(sender, messageID, mp.GetPart(),
-			mp.GetSizedContents(), relationshipFingerprint)
+		return p.partition.Add(sender, messageID, mp.getPart(),
+			mp.getSizedContents(), relationshipFingerprint)
 	}
 }
 

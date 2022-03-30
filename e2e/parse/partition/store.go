@@ -49,16 +49,19 @@ func NewOrLoad(kv *versioned.KV) *Store {
 	return partitionStore
 }
 
-func (s *Store) AddFirst(partner *id.ID, mt catalog.MessageType, messageID uint64,
-	partNum, numParts uint8, senderTimestamp, storageTimestamp time.Time,
-	part []byte, relationshipFingerprint []byte) (receive.Message, bool) {
+func (s *Store) AddFirst(partner *id.ID, mt catalog.MessageType,
+	messageID uint64, partNum, numParts uint8, senderTimestamp,
+	storageTimestamp time.Time, part []byte, relationshipFingerprint []byte) (
+	receive.Message, bool) {
 
 	mpm := s.load(partner, messageID)
 
 	mpm.AddFirst(mt, partNum, numParts, senderTimestamp, storageTimestamp, part)
 	msg, ok := mpm.IsComplete(relationshipFingerprint)
+
 	s.mux.Lock()
 	defer s.mux.Unlock()
+
 	if !ok {
 		s.activeParts[mpm] = true
 		s.saveActiveParts()
@@ -89,14 +92,15 @@ func (s *Store) Add(partner *id.ID, messageID uint64, partNum uint8,
 	return msg, ok
 }
 
-// Prune clear old messages on it's stored timestamp
+// prune clears old messages on it's stored timestamp.
 func (s *Store) prune() {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+
 	now := netTime.Now()
-	for mpm, _ := range s.activeParts {
+	for mpm := range s.activeParts {
 		if now.Sub(mpm.StorageTimestamp) >= clearPartitionThreshold {
-			jww.INFO.Printf("prune partition: %v", mpm)
+			jww.INFO.Printf("Prune partition: %v", mpm)
 			mpm.mux.Lock()
 			mpm.delete()
 			mpID := getMultiPartID(mpm.Sender, mpm.MessageID)
@@ -121,6 +125,7 @@ func (s *Store) load(partner *id.ID, messageID uint64) *multiPartMessage {
 
 func (s *Store) saveActiveParts() {
 	jww.INFO.Printf("Saving %d active partitions", len(s.activeParts))
+
 	activeList := make([]*multiPartMessage, 0, len(s.activeParts))
 	for mpm := range s.activeParts {
 		mpm.mux.Lock()
@@ -131,7 +136,7 @@ func (s *Store) saveActiveParts() {
 
 	data, err := json.Marshal(&activeList)
 	if err != nil {
-		jww.FATAL.Panicf("Could not save active partitions: %v", err)
+		jww.FATAL.Panicf("Could not save active partitions: %+v", err)
 	}
 
 	obj := versioned.Object{
@@ -142,7 +147,7 @@ func (s *Store) saveActiveParts() {
 
 	err = s.kv.Set(activePartitions, activePartitionVersion, &obj)
 	if err != nil {
-		jww.FATAL.Panicf("Could not save active partitions: %v", err)
+		jww.FATAL.Panicf("Could not save active partitions: %+v", err)
 	}
 }
 
@@ -151,19 +156,19 @@ func (s *Store) loadActivePartitions() {
 	defer s.mux.Unlock()
 	obj, err := s.kv.Get(activePartitions, activePartitionVersion)
 	if err != nil {
-		jww.DEBUG.Printf("Could not load active partitions: %v", err)
+		jww.DEBUG.Printf("Could not load active partitions: %+v", err)
 		return
 	}
 
 	activeList := make([]*multiPartMessage, 0)
-	if err := json.Unmarshal(obj.Data, &activeList); err != nil {
-		jww.FATAL.Panicf("Failed to "+
-			"unmarshal active partitions: %v", err)
+	if err = json.Unmarshal(obj.Data, &activeList); err != nil {
+		jww.FATAL.Panicf("Failed to unmarshal active partitions: %+v", err)
 	}
 	jww.INFO.Printf("loadActivePartitions found %d active", len(activeList))
 
 	for _, activeMpm := range activeList {
-		mpm := loadOrCreateMultiPartMessage(activeMpm.Sender, activeMpm.MessageID, s.kv)
+		mpm := loadOrCreateMultiPartMessage(
+			activeMpm.Sender, activeMpm.MessageID, s.kv)
 		s.activeParts[mpm] = true
 	}
 

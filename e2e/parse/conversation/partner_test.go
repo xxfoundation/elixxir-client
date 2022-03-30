@@ -8,7 +8,6 @@
 package conversation
 
 import (
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
@@ -17,10 +16,8 @@ import (
 	"testing"
 )
 
-// Tests happy path of LoadOrMakeConversation() when making a new Conversation.
-func TestLoadOrMakeConversation_Make(t *testing.T) {
-	// Uncomment to print keys that Set and get are called on
-	jww.SetStdoutThreshold(jww.LevelTrace)
+// Tests happy path of LoadOrMakeConversation when making a new Conversation.
+func TestLoadOrMakeConversation_New(t *testing.T) {
 	// Set up test values
 	kv := versioned.NewKV(make(ekv.Memstore))
 	partner := id.NewIdFromString("partner ID", id.User, t)
@@ -37,12 +34,12 @@ func TestLoadOrMakeConversation_Make(t *testing.T) {
 
 	// Check that the result matches the expected Conversation
 	if !reflect.DeepEqual(expectedConv, conv) {
-		t.Errorf("LoadOrMakeConversation() made unexpected Conversation."+
-			"\n\texpected: %+v\n\treceived: %+v", expectedConv, conv)
+		t.Errorf("LoadOrMakeConversation made unexpected Conversation."+
+			"\nexpected: %+v\nreceived: %+v", expectedConv, conv)
 	}
 }
 
-// Tests happy path of LoadOrMakeConversation() when loading a Conversation.
+// Tests happy path of LoadOrMakeConversation when loading a Conversation.
 func TestLoadOrMakeConversation_Load(t *testing.T) {
 	// Set up test values
 	kv := versioned.NewKV(make(ekv.Memstore))
@@ -54,12 +51,12 @@ func TestLoadOrMakeConversation_Load(t *testing.T) {
 
 	// Check that the result matches the expected Conversation
 	if !reflect.DeepEqual(expectedConv, conv) {
-		t.Errorf("LoadOrMakeConversation() made unexpected Conversation."+
-			"\n\texpected: %+v\n\treceived: %+v", expectedConv, conv)
+		t.Errorf("LoadOrMakeConversation made unexpected Conversation."+
+			"\nexpected: %+v\nreceived: %+v", expectedConv, conv)
 	}
 }
 
-// Tests case 1 of Conversation.ProcessReceivedMessageID().
+// Tests case 1 of Conversation.ProcessReceivedMessageID.
 func TestConversation_ProcessReceivedMessageID_Case_1(t *testing.T) {
 	// Set up test values
 	mid := uint32(5)
@@ -74,18 +71,16 @@ func TestConversation_ProcessReceivedMessageID_Case_1(t *testing.T) {
 
 	result := conv.ProcessReceivedMessageID(mid)
 	if result != expectedResult {
-		t.Errorf("ProcessReceivedMessageID() did not product the expected "+
-			"result.\n\texpected: %+v\n\trecieved: %+v",
-			expectedResult, result)
+		t.Errorf("ProcessReceivedMessageID did not product the expected "+
+			"result.\nexpected: %+v\n\trecieved: %+v", expectedResult, result)
 	}
 	if !reflect.DeepEqual(expectedConv, conv) {
-		t.Errorf("ProcessReceivedMessageID() did not product the expected "+
-			"Conversation.\n\texpected: %+v\n\trecieved: %+v",
-			expectedConv, conv)
+		t.Errorf("ProcessReceivedMessageID did not product the expected "+
+			"Conversation.\nexpected: %+v\n\trecieved: %+v", expectedConv, conv)
 	}
 }
 
-// Tests case 0 of Conversation.ProcessReceivedMessageID().
+// Tests case 0 of Conversation.ProcessReceivedMessageID.
 func TestConversation_ProcessReceivedMessageID_Case_0(t *testing.T) {
 	// Set up test values
 	mid := uint32(5)
@@ -98,18 +93,16 @@ func TestConversation_ProcessReceivedMessageID_Case_0(t *testing.T) {
 
 	result := conv.ProcessReceivedMessageID(mid)
 	if result != expectedResult {
-		t.Errorf("ProcessReceivedMessageID() did not product the expected "+
-			"result.\n\texpected: %+v\n\trecieved: %+v",
-			expectedResult, result)
+		t.Errorf("ProcessReceivedMessageID did not product the expected "+
+			"result.\nexpected: %+v\n\trecieved: %+v", expectedResult, result)
 	}
 	if !reflect.DeepEqual(expectedConv, conv) {
-		t.Errorf("ProcessReceivedMessageID() did not product the expected "+
-			"Conversation.\n\texpected: %+v\n\trecieved: %+v",
-			expectedConv, conv)
+		t.Errorf("ProcessReceivedMessageID did not product the expected "+
+			"Conversation.\nexpected: %+v\n\trecieved: %+v", expectedConv, conv)
 	}
 }
 
-// Tests case -1 of Conversation.ProcessReceivedMessageID().
+// Tests case -1 of Conversation.ProcessReceivedMessageID.
 func TestConversation_ProcessReceivedMessageID_Case_Neg1(t *testing.T) {
 	// Set up test values
 	mid := uint32(topRegion + 5)
@@ -123,18 +116,16 @@ func TestConversation_ProcessReceivedMessageID_Case_Neg1(t *testing.T) {
 
 	result := conv.ProcessReceivedMessageID(mid)
 	if result != expectedResult {
-		t.Errorf("ProcessReceivedMessageID() did not product the expected "+
-			"result.\n\texpected: %+v\n\trecieved: %+v",
-			expectedResult, result)
+		t.Errorf("ProcessReceivedMessageID did not product the expected "+
+			"result.\nexpected: %+v\n\trecieved: %+v", expectedResult, result)
 	}
 	if !reflect.DeepEqual(expectedConv, conv) {
-		t.Errorf("ProcessReceivedMessageID() did not product the expected "+
-			"Conversation.\n\texpected: %+v\n\trecieved: %+v",
-			expectedConv, conv)
+		t.Errorf("ProcessReceivedMessageID did not product the expected "+
+			"Conversation.\nexpected: %+v\n\trecieved: %+v", expectedConv, conv)
 	}
 }
 
-// Tests happy path of Conversation.GetNextSendID().
+// Tests happy path of Conversation.GetNextSendID.
 func TestConversation_GetNextSendID(t *testing.T) {
 	// Set up test values
 	kv := versioned.NewKV(make(ekv.Memstore))
@@ -146,42 +137,42 @@ func TestConversation_GetNextSendID(t *testing.T) {
 		fullID, truncID := conv.GetNextSendID()
 		if fullID != i {
 			t.Errorf("Returned incorrect full sendID."+
-				"\n\texpected: %d\n\treceived: %d", i, fullID)
+				"\nexpected: %d\nreceived: %d", i, fullID)
 		}
 		if truncID != uint32(i) {
 			t.Errorf("Returned incorrect truncated sendID."+
-				"\n\texpected: %d\n\treceived: %d", uint32(i), truncID)
+				"\nexpected: %d\nreceived: %d", uint32(i), truncID)
 		}
 	}
 }
 
-// Tests the happy path of save() and loadConversation().
+// Tests the happy path of save and loadConversation.
 func TestConversation_save_load(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	partner := id.NewIdFromString("partner ID", id.User, t)
 	expectedConv := makeRandomConv(kv, partner)
-	expectedErr := "loadConversation() produced an error: Failed to Load " +
+	expectedErr := "loadConversation produced an error: Failed to Load " +
 		"conversation: object not found"
 
 	err := expectedConv.save()
 	if err != nil {
-		t.Errorf("save() produced an error: %v", err)
+		t.Errorf("save produced an error: %v", err)
 	}
 
 	testConv, err := loadConversation(kv, partner)
 	if err != nil {
-		t.Errorf("loadConversation() produced an error: %v", err)
+		t.Errorf("loadConversation produced an error: %v", err)
 	}
 
 	if !reflect.DeepEqual(expectedConv, testConv) {
 		t.Errorf("saving and loading Conversation failed."+
-			"\n\texpected: %+v\n\treceived: %+v", expectedConv, testConv)
+			"\nexpected: %+v\nreceived: %+v", expectedConv, testConv)
 	}
 
 	_, err = loadConversation(versioned.NewKV(make(ekv.Memstore)), partner)
 	if err == nil {
-		t.Errorf("loadConversation() failed to produce an error."+
-			"\n\texpected: %s\n\treceived: %v", expectedErr, nil)
+		t.Errorf("loadConversation failed to produce an error."+
+			"\nexpected: %s\nreceived: %v", expectedErr, nil)
 	}
 }
 
@@ -200,7 +191,7 @@ func TestConversation_Delete(t *testing.T) {
 	}
 
 	if err := conv.delete(); err != nil {
-		t.Errorf("delete() produced an error: %+v", err)
+		t.Errorf("delete produced an error: %+v", err)
 	}
 
 	if _, err := loadConversation(kv, partner); err == nil {
@@ -208,7 +199,7 @@ func TestConversation_Delete(t *testing.T) {
 	}
 }
 
-// Tests the happy path of marshal() and unmarshal().
+// Tests the happy path of marshal and unmarshal.
 func TestConversation_marshal_unmarshal(t *testing.T) {
 	expectedConv := makeRandomConv(versioned.NewKV(make(ekv.Memstore)),
 		id.NewIdFromString("partner ID", id.User, t))
@@ -216,17 +207,17 @@ func TestConversation_marshal_unmarshal(t *testing.T) {
 
 	data, err := expectedConv.marshal()
 	if err != nil {
-		t.Errorf("marshal() returned an error: %v", err)
+		t.Errorf("marshal returned an error: %v", err)
 	}
 
 	err = testConv.unmarshal(data)
 	if err != nil {
-		t.Errorf("unmarshal() returned an error: %v", err)
+		t.Errorf("unmarshal returned an error: %v", err)
 	}
 
 	if !reflect.DeepEqual(expectedConv, testConv) {
 		t.Errorf("marshaling and unmarshaling Conversation failed."+
-			"\n\texpected: %+v\n\treceived: %+v", expectedConv, testConv)
+			"\nexpected: %+v\nreceived: %+v", expectedConv, testConv)
 	}
 }
 

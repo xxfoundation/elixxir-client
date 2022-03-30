@@ -39,7 +39,7 @@ func newFirstMessagePart(mt catalog.MessageType, id uint32, numParts uint8,
 	timestamp time.Time, contents []byte) firstMessagePart {
 
 	// Create the message structure
-	m := FirstMessagePartFromBytes(make([]byte, len(contents)+firstHeaderLen))
+	m := firstMessagePartFromBytes(make([]byte, len(contents)+firstHeaderLen))
 
 	// Set the message type
 	binary.BigEndian.PutUint32(m.Type, uint32(mt))
@@ -75,9 +75,9 @@ var firstMessagePartFromBytesVersions = map[uint8]func([]byte) firstMessagePart{
 	firstMessagePartCurrentVersion: firstMessagePartFromBytesVer0,
 }
 
-// FirstMessagePartFromBytes builds a firstMessagePart mapped to the passed in
+// firstMessagePartFromBytes builds a firstMessagePart mapped to the passed in
 // data slice. Mapped by reference; a copy is not made.
-func FirstMessagePartFromBytes(data []byte) firstMessagePart {
+func firstMessagePartFromBytes(data []byte) firstMessagePart {
 
 	// Map the data according to its version
 	version := data[len(data)-1]
@@ -105,27 +105,27 @@ func firstMessagePartFromBytesVer0(data []byte) firstMessagePart {
 	}
 }
 
-// GetType returns the message type.
-func (m firstMessagePart) GetType() catalog.MessageType {
+// getType returns the message type.
+func (m firstMessagePart) getType() catalog.MessageType {
 	return catalog.MessageType(binary.BigEndian.Uint32(m.Type))
 }
 
-// GetNumParts returns the number of message parts.
-func (m firstMessagePart) GetNumParts() uint8 {
+// getNumParts returns the number of message parts.
+func (m firstMessagePart) getNumParts() uint8 {
 	return m.NumParts[0]
 }
 
-// GetTimestamp returns the timestamp as a time.Time.
-func (m firstMessagePart) GetTimestamp() time.Time {
+// getTimestamp returns the timestamp as a time.Time.
+func (m firstMessagePart) getTimestamp() time.Time {
 	return time.Unix(0, int64(binary.BigEndian.Uint64(m.Timestamp)))
 }
 
-// GetVersion returns the version number of the data encoding.
-func (m firstMessagePart) GetVersion() uint8 {
+// getVersion returns the version number of the data encoding.
+func (m firstMessagePart) getVersion() uint8 {
 	return m.Version[0]
 }
 
-// Bytes returns the serialised message data.
-func (m firstMessagePart) Bytes() []byte {
+// bytes returns the serialised message data.
+func (m firstMessagePart) bytes() []byte {
 	return m.Data
 }

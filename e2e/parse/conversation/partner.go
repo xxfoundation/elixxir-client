@@ -15,6 +15,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math"
+	"os"
 	"strings"
 	"sync"
 )
@@ -40,7 +41,6 @@ type Conversation struct {
 
 // conversationDisk stores the public data of Conversation for saving to disk.
 type conversationDisk struct {
-	// Public and stored data
 	LastReceivedID         uint32
 	NumReceivedRevolutions uint32
 	NextSendID             uint64
@@ -51,12 +51,10 @@ type conversationDisk struct {
 // saved to KV, and returned.
 func LoadOrMakeConversation(kv *versioned.KV, partner *id.ID) *Conversation {
 	c, err := loadConversation(kv, partner)
-	if err != nil && !strings.Contains(err.Error(), "Failed to Load conversation") {
-		jww.FATAL.Panicf("Failed to loadOrMakeConversation: %s", err)
-	}
-
-	// Create new conversation and save to KV if one does not exist
-	if c == nil {
+	if err != nil && !(os.IsNotExist(err) || strings.Contains(err.Error(), "object not found")) {
+		jww.FATAL.Panicf("Failed to load conversation from storage: %+v", err)
+	} else if c == nil {
+		// Create new conversation and save to KV if one does not exist
 		c = &Conversation{
 			lastReceivedID:         0,
 			numReceivedRevolutions: 0,
@@ -66,7 +64,8 @@ func LoadOrMakeConversation(kv *versioned.KV, partner *id.ID) *Conversation {
 		}
 
 		if err = c.save(); err != nil {
-			jww.FATAL.Panicf("Failed to save new conversation: %s", err)
+			jww.FATAL.Panicf(
+				"Failed to save new conversation to storage: %+v", err)
 		}
 	}
 
@@ -85,8 +84,8 @@ func (c *Conversation) ProcessReceivedMessageID(mid uint32) uint64 {
 		c.numReceivedRevolutions++
 		c.lastReceivedID = mid
 		if err := c.save(); err != nil {
-			jww.FATAL.Panicf("Failed to save after updating Last "+
-				"Received ID in a conversation: %s", err)
+			jww.FATAL.Panicf("Failed to save after updating last "+
+				"received ID in a conversation: %+v", err)
 		}
 		high = c.numReceivedRevolutions
 
@@ -94,8 +93,8 @@ func (c *Conversation) ProcessReceivedMessageID(mid uint32) uint64 {
 		if mid > c.lastReceivedID {
 			c.lastReceivedID = mid
 			if err := c.save(); err != nil {
-				jww.FATAL.Panicf("Failed to save after updating Last "+
-					"Received ID in a conversation: %s", err)
+				jww.FATAL.Panicf("Failed to save after updating last "+
+					"received ID in a conversation: %+v", err)
 			}
 		}
 		high = c.numReceivedRevolutions
@@ -122,8 +121,8 @@ func (c *Conversation) GetNextSendID() (uint64, uint32) {
 	old := c.nextSentID
 	c.nextSentID++
 	if err := c.save(); err != nil {
-		jww.FATAL.Panicf("Failed to save after incrementing the sendID: %s",
-			err)
+		jww.FATAL.Panicf(
+			"Failed to save after incrementing the sendID: %+v", err)
 	}
 	c.mux.Unlock()
 	return old, uint32(old & 0x00000000FFFFFFFF)
@@ -150,7 +149,7 @@ func loadConversation(kv *versioned.KV, partner *id.ID) (*Conversation, error) {
 	return c, nil
 }
 
-// save saves the Conversation to KV storage.
+// save stores the Conversation in storage.
 func (c *Conversation) save() error {
 	data, err := c.marshal()
 	if err != nil {

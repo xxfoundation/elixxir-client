@@ -80,12 +80,14 @@ func NewRelationship(kv *versioned.KV, t session.RelationshipType,
 
 	r := &relationship{
 		t:           t,
+		kv:          kv,
 		sessions:    make([]*session.Session, 0),
 		sessionByID: make(map[session.SessionID]*session.Session),
 		fingerprint: fingerprint,
-		kv:          kv,
 		grp:         grp,
 		cyHandler:   cyHandler,
+		myID:        myID,
+		partnerID:   partnerID,
 		rng:         rng,
 	}
 

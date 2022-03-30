@@ -9,6 +9,7 @@ package auth
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/catalog"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -98,7 +99,7 @@ func (m *Manager) ConfirmRequestAuth(partner contact.Contact) (id.Round, error) 
 
 	// get the fingerprint from the old ownership proof
 	fp := cAuth.MakeOwnershipProofFP(storedContact.OwnershipProof)
-	preimg := preimage.Generate(fp[:], preimage.Confirm)
+	preimg := preimage.Generate(fp[:], catalog.Confirm)
 
 	// final construction
 	baseFmt.SetEcrPayload(ecrPayload)
@@ -186,10 +187,10 @@ func addPreimages(partner *id.ID, store *storage.Session) {
 	for i := range existingEdges {
 		delete := true
 		switch existingEdges[i].Type {
-		case preimage.E2e:
-		case preimage.Silent:
-		case preimage.EndFT:
-		case preimage.GroupRq:
+		case catalog.E2e:
+		case catalog.Silent:
+		case catalog.EndFT:
+		case catalog.GroupRq:
 		default:
 			delete = false
 		}
@@ -209,28 +210,28 @@ func addPreimages(partner *id.ID, store *storage.Session) {
 	// e2e
 	store.GetEdge().Add(edge.Preimage{
 		Data:   sessionPartner.GetE2EPreimage(),
-		Type:   preimage.E2e,
+		Type:   catalog.E2e,
 		Source: partner[:],
 	}, me)
 
 	// silent (rekey)
 	store.GetEdge().Add(edge.Preimage{
 		Data:   sessionPartner.GetSilentPreimage(),
-		Type:   preimage.Silent,
+		Type:   catalog.Silent,
 		Source: partner[:],
 	}, me)
 
 	// File transfer end
 	store.GetEdge().Add(edge.Preimage{
 		Data:   sessionPartner.GetFileTransferPreimage(),
-		Type:   preimage.EndFT,
+		Type:   catalog.EndFT,
 		Source: partner[:],
 	}, me)
 
 	// group Request
 	store.GetEdge().Add(edge.Preimage{
 		Data:   sessionPartner.GetGroupRequestPreimage(),
-		Type:   preimage.GroupRq,
+		Type:   catalog.GroupRq,
 		Source: partner[:],
 	}, me)
 }

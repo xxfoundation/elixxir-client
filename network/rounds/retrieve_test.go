@@ -9,10 +9,10 @@ package rounds
 import (
 	"bytes"
 	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/network/historical"
 	ephemeral2 "gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
-	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -71,17 +71,15 @@ func Test_manager_processMessageRetrieval(t *testing.T) {
 			Source: requestGateway,
 		}
 
-		idList := [][]byte{requestGateway.Bytes()}
-
-		roundInfo := &pb.RoundInfo{
-			ID:       uint64(roundId),
-			Topology: idList,
+		roundInfo := historical.Round{
+			ID:       roundId,
+			Topology: connect.NewCircuit([]*id.ID{requestGateway}),
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
-			RoundInfo: roundInfo,
-			Identity:  ephIdentity,
+			Round:    roundInfo,
+			Identity: ephIdentity,
 		}
 
 	}()
@@ -161,17 +159,15 @@ func Test_manager_processMessageRetrieval_NoRound(t *testing.T) {
 			Source: dummyGateway,
 		}
 
-		idList := [][]byte{dummyGateway.Marshal()}
-
-		roundInfo := &pb.RoundInfo{
-			ID:       uint64(roundId),
-			Topology: idList,
+		roundInfo := historical.Round{
+			ID:       roundId,
+			Topology: connect.NewCircuit([]*id.ID{dummyGateway}),
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
-			RoundInfo: roundInfo,
-			Identity:  identity,
+			Round:    roundInfo,
+			Identity: identity,
 		}
 
 	}()
@@ -240,17 +236,15 @@ func Test_manager_processMessageRetrieval_FalsePositive(t *testing.T) {
 
 		requestGateway := id.NewIdFromString(FalsePositive, id.Gateway, t)
 
-		idList := [][]byte{requestGateway.Bytes()}
-
-		roundInfo := &pb.RoundInfo{
-			ID:       uint64(roundId),
-			Topology: idList,
+		roundInfo := historical.Round{
+			ID:       roundId,
+			Topology: connect.NewCircuit([]*id.ID{requestGateway}),
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
-			RoundInfo: roundInfo,
-			Identity:  identity,
+			Round:    roundInfo,
+			Identity: identity,
 		}
 
 	}()
@@ -315,17 +309,14 @@ func Test_manager_processMessageRetrieval_Quit(t *testing.T) {
 
 		requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
 
-		idList := [][]byte{requestGateway.Bytes()}
-
-		roundInfo := &pb.RoundInfo{
-			ID:       uint64(roundId),
-			Topology: idList,
+		roundInfo := historical.Round{
+			ID:       roundId,
+			Topology: connect.NewCircuit([]*id.ID{requestGateway}),
 		}
-
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
-			RoundInfo: roundInfo,
-			Identity:  identity,
+			Round:    roundInfo,
+			Identity: identity,
 		}
 
 	}()
@@ -389,20 +380,18 @@ func Test_manager_processMessageRetrieval_MultipleGateways(t *testing.T) {
 			Source: requestGateway,
 		}
 
-		// Create a list of ID's in which some error gateways must be contacted
-		// before the happy path
-		idList := [][]byte{
-			errorGateway.Bytes(), errorGateway.Bytes(), requestGateway.Bytes()}
-
-		roundInfo := &pb.RoundInfo{
-			ID:       uint64(roundId),
-			Topology: idList,
+		roundInfo := historical.Round{
+			ID: roundId,
+			// Create a list of IDs in which some error gateways must be
+			// contacted before the happy path
+			Topology: connect.NewCircuit([]*id.ID{errorGateway, errorGateway,
+				requestGateway}),
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
-			RoundInfo: roundInfo,
-			Identity:  identity,
+			Round:    roundInfo,
+			Identity: identity,
 		}
 
 	}()

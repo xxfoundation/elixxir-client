@@ -10,6 +10,7 @@ package edge
 import (
 	"bytes"
 	"encoding/json"
+	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
@@ -44,19 +45,19 @@ func TestPreimages_add(t *testing.T) {
 	identity1 := id.NewIdFromString("identity1", id.User, t)
 	identity2 := id.NewIdFromString("identity3", id.User, t)
 	expected := Preimages{
-		identity0.String(): {preimage.Generate(identity0.Bytes(), preimage.Default), preimage.Default, preimage.MakeDefault(identity0)},
-		identity1.String(): {preimage.Generate(identity1.Bytes(), preimage.Group), preimage.Group, identity1.Bytes()},
-		identity2.String(): {preimage.Generate(identity2.Bytes(), preimage.Default), preimage.Default, identity2.Bytes()},
+		identity0.String(): {preimage.Generate(identity0.Bytes(), catalog.Default), catalog.Default, preimage.MakeDefault(identity0)},
+		identity1.String(): {preimage.Generate(identity1.Bytes(), catalog.Group), catalog.Group, identity1.Bytes()},
+		identity2.String(): {preimage.Generate(identity2.Bytes(), catalog.Default), catalog.Default, identity2.Bytes()},
 	}
 
 	pis := newPreimages(identity0)
-	preimageOne := Preimage{preimage.Generate(identity1.Bytes(), preimage.Group), preimage.Group, identity1.Bytes()}
+	preimageOne := Preimage{preimage.Generate(identity1.Bytes(), catalog.Group), catalog.Group, identity1.Bytes()}
 	exists := pis.add(preimageOne)
 	if !exists {
 		t.Errorf("Failed to add idenetity.")
 	}
 
-	preimageTwo := Preimage{preimage.Generate(identity2.Bytes(), preimage.Default), preimage.Default, identity2.Bytes()}
+	preimageTwo := Preimage{preimage.Generate(identity2.Bytes(), catalog.Default), catalog.Default, identity2.Bytes()}
 	exists = pis.add(preimageTwo)
 	if !exists {
 		t.Errorf("Failed to add idenetity.")
@@ -69,12 +70,12 @@ func TestPreimages_add(t *testing.T) {
 	}
 
 	expectedPreimageIdentityTwo := Preimage{
-		Data:   preimage.Generate(identity2.Bytes(), preimage.Default),
-		Type:   preimage.Default,
+		Data:   preimage.Generate(identity2.Bytes(), catalog.Default),
+		Type:   catalog.Default,
 		Source: identity2.Bytes(),
 	}
 	// Test that nothing happens when a Preimage with the same data exists
-	exists = pis.add(Preimage{preimage.Generate(identity2.Bytes(), preimage.Default), "test", identity2.Bytes()})
+	exists = pis.add(Preimage{preimage.Generate(identity2.Bytes(), catalog.Default), "test", identity2.Bytes()})
 	if exists {
 		t.Errorf("Add idenetity that shoudl already exist.")
 	}
@@ -95,9 +96,9 @@ func TestPreimages_remove(t *testing.T) {
 	// Add 10 Preimage to the list
 	for i := 0; i < 10; i++ {
 		identity := id.NewIdFromUInt(uint64(i), id.User, t)
-		pisType := preimage.Default
+		pisType := catalog.Default
 		if i%2 == 0 {
-			pisType = preimage.Group
+			pisType = catalog.Group
 		}
 
 		exists := pis.add(Preimage{identity.Bytes(), pisType, identity.Bytes()})

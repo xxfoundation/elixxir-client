@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/network/historical"
 	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
@@ -31,8 +32,8 @@ type MessageRetrievalComms interface {
 }
 
 type roundLookup struct {
-	RoundInfo *pb.RoundInfo
-	Identity  receptionID.EphemeralIdentity
+	Round    historical.Round
+	Identity receptionID.EphemeralIdentity
 }
 
 const noRoundError = "does not have round %d"
@@ -48,11 +49,11 @@ func (m *manager) processMessageRetrieval(comms MessageRetrievalComms,
 			stop.ToStopped()
 			return
 		case rl := <-m.lookupRoundMessages:
-			ri := rl.RoundInfo
+			ri := rl.Round
 			jww.DEBUG.Printf("Checking for messages in round %d", ri.ID)
 
 			if !m.params.RealtimeOnly {
-				err := m.unchecked.AddRound(id.Round(ri.ID), ri,
+				err := m.unchecked.AddRound(id.Round(ri.ID), ri.Raw,
 					rl.Identity.Source, rl.Identity.EphId)
 				if err != nil {
 					jww.FATAL.Panicf(
@@ -62,13 +63,9 @@ func (m *manager) processMessageRetrieval(comms MessageRetrievalComms,
 			}
 
 			// Convert gateways in round to proper ID format
-			gwIds := make([]*id.ID, len(ri.Topology))
-			for i, idBytes := range ri.Topology {
-				gwId, err := id.Unmarshal(idBytes)
-				if err != nil {
-					jww.FATAL.Panicf(
-						"processMessageRetrieval: Unable to unmarshal: %+v", err)
-				}
+			gwIds := make([]*id.ID, ri.Topology.Len())
+			for i := 0; i < ri.Topology.Len(); i++ {
+				gwId := ri.Topology.GetNodeAtIndex(i).DeepCopy()
 				gwId.SetType(id.Gateway)
 				gwIds[i] = gwId
 			}
@@ -140,7 +137,7 @@ func (m *manager) processMessageRetrieval(comms MessageRetrievalComms,
 					EphId:  rl.Identity.EphId,
 					Source: rl.Identity.Source,
 				}
-				bundle.RoundInfo = rl.RoundInfo
+				bundle.RoundInfo = rl.Round
 				m.messageBundles <- bundle
 
 				jww.DEBUG.Printf("Removing round %d from unchecked store", ri.ID)
@@ -250,11 +247,11 @@ func (m *manager) getMessagesFromGateway(roundID id.Round,
 
 // Helper function which forces processUncheckedRounds by randomly not looking
 // up messages.
-func (m *manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
+func (m *manager) forceMessagePickupRetry(ri historical.Round, rl roundLookup,
 	comms MessageRetrievalComms, gwIds []*id.ID,
 	stop *stoppable.Single) (bundle message.Bundle, err error) {
 	rnd, _ := m.unchecked.GetRound(
-		id.Round(ri.ID), rl.Identity.Source, rl.Identity.EphId)
+		ri.ID, rl.Identity.Source, rl.Identity.EphId)
 	if rnd.NumChecks == 0 {
 		// Flip a coin to determine whether to pick up message
 		b := make([]byte, 8)
@@ -277,5 +274,5 @@ func (m *manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
 
 	// Attempt to request for this gateway
 	return m.getMessagesFromGateway(
-		id.Round(ri.ID), rl.Identity, comms, gwIds, stop)
+		ri.ID, rl.Identity, comms, gwIds, stop)
 }

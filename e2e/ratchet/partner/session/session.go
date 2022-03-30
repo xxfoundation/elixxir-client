@@ -182,7 +182,7 @@ func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
 	return session
 }
 
-// Load session and state vector from kv and populate runtime fields
+// LoadSession and state vector from kv and populate runtime fields
 func LoadSession(kv *versioned.KV, sessionID SessionID,
 	relationshipFingerprint []byte, cyHandler CypherHandler,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator) (*Session, error) {
@@ -220,6 +220,7 @@ func LoadSession(kv *versioned.KV, sessionID SessionID,
 	return &session, nil
 }
 
+// todo - doscstring
 func (s *Session) Save() error {
 
 	now := netTime.Now()
@@ -406,7 +407,8 @@ func (s *Session) unmarshal(b []byte) error {
 }
 
 //key usage
-// Pops the first unused key, skipping any which are denoted as used.
+
+// Popkey Pops the first unused key, skipping any which are denoted as used.
 // will return if the remaining keys are designated as rekeys
 func (s *Session) PopKey() (*Cypher, error) {
 	if s.keyState.GetNumAvailable() <= uint32(s.e2eParams.NumRekeys) {
@@ -430,6 +432,7 @@ func (s *Session) PopReKey() (*Cypher, error) {
 	return newKey(s, keyNum), nil
 }
 
+// todo - doscstring
 func (s *Session) GetRelationshipFingerprint() []byte {
 	return s.relationshipFingerprint
 }
@@ -478,12 +481,14 @@ var legalStateChanges = [][]bool{
 	{false, false, true, false, false, false},  // NewCreat
 }
 
+// todo - doscstring
 func (s *Session) SetNegotiationStatus(status Negotiation) {
 	if err := s.TrySetNegotiationStatus(status); err != nil {
 		jww.FATAL.Panicf("Failed to set Negotiation status: %s", err)
 	}
 }
 
+// todo - doscstring
 func (s *Session) TrySetNegotiationStatus(status Negotiation) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -514,7 +519,7 @@ func (s *Session) TrySetNegotiationStatus(status Negotiation) error {
 	return nil
 }
 
-// This function, in a mostly thread safe manner, checks if the session needs a
+// TriggerNegotiation in a mostly thread safe manner, checks if the session needs a
 // negotiation, returns if it does while updating the session to denote the
 // negotiation was triggered
 // WARNING: This function relies on proper action by the caller for data safety.
@@ -580,20 +585,21 @@ func (s *Session) TriggerNegotiation() bool {
 	return false
 }
 
-// checks if the session has been confirmed
+// NegotiationStatus checks if the session has been confirmed
 func (s *Session) NegotiationStatus() Negotiation {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.negotiationStatus
 }
 
-// checks if the session has been confirmed
+// IsConfirmed checks if the session has been confirmed
 func (s *Session) IsConfirmed() bool {
 	c := s.NegotiationStatus()
 	//fmt.Println(c)
 	return c >= Confirmed
 }
 
+// todo - doscstring
 func (s *Session) String() string {
 	partner := s.GetPartner()
 	if partner != nil {
@@ -609,6 +615,7 @@ func (s *Session) useKey(keynum uint32) {
 	s.keyState.Use(keynum)
 }
 
+// todo - doscstring
 // finalizeKeyNegotiation generates keys from the base data stored in the session object.
 // myPrivKey will be generated if not present
 func (s *Session) finalizeKeyNegotiation() {
@@ -637,6 +644,7 @@ func (s *Session) finalizeKeyNegotiation() {
 	s.sID = GetSessionIDFromBaseKey(s.baseKey)
 }
 
+// todo - doscstring
 func (s *Session) buildChildKeys() {
 	p := s.e2eParams
 	h, _ := hash.NewCMixHash()
@@ -689,6 +697,7 @@ func MakeSessionPrefix(sid SessionID) string {
 	return fmt.Sprintf(sessionPrefix, sid)
 }
 
+// todo - doscstring
 func decideIfResendRekey(genRng *fastRNG.StreamGenerator, ratio float64) bool {
 	stream := genRng.GetStream()
 	b := make([]byte, 8)

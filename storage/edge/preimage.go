@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
@@ -34,7 +35,7 @@ type Preimages map[string]Preimage
 func newPreimages(identity *id.ID) Preimages {
 	defaultPreimage := Preimage{
 		Data:   preimage.MakeDefault(identity),
-		Type:   preimage.Default,
+		Type:   catalog.Default,
 		Source: identity[:],
 	}
 	pis := Preimages{

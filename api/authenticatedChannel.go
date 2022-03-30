@@ -9,6 +9,7 @@ package api
 
 import (
 	"encoding/binary"
+	"gitlab.com/elixxir/client/catalog"
 	"math/rand"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -16,7 +17,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage/edge"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
@@ -154,28 +154,28 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Co
 
 	c.storage.GetEdge().Add(edge.Preimage{
 		Data:   sessionPartner.GetE2EPreimage(),
-		Type:   preimage.E2e,
+		Type:   catalog.E2e,
 		Source: precan.ID[:],
 	}, me)
 
 	// slient (rekey)
 	c.storage.GetEdge().Add(edge.Preimage{
 		Data:   sessionPartner.GetSilentPreimage(),
-		Type:   preimage.Silent,
+		Type:   catalog.Silent,
 		Source: precan.ID[:],
 	}, me)
 
 	// File transfer end
 	c.storage.GetEdge().Add(edge.Preimage{
 		Data:   sessionPartner.GetFileTransferPreimage(),
-		Type:   preimage.EndFT,
+		Type:   catalog.EndFT,
 		Source: precan.ID[:],
 	}, me)
 
 	// group request
 	c.storage.GetEdge().Add(edge.Preimage{
 		Data:   sessionPartner.GetGroupRequestPreimage(),
-		Type:   preimage.GroupRq,
+		Type:   catalog.GroupRq,
 		Source: precan.ID[:],
 	}, me)
 

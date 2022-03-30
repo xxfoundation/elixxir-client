@@ -145,6 +145,11 @@ type Manager interface {
 	//      notifications.
 	//   source - A byte buffer of related data. Generally used in notifications.
 	//     Example: Sender ID
+	// There can be multiple "default" services, the must use the "default" tag
+	// and the identifier must be the client reception ID.
+	// A service may have a nil response unless it is default. In general a
+	// nil service is used to detect notifications when pickup is done by
+	// fingerprints
 	AddService(AddService *id.ID, newService message.Service,
 		response message.Processor)
 
@@ -152,6 +157,7 @@ type Manager interface {
 	// associated with the preimage, the entire preimage is removed. If there is
 	// more than one response, only the given response is removed. If nil is
 	// passed in for response, all triggers for the preimage will be removed.
+	// The processor is only used in deletion when deleting a default service
 	DeleteService(clientID *id.ID, toDelete message.Service,
 		processor message.Processor)
 

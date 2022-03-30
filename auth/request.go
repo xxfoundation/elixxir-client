@@ -8,6 +8,7 @@
 package auth
 
 import (
+	"gitlab.com/elixxir/client/catalog"
 	e2e2 "gitlab.com/elixxir/client/e2e/ratchet"
 	"io"
 	"strings"
@@ -156,8 +157,8 @@ func requestAuth(partner, me contact.Contact, rng io.Reader, reset bool,
 	contents := request.Marshal()
 
 	storage.GetEdge().Add(edge.Preimage{
-		Data:   preimage.Generate(confirmFp[:], preimage.Confirm),
-		Type:   preimage.Confirm,
+		Data:   preimage.Generate(confirmFp[:], catalog.Confirm),
+		Type:   catalog.Confirm,
 		Source: partner.ID[:],
 	}, me.ID)
 

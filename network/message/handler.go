@@ -31,12 +31,12 @@ func (p *handler) handleMessages(stop *stoppable.Single) {
 
 					go func() {
 						count, ts := p.inProcess.Add(
-							msg, bundle.RoundInfo, bundle.Identity)
+							msg, bundle.RoundInfo.Raw, bundle.Identity)
 						wg.Done()
 						success := p.handleMessage(msg, bundle)
 						if success {
 							p.inProcess.Remove(
-								msg, bundle.RoundInfo, bundle.Identity)
+								msg, bundle.RoundInfo.Raw, bundle.Identity)
 						} else {
 							// Fail the message if any part of the decryption
 							// fails, unless it is the last attempts and has
@@ -45,10 +45,10 @@ func (p *handler) handleMessages(stop *stoppable.Single) {
 							if count == p.param.MaxChecksInProcessMessage &&
 								netTime.Since(ts) > p.param.InProcessMessageWait {
 								p.inProcess.Remove(
-									msg, bundle.RoundInfo, bundle.Identity)
+									msg, bundle.RoundInfo.Raw, bundle.Identity)
 							} else {
 								p.inProcess.Failed(
-									msg, bundle.RoundInfo, bundle.Identity)
+									msg, bundle.RoundInfo.Raw, bundle.Identity)
 							}
 
 						}

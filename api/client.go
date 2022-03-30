@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
+	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -795,7 +796,7 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 	//delete the preimages
 	if err = c.storage.GetEdge().Remove(edge.Preimage{
 		Data:   e2ePreimage,
-		Type:   preimage.E2e,
+		Type:   catalog.E2e,
 		Source: partnerId[:],
 	}, c.storage.GetUser().ReceptionID); err != nil {
 		jww.WARN.Printf("Failed delete the preimage for e2e "+
@@ -804,7 +805,7 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 
 	if err = c.storage.GetEdge().Remove(edge.Preimage{
 		Data:   rekeyPreimage,
-		Type:   preimage.Silent,
+		Type:   catalog.Silent,
 		Source: partnerId[:],
 	}, c.storage.GetUser().ReceptionID); err != nil {
 		jww.WARN.Printf("Failed delete the preimage for rekey "+
@@ -813,7 +814,7 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 
 	if err = c.storage.GetEdge().Remove(edge.Preimage{
 		Data:   fileTransferPreimage,
-		Type:   preimage.EndFT,
+		Type:   catalog.EndFT,
 		Source: partnerId[:],
 	}, c.storage.GetUser().ReceptionID); err != nil {
 		jww.WARN.Printf("Failed delete the preimage for file transfer "+
@@ -822,7 +823,7 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 
 	if err = c.storage.GetEdge().Remove(edge.Preimage{
 		Data:   groupRequestPreimage,
-		Type:   preimage.GroupRq,
+		Type:   catalog.GroupRq,
 		Source: partnerId[:],
 	}, c.storage.GetUser().ReceptionID); err != nil {
 		jww.WARN.Printf("Failed delete the preimage for group request "+
@@ -974,7 +975,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
 	//add the request preiamge
 	storageSess.GetEdge().Add(edge.Preimage{
 		Data:   preimage.GenerateRequest(protoUser.ReceptionID),
-		Type:   preimage.Request,
+		Type:   catalog.Request,
 		Source: protoUser.ReceptionID[:],
 	}, protoUser.ReceptionID)
 

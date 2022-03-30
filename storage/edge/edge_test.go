@@ -16,6 +16,7 @@ package edge
 
 import (
 	"encoding/json"
+	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage/versioned"
 	fingerprint2 "gitlab.com/elixxir/crypto/fingerprint"
@@ -149,7 +150,7 @@ func TestStore_Add(t *testing.T) {
 			"\nexpected: %d\nreceived: %d", identities[0], 3, len(pis))
 	}
 
-	expected := Preimage{preimage.MakeDefault(identities[0]), preimage.Default, identities[0].Bytes()}
+	expected := Preimage{preimage.MakeDefault(identities[0]), catalog.Default, identities[0].Bytes()}
 	if !reflect.DeepEqual(pis[expected.key()], expected) {
 		t.Errorf("First Preimage of first Preimages does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
@@ -174,7 +175,7 @@ func TestStore_Add(t *testing.T) {
 			"\nexpected: %d\nreceived: %d", identities[1], 2, len(pis))
 	}
 
-	expected = Preimage{preimage.MakeDefault(identities[1]), preimage.Default, identities[1].Bytes()}
+	expected = Preimage{preimage.MakeDefault(identities[1]), catalog.Default, identities[1].Bytes()}
 	if !reflect.DeepEqual(pis[expected.key()], expected) {
 		t.Errorf("First Preimage of second Preimages does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
@@ -349,7 +350,7 @@ func TestStore_Get(t *testing.T) {
 	}
 
 	expected := []Preimage{
-		{preimage.MakeDefault(identities[0]), preimage.Default, identities[0].Bytes()},
+		{preimage.MakeDefault(identities[0]), catalog.Default, identities[0].Bytes()},
 		preimages[0],
 		preimages[2],
 	}
@@ -375,7 +376,7 @@ top:
 	}
 
 	expected = []Preimage{
-		{preimage.MakeDefault(identities[1]), preimage.Default, identities[1].Bytes()},
+		{preimage.MakeDefault(identities[1]), catalog.Default, identities[1].Bytes()},
 		preimages[1],
 	}
 
@@ -475,12 +476,12 @@ func TestLoadStore(t *testing.T) {
 
 	expectedPis := [][]Preimage{
 		{
-			Preimage{preimage.MakeDefault(identities[0]), preimage.Default, identities[0].Bytes()},
+			Preimage{preimage.MakeDefault(identities[0]), catalog.Default, identities[0].Bytes()},
 			preimages[0],
 			preimages[2],
 		},
 		{
-			Preimage{preimage.MakeDefault(identities[1]), preimage.Default, identities[1].Bytes()},
+			Preimage{preimage.MakeDefault(identities[1]), catalog.Default, identities[1].Bytes()},
 			preimages[1],
 		},
 	}

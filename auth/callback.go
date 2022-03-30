@@ -9,6 +9,7 @@ package auth
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/catalog"
 	"strings"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -490,8 +491,8 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 	//remove the confirm fingerprint
 	fp := sr.GetFingerprint()
 	if err := m.storage.GetEdge().Remove(edge.Preimage{
-		Data:   preimage.Generate(fp[:], preimage.Confirm),
-		Type:   preimage.Confirm,
+		Data:   preimage.Generate(fp[:], catalog.Confirm),
+		Type:   catalog.Confirm,
 		Source: sr.GetPartner()[:],
 	}, m.storage.GetUser().ReceptionID); err != nil {
 		jww.WARN.Printf("Failed delete the preimage for confirm from %s: %+v",

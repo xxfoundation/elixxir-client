@@ -32,7 +32,7 @@ func TestHistoricalRounds(t *testing.T) {
 	stopper := hMgr.StartProcesses()
 
 	// Case 1: Send a round request and wait for timeout for processing
-	err := hMgr.LookupHistoricalRound(42, func(*pb.RoundInfo, bool) {
+	err := hMgr.LookupHistoricalRound(42, func(Round, bool) {
 		t.Error("Called when it should not have been.")
 	})
 	if err != nil {
@@ -46,7 +46,7 @@ func TestHistoricalRounds(t *testing.T) {
 
 	// Case 2: make round requests up to m.params.MaxHistoricalRounds
 	for i := id.Round(0); i < 3; i++ {
-		err = hMgr.LookupHistoricalRound(40+i, func(*pb.RoundInfo, bool) {
+		err = hMgr.LookupHistoricalRound(40+i, func(Round, bool) {
 			t.Errorf("%d called when it should not have been.", i)
 		})
 		if err != nil {
@@ -74,15 +74,15 @@ func TestProcessHistoricalRoundsResponse(t *testing.T) {
 	params := GetDefaultParams()
 	badRR := roundRequest{
 		rid: id.Round(41),
-		RoundResultCallback: func(*pb.RoundInfo, bool) {
+		RoundResultCallback: func(Round, bool) {
 			t.Error("Called when it should not have been.")
 		},
 		numAttempts: params.MaxHistoricalRoundsRetries - 2,
 	}
 	expiredRR := roundRequest{
 		rid: id.Round(42),
-		RoundResultCallback: func(info *pb.RoundInfo, success bool) {
-			if info == nil && !success {
+		RoundResultCallback: func(info Round, success bool) {
+			if info.ID == 0 && !success {
 				return
 			}
 			t.Errorf("Expired called with bad params.")
@@ -93,7 +93,7 @@ func TestProcessHistoricalRoundsResponse(t *testing.T) {
 	callbackCalled := &x
 	goodRR := roundRequest{
 		rid: id.Round(43),
-		RoundResultCallback: func(info *pb.RoundInfo, success bool) {
+		RoundResultCallback: func(info Round, success bool) {
 			*callbackCalled = true
 		},
 		numAttempts: 0,

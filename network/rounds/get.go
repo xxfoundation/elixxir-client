@@ -9,8 +9,8 @@ package rounds
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/network/historical"
 	"gitlab.com/elixxir/client/network/identity/receptionID"
-	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -40,14 +40,14 @@ func (m *manager) GetMessagesFromRound(roundID id.Round, identity receptionID.Ep
 			identity.Source)
 
 		err = m.historical.LookupHistoricalRound(
-			roundID, func(info *pb.RoundInfo, success bool) {
+			roundID, func(info historical.Round, success bool) {
 				if !success {
 					// TODO: implement me
 				}
 				// If found, send to Message Retrieval Workers
 				m.lookupRoundMessages <- roundLookup{
-					RoundInfo: info,
-					Identity:  identity,
+					Round:    info,
+					Identity: identity,
 				}
 			})
 	} else {
@@ -68,8 +68,8 @@ func (m *manager) GetMessagesFromRound(roundID id.Round, identity receptionID.Ep
 
 		// If found, send to Message Retrieval Workers
 		m.lookupRoundMessages <- roundLookup{
-			RoundInfo: ri,
-			Identity:  identity,
+			Round:    historical.MakeRound(ri),
+			Identity: identity,
 		}
 	}
 

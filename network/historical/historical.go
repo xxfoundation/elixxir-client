@@ -53,7 +53,7 @@ type RoundsComms interface {
 }
 
 // RoundResultCallback is the used callback when a round is found.
-type RoundResultCallback func(info *pb.RoundInfo, success bool)
+type RoundResultCallback func(info Round, success bool)
 
 // roundRequest is an internal structure that tracks a request.
 type roundRequest struct {
@@ -217,7 +217,7 @@ func processHistoricalRoundsResponse(response *pb.HistoricalRoundsResponse,
 			if roundRequests[i].numAttempts == maxRetries {
 				errMsg = fmt.Sprintf("Failed to retrieve historical round %d "+
 					"on last attempt, will not try again", roundRequests[i].rid)
-				go roundRequests[i].RoundResultCallback(nil, false)
+				go roundRequests[i].RoundResultCallback(Round{}, false)
 			} else {
 				retries = append(retries, roundRequests[i])
 				errMsg = fmt.Sprintf("Failed to retrieve historical round "+
@@ -231,7 +231,7 @@ func processHistoricalRoundsResponse(response *pb.HistoricalRoundsResponse,
 		}
 
 		// Successfully retrieved roundRequests are returned on the callback
-		go roundRequests[i].RoundResultCallback(roundInfo, true)
+		go roundRequests[i].RoundResultCallback(MakeRound(roundInfo), true)
 
 		rids = append(rids, roundInfo.ID)
 	}

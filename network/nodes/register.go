@@ -69,7 +69,8 @@ func registerNodes(r *registrar, s storage.Session, stop *stoppable.Single,
 
 			// Keep track of how many times this has been attempted
 			numAttempts := uint(1)
-			if nunAttemptsInterface, hasValue := attempts.LoadOrStore(nidStr, numAttempts); hasValue {
+			if nunAttemptsInterface, hasValue := attempts.LoadOrStore(
+				nidStr, numAttempts); hasValue {
 				numAttempts = nunAttemptsInterface.(uint)
 				attempts.Store(nidStr, numAttempts+1)
 			}

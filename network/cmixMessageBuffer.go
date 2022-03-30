@@ -125,7 +125,8 @@ func LoadCmixMessageBuffer(kv *versioned.KV, key string) (*CmixMessageBuffer, er
 	return &CmixMessageBuffer{mb: mb}, nil
 }
 
-func (cmb *CmixMessageBuffer) Add(msg format.Message, recipient *id.ID, params CMIXParams) {
+func (cmb *CmixMessageBuffer) Add(msg format.Message, recipient *id.ID,
+	params CMIXParams) {
 	paramBytes, err := json.Marshal(params)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to JSON marshal CMIXParams: %+v", err)

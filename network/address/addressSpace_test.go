@@ -9,7 +9,7 @@ import (
 )
 
 // Unit test of NewAddressSpace.
-func Test_newAddressSpace(t *testing.T) {
+func TestNewAddressSpace(t *testing.T) {
 	expected := &space{
 		size:      initSize,
 		notifyMap: make(map[string]chan uint8),
@@ -19,14 +19,14 @@ func Test_newAddressSpace(t *testing.T) {
 	as := NewAddressSpace()
 
 	if !reflect.DeepEqual(expected, as) {
-		t.Errorf("NewAddressSpace failed to return the expected AddressSpace."+
+		t.Errorf("NewAddressSpace failed to return the expected Space."+
 			"\nexpected: %+v\nreceived: %+v", expected, as)
 	}
 }
 
-// Test that AddressSpace.Get blocks when the address space size has not been
-// set and that it does not block when it has been set.
-func Test_addressSpace_Get(t *testing.T) {
+// Test that Space.GetAddressSpace blocks when the address space size has not
+// been set and that it does not block when it has been set.
+func TestSpace_GetAddressSpace(t *testing.T) {
 	as := NewAddressSpace()
 	expectedSize := uint8(42)
 
@@ -58,8 +58,8 @@ func Test_addressSpace_Get(t *testing.T) {
 	}
 }
 
-// Test that AddressSpace.Get blocks until the condition broadcasts.
-func Test_addressSpace_Get_WaitBroadcast(t *testing.T) {
+// Test that Space.GetAddressSpace blocks until the condition broadcasts.
+func TestSpace_GetAddressSpace_WaitBroadcast(t *testing.T) {
 	as := NewAddressSpace()
 
 	wait := make(chan uint8)
@@ -82,8 +82,8 @@ func Test_addressSpace_Get_WaitBroadcast(t *testing.T) {
 	as.(*space).cond.Broadcast()
 }
 
-// Unit test of AddressSpace.GetAddressSpaceWithoutWait.
-func Test_addressSpace_GetWithoutWait(t *testing.T) {
+// Unit test of Space.GetAddressSpaceWithoutWait.
+func TestSpace_GetAddressSpaceWithoutWait(t *testing.T) {
 	as := NewAddressSpace()
 
 	size := as.GetAddressSpaceWithoutWait()
@@ -93,8 +93,8 @@ func Test_addressSpace_GetWithoutWait(t *testing.T) {
 	}
 }
 
-// Tests that AddressSpace.Update only updates the size when it is larger.
-func Test_addressSpace_update(t *testing.T) {
+// Tests that Space.UpdateAddressSpace only updates the size when it is larger.
+func TestSpace_UpdateAddressSpace(t *testing.T) {
 	as := NewAddressSpace()
 	expectedSize := uint8(42)
 
@@ -113,8 +113,9 @@ func Test_addressSpace_update(t *testing.T) {
 	}
 }
 
-// Tests that AddressSpace.Update sends the new size to all registered channels.
-func Test_addressSpace_update_GetAndChannels(t *testing.T) {
+// Tests that Space.UpdateAddressSpace sends the new size to all registered
+// channels.
+func TestSpace_UpdateAddressSpace_GetAndChannels(t *testing.T) {
 	as := NewAddressSpace()
 	var wg sync.WaitGroup
 	expectedSize := uint8(42)
@@ -122,13 +123,15 @@ func Test_addressSpace_update_GetAndChannels(t *testing.T) {
 	// Start threads that are waiting for an Update
 	wait := []chan uint8{make(chan uint8), make(chan uint8), make(chan uint8)}
 	for _, waitChan := range wait {
-		go func(waitChan chan uint8) { waitChan <- as.GetAddressSpace() }(waitChan)
+		go func(waitChan chan uint8) {
+			waitChan <- as.GetAddressSpace()
+		}(waitChan)
 	}
 
 	// Wait on threads
 	for i, waitChan := range wait {
+		wg.Add(1)
 		go func(i int, waitChan chan uint8) {
-			wg.Add(1)
 			defer wg.Done()
 
 			select {
@@ -137,7 +140,7 @@ func Test_addressSpace_update_GetAndChannels(t *testing.T) {
 					t.Errorf("Thread %d received unexpected size."+
 						"\nexpected: %d\nreceived: %d", i, expectedSize, size)
 				}
-			case <-time.NewTimer(20 * time.Millisecond).C:
+			case <-time.After(25 * time.Millisecond):
 				t.Errorf("Timed out waiting for get to return on thread %d.", i)
 			}
 		}(i, waitChan)
@@ -152,21 +155,21 @@ func Test_addressSpace_update_GetAndChannels(t *testing.T) {
 		chanID = strconv.Itoa(i)
 		notifyChannels[chanID], err = as.RegisterAddressSpaceNotification(chanID)
 		if err != nil {
-			t.Errorf("Failed to regisdter channel: %+v", err)
+			t.Errorf("Failed to reigster channel: %+v", err)
 		}
 	}
 
 	// Wait for new size on channels
 	for chanID, notifyChan := range notifyChannels {
+		wg.Add(1)
 		go func(chanID string, notifyChan chan uint8) {
-			wg.Add(1)
 			defer wg.Done()
 
 			select {
 			case size := <-notifyChan:
-				t.Errorf("Received size %d on channel %s when it should not have.",
-					size, chanID)
-			case <-time.NewTimer(20 * time.Millisecond).C:
+				t.Errorf("Received size %d on channel %s when it should not "+
+					"have.", size, chanID)
+			case <-time.After(20 * time.Millisecond):
 			}
 		}(chanID, notifyChan)
 	}
@@ -186,25 +189,26 @@ func Test_addressSpace_update_GetAndChannels(t *testing.T) {
 
 	// Wait for new size on channels
 	for chanID, notifyChan := range notifyChannels {
+		wg.Add(1)
 		go func(chanID string, notifyChan chan uint8) {
-			wg.Add(1)
 			defer wg.Done()
 
 			select {
 			case size := <-notifyChan:
 				if size != expectedSize {
 					t.Errorf("Failed to receive expected size on channel %s."+
-						"\nexpected: %d\nreceived: %d", chanID, expectedSize, size)
+						"\nexpected: %d\nreceived: %d",
+						chanID, expectedSize, size)
 				}
-			case <-time.NewTimer(20 * time.Millisecond).C:
+			case <-time.After(20 * time.Millisecond):
 				t.Errorf("Timed out waiting on channel %s", chanID)
 			}
 		}(chanID, notifyChan)
 	}
 
 	// Wait for timeout on unregistered channel
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
 		defer wg.Done()
 
 		select {
@@ -223,9 +227,9 @@ func Test_addressSpace_update_GetAndChannels(t *testing.T) {
 	wg.Wait()
 }
 
-// Tests that a channel created by AddressSpace.RegisterNotification receives
-// the expected size when triggered.
-func Test_addressSpace_RegisterNotification(t *testing.T) {
+// Tests that a channel created by Space.RegisterAddressSpaceNotification
+// receives the expected size when triggered.
+func TestSpace_RegisterAddressSpaceNotification(t *testing.T) {
 	as := NewAddressSpace()
 	expectedSize := uint8(42)
 
@@ -244,7 +248,7 @@ func Test_addressSpace_RegisterNotification(t *testing.T) {
 				t.Errorf("received wrong size on channel."+
 					"\nexpected: %d\nreceived: %d", expectedSize, size)
 			}
-		case <-time.NewTimer(10 * time.Millisecond).C:
+		case <-time.After(10 * time.Millisecond):
 			t.Error("Timed out waiting on channel.")
 		}
 	}()
@@ -257,9 +261,9 @@ func Test_addressSpace_RegisterNotification(t *testing.T) {
 	}
 }
 
-// Tests that when AddressSpace.UnregisterAddressSpaceNotification unregisters a channel,
-// it no longer can be triggered from the map.
-func Test_addressSpace_UnregisterNotification(t *testing.T) {
+// Tests that when Space.UnregisterAddressSpaceNotification unregisters a
+// channel and that it no longer can be triggered from the map.
+func TestSpace_UnregisterAddressSpaceNotification(t *testing.T) {
 	as := NewAddressSpace()
 	expectedSize := uint8(42)
 

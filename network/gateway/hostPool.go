@@ -671,7 +671,7 @@ func (h *HostPool) updateConns() error {
 	return nil
 }
 
-// convertNdfToMap takes ndf.Gateways and puts their IDs into a map object.
+// convertNdfToMap takes NDF.Gateways and puts their IDs into a map object.
 func convertNdfToMap(ndf *ndf.NetworkDefinition) (map[id.ID]int, error) {
 	result := make(map[id.ID]int)
 	if ndf == nil {

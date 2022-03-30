@@ -158,8 +158,9 @@ func NewManager(params Params, comms *client.Comms, session storage.Session,
 		m.session.GetReceptionID())
 
 	// Set up round handler
-	m.Pickup = rounds.NewPickup(params.Rounds, m.Handler.GetMessageReceptionChannel(),
-		m.Sender, m.Retriever, m.rng, m.instance, m.session)
+	m.Pickup = rounds.NewPickup(
+		params.Rounds, m.Handler.GetMessageReceptionChannel(), m.Sender,
+		m.Retriever, m.rng, m.instance, m.session)
 
 	// Add the identity system
 	m.Tracker = identity.NewOrLoadTracker(m.session, m.Space)
@@ -211,7 +212,7 @@ func (m *manager) Follow(report ClientErrorReport) (stoppable.Stoppable, error) 
 
 	// Node Updates
 	multi.Add(m.Registrar.StartProcesses(m.param.ParallelNodeRegistrations)) // Adding/MixCypher
-	// TODO-node remover
+	// TODO: node remover
 
 	// Start the Network tracker
 	followNetworkStopper := stoppable.NewSingle("FollowNetwork")

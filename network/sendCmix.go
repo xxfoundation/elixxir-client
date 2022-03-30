@@ -159,9 +159,9 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 		containsBlacklisted := false
 		if cmixParams.BlacklistedNodes != nil {
 			for _, nodeId := range bestRound.Topology {
-				var nid *id.ID
+				var nid id.ID
 				copy(nid[:], nodeId)
-				if _, isBlacklisted := cmixParams.BlacklistedNodes[*nid]; isBlacklisted {
+				if _, isBlacklisted := cmixParams.BlacklistedNodes[nid]; isBlacklisted {
 					containsBlacklisted = true
 					break
 				}

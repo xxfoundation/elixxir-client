@@ -17,17 +17,21 @@ import (
 // 	idu, _ := generateFakeIdentity(rng, 15, timestamp)
 // 	id := idu.Identity
 // 	kv := versioned.NewKV(make(ekv.Memstore))
-
+//
 // 	id.End = time.Time{}
 // 	id.ExtraChecks = 0
-
+//
+// 	expectedErr := "Cannot create a registration for an identity which has " +
+// 		"expired"
+//
 // 	_, err := newRegistration(id, kv)
-// 	if err == nil || !strings.Contains(err.Error(), "Cannot create a registration for an identity which has expired") {
-// 		t.Error("Registration creation succeeded with expired identity.")
+// 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+// 		t.Errorf("Registration creation succeeded with expired identity." +
+// 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 // 	}
 // }
 
-func TestNewRegistration_Ephemeral(t *testing.T) {
+func Test_newRegistration_Ephemeral(t *testing.T) {
 	// Generate an identity for use
 	rng := rand.New(rand.NewSource(42))
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
@@ -46,11 +50,12 @@ func TestNewRegistration_Ephemeral(t *testing.T) {
 	}
 
 	if _, err = reg.kv.Get(identityStorageKey, 0); err == nil {
-		t.Error("Ephemeral identity stored the identity when it should not have.")
+		t.Error(
+			"Ephemeral identity stored the identity when it should not have.")
 	}
 }
 
-func TestNewRegistration_Persistent(t *testing.T) {
+func Test_newRegistration_Persistent(t *testing.T) {
 	// Generate an identity for use
 	rng := rand.New(rand.NewSource(42))
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
@@ -74,7 +79,7 @@ func TestNewRegistration_Persistent(t *testing.T) {
 	}
 }
 
-func TestLoadRegistration(t *testing.T) {
+func Test_loadRegistration(t *testing.T) {
 	// Generate an identity for use
 	rng := rand.New(rand.NewSource(42))
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)

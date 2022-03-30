@@ -17,10 +17,12 @@ import (
 
 // Messages can arrive in the network out of order. When message handling fails
 // to decrypt a message, it is added to the garbled message buffer (which is
-// stored on disk) and the message decryption is retried here whenever triggered.
+// stored on disk) and the message decryption is retried here whenever
+// triggered.
 
 // This can be triggered through the CheckInProgressMessages on the network
-// handler and is used in the /keyExchange package on successful rekey triggering.
+// handler and is used in the /keyExchange package on successful rekey
+// triggering.
 
 // CheckInProgressMessages triggers rechecking all in progress messages if the
 // queue is not full Exposed on the network handler.

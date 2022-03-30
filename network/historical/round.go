@@ -10,10 +10,10 @@ import (
 )
 
 type Round struct {
-	//ID of the round. Ids are sequential and monotonic
+	// ID of the round. IDs are sequential and monotonic.
 	ID id.Round
 
-	// Last known state of the round. Possible states are:
+	// State is the last known state of the round. Possible states are:
 	//   PENDING - not started yet
 	//   PRECOMPUTING - In the process of preparing to process messages
 	//   STANDBY - Completed precomputing but not yet scheduled to run
@@ -23,32 +23,32 @@ type Round struct {
 	//	 FAILED - Failed to deliver messages
 	State states.Round
 
-	// List of Nodes in the round
+	// Topology contains the list of nodes in the round.
 	Topology *connect.Circuit
 
-	// Timestamps of all events that have occurred in the round
-	// (See the above states).
-	// The Queued state's timestamp is different, it denotes when Realtime
-	// was/is scheduled to start, not whe the Queued state is entered
+	// Timestamps of all events that have occurred in the round (see the above
+	// states).
+	// The QUEUED state's timestamp is different; it denotes when Realtime
+	// was/is scheduled to start, not whe the QUEUED state is entered.
 	Timestamps map[states.Round]time.Time
 
 	// Errors that occurred in the round. Will only be present in the failed
-	// state
+	// state.
 	Errors []RoundError
 
-	/*Properties*/
+	/* Properties */
 
-	// Max number of messages the round can process
+	// BatchSize is the max number of messages the round can process.
 	BatchSize uint32
 
-	// Ephemeral Address space size used in the round
+	// AddressSpaceSize is the ephemeral address space size used in the round.
 	AddressSpaceSize uint8
 
-	// Monotonic counter between all round updates denoting when this updated
-	//occurred in the queue
+	// UpdateID is a monotonic counter between all round updates denoting when
+	// this updated occurred in the queue.
 	UpdateID uint64
 
-	// RawData round data, including signatures
+	// Raw is raw round data, including signatures.
 	Raw *pb.RoundInfo
 }
 
@@ -57,9 +57,9 @@ type RoundError struct {
 	Error  string
 }
 
-//MakeRound Builds an accessable round object from a RoundInfo Protobuff
+// MakeRound builds an accessible round object from a RoundInfo protobuf.
 func MakeRound(ri *pb.RoundInfo) Round {
-	//Build the timestamps map
+	// Build the timestamps map
 	timestamps := make(map[states.Round]time.Time)
 
 	for i := range ri.Timestamps {
@@ -69,7 +69,7 @@ func MakeRound(ri *pb.RoundInfo) Round {
 		}
 	}
 
-	//Build the input to the topology
+	// Build the input to the topology
 	nodes := make([]*id.ID, len(ri.Topology))
 	for i := range ri.Topology {
 		newNodeID := id.ID{}
@@ -77,7 +77,7 @@ func MakeRound(ri *pb.RoundInfo) Round {
 		nodes[i] = &newNodeID
 	}
 
-	//build the errors
+	// Build the errors
 	errs := make([]RoundError, len(ri.Errors))
 	for i := range ri.Errors {
 		errNodeID := id.ID{}
@@ -101,8 +101,8 @@ func MakeRound(ri *pb.RoundInfo) Round {
 	}
 }
 
-// GetEndTimestamp Returns the timestamp of the last known event,
-// which is generally the state unless in queued, which stores the next event
+// GetEndTimestamp returns the timestamp of the last known event, which is
+// generally the state unless in queued, which stores the next event.
 func (r Round) GetEndTimestamp() time.Time {
 	switch r.State {
 	case states.PENDING:
@@ -121,6 +121,7 @@ func (r Round) GetEndTimestamp() time.Time {
 		jww.FATAL.Panicf("Could not get final timestamp of round, "+
 			"invalid state: %s", r.State)
 	}
-	//unreachable
+
+	// Unreachable
 	return time.Time{}
 }

@@ -112,7 +112,7 @@ func (s *UncheckedRoundStore) GetRound(rid id.Round, recipient *id.ID,
 	return rnd, exists
 }
 
-func (s *UncheckedRoundStore) GetList(*testing.T) map[roundIdentity]UncheckedRound {
+func (s *UncheckedRoundStore) GetList(_ *testing.T) map[roundIdentity]UncheckedRound {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.list

@@ -33,7 +33,7 @@ func TestNewUncheckedStore(t *testing.T) {
 		t.Fatalf("NewUncheckedStore returned an error: %+v", err)
 	}
 
-	// Compare manually created object with NewUnknownRoundsStore
+	// Compare manually created object with UncheckedRoundStore
 	if !reflect.DeepEqual(testStore, store) {
 		t.Fatalf("NewUncheckedStore returned incorrect Store."+
 			"\nexpected: %+v\nreceived: %+v", testStore, store)
@@ -42,7 +42,8 @@ func TestNewUncheckedStore(t *testing.T) {
 	rid := id.Round(1)
 	roundInfo := &pb.RoundInfo{ID: uint64(rid)}
 	recipient := id.NewIdFromString("recipientID", id.User, t)
-	ephID, _, _, _ := ephemeral.GetId(recipient, id.ArrIDLen, netTime.Now().UnixNano())
+	ephID, _, _, _ := ephemeral.GetId(
+		recipient, id.ArrIDLen, netTime.Now().UnixNano())
 	uncheckedRound := UncheckedRound{
 		Info:      roundInfo,
 		LastCheck: netTime.Now(),
@@ -72,7 +73,7 @@ func TestNewUncheckedStore(t *testing.T) {
 	}
 }
 
-// Unit test
+// Unit test.
 func TestLoadUncheckedStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
@@ -113,7 +114,7 @@ func TestLoadUncheckedStore(t *testing.T) {
 	}
 }
 
-// Unit test
+// Unit test.
 func TestUncheckedRoundStore_AddRound(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
@@ -138,7 +139,7 @@ func TestUncheckedRoundStore_AddRound(t *testing.T) {
 	}
 }
 
-// Unit test
+// Unit test.
 func TestUncheckedRoundStore_GetRound(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
@@ -299,7 +300,7 @@ func TestUncheckedRoundStore_GetList(t *testing.T) {
 
 }
 
-// Unit test
+// Unit test.
 func TestUncheckedRoundStore_IncrementCheck(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 
@@ -382,7 +383,8 @@ func TestUncheckedRoundStore_Remove(t *testing.T) {
 	source := id.NewIdFromUInt(uint64(removedRound), id.User, t)
 	err = testStore.Remove(removedRound, source, ephId)
 	if err != nil {
-		t.Errorf("Could not have removed round %d from storage: %v", removedRound, err)
+		t.Errorf("Could not have removed round %d from storage: %+v",
+			removedRound, err)
 	}
 
 	// Check that round was removed
@@ -395,6 +397,7 @@ func TestUncheckedRoundStore_Remove(t *testing.T) {
 	unknownRound := id.Round(numRounds + 5)
 	err = testStore.Remove(unknownRound, source, ephId)
 	if err == nil {
-		t.Errorf("Should not have removed round %d which is not in storage", unknownRound)
+		t.Errorf("Should not have removed round %d which is not in storage",
+			unknownRound)
 	}
 }

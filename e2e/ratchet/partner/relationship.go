@@ -86,6 +86,8 @@ func NewRelationship(kv *versioned.KV, t session.RelationshipType,
 		kv:          kv,
 		grp:         grp,
 		cyHandler:   cyHandler,
+		myID:        myID,
+		partnerID:   partnerID,
 		rng:         rng,
 	}
 

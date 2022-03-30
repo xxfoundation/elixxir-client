@@ -10,14 +10,14 @@ package partner
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
-	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/e2e/ratchet/session"
-	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/ekv"
+	"github.com/cloudflare/circl/dh/sidh"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	util "gitlab.com/elixxir/client/storage/utility"
+	dh "gitlab.com/elixxir/crypto/diffieHellman"
+	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 	"golang.org/x/crypto/blake2b"
 	"math/rand"
 	"reflect"
@@ -27,28 +27,15 @@ import (
 // Tests happy path of newManager.
 func Test_newManager(t *testing.T) {
 	// Set up expected and test values
-	s, ctx := session.makeTestSession()
-	kv := versioned.NewKV(make(ekv.Memstore))
-	partnerID := id.NewIdFromUInt(100, id.User, t)
-	expectedM := &Manager{
-		ctx:                     ctx,
-		kv:                      kv.Prefix(fmt.Sprintf(managerPrefix, partnerID)),
-		partner:                 partnerID,
-		originPartnerPubKey:     s.partnerPubKey,
-		originMyPrivKey:         s.myPrivKey,
-		originPartnerSIDHPubKey: s.partnerSIDHPubKey,
-		originMySIDHPrivKey:     s.mySIDHPrivKey,
-	}
-	expectedM.send = NewRelationship(expectedM, session2.Send,
-		params.GetDefaultE2ESessionParams())
-	expectedM.receive = NewRelationship(expectedM, session2.Receive,
-		params.GetDefaultE2ESessionParams())
+	expectedM, kv := newTestManager(t)
 
 	// Create new relationship
-	m := newManager(ctx, kv, partnerID, s.myPrivKey, s.partnerPubKey,
-		s.mySIDHPrivKey, s.partnerSIDHPubKey,
-		s.e2eParams,
-		s.e2eParams)
+	m := NewManager(kv, expectedM.myID, expectedM.partner,
+		expectedM.originMyPrivKey, expectedM.originPartnerPubKey,
+		expectedM.originMySIDHPrivKey,
+		expectedM.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(),
+		session.GetDefaultE2ESessionParams(),
+		expectedM.cyHandler, expectedM.grp, expectedM.rng)
 
 	// Check if the new relationship matches the expected
 	if !managersEqual(expectedM, m, t) {
@@ -63,7 +50,8 @@ func TestLoadManager(t *testing.T) {
 	expectedM, kv := newTestManager(t)
 
 	// Attempt to load relationship
-	m, err := LoadManager(expectedM.ctx, kv, expectedM.partner)
+	m, err := LoadManager(kv, expectedM.myID, expectedM.partner,
+		expectedM.cyHandler, expectedM.grp, expectedM.rng)
 	if err != nil {
 		t.Errorf("LoadManager() returned an error: %v", err)
 	}
@@ -87,13 +75,14 @@ func TestManager_ClearManager(t *testing.T) {
 	// Set up expected and test values
 	expectedM, kv := newTestManager(t)
 
-	err := clearManager(expectedM, kv)
+	err := ClearManager(expectedM, kv)
 	if err != nil {
 		t.Fatalf("clearManager returned an error: %v", err)
 	}
 
 	// Attempt to load relationship
-	_, err = LoadManager(expectedM.ctx, kv, expectedM.partner)
+	_, err = LoadManager(kv, expectedM.myID, expectedM.partner,
+		expectedM.cyHandler, expectedM.grp, expectedM.rng)
 	if err != nil {
 		t.Errorf("LoadManager() returned an error: %v", err)
 	}
@@ -102,35 +91,56 @@ func TestManager_ClearManager(t *testing.T) {
 // Tests happy path of Manager.NewReceiveSession.
 func TestManager_NewReceiveSession(t *testing.T) {
 	// Set up test values
-	m, _ := newTestManager(t)
-	s, _ := session.makeTestSession()
+	m, kv := newTestManager(t)
 
-	se, exists := m.NewReceiveSession(s.partnerPubKey, s.partnerSIDHPubKey,
-		s.e2eParams, s)
+	grp := getGroup()
+	rng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
+	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength,
+		grp, rng.GetStream())
+	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng.GetStream())
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+
+	baseKey := session.GenerateE2ESessionBaseKey(m.originMyPrivKey, partnerPubKey, grp,
+		m.originMySIDHPrivKey, partnerSIDHPubKey)
+
+	partnerID := id.NewIdFromString("newPartner", id.User, t)
+
+	sid := session.GetSessionIDFromBaseKey(baseKey)
+	thisSession := session.NewSession(kv, session.Receive, partnerID,
+		m.originMyPrivKey, partnerPrivKey, baseKey,
+		m.originMySIDHPrivKey, partnerSIDHPubKey,
+		sid, []byte(""), session.Sent,
+		session.GetDefaultE2ESessionParams(), m.cyHandler, m.grp, m.rng)
+
+	se, exists := m.NewReceiveSession(partnerPubKey, partnerSIDHPubKey,
+		session.GetDefaultE2ESessionParams(), thisSession)
 	if exists {
 		t.Errorf("NewReceiveSession() incorrect return value."+
 			"\n\texpected: %v\n\treceived: %v", false, exists)
 	}
-	if !m.partner.Cmp(se.GetPartner()) || !bytes.Equal(s.GetID().Marshal(),
+	if !m.partner.Cmp(se.GetPartner()) || !bytes.Equal(thisSession.GetID().Marshal(),
 		se.GetID().Marshal()) {
 		t.Errorf("NewReceiveSession() incorrect session."+
 			"\n\texpected partner: %v\n\treceived partner: %v"+
 			"\n\texpected ID: %v\n\treceived ID: %v",
-			m.partner, se.GetPartner(), s.GetID(), se.GetID())
+			m.partner, se.GetPartner(), thisSession.GetID(), se.GetID())
 	}
 
-	se, exists = m.NewReceiveSession(s.partnerPubKey, s.partnerSIDHPubKey,
-		s.e2eParams, s)
+	se, exists = m.NewReceiveSession(partnerPubKey, partnerSIDHPubKey,
+		session.GetDefaultE2ESessionParams(), thisSession)
 	if !exists {
 		t.Errorf("NewReceiveSession() incorrect return value."+
 			"\n\texpected: %v\n\treceived: %v", true, exists)
 	}
-	if !m.partner.Cmp(se.GetPartner()) || !bytes.Equal(s.GetID().Marshal(),
+	if !m.partner.Cmp(se.GetPartner()) || !bytes.Equal(thisSession.GetID().Marshal(),
 		se.GetID().Marshal()) {
 		t.Errorf("NewReceiveSession() incorrect session."+
 			"\n\texpected partner: %v\n\treceived partner: %v"+
 			"\n\texpected ID: %v\n\treceived ID: %v",
-			m.partner, se.GetPartner(), s.GetID(), se.GetID())
+			m.partner, se.GetPartner(), thisSession.GetID(), se.GetID())
 	}
 }
 
@@ -138,17 +148,17 @@ func TestManager_NewReceiveSession(t *testing.T) {
 func TestManager_NewSendSession(t *testing.T) {
 	// Set up test values
 	m, _ := newTestManager(t)
-	s, _ := session.makeTestSession()
 
-	se := m.NewSendSession(s.myPrivKey, s.mySIDHPrivKey, s.e2eParams)
+	se := m.NewSendSession(m.originMyPrivKey, m.originMySIDHPrivKey,
+		session.GetDefaultE2ESessionParams())
 	if !m.partner.Cmp(se.GetPartner()) {
 		t.Errorf("NewSendSession() did not return the correct session."+
 			"\n\texpected partner: %v\n\treceived partner: %v",
 			m.partner, se.GetPartner())
 	}
 
-	se, _ = m.NewReceiveSession(s.partnerPubKey, s.partnerSIDHPubKey,
-		s.e2eParams, s)
+	se, _ = m.NewReceiveSession(m.originPartnerPubKey, m.originPartnerSIDHPubKey,
+		session.GetDefaultE2ESessionParams(), m.receive.sessions[0])
 	if !m.partner.Cmp(se.GetPartner()) {
 		t.Errorf("NewSendSession() did not return the correct session."+
 			"\n\texpected partner: %v\n\treceived partner: %v",
@@ -156,39 +166,50 @@ func TestManager_NewSendSession(t *testing.T) {
 	}
 }
 
-// Tests happy path of Manager.GetKeyForSending.
+//Tests happy path of Manager.GetKeyForSending.
 func TestManager_GetKeyForSending(t *testing.T) {
 	// Set up test values
 	m, _ := newTestManager(t)
-	p := params.GetDefaultE2E()
-	expectedKey := &session2.Cypher{
-		session: m.send.sessions[0],
-	}
 
-	key, err := m.GetKeyForSending(p.Type)
+	key, err := m.PopSendCypher()
 	if err != nil {
 		t.Errorf("GetKeyForSending() produced an error: %v", err)
 	}
 
-	if !reflect.DeepEqual(expectedKey, key) {
-		t.Errorf("GetKeyForSending() did not return the correct key."+
-			"\n\texpected: %+v\n\treceived: %+v",
-			expectedKey, key)
+	thisSession := m.send.sessions[0]
+
+	// KeyNum isn't exposable on this layer, so make sure the keynum is 0
+	// by checking the fingerprint
+	expected := e2eCrypto.DeriveKeyFingerprint(thisSession.GetBaseKey(),
+		0, thisSession.GetRelationshipFingerprint())
+
+	received := key.Fingerprint()
+	if !bytes.Equal(expected.Bytes(), received.Bytes()) {
+		t.Errorf("PopSendCypher() did not return the correct key."+
+			"\nexpected fingerprint: %+v"+
+			"\nreceived fingerprint: %+v",
+			expected.String(), received.String())
 	}
 
-	p.Type = params.KeyExchange
-	m.send.sessions[0].negotiationStatus = session2.NewSessionTriggered
-	expectedKey.keyNum++
+	thisSession.SetNegotiationStatus(session.NewSessionTriggered)
 
-	key, err = m.GetKeyForSending(p.Type)
+	key, err = m.PopSendCypher()
 	if err != nil {
 		t.Errorf("GetKeyForSending() produced an error: %v", err)
 	}
 
-	if !reflect.DeepEqual(expectedKey, key) {
-		t.Errorf("GetKeyForSending() did not return the correct key."+
-			"\n\texpected: %+v\n\treceived: %+v",
-			expectedKey, key)
+	// KeyNum isn't exposable on this layer, so make sure the keynum is 1
+	// by checking the fingerprint
+	expected = e2eCrypto.DeriveKeyFingerprint(thisSession.GetBaseKey(),
+		1, thisSession.GetRelationshipFingerprint())
+
+	received = key.Fingerprint()
+
+	if !reflect.DeepEqual(expected.Bytes(), received.Bytes()) {
+		t.Errorf("PopSendCypher() did not return the correct key."+
+			"\nexpected fingerprint: %+v"+
+			"\nreceived fingerprint: %+v",
+			expected.String(), received.String())
 	}
 }
 
@@ -196,10 +217,16 @@ func TestManager_GetKeyForSending(t *testing.T) {
 func TestManager_GetKeyForSending_Error(t *testing.T) {
 	// Set up test values
 	m, _ := newTestManager(t)
-	p := params.GetDefaultE2E()
-	p.Type = 2
+	thisSession := m.send.sessions[0]
 
-	key, err := m.GetKeyForSending(p.Type)
+	thisSession
+
+	err := m.send.Confirm(thisSession.GetID())
+	if err != nil {
+		t.Errorf("Confirm error: %v", err)
+	}
+
+	key, err := m.PopSendCypher()
 	if err == nil {
 		t.Errorf("GetKeyForSending() did not produce an error for invalid SendType.")
 	}
@@ -250,8 +277,29 @@ func TestManager_GetReceiveSession(t *testing.T) {
 // Tests happy path of Manager.Confirm.
 func TestManager_Confirm(t *testing.T) {
 	m, _ := newTestManager(t)
-	m.send.sessions[0].negotiationStatus = session2.Sent
-	err := m.Confirm(m.send.sessions[0].GetID())
+	grp := getGroup()
+	rng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
+	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength,
+		grp, rng.GetStream())
+	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng.GetStream())
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+
+	baseKey := session.GenerateE2ESessionBaseKey(m.originMyPrivKey, partnerPubKey, grp,
+		m.originMySIDHPrivKey, partnerSIDHPubKey)
+
+	sid := session.GetSessionIDFromBaseKey(baseKey)
+	m.send.AddSession(m.originMyPrivKey, partnerPrivKey, baseKey,
+		m.originMySIDHPrivKey, partnerSIDHPubKey,
+		sid,
+		session.Sending, session.GetDefaultE2ESessionParams())
+
+	thisSession := m.send.GetByID(sid)
+	thisSession.TriggerNegotiation()
+
+	err := m.Confirm(thisSession.GetID())
 	if err != nil {
 		t.Errorf("Confirm produced an error: %v", err)
 	}
@@ -260,65 +308,17 @@ func TestManager_Confirm(t *testing.T) {
 // Tests happy path of Manager.TriggerNegotiations.
 func TestManager_TriggerNegotiations(t *testing.T) {
 	m, _ := newTestManager(t)
-	m.send.sessions[0].negotiationStatus = session2.Unconfirmed
+
+	for i := 0; i < 100; i++ {
+		m.send.sessions[0].PopReKey()
+
+	}
+
 	sessions := m.TriggerNegotiations()
 	if !reflect.DeepEqual(m.send.sessions, sessions) {
 		t.Errorf("TriggerNegotiations() returned incorrect sessions."+
 			"\n\texpected: %s\n\treceived: %s", m.send.sessions, sessions)
 	}
-}
-
-// newTestManager returns a new relationship for testing.
-func newTestManager(t *testing.T) (*Manager, *versioned.KV) {
-	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
-	s, ctx := session.makeTestSession()
-	kv := versioned.NewKV(make(ekv.Memstore))
-	partnerID := id.NewIdFromUInts([4]uint64{prng.Uint64(), prng.Uint64(),
-		prng.Uint64(), prng.Uint64()}, id.User, t)
-
-	// Create new relationship
-	m := newManager(ctx, kv, partnerID, s.myPrivKey, s.partnerPubKey,
-		s.mySIDHPrivKey, s.partnerSIDHPubKey,
-		s.e2eParams,
-		s.e2eParams)
-
-	return m, kv
-}
-
-func managersEqual(expected, received *Manager, t *testing.T) bool {
-	equal := true
-	if !reflect.DeepEqual(expected.ctx, received.ctx) {
-		t.Errorf("Did not Receive expected Manager.ctx."+
-			"\n\texpected: %+v\n\treceived: %+v",
-			expected.ctx, received.ctx)
-		equal = false
-	}
-	if !reflect.DeepEqual(expected.kv, received.kv) {
-		t.Errorf("Did not Receive expected Manager.kv."+
-			"\n\texpected: %+v\n\treceived: %+v",
-			expected.kv, received.kv)
-		equal = false
-	}
-	if !expected.partner.Cmp(received.partner) {
-		t.Errorf("Did not Receive expected Manager.partner."+
-			"\n\texpected: %+v\n\treceived: %+v",
-			expected.partner, received.partner)
-		equal = false
-	}
-	if !relationshipsEqual(expected.receive, received.receive) {
-		t.Errorf("Did not Receive expected Manager.Receive."+
-			"\n\texpected: %+v\n\treceived: %+v",
-			expected.receive, received.receive)
-		equal = false
-	}
-	if !relationshipsEqual(expected.send, received.send) {
-		t.Errorf("Did not Receive expected Manager.Send."+
-			"\n\texpected: %+v\n\treceived: %+v",
-			expected.send, received.send)
-		equal = false
-	}
-
-	return equal
 }
 
 // Unit test of Manager.GetRelationshipFingerprint.

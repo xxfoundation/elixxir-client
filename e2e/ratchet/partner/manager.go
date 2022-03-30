@@ -178,11 +178,11 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int,
 	}
 
 	// Add the session to the buffer
-	session := m.receive.AddSession(source.GetMyPrivKey(), partnerPubKey, baseKey,
+	s := m.receive.AddSession(source.GetMyPrivKey(), partnerPubKey, baseKey,
 		source.GetMySIDHPrivKey(), partnerSIDHPubKey,
 		source.GetID(), session.Confirmed, e2eParams)
 
-	return session, false
+	return s, false
 }
 
 // NewSendSession creates a new Send session using the latest public key

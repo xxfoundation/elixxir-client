@@ -217,14 +217,11 @@ func TestManager_GetKeyForSending(t *testing.T) {
 func TestManager_GetKeyForSending_Error(t *testing.T) {
 	// Set up test values
 	m, _ := newTestManager(t)
-	thisSession := m.send.sessions[0]
-	m.send.Delete()
 
-	err := m.send.Confirm(thisSession.GetID())
-	if err != nil {
+	// Create a session that will never get popped
+	m.send.sessions[0], _ = session.CreateTestSession(5, 5, 5, t)
 
-	}
-
+	// Try to pop
 	key, err := m.PopSendCypher()
 	if err == nil {
 		t.Errorf("GetKeyForSending() did not produce an error for invalid SendType.")

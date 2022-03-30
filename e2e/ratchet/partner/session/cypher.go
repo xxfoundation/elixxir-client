@@ -86,45 +86,37 @@ func (k *Cypher) Fingerprint() format.Fingerprint {
 // the E2E key to encrypt msg to its intended recipient
 // It also properly populates the associated data, including the MAC, fingerprint,
 // and encrypted timestamp
-func (k *Cypher) Encrypt(msg format.Message) format.Message {
+func (k *Cypher) Encrypt(contents []byte) (ecrContents, mac []byte) {
 	fp := k.Fingerprint()
 	key := k.generateKey()
 
-	// set the fingerprint
-	msg.SetKeyFP(fp)
-
 	// encrypt the payload
-	encPayload := e2eCrypto.Crypt(key, fp, msg.GetContents())
-	msg.SetContents(encPayload)
+	ecrContents = e2eCrypto.Crypt(key, fp, contents)
 
 	// create the MAC
 	// MAC is HMAC(key, ciphertext)
 	// Currently, the MAC doesn't include any of the associated data
-	MAC := hash.CreateHMAC(encPayload, key[:])
-	msg.SetMac(MAC)
+	mac = hash.CreateHMAC(ecrContents, key[:])
 
-	return msg
+	return ecrContents, mac
 }
 
 // Decrypt uses the E2E key to decrypt the message
 // It returns an error in case of HMAC verification failure
 // or in case of a decryption error (related to padding)
-func (k *Cypher) Decrypt(msg format.Message) (format.Message, error) {
+func (k *Cypher) Decrypt(msg format.Message) ([]byte, error) {
 	fp := k.Fingerprint()
 	key := k.generateKey()
 
 	// Verify the MAC is correct
 	if !hash.VerifyHMAC(msg.GetContents(), msg.GetMac(), key[:]) {
-		return format.Message{}, errors.New("HMAC verification failed for E2E message")
+		return nil, errors.New("HMAC verification failed for E2E message")
 	}
 
 	// Decrypt the payload
 	decryptedPayload := e2eCrypto.Crypt(key, fp, msg.GetContents())
 
-	//put the decrypted payload back in the message
-	msg.SetContents(decryptedPayload)
-
-	return msg, nil
+	return decryptedPayload, nil
 }
 
 // Use sets the key as used. It cannot be used again.

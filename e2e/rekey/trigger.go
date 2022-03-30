@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package keyExchange
+package rekey
 
 import (
 	"fmt"

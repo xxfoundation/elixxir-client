@@ -19,7 +19,7 @@ func (p *processor) Process(ecrMsg format.Message, receptionID receptionID.Ephem
 	defer p.cy.Use()
 
 	//decrypt
-	msg, err := p.cy.Decrypt(ecrMsg)
+	contents, err := p.cy.Decrypt(ecrMsg)
 	if err != nil {
 		jww.ERROR.Printf("Decryption Failed of %s (fp: %s), dropping: %+v",
 			ecrMsg.Digest(), p.cy.Fingerprint(), err)
@@ -29,7 +29,7 @@ func (p *processor) Process(ecrMsg format.Message, receptionID receptionID.Ephem
 	//Parse
 	sess := p.cy.GetSession()
 	message, done := p.m.partitioner.HandlePartition(sess.GetPartner(),
-		msg.GetContents(), sess.GetRelationshipFingerprint())
+		contents, sess.GetRelationshipFingerprint())
 
 	if done {
 		message.RecipientID = receptionID.Source

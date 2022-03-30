@@ -137,6 +137,8 @@ func GetDefaultCMIXParams() CMIXParams {
 		RetryDelay:  1 * time.Second,
 		SendTimeout: 3 * time.Second,
 		DebugTag:    "External",
+		//unused single so components that require one have a channel to wait on
+		Stop: stoppable.NewSingle("cmixParamsDefault"),
 	}
 }
 

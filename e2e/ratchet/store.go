@@ -55,13 +55,12 @@ type Ratchet struct {
 	kv *versioned.KV
 }
 
-// NewRatchet creates a new store for the passed user id and private key.
+// New creates a new store for the passed user id and private key.
 // The store can then be accessed by calling LoadStore.
 // Does not create at a unique prefix, if multiple Ratchets are needed, make
 // sure to add a uint prefix to the KV before instantiation.
-func NewRatchet(kv *versioned.KV, privKey *cyclic.Int,
-	myID *id.ID, grp *cyclic.Group, cyHandler session.CypherHandler,
-	services Services, rng *fastRNG.StreamGenerator) error {
+func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
+	grp *cyclic.Group) error {
 
 	// Generate public key
 	pubKey := diffieHellman.GeneratePublicKey(privKey, grp)
@@ -79,10 +78,7 @@ func NewRatchet(kv *versioned.KV, privKey *cyclic.Int,
 
 		kv: kv,
 
-		cyHandler: cyHandler,
-		grp:       grp,
-		rng:       rng,
-		sInteface: services,
+		grp: grp,
 	}
 
 	err := util.StoreCyclicKey(kv, pubKey, pubKeyKey)
@@ -100,8 +96,8 @@ func NewRatchet(kv *versioned.KV, privKey *cyclic.Int,
 	return r.save()
 }
 
-// LoadRatchet loads an extant ratchet from disk
-func LoadRatchet(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
+// Load loads an extant ratchet from disk
+func Load(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
 	cyHandler session.CypherHandler, services Services, rng *fastRNG.StreamGenerator) (
 	*Ratchet, error) {
 	kv = kv.Prefix(packagePrefix)

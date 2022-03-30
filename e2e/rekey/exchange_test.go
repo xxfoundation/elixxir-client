@@ -5,38 +5,46 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package keyExchange
+package rekey
 
 import (
+	"fmt"
 	"github.com/cloudflare/circl/dh/sidh"
+	"github.com/golang/protobuf/proto"
 	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/storage"
 	util "gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/client/switchboard"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"google.golang.org/protobuf/proto"
 	"math/rand"
 	"testing"
 	"time"
 )
 
-// Smoke test for handleTrigger
-func TestHandleTrigger(t *testing.T) {
-	// Generate alice and bob's session
-	aliceSession, aliceManager, err := InitTestingContextGeneric(t)
-	if err != nil {
-		t.Fatalf("Failed to create alice session: %v", err)
-	}
-	bobSession, _, err := InitTestingContextGeneric(t)
-	if err != nil {
-		t.Fatalf("Failed to create bob session: %v", err)
-	}
-	// Pull the keys for Alice and Bob
+var exchangeAliceId, exchangeBobId *id.ID
+var aliceSession, bobSession *storage.Session
+var aliceSwitchboard, bobSwitchboard *switchboard.Switchboard
+var aliceManager, bobManager interfaces.NetworkManager
+
+func TestFullExchange(t *testing.T) {
+	// Initialzie alice's and bob's session, switchboard and network managers
+	aliceSession, aliceSwitchboard, aliceManager = InitTestingContextFullExchange(t)
+	bobSession, bobSwitchboard, bobManager = InitTestingContextFullExchange(t)
+
+	// Assign ID's to alice and bob
+	exchangeAliceId = id.NewIdFromBytes([]byte("1234"), t)
+	exchangeBobId = id.NewIdFromBytes([]byte("test"), t)
+
+	// Pull alice's and bob's keys for later use
 	alicePrivKey := aliceSession.E2e().GetDHPrivateKey()
+	alicePubKey := aliceSession.E2e().GetDHPublicKey()
+	bobPrivKey := bobSession.E2e().GetDHPrivateKey()
 	bobPubKey := bobSession.E2e().GetDHPublicKey()
 
 	// Generate bob's new keypair
@@ -65,72 +73,70 @@ func TestHandleTrigger(t *testing.T) {
 	newBobSIDHPubKeyBytes[0] = byte(bobVariant)
 	newBobSIDHPubKey.Export(newBobSIDHPubKeyBytes[1:])
 
-	// Maintain an ID for bob
-	bobID := id.NewIdFromBytes([]byte("test"), t)
-
-	// Add bob as a partner
-	aliceSession.E2e().AddPartner(bobID, bobSession.E2e().GetDHPublicKey(),
-		alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey,
+	// Add Alice and Bob as partners
+	aliceSession.E2e().AddPartner(exchangeBobId, bobPubKey, alicePrivKey,
+		bobSIDHPubKey, aliceSIDHPrivKey,
 		params.GetDefaultE2ESessionParams(),
 		params.GetDefaultE2ESessionParams())
+	bobSession.E2e().AddPartner(exchangeAliceId, alicePubKey, bobPrivKey,
+		aliceSIDHPubKey, bobSIDHPrivKey,
+		params.GetDefaultE2ESessionParams(),
+		params.GetDefaultE2ESessionParams())
+
+	// Start the listeners for alice and bob
+	rekeyParams := params.GetDefaultRekey()
+	rekeyParams.RoundTimeout = 1 * time.Second
+	Start(aliceSwitchboard, aliceSession, aliceManager, rekeyParams)
+	Start(bobSwitchboard, bobSession, bobManager, rekeyParams)
 
 	// Generate a session ID, bypassing some business logic here
 	oldSessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup,
 		aliceSIDHPrivKey, bobSIDHPubKey)
 
 	// Generate the message
-	rekey, _ := proto.Marshal(&RekeyTrigger{
+	rekeyTrigger, _ := proto.Marshal(&RekeyTrigger{
 		SessionID:     oldSessionID.Marshal(),
 		PublicKey:     newBobPubKey.Bytes(),
 		SidhPublicKey: newBobSIDHPubKeyBytes,
 	})
 
-	receiveMsg := message.Receive{
-		Payload:     rekey,
-		MessageType: message.NoType,
-		Sender:      bobID,
+	triggerMsg := message.Receive{
+		Payload:     rekeyTrigger,
+		MessageType: message.KeyExchangeTrigger,
+		Sender:      exchangeBobId,
 		Timestamp:   netTime.Now(),
 		Encryption:  message.E2E,
 	}
 
-	// Handle the trigger and check for an error
-	rekeyParams := params.GetDefaultRekey()
-	stop := stoppable.NewSingle("stoppable")
-	rekeyParams.RoundTimeout = 0 * time.Second
-	err = handleTrigger(aliceSession, aliceManager, receiveMsg, rekeyParams, stop)
-	if err != nil {
-		t.Errorf("Handle trigger error: %v", err)
-	}
-
 	// get Alice's manager for reception from Bob
-	receivedManager, err := aliceSession.E2e().GetPartner(bobID)
+	receivedManager, err := aliceSession.E2e().GetPartner(exchangeBobId)
 	if err != nil {
 		t.Errorf("Failed to get bob's manager: %v", err)
 	}
+
+	// Speak the message to Bob, triggers the SendE2E in utils_test
+	aliceSwitchboard.Speak(triggerMsg)
+
+	// Allow the test time to work it's goroutines
+	time.Sleep(1 * time.Second)
+
+	// get Alice's session for Bob
+	confirmedSession := receivedManager.GetSendSession(oldSessionID)
 
 	// Generate the new session ID based off of Bob's new keys
 	baseKey := session2.GenerateE2ESessionBaseKey(alicePrivKey, newBobPubKey,
 		genericGroup, aliceSIDHPrivKey, newBobSIDHPubKey)
 	newSessionID := session2.GetSessionIDFromBaseKeyForTesting(baseKey, t)
 
-	// Check that this new session ID is now in the manager
+	// Check that the Alice's session for Bob is in the proper status
 	newSession := receivedManager.GetReceiveSession(newSessionID)
-	if newSession == nil {
-		t.Errorf("Did not get expected session")
+	fmt.Printf("newSession: %v\n", newSession)
+	if newSession == nil || newSession.NegotiationStatus() != session2.Confirmed {
+		t.Errorf("Session not in confirmed status!"+
+			"\n\tExpected: Confirmed"+
+			"\n\tReceived: %s", confirmedSession.NegotiationStatus())
 	}
 
-	// Generate a keypair alice will not recognize
-	unknownPrivateKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, genericGroup, csprng.NewSystemRNG())
-	unknownPubliceKey := dh.GeneratePublicKey(unknownPrivateKey, genericGroup)
-
-	// Generate a new session ID based off of these unrecognized keys
-	badSessionID := session2.GetSessionIDFromBaseKeyForTesting(unknownPubliceKey, t)
-
-	// Check that this session with unrecognized keys is not valid
-	badSession := receivedManager.GetReceiveSession(badSessionID)
-	if badSession != nil {
-		t.Errorf("Alice found a session from an unknown keypair. "+
-			"\nSession: %v", badSession)
-	}
+	fmt.Printf("after status: %v\n", confirmedSession.NegotiationStatus())
 
 }

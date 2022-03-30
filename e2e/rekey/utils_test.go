@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package keyExchange
+package rekey
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"

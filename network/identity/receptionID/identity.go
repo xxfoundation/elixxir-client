@@ -81,10 +81,14 @@ func (i Identity) delete(kv *versioned.KV) error {
 	return kv.Delete(identityStorageKey, identityStorageVersion)
 }
 
+// String returns a string representations of the ephemeral ID and source ID of
+// the Identity. This function adheres to the fmt.Stringer interface.
 func (i Identity) String() string {
 	return strconv.FormatInt(i.EphId.Int64(), 16) + " " + i.Source.String()
 }
 
+// GoString returns a string representations of all the values in the Identity.
+// This function adheres to the fmt.GoStringer interface.
 func (i Identity) GoString() string {
 	str := []string{
 		"EphId:" + strconv.FormatInt(i.EphId.Int64(), 16),

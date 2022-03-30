@@ -87,7 +87,8 @@ func (p *handler) handleMessage(ecrMsg format.Message, bundle Bundle) bool {
 	} else {
 		// TODO: Delete this else block because it should not be needed.
 		jww.INFO.Printf("checking backup %v", identity.Source)
-		// //if it does not exist, check against the default fingerprint for the identity
+		// // If it does not exist, check against the default fingerprint for the
+		// // identity
 		// forMe = fingerprint2.CheckIdentityFP(ecrMsg.GetSIH(),
 		// 	ecrMsgContents, preimage.MakeDefault(identity.Source))
 	}

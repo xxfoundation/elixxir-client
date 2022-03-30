@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func TestIdentity_EncodeDecode(t *testing.T) {
+func TestIdentity_store_loadIdentity(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	r := Identity{
 		EphemeralIdentity: EphemeralIdentity{
@@ -42,7 +42,7 @@ func TestIdentity_EncodeDecode(t *testing.T) {
 	}
 }
 
-func TestIdentity_Delete(t *testing.T) {
+func TestIdentity_delete(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	r := Identity{
 		EphemeralIdentity: EphemeralIdentity{

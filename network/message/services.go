@@ -51,7 +51,7 @@ type service struct {
 }
 
 func NewServices() *ServicesManager {
-	// todo: implement me
+	// TODO: implement me
 	return &ServicesManager{
 		tmap: make(map[id.ID]map[sih.Preimage]service),
 	}
@@ -163,7 +163,8 @@ func (sm *ServicesManager) DeleteService(clientID *id.ID, toDelete Service,
 	if services.defaultList != nil && len(services.defaultList) > 1 {
 		for i, p := range services.defaultList {
 			if p == processor {
-				services.defaultList = append(services.defaultList[:i], services.defaultList[i+1:]...)
+				services.defaultList = append(
+					services.defaultList[:i], services.defaultList[i+1:]...)
 				idTmap[toDelete.preimage()] = services
 				return
 			}

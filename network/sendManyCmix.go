@@ -126,8 +126,9 @@ func sendManyCmixHelper(sender gateway.Sender,
 
 	recipientString, msgDigests := messageListToStrings(msgs)
 
-	jww.INFO.Printf("[SendManyCMIX-%s]Looking for round to send cMix messages to [%s] "+
-		"(msgDigest: %s)", param.DebugTag, recipientString, msgDigests)
+	jww.INFO.Printf("[SendManyCMIX-%s] Looking for round to send cMix "+
+		"messages to [%s] (msgDigest: %s)", param.DebugTag, recipientString,
+		msgDigests)
 
 	stream := rng.GetStream()
 	defer stream.Close()
@@ -142,15 +143,17 @@ func sendManyCmixHelper(sender gateway.Sender,
 		elapsed := netTime.Since(timeStart)
 
 		if elapsed > param.Timeout {
-			jww.INFO.Printf("[SendManyCMIX-%s]No rounds to send to %s (msgDigest: %s) were found "+
-				"before timeout %s", param.DebugTag, recipientString, msgDigests, param.Timeout)
+			jww.INFO.Printf("[SendManyCMIX-%s] No rounds to send to %s "+
+				"(msgDigest: %s) were found before timeout %s", param.DebugTag,
+				recipientString, msgDigests, param.Timeout)
 			return 0, []ephemeral.Id{},
 				errors.New("sending cMix message timed out")
 		}
 
 		if numRoundTries > 0 {
-			jww.INFO.Printf("[SendManyCMIX-%s]Attempt %d to find round to send message to %s "+
-				"(msgDigest: %s)", param.DebugTag, numRoundTries+1, recipientString, msgDigests)
+			jww.INFO.Printf("[SendManyCMIX-%s] Attempt %d to find round to "+
+				"send message to %s (msgDigest: %s)", param.DebugTag,
+				numRoundTries+1, recipientString, msgDigests)
 		}
 
 		remainingTime := param.Timeout - elapsed
@@ -176,8 +179,8 @@ func sendManyCmixHelper(sender gateway.Sender,
 			}
 		}
 		if containsBlacklisted {
-			jww.WARN.Printf("[SendManyCMIX-%s]Round %d contains blacklisted nodes, skipping...",
-				param.DebugTag, bestRound.ID)
+			jww.WARN.Printf("[SendManyCMIX-%s] Round %d contains blacklisted "+
+				"nodes, skipping...", param.DebugTag, bestRound.ID)
 			continue
 		}
 
@@ -185,9 +188,11 @@ func sendManyCmixHelper(sender gateway.Sender,
 		firstGateway, roundKeys, err := processRound(
 			registrar, bestRound, recipientString, msgDigests)
 		if err != nil {
-			jww.INFO.Printf("[SendManyCMIX-%s]error processing round: %v", param.DebugTag, err)
-			jww.WARN.Printf("[SendManyCMIX-%s]SendManyCMIX failed to process round %d "+
-				"(will retry): %+v", param.DebugTag, bestRound.ID, err)
+			jww.INFO.Printf("[SendManyCMIX-%s] Error processing round: %v",
+				param.DebugTag, err)
+			jww.WARN.Printf("[SendManyCMIX-%s] SendManyCMIX failed to "+
+				"process round %d (will retry): %+v", param.DebugTag,
+				bestRound.ID, err)
 			continue
 		}
 
@@ -195,14 +200,15 @@ func sendManyCmixHelper(sender gateway.Sender,
 		slots := make([]*pb.GatewaySlot, len(msgs))
 		encMsgs := make([]format.Message, len(msgs))
 		ephemeralIDs := make([]ephemeral.Id, len(msgs))
-		stream := rng.GetStream()
+		stream = rng.GetStream()
 		for i, msg := range msgs {
 			slots[i], encMsgs[i], ephemeralIDs[i], err = buildSlotMessage(
 				msg.Message, msg.Recipient, firstGateway, stream, senderId,
 				bestRound, roundKeys)
 			if err != nil {
 				stream.Close()
-				jww.INFO.Printf("[SendManyCMIX-%s]error building slot received: %v", param.DebugTag, err)
+				jww.INFO.Printf("[SendManyCMIX-%s] Error building slot "+
+					"received: %v", param.DebugTag, err)
 				return 0, []ephemeral.Id{}, errors.Errorf("failed to build "+
 					"slot message for %s: %+v", msg.Recipient, err)
 			}
@@ -258,13 +264,16 @@ func sendManyCmixHelper(sender gateway.Sender,
 		// If the comm errors or the message fails to send, continue retrying
 		if err != nil {
 			if !strings.Contains(err.Error(), unrecoverableError) {
-				jww.ERROR.Printf("[SendManyCMIX-%s]SendManyCMIX failed to send to EphIDs [%s] "+
-					"(sources: %s) on round %d, trying a new round %+v",
-					param.DebugTag, ephemeralIDsString, recipientString, bestRound.ID, err)
-				jww.INFO.Printf("[SendManyCMIX-%s]error received, continuing: %v", param.DebugTag, err)
+				jww.ERROR.Printf("[SendManyCMIX-%s] SendManyCMIX failed to "+
+					"send to EphIDs [%s] (sources: %s) on round %d, trying "+
+					"a new round %+v", param.DebugTag, ephemeralIDsString,
+					recipientString, bestRound.ID, err)
+				jww.INFO.Printf("[SendManyCMIX-%s] Error received, "+
+					"continuing: %v", param.DebugTag, err)
 				continue
 			} else {
-				jww.INFO.Printf("[SendManyCMIX-%s]Error received: %v", param.DebugTag, err)
+				jww.INFO.Printf("[SendManyCMIX-%s] Error received: %v",
+					param.DebugTag, err)
 			}
 			return 0, []ephemeral.Id{}, err
 		}
@@ -272,15 +281,18 @@ func sendManyCmixHelper(sender gateway.Sender,
 		// Return if it sends properly
 		gwSlotResp := result.(*pb.GatewaySlotResponse)
 		if gwSlotResp.Accepted {
-			m := fmt.Sprintf("[SendManyCMIX-%s]Successfully sent to EphIDs %s (sources: [%s]) "+
-				"in round %d (msgDigest: %s)", param.DebugTag, ephemeralIDsString, recipientString, bestRound.ID, msgDigests)
+			m := fmt.Sprintf("[SendManyCMIX-%s] Successfully sent to EphIDs "+
+				"%s (sources: [%s]) in round %d (msgDigest: %s)",
+				param.DebugTag, ephemeralIDsString, recipientString,
+				bestRound.ID, msgDigests)
 			jww.INFO.Print(m)
 			events.Report(1, "MessageSendMany", "Metric", m)
 			return id.Round(bestRound.ID), ephemeralIDs, nil
 		} else {
-			jww.FATAL.Panicf("[SendManyCMIX-%s]Gateway %s returned no error, but failed to "+
-				"accept message when sending to EphIDs [%s] (%s) on round %d", param.DebugTag,
-				firstGateway, ephemeralIDsString, recipientString, bestRound.ID)
+			jww.FATAL.Panicf("[SendManyCMIX-%s] Gateway %s returned no "+
+				"error, but failed to accept message when sending to EphIDs "+
+				"[%s] (%s) on round %d", param.DebugTag, firstGateway,
+				ephemeralIDsString, recipientString, bestRound.ID)
 		}
 	}
 

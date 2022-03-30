@@ -8,6 +8,7 @@
 package historical
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -38,10 +39,12 @@ func TestHistoricalRounds(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to look up historical round: %+v", err)
 	}
-	time.Sleep(501 * time.Millisecond)
+	time.Sleep(750 * time.Millisecond)
 
-	if sender.sendCnt != 1 {
-		t.Errorf("Did not send as expected")
+	sendCnt := sender.getSendCnt()
+	if sendCnt != 1 {
+		t.Errorf("Did not send as expected.\nexpected: %d\nreceived: %d",
+			1, sendCnt)
 	}
 
 	// Case 2: make round requests up to m.params.MaxHistoricalRounds
@@ -56,9 +59,9 @@ func TestHistoricalRounds(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	if sender.sendCnt != 2 {
+	if sender.getSendCnt() != 2 {
 		t.Errorf("Unexpected send count.\nexpected: %d\nreceived: %d",
-			2, sender.sendCnt)
+			2, sender.getSendCnt())
 	}
 
 	err = stopper.Close()
@@ -70,7 +73,7 @@ func TestHistoricalRounds(t *testing.T) {
 	}
 }
 
-func TestProcessHistoricalRoundsResponse(t *testing.T) {
+func Test_processHistoricalRoundsResponse(t *testing.T) {
 	params := GetDefaultParams()
 	badRR := roundRequest{
 		rid: id.Round(41),
@@ -91,9 +94,12 @@ func TestProcessHistoricalRoundsResponse(t *testing.T) {
 	}
 	x := false
 	callbackCalled := &x
+	var callbackCalledMux sync.Mutex
 	goodRR := roundRequest{
 		rid: id.Round(43),
 		RoundResultCallback: func(info *pb.RoundInfo, success bool) {
+			callbackCalledMux.Lock()
+			defer callbackCalledMux.Unlock()
 			*callbackCalled = true
 		},
 		numAttempts: 0,
@@ -120,9 +126,11 @@ func TestProcessHistoricalRoundsResponse(t *testing.T) {
 
 	time.Sleep(5 * time.Millisecond)
 
+	callbackCalledMux.Lock()
 	if !*callbackCalled {
 		t.Errorf("expected callback to be called")
 	}
+	callbackCalledMux.Unlock()
 }
 
 // Test structure implementations.
@@ -138,6 +146,13 @@ func (t *testRoundsComms) RequestHistoricalRounds(*connect.Host,
 
 type testGWSender struct {
 	sendCnt int
+	sync.RWMutex
+}
+
+func (t *testGWSender) getSendCnt() int {
+	t.RLock()
+	defer t.RUnlock()
+	return t.sendCnt
 }
 
 func (t *testGWSender) SendToAny(func(host *connect.Host) (interface{}, error),
@@ -146,7 +161,9 @@ func (t *testGWSender) SendToAny(func(host *connect.Host) (interface{}, error),
 	infos := make([]*pb.RoundInfo, 1)
 	infos[0] = nil
 	m := &pb.HistoricalRoundsResponse{Rounds: infos}
+	t.Lock()
 	t.sendCnt += 1
+	t.Unlock()
 
 	return m, nil
 }

@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-// Happy path
+// Happy path.
 func TestUncheckedRoundScheduler(t *testing.T) {
 	// General initializations
 	connect.TestingOnlyDisableTLS = true
@@ -64,7 +64,8 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 	}
 
 	// Add round to check
-	err := testManager.unchecked.AddRound(roundId, roundInfo, requestGateway, expectedEphID)
+	err := testManager.unchecked.AddRound(
+		roundId, roundInfo, requestGateway, expectedEphID)
 	if err != nil {
 		t.Fatalf("Could not add round to session: %v", err)
 	}
@@ -85,9 +86,7 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 	}
 
 	if testBundle.Identity.EphId.Int64() != expectedEphID.Int64() {
-		t.Errorf("Unexpected address ID in bundle."+
-			"\n\tExpected: %v"+
-			"\n\tReceived: %v", expectedEphID, testBundle.Identity.EphId)
+		t.Errorf("Unexpected address ID in bundle.\nexpected: %v\nreceived: %v",
+			expectedEphID, testBundle.Identity.EphId)
 	}
-
 }

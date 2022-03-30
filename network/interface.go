@@ -215,7 +215,8 @@ type Manager interface {
 	   externally as well. */
 
 	// LookupHistoricalRound looks up the passed historical round on the network.
-	LookupHistoricalRound(rid id.Round, callback historical.RoundResultCallback) error
+	LookupHistoricalRound(
+		rid id.Round, callback historical.RoundResultCallback) error
 
 	/* === Sender =========================================================== */
 	/* The sender handles sending comms to the network. It tracks connections to

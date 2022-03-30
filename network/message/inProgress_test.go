@@ -21,9 +21,9 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func Test_pickup_CheckInProgressMessages(t *testing.T) {
+func TestHandler_CheckInProgressMessages(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	p := NewHandler(Params{
+	h := NewHandler(Params{
 		MessageReceptionBuffLen:        20,
 		MessageReceptionWorkerPoolSize: 20,
 		MaxChecksInProcessMessage:      20,
@@ -34,23 +34,23 @@ func Test_pickup_CheckInProgressMessages(t *testing.T) {
 	cid := id.NewIdFromString("clientID", id.User, t)
 	fp := format.NewFingerprint([]byte("test"))
 	mp := NewMockMsgProcessor(t)
-	err := p.AddFingerprint(cid, fp, mp)
+	err := h.AddFingerprint(cid, fp, mp)
 	if err != nil {
 		t.Errorf("Failed to add fingerprint: %+v", err)
 	}
-	p.inProcess.Add(msg,
+	h.inProcess.Add(msg,
 		&pb.RoundInfo{ID: 1, Timestamps: []uint64{0, 1, 2, 3}},
 		receptionID.EphemeralIdentity{Source: cid})
 
 	stop := stoppable.NewSingle("stop")
-	go p.recheckInProgressRunner(stop)
+	go h.recheckInProgressRunner(stop)
 
-	p.CheckInProgressMessages()
+	h.CheckInProgressMessages()
 
 	select {
 	case <-time.After(1000 * time.Millisecond):
 		t.Error("Didn't hear anything")
-	case <-p.messageReception:
+	case <-h.messageReception:
 		t.Log("Heard something")
 	}
 

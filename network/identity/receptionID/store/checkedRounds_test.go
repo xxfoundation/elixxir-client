@@ -11,13 +11,14 @@ import (
 	"testing"
 )
 
-// Happy path.
-func Test_newCheckedRounds(t *testing.T) {
+// Happy path of NewCheckedRounds.
+func TestNewCheckedRounds(t *testing.T) {
 	maxRounds := 230
 	kv := versioned.NewKV(make(ekv.Memstore))
 
 	// Create a new BlockStore for storing the round IDs to storage
-	store, err := utility.NewBlockStore(itemsPerBlock, maxRounds/itemsPerBlock+1, kv)
+	store, err := utility.NewBlockStore(
+		itemsPerBlock, maxRounds/itemsPerBlock+1, kv)
 	if err != nil {
 		t.Errorf("Failed to create new BlockStore: %+v", err)
 	}
@@ -32,11 +33,11 @@ func Test_newCheckedRounds(t *testing.T) {
 
 	received, err := NewCheckedRounds(maxRounds, kv)
 	if err != nil {
-		t.Errorf("NewCheckedRounds() returned an error: %+v", err)
+		t.Errorf("NewCheckedRounds returned an error: %+v", err)
 	}
 
 	if !reflect.DeepEqual(expected, received) {
-		t.Errorf("NewCheckedRounds() did not return the exepcted CheckedRounds."+
+		t.Errorf("NewCheckedRounds did not return the exepcted CheckedRounds."+
 			"\nexpected: %+v\nreceived: %+v", expected, received)
 	}
 }
@@ -48,7 +49,7 @@ func TestCheckedRounds_SaveCheckedRounds_TestLoadCheckedRounds(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	cr, err := NewCheckedRounds(50, kv)
 	if err != nil {
-		t.Errorf("failed to make new CheckedRounds: %+v", err)
+		t.Errorf("Failed to make new CheckedRounds: %+v", err)
 	}
 	for i := id.Round(0); i < 100; i++ {
 		cr.Check(i)
@@ -56,14 +57,14 @@ func TestCheckedRounds_SaveCheckedRounds_TestLoadCheckedRounds(t *testing.T) {
 
 	err = cr.SaveCheckedRounds()
 	if err != nil {
-		t.Errorf("SaveCheckedRounds() returned an error: %+v", err)
+		t.Errorf("SaveCheckedRounds returned an error: %+v", err)
 	}
 
 	cr.Prune()
 
 	newCR, err := LoadCheckedRounds(50, kv)
 	if err != nil {
-		t.Errorf("LoadCheckedRounds() returned an error: %+v", err)
+		t.Errorf("LoadCheckedRounds returned an error: %+v", err)
 	}
 
 	if !reflect.DeepEqual(cr, newCR) {
@@ -83,39 +84,40 @@ func TestCheckedRounds_Next(t *testing.T) {
 	for i := id.Round(0); i < 10; i++ {
 		round, exists := cr.Next()
 		if !exists {
-			t.Error("Next() returned false when there should be more IDs.")
+			t.Error("Next returned false when there should be more IDs.")
 		}
 
 		rounds[i] = round
 	}
 	round, exists := cr.Next()
 	if exists {
-		t.Errorf("Next() returned true when the list should be empty: %d", round)
+		t.Errorf("Next returned true when the list should be empty: %d", round)
 	}
 
 	testCR := newCheckedRounds(100, nil)
 	testCR.unmarshal(rounds)
 
 	if !reflect.DeepEqual(cr, testCR) {
-		t.Errorf("unmarshal() did not return the expected CheckedRounds."+
+		t.Errorf("unmarshal did not return the expected CheckedRounds."+
 			"\nexpected: %+v\nreceived: %+v", cr, testCR)
 	}
 }
 
 // Happy path.
-func Test_checkedRounds_Check(t *testing.T) {
+func Test_CheckedRounds_Check(t *testing.T) {
 	cr := newCheckedRounds(100, nil)
 	var expected []id.Round
 	for i := id.Round(1); i < 11; i++ {
 		if i%2 == 0 {
 			if !cr.Check(i) {
-				t.Errorf("Check() returned false when the round ID should have been added (%d).", i)
+				t.Errorf("Check returned false when the round ID should have "+
+					"been added (%d).", i)
 			}
 
 			val := cr.l.Back().Value.(id.Round)
 			if val != i {
-				t.Errorf("Check() did not add the round ID to the back of the list."+
-					"\nexpected: %d\nreceived: %d", i, val)
+				t.Errorf("Check did not add the round ID to the back of "+
+					"the list.\nexpected: %d\nreceived: %d", i, val)
 			}
 			expected = append(expected, i)
 		}
@@ -130,10 +132,12 @@ func Test_checkedRounds_Check(t *testing.T) {
 		result := cr.Check(i)
 		if i%2 == 0 {
 			if result {
-				t.Errorf("Check() returned true when the round ID should not have been added (%d).", i)
+				t.Errorf("Check returned true when the round ID should not "+
+					"have been added (%d).", i)
 			}
 		} else if !result {
-			t.Errorf("Check() returned false when the round ID should have been added (%d).", i)
+			t.Errorf("Check returned false when the round ID should have "+
+				"been added (%d).", i)
 		} else {
 			expected = append(expected, i)
 		}
@@ -156,16 +160,16 @@ func TestCheckedRounds_IsChecked(t *testing.T) {
 	for i := id.Round(0); i < 100; i++ {
 		if i%2 == 0 {
 			if !cr.IsChecked(i) {
-				t.Errorf("IsChecked() falsly reported round ID %d as not checked.", i)
+				t.Errorf("IsChecked falsly reported round ID %d as not checked.", i)
 			}
 		} else if cr.IsChecked(i) {
-			t.Errorf("IsChecked() falsly reported round ID %d as checked.", i)
+			t.Errorf("IsChecked falsly reported round ID %d as checked.", i)
 		}
 	}
 }
 
 // Happy path.
-func Test_checkedRounds_Prune(t *testing.T) {
+func TestCheckedRounds_Prune(t *testing.T) {
 	cr := newCheckedRounds(5, nil)
 	for i := id.Round(0); i < 10; i++ {
 		cr.Check(i)
@@ -174,14 +178,15 @@ func Test_checkedRounds_Prune(t *testing.T) {
 	cr.Prune()
 
 	if len(cr.m) != 5 || cr.l.Len() != 5 {
-		t.Errorf("Prune() did not remove the correct number of round IDs."+
+		t.Errorf("Prune did not remove the correct number of round IDs."+
 			"\nexpected: %d\nmap:      %d\nlist:     %d", 5,
 			len(cr.m), cr.l.Len())
 	}
 }
 
-// Happy path: length of the list is not too long and does not need to be pruned.
-func Test_checkedRounds_Prune_NoChange(t *testing.T) {
+// Happy path: length of the list is not too long and does not need to be
+// pruned.
+func TestCheckedRounds_Prune_NoChange(t *testing.T) {
 	cr := newCheckedRounds(100, nil)
 	for i := id.Round(0); i < 10; i++ {
 		cr.Check(i)
@@ -190,7 +195,7 @@ func Test_checkedRounds_Prune_NoChange(t *testing.T) {
 	cr.Prune()
 
 	if len(cr.m) != 10 || cr.l.Len() != 10 {
-		t.Errorf("Prune() did not remove the correct number of round IDs."+
+		t.Errorf("Prune did not remove the correct number of round IDs."+
 			"\nexpected: %d\nmap:      %d\nlist:     %d", 5,
 			len(cr.m), cr.l.Len())
 	}
@@ -211,7 +216,7 @@ func TestCheckedRounds_unmarshal(t *testing.T) {
 	cr.unmarshal(rounds)
 
 	if !reflect.DeepEqual(expected, cr) {
-		t.Errorf("unmarshal() did not return the expected CheckedRounds."+
+		t.Errorf("unmarshal did not return the expected CheckedRounds."+
 			"\nexpected: %+v\nreceived: %+v", expected, cr)
 	}
 }

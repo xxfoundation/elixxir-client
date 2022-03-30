@@ -8,7 +8,6 @@
 package gateway
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -144,15 +143,18 @@ func getTestNdf(face interface{}) *ndf.NetworkDefinition {
 
 const happyPathReturn = "happyPathReturn"
 
-func SendToPreferredHappyPath(*connect.Host, *id.ID, time.Duration) (interface{}, error) {
+func SendToPreferredHappyPath(*connect.Host, *id.ID, time.Duration) (
+	interface{}, error) {
 	return happyPathReturn, nil
 }
 
-func SendToPreferredKnownError(*connect.Host, *id.ID, time.Duration) (interface{}, error) {
+func SendToPreferredKnownError(*connect.Host, *id.ID, time.Duration) (
+	interface{}, error) {
 	return nil, errors.Errorf(errorsList[0])
 }
 
-func SendToPreferredUnknownError(*connect.Host, *id.ID, time.Duration) (interface{}, error) {
+func SendToPreferredUnknownError(*connect.Host, *id.ID, time.Duration) (
+	interface{}, error) {
 	return nil, errors.Errorf("Unexpected error: Oopsie")
 }
 
@@ -161,17 +163,19 @@ func SendToAnyHappyPath(*connect.Host) (interface{}, error) {
 }
 
 func SendToAnyKnownError(*connect.Host) (interface{}, error) {
-	return nil, fmt.Errorf(errorsList[0])
+	return nil, errors.Errorf(errorsList[0])
 }
 
 func SendToAnyUnknownError(*connect.Host) (interface{}, error) {
 	return nil, errors.Errorf("Unexpected error: Oopsie")
 }
 
-func SendToSpecificHappyPath(_ *connect.Host, _ *id.ID) (interface{}, bool, error) {
+func SendToSpecificHappyPath(_ *connect.Host, _ *id.ID) (
+	interface{}, bool, error) {
 	return happyPathReturn, false, nil
 }
 
-func SendToSpecificAbort(_ *connect.Host, _ *id.ID) (interface{}, bool, error) {
-	return nil, true, fmt.Errorf(errorsList[0])
+func SendToSpecificAbort(_ *connect.Host, _ *id.ID) (
+	interface{}, bool, error) {
+	return nil, true, errors.Errorf(errorsList[0])
 }

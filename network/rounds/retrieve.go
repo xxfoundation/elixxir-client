@@ -20,6 +20,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"time"
 )
 
@@ -161,9 +162,9 @@ func (m *manager) processMessageRetrieval(comms MessageRetrievalComms,
 // getMessagesFromGateway attempts to get messages from their assigned gateway
 // host in the round specified. If successful
 func (m *manager) getMessagesFromGateway(roundID id.Round,
-	identity receptionID.EphemeralIdentity, comms MessageRetrievalComms, gwIds []*id.ID,
-	stop *stoppable.Single) (message.Bundle, error) {
-	start := time.Now()
+	identity receptionID.EphemeralIdentity, comms MessageRetrievalComms,
+	gwIds []*id.ID, stop *stoppable.Single) (message.Bundle, error) {
+	start := netTime.Now()
 	// Send to the gateways using backup proxies
 	result, err := m.sender.SendToPreferred(gwIds,
 		func(host *connect.Host, target *id.ID, _ time.Duration) (interface{}, error) {
@@ -225,7 +226,7 @@ func (m *manager) getMessagesFromGateway(roundID id.Round,
 
 	jww.INFO.Printf("Received %d messages in Round %d for %d (%s) in %s",
 		len(msgs), roundID, identity.EphId.Int64(), identity.Source,
-		time.Now().Sub(start))
+		netTime.Now().Sub(start))
 
 	// Build the bundle of messages to send to the message processor
 	bundle := message.Bundle{

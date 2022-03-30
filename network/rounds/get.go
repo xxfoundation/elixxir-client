@@ -14,7 +14,8 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-func (m *manager) GetMessagesFromRound(roundID id.Round, identity receptionID.EphemeralIdentity) {
+func (m *manager) GetMessagesFromRound(
+	roundID id.Round, identity receptionID.EphemeralIdentity) {
 	// Get the round from the in-RAM store
 	ri, err := m.instance.GetRound(roundID)
 
@@ -42,8 +43,9 @@ func (m *manager) GetMessagesFromRound(roundID id.Round, identity receptionID.Ep
 		err = m.historical.LookupHistoricalRound(
 			roundID, func(info *pb.RoundInfo, success bool) {
 				if !success {
-					// TODO: implement me
+					// TODO: Implement me
 				}
+
 				// If found, send to Message Retrieval Workers
 				m.lookupRoundMessages <- roundLookup{
 					RoundInfo: info,

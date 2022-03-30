@@ -8,7 +8,7 @@
 package gateway
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/network"
@@ -29,7 +29,7 @@ func TestMain(m *testing.M) {
 }
 
 // Unit test
-func TestNewHostPool(t *testing.T) {
+func Test_newHostPool(t *testing.T) {
 	manager := newMockManager()
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
@@ -38,18 +38,17 @@ func TestNewHostPool(t *testing.T) {
 	params := DefaultPoolParams()
 	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
-	// Pull all gateways from ndf into host manager
+	// Pull all gateways from NDF into host manager
 	for _, gw := range testNdf.Gateways {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Errorf("Failed to unmarshal ID in mock NDF: %+v", err)
 		}
 		// Add mock gateway to manager
 		_, err = manager.AddHost(gwId, "", nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Errorf("Could not add mock host to manager: %v", err)
-			t.FailNow()
+			t.Fatalf("Could not add mock host to manager: %+v", err)
 		}
 
 	}
@@ -63,7 +62,7 @@ func TestNewHostPool(t *testing.T) {
 }
 
 // Tests that the hosts are loaded from storage, if they exist.
-func TestNewHostPool_HostListStore(t *testing.T) {
+func Test_newHostPool_HostListStore(t *testing.T) {
 	manager := newMockManager()
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
@@ -105,7 +104,7 @@ func TestNewHostPool_HostListStore(t *testing.T) {
 	}
 }
 
-// Unit test
+// Unit test.
 func TestHostPool_ManageHostPool(t *testing.T) {
 	manager := newMockManager()
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
@@ -117,30 +116,30 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 	params := DefaultPoolParams()
 	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
-	// Pull all gateways from ndf into host manager
+	// Pull all gateways from NDF into host manager
 	for _, gw := range testNdf.Gateways {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Errorf("Failed to unmarshal ID in mock NDF: %+v", err)
 		}
 		// Add mock gateway to manager
-		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
+		_, err = manager.AddHost(
+			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Errorf("Could not add mock host to manager: %v", err)
-			t.FailNow()
+			t.Fatalf("Could not add mock host to manager: %+v", err)
 		}
 
 	}
 
 	// Call the constructor
-	testPool, err := newHostPool(params, rng, testNdf, manager,
-		testStorage, addGwChan)
+	testPool, err := newHostPool(
+		params, rng, testNdf, manager, testStorage, addGwChan)
 	if err != nil {
-		t.Fatalf("Failed to create mock host pool: %v", err)
+		t.Fatalf("Failed to create mock host pool: %+v", err)
 	}
 
-	// Construct a list of new gateways/nodes to add to ndf
+	// Construct a list of new gateways/nodes to add to the NDF
 	newGatewayLen := len(testNdf.Gateways)
 	newGateways := make([]ndf.Gateway, newGatewayLen)
 	newNodes := make([]ndf.Node, newGatewayLen)
@@ -148,15 +147,15 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 		// Construct gateways
 		gwId := id.NewIdFromUInt(uint64(100+i), id.Gateway, t)
 		newGateways[i] = ndf.Gateway{ID: gwId.Bytes()}
+
 		// Construct nodes
 		nodeId := gwId.DeepCopy()
 		nodeId.SetType(id.Node)
 		newNodes[i] = ndf.Node{ID: nodeId.Bytes(), Status: ndf.Active}
-
 	}
 
+	// Update the NDF, removing some gateways at a cutoff
 	newNdf := getTestNdf(t)
-	// Update the ndf, removing some gateways at a cutoff
 	newNdf.Gateways = newGateways
 	newNdf.Nodes = newNodes
 
@@ -174,8 +173,8 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 	}
 }
 
-// Full happy path test
-func TestHostPool_ReplaceHost(t *testing.T) {
+// Full happy path test.
+func TestHostPool_replaceHost(t *testing.T) {
 	manager := newMockManager()
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
@@ -193,10 +192,10 @@ func TestHostPool_ReplaceHost(t *testing.T) {
 
 	/* "Replace" a host with no entry */
 
-	// Pull a gateway ID from the ndf
+	// Pull a gateway ID from the NDF
 	gwIdOne, err := id.Unmarshal(testNdf.Gateways[0].ID)
 	if err != nil {
-		t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+		t.Errorf("Failed to unmarshal ID in mock NDF: %+v", err)
 	}
 
 	// Add mock gateway to manager
@@ -231,10 +230,10 @@ func TestHostPool_ReplaceHost(t *testing.T) {
 
 	/* Replace the initial host with a new host */
 
-	// Pull a different gateway ID from the ndf
+	// Pull a different gateway ID from the NDF
 	gwIdTwo, err := id.Unmarshal(testNdf.Gateways[1].ID)
 	if err != nil {
-		t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+		t.Errorf("Failed to unmarshal ID in mock NDF: %+v", err)
 	}
 
 	// Add second mock gateway to manager
@@ -295,7 +294,7 @@ func TestHostPool_ReplaceHost(t *testing.T) {
 }
 
 // Error path, could not get host
-func TestHostPool_ReplaceHost_Error(t *testing.T) {
+func TestHostPool_replaceHost_Error(t *testing.T) {
 	manager := newMockManager()
 
 	// Construct a manager (bypass business logic in constructor)
@@ -338,18 +337,18 @@ func TestHostPool_ForceReplace(t *testing.T) {
 	testNdf.Gateways = append(testNdf.Gateways, newGateway)
 	testNdf.Nodes = append(testNdf.Nodes, newNode)
 
-	// Pull all gateways from ndf into host manager
+	// Pull all gateways from NDF into host manager
 	for _, gw := range testNdf.Gateways {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Errorf("Failed to unmarshal ID in mock NDF: %+v", err)
 		}
 		// Add mock gateway to manager
-		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
+		_, err = manager.AddHost(
+			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Errorf("Could not add mock host to manager: %v", err)
-			t.FailNow()
+			t.Fatalf("Could not add mock host to manager: %+v", err)
 		}
 
 	}
@@ -366,19 +365,19 @@ func TestHostPool_ForceReplace(t *testing.T) {
 		gw := testNdf.Gateways[i]
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Fatalf("Failed to unmarshal ID in mock NDF: %+v", err)
 		}
 
 		err = testPool.replaceHost(gwId, i)
 		if err != nil {
-			t.Fatalf("Failed to replace host in set-up: %v", err)
+			t.Fatalf("Failed to replace host in set-up: %+v", err)
 		}
 	}
 
 	oldGatewayIndex := 0
 	oldHost := testPool.hostList[oldGatewayIndex]
 
-	// Force replace the gateway at a given index
+	// Force the replacement of the gateway at a given index
 	err = testPool.replaceHost(testPool.selectGateway(), uint32(oldGatewayIndex))
 	if err != nil {
 		t.Errorf("Failed to force replace: %v", err)
@@ -396,8 +395,8 @@ func TestHostPool_ForceReplace(t *testing.T) {
 
 }
 
-// Unit test
-func TestHostPool_CheckReplace(t *testing.T) {
+// Unit test.
+func TestHostPool_checkReplace(t *testing.T) {
 	manager := newMockManager()
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
@@ -408,58 +407,58 @@ func TestHostPool_CheckReplace(t *testing.T) {
 	params := DefaultPoolParams()
 	params.MaxPoolSize = uint32(len(testNdf.Gateways)) - 5
 
-	// Pull all gateways from ndf into host manager
+	// Pull all gateways from NDF into host manager
 	for _, gw := range testNdf.Gateways {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
-		}
-		// Add mock gateway to manager
-		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
-		if err != nil {
-			t.Errorf("Could not add mock host to manager: %v", err)
-			t.FailNow()
+			t.Errorf("Failed to unmarshal ID in mock NDF: %+v", err)
 		}
 
+		// Add mock gateway to manager
+		_, err = manager.AddHost(
+			gwId, gw.Address, nil, connect.GetDefaultHostParams())
+		if err != nil {
+			t.Fatalf("Could not add mock host to manager: %+v", err)
+		}
 	}
 
 	// Call the constructor
-	testPool, err := newHostPool(params, rng, testNdf, manager,
-		testStorage, addGwChan)
+	testPool, err := newHostPool(
+		params, rng, testNdf, manager, testStorage, addGwChan)
 	if err != nil {
-		t.Fatalf("Failed to create mock host pool: %v", err)
+		t.Fatalf("Failed to create mock host pool: %+v", err)
 	}
 
 	// Call check replace
 	oldGatewayIndex := 0
 	oldHost := testPool.hostList[oldGatewayIndex]
-	expectedError := fmt.Errorf(errorsList[0])
+	expectedError := errors.Errorf(errorsList[0])
 	wasReplaced, err := testPool.checkReplace(oldHost.GetId(), expectedError)
 	if err != nil {
-		t.Errorf("Failed to check replace: %v", err)
+		t.Errorf("Failed to check replace: %+v", err)
 	}
 	if !wasReplaced {
-		t.Errorf("Expected to replace")
+		t.Error("Expected to replace.")
 	}
 
 	// Ensure that old gateway has been removed from the map
 	if _, ok := testPool.hostMap[*oldHost.GetId()]; ok {
-		t.Errorf("Expected old host to be removed from map")
+		t.Error("Expected old host to be removed from map.")
 	}
 
 	// Ensure we are disconnected from the old host
 	if isConnected, _ := oldHost.Connected(); isConnected {
-		t.Errorf("Failed to disconnect from old host %s", oldHost)
+		t.Errorf("Failed to disconnect from old host %s.", oldHost)
 	}
 
 	// Check that an error not in the global list results in a no-op
 	goodGatewayIndex := 0
 	goodGateway := testPool.hostList[goodGatewayIndex]
-	unexpectedErr := fmt.Errorf("not in global error list")
+	unexpectedErr := errors.Errorf("not in global error list")
 	wasReplaced, err = testPool.checkReplace(oldHost.GetId(), unexpectedErr)
 	if err != nil {
-		t.Errorf("Failed to check replace: %v", err)
+		t.Errorf("Failed to check replace: %+v", err)
 	}
 	if wasReplaced {
 		t.Errorf("Expected not to replace")
@@ -477,7 +476,7 @@ func TestHostPool_CheckReplace(t *testing.T) {
 
 }
 
-// Unit test
+// Unit test.
 func TestHostPool_UpdateNdf(t *testing.T) {
 	manager := newMockManager()
 	testNdf := getTestNdf(t)
@@ -512,14 +511,15 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 	// Update pool with the new Ndf
 	hostPool.UpdateNdf(newNdf)
 
-	// Check that the host pool's ndf has been modified properly
-	if len(newNdf.Nodes) != len(hostPool.ndf.Nodes) || len(newNdf.Gateways) != len(hostPool.ndf.Gateways) {
-		t.Errorf("Host pool ndf not updated to new ndf.")
+	// Check that the host pool's NDF has been modified properly
+	if len(newNdf.Nodes) != len(hostPool.ndf.Nodes) ||
+		len(newNdf.Gateways) != len(hostPool.ndf.Gateways) {
+		t.Errorf("Host pool NDF not updated to new NDF.")
 	}
 }
 
 // Full test
-func TestHostPool_GetPreferred(t *testing.T) {
+func TestHostPool_getPreferred(t *testing.T) {
 	manager := newMockManager()
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
@@ -528,19 +528,20 @@ func TestHostPool_GetPreferred(t *testing.T) {
 	params := DefaultPoolParams()
 	params.PoolSize = uint32(len(testNdf.Gateways))
 
-	// Pull all gateways from ndf into host manager
+	// Pull all gateways from NDF into host manager
 	hostMap := make(map[id.ID]bool, 0)
 	targets := make([]*id.ID, 0)
 	for _, gw := range testNdf.Gateways {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Fatalf("Failed to unmarshal ID in mock NDF: %+v", err)
 		}
 		// Add mock gateway to manager
-		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
+		_, err = manager.AddHost(
+			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %v", err)
+			t.Fatalf("Could not add mock host to manager: %+v", err)
 		}
 
 		hostMap[*gwId] = true
@@ -589,8 +590,8 @@ func TestHostPool_GetPreferred(t *testing.T) {
 
 }
 
-// Unit test
-func TestHostPool_GetAny(t *testing.T) {
+// Unit test.
+func TestHostPool_getAny(t *testing.T) {
 	manager := newMockManager()
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
@@ -599,17 +600,18 @@ func TestHostPool_GetAny(t *testing.T) {
 	params := DefaultPoolParams()
 	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
-	// Pull all gateways from ndf into host manager
+	// Pull all gateways from NDF into host manager
 	for _, gw := range testNdf.Gateways {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Fatalf("Failed to unmarshal ID in mock NDF: %+v", err)
 		}
 		// Add mock gateway to manager
-		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
+		_, err = manager.AddHost(
+			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %v", err)
+			t.Fatalf("Could not add mock host to manager: %+v", err)
 		}
 
 	}
@@ -646,7 +648,7 @@ func TestHostPool_GetAny(t *testing.T) {
 }
 
 // Unit test
-func TestHostPool_ForceAdd(t *testing.T) {
+func TestHostPool_forceAdd(t *testing.T) {
 	manager := newMockManager()
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
@@ -655,17 +657,18 @@ func TestHostPool_ForceAdd(t *testing.T) {
 	params := DefaultPoolParams()
 	params.PoolSize = uint32(len(testNdf.Gateways))
 
-	// Pull all gateways from ndf into host manager
+	// Pull all gateways from NDF into host manager
 	for _, gw := range testNdf.Gateways {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Fatalf("Failed to unmarshal ID in mock NDF: %+v", err)
 		}
 		// Add mock gateway to manager
-		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
+		_, err = manager.AddHost(
+			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %v", err)
+			t.Fatalf("Could not add mock host to manager: %+v", err)
 		}
 
 	}
@@ -697,8 +700,8 @@ func TestHostPool_ForceAdd(t *testing.T) {
 	}
 }
 
-// Unit test which only adds information to ndf
-func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
+// Unit test which only adds information to NDF.
+func TestHostPool_updateConns_AddGateways(t *testing.T) {
 	manager := newMockManager()
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
@@ -707,15 +710,16 @@ func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
 	params := DefaultPoolParams()
 	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
-	// Pull all gateways from ndf into host manager
+	// Pull all gateways from NDF into host manager
 	for _, gw := range testNdf.Gateways {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Fatalf("Failed to unmarshal ID in mock NDF: %+v", err)
 		}
 		// Add mock gateway to manager
-		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
+		_, err = manager.AddHost(
+			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
 			t.Fatalf("Could not add mock host to manager: %v", err)
 		}
@@ -729,7 +733,7 @@ func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
 		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
 
-	// Construct a list of new gateways/nodes to add to ndf
+	// Construct a list of new gateways/nodes to add to NDF
 	newGatewayLen := 10
 	newGateways := make([]ndf.Gateway, newGatewayLen)
 	newNodes := make([]ndf.Node, newGatewayLen)
@@ -744,7 +748,7 @@ func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
 
 	}
 
-	// Update the ndf
+	// Update the NDF
 	newNdf := getTestNdf(t)
 	newNdf.Gateways = append(newNdf.Gateways, newGateways...)
 	newNdf.Nodes = append(newNdf.Nodes, newNodes...)
@@ -771,8 +775,8 @@ func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
 
 }
 
-// Unit test which only adds information to ndf
-func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
+// Unit test which only adds information to NDF.
+func TestHostPool_updateConns_RemoveGateways(t *testing.T) {
 	manager := newMockManager()
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
@@ -781,18 +785,18 @@ func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
 	params := DefaultPoolParams()
 	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
-	// Pull all gateways from ndf into host manager
+	// Pull all gateways from NDF into host manager
 	for _, gw := range testNdf.Gateways {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Errorf("Failed to unmarshal ID in mock NDF: %+v", err)
 		}
 		// Add mock gateway to manager
-		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
+		_, err = manager.AddHost(
+			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Errorf("Could not add mock host to manager: %v", err)
-			t.FailNow()
+			t.Fatalf("Could not add mock host to manager: %+v", err)
 		}
 
 	}
@@ -804,7 +808,7 @@ func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
 		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
 
-	// Construct a list of new gateways/nodes to add to ndf
+	// Construct a list of new gateways/nodes to add to NDF
 	newGatewayLen := len(testNdf.Gateways)
 	newGateways := make([]ndf.Gateway, newGatewayLen)
 	newNodes := make([]ndf.Node, newGatewayLen)
@@ -819,7 +823,7 @@ func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
 
 	}
 
-	// Update the ndf, replacing old data entirely
+	// Update the NDF, replacing old data entirely
 	newNdf := getTestNdf(t)
 	newNdf.Gateways = newGateways
 	newNdf.Nodes = newNodes
@@ -844,8 +848,8 @@ func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
 	}
 }
 
-// Unit test
-func TestHostPool_AddGateway(t *testing.T) {
+// Unit test.
+func TestHostPool_addGateway(t *testing.T) {
 	manager := newMockManager()
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
@@ -869,7 +873,7 @@ func TestHostPool_AddGateway(t *testing.T) {
 
 	gwId, err := id.Unmarshal(testNdf.Gateways[ndfIndex].ID)
 	if err != nil {
-		t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+		t.Errorf("Failed to unmarshal ID in mock NDF: %+v", err)
 	}
 
 	hostPool.addGateway(gwId, ndfIndex)
@@ -881,7 +885,7 @@ func TestHostPool_AddGateway(t *testing.T) {
 }
 
 // Unit test
-func TestHostPool_RemoveGateway(t *testing.T) {
+func TestHostPool_removeGateway(t *testing.T) {
 	manager := newMockManager()
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
@@ -903,7 +907,7 @@ func TestHostPool_RemoveGateway(t *testing.T) {
 
 	gwId, err := id.Unmarshal(testNdf.Gateways[ndfIndex].ID)
 	if err != nil {
-		t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+		t.Errorf("Failed to unmarshal ID in mock NDF: %+v", err)
 	}
 
 	// Manually add host information

@@ -24,7 +24,7 @@ type Switchboard interface {
 	// user: 0 for all, or any user ID to listen for messages from a particular
 	// user. 0 can be id.ZeroUser or id.ZeroID
 	// messageType: 0 for all, or any message type to listen for messages of
-	// that type. 0 can be switchboard.AnyType
+	// that type. 0 can be Receive.AnyType
 	// newListener: something implementing the Listener interface. Do not
 	// pass nil to this.
 	//
@@ -42,7 +42,7 @@ type Switchboard interface {
 	// user: 0 for all, or any user ID to listen for messages from a particular
 	// user. 0 can be id.ZeroUser or id.ZeroID
 	// messageType: 0 for all, or any message type to listen for messages of
-	// that type. 0 can be switchboard.AnyType
+	// that type. 0 can be Receive.AnyType
 	// newListener: a function implementing the ListenerFunc function type.
 	// Do not pass nil to this.
 	//
@@ -60,7 +60,7 @@ type Switchboard interface {
 	// user: 0 for all, or any user ID to listen for messages from a particular
 	// user. 0 can be id.ZeroUser or id.ZeroID
 	// messageType: 0 for all, or any message type to listen for messages of
-	// that type. 0 can be switchboard.AnyType
+	// that type. 0 can be Receive.AnyType
 	// newListener: an item channel.
 	// Do not pass nil to this.
 	//

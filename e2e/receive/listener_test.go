@@ -5,10 +5,9 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package switchboard
+package receive
 
 import (
-	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"
@@ -64,7 +63,7 @@ func TestListenerID_GetName(t *testing.T) {
 
 //tests new function listener creates the funcListener properly
 func TestNewFuncListener(t *testing.T) {
-	f := func(item message.Receive) {}
+	f := func(item Message) {}
 	name := "test"
 	listener := newFuncListener(f, name)
 
@@ -79,15 +78,15 @@ func TestNewFuncListener(t *testing.T) {
 
 //tests FuncListener Hear works
 func TestFuncListener_Hear(t *testing.T) {
-	m := message.Receive{
+	m := Message{
 		Payload:     []byte{0, 1, 2, 3},
 		Sender:      id.NewIdFromUInt(42, id.User, t),
 		MessageType: 69,
 	}
 
-	heard := make(chan message.Receive, 1)
+	heard := make(chan Message, 1)
 
-	f := func(item message.Receive) {
+	f := func(item Message) {
 		heard <- item
 	}
 
@@ -117,7 +116,7 @@ func TestFuncListener_Name(t *testing.T) {
 
 //tests new chan listener creates the chanListener properly
 func TestNewChanListener(t *testing.T) {
-	c := make(chan message.Receive)
+	c := make(chan Message)
 	name := "test"
 	listener := newChanListener(c, name)
 
@@ -132,13 +131,13 @@ func TestNewChanListener(t *testing.T) {
 
 //tests ChanListener Hear works
 func TestChanListener_Hear(t *testing.T) {
-	m := message.Receive{
+	m := Message{
 		Payload:     []byte{0, 1, 2, 3},
 		Sender:      id.NewIdFromUInt(42, id.User, t),
 		MessageType: 69,
 	}
 
-	heard := make(chan message.Receive, 1)
+	heard := make(chan Message, 1)
 
 	listener := newChanListener(heard, "test")
 

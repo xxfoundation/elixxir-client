@@ -9,14 +9,14 @@ package parse
 
 import (
 	"encoding/binary"
-	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/catalog"
 	"time"
 )
 
 // Sizes of message parts, in bytes.
 const (
 	numPartsLen     = 1
-	typeLen         = message.TypeLen
+	typeLen         = catalog.MessageTypeLen
 	timestampLen    = 8
 	firstPartVerLen = 1
 	firstHeaderLen  = headerLen + numPartsLen + typeLen + timestampLen + firstPartVerLen
@@ -35,7 +35,7 @@ type firstMessagePart struct {
 
 // newFirstMessagePart creates a new firstMessagePart for the passed in
 // contents. Does no length checks.
-func newFirstMessagePart(mt message.Type, id uint32, numParts uint8,
+func newFirstMessagePart(mt catalog.MessageType, id uint32, numParts uint8,
 	timestamp time.Time, contents []byte) firstMessagePart {
 
 	// Create the message structure
@@ -106,8 +106,8 @@ func firstMessagePartFromBytesVer0(data []byte) firstMessagePart {
 }
 
 // GetType returns the message type.
-func (m firstMessagePart) GetType() message.Type {
-	return message.Type(binary.BigEndian.Uint32(m.Type))
+func (m firstMessagePart) GetType() catalog.MessageType {
+	return catalog.MessageType(binary.BigEndian.Uint32(m.Type))
 }
 
 // GetNumParts returns the number of message parts.

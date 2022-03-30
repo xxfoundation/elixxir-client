@@ -1,6 +1,7 @@
 package historical
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
@@ -98,4 +99,28 @@ func MakeRound(ri *pb.RoundInfo) Round {
 		UpdateID:         ri.UpdateID,
 		Raw:              ri,
 	}
+}
+
+// GetEndTimestamp Returns the timestamp of the last known event,
+// which is generally the state unless in queued, which stores the next event
+func (r Round) GetEndTimestamp() time.Time {
+	switch r.State {
+	case states.PENDING:
+		return r.Timestamps[states.PENDING]
+	case states.PRECOMPUTING:
+		return r.Timestamps[states.PRECOMPUTING]
+	case states.STANDBY:
+		return r.Timestamps[states.STANDBY]
+	case states.QUEUED:
+		return r.Timestamps[states.STANDBY]
+	case states.COMPLETED:
+		return r.Timestamps[states.COMPLETED]
+	case states.FAILED:
+		return r.Timestamps[states.FAILED]
+	default:
+		jww.FATAL.Panicf("Could not get final timestamp of round, "+
+			"invalid state: %s", r.State)
+	}
+	//unreachable
+	return time.Time{}
 }

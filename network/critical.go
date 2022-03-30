@@ -72,7 +72,8 @@ func (c *critical) runCriticalMessages(stop *stoppable.Single) {
 	}
 }
 
-func (c *critical) handle(msg format.Message, recipient *id.ID, rid id.Round, rtnErr error) {
+func (c *critical) handle(
+	msg format.Message, recipient *id.ID, rid id.Round, rtnErr error) {
 	if rtnErr != nil {
 		c.Failed(msg, recipient)
 	} else {

@@ -45,22 +45,24 @@ func TestSender_SendToAny(t *testing.T) {
 	params := DefaultPoolParams()
 	params.PoolSize = uint32(len(testNdf.Gateways))
 
-	// Pull all gateways from ndf into host manager
+	// Pull all gateways from NDF into host manager
 	for _, gw := range testNdf.Gateways {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Fatalf("Failed to unmarshal ID in mock NDF: %+v", err)
 		}
 		// Add mock gateway to manager
-		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
+		_, err = manager.AddHost(
+			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %v", err)
+			t.Fatalf("Could not add mock host to manager: %+v", err)
 		}
 
 	}
 
-	senderFace, err := NewSender(params, rng, testNdf, manager, testStorage, addGwChan)
+	senderFace, err := NewSender(
+		params, rng, testNdf, manager, testStorage, addGwChan)
 	s := senderFace.(*sender)
 	if err != nil {
 		t.Fatalf("Failed to create mock sender: %v", err)
@@ -70,12 +72,12 @@ func TestSender_SendToAny(t *testing.T) {
 	for index, gw := range testNdf.Gateways {
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Fatalf("Failed to unmarshal ID in mock NDF: %+v", err)
 		}
 
 		err = s.replaceHost(gwId, uint32(index))
 		if err != nil {
-			t.Fatalf("Failed to replace host in set-up: %v", err)
+			t.Fatalf("Failed to replace host in set-up: %+v", err)
 		}
 	}
 
@@ -117,17 +119,18 @@ func TestSender_SendToPreferred(t *testing.T) {
 	// (self contain to code specific in sendPreferred)
 	params.ProxyAttempts = 0
 
-	// Pull all gateways from ndf into host manager
+	// Pull all gateways from NDF into host manager
 	for _, gw := range testNdf.Gateways {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Fatalf("Failed to unmarshal ID in mock NDF: %+v", err)
 		}
 		// Add mock gateway to manager
-		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
+		_, err = manager.AddHost(
+			gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %v", err)
+			t.Fatalf("Could not add mock host to manager: %+v", err)
 		}
 
 	}
@@ -168,7 +171,8 @@ func TestSender_SendToPreferred(t *testing.T) {
 
 	// Ensure we are disconnected from the old host
 	if isConnected, _ := preferredHost.Connected(); isConnected {
-		t.Errorf("ForceReplace error: Failed to disconnect from old host %s", preferredHost)
+		t.Errorf("ForceReplace error: Failed to disconnect from old host %s",
+			preferredHost)
 	}
 
 	// get a new host to test on
@@ -184,12 +188,12 @@ func TestSender_SendToPreferred(t *testing.T) {
 
 	// Check the host has not been replaced
 	if _, ok := s.hostMap[*preferredHost.GetId()]; !ok {
-		t.Errorf("Host %s should not have been removed due on an unknown error", preferredHost)
+		t.Errorf("Host %s should not have been removed due on an unknown error",
+			preferredHost)
 	}
 
 	// Ensure we are disconnected from the old host
 	if isConnected, _ := preferredHost.Connected(); isConnected {
 		t.Errorf("Should not disconnect from  %s", preferredHost)
 	}
-
 }

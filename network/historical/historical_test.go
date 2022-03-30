@@ -8,6 +8,7 @@
 package historical
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -32,21 +33,23 @@ func TestHistoricalRounds(t *testing.T) {
 	stopper := hMgr.StartProcesses()
 
 	// Case 1: Send a round request and wait for timeout for processing
-	err := hMgr.LookupHistoricalRound(42, func(*pb.RoundInfo, bool) {
+	err := hMgr.LookupHistoricalRound(42, func(Round, bool) {
 		t.Error("Called when it should not have been.")
 	})
 	if err != nil {
 		t.Errorf("Failed to look up historical round: %+v", err)
 	}
-	time.Sleep(501 * time.Millisecond)
+	time.Sleep(750 * time.Millisecond)
 
-	if sender.sendCnt != 1 {
-		t.Errorf("Did not send as expected")
+	sendCnt := sender.getSendCnt()
+	if sendCnt != 1 {
+		t.Errorf("Did not send as expected.\nexpected: %d\nreceived: %d",
+			1, sendCnt)
 	}
 
 	// Case 2: make round requests up to m.params.MaxHistoricalRounds
 	for i := id.Round(0); i < 3; i++ {
-		err = hMgr.LookupHistoricalRound(40+i, func(*pb.RoundInfo, bool) {
+		err = hMgr.LookupHistoricalRound(40+i, func(Round, bool) {
 			t.Errorf("%d called when it should not have been.", i)
 		})
 		if err != nil {
@@ -56,9 +59,9 @@ func TestHistoricalRounds(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	if sender.sendCnt != 2 {
+	if sender.getSendCnt() != 2 {
 		t.Errorf("Unexpected send count.\nexpected: %d\nreceived: %d",
-			2, sender.sendCnt)
+			2, sender.getSendCnt())
 	}
 
 	err = stopper.Close()
@@ -70,19 +73,19 @@ func TestHistoricalRounds(t *testing.T) {
 	}
 }
 
-func TestProcessHistoricalRoundsResponse(t *testing.T) {
+func Test_processHistoricalRoundsResponse(t *testing.T) {
 	params := GetDefaultParams()
 	badRR := roundRequest{
 		rid: id.Round(41),
-		RoundResultCallback: func(*pb.RoundInfo, bool) {
+		RoundResultCallback: func(Round, bool) {
 			t.Error("Called when it should not have been.")
 		},
 		numAttempts: params.MaxHistoricalRoundsRetries - 2,
 	}
 	expiredRR := roundRequest{
 		rid: id.Round(42),
-		RoundResultCallback: func(info *pb.RoundInfo, success bool) {
-			if info == nil && !success {
+		RoundResultCallback: func(round Round, success bool) {
+			if round.ID == 0 && !success {
 				return
 			}
 			t.Errorf("Expired called with bad params.")
@@ -91,9 +94,12 @@ func TestProcessHistoricalRoundsResponse(t *testing.T) {
 	}
 	x := false
 	callbackCalled := &x
+	var callbackCalledMux sync.Mutex
 	goodRR := roundRequest{
 		rid: id.Round(43),
-		RoundResultCallback: func(info *pb.RoundInfo, success bool) {
+		RoundResultCallback: func(Round, bool) {
+			callbackCalledMux.Lock()
+			defer callbackCalledMux.Unlock()
 			*callbackCalled = true
 		},
 		numAttempts: 0,
@@ -102,12 +108,15 @@ func TestProcessHistoricalRoundsResponse(t *testing.T) {
 	infos := make([]*pb.RoundInfo, 3)
 	infos[0] = nil
 	infos[1] = nil
-	infos[2] = &pb.RoundInfo{ID: 43}
+	infos[2] = &pb.RoundInfo{
+		ID:       43,
+		Topology: [][]byte{{1}, {2}},
+	}
 	response := &pb.HistoricalRoundsResponse{Rounds: infos}
 	events := &testEventMgr{}
 
-	rids, retries := processHistoricalRoundsResponse(response, rrs,
-		params.MaxHistoricalRoundsRetries, events)
+	rids, retries := processHistoricalRoundsResponse(
+		response, rrs, params.MaxHistoricalRoundsRetries, events)
 
 	if len(rids) != 1 || rids[0] != 43 {
 		t.Errorf("Bad return: %v, expected [43]", rids)
@@ -120,9 +129,11 @@ func TestProcessHistoricalRoundsResponse(t *testing.T) {
 
 	time.Sleep(5 * time.Millisecond)
 
+	callbackCalledMux.Lock()
 	if !*callbackCalled {
 		t.Errorf("expected callback to be called")
 	}
+	callbackCalledMux.Unlock()
 }
 
 // Test structure implementations.
@@ -138,6 +149,13 @@ func (t *testRoundsComms) RequestHistoricalRounds(*connect.Host,
 
 type testGWSender struct {
 	sendCnt int
+	sync.RWMutex
+}
+
+func (t *testGWSender) getSendCnt() int {
+	t.RLock()
+	defer t.RUnlock()
+	return t.sendCnt
 }
 
 func (t *testGWSender) SendToAny(func(host *connect.Host) (interface{}, error),
@@ -146,7 +164,9 @@ func (t *testGWSender) SendToAny(func(host *connect.Host) (interface{}, error),
 	infos := make([]*pb.RoundInfo, 1)
 	infos[0] = nil
 	m := &pb.HistoricalRoundsResponse{Rounds: infos}
+	t.Lock()
 	t.sendCnt += 1
+	t.Unlock()
 
 	return m, nil
 }

@@ -57,8 +57,8 @@ func TestNewUnknownRounds(t *testing.T) {
 
 }
 
-// Full test
-func TestUnknownRoundsStore_Iterate(t *testing.T) {
+// Full test.
+func TestUnknownRounds_Iterate(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	store := NewUnknownRounds(kv, DefaultUnknownRoundsParams())
 
@@ -127,7 +127,7 @@ func TestUnknownRoundsStore_Iterate(t *testing.T) {
 }
 
 // Unit test
-func TestLoadUnknownRoundsStore(t *testing.T) {
+func TestLoadUnknownRounds(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	store := NewUnknownRounds(kv, DefaultUnknownRoundsParams())
 

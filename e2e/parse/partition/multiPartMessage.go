@@ -12,7 +12,8 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/ekv"
@@ -34,7 +35,7 @@ type multiPartMessage struct {
 	SenderTimestamp time.Time
 	// Timestamp in which message was stored in RAM
 	StorageTimestamp time.Time
-	MessageType      message.Type
+	MessageType      catalog.MessageType
 
 	parts [][]byte
 	kv    *versioned.KV
@@ -121,7 +122,7 @@ func (mpm *multiPartMessage) Add(partNumber uint8, part []byte) {
 	}
 }
 
-func (mpm *multiPartMessage) AddFirst(mt message.Type, partNumber uint8,
+func (mpm *multiPartMessage) AddFirst(mt catalog.MessageType, partNumber uint8,
 	numParts uint8, senderTimestamp, storageTimestamp time.Time, part []byte) {
 	mpm.mux.Lock()
 	defer mpm.mux.Unlock()
@@ -151,11 +152,11 @@ func (mpm *multiPartMessage) AddFirst(mt message.Type, partNumber uint8,
 	}
 }
 
-func (mpm *multiPartMessage) IsComplete(relationshipFingerprint []byte) (message.Receive, bool) {
+func (mpm *multiPartMessage) IsComplete(relationshipFingerprint []byte) (receive.Message, bool) {
 	mpm.mux.Lock()
 	if mpm.NumParts == 0 || mpm.NumParts != mpm.PresentParts {
 		mpm.mux.Unlock()
-		return message.Receive{}, false
+		return receive.Message{}, false
 	}
 
 	// Make sure the parts buffer is large enough to load all parts from disk
@@ -181,14 +182,12 @@ func (mpm *multiPartMessage) IsComplete(relationshipFingerprint []byte) (message
 	}
 
 	// Return the message
-	m := message.Receive{
+	m := receive.Message{
 		Payload:     reconstructed,
 		MessageType: mpm.MessageType,
 		Sender:      mpm.Sender,
 		Timestamp:   mpm.SenderTimestamp,
-		// Encryption will be set externally
-		Encryption: 0,
-		ID:         mid,
+		ID:          mid,
 	}
 
 	return m, true

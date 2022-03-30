@@ -11,7 +11,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -34,15 +35,7 @@ type Store struct {
 	mux         sync.Mutex
 }
 
-func New(kv *versioned.KV) *Store {
-	return &Store{
-		multiParts:  make(map[multiPartID]*multiPartMessage),
-		activeParts: make(map[*multiPartMessage]bool),
-		kv:          kv.Prefix(packagePrefix),
-	}
-}
-
-func Load(kv *versioned.KV) *Store {
+func NewOrLoad(kv *versioned.KV) *Store {
 	partitionStore := &Store{
 		multiParts:  make(map[multiPartID]*multiPartMessage),
 		activeParts: make(map[*multiPartMessage]bool),
@@ -56,9 +49,9 @@ func Load(kv *versioned.KV) *Store {
 	return partitionStore
 }
 
-func (s *Store) AddFirst(partner *id.ID, mt message.Type, messageID uint64,
+func (s *Store) AddFirst(partner *id.ID, mt catalog.MessageType, messageID uint64,
 	partNum, numParts uint8, senderTimestamp, storageTimestamp time.Time,
-	part []byte, relationshipFingerprint []byte) (message.Receive, bool) {
+	part []byte, relationshipFingerprint []byte) (receive.Message, bool) {
 
 	mpm := s.load(partner, messageID)
 
@@ -78,7 +71,7 @@ func (s *Store) AddFirst(partner *id.ID, mt message.Type, messageID uint64,
 }
 
 func (s *Store) Add(partner *id.ID, messageID uint64, partNum uint8,
-	part []byte, relationshipFingerprint []byte) (message.Receive, bool) {
+	part []byte, relationshipFingerprint []byte) (receive.Message, bool) {
 
 	mpm := s.load(partner, messageID)
 

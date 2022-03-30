@@ -9,16 +9,17 @@ package health
 
 import (
 	"gitlab.com/elixxir/comms/network"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 // Happy path smoke test.
-func TestNewTracker(t *testing.T) {
+func Test_newTracker(t *testing.T) {
 	// Initialize required variables
 	timeout := 250 * time.Millisecond
 	trkr := newTracker(timeout)
-	counter := 2 // First signal is "false/unhealthy"
+	counter := int64(2) // First signal is "false/unhealthy"
 	positiveHb := network.Heartbeat{
 		HasWaitingRound: true,
 		IsRoundComplete: true,
@@ -28,9 +29,9 @@ func TestNewTracker(t *testing.T) {
 	listenChan := make(chan bool, 10)
 	listenFunc := func(isHealthy bool) {
 		if isHealthy {
-			counter++
+			atomic.AddInt64(&counter, 1)
 		} else {
-			counter--
+			atomic.AddInt64(&counter, -1)
 		}
 	}
 	trkr.AddHealthCallback(listenFunc)
@@ -38,9 +39,9 @@ func TestNewTracker(t *testing.T) {
 	go func() {
 		for isHealthy := range listenChan {
 			if isHealthy {
-				counter++
+				atomic.AddInt64(&counter, 1)
 			} else {
-				counter--
+				atomic.AddInt64(&counter, -1)
 			}
 		}
 	}()
@@ -52,12 +53,12 @@ func TestNewTracker(t *testing.T) {
 	}
 
 	// Send a positive health heartbeat
-	expectedCount := 2
+	expectedCount := int64(2)
 	trkr.heartbeat <- positiveHb
 
 	// Wait for the heartbeat to register
 	for i := 0; i < 4; i++ {
-		if trkr.IsHealthy() && counter == expectedCount {
+		if trkr.IsHealthy() && atomic.LoadInt64(&counter) == expectedCount {
 			break
 		} else {
 			time.Sleep(50 * time.Millisecond)
@@ -75,8 +76,9 @@ func TestNewTracker(t *testing.T) {
 	}
 
 	// Verify the heartbeat triggered the listening chan/func
-	if counter != expectedCount {
-		t.Errorf("Expected counter to be %d, got %d", expectedCount, counter)
+	if atomic.LoadInt64(&counter) != expectedCount {
+		t.Errorf("Expected counter to be %d, got %d",
+			expectedCount, atomic.LoadInt64(&counter))
 	}
 
 	// Wait out the timeout
@@ -94,7 +96,8 @@ func TestNewTracker(t *testing.T) {
 	}
 
 	// Verify the timeout triggered the listening chan/func
-	if counter != expectedCount {
-		t.Errorf("Expected counter to be %d, got %d", expectedCount, counter)
+	if atomic.LoadInt64(&counter) != expectedCount {
+		t.Errorf("Expected counter to be %d, got %d",
+			expectedCount, atomic.LoadInt64(&counter))
 	}
 }

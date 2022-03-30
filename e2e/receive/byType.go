@@ -5,15 +5,15 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package switchboard
+package receive
 
 import (
 	"github.com/golang-collections/collections/set"
-	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/catalog"
 )
 
 type byType struct {
-	list    map[message.Type]*set.Set
+	list    map[catalog.MessageType]*set.Set
 	generic *set.Set
 }
 
@@ -21,7 +21,7 @@ type byType struct {
 // registers an AnyType as generic
 func newByType() *byType {
 	bt := &byType{
-		list:    make(map[message.Type]*set.Set),
+		list:    make(map[catalog.MessageType]*set.Set),
 		generic: set.New(),
 	}
 
@@ -34,7 +34,7 @@ func newByType() *byType {
 
 // returns a set associated with the passed messageType unioned with the
 // generic return
-func (bt *byType) Get(messageType message.Type) *set.Set {
+func (bt *byType) Get(messageType catalog.MessageType) *set.Set {
 	lookup, ok := bt.list[messageType]
 	if !ok {
 		return bt.generic
@@ -45,7 +45,7 @@ func (bt *byType) Get(messageType message.Type) *set.Set {
 
 // adds a listener to a set for the given messageType. Creates a new set to add
 // it to if the set does not exist
-func (bt *byType) Add(messageType message.Type, r Listener) *set.Set {
+func (bt *byType) Add(messageType catalog.MessageType, r Listener) *set.Set {
 	s, ok := bt.list[messageType]
 	if !ok {
 		s = set.New(r)
@@ -59,7 +59,7 @@ func (bt *byType) Add(messageType message.Type, r Listener) *set.Set {
 
 // Removes the passed listener from the set for messageType and
 // deletes the set if it is empty and the type is not AnyType
-func (bt *byType) Remove(mt message.Type, l Listener) {
+func (bt *byType) Remove(mt catalog.MessageType, l Listener) {
 	s, ok := bt.list[mt]
 	if ok {
 		s.Remove(l)

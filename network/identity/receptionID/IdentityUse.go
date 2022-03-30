@@ -18,16 +18,18 @@ type IdentityUse struct {
 	CR *store.CheckedRounds
 }
 
+// GoString returns a string representations of all the values in the
+// IdentityUse. This function adheres to the fmt.GoStringer interface.
 func (iu IdentityUse) GoString() string {
-	str := make([]string, 0, 7)
-
-	str = append(str, "Identity:"+iu.Identity.GoString())
-	str = append(str, "StartValid:"+iu.StartValid.String())
-	str = append(str, "EndValid:"+iu.EndValid.String())
-	str = append(str, "Fake:"+strconv.FormatBool(iu.Fake))
-	str = append(str, "UR:"+fmt.Sprintf("%+v", iu.UR))
-	str = append(str, "ER:"+fmt.Sprintf("%+v", iu.ER))
-	str = append(str, "CR:"+fmt.Sprintf("%+v", iu.CR))
+	str := []string{
+		"Identity:" + iu.Identity.GoString(),
+		"StartValid:" + iu.StartValid.String(),
+		"EndValid:" + iu.EndValid.String(),
+		"Fake:" + strconv.FormatBool(iu.Fake),
+		"UR:" + fmt.Sprintf("%+v", iu.UR),
+		"ER:" + fmt.Sprintf("%+v", iu.ER),
+		"CR:" + fmt.Sprintf("%+v", iu.CR),
+	}
 
 	return "{" + strings.Join(str, ", ") + "}"
 }

@@ -68,7 +68,8 @@ func TestLoadRegistrar_Load(t *testing.T) {
 	testR.add(nodeId, k, expectedValid, expectedKeyId)
 
 	// Load the store and check its attributes
-	r, err := LoadRegistrar(testR.session, testR.sender, testR.comms, testR.rng, testR.c)
+	r, err := LoadRegistrar(
+		testR.session, testR.sender, testR.comms, testR.rng, testR.c)
 	if err != nil {
 		t.Fatalf("Unable to load store: %+v", err)
 	}
@@ -80,15 +81,17 @@ func TestLoadRegistrar_Load(t *testing.T) {
 	keys, _ := r.GetNodeKeys(circuit)
 	if keys.(*mixCypher).keys[0].validUntil != expectedValid {
 		t.Errorf("Unexpected valid until value loaded from store."+
-			"\n\tExpected: %v\n\tReceived: %v", expectedValid, keys.(*mixCypher).keys[0].validUntil)
+			"\nexpected: %v\nreceived: %v",
+			expectedValid, keys.(*mixCypher).keys[0].validUntil)
 	}
 	if !bytes.Equal(keys.(*mixCypher).keys[0].keyId, expectedKeyId) {
 		t.Errorf("Unexpected keyID value loaded from store."+
-			"\n\tExpected: %v\n\tReceived: %v", expectedKeyId, keys.(*mixCypher).keys[0].keyId)
+			"\nexpected: %v\nreceived: %v",
+			expectedKeyId, keys.(*mixCypher).keys[0].keyId)
 	}
 }
 
-func Test_registrar_GetKeys(t *testing.T) {
+func Test_registrar_GetNodeKeys(t *testing.T) {
 	r := makeTestRegistrar(t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
@@ -114,7 +117,7 @@ func Test_registrar_GetKeys(t *testing.T) {
 	}
 }
 
-func Test_registrar_GetKeys_Missing(t *testing.T) {
+func Test_registrar_GetNodeKeys_Missing(t *testing.T) {
 	r := makeTestRegistrar(t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
@@ -145,7 +148,7 @@ func Test_registrar_GetKeys_Missing(t *testing.T) {
 	}
 }
 
-func Test_registrar_Has(t *testing.T) {
+func Test_registrar_HasNode(t *testing.T) {
 	r := makeTestRegistrar(t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 

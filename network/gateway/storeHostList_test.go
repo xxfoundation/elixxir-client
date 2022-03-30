@@ -25,7 +25,7 @@ import (
 
 // Tests that a host list saved by Store.Store matches the host list returned
 // by Store.Get.
-func TestStore_Store_Get(t *testing.T) {
+func Test_saveHostList_getHostList(t *testing.T) {
 	// Init list to store
 	list := []*id.ID{
 		id.NewIdFromString("histID_1", id.Node, t),
@@ -60,7 +60,7 @@ func TestStore_Store_Get(t *testing.T) {
 
 // Error path: tests that Store.Get returns an error if no host list is
 // saved in storage.
-func TestStore_Get_StorageError(t *testing.T) {
+func Test_getHostList_StorageError(t *testing.T) {
 
 	// Init storage
 	testStorage := storage.InitTestingSession(t)

@@ -5,47 +5,47 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package switchboard
+package receive
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/xx_network/primitives/id"
 )
 
-//interface for a listener adhere to
+//Listener interface for a listener adhere to
 type Listener interface {
 	// the Hear function is called to exercise the listener, passing in the
 	// data as an item
-	Hear(item message.Receive)
+	Hear(item Message)
 	// Returns a name, used for debugging
 	Name() string
 }
 
-// This function type defines callbacks that get passed when the listener is
+// ListenerFunc This function type defines callbacks that get passed when the listener is
 // listened to. It will always be called in its own goroutine. It may be called
 // multiple times simultaneously
-type ListenerFunc func(item message.Receive)
+type ListenerFunc func(item Message)
 
-// id object returned when a listener is created and is used to delete it from
+// ListenerID id object returned when a listener is created and is used to delete it from
 // the system
 type ListenerID struct {
 	userID      *id.ID
-	messageType message.Type
+	messageType catalog.MessageType
 	listener    Listener
 }
 
-//getter for userID
+// GetUserID getter for userID
 func (lid ListenerID) GetUserID() *id.ID {
 	return lid.userID
 }
 
-//getter for message type
-func (lid ListenerID) GetMessageType() message.Type {
+// GetMessageType getter for message type
+func (lid ListenerID) GetMessageType() catalog.MessageType {
 	return lid.messageType
 }
 
-//getter for name
+// GetName getter for name
 func (lid ListenerID) GetName() string {
 	return lid.listener.Name()
 }
@@ -58,7 +58,7 @@ type funcListener struct {
 	name     string
 }
 
-// creates a new FuncListener Adhereing to the listener interface out of the
+//  newFuncListener creates a new FuncListener Adhereing to the listener interface out of the
 // passed function and name, returns a pointer to the result
 func newFuncListener(listener ListenerFunc, name string) *funcListener {
 	return &funcListener{
@@ -69,7 +69,7 @@ func newFuncListener(listener ListenerFunc, name string) *funcListener {
 
 // Adheres to the Hear function of the listener interface, calls the internal
 // function with the passed item
-func (fl *funcListener) Hear(item message.Receive) {
+func (fl *funcListener) Hear(item Message) {
 	fl.listener(item)
 }
 
@@ -81,13 +81,13 @@ func (fl *funcListener) Name() string {
 
 //listener based off of a channel
 type chanListener struct {
-	listener chan message.Receive
+	listener chan Message
 	name     string
 }
 
 // creates a new ChanListener Adhereing to the listener interface out of the
 // passed channel and name, returns a pointer to the result
-func newChanListener(listener chan message.Receive, name string) *chanListener {
+func newChanListener(listener chan Message, name string) *chanListener {
 	return &chanListener{
 		listener: listener,
 		name:     name,
@@ -97,7 +97,7 @@ func newChanListener(listener chan message.Receive, name string) *chanListener {
 // Adheres to the Hear function of the listener interface, calls the passed the
 // heard item across the channel.  Drops the item if it cannot put it into the
 // channel immediately
-func (cl *chanListener) Hear(item message.Receive) {
+func (cl *chanListener) Hear(item Message) {
 	select {
 	case cl.listener <- item:
 	default:

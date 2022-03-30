@@ -5,7 +5,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 // This is an in-memory track of rounds that have been processed in this run of
-// the xxdk. It only is enabled when loglevel is debug or higher. It will
+// the xxDK. It only is enabled when loglevel is debug or higher. It will
 // accumulate all rounds and then dump on exit. Is only enabled when run through
 // the command line interface unless enabled explicitly in code.
 

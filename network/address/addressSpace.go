@@ -4,7 +4,6 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"sync"
-	"testing"
 )
 
 const (
@@ -120,26 +119,4 @@ func (as *space) UnregisterAddressSpaceNotification(tag string) {
 	defer as.cond.L.Unlock()
 
 	delete(as.notifyMap, tag)
-}
-
-// NewTestAddressSpace initialises a new AddressSpace for testing with the given
-// size.
-func NewTestAddressSpace(newSize uint8, x interface{}) *space {
-	switch x.(type) {
-	case *testing.T, *testing.M, *testing.B, *testing.PB:
-		break
-	default:
-		jww.FATAL.Panicf(
-			"NewTestAddressSpace is restricted to testing only. Got %T", x)
-	}
-
-	as := &space{
-		size:      initSize,
-		notifyMap: make(map[string]chan uint8),
-		cond:      sync.NewCond(&sync.Mutex{}),
-	}
-
-	as.UpdateAddressSpace(newSize)
-
-	return as
 }

@@ -20,7 +20,7 @@ import (
 )
 
 // Tests that the encrypted payloads and KMACs generated are consistent.
-func TestRoundKeys_Encrypt_Consistency(t *testing.T) {
+func Test_mixCypher_Encrypt_Consistency(t *testing.T) {
 	const numKeys = 5
 
 	expectedPayload := []byte{220, 95, 160, 88, 229, 136, 42, 254, 239, 32, 57,

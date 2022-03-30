@@ -94,7 +94,8 @@ func Test_cmixMessageBuffer_Smoke(t *testing.T) {
 	testMsgs, ids, _ := makeTestCmixMessages(2)
 
 	// Create new buffer
-	cmb, err := NewOrLoadCmixMessageBuffer(versioned.NewKV(make(ekv.Memstore)), "testKey")
+	kv := versioned.NewKV(make(ekv.Memstore))
+	cmb, err := NewOrLoadCmixMessageBuffer(kv, "testKey")
 	if err != nil {
 		t.Errorf("Failed to make new cmixMessageHandler: %+v", err)
 	}

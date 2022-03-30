@@ -54,7 +54,8 @@ const (
 // followNetworkComms is a comms interface to make testing easier.
 type followNetworkComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
-	SendPoll(host *connect.Host, message *pb.GatewayPoll) (*pb.GatewayPollResponse, error)
+	SendPoll(host *connect.Host, message *pb.GatewayPoll) (
+		*pb.GatewayPollResponse, error)
 }
 
 // followNetwork polls the network to get updated on the state of nodes, the
@@ -107,10 +108,12 @@ func (m *manager) followNetwork(report ClientErrorReport,
 
 // follow executes each iteration of the follower.
 func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
-	comms followNetworkComms, stop *stoppable.Single, abandon func(round id.Round)) {
+	comms followNetworkComms, stop *stoppable.Single,
+	abandon func(round id.Round)) {
 
 	// Get the identity we will poll for
-	identity, err := m.GetEphemeralIdentity(rng, m.Space.GetAddressSpaceWithoutWait())
+	identity, err := m.GetEphemeralIdentity(
+		rng, m.Space.GetAddressSpaceWithoutWait())
 	if err != nil {
 		jww.FATAL.Panicf(
 			"Failed to get an identity, this should be impossible: %+v", err)
@@ -212,7 +215,8 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 		for _, update := range pollResp.Updates {
 
 			// Ignore irrelevant updates
-			if update.State != uint32(states.COMPLETED) && update.State != uint32(states.FAILED) {
+			if update.State != uint32(states.COMPLETED) &&
+				update.State != uint32(states.FAILED) {
 				continue
 			}
 
@@ -229,9 +233,9 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 					}
 
 					// Mutate the update to indicate failure due to a ClientError
-					// FIXME: Should be able to trigger proper type of round event
-					// FIXME: without mutating the RoundInfo. Signature also needs verified
-					// FIXME: before keys are deleted
+					// FIXME: Should be able to trigger proper type of round
+					//  event without mutating the RoundInfo. Signature also
+					//  needs verified before keys are deleted.
 					update.State = uint32(states.FAILED)
 
 					// trigger a reregistration with the node
@@ -308,7 +312,9 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 		// Approximate the earliest possible round that messages could be
 		// received on this ID by using an estimate of how many rounds the
 		// network runs per second
-		roundsDelta := uint(time.Now().Sub(identity.StartValid) / time.Second * estimatedRoundsPerSecond)
+		timeSinceStartValid := netTime.Now().Sub(identity.StartValid)
+		roundsDelta :=
+			uint(timeSinceStartValid / time.Second * estimatedRoundsPerSecond)
 		if roundsDelta < m.param.KnownRoundsThreshold {
 			roundsDelta = m.param.KnownRoundsThreshold
 		}
@@ -341,12 +347,12 @@ func (m *manager) follow(report ClientErrorReport, rng csprng.Source,
 		gwRoundsState.RangeUnchecked(
 			updatedEarliestRound, m.param.KnownRoundsThreshold, roundChecker)
 
-	jww.DEBUG.Printf("Processed RangeUnchecked, Oldest: %d, firstUnchecked: %d, "+
-		"last Checked: %d, threshold: %d, NewEarliestRemaining: %d, NumWithMessages: %d, "+
-		"NumUnknown: %d", updatedEarliestRound,
-		gwRoundsState.GetFirstUnchecked(), gwRoundsState.GetLastChecked(),
-		m.param.KnownRoundsThreshold, earliestRemaining,
-		len(roundsWithMessages), len(roundsUnknown))
+	jww.DEBUG.Printf("Processed RangeUnchecked, Oldest: %d, "+
+		"firstUnchecked: %d, last Checked: %d, threshold: %d, "+
+		"NewEarliestRemaining: %d, NumWithMessages: %d, NumUnknown: %d",
+		updatedEarliestRound, gwRoundsState.GetFirstUnchecked(),
+		gwRoundsState.GetLastChecked(), m.param.KnownRoundsThreshold,
+		earliestRemaining, len(roundsWithMessages), len(roundsUnknown))
 
 	_, _, changed := identity.ER.Set(earliestRemaining)
 	if changed {

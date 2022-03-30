@@ -31,12 +31,12 @@ func (p *handler) handleMessages(stop *stoppable.Single) {
 
 					go func() {
 						count, ts := p.inProcess.Add(
-							msg, bundle.RoundInfo, bundle.Identity)
+							msg, bundle.RoundInfo.Raw, bundle.Identity)
 						wg.Done()
 						success := p.handleMessage(msg, bundle)
 						if success {
 							p.inProcess.Remove(
-								msg, bundle.RoundInfo, bundle.Identity)
+								msg, bundle.RoundInfo.Raw, bundle.Identity)
 						} else {
 							// Fail the message if any part of the decryption
 							// fails, unless it is the last attempts and has
@@ -45,10 +45,10 @@ func (p *handler) handleMessages(stop *stoppable.Single) {
 							if count == p.param.MaxChecksInProcessMessage &&
 								netTime.Since(ts) > p.param.InProcessMessageWait {
 								p.inProcess.Remove(
-									msg, bundle.RoundInfo, bundle.Identity)
+									msg, bundle.RoundInfo.Raw, bundle.Identity)
 							} else {
 								p.inProcess.Failed(
-									msg, bundle.RoundInfo, bundle.Identity)
+									msg, bundle.RoundInfo.Raw, bundle.Identity)
 							}
 
 						}
@@ -88,7 +88,8 @@ func (p *handler) handleMessage(ecrMsg format.Message, bundle Bundle) bool {
 	} else {
 		// TODO: Delete this else block because it should not be needed.
 		jww.INFO.Printf("checking backup %v", identity.Source)
-		// //if it does not exist, check against the default fingerprint for the identity
+		// // If it does not exist, check against the default fingerprint for the
+		// // identity
 		// forMe = fingerprint2.CheckIdentityFP(ecrMsg.GetSIH(),
 		// 	ecrMsgContents, preimage.MakeDefault(identity.Source))
 	}

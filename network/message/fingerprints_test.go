@@ -9,8 +9,8 @@ package message
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/network/historical"
 	"gitlab.com/elixxir/client/network/identity/receptionID"
-	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
@@ -97,7 +97,6 @@ func TestFingerprintsManager_AddFingerprint(t *testing.T) {
 }
 
 func TestFingerprintsManager_DeleteFingerprint(t *testing.T) {
-
 	// Construct fingerprint map
 	fpTracker := newFingerprints(&id.ID{})
 
@@ -154,7 +153,8 @@ func TestFingerprintsManager_DeleteClientFingerprints(t *testing.T) {
 	}
 }
 
-// todo: consider moving this to a test utils somewhere else.. maybe in the interfaces package?
+// TODO: Consider moving this to a test utils somewhere else. Maybe in the
+//  interfaces package?
 type MockMsgProcessor struct{}
 
 func NewMockMsgProcessor(face interface{}) *MockMsgProcessor {
@@ -162,7 +162,8 @@ func NewMockMsgProcessor(face interface{}) *MockMsgProcessor {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
 	default:
-		jww.FATAL.Panicf("NewMockMsgProcessor is restricted to testing only. Got %T", face)
+		jww.FATAL.Panicf("NewMockMsgProcessor is restricted to testing only. "+
+			"Got %T", face)
 	}
 
 	return &MockMsgProcessor{}
@@ -172,7 +173,7 @@ func (mock *MockMsgProcessor) MarkFingerprintUsed(_ format.Fingerprint) {
 	return
 }
 
-func (mock *MockMsgProcessor) Process(format.Message, receptionID.EphemeralIdentity,
-	*mixmessages.RoundInfo) {
+func (mock *MockMsgProcessor) Process(
+	format.Message, receptionID.EphemeralIdentity, historical.Round) {
 	return
 }

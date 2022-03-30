@@ -110,7 +110,7 @@ func (r *UncheckedRound) unmarshal(kv *versioned.KV, buff *bytes.Buffer) error {
 	sourceId, err := id.Unmarshal(buff.Next(id.ArrIDLen))
 	if err != nil {
 		return errors.WithMessagef(err,
-			"Failed to unmarshal round identity.source of %d", r.Id)
+			"Failed to unmarshal round Identity source of round %d", r.Id)
 	}
 
 	r.Source = sourceId

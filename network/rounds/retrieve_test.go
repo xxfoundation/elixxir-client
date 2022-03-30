@@ -9,10 +9,10 @@ package rounds
 import (
 	"bytes"
 	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/network/historical"
 	ephemeral2 "gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
-	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -24,8 +24,8 @@ import (
 	"time"
 )
 
-// Happy path
-func TestManager_ProcessMessageRetrieval(t *testing.T) {
+// Happy path.
+func Test_manager_processMessageRetrieval(t *testing.T) {
 	// General initializations
 	connect.TestingOnlyDisableTLS = true
 	testManager := newManager(t)
@@ -71,39 +71,36 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 			Source: requestGateway,
 		}
 
-		idList := [][]byte{requestGateway.Bytes()}
-
-		roundInfo := &pb.RoundInfo{
-			ID:       uint64(roundId),
-			Topology: idList,
+		round := historical.Round{
+			ID:       roundId,
+			Topology: connect.NewCircuit([]*id.ID{requestGateway}),
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
-			RoundInfo: roundInfo,
-			Identity:  ephIdentity,
+			Round:    round,
+			Identity: ephIdentity,
 		}
 
 	}()
 
 	var testBundle message.Bundle
-	go func() {
-		// Receive the bundle over the channel
-		time.Sleep(1 * time.Second)
-		testBundle = <-messageBundleChan
 
-		// Close the process
-		err := stop.Close()
-		if err != nil {
-			t.Errorf("Failed to signal close to process: %+v", err)
-		}
-	}()
+	select {
+	case testBundle = <-messageBundleChan:
+	case <-time.After(30 * time.Millisecond):
+		t.Errorf("Timed out waiting for messageBundleChan.")
+	}
+
+	err = stop.Close()
+	if err != nil {
+		t.Errorf("Failed to signal close to process: %+v", err)
+	}
 
 	// Ensure bundle received and has expected values
 	time.Sleep(2 * time.Second)
 	if reflect.DeepEqual(testBundle, message.Bundle{}) {
-		t.Errorf("Did not receive a message bundle over the channel")
-		t.FailNow()
+		t.Fatal("Did not receive a message bundle over the channel")
 	}
 
 	if testBundle.Identity.EphId.Int64() != expectedEphID.Int64() {
@@ -121,8 +118,8 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 
 }
 
-// Utilize the mockComms to construct a gateway which does not have the round
-func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
+// Utilize the mockComms to construct a gateway which does not have the round.
+func Test_manager_processMessageRetrieval_NoRound(t *testing.T) {
 	// General initializations
 	testManager := newManager(t)
 	p := gateway.DefaultPoolParams()
@@ -162,17 +159,15 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 			Source: dummyGateway,
 		}
 
-		idList := [][]byte{dummyGateway.Marshal()}
-
-		roundInfo := &pb.RoundInfo{
-			ID:       uint64(roundId),
-			Topology: idList,
+		round := historical.Round{
+			ID:       roundId,
+			Topology: connect.NewCircuit([]*id.ID{dummyGateway}),
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
-			RoundInfo: roundInfo,
-			Identity:  identity,
+			Round:    round,
+			Identity: identity,
 		}
 
 	}()
@@ -191,15 +186,15 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 	if !reflect.DeepEqual(testBundle, message.Bundle{}) {
-		t.Errorf("Should not receive a message bundle, mock gateway should not return round."+
-			"\n\tExpected: %v"+
-			"\n\tReceived: %v", message.Bundle{}, testBundle)
+		t.Errorf("Should not receive a message bundle, mock gateway should "+
+			"not return round.\nexpected: %+v\nreceived: %+v",
+			message.Bundle{}, testBundle)
 	}
 }
 
-// Test the path where there are no messages,
-// simulating a false positive in a bloom filter
-func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
+// Test the path where there are no messages. Simulating a false positive in a
+// bloom filter.
+func Test_manager_processMessageRetrieval_FalsePositive(t *testing.T) {
 	// General initializations
 	testManager := newManager(t)
 	roundId := id.Round(5)
@@ -241,17 +236,15 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 
 		requestGateway := id.NewIdFromString(FalsePositive, id.Gateway, t)
 
-		idList := [][]byte{requestGateway.Bytes()}
-
-		roundInfo := &pb.RoundInfo{
-			ID:       uint64(roundId),
-			Topology: idList,
+		round := historical.Round{
+			ID:       roundId,
+			Topology: connect.NewCircuit([]*id.ID{requestGateway}),
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
-			RoundInfo: roundInfo,
-			Identity:  identity,
+			Round:    round,
+			Identity: identity,
 		}
 
 	}()
@@ -271,14 +264,14 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 	// Ensure no bundle was received due to false positive test
 	time.Sleep(2 * time.Second)
 	if !reflect.DeepEqual(testBundle, message.Bundle{}) {
-		t.Errorf("Received a message bundle over the channel, should receive empty message list")
-		t.FailNow()
+		t.Fatal("Received a message bundle over the channel, should receive " +
+			"empty message list")
 	}
 
 }
 
-// Ensure that the quit chan closes the program, on an otherwise happy path
-func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
+// Ensure that the quit chan closes the program, on an otherwise happy path.
+func Test_manager_processMessageRetrieval_Quit(t *testing.T) {
 	// General initializations
 	testManager := newManager(t)
 	roundId := id.Round(5)
@@ -316,17 +309,14 @@ func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
 
 		requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
 
-		idList := [][]byte{requestGateway.Bytes()}
-
-		roundInfo := &pb.RoundInfo{
-			ID:       uint64(roundId),
-			Topology: idList,
+		round := historical.Round{
+			ID:       roundId,
+			Topology: connect.NewCircuit([]*id.ID{requestGateway}),
 		}
-
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
-			RoundInfo: roundInfo,
-			Identity:  identity,
+			Round:    round,
+			Identity: identity,
 		}
 
 	}()
@@ -341,14 +331,14 @@ func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	// Ensure no bundle was received due to quiting process early
 	if !reflect.DeepEqual(testBundle, message.Bundle{}) {
-		t.Errorf("Received a message bundle over the channel, process should have quit before reception")
-		t.FailNow()
+		t.Fatal("Received a message bundle over the channel, process should " +
+			"have quit before reception")
 	}
 
 }
 
-// Path in which multiple error comms are encountered before a happy path comms
-func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
+// Path in which multiple error comms are encountered before a happy path comms.
+func Test_manager_processMessageRetrieval_MultipleGateways(t *testing.T) {
 	// General initializations
 	testManager := newManager(t)
 	roundId := id.Round(5)
@@ -363,9 +353,8 @@ func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
-	testManager.sender, _ = gateway.NewSender(p,
-		testManager.rng,
-		testNdf, mockComms, testManager.session, nil)
+	testManager.sender, _ = gateway.NewSender(
+		p, testManager.rng, testNdf, mockComms, testManager.session, nil)
 
 	// Create a local channel so reception is possible
 	// (testManager.messageBundles is sent only via newManager call above)
@@ -390,53 +379,50 @@ func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 			Source: requestGateway,
 		}
 
-		// Create a list of ID's in which some error gateways must be contacted before the happy path
-		idList := [][]byte{errorGateway.Bytes(), errorGateway.Bytes(), requestGateway.Bytes()}
-
-		roundInfo := &pb.RoundInfo{
-			ID:       uint64(roundId),
-			Topology: idList,
+		round := historical.Round{
+			ID: roundId,
+			// Create a list of IDs in which some error gateways must be
+			// contacted before the happy path
+			Topology: connect.NewCircuit(
+				[]*id.ID{errorGateway, requestGateway}),
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
-			RoundInfo: roundInfo,
-			Identity:  identity,
+			Round:    round,
+			Identity: identity,
 		}
 
 	}()
 
+	// Receive the bundle over the channel
 	var testBundle message.Bundle
-	go func() {
-		// Receive the bundle over the channel
-		time.Sleep(1 * time.Second)
-		testBundle = <-messageBundleChan
+	select {
+	case testBundle = <-messageBundleChan:
+	case <-time.After(30 * time.Millisecond):
+		t.Errorf("Timed out waiting for messageBundleChan.")
+	}
 
-		// Close the process
-		if err := stop.Close(); err != nil {
-			t.Errorf("Failed to signal close to process: %+v", err)
-		}
-	}()
+	// Close the process
+	err := stop.Close()
+	if err != nil {
+		t.Errorf("Failed to signal close to process: %+v", err)
+	}
 
-	// Ensure that expected bundle is still received from happy comm
-	// despite initial errors
+	// Ensure that expected bundle is still received from happy comm despite
+	// initial errors
 	time.Sleep(2 * time.Second)
 	if reflect.DeepEqual(testBundle, message.Bundle{}) {
-		t.Errorf("Did not receive a message bundle over the channel")
-		t.FailNow()
+		t.Fatal("Did not receive a message bundle over the channel.")
 	}
 
 	if testBundle.Identity.EphId.Int64() != expectedEphID.Int64() {
-		t.Errorf("Unexpected address ID in bundle."+
-			"\n\tExpected: %v"+
-			"\n\tReceived: %v", expectedEphID, testBundle.Identity.EphId)
+		t.Errorf("Unexpected address ID in bundle.\nexpected: %v\nreceived: %v",
+			expectedEphID, testBundle.Identity.EphId)
 	}
 
 	if !bytes.Equal(expectedPayload, testBundle.Messages[0].GetPayloadA()) {
-		t.Errorf("Unexpected address ID in bundle."+
-			"\n\tExpected: %v"+
-			"\n\tReceived: %v", expectedPayload, testBundle.Messages[0].GetPayloadA())
-
+		t.Errorf("Unexpected address ID in bundle.\nexpected: %v\nreceived: %v",
+			expectedPayload, testBundle.Messages[0].GetPayloadA())
 	}
-
 }

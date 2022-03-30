@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-// Test happy path of meteredCmixMessage.SaveMessage().
+// Test happy path of meteredCmixMessageHandler.SaveMessage.
 func Test_meteredCmixMessageHandler_SaveMessage(t *testing.T) {
 	// Set up test values
 	mcmh := &meteredCmixMessageHandler{}
@@ -60,7 +60,7 @@ func Test_meteredCmixMessageHandler_SaveMessage(t *testing.T) {
 	}
 }
 
-// Test happy path of meteredCmixMessage.LoadMessage().
+// Test happy path of meteredCmixMessageHandler.LoadMessage.
 func Test_meteredCmixMessageHandler_LoadMessage(t *testing.T) {
 	// Set up test values
 	mcmh := &meteredCmixMessageHandler{}
@@ -85,14 +85,16 @@ func Test_meteredCmixMessageHandler_LoadMessage(t *testing.T) {
 		testMcm := testMsg.(meteredCmixMessage)
 
 		// Test if message loaded matches expected
-		if !bytes.Equal(msg.M, testMcm.M) || msg.Count != testMcm.Count || !msg.Timestamp.Equal(testMcm.Timestamp) {
+		if !bytes.Equal(msg.M, testMcm.M) || msg.Count != testMcm.Count ||
+			!msg.Timestamp.Equal(testMcm.Timestamp) {
 			t.Errorf("LoadMessage() returned an unexpected object (round %d)."+
-				"\n\texpected: %+v\n\treceived: %+v", i, msg, testMsg.(meteredCmixMessage))
+				"\n\texpected: %+v\n\treceived: %+v", i, msg,
+				testMsg.(meteredCmixMessage))
 		}
 	}
 }
 
-// Test happy path of meteredCmixMessage.DeleteMessage().
+// Test happy path of meteredCmixMessageHandler.DeleteMessage.
 func Test_meteredCmixMessageHandler_DeleteMessage(t *testing.T) {
 	// Set up test values
 	mcmh := &meteredCmixMessageHandler{}
@@ -128,7 +130,8 @@ func Test_meteredCmixMessageHandler_Smoke(t *testing.T) {
 	testMsgs := makeTestFormatMessages(2)
 
 	// Create new buffer
-	mcmb, err := NewMeteredCmixMessageBuffer(versioned.NewKV(make(ekv.Memstore)), "testKey")
+	mcmb, err := NewMeteredCmixMessageBuffer(
+		versioned.NewKV(make(ekv.Memstore)), "testKey")
 	if err != nil {
 		t.Errorf("NewMeteredCmixMessageBuffer() returned an error."+
 			"\nexpected: %v\nrecieved: %v", nil, err)
@@ -166,9 +169,10 @@ func Test_meteredCmixMessageHandler_Smoke(t *testing.T) {
 	}
 }
 
-// makeTestMeteredCmixMessage creates a list of messages with random data and the
-// expected map after they are added to the buffer.
-func makeTestMeteredCmixMessage(n int) ([]meteredCmixMessage, map[utility.MessageHash]struct{}) {
+// makeTestMeteredCmixMessage creates a list of messages with random data and
+// the expected map after they are added to the buffer.
+func makeTestMeteredCmixMessage(n int) (
+	[]meteredCmixMessage, map[utility.MessageHash]struct{}) {
 	mcmh := &meteredCmixMessageHandler{}
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	mh := map[utility.MessageHash]struct{}{}

@@ -1,7 +1,9 @@
-package preimage
+package catalog
+
+import "gitlab.com/elixxir/crypto/sih"
 
 const (
-	Default = "default"
+	Default = sih.Default
 	Request = "request"
 	Confirm = "confirm"
 	Silent  = "silent"

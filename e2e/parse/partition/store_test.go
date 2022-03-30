@@ -27,7 +27,7 @@ func TestNew(t *testing.T) {
 		kv:          rootKv.Prefix(packagePrefix),
 	}
 
-	store := New(rootKv)
+	store := NewOrLoad(rootKv)
 
 	if !reflect.DeepEqual(expectedStore, store) {
 		t.Errorf("New() did not return the expecte Store."+
@@ -38,7 +38,7 @@ func TestNew(t *testing.T) {
 // Tests happy path of Store.AddFirst().
 func TestStore_AddFirst(t *testing.T) {
 	part := []byte("Test message.")
-	s := New(versioned.NewKV(ekv.Memstore{}))
+	s := NewOrLoad(versioned.NewKV(ekv.Memstore{}))
 
 	msg, complete := s.AddFirst(id.NewIdFromString("User", id.User, t),
 		message.XxMessage, 5, 0, 1, netTime.Now(), netTime.Now(), part,

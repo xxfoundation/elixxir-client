@@ -5,24 +5,17 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package message
+package receive
 
 import (
-	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"time"
 )
 
-type Receive struct {
-	ID             e2e.MessageID
-	Payload        []byte
-	MessageType    Type
-	Sender         *id.ID
-	RecipientID    *id.ID
-	EphemeralID    ephemeral.Id
-	RoundId        id.Round
-	RoundTimestamp time.Time
-	Timestamp      time.Time // Message timestamp of when the user sent
-	Encryption     string
+// ID to respond to any message type
+const AnyType = catalog.NoType
+
+//ID to respond to any user
+func AnyUser() *id.ID {
+	return &id.ZeroUser
 }

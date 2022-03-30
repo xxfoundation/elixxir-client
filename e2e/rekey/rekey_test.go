@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package keyExchange
+package rekey
 
 /*
 func TestRekey(t *testing.T) {

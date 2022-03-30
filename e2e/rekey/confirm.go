@@ -5,19 +5,19 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package keyExchange
+package rekey
 
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/e2e/ratchet"
 	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
 )
 
-func startConfirm(sess *storage.Session, c chan message.Receive,
+func startConfirm(ratchet *ratchet.Ratchet, c chan receive.Message,
 	stop *stoppable.Single, cleanup func()) {
 	for true {
 		select {
@@ -26,14 +26,14 @@ func startConfirm(sess *storage.Session, c chan message.Receive,
 			stop.ToStopped()
 			return
 		case confirmation := <-c:
-			handleConfirm(sess, confirmation)
+			handleConfirm(ratchet, confirmation)
 		}
 	}
 }
 
-func handleConfirm(sess *storage.Session, confirmation message.Receive) {
+func handleConfirm(ratchet *ratchet.Ratchet, confirmation receive.Message) {
 	//ensure the message was encrypted properly
-	if confirmation.Encryption != message.E2E {
+	if !confirmation.Encrypted {
 		jww.ERROR.Printf(
 			"[REKEY] Received non-e2e encrypted Key Exchange "+
 				"confirm from partner %s", confirmation.Sender)
@@ -41,7 +41,7 @@ func handleConfirm(sess *storage.Session, confirmation message.Receive) {
 	}
 
 	//get the partner
-	partner, err := sess.E2e().GetPartner(confirmation.Sender)
+	partner, err := ratchet.GetPartner(confirmation.Sender)
 	if err != nil {
 		jww.ERROR.Printf(
 			"[REKEY] Received Key Exchange Confirmation with unknown "+

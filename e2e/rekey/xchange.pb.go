@@ -13,7 +13,7 @@
 // 	protoc        v3.15.6
 // source: xchange.proto
 
-package keyExchange
+package rekey
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"

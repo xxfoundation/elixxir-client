@@ -5,9 +5,10 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package keyExchange
+package rekey
 
 import (
+	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -21,7 +22,7 @@ const keyExchangeTriggerName = "KeyExchangeTrigger"
 const keyExchangeConfirmName = "KeyExchangeConfirm"
 const keyExchangeMulti = "KeyExchange"
 
-func Start(switchboard *switchboard.Switchboard, sess *storage.Session, net interfaces.NetworkManager,
+func Start(switchboard *receive.Switchboard, sess *storage.Session, net interfaces.NetworkManager,
 	params params.Rekey) (stoppable.Stoppable, error) {
 
 	// register the rekey trigger thread

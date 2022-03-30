@@ -13,12 +13,12 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/catalog"
+	keyExchange2 "gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/interfaces/user"
-	"gitlab.com/elixxir/client/keyExchange"
 	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/registration"
 	"gitlab.com/elixxir/client/stoppable"
@@ -564,7 +564,7 @@ func (c *Client) registerFollower() error {
 
 	//register the key exchange service
 	keyXchange := func() (stoppable.Stoppable, error) {
-		return keyExchange.Start(c.switchboard, c.storage, c.network, c.parameters.Rekey)
+		return keyExchange2.Start(c.switchboard, c.storage, c.network, c.parameters.Rekey)
 	}
 	err = c.followerServices.add(keyXchange)
 

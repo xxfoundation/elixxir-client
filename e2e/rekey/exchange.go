@@ -8,27 +8,32 @@
 package rekey
 
 import (
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
+	"time"
 )
 
 const keyExchangeTriggerName = "KeyExchangeTrigger"
 const keyExchangeConfirmName = "KeyExchangeConfirm"
 const keyExchangeMulti = "KeyExchange"
 
-func Start(switchboard *receive.Switchboard, sess *storage.Session, net interfaces.NetworkManager,
-	params params.Rekey) (stoppable.Stoppable, error) {
+type E2eSender func(mt catalog.MessageType, recipient *id.ID, payload []byte,
+	cmixParams network.CMIXParams) (
+	[]id.Round, e2e.MessageID, time.Time, error)
+
+func Start(switchboard *receive.Switchboard, ratchet *ratchet.Ratchet,
+	sender E2eSender, net network.Manager, grp *cyclic.Group, params Params) (stoppable.Stoppable, error) {
 
 	// register the rekey trigger thread
-	triggerCh := make(chan message.Receive, 100)
+	triggerCh := make(chan receive.Message, 100)
 	triggerID := switchboard.RegisterChannel(keyExchangeTriggerName,
-		&id.ID{}, message.KeyExchangeTrigger, triggerCh)
+		&id.ID{}, catalog.KeyExchangeTrigger, triggerCh)
 
 	// create the trigger stoppable
 	triggerStop := stoppable.NewSingle(keyExchangeTriggerName)
@@ -38,12 +43,13 @@ func Start(switchboard *receive.Switchboard, sess *storage.Session, net interfac
 	}
 
 	// start the trigger thread
-	go startTrigger(sess, net, triggerCh, triggerStop, params, cleanupTrigger)
+	go startTrigger(ratchet, sender, net, grp, triggerCh, triggerStop, params,
+		cleanupTrigger)
 
 	//register the rekey confirm thread
-	confirmCh := make(chan message.Receive, 100)
+	confirmCh := make(chan receive.Message, 100)
 	confirmID := switchboard.RegisterChannel(keyExchangeConfirmName,
-		&id.ID{}, message.KeyExchangeConfirm, confirmCh)
+		&id.ID{}, catalog.KeyExchangeConfirm, confirmCh)
 
 	// register the confirm stoppable
 	confirmStop := stoppable.NewSingle(keyExchangeConfirmName)
@@ -52,7 +58,7 @@ func Start(switchboard *receive.Switchboard, sess *storage.Session, net interfac
 	}
 
 	// start the confirm thread
-	go startConfirm(sess, confirmCh, confirmStop, cleanupConfirm)
+	go startConfirm(ratchet, confirmCh, confirmStop, cleanupConfirm)
 
 	//bundle the stoppables and return
 	exchangeStop := stoppable.NewMulti(keyExchangeMulti)

@@ -5,7 +5,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	keyExchange2 "gitlab.com/elixxir/client/e2e/rekey"
+	"gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -51,7 +51,8 @@ func (m *Manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
 	for i, p := range partitions {
 		if mt != catalog.KeyExchangeTrigger {
 			// check if any rekeys need to happen and trigger them
-			keyExchange2.CheckKeyExchanges(m.Instance, m.SendE2E,
+			rekeySendFunc = func()
+			rekey.CheckKeyExchanges(m.net.GetInstance(), m.SendE2E,
 				m.Events, m.Session, partner,
 				1*time.Minute, stop)
 		}

@@ -13,17 +13,14 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e/ratchet"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
 	util "gitlab.com/elixxir/client/storage/utility"
-	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/primitives/states"
 )
 
 const (
@@ -32,8 +29,9 @@ const (
 	errFailed     = "Failed to handle rekey trigger: %s"
 )
 
-func startTrigger(sess *storage.Session, net interfaces.NetworkManager,
-	c chan message.Receive, stop *stoppable.Single, params params.Rekey, cleanup func()) {
+func startTrigger(ratchet *ratchet.Ratchet, sender E2eSender, net network.Manager,
+	grp *cyclic.Group, c chan receive.Message, stop *stoppable.Single, params Params,
+	cleanup func()) {
 	for {
 		select {
 		case <-stop.Quit():
@@ -42,7 +40,8 @@ func startTrigger(sess *storage.Session, net interfaces.NetworkManager,
 			return
 		case request := <-c:
 			go func() {
-				err := handleTrigger(sess, net, request, params, stop)
+				err := handleTrigger(ratchet, sender, net, grp, request, params,
+					stop)
 				if err != nil {
 					jww.ERROR.Printf(errFailed, err)
 				}
@@ -51,17 +50,18 @@ func startTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	}
 }
 
-func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
-	request message.Receive, param params.Rekey, stop *stoppable.Single) error {
+func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
+	net network.Manager, grp *cyclic.Group, request receive.Message,
+	param Params, stop *stoppable.Single) error {
 	//ensure the message was encrypted properly
-	if request.Encryption != message.E2E {
+	if !request.Encrypted {
 		errMsg := fmt.Sprintf(errBadTrigger, request.Sender)
 		jww.ERROR.Printf(errMsg)
 		return errors.New(errMsg)
 	}
 
 	//get the partner
-	partner, err := sess.E2e().GetPartner(request.Sender)
+	partner, err := ratchet.GetPartner(request.Sender)
 	if err != nil {
 		errMsg := fmt.Sprintf(errUnknown, request.Sender)
 		jww.ERROR.Printf(errMsg)
@@ -69,7 +69,8 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	}
 
 	//unmarshal the message
-	oldSessionID, PartnerPublicKey, PartnerSIDHPublicKey, err := (unmarshalSource(sess.E2e().GetGroup(), request.Payload))
+	oldSessionID, PartnerPublicKey, PartnerSIDHPublicKey, err :=
+		unmarshalSource(grp, request.Payload)
 	if err != nil {
 		jww.ERROR.Printf("[REKEY] could not unmarshal partner %s: %s",
 			request.Sender, err)
@@ -86,8 +87,8 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	}
 
 	//create the new session
-	session, duplicate := partner.NewReceiveSession(PartnerPublicKey,
-		PartnerSIDHPublicKey, sess.E2e().GetE2ESessionParams(),
+	sess, duplicate := partner.NewReceiveSession(PartnerPublicKey,
+		PartnerSIDHPublicKey, session.GetDefaultE2ESessionParams(),
 		oldSession)
 	// new session being nil means the session was a duplicate. This is possible
 	// in edge cases where the partner crashes during operation. The session
@@ -96,98 +97,55 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	if duplicate {
 		jww.INFO.Printf("[REKEY] New session from Key Exchange Trigger to "+
 			"create session %s for partner %s is a duplicate, request ignored",
-			session.GetID(), request.Sender)
+			sess.GetID(), request.Sender)
 	} else {
 		// if the session is new, attempt to trigger garbled message processing
 		// automatically skips if there is contention
-		net.CheckGarbledMessages()
+		net.CheckInProgressMessages()
 	}
 
 	//Send the Confirmation Message
 	//build the payload
 	payload, err := proto.Marshal(&RekeyConfirm{
-		SessionID: session.GetSource().Marshal(),
+		SessionID: sess.GetSource().Marshal(),
 	})
 
 	//If the payload cannot be marshaled, panic
 	if err != nil {
 		jww.FATAL.Panicf("[REKEY] Failed to marshal payload for Key "+
-			"Negotation Confirmation with %s", session.GetPartner())
+			"Negotation Confirmation with %s", sess.GetPartner())
 	}
 
-	//build the message
-	m := message.Send{
-		Recipient:   session.GetPartner(),
-		Payload:     payload,
-		MessageType: message.KeyExchangeConfirm,
-	}
-
-	//send the message under the key exchange
-	e2eParams := params.GetDefaultE2E()
-	e2eParams.IdentityPreimage = partner.GetSilentPreimage()
-	e2eParams.DebugTag = "kx.Confirm"
-
-	// store in critical messages buffer first to ensure it is resent if the
-	// send fails
-	sess.GetCriticalMessages().AddProcessing(m, e2eParams)
-
-	rounds, msgID, _, err := net.SendE2E(m, e2eParams, stop)
-	if err != nil {
-		return err
-	}
-
-	//Register the event for all rounds
-	sendResults := make(chan ds.EventReturn, len(rounds))
-	roundEvents := net.GetInstance().GetRoundEvents()
-	for _, r := range rounds {
-		roundEvents.AddRoundEventChan(r, sendResults, param.RoundTimeout,
-			states.COMPLETED, states.FAILED)
-	}
-
-	//Wait until the result tracking responds
-	success, numRoundFail, numTimeOut := network.TrackResults(sendResults,
-		len(rounds))
-	// If a single partition of the Key Negotiation request does not
-	// transmit, the partner will not be able to read the confirmation. If
-	// such a failure occurs
-	if !success {
-		jww.ERROR.Printf("[REKEY] Key Negotiation trigger for %s failed to "+
-			"transmit %v/%v paritions: %v round failures, %v timeouts, msgID: %s",
-			session, numRoundFail+numTimeOut, len(rounds), numRoundFail,
-			numTimeOut, msgID)
-		sess.GetCriticalMessages().Failed(m, e2eParams)
-		return nil
-	}
-
-	// otherwise, the transmission is a success and this should be denoted
-	// in the session and the log
-	sess.GetCriticalMessages().Succeeded(m, e2eParams)
-	jww.INFO.Printf("[REKEY] Key Negotiation trigger transmission for %s, msgID: %s successfully",
-		session, msgID)
+	//send the trigger
+	params := network.GetDefaultCMIXParams()
+	params.Critical = true
+	//ignore results, the passed sender interface makes it a critical message
+	_, _, _, _ = sender(catalog.KeyExchangeConfirm, request.Sender, payload,
+		params)
 
 	return nil
 }
 
-func unmarshalSource(grp *cyclic.Group, payload []byte) (session2.SessionID,
+func unmarshalSource(grp *cyclic.Group, payload []byte) (session.SessionID,
 	*cyclic.Int, *sidh.PublicKey, error) {
 
 	msg := &RekeyTrigger{}
 	if err := proto.Unmarshal(payload, msg); err != nil {
-		return session2.SessionID{}, nil, nil, errors.Errorf(
+		return session.SessionID{}, nil, nil, errors.Errorf(
 			"Failed to unmarshal payload: %s", err)
 	}
 
-	oldSessionID := session2.SessionID{}
+	oldSessionID := session.SessionID{}
 
 	if err := oldSessionID.Unmarshal(msg.SessionID); err != nil {
-		return session2.SessionID{}, nil, nil, errors.Errorf(
+		return session.SessionID{}, nil, nil, errors.Errorf(
 			"Failed to unmarshal sessionID: %s", err)
 	}
 
 	// checking it is inside the group is necessary because otherwise the
 	// creation of the cyclic int will crash below
 	if !grp.BytesInside(msg.PublicKey) {
-		return session2.SessionID{}, nil, nil, errors.Errorf(
+		return session.SessionID{}, nil, nil, errors.Errorf(
 			"Public key not in e2e group; PublicKey %v",
 			msg.PublicKey)
 	}

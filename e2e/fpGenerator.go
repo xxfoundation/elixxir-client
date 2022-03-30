@@ -6,13 +6,13 @@ import (
 )
 
 type fpGenerator struct {
-	*Manager
+	*manager
 }
 
 func (fp *fpGenerator) AddKey(k *session.Cypher) {
 	err := fp.net.AddFingerprint(fp.myID, k.Fingerprint(), &processor{
 		cy: k,
-		m:  fp.Manager,
+		m:  fp.manager,
 	})
 	if err != nil {
 		jww.ERROR.Printf("Could not add fingerprint %s: %+v",

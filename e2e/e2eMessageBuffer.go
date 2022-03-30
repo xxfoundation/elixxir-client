@@ -5,15 +5,14 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package utility
+package e2e
 
-/*
 import (
 	"encoding/binary"
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -28,7 +27,7 @@ type e2eMessage struct {
 	Recipient   []byte
 	Payload     []byte
 	MessageType uint32
-	Params      params.E2E
+	Params      Params
 }
 
 // SaveMessage saves the e2eMessage as a versioned object at the specified key
@@ -80,7 +79,7 @@ func (emh *e2eMessageHandler) DeleteMessage(kv *versioned.KV, key string) error 
 // HashMessage generates a hash of the e2eMessage.
 // Do not include the params in the hash so it is not needed to resubmit the
 // message into succeeded or failed
-func (emh *e2eMessageHandler) HashMessage(m interface{}) MessageHash {
+func (emh *e2eMessageHandler) HashMessage(m interface{}) utility.MessageHash {
 	h, _ := blake2b.New256(nil)
 
 	msg := m.(e2eMessage)
@@ -90,7 +89,7 @@ func (emh *e2eMessageHandler) HashMessage(m interface{}) MessageHash {
 	binary.BigEndian.PutUint32(mtBytes, msg.MessageType)
 	h.Write(mtBytes)
 
-	var messageHash MessageHash
+	var messageHash utility.MessageHash
 	copy(messageHash[:], h.Sum(nil))
 
 	return messageHash
@@ -98,20 +97,24 @@ func (emh *e2eMessageHandler) HashMessage(m interface{}) MessageHash {
 
 // E2eMessageBuffer wraps the message buffer to store and load raw e2eMessages.
 type E2eMessageBuffer struct {
-	mb *MessageBuffer
+	mb *utility.MessageBuffer
 }
 
-func NewE2eMessageBuffer(kv *versioned.KV, key string) (*E2eMessageBuffer, error) {
-	mb, err := NewMessageBuffer(kv, &e2eMessageHandler{}, key)
+func NewOrLoadE2eMessageBuffer(kv *versioned.KV, key string) (*E2eMessageBuffer, error) {
+	mb, err := LoadE2eMessageBuffer(kv, key)
+	if err != nil {
+		return mb, nil
+	}
+	mbInt, err := utility.NewMessageBuffer(kv, &e2eMessageHandler{}, key)
 	if err != nil {
 		return nil, err
 	}
 
-	return &E2eMessageBuffer{mb: mb}, nil
+	return &E2eMessageBuffer{mb: mbInt}, nil
 }
 
 func LoadE2eMessageBuffer(kv *versioned.KV, key string) (*E2eMessageBuffer, error) {
-	mb, err := LoadMessageBuffer(kv, &e2eMessageHandler{}, key)
+	mb, err := utility.LoadMessageBuffer(kv, &e2eMessageHandler{}, key)
 	if err != nil {
 		return nil, err
 	}
@@ -119,32 +122,35 @@ func LoadE2eMessageBuffer(kv *versioned.KV, key string) (*E2eMessageBuffer, erro
 	return &E2eMessageBuffer{mb: mb}, nil
 }
 
-func (emb *E2eMessageBuffer) Add(m message.Send, p params.E2E) {
+func (emb *E2eMessageBuffer) Add(mt catalog.MessageType, recipient *id.ID,
+	payload []byte, p Params) {
 	e2eMsg := e2eMessage{
-		Recipient:   m.Recipient.Marshal(),
-		Payload:     m.Payload,
-		MessageType: uint32(m.MessageType),
+		Recipient:   recipient[:],
+		Payload:     payload,
+		MessageType: uint32(mt),
 		Params:      p,
 	}
 
 	emb.mb.Add(e2eMsg)
 }
 
-func (emb *E2eMessageBuffer) AddProcessing(m message.Send, p params.E2E) {
+func (emb *E2eMessageBuffer) AddProcessing(mt catalog.MessageType,
+	recipient *id.ID, payload []byte, p Params) {
 	e2eMsg := e2eMessage{
-		Recipient:   m.Recipient.Marshal(),
-		Payload:     m.Payload,
-		MessageType: uint32(m.MessageType),
+		Recipient:   recipient[:],
+		Payload:     payload,
+		MessageType: uint32(mt),
 		Params:      p,
 	}
 
 	emb.mb.AddProcessing(e2eMsg)
 }
 
-func (emb *E2eMessageBuffer) Next() (message.Send, params.E2E, bool) {
+func (emb *E2eMessageBuffer) Next() (catalog.MessageType, *id.ID, []byte,
+	Params, bool) {
 	m, ok := emb.mb.Next()
 	if !ok {
-		return message.Send{}, params.E2E{}, false
+		return 0, nil, nil, Params{}, false
 	}
 
 	msg := m.(e2eMessage)
@@ -152,17 +158,16 @@ func (emb *E2eMessageBuffer) Next() (message.Send, params.E2E, bool) {
 	if err != nil {
 		jww.FATAL.Panicf("Error unmarshaling Recipient: %v", err)
 	}
-	return message.Send{recipient, msg.Payload,
-		message.Type(msg.MessageType)}, msg.Params, true
+	mt := catalog.MessageType(msg.MessageType)
+	return mt, recipient, msg.Payload, msg.Params, true
 }
 
-func (emb *E2eMessageBuffer) Succeeded(m message.Send, p params.E2E) {
-	emb.mb.Succeeded(e2eMessage{m.Recipient.Marshal(),
-		m.Payload, uint32(m.MessageType), p})
+func (emb *E2eMessageBuffer) Succeeded(mt catalog.MessageType, recipient *id.ID, payload []byte) {
+	emb.mb.Succeeded(e2eMessage{recipient.Marshal(),
+		payload, uint32(mt), Params{}})
 }
 
-func (emb *E2eMessageBuffer) Failed(m message.Send, p params.E2E) {
-	emb.mb.Failed(e2eMessage{m.Recipient.Marshal(),
-		m.Payload, uint32(m.MessageType), p})
+func (emb *E2eMessageBuffer) Failed(mt catalog.MessageType, recipient *id.ID, payload []byte) {
+	emb.mb.Failed(e2eMessage{recipient.Marshal(),
+		payload, uint32(mt), Params{}})
 }
-*/

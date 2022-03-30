@@ -191,6 +191,20 @@ func (r *Ratchet) AddPartner(partnerID *id.ID, partnerPubKey,
 	return m, nil
 }
 
+// GetPartner returns the partner per its ID, if it exists
+func (r *Ratchet) GetPartner(partnerID *id.ID) (*partner.Manager, error) {
+	r.mux.RLock()
+	defer r.mux.RUnlock()
+
+	m, ok := r.managers[*partnerID]
+
+	if !ok {
+		return nil, errors.New(NoPartnerErrorStr)
+	}
+
+	return m, nil
+}
+
 // DeletePartner removes the associated contact from the E2E store
 func (r *Ratchet) DeletePartner(partnerId *id.ID) error {
 	m, ok := r.managers[*partnerId]
@@ -208,20 +222,6 @@ func (r *Ratchet) DeletePartner(partnerId *id.ID) error {
 	delete(r.managers, *partnerId)
 	return r.save()
 
-}
-
-// GetPartner returns the partner per its ID, if it exists
-func (r *Ratchet) GetPartner(partnerID *id.ID) (*partner.Manager, error) {
-	r.mux.RLock()
-	defer r.mux.RUnlock()
-
-	m, ok := r.managers[*partnerID]
-
-	if !ok {
-		return nil, errors.New(NoPartnerErrorStr)
-	}
-
-	return m, nil
 }
 
 // GetAllPartnerIDs returns a list of all partner IDs that the user has

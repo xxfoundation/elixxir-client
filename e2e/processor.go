@@ -10,7 +10,7 @@ import (
 
 type processor struct {
 	cy *session.Cypher
-	m  *Manager
+	m  *manager
 }
 
 func (p *processor) Process(ecrMsg format.Message, receptionID receptionID.EphemeralIdentity,

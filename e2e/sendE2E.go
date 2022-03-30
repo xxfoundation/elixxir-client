@@ -6,6 +6,7 @@ import (
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/rekey"
+	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -16,7 +17,34 @@ import (
 	"time"
 )
 
-func (m *Manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
+func (m *manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
+	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, error) {
+
+	//check if the network is healthy
+	if !m.net.IsHealthy() {
+		return nil, e2e.MessageID{}, time.Time{}, errors.New("cannot " +
+			"sendE2E when network is not healthy")
+	}
+
+	//handle critical messages
+	handleCritical := params.CMIX.Critical
+	if handleCritical {
+		m.crit.AddProcessing(mt, recipient, payload, params)
+		// set critical to false so the network layer doesnt make the messages
+		// critical as well
+		params.CMIX.Critical = false
+	}
+
+	rnds, msgID, t, err := m.sendE2E(mt, recipient, payload, params)
+
+	if handleCritical {
+		m.crit.handle(mt, recipient, payload, rnds, err)
+	}
+	return rnds, msgID, t, err
+
+}
+
+func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, error) {
 	//timestamp the message
 	ts := netTime.Now()
@@ -44,17 +72,23 @@ func (m *Manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
 	}
 
 	//return the rounds if everything send successfully
-	msgID := e2e.NewMessageID(partner.GetSendRelationshipFingerprint(), internalMsgId)
+	msgID := e2e.NewMessageID(partner.GetSendRelationshipFingerprint(),
+		internalMsgId)
 
 	wg := sync.WaitGroup{}
 
 	for i, p := range partitions {
 		if mt != catalog.KeyExchangeTrigger {
 			// check if any rekeys need to happen and trigger them
-			rekeySendFunc = func()
-			rekey.CheckKeyExchanges(m.net.GetInstance(), m.SendE2E,
-				m.Events, m.Session, partner,
-				1*time.Minute, stop)
+			rekeySendFunc := func(mt catalog.MessageType, recipient *id.ID, payload []byte,
+				cmixParams network.CMIXParams) (
+				[]id.Round, e2e.MessageID, time.Time, error) {
+				par := GetDefaultParams()
+				par.CMIX = cmixParams
+				return m.SendE2E(mt, recipient, payload, par)
+			}
+			rekey.CheckKeyExchanges(m.net.GetInstance(), m.grp, rekeySendFunc,
+				m.events, partner, 1*time.Minute)
 		}
 
 		//get a key to end to end encrypt

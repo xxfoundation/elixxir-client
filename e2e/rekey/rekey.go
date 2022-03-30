@@ -17,7 +17,6 @@ import (
 	session "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/network"
-	"gitlab.com/elixxir/client/stoppable"
 	util "gitlab.com/elixxir/client/storage/utility"
 	commsNetwork "gitlab.com/elixxir/comms/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
@@ -29,11 +28,11 @@ import (
 
 func CheckKeyExchanges(instance *commsNetwork.Instance, grp *cyclic.Group,
 	sendE2E E2eSender, events event.Manager, manager *partner.Manager,
-	sendTimeout time.Duration, stop *stoppable.Single) {
+	sendTimeout time.Duration) {
 	sessions := manager.TriggerNegotiations()
 	for _, sess := range sessions {
 		go trigger(instance, grp, sendE2E, events, manager, sess,
-			sendTimeout, stop)
+			sendTimeout)
 	}
 }
 
@@ -43,7 +42,7 @@ func CheckKeyExchanges(instance *commsNetwork.Instance, grp *cyclic.Group,
 // session while the latter on an extant session
 func trigger(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSender,
 	events event.Manager, manager *partner.Manager, sess *session.Session,
-	sendTimeout time.Duration, stop *stoppable.Single) {
+	sendTimeout time.Duration) {
 
 	var negotiatingSession *session.Session
 	jww.INFO.Printf("[REKEY] Negotiation triggered for session %s with "+
@@ -68,7 +67,7 @@ func trigger(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSend
 
 	// send the rekey notification to the partner
 	err := negotiate(instance, grp, sendE2E, negotiatingSession,
-		sendTimeout, stop)
+		sendTimeout)
 	// if sending the negotiation fails, revert the state of the session to
 	// unconfirmed so it will be triggered in the future
 	if err != nil {
@@ -79,8 +78,7 @@ func trigger(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSend
 }
 
 func negotiate(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSender,
-	sess *session.Session, sendTimeout time.Duration,
-	stop *stoppable.Single) error {
+	sess *session.Session, sendTimeout time.Duration) error {
 
 	//generate public key
 	pubKey := diffieHellman.GeneratePublicKey(sess.GetMyPrivKey(), grp)
@@ -108,7 +106,6 @@ func negotiate(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSe
 	//send the message under the key exchange
 	params := network.GetDefaultCMIXParams()
 	params.DebugTag = "kx.Request"
-	params.Stop = stop
 
 	rounds, msgID, _, err := sendE2E(catalog.KeyExchangeTrigger, sess.GetPartner(),
 		payload, params)

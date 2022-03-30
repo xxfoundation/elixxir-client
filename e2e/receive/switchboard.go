@@ -30,7 +30,7 @@ func New() *Switchboard {
 	}
 }
 
-// Registers a new listener. Returns the ID of the new listener.
+// RegisterListener Registers a new listener. Returns the ID of the new listener.
 // Keep this around if you want to be able to delete the listener later.
 //
 // name is used for debug printing and not checked for uniqueness
@@ -71,7 +71,7 @@ func (sw *Switchboard) RegisterListener(user *id.ID,
 	}
 }
 
-// Registers a new listener built around the passed function.
+// RegisterFunc Registers a new listener built around the passed function.
 // Returns the ID of the new listener.
 // Keep this around if you want to be able to delete the listener later.
 //
@@ -100,7 +100,7 @@ func (sw *Switchboard) RegisterFunc(name string, user *id.ID,
 	return sw.RegisterListener(user, messageType, fl)
 }
 
-// Registers a new listener built around the passed channel.
+// RegisterChannel Registers a new listener built around the passed channel.
 // Returns the ID of the new listener.
 // Keep this around if you want to be able to delete the listener later.
 //

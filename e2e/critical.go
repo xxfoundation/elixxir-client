@@ -1,19 +1,20 @@
-package network
+package e2e
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/network/health"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"time"
 )
 
-const criticalRawMessagesKey = "RawCriticalMessages"
+const e2eCriticalMessagesKey = "E2ECriticalMessages"
 
 // roundEventRegistrar is an interface for the round events system to allow
 // for easy testing.
@@ -26,34 +27,34 @@ type roundEventRegistrar interface {
 // for sending. It should call sendCmixHelper and use scope sharing in an
 // anonymous function to include the structures from manager that critical is
 // not aware of.
-type criticalSender func(msg format.Message, recipient *id.ID,
-	params CMIXParams) (id.Round, ephemeral.Id, error)
+type criticalSender func(mt catalog.MessageType, recipient *id.ID,
+	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, error)
 
 // critical is a structure that allows the auto resending of messages that must
 // be received.
 type critical struct {
-	*CmixMessageBuffer
+	*E2eMessageBuffer
 	roundEvents roundEventRegistrar
 	trigger     chan bool
 	send        criticalSender
 }
 
-func newCritical(kv *versioned.KV, hm health.Monitor,
+func newCritical(kv *versioned.KV, hm func(f func(bool)) uint64,
 	roundEvents roundEventRegistrar, send criticalSender) *critical {
-	cm, err := NewOrLoadCmixMessageBuffer(kv, criticalRawMessagesKey)
+	cm, err := NewOrLoadE2eMessageBuffer(kv, e2eCriticalMessagesKey)
 	if err != nil {
 		jww.FATAL.Panicf(
 			"Failed to load the buffer for critical messages: %+v", err)
 	}
 
 	c := &critical{
-		CmixMessageBuffer: cm,
-		roundEvents:       roundEvents,
-		trigger:           make(chan bool, 100),
-		send:              send,
+		E2eMessageBuffer: cm,
+		roundEvents:      roundEvents,
+		trigger:          make(chan bool, 100),
+		send:             send,
 	}
 
-	hm.AddHealthCallback(func(healthy bool) { c.trigger <- healthy })
+	hm(func(healthy bool) { c.trigger <- healthy })
 
 	return c
 }
@@ -72,36 +73,40 @@ func (c *critical) runCriticalMessages(stop *stoppable.Single) {
 	}
 }
 
-func (c *critical) handle(
-	msg format.Message, recipient *id.ID, rid id.Round, rtnErr error) {
+func (c *critical) handle(mt catalog.MessageType, recipient *id.ID,
+	payload []byte, rids []id.Round, rtnErr error) {
 	if rtnErr != nil {
-		c.Failed(msg, recipient)
+		c.Failed(mt, recipient, payload)
 	} else {
 		sendResults := make(chan ds.EventReturn, 1)
 
-		c.roundEvents.AddRoundEventChan(
-			rid, sendResults, 1*time.Minute, states.COMPLETED, states.FAILED)
-
-		success, numTimeOut, _ := TrackResults(sendResults, 1)
+		for _, rid := range rids {
+			c.roundEvents.AddRoundEventChan(
+				rid, sendResults, 1*time.Minute, states.COMPLETED,
+				states.FAILED)
+		}
+		success, numTimeOut, _ := network.TrackResults(sendResults, len(rids))
 		if !success {
 			if numTimeOut > 0 {
-				jww.ERROR.Printf("Critical raw message resend to %s "+
+				jww.ERROR.Printf("Critical e2e message resend to %s "+
 					"(msgDigest: %s) on round %d failed to transmit due to "+
-					"timeout", recipient, msg.Digest(), rid)
+					"timeout", recipient, format.DigestContents(payload), rids)
 			} else {
 				jww.ERROR.Printf("Critical raw message resend to %s "+
 					"(msgDigest: %s) on round %d failed to transmit due to "+
-					"send failure", recipient, msg.Digest(), rid)
+					"send failure", recipient, format.DigestContents(payload),
+					rids)
 			}
 
-			c.Failed(msg, recipient)
+			c.Failed(mt, recipient, payload)
 			return
 		}
 
-		jww.INFO.Printf("Successful resend of critical raw message to %s "+
-			"(msgDigest: %s) on round %d", recipient, msg.Digest(), rid)
+		jww.INFO.Printf("Successful resend of critical raw message to "+
+			"%s (msgDigest: %s) on round %d", recipient,
+			format.DigestContents(payload), rids)
 
-		c.Succeeded(msg, recipient)
+		c.Succeeded(mt, recipient, payload)
 	}
 
 }
@@ -109,19 +114,20 @@ func (c *critical) handle(
 // evaluate tries to send every message in the critical messages and the raw
 // critical messages buffer in parallel.
 func (c *critical) evaluate(stop *stoppable.Single) {
-	for msg, recipient, params, has := c.Next(); has; msg, recipient, params, has = c.Next() {
-		localRid := recipient.DeepCopy()
-		go func(msg format.Message, recipient *id.ID, params CMIXParams) {
-			params.Stop = stop
+	for mt, recipient, payload, params, has := c.Next(); has; mt, recipient, payload, params, has = c.Next() {
+		go func(mt catalog.MessageType, recipient *id.ID,
+			payload []byte, params Params) {
+
+			params.CMIX.Stop = stop
 			jww.INFO.Printf("Resending critical raw message to %s "+
-				"(msgDigest: %s)", recipient, msg.Digest())
+				"(msgDigest: %s)", recipient, format.DigestContents(payload))
 
 			// Send the message
-			round, _, err := c.send(msg, recipient, params)
+			round, _, _, err := c.send(mt, recipient, payload, params)
 
 			// Pass to the handler
-			c.handle(msg, recipient, round, err)
-		}(msg, localRid, params)
+			c.handle(mt, recipient, payload, round, err)
+		}(mt, recipient, payload, params)
 	}
 
 }

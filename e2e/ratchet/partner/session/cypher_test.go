@@ -116,8 +116,10 @@ func TestGenerateE2ESessionBaseKey(t *testing.T) {
 
 // Happy path of newKey().
 func Test_newKey(t *testing.T) {
+	s, _ := makeTestSession()
+
 	expectedKey := &Cypher{
-		session: getSession(t),
+		session: s,
 		keyNum:  rand.Uint32(),
 	}
 
@@ -132,7 +134,9 @@ func Test_newKey(t *testing.T) {
 
 // Happy path of Key.GetSession().
 func TestKey_GetSession(t *testing.T) {
-	k := newKey(getSession(t), rand.Uint32())
+	s, _ := makeTestSession()
+
+	k := newKey(s, rand.Uint32())
 
 	testSession := k.GetSession()
 
@@ -148,7 +152,9 @@ func TestKey_GetSession(t *testing.T) {
 
 // Happy path of Key.Fingerprint().
 func TestKey_Fingerprint(t *testing.T) {
-	k := newKey(getSession(t), rand.Uint32())
+	s, _ := makeTestSession()
+
+	k := newKey(s, rand.Uint32())
 
 	// Generate test and expected fingerprints
 	testFingerprint := getFingerprint()
@@ -203,28 +209,34 @@ func TestKey_EncryptDecrypt(t *testing.T) {
 		msg.SetContents(contents)
 
 		// Encrypt
-		ecrMsg := k.Encrypt(msg)
+		contentsEnc, mac := k.Encrypt(msg.GetContents())
 
-		if !reflect.DeepEqual(k.Fingerprint(), ecrMsg.GetKeyFP()) {
-			t.Errorf("Fingerprint in the ecrypted payload is wrong: "+
-				"Expected: %+v, Recieved: %+v", k.Fingerprint(), ecrMsg.GetKeyFP())
-		}
+		//make the encrypted message
+		ecrMsg := format.NewMessage(grp.GetP().ByteLen())
+		ecrMsg.SetKeyFP(k.Fingerprint())
+		ecrMsg.SetContents(contentsEnc)
+		ecrMsg.SetMac(mac)
 
 		// Decrypt
-		resultMsg, _ := k.Decrypt(ecrMsg)
+		contentsDecr, err := k.Decrypt(ecrMsg)
+		if err != nil {
+			t.Fatalf("Decrypt error: %v", err)
+		}
 
-		if !bytes.Equal(resultMsg.GetContents(), msg.GetContents()) {
+		if !bytes.Equal(contentsDecr, msg.GetContents()) {
 			t.Errorf("contents in the decrypted payload does not match: "+
-				"Expected: %v, Recieved: %v", msg.GetContents(), resultMsg.GetContents())
+				"Expected: %v, Recieved: %v", msg.GetContents(), contentsDecr)
 		}
 	}
 }
 
 // Happy path of Key.Use()
 func TestKey_denoteUse(t *testing.T) {
+	s, _ := makeTestSession()
+
 	keyNum := uint32(rand.Int31n(31))
 
-	k := newKey(getSession(t), keyNum)
+	k := newKey(s, keyNum)
 
 	k.Use()
 
@@ -235,7 +247,9 @@ func TestKey_denoteUse(t *testing.T) {
 
 // Happy path of generateKey().
 func TestKey_generateKey(t *testing.T) {
-	k := newKey(getSession(t), rand.Uint32())
+	s, _ := makeTestSession()
+
+	k := newKey(s, rand.Uint32())
 
 	// Generate test CryptoType values and expected keys
 	expectedKey := e2e.DeriveKey(k.session.baseKey, k.keyNum)

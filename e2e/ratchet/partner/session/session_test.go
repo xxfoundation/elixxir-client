@@ -85,7 +85,7 @@ func TestNewSession(t *testing.T) {
 	// Make a test session to easily populate all the fields
 	sessionA, _ := makeTestSession()
 
-	// Make a new session with the variables we got from makeTestSession
+	// Make a new session with the variables we got from MakeTestSession
 	sessionB := NewSession(sessionA.kv, sessionA.t, sessionA.partner,
 		sessionA.myPrivKey, sessionA.partnerPubKey, sessionA.baseKey,
 		sessionA.mySIDHPrivKey, sessionA.partnerSIDHPubKey,
@@ -118,7 +118,7 @@ func TestSession_Load(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// SessionA.kv will have a prefix set in makeTestSession
+	// SessionA.kv will have a prefix set in MakeTestSession
 	// initialize a new one for Load, which will set a prefix internally
 
 	// Load another, identical session from the storage

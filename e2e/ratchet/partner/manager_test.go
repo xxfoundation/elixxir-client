@@ -218,12 +218,11 @@ func TestManager_GetKeyForSending_Error(t *testing.T) {
 	// Set up test values
 	m, _ := newTestManager(t)
 	thisSession := m.send.sessions[0]
-
-	thisSession
+	m.send.Delete()
 
 	err := m.send.Confirm(thisSession.GetID())
 	if err != nil {
-		t.Errorf("Confirm error: %v", err)
+
 	}
 
 	key, err := m.PopSendCypher()

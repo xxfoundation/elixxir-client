@@ -90,7 +90,7 @@ func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
 	return m
 }
 
-//loads a relationship and all buffers and sessions from disk
+//LoadManager loads a relationship and all buffers and sessions from disk
 func LoadManager(kv *versioned.KV, myID, partnerID *id.ID,
 	cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (*Manager, error) {

@@ -58,6 +58,7 @@ type ServiceHandler interface {
 // fixme - this is weird becasue it creates the relationsip and the session.
 // Should be refactored to create an empty relationship, with a second call
 // adding the session
+// todo - doscstring
 func NewRelationship(kv *versioned.KV, t session.RelationshipType,
 	myID, partnerID *id.ID, myOriginPrivateKey,
 	partnerOriginPublicKey *cyclic.Int, originMySIDHPrivKey *sidh.PrivateKey,
@@ -110,6 +111,7 @@ func NewRelationship(kv *versioned.KV, t session.RelationshipType,
 	return r
 }
 
+// todo - doscstring
 func LoadRelationship(kv *versioned.KV, t session.RelationshipType, myID,
 	partnerID *id.ID, cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (*relationship, error) {
@@ -223,6 +225,7 @@ func (r *relationship) unmarshal(b []byte) error {
 	return nil
 }
 
+// todo - doscstring
 func (r *relationship) Delete() {
 	r.mux.Lock()
 	defer r.mux.Unlock()
@@ -232,6 +235,7 @@ func (r *relationship) Delete() {
 	}
 }
 
+// todo - doscstring
 func (r *relationship) AddSession(myPrivKey, partnerPubKey, baseKey *cyclic.Int,
 	mySIDHPrivKey *sidh.PrivateKey, partnerSIDHPubKey *sidh.PublicKey,
 	trigger session.SessionID, negotiationStatus session.Negotiation,
@@ -252,12 +256,14 @@ func (r *relationship) AddSession(myPrivKey, partnerPubKey, baseKey *cyclic.Int,
 	return s
 }
 
+// todo - doscstring
 func (r *relationship) addSession(s *session.Session) {
 	r.sessions = append([]*session.Session{s}, r.sessions...)
 	r.sessionByID[s.GetID()] = s
 	return
 }
 
+// todo - doscstring
 func (r *relationship) GetNewest() *session.Session {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
@@ -328,6 +334,7 @@ func (r *relationship) getSessionForSending() *session.Session {
 	return nil
 }
 
+// todo - doscstring
 // returns a list of session that need rekeys. Nil instances mean a new rekey
 // from scratch
 func (r *relationship) TriggerNegotiation() []*session.Session {
@@ -386,12 +393,14 @@ func (r *relationship) getNewestRekeyableSession() *session.Session {
 	return unconfirmed
 }
 
+// todo - doscstring
 func (r *relationship) GetByID(id session.SessionID) *session.Session {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 	return r.sessionByID[id]
 }
 
+// todo - doscstring
 // sets the passed session ID as confirmed. Call "GetSessionRotation" after
 // to get any sessions that are to be deleted and then "DeleteSession" to
 // remove them
@@ -420,6 +429,7 @@ func (r *relationship) getInternalBufferShallowCopy() []*session.Session {
 	return r.sessions
 }
 
+// todo - doscstring
 func (r *relationship) clean() {
 
 	numConfirmed := uint(0)

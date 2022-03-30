@@ -80,8 +80,13 @@ func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
 		// Check if the SIH matches this service
 		if s.ForMe(ecrMsgContents, receivedSIH) {
 			if s.defaultList == nil && s.Tag != sih.Default {
+				//skip if the processor is nil
+				if s.Processor != nil {
+					return []Processor{}, true
+				}
 				// Return this service directly if not the default service
 				return []Processor{s}, true
+
 			} else if s.defaultList != nil {
 				// If it is default and the default list is not empty, then
 				// return the default list
@@ -104,6 +109,9 @@ func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
 //   type - a descriptive string of the service. Generally used in notifications
 //   source - a byte buffer of related data. Generally used in notifications.
 //     Example: Sender ID
+// There can be multiple "default" services, the must use the "default" tag
+// and the identifier must be the client reception ID.
+// A service may have a nil response unless it is default.
 func (sm *ServicesManager) AddService(clientID *id.ID, newService Service,
 	response Processor) {
 	sm.Lock()

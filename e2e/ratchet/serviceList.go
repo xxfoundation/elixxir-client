@@ -15,53 +15,53 @@ type Services interface {
 		processor message.Processor)
 }
 
-func (s *Store) add(m *partner.Manager) {
-	s.servicesmux.RLock()
-	defer s.servicesmux.RUnlock()
-	for tag, process := range s.services {
-		s.sInteface.AddService(s.myID, m.MakeService(tag), process)
+func (r *Ratchet) add(m *partner.Manager) {
+	r.servicesmux.RLock()
+	defer r.servicesmux.RUnlock()
+	for tag, process := range r.services {
+		r.sInteface.AddService(r.myID, m.MakeService(tag), process)
 	}
 }
 
-func (s *Store) delete(m *partner.Manager) {
-	s.servicesmux.RLock()
-	defer s.servicesmux.RUnlock()
-	for tag, process := range s.services {
-		s.sInteface.DeleteService(s.myID, m.MakeService(tag), process)
+func (r *Ratchet) delete(m *partner.Manager) {
+	r.servicesmux.RLock()
+	defer r.servicesmux.RUnlock()
+	for tag, process := range r.services {
+		r.sInteface.DeleteService(r.myID, m.MakeService(tag), process)
 	}
 }
 
-func (s *Store) AddService(tag string, processor message.Processor) error {
-	s.servicesmux.Lock()
-	defer s.servicesmux.Unlock()
+func (r *Ratchet) AddService(tag string, processor message.Processor) error {
+	r.servicesmux.Lock()
+	defer r.servicesmux.Unlock()
 	//add the services to the list
-	if _, exists := s.services[tag]; exists {
-		return errors.Errorf("Cannot add more than one service '%s'", tag)
+	if _, exists := r.services[tag]; exists {
+		return errors.Errorf("Cannot add more than one service '%r'", tag)
 	}
-	s.services[tag] = processor
+	r.services[tag] = processor
 
 	//add a service for every manager
-	for _, m := range s.managers {
-		s.sInteface.AddService(s.myID, m.MakeService(tag), processor)
+	for _, m := range r.managers {
+		r.sInteface.AddService(r.myID, m.MakeService(tag), processor)
 	}
 
 	return nil
 }
 
-func (s *Store) RemoveService(tag string) error {
-	s.servicesmux.Lock()
-	defer s.servicesmux.Unlock()
+func (r *Ratchet) RemoveService(tag string) error {
+	r.servicesmux.Lock()
+	defer r.servicesmux.Unlock()
 
-	oldServiceProcess, exists := s.services[tag]
+	oldServiceProcess, exists := r.services[tag]
 	if !exists {
 		return errors.Errorf("Cannot remove a service that doesnt "+
-			"exist: '%s'", tag)
+			"exist: '%r'", tag)
 	}
 
-	delete(s.services, tag)
+	delete(r.services, tag)
 
-	for _, m := range s.managers {
-		s.sInteface.DeleteService(s.myID, m.MakeService(tag), oldServiceProcess)
+	for _, m := range r.managers {
+		r.sInteface.DeleteService(r.myID, m.MakeService(tag), oldServiceProcess)
 	}
 
 	return nil

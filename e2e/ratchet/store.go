@@ -28,16 +28,14 @@ import (
 const (
 	currentStoreVersion = 0
 	packagePrefix       = "e2eSession"
-	storeKey            = "Store"
+	storeKey            = "Ratchet"
 	pubKeyKey           = "DhPubKey"
 	privKeyKey          = "DhPrivKey"
-	sidhPubKeyKey       = "SidhPubKey"
-	sidhPrivKeyKey      = "SidhPrivKey"
 )
 
 var NoPartnerErrorStr = "No relationship with partner found"
 
-type Store struct {
+type Ratchet struct {
 	managers map[id.ID]*partner.Manager
 	mux      sync.RWMutex
 
@@ -57,17 +55,23 @@ type Store struct {
 	kv *versioned.KV
 }
 
-func NewStore(kv *versioned.KV, privKey *cyclic.Int,
+// NewRatchet creates a new store for the passed user id and private key.
+// The store can then be accessed by calling LoadStore.
+// Does not create at a unique prefix, if multiple Ratchets are needed, make
+// sure to add a uint prefix to the KV before instantiation.
+func NewRatchet(kv *versioned.KV, privKey *cyclic.Int,
 	myID *id.ID, grp *cyclic.Group, cyHandler session.CypherHandler,
-	rng *fastRNG.StreamGenerator) (*Store, error) {
+	services Services, rng *fastRNG.StreamGenerator) error {
+
 	// Generate public key
 	pubKey := diffieHellman.GeneratePublicKey(privKey, grp)
 
 	// Modify the prefix of the KV
 	kv = kv.Prefix(packagePrefix)
 
-	s := &Store{
+	r := &Ratchet{
 		managers: make(map[id.ID]*partner.Manager),
+		services: make(map[string]message.Processor),
 
 		myID:         myID,
 		dhPrivateKey: privKey,
@@ -78,30 +82,33 @@ func NewStore(kv *versioned.KV, privKey *cyclic.Int,
 		cyHandler: cyHandler,
 		grp:       grp,
 		rng:       rng,
+		sInteface: services,
 	}
 
 	err := util.StoreCyclicKey(kv, pubKey, pubKeyKey)
 	if err != nil {
-		return nil, errors.WithMessage(err,
+		return errors.WithMessage(err,
 			"Failed to store e2e DH public key")
 	}
 
 	err = util.StoreCyclicKey(kv, privKey, privKeyKey)
 	if err != nil {
-		return nil, errors.WithMessage(err,
+		return errors.WithMessage(err,
 			"Failed to store e2e DH private key")
 	}
 
-	return s, s.save()
+	return r.save()
 }
 
-func LoadStore(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
-	cyHandler session.CypherHandler, rng *fastRNG.StreamGenerator) (
-	*Store, error) {
+// LoadRatchet loads an extant ratchet from disk
+func LoadRatchet(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
+	cyHandler session.CypherHandler, services Services, rng *fastRNG.StreamGenerator) (
+	*Ratchet, error) {
 	kv = kv.Prefix(packagePrefix)
 
-	s := &Store{
+	r := &Ratchet{
 		managers: make(map[id.ID]*partner.Manager),
+		services: make(map[string]message.Processor),
 
 		myID: myID,
 
@@ -110,6 +117,7 @@ func LoadStore(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
 		cyHandler: cyHandler,
 		grp:       grp,
 		rng:       rng,
+		sInteface: services,
 	}
 
 	obj, err := kv.Get(storeKey, currentStoreVersion)
@@ -117,18 +125,28 @@ func LoadStore(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
 		return nil, err
 	}
 
-	err = s.unmarshal(obj.Data)
+	err = r.unmarshal(obj.Data)
 	if err != nil {
 		return nil, err
 	}
 
-	return s, nil
+	// add standard services
+	if err = r.AddService(Silent, nil); err != nil {
+		jww.FATAL.Panicf("Could not add standard %r "+
+			"service: %+v", Silent, err)
+	}
+	if err = r.AddService(E2e, nil); err != nil {
+		jww.FATAL.Panicf("Could not add standard %r "+
+			"service: %+v", E2e, err)
+	}
+
+	return r, nil
 }
 
-func (s *Store) save() error {
+func (r *Ratchet) save() error {
 	now := netTime.Now()
 
-	data, err := s.marshal()
+	data, err := r.marshal()
 	if err != nil {
 		return err
 	}
@@ -139,59 +157,69 @@ func (s *Store) save() error {
 		Data:      data,
 	}
 
-	return s.kv.Set(storeKey, currentStoreVersion, &obj)
+	return r.kv.Set(storeKey, currentStoreVersion, &obj)
 }
 
-func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey,
+// AddPartner adds a partner. Automatically creates both send and receive
+// sessions using the passed cryptographic data and per the parameters sent
+func (r *Ratchet) AddPartner(partnerID *id.ID, partnerPubKey,
 	myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
 	mySIDHPrivKey *sidh.PrivateKey, sendParams,
-	receiveParams session.Params) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
+	receiveParams session.Params) (*partner.Manager, error) {
+	r.mux.Lock()
+	defer r.mux.Unlock()
 
-	jww.INFO.Printf("Adding Partner %s:\n\tMy Private Key: %s"+
-		"\n\tPartner Public Key: %s",
+	jww.INFO.Printf("Adding Partner %r:\n\tMy Private Key: %r"+
+		"\n\tPartner Public Key: %r",
 		partnerID,
 		myPrivKey.TextVerbose(16, 0),
 		partnerPubKey.TextVerbose(16, 0))
 
-	if _, ok := s.managers[*partnerID]; ok {
-		return errors.New("Cannot overwrite existing partner")
+	if _, ok := r.managers[*partnerID]; ok {
+		return nil, errors.New("Cannot overwrite existing partner")
 	}
 
-	m := partner.NewManager(s.kv, s.myID, partnerID, myPrivKey, partnerPubKey,
+	m := partner.NewManager(r.kv, r.myID, partnerID, myPrivKey, partnerPubKey,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sendParams, receiveParams, s.cyHandler, s.grp, s.rng)
+		sendParams, receiveParams, r.cyHandler, r.grp, r.rng)
 
-	s.managers[*partnerID] = m
-	if err := s.save(); err != nil {
-		jww.FATAL.Printf("Failed to add Partner %s: Save of store failed: %s",
+	r.managers[*partnerID] = m
+	if err := r.save(); err != nil {
+		jww.FATAL.Printf("Failed to add Partner %r: Save of store failed: %r",
 			partnerID, err)
 	}
 
-	return nil
+	//add services for the manager
+	r.add(m)
+
+	return m, nil
 }
 
 // DeletePartner removes the associated contact from the E2E store
-func (s *Store) DeletePartner(partnerId *id.ID) error {
-	m, ok := s.managers[*partnerId]
+func (r *Ratchet) DeletePartner(partnerId *id.ID) error {
+	m, ok := r.managers[*partnerId]
 	if !ok {
 		return errors.New(NoPartnerErrorStr)
 	}
 
-	if err := partner.ClearManager(m, s.kv); err != nil {
-		return errors.WithMessagef(err, "Could not remove partner %s from store", partnerId)
+	if err := partner.ClearManager(m, r.kv); err != nil {
+		return errors.WithMessagef(err, "Could not remove partner %r from store", partnerId)
 	}
 
-	delete(s.managers, *partnerId)
-	return s.save()
+	//delete services
+	r.delete(m)
+
+	delete(r.managers, *partnerId)
+	return r.save()
+
 }
 
-func (s *Store) GetPartner(partnerID *id.ID) (*partner.Manager, error) {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
+// GetPartner returns the partner per its ID, if it exists
+func (r *Ratchet) GetPartner(partnerID *id.ID) (*partner.Manager, error) {
+	r.mux.RLock()
+	defer r.mux.RUnlock()
 
-	m, ok := s.managers[*partnerID]
+	m, ok := r.managers[*partnerID]
 
 	if !ok {
 		return nil, errors.New(NoPartnerErrorStr)
@@ -202,13 +230,13 @@ func (s *Store) GetPartner(partnerID *id.ID) (*partner.Manager, error) {
 
 // GetAllPartnerIDs returns a list of all partner IDs that the user has
 // an E2E relationship with.
-func (s *Store) GetAllPartnerIDs() []*id.ID {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
+func (r *Ratchet) GetAllPartnerIDs() []*id.ID {
+	r.mux.RLock()
+	defer r.mux.RUnlock()
 
-	partnerIds := make([]*id.ID, 0, len(s.managers))
+	partnerIds := make([]*id.ID, 0, len(r.managers))
 
-	for partnerId := range s.managers {
+	for partnerId := range r.managers {
 		partnerIds = append(partnerIds, &partnerId)
 	}
 
@@ -216,21 +244,21 @@ func (s *Store) GetAllPartnerIDs() []*id.ID {
 }
 
 // GetDHPrivateKey returns the diffie hellman private key.
-func (s *Store) GetDHPrivateKey() *cyclic.Int {
-	return s.dhPrivateKey
+func (r *Ratchet) GetDHPrivateKey() *cyclic.Int {
+	return r.dhPrivateKey
 }
 
 // GetDHPublicKey returns the diffie hellman public key.
-func (s *Store) GetDHPublicKey() *cyclic.Int {
-	return s.dhPublicKey
+func (r *Ratchet) GetDHPublicKey() *cyclic.Int {
+	return r.dhPublicKey
 }
 
 // ekv functions
-func (s *Store) marshal() ([]byte, error) {
-	contacts := make([]id.ID, len(s.managers))
+func (r *Ratchet) marshal() ([]byte, error) {
+	contacts := make([]id.ID, len(r.managers))
 
 	index := 0
-	for partnerID := range s.managers {
+	for partnerID := range r.managers {
 		contacts[index] = partnerID
 		index++
 	}
@@ -238,7 +266,7 @@ func (s *Store) marshal() ([]byte, error) {
 	return json.Marshal(&contacts)
 }
 
-func (s *Store) unmarshal(b []byte) error {
+func (r *Ratchet) unmarshal(b []byte) error {
 
 	var contacts []id.ID
 
@@ -253,29 +281,32 @@ func (s *Store) unmarshal(b []byte) error {
 		partnerID := (&contacts[i]).DeepCopy()
 		// Load the relationship. The relationship handles adding the fingerprints via the
 		// context object
-		manager, err := partner.LoadManager(s.kv, s.myID, partnerID,
-			s.cyHandler, s.grp, s.rng)
+		manager, err := partner.LoadManager(r.kv, r.myID, partnerID,
+			r.cyHandler, r.grp, r.rng)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to load relationship for partner %s: %s",
+			jww.FATAL.Panicf("Failed to load relationship for partner %r: %r",
 				partnerID, err.Error())
 		}
 
 		if !manager.GetPartnerID().Cmp(partnerID) {
 			jww.FATAL.Panicf("Loaded a manager with the wrong partner "+
-				"ID: \n\t loaded: %s \n\t present: %s",
+				"ID: \n\t loaded: %r \n\t present: %r",
 				partnerID, manager.GetPartnerID())
 		}
 
-		s.managers[*partnerID] = manager
+		//add services for the manager
+		r.add(manager)
+
+		r.managers[*partnerID] = manager
 	}
 
-	s.dhPrivateKey, err = util.LoadCyclicKey(s.kv, privKeyKey)
+	r.dhPrivateKey, err = util.LoadCyclicKey(r.kv, privKeyKey)
 	if err != nil {
 		return errors.WithMessage(err,
 			"Failed to load e2e DH private key")
 	}
 
-	s.dhPublicKey, err = util.LoadCyclicKey(s.kv, pubKeyKey)
+	r.dhPublicKey, err = util.LoadCyclicKey(r.kv, pubKeyKey)
 	if err != nil {
 		return errors.WithMessage(err,
 			"Failed to load e2e DH public key")

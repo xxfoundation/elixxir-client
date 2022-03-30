@@ -39,7 +39,7 @@ func TestNewStore(t *testing.T) {
 	fingerprints := newFingerprints()
 	rng := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 	e2eP := params.GetDefaultE2ESessionParams()
-	expectedStore := &Store{
+	expectedStore := &Ratchet{
 		managers:     make(map[id.ID]*partner.Manager),
 		dhPrivateKey: privKey,
 		dhPublicKey:  diffieHellman.GeneratePublicKey(privKey, grp),
@@ -65,18 +65,18 @@ func TestNewStore(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(expectedStore, store) {
-		t.Errorf("NewStore() returned incorrect Store."+
+		t.Errorf("NewStore() returned incorrect Ratchet."+
 			"\n\texpected: %+v\n\treceived: %+v", expectedStore,
 			store)
 	}
 
 	key, err := expectedStore.kv.Get(storeKey, 0)
 	if err != nil {
-		t.Errorf("get() error when getting Store from KV: %v", err)
+		t.Errorf("get() error when getting Ratchet from KV: %v", err)
 	}
 
 	if !bytes.Equal(expectedData, key.Data) {
-		t.Errorf("NewStore() returned incorrect Store."+
+		t.Errorf("NewStore() returned incorrect Ratchet."+
 			"\n\texpected: %+v\n\treceived: %+v", expectedData,
 			key.Data)
 	}
@@ -92,13 +92,13 @@ func TestLoadStore(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(expectedStore, store) {
-		t.Errorf("LoadStore() returned incorrect Store."+
+		t.Errorf("LoadStore() returned incorrect Ratchet."+
 			"\n\texpected: %#v\n\treceived: %#v", expectedStore,
 			store)
 	}
 }
 
-// Tests happy path of Store.AddPartner.
+// Tests happy path of Ratchet.AddPartner.
 func TestStore_AddPartner(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	s, _, _ := makeTestStore()
@@ -164,7 +164,7 @@ func TestStore_DeletePartner(t *testing.T) {
 
 }
 
-// Tests happy path of Store.GetPartner.
+// Tests happy path of Ratchet.GetPartner.
 func TestStore_GetPartner(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	s, _, _ := makeTestStore()
@@ -189,7 +189,7 @@ func TestStore_GetPartner(t *testing.T) {
 	}
 }
 
-// Tests that Store.GetPartner returns an error for non existent partnerID.
+// Tests that Ratchet.GetPartner returns an error for non existent partnerID.
 func TestStore_GetPartner_Error(t *testing.T) {
 	s, _, _ := makeTestStore()
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
@@ -205,7 +205,7 @@ func TestStore_GetPartner_Error(t *testing.T) {
 	}
 }
 
-// Tests happy path of Store.GetPartnerContact.
+// Tests happy path of Ratchet.GetPartnerContact.
 func TestStore_GetPartnerContact(t *testing.T) {
 	s, _, _ := makeTestStore()
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
@@ -233,7 +233,7 @@ func TestStore_GetPartnerContact(t *testing.T) {
 	}
 }
 
-// Tests that Store.GetPartnerContact returns an error for non existent partnerID.
+// Tests that Ratchet.GetPartnerContact returns an error for non existent partnerID.
 func TestStore_GetPartnerContact_Error(t *testing.T) {
 	s, _, _ := makeTestStore()
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
@@ -245,7 +245,7 @@ func TestStore_GetPartnerContact_Error(t *testing.T) {
 	}
 }
 
-// Tests happy path of Store.PopKey.
+// Tests happy path of Ratchet.PopKey.
 func TestStore_PopKey(t *testing.T) {
 	s, _, _ := makeTestStore()
 	se, _ := session.makeTestSession()
@@ -279,7 +279,7 @@ func TestStore_PopKey(t *testing.T) {
 	}
 }
 
-// Tests happy path of Store.CheckKey.
+// Tests happy path of Ratchet.CheckKey.
 func TestStore_CheckKey(t *testing.T) {
 	s, _, _ := makeTestStore()
 	se, _ := session.makeTestSession()
@@ -303,7 +303,7 @@ func TestStore_CheckKey(t *testing.T) {
 	}
 }
 
-// Tests happy path of Store.GetDHPrivateKey.
+// Tests happy path of Ratchet.GetDHPrivateKey.
 func TestStore_GetDHPrivateKey(t *testing.T) {
 	s, _, _ := makeTestStore()
 
@@ -314,7 +314,7 @@ func TestStore_GetDHPrivateKey(t *testing.T) {
 	}
 }
 
-// Tests happy path of Store.GetDHPublicKey.
+// Tests happy path of Ratchet.GetDHPublicKey.
 func TestStore_GetDHPublicKey(t *testing.T) {
 	s, _, _ := makeTestStore()
 
@@ -325,7 +325,7 @@ func TestStore_GetDHPublicKey(t *testing.T) {
 	}
 }
 
-// Tests happy path of Store.GetGroup.
+// Tests happy path of Ratchet.GetGroup.
 func TestStore_GetGroup(t *testing.T) {
 	s, _, _ := makeTestStore()
 
@@ -382,7 +382,7 @@ func TestFingerprints_remove(t *testing.T) {
 	}
 }
 
-func makeTestStore() (*Store, *versioned.KV, *fastRNG.StreamGenerator) {
+func makeTestStore() (*Ratchet, *versioned.KV, *fastRNG.StreamGenerator) {
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	privKey := grp.NewInt(57)
 	kv := versioned.NewKV(make(ekv.Memstore))

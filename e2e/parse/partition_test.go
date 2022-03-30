@@ -24,7 +24,7 @@ var ipsumTestStr = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cra
 
 // Test that NewPartitioner outputs a correctly made Partitioner
 func TestNewPartitioner(t *testing.T) {
-	p := NewPartitioner(4096, versioned.NewKV(make(ekv.Memstore)))
+	p := NewPartitioner(versioned.NewKV(make(ekv.Memstore)), 4096)
 
 	if p.baseMessageSize != 4096 {
 		t.Errorf("baseMessageSize content mismatch."+
@@ -57,7 +57,7 @@ func TestNewPartitioner(t *testing.T) {
 
 // Test that no error is returned running Partitioner.Partition.
 func TestPartitioner_Partition(t *testing.T) {
-	p := NewPartitioner(len(ipsumTestStr), versioned.NewKV(make(ekv.Memstore)))
+	p := NewPartitioner(versioned.NewKV(make(ekv.Memstore)), len(ipsumTestStr))
 
 	_, _, err := p.Partition(
 		&id.DummyUser, catalog.XxMessage, netTime.Now(), []byte(ipsumTestStr))
@@ -68,7 +68,7 @@ func TestPartitioner_Partition(t *testing.T) {
 
 // Test that Partitioner.HandlePartition can handle a message part.
 func TestPartitioner_HandlePartition(t *testing.T) {
-	p := NewPartitioner(len(ipsumTestStr), versioned.NewKV(make(ekv.Memstore)))
+	p := NewPartitioner(versioned.NewKV(make(ekv.Memstore)), len(ipsumTestStr))
 	m := newMessagePart(1107, 1, []byte(ipsumTestStr))
 
 	_, _ = p.HandlePartition(
@@ -80,7 +80,7 @@ func TestPartitioner_HandlePartition(t *testing.T) {
 
 // Test that HandlePartition can handle a first message part
 func TestPartitioner_HandleFirstPartition(t *testing.T) {
-	p := NewPartitioner(len(ipsumTestStr), versioned.NewKV(make(ekv.Memstore)))
+	p := NewPartitioner(versioned.NewKV(make(ekv.Memstore)), len(ipsumTestStr))
 	m := newFirstMessagePart(
 		catalog.XxMessage, 1107, 1, netTime.Now(), []byte(ipsumTestStr))
 

@@ -1,6 +1,7 @@
 package network
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"gitlab.com/elixxir/client/network/historical"
 	"gitlab.com/elixxir/client/network/message"
@@ -98,6 +99,8 @@ func GetParameters(params string) (Params, error) {
 	return p, nil
 }
 
+type NodeMap map[id.ID]bool
+
 type CMIXParams struct {
 	// RoundTries is the maximum number of rounds to try to send on
 	RoundTries     uint
@@ -118,8 +121,7 @@ type CMIXParams struct {
 
 	// BlacklistedNodes is a list of nodes to not send to; will skip a round
 	// with these nodes in it.
-	// TODO: Make it not omitted from JSON marshalling
-	BlacklistedNodes map[id.ID]bool `json:"-"`
+	BlacklistedNodes NodeMap
 
 	// Critical indicates if the message is critical. The system will track that
 	// the round it sends on completes and will auto resend in the event the
@@ -137,7 +139,8 @@ func GetDefaultCMIXParams() CMIXParams {
 		RetryDelay:  1 * time.Second,
 		SendTimeout: 3 * time.Second,
 		DebugTag:    "External",
-		//unused single so components that require one have a channel to wait on
+		// Unused stoppable so components that require one have a channel to
+		// wait on
 		Stop: stoppable.NewSingle("cmixParamsDefault"),
 	}
 }
@@ -153,4 +156,41 @@ func GetCMIXParameters(params string) (CMIXParams, error) {
 		}
 	}
 	return p, nil
+}
+
+// MarshalJSON adheres to the json.Marshaler interface.
+func (nm NodeMap) MarshalJSON() ([]byte, error) {
+	stringMap := make(map[string]bool, len(nm))
+	for nid, b := range nm {
+		stringMap[base64.StdEncoding.EncodeToString(nid.Marshal())] = b
+	}
+
+	return json.Marshal(stringMap)
+}
+
+// UnmarshalJSON adheres to the json.Unmarshaler interface.
+func (nm *NodeMap) UnmarshalJSON(data []byte) error {
+	stringMap := make(map[string]bool)
+	err := json.Unmarshal(data, &stringMap)
+	if err != nil {
+		return err
+	}
+
+	newNM := make(NodeMap)
+	for nidString, bString := range stringMap {
+		nidBytes, err := base64.StdEncoding.DecodeString(nidString)
+		if err != nil {
+			return err
+		}
+		nid, err := id.Unmarshal(nidBytes)
+		if err != nil {
+			return err
+		}
+
+		newNM[*nid] = bString
+	}
+
+	*nm = newNM
+
+	return nil
 }

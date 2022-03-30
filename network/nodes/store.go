@@ -17,11 +17,10 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-const prefix = "cmix"
-const currentStoreVersion = 0
 const (
-	storeKey = "KeyStore"
-	grpKey   = "GroupKey"
+	prefix              = "cmix"
+	currentStoreVersion = 0
+	storeKey            = "KeyStore"
 )
 
 // Add adds the key for a round to the cMix storage object. Saves the updated

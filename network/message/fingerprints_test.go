@@ -20,11 +20,13 @@ import (
 
 // Unit test.
 func Test_newFingerprints(t *testing.T) {
+	sid := id.NewIdFromString("testID", id.User, t)
 	expected := &FingerprintsManager{
-		fpMap: make(map[id.ID]map[format.Fingerprint]Processor),
+		fpMap:      make(map[id.ID]map[format.Fingerprint]Processor),
+		standardID: sid,
 	}
 
-	received := newFingerprints(&id.ID{})
+	received := newFingerprints(sid)
 	if !reflect.DeepEqual(expected, received) {
 		t.Fatalf("New FingerprintsManager did not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expected, received)

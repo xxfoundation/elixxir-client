@@ -48,8 +48,8 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 
-	// Create a local channel so reception is possible (testManager.messageBundles is
-	// send only via newManager call above)
+	// Create a local channel so reception is possible
+	// (testManager.messageBundles is sent only via newManager call above)
 	messageBundleChan := make(chan message.Bundle)
 	testManager.messageBundles = messageBundleChan
 
@@ -218,8 +218,8 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 		testManager.rng,
 		testNdf, mockComms, testManager.session, nil)
 
-	// Create a local channel so reception is possible (testManager.messageBundles is
-	// send only via newManager call above)
+	// Create a local channel so reception is possible
+	// (testManager.messageBundles is sent only via newManager call above)
 	messageBundleChan := make(chan message.Bundle)
 	testManager.messageBundles = messageBundleChan
 
@@ -285,8 +285,8 @@ func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
 	stop := stoppable.NewSingle("singleStoppable")
 
-	// Create a local channel so reception is possible (testManager.messageBundles is
-	// send only via newManager call above)
+	// Create a local channel so reception is possible
+	// (testManager.messageBundles is sent only via newManager call above)
 	messageBundleChan := make(chan message.Bundle)
 	testManager.messageBundles = messageBundleChan
 
@@ -367,8 +367,8 @@ func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 		testManager.rng,
 		testNdf, mockComms, testManager.session, nil)
 
-	// Create a local channel so reception is possible (testManager.messageBundles is
-	// send only via newManager call above)
+	// Create a local channel so reception is possible
+	// (testManager.messageBundles is sent only via newManager call above)
 	messageBundleChan := make(chan message.Bundle)
 	testManager.messageBundles = messageBundleChan
 

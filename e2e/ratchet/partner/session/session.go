@@ -83,9 +83,9 @@ type Session struct {
 	rng       *fastRNG.StreamGenerator
 }
 
+// SessionDisk is a utility struct to write part of session data to disk.
 // As this is serialized by json, any field that should be serialized
 // must be exported
-// Utility struct to write part of session data to disk
 type SessionDisk struct {
 	E2EParams Params
 
@@ -195,10 +195,10 @@ func LoadSession(kv *versioned.KV, sessionID SessionID,
 		rng:       rng,
 	}
 
-	obj, err := kv.Get(sessionKey, currentSessionVersion)
+	obj, err := session.kv.Get(sessionKey, currentSessionVersion)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to load %s",
-			kv.GetFullKey(sessionKey, currentSessionVersion))
+			session.kv.GetFullKey(sessionKey, currentSessionVersion))
 	}
 
 	// TODO: Not necessary until we have versions on this object...
@@ -235,6 +235,8 @@ func (s *Session) Save() error {
 		Timestamp: now,
 		Data:      data,
 	}
+
+	jww.WARN.Printf("saving with KV: %v", s.kv)
 
 	return s.kv.Set(sessionKey, currentSessionVersion, &obj)
 }

@@ -80,7 +80,7 @@ func TestSender_SendToAny(t *testing.T) {
 	}
 
 	// Test sendToAny with test interfaces
-	result, err := s.SendToAny(SendToAny_HappyPath, nil)
+	result, err := s.SendToAny(SendToAnyHappyPath, nil)
 	if err != nil {
 		t.Errorf("Should not error in SendToAny happy path: %v", err)
 	}
@@ -91,12 +91,12 @@ func TestSender_SendToAny(t *testing.T) {
 			"\n\tReceived: %v", happyPathReturn, result)
 	}
 
-	_, err = s.SendToAny(SendToAny_KnownError, nil)
+	_, err = s.SendToAny(SendToAnyKnownError, nil)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}
 
-	_, err = s.SendToAny(SendToAny_UnknownError, nil)
+	_, err = s.SendToAny(SendToAnyUnknownError, nil)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}
@@ -143,7 +143,7 @@ func TestSender_SendToPreferred(t *testing.T) {
 
 	// Happy path
 	result, err := s.SendToPreferred([]*id.ID{preferredHost.GetId()},
-		SendToPreferred_HappyPath, nil, 250*time.Millisecond)
+		SendToPreferredHappyPath, nil, 250*time.Millisecond)
 	if err != nil {
 		t.Errorf("Should not error in SendToPreferred happy path: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestSender_SendToPreferred(t *testing.T) {
 
 	// Call a send which returns an error which triggers replacement
 	_, err = s.SendToPreferred([]*id.ID{preferredHost.GetId()},
-		SendToPreferred_KnownError, nil, 250*time.Millisecond)
+		SendToPreferredKnownError, nil, 250*time.Millisecond)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}
@@ -177,7 +177,7 @@ func TestSender_SendToPreferred(t *testing.T) {
 
 	// Unknown error return will not trigger replacement
 	_, err = s.SendToPreferred([]*id.ID{preferredHost.GetId()},
-		SendToPreferred_UnknownError, nil, 250*time.Millisecond)
+		SendToPreferredUnknownError, nil, 250*time.Millisecond)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}

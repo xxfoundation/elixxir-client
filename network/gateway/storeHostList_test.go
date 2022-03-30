@@ -93,7 +93,7 @@ func Test_marshalHostList_unmarshalHostList(t *testing.T) {
 	// Marshal list
 	data := marshalHostList(list)
 
-	// Unmarshal marsalled data into new object
+	// Unmarshal marshalled data into new object
 	newList, err := unmarshalHostList(data)
 	if err != nil {
 		t.Errorf("unmarshalHostList produced an error: %+v", err)

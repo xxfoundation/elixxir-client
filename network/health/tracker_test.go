@@ -46,7 +46,7 @@ func TestNewTracker(t *testing.T) {
 	}()
 
 	// Begin the health tracker
-	_, err := trkr.StartProcessies()
+	_, err := trkr.StartProcesses()
 	if err != nil {
 		t.Fatalf("Unable to start tracker: %+v", err)
 	}

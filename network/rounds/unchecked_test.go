@@ -42,8 +42,8 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 	testManager.sender, _ = gateway.NewSender(
 		p, rngGen, testNdf, mockComms, testManager.session, nil)
 
-	// Create a local channel so reception is possible (testManager.messageBundles is
-	// send only via newManager call above)
+	// Create a local channel so reception is possible
+	// (testManager.messageBundles is sent only via newManager call above)
 	messageBundleChan := make(chan message.Bundle)
 	testManager.messageBundles = messageBundleChan
 

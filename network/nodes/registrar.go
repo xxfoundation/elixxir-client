@@ -1,7 +1,6 @@
 package nodes
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/network/gateway"
@@ -14,6 +13,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -57,11 +57,12 @@ type registrar struct {
 	c chan network.NodeGateway
 }
 
-// LoadRegistrar loads a registrar from disk, and creates a new one if it does
-// not exist.
-func LoadRegistrar(session storage.Session,
-	sender gateway.Sender, comms RegisterNodeCommsInterface,
-	rngGen *fastRNG.StreamGenerator, c chan network.NodeGateway) (Registrar, error) {
+// LoadRegistrar loads a Registrar from disk or creates a new one if it does not
+// exist.
+func LoadRegistrar(session storage.Session, sender gateway.Sender,
+	comms RegisterNodeCommsInterface, rngGen *fastRNG.StreamGenerator,
+	c chan network.NodeGateway) (Registrar, error) {
+
 	kv := session.GetKV().Prefix(prefix)
 	r := &registrar{
 		nodes: make(map[id.ID]*key),
@@ -69,9 +70,9 @@ func LoadRegistrar(session storage.Session,
 	}
 
 	obj, err := kv.Get(storeKey, currentKeyVersion)
-	// If there is no stored data, make a new node handler
 	if err != nil {
-		jww.WARN.Printf("Failed to load Node Registrar, creating a new object")
+		// If there is no stored data, make a new node handler
+		jww.WARN.Printf("Failed to load Node Registrar, creating a new object.")
 		err = r.save()
 		if err != nil {
 			return nil, errors.WithMessagef(err, "Failed to make a new registrar")
@@ -97,12 +98,13 @@ func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 	multi := stoppable.NewMulti("NodeRegistrations")
 
 	inProgress := &sync.Map{}
+
 	// We are relying on the in progress check to ensure there is only a single
 	// operator at a time, as a result this is a map of ID -> int
 	attempts := &sync.Map{}
 
 	for i := uint(0); i < numParallel; i++ {
-		stop := stoppable.NewSingle(fmt.Sprintf("NodeRegistration %d", i))
+		stop := stoppable.NewSingle("NodeRegistration " + strconv.Itoa(int(i)))
 
 		go registerNodes(r, r.session, stop, inProgress, attempts)
 		multi.Add(stop)
@@ -114,24 +116,26 @@ func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 func (r *registrar) GetInputChannel() chan<- network.NodeGateway {
 	return r.c
 }
+
 func (r *registrar) TriggerNodeRegistration(nid *id.ID) {
 	r.c <- network.NodeGateway{
-		Node: ndf.Node{ID: nid.Marshal(),
-			//status must be active because it is in a round
-			Status: ndf.Active},
+		Node: ndf.Node{
+			ID:     nid.Marshal(),
+			Status: ndf.Active, // Must be active because it is in a round
+		},
 	}
 }
 
-// GetKeys returns a MixCypher for the topology and a list of nodes it did
-// not have a key for. If there are missing keys, then returns nil MixCypher.
+// GetNodeKeys returns a MixCypher for the topology and a list of nodes it did
+// not have a key for. If there are missing keys, then returns nil.
 func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 
 	keys := make([]*key, topology.Len())
 
-	// Get keys for every node. If it cannot be found, thn add it to the missing
-	// nodes list so that it can be
+	// Get keys for every node. If it cannot be found, then add it to the
+	// missing nodes list so that it can be.
 	for i := 0; i < topology.Len(); i++ {
 		nid := topology.GetNodeAtIndex(i)
 		k, ok := r.nodes[*nid]
@@ -139,9 +143,10 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 			r.c <- network.NodeGateway{
 				Node: ndf.Node{
 					ID:     nid.Marshal(),
-					Status: ndf.Active, // Status must be active because it is in a round
+					Status: ndf.Active, // Must be active because it is in a round
 				},
 			}
+
 			return nil, errors.Errorf(
 				"cannot get key for %s, triggered registration", nid)
 		} else {
@@ -157,19 +162,22 @@ func (r *registrar) GetNodeKeys(topology *connect.Circuit) (MixCypher, error) {
 	return rk, nil
 }
 
-// Has returns if the store has the nodes.
+// HasNode returns true if the registrar has the node.
 func (r *registrar) HasNode(nid *id.ID) bool {
 	r.mux.RLock()
+	defer r.mux.RUnlock()
+
 	_, exists := r.nodes[*nid]
-	r.mux.RUnlock()
+
 	return exists
 }
 
+// RemoveNode removes the node from the registrar.
 func (r *registrar) RemoveNode(nid *id.ID) {
 	r.remove(nid)
 }
 
-// NumRegistered returns the number of registered nodes.
+// NumRegisteredNodes returns the number of registered nodes.
 func (r *registrar) NumRegisteredNodes() int {
 	r.mux.RLock()
 	defer r.mux.RUnlock()

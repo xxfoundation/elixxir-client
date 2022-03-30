@@ -18,7 +18,8 @@ import (
 )
 
 type MixCypher interface {
-	Encrypt(msg format.Message, salt []byte, roundID id.Round) (format.Message, [][]byte)
+	Encrypt(msg format.Message, salt []byte, roundID id.Round) (
+		format.Message, [][]byte)
 	MakeClientGatewayAuthMAC(salt, digest []byte) []byte
 }
 
@@ -27,14 +28,15 @@ type mixCypher struct {
 	g    *cyclic.Group
 }
 
-// Encrypt encrypts the given message for CMIX.
-// Panics if the passed message is not sized correctly for the group.
-func (mc *mixCypher) Encrypt(msg format.Message,
-	salt []byte, roundID id.Round) (format.Message, [][]byte) {
+// Encrypt encrypts the given message for CMIX. Panics if the passed message is
+// not sized correctly for the group.
+func (mc *mixCypher) Encrypt(msg format.Message, salt []byte, roundID id.Round) (
+	format.Message, [][]byte) {
 
 	if msg.GetPrimeByteLen() != mc.g.GetP().ByteLen() {
-		jww.FATAL.Panicf("Cannot encrypt message whose size does not " +
-			"align with the size of the prime")
+		jww.FATAL.Panicf("Cannot encrypt message when its size (%d) is not "+
+			"the same as the size of the prime (%d)",
+			msg.GetPrimeByteLen(), mc.g.GetP().ByteLen())
 	}
 
 	keys := make([]*cyclic.Int, len(mc.keys))
@@ -48,7 +50,7 @@ func (mc *mixCypher) Encrypt(msg format.Message,
 
 	h, err := hash.NewCMixHash()
 	if err != nil {
-		jww.FATAL.Panicf("Could not get hash for KMAC generation: %+v", h)
+		jww.FATAL.Panicf("Could not get hash for KMAC generation: %+v", err)
 	}
 
 	KMAC := cmix.GenerateKMACs(salt, keys, roundID, h)
@@ -62,6 +64,7 @@ func (mc *mixCypher) MakeClientGatewayAuthMAC(salt, digest []byte) []byte {
 	h.Write(clientGatewayKey)
 	h.Write(salt)
 	hashed := h.Sum(nil)
+
 	h.Reset()
 	h.Write(hashed)
 	h.Write(digest)
@@ -71,20 +74,20 @@ func (mc *mixCypher) MakeClientGatewayAuthMAC(salt, digest []byte) []byte {
 func clientEncrypt(grp *cyclic.Group, msg format.Message,
 	salt []byte, roundID id.Round, baseKeys []*cyclic.Int) format.Message {
 
-	// get the salt for associated data
+	// Get the salt for associated data
 	h, err := blake2b.New256(nil)
 	if err != nil {
-		panic("E2E Client Encrypt could not get blake2b Hash")
+		jww.FATAL.Panicf("Failed to get blake2b hash: %+v", err)
 	}
 	h.Reset()
 	h.Write(salt)
 	salt2 := h.Sum(nil)
 
-	// get encryption keys
+	// Get encryption keys
 	keyEcrA := cmix.ClientKeyGen(grp, salt, roundID, baseKeys)
 	keyEcrB := cmix.ClientKeyGen(grp, salt2, roundID, baseKeys)
 
-	// get message payloads as cyclic integers
+	// Get message payloads as cyclic integers
 	payloadA := grp.NewIntFromBytes(msg.GetPayloadA())
 	payloadB := grp.NewIntFromBytes(msg.GetPayloadB())
 

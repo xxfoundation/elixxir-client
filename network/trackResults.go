@@ -13,8 +13,8 @@ import (
 	"gitlab.com/elixxir/primitives/states"
 )
 
-// Function to follow the results of events. It returns true if the collection of
-// events resolved well, and then a count of how many rounds failed and how
+// TrackResults follows the results of events. It returns true if the collection
+// of events resolved well, and then a count of how many rounds failed and how
 // many roundEvents timed out.
 func TrackResults(resultsCh chan ds.EventReturn, numResults int) (bool, int, int) {
 	numTimeOut, numRoundFail := 0, 0

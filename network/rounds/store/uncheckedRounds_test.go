@@ -382,7 +382,7 @@ func TestUncheckedRoundStore_Remove(t *testing.T) {
 	source := id.NewIdFromUInt(uint64(removedRound), id.User, t)
 	err = testStore.Remove(removedRound, source, ephId)
 	if err != nil {
-		t.Errorf("Could not removed round %d from storage: %v", removedRound, err)
+		t.Errorf("Could not have removed round %d from storage: %v", removedRound, err)
 	}
 
 	// Check that round was removed
@@ -395,6 +395,6 @@ func TestUncheckedRoundStore_Remove(t *testing.T) {
 	unknownRound := id.Round(numRounds + 5)
 	err = testStore.Remove(unknownRound, source, ephId)
 	if err == nil {
-		t.Errorf("Should not removed round %d which is not in storage", unknownRound)
+		t.Errorf("Should not have removed round %d which is not in storage", unknownRound)
 	}
 }

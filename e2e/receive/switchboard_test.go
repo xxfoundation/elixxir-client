@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package switchboard
+package receive
 
 import (
 	"gitlab.com/elixxir/client/interfaces/message"

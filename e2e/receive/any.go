@@ -5,15 +5,15 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package switchboard
+package receive
 
 import (
-	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/xx_network/primitives/id"
 )
 
 // ID to respond to any message type
-const AnyType = message.NoType
+const AnyType = catalog.NoType
 
 //ID to respond to any user
 func AnyUser() *id.ID {

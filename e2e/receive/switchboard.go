@@ -5,12 +5,12 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package switchboard
+package receive
 
 import (
 	"github.com/golang-collections/collections/set"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 )
@@ -38,13 +38,13 @@ func New() *Switchboard {
 // user: 0 for all, or any user ID to listen for messages from a particular
 // user. 0 can be id.ZeroUser or id.ZeroID
 // messageType: 0 for all, or any message type to listen for messages of that
-// type. 0 can be switchboard.AnyType
+// type. 0 can be Message.AnyType
 // newListener: something implementing the Listener interface. Do not
 // pass nil to this.
 //
 // If a message matches multiple listeners, all of them will hear the message.
-func (sw *Switchboard) RegisterListener(user *id.ID, messageType message.Type,
-	newListener Listener) ListenerID {
+func (sw *Switchboard) RegisterListener(user *id.ID,
+	messageType catalog.MessageType, newListener Listener) ListenerID {
 
 	// check the input data is valid
 	if user == nil {
@@ -80,13 +80,13 @@ func (sw *Switchboard) RegisterListener(user *id.ID, messageType message.Type,
 // user: 0 for all, or any user ID to listen for messages from a particular
 // user. 0 can be id.ZeroUser or id.ZeroID
 // messageType: 0 for all, or any message type to listen for messages of that
-// type. 0 can be switchboard.AnyType
+// type. 0 can be Message.AnyType
 // newListener: a function implementing the ListenerFunc function type.
 // Do not pass nil to this.
 //
 // If a message matches multiple listeners, all of them will hear the message.
 func (sw *Switchboard) RegisterFunc(name string, user *id.ID,
-	messageType message.Type, newListener ListenerFunc) ListenerID {
+	messageType catalog.MessageType, newListener ListenerFunc) ListenerID {
 	// check that the input data is valid
 	if newListener == nil {
 		jww.FATAL.Panicf("cannot register function listener '%s' "+
@@ -109,13 +109,13 @@ func (sw *Switchboard) RegisterFunc(name string, user *id.ID,
 // user: 0 for all, or any user ID to listen for messages from a particular
 // user. 0 can be id.ZeroUser or id.ZeroID
 // messageType: 0 for all, or any message type to listen for messages of that
-// type. 0 can be switchboard.AnyType
+// type. 0 can be Message.AnyType
 // newListener: an item channel.
 // Do not pass nil to this.
 //
 // If a message matches multiple listeners, all of them will hear the message.
 func (sw *Switchboard) RegisterChannel(name string, user *id.ID,
-	messageType message.Type, newListener chan message.Receive) ListenerID {
+	messageType catalog.MessageType, newListener chan Message) ListenerID {
 	// check that the input data is valid
 	if newListener == nil {
 		jww.FATAL.Panicf("cannot register channel listener '%s' with"+
@@ -131,7 +131,7 @@ func (sw *Switchboard) RegisterChannel(name string, user *id.ID,
 
 // Speak broadcasts a message to the appropriate listeners.
 // each is spoken to in their own goroutine
-func (sw *Switchboard) Speak(item message.Receive) {
+func (sw *Switchboard) Speak(item Message) {
 	sw.mux.RLock()
 	defer sw.mux.RUnlock()
 
@@ -166,7 +166,7 @@ func (sw *Switchboard) Unregister(listenerID ListenerID) {
 
 // finds all listeners who match the items sender or ID, or have those fields
 // as generic
-func (sw *Switchboard) matchListeners(item message.Receive) *set.Set {
+func (sw *Switchboard) matchListeners(item Message) *set.Set {
 	idSet := sw.id.Get(item.Sender)
 	typeSet := sw.messageType.Get(item.MessageType)
 	return idSet.Intersection(typeSet)

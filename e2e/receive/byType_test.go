@@ -5,11 +5,11 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package switchboard
+package receive
 
 import (
 	"github.com/golang-collections/collections/set"
-	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/catalog"
 	"testing"
 )
 
@@ -43,7 +43,7 @@ func TestByType_Get_Empty(t *testing.T) {
 func TestByType_Get_Selected(t *testing.T) {
 	nbt := newByType()
 
-	m := message.Type(42)
+	m := catalog.MessageType(42)
 
 	set1 := set.New(0)
 
@@ -63,7 +63,7 @@ func TestByType_Get_Selected(t *testing.T) {
 func TestByType_Get_Generic(t *testing.T) {
 	nbt := newByType()
 
-	m := message.Type(42)
+	m := catalog.MessageType(42)
 
 	nbt.generic.Insert(0)
 
@@ -81,7 +81,7 @@ func TestByType_Get_Generic(t *testing.T) {
 func TestByType_Get_GenericSelected(t *testing.T) {
 	nbt := newByType()
 
-	m := message.Type(42)
+	m := catalog.MessageType(42)
 
 	nbt.generic.Insert(1)
 
@@ -106,7 +106,7 @@ func TestByType_Get_GenericSelected(t *testing.T) {
 func TestByType_Add_New(t *testing.T) {
 	nbt := newByType()
 
-	m := message.Type(42)
+	m := catalog.MessageType(42)
 
 	l := &funcListener{}
 
@@ -128,7 +128,7 @@ func TestByType_Add_New(t *testing.T) {
 func TestByType_Add_Old(t *testing.T) {
 	nbt := newByType()
 
-	m := message.Type(42)
+	m := catalog.MessageType(42)
 
 	l1 := &funcListener{}
 	l2 := &funcListener{}
@@ -179,7 +179,7 @@ func TestByType_Add_Generic(t *testing.T) {
 func TestByType_Remove_SingleInSet(t *testing.T) {
 	nbt := newByType()
 
-	m := message.Type(42)
+	m := catalog.MessageType(42)
 
 	l1 := &funcListener{}
 

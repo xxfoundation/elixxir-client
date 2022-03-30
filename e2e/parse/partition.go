@@ -9,7 +9,8 @@ package parse
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -39,7 +40,7 @@ func NewPartitioner(messageSize int, session *storage.Session) Partitioner {
 	return p
 }
 
-func (p Partitioner) Partition(recipient *id.ID, mt message.Type,
+func (p Partitioner) Partition(recipient *id.ID, mt catalog.MessageType,
 	timestamp time.Time, payload []byte) ([][]byte, uint64, error) {
 
 	if len(payload) > p.maxSize {
@@ -69,8 +70,8 @@ func (p Partitioner) Partition(recipient *id.ID, mt message.Type,
 	return parts, fullMessageID, nil
 }
 
-func (p Partitioner) HandlePartition(sender *id.ID, _ message.EncryptionType,
-	contents []byte, relationshipFingerprint []byte) (message.Receive, bool) {
+func (p Partitioner) HandlePartition(sender *id.ID,
+	contents []byte, relationshipFingerprint []byte) (receive.Message, bool) {
 
 	if isFirst(contents) {
 		// If it is the first message in a set, then handle it as so

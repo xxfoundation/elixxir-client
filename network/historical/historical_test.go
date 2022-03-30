@@ -84,8 +84,8 @@ func Test_processHistoricalRoundsResponse(t *testing.T) {
 	}
 	expiredRR := roundRequest{
 		rid: id.Round(42),
-		RoundResultCallback: func(info Round, success bool) {
-			if info.ID == 0 && !success {
+		RoundResultCallback: func(round Round, success bool) {
+			if round.ID == 0 && !success {
 				return
 			}
 			t.Errorf("Expired called with bad params.")
@@ -108,12 +108,15 @@ func Test_processHistoricalRoundsResponse(t *testing.T) {
 	infos := make([]*pb.RoundInfo, 3)
 	infos[0] = nil
 	infos[1] = nil
-	infos[2] = &pb.RoundInfo{ID: 43}
+	infos[2] = &pb.RoundInfo{
+		ID:       43,
+		Topology: [][]byte{{1}, {2}},
+	}
 	response := &pb.HistoricalRoundsResponse{Rounds: infos}
 	events := &testEventMgr{}
 
-	rids, retries := processHistoricalRoundsResponse(response, rrs,
-		params.MaxHistoricalRoundsRetries, events)
+	rids, retries := processHistoricalRoundsResponse(
+		response, rrs, params.MaxHistoricalRoundsRetries, events)
 
 	if len(rids) != 1 || rids[0] != 43 {
 		t.Errorf("Bad return: %v, expected [43]", rids)

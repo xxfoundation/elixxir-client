@@ -41,14 +41,14 @@ func (m *manager) GetMessagesFromRound(
 			identity.Source)
 
 		err = m.historical.LookupHistoricalRound(
-			roundID, func(info historical.Round, success bool) {
+			roundID, func(round historical.Round, success bool) {
 				if !success {
 					// TODO: Implement me
 				}
 
 				// If found, send to Message Retrieval Workers
 				m.lookupRoundMessages <- roundLookup{
-					Round:    info,
+					Round:    round,
 					Identity: identity,
 				}
 			})

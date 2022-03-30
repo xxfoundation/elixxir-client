@@ -39,7 +39,8 @@ func TestHandler_CheckInProgressMessages(t *testing.T) {
 		t.Errorf("Failed to add fingerprint: %+v", err)
 	}
 	h.inProcess.Add(msg,
-		&pb.RoundInfo{ID: 1, Timestamps: []uint64{0, 1, 2, 3}},
+		&pb.RoundInfo{ID: 1, Timestamps: []uint64{0, 1, 2, 3},
+			Topology: [][]byte{{1}, {2}}},
 		receptionID.EphemeralIdentity{Source: cid})
 
 	stop := stoppable.NewSingle("stop")

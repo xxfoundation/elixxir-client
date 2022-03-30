@@ -71,14 +71,14 @@ func Test_manager_processMessageRetrieval(t *testing.T) {
 			Source: requestGateway,
 		}
 
-		roundInfo := historical.Round{
+		round := historical.Round{
 			ID:       roundId,
 			Topology: connect.NewCircuit([]*id.ID{requestGateway}),
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
-			Round:    roundInfo,
+			Round:    round,
 			Identity: ephIdentity,
 		}
 
@@ -159,14 +159,14 @@ func Test_manager_processMessageRetrieval_NoRound(t *testing.T) {
 			Source: dummyGateway,
 		}
 
-		roundInfo := historical.Round{
+		round := historical.Round{
 			ID:       roundId,
 			Topology: connect.NewCircuit([]*id.ID{dummyGateway}),
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
-			Round:    roundInfo,
+			Round:    round,
 			Identity: identity,
 		}
 
@@ -236,14 +236,14 @@ func Test_manager_processMessageRetrieval_FalsePositive(t *testing.T) {
 
 		requestGateway := id.NewIdFromString(FalsePositive, id.Gateway, t)
 
-		roundInfo := historical.Round{
+		round := historical.Round{
 			ID:       roundId,
 			Topology: connect.NewCircuit([]*id.ID{requestGateway}),
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
-			Round:    roundInfo,
+			Round:    round,
 			Identity: identity,
 		}
 
@@ -309,13 +309,13 @@ func Test_manager_processMessageRetrieval_Quit(t *testing.T) {
 
 		requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
 
-		roundInfo := historical.Round{
+		round := historical.Round{
 			ID:       roundId,
 			Topology: connect.NewCircuit([]*id.ID{requestGateway}),
 		}
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
-			Round:    roundInfo,
+			Round:    round,
 			Identity: identity,
 		}
 
@@ -353,9 +353,8 @@ func Test_manager_processMessageRetrieval_MultipleGateways(t *testing.T) {
 
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
-	testManager.sender, _ = gateway.NewSender(p,
-		testManager.rng,
-		testNdf, mockComms, testManager.session, nil)
+	testManager.sender, _ = gateway.NewSender(
+		p, testManager.rng, testNdf, mockComms, testManager.session, nil)
 
 	// Create a local channel so reception is possible
 	// (testManager.messageBundles is sent only via newManager call above)
@@ -380,17 +379,17 @@ func Test_manager_processMessageRetrieval_MultipleGateways(t *testing.T) {
 			Source: requestGateway,
 		}
 
-		roundInfo := historical.Round{
+		round := historical.Round{
 			ID: roundId,
 			// Create a list of IDs in which some error gateways must be
 			// contacted before the happy path
-			Topology: connect.NewCircuit([]*id.ID{errorGateway, errorGateway,
-				requestGateway}),
+			Topology: connect.NewCircuit(
+				[]*id.ID{errorGateway, requestGateway}),
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
-			Round:    roundInfo,
+			Round:    round,
 			Identity: identity,
 		}
 

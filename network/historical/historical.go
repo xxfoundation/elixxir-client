@@ -53,7 +53,7 @@ type RoundsComms interface {
 }
 
 // RoundResultCallback is the used callback when a round is found.
-type RoundResultCallback func(info Round, success bool)
+type RoundResultCallback func(round Round, success bool)
 
 // roundRequest is an internal structure that tracks a request.
 type roundRequest struct {

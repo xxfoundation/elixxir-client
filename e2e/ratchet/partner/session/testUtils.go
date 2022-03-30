@@ -9,9 +9,12 @@ import (
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+	"math/rand"
 	"testing"
 )
 
@@ -100,6 +103,14 @@ func makeTestSession() (*Session, *versioned.KV) {
 		panic(err)
 	}
 	return s, kv
+}
+
+func getFingerprint() *format.Fingerprint {
+	rand.Seed(netTime.Now().UnixNano())
+	fp := format.Fingerprint{}
+	rand.Read(fp[:])
+
+	return &fp
 }
 
 // compare fields also represented in SessionDisk

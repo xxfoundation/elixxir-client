@@ -56,9 +56,6 @@ func TestNewPartitioner(t *testing.T) {
 			4088, p.partContentsSize)
 	}
 
-	if p.session != storeSession {
-		t.Errorf("session content mismatch")
-	}
 }
 
 // Test that no error is returned running Partition

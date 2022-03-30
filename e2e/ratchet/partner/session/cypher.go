@@ -127,8 +127,8 @@ func (k *Cypher) Decrypt(msg format.Message) (format.Message, error) {
 	return msg, nil
 }
 
-// Sets the key as used
-func (k *Cypher) denoteUse() {
+// Use sets the key as used. It cannot be used again.
+func (k *Cypher) Use() {
 	k.session.useKey(k.keyNum)
 }
 

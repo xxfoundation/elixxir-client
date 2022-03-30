@@ -10,8 +10,10 @@ package parse
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e/parse/conversation"
+	"gitlab.com/elixxir/client/e2e/parse/partition"
 	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"time"
@@ -25,16 +27,18 @@ type Partitioner struct {
 	partContentsSize  int
 	deltaFirstPart    int
 	maxSize           int
-	session           *storage.Session
+	conversation      *conversation.Store
+	partition         *partition.Store
 }
 
-func NewPartitioner(messageSize int, session *storage.Session) Partitioner {
+func NewPartitioner(messageSize int, kv *versioned.KV) Partitioner {
 	p := Partitioner{
 		baseMessageSize:   messageSize,
 		firstContentsSize: messageSize - firstHeaderLen,
 		partContentsSize:  messageSize - headerLen,
 		deltaFirstPart:    firstHeaderLen - headerLen,
-		session:           session,
+		conversation:      conversation.NewStore(kv),
+		partition:         partition.NewOrLoad(kv),
 	}
 	p.maxSize = p.firstContentsSize + (MaxMessageParts-1)*p.partContentsSize
 	return p
@@ -49,7 +53,7 @@ func (p Partitioner) Partition(recipient *id.ID, mt catalog.MessageType,
 	}
 
 	// Get the ID of the sent message
-	fullMessageID, messageID := p.session.Conversations().Get(recipient).GetNextSendID()
+	fullMessageID, messageID := p.conversation.Get(recipient).GetNextSendID()
 
 	// Get the number of parts of the message; this equates to just a linear
 	// equation
@@ -80,19 +84,19 @@ func (p Partitioner) HandlePartition(sender *id.ID,
 		fm := FirstMessagePartFromBytes(contents)
 
 		// Handle the message ID
-		messageID := p.session.Conversations().Get(sender).
+		messageID := p.conversation.Get(sender).
 			ProcessReceivedMessageID(fm.GetID())
 		storeageTimestamp := netTime.Now()
-		return p.session.Partition().AddFirst(sender, fm.GetType(),
+		return p.partition.AddFirst(sender, fm.GetType(),
 			messageID, fm.GetPart(), fm.GetNumParts(), fm.GetTimestamp(), storeageTimestamp,
 			fm.GetSizedContents(), relationshipFingerprint)
 	} else {
 		// If it is a subsequent message part, handle it as so
 		mp := messagePartFromBytes(contents)
-		messageID := p.session.Conversations().Get(sender).
+		messageID := p.conversation.Get(sender).
 			ProcessReceivedMessageID(mp.GetID())
 
-		return p.session.Partition().Add(sender, messageID, mp.GetPart(),
+		return p.partition.Add(sender, messageID, mp.GetPart(),
 			mp.GetSizedContents(), relationshipFingerprint)
 	}
 }

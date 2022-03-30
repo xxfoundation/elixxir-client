@@ -172,16 +172,16 @@ func TestKey_EncryptDecrypt(t *testing.T) {
 	}
 }
 
-// Happy path of Key.denoteUse()
+// Happy path of Key.Use()
 func TestKey_denoteUse(t *testing.T) {
 	keyNum := uint32(rand.Int31n(31))
 
 	k := newKey(getSession(t), keyNum)
 
-	k.denoteUse()
+	k.Use()
 
 	if !k.session.keyState.Used(keyNum) {
-		t.Errorf("denoteUse() did not use the key")
+		t.Errorf("Use() did not use the key")
 	}
 }
 

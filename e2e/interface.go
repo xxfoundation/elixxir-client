@@ -24,5 +24,3 @@ type Handler interface {
 	AddService(tag string, source []byte, processor message2.Processor)
 	RemoveService(tag string, source []byte)
 }
-type Manager interface {
-}

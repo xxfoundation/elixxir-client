@@ -13,7 +13,7 @@ import (
 )
 
 // Make a default test session with some things populated
-func makeTestSession() *Session {
+func makeTestSession() (*Session, *versioned.KV) {
 	grp := getGroup()
 	rng := csprng.NewSystemRNG()
 	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength,
@@ -58,7 +58,7 @@ func makeTestSession() *Session {
 	if err != nil {
 		panic(err)
 	}
-	return s
+	return s, kv
 }
 
 // compare fields also represented in SessionDisk

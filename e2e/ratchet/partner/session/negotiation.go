@@ -17,12 +17,12 @@ import "fmt"
 type Negotiation uint8
 
 const (
-	Unconfirmed         Negotiation = 0
-	Sending                         = 1
-	Sent                            = 2
-	Confirmed                       = 3
-	NewSessionTriggered             = 4
-	NewSessionCreated               = 5
+	Unconfirmed Negotiation = iota
+	Sending
+	Sent
+	Confirmed
+	NewSessionTriggered
+	NewSessionCreated
 )
 
 //Adherence to stringer interface

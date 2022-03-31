@@ -47,6 +47,8 @@ type Manager struct {
 	grp       *cyclic.Group
 	cyHandler session.CypherHandler
 	rng       *fastRNG.StreamGenerator
+
+	managerID ManagerIdentity
 }
 
 // NewManager creates the relationship and its first Send and Receive sessions.
@@ -56,7 +58,9 @@ func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
 	receiveParams session.Params, cyHandler session.CypherHandler,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator) *Manager {
 
-	kv = kv.Prefix(makeManagerPrefix(partnerID))
+	mi := MakeManagerIdentity(partnerID, myID)
+
+	kv = kv.Prefix(makeManagerPrefix(mi))
 
 	m := &Manager{
 		kv:                      kv,
@@ -69,6 +73,7 @@ func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
 		cyHandler:               cyHandler,
 		grp:                     grp,
 		rng:                     rng,
+		managerID:               mi,
 	}
 	if err := utility.StoreCyclicKey(kv, myPrivKey, originMyPrivKeyKey); err != nil {
 		jww.FATAL.Panicf("Failed to store %s: %+v", originMyPrivKeyKey,
@@ -95,26 +100,34 @@ func LoadManager(kv *versioned.KV, myID, partnerID *id.ID,
 	cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (*Manager, error) {
 
-	kv = kv.Prefix(fmt.Sprintf(managerPrefix, partnerID))
+	mi := MakeManagerIdentity(partnerID, myID)
 
 	m := &Manager{
-		kv:        kv,
+		kv:        kv.Prefix(makeManagerPrefix(mi)),
 		myID:      myID,
 		partner:   partnerID,
 		cyHandler: cyHandler,
 		grp:       grp,
 		rng:       rng,
+		managerID: mi,
 	}
 
 	var err error
 
-	m.originMyPrivKey, err = utility.LoadCyclicKey(kv, originMyPrivKeyKey)
+	m.originMyPrivKey, err = utility.LoadCyclicKey(m.kv, originMyPrivKeyKey)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to load %s: %+v", originMyPrivKeyKey,
-			err)
+		// if the key cannot be found, this might be an old session, in which case
+		// we attempt to revert to the old file structure
+		m.kv = kv.Prefix(makeOldManagerPrefix(partnerID))
+		m.originMyPrivKey, err = utility.LoadCyclicKey(m.kv, originMyPrivKeyKey)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to load %s: %+v", originMyPrivKeyKey,
+				err)
+		}
+
 	}
 
-	m.originPartnerPubKey, err = utility.LoadCyclicKey(kv, originPartnerPubKey)
+	m.originPartnerPubKey, err = utility.LoadCyclicKey(m.kv, originPartnerPubKey)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to load %s: %+v", originPartnerPubKey,
 			err)
@@ -296,6 +309,10 @@ func (m *Manager) GetRelationshipFingerprintBytes() []byte {
 	return h.Sum(nil)
 }
 
+func (m *Manager) GetIdentity() ManagerIdentity {
+	return m.managerID
+}
+
 // MakeService Returns a service interface with the
 // appropriate identifier for who is being sent to. Will populate
 // the metadata with the partner
@@ -317,6 +334,10 @@ func (m *Manager) GetContact() contact.Contact {
 	}
 }
 
-func makeManagerPrefix(pid *id.ID) string {
+func makeOldManagerPrefix(pid *id.ID) string {
 	return fmt.Sprintf(managerPrefix, pid)
+}
+
+func makeManagerPrefix(identity ManagerIdentity) string {
+	return fmt.Sprintf(managerPrefix, identity)
 }

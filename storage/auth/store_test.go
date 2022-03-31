@@ -46,7 +46,7 @@ func TestNewStore(t *testing.T) {
 	}
 
 	for i, key := range privKeys {
-		rq, ok := store.fingerprints[auth.MakeRequestFingerprint(pubKeys[i])]
+		rq, ok := store.sentByFingerprints[auth.MakeRequestFingerprint(pubKeys[i])]
 		if !ok {
 			t.Errorf("Key not found in map (%d): %s", i, pubKeys[i].Text(16))
 		} else if rq.PrivKey.Cmp(key) != 0 {
@@ -125,27 +125,27 @@ func TestLoadStore(t *testing.T) {
 	}
 
 	partner := sr.partner
-	if s.requests[*partner] == nil {
+	if s.receivedByID[*partner] == nil {
 		t.Errorf("AddSent() failed to add request to map for "+
 			"partner ID %s.", partner)
-	} else if !reflect.DeepEqual(sr, s.requests[*partner].sent) {
+	} else if !reflect.DeepEqual(sr, s.receivedByID[*partner].sent) {
 		t.Errorf("AddSent() failed store the correct SentRequest."+
 			"\n\texpected: %+v\n\treceived: %+v",
-			sr, s.requests[*partner].sent)
+			sr, s.receivedByID[*partner].sent)
 	}
 	expectedFP := fingerprint{
 		Type:    Specific,
 		PrivKey: nil,
-		Request: &request{Sent, sr, nil, nil, sync.Mutex{}},
+		Request: &ReceivedRequest{Sent, sr, nil, nil, sync.Mutex{}},
 	}
-	if _, exists := s.fingerprints[sr.fingerprint]; !exists {
+	if _, exists := s.sentByFingerprints[sr.fingerprint]; !exists {
 		t.Errorf("AddSent() failed to add fingerprint to map for "+
 			"fingerprint %s.", sr.fingerprint)
 	} else if !reflect.DeepEqual(expectedFP,
-		s.fingerprints[sr.fingerprint]) {
+		s.sentByFingerprints[sr.fingerprint]) {
 		t.Errorf("AddSent() failed store the correct fingerprint."+
 			"\n\texpected: %+v\n\treceived: %+v",
-			expectedFP, s.fingerprints[sr.fingerprint])
+			expectedFP, s.sentByFingerprints[sr.fingerprint])
 	}
 }
 
@@ -177,7 +177,7 @@ func TestStore_AddSent(t *testing.T) {
 	expectedFP := fingerprint{
 		Type:    Specific,
 		PrivKey: nil,
-		Request: &request{Sent, sr, nil, nil, sync.Mutex{}},
+		Request: &ReceivedRequest{Sent, sr, nil, nil, sync.Mutex{}},
 	}
 
 	err := s.AddSent(partner, sr.partnerHistoricalPubKey, sr.myPrivKey,
@@ -187,23 +187,23 @@ func TestStore_AddSent(t *testing.T) {
 		t.Errorf("AddSent() produced an error: %+v", err)
 	}
 
-	if s.requests[*partner] == nil {
+	if s.receivedByID[*partner] == nil {
 		t.Errorf("AddSent() failed to add request to map for "+
 			"partner ID %s.", partner)
-	} else if !reflect.DeepEqual(sr, s.requests[*partner].sent) {
+	} else if !reflect.DeepEqual(sr, s.receivedByID[*partner].sent) {
 		t.Errorf("AddSent() failed store the correct SentRequest."+
 			"\n\texpected: %+v\n\treceived: %+v",
-			sr, s.requests[*partner].sent)
+			sr, s.receivedByID[*partner].sent)
 	}
 
-	if _, exists := s.fingerprints[sr.fingerprint]; !exists {
+	if _, exists := s.sentByFingerprints[sr.fingerprint]; !exists {
 		t.Errorf("AddSent() failed to add fingerprint to map for "+
 			"fingerprint %s.", sr.fingerprint)
 	} else if !reflect.DeepEqual(expectedFP,
-		s.fingerprints[sr.fingerprint]) {
+		s.sentByFingerprints[sr.fingerprint]) {
 		t.Errorf("AddSent() failed store the correct fingerprint."+
 			"\n\texpected: %+v\n\treceived: %+v",
-			expectedFP, s.fingerprints[sr.fingerprint])
+			expectedFP, s.sentByFingerprints[sr.fingerprint])
 	}
 }
 
@@ -246,13 +246,13 @@ func TestStore_AddReceived(t *testing.T) {
 		t.Errorf("AddReceived() returned an error: %+v", err)
 	}
 
-	if s.requests[*c.ID] == nil {
+	if s.receivedByID[*c.ID] == nil {
 		t.Errorf("AddReceived() failed to add request to map for "+
 			"partner ID %s.", c.ID)
-	} else if !reflect.DeepEqual(c, *s.requests[*c.ID].receive) {
+	} else if !reflect.DeepEqual(c, *s.receivedByID[*c.ID].partner) {
 		t.Errorf("AddReceived() failed store the correct Contact."+
 			"\n\texpected: %+v\n\treceived: %+v", c,
-			*s.requests[*c.ID].receive)
+			*s.receivedByID[*c.ID].partner)
 	}
 }
 
@@ -276,7 +276,7 @@ func TestStore_AddReceived_PartnerAlreadyExistsError(t *testing.T) {
 	}
 }
 
-// Happy path: fingerprints type is General.
+// Happy path: sentByFingerprints type is General.
 func TestStore_GetFingerprint_GeneralFingerprintType(t *testing.T) {
 	s, _, privKeys := makeTestStore(t)
 
@@ -302,7 +302,7 @@ func TestStore_GetFingerprint_GeneralFingerprintType(t *testing.T) {
 	}
 }
 
-// Happy path: fingerprints type is Specific.
+// Happy path: sentByFingerprints type is Specific.
 func TestStore_GetFingerprint_SpecificFingerprintType(t *testing.T) {
 	s, _, _ := makeTestStore(t)
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
@@ -371,10 +371,10 @@ func TestStore_GetFingerprint_InvalidFingerprintType(t *testing.T) {
 	s, _, privKeys := makeTestStore(t)
 
 	fp := auth.MakeRequestFingerprint(privKeys[0])
-	s.fingerprints[fp] = fingerprint{
+	s.sentByFingerprints[fp] = fingerprint{
 		Type:    0,
-		PrivKey: s.fingerprints[fp].PrivKey,
-		Request: s.fingerprints[fp].Request,
+		PrivKey: s.sentByFingerprints[fp].PrivKey,
+		Request: s.sentByFingerprints[fp].Request,
 	}
 	fpType, request, key, err := s.GetFingerprint(fp)
 	if err == nil {
@@ -418,7 +418,7 @@ func TestStore_GetReceivedRequest(t *testing.T) {
 	}
 
 	// Check if the request's mutex is locked
-	if reflect.ValueOf(&s.requests[*c.ID].mux).Elem().FieldByName(
+	if reflect.ValueOf(&s.receivedByID[*c.ID].mux).Elem().FieldByName(
 		"state").Int() != 1 {
 		t.Errorf("GetReceivedRequest() did not lock mutex.")
 	}
@@ -442,11 +442,11 @@ func TestStore_GetReceivedRequest_RequestDeleted(t *testing.T) {
 		t.Fatalf("AddReceived() returned an error: %+v", err)
 	}
 
-	r := s.requests[*c.ID]
+	r := s.receivedByID[*c.ID]
 	r.mux.Lock()
 
 	go func() {
-		delete(s.requests, *c.ID)
+		delete(s.receivedByID, *c.ID)
 		r.mux.Unlock()
 	}()
 
@@ -605,7 +605,7 @@ func TestStore_GetRequest_SentRequest(t *testing.T) {
 func TestStore_GetRequest_InvalidType(t *testing.T) {
 	s, _, _ := makeTestStore(t)
 	uid := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-	s.requests[*uid] = &request{rt: 42}
+	s.receivedByID[*uid] = &ReceivedRequest{rt: 42}
 
 	rType, request, con, err := s.GetRequest(uid)
 	if err == nil {
@@ -674,7 +674,7 @@ func TestStore_Fail(t *testing.T) {
 	s.Done(c.ID)
 
 	// Check if the request's mutex is locked
-	if reflect.ValueOf(&s.requests[*c.ID].mux).Elem().FieldByName(
+	if reflect.ValueOf(&s.receivedByID[*c.ID].mux).Elem().FieldByName(
 		"state").Int() != 0 {
 		t.Errorf("Done() did not unlock mutex.")
 	}
@@ -694,7 +694,7 @@ func TestStore_Fail_RequestNotInMap(t *testing.T) {
 	s.Done(id.NewIdFromUInt(rand.Uint64(), id.User, t))
 }
 
-// Happy path: receive request.
+// Happy path: partner request.
 func TestStore_Delete_ReceiveRequest(t *testing.T) {
 	s, _, _ := makeTestStore(t)
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
@@ -712,7 +712,7 @@ func TestStore_Delete_ReceiveRequest(t *testing.T) {
 		t.Errorf("delete() returned an error: %+v", err)
 	}
 
-	if s.requests[*c.ID] != nil {
+	if s.receivedByID[*c.ID] != nil {
 		t.Errorf("delete() failed to delete request for user %s.", c.ID)
 	}
 }
@@ -747,12 +747,12 @@ func TestStore_Delete_SentRequest(t *testing.T) {
 		t.Errorf("delete() returned an error: %+v", err)
 	}
 
-	if s.requests[*sr.partner] != nil {
+	if s.receivedByID[*sr.partner] != nil {
 		t.Errorf("delete() failed to delete request for user %s.",
 			sr.partner)
 	}
 
-	if _, exists := s.fingerprints[sr.fingerprint]; exists {
+	if _, exists := s.sentByFingerprints[sr.fingerprint]; exists {
 		t.Errorf("delete() failed to delete fingerprint for fp %v.",
 			sr.fingerprint)
 	}
@@ -775,7 +775,7 @@ func TestStore_GetAllReceived(t *testing.T) {
 	numReceived := 10
 
 	expectContactList := make([]contact.Contact, 0, numReceived)
-	// Add multiple received contact requests
+	// Add multiple received contact receivedByID
 	for i := 0; i < numReceived; i++ {
 		c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 		rng := csprng.NewSystemRNG()
@@ -815,7 +815,7 @@ func TestStore_GetAllReceived(t *testing.T) {
 }
 
 // Tests that Store.GetAllReceived returns an empty list when there are no
-// received requests.
+// received receivedByID.
 func TestStore_GetAllReceived_EmptyList(t *testing.T) {
 	s, _, _ := makeTestStore(t)
 
@@ -827,7 +827,7 @@ func TestStore_GetAllReceived_EmptyList(t *testing.T) {
 			"\nReceived: %d", 0, len(receivedContactList))
 	}
 
-	// Add Sent and Receive requests
+	// Add Sent and Receive receivedByID
 	for i := 0; i < 10; i++ {
 		partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 		rng := csprng.NewSystemRNG()
@@ -860,13 +860,13 @@ func TestStore_GetAllReceived_EmptyList(t *testing.T) {
 
 }
 
-// Tests that Store.GetAllReceived returns only Sent requests when there
-// are both Sent and Receive requests in Store.
+// Tests that Store.GetAllReceived returns only Sent receivedByID when there
+// are both Sent and Receive receivedByID in Store.
 func TestStore_GetAllReceived_MixSentReceived(t *testing.T) {
 	s, _, _ := makeTestStore(t)
 	numReceived := 10
 
-	// Add multiple received contact requests
+	// Add multiple received contact receivedByID
 	for i := 0; i < numReceived; i++ {
 		// Add received request
 		c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
@@ -925,7 +925,7 @@ func TestStore_DeleteRequest_NonexistantRequest(t *testing.T) {
 	err := s.DeleteRequest(c.ID)
 	if err != nil {
 		t.Errorf("DeleteRequest should return an error " +
-			"when trying to delete a receive request")
+			"when trying to delete a partner request")
 	}
 
 }
@@ -948,7 +948,7 @@ func TestStore_DeleteReceiveRequests(t *testing.T) {
 		t.Fatalf("DeleteReceiveRequests returned an error: %+v", err)
 	}
 
-	if s.requests[*c.ID] != nil {
+	if s.receivedByID[*c.ID] != nil {
 		t.Errorf("delete() failed to delete request for user %s.", c.ID)
 	}
 }
@@ -980,18 +980,18 @@ func TestStore_DeleteSentRequests(t *testing.T) {
 		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
 	}
 
-	if s.requests[*sr.partner] != nil {
+	if s.receivedByID[*sr.partner] != nil {
 		t.Errorf("delete() failed to delete request for user %s.",
 			sr.partner)
 	}
 
-	if _, exists := s.fingerprints[sr.fingerprint]; exists {
+	if _, exists := s.sentByFingerprints[sr.fingerprint]; exists {
 		t.Errorf("delete() failed to delete fingerprint for fp %v.",
 			sr.fingerprint)
 	}
 }
 
-// Tests that DeleteSentRequests does not affect receive requests in map
+// Tests that DeleteSentRequests does not affect partner receivedByID in map
 func TestStore_DeleteSentRequests_ReceiveInMap(t *testing.T) {
 	s, _, _ := makeTestStore(t)
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
@@ -1006,13 +1006,13 @@ func TestStore_DeleteSentRequests_ReceiveInMap(t *testing.T) {
 		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
 	}
 
-	if s.requests[*c.ID] == nil {
-		t.Fatalf("DeleteSentRequests removes receive requests!")
+	if s.receivedByID[*c.ID] == nil {
+		t.Fatalf("DeleteSentRequests removes partner receivedByID!")
 	}
 
 }
 
-// Tests that DeleteReceiveRequests does not affect sent requests in map
+// Tests that DeleteReceiveRequests does not affect sent receivedByID in map
 func TestStore_DeleteReceiveRequests_SentInMap(t *testing.T) {
 	s, _, _ := makeTestStore(t)
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
@@ -1039,8 +1039,8 @@ func TestStore_DeleteReceiveRequests_SentInMap(t *testing.T) {
 		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
 	}
 
-	if s.requests[*partnerID] == nil {
-		t.Fatalf("DeleteReceiveRequests removes sent requests!")
+	if s.receivedByID[*partnerID] == nil {
+		t.Fatalf("DeleteReceiveRequests removes sent receivedByID!")
 	}
 
 }
@@ -1078,17 +1078,17 @@ func TestStore_DeleteAllRequests(t *testing.T) {
 		t.Fatalf("DeleteAllRequests returned an error: %+v", err)
 	}
 
-	if s.requests[*sr.partner] != nil {
+	if s.receivedByID[*sr.partner] != nil {
 		t.Errorf("delete() failed to delete request for user %s.",
 			sr.partner)
 	}
 
-	if _, exists := s.fingerprints[sr.fingerprint]; exists {
+	if _, exists := s.sentByFingerprints[sr.fingerprint]; exists {
 		t.Errorf("delete() failed to delete fingerprint for fp %v.",
 			sr.fingerprint)
 	}
 
-	if s.requests[*c.ID] != nil {
+	if s.receivedByID[*c.ID] != nil {
 		t.Errorf("delete() failed to delete request for user %s.", c.ID)
 	}
 

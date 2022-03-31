@@ -23,5 +23,5 @@ type fingerprint struct {
 	PrivKey *cyclic.Int
 
 	// Only populated if it is specific
-	Request *request
+	Request *ReceivedRequest
 }

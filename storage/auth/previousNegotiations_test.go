@@ -56,7 +56,7 @@ func TestStore_AddIfNew(t *testing.T) {
 		addPartner bool     // If true, partner is added to list first
 		addFp      bool     // If true, fingerprint is added to list first
 		latestFp   bool     // If true, fingerprint is added as latest
-		otherFps   [][]byte // Other fingerprints to add first
+		otherFps   [][]byte // Other sentByFingerprints to add first
 
 		// Inputs
 		partner *id.ID
@@ -157,7 +157,7 @@ func TestStore_AddIfNew(t *testing.T) {
 }
 
 // Tests that Store.deletePreviousNegotiationPartner deletes the partner from
-// previousNegotiations in memory, previousNegotiations in storage, fingerprints
+// previousNegotiations in memory, previousNegotiations in storage, sentByFingerprints
 // in storage, and any confirmations in storage.
 func TestStore_deletePreviousNegotiationPartner(t *testing.T) {
 	s := &Store{
@@ -184,7 +184,7 @@ func TestStore_deletePreviousNegotiationPartner(t *testing.T) {
 				i, err)
 		}
 
-		// Generate fingerprints
+		// Generate sentByFingerprints
 		fingerprints := make([][]byte, i+1)
 		for j := range fingerprints {
 			dhPubKey := diffieHellman.GeneratePublicKey(grp.NewInt(42), grp)
@@ -240,10 +240,10 @@ func TestStore_deletePreviousNegotiationPartner(t *testing.T) {
 				v.partner, i)
 		}
 
-		// Check negotiation fingerprints in storage
+		// Check negotiation sentByFingerprints in storage
 		fps, err := s.loadNegotiationFingerprints(v.partner)
 		if err == nil || fps != nil {
-			t.Errorf("Loaded fingerprints for partner %s (%d): %v",
+			t.Errorf("Loaded sentByFingerprints for partner %s (%d): %v",
 				v.partner, i, fps)
 		}
 
@@ -338,7 +338,7 @@ func Test_marshalPreviousNegotiations_unmarshalPreviousNegotiations(t *testing.T
 	}
 }
 
-// Tests that a list of fingerprints for different partners can be saved and
+// Tests that a list of sentByFingerprints for different partners can be saved and
 // loaded from storage via Store.saveNegotiationFingerprints and
 // Store.loadNegotiationFingerprints.
 func TestStore_saveNegotiationFingerprints_loadNegotiationFingerprints(t *testing.T) {
@@ -354,7 +354,7 @@ func TestStore_saveNegotiationFingerprints_loadNegotiationFingerprints(t *testin
 	for i := range testValues {
 		partner, _ := id.NewRandomID(rng, id.User)
 
-		// Generate original fingerprints to marshal
+		// Generate original sentByFingerprints to marshal
 		originalFps := make([][]byte, 50)
 		for j := range originalFps {
 			dhPubKey := diffieHellman.GeneratePublicKey(grp.NewInt(42), grp)
@@ -382,20 +382,20 @@ func TestStore_saveNegotiationFingerprints_loadNegotiationFingerprints(t *testin
 		}
 
 		if !reflect.DeepEqual(val.fps, loadedFps) {
-			t.Errorf("Loaded fingerprints do not match original (%d)."+
+			t.Errorf("Loaded sentByFingerprints do not match original (%d)."+
 				"\nexpected: %v\nreceived: %v", i, val.fps, loadedFps)
 		}
 	}
 }
 
-// Tests that a list of fingerprints that is marshalled and unmarshalled via
+// Tests that a list of sentByFingerprints that is marshalled and unmarshalled via
 // marshalNegotiationFingerprints and unmarshalNegotiationFingerprints matches
 // the original list
 func Test_marshalNegotiationFingerprints_unmarshalNegotiationFingerprints(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
-	// Generate original fingerprints to marshal
+	// Generate original sentByFingerprints to marshal
 	originalFps := make([][]byte, 50)
 	for i := range originalFps {
 		dhPubKey := diffieHellman.GeneratePublicKey(grp.NewInt(42), grp)
@@ -409,7 +409,7 @@ func Test_marshalNegotiationFingerprints_unmarshalNegotiationFingerprints(t *tes
 
 	// Check that the original matches the unmarshalled
 	if !reflect.DeepEqual(originalFps, unmarshalledFps) {
-		t.Errorf("Unmarshalled fingerprints do not match original."+
+		t.Errorf("Unmarshalled sentByFingerprints do not match original."+
 			"\nexpected: %v\nreceived: %v", originalFps, unmarshalledFps)
 	}
 }
@@ -441,7 +441,7 @@ func Test_makeNegotiationFingerprintsKey_Consistency(t *testing.T) {
 
 		key := makeNegotiationFingerprintsKey(partner)
 		if expected != key {
-			t.Errorf("Negotiation fingerprints key does not match expected "+
+			t.Errorf("Negotiation sentByFingerprints key does not match expected "+
 				"for partner %s (%d).\nexpected: %q\nreceived: %q", partner, i,
 				expected, key)
 		}

@@ -226,6 +226,8 @@ type Manager interface {
 		roundCallback RoundEventCallback) error
 
 	// LookupHistoricalRound looks up the passed historical round on the network.
+	// GetRoundResults does this lookup when needed, generally that is
+	// preferable
 	LookupHistoricalRound(
 		rid id.Round, callback historical.RoundResultCallback) error
 

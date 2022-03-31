@@ -7,12 +7,6 @@
 
 package auth
 
-import (
-	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/crypto/contact"
-	"sync"
-)
-
 type RequestType uint
 
 const (
@@ -20,23 +14,8 @@ const (
 	Receive RequestType = 2
 )
 
-type request struct {
-	rt RequestType
-
-	// Data if sent
-	sent *SentRequest
-
-	// Data if receive
-	receive *contact.Contact
-
-	//sidHPublic key of partner
-	theirSidHPubKeyA *sidh.PublicKey
-
-	// mux to ensure there is not concurrent access
-	mux sync.Mutex
-}
-
 type requestDisk struct {
-	T  uint
-	ID []byte
+	T    uint
+	ID   []byte
+	MyID []byte
 }

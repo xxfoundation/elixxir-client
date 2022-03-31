@@ -29,7 +29,11 @@ import (
 func CheckKeyExchanges(instance *commsNetwork.Instance, grp *cyclic.Group,
 	sendE2E E2eSender, events event.Manager, manager *partner.Manager,
 	sendTimeout time.Duration) {
+
+	//get all sessions that may need a key exchange
 	sessions := manager.TriggerNegotiations()
+
+	//start an exchange for every session that needs one
 	for _, sess := range sessions {
 		go trigger(instance, grp, sendE2E, events, manager, sess,
 			sendTimeout)
@@ -41,38 +45,50 @@ func CheckKeyExchanges(instance *commsNetwork.Instance, grp *cyclic.Group,
 // session. They run the same negotiation, the former does it on a newly created
 // session while the latter on an extant session
 func trigger(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSender,
-	events event.Manager, manager *partner.Manager, sess *session.Session,
+	events event.Manager, manager *partner.Manager, inputSession *session.Session,
 	sendTimeout time.Duration) {
 
 	var negotiatingSession *session.Session
 	jww.INFO.Printf("[REKEY] Negotiation triggered for session %s with "+
-		"status: %s", sess, sess.NegotiationStatus())
-	switch sess.NegotiationStatus() {
+		"status: %s", inputSession, inputSession.NegotiationStatus())
+
+	switch inputSession.NegotiationStatus() {
 	// If the passed session is triggering a negotiation on a new session to
 	// replace itself, then create the session
 	case session.NewSessionTriggered:
+		//todo: check if any sessions have inputSession as a parent. If so,
+		//skip creation, set its status to newSession created, and bail
+		//this state could only happen if a crash occurred in a previous run
+		//between NewSendSession creation and the setting of the negotiation
+		//status on the input session
+
 		//create the session, pass a nil private key to generate a new one
 		negotiatingSession = manager.NewSendSession(nil, nil,
-			session.GetDefaultE2ESessionParams())
+			session.GetDefaultE2ESessionParams(), inputSession)
+
 		//move the state of the triggering session forward
-		sess.SetNegotiationStatus(session.NewSessionCreated)
+		inputSession.SetNegotiationStatus(session.NewSessionCreated)
 
 	// If the session is set to send a negotiation
 	case session.Sending:
-		negotiatingSession = sess
+		negotiatingSession = inputSession
+
+	// should be unreachable, manager.TriggerNegotiations above should limit
+	// states for this switch
 	default:
 		jww.FATAL.Panicf("[REKEY] Session %s provided invalid e2e "+
-			"negotiating status: %s", sess, sess.NegotiationStatus())
+			"negotiating status: %s", inputSession, inputSession.NegotiationStatus())
 	}
 
 	// send the rekey notification to the partner
 	err := negotiate(instance, grp, sendE2E, negotiatingSession,
 		sendTimeout)
+
 	// if sending the negotiation fails, revert the state of the session to
 	// unconfirmed so it will be triggered in the future
 	if err != nil {
 		jww.ERROR.Printf("[REKEY] Failed to do Key Negotiation with "+
-			"session %s: %s", sess, err)
+			"session %s: %s", inputSession, err)
 		events.Report(1, "Rekey", "NegotiationFailed", err.Error())
 	}
 }
@@ -136,7 +152,7 @@ func negotiate(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSe
 	// transmit, the partner cannot read the result. Log the error and set
 	// the session as unconfirmed so it will re-trigger the negotiation
 	if !success {
-		sess.SetNegotiationStatus(session.Unconfirmed)
+		_ = sess.TrySetNegotiationStatus(session.Unconfirmed)
 		return errors.Errorf("[REKEY] Key Negotiation rekey for %s failed to "+
 			"transmit %v/%v paritions: %v round failures, %v timeouts, msgID: %s",
 			sess, numRoundFail+numTimeOut, len(rounds), numRoundFail,

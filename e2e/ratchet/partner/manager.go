@@ -189,9 +189,8 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int,
 // received from the partner and a new private key for the user. Passing in a
 // private key is optional. A private key will be generated if none is passed.
 func (m *Manager) NewSendSession(myPrivKey *cyclic.Int,
-	mySIDHPrivKey *sidh.PrivateKey, e2eParams session.Params) *session.Session {
-	// Find the latest public key from the other party
-	sourceSession := m.receive.getNewestRekeyableSession()
+	mySIDHPrivKey *sidh.PrivateKey, e2eParams session.Params,
+	sourceSession *session.Session) *session.Session {
 
 	// Add the session to the Send session buffer and return
 	return m.send.AddSession(myPrivKey, sourceSession.GetPartnerPubKey(), nil,

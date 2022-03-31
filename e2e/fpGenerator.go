@@ -5,6 +5,9 @@ import (
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 )
 
+// Wrapper which allows the network>manager's fingerprint interface to be
+// passed into ratchet without exposing ratchet to buisness logic
+// adheres to the CypherHandler interface in session
 type fpGenerator struct {
 	*manager
 }

@@ -8,6 +8,7 @@ import (
 	"gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -86,4 +87,23 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 	multi.Add(rekeyStopper)
 
 	return multi, nil
+}
+
+// EnableUnsafeReception enables the reception of unsafe message by registering
+// bespoke services for reception. For debugging only!
+func (m *manager) EnableUnsafeReception() {
+	m.net.AddService(m.myID, message.Service{
+		Identifier: m.myID[:],
+		Tag:        ratchet.Silent,
+	}, &UnsafeProcessor{
+		m:   m,
+		tag: ratchet.Silent,
+	})
+	m.net.AddService(m.myID, message.Service{
+		Identifier: m.myID[:],
+		Tag:        ratchet.E2e,
+	}, &UnsafeProcessor{
+		m:   m,
+		tag: ratchet.E2e,
+	})
 }

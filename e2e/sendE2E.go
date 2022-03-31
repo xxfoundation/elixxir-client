@@ -71,12 +71,13 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 				"message, no relationship found with %s", recipient)
 	}
 
-	//return the rounds if everything send successfully
+	//Generate the message ID
 	msgID := e2e.NewMessageID(partner.GetSendRelationshipFingerprint(),
 		internalMsgId)
 
 	wg := sync.WaitGroup{}
 
+	//handle sending for each partition
 	for i, p := range partitions {
 		if mt != catalog.KeyExchangeTrigger {
 			// check if any rekeys need to happen and trigger them

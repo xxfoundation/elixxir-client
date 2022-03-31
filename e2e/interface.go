@@ -28,6 +28,8 @@ type Handler interface {
 	// on, a unique ID for the message, and the timestamp sent on.
 	// the recipient must already have an e2e relationship, otherwise an error
 	// will be returned.
+	// Will return an error if the network is not healthy or in the event of
+	// a failed send
 	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
 		params Params) ([]id.Round, e2e.MessageID, time.Time, error)
 
@@ -120,4 +122,22 @@ type Handler interface {
 
 	// RemoveService removes all services for the given tag
 	RemoveService(tag string) error
+
+	/* === Unsafe =========================================================== */
+
+	// SendUnsafe sends a message without encryption. It breaks both privacy
+	// and security. It does partition the message. It should ONLY be used for
+	// debugging.
+	// It does not respect service tags in the parameters and sends all
+	// messages with "Silent" and "E2E" tags.
+	// It does not support critical messages.
+	// It does not check that an e2e relationship exists with the recipient
+	// Will return an error if the network is not healthy or in the event of
+	// a failed send
+	SendUnsafe(mt catalog.MessageType, recipient *id.ID,
+		payload []byte, params Params) ([]id.Round, time.Time, error)
+
+	// EnableUnsafeReception enables the reception of unsafe message by
+	// registering bespoke services for reception. For debugging only!
+	EnableUnsafeReception()
 }

@@ -39,7 +39,7 @@ func getGroup() *cyclic.Group {
 
 }
 
-func CreateTestSession(numKeys, keysAvailable, rekeyThreshold uint32, t *testing.T) (*Session, *versioned.KV) {
+func CreateTestSession(numKeys, keysAvailable, rekeyThreshold uint32, status Negotiation, t *testing.T) (*Session, *versioned.KV) {
 	if t == nil {
 		panic("Cannot run this outside tests")
 	}
@@ -53,6 +53,9 @@ func CreateTestSession(numKeys, keysAvailable, rekeyThreshold uint32, t *testing
 	if keysAvailable > 0 {
 		s.keyState.SetNumAvailableTEST(keysAvailable, t)
 	}
+
+	s.negotiationStatus = status
+
 	return s, kv
 }
 

@@ -11,21 +11,14 @@ import (
 	"bytes"
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
-	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/e2e/ratchet/session"
-	"gitlab.com/elixxir/client/interfaces/params"
-	util "gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
-	"io"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -36,38 +29,21 @@ func TestNewStore(t *testing.T) {
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	privKey := grp.NewInt(57)
 	kv := versioned.NewKV(make(ekv.Memstore))
-	fingerprints := newFingerprints()
-	rng := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
-	e2eP := params.GetDefaultE2ESessionParams()
 	expectedStore := &Ratchet{
-		managers:            make(map[id.ID]*partner.Manager),
+		managers:            make(map[relationshipIdentity]*partner.Manager),
 		defaultDHPrivateKey: privKey,
 		defaultDHPublicKey:  diffieHellman.GeneratePublicKey(privKey, grp),
 		grp:                 grp,
 		kv:                  kv.Prefix(packagePrefix),
-		fingerprints:        &fingerprints,
-		context: &context{
-			fa:   &fingerprints,
-			grp:  grp,
-			rng:  rng,
-			myID: &id.ID{},
-		},
-		e2eParams: e2eP,
 	}
 	expectedData, err := expectedStore.marshal()
 	if err != nil {
 		t.Fatalf("marshal() produced an error: %v", err)
 	}
 
-	store, err := NewStore(grp, kv, privKey, &id.ID{}, rng)
+	err = New(kv, &id.ID{}, privKey, grp)
 	if err != nil {
 		t.Errorf("NewStore() produced an error: %v", err)
-	}
-
-	if !reflect.DeepEqual(expectedStore, store) {
-		t.Errorf("NewStore() returned incorrect Ratchet."+
-			"\n\texpected: %+v\n\treceived: %+v", expectedStore,
-			store)
 	}
 
 	key, err := expectedStore.kv.Get(storeKey, 0)
@@ -84,16 +60,21 @@ func TestNewStore(t *testing.T) {
 
 // Tests happy path of LoadStore.
 func TestLoadStore(t *testing.T) {
-	expectedStore, kv, rng := makeTestStore()
+	expectedRatchet, kv, err := makeTestRatchet()
+	if err != nil {
+		t.Fatalf("Setup error: %v", err)
+	}
 
-	store, err := LoadStore(kv, &id.ID{}, rng)
+	store, err := Load(kv, &id.ID{},
+		expectedRatchet.grp, expectedRatchet.cyHandler, expectedRatchet.sInteface,
+		expectedRatchet.rng)
 	if err != nil {
 		t.Errorf("LoadStore() produced an error: %v", err)
 	}
 
-	if !reflect.DeepEqual(expectedStore, store) {
+	if !reflect.DeepEqual(expectedRatchet, store) {
 		t.Errorf("LoadStore() returned incorrect Ratchet."+
-			"\n\texpected: %#v\n\treceived: %#v", expectedStore,
+			"\n\texpected: %#v\n\treceived: %#v", expectedRatchet,
 			store)
 	}
 }
@@ -101,63 +82,75 @@ func TestLoadStore(t *testing.T) {
 // Tests happy path of Ratchet.AddPartner.
 func TestStore_AddPartner(t *testing.T) {
 	rng := csprng.NewSystemRNG()
-	s, _, _ := makeTestStore()
+	r, kv, err := makeTestRatchet()
+	if err != nil {
+		t.Fatalf("Setup error: %v", err)
+	}
+
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-	pubKey := diffieHellman.GeneratePublicKey(s.defaultDHPrivateKey, s.grp)
-	p := params.GetDefaultE2ESessionParams()
+	p := session.GetDefaultE2ESessionParams()
+	partnerPubKey := diffieHellman.GeneratePublicKey(r.defaultDHPrivateKey, r.grp)
 	// NOTE: e2e store doesn't contain a private SIDH key, that's
 	// because they're completely address as part of the
 	// initiation of the connection.
 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
-	privSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
-	expectedManager := partner.newManager(s.context, s.kv, partnerID,
-		s.defaultDHPrivateKey, pubKey,
-		privSIDHKey, pubSIDHKey,
-		p, p)
+	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
+	expectedManager := partner.NewManager(kv, r.defaultID, partnerID,
+		r.defaultDHPrivateKey, partnerPubKey, myPrivSIDHKey, pubSIDHKey,
+		p, p, r.cyHandler, r.grp, r.rng)
 
-	err := s.AddPartner(partnerID, pubKey, s.defaultDHPrivateKey, pubSIDHKey,
-		privSIDHKey, p, p)
+	receivedManager, err := r.AddPartner(r.defaultID, r.defaultDHPrivateKey,
+		partnerID, partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p, true)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
 	}
 
-	m, exists := s.managers[*partnerID]
-	if !exists {
-		t.Errorf("Manager does not exist in map.\n\tmap: %+v",
-			s.managers)
+	if !managersEqual(expectedManager, receivedManager, t) {
+		t.Errorf("Inconsistent data between partner.Managers")
 	}
 
-	if !reflect.DeepEqual(expectedManager, m) {
-		t.Errorf("Added Manager not expected.\n\texpected: "+
-			"%v\n\treceived: %v", expectedManager, m)
+	relationshipId := makeRelationshipIdentity(partnerID, r.defaultID)
+
+	m, exists := r.managers[relationshipId]
+	if !exists {
+		t.Errorf("Manager does not exist in map.\n\tmap: %+v",
+			r.managers)
+	}
+
+	if !managersEqual(expectedManager, m, t) {
+		t.Errorf("Inconsistent data between partner.Managers")
 	}
 }
 
 // Unit test for DeletePartner
 func TestStore_DeletePartner(t *testing.T) {
 	rng := csprng.NewSystemRNG()
-	s, _, _ := makeTestStore()
+	r, _, err := makeTestRatchet()
+	if err != nil {
+		t.Fatalf("Setup error: %v", err)
+	}
+
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-	pubKey := diffieHellman.GeneratePublicKey(s.defaultDHPrivateKey, s.grp)
-	p := params.GetDefaultE2ESessionParams()
+	partnerPubKey := diffieHellman.GeneratePublicKey(r.defaultDHPrivateKey, r.grp)
+	p := session.GetDefaultE2ESessionParams()
 	// NOTE: e2e store doesn't contain a private SIDH key, that's
 	// because they're completely address as part of the
 	// initiation of the connection.
 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
-	privSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
+	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
 
-	err := s.AddPartner(partnerID, pubKey, s.defaultDHPrivateKey, pubSIDHKey,
-		privSIDHKey, p, p)
+	_, err = r.AddPartner(r.defaultID, r.defaultDHPrivateKey,
+		partnerID, partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p, true)
 	if err != nil {
-		t.Fatalf("Could not add partner in set up: %v", err)
+		t.Fatalf("AddPartner returned an error: %v", err)
 	}
 
-	err = s.DeletePartner(partnerID)
+	err = r.DeletePartner(partnerID, r.defaultID)
 	if err != nil {
 		t.Fatalf("DeletePartner received an error: %v", err)
 	}
 
-	_, err = s.GetPartner(partnerID)
+	_, err = r.GetPartner(partnerID, r.defaultID)
 	if err == nil {
 		t.Errorf("Shouldn't be able to pull deleted partner from store")
 	}
@@ -167,18 +160,22 @@ func TestStore_DeletePartner(t *testing.T) {
 // Tests happy path of Ratchet.GetPartner.
 func TestStore_GetPartner(t *testing.T) {
 	rng := csprng.NewSystemRNG()
-	s, _, _ := makeTestStore()
+	r, _, err := makeTestRatchet()
+	if err != nil {
+		t.Fatalf("Setup error: %v", err)
+	}
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-	pubKey := diffieHellman.GeneratePublicKey(s.defaultDHPrivateKey, s.grp)
-	p := params.GetDefaultE2ESessionParams()
+	partnerPubKey := diffieHellman.GeneratePublicKey(r.defaultDHPrivateKey, r.grp)
+	p := session.GetDefaultE2ESessionParams()
 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
-	privSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
-	expectedManager := partner.newManager(s.context, s.kv, partnerID,
-		s.defaultDHPrivateKey, pubKey, privSIDHKey, pubSIDHKey, p, p)
-	_ = s.AddPartner(partnerID, pubKey, s.defaultDHPrivateKey, pubSIDHKey,
-		privSIDHKey, p, p)
+	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
+	expectedManager, err := r.AddPartner(r.defaultID, r.defaultDHPrivateKey,
+		partnerID, partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p, true)
+	if err != nil {
+		t.Fatalf("AddPartner returned an error: %v", err)
+	}
 
-	m, err := s.GetPartner(partnerID)
+	m, err := r.GetPartner(partnerID, r.defaultID)
 	if err != nil {
 		t.Errorf("GetPartner() produced an error: %v", err)
 	}
@@ -191,10 +188,13 @@ func TestStore_GetPartner(t *testing.T) {
 
 // Tests that Ratchet.GetPartner returns an error for non existent partnerID.
 func TestStore_GetPartner_Error(t *testing.T) {
-	s, _, _ := makeTestStore()
+	r, _, err := makeTestRatchet()
+	if err != nil {
+		t.Fatalf("Setup error: %v", err)
+	}
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 
-	m, err := s.GetPartner(partnerID)
+	m, err := r.GetPartner(partnerID, r.defaultID)
 	if err == nil {
 		t.Error("GetPartner() did not produce an error.")
 	}
@@ -205,203 +205,30 @@ func TestStore_GetPartner_Error(t *testing.T) {
 	}
 }
 
-// Tests happy path of Ratchet.GetPartnerContact.
-func TestStore_GetPartnerContact(t *testing.T) {
-	s, _, _ := makeTestStore()
-	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-	pubKey := diffieHellman.GeneratePublicKey(s.defaultDHPrivateKey, s.grp)
-	p := params.GetDefaultE2ESessionParams()
-	expected := contact.Contact{
-		ID:       partnerID,
-		DhPubKey: pubKey,
-	}
-	rng := csprng.NewSystemRNG()
-	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
-	privSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
-
-	_ = s.AddPartner(partnerID, pubKey, s.defaultDHPrivateKey, pubSIDHKey,
-		privSIDHKey, p, p)
-
-	c, err := s.GetPartnerContact(partnerID)
-	if err != nil {
-		t.Errorf("GetPartnerContact() produced an error: %+v", err)
-	}
-
-	if !reflect.DeepEqual(expected, c) {
-		t.Errorf("GetPartnerContact() returned wrong Contact."+
-			"\nexpected: %s\nreceived: %s", expected, c)
-	}
-}
-
-// Tests that Ratchet.GetPartnerContact returns an error for non existent partnerID.
-func TestStore_GetPartnerContact_Error(t *testing.T) {
-	s, _, _ := makeTestStore()
-	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-
-	_, err := s.GetPartnerContact(partnerID)
-	if err == nil || err.Error() != NoPartnerErrorStr {
-		t.Errorf("GetPartnerContact() did not produce the expected error."+
-			"\nexpected: %s\nreceived: %+v", NoPartnerErrorStr, err)
-	}
-}
-
-// Tests happy path of Ratchet.PopKey.
-func TestStore_PopKey(t *testing.T) {
-	s, _, _ := makeTestStore()
-	se, _ := session.makeTestSession()
-
-	// Pop Key that does not exist
-	fp := format.Fingerprint{0xF, 0x6, 0x2}
-	key, exists := s.PopKey(fp)
-	if exists {
-		t.Errorf("PopKey() popped a Key with fingerprint %v that should not "+
-			"exist.", fp)
-	}
-	if key != nil {
-		t.Errorf("PopKey() did not return a nil Key when it should not exist."+
-			"\n\texpected: %+v\n\treceived: %+v", nil, key)
-	}
-
-	// Add a Key
-	keys := []*session2.Cypher{session.newKey(se, 0), session.newKey(se, 1), session.newKey(se, 2)}
-	s.add(keys)
-	fp = keys[0].Fingerprint()
-
-	// Pop a Key that does exist
-	key, exists = s.PopKey(fp)
-	if !exists {
-		t.Errorf("PopKey() could not find Key with fingerprint %v.", fp)
-	}
-
-	if !reflect.DeepEqual(keys[0], key) {
-		t.Errorf("PopKey() did not return the correct Key."+
-			"\n\texpected: %+v\n\trecieved: %+v", keys[0], key)
-	}
-}
-
-// Tests happy path of Ratchet.CheckKey.
-func TestStore_CheckKey(t *testing.T) {
-	s, _, _ := makeTestStore()
-	se, _ := session.makeTestSession()
-
-	// Check for a Key that does not exist
-	fp := format.Fingerprint{0xF, 0x6, 0x2}
-	exists := s.CheckKey(fp)
-	if exists {
-		t.Errorf("CheckKey() found a Key with fingerprint %v.", fp)
-	}
-
-	// Add Keys
-	keys := []*session2.Cypher{session.newKey(se, 0), session.newKey(se, 1), session.newKey(se, 2)}
-	s.add(keys)
-	fp = keys[0].Fingerprint()
-
-	// Check for a Key that does exist
-	exists = s.CheckKey(fp)
-	if !exists {
-		t.Errorf("CheckKey() could not find Key with fingerprint %v.", fp)
-	}
-}
-
 // Tests happy path of Ratchet.GetDHPrivateKey.
 func TestStore_GetDHPrivateKey(t *testing.T) {
-	s, _, _ := makeTestStore()
+	r, _, err := makeTestRatchet()
+	if err != nil {
+		t.Fatalf("Setup error: %v", err)
+	}
 
-	if s.defaultDHPrivateKey != s.GetDHPrivateKey() {
+	if r.defaultDHPrivateKey != r.GetDHPrivateKey() {
 		t.Errorf("GetDHPrivateKey() returned incorrect key."+
 			"\n\texpected: %v\n\treceived: %v",
-			s.defaultDHPrivateKey, s.GetDHPrivateKey())
+			r.defaultDHPrivateKey, r.GetDHPrivateKey())
 	}
 }
 
 // Tests happy path of Ratchet.GetDHPublicKey.
 func TestStore_GetDHPublicKey(t *testing.T) {
-	s, _, _ := makeTestStore()
+	r, _, err := makeTestRatchet()
+	if err != nil {
+		t.Fatalf("Setup error: %v", err)
+	}
 
-	if s.defaultDHPublicKey != s.GetDHPublicKey() {
+	if r.defaultDHPublicKey != r.GetDHPublicKey() {
 		t.Errorf("GetDHPublicKey() returned incorrect key."+
 			"\n\texpected: %v\n\treceived: %v",
-			s.defaultDHPublicKey, s.GetDHPublicKey())
+			r.defaultDHPublicKey, r.GetDHPublicKey())
 	}
-}
-
-// Tests happy path of Ratchet.GetGroup.
-func TestStore_GetGroup(t *testing.T) {
-	s, _, _ := makeTestStore()
-
-	if s.grp != s.GetGroup() {
-		t.Errorf("GetGroup() returned incorrect key."+
-			"\n\texpected: %v\n\treceived: %v",
-			s.grp, s.GetGroup())
-	}
-}
-
-// Tests happy path of newFingerprints.
-func Test_newFingerprints(t *testing.T) {
-	expectedFp := fingerprints{toKey: make(map[format.Fingerprint]*session2.Cypher)}
-	fp := newFingerprints()
-
-	if !reflect.DeepEqual(&expectedFp, &fp) {
-		t.Errorf("newFingerprints() returned incorrect fingerprints."+
-			"\n\texpected: %+v\n\treceived: %+v", &expectedFp, &fp)
-	}
-}
-
-// Tests happy path of fingerprints.add.
-func TestFingerprints_add(t *testing.T) {
-	se, _ := session.makeTestSession()
-	keys := []*session2.Cypher{session.newKey(se, 0), session.newKey(se, 1), session.newKey(se, 2)}
-	fps := newFingerprints()
-	fps.add(keys)
-
-	for i, key := range keys {
-		testKey, exists := fps.toKey[key.Fingerprint()]
-		if !exists {
-			t.Errorf("add() failed to add key with fingerprint %v (round %d).",
-				key.Fingerprint(), i)
-		}
-
-		if !reflect.DeepEqual(key, testKey) {
-			t.Errorf("add() did not add the correct Key for fingerprint %v "+
-				"(round %d).\n\texpected: %v\n\treceived: %v",
-				key.Fingerprint(), i, key, testKey)
-		}
-	}
-}
-
-// Tests happy path of fingerprints.remove.
-func TestFingerprints_remove(t *testing.T) {
-	se, _ := session.makeTestSession()
-	keys := []*session2.Cypher{session.newKey(se, 0), session.newKey(se, 1), session.newKey(se, 2)}
-	fps := newFingerprints()
-	fps.add(keys)
-	fps.remove(keys)
-
-	if len(fps.toKey) != 0 {
-		t.Errorf("remove() failed to remove all the keys.\n\tmap: %v", fps.toKey)
-	}
-}
-
-func makeTestStore() (*Ratchet, *versioned.KV, *fastRNG.StreamGenerator) {
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
-	privKey := grp.NewInt(57)
-	kv := versioned.NewKV(make(ekv.Memstore))
-	rng := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
-	s, err := NewStore(grp, kv, privKey, &id.ID{}, rng)
-	if err != nil {
-		panic("NewStore() produced an error: " + err.Error())
-	}
-	return s, kv, rng
-}
-
-func genSidhKeys(rng io.Reader, variant sidh.KeyVariant) (*sidh.PrivateKey, *sidh.PublicKey) {
-	sidHPrivKey := util.NewSIDHPrivateKey(variant)
-	sidHPubKey := util.NewSIDHPublicKey(variant)
-
-	if err := sidHPrivKey.Generate(rng); err != nil {
-		panic("failure to generate SidH A private key")
-	}
-	sidHPrivKey.GeneratePublicKey(sidHPubKey)
-
-	return sidHPrivKey, sidHPubKey
 }

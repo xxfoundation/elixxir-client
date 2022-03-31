@@ -1,6 +1,7 @@
 package partner
 
 import (
+	"bytes"
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	util "gitlab.com/elixxir/client/storage/utility"
@@ -119,4 +120,34 @@ func managersEqual(expected, received *Manager, t *testing.T) bool {
 	}
 
 	return equal
+}
+
+// Compare certain fields of two session buffs for equality
+func relationshipsEqual(buff *relationship, buff2 *relationship) bool {
+	if len(buff.sessionByID) != len(buff2.sessionByID) {
+		return false
+	}
+	if len(buff.sessions) != len(buff2.sessions) {
+		return false
+	}
+
+	if !bytes.Equal(buff.fingerprint, buff2.fingerprint) {
+		return false
+	}
+	// Make sure all sessions are present
+	for k := range buff.sessionByID {
+		_, ok := buff2.sessionByID[k]
+		if !ok {
+			// key not present in other map
+			return false
+		}
+	}
+	// Comparing base key only for now
+	// This should ensure that the session buffers have the same sessions in the same order
+	for i := range buff.sessions {
+		if buff.sessions[i].GetBaseKey().Cmp(buff2.sessions[i].GetBaseKey()) != 0 {
+			return false
+		}
+	}
+	return true
 }

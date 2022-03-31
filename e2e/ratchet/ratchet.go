@@ -96,7 +96,7 @@ func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 // AddPartner adds a partner. Automatically creates both send and receive
 // sessions using the passed cryptographic data and per the parameters sent
 func (r *Ratchet) AddPartner(myID *id.ID, myPrivateKey *cyclic.Int, partnerID *id.ID,
-	partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
+	partnerPubKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
 	mySIDHPrivKey *sidh.PrivateKey, sendParams,
 	receiveParams session.Params, temporary bool) (*partner.Manager, error) {
 	r.mux.Lock()
@@ -110,10 +110,10 @@ func (r *Ratchet) AddPartner(myID *id.ID, myPrivateKey *cyclic.Int, partnerID *i
 		myPrivateKey = r.defaultDHPrivateKey
 	}
 
-	jww.INFO.Printf("Adding Partner %r:\n\tMy Private Key: %r"+
-		"\n\tPartner Public Key: %r to %s",
+	jww.INFO.Printf("Adding Partner %s:\n\tMy Private Key: %s"+
+		"\n\tPartner Public Key: %s to %s",
 		partnerID,
-		myPrivKey.TextVerbose(16, 0),
+		myPrivateKey.TextVerbose(16, 0),
 		partnerPubKey.TextVerbose(16, 0), myID)
 
 	rship := makeRelationshipIdentity(partnerID, myID)
@@ -128,13 +128,13 @@ func (r *Ratchet) AddPartner(myID *id.ID, myPrivateKey *cyclic.Int, partnerID *i
 		kv = r.memKv
 	}
 
-	m := partner.NewManager(kv, r.defaultID, partnerID, myPrivKey, partnerPubKey,
+	m := partner.NewManager(kv, r.defaultID, partnerID, myPrivateKey, partnerPubKey,
 		mySIDHPrivKey, partnerSIDHPubKey,
 		sendParams, receiveParams, r.cyHandler, r.grp, r.rng)
 
 	r.managers[rship] = m
 	if err := r.save(); err != nil {
-		jww.FATAL.Printf("Failed to add Partner %r: Save of store failed: %r",
+		jww.FATAL.Printf("Failed to add Partner %s: Save of store failed: %s",
 			partnerID, err)
 	}
 
@@ -175,7 +175,7 @@ func (r *Ratchet) DeletePartner(partnerId *id.ID, myID *id.ID) error {
 	}
 
 	if err := partner.ClearManager(m, r.kv); err != nil {
-		return errors.WithMessagef(err, "Could not remove partner %r from store", partnerId)
+		return errors.WithMessagef(err, "Could not remove partner %s from store", partnerId)
 	}
 
 	//delete services

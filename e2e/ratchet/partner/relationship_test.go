@@ -8,7 +8,6 @@
 package partner
 
 import (
-	"bytes"
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	util "gitlab.com/elixxir/client/storage/utility"
@@ -460,7 +459,7 @@ func TestRelationship_GetNewestRekeyableSession(t *testing.T) {
 	sb.AddSession(mgr.originMyPrivKey, mgr.originPartnerPubKey, baseKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, sid, session.Unconfirmed, session.GetDefaultE2ESessionParams())
 	// no available rekeyable sessions: nil
 	session2 := sb.getNewestRekeyableSession()
-	if session2 != sb.sessions[0] {
+	if session2 != sb.sessions[1] {
 		t.Error("newest rekeyable session should be the unconfired session")
 	}
 
@@ -546,12 +545,11 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 		mySIDHPrivKey, partnerSIDHPubKey)
 	sid := session.GetSessionIDFromBaseKey(baseKey)
 
-	s, kv := session.CreateTestSession(2000, 1000, 1000, t)
+	s, kv := session.CreateTestSession(2000, 1000, 1000, session.Unconfirmed, t)
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultE2ESessionParams())
 	sb.sessions[0] = s
-	sb.sessions[0].SetNegotiationStatus(session.Unconfirmed)
 	sending := sb.getSessionForSending()
 	if sending.GetID() != sb.sessions[0].GetID() {
 		t.Error("got an unexpected session")
@@ -562,12 +560,11 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 			sending.IsConfirmed())
 	}
 
-	s2, _ := session.CreateTestSession(2000, 2000, 1000, t)
+	s2, _ := session.CreateTestSession(2000, 2000, 1000, session.Unconfirmed, t)
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultE2ESessionParams())
 	sb.sessions[0] = s2
-	sb.sessions[0].SetNegotiationStatus(session.Unconfirmed)
 	sending = sb.getSessionForSending()
 	if sending.GetID() != sb.sessions[0].GetID() {
 		t.Error("got an unexpected session")
@@ -580,12 +577,11 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 	}
 
 	// Third case: confirmed rekey
-	s3, _ := session.CreateTestSession(2000, 600, 1000, t)
+	s3, _ := session.CreateTestSession(2000, 600, 1000, session.Confirmed, t)
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultE2ESessionParams())
 	sb.sessions[0] = s3
-	sb.sessions[0].SetNegotiationStatus(session.Confirmed)
 	sending = sb.getSessionForSending()
 	if sending.GetID() != sb.sessions[0].GetID() {
 		t.Error("got an unexpected session")
@@ -597,13 +593,12 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 	}
 
 	// Fourth case: confirmed active
-	s4, _ := session.CreateTestSession(2000, 2000, 1000, t)
+	s4, _ := session.CreateTestSession(2000, 2000, 1000, session.Confirmed, t)
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultE2ESessionParams())
 
 	sb.sessions[0] = s4
-	sb.sessions[0].SetNegotiationStatus(session.Confirmed)
 
 	sending = sb.getSessionForSending()
 	if sending.GetID() != sb.sessions[0].GetID() {
@@ -751,21 +746,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	sb.sessions = make([]*session.Session, 0)
 	sb.sessionByID = make(map[session.SessionID]*session.Session)
 
-	grp := cyclic.NewGroup(
-		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B"+
-			"7A8ACCEDC298708F121951D9CF920EC5D146727AA4AE535B0922C688B55B3DD2AE"+
-			"DF6C01C94764DAB937935AA83BE36E67760713AB44A6337C20E7861575E745D31F"+
-			"8B9E9AD8412118C62A3E2E29DF46B0864D0C951C394A5CBBDC6ADC718DD2A3E041"+
-			"023DBB5AB23EBB4742DE9C1687B5B34FA48C3521632C4A530E8FFB1BC51DADDF45"+
-			"3B0B2717C2BC6669ED76B4BDD5C9FF558E88F26E5785302BEDBCA23EAC5ACE9209"+
-			"6EE8A60642FB61E8F3D24990B8CB12EE448EEF78E184C7242DD161C7738F32BF29"+
-			"A841698978825B4111B4BC3E1E198455095958333D776D8B2BEEED3A1A1A221A6E"+
-			"37E664A64B83981C46FFDDC1A45E3D5211AAF8BFBC072768C4F50D7D7803D2D4F2"+
-			"78DE8014A47323631D7E064DE81C0C6BFA43EF0E6998860F1390B5D3FEACAF1696"+
-			"015CB79C3F9C2D93D961120CD0E5F12CBB687EAB045241F96789C38E89D796138E"+
-			"6319BE62E35D87B1048CA28BE389B575E994DCA755471584A09EC723742DC35873"+
-			"847AEF49F66E43873", 16),
-		large.NewIntFromString("2", 16))
+	grp := getGroup()
 	rng := csprng.NewSystemRNG()
 	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength,
 		grp, rng)
@@ -796,7 +777,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	}
 
 	// Make only a few keys available to trigger the rekeyThreshold
-	session2, _ := session.CreateTestSession(0, 4, 0, t)
+	session2, _ := session.CreateTestSession(0, 4, 0, session.Sending, t)
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultE2ESessionParams())
@@ -819,8 +800,8 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	// as the client should attempt to confirm them
 	session3 := sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Sending, session.GetDefaultE2ESessionParams())
-	session3.SetNegotiationStatus(session.Unconfirmed)
+		sid, session.Confirmed, session.GetDefaultE2ESessionParams())
+	session3.SetNegotiationStatus(session.Confirmed)
 
 	// Set session 2 status back to Confirmed to show that more than one session can be returned
 	session2.SetNegotiationStatus(session.Confirmed)
@@ -828,7 +809,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	negotiations = sb.TriggerNegotiation()
 
 	if len(negotiations) != 2 {
-		t.Fatal("num of negotiated sessions here should be 2")
+		t.Fatalf("num of negotiated sessions here should be 2, have %d", len(negotiations))
 	}
 	found := false
 	for i := range negotiations {
@@ -899,36 +880,6 @@ func makeTestRelationshipManager(t *testing.T) (*Manager, *versioned.KV) {
 		grp:                     grp,
 		rng:                     frng,
 	}, kv
-}
-
-// Compare certain fields of two session buffs for equality
-func relationshipsEqual(buff *relationship, buff2 *relationship) bool {
-	if len(buff.sessionByID) != len(buff2.sessionByID) {
-		return false
-	}
-	if len(buff.sessions) != len(buff2.sessions) {
-		return false
-	}
-
-	if !bytes.Equal(buff.fingerprint, buff2.fingerprint) {
-		return false
-	}
-	// Make sure all sessions are present
-	for k := range buff.sessionByID {
-		_, ok := buff2.sessionByID[k]
-		if !ok {
-			// key not present in other map
-			return false
-		}
-	}
-	// Comparing base key only for now
-	// This should ensure that the session buffers have the same sessions in the same order
-	for i := range buff.sessions {
-		if buff.sessions[i].GetBaseKey().Cmp(buff2.sessions[i].GetBaseKey()) != 0 {
-			return false
-		}
-	}
-	return true
 }
 
 func Test_relationship_getNewestRekeyableSession(t *testing.T) {

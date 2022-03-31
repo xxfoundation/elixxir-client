@@ -64,11 +64,11 @@ func Load(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
 
 	// add standard services
 	if err = r.AddService(Silent, nil); err != nil {
-		jww.FATAL.Panicf("Could not add standard %r "+
+		jww.FATAL.Panicf("Could not add standard %s "+
 			"service: %+v", Silent, err)
 	}
 	if err = r.AddService(E2e, nil); err != nil {
-		jww.FATAL.Panicf("Could not add standard %r "+
+		jww.FATAL.Panicf("Could not add standard %s "+
 			"service: %+v", E2e, err)
 	}
 
@@ -126,13 +126,13 @@ func (r *Ratchet) unmarshalOld(b []byte) error {
 		manager, err := partner.LoadManager(r.kv, r.defaultID, partnerID,
 			r.cyHandler, r.grp, r.rng)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to load relationship for partner %r: %r",
+			jww.FATAL.Panicf("Failed to load relationship for partner %s: %s",
 				partnerID, err.Error())
 		}
 
 		if !manager.GetPartnerID().Cmp(partnerID) {
 			jww.FATAL.Panicf("Loaded a manager with the wrong partner "+
-				"ID: \n\t loaded: %r \n\t present: %r",
+				"ID: \n\t loaded: %s \n\t present: %s",
 				partnerID, manager.GetPartnerID())
 		}
 
@@ -177,13 +177,13 @@ func (r *Ratchet) unmarshal(b []byte) error {
 		manager, err := partner.LoadManager(r.kv, myID, partnerID,
 			r.cyHandler, r.grp, r.rng)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to load relationship for partner %r: %r",
+			jww.FATAL.Panicf("Failed to load relationship for partner %s: %s",
 				partnerID, err.Error())
 		}
 
 		if !manager.GetPartnerID().Cmp(partnerID) {
 			jww.FATAL.Panicf("Loaded a manager with the wrong partner "+
-				"ID: \n\t loaded: %r \n\t present: %r",
+				"ID: \n\t loaded: %s \n\t present: %s",
 				partnerID, manager.GetPartnerID())
 		}
 

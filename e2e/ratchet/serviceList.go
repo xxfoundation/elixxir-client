@@ -36,7 +36,7 @@ func (r *Ratchet) AddService(tag string, processor message.Processor) error {
 	defer r.servicesmux.Unlock()
 	//add the services to the list
 	if _, exists := r.services[tag]; exists {
-		return errors.Errorf("Cannot add more than one service '%r'", tag)
+		return errors.Errorf("Cannot add more than one service '%s'", tag)
 	}
 	r.services[tag] = processor
 
@@ -55,7 +55,7 @@ func (r *Ratchet) RemoveService(tag string) error {
 	oldServiceProcess, exists := r.services[tag]
 	if !exists {
 		return errors.Errorf("Cannot remove a service that doesnt "+
-			"exist: '%r'", tag)
+			"exist: '%s'", tag)
 	}
 
 	delete(r.services, tag)

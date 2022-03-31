@@ -150,7 +150,7 @@ func TestManager_NewSendSession(t *testing.T) {
 	m, _ := newTestManager(t)
 
 	se := m.NewSendSession(m.originMyPrivKey, m.originMySIDHPrivKey,
-		session.GetDefaultE2ESessionParams())
+		session.GetDefaultE2ESessionParams(), m.send.sessions[0])
 	if !m.partner.Cmp(se.GetPartner()) {
 		t.Errorf("NewSendSession() did not return the correct session."+
 			"\n\texpected partner: %v\n\treceived partner: %v",
@@ -219,7 +219,7 @@ func TestManager_GetKeyForSending_Error(t *testing.T) {
 	m, _ := newTestManager(t)
 
 	// Create a session that will never get popped
-	m.send.sessions[0], _ = session.CreateTestSession(5, 5, 5, t)
+	m.send.sessions[0], _ = session.CreateTestSession(5, 5, 5, session.Unconfirmed, t)
 
 	// Try to pop
 	key, err := m.PopSendCypher()

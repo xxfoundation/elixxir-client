@@ -36,12 +36,13 @@ func handleConfirm(ratchet *ratchet.Ratchet, confirmation receive.Message) {
 	if !confirmation.Encrypted {
 		jww.ERROR.Printf(
 			"[REKEY] Received non-e2e encrypted Key Exchange "+
-				"confirm from partner %s", confirmation.Sender)
+				"confirm from partner %s to %s", confirmation.Sender,
+			confirmation.RecipientID)
 		return
 	}
 
 	//get the partner
-	partner, err := ratchet.GetPartner(confirmation.Sender)
+	partner, err := ratchet.GetPartner(confirmation.Sender, confirmation.RecipientID)
 	if err != nil {
 		jww.ERROR.Printf(
 			"[REKEY] Received Key Exchange Confirmation with unknown "+

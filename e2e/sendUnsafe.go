@@ -64,7 +64,7 @@ func (m *manager) sendUnsafe(mt catalog.MessageType, recipient *id.ID,
 		wg.Add(1)
 		go func(i int, payload []byte) {
 
-			unencryptedMAC, fp := e2e.SetUnencrypted(payload, m.myID)
+			unencryptedMAC, fp := e2e.SetUnencrypted(payload, m.myDefaultID)
 
 			var err error
 			roundIds[i], _, err = m.net.SendCMIX(recipient, fp,

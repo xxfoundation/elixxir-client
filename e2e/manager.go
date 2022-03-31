@@ -23,20 +23,24 @@ type manager struct {
 	*receive.Switchboard
 	partitioner parse.Partitioner
 	net         network.Manager
-	myID        *id.ID
+	myDefaultID *id.ID
 	rng         *fastRNG.StreamGenerator
 	events      event.Manager
 	grp         *cyclic.Group
 	crit        *critical
 }
 
-//Init Creates stores. After calling, use load
-func Init(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int, grp *cyclic.Group) error {
-	return ratchet.New(kv, myID, privKey, grp)
+// Init Creates stores. After calling, use load
+// Passes a default ID and public key which is used for relationship with
+// partners when no default ID is selected
+func Init(kv *versioned.KV, myDefaultID *id.ID, privKey *cyclic.Int, grp *cyclic.Group) error {
+	return ratchet.New(kv, myDefaultID, privKey, grp)
 }
 
 // Load returns an e2e manager from storage
-func Load(kv *versioned.KV, net network.Manager, myID *id.ID,
+// Passes a default ID which is used for relationship with
+// partners when no default ID is selected
+func Load(kv *versioned.KV, net network.Manager, myDefaultID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator, events event.Manager) (Handler, error) {
 
 	//build the manager
@@ -44,14 +48,14 @@ func Load(kv *versioned.KV, net network.Manager, myID *id.ID,
 		Switchboard: receive.New(),
 		partitioner: parse.NewPartitioner(kv, net.GetMaxMessageLength()),
 		net:         net,
-		myID:        myID,
+		myDefaultID: myDefaultID,
 		events:      events,
 		grp:         grp,
 	}
 	var err error
 
 	//load the ratchets
-	m.Ratchet, err = ratchet.Load(kv, myID, grp,
+	m.Ratchet, err = ratchet.Load(kv, myDefaultID, grp,
 		&fpGenerator{m}, net, rng)
 	if err != nil {
 		return nil, err
@@ -92,15 +96,15 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 // EnableUnsafeReception enables the reception of unsafe message by registering
 // bespoke services for reception. For debugging only!
 func (m *manager) EnableUnsafeReception() {
-	m.net.AddService(m.myID, message.Service{
-		Identifier: m.myID[:],
+	m.net.AddService(m.myDefaultID, message.Service{
+		Identifier: m.myDefaultID[:],
 		Tag:        ratchet.Silent,
 	}, &UnsafeProcessor{
 		m:   m,
 		tag: ratchet.Silent,
 	})
-	m.net.AddService(m.myID, message.Service{
-		Identifier: m.myID[:],
+	m.net.AddService(m.myDefaultID, message.Service{
+		Identifier: m.myDefaultID[:],
 		Tag:        ratchet.E2e,
 	}, &UnsafeProcessor{
 		m:   m,

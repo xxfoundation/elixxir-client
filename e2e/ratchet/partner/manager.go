@@ -216,6 +216,11 @@ func (m *Manager) GetPartnerID() *id.ID {
 	return m.partner.DeepCopy()
 }
 
+// GetMyID returns a copy of the ID used as self.
+func (m *Manager) GetMyID() *id.ID {
+	return m.myID.DeepCopy()
+}
+
 // GetSendSession gets the Send session of the passed ID. Returns nil if no
 // session is found.
 func (m *Manager) GetSendSession(sid session.SessionID) *session.Session {
@@ -243,6 +248,11 @@ func (m *Manager) Confirm(sid session.SessionID) error {
 // necessary.
 func (m *Manager) TriggerNegotiations() []*session.Session {
 	return m.send.TriggerNegotiation()
+}
+
+// IsTemporary returns if this manager stores to disk or only in ram
+func (m *Manager) IsTemporary() bool {
+	return m.kv.IsMemStore()
 }
 
 func (m *Manager) GetMyOriginPrivateKey() *cyclic.Int {

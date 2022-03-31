@@ -94,19 +94,28 @@ type Handler interface {
 
 	// AddPartner adds a partner. Automatically creates both send and receive
 	// sessions using the passed cryptographic data and per the parameters sent
-	AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int,
-		partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey,
-		sendParams, receiveParams session.Params, myID *id.ID, myPrivateKey *cyclic.Int, temporary bool) (*partner.Manager, error)
+	// If an alternate ID public key are to be used for this relationship,
+	// then pass them in, otherwise, leave myID and myPrivateKey nil
+	// If temporary is true, an alternate ram kv will be used for storage and
+	// the relationship will not survive a reset
+	AddPartner(myID *id.ID, myPrivateKey *cyclic.Int, partnerID *id.ID,
+		partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
+		mySIDHPrivKey *sidh.PrivateKey, sendParams,
+		receiveParams session.Params, temporary bool) (*partner.Manager, error)
 
 	// GetPartner returns the partner per its ID, if it exists
-	GetPartner(partnerID *id.ID) (*partner.Manager, error)
+	// myID is your ID in the relationship, if left blank, it will
+	// assume to be your defaultID
+	GetPartner(partnerID *id.ID, myID *id.ID) (*partner.Manager, error)
 
 	// DeletePartner removes the associated contact from the E2E store
-	DeletePartner(partnerId *id.ID) error
+	// myID is your ID in the relationship, if left blank, it will
+	// assume to be your defaultID
+	DeletePartner(partnerId *id.ID, myID *id.ID) error
 
 	// GetAllPartnerIDs returns a list of all partner IDs that the user has
 	// an E2E relationship with.
-	GetAllPartnerIDs() []*id.ID
+	GetAllPartnerIDs(myID *id.ID) []*id.ID
 
 	/* === Services ========================================================= */
 

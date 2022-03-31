@@ -151,6 +151,11 @@ func (v *KV) Prefix(prefix string) *KV {
 	return &kvPrefix
 }
 
+func (v *KV) IsMemStore() bool {
+	_, success := v.r.data.(ekv.Memstore)
+	return success
+}
+
 //Returns the key with all prefixes appended
 func (v *KV) GetFullKey(key string, version uint64) string {
 	return v.makeKey(key, version)

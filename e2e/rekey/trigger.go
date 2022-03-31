@@ -61,7 +61,7 @@ func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 	}
 
 	//get the partner
-	partner, err := ratchet.GetPartner(request.Sender)
+	partner, err := ratchet.GetPartner(request.Sender, request.RecipientID)
 	if err != nil {
 		errMsg := fmt.Sprintf(errUnknown, request.Sender)
 		jww.ERROR.Printf(errMsg)

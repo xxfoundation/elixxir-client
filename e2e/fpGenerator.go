@@ -13,7 +13,7 @@ type fpGenerator struct {
 }
 
 func (fp *fpGenerator) AddKey(k *session.Cypher) {
-	err := fp.net.AddFingerprint(fp.myID, k.Fingerprint(), &processor{
+	err := fp.net.AddFingerprint(fp.myDefaultID, k.Fingerprint(), &processor{
 		cy: k,
 		m:  fp.manager,
 	})
@@ -24,5 +24,5 @@ func (fp *fpGenerator) AddKey(k *session.Cypher) {
 }
 
 func (fp *fpGenerator) DeleteKey(k *session.Cypher) {
-	fp.net.DeleteFingerprint(fp.myID, k.Fingerprint())
+	fp.net.DeleteFingerprint(fp.myDefaultID, k.Fingerprint())
 }

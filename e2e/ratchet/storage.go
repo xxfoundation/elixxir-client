@@ -140,7 +140,7 @@ func (r *Ratchet) unmarshalOld(b []byte) error {
 		r.add(manager)
 
 		//assume
-		r.managers[partner.makeRelationshipIdentity(partnerID, r.defaultID)] = manager
+		r.managers[partner.MakeManagerIdentity(partnerID, r.defaultID)] = manager
 	}
 
 	r.defaultDHPrivateKey, err = util.LoadCyclicKey(r.kv, privKeyKey)

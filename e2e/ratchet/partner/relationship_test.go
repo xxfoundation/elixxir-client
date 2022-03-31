@@ -741,7 +741,11 @@ func TestSessionBuff_GetKeyForSending(t *testing.T) {
 // Shows that TriggerNegotiation sets up for negotiation correctly
 func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner,
+		mgr.originMyPrivKey, mgr.originPartnerPubKey,
+		mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey,
+		session.GetDefaultE2ESessionParams(), mockCyHandler{},
+		mgr.grp, mgr.rng)
 
 	sb.sessions = make([]*session.Session, 0)
 	sb.sessionByID = make(map[session.SessionID]*session.Session)
@@ -800,7 +804,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	// as the client should attempt to confirm them
 	session3 := sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Confirmed, session.GetDefaultE2ESessionParams())
+		sid, session.Sending, session.GetDefaultE2ESessionParams())
 	session3.SetNegotiationStatus(session.Confirmed)
 
 	// Set session 2 status back to Confirmed to show that more than one session can be returned
@@ -809,7 +813,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	negotiations = sb.TriggerNegotiation()
 
 	if len(negotiations) != 2 {
-		t.Fatalf("num of negotiated sessions here should be 2, have %d", len(negotiations))
+		t.Errorf("num of negotiated sessions here should be 2, have %d", len(negotiations))
 	}
 	found := false
 	for i := range negotiations {

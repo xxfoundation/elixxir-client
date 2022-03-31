@@ -30,7 +30,7 @@ func TestNewStore(t *testing.T) {
 	privKey := grp.NewInt(57)
 	kv := versioned.NewKV(make(ekv.Memstore))
 	expectedStore := &Ratchet{
-		managers:            make(map[relationshipIdentity]*partner.Manager),
+		managers:            make(map[partner.ManagerIdentity]*partner.Manager),
 		defaultDHPrivateKey: privKey,
 		defaultDHPublicKey:  diffieHellman.GeneratePublicKey(privKey, grp),
 		grp:                 grp,
@@ -99,8 +99,8 @@ func TestStore_AddPartner(t *testing.T) {
 		r.defaultDHPrivateKey, partnerPubKey, myPrivSIDHKey, pubSIDHKey,
 		p, p, r.cyHandler, r.grp, r.rng)
 
-	receivedManager, err := r.AddPartner(r.defaultID, r.defaultDHPrivateKey,
-		partnerID, partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p, true)
+	receivedManager, err := r.AddPartner(r.defaultID, partnerID, r.defaultDHPrivateKey,
+		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p, true)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestStore_AddPartner(t *testing.T) {
 		t.Errorf("Inconsistent data between partner.Managers")
 	}
 
-	relationshipId := makeRelationshipIdentity(partnerID, r.defaultID)
+	relationshipId := partner.MakeManagerIdentity(partnerID, r.defaultID)
 
 	m, exists := r.managers[relationshipId]
 	if !exists {
@@ -139,8 +139,8 @@ func TestStore_DeletePartner(t *testing.T) {
 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
 	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
 
-	_, err = r.AddPartner(r.defaultID, r.defaultDHPrivateKey,
-		partnerID, partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p, true)
+	_, err = r.AddPartner(r.defaultID, partnerID, r.defaultDHPrivateKey,
+		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p, true)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
 	}
@@ -169,8 +169,8 @@ func TestStore_GetPartner(t *testing.T) {
 	p := session.GetDefaultE2ESessionParams()
 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
 	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
-	expectedManager, err := r.AddPartner(r.defaultID, r.defaultDHPrivateKey,
-		partnerID, partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p, true)
+	expectedManager, err := r.AddPartner(r.defaultID, partnerID, r.defaultDHPrivateKey,
+		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p, true)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
 	}

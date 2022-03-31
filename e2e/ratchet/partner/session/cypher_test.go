@@ -20,60 +20,6 @@ import (
 	"testing"
 )
 
-//Tests happy path of Manager.GetKeyForSending.
-//func TestSession_PopKey(t *testing.T) {
-//	// Set up test values
-//	s, _ := makeTestSession()
-//	expectedKey := &Cypher{
-//		session: s,
-//	}
-//
-//	key, err := s.PopKey()
-//	if err != nil {
-//		t.Errorf("GetKeyForSending() produced an error: %v", err)
-//	}
-//
-//	if !reflect.DeepEqual(expectedKey, key) {
-//		t.Errorf("GetKeyForSending() did not return the correct key."+
-//			"\n\texpected: %+v\n\treceived: %+v",
-//			expectedKey, key)
-//	}
-//
-//	s.negotiationStatus = NewSessionTriggered
-//	expectedKey.keyNum++
-//
-//	key, err = s.PopKey()
-//	if err != nil {
-//		t.Errorf("GetKeyForSending() produced an error: %v", err)
-//	}
-//
-//	if !reflect.DeepEqual(expectedKey, key) {
-//		t.Errorf("GetKeyForSending() did not return the correct key."+
-//			"\n\texpected: %+v\n\treceived: %+v",
-//			expectedKey, key)
-//	}
-//}
-
-//
-//// Tests that Manager.GetKeyForSending returns an error for invalid SendType.
-//func TestManager_GetKeyForSending_Error(t *testing.T) {
-//	// Set up test values
-//	m, _ := newTestManager(t)
-//	p := session.GetDefaultE2ESessionParams()
-//	p.Type = 2
-//
-//	key, err := m.GetKeyForSending(p.Type)
-//	if err == nil {
-//		t.Errorf("GetKeyForSending() did not produce an error for invalid SendType.")
-//	}
-//
-//	if key != nil {
-//		t.Errorf("GetKeyForSending() did not return the correct key."+
-//			"\n\texpected: %+v\n\treceived: %+v",
-//			nil, key)
-//	}
-//}
-
 // TestGenerateE2ESessionBaseKey smoke tests the GenerateE2ESessionBaseKey
 // function to ensure that it produces the correct key on both sides of the
 // connection.

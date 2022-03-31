@@ -7,7 +7,6 @@
 package network
 
 import (
-	"gitlab.com/elixxir/client/api"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/states"
@@ -26,34 +25,40 @@ func TestClient_GetRoundResults(t *testing.T) {
 		roundList = append(roundList, id.Round(i))
 	}
 
-	// Pre-populate the results channel with successful rounds
+	testTopology := [][]byte{id.NewIdFromUInt(1, id.Node, t).Bytes(),
+		id.NewIdFromUInt(2, id.Node, t).Bytes(),
+		id.NewIdFromUInt(3, id.Node, t).Bytes(),
+		id.NewIdFromUInt(4, id.Node, t).Bytes(),
+	}
+
+	// Pre-populate the results channel with successful round
 	sendResults := make(chan ds.EventReturn, len(roundList))
 	for i := 0; i < numRounds; i++ {
 		sendResults <- ds.EventReturn{
 			RoundInfo: &pb.RoundInfo{
-				ID:    uint64(i),
-				State: uint32(states.COMPLETED),
+				ID:       uint64(i),
+				State:    uint32(states.COMPLETED),
+				Topology: testTopology,
 			},
 			TimedOut: false,
 		}
 	}
 
-	// Create a new copy of the test client for this test
-	client, err := api.newTestingClient(t)
+	m, err := newTestManager(t)
 	if err != nil {
-		t.Fatalf("Failed in setup: %+v", err)
+		t.Fatalf("Failed in setup: %v", err)
 	}
 
 	// Construct the round call back function signature
 	var successfulRounds, timeout bool
-	receivedRCB := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundLookupStatus) {
+	receivedRCB := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundResult) {
 		successfulRounds = allRoundsSucceeded
 		timeout = timedOut
 	}
 
 	// Call the round results
-	err = client.getRoundResults(roundList, time.Duration(10)*time.Millisecond,
-		receivedRCB, sendResults, api.NewNoHistoricalRoundsComm())
+	err = m.getRoundResults(roundList, time.Duration(10)*time.Millisecond,
+		receivedRCB, sendResults)
 	if err != nil {
 		t.Errorf("Error in happy path: %v", err)
 	}
@@ -82,14 +87,21 @@ func TestClient_GetRoundResults_FailedRounds(t *testing.T) {
 		roundList = append(roundList, id.Round(i))
 	}
 
+	testTopology := [][]byte{id.NewIdFromUInt(1, id.Node, t).Bytes(),
+		id.NewIdFromUInt(2, id.Node, t).Bytes(),
+		id.NewIdFromUInt(3, id.Node, t).Bytes(),
+		id.NewIdFromUInt(4, id.Node, t).Bytes(),
+	}
+
 	// Pre-populate the results channel with mostly successful rounds
 	sendResults := make(chan ds.EventReturn, len(roundList))
 	for i := 0; i < numRounds; i++ {
 		// Last two rounds will have a failure and a timeout respectively
 		result := ds.EventReturn{
 			RoundInfo: &pb.RoundInfo{
-				ID:    uint64(i),
-				State: uint32(states.COMPLETED),
+				ID:       uint64(i),
+				State:    uint32(states.COMPLETED),
+				Topology: testTopology,
 			},
 			TimedOut: false,
 		}
@@ -101,22 +113,22 @@ func TestClient_GetRoundResults_FailedRounds(t *testing.T) {
 
 	}
 
-	// Create a new copy of the test client for this test
-	client, err := api.newTestingClient(t)
+	// Create a new copy of the test manager for this test
+	m, err := newTestManager(t)
 	if err != nil {
 		t.Fatalf("Failed in setup: %v", err)
 	}
 
 	// Construct the round call back function signature
 	var successfulRounds, timeout bool
-	receivedRCB := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundLookupStatus) {
+	receivedRCB := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundResult) {
 		successfulRounds = allRoundsSucceeded
 		timeout = timedOut
 	}
 
 	// Call the round results
-	err = client.getRoundResults(roundList, time.Duration(10)*time.Millisecond,
-		receivedRCB, sendResults, api.NewNoHistoricalRoundsComm())
+	err = m.getRoundResults(roundList, time.Duration(10)*time.Millisecond,
+		receivedRCB, sendResults)
 	if err != nil {
 		t.Errorf("Error in happy path: %v", err)
 	}
@@ -141,54 +153,47 @@ func TestClient_GetRoundResults_HistoricalRounds(t *testing.T) {
 		roundList = append(roundList, id.Round(i))
 	}
 
+	testTopology := [][]byte{id.NewIdFromUInt(1, id.Node, t).Bytes(),
+		id.NewIdFromUInt(2, id.Node, t).Bytes(),
+		id.NewIdFromUInt(3, id.Node, t).Bytes(),
+		id.NewIdFromUInt(4, id.Node, t).Bytes(),
+	}
+
 	// Pre-populate the results channel with successful rounds
 	sendResults := make(chan ds.EventReturn, len(roundList)-2)
 	for i := 0; i < numRounds; i++ {
 		// Skip sending rounds intended for historical rounds comm
-		if i == api.failedHistoricalRoundID ||
-			i == api.completedHistoricalRoundID {
+		if i == failedHistoricalRoundID ||
+			i == completedHistoricalRoundID {
 			continue
 		}
 
 		sendResults <- ds.EventReturn{
 			RoundInfo: &pb.RoundInfo{
-				ID:    uint64(i),
-				State: uint32(states.COMPLETED),
+				ID:       uint64(i),
+				State:    uint32(states.COMPLETED),
+				Topology: testTopology,
 			},
 			TimedOut: false,
 		}
 	}
 
-	// Create a new copy of the test client for this test
-	client, err := api.newTestingClient(t)
+	// Create a new copy of the test manager for this test
+	m, err := newTestManager(t)
 	if err != nil {
 		t.Fatalf("Failed in setup: %v", err)
 	}
 
-	// Overpopulate the round buffer, ensuring a circle back of the ring buffer
-	for i := 1; i <= ds.RoundInfoBufLen+api.completedHistoricalRoundID+1; i++ {
-		ri := &pb.RoundInfo{ID: uint64(i)}
-		if err = api.signRoundInfo(ri); err != nil {
-			t.Errorf("Failed to sign round in set up: %v", err)
-		}
-
-		_, err = client.network.GetInstance().RoundUpdate(ri)
-		if err != nil {
-			t.Errorf("Failed to upsert round in set up: %v", err)
-		}
-
-	}
-
 	// Construct the round call back function signature
 	var successfulRounds, timeout bool
-	receivedRCB := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundLookupStatus) {
+	receivedRCB := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundResult) {
 		successfulRounds = allRoundsSucceeded
 		timeout = timedOut
 	}
 
 	// Call the round results
-	err = client.getRoundResults(roundList, time.Duration(10)*time.Millisecond,
-		receivedRCB, sendResults, api.NewHistoricalRoundsComm())
+	err = m.getRoundResults(roundList, time.Duration(10)*time.Millisecond,
+		receivedRCB, sendResults)
 	if err != nil {
 		t.Errorf("Error in happy path: %v", err)
 	}
@@ -217,22 +222,22 @@ func TestClient_GetRoundResults_Timeout(t *testing.T) {
 	var sendResults chan ds.EventReturn
 	sendResults = nil
 
-	// Create a new copy of the test client for this test
-	client, err := api.newTestingClient(t)
+	// Create a new copy of the test manager for this test
+	m, err := newTestManager(t)
 	if err != nil {
 		t.Fatalf("Failed in setup: %v", err)
 	}
 
 	// Construct the round call back function signature
 	var successfulRounds, timeout bool
-	receivedRCB := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundLookupStatus) {
+	receivedRCB := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundResult) {
 		successfulRounds = allRoundsSucceeded
 		timeout = timedOut
 	}
 
 	// Call the round results
-	err = client.getRoundResults(roundList, time.Duration(10)*time.Millisecond,
-		receivedRCB, sendResults, api.NewNoHistoricalRoundsComm())
+	err = m.getRoundResults(roundList, time.Duration(10)*time.Millisecond,
+		receivedRCB, sendResults)
 	if err != nil {
 		t.Errorf("Error in happy path: %v", err)
 	}

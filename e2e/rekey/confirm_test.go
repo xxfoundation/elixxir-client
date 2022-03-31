@@ -10,10 +10,16 @@ package rekey
 import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
-	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e/ratchet"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/e2e/receive"
 	util "gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/client/storage/versioned"
+	dh "gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
@@ -22,22 +28,20 @@ import (
 
 // Smoke test for handleTrigger
 func TestHandleConfirm(t *testing.T) {
-	// Generate alice and bob's session
-	aliceSession, _, err := InitTestingContextGeneric(t)
-	if err != nil {
-		t.Fatalf("Failed to create alice session: %v", err)
-	}
-	bobSession, _, err := InitTestingContextGeneric(t)
-	if err != nil {
-		t.Fatalf("Failed to create bob session: %v", err)
-	}
+	grp := getGroup()
+	rng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
+	myID := id.NewIdFromString("zezima", id.User, t)
+
+	kv := versioned.NewKV(ekv.Memstore{})
 
 	// Maintain an ID for bob
 	bobID := id.NewIdFromBytes([]byte("test"), t)
 
 	// Pull the keys for Alice and Bob
-	alicePrivKey := aliceSession.E2e().GetDHPrivateKey()
-	bobPubKey := bobSession.E2e().GetDHPublicKey()
+	bobPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength,
+		grp, rng.GetStream())
+	bobPubKey := dh.GeneratePublicKey(bobPrivKey, grp)
+	alicePrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng.GetStream())
 
 	aliceVariant := sidh.KeyVariantSidhA
 	prng1 := rand.New(rand.NewSource(int64(1)))
@@ -53,18 +57,28 @@ func TestHandleConfirm(t *testing.T) {
 	bobSIDHPrivKey.Generate(prng2)
 	bobSIDHPrivKey.GeneratePublicKey(bobSIDHPubKey)
 
-	// Add bob as a partner
-	aliceSession.E2e().AddPartner(bobID, bobPubKey, alicePrivKey,
-		bobSIDHPubKey, aliceSIDHPrivKey,
-		params.GetDefaultE2ESessionParams(),
-		params.GetDefaultE2ESessionParams())
+	err := ratchet.New(kv, myID, alicePrivKey, grp)
+	if err != nil {
+		t.Errorf("Failed to create ratchet: %+v", err)
+	}
+	r, err := ratchet.Load(kv, myID, grp, mockCyHandler{}, mockServiceHandler{}, rng)
+	if err != nil {
+		t.Errorf("Failed to load ratchet: %+v", err)
+	}
 
+	// Add bob as a partner
+	sendParams := session.GetDefaultE2ESessionParams()
+	receiveParams := session.GetDefaultE2ESessionParams()
+	_, err = r.AddPartner(myID, bobID, bobPubKey, alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey, sendParams, receiveParams, false)
+	if err != nil {
+		t.Errorf("Failed to add partner to ratchet: %+v", err)
+	}
 	// Generate a session ID, bypassing some business logic here
-	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup,
+	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, grp,
 		aliceSIDHPrivKey, bobSIDHPubKey)
 
 	// get Alice's manager for Bob
-	receivedManager, err := aliceSession.E2e().GetPartner(bobID)
+	receivedManager, err := r.GetPartner(bobID, myID)
 	if err != nil {
 		t.Errorf("Bob is not recognized as Alice's partner: %v", err)
 	}
@@ -78,23 +92,24 @@ func TestHandleConfirm(t *testing.T) {
 		SessionID: sessionID.Marshal(),
 	})
 
-	receiveMsg := message.Receive{
+	receiveMsg := receive.Message{
+		MessageType: catalog.KeyExchangeConfirm,
 		Payload:     rekey,
-		MessageType: message.KeyExchangeConfirm,
 		Sender:      bobID,
+		RecipientID: myID,
+		Encrypted:   true,
 		Timestamp:   netTime.Now(),
-		Encryption:  message.E2E,
 	}
 
 	// Handle the confirmation
-	handleConfirm(aliceSession, receiveMsg)
+	handleConfirm(r, receiveMsg)
 
 	// get Alice's session for Bob
 	confirmedSession := receivedManager.GetSendSession(sessionID)
 
 	// Check that the session is in the proper status
 	newSession := receivedManager.GetSendSession(sessionID)
-	if newSession.NegotiationStatus() != session2.Confirmed {
+	if newSession.NegotiationStatus() != session.Confirmed {
 		t.Errorf("Session not in confirmed status!"+
 			"\n\tExpected: Confirmed"+
 			"\n\tReceived: %s", confirmedSession.NegotiationStatus())

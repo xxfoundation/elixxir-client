@@ -26,6 +26,9 @@ const currentSentRequestVersion = 0
 type SentRequest struct {
 	kv *versioned.KV
 
+	aid authIdentity
+
+	myID                    *id.ID
 	partner                 *id.ID
 	partnerHistoricalPubKey *cyclic.Int
 	myPrivKey               *cyclic.Int
@@ -44,12 +47,34 @@ type sentRequestDisk struct {
 	Fingerprint             []byte
 }
 
-func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*SentRequest, error) {
-	obj, err := kv.Get(versioned.MakePartnerPrefix(partner),
+func loadSentRequest(kv *versioned.KV, partner *id.ID, myID *id.ID, grp *cyclic.Group) (*SentRequest, error) {
+
+	// try the load with both the new prefix and the old, which one is
+	// successful will determine which file structure the sent request will use
+	// a change was made when auth was upgraded to handle auths for multiple
+	// outgoing IDs and it became possible to have multiple auths for the same
+	// partner at a time, so it now needed to be keyed on the touple of
+	// partnerID,MyID. Old receivedByID always have the same myID so they can be left
+	// at their own paths
+	aid := makeAuthIdentity(partner, myID)
+	oldKV := kv
+	newKV := kv.Prefix(makeRequestPrefix(aid))
+
+	obj, err := newKV.Get(versioned.MakePartnerPrefix(partner),
 		currentSentRequestVersion)
+
+	//loading with the new prefix path failed, try with the new
 	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to Load "+
-			"SentRequest Auth with %s", partner)
+		obj, err = oldKV.Get(versioned.MakePartnerPrefix(partner),
+			currentSentRequestVersion)
+		if err != nil {
+			return nil, errors.WithMessagef(err, "Failed to Load "+
+				"SentRequest Auth with %s", partner)
+		} else {
+			kv = oldKV
+		}
+	} else {
+		kv = newKV
 	}
 
 	srd := &sentRequestDisk{}
@@ -109,6 +134,8 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 
 	return &SentRequest{
 		kv:                      kv,
+		aid:                     aid,
+		myID:                    myID,
 		partner:                 partner,
 		partnerHistoricalPubKey: historicalPubKey,
 		myPrivKey:               myPrivKey,
@@ -205,7 +232,7 @@ func (sr *SentRequest) GetMySIDHPubKey() *sidh.PublicKey {
 }
 
 // OverwriteSIDHKeys is used to temporarily overwrite sidh keys
-// to handle e.g., confirmation requests.
+// to handle e.g., confirmation receivedByID.
 // FIXME: this is a code smell but was the cleanest solution at
 // the time. Business logic should probably handle this better?
 func (sr *SentRequest) OverwriteSIDHKeys(priv *sidh.PrivateKey,
@@ -216,4 +243,12 @@ func (sr *SentRequest) OverwriteSIDHKeys(priv *sidh.PrivateKey,
 
 func (sr *SentRequest) GetFingerprint() format.Fingerprint {
 	return sr.fingerprint
+}
+
+func (sr *SentRequest) getAuthID() authIdentity {
+	return sr.aid
+}
+
+func (sr *SentRequest) getType() RequestType {
+	return Sent
 }

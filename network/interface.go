@@ -73,7 +73,7 @@ type Manager interface {
 	//      (panic otherwise). If used, fill with random bits.
 	// Will return an error if the network is unhealthy or if it fails to send
 	// (along with the reason). Blocks until successful send or err.
-	// WARNING: Do not roll your own crypto
+	// WARNING: Do not roll your own crypto.
 	SendManyCMIX(messages []TargetedCmixMessage, p CMIXParams) (
 		id.Round, []ephemeral.Id, error)
 
@@ -145,11 +145,11 @@ type Manager interface {
 	//      notifications.
 	//   source - A byte buffer of related data. Generally used in notifications.
 	//     Example: Sender ID
-	// There can be multiple "default" services, the must use the "default" tag
-	// and the identifier must be the client reception ID.
+	// There can be multiple "default" services; if the "default" tag is used,
+	// then the identifier must be the client reception ID.
 	// A service may have a nil response unless it is default. In general a
 	// nil service is used to detect notifications when pickup is done by
-	// fingerprints
+	// fingerprints.
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
 
@@ -222,10 +222,12 @@ type Manager interface {
 
 	// GetRoundResults adjudicates on the rounds requested. Checks if they are
 	// older rounds or in progress rounds.
-	GetRoundResults(roundList []id.Round, timeout time.Duration,
-		roundCallback RoundEventCallback) error
+	GetRoundResults(timeout time.Duration, roundCallback RoundEventCallback,
+		roundList ...id.Round) error
 
 	// LookupHistoricalRound looks up the passed historical round on the network.
+	// GetRoundResults does this lookup when needed, generally that is
+	// preferable
 	LookupHistoricalRound(
 		rid id.Round, callback historical.RoundResultCallback) error
 

@@ -22,7 +22,7 @@ import (
 	"testing"
 )
 
-// Tests that a confirmation for different partners and fingerprints can be
+// Tests that a confirmation for different partners and sentByFingerprints can be
 // saved and loaded from storage via Store.StoreConfirmation and
 // Store.LoadConfirmation.
 func TestStore_StoreConfirmation_LoadConfirmation(t *testing.T) {

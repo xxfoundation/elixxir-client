@@ -54,7 +54,7 @@ func (s *Store) AddIfNew(partner *id.ID, negotiationFingerprint []byte) (
 		// Save fingerprint to storage
 		err := s.saveNegotiationFingerprints(partner, negotiationFingerprint)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to save negotiation fingerprints for "+
+			jww.FATAL.Panicf("Failed to save negotiation sentByFingerprints for "+
 				"partner %s: %+v", partner, err)
 		}
 
@@ -74,7 +74,7 @@ func (s *Store) AddIfNew(partner *id.ID, negotiationFingerprint []byte) (
 	// get the fingerprint list from storage
 	fingerprints, err := s.loadNegotiationFingerprints(partner)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to load negotiation fingerprints for "+
+		jww.FATAL.Panicf("Failed to load negotiation sentByFingerprints for "+
 			"partner %s: %+v", partner, err)
 	}
 
@@ -96,7 +96,7 @@ func (s *Store) AddIfNew(partner *id.ID, negotiationFingerprint []byte) (
 	fingerprints = append(fingerprints, negotiationFingerprint)
 	err = s.saveNegotiationFingerprints(partner, fingerprints...)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to save negotiation fingerprints for "+
+		jww.FATAL.Panicf("Failed to save negotiation sentByFingerprints for "+
 			"partner %s: %+v", partner, err)
 	}
 
@@ -106,7 +106,7 @@ func (s *Store) AddIfNew(partner *id.ID, negotiationFingerprint []byte) (
 	return
 }
 
-// deletePreviousNegotiationPartner removes the partner, its fingerprints, and
+// deletePreviousNegotiationPartner removes the partner, its sentByFingerprints, and
 // its confirmations from memory and storage.
 func (s *Store) deletePreviousNegotiationPartner(partner *id.ID) error {
 
@@ -124,10 +124,10 @@ func (s *Store) deletePreviousNegotiationPartner(partner *id.ID) error {
 		return err
 	}
 
-	// Check if fingerprints exist
+	// Check if sentByFingerprints exist
 	fingerprints, err := s.loadNegotiationFingerprints(partner)
 
-	// If fingerprints exist for this partner, delete them from storage and any
+	// If sentByFingerprints exist for this partner, delete them from storage and any
 	// accompanying confirmations
 	if err == nil {
 		// Delete the fingerprint list from storage but do not return the error
@@ -142,7 +142,7 @@ func (s *Store) deletePreviousNegotiationPartner(partner *id.ID) error {
 		}
 	}
 
-	// Return any error from loading or deleting fingerprints
+	// Return any error from loading or deleting sentByFingerprints
 	return err
 }
 
@@ -212,7 +212,7 @@ func unmarshalPreviousNegotiations(buf []byte) map[id.ID]struct{} {
 	return partners
 }
 
-// saveNegotiationFingerprints saves the list of fingerprints for the given
+// saveNegotiationFingerprints saves the list of sentByFingerprints for the given
 // partner to storage.
 func (s *Store) saveNegotiationFingerprints(
 	partner *id.ID, fingerprints ...[]byte) error {
@@ -227,7 +227,7 @@ func (s *Store) saveNegotiationFingerprints(
 		currentNegotiationFingerprintsVersion, obj)
 }
 
-// loadNegotiationFingerprints loads the list of fingerprints for the given
+// loadNegotiationFingerprints loads the list of sentByFingerprints for the given
 // partner from storage.
 func (s *Store) loadNegotiationFingerprints(partner *id.ID) ([][]byte, error) {
 	obj, err := s.kv.Get(makeNegotiationFingerprintsKey(partner),
@@ -239,13 +239,13 @@ func (s *Store) loadNegotiationFingerprints(partner *id.ID) ([][]byte, error) {
 	return unmarshalNegotiationFingerprints(obj.Data), nil
 }
 
-// marshalNegotiationFingerprints marshals the list of fingerprints into a byte
+// marshalNegotiationFingerprints marshals the list of sentByFingerprints into a byte
 // slice for storage.
 func marshalNegotiationFingerprints(fingerprints ...[]byte) []byte {
 	buff := bytes.NewBuffer(nil)
 	buff.Grow(8 + (len(fingerprints) * auth.NegotiationFingerprintLen))
 
-	// Write number of fingerprints to buffer
+	// Write number of sentByFingerprints to buffer
 	b := make([]byte, 8)
 	binary.LittleEndian.PutUint64(b, uint64(len(fingerprints)))
 	buff.Write(b)
@@ -259,7 +259,7 @@ func marshalNegotiationFingerprints(fingerprints ...[]byte) []byte {
 }
 
 // unmarshalNegotiationFingerprints unmarshalls the marshalled byte slice into a
-// list of fingerprints.
+// list of sentByFingerprints.
 func unmarshalNegotiationFingerprints(buf []byte) [][]byte {
 	buff := bytes.NewBuffer(buf)
 
@@ -275,7 +275,7 @@ func unmarshalNegotiationFingerprints(buf []byte) [][]byte {
 }
 
 // makeNegotiationFingerprintsKey generates the key used to load and store
-// negotiation fingerprints for the partner.
+// negotiation sentByFingerprints for the partner.
 func makeNegotiationFingerprintsKey(partner *id.ID) string {
 	return negotiationFingerprintsKeyPrefix + partner.String()
 }

@@ -28,7 +28,7 @@ func Load(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
 	kv = kv.Prefix(packagePrefix)
 
 	r := &Ratchet{
-		managers: make(map[relationshipIdentity]*partner.Manager),
+		managers: make(map[partner.ManagerIdentity]*partner.Manager),
 		services: make(map[string]message.Processor),
 
 		defaultID: myID,
@@ -94,7 +94,7 @@ func (r *Ratchet) save() error {
 
 // ekv functions
 func (r *Ratchet) marshal() ([]byte, error) {
-	contacts := make([]relationshipIdentity, len(r.managers))
+	contacts := make([]partner.ManagerIdentity, len(r.managers))
 
 	index := 0
 	for rid, m := range r.managers {
@@ -140,7 +140,7 @@ func (r *Ratchet) unmarshalOld(b []byte) error {
 		r.add(manager)
 
 		//assume
-		r.managers[makeRelationshipIdentity(partnerID, r.defaultID)] = manager
+		r.managers[partner.makeRelationshipIdentity(partnerID, r.defaultID)] = manager
 	}
 
 	r.defaultDHPrivateKey, err = util.LoadCyclicKey(r.kv, privKeyKey)
@@ -160,7 +160,7 @@ func (r *Ratchet) unmarshalOld(b []byte) error {
 
 func (r *Ratchet) unmarshal(b []byte) error {
 
-	var contacts []relationshipIdentity
+	var contacts []partner.ManagerIdentity
 
 	err := json.Unmarshal(b, &contacts)
 

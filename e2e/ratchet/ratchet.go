@@ -32,7 +32,7 @@ const (
 var NoPartnerErrorStr = "No relationship with partner found"
 
 type Ratchet struct {
-	managers map[relationshipIdentity]*partner.Manager
+	managers map[partner.ManagerIdentity]*partner.Manager
 	mux      sync.RWMutex
 
 	defaultID           *id.ID
@@ -66,7 +66,7 @@ func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	kv = kv.Prefix(packagePrefix)
 
 	r := &Ratchet{
-		managers: make(map[relationshipIdentity]*partner.Manager),
+		managers: make(map[partner.ManagerIdentity]*partner.Manager),
 		services: make(map[string]message.Processor),
 
 		defaultID:           myID,
@@ -95,8 +95,8 @@ func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 
 // AddPartner adds a partner. Automatically creates both send and receive
 // sessions using the passed cryptographic data and per the parameters sent
-func (r *Ratchet) AddPartner(myID *id.ID, myPrivateKey *cyclic.Int, partnerID *id.ID,
-	partnerPubKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
+func (r *Ratchet) AddPartner(myID *id.ID, partnerID *id.ID,
+	partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
 	mySIDHPrivKey *sidh.PrivateKey, sendParams,
 	receiveParams session.Params, temporary bool) (*partner.Manager, error) {
 	r.mux.Lock()
@@ -106,19 +106,15 @@ func (r *Ratchet) AddPartner(myID *id.ID, myPrivateKey *cyclic.Int, partnerID *i
 		myID = r.defaultID
 	}
 
-	if myPrivateKey == nil {
-		myPrivateKey = r.defaultDHPrivateKey
-	}
-
-	jww.INFO.Printf("Adding Partner %s:\n\tMy Private Key: %s"+
-		"\n\tPartner Public Key: %s to %s",
+	jww.INFO.Printf("Adding Partner %r:\n\tMy Private Key: %r"+
+		"\n\tPartner Public Key: %r to %s",
 		partnerID,
-		myPrivateKey.TextVerbose(16, 0),
+		myPrivKey.TextVerbose(16, 0),
 		partnerPubKey.TextVerbose(16, 0), myID)
 
-	rship := makeRelationshipIdentity(partnerID, myID)
+	mid := partner.MakeManagerIdentity(partnerID, myID)
 
-	if _, ok := r.managers[rship]; ok {
+	if _, ok := r.managers[mid]; ok {
 		return nil, errors.New("Cannot overwrite existing partner")
 	}
 
@@ -128,13 +124,13 @@ func (r *Ratchet) AddPartner(myID *id.ID, myPrivateKey *cyclic.Int, partnerID *i
 		kv = r.memKv
 	}
 
-	m := partner.NewManager(kv, r.defaultID, partnerID, myPrivateKey, partnerPubKey,
+	m := partner.NewManager(kv, r.defaultID, partnerID, myPrivKey, partnerPubKey,
 		mySIDHPrivKey, partnerSIDHPubKey,
 		sendParams, receiveParams, r.cyHandler, r.grp, r.rng)
 
-	r.managers[rship] = m
+	r.managers[mid] = m
 	if err := r.save(); err != nil {
-		jww.FATAL.Printf("Failed to add Partner %s: Save of store failed: %s",
+		jww.FATAL.Printf("Failed to add Partner %r: Save of store failed: %r",
 			partnerID, err)
 	}
 
@@ -153,7 +149,7 @@ func (r *Ratchet) GetPartner(partnerID *id.ID, myID *id.ID) (*partner.Manager, e
 		myID = r.defaultID
 	}
 
-	m, ok := r.managers[makeRelationshipIdentity(partnerID, myID)]
+	m, ok := r.managers[partner.MakeManagerIdentity(partnerID, myID)]
 
 	if !ok {
 		return nil, errors.New(NoPartnerErrorStr)
@@ -168,14 +164,14 @@ func (r *Ratchet) DeletePartner(partnerId *id.ID, myID *id.ID) error {
 		myID = r.defaultID
 	}
 
-	rShip := makeRelationshipIdentity(partnerId, myID)
+	rShip := partner.MakeManagerIdentity(partnerId, myID)
 	m, ok := r.managers[rShip]
 	if !ok {
 		return errors.New(NoPartnerErrorStr)
 	}
 
 	if err := partner.ClearManager(m, r.kv); err != nil {
-		return errors.WithMessagef(err, "Could not remove partner %s from store", partnerId)
+		return errors.WithMessagef(err, "Could not remove partner %r from store", partnerId)
 	}
 
 	//delete services

@@ -95,7 +95,7 @@ func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 
 // AddPartner adds a partner. Automatically creates both send and receive
 // sessions using the passed cryptographic data and per the parameters sent
-func (r *Ratchet) AddPartner(myID *id.ID, myPrivateKey *cyclic.Int, partnerID *id.ID,
+func (r *Ratchet) AddPartner(myID *id.ID, partnerID *id.ID,
 	partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
 	mySIDHPrivKey *sidh.PrivateKey, sendParams,
 	receiveParams session.Params, temporary bool) (*partner.Manager, error) {
@@ -106,8 +106,8 @@ func (r *Ratchet) AddPartner(myID *id.ID, myPrivateKey *cyclic.Int, partnerID *i
 		myID = r.defaultID
 	}
 
-	if myPrivateKey == nil {
-		myPrivateKey = r.defaultDHPrivateKey
+	if myPrivKey == nil {
+		myPrivKey = r.defaultDHPrivateKey
 	}
 
 	jww.INFO.Printf("Adding Partner %r:\n\tMy Private Key: %r"+

@@ -11,15 +11,20 @@ import (
 	"fmt"
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
-	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e/ratchet"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/e2e/receive"
+	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/storage"
 	util "gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/comms/client"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
@@ -28,28 +33,33 @@ import (
 )
 
 var exchangeAliceId, exchangeBobId *id.ID
-var aliceSession, bobSession *storage.Session
-var aliceSwitchboard, bobSwitchboard *switchboard.Switchboard
-var aliceManager, bobManager interfaces.NetworkManager
+var r *ratchet.Ratchet
+var myID, bobID *id.ID
+var aliceSwitchboard = receive.New()
+var bobSwitchboard = receive.New()
 
 func TestFullExchange(t *testing.T) {
 	// Initialzie alice's and bob's session, switchboard and network managers
-	aliceSession, aliceSwitchboard, aliceManager = InitTestingContextFullExchange(t)
-	bobSession, bobSwitchboard, bobManager = InitTestingContextFullExchange(t)
-
 	// Assign ID's to alice and bob
-	exchangeAliceId = id.NewIdFromBytes([]byte("1234"), t)
-	exchangeBobId = id.NewIdFromBytes([]byte("test"), t)
+	grp := getGroup()
+	rng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
+	myID = id.NewIdFromString("zezima", id.User, t)
 
-	// Pull alice's and bob's keys for later use
-	alicePrivKey := aliceSession.E2e().GetDHPrivateKey()
-	alicePubKey := aliceSession.E2e().GetDHPublicKey()
-	bobPrivKey := bobSession.E2e().GetDHPrivateKey()
-	bobPubKey := bobSession.E2e().GetDHPublicKey()
+	kv := versioned.NewKV(ekv.Memstore{})
+
+	// Maintain an ID for bob
+	bobID = id.NewIdFromBytes([]byte("test"), t)
+
+	// Pull the keys for Alice and Bob
+	bobPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength,
+		grp, rng.GetStream())
+	bobPubKey := dh.GeneratePublicKey(bobPrivKey, grp)
+	alicePrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng.GetStream())
+	alicePubKey := dh.GeneratePublicKey(alicePrivKey, grp)
 
 	// Generate bob's new keypair
-	newBobPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, genericGroup, csprng.NewSystemRNG())
-	newBobPubKey := dh.GeneratePublicKey(newBobPrivKey, genericGroup)
+	newBobPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, csprng.NewSystemRNG())
+	newBobPubKey := dh.GeneratePublicKey(newBobPrivKey, grp)
 
 	aliceVariant := sidh.KeyVariantSidhA
 	prng1 := rand.New(rand.NewSource(int64(1)))
@@ -73,24 +83,63 @@ func TestFullExchange(t *testing.T) {
 	newBobSIDHPubKeyBytes[0] = byte(bobVariant)
 	newBobSIDHPubKey.Export(newBobSIDHPubKeyBytes[1:])
 
+	err := ratchet.New(kv, myID, alicePrivKey, grp)
+	if err != nil {
+		t.Errorf("Failed to create ratchet: %+v", err)
+	}
+	r, err = ratchet.Load(kv, myID, grp, mockCyHandler{}, mockServiceHandler{}, rng)
+	if err != nil {
+		t.Errorf("Failed to load ratchet: %+v", err)
+	}
+
 	// Add Alice and Bob as partners
-	aliceSession.E2e().AddPartner(exchangeBobId, bobPubKey, alicePrivKey,
-		bobSIDHPubKey, aliceSIDHPrivKey,
-		params.GetDefaultE2ESessionParams(),
-		params.GetDefaultE2ESessionParams())
-	bobSession.E2e().AddPartner(exchangeAliceId, alicePubKey, bobPrivKey,
-		aliceSIDHPubKey, bobSIDHPrivKey,
-		params.GetDefaultE2ESessionParams(),
-		params.GetDefaultE2ESessionParams())
+	sendParams := session.GetDefaultE2ESessionParams()
+	receiveParams := session.GetDefaultE2ESessionParams()
+	_, err = r.AddPartner(myID, bobID, bobPubKey, alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey, sendParams, receiveParams, false)
+	if err != nil {
+		t.Errorf("Failed to add partner to ratchet: %+v", err)
+	}
+	_, err = r.AddPartner(bobID, myID, alicePubKey, bobPrivKey, aliceSIDHPubKey, bobSIDHPrivKey, sendParams, receiveParams, false)
+	if err != nil {
+		t.Errorf("Failed to add partner to ratchet: %+v", err)
+	}
 
 	// Start the listeners for alice and bob
-	rekeyParams := params.GetDefaultRekey()
+	rekeyParams := GetDefaultParams()
 	rekeyParams.RoundTimeout = 1 * time.Second
-	Start(aliceSwitchboard, aliceSession, aliceManager, rekeyParams)
-	Start(bobSwitchboard, bobSession, bobManager, rekeyParams)
-
+	aliceRSAKey, err := rsa.GenerateKey(csprng.NewSystemRNG(), 256)
+	bobRSAKey, err := rsa.GenerateKey(csprng.NewSystemRNG(), 256)
+	aliceComms, err := client.NewClientComms(myID, rsa.CreatePublicKeyPem(aliceRSAKey.GetPublic()), rsa.CreatePrivateKeyPem(aliceRSAKey), nil)
+	if err != nil {
+		t.Errorf("Failed to start alice comms: %+v", err)
+	}
+	fmt.Println("hi")
+	aliceManager, err := network.NewManager(network.GetDefaultParams(), aliceComms, storage.InitTestingSession(t), getNDF(t), rng, nil)
+	if err != nil {
+		t.Errorf("Failed to start alice manager: %+v", err)
+	}
+	fmt.Println("hello")
+	bobComms, err := client.NewClientComms(myID, rsa.CreatePublicKeyPem(bobRSAKey.GetPublic()), rsa.CreatePrivateKeyPem(bobRSAKey), nil)
+	if err != nil {
+		t.Errorf("Failed to start bob comms: %+v", err)
+	}
+	fmt.Println("hey")
+	bobManager, err := network.NewManager(network.GetDefaultParams(), bobComms, storage.InitTestingSession(t), getNDF(t), rng, nil)
+	if err != nil {
+		t.Errorf("Failed to start bob manager: %+v", err)
+	}
+	fmt.Println("0")
+	_, err = Start(aliceSwitchboard, r, testSendE2E, aliceManager, grp, rekeyParams)
+	if err != nil {
+		t.Errorf("Failed to Start alice: %+v", err)
+	}
+	_, err = Start(bobSwitchboard, r, testSendE2E, bobManager, grp, rekeyParams)
+	if err != nil {
+		t.Errorf("Failed to Start bob: %+v", err)
+	}
+	fmt.Println("1")
 	// Generate a session ID, bypassing some business logic here
-	oldSessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup,
+	oldSessionID := GeneratePartnerID(alicePrivKey, bobPubKey, grp,
 		aliceSIDHPrivKey, bobSIDHPubKey)
 
 	// Generate the message
@@ -100,16 +149,16 @@ func TestFullExchange(t *testing.T) {
 		SidhPublicKey: newBobSIDHPubKeyBytes,
 	})
 
-	triggerMsg := message.Receive{
+	triggerMsg := receive.Message{
 		Payload:     rekeyTrigger,
-		MessageType: message.KeyExchangeTrigger,
+		MessageType: catalog.KeyExchangeTrigger,
 		Sender:      exchangeBobId,
 		Timestamp:   netTime.Now(),
-		Encryption:  message.E2E,
+		Encrypted:   true,
 	}
 
 	// get Alice's manager for reception from Bob
-	receivedManager, err := aliceSession.E2e().GetPartner(exchangeBobId)
+	receivedManager, err := r.GetPartner(exchangeBobId, myID)
 	if err != nil {
 		t.Errorf("Failed to get bob's manager: %v", err)
 	}
@@ -124,14 +173,14 @@ func TestFullExchange(t *testing.T) {
 	confirmedSession := receivedManager.GetSendSession(oldSessionID)
 
 	// Generate the new session ID based off of Bob's new keys
-	baseKey := session2.GenerateE2ESessionBaseKey(alicePrivKey, newBobPubKey,
-		genericGroup, aliceSIDHPrivKey, newBobSIDHPubKey)
-	newSessionID := session2.GetSessionIDFromBaseKeyForTesting(baseKey, t)
+	baseKey := session.GenerateE2ESessionBaseKey(alicePrivKey, newBobPubKey,
+		grp, aliceSIDHPrivKey, newBobSIDHPubKey)
+	newSessionID := session.GetSessionIDFromBaseKeyForTesting(baseKey, t)
 
 	// Check that the Alice's session for Bob is in the proper status
 	newSession := receivedManager.GetReceiveSession(newSessionID)
 	fmt.Printf("newSession: %v\n", newSession)
-	if newSession == nil || newSession.NegotiationStatus() != session2.Confirmed {
+	if newSession == nil || newSession.NegotiationStatus() != session.Confirmed {
 		t.Errorf("Session not in confirmed status!"+
 			"\n\tExpected: Confirmed"+
 			"\n\tReceived: %s", confirmedSession.NegotiationStatus())

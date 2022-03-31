@@ -64,8 +64,8 @@ type RoundEventCallback func(allRoundsSucceeded, timedOut bool, rounds map[id.Ro
 
 // GetRoundResults adjudicates on the rounds requested. Checks if they are
 // older rounds or in progress rounds.
-func (m *manager) GetRoundResults(roundList []id.Round, timeout time.Duration,
-	roundCallback RoundEventCallback) error {
+func (m *manager) GetRoundResults(timeout time.Duration,
+	roundCallback RoundEventCallback, roundList ...id.Round) error {
 
 	jww.INFO.Printf("GetRoundResults(%v, %s)", roundList, timeout)
 

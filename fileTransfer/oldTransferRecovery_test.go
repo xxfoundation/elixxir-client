@@ -10,8 +10,8 @@ package fileTransfer
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
@@ -77,13 +77,13 @@ func TestManager_oldTransferRecovery(t *testing.T) {
 
 	// Returns an error on function and round failure on callback if sendErr is
 	// set; otherwise, it reports round successes and returns nil
-	rr := func(rIDs []id.Round, _ time.Duration, cb api.RoundEventCallback) error {
-		rounds := make(map[id.Round]api.RoundResult, len(rIDs))
+	rr := func(rIDs []id.Round, _ time.Duration, cb network.RoundEventCallback) error {
+		rounds := make(map[id.Round]network.RoundLookupStatus, len(rIDs))
 		for _, rid := range rIDs {
 			if finishedRounds[rid] != nil {
-				rounds[rid] = api.Succeeded
+				rounds[rid] = network.Succeeded
 			} else {
-				rounds[rid] = api.Failed
+				rounds[rid] = network.Failed
 			}
 		}
 		cb(true, false, rounds)
@@ -240,13 +240,13 @@ func TestManager_updateSentRounds(t *testing.T) {
 
 	// Returns an error on function and round failure on callback if sendErr is
 	// set; otherwise, it reports round successes and returns nil
-	rr := func(rIDs []id.Round, _ time.Duration, cb api.RoundEventCallback) error {
-		rounds := make(map[id.Round]api.RoundResult, len(rIDs))
+	rr := func(rIDs []id.Round, _ time.Duration, cb network.RoundEventCallback) error {
+		rounds := make(map[id.Round]network.RoundLookupStatus, len(rIDs))
 		for _, rid := range rIDs {
 			if finishedRounds[rid] != nil {
-				rounds[rid] = api.Succeeded
+				rounds[rid] = network.Succeeded
 			} else {
-				rounds[rid] = api.Failed
+				rounds[rid] = network.Failed
 			}
 		}
 		cb(true, false, rounds)
@@ -322,7 +322,7 @@ func TestManager_updateSentRounds_Error(t *testing.T) {
 	// Returns an error on function and round failure on callback if sendErr is
 	// set; otherwise, it reports round successes and returns nil
 	m.getRoundResults = func(
-		[]id.Round, time.Duration, api.RoundEventCallback) error {
+		[]id.Round, time.Duration, network.RoundEventCallback) error {
 		return errors.Errorf("GetRoundResults error")
 	}
 

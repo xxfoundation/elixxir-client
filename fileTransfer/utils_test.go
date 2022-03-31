@@ -12,11 +12,11 @@ import (
 	"encoding/binary"
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	network2 "gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
@@ -170,13 +170,13 @@ func newTestManager(sendErr bool, sendChan, sendE2eChan chan message.Receive,
 
 	// Returns an error on function and round failure on callback if sendErr is
 	// set; otherwise, it reports round successes and returns nil
-	rr := func(rIDs []id.Round, _ time.Duration, cb api.RoundEventCallback) error {
-		rounds := make(map[id.Round]api.RoundResult, len(rIDs))
+	rr := func(rIDs []id.Round, _ time.Duration, cb network2.RoundEventCallback) error {
+		rounds := make(map[id.Round]network2.RoundLookupStatus, len(rIDs))
 		for _, rid := range rIDs {
 			if sendErr {
-				rounds[rid] = api.Failed
+				rounds[rid] = network2.Failed
 			} else {
-				rounds[rid] = api.Succeeded
+				rounds[rid] = network2.Succeeded
 			}
 		}
 		cb(!sendErr, false, rounds)

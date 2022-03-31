@@ -4,8 +4,8 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/network"
 	backupCrypto "gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
@@ -47,7 +47,7 @@ func printChanRequest(requestor contact.Contact) {
 
 // Helper function which prints the round resuls
 func printRoundResults(allRoundsSucceeded, timedOut bool,
-	rounds map[id.Round]api.RoundResult, roundIDs []id.Round, msg message.Send) {
+	rounds map[id.Round]network.RoundLookupStatus, roundIDs []id.Round, msg message.Send) {
 
 	// Done as string slices for easy and human readable printing
 	successfulRounds := make([]string, 0)
@@ -58,9 +58,9 @@ func printRoundResults(allRoundsSucceeded, timedOut bool,
 		// Group all round reports into a category based on their
 		// result (successful, failed, or timed out)
 		if result, exists := rounds[r]; exists {
-			if result == api.Succeeded {
+			if result == network.Succeeded {
 				successfulRounds = append(successfulRounds, strconv.Itoa(int(r)))
-			} else if result == api.Failed {
+			} else if result == network.Failed {
 				failedRounds = append(failedRounds, strconv.Itoa(int(r)))
 			} else {
 				timedOutRounds = append(timedOutRounds, strconv.Itoa(int(r)))

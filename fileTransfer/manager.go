@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	ftStorage "gitlab.com/elixxir/client/storage/fileTransfer"
@@ -119,7 +120,7 @@ type Manager struct {
 // getRoundResultsFunc is a function that matches client.GetRoundResults. It is
 // used to pass in an alternative function for testing.
 type getRoundResultsFunc func(roundList []id.Round, timeout time.Duration,
-	roundCallback api.RoundEventCallback) error
+	roundCallback network.RoundEventCallback) error
 
 // queuedPart contains the unique information identifying a file part.
 type queuedPart struct {

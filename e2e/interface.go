@@ -96,7 +96,7 @@ type Handler interface {
 	// sessions using the passed cryptographic data and per the parameters sent
 	AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int,
 		partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey,
-		sendParams, receiveParams session.Params) (*partner.Manager, error)
+		sendParams, receiveParams session.Params, myID *id.ID, myPrivateKey *cyclic.Int, temporary bool) (*partner.Manager, error)
 
 	// GetPartner returns the partner per its ID, if it exists
 	GetPartner(partnerID *id.ID) (*partner.Manager, error)

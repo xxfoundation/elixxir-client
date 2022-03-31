@@ -150,7 +150,7 @@ type Manager interface {
 	// A service may have a nil response unless it is default. In general a
 	// nil service is used to detect notifications when pickup is done by
 	// fingerprints
-	AddService(AddService *id.ID, newService message.Service,
+	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
 
 	// DeleteService deletes a message service. If only a single response is
@@ -214,11 +214,16 @@ type Manager interface {
 	// with a given node.
 	TriggerNodeRegistration(nid *id.ID)
 
-	/* === Historical Rounds ================================================ */
+	/* === Rounds =========================================================== */
 	/* A complete set of round info is not kept on the client, and sometimes
 	   the network will need to be queried to get round info. Historical rounds
 	   is the system internal to the Network Manager to do this. It can be used
 	   externally as well. */
+
+	// GetRoundResults adjudicates on the rounds requested. Checks if they are
+	// older rounds or in progress rounds.
+	GetRoundResults(roundList []id.Round, timeout time.Duration,
+		roundCallback RoundEventCallback) error
 
 	// LookupHistoricalRound looks up the passed historical round on the network.
 	LookupHistoricalRound(

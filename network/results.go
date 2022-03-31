@@ -5,30 +5,29 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package api
+package network
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/network/historical"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
-	pb "gitlab.com/elixxir/comms/mixmessages"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/states"
-	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// RoundResult is the enum of possible round results to pass back
-type RoundResult uint
+// RoundLookupStatus is the enum of possible round results to pass back
+type RoundLookupStatus uint
 
 const (
-	TimeOut RoundResult = iota
+	TimeOut RoundLookupStatus = iota
 	Failed
 	Succeeded
 )
 
-func (rr RoundResult) String() string {
+func (rr RoundLookupStatus) String() string {
 	switch rr {
 	case TimeOut:
 		return "TimeOut"
@@ -39,6 +38,16 @@ func (rr RoundResult) String() string {
 	default:
 		return fmt.Sprintf("UNKNOWN RESULT: %d", rr)
 	}
+}
+
+type RoundResult struct {
+	Status RoundLookupStatus
+	Round  historical.Round
+}
+
+type historicalRoundsRtn struct {
+	Success bool
+	Round   historical.Round
 }
 
 // RoundEventCallback interface which reports the requested rounds.
@@ -53,41 +62,30 @@ func (rr RoundResult) String() string {
 //   their respective round results
 type RoundEventCallback func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundResult)
 
-// Comm interface for RequestHistoricalRounds.
-// Constructed for testability with getRoundResults
-type historicalRoundsComm interface {
-	RequestHistoricalRounds(host *connect.Host,
-		message *pb.HistoricalRounds) (*pb.HistoricalRoundsResponse, error)
-	GetHost(hostId *id.ID) (*connect.Host, bool)
-}
-
 // GetRoundResults adjudicates on the rounds requested. Checks if they are
 // older rounds or in progress rounds.
-func (c *Client) GetRoundResults(roundList []id.Round, timeout time.Duration,
+func (m *manager) GetRoundResults(roundList []id.Round, timeout time.Duration,
 	roundCallback RoundEventCallback) error {
 
 	jww.INFO.Printf("GetRoundResults(%v, %s)", roundList, timeout)
 
 	sendResults := make(chan ds.EventReturn, len(roundList))
 
-	return c.getRoundResults(roundList, timeout, roundCallback,
-		sendResults, c.comms)
+	return m.getRoundResults(roundList, timeout, roundCallback,
+		sendResults)
 }
 
 // Helper function which does all the logic for GetRoundResults
-func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
-	roundCallback RoundEventCallback, sendResults chan ds.EventReturn,
-	commsInterface historicalRoundsComm) error {
+func (m *manager) getRoundResults(roundList []id.Round, timeout time.Duration,
+	roundCallback RoundEventCallback, sendResults chan ds.EventReturn) error {
 
-	networkInstance := c.network.GetInstance()
+	networkInstance := m.GetInstance()
 
 	// Generate a message to track all older rounds
-	historicalRequest := &pb.HistoricalRounds{
-		Rounds: []uint64{},
-	}
+	historicalRequest := make([]id.Round, 0, len(roundList))
 
 	// Generate all tracking structures for rounds
-	roundEvents := c.GetRoundEvents()
+	roundEvents := networkInstance.GetRoundEvents()
 	roundsResults := make(map[id.Round]RoundResult)
 	allRoundsSucceeded := true
 	anyRoundTimedOut := false
@@ -98,15 +96,23 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 	// Parse and adjudicate every round
 	for _, rnd := range roundList {
 		// Every round is timed out by default, until proven to have finished
-		roundsResults[rnd] = TimeOut
+		roundsResults[rnd] = RoundResult{
+			Status: TimeOut,
+		}
 		roundInfo, err := networkInstance.GetRound(rnd)
 		// If we have the round in the buffer
 		if err == nil {
 			// Check if the round is done (completed or failed) or in progress
 			if states.Round(roundInfo.State) == states.COMPLETED {
-				roundsResults[rnd] = Succeeded
+				roundsResults[rnd] = RoundResult{
+					Status: Succeeded,
+					Round:  historical.MakeRound(roundInfo),
+				}
 			} else if states.Round(roundInfo.State) == states.FAILED {
-				roundsResults[rnd] = Failed
+				roundsResults[rnd] = RoundResult{
+					Status: Failed,
+					Round:  historical.MakeRound(roundInfo),
+				}
 				allRoundsSucceeded = false
 			} else {
 				// If in progress, add a channel monitoring its state
@@ -119,7 +125,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 			if rnd < oldestRound {
 				// If round is older that oldest round in our buffer
 				// Add it to the historical round request (performed later)
-				historicalRequest.Rounds = append(historicalRequest.Rounds, uint64(rnd))
+				historicalRequest = append(historicalRequest, rnd)
 				numResults++
 			} else {
 				// Otherwise, monitor its progress
@@ -129,10 +135,30 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 			}
 		}
 	}
-
+	historicalRoundsCh := make(chan RoundResult, len(historicalRequest))
 	// Find out what happened to old (historical) rounds if any are needed
-	if len(historicalRequest.Rounds) > 0 {
-		go c.getHistoricalRounds(historicalRequest, sendResults, commsInterface)
+	if len(historicalRequest) > 0 {
+		for _, rnd := range historicalRequest {
+			rrc := func(round historical.Round, success bool) {
+				var status RoundLookupStatus
+				if success {
+					status = Succeeded
+				} else {
+					status = TimeOut
+				}
+				historicalRoundsCh <- RoundResult{
+					Status: status,
+					Round:  round,
+				}
+			}
+			err := m.Retriever.LookupHistoricalRound(rnd, rrc)
+			if err != nil {
+				historicalRoundsCh <- RoundResult{
+					Status: TimeOut,
+				}
+			}
+		}
+
 	}
 
 	// Determine the results of all rounds requested
@@ -147,11 +173,16 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 				return
 			}
 
+			var result RoundResult
+			hasResult := false
+
 			// Wait for info about rounds or the timeout to occur
 			select {
 			case <-timer.C:
 				roundCallback(false, true, roundsResults)
 				return
+			case result = <-historicalRoundsCh:
+				hasResult = true
 			case roundReport := <-sendResults:
 				numResults--
 
@@ -162,11 +193,18 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 					roundInfo, err := networkInstance.GetRound(roundId)
 					// If we have the round in the buffer
 					if err == nil {
+						hasResult = true
 						// Check if the round is done (completed or failed) or in progress
 						if states.Round(roundInfo.State) == states.COMPLETED {
-							roundsResults[roundId] = Succeeded
+							result = RoundResult{
+								Status: Succeeded,
+								Round:  historical.MakeRound(roundInfo),
+							}
 						} else if states.Round(roundInfo.State) == states.FAILED {
-							roundsResults[roundId] = Failed
+							result = RoundResult{
+								Status: Failed,
+								Round:  historical.MakeRound(roundInfo),
+							}
 							allRoundsSucceeded = false
 						}
 						continue
@@ -174,62 +212,28 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 					allRoundsSucceeded = false
 					anyRoundTimedOut = true
 				} else {
+					hasResult = true
 					// If available, denote the result
 					if states.Round(roundReport.RoundInfo.State) == states.COMPLETED {
-						roundsResults[roundId] = Succeeded
+						result = RoundResult{
+							Status: Succeeded,
+							Round:  historical.MakeRound(roundReport.RoundInfo),
+						}
 					} else {
-						roundsResults[roundId] = Failed
+						result = RoundResult{
+							Status: Failed,
+							Round:  historical.MakeRound(roundReport.RoundInfo),
+						}
 						allRoundsSucceeded = false
 					}
 				}
 			}
+			if hasResult {
+				roundsResults[result.Round.ID] = result
+			}
+
 		}
 	}()
 
 	return nil
-}
-
-// Helper function which asynchronously pings a random gateway until
-// it gets information on its requested historical rounds
-func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
-	sendResults chan ds.EventReturn, comms historicalRoundsComm) {
-
-	var resp *pb.HistoricalRoundsResponse
-
-	//retry 5 times
-	for i := 0; i < 5; i++ {
-		// Find a gateway to request about the roundRequests
-		result, err := c.GetNetworkInterface().GetSender().SendToAny(func(host *connect.Host) (interface{}, error) {
-			return comms.RequestHistoricalRounds(host, msg)
-		}, nil)
-
-		// If an error, retry with (potentially) a different gw host.
-		// If no error from received gateway request, exit loop
-		// and process rounds
-		if err == nil {
-			resp = result.(*pb.HistoricalRoundsResponse)
-			break
-		} else {
-			jww.ERROR.Printf("Failed to lookup historical rounds: %s", err)
-		}
-	}
-
-	if resp == nil {
-		return
-	}
-
-	// Service historical rounds, sending back to the caller thread
-	for i, ri := range resp.Rounds {
-		if ri == nil {
-			// Handle unknown by historical rounds
-			sendResults <- ds.EventReturn{
-				RoundInfo: &pb.RoundInfo{ID: msg.Rounds[i]},
-				TimedOut:  true,
-			}
-		} else {
-			sendResults <- ds.EventReturn{
-				RoundInfo: ri,
-			}
-		}
-	}
 }

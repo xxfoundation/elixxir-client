@@ -12,7 +12,6 @@ import (
 	"encoding/binary"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network"
@@ -419,11 +418,11 @@ func (m *Manager) newCmixMessage(transfer *ftStorage.SentTransfer,
 // fails, then each part for each transfer is removed from the in-progress list,
 // added to the end of the sending queue, and the callback called with an error.
 func (m *Manager) makeRoundEventCallback(
-	sentRounds map[id.Round][]ftCrypto.TransferID) api.RoundEventCallback {
+	sentRounds map[id.Round][]ftCrypto.TransferID) network.RoundEventCallback {
 
-	return func(allSucceeded, timedOut bool, rounds map[id.Round]api.RoundResult) {
+	return func(allSucceeded, timedOut bool, rounds map[id.Round]network.RoundLookupStatus) {
 		for rid, roundResult := range rounds {
-			if roundResult == api.Succeeded {
+			if roundResult == network.Succeeded {
 				// If the round succeeded, then set all parts for each transfer
 				// for this round to finished and call the progress callback
 				for _, tid := range sentRounds[rid] {

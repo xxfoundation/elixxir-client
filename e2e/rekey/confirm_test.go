@@ -26,7 +26,7 @@ import (
 	"testing"
 )
 
-// Smoke test for handleTrigger
+// Smoke test for handleConfirm
 func TestHandleConfirm(t *testing.T) {
 	grp := getGroup()
 	rng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)

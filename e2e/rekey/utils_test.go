@@ -14,13 +14,20 @@ import (
 	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/network/historical"
 	"gitlab.com/elixxir/client/network/message"
+	"gitlab.com/elixxir/client/stoppable"
 	util "gitlab.com/elixxir/client/storage/utility"
+	network2 "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/region"
@@ -84,7 +91,7 @@ func testSendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte, cmixP
 	confirmMessage := receive.Message{
 		Payload:     messagePayload,
 		MessageType: catalog.KeyExchangeConfirm,
-		Sender:      exchangeAliceId,
+		Sender:      myID,
 		Timestamp:   netTime.Now(),
 		Encrypted:   true,
 	}
@@ -94,70 +101,7 @@ func testSendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte, cmixP
 	return rounds, e2e.MessageID{}, time.Time{}, nil
 }
 
-// Intended for alice to send to bob. Trigger's Bob's confirmation, chaining the operation
-// together
-//func (t *testNetworkManagerFullExchange) SendE2E(message.Send, params.E2E, *stoppable.Single) (
-//	[]id.Round, cE2e.MessageID, time.Time, error) {
-//
-//	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
-//	alicePrivKey := aliceSession.E2e().GetDHPrivateKey()
-//	bobPubKey := bobSession.E2e().GetDHPublicKey()
-//
-//	aliceVariant := sidh.KeyVariantSidhA
-//	prng1 := rand.New(rand.NewSource(int64(1)))
-//	aliceSIDHPrivKey := util.NewSIDHPrivateKey(aliceVariant)
-//	aliceSIDHPubKey := util.NewSIDHPublicKey(aliceVariant)
-//	aliceSIDHPrivKey.Generate(prng1)
-//	aliceSIDHPrivKey.GeneratePublicKey(aliceSIDHPubKey)
-//
-//	bobVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
-//	prng2 := rand.New(rand.NewSource(int64(2)))
-//	bobSIDHPrivKey := util.NewSIDHPrivateKey(bobVariant)
-//	bobSIDHPubKey := util.NewSIDHPublicKey(bobVariant)
-//	bobSIDHPrivKey.Generate(prng2)
-//	bobSIDHPrivKey.GeneratePublicKey(bobSIDHPubKey)
-//
-//	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup,
-//		aliceSIDHPrivKey, bobSIDHPubKey)
-//
-//	rekeyConfirm, _ := proto.Marshal(&RekeyConfirm{
-//		SessionID: sessionID.Marshal(),
-//	})
-//	payload := make([]byte, 0)
-//	payload = append(payload, rekeyConfirm...)
-//
-//	confirmMessage := message.Receive{
-//		Payload:     payload,
-//		MessageType: message.KeyExchangeConfirm,
-//		Sender:      exchangeAliceId,
-//		Timestamp:   netTime.Now(),
-//		Encryption:  message.E2E,
-//	}
-//
-//	bobSwitchboard.Speak(confirmMessage)
-//
-//	return rounds, cE2e.MessageID{}, time.Time{}, nil
-//}
-
 var pub = "-----BEGIN CERTIFICATE-----\n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\n-----END CERTIFICATE-----\n"
-
-//var genericGroup = cyclic.NewGroup(
-//	large.NewIntFromString("9DB6FB5951B66BB6FE1E140F1D2CE5502374161FD6538DF1648218642F0B5C48"+
-//		"C8F7A41AADFA187324B87674FA1822B00F1ECF8136943D7C55757264E5A1A44F"+
-//		"FE012E9936E00C1D3E9310B01C7D179805D3058B2A9F4BB6F9716BFE6117C6B5"+
-//		"B3CC4D9BE341104AD4A80AD6C94E005F4B993E14F091EB51743BF33050C38DE2"+
-//		"35567E1B34C3D6A5C0CEAA1A0F368213C3D19843D0B4B09DCB9FC72D39C8DE41"+
-//		"F1BF14D4BB4563CA28371621CAD3324B6A2D392145BEBFAC748805236F5CA2FE"+
-//		"92B871CD8F9C36D3292B5509CA8CAA77A2ADFC7BFD77DDA6F71125A7456FEA15"+
-//		"3E433256A2261C6A06ED3693797E7995FAD5AABBCFBE3EDA2741E375404AE25B", 16),
-//	large.NewIntFromString("5C7FF6B06F8F143FE8288433493E4769C4D988ACE5BE25A0E24809670716C613"+
-//		"D7B0CEE6932F8FAA7C44D2CB24523DA53FBE4F6EC3595892D1AA58C4328A06C4"+
-//		"6A15662E7EAA703A1DECF8BBB2D05DBE2EB956C142A338661D10461C0D135472"+
-//		"085057F3494309FFA73C611F78B32ADBB5740C361C9F35BE90997DB2014E2EF5"+
-//		"AA61782F52ABEB8BD6432C4DD097BC5423B285DAFB60DC364E8161F4A2A35ACA"+
-//		"3A10B1C4D203CC76A470A33AFDCBDD92959859ABD8B56E1725252D78EAC66E71"+
-//		"BA9AE3F1DD2487199874393CD4D832186800654760E1E34C09E4D155179F9EC0"+
-//		"DC4473F996BDCE6EED1CABED8B6F116F7AD9CF505DF0F998E34AB27514B0FFE7", 16))
 
 func getNDF(t *testing.T) *ndf.NetworkDefinition {
 	return &ndf.NetworkDefinition{
@@ -257,4 +201,120 @@ func (m mockServiceHandler) AddService(AddService *id.ID, newService message.Ser
 func (m mockServiceHandler) DeleteService(clientID *id.ID, toDelete message.Service,
 	processor message.Processor) {
 	return
+}
+
+type mockNetManager struct{}
+
+func (m *mockNetManager) Follow(report network.ClientErrorReport) (stoppable.Stoppable, error) {
+	return nil, nil
+}
+
+func (m *mockNetManager) GetMaxMessageLength() int {
+	return 0
+}
+
+func (m *mockNetManager) SendCMIX(recipient *id.ID, fingerprint format.Fingerprint,
+	service message.Service, payload, mac []byte, cmixParams network.CMIXParams) (
+	id.Round, ephemeral.Id, error) {
+	return id.Round(0), ephemeral.Id{}, nil
+}
+
+func (m *mockNetManager) SendManyCMIX(messages []network.TargetedCmixMessage, p network.CMIXParams) (
+	id.Round, []ephemeral.Id, error) {
+	return id.Round(0), nil, nil
+}
+
+func (m *mockNetManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {}
+
+func (m *mockNetManager) RemoveIdentity(id *id.ID) {}
+
+func (m *mockNetManager) AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,
+	mp message.Processor) error {
+	return nil
+}
+
+func (m *mockNetManager) DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint) {}
+
+func (m *mockNetManager) DeleteClientFingerprints(identity *id.ID) {}
+
+func (m *mockNetManager) AddService(clientID *id.ID, newService message.Service,
+	response message.Processor) {
+}
+
+func (m *mockNetManager) DeleteService(clientID *id.ID, toDelete message.Service,
+	processor message.Processor) {
+}
+
+func (m *mockNetManager) DeleteClientService(clientID *id.ID) {}
+
+func (m *mockNetManager) TrackServices(tracker message.ServicesTracker) {}
+
+func (m *mockNetManager) CheckInProgressMessages() {}
+
+func (m *mockNetManager) IsHealthy() bool {
+	return true
+}
+
+func (m *mockNetManager) WasHealthy() bool {
+	return true
+}
+
+func (m *mockNetManager) AddHealthCallback(f func(bool)) uint64 {
+	return 0
+}
+
+func (m *mockNetManager) RemoveHealthCallback(uint64) {}
+
+func (m *mockNetManager) HasNode(nid *id.ID) bool {
+	return true
+}
+
+func (m *mockNetManager) NumRegisteredNodes() int {
+	return 0
+}
+
+func (m *mockNetManager) TriggerNodeRegistration(nid *id.ID) {}
+
+func (m *mockNetManager) GetRoundResults(timeout time.Duration, roundCallback network.RoundEventCallback,
+	roundList ...id.Round) error {
+	return nil
+}
+
+func (m *mockNetManager) LookupHistoricalRound(
+	rid id.Round, callback historical.RoundResultCallback) error {
+	return nil
+}
+
+func (m *mockNetManager) SendToAny(sendFunc func(host *connect.Host) (interface{}, error),
+	stop *stoppable.Single) (interface{}, error) {
+	return nil, nil
+}
+
+func (m *mockNetManager) SendToPreferred(targets []*id.ID, sendFunc gateway.SendToPreferredFunc,
+	stop *stoppable.Single, timeout time.Duration) (interface{}, error) {
+	return nil, nil
+}
+
+func (m *mockNetManager) SetGatewayFilter(f gateway.Filter) {}
+
+func (m *mockNetManager) GetHostParams() connect.HostParams {
+	return connect.GetDefaultHostParams()
+}
+
+func (m *mockNetManager) GetAddressSpace() uint8 {
+	return 0
+}
+
+func (m *mockNetManager) RegisterAddressSpaceNotification(tag string) (chan uint8, error) {
+	return make(chan uint8), nil
+}
+
+func (m *mockNetManager) UnregisterAddressSpaceNotification(tag string) {}
+
+func (m *mockNetManager) GetInstance() *network2.Instance {
+	return nil
+}
+
+func (m *mockNetManager) GetVerboseRounds() string {
+	return ""
 }

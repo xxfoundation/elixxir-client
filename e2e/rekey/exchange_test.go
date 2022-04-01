@@ -15,16 +15,12 @@ import (
 	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/network"
-	"gitlab.com/elixxir/client/storage"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/comms/client"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
@@ -32,7 +28,6 @@ import (
 	"time"
 )
 
-var exchangeAliceId, exchangeBobId *id.ID
 var r *ratchet.Ratchet
 var myID, bobID *id.ID
 var aliceSwitchboard = receive.New()
@@ -107,33 +102,11 @@ func TestFullExchange(t *testing.T) {
 	// Start the listeners for alice and bob
 	rekeyParams := GetDefaultParams()
 	rekeyParams.RoundTimeout = 1 * time.Second
-	aliceRSAKey, err := rsa.GenerateKey(csprng.NewSystemRNG(), 256)
-	bobRSAKey, err := rsa.GenerateKey(csprng.NewSystemRNG(), 256)
-	aliceComms, err := client.NewClientComms(myID, rsa.CreatePublicKeyPem(aliceRSAKey.GetPublic()), rsa.CreatePrivateKeyPem(aliceRSAKey), nil)
-	if err != nil {
-		t.Errorf("Failed to start alice comms: %+v", err)
-	}
-	fmt.Println("hi")
-	aliceManager, err := network.NewManager(network.GetDefaultParams(), aliceComms, storage.InitTestingSession(t), getNDF(t), rng, nil)
-	if err != nil {
-		t.Errorf("Failed to start alice manager: %+v", err)
-	}
-	fmt.Println("hello")
-	bobComms, err := client.NewClientComms(myID, rsa.CreatePublicKeyPem(bobRSAKey.GetPublic()), rsa.CreatePrivateKeyPem(bobRSAKey), nil)
-	if err != nil {
-		t.Errorf("Failed to start bob comms: %+v", err)
-	}
-	fmt.Println("hey")
-	bobManager, err := network.NewManager(network.GetDefaultParams(), bobComms, storage.InitTestingSession(t), getNDF(t), rng, nil)
-	if err != nil {
-		t.Errorf("Failed to start bob manager: %+v", err)
-	}
-	fmt.Println("0")
-	_, err = Start(aliceSwitchboard, r, testSendE2E, aliceManager, grp, rekeyParams)
+	_, err = Start(aliceSwitchboard, r, testSendE2E, &mockNetManager{}, grp, rekeyParams)
 	if err != nil {
 		t.Errorf("Failed to Start alice: %+v", err)
 	}
-	_, err = Start(bobSwitchboard, r, testSendE2E, bobManager, grp, rekeyParams)
+	_, err = Start(bobSwitchboard, r, testSendE2E, &mockNetManager{}, grp, rekeyParams)
 	if err != nil {
 		t.Errorf("Failed to Start bob: %+v", err)
 	}
@@ -152,13 +125,13 @@ func TestFullExchange(t *testing.T) {
 	triggerMsg := receive.Message{
 		Payload:     rekeyTrigger,
 		MessageType: catalog.KeyExchangeTrigger,
-		Sender:      exchangeBobId,
+		Sender:      bobID,
 		Timestamp:   netTime.Now(),
 		Encrypted:   true,
 	}
 
 	// get Alice's manager for reception from Bob
-	receivedManager, err := r.GetPartner(exchangeBobId, myID)
+	receivedManager, err := r.GetPartner(bobID, myID)
 	if err != nil {
 		t.Errorf("Failed to get bob's manager: %v", err)
 	}

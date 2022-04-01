@@ -24,6 +24,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -235,9 +236,17 @@ func LookupContact(userID *id.ID, udManager *ud.Manager,
 		if myErr != nil {
 			err = myErr
 		}
-		result = &c
+		newOwnership := make([]byte, len(c.OwnershipProof))
+		copy(newOwnership, c.OwnershipProof)
+		newFacts, _, _ := fact.UnstringifyFactList(c.Facts.Stringify())
+		result = &contact.Contact{
+			ID:             c.ID.DeepCopy(),
+			DhPubKey:       c.DhPubKey.DeepCopy(),
+			OwnershipProof: newOwnership,
+			Facts:          newFacts,
+		}
 		waiter.Unlock()
-		extLookupCB(c, myErr)
+		extLookupCB(*result, myErr)
 	}
 	// Take lock once to make sure I will wait
 	waiter.Lock()

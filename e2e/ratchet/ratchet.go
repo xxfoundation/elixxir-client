@@ -106,8 +106,8 @@ func (r *Ratchet) AddPartner(myID *id.ID, partnerID *id.ID,
 		myID = r.defaultID
 	}
 
-	jww.INFO.Printf("Adding Partner %r:\n\tMy Private Key: %r"+
-		"\n\tPartner Public Key: %r to %s",
+	jww.INFO.Printf("Adding Partner %s:\n\tMy Private Key: %s"+
+		"\n\tPartner Public Key: %s to %s",
 		partnerID,
 		myPrivKey.TextVerbose(16, 0),
 		partnerPubKey.TextVerbose(16, 0), myID)
@@ -130,7 +130,7 @@ func (r *Ratchet) AddPartner(myID *id.ID, partnerID *id.ID,
 
 	r.managers[mid] = m
 	if err := r.save(); err != nil {
-		jww.FATAL.Printf("Failed to add Partner %r: Save of store failed: %r",
+		jww.FATAL.Printf("Failed to add Partner %s: Save of store failed: %s",
 			partnerID, err)
 	}
 
@@ -171,7 +171,7 @@ func (r *Ratchet) DeletePartner(partnerId *id.ID, myID *id.ID) error {
 	}
 
 	if err := partner.ClearManager(m, r.kv); err != nil {
-		return errors.WithMessagef(err, "Could not remove partner %r from store", partnerId)
+		return errors.WithMessagef(err, "Could not remove partner %s from store", partnerId)
 	}
 
 	//delete services

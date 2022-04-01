@@ -152,13 +152,9 @@ func TestFullExchange(t *testing.T) {
 
 	// Check that the Alice's session for Bob is in the proper status
 	newSession := receivedManager.GetReceiveSession(newSessionID)
-	fmt.Printf("newSession: %v\n", newSession)
 	if newSession == nil || newSession.NegotiationStatus() != session.Confirmed {
 		t.Errorf("Session not in confirmed status!"+
 			"\n\tExpected: Confirmed"+
 			"\n\tReceived: %s", confirmedSession.NegotiationStatus())
 	}
-
-	fmt.Printf("after status: %v\n", confirmedSession.NegotiationStatus())
-
 }

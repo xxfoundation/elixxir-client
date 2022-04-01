@@ -8,7 +8,7 @@
 package receive
 
 import (
-	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/xx_network/primitives/id"
 	"strings"
 	"testing"
@@ -66,7 +66,7 @@ func TestSwitchboard_RegisterListener(t *testing.T) {
 
 	uid := id.NewIdFromUInt(42, id.User, t)
 
-	mt := message.Type(69)
+	mt := catalog.MessageType(2)
 
 	lid := sw.RegisterListener(uid, mt, l)
 
@@ -107,7 +107,7 @@ func TestSwitchboard_RegisterFunc_Error_NilUserID(t *testing.T) {
 	}()
 
 	sw := New()
-	sw.RegisterFunc("test", nil, 0, func(receive message.Receive) {})
+	sw.RegisterFunc("test", nil, 0, func(item Message) {})
 
 	t.Errorf("A nil user ID should have caused an error")
 }
@@ -133,11 +133,11 @@ func TestSwitchboard_RegisterFunc(t *testing.T) {
 
 	heard := false
 
-	l := func(receive message.Receive) { heard = true }
+	l := func(item Message) { heard = true }
 
 	uid := id.NewIdFromUInt(42, id.User, t)
 
-	mt := message.Type(69)
+	mt := catalog.MessageType(1)
 
 	lid := sw.RegisterFunc("test", uid, mt, l)
 
@@ -162,7 +162,7 @@ func TestSwitchboard_RegisterFunc(t *testing.T) {
 		t.Errorf("Listener is not registered by Message Tag")
 	}
 
-	lid.listener.Hear(message.Receive{})
+	lid.listener.Hear(Message{})
 	if !heard {
 		t.Errorf("Func listener not registered correctly")
 	}
@@ -178,7 +178,7 @@ func TestSwitchboard_RegisterChan_Error_NilUser(t *testing.T) {
 	}()
 	sw := New()
 	sw.RegisterChannel("test", nil, 0,
-		make(chan message.Receive))
+		make(chan Message))
 
 	t.Errorf("A nil userID should have caused an error")
 }
@@ -201,11 +201,11 @@ func TestSwitchboard_RegisterChan_Error_NilChan(t *testing.T) {
 func TestSwitchboard_RegisterChan(t *testing.T) {
 	sw := New()
 
-	ch := make(chan message.Receive, 1)
+	ch := make(chan Message, 1)
 
 	uid := id.NewIdFromUInt(42, id.User, t)
 
-	mt := message.Type(69)
+	mt := catalog.MessageType(1)
 
 	lid := sw.RegisterChannel("test", uid, mt, ch)
 
@@ -231,7 +231,7 @@ func TestSwitchboard_RegisterChan(t *testing.T) {
 		t.Errorf("Listener is not registered by Message Tag")
 	}
 
-	lid.listener.Hear(message.Receive{})
+	lid.listener.Hear(Message{})
 	select {
 	case <-ch:
 	case <-time.After(5 * time.Millisecond):
@@ -243,15 +243,15 @@ func TestSwitchboard_RegisterChan(t *testing.T) {
 func TestSwitchboard_Speak(t *testing.T) {
 
 	uids := []*id.ID{{}, AnyUser(), id.NewIdFromUInt(42, id.User, t), id.NewIdFromUInt(69, id.User, t)}
-	mts := []message.Type{AnyType, 42, 69}
+	mts := []catalog.MessageType{AnyType, catalog.NoType, catalog.XxMessage}
 
 	for _, uidReg := range uids {
 		for _, mtReg := range mts {
 
 			//create the registrations
 			sw := New()
-			ch1 := make(chan message.Receive, 1)
-			ch2 := make(chan message.Receive, 1)
+			ch1 := make(chan Message, 1)
+			ch2 := make(chan Message, 1)
 
 			sw.RegisterChannel("test", uidReg, mtReg, ch1)
 			sw.RegisterChannel("test", uidReg, mtReg, ch2)
@@ -263,7 +263,7 @@ func TestSwitchboard_Speak(t *testing.T) {
 						continue
 					}
 
-					m := message.Receive{
+					m := Message{
 						Payload:     []byte{0, 1, 2, 3},
 						Sender:      uid,
 						MessageType: mt,
@@ -315,9 +315,9 @@ func TestSwitchboard_Unregister(t *testing.T) {
 	sw := New()
 
 	uid := id.NewIdFromUInt(42, id.User, t)
-	mt := message.Type(69)
+	mt := catalog.MessageType(1)
 
-	l := func(receive message.Receive) {}
+	l := func(receive Message) {}
 
 	lid1 := sw.RegisterFunc("a", uid, mt, l)
 

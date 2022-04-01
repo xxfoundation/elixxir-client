@@ -106,6 +106,22 @@ func LoadMessageBuffer(kv *versioned.KV, handler MessageHandler,
 	return mb, err
 }
 
+// GetMessages is a getter function which retrieves the
+// MessageBuffer.messages map.
+func (mb *MessageBuffer) GetMessages() map[MessageHash]struct{} {
+	mb.mux.RLock()
+	defer mb.mux.RUnlock()
+	return mb.messages
+}
+
+// GetProcessingMessages is a getter function which retrieves the
+// MessageBuffer.processingMessages map.
+func (mb *MessageBuffer) GetProcessingMessages() map[MessageHash]struct{} {
+	mb.mux.RLock()
+	defer mb.mux.RUnlock()
+	return mb.processingMessages
+}
+
 // save saves the buffer as a versioned object. All messages, regardless if they
 // are in the "not processed" or "processing" state are stored together and
 // considered "not processed".

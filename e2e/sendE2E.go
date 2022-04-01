@@ -64,7 +64,7 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 	errCh := make(chan error, len(partitions))
 
 	// get the key manager for the partner
-	partner, err := m.Ratchet.GetPartner(recipient)
+	partner, err := m.Ratchet.GetPartner(recipient, m.myDefaultID)
 	if err != nil {
 		return nil, e2e.MessageID{}, time.Time{}, errors.WithMessagef(err,
 			"Could not send End to End encrypted "+
@@ -112,9 +112,9 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 		//end to end encrypt the cmix message
 		contentsEnc, mac := key.Encrypt(p)
 
-		jww.INFO.Printf("E2E sending %d/%d to %s with key fp: %s, msgID: %s",
-			i+i, len(partitions), recipient, format.DigestContents(p),
-			key.Fingerprint(), msgID)
+		jww.INFO.Printf("E2E sending %d/%d to %s with key fp: %s, msgID: %s (msgDigest %s)",
+			i+i, len(partitions), recipient,
+			key.Fingerprint(), msgID, format.DigestContents(p))
 
 		//set up the service tags
 		var s message.Service

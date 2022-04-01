@@ -98,7 +98,7 @@ type Handler interface {
 	// then pass them in, otherwise, leave myID and myPrivateKey nil
 	// If temporary is true, an alternate ram kv will be used for storage and
 	// the relationship will not survive a reset
-	AddPartner(myID *id.ID, myPrivateKey *cyclic.Int, partnerID *id.ID,
+	AddPartner(myID *id.ID, partnerID *id.ID,
 		partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
 		mySIDHPrivKey *sidh.PrivateKey, sendParams,
 		receiveParams session.Params, temporary bool) (*partner.Manager, error)

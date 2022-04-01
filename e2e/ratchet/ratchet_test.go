@@ -99,8 +99,10 @@ func TestStore_AddPartner(t *testing.T) {
 		r.defaultDHPrivateKey, partnerPubKey, myPrivSIDHKey, pubSIDHKey,
 		p, p, r.cyHandler, r.grp, r.rng)
 
-	receivedManager, err := r.AddPartner(r.defaultID, partnerID, r.defaultDHPrivateKey,
-		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p, true)
+	receivedManager, err := r.AddPartner(
+		r.defaultID, partnerID,
+		partnerPubKey, r.defaultDHPrivateKey,
+		pubSIDHKey, myPrivSIDHKey, p, p, true)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
 	}

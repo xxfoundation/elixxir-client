@@ -102,14 +102,13 @@ type E2eMessageBuffer struct {
 
 func NewOrLoadE2eMessageBuffer(kv *versioned.KV, key string) (*E2eMessageBuffer, error) {
 	mb, err := LoadE2eMessageBuffer(kv, key)
-	if err != nil {
+	if err == nil {
 		return mb, nil
 	}
 	mbInt, err := utility.NewMessageBuffer(kv, &e2eMessageHandler{}, key)
 	if err != nil {
 		return nil, err
 	}
-
 	return &E2eMessageBuffer{mb: mbInt}, nil
 }
 

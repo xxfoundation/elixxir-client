@@ -8,6 +8,7 @@
 package bindings
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/xxmutils"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
@@ -81,6 +82,10 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *Client,
 	extLookupCB := func(c contact.Contact, myErr error) {
 		bindingsContact := &Contact{c: &c}
 		errStr := myErr.Error()
+		if myErr != nil {
+			jww.WARN.Printf("restore err on lookup: %+v",
+				myErr)
+		}
 		if lookupCB != nil {
 			lookupCB.Callback(bindingsContact, errStr)
 		}

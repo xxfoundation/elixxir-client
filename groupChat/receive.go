@@ -11,10 +11,11 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/network/historical"
+	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -30,104 +31,64 @@ const (
 		"cMix message because MAC verification failed (epoch %d could be off)"
 )
 
-// receive starts the group message reception worker that waits for new group
-// messages to arrive.
-func (m Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) {
-	jww.DEBUG.Print("Starting group message reception worker.")
-
-	for {
-		select {
-		case <-stop.Quit():
-			jww.DEBUG.Print("Stopping group message reception worker.")
-			stop.ToStopped()
-			return
-		case receiveMsg := <-rawMsgs:
-			jww.TRACE.Print("Group message reception received cMix message.")
-
-			// Attempt to read the message
-			g, msgID, timestamp, senderID, msg, noFpMatch, err :=
-				m.readMessage(receiveMsg)
-			if err != nil {
-				if noFpMatch {
-					jww.TRACE.Printf("Received message not for group chat: %+v",
-						err)
-				} else {
-					jww.WARN.Printf("Group message reception failed to read "+
-						"cMix message: %+v", err)
-				}
-				continue
-			}
-
-			jww.DEBUG.Printf("Received group message with ID %s from sender "+
-				"%s in group %s with ID %s at %s.", msgID, senderID, g.Name,
-				g.ID, timestamp)
-
-			// If the message was read correctly, send it to the callback
-			go m.receiveFunc(MessageReceive{
-				GroupID:        g.ID,
-				ID:             msgID,
-				Payload:        msg,
-				SenderID:       senderID,
-				RecipientID:    receiveMsg.RecipientID,
-				EphemeralID:    receiveMsg.EphemeralID,
-				Timestamp:      timestamp,
-				RoundID:        receiveMsg.RoundId,
-				RoundTimestamp: receiveMsg.RoundTimestamp,
-			})
-		}
-	}
+// Adheres to network.Manager interface for reception processing
+type receptionProcessor struct {
+	m *Manager
+	g gs.Group
 }
 
-// readMessage returns the group, message ID, timestamp, sender ID, and message
-// of a group message. The encrypted group message data is unmarshalled from a
-// cMix message in the message.Receive and then decrypted and the MAC is
-// verified. The group is found by finding the group with a matching key
-// fingerprint. Returns true if the key fingerprint cannot be found; in this
-// case no warning or error should be printed.
-func (m *Manager) readMessage(msg message.Receive) (gs.Group, group.MessageID,
-	time.Time, *id.ID, []byte, bool, error) {
-	// Unmarshal payload into cMix message
-	cMixMsg, err := format.Unmarshal(msg.Payload)
+// Process incoming group chat messages
+func (p *receptionProcessor) Process(message format.Message, receptionID receptionID.EphemeralIdentity, round historical.Round) {
+	jww.TRACE.Print("Group message reception received cMix message.")
+
+	// Attempt to read the message
+	roundTimeStamp := round.Timestamps[states.QUEUED]
+	msgID, timestamp, senderID, msg, err := decryptMessage(p.g, message, roundTimeStamp)
 	if err != nil {
-		return gs.Group{}, group.MessageID{}, time.Time{}, nil, nil,
-			false, err
-	}
-	// Unmarshal cMix message contents to get public message format
-	pubMsg, err := unmarshalPublicMsg(cMixMsg.GetContents())
-	if err != nil {
-		return gs.Group{}, group.MessageID{}, time.Time{}, nil, nil, false,
-			errors.Errorf(unmarshalPublicMsgErr, err)
+		jww.WARN.Printf("Group message reception failed to read "+
+			"cMix message: %+v", err)
+		return
 	}
 
-	// get the group from storage via key fingerprint lookup
-	g, exists := m.gs.GetByKeyFp(cMixMsg.GetKeyFP(), pubMsg.GetSalt())
-	if !exists {
-		return gs.Group{}, group.MessageID{}, time.Time{}, nil, nil, true,
-			errors.Errorf(findGroupKeyFpErr, cMixMsg.GetKeyFP())
-	}
+	jww.DEBUG.Printf("Received group message with ID %s from sender "+
+		"%s in group %s with ID %s at %s.", msgID, senderID, p.g.Name,
+		p.g.ID, timestamp)
 
-	// Decrypt the payload and return the messages timestamp, sender ID, and
-	// message contents
-	messageID, timestamp, senderID, contents, err := m.decryptMessage(
-		g, cMixMsg, pubMsg, msg.RoundTimestamp)
-	return g, messageID, timestamp, senderID, contents, false, err
+	// If the message was read correctly, send it to the callback
+	go p.m.receiveFunc(MessageReceive{
+		GroupID:        p.g.ID,
+		ID:             msgID,
+		Payload:        msg,
+		SenderID:       senderID,
+		RecipientID:    receptionID.Source,
+		EphemeralID:    receptionID.EphId,
+		Timestamp:      timestamp,
+		RoundID:        round.ID,
+		RoundTimestamp: roundTimeStamp,
+	})
 }
 
 // decryptMessage decrypts the group message payload and returns its message ID,
 // timestamp, sender ID, and message contents.
-func (m *Manager) decryptMessage(g gs.Group, cMixMsg format.Message,
-	publicMsg publicMsg, roundTimestamp time.Time) (group.MessageID, time.Time,
-	*id.ID, []byte, error) {
+func decryptMessage(g gs.Group, cMixMsg format.Message, roundTimestamp time.Time) (
+	group.MessageID, time.Time, *id.ID, []byte, error) {
 
-	key, err := getCryptKey(g.Key, publicMsg.GetSalt(), cMixMsg.GetMac(),
-		publicMsg.GetPayload(), g.DhKeys, roundTimestamp)
+	// Unmarshal cMix message contents to get public message format
+	pubMsg, err := unmarshalPublicMsg(cMixMsg.GetContents())
+	if err != nil {
+		return group.MessageID{}, time.Time{}, nil, nil,
+			errors.Errorf(unmarshalPublicMsgErr, err)
+	}
+
+	key, err := getCryptKey(g.Key, pubMsg.GetSalt(), cMixMsg.GetMac(),
+		pubMsg.GetPayload(), g.DhKeys, roundTimestamp)
 	if err != nil {
 		return group.MessageID{}, time.Time{}, nil, nil, err
 	}
 
 	// Decrypt internal message
 	decryptedPayload := group.Decrypt(key, cMixMsg.GetKeyFP(),
-		publicMsg.GetPayload())
+		pubMsg.GetPayload())
 
 	// Unmarshal internal message
 	intlMsg, err := unmarshalInternalMsg(decryptedPayload)

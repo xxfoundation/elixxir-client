@@ -11,9 +11,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
 	"strings"
@@ -111,23 +111,11 @@ func (m Manager) sendRequests(g gs.Group) ([]id.Round, RequestStatus, error) {
 
 // sendRequest sends the group request to the user via E2E.
 func (m Manager) sendRequest(memberID *id.ID, request []byte) ([]id.Round, error) {
-	sendMsg := message.Send{
-		Recipient:   memberID,
-		Payload:     request,
-		MessageType: message.GroupCreationRequest,
-	}
+	p := e2e.GetDefaultParams()
+	p.LastServiceTag = catalog.GroupRq
+	p.CMIX.DebugTag = "group.Request"
 
-	recipent, err := m.store.E2e().GetPartner(memberID)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to send request to %s "+
-			"because e2e relationship could not be found", memberID)
-	}
-
-	p := params.GetDefaultE2E()
-	p.IdentityPreimage = recipent.GetGroupRequestPreimage()
-	p.DebugTag = "group.Request"
-
-	rounds, _, _, err := m.net.SendE2E(sendMsg, p, nil)
+	rounds, _, _, err := m.e2e.SendE2E(catalog.GroupCreationRequest, m.receptionId, request, p)
 	if err != nil {
 		return nil, errors.Errorf(sendE2eErr, memberID, err)
 	}

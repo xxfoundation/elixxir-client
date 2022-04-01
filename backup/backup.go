@@ -24,6 +24,7 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // Error messages.
@@ -307,9 +308,23 @@ func (b *Backup) assembleBackup() backup.Backup {
 	// not yet noticed by user OR explicitly rejected.
 	bu.Contacts.Identities = append(bu.Contacts.Identities,
 		b.store.Auth().GetAllSentIDs()...)
+	//deduplicate list
+	bu.Contacts.Identities = deduplicate(bu.Contacts.Identities)
 
 	//add the memoized json params
 	bu.JSONParams = b.jsonParams
 
 	return bu
+}
+
+func deduplicate(list []*id.ID) []*id.ID {
+	entryMap := make(map[id.ID]bool)
+	newList := make([]*id.ID, 0)
+	for _, entry := range list {
+		if _, value := entryMap[*entry]; !value {
+			entryMap[*entry] = true
+			newList = append(newList, entry)
+		}
+	}
+	return newList
 }

@@ -9,6 +9,7 @@ package bindings
 
 import (
 	"gitlab.com/elixxir/client/xxmutils"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -74,11 +75,20 @@ func (r *RestoreContactsReport) GetRestoreContactsError() string {
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
 func RestoreContactsFromBackup(backupPartnerIDs []byte, client *Client,
-	udManager *UserDiscovery,
+	udManager *UserDiscovery, lookupCB LookupCallback,
 	updatesCb RestoreContactsUpdater) *RestoreContactsReport {
 
+	extLookupCB := func(c contact.Contact, myErr error) {
+		bindingsContact := &Contact{c: &c}
+		errStr := myErr.Error()
+		if lookupCB != nil {
+			lookupCB.Callback(bindingsContact, errStr)
+		}
+	}
+
 	restored, failed, errs, err := xxmutils.RestoreContactsFromBackup(
-		backupPartnerIDs, &client.api, udManager.ud, updatesCb)
+		backupPartnerIDs, &client.api, udManager.ud, extLookupCB,
+		updatesCb)
 
 	return &RestoreContactsReport{
 		restored: restored,

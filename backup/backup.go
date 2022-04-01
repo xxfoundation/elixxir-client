@@ -302,6 +302,11 @@ func (b *Backup) assembleBackup() backup.Backup {
 
 	// Get contacts
 	bu.Contacts.Identities = b.store.E2e().GetPartners()
+	// Get pending auth requests
+	// NOTE: Received requests don't matter here, as those are either
+	// not yet noticed by user OR explicitly rejected.
+	bu.Contacts.Identities = append(bu.Contacts.Identities,
+		b.store.Auth().GetAllSentIDs()...)
 
 	//add the memoized json params
 	bu.JSONParams = b.jsonParams

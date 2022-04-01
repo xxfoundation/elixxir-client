@@ -27,6 +27,8 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+type LookupCallback func(c contact.Contact, myErr error)
+
 // RestoreContactsFromBackup takes as input the jason output of the
 // `NewClientFromBackup` function, unmarshals it into IDs, looks up
 // each ID in user discovery, and initiates a session reset request.
@@ -36,7 +38,7 @@ import (
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
 func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
-	udManager *ud.Manager,
+	udManager *ud.Manager, lookupCB LookupCallback,
 	updatesCb interfaces.RestoreContactsUpdater) ([]*id.ID, []*id.ID,
 	[]error, error) {
 
@@ -92,7 +94,8 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
 	rsWg := &sync.WaitGroup{}
 	rsWg.Add(numRoutines)
 	for i := 0; i < numRoutines; i++ {
-		go LookupContacts(lookupCh, foundCh, failCh, udManager, lcWg)
+		go LookupContacts(lookupCh, foundCh, failCh, udManager, lookupCB,
+			lcWg)
 		go ResetSessions(resetContactCh, restoredCh, failCh, *client,
 			rsWg)
 	}
@@ -172,13 +175,13 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
 func LookupContacts(in chan *id.ID, out chan *contact.Contact,
-	failCh chan failure, udManager *ud.Manager,
+	failCh chan failure, udManager *ud.Manager, extLookupCB LookupCallback,
 	wg *sync.WaitGroup) {
 	defer wg.Done()
 	// Start looking up contacts with user discovery and feed this
 	// contacts channel.
 	for lookupID := range in {
-		c, err := LookupContact(lookupID, udManager)
+		c, err := LookupContact(lookupID, udManager, extLookupCB)
 		if err == nil {
 			out <- c
 			continue
@@ -220,8 +223,8 @@ func ResetSessions(in, out chan *contact.Contact, failCh chan failure,
 // xxDK users should not use this function. This function is used by
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
-func LookupContact(userID *id.ID, udManager *ud.Manager) (
-	*contact.Contact, error) {
+func LookupContact(userID *id.ID, udManager *ud.Manager,
+	extLookupCB LookupCallback) (*contact.Contact, error) {
 	// This is a little wonky, but wait until we get called then
 	// set the result to the contact objects details if there is
 	// no error
@@ -230,6 +233,7 @@ func LookupContact(userID *id.ID, udManager *ud.Manager) (
 	var err error
 	lookupCB := func(c contact.Contact, myErr error) {
 		defer waiter.Unlock()
+		defer extLookupCB(c, myErr)
 		if myErr != nil {
 			err = myErr
 		}

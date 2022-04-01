@@ -9,9 +9,9 @@ package auth
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
+	auth2 "gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/auth"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
@@ -76,7 +76,7 @@ loop:
 	}
 }
 
-func makeTestStore(t *testing.T) (*auth.Store, *versioned.KV, []*cyclic.Int) {
+func makeTestStore(t *testing.T) (*auth2.Store, *versioned.KV, []*cyclic.Int) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
 	privKeys := make([]*cyclic.Int, 10)
@@ -84,7 +84,7 @@ func makeTestStore(t *testing.T) (*auth.Store, *versioned.KV, []*cyclic.Int) {
 		privKeys[i] = grp.NewInt(rand.Int63n(170) + 1)
 	}
 
-	store, err := auth.NewStore(kv, grp, privKeys)
+	store, err := auth2.NewStore(kv, grp, privKeys)
 	if err != nil {
 		t.Fatalf("Failed to create new Store: %+v", err)
 	}

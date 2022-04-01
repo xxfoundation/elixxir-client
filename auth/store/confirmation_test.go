@@ -5,7 +5,7 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package auth
+package store
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"

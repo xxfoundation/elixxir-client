@@ -1,4 +1,4 @@
-package auth
+package store
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
@@ -101,10 +101,6 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID, myID *id.ID) (
 	}, nil
 }
 
-func (rr *ReceivedRequest) getType() RequestType {
-	return Receive
-}
-
 func (rr *ReceivedRequest) GetMyID() *id.ID {
 	return rr.myID
 }
@@ -115,4 +111,20 @@ func (rr *ReceivedRequest) GetContact() contact.Contact {
 
 func (rr *ReceivedRequest) GetTheirSidHPubKeyA() *sidh.PublicKey {
 	return rr.theirSidHPubKeyA
+}
+
+func (rr *ReceivedRequest) delete() {
+	if err := util.DeleteContact(rr.kv, rr.partner.ID); err != nil {
+		jww.FATAL.Panicf("Failed to delete received request "+
+			"contact for %s to %s", rr.partner.ID, rr.myID)
+	}
+	if err := util.DeleteSIDHPublicKey(rr.kv,
+		util.MakeSIDHPublicKeyKey(rr.partner.ID)); err != nil {
+		jww.FATAL.Panicf("Failed to delete received request "+
+			"SIDH pubkey for %s to %s", rr.partner.ID, rr.myID)
+	}
+}
+
+func (rr *ReceivedRequest) getType() RequestType {
+	return Receive
 }

@@ -5,7 +5,7 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package auth
+package store
 
 import (
 	"github.com/cloudflare/circl/dh/sidh"
@@ -414,7 +414,7 @@ func Test_marshalNegotiationFingerprints_unmarshalNegotiationFingerprints(t *tes
 	}
 }
 
-// Consistency test of makeNegotiationFingerprintsKey.
+// Consistency test of makeOldNegotiationFingerprintsKey.
 func Test_makeNegotiationFingerprintsKey_Consistency(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	expectedKeys := []string{
@@ -439,7 +439,7 @@ func Test_makeNegotiationFingerprintsKey_Consistency(t *testing.T) {
 	for i, expected := range expectedKeys {
 		partner, _ := id.NewRandomID(prng, id.User)
 
-		key := makeNegotiationFingerprintsKey(partner)
+		key := makeOldNegotiationFingerprintsKey(partner)
 		if expected != key {
 			t.Errorf("Negotiation sentByFingerprints key does not match expected "+
 				"for partner %s (%d).\nexpected: %q\nreceived: %q", partner, i,

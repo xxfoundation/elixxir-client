@@ -5,14 +5,13 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package auth
+package store
 
 import (
 	"encoding/json"
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -35,7 +34,7 @@ type Store struct {
 	receivedByID map[authIdentity]*ReceivedRequest
 	sentByID     map[authIdentity]*SentRequest
 
-	previousNegotiations map[id.ID]struct{}
+	previousNegotiations map[authIdentity]struct{}
 
 	defaultID *id.ID
 
@@ -53,7 +52,7 @@ func NewStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) error
 		grp:                  grp,
 		receivedByID:         make(map[authIdentity]*ReceivedRequest),
 		sentByID:             make(map[authIdentity]*SentRequest),
-		previousNegotiations: make(map[id.ID]struct{}),
+		previousNegotiations: make(map[authIdentity]struct{}),
 		srh:                  srh,
 	}
 
@@ -76,7 +75,7 @@ func LoadStore(kv *versioned.KV, defaultID *id.ID, grp *cyclic.Group, srh SentRe
 		grp:                  grp,
 		receivedByID:         make(map[authIdentity]*ReceivedRequest),
 		sentByID:             make(map[authIdentity]*SentRequest),
-		previousNegotiations: make(map[id.ID]struct{}),
+		previousNegotiations: make(map[authIdentity]struct{}),
 		defaultID:            defaultID,
 		srh:                  srh,
 	}
@@ -195,6 +194,10 @@ func (s *Store) AddSent(partner, myID *id.ID, partnerHistoricalPubKey, myPrivKey
 		return nil, errors.Errorf("Cannot make new sentRequest for partner "+
 			"%s, one already exists", partner)
 	}
+	if _, ok := s.receivedByID[aid]; ok {
+		return nil, errors.Errorf("Cannot make new sentRequest for partner "+
+			"%s, one already exists", partner)
+	}
 
 	sr, err := newSentRequest(s.kv, partner, myID, partnerHistoricalPubKey, myPrivKey,
 		myPubKey, sidHPrivA, sidHPubA, fp)
@@ -220,6 +223,10 @@ func (s *Store) AddReceived(myID *id.ID, c contact.Contact, key *sidh.PublicKey)
 		return errors.Errorf("Cannot add contact for partner "+
 			"%s, one already exists", c.ID)
 	}
+	if _, ok := s.sentByID[aih]; ok {
+		return errors.Errorf("Cannot add contact for partner "+
+			"%s, one already exists", c.ID)
+	}
 
 	r := newReceivedRequest(s.kv, myID, c, key)
 
@@ -232,24 +239,24 @@ func (s *Store) AddReceived(myID *id.ID, c contact.Contact, key *sidh.PublicKey)
 	return nil
 }
 
-// GetReceivedRequest returns the contact representing the partner request, if
-// it exists. If it returns, then it takes the lock to ensure that there is only
-// one operator at a time. The user of the API must release the lock by calling
-// store.delete() or store.Failed() with the partner ID.
-func (s *Store) GetReceivedRequest(partner, myID *id.ID) (*ReceivedRequest, error) {
+// HandleReceivedRequest handles the request singly, only a single operator
+// operates on the same request at a time. It will delete the request if no
+// error is returned from the handler
+func (s *Store) HandleReceivedRequest(partner, myID *id.ID, handler func(*ReceivedRequest) error) error {
 	aid := makeAuthIdentity(partner, myID)
 
 	s.mux.RLock()
-	r, ok := s.receivedByID[aid]
+	rr, ok := s.receivedByID[aid]
 	s.mux.RUnlock()
 
 	if !ok {
-		return nil, errors.Errorf("Received request not "+
+		return errors.Errorf("Received request not "+
 			"found: %s", partner)
 	}
 
 	// Take the lock to ensure there is only one operator at a time
-	r.mux.Lock()
+	rr.mux.Lock()
+	defer rr.mux.Unlock()
 
 	// Check that the request still exists; it could have been deleted while the
 	// lock was taken
@@ -258,18 +265,70 @@ func (s *Store) GetReceivedRequest(partner, myID *id.ID) (*ReceivedRequest, erro
 	s.mux.RUnlock()
 
 	if !ok {
-		r.mux.Unlock()
-		return nil, errors.Errorf("Received request not "+
+		return errors.Errorf("Received request not "+
 			"found: %s", partner)
 	}
 
-	return r, nil
+	//run the handler
+	handleErr := handler(rr)
+
+	if handleErr != nil {
+		return errors.WithMessage(handleErr, "Received error from handler")
+	}
+
+	delete(s.receivedByID, aid)
+	rr.delete()
+
+	return nil
 }
 
-// GetReceivedRequestData returns the contact representing the partner request
+// HandleSentRequest handles the request singly, only a single operator
+// operates on the same request at a time. It will delete the request if no
+// error is returned from the handler
+func (s *Store) HandleSentRequest(partner, myID *id.ID, handler func(request *SentRequest) error) error {
+	aid := makeAuthIdentity(partner, myID)
+
+	s.mux.RLock()
+	sr, ok := s.sentByID[aid]
+	s.mux.RUnlock()
+
+	if !ok {
+		return errors.Errorf("Received request not "+
+			"found: %s", partner)
+	}
+
+	// Take the lock to ensure there is only one operator at a time
+	sr.mux.Lock()
+	defer sr.mux.Unlock()
+
+	// Check that the request still exists; it could have been deleted while the
+	// lock was taken
+	s.mux.RLock()
+	_, ok = s.sentByID[aid]
+	s.mux.RUnlock()
+
+	if !ok {
+		return errors.Errorf("Received request not "+
+			"found: %s", partner)
+	}
+
+	//run the handler
+	handleErr := handler(sr)
+
+	if handleErr != nil {
+		return errors.WithMessage(handleErr, "Received error from handler")
+	}
+
+	delete(s.receivedByID, aid)
+	sr.delete()
+
+	return nil
+}
+
+// GetReceivedRequest returns the contact representing the partner request
 // if it exists. It does not take the lock. It is only meant to return the
 // contact to an external API user.
-func (s *Store) GetReceivedRequestData(partner, myID *id.ID) (contact.Contact, error) {
+func (s *Store) GetReceivedRequest(partner, myID *id.ID) (contact.Contact, error) {
 	if myID == nil {
 		myID = s.defaultID
 	}
@@ -286,174 +345,4 @@ func (s *Store) GetReceivedRequestData(partner, myID *id.ID) (contact.Contact, e
 	}
 
 	return r.partner, nil
-}
-
-// Done is one of two calls after using a request. This one is to be used when
-// the use is unsuccessful. It will allow any thread waiting on access to
-// continue using the structure.
-// It does not return an error because an error is not handleable.
-func (s *Store) Done(rr *ReceivedRequest) {
-	s.mux.RLock()
-	r, ok := s.receivedByID[rr.aid]
-	s.mux.RUnlock()
-
-	r.mux.Unlock()
-
-	if !ok {
-		jww.ERROR.Panicf("Request cannot be finished, not "+
-			"found: %s, %s", rr.partner, rr.myID)
-		return
-	}
-}
-
-// Delete is one of two calls after using a request. This one is to be used when
-// the use is unsuccessful. It deletes all references to the request associated
-// with the passed partner, if it exists. It will allow any thread waiting on
-// access to continue. They should fail due to the deletion of the structure.
-func (s *Store) Delete(partner *id.ID) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	r, ok := s.receivedByID[*partner]
-
-	if !ok {
-		return errors.Errorf("Request not found: %s", partner)
-	}
-
-	switch r.rt {
-	case Sent:
-		s.deleteSentRequest(r)
-	case Receive:
-		s.deleteReceiveRequest(r)
-	}
-
-	delete(s.receivedByID, *partner)
-	if err := s.save(); err != nil {
-		jww.FATAL.Panicf("Failed to store updated request map after "+
-			"deletion: %+v", err)
-	}
-
-	err := s.deletePreviousNegotiationPartner(partner)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to delete partner negotiations: %+v", err)
-	}
-
-	return nil
-}
-
-// DeleteAllRequests clears the request map and all associated storage objects
-// containing request data.
-func (s *Store) DeleteAllRequests() error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	for partnerId, req := range s.receivedByID {
-		switch req.rt {
-		case Sent:
-			s.deleteSentRequest(req)
-			delete(s.receivedByID, partnerId)
-		case Receive:
-			s.deleteReceiveRequest(req)
-			delete(s.receivedByID, partnerId)
-		}
-
-	}
-
-	if err := s.save(); err != nil {
-		jww.FATAL.Panicf("Failed to store updated request map after "+
-			"deleting all receivedByID: %+v", err)
-	}
-
-	return nil
-}
-
-// DeleteRequest deletes a request from Store given a partner ID.
-// If the partner ID exists as a request,  then the request will be deleted
-// and the state stored. If the partner does not exist, then an error will
-// be returned.
-func (s *Store) DeleteRequest(partnerId *id.ID) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	req, ok := s.receivedByID[*partnerId]
-	if !ok {
-		return errors.Errorf("Request for %s does not exist", partnerId)
-	}
-
-	switch req.rt {
-	case Sent:
-		s.deleteSentRequest(req)
-	case Receive:
-		s.deleteReceiveRequest(req)
-	}
-
-	delete(s.receivedByID, *partnerId)
-
-	if err := s.save(); err != nil {
-		jww.FATAL.Panicf("Failed to store updated request map after "+
-			"deleting partner request for partner %s: %+v", partnerId, err)
-	}
-
-	return nil
-}
-
-// DeleteSentRequests deletes all Sent receivedByID from Store.
-func (s *Store) DeleteSentRequests() error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	for partnerId, req := range s.receivedByID {
-		switch req.rt {
-		case Sent:
-			s.deleteSentRequest(req)
-			delete(s.receivedByID, partnerId)
-		case Receive:
-			continue
-		}
-	}
-
-	if err := s.save(); err != nil {
-		jww.FATAL.Panicf("Failed to store updated request map after "+
-			"deleting all sent receivedByID: %+v", err)
-	}
-
-	return nil
-}
-
-// DeleteReceiveRequests deletes all Receive receivedByID from Store.
-func (s *Store) DeleteReceiveRequests() error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	for partnerId, req := range s.receivedByID {
-		switch req.rt {
-		case Sent:
-			continue
-		case Receive:
-			s.deleteReceiveRequest(req)
-			delete(s.receivedByID, partnerId)
-		}
-	}
-
-	if err := s.save(); err != nil {
-		jww.FATAL.Panicf("Failed to store updated request map after "+
-			"deleting all partner receivedByID: %+v", err)
-	}
-
-	return nil
-}
-
-// deleteSentRequest is a helper function which deletes a Sent request from storage.
-func (s *Store) deleteSentRequest(r *ReceivedRequest) {
-	delete(s.sentByFingerprints, r.sent.fingerprint)
-	if err := r.sent.delete(); err != nil {
-		jww.FATAL.Panicf("Failed to delete sent request: %+v", err)
-	}
-}
-
-// deleteReceiveRequest is a helper function which deletes a Receive request from storage.
-func (s *Store) deleteReceiveRequest(r *ReceivedRequest) {
-	if err := util.DeleteContact(s.kv, r.partner.ID); err != nil {
-		jww.FATAL.Panicf("Failed to delete recieved request "+
-			"contact: %+v", err)
-	}
 }

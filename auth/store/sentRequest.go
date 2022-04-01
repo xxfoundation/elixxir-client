@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package auth
+package store
 
 import (
 	"encoding/hex"
@@ -19,6 +19,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"sync"
 )
 
 const currentSentRequestVersion = 0
@@ -36,6 +37,8 @@ type SentRequest struct {
 	mySidHPrivKeyA          *sidh.PrivateKey
 	mySidHPubKeyA           *sidh.PublicKey
 	fingerprint             format.Fingerprint
+
+	mux sync.Mutex
 }
 
 type sentRequestDisk struct {
@@ -223,9 +226,12 @@ func (sr *SentRequest) save() error {
 		currentSentRequestVersion, &obj)
 }
 
-func (sr *SentRequest) delete() error {
-	return sr.kv.Delete(versioned.MakePartnerPrefix(sr.partner),
-		currentSentRequestVersion)
+func (sr *SentRequest) delete() {
+	if err := sr.kv.Delete(versioned.MakePartnerPrefix(sr.partner),
+		currentSentRequestVersion); err != nil {
+		jww.FATAL.Panicf("Failed to delete sent request from %s to %s: "+
+			"%+v", sr.partner, sr.partner, err)
+	}
 }
 
 func (sr *SentRequest) GetPartner() *id.ID {

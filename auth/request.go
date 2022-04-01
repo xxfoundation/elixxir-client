@@ -8,6 +8,7 @@
 package auth
 
 import (
+	auth2 "gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/catalog"
 	e2e2 "gitlab.com/elixxir/client/e2e/ratchet"
 	"io"
@@ -20,7 +21,6 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/auth"
 	"gitlab.com/elixxir/client/storage/edge"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
@@ -57,7 +57,7 @@ func ResetSession(partner, me contact.Contact, rng io.Reader,
 	}
 
 	rqType, _, _, err := storage.Auth().GetRequest(partner.ID)
-	if err == nil && rqType == auth.Sent {
+	if err == nil && rqType == auth2.Sent {
 		return 0, errors.New("Cannot reset a session after " +
 			"sending request, caller must resend request instead")
 	}
@@ -82,18 +82,18 @@ func requestAuth(partner, me contact.Contact, rng io.Reader, reset bool,
 
 	//lookup if an ongoing request is occurring
 	rqType, sr, _, err := storage.Auth().GetRequest(partner.ID)
-	if err != nil && !strings.Contains(err.Error(), auth.NoRequest) {
+	if err != nil && !strings.Contains(err.Error(), auth2.NoRequest) {
 		return 0, errors.WithMessage(err,
 			"Cannot send a request after receiving unknown error "+
 				"on requesting contact status")
 	} else if err == nil {
 		switch rqType {
-		case auth.Receive:
+		case auth2.Receive:
 			// TODO: We've already received a request, so send a
 			//       confirmation instead?
 			return 0, errors.Errorf("Cannot send a request after " +
 				"receiving a request")
-		case auth.Sent:
+		case auth2.Sent:
 			resend = true
 		default:
 			return 0, errors.Errorf("Cannot send a request after "+

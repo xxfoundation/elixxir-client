@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package auth
+package store
 
 import "gitlab.com/elixxir/crypto/cyclic"
 

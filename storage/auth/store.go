@@ -9,10 +9,10 @@ package auth
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -313,20 +313,19 @@ func (s *Store) Done(rr *ReceivedRequest) {
 func (s *Store) Delete(partner *id.ID) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	r, ok := s.receivedByID[*partner]
+	authId := makeAuthIdentity(partner, s.defaultID)
 
-	if !ok {
-		return errors.Errorf("Request not found: %s", partner)
+	_, isReceivedRelationship := s.receivedByID[authId]
+	_, isSentRelationship := s.sentByID[authId]
+
+	if !isSentRelationship && !isReceivedRelationship {
+		return errors.New(fmt.Sprintf("No relationship exists with "+
+			"partner %s", partner))
 	}
 
-	switch r.rt {
-	case Sent:
-		s.deleteSentRequest(r)
-	case Receive:
-		s.deleteReceiveRequest(r)
-	}
+	delete(s.receivedByID, authId)
+	delete(s.sentByID, authId)
 
-	delete(s.receivedByID, *partner)
 	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to store updated request map after "+
 			"deletion: %+v", err)
@@ -346,17 +345,9 @@ func (s *Store) DeleteAllRequests() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	for partnerId, req := range s.receivedByID {
-		switch req.rt {
-		case Sent:
-			s.deleteSentRequest(req)
-			delete(s.receivedByID, partnerId)
-		case Receive:
-			s.deleteReceiveRequest(req)
-			delete(s.receivedByID, partnerId)
-		}
-
-	}
+	// Delete all requests
+	s.deleteSentRequests()
+	s.deleteReceiveRequests()
 
 	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to store updated request map after "+
@@ -370,27 +361,31 @@ func (s *Store) DeleteAllRequests() error {
 // If the partner ID exists as a request,  then the request will be deleted
 // and the state stored. If the partner does not exist, then an error will
 // be returned.
-func (s *Store) DeleteRequest(partnerId *id.ID) error {
+func (s *Store) DeleteRequest(partner *id.ID) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	req, ok := s.receivedByID[*partnerId]
-	if !ok {
-		return errors.Errorf("Request for %s does not exist", partnerId)
+	authId := makeAuthIdentity(partner, s.defaultID)
+
+	// Check if this is a relationship in either map
+	_, isReceivedRelationship := s.receivedByID[authId]
+	_, isSentRelationship := s.sentByID[authId]
+
+	// If it is not a relationship in either, return an error
+	if !isSentRelationship && !isReceivedRelationship {
+		return errors.New(fmt.Sprintf("No relationship exists with "+
+			"identity %s", partner))
 	}
 
-	switch req.rt {
-	case Sent:
-		s.deleteSentRequest(req)
-	case Receive:
-		s.deleteReceiveRequest(req)
-	}
+	// Delete relationship. It should exist in at least one map,
+	// for the other the delete operation is a no-op
+	delete(s.receivedByID, authId)
+	delete(s.sentByID, authId)
 
-	delete(s.receivedByID, *partnerId)
-
+	// Save to storage
 	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to store updated request map after "+
-			"deleting partner request for partner %s: %+v", partnerId, err)
+			"deleting partner request for partner %s: %+v", partner, err)
 	}
 
 	return nil
@@ -401,15 +396,7 @@ func (s *Store) DeleteSentRequests() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	for partnerId, req := range s.receivedByID {
-		switch req.rt {
-		case Sent:
-			s.deleteSentRequest(req)
-			delete(s.receivedByID, partnerId)
-		case Receive:
-			continue
-		}
-	}
+	s.deleteSentRequests()
 
 	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to store updated request map after "+
@@ -424,15 +411,7 @@ func (s *Store) DeleteReceiveRequests() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	for partnerId, req := range s.receivedByID {
-		switch req.rt {
-		case Sent:
-			continue
-		case Receive:
-			s.deleteReceiveRequest(req)
-			delete(s.receivedByID, partnerId)
-		}
-	}
+	s.deleteReceiveRequests()
 
 	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to store updated request map after "+
@@ -442,18 +421,16 @@ func (s *Store) DeleteReceiveRequests() error {
 	return nil
 }
 
-// deleteSentRequest is a helper function which deletes a Sent request from storage.
-func (s *Store) deleteSentRequest(r *ReceivedRequest) {
-	delete(s.sentByFingerprints, r.sent.fingerprint)
-	if err := r.sent.delete(); err != nil {
-		jww.FATAL.Panicf("Failed to delete sent request: %+v", err)
+// deleteSentRequests is a helper function which deletes a Sent request from storage.
+func (s *Store) deleteSentRequests() {
+	for partnerId := range s.sentByID {
+		delete(s.sentByID, partnerId)
 	}
 }
 
-// deleteReceiveRequest is a helper function which deletes a Receive request from storage.
-func (s *Store) deleteReceiveRequest(r *ReceivedRequest) {
-	if err := util.DeleteContact(s.kv, r.partner.ID); err != nil {
-		jww.FATAL.Panicf("Failed to delete recieved request "+
-			"contact: %+v", err)
+// deleteReceiveRequests is a helper function which deletes a Receive request from storage.
+func (s *Store) deleteReceiveRequests() {
+	for partnerId := range s.receivedByID {
+		delete(s.receivedByID, partnerId)
 	}
 }

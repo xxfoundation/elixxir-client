@@ -233,20 +233,23 @@ func LookupContact(userID *id.ID, udManager *ud.Manager,
 	var result *contact.Contact
 	var err error
 	lookupCB := func(c contact.Contact, myErr error) {
-		if myErr != nil {
+		if myErr == nil {
+			newOwnership := make([]byte, len(c.OwnershipProof))
+			copy(newOwnership, c.OwnershipProof)
+			newFacts, _, _ := fact.UnstringifyFactList(
+				c.Facts.Stringify())
+			result = &contact.Contact{
+				ID:             c.ID.DeepCopy(),
+				DhPubKey:       c.DhPubKey.DeepCopy(),
+				OwnershipProof: newOwnership,
+				Facts:          newFacts,
+			}
+		} else {
 			err = myErr
-		}
-		newOwnership := make([]byte, len(c.OwnershipProof))
-		copy(newOwnership, c.OwnershipProof)
-		newFacts, _, _ := fact.UnstringifyFactList(c.Facts.Stringify())
-		result = &contact.Contact{
-			ID:             c.ID.DeepCopy(),
-			DhPubKey:       c.DhPubKey.DeepCopy(),
-			OwnershipProof: newOwnership,
-			Facts:          newFacts,
+			result = nil
 		}
 		waiter.Unlock()
-		extLookupCB(*result, myErr)
+		extLookupCB(c, myErr)
 	}
 	// Take lock once to make sure I will wait
 	waiter.Lock()

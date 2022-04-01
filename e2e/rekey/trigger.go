@@ -88,7 +88,7 @@ func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 
 	//create the new session
 	sess, duplicate := partner.NewReceiveSession(PartnerPublicKey,
-		PartnerSIDHPublicKey, session.GetDefaultE2ESessionParams(),
+		PartnerSIDHPublicKey, session.GetDefaultParams(),
 		oldSession)
 	// new session being nil means the session was a duplicate. This is possible
 	// in edge cases where the partner crashes during operation. The session

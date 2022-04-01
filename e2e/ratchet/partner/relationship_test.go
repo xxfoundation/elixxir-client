@@ -26,7 +26,7 @@ import (
 // Subtest: unmarshal/marshal with one session in the buff
 func TestRelationship_MarshalUnmarshal(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 
 	// Serialization should include session slice only
 	serialized, err := sb.marshal()
@@ -56,7 +56,7 @@ func TestRelationship_MarshalUnmarshal(t *testing.T) {
 // Shows that Relationship returns an equivalent session buff to the one that was saved
 func TestLoadRelationship(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 
 	err := sb.save()
 	if err != nil {
@@ -78,13 +78,13 @@ func TestDeleteRelationship(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
 
 	// Generate send relationship
-	mgr.send = NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	mgr.send = NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 	if err := mgr.send.save(); err != nil {
 		t.Fatal(err)
 	}
 
 	// Generate receive relationship
-	mgr.receive = NewRelationship(kv, session.Receive, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	mgr.receive = NewRelationship(kv, session.Receive, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 	if err := mgr.receive.save(); err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestRelationship_deleteRelationshipFingerprint(t *testing.T) {
 	}()
 
 	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 
 	err := sb.save()
 	if err != nil {
@@ -134,7 +134,7 @@ func TestRelationship_deleteRelationshipFingerprint(t *testing.T) {
 // Shows that Relationship returns a valid session buff
 func TestNewRelationshipBuff(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 
 	if sb.sessionByID == nil || len(sb.sessionByID) != 1 {
 		t.Error("session map should not be nil, and should have one " +
@@ -149,7 +149,7 @@ func TestNewRelationshipBuff(t *testing.T) {
 // Shows that AddSession adds one session to the relationship
 func TestRelationship_AddSession(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 
 	if len(sb.sessions) != 1 {
 		t.Error("starting session slice length should be 1")
@@ -197,14 +197,14 @@ func TestRelationship_AddSession(t *testing.T) {
 		myPrivKey, partnerPubKey, baseKey,
 		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, []byte(""), session.Sending,
-		session.GetDefaultE2ESessionParams(), mockCyHandler{}, grp, frng)
+		session.GetDefaultParams(), mockCyHandler{}, grp, frng)
 	// Note: AddSession doesn't change the session relationship or set anything else up
 	// to match the session to the session buffer. To work properly, the session
 	// should have been created using the same relationship (which is not the case in
 	// this test.)
 	sb.AddSession(myPrivKey, partnerPubKey, baseKey,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Sending, session.GetDefaultE2ESessionParams())
+		sid, session.Sending, session.GetDefaultParams())
 	if len(sb.sessions) != 2 {
 		t.Error("ending session slice length should be 2")
 	}
@@ -219,7 +219,7 @@ func TestRelationship_AddSession(t *testing.T) {
 // GetNewest should get the session that was most recently added to the buff
 func TestRelationship_GetNewest(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 
 	// The newest session should be nil upon session buffer creation
 	nilSession := sb.GetNewest()
@@ -267,11 +267,11 @@ func TestRelationship_GetNewest(t *testing.T) {
 		myPrivKey, partnerPubKey, baseKey,
 		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, []byte(""), session.Unconfirmed,
-		session.GetDefaultE2ESessionParams(), mockCyHandler{}, grp, frng)
+		session.GetDefaultParams(), mockCyHandler{}, grp, frng)
 
 	sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Sending, session.GetDefaultE2ESessionParams())
+		sid, session.Sending, session.GetDefaultParams())
 	if s.GetID() != sb.GetNewest().GetID() {
 		t.Error("session added should have same ID")
 	}
@@ -280,10 +280,10 @@ func TestRelationship_GetNewest(t *testing.T) {
 		myPrivKey, partnerPubKey, baseKey,
 		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, []byte(""), session.Unconfirmed,
-		session.GetDefaultE2ESessionParams(), mockCyHandler{}, grp, frng)
+		session.GetDefaultParams(), mockCyHandler{}, grp, frng)
 	sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Sending, session.GetDefaultE2ESessionParams())
+		sid, session.Sending, session.GetDefaultParams())
 	if session2.GetID() != sb.GetNewest().GetID() {
 		t.Error("session added should have same ID")
 	}
@@ -293,7 +293,7 @@ func TestRelationship_GetNewest(t *testing.T) {
 // Shows that Confirm confirms the specified session in the buff
 func TestRelationship_Confirm(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 
 	grp := cyclic.NewGroup(
 		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B"+
@@ -331,7 +331,7 @@ func TestRelationship_Confirm(t *testing.T) {
 
 	sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Sending, session.GetDefaultE2ESessionParams())
+		sid, session.Sending, session.GetDefaultParams())
 	sb.sessions[0].SetNegotiationStatus(session.Sent)
 
 	if sb.sessions[0].IsConfirmed() {
@@ -351,7 +351,7 @@ func TestRelationship_Confirm(t *testing.T) {
 // Shows that the session buff returns an error when the session doesn't exist
 func TestRelationship_Confirm_Err(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 
 	grp := cyclic.NewGroup(
 		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B"+
@@ -392,7 +392,7 @@ func TestRelationship_Confirm_Err(t *testing.T) {
 		myPrivKey, partnerPubKey, baseKey,
 		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, []byte(""), session.Unconfirmed,
-		session.GetDefaultE2ESessionParams(), mockCyHandler{}, grp, frng)
+		session.GetDefaultParams(), mockCyHandler{}, grp, frng)
 
 	err := sb.Confirm(s.GetID())
 	if err == nil {
@@ -403,7 +403,7 @@ func TestRelationship_Confirm_Err(t *testing.T) {
 // Shows that a session can get got by ID from the buff
 func TestRelationship_GetByID(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 
 	grp := cyclic.NewGroup(
 		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B"+
@@ -441,7 +441,7 @@ func TestRelationship_GetByID(t *testing.T) {
 
 	s := sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Sending, session.GetDefaultE2ESessionParams())
+		sid, session.Sending, session.GetDefaultParams())
 	session2 := sb.GetByID(s.GetID())
 	if !reflect.DeepEqual(s, session2) {
 		t.Error("gotten session should be the same")
@@ -452,18 +452,18 @@ func TestRelationship_GetByID(t *testing.T) {
 // returning sessions that are confirmed and past rekeyThreshold
 func TestRelationship_GetNewestRekeyableSession(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 	baseKey := session.GenerateE2ESessionBaseKey(mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.grp,
 		mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey)
 	sid := session.GetSessionIDFromBaseKey(baseKey)
-	sb.AddSession(mgr.originMyPrivKey, mgr.originPartnerPubKey, baseKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, sid, session.Unconfirmed, session.GetDefaultE2ESessionParams())
+	sb.AddSession(mgr.originMyPrivKey, mgr.originPartnerPubKey, baseKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, sid, session.Unconfirmed, session.GetDefaultParams())
 	// no available rekeyable sessions: nil
 	session2 := sb.getNewestRekeyableSession()
 	if session2 != sb.sessions[1] {
 		t.Error("newest rekeyable session should be the unconfired session")
 	}
 
-	_ = sb.AddSession(mgr.originMyPrivKey, mgr.originPartnerPubKey, baseKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, sid, session.Sending, session.GetDefaultE2ESessionParams())
+	_ = sb.AddSession(mgr.originMyPrivKey, mgr.originPartnerPubKey, baseKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, sid, session.Sending, session.GetDefaultParams())
 	sb.sessions[0].SetNegotiationStatus(session.Confirmed)
 	session3 := sb.getNewestRekeyableSession()
 
@@ -475,7 +475,7 @@ func TestRelationship_GetNewestRekeyableSession(t *testing.T) {
 
 	// add another rekeyable session: that session
 	// show the newest session is selected
-	_ = sb.AddSession(mgr.originMyPrivKey, mgr.originPartnerPubKey, baseKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, sid, session.Sending, session.GetDefaultE2ESessionParams())
+	_ = sb.AddSession(mgr.originMyPrivKey, mgr.originPartnerPubKey, baseKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, sid, session.Sending, session.GetDefaultParams())
 
 	sb.sessions[0].SetNegotiationStatus(session.Confirmed)
 
@@ -501,7 +501,7 @@ func TestRelationship_GetNewestRekeyableSession(t *testing.T) {
 // Shows that GetSessionForSending follows the hierarchy of sessions correctly
 func TestRelationship_GetSessionForSending(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 
 	sb.sessions = make([]*session.Session, 0)
 	sb.sessionByID = make(map[session.SessionID]*session.Session)
@@ -548,7 +548,7 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 	s, kv := session.CreateTestSession(2000, 1000, 1000, session.Unconfirmed, t)
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Sending, session.GetDefaultE2ESessionParams())
+		sid, session.Sending, session.GetDefaultParams())
 	sb.sessions[0] = s
 	sending := sb.getSessionForSending()
 	if sending.GetID() != sb.sessions[0].GetID() {
@@ -563,7 +563,7 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 	s2, _ := session.CreateTestSession(2000, 2000, 1000, session.Unconfirmed, t)
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Sending, session.GetDefaultE2ESessionParams())
+		sid, session.Sending, session.GetDefaultParams())
 	sb.sessions[0] = s2
 	sending = sb.getSessionForSending()
 	if sending.GetID() != sb.sessions[0].GetID() {
@@ -580,7 +580,7 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 	s3, _ := session.CreateTestSession(2000, 600, 1000, session.Confirmed, t)
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Sending, session.GetDefaultE2ESessionParams())
+		sid, session.Sending, session.GetDefaultParams())
 	sb.sessions[0] = s3
 	sending = sb.getSessionForSending()
 	if sending.GetID() != sb.sessions[0].GetID() {
@@ -596,7 +596,7 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 	s4, _ := session.CreateTestSession(2000, 2000, 1000, session.Confirmed, t)
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Sending, session.GetDefaultE2ESessionParams())
+		sid, session.Sending, session.GetDefaultParams())
 
 	sb.sessions[0] = s4
 
@@ -614,7 +614,7 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 // Shows that GetKeyForRekey returns a key if there's an appropriate session for rekeying
 func TestSessionBuff_GetKeyForRekey(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 
 	sb.sessions = make([]*session.Session, 0)
 	sb.sessionByID = make(map[session.SessionID]*session.Session)
@@ -664,7 +664,7 @@ func TestSessionBuff_GetKeyForRekey(t *testing.T) {
 
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Sending, session.GetDefaultE2ESessionParams())
+		sid, session.Sending, session.GetDefaultParams())
 	sb.sessions[0].SetNegotiationStatus(session.Confirmed)
 	key, err = sb.getKeyForRekey()
 	if err != nil {
@@ -678,7 +678,7 @@ func TestSessionBuff_GetKeyForRekey(t *testing.T) {
 // Shows that GetKeyForSending returns a key if there's an appropriate session for sending
 func TestSessionBuff_GetKeyForSending(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 
 	sb.sessions = make([]*session.Session, 0)
 	sb.sessionByID = make(map[session.SessionID]*session.Session)
@@ -728,7 +728,7 @@ func TestSessionBuff_GetKeyForSending(t *testing.T) {
 
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Sending, session.GetDefaultE2ESessionParams())
+		sid, session.Sending, session.GetDefaultParams())
 	key, err = sb.getKeyForSending()
 	if err != nil {
 		t.Error(err)
@@ -744,7 +744,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner,
 		mgr.originMyPrivKey, mgr.originPartnerPubKey,
 		mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey,
-		session.GetDefaultE2ESessionParams(), mockCyHandler{},
+		session.GetDefaultParams(), mockCyHandler{},
 		mgr.grp, mgr.rng)
 
 	sb.sessions = make([]*session.Session, 0)
@@ -772,7 +772,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 
 	session1 := sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Sending, session.GetDefaultE2ESessionParams())
+		sid, session.Sending, session.GetDefaultParams())
 	session1.SetNegotiationStatus(session.Confirmed)
 	// The added session isn't ready for rekey, so it's not returned here
 	negotiations := sb.TriggerNegotiation()
@@ -784,7 +784,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	session2, _ := session.CreateTestSession(0, 4, 0, session.Sending, t)
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Sending, session.GetDefaultE2ESessionParams())
+		sid, session.Sending, session.GetDefaultParams())
 	sb.sessions[0] = session2
 	session2.SetNegotiationStatus(session.Confirmed)
 	negotiations = sb.TriggerNegotiation()
@@ -802,10 +802,12 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 
 	// Unconfirmed sessions should also be included in the list
 	// as the client should attempt to confirm them
+	p := session.GetDefaultParams()
+	p.UnconfirmedRetryRatio = 1
 	session3 := sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		sid, session.Sending, session.GetDefaultE2ESessionParams())
-	session3.SetNegotiationStatus(session.Confirmed)
+		sid, session.Sending, p)
+	session3.SetNegotiationStatus(session.Unconfirmed)
 
 	// Set session 2 status back to Confirmed to show that more than one session can be returned
 	session2.SetNegotiationStatus(session.Confirmed)

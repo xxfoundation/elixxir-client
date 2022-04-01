@@ -88,7 +88,7 @@ func makeTestSession() (*Session, *versioned.KV) {
 		partnerPubKey:     partnerPubKey,
 		mySIDHPrivKey:     mySIDHPrivKey,
 		partnerSIDHPubKey: partnerSIDHPubKey,
-		e2eParams:         GetDefaultE2ESessionParams(),
+		e2eParams:         GetDefaultParams(),
 		sID:               sid,
 		kv:                kv.Prefix(MakeSessionPrefix(sid)),
 		t:                 Receive,

@@ -31,7 +31,7 @@ const (
 	rekeyRatio    float64 = 1 / 10
 )
 
-func GetDefaultE2ESessionParams() Params {
+func GetDefaultParams() Params {
 	return Params{
 		MinKeys:               minKeys,
 		MaxKeys:               maxKeys,

@@ -64,7 +64,7 @@ func trigger(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSend
 
 		//create the session, pass a nil private key to generate a new one
 		negotiatingSession = manager.NewSendSession(nil, nil,
-			session.GetDefaultE2ESessionParams(), inputSession)
+			session.GetDefaultParams(), inputSession)
 
 		//move the state of the triggering session forward
 		inputSession.SetNegotiationStatus(session.NewSessionCreated)

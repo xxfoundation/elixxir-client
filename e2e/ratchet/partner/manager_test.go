@@ -33,8 +33,8 @@ func Test_newManager(t *testing.T) {
 	m := NewManager(kv, expectedM.myID, expectedM.partner,
 		expectedM.originMyPrivKey, expectedM.originPartnerPubKey,
 		expectedM.originMySIDHPrivKey,
-		expectedM.originPartnerSIDHPubKey, session.GetDefaultE2ESessionParams(),
-		session.GetDefaultE2ESessionParams(),
+		expectedM.originPartnerSIDHPubKey, session.GetDefaultParams(),
+		session.GetDefaultParams(),
 		expectedM.cyHandler, expectedM.grp, expectedM.rng)
 
 	// Check if the new relationship matches the expected
@@ -113,10 +113,10 @@ func TestManager_NewReceiveSession(t *testing.T) {
 		m.originMyPrivKey, partnerPrivKey, baseKey,
 		m.originMySIDHPrivKey, partnerSIDHPubKey,
 		sid, []byte(""), session.Sent,
-		session.GetDefaultE2ESessionParams(), m.cyHandler, m.grp, m.rng)
+		session.GetDefaultParams(), m.cyHandler, m.grp, m.rng)
 
 	se, exists := m.NewReceiveSession(partnerPubKey, partnerSIDHPubKey,
-		session.GetDefaultE2ESessionParams(), thisSession)
+		session.GetDefaultParams(), thisSession)
 	if exists {
 		t.Errorf("NewReceiveSession() incorrect return value."+
 			"\n\texpected: %v\n\treceived: %v", false, exists)
@@ -130,7 +130,7 @@ func TestManager_NewReceiveSession(t *testing.T) {
 	}
 
 	se, exists = m.NewReceiveSession(partnerPubKey, partnerSIDHPubKey,
-		session.GetDefaultE2ESessionParams(), thisSession)
+		session.GetDefaultParams(), thisSession)
 	if !exists {
 		t.Errorf("NewReceiveSession() incorrect return value."+
 			"\n\texpected: %v\n\treceived: %v", true, exists)
@@ -150,7 +150,7 @@ func TestManager_NewSendSession(t *testing.T) {
 	m, _ := newTestManager(t)
 
 	se := m.NewSendSession(m.originMyPrivKey, m.originMySIDHPrivKey,
-		session.GetDefaultE2ESessionParams(), m.send.sessions[0])
+		session.GetDefaultParams(), m.send.sessions[0])
 	if !m.partner.Cmp(se.GetPartner()) {
 		t.Errorf("NewSendSession() did not return the correct session."+
 			"\n\texpected partner: %v\n\treceived partner: %v",
@@ -158,7 +158,7 @@ func TestManager_NewSendSession(t *testing.T) {
 	}
 
 	se, _ = m.NewReceiveSession(m.originPartnerPubKey, m.originPartnerSIDHPubKey,
-		session.GetDefaultE2ESessionParams(), m.receive.sessions[0])
+		session.GetDefaultParams(), m.receive.sessions[0])
 	if !m.partner.Cmp(se.GetPartner()) {
 		t.Errorf("NewSendSession() did not return the correct session."+
 			"\n\texpected partner: %v\n\treceived partner: %v",
@@ -290,7 +290,7 @@ func TestManager_Confirm(t *testing.T) {
 	m.send.AddSession(m.originMyPrivKey, partnerPrivKey, baseKey,
 		m.originMySIDHPrivKey, partnerSIDHPubKey,
 		sid,
-		session.Sending, session.GetDefaultE2ESessionParams())
+		session.Sending, session.GetDefaultParams())
 
 	thisSession := m.send.GetByID(sid)
 	thisSession.TriggerNegotiation()

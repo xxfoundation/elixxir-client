@@ -703,10 +703,10 @@ func MakeSessionPrefix(sid SessionID) string {
 // todo - doscstring
 func decideIfResendRekey(genRng *fastRNG.StreamGenerator, ratio float64) bool {
 	stream := genRng.GetStream()
-	b := make([]byte, 8)
+	b := make([]byte, 4)
 	stream.Read(b)
 	stream.Close()
-	randNum := binary.BigEndian.Uint64(b)
-	max := uint64(float64(math.MaxUint64) * ratio)
+	randNum := binary.BigEndian.Uint32(b)
+	max := uint32(float64(math.MaxUint32) * ratio)
 	return randNum < max
 }

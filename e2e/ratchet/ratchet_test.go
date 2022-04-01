@@ -88,7 +88,7 @@ func TestStore_AddPartner(t *testing.T) {
 	}
 
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-	p := session.GetDefaultE2ESessionParams()
+	p := session.GetDefaultParams()
 	partnerPubKey := diffieHellman.GeneratePublicKey(r.defaultDHPrivateKey, r.grp)
 	// NOTE: e2e store doesn't contain a private SIDH key, that's
 	// because they're completely address as part of the
@@ -132,7 +132,7 @@ func TestStore_DeletePartner(t *testing.T) {
 
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	partnerPubKey := diffieHellman.GeneratePublicKey(r.defaultDHPrivateKey, r.grp)
-	p := session.GetDefaultE2ESessionParams()
+	p := session.GetDefaultParams()
 	// NOTE: e2e store doesn't contain a private SIDH key, that's
 	// because they're completely address as part of the
 	// initiation of the connection.
@@ -166,7 +166,7 @@ func TestStore_GetPartner(t *testing.T) {
 	}
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	partnerPubKey := diffieHellman.GeneratePublicKey(r.defaultDHPrivateKey, r.grp)
-	p := session.GetDefaultE2ESessionParams()
+	p := session.GetDefaultParams()
 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
 	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
 	expectedManager, err := r.AddPartner(r.defaultID, partnerID, r.defaultDHPrivateKey,

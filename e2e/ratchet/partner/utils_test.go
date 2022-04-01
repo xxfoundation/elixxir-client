@@ -79,7 +79,7 @@ func newTestManager(t *testing.T) (*Manager, *versioned.KV) {
 	// Create new relationship
 	m := NewManager(kv, myId, partnerID, myPrivKey, partnerPubKey,
 		mySIDHPrivKey, partnerSIDHPubKey,
-		session.GetDefaultE2ESessionParams(), session.GetDefaultE2ESessionParams(),
+		session.GetDefaultParams(), session.GetDefaultParams(),
 		mockCyHandler{}, grp,
 		fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG))
 

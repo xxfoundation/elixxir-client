@@ -81,8 +81,8 @@ func TestHandleTrigger(t *testing.T) {
 	}
 
 	// Add bob as a partner
-	sendParams := session2.GetDefaultE2ESessionParams()
-	receiveParams := session2.GetDefaultE2ESessionParams()
+	sendParams := session2.GetDefaultParams()
+	receiveParams := session2.GetDefaultParams()
 	_, err = r.AddPartner(myID, bobID, bobPubKey, alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey, sendParams, receiveParams, false)
 	if err != nil {
 		t.Errorf("Failed to add partner to ratchet: %+v", err)

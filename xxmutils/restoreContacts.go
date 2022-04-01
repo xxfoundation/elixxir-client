@@ -232,12 +232,12 @@ func LookupContact(userID *id.ID, udManager *ud.Manager,
 	var result *contact.Contact
 	var err error
 	lookupCB := func(c contact.Contact, myErr error) {
-		defer waiter.Unlock()
-		defer extLookupCB(c, myErr)
 		if myErr != nil {
 			err = myErr
 		}
 		result = &c
+		waiter.Unlock()
+		extLookupCB(c, myErr)
 	}
 	// Take lock once to make sure I will wait
 	waiter.Lock()

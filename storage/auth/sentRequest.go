@@ -47,6 +47,27 @@ type sentRequestDisk struct {
 	Fingerprint             []byte
 }
 
+func newSentRequest(kv *versioned.KV, partner, myID *id.ID, partnerHistoricalPubKey, myPrivKey,
+	myPubKey *cyclic.Int, sidHPrivA *sidh.PrivateKey, sidHPubA *sidh.PublicKey,
+	fp format.Fingerprint) (*SentRequest, error) {
+
+	aid := makeAuthIdentity(partner, myID)
+
+	sr := &SentRequest{
+		kv:                      kv,
+		aid:                     aid,
+		partner:                 partner,
+		partnerHistoricalPubKey: partnerHistoricalPubKey,
+		myPrivKey:               myPrivKey,
+		myPubKey:                myPubKey,
+		mySidHPubKeyA:           sidHPubA,
+		mySidHPrivKeyA:          sidHPrivA,
+		fingerprint:             fp,
+	}
+
+	return sr, sr.save()
+}
+
 func loadSentRequest(kv *versioned.KV, partner *id.ID, myID *id.ID, grp *cyclic.Group) (*SentRequest, error) {
 
 	// try the load with both the new prefix and the old, which one is
@@ -57,24 +78,24 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, myID *id.ID, grp *cyclic.
 	// partnerID,MyID. Old receivedByID always have the same myID so they can be left
 	// at their own paths
 	aid := makeAuthIdentity(partner, myID)
-	oldKV := kv
-	newKV := kv.Prefix(makeRequestPrefix(aid))
 
-	obj, err := newKV.Get(versioned.MakePartnerPrefix(partner),
+	obj, err := kv.Get(makeSentRequestKey(aid),
 		currentSentRequestVersion)
 
 	//loading with the new prefix path failed, try with the new
 	if err != nil {
-		obj, err = oldKV.Get(versioned.MakePartnerPrefix(partner),
+		obj, err = kv.Get(versioned.MakePartnerPrefix(partner),
 			currentSentRequestVersion)
 		if err != nil {
 			return nil, errors.WithMessagef(err, "Failed to Load "+
 				"SentRequest Auth with %s", partner)
 		} else {
-			kv = oldKV
+			err = kv.Set(makeSentRequestKey(aid), currentSentRequestVersion, obj)
+			if err != nil {
+				return nil, errors.WithMessagef(err, "Failed to update "+
+					"from old store SentRequest Auth with %s", partner)
+			}
 		}
-	} else {
-		kv = newKV
 	}
 
 	srd := &sentRequestDisk{}

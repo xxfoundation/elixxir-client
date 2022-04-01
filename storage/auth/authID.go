@@ -30,6 +30,10 @@ func (ai authIdentity) String() string {
 	return base64.StdEncoding.EncodeToString(ai[:])
 }
 
-func makeRequestPrefix(aid authIdentity) string {
-	return base64.StdEncoding.EncodeToString(aid[:])
+func makeReceiveRequestPrefix(aid authIdentity) string {
+	return "receiveRequest:" + base64.StdEncoding.EncodeToString(aid[:])
+}
+
+func makeSentRequestKey(aid authIdentity) string {
+	return "sentRequest:" + base64.StdEncoding.EncodeToString(aid[:])
 }

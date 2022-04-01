@@ -39,12 +39,14 @@ type Store struct {
 
 	defaultID *id.ID
 
+	srh SentRequestHandler
+
 	mux sync.RWMutex
 }
 
 // NewStore creates a new store. All passed in private keys are added as
 // sentByFingerprints so they can be used to trigger receivedByID.
-func NewStore(kv *versioned.KV, grp *cyclic.Group) error {
+func NewStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) error {
 	kv = kv.Prefix(storePrefix)
 	s := &Store{
 		kv:                   kv,
@@ -52,6 +54,7 @@ func NewStore(kv *versioned.KV, grp *cyclic.Group) error {
 		receivedByID:         make(map[authIdentity]*ReceivedRequest),
 		sentByID:             make(map[authIdentity]*SentRequest),
 		previousNegotiations: make(map[id.ID]struct{}),
+		srh:                  srh,
 	}
 
 	err := s.savePreviousNegotiations()
@@ -65,7 +68,7 @@ func NewStore(kv *versioned.KV, grp *cyclic.Group) error {
 
 // LoadStore loads an extant new store. All passed in private keys are added as
 // sentByFingerprints so they can be used to trigger receivedByID.
-func LoadStore(kv *versioned.KV, defaultID *id.ID, grp *cyclic.Group) (*Store, error) {
+func LoadStore(kv *versioned.KV, defaultID *id.ID, grp *cyclic.Group, srh SentRequestHandler) (*Store, error) {
 	kv = kv.Prefix(storePrefix)
 
 	s := &Store{
@@ -75,6 +78,7 @@ func LoadStore(kv *versioned.KV, defaultID *id.ID, grp *cyclic.Group) (*Store, e
 		sentByID:             make(map[authIdentity]*SentRequest),
 		previousNegotiations: make(map[id.ID]struct{}),
 		defaultID:            defaultID,
+		srh:                  srh,
 	}
 
 	var requestList []requestDisk
@@ -122,6 +126,7 @@ func LoadStore(kv *versioned.KV, defaultID *id.ID, grp *cyclic.Group) (*Store, e
 			}
 
 			s.sentByID[sr.getAuthID()] = sr
+			s.srh.Add(sr)
 		case Receive:
 			rr, err := loadReceivedRequest(kv, partner, myID)
 			if err != nil {
@@ -180,63 +185,45 @@ func (s *Store) save() error {
 
 func (s *Store) AddSent(partner, myID *id.ID, partnerHistoricalPubKey, myPrivKey,
 	myPubKey *cyclic.Int, sidHPrivA *sidh.PrivateKey, sidHPubA *sidh.PublicKey,
-	fp format.Fingerprint) error {
+	fp format.Fingerprint) (*SentRequest, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	aid := makeAuthIdentity(partner, myID)
 
 	if _, ok := s.sentByID[aid]; ok {
-		return errors.Errorf("Cannot make new sentRequest for partner "+
+		return nil, errors.Errorf("Cannot make new sentRequest for partner "+
 			"%s, one already exists", partner)
 	}
 
-	sr := &SentRequest{
-		kv:                      s.kv,
-		partner:                 partner,
-		partnerHistoricalPubKey: partnerHistoricalPubKey,
-		myPrivKey:               myPrivKey,
-		myPubKey:                myPubKey,
-		mySidHPubKeyA:           sidHPubA,
-		mySidHPrivKeyA:          sidHPrivA,
-		fingerprint:             fp,
+	sr, err := newSentRequest(s.kv, partner, myID, partnerHistoricalPubKey, myPrivKey,
+		myPubKey, sidHPrivA, sidHPubA, fp)
+
+	if err != nil {
+		return nil, err
 	}
 
-	if err := sr.save(); err != nil {
-		jww.FATAL.Panicf("Failed to save Sent Request for partner %s", partner)
-	}
+	s.sentByID[sr.getAuthID()] = sr
+	s.srh.Add(sr)
 
-	return nil
+	return sr, nil
 }
 
-func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey) error {
+func (s *Store) AddReceived(myID *id.ID, c contact.Contact, key *sidh.PublicKey) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	jww.DEBUG.Printf("AddReceived new contact: %s", c.ID)
-	if _, ok := s.receivedByID[*c.ID]; ok {
+	jww.DEBUG.Printf("AddReceived new contact: %s with %s", c.ID, myID)
+
+	aih := makeAuthIdentity(c.ID, myID)
+
+	if _, ok := s.receivedByID[aih]; ok {
 		return errors.Errorf("Cannot add contact for partner "+
 			"%s, one already exists", c.ID)
 	}
 
-	if err := util.StoreContact(s.kv, c); err != nil {
-		jww.FATAL.Panicf("Failed to save contact for partner %s", c.ID.String())
-	}
+	r := newReceivedRequest(s.kv, myID, c, key)
 
-	storeKey := util.MakeSIDHPublicKeyKey(c.ID)
-	if err := util.StoreSIDHPublicKey(s.kv, key, storeKey); err != nil {
-		jww.FATAL.Panicf("Failed to save contact pubKey for partner %s",
-			c.ID.String())
-	}
-
-	r := &ReceivedRequest{
-		rt:               Receive,
-		sent:             nil,
-		partner:          &c,
-		theirSidHPubKeyA: key,
-		mux:              sync.Mutex{},
-	}
-
-	s.receivedByID[*c.ID] = r
+	s.receivedByID[r.aid] = r
 	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to save Sent Request Map after adding "+
 			"partner %s", c.ID)
@@ -245,73 +232,19 @@ func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey) error {
 	return nil
 }
 
-// GetAllReceived returns all pending received contact receivedByID from storage.
-func (s *Store) GetAllReceived() []contact.Contact {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	cList := make([]contact.Contact, 0, len(s.receivedByID))
-	for key := range s.receivedByID {
-		r := s.receivedByID[key]
-		if r.rt == Receive {
-			cList = append(cList, *r.partner)
-		}
-	}
-	return cList
-}
-
-// GetFingerprint can return either a private key or a sentRequest if the
-// fingerprint is found. If it returns a sentRequest, then it takes the lock to
-// ensure there is only one operator at a time. The user of the API must release
-// the lock by calling store.delete() or store.Failed() with the partner ID.
-func (s *Store) GetFingerprint(fp format.Fingerprint) (FingerprintType,
-	*SentRequest, *cyclic.Int, error) {
-
-	s.mux.RLock()
-	r, ok := s.sentByFingerprints[fp]
-	s.mux.RUnlock()
-	if !ok {
-		return 0, nil, nil, errors.Errorf("Fingerprint cannot be found: %v", fp)
-	}
-
-	switch r.Type {
-	// If it is general, then just return the private key
-	case General:
-		return General, nil, r.PrivKey, nil
-
-	// If it is specific, then take the request lock and return it
-	case Specific:
-		r.Request.mux.Lock()
-		// Check that the request still exists; it could have been deleted
-		// while the lock was taken
-		s.mux.RLock()
-		_, ok := s.receivedByID[*r.Request.sent.partner]
-		s.mux.RUnlock()
-		if !ok {
-			r.Request.mux.Unlock()
-			return 0, nil, nil, errors.Errorf("request associated with "+
-				"fingerprint cannot be found: %s", fp)
-		}
-		// Return the request
-		return Specific, r.Request.sent, nil, nil
-
-	default:
-		jww.WARN.Printf("Auth request message ignored due to unknown "+
-			"fingerprint type %d on lookup; should be impossible", r.Type)
-		return 0, nil, nil, errors.New("Unknown fingerprint type")
-	}
-}
-
 // GetReceivedRequest returns the contact representing the partner request, if
 // it exists. If it returns, then it takes the lock to ensure that there is only
 // one operator at a time. The user of the API must release the lock by calling
 // store.delete() or store.Failed() with the partner ID.
-func (s *Store) GetReceivedRequest(partner *id.ID) (contact.Contact, *sidh.PublicKey, error) {
+func (s *Store) GetReceivedRequest(partner, myID *id.ID) (*ReceivedRequest, error) {
+	aid := makeAuthIdentity(partner, myID)
+
 	s.mux.RLock()
-	r, ok := s.receivedByID[*partner]
+	r, ok := s.receivedByID[aid]
 	s.mux.RUnlock()
 
 	if !ok {
-		return contact.Contact{}, nil, errors.Errorf("Received request not "+
+		return nil, errors.Errorf("Received request not "+
 			"found: %s", partner)
 	}
 
@@ -321,71 +254,56 @@ func (s *Store) GetReceivedRequest(partner *id.ID) (contact.Contact, *sidh.Publi
 	// Check that the request still exists; it could have been deleted while the
 	// lock was taken
 	s.mux.RLock()
-	_, ok = s.receivedByID[*partner]
+	_, ok = s.receivedByID[aid]
 	s.mux.RUnlock()
 
 	if !ok {
 		r.mux.Unlock()
-		return contact.Contact{}, nil, errors.Errorf("Received request not "+
+		return nil, errors.Errorf("Received request not "+
 			"found: %s", partner)
 	}
 
-	return *r.partner, r.theirSidHPubKeyA, nil
+	return r, nil
 }
 
 // GetReceivedRequestData returns the contact representing the partner request
 // if it exists. It does not take the lock. It is only meant to return the
 // contact to an external API user.
-func (s *Store) GetReceivedRequestData(partner *id.ID) (contact.Contact, error) {
+func (s *Store) GetReceivedRequestData(partner, myID *id.ID) (contact.Contact, error) {
+	if myID == nil {
+		myID = s.defaultID
+	}
+
+	aid := makeAuthIdentity(partner, myID)
+
 	s.mux.RLock()
-	r, ok := s.receivedByID[*partner]
+	r, ok := s.receivedByID[aid]
 	s.mux.RUnlock()
 
-	if !ok || r.partner == nil {
+	if !ok {
 		return contact.Contact{}, errors.Errorf("Received request not "+
 			"found: %s", partner)
 	}
 
-	return *r.partner, nil
-}
-
-// GetRequest returns request with its type and data. The lock is not taken.
-func (s *Store) GetRequest(partner *id.ID) (RequestType, *SentRequest, contact.Contact, error) {
-	s.mux.RLock()
-	r, ok := s.receivedByID[*partner]
-	s.mux.RUnlock()
-
-	if !ok {
-		return 0, nil, contact.Contact{}, errors.New(NoRequest)
-	}
-
-	switch r.rt {
-	case Sent:
-		return Sent, r.sent, contact.Contact{}, nil
-	case Receive:
-		return Receive, nil, *r.partner, nil
-	default:
-		return 0, nil, contact.Contact{},
-			errors.Errorf("invalid Tag: %d", r.rt)
-	}
+	return r.partner, nil
 }
 
 // Done is one of two calls after using a request. This one is to be used when
 // the use is unsuccessful. It will allow any thread waiting on access to
 // continue using the structure.
 // It does not return an error because an error is not handleable.
-func (s *Store) Done(partner *id.ID) {
+func (s *Store) Done(rr *ReceivedRequest) {
 	s.mux.RLock()
-	r, ok := s.receivedByID[*partner]
+	r, ok := s.receivedByID[rr.aid]
 	s.mux.RUnlock()
+
+	r.mux.Unlock()
 
 	if !ok {
 		jww.ERROR.Panicf("Request cannot be finished, not "+
-			"found: %s", partner)
+			"found: %s, %s", rr.partner, rr.myID)
 		return
 	}
-
-	r.mux.Unlock()
 }
 
 // Delete is one of two calls after using a request. This one is to be used when

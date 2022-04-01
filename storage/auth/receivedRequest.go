@@ -3,10 +3,12 @@ package auth
 import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
+	"sync"
 )
 
 type ReceivedRequest struct {
@@ -22,6 +24,34 @@ type ReceivedRequest struct {
 
 	//sidHPublic key of partner
 	theirSidHPubKeyA *sidh.PublicKey
+
+	//lock to make sure only one operator at a time
+	mux *sync.Mutex
+}
+
+func newReceivedRequest(kv *versioned.KV, myID *id.ID, c contact.Contact,
+	key *sidh.PublicKey) *ReceivedRequest {
+
+	aid := makeAuthIdentity(c.ID, myID)
+	kv = kv.Prefix(makeReceiveRequestPrefix(aid))
+
+	if err := util.StoreContact(kv, c); err != nil {
+		jww.FATAL.Panicf("Failed to save contact for partner %s", c.ID.String())
+	}
+
+	storeKey := util.MakeSIDHPublicKeyKey(c.ID)
+	if err := util.StoreSIDHPublicKey(kv, key, storeKey); err != nil {
+		jww.FATAL.Panicf("Failed to save contact pubKey for partner %s",
+			c.ID.String())
+	}
+
+	return &ReceivedRequest{
+		kv:               kv,
+		aid:              aid,
+		myID:             myID,
+		partner:          c,
+		theirSidHPubKeyA: key,
+	}
 }
 
 func loadReceivedRequest(kv *versioned.KV, partner *id.ID, myID *id.ID) (
@@ -36,7 +66,7 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID, myID *id.ID) (
 	// at their own paths
 	aid := makeAuthIdentity(partner, myID)
 	newKV := kv
-	oldKV := kv.Prefix(makeRequestPrefix(aid))
+	oldKV := kv.Prefix(makeReceiveRequestPrefix(aid))
 
 	c, err := util.LoadContact(newKV, partner)
 
@@ -73,4 +103,16 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID, myID *id.ID) (
 
 func (rr *ReceivedRequest) getType() RequestType {
 	return Receive
+}
+
+func (rr *ReceivedRequest) GetMyID() *id.ID {
+	return rr.myID
+}
+
+func (rr *ReceivedRequest) GetContact() contact.Contact {
+	return rr.partner
+}
+
+func (rr *ReceivedRequest) GetTheirSidHPubKeyA() *sidh.PublicKey {
+	return rr.theirSidHPubKeyA
 }

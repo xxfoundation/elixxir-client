@@ -80,6 +80,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *Client,
 	updatesCb RestoreContactsUpdater) *RestoreContactsReport {
 
 	extLookupCB := func(c contact.Contact, myErr error) {
+		jww.INFO.Printf("extLookupCB triggered: %v, %v", c, myErr)
 		bindingsContact := &Contact{c: &c}
 		errStr := ""
 		if myErr != nil {

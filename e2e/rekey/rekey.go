@@ -12,7 +12,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	session "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/event"
@@ -28,7 +27,7 @@ import (
 
 func CheckKeyExchanges(instance *commsNetwork.Instance, grp *cyclic.Group,
 	sendE2E E2eSender, events event.Manager, manager *partner.Manager,
-	sendTimeout time.Duration) {
+	param Params, sendTimeout time.Duration) {
 
 	//get all sessions that may need a key exchange
 	sessions := manager.TriggerNegotiations()
@@ -36,7 +35,7 @@ func CheckKeyExchanges(instance *commsNetwork.Instance, grp *cyclic.Group,
 	//start an exchange for every session that needs one
 	for _, sess := range sessions {
 		go trigger(instance, grp, sendE2E, events, manager, sess,
-			sendTimeout)
+			sendTimeout, param)
 	}
 }
 
@@ -46,7 +45,7 @@ func CheckKeyExchanges(instance *commsNetwork.Instance, grp *cyclic.Group,
 // session while the latter on an extant session
 func trigger(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSender,
 	events event.Manager, manager *partner.Manager, inputSession *session.Session,
-	sendTimeout time.Duration) {
+	sendTimeout time.Duration, params Params) {
 
 	var negotiatingSession *session.Session
 	jww.INFO.Printf("[REKEY] Negotiation triggered for session %s with "+
@@ -81,7 +80,7 @@ func trigger(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSend
 	}
 
 	// send the rekey notification to the partner
-	err := negotiate(instance, grp, sendE2E, negotiatingSession,
+	err := negotiate(instance, grp, sendE2E, params, negotiatingSession,
 		sendTimeout)
 
 	// if sending the negotiation fails, revert the state of the session to

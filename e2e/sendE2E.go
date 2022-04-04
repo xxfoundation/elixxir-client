@@ -89,7 +89,7 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 				return m.SendE2E(mt, recipient, payload, par)
 			}
 			rekey.CheckKeyExchanges(m.net.GetInstance(), m.grp, rekeySendFunc,
-				m.events, partner, 1*time.Minute)
+				m.events, partner, m.rekeyParams, 1*time.Minute)
 		}
 
 		//get a key to end to end encrypt

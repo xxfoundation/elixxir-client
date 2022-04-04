@@ -37,8 +37,8 @@ const (
 	saltReadLengthErr = "length of generated salt %d != %d required"
 )
 
-// Send sends a message to all group members using Client.SendManyCMIX. The
-// send fails if the message is too long.
+// Send sends a message to all group members using Client.SendManyCMIX.
+// The send fails if the message is too long.
 func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time, group.MessageID, error) {
 
 	// Get the relevant group
@@ -69,7 +69,7 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time, gro
 	rid, _, err := m.net.SendManyCMIX(groupMessages, param)
 	if err != nil {
 		return 0, time.Time{}, group.MessageID{},
-			errors.Errorf(sendManyCmixErr, m.gs.GetUser().ID, groupID, err)
+			errors.Errorf(sendManyCmixErr, m.receptionId, groupID, err)
 	}
 
 	jww.DEBUG.Printf("Sent message to %d members in group %s at %s.",

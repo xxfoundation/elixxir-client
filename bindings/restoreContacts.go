@@ -89,7 +89,11 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *Client,
 			errStr = myErr.Error()
 		}
 		if lookupCB != nil {
+			jww.INFO.Printf("Calling lookupCB(%+v, %+v)",
+				bindingsContact, errStr)
 			lookupCB.Callback(bindingsContact, errStr)
+		} else {
+			jww.WARN.Printf("nil external lookup callback")
 		}
 	}
 

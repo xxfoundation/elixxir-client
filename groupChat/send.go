@@ -10,9 +10,10 @@ package groupChat
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/catalog"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -48,8 +49,7 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time, gro
 		return 0, time.Time{}, group.MessageID{}, errors.Errorf(newCmixMsgErr, err)
 	}
 
-	param := params.GetDefaultCMIX()
-	param.IdentityPreimage = groupID[:]
+	param := network.GetDefaultCMIXParams()
 	param.DebugTag = "group.Message"
 
 	rid, _, err := m.net.SendManyCMIX(messages, param)
@@ -67,10 +67,10 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time, gro
 // createMessages generates a list of cMix messages and a list of corresponding
 // recipient IDs.
 func (m *Manager) createMessages(groupID *id.ID, msg []byte, timestamp time.Time) (
-	[]message.TargetedCmixMessage, group.MessageID, error) {
+	[]network.TargetedCmixMessage, group.MessageID, error) {
 
 	//make the message ID
-	cmixMsg := format.NewMessage(m.store.Cmix().GetGroup().GetP().ByteLen())
+	cmixMsg := format.NewMessage(m.grp.GetP().ByteLen())
 	_, intlMsg, err := newMessageParts(cmixMsg.ContentsSize())
 	if err != nil {
 		return nil, group.MessageID{}, errors.WithMessage(err, "Failed to make message parts for message ID")
@@ -79,7 +79,7 @@ func (m *Manager) createMessages(groupID *id.ID, msg []byte, timestamp time.Time
 
 	g, exists := m.gs.Get(groupID)
 	if !exists {
-		return []message.TargetedCmixMessage{}, group.MessageID{},
+		return []network.TargetedCmixMessage{}, group.MessageID{},
 			errors.Errorf(newNoGroupErr, groupID)
 	}
 
@@ -91,16 +91,16 @@ func (m *Manager) createMessages(groupID *id.ID, msg []byte, timestamp time.Time
 // newMessages is a private function that allows the passing in of a timestamp
 // and streamGen instead of a fastRNG.StreamGenerator for easier testing.
 func (m *Manager) newMessages(g gs.Group, msg []byte, timestamp time.Time) (
-	[]message.TargetedCmixMessage, error) {
+	[]network.TargetedCmixMessage, error) {
 	// Create list of cMix messages
-	messages := make([]message.TargetedCmixMessage, 0, len(g.Members))
+	messages := make([]network.TargetedCmixMessage, 0, len(g.Members))
 
 	// Create channels to receive messages and errors on
 	type msgInfo struct {
 		msg format.Message
 		id  *id.ID
 	}
-	msgChan := make(chan msgInfo, len(g.Members)-1)
+	msgChan := make(chan network.TargetedCmixMessage, len(g.Members)-1)
 	errChan := make(chan error, len(g.Members)-1)
 
 	// Create cMix messages in parallel
@@ -117,11 +117,15 @@ func (m *Manager) newMessages(g gs.Group, msg []byte, timestamp time.Time) (
 			defer rng.Close()
 
 			// Add cMix message to list
-			cMixMsg, err := m.newCmixMsg(g, msg, timestamp, member, rng)
-			if err != nil {
-				errChan <- errors.Errorf(newCmixErr, i, member.ID, g.ID, err)
+			msgChan <- network.TargetedCmixMessage{
+				Recipient: member.ID,
+				Payload:   msg,
+				Service: message.Service{
+					Identifier: g.ID[:],
+					Tag:        catalog.Group,
+					Metadata:   g.ID[:],
+				},
 			}
-			msgChan <- msgInfo{cMixMsg, member.ID}
 
 		}(member, i)
 	}
@@ -133,10 +137,7 @@ func (m *Manager) newMessages(g gs.Group, msg []byte, timestamp time.Time) (
 			// Return on the first error that occurs
 			return nil, err
 		case info := <-msgChan:
-			messages = append(messages, message.TargetedCmixMessage{
-				Recipient: info.id,
-				Message:   info.msg,
-			})
+			messages = append(messages, info)
 		}
 	}
 
@@ -148,7 +149,7 @@ func (m *Manager) newCmixMsg(g gs.Group, msg []byte, timestamp time.Time,
 	mem group.Member, rng io.Reader) (format.Message, error) {
 
 	// Create three message layers
-	cmixMsg := format.NewMessage(m.store.Cmix().GetGroup().GetP().ByteLen())
+	cmixMsg := format.NewMessage(m.grp.GetP().ByteLen())
 	pubMsg, intlMsg, err := newMessageParts(cmixMsg.ContentsSize())
 	if err != nil {
 		return cmixMsg, err

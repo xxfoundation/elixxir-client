@@ -11,60 +11,56 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e/receive"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/group"
 	"time"
 )
 
-// Error message.
+// Error messages
 const (
 	sendMessageTypeErr       = "message not of type GroupCreationRequest"
 	protoUnmarshalErr        = "failed to unmarshal request: %+v"
 	deserializeMembershipErr = "failed to deserialize membership: %+v"
 )
 
-// receiveRequest starts the group request reception worker that waits for new
-// group requests to arrive.
-func (m Manager) receiveRequest(rawMsgs chan message.Receive,
-	stop *stoppable.Single) {
-	jww.DEBUG.Print("Starting group message request reception worker.")
+// Adheres to receive.Listener interface
+type requestListener struct {
+	m *Manager
+}
 
-	for {
-		select {
-		case <-stop.Quit():
-			jww.DEBUG.Print("Stopping group message request reception worker.")
-			stop.ToStopped()
-			return
-		case sendMsg := <-rawMsgs:
-			jww.DEBUG.Print("Group message request received message.")
+// Hear waits for new group requests to arrive
+func (l *requestListener) Hear(item receive.Message) {
+	jww.DEBUG.Print("Group message request received message.")
 
-			// Generate the group from the request message
-			g, err := m.readRequest(sendMsg)
-			if err != nil {
-				jww.WARN.Printf("Failed to read message as group request: %+v",
-					err)
-				continue
-			}
-
-			// Call request callback with the new group if it does not already
-			// exist
-			if _, exists := m.GetGroup(g.ID); !exists {
-				jww.DEBUG.Printf("Received group request from sender %s for "+
-					"group %s with ID %s.", sendMsg.Sender, g.Name, g.ID)
-
-				go m.requestFunc(g)
-			}
-		}
+	// Generate the group from the request message
+	g, err := l.m.readRequest(item)
+	if err != nil {
+		jww.WARN.Printf("Failed to read message as group request: %+v", err)
+		return
 	}
+
+	// Call request callback with the new group if it does not already
+	// exist
+	if _, exists := l.m.GetGroup(g.ID); !exists {
+		jww.DEBUG.Printf("Received group request for "+
+			"group %s with ID %s.", g.Name, g.ID)
+
+		go l.m.requestFunc(g)
+	}
+}
+
+// Name returns a name, used for debugging
+func (l *requestListener) Name() string {
+	return catalog.GroupRq
 }
 
 // readRequest returns the group describes in the group request message. An
 // error is returned if the request is of the wrong type or cannot be read.
-func (m *Manager) readRequest(msg message.Receive) (gs.Group, error) {
+func (m *Manager) readRequest(msg receive.Message) (gs.Group, error) {
 	// Return an error if the message is not of the right type
-	if msg.MessageType != message.GroupCreationRequest {
+	if msg.MessageType != catalog.GroupCreationRequest {
 		return gs.Group{}, errors.New(sendMessageTypeErr)
 	}
 
@@ -82,7 +78,7 @@ func (m *Manager) readRequest(msg message.Receive) (gs.Group, error) {
 	}
 
 	// get the relationship with the group leader
-	partner, err := m.store.E2e().GetPartner(membership[0].ID)
+	partner, err := m.e2e.GetPartner(membership[0].ID, m.receptionId)
 	if err != nil {
 		return gs.Group{}, errors.Errorf(getPrivKeyErr, err)
 	}
@@ -93,8 +89,7 @@ func (m *Manager) readRequest(msg message.Receive) (gs.Group, error) {
 
 	// Generate the DH keys with each group member
 	privKey := partner.GetMyOriginPrivateKey()
-	grp := m.store.E2e().GetGroup()
-	dkl := gs.GenerateDhKeyList(m.gs.GetUser().ID, privKey, membership, grp)
+	dkl := gs.GenerateDhKeyList(m.gs.GetUser().ID, privKey, membership, m.grp)
 
 	// Restore the original public key for the leader so that the membership
 	// digest generated later is correct

@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package auth
+package store
 
 import (
 	"encoding/json"
@@ -35,7 +35,7 @@ type Store struct {
 	receivedByID map[authIdentity]*ReceivedRequest
 	sentByID     map[authIdentity]*SentRequest
 
-	previousNegotiations map[id.ID]struct{}
+	previousNegotiations map[authIdentity]struct{}
 
 	defaultID *id.ID
 
@@ -53,7 +53,7 @@ func NewStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) error
 		grp:                  grp,
 		receivedByID:         make(map[authIdentity]*ReceivedRequest),
 		sentByID:             make(map[authIdentity]*SentRequest),
-		previousNegotiations: make(map[id.ID]struct{}),
+		previousNegotiations: make(map[authIdentity]struct{}),
 		srh:                  srh,
 	}
 
@@ -76,7 +76,7 @@ func LoadStore(kv *versioned.KV, defaultID *id.ID, grp *cyclic.Group, srh SentRe
 		grp:                  grp,
 		receivedByID:         make(map[authIdentity]*ReceivedRequest),
 		sentByID:             make(map[authIdentity]*SentRequest),
-		previousNegotiations: make(map[id.ID]struct{}),
+		previousNegotiations: make(map[authIdentity]struct{}),
 		defaultID:            defaultID,
 		srh:                  srh,
 	}
@@ -195,6 +195,10 @@ func (s *Store) AddSent(partner, myID *id.ID, partnerHistoricalPubKey, myPrivKey
 		return nil, errors.Errorf("Cannot make new sentRequest for partner "+
 			"%s, one already exists", partner)
 	}
+	if _, ok := s.receivedByID[aid]; ok {
+		return nil, errors.Errorf("Cannot make new sentRequest for partner "+
+			"%s, one already exists", partner)
+	}
 
 	sr, err := newSentRequest(s.kv, partner, myID, partnerHistoricalPubKey, myPrivKey,
 		myPubKey, sidHPrivA, sidHPubA, fp)
@@ -220,6 +224,10 @@ func (s *Store) AddReceived(myID *id.ID, c contact.Contact, key *sidh.PublicKey)
 		return errors.Errorf("Cannot add contact for partner "+
 			"%s, one already exists", c.ID)
 	}
+	if _, ok := s.sentByID[aih]; ok {
+		return errors.Errorf("Cannot add contact for partner "+
+			"%s, one already exists", c.ID)
+	}
 
 	r := newReceivedRequest(s.kv, myID, c, key)
 
@@ -232,24 +240,24 @@ func (s *Store) AddReceived(myID *id.ID, c contact.Contact, key *sidh.PublicKey)
 	return nil
 }
 
-// GetReceivedRequest returns the contact representing the partner request, if
-// it exists. If it returns, then it takes the lock to ensure that there is only
-// one operator at a time. The user of the API must release the lock by calling
-// store.delete() or store.Failed() with the partner ID.
-func (s *Store) GetReceivedRequest(partner, myID *id.ID) (*ReceivedRequest, error) {
+// HandleReceivedRequest handles the request singly, only a single operator
+// operates on the same request at a time. It will delete the request if no
+// error is returned from the handler
+func (s *Store) HandleReceivedRequest(partner, myID *id.ID, handler func(*ReceivedRequest) error) error {
 	aid := makeAuthIdentity(partner, myID)
 
 	s.mux.RLock()
-	r, ok := s.receivedByID[aid]
+	rr, ok := s.receivedByID[aid]
 	s.mux.RUnlock()
 
 	if !ok {
-		return nil, errors.Errorf("Received request not "+
+		return errors.Errorf("Received request not "+
 			"found: %s", partner)
 	}
 
 	// Take the lock to ensure there is only one operator at a time
-	r.mux.Lock()
+	rr.mux.Lock()
+	defer rr.mux.Unlock()
 
 	// Check that the request still exists; it could have been deleted while the
 	// lock was taken
@@ -258,18 +266,70 @@ func (s *Store) GetReceivedRequest(partner, myID *id.ID) (*ReceivedRequest, erro
 	s.mux.RUnlock()
 
 	if !ok {
-		r.mux.Unlock()
-		return nil, errors.Errorf("Received request not "+
+		return errors.Errorf("Received request not "+
 			"found: %s", partner)
 	}
 
-	return r, nil
+	//run the handler
+	handleErr := handler(rr)
+
+	if handleErr != nil {
+		return errors.WithMessage(handleErr, "Received error from handler")
+	}
+
+	delete(s.receivedByID, aid)
+	rr.delete()
+
+	return nil
 }
 
-// GetReceivedRequestData returns the contact representing the partner request
+// HandleSentRequest handles the request singly, only a single operator
+// operates on the same request at a time. It will delete the request if no
+// error is returned from the handler
+func (s *Store) HandleSentRequest(partner, myID *id.ID, handler func(request *SentRequest) error) error {
+	aid := makeAuthIdentity(partner, myID)
+
+	s.mux.RLock()
+	sr, ok := s.sentByID[aid]
+	s.mux.RUnlock()
+
+	if !ok {
+		return errors.Errorf("Received request not "+
+			"found: %s", partner)
+	}
+
+	// Take the lock to ensure there is only one operator at a time
+	sr.mux.Lock()
+	defer sr.mux.Unlock()
+
+	// Check that the request still exists; it could have been deleted while the
+	// lock was taken
+	s.mux.RLock()
+	_, ok = s.sentByID[aid]
+	s.mux.RUnlock()
+
+	if !ok {
+		return errors.Errorf("Received request not "+
+			"found: %s", partner)
+	}
+
+	//run the handler
+	handleErr := handler(sr)
+
+	if handleErr != nil {
+		return errors.WithMessage(handleErr, "Received error from handler")
+	}
+
+	delete(s.receivedByID, aid)
+	sr.delete()
+
+	return nil
+}
+
+// GetReceivedRequest returns the contact representing the partner request
 // if it exists. It does not take the lock. It is only meant to return the
 // contact to an external API user.
-func (s *Store) GetReceivedRequestData(partner, myID *id.ID) (contact.Contact, error) {
+func (s *Store) GetReceivedRequest(partner, myID *id.ID) (contact.Contact, error) {
 	if myID == nil {
 		myID = s.defaultID
 	}

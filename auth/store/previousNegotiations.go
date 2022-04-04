@@ -12,11 +12,13 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package auth
+package store
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e/auth"
@@ -27,7 +29,7 @@ import (
 
 const (
 	negotiationPartnersKey                = "NegotiationPartners"
-	negotiationPartnersVersion            = 0
+	negotiationPartnersVersion            = 1
 	negotiationFingerprintsKeyPrefix      = "NegotiationFingerprints/"
 	currentNegotiationFingerprintsVersion = 0
 )
@@ -40,19 +42,20 @@ const (
 // If the partner exists and the fingerprint exists, return
 // newFingerprint = false, latest = false or latest = true if it is the last one
 // in the list.
-func (s *Store) AddIfNew(partner *id.ID, negotiationFingerprint []byte) (
+func (s *Store) AddIfNew(partner, myID *id.ID, negotiationFingerprint []byte) (
 	newFingerprint, latest bool) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	// If the partner does not exist, add it to the list and store a new
 	// fingerprint to storage
-	_, exists := s.previousNegotiations[*partner]
+	aid := makeAuthIdentity(partner, myID)
+	_, exists := s.previousNegotiations[aid]
 	if !exists {
-		s.previousNegotiations[*partner] = struct{}{}
+		s.previousNegotiations[aid] = struct{}{}
 
 		// Save fingerprint to storage
-		err := s.saveNegotiationFingerprints(partner, negotiationFingerprint)
+		err := s.saveNegotiationFingerprints(partner, myID, negotiationFingerprint)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to save negotiation sentByFingerprints for "+
 				"partner %s: %+v", partner, err)
@@ -72,7 +75,7 @@ func (s *Store) AddIfNew(partner *id.ID, negotiationFingerprint []byte) (
 	}
 
 	// get the fingerprint list from storage
-	fingerprints, err := s.loadNegotiationFingerprints(partner)
+	fingerprints, err := s.loadNegotiationFingerprints(partner, myID)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to load negotiation sentByFingerprints for "+
 			"partner %s: %+v", partner, err)
@@ -94,7 +97,7 @@ func (s *Store) AddIfNew(partner *id.ID, negotiationFingerprint []byte) (
 	// If the partner does exist and the fingerprint does not exist, then add
 	// the fingerprint to the list as latest
 	fingerprints = append(fingerprints, negotiationFingerprint)
-	err = s.saveNegotiationFingerprints(partner, fingerprints...)
+	err = s.saveNegotiationFingerprints(partner, myID, fingerprints...)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to save negotiation sentByFingerprints for "+
 			"partner %s: %+v", partner, err)
@@ -108,15 +111,17 @@ func (s *Store) AddIfNew(partner *id.ID, negotiationFingerprint []byte) (
 
 // deletePreviousNegotiationPartner removes the partner, its sentByFingerprints, and
 // its confirmations from memory and storage.
-func (s *Store) deletePreviousNegotiationPartner(partner *id.ID) error {
+func (s *Store) deletePreviousNegotiationPartner(partner, myID *id.ID) error {
+
+	aid := makeAuthIdentity(partner, myID)
 
 	// Do nothing if the partner does not exist
-	if _, exists := s.previousNegotiations[*partner]; !exists {
+	if _, exists := s.previousNegotiations[aid]; !exists {
 		return nil
 	}
 
 	// Delete partner from memory
-	delete(s.previousNegotiations, *partner)
+	delete(s.previousNegotiations, aid)
 
 	// Delete partner from storage and return an error
 	err := s.savePreviousNegotiations()
@@ -125,14 +130,14 @@ func (s *Store) deletePreviousNegotiationPartner(partner *id.ID) error {
 	}
 
 	// Check if sentByFingerprints exist
-	fingerprints, err := s.loadNegotiationFingerprints(partner)
+	fingerprints, err := s.loadNegotiationFingerprints(partner, myID)
 
 	// If sentByFingerprints exist for this partner, delete them from storage and any
 	// accompanying confirmations
 	if err == nil {
 		// Delete the fingerprint list from storage but do not return the error
 		// until after attempting to delete the confirmations
-		err = s.kv.Delete(makeNegotiationFingerprintsKey(partner),
+		err = s.kv.Delete(makeNegotiationFingerprintsKey(partner, myID),
 			currentNegotiationFingerprintsVersion)
 
 		// Delete all confirmations from storage
@@ -160,44 +165,72 @@ func (s *Store) savePreviousNegotiations() error {
 
 // newOrLoadPreviousNegotiations loads the list of previousNegotiations partners
 // from storage.
-func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]struct{}, error) {
+func (s *Store) newOrLoadPreviousNegotiations() (map[authIdentity]struct{}, error) {
+
 	obj, err := s.kv.Get(negotiationPartnersKey, negotiationPartnersVersion)
 	if err != nil {
 		if strings.Contains(err.Error(), "object not found") ||
 			strings.Contains(err.Error(), "no such file or directory") {
-			return make(map[id.ID]struct{}), nil
+			obj, err = s.kv.Get(negotiationPartnersKey, 0)
+			if err != nil {
+				if strings.Contains(err.Error(), "object not found") ||
+					strings.Contains(err.Error(), "no such file or directory") {
+					return make(map[authIdentity]struct{}), nil
+				} else {
+					return nil, err
+				}
+			}
+			return unmarshalOldPreviousNegotiations(obj.Data, s.defaultID), nil
+		} else {
+			return nil, err
 		}
-		return nil, err
 	}
 
-	return unmarshalPreviousNegotiations(obj.Data), nil
+	return unmarshalPreviousNegotiations(obj.Data)
 }
 
 // marshalPreviousNegotiations marshals the list of partners into a byte slice.
-func marshalPreviousNegotiations(partners map[id.ID]struct{}) []byte {
-	buff := bytes.NewBuffer(nil)
-	buff.Grow(8 + (len(partners) * id.ArrIDLen))
+func marshalPreviousNegotiations(partners map[authIdentity]struct{}) []byte {
+	toMarshal := make([]authIdentity, 0, len(partners))
 
-	// Write number of partners to buffer
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, uint64(len(partners)))
-	buff.Write(b)
-
-	// Write each partner ID to buffer
-	for partner := range partners {
-		buff.Write(partner.Marshal())
+	for aid := range partners {
+		toMarshal = append(toMarshal, aid)
 	}
 
-	return buff.Bytes()
+	b, err := json.Marshal(&toMarshal)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to unmarshal previous negotations", err)
+	}
+
+	return b
 }
 
-// unmarshalPreviousNegotiations unmarshalls the marshalled byte slice into a
+// unmarshalPreviousNegotiations unmarshalls the marshalled json into a
+//// list of partner IDs.
+func unmarshalPreviousNegotiations(b []byte) (map[authIdentity]struct{},
+	error) {
+	unmarshal := make([]authIdentity, 0)
+
+	if err := json.Unmarshal(b, &unmarshal); err != nil {
+		return nil, err
+	}
+
+	partners := make(map[authIdentity]struct{})
+
+	for _, aid := range unmarshal {
+		partners[aid] = struct{}{}
+	}
+
+	return partners, nil
+}
+
+// unmarshalOldPreviousNegotiations unmarshalls the marshalled json into a
 // list of partner IDs.
-func unmarshalPreviousNegotiations(buf []byte) map[id.ID]struct{} {
+func unmarshalOldPreviousNegotiations(buf []byte, defaultID *id.ID) map[authIdentity]struct{} {
 	buff := bytes.NewBuffer(buf)
 
 	numberOfPartners := binary.LittleEndian.Uint64(buff.Next(8))
-	partners := make(map[id.ID]struct{}, numberOfPartners)
+	partners := make(map[authIdentity]struct{}, numberOfPartners)
 
 	for i := uint64(0); i < numberOfPartners; i++ {
 		partner, err := id.Unmarshal(buff.Next(id.ArrIDLen))
@@ -206,7 +239,7 @@ func unmarshalPreviousNegotiations(buf []byte) map[id.ID]struct{} {
 				"Failed to unmarshal negotiation partner ID: %+v", err)
 		}
 
-		partners[*partner] = struct{}{}
+		partners[makeAuthIdentity(partner, defaultID)] = struct{}{}
 	}
 
 	return partners
@@ -215,7 +248,7 @@ func unmarshalPreviousNegotiations(buf []byte) map[id.ID]struct{} {
 // saveNegotiationFingerprints saves the list of sentByFingerprints for the given
 // partner to storage.
 func (s *Store) saveNegotiationFingerprints(
-	partner *id.ID, fingerprints ...[]byte) error {
+	partner, myID *id.ID, fingerprints ...[]byte) error {
 
 	obj := &versioned.Object{
 		Version:   currentNegotiationFingerprintsVersion,
@@ -223,17 +256,29 @@ func (s *Store) saveNegotiationFingerprints(
 		Data:      marshalNegotiationFingerprints(fingerprints...),
 	}
 
-	return s.kv.Set(makeNegotiationFingerprintsKey(partner),
+	return s.kv.Set(makeNegotiationFingerprintsKey(partner, myID),
 		currentNegotiationFingerprintsVersion, obj)
 }
 
 // loadNegotiationFingerprints loads the list of sentByFingerprints for the given
 // partner from storage.
-func (s *Store) loadNegotiationFingerprints(partner *id.ID) ([][]byte, error) {
-	obj, err := s.kv.Get(makeNegotiationFingerprintsKey(partner),
+func (s *Store) loadNegotiationFingerprints(partner, myID *id.ID) ([][]byte, error) {
+	obj, err := s.kv.Get(makeNegotiationFingerprintsKey(partner, myID),
 		currentNegotiationFingerprintsVersion)
 	if err != nil {
-		return nil, err
+		if myID.Cmp(s.defaultID) {
+			obj, err = s.kv.Get(makeOldNegotiationFingerprintsKey(partner),
+				currentNegotiationFingerprintsVersion)
+			if err != nil {
+				return nil, err
+			}
+			if err = s.kv.Set(makeNegotiationFingerprintsKey(partner, myID),
+				currentNegotiationFingerprintsVersion, obj); err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	return unmarshalNegotiationFingerprints(obj.Data), nil
@@ -274,8 +319,17 @@ func unmarshalNegotiationFingerprints(buf []byte) [][]byte {
 	return fingerprints
 }
 
+// makeOldNegotiationFingerprintsKey generates the key used to load and store
+// negotiation sentByFingerprints for the partner.
+func makeOldNegotiationFingerprintsKey(partner *id.ID) string {
+	return negotiationFingerprintsKeyPrefix +
+		string(base64.StdEncoding.EncodeToString(partner.Marshal()))
+}
+
 // makeNegotiationFingerprintsKey generates the key used to load and store
 // negotiation sentByFingerprints for the partner.
-func makeNegotiationFingerprintsKey(partner *id.ID) string {
-	return negotiationFingerprintsKeyPrefix + partner.String()
+func makeNegotiationFingerprintsKey(partner, myID *id.ID) string {
+	return negotiationFingerprintsKeyPrefix +
+		string(base64.StdEncoding.EncodeToString(partner.Marshal())) +
+		string(base64.StdEncoding.EncodeToString(myID.Marshal()))
 }

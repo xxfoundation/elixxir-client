@@ -9,6 +9,7 @@ package auth
 
 import (
 	"fmt"
+	auth2 "gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/catalog"
 	"strings"
 
@@ -19,7 +20,6 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/auth"
 	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -76,11 +76,11 @@ func (m *Manager) processAuthMessage(msg message.Receive) {
 	grp := m.storage.E2e().GetGroup()
 
 	switch fpType {
-	case auth.General:
+	case auth2.General:
 		// if it is general, that means a new request has
 		// been received
 		m.handleRequest(cmixMsg, myHistoricalPrivKey, grp)
-	case auth.Specific:
+	case auth2.Specific:
 		// if it is specific, that means the original request was sent
 		// by this users and a confirmation has been received
 		jww.INFO.Printf("Received AuthConfirm from %s, msgDigest: %s",
@@ -194,7 +194,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		// a non-duplicate request, so delete the old one (to cause new
 		// callback to be called)
 		rType, _, _, err := m.storage.Auth().GetRequest(partnerID)
-		if err != nil && rType == auth.Receive {
+		if err != nil && rType == auth2.Receive {
 			m.storage.Auth().Delete(partnerID)
 		}
 
@@ -238,7 +238,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	} else {
 		//check if the relationship already exists,
 		rType, _, c, err := m.storage.Auth().GetRequest(partnerID)
-		if err != nil && !strings.Contains(err.Error(), auth.NoRequest) {
+		if err != nil && !strings.Contains(err.Error(), auth2.NoRequest) {
 			// if another error is received, print it and exit
 			em := fmt.Sprintf("Received new Auth request for %s, "+
 				"internal lookup produced bad result: %+v",
@@ -250,7 +250,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 			//handle the events where the relationship already exists
 			switch rType {
 			// if this is a duplicate, ignore the message
-			case auth.Receive:
+			case auth2.Receive:
 				em := fmt.Sprintf("Received new Auth request for %s, "+
 					"is a duplicate", partnerID)
 				jww.WARN.Print(em)
@@ -267,7 +267,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				return
 			// if we sent a request, then automatically confirm
 			// then exit, nothing else needed
-			case auth.Sent:
+			case auth2.Sent:
 				jww.INFO.Printf("Received AuthRequest from %s,"+
 					" msgDigest: %s which has been requested, auto-confirming",
 					partnerID, cmixMsg.Digest())
@@ -386,7 +386,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	return
 }
 
-func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
+func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth2.SentRequest,
 	grp *cyclic.Group) {
 	events := m.net.GetEventManager()
 
@@ -465,7 +465,7 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	}
 }
 
-func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
+func (m *Manager) doConfirm(sr *auth2.SentRequest, grp *cyclic.Group,
 	partnerPubKey, myPrivateKeyOwnershipProof, partnerPubKeyOwnershipProof *cyclic.Int,
 	ownershipProof []byte, partnerSIDHPubKey *sidh.PublicKey) error {
 	// verify the message came from the intended recipient

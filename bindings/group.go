@@ -47,13 +47,8 @@ func NewGroupManager(client *Client, requestFunc GroupRequestFunc,
 	}
 
 	// Create a new group chat manager
+	// TODO: Need things from storage, services, etc?
 	m, err := gc.NewManager(&client.api, requestCallback, receiveCallback)
-	if err != nil {
-		return nil, err
-	}
-
-	// Start group request and message retrieval workers
-	err = client.api.AddService(m.StartProcesses)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +58,7 @@ func NewGroupManager(client *Client, requestFunc GroupRequestFunc,
 
 // MakeGroup creates a new group and sends a group request to all members in the
 // group. The ID of the new group, the rounds the requests were sent on, and the
-// status of the send are contained in NewGroupReport.
+// status of the sends are contained in NewGroupReport.
 func (g *GroupChat) MakeGroup(membership *IdList, name, message []byte) *NewGroupReport {
 	grp, rounds, status, err := g.m.MakeGroup(membership.list, name, message)
 	errStr := ""
@@ -346,6 +341,7 @@ func (gm *GroupMembership) Get(i int) (*GroupMember, error) {
 ////
 // Member Structure
 ////
+
 // GroupMember represents a member in the group membership list.
 type GroupMember struct {
 	group.Member

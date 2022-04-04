@@ -803,6 +803,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	// Unconfirmed sessions should also be included in the list
 	// as the client should attempt to confirm them
 	p := session.GetDefaultParams()
+	//set the retry ratio so the unconfirmed session is always retried
 	p.UnconfirmedRetryRatio = 1
 	session3 := sb.AddSession(myPrivKey, partnerPubKey, nil,
 		mySIDHPrivKey, partnerSIDHPubKey,

@@ -10,9 +10,7 @@ package groupChat
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
@@ -94,12 +92,7 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 	roundIDs, status, err := m.sendRequests(g)
 
 	if err == nil {
-		edgeStore := m.store.GetEdge()
-		edgeStore.Add(edge.Preimage{
-			Data:   g.ID[:],
-			Type:   catalog.Group,
-			Source: g.ID[:],
-		}, m.store.GetUser().ReceptionID)
+		err = m.JoinGroup(g)
 	}
 
 	return g, roundIDs, status, err
@@ -119,14 +112,13 @@ func (m Manager) buildMembership(members []*id.ID) (group.Membership,
 			errors.Errorf(maxMembersErr, len(members), group.MaxParticipants)
 	}
 
-	grp := m.store.E2e().GetGroup()
 	dkl := make(gs.DhKeyList, len(members))
 
 	// Lookup partner contact objects from their ID
 	contacts := make([]contact.Contact, len(members))
 	var err error
 	for i, uid := range members {
-		partner, err := m.store.E2e().GetPartner(uid)
+		partner, err := m.e2e.GetPartner(uid, m.receptionId)
 		if err != nil {
 			return nil, nil, errors.Errorf(getPartnerErr, uid, err)
 		}
@@ -139,7 +131,7 @@ func (m Manager) buildMembership(members []*id.ID) (group.Membership,
 		dkl.Add(partner.GetMyOriginPrivateKey(), group.Member{
 			ID:    partner.GetPartnerID(),
 			DhKey: partner.GetPartnerOriginPublicKey(),
-		}, grp)
+		}, m.grp)
 	}
 
 	// Create new Membership from contact list and client's own contact.

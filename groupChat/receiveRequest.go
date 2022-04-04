@@ -56,7 +56,7 @@ func (l *requestListener) Name() string {
 	return catalog.GroupRq
 }
 
-// readRequest returns the group describes in the group request message. An
+// readRequest returns the group described in the group request message. An
 // error is returned if the request is of the wrong type or cannot be read.
 func (m *Manager) readRequest(msg receive.Message) (gs.Group, error) {
 	// Return an error if the message is not of the right type

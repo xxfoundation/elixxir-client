@@ -320,10 +320,10 @@ func (b *Backup) assembleBackup() backup.Backup {
 func deduplicate(list []*id.ID) []*id.ID {
 	entryMap := make(map[id.ID]bool)
 	newList := make([]*id.ID, 0)
-	for _, entry := range list {
-		if _, value := entryMap[*entry]; !value {
-			entryMap[*entry] = true
-			newList = append(newList, entry)
+	for i, _ := range list {
+		if _, value := entryMap[*list[i]]; !value {
+			entryMap[*list[i]] = true
+			newList = append(newList, list[i])
 		}
 	}
 	return newList

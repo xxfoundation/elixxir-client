@@ -150,7 +150,7 @@ func resumeBackup(updateBackupCb UpdateBackupFn, c *api.Client,
 	// Setting backup trigger in client
 	b.backupContainer.SetBackup(b.TriggerBackup)
 
-	jww.INFO.Print("Resumed backup with password loaded from storage.")
+	jww.INFO.Print("resumed backup with password loaded from storage.")
 
 	return b, nil
 }
@@ -308,8 +308,13 @@ func (b *Backup) assembleBackup() backup.Backup {
 	// not yet noticed by user OR explicitly rejected.
 	bu.Contacts.Identities = append(bu.Contacts.Identities,
 		b.store.Auth().GetAllSentIDs()...)
+	jww.INFO.Printf("backup saw %d contacts", len(bu.Contacts.Identities))
+	jww.DEBUG.Printf("contacts in backup list: %+v", bu.Contacts.Identities)
 	//deduplicate list
 	bu.Contacts.Identities = deduplicate(bu.Contacts.Identities)
+
+	jww.INFO.Printf("backup saved %d contacts after deduplication",
+		len(bu.Contacts.Identities))
 
 	//add the memoized json params
 	bu.JSONParams = b.jsonParams

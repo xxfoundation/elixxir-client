@@ -69,6 +69,9 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
 	}
 	lookupIDs, resetContacts, restored := checkRestoreState(idList, store)
 
+	jww.INFO.Printf("restoring %d backup partner IDs", len(lookupIDs))
+	jww.DEBUG.Printf("backup partner IDs to restore: %+v", lookupIDs)
+
 	// State variables, how many we have looked up successfully
 	// and how many we have already reset.
 	totalCnt := len(idList)

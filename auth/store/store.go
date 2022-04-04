@@ -30,11 +30,12 @@ const requestMapVersion = 0
 
 type Store struct {
 	kv           *versioned.KV
+	memKV        *versioned.KV
 	grp          *cyclic.Group
 	receivedByID map[authIdentity]*ReceivedRequest
 	sentByID     map[authIdentity]*SentRequest
 
-	previousNegotiations map[authIdentity]struct{}
+	previousNegotiations map[authIdentity]bool
 
 	defaultID *id.ID
 
@@ -52,7 +53,7 @@ func NewStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) error
 		grp:                  grp,
 		receivedByID:         make(map[authIdentity]*ReceivedRequest),
 		sentByID:             make(map[authIdentity]*SentRequest),
-		previousNegotiations: make(map[authIdentity]struct{}),
+		previousNegotiations: make(map[authIdentity]bool),
 		srh:                  srh,
 	}
 
@@ -75,7 +76,7 @@ func LoadStore(kv *versioned.KV, defaultID *id.ID, grp *cyclic.Group, srh SentRe
 		grp:                  grp,
 		receivedByID:         make(map[authIdentity]*ReceivedRequest),
 		sentByID:             make(map[authIdentity]*SentRequest),
-		previousNegotiations: make(map[authIdentity]struct{}),
+		previousNegotiations: make(map[authIdentity]bool),
 		defaultID:            defaultID,
 		srh:                  srh,
 	}
@@ -151,22 +152,26 @@ func LoadStore(kv *versioned.KV, defaultID *id.ID, grp *cyclic.Group, srh SentRe
 
 func (s *Store) save() error {
 	requestIDList := make([]requestDisk, 0, len(s.receivedByID)+len(s.sentByID))
-	for _, r := range s.receivedByID {
-		rDisk := requestDisk{
-			T:    uint(r.getType()),
-			ID:   r.partner.ID.Marshal(),
-			MyID: r.myID.Marshal(),
+	for _, rr := range s.receivedByID {
+		if !rr.isTemporary() {
+			rDisk := requestDisk{
+				T:    uint(rr.getType()),
+				ID:   rr.partner.ID.Marshal(),
+				MyID: rr.myID.Marshal(),
+			}
+			requestIDList = append(requestIDList, rDisk)
 		}
-		requestIDList = append(requestIDList, rDisk)
 	}
 
-	for _, r := range s.sentByID {
-		rDisk := requestDisk{
-			T:    uint(r.getType()),
-			ID:   r.partner.Marshal(),
-			MyID: r.myID.Marshal(),
+	for _, sr := range s.sentByID {
+		if !sr.isTemporary() {
+			rDisk := requestDisk{
+				T:    uint(sr.getType()),
+				ID:   sr.partner.Marshal(),
+				MyID: sr.myID.Marshal(),
+			}
+			requestIDList = append(requestIDList, rDisk)
 		}
-		requestIDList = append(requestIDList, rDisk)
 	}
 
 	data, err := json.Marshal(&requestIDList)
@@ -190,13 +195,13 @@ func (s *Store) AddSent(partner, myID *id.ID, partnerHistoricalPubKey, myPrivKey
 
 	aid := makeAuthIdentity(partner, myID)
 
-	if _, ok := s.sentByID[aid]; ok {
-		return nil, errors.Errorf("Cannot make new sentRequest for partner "+
-			"%s, one already exists", partner)
+	if sentRq, ok := s.sentByID[aid]; ok {
+		return sentRq, errors.Errorf("Cannot make new sentRequest for partner "+
+			"%s, a sent request already exists", partner)
 	}
 	if _, ok := s.receivedByID[aid]; ok {
 		return nil, errors.Errorf("Cannot make new sentRequest for partner "+
-			"%s, one already exists", partner)
+			"%s, a received reqyest already exists", partner)
 	}
 
 	sr, err := newSentRequest(s.kv, partner, myID, partnerHistoricalPubKey, myPrivKey,
@@ -208,11 +213,16 @@ func (s *Store) AddSent(partner, myID *id.ID, partnerHistoricalPubKey, myPrivKey
 
 	s.sentByID[sr.getAuthID()] = sr
 	s.srh.Add(sr)
+	if err = s.save(); err != nil {
+		jww.FATAL.Panicf("Failed to save Sent Request Map after adding "+
+			"partner %s to %s", partner, myID)
+	}
 
 	return sr, nil
 }
 
-func (s *Store) AddReceived(myID *id.ID, c contact.Contact, key *sidh.PublicKey) error {
+func (s *Store) AddReceived(myID *id.ID, c contact.Contact, key *sidh.PublicKey,
+	temporary bool) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	jww.DEBUG.Printf("AddReceived new contact: %s with %s", c.ID, myID)
@@ -228,12 +238,19 @@ func (s *Store) AddReceived(myID *id.ID, c contact.Contact, key *sidh.PublicKey)
 			"%s, one already exists", c.ID)
 	}
 
-	r := newReceivedRequest(s.kv, myID, c, key)
+	kv := s.kv
+	if temporary {
+		kv = s.memKV
+	}
+
+	r := newReceivedRequest(kv, myID, c, key)
 
 	s.receivedByID[r.aid] = r
-	if err := s.save(); err != nil {
-		jww.FATAL.Panicf("Failed to save Sent Request Map after adding "+
-			"partner %s", c.ID)
+	if !temporary {
+		if err := s.save(); err != nil {
+			jww.FATAL.Panicf("Failed to save Sent Request Map after adding "+
+				"partner %s to %s", c.ID, myID)
+		}
 	}
 
 	return nil
@@ -345,22 +362,4 @@ func (s *Store) GetReceivedRequest(partner, myID *id.ID) (contact.Contact, error
 	}
 
 	return r.partner, nil
-}
-
-// Done is one of two calls after using a request. This one is to be used when
-// the use is unsuccessful. It will allow any thread waiting on access to
-// continue using the structure.
-// It does not return an error because an error is not handleable.
-func (s *Store) Done(rr *ReceivedRequest) {
-	s.mux.RLock()
-	r, ok := s.receivedByID[rr.aid]
-	s.mux.RUnlock()
-
-	r.mux.Unlock()
-
-	if !ok {
-		jww.ERROR.Panicf("Request cannot be finished, not "+
-			"found: %s, %s", rr.partner, rr.myID)
-		return
-	}
 }

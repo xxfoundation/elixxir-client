@@ -279,3 +279,7 @@ func (sr *SentRequest) getAuthID() authIdentity {
 func (sr *SentRequest) getType() RequestType {
 	return Sent
 }
+
+func (sr *SentRequest) isTemporary() bool {
+	return sr.kv.IsMemStore()
+}

@@ -13,7 +13,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
@@ -120,7 +119,7 @@ func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 	params := network.GetDefaultCMIXParams()
 	params.Critical = true
 	//ignore results, the passed sender interface makes it a critical message
-	_, _, _, _ = sender(catalog.KeyExchangeConfirm, request.Sender, payload,
+	_, _, _, _ = sender(param.Confirm, request.Sender, payload,
 		params)
 
 	return nil

@@ -16,10 +16,19 @@ const (
 
 	/*End to End Rekey message types*/
 
-	// KeyExchangeTrigger - Trigger a rekey, this message is used locally in client only
+	// KeyExchangeTrigger - Trigger a rekey, this message is used locally in
+	// client only
 	KeyExchangeTrigger = 30
-	// KeyExchangeConfirm - Rekey confirmation message. Sent by partner to confirm completion of a rekey
+	// KeyExchangeConfirm - Rekey confirmation message. Sent by partner to
+	//confirm completion of a rekey
 	KeyExchangeConfirm = 31
+
+	// KeyExchangeTriggerEphemeral - Trigger a rekey, this message is used
+	//locally in client only. For ephemeral only e2e instances.
+	KeyExchangeTriggerEphemeral = 32
+	// KeyExchangeConfirmEphemeral - Rekey confirmation message. Sent by partner
+	// to confirm completion of a rekey. For ephemeral only e2e instances.
+	KeyExchangeConfirmEphemeral = 33
 
 	/* Group chat message types */
 

@@ -94,7 +94,7 @@ func trigger(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSend
 }
 
 func negotiate(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSender,
-	sess *session.Session, sendTimeout time.Duration) error {
+	param Params, sess *session.Session, sendTimeout time.Duration) error {
 
 	//generate public key
 	pubKey := diffieHellman.GeneratePublicKey(sess.GetMyPrivKey(), grp)
@@ -123,7 +123,7 @@ func negotiate(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSe
 	params := network.GetDefaultCMIXParams()
 	params.DebugTag = "kx.Request"
 
-	rounds, msgID, _, err := sendE2E(catalog.KeyExchangeTrigger, sess.GetPartner(),
+	rounds, msgID, _, err := sendE2E(param.Trigger, sess.GetPartner(),
 		payload, params)
 	// If the send fails, returns the error so it can be handled. The caller
 	// should ensure the calling session is in a state where the Rekey will

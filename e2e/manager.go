@@ -28,12 +28,15 @@ type manager struct {
 	events      event.Manager
 	grp         *cyclic.Group
 	crit        *critical
+	rekeyParams rekey.Params
 }
 
 // Init Creates stores. After calling, use load
 // Passes a default ID and public key which is used for relationship with
 // partners when no default ID is selected
-func Init(kv *versioned.KV, myDefaultID *id.ID, privKey *cyclic.Int, grp *cyclic.Group) error {
+func Init(kv *versioned.KV, myDefaultID *id.ID, privKey *cyclic.Int,
+	grp *cyclic.Group, rekeyParams rekey.Params) error {
+	//store rekey params here
 	return ratchet.New(kv, myDefaultID, privKey, grp)
 }
 
@@ -60,6 +63,8 @@ func Load(kv *versioned.KV, net network.Manager, myDefaultID *id.ID,
 	if err != nil {
 		return nil, err
 	}
+
+	//load rekey params here
 
 	//attach critical messages
 	m.crit = newCritical(kv, net.AddHealthCallback,

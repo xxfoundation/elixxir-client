@@ -56,6 +56,6 @@ func (s *Store) deleteConfirmation(partner *id.ID, fingerprint []byte) error {
 // makeConfirmationKey generates the key used to load and store confirmations
 // for the partner and fingerprint.
 func makeConfirmationKey(partner *id.ID, fingerprint []byte) string {
-	return confirmationKeyPrefix + partner.String() + "/" +
-		base64.StdEncoding.EncodeToString(fingerprint)
+	return confirmationKeyPrefix + base64.StdEncoding.EncodeToString(
+		partner.Marshal()) + "/" + base64.StdEncoding.EncodeToString(fingerprint)
 }

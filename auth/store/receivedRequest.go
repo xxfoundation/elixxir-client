@@ -128,3 +128,7 @@ func (rr *ReceivedRequest) delete() {
 func (rr *ReceivedRequest) getType() RequestType {
 	return Receive
 }
+
+func (rr *ReceivedRequest) isTemporary() bool {
+	return rr.kv.IsMemStore()
+}

@@ -48,8 +48,7 @@ type Ratchet struct {
 	sInteface   Services
 	servicesmux sync.RWMutex
 
-	kv    *versioned.KV
-	memKv *versioned.KV
+	kv *versioned.KV
 }
 
 // New creates a new store for the passed user id and private key.
@@ -98,7 +97,7 @@ func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 func (r *Ratchet) AddPartner(myID *id.ID, partnerID *id.ID,
 	partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
 	mySIDHPrivKey *sidh.PrivateKey, sendParams,
-	receiveParams session.Params, temporary bool) (*partner.Manager, error) {
+	receiveParams session.Params) (*partner.Manager, error) {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
@@ -117,14 +116,7 @@ func (r *Ratchet) AddPartner(myID *id.ID, partnerID *id.ID,
 	if _, ok := r.managers[mid]; ok {
 		return nil, errors.New("Cannot overwrite existing partner")
 	}
-
-	//pass a memory kv if it is supposed to be temporary
-	kv := r.kv
-	if temporary {
-		kv = r.memKv
-	}
-
-	m := partner.NewManager(kv, r.defaultID, partnerID, myPrivKey, partnerPubKey,
+	m := partner.NewManager(r.kv, r.defaultID, partnerID, myPrivKey, partnerPubKey,
 		mySIDHPrivKey, partnerSIDHPubKey,
 		sendParams, receiveParams, r.cyHandler, r.grp, r.rng)
 

@@ -101,7 +101,7 @@ type Handler interface {
 	AddPartner(myID *id.ID, partnerID *id.ID,
 		partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
 		mySIDHPrivKey *sidh.PrivateKey, sendParams,
-		receiveParams session.Params, temporary bool) (*partner.Manager, error)
+		receiveParams session.Params) (*partner.Manager, error)
 
 	// GetPartner returns the partner per its ID, if it exists
 	// myID is your ID in the relationship, if left blank, it will

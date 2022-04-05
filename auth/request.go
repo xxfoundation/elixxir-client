@@ -8,9 +8,14 @@
 package auth
 
 import (
+	"fmt"
 	auth2 "gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/catalog"
 	e2e2 "gitlab.com/elixxir/client/e2e/ratchet"
+	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/network/message"
+	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 	"io"
 	"strings"
 
@@ -32,156 +37,101 @@ import (
 
 const terminator = ";"
 
-func RequestAuth(partner, me contact.Contact, rng io.Reader,
-	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
+func (m *Manager) RequestAuth(partner, me contact.Contact,
+	originDHPrivKey *cyclic.Int) (id.Round, error) {
 	// check that an authenticated channel does not already exist
-	if _, err := storage.E2e().GetPartner(partner.ID); err == nil ||
+	if _, err := m.e2e.GetPartner(partner.ID, me.ID); err == nil ||
 		!strings.Contains(err.Error(), e2e2.NoPartnerErrorStr) {
 		return 0, errors.Errorf("Authenticated channel already " +
 			"established with partner")
 	}
 
-	return requestAuth(partner, me, rng, false, storage, net)
-}
-
-func ResetSession(partner, me contact.Contact, rng io.Reader,
-	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
-
-	// Delete authenticated channel if it exists.
-	if err := storage.E2e().DeletePartner(partner.ID); err != nil {
-		jww.WARN.Printf("Unable to delete partner when "+
-			"resetting session: %+v", err)
-	} else {
-		// Delete any stored sent/received requests
-		storage.Auth().Delete(partner.ID)
-	}
-
-	rqType, _, _, err := storage.Auth().GetRequest(partner.ID)
-	if err == nil && rqType == auth2.Sent {
-		return 0, errors.New("Cannot reset a session after " +
-			"sending request, caller must resend request instead")
-	}
-
-	// Try to initiate a clean session request
-	return requestAuth(partner, me, rng, true, storage, net)
+	return m.requestAuth(partner, me, originDHPrivKey)
 }
 
 // requestAuth internal helper
-func requestAuth(partner, me contact.Contact, rng io.Reader, reset bool,
-	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
+func (m *Manager) requestAuth(partner, me contact.Contact,
+	originDHPrivKey *cyclic.Int) (id.Round, error) {
 
-	/*edge checks generation*/
-	// check that the request is being sent from the proper ID
-	if !me.ID.Cmp(storage.GetUser().ReceptionID) {
-		return 0, errors.Errorf("Authenticated channel request " +
-			"can only be sent from user's identity")
-	}
+	//do key generation
+	rng := m.rng.GetStream()
+	defer rng.Close()
 
-	//denote if this is a resend of an old request
-	resend := false
+	dhPriv, dhPub := genDHKeys(m.grp, rng)
+	sidhPriv, sidhPub := util.GenerateSIDHKeyPair(
+		sidh.KeyVariantSidhA, rng)
 
-	//lookup if an ongoing request is occurring
-	rqType, sr, _, err := storage.Auth().GetRequest(partner.ID)
-	if err != nil && !strings.Contains(err.Error(), auth2.NoRequest) {
-		return 0, errors.WithMessage(err,
-			"Cannot send a request after receiving unknown error "+
-				"on requesting contact status")
-	} else if err == nil {
-		switch rqType {
-		case auth2.Receive:
-			// TODO: We've already received a request, so send a
-			//       confirmation instead?
-			return 0, errors.Errorf("Cannot send a request after " +
-				"receiving a request")
-		case auth2.Sent:
-			resend = true
-		default:
-			return 0, errors.Errorf("Cannot send a request after "+
-				"a stored request with unknown rqType: %d",
-				rqType)
+	ownership := cAuth.MakeOwnershipProof(originDHPrivKey, partner.DhPubKey,
+		m.grp)
+	confirmFp := cAuth.MakeOwnershipProofFP(ownership)
+
+	// Add the sent request and use the return to build the send. This will
+	// replace the send with an old one if one was in process, wasting the key
+	// generation above. This is considered a reasonable loss due to the increase
+	// in code simplicity of this approach
+	sr, err := m.store.AddSent(partner.ID, me.ID, partner.DhPubKey, dhPriv, dhPub,
+		sidhPriv, sidhPub, confirmFp)
+	if err != nil {
+		if sr == nil {
+			return 0, err
+		} else {
+			jww.INFO.Printf("Resending request to %s from %s because "+
+				"one was already sent", partner.ID, me)
 		}
 	}
 
-	/*cryptographic generation*/
-	var dhPriv, dhPub *cyclic.Int
-	var sidhPriv *sidh.PrivateKey
-	var sidhPub *sidh.PublicKey
-
-	// NOTE: E2E group is the group used for DH key exchange, not cMix
-	dhGrp := storage.E2e().GetGroup()
-	// origin DH Priv key is the DH Key corresponding to the public key
-	// registered with user discovery
-	originDHPrivKey := storage.E2e().GetDHPrivateKey()
-
-	// If we are resending (valid sent request), reuse those keys
-	if resend {
-		dhPriv = sr.GetMyPrivKey()
-		dhPub = sr.GetMyPubKey()
-		sidhPriv = sr.GetMySIDHPrivKey()
-		sidhPub = sr.GetMySIDHPubKey()
-
-	} else {
-		dhPriv, dhPub = genDHKeys(dhGrp, rng)
-		sidhPriv, sidhPub = util.GenerateSIDHKeyPair(
-			sidh.KeyVariantSidhA, rng)
-	}
-
-	jww.TRACE.Printf("RequestAuth MYPUBKEY: %v", dhPub.Bytes())
-	jww.TRACE.Printf("RequestAuth THEIRPUBKEY: %v",
-		partner.DhPubKey.Bytes())
-
-	cMixPrimeSize := storage.Cmix().GetGroup().GetP().ByteLen()
-	cMixPayloadSize := getMixPayloadSize(cMixPrimeSize)
-
-	sender := storage.GetUser().ReceptionID
-
-	//generate ownership proof
-	ownership := cAuth.MakeOwnershipProof(originDHPrivKey, partner.DhPubKey,
-		dhGrp)
-	confirmFp := cAuth.MakeOwnershipProofFP(ownership)
-
-	// cMix fingerprint so the recipient can recognize this is a
-	// request message.
+	// cMix fingerprint. Used in old versions by the recipient can recognize
+	// this is a request message. Unchanged for backwards compatability
+	// (the SIH is used now)
 	requestfp := cAuth.MakeRequestFingerprint(partner.DhPubKey)
 
 	// My fact data so we can display in the interface.
 	msgPayload := []byte(me.Facts.Stringify() + terminator)
 
 	// Create the request packet.
-	request, mac, err := createRequestAuth(sender, msgPayload, ownership,
+	request, mac, err := createRequestAuth(partner.ID, msgPayload, ownership,
 		dhPriv, dhPub, partner.DhPubKey, sidhPub,
-		dhGrp, cMixPayloadSize)
+		m.grp, m.net.GetMaxMessageLength())
 	if err != nil {
 		return 0, err
 	}
 	contents := request.Marshal()
 
-	storage.GetEdge().Add(edge.Preimage{
-		Data:   preimage.Generate(confirmFp[:], catalog.Confirm),
-		Type:   catalog.Confirm,
-		Source: partner.ID[:],
-	}, me.ID)
+	//todo-register correct service
+	m.net.AddService(me.ID, message.Service{
+		Identifier: confirmFp[:],
+		Tag:        catalog.Confirm,
+		Metadata:   partner.ID[:],
+	}, nil)
 
 	jww.TRACE.Printf("RequestAuth ECRPAYLOAD: %v", request.GetEcrPayload())
 	jww.TRACE.Printf("RequestAuth MAC: %v", mac)
 
-	/*store state*/
-	//fixme: channel is bricked if the first store succedes but the second
-	//       fails
-	//store the in progress auth if this is not a resend.
-	if !resend {
-		err = storage.Auth().AddSent(partner.ID, partner.DhPubKey,
-			dhPriv, dhPub, sidhPriv, sidhPub, confirmFp)
-		if err != nil {
-			return 0, errors.Errorf(
-				"Failed to store auth request: %s", err)
-		}
+	jww.INFO.Printf("Requesting Auth with %s, msgDigest: %s",
+		partner.ID, format.DigestContents(contents))
+
+	p := network.GetDefaultCMIXParams()
+	p.DebugTag = "auth.Request"
+	s := message.Service{
+		Identifier: partner.ID.Marshal(),
+		Tag:        catalog.Default,
+		Metadata:   nil,
+	}
+	round, _, err := m.net.SendCMIX(partner.ID, requestfp, s, contents, mac, p)
+	if err != nil {
+		// if the send fails just set it to failed, it will
+		// but automatically retried
+		return 0, errors.WithMessagef(err, "Auth Request with %s "+
+			"(msgDigest: %s) failed to transmit: %+v", partner.ID,
+			format.DigestContents(contents), err)
 	}
 
-	cMixParams := params.GetDefaultCMIX()
-	rndID, err := sendAuthRequest(partner.ID, contents, mac, cMixPrimeSize,
-		requestfp, net, cMixParams)
-	return rndID, err
+	em := fmt.Sprintf("Auth Request with %s (msgDigest: %s) sent"+
+		" on round %d", partner.ID, format.DigestContents(contents), round)
+	jww.INFO.Print(em)
+	m.event.Report(1, "Auth", "RequestSent", em)
+	return round, nil
+
 }
 
 // genDHKeys is a short helper to generate a Diffie-Helman Keypair

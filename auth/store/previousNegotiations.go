@@ -5,13 +5,6 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
-//                                                                            //
-// Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
-////////////////////////////////////////////////////////////////////////////////
-
 package store
 
 import (
@@ -34,16 +27,16 @@ const (
 	currentNegotiationFingerprintsVersion = 0
 )
 
-// AddIfNew adds a new negotiation fingerprint if it is new.
+// CheckIfNegotiationIsNew adds a new negotiation fingerprint if it is new.
 // If the partner does not exist, it will add it and the new fingerprint and
-// return newFingerprint = true, latest = true.
+// return newFingerprint = true.
 // If the partner exists and the fingerprint does not exist, add it adds it as
 // the latest fingerprint and returns newFingerprint = true, latest = true
 // If the partner exists and the fingerprint exists, return
 // newFingerprint = false, latest = false or latest = true if it is the last one
 // in the list.
-func (s *Store) AddIfNew(partner, myID *id.ID, negotiationFingerprint []byte) (
-	newFingerprint, latest bool) {
+func (s *Store) CheckIfNegotiationIsNew(partner, myID *id.ID, negotiationFingerprint []byte) (
+	newFingerprint bool, position uint) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -52,10 +45,10 @@ func (s *Store) AddIfNew(partner, myID *id.ID, negotiationFingerprint []byte) (
 	aid := makeAuthIdentity(partner, myID)
 	_, exists := s.previousNegotiations[aid]
 	if !exists {
-		s.previousNegotiations[aid] = struct{}{}
+		s.previousNegotiations[aid] = true
 
 		// Save fingerprint to storage
-		err := s.saveNegotiationFingerprints(partner, myID, negotiationFingerprint)
+		err := saveNegotiationFingerprints(partner, myID, s.kv, negotiationFingerprint)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to save negotiation sentByFingerprints for "+
 				"partner %s: %+v", partner, err)
@@ -75,7 +68,7 @@ func (s *Store) AddIfNew(partner, myID *id.ID, negotiationFingerprint []byte) (
 	}
 
 	// get the fingerprint list from storage
-	fingerprints, err := s.loadNegotiationFingerprints(partner, myID)
+	fingerprints, err := loadNegotiationFingerprints(partner, myID, s.kv, myID.Cmp(s.defaultID))
 	if err != nil {
 		jww.FATAL.Panicf("Failed to load negotiation sentByFingerprints for "+
 			"partner %s: %+v", partner, err)
@@ -97,7 +90,7 @@ func (s *Store) AddIfNew(partner, myID *id.ID, negotiationFingerprint []byte) (
 	// If the partner does exist and the fingerprint does not exist, then add
 	// the fingerprint to the list as latest
 	fingerprints = append(fingerprints, negotiationFingerprint)
-	err = s.saveNegotiationFingerprints(partner, myID, fingerprints...)
+	err = saveNegotiationFingerprints(partner, myID, s.kv, fingerprints...)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to save negotiation sentByFingerprints for "+
 			"partner %s: %+v", partner, err)
@@ -107,48 +100,6 @@ func (s *Store) AddIfNew(partner, myID *id.ID, negotiationFingerprint []byte) (
 	latest = true
 
 	return
-}
-
-// deletePreviousNegotiationPartner removes the partner, its sentByFingerprints, and
-// its confirmations from memory and storage.
-func (s *Store) deletePreviousNegotiationPartner(partner, myID *id.ID) error {
-
-	aid := makeAuthIdentity(partner, myID)
-
-	// Do nothing if the partner does not exist
-	if _, exists := s.previousNegotiations[aid]; !exists {
-		return nil
-	}
-
-	// Delete partner from memory
-	delete(s.previousNegotiations, aid)
-
-	// Delete partner from storage and return an error
-	err := s.savePreviousNegotiations()
-	if err != nil {
-		return err
-	}
-
-	// Check if sentByFingerprints exist
-	fingerprints, err := s.loadNegotiationFingerprints(partner, myID)
-
-	// If sentByFingerprints exist for this partner, delete them from storage and any
-	// accompanying confirmations
-	if err == nil {
-		// Delete the fingerprint list from storage but do not return the error
-		// until after attempting to delete the confirmations
-		err = s.kv.Delete(makeNegotiationFingerprintsKey(partner, myID),
-			currentNegotiationFingerprintsVersion)
-
-		// Delete all confirmations from storage
-		for _, fp := range fingerprints {
-			// Ignore the error since confirmations rarely exist
-			_ = s.deleteConfirmation(partner, fp)
-		}
-	}
-
-	// Return any error from loading or deleting sentByFingerprints
-	return err
 }
 
 // savePreviousNegotiations saves the list of previousNegotiations partners to
@@ -165,7 +116,7 @@ func (s *Store) savePreviousNegotiations() error {
 
 // newOrLoadPreviousNegotiations loads the list of previousNegotiations partners
 // from storage.
-func (s *Store) newOrLoadPreviousNegotiations() (map[authIdentity]struct{}, error) {
+func (s *Store) newOrLoadPreviousNegotiations() (map[authIdentity]bool, error) {
 
 	obj, err := s.kv.Get(negotiationPartnersKey, negotiationPartnersVersion)
 	if err != nil {
@@ -175,7 +126,7 @@ func (s *Store) newOrLoadPreviousNegotiations() (map[authIdentity]struct{}, erro
 			if err != nil {
 				if strings.Contains(err.Error(), "object not found") ||
 					strings.Contains(err.Error(), "no such file or directory") {
-					return make(map[authIdentity]struct{}), nil
+					return make(map[authIdentity]bool), nil
 				} else {
 					return nil, err
 				}
@@ -190,7 +141,7 @@ func (s *Store) newOrLoadPreviousNegotiations() (map[authIdentity]struct{}, erro
 }
 
 // marshalPreviousNegotiations marshals the list of partners into a byte slice.
-func marshalPreviousNegotiations(partners map[authIdentity]struct{}) []byte {
+func marshalPreviousNegotiations(partners map[authIdentity]bool) []byte {
 	toMarshal := make([]authIdentity, 0, len(partners))
 
 	for aid := range partners {
@@ -207,7 +158,7 @@ func marshalPreviousNegotiations(partners map[authIdentity]struct{}) []byte {
 
 // unmarshalPreviousNegotiations unmarshalls the marshalled json into a
 //// list of partner IDs.
-func unmarshalPreviousNegotiations(b []byte) (map[authIdentity]struct{},
+func unmarshalPreviousNegotiations(b []byte) (map[authIdentity]bool,
 	error) {
 	unmarshal := make([]authIdentity, 0)
 
@@ -215,10 +166,10 @@ func unmarshalPreviousNegotiations(b []byte) (map[authIdentity]struct{},
 		return nil, err
 	}
 
-	partners := make(map[authIdentity]struct{})
+	partners := make(map[authIdentity]bool)
 
 	for _, aid := range unmarshal {
-		partners[aid] = struct{}{}
+		partners[aid] = true
 	}
 
 	return partners, nil
@@ -226,11 +177,11 @@ func unmarshalPreviousNegotiations(b []byte) (map[authIdentity]struct{},
 
 // unmarshalOldPreviousNegotiations unmarshalls the marshalled json into a
 // list of partner IDs.
-func unmarshalOldPreviousNegotiations(buf []byte, defaultID *id.ID) map[authIdentity]struct{} {
+func unmarshalOldPreviousNegotiations(buf []byte, defaultID *id.ID) map[authIdentity]bool {
 	buff := bytes.NewBuffer(buf)
 
 	numberOfPartners := binary.LittleEndian.Uint64(buff.Next(8))
-	partners := make(map[authIdentity]struct{}, numberOfPartners)
+	partners := make(map[authIdentity]bool, numberOfPartners)
 
 	for i := uint64(0); i < numberOfPartners; i++ {
 		partner, err := id.Unmarshal(buff.Next(id.ArrIDLen))
@@ -239,7 +190,7 @@ func unmarshalOldPreviousNegotiations(buf []byte, defaultID *id.ID) map[authIden
 				"Failed to unmarshal negotiation partner ID: %+v", err)
 		}
 
-		partners[makeAuthIdentity(partner, defaultID)] = struct{}{}
+		partners[makeAuthIdentity(partner, defaultID)] = false
 	}
 
 	return partners
@@ -247,8 +198,8 @@ func unmarshalOldPreviousNegotiations(buf []byte, defaultID *id.ID) map[authIden
 
 // saveNegotiationFingerprints saves the list of sentByFingerprints for the given
 // partner to storage.
-func (s *Store) saveNegotiationFingerprints(
-	partner, myID *id.ID, fingerprints ...[]byte) error {
+func saveNegotiationFingerprints(
+	partner, myID *id.ID, kv *versioned.KV, fingerprints ...[]byte) error {
 
 	obj := &versioned.Object{
 		Version:   currentNegotiationFingerprintsVersion,
@@ -256,23 +207,23 @@ func (s *Store) saveNegotiationFingerprints(
 		Data:      marshalNegotiationFingerprints(fingerprints...),
 	}
 
-	return s.kv.Set(makeNegotiationFingerprintsKey(partner, myID),
+	return kv.Set(makeNegotiationFingerprintsKey(partner, myID),
 		currentNegotiationFingerprintsVersion, obj)
 }
 
 // loadNegotiationFingerprints loads the list of sentByFingerprints for the given
 // partner from storage.
-func (s *Store) loadNegotiationFingerprints(partner, myID *id.ID) ([][]byte, error) {
-	obj, err := s.kv.Get(makeNegotiationFingerprintsKey(partner, myID),
+func loadNegotiationFingerprints(partner, myID *id.ID, kv *versioned.KV, possibleOld bool) ([][]byte, error) {
+	obj, err := kv.Get(makeNegotiationFingerprintsKey(partner, myID),
 		currentNegotiationFingerprintsVersion)
 	if err != nil {
-		if myID.Cmp(s.defaultID) {
-			obj, err = s.kv.Get(makeOldNegotiationFingerprintsKey(partner),
+		if possibleOld {
+			obj, err = kv.Get(makeOldNegotiationFingerprintsKey(partner),
 				currentNegotiationFingerprintsVersion)
 			if err != nil {
 				return nil, err
 			}
-			if err = s.kv.Set(makeNegotiationFingerprintsKey(partner, myID),
+			if err = kv.Set(makeNegotiationFingerprintsKey(partner, myID),
 				currentNegotiationFingerprintsVersion, obj); err != nil {
 				return nil, err
 			}

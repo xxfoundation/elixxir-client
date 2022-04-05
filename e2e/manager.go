@@ -1,6 +1,8 @@
 package e2e
 
 import (
+	"encoding/json"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e/parse"
 	"gitlab.com/elixxir/client/e2e/ratchet"
@@ -28,12 +30,29 @@ type manager struct {
 	events      event.Manager
 	grp         *cyclic.Group
 	crit        *critical
+	rekeyParams rekey.Params
 }
+
+const e2eRekeyParamsKey = "e2eRekeyParams"
+const e2eRekeyParamsVer = 0
 
 // Init Creates stores. After calling, use load
 // Passes a default ID and public key which is used for relationship with
 // partners when no default ID is selected
-func Init(kv *versioned.KV, myDefaultID *id.ID, privKey *cyclic.Int, grp *cyclic.Group) error {
+func Init(kv *versioned.KV, myDefaultID *id.ID, privKey *cyclic.Int,
+	grp *cyclic.Group, rekeyParams rekey.Params) error {
+	rekeyParamsData, err := json.Marshal(rekeyParams)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to marshal rekeyParams")
+	}
+	err = kv.Set(e2eRekeyParamsKey, e2eRekeyParamsVer, &versioned.Object{
+		Version:   e2eRekeyParamsVer,
+		Timestamp: time.Now(),
+		Data:      rekeyParamsData,
+	})
+	if err != nil {
+		return errors.WithMessage(err, "Failed to save rekeyParams")
+	}
 	return ratchet.New(kv, myDefaultID, privKey, grp)
 }
 
@@ -51,6 +70,7 @@ func Load(kv *versioned.KV, net network.Manager, myDefaultID *id.ID,
 		myDefaultID: myDefaultID,
 		events:      events,
 		grp:         grp,
+		rekeyParams: rekey.Params{},
 	}
 	var err error
 
@@ -59,6 +79,16 @@ func Load(kv *versioned.KV, net network.Manager, myDefaultID *id.ID,
 		&fpGenerator{m}, net, rng)
 	if err != nil {
 		return nil, err
+	}
+
+	//load rekey params here
+	rekeyParams, err := kv.Get(e2eRekeyParamsKey, e2eRekeyParamsVer)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load rekeyParams")
+	}
+	err = json.Unmarshal(rekeyParams.Data, &m.rekeyParams)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to unmarshal rekeyParams data")
 	}
 
 	//attach critical messages

@@ -101,7 +101,7 @@ type Handler interface {
 	AddPartner(myID *id.ID, partnerID *id.ID,
 		partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
 		mySIDHPrivKey *sidh.PrivateKey, sendParams,
-		receiveParams session.Params, temporary bool) (*partner.Manager, error)
+		receiveParams session.Params) (*partner.Manager, error)
 
 	// GetPartner returns the partner per its ID, if it exists
 	// myID is your ID in the relationship, if left blank, it will
@@ -149,4 +149,18 @@ type Handler interface {
 	// EnableUnsafeReception enables the reception of unsafe message by
 	// registering bespoke services for reception. For debugging only!
 	EnableUnsafeReception()
+
+	/* === Utility ========================================================== */
+
+	// GetGroup returns the cyclic group used for end to end encruption
+	GetGroup() *cyclic.Group
+
+	// GetDefaultHistoricalDHPubkey returns the default user's Historical DH Public Key
+	GetDefaultHistoricalDHPubkey() *cyclic.Int
+
+	// GetDefaultHistoricalDHPrivkey returns the default user's Historical DH Private Key
+	GetDefaultHistoricalDHPrivkey() *cyclic.Int
+
+	// GetDefaultID returns the default IDs
+	GetDefaultID() *id.ID
 }

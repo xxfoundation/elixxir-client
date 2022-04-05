@@ -8,10 +8,15 @@
 package auth
 
 import (
+	"gitlab.com/elixxir/client/auth/store"
+	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -21,14 +26,23 @@ type Manager struct {
 	confirmCallbacks *callbackMap
 	resetCallbacks   *callbackMap
 
-	rawMessages chan message.Receive
+	net network.Manager
+	e2e e2e.Handler
+	rng *fastRNG.StreamGenerator
 
-	storage       *storage.Session
-	net           interfaces.NetworkManager
-	rng           *fastRNG.StreamGenerator
-	backupTrigger interfaces.TriggerBackup
+	store *store.Store
+	grp   *cyclic.Group
+	event event.Manager
+
+	registeredIDs map[id.ID]keypair
 
 	replayRequests bool
+}
+
+type keypair struct {
+	privkey *cyclic.Int
+	//generated from pubkey on instantiation
+	pubkey *cyclic.Int
 }
 
 func NewManager(sw interfaces.Switchboard, storage *storage.Session,

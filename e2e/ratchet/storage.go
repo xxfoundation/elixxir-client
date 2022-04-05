@@ -11,7 +11,6 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -33,8 +32,7 @@ func Load(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
 
 		defaultID: myID,
 
-		kv:    kv,
-		memKv: versioned.NewKV(make(ekv.Memstore)),
+		kv: kv,
 
 		cyHandler: cyHandler,
 		grp:       grp,
@@ -97,11 +95,9 @@ func (r *Ratchet) marshal() ([]byte, error) {
 	contacts := make([]partner.ManagerIdentity, len(r.managers))
 
 	index := 0
-	for rid, m := range r.managers {
-		if !m.IsTemporary() {
-			contacts[index] = rid
-			index++
-		}
+	for rid, _ := range r.managers {
+		contacts[index] = rid
+		index++
 	}
 
 	return json.Marshal(&contacts)

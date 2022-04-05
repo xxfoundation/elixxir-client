@@ -19,10 +19,6 @@ import (
 	"time"
 )
 
-const keyExchangeTriggerName = "KeyExchangeTrigger"
-const keyExchangeConfirmName = "KeyExchangeConfirm"
-const keyExchangeMulti = "KeyExchange"
-
 type E2eSender func(mt catalog.MessageType, recipient *id.ID, payload []byte,
 	cmixParams network.CMIXParams) (
 	[]id.Round, e2e.MessageID, time.Time, error)
@@ -32,11 +28,11 @@ func Start(switchboard *receive.Switchboard, ratchet *ratchet.Ratchet,
 
 	// register the rekey trigger thread
 	triggerCh := make(chan receive.Message, 100)
-	triggerID := switchboard.RegisterChannel(keyExchangeTriggerName,
-		&id.ID{}, catalog.KeyExchangeTrigger, triggerCh)
+	triggerID := switchboard.RegisterChannel(params.TriggerName,
+		&id.ID{}, params.Trigger, triggerCh)
 
 	// create the trigger stoppable
-	triggerStop := stoppable.NewSingle(keyExchangeTriggerName)
+	triggerStop := stoppable.NewSingle(params.TriggerName)
 
 	cleanupTrigger := func() {
 		switchboard.Unregister(triggerID)
@@ -48,11 +44,11 @@ func Start(switchboard *receive.Switchboard, ratchet *ratchet.Ratchet,
 
 	//register the rekey confirm thread
 	confirmCh := make(chan receive.Message, 100)
-	confirmID := switchboard.RegisterChannel(keyExchangeConfirmName,
-		&id.ID{}, catalog.KeyExchangeConfirm, confirmCh)
+	confirmID := switchboard.RegisterChannel(params.ConfirmName,
+		&id.ID{}, params.Confirm, confirmCh)
 
 	// register the confirm stoppable
-	confirmStop := stoppable.NewSingle(keyExchangeConfirmName)
+	confirmStop := stoppable.NewSingle(params.ConfirmName)
 	cleanupConfirm := func() {
 		switchboard.Unregister(confirmID)
 	}
@@ -61,7 +57,7 @@ func Start(switchboard *receive.Switchboard, ratchet *ratchet.Ratchet,
 	go startConfirm(ratchet, confirmCh, confirmStop, cleanupConfirm)
 
 	//bundle the stoppables and return
-	exchangeStop := stoppable.NewMulti(keyExchangeMulti)
+	exchangeStop := stoppable.NewMulti(params.StoppableName)
 	exchangeStop.Add(triggerStop)
 	exchangeStop.Add(confirmStop)
 	return exchangeStop, nil

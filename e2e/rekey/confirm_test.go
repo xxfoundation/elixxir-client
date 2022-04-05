@@ -69,7 +69,7 @@ func TestHandleConfirm(t *testing.T) {
 	// Add bob as a partner
 	sendParams := session.GetDefaultParams()
 	receiveParams := session.GetDefaultParams()
-	_, err = r.AddPartner(myID, bobID, bobPubKey, alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey, sendParams, receiveParams, false)
+	_, err = r.AddPartner(myID, bobID, bobPubKey, alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey, sendParams, receiveParams)
 	if err != nil {
 		t.Errorf("Failed to add partner to ratchet: %+v", err)
 	}

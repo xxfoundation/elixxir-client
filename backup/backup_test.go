@@ -9,7 +9,13 @@ package backup
 
 import (
 	"bytes"
+	"github.com/cloudflare/circl/dh/sidh"
+	"gitlab.com/elixxir/client/interfaces/params"
+	util "gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/xx_network/primitives/id"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -376,6 +382,22 @@ func TestBackup_assembleBackup(t *testing.T) {
 	b := newTestBackup("MySuperSecurePassword", nil, t)
 	s := b.store
 
+	rng := csprng.NewSystemRNG()
+	for i := 0; i < 10; i++ {
+		recipient, _ := id.NewRandomID(rng, id.User)
+		dhKey := s.E2e().GetGroup().NewInt(int64(i + 10))
+		pubKey := diffieHellman.GeneratePublicKey(dhKey, s.E2e().GetGroup())
+		_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA, rng)
+		theirSidhPub, _ := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhB, rng)
+		p := params.GetDefaultE2ESessionParams()
+
+		err := s.E2e().AddPartner(
+			recipient, pubKey, dhKey, mySidhPriv, theirSidhPub, p, p)
+		if err != nil {
+			t.Errorf("Failed to add partner %s: %+v", recipient, err)
+		}
+	}
+
 	expectedCollatedBackup := backup.Backup{
 		RegistrationTimestamp: s.GetUser().RegistrationTimestamp,
 		TransmissionIdentity: backup.TransmissionIdentity{
@@ -399,6 +421,16 @@ func TestBackup_assembleBackup(t *testing.T) {
 	}
 
 	collatedBackup := b.assembleBackup()
+
+	sort.Slice(expectedCollatedBackup.Contacts.Identities, func(i, j int) bool {
+		return bytes.Compare(expectedCollatedBackup.Contacts.Identities[i].Bytes(),
+			expectedCollatedBackup.Contacts.Identities[j].Bytes()) == -1
+	})
+
+	sort.Slice(collatedBackup.Contacts.Identities, func(i, j int) bool {
+		return bytes.Compare(collatedBackup.Contacts.Identities[i].Bytes(),
+			collatedBackup.Contacts.Identities[j].Bytes()) == -1
+	})
 
 	if !reflect.DeepEqual(expectedCollatedBackup, collatedBackup) {
 		t.Errorf("Collated backup does not match expected."+

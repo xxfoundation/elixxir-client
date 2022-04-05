@@ -303,7 +303,7 @@ func (b *Backup) assembleBackup() backup.Backup {
 	// Get contacts
 	bu.Contacts.Identities = b.store.E2e().GetPartners()
 
-	//add the memoized json params
+	// Add the memoized JSON params
 	bu.JSONParams = b.jsonParams
 
 	return bu

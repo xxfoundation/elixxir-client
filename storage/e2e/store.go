@@ -255,7 +255,8 @@ func (s *Store) GetPartners() []*id.ID {
 	partnerIds := make([]*id.ID, 0, len(s.managers))
 
 	for partnerId := range s.managers {
-		partnerIds = append(partnerIds, &partnerId)
+		pid := partnerId
+		partnerIds = append(partnerIds, &pid)
 	}
 
 	return partnerIds

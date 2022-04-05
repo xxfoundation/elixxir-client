@@ -47,7 +47,7 @@ func (l *requestListener) Hear(item receive.Message) {
 		jww.DEBUG.Printf("Received group request for "+
 			"group %s with ID %s.", g.Name, g.ID)
 
-		go l.m.requestFunc(g)
+		l.m.requestFunc(g)
 	}
 }
 

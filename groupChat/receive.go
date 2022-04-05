@@ -76,7 +76,7 @@ func (p *receptionProcessor) Process(message format.Message, receptionID recepti
 		p.g.ID, result.Timestamp)
 
 	// If the message was read correctly, send it to the callback
-	go p.m.receiveFunc(result)
+	p.m.receiveFunc(result)
 }
 
 // decryptMessage decrypts the group message payload and returns its message ID,

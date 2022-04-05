@@ -66,7 +66,7 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time, gro
 	// Send all the groupMessages
 	param := network.GetDefaultCMIXParams()
 	param.DebugTag = "group.Message"
-	rid, _, err := m.net.SendManyCMIX(groupMessages, param)
+	rid, _, err := m.services.SendManyCMIX(groupMessages, param)
 	if err != nil {
 		return 0, time.Time{}, group.MessageID{},
 			errors.Errorf(sendManyCmixErr, m.receptionId, groupID, err)
@@ -80,45 +80,25 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time, gro
 // newMessages quickly builds messages for all group chat members in multiple threads
 func (m *Manager) newMessages(g gs.Group, msg []byte, timestamp time.Time) (
 	[]network.TargetedCmixMessage, error) {
-	// Create channels to receive messages and errors on
-	msgChan := make(chan network.TargetedCmixMessage, len(g.Members)-1)
-	errChan := make(chan error, len(g.Members)-1)
+
+	// Create list of cMix messages
+	messages := make([]network.TargetedCmixMessage, 0, len(g.Members))
+	rng := m.rng.GetStream()
+	defer rng.Close()
 
 	// Create cMix messages in parallel
-	for i, member := range g.Members {
+	for _, member := range g.Members {
 		// Do not send to the sender
 		if m.receptionId.Cmp(member.ID) {
 			continue
 		}
 
-		// Start thread to build cMix message
-		go func(member group.Member, i int) {
-			// Create new stream
-			rng := m.rng.GetStream()
-			defer rng.Close()
-
-			// Add cMix message to list
-			cMixMsg, err := newCmixMsg(g, msg, timestamp, member, rng, m.receptionId, m.grp)
-			if err != nil {
-				errChan <- errors.Errorf(newCmixErr, i, member.ID, g.ID, err)
-			}
-			msgChan <- cMixMsg
-
-		}(member, i)
-	}
-
-	// Create list of cMix messages
-	messages := make([]network.TargetedCmixMessage, 0, len(g.Members))
-
-	// Wait for messages or errors
-	for len(messages) < len(g.Members)-1 {
-		select {
-		case err := <-errChan:
-			// Return on the first error that occurs
+		// Add cMix message to list
+		cMixMsg, err := newCmixMsg(g, msg, timestamp, member, rng, m.receptionId, m.grp)
+		if err != nil {
 			return nil, err
-		case info := <-msgChan:
-			messages = append(messages, info)
 		}
+		messages = append(messages, cMixMsg)
 	}
 
 	return messages, nil

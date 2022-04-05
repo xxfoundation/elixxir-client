@@ -13,7 +13,6 @@ import (
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -33,7 +32,6 @@ const (
 // Manager handles the list of groups a user is a part of.
 type Manager struct {
 	e2e e2e.Handler
-	net interfaces.NetworkManager
 
 	receptionId *id.ID
 	rng         *fastRNG.StreamGenerator
@@ -46,13 +44,13 @@ type Manager struct {
 }
 
 // NewManager creates a new group chat manager
-func NewManager(services network.Manager, e2e e2e.Handler, net interfaces.NetworkManager, receptionId *id.ID,
-	rng *fastRNG.StreamGenerator, grp *cyclic.Group, userDhKey *cyclic.Int,
-	kv *versioned.KV, requestFunc RequestCallback, receiveFunc ReceiveCallback) (*Manager, error) {
+func NewManager(services network.Manager, e2e e2e.Handler, receptionId *id.ID,
+	rng *fastRNG.StreamGenerator, grp *cyclic.Group, kv *versioned.KV,
+	requestFunc RequestCallback, receiveFunc ReceiveCallback) (*Manager, error) {
 
 	// Load the group chat storage or create one if one does not exist
 	gStore, err := gs.NewOrLoadStore(
-		kv, group.Member{ID: receptionId, DhKey: userDhKey})
+		kv, group.Member{ID: receptionId, DhKey: e2e.GetDefaultHistoricalDHPubkey()})
 	if err != nil {
 		return nil, errors.Errorf(newGroupStoreErr, err)
 	}
@@ -60,7 +58,6 @@ func NewManager(services network.Manager, e2e e2e.Handler, net interfaces.Networ
 	// Define the manager object
 	m := &Manager{
 		e2e:         e2e,
-		net:         net,
 		rng:         rng,
 		receptionId: receptionId,
 		grp:         grp,
@@ -87,16 +84,13 @@ func NewManager(services network.Manager, e2e e2e.Handler, net interfaces.Networ
 			continue
 		}
 
-		err = m.JoinGroup(g)
-		if err != nil {
-			return nil, err
-		}
+		m.joinGroup(g)
 	}
 
 	return m, nil
 }
 
-// JoinGroup adds the group to the list of group chats the user is a part of.
+// JoinGroup adds the group to storage, and enables requisite services.
 // An error is returned if the user is already part of the group or if the
 // maximum number of groups have already been joined.
 func (m Manager) JoinGroup(g gs.Group) error {
@@ -104,15 +98,19 @@ func (m Manager) JoinGroup(g gs.Group) error {
 		return errors.Errorf(joinGroupErr, g.ID, err)
 	}
 
+	m.joinGroup(g)
+	jww.DEBUG.Printf("Joined group %q with ID %s.", g.Name, g.ID)
+	return nil
+}
+
+// joinGroup adds the group services
+func (m Manager) joinGroup(g gs.Group) {
 	newService := message.Service{
 		Identifier: g.ID[:],
 		Tag:        catalog.Group,
 		Metadata:   g.ID[:],
 	}
 	m.services.AddService(m.receptionId, newService, &receptionProcessor{m: &m, g: g})
-
-	jww.DEBUG.Printf("Joined group %q with ID %s.", g.Name, g.ID)
-	return nil
 }
 
 // LeaveGroup removes a group from a list of groups the user is a part of.

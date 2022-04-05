@@ -102,7 +102,7 @@ func TestStore_AddPartner(t *testing.T) {
 	receivedManager, err := r.AddPartner(
 		r.defaultID, partnerID,
 		partnerPubKey, r.defaultDHPrivateKey,
-		pubSIDHKey, myPrivSIDHKey, p, p, true)
+		pubSIDHKey, myPrivSIDHKey, p, p)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestStore_DeletePartner(t *testing.T) {
 	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
 
 	_, err = r.AddPartner(r.defaultID, partnerID, r.defaultDHPrivateKey,
-		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p, true)
+		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestStore_GetPartner(t *testing.T) {
 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
 	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
 	expectedManager, err := r.AddPartner(r.defaultID, partnerID, r.defaultDHPrivateKey,
-		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p, true)
+		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
 	}

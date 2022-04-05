@@ -83,11 +83,15 @@ func TestHandleTrigger(t *testing.T) {
 	// Add bob as a partner
 	sendParams := session2.GetDefaultParams()
 	receiveParams := session2.GetDefaultParams()
-	_, err = r.AddPartner(myID, bobID, bobPubKey, alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey, sendParams, receiveParams, false)
+	_, err = r.AddPartner(myID, bobID, bobPubKey,
+		alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey,
+		sendParams, receiveParams)
 	if err != nil {
 		t.Errorf("Failed to add partner to ratchet: %+v", err)
 	}
-	_, err = r.AddPartner(bobID, myID, alicePubKey, bobPrivKey, aliceSIDHPubKey, bobSIDHPrivKey, sendParams, receiveParams, false)
+	_, err = r.AddPartner(bobID, myID, alicePubKey, bobPrivKey,
+		aliceSIDHPubKey, bobSIDHPrivKey,
+		sendParams, receiveParams)
 	if err != nil {
 		t.Errorf("Failed to add partner to ratchet: %+v", err)
 	}

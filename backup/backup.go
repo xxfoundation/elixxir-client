@@ -316,7 +316,7 @@ func (b *Backup) assembleBackup() backup.Backup {
 	jww.INFO.Printf("backup saved %d contacts after deduplication",
 		len(bu.Contacts.Identities))
 
-	//add the memoized json params
+	// Add the memoized JSON params
 	bu.JSONParams = b.jsonParams
 
 	return bu

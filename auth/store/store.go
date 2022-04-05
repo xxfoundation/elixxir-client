@@ -30,7 +30,6 @@ const requestMapVersion = 0
 
 type Store struct {
 	kv           *versioned.KV
-	memKV        *versioned.KV
 	grp          *cyclic.Group
 	receivedByID map[authIdentity]*ReceivedRequest
 	sentByID     map[authIdentity]*SentRequest
@@ -221,8 +220,7 @@ func (s *Store) AddSent(partner, myID *id.ID, partnerHistoricalPubKey, myPrivKey
 	return sr, nil
 }
 
-func (s *Store) AddReceived(myID *id.ID, c contact.Contact, key *sidh.PublicKey,
-	temporary bool) error {
+func (s *Store) AddReceived(myID *id.ID, c contact.Contact, key *sidh.PublicKey) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	jww.DEBUG.Printf("AddReceived new contact: %s with %s", c.ID, myID)
@@ -237,20 +235,12 @@ func (s *Store) AddReceived(myID *id.ID, c contact.Contact, key *sidh.PublicKey,
 		return errors.Errorf("Cannot add contact for partner "+
 			"%s, one already exists", c.ID)
 	}
-
-	kv := s.kv
-	if temporary {
-		kv = s.memKV
-	}
-
-	r := newReceivedRequest(kv, myID, c, key)
+	r := newReceivedRequest(s.kv, myID, c, key)
 
 	s.receivedByID[r.aid] = r
-	if !temporary {
-		if err := s.save(); err != nil {
-			jww.FATAL.Panicf("Failed to save Sent Request Map after adding "+
-				"partner %s to %s", c.ID, myID)
-		}
+	if err := s.save(); err != nil {
+		jww.FATAL.Panicf("Failed to save Sent Request Map after adding "+
+			"partner %s to %s", c.ID, myID)
 	}
 
 	return nil

@@ -38,7 +38,7 @@ import (
 const terminator = ";"
 
 func (m *Manager) RequestAuth(partner, me contact.Contact,
-	originDHPrivKey *cyclic.Int, temporary bool) (id.Round, error) {
+	originDHPrivKey *cyclic.Int) (id.Round, error) {
 	// check that an authenticated channel does not already exist
 	if _, err := m.e2e.GetPartner(partner.ID, me.ID); err == nil ||
 		!strings.Contains(err.Error(), e2e2.NoPartnerErrorStr) {
@@ -46,12 +46,12 @@ func (m *Manager) RequestAuth(partner, me contact.Contact,
 			"established with partner")
 	}
 
-	return m.requestAuth(partner, me, originDHPrivKey, temporary)
+	return m.requestAuth(partner, me, originDHPrivKey)
 }
 
 // requestAuth internal helper
 func (m *Manager) requestAuth(partner, me contact.Contact,
-	originDHPrivKey *cyclic.Int, temporary bool) (id.Round, error) {
+	originDHPrivKey *cyclic.Int) (id.Round, error) {
 
 	//do key generation
 	rng := m.rng.GetStream()
@@ -70,7 +70,7 @@ func (m *Manager) requestAuth(partner, me contact.Contact,
 	// generation above. This is considered a reasonable loss due to the increase
 	// in code simplicity of this approach
 	sr, err := m.store.AddSent(partner.ID, me.ID, partner.DhPubKey, dhPriv, dhPub,
-		sidhPriv, sidhPub, confirmFp, temporary)
+		sidhPriv, sidhPub, confirmFp)
 	if err != nil {
 		if sr == nil {
 			return 0, err

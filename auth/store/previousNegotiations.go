@@ -27,16 +27,16 @@ const (
 	currentNegotiationFingerprintsVersion = 0
 )
 
-// AddIfNew adds a new negotiation fingerprint if it is new.
+// CheckIfNegotiationIsNew adds a new negotiation fingerprint if it is new.
 // If the partner does not exist, it will add it and the new fingerprint and
-// return newFingerprint = true, latest = true.
+// return newFingerprint = true.
 // If the partner exists and the fingerprint does not exist, add it adds it as
 // the latest fingerprint and returns newFingerprint = true, latest = true
 // If the partner exists and the fingerprint exists, return
 // newFingerprint = false, latest = false or latest = true if it is the last one
 // in the list.
-func (s *Store) AddIfNew(partner, myID *id.ID, negotiationFingerprint []byte) (
-	newFingerprint, latest bool) {
+func (s *Store) CheckIfNegotiationIsNew(partner, myID *id.ID, negotiationFingerprint []byte) (
+	newFingerprint bool, position uint) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 

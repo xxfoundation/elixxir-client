@@ -23,7 +23,7 @@ import (
 	"testing"
 )
 
-// Tests the four possible cases of Store.AddIfNew:
+// Tests the four possible cases of Store.CheckIfNegotationIsNew:
 //  1. If the partner does not exist, add partner with the new fingerprint.
 //		Returns newFingerprint = true, latest = true.
 //	2. If the partner exists and the fingerprint does not, add the fingerprint.
@@ -141,7 +141,7 @@ func TestStore_AddIfNew(t *testing.T) {
 				}
 			}
 
-			newFingerprint, latest := s.AddIfNew(tt.partner, tt.fp)
+			newFingerprint, latest := s.CheckIfNegotationIsNew(tt.partner, tt.fp)
 
 			if newFingerprint != tt.newFingerprint {
 				t.Errorf("Unexpected value for newFingerprint."+

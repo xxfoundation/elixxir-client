@@ -88,7 +88,7 @@ func TestLoadStore(t *testing.T) {
 		t.Fatalf("AddSent() produced an error: %+v", err)
 	}
 
-	s.AddIfNew(
+	s.CheckIfNegotationIsNew(
 		sr.partner, auth.CreateNegotiationFingerprint(privKeys[0], sidhPubKey))
 
 	// Attempt to load the store

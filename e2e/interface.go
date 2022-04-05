@@ -149,4 +149,18 @@ type Handler interface {
 	// EnableUnsafeReception enables the reception of unsafe message by
 	// registering bespoke services for reception. For debugging only!
 	EnableUnsafeReception()
+
+	/* === Utility ========================================================== */
+
+	// GetGroup returns the cyclic group used for end to end encruption
+	GetGroup() *cyclic.Group
+
+	// GetDefaultHistoricalDHPubkey returns the default user's Historical DH Public Key
+	GetDefaultHistoricalDHPubkey() *cyclic.Int
+
+	// GetDefaultHistoricalDHPrivkey returns the default user's Historical DH Private Key
+	GetDefaultHistoricalDHPrivkey() *cyclic.Int
+
+	// GetDefaultID returns the default IDs
+	GetDefaultID() *id.ID
 }

@@ -34,7 +34,15 @@ type Manager struct {
 	grp   *cyclic.Group
 	event event.Manager
 
+	registeredIDs map[id.ID]keypair
+
 	replayRequests bool
+}
+
+type keypair struct {
+	privkey *cyclic.Int
+	//generated from pubkey on instantiation
+	pubkey *cyclic.Int
 }
 
 func NewManager(sw interfaces.Switchboard, storage *storage.Session,

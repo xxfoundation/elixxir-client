@@ -20,6 +20,7 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	util "gitlab.com/elixxir/client/storage/utility"
 	network2 "gitlab.com/elixxir/comms/network"
+	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
@@ -51,20 +52,7 @@ func GeneratePartnerID(aliceKey, bobKey *cyclic.Int,
 	return sid
 }
 
-func testSendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte, cmixParams network.CMIXParams) ([]id.Round, e2e.MessageID, time.Time, error) {
-	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
-	alicePartner, err := r.GetPartner(myID, bobID)
-	if err != nil {
-		print(err)
-	}
-	bobPartner, err := r.GetPartner(myID, bobID)
-	if err != nil {
-		print(err)
-	}
-	alicePrivKey := alicePartner.GetMyOriginPrivateKey()
-	bobPubKey := bobPartner.GetMyOriginPrivateKey()
-	grp := getGroup()
-
+func genSidhKeys() (*sidh.PrivateKey, *sidh.PublicKey, *sidh.PrivateKey, *sidh.PublicKey) {
 	aliceVariant := sidh.KeyVariantSidhA
 	prng1 := rand.New(rand.NewSource(int64(1)))
 	aliceSIDHPrivKey := util.NewSIDHPrivateKey(aliceVariant)
@@ -79,6 +67,27 @@ func testSendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte, cmixP
 	bobSIDHPrivKey.Generate(prng2)
 	bobSIDHPrivKey.GeneratePublicKey(bobSIDHPubKey)
 
+	return aliceSIDHPrivKey, bobSIDHPubKey, aliceSIDHPrivKey, bobSIDHPubKey
+}
+
+func testSendE2E(mt catalog.MessageType, recipient *id.ID,
+	payload []byte, cmixParams network.CMIXParams) ([]id.Round, e2e.MessageID, time.Time, error) {
+	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
+	alicePartner, err := r.GetPartner(aliceID, bobID)
+	if err != nil {
+		print(err)
+	}
+	bobPartner, err := r.GetPartner(bobID, aliceID)
+	if err != nil {
+		print(err)
+	}
+
+	alicePrivKey := alicePartner.GetMyOriginPrivateKey()
+	bobPubKey := bobPartner.GetMyOriginPrivateKey()
+	grp := getGroup()
+
+	aliceSIDHPrivKey, bobSIDHPubKey, _, _ := genSidhKeys()
+
 	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, grp,
 		aliceSIDHPrivKey, bobSIDHPubKey)
 
@@ -91,7 +100,7 @@ func testSendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte, cmixP
 	confirmMessage := receive.Message{
 		Payload:     messagePayload,
 		MessageType: catalog.KeyExchangeConfirm,
-		Sender:      myID,
+		Sender:      aliceID,
 		Timestamp:   netTime.Now(),
 		Encrypted:   true,
 	}
@@ -178,6 +187,14 @@ func getGroup() *cyclic.Group {
 
 	return e2eGrp
 
+}
+
+type mockCommsInstance struct {
+	*ds.RoundEvents
+}
+
+func (mci *mockCommsInstance) GetRoundEvents() *ds.RoundEvents {
+	return mci.RoundEvents
 }
 
 type mockCyHandler struct {

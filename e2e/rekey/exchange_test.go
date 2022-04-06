@@ -29,7 +29,7 @@ import (
 )
 
 var r *ratchet.Ratchet
-var myID, bobID *id.ID
+var aliceID, bobID *id.ID
 var aliceSwitchboard = receive.New()
 var bobSwitchboard = receive.New()
 
@@ -38,7 +38,7 @@ func TestFullExchange(t *testing.T) {
 	// Assign ID's to alice and bob
 	grp := getGroup()
 	rng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
-	myID = id.NewIdFromString("zezima", id.User, t)
+	aliceID = id.NewIdFromString("zezima", id.User, t)
 
 	kv := versioned.NewKV(ekv.Memstore{})
 
@@ -78,11 +78,11 @@ func TestFullExchange(t *testing.T) {
 	newBobSIDHPubKeyBytes[0] = byte(bobVariant)
 	newBobSIDHPubKey.Export(newBobSIDHPubKeyBytes[1:])
 
-	err := ratchet.New(kv, myID, alicePrivKey, grp)
+	err := ratchet.New(kv, aliceID, alicePrivKey, grp)
 	if err != nil {
 		t.Errorf("Failed to create ratchet: %+v", err)
 	}
-	r, err = ratchet.Load(kv, myID, grp, mockCyHandler{}, mockServiceHandler{}, rng)
+	r, err = ratchet.Load(kv, aliceID, grp, mockCyHandler{}, mockServiceHandler{}, rng)
 	if err != nil {
 		t.Errorf("Failed to load ratchet: %+v", err)
 	}
@@ -90,13 +90,13 @@ func TestFullExchange(t *testing.T) {
 	// Add Alice and Bob as partners
 	sendParams := session.GetDefaultParams()
 	receiveParams := session.GetDefaultParams()
-	_, err = r.AddPartner(myID, bobID, bobPubKey,
+	_, err = r.AddPartner(aliceID, bobID, bobPubKey,
 		alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey,
 		sendParams, receiveParams)
 	if err != nil {
 		t.Errorf("Failed to add partner to ratchet: %+v", err)
 	}
-	_, err = r.AddPartner(bobID, myID, alicePubKey,
+	_, err = r.AddPartner(bobID, aliceID, alicePubKey,
 		bobPrivKey, aliceSIDHPubKey, bobSIDHPrivKey,
 		sendParams, receiveParams)
 	if err != nil {
@@ -135,7 +135,7 @@ func TestFullExchange(t *testing.T) {
 	}
 
 	// get Alice's manager for reception from Bob
-	receivedManager, err := r.GetPartner(bobID, myID)
+	receivedManager, err := r.GetPartner(bobID, aliceID)
 	if err != nil {
 		t.Errorf("Failed to get bob's manager: %v", err)
 	}

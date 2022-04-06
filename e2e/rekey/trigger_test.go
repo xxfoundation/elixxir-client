@@ -67,17 +67,17 @@ func TestHandleTrigger(t *testing.T) {
 	newBobSIDHPubKey.Export(newBobSIDHPubKeyBytes[1:])
 
 	// Maintain an ID for bob
-	bobID = id.NewIdFromBytes([]byte("test"), t)
-	myID = id.NewIdFromString("zezima", id.User, t)
+	bobID := id.NewIdFromBytes([]byte("test"), t)
+	myID := id.NewIdFromString("zezima", id.User, t)
 	kv := versioned.NewKV(ekv.Memstore{})
 
 	err := ratchet.New(kv, myID, alicePrivKey, grp)
 	if err != nil {
 		t.Errorf("Failed to create ratchet: %+v", err)
 	}
-	r, err = ratchet.Load(kv, myID, grp, mockCyHandler{}, mockServiceHandler{}, rng)
+	r, err := ratchet.Load(kv, myID, grp, mockCyHandler{}, mockServiceHandler{}, rng)
 	if err != nil {
-		t.Errorf("Failed to load ratchet: %+v", err)
+		t.Fatalf("Failed to load ratchet: %+v", err)
 	}
 
 	// Add bob as a partner

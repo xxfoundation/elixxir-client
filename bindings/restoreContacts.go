@@ -8,7 +8,9 @@
 package bindings
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/xxmutils"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -74,11 +76,30 @@ func (r *RestoreContactsReport) GetRestoreContactsError() string {
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
 func RestoreContactsFromBackup(backupPartnerIDs []byte, client *Client,
-	udManager *UserDiscovery,
+	udManager *UserDiscovery, lookupCB LookupCallback,
 	updatesCb RestoreContactsUpdater) *RestoreContactsReport {
 
+	extLookupCB := func(c contact.Contact, myErr error) {
+		jww.INFO.Printf("extLookupCB triggered: %v, %v", c, myErr)
+		bindingsContact := &Contact{c: &c}
+		errStr := ""
+		if myErr != nil {
+			jww.WARN.Printf("restore err on lookup: %+v",
+				myErr)
+			errStr = myErr.Error()
+		}
+		if lookupCB != nil {
+			jww.INFO.Printf("Calling lookupCB(%+v, %+v)",
+				bindingsContact, errStr)
+			lookupCB.Callback(bindingsContact, errStr)
+		} else {
+			jww.WARN.Printf("nil external lookup callback")
+		}
+	}
+
 	restored, failed, errs, err := xxmutils.RestoreContactsFromBackup(
-		backupPartnerIDs, &client.api, udManager.ud, updatesCb)
+		backupPartnerIDs, &client.api, udManager.ud, extLookupCB,
+		updatesCb)
 
 	return &RestoreContactsReport{
 		restored: restored,

@@ -348,7 +348,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	var rndNum id.Round
 	if autoConfirm || resetSession {
 		// Call ConfirmRequestAuth to send confirmation
-		rndNum, err = m.ConfirmRequestAuth(c)
+		rndNum, err = m.confirmRequestAuth(c, true)
 		if err != nil {
 			jww.ERROR.Printf("Could not ConfirmRequestAuth: %+v",
 				err)

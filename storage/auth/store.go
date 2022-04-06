@@ -9,6 +9,8 @@ package auth
 
 import (
 	"encoding/json"
+	"sync"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -20,7 +22,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 )
 
 const NoRequest = "Request Not Found"
@@ -286,6 +287,20 @@ func (s *Store) GetAllReceived() []contact.Contact {
 		r := s.requests[key]
 		if r.rt == Receive {
 			cList = append(cList, *r.receive)
+		}
+	}
+	return cList
+}
+
+// GetAllReceived returns all pending received contact requests from storage.
+func (s *Store) GetAllSentIDs() []*id.ID {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	cList := make([]*id.ID, 0, len(s.requests))
+	for key := range s.requests {
+		r := s.requests[key]
+		if r.rt == Sent {
+			cList = append(cList, r.sent.partner)
 		}
 	}
 	return cList

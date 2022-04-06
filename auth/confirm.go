@@ -32,6 +32,11 @@ func (m *Manager) ConfirmRequestAuth(partner contact.Contact) (id.Round, error) 
 		return 0, errors.New("Cannot confirm authenticated message " +
 			"when the network is not healthy")
 	}
+	return m.confirmRequestAuth(partner, false)
+}
+
+func (m *Manager) confirmRequestAuth(partner contact.Contact, critical bool) (id.Round,
+	error) {
 
 	// Cannot confirm already established channels
 	if _, err := m.storage.E2e().GetPartner(partner.ID); err == nil {
@@ -156,13 +161,26 @@ func (m *Manager) ConfirmRequestAuth(partner contact.Contact) (id.Round, error) 
 	param.IdentityPreimage = preimg
 	param.DebugTag = "auth.Confirm"
 	/*send message*/
+	if critical {
+		m.storage.GetCriticalRawMessages().AddProcessing(cmixMsg,
+			partner.ID)
+	}
 	round, _, err := m.net.SendCMIX(cmixMsg, partner.ID, param)
 	if err != nil {
 		// if the send fails just set it to failed, it will but automatically
 		// retried
 		jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) failed "+
 			"to transmit: %+v", partner.ID, cmixMsg.Digest(), err)
+		if critical {
+			m.storage.GetCriticalRawMessages().Failed(cmixMsg,
+				partner.ID)
+		}
 		return 0, errors.WithMessage(err, "Auth Confirm Failed to transmit")
+	}
+
+	if critical {
+		m.storage.GetCriticalRawMessages().Succeeded(cmixMsg,
+			partner.ID)
 	}
 
 	em := fmt.Sprintf("Confirm Request with %s (msgDigest: %s) sent on round %d",

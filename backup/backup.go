@@ -24,6 +24,7 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // Error messages.
@@ -149,7 +150,7 @@ func resumeBackup(updateBackupCb UpdateBackupFn, c *api.Client,
 	// Setting backup trigger in client
 	b.backupContainer.SetBackup(b.TriggerBackup)
 
-	jww.INFO.Print("Resumed backup with password loaded from storage.")
+	jww.INFO.Print("resumed backup with password loaded from storage.")
 
 	return b, nil
 }
@@ -302,9 +303,33 @@ func (b *Backup) assembleBackup() backup.Backup {
 
 	// Get contacts
 	bu.Contacts.Identities = b.store.E2e().GetPartners()
+	// Get pending auth requests
+	// NOTE: Received requests don't matter here, as those are either
+	// not yet noticed by user OR explicitly rejected.
+	bu.Contacts.Identities = append(bu.Contacts.Identities,
+		b.store.Auth().GetAllSentIDs()...)
+	jww.INFO.Printf("backup saw %d contacts", len(bu.Contacts.Identities))
+	jww.DEBUG.Printf("contacts in backup list: %+v", bu.Contacts.Identities)
+	//deduplicate list
+	bu.Contacts.Identities = deduplicate(bu.Contacts.Identities)
+
+	jww.INFO.Printf("backup saved %d contacts after deduplication",
+		len(bu.Contacts.Identities))
 
 	// Add the memoized JSON params
 	bu.JSONParams = b.jsonParams
 
 	return bu
+}
+
+func deduplicate(list []*id.ID) []*id.ID {
+	entryMap := make(map[id.ID]bool)
+	newList := make([]*id.ID, 0)
+	for i, _ := range list {
+		if _, value := entryMap[*list[i]]; !value {
+			entryMap[*list[i]] = true
+			newList = append(newList, list[i])
+		}
+	}
+	return newList
 }

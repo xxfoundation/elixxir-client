@@ -54,6 +54,7 @@ func (mnfmr *ManyNotificationForMeReport) Len() int {
 //	TYPE       	SOURCE				DESCRIPTION
 // 	"default"	recipient user ID	A message with no association
 //	"request"	sender user ID		A channel request has been received
+//	"reset"	    sender user ID		A channel reset has been received
 //	"confirm"	sender user ID		A channel request has been accepted
 //	"silent"	sender user ID		A message which should not be notified on
 //	"e2e"		sender user ID		reception of an E2E message

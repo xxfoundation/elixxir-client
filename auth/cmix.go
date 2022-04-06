@@ -34,7 +34,7 @@ func getMixPayloadSize(primeSize int) int {
 // is created.
 func sendAuthRequest(recipient *id.ID, contents, mac []byte, primeSize int,
 	fingerprint format.Fingerprint, net interfaces.NetworkManager,
-	cMixParams params.CMIX) (id.Round, error) {
+	cMixParams params.CMIX, reset bool) (id.Round, error) {
 	cmixMsg := format.NewMessage(primeSize)
 	cmixMsg.SetKeyFP(fingerprint)
 	cmixMsg.SetMac(mac)
@@ -42,8 +42,12 @@ func sendAuthRequest(recipient *id.ID, contents, mac []byte, primeSize int,
 
 	jww.INFO.Printf("Requesting Auth with %s, msgDigest: %s",
 		recipient, cmixMsg.Digest())
+	if reset {
+		cMixParams.IdentityPreimage = preimage.GenerateRequest(recipient)
+	} else {
+		cMixParams.IdentityPreimage = preimage.GenerateReset(recipient)
+	}
 
-	cMixParams.IdentityPreimage = preimage.GenerateRequest(recipient)
 	cMixParams.DebugTag = "auth.Request"
 	round, _, err := net.SendCMIX(cmixMsg, recipient, cMixParams)
 	if err != nil {

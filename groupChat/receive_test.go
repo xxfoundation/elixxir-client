@@ -9,7 +9,6 @@ package groupChat
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/group"

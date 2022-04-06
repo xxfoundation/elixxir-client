@@ -88,10 +88,12 @@ func requestAuth(partner, me contact.Contact, rng io.Reader, reset bool,
 	} else if err == nil {
 		switch rqType {
 		case auth.Receive:
-			// TODO: We've already received a request, so send a
-			//       confirmation instead?
-			return 0, errors.Errorf("Cannot send a request after " +
-				"receiving a request")
+			if reset {
+				storage.Auth().DeleteRequest(partner.ID)
+			} else {
+				return 0, errors.Errorf("Cannot send a " +
+					"request after receiving a request")
+			}
 		case auth.Sent:
 			resend = true
 		default:

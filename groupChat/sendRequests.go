@@ -30,7 +30,7 @@ const (
 
 // ResendRequest allows a groupChat request to be sent again.
 func (m Manager) ResendRequest(groupID *id.ID) ([]id.Round, RequestStatus, error) {
-	g, exists := m.gs.Get(groupID)
+	g, exists := m.GetGroup(groupID)
 	if !exists {
 		return nil, NotSent, errors.Errorf(resendGroupIdErr, groupID)
 	}
@@ -94,10 +94,13 @@ func (m Manager) sendRequests(g gs.Group) ([]id.Round, RequestStatus, error) {
 			errors.Errorf(sendRequestAllErr, len(errs), strings.Join(errs, "\n"))
 	}
 
+	// Convert roundIdMap to List
+	roundList := roundIdMap2List(roundIDs)
+
 	// If some sends returned an error, then return a list of round IDs for the
 	// successful sends and a list of errors for the failed ones
 	if len(errs) > 0 {
-		return roundIdMap2List(roundIDs), PartialSent,
+		return roundList, PartialSent,
 			errors.Errorf(sendRequestPartialErr, len(errs), n,
 				strings.Join(errs, "\n"))
 	}
@@ -106,7 +109,7 @@ func (m Manager) sendRequests(g gs.Group) ([]id.Round, RequestStatus, error) {
 		len(g.Members), g.Name, g.ID)
 
 	// If all sends succeeded, return a list of roundIDs
-	return roundIdMap2List(roundIDs), AllSent, nil
+	return roundList, AllSent, nil
 }
 
 // sendRequest sends the group request to the user via E2E.

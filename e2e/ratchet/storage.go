@@ -104,6 +104,7 @@ func (r *Ratchet) marshal() ([]byte, error) {
 }
 
 // In the event an old structure was loaded, unmarshal it and upgrade it
+// todo: test this with some old kv data
 func (r *Ratchet) unmarshalOld(b []byte) error {
 
 	var contacts []id.ID

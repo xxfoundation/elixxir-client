@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/network/message"
 	util "gitlab.com/elixxir/client/storage/utility"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
@@ -246,6 +247,20 @@ func TestManager_GetPartnerID(t *testing.T) {
 	}
 }
 
+// Tests happy path of Manager.GetMyID.
+func TestManager_GetMyID(t *testing.T) {
+	myId := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+
+	m := &Manager{myID: myId}
+
+	receivedMyId := m.GetMyID()
+
+	if !myId.Cmp(receivedMyId) {
+		t.Errorf("GetMyID() returned incorrect partner ID."+
+			"\n\texpected: %s\n\treceived: %s", myId, receivedMyId)
+	}
+}
+
 // Tests happy path of Manager.GetSendSession.
 func TestManager_GetSendSession(t *testing.T) {
 	m, _ := newTestManager(t)
@@ -377,4 +392,23 @@ func TestManager_GetRelationshipFingerprint_Consistency(t *testing.T) {
 
 		// fmt.Printf("\"%s\",\n", fp) // Uncomment to reprint expected values
 	}
+}
+
+func TestManager_MakeService(t *testing.T) {
+	m, _ := newTestManager(t)
+	tag := "hunter2"
+	expected := message.Service{
+		Identifier: m.GetRelationshipFingerprintBytes(),
+		Tag:        tag,
+		Metadata:   m.partner[:],
+	}
+
+	received := m.MakeService(tag)
+
+	if !reflect.DeepEqual(expected, received) {
+		t.Fatalf("MakeService returned unexpected data."+
+			"\nExpected: %v"+
+			"\nReceived: %v", expected, received)
+	}
+
 }

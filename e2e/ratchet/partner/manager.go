@@ -263,11 +263,6 @@ func (m *Manager) TriggerNegotiations() []*session.Session {
 	return m.send.TriggerNegotiation()
 }
 
-// IsTemporary returns if this manager stores to disk or only in ram
-func (m *Manager) IsTemporary() bool {
-	return m.kv.IsMemStore()
-}
-
 func (m *Manager) GetMyOriginPrivateKey() *cyclic.Int {
 	return m.originMyPrivKey.DeepCopy()
 }

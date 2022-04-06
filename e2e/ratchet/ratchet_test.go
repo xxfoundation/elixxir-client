@@ -21,6 +21,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -102,7 +103,7 @@ func TestStore_AddPartner(t *testing.T) {
 	receivedManager, err := r.AddPartner(
 		r.defaultID, partnerID,
 		partnerPubKey, r.defaultDHPrivateKey,
-		pubSIDHKey, myPrivSIDHKey, p, p, true)
+		pubSIDHKey, myPrivSIDHKey, p, p)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
 	}
@@ -142,7 +143,7 @@ func TestStore_DeletePartner(t *testing.T) {
 	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
 
 	_, err = r.AddPartner(r.defaultID, partnerID, r.defaultDHPrivateKey,
-		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p, true)
+		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
 	}
@@ -172,7 +173,7 @@ func TestStore_GetPartner(t *testing.T) {
 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
 	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
 	expectedManager, err := r.AddPartner(r.defaultID, partnerID, r.defaultDHPrivateKey,
-		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p, true)
+		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
 	}
@@ -186,6 +187,53 @@ func TestStore_GetPartner(t *testing.T) {
 		t.Errorf("GetPartner() returned wrong State."+
 			"\n\texpected: %v\n\treceived: %v", expectedManager, m)
 	}
+}
+
+// Ratchet.GetAllPartnerIDs unit test.
+func TestRatchet_GetAllPartnerIDs(t *testing.T) {
+	// Setup
+	numTests := 100
+	expectedPartners := make([]*id.ID, 0, numTests)
+	rng := csprng.NewSystemRNG()
+	r, _, err := makeTestRatchet()
+	if err != nil {
+		t.Fatalf("Setup error: %v", err)
+	}
+
+	// Generate partners and add them ot the manager
+	for i := 0; i < numTests; i++ {
+		partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+		partnerPubKey := diffieHellman.GeneratePublicKey(r.defaultDHPrivateKey, r.grp)
+		p := session.GetDefaultParams()
+		_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
+		myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
+		_, err := r.AddPartner(r.defaultID, partnerID, r.defaultDHPrivateKey,
+			partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p)
+		if err != nil {
+			t.Fatalf("AddPartner returned an error: %v", err)
+		}
+
+		expectedPartners = append(expectedPartners, partnerID)
+	}
+
+	receivedPartners := r.GetAllPartnerIDs(r.defaultID)
+
+	// Sort these slices as GetAllPartnerIDs iterates over a map, which indices
+	// at random in Go
+	sort.SliceStable(receivedPartners, func(i, j int) bool {
+		return bytes.Compare(receivedPartners[i].Bytes(), receivedPartners[j].Bytes()) == -1
+	})
+
+	sort.SliceStable(expectedPartners, func(i, j int) bool {
+		return bytes.Compare(expectedPartners[i].Bytes(), expectedPartners[j].Bytes()) == -1
+	})
+
+	if !reflect.DeepEqual(receivedPartners, expectedPartners) {
+		t.Fatalf("Unexpected data retrieved from GetAllPartnerIDs."+
+			"\nExpected: %v"+
+			"\nReceived: %v", expectedPartners, receivedPartners)
+	}
+
 }
 
 // Tests that Ratchet.GetPartner returns an error for non existent partnerID.

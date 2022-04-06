@@ -11,7 +11,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
@@ -316,7 +315,7 @@ func TestGroup_newCmixMsg(t *testing.T) {
 	key, _ := group.NewKdfKey(g.Key, group.ComputeEpoch(timeNow), salt)
 
 	// Create expected messages
-	cmixMsg := format.NewMessage(m.store.Cmix().GetGroup().GetP().ByteLen())
+	cmixMsg := format.NewMessage(m.grp.GetP().ByteLen())
 	publicMessage, _ := newPublicMsg(cmixMsg.ContentsSize())
 	internalMessage, _ := newInternalMsg(publicMessage.GetPayloadSize())
 	internalMessage.SetTimestamp(timeNow)

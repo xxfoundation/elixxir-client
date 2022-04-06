@@ -10,9 +10,8 @@ package groupChat
 import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/stoppable"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"math/rand"
@@ -28,9 +27,9 @@ func TestManager_receiveRequest(t *testing.T) {
 	requestChan := make(chan gs.Group)
 	requestFunc := func(g gs.Group) { requestChan <- g }
 	m, _ := newTestManagerWithStore(prng, 10, 0, requestFunc, nil, t)
-	g := newTestGroupWithUser(m.store.E2e().GetGroup(),
-		m.store.GetUser().ReceptionID, m.store.GetUser().E2eDhPublicKey,
-		m.store.GetUser().E2eDhPrivateKey, prng, t)
+	g := newTestGroupWithUser(m.grp,
+		m.receptionId, m.e2e.GetDefaultHistoricalDHPubkey(),
+		m.e2e.GetDefaultHistoricalDHPrivkey(), prng, t)
 
 	requestMarshaled, err := proto.Marshal(&Request{
 		Name:        g.Name,
@@ -62,13 +61,13 @@ func TestManager_receiveRequest(t *testing.T) {
 	theirSIDHPrivKey.Generate(prng)
 	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
 
-	_ = m.store.E2e().AddPartner(
+	_, _ = m.e2e.AddPartner(m.receptionId,
 		g.Members[0].ID,
 		g.Members[0].DhKey,
-		m.store.E2e().GetGroup().NewInt(2),
+		m.grp.NewInt(2),
 		theirSIDHPubKey, mySIDHPrivKey,
-		params.GetDefaultE2ESessionParams(),
-		params.GetDefaultE2ESessionParams(),
+		session.GetDefaultParams(),
+		session.GetDefaultParams(),
 	)
 
 	rawMessages := make(chan message.Receive)
@@ -191,13 +190,13 @@ func TestManager_readRequest(t *testing.T) {
 	theirSIDHPrivKey.Generate(prng)
 	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
 
-	_ = m.store.E2e().AddPartner(
+	_, _ = m.e2e.AddPartner(m.receptionId,
 		g.Members[0].ID,
 		g.Members[0].DhKey,
-		m.store.E2e().GetGroup().NewInt(2),
+		m.grp.NewInt(2),
 		theirSIDHPubKey, mySIDHPrivKey,
-		params.GetDefaultE2ESessionParams(),
-		params.GetDefaultE2ESessionParams(),
+		session.GetDefaultParams(),
+		session.GetDefaultParams(),
 	)
 
 	requestMarshaled, err := proto.Marshal(&Request{

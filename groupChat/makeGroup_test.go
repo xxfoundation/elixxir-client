@@ -11,8 +11,8 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/cloudflare/circl/dh/sidh"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/interfaces/params"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
@@ -290,7 +290,7 @@ func addPartners(m *Manager, t *testing.T) ([]*id.ID, group.Membership,
 	for i := range memberIDs {
 		// Build member data
 		uid := id.NewIdFromUInt(uint64(i), id.User, t)
-		dhKey := m.store.E2e().GetGroup().NewInt(int64(i + 42))
+		dhKey := m.grp.NewInt(int64(i + 42))
 
 		myVariant := sidh.KeyVariantSidhA
 		prng := rand.New(rand.NewSource(int64(i + 42)))
@@ -309,13 +309,13 @@ func addPartners(m *Manager, t *testing.T) ([]*id.ID, group.Membership,
 		memberIDs[i] = uid
 		members = append(members, group.Member{ID: uid, DhKey: dhKey})
 		dkl.Add(dhKey, group.Member{ID: uid, DhKey: dhKey},
-			m.store.E2e().GetGroup())
+			m.grp)
 
 		// Add partner
-		err := m.store.E2e().AddPartner(uid, dhKey, dhKey,
+		_, err := m.e2e.AddPartner(m.receptionId, uid, dhKey, dhKey,
 			theirSIDHPubKey, mySIDHPrivKey,
-			params.GetDefaultE2ESessionParams(),
-			params.GetDefaultE2ESessionParams())
+			session.GetDefaultParams(),
+			session.GetDefaultParams())
 		if err != nil {
 			t.Errorf("Failed to add partner %d: %+v", i, err)
 		}

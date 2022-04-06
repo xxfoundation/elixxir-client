@@ -90,11 +90,15 @@ func TestFullExchange(t *testing.T) {
 	// Add Alice and Bob as partners
 	sendParams := session.GetDefaultParams()
 	receiveParams := session.GetDefaultParams()
-	_, err = r.AddPartner(myID, bobID, bobPubKey, alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey, sendParams, receiveParams, false)
+	_, err = r.AddPartner(myID, bobID, bobPubKey,
+		alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey,
+		sendParams, receiveParams)
 	if err != nil {
 		t.Errorf("Failed to add partner to ratchet: %+v", err)
 	}
-	_, err = r.AddPartner(bobID, myID, alicePubKey, bobPrivKey, aliceSIDHPubKey, bobSIDHPrivKey, sendParams, receiveParams, false)
+	_, err = r.AddPartner(bobID, myID, alicePubKey,
+		bobPrivKey, aliceSIDHPubKey, bobSIDHPrivKey,
+		sendParams, receiveParams)
 	if err != nil {
 		t.Errorf("Failed to add partner to ratchet: %+v", err)
 	}

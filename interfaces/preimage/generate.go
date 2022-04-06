@@ -28,3 +28,13 @@ func GenerateRequest(recipient *id.ID) []byte {
 	// Base 64 encode hash and truncate
 	return h.Sum(nil)
 }
+
+func GenerateReset(recipient *id.ID) []byte {
+	// Hash fingerprints
+	h, _ := blake2b.New256(nil)
+	h.Write(recipient[:])
+	h.Write([]byte(Reset))
+
+	// Base 64 encode hash and truncate
+	return h.Sum(nil)
+}

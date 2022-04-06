@@ -181,7 +181,7 @@ func requestAuth(partner, me contact.Contact, rng io.Reader, reset bool,
 
 	cMixParams := params.GetDefaultCMIX()
 	rndID, err := sendAuthRequest(partner.ID, contents, mac, cMixPrimeSize,
-		requestfp, net, cMixParams)
+		requestfp, net, cMixParams, reset)
 	return rndID, err
 }
 

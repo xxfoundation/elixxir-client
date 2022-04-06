@@ -976,6 +976,12 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
 		Source: protoUser.ReceptionID[:],
 	}, protoUser.ReceptionID)
 
+	storageSess.GetEdge().Add(edge.Preimage{
+		Data:   preimage.GenerateRequest(protoUser.ReceptionID),
+		Type:   preimage.Reset,
+		Source: protoUser.ReceptionID[:],
+	}, protoUser.ReceptionID)
+
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to denote state "+
 			"change in session")

@@ -67,15 +67,15 @@ func TestHandleTrigger(t *testing.T) {
 	newBobSIDHPubKey.Export(newBobSIDHPubKeyBytes[1:])
 
 	// Maintain an ID for bob
-	bobID := id.NewIdFromBytes([]byte("test"), t)
-	myID := id.NewIdFromString("zezima", id.User, t)
+	bobID = id.NewIdFromBytes([]byte("test"), t)
+	aliceID = id.NewIdFromString("zezima", id.User, t)
 	kv := versioned.NewKV(ekv.Memstore{})
 
-	err := ratchet.New(kv, myID, alicePrivKey, grp)
+	err := ratchet.New(kv, aliceID, alicePrivKey, grp)
 	if err != nil {
 		t.Errorf("Failed to create ratchet: %+v", err)
 	}
-	r, err := ratchet.Load(kv, myID, grp, mockCyHandler{}, mockServiceHandler{}, rng)
+	r, err = ratchet.Load(kv, aliceID, grp, mockCyHandler{}, mockServiceHandler{}, rng)
 	if err != nil {
 		t.Fatalf("Failed to load ratchet: %+v", err)
 	}
@@ -83,13 +83,13 @@ func TestHandleTrigger(t *testing.T) {
 	// Add bob as a partner
 	sendParams := session2.GetDefaultParams()
 	receiveParams := session2.GetDefaultParams()
-	_, err = r.AddPartner(myID, bobID, bobPubKey,
+	_, err = r.AddPartner(aliceID, bobID, bobPubKey,
 		alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey,
 		sendParams, receiveParams)
 	if err != nil {
 		t.Errorf("Failed to add partner to ratchet: %+v", err)
 	}
-	_, err = r.AddPartner(bobID, myID, alicePubKey, bobPrivKey,
+	_, err = r.AddPartner(bobID, aliceID, alicePubKey, bobPrivKey,
 		aliceSIDHPubKey, bobSIDHPrivKey,
 		sendParams, receiveParams)
 	if err != nil {
@@ -125,7 +125,7 @@ func TestHandleTrigger(t *testing.T) {
 
 	// get Alice's manager for reception from Bob
 
-	receivedManager, err := r.GetPartner(bobID, myID)
+	receivedManager, err := r.GetPartner(bobID, aliceID)
 	if err != nil {
 		t.Errorf("Failed to get bob's manager: %v", err)
 	}

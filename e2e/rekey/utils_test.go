@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/historical"
+	"gitlab.com/elixxir/client/network/identity"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
 	util "gitlab.com/elixxir/client/storage/utility"
@@ -221,6 +222,11 @@ func (m mockServiceHandler) DeleteService(clientID *id.ID, toDelete message.Serv
 }
 
 type mockNetManager struct{}
+
+func (m *mockNetManager) GetIdentity(get *id.ID) (identity.TrackedID, error) {
+	//TODO implement me
+	panic("implement me")
+}
 
 func (m *mockNetManager) Follow(report network.ClientErrorReport) (stoppable.Stoppable, error) {
 	return nil, nil

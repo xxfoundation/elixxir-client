@@ -387,7 +387,7 @@ func (s *Session) Status() Status {
 
 // Moving from Unconfirmed to Sending and from Confirmed to NewSessionTriggered
 // is handled by  Session.TriggerNegotiation() which is called by the
-// Manager as part of Manager.TriggerNegotiations() and will be rejected
+// State as part of State.TriggerNegotiations() and will be rejected
 // from this function
 
 var legalStateChanges = [][]bool{

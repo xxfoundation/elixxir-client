@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-// Tests that Manager.sendThread sends multiple sets of messages.
+// Tests that State.sendThread sends multiple sets of messages.
 func TestManager_sendThread(t *testing.T) {
 	m := newTestManager(10, 50*time.Millisecond, 10*time.Millisecond, false, t)
 
@@ -86,7 +86,7 @@ func TestManager_sendThread(t *testing.T) {
 
 }
 
-// Tests that Manager.sendMessages sends all the messages with the correct
+// Tests that State.sendMessages sends all the messages with the correct
 // recipient.
 func TestManager_sendMessages(t *testing.T) {
 	m := newTestManager(100, 0, 0, false, t)
@@ -135,7 +135,7 @@ func TestManager_sendMessages(t *testing.T) {
 	}
 }
 
-// Tests that Manager.newRandomMessages creates a non-empty map of messages and
+// Tests that State.newRandomMessages creates a non-empty map of messages and
 // that each message is unique.
 func TestManager_newRandomMessages(t *testing.T) {
 	m := newTestManager(10, 0, 0, false, t)
@@ -161,7 +161,7 @@ func TestManager_newRandomMessages(t *testing.T) {
 	}
 }
 
-// Tests that Manager.newRandomCmixMessage generates a cMix message with
+// Tests that State.newRandomCmixMessage generates a cMix message with
 // populated contents, fingerprint, and MAC.
 func TestManager_newRandomCmixMessage(t *testing.T) {
 	m := newTestManager(0, 0, 0, false, t)

@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-// Tests that Manager.receive returns the correct progress on the callback when
+// Tests that State.receive returns the correct progress on the callback when
 // receiving a single message.
 func TestManager_receive(t *testing.T) {
 	// Build a manager for sending and a manger for receiving
@@ -133,7 +133,7 @@ func TestManager_receive(t *testing.T) {
 	<-done
 }
 
-// Tests that Manager.receive the progress callback is not called when the
+// Tests that State.receive the progress callback is not called when the
 // stoppable is triggered.
 func TestManager_receive_Stop(t *testing.T) {
 	// Build a manager for sending and a manger for receiving
@@ -232,7 +232,7 @@ func TestManager_receive_Stop(t *testing.T) {
 	<-done1
 }
 
-// Tests that Manager.readMessage reads the message without errors and that it
+// Tests that State.readMessage reads the message without errors and that it
 // reports the correct progress on the callback. It also gets the file and
 // checks that the part is where it should be.
 func TestManager_readMessage(t *testing.T) {

@@ -9,7 +9,9 @@ package store
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -19,43 +21,69 @@ const (
 	currentConfirmationVersion = 0
 )
 
+type storedConfirm struct {
+	Payload []byte
+	Mac     []byte
+	Keyfp   []byte
+}
+
 // StoreConfirmation saves the confirmation to storage for the given partner and
 // fingerprint.
-func (s *Store) StoreConfirmation(
-	partner *id.ID, fingerprint, confirmation []byte) error {
+func (s *Store) StoreConfirmation(partner *id.ID, me *id.ID,
+	confirmationPayload, mac []byte, fp format.Fingerprint) error {
+	confirm := storedConfirm{
+		Payload: confirmationPayload,
+		Mac:     mac,
+		Keyfp:   fp[:],
+	}
+
+	confirmBytes, err := json.Marshal(&confirm)
+	if err != nil {
+		return err
+	}
+
 	obj := &versioned.Object{
 		Version:   currentConfirmationVersion,
 		Timestamp: netTime.Now(),
-		Data:      confirmation,
+		Data:      confirmBytes,
 	}
 
-	return s.kv.Set(makeConfirmationKey(partner, fingerprint),
+	return s.kv.Set(makeConfirmationKey(partner, me),
 		currentConfirmationVersion, obj)
 }
 
 // LoadConfirmation loads the confirmation for the given partner and fingerprint
 // from storage.
-func (s *Store) LoadConfirmation(partner *id.ID, fingerprint []byte) (
-	[]byte, error) {
+func (s *Store) LoadConfirmation(partner, me *id.ID) (
+	[]byte, []byte, format.Fingerprint, error) {
 	obj, err := s.kv.Get(
-		makeConfirmationKey(partner, fingerprint), currentConfirmationVersion)
+		makeConfirmationKey(partner, me), currentConfirmationVersion)
 	if err != nil {
-		return nil, err
+		return nil, nil, format.Fingerprint{}, err
 	}
 
-	return obj.Data, nil
+	confirm := storedConfirm{}
+	if err = json.Unmarshal(obj.Data, &confirm); err != nil {
+		return nil, nil, format.Fingerprint{}, err
+	}
+
+	fp := format.Fingerprint{}
+	copy(fp[:], confirm.Keyfp)
+
+	return confirm.Payload, confirm.Mac, fp, nil
 }
 
-// deleteConfirmation deletes the confirmation for the given partner and
+// DeleteConfirmation deletes the confirmation for the given partner and
 // fingerprint from storage.
-func (s *Store) deleteConfirmation(partner *id.ID, fingerprint []byte) error {
+func (s *Store) DeleteConfirmation(partner, me *id.ID) error {
 	return s.kv.Delete(
-		makeConfirmationKey(partner, fingerprint), currentConfirmationVersion)
+		makeConfirmationKey(partner, me), currentConfirmationVersion)
 }
 
 // makeConfirmationKey generates the key used to load and store confirmations
 // for the partner and fingerprint.
-func makeConfirmationKey(partner *id.ID, fingerprint []byte) string {
+func makeConfirmationKey(partner, me *id.ID) string {
 	return confirmationKeyPrefix + base64.StdEncoding.EncodeToString(
-		partner.Marshal()) + "/" + base64.StdEncoding.EncodeToString(fingerprint)
+		partner.Marshal()) + base64.StdEncoding.EncodeToString(
+		me.Marshal())
 }

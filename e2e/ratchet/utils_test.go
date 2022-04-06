@@ -45,34 +45,34 @@ func makeTestRatchet() (*Ratchet, *versioned.KV, error) {
 func managersEqual(expected, received *partner.Manager, t *testing.T) bool {
 	equal := true
 	if !reflect.DeepEqual(expected.GetPartnerID(), received.GetPartnerID()) {
-		t.Errorf("Did not Receive expected Manager.partnerID."+
+		t.Errorf("Did not Receive expected State.partnerID."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.GetPartnerID(), received.GetPartnerID())
 		equal = false
 	}
 
 	if !strings.EqualFold(expected.GetRelationshipFingerprint(), received.GetRelationshipFingerprint()) {
-		t.Errorf("Did not Receive expected Manager.Receive."+
+		t.Errorf("Did not Receive expected State.Receive."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.GetRelationshipFingerprint(), received.GetRelationshipFingerprint())
 		equal = false
 	}
 	if !reflect.DeepEqual(expected.GetMyID(), received.GetMyID()) {
-		t.Errorf("Did not Receive expected Manager.myId."+
+		t.Errorf("Did not Receive expected State.myId."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.GetMyID(), received.GetPartnerID())
 		equal = false
 	}
 
 	if !reflect.DeepEqual(expected.GetMyOriginPrivateKey(), received.GetMyOriginPrivateKey()) {
-		t.Errorf("Did not Receive expected Manager.MyPrivateKey."+
+		t.Errorf("Did not Receive expected State.MyPrivateKey."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.GetMyOriginPrivateKey(), received.GetMyOriginPrivateKey())
 		equal = false
 	}
 
 	if !reflect.DeepEqual(expected.GetSendRelationshipFingerprint(), received.GetSendRelationshipFingerprint()) {
-		t.Errorf("Did not Receive expected Manager.SendRelationshipFingerprint."+
+		t.Errorf("Did not Receive expected State.SendRelationshipFingerprint."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.GetSendRelationshipFingerprint(), received.GetSendRelationshipFingerprint())
 		equal = false

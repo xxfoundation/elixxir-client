@@ -137,7 +137,7 @@ type NetworkManager interface {
 
 	/*===Nodes================================================================*/
 	/* Keys must be registed with nodes in order to send messages throug them.
-	this process is in general automatically handled by the Network Manager*/
+	this process is in general automatically handled by the Network State*/
 
 	// HasNode can be used to determine if a keying relationship exists with a
 	// node.
@@ -153,7 +153,7 @@ type NetworkManager interface {
 	/*===Historical Rounds====================================================*/
 	/* A complete set of round info is not kept on the client, and sometimes
 	the network will need to be queried to get round info. Historical rounds
-	is the system internal to the Network Manager to do this.
+	is the system internal to the Network State to do this.
 	It can be used externally as well.*/
 
 	// LookupHistoricalRound - looks up the passed historical round on the

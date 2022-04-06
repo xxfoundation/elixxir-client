@@ -9,6 +9,7 @@ package identity
 
 import (
 	"encoding/json"
+	"github.com/pkg/errors"
 	"io"
 	"os"
 	"sync"
@@ -52,29 +53,30 @@ type Tracker interface {
 }
 
 type manager struct {
-	tracked        []trackedID
+	tracked        []TrackedID
 	store          *receptionID.Store
 	session        storage.Session
-	newIdentity    chan trackedID
+	newIdentity    chan TrackedID
 	deleteIdentity chan *id.ID
 	addrSpace      address.Space
 	mux            *sync.Mutex
 }
 
-type trackedID struct {
+type TrackedID struct {
 	NextGeneration time.Time
 	LastGeneration time.Time
 	Source         *id.ID
 	ValidUntil     time.Time
 	Persistent     bool
+	Creation       time.Time
 }
 
 func NewOrLoadTracker(session storage.Session, addrSpace address.Space) *manager {
 	// Initialization
 	t := &manager{
-		tracked:        make([]trackedID, 0),
+		tracked:        make([]TrackedID, 0),
 		session:        session,
-		newIdentity:    make(chan trackedID, trackedIDChanSize),
+		newIdentity:    make(chan TrackedID, trackedIDChanSize),
 		deleteIdentity: make(chan *id.ID, deleteIDChanSize),
 		addrSpace:      addrSpace,
 		mux:            &sync.Mutex{},
@@ -88,7 +90,7 @@ func NewOrLoadTracker(session storage.Session, addrSpace address.Space) *manager
 			jww.WARN.Printf("No tracked identities found, creating a new " +
 				"tracked identity from legacy stored timestamp.")
 
-			t.tracked = append(t.tracked, trackedID{
+			t.tracked = append(t.tracked, TrackedID{
 				// Make the next generation now so a generation triggers on
 				// first run
 				NextGeneration: netTime.Now(),
@@ -103,7 +105,7 @@ func NewOrLoadTracker(session storage.Session, addrSpace address.Space) *manager
 				"stored timestamp found; creating a new tracked identity " +
 				"from scratch.")
 
-			t.tracked = append(t.tracked, trackedID{
+			t.tracked = append(t.tracked, TrackedID{
 				// Make the next generation now so a generation triggers on
 				// first run
 				NextGeneration: netTime.Now(),
@@ -137,12 +139,13 @@ func (t manager) StartProcesses() stoppable.Stoppable {
 
 // AddIdentity adds an identity to be tracked.
 func (t *manager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
-	t.newIdentity <- trackedID{
+	t.newIdentity <- TrackedID{
 		NextGeneration: netTime.Now().Add(-time.Second),
 		LastGeneration: time.Time{},
 		Source:         id,
 		ValidUntil:     validUntil,
 		Persistent:     persistent,
+		Creation:       netTime.Now(),
 	}
 }
 
@@ -155,6 +158,18 @@ func (t *manager) RemoveIdentity(id *id.ID) {
 func (t *manager) GetEphemeralIdentity(rng io.Reader, addressSize uint8) (
 	receptionID.IdentityUse, error) {
 	return t.store.GetIdentity(rng, addressSize)
+}
+
+// GetIdentity returns a currently tracked identity
+func (t *manager) GetIdentity(get *id.ID) (TrackedID, error) {
+	t.mux.Lock()
+	defer t.mux.Unlock()
+	for i := range t.tracked {
+		if get.Cmp(t.tracked[i].Source) {
+			return t.tracked[i], nil
+		}
+	}
+	return TrackedID{}, errors.Errorf("could not find id %s", get)
 }
 
 func (t *manager) track(stop *stoppable.Single) {
@@ -227,7 +242,7 @@ trackerLoop:
 
 		// Process any deletions
 		if len(toRemove) > 0 {
-			newTracked := make([]trackedID, 0, len(t.tracked))
+			newTracked := make([]TrackedID, 0, len(t.tracked))
 			for i := range t.tracked {
 				if _, remove := toRemove[i]; !remove {
 					newTracked = append(newTracked, t.tracked[i])
@@ -352,7 +367,7 @@ func generateIdentitiesOverRange(lastGeneration, generateThrough time.Time,
 func (t *manager) save() {
 	t.mux.Lock()
 	defer t.mux.Unlock()
-	persistent := make([]trackedID, 0, len(t.tracked))
+	persistent := make([]TrackedID, 0, len(t.tracked))
 
 	for i := range t.tracked {
 		if t.tracked[i].Persistent {
@@ -366,7 +381,7 @@ func (t *manager) save() {
 
 	data, err := json.Marshal(&persistent)
 	if err != nil {
-		jww.FATAL.Panicf("Unable to marshal trackedID list: %+v", err)
+		jww.FATAL.Panicf("Unable to marshal TrackedID list: %+v", err)
 	}
 
 	obj := &versioned.Object{
@@ -377,7 +392,7 @@ func (t *manager) save() {
 
 	err = t.session.GetKV().Set(TrackerListKey, TrackerListVersion, obj)
 	if err != nil {
-		jww.FATAL.Panicf("Unable to save trackedID list: %+v", err)
+		jww.FATAL.Panicf("Unable to save TrackedID list: %+v", err)
 	}
 }
 

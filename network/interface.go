@@ -3,6 +3,7 @@ package network
 import (
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/historical"
+	"gitlab.com/elixxir/client/network/identity"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/network"
@@ -90,6 +91,9 @@ type Manager interface {
 
 	// RemoveIdentity removes a currently tracked identity.
 	RemoveIdentity(id *id.ID)
+
+	//GetIdentity returns a currently tracked identity
+	GetIdentity(get *id.ID) (identity.TrackedID, error)
 
 	/* Fingerprints are the primary mechanism of identifying a picked up message
 	   over cMix. They are a unique one time use a 255-bit vector generally
@@ -200,7 +204,7 @@ type Manager interface {
 	/* === Nodes ============================================================ */
 	/* Keys must be registered with nodes in order to send messages through
 	   them. This process is, in general, automatically handled by the Network
-	   Manager. */
+	   State. */
 
 	// HasNode can be used to determine if a keying relationship exists with a
 	// node.
@@ -217,7 +221,7 @@ type Manager interface {
 	/* === Rounds =========================================================== */
 	/* A complete set of round info is not kept on the client, and sometimes
 	   the network will need to be queried to get round info. Historical rounds
-	   is the system internal to the Network Manager to do this. It can be used
+	   is the system internal to the Network State to do this. It can be used
 	   externally as well. */
 
 	// GetRoundResults adjudicates on the rounds requested. Checks if they are

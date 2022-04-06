@@ -31,10 +31,11 @@ const (
 // If the partner does not exist, it will add it and the new fingerprint and
 // return newFingerprint = true.
 // If the partner exists and the fingerprint does not exist, add it adds it as
-// the latest fingerprint and returns newFingerprint = true, latest = true
+// the latest fingerprint and returns newFingerprint = true,
 // If the partner exists and the fingerprint exists, return
-// newFingerprint = false, latest = false or latest = true if it is the last one
-// in the list.
+// newFingerprint = false
+// in all cases it will return the position of the fingerprint, with the newest
+// always at position 0
 func (s *Store) CheckIfNegotiationIsNew(partner, myID *id.ID, negotiationFingerprint []byte) (
 	newFingerprint bool, position uint) {
 	s.mux.Lock()
@@ -62,8 +63,7 @@ func (s *Store) CheckIfNegotiationIsNew(partner, myID *id.ID, negotiationFingerp
 		}
 
 		newFingerprint = true
-		latest = true
-
+		position = 0
 		return
 	}
 
@@ -81,7 +81,8 @@ func (s *Store) CheckIfNegotiationIsNew(partner, myID *id.ID, negotiationFingerp
 			newFingerprint = false
 
 			// Latest = true if it is the last fingerprint in the list
-			latest = i == len(fingerprints)-1
+			lastPost := len(fingerprints) - 1
+			position = uint(lastPost - i)
 
 			return
 		}
@@ -97,7 +98,7 @@ func (s *Store) CheckIfNegotiationIsNew(partner, myID *id.ID, negotiationFingerp
 	}
 
 	newFingerprint = true
-	latest = true
+	position = 0
 
 	return
 }

@@ -39,7 +39,7 @@ func Test_newManager(t *testing.T) {
 
 	// Check if the new relationship matches the expected
 	if !managersEqual(expectedM, m, t) {
-		t.Errorf("newManager() did not produce the expected Manager."+
+		t.Errorf("newManager() did not produce the expected State."+
 			"\n\texpected: %+v\n\treceived: %+v", expectedM, m)
 	}
 }
@@ -58,7 +58,7 @@ func TestLoadManager(t *testing.T) {
 
 	// Check if the loaded relationship matches the expected
 	if !managersEqual(expectedM, m, t) {
-		t.Errorf("LoadManager() did not produce the expected Manager."+
+		t.Errorf("LoadManager() did not produce the expected State."+
 			"\n\texpected: %+v\n\treceived: %+v", expectedM, m)
 	}
 }
@@ -166,7 +166,7 @@ func TestManager_NewSendSession(t *testing.T) {
 	}
 }
 
-//Tests happy path of Manager.GetKeyForSending.
+//Tests happy path of State.GetKeyForSending.
 func TestManager_GetKeyForSending(t *testing.T) {
 	// Set up test values
 	m, _ := newTestManager(t)
@@ -213,7 +213,7 @@ func TestManager_GetKeyForSending(t *testing.T) {
 	}
 }
 
-// Tests that Manager.GetKeyForSending returns an error for invalid SendType.
+// Tests that State.GetKeyForSending returns an error for invalid SendType.
 func TestManager_GetKeyForSending_Error(t *testing.T) {
 	// Set up test values
 	m, _ := newTestManager(t)

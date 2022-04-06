@@ -78,7 +78,7 @@ func TestStore_StoreConfirmation_LoadConfirmation(t *testing.T) {
 	}
 }
 
-// Tests that Store.deleteConfirmation deletes the correct confirmation from
+// Tests that Store.DeleteConfirmation deletes the correct confirmation from
 // storage and that it cannot be loaded from storage.
 func TestStore_deleteConfirmation(t *testing.T) {
 	s := &Store{kv: versioned.NewKV(make(ekv.Memstore))}
@@ -120,9 +120,9 @@ func TestStore_deleteConfirmation(t *testing.T) {
 	}
 
 	for i, val := range testValues {
-		err := s.deleteConfirmation(val.partner, val.fingerprint)
+		err := s.DeleteConfirmation(val.partner, val.fingerprint)
 		if err != nil {
-			t.Errorf("deleteConfirmation returned an error (%d): %+v", i, err)
+			t.Errorf("DeleteConfirmation returned an error (%d): %+v", i, err)
 		}
 
 		loadedConfirmation, err := s.LoadConfirmation(val.partner, val.fingerprint)

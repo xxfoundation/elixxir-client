@@ -137,7 +137,7 @@ func TestManager_Send_SendManyCMIXError(t *testing.T) {
 	}
 }
 
-// Tests that Manager.createMessages generates the messages for the correct
+// Tests that State.createMessages generates the messages for the correct
 // group.
 func TestManager_createMessages(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
@@ -200,7 +200,7 @@ func TestManager_createMessages(t *testing.T) {
 func TestManager_createMessages_InvalidGroupIdError(t *testing.T) {
 	expectedErr := strings.SplitN(newNoGroupErr, "%", 2)[0]
 
-	// Create new test Manager and Group
+	// Create new test State and Group
 	prng := rand.New(rand.NewSource(42))
 	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
 
@@ -213,7 +213,7 @@ func TestManager_createMessages_InvalidGroupIdError(t *testing.T) {
 	}
 }
 
-// Tests that Manager.newMessage returns messages with correct data.
+// Tests that State.newMessage returns messages with correct data.
 func TestGroup_newMessages(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManager(prng, t)
@@ -276,7 +276,7 @@ func TestGroup_newMessages(t *testing.T) {
 	}
 }
 
-// Error path: an error is returned when Manager.neCmixMsg returns an error.
+// Error path: an error is returned when State.neCmixMsg returns an error.
 func TestGroup_newMessages_NewCmixMsgError(t *testing.T) {
 	expectedErr := strings.SplitN(newCmixErr, "%", 2)[0]
 	prng := rand.New(rand.NewSource(42))
@@ -291,7 +291,7 @@ func TestGroup_newMessages_NewCmixMsgError(t *testing.T) {
 
 // Tests that the message returned by newCmixMsg has all the expected parts.
 func TestGroup_newCmixMsg(t *testing.T) {
-	// Create new test Manager and Group
+	// Create new test State and Group
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManager(prng, t)
 
@@ -388,7 +388,7 @@ func TestGroup_newCmixMsg_SaltReaderError(t *testing.T) {
 func TestGroup_newCmixMsg_InternalMsgSizeError(t *testing.T) {
 	expectedErr := strings.SplitN(messageLenErr, "%", 2)[0]
 
-	// Create new test Manager and Group
+	// Create new test State and Group
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManager(prng, t)
 

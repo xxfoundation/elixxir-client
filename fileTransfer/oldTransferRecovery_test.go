@@ -25,7 +25,7 @@ import (
 	"time"
 )
 
-// Tests that Manager.oldTransferRecovery adds all unsent parts to the queue.
+// Tests that State.oldTransferRecovery adds all unsent parts to the queue.
 func TestManager_oldTransferRecovery(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	m, sti, _ := newTestManagerWithTransfers(
@@ -188,7 +188,7 @@ func TestManager_oldTransferRecovery(t *testing.T) {
 	}
 }
 
-// Tests that Manager.updateSentRounds updates the status of each round
+// Tests that State.updateSentRounds updates the status of each round
 // correctly by using the part tracker and checks that all the correct parts
 // were added to the queue.
 func TestManager_updateSentRounds(t *testing.T) {
@@ -312,7 +312,7 @@ func TestManager_updateSentRounds(t *testing.T) {
 	}
 }
 
-// Error path: tests that Manager.updateSentRounds returns the expected error
+// Error path: tests that State.updateSentRounds returns the expected error
 // when getRoundResults returns only errors.
 func TestManager_updateSentRounds_Error(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))

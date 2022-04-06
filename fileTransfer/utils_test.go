@@ -392,7 +392,7 @@ type receivedTransferInfo struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Test Network Manager                                                       //
+// Test Network State                                                       //
 ////////////////////////////////////////////////////////////////////////////////
 
 func newTestNetworkManager(sendErr bool, sendChan,

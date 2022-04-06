@@ -22,13 +22,13 @@ import (
 	"time"
 )
 
-// Tests that Manager.receive returns the correct message on the callback.
+// Tests that State.receive returns the correct message on the callback.
 func TestManager_receive(t *testing.T) {
 	// Setup callback
 	msgChan := make(chan MessageReceive)
 	receiveFunc := func(msg MessageReceive) { msgChan <- msg }
 
-	// Create new test Manager and Group
+	// Create new test State and Group
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManagerWithStore(prng, 10, 0, nil, receiveFunc, t)
 
@@ -86,7 +86,7 @@ func TestManager_receive_ReadMessageError(t *testing.T) {
 	msgChan := make(chan MessageReceive)
 	receiveFunc := func(msg MessageReceive) { msgChan <- msg }
 
-	// Create new test Manager and Group
+	// Create new test State and Group
 	prng := rand.New(rand.NewSource(42))
 	m, _ := newTestManagerWithStore(prng, 10, 0, nil, receiveFunc, t)
 
@@ -108,7 +108,7 @@ func TestManager_receive_ReadMessageError(t *testing.T) {
 
 // Tests that the quit channel exits the function.
 func TestManager_receive_QuitChan(t *testing.T) {
-	// Create new test Manager and Group
+	// Create new test State and Group
 	prng := rand.New(rand.NewSource(42))
 	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
 
@@ -132,10 +132,10 @@ func TestManager_receive_QuitChan(t *testing.T) {
 	}
 }
 
-// Tests that Manager.readMessage returns the message data for the correct
+// Tests that State.readMessage returns the message data for the correct
 // group.
 func TestManager_readMessage(t *testing.T) {
-	// Create new test Manager and Group
+	// Create new test State and Group
 	prng := rand.New(rand.NewSource(42))
 	m, expectedGrp := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
 
@@ -204,7 +204,7 @@ func TestManager_readMessage(t *testing.T) {
 // Error path: an error is returned when a group with a matching group
 // fingerprint cannot be found.
 func TestManager_readMessage_FindGroupKpError(t *testing.T) {
-	// Create new test Manager and Group
+	// Create new test State and Group
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
 
@@ -238,10 +238,10 @@ func TestManager_readMessage_FindGroupKpError(t *testing.T) {
 	}
 }
 
-// Tests that a cMix message created by Manager.newCmixMsg can be read by
-// Manager.readMessage.
+// Tests that a cMix message created by State.newCmixMsg can be read by
+// State.readMessage.
 func TestManager_decryptMessage(t *testing.T) {
-	// Create new test Manager and Group
+	// Create new test State and Group
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManager(prng, t)
 
@@ -297,7 +297,7 @@ func TestManager_decryptMessage(t *testing.T) {
 // Error path: an error is returned when the wrong timestamp is passed in and
 // the decryption key cannot be generated because of the wrong epoch.
 func TestManager_decryptMessage_GetCryptKeyError(t *testing.T) {
-	// Create new test Manager and Group
+	// Create new test State and Group
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManager(prng, t)
 
@@ -327,7 +327,7 @@ func TestManager_decryptMessage_GetCryptKeyError(t *testing.T) {
 // Error path: an error is returned when the decrypted payload cannot be
 // unmarshalled.
 func TestManager_decryptMessage_UnmarshalInternalMsgError(t *testing.T) {
-	// Create new test Manager and Group
+	// Create new test State and Group
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManager(prng, t)
 

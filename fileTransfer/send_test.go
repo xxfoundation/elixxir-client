@@ -35,7 +35,7 @@ import (
 	"time"
 )
 
-// Tests that Manager.sendThread successfully sends the parts and reports their
+// Tests that State.sendThread successfully sends the parts and reports their
 // progress on the callback.
 func TestManager_sendThread(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
@@ -114,7 +114,7 @@ func TestManager_sendThread(t *testing.T) {
 	}
 }
 
-// Tests that Manager.sendThread successfully sends the parts and reports their
+// Tests that State.sendThread successfully sends the parts and reports their
 // progress on the callback.
 func TestManager_sendThread_NetworkNotHealthy(t *testing.T) {
 	m, _, _ := newTestManagerWithTransfers(
@@ -156,7 +156,7 @@ func TestManager_sendThread_NetworkNotHealthy(t *testing.T) {
 	}
 }
 
-// Tests that Manager.sendThread successfully sends a partially filled batch
+// Tests that State.sendThread successfully sends a partially filled batch
 // of the correct length when its times out waiting for messages.
 func TestManager_sendThread_Timeout(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
@@ -232,7 +232,7 @@ func TestManager_sendThread_Timeout(t *testing.T) {
 	}
 }
 
-// Tests that Manager.sendParts sends all the correct cMix messages and calls
+// Tests that State.sendParts sends all the correct cMix messages and calls
 // the progress callbacks with the correct values.
 func TestManager_sendParts(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
@@ -316,7 +316,7 @@ func TestManager_sendParts(t *testing.T) {
 	wg.Wait()
 }
 
-// Error path: tests that, on SendManyCMIX failure, Manager.sendParts adds the
+// Error path: tests that, on SendManyCMIX failure, State.sendParts adds the
 // parts back into the queue, does not call the callback, and does not update
 // the progress.
 func TestManager_sendParts_SendManyCmixError(t *testing.T) {
@@ -374,7 +374,7 @@ func TestManager_sendParts_SendManyCmixError(t *testing.T) {
 	wg.Wait()
 }
 
-// Error path: tests that Manager.sendParts returns the expected error whe
+// Error path: tests that State.sendParts returns the expected error whe
 // getRoundResults returns an error.
 func TestManager_sendParts_RoundResultsError(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
@@ -410,7 +410,7 @@ func TestManager_sendParts_RoundResultsError(t *testing.T) {
 	}
 }
 
-// Tests that Manager.buildMessages returns the expected values for a group
+// Tests that State.buildMessages returns the expected values for a group
 // of 11 file parts from three different transfers.
 func TestManager_buildMessages(t *testing.T) {
 	m, sti, _ := newTestManagerWithTransfers(
@@ -505,7 +505,7 @@ func TestManager_buildMessages(t *testing.T) {
 	}
 }
 
-// Tests that Manager.buildMessages skips file parts with deleted transfers or
+// Tests that State.buildMessages skips file parts with deleted transfers or
 // transfers that have run out of fingerprints.
 func TestManager_buildMessages_MessageBuildFailureError(t *testing.T) {
 	m := newTestManager(false, nil, nil, nil, nil, t)
@@ -601,7 +601,7 @@ func TestManager_buildMessages_MessageBuildFailureError(t *testing.T) {
 	}
 }
 
-// Tests that Manager.buildMessages returns the expected error when a queued
+// Tests that State.buildMessages returns the expected error when a queued
 // part has an invalid part number.
 func TestManager_buildMessages_NewCmixMessageError(t *testing.T) {
 	m := newTestManager(false, nil, nil, nil, nil, t)
@@ -631,7 +631,7 @@ func TestManager_buildMessages_NewCmixMessageError(t *testing.T) {
 
 }
 
-// Tests that Manager.newCmixMessage returns a format.Message with the correct
+// Tests that State.newCmixMessage returns a format.Message with the correct
 // MAC, fingerprint, and contents.
 func TestManager_newCmixMessage(t *testing.T) {
 	m := newTestManager(false, nil, nil, nil, nil, t)
@@ -679,7 +679,7 @@ func TestManager_newCmixMessage(t *testing.T) {
 	}
 }
 
-// Tests that Manager.makeRoundEventCallback returns a callback that calls the
+// Tests that State.makeRoundEventCallback returns a callback that calls the
 // progress callback when a round succeeds.
 func TestManager_makeRoundEventCallback(t *testing.T) {
 	sendE2eChan := make(chan message.Receive, 100)
@@ -783,7 +783,7 @@ func TestManager_makeRoundEventCallback(t *testing.T) {
 	}
 }
 
-// Tests that Manager.makeRoundEventCallback returns a callback that calls the
+// Tests that State.makeRoundEventCallback returns a callback that calls the
 // progress callback with no parts sent on round failure. Also checks that the
 // file parts were added back into the queue.
 func TestManager_makeRoundEventCallback_RoundFailure(t *testing.T) {
@@ -873,7 +873,7 @@ func TestManager_makeRoundEventCallback_RoundFailure(t *testing.T) {
 	}
 }
 
-// Tests that Manager.sendEndE2eMessage sends an E2E message with the expected
+// Tests that State.sendEndE2eMessage sends an E2E message with the expected
 // recipient and message type. This does not test round tracking or critical
 // messages.
 func TestManager_sendEndE2eMessage(t *testing.T) {
@@ -918,7 +918,7 @@ func TestManager_sendEndE2eMessage(t *testing.T) {
 	}
 }
 
-// Tests that Manager.queueParts adds all the expected parts to the sendQueue
+// Tests that State.queueParts adds all the expected parts to the sendQueue
 // channel.
 func TestManager_queueParts(t *testing.T) {
 	m := newTestManager(false, nil, nil, nil, nil, t)
@@ -996,7 +996,7 @@ func Test_makeListOfPartNums(t *testing.T) {
 	}
 }
 
-// Tests that the part size returned by Manager.GetPartSize matches the manually
+// Tests that the part size returned by State.GetPartSize matches the manually
 // calculated part size.
 func TestManager_getPartSize(t *testing.T) {
 	m := newTestManager(false, nil, nil, nil, nil, t)

@@ -67,7 +67,7 @@ func TestManager_SetAlternativeUserDiscovery(t *testing.T) {
 		t.Errorf("Failed to start client comms: %+v", err)
 	}
 
-	// Create our Manager object
+	// Create our State object
 	m := Manager{
 		comms:      comms,
 		net:        newTestNetworkManager(t),

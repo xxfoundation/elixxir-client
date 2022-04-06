@@ -65,7 +65,7 @@ func newTestManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Test Network Manager                                                       //
+// Test Network State                                                       //
 ////////////////////////////////////////////////////////////////////////////////
 
 // testNetworkManager is a test implementation of NetworkManager interface.

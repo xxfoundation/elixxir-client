@@ -119,7 +119,7 @@ func TestManager_ResendRequest_GetGroupError(t *testing.T) {
 	}
 }
 
-// Tests that Manager.sendRequests sends all expected requests successfully.
+// Tests that State.sendRequests sends all expected requests successfully.
 func TestManager_sendRequests(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
@@ -196,7 +196,7 @@ func TestManager_sendRequests(t *testing.T) {
 	}
 }
 
-// Tests that Manager.sendRequests returns the correct status when all sends
+// Tests that State.sendRequests returns the correct status when all sends
 // fail.
 func TestManager_sendRequests_SendAllFail(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
@@ -225,7 +225,7 @@ func TestManager_sendRequests_SendAllFail(t *testing.T) {
 	}
 }
 
-// Tests that Manager.sendRequests returns the correct status when some sends
+// Tests that State.sendRequests returns the correct status when some sends
 // fail.
 func TestManager_sendRequests_SendPartialSent(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
@@ -267,7 +267,7 @@ func TestManager_sendRequests_SendPartialSent(t *testing.T) {
 	}
 }
 
-// Unit test of Manager.sendRequest.
+// Unit test of State.sendRequest.
 func TestManager_sendRequest(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)

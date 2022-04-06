@@ -23,7 +23,7 @@ import (
 	"testing"
 )
 
-// Tests that the E2E message sent via Manager.sendNewFileTransfer matches
+// Tests that the E2E message sent via State.sendNewFileTransfer matches
 // expected.
 func TestManager_sendNewFileTransfer(t *testing.T) {
 	m := newTestManager(false, nil, nil, nil, nil, t)
@@ -69,7 +69,7 @@ func TestManager_sendNewFileTransfer(t *testing.T) {
 	}
 }
 
-// Error path: tests that Manager.sendNewFileTransfer returns the expected error
+// Error path: tests that State.sendNewFileTransfer returns the expected error
 // when SendE2E fails.
 func TestManager_sendNewFileTransfer_E2eError(t *testing.T) {
 	// Create new test manager with a SendE2E error triggered

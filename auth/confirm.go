@@ -9,14 +9,14 @@ package auth
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/catalog"
-
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/interfaces/preimage"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/edge"
+	"gitlab.com/elixxir/client/auth/store"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/event"
+	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/network/message"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
@@ -24,214 +24,151 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-func (m *Manager) ConfirmRequestAuth(partner contact.Contact) (id.Round, error) {
-
-	/*edge checking*/
+func (s *State) ConfirmRequestAuth(partner contact.Contact, me *id.ID) (
+	id.Round, error) {
 
 	// check that messages can be sent over the network
-	if !m.net.GetHealthTracker().IsHealthy() {
+	if !s.net.IsHealthy() {
 		return 0, errors.New("Cannot confirm authenticated message " +
 			"when the network is not healthy")
 	}
 
-	// Cannot confirm already established channels
-	if _, err := m.storage.E2e().GetPartner(partner.ID); err == nil {
-		em := fmt.Sprintf("Cannot ConfirmRequestAuth for %s, "+
-			"channel already exists. Ignoring", partner.ID)
-		jww.WARN.Print(em)
-		m.net.GetEventManager().Report(5, "Auth",
-			"ConfirmRequestAuthIgnored", em)
-		//exit
-		return 0, errors.New(em)
+	return s.confirmRequestAuth(partner, me)
+
+}
+
+func (s *State) confirmRequestAuth(partner contact.Contact, me *id.ID) (
+	id.Round, error) {
+
+	// check that messages can be sent over the network
+	if !s.net.IsHealthy() {
+		return 0, errors.New("Cannot confirm authenticated message " +
+			"when the network is not healthy")
 	}
 
-	// check if the partner has an auth in progress
-	// this takes the lock, from this point forward any errors need to
-	// release the lock
-	storedContact, theirSidhKey, err := m.storage.Auth().GetReceivedRequest(
-		partner.ID)
-	if err != nil {
-		return 0, errors.Errorf(
-			"failed to find a pending Auth Request: %s",
-			err)
+	kp := s.registeredIDs[*me]
+
+	var sentRound id.Round
+
+	//run the handler
+	err := s.store.HandleReceivedRequest(partner.ID, me, func(rr *store.ReceivedRequest) error {
+		// verify the passed contact matches what is stored
+		if rr.GetContact().DhPubKey.Cmp(partner.DhPubKey) != 0 {
+			return errors.New("pending Auth Request has different " +
+				"pubkey than stored")
+		}
+
+		/*cryptographic generation*/
+
+		// generate ownership proof
+		ownership := cAuth.MakeOwnershipProof(kp.privkey, partner.DhPubKey,
+			s.e2e.GetGroup())
+
+		rng := s.rng.GetStream()
+
+		// generate new keypair
+		dhPriv, dhPub := genDHKeys(s.e2e.GetGroup(), rng)
+		sidhVariant := util.GetCompatibleSIDHVariant(
+			rr.GetTheirSidHPubKeyA().Variant())
+		sidhPriv, sidhPub := util.GenerateSIDHKeyPair(sidhVariant, rng)
+
+		rng.Close()
+
+		/*construct message*/
+		// we build the payload before we save because it is technically fallible
+		// which can get into a bricked state if it fails
+		baseFmt := newBaseFormat(s.net.GetMaxMessageLength(),
+			s.e2e.GetGroup().GetP().ByteLen())
+		ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
+
+		// setup the encrypted payload
+		ecrFmt.SetOwnership(ownership)
+		ecrFmt.SetSidHPubKey(sidhPub)
+		// confirmation has no custom payload
+
+		// encrypt the payload
+		ecrPayload, mac := cAuth.Encrypt(dhPriv, partner.DhPubKey,
+			ecrFmt.data, s.e2e.GetGroup())
+
+		// get the fingerprint from the old ownership proof
+		fp := cAuth.MakeOwnershipProofFP(rr.GetContact().OwnershipProof)
+
+		// final construction
+		baseFmt.SetEcrPayload(ecrPayload)
+		baseFmt.SetPubKey(dhPub)
+
+		jww.TRACE.Printf("SendConfirm PARTNERPUBKEY: %v",
+			partner.DhPubKey.Bytes())
+		jww.TRACE.Printf("SendConfirm MYPUBKEY: %v", dhPub.Bytes())
+
+		jww.TRACE.Printf("SendConfirm ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
+		jww.TRACE.Printf("SendConfirm MAC: %v", mac)
+
+		// warning: channel can get into a bricked state if the first save occurs and
+		// the second does not or the two occur and the storage into critical
+		// messages does not occur
+
+		// create local relationship
+		p := session.GetDefaultParams()
+		_, err := s.e2e.AddPartner(me, partner.ID, partner.DhPubKey, dhPriv,
+			rr.GetTheirSidHPubKeyA(), sidhPriv, p, p)
+		if err != nil {
+			em := fmt.Sprintf("Failed to create channel with partner (%s) "+
+				"on confirmation, this is likley a replay: %s",
+				partner.ID, err.Error())
+			jww.WARN.Print(em)
+			s.event.Report(10, "Auth", "SendConfirmError", em)
+		}
+
+		//todo: s.backupTrigger("confirmed authenticated channel")
+
+		jww.INFO.Printf("Confirming Auth from %s to %s, msgDigest: %s",
+			partner.ID, me, format.DigestContents(baseFmt.Marshal()))
+
+		//service used for noticiation only
+
+		/*send message*/
+		if err = s.store.StoreConfirmation(partner.ID, me, baseFmt.Marshal(),
+			mac, fp); err == nil {
+			jww.WARN.Printf("Failed to store confirmation for replay "+
+				"for relationship between %s and %s, cannot be replayed: %+v",
+				partner.ID, me, err)
+		}
+
+		//send confirmation
+		sentRound, err = sendAuthConfirm(s.net, partner.ID, me, fp,
+			baseFmt.Marshal(), mac, s.event)
+
+		return nil
+	})
+	return sentRound, err
+}
+
+func sendAuthConfirm(net network.Manager, partner, me *id.ID,
+	fp format.Fingerprint, payload, mac []byte, event event.Manager) (
+	id.Round, error) {
+	svc := message.Service{
+		Identifier: partner.Marshal(),
+		Tag:        catalog.Default,
+		Metadata:   nil,
 	}
-	defer m.storage.Auth().Done(partner.ID)
 
-	// verify the passed contact matches what is stored
-	if storedContact.DhPubKey.Cmp(partner.DhPubKey) != 0 {
-		return 0, errors.WithMessage(err,
-			"Pending Auth Request has different pubkey than stored")
-	}
-
-	grp := m.storage.E2e().GetGroup()
-
-	/*cryptographic generation*/
-
-	// generate ownership proof
-	ownership := cAuth.MakeOwnershipProof(m.storage.E2e().GetDHPrivateKey(),
-		partner.DhPubKey, m.storage.E2e().GetGroup())
-
-	rng := m.rng.GetStream()
-
-	// generate new keypair
-	dhGrp := grp
-	dhPriv, dhPub := genDHKeys(dhGrp, rng)
-	sidhVariant := util.GetCompatibleSIDHVariant(theirSidhKey.Variant())
-	sidhPriv, sidhPub := util.GenerateSIDHKeyPair(sidhVariant, rng)
-
-	rng.Close()
-
-	/*construct message*/
-	// we build the payload before we save because it is technically fallible
-	// which can get into a bricked state if it fails
-	cmixMsg := format.NewMessage(m.storage.Cmix().GetGroup().GetP().ByteLen())
-	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen())
-	ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
-
-	// setup the encrypted payload
-	ecrFmt.SetOwnership(ownership)
-	ecrFmt.SetSidHPubKey(sidhPub)
-	// confirmation has no custom payload
-
-	// encrypt the payload
-	ecrPayload, mac := cAuth.Encrypt(dhPriv, partner.DhPubKey,
-		ecrFmt.data, grp)
-
-	// get the fingerprint from the old ownership proof
-	fp := cAuth.MakeOwnershipProofFP(storedContact.OwnershipProof)
-	preimg := preimage.Generate(fp[:], catalog.Confirm)
-
-	// final construction
-	baseFmt.SetEcrPayload(ecrPayload)
-	baseFmt.SetPubKey(dhPub)
-
-	cmixMsg.SetKeyFP(fp)
-	cmixMsg.SetMac(mac)
-	cmixMsg.SetContents(baseFmt.Marshal())
-
-	jww.TRACE.Printf("SendConfirm cMixMsg contents: %v",
-		cmixMsg.GetContents())
-
-	jww.TRACE.Printf("SendConfirm PARTNERPUBKEY: %v",
-		partner.DhPubKey.Bytes())
-	jww.TRACE.Printf("SendConfirm MYPUBKEY: %v", dhPub.Bytes())
-
-	jww.TRACE.Printf("SendConfirm ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
-	jww.TRACE.Printf("SendConfirm MAC: %v", mac)
-
-	// fixme: channel can get into a bricked state if the first save occurs and
-	// the second does not or the two occur and the storage into critical
-	// messages does not occur
-
-	events := m.net.GetEventManager()
-
-	// create local relationship
-	p := m.storage.E2e().GetE2ESessionParams()
-	if err := m.storage.E2e().AddPartner(partner.ID, partner.DhPubKey,
-		dhPriv, theirSidhKey, sidhPriv,
-		p, p); err != nil {
-		em := fmt.Sprintf("Failed to create channel with partner (%s) "+
-			"on confirmation, this is likley a replay: %s",
-			partner.ID, err.Error())
-		jww.WARN.Print(em)
-		events.Report(10, "Auth", "SendConfirmError", em)
-	}
-
-	m.backupTrigger("confirmed authenticated channel")
-
-	addPreimages(partner.ID, m.storage)
-
-	// delete the in progress negotiation
-	// this unlocks the request lock
-	// fixme - do these deletes at a later date
-	/*if err := storage.Auth().Delete(partner.ID); err != nil {
-		return 0, errors.Errorf("UNRECOVERABLE! Failed to delete in "+
-			"progress negotiation with partner (%s) after creating confirmation: %+v",
-			partner.ID, err)
-	}*/
-
-	jww.INFO.Printf("Confirming Auth with %s, msgDigest: %s",
-		partner.ID, cmixMsg.Digest())
-
-	param := params.GetDefaultCMIX()
-	param.IdentityPreimage = preimg
-	param.DebugTag = "auth.Confirm"
-	/*send message*/
-	round, _, err := m.net.SendCMIX(cmixMsg, partner.ID, param)
+	cmixParam := network.GetDefaultCMIXParams()
+	cmixParam.DebugTag = "auth.Confirm"
+	cmixParam.Critical = true
+	sentRound, _, err := net.SendCMIX(partner, fp, svc, payload, mac, cmixParam)
 	if err != nil {
 		// if the send fails just set it to failed, it will but automatically
 		// retried
-		jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) failed "+
-			"to transmit: %+v", partner.ID, cmixMsg.Digest(), err)
-		return 0, errors.WithMessage(err, "Auth Confirm Failed to transmit")
+		jww.WARN.Printf("Auth Confirm with %s (msgDigest: %s) failed "+
+			"to transmit: %+v, will be handled by critical messages",
+			partner, format.DigestContents(payload), err)
+		return 0, nil
 	}
 
 	em := fmt.Sprintf("Confirm Request with %s (msgDigest: %s) sent on round %d",
-		partner.ID, cmixMsg.Digest(), round)
+		partner, format.DigestContents(payload), sentRound)
 	jww.INFO.Print(em)
-	events.Report(1, "Auth", "SendConfirm", em)
-
-	return round, nil
-}
-
-func addPreimages(partner *id.ID, store *storage.Session) {
-	// add the preimages
-	sessionPartner, err := store.E2e().GetPartner(partner)
-	if err != nil {
-		jww.FATAL.Panicf("Cannot find %s right after creating: %+v",
-			partner, err)
-	}
-
-	// Delete any known pre-existing edges for this partner
-	existingEdges, _ := store.GetEdge().Get(partner)
-	for i := range existingEdges {
-		delete := true
-		switch existingEdges[i].Type {
-		case catalog.E2e:
-		case catalog.Silent:
-		case catalog.EndFT:
-		case catalog.GroupRq:
-		default:
-			delete = false
-		}
-
-		if delete {
-			err = store.GetEdge().Remove(existingEdges[i], partner)
-			if err != nil {
-				jww.ERROR.Printf(
-					"Unable to delete %s edge for %s: %v",
-					existingEdges[i].Type, partner, err)
-			}
-		}
-	}
-
-	me := store.GetUser().ReceptionID
-
-	// e2e
-	store.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetE2EPreimage(),
-		Type:   catalog.E2e,
-		Source: partner[:],
-	}, me)
-
-	// silent (rekey)
-	store.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetSilentPreimage(),
-		Type:   catalog.Silent,
-		Source: partner[:],
-	}, me)
-
-	// File transfer end
-	store.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetFileTransferPreimage(),
-		Type:   catalog.EndFT,
-		Source: partner[:],
-	}, me)
-
-	// group Request
-	store.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetGroupRequestPreimage(),
-		Type:   catalog.GroupRq,
-		Source: partner[:],
-	}, me)
+	event.Report(1, "Auth", "SendConfirm", em)
+	return sentRound, nil
 }

@@ -30,7 +30,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-func (m *Manager) StartProcesses() (stoppable.Stoppable, error) {
+func (s *State) StartProcesses() (stoppable.Stoppable, error) {
 	stop := stoppable.NewSingle("Auth")
 
 	go func() {
@@ -39,8 +39,8 @@ func (m *Manager) StartProcesses() (stoppable.Stoppable, error) {
 			case <-stop.Quit():
 				stop.ToStopped()
 				return
-			case msg := <-m.rawMessages:
-				m.processAuthMessage(msg)
+			case msg := <-s.rawMessages:
+				s.processAuthMessage(msg)
 			}
 		}
 	}()
@@ -48,8 +48,8 @@ func (m *Manager) StartProcesses() (stoppable.Stoppable, error) {
 	return stop, nil
 }
 
-func (m *Manager) processAuthMessage(msg message.Receive) {
-	authStore := m.storage.Auth()
+func (s *State) processAuthMessage(msg message.Receive) {
+	authStore := s.storage.Auth()
 	//lookup the message, check if it is an auth request
 	cmixMsg, err := format.Unmarshal(msg.Payload)
 	if err != nil {
@@ -72,24 +72,24 @@ func (m *Manager) processAuthMessage(msg message.Receive) {
 	}
 
 	//denote that the message is not garbled
-	m.storage.GetGarbledMessages().Remove(cmixMsg)
-	grp := m.storage.E2e().GetGroup()
+	s.storage.GetGarbledMessages().Remove(cmixMsg)
+	grp := s.storage.E2e().GetGroup()
 
 	switch fpType {
 	case auth2.General:
 		// if it is general, that means a new request has
 		// been received
-		m.handleRequest(cmixMsg, myHistoricalPrivKey, grp)
+		s.handleRequest(cmixMsg, myHistoricalPrivKey, grp)
 	case auth2.Specific:
 		// if it is specific, that means the original request was sent
 		// by this users and a confirmation has been received
 		jww.INFO.Printf("Received AuthConfirm from %s, msgDigest: %s",
 			sr.GetPartner(), cmixMsg.Digest())
-		m.handleConfirm(cmixMsg, sr, grp)
+		s.handleConfirm(cmixMsg, sr, grp)
 	}
 }
 
-func (m *Manager) handleRequest(cmixMsg format.Message,
+func (s *State) handleRequest(cmixMsg format.Message,
 	myHistoricalPrivKey *cyclic.Int, grp *cyclic.Group) {
 	//decode the outer format
 	baseFmt, partnerPubKey, err := handleBaseFormat(
@@ -155,7 +155,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		return
 	}
 
-	events := m.net.GetEventManager()
+	events := s.net.GetEventManager()
 	em := fmt.Sprintf("Received AuthRequest from %s,"+
 		" msgDigest: %s", partnerID, cmixMsg.Digest())
 	jww.INFO.Print(em)
@@ -168,34 +168,34 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	// a negotiation or authenticated channel in progress
 	fp := cAuth.CreateNegotiationFingerprint(partnerPubKey,
 		partnerSIDHPubKey)
-	newFP, latest := m.storage.Auth().AddIfNew(partnerID, fp)
+	newFP, latest := s.storage.Auth().AddIfNew(partnerID, fp)
 	resetSession := false
 	autoConfirm := false
 	if baseFmt.GetVersion() >= 1 && newFP && latest {
 		// If we had an existing session and it's new, then yes, we
 		// want to reset
-		if _, err := m.storage.E2e().GetPartner(partnerID); err == nil {
+		if _, err := s.storage.E2e().GetPartner(partnerID); err == nil {
 			jww.INFO.Printf("Resetting session for %s", partnerID)
 			resetSession = true
 			// Most likely, we got 2 reset sessions at once, so this
 			// is a non-fatal error but we will record a warning
 			// just in case.
-			err = m.storage.E2e().DeletePartner(partnerID)
+			err = s.storage.E2e().DeletePartner(partnerID)
 			if err != nil {
 				jww.WARN.Printf("Unable to delete channel: %+v",
 					err)
 			}
 			// Also delete any existing request, sent or received
-			m.storage.Auth().Delete(partnerID)
+			s.storage.Auth().Delete(partnerID)
 		}
 		// If we had an existing negotiation open, then it depends
 
 		// If we've only received, then user has not confirmed, treat as
 		// a non-duplicate request, so delete the old one (to cause new
 		// callback to be called)
-		rType, _, _, err := m.storage.Auth().GetRequest(partnerID)
+		rType, _, _, err := s.storage.Auth().GetRequest(partnerID)
 		if err != nil && rType == auth2.Receive {
-			m.storage.Auth().Delete(partnerID)
+			s.storage.Auth().Delete(partnerID)
 		}
 
 		// If we've already Sent and are now receiving,
@@ -228,7 +228,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	// if it does and the keys used are the same as we have, send a
 	// confirmation in case there are state issues.
 	// do not store
-	if _, err := m.storage.E2e().GetPartner(partnerID); err == nil {
+	if _, err := s.storage.E2e().GetPartner(partnerID); err == nil {
 		em := fmt.Sprintf("Received Auth request for %s, "+
 			"channel already exists. Ignoring", partnerID)
 		jww.WARN.Print(em)
@@ -237,7 +237,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		return
 	} else {
 		//check if the relationship already exists,
-		rType, _, c, err := m.storage.Auth().GetRequest(partnerID)
+		rType, _, c, err := s.storage.Auth().GetRequest(partnerID)
 		if err != nil && !strings.Contains(err.Error(), auth2.NoRequest) {
 			// if another error is received, print it and exit
 			em := fmt.Sprintf("Received new Auth request for %s, "+
@@ -257,8 +257,8 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				events.Report(5, "Auth", "DuplicateRequest", em)
 				// if the caller of the API wants requests replayed,
 				// replay the duplicate request
-				if m.replayRequests {
-					cbList := m.requestCallbacks.Get(c.ID)
+				if s.replayRequests {
+					cbList := s.requestCallbacks.Get(c.ID)
 					for _, cb := range cbList {
 						rcb := cb.(interfaces.RequestCallback)
 						go rcb(c)
@@ -283,7 +283,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 
 				// Check if I need to resend by comparing the
 				// IDs
-				myBytes := m.storage.GetUser().ReceptionID.Bytes()
+				myBytes := s.storage.GetUser().ReceptionID.Bytes()
 				theirBytes := partnerID.Bytes()
 				for i := 0; i < len(myBytes); i++ {
 					if myBytes[i] > theirBytes[i] {
@@ -301,7 +301,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				}
 
 				// If I do, delete my request on disk
-				m.storage.Auth().Delete(partnerID)
+				s.storage.Auth().Delete(partnerID)
 
 				// Do the normal, fall out of this if block and
 				// create the contact, note that we use the data
@@ -336,7 +336,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	// fixme: the client will never be notified of the channel creation if a
 	// crash occurs after the store but before the conclusion of the callback
 	//create the auth storage
-	if err = m.storage.Auth().AddReceived(c, partnerSIDHPubKey); err != nil {
+	if err = s.storage.Auth().AddReceived(c, partnerSIDHPubKey); err != nil {
 		em := fmt.Sprintf("failed to store contact Auth "+
 			"Request: %s", err)
 		jww.WARN.Print(em)
@@ -349,7 +349,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	var rndNum id.Round
 	if autoConfirm || resetSession {
 		// Call ConfirmRequestAuth to send confirmation
-		rndNum, err = m.ConfirmRequestAuth(c)
+		rndNum, err = s.ConfirmRequestAuth(c)
 		if err != nil {
 			jww.ERROR.Printf("Could not ConfirmRequestAuth: %+v",
 				err)
@@ -359,7 +359,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		if autoConfirm {
 			jww.INFO.Printf("ConfirmRequestAuth to %s on round %d",
 				partnerID, rndNum)
-			cbList := m.confirmCallbacks.Get(c.ID)
+			cbList := s.confirmCallbacks.Get(c.ID)
 			for _, cb := range cbList {
 				ccb := cb.(interfaces.ConfirmCallback)
 				go ccb(c)
@@ -368,7 +368,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		if resetSession {
 			jww.INFO.Printf("Reset Auth %s on round %d",
 				partnerID, rndNum)
-			cbList := m.resetCallbacks.Get(c.ID)
+			cbList := s.resetCallbacks.Get(c.ID)
 			for _, cb := range cbList {
 				ccb := cb.(interfaces.ResetNotificationCallback)
 				go ccb(c)
@@ -377,7 +377,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	} else {
 		//  fixme: if a crash occurs before or during the calls, the notification
 		//  will never be sent.
-		cbList := m.requestCallbacks.Get(c.ID)
+		cbList := s.requestCallbacks.Get(c.ID)
 		for _, cb := range cbList {
 			rcb := cb.(interfaces.RequestCallback)
 			go rcb(c)
@@ -386,17 +386,17 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	return
 }
 
-func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth2.SentRequest,
+func (s *State) handleConfirm(cmixMsg format.Message, sr *auth2.SentRequest,
 	grp *cyclic.Group) {
-	events := m.net.GetEventManager()
+	events := s.net.GetEventManager()
 
 	// check if relationship already exists
-	if mgr, err := m.storage.E2e().GetPartner(sr.GetPartner()); mgr != nil || err == nil {
+	if mgr, err := s.storage.E2e().GetPartner(sr.GetPartner()); mgr != nil || err == nil {
 		em := fmt.Sprintf("Cannot confirm auth for %s, channel already "+
 			"exists.", sr.GetPartner())
 		jww.WARN.Print(em)
 		events.Report(10, "Auth", "ConfirmError", em)
-		m.storage.Auth().Done(sr.GetPartner())
+		s.storage.Auth().Done(sr.GetPartner())
 		return
 	}
 
@@ -407,7 +407,7 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth2.SentRequest,
 		em := fmt.Sprintf("Failed to handle auth confirm: %s", err)
 		jww.WARN.Print(em)
 		events.Report(10, "Auth", "ConfirmError", em)
-		m.storage.Auth().Done(sr.GetPartner())
+		s.storage.Auth().Done(sr.GetPartner())
 		return
 	}
 
@@ -426,7 +426,7 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth2.SentRequest,
 			"check")
 		jww.WARN.Print(em)
 		events.Report(10, "Auth", "ConfirmError", em)
-		m.storage.Auth().Done(sr.GetPartner())
+		s.storage.Auth().Done(sr.GetPartner())
 		return
 	}
 
@@ -436,7 +436,7 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth2.SentRequest,
 			"encrypted payload: %s", err)
 		jww.WARN.Print(em)
 		events.Report(10, "Auth", "ConfirmError", em)
-		m.storage.Auth().Done(sr.GetPartner())
+		s.storage.Auth().Done(sr.GetPartner())
 		return
 	}
 
@@ -446,26 +446,26 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth2.SentRequest,
 			err)
 		jww.WARN.Print(em)
 		events.Report(10, "Auth", "ConfirmError", em)
-		m.storage.Auth().Done(sr.GetPartner())
+		s.storage.Auth().Done(sr.GetPartner())
 		return
 	}
 	jww.TRACE.Printf("handleConfirm PARTNERSIDHPUBKEY: %v",
 		partnerSIDHPubKey)
 
 	// finalize the confirmation
-	if err := m.doConfirm(sr, grp, partnerPubKey, sr.GetMyPrivKey(),
+	if err := s.doConfirm(sr, grp, partnerPubKey, sr.GetMyPrivKey(),
 		sr.GetPartnerHistoricalPubKey(),
 		ecrFmt.GetOwnership(),
 		partnerSIDHPubKey); err != nil {
 		em := fmt.Sprintf("Confirmation failed: %s", err)
 		jww.WARN.Print(em)
 		events.Report(10, "Auth", "ConfirmError", em)
-		m.storage.Auth().Done(sr.GetPartner())
+		s.storage.Auth().Done(sr.GetPartner())
 		return
 	}
 }
 
-func (m *Manager) doConfirm(sr *auth2.SentRequest, grp *cyclic.Group,
+func (s *State) doConfirm(sr *auth2.SentRequest, grp *cyclic.Group,
 	partnerPubKey, myPrivateKeyOwnershipProof, partnerPubKeyOwnershipProof *cyclic.Int,
 	ownershipProof []byte, partnerSIDHPubKey *sidh.PublicKey) error {
 	// verify the message came from the intended recipient
@@ -477,8 +477,8 @@ func (m *Manager) doConfirm(sr *auth2.SentRequest, grp *cyclic.Group,
 
 	// fixme: channel can get into a bricked state if the first save occurs and
 	// the second does not
-	p := m.storage.E2e().GetE2ESessionParams()
-	if err := m.storage.E2e().AddPartner(sr.GetPartner(),
+	p := s.storage.E2e().GetE2ESessionParams()
+	if err := s.storage.E2e().AddPartner(sr.GetPartner(),
 		partnerPubKey, sr.GetMyPrivKey(), partnerSIDHPubKey,
 		sr.GetMySIDHPrivKey(), p, p); err != nil {
 		return errors.Errorf("Failed to create channel with partner (%s) "+
@@ -486,24 +486,24 @@ func (m *Manager) doConfirm(sr *auth2.SentRequest, grp *cyclic.Group,
 			sr.GetPartner(), err)
 	}
 
-	m.backupTrigger("received confirmation from request")
+	s.backupTrigger("received confirmation from request")
 
 	//remove the confirm fingerprint
 	fp := sr.GetFingerprint()
-	if err := m.storage.GetEdge().Remove(edge.Preimage{
+	if err := s.storage.GetEdge().Remove(edge.Preimage{
 		Data:   preimage.Generate(fp[:], catalog.Confirm),
 		Type:   catalog.Confirm,
 		Source: sr.GetPartner()[:],
-	}, m.storage.GetUser().ReceptionID); err != nil {
+	}, s.storage.GetUser().ReceptionID); err != nil {
 		jww.WARN.Printf("Failed delete the preimage for confirm from %s: %+v",
 			sr.GetPartner(), err)
 	}
 
-	addPreimages(sr.GetPartner(), m.storage)
+	addPreimages(sr.GetPartner(), s.storage)
 
 	// delete the in progress negotiation
 	// this undoes the request lock
-	if err := m.storage.Auth().Delete(sr.GetPartner()); err != nil {
+	if err := s.storage.Auth().Delete(sr.GetPartner()); err != nil {
 		return errors.Errorf("UNRECOVERABLE! Failed to delete in "+
 			"progress negotiation with partner (%s) after confirmation: %+v",
 			sr.GetPartner(), err)
@@ -519,13 +519,13 @@ func (m *Manager) doConfirm(sr *auth2.SentRequest, grp *cyclic.Group,
 
 	//  fixme: if a crash occurs before or during the calls, the notification
 	//  will never be sent.
-	cbList := m.confirmCallbacks.Get(c.ID)
+	cbList := s.confirmCallbacks.Get(c.ID)
 	for _, cb := range cbList {
 		ccb := cb.(interfaces.ConfirmCallback)
 		go ccb(c)
 	}
 
-	m.net.CheckGarbledMessages()
+	s.net.CheckGarbledMessages()
 
 	return nil
 }
@@ -534,23 +534,4 @@ func copySlice(s []byte) []byte {
 	c := make([]byte, len(s))
 	copy(c, s)
 	return c
-}
-
-func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
-	*cyclic.Int, error) {
-
-	baseFmt, err := unmarshalBaseFormat(cmixMsg.GetContents(),
-		grp.GetP().ByteLen())
-	if err != nil && baseFmt == nil {
-		return baseFormat{}, nil, errors.WithMessage(err, "Failed to"+
-			" unmarshal auth")
-	}
-
-	if !grp.BytesInside(baseFmt.pubkey) {
-		return baseFormat{}, nil, errors.WithMessage(err, "Received "+
-			"auth confirmation public key is not in the e2e cyclic group")
-	}
-	partnerPubKey := grp.NewIntFromBytes(baseFmt.pubkey)
-
-	return *baseFmt, partnerPubKey, nil
 }

@@ -23,7 +23,7 @@ const (
 	factNotInStoreErr             = "Fact %v does not exist in store"
 )
 
-// Store is the storage object for the higher level ud.Manager object.
+// Store is the storage object for the higher level ud.State object.
 // This storage implementation is written for client side.
 type Store struct {
 	// confirmedFacts contains facts that have been confirmed

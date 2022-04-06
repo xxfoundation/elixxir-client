@@ -7,6 +7,8 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+const NoRequestFound = "no request found"
+
 // DeleteAllRequests clears the request map and all associated storage objects
 // containing request data.
 func (s *Store) DeleteAllRequests() error {
@@ -69,6 +71,59 @@ func (s *Store) DeleteSentRequests() error {
 	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to store updated request map after "+
 			"deleting all sent receivedByID: %+v", err)
+	}
+
+	return nil
+}
+
+// DeleteReceivedRequest deletes the received request for the given partnerID
+// pair.
+func (s *Store) DeleteReceivedRequest(partner, me *id.ID) error {
+
+	aid := makeAuthIdentity(partner, me)
+	s.mux.Lock()
+	rr, exist := s.receivedByID[aid]
+	s.mux.Unlock()
+
+	if !exist {
+		return errors.New(NoRequestFound)
+	}
+
+	rr.mux.Lock()
+	s.mux.Lock()
+	_, exist = s.receivedByID[aid]
+	delete(s.receivedByID, aid)
+	rr.mux.Unlock()
+	s.mux.Unlock()
+
+	if !exist {
+		return errors.New(NoRequestFound)
+	}
+
+	return nil
+}
+
+// DeleteSentRequest deletes the sent request for the given partnerID pair.
+func (s *Store) DeleteSentRequest(partner, me *id.ID) error {
+
+	aid := makeAuthIdentity(partner, me)
+	s.mux.Lock()
+	sr, exist := s.sentByID[aid]
+	s.mux.Unlock()
+
+	if !exist {
+		return errors.New(NoRequestFound)
+	}
+
+	sr.mux.Lock()
+	s.mux.Lock()
+	_, exist = s.sentByID[aid]
+	delete(s.receivedByID, aid)
+	s.mux.Unlock()
+	sr.mux.Unlock()
+
+	if !exist {
+		return errors.New(NoRequestFound)
 	}
 
 	return nil

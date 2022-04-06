@@ -9,67 +9,59 @@ package auth
 
 import (
 	"fmt"
-	auth2 "gitlab.com/elixxir/client/auth/store"
-	"gitlab.com/elixxir/client/catalog"
-	e2e2 "gitlab.com/elixxir/client/e2e/ratchet"
-	"gitlab.com/elixxir/client/network"
-	"gitlab.com/elixxir/client/network/message"
-	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/signature/rsa"
-	"io"
-	"strings"
-
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/interfaces/preimage"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/edge"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e/ratchet"
+	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/network/message"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
+	"io"
+	"strings"
 )
 
 const terminator = ";"
 
-func (m *Manager) RequestAuth(partner, me contact.Contact,
+func (s *State) RequestAuth(partner, me contact.Contact,
 	originDHPrivKey *cyclic.Int) (id.Round, error) {
 	// check that an authenticated channel does not already exist
-	if _, err := m.e2e.GetPartner(partner.ID, me.ID); err == nil ||
-		!strings.Contains(err.Error(), e2e2.NoPartnerErrorStr) {
+	if _, err := s.e2e.GetPartner(partner.ID, me.ID); err == nil ||
+		!strings.Contains(err.Error(), ratchet.NoPartnerErrorStr) {
 		return 0, errors.Errorf("Authenticated channel already " +
 			"established with partner")
 	}
 
-	return m.requestAuth(partner, me, originDHPrivKey)
+	return s.requestAuth(partner, me, originDHPrivKey)
 }
 
 // requestAuth internal helper
-func (m *Manager) requestAuth(partner, me contact.Contact,
+func (s *State) requestAuth(partner, me contact.Contact,
 	originDHPrivKey *cyclic.Int) (id.Round, error) {
 
 	//do key generation
-	rng := m.rng.GetStream()
+	rng := s.rng.GetStream()
 	defer rng.Close()
 
-	dhPriv, dhPub := genDHKeys(m.grp, rng)
+	dhPriv, dhPub := genDHKeys(s.e2e.GetGroup(), rng)
 	sidhPriv, sidhPub := util.GenerateSIDHKeyPair(
 		sidh.KeyVariantSidhA, rng)
 
 	ownership := cAuth.MakeOwnershipProof(originDHPrivKey, partner.DhPubKey,
-		m.grp)
+		s.e2e.GetGroup())
 	confirmFp := cAuth.MakeOwnershipProofFP(ownership)
 
 	// Add the sent request and use the return to build the send. This will
 	// replace the send with an old one if one was in process, wasting the key
 	// generation above. This is considered a reasonable loss due to the increase
 	// in code simplicity of this approach
-	sr, err := m.store.AddSent(partner.ID, me.ID, partner.DhPubKey, dhPriv, dhPub,
+	sr, err := s.store.AddSent(partner.ID, me.ID, partner.DhPubKey, dhPriv, dhPub,
 		sidhPriv, sidhPub, confirmFp)
 	if err != nil {
 		if sr == nil {
@@ -91,14 +83,24 @@ func (m *Manager) requestAuth(partner, me contact.Contact,
 	// Create the request packet.
 	request, mac, err := createRequestAuth(partner.ID, msgPayload, ownership,
 		dhPriv, dhPub, partner.DhPubKey, sidhPub,
-		m.grp, m.net.GetMaxMessageLength())
+		s.e2e.GetGroup(), s.net.GetMaxMessageLength())
 	if err != nil {
 		return 0, err
 	}
 	contents := request.Marshal()
 
-	//todo-register correct service
-	m.net.AddService(me.ID, message.Service{
+	//register the confirm fingerprint to pick up confirm
+	err = s.net.AddFingerprint(me.ID, confirmFp, &receivedConfirmService{
+		s:           s,
+		SentRequest: sr,
+	})
+	if err != nil {
+		return 0, errors.Errorf("Failed to register fingperint  request "+
+			"to %s from %s, bailing request", partner.ID, me)
+	}
+
+	//register service for notification on confirmation
+	s.net.AddService(me.ID, message.Service{
 		Identifier: confirmFp[:],
 		Tag:        catalog.Confirm,
 		Metadata:   partner.ID[:],
@@ -112,12 +114,12 @@ func (m *Manager) requestAuth(partner, me contact.Contact,
 
 	p := network.GetDefaultCMIXParams()
 	p.DebugTag = "auth.Request"
-	s := message.Service{
+	svc := message.Service{
 		Identifier: partner.ID.Marshal(),
 		Tag:        catalog.Default,
 		Metadata:   nil,
 	}
-	round, _, err := m.net.SendCMIX(partner.ID, requestfp, s, contents, mac, p)
+	round, _, err := s.net.SendCMIX(partner.ID, requestfp, svc, contents, mac, p)
 	if err != nil {
 		// if the send fails just set it to failed, it will
 		// but automatically retried
@@ -129,7 +131,7 @@ func (m *Manager) requestAuth(partner, me contact.Contact,
 	em := fmt.Sprintf("Auth Request with %s (msgDigest: %s) sent"+
 		" on round %d", partner.ID, format.DigestContents(contents), round)
 	jww.INFO.Print(em)
-	m.event.Report(1, "Auth", "RequestSent", em)
+	s.event.Report(1, "Auth", "RequestSent", em)
 	return round, nil
 
 }

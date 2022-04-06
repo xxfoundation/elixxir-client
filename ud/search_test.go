@@ -105,7 +105,7 @@ func TestManager_Search(t *testing.T) {
 // func TestManager_Search_CallbackError(t *testing.T) {
 // 	isReg := uint32(1)
 // 	// Set up manager
-// 	m := &State{
+// 	m := &Manager{
 // 		rng:        fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
 // 		grp:        cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
 // 		storage:    storage.InitTestingSession(t),

@@ -63,7 +63,7 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
 	if client.NetworkFollowerStatus() != api.Running {
 		return nil, errors.New(
-			"cannot start UD State when network follower is not running.")
+			"cannot start UD Manager when network follower is not running.")
 	}
 
 	m := &Manager{

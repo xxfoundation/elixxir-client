@@ -204,7 +204,7 @@ type Manager interface {
 	/* === Nodes ============================================================ */
 	/* Keys must be registered with nodes in order to send messages through
 	   them. This process is, in general, automatically handled by the Network
-	   State. */
+	   Manager. */
 
 	// HasNode can be used to determine if a keying relationship exists with a
 	// node.
@@ -221,7 +221,7 @@ type Manager interface {
 	/* === Rounds =========================================================== */
 	/* A complete set of round info is not kept on the client, and sometimes
 	   the network will need to be queried to get round info. Historical rounds
-	   is the system internal to the Network State to do this. It can be used
+	   is the system internal to the Network Manager to do this. It can be used
 	   externally as well. */
 
 	// GetRoundResults adjudicates on the rounds requested. Checks if they are

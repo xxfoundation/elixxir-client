@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-// Unit test of State.newManager.
+// Unit test of Manager.newManager.
 func Test_newManager(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	user := group.Member{
@@ -63,7 +63,7 @@ func Test_newManager(t *testing.T) {
 	}
 }
 
-// Tests that State.newManager loads a group storage when it exists.
+// Tests that Manager.newManager loads a group storage when it exists.
 func Test_newManager_LoadStorage(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	kv := versioned.NewKV(make(ekv.Memstore))

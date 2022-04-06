@@ -130,7 +130,7 @@ func TestManager_MakeGroup_AddGroupError(t *testing.T) {
 	}
 }
 
-// Unit test of State.buildMembership.
+// Unit test of Manager.buildMembership.
 func TestManager_buildMembership(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, _ := newTestManager(prng, t)

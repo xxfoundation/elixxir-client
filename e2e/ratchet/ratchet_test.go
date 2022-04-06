@@ -116,7 +116,7 @@ func TestStore_AddPartner(t *testing.T) {
 
 	m, exists := r.managers[relationshipId]
 	if !exists {
-		t.Errorf("State does not exist in map.\n\tmap: %+v",
+		t.Errorf("Manager does not exist in map.\n\tmap: %+v",
 			r.managers)
 	}
 
@@ -184,7 +184,7 @@ func TestStore_GetPartner(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(expectedManager, m) {
-		t.Errorf("GetPartner() returned wrong State."+
+		t.Errorf("GetPartner() returned wrong Manager."+
 			"\n\texpected: %v\n\treceived: %v", expectedManager, m)
 	}
 }

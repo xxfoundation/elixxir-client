@@ -52,7 +52,7 @@ func Test_newManager(t *testing.T) {
 
 	if e.client != m.client || e.store != m.store || e.net != m.net ||
 		e.rng != m.rng || !reflect.DeepEqual(e.p, m.p) {
-		t.Errorf("NewHandler() did not return the expected new State."+
+		t.Errorf("NewHandler() did not return the expected new Manager."+
 			"\nexpected: %+v\nreceived: %+v", e, m)
 	}
 }

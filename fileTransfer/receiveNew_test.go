@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-// Tests that State.receiveNewFileTransfer receives the sent message and that
+// Tests that Manager.receiveNewFileTransfer receives the sent message and that
 // it reports the correct data to the callback.
 func TestManager_receiveNewFileTransfer(t *testing.T) {
 	// Create new ReceiveCallback that sends the results on a channel
@@ -88,7 +88,7 @@ func TestManager_receiveNewFileTransfer(t *testing.T) {
 	}
 }
 
-// Tests that State.receiveNewFileTransfer stops receiving messages when the
+// Tests that Manager.receiveNewFileTransfer stops receiving messages when the
 // stoppable is triggered.
 func TestManager_receiveNewFileTransfer_Stop(t *testing.T) {
 	// Create new ReceiveCallback that sends the results on a channel
@@ -149,7 +149,7 @@ func TestManager_receiveNewFileTransfer_Stop(t *testing.T) {
 	}
 }
 
-// Tests that State.receiveNewFileTransfer does not report on the callback
+// Tests that Manager.receiveNewFileTransfer does not report on the callback
 // when the received message is of the wrong type.
 func TestManager_receiveNewFileTransfer_InvalidMessageError(t *testing.T) {
 	// Create new ReceiveCallback that sends the results on a channel
@@ -191,7 +191,7 @@ func TestManager_receiveNewFileTransfer_InvalidMessageError(t *testing.T) {
 	}
 }
 
-// Tests that State.readNewFileTransferMessage returns the expected sender ID,
+// Tests that Manager.readNewFileTransferMessage returns the expected sender ID,
 // file size, and preview.
 func TestManager_readNewFileTransferMessage(t *testing.T) {
 	m := newTestManager(false, nil, nil, nil, nil, t)
@@ -251,7 +251,7 @@ func TestManager_readNewFileTransferMessage(t *testing.T) {
 	}
 }
 
-// Error path: tests that State.readNewFileTransferMessage returns the
+// Error path: tests that Manager.readNewFileTransferMessage returns the
 // expected error when the message.Receive has the wrong MessageType.
 func TestManager_readNewFileTransferMessage_MessageTypeError(t *testing.T) {
 	m := newTestManager(false, nil, nil, nil, nil, t)
@@ -271,7 +271,7 @@ func TestManager_readNewFileTransferMessage_MessageTypeError(t *testing.T) {
 	}
 }
 
-// Error path: tests that State.readNewFileTransferMessage returns the
+// Error path: tests that Manager.readNewFileTransferMessage returns the
 // expected error when the payload of the message.Receive cannot be
 // unmarshalled.
 func TestManager_readNewFileTransferMessage_ProtoUnmarshalError(t *testing.T) {

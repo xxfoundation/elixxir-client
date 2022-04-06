@@ -35,12 +35,12 @@ type UserDiscovery struct {
 func NewUserDiscovery(client *Client) (*UserDiscovery, error) {
 	single, err := client.getSingle()
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create User Discovery State")
+		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
 	}
 	m, err := ud.NewManager(&client.api, single)
 
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create User Discovery State")
+		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
 	} else {
 		return &UserDiscovery{ud: m}, nil
 	}
@@ -335,7 +335,7 @@ func (ud *UserDiscovery) SetAlternativeUserDiscovery(address, cert, contactFile 
 }
 
 // UnsetAlternativeUserDiscovery clears out the information from
-// the State object.
+// the Manager object.
 func (ud *UserDiscovery) UnsetAlternativeUserDiscovery() error {
 	return ud.ud.UnsetAlternativeUserDiscovery()
 }

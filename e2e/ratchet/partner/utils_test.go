@@ -89,31 +89,31 @@ func newTestManager(t *testing.T) (*Manager, *versioned.KV) {
 func managersEqual(expected, received *Manager, t *testing.T) bool {
 	equal := true
 	if !reflect.DeepEqual(expected.cyHandler, received.cyHandler) {
-		t.Errorf("Did not Receive expected State.ctx."+
+		t.Errorf("Did not Receive expected Manager.cyHandler."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.cyHandler, received.cyHandler)
 		equal = false
 	}
 	if !reflect.DeepEqual(expected.kv, received.kv) {
-		t.Errorf("Did not Receive expected State.kv."+
+		t.Errorf("Did not Receive expected Manager.kv."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.kv, received.kv)
 		equal = false
 	}
 	if !expected.partner.Cmp(received.partner) {
-		t.Errorf("Did not Receive expected State.partner."+
+		t.Errorf("Did not Receive expected Manager.partner."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.partner, received.partner)
 		equal = false
 	}
 	if !relationshipsEqual(expected.receive, received.receive) {
-		t.Errorf("Did not Receive expected State.Receive."+
+		t.Errorf("Did not Receive expected Manager.Receive."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.receive, received.receive)
 		equal = false
 	}
 	if !relationshipsEqual(expected.send, received.send) {
-		t.Errorf("Did not Receive expected State.Send."+
+		t.Errorf("Did not Receive expected Manager.Send."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.send, received.send)
 		equal = false

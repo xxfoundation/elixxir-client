@@ -157,7 +157,7 @@ func TestSession_Serialization(t *testing.T) {
 
 	sDeserialized := &Session{
 		//relationship: &ratchet.relationship{
-		//	manager: &partner.State{ctx: ctx},
+		//	manager: &partner.Manager{ctx: ctx},
 		//},
 		grp: s.grp,
 		kv:  s.kv,

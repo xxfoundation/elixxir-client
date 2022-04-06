@@ -25,7 +25,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-const managerPrefix = "State{partner:%s}"
+const managerPrefix = "Manager{partner:%s}"
 const originMyPrivKeyKey = "originMyPrivKey"
 const originPartnerPubKey = "originPartnerPubKey"
 

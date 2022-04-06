@@ -26,6 +26,15 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 
 	state := rcs.s
 
+	// lookup keypair
+	kp, exist := state.getRegisteredIDs(receptionID.Source)
+
+	if !exist {
+		jww.ERROR.Printf("received a confirm for %s, " +
+			"but they are not registered with auth, cannot process")
+		return
+	}
+
 	//parse the confirm
 	baseFmt, partnerPubKey, err := handleBaseFormat(msg, state.e2e.GetGroup())
 	if err != nil {
@@ -34,9 +43,6 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 		state.event.Report(10, "Auth", "ConfirmError", em)
 		return
 	}
-
-	// lookup keypair
-	kp := state.registeredIDs[*receptionID.Source]
 
 	jww.TRACE.Printf("processing confirm: \n\t MYPUBKEY: %s "+
 		"\n\t PARTNERPUBKEY: %s \n\t ECRPAYLOAD: %s \n\t MAC: %s",

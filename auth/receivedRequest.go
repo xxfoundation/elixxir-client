@@ -29,6 +29,15 @@ func (rrs *receivedRequestService) Process(message format.Message,
 
 	state := rrs.s
 
+	//lookup the keypair
+	kp, exist := state.getRegisteredIDs(receptionID.Source)
+
+	if !exist {
+		jww.ERROR.Printf("received a confirm for %s, " +
+			"but they are not registered with auth, cannot process")
+		return
+	}
+
 	// check if the timestamp is before the id was created and therefore
 	// should be ignored
 	tid, err := state.net.GetIdentity(receptionID.Source)
@@ -51,9 +60,6 @@ func (rrs *receivedRequestService) Process(message format.Message,
 		jww.WARN.Printf("Failed to handle auth request: %s", err)
 		return
 	}
-
-	//lookup the keypair
-	kp := state.registeredIDs[*receptionID.Source]
 
 	jww.TRACE.Printf("processing requests: \n\t MYPUBKEY: %s "+
 		"\n\t PARTNERPUBKEY: %s \n\t ECRPAYLOAD: %s \n\t MAC: %s",
@@ -126,7 +132,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 				// do not need to be handled
 				_, _ = sendAuthConfirm(state.net, partnerID, receptionID.Source,
 					keyfp, confirmPayload, mac, state.event)
-			} else if state.replayRequests {
+			} else if state.params.ReplayRequests {
 				//if we did not already accept, auto replay the request
 				if cb, exist := state.requestCallbacks.Get(receptionID.Source); exist {
 					cb(c, receptionID, round)

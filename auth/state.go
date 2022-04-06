@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -33,33 +34,28 @@ type State struct {
 	store *store.Store
 	event event.Manager
 
-	registeredIDs map[id.ID]keypair
+	registeredIDs
 
-	replayRequests bool
+	params Param
 }
 
-type keypair struct {
-	privkey *cyclic.Int
-	//generated from pubkey on instantiation
-	pubkey *cyclic.Int
-}
-
-func NewManager(sw interfaces.Switchboard, storage *storage.Session,
-	net interfaces.NetworkManager, rng *fastRNG.StreamGenerator,
-	backupTrigger interfaces.TriggerBackup, replayRequests bool) *State {
+func NewManager(kv *versioned.KV, net network.Manager, e2e e2e.Handler,
+	rng *fastRNG.StreamGenerator, event event.Manager, params Param) *State {
 	m := &State{
 		requestCallbacks: newCallbackMap(),
 		confirmCallbacks: newCallbackMap(),
 		resetCallbacks:   newCallbackMap(),
-		rawMessages:      make(chan message.Receive, 1000),
-		storage:          storage,
-		net:              net,
-		rng:              rng,
-		backupTrigger:    backupTrigger,
-		replayRequests:   replayRequests,
-	}
 
-	sw.RegisterChannel("Auth", switchboard.AnyUser(), message.Raw, m.rawMessages)
+		net: net,
+		e2e: e2e,
+		rng: rng,
+
+		params: params,
+		event:  event,
+
+		//created lazily in add identity, see add identity for more details
+		store: nil,
+	}
 
 	return m
 }
@@ -76,4 +72,26 @@ func (s *State) ReplayRequests() {
 			go rcb(c)
 		}
 	}
+}
+
+// AddIdentity adds an identity and its callbacks to receive requests.
+// This auto registers the appropriate services
+// Note: the internal storage for auth is loaded on the first added identity,
+// with that identity as the default identity. This is to allow v2.0
+// instantiations of this library (pre April 2022) to load, before requests were
+// keyed on both parties IDs
+func (s *State) AddIdentity(identity *id.ID, pubkey, privkey *cyclic.Int,
+	request, confirm, reset Callback) {
+	if s.store == nil {
+		//load store
+	}
+
+}
+
+func (s *State) AddDefaultIdentity(identity *id.ID, pubkey, privkey *cyclic.Int,
+	request, confirm, reset Callback) {
+	if s.store == nil {
+		//load store
+	}
+
 }

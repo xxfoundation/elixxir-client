@@ -40,6 +40,8 @@ type Store struct {
 
 	srh SentRequestHandler
 
+	unloadedDefault []requestDisk
+
 	mux sync.RWMutex
 }
 
@@ -95,7 +97,6 @@ func LoadStore(kv *versioned.KV, defaultID *id.ID, grp *cyclic.Group, srh SentRe
 
 	jww.TRACE.Printf("%d found when loading AuthStore", len(requestList))
 
-	//process receivedByID
 	for _, rDisk := range requestList {
 
 		requestType := RequestType(rDisk.T)
@@ -109,7 +110,8 @@ func LoadStore(kv *versioned.KV, defaultID *id.ID, grp *cyclic.Group, srh SentRe
 		// load the self id used. If it is blank, that means this is an older
 		// version request, and replace it with the default ID
 		if len(rDisk.MyID) == 0 {
-			myID = defaultID
+			s.unloadedDefault = append(s.unloadedDefault, rDisk)
+			continue
 		} else {
 			myID, err = id.Unmarshal(rDisk.ID)
 			if err != nil {

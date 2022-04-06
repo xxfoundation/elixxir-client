@@ -977,7 +977,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
 	}, protoUser.ReceptionID)
 
 	storageSess.GetEdge().Add(edge.Preimage{
-		Data:   preimage.GenerateRequest(protoUser.ReceptionID),
+		Data:   preimage.GenerateReset(protoUser.ReceptionID),
 		Type:   preimage.Reset,
 		Source: protoUser.ReceptionID[:],
 	}, protoUser.ReceptionID)

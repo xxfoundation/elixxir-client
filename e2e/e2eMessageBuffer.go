@@ -10,6 +10,7 @@ package e2e
 import (
 	"encoding/binary"
 	"encoding/json"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/storage/utility"
@@ -32,12 +33,14 @@ type e2eMessage struct {
 
 // SaveMessage saves the e2eMessage as a versioned object at the specified key
 // in the key value store.
-func (emh *e2eMessageHandler) SaveMessage(kv *versioned.KV, m interface{}, key string) error {
+func (emh *e2eMessageHandler) SaveMessage(kv *versioned.KV, m interface{},
+	key string) error {
 	msg := m.(e2eMessage)
 
 	b, err := json.Marshal(&msg)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to marshal e2e message for storage: %s", err)
+		jww.FATAL.Panicf("cannot marshal e2e message for storage: %s",
+			err)
 	}
 
 	// Create versioned object
@@ -54,7 +57,8 @@ func (emh *e2eMessageHandler) SaveMessage(kv *versioned.KV, m interface{}, key s
 // LoadMessage returns the e2eMessage with the specified key from the key value
 // store. An empty message and error are returned if the message could not be
 // retrieved.
-func (emh *e2eMessageHandler) LoadMessage(kv *versioned.KV, key string) (interface{}, error) {
+func (emh *e2eMessageHandler) LoadMessage(kv *versioned.KV, key string) (
+	interface{}, error) {
 	// Load the versioned object
 	vo, err := kv.Get(key, currentE2EMessageVersion)
 	if err != nil {
@@ -64,7 +68,8 @@ func (emh *e2eMessageHandler) LoadMessage(kv *versioned.KV, key string) (interfa
 	// Unmarshal data into e2eMessage
 	msg := e2eMessage{}
 	if err := json.Unmarshal(vo.Data, &msg); err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal e2e message for storage: %s", err)
+		jww.FATAL.Panicf("cannot unmarshal e2e message for storage: %s",
+			err)
 	}
 
 	return msg, err
@@ -72,7 +77,8 @@ func (emh *e2eMessageHandler) LoadMessage(kv *versioned.KV, key string) (interfa
 
 // DeleteMessage deletes the message with the specified key from the key value
 // store.
-func (emh *e2eMessageHandler) DeleteMessage(kv *versioned.KV, key string) error {
+func (emh *e2eMessageHandler) DeleteMessage(kv *versioned.KV,
+	key string) error {
 	return kv.Delete(key, currentE2EMessageVersion)
 }
 
@@ -100,7 +106,8 @@ type E2eMessageBuffer struct {
 	mb *utility.MessageBuffer
 }
 
-func NewOrLoadE2eMessageBuffer(kv *versioned.KV, key string) (*E2eMessageBuffer, error) {
+func NewOrLoadE2eMessageBuffer(kv *versioned.KV, key string) (
+	*E2eMessageBuffer, error) {
 	mb, err := LoadE2eMessageBuffer(kv, key)
 	if err == nil {
 		return mb, nil
@@ -112,7 +119,8 @@ func NewOrLoadE2eMessageBuffer(kv *versioned.KV, key string) (*E2eMessageBuffer,
 	return &E2eMessageBuffer{mb: mbInt}, nil
 }
 
-func LoadE2eMessageBuffer(kv *versioned.KV, key string) (*E2eMessageBuffer, error) {
+func LoadE2eMessageBuffer(kv *versioned.KV, key string) (
+	*E2eMessageBuffer, error) {
 	mb, err := utility.LoadMessageBuffer(kv, &e2eMessageHandler{}, key)
 	if err != nil {
 		return nil, err
@@ -161,12 +169,14 @@ func (emb *E2eMessageBuffer) Next() (catalog.MessageType, *id.ID, []byte,
 	return mt, recipient, msg.Payload, msg.Params, true
 }
 
-func (emb *E2eMessageBuffer) Succeeded(mt catalog.MessageType, recipient *id.ID, payload []byte) {
+func (emb *E2eMessageBuffer) Succeeded(mt catalog.MessageType,
+	recipient *id.ID, payload []byte) {
 	emb.mb.Succeeded(e2eMessage{recipient.Marshal(),
 		payload, uint32(mt), Params{}})
 }
 
-func (emb *E2eMessageBuffer) Failed(mt catalog.MessageType, recipient *id.ID, payload []byte) {
+func (emb *E2eMessageBuffer) Failed(mt catalog.MessageType,
+	recipient *id.ID, payload []byte) {
 	emb.mb.Failed(e2eMessage{recipient.Marshal(),
 		payload, uint32(mt), Params{}})
 }

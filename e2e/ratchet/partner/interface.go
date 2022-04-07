@@ -9,7 +9,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-type Manager2 interface {
+type ManagerInt interface {
 	NewReceiveSession(partnerPubKey *cyclic.Int,
 		partnerSIDHPubKey *sidh.PublicKey, e2eParams session.Params,
 		source *session.Session) (*session.Session, bool)

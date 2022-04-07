@@ -1,6 +1,9 @@
 package e2e
 
 import (
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
@@ -13,25 +16,22 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
-	"time"
 )
 
 func (m *manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, error) {
+	payload []byte, params Params) ([]id.Round, e2e.MessageID,
+	time.Time, error) {
 
-	//check if the network is healthy
 	if !m.net.IsHealthy() {
 		return nil, e2e.MessageID{}, time.Time{}, errors.New("cannot " +
 			"sendE2E when network is not healthy")
 	}
 
-	//handle critical messages
 	handleCritical := params.CMIX.Critical
 	if handleCritical {
 		m.crit.AddProcessing(mt, recipient, payload, params)
-		// set critical to false so the network layer doesnt make the messages
-		// critical as well
+		// set critical to false so the network layer doesnt
+		// make the messages critical as well
 		params.CMIX.Critical = false
 	}
 
@@ -45,39 +45,39 @@ func (m *manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
 }
 
 func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, error) {
-	//timestamp the message
+	payload []byte, params Params) ([]id.Round, e2e.MessageID,
+	time.Time, error) {
 	ts := netTime.Now()
 
-	//partition the message
-	partitions, internalMsgId, err := m.partitioner.Partition(recipient, mt, ts,
-		payload)
+	partitions, internalMsgId, err := m.partitioner.Partition(recipient,
+		mt, ts, payload)
 	if err != nil {
-		return nil, e2e.MessageID{}, time.Time{}, errors.WithMessage(err, "failed to send unsafe message")
+		err = errors.WithMessage(err, "failed to send unsafe message")
+		return nil, e2e.MessageID{}, time.Time{}, err
 	}
 
 	jww.INFO.Printf("E2E sending %d messages to %s",
 		len(partitions), recipient)
 
-	//encrypt then send the partitions over cmix
+	// When sending E2E messages, we first partition into cMix packets and
+	// then send each partition over cMix.
 	roundIds := make([]id.Round, len(partitions))
 	errCh := make(chan error, len(partitions))
 
-	// get the key manager for the partner
-	partner, err := m.Ratchet.GetPartner(recipient, m.myDefaultID)
+	// The Key manager for the partner (recipient) ensures single
+	// use of each key negotiated for the ratchet.
+	partner, err := m.Ratchet.GetPartner(recipient)
 	if err != nil {
-		return nil, e2e.MessageID{}, time.Time{}, errors.WithMessagef(err,
-			"Could not send End to End encrypted "+
-				"message, no relationship found with %s", recipient)
+		err = errors.WithMessagef(err, "cannot send E2E message "+
+			"no relationship found with %s", recipient)
+		return nil, e2e.MessageID{}, time.Time{}, err
 	}
 
-	//Generate the message ID
 	msgID := e2e.NewMessageID(partner.GetSendRelationshipFingerprint(),
 		internalMsgId)
 
 	wg := sync.WaitGroup{}
 
-	//handle sending for each partition
 	for i, p := range partitions {
 		if mt != catalog.KeyExchangeTrigger {
 			// check if any rekeys need to happen and trigger them
@@ -92,7 +92,6 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 				m.events, partner, m.rekeyParams, 1*time.Minute)
 		}
 
-		//get a key to end to end encrypt
 		var keyGetter func() (*session.Cypher, error)
 		if params.Rekey {
 			keyGetter = partner.PopRekeyCypher
@@ -100,23 +99,26 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 			keyGetter = partner.PopSendCypher
 		}
 
-		//fixme: remove this wait, it is weird. Why is it here? we cant remember.
+		// FIXME: remove this wait, it is weird. Why is it
+		// here? we cant remember.
 		key, err := waitForKey(keyGetter, params.KeyGetRetryCount,
 			params.KeyGeRetryDelay, params.CMIX.Stop, recipient,
 			format.DigestContents(p), i)
 		if err != nil {
-			return nil, e2e.MessageID{}, time.Time{}, errors.WithMessagef(err,
+			err = errors.WithMessagef(err,
 				"Failed to get key for end to end encryption")
+			return nil, e2e.MessageID{}, time.Time{}, err
 		}
 
-		//end to end encrypt the cmix message
+		// This does not encrypt for cMix but
+		// instead end to end encrypts the cmix message
 		contentsEnc, mac := key.Encrypt(p)
 
-		jww.INFO.Printf("E2E sending %d/%d to %s with key fp: %s, msgID: %s (msgDigest %s)",
+		jww.INFO.Printf("E2E sending %d/%d to %s with key fp: "+
+			"%s, msgID: %s (msgDigest %s)",
 			i+i, len(partitions), recipient,
 			key.Fingerprint(), msgID, format.DigestContents(p))
 
-		//set up the service tags
 		var s message.Service
 		if i == len(partitions)-1 {
 			s = partner.MakeService(params.LastServiceTag)
@@ -124,12 +126,14 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 			s = partner.MakeService(params.ServiceTag)
 		}
 
-		//send the cmix message, each partition in its own thread
+		// We send each partition in it's own thread here, some
+		// may send in round X, others in X+1 or X+2, and so on.
 		wg.Add(1)
 		go func(i int) {
 			var err error
-			roundIds[i], _, err = m.net.SendCMIX(recipient, key.Fingerprint(),
-				s, contentsEnc, mac, params.CMIX)
+			roundIds[i], _, err = m.net.Send(recipient,
+				key.Fingerprint(), s, contentsEnc, mac,
+				params.CMIX)
 			if err != nil {
 				errCh <- err
 			}
@@ -139,25 +143,25 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 
 	wg.Wait()
 
-	//see if any parts failed to send
 	numFail, errRtn := getSendErrors(errCh)
 	if numFail > 0 {
 		jww.INFO.Printf("Failed to E2E send %d/%d to %s",
 			numFail, len(partitions), recipient)
-		return nil, e2e.MessageID{}, time.Time{}, errors.Errorf("Failed to E2E send %v/%v sub payloads:"+
+		err = errors.Errorf("Failed to E2E send %v/%v sub payloads:"+
 			" %s", numFail, len(partitions), errRtn)
+		return nil, e2e.MessageID{}, time.Time{}, err
 	} else {
 		jww.INFO.Printf("Successfully E2E sent %d/%d to %s",
 			len(partitions)-numFail, len(partitions), recipient)
 	}
 
-	//return the rounds if everything send successfully
-	jww.INFO.Printf("Successful E2E Send of %d messages to %s with msgID %s",
-		len(partitions), recipient, msgID)
+	jww.INFO.Printf("Successful E2E Send of %d messages to %s with msgID "+
+		"%s", len(partitions), recipient, msgID)
 	return roundIds, msgID, ts, nil
 }
 
-// waitForKey waits the designated amount of time for a
+// waitForKey waits the designated amount of time for a key to become available
+// with the partner.
 func waitForKey(keyGetter func() (*session.Cypher, error), numAttempts uint,
 	wait time.Duration, stop *stoppable.Single, recipient *id.ID,
 	digest string, partition int) (*session.Cypher, error) {
@@ -169,7 +173,8 @@ func waitForKey(keyGetter func() (*session.Cypher, error), numAttempts uint,
 	ticker := time.NewTicker(wait)
 	defer ticker.Stop()
 
-	for keyTries := uint(1); err != nil && keyTries < numAttempts; keyTries++ {
+	for keyTries := uint(1); err != nil &&
+		keyTries < numAttempts; keyTries++ {
 		jww.WARN.Printf("Out of sending keys for %s "+
 			"(digest: %s, partition: %d), this can "+
 			"happen when sending messages faster than "+

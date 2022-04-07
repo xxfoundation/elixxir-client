@@ -10,6 +10,10 @@ package partner
 import (
 	"bytes"
 	"encoding/base64"
+	"math/rand"
+	"reflect"
+	"testing"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
@@ -20,9 +24,6 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"golang.org/x/crypto/blake2b"
-	"math/rand"
-	"reflect"
-	"testing"
 )
 
 // Tests happy path of newManager.
@@ -76,7 +77,7 @@ func TestManager_ClearManager(t *testing.T) {
 	// Set up expected and test values
 	expectedM, kv := newTestManager(t)
 
-	err := ClearManager(expectedM, kv)
+	err := ClearManager(expectedM)
 	if err != nil {
 		t.Fatalf("clearManager returned an error: %v", err)
 	}

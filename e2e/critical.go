@@ -1,6 +1,8 @@
 package e2e
 
 import (
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
@@ -11,7 +13,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 const e2eCriticalMessagesKey = "E2ECriticalMessages"
@@ -43,8 +44,8 @@ func newCritical(kv *versioned.KV, hm func(f func(bool)) uint64,
 	roundEvents roundEventRegistrar, send criticalSender) *critical {
 	cm, err := NewOrLoadE2eMessageBuffer(kv, e2eCriticalMessagesKey)
 	if err != nil {
-		jww.FATAL.Panicf(
-			"Failed to load the buffer for critical messages: %+v", err)
+		jww.FATAL.Panicf("cannot load the critical messages buffer: "+
+			"%+v", err)
 	}
 
 	c := &critical{
@@ -82,19 +83,27 @@ func (c *critical) handle(mt catalog.MessageType, recipient *id.ID,
 
 		for _, rid := range rids {
 			c.roundEvents.AddRoundEventChan(
-				rid, sendResults, 1*time.Minute, states.COMPLETED,
+				rid, sendResults, 1*time.Minute,
+				states.COMPLETED,
 				states.FAILED)
 		}
-		success, numTimeOut, _ := cmix.TrackResults(sendResults, len(rids))
+		success, numTimeOut, _ := cmix.TrackResults(sendResults,
+			len(rids))
 		if !success {
 			if numTimeOut > 0 {
-				jww.ERROR.Printf("Critical e2e message resend to %s "+
-					"(msgDigest: %s) on round %d failed to transmit due to "+
-					"timeout", recipient, format.DigestContents(payload), rids)
+				jww.ERROR.Printf("Critical e2e message resend "+
+					"to %s (msgDigest: %s) on round %d "+
+					"failed to transmit due to timeout",
+					recipient,
+					format.DigestContents(payload),
+					rids)
 			} else {
-				jww.ERROR.Printf("Critical raw message resend to %s "+
-					"(msgDigest: %s) on round %d failed to transmit due to "+
-					"send failure", recipient, format.DigestContents(payload),
+				jww.ERROR.Printf("Critical raw message resend "+
+					"to %s (msgDigest: %s) on round %d "+
+					"failed to transmit "+
+					"due to send failure",
+					recipient,
+					format.DigestContents(payload),
 					rids)
 			}
 
@@ -114,16 +123,19 @@ func (c *critical) handle(mt catalog.MessageType, recipient *id.ID,
 // evaluate tries to send every message in the critical messages and the raw
 // critical messages buffer in parallel.
 func (c *critical) evaluate(stop *stoppable.Single) {
-	for mt, recipient, payload, params, has := c.Next(); has; mt, recipient, payload, params, has = c.Next() {
+	mt, recipient, payload, params, has := c.Next()
+	for ; has; mt, recipient, payload, params, has = c.Next() {
 		go func(mt catalog.MessageType, recipient *id.ID,
 			payload []byte, params Params) {
 
 			params.CMIX.Stop = stop
 			jww.INFO.Printf("Resending critical raw message to %s "+
-				"(msgDigest: %s)", recipient, format.DigestContents(payload))
+				"(msgDigest: %s)", recipient,
+				format.DigestContents(payload))
 
 			// Send the message
-			round, _, _, err := c.send(mt, recipient, payload, params)
+			round, _, _, err := c.send(mt, recipient, payload,
+				params)
 
 			// Pass to the handler
 			c.handle(mt, recipient, payload, round, err)

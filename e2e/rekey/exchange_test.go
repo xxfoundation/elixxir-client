@@ -9,6 +9,10 @@ package rekey
 
 import (
 	"fmt"
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/catalog"
@@ -23,9 +27,6 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 var r *ratchet.Ratchet
@@ -82,7 +83,8 @@ func TestFullExchange(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to create ratchet: %+v", err)
 	}
-	r, err = ratchet.Load(kv, aliceID, grp, mockCyHandler{}, mockServiceHandler{}, rng)
+	r, err = ratchet.Load(kv, aliceID, grp, mockCyHandler{},
+		mockServiceHandler{}, rng)
 	if err != nil {
 		t.Errorf("Failed to load ratchet: %+v", err)
 	}
@@ -90,13 +92,15 @@ func TestFullExchange(t *testing.T) {
 	// Add Alice and Bob as partners
 	sendParams := session.GetDefaultParams()
 	receiveParams := session.GetDefaultParams()
-	_, err = r.AddPartner(aliceID, bobID, bobPubKey,
+	// NOTE: Shouldn't these use different ratchets?
+	//       probably fine for this test...
+	_, err = r.AddPartner(bobID, bobPubKey,
 		alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey,
 		sendParams, receiveParams)
 	if err != nil {
 		t.Errorf("Failed to add partner to ratchet: %+v", err)
 	}
-	_, err = r.AddPartner(bobID, aliceID, alicePubKey,
+	_, err = r.AddPartner(aliceID, alicePubKey,
 		bobPrivKey, aliceSIDHPubKey, bobSIDHPrivKey,
 		sendParams, receiveParams)
 	if err != nil {
@@ -106,11 +110,13 @@ func TestFullExchange(t *testing.T) {
 	// Start the listeners for alice and bob
 	rekeyParams := GetDefaultParams()
 	rekeyParams.RoundTimeout = 1 * time.Second
-	_, err = Start(aliceSwitchboard, r, testSendE2E, &mockNetManager{}, grp, rekeyParams)
+	_, err = Start(aliceSwitchboard, r, testSendE2E, &mockNetManager{},
+		grp, rekeyParams)
 	if err != nil {
 		t.Errorf("Failed to Start alice: %+v", err)
 	}
-	_, err = Start(bobSwitchboard, r, testSendE2E, &mockNetManager{}, grp, rekeyParams)
+	_, err = Start(bobSwitchboard, r, testSendE2E, &mockNetManager{},
+		grp, rekeyParams)
 	if err != nil {
 		t.Errorf("Failed to Start bob: %+v", err)
 	}
@@ -135,7 +141,7 @@ func TestFullExchange(t *testing.T) {
 	}
 
 	// get Alice's manager for reception from Bob
-	receivedManager, err := r.GetPartner(bobID, aliceID)
+	receivedManager, err := r.GetPartner(bobID)
 	if err != nil {
 		t.Errorf("Failed to get bob's manager: %v", err)
 	}
@@ -156,9 +162,11 @@ func TestFullExchange(t *testing.T) {
 
 	// Check that the Alice's session for Bob is in the proper status
 	newSession := receivedManager.GetReceiveSession(newSessionID)
-	if newSession == nil || newSession.NegotiationStatus() != session.Confirmed {
+	if newSession == nil || newSession.NegotiationStatus() !=
+		session.Confirmed {
 		t.Errorf("Session not in confirmed status!"+
 			"\n\tExpected: Confirmed"+
-			"\n\tReceived: %s", confirmedSession.NegotiationStatus())
+			"\n\tReceived: %s",
+			confirmedSession.NegotiationStatus())
 	}
 }

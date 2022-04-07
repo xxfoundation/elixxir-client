@@ -8,6 +8,9 @@
 package rekey
 
 import (
+	"math/rand"
+	"testing"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/catalog"
@@ -22,8 +25,6 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"testing"
 )
 
 // Smoke test for handleConfirm
@@ -69,7 +70,8 @@ func TestHandleConfirm(t *testing.T) {
 	// Add bob as a partner
 	sendParams := session.GetDefaultParams()
 	receiveParams := session.GetDefaultParams()
-	_, err = r.AddPartner(myID, bobID, bobPubKey, alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey, sendParams, receiveParams)
+	_, err = r.AddPartner(bobID, bobPubKey, alicePrivKey,
+		bobSIDHPubKey, aliceSIDHPrivKey, sendParams, receiveParams)
 	if err != nil {
 		t.Errorf("Failed to add partner to ratchet: %+v", err)
 	}
@@ -78,7 +80,7 @@ func TestHandleConfirm(t *testing.T) {
 		aliceSIDHPrivKey, bobSIDHPubKey)
 
 	// get Alice's manager for Bob
-	receivedManager, err := r.GetPartner(bobID, myID)
+	receivedManager, err := r.GetPartner(bobID)
 	if err != nil {
 		t.Errorf("Bob is not recognized as Alice's partner: %v", err)
 	}
@@ -112,7 +114,8 @@ func TestHandleConfirm(t *testing.T) {
 	if newSession.NegotiationStatus() != session.Confirmed {
 		t.Errorf("Session not in confirmed status!"+
 			"\n\tExpected: Confirmed"+
-			"\n\tReceived: %s", confirmedSession.NegotiationStatus())
+			"\n\tReceived: %s",
+			confirmedSession.NegotiationStatus())
 	}
 
 }

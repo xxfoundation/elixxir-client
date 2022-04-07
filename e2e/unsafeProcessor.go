@@ -13,7 +13,8 @@ type UnsafeProcessor struct {
 	tag string
 }
 
-func (up *UnsafeProcessor) Process(ecrMsg format.Message, receptionID receptionID.EphemeralIdentity,
+func (up *UnsafeProcessor) Process(ecrMsg format.Message,
+	receptionID receptionID.EphemeralIdentity,
 	round historical.Round) {
 	//check if the message is unencrypted
 	unencrypted, sender := e2e.IsUnencrypted(ecrMsg)

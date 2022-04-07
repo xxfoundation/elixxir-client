@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -47,8 +48,6 @@ type Manager struct {
 	grp       *cyclic.Group
 	cyHandler session.CypherHandler
 	rng       *fastRNG.StreamGenerator
-
-	managerID ManagerIdentity
 }
 
 // NewManager creates the relationship and its first Send and Receive sessions.
@@ -58,9 +57,7 @@ func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
 	receiveParams session.Params, cyHandler session.CypherHandler,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator) *Manager {
 
-	mi := MakeManagerIdentity(partnerID, myID)
-
-	kv = kv.Prefix(makeManagerPrefix(mi))
+	kv = kv.Prefix(makeManagerPrefix(partnerID))
 
 	m := &Manager{
 		kv:                      kv,
@@ -73,21 +70,22 @@ func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
 		cyHandler:               cyHandler,
 		grp:                     grp,
 		rng:                     rng,
-		managerID:               mi,
 	}
-	if err := utility.StoreCyclicKey(kv, myPrivKey, originMyPrivKeyKey); err != nil {
+	if err := utility.StoreCyclicKey(kv, myPrivKey,
+		originMyPrivKeyKey); err != nil {
 		jww.FATAL.Panicf("Failed to store %s: %+v", originMyPrivKeyKey,
 			err)
 	}
 
-	if err := utility.StoreCyclicKey(kv, partnerPubKey, originPartnerPubKey); err != nil {
+	if err := utility.StoreCyclicKey(kv, partnerPubKey,
+		originPartnerPubKey); err != nil {
 		jww.FATAL.Panicf("Failed to store %s: %+v", originPartnerPubKey,
 			err)
 	}
 
 	m.send = NewRelationship(m.kv, session.Send, myID, partnerID, myPrivKey,
-		partnerPubKey, mySIDHPrivKey, partnerSIDHPubKey, sendParams, cyHandler,
-		grp, rng)
+		partnerPubKey, mySIDHPrivKey, partnerSIDHPubKey,
+		sendParams, cyHandler, grp, rng)
 	m.receive = NewRelationship(m.kv, session.Receive, myID, partnerID,
 		myPrivKey, partnerPubKey, mySIDHPrivKey, partnerSIDHPubKey,
 		receiveParams, cyHandler, grp, rng)
@@ -100,34 +98,25 @@ func LoadManager(kv *versioned.KV, myID, partnerID *id.ID,
 	cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (*Manager, error) {
 
-	mi := MakeManagerIdentity(partnerID, myID)
-
 	m := &Manager{
-		kv:        kv.Prefix(makeManagerPrefix(mi)),
+		kv:        kv.Prefix(makeManagerPrefix(partnerID)),
 		myID:      myID,
 		partner:   partnerID,
 		cyHandler: cyHandler,
 		grp:       grp,
 		rng:       rng,
-		managerID: mi,
 	}
 
 	var err error
 
 	m.originMyPrivKey, err = utility.LoadCyclicKey(m.kv, originMyPrivKeyKey)
 	if err != nil {
-		// if the key cannot be found, this might be an old session, in which case
-		// we attempt to revert to the old file structure
-		m.kv = kv.Prefix(makeOldManagerPrefix(partnerID))
-		m.originMyPrivKey, err = utility.LoadCyclicKey(m.kv, originMyPrivKeyKey)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to load %s: %+v", originMyPrivKeyKey,
-				err)
-		}
-
+		jww.FATAL.Panicf("Failed to load %s: %+v", originMyPrivKeyKey,
+			err)
 	}
 
-	m.originPartnerPubKey, err = utility.LoadCyclicKey(m.kv, originPartnerPubKey)
+	m.originPartnerPubKey, err = utility.LoadCyclicKey(m.kv,
+		originPartnerPubKey)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to load %s: %+v", originPartnerPubKey,
 			err)
@@ -137,16 +126,16 @@ func LoadManager(kv *versioned.KV, myID, partnerID *id.ID,
 		cyHandler, grp, rng)
 	if err != nil {
 		return nil, errors.WithMessage(err,
-			"Failed to load partner key relationship due to failure to "+
-				"load the Send session buffer")
+			"cannot load partner key relationship due to failure"+
+				" to load the Send session buffer")
 	}
 
 	m.receive, err = LoadRelationship(m.kv, session.Receive, myID, partnerID,
 		cyHandler, grp, rng)
 	if err != nil {
 		return nil, errors.WithMessage(err,
-			"Failed to load partner key relationship due to failure to "+
-				"load the Receive session buffer")
+			"cannot load partner key relationship due to failure"+
+				" to load the Receive session buffer")
 	}
 
 	return m, nil
@@ -155,17 +144,16 @@ func LoadManager(kv *versioned.KV, myID, partnerID *id.ID,
 // ClearManager removes the relationship between the partner
 // and deletes the Send and Receive sessions. This includes the
 // sessions and the key vectors
-func ClearManager(m *Manager, kv *versioned.KV) error {
-	kv = kv.Prefix(fmt.Sprintf(managerPrefix, m.partner))
-
+func ClearManager(m *Manager) error {
 	if err := DeleteRelationship(m); err != nil {
 		return errors.WithMessage(err,
 			"Failed to delete relationship")
 	}
 
-	if err := utility.DeleteCyclicKey(m.kv, originPartnerPubKey); err != nil {
-		jww.FATAL.Panicf("Failed to delete %s: %+v", originPartnerPubKey,
-			err)
+	if err := utility.DeleteCyclicKey(m.kv,
+		originPartnerPubKey); err != nil {
+		jww.FATAL.Panicf("Failed to delete %s: %+v",
+			originPartnerPubKey, err)
 	}
 
 	return nil
@@ -181,8 +169,9 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int,
 	source *session.Session) (*session.Session, bool) {
 
 	// Check if the session already exists
-	baseKey := session.GenerateE2ESessionBaseKey(source.GetMyPrivKey(), partnerPubKey,
-		m.grp, source.GetMySIDHPrivKey(), partnerSIDHPubKey)
+	baseKey := session.GenerateE2ESessionBaseKey(source.GetMyPrivKey(),
+		partnerPubKey, m.grp, source.GetMySIDHPrivKey(),
+		partnerSIDHPubKey)
 
 	sessionID := session.GetSessionIDFromBaseKey(baseKey)
 
@@ -206,8 +195,8 @@ func (m *Manager) NewSendSession(myPrivKey *cyclic.Int,
 	sourceSession *session.Session) *session.Session {
 
 	// Add the session to the Send session buffer and return
-	return m.send.AddSession(myPrivKey, sourceSession.GetPartnerPubKey(), nil,
-		mySIDHPrivKey, sourceSession.GetPartnerSIDHPubKey(),
+	return m.send.AddSession(myPrivKey, sourceSession.GetPartnerPubKey(),
+		nil, mySIDHPrivKey, sourceSession.GetPartnerSIDHPubKey(),
 		sourceSession.GetID(), session.Sending, e2eParams)
 }
 
@@ -279,7 +268,8 @@ const relationshipFpLength = 15
 func (m *Manager) GetRelationshipFingerprint() string {
 
 	// Base 64 encode hash and truncate
-	return base64.StdEncoding.EncodeToString(m.GetRelationshipFingerprintBytes())[:relationshipFpLength]
+	return base64.StdEncoding.EncodeToString(
+		m.GetRelationshipFingerprintBytes())[:relationshipFpLength]
 }
 
 // GetRelationshipFingerprintBytes returns a unique fingerprint for an E2E
@@ -304,10 +294,6 @@ func (m *Manager) GetRelationshipFingerprintBytes() []byte {
 	return h.Sum(nil)
 }
 
-func (m *Manager) GetIdentity() ManagerIdentity {
-	return m.managerID
-}
-
 // MakeService Returns a service interface with the
 // appropriate identifier for who is being sent to. Will populate
 // the metadata with the partner
@@ -329,10 +315,6 @@ func (m *Manager) GetContact() contact.Contact {
 	}
 }
 
-func makeOldManagerPrefix(pid *id.ID) string {
+func makeManagerPrefix(pid *id.ID) string {
 	return fmt.Sprintf(managerPrefix, pid)
-}
-
-func makeManagerPrefix(identity ManagerIdentity) string {
-	return fmt.Sprintf(managerPrefix, identity)
 }

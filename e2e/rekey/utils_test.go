@@ -8,6 +8,10 @@
 package rekey
 
 import (
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/catalog"
@@ -33,9 +37,6 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/region"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 func GeneratePartnerID(aliceKey, bobKey *cyclic.Int,
@@ -74,11 +75,11 @@ func genSidhKeys() (*sidh.PrivateKey, *sidh.PublicKey, *sidh.PrivateKey, *sidh.P
 func testSendE2E(mt catalog.MessageType, recipient *id.ID,
 	payload []byte, cmixParams cmix.CMIXParams) ([]id.Round, e2e.MessageID, time.Time, error) {
 	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
-	alicePartner, err := r.GetPartner(aliceID, bobID)
+	alicePartner, err := r.GetPartner(aliceID)
 	if err != nil {
 		print(err)
 	}
-	bobPartner, err := r.GetPartner(bobID, aliceID)
+	bobPartner, err := r.GetPartner(bobID)
 	if err != nil {
 		print(err)
 	}

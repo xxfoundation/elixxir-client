@@ -9,6 +9,8 @@ package partner
 
 import (
 	"encoding/json"
+	"sync"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -18,7 +20,6 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 )
 
 const maxUnconfirmed uint = 3
@@ -68,7 +69,6 @@ func NewRelationship(kv *versioned.KV, t session.RelationshipType,
 
 	kv = kv.Prefix(t.Prefix())
 
-	//build the fingerprint
 	fingerprint := makeRelationshipFingerprint(t, grp,
 		myOriginPrivateKey, partnerOriginPublicKey, myID,
 		partnerID)
@@ -96,7 +96,8 @@ func NewRelationship(kv *versioned.KV, t session.RelationshipType,
 	s := session.NewSession(r.kv, r.t, partnerID, myOriginPrivateKey,
 		partnerOriginPublicKey, nil, originMySIDHPrivKey,
 		originPartnerSIDHPubKey, session.SessionID{},
-		r.fingerprint, session.Confirmed, initialParams, cyHandler, grp, rng)
+		r.fingerprint, session.Confirmed, initialParams, cyHandler,
+		grp, rng)
 
 	if err := s.Save(); err != nil {
 		jww.FATAL.Panicf("Failed to Send session after setting to "+
@@ -155,8 +156,10 @@ func DeleteRelationship(manager *Manager) error {
 	if err := deleteRelationshipFingerprint(sendKv); err != nil {
 		return err
 	}
-	if err := sendKv.Delete(relationshipKey, currentRelationshipVersion); err != nil {
-		return errors.Errorf("Could not delete send relationship: %v", err)
+	if err := sendKv.Delete(relationshipKey,
+		currentRelationshipVersion); err != nil {
+		return errors.Errorf("cannot delete send relationship: %v",
+			err)
 	}
 
 	// Delete the receive information
@@ -165,8 +168,10 @@ func DeleteRelationship(manager *Manager) error {
 	if err := deleteRelationshipFingerprint(receiveKv); err != nil {
 		return err
 	}
-	if err := receiveKv.Delete(relationshipKey, currentRelationshipVersion); err != nil {
-		return errors.Errorf("Could not delete receive relationship: %v", err)
+	if err := receiveKv.Delete(relationshipKey,
+		currentRelationshipVersion); err != nil {
+		return errors.Errorf("cannot delete receive relationship: %v",
+			err)
 	}
 
 	return nil
@@ -210,7 +215,6 @@ func (r *relationship) unmarshal(b []byte) error {
 		return err
 	}
 
-	//load the fingerprint
 	r.fingerprint = loadRelationshipFingerprint(r.kv)
 
 	//load all the sessions
@@ -323,13 +327,15 @@ func (r *relationship) getSessionForSending() *session.Session {
 		return unconfirmedRekey[0]
 	}
 
-	jww.INFO.Printf("[REKEY] Details about %v sessions which are invalid:", len(sessions))
+	jww.INFO.Printf("[REKEY] Details about %v sessions which are invalid:",
+		len(sessions))
 	for i, s := range sessions {
 		if s == nil {
 			jww.INFO.Printf("[REKEY]\tSession %v is nil", i)
 		} else {
 			jww.INFO.Printf("[REKEY]\tSession %v: status: %v,"+
-				" confirmed: %v", i, s.Status(), s.IsConfirmed())
+				" confirmed: %v", i, s.Status(),
+				s.IsConfirmed())
 		}
 	}
 
@@ -376,10 +382,12 @@ func (r *relationship) getNewestRekeyableSession() *session.Session {
 	for _, s := range r.sessions {
 		jww.TRACE.Printf("[REKEY] Looking at session %s", s)
 		//fmt.Println(i)
-		// This looks like it might not be thread safe, I think it is because
-		// the failure mode is it skips to a lower key to rekey with, which is
-		// always valid. It isn't clear it can fail though because we are
-		// accessing the data in the same order it would be written (i think)
+		// This looks like it might not be thread safe, I
+		// think it is because the failure mode is it skips to
+		// a lower key to rekey with, which is always
+		// valid. It isn't clear it can fail though because we
+		// are accessing the data in the same order it would
+		// be written (i think)
 		if s.Status() != session.RekeyEmpty {
 			if s.IsConfirmed() {
 				jww.TRACE.Printf("[REKEY] Selected rekey: %s",
@@ -412,7 +420,8 @@ func (r *relationship) Confirm(id session.SessionID) error {
 
 	s, ok := r.sessionByID[id]
 	if !ok {
-		return errors.Errorf("Could not confirm session %s, does not exist", id)
+		return errors.Errorf("cannot confirm session %s, "+
+			"does not exist", id)
 	}
 
 	s.SetNegotiationStatus(session.Confirmed)
@@ -442,7 +451,8 @@ func (r *relationship) clean() {
 	for _, s := range r.sessions {
 		if s.IsConfirmed() {
 			numConfirmed++
-			//if the number of newer confirmed is sufficient, delete the confirmed
+			//if the number of newer confirmed is
+			// sufficient, delete the confirmed
 			if numConfirmed > maxUnconfirmed {
 				delete(r.sessionByID, s.GetID())
 				s.Delete()
@@ -458,7 +468,7 @@ func (r *relationship) clean() {
 		r.sessions = newSessions
 
 		if err := r.save(); err != nil {
-			jww.FATAL.Printf("Failed to save Session Buffer %s after "+
+			jww.FATAL.Printf("cannot save Session Buffer %s after "+
 				"clean: %s", r.kv.GetFullKey(relationshipKey,
 				currentRelationshipVersion), err)
 		}

@@ -8,6 +8,10 @@
 package rekey
 
 import (
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/catalog"
@@ -23,9 +27,6 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 // Smoke test for handleTrigger
@@ -83,13 +84,13 @@ func TestHandleTrigger(t *testing.T) {
 	// Add bob as a partner
 	sendParams := session2.GetDefaultParams()
 	receiveParams := session2.GetDefaultParams()
-	_, err = r.AddPartner(aliceID, bobID, bobPubKey,
+	_, err = r.AddPartner(bobID, bobPubKey,
 		alicePrivKey, bobSIDHPubKey, aliceSIDHPrivKey,
 		sendParams, receiveParams)
 	if err != nil {
 		t.Errorf("Failed to add partner to ratchet: %+v", err)
 	}
-	_, err = r.AddPartner(bobID, aliceID, alicePubKey, bobPrivKey,
+	_, err = r.AddPartner(aliceID, alicePubKey, bobPrivKey,
 		aliceSIDHPubKey, bobSIDHPrivKey,
 		sendParams, receiveParams)
 	if err != nil {
@@ -125,7 +126,7 @@ func TestHandleTrigger(t *testing.T) {
 
 	// get Alice's manager for reception from Bob
 
-	receivedManager, err := r.GetPartner(bobID, aliceID)
+	receivedManager, err := r.GetPartner(bobID)
 	if err != nil {
 		t.Errorf("Failed to get bob's manager: %v", err)
 	}

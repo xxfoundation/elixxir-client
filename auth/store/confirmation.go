@@ -29,7 +29,7 @@ type storedConfirm struct {
 
 // StoreConfirmation saves the confirmation to storage for the given partner and
 // fingerprint.
-func (s *Store) StoreConfirmation(partner *id.ID, me *id.ID,
+func (s *Store) StoreConfirmation(partner *id.ID,
 	confirmationPayload, mac []byte, fp format.Fingerprint) error {
 	confirm := storedConfirm{
 		Payload: confirmationPayload,
@@ -48,16 +48,16 @@ func (s *Store) StoreConfirmation(partner *id.ID, me *id.ID,
 		Data:      confirmBytes,
 	}
 
-	return s.kv.Set(makeConfirmationKey(partner, me),
+	return s.kv.Set(makeConfirmationKey(partner),
 		currentConfirmationVersion, obj)
 }
 
 // LoadConfirmation loads the confirmation for the given partner and fingerprint
 // from storage.
-func (s *Store) LoadConfirmation(partner, me *id.ID) (
+func (s *Store) LoadConfirmation(partner *id.ID) (
 	[]byte, []byte, format.Fingerprint, error) {
 	obj, err := s.kv.Get(
-		makeConfirmationKey(partner, me), currentConfirmationVersion)
+		makeConfirmationKey(partner), currentConfirmationVersion)
 	if err != nil {
 		return nil, nil, format.Fingerprint{}, err
 	}
@@ -75,15 +75,14 @@ func (s *Store) LoadConfirmation(partner, me *id.ID) (
 
 // DeleteConfirmation deletes the confirmation for the given partner and
 // fingerprint from storage.
-func (s *Store) DeleteConfirmation(partner, me *id.ID) error {
+func (s *Store) DeleteConfirmation(partner *id.ID) error {
 	return s.kv.Delete(
-		makeConfirmationKey(partner, me), currentConfirmationVersion)
+		makeConfirmationKey(partner), currentConfirmationVersion)
 }
 
 // makeConfirmationKey generates the key used to load and store confirmations
 // for the partner and fingerprint.
-func makeConfirmationKey(partner, me *id.ID) string {
+func makeConfirmationKey(partner *id.ID) string {
 	return confirmationKeyPrefix + base64.StdEncoding.EncodeToString(
-		partner.Marshal()) + base64.StdEncoding.EncodeToString(
-		me.Marshal())
+		partner.Marshal())
 }

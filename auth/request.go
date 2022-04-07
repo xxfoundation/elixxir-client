@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"io"
@@ -29,40 +30,40 @@ import (
 
 const terminator = ";"
 
-func (s *State) RequestAuth(partner, me contact.Contact,
-	originDHPrivKey *cyclic.Int) (id.Round, error) {
+func (s *State) RequestAuth(partner contact.Contact, myfacts fact.FactList) (id.Round, error) {
 	// check that an authenticated channel does not already exist
-	if _, err := s.e2e.GetPartner(partner.ID, me.ID); err == nil ||
+	if _, err := s.e2e.GetPartner(partner.ID); err == nil ||
 		!strings.Contains(err.Error(), ratchet.NoPartnerErrorStr) {
 		return 0, errors.Errorf("Authenticated channel already " +
 			"established with partner")
 	}
 
-	return s.requestAuth(partner, me, originDHPrivKey)
+	return s.requestAuth(partner, myfacts, false)
 }
 
 // requestAuth internal helper
-func (s *State) requestAuth(partner, me contact.Contact,
-	originDHPrivKey *cyclic.Int) (id.Round, error) {
+func (s *State) requestAuth(partner contact.Contact, myfacts fact.FactList, reset bool) (id.Round, error) {
 
 	//do key generation
 	rng := s.rng.GetStream()
 	defer rng.Close()
 
+	me := s.e2e.GetReceptionID()
+
 	dhPriv, dhPub := genDHKeys(s.e2e.GetGroup(), rng)
 	sidhPriv, sidhPub := util.GenerateSIDHKeyPair(
 		sidh.KeyVariantSidhA, rng)
 
-	ownership := cAuth.MakeOwnershipProof(originDHPrivKey, partner.DhPubKey,
-		s.e2e.GetGroup())
+	ownership := cAuth.MakeOwnershipProof(s.e2e.GetHistoricalDHPrivkey(),
+		partner.DhPubKey, s.e2e.GetGroup())
 	confirmFp := cAuth.MakeOwnershipProofFP(ownership)
 
 	// Add the sent request and use the return to build the send. This will
 	// replace the send with an old one if one was in process, wasting the key
 	// generation above. This is considered a reasonable loss due to the increase
 	// in code simplicity of this approach
-	sr, err := s.store.AddSent(partner.ID, me.ID, partner.DhPubKey, dhPriv, dhPub,
-		sidhPriv, sidhPub, confirmFp)
+	sr, err := s.store.AddSent(partner.ID, partner.DhPubKey, dhPriv, dhPub,
+		sidhPriv, sidhPub, confirmFp, reset)
 	if err != nil {
 		if sr == nil {
 			return 0, err
@@ -78,7 +79,7 @@ func (s *State) requestAuth(partner, me contact.Contact,
 	requestfp := cAuth.MakeRequestFingerprint(partner.DhPubKey)
 
 	// My fact data so we can display in the interface.
-	msgPayload := []byte(me.Facts.Stringify() + terminator)
+	msgPayload := []byte(myfacts.Stringify() + terminator)
 
 	// Create the request packet.
 	request, mac, err := createRequestAuth(partner.ID, msgPayload, ownership,
@@ -90,7 +91,7 @@ func (s *State) requestAuth(partner, me contact.Contact,
 	contents := request.Marshal()
 
 	//register the confirm fingerprint to pick up confirm
-	err = s.net.AddFingerprint(me.ID, confirmFp, &receivedConfirmService{
+	err = s.net.AddFingerprint(me, confirmFp, &receivedConfirmService{
 		s:           s,
 		SentRequest: sr,
 	})
@@ -100,7 +101,7 @@ func (s *State) requestAuth(partner, me contact.Contact,
 	}
 
 	//register service for notification on confirmation
-	s.net.AddService(me.ID, message.Service{
+	s.net.AddService(me, message.Service{
 		Identifier: confirmFp[:],
 		Tag:        catalog.Confirm,
 		Metadata:   partner.ID[:],

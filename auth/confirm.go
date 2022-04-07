@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth/store"
-	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
@@ -24,7 +23,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-func (s *State) ConfirmRequestAuth(partner contact.Contact, me *id.ID) (
+func (s *State) ConfirmRequestAuth(partner contact.Contact) (
 	id.Round, error) {
 
 	// check that messages can be sent over the network
@@ -33,11 +32,10 @@ func (s *State) ConfirmRequestAuth(partner contact.Contact, me *id.ID) (
 			"when the network is not healthy")
 	}
 
-	return s.confirmRequestAuth(partner, me)
-
+	return s.confirmRequestAuth(partner, s.params.ConfirmTag)
 }
 
-func (s *State) confirmRequestAuth(partner contact.Contact, me *id.ID) (
+func (s *State) confirmRequestAuth(partner contact.Contact, serviceTag string) (
 	id.Round, error) {
 
 	// check that messages can be sent over the network
@@ -45,13 +43,11 @@ func (s *State) confirmRequestAuth(partner contact.Contact, me *id.ID) (
 		return 0, errors.New("Cannot confirm authenticated message " +
 			"when the network is not healthy")
 	}
-
-	kp := s.registeredIDs[*me]
 
 	var sentRound id.Round
 
 	//run the handler
-	err := s.store.HandleReceivedRequest(partner.ID, me, func(rr *store.ReceivedRequest) error {
+	err := s.store.HandleReceivedRequest(partner.ID, func(rr *store.ReceivedRequest) error {
 		// verify the passed contact matches what is stored
 		if rr.GetContact().DhPubKey.Cmp(partner.DhPubKey) != 0 {
 			return errors.New("pending Auth Request has different " +
@@ -61,8 +57,8 @@ func (s *State) confirmRequestAuth(partner contact.Contact, me *id.ID) (
 		/*cryptographic generation*/
 
 		// generate ownership proof
-		ownership := cAuth.MakeOwnershipProof(kp.privkey, partner.DhPubKey,
-			s.e2e.GetGroup())
+		ownership := cAuth.MakeOwnershipProof(s.e2e.GetHistoricalDHPrivkey(),
+			partner.DhPubKey, s.e2e.GetGroup())
 
 		rng := s.rng.GetStream()
 
@@ -110,7 +106,7 @@ func (s *State) confirmRequestAuth(partner contact.Contact, me *id.ID) (
 
 		// create local relationship
 		p := session.GetDefaultParams()
-		_, err := s.e2e.AddPartner(me, partner.ID, partner.DhPubKey, dhPriv,
+		_, err := s.e2e.AddPartner(partner.ID, partner.DhPubKey, dhPriv,
 			rr.GetTheirSidHPubKeyA(), sidhPriv, p, p)
 		if err != nil {
 			em := fmt.Sprintf("Failed to create channel with partner (%s) "+
@@ -123,33 +119,35 @@ func (s *State) confirmRequestAuth(partner contact.Contact, me *id.ID) (
 		//todo: s.backupTrigger("confirmed authenticated channel")
 
 		jww.INFO.Printf("Confirming Auth from %s to %s, msgDigest: %s",
-			partner.ID, me, format.DigestContents(baseFmt.Marshal()))
+			partner.ID, s.e2e.GetReceptionID(),
+			format.DigestContents(baseFmt.Marshal()))
 
 		//service used for noticiation only
 
 		/*send message*/
-		if err = s.store.StoreConfirmation(partner.ID, me, baseFmt.Marshal(),
+		if err = s.store.StoreConfirmation(partner.ID, baseFmt.Marshal(),
 			mac, fp); err == nil {
 			jww.WARN.Printf("Failed to store confirmation for replay "+
 				"for relationship between %s and %s, cannot be replayed: %+v",
-				partner.ID, me, err)
+				partner.ID, s.e2e.GetReceptionID(), err)
 		}
 
 		//send confirmation
-		sentRound, err = sendAuthConfirm(s.net, partner.ID, me, fp,
-			baseFmt.Marshal(), mac, s.event)
+		sentRound, err = sendAuthConfirm(s.net, partner.ID, fp,
+			baseFmt.Marshal(), mac, s.event, serviceTag)
 
 		return nil
 	})
 	return sentRound, err
 }
 
-func sendAuthConfirm(net cmix.Client, partner, me *id.ID,
-	fp format.Fingerprint, payload, mac []byte, event event.Manager) (
+func sendAuthConfirm(net cmix.Client, partner *id.ID,
+	fp format.Fingerprint, payload, mac []byte, event event.Manager,
+	serviceTag string) (
 	id.Round, error) {
 	svc := message.Service{
-		Identifier: partner.Marshal(),
-		Tag:        catalog.Default,
+		Identifier: fp[:],
+		Tag:        serviceTag,
 		Metadata:   nil,
 	}
 

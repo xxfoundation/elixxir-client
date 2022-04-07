@@ -21,22 +21,14 @@ import (
 const dummyerr = "dummy error so we dont delete the request"
 
 type receivedRequestService struct {
-	s *State
+	s     *State
+	reset bool
 }
 
 func (rrs *receivedRequestService) Process(message format.Message,
 	receptionID receptionID.EphemeralIdentity, round historical.Round) {
 
 	state := rrs.s
-
-	//lookup the keypair
-	kp, exist := state.getRegisteredIDs(receptionID.Source)
-
-	if !exist {
-		jww.ERROR.Printf("received a confirm for %s, " +
-			"but they are not registered with auth, cannot process")
-		return
-	}
 
 	// check if the timestamp is before the id was created and therefore
 	// should be ignored
@@ -63,14 +55,15 @@ func (rrs *receivedRequestService) Process(message format.Message,
 
 	jww.TRACE.Printf("processing requests: \n\t MYPUBKEY: %s "+
 		"\n\t PARTNERPUBKEY: %s \n\t ECRPAYLOAD: %s \n\t MAC: %s",
-		kp.pubkey.TextVerbose(16, 0),
+		state.e2e.GetHistoricalDHPubkey(),
 		partnerPubKey.TextVerbose(16, 0),
 		base64.StdEncoding.EncodeToString(baseFmt.data),
 		base64.StdEncoding.EncodeToString(message.GetMac()))
 
 	//Attempt to decrypt the payload
-	success, payload := cAuth.Decrypt(kp.privkey, partnerPubKey,
-		baseFmt.GetEcrPayload(), message.GetMac(), state.e2e.GetGroup())
+	success, payload := cAuth.Decrypt(state.e2e.GetHistoricalDHPrivkey(),
+		partnerPubKey, baseFmt.GetEcrPayload(), message.GetMac(),
+		state.e2e.GetGroup())
 
 	if !success {
 		jww.WARN.Printf("Received auth request of %s failed its mac "+
@@ -105,8 +98,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 
 	// check the uniqueness of the request. Requests can be duplicated, so we
 	// must verify this is is not a duplicate, and drop if it is
-	newFP, position := state.store.CheckIfNegotiationIsNew(partnerID,
-		receptionID.Source, fp)
+	newFP, position := state.store.CheckIfNegotiationIsNew(partnerID, fp)
 
 	if !newFP {
 		// if its the newest, resend the confirm
@@ -118,10 +110,10 @@ func (rrs *receivedRequestService) Process(message format.Message,
 
 			// check if we already accepted, if we did, resend the confirm if
 			// we can load it
-			if _, err = state.e2e.GetPartner(partnerID, receptionID.Source); err != nil {
+			if _, err = state.e2e.GetPartner(partnerID); err != nil {
 				//attempt to load the confirm, if we can, resend it
 				confirmPayload, mac, keyfp, err :=
-					state.store.LoadConfirmation(partnerID, receptionID.Source)
+					state.store.LoadConfirmation(partnerID)
 				if err != nil {
 					jww.ERROR.Printf("Could not reconfirm a duplicate "+
 						"request of an accepted confirm from %s to %s because "+
@@ -130,12 +122,14 @@ func (rrs *receivedRequestService) Process(message format.Message,
 				}
 				// resend the confirm. It sends as a critical message, so errors
 				// do not need to be handled
-				_, _ = sendAuthConfirm(state.net, partnerID, receptionID.Source,
-					keyfp, confirmPayload, mac, state.event)
+				_, _ = sendAuthConfirm(state.net, partnerID, keyfp,
+					confirmPayload, mac, state.event, state.params.ResetConfirmTag)
 			} else if state.params.ReplayRequests {
 				//if we did not already accept, auto replay the request
-				if cb, exist := state.requestCallbacks.Get(receptionID.Source); exist {
-					cb(c, receptionID, round)
+				if rrs.reset {
+					state.callbacks.Reset(c, receptionID, round)
+				} else {
+					state.callbacks.Request(c, receptionID, round)
 				}
 			}
 			//if not confirm, and params.replay requests is true, we need to replay
@@ -148,28 +142,31 @@ func (rrs *receivedRequestService) Process(message format.Message,
 		return
 	}
 
+	// if we are a reset, check if we have a relationship. If we do not,
+	// this is an invalid reset and we need to treat it like a normal
+	// new request
 	reset := false
-	// check if we have a relationship, given this is a new request, if we have
-	// a relationship, this must be a reset, which which case we delete all
-	// state and then continue like a new request
-	// delete only deletes if the partner is present, so we can just call delete
-	// instead of checking if it exists and then calling delete, and check the
-	// error to see if it did or didnt exist
-	// Note: due to the newFP handling above, this can ONLY run in the event of
-	// a reset or when the partner doesnt exist, so it is safe
-	if err = state.e2e.DeletePartner(partnerID, receptionID.Source); err != nil {
-		if !strings.Contains(err.Error(), ratchet.NoPartnerErrorStr) {
-			jww.FATAL.Panicf("Failed to do actual partner deletion: %+v", err)
+	if rrs.reset {
+		// delete only deletes if the partner is present, so we can just call delete
+		// instead of checking if it exists and then calling delete, and check the
+		// error to see if it did or didnt exist
+		// Note: due to the newFP handling above, this can ONLY run in the event of
+		// a reset or when the partner doesnt exist, so it is safe
+		if err = state.e2e.DeletePartner(partnerID); err != nil {
+			if !strings.Contains(err.Error(), ratchet.NoPartnerErrorStr) {
+				jww.FATAL.Panicf("Failed to do actual partner deletion: %+v", err)
+			}
+		} else {
+			reset = true
+			_ = state.store.DeleteConfirmation(partnerID)
+			_ = state.store.DeleteSentRequest(partnerID)
 		}
-	} else {
-		reset = true
-		_ = state.store.DeleteConfirmation(partnerID, receptionID.Source)
-		_ = state.store.DeleteSentRequest(partnerID, receptionID.Source)
 	}
 
 	// if a new, unique request is received when one already exists, delete the
 	// old one and process the new one
-	if err = state.store.DeleteReceivedRequest(partnerID, receptionID.Source); err != nil {
+	// this works because message pickup is generally time-sequential.
+	if err = state.store.DeleteReceivedRequest(partnerID); err != nil {
 		if !strings.Contains(err.Error(), store.NoRequestFound) {
 			jww.FATAL.Panicf("Failed to delete old received request: %+v",
 				err)
@@ -181,7 +178,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	// (SIDH keys have polarity, so both sent keys cannot be used together)
 	autoConfirm := false
 	bail := false
-	err = state.store.HandleSentRequest(partnerID, receptionID.Source,
+	err = state.store.HandleSentRequest(partnerID,
 		func(request *store.SentRequest) error {
 
 			//if this code is running, then we know we sent a request and can
@@ -189,8 +186,8 @@ func (rrs *receivedRequestService) Process(message format.Message,
 			//This runner will auto delete the sent request if successful
 
 			//verify ownership proof
-			if !cAuth.VerifyOwnershipProof(kp.pubkey, partnerPubKey,
-				state.e2e.GetGroup(), ownershipProof) {
+			if !cAuth.VerifyOwnershipProof(state.e2e.GetHistoricalDHPrivkey(),
+				partnerPubKey, state.e2e.GetGroup(), ownershipProof) {
 				jww.WARN.Printf("Invalid ownership proof from %s to %s "+
 					"received, discarding msdDigest: %s, fp: %s",
 					partnerID, receptionID.Source,
@@ -227,7 +224,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	// warning: the client will never be notified of the channel creation if a
 	// crash occurs after the store but before the conclusion of the callback
 	//create the auth storage
-	if err = state.store.AddReceived(receptionID.Source, c, partnerSIDHPubKey); err != nil {
+	if err = state.store.AddReceived(c, partnerSIDHPubKey, round); err != nil {
 		em := fmt.Sprintf("failed to store contact Auth "+
 			"Request: %s", err)
 		jww.WARN.Print(em)
@@ -237,22 +234,15 @@ func (rrs *receivedRequestService) Process(message format.Message,
 
 	//autoconfirm if we should
 	if autoConfirm || reset {
-		_, _ = state.confirmRequestAuth(c, receptionID.Source)
+		_, _ = state.confirmRequestAuth(c, state.params.getConfirmTag(reset))
 		//handle callbacks
 		if autoConfirm {
-			if cb, exist := state.confirmCallbacks.Get(receptionID.Source); exist {
-				cb(c, receptionID, round)
-			}
+			state.callbacks.Confirm(c, receptionID, round)
 		} else if reset {
-			if cb, exist := state.requestCallbacks.Get(receptionID.Source); exist {
-				cb(c, receptionID, round)
-			}
+			state.callbacks.Reset(c, receptionID, round)
 		}
 	} else {
-		//otherwise call callbacks
-		if cb, exist := state.requestCallbacks.Get(receptionID.Source); exist {
-			cb(c, receptionID, round)
-		}
+		state.callbacks.Request(c, receptionID, round)
 	}
 }
 
@@ -301,4 +291,10 @@ func iShouldResend(partner, me *id.ID) bool {
 	for ; myBytes[i] == theirBytes[i] && i < len(myBytes); i++ {
 	}
 	return myBytes[i] < theirBytes[i]
+}
+
+func copySlice(s []byte) []byte {
+	c := make([]byte, len(s))
+	copy(c, s)
+	return c
 }

@@ -8,13 +8,13 @@
 package auth
 
 import (
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/crypto/contact"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 )
 
-func VerifyOwnership(received, verified contact.Contact, storage *storage.Session) bool {
-	myHistoricalPrivKey := storage.E2e().GetDHPrivateKey()
+func VerifyOwnership(received, verified contact.Contact, e2e e2e.Handler) bool {
+	myHistoricalPrivKey := e2e.GetHistoricalDHPrivkey()
 	return cAuth.VerifyOwnershipProof(myHistoricalPrivKey, verified.DhPubKey,
-		storage.E2e().GetGroup(), received.OwnershipProof)
+		e2e.GetGroup(), received.OwnershipProof)
 }

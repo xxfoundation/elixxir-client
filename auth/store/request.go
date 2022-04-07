@@ -15,7 +15,6 @@ const (
 )
 
 type requestDisk struct {
-	T    uint
-	ID   []byte
-	MyID []byte
+	T  uint
+	ID []byte
 }

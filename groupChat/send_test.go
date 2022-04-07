@@ -10,8 +10,8 @@ package groupChat
 import (
 	"bytes"
 	"encoding/base64"
+	"gitlab.com/elixxir/client/cmix"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -35,9 +35,9 @@ func TestManager_Send(t *testing.T) {
 	}
 
 	// get messages sent with or return an error if no messages were sent
-	var messages []message.TargetedCmixMessage
-	if len(m.net.(*testNetworkManager).messages) > 0 {
-		messages = m.net.(*testNetworkManager).GetMsgList(0)
+	var messages []cmix.TargetedCmixMessage
+	if len(m.services.(*testNetworkManager).messages) > 0 {
+		messages = m.services.(*testNetworkManager).GetMsgList(0)
 	} else {
 		t.Error("No group cMix messages received.")
 	}
@@ -62,12 +62,12 @@ func TestManager_Send(t *testing.T) {
 			continue
 		}
 
-		publicMessage, err := unmarshalPublicMsg(msg.Message.GetContents())
+		publicMessage, err := unmarshalPublicMsg(msg.GetContents())
 		if err != nil {
 			t.Errorf("Failed to unmarshal publicMsg: %+v", err)
 		}
 		// Attempt to read the message
-		messageID, timestamp, senderID, readMsg, err := m.decryptMessage(
+		result, err := decryptMessage(
 			g, msg.Message, publicMessage, timeNow)
 		if err != nil {
 			t.Errorf("Failed to read message for %s: %+v", msg.Recipient, err)
@@ -131,7 +131,7 @@ func TestManager_Send_SendManyCMIXError(t *testing.T) {
 	}
 
 	// If messages were added, then error
-	if len(m.net.(*testNetworkManager).messages) > 0 {
+	if len(m.services.(*testNetworkManager).messages) > 0 {
 		t.Error("Group cMix messages received when SendManyCMIX errors.")
 	}
 }
@@ -239,7 +239,7 @@ func TestGroup_newMessages(t *testing.T) {
 				t.Errorf("Failed to unmarshal publicMsg: %+v", err)
 			}
 
-			messageID, testTimestamp, testSender, testMessage, err := m.decryptMessage(
+			result, err := decryptMessage(
 				g, msg.Message, publicMessage, netTime.Now())
 			if err != nil {
 				t.Errorf("Failed to find member to read message %d.", i)
@@ -301,7 +301,7 @@ func TestGroup_newCmixMsg(t *testing.T) {
 
 	// Create cMix message
 	prng = rand.New(rand.NewSource(42))
-	msg, err := m.newCmixMsg(g, testMsg, timeNow, mem, prng)
+	msg, err := newCmixMsg(g, testMsg, timeNow, mem, prng, m.receptionId, m.grp)
 	if err != nil {
 		t.Errorf("newCmixMsg() returned an error: %+v", err)
 	}
@@ -373,10 +373,10 @@ func TestGroup_newCmixMsg(t *testing.T) {
 // Error path: reader returns an error.
 func TestGroup_newCmixMsg_SaltReaderError(t *testing.T) {
 	expectedErr := strings.SplitN(saltReadErr, "%", 2)[0]
-	m := &Manager{store: storage.InitTestingSession(t)}
+	m := &Manager{}
 
-	_, err := m.newCmixMsg(gs.Group{},
-		[]byte{}, time.Time{}, group.Member{}, strings.NewReader(""))
+	_, err := newCmixMsg(gs.Group{},
+		[]byte{}, time.Time{}, group.Member{}, strings.NewReader(""), m.receptionId, m.grp)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("newCmixMsg() failed to return the expected error"+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -397,7 +397,7 @@ func TestGroup_newCmixMsg_InternalMsgSizeError(t *testing.T) {
 
 	// Create cMix message
 	prng = rand.New(rand.NewSource(42))
-	_, err := m.newCmixMsg(g, testMsg, netTime.Now(), mem, prng)
+	_, err := newCmixMsg(g, testMsg, netTime.Now(), mem, prng, m.receptionId, m.grp)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("newCmixMsg() failed to return the expected error"+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)

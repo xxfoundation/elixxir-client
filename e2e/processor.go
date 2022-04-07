@@ -2,9 +2,9 @@ package e2e
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/network/historical"
-	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/primitives/format"
 )
 

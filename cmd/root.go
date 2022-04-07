@@ -14,7 +14,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/cmix"
 	"io/ioutil"
 	"log"
 	"os"
@@ -378,7 +378,7 @@ var rootCmd = &cobra.Command{
 							// Construct the callback function which
 							// verifies successful message send or retries
 							f := func(allRoundsSucceeded, timedOut bool,
-								rounds map[id.Round]network.RoundLookupStatus) {
+								rounds map[id.Round]cmix.RoundLookupStatus) {
 								printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, msg)
 								if !allRoundsSucceeded {
 									retryChan <- struct{}{}

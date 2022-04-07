@@ -7,11 +7,11 @@
 package api
 
 import (
+	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"

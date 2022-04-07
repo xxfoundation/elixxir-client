@@ -9,9 +9,9 @@ package rekey
 
 import (
 	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -20,11 +20,11 @@ import (
 )
 
 type E2eSender func(mt catalog.MessageType, recipient *id.ID, payload []byte,
-	cmixParams network.CMIXParams) (
+	cmixParams cmix.CMIXParams) (
 	[]id.Round, e2e.MessageID, time.Time, error)
 
 func Start(switchboard *receive.Switchboard, ratchet *ratchet.Ratchet,
-	sender E2eSender, net network.Manager, grp *cyclic.Group, params Params) (stoppable.Stoppable, error) {
+	sender E2eSender, net cmix.Client, grp *cyclic.Group, params Params) (stoppable.Stoppable, error) {
 
 	// register the rekey trigger thread
 	triggerCh := make(chan receive.Message, 100)

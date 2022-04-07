@@ -13,10 +13,10 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/network"
-	"gitlab.com/elixxir/client/network/message"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
@@ -144,7 +144,7 @@ func (s *State) confirmRequestAuth(partner contact.Contact, me *id.ID) (
 	return sentRound, err
 }
 
-func sendAuthConfirm(net network.Manager, partner, me *id.ID,
+func sendAuthConfirm(net cmix.Client, partner, me *id.ID,
 	fp format.Fingerprint, payload, mac []byte, event event.Manager) (
 	id.Round, error) {
 	svc := message.Service{
@@ -153,10 +153,10 @@ func sendAuthConfirm(net network.Manager, partner, me *id.ID,
 		Metadata:   nil,
 	}
 
-	cmixParam := network.GetDefaultCMIXParams()
+	cmixParam := cmix.GetDefaultCMIXParams()
 	cmixParam.DebugTag = "auth.Confirm"
 	cmixParam.Critical = true
-	sentRound, _, err := net.SendCMIX(partner, fp, svc, payload, mac, cmixParam)
+	sentRound, _, err := net.Send(partner, fp, svc, payload, mac, cmixParam)
 	if err != nil {
 		// if the send fails just set it to failed, it will but automatically
 		// retried

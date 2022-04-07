@@ -9,11 +9,11 @@ package auth
 
 import (
 	"gitlab.com/elixxir/client/auth/store"
+	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/switchboard"
@@ -27,7 +27,7 @@ type State struct {
 	confirmCallbacks *callbackMap
 	resetCallbacks   *callbackMap
 
-	net network.Manager
+	net cmix.Client
 	e2e e2e.Handler
 	rng *fastRNG.StreamGenerator
 
@@ -45,7 +45,7 @@ type identity struct {
 	request, confirm, reset Callback
 }
 
-func NewManager(kv *versioned.KV, net network.Manager, e2e e2e.Handler,
+func NewManager(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 	rng *fastRNG.StreamGenerator, event event.Manager, params Param,
 	defaultID []identity) *State {
 	m := &State{

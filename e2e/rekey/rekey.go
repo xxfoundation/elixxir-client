@@ -12,10 +12,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	session "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/network"
 	util "gitlab.com/elixxir/client/storage/utility"
 	commsNetwork "gitlab.com/elixxir/comms/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
@@ -119,7 +119,7 @@ func negotiate(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSe
 	}
 
 	//send the message under the key exchange
-	params := network.GetDefaultCMIXParams()
+	params := cmix.GetDefaultCMIXParams()
 	params.DebugTag = "kx.Request"
 
 	rounds, msgID, _, err := sendE2E(param.Trigger, sess.GetPartner(),
@@ -144,7 +144,7 @@ func negotiate(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSe
 	}
 
 	//Wait until the result tracking responds
-	success, numRoundFail, numTimeOut := network.TrackResults(sendResults,
+	success, numRoundFail, numTimeOut := cmix.TrackResults(sendResults,
 		len(rounds))
 
 	// If a single partition of the Key Negotiation request does not

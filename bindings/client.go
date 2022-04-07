@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/cmix"
 	"runtime/pprof"
 	"strings"
 	"sync"
@@ -408,7 +408,7 @@ func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
 func (c *Client) WaitForRoundCompletion(roundID int,
 	rec RoundCompletionCallback, timeoutMS int) error {
 
-	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]network.RoundLookupStatus) {
+	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundLookupStatus) {
 		rec.EventCallback(roundID, allRoundsSucceeded, timedOut)
 	}
 
@@ -443,7 +443,7 @@ func (c *Client) WaitForMessageDelivery(marshaledSendReport []byte,
 			"unmarshal: %s", string(marshaledSendReport)))
 	}
 
-	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]network.RoundLookupStatus) {
+	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundLookupStatus) {
 		results := make([]byte, len(sr.rl.list))
 		jww.INFO.Printf("Processing WaitForMessageDelivery report "+
 			"for %v, success: %v, timedout: %v", sr.mid, allRoundsSucceeded,

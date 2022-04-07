@@ -9,11 +9,11 @@ package dummy
 
 import (
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/network"
@@ -127,7 +127,7 @@ func (tnm *testNetworkManager) SendCMIX(message format.Message,
 	defer tnm.Unlock()
 
 	if tnm.sendErr {
-		return 0, ephemeral.Id{}, errors.New("SendCMIX error")
+		return 0, ephemeral.Id{}, errors.New("Send error")
 	}
 
 	tnm.messages[*recipient] = message

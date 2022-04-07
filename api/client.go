@@ -13,13 +13,13 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix"
 	keyExchange2 "gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/interfaces/user"
-	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/registration"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
@@ -349,7 +349,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	// Initialize network and link it to context
-	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng,
+	c.network, err = cmix.NewManager(c.storage, c.switchboard, c.rng,
 		c.events, c.comms, parameters, def)
 	if err != nil {
 		return nil, err
@@ -409,7 +409,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	}
 
 	// Initialize network and link it to context
-	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng,
+	c.network, err = cmix.NewManager(c.storage, c.switchboard, c.rng,
 		c.events, c.comms, parameters, def)
 	if err != nil {
 		return nil, err
@@ -467,7 +467,7 @@ func LoginWithProtoClient(storageDir string, password []byte, protoClientJSON []
 	}
 
 	// Initialize network and link it to context
-	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng,
+	c.network, err = cmix.NewManager(c.storage, c.switchboard, c.rng,
 		c.events, c.comms, parameters, def)
 	if err != nil {
 		return nil, err

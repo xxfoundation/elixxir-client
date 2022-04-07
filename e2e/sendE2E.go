@@ -4,10 +4,10 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/rekey"
-	"gitlab.com/elixxir/client/network"
-	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
@@ -82,7 +82,7 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 		if mt != catalog.KeyExchangeTrigger {
 			// check if any rekeys need to happen and trigger them
 			rekeySendFunc := func(mt catalog.MessageType, recipient *id.ID, payload []byte,
-				cmixParams network.CMIXParams) (
+				cmixParams cmix.CMIXParams) (
 				[]id.Round, e2e.MessageID, time.Time, error) {
 				par := GetDefaultParams()
 				par.CMIX = cmixParams

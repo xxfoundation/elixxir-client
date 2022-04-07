@@ -8,8 +8,8 @@
 package auth
 
 import (
-	"gitlab.com/elixxir/client/network/historical"
-	"gitlab.com/elixxir/client/network/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"

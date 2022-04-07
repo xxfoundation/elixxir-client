@@ -146,7 +146,7 @@ func TestManager_transmitSingleUse_AddIdentityError(t *testing.T) {
 	}
 }
 
-// Error path: SendCMIX fails to send message.
+// Error path: Send fails to send message.
 func TestManager_transmitSingleUse_SendCMIXError(t *testing.T) {
 	m := newTestManager(0, true, t)
 	partner := contact2.Contact{

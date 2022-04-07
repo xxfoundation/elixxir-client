@@ -11,10 +11,10 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/network"
-	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -37,14 +37,14 @@ type Manager struct {
 	rng         *fastRNG.StreamGenerator
 	grp         *cyclic.Group
 	gs          *gs.Store
-	services    network.Manager
+	services    cmix.Client
 
 	requestFunc RequestCallback
 	receiveFunc ReceiveCallback
 }
 
 // NewManager creates a new group chat manager
-func NewManager(services network.Manager, e2e e2e.Handler, receptionId *id.ID,
+func NewManager(services cmix.Client, e2e e2e.Handler, receptionId *id.ID,
 	rng *fastRNG.StreamGenerator, grp *cyclic.Group, kv *versioned.KV,
 	requestFunc RequestCallback, receiveFunc ReceiveCallback) (*Manager, error) {
 

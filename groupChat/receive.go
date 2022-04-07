@@ -10,9 +10,9 @@ package groupChat
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/network/historical"
-	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
@@ -30,7 +30,7 @@ const (
 		"cMix message because MAC verification failed (epoch %d could be off)"
 )
 
-// Adheres to network.Manager interface for reception processing
+// Adheres to cmix.Manager interface for reception processing
 type receptionProcessor struct {
 	m *Manager
 	g gs.Group

@@ -10,12 +10,12 @@ package groupChat
 import (
 	"encoding/base64"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/event"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/versioned"

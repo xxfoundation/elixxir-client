@@ -2,12 +2,12 @@ package ratchet
 
 import (
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
-	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// Services is a subsection of the network.Manager interface used for services
+// Services is a subsection of the cmix.Manager interface used for services
 type Services interface {
 	AddService(AddService *id.ID, newService message.Service,
 		response message.Processor)

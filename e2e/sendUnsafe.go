@@ -4,8 +4,8 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e/ratchet"
-	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -67,7 +67,7 @@ func (m *manager) sendUnsafe(mt catalog.MessageType, recipient *id.ID,
 			unencryptedMAC, fp := e2e.SetUnencrypted(payload, m.myDefaultID)
 
 			var err error
-			roundIds[i], _, err = m.net.SendCMIX(recipient, fp,
+			roundIds[i], _, err = m.net.Send(recipient, fp,
 				srvc, payload, unencryptedMAC, params.CMIX)
 			if err != nil {
 				errCh <- err

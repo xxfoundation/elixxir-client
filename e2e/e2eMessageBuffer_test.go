@@ -10,7 +10,7 @@ package e2e
 import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
@@ -178,7 +178,7 @@ func TestE2EParamMarshalUnmarshal(t *testing.T) {
 		Payload:     []byte{1, 2, 3, 4, 5, 6, 7, 8, 9},
 		MessageType: 42,
 		Params: Params{
-			CMIX: network.CMIXParams{
+			CMIX: cmix.CMIXParams{
 				RoundTries:       6,
 				Timeout:          99,
 				RetryDelay:       -4,

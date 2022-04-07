@@ -12,9 +12,9 @@ import (
 	"encoding/binary"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/stoppable"
 	ftStorage "gitlab.com/elixxir/client/storage/fileTransfer"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
@@ -418,11 +418,11 @@ func (m *Manager) newCmixMessage(transfer *ftStorage.SentTransfer,
 // fails, then each part for each transfer is removed from the in-progress list,
 // added to the end of the sending queue, and the callback called with an error.
 func (m *Manager) makeRoundEventCallback(
-	sentRounds map[id.Round][]ftCrypto.TransferID) network.RoundEventCallback {
+	sentRounds map[id.Round][]ftCrypto.TransferID) cmix.RoundEventCallback {
 
-	return func(allSucceeded, timedOut bool, rounds map[id.Round]network.RoundLookupStatus) {
+	return func(allSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundLookupStatus) {
 		for rid, roundResult := range rounds {
-			if roundResult == network.Succeeded {
+			if roundResult == cmix.Succeeded {
 				// If the round succeeded, then set all parts for each transfer
 				// for this round to finished and call the progress callback
 				for _, tid := range sentRounds[rid] {
@@ -546,7 +546,7 @@ func (m *Manager) sendEndE2eMessage(recipient *id.ID) error {
 	}
 
 	// Wait until the result tracking responds
-	success, numTimeOut, numRoundFail := network.TrackResults(
+	success, numTimeOut, numRoundFail := cmix.TrackResults(
 		sendResults, len(rounds))
 
 	// If a single partition of the end file transfer message does not transmit,

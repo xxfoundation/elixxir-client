@@ -13,9 +13,9 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e/ratchet"
-	"gitlab.com/elixxir/client/network"
-	"gitlab.com/elixxir/client/network/message"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -112,14 +112,14 @@ func (s *State) requestAuth(partner, me contact.Contact,
 	jww.INFO.Printf("Requesting Auth with %s, msgDigest: %s",
 		partner.ID, format.DigestContents(contents))
 
-	p := network.GetDefaultCMIXParams()
+	p := cmix.GetDefaultCMIXParams()
 	p.DebugTag = "auth.Request"
 	svc := message.Service{
 		Identifier: partner.ID.Marshal(),
 		Tag:        catalog.Request,
 		Metadata:   nil,
 	}
-	round, _, err := s.net.SendCMIX(partner.ID, requestfp, svc, contents, mac, p)
+	round, _, err := s.net.Send(partner.ID, requestfp, svc, contents, mac, p)
 	if err != nil {
 		// if the send fails just set it to failed, it will
 		// but automatically retried

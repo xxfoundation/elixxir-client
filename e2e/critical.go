@@ -3,7 +3,7 @@ package e2e
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
@@ -85,7 +85,7 @@ func (c *critical) handle(mt catalog.MessageType, recipient *id.ID,
 				rid, sendResults, 1*time.Minute, states.COMPLETED,
 				states.FAILED)
 		}
-		success, numTimeOut, _ := network.TrackResults(sendResults, len(rids))
+		success, numTimeOut, _ := cmix.TrackResults(sendResults, len(rids))
 		if !success {
 			if numTimeOut > 0 {
 				jww.ERROR.Printf("Critical e2e message resend to %s "+

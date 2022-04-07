@@ -10,9 +10,9 @@ package single
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/network/identity/receptionID"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/fastRNG"

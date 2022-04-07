@@ -12,10 +12,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cloudflare/circl/dh/sidh"
+	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/stoppable"
 	ftStorage "gitlab.com/elixxir/client/storage/fileTransfer"
 	util "gitlab.com/elixxir/client/storage/utility"
@@ -382,7 +382,7 @@ func TestManager_sendParts_RoundResultsError(t *testing.T) {
 
 	grrErr := errors.New("GetRoundResultsError")
 	m.getRoundResults =
-		func([]id.Round, time.Duration, network.RoundEventCallback) error {
+		func([]id.Round, time.Duration, cmix.RoundEventCallback) error {
 			return grrErr
 		}
 
@@ -765,7 +765,7 @@ func TestManager_makeRoundEventCallback(t *testing.T) {
 	roundEventCB := m.makeRoundEventCallback(
 		map[id.Round][]ftCrypto.TransferID{rid: {tid}})
 
-	roundEventCB(true, false, map[id.Round]network.RoundLookupStatus{rid: network.Succeeded})
+	roundEventCB(true, false, map[id.Round]cmix.RoundLookupStatus{rid: cmix.Succeeded})
 
 	<-done1
 
@@ -853,7 +853,7 @@ func TestManager_makeRoundEventCallback_RoundFailure(t *testing.T) {
 	roundEventCB := m.makeRoundEventCallback(
 		map[id.Round][]ftCrypto.TransferID{rid: {tid}})
 
-	roundEventCB(false, false, map[id.Round]network.RoundLookupStatus{rid: network.Failed})
+	roundEventCB(false, false, map[id.Round]cmix.RoundLookupStatus{rid: cmix.Failed})
 
 	<-done1
 

@@ -13,10 +13,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/stoppable"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -28,7 +28,7 @@ const (
 	errFailed     = "Failed to handle rekey trigger: %s"
 )
 
-func startTrigger(ratchet *ratchet.Ratchet, sender E2eSender, net network.Manager,
+func startTrigger(ratchet *ratchet.Ratchet, sender E2eSender, net cmix.Client,
 	grp *cyclic.Group, c chan receive.Message, stop *stoppable.Single, params Params,
 	cleanup func()) {
 	for {
@@ -50,7 +50,7 @@ func startTrigger(ratchet *ratchet.Ratchet, sender E2eSender, net network.Manage
 }
 
 func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
-	net network.Manager, grp *cyclic.Group, request receive.Message,
+	net cmix.Client, grp *cyclic.Group, request receive.Message,
 	param Params, stop *stoppable.Single) error {
 	//ensure the message was encrypted properly
 	if !request.Encrypted {
@@ -116,7 +116,7 @@ func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 	}
 
 	//send the trigger
-	params := network.GetDefaultCMIXParams()
+	params := cmix.GetDefaultCMIXParams()
 	params.Critical = true
 	//ignore results, the passed sender interface makes it a critical message
 	_, _, _, _ = sender(param.Confirm, request.Sender, payload,

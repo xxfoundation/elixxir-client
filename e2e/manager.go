@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e/parse"
 	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/network"
-	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -24,7 +24,7 @@ type manager struct {
 	*ratchet.Ratchet
 	*receive.Switchboard
 	partitioner parse.Partitioner
-	net         network.Manager
+	net         cmix.Client
 	myDefaultID *id.ID
 	rng         *fastRNG.StreamGenerator
 	events      event.Manager
@@ -59,7 +59,7 @@ func Init(kv *versioned.KV, myDefaultID *id.ID, privKey *cyclic.Int,
 // Load returns an e2e manager from storage
 // Passes a default ID which is used for relationship with
 // partners when no default ID is selected
-func Load(kv *versioned.KV, net network.Manager, myDefaultID *id.ID,
+func Load(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator, events event.Manager) (Handler, error) {
 
 	//build the manager
@@ -106,7 +106,7 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 	multi.Add(critcalNetworkStopper)
 
 	rekeySendFunc := func(mt catalog.MessageType, recipient *id.ID, payload []byte,
-		cmixParams network.CMIXParams) (
+		cmixParams cmix.CMIXParams) (
 		[]id.Round, e2e.MessageID, time.Time, error) {
 		par := GetDefaultParams()
 		par.CMIX = cmixParams

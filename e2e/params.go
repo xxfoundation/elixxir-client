@@ -3,7 +3,7 @@ package e2e
 import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/cmix"
 	"time"
 )
 
@@ -23,7 +23,7 @@ type Params struct {
 	//Underlying cmix tags.
 	// Note: if critical is true, an alternative critical messages system within
 	// e2e will be used which preserves privacy
-	CMIX network.CMIXParams
+	CMIX cmix.CMIXParams
 
 	//Authorizes the message to use a key reserved for rekeying. Do not use
 	//unless sending a rekey
@@ -38,7 +38,7 @@ func GetDefaultParams() Params {
 		KeyGetRetryCount: 10,
 		KeyGeRetryDelay:  500 * time.Millisecond,
 
-		CMIX:  network.GetDefaultCMIXParams(),
+		CMIX:  cmix.GetDefaultCMIXParams(),
 		Rekey: false,
 	}
 }

@@ -9,7 +9,7 @@ package api
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/cmix/gateway"
 	"testing"
 
 	"github.com/pkg/errors"

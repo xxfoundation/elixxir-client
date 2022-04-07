@@ -106,7 +106,7 @@ func (m *Manager) sendMessages(msgs map[id.ID]format.Message) error {
 			_, _, err := m.net.SendCMIX(msg, &recipient, p)
 			if err != nil {
 				jww.WARN.Printf("Failed to send dummy message %d/%d via "+
-					"SendCMIX: %+v", i, len(msgs), err)
+					"Send: %+v", i, len(msgs), err)
 			} else {
 				atomic.AddInt64(&sent, 1)
 			}

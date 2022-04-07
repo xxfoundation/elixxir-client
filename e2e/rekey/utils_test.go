@@ -11,13 +11,13 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/gateway"
+	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/identity"
+	"gitlab.com/elixxir/client/cmix/message"
 	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/network"
-	"gitlab.com/elixxir/client/network/gateway"
-	"gitlab.com/elixxir/client/network/historical"
-	"gitlab.com/elixxir/client/network/identity"
-	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
 	util "gitlab.com/elixxir/client/storage/utility"
 	network2 "gitlab.com/elixxir/comms/network"
@@ -72,7 +72,7 @@ func genSidhKeys() (*sidh.PrivateKey, *sidh.PublicKey, *sidh.PrivateKey, *sidh.P
 }
 
 func testSendE2E(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, cmixParams network.CMIXParams) ([]id.Round, e2e.MessageID, time.Time, error) {
+	payload []byte, cmixParams cmix.CMIXParams) ([]id.Round, e2e.MessageID, time.Time, error) {
 	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
 	alicePartner, err := r.GetPartner(aliceID, bobID)
 	if err != nil {
@@ -228,7 +228,7 @@ func (m *mockNetManager) GetIdentity(get *id.ID) (identity.TrackedID, error) {
 	panic("implement me")
 }
 
-func (m *mockNetManager) Follow(report network.ClientErrorReport) (stoppable.Stoppable, error) {
+func (m *mockNetManager) Follow(report cmix.ClientErrorReport) (stoppable.Stoppable, error) {
 	return nil, nil
 }
 
@@ -236,13 +236,13 @@ func (m *mockNetManager) GetMaxMessageLength() int {
 	return 0
 }
 
-func (m *mockNetManager) SendCMIX(recipient *id.ID, fingerprint format.Fingerprint,
-	service message.Service, payload, mac []byte, cmixParams network.CMIXParams) (
+func (m *mockNetManager) Send(recipient *id.ID, fingerprint format.Fingerprint,
+	service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
 	id.Round, ephemeral.Id, error) {
 	return id.Round(0), ephemeral.Id{}, nil
 }
 
-func (m *mockNetManager) SendManyCMIX(messages []network.TargetedCmixMessage, p network.CMIXParams) (
+func (m *mockNetManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (
 	id.Round, []ephemeral.Id, error) {
 	return id.Round(0), nil, nil
 }
@@ -298,7 +298,7 @@ func (m *mockNetManager) NumRegisteredNodes() int {
 
 func (m *mockNetManager) TriggerNodeRegistration(nid *id.ID) {}
 
-func (m *mockNetManager) GetRoundResults(timeout time.Duration, roundCallback network.RoundEventCallback,
+func (m *mockNetManager) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback,
 	roundList ...id.Round) error {
 	return nil
 }

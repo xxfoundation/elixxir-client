@@ -11,9 +11,9 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/message"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/network"
-	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
@@ -64,7 +64,7 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time, gro
 	}
 
 	// Send all the groupMessages
-	param := network.GetDefaultCMIXParams()
+	param := cmix.GetDefaultCMIXParams()
 	param.DebugTag = "group.Message"
 	rid, _, err := m.services.SendManyCMIX(groupMessages, param)
 	if err != nil {
@@ -79,10 +79,10 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time, gro
 
 // newMessages quickly builds messages for all group chat members in multiple threads
 func (m *Manager) newMessages(g gs.Group, msg []byte, timestamp time.Time) (
-	[]network.TargetedCmixMessage, error) {
+	[]cmix.TargetedCmixMessage, error) {
 
 	// Create list of cMix messages
-	messages := make([]network.TargetedCmixMessage, 0, len(g.Members))
+	messages := make([]cmix.TargetedCmixMessage, 0, len(g.Members))
 	rng := m.rng.GetStream()
 	defer rng.Close()
 
@@ -106,10 +106,10 @@ func (m *Manager) newMessages(g gs.Group, msg []byte, timestamp time.Time) (
 
 // newCmixMsg generates a new cMix message to be sent to a group member.
 func newCmixMsg(g gs.Group, msg []byte, timestamp time.Time,
-	mem group.Member, rng io.Reader, senderId *id.ID, grp *cyclic.Group) (network.TargetedCmixMessage, error) {
+	mem group.Member, rng io.Reader, senderId *id.ID, grp *cyclic.Group) (cmix.TargetedCmixMessage, error) {
 
 	// Initialize targeted message
-	cmixMsg := network.TargetedCmixMessage{
+	cmixMsg := cmix.TargetedCmixMessage{
 		Recipient: mem.ID,
 		Service: message.Service{
 			Identifier: g.ID[:],

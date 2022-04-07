@@ -269,7 +269,7 @@ func showGroup(groupIdString string, gm *groupChat.Manager) {
 		jww.FATAL.Printf("Could not find group: %s", groupID)
 	}
 
-	jww.INFO.Printf("Show group %#v", grp)
+	jww.INFO.Printf("Show group %#v", grp.Members.String())
 	fmt.Printf("Got group with name %q and message %q\n",
 		grp.Name, grp.InitMessage)
 }

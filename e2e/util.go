@@ -11,16 +11,16 @@ func (m *manager) GetGroup() *cyclic.Group {
 }
 
 // GetDefaultHistoricalDHPubkey returns the default user's Historical DH Public Key
-func (m *manager) GetDefaultHistoricalDHPubkey() *cyclic.Int {
+func (m *manager) GetHistoricalDHPubkey() *cyclic.Int {
 	return m.Ratchet.GetDHPublicKey()
 }
 
 // GetDefaultHistoricalDHPrivkey returns the default user's Historical DH Private Key
-func (m *manager) GetDefaultHistoricalDHPrivkey() *cyclic.Int {
+func (m *manager) GetHistoricalDHPrivkey() *cyclic.Int {
 	return m.Ratchet.GetDHPrivateKey()
 }
 
 // GetDefaultID returns the default IDs
-func (m *manager) GetDefaultID() *id.ID {
+func (m *manager) GetReceptionID() *id.ID {
 	return m.myDefaultID
 }

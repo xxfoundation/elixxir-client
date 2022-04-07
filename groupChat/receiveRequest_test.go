@@ -28,8 +28,8 @@ func TestManager_receiveRequest(t *testing.T) {
 	requestFunc := func(g gs.Group) { requestChan <- g }
 	m, _ := newTestManagerWithStore(prng, 10, 0, requestFunc, nil, t)
 	g := newTestGroupWithUser(m.grp,
-		m.receptionId, m.e2e.GetDefaultHistoricalDHPubkey(),
-		m.e2e.GetDefaultHistoricalDHPrivkey(), prng, t)
+		m.receptionId, m.e2e.GetHistoricalDHPubkey(),
+		m.e2e.GetHistoricalDHPrivkey(), prng, t)
 
 	requestMarshaled, err := proto.Marshal(&Request{
 		Name:        g.Name,

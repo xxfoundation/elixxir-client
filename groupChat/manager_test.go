@@ -274,7 +274,7 @@ func Test_newManager_LoadError(t *testing.T) {
 func TestManager_JoinGroup(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
-	g := newTestGroup(m.grp, m.e2e.GetDefaultHistoricalDHPubkey(), prng, t)
+	g := newTestGroup(m.grp, m.e2e.GetHistoricalDHPubkey(), prng, t)
 
 	err := m.JoinGroup(g)
 	if err != nil {

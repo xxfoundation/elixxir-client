@@ -37,9 +37,19 @@ const e2eRekeyParamsKey = "e2eRekeyParams"
 const e2eRekeyParamsVer = 0
 
 // Init Creates stores. After calling, use load
-// Passes a default ID and public key which is used for relationship with
-// partners when no default ID is selected
-func Init(kv *versioned.KV, myDefaultID *id.ID, privKey *cyclic.Int,
+// Passes a the ID public key which is used for the relationship
+// uses the passed ID to modify the kv prefix for a unique storage path
+func Init(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
+	grp *cyclic.Group, rekeyParams rekey.Params) error {
+	kv = kv.Prefix(makeE2ePrefix(myID))
+	return InitLegacy(kv, myID, privKey, grp, rekeyParams)
+}
+
+// InitLegacy Creates stores. After calling, use load
+// Passes a the ID public key which is used for the relationship
+// Does not modify the kv prefix in any way to maintain backwards compatibility
+// before multiple IDs were supported
+func InitLegacy(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group, rekeyParams rekey.Params) error {
 	rekeyParamsData, err := json.Marshal(rekeyParams)
 	if err != nil {
@@ -53,13 +63,21 @@ func Init(kv *versioned.KV, myDefaultID *id.ID, privKey *cyclic.Int,
 	if err != nil {
 		return errors.WithMessage(err, "Failed to save rekeyParams")
 	}
-	return ratchet.New(kv, myDefaultID, privKey, grp)
+	return ratchet.New(kv, myID, privKey, grp)
 }
 
-// Load returns an e2e manager from storage
+func Load(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
+	grp *cyclic.Group, rng *fastRNG.StreamGenerator, events event.Manager) (
+	Handler, error) {
+
+}
+
+// LoadLegacy returns an e2e manager from storage
 // Passes a default ID which is used for relationship with
 // partners when no default ID is selected
-func Load(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
+// Does not modify the kv prefix in any way to maintain backwards compatibility
+// before multiple IDs were supported
+func LoadLegacy(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator, events event.Manager) (Handler, error) {
 
 	//build the manager
@@ -140,4 +158,8 @@ func (m *manager) EnableUnsafeReception() {
 		m:   m,
 		tag: ratchet.E2e,
 	})
+}
+
+func makeE2ePrefix(myid *id.ID) string {
+	return "e2eStore:" + myid.String()
 }

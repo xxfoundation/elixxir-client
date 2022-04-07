@@ -50,7 +50,7 @@ func NewManager(services cmix.Client, e2e e2e.Handler, receptionId *id.ID,
 
 	// Load the group chat storage or create one if one does not exist
 	gStore, err := gs.NewOrLoadStore(
-		kv, group.Member{ID: receptionId, DhKey: e2e.GetDefaultHistoricalDHPubkey()})
+		kv, group.Member{ID: receptionId, DhKey: e2e.GetHistoricalDHPubkey()})
 	if err != nil {
 		return nil, errors.Errorf(newGroupStoreErr, err)
 	}

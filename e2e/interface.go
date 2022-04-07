@@ -49,7 +49,7 @@ type Handler interface {
 	// pass nil to this.
 	//
 	// If a message matches multiple listeners, all of them will hear the message.
-	RegisterListener(user *id.ID, messageType catalog.MessageType,
+	RegisterListener(senderID *id.ID, messageType catalog.MessageType,
 		newListener receive.Listener) receive.ListenerID
 
 	// RegisterFunc Registers a new listener built around the passed function.
@@ -66,7 +66,7 @@ type Handler interface {
 	// Do not pass nil to this.
 	//
 	// If a message matches multiple listeners, all of them will hear the message.
-	RegisterFunc(name string, user *id.ID, messageType catalog.MessageType,
+	RegisterFunc(name string, senderID *id.ID, messageType catalog.MessageType,
 		newListener receive.ListenerFunc) receive.ListenerID
 
 	// RegisterChannel Registers a new listener built around the passed channel.
@@ -83,7 +83,7 @@ type Handler interface {
 	// Do not pass nil to this.
 	//
 	// If a message matches multiple listeners, all of them will hear the message.
-	RegisterChannel(name string, user *id.ID, messageType catalog.MessageType,
+	RegisterChannel(name string, senderID *id.ID, messageType catalog.MessageType,
 		newListener chan receive.Message) receive.ListenerID
 
 	// Unregister removes the listener with the specified ID so it will no longer
@@ -98,7 +98,7 @@ type Handler interface {
 	// then pass them in, otherwise, leave myID and myPrivateKey nil
 	// If temporary is true, an alternate ram kv will be used for storage and
 	// the relationship will not survive a reset
-	AddPartner(myID *id.ID, partnerID *id.ID,
+	AddPartner(partnerID *id.ID,
 		partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
 		mySIDHPrivKey *sidh.PrivateKey, sendParams,
 		receiveParams session.Params) (*partner.Manager, error)
@@ -106,16 +106,16 @@ type Handler interface {
 	// GetPartner returns the partner per its ID, if it exists
 	// myID is your ID in the relationship, if left blank, it will
 	// assume to be your defaultID
-	GetPartner(partnerID *id.ID, myID *id.ID) (*partner.Manager, error)
+	GetPartner(partnerID *id.ID) (*partner.Manager, error)
 
 	// DeletePartner removes the associated contact from the E2E store
 	// myID is your ID in the relationship, if left blank, it will
 	// assume to be your defaultID
-	DeletePartner(partnerId *id.ID, myID *id.ID) error
+	DeletePartner(partnerId *id.ID) error
 
 	// GetAllPartnerIDs returns a list of all partner IDs that the user has
 	// an E2E relationship with.
-	GetAllPartnerIDs(myID *id.ID) []*id.ID
+	GetAllPartnerIDs() []*id.ID
 
 	/* === Services ========================================================= */
 
@@ -155,12 +155,12 @@ type Handler interface {
 	// GetGroup returns the cyclic group used for end to end encruption
 	GetGroup() *cyclic.Group
 
-	// GetDefaultHistoricalDHPubkey returns the default user's Historical DH Public Key
-	GetDefaultHistoricalDHPubkey() *cyclic.Int
+	// GetHistoricalDHPubkey returns the default user's Historical DH Public Key
+	GetHistoricalDHPubkey() *cyclic.Int
 
-	// GetDefaultHistoricalDHPrivkey returns the default user's Historical DH Private Key
-	GetDefaultHistoricalDHPrivkey() *cyclic.Int
+	// GetHistoricalDHPrivkey returns the default user's Historical DH Private Key
+	GetHistoricalDHPrivkey() *cyclic.Int
 
-	// GetDefaultID returns the default IDs
-	GetDefaultID() *id.ID
+	// GetReceptionID returns the default IDs
+	GetReceptionID() *id.ID
 }

@@ -296,12 +296,12 @@ var rootCmd = &cobra.Command{
 			jww.INFO.Printf("Waiting for authentication channel"+
 				" confirmation with partner %s", recipientID)
 			scnt := uint(0)
-			waitSecs := viper.GetUint("auth-timeout")
-			for !authConfirmed && scnt < waitSecs {
+			waitSecs := viper.GetDuration("auth-timeout")
+			for !authConfirmed && scnt < uint(waitSecs.Seconds()) {
 				time.Sleep(1 * time.Second)
 				scnt++
 			}
-			if scnt == waitSecs {
+			if scnt == uint(waitSecs.Seconds()) {
 				jww.FATAL.Panicf("Could not confirm "+
 					"authentication channel for %s, "+
 					"waited %d seconds.", recipientID,
@@ -1151,7 +1151,7 @@ func init() {
 			"for confirmation")
 	viper.BindPFlag("send-auth-request",
 		rootCmd.Flags().Lookup("send-auth-request"))
-	rootCmd.Flags().UintP("auth-timeout", "", 120,
+	rootCmd.Flags().Duration("auth-timeout", 2*time.Minute,
 		"The number of seconds to wait for an authentication channel"+
 			"to confirm")
 	viper.BindPFlag("auth-timeout",

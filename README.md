@@ -174,7 +174,7 @@ Available Commands:
 
 Flags:
       --accept-channel            Accept the channel request for the corresponding recipient ID
-      --auth-timeout uint         The number of seconds to wait for an authentication channelto confirm (default 120)
+      --auth-timeout duration         The number of seconds to wait for an authentication channelto confirm (default 120)
       --delete-all-requests       Delete the all contact requests, both sent and received.
       --backupIn string           Path to load backup client from
       --backupOut string          Path to output backup client.

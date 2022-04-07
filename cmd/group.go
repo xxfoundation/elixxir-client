@@ -189,7 +189,7 @@ func joinGroup(reqChan chan groupStore.Group, timeout time.Duration,
 				jww.FATAL.Panicf("%+v", err)
 			}
 
-			jww.INFO.Printf("Joined group %s with members %s", grp.ID, grp.Members.String())
+			jww.INFO.Printf("Joined group %s sent from %s", grp.ID, grp.Members.Leader())
 			fmt.Printf("Joined group with name %q and message %q\n",
 				grp.Name, grp.InitMessage)
 		case <-timer.C:

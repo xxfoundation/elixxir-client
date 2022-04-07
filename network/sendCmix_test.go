@@ -1,5 +1,13 @@
 package network
 
+import (
+	"gitlab.com/elixxir/client/network/message"
+	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/id"
+	"testing"
+)
+
 /*
 type dummyEvent struct{}
 
@@ -101,3 +109,28 @@ func Test_attemptSendCmix(t *testing.T) {
 		return
 	}
 }*/
+
+func TestManager_SendCMIX(t *testing.T) {
+	m, err := newTestManager(t)
+	if err != nil {
+		t.Fatalf("Failed to create test manager: %+v", err)
+	}
+
+	recipientID := id.NewIdFromString("zezima", id.User, t)
+	contents := []byte("message")
+	fp := format.NewFingerprint(contents)
+	service := message.GetDefaultService(recipientID)
+	mac := make([]byte, 32)
+	_, err = csprng.NewSystemRNG().Read(mac)
+	if err != nil {
+		t.Errorf("Failed to read random mac bytes: %+v", err)
+	}
+	mac[0] = 0
+	params := GetDefaultCMIXParams()
+	rid, eid, err := m.SendCMIX(recipientID, fp, service, contents, mac, params)
+	if err != nil {
+		t.Errorf("Failed to sendcmix: %+v", err)
+		t.FailNow()
+	}
+	t.Logf("Test of SendCMIX returned:\n\trid: %v\teid: %+v", rid, eid)
+}

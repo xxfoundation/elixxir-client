@@ -53,7 +53,7 @@ type manager struct {
 	// Generic RNG for client
 	rng *fastRNG.StreamGenerator
 	// Comms pointer to send/receive messages
-	comms *client.Comms
+	comms clientCommsInterface
 	// Contains the network instance
 	instance *commNetwork.Instance
 

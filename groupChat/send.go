@@ -66,7 +66,7 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time, gro
 	// Send all the groupMessages
 	param := cmix.GetDefaultCMIXParams()
 	param.DebugTag = "group.Message"
-	rid, _, err := m.services.SendManyCMIX(groupMessages, param)
+	rid, _, err := m.services.SendMany(groupMessages, param)
 	if err != nil {
 		return 0, time.Time{}, group.MessageID{},
 			errors.Errorf(sendManyCmixErr, m.receptionId, groupID, err)

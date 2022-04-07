@@ -78,7 +78,7 @@ func (m *Manager) readRequest(msg receive.Message) (gs.Group, error) {
 	}
 
 	// get the relationship with the group leader
-	partner, err := m.e2e.GetPartner(membership[0].ID, m.receptionId)
+	partner, err := m.e2e.GetPartner(membership[0].ID)
 	if err != nil {
 		return gs.Group{}, errors.Errorf(getPrivKeyErr, err)
 	}

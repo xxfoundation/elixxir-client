@@ -157,7 +157,7 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 	return roundIds, msgID, ts, nil
 }
 
-// waitForKey waits the designated ammount of time for a
+// waitForKey waits the designated amount of time for a
 func waitForKey(keyGetter func() (*session.Cypher, error), numAttempts uint,
 	wait time.Duration, stop *stoppable.Single, recipient *id.ID,
 	digest string, partition int) (*session.Cypher, error) {

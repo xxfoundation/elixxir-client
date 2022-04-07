@@ -10,6 +10,7 @@ package groupChat
 import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
+	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/stoppable"
@@ -43,7 +44,7 @@ func TestManager_receiveRequest(t *testing.T) {
 		t.Errorf("Failed to marshal proto message: %+v", err)
 	}
 
-	msg := message.Receive{
+	msg := cmix.TargetedCmixMessage{
 		Sender:      g.Members[0].ID,
 		Payload:     requestMarshaled,
 		MessageType: message.GroupCreationRequest,
@@ -61,7 +62,7 @@ func TestManager_receiveRequest(t *testing.T) {
 	theirSIDHPrivKey.Generate(prng)
 	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
 
-	_, _ = m.e2e.AddPartner(m.receptionId,
+	_, _ = m.e2e.AddPartner(
 		g.Members[0].ID,
 		g.Members[0].DhKey,
 		m.grp.NewInt(2),

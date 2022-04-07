@@ -8,24 +8,23 @@
 package auth
 
 import (
+	"encoding/base64"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/client/switchboard"
-	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 )
 
 type State struct {
-	requestCallbacks *callbackMap
-	confirmCallbacks *callbackMap
-	resetCallbacks   *callbackMap
+	callbacks Callbacks
 
 	net cmix.Client
 	e2e e2e.Handler
@@ -34,24 +33,39 @@ type State struct {
 	store *store.Store
 	event event.Manager
 
-	registeredIDs
-
 	params Param
 }
 
-type identity struct {
-	identity                *id.ID
-	pubkey, privkey         *cyclic.Int
-	request, confirm, reset Callback
+type Callbacks interface {
+	Request(requestor contact.Contact, receptionID receptionID.EphemeralIdentity,
+		round historical.Round)
+	Confirm(requestor contact.Contact, receptionID receptionID.EphemeralIdentity,
+		round historical.Round)
+	Reset(requestor contact.Contact, receptionID receptionID.EphemeralIdentity,
+		round historical.Round)
 }
 
-func NewManager(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
+// NewState loads the auth state or creates new auth state if one cannot be
+// found.
+// Bases its reception identity and keys off of what is found in e2e.
+// Uses this ID to modify the kv prefix for a unique storage path
+func NewState(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 	rng *fastRNG.StreamGenerator, event event.Manager, params Param,
-	defaultID []identity) *State {
-	m := &State{
-		requestCallbacks: newCallbackMap(),
-		confirmCallbacks: newCallbackMap(),
-		resetCallbacks:   newCallbackMap(),
+	callbacks Callbacks) (*State, error) {
+	kv = kv.Prefix(makeStorePrefix(e2e.GetReceptionID()))
+	return NewStateLegacy(kv, net, e2e, rng, event, params, callbacks)
+}
+
+// NewStateLegacy loads the auth state or creates new auth state if one cannot be
+// found.
+// Bases its reception identity and keys off of what is found in e2e.
+// Does not modify the kv prefix for backwards compatibility
+func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
+	rng *fastRNG.StreamGenerator, event event.Manager, params Param,
+	callbacks Callbacks) (*State, error) {
+
+	s := &State{
+		callbacks: callbacks,
 
 		net: net,
 		e2e: e2e,
@@ -59,46 +73,44 @@ func NewManager(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 
 		params: params,
 		event:  event,
-
-		//created lazily in add identity, see add identity for more details
-		store: nil,
 	}
 
-	return m
+	// create the store
+	var err error
+	s.store, err = store.NewOrLoadStore(kv, e2e.GetGroup(),
+		&sentRequestHandler{s: s})
+
+	//register services
+	net.AddService(e2e.GetReceptionID(), message.Service{
+		Identifier: e2e.GetReceptionID()[:],
+		Tag:        params.RequestTag,
+		Metadata:   nil,
+	}, &receivedRequestService{s: s, reset: false})
+
+	net.AddService(e2e.GetReceptionID(), message.Service{
+		Identifier: e2e.GetReceptionID()[:],
+		Tag:        params.ResetRequestTag,
+		Metadata:   nil,
+	}, &receivedRequestService{s: s, reset: true})
+
+	if err != nil {
+		return nil, errors.Errorf("Failed to make Auth State manager")
+	}
+
+	return s, nil
 }
 
 // ReplayRequests will iterate through all pending contact requests and resend them
 // to the desired contact.
 func (s *State) ReplayRequests() {
-	cList := s.storage.Auth().GetAllReceived()
-	for i := range cList {
-		c := cList[i]
-		cbList := s.requestCallbacks.Get(c.ID)
-		for _, cb := range cbList {
-			rcb := cb.(interfaces.RequestCallback)
-			go rcb(c)
-		}
+	rrList := s.store.GetAllReceivedRequests()
+	for i := range rrList {
+		rr := rrList[i]
+		eph := receptionID.BuildIdentityFromRound(rr.GetContact().ID, rr.GetRound())
+		s.callbacks.Request(rr.GetContact(), eph, rr.GetRound())
 	}
 }
 
-// AddIdentity adds an identity and its callbacks to receive requests.
-// This auto registers the appropriate services
-// Note: the internal storage for auth is loaded on the first added identity,
-// with that identity as the default identity. This is to allow v2.0
-// instantiations of this library (pre April 2022) to load, before requests were
-// keyed on both parties IDs
-func (s *State) AddIdentity(identity *id.ID, pubkey, privkey *cyclic.Int,
-	request, confirm, reset Callback) {
-	if s.store == nil {
-		//load store
-	}
-
-}
-
-func (s *State) AddDefaultIdentity(identity *id.ID, pubkey, privkey *cyclic.Int,
-	request, confirm, reset Callback) {
-	if s.store == nil {
-		//load store
-	}
-
+func makeStorePrefix(partner *id.ID) string {
+	return "authStore:" + base64.StdEncoding.EncodeToString(partner.Marshal())
 }

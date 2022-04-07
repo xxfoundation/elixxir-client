@@ -35,11 +35,9 @@ func (s *Store) DeleteRequest(partner *id.ID) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	authId := makeAuthIdentity(partner, s.defaultID)
-
 	// Check if this is a relationship in either map
-	_, isReceivedRelationship := s.receivedByID[authId]
-	_, isSentRelationship := s.sentByID[authId]
+	_, isReceivedRelationship := s.receivedByID[*partner]
+	_, isSentRelationship := s.sentByID[*partner]
 
 	// If it is not a relationship in either, return an error
 	if !isSentRelationship && !isReceivedRelationship {
@@ -49,8 +47,8 @@ func (s *Store) DeleteRequest(partner *id.ID) error {
 
 	// Delete relationship. It should exist in at least one map,
 	// for the other the delete operation is a no-op
-	delete(s.receivedByID, authId)
-	delete(s.sentByID, authId)
+	delete(s.receivedByID, *partner)
+	delete(s.sentByID, *partner)
 
 	// Save to storage
 	if err := s.save(); err != nil {
@@ -78,11 +76,10 @@ func (s *Store) DeleteSentRequests() error {
 
 // DeleteReceivedRequest deletes the received request for the given partnerID
 // pair.
-func (s *Store) DeleteReceivedRequest(partner, me *id.ID) error {
+func (s *Store) DeleteReceivedRequest(partner *id.ID) error {
 
-	aid := makeAuthIdentity(partner, me)
 	s.mux.Lock()
-	rr, exist := s.receivedByID[aid]
+	rr, exist := s.receivedByID[*partner]
 	s.mux.Unlock()
 
 	if !exist {
@@ -91,8 +88,8 @@ func (s *Store) DeleteReceivedRequest(partner, me *id.ID) error {
 
 	rr.mux.Lock()
 	s.mux.Lock()
-	_, exist = s.receivedByID[aid]
-	delete(s.receivedByID, aid)
+	_, exist = s.receivedByID[*partner]
+	delete(s.receivedByID, *partner)
 	rr.mux.Unlock()
 	s.mux.Unlock()
 
@@ -104,11 +101,10 @@ func (s *Store) DeleteReceivedRequest(partner, me *id.ID) error {
 }
 
 // DeleteSentRequest deletes the sent request for the given partnerID pair.
-func (s *Store) DeleteSentRequest(partner, me *id.ID) error {
+func (s *Store) DeleteSentRequest(partner *id.ID) error {
 
-	aid := makeAuthIdentity(partner, me)
 	s.mux.Lock()
-	sr, exist := s.sentByID[aid]
+	sr, exist := s.sentByID[*partner]
 	s.mux.Unlock()
 
 	if !exist {
@@ -117,8 +113,8 @@ func (s *Store) DeleteSentRequest(partner, me *id.ID) error {
 
 	sr.mux.Lock()
 	s.mux.Lock()
-	_, exist = s.sentByID[aid]
-	delete(s.receivedByID, aid)
+	_, exist = s.sentByID[*partner]
+	delete(s.receivedByID, *partner)
 	s.mux.Unlock()
 	sr.mux.Unlock()
 

@@ -1,22 +1,18 @@
 package auth
 
-import "gitlab.com/elixxir/client/e2e/parse/partition"
-
 type Param struct {
 	ReplayRequests bool
 
-	RequestTag string
-	ResetTag   string
+	RequestTag      string
+	ConfirmTag      string
+	ResetRequestTag string
+	ResetConfirmTag string
 }
 
-type PartPacket map[trasferID][]part
-
-func (pp PartPacket) Add(transferid, part) {
-	list, exist := PartPacket[transferid]
-	if exist {
-		PartPacket[transferid] = append(list, part)
+func (p Param) getConfirmTag(reset bool) string {
+	if reset {
+		return p.ResetConfirmTag
 	} else {
-		PartPacket[transferid][]
-		part{part}
+		return p.ConfirmTag
 	}
 }

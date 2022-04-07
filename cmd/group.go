@@ -112,12 +112,12 @@ var groupCmd = &cobra.Command{
 // service.
 func initGroupManager(client *api.Client) (*groupChat.Manager,
 	chan groupChat.MessageReceive, chan groupStore.Group) {
-	recChan := make(chan groupChat.MessageReceive, 10)
+	recChan := make(chan groupChat.MessageReceive, 100)
 	receiveCb := func(msg groupChat.MessageReceive) {
 		recChan <- msg
 	}
 
-	reqChan := make(chan groupStore.Group, 10)
+	reqChan := make(chan groupStore.Group, 100)
 	requestCb := func(g groupStore.Group) {
 		reqChan <- g
 	}
@@ -180,21 +180,23 @@ func joinGroup(reqChan chan groupStore.Group, timeout time.Duration,
 	gm *groupChat.Manager) {
 	jww.INFO.Print("Waiting for group request to be received.")
 	fmt.Println("Waiting for group request to be received.")
+	timer := time.NewTimer(timeout)
+	for {
+		select {
+		case grp := <-reqChan:
+			err := gm.JoinGroup(grp)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
 
-	select {
-	case grp := <-reqChan:
-		err := gm.JoinGroup(grp)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
+			jww.INFO.Printf("Joined group %s with members %s", grp.ID, grp.Members.String())
+			fmt.Printf("Joined group with name %q and message %q\n",
+				grp.Name, grp.InitMessage)
+		case <-timer.C:
+			jww.INFO.Printf("Timed out after %s waiting for group request.", timeout)
+			fmt.Println("Timed out waiting for group request.")
+			return
 		}
-
-		jww.INFO.Printf("Joined group: %s", grp.ID)
-		fmt.Printf("Joined group with name %q and message %q\n",
-			grp.Name, grp.InitMessage)
-	case <-time.NewTimer(timeout).C:
-		jww.INFO.Printf("Timed out after %s waiting for group request.", timeout)
-		fmt.Println("Timed out waiting for group request.")
-		return
 	}
 }
 
@@ -333,11 +335,6 @@ func init() {
 		"Waits for number of messages to be received.")
 	err = viper.BindPFlag("wait", groupCmd.Flags().Lookup("wait"))
 	checkBindErr(err, "wait")
-
-	groupCmd.Flags().Duration("receiveTimeout", time.Minute,
-		"Amount of time to wait for a group request or message before timing out.")
-	err = viper.BindPFlag("receiveTimeout", groupCmd.Flags().Lookup("receiveTimeout"))
-	checkBindErr(err, "receiveTimeout")
 
 	groupCmd.Flags().Bool("list", false,
 		"Prints list all groups to which this client belongs.")

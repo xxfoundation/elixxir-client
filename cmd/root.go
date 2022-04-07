@@ -418,8 +418,7 @@ var rootCmd = &cobra.Command{
 		// TODO: Actually check for how many messages we've received
 		expectedCnt := viper.GetUint("receiveCount")
 		receiveCnt := uint(0)
-		waitSecs := viper.GetUint("waitTimeout")
-		waitTimeout := time.Duration(waitSecs) * time.Second
+		waitTimeout := viper.GetDuration("waitTimeout")
 		done := false
 
 		for !done && expectedCnt != 0 {
@@ -815,8 +814,8 @@ func resetAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 }
 
 func waitUntilConnected(connected chan bool) {
-	waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
-	timeoutTimer := time.NewTimer(waitTimeout * time.Second)
+	waitTimeout := viper.GetDuration("waitTimeout")
+	timeoutTimer := time.NewTimer(waitTimeout)
 	isConnected := false
 	// Wait until we connect or panic if we can't by a timeout
 	for !isConnected {
@@ -1101,8 +1100,8 @@ func init() {
 	rootCmd.Flags().UintP("receiveCount",
 		"", 1, "How many messages we should wait for before quitting")
 	viper.BindPFlag("receiveCount", rootCmd.Flags().Lookup("receiveCount"))
-	rootCmd.PersistentFlags().UintP("waitTimeout", "", 15,
-		"The number of seconds to wait for messages to arrive")
+	rootCmd.PersistentFlags().Duration("waitTimeout", time.Minute,
+		"Amount of time to wait for message(s) to arrive before timing out")
 	viper.BindPFlag("waitTimeout",
 		rootCmd.PersistentFlags().Lookup("waitTimeout"))
 

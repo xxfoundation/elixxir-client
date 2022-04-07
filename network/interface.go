@@ -5,6 +5,7 @@ import (
 	"gitlab.com/elixxir/client/network/historical"
 	"gitlab.com/elixxir/client/network/identity"
 	"gitlab.com/elixxir/client/network/message"
+	"gitlab.com/elixxir/client/network/nodes"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/primitives/format"
@@ -287,3 +288,9 @@ type Manager interface {
 }
 
 type ClientErrorReport func(source, message, trace string)
+
+type clientCommsInterface interface {
+	followNetworkComms
+	SendCmixCommsInterface
+	nodes.RegisterNodeCommsInterface
+}

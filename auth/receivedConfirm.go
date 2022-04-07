@@ -5,7 +5,6 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth/store"
-	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix/historical"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
@@ -19,21 +18,13 @@ import (
 type receivedConfirmService struct {
 	s *State
 	*store.SentRequest
+	notificationsService message.Service
 }
 
 func (rcs *receivedConfirmService) Process(msg format.Message,
 	receptionID receptionID.EphemeralIdentity, round historical.Round) {
 
 	state := rcs.s
-
-	// lookup keypair
-	kp, exist := state.getRegisteredIDs(receptionID.Source)
-
-	if !exist {
-		jww.ERROR.Printf("received a confirm for %s, " +
-			"but they are not registered with auth, cannot process")
-		return
-	}
 
 	//parse the confirm
 	baseFmt, partnerPubKey, err := handleBaseFormat(msg, state.e2e.GetGroup())
@@ -46,7 +37,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 
 	jww.TRACE.Printf("processing confirm: \n\t MYPUBKEY: %s "+
 		"\n\t PARTNERPUBKEY: %s \n\t ECRPAYLOAD: %s \n\t MAC: %s",
-		kp.pubkey.TextVerbose(16, 0),
+		state.e2e.GetHistoricalDHPubkey().TextVerbose(16, 0),
 		partnerPubKey.TextVerbose(16, 0),
 		base64.StdEncoding.EncodeToString(baseFmt.data),
 		base64.StdEncoding.EncodeToString(msg.GetMac()))
@@ -87,7 +78,8 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 
 	// check the ownership proof, this verifies the respondent owns the
 	// initial identity
-	if !cAuth.VerifyOwnershipProof(kp.privkey, rcs.GetPartnerHistoricalPubKey(),
+	if !cAuth.VerifyOwnershipProof(state.e2e.GetHistoricalDHPrivkey(),
+		rcs.GetPartnerHistoricalPubKey(),
 		state.e2e.GetGroup(), ecrFmt.GetOwnership()) {
 		jww.WARN.Printf("Failed authenticate identity for auth "+
 			"confirmation of %s", rcs.GetPartner())
@@ -96,7 +88,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 
 	// add the partner
 	p := session.GetDefaultParams()
-	_, err = state.e2e.AddPartner(receptionID.Source, rcs.GetPartner(), partnerPubKey,
+	_, err = state.e2e.AddPartner(rcs.GetPartner(), partnerPubKey,
 		rcs.GetMyPrivKey(), partnerSIDHPubKey, rcs.GetMySIDHPrivKey(), p, p)
 	if err != nil {
 		jww.WARN.Printf("Failed to create channel with partner %s and "+
@@ -106,11 +98,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 	//todo: trigger backup
 
 	// remove the service used for notifications of the confirm
-	confirmFP := rcs.GetFingerprint()
-	state.net.DeleteService(receptionID.Source, message.Service{
-		Identifier: confirmFP[:],
-		Tag:        catalog.Confirm,
-	}, nil)
+	state.net.DeleteService(receptionID.Source, rcs.notificationsService, nil)
 
 	// callbacks
 	c := contact.Contact{
@@ -119,7 +107,5 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 		OwnershipProof: ecrFmt.GetOwnership(),
 		Facts:          make([]fact.Fact, 0),
 	}
-	if cb, exists := state.confirmCallbacks.Get(receptionID.Source); exists {
-		cb(c, receptionID, round)
-	}
+	state.callbacks.Confirm(c, receptionID, round)
 }

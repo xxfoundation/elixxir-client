@@ -12,6 +12,7 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/cmix/historical"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -31,54 +32,28 @@ const requestMapVersion = 0
 type Store struct {
 	kv           *versioned.KV
 	grp          *cyclic.Group
-	receivedByID map[authIdentity]*ReceivedRequest
-	sentByID     map[authIdentity]*SentRequest
+	receivedByID map[id.ID]*ReceivedRequest
+	sentByID     map[id.ID]*SentRequest
 
-	previousNegotiations map[authIdentity]bool
-
-	defaultID *id.ID
+	previousNegotiations map[id.ID]bool
 
 	srh SentRequestHandler
-
-	unloadedDefault []requestDisk
 
 	mux sync.RWMutex
 }
 
-// NewStore creates a new store. All passed in private keys are added as
+// NewOrLoadStore loads an extant new store. All passed in private keys are added as
 // sentByFingerprints so they can be used to trigger receivedByID.
-func NewStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) error {
-	kv = kv.Prefix(storePrefix)
-	s := &Store{
-		kv:                   kv,
-		grp:                  grp,
-		receivedByID:         make(map[authIdentity]*ReceivedRequest),
-		sentByID:             make(map[authIdentity]*SentRequest),
-		previousNegotiations: make(map[authIdentity]bool),
-		srh:                  srh,
-	}
-
-	err := s.savePreviousNegotiations()
-	if err != nil {
-		return errors.Errorf(
-			"failed to load previousNegotiations partners: %+v", err)
-	}
-
-	return s.save()
-}
-
-// LoadStore loads an extant new store. All passed in private keys are added as
-// sentByFingerprints so they can be used to trigger receivedByID.
-func LoadStore(kv *versioned.KV, defaultID *id.ID, grp *cyclic.Group, srh SentRequestHandler) (*Store, error) {
+// If no store can be found, it creates a new one
+func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (*Store, error) {
 	kv = kv.Prefix(storePrefix)
 
 	s := &Store{
 		kv:                   kv,
 		grp:                  grp,
-		receivedByID:         make(map[authIdentity]*ReceivedRequest),
-		sentByID:             make(map[authIdentity]*SentRequest),
-		previousNegotiations: make(map[authIdentity]bool),
-		defaultID:            defaultID,
+		receivedByID:         make(map[id.ID]*ReceivedRequest),
+		sentByID:             make(map[id.ID]*SentRequest),
+		previousNegotiations: make(map[id.ID]bool),
 		srh:                  srh,
 	}
 
@@ -87,7 +62,13 @@ func LoadStore(kv *versioned.KV, defaultID *id.ID, grp *cyclic.Group, srh SentRe
 	//load all receivedByID
 	sentObj, err := kv.Get(requestMapKey, requestMapVersion)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to load requestMap")
+		//no store can be found, lets make a new one
+		jww.WARN.Printf("No auth store could be found, making a new one")
+		s, err := newStore(kv, grp, srh)
+		if err != nil {
+			return nil, errors.WithMessagef(err, "Failed to load requestMap")
+		}
+		return s, nil
 	}
 
 	if err := json.Unmarshal(sentObj.Data, &requestList); err != nil {
@@ -106,35 +87,22 @@ func LoadStore(kv *versioned.KV, defaultID *id.ID, grp *cyclic.Group, srh SentRe
 			jww.FATAL.Panicf("Failed to load stored id: %+v", err)
 		}
 
-		var myID *id.ID
-		// load the self id used. If it is blank, that means this is an older
-		// version request, and replace it with the default ID
-		if len(rDisk.MyID) == 0 {
-			s.unloadedDefault = append(s.unloadedDefault, rDisk)
-			continue
-		} else {
-			myID, err = id.Unmarshal(rDisk.ID)
-			if err != nil {
-				jww.FATAL.Panicf("Failed to load stored self id: %+v", err)
-			}
-		}
-
 		switch requestType {
 		case Sent:
-			sr, err := loadSentRequest(kv, partner, myID, grp)
+			sr, err := loadSentRequest(kv, partner, grp)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to load stored sentRequest: %+v", err)
 			}
 
-			s.sentByID[sr.getAuthID()] = sr
+			s.sentByID[*sr.GetPartner()] = sr
 			s.srh.Add(sr)
 		case Receive:
-			rr, err := loadReceivedRequest(kv, partner, myID)
+			rr, err := loadReceivedRequest(kv, partner)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to load stored receivedRequest: %+v", err)
 			}
 
-			s.receivedByID[rr.aid] = rr
+			s.receivedByID[*rr.GetContact().ID] = rr
 
 		default:
 			jww.FATAL.Panicf("Unknown request type: %d", requestType)
@@ -156,9 +124,8 @@ func (s *Store) save() error {
 	for _, rr := range s.receivedByID {
 		if !rr.isTemporary() {
 			rDisk := requestDisk{
-				T:    uint(rr.getType()),
-				ID:   rr.partner.ID.Marshal(),
-				MyID: rr.myID.Marshal(),
+				T:  uint(rr.getType()),
+				ID: rr.partner.ID.Marshal(),
 			}
 			requestIDList = append(requestIDList, rDisk)
 		}
@@ -167,9 +134,8 @@ func (s *Store) save() error {
 	for _, sr := range s.sentByID {
 		if !sr.isTemporary() {
 			rDisk := requestDisk{
-				T:    uint(sr.getType()),
-				ID:   sr.partner.Marshal(),
-				MyID: sr.myID.Marshal(),
+				T:  uint(sr.getType()),
+				ID: sr.partner.Marshal(),
 			}
 			requestIDList = append(requestIDList, rDisk)
 		}
@@ -188,61 +154,81 @@ func (s *Store) save() error {
 	return s.kv.Set(requestMapKey, requestMapVersion, &obj)
 }
 
-func (s *Store) AddSent(partner, myID *id.ID, partnerHistoricalPubKey, myPrivKey,
+// NewStore creates a new store. All passed in private keys are added as
+// sentByFingerprints so they can be used to trigger receivedByID.
+func newStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (
+	*Store, error) {
+	kv = kv.Prefix(storePrefix)
+	s := &Store{
+		kv:                   kv,
+		grp:                  grp,
+		receivedByID:         make(map[id.ID]*ReceivedRequest),
+		sentByID:             make(map[id.ID]*SentRequest),
+		previousNegotiations: make(map[id.ID]bool),
+		srh:                  srh,
+	}
+
+	err := s.savePreviousNegotiations()
+	if err != nil {
+		return nil, errors.Errorf(
+			"failed to save previousNegotiations partners: %+v", err)
+	}
+
+	return s, s.save()
+}
+
+func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 	myPubKey *cyclic.Int, sidHPrivA *sidh.PrivateKey, sidHPubA *sidh.PublicKey,
-	fp format.Fingerprint) (*SentRequest, error) {
+	fp format.Fingerprint, reset bool) (*SentRequest, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	aid := makeAuthIdentity(partner, myID)
-
-	if sentRq, ok := s.sentByID[aid]; ok {
+	if sentRq, ok := s.sentByID[*partner]; ok {
 		return sentRq, errors.Errorf("Cannot make new sentRequest for partner "+
 			"%s, a sent request already exists", partner)
 	}
-	if _, ok := s.receivedByID[aid]; ok {
+	if _, ok := s.receivedByID[*partner]; ok {
 		return nil, errors.Errorf("Cannot make new sentRequest for partner "+
 			"%s, a received reqyest already exists", partner)
 	}
 
-	sr, err := newSentRequest(s.kv, partner, myID, partnerHistoricalPubKey, myPrivKey,
-		myPubKey, sidHPrivA, sidHPubA, fp)
+	sr, err := newSentRequest(s.kv, partner, partnerHistoricalPubKey, myPrivKey,
+		myPubKey, sidHPrivA, sidHPubA, fp, reset)
 
 	if err != nil {
 		return nil, err
 	}
 
-	s.sentByID[sr.getAuthID()] = sr
+	s.sentByID[*sr.GetPartner()] = sr
 	s.srh.Add(sr)
 	if err = s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to save Sent Request Map after adding "+
-			"partner %s to %s", partner, myID)
+			"partner %s", partner)
 	}
 
 	return sr, nil
 }
 
-func (s *Store) AddReceived(myID *id.ID, c contact.Contact, key *sidh.PublicKey) error {
+func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey,
+	round historical.Round) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	jww.DEBUG.Printf("AddReceived new contact: %s with %s", c.ID, myID)
+	jww.DEBUG.Printf("AddReceived new contact: %s", c.ID)
 
-	aih := makeAuthIdentity(c.ID, myID)
-
-	if _, ok := s.receivedByID[aih]; ok {
+	if _, ok := s.receivedByID[*c.ID]; ok {
 		return errors.Errorf("Cannot add contact for partner "+
 			"%s, one already exists", c.ID)
 	}
-	if _, ok := s.sentByID[aih]; ok {
+	if _, ok := s.sentByID[*c.ID]; ok {
 		return errors.Errorf("Cannot add contact for partner "+
 			"%s, one already exists", c.ID)
 	}
-	r := newReceivedRequest(s.kv, myID, c, key)
+	r := newReceivedRequest(s.kv, c, key, round)
 
-	s.receivedByID[r.aid] = r
+	s.receivedByID[*r.GetContact().ID] = r
 	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to save Sent Request Map after adding "+
-			"partner %s to %s", c.ID, myID)
+			"partner %s", c.ID)
 	}
 
 	return nil
@@ -251,11 +237,10 @@ func (s *Store) AddReceived(myID *id.ID, c contact.Contact, key *sidh.PublicKey)
 // HandleReceivedRequest handles the request singly, only a single operator
 // operates on the same request at a time. It will delete the request if no
 // error is returned from the handler
-func (s *Store) HandleReceivedRequest(partner, myID *id.ID, handler func(*ReceivedRequest) error) error {
-	aid := makeAuthIdentity(partner, myID)
+func (s *Store) HandleReceivedRequest(partner *id.ID, handler func(*ReceivedRequest) error) error {
 
 	s.mux.RLock()
-	rr, ok := s.receivedByID[aid]
+	rr, ok := s.receivedByID[*partner]
 	s.mux.RUnlock()
 
 	if !ok {
@@ -270,7 +255,7 @@ func (s *Store) HandleReceivedRequest(partner, myID *id.ID, handler func(*Receiv
 	// Check that the request still exists; it could have been deleted while the
 	// lock was taken
 	s.mux.RLock()
-	_, ok = s.receivedByID[aid]
+	_, ok = s.receivedByID[*partner]
 	s.mux.RUnlock()
 
 	if !ok {
@@ -285,7 +270,7 @@ func (s *Store) HandleReceivedRequest(partner, myID *id.ID, handler func(*Receiv
 		return errors.WithMessage(handleErr, "Received error from handler")
 	}
 
-	delete(s.receivedByID, aid)
+	delete(s.receivedByID, *partner)
 	rr.delete()
 
 	return nil
@@ -294,11 +279,10 @@ func (s *Store) HandleReceivedRequest(partner, myID *id.ID, handler func(*Receiv
 // HandleSentRequest handles the request singly, only a single operator
 // operates on the same request at a time. It will delete the request if no
 // error is returned from the handler
-func (s *Store) HandleSentRequest(partner, myID *id.ID, handler func(request *SentRequest) error) error {
-	aid := makeAuthIdentity(partner, myID)
+func (s *Store) HandleSentRequest(partner *id.ID, handler func(request *SentRequest) error) error {
 
 	s.mux.RLock()
-	sr, ok := s.sentByID[aid]
+	sr, ok := s.sentByID[*partner]
 	s.mux.RUnlock()
 
 	if !ok {
@@ -313,7 +297,7 @@ func (s *Store) HandleSentRequest(partner, myID *id.ID, handler func(request *Se
 	// Check that the request still exists; it could have been deleted while the
 	// lock was taken
 	s.mux.RLock()
-	_, ok = s.sentByID[aid]
+	_, ok = s.sentByID[*partner]
 	s.mux.RUnlock()
 
 	if !ok {
@@ -328,7 +312,7 @@ func (s *Store) HandleSentRequest(partner, myID *id.ID, handler func(request *Se
 		return errors.WithMessage(handleErr, "Received error from handler")
 	}
 
-	delete(s.receivedByID, aid)
+	delete(s.receivedByID, *partner)
 	sr.delete()
 
 	return nil
@@ -337,15 +321,9 @@ func (s *Store) HandleSentRequest(partner, myID *id.ID, handler func(request *Se
 // GetReceivedRequest returns the contact representing the partner request
 // if it exists. It does not take the lock. It is only meant to return the
 // contact to an external API user.
-func (s *Store) GetReceivedRequest(partner, myID *id.ID) (contact.Contact, error) {
-	if myID == nil {
-		myID = s.defaultID
-	}
-
-	aid := makeAuthIdentity(partner, myID)
-
+func (s *Store) GetReceivedRequest(partner *id.ID) (contact.Contact, error) {
 	s.mux.RLock()
-	r, ok := s.receivedByID[aid]
+	r, ok := s.receivedByID[*partner]
 	s.mux.RUnlock()
 
 	if !ok {
@@ -354,4 +332,18 @@ func (s *Store) GetReceivedRequest(partner, myID *id.ID) (contact.Contact, error
 	}
 
 	return r.partner, nil
+}
+
+// GetAllReceivedRequests returns a slice of all recieved requests.
+func (s *Store) GetAllReceivedRequests() []*ReceivedRequest {
+
+	s.mux.RLock()
+	rr := make([]*ReceivedRequest, 0, len(s.receivedByID))
+
+	for _, r := range s.receivedByID {
+		rr = append(rr, r)
+	}
+	s.mux.RUnlock()
+
+	return rr
 }

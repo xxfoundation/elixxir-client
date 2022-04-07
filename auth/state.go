@@ -39,8 +39,15 @@ type State struct {
 	params Param
 }
 
+type identity struct {
+	identity                *id.ID
+	pubkey, privkey         *cyclic.Int
+	request, confirm, reset Callback
+}
+
 func NewManager(kv *versioned.KV, net network.Manager, e2e e2e.Handler,
-	rng *fastRNG.StreamGenerator, event event.Manager, params Param) *State {
+	rng *fastRNG.StreamGenerator, event event.Manager, params Param,
+	defaultID []identity) *State {
 	m := &State{
 		requestCallbacks: newCallbackMap(),
 		confirmCallbacks: newCallbackMap(),

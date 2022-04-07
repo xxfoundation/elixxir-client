@@ -116,7 +116,7 @@ func (s *State) requestAuth(partner, me contact.Contact,
 	p.DebugTag = "auth.Request"
 	svc := message.Service{
 		Identifier: partner.ID.Marshal(),
-		Tag:        catalog.Default,
+		Tag:        catalog.Request,
 		Metadata:   nil,
 	}
 	round, _, err := s.net.SendCMIX(partner.ID, requestfp, svc, contents, mac, p)

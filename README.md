@@ -53,10 +53,19 @@ GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/clie
 
 All actions performed with the client require a current [NDF](https://xxdk-dev.xx.network/technical-glossary#network-definition-file-ndf). The NDF is downloadable from the command line or [via an access point](https://xxdk-dev.xx.network/quick-reference#func-downloadandverifysignedndfwithurl) in the Client API.
 
-Use the `getndf` command to fetch the NDF via the command  line. `getndf` enables command-line users to poll the NDF from a network gateway without any pre-established client connection: 
+Use the `getndf` command to fetch the NDF via the command  line. `getndf` enables command-line users to poll the NDF from a network gateway without any pre-established client connection.
+
+First, you'll want to download an SSL certificate:
 
 ```
-// Fetch NDF (example usage for Gateways, assumes you are running a gateway locally)
+// Assumes you are running a gateway locally
+openssl s_client -showcerts -connect localhost:8440 < /dev/null 2>&1 | openssl x509 -outform PEM > certfile.pem
+```
+
+Now you can fetch the NDF:
+
+```
+// Example usage for Gateways, assumes you are running a gateway locally
 $ go run main.go getndf --gwhost localhost:8440 --cert certfile.pem | jq . >ndf.json
 ```
 
@@ -83,10 +92,12 @@ Sample content of `ndf.json`:
 	  .....
 ```
 
-#### Sending safe messages between 2 users
+#### Sending Safe Messages Between Two (2) Users
+
+**Note:** For information on receiving messages and troubleshooting authenticated channel requests, see [Receiving Messages](#receiving-messages) and [Confirming authenticated channel requests](#confirming-authenticated-channel-requests).
 
 To send messages with end-to-end encryption, you must first establish a connection
-or [authenticated channel](https://xxdk-dev.xx.network/technical-glossary#authenticated-channel) with the other user:
+or [authenticated channel](https://xxdk-dev.xx.network/technical-glossary#authenticated-channel) with the other user. See below for example commands for sending or confirming authenticated channel requests, as well as for sending E2E messages:
 
 ```
 # Get user contact jsons for each client
@@ -102,9 +113,9 @@ Message received:
 Sending to Qm40C5hRUm7uhp5aATVWhSL6Mt+Z4JVBQrsEDvMORh4D:
 Received 1
 
-# Alternatively, to accept an authenticated channel request implicitly
-# (should be within the timeout window of requesting client, or the request will need to be resent):
-$ client --password "password" --ndf ndf.json -l client.log -s session-directory --destfile user2-contact.json" --unsafe-channel-creation --waitTimeout 200
+# Accept/Confirm an authenticated channel request implicitly
+# (should be within the timeout window of requesting client, or the request will need to be re-sent):
+$ client --password "password" --ndf ndf.json -l client.log -s session-directory --destfile user2-contact.json --unsafe-channel-creation --waitTimeout 200
 Authentication channel request from: o+QpswTmnsuZve/QRz0j0RYNWqjgx4R5pACfO00Pe0cD
 Sending to o+QpswTmnsuZve/QRz0j0RYNWqjgx4R5pACfO00Pe0cD:
 Message received:
@@ -128,7 +139,7 @@ Received 0
 * `-s`: The storage directory for client session data.
 * `--writeContact`: Output the user's contact information to this file.
 * `--destfile` is used to specify the recipient. You can also use
-  `--destid b64:...` using the user's base64 id which is printed in the logs.
+  `--destid b64:...` using the user's base64 id, which is printed in the logs.
 * `--unsafe`: Send message without encryption (necessary whenever you have not
   already established an e2e channel).
 * `--unsafe-channel-creation` Auto-create and auto-accept channel requests.
@@ -136,12 +147,10 @@ Received 0
 
 Note that the client defaults to sending to itself when a destination is not supplied.
 This is why we've used the `--unsafe` flag when creating the user contact jsons.
-However, when sending between users it is dropped in exchange for `--unsafe-channel-creation`.
+However, when sending between users, it is dropped in exchange for `--unsafe-channel-creation`.
 
-For the authenticated channel creation to be considered "safe" the user should be prompted. You can do this
-on the command line by explicitly accepting the channel creation
-when sending a request with `--send-auth-request` and/or explicitly accepting a request with
-`--accept-channel`:
+For the authenticated channel creation to be considered "safe", the user should be prompted. You can do this by explicitly accepting the channel creation
+when sending a request with `--send-auth-request` (while excluding the `--unsafe-channel-creation` flag) or explicitly accepting a request with `--accept-channel`:
 
 ```
 $ client --password user-password --ndf ndf.json -l client.log -s session-directory --destfile user-contact.json --accept-channel
@@ -150,6 +159,51 @@ Sending to yYAztmoCoAH2VIr00zPxnj/ZRvdiDdURjdDWys0KYI4D:
 Message received:
 Received 1
 ```
+
+#### Receiving Messages
+
+There is no explicit command for receiving messages. Instead, the client will attempt to fetch pending messages on each run.
+
+You can use the `--receiveCount` flag to limit the number of messages the client waits for before a timeout occurs:
+
+```
+$ client --password <password> --ndf <NDF JSON file> -l client.log -s <session directory> --destfile <contact JSON file> --receiveCount <integer count>
+```
+
+#### Sending Authenticated Channel Requests
+
+See [Sending Safe Messages Between Two (2) Users](#sending-safe-messages-between-two-2-users)
+
+#### Confirming Authenticated Channel Requests
+
+Setting up an authenticated channel between clients is a back-and-forth process that happens in sequence. One client sends a request and waits for the other to accept it.
+
+See the previous section, [Sending safe messages between 2 users](#sending-safe-messages-between-2-users), for example commands showing how to set up an end-to-end connection between clients before sending messages.
+
+As with received messages, there is no command for checking for authenticated channel requests; you'll be notified of any pending requests whenever the client is run.
+
+```
+$ ./client.win64 --password password --ndf ndf.json -l client.log -s session-directory --destfile user-contact8.json --waitTimeout 120 -m "Hi User 7, from User 8 with E2E Encryption"
+Authentication channel request from: 8zAWY69UUK/FkMBGY3ViR5MMfcp1GoKn6Y3c/64NYNYD
+Sending to yYAztmoCoAH2VIr00zPxnj/ZRvdiDdURjdDWys0KYI4D: Hi User 7, from User 8 with E2E Encryption
+Timed out!
+Received 0
+
+```
+
+##### Troubleshooting
+
+**`panic: Could not confirm authentication channel for ...`**
+
+Suppose the receiving client does not confirm the authentication channel before the requesting client reaches a timeout (default 120s). In that case, the request eventually terminates in a `panic: Could not confirm authentication channel for ...` error.
+
+Retrying the request should fix this. If necessary, you may increase the time the client waits to confirm the channel before timeout using the `--auth-timeout` flag (default 120s).
+
+This error will also occur with the receiving client if it received the request but failed to confirm it before the requesting client reached a timeout. In this case, the request needs to be resent while the other client reattempts to confirm the channel. 
+
+**`panic: Received request not found`**
+
+You may also run into the `panic: Received request not found` error when attempting to confirm an authenticated channel request. This means your client has not received the request. If one has been sent, simply retrying should fix this.  
 
 Full usage of client can be found with `client --help`:
 

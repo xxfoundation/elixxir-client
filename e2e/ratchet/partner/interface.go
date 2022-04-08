@@ -13,19 +13,19 @@ type Manager interface {
 	NewReceiveSession(partnerPubKey *cyclic.Int,
 		partnerSIDHPubKey *sidh.PublicKey, e2eParams session.Params,
 		source *session.Session) (*session.Session, bool)
-	NewSendSession(*cyclic.Int, *sidh.PrivateKey, session.Params,
-		*session.Session) *session.Session
+	NewSendSession(myDHPrivKey *cyclic.Int, mySIDHPrivateKey *sidh.PrivateKey,
+		e2eParams session.Params, source *session.Session) *session.Session
 	PopSendCypher() (*session.Cypher, error)
 	PopRekeyCypher() (*session.Cypher, error)
 	GetPartnerID() *id.ID
 	GetMyID() *id.ID
 	GetSendSession(sid session.SessionID) *session.Session
 	GetReceiveSession(sid session.SessionID) *session.Session
-	GetSendRelationshipFingerprint() []byte
 	Confirm(sid session.SessionID) error
 	TriggerNegotiations() []*session.Session
 	GetMyOriginPrivateKey() *cyclic.Int
 	GetPartnerOriginPublicKey() *cyclic.Int
+	GetSendRelationshipFingerprint() []byte
 	GetRelationshipFingerprintBytes() []byte
 	GetRelationshipFingerprint() string
 	MakeService(tag string) message.Service

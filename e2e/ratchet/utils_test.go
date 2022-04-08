@@ -52,10 +52,10 @@ func managersEqual(expected, received partner.Manager, t *testing.T) bool {
 		equal = false
 	}
 
-	if !strings.EqualFold(expected.GetRelationshipFingerprint(), received.GetRelationshipFingerprint()) {
+	if !strings.EqualFold(expected.GetConnectionFingerprint(), received.GetConnectionFingerprint()) {
 		t.Errorf("Did not Receive expected Manager.Receive."+
 			"\n\texpected: %+v\n\treceived: %+v",
-			expected.GetRelationshipFingerprint(), received.GetRelationshipFingerprint())
+			expected.GetConnectionFingerprint(), received.GetConnectionFingerprint())
 		equal = false
 	}
 	if !reflect.DeepEqual(expected.GetMyID(), received.GetMyID()) {

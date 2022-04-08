@@ -152,7 +152,7 @@ func (r *Ratchet) DeletePartner(partnerID *id.ID) error {
 		return errors.New(NoPartnerErrorStr)
 	}
 
-	if err := m.ClearManager(); err != nil {
+	if err := m.Delete(); err != nil {
 		return errors.WithMessagef(err,
 			"Could not remove partner %s from store",
 			partnerID)

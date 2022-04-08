@@ -146,37 +146,6 @@ func LoadRelationship(kv *versioned.KV, t session.RelationshipType, myID,
 	return r, nil
 }
 
-// DeleteRelationship removes all relationship and
-// relationship adjacent information from storage
-func (m *manager) DeleteRelationship() error {
-
-	// Delete the send information
-	sendKv := m.kv.Prefix(session.Send.Prefix())
-	m.send.Delete()
-	if err := deleteRelationshipFingerprint(sendKv); err != nil {
-		return err
-	}
-	if err := sendKv.Delete(relationshipKey,
-		currentRelationshipVersion); err != nil {
-		return errors.Errorf("cannot delete send relationship: %v",
-			err)
-	}
-
-	// Delete the receive information
-	receiveKv := m.kv.Prefix(session.Receive.Prefix())
-	m.receive.Delete()
-	if err := deleteRelationshipFingerprint(receiveKv); err != nil {
-		return err
-	}
-	if err := receiveKv.Delete(relationshipKey,
-		currentRelationshipVersion); err != nil {
-		return errors.Errorf("cannot delete receive relationship: %v",
-			err)
-	}
-
-	return nil
-}
-
 func (r *relationship) save() error {
 
 	now := netTime.Now()

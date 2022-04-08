@@ -141,11 +141,11 @@ func LoadManager(kv *versioned.KV, myID, partnerID *id.ID,
 	return m, nil
 }
 
-// ClearManager removes the relationship between the partner
+// Delete removes the relationship between the partner
 // and deletes the Send and Receive sessions. This includes the
 // sessions and the key vectors
-func (m *manager) ClearManager() error {
-	if err := m.DeleteRelationship(); err != nil {
+func (m *manager) Delete() error {
+	if err := m.deleteRelationships(); err != nil {
 		return errors.WithMessage(err,
 			"Failed to delete relationship")
 	}
@@ -154,6 +154,37 @@ func (m *manager) ClearManager() error {
 		originPartnerPubKey); err != nil {
 		jww.FATAL.Panicf("Failed to delete %s: %+v",
 			originPartnerPubKey, err)
+	}
+
+	return nil
+}
+
+// deleteRelationships removes all relationship and
+// relationship adjacent information from storage
+func (m *manager) deleteRelationships() error {
+
+	// Delete the send information
+	sendKv := m.kv.Prefix(session.Send.Prefix())
+	m.send.Delete()
+	if err := deleteRelationshipFingerprint(sendKv); err != nil {
+		return err
+	}
+	if err := sendKv.Delete(relationshipKey,
+		currentRelationshipVersion); err != nil {
+		return errors.Errorf("cannot delete send relationship: %v",
+			err)
+	}
+
+	// Delete the receive information
+	receiveKv := m.kv.Prefix(session.Receive.Prefix())
+	m.receive.Delete()
+	if err := deleteRelationshipFingerprint(receiveKv); err != nil {
+		return err
+	}
+	if err := receiveKv.Delete(relationshipKey,
+		currentRelationshipVersion); err != nil {
+		return errors.Errorf("cannot delete receive relationship: %v",
+			err)
 	}
 
 	return nil
@@ -235,10 +266,16 @@ func (m *manager) GetReceiveSession(sid session.SessionID) *session.Session {
 	return m.receive.GetByID(sid)
 }
 
-// GetSendSession gets the Send session of the passed ID. Returns nil if no
+// GetSendRelationshipFingerprint gets the Send session of the passed ID. Returns nil if no
 // session is found.
 func (m *manager) GetSendRelationshipFingerprint() []byte {
 	return m.send.fingerprint
+}
+
+// GetReceiveRelationshipFingerprint gets the receive session of the passed ID.
+// Returns nil if no session is found.
+func (m *manager) GetReceiveRelationshipFingerprint() []byte {
+	return m.receive.fingerprint
 }
 
 // Confirm confirms a Send session is known about by the partner.
@@ -265,16 +302,16 @@ const relationshipFpLength = 15
 // GetRelationshipFingerprint returns a unique fingerprint for an E2E
 // relationship. The fingerprint is a base 64 encoded hash of of the two
 // relationship fingerprints truncated to 15 characters.
-func (m *manager) GetRelationshipFingerprint() string {
+func (m *manager) GetConnectionFingerprint() string {
 
 	// Base 64 encode hash and truncate
 	return base64.StdEncoding.EncodeToString(
-		m.GetRelationshipFingerprintBytes())[:relationshipFpLength]
+		m.GetConnectionFingerprintBytes())[:relationshipFpLength]
 }
 
 // GetRelationshipFingerprintBytes returns a unique fingerprint for an E2E
 // relationship. used for the e2e preimage.
-func (m *manager) GetRelationshipFingerprintBytes() []byte {
+func (m *manager) GetConnectionFingerprintBytes() []byte {
 	// Sort fingerprints
 	var fps [][]byte
 
@@ -299,7 +336,7 @@ func (m *manager) GetRelationshipFingerprintBytes() []byte {
 // the metadata with the partner
 func (m *manager) MakeService(tag string) message.Service {
 	return message.Service{
-		Identifier: m.GetRelationshipFingerprintBytes(),
+		Identifier: m.GetConnectionFingerprintBytes(),
 		Tag:        tag,
 		Metadata:   m.partner[:],
 	}

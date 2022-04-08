@@ -243,11 +243,11 @@ type testE2eMessage struct {
 }
 
 func (tnm *testE2eManager) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey, sendParams, receiveParams session.Params) (partner.Manager, error) {
-	panic("implement me")
+	return nil, nil
 }
 
 func (tnm *testE2eManager) GetPartner(partnerID *id.ID) (partner.Manager, error) {
-	panic("implement me")
+	return nil, nil
 }
 
 func (tnm *testE2eManager) DeletePartner(partnerId *id.ID) error {

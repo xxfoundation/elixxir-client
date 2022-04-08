@@ -9,22 +9,27 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-type Manager2 interface {
+type Manager interface {
 	NewReceiveSession(partnerPubKey *cyclic.Int,
 		partnerSIDHPubKey *sidh.PublicKey, e2eParams session.Params,
 		source *session.Session) (*session.Session, bool)
-	NewSendSession(myPrivKey *cyclic.Int,
-		mySIDHPrivKey *sidh.PrivateKey, e2eParams session.Params)
+	NewSendSession(myDHPrivKey *cyclic.Int, mySIDHPrivateKey *sidh.PrivateKey,
+		e2eParams session.Params, source *session.Session) *session.Session
 	PopSendCypher() (*session.Cypher, error)
 	PopRekeyCypher() (*session.Cypher, error)
 	GetPartnerID() *id.ID
+	GetMyID() *id.ID
 	GetSendSession(sid session.SessionID) *session.Session
-	GetSendRelationshipFingerprint()
-	Confirm(sid session.SessionID)
+	GetReceiveSession(sid session.SessionID) *session.Session
+	Confirm(sid session.SessionID) error
 	TriggerNegotiations() []*session.Session
-	GetMyOriginPrivateKey()
-	GetPartnerOriginPublicKey()
+	GetMyOriginPrivateKey() *cyclic.Int
+	GetPartnerOriginPublicKey() *cyclic.Int
+	GetSendRelationshipFingerprint() []byte
 	GetRelationshipFingerprintBytes() []byte
+	GetRelationshipFingerprint() string
 	MakeService(tag string) message.Service
 	GetContact() contact.Contact
+	DeleteRelationship() error
+	ClearManager() error
 }

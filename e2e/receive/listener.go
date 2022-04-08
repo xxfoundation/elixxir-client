@@ -22,13 +22,13 @@ type Listener interface {
 	Name() string
 }
 
-// ListenerFunc This function type defines callbacks that get passed when the listener is
-// listened to. It will always be called in its own goroutine. It may be called
-// multiple times simultaneously
+// ListenerFunc This function type defines callbacks that get passed
+// when the listener is listened to. It will always be called in its
+// own goroutine. It may be called multiple times simultaneously
 type ListenerFunc func(item Message)
 
-// ListenerID id object returned when a listener is created and is used to delete it from
-// the system
+// ListenerID id object returned when a listener is created and is
+// used to delete it from the system
 type ListenerID struct {
 	userID      *id.ID
 	messageType catalog.MessageType

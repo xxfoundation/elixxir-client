@@ -15,19 +15,19 @@ type Services interface {
 		processor message.Processor)
 }
 
-func (r *Ratchet) add(m *partner.Manager) {
+func (r *Ratchet) add(m partner.Manager) {
 	r.servicesmux.RLock()
 	defer r.servicesmux.RUnlock()
 	for tag, process := range r.services {
-		r.sInteface.AddService(r.defaultID, m.MakeService(tag), process)
+		r.sInteface.AddService(r.myID, m.MakeService(tag), process)
 	}
 }
 
-func (r *Ratchet) delete(m *partner.Manager) {
+func (r *Ratchet) delete(m partner.Manager) {
 	r.servicesmux.RLock()
 	defer r.servicesmux.RUnlock()
 	for tag, process := range r.services {
-		r.sInteface.DeleteService(r.defaultID, m.MakeService(tag), process)
+		r.sInteface.DeleteService(r.myID, m.MakeService(tag), process)
 	}
 }
 
@@ -42,7 +42,7 @@ func (r *Ratchet) AddService(tag string, processor message.Processor) error {
 
 	//add a service for every manager
 	for _, m := range r.managers {
-		r.sInteface.AddService(r.defaultID, m.MakeService(tag), processor)
+		r.sInteface.AddService(r.myID, m.MakeService(tag), processor)
 	}
 
 	return nil
@@ -61,7 +61,7 @@ func (r *Ratchet) RemoveService(tag string) error {
 	delete(r.services, tag)
 
 	for _, m := range r.managers {
-		r.sInteface.DeleteService(r.defaultID, m.MakeService(tag), oldServiceProcess)
+		r.sInteface.DeleteService(r.myID, m.MakeService(tag), oldServiceProcess)
 	}
 
 	return nil

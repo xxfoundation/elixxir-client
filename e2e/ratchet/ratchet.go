@@ -8,6 +8,8 @@
 package ratchet
 
 import (
+	"sync"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -20,7 +22,6 @@ import (
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
-	"sync"
 )
 
 const (
@@ -32,12 +33,12 @@ const (
 var NoPartnerErrorStr = "No relationship with partner found"
 
 type Ratchet struct {
-	managers map[partner.ManagerIdentity]*partner.Manager
+	managers map[id.ID]partner.Manager
 	mux      sync.RWMutex
 
-	defaultID           *id.ID
-	defaultDHPrivateKey *cyclic.Int
-	defaultDHPublicKey  *cyclic.Int
+	myID                   *id.ID
+	advertisedDHPrivateKey *cyclic.Int
+	advertisedDHPublicKey  *cyclic.Int
 
 	grp       *cyclic.Group
 	cyHandler session.CypherHandler
@@ -65,12 +66,12 @@ func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	kv = kv.Prefix(packagePrefix)
 
 	r := &Ratchet{
-		managers: make(map[partner.ManagerIdentity]*partner.Manager),
+		managers: make(map[id.ID]partner.Manager),
 		services: make(map[string]message.Processor),
 
-		defaultID:           myID,
-		defaultDHPrivateKey: privKey,
-		defaultDHPublicKey:  pubKey,
+		myID:                   myID,
+		advertisedDHPrivateKey: privKey,
+		advertisedDHPublicKey:  pubKey,
 
 		kv: kv,
 
@@ -94,16 +95,14 @@ func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 
 // AddPartner adds a partner. Automatically creates both send and receive
 // sessions using the passed cryptographic data and per the parameters sent
-func (r *Ratchet) AddPartner(myID *id.ID, partnerID *id.ID,
+func (r *Ratchet) AddPartner(partnerID *id.ID,
 	partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
 	mySIDHPrivKey *sidh.PrivateKey, sendParams,
-	receiveParams session.Params) (*partner.Manager, error) {
+	receiveParams session.Params) (partner.Manager, error) {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
-	if myID == nil {
-		myID = r.defaultID
-	}
+	myID := r.myID
 
 	jww.INFO.Printf("Adding Partner %s:\n\tMy Private Key: %s"+
 		"\n\tPartner Public Key: %s to %s",
@@ -111,13 +110,13 @@ func (r *Ratchet) AddPartner(myID *id.ID, partnerID *id.ID,
 		myPrivKey.TextVerbose(16, 0),
 		partnerPubKey.TextVerbose(16, 0), myID)
 
-	mid := partner.MakeManagerIdentity(partnerID, myID)
+	mid := *partnerID
 
 	if _, ok := r.managers[mid]; ok {
 		return nil, errors.New("Cannot overwrite existing partner")
 	}
-	m := partner.NewManager(r.kv, r.defaultID, partnerID, myPrivKey, partnerPubKey,
-		mySIDHPrivKey, partnerSIDHPubKey,
+	m := partner.NewManager(r.kv, r.myID, partnerID, myPrivKey,
+		partnerPubKey, mySIDHPrivKey, partnerSIDHPubKey,
 		sendParams, receiveParams, r.cyHandler, r.grp, r.rng)
 
 	r.managers[mid] = m
@@ -133,15 +132,11 @@ func (r *Ratchet) AddPartner(myID *id.ID, partnerID *id.ID,
 }
 
 // GetPartner returns the partner per its ID, if it exists
-func (r *Ratchet) GetPartner(partnerID *id.ID, myID *id.ID) (*partner.Manager, error) {
+func (r *Ratchet) GetPartner(partnerID *id.ID) (partner.Manager, error) {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 
-	if myID == nil {
-		myID = r.defaultID
-	}
-
-	m, ok := r.managers[partner.MakeManagerIdentity(partnerID, myID)]
+	m, ok := r.managers[*partnerID]
 
 	if !ok {
 		return nil, errors.New(NoPartnerErrorStr)
@@ -151,53 +146,49 @@ func (r *Ratchet) GetPartner(partnerID *id.ID, myID *id.ID) (*partner.Manager, e
 }
 
 // DeletePartner removes the associated contact from the E2E store
-func (r *Ratchet) DeletePartner(partnerId *id.ID, myID *id.ID) error {
-	if myID == nil {
-		myID = r.defaultID
-	}
-
-	rShip := partner.MakeManagerIdentity(partnerId, myID)
-	m, ok := r.managers[rShip]
+func (r *Ratchet) DeletePartner(partnerID *id.ID) error {
+	m, ok := r.managers[*partnerID]
 	if !ok {
 		return errors.New(NoPartnerErrorStr)
 	}
 
-	if err := partner.ClearManager(m, r.kv); err != nil {
-		return errors.WithMessagef(err, "Could not remove partner %s from store", partnerId)
+	if err := m.ClearManager(); err != nil {
+		return errors.WithMessagef(err,
+			"Could not remove partner %s from store",
+			partnerID)
 	}
 
 	//delete services
 	r.delete(m)
 
-	delete(r.managers, rShip)
+	delete(r.managers, *partnerID)
 	return r.save()
 
 }
 
 // GetAllPartnerIDs returns a list of all partner IDs that the user has
 // an E2E relationship with.
-func (r *Ratchet) GetAllPartnerIDs(myID *id.ID) []*id.ID {
+func (r *Ratchet) GetAllPartnerIDs() []*id.ID {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 
-	partnerIds := make([]*id.ID, 0, len(r.managers))
+	partnerIDs := make([]*id.ID, 0, len(r.managers))
 
 	for _, m := range r.managers {
-		if m.GetMyID().Cmp(myID) {
-			partnerIds = append(partnerIds, m.GetPartnerID())
-		}
-
+		partnerIDs = append(partnerIDs, m.GetPartnerID())
 	}
 
-	return partnerIds
+	return partnerIDs
 }
 
-// GetDHPrivateKey returns the diffie hellman private key.
+// GetDHPrivateKey returns the diffie hellman private key used
+// to initially establish the ratchet.
 func (r *Ratchet) GetDHPrivateKey() *cyclic.Int {
-	return r.defaultDHPrivateKey
+	return r.advertisedDHPrivateKey
 }
 
-// GetDHPublicKey returns the diffie hellman public key.
+// GetDHPublicKey returns the diffie hellman public key used
+// to initially establish the ratchet.
 func (r *Ratchet) GetDHPublicKey() *cyclic.Int {
-	return r.defaultDHPublicKey
+	return r.advertisedDHPublicKey
 }

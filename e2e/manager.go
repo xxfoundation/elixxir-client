@@ -2,6 +2,8 @@ package e2e
 
 import (
 	"encoding/json"
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
@@ -17,7 +19,6 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 type manager struct {
@@ -25,7 +26,7 @@ type manager struct {
 	*receive.Switchboard
 	partitioner parse.Partitioner
 	net         cmix.Client
-	myDefaultID *id.ID
+	myID        *id.ID
 	rng         *fastRNG.StreamGenerator
 	events      event.Manager
 	grp         *cyclic.Group
@@ -42,7 +43,7 @@ const e2eRekeyParamsVer = 0
 func Init(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group, rekeyParams rekey.Params) error {
 	kv = kv.Prefix(makeE2ePrefix(myID))
-	return InitLegacy(kv, myID, privKey, grp, rekeyParams)
+	return initE2E(kv, myID, privKey, grp, rekeyParams)
 }
 
 // InitLegacy Creates stores. After calling, use load
@@ -50,6 +51,11 @@ func Init(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 // Does not modify the kv prefix in any way to maintain backwards compatibility
 // before multiple IDs were supported
 func InitLegacy(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
+	grp *cyclic.Group, rekeyParams rekey.Params) error {
+	return initE2E(kv, myID, privKey, grp, rekeyParams)
+}
+
+func initE2E(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group, rekeyParams rekey.Params) error {
 	rekeyParamsData, err := json.Marshal(rekeyParams)
 	if err != nil {
@@ -66,50 +72,61 @@ func InitLegacy(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	return ratchet.New(kv, myID, privKey, grp)
 }
 
-func Load(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
-	grp *cyclic.Group, rng *fastRNG.StreamGenerator, events event.Manager) (
-	Handler, error) {
-
+// Load returns an e2e manager from storage. It uses an ID to prefix the kv
+// and is used for partner relationships.
+// You can use a memkv for an ephemeral e2e id
+func Load(kv *versioned.KV, net cmix.Client, myID *id.ID,
+	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
+	events event.Manager) (Handler, error) {
+	kv = kv.Prefix(makeE2ePrefix(myID))
+	return loadE2E(kv, net, myID, grp, rng, events)
 }
 
 // LoadLegacy returns an e2e manager from storage
-// Passes a default ID which is used for relationship with
-// partners when no default ID is selected
+// Passes an ID which is used for relationship with
+// partners.
 // Does not modify the kv prefix in any way to maintain backwards compatibility
 // before multiple IDs were supported
-func LoadLegacy(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
-	grp *cyclic.Group, rng *fastRNG.StreamGenerator, events event.Manager) (Handler, error) {
+// You can use a memkv for an ephemeral e2e id
+func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
+	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
+	events event.Manager) (Handler, error) {
+	return loadE2E(kv, net, myID, grp, rng, events)
+}
 
-	//build the manager
+func loadE2E(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
+	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
+	events event.Manager) (Handler, error) {
+
 	m := &manager{
 		Switchboard: receive.New(),
-		partitioner: parse.NewPartitioner(kv, net.GetMaxMessageLength()),
+		partitioner: parse.NewPartitioner(kv,
+			net.GetMaxMessageLength()),
 		net:         net,
-		myDefaultID: myDefaultID,
+		myID:        myDefaultID,
 		events:      events,
 		grp:         grp,
 		rekeyParams: rekey.Params{},
 	}
 	var err error
 
-	//load the ratchets
 	m.Ratchet, err = ratchet.Load(kv, myDefaultID, grp,
 		&fpGenerator{m}, net, rng)
 	if err != nil {
 		return nil, err
 	}
 
-	//load rekey params here
 	rekeyParams, err := kv.Get(e2eRekeyParamsKey, e2eRekeyParamsVer)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load rekeyParams")
+		return nil, errors.WithMessage(err,
+			"Failed to load rekeyParams")
 	}
 	err = json.Unmarshal(rekeyParams.Data, &m.rekeyParams)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to unmarshal rekeyParams data")
+		return nil, errors.WithMessage(err,
+			"Failed to unmarshal rekeyParams data")
 	}
 
-	//attach critical messages
 	m.crit = newCritical(kv, net.AddHealthCallback,
 		net.GetInstance().GetRoundEvents(), m.SendE2E)
 
@@ -119,19 +136,21 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
 func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 	multi := stoppable.NewMulti("e2eManager")
 
-	critcalNetworkStopper := stoppable.NewSingle("e2eCriticalMessagesStopper")
+	critcalNetworkStopper := stoppable.NewSingle(
+		"e2eCriticalMessagesStopper")
 	m.crit.runCriticalMessages(critcalNetworkStopper)
 	multi.Add(critcalNetworkStopper)
 
-	rekeySendFunc := func(mt catalog.MessageType, recipient *id.ID, payload []byte,
+	rekeySendFunc := func(mt catalog.MessageType,
+		recipient *id.ID, payload []byte,
 		cmixParams cmix.CMIXParams) (
 		[]id.Round, e2e.MessageID, time.Time, error) {
 		par := GetDefaultParams()
 		par.CMIX = cmixParams
 		return m.SendE2E(mt, recipient, payload, par)
 	}
-	rekeyStopper, err := rekey.Start(m.Switchboard, m.Ratchet, rekeySendFunc, m.net, m.grp,
-		rekey.GetDefaultParams())
+	rekeyStopper, err := rekey.Start(m.Switchboard, m.Ratchet,
+		rekeySendFunc, m.net, m.grp, rekey.GetDefaultParams())
 	if err != nil {
 		return nil, err
 	}
@@ -144,15 +163,15 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 // EnableUnsafeReception enables the reception of unsafe message by registering
 // bespoke services for reception. For debugging only!
 func (m *manager) EnableUnsafeReception() {
-	m.net.AddService(m.myDefaultID, message.Service{
-		Identifier: m.myDefaultID[:],
+	m.net.AddService(m.myID, message.Service{
+		Identifier: m.myID[:],
 		Tag:        ratchet.Silent,
 	}, &UnsafeProcessor{
 		m:   m,
 		tag: ratchet.Silent,
 	})
-	m.net.AddService(m.myDefaultID, message.Service{
-		Identifier: m.myDefaultID[:],
+	m.net.AddService(m.myID, message.Service{
+		Identifier: m.myID[:],
 		Tag:        ratchet.E2e,
 	}, &UnsafeProcessor{
 		m:   m,

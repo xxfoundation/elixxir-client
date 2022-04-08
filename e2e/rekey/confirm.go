@@ -42,7 +42,7 @@ func handleConfirm(ratchet *ratchet.Ratchet, confirmation receive.Message) {
 	}
 
 	//get the partner
-	partner, err := ratchet.GetPartner(confirmation.Sender, confirmation.RecipientID)
+	partner, err := ratchet.GetPartner(confirmation.Sender)
 	if err != nil {
 		jww.ERROR.Printf(
 			"[REKEY] Received Key Exchange Confirmation with unknown "+

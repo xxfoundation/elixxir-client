@@ -9,6 +9,7 @@ package rekey
 
 import (
 	"fmt"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -60,7 +61,7 @@ func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 	}
 
 	//get the partner
-	partner, err := ratchet.GetPartner(request.Sender, request.RecipientID)
+	partner, err := ratchet.GetPartner(request.Sender)
 	if err != nil {
 		errMsg := fmt.Sprintf(errUnknown, request.Sender)
 		jww.ERROR.Printf(errMsg)

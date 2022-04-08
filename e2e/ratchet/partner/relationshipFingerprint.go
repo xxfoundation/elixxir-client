@@ -52,14 +52,13 @@ func loadRelationshipFingerprint(kv *versioned.KV) []byte {
 	obj, err := kv.Get(relationshipFingerprintKey,
 		currentRelationshipVersion)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to load relationshipFingerprint at %s: "+
+		jww.FATAL.Panicf("cannot load relationshipFingerprint at %s: "+
 			"%s", kv.GetFullKey(relationshipFingerprintKey,
 			currentRelationshipFingerprintVersion), err)
 	}
 	return obj.Data
 }
 
-// deleteRelationshipFingerprint is a helper function which deletes a fingerprint from store
 func deleteRelationshipFingerprint(kv *versioned.KV) error {
 	return kv.Delete(relationshipFingerprintKey,
 		currentRelationshipVersion)

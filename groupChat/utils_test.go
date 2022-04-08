@@ -223,8 +223,9 @@ func getGroup() *cyclic.Group {
 
 func newTestNetworkManager(sendErr int, t *testing.T) cmix.Client {
 	return &testNetworkManager{
-		messages: [][]cmix.TargetedCmixMessage{},
-		sendErr:  sendErr,
+		receptionMessages: [][]format.Message{},
+		sendMessages:      [][]cmix.TargetedCmixMessage{},
+		sendErr:           sendErr,
 	}
 }
 
@@ -271,9 +272,10 @@ func (tnm *testE2eManager) GetReceptionID() *id.ID {
 
 // testNetworkManager is a test implementation of NetworkManager interface.
 type testNetworkManager struct {
-	messages [][]cmix.TargetedCmixMessage
-	errSkip  int
-	sendErr  int
+	receptionMessages [][]format.Message
+	sendMessages      [][]cmix.TargetedCmixMessage
+	errSkip           int
+	sendErr           int
 	sync.RWMutex
 }
 
@@ -289,8 +291,17 @@ func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, p c
 	tnm.Lock()
 	defer tnm.Unlock()
 
-	tnm.messages = append(tnm.messages, messages)
+	tnm.sendMessages = append(tnm.sendMessages, messages)
 
+	receiveMessages := []format.Message{}
+	for _, msg := range messages {
+		receiveMsg := format.Message{}
+		receiveMsg.SetMac(msg.Mac)
+		receiveMsg.SetContents(msg.Payload)
+		receiveMsg.SetKeyFP(msg.Fingerprint)
+		receiveMessages = append(receiveMessages, receiveMsg)
+	}
+	tnm.receptionMessages = append(tnm.receptionMessages, receiveMessages)
 	return 0, nil, nil
 }
 
@@ -359,7 +370,6 @@ func (*testNetworkManager) IsHealthy() bool {
 }
 
 func (*testNetworkManager) WasHealthy() bool {
-	//TODO implement me
 	panic("implement me")
 }
 
@@ -488,12 +498,6 @@ func (*testE2eManager) GetDefaultHistoricalDHPrivkey() *cyclic.Int {
 
 func (*testE2eManager) GetDefaultID() *id.ID {
 	panic("implement me")
-}
-
-func (tnm *testNetworkManager) GetMsgList(i int) []cmix.TargetedCmixMessage {
-	tnm.RLock()
-	defer tnm.RUnlock()
-	return tnm.messages[i]
 }
 
 func (tnm *testE2eManager) GetE2eMsg(i int) testE2eMessage {

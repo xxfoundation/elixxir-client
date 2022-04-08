@@ -191,7 +191,7 @@ func TestManager_readRequest(t *testing.T) {
 	theirSIDHPrivKey.Generate(prng)
 	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
 
-	_, _ = m.e2e.AddPartner(m.receptionId,
+	_, _ = m.e2e.AddPartner(
 		g.Members[0].ID,
 		g.Members[0].DhKey,
 		m.grp.NewInt(2),

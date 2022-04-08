@@ -10,7 +10,8 @@ package groupChat
 import (
 	"bytes"
 	"encoding/base64"
-	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
@@ -22,256 +23,50 @@ import (
 	"time"
 )
 
-// Unit test of Manager.Send.
 func TestManager_Send(t *testing.T) {
-	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
-	messageBytes := []byte("Group chat message.")
-	sender := m.gs.GetUser().DeepCopy()
+	receiveChan := make(chan MessageReceive, 100)
+	receiveFunc := func(msg MessageReceive) {
+		receiveChan <- msg
+	}
 
-	_, _, _, err := m.Send(g.ID, messageBytes)
+	prng := rand.New(rand.NewSource(42))
+	m, g := newTestManagerWithStore(prng, 1, 0, nil, receiveFunc, t)
+	messageBytes := []byte("Group chat message.")
+	reception := &receptionProcessor{
+		m: m,
+		g: g,
+	}
+
+	roundId, _, msgId, err := m.Send(g.ID, messageBytes)
 	if err != nil {
 		t.Errorf("Send() returned an error: %+v", err)
 	}
 
 	// get messages sent with or return an error if no messages were sent
-	var messages []cmix.TargetedCmixMessage
-	if len(m.services.(*testNetworkManager).messages) > 0 {
-		messages = m.services.(*testNetworkManager).GetMsgList(0)
+	var messages []format.Message
+	if len(m.services.(*testNetworkManager).receptionMessages) > 0 {
+		messages = m.services.(*testNetworkManager).receptionMessages[0]
 	} else {
 		t.Error("No group cMix messages received.")
 	}
 
-	timeNow := netTime.Now()
-
-	// Loop through each message and make sure the recipient ID matches a member
-	// in the group and that each message can be decrypted and have the expected
-	// values
 	for _, msg := range messages {
-		// Check if recipient ID is in member list
-		var foundMember group.Member
-		for _, mem := range g.Members {
-			if msg.Recipient.Cmp(mem.ID) {
-				foundMember = mem
+		reception.Process(msg, receptionID.EphemeralIdentity{}, historical.Round{ID: roundId})
+		select {
+		case result := <-receiveChan:
+			if !result.SenderID.Cmp(m.receptionId) {
+				t.Errorf("Sender mismatch")
+			}
+			if result.ID.String() != msgId.String() {
+				t.Errorf("MsgId mismatch")
+			}
+			if !bytes.Equal(result.Payload, messageBytes) {
+				t.Errorf("Payload mismatch")
+			}
+			if result.RoundID != roundId {
+				t.Errorf("Round mismatch")
 			}
 		}
-
-		// Error if the recipient ID is not found in the member list
-		if foundMember == (group.Member{}) {
-			t.Errorf("Failed to find ID %s in memorship list.", msg.Recipient)
-			continue
-		}
-
-		publicMessage, err := unmarshalPublicMsg(msg.GetContents())
-		if err != nil {
-			t.Errorf("Failed to unmarshal publicMsg: %+v", err)
-		}
-		// Attempt to read the message
-		result, err := decryptMessage(
-			g, msg.Message, publicMessage, timeNow)
-		if err != nil {
-			t.Errorf("Failed to read message for %s: %+v", msg.Recipient, err)
-		}
-
-		internalMessage, _ := newInternalMsg(publicMessage.GetPayloadSize())
-		internalMessage.SetTimestamp(timestamp)
-		internalMessage.SetSenderID(m.gs.GetUser().ID)
-		internalMessage.SetPayload(messageBytes)
-		expectedMsgID := group.NewMessageID(g.ID, internalMessage.Marshal())
-
-		if expectedMsgID != messageID {
-			t.Errorf("Message ID received for %s too different from expected."+
-				"\nexpected: %s\nreceived: %s", msg.Recipient, expectedMsgID, messageID)
-		}
-
-		if !timestamp.Round(5 * time.Second).Equal(timeNow.Round(5 * time.Second)) {
-			t.Errorf("Timestamp received for %s too different from expected."+
-				"\nexpected: %s\nreceived: %s", msg.Recipient, timeNow, timestamp)
-		}
-
-		if !senderID.Cmp(sender.ID) {
-			t.Errorf("Sender ID received for %s incorrect."+
-				"\nexpected: %s\nreceived: %s", msg.Recipient, sender.ID, senderID)
-		}
-
-		if !bytes.Equal(readMsg, messageBytes) {
-			t.Errorf("Message received for %s incorrect."+
-				"\nexpected: %q\nreceived: %q", msg.Recipient, messageBytes, readMsg)
-		}
-	}
-}
-
-// Error path: error is returned when the message is too large.
-func TestManager_Send_CmixMessageError(t *testing.T) {
-	// Set up new test manager that will make SendManyCMIX error
-	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
-	expectedErr := strings.SplitN(newCmixMsgErr, "%", 2)[0]
-
-	// Send message
-	_, _, _, err := m.Send(g.ID, make([]byte, 400))
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("Send() failed to return the expected error."+
-			"\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Error path: SendManyCMIX returns an error.
-func TestManager_Send_SendManyCMIXError(t *testing.T) {
-	// Set up new test manager that will make SendManyCMIX error
-	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 1, nil, nil, t)
-	expectedErr := strings.SplitN(sendManyCmixErr, "%", 2)[0]
-
-	// Send message
-	_, _, _, err := m.Send(g.ID, []byte("message"))
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("Send() failed to return the expected error."+
-			"\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-
-	// If messages were added, then error
-	if len(m.services.(*testNetworkManager).messages) > 0 {
-		t.Error("Group cMix messages received when SendManyCMIX errors.")
-	}
-}
-
-// Tests that Manager.createMessages generates the messages for the correct
-// group.
-func TestManager_createMessages(t *testing.T) {
-	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
-
-	testMsg := []byte("Test group message.")
-	sender := m.gs.GetUser()
-	messages, _, err := m.createMessages(g.ID, testMsg, netTime.Now())
-	if err != nil {
-		t.Errorf("createMessages() returned an error: %+v", err)
-	}
-
-	recipients := append(g.Members[:2], g.Members[3:]...)
-
-	i := 0
-	for _, msg := range messages {
-		for _, recipient := range recipients {
-			if !msg.Recipient.Cmp(recipient.ID) {
-				continue
-			}
-
-			publicMessage, err := unmarshalPublicMsg(msg.Message.GetContents())
-			if err != nil {
-				t.Errorf("Failed to unmarshal publicMsg: %+v", err)
-			}
-
-			messageID, timestamp, testSender, testMessage, err := m.decryptMessage(
-				g, msg.Message, publicMessage, netTime.Now())
-			if err != nil {
-				t.Errorf("Failed to find member to read message %d: %+v", i, err)
-			}
-
-			internalMessage, _ := newInternalMsg(publicMessage.GetPayloadSize())
-			internalMessage.SetTimestamp(timestamp)
-			internalMessage.SetSenderID(m.gs.GetUser().ID)
-			internalMessage.SetPayload(testMsg)
-			expectedMsgID := group.NewMessageID(g.ID, internalMessage.Marshal())
-
-			if messageID != expectedMsgID {
-				t.Errorf("Failed to read correct message ID for message %d."+
-					"\nexpected: %s\nreceived: %s", i, expectedMsgID, messageID)
-			}
-
-			if !sender.ID.Cmp(testSender) {
-				t.Errorf("Failed to read correct sender ID for message %d."+
-					"\nexpected: %s\nreceived: %s", i, sender.ID, testSender)
-			}
-
-			if !bytes.Equal(testMsg, testMessage) {
-				t.Errorf("Failed to read correct message for message %d."+
-					"\nexpected: %s\nreceived: %s", i, testMsg, testMessage)
-			}
-		}
-		i++
-	}
-}
-
-// Error path: test that an error is returned when the group ID does not match a
-// group in storage.
-func TestManager_createMessages_InvalidGroupIdError(t *testing.T) {
-	expectedErr := strings.SplitN(newNoGroupErr, "%", 2)[0]
-
-	// Create new test Manager and Group
-	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
-
-	// Read message and make sure the error is expected
-	_, _, err := m.createMessages(
-		id.NewIdFromString("invalidID", id.Group, t), nil, time.Time{})
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("createMessages() did not return the expected error."+
-			"\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Tests that Manager.newMessage returns messages with correct data.
-func TestGroup_newMessages(t *testing.T) {
-	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManager(prng, t)
-
-	testMsg := []byte("Test group message.")
-	sender := m.gs.GetUser()
-	timestamp := netTime.Now()
-	messages, err := m.newMessages(g, testMsg, timestamp)
-	if err != nil {
-		t.Errorf("newMessages() returned an error: %+v", err)
-	}
-
-	recipients := append(g.Members[:2], g.Members[3:]...)
-
-	i := 0
-	for _, msg := range messages {
-		for _, recipient := range recipients {
-			if !msg.Recipient.Cmp(recipient.ID) {
-				continue
-			}
-
-			publicMessage, err := unmarshalPublicMsg(msg.Message.GetContents())
-			if err != nil {
-				t.Errorf("Failed to unmarshal publicMsg: %+v", err)
-			}
-
-			result, err := decryptMessage(
-				g, msg.Message, publicMessage, netTime.Now())
-			if err != nil {
-				t.Errorf("Failed to find member to read message %d.", i)
-			}
-
-			internalMessage, _ := newInternalMsg(publicMessage.GetPayloadSize())
-			internalMessage.SetTimestamp(timestamp)
-			internalMessage.SetSenderID(m.gs.GetUser().ID)
-			internalMessage.SetPayload(testMsg)
-			expectedMsgID := group.NewMessageID(g.ID, internalMessage.Marshal())
-
-			if messageID != expectedMsgID {
-				t.Errorf("Failed to read correct message ID for message %d."+
-					"\nexpected: %s\nreceived: %s", i, expectedMsgID, messageID)
-			}
-
-			if !timestamp.Equal(testTimestamp) {
-				t.Errorf("Failed to read correct timeout for message %d."+
-					"\nexpected: %s\nreceived: %s", i, timestamp, testTimestamp)
-			}
-
-			if !sender.ID.Cmp(testSender) {
-				t.Errorf("Failed to read correct sender ID for message %d."+
-					"\nexpected: %s\nreceived: %s", i, sender.ID, testSender)
-			}
-
-			if !bytes.Equal(testMsg, testMessage) {
-				t.Errorf("Failed to read correct message for message %d."+
-					"\nexpected: %s\nreceived: %s", i, testMsg, testMessage)
-			}
-		}
-		i++
 	}
 }
 
@@ -285,88 +80,6 @@ func TestGroup_newMessages_NewCmixMsgError(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("newMessages() failed to return the expected error."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Tests that the message returned by newCmixMsg has all the expected parts.
-func TestGroup_newCmixMsg(t *testing.T) {
-	// Create new test Manager and Group
-	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManager(prng, t)
-
-	// Create test parameters
-	testMsg := []byte("Test group message.")
-	mem := g.Members[3]
-	timeNow := netTime.Now()
-
-	// Create cMix message
-	prng = rand.New(rand.NewSource(42))
-	msg, err := newCmixMsg(g, testMsg, timeNow, mem, prng, m.receptionId, m.grp)
-	if err != nil {
-		t.Errorf("newCmixMsg() returned an error: %+v", err)
-	}
-
-	// Create expected salt
-	prng = rand.New(rand.NewSource(42))
-	var salt [group.SaltLen]byte
-	prng.Read(salt[:])
-
-	// Create expected key
-	key, _ := group.NewKdfKey(g.Key, group.ComputeEpoch(timeNow), salt)
-
-	// Create expected messages
-	cmixMsg := format.NewMessage(m.grp.GetP().ByteLen())
-	publicMessage, _ := newPublicMsg(cmixMsg.ContentsSize())
-	internalMessage, _ := newInternalMsg(publicMessage.GetPayloadSize())
-	internalMessage.SetTimestamp(timeNow)
-	internalMessage.SetSenderID(m.gs.GetUser().ID)
-	internalMessage.SetPayload(testMsg)
-	payload := internalMessage.Marshal()
-
-	// Check if key fingerprint is correct
-	expectedFp := group.NewKeyFingerprint(g.Key, salt, mem.ID)
-	if expectedFp != msg.GetKeyFP() {
-		t.Errorf("newCmixMsg() returned message with wrong key fingerprint."+
-			"\nexpected: %s\nreceived: %s", expectedFp, msg.GetKeyFP())
-	}
-
-	// Check if key MAC is correct
-	encryptedPayload := group.Encrypt(key, expectedFp, payload)
-	expectedMAC := group.NewMAC(key, encryptedPayload, g.DhKeys[*mem.ID])
-	if !bytes.Equal(expectedMAC, msg.GetMac()) {
-		t.Errorf("newCmixMsg() returned message with wrong MAC."+
-			"\nexpected: %+v\nreceived: %+v", expectedMAC, msg.GetMac())
-	}
-
-	// Attempt to unmarshal public group message
-	publicMessage, err = unmarshalPublicMsg(msg.GetContents())
-	if err != nil {
-		t.Errorf("Failed to unmarshal cMix message contents: %+v", err)
-	}
-
-	// Attempt to decrypt payload
-	decryptedPayload := group.Decrypt(key, expectedFp, publicMessage.GetPayload())
-	internalMessage, err = unmarshalInternalMsg(decryptedPayload)
-	if err != nil {
-		t.Errorf("Failed to unmarshal decrypted payload contents: %+v", err)
-	}
-
-	// Check for expected values in internal message
-	if !internalMessage.GetTimestamp().Equal(timeNow) {
-		t.Errorf("Internal message has wrong timestamp."+
-			"\nexpected: %s\nreceived: %s", timeNow, internalMessage.GetTimestamp())
-	}
-	sid, err := internalMessage.GetSenderID()
-	if err != nil {
-		t.Fatalf("Failed to get sender ID from internal message: %+v", err)
-	}
-	if !sid.Cmp(m.gs.GetUser().ID) {
-		t.Errorf("Internal message has wrong sender ID."+
-			"\nexpected: %s\nreceived: %s", m.gs.GetUser().ID, sid)
-	}
-	if !bytes.Equal(internalMessage.GetPayload(), testMsg) {
-		t.Errorf("Internal message has wrong payload."+
-			"\nexpected: %s\nreceived: %s", testMsg, internalMessage.GetPayload())
 	}
 }
 

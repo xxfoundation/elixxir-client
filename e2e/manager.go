@@ -74,6 +74,7 @@ func initE2E(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 
 // Load returns an e2e manager from storage. It uses an ID to prefix the kv
 // and is used for partner relationships.
+// You can use a memkv for an ephemeral e2e id
 func Load(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
 	events event.Manager) (Handler, error) {
@@ -86,6 +87,7 @@ func Load(kv *versioned.KV, net cmix.Client, myID *id.ID,
 // partners.
 // Does not modify the kv prefix in any way to maintain backwards compatibility
 // before multiple IDs were supported
+// You can use a memkv for an ephemeral e2e id
 func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
 	events event.Manager) (Handler, error) {

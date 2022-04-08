@@ -30,7 +30,7 @@ const managerPrefix = "Manager{partner:%s}"
 const originMyPrivKeyKey = "originMyPrivKey"
 const originPartnerPubKey = "originPartnerPubKey"
 
-type Manager struct {
+type manager struct {
 	kv *versioned.KV
 
 	myID    *id.ID
@@ -55,11 +55,11 @@ func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
 	partnerPubKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
 	partnerSIDHPubKey *sidh.PublicKey, sendParams,
 	receiveParams session.Params, cyHandler session.CypherHandler,
-	grp *cyclic.Group, rng *fastRNG.StreamGenerator) *Manager {
+	grp *cyclic.Group, rng *fastRNG.StreamGenerator) Manager {
 
 	kv = kv.Prefix(makeManagerPrefix(partnerID))
 
-	m := &Manager{
+	m := &manager{
 		kv:                      kv,
 		originMyPrivKey:         myPrivKey,
 		originPartnerPubKey:     partnerPubKey,
@@ -96,9 +96,9 @@ func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
 //LoadManager loads a relationship and all buffers and sessions from disk
 func LoadManager(kv *versioned.KV, myID, partnerID *id.ID,
 	cyHandler session.CypherHandler, grp *cyclic.Group,
-	rng *fastRNG.StreamGenerator) (*Manager, error) {
+	rng *fastRNG.StreamGenerator) (Manager, error) {
 
-	m := &Manager{
+	m := &manager{
 		kv:        kv.Prefix(makeManagerPrefix(partnerID)),
 		myID:      myID,
 		partner:   partnerID,
@@ -144,8 +144,8 @@ func LoadManager(kv *versioned.KV, myID, partnerID *id.ID,
 // ClearManager removes the relationship between the partner
 // and deletes the Send and Receive sessions. This includes the
 // sessions and the key vectors
-func ClearManager(m *Manager) error {
-	if err := DeleteRelationship(m); err != nil {
+func (m *manager) ClearManager() error {
+	if err := m.DeleteRelationship(); err != nil {
 		return errors.WithMessage(err,
 			"Failed to delete relationship")
 	}
@@ -164,7 +164,7 @@ func ClearManager(m *Manager) error {
 // session already exists, then it will not be overwritten and the extant
 // session will be returned with the bool set to true denoting a duplicate. This
 // allows for support of duplicate key exchange triggering.
-func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int,
+func (m *manager) NewReceiveSession(partnerPubKey *cyclic.Int,
 	partnerSIDHPubKey *sidh.PublicKey, e2eParams session.Params,
 	source *session.Session) (*session.Session, bool) {
 
@@ -190,7 +190,7 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int,
 // NewSendSession creates a new Send session using the latest public key
 // received from the partner and a new private key for the user. Passing in a
 // private key is optional. A private key will be generated if none is passed.
-func (m *Manager) NewSendSession(myPrivKey *cyclic.Int,
+func (m *manager) NewSendSession(myPrivKey *cyclic.Int,
 	mySIDHPrivKey *sidh.PrivateKey, e2eParams session.Params,
 	sourceSession *session.Session) *session.Session {
 
@@ -202,61 +202,61 @@ func (m *Manager) NewSendSession(myPrivKey *cyclic.Int,
 
 // PopSendCypher gets the correct session to Send with depending on the type
 // of Send.
-func (m *Manager) PopSendCypher() (*session.Cypher, error) {
+func (m *manager) PopSendCypher() (*session.Cypher, error) {
 	return m.send.getKeyForSending()
 }
 
 // PopRekeyCypher gets the correct session to Send with depending on the type
 // of Send.
-func (m *Manager) PopRekeyCypher() (*session.Cypher, error) {
+func (m *manager) PopRekeyCypher() (*session.Cypher, error) {
 	return m.send.getKeyForRekey()
 
 }
 
 // GetPartnerID returns a copy of the ID of the partner.
-func (m *Manager) GetPartnerID() *id.ID {
+func (m *manager) GetPartnerID() *id.ID {
 	return m.partner.DeepCopy()
 }
 
 // GetMyID returns a copy of the ID used as self.
-func (m *Manager) GetMyID() *id.ID {
+func (m *manager) GetMyID() *id.ID {
 	return m.myID.DeepCopy()
 }
 
 // GetSendSession gets the Send session of the passed ID. Returns nil if no
 // session is found.
-func (m *Manager) GetSendSession(sid session.SessionID) *session.Session {
+func (m *manager) GetSendSession(sid session.SessionID) *session.Session {
 	return m.send.GetByID(sid)
 }
 
 // GetReceiveSession gets the Receive session of the passed ID. Returns nil if
 // no session is found.
-func (m *Manager) GetReceiveSession(sid session.SessionID) *session.Session {
+func (m *manager) GetReceiveSession(sid session.SessionID) *session.Session {
 	return m.receive.GetByID(sid)
 }
 
 // GetSendSession gets the Send session of the passed ID. Returns nil if no
 // session is found.
-func (m *Manager) GetSendRelationshipFingerprint() []byte {
+func (m *manager) GetSendRelationshipFingerprint() []byte {
 	return m.send.fingerprint
 }
 
 // Confirm confirms a Send session is known about by the partner.
-func (m *Manager) Confirm(sid session.SessionID) error {
+func (m *manager) Confirm(sid session.SessionID) error {
 	return m.send.Confirm(sid)
 }
 
 // TriggerNegotiations returns a list of key exchange operations if any are
 // necessary.
-func (m *Manager) TriggerNegotiations() []*session.Session {
+func (m *manager) TriggerNegotiations() []*session.Session {
 	return m.send.TriggerNegotiation()
 }
 
-func (m *Manager) GetMyOriginPrivateKey() *cyclic.Int {
+func (m *manager) GetMyOriginPrivateKey() *cyclic.Int {
 	return m.originMyPrivKey.DeepCopy()
 }
 
-func (m *Manager) GetPartnerOriginPublicKey() *cyclic.Int {
+func (m *manager) GetPartnerOriginPublicKey() *cyclic.Int {
 	return m.originPartnerPubKey.DeepCopy()
 }
 
@@ -265,7 +265,7 @@ const relationshipFpLength = 15
 // GetRelationshipFingerprint returns a unique fingerprint for an E2E
 // relationship. The fingerprint is a base 64 encoded hash of of the two
 // relationship fingerprints truncated to 15 characters.
-func (m *Manager) GetRelationshipFingerprint() string {
+func (m *manager) GetRelationshipFingerprint() string {
 
 	// Base 64 encode hash and truncate
 	return base64.StdEncoding.EncodeToString(
@@ -274,7 +274,7 @@ func (m *Manager) GetRelationshipFingerprint() string {
 
 // GetRelationshipFingerprintBytes returns a unique fingerprint for an E2E
 // relationship. used for the e2e preimage.
-func (m *Manager) GetRelationshipFingerprintBytes() []byte {
+func (m *manager) GetRelationshipFingerprintBytes() []byte {
 	// Sort fingerprints
 	var fps [][]byte
 
@@ -297,7 +297,7 @@ func (m *Manager) GetRelationshipFingerprintBytes() []byte {
 // MakeService Returns a service interface with the
 // appropriate identifier for who is being sent to. Will populate
 // the metadata with the partner
-func (m *Manager) MakeService(tag string) message.Service {
+func (m *manager) MakeService(tag string) message.Service {
 	return message.Service{
 		Identifier: m.GetRelationshipFingerprintBytes(),
 		Tag:        tag,
@@ -307,7 +307,7 @@ func (m *Manager) MakeService(tag string) message.Service {
 
 // GetContact assembles and returns a contact.Contact with the partner's ID
 // and DH key.
-func (m *Manager) GetContact() contact.Contact {
+func (m *manager) GetContact() contact.Contact {
 	// Assemble Contact
 	return contact.Contact{
 		ID:       m.GetPartnerID(),

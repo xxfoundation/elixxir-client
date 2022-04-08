@@ -28,7 +28,7 @@ func Load(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
 	kv = kv.Prefix(packagePrefix)
 
 	r := &Ratchet{
-		managers: make(map[id.ID]*partner.Manager),
+		managers: make(map[id.ID]partner.Manager),
 		services: make(map[string]message.Processor),
 
 		myID: myID,

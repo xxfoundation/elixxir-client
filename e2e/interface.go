@@ -116,12 +116,12 @@ type Handler interface {
 		partnerPubKey, myPrivKey *cyclic.Int,
 		partnerSIDHPubKey *sidh.PublicKey,
 		mySIDHPrivKey *sidh.PrivateKey, sendParams,
-		receiveParams session.Params) (*partner.Manager, error)
+		receiveParams session.Params) (partner.Manager, error)
 
 	// GetPartner returns the partner per its ID, if it exists
 	// myID is your ID in the relationship, if left blank, it will
 	// assume to be your defaultID
-	GetPartner(partnerID *id.ID) (*partner.Manager, error)
+	GetPartner(partnerID *id.ID) (partner.Manager, error)
 
 	// DeletePartner removes the associated contact from the E2E store
 	// myID is your ID in the relationship, if left blank, it will

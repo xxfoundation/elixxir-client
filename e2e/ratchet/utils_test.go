@@ -1,6 +1,11 @@
 package ratchet
 
 import (
+	"io"
+	"reflect"
+	"strings"
+	"testing"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmix/message"
@@ -14,10 +19,6 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
-	"io"
-	"reflect"
-	"strings"
-	"testing"
 )
 
 func makeTestRatchet() (*Ratchet, *versioned.KV, error) {
@@ -42,7 +43,7 @@ func makeTestRatchet() (*Ratchet, *versioned.KV, error) {
 	return r, kv, err
 }
 
-func managersEqual(expected, received *partner.Manager, t *testing.T) bool {
+func managersEqual(expected, received partner.Manager, t *testing.T) bool {
 	equal := true
 	if !reflect.DeepEqual(expected.GetPartnerID(), received.GetPartnerID()) {
 		t.Errorf("Did not Receive expected Manager.partnerID."+

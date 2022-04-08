@@ -2,6 +2,9 @@ package partner
 
 import (
 	"bytes"
+	"reflect"
+	"testing"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	util "gitlab.com/elixxir/client/storage/utility"
@@ -13,8 +16,6 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
-	"reflect"
-	"testing"
 )
 
 type mockCyHandler struct {
@@ -50,7 +51,7 @@ func getGroup() *cyclic.Group {
 }
 
 // newTestManager returns a new relationship for testing.
-func newTestManager(t *testing.T) (*Manager, *versioned.KV) {
+func newTestManager(t *testing.T) (manager, *versioned.KV) {
 	if t == nil {
 		panic("Cannot run this outside tests")
 	}
@@ -83,10 +84,12 @@ func newTestManager(t *testing.T) (*Manager, *versioned.KV) {
 		mockCyHandler{}, grp,
 		fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG))
 
-	return m, kv
+	newM := m.(*manager)
+
+	return *newM, kv
 }
 
-func managersEqual(expected, received *Manager, t *testing.T) bool {
+func managersEqual(expected, received *manager, t *testing.T) bool {
 	equal := true
 	if !reflect.DeepEqual(expected.cyHandler, received.cyHandler) {
 		t.Errorf("Did not Receive expected Manager.cyHandler."+

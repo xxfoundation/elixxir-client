@@ -32,7 +32,7 @@ func TestNewStore(t *testing.T) {
 	privKey := grp.NewInt(57)
 	kv := versioned.NewKV(make(ekv.Memstore))
 	expectedStore := &Ratchet{
-		managers:              make(map[id.ID]*partner.Manager),
+		managers:              make(map[id.ID]partner.Manager),
 		myInitialDHPrivateKey: privKey,
 		myInitialDHPublicKey:  diffieHellman.GeneratePublicKey(privKey, grp),
 		grp:                   grp,

@@ -32,15 +32,17 @@ func Test_newManager(t *testing.T) {
 	expectedM, kv := newTestManager(t)
 
 	// Create new relationship
-	m := NewManager(kv, expectedM.myID, expectedM.partner,
+	newM := NewManager(kv, expectedM.myID, expectedM.partner,
 		expectedM.originMyPrivKey, expectedM.originPartnerPubKey,
 		expectedM.originMySIDHPrivKey,
 		expectedM.originPartnerSIDHPubKey, session.GetDefaultParams(),
 		session.GetDefaultParams(),
 		expectedM.cyHandler, expectedM.grp, expectedM.rng)
 
+	m := newM.(*manager)
+
 	// Check if the new relationship matches the expected
-	if !managersEqual(expectedM, m, t) {
+	if !managersEqual(&expectedM, m, t) {
 		t.Errorf("newManager() did not produce the expected Manager."+
 			"\n\texpected: %+v\n\treceived: %+v", expectedM, m)
 	}
@@ -52,14 +54,15 @@ func TestLoadManager(t *testing.T) {
 	expectedM, kv := newTestManager(t)
 
 	// Attempt to load relationship
-	m, err := LoadManager(kv, expectedM.myID, expectedM.partner,
+	newM, err := LoadManager(kv, expectedM.myID, expectedM.partner,
 		expectedM.cyHandler, expectedM.grp, expectedM.rng)
 	if err != nil {
 		t.Errorf("LoadManager() returned an error: %v", err)
 	}
+	m := newM.(*manager)
 
 	// Check if the loaded relationship matches the expected
-	if !managersEqual(expectedM, m, t) {
+	if !managersEqual(&expectedM, m, t) {
 		t.Errorf("LoadManager() did not produce the expected Manager."+
 			"\n\texpected: %+v\n\treceived: %+v", expectedM, m)
 	}
@@ -77,7 +80,7 @@ func TestManager_ClearManager(t *testing.T) {
 	// Set up expected and test values
 	expectedM, kv := newTestManager(t)
 
-	err := ClearManager(expectedM)
+	err := expectedM.ClearManager()
 	if err != nil {
 		t.Fatalf("clearManager returned an error: %v", err)
 	}
@@ -252,7 +255,7 @@ func TestManager_GetPartnerID(t *testing.T) {
 func TestManager_GetMyID(t *testing.T) {
 	myId := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 
-	m := &Manager{myID: myId}
+	m := &manager{myID: myId}
 
 	receivedMyId := m.GetMyID()
 

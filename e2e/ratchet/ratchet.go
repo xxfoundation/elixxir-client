@@ -33,7 +33,7 @@ const (
 var NoPartnerErrorStr = "No relationship with partner found"
 
 type Ratchet struct {
-	managers map[id.ID]*partner.Manager
+	managers map[id.ID]partner.Manager
 	mux      sync.RWMutex
 
 	myID                  *id.ID
@@ -66,7 +66,7 @@ func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	kv = kv.Prefix(packagePrefix)
 
 	r := &Ratchet{
-		managers: make(map[id.ID]*partner.Manager),
+		managers: make(map[id.ID]partner.Manager),
 		services: make(map[string]message.Processor),
 
 		myID:                  myID,
@@ -98,7 +98,7 @@ func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 func (r *Ratchet) AddPartner(partnerID *id.ID,
 	partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
 	mySIDHPrivKey *sidh.PrivateKey, sendParams,
-	receiveParams session.Params) (*partner.Manager, error) {
+	receiveParams session.Params) (partner.Manager, error) {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
@@ -132,7 +132,7 @@ func (r *Ratchet) AddPartner(partnerID *id.ID,
 }
 
 // GetPartner returns the partner per its ID, if it exists
-func (r *Ratchet) GetPartner(partnerID *id.ID) (*partner.Manager, error) {
+func (r *Ratchet) GetPartner(partnerID *id.ID) (partner.Manager, error) {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 
@@ -152,7 +152,7 @@ func (r *Ratchet) DeletePartner(partnerID *id.ID) error {
 		return errors.New(NoPartnerErrorStr)
 	}
 
-	if err := partner.ClearManager(m); err != nil {
+	if err := m.ClearManager(); err != nil {
 		return errors.WithMessagef(err,
 			"Could not remove partner %s from store",
 			partnerID)

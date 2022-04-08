@@ -15,7 +15,7 @@ type Services interface {
 		processor message.Processor)
 }
 
-func (r *Ratchet) add(m *partner.Manager) {
+func (r *Ratchet) add(m partner.Manager) {
 	r.servicesmux.RLock()
 	defer r.servicesmux.RUnlock()
 	for tag, process := range r.services {
@@ -23,7 +23,7 @@ func (r *Ratchet) add(m *partner.Manager) {
 	}
 }
 
-func (r *Ratchet) delete(m *partner.Manager) {
+func (r *Ratchet) delete(m partner.Manager) {
 	r.servicesmux.RLock()
 	defer r.servicesmux.RUnlock()
 	for tag, process := range r.services {

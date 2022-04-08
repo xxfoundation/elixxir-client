@@ -8,6 +8,9 @@
 package partner
 
 import (
+	"reflect"
+	"testing"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	util "gitlab.com/elixxir/client/storage/utility"
@@ -19,8 +22,6 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
-	"reflect"
-	"testing"
 )
 
 // Subtest: unmarshal/marshal with one session in the buff
@@ -89,7 +90,7 @@ func TestDeleteRelationship(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := DeleteRelationship(mgr)
+	err := mgr.DeleteRelationship()
 	if err != nil {
 		t.Fatalf("DeleteRelationship error: Could not delete manager: %v", err)
 	}
@@ -842,7 +843,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	}
 }
 
-func makeTestRelationshipManager(t *testing.T) (*Manager, *versioned.KV) {
+func makeTestRelationshipManager(t *testing.T) (*manager, *versioned.KV) {
 	grp := cyclic.NewGroup(
 		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B"+
 			"7A8ACCEDC298708F121951D9CF920EC5D146727AA4AE535B0922C688B55B3DD2AE"+
@@ -876,7 +877,7 @@ func makeTestRelationshipManager(t *testing.T) (*Manager, *versioned.KV) {
 
 	kv := versioned.NewKV(make(ekv.Memstore))
 	frng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
-	return &Manager{
+	return &manager{
 		kv:                      kv,
 		myID:                    myID,
 		partner:                 id.NewIdFromString("zezima", id.User, t),

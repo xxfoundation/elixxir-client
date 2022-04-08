@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package rounds
+package pickup
 
 import (
 	jww "github.com/spf13/jwalterweatherman"

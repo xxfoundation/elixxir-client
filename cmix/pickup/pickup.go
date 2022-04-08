@@ -5,14 +5,14 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package rounds
+package pickup
 
 import (
 	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/pickup/store"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -66,7 +66,7 @@ func NewPickup(params Params, bundles chan<- message.Bundle,
 
 func (m *pickup) StartProcessors() stoppable.Stoppable {
 
-	multi := stoppable.NewMulti("Rounds")
+	multi := stoppable.NewMulti("Pickup")
 
 	// Start the message retrieval worker pool
 	for i := uint(0); i < m.params.NumMessageRetrievalWorkers; i++ {

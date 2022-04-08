@@ -3,9 +3,9 @@ package cmix
 import (
 	"encoding/base64"
 	"encoding/json"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/pickup"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/xx_network/primitives/id"
@@ -51,6 +51,7 @@ type Params struct {
 	ReplayRequests bool
 
 	Rounds     rounds.Params
+	Pickup     pickup.Params
 	Message    message.Params
 	Historical rounds.Params
 }
@@ -69,6 +70,7 @@ func GetDefaultParams() Params {
 		ReplayRequests:            true,
 	}
 	n.Rounds = rounds.GetDefaultParams()
+	n.Pickup = pickup.GetDefaultParams()
 	n.Message = message.GetDefaultParams()
 	n.Historical = rounds.GetDefaultParams()
 
@@ -81,7 +83,7 @@ func (n Params) Marshal() ([]byte, error) {
 
 func (n Params) SetRealtimeOnlyAll() Params {
 	n.RealtimeOnly = true
-	n.Rounds.RealtimeOnly = true
+	n.Pickup.RealtimeOnly = true
 	n.Message.RealtimeOnly = true
 	return n
 }

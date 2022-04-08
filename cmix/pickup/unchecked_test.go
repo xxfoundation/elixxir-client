@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package rounds
+package pickup
 
 import (
 	"gitlab.com/elixxir/client/cmix/gateway"

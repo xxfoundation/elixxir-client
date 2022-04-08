@@ -15,11 +15,11 @@ import (
 	"gitlab.com/elixxir/client/cmix/address"
 	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/cmix/health"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/nodes"
 	"gitlab.com/elixxir/client/cmix/pickup"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
@@ -65,7 +65,7 @@ type client struct {
 	message.Handler
 	nodes.Registrar
 	rounds.Retriever
-	rounds.Pickup
+	pickup.Pickup
 	address.Space
 	identity.Tracker
 	health.Monitor
@@ -158,8 +158,8 @@ func NewManager(params Params, comms *commClient.Comms, session storage.Session,
 		c.session.GetReceptionID())
 
 	// Set up round handler
-	c.Pickup = rounds.NewPickup(
-		params.Rounds, c.Handler.GetMessageReceptionChannel(), c.Sender,
+	c.Pickup = pickup.NewPickup(
+		params.Pickup, c.Handler.GetMessageReceptionChannel(), c.Sender,
 		c.Retriever, c.rng, c.instance, c.session)
 
 	// Add the identity system

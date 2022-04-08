@@ -1,4 +1,4 @@
-package rounds
+package pickup
 
 import (
 	pb "gitlab.com/elixxir/comms/mixmessages"

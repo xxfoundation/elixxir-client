@@ -23,7 +23,17 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-func (s *State) ConfirmRequestAuth(partner contact.Contact) (
+// Confirm sends a confirmation for a received request. It can only be called
+// once. This both sends keying material to the other party and creates a
+// channel in the e2e handler, after which e2e messages can be sent to the
+// partner using e2e.Handler.SendE2e.
+// The round the request is initially sent on will be returned, but the request
+// will be listed as a critical message, so the underlying cmix client will
+// auto resend it in the event of failure.
+// A confirm cannot be sent for a contact who has not sent a request or
+// who is already a partner. This can only be called once for a specific contact.
+// If the request must be resent, use ReplayConfirm
+func (s *state) Confirm(partner contact.Contact) (
 	id.Round, error) {
 
 	// check that messages can be sent over the network
@@ -32,10 +42,10 @@ func (s *State) ConfirmRequestAuth(partner contact.Contact) (
 			"when the network is not healthy")
 	}
 
-	return s.confirmRequestAuth(partner, s.params.ConfirmTag)
+	return s.confirm(partner, s.params.ConfirmTag)
 }
 
-func (s *State) confirmRequestAuth(partner contact.Contact, serviceTag string) (
+func (s *state) confirm(partner contact.Contact, serviceTag string) (
 	id.Round, error) {
 
 	// check that messages can be sent over the network
@@ -170,3 +180,4 @@ func sendAuthConfirm(net cmix.Client, partner *id.ID,
 	event.Report(1, "Auth", "SendConfirm", em)
 	return sentRound, nil
 }
+

@@ -9,7 +9,7 @@ import (
 // sentRequestHandler interface which allows the lower level to register
 // sent requests with cmix while blackboxing it
 type sentRequestHandler struct {
-	s *State
+	s *state
 }
 
 // Add Adds the service and fingerprints to cmix for the given sent request

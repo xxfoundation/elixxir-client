@@ -7,7 +7,17 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-func (s *State) ResetSession(partner contact.Contact) (id.Round, error) {
+// Reset sends a contact reset request from the user identity in the imported e2e
+// structure to the passed contact, as well as the passed facts (will error if
+// they are too long).
+// This delete all traces of the relationship with the partner from e2e and
+// create a new relationship from scratch.
+// The round the reset is initially sent on will be returned, but the request
+// will be listed as a critical message, so the underlying cmix client will
+// auto resend it in the event of failure.
+// A request cannot be sent for a contact who has already received a request or
+// who is already a partner.
+func (s *state) Reset(partner contact.Contact) (id.Round, error) {
 
 	// Delete authenticated channel if it exists.
 	if err := s.e2e.DeletePartner(partner.ID); err != nil {
@@ -21,5 +31,5 @@ func (s *State) ResetSession(partner contact.Contact) (id.Round, error) {
 	_ = s.store.DeleteReceivedRequest(partner.ID)
 
 	// Try to initiate a clean session request
-	return s.requestAuth(partner, fact.FactList{}, true)
+	return s.request(partner, fact.FactList{}, true)
 }

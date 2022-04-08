@@ -63,7 +63,7 @@ type Client struct {
 	//object used to register and communicate with permissioning
 	permissioning *registration.Registration
 	//object containing auth interactions
-	auth *auth.State
+	auth *auth.state
 
 	//services system to track running threads
 	followerServices *services

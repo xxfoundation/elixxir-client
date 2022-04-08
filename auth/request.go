@@ -12,7 +12,6 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e/ratchet"
@@ -30,7 +29,18 @@ import (
 
 const terminator = ";"
 
-func (s *State) RequestAuth(partner contact.Contact, myfacts fact.FactList) (id.Round, error) {
+// Request sends a contact request from the user identity in the imported e2e
+// structure to the passed contact, as well as the passed facts (will error if
+// they are too long).
+// The other party must accept the request by calling Confirm in order to be
+// able to send messages using e2e.Handler.SendE2e. When the other party does so,
+// the "confirm" callback will get called.
+// The round the request is initially sent on will be returned, but the request
+// will be listed as a critical message, so the underlying cmix client will
+// auto resend it in the event of failure.
+// A request cannot be sent for a contact who has already received a request or
+// who is already a partner.
+func (s *state) Request(partner contact.Contact, myfacts fact.FactList) (id.Round, error) {
 	// check that an authenticated channel does not already exist
 	if _, err := s.e2e.GetPartner(partner.ID); err == nil ||
 		!strings.Contains(err.Error(), ratchet.NoPartnerErrorStr) {
@@ -38,11 +48,11 @@ func (s *State) RequestAuth(partner contact.Contact, myfacts fact.FactList) (id.
 			"established with partner")
 	}
 
-	return s.requestAuth(partner, myfacts, false)
+	return s.request(partner, myfacts, false)
 }
 
-// requestAuth internal helper
-func (s *State) requestAuth(partner contact.Contact, myfacts fact.FactList, reset bool) (id.Round, error) {
+// request internal helper
+func (s *state) request(partner contact.Contact, myfacts fact.FactList, reset bool) (id.Round, error) {
 
 	//do key generation
 	rng := s.rng.GetStream()
@@ -103,12 +113,12 @@ func (s *State) requestAuth(partner contact.Contact, myfacts fact.FactList, rese
 	//register service for notification on confirmation
 	s.net.AddService(me, message.Service{
 		Identifier: confirmFp[:],
-		Tag:        catalog.Confirm,
+		Tag:        s.params.getConfirmTag(reset),
 		Metadata:   partner.ID[:],
 	}, nil)
 
-	jww.TRACE.Printf("RequestAuth ECRPAYLOAD: %v", request.GetEcrPayload())
-	jww.TRACE.Printf("RequestAuth MAC: %v", mac)
+	jww.TRACE.Printf("Request ECRPAYLOAD: %v", request.GetEcrPayload())
+	jww.TRACE.Printf("Request MAC: %v", mac)
 
 	jww.INFO.Printf("Requesting Auth with %s, msgDigest: %s",
 		partner.ID, format.DigestContents(contents))
@@ -117,7 +127,7 @@ func (s *State) requestAuth(partner contact.Contact, myfacts fact.FactList, rese
 	p.DebugTag = "auth.Request"
 	svc := message.Service{
 		Identifier: partner.ID.Marshal(),
-		Tag:        catalog.Request,
+		Tag:        s.params.RequestTag,
 		Metadata:   nil,
 	}
 	round, _, err := s.net.Send(partner.ID, requestfp, svc, contents, mac, p)

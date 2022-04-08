@@ -21,7 +21,7 @@ import (
 const dummyerr = "dummy error so we dont delete the request"
 
 type receivedRequestService struct {
-	s     *State
+	s     *state
 	reset bool
 }
 
@@ -175,6 +175,8 @@ func (rrs *receivedRequestService) Process(message format.Message,
 
 	// if a sent request already exists, that means we requested at the same
 	// time they did. We need to auto-confirm if we are randomly selected
+	// (the one with the smaller id,when looked at as long unsigned integer,
+	// is selected)
 	// (SIDH keys have polarity, so both sent keys cannot be used together)
 	autoConfirm := false
 	bail := false

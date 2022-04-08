@@ -16,7 +16,7 @@ import (
 )
 
 type receivedConfirmService struct {
-	s *State
+	s *state
 	*store.SentRequest
 	notificationsService message.Service
 }

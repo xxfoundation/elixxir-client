@@ -31,7 +31,7 @@ func TestManager_ReplayRequests(t *testing.T) {
 	numReceived := 10
 
 	// Construct barebones manager
-	m := State{
+	m := state{
 		requestCallbacks: newCallbackMap(),
 		storage:          s,
 		replayRequests:   true,

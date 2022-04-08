@@ -23,7 +23,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-type State struct {
+type state struct {
 	callbacks Callbacks
 
 	net cmix.Client
@@ -49,9 +49,20 @@ type Callbacks interface {
 // found.
 // Bases its reception identity and keys off of what is found in e2e.
 // Uses this ID to modify the kv prefix for a unique storage path
+// Parameters:
+//   The params object passed in determines the services that will be used
+//   to pick up requests and signal notifications. These are unique to an
+//   identity, so multiple auth states with the same service tags with different
+//   identities can run simultaneously.
+//   Default parameters can be retrieved via GetDefaultParameters()
+// Temporary:
+//   In some cases, for example client <-> server communications, connections
+//   are treated as ephemeral. To do so in auth, pass in an ephemeral e2e (made
+//   with a memory only versioned.KV) as well as a memory only versioned.KV for
+//   NewState and use GetDefaultTemporaryParams() for the parameters
 func NewState(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 	rng *fastRNG.StreamGenerator, event event.Manager, params Param,
-	callbacks Callbacks) (*State, error) {
+	callbacks Callbacks) (State, error) {
 	kv = kv.Prefix(makeStorePrefix(e2e.GetReceptionID()))
 	return NewStateLegacy(kv, net, e2e, rng, event, params, callbacks)
 }
@@ -60,11 +71,12 @@ func NewState(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 // found.
 // Bases its reception identity and keys off of what is found in e2e.
 // Does not modify the kv prefix for backwards compatibility
+// Otherwise, acts the same as NewState
 func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 	rng *fastRNG.StreamGenerator, event event.Manager, params Param,
-	callbacks Callbacks) (*State, error) {
+	callbacks Callbacks) (State, error) {
 
-	s := &State{
+	s := &state{
 		callbacks: callbacks,
 
 		net: net,
@@ -100,9 +112,9 @@ func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 	return s, nil
 }
 
-// ReplayRequests will iterate through all pending contact requests and resend them
-// to the desired contact.
-func (s *State) ReplayRequests() {
+// ReplayRequests will iterate through all pending contact requests and replay
+// them on the callbacks.
+func (s *state) ReplayRequests() {
 	rrList := s.store.GetAllReceivedRequests()
 	for i := range rrList {
 		rr := rrList[i]

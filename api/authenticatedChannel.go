@@ -91,7 +91,7 @@ func (c *Client) ConfirmAuthenticatedChannel(recipient contact.Contact) (id.Roun
 			"creation when the network is not healthy")
 	}
 
-	return c.auth.ConfirmRequestAuth(recipient)
+	return c.auth.Confirm(recipient)
 }
 
 // VerifyOwnership checks if the ownership proof on a passed contact matches the

@@ -23,7 +23,7 @@ import (
 type RoundState uint8
 
 const (
-	Unchecked = iota
+	Unchecked RoundState = iota
 	Unknown
 	NoMessageAvailable
 	MessageAvailable

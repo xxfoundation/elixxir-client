@@ -28,10 +28,10 @@ func TestPollTracker(t *testing.T) {
 	if i, ok := (*pt)[*id]; ok {
 		if j, ok2 := i[eid.Int64()]; ok2 {
 			if j != 1 {
-				t.Errorf("EID entry value not 1")
+				t.Errorf("First EID entry value not 1")
 			}
 		} else {
-			t.Errorf("No entry made for EID")
+			t.Errorf("No entry made for first EID")
 		}
 	} else {
 		t.Errorf("No entry made for ID")
@@ -42,13 +42,13 @@ func TestPollTracker(t *testing.T) {
 	if i, ok := (*pt)[*id]; ok {
 		if j, ok2 := i[eid2.Int64()]; ok2 {
 			if j != 1 {
-				t.Errorf("EID entry value not 1")
+				t.Errorf("Second EID entry value not 1")
 			}
 		} else {
-			t.Errorf("No entry made for EID")
+			t.Errorf("No entry made for second EID")
 		}
 	} else {
-		t.Errorf("No entry made for ID")
+		t.Errorf("No entry made for ID (2)")
 	}
 
 	// re-add tracked eid & id
@@ -56,13 +56,13 @@ func TestPollTracker(t *testing.T) {
 	if i, ok := (*pt)[*id]; ok {
 		if j, ok2 := i[eid2.Int64()]; ok2 {
 			if j != 2 {
-				t.Errorf("EID entry value not 1")
+				t.Errorf("EID entry value not 2")
 			}
 		} else {
-			t.Errorf("No entry made for EID")
+			t.Errorf("No entry made for second EID (2)")
 		}
 	} else {
-		t.Errorf("No entry made for ID")
+		t.Errorf("No entry made for ID (3)")
 	}
 
 	// Check report output

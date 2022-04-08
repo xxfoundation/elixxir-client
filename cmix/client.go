@@ -87,8 +87,8 @@ type client struct {
 	maxMsgLen int
 }
 
-// NewManager builds a new reception client object using inputted key fields.
-func NewManager(params Params, comms *commClient.Comms, session storage.Session,
+// NewClient builds a new reception client object using inputted key fields.
+func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 	ndf *ndf.NetworkDefinition, rng *fastRNG.StreamGenerator,
 	events event.Manager) (Client, error) {
 

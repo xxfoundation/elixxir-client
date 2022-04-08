@@ -1,7 +1,7 @@
 package cmix
 
-//func TestManager_Follow(t *testing.T) {
-//	m, err := newTestManager(t)
+//func TestClient_Follow(t *testing.T) {
+//	m, err := newTestClient(t)
 //	if err != nil {
 //		t.Fatalf("Failed to create test client: %+v", err)
 //	}

@@ -44,7 +44,7 @@ func TestClient_GetRoundResults(t *testing.T) {
 		}
 	}
 
-	m, err := newTestManager(t)
+	m, err := newTestClient(t)
 	if err != nil {
 		t.Fatalf("Failed in setup: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestClient_GetRoundResults_FailedRounds(t *testing.T) {
 	}
 
 	// Create a new copy of the test client for this test
-	m, err := newTestManager(t)
+	m, err := newTestClient(t)
 	if err != nil {
 		t.Fatalf("Failed in setup: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestClient_GetRoundResults_HistoricalRounds(t *testing.T) {
 	}
 
 	// Create a new copy of the test client for this test
-	m, err := newTestManager(t)
+	m, err := newTestClient(t)
 	if err != nil {
 		t.Fatalf("Failed in setup: %v", err)
 	}
@@ -223,7 +223,7 @@ func TestClient_GetRoundResults_Timeout(t *testing.T) {
 	sendResults = nil
 
 	// Create a new copy of the test client for this test
-	m, err := newTestManager(t)
+	m, err := newTestClient(t)
 	if err != nil {
 		t.Fatalf("Failed in setup: %v", err)
 	}

@@ -349,7 +349,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	// Initialize network and link it to context
-	c.network, err = cmix.NewManager(c.storage, c.switchboard, c.rng,
+	c.network, err = cmix.NewClient(c.storage, c.switchboard, c.rng,
 		c.events, c.comms, parameters, def)
 	if err != nil {
 		return nil, err
@@ -409,7 +409,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	}
 
 	// Initialize network and link it to context
-	c.network, err = cmix.NewManager(c.storage, c.switchboard, c.rng,
+	c.network, err = cmix.NewClient(c.storage, c.switchboard, c.rng,
 		c.events, c.comms, parameters, def)
 	if err != nil {
 		return nil, err
@@ -467,7 +467,7 @@ func LoginWithProtoClient(storageDir string, password []byte, protoClientJSON []
 	}
 
 	// Initialize network and link it to context
-	c.network, err = cmix.NewManager(c.storage, c.switchboard, c.rng,
+	c.network, err = cmix.NewClient(c.storage, c.switchboard, c.rng,
 		c.events, c.comms, parameters, def)
 	if err != nil {
 		return nil, err

@@ -209,7 +209,7 @@ func mockFailCriticalSender(msg format.Message, recipient *id.ID,
 	return id.Round(1), ephemeral.Id{}, errors.New("Test error")
 }
 
-func newTestManager(t *testing.T) (*client, error) {
+func newTestClient(t *testing.T) (*client, error) {
 	kv := versioned.NewKV(ekv.Memstore{})
 	myID := id.NewIdFromString("zezima", id.User, t)
 	comms, err := commClient.NewClientComms(myID, nil, nil, nil)

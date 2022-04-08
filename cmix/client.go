@@ -15,11 +15,11 @@ import (
 	"gitlab.com/elixxir/client/cmix/address"
 	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/cmix/health"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/nodes"
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/cmix/pickup"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
@@ -64,7 +64,7 @@ type client struct {
 	gateway.Sender
 	message.Handler
 	nodes.Registrar
-	historical.Retriever
+	rounds.Retriever
 	rounds.Pickup
 	address.Space
 	identity.Tracker
@@ -150,7 +150,7 @@ func NewManager(params Params, comms *commClient.Comms, session storage.Session,
 	}
 
 	// Set up the historical rounds handler
-	c.Retriever = historical.NewRetriever(
+	c.Retriever = rounds.NewRetriever(
 		params.Historical, comms, c.Sender, events)
 
 	// Set up Message Handler

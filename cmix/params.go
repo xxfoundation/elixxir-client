@@ -3,9 +3,9 @@ package cmix
 import (
 	"encoding/base64"
 	"encoding/json"
-	"gitlab.com/elixxir/client/cmix/historical"
-	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/pickup"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/xx_network/primitives/id"
@@ -52,7 +52,7 @@ type Params struct {
 
 	Rounds     rounds.Params
 	Message    message.Params
-	Historical historical.Params
+	Historical rounds.Params
 }
 
 func GetDefaultParams() Params {
@@ -70,7 +70,7 @@ func GetDefaultParams() Params {
 	}
 	n.Rounds = rounds.GetDefaultParams()
 	n.Message = message.GetDefaultParams()
-	n.Historical = historical.GetDefaultParams()
+	n.Historical = rounds.GetDefaultParams()
 
 	return n
 }

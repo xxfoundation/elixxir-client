@@ -2,7 +2,7 @@ package e2e
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
@@ -15,7 +15,7 @@ type UnsafeProcessor struct {
 
 func (up *UnsafeProcessor) Process(ecrMsg format.Message,
 	receptionID receptionID.EphemeralIdentity,
-	round historical.Round) {
+	round rounds.Round) {
 	//check if the message is unencrypted
 	unencrypted, sender := e2e.IsUnencrypted(ecrMsg)
 	if !unencrypted {

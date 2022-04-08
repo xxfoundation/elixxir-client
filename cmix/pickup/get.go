@@ -9,12 +9,12 @@ package rounds
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/xx_network/primitives/id"
 )
 
-func (m *manager) GetMessagesFromRound(
+func (m *pickup) GetMessagesFromRound(
 	roundID id.Round, identity receptionID.EphemeralIdentity) {
 	// Get the round from the in-RAM store
 	ri, err := m.instance.GetRound(roundID)
@@ -41,7 +41,7 @@ func (m *manager) GetMessagesFromRound(
 			identity.Source)
 
 		err = m.historical.LookupHistoricalRound(
-			roundID, func(round historical.Round, success bool) {
+			roundID, func(round rounds.Round, success bool) {
 				if !success {
 					// TODO: Implement me
 				}
@@ -70,7 +70,7 @@ func (m *manager) GetMessagesFromRound(
 
 		// If found, send to Message Retrieval Workers
 		m.lookupRoundMessages <- roundLookup{
-			Round:    historical.MakeRound(ri),
+			Round:    rounds.MakeRound(ri),
 			Identity: identity,
 		}
 	}

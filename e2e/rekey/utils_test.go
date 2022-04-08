@@ -17,7 +17,7 @@ import (
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity"
 	"gitlab.com/elixxir/client/cmix/message"
 	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
@@ -305,7 +305,7 @@ func (m *mockNetManager) GetRoundResults(timeout time.Duration, roundCallback cm
 }
 
 func (m *mockNetManager) LookupHistoricalRound(
-	rid id.Round, callback historical.RoundResultCallback) error {
+	rid id.Round, callback rounds.RoundResultCallback) error {
 	return nil
 }
 

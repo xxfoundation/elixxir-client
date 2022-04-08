@@ -3,7 +3,7 @@ package receptionID
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
@@ -120,7 +120,7 @@ func (i Identity) Equal(b Identity) bool {
 // BuildIdentityFromRound returns an EphemeralIdentity that the source would
 // use to receive messages from the given round
 func BuildIdentityFromRound(source *id.ID,
-	round historical.Round) EphemeralIdentity {
+	round rounds.Round) EphemeralIdentity {
 	ephID, _, _, _ := ephemeral.GetId(source, uint(round.AddressSpaceSize),
 		round.Timestamps[states.QUEUED].UnixNano())
 	return EphemeralIdentity{

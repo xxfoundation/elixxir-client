@@ -12,7 +12,7 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -210,7 +210,7 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 }
 
 func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey,
-	round historical.Round) error {
+	round rounds.Round) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	jww.DEBUG.Printf("AddReceived new contact: %s", c.ID)

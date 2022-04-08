@@ -10,7 +10,7 @@ package groupChat
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/group"
@@ -37,7 +37,7 @@ type receptionProcessor struct {
 }
 
 // Process incoming group chat messages
-func (p *receptionProcessor) Process(message format.Message, receptionID receptionID.EphemeralIdentity, round historical.Round) {
+func (p *receptionProcessor) Process(message format.Message, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	jww.TRACE.Print("Group message reception received cMix message.")
 
 	// Attempt to read the message

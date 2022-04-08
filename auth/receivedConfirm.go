@@ -5,7 +5,7 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth/store"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
@@ -22,7 +22,7 @@ type receivedConfirmService struct {
 }
 
 func (rcs *receivedConfirmService) Process(msg format.Message,
-	receptionID receptionID.EphemeralIdentity, round historical.Round) {
+	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
 	state := rcs.s
 

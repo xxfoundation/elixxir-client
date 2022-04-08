@@ -14,7 +14,7 @@ import (
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity"
 	"gitlab.com/elixxir/client/cmix/message"
 	clientE2E "gitlab.com/elixxir/client/e2e"
@@ -397,7 +397,7 @@ func (*testNetworkManager) GetRoundResults(timeout time.Duration, roundCallback 
 	panic("implement me")
 }
 
-func (*testNetworkManager) LookupHistoricalRound(rid id.Round, callback historical.RoundResultCallback) error {
+func (*testNetworkManager) LookupHistoricalRound(rid id.Round, callback rounds.RoundResultCallback) error {
 	panic("implement me")
 }
 

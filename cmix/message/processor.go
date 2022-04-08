@@ -1,7 +1,7 @@
 package message
 
 import (
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/primitives/format"
 )
@@ -15,5 +15,5 @@ type Processor interface {
 	// It is a security vulnerability to reuse a fingerprint. It leaks privacy
 	// and can lead to compromise of message contents and integrity.
 	Process(message format.Message, receptionID receptionID.EphemeralIdentity,
-		round historical.Round)
+		round rounds.Round)
 }

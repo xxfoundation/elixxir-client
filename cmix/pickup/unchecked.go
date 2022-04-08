@@ -10,7 +10,7 @@ package rounds
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds/store"
+	"gitlab.com/elixxir/client/cmix/pickup/store"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -41,7 +41,7 @@ var backOffTable = [cappedTries]time.Duration{
 // processMessageRetrieval.
 // TODO: Make this system know which rounds are still in progress instead of
 //  just assume by time
-func (m *manager) processUncheckedRounds(checkInterval time.Duration,
+func (m *pickup) processUncheckedRounds(checkInterval time.Duration,
 	backoffTable [cappedTries]time.Duration, stop *stoppable.Single) {
 	ticker := time.NewTicker(checkInterval)
 	uncheckedRoundStore := m.unchecked

@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package historical
+package rounds
 
 import (
 	"fmt"
@@ -38,15 +38,15 @@ type Retriever interface {
 type manager struct {
 	params Params
 
-	comms  RoundsComms
+	comms  Comms
 	sender gateway.Sender
 	events event.Manager
 
 	c chan roundRequest
 }
 
-// RoundsComms interface to increase east of testing of historical rounds.
-type RoundsComms interface {
+// Comms interface to increase east of testing of historical rounds.
+type Comms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	RequestHistoricalRounds(host *connect.Host, message *pb.HistoricalRounds) (
 		*pb.HistoricalRoundsResponse, error)
@@ -62,7 +62,7 @@ type roundRequest struct {
 	numAttempts uint
 }
 
-func NewRetriever(param Params, comms RoundsComms, sender gateway.Sender,
+func NewRetriever(param Params, comms Comms, sender gateway.Sender,
 	events event.Manager) Retriever {
 	return &manager{
 		params: param,
@@ -100,7 +100,7 @@ func (m *manager) StartProcesses() *stoppable.Single {
 // processHistoricalRounds is a long-running thread that process historical
 // rounds. The thread can be killed by triggering the stoppable. It takes a
 // comms interface to aid in testing.
-func (m *manager) processHistoricalRounds(comm RoundsComms, stop *stoppable.Single) {
+func (m *manager) processHistoricalRounds(comm Comms, stop *stoppable.Single) {
 	timerCh := make(<-chan time.Time)
 	var roundRequests []roundRequest
 

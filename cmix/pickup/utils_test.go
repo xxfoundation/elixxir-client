@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds/store"
+	"gitlab.com/elixxir/client/cmix/pickup/store"
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/testkeys"
@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-func newManager(t *testing.T) *manager {
+func newManager(t *testing.T) *pickup {
 	session := storage.InitTestingSession(t)
 
 	unchecked, err := store.NewUncheckedStore(session.GetKV())
@@ -41,7 +41,7 @@ func newManager(t *testing.T) *manager {
 		},
 	}
 
-	testManager := &manager{
+	testManager := &pickup{
 		params:              GetDefaultParams(),
 		session:             session,
 		rng:                 fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),

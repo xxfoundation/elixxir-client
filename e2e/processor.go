@@ -2,7 +2,7 @@ package e2e
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/primitives/format"
@@ -15,7 +15,7 @@ type processor struct {
 
 func (p *processor) Process(ecrMsg format.Message,
 	receptionID receptionID.EphemeralIdentity,
-	round historical.Round) {
+	round rounds.Round) {
 	// ensure the key will be marked used before returning
 	defer p.cy.Use()
 

@@ -5,7 +5,7 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
@@ -23,14 +23,14 @@ type ReceivedRequest struct {
 	theirSidHPubKeyA *sidh.PublicKey
 
 	//round received on
-	round historical.Round
+	round rounds.Round
 
 	//lock to make sure only one operator at a time
 	mux *sync.Mutex
 }
 
 func newReceivedRequest(kv *versioned.KV, c contact.Contact,
-	key *sidh.PublicKey, round historical.Round) *ReceivedRequest {
+	key *sidh.PublicKey, round rounds.Round) *ReceivedRequest {
 
 	if err := util.StoreContact(kv, c); err != nil {
 		jww.FATAL.Panicf("Failed to save contact for partner %s", c.ID.String())
@@ -43,7 +43,7 @@ func newReceivedRequest(kv *versioned.KV, c contact.Contact,
 	}
 
 	roundStoreKey := makeRoundKey(c.ID)
-	if err := util.StoreRound(kv, round, roundStoreKey); err != nil {
+	if err := rounds.StoreRound(kv, round, roundStoreKey); err != nil {
 		jww.FATAL.Panicf("Failed to save round request was received on "+
 			"for partner %s", c.ID.String())
 	}
@@ -75,7 +75,7 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 			partner)
 	}
 
-	round, err := util.LoadRound(kv, makeRoundKey(partner))
+	round, err := rounds.LoadRound(kv, makeRoundKey(partner))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Load "+
 			"round request was received on with %s",
@@ -98,7 +98,7 @@ func (rr *ReceivedRequest) GetTheirSidHPubKeyA() *sidh.PublicKey {
 	return rr.theirSidHPubKeyA
 }
 
-func (rr *ReceivedRequest) GetRound() historical.Round {
+func (rr *ReceivedRequest) GetRound() rounds.Round {
 	return rr.round
 }
 

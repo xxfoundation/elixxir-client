@@ -1,8 +1,7 @@
-package utility
+package rounds
 
 import (
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/client/cmix/historical"
 	"gitlab.com/elixxir/client/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -11,7 +10,7 @@ import (
 const currentRoundVersion = 0
 
 // StoreRound stores the round using the key.
-func StoreRound(kv *versioned.KV, round historical.Round, key string) error {
+func StoreRound(kv *versioned.KV, round Round, key string) error {
 	now := netTime.Now()
 
 	marshaled, err := proto.Marshal(round.Raw)
@@ -21,7 +20,7 @@ func StoreRound(kv *versioned.KV, round historical.Round, key string) error {
 	}
 
 	obj := versioned.Object{
-		Version:   currentCyclicVersion,
+		Version:   currentRoundVersion,
 		Timestamp: now,
 		Data:      marshaled,
 	}
@@ -30,21 +29,21 @@ func StoreRound(kv *versioned.KV, round historical.Round, key string) error {
 }
 
 // LoadRound stores the round using the key.
-func LoadRound(kv *versioned.KV, key string) (historical.Round, error) {
+func LoadRound(kv *versioned.KV, key string) (Round, error) {
 	vo, err := kv.Get(key, currentRoundVersion)
 	if err != nil {
-		return historical.Round{}, err
+		return Round{}, err
 	}
 
 	ri := &pb.RoundInfo{}
 	err = proto.Unmarshal(vo.Data, ri)
 	if err != nil {
-		return historical.Round{}, err
+		return Round{}, err
 	}
 
-	return historical.MakeRound(ri), nil
+	return MakeRound(ri), nil
 }
 
 func DeleteRound(kv *versioned.KV, key string) error {
-	return kv.Delete(key, currentCyclicVersion)
+	return kv.Delete(key, currentRoundVersion)
 }

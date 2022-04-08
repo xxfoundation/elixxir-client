@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth/store"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/crypto/contact"
@@ -26,7 +26,7 @@ type receivedRequestService struct {
 }
 
 func (rrs *receivedRequestService) Process(message format.Message,
-	receptionID receptionID.EphemeralIdentity, round historical.Round) {
+	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
 	state := rrs.s
 

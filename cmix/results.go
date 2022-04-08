@@ -9,7 +9,7 @@ package cmix
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -42,12 +42,12 @@ func (rr RoundLookupStatus) String() string {
 
 type RoundResult struct {
 	Status RoundLookupStatus
-	Round  historical.Round
+	Round  rounds.Round
 }
 
 type historicalRoundsRtn struct {
 	Success bool
-	Round   historical.Round
+	Round   rounds.Round
 }
 
 // RoundEventCallback interface which reports the requested rounds.
@@ -106,12 +106,12 @@ func (c *client) getRoundResults(roundList []id.Round, timeout time.Duration,
 			if states.Round(roundInfo.State) == states.COMPLETED {
 				roundsResults[rnd] = RoundResult{
 					Status: Succeeded,
-					Round:  historical.MakeRound(roundInfo),
+					Round:  rounds.MakeRound(roundInfo),
 				}
 			} else if states.Round(roundInfo.State) == states.FAILED {
 				roundsResults[rnd] = RoundResult{
 					Status: Failed,
-					Round:  historical.MakeRound(roundInfo),
+					Round:  rounds.MakeRound(roundInfo),
 				}
 				allRoundsSucceeded = false
 			} else {
@@ -139,7 +139,7 @@ func (c *client) getRoundResults(roundList []id.Round, timeout time.Duration,
 	// Find out what happened to old (historical) rounds if any are needed
 	if len(historicalRequest) > 0 {
 		for _, rnd := range historicalRequest {
-			rrc := func(round historical.Round, success bool) {
+			rrc := func(round rounds.Round, success bool) {
 				var status RoundLookupStatus
 				if success {
 					status = Succeeded
@@ -198,12 +198,12 @@ func (c *client) getRoundResults(roundList []id.Round, timeout time.Duration,
 						if states.Round(roundInfo.State) == states.COMPLETED {
 							result = RoundResult{
 								Status: Succeeded,
-								Round:  historical.MakeRound(roundInfo),
+								Round:  rounds.MakeRound(roundInfo),
 							}
 						} else if states.Round(roundInfo.State) == states.FAILED {
 							result = RoundResult{
 								Status: Failed,
-								Round:  historical.MakeRound(roundInfo),
+								Round:  rounds.MakeRound(roundInfo),
 							}
 							allRoundsSucceeded = false
 						}
@@ -217,12 +217,12 @@ func (c *client) getRoundResults(roundList []id.Round, timeout time.Duration,
 					if states.Round(roundReport.RoundInfo.State) == states.COMPLETED {
 						result = RoundResult{
 							Status: Succeeded,
-							Round:  historical.MakeRound(roundReport.RoundInfo),
+							Round:  rounds.MakeRound(roundReport.RoundInfo),
 						}
 					} else {
 						result = RoundResult{
 							Status: Failed,
-							Round:  historical.MakeRound(roundReport.RoundInfo),
+							Round:  rounds.MakeRound(roundReport.RoundInfo),
 						}
 						allRoundsSucceeded = false
 					}

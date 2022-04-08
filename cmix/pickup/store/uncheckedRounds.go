@@ -33,7 +33,7 @@ const (
 	uint64Size = 8
 
 	// Maximum checks that can be performed on a round. Intended so that a round
-	// is checked no more than 1 week approximately (network/rounds.cappedTries + 7)
+	// is checked no more than 1 week approximately (network/pickup.cappedTries + 7)
 	maxChecks = 14
 )
 

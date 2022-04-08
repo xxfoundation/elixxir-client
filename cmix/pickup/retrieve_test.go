@@ -9,7 +9,7 @@ package rounds
 import (
 	"bytes"
 	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	ephemeral2 "gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/stoppable"
@@ -71,7 +71,7 @@ func Test_manager_processMessageRetrieval(t *testing.T) {
 			Source: requestGateway,
 		}
 
-		round := historical.Round{
+		round := rounds.Round{
 			ID:       roundId,
 			Topology: connect.NewCircuit([]*id.ID{requestGateway}),
 		}
@@ -159,7 +159,7 @@ func Test_manager_processMessageRetrieval_NoRound(t *testing.T) {
 			Source: dummyGateway,
 		}
 
-		round := historical.Round{
+		round := rounds.Round{
 			ID:       roundId,
 			Topology: connect.NewCircuit([]*id.ID{dummyGateway}),
 		}
@@ -236,7 +236,7 @@ func Test_manager_processMessageRetrieval_FalsePositive(t *testing.T) {
 
 		requestGateway := id.NewIdFromString(FalsePositive, id.Gateway, t)
 
-		round := historical.Round{
+		round := rounds.Round{
 			ID:       roundId,
 			Topology: connect.NewCircuit([]*id.ID{requestGateway}),
 		}
@@ -309,7 +309,7 @@ func Test_manager_processMessageRetrieval_Quit(t *testing.T) {
 
 		requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
 
-		round := historical.Round{
+		round := rounds.Round{
 			ID:       roundId,
 			Topology: connect.NewCircuit([]*id.ID{requestGateway}),
 		}
@@ -379,7 +379,7 @@ func Test_manager_processMessageRetrieval_MultipleGateways(t *testing.T) {
 			Source: requestGateway,
 		}
 
-		round := historical.Round{
+		round := rounds.Round{
 			ID: roundId,
 			// Create a list of IDs in which some error gateways must be
 			// contacted before the happy path

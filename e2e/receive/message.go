@@ -2,7 +2,7 @@ package receive
 
 import (
 	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -21,5 +21,5 @@ type Message struct {
 
 	Encrypted bool
 
-	Round historical.Round
+	Round rounds.Round
 }

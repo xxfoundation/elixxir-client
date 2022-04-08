@@ -2,7 +2,7 @@ package cmix
 
 import (
 	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/nodes"
@@ -234,7 +234,7 @@ type Client interface {
 	// GetRoundResults does this lookup when needed, generally that is
 	// preferable
 	LookupHistoricalRound(
-		rid id.Round, callback historical.RoundResultCallback) error
+		rid id.Round, callback rounds.RoundResultCallback) error
 
 	/* === Sender =========================================================== */
 	/* The sender handles sending comms to the network. It tracks connections to

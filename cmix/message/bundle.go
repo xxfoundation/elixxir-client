@@ -8,7 +8,7 @@
 package message
 
 import (
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -16,7 +16,7 @@ import (
 
 type Bundle struct {
 	Round     id.Round
-	RoundInfo historical.Round
+	RoundInfo rounds.Round
 	Messages  []format.Message
 	Finish    func()
 	Identity  receptionID.EphemeralIdentity

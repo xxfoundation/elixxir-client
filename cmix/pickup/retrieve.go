@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/stoppable"
@@ -32,7 +32,7 @@ type MessageRetrievalComms interface {
 }
 
 type roundLookup struct {
-	Round    historical.Round
+	Round    rounds.Round
 	Identity receptionID.EphemeralIdentity
 }
 
@@ -40,7 +40,7 @@ const noRoundError = "does not have round %d"
 
 // processMessageRetrieval received a roundLookup request and pings the gateways
 // of that round for messages for the requested Identity in the roundLookup.
-func (m *manager) processMessageRetrieval(comms MessageRetrievalComms,
+func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 	stop *stoppable.Single) {
 
 	for {
@@ -158,7 +158,7 @@ func (m *manager) processMessageRetrieval(comms MessageRetrievalComms,
 
 // getMessagesFromGateway attempts to get messages from their assigned gateway
 // host in the round specified. If successful
-func (m *manager) getMessagesFromGateway(roundID id.Round,
+func (m *pickup) getMessagesFromGateway(roundID id.Round,
 	identity receptionID.EphemeralIdentity, comms MessageRetrievalComms,
 	gwIds []*id.ID, stop *stoppable.Single) (message.Bundle, error) {
 	start := netTime.Now()
@@ -247,7 +247,7 @@ func (m *manager) getMessagesFromGateway(roundID id.Round,
 
 // Helper function which forces processUncheckedRounds by randomly not looking
 // up messages.
-func (m *manager) forceMessagePickupRetry(ri historical.Round, rl roundLookup,
+func (m *pickup) forceMessagePickupRetry(ri rounds.Round, rl roundLookup,
 	comms MessageRetrievalComms, gwIds []*id.ID,
 	stop *stoppable.Single) (bundle message.Bundle, err error) {
 	rnd, _ := m.unchecked.GetRound(

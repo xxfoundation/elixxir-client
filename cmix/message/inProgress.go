@@ -9,7 +9,7 @@ package message
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/historical"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -56,7 +56,7 @@ func (p *handler) recheckInProgress() {
 	for grbldMsg, ri, identity, has := p.inProcess.Next(); has; grbldMsg, ri, identity, has = p.inProcess.Next() {
 		bundle := Bundle{
 			Round:     id.Round(ri.ID),
-			RoundInfo: historical.MakeRound(ri),
+			RoundInfo: rounds.MakeRound(ri),
 			Messages:  []format.Message{grbldMsg},
 			Finish:    func() {},
 			Identity:  identity,

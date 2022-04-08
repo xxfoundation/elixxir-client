@@ -12,9 +12,9 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/historical"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -38,11 +38,11 @@ type state struct {
 
 type Callbacks interface {
 	Request(requestor contact.Contact, receptionID receptionID.EphemeralIdentity,
-		round historical.Round)
+		round rounds.Round)
 	Confirm(requestor contact.Contact, receptionID receptionID.EphemeralIdentity,
-		round historical.Round)
+		round rounds.Round)
 	Reset(requestor contact.Contact, receptionID receptionID.EphemeralIdentity,
-		round historical.Round)
+		round rounds.Round)
 }
 
 // NewState loads the auth state or creates new auth state if one cannot be

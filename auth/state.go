@@ -112,9 +112,9 @@ func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 	return s, nil
 }
 
-// ReplayRequests will iterate through all pending contact requests and replay
+// CallReceivedRequests will iterate through all pending contact requests and replay
 // them on the callbacks.
-func (s *state) ReplayRequests() {
+func (s *state) CallReceivedRequests() {
 	rrList := s.store.GetAllReceivedRequests()
 	for i := range rrList {
 		rr := rrList[i]

@@ -57,7 +57,7 @@ type State interface {
 	// This will not be useful if either side has ratcheted
 	ReplayConfirm(partner *id.ID) (id.Round, error)
 
-	// ReplayRequests will iterate through all pending contact requests and replay
-	// them on the callbacks.
-	ReplayRequests()
+	// CallReceivedRequests will iterate through all pending contact requests
+	// and replay them on the callbacks.
+	CallReceivedRequests()
 }

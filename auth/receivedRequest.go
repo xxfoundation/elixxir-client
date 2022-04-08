@@ -7,8 +7,8 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth/store"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/crypto/contact"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
@@ -236,7 +236,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 
 	//autoconfirm if we should
 	if autoConfirm || reset {
-		_, _ = state.confirmRequestAuth(c, state.params.getConfirmTag(reset))
+		_, _ = state.confirm(c, state.params.getConfirmTag(reset))
 		//handle callbacks
 		if autoConfirm {
 			state.callbacks.Confirm(c, receptionID, round)

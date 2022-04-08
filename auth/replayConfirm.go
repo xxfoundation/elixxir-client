@@ -2,7 +2,16 @@ package auth
 
 import "gitlab.com/xx_network/primitives/id"
 
-//todo implement replay confirm
+// ReplayConfirm is used to resend a confirm
 func (s *state) ReplayConfirm(partner *id.ID) (id.Round, error) {
-	return 0, nil
+
+	confirmPayload, mac, keyfp, err := s.store.LoadConfirmation(partner)
+	if err != nil {
+		return 0, err
+	}
+
+	rid, err := sendAuthConfirm(s.net, partner, keyfp,
+		confirmPayload, mac, s.event, s.params.ResetConfirmTag)
+
+	return rid, err
 }

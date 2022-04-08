@@ -32,11 +32,11 @@ func TestNewStore(t *testing.T) {
 	privKey := grp.NewInt(57)
 	kv := versioned.NewKV(make(ekv.Memstore))
 	expectedStore := &Ratchet{
-		managers:              make(map[id.ID]partner.Manager),
-		myInitialDHPrivateKey: privKey,
-		myInitialDHPublicKey:  diffieHellman.GeneratePublicKey(privKey, grp),
-		grp:                   grp,
-		kv:                    kv.Prefix(packagePrefix),
+		managers:               make(map[id.ID]partner.Manager),
+		advertisedDHPrivateKey: privKey,
+		advertisedDHPublicKey:  diffieHellman.GeneratePublicKey(privKey, grp),
+		grp:                    grp,
+		kv:                     kv.Prefix(packagePrefix),
 	}
 	expectedData, err := expectedStore.marshal()
 	if err != nil {
@@ -91,19 +91,19 @@ func TestStore_AddPartner(t *testing.T) {
 
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	p := session.GetDefaultParams()
-	partnerPubKey := diffieHellman.GeneratePublicKey(r.myInitialDHPrivateKey, r.grp)
+	partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
 	// NOTE: e2e store doesn't contain a private SIDH key, that's
 	// because they're completely address as part of the
 	// initiation of the connection.
 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
 	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
 	expectedManager := partner.NewManager(kv, r.myID, partnerID,
-		r.myInitialDHPrivateKey, partnerPubKey, myPrivSIDHKey, pubSIDHKey,
+		r.advertisedDHPrivateKey, partnerPubKey, myPrivSIDHKey, pubSIDHKey,
 		p, p, r.cyHandler, r.grp, r.rng)
 
 	receivedManager, err := r.AddPartner(
 		partnerID,
-		partnerPubKey, r.myInitialDHPrivateKey,
+		partnerPubKey, r.advertisedDHPrivateKey,
 		pubSIDHKey, myPrivSIDHKey, p, p)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
@@ -135,7 +135,7 @@ func TestStore_DeletePartner(t *testing.T) {
 	}
 
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-	partnerPubKey := diffieHellman.GeneratePublicKey(r.myInitialDHPrivateKey, r.grp)
+	partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
 	p := session.GetDefaultParams()
 	// NOTE: e2e store doesn't contain a private SIDH key, that's
 	// because they're completely address as part of the
@@ -143,7 +143,7 @@ func TestStore_DeletePartner(t *testing.T) {
 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
 	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
 
-	_, err = r.AddPartner(partnerID, r.myInitialDHPrivateKey,
+	_, err = r.AddPartner(partnerID, r.advertisedDHPrivateKey,
 		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
@@ -169,11 +169,11 @@ func TestStore_GetPartner(t *testing.T) {
 		t.Fatalf("Setup error: %v", err)
 	}
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-	partnerPubKey := diffieHellman.GeneratePublicKey(r.myInitialDHPrivateKey, r.grp)
+	partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
 	p := session.GetDefaultParams()
 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
 	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
-	expectedManager, err := r.AddPartner(partnerID, r.myInitialDHPrivateKey,
+	expectedManager, err := r.AddPartner(partnerID, r.advertisedDHPrivateKey,
 		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
@@ -204,11 +204,11 @@ func TestRatchet_GetAllPartnerIDs(t *testing.T) {
 	// Generate partners and add them ot the manager
 	for i := 0; i < numTests; i++ {
 		partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-		partnerPubKey := diffieHellman.GeneratePublicKey(r.myInitialDHPrivateKey, r.grp)
+		partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
 		p := session.GetDefaultParams()
 		_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
 		myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
-		_, err := r.AddPartner(partnerID, r.myInitialDHPrivateKey,
+		_, err := r.AddPartner(partnerID, r.advertisedDHPrivateKey,
 			partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p)
 		if err != nil {
 			t.Fatalf("AddPartner returned an error: %v", err)
@@ -263,10 +263,10 @@ func TestStore_GetDHPrivateKey(t *testing.T) {
 		t.Fatalf("Setup error: %v", err)
 	}
 
-	if r.myInitialDHPrivateKey != r.GetDHPrivateKey() {
+	if r.advertisedDHPrivateKey != r.GetDHPrivateKey() {
 		t.Errorf("GetDHPrivateKey() returned incorrect key."+
 			"\n\texpected: %v\n\treceived: %v",
-			r.myInitialDHPrivateKey, r.GetDHPrivateKey())
+			r.advertisedDHPrivateKey, r.GetDHPrivateKey())
 	}
 }
 
@@ -277,9 +277,9 @@ func TestStore_GetDHPublicKey(t *testing.T) {
 		t.Fatalf("Setup error: %v", err)
 	}
 
-	if r.myInitialDHPublicKey != r.GetDHPublicKey() {
+	if r.advertisedDHPublicKey != r.GetDHPublicKey() {
 		t.Errorf("GetDHPublicKey() returned incorrect key."+
 			"\n\texpected: %v\n\treceived: %v",
-			r.myInitialDHPublicKey, r.GetDHPublicKey())
+			r.advertisedDHPublicKey, r.GetDHPublicKey())
 	}
 }

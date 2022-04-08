@@ -36,9 +36,9 @@ type Ratchet struct {
 	managers map[id.ID]partner.Manager
 	mux      sync.RWMutex
 
-	myID                  *id.ID
-	myInitialDHPrivateKey *cyclic.Int
-	myInitialDHPublicKey  *cyclic.Int
+	myID                   *id.ID
+	advertisedDHPrivateKey *cyclic.Int
+	advertisedDHPublicKey  *cyclic.Int
 
 	grp       *cyclic.Group
 	cyHandler session.CypherHandler
@@ -69,9 +69,9 @@ func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 		managers: make(map[id.ID]partner.Manager),
 		services: make(map[string]message.Processor),
 
-		myID:                  myID,
-		myInitialDHPrivateKey: privKey,
-		myInitialDHPublicKey:  pubKey,
+		myID:                   myID,
+		advertisedDHPrivateKey: privKey,
+		advertisedDHPublicKey:  pubKey,
 
 		kv: kv,
 
@@ -184,11 +184,11 @@ func (r *Ratchet) GetAllPartnerIDs() []*id.ID {
 // GetDHPrivateKey returns the diffie hellman private key used
 // to initially establish the ratchet.
 func (r *Ratchet) GetDHPrivateKey() *cyclic.Int {
-	return r.myInitialDHPrivateKey
+	return r.advertisedDHPrivateKey
 }
 
 // GetDHPublicKey returns the diffie hellman public key used
 // to initially establish the ratchet.
 func (r *Ratchet) GetDHPublicKey() *cyclic.Int {
-	return r.myInitialDHPublicKey
+	return r.advertisedDHPublicKey
 }

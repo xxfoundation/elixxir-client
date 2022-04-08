@@ -131,13 +131,13 @@ func (r *Ratchet) unmarshal(b []byte) error {
 		r.managers[*partnerID] = manager
 	}
 
-	r.myInitialDHPrivateKey, err = util.LoadCyclicKey(r.kv, privKeyKey)
+	r.advertisedDHPrivateKey, err = util.LoadCyclicKey(r.kv, privKeyKey)
 	if err != nil {
 		return errors.WithMessage(err,
 			"Failed to load e2e DH private key")
 	}
 
-	r.myInitialDHPublicKey, err = util.LoadCyclicKey(r.kv, pubKeyKey)
+	r.advertisedDHPublicKey, err = util.LoadCyclicKey(r.kv, pubKeyKey)
 	if err != nil {
 		return errors.WithMessage(err,
 			"Failed to load e2e DH public key")

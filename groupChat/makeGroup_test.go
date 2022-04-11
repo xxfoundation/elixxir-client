@@ -312,7 +312,7 @@ func addPartners(m *Manager, t *testing.T) ([]*id.ID, group.Membership,
 			m.grp)
 
 		// Add partner
-		_, err := m.e2e.AddPartner(m.receptionId, uid, dhKey, dhKey,
+		_, err := m.e2e.AddPartner(uid, dhKey, dhKey,
 			theirSIDHPubKey, mySIDHPrivKey,
 			session.GetDefaultParams(),
 			session.GetDefaultParams())

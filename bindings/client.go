@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/single/old"
 	"runtime/pprof"
 	"strings"
 	"sync"
@@ -23,7 +24,6 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/states"
@@ -47,7 +47,7 @@ func init() {
 // to support the gomobile Client interface
 type Client struct {
 	api       api.Client
-	single    *single.Manager
+	single    *old.Manager
 	singleMux sync.Mutex
 }
 
@@ -582,12 +582,12 @@ func (b *BindingsClient) Search(data, separator string,
 // getSingle is a function which returns the single mananger if it
 // exists or creates a new one, checking appropriate constraints
 // (that the network follower is running) if it needs to make one
-func (c *Client) getSingle() (*single.Manager, error) {
+func (c *Client) getSingle() (*old.Manager, error) {
 	c.singleMux.Lock()
 	defer c.singleMux.Unlock()
 	if c.single == nil {
 		apiClient := &c.api
-		c.single = single.NewManager(apiClient)
+		c.single = old.NewManager(apiClient)
 		err := apiClient.AddService(c.single.StartProcesses)
 		if err != nil {
 			return nil, err

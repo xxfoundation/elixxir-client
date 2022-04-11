@@ -6,6 +6,7 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/single"
+	"gitlab.com/elixxir/client/single/old"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/client"
@@ -21,7 +22,7 @@ import (
 )
 
 type SingleInterface interface {
-	TransmitSingleUse(contact.Contact, []byte, string, uint8, single.ReplyComm,
+	TransmitSingleUse(contact.Contact, []byte, string, uint8, single.ReplyCallback,
 		time.Duration) error
 	StartProcesses() (stoppable.Stoppable, error)
 }
@@ -59,7 +60,7 @@ type alternateUd struct {
 
 // NewManager builds a new user discovery manager. It requires that an updated
 // NDF is available and will error if one is not.
-func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
+func NewManager(client *api.Client, single *old.Manager) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
 	if client.NetworkFollowerStatus() != api.Running {
 		return nil, errors.New(

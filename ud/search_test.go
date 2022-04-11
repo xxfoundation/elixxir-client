@@ -521,7 +521,7 @@ type mockSingleSearch struct {
 }
 
 func (s *mockSingleSearch) TransmitSingleUse(partner contact.Contact, payload []byte,
-	_ string, _ uint8, callback single.ReplyComm, _ time.Duration) error {
+	_ string, _ uint8, callback single.ReplyCallback, _ time.Duration) error {
 
 	searchMsg := &SearchSend{}
 	if err := proto.Unmarshal(payload, searchMsg); err != nil {

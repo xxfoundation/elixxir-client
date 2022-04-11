@@ -103,6 +103,8 @@ func GetParameters(params string) (Params, error) {
 
 type NodeMap map[id.ID]bool
 
+const DefaultDebugTag = "External"
+
 type CMIXParams struct {
 	// RoundTries is the maximum number of rounds to try to send on
 	RoundTries     uint
@@ -140,7 +142,7 @@ func GetDefaultCMIXParams() CMIXParams {
 		Timeout:     25 * time.Second,
 		RetryDelay:  1 * time.Second,
 		SendTimeout: 3 * time.Second,
-		DebugTag:    "External",
+		DebugTag:    DefaultDebugTag,
 		// Unused stoppable so components that require one have a channel to
 		// wait on
 		Stop: stoppable.NewSingle("cmixParamsDefault"),

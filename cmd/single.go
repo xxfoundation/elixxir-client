@@ -15,7 +15,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/single"
+	"gitlab.com/elixxir/client/single/old"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/utils"
@@ -73,14 +73,14 @@ var singleCmd = &cobra.Command{
 		waitUntilConnected(connected)
 
 		// Make single-use manager and start receiving process
-		singleMng := single.NewManager(client)
+		singleMng := old.NewManager(client)
 
 		// get the tag
 		tag := viper.GetString("tag")
 
 		// Register the callback
 		callbackChan := make(chan responseCallbackChan)
-		callback := func(payload []byte, c single.Contact) {
+		callback := func(payload []byte, c old.Contact) {
 			callbackChan <- responseCallbackChan{payload, c}
 		}
 		singleMng.RegisterCallback(tag, callback)
@@ -149,7 +149,7 @@ func init() {
 }
 
 // sendSingleUse sends a single use message.
-func sendSingleUse(m *single.Manager, partner contact.Contact, payload []byte,
+func sendSingleUse(m *old.Manager, partner contact.Contact, payload []byte,
 	maxMessages uint8, timeout time.Duration, tag string) {
 	// Construct callback
 	callbackChan := make(chan struct {
@@ -193,7 +193,7 @@ func sendSingleUse(m *single.Manager, partner contact.Contact, payload []byte,
 
 // replySingleUse responds to any single-use message it receives by replying\
 // with the same payload.
-func replySingleUse(m *single.Manager, timeout time.Duration, callbackChan chan responseCallbackChan) {
+func replySingleUse(m *old.Manager, timeout time.Duration, callbackChan chan responseCallbackChan) {
 
 	// Wait to receive a message or stop after timeout occurs
 	fmt.Println("Waiting for single-use message.")
@@ -229,13 +229,13 @@ func replySingleUse(m *single.Manager, timeout time.Duration, callbackChan chan 
 // response callback.
 type responseCallbackChan struct {
 	payload []byte
-	c       single.Contact
+	c       old.Contact
 }
 
 // makeResponsePayload generates a new payload that will span the max number of
 // message parts in the contact. Each resulting message payload will contain a
 // copy of the supplied payload with spaces taking up any remaining data.
-func makeResponsePayload(m *single.Manager, payload []byte, maxParts uint8) []byte {
+func makeResponsePayload(m *old.Manager, payload []byte, maxParts uint8) []byte {
 	payloads := make([][]byte, maxParts)
 	payloadPart := makeResponsePayloadPart(m, payload)
 	for i := range payloads {
@@ -247,7 +247,7 @@ func makeResponsePayload(m *single.Manager, payload []byte, maxParts uint8) []by
 
 // makeResponsePayloadPart creates a single response payload by coping the given
 // payload and filling the rest with spaces.
-func makeResponsePayloadPart(m *single.Manager, payload []byte) []byte {
+func makeResponsePayloadPart(m *old.Manager, payload []byte) []byte {
 	payloadPart := make([]byte, m.GetMaxResponsePayloadSize())
 	for i := range payloadPart {
 		payloadPart[i] = ' '

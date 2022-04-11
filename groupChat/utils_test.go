@@ -14,9 +14,9 @@ import (
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	clientE2E "gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
@@ -242,12 +242,12 @@ type testE2eMessage struct {
 	Payload   []byte
 }
 
-func (tnm *testE2eManager) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey, sendParams, receiveParams session.Params) (*partner.Manager, error) {
-	panic("implement me")
+func (tnm *testE2eManager) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey, sendParams, receiveParams session.Params) (partner.Manager, error) {
+	return nil, nil
 }
 
-func (tnm *testE2eManager) GetPartner(partnerID *id.ID) (*partner.Manager, error) {
-	panic("implement me")
+func (tnm *testE2eManager) GetPartner(partnerID *id.ID) (partner.Manager, error) {
+	return nil, nil
 }
 
 func (tnm *testE2eManager) DeletePartner(partnerId *id.ID) error {

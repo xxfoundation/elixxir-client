@@ -43,9 +43,9 @@ func sendAuthRequest(recipient *id.ID, contents, mac []byte, primeSize int,
 	jww.INFO.Printf("Requesting Auth with %s, msgDigest: %s",
 		recipient, cmixMsg.Digest())
 	if reset {
-		cMixParams.IdentityPreimage = preimage.GenerateRequest(recipient)
-	} else {
 		cMixParams.IdentityPreimage = preimage.GenerateReset(recipient)
+	} else {
+		cMixParams.IdentityPreimage = preimage.GenerateRequest(recipient)
 	}
 
 	cMixParams.DebugTag = "auth.Request"

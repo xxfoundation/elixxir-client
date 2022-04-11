@@ -118,7 +118,7 @@ func (m Manager) buildMembership(members []*id.ID) (group.Membership,
 	contacts := make([]contact.Contact, len(members))
 	var err error
 	for i, uid := range members {
-		partner, err := m.e2e.GetPartner(uid, m.receptionId)
+		partner, err := m.e2e.GetPartner(uid)
 		if err != nil {
 			return nil, nil, errors.Errorf(getPartnerErr, uid, err)
 		}

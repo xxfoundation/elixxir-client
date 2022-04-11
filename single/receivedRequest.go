@@ -66,6 +66,7 @@ func (r Request) String() string {
 		r.dhKey.Text(10), r.tag, r.maxParts)
 }
 
+//
 func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 	timeout time.Duration) ([]id.Round, error) {
 	// make sure this has only been run once
@@ -104,6 +105,8 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 		Metadata:   nil,
 	}
 
+	failed := uint32(0)
+
 	for i := 0; i < len(parts); i++ {
 		// fixme: handle the case where a send fails, also on failures,
 		// unset use
@@ -114,6 +117,7 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 			round, ephID, err := r.net.Send(r.sender, partFP, svc, ecrPart, mac,
 				cmixParams)
 			if err != nil {
+				atomic.AddUint32(&failed, 1)
 				jww.ERROR.Printf("Failed to send single-use response CMIX "+
 					"message part %d: %+v", j, err)
 			}
@@ -128,13 +132,21 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 
 	// Wait for all go routines to finish
 	wg.Wait()
+
+	if failed > 0 {
+		return nil, errors.Errorf("One or more send failed for the " +
+			"response, the response will be handleable and will timeout")
+	}
+
 	jww.DEBUG.Printf("Sent %d single-use response CMIX messages to %s.",
 		len(parts), r.sender)
 
 	// Count the number of rounds
 	roundMap := map[id.Round]struct{}{}
 	for _, roundID := range rounds {
-		roundMap[roundID] = struct{}{}
+		if roundID != 0 {
+			roundMap[roundID] = struct{}{}
+		}
 	}
 
 	// Wait until the result tracking responds

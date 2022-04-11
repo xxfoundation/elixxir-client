@@ -8,6 +8,8 @@
 package message
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/xx_network/crypto/csprng"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -114,4 +116,14 @@ func (f *FingerprintsManager) DeleteClientFingerprints(clientID *id.ID) {
 	f.Lock()
 	defer f.Unlock()
 	delete(f.fpMap, *clientID)
+}
+
+func RandomFingerprint(rng csprng.Source) format.Fingerprint {
+	fp := format.Fingerprint{}
+	fpBuf := make([]byte, len(fp[:]))
+	if _, err := rng.Read(fpBuf); err != nil {
+		jww.FATAL.Panicf("Failed to generate fingerprint: %+v", err)
+	}
+	copy(fp[:], fpBuf)
+	return fp
 }

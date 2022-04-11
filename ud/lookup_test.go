@@ -191,7 +191,7 @@ type mockSingleLookup struct {
 }
 
 func (s *mockSingleLookup) TransmitSingleUse(_ contact.Contact, payload []byte,
-	_ string, _ uint8, callback single.ReplyComm, _ time.Duration) error {
+	_ string, _ uint8, callback single.ReplyCallback, _ time.Duration) error {
 
 	lookupMsg := &LookupSend{}
 	if err := proto.Unmarshal(payload, lookupMsg); err != nil {

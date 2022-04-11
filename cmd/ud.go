@@ -10,13 +10,13 @@ package cmd
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/single/old"
 	"time"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/client/xxmutils"
@@ -76,7 +76,7 @@ var udCmd = &cobra.Command{
 		waitUntilConnected(connected)
 
 		// Make single-use manager and start receiving process
-		singleMng := single.NewManager(client)
+		singleMng := old.NewManager(client)
 		err = client.AddService(singleMng.StartProcesses)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to add single use process: %+v", err)

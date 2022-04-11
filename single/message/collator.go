@@ -1,4 +1,4 @@
-package single
+package message
 
 import (
 	"bytes"
@@ -6,30 +6,30 @@ import (
 	"sync"
 )
 
-// Initial value of the collator maxNum that indicates it has yet to be set
+// Initial value of the Collator maxNum that indicates it has yet to be set
 const unsetCollatorMax = -1
 
-// collator stores the list of payloads in the correct order.
-type collator struct {
+// Collator stores the list of payloads in the correct order.
+type Collator struct {
 	payloads [][]byte // List of payloads, in order
 	maxNum   int      // Max number of messages that can be received
 	count    int      // Current number of messages received
 	sync.Mutex
 }
 
-// newCollator generates an empty list of payloads to fit the max number of
+// NewCollator generates an empty list of payloads to fit the max number of
 // possible messages. maxNum is set to indicate that it is not yet set.
-func newCollator(messageCount uint64) *collator {
-	return &collator{
+func NewCollator(messageCount uint8) *Collator {
+	return &Collator{
 		payloads: make([][]byte, messageCount),
 		maxNum:   unsetCollatorMax,
 	}
 }
 
-// collate collects message payload parts. Once all parts are received, the full
+// Collate collects message payload parts. Once all parts are received, the full
 // collated payload is returned along with true. Otherwise returns false.
-func (c *collator) collate(payloadBytes []byte) ([]byte, bool, error) {
-	payload, err := unmarshalResponseMessage(payloadBytes)
+func (c *Collator) Collate(payloadBytes []byte) ([]byte, bool, error) {
+	payload, err := UnmarshalResponse(payloadBytes)
 	if err != nil {
 		return nil, false, errors.Errorf("Failed to unmarshal response "+
 			"payload: %+v", err)
@@ -41,12 +41,12 @@ func (c *collator) collate(payloadBytes []byte) ([]byte, bool, error) {
 	// If this is the first message received, then set the max number of
 	// messages expected to be received off its max number of parts.
 	if c.maxNum == unsetCollatorMax {
-		if int(payload.GetMaxParts()) > len(c.payloads) {
+		if int(payload.GetNumParts()) > len(c.payloads) {
 			return nil, false, errors.Errorf("Max number of parts reported by "+
-				"payload %d is larger than collator expected (%d).",
-				payload.GetMaxParts(), len(c.payloads))
+				"payload %d is larger than Collator expected (%d).",
+				payload.GetNumParts(), len(c.payloads))
 		}
-		c.maxNum = int(payload.GetMaxParts())
+		c.maxNum = int(payload.GetNumParts())
 	}
 
 	// Make sure that the part number is within the expected number of parts

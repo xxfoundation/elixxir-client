@@ -181,7 +181,7 @@ func Test_newTransmitMessagePayload(t *testing.T) {
 		data:             make([]byte, payloadSize),
 		tagFP:            make([]byte, tagFPSize),
 		nonce:            make([]byte, nonceSize),
-		maxResponseParts: make([]byte, maxPartsSize),
+		maxResponseParts: make([]byte, maxResponsePartsSize),
 		size:             make([]byte, sizeSize),
 		contents:         make([]byte, payloadSize-transmitPlMinSize),
 	}

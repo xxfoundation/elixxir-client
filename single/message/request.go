@@ -125,17 +125,18 @@ func (m Request) SetPayload(b []byte) {
 }
 
 const (
-	nonceSize         = 8
-	maxPartsSize      = 1
-	sizeSize          = 2
-	transmitPlMinSize = nonceSize + maxPartsSize + sizeSize
+	nonceSize            = 8
+	numRequestPartsSize  = 1
+	maxResponsePartsSize = 1
+	sizeSize             = 2
+	transmitPlMinSize    = nonceSize + maxResponsePartsSize + sizeSize
 )
 
 // RequestPayload is the structure of Request's payload.
 type RequestPayload struct {
 	data             []byte // Serial of all contents e
 	nonce            []byte
-	nunRequestParts  []byte
+	numRequestParts  []byte //number fo parts in the request, currently always 1
 	maxResponseParts []byte // Max number of messages expected in response
 	size             []byte // Size of the contents
 	contents         []byte
@@ -165,10 +166,12 @@ func mapRequestPayload(data []byte) RequestPayload {
 	mp := RequestPayload{
 		data:             data,
 		nonce:            data[:nonceSize],
-		maxResponseParts: data[nonceSize : nonceSize+maxPartsSize],
-		size:             data[nonceSize+maxPartsSize : transmitPlMinSize],
+		numRequestParts:  data[nonceSize : nonceSize+numRequestPartsSize],
+		maxResponseParts: data[nonceSize+numRequestPartsSize : nonceSize+maxResponsePartsSize+numRequestPartsSize],
+		size:             data[nonceSize+numRequestPartsSize+maxResponsePartsSize : transmitPlMinSize],
 		contents:         data[transmitPlMinSize:],
 	}
+	mp.numRequestParts[0] = 1
 
 	return mp
 }
@@ -219,6 +222,16 @@ func (mp RequestPayload) GetMaxResponseParts() uint8 {
 // SetMaxResponseParts sets the number of expected messages.
 func (mp RequestPayload) SetMaxResponseParts(num uint8) {
 	copy(mp.maxResponseParts, []byte{num})
+}
+
+// GetNumRequestParts returns the number of messages expected in the request.
+func (mp RequestPayload) GetNumRequestParts() uint8 {
+	return mp.numRequestParts[0]
+}
+
+// SetNumRequestParts sets the number of expected messages.
+func (mp RequestPayload) SetNumRequestParts(num uint8) {
+	copy(mp.numRequestParts, []byte{num})
 }
 
 // GetContents returns the payload's contents.

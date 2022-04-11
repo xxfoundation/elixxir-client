@@ -17,14 +17,10 @@ import (
 	keyExchange2 "gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/registration"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/edge"
-	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -49,12 +45,10 @@ type Client struct {
 	// the storage session securely stores data to disk and memoizes as is
 	// appropriate
 	storage *storage.Session
-	//the switchboard is used for inter-process signaling about received messages
-	switchboard *switchboard.Switchboard
 	//object used for communications
 	comms *client.Comms
 	// Network parameters
-	parameters params.Network
+	parameters cmix.Params
 
 	// note that the manager has a pointer to the context in many cases, but
 	// this interface allows it to be mocked for easy testing without the
@@ -63,7 +57,7 @@ type Client struct {
 	//object used to register and communicate with permissioning
 	permissioning *registration.Registration
 	//object containing auth interactions
-	auth *auth.state
+	auth *auth.State
 
 	//services system to track running threads
 	followerServices *services
@@ -71,7 +65,7 @@ type Client struct {
 	clientErrorChannel chan interfaces.ClientError
 
 	// Event reporting in event.go
-	events *event.eventManager
+	events *event.Manager
 
 	// Handles the triggering and delivery of backups
 	backup *interfaces.BackupContainer

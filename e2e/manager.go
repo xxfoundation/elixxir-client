@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -46,15 +47,6 @@ func Init(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	return initE2E(kv, myID, privKey, grp, rekeyParams)
 }
 
-// InitLegacy Creates stores. After calling, use load
-// Passes a the ID public key which is used for the relationship
-// Does not modify the kv prefix in any way to maintain backwards compatibility
-// before multiple IDs were supported
-func InitLegacy(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
-	grp *cyclic.Group, rekeyParams rekey.Params) error {
-	return initE2E(kv, myID, privKey, grp, rekeyParams)
-}
-
 func initE2E(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group, rekeyParams rekey.Params) error {
 	rekeyParamsData, err := json.Marshal(rekeyParams)
@@ -90,8 +82,33 @@ func Load(kv *versioned.KV, net cmix.Client, myID *id.ID,
 // You can use a memkv for an ephemeral e2e id
 func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
-	events event.Manager) (Handler, error) {
+	events event.Manager, params rekey.Params) (Handler, error) {
+
+	// Marshal the passed params data
+	rekeyParamsData, err := json.Marshal(params)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to marshal rekeyParams")
+	}
+
+	// Check if values are already written. If they exist on disk/memory already,
+	// this would be a case where LoadLegacy is most likely not the correct
+	// code-path the caller should be following.
+	if _, err := kv.Get(e2eRekeyParamsKey, e2eRekeyParamsVer); err != nil {
+		fmt.Printf("err: %v", err)
+		return nil, errors.New("E2E rekey params are already on disk, " +
+			"LoadLegacy should not be called")
+	}
+
+	// Store the rekey params to disk/memory
+	err = kv.Set(e2eRekeyParamsKey, e2eRekeyParamsVer, &versioned.Object{
+		Version:   e2eRekeyParamsVer,
+		Timestamp: time.Now(),
+		Data:      rekeyParamsData,
+	})
+
+	// Load the legacy data
 	return loadE2E(kv, net, myID, grp, rng, events)
+
 }
 
 func loadE2E(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,

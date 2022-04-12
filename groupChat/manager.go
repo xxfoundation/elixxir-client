@@ -8,18 +8,25 @@
 package groupChat
 
 import (
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/e2e/receive"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
+	crypto "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"time"
 )
 
 // Error messages.
@@ -29,22 +36,50 @@ const (
 	leaveGroupErr    = "failed to leave group %s: %+v"
 )
 
+// GroupCmix is a subset of the cmix.Client interface containing only the methods needed by GroupChat
+type GroupCmix interface {
+	SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (
+		id.Round, []ephemeral.Id, error)
+	AddService(clientID *id.ID, newService message.Service,
+		response message.Processor)
+	DeleteService(clientID *id.ID, toDelete message.Service,
+		processor message.Processor)
+}
+
+// GroupE2e is a subset of the e2e.Handler interface containing only the methods needed by GroupChat
+type GroupE2e interface {
+	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
+		params e2e.Params) ([]id.Round, crypto.MessageID, time.Time, error)
+	RegisterListener(senderID *id.ID,
+		messageType catalog.MessageType,
+		newListener receive.Listener) receive.ListenerID
+	AddService(tag string, processor message.Processor) error
+	AddPartner(partnerID *id.ID,
+		partnerPubKey, myPrivKey *cyclic.Int,
+		partnerSIDHPubKey *sidh.PublicKey,
+		mySIDHPrivKey *sidh.PrivateKey, sendParams,
+		receiveParams session.Params) (partner.Manager, error)
+	GetPartner(partnerID *id.ID) (partner.Manager, error)
+	GetHistoricalDHPubkey() *cyclic.Int
+	GetHistoricalDHPrivkey() *cyclic.Int
+}
+
 // Manager handles the list of groups a user is a part of.
 type Manager struct {
-	e2e e2e.Handler
+	e2e GroupE2e
 
 	receptionId *id.ID
 	rng         *fastRNG.StreamGenerator
 	grp         *cyclic.Group
 	gs          *gs.Store
-	services    cmix.Client
+	services    GroupCmix
 
 	requestFunc RequestCallback
 	receiveFunc ReceiveCallback
 }
 
 // NewManager creates a new group chat manager
-func NewManager(services cmix.Client, e2e e2e.Handler, receptionId *id.ID,
+func NewManager(services GroupCmix, e2e GroupE2e, receptionId *id.ID,
 	rng *fastRNG.StreamGenerator, grp *cyclic.Group, kv *versioned.KV,
 	requestFunc RequestCallback, receiveFunc ReceiveCallback) (*Manager, error) {
 

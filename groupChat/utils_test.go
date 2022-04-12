@@ -13,19 +13,14 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/identity"
 	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	clientE2E "gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/event"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
-	net "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -33,7 +28,6 @@ import (
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
@@ -221,7 +215,7 @@ func getGroup() *cyclic.Group {
 		large.NewIntFromString(getNDF().E2E.Generator, 16))
 }
 
-func newTestNetworkManager(sendErr int, t *testing.T) cmix.Client {
+func newTestNetworkManager(sendErr int, t *testing.T) GroupCmix {
 	return &testNetworkManager{
 		receptionMessages: [][]format.Message{},
 		sendMessages:      [][]cmix.TargetedCmixMessage{},
@@ -242,7 +236,8 @@ type testE2eMessage struct {
 	Payload   []byte
 }
 
-func (tnm *testE2eManager) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey, sendParams, receiveParams session.Params) (partner.Manager, error) {
+func (tnm *testE2eManager) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int,
+	partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey, sendParams, receiveParams session.Params) (partner.Manager, error) {
 	return nil, nil
 }
 
@@ -250,186 +245,11 @@ func (tnm *testE2eManager) GetPartner(partnerID *id.ID) (partner.Manager, error)
 	return nil, nil
 }
 
-func (tnm *testE2eManager) DeletePartner(partnerId *id.ID) error {
-	panic("implement me")
-}
-
-func (tnm *testE2eManager) GetAllPartnerIDs() []*id.ID {
-	panic("implement me")
-}
-
 func (tnm *testE2eManager) GetHistoricalDHPubkey() *cyclic.Int {
 	panic("implement me")
 }
 
 func (tnm *testE2eManager) GetHistoricalDHPrivkey() *cyclic.Int {
-	panic("implement me")
-}
-
-func (tnm *testE2eManager) GetReceptionID() *id.ID {
-	panic("implement me")
-}
-
-// testNetworkManager is a test implementation of NetworkManager interface.
-type testNetworkManager struct {
-	receptionMessages [][]format.Message
-	sendMessages      [][]cmix.TargetedCmixMessage
-	errSkip           int
-	sendErr           int
-	sync.RWMutex
-}
-
-func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
-	panic("implement me")
-}
-
-func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
-	if tnm.sendErr == 1 {
-		return 0, nil, errors.New("SendManyCMIX error")
-	}
-
-	tnm.Lock()
-	defer tnm.Unlock()
-
-	tnm.sendMessages = append(tnm.sendMessages, messages)
-
-	receiveMessages := []format.Message{}
-	for _, msg := range messages {
-		receiveMsg := format.Message{}
-		receiveMsg.SetMac(msg.Mac)
-		receiveMsg.SetContents(msg.Payload)
-		receiveMsg.SetKeyFP(msg.Fingerprint)
-		receiveMessages = append(receiveMessages, receiveMsg)
-	}
-	tnm.receptionMessages = append(tnm.receptionMessages, receiveMessages)
-	return 0, nil, nil
-}
-
-func (tnm *testNetworkManager) GetIdentity(get *id.ID) (identity.TrackedID, error) {
-	panic("implement me")
-}
-
-func (tnm *testNetworkManager) GetInstance() *net.Instance {
-	panic("implement me")
-}
-
-func (tnm *testNetworkManager) GetVerboseRounds() string {
-	panic("implement me")
-}
-
-func (*testNetworkManager) Follow(report cmix.ClientErrorReport) (stoppable.Stoppable, error) {
-	panic("implement me")
-}
-
-func (*testNetworkManager) GetMaxMessageLength() int {
-	panic("implement me")
-}
-
-func (*testNetworkManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
-	panic("implement me")
-}
-
-func (*testNetworkManager) RemoveIdentity(id *id.ID) {
-	panic("implement me")
-}
-
-func (*testNetworkManager) AddFingerprint(identity *id.ID, fingerprint format.Fingerprint, mp message.Processor) error {
-	panic("implement me")
-}
-
-func (*testNetworkManager) DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint) {
-	panic("implement me")
-}
-
-func (*testNetworkManager) DeleteClientFingerprints(identity *id.ID) {
-	panic("implement me")
-}
-
-func (*testNetworkManager) AddService(clientID *id.ID, newService message.Service, response message.Processor) {
-	panic("implement me")
-}
-
-func (*testNetworkManager) DeleteService(clientID *id.ID, toDelete message.Service, processor message.Processor) {
-	panic("implement me")
-}
-
-func (*testNetworkManager) DeleteClientService(clientID *id.ID) {
-	panic("implement me")
-}
-
-func (*testNetworkManager) TrackServices(tracker message.ServicesTracker) {
-	panic("implement me")
-}
-
-func (*testNetworkManager) CheckInProgressMessages() {
-	panic("implement me")
-}
-
-func (*testNetworkManager) IsHealthy() bool {
-	panic("implement me")
-}
-
-func (*testNetworkManager) WasHealthy() bool {
-	panic("implement me")
-}
-
-func (*testNetworkManager) AddHealthCallback(f func(bool)) uint64 {
-	panic("implement me")
-}
-
-func (*testNetworkManager) RemoveHealthCallback(u uint64) {
-	panic("implement me")
-}
-
-func (*testNetworkManager) HasNode(nid *id.ID) bool {
-	panic("implement me")
-}
-
-func (*testNetworkManager) NumRegisteredNodes() int {
-	panic("implement me")
-}
-
-func (*testNetworkManager) TriggerNodeRegistration(nid *id.ID) {
-	panic("implement me")
-}
-
-func (*testNetworkManager) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) error {
-	panic("implement me")
-}
-
-func (*testNetworkManager) LookupHistoricalRound(rid id.Round, callback rounds.RoundResultCallback) error {
-	panic("implement me")
-}
-
-func (*testNetworkManager) SendToAny(sendFunc func(host *connect.Host) (interface{}, error), stop *stoppable.Single) (interface{}, error) {
-	panic("implement me")
-}
-
-func (*testNetworkManager) SendToPreferred(targets []*id.ID, sendFunc gateway.SendToPreferredFunc, stop *stoppable.Single, timeout time.Duration) (interface{}, error) {
-	panic("implement me")
-}
-
-func (*testNetworkManager) SetGatewayFilter(f gateway.Filter) {
-	panic("implement me")
-}
-
-func (*testNetworkManager) GetHostParams() connect.HostParams {
-	panic("implement me")
-}
-
-func (*testNetworkManager) GetAddressSpace() uint8 {
-	panic("implement me")
-}
-
-func (*testNetworkManager) RegisterAddressSpaceNotification(tag string) (chan uint8, error) {
-	panic("implement me")
-}
-
-func (*testNetworkManager) UnregisterAddressSpaceNotification(tag string) {
-	panic("implement me")
-}
-
-func (*testE2eManager) StartProcesses() (stoppable.Stoppable, error) {
 	panic("implement me")
 }
 
@@ -456,35 +276,7 @@ func (*testE2eManager) RegisterListener(user *id.ID, messageType catalog.Message
 	panic("implement me")
 }
 
-func (*testE2eManager) RegisterFunc(name string, user *id.ID, messageType catalog.MessageType, newListener receive.ListenerFunc) receive.ListenerID {
-	panic("implement me")
-}
-
-func (*testE2eManager) RegisterChannel(name string, user *id.ID, messageType catalog.MessageType, newListener chan receive.Message) receive.ListenerID {
-	panic("implement me")
-}
-
-func (*testE2eManager) Unregister(listenerID receive.ListenerID) {
-	panic("implement me")
-}
-
 func (*testE2eManager) AddService(tag string, processor message.Processor) error {
-	panic("implement me")
-}
-
-func (*testE2eManager) RemoveService(tag string) error {
-	panic("implement me")
-}
-
-func (*testE2eManager) SendUnsafe(mt catalog.MessageType, recipient *id.ID, payload []byte, params clientE2E.Params) ([]id.Round, time.Time, error) {
-	panic("implement me")
-}
-
-func (*testE2eManager) EnableUnsafeReception() {
-	panic("implement me")
-}
-
-func (*testE2eManager) GetGroup() *cyclic.Group {
 	panic("implement me")
 }
 
@@ -496,14 +288,49 @@ func (*testE2eManager) GetDefaultHistoricalDHPrivkey() *cyclic.Int {
 	panic("implement me")
 }
 
-func (*testE2eManager) GetDefaultID() *id.ID {
-	panic("implement me")
-}
-
 func (tnm *testE2eManager) GetE2eMsg(i int) testE2eMessage {
 	tnm.RLock()
 	defer tnm.RUnlock()
 	return tnm.e2eMessages[i]
+}
+
+// testNetworkManager is a test implementation of NetworkManager interface.
+type testNetworkManager struct {
+	receptionMessages [][]format.Message
+	sendMessages      [][]cmix.TargetedCmixMessage
+	errSkip           int
+	sendErr           int
+	sync.RWMutex
+}
+
+func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
+	if tnm.sendErr == 1 {
+		return 0, nil, errors.New("SendManyCMIX error")
+	}
+
+	tnm.Lock()
+	defer tnm.Unlock()
+
+	tnm.sendMessages = append(tnm.sendMessages, messages)
+
+	receiveMessages := []format.Message{}
+	for _, msg := range messages {
+		receiveMsg := format.Message{}
+		receiveMsg.SetMac(msg.Mac)
+		receiveMsg.SetContents(msg.Payload)
+		receiveMsg.SetKeyFP(msg.Fingerprint)
+		receiveMessages = append(receiveMessages, receiveMsg)
+	}
+	tnm.receptionMessages = append(tnm.receptionMessages, receiveMessages)
+	return 0, nil, nil
+}
+
+func (*testNetworkManager) AddService(clientID *id.ID, newService message.Service, response message.Processor) {
+	panic("implement me")
+}
+
+func (*testNetworkManager) DeleteService(clientID *id.ID, toDelete message.Service, processor message.Processor) {
+	panic("implement me")
 }
 
 type dummyEventMgr struct{}

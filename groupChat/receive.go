@@ -10,8 +10,8 @@ package groupChat
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
@@ -25,7 +25,6 @@ const (
 	unmarshalInternalMsgErr = "failed to unmarshal group internal message: %+v"
 	unmarshalSenderIdErr    = "failed to unmarshal sender ID: %+v"
 	unmarshalPublicMsgErr   = "failed to unmarshal group cMix message contents: %+v"
-	findGroupKeyFpErr       = "no group with key fingerprint %s"
 	genCryptKeyMacErr       = "failed to generate encryption key for group " +
 		"cMix message because MAC verification failed (epoch %d could be off)"
 )

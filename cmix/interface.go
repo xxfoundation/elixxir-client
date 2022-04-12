@@ -172,7 +172,7 @@ type Client interface {
 	// TrackServices registers a callback that will get called every time a
 	// service is added or removed. It will receive the triggers list every time
 	// it is modified. It will only get callbacks while the network follower is
-	// running. Multiple trackTriggers can be registered
+	// running. Multiple trackTriggers can be registered.
 	TrackServices(tracker message.ServicesTracker)
 
 	/* === In inProcess ===================================================== */

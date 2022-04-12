@@ -34,14 +34,14 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	// should be ignored
 	tid, err := state.net.GetIdentity(receptionID.Source)
 	if err != nil {
-		jww.ERROR.Printf("received a request on %s which does not exist, " +
-			"this should not be possible")
+		jww.ERROR.Printf("received a request on %s which does not exist, "+
+			"this should not be possible: %+v", receptionID.Source.String(), err)
 		return
 	}
 	if tid.Creation.After(round.GetEndTimestamp()) {
-		jww.INFO.Printf("received a request on %s which was sent before " +
-			"creation of the identity, dropping because it is likely old " +
-			"(before a reset from backup")
+		jww.INFO.Printf("received a request on %s which was sent before "+
+			"creation of the identity, dropping because it is likely old "+
+			"(before a reset from backup", receptionID.Source.String())
 		return
 	}
 
@@ -55,7 +55,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 
 	jww.TRACE.Printf("processing requests: \n\t MYPUBKEY: %s "+
 		"\n\t PARTNERPUBKEY: %s \n\t ECRPAYLOAD: %s \n\t MAC: %s",
-		state.e2e.GetHistoricalDHPubkey(),
+		state.e2e.GetHistoricalDHPubkey().Text(64),
 		partnerPubKey.TextVerbose(16, 0),
 		base64.StdEncoding.EncodeToString(baseFmt.data),
 		base64.StdEncoding.EncodeToString(message.GetMac()))

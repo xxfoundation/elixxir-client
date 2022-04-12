@@ -10,14 +10,18 @@ package store
 import (
 	"bytes"
 	"github.com/cloudflare/circl/dh/sidh"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/states"
+	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
@@ -25,34 +29,23 @@ import (
 	"math/rand"
 	"reflect"
 	"sort"
-	"sync"
 	"testing"
+	"time"
 )
 
+type mockSentRequestHandler struct{}
+
+func (msrh *mockSentRequestHandler) Add(sr *SentRequest)    {}
+func (msrh *mockSentRequestHandler) Delete(sr *SentRequest) {}
+
 // Happy path.
-func TestNewStore(t *testing.T) {
+func TestNewOrLoadStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
-	privKeys := make([]*cyclic.Int, 10)
-	pubKeys := make([]*cyclic.Int, 10)
-	for i := range privKeys {
-		privKeys[i] = grp.NewInt(rand.Int63n(172))
-		pubKeys[i] = grp.ExpG(privKeys[i], grp.NewInt(1))
-	}
 
-	store, err := NewStore(kv, grp, privKeys)
+	_, err := NewOrLoadStore(kv, grp, &mockSentRequestHandler{})
 	if err != nil {
 		t.Errorf("NewStore() returned an error: %+v", err)
-	}
-
-	for i, key := range privKeys {
-		rq, ok := store.sentByFingerprints[auth.MakeRequestFingerprint(pubKeys[i])]
-		if !ok {
-			t.Errorf("Key not found in map (%d): %s", i, pubKeys[i].Text(16))
-		} else if rq.PrivKey.Cmp(key) != 0 {
-			t.Errorf("Key found in map (%d) does not match private: "+
-				"%s vs %s", i, key.Text(10), rq.PrivKey.Text(10))
-		}
 	}
 }
 
@@ -61,171 +54,112 @@ func TestLoadStore(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 
 	// Create a random storage object + keys
-	s, kv, privKeys := makeTestStore(t)
+	s, kv := makeTestStore(t)
 
 	// Generate random contact information and add it to the store
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 	_, sidhPubKey := genSidhAKeys(rng)
-	if err := s.AddReceived(c, sidhPubKey); err != nil {
+	r := makeTestRound(t)
+	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
 		t.Fatalf("AddReceived() returned an error: %+v", err)
 	}
 
 	// Create a sent request object and add it to the store
 	privSidh, pubSidh := genSidhAKeys(rng)
-	sr := &SentRequest{
-		kv:                      s.kv,
-		partner:                 id.NewIdFromUInt(rand.Uint64(), id.User, t),
-		partnerHistoricalPubKey: s.grp.NewInt(5),
-		myPrivKey:               s.grp.NewInt(6),
-		myPubKey:                s.grp.NewInt(7),
-		mySidHPrivKeyA:          privSidh,
-		mySidHPubKeyA:           pubSidh,
-		fingerprint:             format.Fingerprint{42},
-	}
-	if err := s.AddSent(sr.partner, sr.partnerHistoricalPubKey, sr.myPrivKey,
-		sr.myPubKey, sr.mySidHPrivKeyA, sr.mySidHPubKeyA,
-		sr.fingerprint); err != nil {
+	var sr *SentRequest
+	var err error
+	if sr, err = s.AddSent(id.NewIdFromUInt(rand.Uint64(), id.User, t), s.grp.NewInt(5), s.grp.NewInt(6),
+		s.grp.NewInt(7), privSidh, pubSidh,
+		format.Fingerprint{42}, false); err != nil {
 		t.Fatalf("AddSent() produced an error: %+v", err)
 	}
 
-	s.CheckIfNegotationIsNew(
-		sr.partner, auth.CreateNegotiationFingerprint(privKeys[0], sidhPubKey))
+	s.CheckIfNegotiationIsNew(
+		sr.partner, auth.CreateNegotiationFingerprint(sr.myPrivKey, sidhPubKey))
+
+	err = s.save()
+	if err != nil {
+		t.Errorf("Failed to save: %+v", err)
+	}
 
 	// Attempt to load the store
-	store, err := LoadStore(kv, s.grp, privKeys)
+	store, err := NewOrLoadStore(kv, s.grp, &mockSentRequestHandler{})
 	if err != nil {
 		t.Errorf("LoadStore() returned an error: %+v", err)
 	}
 
-	// Verify what was loaded equals what was put in.
-	// if !reflect.DeepEqual(s, store) {
-	// 	t.Errorf("LoadStore() returned incorrect Store."+
-	// 		"\n\texpected: %+v\n\treceived: %+v", s, store)
-	// }
-
-	// The above no longer works, so specifically check for the
-	// sent request and contact object that
-	// was added.
-	testC, testPubKeyA, err := store.GetReceivedRequest(c.ID)
-	if err != nil {
-		t.Errorf("GetReceivedRequest() returned an error: %+v", err)
+	srLoaded, ok := store.sentByID[*sr.partner]
+	if !ok {
+		t.Error("Sent request could not be found")
 	}
 
-	if !reflect.DeepEqual(c, testC) {
-		t.Errorf("GetReceivedRequest() returned incorrect Contact."+
-			"\n\texpected: %+v\n\treceived: %+v", c, testC)
+	if sr.myPrivKey == srLoaded.myPrivKey && sr.mySidHPrivKeyA == srLoaded.mySidHPrivKeyA && sr.mySidHPubKeyA == srLoaded.mySidHPubKeyA && sr.fingerprint == srLoaded.fingerprint && sr.partnerHistoricalPubKey == sr.partnerHistoricalPubKey {
+		t.Errorf("GetReceivedRequest() returned incorrect send req."+
+			"\n\texpected: %+v\n\treceived: %+v", sr, srLoaded)
 	}
 
-	keyBytes := make([]byte, sidhinterface.PubKeyByteSize)
-	sidhPubKey.Export(keyBytes)
-	expKeyBytes := make([]byte, sidhinterface.PubKeyByteSize)
-	testPubKeyA.Export(expKeyBytes)
-	if !reflect.DeepEqual(keyBytes, expKeyBytes) {
-		t.Errorf("GetReceivedRequest did not send proper sidh bytes")
-	}
-
-	partner := sr.partner
-	if s.receivedByID[*partner] == nil {
+	if s.receivedByID[*c.ID] == nil {
 		t.Errorf("AddSent() failed to add request to map for "+
-			"partner ID %s.", partner)
-	} else if !reflect.DeepEqual(sr, s.receivedByID[*partner].sent) {
-		t.Errorf("AddSent() failed store the correct SentRequest."+
-			"\n\texpected: %+v\n\treceived: %+v",
-			sr, s.receivedByID[*partner].sent)
-	}
-	expectedFP := fingerprint{
-		Type:    Specific,
-		PrivKey: nil,
-		Request: &ReceivedRequest{Sent, sr, nil, nil, sync.Mutex{}},
-	}
-	if _, exists := s.sentByFingerprints[sr.fingerprint]; !exists {
-		t.Errorf("AddSent() failed to add fingerprint to map for "+
-			"fingerprint %s.", sr.fingerprint)
-	} else if !reflect.DeepEqual(expectedFP,
-		s.sentByFingerprints[sr.fingerprint]) {
-		t.Errorf("AddSent() failed store the correct fingerprint."+
-			"\n\texpected: %+v\n\treceived: %+v",
-			expectedFP, s.sentByFingerprints[sr.fingerprint])
+			"partner ID %s.", c.ID)
 	}
 }
 
 // Happy path: tests that the correct SentRequest is added to the map.
 func TestStore_AddSent(t *testing.T) {
 	rng := csprng.NewSystemRNG()
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 
 	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
 
 	partner := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-	sr := &SentRequest{
-		kv:                      s.kv,
-		partner:                 partner,
-		partnerHistoricalPubKey: s.grp.NewInt(5),
-		myPrivKey:               s.grp.NewInt(6),
-		myPubKey:                s.grp.NewInt(7),
-		mySidHPrivKeyA:          sidhPrivKey,
-		mySidHPubKeyA:           sidhPubKey,
-		fingerprint:             format.Fingerprint{42},
-	}
-	// Note: nil keys are nil because they are not used when
-	// "Sent" sent request object is set.
-	// FIXME: We're overloading the same data type with multiple
-	// meaning and this is a difficult pattern to debug/implement correctly.
-	// Instead, consider separate data structures for different state and
-	// crossreferencing and storing separate or "typing" that object when
-	// serialized into the same collection.
-	expectedFP := fingerprint{
-		Type:    Specific,
-		PrivKey: nil,
-		Request: &ReceivedRequest{Sent, sr, nil, nil, sync.Mutex{}},
-	}
 
-	err := s.AddSent(partner, sr.partnerHistoricalPubKey, sr.myPrivKey,
-		sr.myPubKey, sr.mySidHPrivKeyA, sr.mySidHPubKeyA,
-		sr.fingerprint)
+	var sr *SentRequest
+	sr, err := s.AddSent(partner, s.grp.NewInt(5), s.grp.NewInt(6),
+		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+		format.Fingerprint{42}, false)
 	if err != nil {
 		t.Errorf("AddSent() produced an error: %+v", err)
 	}
 
-	if s.receivedByID[*partner] == nil {
+	if s.sentByID[*partner] == nil {
 		t.Errorf("AddSent() failed to add request to map for "+
 			"partner ID %s.", partner)
-	} else if !reflect.DeepEqual(sr, s.receivedByID[*partner].sent) {
+	} else if !reflect.DeepEqual(sr, s.sentByID[*partner]) {
 		t.Errorf("AddSent() failed store the correct SentRequest."+
 			"\n\texpected: %+v\n\treceived: %+v",
-			sr, s.receivedByID[*partner].sent)
+			sr, s.sentByID[*partner])
 	}
 
-	if _, exists := s.sentByFingerprints[sr.fingerprint]; !exists {
+	if _, exists := s.sentByID[*sr.partner]; !exists {
 		t.Errorf("AddSent() failed to add fingerprint to map for "+
 			"fingerprint %s.", sr.fingerprint)
-	} else if !reflect.DeepEqual(expectedFP,
-		s.sentByFingerprints[sr.fingerprint]) {
+	} else if !reflect.DeepEqual(sr,
+		s.sentByID[*sr.partner]) {
 		t.Errorf("AddSent() failed store the correct fingerprint."+
 			"\n\texpected: %+v\n\treceived: %+v",
-			expectedFP, s.sentByFingerprints[sr.fingerprint])
+			sr, s.sentByID[*sr.partner])
 	}
 }
 
 // Error path: request with request already exists in map.
 func TestStore_AddSent_PartnerAlreadyExistsError(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 
 	rng := csprng.NewSystemRNG()
 	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
 
 	partner := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 
-	err := s.AddSent(partner, s.grp.NewInt(5), s.grp.NewInt(6),
+	_, err := s.AddSent(partner, s.grp.NewInt(5), s.grp.NewInt(6),
 		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
-		format.Fingerprint{42})
+		format.Fingerprint{42}, true)
 	if err != nil {
 		t.Errorf("AddSent() produced an error: %+v", err)
 	}
 
-	err = s.AddSent(partner, s.grp.NewInt(5), s.grp.NewInt(6),
+	_, err = s.AddSent(partner, s.grp.NewInt(5), s.grp.NewInt(6),
 		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
-		format.Fingerprint{42})
+		format.Fingerprint{42}, true)
 	if err == nil {
 		t.Errorf("AddSent() did not produce the expected error for " +
 			"a request that already exists.")
@@ -234,14 +168,15 @@ func TestStore_AddSent_PartnerAlreadyExistsError(t *testing.T) {
 
 // Happy path.
 func TestStore_AddReceived(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 
 	rng := csprng.NewSystemRNG()
 	_, sidhPubKey := genSidhAKeys(rng)
 
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+	r := makeTestRound(t)
 
-	err := s.AddReceived(c, sidhPubKey)
+	err := s.AddReceived(c, sidhPubKey, r)
 	if err != nil {
 		t.Errorf("AddReceived() returned an error: %+v", err)
 	}
@@ -249,165 +184,48 @@ func TestStore_AddReceived(t *testing.T) {
 	if s.receivedByID[*c.ID] == nil {
 		t.Errorf("AddReceived() failed to add request to map for "+
 			"partner ID %s.", c.ID)
-	} else if !reflect.DeepEqual(c, *s.receivedByID[*c.ID].partner) {
-		t.Errorf("AddReceived() failed store the correct Contact."+
-			"\n\texpected: %+v\n\treceived: %+v", c,
-			*s.receivedByID[*c.ID].partner)
+	} else if !reflect.DeepEqual(r, s.receivedByID[*c.ID].round) {
+		t.Errorf("AddReceived() failed store the correct round."+
+			"\n\texpected: %+v\n\treceived: %+v", r, s.receivedByID[*c.ID].round)
 	}
 }
 
 // Error path: request with request already exists in map.
 func TestStore_AddReceived_PartnerAlreadyExistsError(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 
 	rng := csprng.NewSystemRNG()
 	_, sidhPubKey := genSidhAKeys(rng)
 
-	err := s.AddReceived(c, sidhPubKey)
+	r := makeTestRound(t)
+
+	err := s.AddReceived(c, sidhPubKey, r)
 	if err != nil {
 		t.Errorf("AddReceived() returned an error: %+v", err)
 	}
 
-	err = s.AddReceived(c, sidhPubKey)
+	err = s.AddReceived(c, sidhPubKey, r)
 	if err == nil {
 		t.Errorf("AddReceived() did not produce the expected error " +
 			"for a request that already exists.")
 	}
 }
 
-// Happy path: sentByFingerprints type is General.
-func TestStore_GetFingerprint_GeneralFingerprintType(t *testing.T) {
-	s, _, privKeys := makeTestStore(t)
-
-	pubkey := s.grp.ExpG(privKeys[0], s.grp.NewInt(1))
-	fp := auth.MakeRequestFingerprint(pubkey)
-	fpType, request, key, err := s.GetFingerprint(fp)
-	if err != nil {
-		t.Errorf("GetFingerprint() returned an error: %+v", err)
-	}
-	if fpType != General {
-		t.Errorf("GetFingerprint() returned incorrect FingerprintType."+
-			"\n\texpected: %d\n\treceived: %d", General, fpType)
-	}
-	if request != nil {
-		t.Errorf("GetFingerprint() returned incorrect request."+
-			"\n\texpected: %+v\n\treceived: %+v", nil, request)
-	}
-
-	if key.Cmp(privKeys[0]) == -2 {
-		t.Errorf("GetFingerprint() returned incorrect key."+
-			"\n\texpected: %s\n\treceived: %s",
-			privKeys[0].Text(10), key.Text(10))
-	}
-}
-
-// Happy path: sentByFingerprints type is Specific.
-func TestStore_GetFingerprint_SpecificFingerprintType(t *testing.T) {
-	s, _, _ := makeTestStore(t)
-	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-	rng := csprng.NewSystemRNG()
-	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
-
-	sr := &SentRequest{
-		kv:                      s.kv,
-		partner:                 partnerID,
-		partnerHistoricalPubKey: s.grp.NewInt(1),
-		myPrivKey:               s.grp.NewInt(2),
-		myPubKey:                s.grp.NewInt(3),
-		mySidHPrivKeyA:          sidhPrivKey,
-		mySidHPubKeyA:           sidhPubKey,
-		fingerprint:             format.Fingerprint{5},
-	}
-	if err := s.AddSent(sr.partner, sr.partnerHistoricalPubKey,
-		sr.myPrivKey, sr.myPubKey, sr.mySidHPrivKeyA, sr.mySidHPubKeyA,
-		sr.fingerprint); err != nil {
-		t.Fatalf("AddSent() returned an error: %+v", err)
-	}
-
-	fpType, request, key, err := s.GetFingerprint(sr.fingerprint)
-	if err != nil {
-		t.Errorf("GetFingerprint() returned an error: %+v", err)
-	}
-	if fpType != Specific {
-		t.Errorf("GetFingerprint() returned incorrect FingerprintType."+
-			"\n\texpected: %d\n\treceived: %d", Specific, fpType)
-	}
-	if request == nil {
-		t.Errorf("GetFingerprint() returned incorrect request."+
-			"\n\texpected: %+v\n\treceived: %+v", nil, request)
-	}
-	if key != nil {
-		t.Errorf("GetFingerprint() returned incorrect key."+
-			"\n\texpected: %v\n\treceived: %s", nil, key.Text(10))
-	}
-}
-
-// Error path: fingerprint does not exist.
-func TestStore_GetFingerprint_FingerprintError(t *testing.T) {
-	s, _, _ := makeTestStore(t)
-
-	fpType, request, key, err := s.GetFingerprint(format.Fingerprint{32})
-	if err == nil {
-		t.Error("GetFingerprint() did not return an error when the " +
-			"fingerprint should not be found.")
-	}
-	if fpType != 0 {
-		t.Errorf("GetFingerprint() returned incorrect FingerprintType."+
-			"\n\texpected: %d\n\treceived: %d", 0, fpType)
-	}
-	if request != nil {
-		t.Errorf("GetFingerprint() returned incorrect request."+
-			"\n\texpected: %+v\n\treceived: %+v", nil, request)
-	}
-	if key != nil {
-		t.Errorf("GetFingerprint() returned incorrect key."+
-			"\n\texpected: %v\n\treceived: %v", nil, key)
-	}
-}
-
-// Error path: fingerprint has an invalid type.
-func TestStore_GetFingerprint_InvalidFingerprintType(t *testing.T) {
-	s, _, privKeys := makeTestStore(t)
-
-	fp := auth.MakeRequestFingerprint(privKeys[0])
-	s.sentByFingerprints[fp] = fingerprint{
-		Type:    0,
-		PrivKey: s.sentByFingerprints[fp].PrivKey,
-		Request: s.sentByFingerprints[fp].Request,
-	}
-	fpType, request, key, err := s.GetFingerprint(fp)
-	if err == nil {
-		t.Error("GetFingerprint() did not return an error when the " +
-			"FingerprintType is invalid.")
-	}
-	if fpType != 0 {
-		t.Errorf("GetFingerprint() returned incorrect "+
-			"FingerprintType.\n\texpected: %d\n\treceived: %d",
-			0, fpType)
-	}
-	if request != nil {
-		t.Errorf("GetFingerprint() returned incorrect request."+
-			"\n\texpected: %+v\n\treceived: %+v", nil, request)
-	}
-	if key != nil {
-		t.Errorf("GetFingerprint() returned incorrect key."+
-			"\n\texpected: %v\n\treceived: %v", nil, key)
-	}
-}
-
 // Happy path.
 func TestStore_GetReceivedRequest(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 	rng := csprng.NewSystemRNG()
 	_, sidhPubKey := genSidhAKeys(rng)
 
-	if err := s.AddReceived(c, sidhPubKey); err != nil {
+	r := makeTestRound(t)
+
+	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
 		t.Fatalf("AddReceived() returned an error: %+v", err)
 	}
 
-	testC, testPubKeyA, err := s.GetReceivedRequest(c.ID)
+	testC, err := s.GetReceivedRequest(c.ID)
 	if err != nil {
 		t.Errorf("GetReceivedRequest() returned an error: %+v", err)
 	}
@@ -417,16 +235,10 @@ func TestStore_GetReceivedRequest(t *testing.T) {
 			"\n\texpected: %+v\n\treceived: %+v", c, testC)
 	}
 
-	// Check if the request's mutex is locked
-	if reflect.ValueOf(&s.receivedByID[*c.ID].mux).Elem().FieldByName(
-		"state").Int() != 1 {
-		t.Errorf("GetReceivedRequest() did not lock mutex.")
-	}
-
 	keyBytes := make([]byte, sidhinterface.PubKeyByteSize)
 	sidhPubKey.Export(keyBytes)
 	expKeyBytes := make([]byte, sidhinterface.PubKeyByteSize)
-	testPubKeyA.Export(expKeyBytes)
+	s.receivedByID[*c.ID].theirSidHPubKeyA.Export(expKeyBytes)
 	if !reflect.DeepEqual(keyBytes, expKeyBytes) {
 		t.Errorf("GetReceivedRequest did not send proper sidh bytes")
 	}
@@ -434,23 +246,24 @@ func TestStore_GetReceivedRequest(t *testing.T) {
 
 // Error path: request is deleted between first and second check.
 func TestStore_GetReceivedRequest_RequestDeleted(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 	rng := csprng.NewSystemRNG()
 	_, sidhPubKey := genSidhAKeys(rng)
-	if err := s.AddReceived(c, sidhPubKey); err != nil {
+
+	r := makeTestRound(t)
+
+	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
 		t.Fatalf("AddReceived() returned an error: %+v", err)
 	}
 
-	r := s.receivedByID[*c.ID]
-	r.mux.Lock()
+	rr := s.receivedByID[*c.ID]
+	rr.mux.Lock()
 
-	go func() {
-		delete(s.receivedByID, *c.ID)
-		r.mux.Unlock()
-	}()
+	delete(s.receivedByID, *c.ID)
+	rr.mux.Unlock()
 
-	testC, _, err := s.GetReceivedRequest(c.ID)
+	testC, err := s.GetReceivedRequest(c.ID)
 	if err == nil {
 		t.Errorf("GetReceivedRequest() did not return an error " +
 			"when the request should not exist.")
@@ -463,16 +276,16 @@ func TestStore_GetReceivedRequest_RequestDeleted(t *testing.T) {
 	}
 
 	// Check if the request's mutex is locked
-	if reflect.ValueOf(&r.mux).Elem().FieldByName("state").Int() != 0 {
+	if reflect.ValueOf(rr.mux).Elem().FieldByName("state").Int() != 0 {
 		t.Errorf("GetReceivedRequest() did not unlock mutex.")
 	}
 }
 
 // Error path: request does not exist.
 func TestStore_GetReceivedRequest_RequestNotInMap(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 
-	testC, testPubKeyA, err := s.GetReceivedRequest(
+	testC, err := s.GetReceivedRequest(
 		id.NewIdFromUInt(rand.Uint64(),
 			id.User, t))
 	if err == nil {
@@ -485,23 +298,22 @@ func TestStore_GetReceivedRequest_RequestNotInMap(t *testing.T) {
 			"\n\texpected: %+v\n\treceived: %+v", contact.Contact{},
 			testC)
 	}
-
-	if testPubKeyA != nil {
-		t.Errorf("Expected empty sidh public key!")
-	}
 }
 
 // Happy path.
 func TestStore_GetReceivedRequestData(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 	rng := csprng.NewSystemRNG()
 	_, sidhPubKey := genSidhAKeys(rng)
-	if err := s.AddReceived(c, sidhPubKey); err != nil {
+
+	r := makeTestRound(t)
+
+	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
 		t.Fatalf("AddReceived() returned an error: %+v", err)
 	}
 
-	testC, err := s.GetReceivedRequestData(c.ID)
+	testC, err := s.GetReceivedRequest(c.ID)
 	if err != nil {
 		t.Errorf("GetReceivedRequestData() returned an error: %+v", err)
 	}
@@ -514,9 +326,9 @@ func TestStore_GetReceivedRequestData(t *testing.T) {
 
 // Error path: request does not exist.
 func TestStore_GetReceivedRequestData_RequestNotInMap(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 
-	testC, err := s.GetReceivedRequestData(id.NewIdFromUInt(
+	testC, err := s.GetReceivedRequest(id.NewIdFromUInt(
 		rand.Uint64(),
 		id.User, t))
 	if err == nil {
@@ -533,25 +345,20 @@ func TestStore_GetReceivedRequestData_RequestNotInMap(t *testing.T) {
 
 // Happy path: request is of type Receive.
 func TestStore_GetRequest_ReceiveRequest(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 	rng := csprng.NewSystemRNG()
 	_, sidhPubKey := genSidhAKeys(rng)
-	if err := s.AddReceived(c, sidhPubKey); err != nil {
+
+	r := makeTestRound(t)
+
+	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
 		t.Fatalf("AddReceived() returned an error: %+v", err)
 	}
 
-	rType, request, con, err := s.GetRequest(c.ID)
+	con, err := s.GetReceivedRequest(c.ID)
 	if err != nil {
 		t.Errorf("GetRequest() returned an error: %+v", err)
-	}
-	if rType != Receive {
-		t.Errorf("GetRequest() returned incorrect RequestType."+
-			"\n\texpected: %d\n\treceived: %d", Receive, rType)
-	}
-	if request != nil {
-		t.Errorf("GetRequest() returned incorrect SentRequest."+
-			"\n\texpected: %+v\n\treceived: %+v", nil, request)
 	}
 	if !reflect.DeepEqual(c, con) {
 		t.Errorf("GetRequest() returned incorrect Contact."+
@@ -559,91 +366,76 @@ func TestStore_GetRequest_ReceiveRequest(t *testing.T) {
 	}
 }
 
-// Happy path: request is of type Sent.
-func TestStore_GetRequest_SentRequest(t *testing.T) {
-	s, _, _ := makeTestStore(t)
-	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-	rng := csprng.NewSystemRNG()
-	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
-
-	sr := &SentRequest{
-		kv:                      s.kv,
-		partner:                 partnerID,
-		partnerHistoricalPubKey: s.grp.NewInt(1),
-		myPrivKey:               s.grp.NewInt(2),
-		myPubKey:                s.grp.NewInt(3),
-		mySidHPrivKeyA:          sidhPrivKey,
-		mySidHPubKeyA:           sidhPubKey,
-		fingerprint:             format.Fingerprint{5},
-	}
-	if err := s.AddSent(sr.partner, sr.partnerHistoricalPubKey, sr.myPrivKey,
-		sr.myPubKey, sr.mySidHPrivKeyA, sr.mySidHPubKeyA,
-		sr.fingerprint); err != nil {
-		t.Fatalf("AddSent() returned an error: %+v", err)
-	}
-
-	rType, request, con, err := s.GetRequest(sr.partner)
-	if err != nil {
-		t.Errorf("GetRequest() returned an error: %+v", err)
-	}
-	if rType != Sent {
-		t.Errorf("GetRequest() returned incorrect RequestType."+
-			"\n\texpected: %d\n\treceived: %d", Sent, rType)
-	}
-	if !reflect.DeepEqual(sr, request) {
-		t.Errorf("GetRequest() returned incorrect SentRequest."+
-			"\n\texpected: %+v\n\treceived: %+v", sr, request)
-	}
-	if !reflect.DeepEqual(contact.Contact{}, con) {
-		t.Errorf("GetRequest() returned incorrect Contact."+
-			"\n\texpected: %+v\n\treceived: %+v", contact.Contact{},
-			con)
-	}
-}
-
-// Error path: request type is invalid.
-func TestStore_GetRequest_InvalidType(t *testing.T) {
-	s, _, _ := makeTestStore(t)
-	uid := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-	s.receivedByID[*uid] = &ReceivedRequest{rt: 42}
-
-	rType, request, con, err := s.GetRequest(uid)
-	if err == nil {
-		t.Errorf("GetRequest() did not return an error " +
-			"when the request type should be invalid.")
-	}
-	if rType != 0 {
-		t.Errorf("GetRequest() returned incorrect RequestType."+
-			"\n\texpected: %d\n\treceived: %d", 0, rType)
-	}
-	if request != nil {
-		t.Errorf("GetRequest() returned incorrect SentRequest."+
-			"\n\texpected: %+v\n\treceived: %+v", nil, request)
-	}
-	if !reflect.DeepEqual(contact.Contact{}, con) {
-		t.Errorf("GetRequest() returned incorrect Contact."+
-			"\n\texpected: %+v\n\treceived: %+v", contact.Contact{},
-			con)
-	}
-}
+//
+//// Happy path: request is of type Sent.
+//func TestStore_GetRequest_SentRequest(t *testing.T) {
+//	s, _ := makeTestStore(t)
+//	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+//	rng := csprng.NewSystemRNG()
+//	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
+//
+//	var sr *SentRequest
+//	var err error
+//	if sr, err = s.AddSent(partnerID, s.grp.NewInt(5), s.grp.NewInt(6),
+//		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+//		format.Fingerprint{42}, false); err != nil {
+//		t.Fatalf("AddSent() returned an error: %+v", err)
+//	}
+//
+//	rType, request, con, err := s.GetRequest(sr.partner)
+//	if err != nil {
+//		t.Errorf("GetRequest() returned an error: %+v", err)
+//	}
+//	if rType != Sent {
+//		t.Errorf("GetRequest() returned incorrect RequestType."+
+//			"\n\texpected: %d\n\treceived: %d", Sent, rType)
+//	}
+//	if !reflect.DeepEqual(sr, request) {
+//		t.Errorf("GetRequest() returned incorrect SentRequest."+
+//			"\n\texpected: %+v\n\treceived: %+v", sr, request)
+//	}
+//	if !reflect.DeepEqual(contact.Contact{}, con) {
+//		t.Errorf("GetRequest() returned incorrect Contact."+
+//			"\n\texpected: %+v\n\treceived: %+v", contact.Contact{},
+//			con)
+//	}
+//}
+//
+//// Error path: request type is invalid.
+//func TestStore_GetRequest_InvalidType(t *testing.T) {
+//	s, _, _ := makeTestStore(t)
+//	uid := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+//	s.receivedByID[*uid] = &ReceivedRequest{rt: 42}
+//
+//	rType, request, con, err := s.GetRequest(uid)
+//	if err == nil {
+//		t.Errorf("GetRequest() did not return an error " +
+//			"when the request type should be invalid.")
+//	}
+//	if rType != 0 {
+//		t.Errorf("GetRequest() returned incorrect RequestType."+
+//			"\n\texpected: %d\n\treceived: %d", 0, rType)
+//	}
+//	if request != nil {
+//		t.Errorf("GetRequest() returned incorrect SentRequest."+
+//			"\n\texpected: %+v\n\treceived: %+v", nil, request)
+//	}
+//	if !reflect.DeepEqual(contact.Contact{}, con) {
+//		t.Errorf("GetRequest() returned incorrect Contact."+
+//			"\n\texpected: %+v\n\treceived: %+v", contact.Contact{},
+//			con)
+//	}
+//}
 
 // Error path: request does not exist in map.
 func TestStore_GetRequest_RequestNotInMap(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	uid := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 
-	rType, request, con, err := s.GetRequest(uid)
+	con, err := s.GetReceivedRequest(uid)
 	if err == nil {
 		t.Errorf("GetRequest() did not return an error " +
 			"when the request was not in the map.")
-	}
-	if rType != 0 {
-		t.Errorf("GetRequest() returned incorrect RequestType."+
-			"\n\texpected: %d\n\treceived: %d", 0, rType)
-	}
-	if request != nil {
-		t.Errorf("GetRequest() returned incorrect SentRequest."+
-			"\n\texpected: %+v\n\treceived: %+v", nil, request)
 	}
 	if !reflect.DeepEqual(contact.Contact{}, con) {
 		t.Errorf("GetRequest() returned incorrect Contact."+
@@ -653,61 +445,67 @@ func TestStore_GetRequest_RequestNotInMap(t *testing.T) {
 }
 
 // Happy path.
-func TestStore_Fail(t *testing.T) {
-	s, _, _ := makeTestStore(t)
-	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
-	rng := csprng.NewSystemRNG()
-	_, sidhPubKey := genSidhAKeys(rng)
-	if err := s.AddReceived(c, sidhPubKey); err != nil {
-		t.Fatalf("AddReceived() returned an error: %+v", err)
-	}
-	if _, _, err := s.GetReceivedRequest(c.ID); err != nil {
-		t.Fatalf("GetReceivedRequest() returned an error: %+v", err)
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("The code did not panic")
-		}
-	}()
-
-	s.Done(c.ID)
-
-	// Check if the request's mutex is locked
-	if reflect.ValueOf(&s.receivedByID[*c.ID].mux).Elem().FieldByName(
-		"state").Int() != 0 {
-		t.Errorf("Done() did not unlock mutex.")
-	}
-}
+//func TestStore_Fail(t *testing.T) {
+//	s, _ := makeTestStore(t)
+//	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+//	rng := csprng.NewSystemRNG()
+//	_, sidhPubKey := genSidhAKeys(rng)
+//
+//  r := makeTestRound()
+//
+//	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
+//		t.Fatalf("AddReceived() returned an error: %+v", err)
+//	}
+//	if _, err := s.GetReceivedRequest(c.ID); err != nil {
+//		t.Fatalf("GetReceivedRequest() returned an error: %+v", err)
+//	}
+//
+//	defer func() {
+//		if r := recover(); r != nil {
+//			t.Errorf("The code did not panic")
+//		}
+//	}()
+//
+//	s.Done(c.ID)
+//
+//	// Check if the request's mutex is locked
+//	if reflect.ValueOf(&s.receivedByID[*c.ID].mux).Elem().FieldByName(
+//		"state").Int() != 0 {
+//		t.Errorf("Done() did not unlock mutex.")
+//	}
+//}
 
 // Error path: request does not exist.
-func TestStore_Fail_RequestNotInMap(t *testing.T) {
-	s, _, _ := makeTestStore(t)
-
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("Done() did not panic when the " +
-				"request is not in map.")
-		}
-	}()
-
-	s.Done(id.NewIdFromUInt(rand.Uint64(), id.User, t))
-}
+//func TestStore_Fail_RequestNotInMap(t *testing.T) {
+//	s,, _ := makeTestStore(t)
+//
+//	defer func() {
+//		if r := recover(); r == nil {
+//			t.Errorf("Done() did not panic when the " +
+//				"request is not in map.")
+//		}
+//	}()
+//
+//	s.Done(id.NewIdFromUInt(rand.Uint64(), id.User, t))
+//}
 
 // Happy path: partner request.
 func TestStore_Delete_ReceiveRequest(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 	rng := csprng.NewSystemRNG()
 	_, sidhPubKey := genSidhAKeys(rng)
-	if err := s.AddReceived(c, sidhPubKey); err != nil {
+
+	r := makeTestRound(t)
+
+	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
 		t.Fatalf("AddReceived() returned an error: %+v", err)
 	}
-	if _, _, err := s.GetReceivedRequest(c.ID); err != nil {
+	if _, err := s.GetReceivedRequest(c.ID); err != nil {
 		t.Fatalf("GetReceivedRequest() returned an error: %+v", err)
 	}
 
-	err := s.Delete(c.ID)
+	err := s.DeleteRequest(c.ID)
 	if err != nil {
 		t.Errorf("delete() returned an error: %+v", err)
 	}
@@ -719,7 +517,7 @@ func TestStore_Delete_ReceiveRequest(t *testing.T) {
 
 // Happy path: sent request.
 func TestStore_Delete_SentRequest(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	rng := csprng.NewSystemRNG()
 	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
@@ -733,16 +531,17 @@ func TestStore_Delete_SentRequest(t *testing.T) {
 		mySidHPubKeyA:           sidhPubKey,
 		fingerprint:             format.Fingerprint{5},
 	}
-	if err := s.AddSent(sr.partner, sr.partnerHistoricalPubKey,
-		sr.myPrivKey, sr.myPubKey, sr.mySidHPrivKeyA,
-		sr.mySidHPubKeyA, sr.fingerprint); err != nil {
+	if _, err := s.AddSent(sr.partner, s.grp.NewInt(5), s.grp.NewInt(6),
+		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+		format.Fingerprint{42}, false); err != nil {
 		t.Fatalf("AddSent() returned an error: %+v", err)
 	}
-	if _, _, _, err := s.GetFingerprint(sr.fingerprint); err != nil {
-		t.Fatalf("GetFingerprint() returned an error: %+v", err)
-	}
 
-	err := s.Delete(sr.partner)
+	//if _, _, _, err := s.GetFingerprint(sr.fingerprint); err != nil {  // TODO legacy
+	//	t.Fatalf("GetFingerprint() returned an error: %+v", err)
+	//}
+
+	err := s.DeleteRequest(sr.partner)
 	if err != nil {
 		t.Errorf("delete() returned an error: %+v", err)
 	}
@@ -752,7 +551,7 @@ func TestStore_Delete_SentRequest(t *testing.T) {
 			sr.partner)
 	}
 
-	if _, exists := s.sentByFingerprints[sr.fingerprint]; exists {
+	if _, exists := s.sentByID[*sr.partner]; exists {
 		t.Errorf("delete() failed to delete fingerprint for fp %v.",
 			sr.fingerprint)
 	}
@@ -760,9 +559,9 @@ func TestStore_Delete_SentRequest(t *testing.T) {
 
 // Error path: request does not exist.
 func TestStore_Delete_RequestNotInMap(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 
-	err := s.Delete(id.NewIdFromUInt(rand.Uint64(), id.User, t))
+	err := s.DeleteRequest(id.NewIdFromUInt(rand.Uint64(), id.User, t))
 	if err == nil {
 		t.Errorf("delete() did not return an error when the request " +
 			"was not in the map.")
@@ -771,7 +570,7 @@ func TestStore_Delete_RequestNotInMap(t *testing.T) {
 
 // Unit test of Store.GetAllReceived.
 func TestStore_GetAllReceived(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	numReceived := 10
 
 	expectContactList := make([]contact.Contact, 0, numReceived)
@@ -781,7 +580,9 @@ func TestStore_GetAllReceived(t *testing.T) {
 		rng := csprng.NewSystemRNG()
 		_, sidhPubKey := genSidhAKeys(rng)
 
-		if err := s.AddReceived(c, sidhPubKey); err != nil {
+		r := makeTestRound(t)
+
+		if err := s.AddReceived(c, sidhPubKey, r); err != nil {
 			t.Fatalf("AddReceived() returned an error: %+v", err)
 		}
 
@@ -789,7 +590,12 @@ func TestStore_GetAllReceived(t *testing.T) {
 	}
 
 	// Check that GetAllReceived returns all contacts
-	receivedContactList := s.GetAllReceived()
+	receivedRequestList := s.GetAllReceivedRequests()
+	var receivedContactList = make([]contact.Contact, len(receivedRequestList))
+	for i, req := range receivedRequestList {
+		receivedContactList[i] = req.GetContact()
+	}
+
 	if len(receivedContactList) != numReceived {
 		t.Errorf("GetAllReceived did not return expected amount of contacts."+
 			"\nExpected: %d"+
@@ -817,10 +623,10 @@ func TestStore_GetAllReceived(t *testing.T) {
 // Tests that Store.GetAllReceived returns an empty list when there are no
 // received receivedByID.
 func TestStore_GetAllReceived_EmptyList(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 
 	// Check that GetAllReceived returns all contacts
-	receivedContactList := s.GetAllReceived()
+	receivedContactList := s.GetAllReceivedRequests()
 	if len(receivedContactList) != 0 {
 		t.Errorf("GetAllReceived did not return expected amount of contacts."+
 			"\nExpected: %d"+
@@ -832,25 +638,15 @@ func TestStore_GetAllReceived_EmptyList(t *testing.T) {
 		partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 		rng := csprng.NewSystemRNG()
 		sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
-		sr := &SentRequest{
-			kv:                      s.kv,
-			partner:                 partnerID,
-			partnerHistoricalPubKey: s.grp.NewInt(1),
-			myPrivKey:               s.grp.NewInt(2),
-			myPubKey:                s.grp.NewInt(3),
-			mySidHPrivKeyA:          sidhPrivKey,
-			mySidHPubKeyA:           sidhPubKey,
-			fingerprint:             format.Fingerprint{5},
-		}
-		if err := s.AddSent(sr.partner, sr.partnerHistoricalPubKey,
-			sr.myPrivKey, sr.myPubKey, sr.mySidHPrivKeyA,
-			sr.mySidHPubKeyA, sr.fingerprint); err != nil {
+		if _, err := s.AddSent(partnerID, s.grp.NewInt(5), s.grp.NewInt(6),
+			s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+			format.Fingerprint{42}, false); err != nil {
 			t.Fatalf("AddSent() returned an error: %+v", err)
 		}
 	}
 
 	// Check that GetAllReceived returns all contacts
-	receivedContactList = s.GetAllReceived()
+	receivedContactList = s.GetAllReceivedRequests()
 	if len(receivedContactList) != 0 {
 		t.Errorf("GetAllReceived did not return expected amount of contacts. "+
 			"It may be pulling from Sent Requests."+
@@ -863,7 +659,7 @@ func TestStore_GetAllReceived_EmptyList(t *testing.T) {
 // Tests that Store.GetAllReceived returns only Sent receivedByID when there
 // are both Sent and Receive receivedByID in Store.
 func TestStore_GetAllReceived_MixSentReceived(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	numReceived := 10
 
 	// Add multiple received contact receivedByID
@@ -873,32 +669,24 @@ func TestStore_GetAllReceived_MixSentReceived(t *testing.T) {
 		rng := csprng.NewSystemRNG()
 		_, sidhPubKey := genSidhAKeys(rng)
 
-		if err := s.AddReceived(c, sidhPubKey); err != nil {
+		r := makeTestRound(t)
+
+		if err := s.AddReceived(c, sidhPubKey, r); err != nil {
 			t.Fatalf("AddReceived() returned an error: %+v", err)
 		}
 
 		// Add sent request
 		partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 		sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
-		sr := &SentRequest{
-			kv:                      s.kv,
-			partner:                 partnerID,
-			partnerHistoricalPubKey: s.grp.NewInt(1),
-			myPrivKey:               s.grp.NewInt(2),
-			myPubKey:                s.grp.NewInt(3),
-			mySidHPrivKeyA:          sidhPrivKey,
-			mySidHPubKeyA:           sidhPubKey,
-			fingerprint:             format.Fingerprint{5},
-		}
-		if err := s.AddSent(sr.partner, sr.partnerHistoricalPubKey,
-			sr.myPrivKey, sr.myPubKey, sr.mySidHPrivKeyA,
-			sr.mySidHPubKeyA, sr.fingerprint); err != nil {
+		if _, err := s.AddSent(partnerID, s.grp.NewInt(5), s.grp.NewInt(6),
+			s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+			format.Fingerprint{42}, false); err != nil {
 			t.Fatalf("AddSent() returned an error: %+v", err)
 		}
 	}
 
 	// Check that GetAllReceived returns all contacts
-	receivedContactList := s.GetAllReceived()
+	receivedContactList := s.GetAllReceivedRequests()
 	if len(receivedContactList) != numReceived {
 		t.Errorf("GetAllReceived did not return expected amount of contacts. "+
 			"It may be pulling from Sent Requests."+
@@ -911,14 +699,17 @@ func TestStore_GetAllReceived_MixSentReceived(t *testing.T) {
 // Error case: Call DeleteRequest on a request that does
 // not exist.
 func TestStore_DeleteRequest_NonexistantRequest(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 	rng := csprng.NewSystemRNG()
 	_, sidhPubKey := genSidhAKeys(rng)
-	if err := s.AddReceived(c, sidhPubKey); err != nil {
+
+	r := makeTestRound(t)
+
+	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
 		t.Fatalf("AddReceived() returned an error: %+v", err)
 	}
-	if _, _, err := s.GetReceivedRequest(c.ID); err != nil {
+	if _, err := s.GetReceivedRequest(c.ID); err != nil {
 		t.Fatalf("GetReceivedRequest() returned an error: %+v", err)
 	}
 
@@ -932,14 +723,17 @@ func TestStore_DeleteRequest_NonexistantRequest(t *testing.T) {
 
 // Unit test.
 func TestStore_DeleteReceiveRequests(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 	rng := csprng.NewSystemRNG()
 	_, sidhPubKey := genSidhAKeys(rng)
-	if err := s.AddReceived(c, sidhPubKey); err != nil {
+
+	r := makeTestRound(t)
+
+	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
 		t.Fatalf("AddReceived() returned an error: %+v", err)
 	}
-	if _, _, err := s.GetReceivedRequest(c.ID); err != nil {
+	if _, err := s.GetReceivedRequest(c.ID); err != nil {
 		t.Fatalf("GetReceivedRequest() returned an error: %+v", err)
 	}
 
@@ -955,27 +749,19 @@ func TestStore_DeleteReceiveRequests(t *testing.T) {
 
 // Unit test.
 func TestStore_DeleteSentRequests(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	rng := csprng.NewSystemRNG()
 	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
-	sr := &SentRequest{
-		kv:                      s.kv,
-		partner:                 partnerID,
-		partnerHistoricalPubKey: s.grp.NewInt(1),
-		myPrivKey:               s.grp.NewInt(2),
-		myPubKey:                s.grp.NewInt(3),
-		mySidHPrivKeyA:          sidhPrivKey,
-		mySidHPubKeyA:           sidhPubKey,
-		fingerprint:             format.Fingerprint{5},
-	}
-	if err := s.AddSent(sr.partner, sr.partnerHistoricalPubKey,
-		sr.myPrivKey, sr.myPubKey, sr.mySidHPrivKeyA,
-		sr.mySidHPubKeyA, sr.fingerprint); err != nil {
+	var sr *SentRequest
+	var err error
+	if sr, err = s.AddSent(partnerID, s.grp.NewInt(5), s.grp.NewInt(6),
+		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+		format.Fingerprint{42}, false); err != nil {
 		t.Fatalf("AddSent() returned an error: %+v", err)
 	}
 
-	err := s.DeleteSentRequests()
+	err = s.DeleteSentRequests()
 	if err != nil {
 		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
 	}
@@ -985,7 +771,7 @@ func TestStore_DeleteSentRequests(t *testing.T) {
 			sr.partner)
 	}
 
-	if _, exists := s.sentByFingerprints[sr.fingerprint]; exists {
+	if _, exists := s.sentByID[*sr.partner]; exists {
 		t.Errorf("delete() failed to delete fingerprint for fp %v.",
 			sr.fingerprint)
 	}
@@ -993,11 +779,14 @@ func TestStore_DeleteSentRequests(t *testing.T) {
 
 // Tests that DeleteSentRequests does not affect partner receivedByID in map
 func TestStore_DeleteSentRequests_ReceiveInMap(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 	rng := csprng.NewSystemRNG()
 	_, sidhPubKey := genSidhAKeys(rng)
-	if err := s.AddReceived(c, sidhPubKey); err != nil {
+
+	r := makeTestRound(t)
+
+	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
 		t.Fatalf("AddReceived() returned an error: %+v", err)
 	}
 
@@ -1012,34 +801,25 @@ func TestStore_DeleteSentRequests_ReceiveInMap(t *testing.T) {
 
 }
 
-// Tests that DeleteReceiveRequests does not affect sent receivedByID in map
+// Tests that DeleteReceiveRequests does not affect sentByID in map
 func TestStore_DeleteReceiveRequests_SentInMap(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	rng := csprng.NewSystemRNG()
 	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
-	sr := &SentRequest{
-		kv:                      s.kv,
-		partner:                 partnerID,
-		partnerHistoricalPubKey: s.grp.NewInt(1),
-		myPrivKey:               s.grp.NewInt(2),
-		myPubKey:                s.grp.NewInt(3),
-		mySidHPrivKeyA:          sidhPrivKey,
-		mySidHPubKeyA:           sidhPubKey,
-		fingerprint:             format.Fingerprint{5},
-	}
-	if err := s.AddSent(sr.partner, sr.partnerHistoricalPubKey,
-		sr.myPrivKey, sr.myPubKey, sr.mySidHPrivKeyA,
-		sr.mySidHPubKeyA, sr.fingerprint); err != nil {
+	var err error
+	if _, err = s.AddSent(partnerID, s.grp.NewInt(5), s.grp.NewInt(6),
+		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+		format.Fingerprint{42}, false); err != nil {
 		t.Fatalf("AddSent() returned an error: %+v", err)
 	}
 
-	err := s.DeleteReceiveRequests()
+	err = s.DeleteReceiveRequests()
 	if err != nil {
 		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
 	}
 
-	if s.receivedByID[*partnerID] == nil {
+	if s.sentByID[*partnerID] == nil {
 		t.Fatalf("DeleteReceiveRequests removes sent receivedByID!")
 	}
 
@@ -1047,33 +827,26 @@ func TestStore_DeleteReceiveRequests_SentInMap(t *testing.T) {
 
 // Unit test.
 func TestStore_DeleteAllRequests(t *testing.T) {
-	s, _, _ := makeTestStore(t)
+	s, _ := makeTestStore(t)
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	rng := csprng.NewSystemRNG()
 	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
-	sr := &SentRequest{
-		kv:                      s.kv,
-		partner:                 partnerID,
-		partnerHistoricalPubKey: s.grp.NewInt(1),
-		myPrivKey:               s.grp.NewInt(2),
-		myPubKey:                s.grp.NewInt(3),
-		mySidHPrivKeyA:          sidhPrivKey,
-		mySidHPubKeyA:           sidhPubKey,
-		fingerprint:             format.Fingerprint{5},
-	}
-	if err := s.AddSent(sr.partner, sr.partnerHistoricalPubKey,
-		sr.myPrivKey, sr.myPubKey, sr.mySidHPrivKeyA,
-		sr.mySidHPubKeyA, sr.fingerprint); err != nil {
+	var sr *SentRequest
+	var err error
+	if sr, err = s.AddSent(partnerID, s.grp.NewInt(5), s.grp.NewInt(6),
+		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+		format.Fingerprint{42}, false); err != nil {
 		t.Fatalf("AddSent() returned an error: %+v", err)
 	}
 
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 	_, sidhPubKey = genSidhAKeys(rng)
-	if err := s.AddReceived(c, sidhPubKey); err != nil {
+	r := makeTestRound(t)
+	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
 		t.Fatalf("AddReceived() returned an error: %+v", err)
 	}
 
-	err := s.DeleteAllRequests()
+	err = s.DeleteAllRequests()
 	if err != nil {
 		t.Fatalf("DeleteAllRequests returned an error: %+v", err)
 	}
@@ -1083,7 +856,7 @@ func TestStore_DeleteAllRequests(t *testing.T) {
 			sr.partner)
 	}
 
-	if _, exists := s.sentByFingerprints[sr.fingerprint]; exists {
+	if _, exists := s.sentByID[*sr.partner]; exists {
 		t.Errorf("delete() failed to delete fingerprint for fp %v.",
 			sr.fingerprint)
 	}
@@ -1094,20 +867,16 @@ func TestStore_DeleteAllRequests(t *testing.T) {
 
 }
 
-func makeTestStore(t *testing.T) (*Store, *versioned.KV, []*cyclic.Int) {
+func makeTestStore(t *testing.T) (*Store, *versioned.KV) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
-	privKeys := make([]*cyclic.Int, 10)
-	for i := range privKeys {
-		privKeys[i] = grp.NewInt(rand.Int63n(170) + 1)
-	}
 
-	store, err := NewStore(kv, grp, privKeys)
+	store, err := NewOrLoadStore(kv, grp, &mockSentRequestHandler{})
 	if err != nil {
 		t.Fatalf("Failed to create new Store: %+v", err)
 	}
 
-	return store, kv, privKeys
+	return store, kv
 }
 
 func genSidhAKeys(rng io.Reader) (*sidh.PrivateKey, *sidh.PublicKey) {
@@ -1132,4 +901,36 @@ func genSidhBKeys(rng io.Reader) (*sidh.PrivateKey, *sidh.PublicKey) {
 	sidHPrivKeyB.GeneratePublicKey(sidHPubKeyB)
 
 	return sidHPrivKeyB, sidHPubKeyB
+}
+
+func makeTestRound(t *testing.T) rounds.Round {
+	nids := []*id.ID{
+		id.NewIdFromString("one", id.User, t),
+		id.NewIdFromString("two", id.User, t),
+		id.NewIdFromString("three", id.User, t)}
+	r := rounds.Round{
+		ID:               2,
+		State:            states.REALTIME,
+		Topology:         connect.NewCircuit(nids),
+		Timestamps:       nil,
+		Errors:           nil,
+		BatchSize:        0,
+		AddressSpaceSize: 0,
+		UpdateID:         0,
+		Raw: &mixmessages.RoundInfo{
+			ID:                         5,
+			UpdateID:                   0,
+			State:                      2,
+			BatchSize:                  5,
+			Topology:                   [][]byte{[]byte("one"), []byte("two")},
+			Timestamps:                 []uint64{uint64(time.Now().UnixNano()), uint64(time.Now().UnixNano())},
+			Errors:                     nil,
+			ClientErrors:               nil,
+			ResourceQueueTimeoutMillis: 0,
+			Signature:                  nil,
+			AddressSpaceSize:           0,
+			EccSignature:               nil,
+		},
+	}
+	return r
 }

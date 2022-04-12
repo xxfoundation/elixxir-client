@@ -1,11 +1,23 @@
 package auth
 
 import (
+	"gitlab.com/elixxir/client/auth/store"
+	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/primitives/states"
+	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
+	"testing"
+	"time"
 )
+
+type mockSentRequestHandler struct{}
+
+func (msrh *mockSentRequestHandler) Add(sr *store.SentRequest)    {}
+func (msrh *mockSentRequestHandler) Delete(sr *store.SentRequest) {}
 
 func getGroup() *cyclic.Group {
 	return cyclic.NewGroup(
@@ -41,4 +53,36 @@ func newOwnership(s string) []byte {
 	ownership := make([]byte, ownershipSize)
 	copy(ownership[:], s)
 	return ownership
+}
+
+func makeTestRound(t *testing.T) rounds.Round {
+	nids := []*id.ID{
+		id.NewIdFromString("one", id.User, t),
+		id.NewIdFromString("two", id.User, t),
+		id.NewIdFromString("three", id.User, t)}
+	r := rounds.Round{
+		ID:               2,
+		State:            states.REALTIME,
+		Topology:         connect.NewCircuit(nids),
+		Timestamps:       nil,
+		Errors:           nil,
+		BatchSize:        0,
+		AddressSpaceSize: 0,
+		UpdateID:         0,
+		Raw: &mixmessages.RoundInfo{
+			ID:                         5,
+			UpdateID:                   0,
+			State:                      2,
+			BatchSize:                  5,
+			Topology:                   [][]byte{[]byte("test"), []byte("test")},
+			Timestamps:                 []uint64{uint64(time.Now().UnixNano()), uint64(time.Now().UnixNano())},
+			Errors:                     nil,
+			ClientErrors:               nil,
+			ResourceQueueTimeoutMillis: 0,
+			Signature:                  nil,
+			AddressSpaceSize:           0,
+			EccSignature:               nil,
+		},
+	}
+	return r
 }

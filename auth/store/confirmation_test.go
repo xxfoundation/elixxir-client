@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
@@ -31,49 +32,65 @@ func TestStore_StoreConfirmation_LoadConfirmation(t *testing.T) {
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
 	testValues := make([]struct {
-		partner                   *id.ID
-		fingerprint, confirmation []byte
+		partner           *id.ID
+		fingerprint       format.Fingerprint
+		confirmation, mac []byte
 	}, 10)
 
-	partner, _ := id.NewRandomID(prng, id.User)
+	var partner *id.ID
 	for i := range testValues {
-		if i%2 == 0 {
-			partner, _ = id.NewRandomID(prng, id.User)
-		}
+		partner, _ = id.NewRandomID(prng, id.User)
 
 		// Generate original fingerprint
-		var fp []byte
+
+		var fpBytes []byte
+		var fp format.Fingerprint
 		if i%2 == 1 {
 			dhPubKey := diffieHellman.GeneratePublicKey(grp.NewInt(42), grp)
 			_, sidhPubkey := utility.GenerateSIDHKeyPair(sidh.KeyVariantSidhA, prng)
-			fp = auth.CreateNegotiationFingerprint(dhPubKey, sidhPubkey)
+			fpBytes = auth.CreateNegotiationFingerprint(dhPubKey, sidhPubkey)
+			fp = format.NewFingerprint(fpBytes)
 		}
 
 		// Generate confirmation
 		confirmation := make([]byte, 32)
+		mac := make([]byte, 32)
 		prng.Read(confirmation)
+		prng.Read(mac)
+		mac[0] = 0
 
 		testValues[i] = struct {
-			partner                   *id.ID
-			fingerprint, confirmation []byte
-		}{partner: partner, fingerprint: fp, confirmation: confirmation}
+			partner           *id.ID
+			fingerprint       format.Fingerprint
+			confirmation, mac []byte
+		}{partner: partner, fingerprint: fp, confirmation: confirmation, mac: mac}
 
-		err := s.StoreConfirmation(partner, fp, confirmation)
+		err := s.StoreConfirmation(partner, confirmation, mac, fp)
 		if err != nil {
 			t.Errorf("StoreConfirmation returned an error (%d): %+v", i, err)
 		}
 	}
 
 	for i, val := range testValues {
-		loadedConfirmation, err := s.LoadConfirmation(val.partner, val.fingerprint)
+		loadedConfirmation, mac, fp, err := s.LoadConfirmation(val.partner)
 		if err != nil {
 			t.Errorf("LoadConfirmation returned an error (%d): %+v", i, err)
 		}
 
 		if !reflect.DeepEqual(val.confirmation, loadedConfirmation) {
 			t.Errorf("Loaded confirmation does not match original (%d)."+
-				"\nexpected: %v\nreceived: %v", i, val.confirmation,
+				"\n\texpected: %v\n\treceived: %v\n", i, val.confirmation,
 				loadedConfirmation)
+		}
+		if !reflect.DeepEqual(val.mac, mac) {
+			t.Errorf("Loaded mac does not match original (%d)."+
+				"\n\texpected: %v\n\treceived: %v\n", i, val.mac,
+				mac)
+		}
+		if !reflect.DeepEqual(val.fingerprint, fp) {
+			t.Errorf("Loaded fingerprint does not match original (%d)."+
+				"\n\texpected: %v\n\treceived: %v\n", i, val.fingerprint,
+				fp)
 		}
 	}
 }
@@ -86,47 +103,54 @@ func TestStore_deleteConfirmation(t *testing.T) {
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
 	testValues := make([]struct {
-		partner                   *id.ID
-		fingerprint, confirmation []byte
+		partner           *id.ID
+		fingerprint       format.Fingerprint
+		confirmation, mac []byte
 	}, 10)
 
-	partner, _ := id.NewRandomID(prng, id.User)
 	for i := range testValues {
-		if i%2 == 0 {
-			partner, _ = id.NewRandomID(prng, id.User)
-		}
+		partner, _ := id.NewRandomID(prng, id.User)
+		//if i%2 == 0 {
+		//	partner, _ = id.NewRandomID(prng, id.User)
+		//}
 
 		// Generate original fingerprint
-		var fp []byte
+		var fpBytes []byte
+		var fp format.Fingerprint
 		if i%2 == 1 {
 			dhPubKey := diffieHellman.GeneratePublicKey(grp.NewInt(42), grp)
 			_, sidhPubkey := utility.GenerateSIDHKeyPair(sidh.KeyVariantSidhA, prng)
-			fp = auth.CreateNegotiationFingerprint(dhPubKey, sidhPubkey)
+			fpBytes = auth.CreateNegotiationFingerprint(dhPubKey, sidhPubkey)
+			fp = format.NewFingerprint(fpBytes)
 		}
 
 		// Generate confirmation
 		confirmation := make([]byte, 32)
+		mac := make([]byte, 32)
 		prng.Read(confirmation)
+		prng.Read(mac)
+		mac[0] = 0
 
 		testValues[i] = struct {
-			partner                   *id.ID
-			fingerprint, confirmation []byte
-		}{partner: partner, fingerprint: fp, confirmation: confirmation}
+			partner           *id.ID
+			fingerprint       format.Fingerprint
+			confirmation, mac []byte
+		}{partner: partner, fingerprint: fp, confirmation: confirmation, mac: mac}
 
-		err := s.StoreConfirmation(partner, fp, confirmation)
+		err := s.StoreConfirmation(partner, confirmation, mac, fp)
 		if err != nil {
 			t.Errorf("StoreConfirmation returned an error (%d): %+v", i, err)
 		}
 	}
 
 	for i, val := range testValues {
-		err := s.DeleteConfirmation(val.partner, val.fingerprint)
+		err := s.DeleteConfirmation(val.partner)
 		if err != nil {
 			t.Errorf("DeleteConfirmation returned an error (%d): %+v", i, err)
 		}
 
-		loadedConfirmation, err := s.LoadConfirmation(val.partner, val.fingerprint)
-		if err == nil || loadedConfirmation != nil {
+		loadedConfirmation, mac, _, err := s.LoadConfirmation(val.partner)
+		if err == nil || loadedConfirmation != nil || mac != nil {
 			t.Errorf("LoadConfirmation returned a confirmation for partner "+
 				"%s and fingerprint %v (%d)", val.partner, val.fingerprint, i)
 		}
@@ -138,22 +162,22 @@ func Test_makeConfirmationKey_Consistency(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 	expectedKeys := []string{
-		"Confirmation/U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID/VzgXG/mlQA68iq1eCgEMoew1rnuVG6mA2x2U34PYiOs=",
-		"Confirmation/P2HTdbwCtB30+Rkp4Y/anm+C5U50joHnnku9b+NM3LoD/DT1RkZJUbdDqNLQv+Pp+Ilx7ZvOX5zBzl8gseeRLu1w=",
-		"Confirmation/r66IG4KnURCKQu08kDyqQ0ZaeGIGFpeK7QzjxsTzrnsD/BVkxRTRPx5+16fRHsq5bYkpZDJyVJaon0roLGsOBSmI=",
-		"Confirmation/otwtwlpbdLLhKXBeJz8FySMmgo4rBW44F2WOEGFJiUcD/jKSgdUKni0rsIDDutHlO1fiss+BiNd1vxSGxJL0u2e8=",
-		"Confirmation/lk39x56NU0NzZhz9ZtdP7B4biUkatyNuS3UhYpDPK+sD/prNQTXAQjkTRhltOQuhU8XagwwWP0RfwJe6yrtI3aaY=",
-		"Confirmation/l4KD1KCaNvlsIJQXRuPtTaZGqa6LT6e0/Doguvoade0D/D+xEPt5A44s0BD5u/fz1iiPFoCnOR52PefTFOehdkbU=",
-		"Confirmation/HPCdo54Okp0CSry8sWk5e7c05+8KbgHxhU3rX+Qk/vcD/cPDqZ3S1mqVxRTQ1p7Gwg7cEc34Xz/fUsIpghGiJygg=",
-		"Confirmation/Ud9mj4dOLJ8c4JyoYBfn4hdIMD/0HBsj4RxI7RdTnWgD/minVwOqyN3l4zy7A4dvJDQ5ZLUcM2NmNdAWhR5/NTDc=",
-		"Confirmation/Ximg3KRqw6DVcBM7whVx9fVKZDEFUT/YQpsZSuG6nyoD/dK0ZnuwEmyeXqjQj5mri5f8ChTHOVgTgUKkOGjUfPyQ=",
-		"Confirmation/ZxkHLWcvYfqgvob0V5Iew3wORgzw1wPQfcX1ZhpFATMD/r0Nylw9Bd+eol1+4UWwWD8SBchPbjtnLYJx1zX1htEo=",
-		"Confirmation/IpwYPBkzqRZYXhg7twkZLbDmyNcJudc4O5k8aUmZRbAD/eszeUU8yAglf5TrE5U4L8SVqKOPqypt9RbVjworRBbk=",
-		"Confirmation/Rc0b8Lz8GjRsQ08RzwBBb6YWlbkgLmg2Ohx4f0eE4K4D/jhddD9Kqk6rcSJAB/Jy88cwhozR43M1nL+VTyl34SEk=",
-		"Confirmation/1ieMn3yHL4QPnZTZ/e2uk9sklXGPWAuMjyvsxqp2w7AD/aaMF2inM08M9FdFOHPfGKMnoqqEJ4MiXxDhY2J84cE8=",
-		"Confirmation/FER0v9N80ga1Gs4FCrYZnsezltYY/eDhopmabz2fi3oD/TJ5e0/2ji9eZSYa78RIP2ZvDW/PxP685D3xZAqHkGHY=",
-		"Confirmation/KRnCqHpJlPweQB4RxaScfo6p5l1sxARl/TUvLELsPT4D/mlbwi77z/XUw/LfzX8L67k0/0dAIDHAYicLd2RukYO0=",
-		"Confirmation/Q9EGMwNtPUa4GRauRv8T1qay+tkHnW3zRAWQKWZ7LrQD/0J3tuOL9xxfZdFQ73YEktXkeoFY6sAJIcgzlyDl3BxQ=",
+		"Confirmation/U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",
+		"Confirmation/P2HTdbwCtB30+Rkp4Y/anm+C5U50joHnnku9b+NM3LoD",
+		"Confirmation/r66IG4KnURCKQu08kDyqQ0ZaeGIGFpeK7QzjxsTzrnsD",
+		"Confirmation/otwtwlpbdLLhKXBeJz8FySMmgo4rBW44F2WOEGFJiUcD",
+		"Confirmation/lk39x56NU0NzZhz9ZtdP7B4biUkatyNuS3UhYpDPK+sD",
+		"Confirmation/l4KD1KCaNvlsIJQXRuPtTaZGqa6LT6e0/Doguvoade0D",
+		"Confirmation/HPCdo54Okp0CSry8sWk5e7c05+8KbgHxhU3rX+Qk/vcD",
+		"Confirmation/Ud9mj4dOLJ8c4JyoYBfn4hdIMD/0HBsj4RxI7RdTnWgD",
+		"Confirmation/Ximg3KRqw6DVcBM7whVx9fVKZDEFUT/YQpsZSuG6nyoD",
+		"Confirmation/ZxkHLWcvYfqgvob0V5Iew3wORgzw1wPQfcX1ZhpFATMD",
+		"Confirmation/IpwYPBkzqRZYXhg7twkZLbDmyNcJudc4O5k8aUmZRbAD",
+		"Confirmation/Rc0b8Lz8GjRsQ08RzwBBb6YWlbkgLmg2Ohx4f0eE4K4D",
+		"Confirmation/1ieMn3yHL4QPnZTZ/e2uk9sklXGPWAuMjyvsxqp2w7AD",
+		"Confirmation/FER0v9N80ga1Gs4FCrYZnsezltYY/eDhopmabz2fi3oD",
+		"Confirmation/KRnCqHpJlPweQB4RxaScfo6p5l1sxARl/TUvLELsPT4D",
+		"Confirmation/Q9EGMwNtPUa4GRauRv8T1qay+tkHnW3zRAWQKWZ7LrQD",
 	}
 
 	for i, expected := range expectedKeys {
@@ -162,7 +186,7 @@ func Test_makeConfirmationKey_Consistency(t *testing.T) {
 		_, sidhPubkey := utility.GenerateSIDHKeyPair(sidh.KeyVariantSidhA, prng)
 		fp := auth.CreateNegotiationFingerprint(dhPubKey, sidhPubkey)
 
-		key := makeConfirmationKey(partner, fp)
+		key := makeConfirmationKey(partner)
 		if expected != key {
 			t.Errorf("Confirmation key does not match expected for partner "+
 				"%s and fingerprint %v (%d).\nexpected: %q\nreceived: %q",

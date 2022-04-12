@@ -9,7 +9,7 @@ import (
 
 // Happy path
 func Test_newCollator(t *testing.T) {
-	messageCount := uint64(10)
+	messageCount := uint8(10)
 	expected := &Collator{
 		payloads: make([][]byte, messageCount),
 		maxNum:   unsetCollatorMax,
@@ -39,7 +39,7 @@ func TestCollator_collate(t *testing.T) {
 		msgParts[i].SetContents(buff.Next(msgPayloadSize))
 	}
 
-	c := NewCollator(uint64(messageCount))
+	c := NewCollator(uint8(messageCount))
 
 	i := 0
 	var fullPayload []byte

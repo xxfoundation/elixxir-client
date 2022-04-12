@@ -122,23 +122,19 @@ func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler)
 func (s *Store) save() error {
 	requestIDList := make([]requestDisk, 0, len(s.receivedByID)+len(s.sentByID))
 	for _, rr := range s.receivedByID {
-		if !rr.isTemporary() {
-			rDisk := requestDisk{
-				T:  uint(rr.getType()),
-				ID: rr.partner.ID.Marshal(),
-			}
-			requestIDList = append(requestIDList, rDisk)
+		rDisk := requestDisk{
+			T:  uint(rr.getType()),
+			ID: rr.partner.ID.Marshal(),
 		}
+		requestIDList = append(requestIDList, rDisk)
 	}
 
 	for _, sr := range s.sentByID {
-		if !sr.isTemporary() {
-			rDisk := requestDisk{
-				T:  uint(sr.getType()),
-				ID: sr.partner.Marshal(),
-			}
-			requestIDList = append(requestIDList, rDisk)
+		rDisk := requestDisk{
+			T:  uint(sr.getType()),
+			ID: sr.partner.Marshal(),
 		}
+		requestIDList = append(requestIDList, rDisk)
 	}
 
 	data, err := json.Marshal(&requestIDList)
@@ -158,7 +154,6 @@ func (s *Store) save() error {
 // sentByFingerprints so they can be used to trigger receivedByID.
 func newStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (
 	*Store, error) {
-	kv = kv.Prefix(storePrefix)
 	s := &Store{
 		kv:                   kv,
 		grp:                  grp,

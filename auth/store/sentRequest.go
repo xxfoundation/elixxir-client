@@ -71,7 +71,8 @@ func newSentRequest(kv *versioned.KV, partner *id.ID, partnerHistoricalPubKey,
 
 func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*SentRequest, error) {
 
-	obj, err := kv.Get(makeSentRequestKey(partner),
+	srKey := makeSentRequestKey(partner)
+	obj, err := kv.Get(srKey,
 		currentSentRequestVersion)
 
 	if err != nil {
@@ -200,12 +201,12 @@ func (sr *SentRequest) save() error {
 		Data:      data,
 	}
 
-	return sr.kv.Set(versioned.MakePartnerPrefix(sr.partner),
+	return sr.kv.Set(makeSentRequestKey(sr.partner),
 		currentSentRequestVersion, &obj)
 }
 
 func (sr *SentRequest) delete() {
-	if err := sr.kv.Delete(versioned.MakePartnerPrefix(sr.partner),
+	if err := sr.kv.Delete(makeSentRequestKey(sr.partner),
 		currentSentRequestVersion); err != nil {
 		jww.FATAL.Panicf("Failed to delete sent request from %s to %s: "+
 			"%+v", sr.partner, sr.partner, err)
@@ -256,10 +257,6 @@ func (sr *SentRequest) GetFingerprint() format.Fingerprint {
 
 func (sr *SentRequest) getType() RequestType {
 	return Sent
-}
-
-func (sr *SentRequest) isTemporary() bool {
-	return sr.kv.IsMemStore()
 }
 
 func makeSentRequestKey(partner *id.ID) string {

@@ -129,7 +129,7 @@ const (
 	numRequestPartsSize  = 1
 	maxResponsePartsSize = 1
 	sizeSize             = 2
-	transmitPlMinSize    = nonceSize + maxResponsePartsSize + sizeSize
+	transmitPlMinSize    = nonceSize + numRequestPartsSize + maxResponsePartsSize + sizeSize
 )
 
 // RequestPayload is the structure of Request's payload.

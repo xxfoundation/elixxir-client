@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"strings"
 )
 
 const (
@@ -119,6 +120,19 @@ func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]bool, error) {
 
 	obj, err := s.kv.Get(negotiationPartnersKey, negotiationPartnersVersion)
 	if err != nil {
+		if strings.Contains(err.Error(), "object not found") {
+			newPreviousNegotiations := make(map[id.ID]bool)
+			obj := &versioned.Object{
+				Version:   negotiationPartnersVersion,
+				Timestamp: netTime.Now(),
+				Data:      marshalPreviousNegotiations(newPreviousNegotiations),
+			}
+			err = s.kv.Set(negotiationPartnersKey, negotiationPartnersVersion, obj)
+			if err != nil {
+				return nil, err
+			}
+			return newPreviousNegotiations, nil
+		}
 		return nil, err
 	}
 
@@ -135,7 +149,7 @@ func marshalPreviousNegotiations(partners map[id.ID]bool) []byte {
 
 	b, err := json.Marshal(&toMarshal)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal previous negotations", err)
+		jww.FATAL.Panicf("Failed to unmarshal previous negotations: %+v", err)
 	}
 
 	return b

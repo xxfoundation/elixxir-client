@@ -14,7 +14,6 @@ import (
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
 	ft "gitlab.com/elixxir/client/fileTransfer"
-	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/crypto/contact"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
@@ -117,7 +116,7 @@ var ftCmd = &cobra.Command{
 // receivedFtResults is used to return received new file transfer results on a
 // channel from a callback.
 type receivedFtResults struct {
-	tid      ftCrypto.TransferID
+	tid      *ftCrypto.TransferID
 	fileName string
 	fileType string
 	sender   *id.ID
@@ -129,11 +128,11 @@ type receivedFtResults struct {
 // reception callback. Returns the file transfer manager and the channel that
 // will be triggered when the callback is called.
 func initFileTransferManager(client *api.Client, maxThroughput int) (
-	*ft.Manager, chan receivedFtResults) {
+	ft.FileTransfer, chan receivedFtResults) {
 
 	// Create interfaces.ReceiveCallback that returns the results on a channel
 	receiveChan := make(chan receivedFtResults, 100)
-	receiveCB := func(tid ftCrypto.TransferID, fileName, fileType string,
+	receiveCB := func(tid *ftCrypto.TransferID, fileName, fileType string,
 		sender *id.ID, size uint32, preview []byte) {
 		receiveChan <- receivedFtResults{
 			tid, fileName, fileType, sender, size, preview}
@@ -147,7 +146,8 @@ func initFileTransferManager(client *api.Client, maxThroughput int) (
 	}
 
 	// Create new manager
-	manager, err := ft.NewManager(client, receiveCB, p)
+	// TODO: Fix NewManager parameters
+	manager, err := ft.NewManager(receiveCB, p, nil, nil, nil, nil, nil)
 	if err != nil {
 		jww.FATAL.Panicf(
 			"[FT] Failed to create new file transfer manager: %+v", err)
@@ -164,7 +164,7 @@ func initFileTransferManager(client *api.Client, maxThroughput int) (
 
 // sendFile sends the file to the recipient and prints the progress.
 func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
-	recipientContactPath string, retry float32, m *ft.Manager,
+	recipientContactPath string, retry float32, m ft.FileTransfer,
 	done chan struct{}) {
 
 	// Get file from path
@@ -200,16 +200,16 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 	var sendStart time.Time
 
 	// Create sent progress callback that prints the results
-	progressCB := func(completed bool, sent, arrived, total uint16,
-		t interfaces.FilePartTracker, err error) {
+	progressCB := func(completed bool, arrived, total uint16,
+		t ft.FilePartTracker, err error) {
 		jww.INFO.Printf("[FT] Sent progress callback for %q "+
-			"{completed: %t, sent: %d, arrived: %d, total: %d, err: %v}",
-			fileName, completed, sent, arrived, total, err)
-		if (sent == 0 && arrived == 0) || (arrived == total) || completed ||
+			"{completed: %t, arrived: %d, total: %d, err: %v}",
+			fileName, completed, arrived, total, err)
+		if arrived == 0 || (arrived == total) || completed ||
 			err != nil {
 			fmt.Printf("Sent progress callback for %q "+
-				"{completed: %t, sent: %d, arrived: %d, total: %d, err: %v}\n",
-				fileName, completed, sent, arrived, total, err)
+				"{completed: %t, arrived: %d, total: %d, err: %v}\n",
+				fileName, completed, arrived, total, err)
 		}
 
 		if completed {
@@ -247,7 +247,7 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 // receiveNewFileTransfers waits to receive new file transfers and prints its
 // information to the log.
 func receiveNewFileTransfers(receive chan receivedFtResults, done,
-	quit chan struct{}, m *ft.Manager) {
+	quit chan struct{}, m ft.FileTransfer) {
 	jww.INFO.Print("[FT] Starting thread waiting to receive NewFileTransfer " +
 		"E2E message.")
 	for {
@@ -276,11 +276,11 @@ func receiveNewFileTransfers(receive chan receivedFtResults, done,
 
 // newReceiveProgressCB creates a new reception progress callback that prints
 // the results to the log.
-func newReceiveProgressCB(tid ftCrypto.TransferID, fileName string,
+func newReceiveProgressCB(tid *ftCrypto.TransferID, fileName string,
 	done chan struct{}, receiveStart time.Time,
-	m *ft.Manager) interfaces.ReceivedProgressCallback {
+	m ft.FileTransfer) ft.ReceivedProgressCallback {
 	return func(completed bool, received, total uint16,
-		t interfaces.FilePartTracker, err error) {
+		t ft.FilePartTracker, err error) {
 		jww.INFO.Printf("[FT] Receive progress callback for transfer %s "+
 			"{completed: %t, received: %d, total: %d, err: %v}",
 			tid, completed, received, total, err)
@@ -333,7 +333,7 @@ func getContactFromFile(path string) contact.Contact {
 // init initializes commands and flags for Cobra.
 func init() {
 	ftCmd.Flags().String("sendFile", "",
-		"Sends a file to a recipient with with the contact file at this path.")
+		"Sends a file to a recipient with the contact file at this path.")
 	bindPFlagCheckErr("sendFile")
 
 	ftCmd.Flags().String("filePath", "",

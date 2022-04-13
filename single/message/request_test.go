@@ -10,7 +10,6 @@ package message
 import (
 	"bytes"
 	"encoding/binary"
-	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/elixxir/primitives/format"
@@ -96,7 +95,7 @@ func TestTransmitMessage_Marshal_Unmarshal(t *testing.T) {
 
 	msgBytes := m.Marshal()
 
-	newMsg, err := unmarshalRequest(msgBytes, pubKeySize)
+	newMsg, err := UnmarshalRequest(msgBytes, pubKeySize)
 	if err != nil {
 		t.Errorf("unmarshalRequest produced an error: %+v", err)
 	}
@@ -109,7 +108,7 @@ func TestTransmitMessage_Marshal_Unmarshal(t *testing.T) {
 
 // Error path: public key size is larger than byte slice.
 func Test_unmarshalTransmitMessage_PubKeySizeError(t *testing.T) {
-	_, err := unmarshalRequest([]byte{1, 2, 3}, 5)
+	_, err := UnmarshalRequest([]byte{1, 2, 3}, 5)
 	if err == nil {
 		t.Error("unmarshalRequest() did not produce an error when the " +
 			"byte slice is smaller than the public key size.")
@@ -179,14 +178,19 @@ func Test_newTransmitMessagePayload(t *testing.T) {
 	payloadSize := prng.Intn(2000)
 	expected := RequestPayload{
 		data:             make([]byte, payloadSize),
-		tagFP:            make([]byte, tagFPSize),
 		nonce:            make([]byte, nonceSize),
+		numRequestParts:  make([]byte, numRequestPartsSize),
 		maxResponseParts: make([]byte, maxResponsePartsSize),
 		size:             make([]byte, sizeSize),
 		contents:         make([]byte, payloadSize-transmitPlMinSize),
 	}
+	expected.numRequestParts[0] = 1
+	binary.BigEndian.PutUint16(expected.size, uint16(payloadSize-transmitPlMinSize))
+	expected.SetMaxResponseParts(10)
+	expected.data = append(expected.nonce, append(expected.numRequestParts, append(expected.maxResponseParts, append(expected.size, expected.contents...)...)...)...)
 
-	mp := NewRequestPayload(payloadSize)
+	payload := make([]byte, payloadSize-transmitPlMinSize)
+	mp := NewRequestPayload(payloadSize, payload, 10)
 
 	if !reflect.DeepEqual(expected, mp) {
 		t.Errorf("NewRequestPayload() did not produce the expected "+
@@ -203,23 +207,31 @@ func Test_newTransmitMessagePayload_PayloadSizeError(t *testing.T) {
 				"+ the message count.")
 		}
 	}()
+	payloadSize := 10
+	prng := rand.New(rand.NewSource(42))
+	payload := make([]byte, payloadSize)
+	_, err := prng.Read(payload)
+	if err != nil {
+		t.Errorf("Failed to read to payload: %+v", err)
+	}
 
-	_ = NewRequestPayload(10)
+	_ = NewRequestPayload(10, payload, 5)
 }
 
 // Happy path.
 func Test_mapTransmitMessagePayload(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	tagFP := singleUse.NewTagFP("Tag")
 	nonceBytes := make([]byte, nonceSize)
-	num := uint8(prng.Uint64())
+	numRequestParts := make([]byte, numRequestPartsSize)
+	numRequestParts[0] = 1
+	maxResponseParts := make([]byte, maxResponsePartsSize)
 	size := []byte{uint8(prng.Uint64()), uint8(prng.Uint64())}
 	contents := make([]byte, prng.Intn(1000))
 	prng.Read(contents)
 	var data []byte
-	data = append(data, tagFP.Bytes()...)
 	data = append(data, nonceBytes...)
-	data = append(data, num)
+	data = append(data, numRequestParts...)
+	data = append(data, maxResponseParts...)
 	data = append(data, size...)
 	data = append(data, contents...)
 	mp := mapRequestPayload(data)
@@ -229,19 +241,18 @@ func Test_mapTransmitMessagePayload(t *testing.T) {
 			"for data.\nexpected: %+v\nreceived: %+v", data, mp.data)
 	}
 
-	if !bytes.Equal(tagFP.Bytes(), mp.tagFP) {
-		t.Errorf("mapRequestPayload() failed to map the correct bytes "+
-			"for tagFP.\nexpected: %+v\nreceived: %+v", tagFP.Bytes(), mp.tagFP)
-	}
-
 	if !bytes.Equal(nonceBytes, mp.nonce) {
 		t.Errorf("mapRequestPayload() failed to map the correct bytes "+
 			"for the nonce.\nexpected: %s\nreceived: %s", nonceBytes, mp.nonce)
 	}
 
-	if num != mp.maxResponseParts[0] {
+	if !bytes.Equal(numRequestParts, mp.numRequestParts) {
 		t.Errorf("mapRequestPayload() failed to map the correct bytes "+
-			"for maxResponseParts.\nexpected: %d\nreceived: %d", num, mp.maxResponseParts[0])
+			"for the numRequestParts.\nexpected: %s\nreceived: %s", nonceBytes, mp.nonce)
+	}
+
+	if !bytes.Equal(maxResponseParts, mp.maxResponseParts) {
+
 	}
 
 	if !bytes.Equal(size, mp.size) {
@@ -287,7 +298,14 @@ func Test_unmarshalTransmitMessagePayload(t *testing.T) {
 // Happy path.
 func TestTransmitMessagePayload_GetRID(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	mp := NewRequestPayload(prng.Intn(2000))
+	payloadSize := prng.Intn(2000)
+	payload := make([]byte, payloadSize-transmitPlMinSize)
+	_, err := prng.Read(payload)
+	if err != nil {
+		t.Errorf("Failed to read to payload: %+v", err)
+	}
+
+	mp := NewRequestPayload(payloadSize, payload, 5)
 	expectedRID := singleUse.NewRecipientID(getGroup().NewInt(42), mp.Marshal())
 
 	testRID := mp.GetRID(getGroup().NewInt(42))
@@ -301,12 +319,19 @@ func TestTransmitMessagePayload_GetRID(t *testing.T) {
 // Happy path.
 func Test_transmitMessagePayload_SetNonce_GetNonce(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	mp := NewRequestPayload(prng.Intn(2000))
+	payloadSize := prng.Intn(2000)
+	payload := make([]byte, payloadSize-transmitPlMinSize)
+	_, err := prng.Read(payload)
+	if err != nil {
+		t.Errorf("Failed to read to payload: %+v", err)
+	}
+
+	mp := NewRequestPayload(payloadSize, payload, 5)
 
 	expectedNonce := prng.Uint64()
 	expectedNonceBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(expectedNonceBytes, expectedNonce)
-	err := mp.SetNonce(strings.NewReader(string(expectedNonceBytes)))
+	err = mp.SetNonce(strings.NewReader(string(expectedNonceBytes)))
 	if err != nil {
 		t.Errorf("SetNonce() produced an error: %+v", err)
 	}
@@ -320,9 +345,17 @@ func Test_transmitMessagePayload_SetNonce_GetNonce(t *testing.T) {
 // Error path: RNG return an error.
 func Test_transmitMessagePayload_SetNonce_RngError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	mp := NewRequestPayload(prng.Intn(2000))
-	err := mp.SetNonce(strings.NewReader(""))
-	if !single.check(err, "failed to generate nonce") {
+	payloadSize := prng.Intn(2000)
+	payload := make([]byte, payloadSize-transmitPlMinSize)
+	_, err := prng.Read(payload)
+	if err != nil {
+		t.Errorf("Failed to read to payload: %+v", err)
+	}
+
+	mp := NewRequestPayload(payloadSize, payload, 5)
+	err = mp.SetNonce(strings.NewReader(""))
+
+	if !check(err, "failed to generate nonce") {
 		t.Errorf("SetNonce() did not return an error when nonce generation "+
 			"fails: %+v", err)
 	}
@@ -331,7 +364,14 @@ func Test_transmitMessagePayload_SetNonce_RngError(t *testing.T) {
 // Happy path.
 func TestTransmitMessagePayload_SetMaxParts_GetMaxParts(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	mp := NewRequestPayload(prng.Intn(2000))
+	payloadSize := prng.Intn(2000)
+	payload := make([]byte, payloadSize-transmitPlMinSize)
+	_, err := prng.Read(payload)
+	if err != nil {
+		t.Errorf("Failed to read to payload: %+v", err)
+	}
+
+	mp := NewRequestPayload(payloadSize, payload, 5)
 	count := uint8(prng.Uint64())
 
 	mp.SetMaxResponseParts(count)
@@ -346,12 +386,13 @@ func TestTransmitMessagePayload_SetMaxParts_GetMaxParts(t *testing.T) {
 // Happy path.
 func TestTransmitMessagePayload_SetContents_GetContents_GetContentsSize_GetMaxContentsSize(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	mp := NewRequestPayload(format.MinimumPrimeSize)
+	payloadSize := format.MinimumPrimeSize
 	contentsSize := (format.MinimumPrimeSize - transmitPlMinSize) / 2
 	contents := make([]byte, contentsSize)
 	prng.Read(contents)
 
-	mp.SetContents(contents)
+	mp := NewRequestPayload(payloadSize, contents, 5)
+
 	testContents := mp.GetContents()
 	if !bytes.Equal(contents, testContents) {
 		t.Errorf("GetContents() did not return the expected contents."+
@@ -378,7 +419,15 @@ func TestTransmitMessagePayload_SetContents(t *testing.T) {
 		}
 	}()
 
-	mp := NewRequestPayload(format.MinimumPrimeSize)
+	prng := rand.New(rand.NewSource(42))
+	payloadSize := format.MinimumPrimeSize
+	payload := make([]byte, payloadSize-transmitPlMinSize)
+	_, err := prng.Read(payload)
+	if err != nil {
+		t.Errorf("Failed to read to payload: %+v", err)
+	}
+
+	mp := NewRequestPayload(payloadSize, payload, 5)
 	mp.SetContents(make([]byte, format.MinimumPrimeSize+1))
 }
 
@@ -398,4 +447,9 @@ func getGroup() *cyclic.Group {
 			"96789C38E89D796138E6319BE62E35D87B1048CA28BE389B575E994DCA7554715"+
 			"84A09EC723742DC35873847AEF49F66E43873", 16),
 		large.NewIntFromString("2", 16))
+}
+
+// check returns true if the error is not nil and contains the substring.
+func check(err error, subStr string) bool {
+	return err != nil && strings.Contains(err.Error(), subStr)
 }

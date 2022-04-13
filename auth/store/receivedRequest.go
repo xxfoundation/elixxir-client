@@ -33,19 +33,19 @@ func newReceivedRequest(kv *versioned.KV, c contact.Contact,
 	key *sidh.PublicKey, round rounds.Round) *ReceivedRequest {
 
 	if err := util.StoreContact(kv, c); err != nil {
-		jww.FATAL.Panicf("Failed to save contact for partner %s", c.ID.String())
+		jww.FATAL.Panicf("Failed to save contact for partner %s: %+v", c.ID.String(), err)
 	}
 
 	sidhStoreKey := util.MakeSIDHPublicKeyKey(c.ID)
 	if err := util.StoreSIDHPublicKey(kv, key, sidhStoreKey); err != nil {
 		jww.FATAL.Panicf("Failed to save contact SIDH pubKey for "+
-			"partner %s", c.ID.String())
+			"partner %s: %+v", c.ID.String(), err)
 	}
 
 	roundStoreKey := makeRoundKey(c.ID)
 	if err := rounds.StoreRound(kv, round, roundStoreKey); err != nil {
 		jww.FATAL.Panicf("Failed to save round request was received on "+
-			"for partner %s", c.ID.String())
+			"for partner %s: %+v", c.ID.String(), err)
 	}
 
 	return &ReceivedRequest{
@@ -53,6 +53,7 @@ func newReceivedRequest(kv *versioned.KV, c contact.Contact,
 		partner:          c,
 		theirSidHPubKeyA: key,
 		round:            round,
+		mux:              &sync.Mutex{},
 	}
 }
 
@@ -116,10 +117,6 @@ func (rr *ReceivedRequest) delete() {
 
 func (rr *ReceivedRequest) getType() RequestType {
 	return Receive
-}
-
-func (rr *ReceivedRequest) isTemporary() bool {
-	return rr.kv.IsMemStore()
 }
 
 func makeRoundKey(partner *id.ID) string {

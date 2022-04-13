@@ -10,7 +10,6 @@ package bindings
 import (
 	"encoding/json"
 	ft "gitlab.com/elixxir/client/fileTransfer"
-	"gitlab.com/elixxir/client/interfaces"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -18,23 +17,23 @@ import (
 
 // FileTransfer contains the file transfer manager.
 type FileTransfer struct {
-	m *ft.Manager
+	m ft.FileTransfer
 }
 
 // FileTransferSentProgressFunc contains a function callback that tracks the
-// progress of sending a file. It is called when a file part is sent, a file
-// part arrives, the transfer completes, or on error.
+// progress of sending a file. It is called when a file part arrives, the
+// transfer completes, or on error.
 type FileTransferSentProgressFunc interface {
-	SentProgressCallback(completed bool, sent, arrived, total int,
-		t *FilePartTracker, err error)
+	SentProgressCallback(
+		completed bool, arrived, total int, t *FilePartTracker, err error)
 }
 
 // FileTransferReceivedProgressFunc contains a function callback that tracks the
 // progress of receiving a file. It is called when a file part is received, the
 // transfer completes, or on error.
 type FileTransferReceivedProgressFunc interface {
-	ReceivedProgressCallback(completed bool, received, total int,
-		t *FilePartTracker, err error)
+	ReceivedProgressCallback(
+		completed bool, received, total int, t *FilePartTracker, err error)
 }
 
 // FileTransferReceiveFunc contains a function callback that notifies the
@@ -49,7 +48,7 @@ type FileTransferReceiveFunc interface {
 // sending and receiving threads. The receiveFunc is called everytime a new file
 // transfer is received.
 // The parameters string contains file transfer network configuration options
-// and is a JSON formatted string of the fileTransfer.Params object. If it is
+// and is a JSON formatted string of the fileTransfer2.Params object. If it is
 // left empty, then defaults are used. It is highly recommended that defaults
 // are used. If it is set, it must match the following format:
 //  {"MaxThroughput":150000,"SendTimeout":500000000}
@@ -57,7 +56,7 @@ type FileTransferReceiveFunc interface {
 func NewFileTransferManager(client *Client, receiveFunc FileTransferReceiveFunc,
 	parameters string) (*FileTransfer, error) {
 
-	receiveCB := func(tid ftCrypto.TransferID, fileName, fileType string,
+	receiveCB := func(tid *ftCrypto.TransferID, fileName, fileType string,
 		sender *id.ID, size uint32, preview []byte) {
 		receiveFunc.ReceiveCallback(
 			tid.Bytes(), fileName, fileType, sender.Bytes(), int(size), preview)
@@ -73,7 +72,8 @@ func NewFileTransferManager(client *Client, receiveFunc FileTransferReceiveFunc,
 	}
 
 	// Create new file transfer manager
-	m, err := ft.NewManager(&client.api, receiveCB, p)
+	// TODO: Fix NewManager parameters
+	m, err := ft.NewManager(receiveCB, p, nil, nil, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -107,10 +107,10 @@ func (f *FileTransfer) Send(fileName, fileType string, fileData []byte,
 	progressFunc FileTransferSentProgressFunc, periodMS int) ([]byte, error) {
 
 	// Create SentProgressCallback
-	progressCB := func(completed bool, sent, arrived, total uint16,
-		t interfaces.FilePartTracker, err error) {
+	progressCB := func(completed bool, arrived, total uint16,
+		t ft.FilePartTracker, err error) {
 		progressFunc.SentProgressCallback(
-			completed, int(sent), int(arrived), int(total), &FilePartTracker{t}, err)
+			completed, int(arrived), int(total), &FilePartTracker{t}, err)
 	}
 
 	// Convert recipient ID bytes to id.ID
@@ -149,16 +149,16 @@ func (f *FileTransfer) RegisterSendProgressCallback(transferID []byte,
 	tid := ftCrypto.UnmarshalTransferID(transferID)
 
 	// Create SentProgressCallback
-	progressCB := func(completed bool, sent, arrived, total uint16,
-		t interfaces.FilePartTracker, err error) {
+	progressCB := func(completed bool, arrived, total uint16,
+		t ft.FilePartTracker, err error) {
 		progressFunc.SentProgressCallback(
-			completed, int(sent), int(arrived), int(total), &FilePartTracker{t}, err)
+			completed, int(arrived), int(total), &FilePartTracker{t}, err)
 	}
 
 	// Convert period to time.Duration
 	period := time.Duration(periodMS) * time.Millisecond
 
-	return f.m.RegisterSentProgressCallback(tid, progressCB, period)
+	return f.m.RegisterSentProgressCallback(&tid, progressCB, period)
 }
 
 // Resend resends a file if sending fails. This function should only be called
@@ -178,7 +178,7 @@ func (f *FileTransfer) CloseSend(transferID []byte) error {
 	// Unmarshal transfer ID
 	tid := ftCrypto.UnmarshalTransferID(transferID)
 
-	return f.m.CloseSend(tid)
+	return f.m.CloseSend(&tid)
 }
 
 // Receive returns the fully assembled file on the completion of the transfer.
@@ -189,7 +189,7 @@ func (f *FileTransfer) Receive(transferID []byte) ([]byte, error) {
 	// Unmarshal transfer ID
 	tid := ftCrypto.UnmarshalTransferID(transferID)
 
-	return f.m.Receive(tid)
+	return f.m.Receive(&tid)
 }
 
 // RegisterReceiveProgressCallback allows for the registration of a callback to
@@ -209,7 +209,7 @@ func (f *FileTransfer) RegisterReceiveProgressCallback(transferID []byte,
 
 	// Create ReceivedProgressCallback
 	progressCB := func(completed bool, received, total uint16,
-		t interfaces.FilePartTracker, err error) {
+		t ft.FilePartTracker, err error) {
 		progressFunc.ReceivedProgressCallback(
 			completed, int(received), int(total), &FilePartTracker{t}, err)
 	}
@@ -217,7 +217,7 @@ func (f *FileTransfer) RegisterReceiveProgressCallback(transferID []byte,
 	// Convert period to time.Duration
 	period := time.Duration(periodMS) * time.Millisecond
 
-	return f.m.RegisterReceivedProgressCallback(tid, progressCB, period)
+	return f.m.RegisterReceivedProgressCallback(&tid, progressCB, period)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -253,7 +253,7 @@ func (f *FileTransfer) GetMaxFileSize() int {
 
 // FilePartTracker contains the interfaces.FilePartTracker.
 type FilePartTracker struct {
-	m interfaces.FilePartTracker
+	m ft.FilePartTracker
 }
 
 // GetPartStatus returns the status of the file part with the given part number.

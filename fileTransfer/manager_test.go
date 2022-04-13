@@ -9,574 +9,51 @@ package fileTransfer
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
-	"github.com/cloudflare/circl/dh/sidh"
-	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
-	ftStorage "gitlab.com/elixxir/client/storage/fileTransfer"
-	util "gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+	"math/rand"
 	"reflect"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 )
 
-// Tests that newManager does not return errors, that the sent and received
-// transfer lists are new, and that the callback works.
-func Test_newManager(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+// Tests that manager adheres to the FileTransfer interface.
+func Test_manager_FileTransferInterface(t *testing.T) {
+	var _ FileTransfer = (*manager)(nil)
+}
 
-	cbChan := make(chan bool)
-	cb := func(ftCrypto.TransferID, string, string, *id.ID, uint32, []byte) {
-		cbChan <- true
+// Tests that partitionFile partitions the given file into the expected parts.
+func Test_partitionFile(t *testing.T) {
+	prng := rand.New(rand.NewSource(42))
+	partSize := 96
+	fileData, expectedParts := newFile(24, partSize, prng, t)
+
+	receivedParts := partitionFile(fileData, partSize)
+
+	if !reflect.DeepEqual(expectedParts, receivedParts) {
+		t.Errorf("File parts do not match expected."+
+			"\nexpected: %q\nreceived: %q", expectedParts, receivedParts)
 	}
 
-	m, err := newManager(nil, nil, nil, nil, nil, nil, kv, cb, DefaultParams())
-	if err != nil {
-		t.Errorf("newManager returned an error: %+v", err)
-	}
-
-	// Check that the SentFileTransfersStore is new and correct
-	expectedSent, _ := ftStorage.NewSentFileTransfersStore(kv)
-	if !reflect.DeepEqual(expectedSent, m.sent) {
-		t.Errorf("SentFileTransfersStore in manager incorrect."+
-			"\nexpected: %+v\nreceived: %+v", expectedSent, m.sent)
-	}
-
-	// Check that the ReceivedFileTransfersStore is new and correct
-	expectedReceived, _ := ftStorage.NewReceivedFileTransfersStore(kv)
-	if !reflect.DeepEqual(expectedReceived, m.received) {
-		t.Errorf("ReceivedFileTransfersStore in manager incorrect."+
-			"\nexpected: %+v\nreceived: %+v", expectedReceived, m.received)
-	}
-
-	// Check that the callback is called
-	go m.receiveCB(ftCrypto.TransferID{}, "", "", nil, 0, nil)
-	select {
-	case <-cbChan:
-	case <-time.NewTimer(time.Millisecond).C:
-		t.Error("Timed out waiting for callback to be called")
+	fullFile := bytes.Join(receivedParts, nil)
+	if !bytes.Equal(fileData, fullFile) {
+		t.Errorf("Full file does not match expected."+
+			"\nexpected: %q\nreceived: %q", fileData, fullFile)
 	}
 }
 
-// Tests that Manager.Send adds a new sent transfer, sends the NewFileTransfer
-// E2E message, and adds all the file parts to the queue.
-func TestManager_Send(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, nil, t)
-	prng := NewPrng(42)
-	recipient := id.NewIdFromString("recipient", id.User, t)
-	fileName := "testFile"
-	fileType := "txt"
-	numParts := uint16(16)
-	partSize, _ := m.getPartSize()
-	fileData, _ := newFile(numParts, partSize, prng, t)
-	preview := []byte("filePreview")
-	retry := float32(1.5)
-	numFps := calcNumberOfFingerprints(numParts, retry)
-
-	rng := csprng.NewSystemRNG()
-	dhKey := m.store.E2e().GetGroup().NewInt(42)
-	pubKey := diffieHellman.GeneratePublicKey(dhKey, m.store.E2e().GetGroup())
-	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA, rng)
-	theirSidhPub, _ := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhB, rng)
-	p := params.GetDefaultE2ESessionParams()
-
-	err := m.store.E2e().AddPartner(recipient, pubKey, dhKey,
-		mySidhPriv, theirSidhPub, p, p)
-	if err != nil {
-		t.Errorf("Failed to add partner %s: %+v", recipient, err)
-	}
-
-	tid, err := m.Send(
-		fileName, fileType, fileData, recipient, retry, preview, nil, 0)
-	if err != nil {
-		t.Errorf("Send returned an error: %+v", err)
-	}
-
-	////
-	// Check if the transfer exists
-	////
-	transfer, err := m.sent.GetTransfer(tid)
-	if err != nil {
-		t.Errorf("Failed to get transfer %s: %+v", tid, err)
-	}
-
-	if !recipient.Cmp(transfer.GetRecipient()) {
-		t.Errorf("New transfer has incorrect recipient."+
-			"\nexpected: %s\nreceoved: %s", recipient, transfer.GetRecipient())
-	}
-	if transfer.GetNumParts() != numParts {
-		t.Errorf("New transfer has incorrect number of parts."+
-			"\nexpected: %d\nreceived: %d", numParts, transfer.GetNumParts())
-	}
-	if transfer.GetNumFps() != numFps {
-		t.Errorf("New transfer has incorrect number of fingerprints."+
-			"\nexpected: %d\nreceived: %d", numFps, transfer.GetNumFps())
-	}
-
-	////
-	// Get NewFileTransfer E2E message
-	////
-	sendMsg := m.net.(*testNetworkManager).GetE2eMsg(0)
-	if sendMsg.MessageType != message.NewFileTransfer {
-		t.Errorf("E2E message has wrong MessageType.\nexpected: %d\nreceived: %d",
-			message.NewFileTransfer, sendMsg.MessageType)
-	}
-	if !sendMsg.Recipient.Cmp(recipient) {
-		t.Errorf("E2E message has wrong Recipient.\nexpected: %s\nreceived: %s",
-			recipient, sendMsg.Recipient)
-	}
-	receivedNFT := &NewFileTransfer{}
-	err = proto.Unmarshal(sendMsg.Payload, receivedNFT)
-	if err != nil {
-		t.Errorf("Failed to unmarshal received NewFileTransfer: %+v", err)
-	}
-	expectedNFT := &NewFileTransfer{
-		FileName:    fileName,
-		FileType:    fileType,
-		TransferKey: transfer.GetTransferKey().Bytes(),
-		TransferMac: ftCrypto.CreateTransferMAC(fileData, transfer.GetTransferKey()),
-		NumParts:    uint32(numParts),
-		Size:        uint32(len(fileData)),
-		Retry:       retry,
-		Preview:     preview,
-	}
-	if !proto.Equal(expectedNFT, receivedNFT) {
-		t.Errorf("Received NewFileTransfer message does not match expected."+
-			"\nexpected: %+v\nreceived: %+v", expectedNFT, receivedNFT)
-	}
-
-	////
-	// Check queued parts
-	////
-	if len(m.sendQueue) != int(numParts) {
-		t.Errorf("Failed to add all file parts to queue."+
-			"\nexpected: %d\nreceived: %d", numParts, len(m.sendQueue))
-	}
-}
-
-// Error path: tests that Manager.Send returns the expected error when the
-// network is not healthy.
-func TestManager_Send_NetworkHealthError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, nil, t)
-
-	fileName := "MySentFile"
-	expectedErr := fmt.Sprintf(sendNetworkHealthErr, fileName)
-
-	m.net.(*testNetworkManager).health.healthy = false
-
-	recipient := id.NewIdFromString("recipient", id.User, t)
-	_, err := m.Send(fileName, "", nil, recipient, 0, nil, nil, 0)
-	if err == nil || err.Error() != expectedErr {
-		t.Errorf("Send did not return the expected error when the network is "+
-			"not healthy.\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Error path: tests that Manager.Send returns the expected error when the
-// provided file name is longer than FileNameMaxLen.
-func TestManager_Send_FileNameLengthError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, nil, t)
-
-	fileName := strings.Repeat("A", FileNameMaxLen+1)
-	expectedErr := fmt.Sprintf(fileNameSizeErr, len(fileName), FileNameMaxLen)
-
-	_, err := m.Send(fileName, "", nil, nil, 0, nil, nil, 0)
-	if err == nil || err.Error() != expectedErr {
-		t.Errorf("Send did not return the expected error when the file name "+
-			"is too long.\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Error path: tests that Manager.Send returns the expected error when the
-// provided file type is longer than FileTypeMaxLen.
-func TestManager_Send_FileTypeLengthError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, nil, t)
-
-	fileType := strings.Repeat("A", FileTypeMaxLen+1)
-	expectedErr := fmt.Sprintf(fileTypeSizeErr, len(fileType), FileTypeMaxLen)
-
-	_, err := m.Send("", fileType, nil, nil, 0, nil, nil, 0)
-	if err == nil || err.Error() != expectedErr {
-		t.Errorf("Send did not return the expected error when the file type "+
-			"is too long.\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Error path: tests that Manager.Send returns the expected error when the
-// provided file is larger than FileMaxSize.
-func TestManager_Send_FileSizeError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, nil, t)
-
-	fileData := make([]byte, FileMaxSize+1)
-	expectedErr := fmt.Sprintf(fileSizeErr, len(fileData), FileMaxSize)
-
-	_, err := m.Send("", "", fileData, nil, 0, nil, nil, 0)
-	if err == nil || err.Error() != expectedErr {
-		t.Errorf("Send did not return the expected error when the file data "+
-			"is too large.\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Error path: tests that Manager.Send returns the expected error when the
-// provided preview is larger than PreviewMaxSize.
-func TestManager_Send_PreviewSizeError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, nil, t)
-
-	previewData := make([]byte, PreviewMaxSize+1)
-	expectedErr := fmt.Sprintf(previewSizeErr, len(previewData), PreviewMaxSize)
-
-	_, err := m.Send("", "", nil, nil, 0, previewData, nil, 0)
-	if err == nil || err.Error() != expectedErr {
-		t.Errorf("Send did not return the expected error when the preview "+
-			"data is too large.\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Error path: tests that Manager.Send returns the expected error when the E2E
-// message fails to send.
-func TestManager_Send_SendE2eError(t *testing.T) {
-	m := newTestManager(true, nil, nil, nil, nil, t)
-	prng := NewPrng(42)
-	recipient := id.NewIdFromString("recipient", id.User, t)
-	fileName := "testFile"
-	fileType := "bytes"
-	numParts := uint16(16)
-	partSize, _ := m.getPartSize()
-	fileData, _ := newFile(numParts, partSize, prng, t)
-	preview := []byte("filePreview")
-	retry := float32(1.5)
-
-	rng := csprng.NewSystemRNG()
-	dhKey := m.store.E2e().GetGroup().NewInt(42)
-	pubKey := diffieHellman.GeneratePublicKey(dhKey, m.store.E2e().GetGroup())
-	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA, rng)
-	theirSidhPub, _ := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhB, rng)
-	p := params.GetDefaultE2ESessionParams()
-
-	err := m.store.E2e().AddPartner(recipient, pubKey, dhKey,
-		mySidhPriv, theirSidhPub, p, p)
-	if err != nil {
-		t.Errorf("Failed to add partner %s: %+v", recipient, err)
-	}
-
-	expectedErr := fmt.Sprintf(newFtSendE2eErr, recipient, "")
-
-	_, err = m.Send(
-		fileName, fileType, fileData, recipient, retry, preview, nil, 0)
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("Send did not return the expected error when the E2E message "+
-			"failed to send.\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Tests that Manager.RegisterSentProgressCallback calls the callback when it is
-// added to the transfer and that the callback is associated with the expected
-// transfer and is called when calling from the transfer.
-func TestManager_RegisterSentProgressCallback(t *testing.T) {
-	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{12, 4, 1}, false, false, nil, nil, nil, t)
-	expectedErr := errors.New("CallbackError")
-
-	// Create new callback and channel for the callback to trigger
-	cbChan := make(chan sentProgressResults, 6)
-	cb := func(completed bool, sent, arrived, total uint16,
-		tr interfaces.FilePartTracker, err error) {
-		cbChan <- sentProgressResults{completed, sent, arrived, total, tr, err}
-	}
-
-	// Start thread waiting for callback to be called
-	done0, done1 := make(chan bool), make(chan bool)
-	go func() {
-		for i := 0; i < 2; i++ {
-			select {
-			case <-time.NewTimer(20 * time.Millisecond).C:
-				t.Errorf("Timed out waiting for callback call #%d.", i)
-			case r := <-cbChan:
-				switch i {
-				case 0:
-					err := checkSentProgress(r.completed, r.sent, r.arrived,
-						r.total, false, 0, 0, sti[0].numParts)
-					if err != nil {
-						t.Errorf("%d: %+v", i, err)
-					}
-					if r.err != nil {
-						t.Errorf("Callback returned an error (%d): %+v", i, r.err)
-					}
-					done0 <- true
-				case 1:
-					if r.err == nil || r.err != expectedErr {
-						t.Errorf("Callback did not return the expected error (%d)."+
-							"\nexpected: %v\nreceived: %+v", i, expectedErr, r.err)
-					}
-					done1 <- true
-				}
-			}
-		}
-	}()
-
-	err := m.RegisterSentProgressCallback(sti[0].tid, cb, 1*time.Millisecond)
-	if err != nil {
-		t.Errorf("RegisterSentProgressCallback returned an error: %+v", err)
-	}
-	<-done0
-
-	transfer, _ := m.sent.GetTransfer(sti[0].tid)
-
-	transfer.CallProgressCB(expectedErr)
-
-	<-done1
-}
-
-// Error path: tests that Manager.RegisterSentProgressCallback returns an error
-// when no transfer with the ID exists.
-func TestManager_RegisterSentProgressCallback_NoTransferError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, nil, t)
-	tid := ftCrypto.UnmarshalTransferID([]byte("invalidID"))
-
-	err := m.RegisterSentProgressCallback(tid, nil, 0)
-	if err == nil {
-		t.Error("RegisterSentProgressCallback did not return an error when " +
-			"no transfer with the ID exists.")
-	}
-}
-
-func TestManager_Resend(t *testing.T) {
-
-}
-
-// Error path: tests that Manager.Resend returns an error when no transfer with
-// the ID exists.
-func TestManager_Resend_NoTransferError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, nil, t)
-	tid := ftCrypto.UnmarshalTransferID([]byte("invalidID"))
-
-	err := m.Resend(tid)
-	if err == nil {
-		t.Error("Resend did not return an error when no transfer with the " +
-			"ID exists.")
-	}
-}
-
-// Error path: tests that Manager.Resend returns the error when the transfer has
-// not run out of fingerprints.
-func TestManager_Resend_NoFingerprints(t *testing.T) {
-	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{16}, false, false, nil, nil, nil, t)
-	expectedErr := fmt.Sprintf(transferNotFailedErr, sti[0].tid)
-	// Delete the transfer
-	err := m.Resend(sti[0].tid)
-	if err == nil || err.Error() != expectedErr {
-		t.Errorf("Resend did not return the expected error when the transfer "+
-			"has not run out of fingerprints.\nexpected: %s\nreceived: %v",
-			expectedErr, err)
-	}
-}
-
-// Tests that Manager.CloseSend deletes the transfer when it has run out of
-// fingerprints but is not complete.
-func TestManager_CloseSend_NoFingerprints(t *testing.T) {
-	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{16}, false, false, nil, nil, nil, t)
-	partSize, _ := m.getPartSize()
-
-	// Use up all the fingerprints in the transfer
-	transfer, _ := m.sent.GetTransfer(sti[0].tid)
-	for fpNum := uint16(0); fpNum < sti[0].numFps; fpNum++ {
-		partNum := fpNum % sti[0].numParts
-		_, _, _, err := transfer.GetEncryptedPart(partNum, partSize+2)
-		if err != nil {
-			t.Errorf("Failed to encrypt part %d (%d): %+v", partNum, fpNum, err)
-		}
-	}
-
-	// Delete the transfer
-	err := m.CloseSend(sti[0].tid)
-	if err != nil {
-		t.Errorf("CloseSend returned an error: %+v", err)
-	}
-
-	// Check that the transfer was deleted
-	_, err = m.sent.GetTransfer(sti[0].tid)
-	if err == nil {
-		t.Errorf("Failed to delete transfer %s.", sti[0].tid)
-	}
-}
-
-// Tests that Manager.CloseSend deletes the transfer when it completed but has
-// fingerprints.
-func TestManager_CloseSend_Complete(t *testing.T) {
-	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{3}, false, false, nil, nil, nil, t)
-
-	// Set all parts to finished
-	transfer, _ := m.sent.GetTransfer(sti[0].tid)
-	_, err := transfer.SetInProgress(0, 0, 1, 2)
-	if err != nil {
-		t.Errorf("Failed to set parts to in-progress: %+v", err)
-	}
-	complete, err := transfer.FinishTransfer(0)
-	if err != nil {
-		t.Errorf("Failed to set parts to finished: %+v", err)
-	}
-
-	// Ensure that FinishTransfer reported the transfer as complete
-	if !complete {
-		t.Error("FinishTransfer did not report the transfer as complete.")
-	}
-
-	// Delete the transfer
-	err = m.CloseSend(sti[0].tid)
-	if err != nil {
-		t.Errorf("CloseSend returned an error: %+v", err)
-	}
-
-	// Check that the transfer was deleted
-	_, err = m.sent.GetTransfer(sti[0].tid)
-	if err == nil {
-		t.Errorf("Failed to delete transfer %s.", sti[0].tid)
-	}
-}
-
-// Error path: tests that Manager.CloseSend returns an error when no transfer
-// with the ID exists.
-func TestManager_CloseSend_NoTransferError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, nil, t)
-	tid := ftCrypto.UnmarshalTransferID([]byte("invalidID"))
-
-	err := m.CloseSend(tid)
-	if err == nil {
-		t.Error("CloseSend did not return an error when no transfer with the " +
-			"ID exists.")
-	}
-}
-
-// Error path: tests that Manager.CloseSend returns an error when the transfer
-// has not run out of fingerprints and is not complete
-func TestManager_CloseSend_NotCompleteErr(t *testing.T) {
-	m, sti, _ := newTestManagerWithTransfers(
-		[]uint16{16}, false, false, nil, nil, nil, t)
-	expectedErr := fmt.Sprintf(transferInProgressErr, sti[0].tid)
-
-	err := m.CloseSend(sti[0].tid)
-	if err == nil || err.Error() != expectedErr {
-		t.Errorf("CloseSend did not return the expected error when the transfer"+
-			"is not complete.\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
-// Error path: tests that Manager.Receive returns an error when no transfer with
-// the ID exists.
-func TestManager_Receive_NoTransferError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, nil, t)
-	tid := ftCrypto.UnmarshalTransferID([]byte("invalidID"))
-
-	_, err := m.Receive(tid)
-	if err == nil {
-		t.Error("Receive did not return an error when no transfer with the ID " +
-			"exists.")
-	}
-}
-
-// Error path: tests that Manager.Receive returns an error when the file is
-// incomplete.
-func TestManager_Receive_GetFileError(t *testing.T) {
-	m, _, rti := newTestManagerWithTransfers(
-		[]uint16{12, 4, 1}, false, false, nil, nil, nil, t)
-
-	_, err := m.Receive(rti[0].tid)
-	if err == nil || !strings.Contains(err.Error(), "missing") {
-		t.Error("Receive did not return the expected error when no transfer " +
-			"with the ID exists.")
-	}
-}
-
-// Tests that Manager.RegisterReceivedProgressCallback calls the callback when
-// it is added to the transfer and that the callback is associated with the
-// expected transfer and is called when calling from the transfer.
-func TestManager_RegisterReceivedProgressCallback(t *testing.T) {
-	m, _, rti := newTestManagerWithTransfers(
-		[]uint16{12, 4, 1}, false, false, nil, nil, nil, t)
-	expectedErr := errors.New("CallbackError")
-
-	// Create new callback and channel for the callback to trigger
-	cbChan := make(chan receivedProgressResults, 6)
-	cb := func(completed bool, received, total uint16,
-		tr interfaces.FilePartTracker, err error) {
-		cbChan <- receivedProgressResults{completed, received, total, tr, err}
-	}
-
-	// Start thread waiting for callback to be called
-	done0, done1 := make(chan bool), make(chan bool)
-	go func() {
-		for i := 0; i < 2; i++ {
-			select {
-			case <-time.NewTimer(20 * time.Millisecond).C:
-				t.Errorf("Timed out waiting for callback call #%d.", i)
-			case r := <-cbChan:
-				switch i {
-				case 0:
-					err := checkReceivedProgress(r.completed, r.received,
-						r.total, false, 0, rti[0].numParts)
-					if err != nil {
-						t.Errorf("%d: %+v", i, err)
-					}
-					if r.err != nil {
-						t.Errorf("Callback returned an error (%d): %+v", i, r.err)
-					}
-					done0 <- true
-				case 1:
-					if r.err == nil || r.err != expectedErr {
-						t.Errorf("Callback did not return the expected error (%d)."+
-							"\nexpected: %v\nreceived: %+v", i, expectedErr, r.err)
-					}
-					done1 <- true
-				}
-			}
-		}
-	}()
-
-	err := m.RegisterReceivedProgressCallback(rti[0].tid, cb, time.Millisecond)
-	if err != nil {
-		t.Errorf("RegisterReceivedProgressCallback returned an error: %+v", err)
-	}
-	<-done0
-
-	transfer, _ := m.received.GetTransfer(rti[0].tid)
-
-	transfer.CallProgressCB(expectedErr)
-
-	<-done1
-}
-
-// Error path: tests that Manager.RegisterReceivedProgressCallback returns an
-// error when no transfer with the ID exists.
-func TestManager_RegisterReceivedProgressCallback_NoTransferError(t *testing.T) {
-	m := newTestManager(false, nil, nil, nil, nil, t)
-	tid := ftCrypto.UnmarshalTransferID([]byte("invalidID"))
-
-	err := m.RegisterReceivedProgressCallback(tid, nil, 0)
-	if err == nil {
-		t.Error("RegisterReceivedProgressCallback did not return an error " +
-			"when no transfer with the ID exists.")
-	}
-}
-
-// Tests that calcNumberOfFingerprints matches some manually calculated
-// results.
+// Tests that calcNumberOfFingerprints matches some manually calculated results.
 func Test_calcNumberOfFingerprints(t *testing.T) {
 	testValues := []struct {
-		numParts uint16
+		numParts int
 		retry    float32
 		result   uint16
 	}{
@@ -598,204 +75,175 @@ func Test_calcNumberOfFingerprints(t *testing.T) {
 	}
 }
 
-// Tests that Manager satisfies the interfaces.FileTransfer interface.
-func TestManager_FileTransferInterface(t *testing.T) {
-	var _ interfaces.FileTransfer = Manager{}
-}
+// Smoke test of the entire file transfer system.
+func Test_FileTransfer_Smoke(t *testing.T) {
+	// Set up cMix and E2E message handlers
+	cMixHandler := newMockCmixHandler()
+	e2eHandler := newMockE2eHandler()
+	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
+	params := DefaultParams()
 
-// Sets up a mock file transfer with two managers that sends one file from one
-// to another.
-func Test_FileTransfer(t *testing.T) {
-	var wg sync.WaitGroup
+	type receiveCbValues struct {
+		tid      *ftCrypto.TransferID
+		fileName string
+		fileType string
+		sender   *id.ID
+		size     uint32
+		preview  []byte
+	}
 
-	// Create callback with channel for receiving new file transfer
-	receiveNewCbChan := make(chan receivedFtResults, 100)
-	receiveNewCB := func(tid ftCrypto.TransferID, fileName, fileType string,
+	// Set up the first client
+	receiveCbChan1 := make(chan receiveCbValues, 10)
+	receiveCB1 := func(tid *ftCrypto.TransferID, fileName, fileType string,
 		sender *id.ID, size uint32, preview []byte) {
-		receiveNewCbChan <- receivedFtResults{
+		receiveCbChan1 <- receiveCbValues{
 			tid, fileName, fileType, sender, size, preview}
 	}
-
-	// Create reception channels for both managers
-	newFtChan1 := make(chan message.Receive, rawMessageBuffSize)
-	filePartChan1 := make(chan message.Receive, rawMessageBuffSize)
-	newFtChan2 := make(chan message.Receive, rawMessageBuffSize)
-	filePartChan2 := make(chan message.Receive, rawMessageBuffSize)
-
-	// Generate sending and receiving managers
-	m1 := newTestManager(false, filePartChan2, newFtChan2, nil, nil, t)
-	m2 := newTestManager(false, filePartChan1, newFtChan1, receiveNewCB, nil, t)
-
-	// Add partner
-	dhKey := m1.store.E2e().GetGroup().NewInt(42)
-	pubKey := diffieHellman.GeneratePublicKey(dhKey, m1.store.E2e().GetGroup())
-	p := params.GetDefaultE2ESessionParams()
-	recipient := id.NewIdFromString("recipient", id.User, t)
-
-	rng := csprng.NewSystemRNG()
-	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA,
-		rng)
-	theirSidhPub, _ := util.GenerateSIDHKeyPair(
-		sidh.KeyVariantSidhB, rng)
-
-	err := m1.store.E2e().AddPartner(recipient, pubKey, dhKey,
-		mySidhPriv, theirSidhPub, p, p)
+	myID1 := id.NewIdFromString("myID1", id.User, t)
+	kv1 := versioned.NewKV(make(ekv.Memstore))
+	endE2eChan1 := make(chan receive.Message, 3)
+	e2e1 := newMockE2e(myID1, e2eHandler)
+	e2e1.RegisterListener(
+		myID1, catalog.EndFileTransfer, newMockListener(endE2eChan1))
+	ftm1, err := NewManager(receiveCB1, params, myID1,
+		newMockCmix(myID1, cMixHandler), e2e1, kv1, rngGen)
 	if err != nil {
-		t.Errorf("Failed to add partner %s: %+v", recipient, err)
+		t.Errorf("Failed to create new file transfer manager 1: %+v", err)
 	}
+	m1 := ftm1.(*manager)
 
-	stop1, err := m1.startProcesses(newFtChan1, filePartChan1)
+	stop1, err := m1.StartProcesses()
 	if err != nil {
-		t.Errorf("Failed to start processes for sending manager: %+v", err)
+		t.Errorf("Failed to start processes for manager 1: %+v", err)
 	}
 
-	stop2, err := m2.startProcesses(newFtChan2, filePartChan2)
+	// Set up the second client
+	receiveCbChan2 := make(chan receiveCbValues, 10)
+	receiveCB2 := func(tid *ftCrypto.TransferID, fileName, fileType string,
+		sender *id.ID, size uint32, preview []byte) {
+		receiveCbChan2 <- receiveCbValues{
+			tid, fileName, fileType, sender, size, preview}
+	}
+	myID2 := id.NewIdFromString("myID2", id.User, t)
+	kv2 := versioned.NewKV(make(ekv.Memstore))
+	endE2eChan2 := make(chan receive.Message, 3)
+	e2e2 := newMockE2e(myID1, e2eHandler)
+	e2e2.RegisterListener(
+		myID2, catalog.EndFileTransfer, newMockListener(endE2eChan2))
+	ftm2, err := NewManager(receiveCB2, params, myID2,
+		newMockCmix(myID2, cMixHandler), e2e2, kv2, rngGen)
 	if err != nil {
-		t.Errorf("Failed to start processes for receving manager: %+v", err)
+		t.Errorf("Failed to create new file transfer manager 2: %+v", err)
+	}
+	m2 := ftm2.(*manager)
+
+	stop2, err := m2.StartProcesses()
+	if err != nil {
+		t.Errorf("Failed to start processes for manager 2: %+v", err)
 	}
 
-	// Create progress tracker for sending
-	sentCbChan := make(chan sentProgressResults, 20)
-	sentCb := func(completed bool, sent, arrived, total uint16,
-		tr interfaces.FilePartTracker, err error) {
-		sentCbChan <- sentProgressResults{completed, sent, arrived, total, tr, err}
-	}
+	// Wait group prevents the test from quiting before the file has completed
+	// sending and receiving
+	var wg sync.WaitGroup
 
-	// Start threads that tracks sent progress until complete
+	// Define details of file to send
+	fileName, fileType := "myFile", "txt"
+	fileData := []byte(loreumIpsum)
+	preview := []byte("Lorem ipsum dolor sit amet")
+	retry := float32(2.0)
+
+	// Create go func that waits for file transfer to be received to register
+	// a progress callback that then checks that the file received is correct
+	// when done
 	wg.Add(1)
+	var called bool
+	timeReceived := make(chan time.Time)
 	go func() {
-		defer wg.Done()
-		for i := 0; i < 20; i++ {
-			select {
-			case <-time.NewTimer(250 * time.Millisecond).C:
-				t.Errorf("Timed out waiting for sent progress callback %d.", i)
-			case r := <-sentCbChan:
-				if r.completed {
-					return
-				}
-			}
-		}
-		t.Error("Sent progress callback never reported file finishing to send.")
-	}()
-
-	// Create file and parameters
-	prng := NewPrng(42)
-	partSize, _ := m1.getPartSize()
-	fileName := "testFile"
-	fileType := "file"
-	file, parts := newFile(32, partSize, prng, t)
-	preview := parts[0]
-
-	// Send file
-	sendTid, err := m1.Send(fileName, fileType, file, recipient, 0.5, preview,
-		sentCb, time.Millisecond)
-	if err != nil {
-		t.Errorf("Send returned an error: %+v", err)
-	}
-
-	// Wait for the receiving manager to get E2E message and call callback to
-	// get transfer ID of received transfer
-	var receiveTid ftCrypto.TransferID
-	select {
-	case <-time.NewTimer(10 * time.Millisecond).C:
-		t.Error("Timed out waiting for receive callback: ")
-	case r := <-receiveNewCbChan:
-		if !bytes.Equal(preview, r.preview) {
-			t.Errorf("File preview received from callback incorrect."+
-				"\nexpected: %q\nreceived: %q", preview, r.preview)
-		}
-		if len(file) != int(r.size) {
-			t.Errorf("File size received from callback incorrect."+
-				"\nexpected: %d\nreceived: %d", len(file), r.size)
-		}
-		receiveTid = r.tid
-	}
-
-	// Register progress callback with receiving manager
-	receiveCbChan := make(chan receivedProgressResults, 100)
-	receiveCb := func(completed bool, received, total uint16,
-		tr interfaces.FilePartTracker, err error) {
-		receiveCbChan <- receivedProgressResults{completed, received, total, tr, err}
-	}
-
-	// Start threads that tracks received progress until complete
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 20; i++ {
-			select {
-			case <-time.NewTimer(450 * time.Millisecond).C:
-				t.Errorf("Timed out waiting for receive progress callback %d.", i)
-			case r := <-receiveCbChan:
-				if r.completed {
-					// Count the number of parts marked as received
-					count := 0
-					for j := uint16(0); j < r.total; j++ {
-						if r.tracker.GetPartStatus(j) == interfaces.FpReceived {
-							count++
-						}
+		select {
+		case r := <-receiveCbChan2:
+			receiveProgressCB := func(completed bool, received, total uint16,
+				fpt FilePartTracker, err error) {
+				if completed && !called {
+					timeReceived <- netTime.Now()
+					receivedFile, err2 := m2.Receive(r.tid)
+					if err2 != nil {
+						t.Errorf("Failed to receive file: %+v", err2)
 					}
 
-					// Ensure that the number of parts received reported by the
-					// callback matches the number marked received
-					if count != int(r.received) {
-						t.Errorf("Number of parts marked received does not "+
-							"match number reported by callback."+
-							"\nmarked:   %d\ncallback: %d", count, r.received)
+					if !bytes.Equal(fileData, receivedFile) {
+						t.Errorf("Received file does not match sent."+
+							"\nsent:     %q\nreceived: %q",
+							fileData, receivedFile)
 					}
-
-					return
+					wg.Done()
 				}
 			}
+			err3 := m2.RegisterReceivedProgressCallback(
+				r.tid, receiveProgressCB, 0)
+			if err3 != nil {
+				t.Errorf(
+					"Failed to Rregister received progress callback: %+v", err3)
+			}
+		case <-time.After(2100 * time.Millisecond):
+			t.Errorf("Timed out waiting to receive new file transfer.")
+			wg.Done()
 		}
-		t.Error("Receive progress callback never reported file finishing to receive.")
 	}()
 
-	err = m2.RegisterReceivedProgressCallback(
-		receiveTid, receiveCb, time.Millisecond)
-	if err != nil {
-		t.Errorf("Failed to register receive progress callback: %+v", err)
+	// Define sent progress callback
+	wg.Add(1)
+	sentProgressCb1 := func(completed bool, arrived, total uint16,
+		fpt FilePartTracker, err error) {
+		if completed {
+			wg.Done()
+		}
 	}
 
+	// Send file.
+	sendStart := netTime.Now()
+	tid1, err := m1.Send(
+		fileName, fileType, fileData, myID2, retry, preview, sentProgressCb1, 0)
+	if err != nil {
+		t.Errorf("Failed to send file: %+v", err)
+	}
+
+	go func() {
+		select {
+		case tr := <-timeReceived:
+			fileSize := len(fileData)
+			sendTime := tr.Sub(sendStart)
+			fileSizeKb := float32(fileSize) * .001
+			speed := fileSizeKb * float32(time.Second) / (float32(sendTime))
+			t.Logf("Completed sending file %q in %s (%.2f kb @ %.2f kb/s).",
+				fileName, sendTime, fileSizeKb, speed)
+		}
+	}()
+
+	// Wait for file to be sent and received
 	wg.Wait()
 
-	// Check that the file can be received
-	receivedFile, err := m2.Receive(receiveTid)
+	err = m1.CloseSend(tid1)
 	if err != nil {
-		t.Errorf("Failed to receive file: %+v", err)
+		t.Errorf("Failed to close transfer: %+v", err)
 	}
 
-	// Check that the received file matches the sent file
-	if !bytes.Equal(file, receivedFile) {
-		t.Errorf("Received file does not match sent."+
-			"\nexpected: %q\nrecevied: %q", file, receivedFile)
-	}
-
-	// Check that the received transfer was deleted
-	_, err = m2.received.GetTransfer(receiveTid)
-	if err == nil {
-		t.Error("Failed to delete received file transfer once file has been " +
-			"received.")
-	}
-
-	// Close the transfer on the sending manager
-	err = m1.CloseSend(sendTid)
+	err = stop1.Close()
 	if err != nil {
-		t.Errorf("Failed to close the send: %+v", err)
+		t.Errorf("Failed to close processes for manager 1: %+v", err)
 	}
 
-	// Check that the sent transfer was deleted
-	_, err = m1.sent.GetTransfer(sendTid)
-	if err == nil {
-		t.Error("Failed to delete sent file transfer once file has been sent " +
-			"and closed.")
-	}
-
-	if err = stop1.Close(); err != nil {
-		t.Errorf("Failed to close sending manager threads: %+v", err)
-	}
-
-	if err = stop2.Close(); err != nil {
-		t.Errorf("Failed to close receiving manager threads: %+v", err)
+	err = stop2.Close()
+	if err != nil {
+		t.Errorf("Failed to close processes for manager 2: %+v", err)
 	}
 }
+
+const loreumIpsum = `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed sit amet urna venenatis, rutrum magna maximus, tempor orci. Cras sit amet nulla id dolor blandit commodo. Suspendisse potenti. Praesent gravida porttitor metus vel aliquam. Maecenas rutrum velit at lobortis auctor. Mauris porta blandit tempor. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Morbi volutpat posuere maximus. Nunc in augue molestie ante mattis tempor.
+
+Phasellus placerat elit eu fringilla pharetra. Vestibulum consectetur pulvinar nunc, vestibulum tincidunt felis rhoncus sit amet. Duis non dolor eleifend nibh luctus eleifend. Nunc urna odio, euismod sit amet feugiat ut, dapibus vel elit. Nulla est mauris, posuere eget enim cursus, vehicula viverra est. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque mattis, nisi quis consectetur semper, neque enim rhoncus dolor, ut aliquam leo orci sed dolor. Integer ullamcorper pulvinar turpis, a sollicitudin nunc posuere et. Nullam orci nibh, facilisis ac massa eu, bibendum bibendum sapien. Sed tincidunt nunc mauris, nec ullamcorper enim lacinia nec. Nulla dapibus sapien ut odio bibendum, tempus ornare sapien lacinia.
+
+Duis ac hendrerit augue. Nullam porttitor feugiat finibus. Nam enim urna, maximus et ligula eu, aliquet convallis turpis. Vestibulum luctus quam in dictum efficitur. Vestibulum ac pulvinar ipsum. Vivamus consectetur augue nec tellus mollis, at iaculis magna efficitur. Nunc dictum convallis sem, at vehicula nulla accumsan non. Nullam blandit orci vel turpis convallis, mollis porttitor felis accumsan. Sed non posuere leo. Proin ultricies varius nulla at ultricies. Phasellus et pharetra justo. Quisque eu orci odio. Pellentesque pharetra tempor tempor. Aliquam ac nulla lorem. Sed dignissim ligula sit amet nibh fermentum facilisis.
+
+Donec facilisis rhoncus ante. Duis nec nisi et dolor congue semper vel id ligula. Mauris non eleifend libero, et sodales urna. Nullam pharetra gravida velit non mollis. Integer vel ultrices libero, at ultrices magna. Duis semper risus a leo vulputate consectetur. Cras sit amet convallis sapien. Sed blandit, felis et porttitor fringilla, urna tellus commodo metus, at pharetra nibh urna sed sem. Nam ex dui, posuere id mi et, egestas tincidunt est. Nullam elementum pulvinar diam in maximus. Maecenas vel augue vitae nunc consectetur vestibulum in aliquet lacus. Nullam nec lectus dapibus, dictum nisi nec, congue quam. Suspendisse mollis vel diam nec dapibus. Mauris neque justo, scelerisque et suscipit non, imperdiet eget leo. Vestibulum leo turpis, dapibus ac lorem a, mollis pulvinar quam.
+
+Sed sed mauris a neque dignissim aliquet. Aliquam congue gravida velit in efficitur. Integer elementum feugiat est, ac lacinia libero bibendum sed. Sed vestibulum suscipit dignissim. Nunc scelerisque, turpis quis varius tristique, enim lacus vehicula lacus, id vestibulum velit erat eu odio. Donec tincidunt nunc sit amet sapien varius ornare. Phasellus semper venenatis ligula eget euismod. Mauris sodales massa tempor, cursus velit a, feugiat neque. Sed odio justo, rhoncus eu fermentum non, tristique a quam. In vehicula in tortor nec iaculis. Cras ligula sem, sollicitudin at nulla eget, placerat lacinia massa. Mauris tempus quam sit amet leo efficitur egestas. Proin iaculis, velit in blandit egestas, felis odio sollicitudin ipsum, eget interdum leo odio tempor nisi. Curabitur sed mauris id turpis tempor finibus ut mollis lectus. Curabitur neque libero, aliquam facilisis lobortis eget, posuere in augue. In sodales urna sit amet elit euismod rhoncus.`

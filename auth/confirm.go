@@ -151,7 +151,7 @@ func (s *state) confirm(partner contact.Contact, serviceTag string) (
 	return sentRound, err
 }
 
-func sendAuthConfirm(net cmix.Client, partner *id.ID,
+func sendAuthConfirm(net cmixClient, partner *id.ID,
 	fp format.Fingerprint, payload, mac []byte, event event.Manager,
 	serviceTag string) (
 	id.Round, error) {
@@ -180,4 +180,3 @@ func sendAuthConfirm(net cmix.Client, partner *id.ID,
 	event.Report(1, "Auth", "SendConfirm", em)
 	return sentRound, nil
 }
-

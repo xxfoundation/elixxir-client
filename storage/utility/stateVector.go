@@ -214,7 +214,7 @@ func (sv *StateVector) Next() (uint32, error) {
 
 	// Save to storage
 	if err := sv.save(); err != nil {
-		return 0, errors.Errorf(saveNextErr, sv, err)
+		jww.FATAL.Panicf(saveNextErr, sv, err)
 	}
 
 	return nextKey, nil
@@ -296,6 +296,9 @@ func (sv *StateVector) GetUsedKeyNums() []uint32 {
 // DeepCopy creates a deep copy of the StateVector without a storage backend.
 // The deep copy can only be used for functions that do not access storage.
 func (sv *StateVector) DeepCopy() *StateVector {
+	sv.mux.RLock()
+	defer sv.mux.RUnlock()
+
 	newSV := &StateVector{
 		vect:           make([]uint64, len(sv.vect)),
 		firstAvailable: sv.firstAvailable,

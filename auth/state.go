@@ -9,31 +9,70 @@ package auth
 
 import (
 	"encoding/base64"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/identity"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 type state struct {
 	callbacks Callbacks
 
-	net cmix.Client
-	e2e e2e.Handler
+	// net cmix.Client
+	net cmixClient
+	// e2e e2e.Handler
+	e2e e2eHandler
 	rng *fastRNG.StreamGenerator
 
 	store *store.Store
 	event event.Manager
 
 	params Param
+}
+
+type cmixClient interface {
+	IsHealthy() bool
+	GetMaxMessageLength() int
+	AddService(clientID *id.ID, newService message.Service,
+		response message.Processor)
+	DeleteService(clientID *id.ID, toDelete message.Service,
+		processor message.Processor)
+	GetIdentity(get *id.ID) (identity.TrackedID, error)
+	AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,
+		mp message.Processor) error
+	DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint)
+	Send(recipient *id.ID, fingerprint format.Fingerprint,
+		service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
+		id.Round, ephemeral.Id, error)
+}
+
+type e2eHandler interface {
+	GetHistoricalDHPubkey() *cyclic.Int
+	GetHistoricalDHPrivkey() *cyclic.Int
+	GetGroup() *cyclic.Group
+	AddPartner(partnerID *id.ID,
+		partnerPubKey, myPrivKey *cyclic.Int,
+		partnerSIDHPubKey *sidh.PublicKey,
+		mySIDHPrivKey *sidh.PrivateKey, sendParams,
+		receiveParams session.Params) (partner.Manager, error)
+	GetPartner(partnerID *id.ID) (partner.Manager, error)
+	DeletePartner(partnerId *id.ID) error
+	GetReceptionID() *id.ID
 }
 
 type Callbacks interface {

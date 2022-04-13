@@ -27,6 +27,66 @@ func TestNewStore(t *testing.T) {
 
 }
 
+// Unit test
+func TestStore_RestoreFromBackUp(t *testing.T) {
+
+	kv := versioned.NewKV(make(ekv.Memstore))
+
+	s, err := NewStore(kv)
+	if err != nil {
+		t.Errorf("NewStore() produced an error: %v", err)
+	}
+
+	expected := fact.Fact{
+		Fact: "josh",
+		T:    fact.Username,
+	}
+
+	fl := fact.FactList{expected}
+
+	err = s.RestoreFromBackUp(fl)
+	if err != nil {
+		t.Fatalf("RestoreFromBackup err: %v", err)
+	}
+
+	_, exists := s.confirmedFacts[expected]
+	if !exists {
+		t.Fatalf("Fact %s does not exist in map", expected)
+	}
+
+}
+
+// Error case.
+func TestStore_RestoreFromBackUp_StatefulStore(t *testing.T) {
+
+	kv := versioned.NewKV(make(ekv.Memstore))
+
+	s, err := NewStore(kv)
+	if err != nil {
+		t.Errorf("NewStore() produced an error: %v", err)
+	}
+
+	confirmId := "confirm"
+	expected := fact.Fact{
+		Fact: "josh",
+		T:    fact.Username,
+	}
+
+	err = s.StoreUnconfirmedFact(confirmId, expected)
+	if err != nil {
+		t.Fatalf("StoreUnconfirmedFact error: %v", err)
+	}
+
+	// Expected error: should error when restoring on
+	// a stateful store.
+	fl := fact.FactList{expected}
+	err = s.RestoreFromBackUp(fl)
+	if err == nil {
+		t.Fatalf("RestoreFromBackup err: %v", err)
+	}
+
+}
+
 func TestStore_ConfirmFact(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 

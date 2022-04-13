@@ -22,6 +22,7 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"math"
 	"time"
 )
 
@@ -158,6 +159,71 @@ func NewManager(services cmix.Client, e2e e2e.Handler, events event.Manager,
 	return m, nil
 }
 
+// NewManagerFromBackup builds a new user discover manager from a backup.
+// It will construct a manager that is already registered and restore
+// already registered facts into store.
+func NewManagerFromBackup(client *api.Client, single *single.Manager,
+	email, phone fact.Fact) (*Manager, error) {
+	jww.INFO.Println("ud.NewManagerFromBackup()")
+	if client.NetworkFollowerStatus() != api.Running {
+		return nil, errors.New(
+			"cannot start UD Manager when network follower is not running.")
+	}
+
+	registered := uint32(0)
+
+	m := &Manager{
+		client:     client,
+		comms:      client.GetComms(),
+		rng:        client.GetRng(),
+		sw:         client.GetSwitchboard(),
+		storage:    client.GetStorage(),
+		net:        client.GetNetworkInterface(),
+		single:     single,
+		registered: &registered,
+	}
+
+	err := m.client.GetStorage().GetUd().
+		BackUpMissingFacts(email, phone)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to restore UD store "+
+			"from backup")
+	}
+
+	// check that user discovery is available in the NDF
+	def := m.net.GetInstance().GetPartialNdf().Get()
+
+	if def.UDB.Cert == "" {
+		return nil, errors.New("NDF does not have User Discovery information, " +
+			"is there network access?: Cert not present.")
+	}
+
+	// Create the user discovery host object
+	hp := connect.GetDefaultHostParams()
+	// Client will not send KeepAlive packets
+	hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
+	hp.MaxRetries = 3
+	hp.SendTimeout = 3 * time.Second
+	hp.AuthEnabled = false
+
+	m.myID = m.storage.User().GetCryptographicIdentity().GetReceptionID()
+
+	// Get the commonly used data from storage
+	m.privKey = m.storage.GetUser().ReceptionRSA
+
+	// Set as registered. Since it's from a backup,
+	// the client is already registered
+	if err = m.setRegistered(); err != nil {
+		return nil, errors.WithMessage(err, "failed to set client as "+
+			"registered with user discovery.")
+	}
+
+	// Store the pointer to the group locally for easy access
+	m.grp = m.storage.E2e().GetGroup()
+
+	return m, nil
+}
+
 func LoadManager(services cmix.Client, e2e e2e.Handler, events event.Manager,
 	comms Comms, userStore Userinfo, rng *fastRNG.StreamGenerator,
 	privKey *rsa.PrivateKey, kv *versioned.KV) (*Manager, error) {
@@ -232,18 +298,6 @@ func (m *Manager) UnsetAlternativeUserDiscovery() error {
 
 	m.alternativeUd = nil
 	return nil
-}
-
-// BackUpMissingFacts adds a registered fact to the Store object.
-// It can take in both an email and a phone number. One or the other may be nil,
-// however both is considered an error. It checks for the proper fact type for
-// the associated fact. Any other fact.FactType is not accepted and returns an
-// error and nothing is backed up. If you attempt to back up a fact type that h
-// as already been backed up, an error will be returned and nothing will be
-// backed up. Otherwise, it adds the fact and returns whether the Store saved
-// successfully.
-func (m *Manager) BackUpMissingFacts(email, phone fact.Fact) error {
-	return m.store.BackUpMissingFacts(email, phone)
 }
 
 // GetFacts returns a list of fact.Fact objects that exist within the

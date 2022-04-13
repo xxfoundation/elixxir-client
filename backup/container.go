@@ -5,14 +5,14 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package interfaces
+package backup
 
 import "sync"
 
 type TriggerBackup func(reason string)
 
-// BackupContainer contains the trigger to call to initiate a backup.
-type BackupContainer struct {
+// Container contains the trigger to call to initiate a backup.
+type Container struct {
 	triggerBackup TriggerBackup
 	mux           sync.RWMutex
 }
@@ -22,7 +22,7 @@ type BackupContainer struct {
 // should be in the paste tense. For example, if a contact is deleted, the
 // reason can be "contact deleted" and the log will show:
 //	Triggering backup: contact deleted
-func (bc *BackupContainer) TriggerBackup(reason string) {
+func (bc *Container) TriggerBackup(reason string) {
 	bc.mux.RLock()
 	defer bc.mux.RUnlock()
 	if bc.triggerBackup != nil {
@@ -32,7 +32,7 @@ func (bc *BackupContainer) TriggerBackup(reason string) {
 
 // SetBackup sets the backup trigger function which will cause a backup to start
 // on the next event that triggers is.
-func (bc *BackupContainer) SetBackup(triggerBackup TriggerBackup) {
+func (bc *Container) SetBackup(triggerBackup TriggerBackup) {
 	bc.mux.Lock()
 	defer bc.mux.Unlock()
 

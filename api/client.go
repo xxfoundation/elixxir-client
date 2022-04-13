@@ -51,8 +51,8 @@ type Client struct {
 
 	//object used for communications
 	comms *client.Comms
-	// Network parameters
-	parameters cmix.Params
+	// Network parameters, note e2e params wrap CMIXParams
+	parameters e2e.Params
 
 	network cmix.Client
 	//object used to register and communicate with permissioning

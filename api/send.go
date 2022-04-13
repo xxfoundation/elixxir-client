@@ -16,7 +16,6 @@ import (
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/interfaces/params"
 	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -64,16 +63,16 @@ func (c *Client) SendCMIX(msg format.Message, recipientID *id.ID,
 // SendManyCMIX sends many "raw" CMIX message payloads to each of the
 // provided recipients. Used for group chat functionality. Returns the
 // round ID of the round the payload was sent or an error if it fails.
-func (c *Client) SendManyCMIX(messages []message.TargetedCmixMessage,
-	params params.CMIX) (id.Round, []ephemeral.Id, error) {
-	return c.network.SendManyCMIX(messages, params)
+func (c *Client) SendManyCMIX(messages []cmix.TargetedCmixMessage,
+	params cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
+	return c.network.SendMany(messages, params)
 }
 
 // NewCMIXMessage Creates a new cMix message with the right properties
 // for the current cMix network.
 // FIXME: this is weird and shouldn't be necessary, but it is.
 func (c *Client) NewCMIXMessage(contents []byte) (format.Message, error) {
-	primeSize := len(c.storage.Cmix().GetGroup().GetPBytes())
+	primeSize := len(c.storage.GetCmixGroup().GetPBytes())
 	msg := format.NewMessage(primeSize)
 	if len(contents) > msg.ContentsSize() {
 		return format.Message{}, errors.New("Contents to long for cmix")

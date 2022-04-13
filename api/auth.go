@@ -11,14 +11,11 @@ import (
 	"encoding/binary"
 	"math/rand"
 
-	"gitlab.com/elixxir/client/catalog"
-
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/storage/edge"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
@@ -37,13 +34,12 @@ func (c *Client) RequestAuthenticatedChannel(recipient, me contact.Contact,
 	message string) (id.Round, error) {
 	jww.INFO.Printf("RequestAuthenticatedChannel(%s)", recipient.ID)
 
-	if !c.network.HealthTracker().IsHealthy() {
+	if !c.network.IsHealthy() {
 		return 0, errors.New("Cannot request authenticated channel " +
 			"creation when the network is not healthy")
 	}
 
-	return auth.RequestAuth(recipient, me, c.rng.GetStream(),
-		c.storage, c.network)
+	return c.auth.Request(recipient, c.GetUser().GetContact().Facts)
 }
 
 // ResetSession resets an authenticate channel that already exists
@@ -51,18 +47,17 @@ func (c *Client) ResetSession(recipient, me contact.Contact,
 	message string) (id.Round, error) {
 	jww.INFO.Printf("ResetSession(%s)", recipient.ID)
 
-	if !c.network.GetHealthTracker().IsHealthy() {
+	if !c.network.IsHealthy() {
 		return 0, errors.New("Cannot request authenticated channel " +
 			"creation when the network is not healthy")
 	}
 
-	return auth.ResetSession(recipient, me, c.rng.GetStream(),
-		c.storage, c.network)
+	return c.auth.Reset(recipient)
 }
 
 // GetAuthRegistrar gets the object which allows the registration of auth
 // callbacks
-func (c *Client) GetAuthRegistrar() interfaces.Auth {
+func (c *Client) GetAuthRegistrar() auth.State {
 	jww.INFO.Printf("GetAuthRegistrar(...)")
 
 	return c.auth
@@ -73,7 +68,7 @@ func (c *Client) GetAuthRegistrar() interfaces.Auth {
 func (c *Client) GetAuthenticatedChannelRequest(partner *id.ID) (contact.Contact, error) {
 	jww.INFO.Printf("GetAuthenticatedChannelRequest(%s)", partner)
 
-	return c.storage.Auth().GetReceivedRequestData(partner)
+	return c.auth.GetReceivedRequest(partner)
 }
 
 // ConfirmAuthenticatedChannel creates an authenticated channel out of a valid
@@ -87,7 +82,7 @@ func (c *Client) GetAuthenticatedChannelRequest(partner *id.ID) (contact.Contact
 func (c *Client) ConfirmAuthenticatedChannel(recipient contact.Contact) (id.Round, error) {
 	jww.INFO.Printf("ConfirmAuthenticatedChannel(%s)", recipient.ID)
 
-	if !c.network.GetHealthTracker().IsHealthy() {
+	if !c.network.IsHealthy() {
 		return 0, errors.New("Cannot request authenticated channel " +
 			"creation when the network is not healthy")
 	}
@@ -100,18 +95,19 @@ func (c *Client) ConfirmAuthenticatedChannel(recipient contact.Contact) (id.Roun
 func (c *Client) VerifyOwnership(received, verified contact.Contact) bool {
 	jww.INFO.Printf("VerifyOwnership(%s)", received.ID)
 
-	return auth.VerifyOwnership(received, verified, c.storage)
+	return c.auth.VerifyOwnership(received, verified, c.e2e)
 }
 
 // HasAuthenticatedChannel returns true if an authenticated channel exists for
 // the partner
 func (c *Client) HasAuthenticatedChannel(partner *id.ID) bool {
-	m, err := c.storage.E2e().GetPartner(partner)
+	m, err := c.e2e.GetPartner(partner)
 	return m != nil && err == nil
 }
 
 // Create an insecure e2e relationship with a precanned user
-func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Contact, error) {
+func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (
+	contact.Contact, error) {
 
 	precan := c.MakePrecannedContact(precannedID)
 
@@ -136,49 +132,15 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Co
 	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
 	// add the precanned user as a e2e contact
-	sesParam := c.parameters.E2EParams
-	err := c.storage.E2e().AddPartner(precan.ID, precan.DhPubKey,
-		c.storage.E2e().GetDHPrivateKey(), theirSIDHPubKey,
+	// FIXME: these params need to be threaded through...
+	sesParam := session.GetDefaultParams()
+	_, err := c.e2e.AddPartner(precan.ID, precan.DhPubKey,
+		c.e2e.GetHistoricalDHPrivkey(), theirSIDHPubKey,
 		mySIDHPrivKey, sesParam, sesParam)
 
 	// check garbled messages in case any messages arrived before creating
 	// the channel
-	c.network.CheckGarbledMessages()
-
-	//add the e2e and rekey firngeprints
-	//e2e
-	sessionPartner, err := c.storage.E2e().GetPartner(precan.ID)
-	if err != nil {
-		jww.FATAL.Panicf("Cannot find %s right after creating: %+v", precan.ID, err)
-	}
-	me := c.storage.GetUser().ReceptionID
-
-	c.storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetE2EPreimage(),
-		Type:   catalog.E2e,
-		Source: precan.ID[:],
-	}, me)
-
-	// slient (rekey)
-	c.storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetSilentPreimage(),
-		Type:   catalog.Silent,
-		Source: precan.ID[:],
-	}, me)
-
-	// File transfer end
-	c.storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetFileTransferPreimage(),
-		Type:   catalog.EndFT,
-		Source: precan.ID[:],
-	}, me)
-
-	// group request
-	c.storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetGroupRequestPreimage(),
-		Type:   catalog.GroupRq,
-		Source: precan.ID[:],
-	}, me)
+	c.network.CheckInProgressMessages()
 
 	return precan, err
 }
@@ -186,14 +148,14 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Co
 // Create an insecure e2e contact object for a precanned user
 func (c *Client) MakePrecannedContact(precannedID uint) contact.Contact {
 
-	e2eGrp := c.storage.E2e().GetGroup()
+	e2eGrp := c.storage.GetE2EGroup()
 
-	// get the user definition
 	precanned := createPrecannedUser(precannedID, c.rng.GetStream(),
-		c.storage.Cmix().GetGroup(), e2eGrp)
+		c.storage.GetCmixGroup(), e2eGrp)
 
 	// compute their public e2e key
-	partnerPubKey := e2eGrp.ExpG(precanned.E2eDhPrivateKey, e2eGrp.NewInt(1))
+	partnerPubKey := e2eGrp.ExpG(precanned.E2eDhPrivateKey,
+		e2eGrp.NewInt(1))
 
 	return contact.Contact{
 		ID:             precanned.ReceptionID,
@@ -207,12 +169,14 @@ func (c *Client) MakePrecannedContact(precannedID uint) contact.Contact {
 // E2E relationship. An error is returned if no relationship with the partner
 // is found.
 func (c *Client) GetRelationshipFingerprint(partner *id.ID) (string, error) {
-	m, err := c.storage.E2e().GetPartner(partner)
+	m, err := c.e2e.GetPartner(partner)
 	if err != nil {
-		return "", errors.Errorf("could not get partner %s: %+v", partner, err)
+		return "", errors.Errorf("could not get partner %s: %+v",
+			partner, err)
 	} else if m == nil {
-		return "", errors.Errorf("manager for partner %s is nil.", partner)
+		return "", errors.Errorf("manager for partner %s is nil.",
+			partner)
 	}
 
-	return m.GetRelationshipFingerprint(), nil
+	return m.GetConnectionFingerprint(), nil
 }

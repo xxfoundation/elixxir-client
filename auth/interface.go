@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
@@ -75,4 +76,11 @@ type State interface {
 	// DeleteReceiveRequests clears all received requests from client's auth
 	// storage.
 	DeleteReceiveRequests() error
+
+	// GetReceivedRequest returns a contact if there's a received
+	// request for it.
+	GetReceivedRequest(partner *id.ID) (contact.Contact, error)
+
+	// VerifyOwnership checks if the received ownership proof is valid
+	VerifyOwnership(received, verified contact.Contact, e2e e2e.Handler) bool
 }

@@ -9,17 +9,18 @@ package api
 
 import (
 	"encoding/json"
+
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/user"
 )
 
 // Returns an error if registration fails.
 func (c *Client) registerWithPermissioning() error {
-	userData := c.storage.User()
+	userData := c.userState.CryptographicIdentity
 	//get the users public key
-	transmissionPubKey := userData.GetCryptographicIdentity().GetTransmissionRSA().GetPublic()
-	receptionPubKey := userData.GetCryptographicIdentity().GetReceptionRSA().GetPublic()
+	transmissionPubKey := userData.GetTransmissionRSA().GetPublic()
+	receptionPubKey := userData.GetReceptionRSA().GetPublic()
 
 	//load the registration code
 	regCode, err := c.storage.GetRegCode()
@@ -30,16 +31,19 @@ func (c *Client) registerWithPermissioning() error {
 
 	//register with registration
 	transmissionRegValidationSignature, receptionRegValidationSignature,
-		registrationTimestamp, err := c.permissioning.Register(transmissionPubKey, receptionPubKey, regCode)
+		registrationTimestamp, err := c.permissioning.Register(
+		transmissionPubKey, receptionPubKey, regCode)
 	if err != nil {
 		return errors.WithMessage(err, "failed to register with "+
 			"permissioning")
 	}
 
 	//store the signature
-	userData.SetTransmissionRegistrationValidationSignature(transmissionRegValidationSignature)
-	userData.SetReceptionRegistrationValidationSignature(receptionRegValidationSignature)
-	userData.SetRegistrationTimestamp(registrationTimestamp)
+	c.storage.SetTransmissionRegistrationValidationSignature(
+		transmissionRegValidationSignature)
+	c.storage.SetReceptionRegistrationValidationSignature(
+		receptionRegValidationSignature)
+	c.storage.SetRegistrationTimestamp(registrationTimestamp)
 
 	//update the registration state
 	err = c.storage.ForwardRegistrationStatus(storage.PermissioningComplete)
@@ -50,9 +54,9 @@ func (c *Client) registerWithPermissioning() error {
 	return nil
 }
 
-// ConstructProtoUerFile is a helper function which is used for proto client testing.
-// This is used for development testing.
-func (c *Client) ConstructProtoUerFile() ([]byte, error) {
+// ConstructProtoUserFile is a helper function which is used for proto
+// client testing.  This is used for development testing.
+func (c *Client) ConstructProtoUserFile() ([]byte, error) {
 
 	//load the registration code
 	regCode, err := c.storage.GetRegCode()
@@ -71,10 +75,10 @@ func (c *Client) ConstructProtoUerFile() ([]byte, error) {
 		Precanned:                    c.GetUser().Precanned,
 		RegistrationTimestamp:        c.GetUser().RegistrationTimestamp,
 		RegCode:                      regCode,
-		TransmissionRegValidationSig: c.storage.User().GetTransmissionRegistrationValidationSignature(),
-		ReceptionRegValidationSig:    c.storage.User().GetReceptionRegistrationValidationSignature(),
-		E2eDhPrivateKey:              c.GetStorage().E2e().GetDHPrivateKey(),
-		E2eDhPublicKey:               c.GetStorage().E2e().GetDHPublicKey(),
+		TransmissionRegValidationSig: c.storage.GetTransmissionRegistrationValidationSignature(),
+		ReceptionRegValidationSig:    c.storage.GetReceptionRegistrationValidationSignature(),
+		E2eDhPrivateKey:              c.e2e.GetHistoricalDHPrivkey(),
+		E2eDhPublicKey:               c.e2e.GetHistoricalDHPubkey(),
 	}
 
 	jsonBytes, err := json.Marshal(Usr)

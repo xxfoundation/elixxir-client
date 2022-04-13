@@ -31,7 +31,7 @@ func Test_newManager(t *testing.T) {
 	requestFunc := func(g gs.Group) { requestChan <- g }
 	receiveChan := make(chan MessageReceive)
 	receiveFunc := func(msg MessageReceive) { receiveChan <- msg }
-	m, err := NewManager(nil, nil, user.ID, nil, nil, kv, requestFunc, receiveFunc)
+	m, err := NewManager(nil, newTestE2eManager(user.DhKey), user.ID, nil, nil, kv, requestFunc, receiveFunc)
 	if err != nil {
 		t.Errorf("newManager() returned an error: %+v", err)
 	}
@@ -84,7 +84,7 @@ func Test_newManager_LoadStorage(t *testing.T) {
 		}
 	}
 
-	m, err := NewManager(nil, nil, user.ID, nil, nil, kv, nil, nil)
+	m, err := NewManager(newTestNetworkManager(0, t), newTestE2eManager(user.DhKey), user.ID, nil, nil, kv, nil, nil)
 	if err != nil {
 		t.Errorf("newManager() returned an error: %+v", err)
 	}
@@ -118,7 +118,7 @@ func Test_newManager_LoadError(t *testing.T) {
 
 	expectedErr := strings.SplitN(newGroupStoreErr, "%", 2)[0]
 
-	_, err = NewManager(nil, nil, user.ID, nil, nil, kv, nil, nil)
+	_, err = NewManager(nil, newTestE2eManager(user.DhKey), user.ID, nil, nil, kv, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("newManager() did not return the expected error."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)

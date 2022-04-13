@@ -8,15 +8,19 @@
 package api
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/crypto/e2e"
+	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"time"
 )
 
 //This holds all functions to send messages over the network
@@ -24,11 +28,12 @@ import (
 // SendE2E sends an end-to-end payload to the provided recipient with
 // the provided msgType. Returns the list of rounds in which parts of
 // the message were sent or an error if it fails.
-func (c *Client) SendE2E(m message.Send, param params.E2E) ([]id.Round,
-	e2e.MessageID, time.Time, error) {
-	jww.INFO.Printf("SendE2E(%s, %d. %v)", m.Recipient,
-		m.MessageType, m.Payload)
-	return c.network.SendE2E(m, param, nil)
+func (c *Client) SendE2E(mt catalog.MessageType, recipient *id.ID,
+	payload []byte, param e2e.Params) ([]id.Round,
+	e2eCrypto.MessageID, time.Time, error) {
+	jww.INFO.Printf("SendE2E(%s, %d. %v)", recipient,
+		mt, payload)
+	return c.e2e.SendE2E(mt, recipient, payload, param)
 }
 
 // SendUnsafe sends an unencrypted payload to the provided recipient
@@ -36,11 +41,12 @@ func (c *Client) SendE2E(m message.Send, param params.E2E) ([]id.Round,
 // of the message were sent or an error if it fails.
 // NOTE: Do not use this function unless you know what you are doing.
 // This function always produces an error message in client logging.
-func (c *Client) SendUnsafe(m message.Send, param params.Unsafe) ([]id.Round,
+func (c *Client) SendUnsafe(mt catalog.MessageType, recipient *id.ID,
+	payload []byte, param e2e.Params) ([]id.Round, time.Time,
 	error) {
-	jww.INFO.Printf("SendUnsafe(%s, %d. %v)", m.Recipient,
-		m.MessageType, m.Payload)
-	return c.network.SendUnsafe(m, param)
+	jww.INFO.Printf("SendUnsafe(%s, %d. %v)", recipient,
+		mt, payload)
+	return c.e2e.SendUnsafe(mt, recipient, payload, param)
 }
 
 // SendCMIX sends a "raw" CMIX message payload to the provided
@@ -48,9 +54,11 @@ func (c *Client) SendUnsafe(m message.Send, param params.Unsafe) ([]id.Round,
 // Returns the round ID of the round the payload was sent or an error
 // if it fails.
 func (c *Client) SendCMIX(msg format.Message, recipientID *id.ID,
-	param params.CMIX) (id.Round, ephemeral.Id, error) {
+	param cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 	jww.INFO.Printf("Send(%s)", string(msg.GetContents()))
-	return c.network.SendCMIX(msg, recipientID, param)
+	return c.network.Send(recipientID, msg.GetKeyFP(),
+		message.GetDefaultService(recipientID),
+		msg.GetContents(), msg.GetMac(), param)
 }
 
 // SendManyCMIX sends many "raw" CMIX message payloads to each of the

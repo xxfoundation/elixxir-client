@@ -8,13 +8,14 @@
 package interfaces
 
 import (
+	"time"
+
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/ndf"
-	"time"
 
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/format"
@@ -29,24 +30,26 @@ type NetworkManager interface {
 	// Only one follower may run at a time.
 	Follow(report ClientErrorReport) (stoppable.Stoppable, error)
 
-	/*===Sending==============================================================*/
+	/*===Sending==========================================================*/
 
-	// SendCMIX sends a "raw" CMIX message payload to the provided recipient.
-	// Returns the round ID of the round the payload was sent or an error
-	// if it fails.
-	SendCMIX(message format.Message, recipient *id.ID, p params.CMIX) (
+	// SendCMIX sends a "raw" CMIX message payload to the provided
+	// recipient.  Returns the round ID of the round the payload
+	// was sent or an error if it fails.
+	SendCMIX(message format.Message, recipient *id.ID, p cmix.Params) (
 		id.Round, ephemeral.Id, error)
 
-	// SendManyCMIX sends many "raw" cMix message payloads to each of the provided
-	// recipients. Used to send messages in group chats. Metadata is NOT as well
-	// protected with this call and can leak data about yourself. Should be
-	// replaced with multiple uses of SendCmix in most cases. Returns the round
-	// ID of the round the payload was sent or an error if it fails.
+	// SendManyCMIX sends many "raw" cMix message payloads to each
+	// of the provided recipients. Used to send messages in group
+	// chats. Metadata is NOT as well protected with this call and
+	// can leak data about yourself. Should be replaced with
+	// multiple uses of SendCmix in most cases. Returns the round
+	// ID of the round the payload was sent or an error if it
+	// fails.
 	// WARNING: Potentially Unsafe
-	SendManyCMIX(messages []message.TargetedCmixMessage, p params.CMIX) (
+	SendManyCMIX(messages []cmix.TargetedCmixMessage, p cmix.Params) (
 		id.Round, []ephemeral.Id, error)
 
-	/*===Message Reception====================================================*/
+	/*===Message Reception================================================*/
 	/* Identities are all network identites which the client is currently
 	trying to pick up message on. An identity must be added
 	to receive messages, fake ones will be used to poll the network
@@ -60,23 +63,24 @@ type NetworkManager interface {
 	// RemoveIdentity removes a currently tracked identity.
 	RemoveIdentity(id *id.ID)
 
-	/* Fingerprints are the primary mechanism of identifying a picked up
-	message over cMix. They are a unique one time use 255 bit vector generally
-	associated with a specific encryption key, but can be used for an
-	alternative protocol.When registering a fingerprint, a MessageProcessor
-	is registered to handle the message.*/
+	/* Fingerprints are the primary mechanism of identifying a
+	picked up message over cMix. They are a unique one time use
+	255 bit vector generally associated with a specific encryption
+	key, but can be used for an alternative protocol.When
+	registering a fingerprint, a MessageProcessor is registered to
+	handle the message.*/
 
 	// AddFingerprint - Adds a fingerprint which will be handled by a
 	// specific processor for messages received by the given identity
 	AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,
-		mp MessageProcessor) error
+		mp message.Processor) error
 
-	// DeleteFingerprint deletes a single fingerprint associated with the given
-	// identity if it exists
+	// DeleteFingerprint deletes a single fingerprint associated
+	// with the given identity if it exists
 
 	DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint)
-	// DeleteClientFingerprints deletes al fingerprint associated with the given
-	// identity if it exists
+	// DeleteClientFingerprints deletes al fingerprint associated
+	// with the given identity if it exists
 	DeleteClientFingerprints(identity *id.ID)
 
 	/* trigger - predefined hash based tags appended to all cMix messages
@@ -87,60 +91,72 @@ type NetworkManager interface {
 	notifications system, or can be used to implement custom non fingerprint
 	processing of payloads. I.E. key negotiation, broadcast negotiation
 
-	A tag is appended to the message of the format tag = H(H(messageContents),
-	preimage) and trial hashing is used to determine if a message adheres to a
-	tag.
-	WARNING: If a preimage is known by an adversary, they can determine which
-	messages are for the client on reception (which is normally hidden due to
-	collision between ephemeral IDs.
+	A tag is appended to the message of the format tag =
+	H(H(messageContents), preimage) and trial hashing is used to
+	determine if a message adheres to a tag.
 
-	Due to the extra overhead of trial hashing, triggers are processed after fingerprints.
-	If a fingerprint match occurs on the message, triggers will not be handled.
+	WARNING: If a preimage is known by an adversary, they can
+	determine which messages are for the client on reception
+	(which is normally hidden due to collision between ephemeral
+	IDs.
 
-	Triggers are address to the session. When starting a new client, all triggers must be
-	re-added before StartNetworkFollower is called.
+	Due to the extra overhead of trial hashing, triggers are
+	processed after fingerprints.  If a fingerprint match occurs
+	on the message, triggers will not be handled.
+
+	Triggers are address to the session. When starting a new
+	client, all triggers must be re-added before
+	StartNetworkFollower is called.
 	*/
 
-	// AddTrigger - Adds a trigger which can call a message handing function or
-	// be used for notifications. Multiple triggers can be registered for the
-	// same preimage.
+	// AddTrigger - Adds a trigger which can call a message
+	// handing function or be used for notifications. Multiple
+	// triggers can be registered for the same preimage.
 	//   preimage - the preimage which is triggered on
-	//   type - a descriptive string of the trigger. Generally used in notifications
-	//   source - a byte buffer of related data. Generally used in notifications.
+	//   type - a descriptive string of the trigger. Generally
+	//          used in notifications
+	//   source - a byte buffer of related data. Generally used in
+	//            notifications.
 	//     Example: Sender ID
-	AddTrigger(identity *id.ID, newTrigger Trigger, response MessageProcessor)
+	AddTrigger(identity *id.ID, newTrigger message.Service,
+		response message.Processor)
 
 	// DeleteTrigger - If only a single response is associated with the
 	// preimage, the entire preimage is removed. If there is more than one
 	// response, only the given response is removed if nil is passed in for
 	// response, all triggers for the preimage will be removed
-	DeleteTrigger(identity *id.ID, preimage Preimage, response MessageProcessor) error
+	DeleteTrigger(identity *id.ID, preimage Preimage,
+		response message.Processor) error
 
-	// DeleteClientTriggers - deletes all triggers assoseated with the given identity
+	// DeleteClientTriggers - deletes all triggers assoseated with
+	// the given identity
 	DeleteClientTriggers(identity *id.ID)
 
-	// TrackTriggers - Registers a callback which will get called every time triggers change.
+	// TrackTriggers - Registers a callback which will get called
+	// every time triggers change.
 	// It will receive the triggers list every time it is modified.
 	// Will only get callbacks while the Network Follower is running.
 	// Multiple trackTriggers can be registered
-	TrackTriggers(TriggerTracker)
+	TrackServices(message.ServicesTracker)
 
 	/* In inProcess */
-	// it is possible to receive a message over cMix before the fingerprints or
-	// triggers are registered. As a result, when handling fails, messages are
-	// put in the inProcess que for a set number of retries.
+	// it is possible to receive a message over cMix before the
+	// fingerprints or triggers are registered. As a result, when
+	// handling fails, messages are put in the inProcess que for a
+	// set number of retries.
 
 	// CheckInProgressMessages - retry processing all messages in check in
 	// progress messages. Call this after adding fingerprints or triggers
 	//while the follower is running.
 	CheckInProgressMessages()
 
-	/*===Nodes================================================================*/
-	/* Keys must be registed with nodes in order to send messages throug them.
-	this process is in general automatically handled by the Network Manager*/
+	/*===Nodes============================================================*/
+	/* Keys must be registed with nodes in order to send messages
+	throug them.  this process is in general automatically handled
+	by the Network Manager*/
 
-	// HasNode can be used to determine if a keying relationship exists with a
-	// node.
+	// HasNode can be used to determine if a keying relationship
+	// exists with a node.
 	HasNode(nid *id.ID) bool
 
 	// NumRegisteredNodes Returns the total number of nodes we have a keying
@@ -150,7 +166,7 @@ type NetworkManager interface {
 	// Triggers the generation of a keying relationship with a given node
 	TriggerNodeRegistration(nid *id.ID)
 
-	/*===Historical Rounds====================================================*/
+	/*===Historical Rounds================================================*/
 	/* A complete set of round info is not kept on the client, and sometimes
 	the network will need to be queried to get round info. Historical rounds
 	is the system internal to the Network Manager to do this.
@@ -158,52 +174,59 @@ type NetworkManager interface {
 
 	// LookupHistoricalRound - looks up the passed historical round on the
 	// network
-	LookupHistoricalRound(rid id.Round, callback func(info *mixmessages.RoundInfo,
-		success bool)) error
+	LookupHistoricalRound(rid id.Round,
+		callback func(info *mixmessages.RoundInfo,
+			success bool)) error
 
-	/*===Sender===============================================================*/
-	/* The sender handles sending comms to the network. It tracks connections to
-	gateways and handles proxying to gateways for targeted comms. It can be
-	used externally to contact gateway directly, bypassing the majority of
-	the network package*/
+	/*===Sender===========================================================*/
+	/* The sender handles sending comms to the network. It tracks
+	connections to gateways and handles proxying to gateways for
+	targeted comms. It can be used externally to contact gateway
+	directly, bypassing the majority of the network package*/
 
 	// SendToAny can be used to send the comm to any gateway in the network.
-	SendToAny(sendFunc func(host *connect.Host) (interface{}, error), stop *stoppable.Single) (interface{}, error)
+	SendToAny(sendFunc func(host *connect.Host) (interface{}, error),
+		stop *stoppable.Single) (interface{}, error)
 
 	// SendToPreferred sends to a specific gateway, doing so through another
 	// gateway as a proxy if not directly connected.
 	SendToPreferred(targets []*id.ID, sendFunc func(host *connect.Host,
 		target *id.ID, timeout time.Duration) (interface{}, error),
-		stop *stoppable.Single, timeout time.Duration) (interface{}, error)
+		stop *stoppable.Single, timeout time.Duration) (interface{},
+		error)
 
-	// SetGatewayFilter sets a function which will be used to filter gateways
-	// before connecting.
+	// SetGatewayFilter sets a function which will be used to
+	// filter gateways before connecting.
 	SetGatewayFilter(f func(map[id.ID]int,
 		*ndf.NetworkDefinition) map[id.ID]int)
 
-	// GetHostParams - returns the host params used when connectign to gateways
+	// GetHostParams - returns the host params used when
+	// connectign to gateways
 	GetHostParams() connect.HostParams
 
-	/*===Address Space========================================================*/
-	// The network compasses identities into a smaller address space to cause
-	// collisions and hide the actual recipient of messages. These functions
-	// allow for the tracking of this addresses space. In general, address space
-	// issues are completely handled by the network package
+	/*===Address Space====================================================*/
+	// The network compasses identities into a smaller address
+	// space to cause collisions and hide the actual recipient of
+	// messages. These functions allow for the tracking of this
+	// addresses space. In general, address space issues are
+	// completely handled by the network package
 
-	// GetAddressSpace GetAddressSize returns the current address size of IDs. Blocks until an
-	// address size is known.
+	// GetAddressSpace GetAddressSize returns the current address
+	// size of IDs. Blocks until an address size is known.
 	GetAddressSpace() uint8
 
-	// RegisterAddressSpaceNotification returns a channel that will trigger for
-	// every address space size update. The provided tag is the unique ID for
-	// the channel. Returns an error if the tag is already used.
+	// RegisterAddressSpaceNotification returns a channel that
+	// will trigger for every address space size update. The
+	// provided tag is the unique ID for the channel. Returns an
+	// error if the tag is already used.
 	RegisterAddressSpaceNotification(tag string) (chan uint8, error)
 
-	// UnregisterAddressSpaceNotification stops broadcasting address space size
-	// updates on the channel with the specified tag.
+	// UnregisterAddressSpaceNotification stops broadcasting
+	// address space size updates on the channel with the
+	// specified tag.
 	UnregisterAddressSpaceNotification(tag string)
 
-	/*===Accessors============================================================*/
+	/*===Accessors========================================================*/
 
 	// GetInstance returns the network instance object, which tracks the
 	// state of the network
@@ -218,8 +241,3 @@ type NetworkManager interface {
 }
 
 type Preimage [32]byte
-
-type ClientErrorReport func(source, message, trace string)
-
-//for use in key exchange which needs to be callable inside of network
-///type SendE2E func(m message.Send, p params.E2E, stop *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error)

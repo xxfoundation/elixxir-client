@@ -9,10 +9,11 @@ package event
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/stoppable"
-	"sync"
 )
 
 // ReportableEvent is used to surface events to client users.
@@ -35,7 +36,7 @@ type eventManager struct {
 	eventCbs sync.Map
 }
 
-func newEventManager() *eventManager {
+func NewEventManager() Manager {
 	return &eventManager{
 		eventCh: make(chan reportableEvent, 1000),
 	}
@@ -77,7 +78,7 @@ func (e *eventManager) UnregisterEventCallback(name string) {
 	e.eventCbs.Delete(name)
 }
 
-func (e *eventManager) eventService() (stoppable.Stoppable, error) {
+func (e *eventManager) EventService() (stoppable.Stoppable, error) {
 	stop := stoppable.NewSingle("EventReporting")
 	go e.reportEventsHandler(stop)
 	return stop, nil

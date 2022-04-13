@@ -17,10 +17,10 @@ func TestSession_SetGetNDF(t *testing.T) {
 	testNdf := getNDF()
 	sess.SetNDF(testNdf)
 
-	if !reflect.DeepEqual(testNdf, sess.ndf) {
+	if !reflect.DeepEqual(testNdf, sess.GetNDF()) {
 		t.Errorf("SetNDF error: "+
 			"Unexpected value after setting ndf:"+
-			"Expected: %v\n\tReceived: %v", testNdf, sess.ndf)
+			"Expected: %v\n\tReceived: %v", testNdf, sess.GetNDF())
 	}
 
 	receivedNdf := sess.GetNDF()

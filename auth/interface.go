@@ -60,4 +60,19 @@ type State interface {
 	// CallAllReceivedRequests will iterate through all pending contact requests
 	// and replay them on the callbacks.
 	CallAllReceivedRequests()
+
+	// DeleteRequest deletes sent or received requests for a
+	// specific partner ID.
+	DeleteRequest(partnerID *id.ID) error
+
+	// DeleteAllRequests clears all requests from client's auth storage.
+	DeleteAllRequests() error
+
+	// DeleteSentRequests clears all sent requests from client's auth
+	// storage.
+	DeleteSentRequests() error
+
+	// DeleteReceiveRequests clears all received requests from client's auth
+	// storage.
+	DeleteReceiveRequests() error
 }

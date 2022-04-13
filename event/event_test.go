@@ -25,7 +25,7 @@ func TestEventReporting(t *testing.T) {
 		evts = append(evts, evt)
 	}
 
-	evtMgr := newEventManager()
+	evtMgr := NewEventManager()
 	stop, _ := evtMgr.eventService()
 	// Register a callback
 	err := evtMgr.RegisterEventCallback("test", myCb)

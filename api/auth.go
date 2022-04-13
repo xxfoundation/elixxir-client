@@ -9,8 +9,9 @@ package api
 
 import (
 	"encoding/binary"
-	"gitlab.com/elixxir/client/catalog"
 	"math/rand"
+
+	"gitlab.com/elixxir/client/catalog"
 
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
@@ -36,7 +37,7 @@ func (c *Client) RequestAuthenticatedChannel(recipient, me contact.Contact,
 	message string) (id.Round, error) {
 	jww.INFO.Printf("RequestAuthenticatedChannel(%s)", recipient.ID)
 
-	if !c.network.GetHealthTracker().IsHealthy() {
+	if !c.network.HealthTracker().IsHealthy() {
 		return 0, errors.New("Cannot request authenticated channel " +
 			"creation when the network is not healthy")
 	}

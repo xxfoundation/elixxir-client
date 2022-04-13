@@ -10,15 +10,15 @@
 package storage
 
 import (
-	"gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/xx_network/crypto/large"
 	"sync"
 	"testing"
 	"time"
 
+	"gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/xx_network/crypto/large"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	userInterface "gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/storage/clientVersion"
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -60,7 +60,7 @@ type Session interface {
 	IsPrecanned() bool
 	SetUsername(username string) error
 	GetUsername() (string, error)
-	PortableUserInfo() userInterface.Info
+	PortableUserInfo() user.Info
 	GetTransmissionRegistrationValidationSignature() []byte
 	GetReceptionRegistrationValidationSignature() []byte
 	GetRegistrationTimestamp() time.Time
@@ -103,7 +103,7 @@ func initStore(baseDir, password string) (*session, error) {
 }
 
 // Creates new UserData in the session
-func New(baseDir, password string, u userInterface.Info,
+func New(baseDir, password string, u user.Info,
 	currentVersion version.Version, cmixGrp, e2eGrp *cyclic.Group) (Session, error) {
 
 	s, err := initStore(baseDir, password)

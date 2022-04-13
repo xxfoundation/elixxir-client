@@ -9,6 +9,9 @@ package auth
 
 import (
 	"fmt"
+	"io"
+	"strings"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -23,8 +26,6 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	"io"
-	"strings"
 )
 
 const terminator = ";"
@@ -198,4 +199,20 @@ func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
 	baseFmt.SetPubKey(myDHPub)
 
 	return &baseFmt, mac, nil
+}
+
+func (s *state) DeleteRequest(partnerID *id.ID) error {
+	return s.store.DeleteRequest(partnerID)
+}
+
+func (s *state) DeleteAllRequests() error {
+	return s.store.DeleteAllRequests()
+}
+
+func (s *state) DeleteSentRequests() error {
+	return s.store.DeleteSentRequests()
+}
+
+func (s *state) DeleteReceiveRequests() error {
+	return s.store.DeleteReceiveRequests()
 }

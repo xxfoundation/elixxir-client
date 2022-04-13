@@ -11,6 +11,11 @@ package cmix
 // and intra-client state are accessible through the context object.
 
 import (
+	"math"
+	"strconv"
+	"sync/atomic"
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmix/address"
 	"gitlab.com/elixxir/client/cmix/gateway"
@@ -30,10 +35,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"math"
-	"strconv"
-	"sync/atomic"
-	"time"
 )
 
 // fakeIdentityRange indicates the range generated between 0 (most current) and
@@ -94,7 +95,8 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 
 	// Start network instance
 	instance, err := commNetwork.NewInstance(
-		comms.ProtoComms, ndf, nil, nil, commNetwork.None, params.FastPolling)
+		comms.ProtoComms, ndf, nil, nil, commNetwork.None,
+		params.FastPolling)
 	if err != nil {
 		return nil, errors.WithMessage(
 			err, "failed to create network client")

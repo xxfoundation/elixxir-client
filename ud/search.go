@@ -5,8 +5,13 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/event"
+	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/factID"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -26,7 +31,11 @@ type searchCallback func([]contact.Contact, error)
 // used to search for multiple users at once; that can have a privacy reduction.
 // Instead, it is intended to be used to search for a user where multiple pieces
 // of information is known.
-func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout time.Duration) error {
+func Search(list fact.FactList,
+	services cmix.Client, events event.Manager,
+	callback searchCallback,
+	rng *fastRNG.StreamGenerator, udContact contact.Contact,
+	grp *cyclic.Group, timeout time.Duration) error {
 	jww.INFO.Printf("ud.Search(%s, %s)", list.Stringify(), timeout)
 
 	factHashes, factMap := hashFactList(list)
@@ -42,20 +51,23 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 		m.searchResponseHandler(factMap, callback, payload, err)
 	}
 
-	// get UD contact
-	c, err := m.getContact()
-	if err != nil {
-		return err
+	stream := rng.GetStream()
+	defer stream.Close()
+
+	p := single.RequestParams{
+		Timeout:     timeout,
+		MaxMessages: maxLookupMessages,
+		CmixParam:   cmix.GetDefaultCMIXParams(),
 	}
 
-	err = m.single.TransmitSingleUse(c, requestMarshaled, SearchTag,
-		maxSearchMessages, f, timeout)
+	rndId, ephId, err := single.TransmitRequest(udContact, LookupTag, requestMarshaled,
+		f, p, services, stream, grp)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to transmit search request.")
 	}
 
-	if m.client != nil {
-		m.client.ReportEvent(1, "UserDiscovery", "SearchRequest",
+	if events != nil {
+		events.Report(1, "UserDiscovery", "SearchRequest",
 			fmt.Sprintf("Sent: %+v", request))
 	}
 
@@ -77,8 +89,8 @@ func (m *Manager) searchResponseHandler(factMap map[string]fact.Fact,
 			"failed unmarshal: %s", err)
 	}
 
-	if m.client != nil {
-		m.client.ReportEvent(1, "UserDiscovery", "SearchResponse",
+	if m.services != nil {
+		m.events.Report(1, "UserDiscovery", "SearchResponse",
 			fmt.Sprintf("Received: %+v", searchResponse))
 	}
 

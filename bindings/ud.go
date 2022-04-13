@@ -76,7 +76,7 @@ func (ud *UserDiscovery) AddFact(fStr string) (string, error) {
 // ConfirmFact confirms a fact first registered via AddFact. The confirmation ID comes from
 // AddFact while the code will come over the associated communications system
 func (ud *UserDiscovery) ConfirmFact(confirmationID, code string) error {
-	return ud.ud.SendConfirmFact(confirmationID, code)
+	return ud.ud.ConfirmFact(confirmationID, code)
 }
 
 // RemoveFact removes a previously confirmed fact.  Will fail if the passed fact string is

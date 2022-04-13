@@ -8,14 +8,9 @@ import (
 	"gitlab.com/elixxir/crypto/factID"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 )
-
-type addFactComms interface {
-	SendRegisterFact(host *connect.Host, message *pb.FactRegisterRequest) (*pb.FactRegisterResponse, error)
-}
 
 // SendRegisterFact adds a fact for the user to user discovery. Will only
 // succeed if the user is already registered and the system does not have the
@@ -24,16 +19,17 @@ type addFactComms interface {
 // confirmation id instead. Over the communications system the fact is
 // associated with, a code will be sent. This confirmation ID needs to be
 // called along with the code to finalize the fact.
-func (m *Manager) SendRegisterFact(fact fact.Fact) (string, error) {
-	jww.INFO.Printf("ud.SendRegisterFact(%s)", fact.Stringify())
-	return m.addFact(fact, m.myID, m.comms)
+func (m *Manager) SendRegisterFact(f fact.Fact) (string, error) {
+	jww.INFO.Printf("ud.SendRegisterFact(%s)", f.Stringify())
+	return m.addFact(f, m.myID, m.comms)
 }
 
-func (m *Manager) addFact(inFact fact.Fact, uid *id.ID, aFC addFactComms) (string, error) {
+func (m *Manager) addFact(inFact fact.Fact, myId *id.ID, aFC addFactComms) (string, error) {
 
-	if !m.IsRegistered() {
-		return "", errors.New("Failed to add fact: " +
-			"client is not registered")
+	// get UD host
+	udHost, err := m.getOrAddUdHost()
+	if err != nil {
+		return "", err
 	}
 
 	// Create a primitives Fact so we can hash it
@@ -53,31 +49,26 @@ func (m *Manager) addFact(inFact fact.Fact, uid *id.ID, aFC addFactComms) (strin
 
 	// Create our Fact Removal Request message data
 	remFactMsg := pb.FactRegisterRequest{
-		UID: uid.Marshal(),
+		UID: myId.Marshal(),
 		Fact: &pb.Fact{
-			Fact:     inFact.Fact,
-			FactType: uint32(inFact.T),
+			Fact:     f.Fact,
+			FactType: uint32(f.T),
 		},
 		FactSig: fSig,
 	}
 
-	// get UD host
-	host, err := m.getHost()
-	if err != nil {
-		return "", err
-	}
-
 	// Send the message
-	response, err := aFC.SendRegisterFact(host, &remFactMsg)
+	response, err := aFC.SendRegisterFact(udHost, &remFactMsg)
 
 	confirmationID := ""
 	if response != nil {
 		confirmationID = response.ConfirmationID
 	}
 
-	err = m.storage.GetUd().StoreUnconfirmedFact(confirmationID, f)
+	err = m.store.StoreUnconfirmedFact(confirmationID, f)
 	if err != nil {
-		return "", errors.WithMessagef(err, "Failed to store unconfirmed fact %v", f.Fact)
+		return "", errors.WithMessagef(err,
+			"Failed to store unconfirmed fact %v", f.Fact)
 	}
 	// Return the error
 	return confirmationID, err

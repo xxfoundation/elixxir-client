@@ -130,7 +130,7 @@ var udCmd = &cobra.Command{
 
 		confirmID := viper.GetString("confirm")
 		if confirmID != "" {
-			err = userDiscoveryMgr.SendConfirmFact(confirmID, confirmID)
+			err = userDiscoveryMgr.ConfirmFact(confirmID, confirmID)
 			if err != nil {
 				fmt.Printf("Couldn't confirm fact: %s\n",
 					err.Error())

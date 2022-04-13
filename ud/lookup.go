@@ -4,7 +4,13 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -17,24 +23,32 @@ const LookupTag = "xxNetwork_UdLookup"
 // TODO: reconsider where this comes from
 const maxLookupMessages = 20
 
-type lookupCallback func(contact.Contact, error)
-
 // Lookup returns the public key of the passed ID as known by the user discovery
 // system or returns by the timeout.
-func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Duration) error {
+func Lookup(udContact contact.Contact,
+	services cmix.Client,
+	callback single.Response,
+	rng *fastRNG.StreamGenerator,
+	uid *id.ID, grp *cyclic.Group,
+	timeout time.Duration) error {
+
 	jww.INFO.Printf("ud.Lookup(%s, %s)", uid, timeout)
-	return m.lookup(uid, callback, timeout)
+	return lookup(services, callback, rng, uid, grp, timeout, udContact)
 }
 
 // BatchLookup performs a Lookup operation on a list of user IDs.
 // The lookup performs a callback on each lookup on the returned contact object
 // constructed from the response.
-func (m *Manager) BatchLookup(uids []*id.ID, callback lookupCallback, timeout time.Duration) {
+func BatchLookup(udContact contact.Contact,
+	services cmix.Client, callback single.Response,
+	rng *fastRNG.StreamGenerator,
+	uids []*id.ID, grp *cyclic.Group,
+	timeout time.Duration) {
 	jww.INFO.Printf("ud.BatchLookup(%s, %s)", uids, timeout)
 
 	for _, uid := range uids {
 		go func(localUid *id.ID) {
-			err := m.lookup(localUid, callback, timeout)
+			err := lookup(services, callback, rng, localUid, grp, timeout, udContact)
 			if err != nil {
 				jww.WARN.Printf("Failed batch lookup on user %s: %v", localUid, err)
 			}
@@ -47,26 +61,37 @@ func (m *Manager) BatchLookup(uids []*id.ID, callback lookupCallback, timeout ti
 // lookup is a helper function which sends a lookup request to the user discovery
 // service. It will construct a contact object off of the returned public key.
 // The callback will be called on that contact object.
-func (m *Manager) lookup(uid *id.ID, callback lookupCallback, timeout time.Duration) error {
+func lookup(services cmix.Client, callback single.Response,
+	rng *fastRNG.StreamGenerator,
+	uid *id.ID, grp *cyclic.Group,
+	timeout time.Duration, udContact contact.Contact) error {
 	// Build the request and marshal it
 	request := &LookupSend{UserID: uid.Marshal()}
 	requestMarshaled, err := proto.Marshal(request)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to form outgoing lookup request.")
+		return errors.WithMessage(err,
+			"Failed to form outgoing lookup request.")
 	}
 
-	f := func(payload []byte, err error) {
-		m.lookupResponseProcess(uid, callback, payload, err)
+	// todo: figure out callback structure, maybe you do not pass
+	//  in a single.Response but a manager callback?
+	f := func(payload []byte, receptionID receptionID.EphemeralIdentity,
+		round rounds.Round, err error) {
+		m.lookupResponseProcess(payload, receptionID, round, err)
 	}
 
-	// get UD contact
-	c, err := m.getContact()
-	if err != nil {
-		return err
+	p := single.RequestParams{
+		Timeout:     timeout,
+		MaxMessages: maxLookupMessages,
+		CmixParam:   cmix.GetDefaultCMIXParams(),
 	}
 
-	err = m.single.TransmitSingleUse(c, requestMarshaled, LookupTag,
-		maxLookupMessages, f, timeout)
+	stream := rng.GetStream()
+	defer stream.Close()
+
+	rndId, ephId, err := single.TransmitRequest(udContact, LookupTag, requestMarshaled,
+		callback, p, services, stream,
+		grp)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to transmit lookup request.")
 	}
@@ -77,10 +102,10 @@ func (m *Manager) lookup(uid *id.ID, callback lookupCallback, timeout time.Durat
 // lookupResponseProcess processes the lookup response. The returned public key
 // and the user ID will be constructed into a contact object. The contact object
 // will be passed into the callback.
-func (m *Manager) lookupResponseProcess(uid *id.ID, callback lookupCallback,
+func (m *Manager) lookupResponseProcess(uid *id.ID, cb single.Response,
 	payload []byte, err error) {
 	if err != nil {
-		go callback(contact.Contact{}, errors.WithMessage(err, "Failed to lookup."))
+		go cb.Callback(contact.Contact{}, errors.WithMessage(err, "Failed to lookup."))
 		return
 	}
 

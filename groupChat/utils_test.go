@@ -55,7 +55,7 @@ func newTestManager(rng *rand.Rand, t *testing.T) (*Manager, gs.Group) {
 	}
 
 	g := newTestGroupWithUser(m.grp, user.ID, user.DhKey,
-		randCycInt(rng), rng, t)
+		m.e2e.GetHistoricalDHPrivkey(), rng, t)
 	gStore, err := gs.NewStore(versioned.NewKV(make(ekv.Memstore)), user)
 	if err != nil {
 		t.Fatalf("Failed to create new group store: %+v", err)
@@ -78,7 +78,13 @@ func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
 		requestFunc: requestFunc,
 		receiveFunc: receiveFunc,
 		services:    newTestNetworkManager(sendErr, t),
-		e2e:         newTestE2eManager(randCycInt(rng)),
+		e2e: &testE2eManager{
+			e2eMessages: []testE2eMessage{},
+			sendErr:     sendErr,
+			grp:         getGroup(),
+			dhPubKey:    randCycInt(rng),
+			partners:    make(map[id.ID]partner.Manager),
+		},
 	}
 	user := group.Member{
 		ID:    m.receptionId,
@@ -220,6 +226,7 @@ func newTestNetworkManager(sendErr int, t *testing.T) GroupCmix {
 	return &testNetworkManager{
 		receptionMessages: [][]format.Message{},
 		sendMessages:      [][]cmix.TargetedCmixMessage{},
+		grp:               getGroup(),
 		sendErr:           sendErr,
 	}
 }
@@ -311,7 +318,12 @@ type testNetworkManager struct {
 	sendMessages      [][]cmix.TargetedCmixMessage
 	errSkip           int
 	sendErr           int
+	grp               *cyclic.Group
 	sync.RWMutex
+}
+
+func (tnm *testNetworkManager) GetMaxMessageLength() int {
+	return format.NewMessage(tnm.grp.GetP().ByteLen()).ContentsSize()
 }
 
 func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
@@ -326,7 +338,7 @@ func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, p c
 
 	receiveMessages := []format.Message{}
 	for _, msg := range messages {
-		receiveMsg := format.Message{}
+		receiveMsg := format.NewMessage(tnm.grp.GetP().ByteLen())
 		receiveMsg.SetMac(msg.Mac)
 		receiveMsg.SetContents(msg.Payload)
 		receiveMsg.SetKeyFP(msg.Fingerprint)

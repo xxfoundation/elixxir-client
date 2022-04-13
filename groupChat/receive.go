@@ -38,7 +38,6 @@ type receptionProcessor struct {
 // Process incoming group chat messages
 func (p *receptionProcessor) Process(message format.Message, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	jww.TRACE.Print("Group message reception received cMix message.")
-
 	// Attempt to read the message
 	roundTimestamp := round.Timestamps[states.QUEUED]
 
@@ -117,7 +116,6 @@ func getCryptKey(key group.Key, salt [group.SaltLen]byte, mac, payload []byte,
 
 	// Compute the current epoch
 	epoch := group.ComputeEpoch(roundTimestamp)
-
 	for _, dhKey := range dhKeys {
 
 		// Create a key with the correct epoch

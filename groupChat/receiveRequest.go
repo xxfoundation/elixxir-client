@@ -89,7 +89,7 @@ func (m *Manager) readRequest(msg receive.Message) (gs.Group, error) {
 
 	// Generate the DH keys with each group member
 	privKey := partner.GetMyOriginPrivateKey()
-	dkl := gs.GenerateDhKeyList(m.gs.GetUser().ID, privKey, membership, m.grp)
+	dkl := gs.GenerateDhKeyList(m.receptionId, privKey, membership, m.grp)
 
 	// Restore the original public key for the leader so that the membership
 	// digest generated later is correct

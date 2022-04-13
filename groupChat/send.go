@@ -27,7 +27,6 @@ import (
 const (
 	newCmixMsgErr     = "failed to generate cMix messages for group chat: %+v"
 	sendManyCmixErr   = "failed to send group chat message from member %s to group %s: %+v"
-	newCmixErr        = "failed to generate cMix message for member %d with ID %s in group %s: %+v"
 	messageLenErr     = "message length %d is greater than maximum message space %d"
 	newNoGroupErr     = "failed to create message for group %s that cannot be found"
 	newKeyErr         = "failed to generate key for encrypting group payload"
@@ -94,7 +93,7 @@ func (m *Manager) newMessages(g gs.Group, msg []byte, timestamp time.Time) (
 		}
 
 		// Add cMix message to list
-		cMixMsg, err := newCmixMsg(g, msg, timestamp, member, rng, m.receptionId, m.grp)
+		cMixMsg, err := newCmixMsg(g, msg, timestamp, member, rng, m.receptionId, m.services.GetMaxMessageLength())
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +105,7 @@ func (m *Manager) newMessages(g gs.Group, msg []byte, timestamp time.Time) (
 
 // newCmixMsg generates a new cMix message to be sent to a group member.
 func newCmixMsg(g gs.Group, msg []byte, timestamp time.Time,
-	mem group.Member, rng io.Reader, senderId *id.ID, grp *cyclic.Group) (cmix.TargetedCmixMessage, error) {
+	mem group.Member, rng io.Reader, senderId *id.ID, maxCmixMessageSize int) (cmix.TargetedCmixMessage, error) {
 
 	// Initialize targeted message
 	cmixMsg := cmix.TargetedCmixMessage{
@@ -119,7 +118,7 @@ func newCmixMsg(g gs.Group, msg []byte, timestamp time.Time,
 	}
 
 	// Create three message layers
-	pubMsg, intlMsg, err := newMessageParts(grp.GetP().ByteLen())
+	pubMsg, intlMsg, err := newMessageParts(maxCmixMessageSize)
 	if err != nil {
 		return cmixMsg, err
 	}

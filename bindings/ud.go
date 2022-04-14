@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/ud"
+	udPackage "gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
@@ -22,26 +22,49 @@ import (
 // This package wraps the user discovery system
 
 type UserDiscovery struct {
-	ud *ud.Manager
+	ud *udPackage.Manager
 }
 
-// NewUserDiscovery returns a new user discovery object. Only call this once. It must be called
-// after StartNetworkFollower is called and will fail if the network has never
-// been contacted.
+// NewUserDiscovery returns a new user discovery object. Only call this once.
+// It must be called after StartNetworkFollower is called and will fail if the
+// network has never been contacted. This will auto-register with the
+// UD service. You should only call this on the first instantiation of the user
+// discovery manager.
 // This function technically has a memory leak because it causes both sides of
 // the bindings to think the other is in charge of the client object.
 // In general this is not an issue because the client object should exist
 // for the life of the program.
 // This must be called while start network follower is running.
-func NewUserDiscovery(client *Client) (*UserDiscovery, error) {
-	single, err := client.getSingle()
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
-	}
-	m, err := ud.NewManager(&client.api, single)
+func NewUserDiscovery(client *Client, username string) (*UserDiscovery, error) {
+
+	m, err := udPackage.NewManager(client.api.GetNetworkInterface(),
+		client.api.GetE2e(), client.api.NetworkFollowerStatus,
+		client.api.GetEventManager(),
+		client.api.GetComms(), client.api.GetStorage(),
+		client.api.GetRng(),
+		username, client.api.GetStorage().GetKV())
 
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
+		return nil, errors.WithMessage(err,
+			"Failed to create User Discovery Manager")
+	} else {
+		return &UserDiscovery{ud: m}, nil
+	}
+}
+
+// LoadUserDiscovery loads the state of the UserDiscovery manager
+// from disk. This is meant to be called after any app restart after the first
+// instantiation of the manager by NewUserDiscovery.
+func LoadUserDiscovery(client *Client) (*UserDiscovery, error) {
+	m, err := udPackage.LoadManager(client.api.GetNetworkInterface(),
+		client.api.GetE2e(), client.api.GetEventManager(),
+		client.api.GetComms(), client.api.GetStorage(),
+		client.api.GetRng(),
+		client.api.GetStorage().GetKV())
+
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"Failed to load User Discovery Manager")
 	} else {
 		return &UserDiscovery{ud: m}, nil
 	}
@@ -68,12 +91,9 @@ func NewUserDiscovery(client *Client) (*UserDiscovery, error) {
 // This must be called while start network follower is running.
 func NewUserDiscoveryFromBackup(client *Client,
 	email, phone string) (*UserDiscovery, error) {
-	single, err := client.getSingle()
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
-	}
 
 	var emailFact, phoneFact fact.Fact
+	var err error
 	// Parse email as a fact, if it exists
 	if len(email) > 2 {
 		emailFact, err = fact.UnstringifyFact(email)
@@ -93,24 +113,22 @@ func NewUserDiscoveryFromBackup(client *Client,
 				"stringified phone fact %q", phone)
 		}
 	} else {
-		jww.WARN.Printf("Loading manager without a registered phone number")
+		jww.WARN.Printf("Loading manager without a " +
+			"registered phone number")
 	}
 
-	m, err := ud.NewManagerFromBackup(&client.api, single, phoneFact)
+	m, err := udPackage.NewManagerFromBackup(client.api.GetNetworkInterface(),
+		client.api.GetE2e(), client.api.NetworkFollowerStatus,
+		client.api.GetEventManager(),
+		client.api.GetComms(), client.api.GetStorage(),
+		client.api.GetRng(), emailFact, phoneFact,
+		client.api.GetStorage().GetKV())
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
+		return nil, errors.WithMessage(err,
+			"Failed to create User Discovery Manager")
 	} else {
 		return &UserDiscovery{ud: m}, nil
 	}
-}
-
-// Register registers a user with user discovery. Will return an error if the
-// network signatures are malformed or if the username is taken. Usernames
-// cannot be changed after registration at this time. Will fail if the user is
-// already registered.
-// Identity does not go over cmix, it occurs over normal communications
-func (ud *UserDiscovery) Register(username string) error {
-	return ud.ud.Register(username)
 }
 
 // AddFact adds a fact for the user to user discovery. Will only succeed if the
@@ -131,15 +149,17 @@ func (ud *UserDiscovery) AddFact(fStr string) (string, error) {
 	return ud.ud.SendRegisterFact(f)
 }
 
-// ConfirmFact confirms a fact first registered via AddFact. The confirmation ID comes from
-// AddFact while the code will come over the associated communications system
+// ConfirmFact confirms a fact first registered via AddFact.
+// The confirmation ID comes from AddFact while the code will come over the
+// associated communications system
 func (ud *UserDiscovery) ConfirmFact(confirmationID, code string) error {
 	return ud.ud.ConfirmFact(confirmationID, code)
 }
 
-// RemoveFact removes a previously confirmed fact.  Will fail if the passed fact string is
-// not well-formed or if the fact is not associated with this client.
-// Users cannot remove username facts and must instead remove the user.
+// RemoveFact removes a previously confirmed fact.  Will fail if the
+// passed fact string is not well-formed or if the fact is not associated
+// with this client. Users cannot remove username facts and must instead
+// remove the user.
 func (ud *UserDiscovery) RemoveFact(fStr string) error {
 	f, err := fact.UnstringifyFact(fStr)
 	if err != nil {
@@ -173,11 +193,12 @@ type SearchCallback interface {
 // This is NOT intended to be used to search for multiple users at once, that
 // can have a privacy reduction. Instead, it is intended to be used to search
 // for a user where multiple pieces of information is known.
-func (ud UserDiscovery) Search(fl string, callback SearchCallback,
-	timeoutMS int) error {
+func (ud UserDiscovery) Search(client *Client,
+	fl string, callback SearchCallback,
+	timeoutMS int) (int, error) {
 	factList, _, err := fact.UnstringifyFactList(fl)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to search due to "+
+		return 0, errors.WithMessage(err, "Failed to search due to "+
 			"malformed fact list")
 	}
 	timeout := time.Duration(timeoutMS) * time.Millisecond
@@ -191,7 +212,24 @@ func (ud UserDiscovery) Search(fl string, callback SearchCallback,
 		}
 		callback.Callback(contactList, errStr)
 	}
-	return ud.ud.Search(factList, cb, timeout)
+
+	udContact, err := ud.ud.GetContact()
+	if err != nil {
+		return 0, errors.WithMessage(err, "Failed to get user discovery "+
+			"contact object")
+	}
+
+	rid, _, err := udPackage.Search(
+		client.api.GetNetworkInterface(), client.api.GetEventManager(),
+		client.api.GetRng(), client.api.GetE2e().GetGroup(), udContact,
+		cb, factList, timeout)
+
+	if err != nil {
+		return 0, errors.WithMessagef(err,
+			"Failed to search for facts %q", factList.Stringify())
+	}
+
+	return int(rid), nil
 }
 
 // SingleSearchCallback returns the result of a single search
@@ -205,11 +243,11 @@ type SingleSearchCallback interface {
 // a list of contacts, each having the facts it hit against.
 // This only searches for a single fact at a time. It is intended to make some
 // simple use cases of the API easier.
-func (ud UserDiscovery) SearchSingle(f string, callback SingleSearchCallback,
-	timeoutMS int) error {
+func (ud UserDiscovery) SearchSingle(client *Client, f string, callback SingleSearchCallback,
+	timeoutMS int) (int, error) {
 	fObj, err := fact.UnstringifyFact(f)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to single search due "+
+		return 0, errors.WithMessage(err, "Failed to single search due "+
 			"to malformed fact")
 	}
 	timeout := time.Duration(timeoutMS) * time.Millisecond
@@ -223,7 +261,23 @@ func (ud UserDiscovery) SearchSingle(f string, callback SingleSearchCallback,
 		}
 		callback.Callback(c, errStr)
 	}
-	return ud.ud.Search([]fact.Fact{fObj}, cb, timeout)
+	udContact, err := ud.ud.GetContact()
+	if err != nil {
+		return 0, errors.WithMessage(err, "Failed to get user discovery "+
+			"contact object")
+	}
+
+	rid, _, err := udPackage.Search(client.api.GetNetworkInterface(),
+		client.api.GetEventManager(),
+		client.api.GetRng(), client.api.GetE2e().GetGroup(), udContact,
+		cb, []fact.Fact{fObj}, timeout)
+
+	if err != nil {
+		return 0, errors.WithMessagef(err,
+			"Failed to Search (single) for fact %q", fObj.Stringify())
+	}
+
+	return int(rid), nil
 }
 
 // LookupCallback returns the result of a single lookup
@@ -235,12 +289,13 @@ type LookupCallback interface {
 // id is the byte representation of an id.
 // This will reject if that id is malformed. The LookupCallback will return
 // the associated contact if it exists.
-func (ud UserDiscovery) Lookup(idBytes []byte, callback LookupCallback,
-	timeoutMS int) error {
+func (ud UserDiscovery) Lookup(client *Client,
+	idBytes []byte, callback LookupCallback,
+	timeoutMS int) (int, error) {
 
 	uid, err := id.Unmarshal(idBytes)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to lookup due to "+
+		return 0, errors.WithMessage(err, "Failed to lookup due to "+
 			"malformed id")
 	}
 
@@ -256,7 +311,25 @@ func (ud UserDiscovery) Lookup(idBytes []byte, callback LookupCallback,
 		callback.Callback(c, errStr)
 	}
 
-	return ud.ud.Lookup(uid, cb, timeout)
+	// Retrieve user discovery contact object
+	udContact, err := ud.ud.GetContact()
+	if err != nil {
+		return 0, errors.WithMessage(err,
+			"Failed to get user discovery "+
+				"contact object")
+	}
+
+	rid, _, err := udPackage.Lookup(client.api.GetNetworkInterface(),
+		client.api.GetRng(), client.api.GetE2e().GetGroup(),
+		udContact,
+		cb, uid, timeout)
+
+	if err != nil {
+		return 0, errors.WithMessagef(err,
+			"Failed to lookup ID %q", uid)
+	}
+
+	return int(rid), nil
 
 }
 
@@ -277,7 +350,8 @@ type lookupResponse struct {
 // This will reject if that id is malformed or if the indexing on the IDList
 // object is wrong. The MultiLookupCallback will return with all contacts
 // returned within the timeout.
-func (ud UserDiscovery) MultiLookup(ids *IdList, callback MultiLookupCallback,
+func (ud UserDiscovery) MultiLookup(client *Client,
+	ids *IdList, callback MultiLookupCallback,
 	timeoutMS int) error {
 
 	idList := make([]*id.ID, 0, ids.Len())
@@ -301,6 +375,14 @@ func (ud UserDiscovery) MultiLookup(ids *IdList, callback MultiLookupCallback,
 
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 
+	// Retrieve user discovery contact object
+	udContact, err := ud.ud.GetContact()
+	if err != nil {
+		return errors.WithMessage(err,
+			"Failed to get user discovery "+
+				"contact object")
+	}
+
 	//loop through the IDs and send the lookup
 	for i := range idList {
 		locali := i
@@ -315,7 +397,9 @@ func (ud UserDiscovery) MultiLookup(ids *IdList, callback MultiLookupCallback,
 		}
 
 		go func() {
-			err := ud.ud.Lookup(localID, cb, timeout)
+			_, _, err := udPackage.Lookup(client.api.GetNetworkInterface(),
+				client.api.GetRng(), client.api.GetE2e().GetGroup(),
+				udContact, cb, localID, timeout)
 			if err != nil {
 				results <- lookupResponse{
 					C: contact.Contact{},
@@ -365,8 +449,4 @@ func (ud *UserDiscovery) SetAlternativeUserDiscovery(address, cert, contactFile 
 // the Manager object.
 func (ud *UserDiscovery) UnsetAlternativeUserDiscovery() error {
 	return ud.ud.UnsetAlternativeUserDiscovery()
-}
-
-func WrapUserDiscovery(ud *ud.Manager) *UserDiscovery {
-	return &UserDiscovery{ud: ud}
 }

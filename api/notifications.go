@@ -34,20 +34,26 @@ func (c *Client) RegisterForNotifications(token string) error {
 	if err != nil {
 		return err
 	}
+
+	privKey := c.userState.CryptographicIdentity.GetTransmissionRSA()
+	pubPEM := rsa.CreatePublicKeyPem(privKey.GetPublic())
+	regSig := c.userState.GetTransmissionRegistrationValidationSignature()
+	regTS := c.GetUser().RegistrationTimestamp
+
 	// Send the register message
 	_, err = c.comms.RegisterForNotifications(notificationBotHost,
 		&mixmessages.NotificationRegisterRequest{
 			Token:                 token,
 			IntermediaryId:        intermediaryReceptionID,
-			TransmissionRsa:       rsa.CreatePublicKeyPem(c.GetStorage().User().GetCryptographicIdentity().GetTransmissionRSA().GetPublic()),
+			TransmissionRsa:       pubPEM,
 			TransmissionSalt:      c.GetUser().TransmissionSalt,
-			TransmissionRsaSig:    c.GetStorage().User().GetTransmissionRegistrationValidationSignature(),
+			TransmissionRsaSig:    regSig,
 			IIDTransmissionRsaSig: sig,
-			RegistrationTimestamp: c.GetUser().RegistrationTimestamp,
+			RegistrationTimestamp: regTS,
 		})
 	if err != nil {
-		err := errors.Errorf(
-			"RegisterForNotifications: Unable to register for notifications! %s", err)
+		err := errors.Errorf("RegisterForNotifications: Unable to "+
+			"register for notifications! %s", err)
 		return err
 	}
 
@@ -96,7 +102,9 @@ func (c *Client) getIidAndSig() ([]byte, []byte, error) {
 
 	stream := c.rng.GetStream()
 	c.GetUser()
-	sig, err := rsa.Sign(stream, c.storage.User().GetCryptographicIdentity().GetTransmissionRSA(), hash.CMixHash, h.Sum(nil), nil)
+	sig, err := rsa.Sign(stream,
+		c.userState.GetTransmissionRSA(),
+		hash.CMixHash, h.Sum(nil), nil)
 	if err != nil {
 		return nil, nil, errors.WithMessage(err, "RegisterForNotifications: Failed to sign intermediary ID")
 	}

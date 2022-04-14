@@ -9,11 +9,15 @@ package auth
 
 import (
 	"fmt"
+	"io"
+	"strings"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
@@ -23,8 +27,6 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	"io"
-	"strings"
 )
 
 const terminator = ";"
@@ -198,4 +200,29 @@ func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
 	baseFmt.SetPubKey(myDHPub)
 
 	return &baseFmt, mac, nil
+}
+
+func (s *state) GetReceivedRequest(partner *id.ID) (contact.Contact, error) {
+	return s.store.GetReceivedRequest(partner)
+}
+
+func (s *state) VerifyOwnership(received, verified contact.Contact,
+	e2e e2e.Handler) bool {
+	return VerifyOwnership(received, verified, e2e)
+}
+
+func (s *state) DeleteRequest(partnerID *id.ID) error {
+	return s.store.DeleteRequest(partnerID)
+}
+
+func (s *state) DeleteAllRequests() error {
+	return s.store.DeleteAllRequests()
+}
+
+func (s *state) DeleteSentRequests() error {
+	return s.store.DeleteSentRequests()
+}
+
+func (s *state) DeleteReceiveRequests() error {
+	return s.store.DeleteReceiveRequests()
 }

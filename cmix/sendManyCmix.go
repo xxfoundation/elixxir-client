@@ -9,6 +9,9 @@ package cmix
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/gateway"
@@ -27,8 +30,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strings"
-	"time"
 )
 
 // TargetedCmixMessage defines a recipient target pair in a sendMany cMix
@@ -41,7 +42,7 @@ type TargetedCmixMessage struct {
 	Mac         []byte
 }
 
-// SendManyCMIX sends many "raw" cMix message payloads to the provided
+// SendMany sends many "raw" cMix message payloads to the provided
 // recipients all in the same round.
 // Returns the round ID of the round the payloads was sent or an error if it
 // fails.
@@ -110,7 +111,7 @@ type assembledCmixMessage struct {
 func sendManyCmixHelper(sender gateway.Sender,
 	msgs []assembledCmixMessage, param CMIXParams, instance *network.Instance,
 	grp *cyclic.Group, registrar nodes.Registrar,
-	rng *fastRNG.StreamGenerator, events event.Manager,
+	rng *fastRNG.StreamGenerator, events event.Reporter,
 	senderId *id.ID, comms SendCmixCommsInterface) (
 	id.Round, []ephemeral.Id, error) {
 

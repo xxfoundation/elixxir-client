@@ -3,6 +3,7 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -29,7 +30,7 @@ type manager struct {
 	net         cmix.Client
 	myID        *id.ID
 	rng         *fastRNG.StreamGenerator
-	events      event.Manager
+	events      event.Reporter
 	grp         *cyclic.Group
 	crit        *critical
 	rekeyParams rekey.Params
@@ -69,7 +70,7 @@ func initE2E(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 // You can use a memkv for an ephemeral e2e id
 func Load(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
-	events event.Manager) (Handler, error) {
+	events event.Reporter) (Handler, error) {
 	kv = kv.Prefix(makeE2ePrefix(myID))
 	return loadE2E(kv, net, myID, grp, rng, events)
 }
@@ -82,7 +83,7 @@ func Load(kv *versioned.KV, net cmix.Client, myID *id.ID,
 // You can use a memkv for an ephemeral e2e id
 func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
-	events event.Manager, params rekey.Params) (Handler, error) {
+	events event.Reporter, params rekey.Params) (Handler, error) {
 
 	// Marshal the passed params data
 	rekeyParamsData, err := json.Marshal(params)
@@ -93,7 +94,7 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	// Check if values are already written. If they exist on disk/memory already,
 	// this would be a case where LoadLegacy is most likely not the correct
 	// code-path the caller should be following.
-	if _, err := kv.Get(e2eRekeyParamsKey, e2eRekeyParamsVer); err != nil {
+	if _, err := kv.Get(e2eRekeyParamsKey, e2eRekeyParamsVer); err != nil && !strings.Contains(err.Error(), "object not found") {
 		fmt.Printf("err: %v", err)
 		return nil, errors.New("E2E rekey params are already on disk, " +
 			"LoadLegacy should not be called")
@@ -113,7 +114,7 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 
 func loadE2E(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
-	events event.Manager) (Handler, error) {
+	events event.Reporter) (Handler, error) {
 
 	m := &manager{
 		Switchboard: receive.New(),

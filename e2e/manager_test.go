@@ -3,6 +3,7 @@ package e2e
 import (
 	"bytes"
 	"github.com/cloudflare/circl/dh/sidh"
+	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/client/e2e/rekey"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -95,12 +96,17 @@ func TestLoadLegacy(t *testing.T) {
 	}
 
 	// Construct kv with legacy data
-	fs, err := ekv.NewFilestore("/home/josh/src/client/e2e/legacyEkv", "hello")
+	//fs, err := ekv.NewFilestore("/home/josh/src/client/e2e/legacyEkv", "hello")
+	//if err != nil {
+	//	t.Fatalf(
+	//		"Failed to create storage session: %+v", err)
+	//}
+	kv := versioned.NewKV(ekv.Memstore{})
+
+	err := ratchet.New(kv, myId, myPrivKey, grp)
 	if err != nil {
-		t.Fatalf(
-			"Failed to create storage session: %+v", err)
+		t.Errorf("Failed to init ratchet: %+v", err)
 	}
-	kv := versioned.NewKV(fs)
 
 	rng := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 

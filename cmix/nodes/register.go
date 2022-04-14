@@ -10,6 +10,10 @@ package nodes
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"strconv"
+	"sync"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -31,9 +35,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strconv"
-	"sync"
-	"time"
 )
 
 func registerNodes(r *registrar, s storage.Session, stop *stoppable.Single,
@@ -155,10 +156,9 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 
 	grp := r.session.GetCmixGroup()
 
-	// FIXME: Why 256 bits? -- this is spec but not explained, it has to do with
-	//  optimizing operations on one side and still preserves decent security --
-	//  cite this.
-	dhPrivBytes, err := csprng.GenerateInGroup(grp.GetPBytes(), 256, rng)
+	prime := grp.GetPBytes()
+	keyLen := len(prime)
+	dhPrivBytes, err := csprng.GenerateInGroup(prime, keyLen, rng)
 	if err != nil {
 		return nil, nil, 0, err
 	}

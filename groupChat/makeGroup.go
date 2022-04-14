@@ -29,7 +29,6 @@ const (
 	makeMembershipErr = "failed to assemble group chat membership: %+v"
 	newIdPreimageErr  = "failed to create group ID preimage: %+v"
 	newKeyPreimageErr = "failed to create group key preimage: %+v"
-	addGroupErr       = "failed to save new group: %+v"
 )
 
 // MaxInitMessageSize is the maximum allowable length of the initial message
@@ -81,16 +80,12 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 	// Create new group and add to manager
 	g := gs.NewGroup(
 		name, groupID, groupKey, idPreimage, keyPreimage, msg, created, mem, dkl)
-	if err = m.gs.Add(g); err != nil {
-		return gs.Group{}, nil, NotSent, errors.Errorf(addGroupErr, err)
-	}
 
 	jww.DEBUG.Printf("Created new group %q with ID %s and %d members %s",
 		g.Name, g.ID, len(g.Members), g.Members)
 
 	// Send all group requests
 	roundIDs, status, err := m.sendRequests(g)
-
 	if err == nil {
 		err = m.JoinGroup(g)
 	}

@@ -44,6 +44,7 @@ type GroupCmix interface {
 		response message.Processor)
 	DeleteService(clientID *id.ID, toDelete message.Service,
 		processor message.Processor)
+	GetMaxMessageLength() int
 }
 
 // GroupE2e is a subset of the e2e.Handler interface containing only the methods needed by GroupChat

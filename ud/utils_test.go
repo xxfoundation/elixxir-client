@@ -15,6 +15,9 @@
 package ud
 
 import (
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
@@ -28,8 +31,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"testing"
-	"time"
 )
 
 func newTestNetworkManager(t *testing.T) interfaces.NetworkManager {
@@ -76,7 +77,7 @@ func (tnm *testNetworkManager) SendManyCMIX([]message.TargetedCmixMessage, param
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(int, string, string, string) {}
-func (tnm *testNetworkManager) GetEventManager() event.Manager {
+func (tnm *testNetworkManager) GetEventManager() event.Reporter {
 	return &dummyEventMgr{}
 }
 

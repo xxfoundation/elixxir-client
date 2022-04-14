@@ -42,14 +42,15 @@ func (m *Manager) removeFact(f fact.Fact,
 	fHash := factID.Fingerprint(f)
 
 	// Sign our inFact for putting into the request
-	fSig, err := rsa.Sign(rand.Reader, m.privKey, hash.CMixHash, fHash, nil)
+	privKey := m.user.PortableUserInfo().ReceptionRSA
+	fSig, err := rsa.Sign(rand.Reader, privKey, hash.CMixHash, fHash, nil)
 	if err != nil {
 		return err
 	}
 
 	// Create our Fact Removal Request message data
 	remFactMsg := mixmessages.FactRemovalRequest{
-		UID:         m.myID.Marshal(),
+		UID:         m.e2e.GetReceptionID().Marshal(),
 		RemovalData: &mmFact,
 		FactSig:     fSig,
 	}
@@ -77,8 +78,9 @@ func (m *Manager) RemoveUser(f fact.Fact) error {
 	if err != nil {
 		return err
 	}
+	privKey := m.user.PortableUserInfo().ReceptionRSA
 
-	return removeUser(f, m.myID, m.privKey, m.comms, udHost)
+	return removeUser(f, m.e2e.GetReceptionID(), privKey, m.comms, udHost)
 }
 
 func removeUser(f fact.Fact, myId *id.ID, privateKey *rsa.PrivateKey,

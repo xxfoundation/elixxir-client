@@ -6,41 +6,19 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/interfaces/user"
-	"gitlab.com/elixxir/client/single"
-	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
+	store "gitlab.com/elixxir/client/ud/store/ud"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"math"
 	"time"
-)
-
-type SingleInterface interface {
-	TransmitRequest(recipient contact.Contact, tag string, payload []byte,
-		callback single.Response, param single.RequestParams, net cmix.Client, rng csprng.Source,
-		e2eGrp *cyclic.Group) (id.Round, receptionID.EphemeralIdentity, error)
-	StartProcesses() (stoppable.Stoppable, error)
-}
-
-type Userinfo interface {
-	PortableUserInfo() user.Info
-	GetUsername() (string, error)
-	GetReceptionRegistrationValidationSignature() []byte
-}
-
-const (
-// todo: populate with err messages
 )
 
 // todo: newuserDiscRegistratration, loadUserDiscRegistration
@@ -68,13 +46,6 @@ type Manager struct {
 
 	kv *versioned.KV
 
-	// Loaded from external access
-	privKey *rsa.PrivateKey
-	grp     *cyclic.Group
-
-	// internal structures
-	myID *id.ID
-
 	// alternate User discovery service to circumvent production
 	alternativeUd *alternateUd
 }
@@ -90,9 +61,9 @@ type alternateUd struct {
 // NewManager builds a new user discovery manager. It requires that an updated
 // NDF is available and will error if one is not.
 // todo: docstring, organize the order of arguments in a meaningful way
-func NewManager(services cmix.Client, e2e e2e.Handler, events event.Manager,
-	comms Comms, userStore Userinfo, rng *fastRNG.StreamGenerator,
-	privKey *rsa.PrivateKey, username string,
+func NewManager(services cmix.Client, e2e e2e.Handler,
+	events event.Manager, comms Comms, userStore Userinfo,
+	rng *fastRNG.StreamGenerator, username string,
 	kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
 
@@ -114,9 +85,6 @@ func NewManager(services cmix.Client, e2e e2e.Handler, events event.Manager,
 		comms:    comms,
 		rng:      rng,
 		store:    udStore,
-		myID:     e2e.GetReceptionID(),
-		grp:      e2e.GetGroup(),
-		privKey:  privKey,
 		user:     userStore,
 		kv:       kv,
 	}
@@ -127,13 +95,6 @@ func NewManager(services cmix.Client, e2e e2e.Handler, events event.Manager,
 	if def.UDB.Cert == "" {
 		return nil, errors.New("NDF does not have User Discovery " +
 			"information, is there network access?: Cert not present.")
-	}
-
-	// Pull user discovery ID from NDF
-	udID, err := id.Unmarshal(def.UDB.ID)
-	if err != nil {
-		return nil, errors.Errorf("failed to unmarshal UD ID "+
-			"from NDF: %+v", err)
 	}
 
 	udHost, err := m.getOrAddUdHost()
@@ -162,36 +123,38 @@ func NewManager(services cmix.Client, e2e e2e.Handler, events event.Manager,
 // NewManagerFromBackup builds a new user discover manager from a backup.
 // It will construct a manager that is already registered and restore
 // already registered facts into store.
-func NewManagerFromBackup(client *api.Client, single *single.Manager,
-	email, phone fact.Fact) (*Manager, error) {
+func NewManagerFromBackup(services cmix.Client, e2e e2e.Handler, comms Comms, userStore Userinfo, rng *fastRNG.StreamGenerator, email, phone fact.Fact, kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
 	if client.NetworkFollowerStatus() != api.Running {
 		return nil, errors.New(
-			"cannot start UD Manager when network follower is not running.")
+			"cannot start UD Manager when " +
+				"network follower is not running.")
 	}
-
-	registered := uint32(0)
 
 	m := &Manager{
-		client:     client,
-		comms:      client.GetComms(),
-		rng:        client.GetRng(),
-		sw:         client.GetSwitchboard(),
-		storage:    client.GetStorage(),
-		net:        client.GetNetworkInterface(),
-		single:     single,
-		registered: &registered,
+		services: services,
+		e2e:      e2e,
+		comms:    comms,
+		user:     userStore,
+		rng:      rng,
+		kv:       kv,
 	}
 
-	err := m.client.GetStorage().GetUd().
-		BackUpMissingFacts(email, phone)
+	udStore, err := store.NewOrLoadStore(kv)
+	if err != nil {
+		return nil, err
+	}
+
+	m.store = udStore
+
+	err = m.store.BackUpMissingFacts(email, phone)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to restore UD store "+
 			"from backup")
 	}
 
 	// check that user discovery is available in the NDF
-	def := m.net.GetInstance().GetPartialNdf().Get()
+	def := m.services.GetInstance().GetPartialNdf().Get()
 
 	if def.UDB.Cert == "" {
 		return nil, errors.New("NDF does not have User Discovery information, " +
@@ -206,20 +169,13 @@ func NewManagerFromBackup(client *api.Client, single *single.Manager,
 	hp.SendTimeout = 3 * time.Second
 	hp.AuthEnabled = false
 
-	m.myID = m.storage.User().GetCryptographicIdentity().GetReceptionID()
-
-	// Get the commonly used data from storage
-	m.privKey = m.storage.GetUser().ReceptionRSA
-
 	// Set as registered. Since it's from a backup,
 	// the client is already registered
+	// todo: maybe we don't need this?
 	if err = m.setRegistered(); err != nil {
 		return nil, errors.WithMessage(err, "failed to set client as "+
 			"registered with user discovery.")
 	}
-
-	// Store the pointer to the group locally for easy access
-	m.grp = m.storage.E2e().GetGroup()
 
 	return m, nil
 }
@@ -235,7 +191,6 @@ func LoadManager(services cmix.Client, e2e e2e.Handler, events event.Manager,
 		comms:    comms,
 		user:     userStore,
 		rng:      rng,
-		privKey:  privKey,
 		kv:       kv,
 	}
 
@@ -314,10 +269,11 @@ func (m *Manager) GetStringifiedFacts() []string {
 
 // GetContact returns the contact for UD as retrieved from the NDF.
 func (m *Manager) GetContact() (contact.Contact, error) {
+	grp := m.e2e.GetGroup()
 	// Return alternative User discovery contact if set
 	if m.alternativeUd != nil {
 		// Unmarshal UD DH public key
-		alternativeDhPubKey := m.grp.NewInt(1)
+		alternativeDhPubKey := grp.NewInt(1)
 		if err := alternativeDhPubKey.
 			UnmarshalJSON(m.alternativeUd.dhPubKey); err != nil {
 			return contact.Contact{},
@@ -343,7 +299,7 @@ func (m *Manager) GetContact() (contact.Contact, error) {
 	}
 
 	// Unmarshal UD DH public key
-	dhPubKey := m.grp.NewInt(1)
+	dhPubKey := grp.NewInt(1)
 	if err = dhPubKey.UnmarshalJSON(netDef.UDB.DhPubKey); err != nil {
 		return contact.Contact{},
 			errors.WithMessage(err, "Failed to unmarshal UD DH "+

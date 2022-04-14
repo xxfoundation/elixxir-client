@@ -104,6 +104,8 @@ func lookup(services cmix.Client, callback single.Response,
 // will be passed into the callback.
 func (m *Manager) lookupResponseProcess(uid *id.ID, cb single.Response,
 	payload []byte, err error) {
+	grp := m.e2e.GetGroup()
+
 	if err != nil {
 		go cb.Callback(contact.Contact{}, errors.WithMessage(err, "Failed to lookup."))
 		return
@@ -124,7 +126,7 @@ func (m *Manager) lookupResponseProcess(uid *id.ID, cb single.Response,
 
 	c := contact.Contact{
 		ID:       uid,
-		DhPubKey: m.grp.NewIntFromBytes(lookupResponse.PubKey),
+		DhPubKey: grp.NewIntFromBytes(lookupResponse.PubKey),
 	}
 
 	if lookupResponse.Username != "" {

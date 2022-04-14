@@ -139,7 +139,7 @@ func hashFactList(list fact.FactList) ([]*HashFact, map[string]fact.Fact) {
 func (m *Manager) parseContacts(response []*Contact,
 	hashMap map[string]fact.Fact) ([]contact.Contact, error) {
 	contacts := make([]contact.Contact, len(response))
-
+	grp := m.e2e.GetGroup()
 	// Convert each contact message into a new contact.Contact
 	for i, c := range response {
 		// Unmarshal user ID bytes
@@ -154,7 +154,7 @@ func (m *Manager) parseContacts(response []*Contact,
 		// Create new Contact
 		contacts[i] = contact.Contact{
 			ID:       uid,
-			DhPubKey: m.grp.NewIntFromBytes(c.PubKey),
+			DhPubKey: grp.NewIntFromBytes(c.PubKey),
 			Facts:    facts,
 		}
 

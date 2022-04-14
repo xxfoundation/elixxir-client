@@ -21,7 +21,7 @@ import (
 // called along with the code to finalize the fact.
 func (m *Manager) SendRegisterFact(f fact.Fact) (string, error) {
 	jww.INFO.Printf("ud.SendRegisterFact(%s)", f.Stringify())
-	return m.addFact(f, m.myID, m.comms)
+	return m.addFact(f, m.e2e.GetReceptionID(), m.comms)
 }
 
 func (m *Manager) addFact(inFact fact.Fact, myId *id.ID, aFC addFactComms) (string, error) {
@@ -42,7 +42,8 @@ func (m *Manager) addFact(inFact fact.Fact, myId *id.ID, aFC addFactComms) (stri
 	fHash := factID.Fingerprint(f)
 
 	// Sign our inFact for putting into the request
-	fSig, err := rsa.Sign(rand.Reader, m.privKey, hash.CMixHash, fHash, nil)
+	privKey := m.user.PortableUserInfo().ReceptionRSA
+	fSig, err := rsa.Sign(rand.Reader, privKey, hash.CMixHash, fHash, nil)
 	if err != nil {
 		return "", err
 	}

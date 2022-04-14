@@ -96,7 +96,7 @@ func NewUserDiscoveryFromBackup(client *Client,
 		jww.WARN.Printf("Loading manager without a registered phone number")
 	}
 
-	m, err := ud.NewManagerFromBackup(&client.api, single, emailFact, phoneFact)
+	m, err := ud.NewManagerFromBackup(&client.api, single, phoneFact)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
 	} else {

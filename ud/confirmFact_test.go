@@ -1,12 +1,17 @@
 package ud
 
 import (
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/comms/client"
+	"gitlab.com/elixxir/client/storage/versioned"
+	store "gitlab.com/elixxir/client/ud/store"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
+	"gitlab.com/xx_network/crypto/csprng"
 	"reflect"
 	"testing"
 )
@@ -22,19 +27,24 @@ func (t *testComm) SendConfirmFact(_ *connect.Host, message *pb.FactConfirmReque
 
 // Happy path.
 func TestManager_confirmFact(t *testing.T) {
-	isReg := uint32(1)
+	storageSess := storage.InitTestingSession(t)
 
-	comms, err := client.NewClientComms(nil, nil, nil, nil)
+	kv := versioned.NewKV(ekv.Memstore{})
+	udStore, err := store.NewOrLoadStore(kv)
 	if err != nil {
-		t.Errorf("Failed to start client comms: %+v", err)
+		t.Fatalf("Failed to initialize store %v", err)
 	}
 
-	// Set up manager
+	// Create our Manager object
 	m := &Manager{
-		comms:      comms,
-		net:        newTestNetworkManager(t),
-		registered: &isReg,
-		storage:    storage.InitTestingSession(t),
+		services: newTestNetworkManager(t),
+		e2e:      mockE2e{},
+		events:   event.NewEventManager(),
+		user:     storageSess,
+		comms:    &mockComms{},
+		store:    udStore,
+		kv:       kv,
+		rng:      fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 	}
 
 	c := &testComm{}
@@ -45,7 +55,7 @@ func TestManager_confirmFact(t *testing.T) {
 	}
 
 	// Set up store for expected state
-	err = m.storage.GetUd().StoreUnconfirmedFact(expectedRequest.ConfirmationID, fact.Fact{})
+	err = m.store.StoreUnconfirmedFact(expectedRequest.ConfirmationID, fact.Fact{})
 	if err != nil {
 		t.Fatalf("StoreUnconfirmedFact error: %v", err)
 	}

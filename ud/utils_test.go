@@ -15,17 +15,37 @@
 package ud
 
 import (
+	"github.com/cloudflare/circl/dh/sidh"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/identity"
+	cmixMsg "gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/e2e/receive"
+	"gitlab.com/elixxir/client/event"
+	"gitlab.com/elixxir/client/storage/user"
+	"gitlab.com/elixxir/client/storage/versioned"
+	store "gitlab.com/elixxir/client/ud/store"
+	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/comms/testkeys"
+	"gitlab.com/elixxir/crypto/cyclic"
+	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/comms/messages"
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/crypto/large"
+	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/primitives/utils"
 	"testing"
 	"time"
 
 	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/network"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -33,7 +53,60 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 )
 
-func newTestNetworkManager(t *testing.T) interfaces.NetworkManager {
+func newTestManager(t *testing.T) *Manager {
+
+	keyData, err := utils.ReadFile(testkeys.GetNodeKeyPath())
+	if err != nil {
+		t.Fatalf("Could not load private key: %v", err)
+	}
+
+	key, err := rsa.LoadPrivateKeyFromPem(keyData)
+	if err != nil {
+		t.Fatalf("Could not load public key")
+	}
+
+	kv := versioned.NewKV(ekv.Memstore{})
+	udStore, err := store.NewOrLoadStore(kv)
+	if err != nil {
+		t.Fatalf("Failed to initialize store %v", err)
+	}
+
+	// Create our Manager object
+	m := &Manager{
+		services: newTestNetworkManager(t),
+		e2e:      mockE2e{},
+		events:   event.NewEventManager(),
+		user:     mockUser{testing: t, key: key},
+		store:    udStore,
+		comms:    &mockComms{},
+		kv:       kv,
+		rng:      fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+	}
+
+	netDef := m.services.GetInstance().GetPartialNdf().Get()
+	// Unmarshal UD ID from the NDF
+	udID, err := id.Unmarshal(netDef.UDB.ID)
+	if err != nil {
+		t.Fatalf("failed to "+
+			"unmarshal UD ID from NDF: %+v", err)
+	}
+
+	params := connect.GetDefaultHostParams()
+	params.AuthEnabled = false
+	params.SendTimeout = 20 * time.Second
+
+	// Add a new host and return it if it does not already exist
+	_, err = m.comms.AddHost(udID, netDef.UDB.Address,
+		[]byte(netDef.UDB.Cert), params)
+	if err != nil {
+		t.Fatalf("User Discovery host " +
+			"object could not be constructed.")
+	}
+
+	return m
+}
+
+func newTestNetworkManager(t *testing.T) cmix.Client {
 	instanceComms := &connect.ProtoComms{
 		Manager: connect.NewManagerTesting(t),
 	}
@@ -49,52 +122,369 @@ func newTestNetworkManager(t *testing.T) interfaces.NetworkManager {
 	}
 }
 
+func getGroup() *cyclic.Group {
+	return cyclic.NewGroup(
+		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D4941"+
+			"3394C049B7A8ACCEDC298708F121951D9CF920EC5D146727AA4AE535B0922C688"+
+			"B55B3DD2AEDF6C01C94764DAB937935AA83BE36E67760713AB44A6337C20E7861"+
+			"575E745D31F8B9E9AD8412118C62A3E2E29DF46B0864D0C951C394A5CBBDC6ADC"+
+			"718DD2A3E041023DBB5AB23EBB4742DE9C1687B5B34FA48C3521632C4A530E8FF"+
+			"B1BC51DADDF453B0B2717C2BC6669ED76B4BDD5C9FF558E88F26E5785302BEDBC"+
+			"A23EAC5ACE92096EE8A60642FB61E8F3D24990B8CB12EE448EEF78E184C7242DD"+
+			"161C7738F32BF29A841698978825B4111B4BC3E1E198455095958333D776D8B2B"+
+			"EEED3A1A1A221A6E37E664A64B83981C46FFDDC1A45E3D5211AAF8BFBC072768C"+
+			"4F50D7D7803D2D4F278DE8014A47323631D7E064DE81C0C6BFA43EF0E6998860F"+
+			"1390B5D3FEACAF1696015CB79C3F9C2D93D961120CD0E5F12CBB687EAB045241F"+
+			"96789C38E89D796138E6319BE62E35D87B1048CA28BE389B575E994DCA7554715"+
+			"84A09EC723742DC35873847AEF49F66E43873", 16),
+		large.NewIntFromString("2", 16))
+}
+
+type mockUser struct {
+	testing *testing.T
+	key     *rsa.PrivateKey
+}
+
+func (m mockUser) PortableUserInfo() user.Info {
+
+	return user.Info{
+		TransmissionID:        id.NewIdFromString("test", id.User, m.testing),
+		TransmissionSalt:      []byte("test"),
+		TransmissionRSA:       m.key,
+		ReceptionID:           id.NewIdFromString("test", id.User, m.testing),
+		ReceptionSalt:         []byte("test"),
+		ReceptionRSA:          m.key,
+		Precanned:             false,
+		RegistrationTimestamp: 0,
+		E2eDhPrivateKey:       getGroup().NewInt(5),
+		E2eDhPublicKey:        getGroup().NewInt(6),
+	}
+}
+
+func (m mockUser) GetReceptionRegistrationValidationSignature() []byte {
+	return []byte("test")
+}
+
 // testNetworkManager is a test implementation of NetworkManager interface.
 type testNetworkManager struct {
 	instance *network.Instance
 }
 
-func (tnm *testNetworkManager) SendE2E(message.Send, params.E2E, *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error) {
-	return nil, e2e.MessageID{}, time.Time{}, nil
-}
-
-func (tnm *testNetworkManager) SendUnsafe(message.Send, params.Unsafe) ([]id.Round, error) {
-	return nil, nil
+func (tnm *testNetworkManager) GetInstance() *network.Instance {
+	return tnm.instance
 }
 
 func (tnm *testNetworkManager) GetVerboseRounds() string {
-	return ""
+	//TODO implement me
+	panic("implement me")
 }
 
-func (tnm *testNetworkManager) SendCMIX(format.Message, *id.ID, params.CMIX) (id.Round, ephemeral.Id, error) {
-	return 0, ephemeral.Id{}, nil
+func (tnm *testNetworkManager) Follow(report cmix.ClientErrorReport) (stoppable.Stoppable, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
-func (tnm *testNetworkManager) SendManyCMIX([]message.TargetedCmixMessage, params.CMIX) (id.Round, []ephemeral.Id, error) {
-	return 0, nil, nil
+func (tnm *testNetworkManager) GetMaxMessageLength() int {
+	//TODO implement me
+	panic("implement me")
 }
 
-type dummyEventMgr struct{}
-
-func (d *dummyEventMgr) Report(int, string, string, string) {}
-func (tnm *testNetworkManager) GetEventManager() event.Reporter {
-	return &dummyEventMgr{}
+func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerprint, service cmixMsg.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
-func (tnm *testNetworkManager) GetInstance() *network.Instance             { return tnm.instance }
-func (tnm *testNetworkManager) GetHealthTracker() interfaces.HealthTracker { return nil }
-func (tnm *testNetworkManager) Follow(interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
-	return nil, nil
+func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
+	//TODO implement me
+	panic("implement me")
 }
-func (tnm *testNetworkManager) CheckGarbledMessages()        {}
-func (tnm *testNetworkManager) InProgressRegistrations() int { return 0 }
-func (tnm *testNetworkManager) GetSender() *gateway.Sender   { return nil }
-func (tnm *testNetworkManager) GetAddressSize() uint8        { return 0 }
-func (tnm *testNetworkManager) RegisterAddressSizeNotification(string) (chan uint8, error) {
-	return nil, nil
+
+func (tnm *testNetworkManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
+	//TODO implement me
+	panic("implement me")
 }
-func (tnm *testNetworkManager) UnregisterAddressSizeNotification(string) {}
-func (tnm *testNetworkManager) SetPoolFilter(gateway.Filter)             {}
+
+func (tnm *testNetworkManager) RemoveIdentity(id *id.ID) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) GetIdentity(get *id.ID) (identity.TrackedID, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) AddFingerprint(identity *id.ID, fingerprint format.Fingerprint, mp cmixMsg.Processor) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) DeleteClientFingerprints(identity *id.ID) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) AddService(clientID *id.ID, newService cmixMsg.Service, response cmixMsg.Processor) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) DeleteService(clientID *id.ID, toDelete cmixMsg.Service, processor cmixMsg.Processor) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) DeleteClientService(clientID *id.ID) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) TrackServices(tracker cmixMsg.ServicesTracker) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) CheckInProgressMessages() {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) IsHealthy() bool {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) WasHealthy() bool {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) AddHealthCallback(f func(bool)) uint64 {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) RemoveHealthCallback(u uint64) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) HasNode(nid *id.ID) bool {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) NumRegisteredNodes() int {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) TriggerNodeRegistration(nid *id.ID) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) LookupHistoricalRound(rid id.Round, callback rounds.RoundResultCallback) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) SendToAny(sendFunc func(host *connect.Host) (interface{}, error), stop *stoppable.Single) (interface{}, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) SendToPreferred(targets []*id.ID, sendFunc gateway.SendToPreferredFunc, stop *stoppable.Single, timeout time.Duration) (interface{}, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) SetGatewayFilter(f gateway.Filter) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) GetHostParams() connect.HostParams {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) GetAddressSpace() uint8 {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) RegisterAddressSpaceNotification(tag string) (chan uint8, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) UnregisterAddressSpaceNotification(tag string) {
+	//TODO implement me
+	panic("implement me")
+}
+
+type mockUserStore struct{}
+
+func (m mockUserStore) PortableUserInfo() user.Info {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockUserStore) GetUsername() (string, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockUserStore) GetReceptionRegistrationValidationSignature() []byte {
+	//TODO implement me
+	panic("implement me")
+}
+
+type mockComms struct {
+	udHost *connect.Host
+}
+
+func (m mockComms) SendRegisterUser(host *connect.Host, message *pb.UDBUserRegistration) (*messages.Ack, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockComms) SendRegisterFact(host *connect.Host, message *pb.FactRegisterRequest) (*pb.FactRegisterResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockComms) SendConfirmFact(host *connect.Host, message *pb.FactConfirmRequest) (*messages.Ack, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockComms) SendRemoveFact(host *connect.Host, message *pb.FactRemovalRequest) (*messages.Ack, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockComms) SendRemoveUser(host *connect.Host, message *pb.FactRemovalRequest) (*messages.Ack, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockComms) AddHost(hid *id.ID, address string, cert []byte, params connect.HostParams) (host *connect.Host, err error) {
+	h, err := connect.NewHost(hid, address, cert, params)
+	if err != nil {
+		return nil, err
+	}
+
+	m.udHost = h
+	return h, nil
+}
+
+func (m mockComms) GetHost(hostId *id.ID) (*connect.Host, bool) {
+	return m.udHost, true
+}
+
+type mockE2e struct{}
+
+func (m mockE2e) SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte, params e2e.Params) ([]id.Round, e2eCrypto.MessageID, time.Time, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) RegisterListener(senderID *id.ID, messageType catalog.MessageType, newListener receive.Listener) receive.ListenerID {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) RegisterFunc(name string, senderID *id.ID, messageType catalog.MessageType, newListener receive.ListenerFunc) receive.ListenerID {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) SendUnsafe(mt catalog.MessageType, recipient *id.ID, payload []byte, params e2e.Params) ([]id.Round, time.Time, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) StartProcesses() (stoppable.Stoppable, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) RegisterChannel(name string, senderID *id.ID, messageType catalog.MessageType, newListener chan receive.Message) receive.ListenerID {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) Unregister(listenerID receive.ListenerID) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey, sendParams, receiveParams session.Params) (partner.Manager, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) GetPartner(partnerID *id.ID) (partner.Manager, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) DeletePartner(partnerId *id.ID) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) GetAllPartnerIDs() []*id.ID {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) AddService(tag string, processor cmixMsg.Processor) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) RemoveService(tag string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) EnableUnsafeReception() {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) GetGroup() *cyclic.Group {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) GetHistoricalDHPubkey() *cyclic.Int {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) GetHistoricalDHPrivkey() *cyclic.Int {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2e) GetReceptionID() *id.ID {
+	//TODO implement me
+	panic("implement me")
+}
 
 func getNDF() *ndf.NetworkDefinition {
 	return &ndf.NetworkDefinition{

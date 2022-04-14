@@ -8,9 +8,6 @@
 package ud
 
 import (
-	"gitlab.com/elixxir/comms/client"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"testing"
 )
 
@@ -53,30 +50,10 @@ EnretBzQkeKeBwoB2u6NTiOmUjk=
 var testContact = `<xxc(2)LF2ccT+sdqh0AIKlFFeDOJdnxzbQQYhGStgxhOXmijIDkAZiB9kZo+Dl3bRSbBi5pXZ82rOu2IQXz9+5sspChvoccZqgC/dXGhlesmiNy/EbKxWtptTF4tcNyQxtnmCXg1p/HwKey4G2XDekTw86lq6Lpmj72jozvRWlQisqvWz/5deiPaeFGKDKC0OrrDFnIib7WnKqdYt4XyTKdmObnmbvdCbliZq0zBl7J40qKy5FypYXGlZjStIm0R1qtD4XHMZMsrMJEGxdM55zJdSzknXbR8MNahUrGMyUOTivXLHzojYLht0gFQifKMVWhrDjUoVQV43KOLPmdBwY/2Kc5KvVloDeuDXYY0i7tD63gNIp9JA3gJQUJymDdwqbS13riT1DMHHkdTzKEyGdHS+v2l7AVSlJBiTKuyM00FBNuXhhIcFR7ONFCf8cRPOPPBx3Q6iHNsvsca3KPNhwOJBgaQvHSkjIMsudiR954QbwG9rbi2vxVobIgWYMl5j6vlBS/9rfbE/uLdTEQZfNsLKDCIVCCI4I1bYZxZrDLPrfXTrN6W0sCLE7a/kRBQAAAgA7+LwJqiv9O1ogLnS4TYkSEg==xxc>`
 
 func TestManager_SetAlternativeUserDiscovery(t *testing.T) {
-	isReg := uint32(1)
-
-	// Create a new Private Key to use for signing the Fact
-	rng := csprng.NewSystemRNG()
-	cpk, err := rsa.GenerateKey(rng, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	comms, err := client.NewClientComms(nil, nil, nil, nil)
-	if err != nil {
-		t.Errorf("Failed to start client comms: %+v", err)
-	}
-
-	// Create our Manager object
-	m := Manager{
-		comms:      comms,
-		net:        newTestNetworkManager(t),
-		privKey:    cpk,
-		registered: &isReg,
-	}
+	m := newTestManager(t)
 
 	altAddr := "0.0.0.0:11420"
-	err = m.SetAlternativeUserDiscovery([]byte(testCert), []byte(altAddr), []byte(testContact))
+	err := m.SetAlternativeUserDiscovery([]byte(testCert), []byte(altAddr), []byte(testContact))
 	if err != nil {
 		t.Fatalf("Unexpected error in SetAlternativeUserDiscovery: %v", err)
 	}

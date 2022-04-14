@@ -13,7 +13,7 @@ const isRegisteredVersion = 0
 // isRegistered loads from storage if the client is registered with user
 // discovery.
 func (m *Manager) isRegistered() bool {
-	obj, err := m.kv.Get(isRegisteredKey, isRegisteredVersion)
+	_, err := m.kv.Get(isRegisteredKey, isRegisteredVersion)
 	if err != nil {
 		return false
 	}

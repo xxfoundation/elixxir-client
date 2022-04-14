@@ -10,12 +10,10 @@ import (
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/storage/versioned"
 	store "gitlab.com/elixxir/client/ud/store/ud"
-	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"math"
 	"time"
@@ -35,11 +33,11 @@ type Manager struct {
 	//  in this object and the object itself
 	services cmix.Client
 	e2e      e2e.Handler
-	events   event.Manager
+	events   *event.Manager
 	store    *store.Store
 
 	// todo: find a way to remove this, maybe just pass user into object (?)
-	user Userinfo
+	user UserInfo
 
 	comms Comms
 	rng   *fastRNG.StreamGenerator
@@ -61,14 +59,13 @@ type alternateUd struct {
 // NewManager builds a new user discovery manager. It requires that an updated
 // NDF is available and will error if one is not.
 // todo: docstring, organize the order of arguments in a meaningful way
-func NewManager(services cmix.Client, e2e e2e.Handler,
-	events event.Manager, comms Comms, userStore Userinfo,
+func NewManager(services cmix.Client, e2e e2e.Handler, follower FollowerService,
+	events *event.Manager, comms Comms, userStore UserInfo,
 	rng *fastRNG.StreamGenerator, username string,
 	kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
 
-	// fixme: figuring out a way to avoid importing api would be nice
-	if client.NetworkFollowerStatus() != api.Running {
+	if follower.NetworkFollowerStatus() != api.Running {
 		return nil, errors.New(
 			"cannot start UD Manager when network follower is not running.")
 	}
@@ -123,9 +120,13 @@ func NewManager(services cmix.Client, e2e e2e.Handler,
 // NewManagerFromBackup builds a new user discover manager from a backup.
 // It will construct a manager that is already registered and restore
 // already registered facts into store.
-func NewManagerFromBackup(services cmix.Client, e2e e2e.Handler, comms Comms, userStore Userinfo, rng *fastRNG.StreamGenerator, email, phone fact.Fact, kv *versioned.KV) (*Manager, error) {
+func NewManagerFromBackup(services cmix.Client,
+	follower FollowerService,
+	e2e e2e.Handler, events *event.Manager, comms Comms,
+	userStore UserInfo, rng *fastRNG.StreamGenerator,
+	email, phone fact.Fact, kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
-	if client.NetworkFollowerStatus() != api.Running {
+	if follower.NetworkFollowerStatus() != api.Running {
 		return nil, errors.New(
 			"cannot start UD Manager when " +
 				"network follower is not running.")
@@ -134,6 +135,7 @@ func NewManagerFromBackup(services cmix.Client, e2e e2e.Handler, comms Comms, us
 	m := &Manager{
 		services: services,
 		e2e:      e2e,
+		events:   events,
 		comms:    comms,
 		user:     userStore,
 		rng:      rng,
@@ -180,9 +182,9 @@ func NewManagerFromBackup(services cmix.Client, e2e e2e.Handler, comms Comms, us
 	return m, nil
 }
 
-func LoadManager(services cmix.Client, e2e e2e.Handler, events event.Manager,
-	comms Comms, userStore Userinfo, rng *fastRNG.StreamGenerator,
-	privKey *rsa.PrivateKey, kv *versioned.KV) (*Manager, error) {
+func LoadManager(services cmix.Client, e2e e2e.Handler,
+	events *event.Manager, comms Comms, userStore UserInfo,
+	rng *fastRNG.StreamGenerator, kv *versioned.KV) (*Manager, error) {
 
 	m := &Manager{
 		services: services,

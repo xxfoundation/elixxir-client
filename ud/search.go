@@ -6,6 +6,8 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/crypto/contact"
@@ -32,10 +34,11 @@ type searchCallback func([]contact.Contact, error)
 // Instead, it is intended to be used to search for a user where multiple pieces
 // of information is known.
 func Search(list fact.FactList,
-	services cmix.Client, events event.Manager,
+	services cmix.Client, events *event.Manager,
 	callback searchCallback,
 	rng *fastRNG.StreamGenerator, udContact contact.Contact,
-	grp *cyclic.Group, timeout time.Duration) error {
+	grp *cyclic.Group, timeout time.Duration) (id.Round,
+	receptionID.EphemeralIdentity, error) {
 	jww.INFO.Printf("ud.Search(%s, %s)", list.Stringify(), timeout)
 
 	factHashes, factMap := hashFactList(list)
@@ -44,26 +47,32 @@ func Search(list fact.FactList,
 	request := &SearchSend{Fact: factHashes}
 	requestMarshaled, err := proto.Marshal(request)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to form outgoing search request.")
+		return id.Round(0), receptionID.EphemeralIdentity{},
+			errors.WithMessage(err, "Failed to form outgoing search request.")
 	}
 
-	f := func(payload []byte, err error) {
-		m.searchResponseHandler(factMap, callback, payload, err)
+	response := searchResponse{
+		cb:       callback,
+		services: services,
+		events:   events,
+		grp:      grp,
+		factMap:  factMap,
 	}
 
 	stream := rng.GetStream()
 	defer stream.Close()
 
 	p := single.RequestParams{
-		Timeout:     timeout,
-		MaxMessages: maxLookupMessages,
-		CmixParam:   cmix.GetDefaultCMIXParams(),
+		Timeout:             timeout,
+		MaxResponseMessages: maxSearchMessages,
+		CmixParam:           cmix.GetDefaultCMIXParams(),
 	}
 
-	rndId, ephId, err := single.TransmitRequest(udContact, LookupTag, requestMarshaled,
-		f, p, services, stream, grp)
+	rndId, ephId, err := single.TransmitRequest(udContact, SearchTag, requestMarshaled,
+		response, p, services, stream, grp)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to transmit search request.")
+		return id.Round(0), receptionID.EphemeralIdentity{},
+			errors.WithMessage(err, "Failed to transmit search request.")
 	}
 
 	if events != nil {
@@ -71,49 +80,58 @@ func Search(list fact.FactList,
 			fmt.Sprintf("Sent: %+v", request))
 	}
 
-	return nil
+	return rndId, ephId, err
 }
 
-func (m *Manager) searchResponseHandler(factMap map[string]fact.Fact,
-	callback searchCallback, payload []byte, err error) {
+type searchResponse struct {
+	cb       searchCallback
+	services cmix.Client
+	events   *event.Manager
+	grp      *cyclic.Group
+	factMap  map[string]fact.Fact
+}
+
+func (m searchResponse) Callback(payload []byte,
+	receptionID receptionID.EphemeralIdentity,
+	round rounds.Round, err error) {
 
 	if err != nil {
-		go callback(nil, errors.WithMessage(err, "Failed to search."))
+		go m.cb(nil, errors.WithMessage(err, "Failed to search."))
 		return
 	}
 
 	// Unmarshal the message
-	searchResponse := &SearchResponse{}
-	if err := proto.Unmarshal(payload, searchResponse); err != nil {
+	sr := &SearchResponse{}
+	if err := proto.Unmarshal(payload, sr); err != nil {
 		jww.WARN.Printf("Dropped a search response from user discovery due to "+
 			"failed unmarshal: %s", err)
 	}
 
-	if m.services != nil {
+	if m.events != nil {
 		m.events.Report(1, "UserDiscovery", "SearchResponse",
-			fmt.Sprintf("Received: %+v", searchResponse))
+			fmt.Sprintf("Received: %+v", sr))
 	}
 
-	if searchResponse.Error != "" {
+	if sr.Error != "" {
 		err = errors.Errorf("User Discovery returned an error on search: %s",
-			searchResponse.Error)
-		go callback(nil, err)
+			sr.Error)
+		go m.cb(nil, err)
 		return
 	}
 
 	// return an error if no facts are found
-	if len(searchResponse.Contacts) == 0 {
-		go callback(nil, errors.New("No contacts found in search"))
+	if len(sr.Contacts) == 0 {
+		go m.cb(nil, errors.New("No contacts found in search"))
 	}
 
-	c, err := m.parseContacts(searchResponse.Contacts, factMap)
+	c, err := parseContacts(m.grp, sr.Contacts, m.factMap)
 	if err != nil {
-		go callback(nil, errors.WithMessage(err, "Failed to parse contacts from "+
+		go m.cb(nil, errors.WithMessage(err, "Failed to parse contacts from "+
 			"remote server."))
 		return
 	}
 
-	go callback(c, nil)
+	go m.cb(c, nil)
 }
 
 // hashFactList hashes each fact in the FactList into a HashFact and returns a
@@ -136,10 +154,9 @@ func hashFactList(list fact.FactList) ([]*HashFact, map[string]fact.Fact) {
 
 // parseContacts parses the list of Contacts in the SearchResponse and returns a
 // list of contact.Contact with their ID and public key.
-func (m *Manager) parseContacts(response []*Contact,
+func parseContacts(grp *cyclic.Group, response []*Contact,
 	hashMap map[string]fact.Fact) ([]contact.Contact, error) {
 	contacts := make([]contact.Contact, len(response))
-	grp := m.e2e.GetGroup()
 	// Convert each contact message into a new contact.Contact
 	for i, c := range response {
 		// Unmarshal user ID bytes

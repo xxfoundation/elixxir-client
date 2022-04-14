@@ -9,7 +9,7 @@ import (
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/storage/versioned"
-	store "gitlab.com/elixxir/client/ud/store/ud"
+	store "gitlab.com/elixxir/client/ud/store"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
@@ -56,16 +56,17 @@ type alternateUd struct {
 	dhPubKey []byte
 }
 
-// NewManager builds a new user discovery manager. It requires that an updated
+// NewManager builds a new user discovery manager.
+// It requires that an updated
 // NDF is available and will error if one is not.
-// todo: docstring, organize the order of arguments in a meaningful way
-func NewManager(services cmix.Client, e2e e2e.Handler, follower FollowerService,
+func NewManager(services cmix.Client, e2e e2e.Handler,
+	follower NetworkStatus,
 	events *event.Manager, comms Comms, userStore UserInfo,
 	rng *fastRNG.StreamGenerator, username string,
 	kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
 
-	if follower.NetworkFollowerStatus() != api.Running {
+	if follower() != api.Running {
 		return nil, errors.New(
 			"cannot start UD Manager when network follower is not running.")
 	}
@@ -121,12 +122,12 @@ func NewManager(services cmix.Client, e2e e2e.Handler, follower FollowerService,
 // It will construct a manager that is already registered and restore
 // already registered facts into store.
 func NewManagerFromBackup(services cmix.Client,
-	follower FollowerService,
-	e2e e2e.Handler, events *event.Manager, comms Comms,
+	e2e e2e.Handler, follower NetworkStatus,
+	events *event.Manager, comms Comms,
 	userStore UserInfo, rng *fastRNG.StreamGenerator,
 	email, phone fact.Fact, kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
-	if follower.NetworkFollowerStatus() != api.Running {
+	if follower() != api.Running {
 		return nil, errors.New(
 			"cannot start UD Manager when " +
 				"network follower is not running.")

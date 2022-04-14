@@ -20,11 +20,9 @@ type UserInfo interface {
 	GetReceptionRegistrationValidationSignature() []byte
 }
 
-// FollowerService is an interface for the api.Client's
+// NetworkStatus is an interface for the api.Client's
 // NetworkFollowerStatus method.
-type FollowerService interface {
-	NetworkFollowerStatus() api.Status
-}
+type NetworkStatus func() api.Status
 
 // todo: this may not be needed. if so, remove.
 type SingleInterface interface {

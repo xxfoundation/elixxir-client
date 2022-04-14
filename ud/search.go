@@ -33,11 +33,10 @@ type searchCallback func([]contact.Contact, error)
 // used to search for multiple users at once; that can have a privacy reduction.
 // Instead, it is intended to be used to search for a user where multiple pieces
 // of information is known.
-func Search(list fact.FactList,
-	services cmix.Client, events *event.Manager,
-	callback searchCallback,
-	rng *fastRNG.StreamGenerator, udContact contact.Contact,
-	grp *cyclic.Group, timeout time.Duration) (id.Round,
+func Search(services cmix.Client, events *event.Manager,
+	rng *fastRNG.StreamGenerator, grp *cyclic.Group,
+	udContact contact.Contact, callback searchCallback,
+	list fact.FactList, timeout time.Duration) (id.Round,
 	receptionID.EphemeralIdentity, error) {
 	jww.INFO.Printf("ud.Search(%s, %s)", list.Stringify(), timeout)
 

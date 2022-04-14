@@ -27,12 +27,10 @@ type lookupCallback func(contact.Contact, error)
 
 // Lookup returns the public key of the passed ID as known by the user discovery
 // system or returns by the timeout.
-func Lookup(udContact contact.Contact,
-	services cmix.Client,
-	callback lookupCallback,
-	rng *fastRNG.StreamGenerator,
-	uid *id.ID, grp *cyclic.Group,
-	timeout time.Duration) (id.Round,
+func Lookup(services cmix.Client,
+	rng *fastRNG.StreamGenerator, grp *cyclic.Group,
+	udContact contact.Contact, callback lookupCallback,
+	uid *id.ID, timeout time.Duration) (id.Round,
 	receptionID.EphemeralIdentity, error) {
 
 	jww.INFO.Printf("ud.Lookup(%s, %s)", uid, timeout)
@@ -51,7 +49,7 @@ func BatchLookup(udContact contact.Contact,
 
 	for _, uid := range uids {
 		go func(localUid *id.ID) {
-			rid, ephId, err := lookup(services, rng, localUid, grp,
+			_, _, err := lookup(services, rng, localUid, grp,
 				timeout, udContact, callback)
 			if err != nil {
 				jww.WARN.Printf("Failed batch lookup on user %s: %v",

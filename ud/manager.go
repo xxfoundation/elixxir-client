@@ -33,7 +33,7 @@ type Manager struct {
 	//  in this object and the object itself
 	services cmix.Client
 	e2e      e2e.Handler
-	events   *event.Manager
+	events   event.Reporter
 	store    *store.Store
 
 	// todo: find a way to remove this, maybe just pass user into object (?)

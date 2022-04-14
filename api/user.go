@@ -104,12 +104,7 @@ func createDhKeys(rng *fastRNG.StreamGenerator,
 		var err error
 		rngStream := rng.GetStream()
 		prime := e2e.GetPBytes()
-		// FIXME: Why 256 bits? -- this is spec but not
-		// explained, it has to do with optimizing operations
-		// on one side and still preserves decent security --
-		// cite this. Why valid for BOTH e2e and cmix?
-		//keyLen := len(prime)
-		keyLen := 256
+		keyLen := len(prime)
 		e2eKeyBytes, err = csprng.GenerateInGroup(prime, keyLen,
 			rngStream)
 		rngStream.Close()
@@ -153,11 +148,10 @@ func createDhKeys(rng *fastRNG.StreamGenerator,
 func createPrecannedUser(precannedID uint, rng csprng.Source, cmix,
 	e2e *cyclic.Group) user.Info {
 	// DH Keygen
-	// FIXME: Why 256 bits? -- this is spec but not explained, it has
-	// to do with optimizing operations on one side and still preserves
-	// decent security -- cite this. Why valid for BOTH e2e and cmix?
 	prng := rand.New(rand.NewSource(int64(precannedID)))
-	e2eKeyBytes, err := csprng.GenerateInGroup(e2e.GetPBytes(), 256, prng)
+	prime := e2e.GetPBytes()
+	keyLen := len(prime)
+	e2eKeyBytes, err := csprng.GenerateInGroup(prime, keyLen, prng)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
@@ -192,10 +186,9 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix,
 func createNewVanityUser(rng csprng.Source, cmix,
 	e2e *cyclic.Group, prefix string) user.Info {
 	// DH Keygen
-	// FIXME: Why 256 bits? -- this is spec but not explained, it has
-	// to do with optimizing operations on one side and still preserves
-	// decent security -- cite this. Why valid for BOTH e2e and cmix?
-	e2eKeyBytes, err := csprng.GenerateInGroup(e2e.GetPBytes(), 256, rng)
+	prime := e2e.GetPBytes()
+	keyLen := len(prime)
+	e2eKeyBytes, err := csprng.GenerateInGroup(prime, keyLen, rng)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}

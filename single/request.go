@@ -21,20 +21,61 @@ import (
 	"time"
 )
 
+// Response interface allows for callbacks to
 type Response interface {
 	Callback(payload []byte, receptionID receptionID.EphemeralIdentity,
 		round rounds.Round, err error)
 }
 
 type RequestParams struct {
-	Timeout     time.Duration
-	MaxMessages uint8
-	CmixParam   cmix.CMIXParams
+	Timeout             time.Duration
+	MaxResponseMessages uint8
+	CmixParam           cmix.CMIXParams
 }
 
+func GetDefaultRequestParams() RequestParams {
+	return RequestParams{
+		Timeout:             30 * time.Second,
+		MaxResponseMessages: 255,
+		CmixParam:           cmix.GetDefaultCMIXParams(),
+	}
+}
+
+// GetMaxRequestSize returns the max size of a request payload
+func GetMaxRequestSize(net cmix.Client, e2eGrp *cyclic.Group) uint {
+	payloadSize := message.GetRequestPayloadSize(net.GetMaxMessageLength(),
+		e2eGrp.GetP().ByteLen())
+	return message.GetRequestContentsSize(payloadSize)
+}
+
+/* Single is a system which allows for an end to end encrypted anonymous
+   request to be sent to another cmix client, and for them to respond. The
+   system allows for communication over the mixnet without an interactive
+   key negotiation because the payload inherently carries the negotiation with
+   it. When sending a new request, a client create a new discreet log Dh keypair
+   as well as a new ID. As a result of the fact that the client never
+   identifies itself, the system allows the client to stay anonymous while
+   contacting the remote.
+*/
+
+// TransmitRequest Sends a request to the recipient with the given tag containing
+// the given payload. The request is identified as coming from a new user ID and
+// the recipient of the request responds to that address. As a result, this request
+// does not reveal the identity of the sender,
+// the current implementation only allows for a cing cmix request payload.
+// Because the request payload itself must include negotiation materials, it is
+// limited to just a few thousand bits of payload, and will return an error if
+// the payload is too large. GetMaxRequestSize() can be used to get this max
+// size
+// The network follower must be running and healthy to transmit
 func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	callback Response, param RequestParams, net cmix.Client, rng csprng.Source,
 	e2eGrp *cyclic.Group) (id.Round, receptionID.EphemeralIdentity, error) {
+	if !net.IsHealthy() {
+		return 0, receptionID.EphemeralIdentity{}, errors.New("Cannot " +
+			"send singe use when network is not healthy")
+	}
+
 	// get address ID address space size; this blocks until the address space
 	// size is set for the first time
 	addressSize := net.GetAddressSpace()
@@ -50,7 +91,7 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	request := message.NewRequest(net.GetMaxMessageLength(),
 		e2eGrp.GetP().ByteLen())
 	requestPayload := message.NewRequestPayload(request.GetPayloadSize(),
-		payload, param.MaxMessages)
+		payload, param.MaxResponseMessages)
 
 	// Generate new user ID and address ID
 	var sendingID receptionID.EphemeralIdentity
@@ -73,7 +114,7 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	request.SetPayload(encryptedPayload)
 
 	//register the response pickup
-	collator := message.NewCollator(param.MaxMessages)
+	collator := message.NewCollator(param.MaxResponseMessages)
 	timeoutKillChan := make(chan bool)
 	callbackOnce := sync.Once{}
 	wrapper := func(payload []byte, receptionID receptionID.EphemeralIdentity,
@@ -88,9 +129,9 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 		})
 	}
 
-	cyphers := makeCyphers(dhKey, param.MaxMessages)
+	cyphers := makeCyphers(dhKey, param.MaxResponseMessages)
 
-	for i := uint8(0); i < param.MaxMessages; i++ {
+	for i := uint8(0); i < param.MaxResponseMessages; i++ {
 		processor := responceProcessor{
 			sendingID: sendingID,
 			c:         collator,
@@ -196,6 +237,8 @@ func makeIDs(msg message.RequestPayload, publicKey *cyclic.Int,
 	}, nil
 }
 
+// waitForTimeout is a long running thread which handles timing out a request.
+// It can be canceled by channel
 func waitForTimeout(kill chan bool, callback callbackWrapper, timeout time.Duration) {
 	timer := time.NewTimer(timeout)
 	select {

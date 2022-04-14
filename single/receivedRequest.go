@@ -66,7 +66,10 @@ func (r Request) String() string {
 		r.dhKey.Text(10), r.tag, r.maxParts)
 }
 
-//
+// Respond is used to respond to the request. It sends a payload up to
+// r.GetMaxResponseLength(). It will chunk the message into multiple
+// cmix messages if it is too long for a single message. It will fail
+// If a single cmix message cannot be sent.
 func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 	timeout time.Duration) ([]id.Round, error) {
 	// make sure this has only been run once
@@ -108,8 +111,6 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 	failed := uint32(0)
 
 	for i := 0; i < len(parts); i++ {
-		// fixme: handle the case where a send fails, also on failures,
-		// unset use
 		go func(j int) {
 			defer wg.Done()
 			partFP, ecrPart, mac := cyphers[j].Encrypt(parts[j])

@@ -32,6 +32,11 @@ type listener struct {
 	net       cmix.Client
 }
 
+// Listen allows a server to listen for single use requests. It will register
+// a service relative to the tag and myID as the identifier.  Only a single
+// listener can be active for a tag-myID pair, and error will return if that
+// is violated. When requests are receved, they will be called on the
+// Receiver interface.
 func Listen(tag string, myId *id.ID, privkey *cyclic.Int, net cmix.Client,
 	e2eGrp *cyclic.Group, cb Receiver) Listener {
 

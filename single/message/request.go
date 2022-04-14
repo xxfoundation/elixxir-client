@@ -55,6 +55,10 @@ func NewRequest(externalPayloadSize, pubKeySize int) Request {
 	return tm
 }
 
+func GetRequestPayloadSize(externalPayloadSize, pubKeySize int) uint {
+	return uint(externalPayloadSize - transmitMessageVersionSize - pubKeySize)
+}
+
 // mapRequest builds a message mapped to the passed in data. It is
 // mapped by reference; a copy is not made.
 func mapRequest(data []byte, pubKeySize int) Request {
@@ -158,6 +162,10 @@ func NewRequestPayload(payloadSize int, payload []byte, maxMsgs uint8) RequestPa
 	mp.SetMaxResponseParts(maxMsgs)
 	mp.SetContents(payload)
 	return mp
+}
+
+func GetRequestContentsSize(payloadSize uint) uint {
+	return payloadSize - transmitPlMinSize
 }
 
 // mapRequestPayload builds a message payload mapped to the passed in

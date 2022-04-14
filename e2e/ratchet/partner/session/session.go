@@ -515,7 +515,6 @@ func (s *Session) NegotiationStatus() Negotiation {
 // IsConfirmed checks if the session has been confirmed
 func (s *Session) IsConfirmed() bool {
 	c := s.NegotiationStatus()
-	//fmt.Println(c)
 	return c >= Confirmed
 }
 

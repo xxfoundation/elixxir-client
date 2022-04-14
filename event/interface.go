@@ -10,7 +10,7 @@ package event
 // Callback defines the callback functions for client event reports
 type Callback func(priority int, category, evtType, details string)
 
-// Manager reporting api (used internally)
-type Manager interface {
+// Reporter reporting api (used internally)
+type Reporter interface {
 	Report(priority int, category, evtType, details string)
 }

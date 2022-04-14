@@ -7,21 +7,21 @@
 package api
 
 import (
+	"time"
+
+	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/cmix/identity"
+	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
-	cE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"time"
 )
 
 // Mock comm struct which returns no historical round data
@@ -82,46 +82,45 @@ func (ht *historicalRounds) GetHost(hostId *id.ID) (*connect.Host, bool) {
 // Contains a test implementation of the networkManager interface.
 type testNetworkManagerGeneric struct {
 	instance *network.Instance
-	sender   *gateway.Sender
+	sender   gateway.Sender
 }
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(p int, a, b, c string) {}
-func (t *testNetworkManagerGeneric) GetEventManager() event.Manager {
-	return &dummyEventMgr{}
+func (d *dummyEventMgr) EventService() (stoppable.Stoppable, error) {
+	return nil, nil
 }
 
 /* Below methods built for interface adherence */
-func (t *testNetworkManagerGeneric) GetHealthTracker() interfaces.HealthTracker {
-	return nil
-}
-func (t *testNetworkManagerGeneric) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
+func (t *testNetworkManagerGeneric) Follow(report cmix.ClientErrorReport) (stoppable.Stoppable, error) {
 	return nil, nil
 }
-func (t *testNetworkManagerGeneric) CheckGarbledMessages() {
+func (t *testNetworkManagerGeneric) GetMaxMessageLength() int { return 0 }
+
+func (t *testNetworkManagerGeneric) CheckInProgressMessages() {
 	return
 }
 func (t *testNetworkManagerGeneric) GetVerboseRounds() string {
 	return ""
 }
-func (t *testNetworkManagerGeneric) SendE2E(message.Send, params.E2E, *stoppable.Single) (
-	[]id.Round, cE2e.MessageID, time.Time, error) {
-	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
-	return rounds, cE2e.MessageID{}, time.Time{}, nil
+func (t *testNetworkManagerGeneric) AddFingerprint(identity *id.ID, fingerprint format.Fingerprint, mp message.Processor) error {
+	return nil
 }
-func (t *testNetworkManagerGeneric) SendUnsafe(m message.Send, p params.Unsafe) ([]id.Round, error) {
-	return nil, nil
-}
-func (t *testNetworkManagerGeneric) SendCMIX(message format.Message, rid *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error) {
+
+func (t *testNetworkManagerGeneric) Send(*id.ID, format.Fingerprint,
+	message.Service, []byte, []byte, cmix.CMIXParams) (id.Round,
+	ephemeral.Id, error) {
 	return id.Round(0), ephemeral.Id{}, nil
 }
-func (t *testNetworkManagerGeneric) SendManyCMIX(messages []message.TargetedCmixMessage, p params.CMIX) (id.Round, []ephemeral.Id, error) {
+func (t *testNetworkManagerGeneric) SendMany(messages []cmix.TargetedCmixMessage,
+	p cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
 	return 0, []ephemeral.Id{}, nil
 }
 func (t *testNetworkManagerGeneric) GetInstance() *network.Instance {
 	return t.instance
 }
-func (t *testNetworkManagerGeneric) RegisterWithPermissioning(string) ([]byte, error) {
+func (t *testNetworkManagerGeneric) RegisterWithPermissioning(string) (
+	[]byte, error) {
 	return nil, nil
 }
 func (t *testNetworkManagerGeneric) GetRemoteVersion() (string, error) {
@@ -135,7 +134,7 @@ func (t *testNetworkManagerGeneric) InProgressRegistrations() int {
 	return 0
 }
 
-func (t *testNetworkManagerGeneric) GetSender() *gateway.Sender {
+func (t *testNetworkManagerGeneric) GetSender() gateway.Sender {
 	return t.sender
 }
 
@@ -147,3 +146,66 @@ func (t *testNetworkManagerGeneric) RegisterAddressSizeNotification(string) (cha
 
 func (t *testNetworkManagerGeneric) UnregisterAddressSizeNotification(string) {}
 func (t *testNetworkManagerGeneric) SetPoolFilter(gateway.Filter)             {}
+func (t *testNetworkManagerGeneric) AddHealthCallback(f func(bool)) uint64 {
+	return 0
+}
+func (t *testNetworkManagerGeneric) AddIdentity(id *id.ID,
+	validUntil time.Time, persistent bool) {
+}
+func (t *testNetworkManagerGeneric) RemoveIdentity(id *id.ID) {}
+func (t *testNetworkManagerGeneric) AddService(clientID *id.ID,
+	newService message.Service, response message.Processor) {
+}
+func (t *testNetworkManagerGeneric) DeleteService(clientID *id.ID,
+	toDelete message.Service, processor message.Processor) {
+}
+func (t *testNetworkManagerGeneric) DeleteClientService(clientID *id.ID) {
+}
+func (t *testNetworkManagerGeneric) DeleteFingerprint(identity *id.ID,
+	fingerprint format.Fingerprint) {
+}
+func (t *testNetworkManagerGeneric) DeleteClientFingerprints(identity *id.ID) {
+}
+func (t *testNetworkManagerGeneric) GetAddressSpace() uint8 { return 0 }
+func (t *testNetworkManagerGeneric) GetHostParams() connect.HostParams {
+	return connect.GetDefaultHostParams()
+}
+func (t *testNetworkManagerGeneric) GetIdentity(get *id.ID) (
+	identity.TrackedID, error) {
+	return identity.TrackedID{}, nil
+}
+func (t *testNetworkManagerGeneric) GetRoundResults(timeout time.Duration,
+	roundCallback cmix.RoundEventCallback, roundList ...id.Round) error {
+	return nil
+}
+func (t *testNetworkManagerGeneric) HasNode(nid *id.ID) bool { return false }
+func (t *testNetworkManagerGeneric) IsHealthy() bool         { return true }
+func (t *testNetworkManagerGeneric) WasHealthy() bool        { return true }
+func (t *testNetworkManagerGeneric) LookupHistoricalRound(rid id.Round,
+	callback rounds.RoundResultCallback) error {
+	return nil
+}
+func (t *testNetworkManagerGeneric) NumRegisteredNodes() int { return 0 }
+func (t *testNetworkManagerGeneric) RegisterAddressSpaceNotification(
+	tag string) (chan uint8, error) {
+	return nil, nil
+}
+func (t *testNetworkManagerGeneric) RemoveHealthCallback(uint64) {}
+func (t *testNetworkManagerGeneric) SendToAny(
+	sendFunc func(host *connect.Host) (interface{}, error),
+	stop *stoppable.Single) (interface{}, error) {
+	return nil, nil
+}
+func (t *testNetworkManagerGeneric) SendToPreferred(targets []*id.ID,
+	sendFunc gateway.SendToPreferredFunc, stop *stoppable.Single,
+	timeout time.Duration) (interface{}, error) {
+	return nil, nil
+}
+func (t *testNetworkManagerGeneric) SetGatewayFilter(f gateway.Filter) {}
+func (t *testNetworkManagerGeneric) TrackServices(
+	tracker message.ServicesTracker) {
+}
+func (t *testNetworkManagerGeneric) TriggerNodeRegistration(nid *id.ID) {}
+func (t *testNetworkManagerGeneric) UnregisterAddressSpaceNotification(
+	tag string) {
+}

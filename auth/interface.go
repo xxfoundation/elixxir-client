@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
@@ -60,4 +61,26 @@ type State interface {
 	// CallAllReceivedRequests will iterate through all pending contact requests
 	// and replay them on the callbacks.
 	CallAllReceivedRequests()
+
+	// DeleteRequest deletes sent or received requests for a
+	// specific partner ID.
+	DeleteRequest(partnerID *id.ID) error
+
+	// DeleteAllRequests clears all requests from client's auth storage.
+	DeleteAllRequests() error
+
+	// DeleteSentRequests clears all sent requests from client's auth
+	// storage.
+	DeleteSentRequests() error
+
+	// DeleteReceiveRequests clears all received requests from client's auth
+	// storage.
+	DeleteReceiveRequests() error
+
+	// GetReceivedRequest returns a contact if there's a received
+	// request for it.
+	GetReceivedRequest(partner *id.ID) (contact.Contact, error)
+
+	// VerifyOwnership checks if the received ownership proof is valid
+	VerifyOwnership(received, verified contact.Contact, e2e e2e.Handler) bool
 }

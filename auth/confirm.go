@@ -9,6 +9,7 @@ package auth
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth/store"
@@ -152,7 +153,7 @@ func (s *state) confirm(partner contact.Contact, serviceTag string) (
 }
 
 func sendAuthConfirm(net cmixClient, partner *id.ID,
-	fp format.Fingerprint, payload, mac []byte, event event.Manager,
+	fp format.Fingerprint, payload, mac []byte, event event.Reporter,
 	serviceTag string) (
 	id.Round, error) {
 	svc := message.Service{

@@ -33,7 +33,7 @@ import (
 	"gitlab.com/xx_network/primitives/rateLimiting"
 )
 
-// SendCMIX sends a "raw" cMix message payload to the provided recipient.
+// Send sends a "raw" cMix message payload to the provided recipient.
 // Returns the round ID of the round the payload was sent or an error if it
 // fails.
 // This does not have end-to-end encryption on it and is used exclusively as

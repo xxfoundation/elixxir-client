@@ -42,7 +42,7 @@ type TargetedCmixMessage struct {
 	Mac         []byte
 }
 
-// SendManyCMIX sends many "raw" cMix message payloads to the provided
+// SendMany sends many "raw" cMix message payloads to the provided
 // recipients all in the same round.
 // Returns the round ID of the round the payloads was sent or an error if it
 // fails.

@@ -9,6 +9,9 @@ package cmix
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/gateway"
@@ -28,8 +31,6 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/rateLimiting"
-	"strings"
-	"time"
 )
 
 // SendCMIX sends a "raw" cMix message payload to the provided recipient.
@@ -95,7 +96,7 @@ func (c *client) Send(recipient *id.ID, fingerprint format.Fingerprint,
 // status.
 func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 	cmixParams CMIXParams, instance *network.Instance, grp *cyclic.Group,
-	nodes nodes.Registrar, rng *fastRNG.StreamGenerator, events event.Manager,
+	nodes nodes.Registrar, rng *fastRNG.StreamGenerator, events event.Reporter,
 	senderId *id.ID, comms SendCmixCommsInterface) (id.Round, ephemeral.Id, error) {
 
 	timeStart := netTime.Now()

@@ -82,7 +82,7 @@ type client struct {
 	verboseRounds *RoundTracker
 
 	// Event reporting API
-	events event.Manager
+	events event.Reporter
 
 	// Storage of the max message length
 	maxMsgLen int
@@ -91,7 +91,7 @@ type client struct {
 // NewClient builds a new reception client object using inputted key fields.
 func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 	ndf *ndf.NetworkDefinition, rng *fastRNG.StreamGenerator,
-	events event.Manager) (Client, error) {
+	events event.Reporter) (Client, error) {
 
 	// Start network instance
 	instance, err := commNetwork.NewInstance(

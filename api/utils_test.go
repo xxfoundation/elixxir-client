@@ -9,12 +9,13 @@ package api
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/cmix/gateway"
 	"testing"
+
+	"gitlab.com/elixxir/client/cmix/gateway"
+	"gitlab.com/elixxir/client/e2e"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/params"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/comms/testkeys"
@@ -32,7 +33,8 @@ func newTestingClient(face interface{}) (*Client, error) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
 	default:
-		jww.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", face)
+		jww.FATAL.Panicf("InitTestingSession is restricted to testing "+
+			"only. Got %T", face)
 	}
 
 	def := getNDF(face)
@@ -41,12 +43,14 @@ func newTestingClient(face interface{}) (*Client, error) {
 	password := []byte("hunter2")
 	err := NewClient(string(marshalledDef), storageDir, password, "AAAA")
 	if err != nil {
-		return nil, errors.Errorf("Could not construct a mock client: %v", err)
+		return nil, errors.Errorf(
+			"Could not construct a mock client: %v", err)
 	}
 
-	c, err := OpenClient(storageDir, password, params.GetDefaultNetwork())
+	c, err := OpenClient(storageDir, password, e2e.GetDefaultParams())
 	if err != nil {
-		return nil, errors.Errorf("Could not open a mock client: %v", err)
+		return nil, errors.Errorf("Could not open a mock client: %v",
+			err)
 	}
 
 	commsManager := connect.NewManagerTesting(face)
@@ -56,19 +60,22 @@ func newTestingClient(face interface{}) (*Client, error) {
 		jww.FATAL.Panicf("Failed to create new test instance: %v", err)
 	}
 
-	commsManager.AddHost(&id.Permissioning, "", cert, connect.GetDefaultHostParams())
+	commsManager.AddHost(&id.Permissioning, "", cert,
+		connect.GetDefaultHostParams())
 	instanceComms := &connect.ProtoComms{
 		Manager: commsManager,
 	}
 
-	thisInstance, err := network.NewInstanceTesting(instanceComms, def, def, nil, nil, face)
+	thisInstance, err := network.NewInstanceTesting(instanceComms, def,
+		def, nil, nil, face)
 	if err != nil {
 		return nil, err
 	}
 
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1
-	sender, err := gateway.NewSender(p, c.rng, def, commsManager, c.storage, nil)
+	sender, err := gateway.NewSender(p, c.rng, def, commsManager,
+		c.storage, nil)
 	if err != nil {
 		return nil, err
 	}

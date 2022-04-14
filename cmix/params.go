@@ -3,13 +3,14 @@ package cmix
 import (
 	"encoding/base64"
 	"encoding/json"
+	"time"
+
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/pickup"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/primitives/excludedRounds"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 type Params struct {

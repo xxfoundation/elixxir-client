@@ -31,20 +31,20 @@ func (e reportableEvent) String() string {
 }
 
 // Holds state for the event reporting system
-type eventManager struct {
+type Manager struct {
 	eventCh  chan reportableEvent
 	eventCbs sync.Map
 }
 
-func NewEventManager() Manager {
-	return &eventManager{
+func NewEventManager() *Manager {
+	return &Manager{
 		eventCh: make(chan reportableEvent, 1000),
 	}
 }
 
 // Report reports an event from the client to api users, providing a
 // priority, category, eventType, and details
-func (e *eventManager) Report(priority int, category, evtType, details string) {
+func (e *Manager) Report(priority int, category, evtType, details string) {
 	re := reportableEvent{
 		Priority:  priority,
 		Category:  category,
@@ -62,7 +62,7 @@ func (e *eventManager) Report(priority int, category, evtType, details string) {
 // RegisterEventCallback records the given function to receive
 // ReportableEvent objects. It returns the internal index
 // of the callback so that it can be deleted later.
-func (e *eventManager) RegisterEventCallback(name string,
+func (e *Manager) RegisterEventCallback(name string,
 	myFunc Callback) error {
 	_, existsAlready := e.eventCbs.LoadOrStore(name, myFunc)
 	if existsAlready {
@@ -74,18 +74,18 @@ func (e *eventManager) RegisterEventCallback(name string,
 
 // UnregisterEventCallback deletes the callback identified by the
 // index. It returns an error if it fails.
-func (e *eventManager) UnregisterEventCallback(name string) {
+func (e *Manager) UnregisterEventCallback(name string) {
 	e.eventCbs.Delete(name)
 }
 
-func (e *eventManager) EventService() (stoppable.Stoppable, error) {
+func (e *Manager) EventService() (stoppable.Stoppable, error) {
 	stop := stoppable.NewSingle("EventReporting")
 	go e.reportEventsHandler(stop)
 	return stop, nil
 }
 
 // reportEventsHandler reports events to every registered event callback
-func (e *eventManager) reportEventsHandler(stop *stoppable.Single) {
+func (e *Manager) reportEventsHandler(stop *stoppable.Single) {
 	jww.DEBUG.Print("reportEventsHandler routine started")
 	for {
 		select {

@@ -8,6 +8,12 @@
 package dummy
 
 import (
+	"io"
+	"math/rand"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/event"
@@ -25,11 +31,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"io"
-	"math/rand"
-	"sync"
-	"testing"
-	"time"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -143,7 +144,7 @@ func (tnm *testNetworkManager) SendManyCMIX([]message.TargetedCmixMessage, param
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(int, string, string, string) {}
-func (tnm *testNetworkManager) GetEventManager() event.Manager {
+func (tnm *testNetworkManager) GetEventManager() event.Reporter {
 	return &dummyEventMgr{}
 }
 

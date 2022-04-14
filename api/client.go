@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
+	"gitlab.com/elixxir/client/backup"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/event"
@@ -24,7 +25,7 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/comms/client"
-	"gitlab.com/elixxir/crypto/backup"
+	cryptoBackup "gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/version"
@@ -68,10 +69,10 @@ type Client struct {
 	clientErrorChannel chan interfaces.ClientError
 
 	// Event reporting in event.go
-	events event.Manager
+	events *event.Manager
 
 	// Handles the triggering and delivery of backups
-	backup *interfaces.BackupContainer
+	backup *backup.Backup
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -178,7 +179,7 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 	backupPassphrase []byte, backupFileContents []byte) ([]*id.ID,
 	string, error) {
 
-	backUp := &backup.Backup{}
+	backUp := &cryptoBackup.Backup{}
 	err := backUp.Decrypt(string(backupPassphrase), backupFileContents)
 	if err != nil {
 		return nil, "", errors.WithMessage(err,
@@ -220,7 +221,7 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 
 // OpenClient session, but don't connect to the network or log in
 func OpenClient(storageDir string, password []byte,
-	parameters cmix.Params) (*Client, error) {
+	parameters e2e.Params) (*Client, error) {
 	jww.INFO.Printf("OpenClient()")
 
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
@@ -248,7 +249,7 @@ func OpenClient(storageDir string, password []byte,
 		parameters:         parameters,
 		clientErrorChannel: make(chan interfaces.ClientError, 1000),
 		events:             event.NewEventManager(),
-		backup:             &interfaces.BackupContainer{},
+		backup:             &backup.Backup{},
 	}
 
 	return c, nil
@@ -304,7 +305,7 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
 
 // Login initializes a client object from existing storage.
 func Login(storageDir string, password []byte,
-	parameters cmix.Params) (*Client, error) {
+	authCallbacks auth.Callbacks, parameters e2e.Params) (*Client, error) {
 	jww.INFO.Printf("Login()")
 
 	c, err := OpenClient(storageDir, password, parameters)
@@ -350,7 +351,7 @@ func Login(storageDir string, password []byte,
 		}
 	}
 
-	c.network, err = cmix.NewClient(parameters, c.comms, c.storage,
+	c.network, err = cmix.NewClient(parameters.Network, c.comms, c.storage,
 		c.storage.GetNDF(), c.rng, c.events)
 	if err != nil {
 		return nil, err
@@ -368,7 +369,7 @@ func Login(storageDir string, password []byte,
 	//        to the login call?
 	authParams := auth.GetDefaultParams()
 	c.auth, err = auth.NewState(c.storage.GetKV(), c.network, c.e2e, c.rng,
-		c.events, authParams, nil)
+		c.events, authParams, authCallbacks, c.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
@@ -385,7 +386,8 @@ func Login(storageDir string, password []byte,
 // while replacing the base NDF.  This is designed for some specific deployment
 // procedures and is generally unsafe.
 func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
-	newBaseNdf string, parameters cmix.Params) (*Client, error) {
+	newBaseNdf string, authCallbacks auth.Callbacks,
+	parameters e2e.Params) (*Client, error) {
 	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
 
 	def, err := parseNDF(newBaseNdf)
@@ -417,7 +419,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 			"able to register or track network.")
 	}
 
-	c.network, err = cmix.NewClient(parameters, c.comms, c.storage,
+	c.network, err = cmix.NewClient(parameters.Network, c.comms, c.storage,
 		c.storage.GetNDF(), c.rng, c.events)
 	if err != nil {
 		return nil, err
@@ -435,7 +437,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	//        to the login call?
 	authParams := auth.GetDefaultParams()
 	c.auth, err = auth.NewState(c.storage.GetKV(), c.network, c.e2e, c.rng,
-		c.events, authParams, nil)
+		c.events, authParams, authCallbacks, c.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
@@ -452,8 +454,8 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 // JSON containing the cryptographic primitives. This is designed for
 // some specific deployment procedures and is generally unsafe.
 func LoginWithProtoClient(storageDir string, password []byte,
-	protoClientJSON []byte, newBaseNdf string,
-	parameters cmix.Params) (*Client, error) {
+	protoClientJSON []byte, newBaseNdf string, authCallbacks auth.Callbacks,
+	parameters e2e.Params) (*Client, error) {
 	jww.INFO.Printf("LoginWithProtoClient()")
 
 	def, err := parseNDF(newBaseNdf)
@@ -484,7 +486,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c.network, err = cmix.NewClient(parameters, c.comms, c.storage,
+	c.network, err = cmix.NewClient(parameters.Network, c.comms, c.storage,
 		c.storage.GetNDF(), c.rng, c.events)
 	if err != nil {
 		return nil, err
@@ -502,7 +504,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 	//        to the login call?
 	authParams := auth.GetDefaultParams()
 	c.auth, err = auth.NewState(c.storage.GetKV(), c.network, c.e2e, c.rng,
-		c.events, authParams, nil)
+		c.events, authParams, authCallbacks, c.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
@@ -721,7 +723,7 @@ func (c *Client) GetNetworkInterface() cmix.Client {
 
 // GetBackup returns a pointer to the backup container so that the backup can be
 // set and triggered.
-func (c *Client) GetBackup() *interfaces.BackupContainer {
+func (c *Client) GetBackup() *backup.Backup {
 	return c.backup
 }
 
@@ -732,8 +734,8 @@ func (c *Client) GetBackup() *interfaces.BackupContainer {
 func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	// Return an error if the network is not healthy
 	if !c.GetHealth().IsHealthy() {
-		return 0, 0, errors.New("Cannot get number of nodes registrations when " +
-			"network is not healthy")
+		return 0, 0, errors.New("Cannot get number of nodes " +
+			"registrations when network is not healthy")
 	}
 
 	nodes := c.network.GetInstance().GetFullNdf().Get().Nodes
@@ -743,8 +745,8 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	for i, n := range nodes {
 		nid, err := id.Unmarshal(n.ID)
 		if err != nil {
-			return 0, 0, errors.Errorf("Failed to unmarshal nodes ID %v "+
-				"(#%d): %s", n.ID, i, err.Error())
+			return 0, 0, errors.Errorf("Failed to unmarshal nodes "+
+				"ID %v (#%d): %s", n.ID, i, err.Error())
 		}
 		if n.Status == ndf.Stale {
 			numStale += 1

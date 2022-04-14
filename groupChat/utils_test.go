@@ -9,6 +9,11 @@ package groupChat
 
 import (
 	"encoding/base64"
+	"math/rand"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/catalog"
@@ -34,10 +39,6 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"sync"
-	"testing"
-	"time"
 )
 
 // newTestManager creates a new Manager for testing.
@@ -359,7 +360,7 @@ func (*testNetworkManager) DeleteService(clientID *id.ID, toDelete message.Servi
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(int, string, string, string) {}
-func (tnm *testNetworkManager) GetEventManager() event.Manager {
+func (tnm *testNetworkManager) GetEventManager() event.Reporter {
 	return &dummyEventMgr{}
 }
 

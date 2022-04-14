@@ -8,11 +8,12 @@
 package message
 
 import (
+	"strconv"
+
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	"strconv"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/stoppable"
@@ -47,13 +48,13 @@ type handler struct {
 
 	inProcess *MeteredCmixMessageBuffer
 
-	events event.Manager
+	events event.Reporter
 
 	FingerprintsManager
 	ServicesManager
 }
 
-func NewHandler(param Params, kv *versioned.KV, events event.Manager,
+func NewHandler(param Params, kv *versioned.KV, events event.Reporter,
 	standardID *id.ID) Handler {
 
 	garbled, err := NewOrLoadMeteredCmixMessageBuffer(kv, inProcessKey)

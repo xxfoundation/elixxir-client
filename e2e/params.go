@@ -27,6 +27,9 @@ type Params struct {
 	// system within e2e will be used which preserves privacy
 	CMIX cmix.CMIXParams
 
+	// cMix network params
+	Network cmix.Params
+
 	//Authorizes the message to use a key reserved for rekeying. Do not use
 	//unless sending a rekey
 	Rekey bool

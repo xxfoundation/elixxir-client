@@ -9,6 +9,7 @@ package auth
 
 import (
 	"encoding/base64"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/auth/store"
@@ -33,16 +34,16 @@ import (
 type state struct {
 	callbacks Callbacks
 
-	// net cmix.Client
 	net cmixClient
-	// e2e e2e.Handler
 	e2e e2eHandler
 	rng *fastRNG.StreamGenerator
 
 	store *store.Store
-	event event.Manager
+	event event.Reporter
 
 	params Param
+
+	backupTrigger func(reason string)
 }
 
 type cmixClient interface {
@@ -100,10 +101,11 @@ type Callbacks interface {
 //   with a memory only versioned.KV) as well as a memory only versioned.KV for
 //   NewState and use GetDefaultTemporaryParams() for the parameters
 func NewState(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
-	rng *fastRNG.StreamGenerator, event event.Manager, params Param,
-	callbacks Callbacks) (State, error) {
+	rng *fastRNG.StreamGenerator, event event.Reporter, params Param,
+	callbacks Callbacks, backupTrigger func(reason string)) (State, error) {
 	kv = kv.Prefix(makeStorePrefix(e2e.GetReceptionID()))
-	return NewStateLegacy(kv, net, e2e, rng, event, params, callbacks)
+	return NewStateLegacy(
+		kv, net, e2e, rng, event, params, callbacks, backupTrigger)
 }
 
 // NewStateLegacy loads the auth state or creates new auth state if one cannot be
@@ -112,18 +114,17 @@ func NewState(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 // Does not modify the kv prefix for backwards compatibility
 // Otherwise, acts the same as NewState
 func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
-	rng *fastRNG.StreamGenerator, event event.Manager, params Param,
-	callbacks Callbacks) (State, error) {
+	rng *fastRNG.StreamGenerator, event event.Reporter, params Param,
+	callbacks Callbacks, backupTrigger func(reason string)) (State, error) {
 
 	s := &state{
-		callbacks: callbacks,
-
-		net: net,
-		e2e: e2e,
-		rng: rng,
-
-		params: params,
-		event:  event,
+		callbacks:     callbacks,
+		net:           net,
+		e2e:           e2e,
+		rng:           rng,
+		event:         event,
+		params:        params,
+		backupTrigger: backupTrigger,
 	}
 
 	// create the store
@@ -131,7 +132,7 @@ func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 	s.store, err = store.NewOrLoadStore(kv, e2e.GetGroup(),
 		&sentRequestHandler{s: s})
 
-	//register services
+	// register services
 	net.AddService(e2e.GetReceptionID(), message.Service{
 		Identifier: e2e.GetReceptionID()[:],
 		Tag:        params.RequestTag,

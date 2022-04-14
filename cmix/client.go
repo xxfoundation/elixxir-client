@@ -11,6 +11,11 @@ package cmix
 // and intra-client state are accessible through the context object.
 
 import (
+	"math"
+	"strconv"
+	"sync/atomic"
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmix/address"
 	"gitlab.com/elixxir/client/cmix/gateway"
@@ -30,10 +35,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"math"
-	"strconv"
-	"sync/atomic"
-	"time"
 )
 
 // fakeIdentityRange indicates the range generated between 0 (most current) and
@@ -81,7 +82,7 @@ type client struct {
 	verboseRounds *RoundTracker
 
 	// Event reporting API
-	events event.Manager
+	events event.Reporter
 
 	// Storage of the max message length
 	maxMsgLen int
@@ -90,11 +91,12 @@ type client struct {
 // NewClient builds a new reception client object using inputted key fields.
 func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 	ndf *ndf.NetworkDefinition, rng *fastRNG.StreamGenerator,
-	events event.Manager) (Client, error) {
+	events event.Reporter) (Client, error) {
 
 	// Start network instance
 	instance, err := commNetwork.NewInstance(
-		comms.ProtoComms, ndf, nil, nil, commNetwork.None, params.FastPolling)
+		comms.ProtoComms, ndf, nil, nil, commNetwork.None,
+		params.FastPolling)
 	if err != nil {
 		return nil, errors.WithMessage(
 			err, "failed to create network client")

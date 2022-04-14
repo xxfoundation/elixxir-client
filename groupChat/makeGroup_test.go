@@ -121,7 +121,7 @@ func TestManager_MakeGroup_AddGroupError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, _ := newTestManagerWithStore(prng, gs.MaxGroupChats, 0, nil, nil, t)
 	memberIDs, _, _ := addPartners(m, t)
-	expectedErr := strings.SplitN(addGroupErr, "%", 2)[0]
+	expectedErr := strings.SplitN(joinGroupErr, "%", 2)[0]
 
 	_, _, _, err := m.MakeGroup(memberIDs, []byte{}, []byte{})
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {

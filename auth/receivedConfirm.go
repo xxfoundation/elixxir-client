@@ -5,9 +5,9 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth/store"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/crypto/contact"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
@@ -95,7 +95,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 			"%s : %+v", rcs.GetPartner(), receptionID.Source, err)
 	}
 
-	//todo: trigger backup
+	rcs.s.backupTrigger("received confirmation from request")
 
 	// remove the service used for notifications of the confirm
 	state.net.DeleteService(receptionID.Source, rcs.notificationsService, nil)

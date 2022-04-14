@@ -40,7 +40,7 @@ type manager struct {
 
 	comms  Comms
 	sender gateway.Sender
-	events event.Manager
+	events event.Reporter
 
 	c chan roundRequest
 }
@@ -63,7 +63,7 @@ type roundRequest struct {
 }
 
 func NewRetriever(param Params, comms Comms, sender gateway.Sender,
-	events event.Manager) Retriever {
+	events event.Reporter) Retriever {
 	return &manager{
 		params: param,
 		comms:  comms,
@@ -200,7 +200,7 @@ func (m *manager) processHistoricalRounds(comm Comms, stop *stoppable.Single) {
 }
 
 func processHistoricalRoundsResponse(response *pb.HistoricalRoundsResponse,
-	roundRequests []roundRequest, maxRetries uint, events event.Manager) (
+	roundRequests []roundRequest, maxRetries uint, events event.Reporter) (
 	[]uint64, []roundRequest) {
 	retries := make([]roundRequest, 0)
 	rids := make([]uint64, 0)

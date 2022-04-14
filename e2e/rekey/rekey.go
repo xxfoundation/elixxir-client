@@ -27,7 +27,7 @@ import (
 )
 
 func CheckKeyExchanges(instance *commsNetwork.Instance, grp *cyclic.Group,
-	sendE2E E2eSender, events event.Manager, manager partner.Manager,
+	sendE2E E2eSender, events event.Reporter, manager partner.Manager,
 	param Params, sendTimeout time.Duration) {
 
 	//get all sessions that may need a key exchange
@@ -45,7 +45,7 @@ func CheckKeyExchanges(instance *commsNetwork.Instance, grp *cyclic.Group,
 // session. They run the same negotiation, the former does it on a newly created
 // session while the latter on an extant session
 func trigger(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSender,
-	events event.Manager, manager partner.Manager, inputSession *session.Session,
+	events event.Reporter, manager partner.Manager, inputSession *session.Session,
 	sendTimeout time.Duration, params Params) {
 
 	var negotiatingSession *session.Session

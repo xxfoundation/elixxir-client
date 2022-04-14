@@ -9,6 +9,7 @@ package auth
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth/store"
@@ -126,7 +127,7 @@ func (s *state) confirm(partner contact.Contact, serviceTag string) (
 			s.event.Report(10, "Auth", "SendConfirmError", em)
 		}
 
-		//todo: s.backupTrigger("confirmed authenticated channel")
+		s.backupTrigger("confirmed authenticated channel")
 
 		jww.INFO.Printf("Confirming Auth from %s to %s, msgDigest: %s",
 			partner.ID, s.e2e.GetReceptionID(),
@@ -152,7 +153,7 @@ func (s *state) confirm(partner contact.Contact, serviceTag string) (
 }
 
 func sendAuthConfirm(net cmixClient, partner *id.ID,
-	fp format.Fingerprint, payload, mac []byte, event event.Manager,
+	fp format.Fingerprint, payload, mac []byte, event event.Reporter,
 	serviceTag string) (
 	id.Round, error) {
 	svc := message.Service{

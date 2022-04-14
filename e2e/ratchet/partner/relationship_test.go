@@ -75,7 +75,7 @@ func TestLoadRelationship(t *testing.T) {
 }
 
 // Shows that a deleted Relationship can no longer be pulled from store
-func TestDeleteRelationship(t *testing.T) {
+func Test_deleteRelationship(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
 
 	// Generate send relationship
@@ -90,7 +90,7 @@ func TestDeleteRelationship(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := mgr.DeleteRelationship()
+	err := mgr.deleteRelationships()
 	if err != nil {
 		t.Fatalf("DeleteRelationship error: Could not delete manager: %v", err)
 	}

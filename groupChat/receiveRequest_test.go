@@ -66,7 +66,7 @@ func TestRequestListener_Hear(t *testing.T) {
 	_, _ = m.e2e.AddPartner(
 		g.Members[0].ID,
 		g.Members[0].DhKey,
-		m.grp.NewInt(2),
+		m.e2e.GetHistoricalDHPrivkey(),
 		theirSIDHPubKey, mySIDHPrivKey,
 		session.GetDefaultParams(),
 		session.GetDefaultParams(),
@@ -165,7 +165,7 @@ func TestManager_readRequest(t *testing.T) {
 	_, _ = m.e2e.AddPartner(
 		g.Members[0].ID,
 		g.Members[0].DhKey,
-		m.grp.NewInt(2),
+		m.e2e.GetHistoricalDHPrivkey(),
 		theirSIDHPubKey, mySIDHPrivKey,
 		session.GetDefaultParams(),
 		session.GetDefaultParams(),

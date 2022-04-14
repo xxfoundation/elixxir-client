@@ -118,7 +118,7 @@ func (m Manager) sendRequest(memberID *id.ID, request []byte) ([]id.Round, error
 	p.LastServiceTag = catalog.GroupRq
 	p.CMIX.DebugTag = "group.Request"
 
-	rounds, _, _, err := m.e2e.SendE2E(catalog.GroupCreationRequest, m.receptionId, request, p)
+	rounds, _, _, err := m.e2e.SendE2E(catalog.GroupCreationRequest, memberID, request, p)
 	if err != nil {
 		return nil, errors.Errorf(sendE2eErr, memberID, err)
 	}

@@ -126,7 +126,7 @@ func (s *state) confirm(partner contact.Contact, serviceTag string) (
 			s.event.Report(10, "Auth", "SendConfirmError", em)
 		}
 
-		//todo: s.backupTrigger("confirmed authenticated channel")
+		s.backupTrigger("confirmed authenticated channel")
 
 		jww.INFO.Printf("Confirming Auth from %s to %s, msgDigest: %s",
 			partner.ID, s.e2e.GetReceptionID(),

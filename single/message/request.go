@@ -19,15 +19,15 @@ import (
 )
 
 /*
-+------------------------------------------------------------------------------+
-|                              CMIX Message Contents                           |
-+------------+--------------------------------------------             --------+
-|   Version  |   pubKey   |          payload (RequestPayload)          |
-|    1 byte  | pubKeySize |          externalPayloadSize - pubKeySize          |
-+------------+------------+----------+---------+----------+---------+----------+
-                          |  Tag FP  |  nonce  | maxResponseParts |  size   | contents |
-                          | 16 bytes | 8 bytes |  1 byte  | 2 bytes | variable |
-                          +----------+---------+----------+---------+----------+
++-------------------------------------------------------------------------------------+
+|                                CMIX Message Contents                                |
++-----------+------------+------------------------------------------------------------+
+|  Version  |   pubKey   |                  payload (RequestPayload)                  |
+|  1 byte   | pubKeySize |              externalPayloadSize - pubKeySize              |
++-----------+------------+----------+---------+------------------+---------+----------+
+                         |  Tag FP  |  nonce  | maxResponseParts |  size   | contents |
+                         | 16 bytes | 8 bytes |      1 byte      | 2 bytes | variable |
+                         +----------+---------+------------------+---------+----------+
 */
 
 const transmitMessageVersion = 0
@@ -138,9 +138,9 @@ const (
 
 // RequestPayload is the structure of Request's payload.
 type RequestPayload struct {
-	data             []byte // Serial of all contents e
+	data             []byte // Serial of all contents
 	nonce            []byte
-	numRequestParts  []byte //number fo parts in the request, currently always 1
+	numRequestParts  []byte // Number of parts in the request, currently always 1
 	maxResponseParts []byte // Max number of messages expected in response
 	size             []byte // Size of the contents
 	contents         []byte
@@ -207,7 +207,7 @@ func (mp RequestPayload) GetRID(pubKey *cyclic.Int) *id.ID {
 	return singleUse.NewRecipientID(pubKey, mp.Marshal())
 }
 
-// GetNonce returns the nonce as a uint64.
+// GetNonce returns the nonce as an uint64.
 func (mp RequestPayload) GetNonce() uint64 {
 	return binary.BigEndian.Uint64(mp.nonce)
 }

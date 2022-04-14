@@ -22,12 +22,12 @@ const (
 )
 
 /*
-+---------------------------------------------------+
-|                CMIX Message Contents              |
-+---------+----------+---------+---------+----------+
++-----------------------------------------------------------+
+|                   CMIX Message Contents                   |
++---------+------------------+---------+---------+----------+
 | version | maxResponseParts |  size   | partNum | contents |
-| 1 bytes |  1 byte  | 2 bytes | 1 bytes | variable |
-+------------+----------+---------+------+----------+
+| 1 bytes |      1 byte      | 2 bytes | 1 bytes | variable |
++---------+------------------+---------+---------+----------+
 */
 
 type ResponsePart struct {
@@ -39,8 +39,7 @@ type ResponsePart struct {
 	contents []byte // The encrypted contents
 }
 
-// NewResponsePart generates a new response message part of the specified
-// size.
+// NewResponsePart generates a new response message part of the specified size.
 func NewResponsePart(externalPayloadSize int) ResponsePart {
 	if externalPayloadSize < responseMinSize {
 		jww.FATAL.Panicf("Failed to create new single-use response message "+

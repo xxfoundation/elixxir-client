@@ -18,7 +18,7 @@ func Test_newCollator(t *testing.T) {
 	c := NewCollator(messageCount)
 
 	if !reflect.DeepEqual(expected, c) {
-		t.Errorf("NewCollator() failed to generated the expected Collator."+
+		t.Errorf("NewCollator failed to generate the expected Collator."+
 			"\nexepcted: %+v\nreceived: %+v", expected, c)
 	}
 }
@@ -51,20 +51,20 @@ func TestCollator_collate(t *testing.T) {
 
 		fullPayload, collated, err = c.Collate(part.Marshal())
 		if err != nil {
-			t.Errorf("Collate() returned an error for part #%d: %+v", j, err)
+			t.Errorf("Collate returned an error for part #%d: %+v", j, err)
 		}
 
 		if i == messageCount && (!collated || fullPayload == nil) {
-			t.Errorf("Collate() failed to Collate a completed payload."+
+			t.Errorf("Collate failed to collate a completed payload."+
 				"\ncollated:    %v\nfullPayload: %+v", collated, fullPayload)
 		} else if i < messageCount && (collated || fullPayload != nil) {
-			t.Errorf("Collate() signaled it collated an unfinished payload."+
+			t.Errorf("Collate signaled it collated an unfinished payload."+
 				"\ncollated:    %v\nfullPayload: %+v", collated, fullPayload)
 		}
 	}
 
 	if !bytes.Equal(expectedData, fullPayload) {
-		t.Errorf("Collate() failed to return the correct collated data."+
+		t.Errorf("Collate failed to return the correct collated data."+
 			"\nexpected: %s\nreceived: %s", expectedData, fullPayload)
 	}
 }
@@ -74,31 +74,35 @@ func TestCollator_collate_UnmarshalError(t *testing.T) {
 	payloadBytes := []byte{1}
 	c := NewCollator(1)
 	payload, collated, err := c.Collate(payloadBytes)
+	expectedErr := "unmarshal"
 
-	if err == nil || !strings.Contains(err.Error(), "unmarshal") {
-		t.Errorf("Collate() failed to return an error for failing to "+
-			"unmarshal the payload.\nerror: %+v", err)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("Collate failed to return an error for failing to "+
+			"unmarshal the payload.\nexpected: %s\nreceived: %+v",
+			expectedErr, err)
 	}
 
 	if payload != nil || collated {
-		t.Errorf("Collate() signaled the payload was collated on error."+
+		t.Errorf("Collate signaled the payload was collated on error."+
 			"\npayload:  %+v\ncollated: %+v", payload, collated)
 	}
 }
 
-// Error path: max reported parts by payload larger then set in Collator
+// Error path: max reported parts by payload larger than set in Collator.
 func TestCollator_collate_MaxPartsError(t *testing.T) {
 	payloadBytes := []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 	c := NewCollator(1)
 	payload, collated, err := c.Collate(payloadBytes)
+	expectedErr := "Max number of parts"
 
-	if err == nil || !strings.Contains(err.Error(), "Max number of parts") {
-		t.Errorf("Collate() failed to return an error when the max number of "+
-			"parts is larger than the payload size.\nerror: %+v", err)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("Collate failed to return an error when the max number of "+
+			"parts is larger than the payload size."+
+			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 
 	if payload != nil || collated {
-		t.Errorf("Collate() signaled the payload was collated on error."+
+		t.Errorf("Collate signaled the payload was collated on error."+
 			"\npayload:  %+v\ncollated: %+v", payload, collated)
 	}
 }
@@ -107,16 +111,13 @@ func TestCollator_collate_MaxPartsError(t *testing.T) {
 func TestCollator_collate_PartNumTooLargeError(t *testing.T) {
 	payloadBytes := []byte{25, 5, 5, 5, 5}
 	c := NewCollator(5)
-	payload, collated, err := c.Collate(payloadBytes)
+	_, _, err := c.Collate(payloadBytes)
+	expectedErr := "greater than max number of expected parts"
 
-	if err == nil || !strings.Contains(err.Error(), "greater than max number of expected parts") {
-		t.Errorf("Collate() failed to return an error when the part number is "+
-			"greater than the max number of parts.\nerror: %+v", err)
-	}
-
-	if payload != nil || collated {
-		t.Errorf("Collate() signaled the payload was collated on error."+
-			"\npayload:  %+v\ncollated: %+v", payload, collated)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("Collate failed to return the expected error when the part "+
+			"number is greater than the max number of parts."+
+			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
 
@@ -124,19 +125,15 @@ func TestCollator_collate_PartNumTooLargeError(t *testing.T) {
 func TestCollator_collate_PartExistsError(t *testing.T) {
 	payloadBytes := []byte{0, 1, 5, 0, 1, 20}
 	c := NewCollator(5)
-	payload, collated, err := c.Collate(payloadBytes)
+	_, _, err := c.Collate(payloadBytes)
 	if err != nil {
-		t.Fatalf("Collate() returned an error: %+v", err)
+		t.Fatalf("Collate returned an error: %+v", err)
 	}
+	expectedErr := "A payload for the part number"
 
-	payload, collated, err = c.Collate(payloadBytes)
-	if err == nil || !strings.Contains(err.Error(), "A payload for the part number") {
-		t.Errorf("Collate() failed to return an error when the part number "+
-			"already exists.\nerror: %+v", err)
-	}
-
-	if payload != nil || collated {
-		t.Errorf("Collate() signaled the payload was collated on error."+
-			"\npayload:  %+v\ncollated: %+v", payload, collated)
+	_, _, err = c.Collate(payloadBytes)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("Collate failed to return an error when the part number "+
+			"already exists.\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }

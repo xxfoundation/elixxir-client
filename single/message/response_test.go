@@ -31,17 +31,19 @@ func Test_newResponseMessagePart(t *testing.T) {
 	rmp := NewResponsePart(payloadSize)
 
 	if !reflect.DeepEqual(expected, rmp) {
-		t.Errorf("NewResponsePart() did not return the expected "+
+		t.Errorf("NewResponsePart did not return the expected "+
 			"ResponsePart.\nexpected: %+v\nreceived: %+v", expected, rmp)
 	}
 }
 
 // Error path: provided contents size is not large enough.
 func Test_newResponseMessagePart_PayloadSizeError(t *testing.T) {
+	expectedErr := "size of external payload"
 	defer func() {
-		if r := recover(); r == nil || !strings.Contains(r.(string), "size of external payload") {
-			t.Error("NewResponsePart() did not panic when the size of " +
-				"the payload is smaller than the required size.")
+		if r := recover(); r == nil || !strings.Contains(r.(string), expectedErr) {
+			t.Errorf("NewResponsePart did not panic with the expected error "+
+				"when the size of the payload is smaller than the required "+
+				"size.\nexpected: %s\nreceived: %+v", expectedErr, r)
 		}
 	}()
 
@@ -65,22 +67,22 @@ func Test_mapResponseMessagePart(t *testing.T) {
 	rmp := mapResponsePart(data)
 
 	if expectedPartNum != rmp.partNum[0] {
-		t.Errorf("mapResponsePart() did not correctly map partNum."+
+		t.Errorf("mapResponsePart did not correctly map partNum."+
 			"\nexpected: %d\nreceived: %d", expectedPartNum, rmp.partNum[0])
 	}
 
 	if expectedMaxParts != rmp.maxParts[0] {
-		t.Errorf("mapResponsePart() did not correctly map maxResponseParts."+
+		t.Errorf("mapResponsePart did not correctly map maxResponseParts."+
 			"\nexpected: %d\nreceived: %d", expectedMaxParts, rmp.maxParts[0])
 	}
 
 	if !bytes.Equal(expectedContents, rmp.contents) {
-		t.Errorf("mapResponsePart() did not correctly map contents."+
+		t.Errorf("mapResponsePart did not correctly map contents."+
 			"\nexpected: %+v\nreceived: %+v", expectedContents, rmp.contents)
 	}
 
 	if !bytes.Equal(data, rmp.data) {
-		t.Errorf("mapResponsePart() did not save the data correctly."+
+		t.Errorf("mapResponsePart did not save the data correctly."+
 			"\nexpected: %+v\nreceived: %+v", data, rmp.data)
 	}
 }
@@ -96,11 +98,11 @@ func TestResponseMessagePart_Marshal_Unmarshal(t *testing.T) {
 
 	newRmp, err := UnmarshalResponse(data)
 	if err != nil {
-		t.Errorf("UnmarshalResponse() produced an error: %+v", err)
+		t.Errorf("UnmarshalResponse produced an error: %+v", err)
 	}
 
 	if !reflect.DeepEqual(rmp, newRmp) {
-		t.Errorf("Failed to Marshal() and unmarshal() the ResponsePart."+
+		t.Errorf("Failed to Marshal and unmarshal the ResponsePart."+
 			"\nexpected: %+v\nrecieved: %+v", rmp, newRmp)
 	}
 }
@@ -109,7 +111,7 @@ func TestResponseMessagePart_Marshal_Unmarshal(t *testing.T) {
 func Test_unmarshalResponseMessage(t *testing.T) {
 	_, err := UnmarshalResponse([]byte{1})
 	if err == nil {
-		t.Error("UnmarshalResponse() did not produce an error when the " +
+		t.Error("UnmarshalResponse did not produce an error when the " +
 			"byte slice is smaller required.")
 	}
 }
@@ -123,7 +125,7 @@ func TestResponseMessagePart_SetPartNum_GetPartNum(t *testing.T) {
 	rmp.SetPartNum(expectedPartNum)
 
 	if expectedPartNum != rmp.GetPartNum() {
-		t.Errorf("GetPartNum() failed to return the expected part number."+
+		t.Errorf("GetPartNum failed to return the expected part number."+
 			"\nexpected: %d\nrecieved: %d", expectedPartNum, rmp.GetPartNum())
 	}
 }
@@ -137,7 +139,7 @@ func TestResponseMessagePart_SetMaxParts_GetMaxParts(t *testing.T) {
 	rmp.SetNumParts(expectedMaxParts)
 
 	if expectedMaxParts != rmp.GetNumParts() {
-		t.Errorf("GetNumParts() failed to return the expected max parts."+
+		t.Errorf("GetNumParts failed to return the expected max parts."+
 			"\nexpected: %d\nrecieved: %d", expectedMaxParts, rmp.GetNumParts())
 	}
 }
@@ -153,28 +155,30 @@ func TestResponseMessagePart_SetContents_GetContents_GetContentsSize_GetMaxConte
 	rmp.SetContents(expectedContents)
 
 	if !bytes.Equal(expectedContents, rmp.GetContents()) {
-		t.Errorf("GetContents() failed to return the expected contents."+
+		t.Errorf("GetContents failed to return the expected contents."+
 			"\nexpected: %+v\nrecieved: %+v", expectedContents, rmp.GetContents())
 	}
 
 	if contentSize != rmp.GetContentsSize() {
-		t.Errorf("GetContentsSize() failed to return the expected contents size."+
+		t.Errorf("GetContentsSize failed to return the expected contents size."+
 			"\nexpected: %d\nrecieved: %d", contentSize, rmp.GetContentsSize())
 	}
 
 	if externalPayloadSize-responseMinSize != rmp.GetMaxContentsSize() {
-		t.Errorf("GetMaxContentsSize() failed to return the expected max contents size."+
-			"\nexpected: %d\nrecieved: %d",
+		t.Errorf("GetMaxContentsSize failed to return the expected max "+
+			"contents size.\nexpected: %d\nrecieved: %d",
 			externalPayloadSize-responseMinSize, rmp.GetMaxContentsSize())
 	}
 }
 
 // Error path: size of supplied contents does not match message contents size.
 func TestResponseMessagePart_SetContents_ContentsSizeError(t *testing.T) {
+	expectedErr := "max size of message contents"
 	defer func() {
-		if r := recover(); r == nil || !strings.Contains(r.(string), "max size of message contents") {
-			t.Error("SetContents() did not panic when the size of the supplied " +
-				"bytes is larger than the content size.")
+		if r := recover(); r == nil || !strings.Contains(r.(string), expectedErr) {
+			t.Errorf("SetContents did not panic with the expected error when "+
+				"the size of the supplied bytes is larger than the content "+
+				"size.\nexpected: %s\nreceived: %+v", expectedErr, r)
 		}
 	}()
 

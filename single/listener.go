@@ -25,24 +25,24 @@ type Listener interface {
 
 type listener struct {
 	myId      *id.ID
-	myPrivkey *cyclic.Int
+	myPrivKey *cyclic.Int
 	tag       string
 	grp       *cyclic.Group
 	cb        Receiver
 	net       cmix.Client
 }
 
-// Listen allows a server to listen for single use requests. It will register
-// a service relative to the tag and myID as the identifier.  Only a single
-// listener can be active for a tag-myID pair, and error will return if that
-// is violated. When requests are receved, they will be called on the
+// Listen allows a server to listen for single use requests. It will register a
+// service relative to the tag and myID as the identifier. Only a single
+// listener can be active for a tag-myID pair, and an error will be returned if
+// that is violated. When requests are received, they will be called on the
 // Receiver interface.
-func Listen(tag string, myId *id.ID, privkey *cyclic.Int, net cmix.Client,
+func Listen(tag string, myId *id.ID, privKey *cyclic.Int, net cmix.Client,
 	e2eGrp *cyclic.Group, cb Receiver) Listener {
 
 	l := &listener{
 		myId:      myId,
-		myPrivkey: privkey,
+		myPrivKey: privKey,
 		tag:       tag,
 		grp:       e2eGrp,
 		cb:        cb,
@@ -61,22 +61,20 @@ func Listen(tag string, myId *id.ID, privkey *cyclic.Int, net cmix.Client,
 }
 
 func (l *listener) Process(ecrMsg format.Message,
-	receptionID receptionID.EphemeralIdentity,
-	round rounds.Round) {
+	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
 	// Unmarshal the CMIX message contents to a transmission message
 	transmitMsg, err := message.UnmarshalRequest(ecrMsg.GetContents(),
 		l.grp.GetP().ByteLen())
 	if err != nil {
-		jww.WARN.Printf("failed to unmarshal contents on single use "+
+		jww.WARN.Printf("Failed to unmarshal contents on single use "+
 			"request to %s on tag %s: %+v", l.myId, l.tag, err)
 		return
 	}
 
 	// Generate DH key and symmetric key
 	senderPubkey := transmitMsg.GetPubKey(l.grp)
-	dhKey := l.grp.Exp(senderPubkey, l.myPrivkey,
-		l.grp.NewInt(1))
+	dhKey := l.grp.Exp(senderPubkey, l.myPrivKey, l.grp.NewInt(1))
 	key := singleUse.NewTransmitKey(dhKey)
 
 	// Verify the MAC

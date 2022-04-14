@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -95,7 +94,6 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	// this would be a case where LoadLegacy is most likely not the correct
 	// code-path the caller should be following.
 	if _, err := kv.Get(e2eRekeyParamsKey, e2eRekeyParamsVer); err != nil && !strings.Contains(err.Error(), "object not found") {
-		fmt.Printf("err: %v", err)
 		return nil, errors.New("E2E rekey params are already on disk, " +
 			"LoadLegacy should not be called")
 	}

@@ -16,7 +16,6 @@ import (
 // UserInfo is an interface for the user.User object.
 type UserInfo interface {
 	PortableUserInfo() user.Info
-	GetUsername() (string, error)
 	GetReceptionRegistrationValidationSignature() []byte
 }
 

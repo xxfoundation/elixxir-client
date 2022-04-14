@@ -80,10 +80,10 @@ func (m *Manager) RemoveUser(f fact.Fact) error {
 	}
 	privKey := m.user.PortableUserInfo().ReceptionRSA
 
-	return removeUser(f, m.e2e.GetReceptionID(), privKey, m.comms, udHost)
+	return m.removeUser(f, m.e2e.GetReceptionID(), privKey, m.comms, udHost)
 }
 
-func removeUser(f fact.Fact, myId *id.ID, privateKey *rsa.PrivateKey,
+func (m *Manager) removeUser(f fact.Fact, myId *id.ID, privateKey *rsa.PrivateKey,
 	rFC removeUserComms, udHost *connect.Host) error {
 
 	// Construct the message to send

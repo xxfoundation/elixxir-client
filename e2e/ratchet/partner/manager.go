@@ -30,6 +30,7 @@ const managerPrefix = "Manager{partner:%s}"
 const originMyPrivKeyKey = "originMyPrivKey"
 const originPartnerPubKey = "originPartnerPubKey"
 
+// Implements the partner.Manager interface
 type manager struct {
 	kv *versioned.KV
 
@@ -231,14 +232,12 @@ func (m *manager) NewSendSession(myPrivKey *cyclic.Int,
 		sourceSession.GetID(), session.Sending, e2eParams)
 }
 
-// PopSendCypher gets the correct session to Send with depending on the type
-// of Send.
+// PopSendCypher returns the key which is most likely to be successful for sending
 func (m *manager) PopSendCypher() (*session.Cypher, error) {
 	return m.send.getKeyForSending()
 }
 
-// PopRekeyCypher gets the correct session to Send with depending on the type
-// of Send.
+// PopRekeyCypher returns a key which should be used for rekeying
 func (m *manager) PopRekeyCypher() (*session.Cypher, error) {
 	return m.send.getKeyForRekey()
 
@@ -266,14 +265,12 @@ func (m *manager) GetReceiveSession(sid session.SessionID) *session.Session {
 	return m.receive.GetByID(sid)
 }
 
-// GetSendRelationshipFingerprint gets the Send session of the passed ID. Returns nil if no
-// session is found.
+// GetSendRelationshipFingerprint
 func (m *manager) GetSendRelationshipFingerprint() []byte {
 	return m.send.fingerprint
 }
 
-// GetReceiveRelationshipFingerprint gets the receive session of the passed ID.
-// Returns nil if no session is found.
+// GetReceiveRelationshipFingerprint
 func (m *manager) GetReceiveRelationshipFingerprint() []byte {
 	return m.receive.fingerprint
 }
@@ -283,8 +280,7 @@ func (m *manager) Confirm(sid session.SessionID) error {
 	return m.send.Confirm(sid)
 }
 
-// TriggerNegotiations returns a list of key exchange operations if any are
-// necessary.
+// TriggerNegotiations returns a list of key exchange operations if any are necessary.
 func (m *manager) TriggerNegotiations() []*session.Session {
 	return m.send.TriggerNegotiation()
 }
@@ -299,8 +295,8 @@ func (m *manager) GetPartnerOriginPublicKey() *cyclic.Int {
 
 const relationshipFpLength = 15
 
-// GetRelationshipFingerprint returns a unique fingerprint for an E2E
-// relationship. The fingerprint is a base 64 encoded hash of of the two
+// GetConnectionFingerprint returns a unique fingerprint for an E2E
+// relationship. The fingerprint is a base 64 encoded hash of the two
 // relationship fingerprints truncated to 15 characters.
 func (m *manager) GetConnectionFingerprint() string {
 
@@ -309,8 +305,8 @@ func (m *manager) GetConnectionFingerprint() string {
 		m.GetConnectionFingerprintBytes())[:relationshipFpLength]
 }
 
-// GetRelationshipFingerprintBytes returns a unique fingerprint for an E2E
-// relationship. used for the e2e preimage.
+// GetConnectionFingerprintBytes returns a unique fingerprint for an E2E
+// relationship used for the e2e preimage.
 func (m *manager) GetConnectionFingerprintBytes() []byte {
 	// Sort fingerprints
 	var fps [][]byte

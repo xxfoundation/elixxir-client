@@ -8,9 +8,9 @@
 package partner
 
 import (
-	"bytes"
 	"encoding/base64"
 	"fmt"
+	"gitlab.com/elixxir/crypto/e2e"
 
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
@@ -23,12 +23,12 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
-	"golang.org/x/crypto/blake2b"
 )
 
 const managerPrefix = "Manager{partner:%s}"
 const originMyPrivKeyKey = "originMyPrivKey"
 const originPartnerPubKey = "originPartnerPubKey"
+const relationshipFpLength = 15
 
 // Implements the partner.Manager interface
 type manager struct {
@@ -92,6 +92,21 @@ func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
 		receiveParams, cyHandler, grp, rng)
 
 	return m
+}
+
+// ConnectionFp represents a Partner connection fingerprint
+type ConnectionFp struct {
+	fingerprint []byte
+}
+
+func (c ConnectionFp) Bytes() []byte {
+	return c.fingerprint
+}
+
+func (c ConnectionFp) String() string {
+	// Base 64 encode hash and truncate
+	return base64.StdEncoding.EncodeToString(
+		c.fingerprint)[:relationshipFpLength]
 }
 
 //LoadManager loads a relationship and all buffers and sessions from disk
@@ -243,13 +258,13 @@ func (m *manager) PopRekeyCypher() (*session.Cypher, error) {
 
 }
 
-// GetPartnerID returns a copy of the ID of the partner.
-func (m *manager) GetPartnerID() *id.ID {
+// PartnerId returns a copy of the ID of the partner.
+func (m *manager) PartnerId() *id.ID {
 	return m.partner.DeepCopy()
 }
 
-// GetMyID returns a copy of the ID used as self.
-func (m *manager) GetMyID() *id.ID {
+// MyId returns a copy of the ID used as self.
+func (m *manager) MyId() *id.ID {
 	return m.myID.DeepCopy()
 }
 
@@ -265,13 +280,13 @@ func (m *manager) GetReceiveSession(sid session.SessionID) *session.Session {
 	return m.receive.GetByID(sid)
 }
 
-// GetSendRelationshipFingerprint
-func (m *manager) GetSendRelationshipFingerprint() []byte {
+// SendRelationshipFingerprint
+func (m *manager) SendRelationshipFingerprint() []byte {
 	return m.send.fingerprint
 }
 
-// GetReceiveRelationshipFingerprint
-func (m *manager) GetReceiveRelationshipFingerprint() []byte {
+// ReceiveRelationshipFingerprint
+func (m *manager) ReceiveRelationshipFingerprint() []byte {
 	return m.receive.fingerprint
 }
 
@@ -285,46 +300,18 @@ func (m *manager) TriggerNegotiations() []*session.Session {
 	return m.send.TriggerNegotiation()
 }
 
-func (m *manager) GetMyOriginPrivateKey() *cyclic.Int {
+func (m *manager) MyRootPrivateKey() *cyclic.Int {
 	return m.originMyPrivKey.DeepCopy()
 }
 
-func (m *manager) GetPartnerOriginPublicKey() *cyclic.Int {
+func (m *manager) PartnerRootPublicKey() *cyclic.Int {
 	return m.originPartnerPubKey.DeepCopy()
 }
 
-const relationshipFpLength = 15
-
-// GetConnectionFingerprint returns a unique fingerprint for an E2E
-// relationship. The fingerprint is a base 64 encoded hash of the two
-// relationship fingerprints truncated to 15 characters.
-func (m *manager) GetConnectionFingerprint() string {
-
-	// Base 64 encode hash and truncate
-	return base64.StdEncoding.EncodeToString(
-		m.GetConnectionFingerprintBytes())[:relationshipFpLength]
-}
-
-// GetConnectionFingerprintBytes returns a unique fingerprint for an E2E
+// ConnectionFingerprint returns a unique fingerprint for an E2E
 // relationship used for the e2e preimage.
-func (m *manager) GetConnectionFingerprintBytes() []byte {
-	// Sort fingerprints
-	var fps [][]byte
-
-	if bytes.Compare(m.receive.fingerprint, m.send.fingerprint) == 1 {
-		fps = [][]byte{m.send.fingerprint, m.receive.fingerprint}
-	} else {
-		fps = [][]byte{m.receive.fingerprint, m.send.fingerprint}
-	}
-
-	// Hash fingerprints
-	h, _ := blake2b.New256(nil)
-	for _, fp := range fps {
-		h.Write(fp)
-	}
-
-	// Base 64 encode hash and truncate
-	return h.Sum(nil)
+func (m *manager) ConnectionFingerprint() ConnectionFp {
+	return ConnectionFp{fingerprint: e2e.GenerateConnectionFingerprint(m.send.fingerprint, m.receive.fingerprint)}
 }
 
 // MakeService Returns a service interface with the
@@ -332,19 +319,18 @@ func (m *manager) GetConnectionFingerprintBytes() []byte {
 // the metadata with the partner
 func (m *manager) MakeService(tag string) message.Service {
 	return message.Service{
-		Identifier: m.GetConnectionFingerprintBytes(),
+		Identifier: m.ConnectionFingerprint().Bytes(),
 		Tag:        tag,
 		Metadata:   m.partner[:],
 	}
 }
 
-// GetContact assembles and returns a contact.Contact with the partner's ID
-// and DH key.
-func (m *manager) GetContact() contact.Contact {
+// Contact assembles and returns a contact.Contact with the partner's ID and DH key.
+func (m *manager) Contact() contact.Contact {
 	// Assemble Contact
 	return contact.Contact{
-		ID:       m.GetPartnerID(),
-		DhPubKey: m.GetPartnerOriginPublicKey(),
+		ID:       m.PartnerId(),
+		DhPubKey: m.PartnerRootPublicKey(),
 	}
 }
 

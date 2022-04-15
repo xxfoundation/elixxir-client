@@ -11,24 +11,22 @@ import (
 
 // Manager create and manages both E2E send and receive sessions using the passed cryptographic data
 type Manager interface {
-	// GetPartnerID returns the ID of the E2E partner
-	GetPartnerID() *id.ID
-	// GetMyID returns my ID used for the E2E relationship
-	GetMyID() *id.ID
-	// GetMyOriginPrivateKey returns my private key
-	GetMyOriginPrivateKey() *cyclic.Int
-	// GetPartnerOriginPublicKey returns the partner's public key
-	GetPartnerOriginPublicKey() *cyclic.Int
-	// GetSendRelationshipFingerprint returns the fingerprint of the send session
-	GetSendRelationshipFingerprint() []byte
-	// GetReceiveRelationshipFingerprint returns the fingerprint of the receive session
-	GetReceiveRelationshipFingerprint() []byte
-	// GetConnectionFingerprintBytes returns a unique fingerprint for an E2E relationship in bytes format
-	GetConnectionFingerprintBytes() []byte
-	// GetConnectionFingerprint returns a unique fingerprint for an E2E relationship in string format
-	GetConnectionFingerprint() string
-	// GetContact returns the contact of the E2E partner
-	GetContact() contact.Contact
+	// PartnerId returns the ID of the E2E partner
+	PartnerId() *id.ID
+	// MyId returns my ID used for the E2E relationship
+	MyId() *id.ID
+	// MyRootPrivateKey returns first private key in the DAG
+	MyRootPrivateKey() *cyclic.Int
+	// PartnerRootPublicKey returns the partner's first public key in the DAG
+	PartnerRootPublicKey() *cyclic.Int
+	// SendRelationshipFingerprint returns the fingerprint of the send session
+	SendRelationshipFingerprint() []byte
+	// ReceiveRelationshipFingerprint returns the fingerprint of the receive session
+	ReceiveRelationshipFingerprint() []byte
+	// ConnectionFingerprint returns a unique fingerprint for an E2E relationship in string format
+	ConnectionFingerprint() ConnectionFp
+	// Contact returns the contact of the E2E partner
+	Contact() contact.Contact
 
 	// PopSendCypher returns the key which is most likely to be successful for sending
 	PopSendCypher() (*session.Cypher, error)

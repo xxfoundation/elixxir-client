@@ -74,11 +74,11 @@ func handleConfirm(ratchet *ratchet.Ratchet, confirmation receive.Message) {
 		jww.WARN.Printf("[REKEY] Failed to set the negotiation status for the "+
 			"confirmation of session %s from partner %s. This is expected in "+
 			"some edge cases but could be a sign of an issue if it persists: %s",
-			confirmedSession, partner.GetPartnerID(), err)
+			confirmedSession, partner.PartnerId(), err)
 	}
 
 	jww.DEBUG.Printf("[REKEY] handled confirmation for session "+
-		"%s from partner %s.", confirmedSession, partner.GetPartnerID())
+		"%s from partner %s.", confirmedSession, partner.PartnerId())
 }
 
 func unmarshalConfirm(payload []byte) (session2.SessionID, error) {

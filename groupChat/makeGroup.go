@@ -119,13 +119,13 @@ func (m Manager) buildMembership(members []*id.ID) (group.Membership,
 		}
 
 		contacts[i] = contact.Contact{
-			ID:       partner.GetPartnerID(),
-			DhPubKey: partner.GetPartnerOriginPublicKey(),
+			ID:       partner.PartnerId(),
+			DhPubKey: partner.PartnerRootPublicKey(),
 		}
 
-		dkl.Add(partner.GetMyOriginPrivateKey(), group.Member{
-			ID:    partner.GetPartnerID(),
-			DhKey: partner.GetPartnerOriginPublicKey(),
+		dkl.Add(partner.MyRootPrivateKey(), group.Member{
+			ID:    partner.PartnerId(),
+			DhKey: partner.PartnerRootPublicKey(),
 		}, m.grp)
 	}
 

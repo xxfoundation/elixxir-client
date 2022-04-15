@@ -175,7 +175,7 @@ func (r *Ratchet) GetAllPartnerIDs() []*id.ID {
 	partnerIDs := make([]*id.ID, 0, len(r.managers))
 
 	for _, m := range r.managers {
-		partnerIDs = append(partnerIDs, m.GetPartnerID())
+		partnerIDs = append(partnerIDs, m.PartnerId())
 	}
 
 	return partnerIDs

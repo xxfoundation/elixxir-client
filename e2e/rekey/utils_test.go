@@ -17,9 +17,9 @@ import (
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/stoppable"
@@ -84,8 +84,8 @@ func testSendE2E(mt catalog.MessageType, recipient *id.ID,
 		print(err)
 	}
 
-	alicePrivKey := alicePartner.GetMyOriginPrivateKey()
-	bobPubKey := bobPartner.GetMyOriginPrivateKey()
+	alicePrivKey := alicePartner.MyRootPrivateKey()
+	bobPubKey := bobPartner.MyRootPrivateKey()
 	grp := getGroup()
 
 	aliceSIDHPrivKey, bobSIDHPubKey, _, _ := genSidhKeys()

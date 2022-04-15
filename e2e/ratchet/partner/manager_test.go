@@ -243,10 +243,10 @@ func TestManager_GetKeyForSending_Error(t *testing.T) {
 func TestManager_GetPartnerID(t *testing.T) {
 	m, _ := newTestManager(t)
 
-	pid := m.GetPartnerID()
+	pid := m.PartnerId()
 
 	if !m.partner.Cmp(pid) {
-		t.Errorf("GetPartnerID() returned incorrect partner ID."+
+		t.Errorf("PartnerId() returned incorrect partner ID."+
 			"\n\texpected: %s\n\treceived: %s", m.partner, pid)
 	}
 }
@@ -257,10 +257,10 @@ func TestManager_GetMyID(t *testing.T) {
 
 	m := &manager{myID: myId}
 
-	receivedMyId := m.GetMyID()
+	receivedMyId := m.MyId()
 
 	if !myId.Cmp(receivedMyId) {
-		t.Errorf("GetMyID() returned incorrect partner ID."+
+		t.Errorf("MyId() returned incorrect partner ID."+
 			"\n\texpected: %s\n\treceived: %s", myId, receivedMyId)
 	}
 }
@@ -345,18 +345,18 @@ func TestManager_GetRelationshipFingerprint(t *testing.T) {
 	h.Write(append(m.receive.fingerprint, m.send.fingerprint...))
 	expected := base64.StdEncoding.EncodeToString(h.Sum(nil))[:relationshipFpLength]
 
-	fp := m.GetConnectionFingerprint()
+	fp := m.ConnectionFingerprint()
 	if fp != expected {
-		t.Errorf("GetConnectionFingerprint did not return the expected "+
+		t.Errorf("ConnectionFingerprint did not return the expected "+
 			"fingerprint.\nexpected: %s\nreceived: %s", expected, fp)
 	}
 
 	// Flip the order and show that the output is the same.
 	m.receive.fingerprint, m.send.fingerprint = m.send.fingerprint, m.receive.fingerprint
 
-	fp = m.GetConnectionFingerprint()
+	fp = m.ConnectionFingerprint()
 	if fp != expected {
-		t.Errorf("GetConnectionFingerprint did not return the expected "+
+		t.Errorf("ConnectionFingerprint did not return the expected "+
 			"fingerprint.\nexpected: %s\nreceived: %s", expected, fp)
 	}
 }
@@ -379,18 +379,18 @@ func TestManager_GetRelationshipFingerprint_Consistency(t *testing.T) {
 		prng.Read(m.receive.fingerprint)
 		prng.Read(m.send.fingerprint)
 
-		fp := m.GetConnectionFingerprint()
+		fp := m.ConnectionFingerprint()
 		if fp != expected {
-			t.Errorf("GetConnectionFingerprint did not return the expected "+
+			t.Errorf("ConnectionFingerprint did not return the expected "+
 				"fingerprint (%d).\nexpected: %s\nreceived: %s", i, expected, fp)
 		}
 
 		// Flip the order and show that the output is the same.
 		m.receive.fingerprint, m.send.fingerprint = m.send.fingerprint, m.receive.fingerprint
 
-		fp = m.GetConnectionFingerprint()
+		fp = m.ConnectionFingerprint()
 		if fp != expected {
-			t.Errorf("GetConnectionFingerprint did not return the expected "+
+			t.Errorf("ConnectionFingerprint did not return the expected "+
 				"fingerprint (%d).\nexpected: %s\nreceived: %s", i, expected, fp)
 		}
 
@@ -402,7 +402,7 @@ func TestManager_MakeService(t *testing.T) {
 	m, _ := newTestManager(t)
 	tag := "hunter2"
 	expected := message.Service{
-		Identifier: m.GetConnectionFingerprintBytes(),
+		Identifier: m.ConnectionFingerprintBytes(),
 		Tag:        tag,
 		Metadata:   m.partner[:],
 	}

@@ -150,8 +150,8 @@ func Test_newManager_LoadError(t *testing.T) {
 // 	m2, _ := newTestManagerWithStore(prng, 10, 0, requestFunc2, receiveFunc2, t)
 // 	m3, _ := newTestManagerWithStore(prng, 10, 0, requestFunc3, receiveFunc3, t)
 //
-// 	membership, err := group.NewMembership(m1.store.GetUser().GetContact(),
-// 		m2.store.GetUser().GetContact(), m3.store.GetUser().GetContact())
+// 	membership, err := group.NewMembership(m1.store.GetUser().Contact(),
+// 		m2.store.GetUser().Contact(), m3.store.GetUser().Contact())
 // 	if err != nil {
 // 		t.Errorf("Failed to generate new membership: %+v", err)
 // 	}

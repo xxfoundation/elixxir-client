@@ -283,6 +283,7 @@ gitlab.com/elixxir/crypto v0.0.3/go.mod h1:ZNgBOblhYToR4m8tj4cMvJ9UsJAUKq+p0gCp0
 gitlab.com/elixxir/crypto v0.0.7-0.20220222221347-95c7ae58da6b/go.mod h1:tD6XjtQh87T2nKZL5I/pYPck5M2wLpkZ1Oz7H/LqO10=
 gitlab.com/elixxir/crypto v0.0.7-0.20220309234716-1ba339865787 h1:+qmsWov412+Yn7AKUhTbOcDgAydNXlNLPmFpO2W5LwY=
 gitlab.com/elixxir/crypto v0.0.7-0.20220309234716-1ba339865787/go.mod h1:tD6XjtQh87T2nKZL5I/pYPck5M2wLpkZ1Oz7H/LqO10=
+gitlab.com/elixxir/crypto v0.0.7-0.20220317172048-3de167bd9406/go.mod h1:tD6XjtQh87T2nKZL5I/pYPck5M2wLpkZ1Oz7H/LqO10=
 gitlab.com/elixxir/crypto v0.0.7-0.20220325215559-7489d68d7714 h1:epnov8zyFWod14MUNtGHSbZCVSkZjN4NvoiBs1TgEV8=
 gitlab.com/elixxir/crypto v0.0.7-0.20220325215559-7489d68d7714/go.mod h1:tD6XjtQh87T2nKZL5I/pYPck5M2wLpkZ1Oz7H/LqO10=
 gitlab.com/elixxir/crypto v0.0.7-0.20220325224306-705ce59288bb h1:WdlmG+KPaM2Pjo1EFiFFPYEVSMV64Di1CitQnXGWBOQ=
@@ -297,8 +298,12 @@ gitlab.com/elixxir/crypto v0.0.7-0.20220331001626-1829e71edf56 h1:1HJHlRwh3dDbvw
 gitlab.com/elixxir/crypto v0.0.7-0.20220331001626-1829e71edf56/go.mod h1:JkByWX/TXCjdu6pRJsx+jwttbBGvlAljYSJMImDmt+4=
 gitlab.com/elixxir/crypto v0.0.7-0.20220406193349-d25222ea3c6e h1:P+E0+AdevTNWBdqf4+covcmTrRfe6rKPLtevFrjbKQA=
 gitlab.com/elixxir/crypto v0.0.7-0.20220406193349-d25222ea3c6e/go.mod h1:JkByWX/TXCjdu6pRJsx+jwttbBGvlAljYSJMImDmt+4=
+gitlab.com/elixxir/crypto v0.0.7-0.20220414175442-6d2304df43d7 h1:xEE795GeUyQaa4lRAI8IjyH31glm2OvFgzY9eiMEr1M=
+gitlab.com/elixxir/crypto v0.0.7-0.20220414175442-6d2304df43d7/go.mod h1:JkByWX/TXCjdu6pRJsx+jwttbBGvlAljYSJMImDmt+4=
 gitlab.com/elixxir/crypto v0.0.7-0.20220414225314-6f3eb9c073a5 h1:yw3G8ZEiWu2eSZWRQmj6nBhiJIYK3Cw2MJzDPkNHYVA=
 gitlab.com/elixxir/crypto v0.0.7-0.20220414225314-6f3eb9c073a5/go.mod h1:tD6XjtQh87T2nKZL5I/pYPck5M2wLpkZ1Oz7H/LqO10=
+gitlab.com/elixxir/crypto v0.0.7-0.20220415172207-7de5e3cdb340 h1:f1JsT60cKFXcHPoaOD1ohIOA22FQd42vbKjF9wrKfNs=
+gitlab.com/elixxir/crypto v0.0.7-0.20220415172207-7de5e3cdb340/go.mod h1:JkByWX/TXCjdu6pRJsx+jwttbBGvlAljYSJMImDmt+4=
 gitlab.com/elixxir/ekv v0.1.6 h1:M2hUSNhH/ChxDd+s8xBqSEKgoPtmE6hOEBqQ73KbN6A=
 gitlab.com/elixxir/ekv v0.1.6/go.mod h1:e6WPUt97taFZe5PFLPb1Dupk7tqmDCTQu1kkstqJvw4=
 gitlab.com/elixxir/primitives v0.0.0-20200731184040-494269b53b4d/go.mod h1:OQgUZq7SjnE0b+8+iIAT2eqQF+2IFHn73tOo+aV11mg=

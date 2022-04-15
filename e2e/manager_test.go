@@ -124,16 +124,16 @@ func TestLoadLegacy(t *testing.T) {
 			t.Errorf("Partner %d does not exist in handler.", legacyPartner.partnerId)
 		}
 
-		if !bytes.Equal(partnerManager.GetSendRelationshipFingerprint(), legacyPartner.sendFP) {
+		if !bytes.Equal(partnerManager.SendRelationshipFingerprint(), legacyPartner.sendFP) {
 			t.Fatalf("Send relationship fingerprint pulled from legacy does not match expected data."+
 				"\nExpected: %v"+
-				"\nReceived: %v", legacyPartner.sendFP, partnerManager.GetSendRelationshipFingerprint())
+				"\nReceived: %v", legacyPartner.sendFP, partnerManager.SendRelationshipFingerprint())
 		}
 
-		if !bytes.Equal(partnerManager.GetReceiveRelationshipFingerprint(), legacyPartner.recieveFp) {
+		if !bytes.Equal(partnerManager.ReceiveRelationshipFingerprint(), legacyPartner.recieveFp) {
 			t.Fatalf("Receive relationship fingerprint pulled from legacy does not match expected data."+
 				"\nExpected: %v"+
-				"\nReceived: %v", legacyPartner.sendFP, partnerManager.GetSendRelationshipFingerprint())
+				"\nReceived: %v", legacyPartner.sendFP, partnerManager.SendRelationshipFingerprint())
 		}
 
 	}

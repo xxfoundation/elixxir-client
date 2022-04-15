@@ -1,7 +1,10 @@
 package cmd
 
 import (
-	"fmt"
+	"io/ioutil"
+	"strconv"
+	"strings"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/cmix"
@@ -10,9 +13,6 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
-	"io/ioutil"
-	"strconv"
-	"strings"
 )
 
 // todo: go through cmd package and organize utility functions
@@ -36,14 +36,6 @@ func loadBackup(backupPath, backupPass string) (backupCrypto.Backup, []byte) {
 /////////////////////////////////////////////////////////////////
 ////////////////// Print functions /////////////////////////////
 /////////////////////////////////////////////////////////////////
-
-func printChanRequest(requestor contact.Contact) {
-	msg := fmt.Sprintf("Authentication channel request from: %s\n",
-		requestor.ID)
-	jww.INFO.Printf(msg)
-	fmt.Printf(msg)
-	// fmt.Printf(msg)
-}
 
 // Helper function which prints the round resuls
 func printRoundResults(allRoundsSucceeded, timedOut bool,

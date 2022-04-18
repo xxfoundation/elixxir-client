@@ -17,6 +17,7 @@ func (m *Manager) ConfirmFact(confirmationID, code string) error {
 	return nil
 }
 
+// confirmFact is a helper function for ConfirmFact.
 func (m *Manager) confirmFact(confirmationID, code string, comm confirmFactComm) error {
 	// get UD host
 	udHost, err := m.getOrAddUdHost()

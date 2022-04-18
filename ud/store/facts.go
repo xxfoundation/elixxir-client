@@ -10,9 +10,7 @@ package ud
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/fact"
-	"sync"
 )
 
 const (
@@ -23,31 +21,6 @@ const (
 	factNotInStoreErr             = "Fact %v does not exist in store"
 	statefulStoreErr              = "cannot overwrite ud store with existing data"
 )
-
-// Store is the storage object for the higher level ud.Manager object.
-// This storage implementation is written for client side.
-type Store struct {
-	// confirmedFacts contains facts that have been confirmed
-	confirmedFacts map[fact.Fact]struct{}
-	// Stores facts that have been added by UDB but unconfirmed facts.
-	// Maps confirmID to fact
-	unconfirmedFacts map[string]fact.Fact
-	kv               *versioned.KV
-	mux              sync.RWMutex
-}
-
-// NewStore creates a new, empty Store object.
-func NewStore(kv *versioned.KV) (*Store, error) {
-	kv = kv.Prefix(prefix)
-
-	s := &Store{
-		confirmedFacts:   make(map[fact.Fact]struct{}, 0),
-		unconfirmedFacts: make(map[string]fact.Fact, 0),
-		kv:               kv,
-	}
-
-	return s, s.save()
-}
 
 // RestoreFromBackUp initializes the confirmedFacts map
 // with the backed up fact data. This will error if

@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
-	"math"
 	"sync"
 	"time"
 )
@@ -56,9 +55,9 @@ type Manager struct {
 	// signature operations.
 	rng *fastRNG.StreamGenerator
 
-	// kv is a versioned key-value store
-	// fixme: this is used for isRegistered and setRegistered
-	//  which should be moved to store if possible (prefixing might break this?)
+	// kv is a versioned key-value store used for isRegistered and
+	// setRegistered. This is separated from store operations as store's kv
+	// has a different prefix which breaks backwards compatibility.
 	kv *versioned.KV
 
 	// factMux is to be used for Add/Remove fact.Fact operations.
@@ -86,30 +85,25 @@ func NewManager(services cmix.Client, e2e E2E,
 			"cannot start UD Manager when network follower is not running.")
 	}
 
-	udStore, err := store.NewOrLoadStore(kv)
-	if err != nil {
-		return nil, errors.Errorf("Failed to initialize store: %v", err)
-	}
-
+	// Initialize manager
 	m := &Manager{
 		network: services,
 		e2e:     e2e,
 		events:  events,
 		comms:   comms,
 		rng:     rng,
-		store:   udStore,
 		user:    userStore,
 		kv:      kv,
 	}
 
-	// check that user discovery is available in the NDF
-	def := m.network.GetInstance().GetPartialNdf().Get()
-
-	if def.UDB.Cert == "" {
-		return nil, errors.New("NDF does not have User Discovery " +
-			"information, is there network access?: Cert not present.")
+	// Initialize store
+	var err error
+	m.store, err = store.NewOrLoadStore(kv)
+	if err != nil {
+		return nil, errors.Errorf("Failed to initialize store: %v", err)
 	}
 
+	// Initialize/Get host
 	udHost, err := m.getOrAddUdHost()
 	if err != nil {
 		return nil, errors.WithMessage(err, "User Discovery host object could "+
@@ -123,7 +117,6 @@ func NewManager(services cmix.Client, e2e E2E,
 	}
 
 	// Set storage to registered
-	// todo: maybe we don't need this?
 	if err = m.setRegistered(); err != nil && m.events != nil {
 		m.events.Report(1, "UserDiscovery", "Registration",
 			fmt.Sprintf("User Registered with UD: %+v",
@@ -148,6 +141,7 @@ func NewManagerFromBackup(services cmix.Client,
 				"network follower is not running.")
 	}
 
+	// Initialize manager
 	m := &Manager{
 		network: services,
 		e2e:     e2e,
@@ -158,38 +152,29 @@ func NewManagerFromBackup(services cmix.Client,
 		kv:      kv,
 	}
 
-	udStore, err := store.NewOrLoadStore(kv)
+	// Initialize our store
+	var err error
+	m.store, err = store.NewOrLoadStore(kv)
 	if err != nil {
 		return nil, err
 	}
 
-	m.store = udStore
-
+	// Put any passed in missing facts into store
 	err = m.store.BackUpMissingFacts(email, phone)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to restore UD store "+
 			"from backup")
 	}
 
-	// check that user discovery is available in the NDF
-	def := m.network.GetInstance().GetPartialNdf().Get()
-
-	if def.UDB.Cert == "" {
-		return nil, errors.New("NDF does not have User Discovery information, " +
-			"is there network access?: Cert not present.")
-	}
-
 	// Create the user discovery host object
-	hp := connect.GetDefaultHostParams()
-	// Client will not send KeepAlive packets
-	hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
-	hp.MaxRetries = 3
-	hp.SendTimeout = 3 * time.Second
-	hp.AuthEnabled = false
+	_, err = m.getOrAddUdHost()
+	if err != nil {
+		return nil, errors.WithMessage(err, "User Discovery host object could "+
+			"not be constructed.")
+	}
 
 	// Set as registered. Since it's from a backup,
 	// the client is already registered
-	// todo: maybe we don't need this?
 	if err = m.setRegistered(); err != nil {
 		return nil, errors.WithMessage(err, "failed to set client as "+
 			"registered with user discovery.")
@@ -198,6 +183,9 @@ func NewManagerFromBackup(services cmix.Client,
 	return m, nil
 }
 
+// LoadManager loads the state of the Manager
+// from disk. This is meant to be called after any the first
+// instantiation of the manager by NewUserDiscovery.
 func LoadManager(services cmix.Client, e2e E2E,
 	events event.Reporter, comms Comms, userStore UserInfo,
 	rng *fastRNG.StreamGenerator, kv *versioned.KV) (*Manager, error) {
@@ -217,12 +205,11 @@ func LoadManager(services cmix.Client, e2e E2E,
 			"the user has been registered. Has a manager been initiated before?")
 	}
 
-	udStore, err := store.NewOrLoadStore(kv)
+	var err error
+	m.store, err = store.NewOrLoadStore(kv)
 	if err != nil {
 		return nil, errors.Errorf("Failed to initialize store: %v", err)
 	}
-
-	m.store = udStore
 
 	return m, err
 }
@@ -270,8 +257,6 @@ func (m *Manager) GetContact() (contact.Contact, error) {
 			errors.Errorf("failed to unmarshal UD ID from NDF: %+v", err)
 	}
 
-	fmt.Printf("netDef ud dhpub: %v\n", netDef.UDB.DhPubKey)
-
 	// Unmarshal UD DH public key
 	dhPubKey := grp.NewInt(1)
 	if err = dhPubKey.UnmarshalJSON(netDef.UDB.DhPubKey); err != nil {
@@ -297,6 +282,11 @@ func (m *Manager) getOrAddUdHost() (*connect.Host, error) {
 	}
 
 	netDef := m.network.GetInstance().GetPartialNdf().Get()
+	if netDef.UDB.Cert == "" {
+		return nil, errors.New("NDF does not have User Discovery information, " +
+			"is there network access?: Cert not present.")
+	}
+
 	// Unmarshal UD ID from the NDF
 	udID, err := id.Unmarshal(netDef.UDB.ID)
 	if err != nil {

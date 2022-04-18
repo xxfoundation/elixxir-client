@@ -26,7 +26,9 @@ func (m *Manager) SendRegisterFact(f fact.Fact) (string, error) {
 	return m.addFact(f, m.e2e.GetReceptionID(), m.comms)
 }
 
-func (m *Manager) addFact(inFact fact.Fact, myId *id.ID, aFC addFactComms) (string, error) {
+// addFact is the helper function for SendRegisterFact.
+func (m *Manager) addFact(inFact fact.Fact, myId *id.ID,
+	aFC addFactComms) (string, error) {
 
 	// get UD host
 	udHost, err := m.getOrAddUdHost()

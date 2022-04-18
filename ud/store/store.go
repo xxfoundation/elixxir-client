@@ -10,6 +10,7 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 	"io/fs"
 	"strings"
+	"sync"
 )
 
 // Storage constants
@@ -30,12 +31,29 @@ const (
 	saveConfirmedFactErr   = "Failed to save confirmed facts"
 )
 
-// unconfirmedFactDisk is an object used to store the data of an unconfirmed fact.
-// It combines the key (confirmationId) and fact data (stringifiedFact) into a
-// single JSON-able object.
-type unconfirmedFactDisk struct {
-	confirmationId  string
-	stringifiedFact string
+// Store is the storage object for the higher level ud.Manager object.
+// This storage implementation is written for client side.
+type Store struct {
+	// confirmedFacts contains facts that have been confirmed
+	confirmedFacts map[fact.Fact]struct{}
+	// Stores facts that have been added by UDB but unconfirmed facts.
+	// Maps confirmID to fact
+	unconfirmedFacts map[string]fact.Fact
+	kv               *versioned.KV
+	mux              sync.RWMutex
+}
+
+// NewStore creates a new, empty Store object.
+func NewStore(kv *versioned.KV) (*Store, error) {
+	kv = kv.Prefix(prefix)
+
+	s := &Store{
+		confirmedFacts:   make(map[fact.Fact]struct{}, 0),
+		unconfirmedFacts: make(map[string]fact.Fact, 0),
+		kv:               kv,
+	}
+
+	return s, s.save()
 }
 
 /////////////////////////////////////////////////////////////////
@@ -179,6 +197,14 @@ func (s *Store) loadUnconfirmedFacts() error {
 /////////////////////////////////////////////////////////////////
 // MARSHAL/UNMARSHAL FUNCTIONS
 /////////////////////////////////////////////////////////////////
+
+// unconfirmedFactDisk is an object used to store the data of an unconfirmed fact.
+// It combines the key (confirmationId) and fact data (stringifiedFact) into a
+// single JSON-able object.
+type unconfirmedFactDisk struct {
+	confirmationId  string
+	stringifiedFact string
+}
 
 // marshalConfirmedFacts is a marshaller which serializes the data
 //// in the confirmedFacts map into a JSON.

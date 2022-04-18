@@ -14,8 +14,9 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// RemoveFact removes a previously confirmed fact. Will fail if the fact is not
-// associated with this client.
+// RemoveFact removes a previously confirmed fact. This will fail
+// if the fact passed in is not UD service does not associate this
+// fact with this user.
 func (m *Manager) RemoveFact(f fact.Fact) error {
 	jww.INFO.Printf("ud.RemoveFact(%s)", f.Stringify())
 	m.factMux.Lock()
@@ -23,6 +24,8 @@ func (m *Manager) RemoveFact(f fact.Fact) error {
 	return m.removeFact(f, m.comms)
 }
 
+// removeFact is a helper function which contacts the UD service
+// to remove the association of a fact with a user.
 func (m *Manager) removeFact(f fact.Fact,
 	rFC removeFactComms) error {
 
@@ -66,8 +69,9 @@ func (m *Manager) removeFact(f fact.Fact,
 	return m.store.DeleteFact(f)
 }
 
-// PermanentDeleteAccount removes a previously confirmed fact.
-// This call will fail if the fact is not associated with this client.
+// PermanentDeleteAccount removes the username associated with this user
+// from the UD service. This will only take a username type fact,
+// and the fact must be associated with this user.
 func (m *Manager) PermanentDeleteAccount(f fact.Fact) error {
 	jww.INFO.Printf("ud.PermanentDeleteAccount(%s)", f.Stringify())
 	if f.T != fact.Username {
@@ -84,6 +88,7 @@ func (m *Manager) PermanentDeleteAccount(f fact.Fact) error {
 	return m.permanentDeleteAccount(f, m.e2e.GetReceptionID(), privKey, m.comms, udHost)
 }
 
+// permanentDeleteAccount is a helper function for PermanentDeleteAccount.
 func (m *Manager) permanentDeleteAccount(f fact.Fact, myId *id.ID, privateKey *rsa.PrivateKey,
 	rFC removeUserComms, udHost *connect.Host) error {
 

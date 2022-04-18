@@ -47,16 +47,6 @@ func Test_initializeBackup(t *testing.T) {
 		t.Error("Timed out waiting for callback.")
 	}
 
-	// Check that the correct password is in storage
-	loadedPassword, err := loadPassword(b.store.GetKV())
-	if err != nil {
-		t.Errorf("Failed to load password: %+v", err)
-	}
-	if expectedPassword != loadedPassword {
-		t.Errorf("Loaded invalid key.\nexpected: %q\nreceived: %q",
-			expectedPassword, loadedPassword)
-	}
-
 	// Check that the key, salt, and params were saved to storage
 	key, salt, _, err := loadBackup(b.store.GetKV())
 	if err != nil {
@@ -124,16 +114,6 @@ func Test_resumeBackup(t *testing.T) {
 		t.Errorf("resumeBackup returned an error: %+v", err)
 	}
 
-	// Check that the correct password is in storage
-	loadedPassword, err := loadPassword(b.store.GetKV())
-	if err != nil {
-		t.Errorf("Failed to load password: %+v", err)
-	}
-	if expectedPassword != loadedPassword {
-		t.Errorf("Loaded invalid key.\nexpected: %q\nreceived: %q",
-			expectedPassword, loadedPassword)
-	}
-
 	// Get key, salt, and parameters of resumed backup
 	key2, salt2, _, err := loadBackup(b.store.GetKV())
 	if err != nil {
@@ -168,7 +148,7 @@ func Test_resumeBackup(t *testing.T) {
 // Error path: Tests that Backup.resumeBackup returns an error if no password is
 // present in storage.
 func Test_resumeBackup_NoKeyError(t *testing.T) {
-	expectedErr := strings.Split(errLoadPassword, "%")[0]
+	expectedErr := "object not found"
 	s := storage.InitTestingSession(t)
 	_, err := resumeBackup(nil, nil, s, &interfaces.BackupContainer{}, nil)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
@@ -182,13 +162,8 @@ func Test_resumeBackup_NoKeyError(t *testing.T) {
 func TestBackup_TriggerBackup(t *testing.T) {
 	cbChan := make(chan []byte)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
-	b := newTestBackup("MySuperSecurePassword", cb, t)
-
-	// Get password
-	password, err := loadPassword(b.store.GetKV())
-	if err != nil {
-		t.Errorf("Failed to load password from storage: %+v", err)
-	}
+	password := "MySuperSecurePassword"
+	b := newTestBackup(password, cb, t)
 
 	collatedBackup := b.assembleBackup()
 
@@ -264,12 +239,6 @@ func TestBackup_StopBackup(t *testing.T) {
 	case r := <-cbChan:
 		t.Errorf("Callback received when it should not have been called: %q", r)
 	case <-time.After(10 * time.Millisecond):
-	}
-
-	// Make sure password is deleted
-	password, err := loadPassword(b.store.GetKV())
-	if err == nil || len(password) != 0 {
-		t.Errorf("Loaded password that should be deleted: %q", password)
 	}
 
 	// Make sure key, salt, and params are deleted

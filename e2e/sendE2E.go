@@ -73,7 +73,7 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 		return nil, e2e.MessageID{}, time.Time{}, err
 	}
 
-	msgID := e2e.NewMessageID(partner.GetSendRelationshipFingerprint(),
+	msgID := e2e.NewMessageID(partner.SendRelationshipFingerprint(),
 		internalMsgId)
 
 	wg := sync.WaitGroup{}

@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-// Initial value of the Collator maxNum that indicates it has yet to be set
+// Initial value of the Collator maxNum that indicates it has yet to be set.
 const unsetCollatorMax = -1
 
 // Collator stores the list of payloads in the correct order.
@@ -27,11 +27,11 @@ func NewCollator(messageCount uint8) *Collator {
 }
 
 // Collate collects message payload parts. Once all parts are received, the full
-// collated payload is returned along with true. Otherwise returns false.
+// collated payload is returned along with true. Otherwise, returns false.
 func (c *Collator) Collate(payloadBytes []byte) ([]byte, bool, error) {
 	payload, err := UnmarshalResponse(payloadBytes)
 	if err != nil {
-		return nil, false, errors.Errorf("Failed to unmarshal response "+
+		return nil, false, errors.Errorf("failed to unmarshal response "+
 			"payload: %+v", err)
 	}
 
@@ -39,7 +39,7 @@ func (c *Collator) Collate(payloadBytes []byte) ([]byte, bool, error) {
 	defer c.Unlock()
 
 	// If this is the first message received, then set the max number of
-	// messages expected to be received off its max number of parts.
+	// messages expected to be received off its max number of parts
 	if c.maxNum == unsetCollatorMax {
 		if int(payload.GetNumParts()) > len(c.payloads) {
 			return nil, false, errors.Errorf("Max number of parts reported by "+

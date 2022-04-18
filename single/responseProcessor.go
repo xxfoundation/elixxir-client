@@ -12,9 +12,9 @@ import (
 type callbackWrapper func(payload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round, err error)
 
-// responceProcessor Message.Processor interface registered with cmix.Client.
-// One is registered for each potential fingerprint.
-type responceProcessor struct {
+// responseProcessor is registered for each potential fingerprint. Adheres to
+// the message.Processor interface registered with cmix.Client
+type responseProcessor struct {
 	sendingID receptionID.EphemeralIdentity
 	c         *message.Collator
 	callback  callbackWrapper
@@ -25,7 +25,7 @@ type responceProcessor struct {
 
 // Process decrypts a response part and adds it to the collator - returning
 // a full response to the callback when all parts are received.
-func (rsp *responceProcessor) Process(ecrMsg format.Message,
+func (rsp *responseProcessor) Process(ecrMsg format.Message,
 	receptionID receptionID.EphemeralIdentity,
 	round rounds.Round) {
 

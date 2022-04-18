@@ -67,9 +67,9 @@ func (r Request) String() string {
 }
 
 // Respond is used to respond to the request. It sends a payload up to
-// r.GetMaxResponseLength(). It will chunk the message into multiple
-// cmix messages if it is too long for a single message. It will fail
-// If a single cmix message cannot be sent.
+// Request.GetMaxResponseLength. It will chunk the message into multiple cMix
+// messages if it is too long for a single message. It will fail if a single
+// cMix message cannot be sent.
 func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 	timeout time.Duration) ([]id.Round, error) {
 	// make sure this has only been run once
@@ -79,7 +79,7 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 			"single-use response that has already been responded to.")
 	}
 
-	//check that the payload isn't too long
+	// Check that the payload is not too long
 	if len(payload) > r.GetMaxResponseLength() {
 		return nil, errors.Errorf("length of provided "+
 			"payload too long for message payload capacity, max: %d, "+
@@ -87,10 +87,10 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 			len(payload))
 	}
 
-	//partition the payload
+	// Partition the payload
 	parts := partitionResponse(payload, r.net.GetMaxMessageLength(), r.maxParts)
 
-	//encrypt and send the partitions
+	// Encrypt and send the partitions
 	cyphers := makeCyphers(r.dhKey, uint8(len(parts)))
 	rounds := make([]id.Round, len(parts))
 	sendResults := make(chan ds.EventReturn, len(parts))
@@ -104,7 +104,7 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 
 	svc := cmixMsg.Service{
 		Identifier: r.dhKey.Bytes(),
-		Tag:        "single.response-dummyservice",
+		Tag:        "single.response-dummyService",
 		Metadata:   nil,
 	}
 
@@ -136,7 +136,7 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 
 	if failed > 0 {
 		return nil, errors.Errorf("One or more send failed for the " +
-			"response, the response will be handleable and will timeout")
+			"response, the response will be handleable and will time out")
 	}
 
 	jww.DEBUG.Printf("Sent %d single-use response CMIX messages to %s.",
@@ -151,7 +151,8 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 	}
 
 	// Wait until the result tracking responds
-	success, numRoundFail, numTimeOut := cmix.TrackResults(sendResults, len(roundMap))
+	success, numRoundFail, numTimeOut := cmix.TrackResults(
+		sendResults, len(roundMap))
 	if !success {
 
 		return nil, errors.Errorf("tracking results of %d rounds: %d round "+
@@ -159,12 +160,13 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 			len(rounds), numRoundFail, numTimeOut)
 	}
 
-	jww.DEBUG.Printf("Tracked %d single-use response message round(s).", len(roundMap))
+	jww.DEBUG.Printf("Tracked %d single-use response message round(s).",
+		len(roundMap))
 
 	return rounds, nil
 }
 
-// partitionResponse breaks a payload into its sub payloads for sending
+// partitionResponse breaks a payload into its sub payloads for sending.
 func partitionResponse(payload []byte, cmixMessageLength int, maxParts uint8) []message.ResponsePart {
 	responseMsg := message.NewResponsePart(cmixMessageLength)
 

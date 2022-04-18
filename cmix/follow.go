@@ -24,9 +24,11 @@ package cmix
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"sync/atomic"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID/store"
 	"gitlab.com/elixxir/client/stoppable"
@@ -37,8 +39,6 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync/atomic"
-	"time"
 )
 
 const (
@@ -424,10 +424,12 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 
 // getFakeEarliestRound generates a random earliest round for a fake identity.
 func (c *client) getFakeEarliestRound() id.Round {
-	b, err := csprng.Generate(8, rand.Reader)
+	rng := c.rng.GetStream()
+	b, err := csprng.Generate(8, rng)
 	if err != nil {
-		jww.FATAL.Panicf("Could not get random number: %+v", err)
+		jww.FATAL.Panicf("Could not get random number: %v", err)
 	}
+	rng.Close()
 
 	rangeVal := binary.LittleEndian.Uint64(b) % 800
 

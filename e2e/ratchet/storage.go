@@ -87,7 +87,7 @@ func (r *Ratchet) marshal() ([]byte, error) {
 	contacts := make([]id.ID, len(r.managers))
 
 	index := 0
-	for rid, _ := range r.managers {
+	for rid := range r.managers {
 		contacts[index] = rid
 		index++
 	}
@@ -118,10 +118,10 @@ func (r *Ratchet) unmarshal(b []byte) error {
 				" %s: %s", partnerID, err.Error())
 		}
 
-		if !manager.GetPartnerID().Cmp(partnerID) {
+		if !manager.PartnerId().Cmp(partnerID) {
 			jww.FATAL.Panicf("Loaded manager with the wrong "+
 				"partner ID: \n\t loaded: %s \n\t present: %s",
-				partnerID, manager.GetPartnerID())
+				partnerID, manager.PartnerId())
 		}
 
 		//add services for the manager

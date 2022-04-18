@@ -85,10 +85,10 @@ func (m *Manager) readRequest(msg receive.Message) (gs.Group, error) {
 
 	// Replace leader's public key with the one from the partnership
 	leaderPubKey := membership[0].DhKey.DeepCopy()
-	membership[0].DhKey = partner.GetPartnerOriginPublicKey()
+	membership[0].DhKey = partner.PartnerRootPublicKey()
 
 	// Generate the DH keys with each group member
-	privKey := partner.GetMyOriginPrivateKey()
+	privKey := partner.MyRootPrivateKey()
 	dkl := gs.GenerateDhKeyList(m.receptionId, privKey, membership, m.grp)
 
 	// Restore the original public key for the leader so that the membership

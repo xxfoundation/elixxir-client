@@ -9,7 +9,6 @@ package partner
 
 import (
 	"bytes"
-	"encoding/base64"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -23,7 +22,6 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"golang.org/x/crypto/blake2b"
 )
 
 // Tests happy path of newManager.
@@ -243,10 +241,10 @@ func TestManager_GetKeyForSending_Error(t *testing.T) {
 func TestManager_GetPartnerID(t *testing.T) {
 	m, _ := newTestManager(t)
 
-	pid := m.GetPartnerID()
+	pid := m.PartnerId()
 
 	if !m.partner.Cmp(pid) {
-		t.Errorf("GetPartnerID() returned incorrect partner ID."+
+		t.Errorf("PartnerId() returned incorrect partner ID."+
 			"\n\texpected: %s\n\treceived: %s", m.partner, pid)
 	}
 }
@@ -257,10 +255,10 @@ func TestManager_GetMyID(t *testing.T) {
 
 	m := &manager{myID: myId}
 
-	receivedMyId := m.GetMyID()
+	receivedMyId := m.MyId()
 
 	if !myId.Cmp(receivedMyId) {
-		t.Errorf("GetMyID() returned incorrect partner ID."+
+		t.Errorf("MyId() returned incorrect partner ID."+
 			"\n\texpected: %s\n\treceived: %s", myId, receivedMyId)
 	}
 }
@@ -336,73 +334,11 @@ func TestManager_TriggerNegotiations(t *testing.T) {
 	}
 }
 
-// Unit test of Manager.GetRelationshipFingerprint.
-func TestManager_GetRelationshipFingerprint(t *testing.T) {
-	m, _ := newTestManager(t)
-	m.receive.fingerprint = []byte{5}
-	m.send.fingerprint = []byte{10}
-	h, _ := blake2b.New256(nil)
-	h.Write(append(m.receive.fingerprint, m.send.fingerprint...))
-	expected := base64.StdEncoding.EncodeToString(h.Sum(nil))[:relationshipFpLength]
-
-	fp := m.GetConnectionFingerprint()
-	if fp != expected {
-		t.Errorf("GetConnectionFingerprint did not return the expected "+
-			"fingerprint.\nexpected: %s\nreceived: %s", expected, fp)
-	}
-
-	// Flip the order and show that the output is the same.
-	m.receive.fingerprint, m.send.fingerprint = m.send.fingerprint, m.receive.fingerprint
-
-	fp = m.GetConnectionFingerprint()
-	if fp != expected {
-		t.Errorf("GetConnectionFingerprint did not return the expected "+
-			"fingerprint.\nexpected: %s\nreceived: %s", expected, fp)
-	}
-}
-
-// Tests the consistency of the output of Manager.GetRelationshipFingerprint.
-func TestManager_GetRelationshipFingerprint_Consistency(t *testing.T) {
-	m, _ := newTestManager(t)
-	prng := rand.New(rand.NewSource(42))
-	expectedFps := []string{
-		"GmeTCfxGOqRqeID", "gbpJjHd3tIe8BKy", "2/ZdG+WNzODJBiF",
-		"+V1ySeDLQfQNSkv", "23OMC+rBmCk+gsu", "qHu5MUVs83oMqy8",
-		"kuXqxsezI0kS9Bc", "SlEhsoZ4BzAMTtr", "yG8m6SPQfV/sbTR",
-		"j01ZSSm762TH7mj", "SKFDbFvsPcohKPw", "6JB5HK8DHGwS4uX",
-		"dU3mS1ujduGD+VY", "BDXAy3trbs8P4mu", "I4HoXW45EwWR0oD",
-		"661YH2l2jfOkHbA", "cSS9ZyTOQKVx67a", "ojfubzDIsMNYc/t",
-		"2WrEw83Yz6Rhq9I", "TQILxBIUWMiQS2j", "rEqdieDTXJfCQ6I",
-	}
-
-	for i, expected := range expectedFps {
-		prng.Read(m.receive.fingerprint)
-		prng.Read(m.send.fingerprint)
-
-		fp := m.GetConnectionFingerprint()
-		if fp != expected {
-			t.Errorf("GetConnectionFingerprint did not return the expected "+
-				"fingerprint (%d).\nexpected: %s\nreceived: %s", i, expected, fp)
-		}
-
-		// Flip the order and show that the output is the same.
-		m.receive.fingerprint, m.send.fingerprint = m.send.fingerprint, m.receive.fingerprint
-
-		fp = m.GetConnectionFingerprint()
-		if fp != expected {
-			t.Errorf("GetConnectionFingerprint did not return the expected "+
-				"fingerprint (%d).\nexpected: %s\nreceived: %s", i, expected, fp)
-		}
-
-		// fmt.Printf("\"%s\",\n", fp) // Uncomment to reprint expected values
-	}
-}
-
 func TestManager_MakeService(t *testing.T) {
 	m, _ := newTestManager(t)
 	tag := "hunter2"
 	expected := message.Service{
-		Identifier: m.GetConnectionFingerprintBytes(),
+		Identifier: m.ConnectionFingerprint().Bytes(),
 		Tag:        tag,
 		Metadata:   m.partner[:],
 	}

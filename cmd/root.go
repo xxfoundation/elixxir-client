@@ -13,8 +13,10 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"gitlab.com/elixxir/client/cmix"
+	"io/fs"
 	"io/ioutil"
 	"log"
 	"os"
@@ -536,7 +538,7 @@ func createClient() *api.Client {
 	backupPass := []byte(viper.GetString("backupPass"))
 
 	// create a new client if none exist
-	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
+	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Load NDF
 		ndfJSON, err := ioutil.ReadFile(viper.GetString("ndf"))
 		if err != nil {

@@ -45,37 +45,37 @@ func makeTestRatchet() (*Ratchet, *versioned.KV, error) {
 
 func managersEqual(expected, received partner.Manager, t *testing.T) bool {
 	equal := true
-	if !reflect.DeepEqual(expected.GetPartnerID(), received.GetPartnerID()) {
+	if !reflect.DeepEqual(expected.PartnerId(), received.PartnerId()) {
 		t.Errorf("Did not Receive expected Manager.partnerID."+
 			"\n\texpected: %+v\n\treceived: %+v",
-			expected.GetPartnerID(), received.GetPartnerID())
+			expected.PartnerId(), received.PartnerId())
 		equal = false
 	}
 
-	if !strings.EqualFold(expected.GetConnectionFingerprint(), received.GetConnectionFingerprint()) {
+	if !strings.EqualFold(expected.ConnectionFingerprint(), received.ConnectionFingerprint()) {
 		t.Errorf("Did not Receive expected Manager.Receive."+
 			"\n\texpected: %+v\n\treceived: %+v",
-			expected.GetConnectionFingerprint(), received.GetConnectionFingerprint())
+			expected.ConnectionFingerprint(), received.ConnectionFingerprint())
 		equal = false
 	}
-	if !reflect.DeepEqual(expected.GetMyID(), received.GetMyID()) {
+	if !reflect.DeepEqual(expected.MyId(), received.MyId()) {
 		t.Errorf("Did not Receive expected Manager.myId."+
 			"\n\texpected: %+v\n\treceived: %+v",
-			expected.GetMyID(), received.GetPartnerID())
+			expected.MyId(), received.PartnerId())
 		equal = false
 	}
 
-	if !reflect.DeepEqual(expected.GetMyOriginPrivateKey(), received.GetMyOriginPrivateKey()) {
+	if !reflect.DeepEqual(expected.MyRootPrivateKey(), received.MyRootPrivateKey()) {
 		t.Errorf("Did not Receive expected Manager.MyPrivateKey."+
 			"\n\texpected: %+v\n\treceived: %+v",
-			expected.GetMyOriginPrivateKey(), received.GetMyOriginPrivateKey())
+			expected.MyRootPrivateKey(), received.MyRootPrivateKey())
 		equal = false
 	}
 
-	if !reflect.DeepEqual(expected.GetSendRelationshipFingerprint(), received.GetSendRelationshipFingerprint()) {
+	if !reflect.DeepEqual(expected.SendRelationshipFingerprint(), received.SendRelationshipFingerprint()) {
 		t.Errorf("Did not Receive expected Manager.SendRelationshipFingerprint."+
 			"\n\texpected: %+v\n\treceived: %+v",
-			expected.GetSendRelationshipFingerprint(), received.GetSendRelationshipFingerprint())
+			expected.SendRelationshipFingerprint(), received.SendRelationshipFingerprint())
 		equal = false
 	}
 

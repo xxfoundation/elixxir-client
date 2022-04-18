@@ -248,7 +248,7 @@ func (r *relationship) GetNewest() *session.Session {
 	return r.sessions[0]
 }
 
-// returns the key  which is most likely to be successful for sending
+// returns the key which is most likely to be successful for sending
 func (r *relationship) getKeyForSending() (*session.Cypher, error) {
 	r.sendMux.Lock()
 	defer r.sendMux.Unlock()
@@ -311,11 +311,9 @@ func (r *relationship) getSessionForSending() *session.Session {
 	return nil
 }
 
-// todo - doscstring
-// returns a list of session that need rekeys. Nil instances mean a new rekey
-// from scratch
+// TriggerNegotiation returns a list of session that need rekeys. Nil instances mean a new rekey from scratch
 func (r *relationship) TriggerNegotiation() []*session.Session {
-	//dont need to take the lock due to the use of a copy of the buffer
+	// Don't need to take the lock due to the use of a copy of the buffer
 	sessions := r.getInternalBufferShallowCopy()
 	var instructions []*session.Session
 	for _, ses := range sessions {
@@ -379,10 +377,7 @@ func (r *relationship) GetByID(id session.SessionID) *session.Session {
 	return r.sessionByID[id]
 }
 
-// todo - doscstring
-// sets the passed session ID as confirmed. Call "GetSessionRotation" after
-// to get any sessions that are to be deleted and then "DeleteSession" to
-// remove them
+// Confirm sets the passed session ID as confirmed and cleans up old sessions
 func (r *relationship) Confirm(id session.SessionID) error {
 	r.mux.Lock()
 	defer r.mux.Unlock()
@@ -409,7 +404,7 @@ func (r *relationship) getInternalBufferShallowCopy() []*session.Session {
 	return r.sessions
 }
 
-// todo - doscstring
+// clean deletes old confirmed sessions
 func (r *relationship) clean() {
 
 	numConfirmed := uint(0)
@@ -420,7 +415,7 @@ func (r *relationship) clean() {
 	for _, s := range r.sessions {
 		if s.IsConfirmed() {
 			numConfirmed++
-			//if the number of newer confirmed is
+			// if the number of newer confirmed is
 			// sufficient, delete the confirmed
 			if numConfirmed > maxUnconfirmed {
 				delete(r.sessionByID, s.GetID())
@@ -432,7 +427,7 @@ func (r *relationship) clean() {
 		newSessions = append(newSessions, s)
 	}
 
-	//only do the update and save if changes occured
+	//only do the update and save if changes occurred
 	if editsMade {
 		r.sessions = newSessions
 

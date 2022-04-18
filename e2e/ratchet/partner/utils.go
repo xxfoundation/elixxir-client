@@ -36,39 +36,39 @@ func NewTestManager(partnerId *id.ID, partnerPubKey, myPrivKey *cyclic.Int, t *t
 	return &testManager{partnerId: partnerId, partnerPubKey: partnerPubKey, myPrivKey: myPrivKey}
 }
 
-func (p *testManager) GetPartnerID() *id.ID {
+func (p *testManager) PartnerId() *id.ID {
 	return p.partnerId
 }
 
-func (p *testManager) GetMyID() *id.ID {
+func (p *testManager) MyId() *id.ID {
 	panic("implement me")
 }
 
-func (p *testManager) GetMyOriginPrivateKey() *cyclic.Int {
+func (p *testManager) MyRootPrivateKey() *cyclic.Int {
 	return p.myPrivKey
 }
 
-func (p *testManager) GetPartnerOriginPublicKey() *cyclic.Int {
+func (p *testManager) PartnerRootPublicKey() *cyclic.Int {
 	return p.partnerPubKey
 }
 
-func (p *testManager) GetSendRelationshipFingerprint() []byte {
+func (p *testManager) SendRelationshipFingerprint() []byte {
 	panic("implement me")
 }
 
-func (p *testManager) GetReceiveRelationshipFingerprint() []byte {
+func (p *testManager) ReceiveRelationshipFingerprint() []byte {
 	panic("implement me")
 }
 
-func (p *testManager) GetConnectionFingerprintBytes() []byte {
+func (p *testManager) ConnectionFingerprintBytes() []byte {
 	panic("implement me")
 }
 
-func (p *testManager) GetConnectionFingerprint() string {
+func (p *testManager) ConnectionFingerprint() string {
 	panic("implement me")
 }
 
-func (p *testManager) GetContact() contact.Contact {
+func (p *testManager) Contact() contact.Contact {
 	panic("implement me")
 }
 

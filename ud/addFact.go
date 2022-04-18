@@ -21,6 +21,8 @@ import (
 // called along with the code to finalize the fact.
 func (m *Manager) SendRegisterFact(f fact.Fact) (string, error) {
 	jww.INFO.Printf("ud.SendRegisterFact(%s)", f.Stringify())
+	m.factMux.Lock()
+	defer m.factMux.Unlock()
 	return m.addFact(f, m.e2e.GetReceptionID(), m.comms)
 }
 

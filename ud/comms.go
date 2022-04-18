@@ -46,7 +46,7 @@ type removeFactComms interface {
 }
 
 // removeUserComms is a sub-interface of the Comms interface for the
-// removeUser comm.
+// permanentDeleteAccount comm.
 type removeUserComms interface {
 	SendRemoveUser(host *connect.Host, message *pb.FactRemovalRequest) (*messages.Ack, error)
 }

@@ -37,14 +37,14 @@ func TestManager_confirmFact(t *testing.T) {
 
 	// Create our Manager object
 	m := &Manager{
-		services: newTestNetworkManager(t),
-		e2e:      mockE2e{},
-		events:   event.NewEventManager(),
-		user:     storageSess,
-		comms:    &mockComms{},
-		store:    udStore,
-		kv:       kv,
-		rng:      fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		network: newTestNetworkManager(t),
+		e2e:     mockE2e{},
+		events:  event.NewEventManager(),
+		user:    storageSess,
+		comms:   &mockComms{},
+		store:   udStore,
+		kv:      kv,
+		rng:     fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 	}
 
 	c := &testComm{}

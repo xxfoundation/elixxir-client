@@ -18,7 +18,8 @@ import (
 // associated with this client.
 func (m *Manager) RemoveFact(f fact.Fact) error {
 	jww.INFO.Printf("ud.RemoveFact(%s)", f.Stringify())
-
+	m.factMux.Lock()
+	defer m.factMux.Unlock()
 	return m.removeFact(f, m.comms)
 }
 
@@ -65,12 +66,12 @@ func (m *Manager) removeFact(f fact.Fact,
 	return m.store.DeleteFact(f)
 }
 
-// RemoveUser removes a previously confirmed fact.
+// PermanentDeleteAccount removes a previously confirmed fact.
 // This call will fail if the fact is not associated with this client.
-func (m *Manager) RemoveUser(f fact.Fact) error {
-	jww.INFO.Printf("ud.RemoveUser(%s)", f.Stringify())
+func (m *Manager) PermanentDeleteAccount(f fact.Fact) error {
+	jww.INFO.Printf("ud.PermanentDeleteAccount(%s)", f.Stringify())
 	if f.T != fact.Username {
-		return errors.New(fmt.Sprintf("RemoveUser must only remove "+
+		return errors.New(fmt.Sprintf("PermanentDeleteAccount must only remove "+
 			"a username. Cannot remove fact %q", f.Fact))
 	}
 
@@ -80,10 +81,10 @@ func (m *Manager) RemoveUser(f fact.Fact) error {
 	}
 	privKey := m.user.PortableUserInfo().ReceptionRSA
 
-	return m.removeUser(f, m.e2e.GetReceptionID(), privKey, m.comms, udHost)
+	return m.permanentDeleteAccount(f, m.e2e.GetReceptionID(), privKey, m.comms, udHost)
 }
 
-func (m *Manager) removeUser(f fact.Fact, myId *id.ID, privateKey *rsa.PrivateKey,
+func (m *Manager) permanentDeleteAccount(f fact.Fact, myId *id.ID, privateKey *rsa.PrivateKey,
 	rFC removeUserComms, udHost *connect.Host) error {
 
 	// Construct the message to send

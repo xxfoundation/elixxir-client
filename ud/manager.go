@@ -6,7 +6,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/storage/versioned"
 	store "gitlab.com/elixxir/client/ud/store"
@@ -16,52 +15,68 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"math"
+	"sync"
 	"time"
 )
 
-// todo: newuserDiscRegistratration, loadUserDiscRegistration
-//  neworLoad?
-// fixme: search/lookup off ud object
-//  shouldn't be, pass stuff into
-//
-
-// ud takes an interface to backup to store dep loop
-
+// todo: docstring everything, go over everything. review existing
+//  and rewrie
 type Manager struct {
 	// refactored
 	// todo: docsting on what it is, why it's needed. For all things
 	//  in this object and the object itself
-	services cmix.Client
-	e2e      e2e.Handler
-	events   event.Reporter
-	store    *store.Store
 
-	// todo: find a way to remove this, maybe just pass user into object (?)
+	// Network is a sub-interface of the cmix.Client interface. It
+	// allows the Manager to retrieve network state.
+	network cmix.Client
+
+	// e2e is a sub-interface of the e2e.Handler. It allows the Manager
+	// to retrieve the client's E2E information.
+	e2e E2E
+
+	// events allows the Manager to report events to the other
+	// levels of the client.
+	events event.Reporter
+
+	// store is an instantiation of this package's storage object.
+	// It contains the facts that are in some state of being registered
+	// with the UD service
+	store *store.Store
+
+	// user is a sub-interface of the user.User object in the storage package.
+	// This allows the Manager to pull user information for registration
+	// and verifying the client's identity
 	user UserInfo
 
+	// comms is a sub-interface of the client.Comms interface. It contains
+	// gRPC functions for registering and fact operations.
 	comms Comms
-	rng   *fastRNG.StreamGenerator
 
+	// rng is a random number generator. This is used for cryptographic
+	// signature operations.
+	rng *fastRNG.StreamGenerator
+
+	// kv is a versioned key-value store
+	// fixme: this is used for isRegistered and setRegistered
+	//  which should be moved to store if possible (prefixing might break this?)
 	kv *versioned.KV
 
-	// alternate User discovery service to circumvent production
-	alternativeUd *alternateUd
-}
+	// factMux is to be used for Add/Remove fact.Fact operations.
+	// This prevents simultaneous calls to Add/Remove calls which
+	// may cause unexpected behaviour.
+	factMux sync.Mutex
 
-// alternateUd is an alternative user discovery service.
-// This is used for testing, so client can avoid using
-// the production server.
-type alternateUd struct {
-	host     *connect.Host
-	dhPubKey []byte
+	// alternativeUd is an alternate User discovery service to circumvent
+	// production. This is for testing with a separately deployed UD service.
+	alternativeUd *alternateUd
 }
 
 // NewManager builds a new user discovery manager.
 // It requires that an updated
 // NDF is available and will error if one is not.
-func NewManager(services cmix.Client, e2e e2e.Handler,
+func NewManager(services cmix.Client, e2e E2E,
 	follower NetworkStatus,
-	events *event.Manager, comms Comms, userStore UserInfo,
+	events event.Reporter, comms Comms, userStore UserInfo,
 	rng *fastRNG.StreamGenerator, username string,
 	kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
@@ -77,18 +92,18 @@ func NewManager(services cmix.Client, e2e e2e.Handler,
 	}
 
 	m := &Manager{
-		services: services,
-		e2e:      e2e,
-		events:   events,
-		comms:    comms,
-		rng:      rng,
-		store:    udStore,
-		user:     userStore,
-		kv:       kv,
+		network: services,
+		e2e:     e2e,
+		events:  events,
+		comms:   comms,
+		rng:     rng,
+		store:   udStore,
+		user:    userStore,
+		kv:      kv,
 	}
 
 	// check that user discovery is available in the NDF
-	def := m.services.GetInstance().GetPartialNdf().Get()
+	def := m.network.GetInstance().GetPartialNdf().Get()
 
 	if def.UDB.Cert == "" {
 		return nil, errors.New("NDF does not have User Discovery " +
@@ -122,8 +137,8 @@ func NewManager(services cmix.Client, e2e e2e.Handler,
 // It will construct a manager that is already registered and restore
 // already registered facts into store.
 func NewManagerFromBackup(services cmix.Client,
-	e2e e2e.Handler, follower NetworkStatus,
-	events *event.Manager, comms Comms,
+	e2e E2E, follower NetworkStatus,
+	events event.Reporter, comms Comms,
 	userStore UserInfo, rng *fastRNG.StreamGenerator,
 	email, phone fact.Fact, kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
@@ -134,13 +149,13 @@ func NewManagerFromBackup(services cmix.Client,
 	}
 
 	m := &Manager{
-		services: services,
-		e2e:      e2e,
-		events:   events,
-		comms:    comms,
-		user:     userStore,
-		rng:      rng,
-		kv:       kv,
+		network: services,
+		e2e:     e2e,
+		events:  events,
+		comms:   comms,
+		user:    userStore,
+		rng:     rng,
+		kv:      kv,
 	}
 
 	udStore, err := store.NewOrLoadStore(kv)
@@ -157,7 +172,7 @@ func NewManagerFromBackup(services cmix.Client,
 	}
 
 	// check that user discovery is available in the NDF
-	def := m.services.GetInstance().GetPartialNdf().Get()
+	def := m.network.GetInstance().GetPartialNdf().Get()
 
 	if def.UDB.Cert == "" {
 		return nil, errors.New("NDF does not have User Discovery information, " +
@@ -183,18 +198,18 @@ func NewManagerFromBackup(services cmix.Client,
 	return m, nil
 }
 
-func LoadManager(services cmix.Client, e2e e2e.Handler,
-	events *event.Manager, comms Comms, userStore UserInfo,
+func LoadManager(services cmix.Client, e2e E2E,
+	events event.Reporter, comms Comms, userStore UserInfo,
 	rng *fastRNG.StreamGenerator, kv *versioned.KV) (*Manager, error) {
 
 	m := &Manager{
-		services: services,
-		e2e:      e2e,
-		events:   events,
-		comms:    comms,
-		user:     userStore,
-		rng:      rng,
-		kv:       kv,
+		network: services,
+		e2e:     e2e,
+		events:  events,
+		comms:   comms,
+		user:    userStore,
+		rng:     rng,
+		kv:      kv,
 	}
 
 	if !m.isRegistered() {
@@ -210,52 +225,6 @@ func LoadManager(services cmix.Client, e2e e2e.Handler,
 	m.store = udStore
 
 	return m, err
-}
-
-// SetAlternativeUserDiscovery sets the alternativeUd object within manager.
-// Once set, any user discovery operation will go through the alternative
-// user discovery service.
-// To undo this operation, use UnsetAlternativeUserDiscovery.
-func (m *Manager) SetAlternativeUserDiscovery(altCert, altAddress,
-	contactFile []byte) error {
-	params := connect.GetDefaultHostParams()
-	params.AuthEnabled = false
-
-	udIdBytes, dhPubKey, err := contact.ReadContactFromFile(contactFile)
-	if err != nil {
-		return err
-	}
-
-	udID, err := id.Unmarshal(udIdBytes)
-	if err != nil {
-		return err
-	}
-
-	// Add a new host and return it if it does not already exist
-	host, err := m.comms.AddHost(udID, string(altAddress),
-		altCert, params)
-	if err != nil {
-		return errors.WithMessage(err, "User Discovery host object could "+
-			"not be constructed.")
-	}
-
-	m.alternativeUd = &alternateUd{
-		host:     host,
-		dhPubKey: dhPubKey,
-	}
-
-	return nil
-}
-
-// UnsetAlternativeUserDiscovery clears out the information from
-// the Manager object.
-func (m *Manager) UnsetAlternativeUserDiscovery() error {
-	if m.alternativeUd == nil {
-		return errors.New("Alternative User Discovery is already unset.")
-	}
-
-	m.alternativeUd = nil
-	return nil
 }
 
 // GetFacts returns a list of fact.Fact objects that exist within the
@@ -292,7 +261,7 @@ func (m *Manager) GetContact() (contact.Contact, error) {
 		}, nil
 	}
 
-	netDef := m.services.GetInstance().GetPartialNdf().Get()
+	netDef := m.network.GetInstance().GetPartialNdf().Get()
 
 	// Unmarshal UD ID from the NDF
 	udID, err := id.Unmarshal(netDef.UDB.ID)
@@ -300,6 +269,8 @@ func (m *Manager) GetContact() (contact.Contact, error) {
 		return contact.Contact{},
 			errors.Errorf("failed to unmarshal UD ID from NDF: %+v", err)
 	}
+
+	fmt.Printf("netDef ud dhpub: %v\n", netDef.UDB.DhPubKey)
 
 	// Unmarshal UD DH public key
 	dhPubKey := grp.NewInt(1)
@@ -325,7 +296,7 @@ func (m *Manager) getOrAddUdHost() (*connect.Host, error) {
 		return m.alternativeUd.host, nil
 	}
 
-	netDef := m.services.GetInstance().GetPartialNdf().Get()
+	netDef := m.network.GetInstance().GetPartialNdf().Get()
 	// Unmarshal UD ID from the NDF
 	udID, err := id.Unmarshal(netDef.UDB.ID)
 	if err != nil {

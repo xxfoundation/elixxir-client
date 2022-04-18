@@ -215,7 +215,7 @@ var udCmd = &cobra.Command{
 				jww.FATAL.Panicf(
 					"Failed to create new fact: %+v", err)
 			}
-			err = userDiscoveryMgr.RemoveUser(f)
+			err = userDiscoveryMgr.PermanentDeleteAccount(f)
 			if err != nil {
 				fmt.Printf("Couldn't remove user %s\n",
 					userToRemove)

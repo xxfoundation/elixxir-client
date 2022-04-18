@@ -169,16 +169,16 @@ func (ud *UserDiscovery) RemoveFact(fStr string) error {
 	return ud.ud.RemoveFact(f)
 }
 
-// RemoveUser deletes a user. The fact sent must be the username.
+// PermanentDeleteAccount deletes a user. The fact sent must be the username.
 // This function preserves the username forever and makes it
 // unusable.
-func (ud *UserDiscovery) RemoveUser(fStr string) error {
+func (ud *UserDiscovery) PermanentDeleteAccount(fStr string) error {
 	f, err := fact.UnstringifyFact(fStr)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to remove due to "+
 			"malformed fact")
 	}
-	return ud.ud.RemoveUser(f)
+	return ud.ud.PermanentDeleteAccount(f)
 }
 
 // SearchCallback returns the result of a search

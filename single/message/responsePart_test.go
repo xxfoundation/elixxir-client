@@ -9,23 +9,23 @@ package message
 
 import (
 	"bytes"
+	"fmt"
 	"math/rand"
 	"reflect"
-	"strings"
 	"testing"
 )
 
 // Happy path.
-func Test_newResponseMessagePart(t *testing.T) {
+func Test_NewResponsePart(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	payloadSize := prng.Intn(2000)
 	expected := ResponsePart{
 		data:     make([]byte, payloadSize),
-		version:  make([]byte, receptionMessageVersionLen),
-		partNum:  make([]byte, partNumLen),
-		maxParts: make([]byte, maxPartsLen),
-		size:     make([]byte, sizeSize),
-		contents: make([]byte, payloadSize-partNumLen-maxPartsLen-sizeSize-receptionMessageVersionLen),
+		version:  make([]byte, resPartVersionLen),
+		partNum:  make([]byte, resPartPartNumLen),
+		maxParts: make([]byte, resPartMaxPartsLen),
+		size:     make([]byte, resPartSizeLen),
+		contents: make([]byte, payloadSize-resPartMinSize),
 	}
 
 	rmp := NewResponsePart(payloadSize)
@@ -37,21 +37,23 @@ func Test_newResponseMessagePart(t *testing.T) {
 }
 
 // Error path: provided contents size is not large enough.
-func Test_newResponseMessagePart_PayloadSizeError(t *testing.T) {
-	expectedErr := "size of external payload"
+func Test_NewResponsePart_PayloadSizeError(t *testing.T) {
+	externalPayloadSize := 1
+	expectedErr := fmt.Sprintf(
+		errResPartPayloadSize, externalPayloadSize, resPartMinSize)
 	defer func() {
-		if r := recover(); r == nil || !strings.Contains(r.(string), expectedErr) {
+		if r := recover(); r == nil || r != expectedErr {
 			t.Errorf("NewResponsePart did not panic with the expected error "+
 				"when the size of the payload is smaller than the required "+
 				"size.\nexpected: %s\nreceived: %+v", expectedErr, r)
 		}
 	}()
 
-	_ = NewResponsePart(1)
+	_ = NewResponsePart(externalPayloadSize)
 }
 
 // Happy path.
-func Test_mapResponseMessagePart(t *testing.T) {
+func Test_mapResponsePart(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	expectedVersion := uint8(0)
 	expectedPartNum := uint8(prng.Uint32())
@@ -88,7 +90,7 @@ func Test_mapResponseMessagePart(t *testing.T) {
 }
 
 // Happy path.
-func TestResponseMessagePart_Marshal_Unmarshal(t *testing.T) {
+func TestResponsePart_Marshal_UnmarshalResponsePart(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	payload := make([]byte, prng.Intn(2000))
 	prng.Read(payload)
@@ -96,9 +98,9 @@ func TestResponseMessagePart_Marshal_Unmarshal(t *testing.T) {
 
 	data := rmp.Marshal()
 
-	newRmp, err := UnmarshalResponse(data)
+	newRmp, err := UnmarshalResponsePart(data)
 	if err != nil {
-		t.Errorf("UnmarshalResponse produced an error: %+v", err)
+		t.Errorf("UnmarshalResponsePart produced an error: %+v", err)
 	}
 
 	if !reflect.DeepEqual(rmp, newRmp) {
@@ -108,16 +110,19 @@ func TestResponseMessagePart_Marshal_Unmarshal(t *testing.T) {
 }
 
 // Error path: provided bytes are too small.
-func Test_unmarshalResponseMessage(t *testing.T) {
-	_, err := UnmarshalResponse([]byte{1})
-	if err == nil {
-		t.Error("UnmarshalResponse did not produce an error when the " +
-			"byte slice is smaller required.")
+func Test_UnmarshalResponsePart_Error(t *testing.T) {
+	data := []byte{1}
+	expectedErr := fmt.Sprintf(errResPartDataSize, len(data), resPartMinSize)
+	_, err := UnmarshalResponsePart([]byte{1})
+	if err == nil || err.Error() != expectedErr {
+		t.Errorf("UnmarshalResponsePart did not produce the expected error "+
+			"when the byte slice is smaller required."+
+			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
 
 // Happy path.
-func TestResponseMessagePart_SetPartNum_GetPartNum(t *testing.T) {
+func TestResponsePart_SetPartNum_GetPartNum(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	expectedPartNum := uint8(prng.Uint32())
 	rmp := NewResponsePart(prng.Intn(2000))
@@ -131,7 +136,7 @@ func TestResponseMessagePart_SetPartNum_GetPartNum(t *testing.T) {
 }
 
 // Happy path.
-func TestResponseMessagePart_SetMaxParts_GetMaxParts(t *testing.T) {
+func TestResponsePart_SetMaxParts_GetMaxParts(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	expectedMaxParts := uint8(prng.Uint32())
 	rmp := NewResponsePart(prng.Intn(2000))
@@ -145,10 +150,10 @@ func TestResponseMessagePart_SetMaxParts_GetMaxParts(t *testing.T) {
 }
 
 // Happy path.
-func TestResponseMessagePart_SetContents_GetContents_GetContentsSize_GetMaxContentsSize(t *testing.T) {
+func TestResponsePart_SetContents_GetContents_GetContentsSize_GetMaxContentsSize(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	externalPayloadSize := prng.Intn(2000)
-	contentSize := externalPayloadSize - responseMinSize - 10
+	contentSize := externalPayloadSize - resPartMinSize - 10
 	expectedContents := make([]byte, contentSize)
 	prng.Read(expectedContents)
 	rmp := NewResponsePart(externalPayloadSize)
@@ -164,24 +169,26 @@ func TestResponseMessagePart_SetContents_GetContents_GetContentsSize_GetMaxConte
 			"\nexpected: %d\nrecieved: %d", contentSize, rmp.GetContentsSize())
 	}
 
-	if externalPayloadSize-responseMinSize != rmp.GetMaxContentsSize() {
+	if externalPayloadSize-resPartMinSize != rmp.GetMaxContentsSize() {
 		t.Errorf("GetMaxContentsSize failed to return the expected max "+
 			"contents size.\nexpected: %d\nrecieved: %d",
-			externalPayloadSize-responseMinSize, rmp.GetMaxContentsSize())
+			externalPayloadSize-resPartMinSize, rmp.GetMaxContentsSize())
 	}
 }
 
 // Error path: size of supplied contents does not match message contents size.
-func TestResponseMessagePart_SetContents_ContentsSizeError(t *testing.T) {
-	expectedErr := "max size of message contents"
+func TestResponsePart_SetContents_ContentsSizeError(t *testing.T) {
+	payloadSize, contentsLen := 255, 500
+	expectedErr := fmt.Sprintf(
+		errResPartContentsSize, contentsLen, payloadSize-resPartMinSize)
 	defer func() {
-		if r := recover(); r == nil || !strings.Contains(r.(string), expectedErr) {
+		if r := recover(); r == nil || r != expectedErr {
 			t.Errorf("SetContents did not panic with the expected error when "+
 				"the size of the supplied bytes is larger than the content "+
 				"size.\nexpected: %s\nreceived: %+v", expectedErr, r)
 		}
 	}()
 
-	rmp := NewResponsePart(255)
-	rmp.SetContents(make([]byte, 500))
+	rmp := NewResponsePart(payloadSize)
+	rmp.SetContents(make([]byte, contentsLen))
 }

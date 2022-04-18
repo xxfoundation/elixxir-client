@@ -10,6 +10,7 @@ package message
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/elixxir/primitives/format"
@@ -21,15 +22,15 @@ import (
 )
 
 // Happy path.
-func Test_newTransmitMessage(t *testing.T) {
+func TestNewRequest(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	externalPayloadSize := prng.Intn(2000)
 	pubKeySize := prng.Intn(externalPayloadSize)
 	expected := Request{
 		data:    make([]byte, externalPayloadSize),
-		version: make([]byte, transmitMessageVersionSize),
+		version: make([]byte, requestVersionSize),
 		pubKey:  make([]byte, pubKeySize),
-		payload: make([]byte, externalPayloadSize-pubKeySize-transmitMessageVersionSize),
+		payload: make([]byte, externalPayloadSize-pubKeySize-requestVersionSize),
 	}
 
 	m := NewRequest(externalPayloadSize, pubKeySize)
@@ -41,19 +42,23 @@ func Test_newTransmitMessage(t *testing.T) {
 }
 
 // Error path: public key size is larger than external payload size.
-func Test_newTransmitMessage_PubKeySizeError(t *testing.T) {
+func TestNewRequest_PubKeySizeError(t *testing.T) {
+	externalPayloadSize, pubKeySize := 5, 10
+	expectedErr := fmt.Sprintf(
+		errNewReqPayloadSize, externalPayloadSize, pubKeySize)
 	defer func() {
-		if r := recover(); r == nil || !strings.Contains(r.(string), "Payload size") {
-			t.Error("NewRequest did not panic when the size of " +
-				"the payload is smaller than the size of the public key.")
+		if r := recover(); r == nil || r != expectedErr {
+			t.Errorf("NewRequest did not panic with the expected error when " +
+				"the size of the payload is smaller than the size of the " +
+				"public key.")
 		}
 	}()
 
-	_ = NewRequest(5, 10)
+	_ = NewRequest(externalPayloadSize, pubKeySize)
 }
 
 // Happy path.
-func Test_mapTransmitMessage(t *testing.T) {
+func Test_mapRequest(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	externalPayloadSize := prng.Intn(2000)
 	pubKeySize := prng.Intn(externalPayloadSize)
@@ -85,7 +90,7 @@ func Test_mapTransmitMessage(t *testing.T) {
 }
 
 // Happy path.
-func TestTransmitMessage_Marshal_Unmarshal(t *testing.T) {
+func TestRequest_Marshal_UnmarshalRequest(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	externalPayloadSize := prng.Intn(2000)
 	pubKeySize := prng.Intn(externalPayloadSize)
@@ -107,7 +112,7 @@ func TestTransmitMessage_Marshal_Unmarshal(t *testing.T) {
 }
 
 // Error path: public key size is larger than byte slice.
-func Test_unmarshalTransmitMessage_PubKeySizeError(t *testing.T) {
+func Test_UnmarshalRequest_PubKeySizeError(t *testing.T) {
 	_, err := UnmarshalRequest([]byte{1, 2, 3}, 5)
 	if err == nil {
 		t.Error("unmarshalRequest did not produce an error when the " +
@@ -116,7 +121,7 @@ func Test_unmarshalTransmitMessage_PubKeySizeError(t *testing.T) {
 }
 
 // Happy path.
-func TestTransmitMessage_SetPubKey_GetPubKey_GetPubKeySize(t *testing.T) {
+func TestRequest_SetPubKey_GetPubKey_GetPubKeySize(t *testing.T) {
 	grp := getGroup()
 	pubKey := grp.NewInt(5)
 	pubKeySize := 10
@@ -136,11 +141,11 @@ func TestTransmitMessage_SetPubKey_GetPubKey_GetPubKeySize(t *testing.T) {
 	}
 }
 
-func TestTransmitMessage_SetPayload_GetPayload_GetPayloadSize(t *testing.T) {
+func TestRequest_SetPayload_GetPayload_GetPayloadSize(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	externalPayloadSize := prng.Intn(2000)
 	pubKeySize := prng.Intn(externalPayloadSize)
-	payloadSize := externalPayloadSize - pubKeySize - transmitMessageVersionSize
+	payloadSize := externalPayloadSize - pubKeySize - requestVersionSize
 	payload := make([]byte, payloadSize)
 	prng.Read(payload)
 	m := NewRequest(externalPayloadSize, pubKeySize)
@@ -160,10 +165,13 @@ func TestTransmitMessage_SetPayload_GetPayload_GetPayloadSize(t *testing.T) {
 }
 
 // Error path: supplied payload is not the same size as message payload.
-func TestTransmitMessage_SetPayload_PayloadSizeError(t *testing.T) {
-	expectedErr := "is not the same as the size"
+func TestRequest_SetPayload_PayloadSizeError(t *testing.T) {
+	m := NewRequest(255, 10)
+	payload := []byte{5}
+	expectedErr := fmt.Sprintf(errReqPayloadSize, len(m.payload), len(payload))
+
 	defer func() {
-		if r := recover(); r == nil || !strings.Contains(r.(string), expectedErr) {
+		if r := recover(); r == nil || r != expectedErr {
 			t.Errorf("SetContents did not panic with the expected error when "+
 				"the size of supplied contents is not the same size as "+
 				"message contents.\nexpected: %s\nreceived: %+v",
@@ -171,12 +179,11 @@ func TestTransmitMessage_SetPayload_PayloadSizeError(t *testing.T) {
 		}
 	}()
 
-	m := NewRequest(255, 10)
-	m.SetPayload([]byte{5})
+	m.SetPayload(payload)
 }
 
 // Happy path.
-func Test_newTransmitMessagePayload(t *testing.T) {
+func TestNewRequestPayload(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	payloadSize := prng.Intn(2000)
 	expected := RequestPayload{
@@ -185,17 +192,17 @@ func Test_newTransmitMessagePayload(t *testing.T) {
 		numRequestParts:  make([]byte, numRequestPartsSize),
 		maxResponseParts: make([]byte, maxResponsePartsSize),
 		size:             make([]byte, sizeSize),
-		contents:         make([]byte, payloadSize-transmitPlMinSize),
+		contents:         make([]byte, payloadSize-requestMinSize),
 	}
 	expected.numRequestParts[0] = 1
-	binary.BigEndian.PutUint16(expected.size, uint16(payloadSize-transmitPlMinSize))
+	binary.BigEndian.PutUint16(expected.size, uint16(payloadSize-requestMinSize))
 	expected.SetMaxResponseParts(10)
 	expected.data = append(expected.nonce,
 		append(expected.numRequestParts,
 			append(expected.maxResponseParts,
 				append(expected.size, expected.contents...)...)...)...)
 
-	payload := make([]byte, payloadSize-transmitPlMinSize)
+	payload := make([]byte, payloadSize-requestMinSize)
 	mp := NewRequestPayload(payloadSize, payload, 10)
 
 	if !reflect.DeepEqual(expected, mp) {
@@ -205,16 +212,7 @@ func Test_newTransmitMessagePayload(t *testing.T) {
 }
 
 // Error path: payload size is smaller than rid size + maxResponseParts size.
-func Test_newTransmitMessagePayload_PayloadSizeError(t *testing.T) {
-	expectedErr := "Size of single-use transmission message payload"
-	defer func() {
-		if r := recover(); r == nil || !strings.Contains(r.(string), expectedErr) {
-			t.Errorf("NewRequestPayload did not panic with the expected error "+
-				"when the size of the payload is smaller than the size of the "+
-				"reception ID + the message count.\nexpected: %s\nreceived: %+v",
-				expectedErr, r)
-		}
-	}()
+func TestNewRequestPayload_PayloadSizeError(t *testing.T) {
 	payloadSize := 10
 	prng := rand.New(rand.NewSource(42))
 	payload := make([]byte, payloadSize)
@@ -223,11 +221,23 @@ func Test_newTransmitMessagePayload_PayloadSizeError(t *testing.T) {
 		t.Errorf("Failed to read to payload: %+v", err)
 	}
 
+	expectedErr := fmt.Sprintf(
+		errNewReqPayloadPayloadSize, payloadSize, requestMinSize)
+
+	defer func() {
+		if r := recover(); r == nil || r != expectedErr {
+			t.Errorf("NewRequestPayload did not panic with the expected error "+
+				"when the size of the payload is smaller than the size of the "+
+				"reception ID + the message count.\nexpected: %s\nreceived: %+v",
+				expectedErr, r)
+		}
+	}()
+
 	_ = NewRequestPayload(10, payload, 5)
 }
 
 // Happy path.
-func Test_mapTransmitMessagePayload(t *testing.T) {
+func Test_mapRequestPayload(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	nonceBytes := make([]byte, nonceSize)
 	numRequestParts := make([]byte, numRequestPartsSize)
@@ -275,7 +285,7 @@ func Test_mapTransmitMessagePayload(t *testing.T) {
 }
 
 // Happy path.
-func TestTransmitMessagePayload_Marshal_Unmarshal(t *testing.T) {
+func TestRequestPayload_Marshal_UnmarshalRequestPayload(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	data := make([]byte, prng.Intn(1000))
 	prng.Read(data)
@@ -295,7 +305,7 @@ func TestTransmitMessagePayload_Marshal_Unmarshal(t *testing.T) {
 }
 
 // Error path: supplied byte slice is too small for the ID and message count.
-func Test_unmarshalTransmitMessagePayload(t *testing.T) {
+func Test_UnmarshalRequestPayload(t *testing.T) {
 	_, err := UnmarshalRequestPayload([]byte{6})
 	if err == nil {
 		t.Error("UnmarshalRequestPayload did not return an error " +
@@ -304,10 +314,10 @@ func Test_unmarshalTransmitMessagePayload(t *testing.T) {
 }
 
 // Happy path.
-func TestTransmitMessagePayload_GetRID(t *testing.T) {
+func TestRequestPayload_GetRecipientID(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	payloadSize := prng.Intn(2000)
-	payload := make([]byte, payloadSize-transmitPlMinSize)
+	payload := make([]byte, payloadSize-requestMinSize)
 	_, err := prng.Read(payload)
 	if err != nil {
 		t.Errorf("Failed to read to payload: %+v", err)
@@ -316,19 +326,19 @@ func TestTransmitMessagePayload_GetRID(t *testing.T) {
 	mp := NewRequestPayload(payloadSize, payload, 5)
 	expectedRID := singleUse.NewRecipientID(getGroup().NewInt(42), mp.Marshal())
 
-	testRID := mp.GetRID(getGroup().NewInt(42))
+	testRID := mp.GetRecipientID(getGroup().NewInt(42))
 
 	if !expectedRID.Cmp(testRID) {
-		t.Errorf("GetRID did not return the expected ID."+
+		t.Errorf("GetRecipientID did not return the expected ID."+
 			"\nexpected: %s\nreceived: %s", expectedRID, testRID)
 	}
 }
 
 // Happy path.
-func Test_transmitMessagePayload_SetNonce_GetNonce(t *testing.T) {
+func TestRequestPayload_SetNonce_GetNonce(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	payloadSize := prng.Intn(2000)
-	payload := make([]byte, payloadSize-transmitPlMinSize)
+	payload := make([]byte, payloadSize-requestMinSize)
 	_, err := prng.Read(payload)
 	if err != nil {
 		t.Errorf("Failed to read to payload: %+v", err)
@@ -351,10 +361,10 @@ func Test_transmitMessagePayload_SetNonce_GetNonce(t *testing.T) {
 }
 
 // Error path: RNG return an error.
-func Test_transmitMessagePayload_SetNonce_RngError(t *testing.T) {
+func TestRequestPayload_SetNonce_RngError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	payloadSize := prng.Intn(2000)
-	payload := make([]byte, payloadSize-transmitPlMinSize)
+	payload := make([]byte, payloadSize-requestMinSize)
 	_, err := prng.Read(payload)
 	if err != nil {
 		t.Errorf("Failed to read to payload: %+v", err)
@@ -370,10 +380,10 @@ func Test_transmitMessagePayload_SetNonce_RngError(t *testing.T) {
 }
 
 // Happy path.
-func TestTransmitMessagePayload_SetMaxParts_GetMaxParts(t *testing.T) {
+func TestRequestPayload_SetMaxResponseParts_GetMaxResponseParts(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	payloadSize := prng.Intn(2000)
-	payload := make([]byte, payloadSize-transmitPlMinSize)
+	payload := make([]byte, payloadSize-requestMinSize)
 	_, err := prng.Read(payload)
 	if err != nil {
 		t.Errorf("Failed to read to payload: %+v", err)
@@ -386,16 +396,16 @@ func TestTransmitMessagePayload_SetMaxParts_GetMaxParts(t *testing.T) {
 	testCount := mp.GetMaxResponseParts()
 
 	if count != testCount {
-		t.Errorf("GetNumParts did not return the expected count."+
+		t.Errorf("GetNumRequestParts did not return the expected count."+
 			"\nexpected: %d\nreceived: %d", count, testCount)
 	}
 }
 
 // Happy path.
-func TestTransmitMessagePayload_SetContents_GetContents_GetContentsSize_GetMaxContentsSize(t *testing.T) {
+func TestRequestPayload_GetContents_GetContentsSize_GetMaxContentsSize(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	payloadSize := format.MinimumPrimeSize
-	contentsSize := (format.MinimumPrimeSize - transmitPlMinSize) / 2
+	contentsSize := (format.MinimumPrimeSize - requestMinSize) / 2
 	contents := make([]byte, contentsSize)
 	prng.Read(contents)
 
@@ -412,18 +422,29 @@ func TestTransmitMessagePayload_SetContents_GetContents_GetContentsSize_GetMaxCo
 			"\nexpected: %d\nreceived: %d", contentsSize, mp.GetContentsSize())
 	}
 
-	if format.MinimumPrimeSize-transmitPlMinSize != mp.GetMaxContentsSize() {
+	if format.MinimumPrimeSize-requestMinSize != mp.GetMaxContentsSize() {
 		t.Errorf("GetMaxContentsSize did not return the expected size."+
 			"\nexpected: %d\nreceived: %d",
-			format.MinimumPrimeSize-transmitPlMinSize, mp.GetMaxContentsSize())
+			format.MinimumPrimeSize-requestMinSize, mp.GetMaxContentsSize())
 	}
 }
 
 // Error path: supplied bytes are smaller than payload contents.
-func TestTransmitMessagePayload_SetContents(t *testing.T) {
-	expectedErr := "max size of message content"
+func TestRequestPayload_SetContents(t *testing.T) {
+	prng := rand.New(rand.NewSource(42))
+	payloadSize := format.MinimumPrimeSize
+	payload := make([]byte, payloadSize-requestMinSize)
+	_, err := prng.Read(payload)
+	if err != nil {
+		t.Errorf("Failed to read to payload: %+v", err)
+	}
+	mp := NewRequestPayload(payloadSize, payload, 5)
+	contents := make([]byte, format.MinimumPrimeSize+1)
+	expectedErr := fmt.Sprintf(
+		errReqPayloadContentsSize, len(contents), len(mp.contents))
+
 	defer func() {
-		if r := recover(); r == nil || !strings.Contains(r.(string), expectedErr) {
+		if r := recover(); r == nil || r != expectedErr {
 			t.Errorf("SetContents did not panic with the expected error when "+
 				"the size of the supplied bytes is not the same as the "+
 				"payload content size.\nexpected: %s\nreceived: %+v",
@@ -431,16 +452,7 @@ func TestTransmitMessagePayload_SetContents(t *testing.T) {
 		}
 	}()
 
-	prng := rand.New(rand.NewSource(42))
-	payloadSize := format.MinimumPrimeSize
-	payload := make([]byte, payloadSize-transmitPlMinSize)
-	_, err := prng.Read(payload)
-	if err != nil {
-		t.Errorf("Failed to read to payload: %+v", err)
-	}
-
-	mp := NewRequestPayload(payloadSize, payload, 5)
-	mp.SetContents(make([]byte, format.MinimumPrimeSize+1))
+	mp.SetContents(contents)
 }
 
 func getGroup() *cyclic.Group {

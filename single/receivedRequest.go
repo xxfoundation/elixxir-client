@@ -26,7 +26,7 @@ type Request struct {
 	maxParts       uint8       // Max number of messages allowed in reply
 	used           *uint32     // Atomic variable
 	requestPayload []byte
-	net            cmix.Client
+	net            CMix
 }
 
 // GetMaxParts returns the maximum number of message parts that can be sent in a

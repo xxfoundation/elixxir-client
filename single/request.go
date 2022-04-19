@@ -1,6 +1,8 @@
 package single
 
 import (
+	"encoding/base64"
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
@@ -42,7 +44,7 @@ func GetDefaultRequestParams() RequestParams {
 }
 
 // GetMaxRequestSize returns the max size of a request payload.
-func GetMaxRequestSize(net cmix.Client, e2eGrp *cyclic.Group) uint {
+func GetMaxRequestSize(net CMix, e2eGrp *cyclic.Group) uint {
 	payloadSize := message.GetRequestPayloadSize(net.GetMaxMessageLength(),
 		e2eGrp.GetP().ByteLen())
 	return message.GetRequestContentsSize(payloadSize)
@@ -67,7 +69,7 @@ func GetMaxRequestSize(net cmix.Client, e2eGrp *cyclic.Group) uint {
 // the payload is too large. GetMaxRequestSize can be used to get this max size.
 // The network follower must be running and healthy to transmit.
 func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
-	callback Response, param RequestParams, net cmix.Client, rng csprng.Source,
+	callback Response, param RequestParams, net CMix, rng csprng.Source,
 	e2eGrp *cyclic.Group) (id.Round, receptionID.EphemeralIdentity, error) {
 	if !net.IsHealthy() {
 		return 0, receptionID.EphemeralIdentity{}, errors.New("Cannot " +
@@ -100,12 +102,15 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 			errors.Errorf("failed to generate IDs: %+v", err)
 	}
 
+	fmt.Printf("reqPayload: %v\n", base64.
+		StdEncoding.EncodeToString(requestPayload.Marshal()))
+
 	// Encrypt payload
 	fp := singleUse.NewTransmitFingerprint(recipient.DhPubKey)
 	key := singleUse.NewTransmitKey(dhKey)
 	encryptedPayload := auth.Crypt(key, fp[:24], requestPayload.Marshal())
-
-	// Generate CMIX message MAC
+	fmt.Printf("ecrPayload: %v\n", base64.StdEncoding.EncodeToString(encryptedPayload))
+	// Generate CMix message MAC
 	mac := singleUse.MakeMAC(key, encryptedPayload)
 
 	// Assemble the payload
@@ -159,6 +164,8 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	}
 	param.CmixParam.Timeout = param.Timeout
 
+	fmt.Printf("requestMarshal: %v\n", base64.StdEncoding.EncodeToString(request.Marshal()))
+
 	rid, _, err := net.Send(recipient.ID, cmixMsg.RandomFingerprint(rng), svc,
 		request.Marshal(), mac, param.CmixParam)
 
@@ -183,10 +190,13 @@ func generateDhKeys(grp *cyclic.Group, dhPubKey *cyclic.Int,
 			err)
 	}
 	privKey := grp.NewIntFromBytes(privKeyBytes)
-
 	// Generate public key and DH key
 	publicKey := grp.ExpG(privKey, grp.NewInt(1))
 	dhKey := grp.Exp(dhPubKey, privKey, grp.NewInt(1))
+	fmt.Printf("privkey: %v\n"+
+		" dhKey: %v\npubKey: %v", base64.StdEncoding.EncodeToString(privKey.Bytes()),
+		base64.StdEncoding.EncodeToString(dhKey.Bytes()), base64.StdEncoding.EncodeToString(publicKey.Bytes()))
+
 	return dhKey, publicKey, nil
 }
 

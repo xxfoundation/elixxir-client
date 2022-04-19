@@ -60,11 +60,11 @@ func (p *testManager) ReceiveRelationshipFingerprint() []byte {
 	panic("implement me")
 }
 
-func (p *testManager) ConnectionFingerprintBytes() []byte {
+func (p *testManager) ConnectionFingerprintBytes() ConnectionFp {
 	panic("implement me")
 }
 
-func (p *testManager) ConnectionFingerprint() string {
+func (p *testManager) ConnectionFingerprint() ConnectionFp {
 	panic("implement me")
 }
 

@@ -1,6 +1,8 @@
 package single
 
 import (
+	"encoding/base64"
+	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
@@ -28,6 +30,10 @@ type responseProcessor struct {
 func (rsp *responseProcessor) Process(ecrMsg format.Message,
 	receptionID receptionID.EphemeralIdentity,
 	round rounds.Round) {
+
+	fmt.Printf("macprocess: %v\n contents: %v\n", base64.
+		StdEncoding.EncodeToString(ecrMsg.GetMac()),
+		base64.StdEncoding.EncodeToString(ecrMsg.GetContents()))
 
 	decrypted, err := rsp.cy.Decrypt(ecrMsg.GetContents(), ecrMsg.GetMac())
 	if err != nil {

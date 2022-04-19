@@ -2,7 +2,6 @@ package single
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	cmixMsg "gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
@@ -29,7 +28,7 @@ type listener struct {
 	tag       string
 	grp       *cyclic.Group
 	cb        Receiver
-	net       cmix.Client
+	net       CMix
 }
 
 // Listen allows a server to listen for single use requests. It will register a
@@ -37,7 +36,7 @@ type listener struct {
 // listener can be active for a tag-myID pair, and an error will be returned if
 // that is violated. When requests are received, they will be called on the
 // Receiver interface.
-func Listen(tag string, myId *id.ID, privKey *cyclic.Int, net cmix.Client,
+func Listen(tag string, myId *id.ID, privKey *cyclic.Int, net CMix,
 	e2eGrp *cyclic.Group, cb Receiver) Listener {
 
 	l := &listener{
@@ -63,7 +62,7 @@ func Listen(tag string, myId *id.ID, privKey *cyclic.Int, net cmix.Client,
 func (l *listener) Process(ecrMsg format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
-	// Unmarshal the CMIX message contents to a transmission message
+	// Unmarshal the CMix message contents to a transmission message
 	transmitMsg, err := message.UnmarshalRequest(ecrMsg.GetContents(),
 		l.grp.GetP().ByteLen())
 	if err != nil {

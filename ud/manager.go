@@ -5,14 +5,13 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/storage/versioned"
 	store "gitlab.com/elixxir/client/ud/store"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 	"time"
@@ -27,7 +26,7 @@ type Manager struct {
 
 	// Network is a sub-interface of the cmix.Client interface. It
 	// allows the Manager to retrieve network state.
-	network cmix.Client
+	network CMix
 
 	// e2e is a sub-interface of the e2e.Handler. It allows the Manager
 	// to retrieve the client's E2E information.
@@ -51,10 +50,6 @@ type Manager struct {
 	// gRPC functions for registering and fact operations.
 	comms Comms
 
-	// rng is a random number generator. This is used for cryptographic
-	// signature operations.
-	rng *fastRNG.StreamGenerator
-
 	// kv is a versioned key-value store used for isRegistered and
 	// setRegistered. This is separated from store operations as store's kv
 	// has a different prefix which breaks backwards compatibility.
@@ -73,10 +68,10 @@ type Manager struct {
 // NewManager builds a new user discovery manager.
 // It requires that an updated
 // NDF is available and will error if one is not.
-func NewManager(services cmix.Client, e2e E2E,
+func NewManager(services CMix, e2e E2E,
 	follower NetworkStatus,
 	events event.Reporter, comms Comms, userStore UserInfo,
-	rng *fastRNG.StreamGenerator, username string,
+	rng csprng.Source, username string,
 	kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
 
@@ -91,7 +86,6 @@ func NewManager(services cmix.Client, e2e E2E,
 		e2e:     e2e,
 		events:  events,
 		comms:   comms,
-		rng:     rng,
 		user:    userStore,
 		kv:      kv,
 	}
@@ -111,7 +105,7 @@ func NewManager(services cmix.Client, e2e E2E,
 	}
 
 	// Register with user discovery
-	err = m.register(username, comms, udHost)
+	err = m.register(username, rng, comms, udHost)
 	if err != nil {
 		return nil, errors.Errorf("Failed to register: %v", err)
 	}
@@ -129,10 +123,9 @@ func NewManager(services cmix.Client, e2e E2E,
 // NewManagerFromBackup builds a new user discover manager from a backup.
 // It will construct a manager that is already registered and restore
 // already registered facts into store.
-func NewManagerFromBackup(services cmix.Client,
+func NewManagerFromBackup(services CMix,
 	e2e E2E, follower NetworkStatus,
-	events event.Reporter, comms Comms,
-	userStore UserInfo, rng *fastRNG.StreamGenerator,
+	events event.Reporter, comms Comms, userStore UserInfo,
 	email, phone fact.Fact, kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
 	if follower() != api.Running {
@@ -148,7 +141,6 @@ func NewManagerFromBackup(services cmix.Client,
 		events:  events,
 		comms:   comms,
 		user:    userStore,
-		rng:     rng,
 		kv:      kv,
 	}
 
@@ -186,9 +178,9 @@ func NewManagerFromBackup(services cmix.Client,
 // LoadManager loads the state of the Manager
 // from disk. This is meant to be called after any the first
 // instantiation of the manager by NewUserDiscovery.
-func LoadManager(services cmix.Client, e2e E2E,
+func LoadManager(services CMix, e2e E2E,
 	events event.Reporter, comms Comms, userStore UserInfo,
-	rng *fastRNG.StreamGenerator, kv *versioned.KV) (*Manager, error) {
+	kv *versioned.KV) (*Manager, error) {
 
 	m := &Manager{
 		network: services,
@@ -196,8 +188,8 @@ func LoadManager(services cmix.Client, e2e E2E,
 		events:  events,
 		comms:   comms,
 		user:    userStore,
-		rng:     rng,
-		kv:      kv,
+
+		kv: kv,
 	}
 
 	if !m.isRegistered() {

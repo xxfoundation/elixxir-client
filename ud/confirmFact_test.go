@@ -1,17 +1,10 @@
 package ud
 
 import (
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/versioned"
-	store "gitlab.com/elixxir/client/ud/store"
 	pb "gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
-	"gitlab.com/xx_network/crypto/csprng"
 	"reflect"
 	"testing"
 )
@@ -27,25 +20,9 @@ func (t *testComm) SendConfirmFact(_ *connect.Host, message *pb.FactConfirmReque
 
 // Happy path.
 func TestManager_confirmFact(t *testing.T) {
-	storageSess := storage.InitTestingSession(t)
-
-	kv := versioned.NewKV(ekv.Memstore{})
-	udStore, err := store.NewOrLoadStore(kv)
-	if err != nil {
-		t.Fatalf("Failed to initialize store %v", err)
-	}
 
 	// Create our Manager object
-	m := &Manager{
-		network: newTestNetworkManager(t),
-		e2e:     mockE2e{},
-		events:  event.NewEventManager(),
-		user:    storageSess,
-		comms:   &mockComms{},
-		store:   udStore,
-		kv:      kv,
-		rng:     fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-	}
+	m := newTestManager(t)
 
 	c := &testComm{}
 
@@ -55,7 +32,7 @@ func TestManager_confirmFact(t *testing.T) {
 	}
 
 	// Set up store for expected state
-	err = m.store.StoreUnconfirmedFact(expectedRequest.ConfirmationID, fact.Fact{})
+	err := m.store.StoreUnconfirmedFact(expectedRequest.ConfirmationID, fact.Fact{})
 	if err != nil {
 		t.Fatalf("StoreUnconfirmedFact error: %v", err)
 	}

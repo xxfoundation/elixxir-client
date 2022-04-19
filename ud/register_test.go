@@ -32,8 +32,9 @@ func TestManager_register(t *testing.T) {
 	}
 
 	c := &testRegisterComm{}
+	prng := NewPrng(42)
 
-	err = m.register("testUser", c, udHost)
+	err = m.register("testUser", prng, c, udHost)
 	if err != nil {
 		t.Errorf("register() returned an error: %+v", err)
 	}

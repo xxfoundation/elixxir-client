@@ -36,12 +36,13 @@ type UserDiscovery struct {
 // for the life of the program.
 // This must be called while start network follower is running.
 func NewUserDiscovery(client *Client, username string) (*UserDiscovery, error) {
-
+	stream := client.api.GetRng().GetStream()
+	defer stream.Close()
 	m, err := udPackage.NewManager(client.api.GetNetworkInterface(),
 		client.api.GetE2e(), client.api.NetworkFollowerStatus,
 		client.api.GetEventManager(),
 		client.api.GetComms(), client.api.GetStorage(),
-		client.api.GetRng(),
+		stream,
 		username, client.api.GetStorage().GetKV())
 
 	if err != nil {
@@ -59,7 +60,6 @@ func LoadUserDiscovery(client *Client) (*UserDiscovery, error) {
 	m, err := udPackage.LoadManager(client.api.GetNetworkInterface(),
 		client.api.GetE2e(), client.api.GetEventManager(),
 		client.api.GetComms(), client.api.GetStorage(),
-		client.api.GetRng(),
 		client.api.GetStorage().GetKV())
 
 	if err != nil {
@@ -117,12 +117,7 @@ func NewUserDiscoveryFromBackup(client *Client,
 			"registered phone number")
 	}
 
-	m, err := udPackage.NewManagerFromBackup(client.api.GetNetworkInterface(),
-		client.api.GetE2e(), client.api.NetworkFollowerStatus,
-		client.api.GetEventManager(),
-		client.api.GetComms(), client.api.GetStorage(),
-		client.api.GetRng(), emailFact, phoneFact,
-		client.api.GetStorage().GetKV())
+	m, err := udPackage.NewManagerFromBackup(client.api.GetNetworkInterface(), client.api.GetE2e(), client.api.NetworkFollowerStatus, client.api.GetEventManager(), client.api.GetComms(), client.api.GetStorage(), emailFact, phoneFact, client.api.GetStorage().GetKV())
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"Failed to create User Discovery Manager")
@@ -219,9 +214,12 @@ func (ud UserDiscovery) Search(client *Client,
 			"contact object")
 	}
 
+	stream := client.api.GetRng().GetStream()
+	defer stream.Close()
+
 	rid, _, err := udPackage.Search(
 		client.api.GetNetworkInterface(), client.api.GetEventManager(),
-		client.api.GetRng(), client.api.GetE2e().GetGroup(), udContact,
+		stream, client.api.GetE2e().GetGroup(), udContact,
 		cb, factList, timeout)
 
 	if err != nil {
@@ -267,9 +265,12 @@ func (ud UserDiscovery) SearchSingle(client *Client, f string, callback SingleSe
 			"contact object")
 	}
 
+	stream := client.api.GetRng().GetStream()
+	defer stream.Close()
+
 	rid, _, err := udPackage.Search(client.api.GetNetworkInterface(),
 		client.api.GetEventManager(),
-		client.api.GetRng(), client.api.GetE2e().GetGroup(), udContact,
+		stream, client.api.GetE2e().GetGroup(), udContact,
 		cb, []fact.Fact{fObj}, timeout)
 
 	if err != nil {
@@ -319,8 +320,11 @@ func (ud UserDiscovery) Lookup(client *Client,
 				"contact object")
 	}
 
+	stream := client.api.GetRng().GetStream()
+	defer stream.Close()
+
 	rid, _, err := udPackage.Lookup(client.api.GetNetworkInterface(),
-		client.api.GetRng(), client.api.GetE2e().GetGroup(),
+		stream, client.api.GetE2e().GetGroup(),
 		udContact,
 		cb, uid, timeout)
 
@@ -397,8 +401,10 @@ func (ud UserDiscovery) MultiLookup(client *Client,
 		}
 
 		go func() {
+			stream := client.api.GetRng().GetStream()
+			defer stream.Close()
 			_, _, err := udPackage.Lookup(client.api.GetNetworkInterface(),
-				client.api.GetRng(), client.api.GetE2e().GetGroup(),
+				stream, client.api.GetE2e().GetGroup(),
 				udContact, cb, localID, timeout)
 			if err != nil {
 				results <- lookupResponse{

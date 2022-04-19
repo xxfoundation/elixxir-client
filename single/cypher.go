@@ -8,6 +8,8 @@
 package single
 
 import (
+	"encoding/base64"
+	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/single/message"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -60,7 +62,16 @@ func (rk *cypher) Decrypt(contents, mac []byte) ([]byte, error) {
 	fp := rk.GetFingerprint()
 	key := rk.getKey()
 
-	// Verify the CMIX message MAC
+	fmt.Printf("rk vals:"+
+		"\nfp: %v"+
+		"\nkey: %v\n"+
+		"contents: %v\n"+
+		"mac: %v\n", base64.StdEncoding.EncodeToString(fp.Bytes()),
+		base64.StdEncoding.EncodeToString(key),
+		base64.StdEncoding.EncodeToString(contents),
+		base64.StdEncoding.EncodeToString(mac))
+
+	// Verify the CMix message MAC
 	if !singleUse.VerifyMAC(key, contents, mac) {
 		return nil, errors.New("failed to verify the single use mac")
 	}

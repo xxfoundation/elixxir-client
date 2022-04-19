@@ -9,6 +9,7 @@ package api
 
 import (
 	"encoding/binary"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"math/rand"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -168,14 +169,14 @@ func (c *Client) MakePrecannedContact(precannedID uint) contact.Contact {
 // GetRelationshipFingerprint returns a unique 15 character fingerprint for an
 // E2E relationship. An error is returned if no relationship with the partner
 // is found.
-func (c *Client) GetRelationshipFingerprint(partner *id.ID) (string, error) {
-	m, err := c.e2e.GetPartner(partner)
+func (c *Client) GetRelationshipFingerprint(p *id.ID) (partner.ConnectionFp, error) {
+	m, err := c.e2e.GetPartner(p)
 	if err != nil {
-		return "", errors.Errorf("could not get partner %s: %+v",
-			partner, err)
+		return partner.ConnectionFp{}, errors.Errorf("could not get partner %s: %+v",
+			partner.ConnectionFp{}, err)
 	} else if m == nil {
-		return "", errors.Errorf("manager for partner %s is nil.",
-			partner)
+		return partner.ConnectionFp{}, errors.Errorf("manager for partner %s is nil.",
+			p)
 	}
 
 	return m.ConnectionFingerprint(), nil

@@ -10,8 +10,8 @@ import (
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -27,8 +27,8 @@ type lookupCallback func(contact.Contact, error)
 
 // Lookup returns the public key of the passed ID as known by the user discovery
 // system or returns by the timeout.
-func Lookup(services cmix.Client,
-	rng *fastRNG.StreamGenerator, grp *cyclic.Group,
+func Lookup(services CMix,
+	rng csprng.Source, grp *cyclic.Group,
 	udContact contact.Contact, callback lookupCallback,
 	uid *id.ID, timeout time.Duration) (id.Round,
 	receptionID.EphemeralIdentity, error) {
@@ -41,8 +41,8 @@ func Lookup(services cmix.Client,
 // The lookup performs a callback on each lookup on the returned contact object
 // constructed from the response.
 func BatchLookup(udContact contact.Contact,
-	services cmix.Client, callback lookupCallback,
-	rng *fastRNG.StreamGenerator,
+	services CMix, callback lookupCallback,
+	rng csprng.Source,
 	uids []*id.ID, grp *cyclic.Group,
 	timeout time.Duration) {
 	jww.INFO.Printf("ud.BatchLookup(%s, %s)", uids, timeout)
@@ -64,8 +64,8 @@ func BatchLookup(udContact contact.Contact,
 // lookup is a helper function which sends a lookup request to the user discovery
 // service. It will construct a contact object off of the returned public key.
 // The callback will be called on that contact object.
-func lookup(net cmix.Client,
-	rng *fastRNG.StreamGenerator,
+func lookup(net CMix,
+	rng csprng.Source,
 	uid *id.ID, grp *cyclic.Group,
 	timeout time.Duration, udContact contact.Contact,
 	callback lookupCallback) (id.Round,
@@ -89,11 +89,8 @@ func lookup(net cmix.Client,
 		CmixParam:           cmix.GetDefaultCMIXParams(),
 	}
 
-	stream := rng.GetStream()
-	defer stream.Close()
-
 	return single.TransmitRequest(udContact, LookupTag, requestMarshaled,
-		response, p, net, stream,
+		response, p, net, rng,
 		grp)
 }
 

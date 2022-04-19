@@ -62,8 +62,8 @@ func Listen(tag string, myId *id.ID, privKey *cyclic.Int, net CMix,
 func (l *listener) Process(ecrMsg format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
-	// Unmarshal the CMix message contents to a transmission message
-	transmitMsg, err := message.UnmarshalRequest(ecrMsg.GetContents(),
+	// Unmarshal the cMix message contents to a request message
+	requestMsg, err := message.UnmarshalRequest(ecrMsg.GetContents(),
 		l.grp.GetP().ByteLen())
 	if err != nil {
 		jww.WARN.Printf("Failed to unmarshal contents on single use "+
@@ -72,25 +72,25 @@ func (l *listener) Process(ecrMsg format.Message,
 	}
 
 	// Generate DH key and symmetric key
-	senderPubkey := transmitMsg.GetPubKey(l.grp)
+	senderPubkey := requestMsg.GetPubKey(l.grp)
 	dhKey := l.grp.Exp(senderPubkey, l.myPrivKey, l.grp.NewInt(1))
 	key := singleUse.NewTransmitKey(dhKey)
 
 	// Verify the MAC
-	if !singleUse.VerifyMAC(key, transmitMsg.GetPayload(), ecrMsg.GetMac()) {
+	if !singleUse.VerifyMAC(key, requestMsg.GetPayload(), ecrMsg.GetMac()) {
 		jww.WARN.Printf("mac check failed on single use request to %s "+
 			"on tag %s", l.myId, l.tag)
 		return
 	}
 
-	// Decrypt the transmission message payload
+	// Decrypt the request message payload
 	fp := ecrMsg.GetKeyFP()
-	decryptedPayload := cAuth.Crypt(key, fp[:24], transmitMsg.GetPayload())
+	decryptedPayload := cAuth.Crypt(key, fp[:24], requestMsg.GetPayload())
 
 	// Unmarshal payload
 	payload, err := message.UnmarshalRequestPayload(decryptedPayload)
 	if err != nil {
-		jww.WARN.Printf("failed to unmarshal decrypted payload on "+
+		jww.WARN.Printf("[SU] Failed to unmarshal decrypted payload on "+
 			"single use request to %s on tag %s: %+v", l.myId, l.tag, err)
 		return
 	}
@@ -98,7 +98,7 @@ func (l *listener) Process(ecrMsg format.Message,
 	used := uint32(0)
 
 	r := Request{
-		sender:         payload.GetRID(transmitMsg.GetPubKey(l.grp)),
+		sender:         payload.GetRecipientID(requestMsg.GetPubKey(l.grp)),
 		senderPubKey:   senderPubkey,
 		dhKey:          dhKey,
 		tag:            l.tag,

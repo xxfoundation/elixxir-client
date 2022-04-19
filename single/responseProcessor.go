@@ -28,8 +28,7 @@ type responseProcessor struct {
 // Process decrypts a response part and adds it to the collator - returning
 // a full response to the callback when all parts are received.
 func (rsp *responseProcessor) Process(ecrMsg format.Message,
-	receptionID receptionID.EphemeralIdentity,
-	round rounds.Round) {
+	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
 	fmt.Printf("macprocess: %v\n contents: %v\n", base64.
 		StdEncoding.EncodeToString(ecrMsg.GetMac()),
@@ -37,15 +36,17 @@ func (rsp *responseProcessor) Process(ecrMsg format.Message,
 
 	decrypted, err := rsp.cy.Decrypt(ecrMsg.GetContents(), ecrMsg.GetMac())
 	if err != nil {
-		jww.ERROR.Printf("Failed to decrypt payload for %s to %s, "+
-			"single use may fail: %+v", rsp.tag, rsp.recipient.ID, err)
+		jww.ERROR.Printf("[SU] Failed to decrypt single-use response "+
+			"payload for %s to %s: %+v",
+			rsp.tag, rsp.recipient.ID, err)
 		return
 	}
 
 	payload, done, err := rsp.c.Collate(decrypted)
 	if err != nil {
-		jww.ERROR.Printf("Failed to collage payload for %s to %s, "+
-			"single use may fail: %+v", rsp.tag, rsp.recipient.ID, err)
+		jww.ERROR.Printf("[SU] Failed to collate single-use response payload "+
+			"for %s to %s, single use may fail: %+v",
+			rsp.tag, rsp.recipient.ID, err)
 		return
 	}
 

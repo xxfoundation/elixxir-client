@@ -43,8 +43,28 @@ func GetDefaultRequestParams() RequestParams {
 	}
 }
 
-// GetMaxRequestSize returns the max size of a request payload.
-func GetMaxRequestSize(net CMix, e2eGrp *cyclic.Group) uint {
+// Error messages.
+const (
+	// TransmitRequest
+	errNetworkHealth  = "cannot send singe-use request when the network is not healthy"
+	errMakeDhKeys     = "failed to generate DH keys (%s for %s): %+v"
+	errMakeIDs        = "failed to generate IDs (%s for %s): %+v"
+	errAddFingerprint = "failed to add fingerprint %d of %d: %+v (%s for %s)"
+	errSendRequest    = "failed to send %s request to %s: %+v"
+
+	// generateDhKeys
+	errGenerateInGroup = "failed to generate private key in group: %+v"
+
+	// makeIDs
+	errMakeNonce      = "failed to generate nonce: %+v"
+	errNewEphemeralID = "failed to generate address ID from newly generated ID: %+v"
+
+	// waitForTimeout
+	errResponseTimeout = "waiting for response to single-use request timed out after %s"
+)
+
+// GetMaxRequestSize returns the maximum size of a request payload.
+func GetMaxRequestSize(net CMix, e2eGrp *cyclic.Group) int {
 	payloadSize := message.GetRequestPayloadSize(net.GetMaxMessageLength(),
 		e2eGrp.GetP().ByteLen())
 	return message.GetRequestContentsSize(payloadSize)
@@ -72,8 +92,7 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	callback Response, param RequestParams, net CMix, rng csprng.Source,
 	e2eGrp *cyclic.Group) (id.Round, receptionID.EphemeralIdentity, error) {
 	if !net.IsHealthy() {
-		return 0, receptionID.EphemeralIdentity{}, errors.New("Cannot " +
-			"send singe use when network is not healthy")
+		return 0, receptionID.EphemeralIdentity{}, errors.New(errNetworkHealth)
 	}
 
 	// Get address ID address space size; this blocks until the address space
@@ -84,7 +103,8 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	// Generate DH key and public key
 	dhKey, publicKey, err := generateDhKeys(e2eGrp, recipient.DhPubKey, rng)
 	if err != nil {
-		return 0, receptionID.EphemeralIdentity{}, err
+		return 0, receptionID.EphemeralIdentity{},
+			errors.Errorf(errMakeDhKeys, tag, recipient, err)
 	}
 
 	// Build the message payload
@@ -99,7 +119,7 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 		requestPayload, publicKey, addressSize, param.Timeout, timeStart, rng)
 	if err != nil {
 		return 0, receptionID.EphemeralIdentity{},
-			errors.Errorf("failed to generate IDs: %+v", err)
+			errors.Errorf(errMakeIDs, tag, recipient, err)
 	}
 
 	fmt.Printf("reqPayload: %v\n", base64.
@@ -120,7 +140,7 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	// Register the response pickup
 	collator := message.NewCollator(param.MaxResponseMessages)
 	timeoutKillChan := make(chan bool)
-	callbackOnce := sync.Once{}
+	var callbackOnce sync.Once
 	wrapper := func(payload []byte, receptionID receptionID.EphemeralIdentity,
 		round rounds.Round, err error) {
 		select {
@@ -136,12 +156,12 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 
 	cyphers := makeCyphers(dhKey, param.MaxResponseMessages)
 
-	for i := uint8(0); i < param.MaxResponseMessages; i++ {
+	for i, cy := range cyphers {
 		processor := responseProcessor{
 			sendingID: sendingID,
 			c:         collator,
 			callback:  wrapper,
-			cy:        cyphers[i],
+			cy:        cy,
 			tag:       tag,
 			recipient: &recipient,
 		}
@@ -149,8 +169,8 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 		err = net.AddFingerprint(
 			sendingID.Source, processor.cy.GetFingerprint(), &processor)
 		if err != nil {
-			return 0, receptionID.EphemeralIdentity{},
-				errors.Errorf("failed to add fingerprint %d IDs: %+v", i, err)
+			return 0, receptionID.EphemeralIdentity{}, errors.Errorf(
+				errAddFingerprint, i, len(cyphers), tag, recipient, err)
 		}
 	}
 
@@ -168,9 +188,9 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 
 	rid, _, err := net.Send(recipient.ID, cmixMsg.RandomFingerprint(rng), svc,
 		request.Marshal(), mac, param.CmixParam)
-
 	if err != nil {
-		return 0, receptionID.EphemeralIdentity{}, err
+		return 0, receptionID.EphemeralIdentity{},
+			errors.Errorf(errSendRequest, tag, recipient, err)
 	}
 
 	remainingTimeout := param.Timeout - netTime.Since(timeStart)
@@ -180,24 +200,24 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 }
 
 // generateDhKeys generates a new public key and DH key.
-func generateDhKeys(grp *cyclic.Group, dhPubKey *cyclic.Int,
-	rng io.Reader) (*cyclic.Int, *cyclic.Int, error) {
+func generateDhKeys(grp *cyclic.Group, dhPubKey *cyclic.Int, rng io.Reader) (
+	dhKey, publicKey *cyclic.Int, err error) {
+
 	// Generate private key
 	privKeyBytes, err := csprng.GenerateInGroup(
 		grp.GetP().Bytes(), grp.GetP().ByteLen(), rng)
 	if err != nil {
-		return nil, nil, errors.Errorf("failed to generate key in group: %+v",
-			err)
+		return nil, nil, errors.Errorf(errGenerateInGroup, err)
 	}
 	privKey := grp.NewIntFromBytes(privKeyBytes)
 	// Generate public key and DH key
-	publicKey := grp.ExpG(privKey, grp.NewInt(1))
-	dhKey := grp.Exp(dhPubKey, privKey, grp.NewInt(1))
+	publicKey = grp.ExpG(privKey, grp.NewInt(1))
+	dhKey = grp.Exp(dhPubKey, privKey, grp.NewInt(1))
 	fmt.Printf("privkey: %v\n"+
 		" dhKey: %v\npubKey: %v", base64.StdEncoding.EncodeToString(privKey.Bytes()),
 		base64.StdEncoding.EncodeToString(dhKey.Bytes()), base64.StdEncoding.EncodeToString(publicKey.Bytes()))
 
-	return dhKey, publicKey, nil
+	return
 }
 
 // makeIDs generates a new user ID and address ID with a start and end within
@@ -205,7 +225,7 @@ func generateDhKeys(grp *cyclic.Group, dhPubKey *cyclic.Int,
 // contains a nonce. If the generated address ID has a window that is not within
 // +/- the given 2*Timeout from now, then the IDs are generated again using a
 // new nonce.
-func makeIDs(msg message.RequestPayload, publicKey *cyclic.Int,
+func makeIDs(payload message.RequestPayload, publicKey *cyclic.Int,
 	addressSize uint8, timeout time.Duration, timeNow time.Time, rng io.Reader) (
 	message.RequestPayload, receptionID.EphemeralIdentity, error) {
 	var rid *id.ID
@@ -218,32 +238,29 @@ func makeIDs(msg message.RequestPayload, publicKey *cyclic.Int,
 	// Loop until the address ID's start and end are within bounds
 	for windowStart.Before(start) || windowEnd.After(end) {
 		// Generate new nonce
-		err := msg.SetNonce(rng)
+		err := payload.SetNonce(rng)
 		if err != nil {
 			return message.RequestPayload{}, receptionID.EphemeralIdentity{},
-				errors.Errorf("failed to generate nonce: %+v", err)
+				errors.Errorf(errMakeNonce, err)
 		}
 
 		// Generate ID from unencrypted payload
-		rid = msg.GetRID(publicKey)
+		rid = payload.GetRecipientID(publicKey)
 
 		// Generate the address ID
 		ephID, start, end, err = ephemeral.GetId(
 			rid, uint(addressSize), timeNow.UnixNano())
 		if err != nil {
 			return message.RequestPayload{}, receptionID.EphemeralIdentity{},
-				errors.Errorf("failed to generate address ID from newly "+
-					"generated ID: %+v", err)
+				errors.Errorf(errNewEphemeralID, err)
 		}
-		jww.DEBUG.Printf("address.GetId(%s, %d, %d) = %d", rid,
-			addressSize, timeNow.UnixNano(), ephID.Int64())
 	}
 
-	jww.INFO.Printf("generated by singe use sender reception ID for single "+
-		"use: %s, ephId: %d, pubkey: %x, msg: %s",
-		rid, ephID.Int64(), publicKey.Bytes(), msg)
+	jww.INFO.Printf("[SU] Generated singe-use sender reception ID: %s, "+
+		"ephId: %d, publicKey: %x, payload: %q",
+		rid, ephID.Int64(), publicKey.Bytes(), payload)
 
-	return msg, receptionID.EphemeralIdentity{
+	return payload, receptionID.EphemeralIdentity{
 		EphId:  ephID,
 		Source: rid,
 	}, nil
@@ -251,14 +268,16 @@ func makeIDs(msg message.RequestPayload, publicKey *cyclic.Int,
 
 // waitForTimeout is a long-running thread which handles timing out a request.
 // It can be canceled by channel.
-func waitForTimeout(kill chan bool, callback callbackWrapper, timeout time.Duration) {
-	timer := time.NewTimer(timeout)
+func waitForTimeout(kill chan bool, cb callbackWrapper, timeout time.Duration) {
 	select {
 	case <-kill:
 		return
-	case <-timer.C:
-		err := errors.Errorf("waiting for response to single-use transmission "+
-			"timed out after %s.", timeout)
-		callback(nil, receptionID.EphemeralIdentity{}, rounds.Round{}, err)
+	case <-time.After(timeout):
+		cb(
+			nil,
+			receptionID.EphemeralIdentity{},
+			rounds.Round{},
+			errors.Errorf(errResponseTimeout, timeout),
+		)
 	}
 }

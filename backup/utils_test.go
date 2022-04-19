@@ -8,13 +8,14 @@
 package backup
 
 import (
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
-	"testing"
-	"time"
 )
 
 // Adheres to the E2e interface.
@@ -24,7 +25,7 @@ type mockE2e struct {
 	historicalDHPrivkey *cyclic.Int
 }
 
-func newMockE2e(t *testing.T) *mockE2e {
+func newMockE2e(t testing.TB) *mockE2e {
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
 	return &mockE2e{
 		partnerIDs: []*id.ID{
@@ -54,7 +55,7 @@ type mockSession struct {
 	registrationTimestamp                       time.Time
 }
 
-func newMockSession(t *testing.T) *mockSession {
+func newMockSession(t testing.TB) *mockSession {
 	receptionRSA, _ := rsa.LoadPrivateKeyFromPem([]byte(privKey))
 	transmissionRSA, _ := rsa.LoadPrivateKeyFromPem([]byte(privKey))
 

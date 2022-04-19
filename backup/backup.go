@@ -95,8 +95,8 @@ func initializeBackup(password string, updateBackupCb UpdateBackupFn,
 
 	params := backup.DefaultParams()
 	params.Memory = 256 * 1024 // 256 MiB
-	params.Threads = 2
-	params.Time = 25
+	params.Threads = 1
+	params.Time = 15
 	key := backup.DeriveKey(password, salt, params)
 
 	// Save key, salt, and parameters to storage

@@ -756,6 +756,11 @@ func (c *Client) GetNetworkInterface() cmix.Client {
 	return c.network
 }
 
+// GetE2EHandler returns the e2e handler
+func (c *Client) GetE2EHandler() e2e.Handler {
+	return c.e2e
+}
+
 // GetBackup returns a pointer to the backup container so that the backup can be
 // set and triggered.
 func (c *Client) GetBackup() *backup.Backup {

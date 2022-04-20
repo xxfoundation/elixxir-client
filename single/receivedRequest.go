@@ -10,6 +10,7 @@ import (
 	"gitlab.com/elixxir/client/single/message"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
@@ -91,7 +92,8 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 	parts := partitionResponse(payload, r.net.GetMaxMessageLength(), r.maxParts)
 
 	// Encrypt and send the partitions
-	cyphers := makeCyphers(r.dhKey, uint8(len(parts)))
+	cyphers := makeCyphers(r.dhKey, uint8(len(parts)),
+		singleUse.NewResponseKey, singleUse.NewResponseFingerprint)
 	rounds := make([]id.Round, len(parts))
 	sendResults := make(chan ds.EventReturn, len(parts))
 

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
-	"strings"
 	"testing"
 )
 
@@ -29,16 +28,17 @@ func TestNewCollator(t *testing.T) {
 func TestCollator_Collate(t *testing.T) {
 	messageCount := 16
 	msgPayloadSize := 2
-	msgParts := map[int]ResponsePart{}
+	msgParts := map[int]mockPart{}
 	expectedData := make([]byte, messageCount*msgPayloadSize)
 	copy(expectedData, "This is the expected final data.")
 
 	buff := bytes.NewBuffer(expectedData)
 	for i := 0; i < messageCount; i++ {
-		msgParts[i] = NewResponsePart(msgPayloadSize + 5)
-		msgParts[i].SetNumParts(uint8(messageCount))
-		msgParts[i].SetPartNum(uint8(i))
-		msgParts[i].SetContents(buff.Next(msgPayloadSize))
+		msgParts[i] = mockPart{
+			numParts: uint8(messageCount),
+			partNum:  uint8(i),
+			contents: buff.Next(msgPayloadSize),
+		}
 	}
 
 	c := NewCollator(uint8(messageCount))
@@ -51,7 +51,7 @@ func TestCollator_Collate(t *testing.T) {
 		var err error
 		var collated bool
 
-		fullPayload, collated, err = c.Collate(part.Marshal())
+		fullPayload, collated, err = c.Collate(part)
 		if err != nil {
 			t.Errorf("Collate returned an error for part #%d: %+v", j, err)
 		}
@@ -71,31 +71,12 @@ func TestCollator_Collate(t *testing.T) {
 	}
 }
 
-// Error path: the byte slice cannot be unmarshaled.
-func TestCollator_collate_UnmarshalError(t *testing.T) {
-	payloadBytes := []byte{1}
-	c := NewCollator(1)
-	payload, collated, err := c.Collate(payloadBytes)
-	expectedErr := strings.Split(errUnmarshalResponsePart, "%")[0]
-
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("Collate failed to return an error for failing to "+
-			"unmarshal the payload.\nexpected: %s\nreceived: %+v",
-			expectedErr, err)
-	}
-
-	if payload != nil || collated {
-		t.Errorf("Collate signaled the payload was collated on error."+
-			"\npayload:  %+v\ncollated: %+v", payload, collated)
-	}
-}
-
 // Error path: max reported parts by payload larger than set in Collator.
 func TestCollator_Collate_MaxPartsError(t *testing.T) {
-	payloadBytes := []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+	p := mockPart{0xFF, 0xFF, []byte{0xFF, 0xFF, 0xFF}}
 	messageCount := uint8(1)
 	c := NewCollator(messageCount)
-	_, _, err := c.Collate(payloadBytes)
+	_, _, err := c.Collate(p)
 	expectedErr := fmt.Sprintf(errMaxParts, 0xFF, messageCount)
 
 	if err == nil || err.Error() != expectedErr {
@@ -107,11 +88,11 @@ func TestCollator_Collate_MaxPartsError(t *testing.T) {
 
 // Error path: the message part number is greater than the max number of parts.
 func TestCollator_Collate_PartNumTooLargeError(t *testing.T) {
-	payloadBytes := []byte{25, 5, 5, 5, 5}
-	partNum := uint8(5)
-	c := NewCollator(partNum)
-	_, _, err := c.Collate(payloadBytes)
-	expectedErr := fmt.Sprintf(errPartOutOfRange, partNum, c.maxNum)
+	p := mockPart{35, 5, []byte{5, 5, 5}}
+	messageCount := uint8(1)
+	c := NewCollator(messageCount)
+	_, _, err := c.Collate(p)
+	expectedErr := fmt.Sprintf(errMaxParts, p.numParts, messageCount)
 
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Collate failed to return the expected error when the part "+
@@ -122,17 +103,28 @@ func TestCollator_Collate_PartNumTooLargeError(t *testing.T) {
 
 // Error path: a message with the part number already exists.
 func TestCollator_Collate_PartExistsError(t *testing.T) {
-	payloadBytes := []byte{0, 1, 5, 0, 1, 20}
+	p := mockPart{5, 1, []byte{5, 0, 1, 20}}
 	c := NewCollator(5)
-	_, _, err := c.Collate(payloadBytes)
+	_, _, err := c.Collate(p)
 	if err != nil {
 		t.Fatalf("Collate returned an error: %+v", err)
 	}
-	expectedErr := fmt.Sprintf(errPartExists, payloadBytes[1])
+	expectedErr := fmt.Sprintf(errPartExists, p.partNum)
 
-	_, _, err = c.Collate(payloadBytes)
+	_, _, err = c.Collate(p)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Collate failed to return an error when the part number "+
 			"already exists.\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
+
+type mockPart struct {
+	numParts uint8
+	partNum  uint8
+	contents []byte
+}
+
+func (m mockPart) GetNumParts() uint8  { return m.numParts }
+func (m mockPart) GetPartNum() uint8   { return m.partNum }
+func (m mockPart) GetContents() []byte { return m.contents }
+func (m mockPart) Marshal() []byte     { return append([]byte{m.numParts, m.partNum}, m.contents...) }

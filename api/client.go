@@ -16,8 +16,10 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/backup"
+	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/registration"
@@ -688,6 +690,39 @@ func (c *Client) GetRoundEvents() interfaces.RoundEvents {
 	return c.network.GetInstance().GetRoundEvents()
 }
 
+// RegisterListener registers a callback struct for message receive
+// events.
+func (c *Client) RegisterListener(senderID *id.ID,
+	messageType catalog.MessageType,
+	newListener receive.Listener) receive.ListenerID {
+	jww.INFO.Printf("GetRoundEvents()")
+	jww.WARN.Printf("GetRoundEvents does not handle Client Errors " +
+		"edge case!")
+	return c.e2e.RegisterListener(senderID, messageType, newListener)
+}
+
+// RegisterListenerFunc registers a callback func for message receive
+// events.
+func (c *Client) RegisterListenerFunc(name string, senderID *id.ID,
+	messageType catalog.MessageType,
+	newListener receive.ListenerFunc) receive.ListenerID {
+	jww.INFO.Printf("GetRoundEvents()")
+	jww.WARN.Printf("GetRoundEvents does not handle Client Errors " +
+		"edge case!")
+	return c.e2e.RegisterFunc(name, senderID, messageType, newListener)
+}
+
+// RegisterListenerChannel registers a channel for message receive
+// events.
+func (c *Client) RegisterListenerChannel(name string, senderID *id.ID,
+	messageType catalog.MessageType,
+	newListener chan receive.Message) receive.ListenerID {
+	jww.INFO.Printf("GetRoundEvents()")
+	jww.WARN.Printf("GetRoundEvents does not handle Client Errors " +
+		"edge case!")
+	return c.e2e.RegisterChannel(name, senderID, messageType, newListener)
+}
+
 // AddService adds a service ot be controlled by the client thread control,
 // these will be started and stopped with the network follower
 func (c *Client) AddService(sp Service) error {
@@ -721,10 +756,22 @@ func (c *Client) GetNetworkInterface() cmix.Client {
 	return c.network
 }
 
+// GetE2EHandler returns the e2e handler
+func (c *Client) GetE2EHandler() e2e.Handler {
+	return c.e2e
+}
+
 // GetBackup returns a pointer to the backup container so that the backup can be
 // set and triggered.
 func (c *Client) GetBackup() *backup.Backup {
 	return c.backup
+}
+
+func (c *Client) InitializeBackup(backupPass string,
+	updateBackupCb backup.UpdateBackupFn) (*backup.Backup, error) {
+	container := &backup.Container{}
+	return backup.InitializeBackup(backupPass, updateBackupCb, container,
+		c.e2e, c.storage, nil, c.storage.GetKV(), c.rng)
 }
 
 // GetNodeRegistrationStatus gets the current state of nodes registration. It

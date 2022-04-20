@@ -10,19 +10,11 @@ package cmd
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/single/old"
-	"time"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/switchboard"
-	"gitlab.com/elixxir/client/ud"
-	"gitlab.com/elixxir/client/xxmutils"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/xx_network/primitives/utils"
 )
 
 // udCmd is the user discovery subcommand, which allows for user lookup,
@@ -34,225 +26,225 @@ var udCmd = &cobra.Command{
 	Short: "Register for and search users using the xx network user discovery service.",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client := initClient()
+		// client := initClient()
 
-		// get user and save contact to file
-		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ReceptionID)
-		writeContact(user.GetContact())
+		// // get user and save contact to file
+		// user := client.GetUser()
+		// jww.INFO.Printf("User: %s", user.ReceptionID)
+		// writeContact(user.GetContact())
 
-		// Set up reception handler
-		swBoard := client.GetSwitchboard()
-		recvCh := make(chan message.Receive, 10000)
-		listenerID := swBoard.RegisterChannel("DefaultCLIReceiver",
-			switchboard.AnyUser(), message.XxMessage, recvCh)
-		jww.INFO.Printf("Message ListenerID: %v", listenerID)
+		// // Set up reception handler
+		// swBoard := client.GetSwitchboard()
+		// recvCh := make(chan message.Receive, 10000)
+		// listenerID := swBoard.RegisterChannel("DefaultCLIReceiver",
+		// 	switchboard.AnyUser(), message.XxMessage, recvCh)
+		// jww.INFO.Printf("Message ListenerID: %v", listenerID)
 
-		// Set up auth request handler, which simply prints the user ID of the
-		// requester
-		authMgr := client.GetAuthRegistrar()
-		authMgr.AddGeneralRequestCallback(printChanRequest)
+		// // Set up auth request handler, which simply prints the user ID of the
+		// // requester
+		// authMgr := client.GetAuthRegistrar()
+		// authMgr.AddGeneralRequestCallback(printChanRequest)
 
-		// If unsafe channels, add auto-acceptor
-		if viper.GetBool("unsafe-channel-creation") {
-			authMgr.AddGeneralRequestCallback(func(
-				requester contact.Contact) {
-				jww.INFO.Printf("Got Request: %s", requester.ID)
-				_, err := client.ConfirmAuthenticatedChannel(requester)
-				if err != nil {
-					jww.FATAL.Panicf("%+v", err)
-				}
-			})
-		}
+		// // If unsafe channels, add auto-acceptor
+		// if viper.GetBool("unsafe-channel-creation") {
+		// 	authMgr.AddGeneralRequestCallback(func(
+		// 		requester contact.Contact) {
+		// 		jww.INFO.Printf("Got Request: %s", requester.ID)
+		// 		_, err := client.ConfirmAuthenticatedChannel(requester)
+		// 		if err != nil {
+		// 			jww.FATAL.Panicf("%+v", err)
+		// 		}
+		// 	})
+		// }
 
-		err := client.StartNetworkFollower(50 * time.Millisecond)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
+		// err := client.StartNetworkFollower(50 * time.Millisecond)
+		// if err != nil {
+		// 	jww.FATAL.Panicf("%+v", err)
+		// }
 
-		// Wait until connected or crash on timeout
-		connected := make(chan bool, 10)
-		client.GetHealth().AddChannel(connected)
-		waitUntilConnected(connected)
+		// // Wait until connected or crash on timeout
+		// connected := make(chan bool, 10)
+		// client.GetHealth().AddChannel(connected)
+		// waitUntilConnected(connected)
 
-		// Make single-use manager and start receiving process
-		singleMng := old.NewManager(client)
-		err = client.AddService(singleMng.StartProcesses)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to add single use process: %+v", err)
-		}
+		// // Make single-use manager and start receiving process
+		// singleMng := old.NewManager(client)
+		// err = client.AddService(singleMng.StartProcesses)
+		// if err != nil {
+		// 	jww.FATAL.Panicf("Failed to add single use process: %+v", err)
+		// }
 
-		// Make user discovery manager
-		userDiscoveryMgr, err := ud.NewManager(client, singleMng)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to create new UD manager: %+v", err)
-		}
+		// // Make user discovery manager
+		// userDiscoveryMgr, err := ud.NewManager(client, singleMng)
+		// if err != nil {
+		// 	jww.FATAL.Panicf("Failed to create new UD manager: %+v", err)
+		// }
 
-		userToRegister := viper.GetString("register")
-		if userToRegister != "" {
-			err = userDiscoveryMgr.Register(userToRegister)
-			if err != nil {
-				fmt.Printf("Failed to register user %s: %s\n",
-					userToRegister, err.Error())
-				jww.FATAL.Panicf("Failed to register user %s: %+v", userToRegister, err)
-			}
-		}
+		// userToRegister := viper.GetString("register")
+		// if userToRegister != "" {
+		// 	err = userDiscoveryMgr.Register(userToRegister)
+		// 	if err != nil {
+		// 		fmt.Printf("Failed to register user %s: %s\n",
+		// 			userToRegister, err.Error())
+		// 		jww.FATAL.Panicf("Failed to register user %s: %+v", userToRegister, err)
+		// 	}
+		// }
 
-		var newFacts fact.FactList
-		phone := viper.GetString("addphone")
-		if phone != "" {
-			f, err := fact.NewFact(fact.Phone, phone)
-			if err != nil {
-				jww.FATAL.Panicf("Failed to create new fact: %+v", err)
-			}
-			newFacts = append(newFacts, f)
-		}
+		// var newFacts fact.FactList
+		// phone := viper.GetString("addphone")
+		// if phone != "" {
+		// 	f, err := fact.NewFact(fact.Phone, phone)
+		// 	if err != nil {
+		// 		jww.FATAL.Panicf("Failed to create new fact: %+v", err)
+		// 	}
+		// 	newFacts = append(newFacts, f)
+		// }
 
-		email := viper.GetString("addemail")
-		if email != "" {
-			f, err := fact.NewFact(fact.Email, email)
-			if err != nil {
-				jww.FATAL.Panicf("Failed to create new fact: %+v", err)
-			}
-			newFacts = append(newFacts, f)
-		}
+		// email := viper.GetString("addemail")
+		// if email != "" {
+		// 	f, err := fact.NewFact(fact.Email, email)
+		// 	if err != nil {
+		// 		jww.FATAL.Panicf("Failed to create new fact: %+v", err)
+		// 	}
+		// 	newFacts = append(newFacts, f)
+		// }
 
-		for i := 0; i < len(newFacts); i++ {
-			r, err := userDiscoveryMgr.SendRegisterFact(newFacts[i])
-			if err != nil {
-				fmt.Printf("Failed to register fact: %s\n",
-					newFacts[i])
-				jww.FATAL.Panicf("Failed to send register fact: %+v", err)
-			}
-			// TODO Store the code?
-			jww.INFO.Printf("Fact Add Response: %+v", r)
-		}
+		// for i := 0; i < len(newFacts); i++ {
+		// 	r, err := userDiscoveryMgr.SendRegisterFact(newFacts[i])
+		// 	if err != nil {
+		// 		fmt.Printf("Failed to register fact: %s\n",
+		// 			newFacts[i])
+		// 		jww.FATAL.Panicf("Failed to send register fact: %+v", err)
+		// 	}
+		// 	// TODO Store the code?
+		// 	jww.INFO.Printf("Fact Add Response: %+v", r)
+		// }
 
-		confirmID := viper.GetString("confirm")
-		if confirmID != "" {
-			err = userDiscoveryMgr.SendConfirmFact(confirmID, confirmID)
-			if err != nil {
-				fmt.Printf("Couldn't confirm fact: %s\n",
-					err.Error())
-				jww.FATAL.Panicf("%+v", err)
-			}
-		}
+		// confirmID := viper.GetString("confirm")
+		// if confirmID != "" {
+		// 	err = userDiscoveryMgr.SendConfirmFact(confirmID, confirmID)
+		// 	if err != nil {
+		// 		fmt.Printf("Couldn't confirm fact: %s\n",
+		// 			err.Error())
+		// 		jww.FATAL.Panicf("%+v", err)
+		// 	}
+		// }
 
-		// Handle lookup (verification) process
-		// Note: Cryptographic verification occurs above the bindings layer
-		lookupIDStr := viper.GetString("lookup")
-		if lookupIDStr != "" {
-			lookupID, _ := parseRecipient(lookupIDStr)
-			//if !ok {
-			//	jww.FATAL.Panicf("Could not parse recipient: %s", lookupIDStr)
-			//}
-			err = userDiscoveryMgr.Lookup(lookupID,
-				func(newContact contact.Contact, err error) {
-					if err != nil {
-						jww.FATAL.Panicf("UserDiscovery Lookup error: %+v", err)
-					}
-					printContact(newContact)
-				}, 30*time.Second)
+		// // Handle lookup (verification) process
+		// // Note: Cryptographic verification occurs above the bindings layer
+		// lookupIDStr := viper.GetString("lookup")
+		// if lookupIDStr != "" {
+		// 	lookupID, _ := parseRecipient(lookupIDStr)
+		// 	//if !ok {
+		// 	//	jww.FATAL.Panicf("Could not parse recipient: %s", lookupIDStr)
+		// 	//}
+		// 	err = userDiscoveryMgr.Lookup(lookupID,
+		// 		func(newContact contact.Contact, err error) {
+		// 			if err != nil {
+		// 				jww.FATAL.Panicf("UserDiscovery Lookup error: %+v", err)
+		// 			}
+		// 			printContact(newContact)
+		// 		}, 30*time.Second)
 
-			if err != nil {
-				jww.WARN.Printf("Failed UD lookup: %+v", err)
-			}
+		// 	if err != nil {
+		// 		jww.WARN.Printf("Failed UD lookup: %+v", err)
+		// 	}
 
-			time.Sleep(31 * time.Second)
-		}
+		// 	time.Sleep(31 * time.Second)
+		// }
 
-		if viper.GetString("batchadd") != "" {
-			idListFile, err := utils.ReadFile(viper.GetString("batchadd"))
-			if err != nil {
-				fmt.Printf("BATCHADD: Couldn't read file: %s\n",
-					err.Error())
-				jww.FATAL.Panicf("BATCHADD: Couldn't read file: %+v", err)
-			}
-			restored, _, _, err := xxmutils.RestoreContactsFromBackup(
-				idListFile, client, userDiscoveryMgr, nil)
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
-			for i := 0; i < len(restored); i++ {
-				uid := restored[i]
-				for !client.HasAuthenticatedChannel(uid) {
-					time.Sleep(time.Second)
-				}
-				jww.INFO.Printf("Authenticated channel established for %s", uid)
-			}
-		}
-		usernameSearchStr := viper.GetString("searchusername")
-		emailSearchStr := viper.GetString("searchemail")
-		phoneSearchStr := viper.GetString("searchphone")
+		// if viper.GetString("batchadd") != "" {
+		// 	idListFile, err := utils.ReadFile(viper.GetString("batchadd"))
+		// 	if err != nil {
+		// 		fmt.Printf("BATCHADD: Couldn't read file: %s\n",
+		// 			err.Error())
+		// 		jww.FATAL.Panicf("BATCHADD: Couldn't read file: %+v", err)
+		// 	}
+		// 	restored, _, _, err := xxmutils.RestoreContactsFromBackup(
+		// 		idListFile, client, userDiscoveryMgr, nil)
+		// 	if err != nil {
+		// 		jww.FATAL.Panicf("%+v", err)
+		// 	}
+		// 	for i := 0; i < len(restored); i++ {
+		// 		uid := restored[i]
+		// 		for !client.HasAuthenticatedChannel(uid) {
+		// 			time.Sleep(time.Second)
+		// 		}
+		// 		jww.INFO.Printf("Authenticated channel established for %s", uid)
+		// 	}
+		// }
+		// usernameSearchStr := viper.GetString("searchusername")
+		// emailSearchStr := viper.GetString("searchemail")
+		// phoneSearchStr := viper.GetString("searchphone")
 
-		var facts fact.FactList
-		if usernameSearchStr != "" {
-			f, err := fact.NewFact(fact.Username, usernameSearchStr)
-			if err != nil {
-				jww.FATAL.Panicf("Failed to create new fact: %+v", err)
-			}
-			facts = append(facts, f)
-		}
-		if emailSearchStr != "" {
-			f, err := fact.NewFact(fact.Email, emailSearchStr)
-			if err != nil {
-				jww.FATAL.Panicf("Failed to create new fact: %+v", err)
-			}
-			facts = append(facts, f)
-		}
-		if phoneSearchStr != "" {
-			f, err := fact.NewFact(fact.Phone, phoneSearchStr)
-			if err != nil {
-				jww.FATAL.Panicf("Failed to create new fact: %+v", err)
-			}
-			facts = append(facts, f)
-		}
+		// var facts fact.FactList
+		// if usernameSearchStr != "" {
+		// 	f, err := fact.NewFact(fact.Username, usernameSearchStr)
+		// 	if err != nil {
+		// 		jww.FATAL.Panicf("Failed to create new fact: %+v", err)
+		// 	}
+		// 	facts = append(facts, f)
+		// }
+		// if emailSearchStr != "" {
+		// 	f, err := fact.NewFact(fact.Email, emailSearchStr)
+		// 	if err != nil {
+		// 		jww.FATAL.Panicf("Failed to create new fact: %+v", err)
+		// 	}
+		// 	facts = append(facts, f)
+		// }
+		// if phoneSearchStr != "" {
+		// 	f, err := fact.NewFact(fact.Phone, phoneSearchStr)
+		// 	if err != nil {
+		// 		jww.FATAL.Panicf("Failed to create new fact: %+v", err)
+		// 	}
+		// 	facts = append(facts, f)
+		// }
 
-		userToRemove := viper.GetString("remove")
-		if userToRemove != "" {
-			f, err := fact.NewFact(fact.Username, userToRemove)
-			if err != nil {
-				jww.FATAL.Panicf(
-					"Failed to create new fact: %+v", err)
-			}
-			err = userDiscoveryMgr.RemoveUser(f)
-			if err != nil {
-				fmt.Printf("Couldn't remove user %s\n",
-					userToRemove)
-				jww.FATAL.Panicf(
-					"Failed to remove user %s: %+v",
-					userToRemove, err)
-			}
-			fmt.Printf("Removed user from discovery: %s\n",
-				userToRemove)
-		}
+		// userToRemove := viper.GetString("remove")
+		// if userToRemove != "" {
+		// 	f, err := fact.NewFact(fact.Username, userToRemove)
+		// 	if err != nil {
+		// 		jww.FATAL.Panicf(
+		// 			"Failed to create new fact: %+v", err)
+		// 	}
+		// 	err = userDiscoveryMgr.RemoveUser(f)
+		// 	if err != nil {
+		// 		fmt.Printf("Couldn't remove user %s\n",
+		// 			userToRemove)
+		// 		jww.FATAL.Panicf(
+		// 			"Failed to remove user %s: %+v",
+		// 			userToRemove, err)
+		// 	}
+		// 	fmt.Printf("Removed user from discovery: %s\n",
+		// 		userToRemove)
+		// }
 
-		if len(facts) == 0 {
-			err = client.StopNetworkFollower()
-			if err != nil {
-				jww.WARN.Print(err)
-			}
-			return
-		}
+		// if len(facts) == 0 {
+		// 	err = client.StopNetworkFollower()
+		// 	if err != nil {
+		// 		jww.WARN.Print(err)
+		// 	}
+		// 	return
+		// }
 
-		err = userDiscoveryMgr.Search(facts,
-			func(contacts []contact.Contact, err error) {
-				if err != nil {
-					jww.FATAL.Panicf("%+v", err)
-				}
-				for _, c := range contacts {
-					printContact(c)
-				}
-			}, 90*time.Second)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
+		// err = userDiscoveryMgr.Search(facts,
+		// 	func(contacts []contact.Contact, err error) {
+		// 		if err != nil {
+		// 			jww.FATAL.Panicf("%+v", err)
+		// 		}
+		// 		for _, c := range contacts {
+		// 			printContact(c)
+		// 		}
+		// 	}, 90*time.Second)
+		// if err != nil {
+		// 	jww.FATAL.Panicf("%+v", err)
+		// }
 
-		time.Sleep(91 * time.Second)
-		err = client.StopNetworkFollower()
-		if err != nil {
-			jww.WARN.Print(err)
-		}
+		// time.Sleep(91 * time.Second)
+		// err = client.StopNetworkFollower()
+		// if err != nil {
+		// 	jww.WARN.Print(err)
+		// }
 	},
 }
 

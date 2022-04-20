@@ -30,7 +30,7 @@ type lookupCallback func(contact.Contact, error)
 func Lookup(services CMix,
 	rng csprng.Source, grp *cyclic.Group,
 	udContact contact.Contact, callback lookupCallback,
-	uid *id.ID, timeout time.Duration) (id.Round,
+	uid *id.ID, timeout time.Duration) ([]id.Round,
 	receptionID.EphemeralIdentity, error) {
 
 	jww.INFO.Printf("ud.Lookup(%s, %s)", uid, timeout)
@@ -74,7 +74,7 @@ func lookup(net CMix,
 	request := &LookupSend{UserID: uid.Marshal()}
 	requestMarshaled, err := proto.Marshal(request)
 	if err != nil {
-		return id.Round(0),
+		return []id.Round{},
 			receptionID.EphemeralIdentity{}, errors.WithMessage(err,
 				"Failed to form outgoing lookup request.")
 	}
@@ -105,7 +105,7 @@ type lookupResponse struct {
 
 func (m lookupResponse) Callback(payload []byte,
 	receptionID receptionID.EphemeralIdentity,
-	round rounds.Round, err error) {
+	rounds []rounds.Round, err error) {
 
 	if err != nil {
 		go m.cb(contact.Contact{}, errors.WithMessage(err, "Failed to lookup."))

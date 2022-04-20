@@ -98,7 +98,7 @@ func GetMaxRequestSize(net CMix, e2eGrp *cyclic.Group) int {
 //
 // The network follower must be running and healthy to transmit.
 func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
-	callback Response, param RequestParams, net cmix.Client, rng csprng.Source,
+	callback Response, param RequestParams, net CMix, rng csprng.Source,
 	e2eGrp *cyclic.Group) ([]id.Round, receptionID.EphemeralIdentity, error) {
 
 	if len(payload) > GetMaxRequestSize(net, e2eGrp) {

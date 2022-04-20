@@ -3,6 +3,7 @@ package ud
 import (
 	"encoding/base64"
 	"fmt"
+	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/crypto/contact"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
@@ -69,6 +70,14 @@ func TestManager_Search(t *testing.T) {
 			TrigFacts: []*HashFact{hash},
 		})
 	}
+
+	udMockPrivKey := tnm.GetInstance().GetE2EGroup().NewInt(25)
+
+	receiver := newMockReceiver(callbackChan)
+
+	mockListener := single.Listen(SearchTag, tnm.c.ID, udMockPrivKey,
+		tnm, grp, receiver)
+	defer mockListener.Stop()
 
 	udContact, err := m.GetContact()
 	if err != nil {

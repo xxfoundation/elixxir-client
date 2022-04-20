@@ -36,7 +36,7 @@ type searchCallback func([]contact.Contact, error)
 func Search(services CMix, events event.Reporter,
 	rng csprng.Source, grp *cyclic.Group,
 	udContact contact.Contact, callback searchCallback,
-	list fact.FactList, timeout time.Duration) (id.Round,
+	list fact.FactList, timeout time.Duration) ([]id.Round,
 	receptionID.EphemeralIdentity, error) {
 	jww.INFO.Printf("ud.Search(%s, %s)", list.Stringify(), timeout)
 
@@ -46,7 +46,7 @@ func Search(services CMix, events event.Reporter,
 	request := &SearchSend{Fact: factHashes}
 	requestMarshaled, err := proto.Marshal(request)
 	if err != nil {
-		return id.Round(0), receptionID.EphemeralIdentity{},
+		return []id.Round{}, receptionID.EphemeralIdentity{},
 			errors.WithMessage(err, "Failed to form outgoing search request.")
 	}
 
@@ -67,7 +67,7 @@ func Search(services CMix, events event.Reporter,
 	rndId, ephId, err := single.TransmitRequest(udContact, SearchTag, requestMarshaled,
 		response, p, services, rng, grp)
 	if err != nil {
-		return id.Round(0), receptionID.EphemeralIdentity{},
+		return []id.Round{}, receptionID.EphemeralIdentity{},
 			errors.WithMessage(err, "Failed to transmit search request.")
 	}
 
@@ -89,7 +89,7 @@ type searchResponse struct {
 
 func (m searchResponse) Callback(payload []byte,
 	receptionID receptionID.EphemeralIdentity,
-	round rounds.Round, err error) {
+	round []rounds.Round, err error) {
 	fmt.Println("in callback")
 	if err != nil {
 		go m.cb(nil, errors.WithMessage(err, "Failed to search."))

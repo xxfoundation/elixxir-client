@@ -152,7 +152,7 @@ func (v *KV) Prefix(prefix string) *KV {
 }
 
 func (v *KV) IsMemStore() bool {
-	_, success := v.r.data.(ekv.Memstore)
+	_, success := v.r.data.(*ekv.Memstore)
 	return success
 }
 

@@ -16,22 +16,56 @@ import (
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/xx_network/primitives/id"
 	"io"
+	"strconv"
+	"strings"
+)
+
+// Error messages.
+const (
+	// NewRequest
+	errNewReqPayloadSize = "[SU] Failed to create new single-use request " +
+		"message: external payload size (%d) is smaller than the public key " +
+		"size (%d)."
+
+	// UnmarshalRequest
+	errReqDataSize = "size of data (%d) must be at least %d"
+
+	// Request.SetPayload
+	errReqPayloadSize = "[SU] Failed to set payload of single-use request " +
+		"message: size of the supplied payload (%d) is larger than the max " +
+		"message size (%d)."
+
+	// NewRequestPayload
+	errNewReqPayloadPayloadSize = "[SU] Failed to create new single-use " +
+		"request payload message: payload size (%d) is smaller than the " +
+		"minimum message size for a request payload (%d)."
+
+	// UnmarshalRequestPayload
+	errReqPayloadDataSize = "size of data (%d) must be at least %d"
+
+	// RequestPayload.SetNonce
+	errSetReqPayloadNonce = "failed to generate nonce: %+v"
+
+	// RequestPayload.SetContents
+	errReqPayloadContentsSize = "[SU] Failed to set contents of single-use " +
+		"request payload message: size of the supplied contents (%d) is " +
+		"larger than the max message size (%d)."
 )
 
 /*
-+-------------------------------------------------------------------------------------+
-|                                CMIX Message Contents                                |
-+-----------+------------+------------------------------------------------------------+
-|  Version  |   pubKey   |                  payload (RequestPayload)                  |
-|  1 byte   | pubKeySize |              externalPayloadSize - pubKeySize              |
-+-----------+------------+----------+---------+------------------+---------+----------+
-                         |  Tag FP  |  nonce  | maxResponseParts |  size   | contents |
-                         | 16 bytes | 8 bytes |      1 byte      | 2 bytes | variable |
-                         +----------+---------+------------------+---------+----------+
++--------------------------------------------------------------------------------------------+
+|                                   cMix Message Contents                                    |
++-----------+------------+-------------------------------------------------------------------+
+|  Version  |   pubKey   |                      payload (RequestPayload)                     |
+|  1 byte   | pubKeySize |             externalPayloadSize - 1 byte - pubKeySize             |
++-----------+------------+---------+-----------------+------------------+---------+----------+
+                         |  nonce  | numRequestParts | maxResponseParts |  size   | contents |
+                         | 8 bytes |     1 byte      |      1 byte      | 2 bytes | variable |
+                         +---------+-----------------+------------------+---------+----------+
 */
 
-const transmitMessageVersion = 0
-const transmitMessageVersionSize = 1
+const requestVersion = 0
+const requestVersionSize = 1
 
 type Request struct {
 	data    []byte // Serial of all contents
@@ -40,23 +74,23 @@ type Request struct {
 	payload []byte // The encrypted payload containing reception ID and contents
 }
 
-// NewRequest generates a new empty message for transmission that is the
-// size of the specified external payload.
+// NewRequest generates a new empty message for a request that is the size of
+// the specified external payload.
 func NewRequest(externalPayloadSize, pubKeySize int) Request {
 	if externalPayloadSize < pubKeySize {
-		jww.FATAL.Panicf("Payload size of single-use transmission message "+
-			"(%d) too small to contain the public key (%d).",
-			externalPayloadSize, pubKeySize)
+		jww.FATAL.Panicf(errNewReqPayloadSize, externalPayloadSize, pubKeySize)
 	}
 
 	tm := mapRequest(make([]byte, externalPayloadSize), pubKeySize)
-	tm.version[0] = transmitMessageVersion
+	tm.version[0] = requestVersion
 
 	return tm
 }
 
-func GetRequestPayloadSize(externalPayloadSize, pubKeySize int) uint {
-	return uint(externalPayloadSize - transmitMessageVersionSize - pubKeySize)
+// GetRequestPayloadSize returns the size of the payload for the given external
+// payload size and public key size.
+func GetRequestPayloadSize(externalPayloadSize, pubKeySize int) int {
+	return externalPayloadSize - requestVersionSize - pubKeySize
 }
 
 // mapRequest builds a message mapped to the passed in data. It is
@@ -64,9 +98,9 @@ func GetRequestPayloadSize(externalPayloadSize, pubKeySize int) uint {
 func mapRequest(data []byte, pubKeySize int) Request {
 	return Request{
 		data:    data,
-		version: data[:transmitMessageVersionSize],
-		pubKey:  data[transmitMessageVersionSize : transmitMessageVersionSize+pubKeySize],
-		payload: data[transmitMessageVersionSize+pubKeySize:],
+		version: data[:requestVersionSize],
+		pubKey:  data[requestVersionSize : requestVersionSize+pubKeySize],
+		payload: data[requestVersionSize+pubKeySize:],
 	}
 }
 
@@ -74,8 +108,7 @@ func mapRequest(data []byte, pubKeySize int) Request {
 // error is returned if the slice is not large enough for the public key size.
 func UnmarshalRequest(b []byte, pubKeySize int) (Request, error) {
 	if len(b) < pubKeySize {
-		return Request{}, errors.Errorf("Length of marshaled bytes "+
-			"(%d) too small to contain public key (%d).", len(b), pubKeySize)
+		return Request{}, errors.Errorf(errReqDataSize, len(b), pubKeySize)
 	}
 
 	return mapRequest(b, pubKeySize), nil
@@ -118,22 +151,29 @@ func (m Request) GetPayloadSize() int {
 
 // SetPayload saves the supplied bytes as the payload of the message, if the
 // size is correct.
-func (m Request) SetPayload(b []byte) {
-	if len(b) != len(m.payload) {
-		jww.FATAL.Panicf("Size of payload of single-use transmission message "+
-			"(%d) is not the same as the size of the supplied payload (%d).",
-			len(m.payload), len(b))
+func (m Request) SetPayload(payload []byte) {
+	if len(payload) != len(m.payload) {
+		jww.FATAL.Panicf(errReqPayloadSize, len(m.payload), len(payload))
 	}
 
-	copy(m.payload, b)
+	copy(m.payload, payload)
 }
+
+/*
++-------------------------------------------------------------------+
+|                          Request payload                          |
++---------+-----------------+------------------+---------+----------+
+|  nonce  | numRequestParts | maxResponseParts |  size   | contents |
+| 8 bytes |     1 byte      |      1 byte      | 2 bytes | variable |
++---------+-----------------+------------------+---------+----------+
+*/
 
 const (
 	nonceSize            = 8
 	numRequestPartsSize  = 1
 	maxResponsePartsSize = 1
 	sizeSize             = 2
-	transmitPlMinSize    = nonceSize + numRequestPartsSize + maxResponsePartsSize + sizeSize
+	requestMinSize       = nonceSize + numRequestPartsSize + maxResponsePartsSize + sizeSize
 )
 
 // RequestPayload is the structure of Request's payload.
@@ -146,14 +186,13 @@ type RequestPayload struct {
 	contents         []byte
 }
 
-// NewRequestPayload generates a new empty message for transmission that is the
-// size of the specified payload, which should match the size of the payload in
-// the corresponding Request.
+// NewRequestPayload generates a new empty message for request that is the size
+// of the specified payload, which should match the size of the payload in the
+// corresponding Request.
 func NewRequestPayload(payloadSize int, payload []byte, maxMsgs uint8) RequestPayload {
-	if payloadSize < transmitPlMinSize {
-		jww.FATAL.Panicf("Size of single-use transmission message payload "+
-			"(%d) too small to contain the necessary data (%d).",
-			payloadSize, transmitPlMinSize)
+	if payloadSize < requestMinSize {
+		jww.FATAL.Panicf(
+			errNewReqPayloadPayloadSize, payloadSize, requestMinSize)
 	}
 
 	// Map fields to data
@@ -164,8 +203,10 @@ func NewRequestPayload(payloadSize int, payload []byte, maxMsgs uint8) RequestPa
 	return mp
 }
 
-func GetRequestContentsSize(payloadSize uint) uint {
-	return payloadSize - transmitPlMinSize
+// GetRequestContentsSize returns the size of the contents of a RequestPayload
+// given the payload size.
+func GetRequestContentsSize(payloadSize int) int {
+	return payloadSize - requestMinSize
 }
 
 // mapRequestPayload builds a message payload mapped to the passed in
@@ -176,22 +217,21 @@ func mapRequestPayload(data []byte) RequestPayload {
 		nonce:            data[:nonceSize],
 		numRequestParts:  data[nonceSize : nonceSize+numRequestPartsSize],
 		maxResponseParts: data[nonceSize+numRequestPartsSize : nonceSize+maxResponsePartsSize+numRequestPartsSize],
-		size:             data[nonceSize+numRequestPartsSize+maxResponsePartsSize : transmitPlMinSize],
-		contents:         data[transmitPlMinSize:],
+		size:             data[nonceSize+numRequestPartsSize+maxResponsePartsSize : requestMinSize],
+		contents:         data[requestMinSize:],
 	}
 	mp.numRequestParts[0] = 1
 
 	return mp
 }
 
-// UnmarshalRequestPayload unmarshalls a byte slice into a
-// RequestPayload. An error is returned if the slice is not large enough
-// for the reception ID and message count.
+// UnmarshalRequestPayload unmarshalls a byte slice into a RequestPayload. An
+// error is returned if the slice is not large enough for the reception ID and
+// message count.
 func UnmarshalRequestPayload(b []byte) (RequestPayload, error) {
-	if len(b) < transmitPlMinSize {
-		return RequestPayload{}, errors.Errorf("Length of marshaled "+
-			"bytes(%d) too small to contain the necessary data (%d).",
-			len(b), transmitPlMinSize)
+	if len(b) < requestMinSize {
+		return RequestPayload{},
+			errors.Errorf(errReqPayloadDataSize, len(b), requestMinSize)
 	}
 
 	return mapRequestPayload(b), nil
@@ -202,8 +242,8 @@ func (mp RequestPayload) Marshal() []byte {
 	return mp.data
 }
 
-// GetRID generates the reception ID from the bytes of the payload.
-func (mp RequestPayload) GetRID(pubKey *cyclic.Int) *id.ID {
+// GetRecipientID generates the recipient ID from the bytes of the payload.
+func (mp RequestPayload) GetRecipientID(pubKey *cyclic.Int) *id.ID {
 	return singleUse.NewRecipientID(pubKey, mp.Marshal())
 }
 
@@ -216,28 +256,28 @@ func (mp RequestPayload) GetNonce() uint64 {
 // reader fails.
 func (mp RequestPayload) SetNonce(rng io.Reader) error {
 	if _, err := rng.Read(mp.nonce); err != nil {
-		return errors.Errorf("failed to generate nonce: %+v", err)
+		return errors.Errorf(errSetReqPayloadNonce, err)
 	}
 
 	return nil
 }
 
-// GetMaxResponseParts returns the number of messages expected in response.
+// GetMaxResponseParts returns the maximum number of response messages allowed.
 func (mp RequestPayload) GetMaxResponseParts() uint8 {
 	return mp.maxResponseParts[0]
 }
 
-// SetMaxResponseParts sets the number of expected messages.
+// SetMaxResponseParts sets the maximum number of response messages allowed.
 func (mp RequestPayload) SetMaxResponseParts(num uint8) {
 	copy(mp.maxResponseParts, []byte{num})
 }
 
-// GetNumRequestParts returns the number of messages expected in the request.
+// GetNumRequestParts returns the number of messages in the request.
 func (mp RequestPayload) GetNumRequestParts() uint8 {
 	return mp.numRequestParts[0]
 }
 
-// SetNumRequestParts sets the number of expected messages.
+// SetNumRequestParts sets the number of messages in the request.
 func (mp RequestPayload) SetNumRequestParts(num uint8) {
 	copy(mp.numRequestParts, []byte{num})
 }
@@ -261,10 +301,8 @@ func (mp RequestPayload) GetMaxContentsSize() int {
 // not zero out previous content.
 func (mp RequestPayload) SetContents(contents []byte) {
 	if len(contents) > len(mp.contents) {
-		jww.FATAL.Panicf("Failed to set contents of single-use transmission "+
-			"message: max size of message content (%d) is smaller than the "+
-			"size of the supplied contents (%d).",
-			len(mp.contents), len(contents))
+		jww.FATAL.Panicf(
+			errReqPayloadContentsSize, len(contents), len(mp.contents))
 	}
 
 	binary.BigEndian.PutUint16(mp.size, uint16(len(contents)))
@@ -272,10 +310,17 @@ func (mp RequestPayload) SetContents(contents []byte) {
 	copy(mp.contents, contents)
 }
 
-// String returns the contents for printing adhering to the stringer interface.
+// String returns the contents of a RequestPayload as a human-readable string.
+// This function adheres to the fmt.Stringer interface.
 func (mp RequestPayload) String() string {
-	return fmt.Sprintf("Data: %x [nonce: %x, "+
-		"maxResponseParts: %x, size: %x, content: %x]", mp.data,
-		mp.nonce, mp.maxResponseParts, mp.size, mp.contents)
+	str := []string{
+		"nonce: " + strconv.Itoa(int(mp.GetNonce())),
+		"numRequestParts: " + strconv.Itoa(int(mp.GetNumRequestParts())),
+		"maxResponseParts: " + strconv.Itoa(int(mp.GetMaxResponseParts())),
+		"size: " + strconv.Itoa(mp.GetContentsSize()),
+		"contents: " + fmt.Sprintf("%q", mp.GetContents()),
+	}
+
+	return "{" + strings.Join(str, ", ") + "}"
 
 }

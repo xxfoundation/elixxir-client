@@ -56,13 +56,12 @@ func (rk *cypher) Encrypt(rp message.ResponsePart) (
 }
 
 func (rk *cypher) Decrypt(contents, mac []byte) ([]byte, error) {
-
 	fp := rk.GetFingerprint()
 	key := rk.getKey()
 
-	// Verify the CMIX message MAC
+	// Verify the cMix message MAC
 	if !singleUse.VerifyMAC(key, contents, mac) {
-		return nil, errors.New("failed to verify the single use mac")
+		return nil, errors.New("failed to verify the single-use MAC")
 	}
 
 	// Decrypt the payload

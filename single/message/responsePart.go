@@ -13,21 +13,41 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 )
 
+// Error messages.
 const (
-	partNumLen                 = 1
-	maxPartsLen                = 1
-	responseMinSize            = receptionMessageVersionLen + partNumLen + maxPartsLen + sizeSize
-	receptionMessageVersion    = 0
-	receptionMessageVersionLen = 1
+	// NewResponsePart
+	errResPartPayloadSize = "[SU] Failed to create new single-use response " +
+		"message part: external payload size (%d) is smaller than the " +
+		"minimum message size for a response part (%d)."
+
+	// UnmarshalResponsePart
+	errResPartDataSize = "size of data (%d) must be at least %d"
+
+	// ResponsePart.SetContents
+	errResPartContentsSize = "[SU] Failed to set contents of single-use " +
+		"response message part: size of the supplied contents (%d) is larger " +
+		"than the max message size (%d)."
 )
 
+// Sizes of fields.
+const (
+	resPartVersionLen  = 1
+	resPartPartNumLen  = 1
+	resPartMaxPartsLen = 1
+	resPartSizeLen     = 2
+	resPartMinSize     = resPartVersionLen + resPartPartNumLen + resPartMaxPartsLen + resPartSizeLen
+)
+
+// The version number for the ResponsePart message.
+const responsePartVersion = 0
+
 /*
-+-----------------------------------------------------------+
-|                   CMIX Message Contents                   |
-+---------+------------------+---------+---------+----------+
-| version | maxResponseParts |  size   | partNum | contents |
-| 1 bytes |      1 byte      | 2 bytes | 1 bytes | variable |
-+---------+------------------+---------+---------+----------+
++---------------------------------------------------+
+|               cMix Message Contents               |
++---------+---------+----------+---------+----------+
+| version | partNum | maxParts |  size   | contents |
+|  1 byte |  1 byte |  1 byte  | 2 bytes | variable |
++---------+---------+----------+---------+----------+
 */
 
 type ResponsePart struct {
@@ -41,15 +61,13 @@ type ResponsePart struct {
 
 // NewResponsePart generates a new response message part of the specified size.
 func NewResponsePart(externalPayloadSize int) ResponsePart {
-	if externalPayloadSize < responseMinSize {
-		jww.FATAL.Panicf("Failed to create new single-use response message "+
-			"part: size of external payload (%d) is too small to contain the "+
-			"message part number and max parts (%d)",
-			externalPayloadSize, responseMinSize)
+	if externalPayloadSize < resPartMinSize {
+		jww.FATAL.Panicf(
+			errResPartPayloadSize, externalPayloadSize, resPartMinSize)
 	}
 
 	rmp := mapResponsePart(make([]byte, externalPayloadSize))
-	rmp.version[0] = receptionMessageVersion
+	rmp.version[0] = responsePartVersion
 	return rmp
 }
 
@@ -58,22 +76,21 @@ func NewResponsePart(externalPayloadSize int) ResponsePart {
 func mapResponsePart(data []byte) ResponsePart {
 	return ResponsePart{
 		data:     data,
-		version:  data[:receptionMessageVersionLen],
-		partNum:  data[receptionMessageVersionLen : receptionMessageVersionLen+partNumLen],
-		maxParts: data[receptionMessageVersionLen+partNumLen : receptionMessageVersionLen+maxPartsLen+partNumLen],
-		size:     data[receptionMessageVersionLen+maxPartsLen+partNumLen : responseMinSize],
-		contents: data[responseMinSize:],
+		version:  data[:resPartVersionLen],
+		partNum:  data[resPartVersionLen : resPartVersionLen+resPartPartNumLen],
+		maxParts: data[resPartVersionLen+resPartPartNumLen : resPartVersionLen+resPartMaxPartsLen+resPartPartNumLen],
+		size:     data[resPartVersionLen+resPartMaxPartsLen+resPartPartNumLen : resPartMinSize],
+		contents: data[resPartMinSize:],
 	}
 }
 
-// UnmarshalResponse converts a byte buffer into a response message part.
-func UnmarshalResponse(b []byte) (ResponsePart, error) {
-	if len(b) < responseMinSize {
-		return ResponsePart{}, errors.Errorf("Size of passed in bytes "+
-			"(%d) is too small to contain the message part number and max "+
-			"parts (%d).", len(b), responseMinSize)
+// UnmarshalResponsePart converts a byte buffer into a response message part.
+func UnmarshalResponsePart(data []byte) (ResponsePart, error) {
+	if len(data) < resPartMinSize {
+		return ResponsePart{}, errors.Errorf(
+			errResPartDataSize, len(data), resPartMinSize)
 	}
-	return mapResponsePart(b), nil
+	return mapResponsePart(data), nil
 }
 
 // Marshal returns the bytes of the message part.
@@ -120,10 +137,7 @@ func (m ResponsePart) GetMaxContentsSize() int {
 // contents.
 func (m ResponsePart) SetContents(contents []byte) {
 	if len(contents) > len(m.contents) {
-		jww.FATAL.Panicf("Failed to set contents of single-use response "+
-			"message part: max size of message contents (%d) is smaller than "+
-			"the size of the supplied contents (%d).",
-			len(m.contents), len(contents))
+		jww.FATAL.Panicf(errResPartContentsSize, len(contents), len(m.contents))
 	}
 
 	binary.BigEndian.PutUint16(m.size, uint16(len(contents)))

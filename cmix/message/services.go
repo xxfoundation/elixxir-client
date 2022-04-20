@@ -9,8 +9,9 @@ package message
 
 import (
 	"bytes"
-	jww "github.com/spf13/jwalterweatherman"
 	"sync"
+
+	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/elixxir/crypto/sih"
 	"gitlab.com/xx_network/primitives/id"
@@ -51,9 +52,10 @@ type service struct {
 }
 
 func NewServices() *ServicesManager {
-	// TODO: implement me
 	return &ServicesManager{
-		tmap: make(map[id.ID]map[sih.Preimage]service),
+		tmap:        make(map[id.ID]map[sih.Preimage]service),
+		trackers:    make([]ServicesTracker, 0),
+		numServices: 0,
 	}
 }
 

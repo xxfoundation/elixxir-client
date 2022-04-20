@@ -21,7 +21,7 @@ import (
 
 // Test User GetRegistrationValidationSignature function
 func TestUser_GetRegistrationValidationSignature(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
 	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
@@ -56,7 +56,7 @@ func TestUser_GetRegistrationValidationSignature(t *testing.T) {
 
 // Test SetRegistrationValidationSignature setter
 func TestUser_SetRegistrationValidationSignature(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
 	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
@@ -99,7 +99,7 @@ func TestUser_SetRegistrationValidationSignature(t *testing.T) {
 
 // Test loading registrationValidationSignature from the KV store
 func TestUser_loadRegistrationValidationSignature(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
 	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
@@ -142,7 +142,7 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 
 // Test User's getter/setter functions for TimeStamp
 func TestUser_GetRegistrationTimestamp(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
 	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
@@ -191,7 +191,7 @@ func TestUser_GetRegistrationTimestamp(t *testing.T) {
 
 // Test loading registrationTimestamp from the KV store
 func TestUser_loadRegistrationTimestamp(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
 	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)

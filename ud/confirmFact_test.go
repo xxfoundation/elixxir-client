@@ -22,7 +22,7 @@ func (t *testComm) SendConfirmFact(_ *connect.Host, message *pb.FactConfirmReque
 func TestManager_confirmFact(t *testing.T) {
 
 	// Create our Manager object
-	m := newTestManager(t)
+	m, _ := newTestManager(t)
 
 	c := &testComm{}
 

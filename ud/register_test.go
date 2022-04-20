@@ -24,7 +24,7 @@ func (t *testRegisterComm) SendRegisterUser(_ *connect.Host, msg *pb.UDBUserRegi
 
 // Happy path.
 func TestManager_register(t *testing.T) {
-	m := newTestManager(t)
+	m, _ := newTestManager(t)
 
 	udHost, err := m.getOrAddUdHost()
 	if err != nil {

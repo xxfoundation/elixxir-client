@@ -18,7 +18,7 @@ import (
 
 func TestNewStore(t *testing.T) {
 
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	_, err := NewStore(kv)
 	if err != nil {
@@ -30,7 +30,7 @@ func TestNewStore(t *testing.T) {
 // Unit test
 func TestStore_RestoreFromBackUp(t *testing.T) {
 
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	s, err := NewStore(kv)
 	if err != nil {
@@ -59,7 +59,7 @@ func TestStore_RestoreFromBackUp(t *testing.T) {
 // Error case.
 func TestStore_RestoreFromBackUp_StatefulStore(t *testing.T) {
 
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	s, err := NewStore(kv)
 	if err != nil {
@@ -88,7 +88,7 @@ func TestStore_RestoreFromBackUp_StatefulStore(t *testing.T) {
 }
 
 func TestStore_ConfirmFact(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	expectedStore, err := NewStore(kv)
 	if err != nil {
@@ -126,7 +126,7 @@ func TestStore_ConfirmFact(t *testing.T) {
 }
 
 func TestStore_StoreUnconfirmedFact(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	expectedStore, err := NewStore(kv)
 	if err != nil {
@@ -154,7 +154,7 @@ func TestStore_StoreUnconfirmedFact(t *testing.T) {
 }
 
 func TestStore_DeleteFact(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	expectedStore, err := NewStore(kv)
 	if err != nil {
@@ -186,7 +186,7 @@ func TestStore_DeleteFact(t *testing.T) {
 }
 
 func TestStore_BackUpMissingFacts(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	expectedStore, err := NewStore(kv)
 	if err != nil {
@@ -221,7 +221,7 @@ func TestStore_BackUpMissingFacts(t *testing.T) {
 }
 
 func TestStore_BackUpMissingFacts_DuplicateFactType(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	expectedStore, err := NewStore(kv)
 	if err != nil {
@@ -258,7 +258,7 @@ func TestStore_BackUpMissingFacts_DuplicateFactType(t *testing.T) {
 }
 
 func TestStore_GetFacts(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	testStore, err := NewStore(kv)
 	if err != nil {
@@ -307,7 +307,7 @@ func TestStore_GetFacts(t *testing.T) {
 }
 
 func TestStore_GetFactStrings(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	testStore, err := NewStore(kv)
 	if err != nil {

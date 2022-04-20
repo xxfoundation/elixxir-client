@@ -18,7 +18,7 @@ import (
 // todo: write tests
 
 func TestNewBucketParamsStore(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	capacity, leakedTokens, leakDuration := uint32(10), uint32(11), time.Duration(12)
 	bps, err := NewBucketParamsStore(capacity, leakedTokens, leakDuration, kv)
 	if err != nil {
@@ -50,7 +50,7 @@ func TestNewBucketParamsStore(t *testing.T) {
 }
 
 func TestLoadBucketParamsStore(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	capacity, leakedTokens, leakDuration := uint32(10), uint32(11), time.Duration(12)
 	bps, err := NewBucketParamsStore(capacity, leakedTokens, leakDuration, kv)
 	if err != nil {

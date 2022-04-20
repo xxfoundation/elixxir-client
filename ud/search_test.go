@@ -1,9 +1,13 @@
 package ud
 
 import (
+	"encoding/base64"
 	"fmt"
 	"gitlab.com/elixxir/crypto/contact"
+	dh "gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/elixxir/primitives/fact"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
 	"testing"
@@ -13,7 +17,7 @@ import (
 // Happy path.
 func TestManager_Search(t *testing.T) {
 
-	m := newTestManager(t)
+	m, tnm := newTestManager(t)
 	// Generate callback function
 	callbackChan := make(chan struct {
 		c   []contact.Contact
@@ -36,11 +40,32 @@ func TestManager_Search(t *testing.T) {
 	}
 	factHashes, _ := hashFactList(factList)
 
+	grp := getGroup()
+
+	dhKeyBytes, err := base64.StdEncoding.DecodeString(dhKeyEnc)
+	if err != nil {
+		panic("Failed to decode dh key")
+	}
+	dhKey := grp.NewIntFromBytes(dhKeyBytes)
+
+	dhPubKey := dh.GeneratePublicKey(dhKey, grp)
+
+	rng := NewPrng(42)
+	privKeyBytes, err := csprng.GenerateInGroup(
+		grp.GetP().Bytes(), grp.GetP().ByteLen(), rng)
+	if err != nil {
+		t.Fatalf("Failed to gen pk bytes: %+v", err)
+	}
+	privKey := grp.NewIntFromBytes(privKeyBytes)
+	dhKeyGenerated := grp.Exp(dhPubKey, privKey, grp.NewInt(1))
+
+	tnm.msg.SetMac(singleUse.MakeMAC(singleUse.NewResponseKey(dhKeyGenerated, 0), tnm.msg.GetContents()))
+
 	var contacts []*Contact
-	for i, hash := range factHashes {
+	for _, hash := range factHashes {
 		contacts = append(contacts, &Contact{
 			UserID:    id.NewIdFromString("user", id.User, t).Marshal(),
-			PubKey:    []byte{byte(i + 1)},
+			PubKey:    dhPubKey.Bytes(),
 			TrigFacts: []*HashFact{hash},
 		})
 	}

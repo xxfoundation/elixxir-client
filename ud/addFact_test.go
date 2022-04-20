@@ -28,7 +28,7 @@ func (rFC *testAFC) SendRegisterFact(*connect.Host, *pb.FactRegisterRequest) (
 // Test that the addFact function completes successfully
 func TestAddFact(t *testing.T) {
 
-	m := newTestManager(t)
+	m, _ := newTestManager(t)
 
 	// Create our test fact
 	USCountryCode := "US"

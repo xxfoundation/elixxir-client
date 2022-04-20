@@ -79,7 +79,7 @@ func makeTestSession() (*Session, *versioned.KV) {
 
 	baseKey := GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
 		mySIDHPrivKey, partnerSIDHPubKey)
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	sid := GetSessionIDFromBaseKey(baseKey)
 
 	s := &Session{

@@ -2,6 +2,8 @@ package single
 
 import (
 	"bytes"
+	"encoding/base64"
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"

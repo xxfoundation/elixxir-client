@@ -28,4 +28,5 @@ type CMix interface {
 	DeleteService(clientID *id.ID, toDelete message.Service,
 		processor message.Processor)
 	GetInstance() *network.Instance
+	CheckInProgressMessages()
 }

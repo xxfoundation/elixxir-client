@@ -68,7 +68,7 @@ func lookup(net CMix,
 	rng csprng.Source,
 	uid *id.ID, grp *cyclic.Group,
 	timeout time.Duration, udContact contact.Contact,
-	callback lookupCallback) (id.Round,
+	callback lookupCallback) ([]id.Round,
 	receptionID.EphemeralIdentity, error) {
 	// Build the request and marshal it
 	request := &LookupSend{UserID: uid.Marshal()}

@@ -74,6 +74,7 @@ func (l *listener) Process(ecrMsg format.Message,
 	// Generate DH key and symmetric key
 	senderPubkey := requestMsg.GetPubKey(l.grp)
 	dhKey := l.grp.Exp(senderPubkey, l.myPrivKey, l.grp.NewInt(1))
+
 	key := singleUse.NewRequestKey(dhKey)
 
 	// Verify the MAC

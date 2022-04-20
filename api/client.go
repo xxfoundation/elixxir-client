@@ -99,43 +99,12 @@ func NewClient(ndfJSON, storageDir string, password []byte,
 		time.Now().Sub(start))
 
 	_, err = checkVersionAndSetupStorage(def, storageDir, password,
-		protoUser, cmixGrp, e2eGrp, rngStreamGen, false,
+		protoUser, cmixGrp, e2eGrp, rngStreamGen,
 		registrationCode)
 	if err != nil {
 		return err
 	}
 
-	//TODO: close the session
-	return nil
-}
-
-// NewPrecannedClient creates an insecure user with predetermined keys
-// with nodes It creates client storage, generates keys, connects, and
-// registers with the network. Note that this does not register a
-// username/identity, but merely creates a new cryptographic identity
-// for adding such information at a later date.
-func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
-	password []byte) error {
-	jww.INFO.Printf("NewPrecannedClient()")
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
-		csprng.NewSystemRNG)
-	rngStream := rngStreamGen.GetStream()
-
-	def, err := parseNDF(defJSON)
-	if err != nil {
-		return err
-	}
-	cmixGrp, e2eGrp := decodeGroups(def)
-
-	protoUser := createPrecannedUser(precannedID, rngStream,
-		cmixGrp, e2eGrp)
-
-	_, err = checkVersionAndSetupStorage(def, storageDir, password,
-		protoUser, cmixGrp, e2eGrp, rngStreamGen, true, "")
-	if err != nil {
-		return err
-	}
-	//TODO: close the session
 	return nil
 }
 
@@ -162,13 +131,12 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 		userIdPrefix)
 
 	_, err = checkVersionAndSetupStorage(def, storageDir, password,
-		protoUser, cmixGrp, e2eGrp, rngStreamGen, false,
+		protoUser, cmixGrp, e2eGrp, rngStreamGen,
 		registrationCode)
 	if err != nil {
 		return err
 	}
 
-	//TODO: close the session
 	return nil
 }
 
@@ -202,7 +170,7 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 	// Note we do not need registration here
 	storageSess, err := checkVersionAndSetupStorage(def, storageDir,
 		[]byte(sessionPassword), usr, cmixGrp, e2eGrp, rngStreamGen,
-		false, backUp.RegistrationCode)
+		backUp.RegistrationCode)
 
 	storageSess.SetReceptionRegistrationValidationSignature(
 		backUp.ReceptionIdentity.RegistrarSignature)
@@ -242,6 +210,11 @@ func OpenClient(storageDir string, password []byte,
 		return nil, err
 	}
 
+	userState, err := user.LoadUser(storageSess.GetKV())
+	if err != nil {
+		return nil, err
+	}
+
 	c := &Client{
 		storage:            storageSess,
 		rng:                rngStreamGen,
@@ -252,6 +225,7 @@ func OpenClient(storageDir string, password []byte,
 		clientErrorChannel: make(chan interfaces.ClientError, 1000),
 		events:             event.NewEventManager(),
 		backup:             &backup.Backup{},
+		userState:          userState,
 	}
 
 	return c, nil
@@ -282,7 +256,7 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
 	usr := user.NewUserFromProto(protoUser)
 
 	storageSess, err := checkVersionAndSetupStorage(def, storageDir,
-		password, usr, cmixGrp, e2eGrp, rngStreamGen, false,
+		password, usr, cmixGrp, e2eGrp, rngStreamGen,
 		protoUser.RegCode)
 	if err != nil {
 		return err
@@ -733,7 +707,7 @@ func (c *Client) AddService(sp Service) error {
 // can be serialized into a byte stream for out-of-band sharing.
 func (c *Client) GetUser() user.Info {
 	jww.INFO.Printf("GetUser()")
-	return c.GetUser()
+	return c.userState.PortableUserInfo()
 }
 
 // GetComms returns the client comms object
@@ -941,7 +915,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
 	storageDir string, password []byte,
 	protoUser user.Info,
 	cmixGrp, e2eGrp *cyclic.Group, rngStreamGen *fastRNG.StreamGenerator,
-	isPrecanned bool, registrationCode string) (storage.Session, error) {
+	registrationCode string) (storage.Session, error) {
 	// get current client version
 	currentVersion, err := version.ParseVersion(SEMVER)
 	if err != nil {
@@ -960,18 +934,10 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
 	// Save NDF to be used in the future
 	storageSess.SetNDF(def)
 
-	if !isPrecanned {
-		//store the registration code for later use
-		storageSess.SetRegCode(registrationCode)
-		//move the registration state to keys generated
-		err = storageSess.ForwardRegistrationStatus(
-			storage.KeyGenComplete)
-	} else {
-		//move the registration state to indicate registered
-		// with registration
-		err = storageSess.ForwardRegistrationStatus(
-			storage.PermissioningComplete)
-	}
+	//store the registration code for later use
+	storageSess.SetRegCode(registrationCode)
+	//move the registration state to keys generaXSted
+	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
 
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to denote state "+

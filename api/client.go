@@ -192,7 +192,7 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 
 // OpenClient session, but don't connect to the network or log in
 func OpenClient(storageDir string, password []byte,
-	parameters e2e.Params) (*Client, error) {
+	parameters Params) (*Client, error) {
 	jww.INFO.Printf("OpenClient()")
 
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
@@ -222,7 +222,7 @@ func OpenClient(storageDir string, password []byte,
 		comms:              nil,
 		network:            nil,
 		followerServices:   newServices(),
-		parameters:         parameters,
+		parameters:         parameters.E2E,
 		clientErrorChannel: make(chan interfaces.ClientError, 1000),
 		events:             event.NewEventManager(),
 		backup:             &backup.Backup{},
@@ -282,7 +282,7 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
 
 // Login initializes a client object from existing storage.
 func Login(storageDir string, password []byte,
-	authCallbacks auth.Callbacks, parameters e2e.Params) (*Client, error) {
+	authCallbacks auth.Callbacks, parameters Params) (*Client, error) {
 	jww.INFO.Printf("Login()")
 
 	c, err := OpenClient(storageDir, password, parameters)
@@ -328,7 +328,7 @@ func Login(storageDir string, password []byte,
 		}
 	}
 
-	c.network, err = cmix.NewClient(parameters.Network, c.comms, c.storage,
+	c.network, err = cmix.NewClient(parameters.CMix, c.comms, c.storage,
 		c.storage.GetNDF(), c.rng, c.events)
 	if err != nil {
 		return nil, err
@@ -364,7 +364,7 @@ func Login(storageDir string, password []byte,
 // procedures and is generally unsafe.
 func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	newBaseNdf string, authCallbacks auth.Callbacks,
-	parameters e2e.Params) (*Client, error) {
+	params Params) (*Client, error) {
 	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
 
 	def, err := parseNDF(newBaseNdf)
@@ -372,7 +372,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := OpenClient(storageDir, password, parameters)
+	c, err := OpenClient(storageDir, password, params)
 	if err != nil {
 		return nil, err
 	}
@@ -396,7 +396,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 			"able to register or track network.")
 	}
 
-	c.network, err = cmix.NewClient(parameters.Network, c.comms, c.storage,
+	c.network, err = cmix.NewClient(params.CMix, c.comms, c.storage,
 		c.storage.GetNDF(), c.rng, c.events)
 	if err != nil {
 		return nil, err
@@ -412,9 +412,8 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	// FIXME: The callbacks need to be set, so I suppose we would need to
 	//        either set them via a special type or add them
 	//        to the login call?
-	authParams := auth.GetDefaultParams()
 	c.auth, err = auth.NewState(c.storage.GetKV(), c.network, c.e2e, c.rng,
-		c.events, authParams, authCallbacks, c.backup.TriggerBackup)
+		c.events, params.Auth, authCallbacks, c.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
@@ -432,7 +431,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 // some specific deployment procedures and is generally unsafe.
 func LoginWithProtoClient(storageDir string, password []byte,
 	protoClientJSON []byte, newBaseNdf string, authCallbacks auth.Callbacks,
-	parameters e2e.Params) (*Client, error) {
+	params Params) (*Client, error) {
 	jww.INFO.Printf("LoginWithProtoClient()")
 
 	def, err := parseNDF(newBaseNdf)
@@ -446,7 +445,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := OpenClient(storageDir, password, parameters)
+	c, err := OpenClient(storageDir, password, params)
 	if err != nil {
 		return nil, err
 	}
@@ -463,7 +462,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c.network, err = cmix.NewClient(parameters.Network, c.comms, c.storage,
+	c.network, err = cmix.NewClient(params.CMix, c.comms, c.storage,
 		c.storage.GetNDF(), c.rng, c.events)
 	if err != nil {
 		return nil, err
@@ -479,9 +478,8 @@ func LoginWithProtoClient(storageDir string, password []byte,
 	// FIXME: The callbacks need to be set, so I suppose we would need to
 	//        either set them via a special type or add them
 	//        to the login call?
-	authParams := auth.GetDefaultParams()
 	c.auth, err = auth.NewState(c.storage.GetKV(), c.network, c.e2e, c.rng,
-		c.events, authParams, authCallbacks, c.backup.TriggerBackup)
+		c.events, params.Auth, authCallbacks, c.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
@@ -650,12 +648,6 @@ func (c *Client) HasRunningProcessies() bool {
 	return !c.followerServices.stoppable.IsStopped()
 }
 
-// Returns the health tracker for registration and polling
-func (c *Client) GetHealth() interfaces.HealthTracker {
-	jww.INFO.Printf("GetHealth()")
-	return c.GetHealth()
-}
-
 // RegisterRoundEventsCb registers a callback for round
 // events.
 func (c *Client) GetRoundEvents() interfaces.RoundEvents {
@@ -755,7 +747,7 @@ func (c *Client) InitializeBackup(backupPass string,
 // healthy.
 func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	// Return an error if the network is not healthy
-	if !c.GetHealth().IsHealthy() {
+	if !c.GetNetworkInterface().IsHealthy() {
 		return 0, 0, errors.New("Cannot get number of nodes " +
 			"registrations when network is not healthy")
 	}
@@ -946,9 +938,8 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
 	}
 
 	// create new E2E
-	rekeyParams := rekey.GetDefaultParams()
 	err = e2e.Init(storageSess.GetKV(), protoUser.ReceptionID,
-		protoUser.E2eDhPrivateKey, e2eGrp, rekeyParams)
+		protoUser.E2eDhPrivateKey, e2eGrp, rekey.GetDefaultParams())
 	if err != nil {
 		return nil, err
 	}

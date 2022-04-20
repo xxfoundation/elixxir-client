@@ -185,7 +185,7 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 		session.GetKV(), c.Monitor, c.instance.GetRoundEvents(), critSender)
 
 	// Report health events
-	c.Monitor.AddHealthCallback(func(isHealthy bool) {
+	c.AddHealthCallback(func(isHealthy bool) {
 		c.events.Report(5, "health", "IsHealthy", strconv.FormatBool(isHealthy))
 	})
 

@@ -47,7 +47,10 @@ var groupCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetHealth().AddChannel(connected)
+		client.GetNetworkInterface().AddHealthCallback(
+			func(isconnected bool) {
+				connected <- isconnected
+			})
 		waitUntilConnected(connected)
 
 		// After connection, make sure we have registered with at least 85% of

@@ -12,11 +12,12 @@ package health
 
 import (
 	"errors"
+	"sync"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/network"
-	"sync"
-	"time"
 )
 
 type Monitor interface {

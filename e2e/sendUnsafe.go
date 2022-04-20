@@ -64,7 +64,8 @@ func (m *manager) sendUnsafe(mt catalog.MessageType, recipient *id.ID,
 
 			var err error
 			roundIds[i], _, err = m.net.Send(recipient, fp,
-				srvc, payload, unencryptedMAC, params.CMIX)
+				srvc, payload, unencryptedMAC,
+				params.CMIXParams)
 			if err != nil {
 				errCh <- err
 			}

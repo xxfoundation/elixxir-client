@@ -27,7 +27,6 @@ import (
 
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 
 	"github.com/spf13/cobra"
@@ -221,7 +220,10 @@ var rootCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetHealth().AddChannel(connected)
+		client.GetNetworkInterface().AddHealthCallback(
+			func(isconnected bool) {
+				connected <- isconnected
+			})
 		waitUntilConnected(connected)
 
 		// err = client.RegisterForNotifications("dJwuGGX3KUyKldWK5PgQH8:APA91bFjuvimRc4LqOyMDiy124aLedifA8DhldtaB_b76ggphnFYQWJc_fq0hzQ-Jk4iYp2wPpkwlpE1fsOjs7XWBexWcNZoU-zgMiM0Mso9vTN53RhbXUferCbAiEylucEOacy9pniN")
@@ -328,12 +330,9 @@ var rootCmd = &cobra.Command{
 		mt := catalog.MessageType(catalog.XxMessage)
 		payload := []byte(msgBody)
 		recipient := recipientID
-		paramsE2E := e2e.GetDefaultParams()
+		params := initParams()
 		wg := &sync.WaitGroup{}
 		sendCnt := int(viper.GetUint("sendCount"))
-		if viper.GetBool("splitSends") {
-			paramsE2E.CMIX.ExcludedRounds = excludedRounds.NewSet()
-		}
 		wg.Add(sendCnt)
 		go func() {
 			sendDelay := time.Duration(viper.GetUint("sendDelay"))
@@ -346,16 +345,16 @@ var rootCmd = &cobra.Command{
 						var roundIDs []id.Round
 						var roundTimeout time.Duration
 						if unsafe {
-							paramsE2E.CMIX.DebugTag = "cmd.Unsafe"
+							params.E2E.CMIXParams.DebugTag = "cmd.Unsafe"
 							roundIDs, _, err = client.SendUnsafe(
 								mt, recipient, payload,
-								paramsE2E)
-							roundTimeout = paramsE2E.CMIX.Timeout
+								params.E2E)
+							roundTimeout = params.Network.Timeout
 						} else {
-							paramsE2E.CMIX.DebugTag = "cmd.E2E"
+							params.E2E.CMIXParams.DebugTag = "cmd.E2E"
 							roundIDs, _, _, err = client.SendE2E(mt,
-								recipient, payload, paramsE2E)
-							roundTimeout = paramsE2E.CMIX.Timeout
+								recipient, payload, params.E2E)
+							roundTimeout = params.E2E.CMIXParams.Timeout
 						}
 						if err != nil {
 							jww.FATAL.Panicf("%+v", err)
@@ -553,30 +552,38 @@ func createClient() *api.Client {
 		}
 	}
 
-	netParams := e2e.GetDefaultParams()
-	sessParams := session.GetDefaultParams()
-	sessParams.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
-	sessParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
-	sessParams.NumRekeys = uint16(viper.GetUint("e2eNumReKeys"))
-	sessParams.RekeyThreshold = viper.GetFloat64("e2eRekeyThreshold")
-	netParams.Network.Pickup.ForceHistoricalRounds = viper.GetBool(
-		"forceHistoricalRounds")
-	netParams.Network.FastPolling = !viper.GetBool("slowPolling")
-	netParams.Network.Pickup.ForceMessagePickupRetry = viper.GetBool(
-		"forceMessagePickupRetry")
-	if netParams.Network.Pickup.ForceMessagePickupRetry {
-		period := 3 * time.Second
-		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
-		netParams.Network.Pickup.UncheckRoundPeriod = period
-	}
-	netParams.Network.VerboseRoundTracking = viper.GetBool(
-		"verboseRoundTracking")
+	params := initParams()
 
-	client, err := api.OpenClient(storeDir, pass, netParams)
+	client, err := api.OpenClient(storeDir, pass, params)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 	return client
+}
+
+func initParams() api.Params {
+	p := api.GetDefaultParams()
+	p.Session.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
+	p.Session.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
+	p.Session.NumRekeys = uint16(viper.GetUint("e2eNumReKeys"))
+	p.Session.RekeyThreshold = viper.GetFloat64("e2eRekeyThreshold")
+	p.CMix.Pickup.ForceHistoricalRounds = viper.GetBool(
+		"forceHistoricalRounds")
+	p.CMix.FastPolling = !viper.GetBool("slowPolling")
+	p.CMix.Pickup.ForceMessagePickupRetry = viper.GetBool(
+		"forceMessagePickupRetry")
+	if p.CMix.Pickup.ForceMessagePickupRetry {
+		period := 3 * time.Second
+		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
+		p.CMix.Pickup.UncheckRoundPeriod = period
+	}
+	p.CMix.VerboseRoundTracking = viper.GetBool(
+		"verboseRoundTracking")
+	if viper.GetBool("splitSends") {
+		p.Network.ExcludedRounds = excludedRounds.NewSet()
+	}
+
+	return p
 }
 
 func initClient() *api.Client {
@@ -585,29 +592,13 @@ func initClient() *api.Client {
 	pass := parsePassword(viper.GetString("password"))
 	storeDir := viper.GetString("session")
 	jww.DEBUG.Printf("sessionDur: %v", storeDir)
-	netParams := e2e.GetDefaultParams()
-	sessParams := session.GetDefaultParams()
-	sessParams.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
-	sessParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
-	sessParams.NumRekeys = uint16(viper.GetUint("e2eNumReKeys"))
-	sessParams.RekeyThreshold = viper.GetFloat64("e2eRekeyThreshold")
-	netParams.Network.Pickup.ForceHistoricalRounds = viper.GetBool(
-		"forceHistoricalRounds")
-	netParams.Network.FastPolling = !viper.GetBool("slowPolling")
-	netParams.Network.Pickup.ForceMessagePickupRetry = viper.GetBool(
-		"forceMessagePickupRetry")
-	if netParams.Network.Pickup.ForceMessagePickupRetry {
-		period := 3 * time.Second
-		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
-		netParams.Network.Pickup.UncheckRoundPeriod = period
-	}
-	netParams.Network.VerboseRoundTracking = viper.GetBool(
-		"verboseRoundTracking")
+
+	params := initParams()
 
 	// load the client
 	authCbs := makeAuthCallbacks(nil,
 		viper.GetBool("unsafe-channel-creation"))
-	client, err := api.Login(storeDir, pass, authCbs, netParams)
+	client, err := api.Login(storeDir, pass, authCbs, params)
 	authCbs.client = client
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)

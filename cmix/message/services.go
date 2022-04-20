@@ -125,6 +125,10 @@ func (sm *ServicesManager) AddService(clientID *id.ID, newService Service,
 		defaultList: nil,
 	}
 
+	if _, exists := sm.tmap[*clientID]; !exists {
+		sm.tmap[*clientID] = make(map[sih.Preimage]service)
+	}
+
 	if newService.Tag == sih.Default {
 		if !bytes.Equal(newService.Identifier, clientID[:]) {
 			jww.FATAL.Panicf("Cannot accept a malformed 'Default' " +

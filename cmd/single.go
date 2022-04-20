@@ -48,7 +48,10 @@ var singleCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetHealth().AddChannel(connected)
+		client.GetNetworkInterface().AddHealthCallback(
+			func(isconnected bool) {
+				connected <- isconnected
+			})
 		waitUntilConnected(connected)
 
 		// get the tag

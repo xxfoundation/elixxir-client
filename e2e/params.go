@@ -22,17 +22,11 @@ type Params struct {
 	// Delay between attempting to get kets
 	KeyGeRetryDelay time.Duration
 
-	//Underlying cmix tags.
-	// Note: if critical is true, an alternative critical messages
-	// system within e2e will be used which preserves privacy
-	CMIX cmix.CMIXParams
-
-	// cMix network params
-	Network cmix.Params
-
 	//Authorizes the message to use a key reserved for rekeying. Do not use
 	//unless sending a rekey
 	Rekey bool
+
+	cmix.CMIXParams
 }
 
 func GetDefaultParams() Params {
@@ -43,8 +37,8 @@ func GetDefaultParams() Params {
 		KeyGetRetryCount: 10,
 		KeyGeRetryDelay:  500 * time.Millisecond,
 
-		CMIX:  cmix.GetDefaultCMIXParams(),
-		Rekey: false,
+		Rekey:      false,
+		CMIXParams: cmix.GetDefaultCMIXParams(),
 	}
 }
 func (e Params) Marshal() ([]byte, error) {

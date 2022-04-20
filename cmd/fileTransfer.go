@@ -9,6 +9,9 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
+	"time"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -19,8 +22,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/utils"
-	"io/ioutil"
-	"time"
 )
 
 const callbackPeriod = 25 * time.Millisecond
@@ -53,7 +54,10 @@ var ftCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetHealth().AddChannel(connected)
+		client.GetNetworkInterface().AddHealthCallback(
+			func(isconnected bool) {
+				connected <- isconnected
+			})
 		waitUntilConnected(connected)
 
 		// After connection, wait until registered with at least 85% of nodes

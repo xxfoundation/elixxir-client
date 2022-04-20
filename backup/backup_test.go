@@ -9,16 +9,17 @@ package backup
 
 import (
 	"bytes"
-	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/interfaces/params"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/cloudflare/circl/dh/sidh"
+	"gitlab.com/elixxir/client/interfaces/params"
+	util "gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage"
@@ -46,18 +47,8 @@ func Test_initializeBackup(t *testing.T) {
 		t.Error("Timed out waiting for callback.")
 	}
 
-	// Check that the correct password is in storage
-	loadedPassword, err := loadPassword(b.store.GetKV())
-	if err != nil {
-		t.Errorf("Failed to load password: %+v", err)
-	}
-	if expectedPassword != loadedPassword {
-		t.Errorf("Loaded invalid key.\nexpected: %q\nreceived: %q",
-			expectedPassword, loadedPassword)
-	}
-
 	// Check that the key, salt, and params were saved to storage
-	key, salt, p, err := loadBackup(b.store.GetKV())
+	key, salt, _, err := loadBackup(b.store.GetKV())
 	if err != nil {
 		t.Errorf("Failed to load key, salt, and params: %+v", err)
 	}
@@ -67,10 +58,10 @@ func Test_initializeBackup(t *testing.T) {
 	if len(salt) != saltLen || bytes.Equal(salt, make([]byte, saltLen)) {
 		t.Errorf("Invalid salt: %v", salt)
 	}
-	if !reflect.DeepEqual(p, backup.DefaultParams()) {
-		t.Errorf("Invalid params.\nexpected: %+v\nreceived: %+v",
-			backup.DefaultParams(), p)
-	}
+	// if !reflect.DeepEqual(p, backup.DefaultParams()) {
+	// 	t.Errorf("Invalid params.\nexpected: %+v\nreceived: %+v",
+	// 		backup.DefaultParams(), p)
+	// }
 
 	encryptedBackup := []byte("encryptedBackup")
 	go b.updateBackupCb(encryptedBackup)
@@ -123,16 +114,6 @@ func Test_resumeBackup(t *testing.T) {
 		t.Errorf("resumeBackup returned an error: %+v", err)
 	}
 
-	// Check that the correct password is in storage
-	loadedPassword, err := loadPassword(b.store.GetKV())
-	if err != nil {
-		t.Errorf("Failed to load password: %+v", err)
-	}
-	if expectedPassword != loadedPassword {
-		t.Errorf("Loaded invalid key.\nexpected: %q\nreceived: %q",
-			expectedPassword, loadedPassword)
-	}
-
 	// Get key, salt, and parameters of resumed backup
 	key2, salt2, _, err := loadBackup(b.store.GetKV())
 	if err != nil {
@@ -167,7 +148,7 @@ func Test_resumeBackup(t *testing.T) {
 // Error path: Tests that Backup.resumeBackup returns an error if no password is
 // present in storage.
 func Test_resumeBackup_NoKeyError(t *testing.T) {
-	expectedErr := strings.Split(errLoadPassword, "%")[0]
+	expectedErr := "object not found"
 	s := storage.InitTestingSession(t)
 	_, err := resumeBackup(nil, nil, s, &interfaces.BackupContainer{}, nil)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
@@ -181,13 +162,8 @@ func Test_resumeBackup_NoKeyError(t *testing.T) {
 func TestBackup_TriggerBackup(t *testing.T) {
 	cbChan := make(chan []byte)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
-	b := newTestBackup("MySuperSecurePassword", cb, t)
-
-	// Get password
-	password, err := loadPassword(b.store.GetKV())
-	if err != nil {
-		t.Errorf("Failed to load password from storage: %+v", err)
-	}
+	password := "MySuperSecurePassword"
+	b := newTestBackup(password, cb, t)
 
 	collatedBackup := b.assembleBackup()
 
@@ -263,12 +239,6 @@ func TestBackup_StopBackup(t *testing.T) {
 	case r := <-cbChan:
 		t.Errorf("Callback received when it should not have been called: %q", r)
 	case <-time.After(10 * time.Millisecond):
-	}
-
-	// Make sure password is deleted
-	password, err := loadPassword(b.store.GetKV())
-	if err == nil || len(password) != 0 {
-		t.Errorf("Loaded password that should be deleted: %q", password)
 	}
 
 	// Make sure key, salt, and params are deleted
@@ -454,4 +424,20 @@ func newTestBackup(password string, cb UpdateBackupFn, t *testing.T) *Backup {
 	}
 
 	return b
+}
+
+// Tests that Backup.InitializeBackup returns a new Backup with a copy of the
+// key and the callback.
+func Benchmark_InitializeBackup(t *testing.B) {
+	cbChan := make(chan []byte, 2)
+	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
+	expectedPassword := "MySuperSecurePassword"
+	for i := 0; i < t.N; i++ {
+		_, err := initializeBackup(expectedPassword, cb, nil,
+			storage.InitTestingSession(t), &interfaces.BackupContainer{},
+			fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG))
+		if err != nil {
+			t.Errorf("InitializeBackup returned an error: %+v", err)
+		}
+	}
 }

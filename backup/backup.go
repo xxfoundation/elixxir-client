@@ -33,9 +33,6 @@ const (
 	errSavePassword      = "failed to save password: %+v"
 	errSaveKeySaltParams = "failed to save key, salt, and params: %+v"
 
-	// resumeBackup
-	errLoadPassword = "backup not initialized: load user password failed: %+v"
-
 	// Backup.StopBackup
 	errDeletePassword = "failed to delete password: %+v"
 	errDeleteCrypto   = "failed to delete key, salt, and parameters: %+v"
@@ -88,12 +85,6 @@ func initializeBackup(password string, updateBackupCb UpdateBackupFn,
 		rng:             rng,
 	}
 
-	// Save password to storage
-	err := savePassword(password, b.store.GetKV())
-	if err != nil {
-		return nil, errors.Errorf(errSavePassword, err)
-	}
-
 	// Derive key and get generated salt and parameters
 	rand := b.rng.GetStream()
 	salt, err := backup.MakeSalt(rand)
@@ -103,6 +94,9 @@ func initializeBackup(password string, updateBackupCb UpdateBackupFn,
 	rand.Close()
 
 	params := backup.DefaultParams()
+	params.Memory = 64 * 1024 // 64 MiB
+	params.Threads = 1
+	params.Time = 5
 	key := backup.DeriveKey(password, salt, params)
 
 	// Save key, salt, and parameters to storage
@@ -133,9 +127,9 @@ func ResumeBackup(updateBackupCb UpdateBackupFn, c *api.Client) (*Backup, error)
 func resumeBackup(updateBackupCb UpdateBackupFn, c *api.Client,
 	store *storage.Session, backupContainer *interfaces.BackupContainer,
 	rng *fastRNG.StreamGenerator) (*Backup, error) {
-	_, err := loadPassword(store.GetKV())
+	_, _, _, err := loadBackup(store.GetKV())
 	if err != nil {
-		return nil, errors.Errorf(errLoadPassword, err)
+		return nil, err
 	}
 
 	b := &Backup{
@@ -232,12 +226,7 @@ func (b *Backup) StopBackup() error {
 	defer b.mux.Unlock()
 	b.updateBackupCb = nil
 
-	err := deletePassword(b.store.GetKV())
-	if err != nil {
-		return errors.Errorf(errDeletePassword, err)
-	}
-
-	err = deleteBackup(b.store.GetKV())
+	err := deleteBackup(b.store.GetKV())
 	if err != nil {
 		return errors.Errorf(errDeleteCrypto, err)
 	}

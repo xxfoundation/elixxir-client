@@ -12,6 +12,9 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -19,8 +22,6 @@ import (
 	"gitlab.com/elixxir/client/groupChat"
 	"gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/xx_network/primitives/id"
-	"os"
-	"time"
 )
 
 // groupCmd represents the base command when called without any subcommands
@@ -35,8 +36,6 @@ var groupCmd = &cobra.Command{
 		// Print user's reception ID
 		user := client.GetUser()
 		jww.INFO.Printf("User: %s", user.ReceptionID)
-
-		_, _ = initClientCallbacks(client)
 
 		err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {
@@ -123,15 +122,12 @@ func initGroupManager(client *api.Client) (*groupChat.Manager,
 	}
 
 	jww.INFO.Print("Creating new group manager.")
-	manager, err := groupChat.NewManager(client, requestCb, receiveCb)
+	manager, err := groupChat.NewManager(client.GetNetworkInterface(),
+		client.GetE2EHandler(), client.GetStorage().GetReceptionID(),
+		client.GetRng(), client.GetStorage().GetE2EGroup(),
+		client.GetStorage().GetKV(), requestCb, receiveCb)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to initialize group chat manager: %+v", err)
-	}
-
-	// Start group request and message receiver
-	err = client.AddService(manager.StartProcesses)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to start groupchat services: %+v", err)
 	}
 
 	return manager, recChan, reqChan

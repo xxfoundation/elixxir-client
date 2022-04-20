@@ -762,6 +762,13 @@ func (c *Client) GetBackup() *backup.Backup {
 	return c.backup
 }
 
+func (c *Client) InitializeBackup(backupPass string,
+	updateBackupCb backup.UpdateBackupFn) (*backup.Backup, error) {
+	container := &backup.Container{}
+	return backup.InitializeBackup(backupPass, updateBackupCb, container,
+		c.e2e, c.storage, nil, c.storage.GetKV(), c.rng)
+}
+
 // GetNodeRegistrationStatus gets the current state of nodes registration. It
 // returns the total number of nodes in the NDF and the number of those which
 // are currently registers with. An error is returned if the network is not

@@ -13,13 +13,14 @@
 package partner
 
 import (
+	"testing"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
-	"testing"
 )
 
 // Test implementation of the Manager interface
@@ -64,7 +65,7 @@ func (p *testManager) ConnectionFingerprintBytes() []byte {
 	panic("implement me")
 }
 
-func (p *testManager) ConnectionFingerprint() string {
+func (p *testManager) ConnectionFingerprint() ConnectionFp {
 	panic("implement me")
 }
 

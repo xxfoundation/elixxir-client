@@ -1,8 +1,7 @@
 package single
 
 import (
-	"encoding/base64"
-	"fmt"
+	"bytes"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
@@ -26,7 +25,7 @@ import (
 // Response interface allows for callbacks to
 type Response interface {
 	Callback(payload []byte, receptionID receptionID.EphemeralIdentity,
-		round rounds.Round, err error)
+		rounds []rounds.Round, err error)
 }
 
 type RequestParams struct {
@@ -46,11 +45,13 @@ func GetDefaultRequestParams() RequestParams {
 // Error messages.
 const (
 	// TransmitRequest
-	errNetworkHealth  = "cannot send singe-use request when the network is not healthy"
-	errMakeDhKeys     = "failed to generate DH keys (%s for %s): %+v"
-	errMakeIDs        = "failed to generate IDs (%s for %s): %+v"
-	errAddFingerprint = "failed to add fingerprint %d of %d: %+v (%s for %s)"
-	errSendRequest    = "failed to send %s request to %s: %+v"
+	errPayloadSize     = "size of payload %d exceeds the maximum size of %d (%s for %s)"
+	errNetworkHealth   = "cannot send singe-use request when the network is not healthy"
+	errMakeDhKeys      = "failed to generate DH keys (%s for %s): %+v"
+	errMakeIDs         = "failed to generate IDs (%s for %s): %+v"
+	errAddFingerprint  = "failed to add fingerprint %d of %d: %+v (%s for %s)"
+	errSendRequest     = "failed to send %s request to %s: %+v"
+	errSendRequestPart = "failed to send request part %d of %d (%s for %s): %+v"
 
 	// generateDhKeys
 	errGenerateInGroup = "failed to generate private key in group: %+v"
@@ -63,11 +64,17 @@ const (
 	errResponseTimeout = "waiting for response to single-use request timed out after %s"
 )
 
+// Maximum number of request part cMix messages.
+const maxNumRequestParts = 255
+
 // GetMaxRequestSize returns the maximum size of a request payload.
 func GetMaxRequestSize(net CMix, e2eGrp *cyclic.Group) int {
 	payloadSize := message.GetRequestPayloadSize(net.GetMaxMessageLength(),
 		e2eGrp.GetP().ByteLen())
-	return message.GetRequestContentsSize(payloadSize)
+	requestSize := message.GetRequestContentsSize(payloadSize)
+	requestPartSize := message.GetRequestPartContentsSize(
+		net.GetMaxMessageLength())
+	return requestSize + (maxNumRequestParts * requestPartSize)
 }
 
 /* Single is a system which allows for an end-to-end encrypted anonymous request
@@ -83,16 +90,24 @@ func GetMaxRequestSize(net CMix, e2eGrp *cyclic.Group) int {
 // containing the given payload. The request is identified as coming from a new
 // user ID and the recipient of the request responds to that address. As a
 // result, this request does not reveal the identity of the sender.
-// The current implementation only allows for a single cMix request payload.
-// Because the request payload itself must include negotiation materials, it is
-// limited to just a few thousand bits of payload, and will return an error if
-// the payload is too large. GetMaxRequestSize can be used to get this max size.
+//
+// The current implementation allows for up to maxNumRequestParts cMix request
+// payloads. GetMaxRequestSize can be used to get the max size.
+//
 // The network follower must be running and healthy to transmit.
 func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
-	callback Response, param RequestParams, net CMix, rng csprng.Source,
-	e2eGrp *cyclic.Group) (id.Round, receptionID.EphemeralIdentity, error) {
+	callback Response, param RequestParams, net cmix.Client, rng csprng.Source,
+	e2eGrp *cyclic.Group) ([]id.Round, receptionID.EphemeralIdentity, error) {
+
+	if len(payload) > GetMaxRequestSize(net, e2eGrp) {
+		return nil, receptionID.EphemeralIdentity{}, errors.Errorf(
+			errPayloadSize, len(payload), GetMaxRequestSize(net, e2eGrp), tag,
+			recipient)
+	}
+
 	if !net.IsHealthy() {
-		return 0, receptionID.EphemeralIdentity{}, errors.New(errNetworkHealth)
+		return nil, receptionID.EphemeralIdentity{},
+			errors.New(errNetworkHealth)
 	}
 
 	// Get address ID address space size; this blocks until the address space
@@ -103,31 +118,34 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	// Generate DH key and public key
 	dhKey, publicKey, err := generateDhKeys(e2eGrp, recipient.DhPubKey, rng)
 	if err != nil {
-		return 0, receptionID.EphemeralIdentity{},
+		return nil, receptionID.EphemeralIdentity{},
 			errors.Errorf(errMakeDhKeys, tag, recipient, err)
 	}
 
 	// Build the message payload
+	payloadSize := message.GetRequestPayloadSize(net.GetMaxMessageLength(),
+		e2eGrp.GetP().ByteLen())
+	firstPart, parts := partitionPayload(
+		message.GetRequestContentsSize(payloadSize),
+		message.GetRequestPartContentsSize(net.GetMaxMessageLength()),
+		payload)
 	request := message.NewRequest(
 		net.GetMaxMessageLength(), e2eGrp.GetP().ByteLen())
 	requestPayload := message.NewRequestPayload(
-		request.GetPayloadSize(), payload, param.MaxResponseMessages)
+		request.GetPayloadSize(), firstPart, param.MaxResponseMessages)
 
 	// Generate new user ID and address ID
 	var sendingID receptionID.EphemeralIdentity
 	requestPayload, sendingID, err = makeIDs(
 		requestPayload, publicKey, addressSize, param.Timeout, timeStart, rng)
 	if err != nil {
-		return 0, receptionID.EphemeralIdentity{},
+		return nil, receptionID.EphemeralIdentity{},
 			errors.Errorf(errMakeIDs, tag, recipient, err)
 	}
 
-	fmt.Printf("reqPayload: %v\n", base64.
-		StdEncoding.EncodeToString(requestPayload.Marshal()))
-
-	// Encrypt payload
-	fp := singleUse.NewTransmitFingerprint(recipient.DhPubKey)
-	key := singleUse.NewTransmitKey(dhKey)
+	// Encrypt and assemble payload
+	fp := singleUse.NewRequestFingerprint(recipient.DhPubKey)
+	key := singleUse.NewRequestKey(dhKey)
 	encryptedPayload := auth.Crypt(key, fp[:24], requestPayload.Marshal())
 	fmt.Printf("ecrPayload: %v\n", base64.StdEncoding.EncodeToString(encryptedPayload))
 	// Generate CMix message MAC
@@ -142,7 +160,7 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	timeoutKillChan := make(chan bool)
 	var callbackOnce sync.Once
 	wrapper := func(payload []byte, receptionID receptionID.EphemeralIdentity,
-		round rounds.Round, err error) {
+		rounds []rounds.Round, err error) {
 		select {
 		case timeoutKillChan <- true:
 		default:
@@ -150,12 +168,14 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 
 		callbackOnce.Do(func() {
 			net.DeleteClientFingerprints(sendingID.Source)
-			go callback.Callback(payload, receptionID, round, err)
+			go callback.Callback(payload, receptionID, rounds, err)
 		})
 	}
 
-	cyphers := makeCyphers(dhKey, param.MaxResponseMessages)
+	cyphers := makeCyphers(dhKey, param.MaxResponseMessages,
+		singleUse.NewResponseKey, singleUse.NewResponseFingerprint)
 
+	roundIds := newRoundIdCollector(len(cyphers))
 	for i, cy := range cyphers {
 		processor := responseProcessor{
 			sendingID: sendingID,
@@ -164,12 +184,13 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 			cy:        cy,
 			tag:       tag,
 			recipient: &recipient,
+			roundIDs:  roundIds,
 		}
 
 		err = net.AddFingerprint(
 			sendingID.Source, processor.cy.GetFingerprint(), &processor)
 		if err != nil {
-			return 0, receptionID.EphemeralIdentity{}, errors.Errorf(
+			return nil, receptionID.EphemeralIdentity{}, errors.Errorf(
 				errAddFingerprint, i, len(cyphers), tag, recipient, err)
 		}
 	}
@@ -189,14 +210,34 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	rid, _, err := net.Send(recipient.ID, cmixMsg.RandomFingerprint(rng), svc,
 		request.Marshal(), mac, param.CmixParam)
 	if err != nil {
-		return 0, receptionID.EphemeralIdentity{},
+		return nil, receptionID.EphemeralIdentity{},
 			errors.Errorf(errSendRequest, tag, recipient, err)
+	}
+
+	roundIDs := make([]id.Round, len(parts)+1)
+	roundIDs[0] = rid
+	for i, part := range parts {
+		requestPart := message.NewRequestPart(net.GetMaxMessageLength())
+		requestPart.SetPartNum(uint8(i + 1))
+		requestPart.SetContents(part)
+
+		key = singleUse.NewResponseKey(dhKey, uint64(i+1))
+		fp = singleUse.NewResponseFingerprint(dhKey, uint64(i+1))
+		encryptedPayload = auth.Crypt(key, fp[:24], requestPart.Marshal())
+		mac = singleUse.MakeMAC(key, encryptedPayload)
+
+		roundIDs[i+1], _, err = net.Send(
+			recipient.ID, fp, svc, encryptedPayload, mac, param.CmixParam)
+		if err != nil {
+			return nil, receptionID.EphemeralIdentity{}, errors.Errorf(
+				errSendRequestPart, i, len(part), tag, recipient, err)
+		}
 	}
 
 	remainingTimeout := param.Timeout - netTime.Since(timeStart)
 	go waitForTimeout(timeoutKillChan, wrapper, remainingTimeout)
 
-	return rid, sendingID, nil
+	return roundIDs, sendingID, nil
 }
 
 // generateDhKeys generates a new public key and DH key.
@@ -276,8 +317,36 @@ func waitForTimeout(kill chan bool, cb callbackWrapper, timeout time.Duration) {
 		cb(
 			nil,
 			receptionID.EphemeralIdentity{},
-			rounds.Round{},
+			nil,
 			errors.Errorf(errResponseTimeout, timeout),
 		)
 	}
+}
+
+// partitionPayload splits the payload into its parts. The first part is of size
+// firstPartSize and is shorter than the rest since it is sent in the
+// message.Request, which includes extra information. It is also returned on its
+// own so that it can be handled on its own. The rest of the parts are of size
+// partSize and will be sent as part of message.RequestPart.
+func partitionPayload(firstPartSize, partSize int, payload []byte) (
+	firstPart []byte, parts [][]byte) {
+
+	// Return just the first part if it fits in a single message
+	if len(payload) <= firstPartSize {
+		return payload, nil
+	}
+
+	firstPart = payload[:firstPartSize]
+
+	numParts := (len(payload[:firstPartSize]) + partSize - 1) / partSize
+	parts = make([][]byte, 0, numParts)
+	buff := bytes.NewBuffer(payload[firstPartSize:])
+
+	for n := buff.Next(partSize); len(n) > 0; n = buff.Next(partSize) {
+		newPart := make([]byte, partSize)
+		copy(newPart, n)
+		parts = append(parts, newPart)
+	}
+
+	return firstPart, parts
 }

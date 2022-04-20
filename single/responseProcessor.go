@@ -12,7 +12,7 @@ import (
 )
 
 type callbackWrapper func(payload []byte,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round, err error)
+	receptionID receptionID.EphemeralIdentity, rounds []rounds.Round, err error)
 
 // responseProcessor is registered for each potential fingerprint. Adheres to
 // the message.Processor interface registered with cmix.Client
@@ -23,6 +23,7 @@ type responseProcessor struct {
 	cy        cypher
 	tag       string
 	recipient *contact.Contact
+	roundIDs  *roundCollector
 }
 
 // Process decrypts a response part and adds it to the collator - returning
@@ -42,7 +43,14 @@ func (rsp *responseProcessor) Process(ecrMsg format.Message,
 		return
 	}
 
-	payload, done, err := rsp.c.Collate(decrypted)
+	responsePart, err := message.UnmarshalResponsePart(decrypted)
+	if err != nil {
+		jww.ERROR.Printf("[SU] Failed to unmarshal single-use response part "+
+			"payload for %s to %s: %+v", rsp.tag, rsp.recipient.ID, err)
+		return
+	}
+
+	payload, done, err := rsp.c.Collate(responsePart)
 	if err != nil {
 		jww.ERROR.Printf("[SU] Failed to collate single-use response payload "+
 			"for %s to %s, single use may fail: %+v",
@@ -50,7 +58,9 @@ func (rsp *responseProcessor) Process(ecrMsg format.Message,
 		return
 	}
 
+	rsp.roundIDs.add(round)
+
 	if done {
-		rsp.callback(payload, receptionID, round, nil)
+		rsp.callback(payload, receptionID, rsp.roundIDs.getList(), nil)
 	}
 }

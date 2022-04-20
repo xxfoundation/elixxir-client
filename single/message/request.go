@@ -277,9 +277,21 @@ func (mp RequestPayload) GetNumRequestParts() uint8 {
 	return mp.numRequestParts[0]
 }
 
+// GetNumParts returns the number of messages in the request. This function
+// wraps GetMaxRequestParts so that RequestPayload adheres to the Part
+// interface.
+func (mp RequestPayload) GetNumParts() uint8 {
+	return mp.GetNumRequestParts()
+}
+
 // SetNumRequestParts sets the number of messages in the request.
 func (mp RequestPayload) SetNumRequestParts(num uint8) {
 	copy(mp.numRequestParts, []byte{num})
+}
+
+// GetPartNum always returns 0 since it is the first message.
+func (mp RequestPayload) GetPartNum() uint8 {
+	return 0
 }
 
 // GetContents returns the payload's contents.

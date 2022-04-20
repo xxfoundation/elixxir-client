@@ -197,6 +197,11 @@ func (b *Backup) TriggerBackup(reason string) {
 	b.mux.RLock()
 	defer b.mux.RUnlock()
 
+	if b == nil || b.kv == nil {
+		jww.ERROR.Printf("TriggerBackup called on unitialized object")
+		return
+	}
+
 	key, salt, params, err := loadBackup(b.kv)
 	if err != nil {
 		jww.ERROR.Printf("Backup Failed: could not load key, salt, and "+

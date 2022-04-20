@@ -752,7 +752,7 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 			"registrations when network is not healthy")
 	}
 
-	nodes := c.network.GetInstance().GetFullNdf().Get().Nodes
+	nodes := c.network.GetInstance().GetPartialNdf().Get().Nodes
 
 	var numRegistered int
 	var numStale = 0

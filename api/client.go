@@ -20,6 +20,7 @@ import (
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/receive"
+	"gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/registration"
@@ -936,12 +937,20 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
 
 	//store the registration code for later use
 	storageSess.SetRegCode(registrationCode)
-	//move the registration state to keys generaXSted
+	//move the registration state to keys generated
 	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
 
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to denote state "+
 			"change in session")
+	}
+
+	// create new E2E
+	rekeyParams := rekey.GetDefaultParams()
+	err = e2e.Init(storageSess.GetKV(), protoUser.ReceptionID,
+		protoUser.E2eDhPrivateKey, e2eGrp, rekeyParams)
+	if err != nil {
+		return nil, err
 	}
 
 	return storageSess, nil

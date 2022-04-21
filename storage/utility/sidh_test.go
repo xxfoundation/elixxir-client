@@ -19,7 +19,7 @@ import (
 // TestStoreLoadDeleteSIDHPublicKey tests the load/store/delete functions
 // for SIDH Public Keys
 func TestStoreLoadDeleteSIDHPublicKey(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := versioned.NewKV(kv)
 	rng := fastRNG.NewStreamGenerator(1, 3, csprng.NewSystemRNG)
 	myRng := rng.GetStream()
@@ -85,7 +85,7 @@ func TestStoreLoadDeleteSIDHPublicKey(t *testing.T) {
 // TestStoreLoadDeleteSIDHPublicKey tests the load/store/delete functions
 // for SIDH Private Keys
 func TestStoreLoadDeleteSIDHPrivateKey(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := versioned.NewKV(kv)
 	rng := fastRNG.NewStreamGenerator(1, 3, csprng.NewSystemRNG)
 	myRng := rng.GetStream()

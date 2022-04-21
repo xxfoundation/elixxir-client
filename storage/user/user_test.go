@@ -8,7 +8,6 @@
 package user
 
 import (
-	"bytes"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/signature/rsa"
@@ -18,7 +17,7 @@ import (
 
 // Test loading user from a KV store
 func TestLoadUser(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	_, err := LoadUser(kv)
 
 	if err == nil {
@@ -41,28 +40,11 @@ func TestLoadUser(t *testing.T) {
 
 // Test NewUser function
 func TestNewUser(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
 	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
-	}
-}
-
-// Test GetCryptographicIdentity function from user
-func TestUser_GetCryptographicIdentity(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
-	uid := id.NewIdFromString("test", id.User, t)
-	rsalt := []byte("reception salt")
-	tsalt := []byte("transmission salt")
-	u, err := NewUser(kv, uid, uid, tsalt, rsalt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
-	if err != nil || u == nil {
-		t.Errorf("Failed to create new user: %+v", err)
-	}
-
-	ci := u.GetCryptographicIdentity()
-	if bytes.Compare(ci.transmissionSalt, tsalt) != 0 {
-		t.Errorf("Cryptographic Identity not retrieved properly")
 	}
 }

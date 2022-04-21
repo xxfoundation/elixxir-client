@@ -17,7 +17,7 @@ import (
 
 // Unit test for StoreGroup
 func TestStoreGroup(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := versioned.NewKV(kv)
 	grp := getTestGroup()
 	err := StoreGroup(vkv, grp, "testKey")
@@ -28,7 +28,7 @@ func TestStoreGroup(t *testing.T) {
 
 // Unit test for LoadGroup
 func TestLoadGroup(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := versioned.NewKV(kv)
 	grp := getTestGroup()
 

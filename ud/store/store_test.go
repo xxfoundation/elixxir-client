@@ -11,7 +11,7 @@ import (
 
 // Test it loads a Store from storage if it exists.
 func TestNewOrLoadStore_LoadStore(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	expectedStore, err := NewStore(kv)
 	if err != nil {
@@ -34,7 +34,7 @@ func TestNewOrLoadStore_LoadStore(t *testing.T) {
 
 // Test that it creates a new store if an old one is not in storage.
 func TestNewOrLoadStore_NewStore(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	receivedStore, err := NewOrLoadStore(kv)
 	if err != nil {
@@ -57,7 +57,7 @@ func TestNewOrLoadStore_NewStore(t *testing.T) {
 }
 
 func TestStore_MarshalUnmarshal_ConfirmedFacts(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	expectedStore, err := NewStore(kv)
 	if err != nil {
@@ -93,7 +93,7 @@ func TestStore_MarshalUnmarshal_ConfirmedFacts(t *testing.T) {
 }
 
 func TestStore_MarshalUnmarshal_UnconfirmedFacts(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	expectedStore, err := NewStore(kv)
 	if err != nil {

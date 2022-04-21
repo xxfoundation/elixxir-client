@@ -10,42 +10,36 @@ package ud
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/fact"
-	"sync"
 )
 
+// Error constants to return up the stack.
 const (
 	factTypeExistsErr               = "Fact %v cannot be added as fact type %s has already been stored. Cancelling backup operation!"
 	backupMissingInvalidFactTypeErr = "BackUpMissingFacts expects input in the order (email, phone). " +
 		"%s (%s) is non-empty but not an email. Cancelling backup operation"
-	backupMissingAllZeroesFactErr = "Cannot backup missing facts: Both email and phone facts are empty!"
-	factNotInStoreErr             = "Fact %v does not exist in store"
+	factNotInStoreErr = "Fact %v does not exist in store"
+	statefulStoreErr  = "cannot overwrite ud store with existing data"
 )
 
-// Store is the storage object for the higher level ud.Manager object.
-// This storage implementation is written for client side.
-type Store struct {
-	// confirmedFacts contains facts that have been confirmed
-	confirmedFacts map[fact.Fact]struct{}
-	// Stores facts that have been added by UDB but unconfirmed facts.
-	// Maps confirmID to fact
-	unconfirmedFacts map[string]fact.Fact
-	kv               *versioned.KV
-	mux              sync.RWMutex
-}
+// RestoreFromBackUp initializes the confirmedFacts map
+// with the backed up fact data. This will error if
+// the store is already stateful.
+func (s *Store) RestoreFromBackUp(backupData fact.FactList) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
-// NewStore creates a new, empty Store object.
-func NewStore(kv *versioned.KV) (*Store, error) {
-	kv = kv.Prefix(prefix)
-
-	s := &Store{
-		confirmedFacts:   make(map[fact.Fact]struct{}, 0),
-		unconfirmedFacts: make(map[string]fact.Fact, 0),
-		kv:               kv,
+	if len(s.confirmedFacts) != 0 || len(s.unconfirmedFacts) != 0 {
+		return errors.New(statefulStoreErr)
 	}
 
-	return s, s.save()
+	for _, f := range backupData {
+		if !isFactZero(f) {
+			s.confirmedFacts[f] = struct{}{}
+		}
+	}
+
+	return s.save()
 }
 
 // StoreUnconfirmedFact stores a fact that has been added to UD but has not been
@@ -93,10 +87,6 @@ func (s *Store) ConfirmFact(confirmationId string) error {
 func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-
-	if isFactZero(email) && isFactZero(phone) {
-		return errors.New(backupMissingAllZeroesFactErr)
-	}
 
 	modifiedEmail, modifiedPhone := false, false
 

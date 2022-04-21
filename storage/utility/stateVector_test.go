@@ -23,7 +23,7 @@ import (
 // Tests that NewStateVector creates the expected new StateVector and that it is
 // saved to storage.
 func TestNewStateVector(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	key := "myTestKey"
 	numKeys := uint32(275)
 	expected := &StateVector{
@@ -559,7 +559,7 @@ func TestLoadStateVector(t *testing.T) {
 // original.
 func TestLoadStateVector_GetError(t *testing.T) {
 	key := "StateVectorLoadStateVector"
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	expectedErr := "object not found"
 
 	_, err := LoadStateVector(kv, key)
@@ -574,7 +574,7 @@ func TestLoadStateVector_GetError(t *testing.T) {
 // original.
 func TestLoadStateVector_UnmarshalError(t *testing.T) {
 	key := "StateVectorLoadStateVector"
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Save invalid StateVector to storage
 	obj := versioned.Object{
@@ -606,7 +606,7 @@ func TestStateVector_save(t *testing.T) {
 		numKeys:        1000,
 		numAvailable:   1000,
 		key:            makeStateVectorKey(key),
-		kv:             versioned.NewKV(make(ekv.Memstore)),
+		kv:             versioned.NewKV(ekv.MakeMemstore()),
 	}
 	expectedData, err := sv.marshal()
 	if err != nil {
@@ -717,7 +717,7 @@ func TestStateVector_SaveTEST(t *testing.T) {
 		numKeys:        1000,
 		numAvailable:   1000,
 		key:            makeStateVectorKey(key),
-		kv:             versioned.NewKV(make(ekv.Memstore)),
+		kv:             versioned.NewKV(ekv.MakeMemstore()),
 	}
 	expectedData, err := sv.marshal()
 	if err != nil {
@@ -853,7 +853,7 @@ func TestStateVector_SetNumAvailableTEST_InvalidInterfaceError(t *testing.T) {
 func TestStateVector_SetKvTEST(t *testing.T) {
 	sv := newTestStateVector("SetKvTEST", 1000, t)
 
-	kv := versioned.NewKV(make(ekv.Memstore)).Prefix("NewKV")
+	kv := versioned.NewKV(ekv.MakeMemstore()).Prefix("NewKV")
 	sv.SetKvTEST(kv, t)
 
 	if sv.kv != kv {
@@ -881,7 +881,7 @@ func TestStateVector_SetKvTEST_InvalidInterfaceError(t *testing.T) {
 // newTestStateVector produces a new StateVector using the specified number of
 // keys and key string for testing.
 func newTestStateVector(key string, numKeys uint32, t *testing.T) *StateVector {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	sv, err := NewStateVector(kv, key, numKeys)
 	if err != nil {

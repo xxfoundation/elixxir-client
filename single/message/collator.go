@@ -9,10 +9,9 @@ import (
 // Error messages.
 const (
 	// Collate
-	errUnmarshalResponsePart = "failed to unmarshal response payload: %+v"
-	errMaxParts              = "max number of parts reported by payload %d is larger than collator expected (%d)"
-	errPartOutOfRange        = "payload part number %d greater than max number of expected parts (%d)"
-	errPartExists            = "a payload for the part number %d already exists in the list"
+	errMaxParts       = "max number of parts reported by payload %d is larger than collator expected (%d)"
+	errPartOutOfRange = "payload part number %d greater than max number of expected parts (%d)"
+	errPartExists     = "a payload for the part number %d already exists in the list"
 )
 
 // Initial value of the Collator maxNum that indicates it has yet to be set.
@@ -24,6 +23,17 @@ type Collator struct {
 	maxNum   int      // Max number of messages that can be received
 	count    int      // Current number of messages received
 	sync.Mutex
+}
+
+type Part interface {
+	// GetNumParts returns the total number of parts in the message.
+	GetNumParts() uint8
+
+	// GetPartNum returns the index of this part in the message.
+	GetPartNum() uint8
+
+	// GetContents returns the contents of the message part.
+	GetContents() []byte
 }
 
 // NewCollator generates an empty list of payloads to fit the max number of
@@ -38,38 +48,33 @@ func NewCollator(messageCount uint8) *Collator {
 
 // Collate collects message payload parts. Once all parts are received, the full
 // collated payload is returned along with true. Otherwise, returns false.
-func (c *Collator) Collate(payloadBytes []byte) ([]byte, bool, error) {
-	payload, err := UnmarshalResponsePart(payloadBytes)
-	if err != nil {
-		return nil, false, errors.Errorf(errUnmarshalResponsePart, err)
-	}
-
+func (c *Collator) Collate(part Part) ([]byte, bool, error) {
 	c.Lock()
 	defer c.Unlock()
 
 	// If this is the first message received, then set the max number of
 	// messages expected to be received off its max number of parts
 	if c.maxNum == unsetCollatorMax {
-		if int(payload.GetNumParts()) > len(c.payloads) {
+		if int(part.GetNumParts()) > len(c.payloads) {
 			return nil, false, errors.Errorf(
-				errMaxParts, payload.GetNumParts(), len(c.payloads))
+				errMaxParts, part.GetNumParts(), len(c.payloads))
 		}
-		c.maxNum = int(payload.GetNumParts())
+		c.maxNum = int(part.GetNumParts())
 	}
 
 	// Make sure that the part number is within the expected number of parts
-	if int(payload.GetPartNum()) >= c.maxNum {
+	if int(part.GetPartNum()) >= c.maxNum {
 		return nil, false,
-			errors.Errorf(errPartOutOfRange, payload.GetPartNum(), c.maxNum)
+			errors.Errorf(errPartOutOfRange, part.GetPartNum(), c.maxNum)
 	}
 
 	// Make sure no payload with the same part number exists
-	if c.payloads[payload.GetPartNum()] != nil {
-		return nil, false, errors.Errorf(errPartExists, payload.GetPartNum())
+	if c.payloads[part.GetPartNum()] != nil {
+		return nil, false, errors.Errorf(errPartExists, part.GetPartNum())
 	}
 
 	// Add the payload to the list
-	c.payloads[payload.GetPartNum()] = payload.GetContents()
+	c.payloads[part.GetPartNum()] = part.GetContents()
 	c.count++
 
 	// Return false if not all messages have been received

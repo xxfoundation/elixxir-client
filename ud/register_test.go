@@ -2,16 +2,12 @@ package ud
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/factID"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"reflect"
 	"testing"
@@ -28,34 +24,26 @@ func (t *testRegisterComm) SendRegisterUser(_ *connect.Host, msg *pb.UDBUserRegi
 
 // Happy path.
 func TestManager_register(t *testing.T) {
-	isReg := uint32(0)
+	m, _ := newTestManager(t)
 
-	comms, err := client.NewClientComms(nil, nil, nil, nil)
+	udHost, err := m.getOrAddUdHost()
 	if err != nil {
-		t.Errorf("Failed to start client comms: %+v", err)
-	}
-
-	// Set up manager
-	m := &Manager{
-		comms:      comms,
-		net:        newTestNetworkManager(t),
-		rng:        fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
-		storage:    storage.InitTestingSession(t),
-		registered: &isReg,
+		t.Fatalf("Failed to get/add ud host: %+v", err)
 	}
 
 	c := &testRegisterComm{}
+	prng := NewPrng(42)
 
-	err = m.register("testUser", c)
+	err = m.register("testUser", prng, c, udHost)
 	if err != nil {
 		t.Errorf("register() returned an error: %+v", err)
 	}
 
 	// Check if the UDBUserRegistration contents are correct
-	m.isCorrect("testUser", c.msg, t)
+	isCorrect("testUser", c.msg, m, t)
 
 	// Verify the signed identity data
-	pubKey := m.storage.User().GetCryptographicIdentity().GetTransmissionRSA().GetPublic()
+	pubKey := m.user.PortableUserInfo().ReceptionRSA.GetPublic()
 	err = rsa.Verify(pubKey, hash.CMixHash, c.msg.IdentityRegistration.Digest(),
 		c.msg.IdentitySignature, nil)
 	if err != nil {
@@ -73,18 +61,19 @@ func TestManager_register(t *testing.T) {
 
 // isCorrect checks if the UDBUserRegistration has all the expected fields minus
 // any signatures.
-func (m *Manager) isCorrect(username string, msg *pb.UDBUserRegistration, t *testing.T) {
-	user := m.storage.User()
-	cryptoUser := m.storage.User().GetCryptographicIdentity()
+func isCorrect(username string, msg *pb.UDBUserRegistration, m *Manager, t *testing.T) {
+	userInfo := m.user.PortableUserInfo()
 
-	if !bytes.Equal(user.GetTransmissionRegistrationValidationSignature(), msg.PermissioningSignature) {
+	if !bytes.Equal(m.user.GetReceptionRegistrationValidationSignature(), msg.PermissioningSignature) {
 		t.Errorf("PermissioningSignature incorrect.\n\texpected: %v\n\treceived: %v",
-			user.GetTransmissionRegistrationValidationSignature(), msg.PermissioningSignature)
+			m.user.GetReceptionRegistrationValidationSignature(), msg.PermissioningSignature)
 	}
 
-	if string(rsa.CreatePublicKeyPem(cryptoUser.GetTransmissionRSA().GetPublic())) != msg.RSAPublicPem {
+	if string(rsa.CreatePublicKeyPem(userInfo.TransmissionRSA.GetPublic())) !=
+		msg.RSAPublicPem {
 		t.Errorf("RSAPublicPem incorrect.\n\texpected: %v\n\treceived: %v",
-			string(rsa.CreatePublicKeyPem(cryptoUser.GetTransmissionRSA().GetPublic())), msg.RSAPublicPem)
+			string(rsa.CreatePublicKeyPem(userInfo.TransmissionRSA.GetPublic())),
+			msg.RSAPublicPem)
 	}
 
 	if username != msg.IdentityRegistration.Username {
@@ -92,19 +81,19 @@ func (m *Manager) isCorrect(username string, msg *pb.UDBUserRegistration, t *tes
 			username, msg.IdentityRegistration.Username)
 	}
 
-	if !bytes.Equal(m.storage.E2e().GetDHPublicKey().Bytes(), msg.IdentityRegistration.DhPubKey) {
+	if !bytes.Equal(userInfo.E2eDhPublicKey.Bytes(), msg.IdentityRegistration.DhPubKey) {
 		t.Errorf("IdentityRegistration DhPubKey incorrect.\n\texpected: %#v\n\treceived: %#v",
-			m.storage.E2e().GetDHPublicKey().Bytes(), msg.IdentityRegistration.DhPubKey)
+			userInfo.E2eDhPublicKey.Bytes(), msg.IdentityRegistration.DhPubKey)
 	}
 
-	if !bytes.Equal(cryptoUser.GetTransmissionSalt(), msg.IdentityRegistration.Salt) {
+	if !bytes.Equal(userInfo.TransmissionSalt, msg.IdentityRegistration.Salt) {
 		t.Errorf("IdentityRegistration Salt incorrect.\n\texpected: %#v\n\treceived: %#v",
-			cryptoUser.GetTransmissionSalt(), msg.IdentityRegistration.Salt)
+			userInfo.TransmissionSalt, msg.IdentityRegistration.Salt)
 	}
 
-	if !bytes.Equal(cryptoUser.GetTransmissionID().Marshal(), msg.Frs.UID) {
+	if !bytes.Equal(userInfo.TransmissionID.Marshal(), msg.Frs.UID) {
 		t.Errorf("Frs UID incorrect.\n\texpected: %v\n\treceived: %v",
-			cryptoUser.GetTransmissionID().Marshal(), msg.Frs.UID)
+			userInfo.TransmissionID.Marshal(), msg.Frs.UID)
 	}
 
 	if !reflect.DeepEqual(&pb.Fact{Fact: username}, msg.Frs.Fact) {

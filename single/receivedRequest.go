@@ -10,6 +10,7 @@ import (
 	"gitlab.com/elixxir/client/single/message"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
@@ -26,7 +27,7 @@ type Request struct {
 	maxParts       uint8       // Max number of messages allowed in reply
 	used           *uint32     // Atomic variable
 	requestPayload []byte
-	net            cmix.Client
+	net            CMix
 }
 
 // GetMaxParts returns the maximum number of message parts that can be sent in a
@@ -91,7 +92,8 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 	parts := partitionResponse(payload, r.net.GetMaxMessageLength(), r.maxParts)
 
 	// Encrypt and send the partitions
-	cyphers := makeCyphers(r.dhKey, uint8(len(parts)))
+	cyphers := makeCyphers(r.dhKey, uint8(len(parts)),
+		singleUse.NewResponseKey, singleUse.NewResponseFingerprint)
 	rounds := make([]id.Round, len(parts))
 	sendResults := make(chan ds.EventReturn, len(parts))
 
@@ -102,6 +104,7 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 		cmixParams.DebugTag = "single.Response"
 	}
 
+	// fixme: should the above debug tag and the below service tag be flipped??
 	svc := cmixMsg.Service{
 		Identifier: r.dhKey.Bytes(),
 		Tag:        "single.response-dummyService",
@@ -115,7 +118,8 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 			defer wg.Done()
 			partFP, ecrPart, mac := cyphers[j].Encrypt(parts[j])
 			// Send Message
-			round, ephID, err := r.net.Send(r.sender, partFP, svc, ecrPart, mac,
+			round, ephID, err := r.net.Send(r.sender, partFP, svc,
+				ecrPart, mac,
 				cmixParams)
 			if err != nil {
 				atomic.AddUint32(&failed, 1)

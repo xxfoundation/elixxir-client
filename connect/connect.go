@@ -89,7 +89,7 @@ func Connect(recipient contact.Contact, myId *id.ID, rng *fastRNG.StreamGenerato
 	}
 
 	// Build callback for E2E negotiation
-	callback := GetConnectionCallback()
+	callback := getAuthCallback()
 
 	// Build auth object for E2E negotiation
 	authState, err := auth.NewState(kv, net, e2eHandler,
@@ -140,7 +140,7 @@ func WaitForConnections(connectionListener chan Connection,
 	}
 
 	// Build callback for E2E negotiation
-	callback := GetConnectionCallback()
+	callback := getAuthCallback()
 
 	// Build auth object for E2E negotiation
 	_, err = auth.NewState(kv, net, e2eHandler,
@@ -165,11 +165,16 @@ func WaitForConnections(connectionListener chan Connection,
 				continue
 			}
 
-			connectionListener <- &handler{
+			// Send the new Connection object to the connectionListener
+			select {
+			case connectionListener <- &handler{
 				partner: newPartner,
 				params:  p,
 				net:     net,
 				e2e:     e2eHandler,
+			}:
+			default:
+				jww.ERROR.Printf("Failed to establish new connection due to channel full.")
 			}
 		}
 	}
@@ -214,31 +219,31 @@ func (h *handler) Unregister(listenerID receive.ListenerID) {
 	h.e2e.Unregister(listenerID)
 }
 
-// ConnectionCallback provides callback functionality for interfacing between auth.State and Connection
+// authCallback provides callback functionality for interfacing between auth.State and Connection
 // This is used both for blocking creation of a Connection object until the auth Request is confirmed
 // and for dynamically building new Connection objects when an auth Request is received.
-type ConnectionCallback struct {
+type authCallback struct {
 	// Used for signaling confirmation of E2E partnership
 	confirmPartner chan *id.ID
 }
 
-// GetConnectionCallback returns a callback interface to be passed into the creation of an auth.State object.
-func GetConnectionCallback() ConnectionCallback {
-	return ConnectionCallback{
-		confirmPartner: make(chan *id.ID, 1),
+// getAuthCallback returns a callback interface to be passed into the creation of an auth.State object.
+func getAuthCallback() authCallback {
+	return authCallback{
+		confirmPartner: make(chan *id.ID, 10),
 	}
 }
 
 // Confirm will be called when an auth Confirm message is processed
-func (c ConnectionCallback) Confirm(requestor contact.Contact, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+func (c authCallback) Confirm(requestor contact.Contact, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	// Signal to a listening thread that the partnership is confirmed
 	c.confirmPartner <- requestor.ID
 }
 
 // Request will be called when an auth Request message is processed
-func (c ConnectionCallback) Request(requestor contact.Contact, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+func (c authCallback) Request(requestor contact.Contact, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 }
 
 // Reset will be called when an auth Reset operation occurs
-func (c ConnectionCallback) Reset(requestor contact.Contact, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+func (c authCallback) Reset(requestor contact.Contact, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 }

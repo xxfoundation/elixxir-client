@@ -8,8 +8,6 @@
 package single
 
 import (
-	"encoding/base64"
-	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/single/message"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -59,14 +57,6 @@ func (rk *cypher) Encrypt(rp message.ResponsePart) (
 	fp = rk.GetFingerprint()
 	key := rk.getKey()
 
-	fmt.Printf("encrypt:"+
-		"\nfp: %v"+
-		"\nkey: %v\n"+
-		"contents: %v\n"+
-		"mac: %v\n", base64.StdEncoding.EncodeToString(fp.Bytes()),
-		base64.StdEncoding.EncodeToString(key),
-		base64.StdEncoding.EncodeToString(rp.Marshal()),
-		base64.StdEncoding.EncodeToString(mac))
 	// FIXME: Encryption is identical to what is used by e2e.Crypt, lets make
 	//  them the same code path.
 	encryptedPayload = cAuth.Crypt(key, fp[:24], rp.Marshal())
@@ -77,15 +67,6 @@ func (rk *cypher) Encrypt(rp message.ResponsePart) (
 func (rk *cypher) Decrypt(contents, mac []byte) ([]byte, error) {
 	fp := rk.GetFingerprint()
 	key := rk.getKey()
-
-	fmt.Printf("decrypt:"+
-		"\nfp: %v"+
-		"\nkey: %v\n"+
-		"contents: %v\n"+
-		"mac: %v\n", base64.StdEncoding.EncodeToString(fp.Bytes()),
-		base64.StdEncoding.EncodeToString(key),
-		base64.StdEncoding.EncodeToString(contents),
-		base64.StdEncoding.EncodeToString(mac))
 
 	// Verify the CMix message MAC
 	if !singleUse.VerifyMAC(key, contents, mac) {

@@ -15,13 +15,14 @@
 package ud
 
 import (
-	"gitlab.com/elixxir/client/single"
-
+	"bytes"
+	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/event"
+	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -127,8 +128,6 @@ func newTestNetworkManager(t *testing.T) *testNetworkManager {
 	instanceComms := &connect.ProtoComms{
 		Manager: connect.NewManagerTesting(t),
 	}
-	// todo: make a non-random rng and pass it in
-
 	thisInstance, err := network.NewInstanceTesting(instanceComms, getNDF(),
 		getNDF(), getGroup(), getGroup(), t)
 	if err != nil {
@@ -187,12 +186,110 @@ func (m mockUser) GetReceptionRegistrationValidationSignature() []byte {
 	return []byte("test")
 }
 
+type mockReceiver struct {
+	responses []*Contact
+	c         mockChannel
+	t         *testing.T
+}
+
+func newMockReceiver(c mockChannel, response []*Contact, t *testing.T) *mockReceiver {
+	return &mockReceiver{
+		c:         c,
+		t:         t,
+		responses: response,
+	}
+}
+
+func (receiver *mockReceiver) Callback(req *single.Request,
+	_ receptionID.EphemeralIdentity, _ []rounds.Round) {
+	if req.GetTag() == SearchTag {
+		response := &SearchResponse{}
+		response.Contacts = receiver.responses
+
+		responsePayload, err := proto.Marshal(response)
+		if err != nil {
+			receiver.t.Fatalf("Failed to marshal response message: %v", err)
+		}
+
+		_, err = req.Respond(responsePayload,
+			cmix.GetDefaultCMIXParams(), 100*time.Millisecond)
+		if err != nil {
+			receiver.t.Fatalf("Respond error: %v", err)
+		}
+	} else if req.GetTag() == LookupTag {
+		response := &LookupResponse{
+			PubKey:   receiver.responses[0].PubKey,
+			Username: receiver.responses[0].Username,
+		}
+
+		responsePayload, err := proto.Marshal(response)
+		if err != nil {
+			receiver.t.Fatalf("Failed to marshal response message: %v", err)
+		}
+
+		_, err = req.Respond(responsePayload,
+			cmix.GetDefaultCMIXParams(), 100*time.Millisecond)
+		if err != nil {
+			receiver.t.Fatalf("Respond error: %v", err)
+		}
+
+	}
+
+}
+
 // testNetworkManager is a mock implementation of the CMix interface.
 type testNetworkManager struct {
-	instance    *network.Instance
-	testingFace interface{}
-	msg         format.Message
-	c           contact.Contact
+	requestProcess    message.Processor
+	instance          *network.Instance
+	testingFace       interface{}
+	c                 contact.Contact
+	responseProcessor message.Processor
+}
+
+func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerprint,
+	service message.Service,
+	payload, mac []byte, cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	msg := format.NewMessage(tnm.instance.GetE2EGroup().GetP().ByteLen())
+	// Build message. Will panic if inputs are not correct.
+	msg.SetKeyFP(fingerprint)
+	msg.SetContents(payload)
+	msg.SetMac(mac)
+	msg.SetSIH(service.Hash(msg.GetContents()))
+	// If the recipient for a call to Send is UD, then this
+	// is the request pathway. Call the UD processor to simulate
+	// the UD picking up the request
+	if bytes.Equal(tnm.instance.GetFullNdf().
+		Get().UDB.ID,
+		recipient.Bytes()) {
+		tnm.responseProcessor.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+
+	} else {
+		// This should happen when the mock UD service Sends back a response.
+		// Calling process mocks up the requester picking up the response.
+		tnm.requestProcess.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+	}
+
+	return 0, ephemeral.Id{}, nil
+}
+
+func (tnm *testNetworkManager) AddFingerprint(identity *id.ID,
+	fingerprint format.Fingerprint, mp message.Processor) error {
+	// AddFingerprint gets called in both the request and response
+	// code-paths. We only want to set in the code-path transmitting
+	// from UD
+	if !bytes.Equal(tnm.instance.GetFullNdf().Get().UDB.ID,
+		identity.Bytes()) {
+		tnm.requestProcess = mp
+	}
+
+	return nil
+}
+
+func (tnm *testNetworkManager) AddService(clientID *id.ID,
+	newService message.Service,
+	response message.Processor) {
+	tnm.responseProcessor = response
+	return
 }
 
 func (tnm *testNetworkManager) CheckInProgressMessages() {
@@ -200,98 +297,20 @@ func (tnm *testNetworkManager) CheckInProgressMessages() {
 }
 
 func (tnm *testNetworkManager) GetMaxMessageLength() int {
-	return 4096
-}
-
-func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
-	return 0, ephemeral.Id{}, nil
+	return 700
 }
 
 func (tnm *testNetworkManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
 	return
 }
 
-func (tnm *testNetworkManager) AddFingerprint(identity *id.ID, fingerprint format.Fingerprint, mp message.Processor) error {
-	//
-	//testMsg := format.NewMessage(4096)
-	//testMsg.SetKeyFP()
-	//// Create key and message
-	//key := []byte{82, 253, 252, 7, 33, 130, 101, 79, 22, 63, 95, 15, 154, 98, 29, 114, 149, 102, 199, 77, 16, 3, 124,
-	//	77, 123, 187, 4, 7, 209, 226, 198, 73}
-	//vector := []byte{82, 253, 252, 7, 33, 130, 101, 79, 22, 63, 95, 15, 154, 98, 29, 114, 149, 102, 199, 77, 16, 3, 124,
-	//	77}
-	//msg := []byte{5, 12, 11}
-	//
-	////testMsg.SetContents()'
-	//fmt.Printf("fp: %v\n",
-	//	base64.StdEncoding.EncodeToString(fingerprint.Bytes()))
-	//fmt.Printf("CONTENTS: %v\n", base64.
-	//	StdEncoding.EncodeToString(tnm.msg.GetContents()))
-	//tnm.msg.GetContents()
-
-	mp.Process(tnm.msg, receptionID.EphemeralIdentity{}, rounds.Round{})
-	return nil
-}
-
-//func (tnm *testNetworkManager) EncryptMockMessage(face interface{}) {
-//
-//	// Encrypt payload
-//
-//	dhKeyBytes, err := base64.StdEncoding.DecodeString(dhKeyEnc)
-//	if err != nil {
-//		panic("Failed to decode dh key")
-//	}
-//
-//	//lookupRequest, err := base64.StdEncoding.DecodeString(lookupRequestEnc)
-//	//if err != nil {
-//	//	panic("Failed to decode lookup request")
-//	//}
-//
-//	dhKey := tnm.instance.GetE2EGroup().NewIntFromBytes(dhKeyBytes)
-//	responseKey := singleUse.NewResponseKey(dhKey, uint64(0))
-//
-//	responseFp := singleUse.NewResponseFingerprint(dhKey, 0)
-//
-//	fmt.Printf("IN TEST: response key : %v\nrespFP: %v\n",
-//		base64.StdEncoding.EncodeToString(responseKey),
-//		base64.StdEncoding.EncodeToString(responseFp.Bytes()))
-//	if err != nil {
-//		panic("Failed to decode request payload")
-//	}
-//
-//	encryptedPayload := auth.Crypt(responseKey, responseFp[:24], requestPayload)
-//
-//	fmt.Printf("ecrPayload: %v\n", base64.StdEncoding.EncodeToString(encryptedPayload))
-//	// Generate CMIX message MAC
-//	mac := singleUse.MakeMAC(responseKey, encryptedPayload)
-//
-//	tnm.msg = format.NewMessage(4096)
-//
-//	tnm.msg.SetMac(mac)
-//	tnm.msg.SetContents(encryptedPayload)
-//	tnm.msg.SetKeyFP(responseFp)
-//	fmt.Printf("mac: %v\n", base64.StdEncoding.EncodeToString(mac))
-//	fmt.Printf("CONTENTS: %v\n", base64.
-//		StdEncoding.EncodeToString(encryptedPayload))
-//
-//	// Send the payload
-//	svc := cmixMsg.Service{
-//		Identifier: tnm.c.ID[:],
-//		Tag:        SearchTag,
-//		Metadata:   nil,
-//	}
-//
-//	// Build message. Will panic if inputs are not correct.
-//	tnm.msg.SetSIH(svc.Hash(tnm.msg.GetContents()))
-//
-//}
-
 func (tnm *testNetworkManager) DeleteClientFingerprints(identity *id.ID) {
 	return
 }
 
-func (tnm *testNetworkManager) AddService(clientID *id.ID, newService message.Service, response message.Processor) {
-	return
+func (tnm *testNetworkManager) Process(ecrMsg format.Message,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+
 }
 
 func (tnm *testNetworkManager) DeleteService(clientID *id.ID, toDelete message.Service, processor message.Processor) {
@@ -386,31 +405,21 @@ func (m mockE2e) GetGroup() *cyclic.Group {
 	return getGroup()
 }
 
-type mockChannel chan struct {
+type mockResponse struct {
 	c   []contact.Contact
 	err error
 }
 
-type mockReceiver struct {
-	c mockChannel
-}
-
-func newMockReceiver(c mockChannel) *mockReceiver {
-	return &mockReceiver{c: c}
-}
-
-func (receiver *mockReceiver) Callback(*single.Request,
-	receptionID.EphemeralIdentity, []rounds.Round) {
-
-}
+type mockChannel chan mockResponse
 
 func getNDF() *ndf.NetworkDefinition {
+
 	return &ndf.NetworkDefinition{
 		UDB: ndf.UDB{
 			ID:       id.DummyUser.Bytes(),
 			Cert:     testCert,
 			Address:  "address",
-			DhPubKey: []byte{123, 34, 86, 97, 108, 117, 101, 34, 58, 50, 48, 54, 50, 57, 49, 51, 55, 48, 49, 55, 55, 48, 48, 57, 48, 52, 56, 51, 54, 55, 57, 55, 51, 52, 57, 54, 56, 52, 53, 52, 57, 49, 52, 54, 55, 53, 53, 49, 53, 51, 50, 51, 52, 57, 51, 48, 50, 51, 55, 48, 54, 55, 49, 53, 50, 50, 54, 56, 51, 48, 52, 48, 57, 49, 48, 48, 52, 54, 48, 54, 55, 51, 52, 57, 48, 56, 53, 57, 49, 57, 52, 54, 48, 56, 49, 55, 53, 55, 54, 51, 49, 48, 56, 57, 55, 48, 50, 56, 53, 56, 54, 54, 53, 51, 50, 49, 48, 55, 53, 57, 56, 53, 49, 56, 54, 49, 49, 49, 52, 52, 57, 51, 57, 50, 51, 51, 49, 50, 51, 52, 53, 51, 57, 50, 52, 50, 50, 48, 57, 48, 55, 48, 51, 49, 51, 50, 49, 56, 48, 56, 54, 50, 53, 56, 51, 49, 57, 56, 54, 53, 57, 50, 53, 48, 56, 50, 48, 51, 48, 57, 53, 51, 53, 57, 54, 50, 52, 53, 54, 51, 48, 54, 50, 55, 48, 48, 55, 49, 49, 52, 49, 48, 55, 54, 51, 50, 49, 56, 48, 56, 52, 54, 54, 52, 50, 57, 55, 56, 49, 52, 53, 54, 53, 55, 52, 57, 55, 54, 55, 56, 50, 52, 49, 57, 56, 49, 52, 50, 53, 48, 52, 52, 54, 50, 57, 54, 57, 54, 55, 48, 51, 52, 53, 51, 56, 48, 52, 50, 53, 49, 53, 50, 51, 54, 55, 55, 57, 55, 50, 55, 53, 53, 51, 56, 53, 55, 48, 55, 51, 57, 57, 55, 57, 53, 54, 48, 49, 48, 51, 55, 52, 53, 49, 54, 51, 57, 56, 56, 49, 51, 57, 52, 48, 53, 54, 49, 50, 49, 57, 49, 54, 48, 54, 55, 48, 53, 57, 57, 55, 56, 57, 53, 52, 50, 51, 52, 56, 49, 51, 49, 57, 57, 52, 50, 53, 50, 55, 49, 48, 56, 54, 50, 53, 57, 53, 53, 55, 52, 53, 54, 54, 54, 51, 53, 51, 52, 51, 54, 49, 52, 52, 55, 51, 56, 52, 48, 54, 52, 51, 49, 56, 55, 52, 53, 56, 53, 49, 49, 53, 55, 48, 50, 52, 49, 56, 52, 56, 50, 49, 56, 49, 51, 49, 49, 51, 52, 57, 50, 57, 57, 56, 49, 51, 54, 52, 56, 54, 54, 55, 48, 50, 52, 48, 51, 48, 51, 51, 54, 55, 53, 54, 56, 56, 48, 55, 54, 54, 54, 55, 56, 50, 51, 48, 53, 57, 54, 49, 51, 53, 54, 50, 51, 51, 51, 55, 56, 53, 48, 49, 50, 48, 48, 49, 49, 50, 54, 48, 53, 54, 52, 49, 52, 50, 50, 55, 51, 56, 51, 56, 52, 51, 54, 48, 49, 55, 50, 53, 51, 49, 49, 49, 49, 57, 50, 51, 55, 54, 48, 51, 49, 51, 54, 48, 48, 50, 57, 56, 51, 52, 50, 50, 56, 54, 55, 56, 51, 55, 55, 52, 56, 48, 53, 57, 56, 51, 50, 48, 51, 48, 49, 48, 54, 50, 57, 56, 51, 55, 54, 54, 53, 56, 57, 49, 50, 52, 55, 54, 54, 49, 56, 49, 49, 52, 57, 54, 57, 51, 50, 50, 48, 55, 54, 53, 54, 51, 53, 52, 56, 49, 52, 57, 53, 52, 56, 55, 56, 48, 56, 49, 56, 52, 56, 50, 50, 54, 55, 54, 53, 56, 48, 57, 55, 56, 50, 54, 50, 50, 57, 56, 57, 48, 50, 53, 56, 50, 56, 53, 55, 57, 55, 57, 48, 50, 53, 52, 54, 48, 56, 50, 57, 49, 56, 51, 57, 52, 53, 51, 54, 53, 56, 56, 55, 55, 54, 52, 51, 51, 57, 53, 51, 56, 55, 54, 56, 48, 48, 57, 57, 53, 51, 52, 51, 49, 54, 49, 48, 52, 56, 55, 49, 57, 54, 49, 54, 49, 48, 49, 53, 49, 50, 49, 48, 57, 56, 54, 54, 56, 48, 57, 49, 52, 56, 55, 51, 48, 54, 52, 50, 51, 54, 57, 49, 53, 54, 48, 51, 48, 49, 53, 55, 56, 48, 50, 54, 51, 49, 57, 51, 49, 52, 53, 52, 51, 52, 57, 50, 53, 52, 56, 49, 55, 52, 50, 53, 56, 49, 54, 56, 49, 51, 55, 55, 56, 56, 56, 48, 56, 50, 54, 48, 53, 55, 53, 55, 54, 54, 49, 52, 54, 51, 54, 55, 57, 57, 50, 52, 51, 52, 54, 52, 57, 48, 54, 56, 48, 49, 57, 48, 48, 50, 56, 53, 52, 52, 51, 54, 56, 48, 52, 48, 51, 52, 57, 50, 51, 48, 49, 51, 55, 50, 57, 55, 57, 56, 53, 50, 53, 54, 51, 48, 52, 50, 50, 49, 51, 51, 51, 56, 50, 52, 49, 48, 55, 57, 53, 51, 52, 54, 51, 57, 55, 51, 54, 53, 54, 55, 53, 53, 55, 51, 50, 52, 53, 51, 48, 55, 51, 54, 55, 52, 52, 51, 52, 56, 48, 51, 57, 53, 49, 52, 53, 56, 51, 53, 57, 57, 51, 52, 55, 54, 55, 57, 49, 55, 55, 54, 48, 50, 52, 50, 51, 51, 52, 49, 55, 54, 50, 49, 49, 50, 49, 54, 48, 56, 48, 52, 53, 55, 52, 55, 56, 53, 52, 54, 52, 51, 54, 50, 48, 53, 54, 56, 55, 56, 51, 57, 54, 49, 50, 54, 52, 52, 52, 55, 53, 57, 57, 57, 57, 51, 55, 50, 57, 52, 54, 49, 54, 51, 56, 57, 54, 56, 54, 57, 50, 57, 56, 54, 48, 53, 53, 53, 51, 49, 53, 53, 55, 53, 57, 50, 57, 53, 55, 49, 54, 55, 49, 55, 48, 57, 55, 56, 53, 57, 51, 57, 51, 48, 56, 51, 56, 56, 57, 49, 49, 49, 52, 55, 54, 54, 44, 34, 70, 105, 110, 103, 101, 114, 112, 114, 105, 110, 116, 34, 58, 49, 54, 56, 48, 49, 53, 52, 49, 53, 49, 49, 50, 51, 51, 48, 57, 56, 51, 54, 51, 125},
+			DhPubKey: []byte{123, 34, 86, 97, 108, 117, 101, 34, 58, 53, 48, 49, 53, 53, 53, 52, 54, 53, 49, 48, 54, 49, 56, 57, 53, 54, 51, 48, 54, 52, 49, 51, 53, 49, 57, 56, 55, 57, 52, 57, 50, 48, 56, 49, 52, 57, 52, 50, 57, 51, 57, 53, 49, 50, 51, 54, 52, 56, 49, 57, 55, 48, 50, 50, 49, 48, 55, 55, 50, 52, 52, 48, 49, 54, 57, 52, 55, 52, 57, 53, 53, 56, 55, 54, 50, 57, 53, 57, 53, 48, 54, 55, 57, 55, 48, 53, 48, 48, 54, 54, 56, 49, 57, 50, 56, 48, 52, 48, 53, 51, 50, 48, 57, 55, 54, 56, 56, 53, 57, 54, 57, 56, 57, 49, 48, 54, 56, 54, 50, 52, 50, 52, 50, 56, 49, 48, 51, 51, 51, 54, 55, 53, 55, 54, 52, 51, 54, 55, 54, 56, 53, 56, 48, 55, 56, 49, 52, 55, 49, 52, 53, 49, 52, 52, 52, 52, 53, 51, 57, 57, 51, 57, 57, 53, 50, 52, 52, 53, 51, 56, 48, 49, 48, 54, 54, 55, 48, 52, 50, 49, 55, 54, 57, 53, 57, 57, 57, 51, 52, 48, 54, 54, 54, 49, 50, 48, 54, 56, 57, 51, 54, 57, 48, 52, 55, 55, 54, 50, 49, 49, 56, 56, 53, 51, 50, 57, 57, 50, 54, 53, 48, 52, 57, 51, 54, 55, 54, 48, 57, 56, 56, 49, 55, 52, 52, 57, 53, 57, 54, 53, 50, 55, 53, 52, 52, 52, 49, 57, 55, 49, 54, 50, 52, 52, 56, 50, 55, 55, 50, 49, 48, 53, 56, 56, 57, 54, 51, 53, 54, 54, 53, 53, 53, 53, 49, 56, 50, 53, 49, 49, 50, 57, 50, 48, 49, 56, 48, 48, 54, 49, 56, 57, 48, 55, 48, 51, 53, 51, 51, 56, 57, 52, 49, 50, 57, 49, 55, 50, 56, 55, 57, 57, 52, 55, 53, 51, 49, 55, 55, 48, 53, 55, 55, 49, 50, 51, 57, 49, 51, 55, 54, 48, 50, 49, 55, 50, 54, 54, 52, 56, 52, 48, 48, 54, 48, 52, 48, 53, 56, 56, 53, 54, 52, 56, 56, 49, 52, 52, 51, 57, 56, 51, 51, 57, 54, 55, 48, 49, 53, 55, 52, 53, 50, 56, 51, 49, 51, 48, 53, 52, 49, 49, 49, 49, 49, 56, 51, 53, 52, 52, 52, 52, 48, 53, 54, 57, 48, 54, 52, 56, 57, 52, 54, 53, 50, 56, 51, 53, 50, 48, 48, 50, 48, 48, 49, 50, 51, 51, 48, 48, 53, 48, 49, 50, 52, 56, 57, 48, 49, 51, 54, 55, 52, 57, 55, 50, 49, 48, 55, 53, 54, 49, 50, 52, 52, 57, 55, 48, 50, 56, 55, 55, 51, 51, 50, 53, 50, 48, 57, 52, 56, 57, 49, 49, 56, 49, 54, 57, 50, 55, 50, 51, 57, 51, 57, 54, 50, 56, 48, 54, 54, 49, 57, 55, 48, 50, 48, 57, 49, 51, 54, 50, 49, 50, 53, 50, 54, 50, 53, 53, 55, 57, 54, 51, 56, 49, 57, 48, 51, 49, 54, 54, 53, 51, 56, 56, 49, 48, 56, 48, 51, 57, 53, 49, 53, 53, 55, 49, 53, 57, 48, 57, 57, 55, 49, 56, 53, 55, 54, 48, 50, 54, 48, 49, 55, 57, 52, 55, 53, 51, 57, 49, 51, 53, 52, 49, 48, 50, 49, 55, 52, 51, 57, 48, 50, 56, 48, 50, 51, 53, 51, 54, 56, 49, 56, 50, 49, 55, 50, 57, 52, 51, 49, 56, 48, 56, 56, 50, 51, 53, 52, 56, 55, 49, 52, 55, 53, 50, 56, 48, 57, 55, 49, 53, 48, 48, 51, 50, 48, 57, 50, 50, 53, 50, 56, 51, 57, 55, 57, 49, 57, 50, 53, 56, 51, 55, 48, 51, 57, 54, 48, 50, 55, 54, 48, 54, 57, 55, 52, 53, 54, 52, 51, 56, 52, 53, 54, 48, 51, 57, 55, 55, 55, 49, 53, 57, 57, 49, 57, 52, 57, 56, 56, 54, 56, 50, 49, 49, 54, 56, 55, 56, 55, 51, 51, 57, 52, 53, 49, 52, 52, 55, 57, 53, 57, 49, 57, 52, 48, 51, 53, 49, 49, 49, 51, 48, 53, 54, 54, 50, 49, 56, 57, 52, 55, 50, 49, 54, 53, 57, 53, 50, 57, 50, 48, 51, 51, 52, 48, 56, 55, 54, 50, 49, 49, 49, 56, 53, 54, 57, 51, 57, 50, 53, 48, 53, 56, 56, 55, 56, 53, 54, 55, 51, 56, 55, 50, 53, 57, 56, 52, 54, 53, 49, 51, 50, 54, 51, 50, 48, 56, 56, 57, 52, 53, 57, 53, 56, 57, 57, 54, 52, 55, 55, 50, 57, 51, 51, 52, 55, 51, 48, 52, 56, 56, 50, 51, 50, 52, 53, 48, 51, 50, 56, 56, 50, 49, 55, 51, 51, 53, 54, 55, 51, 50, 51, 52, 56, 53, 52, 55, 48, 51, 56, 50, 51, 49, 53, 55, 52, 53, 53, 48, 55, 55, 56, 55, 48, 50, 51, 52, 50, 53, 52, 51, 48, 57, 56, 56, 54, 56, 54, 49, 57, 54, 48, 55, 55, 52, 57, 55, 56, 51, 48, 51, 57, 49, 55, 52, 49, 51, 49, 54, 57, 54, 50, 49, 52, 50, 55, 57, 55, 56, 56, 51, 49, 55, 51, 50, 54, 56, 49, 56, 53, 57, 48, 49, 49, 53, 48, 52, 53, 51, 51, 56, 52, 57, 57, 55, 54, 51, 55, 55, 48, 55, 49, 52, 50, 49, 54, 48, 49, 54, 52, 49, 57, 53, 56, 49, 54, 50, 55, 49, 52, 49, 52, 56, 49, 51, 52, 50, 53, 56, 55, 53, 57, 55, 52, 49, 57, 49, 55, 51, 55, 49, 51, 57, 54, 51, 49, 51, 49, 56, 53, 50, 49, 53, 52, 49, 51, 44, 34, 70, 105, 110, 103, 101, 114, 112, 114, 105, 110, 116, 34, 58, 49, 54, 56, 48, 49, 53, 52, 49, 53, 49, 49, 50, 51, 51, 48, 57, 56, 51, 54, 51, 125},
 		},
 		E2E: ndf.Group{
 			Prime: "E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B7A" +

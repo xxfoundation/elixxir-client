@@ -61,7 +61,6 @@ func Listen(tag string, myId *id.ID, privKey *cyclic.Int, net CMix,
 
 func (l *listener) Process(ecrMsg format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-
 	// Unmarshal the cMix message contents to a request message
 	requestMsg, err := message.UnmarshalRequest(ecrMsg.GetContents(),
 		l.grp.GetP().ByteLen())
@@ -74,7 +73,6 @@ func (l *listener) Process(ecrMsg format.Message,
 	// Generate DH key and symmetric key
 	senderPubkey := requestMsg.GetPubKey(l.grp)
 	dhKey := l.grp.Exp(senderPubkey, l.myPrivKey, l.grp.NewInt(1))
-
 	key := singleUse.NewRequestKey(dhKey)
 
 	// Verify the MAC
@@ -87,7 +85,6 @@ func (l *listener) Process(ecrMsg format.Message,
 	// Decrypt the request message payload
 	fp := ecrMsg.GetKeyFP()
 	decryptedPayload := cAuth.Crypt(key, fp[:24], requestMsg.GetPayload())
-
 	// Unmarshal payload
 	payload, err := message.UnmarshalRequestPayload(decryptedPayload)
 	if err != nil {

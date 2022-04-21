@@ -17,13 +17,8 @@ import (
 	"time"
 )
 
-// todo: docstring everything, go over everything. review existing
-//  and rewrie
+// Manager is the control structure for the contacting the user discovery service.
 type Manager struct {
-	// refactored
-	// todo: docsting on what it is, why it's needed. For all things
-	//  in this object and the object itself
-
 	// Network is a sub-interface of the cmix.Client interface. It
 	// allows the Manager to retrieve network state.
 	network CMix

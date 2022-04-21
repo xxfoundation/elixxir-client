@@ -5,7 +5,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/event"
@@ -16,15 +15,11 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 // SearchTag specifies which callback to trigger when UD receives a search
 // request.
 const SearchTag = "xxNetwork_UdSearch"
-
-// TODO: reconsider where this comes from
-const maxSearchMessages = 20
 
 type searchCallback func([]contact.Contact, error)
 
@@ -36,9 +31,10 @@ type searchCallback func([]contact.Contact, error)
 func Search(services CMix, events event.Reporter,
 	rng csprng.Source, grp *cyclic.Group,
 	udContact contact.Contact, callback searchCallback,
-	list fact.FactList, timeout time.Duration) ([]id.Round,
+	list fact.FactList,
+	params single.RequestParams) ([]id.Round,
 	receptionID.EphemeralIdentity, error) {
-	jww.INFO.Printf("ud.Search(%s, %s)", list.Stringify(), timeout)
+	jww.INFO.Printf("ud.Search(%s, %s)", list.Stringify(), params.Timeout)
 
 	factHashes, factMap := hashFactList(list)
 
@@ -58,14 +54,8 @@ func Search(services CMix, events event.Reporter,
 		factMap:  factMap,
 	}
 
-	p := single.RequestParams{
-		Timeout:             timeout,
-		MaxResponseMessages: maxSearchMessages,
-		CmixParam:           cmix.GetDefaultCMIXParams(),
-	}
-
 	rndId, ephId, err := single.TransmitRequest(udContact, SearchTag, requestMarshaled,
-		response, p, services, rng, grp)
+		response, params, services, rng, grp)
 	if err != nil {
 		return []id.Round{}, receptionID.EphemeralIdentity{},
 			errors.WithMessage(err, "Failed to transmit search request.")
@@ -90,12 +80,10 @@ type searchResponse struct {
 func (m searchResponse) Callback(payload []byte,
 	receptionID receptionID.EphemeralIdentity,
 	round []rounds.Round, err error) {
-	fmt.Println("in callback")
 	if err != nil {
 		go m.cb(nil, errors.WithMessage(err, "Failed to search."))
 		return
 	}
-	fmt.Println("unmarshaling response")
 
 	// Unmarshal the message
 	sr := &SearchResponse{}
@@ -110,7 +98,6 @@ func (m searchResponse) Callback(payload []byte,
 	}
 
 	if sr.Error != "" {
-		fmt.Printf("searchResp err %+v\n", sr.Error)
 		err = errors.Errorf("User Discovery returned an error on search: %s",
 			sr.Error)
 		go m.cb(nil, err)
@@ -122,7 +109,6 @@ func (m searchResponse) Callback(payload []byte,
 		go m.cb(nil, errors.New("No contacts found in search"))
 	}
 
-	fmt.Println("parsing contacts")
 	c, err := parseContacts(m.grp, sr.Contacts, m.factMap)
 	if err != nil {
 		go m.cb(nil, errors.WithMessage(err, "Failed to parse contacts from "+

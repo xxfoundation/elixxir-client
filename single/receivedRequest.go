@@ -104,6 +104,7 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 		cmixParams.DebugTag = "single.Response"
 	}
 
+	// fixme: should the above debug tag and the below service tag be flipped??
 	svc := cmixMsg.Service{
 		Identifier: r.dhKey.Bytes(),
 		Tag:        "single.response-dummyService",
@@ -117,7 +118,8 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 			defer wg.Done()
 			partFP, ecrPart, mac := cyphers[j].Encrypt(parts[j])
 			// Send Message
-			round, ephID, err := r.net.Send(r.sender, partFP, svc, ecrPart, mac,
+			round, ephID, err := r.net.Send(r.sender, partFP, svc,
+				ecrPart, mac,
 				cmixParams)
 			if err != nil {
 				atomic.AddUint32(&failed, 1)

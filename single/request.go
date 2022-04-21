@@ -2,8 +2,6 @@ package single
 
 import (
 	"bytes"
-	"encoding/base64"
-	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
@@ -148,8 +146,8 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	// Encrypt and assemble payload
 	fp := singleUse.NewRequestFingerprint(recipient.DhPubKey)
 	key := singleUse.NewRequestKey(dhKey)
+
 	encryptedPayload := auth.Crypt(key, fp[:24], requestPayload.Marshal())
-	fmt.Printf("ecrPayload: %v\n", base64.StdEncoding.EncodeToString(encryptedPayload))
 	// Generate CMix message MAC
 	mac := singleUse.MakeMAC(key, encryptedPayload)
 
@@ -207,15 +205,15 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	}
 	param.CmixParam.Timeout = param.Timeout
 
-	fmt.Printf("requestMarshal: %v\n", base64.StdEncoding.EncodeToString(request.Marshal()))
-
-	rid, _, err := net.Send(recipient.ID, cmixMsg.RandomFingerprint(rng), svc,
+	rid, _, err := net.Send(recipient.ID, fp, svc,
 		request.Marshal(), mac, param.CmixParam)
 	if err != nil {
 		return nil, receptionID.EphemeralIdentity{},
 			errors.Errorf(errSendRequest, tag, recipient, err)
 	}
 
+	// todo: this is jono's work but there's a send above it,
+	//  probably just WIP code, talk to jono and resolve once tests work
 	roundIDs := make([]id.Round, len(parts)+1)
 	roundIDs[0] = rid
 	for i, part := range parts {
@@ -239,7 +237,7 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	remainingTimeout := param.Timeout - netTime.Since(timeStart)
 	go waitForTimeout(timeoutKillChan, wrapper, remainingTimeout)
 
-	return roundIDs, sendingID, nil
+	return []id.Round{rid}, sendingID, nil
 }
 
 // generateDhKeys generates a new public key and DH key.
@@ -256,9 +254,6 @@ func generateDhKeys(grp *cyclic.Group, dhPubKey *cyclic.Int, rng io.Reader) (
 	// Generate public key and DH key
 	publicKey = grp.ExpG(privKey, grp.NewInt(1))
 	dhKey = grp.Exp(dhPubKey, privKey, grp.NewInt(1))
-	fmt.Printf("privkey: %v\n"+
-		" dhKey: %v\npubKey: %v", base64.StdEncoding.EncodeToString(privKey.Bytes()),
-		base64.StdEncoding.EncodeToString(dhKey.Bytes()), base64.StdEncoding.EncodeToString(publicKey.Bytes()))
 
 	return
 }

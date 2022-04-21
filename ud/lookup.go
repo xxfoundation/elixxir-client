@@ -4,7 +4,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/single"
@@ -13,15 +12,11 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 // LookupTag specifies which callback to trigger when UD receives a lookup
 // request.
 const LookupTag = "xxNetwork_UdLookup"
-
-// TODO: reconsider where this comes from
-const maxLookupMessages = 20
 
 type lookupCallback func(contact.Contact, error)
 
@@ -30,11 +25,11 @@ type lookupCallback func(contact.Contact, error)
 func Lookup(services CMix,
 	rng csprng.Source, grp *cyclic.Group,
 	udContact contact.Contact, callback lookupCallback,
-	uid *id.ID, timeout time.Duration) ([]id.Round,
+	uid *id.ID, p single.RequestParams) ([]id.Round,
 	receptionID.EphemeralIdentity, error) {
 
-	jww.INFO.Printf("ud.Lookup(%s, %s)", uid, timeout)
-	return lookup(services, rng, uid, grp, timeout, udContact, callback)
+	jww.INFO.Printf("ud.Lookup(%s, %s)", uid, p.Timeout)
+	return lookup(services, rng, uid, grp, udContact, callback, p)
 }
 
 // BatchLookup performs a Lookup operation on a list of user IDs.
@@ -44,13 +39,13 @@ func BatchLookup(udContact contact.Contact,
 	services CMix, callback lookupCallback,
 	rng csprng.Source,
 	uids []*id.ID, grp *cyclic.Group,
-	timeout time.Duration) {
-	jww.INFO.Printf("ud.BatchLookup(%s, %s)", uids, timeout)
+	p single.RequestParams) {
+	jww.INFO.Printf("ud.BatchLookup(%s, %s)", uids, p.Timeout)
 
 	for _, uid := range uids {
 		go func(localUid *id.ID) {
 			_, _, err := lookup(services, rng, localUid, grp,
-				timeout, udContact, callback)
+				udContact, callback, p)
 			if err != nil {
 				jww.WARN.Printf("Failed batch lookup on user %s: %v",
 					localUid, err)
@@ -64,12 +59,11 @@ func BatchLookup(udContact contact.Contact,
 // lookup is a helper function which sends a lookup request to the user discovery
 // service. It will construct a contact object off of the returned public key.
 // The callback will be called on that contact object.
-func lookup(net CMix,
-	rng csprng.Source,
-	uid *id.ID, grp *cyclic.Group,
-	timeout time.Duration, udContact contact.Contact,
-	callback lookupCallback) ([]id.Round,
-	receptionID.EphemeralIdentity, error) {
+func lookup(net CMix, rng csprng.Source, uid *id.ID,
+	grp *cyclic.Group, udContact contact.Contact,
+	callback lookupCallback,
+	p single.RequestParams) (
+	[]id.Round, receptionID.EphemeralIdentity, error) {
 	// Build the request and marshal it
 	request := &LookupSend{UserID: uid.Marshal()}
 	requestMarshaled, err := proto.Marshal(request)
@@ -80,13 +74,9 @@ func lookup(net CMix,
 	}
 
 	response := lookupResponse{
-		cb: callback,
-	}
-
-	p := single.RequestParams{
-		Timeout:             timeout,
-		MaxResponseMessages: maxLookupMessages,
-		CmixParam:           cmix.GetDefaultCMIXParams(),
+		cb:  callback,
+		uid: uid,
+		grp: grp,
 	}
 
 	return single.TransmitRequest(udContact, LookupTag, requestMarshaled,

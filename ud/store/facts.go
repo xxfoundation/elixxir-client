@@ -13,13 +13,13 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 )
 
+// Error constants to return up the stack.
 const (
 	factTypeExistsErr               = "Fact %v cannot be added as fact type %s has already been stored. Cancelling backup operation!"
 	backupMissingInvalidFactTypeErr = "BackUpMissingFacts expects input in the order (email, phone). " +
 		"%s (%s) is non-empty but not an email. Cancelling backup operation"
-	backupMissingAllZeroesFactErr = "Cannot backup missing facts: Both email and phone facts are empty!"
-	factNotInStoreErr             = "Fact %v does not exist in store"
-	statefulStoreErr              = "cannot overwrite ud store with existing data"
+	factNotInStoreErr = "Fact %v does not exist in store"
+	statefulStoreErr  = "cannot overwrite ud store with existing data"
 )
 
 // RestoreFromBackUp initializes the confirmedFacts map

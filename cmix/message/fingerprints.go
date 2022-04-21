@@ -124,5 +124,8 @@ func RandomFingerprint(rng csprng.Source) format.Fingerprint {
 		jww.FATAL.Panicf("Failed to generate fingerprint: %+v", err)
 	}
 
+	// The first bit must be 0.
+	fpBuf[0] &= 0x7F
+
 	return format.NewFingerprint(fpBuf)
 }

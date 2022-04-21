@@ -10,6 +10,8 @@ package bindings
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/single"
 	"time"
 
 	"github.com/pkg/errors"
@@ -181,6 +183,8 @@ type SearchCallback interface {
 	Callback(contacts *ContactList, error string)
 }
 
+const maxSearchMessages = 20
+
 // Search for the passed Facts.  The factList is the stringification of a
 // fact list object, look at /bindings/list.go for more on that object.
 // This will reject if that object is malformed. The SearchCallback will return
@@ -190,10 +194,10 @@ type SearchCallback interface {
 // for a user where multiple pieces of information is known.
 func (ud UserDiscovery) Search(client *Client,
 	fl string, callback SearchCallback,
-	timeoutMS int) (int, error) {
+	timeoutMS int) ([]int, error) {
 	factList, _, err := fact.UnstringifyFactList(fl)
 	if err != nil {
-		return 0, errors.WithMessage(err, "Failed to search due to "+
+		return []int{}, errors.WithMessage(err, "Failed to search due to "+
 			"malformed fact list")
 	}
 	timeout := time.Duration(timeoutMS) * time.Millisecond
@@ -210,24 +214,30 @@ func (ud UserDiscovery) Search(client *Client,
 
 	udContact, err := ud.ud.GetContact()
 	if err != nil {
-		return 0, errors.WithMessage(err, "Failed to get user discovery "+
+		return []int{}, errors.WithMessage(err, "Failed to get user discovery "+
 			"contact object")
 	}
 
 	stream := client.api.GetRng().GetStream()
 	defer stream.Close()
 
-	rid, _, err := udPackage.Search(
+	p := single.RequestParams{
+		Timeout:             timeout,
+		MaxResponseMessages: maxSearchMessages,
+		CmixParam:           cmix.GetDefaultCMIXParams(),
+	}
+
+	rids, _, err := udPackage.Search(
 		client.api.GetNetworkInterface(), client.api.GetEventManager(),
 		stream, client.api.GetE2e().GetGroup(), udContact,
-		cb, factList, timeout)
+		cb, factList, p)
 
 	if err != nil {
-		return 0, errors.WithMessagef(err,
+		return []int{}, errors.WithMessagef(err,
 			"Failed to search for facts %q", factList.Stringify())
 	}
 
-	return int(rid), nil
+	return convertRoundIdSliceToIntSlice(rids), nil
 }
 
 // SingleSearchCallback returns the result of a single search
@@ -242,10 +252,10 @@ type SingleSearchCallback interface {
 // This only searches for a single fact at a time. It is intended to make some
 // simple use cases of the API easier.
 func (ud UserDiscovery) SearchSingle(client *Client, f string, callback SingleSearchCallback,
-	timeoutMS int) (int, error) {
+	timeoutMS int) ([]int, error) {
 	fObj, err := fact.UnstringifyFact(f)
 	if err != nil {
-		return 0, errors.WithMessage(err, "Failed to single search due "+
+		return []int{}, errors.WithMessage(err, "Failed to single search due "+
 			"to malformed fact")
 	}
 	timeout := time.Duration(timeoutMS) * time.Millisecond
@@ -261,24 +271,30 @@ func (ud UserDiscovery) SearchSingle(client *Client, f string, callback SingleSe
 	}
 	udContact, err := ud.ud.GetContact()
 	if err != nil {
-		return 0, errors.WithMessage(err, "Failed to get user discovery "+
+		return []int{}, errors.WithMessage(err, "Failed to get user discovery "+
 			"contact object")
 	}
 
 	stream := client.api.GetRng().GetStream()
 	defer stream.Close()
 
-	rid, _, err := udPackage.Search(client.api.GetNetworkInterface(),
+	p := single.RequestParams{
+		Timeout:             timeout,
+		MaxResponseMessages: maxSearchMessages,
+		CmixParam:           cmix.GetDefaultCMIXParams(),
+	}
+
+	rids, _, err := udPackage.Search(client.api.GetNetworkInterface(),
 		client.api.GetEventManager(),
 		stream, client.api.GetE2e().GetGroup(), udContact,
-		cb, []fact.Fact{fObj}, timeout)
+		cb, []fact.Fact{fObj}, p)
 
 	if err != nil {
-		return 0, errors.WithMessagef(err,
+		return []int{}, errors.WithMessagef(err,
 			"Failed to Search (single) for fact %q", fObj.Stringify())
 	}
 
-	return int(rid), nil
+	return convertRoundIdSliceToIntSlice(rids), nil
 }
 
 // LookupCallback returns the result of a single lookup
@@ -286,17 +302,32 @@ type LookupCallback interface {
 	Callback(contact *Contact, error string)
 }
 
+// convertRoundIdSliceToIntSlice is a helper function which
+// converts a slice of id.Round to a slice of integers.
+func convertRoundIdSliceToIntSlice(rids []id.Round) []int {
+	ridInts := make([]int, 0)
+	for _, rid := range rids {
+		ridInts = append(ridInts, int(rid))
+	}
+
+	return ridInts
+}
+
+// maxLookupMessages is the maximum responses that may be received for a
+// single Lookup request.
+const maxLookupMessages = 20
+
 // Lookup the contact object associated with the given userID.  The
 // id is the byte representation of an id.
 // This will reject if that id is malformed. The LookupCallback will return
 // the associated contact if it exists.
 func (ud UserDiscovery) Lookup(client *Client,
 	idBytes []byte, callback LookupCallback,
-	timeoutMS int) (int, error) {
+	timeoutMS int) ([]int, error) {
 
 	uid, err := id.Unmarshal(idBytes)
 	if err != nil {
-		return 0, errors.WithMessage(err, "Failed to lookup due to "+
+		return []int{}, errors.WithMessage(err, "Failed to lookup due to "+
 			"malformed id")
 	}
 
@@ -315,7 +346,7 @@ func (ud UserDiscovery) Lookup(client *Client,
 	// Retrieve user discovery contact object
 	udContact, err := ud.ud.GetContact()
 	if err != nil {
-		return 0, errors.WithMessage(err,
+		return []int{}, errors.WithMessage(err,
 			"Failed to get user discovery "+
 				"contact object")
 	}
@@ -323,17 +354,23 @@ func (ud UserDiscovery) Lookup(client *Client,
 	stream := client.api.GetRng().GetStream()
 	defer stream.Close()
 
+	p := single.RequestParams{
+		Timeout:             timeout,
+		MaxResponseMessages: maxLookupMessages,
+		CmixParam:           cmix.GetDefaultCMIXParams(),
+	}
+
 	rid, _, err := udPackage.Lookup(client.api.GetNetworkInterface(),
 		stream, client.api.GetE2e().GetGroup(),
 		udContact,
-		cb, uid, timeout)
+		cb, uid, p)
 
 	if err != nil {
-		return 0, errors.WithMessagef(err,
+		return []int{}, errors.WithMessagef(err,
 			"Failed to lookup ID %q", uid)
 	}
 
-	return int(rid), nil
+	return convertRoundIdSliceToIntSlice(rid), nil
 
 }
 
@@ -379,6 +416,12 @@ func (ud UserDiscovery) MultiLookup(client *Client,
 
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 
+	p := single.RequestParams{
+		Timeout:             timeout,
+		MaxResponseMessages: maxLookupMessages,
+		CmixParam:           cmix.GetDefaultCMIXParams(),
+	}
+
 	// Retrieve user discovery contact object
 	udContact, err := ud.ud.GetContact()
 	if err != nil {
@@ -405,7 +448,7 @@ func (ud UserDiscovery) MultiLookup(client *Client,
 			defer stream.Close()
 			_, _, err := udPackage.Lookup(client.api.GetNetworkInterface(),
 				stream, client.api.GetE2e().GetGroup(),
-				udContact, cb, localID, timeout)
+				udContact, cb, localID, p)
 			if err != nil {
 				results <- lookupResponse{
 					C: contact.Contact{},

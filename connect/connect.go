@@ -52,6 +52,9 @@ type Connection interface {
 	Unregister(listenerID receive.ListenerID)
 }
 
+// Callback is the callback format required to retrieve new Connection objects as they are established
+type Callback func(connection Connection)
+
 // handler provides an implementation for the Connection interface
 type handler struct {
 	partner partner.Manager
@@ -193,9 +196,6 @@ type authCallback struct {
 	connectionE2e    clientE2e.Handler
 	connectionParams Params
 }
-
-//
-type Callback func(connection Connection)
 
 // getAuthCallback returns a callback interface to be passed into the creation of an auth.State object.
 func getAuthCallback(cb Callback, e2e clientE2e.Handler, params Params) authCallback {

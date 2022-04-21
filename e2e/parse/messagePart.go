@@ -34,9 +34,10 @@ type messagePart struct {
 
 // newMessagePart creates a new messagePart for the passed in contents. Does no
 // length checks.
-func newMessagePart(id uint32, part uint8, contents []byte) messagePart {
+func newMessagePart(id uint32, part uint8, contents []byte,
+	size int) messagePart {
 	// Create the message structure
-	data := make([]byte, len(contents)+headerLen)
+	data := make([]byte, size)
 	m := messagePartFromBytes(data)
 
 	// Set the message ID

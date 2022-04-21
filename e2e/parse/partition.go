@@ -8,6 +8,8 @@
 package parse
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e/parse/conversation"
@@ -16,7 +18,6 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"time"
 )
 
 const MaxMessageParts = 255
@@ -64,12 +65,13 @@ func (p Partitioner) Partition(recipient *id.ID, mt catalog.MessageType,
 	// Create the first message part
 	var sub []byte
 	sub, payload = splitPayload(payload, p.firstContentsSize)
-	parts[0] = newFirstMessagePart(mt, messageID, numParts, timestamp, sub).bytes()
+	parts[0] = newFirstMessagePart(mt, messageID, numParts,
+		timestamp, sub, p.baseMessageSize).bytes()
 
 	// Create all subsequent message parts
 	for i := uint8(1); i < numParts; i++ {
 		sub, payload = splitPayload(payload, p.partContentsSize)
-		parts[i] = newMessagePart(messageID, i, sub).bytes()
+		parts[i] = newMessagePart(messageID, i, sub, p.baseMessageSize).bytes()
 	}
 
 	return parts, fullMessageID, nil

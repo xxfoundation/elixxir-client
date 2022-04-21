@@ -8,10 +8,11 @@
 package conversation
 
 import (
+	"sync"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
-	"sync"
 )
 
 const conversationKeyPrefix = "conversation"

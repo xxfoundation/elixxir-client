@@ -9,8 +9,10 @@ package parse
 
 import (
 	"encoding/binary"
-	"gitlab.com/elixxir/client/catalog"
 	"time"
+
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/catalog"
 )
 
 // Sizes of message parts, in bytes.
@@ -36,10 +38,10 @@ type firstMessagePart struct {
 // newFirstMessagePart creates a new firstMessagePart for the passed in
 // contents. Does no length checks.
 func newFirstMessagePart(mt catalog.MessageType, id uint32, numParts uint8,
-	timestamp time.Time, contents []byte) firstMessagePart {
+	timestamp time.Time, contents []byte, size int) firstMessagePart {
 
 	// Create the message structure
-	m := firstMessagePartFromBytes(make([]byte, len(contents)+firstHeaderLen))
+	m := firstMessagePartFromBytes(make([]byte, size))
 
 	// Set the message type
 	binary.BigEndian.PutUint32(m.Type, uint32(mt))
@@ -81,6 +83,7 @@ func firstMessagePartFromBytes(data []byte) firstMessagePart {
 
 	// Map the data according to its version
 	version := data[len(data)-1]
+	jww.INFO.Printf("Unsafeversion: %d", version)
 	mapFunc, exists := firstMessagePartFromBytesVersions[version]
 	if exists {
 		return mapFunc(data)

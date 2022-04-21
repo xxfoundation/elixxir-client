@@ -9,11 +9,12 @@ package identity
 
 import (
 	"encoding/json"
-	"github.com/pkg/errors"
 	"io"
 	"io/fs"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	jww "github.com/spf13/jwalterweatherman"
 
@@ -347,11 +348,12 @@ func (t *manager) generateIdentitiesOverRange(inQuestion TrackedID, addressSize 
 
 		// Print debug information and set return value
 		if isLastIdentity := i == len(protoIds)-1; isLastIdentity {
-			jww.INFO.Printf("Current Identity: %d (source: %s), Start: %s, End: %s",
+			jww.INFO.Printf("Current Identity: %d (source: %s), Start: %s, End: %s, addrSize: %d",
 				newIdentity.EphId.Int64(),
 				newIdentity.Source,
 				newIdentity.StartValid,
-				newIdentity.EndValid)
+				newIdentity.EndValid,
+				addressSize)
 			lastIdentityEnd = newIdentity.End
 		}
 	}

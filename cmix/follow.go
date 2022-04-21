@@ -56,6 +56,8 @@ type followNetworkComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	SendPoll(host *connect.Host, message *pb.GatewayPoll) (
 		*pb.GatewayPollResponse, error)
+	RequestMessages(host *connect.Host, message *pb.GetMessages) (
+		*pb.GetMessagesResponse, error)
 }
 
 // followNetwork polls the network to get updated on the state of nodes, the

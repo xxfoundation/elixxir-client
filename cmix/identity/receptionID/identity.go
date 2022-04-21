@@ -2,16 +2,18 @@ package receptionID
 
 import (
 	"encoding/json"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strconv"
-	"strings"
-	"time"
 )
 
 const identityStorageKey = "IdentityStorage"
@@ -122,6 +124,9 @@ func (i Identity) Equal(b Identity) bool {
 func BuildIdentityFromRound(source *id.ID,
 	round rounds.Round) EphemeralIdentity {
 	ephID, _, _, _ := ephemeral.GetId(source, uint(round.AddressSpaceSize),
+		round.Timestamps[states.QUEUED].UnixNano())
+	jww.INFO.Printf("BuildIdentityFromRound for %s: %d %d %d",
+		source, ephID.Int64(), round.AddressSpaceSize,
 		round.Timestamps[states.QUEUED].UnixNano())
 	return EphemeralIdentity{
 		EphId:  ephID,

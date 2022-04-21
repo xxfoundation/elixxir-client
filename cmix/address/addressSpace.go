@@ -1,15 +1,10 @@
 package address
 
 import (
+	"sync"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"sync"
-)
-
-const (
-	// The initial value for the address space size. This value signifies that
-	// the address space size has not yet been updated.
-	initSize = 1
 )
 
 // Space contains the current address space size used for creating address IDs
@@ -24,12 +19,13 @@ type Space interface {
 
 type space struct {
 	size      uint8
+	set       bool
 	notifyMap map[string]chan uint8
 	cond      *sync.Cond
 }
 
 // NewAddressSpace initialises a new Space and returns it.
-func NewAddressSpace() Space {
+func NewAddressSpace(initSize uint8) Space {
 	return &space{
 		size:      initSize,
 		notifyMap: make(map[string]chan uint8),
@@ -44,7 +40,7 @@ func (as *space) GetAddressSpace() uint8 {
 	defer as.cond.L.Unlock()
 
 	// If the size has been set, then return the current size
-	if as.size != initSize {
+	if as.set {
 		return as.size
 	}
 
@@ -71,7 +67,7 @@ func (as *space) UpdateAddressSpace(newSize uint8) {
 	defer as.cond.L.Unlock()
 
 	// Skip Update if the address space size is unchanged
-	if as.size >= newSize {
+	if as.size >= newSize && as.set {
 		return
 	}
 
@@ -81,7 +77,8 @@ func (as *space) UpdateAddressSpace(newSize uint8) {
 	jww.INFO.Printf("Updated address space size from %d to %d", oldSize, as.size)
 
 	// Broadcast that the address space size is set, if set for the first time
-	if oldSize == initSize {
+	if !as.set {
+		as.set = true
 		as.cond.Broadcast()
 	} else {
 		// Broadcast the new address space size to all registered channels

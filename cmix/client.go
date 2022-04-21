@@ -106,12 +106,13 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 
 	tracker := uint64(0)
 	earliest := uint64(0)
+	addrSize := ndf.AddressSpace[len(ndf.AddressSpace)-1].Size
 
 	// Create client object
 	c := &client{
 		param:         params,
 		tracker:       &tracker,
-		Space:         address.NewAddressSpace(),
+		Space:         address.NewAddressSpace(addrSize),
 		events:        events,
 		earliestRound: &earliest,
 		session:       session,
@@ -120,7 +121,6 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 		instance:      instance,
 		maxMsgLen:     tmpMsg.ContentsSize(),
 	}
-	c.UpdateAddressSpace(18)
 
 	if params.VerboseRoundTracking {
 		c.verboseRounds = NewRoundTracker()
@@ -162,7 +162,7 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 	// Set up round handler
 	c.Pickup = pickup.NewPickup(
 		params.Pickup, c.Handler.GetMessageReceptionChannel(), c.Sender,
-		c.Retriever, c.rng, c.instance, c.session)
+		c.Retriever, c.comms, c.rng, c.instance, c.session)
 
 	// Add the identity system
 	c.Tracker = identity.NewOrLoadTracker(c.session, c.Space)

@@ -54,7 +54,6 @@ type Connection interface {
 // handler provides an implementation for the Connection interface
 type handler struct {
 	partner partner.Manager
-	net     cmix.Client
 	e2e     clientE2e.Handler
 	params  Params
 }
@@ -118,7 +117,6 @@ func Connect(recipient contact.Contact, myId *id.ID, rng *fastRNG.StreamGenerato
 	return &handler{
 		partner: newPartner,
 		params:  p,
-		net:     net,
 		e2e:     e2eHandler,
 	}, nil
 }
@@ -170,7 +168,6 @@ func WaitForConnections(connectionListener chan Connection,
 			case connectionListener <- &handler{
 				partner: newPartner,
 				params:  p,
-				net:     net,
 				e2e:     e2eHandler,
 			}:
 			default:
@@ -182,12 +179,10 @@ func WaitForConnections(connectionListener chan Connection,
 
 // ConnectWithPartner assembles a Connection object on the reception-side
 // after an E2E partnership has already been confirmed with the given partner.Manager
-func ConnectWithPartner(partner partner.Manager,
-	e2eHandler clientE2e.Handler, net cmix.Client, p Params) Connection {
+func ConnectWithPartner(partner partner.Manager, e2eHandler clientE2e.Handler, p Params) Connection {
 	return &handler{
 		partner: partner,
 		params:  p,
-		net:     net,
 		e2e:     e2eHandler,
 	}
 }

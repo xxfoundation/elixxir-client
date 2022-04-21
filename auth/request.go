@@ -56,6 +56,8 @@ func (s *state) Request(partner contact.Contact, myfacts fact.FactList) (id.Roun
 // request internal helper
 func (s *state) request(partner contact.Contact, myfacts fact.FactList, reset bool) (id.Round, error) {
 
+	jww.INFO.Printf("request(...) called")
+
 	//do key generation
 	rng := s.rng.GetStream()
 	defer rng.Close()
@@ -102,14 +104,21 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList, reset bo
 	}
 	contents := request.Marshal()
 
+	jww.TRACE.Printf("Request ECRPAYLOAD: %v", request.GetEcrPayload())
+	jww.TRACE.Printf("Request MAC: %v", mac)
+
+	jww.INFO.Printf("Requesting Auth with %s, msgDigest: %s",
+		partner.ID, format.DigestContents(contents))
+
 	//register the confirm fingerprint to pick up confirm
 	err = s.net.AddFingerprint(me, confirmFp, &receivedConfirmService{
 		s:           s,
 		SentRequest: sr,
 	})
 	if err != nil {
-		return 0, errors.Errorf("Failed to register fingperint  request "+
-			"to %s from %s, bailing request", partner.ID, me)
+		return 0, errors.Errorf("cannot register fingerprint request "+
+			"to %s from %s, bailing request: %+v", partner.ID, me,
+			err)
 	}
 
 	//register service for notification on confirmation
@@ -118,12 +127,6 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList, reset bo
 		Tag:        s.params.getConfirmTag(reset),
 		Metadata:   partner.ID[:],
 	}, nil)
-
-	jww.TRACE.Printf("Request ECRPAYLOAD: %v", request.GetEcrPayload())
-	jww.TRACE.Printf("Request MAC: %v", mac)
-
-	jww.INFO.Printf("Requesting Auth with %s, msgDigest: %s",
-		partner.ID, format.DigestContents(contents))
 
 	p := cmix.GetDefaultCMIXParams()
 	p.DebugTag = "auth.Request"

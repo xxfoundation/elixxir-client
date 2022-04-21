@@ -8,9 +8,10 @@
 package message
 
 import (
+	"sync"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/crypto/csprng"
-	"sync"
 
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/primitives/format"
@@ -64,6 +65,7 @@ func (f *FingerprintsManager) pop(clientID *id.ID,
 // identity in the session
 func (f *FingerprintsManager) AddFingerprint(clientID *id.ID,
 	fingerprint format.Fingerprint, mp Processor) error {
+	jww.INFO.Printf("AddFingerprint: %s", fingerprint)
 	f.Lock()
 	defer f.Unlock()
 

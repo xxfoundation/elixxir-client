@@ -16,6 +16,8 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+const requestPartProcessorName = "requestPartProcessor"
+
 // requestPartProcessor handles the decryption and collation of request parts.
 type requestPartProcessor struct {
 	myId     *id.ID
@@ -55,4 +57,8 @@ func (rpp *requestPartProcessor) Process(msg format.Message,
 	if done {
 		rpp.cb(payload, rpp.roundIDs.getList())
 	}
+}
+
+func (rpp *requestPartProcessor) String() string {
+	return requestPartProcessorName
 }

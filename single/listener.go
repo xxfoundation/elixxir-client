@@ -13,6 +13,8 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+const listenerProcessorName = "listenerProcessorName"
+
 type Receiver interface {
 	Callback(*Request, receptionID.EphemeralIdentity, []rounds.Round)
 }
@@ -143,6 +145,11 @@ func (l *listener) Process(ecrMsg format.Message,
 	} else {
 		cbFunc(payload.GetContents(), []rounds.Round{round})
 	}
+}
+
+func (l *listener) String() string {
+	return listenerProcessorName
+
 }
 
 func (l *listener) Stop() {

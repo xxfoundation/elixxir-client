@@ -9,6 +9,8 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 )
 
+const responseProcessorName = "responseProcessorName"
+
 type callbackWrapper func(payload []byte,
 	receptionID receptionID.EphemeralIdentity, rounds []rounds.Round, err error)
 
@@ -57,4 +59,9 @@ func (rsp *responseProcessor) Process(ecrMsg format.Message,
 	if done {
 		rsp.callback(payload, receptionID, rsp.roundIDs.getList(), nil)
 	}
+}
+
+func (rsp *responseProcessor) String() string {
+	return responseProcessorName
+
 }

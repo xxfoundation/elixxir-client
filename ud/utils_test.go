@@ -313,6 +313,10 @@ func (tnm *testNetworkManager) Process(ecrMsg format.Message,
 
 }
 
+func (tnm *testNetworkManager) String() string {
+	return "mockPRocessor"
+}
+
 func (tnm *testNetworkManager) DeleteService(clientID *id.ID, toDelete message.Service, processor message.Processor) {
 	return
 }

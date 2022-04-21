@@ -114,11 +114,7 @@ func Connect(recipient contact.Contact, myId *id.ID, rng *fastRNG.StreamGenerato
 		return nil, err
 	}
 
-	return &handler{
-		partner: newPartner,
-		params:  p,
-		e2e:     e2eHandler,
-	}, nil
+	return ConnectWithPartner(newPartner, e2eHandler, p), nil
 }
 
 // WaitForConnections assembles a Connection object on the reception-side
@@ -157,14 +153,10 @@ func WaitForConnections(myId *id.ID, rng *fastRNG.StreamGenerator,
 	}
 
 	// Return the new Connection object
-	return &handler{
-		partner: newPartner,
-		params:  p,
-		e2e:     e2eHandler,
-	}, nil
+	return ConnectWithPartner(newPartner, e2eHandler, p), nil
 }
 
-// ConnectWithPartner assembles a Connection object on the reception-side
+// ConnectWithPartner assembles a Connection object
 // after an E2E partnership has already been confirmed with the given partner.Manager
 func ConnectWithPartner(partner partner.Manager, e2eHandler clientE2e.Handler, p Params) Connection {
 	return &handler{

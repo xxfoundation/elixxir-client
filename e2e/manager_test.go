@@ -101,7 +101,7 @@ func TestLoadLegacy(t *testing.T) {
 	//	t.Fatalf(
 	//		"Failed to create storage session: %+v", err)
 	//}
-	kv := versioned.NewKV(ekv.Memstore{})
+	kv := versioned.NewKV(&ekv.Memstore{})
 
 	err := ratchet.New(kv, myId, myPrivKey, grp)
 	if err != nil {

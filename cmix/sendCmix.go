@@ -62,12 +62,22 @@ func (c *client) Send(recipient *id.ID, fingerprint format.Fingerprint,
 			"Cannot send cmix message when the network is not healthy")
 	}
 
+	if len(payload) != c.maxMsgLen {
+		return 0, ephemeral.Id{}, errors.Errorf(
+			"bad message length (%d, need %d)",
+			len(payload), c.maxMsgLen)
+	}
+
 	// Build message. Will panic if inputs are not correct.
 	msg := format.NewMessage(c.session.GetCmixGroup().GetP().ByteLen())
-	msg.SetKeyFP(fingerprint)
 	msg.SetContents(payload)
-	msg.SetMac(mac)
+	msg.SetKeyFP(fingerprint)
 	msg.SetSIH(service.Hash(msg.GetContents()))
+	msg.SetMac(mac)
+
+	jww.TRACE.Printf("sendCmix Contents: %v, KeyFP: %v, MAC: %v, SIH: %v",
+		msg.GetContents(), msg.GetKeyFP(), msg.GetMac(),
+		msg.GetSIH())
 
 	if cmixParams.Critical {
 		c.crit.AddProcessing(msg, recipient, cmixParams)

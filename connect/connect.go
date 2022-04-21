@@ -28,9 +28,10 @@ import (
 	"time"
 )
 
-// Connection is a wrapper for the E2E and auth packages
-// and automatically establishes an E2E partnership with a partner.
-// You can then use this interface to send to and receive from the newly-established partner.
+// Connection is a wrapper for the E2E and auth packages.
+// It can be used to automatically establish an E2E partnership
+// with a partner.Manager, or be built from an existing E2E partnership.
+// You can then use this interface to send to and receive from the newly-established partner.Manager.
 type Connection interface {
 	// Closer deletes this Connection's partner.Manager and releases resources
 	io.Closer
@@ -75,14 +76,14 @@ func GetDefaultParams() Params {
 // Connect performs auth key negotiation with the given recipient,
 // and returns a Connection object for the newly-created partner.Manager
 // This function is to be used sender-side and will block until the partner.Manager is confirmed
-func Connect(recipient contact.Contact, myID *id.ID, rng *fastRNG.StreamGenerator,
+func Connect(recipient contact.Contact, myId *id.ID, rng *fastRNG.StreamGenerator,
 	grp *cyclic.Group, net cmix.Client, p Params) (Connection, error) {
 
 	// Build an ephemeral KV
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Build E2e handler
-	e2eHandler, err := clientE2e.Load(kv, net, myID, grp, rng, p.event)
+	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.event)
 	if err != nil {
 		return nil, err
 	}
@@ -122,8 +123,60 @@ func Connect(recipient contact.Contact, myID *id.ID, rng *fastRNG.StreamGenerato
 	}, nil
 }
 
+// WaitForConnections assembles a Connection object on the reception-side
+// whenever an E2E partnership with a partner.Manager is established.
+// and sends it to the given connectionListener. Should be run in its own thread.
+func WaitForConnections(connectionListener chan Connection,
+	myId *id.ID, rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client, p Params) {
+
+	// Build an ephemeral KV
+	kv := versioned.NewKV(ekv.MakeMemstore())
+
+	// Build E2e handler
+	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.event)
+	if err != nil {
+		jww.ERROR.Printf("Unable to WaitForConnections: %+v", err)
+		return
+	}
+
+	// Build callback for E2E negotiation
+	callback := GetConnectionCallback()
+
+	// Build auth object for E2E negotiation
+	_, err = auth.NewState(kv, net, e2eHandler,
+		rng, p.event, p.auth, callback, nil)
+	if err != nil {
+		jww.ERROR.Printf("Unable to WaitForConnections: %+v", err)
+		return
+	}
+
+	for {
+		// Block waiting for incoming auth request
+		jww.DEBUG.Printf("Connection waiting for auth request to be received...")
+		select {
+		case newPartnerId := <-callback.confirmPartner:
+			jww.DEBUG.Printf("Connection auth request for %s confirmed", newPartnerId.String())
+
+			// After confirmation, get the new partner
+			newPartner, err := e2eHandler.GetPartner(newPartnerId)
+			if err != nil {
+				jww.ERROR.Printf("Unable to establish new Connection with partner %s: %+v",
+					err, newPartnerId.String())
+				continue
+			}
+
+			connectionListener <- &handler{
+				partner: newPartner,
+				params:  p,
+				net:     net,
+				e2e:     e2eHandler,
+			}
+		}
+	}
+}
+
 // ConnectWithPartner assembles a Connection object on the reception-side
-// after an E2E partnership has already been confirmed
+// after an E2E partnership has already been confirmed with the given partner.Manager
 func ConnectWithPartner(partner partner.Manager,
 	e2eHandler clientE2e.Handler, net cmix.Client, p Params) Connection {
 	return &handler{

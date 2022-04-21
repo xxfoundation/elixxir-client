@@ -149,11 +149,6 @@ func (l *listener) Process(ecrMsg format.Message,
 	}
 }
 
-func (l *listener) String() string {
-	return listenerProcessorName
-
-}
-
 func (l *listener) Stop() {
 	svc := cmixMsg.Service{
 		Identifier: l.myId[:],

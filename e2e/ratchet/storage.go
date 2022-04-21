@@ -27,11 +27,25 @@ func Load(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
 	*Ratchet, error) {
 	kv = kv.Prefix(packagePrefix)
 
+	privKey, err := util.LoadCyclicKey(kv, privKeyKey)
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"Failed to load e2e DH private key")
+	}
+
+	pubKey, err := util.LoadCyclicKey(kv, pubKeyKey)
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"Failed to load e2e DH public key")
+	}
+
 	r := &Ratchet{
 		managers: make(map[id.ID]partner.Manager),
 		services: make(map[string]message.Processor),
 
-		myID: myID,
+		myID:                   myID,
+		advertisedDHPrivateKey: privKey,
+		advertisedDHPublicKey:  pubKey,
 
 		kv: kv,
 
@@ -90,6 +104,15 @@ func (r *Ratchet) marshal() ([]byte, error) {
 	for rid := range r.managers {
 		contacts[index] = rid
 		index++
+	}
+
+	err := util.StoreCyclicKey(r.kv, r.advertisedDHPrivateKey, privKeyKey)
+	if err != nil {
+		return nil, err
+	}
+	err = util.StoreCyclicKey(r.kv, r.advertisedDHPublicKey, pubKeyKey)
+	if err != nil {
+		return nil, err
 	}
 
 	return json.Marshal(&contacts)

@@ -290,7 +290,7 @@ func Login(storageDir string, password []byte,
 		return nil, err
 	}
 
-	u := c.GetUser()
+	u := c.userState.PortableUserInfo()
 	jww.INFO.Printf("Client Logged in: \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
@@ -334,8 +334,10 @@ func Login(storageDir string, password []byte,
 		return nil, err
 	}
 
+	user := c.userState.PortableUserInfo()
+
 	c.e2e, err = e2e.Load(c.storage.GetKV(), c.network,
-		c.GetUser().ReceptionID, c.storage.GetE2EGroup(),
+		user.ReceptionID, c.storage.GetE2EGroup(),
 		c.rng, c.events)
 	if err != nil {
 		return nil, err
@@ -700,7 +702,12 @@ func (c *Client) AddService(sp Service) error {
 // can be serialized into a byte stream for out-of-band sharing.
 func (c *Client) GetUser() user.Info {
 	jww.INFO.Printf("GetUser()")
-	return c.userState.PortableUserInfo()
+	cMixUser := c.userState.PortableUserInfo()
+	// Add e2e dh keys
+	e2e := c.GetE2EHandler()
+	cMixUser.E2eDhPrivateKey = e2e.GetHistoricalDHPrivkey().DeepCopy()
+	cMixUser.E2eDhPublicKey = e2e.GetHistoricalDHPubkey().DeepCopy()
+	return cMixUser
 }
 
 // GetComms returns the client comms object

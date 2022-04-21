@@ -82,6 +82,7 @@ func writeContact(c contact.Contact) {
 	if outfilePath == "" {
 		return
 	}
+	jww.INFO.Printf("PubKey WRITE: %s", c.DhPubKey.Text(10))
 	err := ioutil.WriteFile(outfilePath, c.Marshal(), 0644)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
@@ -102,5 +103,6 @@ func readContact() contact.Contact {
 	if err != nil {
 		jww.FATAL.Panicf("Failed to unmarshal contact: %+v", err)
 	}
+	jww.INFO.Printf("PubKey READ: %s", c.DhPubKey.Text(10))
 	return c
 }

@@ -1,8 +1,10 @@
 package message
 
 import (
-	"gitlab.com/elixxir/client/cmix/rounds"
+	"fmt"
+
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/primitives/format"
 )
 
@@ -16,4 +18,7 @@ type Processor interface {
 	// and can lead to compromise of message contents and integrity.
 	Process(message format.Message, receptionID receptionID.EphemeralIdentity,
 		round rounds.Round)
+
+	// Implement the stringer interface String() string for debugging
+	fmt.Stringer
 }

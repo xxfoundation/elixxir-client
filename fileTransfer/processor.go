@@ -8,6 +8,8 @@
 package fileTransfer
 
 import (
+	"fmt"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
@@ -61,4 +63,8 @@ func (p *processor) Process(msg format.Message,
 
 	// Call callback with updates
 	p.callbacks.Call(p.TransferID(), nil)
+}
+
+func (p *processor) String() string {
+	return fmt.Sprintf("FileTransfer(%s)", p.myID)
 }

@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/base64"
 	"fmt"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
@@ -108,4 +109,10 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 		Facts:          make([]fact.Fact, 0),
 	}
 	state.callbacks.Confirm(c, receptionID, round)
+}
+
+func (rcs *receivedConfirmService) String() string {
+	return fmt.Sprintf("authConfirm(%s, %s, %s)",
+		rcs.s.e2e.GetReceptionID(), rcs.GetPartner(),
+		rcs.GetFingerprint())
 }

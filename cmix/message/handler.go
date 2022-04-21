@@ -9,11 +9,12 @@ package message
 
 import (
 	"fmt"
+	"sync"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 )
 
 func (p *handler) handleMessages(stop *stoppable.Single) {
@@ -28,6 +29,8 @@ func (p *handler) handleMessages(stop *stoppable.Single) {
 				wg.Add(len(bundle.Messages))
 				for i := range bundle.Messages {
 					msg := bundle.Messages[i]
+					jww.TRACE.Printf("handle IterMsgs: %s",
+						msg.Digest())
 
 					go func() {
 						count, ts := p.inProcess.Add(
@@ -68,8 +71,12 @@ func (p *handler) handleMessage(ecrMsg format.Message, bundle Bundle) bool {
 	identity := bundle.Identity
 	round := bundle.RoundInfo
 
+	jww.INFO.Printf("handleMessage(%s)", ecrMsg.Digest())
+
 	// If we have a fingerprint, process it
 	if proc, exists := p.pop(identity.Source, fingerprint); exists {
+		jww.DEBUG.Printf("handleMessage found fingerprint: %s",
+			ecrMsg.Digest())
 		proc.Process(ecrMsg, identity, round)
 		return true
 	}
@@ -78,6 +85,8 @@ func (p *handler) handleMessage(ecrMsg format.Message, bundle Bundle) bool {
 		identity.Source, ecrMsg.GetSIH(), ecrMsg.GetContents())
 	if exists {
 		for _, t := range services {
+			jww.DEBUG.Printf("handleMessage service found: %s, %s",
+				ecrMsg.Digest(), t)
 			go t.Process(ecrMsg, identity, round)
 		}
 		if len(services) == 0 {

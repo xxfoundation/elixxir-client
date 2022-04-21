@@ -1,9 +1,11 @@
 package e2e
 
 import (
+	"fmt"
+
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/primitives/format"
 )
@@ -36,4 +38,9 @@ func (p *processor) Process(ecrMsg format.Message,
 		message.Encrypted = true
 		p.m.Switchboard.Speak(message)
 	}
+}
+
+func (p *processor) String() string {
+	return fmt.Sprintf("E2E(%s): %s",
+		p.m.myID, p.cy.GetSession())
 }

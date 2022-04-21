@@ -62,6 +62,9 @@ func (m *manager) sendUnsafe(mt catalog.MessageType, recipient *id.ID,
 			unencryptedMAC, fp := e2e.SetUnencrypted(payload,
 				m.myID)
 
+			jww.TRACE.Printf("sendUnsafe contents: %v, fp: %v, mac: %v",
+				payload, fp, unencryptedMAC)
+
 			var err error
 			roundIds[i], _, err = m.net.Send(recipient, fp,
 				srvc, payload, unencryptedMAC,

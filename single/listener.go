@@ -1,6 +1,8 @@
 package single
 
 import (
+	"fmt"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
@@ -118,4 +120,8 @@ func (l *listener) Stop() {
 		Tag:        l.tag,
 	}
 	l.net.DeleteService(l.myId, svc, l)
+}
+
+func (l *listener) String() string {
+	return fmt.Sprintf("SingleUse(%s)", l.myId)
 }

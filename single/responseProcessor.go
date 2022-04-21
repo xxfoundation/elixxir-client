@@ -1,6 +1,8 @@
 package single
 
 import (
+	"fmt"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
@@ -47,4 +49,9 @@ func (rsp *responseProcessor) Process(ecrMsg format.Message,
 	if done {
 		rsp.callback(payload, receptionID, round, nil)
 	}
+}
+
+func (rsp *responseProcessor) String() string {
+	return fmt.Sprintf("SingleUseFP(%s, %s)",
+		rsp.sendingID, rsp.recipient.ID)
 }

@@ -74,7 +74,7 @@ func (a *authCallbacks) Reset(requestor contact.Contact,
 func registerMessageListener(client *api.Client) chan receive.Message {
 	recvCh := make(chan receive.Message, 10000)
 	listenerID := client.RegisterListenerChannel("DefaultCLIReceiver",
-		receive.AnyUser(), catalog.XxMessage, recvCh)
+		receive.AnyUser(), catalog.NoType, recvCh)
 	jww.INFO.Printf("Message ListenerID: %v", listenerID)
 	return recvCh
 }

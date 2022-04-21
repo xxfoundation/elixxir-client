@@ -78,25 +78,32 @@ func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
 	if !exists {
 		return nil, false
 	}
+
+	// NOTE: We exit on the first service match
 	for _, s := range services {
 		// Check if the SIH matches this service
 		if s.ForMe(ecrMsgContents, receivedSIH) {
 			if s.defaultList == nil && s.Tag != sih.Default {
 				//skip if the processor is nil
-				if s.Processor != nil {
+				if s.Processor == nil {
+					jww.ERROR.Printf("<nil> processor: %s",
+						s.Tag)
 					return []Processor{}, true
 				}
-				// Return this service directly if not the default service
+				// Return this service directly if not
+				// the default service
 				return []Processor{s}, true
 
 			} else if s.defaultList != nil {
-				// If it is default and the default list is not empty, then
-				// return the default list
+				// If it is default and the default
+				// list is not empty, then return the
+				// default list
 				return s.defaultList, true
 			}
 
-			// Return false if it is for me, but I have nothing registered to
-			// respond to default queries
+			// Return false if it is for me, but I have
+			// nothing registered to respond to default
+			// queries
 			return []Processor{}, false
 		}
 	}
@@ -197,4 +204,8 @@ func (sm *ServicesManager) DeleteClientService(clientID *id.ID) {
 	defer sm.Unlock()
 
 	delete(sm.tmap, *clientID)
+}
+
+func (s service) String() string {
+	return s.Service.String()
 }

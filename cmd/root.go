@@ -211,6 +211,7 @@ var rootCmd = &cobra.Command{
 			recipientContact = user.GetContact()
 		}
 
+		client.GetE2EHandler().EnableUnsafeReception()
 		recvCh := registerMessageListener(client)
 
 		err := client.StartNetworkFollower(5 * time.Second)

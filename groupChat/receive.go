@@ -8,6 +8,9 @@
 package groupChat
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
@@ -16,7 +19,6 @@ import (
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
-	"time"
 )
 
 // Error messages.
@@ -75,6 +77,10 @@ func (p *receptionProcessor) Process(message format.Message, receptionID recepti
 
 	// If the message was read correctly, send it to the callback
 	p.m.receiveFunc(result)
+}
+
+func (p *receptionProcessor) String() string {
+	return fmt.Sprintf("GroupChatReception(%s)", p.m.receptionId)
 }
 
 // decryptMessage decrypts the group message payload and returns its message ID,

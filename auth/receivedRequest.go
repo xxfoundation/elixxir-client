@@ -3,6 +3,8 @@ package auth
 import (
 	"encoding/base64"
 	"fmt"
+	"strings"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -15,7 +17,6 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	"strings"
 )
 
 const dummyerr = "dummy error so we dont delete the request"
@@ -246,6 +247,11 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	} else {
 		state.callbacks.Request(c, receptionID, round)
 	}
+}
+
+func (rrs *receivedRequestService) String() string {
+	return fmt.Sprintf("authRequest(%s)",
+		rrs.s.e2e.GetReceptionID())
 }
 
 func processDecryptedMessage(b []byte) (*id.ID, *sidh.PublicKey, fact.FactList,

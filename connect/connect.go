@@ -122,10 +122,9 @@ func Connect(recipient contact.Contact, myId *id.ID, rng *fastRNG.StreamGenerato
 }
 
 // WaitForConnections assembles a Connection object on the reception-side
-// whenever an E2E partnership with a partner.Manager is established.
-// and sends it to the given connectionListener. Should be run in its own thread.
-func WaitForConnections(connectionListener chan Connection,
-	myId *id.ID, rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client, p Params) {
+// when an incoming request for an E2E partnership with a partner.Manager is confirmed.
+func WaitForConnections(myId *id.ID, rng *fastRNG.StreamGenerator,
+	grp *cyclic.Group, net cmix.Client, p Params) (Connection, error) {
 
 	// Build an ephemeral KV
 	kv := versioned.NewKV(ekv.MakeMemstore())
@@ -133,8 +132,7 @@ func WaitForConnections(connectionListener chan Connection,
 	// Build E2e handler
 	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.event)
 	if err != nil {
-		jww.ERROR.Printf("Unable to WaitForConnections: %+v", err)
-		return
+		return nil, err
 	}
 
 	// Build callback for E2E negotiation
@@ -144,37 +142,26 @@ func WaitForConnections(connectionListener chan Connection,
 	_, err = auth.NewState(kv, net, e2eHandler,
 		rng, p.event, p.auth, callback, nil)
 	if err != nil {
-		jww.ERROR.Printf("Unable to WaitForConnections: %+v", err)
-		return
+		return nil, err
 	}
 
-	for {
-		// Block waiting for incoming auth request
-		jww.DEBUG.Printf("Connection waiting for auth request to be received...")
-		select {
-		case newPartnerId := <-callback.confirmPartner:
-			jww.DEBUG.Printf("Connection auth request for %s confirmed", newPartnerId.String())
+	// Block waiting for incoming auth request
+	jww.DEBUG.Printf("Connection waiting for auth request to be received...")
+	newPartnerId := <-callback.confirmPartner
+	jww.DEBUG.Printf("Connection auth request for %s confirmed", newPartnerId.String())
 
-			// After confirmation, get the new partner
-			newPartner, err := e2eHandler.GetPartner(newPartnerId)
-			if err != nil {
-				jww.ERROR.Printf("Unable to establish new Connection with partner %s: %+v",
-					err, newPartnerId.String())
-				continue
-			}
-
-			// Send the new Connection object to the connectionListener
-			select {
-			case connectionListener <- &handler{
-				partner: newPartner,
-				params:  p,
-				e2e:     e2eHandler,
-			}:
-			default:
-				jww.ERROR.Printf("Failed to establish new connection due to channel full.")
-			}
-		}
+	// After confirmation, get the new partner
+	newPartner, err := e2eHandler.GetPartner(newPartnerId)
+	if err != nil {
+		return nil, err
 	}
+
+	// Return the new Connection object
+	return &handler{
+		partner: newPartner,
+		params:  p,
+		e2e:     e2eHandler,
+	}, nil
 }
 
 // ConnectWithPartner assembles a Connection object on the reception-side

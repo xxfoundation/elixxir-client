@@ -27,12 +27,12 @@ func (m *manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
 			"sendE2E when network is not healthy")
 	}
 
-	handleCritical := params.CMIX.Critical
+	handleCritical := params.Critical
 	if handleCritical {
 		m.crit.AddProcessing(mt, recipient, payload, params)
 		// set critical to false so the network layer doesnt
 		// make the messages critical as well
-		params.CMIX.Critical = false
+		params.Critical = false
 	}
 
 	rnds, msgID, t, err := m.sendE2E(mt, recipient, payload, params)
@@ -85,7 +85,7 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 				cmixParams cmix.CMIXParams) (
 				[]id.Round, e2e.MessageID, time.Time, error) {
 				par := GetDefaultParams()
-				par.CMIX = cmixParams
+				par.CMIXParams = cmixParams
 				return m.SendE2E(mt, recipient, payload, par)
 			}
 			rekey.CheckKeyExchanges(m.net.GetInstance(), m.grp, rekeySendFunc,
@@ -102,7 +102,7 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 		// FIXME: remove this wait, it is weird. Why is it
 		// here? we cant remember.
 		key, err := waitForKey(keyGetter, params.KeyGetRetryCount,
-			params.KeyGeRetryDelay, params.CMIX.Stop, recipient,
+			params.KeyGeRetryDelay, params.Stop, recipient,
 			format.DigestContents(p), i)
 		if err != nil {
 			err = errors.WithMessagef(err,
@@ -133,7 +133,7 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 			var err error
 			roundIds[i], _, err = m.net.Send(recipient,
 				key.Fingerprint(), s, contentsEnc, mac,
-				params.CMIX)
+				params.CMIXParams)
 			if err != nil {
 				errCh <- err
 			}

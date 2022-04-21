@@ -11,15 +11,18 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"time"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/single/old"
-	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/utils"
-	"time"
 )
 
 // singleCmd is the single-use subcommand that allows for sending and responding
@@ -38,30 +41,6 @@ var singleCmd = &cobra.Command{
 		jww.INFO.Printf("User Transmission: %s", user.TransmissionID)
 		writeContact(user.GetContact())
 
-		// Set up reception handler
-		swBoard := client.GetSwitchboard()
-		recvCh := make(chan message.Receive, 10000)
-		listenerID := swBoard.RegisterChannel("DefaultCLIReceiver",
-			switchboard.AnyUser(), message.XxMessage, recvCh)
-		jww.INFO.Printf("Message ListenerID: %v", listenerID)
-
-		// Set up auth request handler, which simply prints the user ID of the
-		// requester
-		authMgr := client.GetAuthRegistrar()
-		authMgr.AddGeneralRequestCallback(printChanRequest)
-
-		// If unsafe channels, then add auto-acceptor
-		if viper.GetBool("unsafe-channel-creation") {
-			authMgr.AddGeneralRequestCallback(func(
-				requester contact.Contact) {
-				jww.INFO.Printf("Got request: %s", requester.ID)
-				_, err := client.ConfirmAuthenticatedChannel(requester)
-				if err != nil {
-					jww.FATAL.Panicf("%+v", err)
-				}
-			})
-		}
-
 		err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
@@ -69,25 +48,30 @@ var singleCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetHealth().AddChannel(connected)
+		client.GetNetworkInterface().AddHealthCallback(
+			func(isconnected bool) {
+				connected <- isconnected
+			})
 		waitUntilConnected(connected)
-
-		// Make single-use manager and start receiving process
-		singleMng := old.NewManager(client)
 
 		// get the tag
 		tag := viper.GetString("tag")
 
 		// Register the callback
-		callbackChan := make(chan responseCallbackChan)
-		callback := func(payload []byte, c old.Contact) {
-			callbackChan <- responseCallbackChan{payload, c}
+		receiver := &Receiver{
+			recvCh: make(chan struct {
+				request *single.Request
+				ephID   receptionID.EphemeralIdentity
+				round   rounds.Round
+			}),
 		}
-		singleMng.RegisterCallback(tag, callback)
-		err = client.AddService(singleMng.StartProcesses)
-		if err != nil {
-			jww.FATAL.Panicf("Could not add single use process: %+v", err)
-		}
+
+		myID := client.GetUser().ReceptionID
+		listener := single.Listen(tag, myID,
+			client.GetUser().E2eDhPrivateKey,
+			client.GetNetworkInterface(),
+			client.GetStorage().GetE2EGroup(),
+			receiver)
 
 		for numReg, total := 1, 100; numReg < (total*3)/4; {
 			time.Sleep(1 * time.Second)
@@ -108,14 +92,16 @@ var singleCmd = &cobra.Command{
 			partner := readSingleUseContact("contact")
 			maxMessages := uint8(viper.GetUint("maxMessages"))
 
-			sendSingleUse(singleMng, partner, payload, maxMessages, timeout, tag)
+			sendSingleUse(client, partner, payload,
+				maxMessages, timeout, tag)
 		}
 
-		// If the reply flag is set, then start waiting for a message and reply
-		// when it is received
+		// If the reply flag is set, then start waiting for a
+		// message and reply when it is received
 		if viper.GetBool("reply") {
-			replySingleUse(singleMng, timeout, callbackChan)
+			replySingleUse(client, timeout, receiver)
 		}
+		listener.Stop()
 	},
 }
 
@@ -148,19 +134,32 @@ func init() {
 	rootCmd.AddCommand(singleCmd)
 }
 
-// sendSingleUse sends a single use message.
-func sendSingleUse(m *old.Manager, partner contact.Contact, payload []byte,
-	maxMessages uint8, timeout time.Duration, tag string) {
-	// Construct callback
-	callbackChan := make(chan struct {
+type Response struct {
+	callbackChan chan struct {
 		payload []byte
 		err     error
-	})
-	callback := func(payload []byte, err error) {
-		callbackChan <- struct {
+	}
+}
+
+func (r *Response) Callback(payload []byte, receptionID receptionID.EphemeralIdentity,
+	round rounds.Round, err error) {
+	jww.DEBUG.Printf("Payload: %v, receptionID: %v, round: %v, err: %v",
+		payload, receptionID, round, err)
+	r.callbackChan <- struct {
+		payload []byte
+		err     error
+	}{payload: payload, err: err}
+}
+
+// sendSingleUse sends a single use message.
+func sendSingleUse(m *api.Client, partner contact.Contact, payload []byte,
+	maxMessages uint8, timeout time.Duration, tag string) {
+	// Construct callback
+	callback := &Response{
+		callbackChan: make(chan struct {
 			payload []byte
 			err     error
-		}{payload: payload, err: err}
+		}),
 	}
 
 	jww.INFO.Printf("Sending single-use message to contact: %+v", partner)
@@ -170,15 +169,25 @@ func sendSingleUse(m *old.Manager, partner contact.Contact, payload []byte,
 
 	// Send single-use message
 	fmt.Printf("Sending single-use transmission message: %s\n", payload)
-	jww.DEBUG.Printf("Sending single-use transmission to %s: %s", partner.ID, payload)
-	err := m.TransmitSingleUse(partner, payload, tag, maxMessages, callback, timeout)
+	jww.DEBUG.Printf("Sending single-use transmission to %s: %s",
+		partner.ID, payload)
+	params := single.GetDefaultRequestParams()
+	rng := m.GetRng().GetStream()
+	defer rng.Close()
+
+	e2eGrp := m.GetStorage().GetE2EGroup()
+	rnd, ephID, err := single.TransmitRequest(partner, tag, payload, callback, params,
+		m.GetNetworkInterface(), rng, e2eGrp)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to transmit single-use message: %+v", err)
 	}
 
+	jww.INFO.Printf("Single Use request sent on round %v with id %v", rnd,
+		ephID)
+
 	// Wait for callback to be called
 	fmt.Println("Waiting for response.")
-	results := <-callbackChan
+	results := <-callback.callbackChan
 	if results.payload != nil {
 		fmt.Printf("Message received: %s\n", results.payload)
 		jww.DEBUG.Printf("Received single-use reply payload: %s", results.payload)
@@ -193,31 +202,36 @@ func sendSingleUse(m *old.Manager, partner contact.Contact, payload []byte,
 
 // replySingleUse responds to any single-use message it receives by replying\
 // with the same payload.
-func replySingleUse(m *old.Manager, timeout time.Duration, callbackChan chan responseCallbackChan) {
-
+func replySingleUse(m *api.Client, timeout time.Duration, receiver *Receiver) {
 	// Wait to receive a message or stop after timeout occurs
 	fmt.Println("Waiting for single-use message.")
 	timer := time.NewTimer(timeout)
 	select {
-	case results := <-callbackChan:
-		if results.payload != nil {
-			fmt.Printf("Single-use transmission received: %s\n", results.payload)
+	case results := <-receiver.recvCh:
+		payload := results.request.GetPayload()
+		if payload != nil {
+			fmt.Printf("Single-use transmission received: %s\n", payload)
 			jww.DEBUG.Printf("Received single-use transmission from %s: %s",
-				results.c.GetPartner(), results.payload)
+				results.request.GetPartner(), payload)
 		} else {
 			jww.ERROR.Print("Failed to receive single-use payload.")
 		}
 
 		// Create new payload from repeated received payloads so that each
 		// message part contains the same payload
-		payload := makeResponsePayload(m, results.payload, results.c.GetMaxParts())
+		resPayload := makeResponsePayload(payload, results.request.GetMaxParts(),
+			results.request.GetMaxResponseLength())
 
 		fmt.Printf("Sending single-use response message: %s\n", payload)
-		jww.DEBUG.Printf("Sending single-use response to %s: %s", results.c.GetPartner(), payload)
-		err := m.RespondSingleUse(results.c, payload, timeout)
+		jww.DEBUG.Printf("Sending single-use response to %s: %s",
+			results.request.GetPartner(), payload)
+		roundId, err := results.request.Respond(resPayload, cmix.GetDefaultCMIXParams(),
+			30*time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to send response: %+v", err)
 		}
+
+		jww.INFO.Printf("response sent on roundID: %v", roundId)
 
 	case <-timer.C:
 		fmt.Println("Timed out!")
@@ -225,21 +239,36 @@ func replySingleUse(m *old.Manager, timeout time.Duration, callbackChan chan res
 	}
 }
 
-// responseCallbackChan structure used to collect information sent to the
-// response callback.
-type responseCallbackChan struct {
-	payload []byte
-	c       old.Contact
+type Receiver struct {
+	recvCh chan struct {
+		request *single.Request
+		ephID   receptionID.EphemeralIdentity
+		round   rounds.Round
+	}
+}
+
+func (r *Receiver) Callback(req *single.Request, ephID receptionID.EphemeralIdentity,
+	round rounds.Round) {
+	r.recvCh <- struct {
+		request *single.Request
+		ephID   receptionID.EphemeralIdentity
+		round   rounds.Round
+	}{
+		request: req,
+		ephID:   ephID,
+		round:   round,
+	}
+
 }
 
 // makeResponsePayload generates a new payload that will span the max number of
 // message parts in the contact. Each resulting message payload will contain a
 // copy of the supplied payload with spaces taking up any remaining data.
-func makeResponsePayload(m *old.Manager, payload []byte, maxParts uint8) []byte {
+func makeResponsePayload(payload []byte, maxParts uint8, maxSize int) []byte {
 	payloads := make([][]byte, maxParts)
-	payloadPart := makeResponsePayloadPart(m, payload)
+	payloadPart := makeResponsePayloadPart(payload, maxSize)
 	for i := range payloads {
-		payloads[i] = make([]byte, m.GetMaxResponsePayloadSize())
+		payloads[i] = make([]byte, maxSize)
 		copy(payloads[i], payloadPart)
 	}
 	return bytes.Join(payloads, []byte{})
@@ -247,8 +276,8 @@ func makeResponsePayload(m *old.Manager, payload []byte, maxParts uint8) []byte 
 
 // makeResponsePayloadPart creates a single response payload by coping the given
 // payload and filling the rest with spaces.
-func makeResponsePayloadPart(m *old.Manager, payload []byte) []byte {
-	payloadPart := make([]byte, m.GetMaxResponsePayloadSize())
+func makeResponsePayloadPart(payload []byte, maxSize int) []byte {
+	payloadPart := make([]byte, maxSize)
 	for i := range payloadPart {
 		payloadPart[i] = ' '
 	}

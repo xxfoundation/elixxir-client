@@ -8,6 +8,8 @@
 package pickup
 
 import (
+	"strconv"
+
 	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
@@ -17,7 +19,6 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
-	"strconv"
 )
 
 type Pickup interface {
@@ -46,6 +47,7 @@ type pickup struct {
 
 func NewPickup(params Params, bundles chan<- message.Bundle,
 	sender gateway.Sender, historical rounds.Retriever,
+	comms MessageRetrievalComms,
 	rng *fastRNG.StreamGenerator, instance RoundGetter,
 	session storage.Session) Pickup {
 	unchecked := store.NewOrLoadUncheckedStore(session.GetKV())
@@ -59,6 +61,7 @@ func NewPickup(params Params, bundles chan<- message.Bundle,
 		instance:            instance,
 		unchecked:           unchecked,
 		session:             session,
+		comms:               comms,
 	}
 
 	return m

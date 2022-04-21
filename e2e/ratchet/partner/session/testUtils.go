@@ -1,6 +1,9 @@
 package session
 
 import (
+	"math/rand"
+	"testing"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	util "gitlab.com/elixxir/client/storage/utility"
@@ -14,8 +17,6 @@ import (
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"testing"
 )
 
 func getGroup() *cyclic.Group {

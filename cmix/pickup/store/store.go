@@ -3,6 +3,9 @@ package store
 import (
 	"bytes"
 	"encoding/binary"
+	"sync"
+	"testing"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -10,8 +13,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
-	"testing"
 )
 
 // UncheckedRoundStore stores rounds to retry for message retrieval.
@@ -38,7 +39,7 @@ func NewOrLoadUncheckedStore(kv *versioned.KV) *UncheckedRoundStore {
 	kv = kv.Prefix(uncheckedRoundPrefix)
 
 	urs, err := LoadUncheckedStore(kv)
-	if err != nil {
+	if err == nil {
 		return urs
 	}
 

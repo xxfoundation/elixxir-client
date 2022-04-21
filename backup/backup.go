@@ -8,12 +8,13 @@
 package backup
 
 import (
+	"sync"
+	"time"
+
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
-	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -119,6 +120,9 @@ func InitializeBackup(password string, updateBackupCb UpdateBackupFn,
 	rand.Close()
 
 	params := backup.DefaultParams()
+	params.Memory = 256 * 1024 // 256 MiB
+	params.Threads = 4
+	params.Time = 100
 	key := backup.DeriveKey(password, salt, params)
 
 	// Save key, salt, and parameters to storage
@@ -192,6 +196,11 @@ func (b *Backup) getKeySaltParams(password string) (
 func (b *Backup) TriggerBackup(reason string) {
 	b.mux.RLock()
 	defer b.mux.RUnlock()
+
+	if b == nil || b.kv == nil {
+		jww.ERROR.Printf("TriggerBackup called on unitialized object")
+		return
+	}
 
 	key, salt, params, err := loadBackup(b.kv)
 	if err != nil {

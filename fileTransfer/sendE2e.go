@@ -65,7 +65,7 @@ func (m *manager) sendNewFileTransferMessage(recipient *id.ID, fileName,
 	params := e2e.GetDefaultParams()
 	params.ServiceTag = catalog.Silent
 	params.LastServiceTag = catalog.Silent
-	params.CMIX.DebugTag = initialMessageDebugTag
+	params.DebugTag = initialMessageDebugTag
 
 	_, _, _, err = m.e2e.SendE2E(
 		catalog.NewFileTransfer, recipient, payload, params)
@@ -85,7 +85,7 @@ func (m *manager) sendEndFileTransferMessage(recipient *id.ID) {
 			if healthy {
 				params := e2e.GetDefaultParams()
 				params.LastServiceTag = catalog.EndFT
-				params.CMIX.DebugTag = lastMessageDebugTag
+				params.DebugTag = lastMessageDebugTag
 
 				_, _, _, err := m.e2e.SendE2E(
 					catalog.EndFileTransfer, recipient, nil, params)

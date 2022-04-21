@@ -15,7 +15,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gitlab.com/elixxir/client/cmix"
 	"io/fs"
 	"io/ioutil"
 	"log"
@@ -26,14 +25,14 @@ import (
 	"sync"
 	"time"
 
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/backup"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/switchboard"
 	backupCrypto "gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/excludedRounds"
@@ -212,18 +211,7 @@ var rootCmd = &cobra.Command{
 			recipientContact = user.GetContact()
 		}
 
-		confCh, recvCh := initClientCallbacks(client)
-
-		// The following block is used to check if the request from
-		// a channel authorization is from the recipient we intend in
-		// this run.
-		authConfirmed := false
-		go func() {
-			for {
-				requestor := <-confCh
-				authConfirmed = recipientID.Cmp(requestor)
-			}
-		}()
+		recvCh := registerMessageListener(client)
 
 		err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {
@@ -232,7 +220,10 @@ var rootCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetHealth().AddChannel(connected)
+		client.GetNetworkInterface().AddHealthCallback(
+			func(isconnected bool) {
+				connected <- isconnected
+			})
 		waitUntilConnected(connected)
 
 		// err = client.RegisterForNotifications("dJwuGGX3KUyKldWK5PgQH8:APA91bFjuvimRc4LqOyMDiy124aLedifA8DhldtaB_b76ggphnFYQWJc_fq0hzQ-Jk4iYp2wPpkwlpE1fsOjs7XWBexWcNZoU-zgMiM0Mso9vTN53RhbXUferCbAiEylucEOacy9pniN")
@@ -262,6 +253,7 @@ var rootCmd = &cobra.Command{
 		time.Sleep(10 * time.Second)
 
 		// Accept auth request for this recipient
+		authConfirmed := false
 		if viper.GetBool("accept-channel") {
 			acceptChannel(client, recipientID)
 			// Do not wait for channel confirmations if we
@@ -335,18 +327,12 @@ var rootCmd = &cobra.Command{
 			client.DeleteRequest(recipientID)
 		}
 
-		msg := message.Send{
-			Recipient:   recipientID,
-			Payload:     []byte(msgBody),
-			MessageType: message.XxMessage,
-		}
-		paramsE2E := params.GetDefaultE2E()
-		paramsUnsafe := params.GetDefaultUnsafe()
+		mt := catalog.MessageType(catalog.XxMessage)
+		payload := []byte(msgBody)
+		recipient := recipientID
+		params := initParams()
 		wg := &sync.WaitGroup{}
 		sendCnt := int(viper.GetUint("sendCount"))
-		if viper.GetBool("splitSends") {
-			paramsE2E.ExcludedRounds = excludedRounds.NewSet()
-		}
 		wg.Add(sendCnt)
 		go func() {
 			sendDelay := time.Duration(viper.GetUint("sendDelay"))
@@ -359,15 +345,16 @@ var rootCmd = &cobra.Command{
 						var roundIDs []id.Round
 						var roundTimeout time.Duration
 						if unsafe {
-							paramsE2E.DebugTag = "cmd.Unsafe"
-							roundIDs, err = client.SendUnsafe(msg,
-								paramsUnsafe)
-							roundTimeout = paramsUnsafe.Timeout
+							params.E2E.CMIXParams.DebugTag = "cmd.Unsafe"
+							roundIDs, _, err = client.SendUnsafe(
+								mt, recipient, payload,
+								params.E2E)
+							roundTimeout = params.Network.Timeout
 						} else {
-							paramsE2E.DebugTag = "cmd.E2E"
-							roundIDs, _, _, err = client.SendE2E(msg,
-								paramsE2E)
-							roundTimeout = paramsE2E.Timeout
+							params.E2E.CMIXParams.DebugTag = "cmd.E2E"
+							roundIDs, _, _, err = client.SendE2E(mt,
+								recipient, payload, params.E2E)
+							roundTimeout = params.E2E.CMIXParams.Timeout
 						}
 						if err != nil {
 							jww.FATAL.Panicf("%+v", err)
@@ -379,9 +366,8 @@ var rootCmd = &cobra.Command{
 
 							// Construct the callback function which
 							// verifies successful message send or retries
-							f := func(allRoundsSucceeded, timedOut bool,
-								rounds map[id.Round]cmix.RoundLookupStatus) {
-								printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, msg)
+							f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundResult) {
+								printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, payload, recipientID)
 								if !allRoundsSucceeded {
 									retryChan <- struct{}{}
 								} else {
@@ -390,7 +376,7 @@ var rootCmd = &cobra.Command{
 							}
 
 							// Monitor rounds for results
-							err = client.GetRoundResults(roundIDs, roundTimeout, f)
+							err = client.GetNetworkInterface().GetRoundResults(roundTimeout, f, roundIDs...)
 							if err != nil {
 								jww.DEBUG.Printf("Could not verify messages were sent successfully, resending messages...")
 								continue
@@ -485,44 +471,6 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func initClientCallbacks(client *api.Client) (chan *id.ID,
-	chan message.Receive) {
-	// Set up reception handler
-	swboard := client.GetSwitchboard()
-	recvCh := make(chan message.Receive, 10000)
-	listenerID := swboard.RegisterChannel("DefaultCLIReceiver",
-		switchboard.AnyUser(), message.XxMessage, recvCh)
-	jww.INFO.Printf("Message ListenerID: %v", listenerID)
-
-	// Set up auth request handler, which simply prints the
-	// user id of the requester.
-	authMgr := client.GetAuthRegistrar()
-	authMgr.AddGeneralRequestCallback(printChanRequest)
-
-	// If unsafe channels, add auto-acceptor
-	authConfirmed := make(chan *id.ID, 10)
-	authMgr.AddGeneralConfirmCallback(func(
-		partner contact.Contact) {
-		jww.INFO.Printf("Channel Confirmed: %s",
-			partner.ID)
-		authConfirmed <- partner.ID
-	})
-	if viper.GetBool("unsafe-channel-creation") {
-		authMgr.AddGeneralRequestCallback(func(
-			requestor contact.Contact) {
-			jww.INFO.Printf("Channel Request: %s",
-				requestor.ID)
-			_, err := client.ConfirmAuthenticatedChannel(
-				requestor)
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
-			authConfirmed <- requestor.ID
-		})
-	}
-	return authConfirmed, recvCh
-}
-
 func createClient() *api.Client {
 	logLevel := viper.GetUint("logLevel")
 	initLog(logLevel, viper.GetString("log"))
@@ -604,22 +552,38 @@ func createClient() *api.Client {
 		}
 	}
 
-	netParams := params.GetDefaultNetwork()
-	netParams.E2EParams.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
-	netParams.E2EParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
-	netParams.E2EParams.NumRekeys = uint16(
-		viper.GetUint("e2eNumReKeys"))
-	netParams.E2EParams.RekeyThreshold = viper.GetFloat64("e2eRekeyThreshold")
-	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
-	netParams.FastPolling = !viper.GetBool("slowPolling")
-	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
-	netParams.VerboseRoundTracking = viper.GetBool("verboseRoundTracking")
+	params := initParams()
 
-	client, err := api.OpenClient(storeDir, pass, netParams)
+	client, err := api.OpenClient(storeDir, pass, params)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 	return client
+}
+
+func initParams() api.Params {
+	p := api.GetDefaultParams()
+	p.Session.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
+	p.Session.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
+	p.Session.NumRekeys = uint16(viper.GetUint("e2eNumReKeys"))
+	p.Session.RekeyThreshold = viper.GetFloat64("e2eRekeyThreshold")
+	p.CMix.Pickup.ForceHistoricalRounds = viper.GetBool(
+		"forceHistoricalRounds")
+	p.CMix.FastPolling = !viper.GetBool("slowPolling")
+	p.CMix.Pickup.ForceMessagePickupRetry = viper.GetBool(
+		"forceMessagePickupRetry")
+	if p.CMix.Pickup.ForceMessagePickupRetry {
+		period := 3 * time.Second
+		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
+		p.CMix.Pickup.UncheckRoundPeriod = period
+	}
+	p.CMix.VerboseRoundTracking = viper.GetBool(
+		"verboseRoundTracking")
+	if viper.GetBool("splitSends") {
+		p.Network.ExcludedRounds = excludedRounds.NewSet()
+	}
+
+	return p
 }
 
 func initClient() *api.Client {
@@ -628,38 +592,30 @@ func initClient() *api.Client {
 	pass := parsePassword(viper.GetString("password"))
 	storeDir := viper.GetString("session")
 	jww.DEBUG.Printf("sessionDur: %v", storeDir)
-	netParams := params.GetDefaultNetwork()
-	netParams.E2EParams.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
-	netParams.E2EParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
-	netParams.E2EParams.NumRekeys = uint16(
-		viper.GetUint("e2eNumReKeys"))
-	netParams.E2EParams.RekeyThreshold = viper.GetFloat64("e2eRekeyThreshold")
-	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
-	netParams.FastPolling = !viper.GetBool("slowPolling")
-	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
-	if netParams.ForceMessagePickupRetry {
-		period := 3 * time.Second
-		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
-		netParams.UncheckRoundPeriod = period
-	}
-	netParams.VerboseRoundTracking = viper.GetBool("verboseRoundTracking")
+
+	params := initParams()
 
 	// load the client
-	client, err := api.Login(storeDir, pass, netParams)
+	authCbs := makeAuthCallbacks(nil,
+		viper.GetBool("unsafe-channel-creation"))
+	client, err := api.Login(storeDir, pass, authCbs, params)
+	authCbs.client = client
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 
 	if protoUser := viper.GetString("protoUserOut"); protoUser != "" {
 
-		jsonBytes, err := client.ConstructProtoUerFile()
+		jsonBytes, err := client.ConstructProtoUserFile()
 		if err != nil {
-			jww.FATAL.Panicf("Failed to construct proto user file: %v", err)
+			jww.FATAL.Panicf("cannot construct proto user file: %v",
+				err)
 		}
 
 		err = utils.WriteFileDef(protoUser, jsonBytes)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to write proto user to file: %v", err)
+			jww.FATAL.Panicf("cannot write proto user to file: %v",
+				err)
 		}
 
 	}
@@ -667,11 +623,13 @@ func initClient() *api.Client {
 	if backupOut := viper.GetString("backupOut"); backupOut != "" {
 		backupPass := viper.GetString("backupPass")
 		updateBackupCb := func(encryptedBackup []byte) {
-			jww.INFO.Printf("Backup update received, size %d", len(encryptedBackup))
+			jww.INFO.Printf("Backup update received, size %d",
+				len(encryptedBackup))
 			fmt.Println("Backup update received.")
 			err = utils.WriteFileDef(backupOut, encryptedBackup)
 			if err != nil {
-				jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
+				jww.FATAL.Panicf("cannot write backup: %+v",
+					err)
 			}
 
 			backupJsonPath := viper.GetString("backupJsonOut")
@@ -680,7 +638,7 @@ func initClient() *api.Client {
 				var b backupCrypto.Backup
 				err = b.Decrypt(backupPass, encryptedBackup)
 				if err != nil {
-					jww.ERROR.Printf("Failed to decrypt backup: %+v", err)
+					jww.ERROR.Printf("cannot decrypt backup: %+v", err)
 				}
 
 				backupJson, err := json.Marshal(b)
@@ -694,7 +652,8 @@ func initClient() *api.Client {
 				}
 			}
 		}
-		_, err = backup.InitializeBackup(backupPass, updateBackupCb, client)
+
+		_, err = client.InitializeBackup(backupPass, updateBackupCb)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to initialize backup with key %q: %+v",
 				backupPass, err)
@@ -721,25 +680,6 @@ func deleteChannel(client *api.Client, partnerId *id.ID) {
 	err := client.DeleteContact(partnerId)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
-	}
-}
-
-func addPrecanAuthenticatedChannel(client *api.Client, recipientID *id.ID,
-	recipient contact.Contact) {
-	jww.WARN.Printf("Precanned user id detected: %s", recipientID)
-	preUsr, err := client.MakePrecannedAuthenticatedChannel(
-		getPrecanID(recipientID))
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-	// Sanity check, make sure user id's haven't changed
-	preBytes := preUsr.ID.Bytes()
-	idBytes := recipientID.Bytes()
-	for i := 0; i < len(preBytes); i++ {
-		if idBytes[i] != preBytes[i] {
-			jww.FATAL.Panicf("no id match: %v %v",
-				preBytes, idBytes)
-		}
 	}
 }
 
@@ -852,10 +792,6 @@ func waitUntilConnected(connected chan bool) {
 	}()
 }
 
-func getPrecanID(recipientID *id.ID) uint {
-	return uint(recipientID.Bytes()[7])
-}
-
 func parsePassword(pwStr string) []byte {
 	if strings.HasPrefix(pwStr, "0x") {
 		return getPWFromHexString(pwStr[2:])
@@ -879,18 +815,7 @@ func parseRecipient(idStr string) (*id.ID, bool) {
 	} else {
 		recipientID = getUIDFromString(idStr)
 	}
-	// check if precanned
-	rBytes := recipientID.Bytes()
-	for i := 0; i < 32; i++ {
-		if i != 7 && rBytes[i] != 0 {
-			return recipientID, false
-		}
-	}
-	if rBytes[7] != byte(0) && rBytes[7] <= byte(40) {
-		return recipientID, true
-	}
-	jww.FATAL.Panicf("error recipient id parse failure: %+v", recipientID)
-	return recipientID, false
+	return recipientID, isPrecanID(recipientID)
 }
 
 func getUIDFromHexString(idStr string) *id.ID {
@@ -1018,16 +943,18 @@ func initRoundLog(logPath string) {
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
-	roundsNotepad = jww.NewNotepad(jww.LevelInfo, jww.LevelInfo, ioutil.Discard, logOutput, "", log.Ldate|log.Ltime)
+	roundsNotepad = jww.NewNotepad(jww.LevelInfo, jww.LevelInfo,
+		ioutil.Discard, logOutput, "", log.Ldate|log.Ltime)
 }
 
 // init is the initialization function for Cobra which defines commands
 // and flags.
 func init() {
-	// NOTE: The point of init() is to be declarative.
-	// There is one init in each sub command. Do not put variable declarations
-	// here, and ensure all the Flags are of the *P variety, unless there's a
-	// very good reason not to have them as local params to sub command."
+	// NOTE: The point of init() is to be declarative.  There is
+	// one init in each sub command. Do not put variable
+	// declarations here, and ensure all the Flags are of the *P
+	// variety, unless there's a very good reason not to have them
+	// as local params to sub command."
 	cobra.OnInitialize(initConfig)
 
 	// Here you will define your flags and configuration settings.
@@ -1178,7 +1105,7 @@ func init() {
 		rootCmd.Flags().Lookup("forceMessagePickupRetry"))
 
 	// E2E Params
-	defaultE2EParams := params.GetDefaultE2ESessionParams()
+	defaultE2EParams := session.GetDefaultParams()
 	rootCmd.Flags().UintP("e2eMinKeys",
 		"", uint(defaultE2EParams.MinKeys),
 		"Minimum number of keys used before requesting rekey")
@@ -1236,33 +1163,3 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {}
-
-// returns a simple numerical id if the user is a precanned user, otherwise
-// returns the normal string of the userID
-func printIDNice(uid *id.ID) string {
-
-	for index, puid := range precannedIDList {
-		if uid.Cmp(puid) {
-			return strconv.Itoa(index + 1)
-		}
-	}
-
-	return uid.String()
-}
-
-// build a list of precanned ids to use for comparision for nicer user id output
-var precannedIDList = buildPrecannedIDList()
-
-func buildPrecannedIDList() []*id.ID {
-
-	idList := make([]*id.ID, 40)
-
-	for i := 0; i < 40; i++ {
-		uid := new(id.ID)
-		binary.BigEndian.PutUint64(uid[:], uint64(i+1))
-		uid.SetType(id.User)
-		idList[i] = uid
-	}
-
-	return idList
-}

@@ -8,6 +8,10 @@
 package cmix
 
 import (
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/nodes"
@@ -20,9 +24,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strconv"
-	"strings"
-	"time"
 )
 
 // SendCmixCommsInterface is the interface for Send comms; allows mocking
@@ -118,6 +119,9 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	ephID, _, _, err := ephemeral.GetId(recipient,
 		uint(bestRound.AddressSpaceSize),
 		int64(bestRound.Timestamps[states.QUEUED]))
+	jww.INFO.Printf("buildSlotMessage EphID for %s: %d %d %d", recipient,
+		ephID.Int64(), bestRound.AddressSpaceSize,
+		bestRound.Timestamps[states.QUEUED])
 	if err != nil {
 		jww.FATAL.Panicf("Failed to generate address ID when sending to %s "+
 			"(msgDigest: %s): %+v", err, recipient, msg.Digest())

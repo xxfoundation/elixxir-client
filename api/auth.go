@@ -179,5 +179,5 @@ func (c *Client) GetRelationshipFingerprint(p *id.ID) (partner.ConnectionFp, err
 			p)
 	}
 
-	return m.ConnectionFingerprint(), nil
+	return m.ConnectionFingerprint().String(), nil
 }

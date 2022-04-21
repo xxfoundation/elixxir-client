@@ -1,18 +1,19 @@
 package cmix
 
 import (
+	"time"
+
 	"gitlab.com/elixxir/client/cmix/gateway"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/nodes"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"time"
 )
 
 type Client interface {

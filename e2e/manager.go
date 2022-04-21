@@ -162,7 +162,7 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 		cmixParams cmix.CMIXParams) (
 		[]id.Round, e2e.MessageID, time.Time, error) {
 		par := GetDefaultParams()
-		par.CMIX = cmixParams
+		par.CMIXParams = cmixParams
 		return m.SendE2E(mt, recipient, payload, par)
 	}
 	rekeyStopper, err := rekey.Start(m.Switchboard, m.Ratchet,

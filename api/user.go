@@ -8,8 +8,6 @@
 package api
 
 import (
-	"encoding/binary"
-	"math/rand"
 	"regexp"
 	"runtime"
 	"strings"
@@ -39,7 +37,7 @@ func createNewUser(rng *fastRNG.StreamGenerator, cmix,
 	var e2eKeyBytes, transmissionSalt, receptionSalt []byte
 
 	e2eKeyBytes, transmissionSalt, receptionSalt,
-		transmissionRsaKey, receptionRsaKey = createDhKeys(rng, e2e)
+		transmissionRsaKey, receptionRsaKey = createKeys(rng, e2e)
 
 	// Salt, UID, etc gen
 	stream := rng.GetStream()
@@ -91,7 +89,7 @@ func createNewUser(rng *fastRNG.StreamGenerator, cmix,
 	}
 }
 
-func createDhKeys(rng *fastRNG.StreamGenerator,
+func createKeys(rng *fastRNG.StreamGenerator,
 	e2e *cyclic.Group) (e2eKeyBytes,
 	transmissionSalt, receptionSalt []byte,
 	transmissionRsaKey, receptionRsaKey *rsa.PrivateKey) {
@@ -141,44 +139,6 @@ func createDhKeys(rng *fastRNG.StreamGenerator,
 
 	return
 
-}
-
-// TODO: Add precanned user code structures here.
-// creates a precanned user
-func createPrecannedUser(precannedID uint, rng csprng.Source, cmix,
-	e2e *cyclic.Group) user.Info {
-	// DH Keygen
-	prng := rand.New(rand.NewSource(int64(precannedID)))
-	prime := e2e.GetPBytes()
-	keyLen := len(prime)
-	e2eKeyBytes, err := csprng.GenerateInGroup(prime, keyLen, prng)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-
-	// Salt, UID, etc gen
-	salt := make([]byte, SaltSize)
-
-	userID := id.ID{}
-	binary.BigEndian.PutUint64(userID[:], uint64(precannedID))
-	userID.SetType(id.User)
-
-	// NOTE: not used... RSA Keygen (4096 bit defaults)
-	rsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-
-	return user.Info{
-		TransmissionID:   &userID,
-		TransmissionSalt: salt,
-		ReceptionID:      &userID,
-		ReceptionSalt:    salt,
-		Precanned:        true,
-		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
-		TransmissionRSA:  rsaKey,
-		ReceptionRSA:     rsaKey,
-	}
 }
 
 // createNewVanityUser generates an identity for cMix

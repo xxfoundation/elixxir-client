@@ -9,11 +9,12 @@ package identity
 
 import (
 	"encoding/json"
-	"github.com/pkg/errors"
 	"io"
 	"io/fs"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	jww "github.com/spf13/jwalterweatherman"
 
@@ -27,23 +28,22 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-const validityGracePeriod = 5 * time.Minute
-const TrackerListKey = "TrackerListKey"
-const TrackerListVersion = 0
-const TimestampKey = "IDTrackingTimestamp"
-const ephemeralStoppable = "EphemeralCheck"
-const addressSpaceSizeChanTag = "ephemeralTracker"
-
 var Forever = time.Time{}
 
 const (
+	validityGracePeriod     = 5 * time.Minute
+	TrackerListKey          = "TrackerListKey"
+	TrackerListVersion      = 0
+	TimestampKey            = "IDTrackingTimestamp"
+	ephemeralStoppable      = "EphemeralCheck"
+	addressSpaceSizeChanTag = "ephemeralTracker"
+
 	trackedIDChanSize = 1000
 	deleteIDChanSize  = 1000
-)
 
-// DefaultExtraChecks is the default value for ExtraChecks on
-// receptionID.Identity.
-const DefaultExtraChecks = 10
+	// DefaultExtraChecks is the default value for ExtraChecks on receptionID.Identity.
+	DefaultExtraChecks = 10
+)
 
 type Tracker interface {
 	StartProcesses() stoppable.Stoppable
@@ -55,7 +55,7 @@ type Tracker interface {
 
 type manager struct {
 	tracked        []TrackedID
-	store          *receptionID.Store
+	ephemeral      *receptionID.Store
 	session        storage.Session
 	newIdentity    chan TrackedID
 	deleteIdentity chan *id.ID
@@ -123,7 +123,7 @@ func NewOrLoadTracker(session storage.Session, addrSpace address.Space) *manager
 		jww.FATAL.Panicf("Unable to create new Tracker: %+v", err)
 	}
 
-	t.store = receptionID.NewOrLoadStore(session.GetKV())
+	t.ephemeral = receptionID.NewOrLoadStore(session.GetKV())
 
 	return t
 }
@@ -158,7 +158,7 @@ func (t *manager) RemoveIdentity(id *id.ID) {
 // GetEphemeralIdentity returns an ephemeral Identity to poll the network with.
 func (t *manager) GetEphemeralIdentity(rng io.Reader, addressSize uint8) (
 	receptionID.IdentityUse, error) {
-	return t.store.GetIdentity(rng, addressSize)
+	return t.ephemeral.GetIdentity(rng, addressSize)
 }
 
 // GetIdentity returns a currently tracked identity
@@ -177,85 +177,9 @@ func (t *manager) track(stop *stoppable.Single) {
 	// Wait until the ID size is retrieved from the network
 	addressSize := t.addrSpace.GetAddressSpace()
 
-	// Wait for next event
-trackerLoop:
 	for {
-		edits := false
-		var toRemove map[int]struct{}
-		nextEvent := t.tracked[0].ValidUntil
-
-		// Loop through every tracked ID and see if any operations are needed
-		for i := range t.tracked {
-			inQuestion := t.tracked[i]
-
-			// Generate new ephemeral if is time for it
-			if netTime.Now().After(inQuestion.NextGeneration) {
-				edits = true
-
-				// Ensure that ephemeral IDs will not be generated after the
-				// identity is invalid
-				generateUntil := inQuestion.NextGeneration
-				if inQuestion.ValidUntil != Forever &&
-					generateUntil.After(inQuestion.ValidUntil) {
-					generateUntil = inQuestion.ValidUntil
-				}
-
-				// Generate all not yet existing ephemeral IDs
-				identities, nextNextGeneration := generateIdentitiesOverRange(
-					inQuestion.LastGeneration, inQuestion.NextGeneration,
-					inQuestion.Source, addressSize)
-
-				// Add all ephemeral IDs to the ephemeral handler
-				for _, identity := range identities {
-					// Move up the end time if the source identity is invalid
-					// before the natural end of the ephemeral identity
-					if inQuestion.ValidUntil != Forever &&
-						identity.End.After(inQuestion.ValidUntil) {
-						identity.End = inQuestion.ValidUntil
-					}
-
-					identity.Ephemeral = !inQuestion.Persistent
-					if err := t.store.AddIdentity(identity); err != nil {
-						jww.FATAL.Panicf("Could not insert identity: %+v", err)
-					}
-				}
-
-				// Move forward the tracking of when generation should occur
-				inQuestion.LastGeneration = inQuestion.NextGeneration
-				inQuestion.NextGeneration = nextNextGeneration.Add(time.Millisecond)
-			}
-
-			// If it is time to delete the ID, then process the deletion
-			if inQuestion.ValidUntil != Forever &&
-				netTime.Now().After(inQuestion.ValidUntil) {
-				edits = true
-				toRemove[i] = struct{}{}
-			} else {
-				// Otherwise, see if it is responsible for the next event
-				if inQuestion.NextGeneration.Before(nextEvent) {
-					nextEvent = inQuestion.NextGeneration
-				}
-				if inQuestion.ValidUntil.Before(nextEvent) {
-					nextEvent = inQuestion.ValidUntil
-				}
-			}
-		}
-
-		// Process any deletions
-		if len(toRemove) > 0 {
-			newTracked := make([]TrackedID, 0, len(t.tracked))
-			for i := range t.tracked {
-				if _, remove := toRemove[i]; !remove {
-					newTracked = append(newTracked, t.tracked[i])
-				}
-			}
-
-			t.tracked = newTracked
-		}
-
-		if edits {
-			t.save()
-		}
+		// Process new and old identities
+		nextEvent := t.processIdentities(addressSize)
 
 		// Trigger events early. This will cause generations to happen early as
 		// well as message pickup. As a result, if there are time sync issues
@@ -268,20 +192,23 @@ trackerLoop:
 		case <-time.NewTimer(nextUpdate.Sub(nextUpdate)).C:
 		case newIdentity := <-t.newIdentity:
 			// If the identity is old, then update its properties
+			isOld := false
 			for i := range t.tracked {
 				inQuestion := t.tracked[i]
 				if inQuestion.Source.Cmp(newIdentity.Source) {
 					inQuestion.Persistent = newIdentity.Persistent
 					inQuestion.ValidUntil = newIdentity.ValidUntil
-					t.save()
-					continue trackerLoop
+					isOld = true
+					break
 				}
 			}
+			if !isOld {
+				// Otherwise, add it to the list and run
+				t.tracked = append(t.tracked, newIdentity)
+			}
 
-			// Otherwise, add it to the list and run
-			t.tracked = append(t.tracked, newIdentity)
 			t.save()
-			continue trackerLoop
+			continue
 
 		case deleteID := <-t.deleteIdentity:
 			for i := range t.tracked {
@@ -289,7 +216,8 @@ trackerLoop:
 				if inQuestion.Source.Cmp(deleteID) {
 					t.tracked = append(t.tracked[:i], t.tracked[i+1:]...)
 					t.save()
-					t.store.RemoveIdentities(deleteID)
+					// Requires manual deletion in case identity is deleted before expiration
+					t.ephemeral.RemoveIdentities(deleteID)
 					break
 				}
 			}
@@ -299,6 +227,59 @@ trackerLoop:
 			return
 		}
 	}
+}
+
+// processIdentities builds and adds new identities and removes old identities from the tracker
+// and returns the timestamp of the next ID event
+func (t *manager) processIdentities(addressSize uint8) time.Time {
+	edits := false
+	toRemove := make(map[int]struct{})
+	nextEvent := t.tracked[0].ValidUntil
+
+	// Loop through every tracked ID and see if any operations are needed
+	for i, inQuestion := range t.tracked {
+		// Generate new ephemeral if is time for it
+		if netTime.Now().After(inQuestion.NextGeneration) {
+			nextGeneration := t.generateIdentitiesOverRange(inQuestion, addressSize)
+
+			// Move forward the tracking of when generation should occur
+			inQuestion.LastGeneration = inQuestion.NextGeneration
+			inQuestion.NextGeneration = nextGeneration.Add(time.Millisecond)
+			edits = true
+		}
+
+		// If it is time to delete the ID, then process the deletion
+		if inQuestion.ValidUntil != Forever && netTime.Now().After(inQuestion.ValidUntil) {
+			edits = true
+			toRemove[i] = struct{}{}
+		} else {
+			// Otherwise, see if it is responsible for the next event
+			if inQuestion.NextGeneration.Before(nextEvent) {
+				nextEvent = inQuestion.NextGeneration
+			}
+			if inQuestion.ValidUntil.Before(nextEvent) {
+				nextEvent = inQuestion.ValidUntil
+			}
+		}
+
+	}
+
+	// Process any deletions
+	if len(toRemove) > 0 {
+		newTracked := make([]TrackedID, 0, len(t.tracked))
+		for i := range t.tracked {
+			if _, remove := toRemove[i]; !remove {
+				newTracked = append(newTracked, t.tracked[i])
+			}
+		}
+		t.tracked = newTracked
+	}
+
+	if edits {
+		t.save()
+	}
+
+	return nextEvent
 }
 
 func getOldTimestampStore(session storage.Session) (time.Time, error) {
@@ -321,29 +302,31 @@ func unmarshalTimestamp(lastTimestampObj *versioned.Object) (time.Time, error) {
 	return lastTimestamp, err
 }
 
-func generateIdentitiesOverRange(lastGeneration, generateThrough time.Time,
-	source *id.ID, addressSize uint8) ([]receptionID.Identity, time.Time) {
-	protoIds, err := ephemeral.GetIdsByRange(source, uint(addressSize),
-		lastGeneration, generateThrough.Sub(lastGeneration))
+// generateIdentitiesOverRange generates and adds all not yet existing ephemeral Ids
+// and returns the timestamp of the next generation for the given TrackedID
+func (t *manager) generateIdentitiesOverRange(inQuestion TrackedID, addressSize uint8) time.Time {
+	// Ensure that ephemeral IDs will not be generated after the
+	// identity is invalid
+	generateUntil := inQuestion.NextGeneration
+	if inQuestion.ValidUntil != Forever && generateUntil.After(inQuestion.ValidUntil) {
+		generateUntil = inQuestion.ValidUntil
+	}
 
-	jww.DEBUG.Printf("Now: %s, LastCheck: %s, Different: %s",
-		generateThrough, generateThrough, generateThrough.Sub(lastGeneration))
-	jww.DEBUG.Printf("protoIds count: %d", len(protoIds))
-
+	// Generate list of identities
+	protoIds, err := ephemeral.GetIdsByRange(inQuestion.Source, uint(addressSize),
+		inQuestion.LastGeneration, generateUntil.Sub(inQuestion.LastGeneration))
 	if err != nil {
 		jww.FATAL.Panicf("Could not generate upcoming IDs: %+v", err)
 	}
 
-	// Generate identities off of that list
-	identities := make([]receptionID.Identity, len(protoIds))
-
 	// Add identities for every address ID
+	lastIdentityEnd := time.Time{}
 	for i, eid := range protoIds {
 		// Expand the grace period for both start and end
-		identities[i] = receptionID.Identity{
+		newIdentity := receptionID.Identity{
 			EphemeralIdentity: receptionID.EphemeralIdentity{
 				EphId:  eid.Id,
-				Source: source,
+				Source: inQuestion.Source,
 			},
 			AddressSize: addressSize,
 			End:         eid.End,
@@ -352,19 +335,34 @@ func generateIdentitiesOverRange(lastGeneration, generateThrough time.Time,
 			Ephemeral:   false,
 			ExtraChecks: DefaultExtraChecks,
 		}
+		// Move up the end time if the source identity is invalid
+		// before the natural end of the ephemeral identity
+		if inQuestion.ValidUntil != Forever && newIdentity.End.After(inQuestion.ValidUntil) {
+			newIdentity.End = inQuestion.ValidUntil
+		}
 
+		newIdentity.Ephemeral = !inQuestion.Persistent
+		if err := t.ephemeral.AddIdentity(newIdentity); err != nil {
+			jww.FATAL.Panicf("Could not insert identity: %+v", err)
+		}
+
+		// Print debug information and set return value
+		if isLastIdentity := i == len(protoIds)-1; isLastIdentity {
+			jww.INFO.Printf("Current Identity: %d (source: %s), Start: %s, End: %s, addrSize: %d",
+				newIdentity.EphId.Int64(),
+				newIdentity.Source,
+				newIdentity.StartValid,
+				newIdentity.EndValid,
+				addressSize)
+			lastIdentityEnd = newIdentity.End
+		}
 	}
 
-	jww.INFO.Printf("Number of identities generated: %d", len(identities))
-	jww.INFO.Printf("Current Identity: %d (source: %s), Start: %s, End: %s",
-		identities[len(identities)-1].EphId.Int64(),
-		identities[len(identities)-1].Source,
-		identities[len(identities)-1].StartValid,
-		identities[len(identities)-1].EndValid)
-
-	return identities, identities[len(identities)-1].End
+	jww.INFO.Printf("Number of identities generated: %d", len(protoIds))
+	return lastIdentityEnd
 }
 
+// save persistent TrackedID to storage
 func (t *manager) save() {
 	t.mux.Lock()
 	defer t.mux.Unlock()
@@ -397,6 +395,7 @@ func (t *manager) save() {
 	}
 }
 
+// load persistent IDs from storage
 func (t *manager) load() error {
 	t.mux.Lock()
 	defer t.mux.Unlock()

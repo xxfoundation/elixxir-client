@@ -128,7 +128,7 @@ func (c *critical) evaluate(stop *stoppable.Single) {
 		go func(mt catalog.MessageType, recipient *id.ID,
 			payload []byte, params Params) {
 
-			params.CMIX.Stop = stop
+			params.Stop = stop
 			jww.INFO.Printf("Resending critical raw message to %s "+
 				"(msgDigest: %s)", recipient,
 				format.DigestContents(payload))

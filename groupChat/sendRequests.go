@@ -8,6 +8,8 @@
 package groupChat
 
 import (
+	"strings"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -16,7 +18,6 @@ import (
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
-	"strings"
 )
 
 // Error messages.
@@ -116,7 +117,7 @@ func (m Manager) sendRequests(g gs.Group) ([]id.Round, RequestStatus, error) {
 func (m Manager) sendRequest(memberID *id.ID, request []byte) ([]id.Round, error) {
 	p := e2e.GetDefaultParams()
 	p.LastServiceTag = catalog.GroupRq
-	p.CMIX.DebugTag = "group.Request"
+	p.DebugTag = "group.Request"
 
 	rounds, _, _, err := m.e2e.SendE2E(catalog.GroupCreationRequest, memberID, request, p)
 	if err != nil {

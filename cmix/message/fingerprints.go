@@ -119,11 +119,13 @@ func (f *FingerprintsManager) DeleteClientFingerprints(clientID *id.ID) {
 }
 
 func RandomFingerprint(rng csprng.Source) format.Fingerprint {
-	fp := format.Fingerprint{}
-	fpBuf := make([]byte, len(fp[:]))
+	fpBuf := make([]byte, format.KeyFPLen)
 	if _, err := rng.Read(fpBuf); err != nil {
 		jww.FATAL.Panicf("Failed to generate fingerprint: %+v", err)
 	}
-	copy(fp[:], fpBuf)
-	return fp
+
+	// The first bit must be 0.
+	fpBuf[0] &= 0x7F
+
+	return format.NewFingerprint(fpBuf)
 }

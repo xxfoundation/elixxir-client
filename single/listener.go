@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	cmixMsg "gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
@@ -16,8 +15,10 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+const listenerProcessorName = "listenerProcessorName"
+
 type Receiver interface {
-	Callback(*Request, receptionID.EphemeralIdentity, rounds.Round)
+	Callback(*Request, receptionID.EphemeralIdentity, []rounds.Round)
 }
 
 type Listener interface {
@@ -31,7 +32,7 @@ type listener struct {
 	tag       string
 	grp       *cyclic.Group
 	cb        Receiver
-	net       cmix.Client
+	net       CMix
 }
 
 // Listen allows a server to listen for single use requests. It will register a
@@ -39,7 +40,7 @@ type listener struct {
 // listener can be active for a tag-myID pair, and an error will be returned if
 // that is violated. When requests are received, they will be called on the
 // Receiver interface.
-func Listen(tag string, myId *id.ID, privKey *cyclic.Int, net cmix.Client,
+func Listen(tag string, myId *id.ID, privKey *cyclic.Int, net CMix,
 	e2eGrp *cyclic.Group, cb Receiver) Listener {
 
 	l := &listener{
@@ -64,7 +65,6 @@ func Listen(tag string, myId *id.ID, privKey *cyclic.Int, net cmix.Client,
 
 func (l *listener) Process(ecrMsg format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-
 	// Unmarshal the cMix message contents to a request message
 	requestMsg, err := message.UnmarshalRequest(ecrMsg.GetContents(),
 		l.grp.GetP().ByteLen())
@@ -77,7 +77,7 @@ func (l *listener) Process(ecrMsg format.Message,
 	// Generate DH key and symmetric key
 	senderPubkey := requestMsg.GetPubKey(l.grp)
 	dhKey := l.grp.Exp(senderPubkey, l.myPrivKey, l.grp.NewInt(1))
-	key := singleUse.NewTransmitKey(dhKey)
+	key := singleUse.NewRequestKey(dhKey)
 
 	// Verify the MAC
 	if !singleUse.VerifyMAC(key, requestMsg.GetPayload(), ecrMsg.GetMac()) {
@@ -89,7 +89,6 @@ func (l *listener) Process(ecrMsg format.Message,
 	// Decrypt the request message payload
 	fp := ecrMsg.GetKeyFP()
 	decryptedPayload := cAuth.Crypt(key, fp[:24], requestMsg.GetPayload())
-
 	// Unmarshal payload
 	payload, err := message.UnmarshalRequestPayload(decryptedPayload)
 	if err != nil {
@@ -98,20 +97,61 @@ func (l *listener) Process(ecrMsg format.Message,
 		return
 	}
 
-	used := uint32(0)
+	cbFunc := func(payloadContents []byte, rounds []rounds.Round) {
+		used := uint32(0)
 
-	r := Request{
-		sender:         payload.GetRecipientID(requestMsg.GetPubKey(l.grp)),
-		senderPubKey:   senderPubkey,
-		dhKey:          dhKey,
-		tag:            l.tag,
-		maxParts:       0,
-		used:           &used,
-		requestPayload: payload.GetContents(),
-		net:            l.net,
+		r := Request{
+			sender:         payload.GetRecipientID(requestMsg.GetPubKey(l.grp)),
+			senderPubKey:   senderPubkey,
+			dhKey:          dhKey,
+			tag:            l.tag,
+			maxParts:       payload.GetMaxResponseParts(),
+			used:           &used,
+			requestPayload: payloadContents,
+			net:            l.net,
+		}
+
+		go l.cb.Callback(&r, receptionID, rounds)
 	}
 
-	go l.cb.Callback(&r, receptionID, round)
+	if numParts := payload.GetNumParts(); numParts > 1 {
+		c := message.NewCollator(numParts)
+		_, _, err = c.Collate(payload)
+		if err != nil {
+
+			return
+		}
+		cyphers := makeCyphers(dhKey, numParts,
+			singleUse.NewRequestPartKey, singleUse.NewRequestPartFingerprint)
+		ridCollector := newRoundIdCollector(int(numParts))
+		for i, cy := range cyphers {
+			key = singleUse.NewRequestPartKey(dhKey, uint64(i+1))
+			fp = singleUse.NewRequestPartFingerprint(dhKey, uint64(i+1))
+			p := &requestPartProcessor{
+				myId:     l.myId,
+				tag:      l.tag,
+				cb:       cbFunc,
+				c:        c,
+				cy:       cy,
+				roundIDs: ridCollector,
+			}
+			err = l.net.AddFingerprint(l.myId, fp, p)
+			if err != nil {
+				jww.ERROR.Printf("Failed to add fingerprint for request part "+
+					"%d of %d (%s): %+v", i, numParts, l.tag, err)
+				return
+			}
+		}
+
+		l.net.CheckInProgressMessages()
+	} else {
+		cbFunc(payload.GetContents(), []rounds.Round{round})
+	}
+}
+
+func (l *listener) String() string {
+	return listenerProcessorName
+
 }
 
 func (l *listener) Stop() {

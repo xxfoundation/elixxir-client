@@ -62,7 +62,7 @@ var singleCmd = &cobra.Command{
 			recvCh: make(chan struct {
 				request *single.Request
 				ephID   receptionID.EphemeralIdentity
-				round   rounds.Round
+				round   []rounds.Round
 			}),
 		}
 
@@ -142,7 +142,7 @@ type Response struct {
 }
 
 func (r *Response) Callback(payload []byte, receptionID receptionID.EphemeralIdentity,
-	round rounds.Round, err error) {
+	round []rounds.Round, err error) {
 	jww.DEBUG.Printf("Payload: %v, receptionID: %v, round: %v, err: %v",
 		payload, receptionID, round, err)
 	r.callbackChan <- struct {
@@ -243,16 +243,16 @@ type Receiver struct {
 	recvCh chan struct {
 		request *single.Request
 		ephID   receptionID.EphemeralIdentity
-		round   rounds.Round
+		round   []rounds.Round
 	}
 }
 
 func (r *Receiver) Callback(req *single.Request, ephID receptionID.EphemeralIdentity,
-	round rounds.Round) {
+	round []rounds.Round) {
 	r.recvCh <- struct {
 		request *single.Request
 		ephID   receptionID.EphemeralIdentity
-		round   rounds.Round
+		round   []rounds.Round
 	}{
 		request: req,
 		ephID:   ephID,

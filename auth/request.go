@@ -54,7 +54,8 @@ func (s *state) Request(partner contact.Contact, myfacts fact.FactList) (id.Roun
 }
 
 // request internal helper
-func (s *state) request(partner contact.Contact, myfacts fact.FactList, reset bool) (id.Round, error) {
+func (s *state) request(partner contact.Contact, myfacts fact.FactList,
+	reset bool) (id.Round, error) {
 
 	jww.INFO.Printf("request(...) called")
 
@@ -72,17 +73,18 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList, reset bo
 		partner.DhPubKey, s.e2e.GetGroup())
 	confirmFp := cAuth.MakeOwnershipProofFP(ownership)
 
-	// Add the sent request and use the return to build the send. This will
-	// replace the send with an old one if one was in process, wasting the key
-	// generation above. This is considered a reasonable loss due to the increase
-	// in code simplicity of this approach
+	// Add the sent request and use the return to build the
+	// send. This will replace the send with an old one if one was
+	// in process, wasting the key generation above. This is
+	// considered a reasonable loss due to the increase in code
+	// simplicity of this approach
 	sr, err := s.store.AddSent(partner.ID, partner.DhPubKey, dhPriv, dhPub,
 		sidhPriv, sidhPub, confirmFp, reset)
 	if err != nil {
 		if sr == nil {
 			return 0, err
 		} else {
-			jww.INFO.Printf("Resending request to %s from %s because "+
+			jww.INFO.Printf("Resending request to %s from %s as "+
 				"one was already sent", partner.ID, me)
 		}
 	}
@@ -96,7 +98,7 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList, reset bo
 	msgPayload := []byte(myfacts.Stringify() + terminator)
 
 	// Create the request packet.
-	request, mac, err := createRequestAuth(partner.ID, msgPayload, ownership,
+	request, mac, err := createRequestAuth(me, msgPayload, ownership,
 		dhPriv, dhPub, partner.DhPubKey, sidhPub,
 		s.e2e.GetGroup(), s.net.GetMaxMessageLength())
 	if err != nil {
@@ -107,26 +109,8 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList, reset bo
 	jww.TRACE.Printf("Request ECRPAYLOAD: %v", request.GetEcrPayload())
 	jww.TRACE.Printf("Request MAC: %v", mac)
 
-	jww.INFO.Printf("Requesting Auth with %s, msgDigest: %s",
-		partner.ID, format.DigestContents(contents))
-
-	//register the confirm fingerprint to pick up confirm
-	err = s.net.AddFingerprint(me, confirmFp, &receivedConfirmService{
-		s:           s,
-		SentRequest: sr,
-	})
-	if err != nil {
-		return 0, errors.Errorf("cannot register fingerprint request "+
-			"to %s from %s, bailing request: %+v", partner.ID, me,
-			err)
-	}
-
-	//register service for notification on confirmation
-	s.net.AddService(me, message.Service{
-		Identifier: confirmFp[:],
-		Tag:        s.params.getConfirmTag(reset),
-		Metadata:   partner.ID[:],
-	}, nil)
+	jww.INFO.Printf("Requesting Auth with %s, msgDigest: %s, confirmFp: %s",
+		partner.ID, format.DigestContents(contents), confirmFp)
 
 	p := cmix.GetDefaultCMIXParams()
 	p.DebugTag = "auth.Request"

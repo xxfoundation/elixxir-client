@@ -15,22 +15,27 @@ type sentRequestHandler struct {
 // Add Adds the service and fingerprints to cmix for the given sent request
 func (srh *sentRequestHandler) Add(sr *store.SentRequest) {
 	fp := sr.GetFingerprint()
+	partner := sr.GetPartner()
 	rc := &receivedConfirmService{
 		s:           srh.s,
 		SentRequest: sr,
 		notificationsService: message.Service{
 			Identifier: fp[:],
 			Tag:        srh.s.params.getConfirmTag(sr.IsReset()),
-			Metadata:   nil,
+			Metadata:   partner[:],
 		},
 	}
 
 	//add the notifications service
 	srh.s.net.AddService(srh.s.e2e.GetReceptionID(), rc.notificationsService, nil)
 
+	srFp := sr.GetFingerprint()
+	receptionID := srh.s.e2e.GetReceptionID()
+	jww.INFO.Printf("Adding SentRequest FP: %s, receptionID: %s",
+		srFp, receptionID)
+
 	//add the fingerprint
-	if err := srh.s.net.AddFingerprint(srh.s.e2e.GetReceptionID(),
-		sr.GetFingerprint(), rc); err != nil {
+	if err := srh.s.net.AddFingerprint(receptionID, srFp, rc); err != nil {
 		jww.FATAL.Panicf("failed to add a fingerprint for a auth confirm, " +
 			"this should never happen under the birthday paradox assumption of " +
 			"255 bits (the size fo the fingerprint).")
@@ -42,11 +47,12 @@ func (srh *sentRequestHandler) Add(sr *store.SentRequest) {
 // request
 func (srh *sentRequestHandler) Delete(sr *store.SentRequest) {
 	fp := sr.GetFingerprint()
+	partner := sr.GetPartner()
 
 	notificationsService := message.Service{
 		Identifier: fp[:],
 		Tag:        srh.s.params.getConfirmTag(sr.IsReset()),
-		Metadata:   nil,
+		Metadata:   partner[:],
 	}
 
 	//delete the notifications service

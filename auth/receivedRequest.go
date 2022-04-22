@@ -54,9 +54,11 @@ func (rrs *receivedRequestService) Process(message format.Message,
 		return
 	}
 
+	jww.INFO.Printf("partnerPubKeyBytes: %v", partnerPubKey.Bytes())
+
 	jww.TRACE.Printf("processing requests: \n\t MYPUBKEY: %s "+
 		"\n\t PARTNERPUBKEY: %s \n\t ECRPAYLOAD: %s \n\t MAC: %s",
-		state.e2e.GetHistoricalDHPubkey().Text(64),
+		state.e2e.GetHistoricalDHPubkey().Text(16),
 		partnerPubKey.TextVerbose(16, 0),
 		base64.StdEncoding.EncodeToString(baseFmt.data),
 		base64.StdEncoding.EncodeToString(message.GetMac()))

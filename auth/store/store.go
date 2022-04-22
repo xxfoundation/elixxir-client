@@ -9,6 +9,8 @@ package store
 
 import (
 	"encoding/json"
+	"sync"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -19,7 +21,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 )
 
 const NoRequest = "Request Not Found"
@@ -173,22 +174,25 @@ func newStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (
 }
 
 func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
-	myPubKey *cyclic.Int, sidHPrivA *sidh.PrivateKey, sidHPubA *sidh.PublicKey,
-	fp format.Fingerprint, reset bool) (*SentRequest, error) {
+	myPubKey *cyclic.Int, sidHPrivA *sidh.PrivateKey,
+	sidHPubA *sidh.PublicKey, fp format.Fingerprint,
+	reset bool) (*SentRequest, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	if sentRq, ok := s.sentByID[*partner]; ok {
-		return sentRq, errors.Errorf("Cannot make new sentRequest for partner "+
-			"%s, a sent request already exists", partner)
+		return sentRq, errors.Errorf("Cannot make new sentRequest "+
+			"for partner %s, a sent request already exists",
+			partner)
 	}
 	if _, ok := s.receivedByID[*partner]; ok {
-		return nil, errors.Errorf("Cannot make new sentRequest for partner "+
-			"%s, a received reqyest already exists", partner)
+		return nil, errors.Errorf("Cannot make new sentRequest for "+
+			" partner %s, a received reqyest already exists",
+			partner)
 	}
 
-	sr, err := newSentRequest(s.kv, partner, partnerHistoricalPubKey, myPrivKey,
-		myPubKey, sidHPrivA, sidHPubA, fp, reset)
+	sr, err := newSentRequest(s.kv, partner, partnerHistoricalPubKey,
+		myPrivKey, myPubKey, sidHPrivA, sidHPubA, fp, reset)
 
 	if err != nil {
 		return nil, err
@@ -197,8 +201,8 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 	s.sentByID[*sr.GetPartner()] = sr
 	s.srh.Add(sr)
 	if err = s.save(); err != nil {
-		jww.FATAL.Panicf("Failed to save Sent Request Map after adding "+
-			"partner %s", partner)
+		jww.FATAL.Panicf("Failed to save Sent Request Map after "+
+			"adding partner %s", partner)
 	}
 
 	return sr, nil

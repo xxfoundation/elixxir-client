@@ -147,7 +147,7 @@ func (s *state) confirm(partner contact.Contact, serviceTag string) (
 		sentRound, err = sendAuthConfirm(s.net, partner.ID, fp,
 			baseFmt.Marshal(), mac, s.event, serviceTag)
 
-		return nil
+		return err
 	})
 	return sentRound, err
 }

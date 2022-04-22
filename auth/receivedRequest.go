@@ -19,7 +19,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-const dummyerr = "dummy error so we dont delete the request"
+const dummyErr = "dummy error so we dont delete the request"
 
 type receivedRequestService struct {
 	s     *state
@@ -28,7 +28,6 @@ type receivedRequestService struct {
 
 func (rrs *receivedRequestService) Process(message format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-
 	state := rrs.s
 
 	// check if the timestamp is before the id was created and therefore
@@ -202,7 +201,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 				// return an error so the store layer does not delete the request
 				// because the other side will confirm it
 				bail = true
-				return errors.Errorf(dummyerr)
+				return errors.Errorf(dummyErr)
 			}
 
 			jww.INFO.Printf("Received AuthRequest from %s to %s,"+

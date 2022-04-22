@@ -39,7 +39,7 @@ const e2eRekeyParamsKey = "e2eRekeyParams"
 const e2eRekeyParamsVer = 0
 
 // Init Creates stores. After calling, use load
-// Passes a the ID public key which is used for the relationship
+// Passes the ID public key which is used for the relationship
 // uses the passed ID to modify the kv prefix for a unique storage path
 func Init(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group, rekeyParams rekey.Params) error {

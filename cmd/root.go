@@ -162,6 +162,8 @@ EnretBzQkeKeBwoB2u6NTiOmUjk=
 	testNetCert = ``
 )
 
+var authCbs *authCallbacks
+
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
 // happen once to the rootCmd.
@@ -287,6 +289,15 @@ var rootCmd = &cobra.Command{
 				recipientContact)
 			authConfirmed = false
 		}
+
+		go func() {
+			for {
+				authID := <-authCbs.confCh
+				if authID.Cmp(recipientID) {
+					authConfirmed = true
+				}
+			}
+		}()
 
 		if !unsafe && !authConfirmed {
 			jww.INFO.Printf("Waiting for authentication channel"+
@@ -597,7 +608,7 @@ func initClient() *api.Client {
 	params := initParams()
 
 	// load the client
-	authCbs := makeAuthCallbacks(nil,
+	authCbs = makeAuthCallbacks(nil,
 		viper.GetBool("unsafe-channel-creation"))
 	client, err := api.Login(storeDir, pass, authCbs, params)
 	authCbs.client = client

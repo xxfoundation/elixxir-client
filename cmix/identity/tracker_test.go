@@ -36,7 +36,7 @@ func TestManager_processIdentities_expired(t *testing.T) {
 	// Add some expired test IDs
 	for i := uint64(0); i < 10; i++ {
 		testId := id.NewIdFromUInt(i, id.User, t)
-		validUntil := time.Now()
+		validUntil := netTime.Now()
 		m.tracked = append(m.tracked, TrackedID{
 			NextGeneration: netTime.Now().Add(-time.Second),
 			LastGeneration: time.Time{},
@@ -75,7 +75,7 @@ func TestManager_processIdentities(t *testing.T) {
 
 	// Add some expired test IDs
 	testId := id.NewIdFromUInt(0, id.User, t)
-	validUntil := time.Now().Add(time.Minute)
+	validUntil := netTime.Now().Add(time.Minute)
 	m.tracked = append(m.tracked, TrackedID{
 		NextGeneration: netTime.Now(),
 		LastGeneration: time.Time{},

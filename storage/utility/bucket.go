@@ -42,7 +42,7 @@ func NewStoredBucket(capacity, leaked uint32, leakDuration time.Duration,
 		kv: kv.Prefix(bucketStorePrefix),
 	}
 
-	bs.save(0, time.Now().UnixNano())
+	bs.save(0, netTime.Now().UnixNano())
 
 	return rateLimiting.CreateBucket(capacity, leaked, leakDuration, bs.save)
 }

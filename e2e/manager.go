@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"gitlab.com/xx_network/primitives/netTime"
 	"strings"
 	"time"
 
@@ -55,7 +56,7 @@ func initE2E(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	}
 	err = kv.Set(e2eRekeyParamsKey, e2eRekeyParamsVer, &versioned.Object{
 		Version:   e2eRekeyParamsVer,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      rekeyParamsData,
 	})
 	if err != nil {
@@ -101,7 +102,7 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	// Store the rekey params to disk/memory
 	err = kv.Set(e2eRekeyParamsKey, e2eRekeyParamsVer, &versioned.Object{
 		Version:   e2eRekeyParamsVer,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      rekeyParamsData,
 	})
 

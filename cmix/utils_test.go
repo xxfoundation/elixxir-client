@@ -227,7 +227,7 @@ func newTestClient(t *testing.T) (*client, error) {
 	}
 	pubKey := pk.GetPublic()
 
-	now := time.Now()
+	now := netTime.Now()
 	timestamps := []uint64{
 		uint64(now.Add(-30 * time.Second).UnixNano()), //PENDING
 		uint64(now.Add(-25 * time.Second).UnixNano()), //PRECOMPUTING

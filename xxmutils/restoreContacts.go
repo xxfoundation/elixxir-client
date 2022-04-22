@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"strings"
 	"sync"
@@ -287,7 +288,7 @@ func (s stateStore) set(user *contact.Contact, state restoreState) error {
 	data = append(data, user.Marshal()...)
 	val := &versioned.Object{
 		Version:   0,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 	return s.apiStore.Set(key, val)

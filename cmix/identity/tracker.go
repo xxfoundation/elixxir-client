@@ -189,13 +189,18 @@ func (t *manager) track(stop *stoppable.Single) {
 
 		// Sleep until the last ID has expired
 		select {
-		case <-time.NewTimer(nextUpdate.Sub(nextUpdate)).C:
+		case <-time.After(nextUpdate.Sub(nextUpdate)):
 		case newIdentity := <-t.newIdentity:
+			jww.DEBUG.Printf("Receiving new identity %s :%+v",
+				newIdentity.Source, newIdentity)
+
 			// If the identity is old, then update its properties
 			isOld := false
 			for i := range t.tracked {
 				inQuestion := t.tracked[i]
 				if inQuestion.Source.Cmp(newIdentity.Source) {
+					jww.DEBUG.Printf(
+						"Updating old identity %s", newIdentity.Source)
 					inQuestion.Persistent = newIdentity.Persistent
 					inQuestion.ValidUntil = newIdentity.ValidUntil
 					isOld = true
@@ -203,6 +208,7 @@ func (t *manager) track(stop *stoppable.Single) {
 				}
 			}
 			if !isOld {
+				jww.DEBUG.Printf("Tracking new identity %s", newIdentity.Source)
 				// Otherwise, add it to the list and run
 				t.tracked = append(t.tracked, newIdentity)
 			}

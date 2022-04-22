@@ -9,9 +9,9 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"testing"
-	"time"
 )
 
 type mockSentRequestHandler struct{}
@@ -75,7 +75,7 @@ func makeTestRound(t *testing.T) rounds.Round {
 			State:                      2,
 			BatchSize:                  5,
 			Topology:                   [][]byte{[]byte("test"), []byte("test")},
-			Timestamps:                 []uint64{uint64(time.Now().UnixNano()), uint64(time.Now().UnixNano())},
+			Timestamps:                 []uint64{uint64(netTime.Now().UnixNano()), uint64(netTime.Now().UnixNano())},
 			Errors:                     nil,
 			ClientErrors:               nil,
 			ResourceQueueTimeoutMillis: 0,

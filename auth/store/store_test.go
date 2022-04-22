@@ -25,6 +25,7 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"io"
 	"math/rand"
 	"reflect"
@@ -923,7 +924,7 @@ func makeTestRound(t *testing.T) rounds.Round {
 			State:                      2,
 			BatchSize:                  5,
 			Topology:                   [][]byte{[]byte("one"), []byte("two")},
-			Timestamps:                 []uint64{uint64(time.Now().UnixNano()), uint64(time.Now().UnixNano())},
+			Timestamps:                 []uint64{uint64(netTime.Now().UnixNano()), uint64(netTime.Now().UnixNano())},
 			Errors:                     nil,
 			ClientErrors:               nil,
 			ResourceQueueTimeoutMillis: 0,

@@ -19,6 +19,6 @@ type Processor interface {
 	Process(message format.Message, receptionID receptionID.EphemeralIdentity,
 		round rounds.Round)
 
-	// Implement the stringer interface String() string for debugging
+	// Stringer interface for debugging
 	fmt.Stringer
 }

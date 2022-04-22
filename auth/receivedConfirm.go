@@ -36,9 +36,11 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 		return
 	}
 
-	jww.TRACE.Printf("processing confirm: \n\t MYPUBKEY: %s "+
-		"\n\t PARTNERPUBKEY: %s \n\t ECRPAYLOAD: %s \n\t MAC: %s",
+	jww.TRACE.Printf("processing confirm: \n\t MYHISTORICALPUBKEY: %s\n\t"+
+		"MYPUBKEY: %s\n\t PARTNERPUBKEY: %s \n\t "+
+		"ECRPAYLOAD: %s \n\t MAC: %s",
 		state.e2e.GetHistoricalDHPubkey().TextVerbose(16, 0),
+		rcs.SentRequest.GetMyPubKey().TextVerbose(16, 0),
 		partnerPubKey.TextVerbose(16, 0),
 		base64.StdEncoding.EncodeToString(baseFmt.data),
 		base64.StdEncoding.EncodeToString(msg.GetMac()))
@@ -79,7 +81,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 
 	// check the ownership proof, this verifies the respondent owns the
 	// initial identity
-	if !cAuth.VerifyOwnershipProof(state.e2e.GetHistoricalDHPrivkey(),
+	if !cAuth.VerifyOwnershipProof(rcs.SentRequest.GetMyPrivKey(),
 		rcs.GetPartnerHistoricalPubKey(),
 		state.e2e.GetGroup(), ecrFmt.GetOwnership()) {
 		jww.WARN.Printf("Failed authenticate identity for auth "+

@@ -65,7 +65,7 @@ func (f *FingerprintsManager) pop(clientID *id.ID,
 // identity in the session
 func (f *FingerprintsManager) AddFingerprint(clientID *id.ID,
 	fingerprint format.Fingerprint, mp Processor) error {
-	jww.INFO.Printf("AddFingerprint: %s", fingerprint)
+	jww.TRACE.Printf("AddFingerprint: %s", fingerprint)
 	f.Lock()
 	defer f.Unlock()
 

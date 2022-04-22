@@ -98,8 +98,8 @@ func (s *state) confirm(partner contact.Contact, serviceTag string) (
 		baseFmt.SetPubKey(dhPub)
 
 		jww.TRACE.Printf("SendConfirm PARTNERPUBKEY: %v",
-			partner.DhPubKey.Bytes())
-		jww.TRACE.Printf("SendConfirm MYPUBKEY: %v", dhPub.Bytes())
+			partner.DhPubKey.TextVerbose(16, 0))
+		jww.TRACE.Printf("SendConfirm MYPUBKEY: %v", dhPub.TextVerbose(16, 0))
 
 		jww.TRACE.Printf("SendConfirm ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
 		jww.TRACE.Printf("SendConfirm MAC: %v", mac)

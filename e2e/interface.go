@@ -45,10 +45,10 @@ type Handler interface {
 	// The name is used for debug printing and not checked for
 	// uniqueness
 	//
-	// user: 0 for all, or any user ID to listen for messages from
-	// a particular user. 0 can be id.ZeroUser or id.ZeroID
-	// messageType: 0 for all, or any message type to listen for
-	// messages of that type. 0 can be Message.AnyType
+	// user: id.ZeroUser for all, or any user ID to listen for
+	// messages from a particular user.
+	// messageType: catalog.NoType for all, or any message type to
+	// listen for messages of that type.
 	// newListener: something implementing the Listener
 	// interface. Do not pass nil to this.
 	//
@@ -66,10 +66,10 @@ type Handler interface {
 	// name is used for debug printing and not checked for
 	// uniqueness
 	//
-	// user: 0 for all, or any user ID to listen for messages from
-	// a particular user. 0 can be id.ZeroUser or id.ZeroID
-	// messageType: 0 for all, or any message type to listen for
-	// messages of that type. 0 can be Message.AnyType
+	// user: id.ZeroUser for all, or any user ID to listen for
+	// messages from a particular user.
+	// messageType: catalog.NoType for all, or any message type to
+	// listen for messages of that type.
 	// newListener: a function implementing the ListenerFunc
 	// function type.  Do not pass nil to this.
 	//
@@ -115,7 +115,6 @@ type Handler interface {
 		receiveParams session.Params) (partner.Manager, error)
 
 	// GetPartner returns the partner per its ID, if it exists
-	// myID is your ID in the relationship
 	GetPartner(partnerID *id.ID) (partner.Manager, error)
 
 	// DeletePartner removes the associated contact from the E2E store
@@ -133,8 +132,8 @@ type Handler interface {
 	// be sent to using the tag fields in the Params Object
 	// Passing nil for the processor allows you to create a
 	// service which is never called but will be visible by
-	// notifications Processes added this way are generally not
-	// end ot end encrypted messages themselves, but other
+	// notifications. Processes added this way are generally not
+	// end-to-end encrypted messages themselves, but other
 	// protocols which piggyback on e2e relationships to start
 	// communication
 	AddService(tag string, processor message.Processor) error

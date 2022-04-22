@@ -36,13 +36,6 @@ import (
 // If the request must be resent, use ReplayConfirm
 func (s *state) Confirm(partner contact.Contact) (
 	id.Round, error) {
-
-	// check that messages can be sent over the network
-	if !s.net.IsHealthy() {
-		return 0, errors.New("Cannot confirm authenticated message " +
-			"when the network is not healthy")
-	}
-
 	return s.confirm(partner, s.params.ConfirmTag)
 }
 
@@ -133,7 +126,7 @@ func (s *state) confirm(partner contact.Contact, serviceTag string) (
 			partner.ID, s.e2e.GetReceptionID(),
 			format.DigestContents(baseFmt.Marshal()))
 
-		//service used for noticiation only
+		//service used for notification only
 
 		/*send message*/
 		if err = s.store.StoreConfirmation(partner.ID, baseFmt.Marshal(),

@@ -3,6 +3,7 @@ package cmix
 import (
 	xxid "gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"strings"
 	"testing"
 	"time"
@@ -14,11 +15,11 @@ func TestPollTracker(t *testing.T) {
 
 	// Init ID and first EID
 	id := xxid.NewIdFromString("zezima", xxid.User, t)
-	eid, _, _, err := ephemeral.GetId(id, 16, time.Now().UnixNano())
+	eid, _, _, err := ephemeral.GetId(id, 16, netTime.Now().UnixNano())
 	if err != nil {
 		t.Errorf("Failed to create eid for ID %s", id.String())
 	}
-	eid2, _, _, err := ephemeral.GetId(id, 16, time.Now().Add(time.Hour*24).UnixNano())
+	eid2, _, _, err := ephemeral.GetId(id, 16, netTime.Now().Add(time.Hour*24).UnixNano())
 	if err != nil {
 		t.Errorf("Failed to create second eid for ID %s", id.String())
 	}

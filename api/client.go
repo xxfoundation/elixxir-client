@@ -9,6 +9,7 @@ package api
 
 import (
 	"encoding/json"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"time"
 
@@ -94,10 +95,10 @@ func NewClient(ndfJSON, storageDir string, password []byte,
 	}
 
 	cmixGrp, e2eGrp := decodeGroups(def)
-	start := time.Now()
+	start := netTime.Now()
 	protoUser := createNewUser(rngStreamGen, cmixGrp, e2eGrp)
 	jww.DEBUG.Printf("PortableUserInfo generation took: %s",
-		time.Now().Sub(start))
+		netTime.Now().Sub(start))
 
 	_, err = checkVersionAndSetupStorage(def, storageDir, password,
 		protoUser, cmixGrp, e2eGrp, rngStreamGen,

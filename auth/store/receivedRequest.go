@@ -2,6 +2,8 @@ package store
 
 import (
 	"encoding/base64"
+	"sync"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -10,7 +12,6 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
-	"sync"
 )
 
 type ReceivedRequest struct {
@@ -61,15 +62,14 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 	*ReceivedRequest, error) {
 
 	c, err := util.LoadContact(kv, partner)
-
-	//loading with the new prefix path failed, try with the new
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Load "+
 			"Received Auth Request Contact with %s",
 			partner)
 	}
 
-	key, err := util.LoadSIDHPublicKey(kv, util.MakeSIDHPublicKeyKey(partner))
+	key, err := util.LoadSIDHPublicKey(kv,
+		util.MakeSIDHPublicKeyKey(partner))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Load "+
 			"Received Auth Request Partner SIDHkey with %s",

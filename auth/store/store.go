@@ -77,7 +77,8 @@ func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler)
 			"unmarshal SentRequestMap")
 	}
 
-	jww.TRACE.Printf("%d found when loading AuthStore", len(requestList))
+	jww.TRACE.Printf("%d found when loading AuthStore, prefix %s",
+		len(requestList), kv.GetPrefix())
 
 	for _, rDisk := range requestList {
 
@@ -212,7 +213,8 @@ func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey,
 	round rounds.Round) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	jww.DEBUG.Printf("AddReceived new contact: %s", c.ID)
+	jww.DEBUG.Printf("AddReceived new contact: %s, prefix: %s",
+		c.ID, s.kv.GetPrefix())
 
 	if _, ok := s.receivedByID[*c.ID]; ok {
 		return errors.Errorf("Cannot add contact for partner "+
@@ -270,6 +272,7 @@ func (s *Store) HandleReceivedRequest(partner *id.ID, handler func(*ReceivedRequ
 	}
 
 	delete(s.receivedByID, *partner)
+	s.save()
 	rr.delete()
 
 	return nil
@@ -312,6 +315,7 @@ func (s *Store) HandleSentRequest(partner *id.ID, handler func(request *SentRequ
 	}
 
 	delete(s.receivedByID, *partner)
+	s.save()
 	sr.delete()
 
 	return nil

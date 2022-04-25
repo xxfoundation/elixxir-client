@@ -181,3 +181,7 @@ func (mock *MockMsgProcessor) Process(
 func (mock *MockMsgProcessor) String() string {
 	return ""
 }
+
+func (mock *MockMsgProcessor) String() string {
+	return ""
+}

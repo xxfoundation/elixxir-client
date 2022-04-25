@@ -14,6 +14,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"strconv"
 	"sync"
+	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/stoppable"
@@ -103,7 +104,8 @@ func (h *handler) StartProcesses() stoppable.Stoppable {
 	return multi
 }
 
-//
+// handleMessages is a long-running thread that receives each Bundle from messageReception
+// and processes the messages in the Bundle
 func (h *handler) handleMessages(stop *stoppable.Single) {
 	for {
 		select {
@@ -123,26 +125,7 @@ func (h *handler) handleMessages(stop *stoppable.Single) {
 						count, ts := h.inProcess.Add(
 							msg, bundle.RoundInfo.Raw, bundle.Identity)
 						wg.Done()
-						success := h.handleMessage(msg, bundle)
-						if success {
-							h.inProcess.Remove(
-								msg, bundle.RoundInfo.Raw, bundle.Identity)
-						} else {
-							// Fail the message if any part of the decryption
-							// fails, unless it is the last attempts and has
-							// been in the buffer long enough, in which case
-							// remove it
-							if count == h.param.MaxChecksInProcessMessage &&
-								netTime.Since(ts) > h.param.InProcessMessageWait {
-								h.inProcess.Remove(
-									msg, bundle.RoundInfo.Raw, bundle.Identity)
-							} else {
-								h.inProcess.Failed(
-									msg, bundle.RoundInfo.Raw, bundle.Identity)
-							}
-
-						}
-
+						h.handleMessage(count, ts, msg, bundle)
 					}()
 				}
 				wg.Wait()
@@ -153,7 +136,32 @@ func (h *handler) handleMessages(stop *stoppable.Single) {
 
 }
 
-func (h *handler) handleMessage(ecrMsg format.Message, bundle Bundle) bool {
+// handleMessage processes an individual message in the Bundle
+// and handles the inProcess logic
+func (h *handler) handleMessage(count uint, ts time.Time, msg format.Message, bundle Bundle) {
+	success := h.handleMessageHelper(msg, bundle)
+	if success {
+		h.inProcess.Remove(
+			msg, bundle.RoundInfo.Raw, bundle.Identity)
+	} else {
+		// Fail the message if any part of the decryption
+		// fails, unless it is the last attempts and has
+		// been in the buffer long enough, in which case
+		// remove it
+		if count == h.param.MaxChecksInProcessMessage &&
+			netTime.Since(ts) > h.param.InProcessMessageWait {
+			h.inProcess.Remove(
+				msg, bundle.RoundInfo.Raw, bundle.Identity)
+		} else {
+			h.inProcess.Failed(
+				msg, bundle.RoundInfo.Raw, bundle.Identity)
+		}
+	}
+}
+
+// handleMessageHelper determines if any services or fingerprints match the given message
+// and runs the processor, returning whether a processor was found
+func (h *handler) handleMessageHelper(ecrMsg format.Message, bundle Bundle) bool {
 	fingerprint := ecrMsg.GetKeyFP()
 	identity := bundle.Identity
 	round := bundle.RoundInfo

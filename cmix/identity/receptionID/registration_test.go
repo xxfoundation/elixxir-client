@@ -37,7 +37,7 @@ func Test_newRegistration_Ephemeral(t *testing.T) {
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 	idu, _ := generateFakeIdentity(rng, 15, timestamp)
 	id := idu.Identity
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2
@@ -61,7 +61,7 @@ func Test_newRegistration_Persistent(t *testing.T) {
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 	idu, _ := generateFakeIdentity(rng, 15, timestamp)
 	id := idu.Identity
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2
@@ -85,7 +85,7 @@ func Test_loadRegistration(t *testing.T) {
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 	idu, _ := generateFakeIdentity(rng, 15, timestamp)
 	id := idu.Identity
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2
@@ -111,7 +111,7 @@ func Test_registration_Delete(t *testing.T) {
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 	idu, _ := generateFakeIdentity(rng, 15, timestamp)
 	id := idu.Identity
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2

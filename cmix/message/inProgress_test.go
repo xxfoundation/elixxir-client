@@ -22,7 +22,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestHandler_CheckInProgressMessages(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	h := NewHandler(Params{
 		MessageReceptionBuffLen:        20,
 		MessageReceptionWorkerPoolSize: 20,

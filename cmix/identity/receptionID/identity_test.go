@@ -12,7 +12,7 @@ import (
 )
 
 func TestIdentity_store_loadIdentity(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	r := Identity{
 		EphemeralIdentity: EphemeralIdentity{
 			EphId:  ephemeral.Id{},
@@ -43,7 +43,7 @@ func TestIdentity_store_loadIdentity(t *testing.T) {
 }
 
 func TestIdentity_delete(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	r := Identity{
 		EphemeralIdentity: EphemeralIdentity{
 			EphId:  ephemeral.Id{},

@@ -18,9 +18,11 @@ import (
 	"time"
 )
 
+var initSize uint8 = 8
+
 func TestManager_processIdentities_expired(t *testing.T) {
 	// Initialization
-	addrSpace := address.NewAddressSpace()
+	addrSpace := address.NewAddressSpace(initSize)
 	addrSpace.UpdateAddressSpace(18)
 	session := storage.InitTestingSession(t)
 	m := &manager{
@@ -60,7 +62,7 @@ func TestManager_processIdentities_expired(t *testing.T) {
 func TestManager_processIdentities(t *testing.T) {
 	jww.SetStdoutThreshold(jww.LevelDebug)
 	// Initialization
-	addrSpace := address.NewAddressSpace()
+	addrSpace := address.NewAddressSpace(initSize)
 	addrSpace.UpdateAddressSpace(18)
 	session := storage.InitTestingSession(t)
 	m := &manager{

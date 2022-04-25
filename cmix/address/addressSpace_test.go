@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+var initSize uint8 = 8
+
 // Unit test of NewAddressSpace.
 func TestNewAddressSpace(t *testing.T) {
 	expected := &space{
@@ -16,7 +18,7 @@ func TestNewAddressSpace(t *testing.T) {
 		cond:      sync.NewCond(&sync.Mutex{}),
 	}
 
-	as := NewAddressSpace()
+	as := NewAddressSpace(initSize)
 
 	if !reflect.DeepEqual(expected, as) {
 		t.Errorf("NewAddressSpace failed to return the expected Space."+
@@ -27,7 +29,7 @@ func TestNewAddressSpace(t *testing.T) {
 // Test that Space.GetAddressSpace blocks when the address space size has not
 // been set and that it does not block when it has been set.
 func TestSpace_GetAddressSpace(t *testing.T) {
-	as := NewAddressSpace()
+	as := NewAddressSpace(8)
 	expectedSize := uint8(42)
 
 	// Call get and error if it does not block
@@ -60,7 +62,7 @@ func TestSpace_GetAddressSpace(t *testing.T) {
 
 // Test that Space.GetAddressSpace blocks until the condition broadcasts.
 func TestSpace_GetAddressSpace_WaitBroadcast(t *testing.T) {
-	as := NewAddressSpace()
+	as := NewAddressSpace(initSize)
 
 	wait := make(chan uint8)
 	go func() { wait <- as.GetAddressSpace() }()
@@ -84,7 +86,7 @@ func TestSpace_GetAddressSpace_WaitBroadcast(t *testing.T) {
 
 // Unit test of Space.GetAddressSpaceWithoutWait.
 func TestSpace_GetAddressSpaceWithoutWait(t *testing.T) {
-	as := NewAddressSpace()
+	as := NewAddressSpace(initSize)
 
 	size := as.GetAddressSpaceWithoutWait()
 	if size != initSize {
@@ -95,7 +97,7 @@ func TestSpace_GetAddressSpaceWithoutWait(t *testing.T) {
 
 // Tests that Space.UpdateAddressSpace only updates the size when it is larger.
 func TestSpace_UpdateAddressSpace(t *testing.T) {
-	as := NewAddressSpace()
+	as := NewAddressSpace(initSize)
 	expectedSize := uint8(42)
 
 	// Attempt to Update to larger size
@@ -116,7 +118,7 @@ func TestSpace_UpdateAddressSpace(t *testing.T) {
 // Tests that Space.UpdateAddressSpace sends the new size to all registered
 // channels.
 func TestSpace_UpdateAddressSpace_GetAndChannels(t *testing.T) {
-	as := NewAddressSpace()
+	as := NewAddressSpace(initSize)
 	var wg sync.WaitGroup
 	expectedSize := uint8(42)
 
@@ -230,7 +232,7 @@ func TestSpace_UpdateAddressSpace_GetAndChannels(t *testing.T) {
 // Tests that a channel created by Space.RegisterAddressSpaceNotification
 // receives the expected size when triggered.
 func TestSpace_RegisterAddressSpaceNotification(t *testing.T) {
-	as := NewAddressSpace()
+	as := NewAddressSpace(initSize)
 	expectedSize := uint8(42)
 
 	// Register channel
@@ -264,7 +266,7 @@ func TestSpace_RegisterAddressSpaceNotification(t *testing.T) {
 // Tests that when Space.UnregisterAddressSpaceNotification unregisters a
 // channel and that it no longer can be triggered from the map.
 func TestSpace_UnregisterAddressSpaceNotification(t *testing.T) {
-	as := NewAddressSpace()
+	as := NewAddressSpace(initSize)
 	expectedSize := uint8(42)
 
 	// Register channel and then unregister it

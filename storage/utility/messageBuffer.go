@@ -230,7 +230,7 @@ func (mb *MessageBuffer) Add(m interface{}) interface{} {
 	// Save buffer
 	err = mb.save()
 	if err != nil {
-		jww.FATAL.Panicf("Error whilse saving buffer: %v", err)
+		jww.FATAL.Panicf("Error while saving buffer: %v", err)
 	}
 
 	return m

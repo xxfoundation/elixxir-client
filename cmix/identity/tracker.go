@@ -142,7 +142,7 @@ func (t manager) StartProcesses() stoppable.Stoppable {
 func (t *manager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
 	t.newIdentity <- TrackedID{
 		NextGeneration: netTime.Now().Add(-time.Second),
-		LastGeneration: time.Time{},
+		LastGeneration: netTime.Now().Add(-time.Duration(ephemeral.Period)),
 		Source:         id,
 		ValidUntil:     validUntil,
 		Persistent:     persistent,

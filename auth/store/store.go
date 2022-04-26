@@ -316,7 +316,7 @@ func (s *Store) HandleSentRequest(partner *id.ID, handler func(request *SentRequ
 		return errors.WithMessage(handleErr, "Received error from handler")
 	}
 
-	delete(s.receivedByID, *partner)
+	delete(s.sentByID, *partner)
 	s.save()
 	sr.delete()
 

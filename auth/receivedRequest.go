@@ -197,7 +197,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 			if !cAuth.VerifyOwnershipProof(state.e2e.GetHistoricalDHPrivkey(),
 				partnerPubKey, state.e2e.GetGroup(), ownershipProof) {
 				jww.WARN.Printf("Invalid ownership proof from %s to %s "+
-					"received, discarding msdDigest: %s, fp: %s",
+					"received, discarding msgDigest: %s, fp: %s",
 					partnerID, receptionID.Source,
 					format.DigestContents(message.GetContents()),
 					base64.StdEncoding.EncodeToString(fp))

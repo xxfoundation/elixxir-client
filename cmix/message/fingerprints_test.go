@@ -9,8 +9,8 @@ package message
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
@@ -176,4 +176,12 @@ func (mock *MockMsgProcessor) MarkFingerprintUsed(_ format.Fingerprint) {
 func (mock *MockMsgProcessor) Process(
 	format.Message, receptionID.EphemeralIdentity, rounds.Round) {
 	return
+}
+
+func (mock *MockMsgProcessor) String() string {
+	return ""
+}
+
+func (mock *MockMsgProcessor) String() string {
+	return ""
 }

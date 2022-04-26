@@ -68,8 +68,7 @@ func NewServices() *ServicesManager {
 // These services are returned to the caller along with a true boolean.
 // If the map has been exhausted with no matches found, it returns nil and false.
 func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
-	ecrMsgContents []byte) ([]Processor,
-	bool) {
+	ecrMsgContents []byte) ([]Processor, bool) {
 	sm.Lock()
 	defer sm.Unlock()
 	cid := *clientID

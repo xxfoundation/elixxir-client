@@ -20,7 +20,7 @@ import (
 
 // Happy path
 func TestNewUnknownRounds(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	expectedStore := &UnknownRounds{
 		rounds: make(map[id.Round]*uint64),
 		kv:     kv.Prefix(unknownRoundPrefix),
@@ -59,7 +59,7 @@ func TestNewUnknownRounds(t *testing.T) {
 
 // Full test.
 func TestUnknownRounds_Iterate(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	store := NewUnknownRounds(kv, DefaultUnknownRoundsParams())
 
 	// Return true only for rounds that are even
@@ -128,7 +128,7 @@ func TestUnknownRounds_Iterate(t *testing.T) {
 
 // Unit test
 func TestLoadUnknownRounds(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	store := NewUnknownRounds(kv, DefaultUnknownRoundsParams())
 
 	// Construct 3 lists of round IDs

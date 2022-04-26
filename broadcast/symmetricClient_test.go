@@ -1,0 +1,135 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                           //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
+package broadcast
+
+import (
+	"bytes"
+	"fmt"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
+	crypto "gitlab.com/elixxir/crypto/broadcast"
+	cMixCrypto "gitlab.com/elixxir/crypto/cmix"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/id"
+	"reflect"
+	"sync"
+	"testing"
+	"time"
+)
+
+// Tests that symmetricClient adheres to the Symmetric interface.
+var _ Symmetric = (*symmetricClient)(nil)
+
+// Tests that symmetricClient adheres to the Symmetric interface.
+var _ Client = (cmix.Client)(nil)
+
+// Tests that all clients listening on a symmetric broadcast channel receive the
+// message that is broadcasted.
+func Test_symmetricClient_Smoke(t *testing.T) {
+	// Initialise objects used by all clients
+	cMixHandler := newMockCmixHandler()
+	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
+	channel := crypto.Symmetric{
+		ReceptionID: id.NewIdFromString("ReceptionID", id.User, t),
+		Name:        "MyChannel",
+		Description: "This is my channel about stuff.",
+		Salt:        cMixCrypto.NewSalt(csprng.NewSystemRNG(), 32),
+		RsaPubKey:   newRsaPubKey(64, t),
+	}
+
+	// Set up callbacks, callback channels, and the symmetric clients
+	const n = 5
+	cbChans := make([]chan []byte, n)
+	clients := make([]Symmetric, n)
+	for i := range clients {
+		cbChan := make(chan []byte, 10)
+		cb := func(payload []byte, _ receptionID.EphemeralIdentity,
+			_ rounds.Round) {
+			cbChan <- payload
+		}
+
+		s := NewSymmetricClient(channel, cb, newMockCmix(cMixHandler), rngGen)
+
+		cbChans[i] = cbChan
+		clients[i] = s
+
+		// Test that Get returns the expected channel
+		if !reflect.DeepEqual(s.Get(), channel) {
+			t.Errorf("Client %d returned wrong channel."+
+				"\nexpected: %+v\nreceived: %+v", i, channel, s.Get())
+		}
+	}
+
+	// Send broadcast from each client
+	for i := range clients {
+		payload := make([]byte, newMockCmix(cMixHandler).GetMaxMessageLength())
+		copy(payload,
+			fmt.Sprintf("Hello from client %d of %d.", i, len(clients)))
+
+		// Start processes that waits for each client to receive broadcast
+		var wg sync.WaitGroup
+		for j := range cbChans {
+			wg.Add(1)
+			go func(i, j int, cbChan chan []byte) {
+				defer wg.Done()
+				select {
+				case r := <-cbChan:
+					if !bytes.Equal(payload, r) {
+						t.Errorf("Client %d failed to receive expected "+
+							"payload from client %d."+
+							"\nexpected: %q\nreceived: %q", j, i, payload, r)
+					}
+				case <-time.After(25 * time.Millisecond):
+					t.Errorf("Client %d timed out waiting for broadcast "+
+						"payload from client %d.", j, i)
+				}
+			}(i, j, cbChans[j])
+		}
+
+		// Broadcast payload
+		_, _, err := clients[i].Broadcast(payload, cmix.GetDefaultCMIXParams())
+		if err != nil {
+			t.Errorf("Client %d failed to send broadcast: %+v", i, err)
+		}
+
+		// Wait for all clients to receive payload or time out
+		wg.Wait()
+	}
+
+	// Stop each client
+	for i := range clients {
+		clients[i].Stop()
+	}
+
+	payload := make([]byte, newMockCmix(cMixHandler).GetMaxMessageLength())
+	copy(payload, "This message should not get through.")
+
+	// Start waiting on channels and error if anything is received
+	var wg sync.WaitGroup
+	for i := range cbChans {
+		wg.Add(1)
+		go func(i int, cbChan chan []byte) {
+			defer wg.Done()
+			select {
+			case r := <-cbChan:
+				t.Errorf("Client %d received message: %q", i, r)
+			case <-time.After(25 * time.Millisecond):
+			}
+		}(i, cbChans[i])
+	}
+
+	// Broadcast payload
+	_, _, err := clients[0].Broadcast(payload, cmix.GetDefaultCMIXParams())
+	if err != nil {
+		t.Errorf("Client 0 failed to send broadcast: %+v", err)
+	}
+
+	wg.Wait()
+}

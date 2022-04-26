@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/primitives/id"
@@ -114,6 +115,7 @@ func (s *Store) DeleteSentRequest(partner *id.ID) error {
 	sr.mux.Lock()
 	s.mux.Lock()
 	_, exist = s.sentByID[*partner]
+	s.srh.Delete(sr)
 	delete(s.receivedByID, *partner)
 	s.mux.Unlock()
 	sr.mux.Unlock()

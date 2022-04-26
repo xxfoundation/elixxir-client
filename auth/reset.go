@@ -30,6 +30,8 @@ func (s *state) Reset(partner contact.Contact) (id.Round, error) {
 	_ = s.store.DeleteSentRequest(partner.ID)
 	_ = s.store.DeleteReceivedRequest(partner.ID)
 
+	_ = s.store.DeleteSentRequest(partner.ID)
+
 	// Try to initiate a clean session request
 	return s.request(partner, fact.FactList{}, true)
 }

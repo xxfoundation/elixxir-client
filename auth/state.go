@@ -77,11 +77,11 @@ type e2eHandler interface {
 }
 
 type Callbacks interface {
-	Request(requestor contact.Contact, receptionID receptionID.EphemeralIdentity,
+	Request(partner contact.Contact, receptionID receptionID.EphemeralIdentity,
 		round rounds.Round)
-	Confirm(requestor contact.Contact, receptionID receptionID.EphemeralIdentity,
+	Confirm(partner contact.Contact, receptionID receptionID.EphemeralIdentity,
 		round rounds.Round)
-	Reset(requestor contact.Contact, receptionID receptionID.EphemeralIdentity,
+	Reset(partner contact.Contact, receptionID receptionID.EphemeralIdentity,
 		round rounds.Round)
 }
 

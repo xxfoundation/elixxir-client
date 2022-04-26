@@ -50,8 +50,8 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 		baseFmt.GetEcrPayload(), msg.GetMac(), state.e2e.GetGroup())
 
 	if !success {
-		em := fmt.Sprintf("Received auth confirmation failed its mac " +
-			"check")
+		em := fmt.Sprintf("Received auth confirmation " +
+			"failed its mac check")
 		jww.WARN.Print(em)
 		state.event.Report(10, "Auth", "ConfirmError", em)
 		return

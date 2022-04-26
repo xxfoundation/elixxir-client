@@ -86,6 +86,10 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 		} else {
 			jww.INFO.Printf("Resending request to %s from %s as "+
 				"one was already sent", partner.ID, me)
+			dhPriv = sr.GetMyPrivKey()
+			dhPub = sr.GetMyPubKey()
+			//sidhPriv = sr.GetMySIDHPrivKey()
+			sidhPub = sr.GetMySIDHPubKey()
 		}
 	}
 
@@ -114,9 +118,13 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 
 	p := cmix.GetDefaultCMIXParams()
 	p.DebugTag = "auth.Request"
+	tag := s.params.RequestTag
+	if reset {
+		tag = s.params.ResetRequestTag
+	}
 	svc := message.Service{
 		Identifier: partner.ID.Marshal(),
-		Tag:        s.params.RequestTag,
+		Tag:        tag,
 		Metadata:   nil,
 	}
 	round, _, err := s.net.Send(partner.ID, requestfp, svc, contents, mac, p)

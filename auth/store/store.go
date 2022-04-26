@@ -181,15 +181,17 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	if sentRq, ok := s.sentByID[*partner]; ok {
-		return sentRq, errors.Errorf("Cannot make new sentRequest "+
-			"for partner %s, a sent request already exists",
-			partner)
-	}
-	if _, ok := s.receivedByID[*partner]; ok {
-		return nil, errors.Errorf("Cannot make new sentRequest for "+
-			" partner %s, a received reqyest already exists",
-			partner)
+	if !reset {
+		if sentRq, ok := s.sentByID[*partner]; ok {
+			return sentRq, errors.Errorf("sent request "+
+				"already exists for partner %s",
+				partner)
+		}
+		if _, ok := s.receivedByID[*partner]; ok {
+			return nil, errors.Errorf("received request "+
+				"already exists for partner %s",
+				partner)
+		}
 	}
 
 	sr, err := newSentRequest(s.kv, partner, partnerHistoricalPubKey,

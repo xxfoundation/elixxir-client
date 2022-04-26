@@ -149,6 +149,10 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	// new request
 	reset := false
 	if rrs.reset {
+		jww.INFO.Printf("AuthRequest ResetSession from %s,"+
+			" msgDigest: %s, FP: %s", partnerID,
+			format.DigestContents(message.GetContents()),
+			base64.StdEncoding.EncodeToString(fp))
 		// delete only deletes if the partner is present, so we can just call delete
 		// instead of checking if it exists and then calling delete, and check the
 		// error to see if it did or didnt exist

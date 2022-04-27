@@ -13,7 +13,7 @@ import (
 type CMix interface {
 	// CMix is passed down into the single use package,
 	// and thus has to adhere to the sub-interface defined in that package
-	single.CMix
+	single.Cmix
 }
 
 // E2E is a sub-interface of the e2e.Handler. It contains the methods

@@ -68,7 +68,7 @@ const (
 const maxNumRequestParts = 255
 
 // GetMaxRequestSize returns the maximum size of a request payload.
-func GetMaxRequestSize(net CMix, e2eGrp *cyclic.Group) int {
+func GetMaxRequestSize(net Cmix, e2eGrp *cyclic.Group) int {
 	payloadSize := message.GetRequestPayloadSize(net.GetMaxMessageLength(),
 		e2eGrp.GetP().ByteLen())
 	requestSize := message.GetRequestContentsSize(payloadSize)
@@ -96,7 +96,7 @@ func GetMaxRequestSize(net CMix, e2eGrp *cyclic.Group) int {
 //
 // The network follower must be running and healthy to transmit.
 func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
-	callback Response, param RequestParams, net CMix, rng csprng.Source,
+	callback Response, param RequestParams, net Cmix, rng csprng.Source,
 	e2eGrp *cyclic.Group) ([]id.Round, receptionID.EphemeralIdentity, error) {
 
 	if len(payload) > GetMaxRequestSize(net, e2eGrp) {
@@ -146,9 +146,9 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	// Encrypt and assemble payload
 	fp := singleUse.NewRequestFingerprint(recipient.DhPubKey)
 	key := singleUse.NewRequestKey(dhKey)
-
 	encryptedPayload := auth.Crypt(key, fp[:24], requestPayload.Marshal())
-	// Generate CMix message MAC
+
+	// Generate cMix message MAC
 	mac := singleUse.MakeMAC(key, encryptedPayload)
 
 	// Assemble the payload
@@ -188,7 +188,7 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 		}
 
 		err = net.AddFingerprint(
-			sendingID.Source, processor.cy.GetFingerprint(), &processor)
+			sendingID.Source, processor.cy.getFingerprint(), &processor)
 		if err != nil {
 			return nil, receptionID.EphemeralIdentity{}, errors.Errorf(
 				errAddFingerprint, i, len(cyphers), tag, recipient, err)
@@ -205,8 +205,8 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	}
 	param.CmixParam.Timeout = param.Timeout
 
-	rid, _, err := net.Send(recipient.ID, fp, svc,
-		request.Marshal(), mac, param.CmixParam)
+	rid, _, err := net.Send(
+		recipient.ID, fp, svc, request.Marshal(), mac, param.CmixParam)
 	if err != nil {
 		return nil, receptionID.EphemeralIdentity{},
 			errors.Errorf(errSendRequest, tag, recipient, err)
@@ -251,11 +251,12 @@ func generateDhKeys(grp *cyclic.Group, dhPubKey *cyclic.Int, rng io.Reader) (
 		return nil, nil, errors.Errorf(errGenerateInGroup, err)
 	}
 	privKey := grp.NewIntFromBytes(privKeyBytes)
+
 	// Generate public key and DH key
 	publicKey = grp.ExpG(privKey, grp.NewInt(1))
 	dhKey = grp.Exp(dhPubKey, privKey, grp.NewInt(1))
 
-	return
+	return dhKey, publicKey, nil
 }
 
 // makeIDs generates a new user ID and address ID with a start and end within

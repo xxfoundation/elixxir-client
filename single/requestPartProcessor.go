@@ -31,7 +31,7 @@ type requestPartProcessor struct {
 func (rpp *requestPartProcessor) Process(msg format.Message,
 	_ receptionID.EphemeralIdentity, round rounds.Round) {
 
-	decrypted, err := rpp.cy.Decrypt(msg.GetContents(), msg.GetMac())
+	decrypted, err := rpp.cy.decrypt(msg.GetContents(), msg.GetMac())
 	if err != nil {
 		jww.ERROR.Printf("[SU] Failed to decrypt single-use request payload "+
 			"for %s to %s: %+v", rpp.tag, rpp.myId, err)

@@ -9,11 +9,16 @@ package single
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/single/message"
 	"gitlab.com/elixxir/crypto/cyclic"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/elixxir/primitives/format"
+)
+
+// Error messages.
+const (
+	// cypher.decrypt
+	errMacVerification = "failed to verify the single-use MAC"
 )
 
 type newKeyFn func(dhKey *cyclic.Int, keyNum uint64) []byte
@@ -25,10 +30,10 @@ func makeCyphers(dhKey *cyclic.Int, messageCount uint8, newKey newKeyFn,
 
 	cypherList := make([]cypher, messageCount)
 
-	for i := uint8(0); i < messageCount; i++ {
+	for i := range cypherList {
 		cypherList[i] = cypher{
 			dhKey:  dhKey,
-			num:    i,
+			num:    uint8(i),
 			newKey: newKey,
 			newFp:  newFp,
 		}
@@ -44,33 +49,38 @@ type cypher struct {
 	newFp  newFpFn  // Function used to create new fingerprint
 }
 
-func (rk *cypher) getKey() []byte {
-	return rk.newKey(rk.dhKey, uint64(rk.num))
+// getKey generates a new encryption/description key from the DH key and number.
+func (c *cypher) getKey() []byte {
+	return c.newKey(c.dhKey, uint64(c.num))
 }
 
-func (rk *cypher) GetFingerprint() format.Fingerprint {
-	return rk.newFp(rk.dhKey, uint64(rk.num))
+// getFingerprint generates a new key fingerprint from the DH key and number.
+func (c *cypher) getFingerprint() format.Fingerprint {
+	return c.newFp(c.dhKey, uint64(c.num))
 }
 
-func (rk *cypher) Encrypt(rp message.ResponsePart) (
-	fp format.Fingerprint, encryptedPayload, mac []byte) {
-	fp = rk.GetFingerprint()
-	key := rk.getKey()
+// encrypt encrypts the payload.
+func (c *cypher) encrypt(
+	payload []byte) (fp format.Fingerprint, encryptedPayload, mac []byte) {
+	fp = c.getFingerprint()
+	key := c.getKey()
 
 	// FIXME: Encryption is identical to what is used by e2e.Crypt, lets make
 	//  them the same code path.
-	encryptedPayload = cAuth.Crypt(key, fp[:24], rp.Marshal())
+	encryptedPayload = cAuth.Crypt(key, fp[:24], payload)
 	mac = singleUse.MakeMAC(key, encryptedPayload)
+
 	return fp, encryptedPayload, mac
 }
 
-func (rk *cypher) Decrypt(contents, mac []byte) ([]byte, error) {
-	fp := rk.GetFingerprint()
-	key := rk.getKey()
+// decrypt decrypts the payload.
+func (c *cypher) decrypt(contents, mac []byte) ([]byte, error) {
+	fp := c.getFingerprint()
+	key := c.getKey()
 
-	// Verify the CMix message MAC
+	// Verify the cMix message MAC
 	if !singleUse.VerifyMAC(key, contents, mac) {
-		return nil, errors.New("failed to verify the single-use MAC")
+		return nil, errors.New(errMacVerification)
 	}
 
 	// Decrypt the payload

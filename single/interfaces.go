@@ -10,9 +10,9 @@ import (
 	"time"
 )
 
-// CMix is a sub-interface of the cmix.Client. It contains the methods
-// relevant to what is used in this package.
-type CMix interface {
+// Cmix is a sub-interface of the cmix.Client. It contains the methods relevant
+// to what is used in this package.
+type Cmix interface {
 	IsHealthy() bool
 	GetAddressSpace() uint8
 	GetMaxMessageLength() int

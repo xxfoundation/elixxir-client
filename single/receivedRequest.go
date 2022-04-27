@@ -8,11 +8,14 @@ import (
 	"gitlab.com/elixxir/client/cmix"
 	cmixMsg "gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/single/message"
+	"gitlab.com/elixxir/comms/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -27,7 +30,15 @@ type Request struct {
 	maxParts       uint8       // Max number of messages allowed in reply
 	used           *uint32     // Atomic variable
 	requestPayload []byte
-	net            CMix
+	net            RequestCmix
+}
+
+type RequestCmix interface {
+	GetMaxMessageLength() int
+	Send(recipient *id.ID, fingerprint format.Fingerprint,
+		service cmixMsg.Service, payload, mac []byte,
+		cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error)
+	GetInstance() *network.Instance
 }
 
 // GetMaxParts returns the maximum number of message parts that can be sent in a
@@ -61,31 +72,31 @@ func (r Request) GetPayload() []byte {
 
 // String returns a string of the Contact structure.
 func (r Request) String() string {
-	format := "Request{sender:%s  senderPubKey:%s  dhKey:%s  tagFP:%s  " +
-		"maxParts:%d}"
-	return fmt.Sprintf(format, r.sender, r.senderPubKey.Text(10),
-		r.dhKey.Text(10), r.tag, r.maxParts)
+	return fmt.Sprintf(
+		"{sender:%s senderPubKey:%s dhKey:%s tag:%q maxParts:%d used:%p(%d) "+
+			"requestPayload:%q net:%p}",
+		r.sender, r.senderPubKey.Text(10), r.dhKey.Text(10), r.tag, r.maxParts,
+		r.used, atomic.LoadUint32(r.used), r.requestPayload, r.net)
 }
 
 // Respond is used to respond to the request. It sends a payload up to
 // Request.GetMaxResponseLength. It will chunk the message into multiple cMix
 // messages if it is too long for a single message. It will fail if a single
 // cMix message cannot be sent.
-func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
+func (r Request) Respond(payload []byte, cMixParams cmix.CMIXParams,
 	timeout time.Duration) ([]id.Round, error) {
 	// make sure this has only been run once
 	newRun := atomic.CompareAndSwapUint32(r.used, 0, 1)
 	if !newRun {
-		return nil, errors.Errorf("cannot respond to " +
-			"single-use response that has already been responded to.")
+		return nil, errors.Errorf("cannot respond to single-use response " +
+			"that has already been responded to")
 	}
 
 	// Check that the payload is not too long
 	if len(payload) > r.GetMaxResponseLength() {
-		return nil, errors.Errorf("length of provided "+
-			"payload too long for message payload capacity, max: %d, "+
-			"received: %d", r.GetMaxResponseLength(),
-			len(payload))
+		return nil, errors.Errorf("length of provided payload too long for "+
+			"message payload capacity, max: %d, received: %d",
+			r.GetMaxResponseLength(), len(payload))
 	}
 
 	// Partition the payload
@@ -97,11 +108,8 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 	rounds := make([]id.Round, len(parts))
 	sendResults := make(chan ds.EventReturn, len(parts))
 
-	wg := sync.WaitGroup{}
-	wg.Add(len(parts))
-
-	if cmixParams.DebugTag != cmix.DefaultDebugTag {
-		cmixParams.DebugTag = "single.Response"
+	if cMixParams.DebugTag != cmix.DefaultDebugTag {
+		cMixParams.DebugTag = "single.Response"
 	}
 
 	// fixme: should the above debug tag and the below service tag be flipped??
@@ -111,28 +119,32 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 		Metadata:   nil,
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(len(parts))
 	failed := uint32(0)
 
 	for i := 0; i < len(parts); i++ {
-		go func(j int) {
+		go func(i int, part []byte) {
 			defer wg.Done()
-			partFP, ecrPart, mac := cyphers[j].Encrypt(parts[j])
+			partFP, ecrPart, mac := cyphers[i].encrypt(part)
+
 			// Send Message
-			round, ephID, err := r.net.Send(r.sender, partFP, svc,
-				ecrPart, mac,
-				cmixParams)
+			round, ephID, err := r.net.Send(
+				r.sender, partFP, svc, ecrPart, mac, cMixParams)
 			if err != nil {
 				atomic.AddUint32(&failed, 1)
-				jww.ERROR.Printf("Failed to send single-use response CMIX "+
-					"message part %d: %+v", j, err)
+				jww.ERROR.Printf("[SU] Failed to send single-use response "+
+					"cMix message part %d of %d: %+v", i, len(parts), err)
+				return
 			}
-			jww.DEBUG.Printf("Sending single-use response CMIX message part "+
-				"%d on round %d to address ID %d.", j, round, ephID.Int64())
-			rounds[j] = round
 
-			r.net.GetInstance().GetRoundEvents().AddRoundEventChan(round, sendResults,
-				timeout, states.COMPLETED, states.FAILED)
-		}(i)
+			jww.DEBUG.Printf("[SU] Sent single-use response cMix message part "+
+				"%d on round %d to address ID %d.", i, round, ephID.Int64())
+			rounds[i] = round
+
+			r.net.GetInstance().GetRoundEvents().AddRoundEventChan(
+				round, sendResults, timeout, states.COMPLETED, states.FAILED)
+		}(i, parts[i].Marshal())
 	}
 
 	// Wait for all go routines to finish
@@ -158,7 +170,6 @@ func (r Request) Respond(payload []byte, cmixParams cmix.CMIXParams,
 	success, numRoundFail, numTimeOut := cmix.TrackResults(
 		sendResults, len(roundMap))
 	if !success {
-
 		return nil, errors.Errorf("tracking results of %d rounds: %d round "+
 			"failures, %d round event time outs; the send cannot be retried.",
 			len(rounds), numRoundFail, numTimeOut)
@@ -195,7 +206,7 @@ func partitionResponse(payload []byte, cmixMessageLength int, maxParts uint8) []
 // them in a slice. Each part's size is less than or equal to maxSize. Any extra
 // data in the payload is not used if it is longer than the maximum capacity.
 func splitPayload(payload []byte, maxSize, maxParts int) [][]byte {
-	var parts [][]byte
+	parts := make([][]byte, 0, len(payload)/maxSize)
 	buff := bytes.NewBuffer(payload)
 
 	for i := 0; i < maxParts && buff.Len() > 0; i++ {

@@ -2,10 +2,10 @@ package single
 
 import (
 	"fmt"
-
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	cmixMsg "gitlab.com/elixxir/client/cmix/message"
+	cMixMsg "gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/single/message"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -13,9 +13,8 @@ import (
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
+	"strings"
 )
-
-const listenerProcessorName = "listenerProcessorName"
 
 type Receiver interface {
 	Callback(*Request, receptionID.EphemeralIdentity, []rounds.Round)
@@ -27,12 +26,12 @@ type Listener interface {
 }
 
 type listener struct {
-	myId      *id.ID
-	myPrivKey *cyclic.Int
 	tag       string
 	grp       *cyclic.Group
+	myID      *id.ID
+	myPrivKey *cyclic.Int
 	cb        Receiver
-	net       CMix
+	net       ListenCmix
 }
 
 // Listen allows a server to listen for single use requests. It will register a
@@ -40,38 +39,60 @@ type listener struct {
 // listener can be active for a tag-myID pair, and an error will be returned if
 // that is violated. When requests are received, they will be called on the
 // Receiver interface.
-func Listen(tag string, myId *id.ID, privKey *cyclic.Int, net CMix,
+func Listen(tag string, myID *id.ID, privKey *cyclic.Int, net ListenCmix,
 	e2eGrp *cyclic.Group, cb Receiver) Listener {
 
 	l := &listener{
-		myId:      myId,
-		myPrivKey: privKey,
 		tag:       tag,
 		grp:       e2eGrp,
+		myID:      myID,
+		myPrivKey: privKey,
 		cb:        cb,
 		net:       net,
 	}
 
-	svc := cmixMsg.Service{
-		Identifier: myId[:],
+	svc := cMixMsg.Service{
+		Identifier: myID[:],
 		Tag:        tag,
-		Metadata:   myId[:],
+		Metadata:   myID[:],
 	}
 
-	net.AddService(myId, svc, l)
+	net.AddService(myID, svc, l)
 
 	return l
 }
 
+type ListenCmix interface {
+	RequestCmix
+	AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,
+		mp cMixMsg.Processor) error
+	AddService(
+		clientID *id.ID, newService cMixMsg.Service, response cMixMsg.Processor)
+	DeleteService(
+		clientID *id.ID, toDelete cMixMsg.Service, processor cMixMsg.Processor)
+	CheckInProgressMessages()
+}
+
+// Process decrypts and collates the encrypted single-use request message.
 func (l *listener) Process(ecrMsg format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	err := l.process(ecrMsg, receptionID, round)
+	if err != nil {
+		jww.ERROR.Printf(
+			"[SU] Failed to process single-use request to %s on tag %q: %+v",
+			l.myID, l.tag, err)
+	}
+}
+
+// process is a helper functions for Process that returns errors for easier
+// testing.
+func (l *listener) process(ecrMsg format.Message,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round) error {
 	// Unmarshal the cMix message contents to a request message
 	requestMsg, err := message.UnmarshalRequest(ecrMsg.GetContents(),
 		l.grp.GetP().ByteLen())
 	if err != nil {
-		jww.WARN.Printf("Failed to unmarshal contents on single use "+
-			"request to %s on tag %s: %+v", l.myId, l.tag, err)
-		return
+		return errors.Errorf("could not unmarshal contents: %+v", err)
 	}
 
 	// Generate DH key and symmetric key
@@ -81,25 +102,21 @@ func (l *listener) Process(ecrMsg format.Message,
 
 	// Verify the MAC
 	if !singleUse.VerifyMAC(key, requestMsg.GetPayload(), ecrMsg.GetMac()) {
-		jww.WARN.Printf("mac check failed on single use request to %s "+
-			"on tag %s", l.myId, l.tag)
-		return
+		return errors.New("failed to verify MAC")
 	}
 
 	// Decrypt the request message payload
 	fp := ecrMsg.GetKeyFP()
 	decryptedPayload := cAuth.Crypt(key, fp[:24], requestMsg.GetPayload())
+
 	// Unmarshal payload
 	payload, err := message.UnmarshalRequestPayload(decryptedPayload)
 	if err != nil {
-		jww.WARN.Printf("[SU] Failed to unmarshal decrypted payload on "+
-			"single use request to %s on tag %s: %+v", l.myId, l.tag, err)
-		return
+		return errors.Errorf("could not unmarshal decrypted payload: %+v", err)
 	}
 
 	cbFunc := func(payloadContents []byte, rounds []rounds.Round) {
 		used := uint32(0)
-
 		r := Request{
 			sender:         payload.GetRecipientID(requestMsg.GetPubKey(l.grp)),
 			senderPubKey:   senderPubkey,
@@ -118,28 +135,29 @@ func (l *listener) Process(ecrMsg format.Message,
 		c := message.NewCollator(numParts)
 		_, _, err = c.Collate(payload)
 		if err != nil {
-
-			return
+			return errors.Errorf("could not collate initial payload: %+v", err)
 		}
+
 		cyphers := makeCyphers(dhKey, numParts,
 			singleUse.NewRequestPartKey, singleUse.NewRequestPartFingerprint)
 		ridCollector := newRoundIdCollector(int(numParts))
+
 		for i, cy := range cyphers {
 			key = singleUse.NewRequestPartKey(dhKey, uint64(i+1))
 			fp = singleUse.NewRequestPartFingerprint(dhKey, uint64(i+1))
 			p := &requestPartProcessor{
-				myId:     l.myId,
+				myId:     l.myID,
 				tag:      l.tag,
 				cb:       cbFunc,
 				c:        c,
 				cy:       cy,
 				roundIDs: ridCollector,
 			}
-			err = l.net.AddFingerprint(l.myId, fp, p)
+
+			err = l.net.AddFingerprint(l.myID, fp, p)
 			if err != nil {
-				jww.ERROR.Printf("Failed to add fingerprint for request part "+
-					"%d of %d (%s): %+v", i, numParts, l.tag, err)
-				return
+				return errors.Errorf("could not add fingerprint for single-"+
+					"use request part %d of %d: %+v", i, numParts, err)
 			}
 		}
 
@@ -147,16 +165,45 @@ func (l *listener) Process(ecrMsg format.Message,
 	} else {
 		cbFunc(payload.GetContents(), []rounds.Round{round})
 	}
+
+	return nil
 }
 
+// Stop stops the listener from receiving messages.
 func (l *listener) Stop() {
-	svc := cmixMsg.Service{
-		Identifier: l.myId[:],
+	svc := cMixMsg.Service{
+		Identifier: l.myID[:],
 		Tag:        l.tag,
 	}
-	l.net.DeleteService(l.myId, svc, l)
+	l.net.DeleteService(l.myID, svc, l)
 }
 
+// String prints a name that identifies this single use listener. Adheres to the
+// fmt.Stringer interface.
 func (l *listener) String() string {
-	return fmt.Sprintf("SingleUse(%s)", l.myId)
+	return "SingleUse(" + l.myID.String() + ")"
+}
+
+// GoString prints the fields of the listener in a human-readable form.
+// Adheres to the fmt.GoStringer interface and prints values passed as an
+// operand to a %#v format.
+func (l *listener) GoString() string {
+	cb := "<nil>"
+	if l.cb != nil {
+		cb = fmt.Sprintf("%p", l.cb)
+	}
+	net := "<nil>"
+	if l.net != nil {
+		net = fmt.Sprintf("%p", l.net)
+	}
+	fields := []string{
+		"tag:" + fmt.Sprintf("%q", l.tag),
+		"grp:" + l.grp.GetFingerprintText(),
+		"myID:" + l.myID.String(),
+		"myPrivKey:\"" + l.myPrivKey.Text(10) + "\"",
+		"cb:" + cb,
+		"net:" + net,
+	}
+
+	return strings.Join(fields, " ")
 }

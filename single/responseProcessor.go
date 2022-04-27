@@ -33,7 +33,7 @@ type responseProcessor struct {
 func (rsp *responseProcessor) Process(ecrMsg format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
-	decrypted, err := rsp.cy.Decrypt(ecrMsg.GetContents(), ecrMsg.GetMac())
+	decrypted, err := rsp.cy.decrypt(ecrMsg.GetContents(), ecrMsg.GetMac())
 	if err != nil {
 		jww.ERROR.Printf("[SU] Failed to decrypt single-use response "+
 			"payload for %s to %s: %+v",

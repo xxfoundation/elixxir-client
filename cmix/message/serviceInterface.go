@@ -2,7 +2,6 @@ package message
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"gitlab.com/elixxir/crypto/sih"
 )
@@ -42,14 +41,6 @@ func (si Service) ForMe(contents, hash []byte) bool {
 
 func (si Service) ForMeFromMessageHash(messageHash, hash []byte) bool {
 	return sih.ForMeFromMessageHash(si.preimage(), messageHash, hash)
-}
-
-func (si Service) MarshalJSON() ([]byte, error) {
-	return json.Marshal(&si)
-}
-
-func (si Service) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, &si)
 }
 
 func (si Service) String() string {

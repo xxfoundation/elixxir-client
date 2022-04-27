@@ -39,6 +39,7 @@ must be re-added before StartNetworkFollower is called.
 */
 
 type ServicesManager struct {
+	// Map reception ID to sih.Preimage to service
 	tmap        map[id.ID]map[sih.Preimage]service
 	trackers    []ServicesTracker
 	numServices uint
@@ -115,13 +116,12 @@ func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
 // for the same identifier/tag pair.
 //   preimage - the preimage which is triggered on
 //   type - a descriptive string of the service. Generally used in notifications
-//   source - a byte buffer of related data. Generally used in notifications.
+//   source - a byte buffer of related data. Mostly used in notifications.
 //     Example: Sender ID
-// There can be multiple "default" services, the must use the "default" tag
+// There can be multiple "default" services, they must use the "default" tag
 // and the identifier must be the client reception ID.
 // A service may have a nil response unless it is default.
-func (sm *ServicesManager) AddService(clientID *id.ID, newService Service,
-	response Processor) {
+func (sm *ServicesManager) AddService(clientID *id.ID, newService Service, response Processor) {
 	sm.Lock()
 	defer sm.Unlock()
 
@@ -131,10 +131,12 @@ func (sm *ServicesManager) AddService(clientID *id.ID, newService Service,
 		defaultList: nil,
 	}
 
+	// Initialize the map for the ID if needed
 	if _, exists := sm.tmap[*clientID]; !exists {
 		sm.tmap[*clientID] = make(map[sih.Preimage]service)
 	}
 
+	// Handle default tag behavior
 	if newService.Tag == sih.Default {
 		if !bytes.Equal(newService.Identifier, clientID[:]) {
 			jww.FATAL.Panicf("Cannot accept a malformed 'Default' " +
@@ -152,9 +154,11 @@ func (sm *ServicesManager) AddService(clientID *id.ID, newService Service,
 			"service already exists", newService.Tag)
 	}
 
+	// Add the service to the internal map
 	sm.tmap[*clientID][newService.preimage()] = newEntry
-
 	sm.numServices++
+
+	// Signal that a new service was added
 	sm.triggerServiceTracking()
 }
 

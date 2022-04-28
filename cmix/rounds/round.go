@@ -112,7 +112,9 @@ func (r Round) GetEndTimestamp() time.Time {
 	case states.STANDBY:
 		return r.Timestamps[states.STANDBY]
 	case states.QUEUED:
-		return r.Timestamps[states.STANDBY]
+		return r.Timestamps[states.QUEUED]
+	case states.REALTIME:
+		return r.Timestamps[states.REALTIME]
 	case states.COMPLETED:
 		return r.Timestamps[states.COMPLETED]
 	case states.FAILED:

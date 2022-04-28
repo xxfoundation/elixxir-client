@@ -128,26 +128,6 @@ type manager struct {
 	rng  *fastRNG.StreamGenerator
 }
 
-// MaxFileNameLen returns the max number of bytes allowed for a file name.
-func (m *manager) MaxFileNameLen() int {
-	return FileNameMaxLen
-}
-
-// MaxFileTypeLen returns the max number of bytes allowed for a file type.
-func (m *manager) MaxFileTypeLen() int {
-	return FileTypeMaxLen
-}
-
-// MaxFileSize returns the max number of bytes allowed for a file.
-func (m *manager) MaxFileSize() int {
-	return FileMaxSize
-}
-
-// MaxPreviewSize returns the max number of bytes allowed for a file preview.
-func (m *manager) MaxPreviewSize() int {
-	return PreviewMaxSize
-}
-
 type Cmix interface {
 	GetMaxMessageLength() int
 	SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round,
@@ -238,6 +218,28 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 
 	return multiStoppable, nil
 }
+
+// MaxFileNameLen returns the max number of bytes allowed for a file name.
+func (m *manager) MaxFileNameLen() int {
+	return FileNameMaxLen
+}
+
+// MaxFileTypeLen returns the max number of bytes allowed for a file type.
+func (m *manager) MaxFileTypeLen() int {
+	return FileTypeMaxLen
+}
+
+// MaxFileSize returns the max number of bytes allowed for a file.
+func (m *manager) MaxFileSize() int {
+	return FileMaxSize
+}
+
+// MaxPreviewSize returns the max number of bytes allowed for a file preview.
+func (m *manager) MaxPreviewSize() int {
+	return PreviewMaxSize
+}
+
+/* === Sending ============================================================== */
 
 // Send partitions the given file into cMix message sized chunks and sends them
 // via cmix.SendMany.
@@ -398,6 +400,8 @@ func (m *manager) CloseSend(tid *ftCrypto.TransferID) error {
 	return nil
 }
 
+/* === Receiving ============================================================ */
+
 // Receive concatenates the received file and returns it. Only returns the file
 // if all file parts have been received and returns an error otherwise. Also
 // deletes the transfer from storage. Once Receive has been called on a file, it
@@ -479,6 +483,8 @@ func (m *manager) registerReceivedProgressCallback(rt *store.ReceivedTransfer,
 	// Add the callback to the callback tracker
 	m.callbacks.AddCallback(rt.TransferID(), cb, period)
 }
+
+/* === Utility ============================================================== */
 
 // partitionFile splits the file into parts of the specified part size.
 func partitionFile(file []byte, partSize int) [][]byte {

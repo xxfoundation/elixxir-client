@@ -2,9 +2,10 @@ package e2e
 
 import (
 	"encoding/json"
-	"gitlab.com/xx_network/primitives/netTime"
 	"strings"
 	"time"
+
+	"gitlab.com/xx_network/primitives/netTime"
 
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/catalog"
@@ -144,8 +145,7 @@ func loadE2E(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
 			"Failed to unmarshal rekeyParams data")
 	}
 
-	m.crit = newCritical(kv, net.AddHealthCallback,
-		net.GetInstance().GetRoundEvents(), m.SendE2E)
+	m.crit = newCritical(kv, net.AddHealthCallback, m.SendE2E)
 
 	return m, nil
 }
@@ -155,7 +155,8 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 
 	critcalNetworkStopper := stoppable.NewSingle(
 		"e2eCriticalMessagesStopper")
-	m.crit.runCriticalMessages(critcalNetworkStopper)
+	m.crit.runCriticalMessages(critcalNetworkStopper,
+		m.net.GetInstance().GetRoundEvents())
 	multi.Add(critcalNetworkStopper)
 
 	rekeySendFunc := func(mt catalog.MessageType,

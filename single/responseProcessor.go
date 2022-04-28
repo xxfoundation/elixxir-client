@@ -11,8 +11,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 )
 
-const responseProcessorName = "responseProcessorName"
-
 type callbackWrapper func(payload []byte,
 	receptionID receptionID.EphemeralIdentity, rounds []rounds.Round, err error)
 

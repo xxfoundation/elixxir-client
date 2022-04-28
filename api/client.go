@@ -9,9 +9,10 @@ package api
 
 import (
 	"encoding/json"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"time"
+
+	"gitlab.com/xx_network/primitives/netTime"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -230,6 +231,26 @@ func OpenClient(storageDir string, password []byte,
 		userState:          userState,
 	}
 
+	err = c.initComms()
+	if err != nil {
+		return nil, err
+	}
+
+	c.network, err = cmix.NewClient(parameters.CMix, c.comms, c.storage,
+		c.rng, c.events)
+	if err != nil {
+		return nil, err
+	}
+
+	user := c.userState.PortableUserInfo()
+
+	c.e2e, err = e2e.Load(c.storage.GetKV(), c.network,
+		user.ReceptionID, c.storage.GetE2EGroup(),
+		c.rng, c.events)
+	if err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
 
@@ -292,13 +313,8 @@ func Login(storageDir string, password []byte,
 	}
 
 	u := c.userState.PortableUserInfo()
-	jww.INFO.Printf("Client Logged in: \n\tTransmisstionID: %s "+
+	jww.INFO.Printf("Client Logged in: \n\tTransmissionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
-
-	err = c.initComms()
-	if err != nil {
-		return nil, err
-	}
 
 	def := c.storage.GetNDF()
 
@@ -329,17 +345,7 @@ func Login(storageDir string, password []byte,
 		}
 	}
 
-	c.network, err = cmix.NewClient(parameters.CMix, c.comms, c.storage,
-		c.storage.GetNDF(), c.rng, c.events)
-	if err != nil {
-		return nil, err
-	}
-
-	user := c.userState.PortableUserInfo()
-
-	c.e2e, err = e2e.Load(c.storage.GetKV(), c.network,
-		user.ReceptionID, c.storage.GetE2EGroup(),
-		c.rng, c.events)
+	err = c.network.Connect(def)
 	if err != nil {
 		return nil, err
 	}
@@ -380,11 +386,6 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	err = c.initComms()
-	if err != nil {
-		return nil, err
-	}
-
 	//store the updated base NDF
 	c.storage.SetNDF(def)
 
@@ -399,15 +400,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 			"able to register or track network.")
 	}
 
-	c.network, err = cmix.NewClient(params.CMix, c.comms, c.storage,
-		c.storage.GetNDF(), c.rng, c.events)
-	if err != nil {
-		return nil, err
-	}
-
-	c.e2e, err = e2e.Load(c.storage.GetKV(), c.network,
-		c.GetUser().ReceptionID, c.storage.GetE2EGroup(),
-		c.rng, c.events)
+	err = c.network.Connect(def)
 	if err != nil {
 		return nil, err
 	}
@@ -453,11 +446,6 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	err = c.initComms()
-	if err != nil {
-		return nil, err
-	}
-
 	c.storage.SetNDF(def)
 
 	err = c.initPermissioning(def)
@@ -465,15 +453,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c.network, err = cmix.NewClient(params.CMix, c.comms, c.storage,
-		c.storage.GetNDF(), c.rng, c.events)
-	if err != nil {
-		return nil, err
-	}
-
-	c.e2e, err = e2e.Load(c.storage.GetKV(), c.network,
-		c.GetUser().ReceptionID, c.storage.GetE2EGroup(),
-		c.rng, c.events)
+	err = c.network.Connect(def)
 	if err != nil {
 		return nil, err
 	}

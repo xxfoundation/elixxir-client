@@ -113,6 +113,10 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 		c.verboseRounds = NewRoundTracker()
 	}
 
+	// Set up Message Handler
+	c.Handler = message.NewHandler(c.param.Message, c.session.GetKV(),
+		c.events, c.session.GetReceptionID())
+
 	return c, nil
 }
 
@@ -159,10 +163,6 @@ func (c *client) Connect(ndf *ndf.NetworkDefinition) error {
 	// Set up the historical rounds handler
 	c.Retriever = rounds.NewRetriever(
 		c.param.Historical, c.comms, c.Sender, c.events)
-
-	// Set up Message Handler
-	c.Handler = message.NewHandler(c.param.Message, c.session.GetKV(),
-		c.events, c.session.GetReceptionID())
 
 	// Set up round handler
 	c.Pickup = pickup.NewPickup(

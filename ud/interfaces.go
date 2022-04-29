@@ -24,6 +24,10 @@ type E2E interface {
 
 	// GetReceptionID returns the default IDs
 	GetReceptionID() *id.ID
+
+	// GetHistoricalDHPubkey returns the user's Historical DH
+	// Public Key
+	GetHistoricalDHPubkey() *cyclic.Int
 }
 
 // UserInfo is a sub-interface for the user.User object in storage.

@@ -8,6 +8,7 @@
 package api
 
 import (
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	"regexp"
 	"runtime"
 	"strings"
@@ -33,10 +34,10 @@ func createNewUser(rng *fastRNG.StreamGenerator, cmix,
 	e2e *cyclic.Group) user.Info {
 	// CMIX Keygen
 	var transmissionRsaKey, receptionRsaKey *rsa.PrivateKey
+	var e2eKey *cyclic.Int
+	var transmissionSalt, receptionSalt []byte
 
-	var e2eKeyBytes, transmissionSalt, receptionSalt []byte
-
-	e2eKeyBytes, transmissionSalt, receptionSalt,
+	transmissionSalt, receptionSalt, e2eKey,
 		transmissionRsaKey, receptionRsaKey = createKeys(rng, e2e)
 
 	// Salt, UID, etc gen
@@ -85,13 +86,14 @@ func createNewUser(rng *fastRNG.StreamGenerator, cmix,
 		ReceptionSalt:    receptionSalt,
 		ReceptionRSA:     receptionRsaKey,
 		Precanned:        false,
-		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
+		E2eDhPrivateKey:  e2eKey,
+		E2eDhPublicKey:   diffieHellman.GeneratePublicKey(e2eKey, e2e),
 	}
 }
 
 func createKeys(rng *fastRNG.StreamGenerator,
-	e2e *cyclic.Group) (e2eKeyBytes,
-	transmissionSalt, receptionSalt []byte,
+	e2e *cyclic.Group) (
+	transmissionSalt, receptionSalt []byte, e2eKey *cyclic.Int,
 	transmissionRsaKey, receptionRsaKey *rsa.PrivateKey) {
 	wg := sync.WaitGroup{}
 
@@ -101,9 +103,7 @@ func createKeys(rng *fastRNG.StreamGenerator,
 		defer wg.Done()
 		var err error
 		rngStream := rng.GetStream()
-		prime := e2e.GetPBytes()
-		keyLen := len(prime)
-		e2eKeyBytes, err = csprng.GenerateInGroup(prime, keyLen,
+		e2eKey = diffieHellman.GeneratePrivateKey(len(e2e.GetPBytes()), e2e,
 			rngStream)
 		rngStream.Close()
 		if err != nil {
@@ -148,10 +148,8 @@ func createNewVanityUser(rng csprng.Source, cmix,
 	// DH Keygen
 	prime := e2e.GetPBytes()
 	keyLen := len(prime)
-	e2eKeyBytes, err := csprng.GenerateInGroup(prime, keyLen, rng)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
+
+	e2eKey := diffieHellman.GeneratePrivateKey(keyLen, e2e, rng)
 
 	// RSA Keygen (4096 bit defaults)
 	transmissionRsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
@@ -261,6 +259,7 @@ func createNewVanityUser(rng csprng.Source, cmix,
 		ReceptionSalt:    receptionSalt,
 		ReceptionRSA:     receptionRsaKey,
 		Precanned:        false,
-		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
+		E2eDhPrivateKey:  e2eKey,
+		E2eDhPublicKey:   diffieHellman.GeneratePublicKey(e2eKey, e2e),
 	}
 }

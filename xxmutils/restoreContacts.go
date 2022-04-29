@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gitlab.com/elixxir/client/single"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"strings"
@@ -40,6 +41,11 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
 	udManager *ud.Manager,
 	updatesCb interfaces.RestoreContactsUpdater) ([]*id.ID, []*id.ID,
 	[]error, error) {
+
+	udContact, err := udManager.GetContact()
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	var restored, failed []*id.ID
 	var errs []error
@@ -93,7 +99,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
 	rsWg := &sync.WaitGroup{}
 	rsWg.Add(numRoutines)
 	for i := 0; i < numRoutines; i++ {
-		go LookupContacts(lookupCh, foundCh, failCh, udManager, lcWg)
+		go LookupContacts(lookupCh, foundCh, failCh, client, udContact, lcWg)
 		go ResetSessions(resetContactCh, restoredCh, failCh, *client,
 			rsWg)
 	}
@@ -125,7 +131,6 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
 
 	// Event Processing
 	done := false
-	var err error = nil
 	for !done {
 		// NOTE: Timer is reset every loop
 		timeoutTimer := time.NewTimer(restoreTimeout)
@@ -173,13 +178,13 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *api.Client,
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
 func LookupContacts(in chan *id.ID, out chan *contact.Contact,
-	failCh chan failure, udManager *ud.Manager,
+	failCh chan failure, client *api.Client, udContact contact.Contact,
 	wg *sync.WaitGroup) {
 	defer wg.Done()
 	// Start looking up contacts with user discovery and feed this
 	// contacts channel.
 	for lookupID := range in {
-		c, err := LookupContact(lookupID, udManager)
+		c, err := LookupContact(lookupID, client, udContact)
 		if err == nil {
 			out <- c
 			continue
@@ -221,7 +226,7 @@ func ResetSessions(in, out chan *contact.Contact, failCh chan failure,
 // xxDK users should not use this function. This function is used by
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
-func LookupContact(userID *id.ID, udManager *ud.Manager) (
+func LookupContact(userID *id.ID, client *api.Client, udContact contact.Contact) (
 	*contact.Contact, error) {
 	// This is a little wonky, but wait until we get called then
 	// set the result to the contact objects details if there is
@@ -240,8 +245,10 @@ func LookupContact(userID *id.ID, udManager *ud.Manager) (
 	waiter.Lock()
 
 	// in MS, so 90 seconds
-	timeout := time.Duration(90 * time.Second)
-	udManager.Lookup(userID, lookupCB, timeout)
+	stream := client.GetRng().GetStream()
+	defer stream.Close()
+	_, _, err = ud.Lookup(client.GetNetworkInterface(), stream, client.GetE2EHandler().GetGroup(),
+		udContact, lookupCB, userID, single.GetDefaultRequestParams())
 
 	// Now force a wait for callback to exit
 	waiter.Lock()
@@ -272,7 +279,7 @@ type failure struct {
 const stateStoreFmt = "restoreContactsFromBackup/v1/%s"
 
 type stateStore struct {
-	apiStore *storage.Session
+	apiStore storage.Session
 	// TODO: We could put a syncmap or something here instead of
 	// 1-key-per-id
 }

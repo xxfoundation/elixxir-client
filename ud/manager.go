@@ -85,6 +85,11 @@ func NewManager(services CMix, e2e E2E,
 		kv:      kv,
 	}
 
+	if m.isRegistered() {
+		return nil, errors.Errorf("NewManager is already registered. " +
+			"NewManager is meant for the first instantiation. Use LoadManager for all other calls")
+	}
+
 	// Initialize store
 	var err error
 	m.store, err = store.NewOrLoadStore(kv)

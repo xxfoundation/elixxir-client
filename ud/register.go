@@ -25,7 +25,7 @@ func (m *Manager) register(username string, rng csprng.Source,
 		RSAPublicPem:           string(rsa.CreatePublicKeyPem(cryptoUser.ReceptionRSA.GetPublic())),
 		IdentityRegistration: &pb.Identity{
 			Username: username,
-			DhPubKey: cryptoUser.E2eDhPublicKey.Bytes(),
+			DhPubKey: m.e2e.GetHistoricalDHPubkey().Bytes(),
 			Salt:     cryptoUser.ReceptionSalt,
 		},
 		UID:       cryptoUser.ReceptionID.Marshal(),

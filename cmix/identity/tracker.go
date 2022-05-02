@@ -263,7 +263,7 @@ func (t *manager) processIdentities(addressSize uint8) time.Time {
 			if inQuestion.NextGeneration.Before(nextEvent) {
 				nextEvent = inQuestion.NextGeneration
 			}
-			if inQuestion.ValidUntil.Before(nextEvent) {
+			if inQuestion.ValidUntil != Forever && inQuestion.ValidUntil.Before(nextEvent) {
 				nextEvent = inQuestion.ValidUntil
 			}
 		}

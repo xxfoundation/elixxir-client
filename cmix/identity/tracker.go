@@ -180,16 +180,19 @@ func (t *manager) track(stop *stoppable.Single) {
 	for {
 		// Process new and old identities
 		nextEvent := t.processIdentities(addressSize)
+		waitPeriod := nextEvent.Sub(netTime.Now())
 
-		// Trigger events early. This will cause generations to happen early as
-		// well as message pickup. As a result, if there are time sync issues
-		// between clients, and they begin sending to ephemeral IDs early, then
-		// messages will still be picked up.
-		nextUpdate := nextEvent.Add(-validityGracePeriod)
+		if waitPeriod > validityGracePeriod {
+			// Trigger events early. This will cause generations to happen early as
+			// well as message pickup. As a result, if there are time sync issues
+			// between clients, and they begin sending to ephemeral IDs early, then
+			// messages will still be picked up.
+			waitPeriod = waitPeriod - validityGracePeriod
+		}
 
 		// Sleep until the last ID has expired
 		select {
-		case <-time.After(nextUpdate.Sub(netTime.Now())):
+		case <-time.After(waitPeriod):
 		case newIdentity := <-t.newIdentity:
 			jww.DEBUG.Printf("Receiving new identity %s :%+v",
 				newIdentity.Source, newIdentity)
@@ -272,7 +275,7 @@ func (t *manager) processIdentities(addressSize uint8) time.Time {
 
 	}
 
-	jww.INFO.Printf("[TrackedIDS] NextEvent: %s", nextEvent)
+	jww.DEBUG.Printf("[TrackedIDS] NextEvent: %s", nextEvent)
 
 	// Process any deletions
 	if len(toRemove) > 0 {

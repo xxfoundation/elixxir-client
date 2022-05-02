@@ -47,12 +47,16 @@ func (r Request) GetMaxParts() uint8 {
 	return r.maxParts
 }
 
+// GetMaxResponseLength returns the maximum total payload size, which is the
+// maximum size of each individual part multiplied by the maximum number of parts
 func (r Request) GetMaxResponseLength() int {
-	responseMsg := message.NewResponsePart(r.net.GetMaxMessageLength())
+	return r.GetMaxContentsSize() * int(r.GetMaxParts())
+}
 
-	// Maximum payload size is the maximum amount of room in each message
-	// multiplied by the number of messages
-	return responseMsg.GetMaxContentsSize() * int(r.GetMaxParts())
+// GetMaxContentsSize returns maximum payload size for an individual part
+func (r Request) GetMaxContentsSize() int {
+	responseMsg := message.NewResponsePart(r.net.GetMaxMessageLength())
+	return responseMsg.GetMaxContentsSize()
 }
 
 // GetPartner returns a copy of the sender ID.

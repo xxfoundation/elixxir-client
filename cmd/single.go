@@ -99,7 +99,7 @@ var singleCmd = &cobra.Command{
 		// If the reply flag is set, then start waiting for a
 		// message and reply when it is received
 		if viper.GetBool("reply") {
-			replySingleUse(client, timeout, receiver)
+			replySingleUse(timeout, receiver)
 		}
 		listener.Stop()
 	},
@@ -172,6 +172,7 @@ func sendSingleUse(m *api.Client, partner contact.Contact, payload []byte,
 	jww.DEBUG.Printf("Sending single-use transmission to %s: %s",
 		partner.ID, payload)
 	params := single.GetDefaultRequestParams()
+	params.MaxResponseMessages = maxMessages
 	rng := m.GetRng().GetStream()
 	defer rng.Close()
 
@@ -202,7 +203,7 @@ func sendSingleUse(m *api.Client, partner contact.Contact, payload []byte,
 
 // replySingleUse responds to any single-use message it receives by replying\
 // with the same payload.
-func replySingleUse(m *api.Client, timeout time.Duration, receiver *Receiver) {
+func replySingleUse(timeout time.Duration, receiver *Receiver) {
 	// Wait to receive a message or stop after timeout occurs
 	fmt.Println("Waiting for single-use message.")
 	timer := time.NewTimer(timeout)
@@ -220,7 +221,7 @@ func replySingleUse(m *api.Client, timeout time.Duration, receiver *Receiver) {
 		// Create new payload from repeated received payloads so that each
 		// message part contains the same payload
 		resPayload := makeResponsePayload(payload, results.request.GetMaxParts(),
-			results.request.GetMaxResponseLength())
+			results.request.GetMaxContentsSize())
 
 		fmt.Printf("Sending single-use response message: %s\n", payload)
 		jww.DEBUG.Printf("Sending single-use response to %s: %s",
@@ -264,11 +265,11 @@ func (r *Receiver) Callback(req *single.Request, ephID receptionID.EphemeralIden
 // makeResponsePayload generates a new payload that will span the max number of
 // message parts in the contact. Each resulting message payload will contain a
 // copy of the supplied payload with spaces taking up any remaining data.
-func makeResponsePayload(payload []byte, maxParts uint8, maxSize int) []byte {
+func makeResponsePayload(payload []byte, maxParts uint8, maxSizePerPart int) []byte {
 	payloads := make([][]byte, maxParts)
-	payloadPart := makeResponsePayloadPart(payload, maxSize)
+	payloadPart := makeResponsePayloadPart(payload, maxSizePerPart)
 	for i := range payloads {
-		payloads[i] = make([]byte, maxSize)
+		payloads[i] = make([]byte, maxSizePerPart)
 		copy(payloads[i], payloadPart)
 	}
 	return bytes.Join(payloads, []byte{})

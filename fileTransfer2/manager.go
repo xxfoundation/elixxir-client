@@ -80,6 +80,7 @@ const (
 	errSendNetworkHealth = "cannot initiate file transfer of %q when network is not healthy."
 	errNewKey            = "could not generate new transfer key: %+v"
 	errNewID             = "could not generate new transfer ID: %+v"
+	errSendNewMsg        = "failed to send initial file transfer message: %+v"
 	errAddSentTransfer   = "failed to add transfer: %+v"
 
 	// manager.CloseSend
@@ -130,6 +131,8 @@ type manager struct {
 	rng  *fastRNG.StreamGenerator
 }
 
+// Cmix interface matches a subset of the cmix.Client methods used by the
+// manager for easier testing.
 type Cmix interface {
 	GetMaxMessageLength() int
 	SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round,
@@ -140,8 +143,8 @@ type Cmix interface {
 	IsHealthy() bool
 	AddHealthCallback(f func(bool)) uint64
 	RemoveHealthCallback(uint64)
-	GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback,
-		roundList ...id.Round) error
+	GetRoundResults(timeout time.Duration,
+		roundCallback cmix.RoundEventCallback, roundList ...id.Round) error
 }
 
 // NewManager creates a new file transfer manager object. If sent or received
@@ -290,16 +293,11 @@ func (m *manager) Send(fileName, fileType string, fileData []byte,
 
 	// Send the initial file transfer message over E2E
 	info := &TransferInfo{
-		FileName: fileName,
-		FileType: fileType,
-		Key:      key,
-		Mac:      mac,
-		NumParts: numParts,
-		Size:     fileSize,
-		Retry:    retry,
-		Preview:  preview,
+		fileName, fileType, key, mac, numParts, fileSize, retry, preview}
+	err = m.sendNewCb(recipient, info)
+	if err != nil {
+		return nil, errors.Errorf(errSendNewMsg, err)
 	}
-	go m.sendNewCb(recipient, info)
 
 	// Calculate the number of fingerprints to generate
 	numFps := calcNumberOfFingerprints(len(parts), retry)
@@ -400,6 +398,8 @@ func (m *manager) CloseSend(tid *ftCrypto.TransferID) error {
 
 /* === Receiving ============================================================ */
 
+// AddNew starts tracking the received file parts for the given file information
+// and returns a transfer ID that uniquely identifies this file transfer.
 func (m *manager) AddNew(fileName string, key *ftCrypto.TransferKey,
 	transferMAC []byte, numParts uint16, size uint32, retry float32,
 	progressCB ReceivedProgressCallback, period time.Duration) (

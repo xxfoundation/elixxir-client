@@ -88,7 +88,10 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	myID1 := id.NewIdFromString("myID1", id.User, t)
 	kv1 := versioned.NewKV(ekv.MakeMemstore())
 	sendNewCbChan1 := make(chan *TransferInfo)
-	sendNewCb1 := func(recipient *id.ID, info *TransferInfo) { sendNewCbChan1 <- info }
+	sendNewCb1 := func(recipient *id.ID, info *TransferInfo) error {
+		sendNewCbChan1 <- info
+		return nil
+	}
 	sendEndCbChan1 := make(chan *id.ID)
 	sendEndCb1 := func(recipient *id.ID) { sendEndCbChan1 <- recipient }
 	ftm1, err := NewManager(sendNewCb1, sendEndCb1, params, myID1,

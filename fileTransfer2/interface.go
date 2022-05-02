@@ -31,11 +31,13 @@ type ReceiveCallback func(tid *ftCrypto.TransferID, fileName, fileType string,
 	sender *id.ID, size uint32, preview []byte)
 
 // SendNew handles the sending of the initial message to the recipient informing
-// them of the incoming file transfer parts.
-type SendNew func(recipient *id.ID, info *TransferInfo)
+// them of the incoming file transfer parts. SendNew should block until the send
+// completes and return an error only on failed sends.
+type SendNew func(recipient *id.ID, info *TransferInfo) error
 
 // SendEnd handles the sending of the last message to the recipient informing
-// them that the file transfer has completed.
+// them that the file transfer has completed. The function will be run in its
+// own thread.
 type SendEnd func(recipient *id.ID)
 
 // FileTransfer facilities the sending and receiving of large file transfers.
@@ -144,8 +146,8 @@ type FileTransfer interface {
 	   full file can be retrieved using Receive.
 	*/
 
-	// AddNew starts tracking received file parts for the given file
-	// information returns a transfer ID that uniquely identifies this file
+	// AddNew starts tracking the received file parts for the given file
+	// information and returns a transfer ID that uniquely identifies this file
 	// transfer.
 	//
 	// This function should be called once for every new file received on the

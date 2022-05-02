@@ -20,7 +20,6 @@
 package groupChat
 
 import (
-	"gitlab.com/elixxir/client/cmix/message"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -64,15 +63,6 @@ type GroupChat interface {
 
 	// NumGroups returns the number of groups the user is a part of.
 	NumGroups() int
-
-	/* ===== Services ======================================================= */
-
-	// AddService adds a service for all group chat partners of the given tag,
-	// which will call back on the given processor.
-	AddService(tag string, processor message.Processor) error
-
-	// RemoveService removes all services for the given tag.
-	RemoveService(tag string) error
 }
 
 // RequestCallback is called when a GroupChat request is received.

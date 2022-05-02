@@ -7,4 +7,4 @@
 # LICENSE file                                                               ///
 #
 
-protoc --go_out=paths=source_relative:. fileTransfer/ftMessages.proto
+protoc --go_out=paths=source_relative:. fileTransfer2/e2e/ftMessages.proto

@@ -28,6 +28,8 @@ const (
 	errNewFtManager = "cannot create new E2E file transfer manager: %+v"
 )
 
+// manager handles the sending and receiving of file transfers using E2E
+// messages to inform the recipient of incoming file transfers.
 type manager struct {
 	// Callback that is called every time a new file transfer is received
 	receiveCB ft.ReceiveCallback
@@ -49,6 +51,7 @@ type E2e interface {
 		newListener receive.Listener) receive.ListenerID
 }
 
+// NewManager generates a new file transfer manager using E2E.
 func NewManager(receiveCB ft.ReceiveCallback, params ft.Params, myID *id.ID,
 	e2e E2e, cmix ft.Cmix, kv *versioned.KV, rng *fastRNG.StreamGenerator) (
 	ft.FileTransfer, error) {

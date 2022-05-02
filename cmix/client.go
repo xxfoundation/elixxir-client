@@ -54,7 +54,7 @@ type client struct {
 	// Generic RNG for client
 	rng *fastRNG.StreamGenerator
 	// Comms pointer to send/receive messages
-	comms clientCommsInterface
+	comms *commClient.Comms
 	// Contains the network instance
 	instance *commNetwork.Instance
 
@@ -90,41 +90,49 @@ type client struct {
 
 // NewClient builds a new reception client object using inputted key fields.
 func NewClient(params Params, comms *commClient.Comms, session storage.Session,
-	ndf *ndf.NetworkDefinition, rng *fastRNG.StreamGenerator,
-	events event.Reporter) (Client, error) {
-
-	// Start network instance
-	instance, err := commNetwork.NewInstance(
-		comms.ProtoComms, ndf, nil, nil, commNetwork.None,
-		params.FastPolling)
-	if err != nil {
-		return nil, errors.WithMessage(
-			err, "failed to create network client")
-	}
+	rng *fastRNG.StreamGenerator, events event.Reporter) (Client, error) {
 
 	tmpMsg := format.NewMessage(session.GetCmixGroup().GetP().ByteLen())
 
 	tracker := uint64(0)
 	earliest := uint64(0)
-	addrSize := ndf.AddressSpace[len(ndf.AddressSpace)-1].Size
 
 	// Create client object
 	c := &client{
 		param:         params,
 		tracker:       &tracker,
-		Space:         address.NewAddressSpace(addrSize),
 		events:        events,
 		earliestRound: &earliest,
 		session:       session,
 		rng:           rng,
 		comms:         comms,
-		instance:      instance,
 		maxMsgLen:     tmpMsg.ContentsSize(),
 	}
 
 	if params.VerboseRoundTracking {
 		c.verboseRounds = NewRoundTracker()
 	}
+
+	// Set up Message Handler
+	c.Handler = message.NewHandler(c.param.Message, c.session.GetKV(),
+		c.events, c.session.GetReceptionID())
+
+	return c, nil
+}
+
+func (c *client) Connect(ndf *ndf.NetworkDefinition) error {
+	// Start network instance
+	instance, err := commNetwork.NewInstance(
+		c.comms.ProtoComms, ndf, nil, nil, commNetwork.None,
+		c.param.FastPolling)
+	if err != nil {
+		return errors.WithMessage(
+			err, "failed to create network client")
+	}
+	c.instance = instance
+
+	addrSize := ndf.AddressSpace[len(ndf.AddressSpace)-1].Size
+	c.Space = address.NewAddressSpace(addrSize)
 
 	/* Set up modules */
 	nodeChan := make(chan commNetwork.NodeGateway, nodes.InputChanLen)
@@ -138,30 +146,27 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 	// Enable optimized HostPool initialization
 	poolParams.MaxPings = 50
 	poolParams.ForceConnection = true
-	c.Sender, err = gateway.NewSender(
-		poolParams, rng, ndf, comms, session, nodeChan)
+	sender, err := gateway.NewSender(poolParams, c.rng, ndf, c.comms,
+		c.session, nodeChan)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	c.Sender = sender
 
 	// Set up the node registrar
 	c.Registrar, err = nodes.LoadRegistrar(
-		session, c.Sender, c.comms, c.rng, nodeChan)
+		c.session, c.Sender, c.comms, c.rng, nodeChan)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Set up the historical rounds handler
 	c.Retriever = rounds.NewRetriever(
-		params.Historical, comms, c.Sender, events)
-
-	// Set up Message Handler
-	c.Handler = message.NewHandler(params.Message, c.session.GetKV(), c.events,
-		c.session.GetReceptionID())
+		c.param.Historical, c.comms, c.Sender, c.events)
 
 	// Set up round handler
 	c.Pickup = pickup.NewPickup(
-		params.Pickup, c.Handler.GetMessageReceptionChannel(), c.Sender,
+		c.param.Pickup, c.Handler.GetMessageReceptionChannel(), c.Sender,
 		c.Retriever, c.comms, c.rng, c.instance, c.session)
 
 	// Add the identity system
@@ -169,9 +174,8 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 
 	// Set up the ability to register with new nodes when they appear
 	c.instance.SetAddGatewayChan(nodeChan)
-
 	// Set up the health monitor
-	c.Monitor = health.Init(instance, params.NetworkHealthTimeout)
+	c.Monitor = health.Init(c.instance, c.param.NetworkHealthTimeout)
 
 	// Set up critical message tracking (sendCmix only)
 	critSender := func(msg format.Message, recipient *id.ID, params CMIXParams,
@@ -181,15 +185,15 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 			c.session.GetTransmissionID(), c.comms)
 	}
 
-	c.crit = newCritical(
-		session.GetKV(), c.Monitor, c.instance.GetRoundEvents(), critSender)
+	c.crit = newCritical(c.session.GetKV(), c.Monitor,
+		c.instance.GetRoundEvents(), critSender)
 
 	// Report health events
 	c.AddHealthCallback(func(isHealthy bool) {
 		c.events.Report(5, "health", "IsHealthy", strconv.FormatBool(isHealthy))
 	})
 
-	return c, nil
+	return nil
 }
 
 // Follow StartRunners kicks off all network reception goroutines ("threads").

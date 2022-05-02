@@ -22,7 +22,7 @@ import (
 
 // Unit test of Manager.newManager.
 func Test_newManager(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := group.Member{
 		ID:    id.NewIdFromString("userID", id.User, t),
 		DhKey: randCycInt(rand.New(rand.NewSource(42))),
@@ -66,7 +66,7 @@ func Test_newManager(t *testing.T) {
 // Tests that Manager.newManager loads a group storage when it exists.
 func Test_newManager_LoadStorage(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := group.Member{
 		ID:    id.NewIdFromString("userID", id.User, t),
 		DhKey: randCycInt(rand.New(rand.NewSource(42))),
@@ -98,7 +98,7 @@ func Test_newManager_LoadStorage(t *testing.T) {
 // Error path: an error is returned when a group cannot be loaded from storage.
 func Test_newManager_LoadError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := group.Member{
 		ID:    id.NewIdFromString("userID", id.User, t),
 		DhKey: randCycInt(rand.New(rand.NewSource(42))),

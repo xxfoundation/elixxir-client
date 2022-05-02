@@ -38,10 +38,11 @@ type critical struct {
 	roundEvents roundEventRegistrar
 	trigger     chan bool
 	send        criticalSender
+	healthcb    func(f func(bool)) uint64
 }
 
 func newCritical(kv *versioned.KV, hm func(f func(bool)) uint64,
-	roundEvents roundEventRegistrar, send criticalSender) *critical {
+	send criticalSender) *critical {
 	cm, err := NewOrLoadE2eMessageBuffer(kv, e2eCriticalMessagesKey)
 	if err != nil {
 		jww.FATAL.Panicf("cannot load the critical messages buffer: "+
@@ -50,17 +51,19 @@ func newCritical(kv *versioned.KV, hm func(f func(bool)) uint64,
 
 	c := &critical{
 		E2eMessageBuffer: cm,
-		roundEvents:      roundEvents,
 		trigger:          make(chan bool, 100),
 		send:             send,
 	}
 
-	hm(func(healthy bool) { c.trigger <- healthy })
-
 	return c
 }
 
-func (c *critical) runCriticalMessages(stop *stoppable.Single) {
+func (c *critical) runCriticalMessages(stop *stoppable.Single,
+	roundEvents roundEventRegistrar) {
+	if c.roundEvents == nil {
+		c.roundEvents = roundEvents
+		c.healthcb(func(healthy bool) { c.trigger <- healthy })
+	}
 	for {
 		select {
 		case <-stop.Quit():

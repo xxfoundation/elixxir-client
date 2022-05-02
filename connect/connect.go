@@ -17,6 +17,7 @@ import (
 	clientE2e "gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/receive"
+	"gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
@@ -64,29 +65,35 @@ type handler struct {
 
 // Params for managing Connection objects
 type Params struct {
-	auth  auth.Param
-	event event.Reporter
+	Auth  auth.Param
+	Rekey rekey.Params
+	Event event.Reporter
 }
 
 // GetDefaultParams returns a usable set of default Connection parameters
 func GetDefaultParams() Params {
 	return Params{
-		auth:  auth.GetDefaultParams(),
-		event: nil,
+		Auth:  auth.GetDefaultParams(),
+		Rekey: rekey.GetDefaultParams(),
+		Event: event.NewEventManager(),
 	}
 }
 
 // Connect performs auth key negotiation with the given recipient,
 // and returns a Connection object for the newly-created partner.Manager
 // This function is to be used sender-side and will block until the partner.Manager is confirmed
-func Connect(recipient contact.Contact, myId *id.ID, rng *fastRNG.StreamGenerator,
+func Connect(recipient contact.Contact, myId *id.ID, privKey *cyclic.Int, rng *fastRNG.StreamGenerator,
 	grp *cyclic.Group, net cmix.Client, p Params) (Connection, error) {
 
 	// Build an ephemeral KV
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Build E2e handler
-	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.event)
+	err := clientE2e.Init(kv, myId, privKey, grp, p.Rekey)
+	if err != nil {
+		return nil, err
+	}
+	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.Event)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +107,7 @@ func Connect(recipient contact.Contact, myId *id.ID, rng *fastRNG.StreamGenerato
 
 	// Build auth object for E2E negotiation
 	authState, err := auth.NewState(kv, net, e2eHandler,
-		rng, p.event, p.auth, callback, nil)
+		rng, p.Event, p.Auth, callback, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -127,14 +134,18 @@ func Connect(recipient contact.Contact, myId *id.ID, rng *fastRNG.StreamGenerato
 // RegisterConnectionCallback assembles a Connection object on the reception-side
 // and feeds it into the given Callback whenever an incoming request
 // for an E2E partnership with a partner.Manager is confirmed.
-func RegisterConnectionCallback(cb Callback, myId *id.ID, rng *fastRNG.StreamGenerator,
+func RegisterConnectionCallback(cb Callback, myId *id.ID, privKey *cyclic.Int, rng *fastRNG.StreamGenerator,
 	grp *cyclic.Group, net cmix.Client, p Params) error {
 
 	// Build an ephemeral KV
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Build E2e handler
-	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.event)
+	err := clientE2e.Init(kv, myId, privKey, grp, p.Rekey)
+	if err != nil {
+		return err
+	}
+	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.Event)
 	if err != nil {
 		return err
 	}
@@ -144,7 +155,7 @@ func RegisterConnectionCallback(cb Callback, myId *id.ID, rng *fastRNG.StreamGen
 
 	// Build auth object for E2E negotiation
 	_, err = auth.NewState(kv, net, e2eHandler,
-		rng, p.event, p.auth, callback, nil)
+		rng, p.Event, p.Auth, callback, nil)
 	return err
 }
 

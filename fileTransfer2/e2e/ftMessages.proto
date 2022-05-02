@@ -8,7 +8,7 @@
 syntax = "proto3";
 
 package parse;
-option go_package = "fileTransfer/";
+option go_package = "fileTransfer2/e2e";
 
 // NewFileTransfer is transmitted first on the initialization of a file transfer
 // to inform the receiver about the incoming file.

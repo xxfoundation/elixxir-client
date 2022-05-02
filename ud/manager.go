@@ -17,6 +17,12 @@ import (
 	"time"
 )
 
+const (
+	IsRegisteredErr = "NewManager is already registered. " +
+		"NewManager is meant for the first instantiation. Use LoadManager " +
+		"for all other calls"
+)
+
 // Manager is the control structure for the contacting the user discovery service.
 type Manager struct {
 	// Network is a sub-interface of the cmix.Client interface. It
@@ -86,8 +92,7 @@ func NewManager(services CMix, e2e E2E,
 	}
 
 	if m.isRegistered() {
-		return nil, errors.Errorf("NewManager is already registered. " +
-			"NewManager is meant for the first instantiation. Use LoadManager for all other calls")
+		return nil, errors.Errorf(IsRegisteredErr)
 	}
 
 	// Initialize store

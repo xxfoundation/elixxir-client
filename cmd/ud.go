@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/xxmutils"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/utils"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -87,12 +88,17 @@ var udCmd = &cobra.Command{
 			stream,
 			userToRegister, client.GetStorage().GetKV())
 		if err != nil {
-			userDiscoveryMgr, err = ud.LoadManager(client.GetNetworkInterface(),
-				client.GetE2EHandler(), client.GetEventReporter(),
-				client.GetComms(),
-				client.GetStorage(), client.GetStorage().GetKV())
-			if err != nil {
+			if strings.Contains(err.Error(), ud.IsRegisteredErr) {
+				userDiscoveryMgr, err = ud.LoadManager(client.GetNetworkInterface(),
+					client.GetE2EHandler(), client.GetEventReporter(),
+					client.GetComms(),
+					client.GetStorage(), client.GetStorage().GetKV())
+				if err != nil {
+					jww.FATAL.Panicf("Failed to load UD manager: %+v", err)
+				}
+			} else {
 				jww.FATAL.Panicf("Failed to create new UD manager: %+v", err)
+
 			}
 		}
 

@@ -54,7 +54,8 @@ func Search(services CMix, events event.Reporter,
 		factMap:  factMap,
 	}
 
-	rndId, ephId, err := single.TransmitRequest(udContact, SearchTag, requestMarshaled,
+	rndId, ephId, err := single.TransmitRequest(udContact, SearchTag,
+		requestMarshaled,
 		response, params, services, rng, grp)
 	if err != nil {
 		return []id.Round{}, receptionID.EphemeralIdentity{},

@@ -32,20 +32,21 @@ type requestListener struct {
 
 // Hear waits for new group requests to arrive
 func (l *requestListener) Hear(item receive.Message) {
-	jww.DEBUG.Print("Group message request received message.")
+	jww.DEBUG.Print("[GC] Group message request received message.")
 
 	// Generate the group from the request message
 	g, err := l.m.readRequest(item)
 	if err != nil {
-		jww.WARN.Printf("Failed to read message as group request: %+v", err)
+		jww.WARN.Printf(
+			"[GC] Failed to read message as group request: %+v", err)
 		return
 	}
 
 	// Call request callback with the new group if it does not already
 	// exist
 	if _, exists := l.m.GetGroup(g.ID); !exists {
-		jww.DEBUG.Printf("Received group request for "+
-			"group %s with ID %s.", g.Name, g.ID)
+		jww.INFO.Printf(
+			"[GC] Received group request for group %s with ID %s.", g.Name, g.ID)
 
 		l.m.requestFunc(g)
 	}

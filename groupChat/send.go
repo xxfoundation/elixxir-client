@@ -36,9 +36,10 @@ const (
 	saltReadLengthErr = "length of generated salt %d != %d required"
 )
 
-// Send sends a message to all group members using Client.SendManyCMIX.
+// Send sends a message to all group members using Client.SendMany.
 // The send fails if the message is too long.
-func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time, group.MessageID, error) {
+func (m *Manager) Send(groupID *id.ID, message []byte) (
+	id.Round, time.Time, group.MessageID, error) {
 
 	// Get the relevant group
 	g, exists := m.GetGroup(groupID)
@@ -47,17 +48,19 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time, gro
 			errors.Errorf(newNoGroupErr, groupID)
 	}
 
-	// get the current time stripped of the monotonic clock
+	// Get the current time stripped of the monotonic clock
 	timeNow := netTime.Now().Round(0)
 
 	// Create a cMix message for each group member
 	groupMessages, err := m.newMessages(g, message, timeNow)
 	if err != nil {
-		return 0, time.Time{}, group.MessageID{}, errors.Errorf(newCmixMsgErr, err)
+		return 0, time.Time{}, group.MessageID{},
+			errors.Errorf(newCmixMsgErr, err)
 	}
 
 	// Obtain message ID
-	msgId, err := getGroupMessageId(m.grp, groupID, m.receptionId, timeNow, message)
+	msgId, err := getGroupMessageId(
+		m.grp, groupID, m.receptionId, timeNow, message)
 	if err != nil {
 		return 0, time.Time{}, group.MessageID{}, err
 	}
@@ -71,12 +74,13 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time, gro
 			errors.Errorf(sendManyCmixErr, m.receptionId, groupID, err)
 	}
 
-	jww.DEBUG.Printf("Sent message to %d members in group %s at %s.",
+	jww.DEBUG.Printf("[GC] Sent message to %d members in group %s at %s.",
 		len(groupMessages), groupID, timeNow)
 	return rid, timeNow, msgId, nil
 }
 
-// newMessages quickly builds messages for all group chat members in multiple threads
+// newMessages quickly builds messages for all group chat members in multiple
+// threads.
 func (m *Manager) newMessages(g gs.Group, msg []byte, timestamp time.Time) (
 	[]cmix.TargetedCmixMessage, error) {
 
@@ -93,7 +97,8 @@ func (m *Manager) newMessages(g gs.Group, msg []byte, timestamp time.Time) (
 		}
 
 		// Add cMix message to list
-		cMixMsg, err := newCmixMsg(g, msg, timestamp, member, rng, m.receptionId, m.services.GetMaxMessageLength())
+		cMixMsg, err := newCmixMsg(g, msg, timestamp, member, rng,
+			m.receptionId, m.services.GetMaxMessageLength())
 		if err != nil {
 			return nil, err
 		}
@@ -104,8 +109,9 @@ func (m *Manager) newMessages(g gs.Group, msg []byte, timestamp time.Time) (
 }
 
 // newCmixMsg generates a new cMix message to be sent to a group member.
-func newCmixMsg(g gs.Group, msg []byte, timestamp time.Time,
-	mem group.Member, rng io.Reader, senderId *id.ID, maxCmixMessageSize int) (cmix.TargetedCmixMessage, error) {
+func newCmixMsg(g gs.Group, msg []byte, timestamp time.Time, mem group.Member,
+	rng io.Reader, senderId *id.ID, maxCmixMessageSize int) (
+	cmix.TargetedCmixMessage, error) {
 
 	// Initialize targeted message
 	cmixMsg := cmix.TargetedCmixMessage{
@@ -160,13 +166,16 @@ func newCmixMsg(g gs.Group, msg []byte, timestamp time.Time,
 }
 
 // Build the group message ID
-func getGroupMessageId(grp *cyclic.Group, groupId, senderId *id.ID, timestamp time.Time, msg []byte) (group.MessageID, error) {
+func getGroupMessageId(grp *cyclic.Group, groupId, senderId *id.ID,
+	timestamp time.Time, msg []byte) (group.MessageID, error) {
 	cmixMsg := format.NewMessage(grp.GetP().ByteLen())
 	_, intlMsg, err := newMessageParts(cmixMsg.ContentsSize())
 	if err != nil {
-		return group.MessageID{}, errors.WithMessage(err, "Failed to make message parts for message ID")
+		return group.MessageID{}, errors.WithMessage(err,
+			"Failed to make message parts for message ID")
 	}
-	return group.NewMessageID(groupId, setInternalPayload(intlMsg, timestamp, senderId, msg)), nil
+	return group.NewMessageID(groupId,
+		setInternalPayload(intlMsg, timestamp, senderId, msg)), nil
 }
 
 // newMessageParts generates a public payload message and the internal payload

@@ -36,7 +36,7 @@ func (m Manager) ResendRequest(groupID *id.ID) ([]id.Round, RequestStatus, error
 		return nil, NotSent, errors.Errorf(resendGroupIdErr, groupID)
 	}
 
-	jww.DEBUG.Printf("Resending group requests for group %s.", groupID)
+	jww.INFO.Printf("[GC] Resending group requests for group %s.", groupID)
 
 	return m.sendRequests(g)
 }
@@ -106,7 +106,8 @@ func (m Manager) sendRequests(g gs.Group) ([]id.Round, RequestStatus, error) {
 				strings.Join(errs, "\n"))
 	}
 
-	jww.DEBUG.Printf("Sent group request to %d members in group %q with ID %s.",
+	jww.DEBUG.Printf(
+		"[GC] Sent group request to %d members in group %q with ID %s.",
 		len(g.Members), g.Name, g.ID)
 
 	// If all sends succeeded, return a list of roundIDs
@@ -119,7 +120,8 @@ func (m Manager) sendRequest(memberID *id.ID, request []byte) ([]id.Round, error
 	p.LastServiceTag = catalog.GroupRq
 	p.DebugTag = "group.Request"
 
-	rounds, _, _, err := m.e2e.SendE2E(catalog.GroupCreationRequest, memberID, request, p)
+	rounds, _, _, err := m.e2e.SendE2E(
+		catalog.GroupCreationRequest, memberID, request, p)
 	if err != nil {
 		return nil, errors.Errorf(sendE2eErr, memberID, err)
 	}

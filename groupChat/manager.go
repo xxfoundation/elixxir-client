@@ -104,7 +104,8 @@ func NewManager(services GroupCmix, e2e GroupE2e, receptionId *id.ID,
 	}
 
 	// Register listener for incoming e2e group chat requests
-	e2e.RegisterListener(&id.ZeroUser, catalog.GroupCreationRequest, &requestListener{m: m})
+	e2e.RegisterListener(
+		&id.ZeroUser, catalog.GroupCreationRequest, &requestListener{m})
 
 	// Register notifications listener for incoming e2e group chat requests
 	err = e2e.AddService(catalog.GroupRq, nil)
@@ -116,7 +117,7 @@ func NewManager(services GroupCmix, e2e GroupE2e, receptionId *id.ID,
 	for _, gId := range m.GetGroups() {
 		g, exists := m.GetGroup(gId)
 		if !exists {
-			jww.WARN.Printf("Unexpected failure to locate GroupID %s", gId.String())
+			jww.WARN.Printf("[GC] Unexpected failure to locate GroupID %s", gId)
 			continue
 		}
 
@@ -135,7 +136,7 @@ func (m Manager) JoinGroup(g gs.Group) error {
 	}
 
 	m.joinGroup(g)
-	jww.DEBUG.Printf("Joined group %q with ID %s.", g.Name, g.ID)
+	jww.INFO.Printf("[GC] Joined group %q with ID %s.", g.Name, g.ID)
 	return nil
 }
 
@@ -146,7 +147,7 @@ func (m Manager) joinGroup(g gs.Group) {
 		Tag:        catalog.Group,
 		Metadata:   g.ID[:],
 	}
-	m.services.AddService(m.receptionId, newService, &receptionProcessor{m: &m, g: g})
+	m.services.AddService(m.receptionId, newService, &receptionProcessor{&m, g})
 }
 
 // LeaveGroup removes a group from a list of groups the user is a part of.
@@ -161,20 +162,20 @@ func (m Manager) LeaveGroup(groupID *id.ID) error {
 	}
 	m.services.DeleteService(m.receptionId, delService, nil)
 
-	jww.DEBUG.Printf("Left group with ID %s.", groupID)
+	jww.INFO.Printf("[GC] Left group with ID %s.", groupID)
 	return nil
 }
 
 // GetGroups returns a list of all registered groupChat IDs.
 func (m Manager) GetGroups() []*id.ID {
-	jww.DEBUG.Print("Getting list of all groups.")
+	jww.DEBUG.Print("[GC] Getting list of all groups.")
 	return m.gs.GroupIDs()
 }
 
 // GetGroup returns the group with the matching ID or returns false if none
 // exist.
 func (m Manager) GetGroup(groupID *id.ID) (gs.Group, bool) {
-	jww.DEBUG.Printf("Getting group with ID %s.", groupID)
+	jww.DEBUG.Printf("[GC] Getting group with ID %s.", groupID)
 	return m.gs.Get(groupID)
 }
 

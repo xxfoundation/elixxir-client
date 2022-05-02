@@ -26,7 +26,7 @@ const (
 	newDecryptKeyErr        = "failed to generate key for decrypting group payload: %+v"
 	unmarshalInternalMsgErr = "failed to unmarshal group internal message: %+v"
 	unmarshalSenderIdErr    = "failed to unmarshal sender ID: %+v"
-	unmarshalPublicMsgErr   = "failed to unmarshal group cMix message contents: %+v"
+	unmarshalPublicMsgErr   = "[GC] Failed to unmarshal group cMix message contents: %+v"
 	genCryptKeyMacErr       = "failed to generate encryption key for group " +
 		"cMix message because MAC verification failed (epoch %d could be off)"
 )
@@ -38,29 +38,30 @@ type receptionProcessor struct {
 }
 
 // Process incoming group chat messages
-func (p *receptionProcessor) Process(message format.Message, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-	jww.TRACE.Print("Group message reception received cMix message.")
+func (p *receptionProcessor) Process(message format.Message,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	jww.TRACE.Print("[GC] Group message reception received cMix message.")
 	// Attempt to read the message
 	roundTimestamp := round.Timestamps[states.QUEUED]
 
 	// Unmarshal cMix message contents to get public message format
 	pubMsg, err := unmarshalPublicMsg(message.GetContents())
 	if err != nil {
-		jww.WARN.Printf("Failed to unmarshal: %+v", errors.Errorf(unmarshalPublicMsgErr, err))
+		jww.WARN.Printf(unmarshalPublicMsgErr, err)
 	}
 
 	// Obtain the cryptKey for the public message
 	key, err := getCryptKey(p.g.Key, pubMsg.GetSalt(), message.GetMac(),
 		pubMsg.GetPayload(), p.g.DhKeys, roundTimestamp)
 	if err != nil {
-		jww.WARN.Printf("Unable to getCryptKey: %+v", err)
+		jww.WARN.Printf("[GC] Unable to getCryptKey: %+v", err)
 		return
 	}
 
 	// Decrypt the message payload using the cryptKey
 	result, err := decryptMessage(p.g, message.GetKeyFP(), key, pubMsg.GetPayload())
 	if err != nil {
-		jww.WARN.Printf("Group message reception failed to read "+
+		jww.WARN.Printf("[GC] Group message reception failed to read "+
 			"cMix message: %+v", err)
 		return
 	}
@@ -71,9 +72,9 @@ func (p *receptionProcessor) Process(message format.Message, receptionID recepti
 	result.RoundID = round.ID
 	result.RoundTimestamp = roundTimestamp
 
-	jww.DEBUG.Printf("Received group message with ID %s from sender "+
-		"%s in group %s with ID %s at %s.", result.ID, result.SenderID, p.g.Name,
-		p.g.ID, result.Timestamp)
+	jww.DEBUG.Printf("[GC] Received group message with ID %s from sender "+
+		"%s in group %s with ID %s at %s.", result.ID, result.SenderID,
+		p.g.Name, p.g.ID, result.Timestamp)
 
 	// If the message was read correctly, send it to the callback
 	p.m.receiveFunc(result)
@@ -85,8 +86,8 @@ func (p *receptionProcessor) String() string {
 
 // decryptMessage decrypts the group message payload and returns its message ID,
 // timestamp, sender ID, and message contents.
-func decryptMessage(g gs.Group, fingerprint format.Fingerprint, key group.CryptKey, payload []byte) (
-	MessageReceive, error) {
+func decryptMessage(g gs.Group, fingerprint format.Fingerprint,
+	key group.CryptKey, payload []byte) (MessageReceive, error) {
 
 	// Decrypt internal message
 	decryptedPayload := group.Decrypt(key, fingerprint, payload)

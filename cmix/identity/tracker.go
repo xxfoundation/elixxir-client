@@ -189,7 +189,7 @@ func (t *manager) track(stop *stoppable.Single) {
 
 		// Sleep until the last ID has expired
 		select {
-		case <-time.After(nextUpdate.Sub(nextUpdate)):
+		case <-time.After(nextUpdate.Sub(netTime.Now())):
 		case newIdentity := <-t.newIdentity:
 			jww.DEBUG.Printf("Receiving new identity %s :%+v",
 				newIdentity.Source, newIdentity)

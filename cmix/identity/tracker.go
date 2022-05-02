@@ -180,16 +180,19 @@ func (t *manager) track(stop *stoppable.Single) {
 	for {
 		// Process new and old identities
 		nextEvent := t.processIdentities(addressSize)
+		waitPeriod := nextEvent.Sub(netTime.Now())
 
-		// Trigger events early. This will cause generations to happen early as
-		// well as message pickup. As a result, if there are time sync issues
-		// between clients, and they begin sending to ephemeral IDs early, then
-		// messages will still be picked up.
-		nextUpdate := nextEvent.Add(-validityGracePeriod)
+		if waitPeriod > validityGracePeriod {
+			// Trigger events early. This will cause generations to happen early as
+			// well as message pickup. As a result, if there are time sync issues
+			// between clients, and they begin sending to ephemeral IDs early, then
+			// messages will still be picked up.
+			waitPeriod = waitPeriod - validityGracePeriod
+		}
 
 		// Sleep until the last ID has expired
 		select {
-		case <-time.After(nextUpdate.Sub(nextUpdate)):
+		case <-time.After(waitPeriod):
 		case newIdentity := <-t.newIdentity:
 			jww.DEBUG.Printf("Receiving new identity %s :%+v",
 				newIdentity.Source, newIdentity)
@@ -240,7 +243,9 @@ func (t *manager) track(stop *stoppable.Single) {
 func (t *manager) processIdentities(addressSize uint8) time.Time {
 	edits := false
 	toRemove := make(map[int]struct{})
-	nextEvent := t.tracked[0].ValidUntil
+	// Identities are rotated on a 24-hour time period. Set the event
+	// to the latest possible time so that any sooner times will overwrite this
+	nextEvent := netTime.Now().Add(time.Duration(ephemeral.Period))
 
 	// Loop through every tracked ID and see if any operations are needed
 	for i, inQuestion := range t.tracked {
@@ -263,12 +268,14 @@ func (t *manager) processIdentities(addressSize uint8) time.Time {
 			if inQuestion.NextGeneration.Before(nextEvent) {
 				nextEvent = inQuestion.NextGeneration
 			}
-			if inQuestion.ValidUntil.Before(nextEvent) {
+			if !inQuestion.ValidUntil.IsZero() && inQuestion.ValidUntil.Before(nextEvent) {
 				nextEvent = inQuestion.ValidUntil
 			}
 		}
 
 	}
+
+	jww.DEBUG.Printf("[TrackedIDS] NextEvent: %s", nextEvent)
 
 	// Process any deletions
 	if len(toRemove) > 0 {

@@ -65,17 +65,17 @@ type handler struct {
 
 // Params for managing Connection objects
 type Params struct {
-	auth  auth.Param
-	rekey rekey.Params
-	event event.Reporter
+	Auth  auth.Param
+	Rekey rekey.Params
+	Event event.Reporter
 }
 
 // GetDefaultParams returns a usable set of default Connection parameters
 func GetDefaultParams() Params {
 	return Params{
-		auth:  auth.GetDefaultParams(),
-		rekey: rekey.GetDefaultParams(),
-		event: nil,
+		Auth:  auth.GetDefaultParams(),
+		Rekey: rekey.GetDefaultParams(),
+		Event: event.NewEventManager(),
 	}
 }
 
@@ -89,11 +89,11 @@ func Connect(recipient contact.Contact, myId *id.ID, privKey *cyclic.Int, rng *f
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Build E2e handler
-	err := clientE2e.Init(kv, myId, privKey, grp, p.rekey)
+	err := clientE2e.Init(kv, myId, privKey, grp, p.Rekey)
 	if err != nil {
 		return nil, err
 	}
-	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.event)
+	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.Event)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func Connect(recipient contact.Contact, myId *id.ID, privKey *cyclic.Int, rng *f
 
 	// Build auth object for E2E negotiation
 	authState, err := auth.NewState(kv, net, e2eHandler,
-		rng, p.event, p.auth, callback, nil)
+		rng, p.Event, p.Auth, callback, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -141,11 +141,11 @@ func RegisterConnectionCallback(cb Callback, myId *id.ID, privKey *cyclic.Int, r
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Build E2e handler
-	err := clientE2e.Init(kv, myId, privKey, grp, p.rekey)
+	err := clientE2e.Init(kv, myId, privKey, grp, p.Rekey)
 	if err != nil {
 		return err
 	}
-	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.event)
+	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.Event)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func RegisterConnectionCallback(cb Callback, myId *id.ID, privKey *cyclic.Int, r
 
 	// Build auth object for E2E negotiation
 	_, err = auth.NewState(kv, net, e2eHandler,
-		rng, p.event, p.auth, callback, nil)
+		rng, p.Event, p.Auth, callback, nil)
 	return err
 }
 

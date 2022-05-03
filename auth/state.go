@@ -141,9 +141,9 @@ func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 
 	net.AddService(e2e.GetReceptionID(), message.Service{
 		Identifier: e2e.GetReceptionID()[:],
-		Tag:        params.ResetRequestTag,
+		Tag:        params.ConfirmTag,
 		Metadata:   nil,
-	}, &receivedRequestService{s: s, reset: true})
+	}, &receivedConfirmService{s: s})
 
 	if err != nil {
 		return nil, errors.Errorf("Failed to make Auth State manager")

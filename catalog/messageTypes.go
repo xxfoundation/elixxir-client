@@ -42,4 +42,7 @@ const (
 	// EndFileTransfer is sent once all file parts have been transmitted to
 	// inform the receiver that the file transfer has ended.
 	EndFileTransfer = 51
+
+	// SimpleStream - e2e streaming message
+	SimpleStream = 60
 )

@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"strings"
@@ -24,11 +25,12 @@ import (
 	"time"
 )
 
-func TestManager_Send(t *testing.T) {
+func Test_manager_Send(t *testing.T) {
 	receiveChan := make(chan MessageReceive, 100)
 	receiveFunc := func(msg MessageReceive) {
 		receiveChan <- msg
 	}
+	msgChan := make(chan MessageReceive, 10)
 
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManagerWithStore(prng, 1, 0, nil, receiveFunc, t)
@@ -36,6 +38,7 @@ func TestManager_Send(t *testing.T) {
 	reception := &receptionProcessor{
 		m: m,
 		g: g,
+		p: &testProcessor{msgChan},
 	}
 
 	roundId, _, msgId, err := m.Send(g.ID, messageBytes)
@@ -54,9 +57,12 @@ func TestManager_Send(t *testing.T) {
 	timestamps := make(map[states.Round]time.Time)
 	timestamps[states.QUEUED] = netTime.Now().Round(0)
 	for _, msg := range messages {
-		reception.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{ID: roundId, Timestamps: timestamps})
+		reception.Process(msg, receptionID.EphemeralIdentity{
+			EphId: ephemeral.Id{1, 2, 3}, Source: &id.ID{4, 5, 6},
+		},
+			rounds.Round{ID: roundId, Timestamps: timestamps})
 		select {
-		case result := <-receiveChan:
+		case result := <-msgChan:
 			if !result.SenderID.Cmp(m.receptionId) {
 				t.Errorf("Sender mismatch")
 			}
@@ -90,7 +96,7 @@ func TestGroup_newCmixMsg_SaltReaderError(t *testing.T) {
 func TestGroup_newCmixMsg_InternalMsgSizeError(t *testing.T) {
 	expectedErr := strings.SplitN(messageLenErr, "%", 2)[0]
 
-	// Create new test Manager and Group
+	// Create new test manager and Group
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
 
@@ -261,3 +267,14 @@ func Test_setPublicPayload(t *testing.T) {
 			encryptedPayload, unmarshalled.GetPayload())
 	}
 }
+
+type testProcessor struct {
+	msgChan chan MessageReceive
+}
+
+func (tp *testProcessor) Process(decryptedMsg MessageReceive, _ format.Message,
+	_ receptionID.EphemeralIdentity, _ rounds.Round) {
+	tp.msgChan <- decryptedMsg
+}
+
+func (tp *testProcessor) String() string { return "testProcessor" }

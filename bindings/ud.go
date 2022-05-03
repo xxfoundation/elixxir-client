@@ -41,8 +41,8 @@ func NewUserDiscovery(client *Client, username string) (*UserDiscovery, error) {
 	stream := client.api.GetRng().GetStream()
 	defer stream.Close()
 	m, err := udPackage.NewManager(client.api.GetNetworkInterface(),
-		client.api.GetE2e(), client.api.NetworkFollowerStatus,
-		client.api.GetEventManager(),
+		client.api.GetE2EHandler(), client.api.NetworkFollowerStatus,
+		client.api.GetEventReporter(),
 		client.api.GetComms(), client.api.GetStorage(),
 		stream,
 		username, client.api.GetStorage().GetKV())
@@ -60,7 +60,7 @@ func NewUserDiscovery(client *Client, username string) (*UserDiscovery, error) {
 // instantiation of the manager by NewUserDiscovery.
 func LoadUserDiscovery(client *Client) (*UserDiscovery, error) {
 	m, err := udPackage.LoadManager(client.api.GetNetworkInterface(),
-		client.api.GetE2e(), client.api.GetEventManager(),
+		client.api.GetE2EHandler(), client.api.GetEventReporter(),
 		client.api.GetComms(), client.api.GetStorage(),
 		client.api.GetStorage().GetKV())
 
@@ -119,7 +119,11 @@ func NewUserDiscoveryFromBackup(client *Client,
 			"registered phone number")
 	}
 
-	m, err := udPackage.NewManagerFromBackup(client.api.GetNetworkInterface(), client.api.GetE2e(), client.api.NetworkFollowerStatus, client.api.GetEventManager(), client.api.GetComms(), client.api.GetStorage(), emailFact, phoneFact, client.api.GetStorage().GetKV())
+	m, err := udPackage.NewManagerFromBackup(client.api.GetNetworkInterface(),
+		client.api.GetE2EHandler(), client.api.NetworkFollowerStatus,
+		client.api.GetEventReporter(), client.api.GetComms(),
+		client.api.GetStorage(), emailFact, phoneFact,
+		client.api.GetStorage().GetKV())
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"Failed to create User Discovery Manager")
@@ -228,8 +232,8 @@ func (ud UserDiscovery) Search(client *Client,
 	}
 
 	rids, _, err := udPackage.Search(
-		client.api.GetNetworkInterface(), client.api.GetEventManager(),
-		stream, client.api.GetE2e().GetGroup(), udContact,
+		client.api.GetNetworkInterface(), client.api.GetEventReporter(),
+		stream, client.api.GetE2EHandler().GetGroup(), udContact,
 		cb, factList, p)
 
 	if err != nil {
@@ -285,8 +289,8 @@ func (ud UserDiscovery) SearchSingle(client *Client, f string, callback SingleSe
 	}
 
 	rids, _, err := udPackage.Search(client.api.GetNetworkInterface(),
-		client.api.GetEventManager(),
-		stream, client.api.GetE2e().GetGroup(), udContact,
+		client.api.GetEventReporter(),
+		stream, client.api.GetE2EHandler().GetGroup(), udContact,
 		cb, []fact.Fact{fObj}, p)
 
 	if err != nil {
@@ -361,7 +365,7 @@ func (ud UserDiscovery) Lookup(client *Client,
 	}
 
 	rid, _, err := udPackage.Lookup(client.api.GetNetworkInterface(),
-		stream, client.api.GetE2e().GetGroup(),
+		stream, client.api.GetE2EHandler().GetGroup(),
 		udContact,
 		cb, uid, p)
 
@@ -447,7 +451,7 @@ func (ud UserDiscovery) MultiLookup(client *Client,
 			stream := client.api.GetRng().GetStream()
 			defer stream.Close()
 			_, _, err := udPackage.Lookup(client.api.GetNetworkInterface(),
-				stream, client.api.GetE2e().GetGroup(),
+				stream, client.api.GetE2EHandler().GetGroup(),
 				udContact, cb, localID, p)
 			if err != nil {
 				results <- lookupResponse{

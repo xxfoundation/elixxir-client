@@ -41,9 +41,9 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-// newTestManager creates a new Manager for testing.
-func newTestManager(rng *rand.Rand, t *testing.T) (*Manager, gs.Group) {
-	m := &Manager{
+// newTestManager creates a new manager for testing.
+func newTestManager(rng *rand.Rand, t *testing.T) (*manager, gs.Group) {
+	m := &manager{
 		receptionId: id.NewIdFromString("test", id.User, t),
 		rng:         fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 		grp:         getGroup(),
@@ -66,13 +66,13 @@ func newTestManager(rng *rand.Rand, t *testing.T) (*Manager, gs.Group) {
 	return m, g
 }
 
-// newTestManager creates a new Manager that has groups stored for testing. One
+// newTestManager creates a new manager that has groups stored for testing. One
 // of the groups in the list is also returned.
 func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
 	requestFunc RequestCallback, receiveFunc ReceiveCallback,
-	t *testing.T) (*Manager, gs.Group) {
+	t *testing.T) (*manager, gs.Group) {
 
-	m := &Manager{
+	m := &manager{
 		receptionId: id.NewIdFromString("test", id.User, t),
 		rng:         fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 		grp:         getGroup(),

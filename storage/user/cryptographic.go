@@ -41,7 +41,9 @@ type ciDisk struct {
 	IsPrecanned        bool
 }
 
-func newCryptographicIdentity(transmissionID, receptionID *id.ID, transmissionSalt, receptionSalt []byte, transmissionRsa, receptionRsa *rsa.PrivateKey,
+func newCryptographicIdentity(transmissionID, receptionID *id.ID,
+	transmissionSalt, receptionSalt []byte,
+	transmissionRsa, receptionRsa *rsa.PrivateKey,
 	isPrecanned bool, kv *versioned.KV) *CryptographicIdentity {
 
 	ci := &CryptographicIdentity{

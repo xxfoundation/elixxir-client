@@ -21,6 +21,7 @@ package groupChat
 
 import (
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
+	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -52,7 +53,8 @@ type GroupChat interface {
 	// Send sends a message to all GroupChat members using Client.SendManyCMIX.
 	// The send fails if the message is too long. Returns the ID of the round
 	// sent on and the timestamp of the message send.
-	Send(groupID *id.ID, message []byte) (id.Round, time.Time, error)
+	Send(groupID *id.ID, tag string, message []byte) (
+		id.Round, time.Time, group.MessageID, error)
 
 	// GetGroups returns a list of all registered GroupChat IDs.
 	GetGroups() []*id.ID
@@ -63,6 +65,15 @@ type GroupChat interface {
 
 	// NumGroups returns the number of groups the user is a part of.
 	NumGroups() int
+
+	/* ===== Services ======================================================= */
+
+	// AddService adds a service for all group chat partners of the given tag,
+	// which will call back on the given processor.
+	AddService(g gs.Group, tag string, p Processor)
+
+	// RemoveService removes all services for the given tag.
+	RemoveService(g gs.Group, tag string, p Processor)
 }
 
 // RequestCallback is called when a GroupChat request is received.

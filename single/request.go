@@ -212,8 +212,6 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 			errors.Errorf(errSendRequest, tag, recipient, err)
 	}
 
-	// todo: this is jono's work but there's a send above it,
-	//  probably just WIP code, talk to jono and resolve once tests work
 	roundIDs := make([]id.Round, len(parts)+1)
 	roundIDs[0] = rid
 	for i, part := range parts {

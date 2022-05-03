@@ -716,6 +716,11 @@ func (c *Client) GetE2EHandler() e2e.Handler {
 	return c.e2e
 }
 
+// GetEventReporter returns the event reporter
+func (c *Client) GetEventReporter() event.Reporter {
+	return c.events
+}
+
 // GetBackup returns a pointer to the backup container so that the backup can be
 // set and triggered.
 func (c *Client) GetBackup() *backup.Backup {

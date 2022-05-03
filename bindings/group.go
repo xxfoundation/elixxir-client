@@ -20,7 +20,7 @@ import (
 
 // GroupChat object contains the group chat manager.
 type GroupChat struct {
-	m *gc.Manager
+	m gc.GroupChat
 }
 
 // GroupRequestFunc contains a function callback that is called when a group
@@ -48,7 +48,7 @@ func NewGroupManager(client *Client, requestFunc GroupRequestFunc,
 
 	// Create a new group chat manager
 	// TODO: Need things from storage, services, etc?
-	m, err := gc.NewManager(&client.api, requestCallback, receiveCallback)
+	m, err := gc.NewManager(client.api, requestCallback, receiveCallback)
 	if err != nil {
 		return nil, err
 	}

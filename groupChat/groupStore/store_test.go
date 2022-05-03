@@ -24,7 +24,7 @@ import (
 // Unit test of NewStore.
 func TestNewStore(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := randMember(prng)
 
 	expectedStore := &Store{
@@ -90,7 +90,7 @@ func TestNewStore(t *testing.T) {
 
 func TestNewOrLoadStore(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := randMember(prng)
 
 	store, err := NewOrLoadStore(kv, user)
@@ -126,7 +126,7 @@ func TestNewOrLoadStore(t *testing.T) {
 // Unit test of LoadStore.
 func TestLoadStore(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := randMember(prng)
 
 	store, err := NewStore(kv, user)
@@ -162,7 +162,7 @@ func TestLoadStore(t *testing.T) {
 // Error path: show that LoadStore returns an error when no group store can be
 // found in storage.
 func TestLoadStore_GetError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := randMember(rand.New(rand.NewSource(42)))
 	expectedErr := strings.SplitN(kvGetGroupListErr, "%", 2)[0]
 
@@ -177,7 +177,7 @@ func TestLoadStore_GetError(t *testing.T) {
 // Error path: show that loadStore returns an error when no group can be found
 // in storage.
 func Test_loadStore_GetGroupError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := randMember(rand.New(rand.NewSource(42)))
 	var idList []byte
 	for i := 0; i < 10; i++ {
@@ -249,7 +249,7 @@ func TestStore_Len(t *testing.T) {
 // Unit test of Store.Add.
 func TestStore_Add(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := randMember(prng)
 
 	store, err := NewStore(kv, user)
@@ -281,7 +281,7 @@ func TestStore_Add(t *testing.T) {
 // groups.
 func TestStore_Add_MapFullError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := randMember(prng)
 	expectedErr := strings.SplitN(maxGroupsErr, "%", 2)[0]
 
@@ -309,7 +309,7 @@ func TestStore_Add_MapFullError(t *testing.T) {
 // that is already in the map.
 func TestStore_Add_GroupExistsError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := randMember(prng)
 	expectedErr := strings.SplitN(groupExistsErr, "%", 2)[0]
 
@@ -334,7 +334,7 @@ func TestStore_Add_GroupExistsError(t *testing.T) {
 // Unit test of Store.Remove.
 func TestStore_Remove(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := randMember(prng)
 
 	store, err := NewStore(kv, user)
@@ -374,7 +374,7 @@ func TestStore_Remove(t *testing.T) {
 // given ID is found in the map.
 func TestStore_Remove_RemoveGroupNotInMemoryError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := randMember(prng)
 	expectedErr := strings.SplitN(groupRemoveErr, "%", 2)[0]
 
@@ -423,7 +423,7 @@ func TestStore_GroupIDs(t *testing.T) {
 // Unit test of Store.Get.
 func TestStore_Get(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := randMember(prng)
 
 	store, err := NewStore(kv, user)
@@ -451,7 +451,7 @@ func TestStore_Get(t *testing.T) {
 
 // Error path: shows that Store.Get return false if no group is found.
 func TestStore_Get_NoGroupError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := randMember(rand.New(rand.NewSource(42)))
 
 	store, err := NewStore(kv, user)
@@ -469,7 +469,7 @@ func TestStore_Get_NoGroupError(t *testing.T) {
 // Unit test of Store.GetByKeyFp.
 func TestStore_GetByKeyFp(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := randMember(prng)
 
 	store, err := NewStore(kv, user)
@@ -502,7 +502,7 @@ func TestStore_GetByKeyFp(t *testing.T) {
 // Error path: shows that Store.GetByKeyFp return false if no group is found.
 func TestStore_GetByKeyFp_NoGroupError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := randMember(prng)
 
 	store, err := NewStore(kv, user)
@@ -523,7 +523,7 @@ func TestStore_GetByKeyFp_NoGroupError(t *testing.T) {
 
 // Unit test of Store.GetUser.
 func TestStore_GetUser(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := randMember(rand.New(rand.NewSource(42)))
 
 	store, err := NewStore(kv, user)
@@ -539,7 +539,7 @@ func TestStore_GetUser(t *testing.T) {
 
 // Unit test of Store.SetUser.
 func TestStore_SetUser(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	prng := rand.New(rand.NewSource(42))
 	oldUser := randMember(prng)
 	newUser := randMember(prng)

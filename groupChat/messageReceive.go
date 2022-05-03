@@ -31,7 +31,7 @@ type MessageReceive struct {
 	RoundTimestamp time.Time
 }
 
-// String returns the MessageReceive as readable text. This functions satisfies
+// String returns the MessageReceive as readable text. This functions adheres to
 // the fmt.Stringer interface.
 func (mr MessageReceive) String() string {
 	groupID := "<nil>"
@@ -54,16 +54,17 @@ func (mr MessageReceive) String() string {
 		recipientID = mr.RecipientID.String()
 	}
 
-	str := make([]string, 0, 9)
-	str = append(str, "GroupID:"+groupID)
-	str = append(str, "ID:"+mr.ID.String())
-	str = append(str, "Payload:"+payload)
-	str = append(str, "SenderID:"+senderID)
-	str = append(str, "RecipientID:"+recipientID)
-	str = append(str, "EphemeralID:"+strconv.FormatInt(mr.EphemeralID.Int64(), 10))
-	str = append(str, "Timestamp:"+mr.Timestamp.String())
-	str = append(str, "RoundID:"+strconv.FormatUint(uint64(mr.RoundID), 10))
-	str = append(str, "RoundTimestamp:"+mr.RoundTimestamp.String())
+	str := []string{
+		"GroupID:" + groupID,
+		"ID:" + mr.ID.String(),
+		"Payload:" + payload,
+		"SenderID:" + senderID,
+		"RecipientID:" + recipientID,
+		"EphemeralID:" + strconv.FormatInt(mr.EphemeralID.Int64(), 10),
+		"Timestamp:" + mr.Timestamp.String(),
+		"RoundID:" + strconv.FormatUint(uint64(mr.RoundID), 10),
+		"RoundTimestamp:" + mr.RoundTimestamp.String(),
+	}
 
 	return "{" + strings.Join(str, " ") + "}"
 }

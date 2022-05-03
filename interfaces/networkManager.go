@@ -50,7 +50,7 @@ type NetworkManager interface {
 		id.Round, []ephemeral.Id, error)
 
 	/*===Message Reception================================================*/
-	/* Identities are all network identites which the client is currently
+	/* Identities are all network identities which the client is currently
 	trying to pick up message on. An identity must be added
 	to receive messages, fake ones will be used to poll the network
 	if none are present. On creation of the network handler, the identity in
@@ -132,7 +132,7 @@ type NetworkManager interface {
 	// the given identity
 	DeleteClientTriggers(identity *id.ID)
 
-	// TrackTriggers - Registers a callback which will get called
+	// TrackServices - Registers a callback which will get called
 	// every time triggers change.
 	// It will receive the triggers list every time it is modified.
 	// Will only get callbacks while the Network Follower is running.
@@ -163,7 +163,8 @@ type NetworkManager interface {
 	// relationship with
 	NumRegisteredNodes() int
 
-	// Triggers the generation of a keying relationship with a given node
+	// TriggerNodeRegistration triggers the generation of a keying
+	// relationship with a given node
 	TriggerNodeRegistration(nid *id.ID)
 
 	/*===Historical Rounds================================================*/
@@ -176,7 +177,7 @@ type NetworkManager interface {
 	// network
 	LookupHistoricalRound(rid id.Round,
 		callback func(info *mixmessages.RoundInfo,
-			success bool)) error
+		success bool)) error
 
 	/*===Sender===========================================================*/
 	/* The sender handles sending comms to the network. It tracks

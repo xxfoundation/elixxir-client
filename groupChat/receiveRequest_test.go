@@ -146,7 +146,7 @@ func TestRequestListener_Hear_BadMessageType(t *testing.T) {
 }
 
 // Unit test of readRequest.
-func TestManager_readRequest(t *testing.T) {
+func Test_manager_readRequest(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManager(prng, t)
 
@@ -200,7 +200,7 @@ func TestManager_readRequest(t *testing.T) {
 }
 
 // Error path: an error is returned if the message type is incorrect.
-func TestManager_readRequest_MessageTypeError(t *testing.T) {
+func Test_manager_readRequest_MessageTypeError(t *testing.T) {
 	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
 	expectedErr := sendMessageTypeErr
 	msg := receive.Message{
@@ -215,7 +215,7 @@ func TestManager_readRequest_MessageTypeError(t *testing.T) {
 }
 
 // Error path: an error is returned if the proto message cannot be unmarshalled.
-func TestManager_readRequest_ProtoUnmarshalError(t *testing.T) {
+func Test_manager_readRequest_ProtoUnmarshalError(t *testing.T) {
 	expectedErr := strings.SplitN(deserializeMembershipErr, "%", 2)[0]
 	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
 
@@ -239,7 +239,7 @@ func TestManager_readRequest_ProtoUnmarshalError(t *testing.T) {
 }
 
 // Error path: an error is returned if the membership cannot be deserialized.
-func TestManager_readRequest_DeserializeMembershipError(t *testing.T) {
+func Test_manager_readRequest_DeserializeMembershipError(t *testing.T) {
 	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
 	expectedErr := strings.SplitN(protoUnmarshalErr, "%", 2)[0]
 	msg := receive.Message{

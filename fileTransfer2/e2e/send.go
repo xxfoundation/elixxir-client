@@ -19,11 +19,11 @@ import (
 
 // Error messages.
 const (
-	// manager.sendNewFileTransferMessage
+	// sendNewFileTransferMessage
 	errProtoMarshal = "failed to proto marshal NewFileTransfer: %+v"
 	errNewFtSendE2e = "failed to send initial file transfer message via E2E: %+v"
 
-	// manager.sendEndFileTransferMessage
+	// sendEndFileTransferMessage
 	errEndFtSendE2e = "[FT] Failed to send ending file transfer message via E2E: %+v"
 )
 
@@ -43,7 +43,7 @@ func sendNewFileTransferMessage(
 	recipient *id.ID, info *ft.TransferInfo, e2eHandler E2e) error {
 
 	// Construct NewFileTransfer message
-	protoMsg := &NewFileTransfer{
+	protoMsg := &ft.NewFileTransfer{
 		FileName:    info.FileName,
 		FileType:    info.FileType,
 		TransferKey: info.Key.Bytes(),

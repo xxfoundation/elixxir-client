@@ -10,9 +10,8 @@ package fileTransfer2
 import "time"
 
 const (
-	defaultMaxThroughput        = 150_000 // 150 kB per second
-	defaultSendTimeout          = 500 * time.Millisecond
-	defaultNotifyUponCompletion = true
+	defaultMaxThroughput = 150_000 // 150 kB per second
+	defaultSendTimeout   = 500 * time.Millisecond
 )
 
 // Params contains parameters used for file transfer.
@@ -25,17 +24,12 @@ type Params struct {
 	// times out. It is recommended that SendTimeout is not changed from its
 	// default.
 	SendTimeout time.Duration
-
-	// NotifyUponCompletion indicates if a final notification message is sent
-	// to the recipient on completion of file transfer. If true, the ping is
-	NotifyUponCompletion bool
 }
 
 // DefaultParams returns a Params object filled with the default values.
 func DefaultParams() Params {
 	return Params{
-		MaxThroughput:        defaultMaxThroughput,
-		SendTimeout:          defaultSendTimeout,
-		NotifyUponCompletion: defaultNotifyUponCompletion,
+		MaxThroughput: defaultMaxThroughput,
+		SendTimeout:   defaultSendTimeout,
 	}
 }

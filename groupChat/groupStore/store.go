@@ -250,6 +250,20 @@ func (s *Store) GroupIDs() []*id.ID {
 	return idList
 }
 
+// Groups returns a list of all groups.
+// TODO: add test
+func (s *Store) Groups() []Group {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	groupList := make([]Group, 0, len(s.list))
+	for _, g := range s.list {
+		groupList = append(groupList, g)
+	}
+
+	return groupList
+}
+
 // Get returns the Group for the given group ID. Returns false if no Group is
 // found.
 func (s *Store) Get(groupID *id.ID) (Group, bool) {

@@ -26,8 +26,8 @@ import (
 	"time"
 )
 
-// Tests that manager adheres to the fileTransfer2.FileTransfer interface.
-var _ ft.FileTransfer = (*manager)(nil)
+// Tests that Manager adheres to the fileTransfer2.FileTransfer interface.
+var _ ft.FileTransfer = (*Manager)(nil)
 
 // Tests that E2e adheres to the e2e.Handler interface.
 var _ E2e = (e2e.Handler)(nil)
@@ -69,7 +69,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 1: %+v", err)
 	}
-	m1 := ftm1.(*manager)
+	m1 := ftm1.(*Manager)
 
 	stop1, err := m1.StartProcesses()
 	if err != nil {
@@ -94,7 +94,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 2: %+v", err)
 	}
-	m2 := ftm2.(*manager)
+	m2 := ftm2.(*Manager)
 
 	stop2, err := m2.StartProcesses()
 	if err != nil {
@@ -158,7 +158,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 		}
 	}
 
-	// Send file.
+	// Send file
 	sendStart := netTime.Now()
 	tid1, err := m1.Send(
 		fileName, fileType, fileData, myID2, retry, preview, sentProgressCb1, 0)

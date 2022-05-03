@@ -30,15 +30,10 @@ type ReceivedProgressCallback func(completed bool, received, total uint16,
 type ReceiveCallback func(tid *ftCrypto.TransferID, fileName, fileType string,
 	sender *id.ID, size uint32, preview []byte)
 
-// SendNew handles the sending of the initial message to the recipient informing
-// them of the incoming file transfer parts. SendNew should block until the send
+// SendNew handles the sending of the initial message informing the recipient
+// of the incoming file transfer parts. SendNew should block until the send
 // completes and return an error only on failed sends.
-type SendNew func(recipient *id.ID, info *TransferInfo) error
-
-// SendEnd handles the sending of the last message to the recipient informing
-// them that the file transfer has completed. The function will be run in its
-// own thread.
-type SendEnd func(recipient *id.ID)
+type SendNew func(info *TransferInfo) error
 
 // FileTransfer facilities the sending and receiving of large file transfers.
 // It allows for progress tracking of both inbound and outbound transfers.
@@ -103,9 +98,11 @@ type FileTransfer interface {
 	//      update (or less if restricted by the period), or on fatal error.
 	//   period - A progress callback will be limited from triggering only once
 	//      per period.
+	//   sendNew - Function that sends the file transfer information to the
+	//      recipient.
 	Send(fileName, fileType string, fileData []byte, recipient *id.ID,
 		retry float32, preview []byte, progressCB SentProgressCallback,
-		period time.Duration) (*ftCrypto.TransferID, error)
+		period time.Duration, sendNew SendNew) (*ftCrypto.TransferID, error)
 
 	// RegisterSentProgressCallback allows for the registration of a callback to
 	// track the progress of an individual sent file transfer.
@@ -146,9 +143,9 @@ type FileTransfer interface {
 	   full file can be retrieved using Receive.
 	*/
 
-	// AddNew starts tracking the received file parts for the given file
-	// information and returns a transfer ID that uniquely identifies this file
-	// transfer.
+	// HandleIncomingTransfer starts tracking the received file parts for the
+	// given file information and returns a transfer ID that uniquely identifies
+	// this file transfer.
 	//
 	// This function should be called once for every new file received on the
 	// registered SendNew callback.
@@ -161,7 +158,7 @@ type FileTransfer interface {
 	//      update (or less if restricted by the period), or on fatal error.
 	//   period - A progress callback will be limited from triggering only once
 	//      per period.
-	AddNew(fileName string, key *ftCrypto.TransferKey, transferMAC []byte,
+	HandleIncomingTransfer(fileName string, key *ftCrypto.TransferKey, transferMAC []byte,
 		numParts uint16, size uint32, retry float32,
 		progressCB ReceivedProgressCallback, period time.Duration) (
 		*ftCrypto.TransferID, error)

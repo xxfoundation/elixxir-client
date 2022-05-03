@@ -13,7 +13,9 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
@@ -24,17 +26,27 @@ import (
 	crypto "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"sync"
 	"time"
 )
 
 // Error messages.
 const (
-	newGroupStoreErr = "failed to create new group store: %+v"
-	joinGroupErr     = "failed to join new group %s: %+v"
-	leaveGroupErr    = "failed to leave group %s: %+v"
+	// NewManager
+	newGroupStoreErr     = "failed to create new group store: %+v"
+	errAddDefaultService = "could not add default service: %+v"
+
+	// manager.JoinGroup
+	joinGroupErr = "failed to join new group %s: %+v"
+
+	// manager.LeaveGroup
+	leaveGroupErr = "failed to leave group %s: %+v"
 )
+
+const defaultServiceTag = "default"
 
 // GroupCmix is a subset of the cmix.Client interface containing only the
 // methods needed by GroupChat
@@ -66,16 +78,24 @@ type GroupE2e interface {
 
 // manager handles the list of groups a user is a part of.
 type manager struct {
-	e2e GroupE2e
+	// Group storage
+	gs *gs.Store
+
+	// List of registered processors
+	services    map[string]Processor
+	servicesMux sync.Mutex
+
+	// Callback that is called when a new group request is received
+	requestFunc RequestCallback
+
+	// Callback that is called when a new group message is received
+	receiveFunc ReceiveCallback
 
 	receptionId *id.ID
-	rng         *fastRNG.StreamGenerator
+	net         GroupCmix
+	e2e         GroupE2e
 	grp         *cyclic.Group
-	gs          *gs.Store
-	services    GroupCmix
-
-	requestFunc RequestCallback
-	receiveFunc ReceiveCallback
+	rng         *fastRNG.StreamGenerator
 }
 
 // NewManager creates a new group chat manager
@@ -92,14 +112,15 @@ func NewManager(services GroupCmix, e2e GroupE2e, receptionId *id.ID,
 
 	// Define the manager object
 	m := &manager{
-		e2e:         e2e,
-		rng:         rng,
-		receptionId: receptionId,
-		grp:         grp,
 		gs:          gStore,
-		services:    services,
+		services:    make(map[string]Processor),
 		requestFunc: requestFunc,
 		receiveFunc: receiveFunc,
+		receptionId: receptionId,
+		net:         services,
+		e2e:         e2e,
+		grp:         grp,
+		rng:         rng,
 	}
 
 	// Register listener for incoming e2e group chat requests
@@ -112,6 +133,11 @@ func NewManager(services GroupCmix, e2e GroupE2e, receptionId *id.ID,
 		return nil, err
 	}
 
+	err = m.AddService(defaultServiceTag, defaultService{m.receiveFunc})
+	if err != nil {
+		return nil, errors.Errorf(errAddDefaultService, err)
+	}
+
 	// Register all groups
 	for _, gId := range m.GetGroups() {
 		g, exists := m.GetGroup(gId)
@@ -120,7 +146,8 @@ func NewManager(services GroupCmix, e2e GroupE2e, receptionId *id.ID,
 			continue
 		}
 
-		m.AddService(g, "", nil)
+		// Add all services for this group
+		m.addAllServices(g)
 	}
 
 	return m, nil
@@ -134,7 +161,9 @@ func (m *manager) JoinGroup(g gs.Group) error {
 		return errors.Errorf(joinGroupErr, g.ID, err)
 	}
 
-	m.AddService(g, "", nil)
+	// Add all services for this group
+	m.addAllServices(g)
+
 	jww.INFO.Printf("[GC] Joined group %q with ID %s.", g.Name, g.ID)
 	return nil
 }
@@ -145,11 +174,7 @@ func (m *manager) LeaveGroup(groupID *id.ID) error {
 		return errors.Errorf(leaveGroupErr, groupID, err)
 	}
 
-	delService := message.Service{
-		Identifier: groupID.Bytes(),
-		Tag:        catalog.Group,
-	}
-	m.services.DeleteService(m.receptionId, delService, nil)
+	m.deleteAllServices(groupID)
 
 	jww.INFO.Printf("[GC] Left group with ID %s.", groupID)
 	return nil
@@ -171,4 +196,18 @@ func (m *manager) GetGroup(groupID *id.ID) (gs.Group, bool) {
 // NumGroups returns the number of groups the user is a part of.
 func (m *manager) NumGroups() int {
 	return m.gs.Len()
+}
+
+type defaultService struct {
+	// Callback that is called when a new group message is received
+	receiveFunc ReceiveCallback
+}
+
+func (d defaultService) Process(decryptedMsg MessageReceive, _ format.Message,
+	_ receptionID.EphemeralIdentity, _ rounds.Round) {
+	go d.receiveFunc(decryptedMsg)
+}
+
+func (d defaultService) String() string {
+	return defaultServiceTag
 }

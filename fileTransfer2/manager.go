@@ -88,7 +88,7 @@ const (
 	errDeleteSentTransfer       = "could not delete sent transfer %s: %+v"
 	errRemoveSentTransfer       = "could not remove transfer %s from list: %+v"
 
-	// manager.AddNew
+	// manager.HandleIncomingTransfer
 	errNewRtTransferID = "failed to generate transfer ID for new received file transfer %q: %+v"
 	errAddNewRt        = "failed to add new file transfer %s (%q): %+v"
 
@@ -115,12 +115,6 @@ type manager struct {
 
 	// Queue of batches of parts to send
 	sendQueue chan []store.Part
-
-	// Function to call to send new file transfer information to recipient
-	sendNewCb SendNew
-
-	// Function to call to send notification that file transfer has completed
-	sendEndCb SendEnd
 
 	// File transfer parameters
 	params Params
@@ -150,7 +144,7 @@ type Cmix interface {
 // NewManager creates a new file transfer manager object. If sent or received
 // transfers already existed, they are loaded from storage and queued to resume
 // once manager.startProcesses is called.
-func NewManager(sendNewCb SendNew, sendEndCb SendEnd, params Params,
+func NewManager(params Params,
 	myID *id.ID, cmix Cmix, kv *versioned.KV,
 	rng *fastRNG.StreamGenerator) (FileTransfer, error) {
 
@@ -173,8 +167,6 @@ func NewManager(sendNewCb SendNew, sendEndCb SendEnd, params Params,
 		callbacks:  callbackTracker.NewManager(),
 		batchQueue: make(chan store.Part, batchQueueBuffLen),
 		sendQueue:  make(chan []store.Part, sendQueueBuffLen),
-		sendNewCb:  sendNewCb,
-		sendEndCb:  sendEndCb,
 		params:     params,
 		myID:       myID,
 		cmix:       cmix,
@@ -240,7 +232,7 @@ func (m *manager) MaxPreviewSize() int {
 // via cmix.SendMany.
 func (m *manager) Send(fileName, fileType string, fileData []byte,
 	recipient *id.ID, retry float32, preview []byte,
-	progressCB SentProgressCallback, period time.Duration) (
+	progressCB SentProgressCallback, period time.Duration, sendNew SendNew) (
 	*ftCrypto.TransferID, error) {
 
 	// Return an error if the file name is too long
@@ -294,7 +286,7 @@ func (m *manager) Send(fileName, fileType string, fileData []byte,
 	// Send the initial file transfer message over E2E
 	info := &TransferInfo{
 		fileName, fileType, key, mac, numParts, fileSize, retry, preview}
-	err = m.sendNewCb(recipient, info)
+	err = sendNew(info)
 	if err != nil {
 		return nil, errors.Errorf(errSendNewMsg, err)
 	}
@@ -347,11 +339,6 @@ func (m *manager) registerSentProgressCallback(st *store.SentTransfer,
 		arrived, total := st.NumArrived(), st.NumParts()
 		completed := arrived == total
 
-		// If the transfer is completed, send last message informing recipient
-		if completed && m.params.NotifyUponCompletion {
-			go m.sendEndCb(st.Recipient())
-		}
-
 		// Build part tracker from copy of part statuses vector
 		tracker := &sentFilePartTracker{st.CopyPartStatusVector()}
 
@@ -398,11 +385,12 @@ func (m *manager) CloseSend(tid *ftCrypto.TransferID) error {
 
 /* === Receiving ============================================================ */
 
-// AddNew starts tracking the received file parts for the given file information
-// and returns a transfer ID that uniquely identifies this file transfer.
-func (m *manager) AddNew(fileName string, key *ftCrypto.TransferKey,
-	transferMAC []byte, numParts uint16, size uint32, retry float32,
-	progressCB ReceivedProgressCallback, period time.Duration) (
+// HandleIncomingTransfer starts tracking the received file parts for the given
+// file information and returns a transfer ID that uniquely identifies this file
+// transfer.
+func (m *manager) HandleIncomingTransfer(fileName string,
+	key *ftCrypto.TransferKey, transferMAC []byte, numParts uint16, size uint32,
+	retry float32, progressCB ReceivedProgressCallback, period time.Duration) (
 	*ftCrypto.TransferID, error) {
 
 	// Generate new transfer ID

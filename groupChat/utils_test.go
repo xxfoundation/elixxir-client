@@ -45,10 +45,10 @@ import (
 func newTestManager(rng *rand.Rand, t *testing.T) (*manager, gs.Group) {
 	m := &manager{
 		receptionId: id.NewIdFromString("test", id.User, t),
-		rng:         fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
-		grp:         getGroup(),
-		services:    newTestNetworkManager(0, t),
+		net:         newTestNetworkManager(0, t),
 		e2e:         newTestE2eManager(randCycInt(rng)),
+		grp:         getGroup(),
+		rng:         fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 	}
 	user := group.Member{
 		ID:    m.receptionId,
@@ -73,12 +73,11 @@ func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
 	t *testing.T) (*manager, gs.Group) {
 
 	m := &manager{
-		receptionId: id.NewIdFromString("test", id.User, t),
-		rng:         fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
-		grp:         getGroup(),
+		services:    make(map[string]Processor),
 		requestFunc: requestFunc,
 		receiveFunc: receiveFunc,
-		services:    newTestNetworkManager(sendErr, t),
+		receptionId: id.NewIdFromString("test", id.User, t),
+		net:         newTestNetworkManager(sendErr, t),
 		e2e: &testE2eManager{
 			e2eMessages: []testE2eMessage{},
 			sendErr:     sendErr,
@@ -86,6 +85,8 @@ func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
 			dhPubKey:    randCycInt(rng),
 			partners:    make(map[id.ID]partner.Manager),
 		},
+		grp: getGroup(),
+		rng: fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 	}
 	user := group.Member{
 		ID:    m.receptionId,

@@ -5,39 +5,35 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package e2e
+package groupChat
 
 import (
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/fileTransfer2"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
+	ft "gitlab.com/elixxir/client/fileTransfer2"
+	"gitlab.com/elixxir/client/groupChat"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 // Error messages.
 const (
-	// listener.Hear
+	// processor.Process
 	errProtoUnmarshal      = "[FT] Failed to proto unmarshal new file transfer request: %+v"
 	errNewReceivedTransfer = "[FT] Failed to add new received transfer for %q: %+v"
 )
 
-// Name of listener (used for debugging)
-const listenerName = "NewFileTransferListener-E2E"
-
-// listener waits for a message indicating a new file transfer is starting.
-// Adheres to the receive.Listener interface.
-type listener struct {
-	m *Manager
+type processor struct {
+	*manager
 }
 
-// Hear is called when a new file transfer is received. It creates a new
-// internal received file transfer and starts waiting to receive file part
-// messages.
-func (l *listener) Hear(msg receive.Message) {
+func (p *processor) Process(decryptedMsg groupChat.MessageReceive,
+	_ format.Message, _ receptionID.EphemeralIdentity, _ rounds.Round) {
 	// Unmarshal the request message
-	newFT := &fileTransfer2.NewFileTransfer{}
-	err := proto.Unmarshal(msg.Payload, newFT)
+	var newFT ft.NewFileTransfer
+	err := proto.Unmarshal(decryptedMsg.Payload, &newFT)
 	if err != nil {
 		jww.ERROR.Printf(errProtoUnmarshal, err)
 		return
@@ -46,7 +42,7 @@ func (l *listener) Hear(msg receive.Message) {
 	transferKey := ftCrypto.UnmarshalTransferKey(newFT.GetTransferKey())
 
 	// Add new transfer to start receiving parts
-	tid, err := l.m.HandleIncomingTransfer(newFT.FileName, &transferKey,
+	tid, err := p.HandleIncomingTransfer(newFT.FileName, &transferKey,
 		newFT.TransferMac, uint16(newFT.NumParts), newFT.Size, newFT.Retry,
 		nil, 0)
 	if err != nil {
@@ -55,11 +51,10 @@ func (l *listener) Hear(msg receive.Message) {
 	}
 
 	// Call the reception callback
-	go l.m.receiveCB(tid, newFT.FileName, newFT.FileType, msg.Sender,
+	go p.receiveCB(tid, newFT.FileName, newFT.FileType, decryptedMsg.SenderID,
 		newFT.Size, newFT.Preview)
 }
 
-// Name returns a name used for debugging.
-func (l *listener) Name() string {
-	return listenerName
+func (p *processor) String() string {
+	return "GroupFileTransfer"
 }

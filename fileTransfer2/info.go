@@ -8,7 +8,7 @@
 package fileTransfer2
 
 import (
-	"encoding/json"
+	"github.com/golang/protobuf/proto"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 )
 
@@ -24,10 +24,38 @@ type TransferInfo struct {
 }
 
 func (ti *TransferInfo) Marshal() ([]byte, error) {
-	return json.Marshal(ti)
+	// Construct NewFileTransfer message
+	protoMsg := &NewFileTransfer{
+		FileName:    ti.FileName,
+		FileType:    ti.FileType,
+		TransferKey: ti.Key.Bytes(),
+		TransferMac: ti.Mac,
+		NumParts:    uint32(ti.NumParts),
+		Size:        ti.Size,
+		Retry:       ti.Retry,
+		Preview:     ti.Preview,
+	}
+
+	return proto.Marshal(protoMsg)
 }
 
 func UnmarshalTransferInfo(data []byte) (*TransferInfo, error) {
-	var ti TransferInfo
-	return &ti, json.Unmarshal(data, &ti)
+	// Unmarshal the request message
+	var newFT NewFileTransfer
+	err := proto.Unmarshal(data, &newFT)
+	if err != nil {
+		return nil, err
+	}
+	transferKey := ftCrypto.UnmarshalTransferKey(newFT.GetTransferKey())
+
+	return &TransferInfo{
+		FileName: newFT.FileName,
+		FileType: newFT.FileType,
+		Key:      transferKey,
+		Mac:      newFT.TransferMac,
+		NumParts: uint16(newFT.NumParts),
+		Size:     newFT.Size,
+		Retry:    newFT.Retry,
+		Preview:  newFT.Preview,
+	}, nil
 }

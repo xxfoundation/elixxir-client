@@ -41,15 +41,15 @@ func Test_manager_Send(t *testing.T) {
 		p: &testProcessor{msgChan},
 	}
 
-	roundId, _, msgId, err := m.Send(g.ID, messageBytes)
+	roundId, _, msgId, err := m.Send(g.ID, "", messageBytes)
 	if err != nil {
-		t.Errorf("Send() returned an error: %+v", err)
+		t.Errorf("Send returned an error: %+v", err)
 	}
 
-	// get messages sent with or return an error if no messages were sent
+	// Get messages sent with or return an error if no messages were sent
 	var messages []format.Message
-	if len(m.services.(*testNetworkManager).receptionMessages) > 0 {
-		messages = m.services.(*testNetworkManager).receptionMessages[0]
+	if len(m.net.(*testNetworkManager).receptionMessages) > 0 {
+		messages = m.net.(*testNetworkManager).receptionMessages[0]
 	} else {
 		t.Error("No group cMix messages received.")
 	}
@@ -84,10 +84,12 @@ func TestGroup_newCmixMsg_SaltReaderError(t *testing.T) {
 	expectedErr := strings.SplitN(saltReadErr, "%", 2)[0]
 	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
 
-	_, err := newCmixMsg(gs.Group{ID: id.NewIdFromString("test", id.User, t)},
-		[]byte{}, time.Time{}, group.Member{}, strings.NewReader(""), m.receptionId, m.services.GetMaxMessageLength())
+	_, err := newCmixMsg(
+		gs.Group{ID: id.NewIdFromString("test", id.User, t)}, "",
+		[]byte{}, time.Time{}, group.Member{}, strings.NewReader(""),
+		m.receptionId, m.net.GetMaxMessageLength())
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("newCmixMsg() failed to return the expected error"+
+		t.Errorf("newCmixMsg failed to return the expected error"+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
@@ -106,9 +108,10 @@ func TestGroup_newCmixMsg_InternalMsgSizeError(t *testing.T) {
 
 	// Create cMix message
 	prng = rand.New(rand.NewSource(42))
-	_, err := newCmixMsg(g, testMsg, netTime.Now(), mem, prng, m.receptionId, m.services.GetMaxMessageLength())
+	_, err := newCmixMsg(g, "", testMsg, netTime.Now(), mem, prng,
+		m.receptionId, m.net.GetMaxMessageLength())
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("newCmixMsg() failed to return the expected error"+
+		t.Errorf("newCmixMsg failed to return the expected error"+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
@@ -119,7 +122,7 @@ func Test_newMessageParts_PublicMsgSizeErr(t *testing.T) {
 
 	_, _, err := newMessageParts(publicMinLen - 1)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("newMessageParts() did not return the expected error."+
+		t.Errorf("newMessageParts did not return the expected error."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
@@ -130,7 +133,7 @@ func Test_newMessageParts_InternalMsgSizeErr(t *testing.T) {
 
 	_, _, err := newMessageParts(publicMinLen)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("newMessageParts() did not return the expected error."+
+		t.Errorf("newMessageParts did not return the expected error."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
@@ -153,13 +156,13 @@ func Test_newSalt_Consistency(t *testing.T) {
 	for i, expected := range expectedSalts {
 		salt, err := newSalt(prng)
 		if err != nil {
-			t.Errorf("newSalt() returned an error (%d): %+v", i, err)
+			t.Errorf("newSalt returned an error (%d): %+v", i, err)
 		}
 
 		saltString := base64.StdEncoding.EncodeToString(salt[:])
 
 		if expected != saltString {
-			t.Errorf("newSalt() did not return the expected salt (%d)."+
+			t.Errorf("newSalt did not return the expected salt (%d)."+
 				"\nexpected: %s\nreceived: %s", i, expected, saltString)
 		}
 
@@ -173,7 +176,7 @@ func Test_newSalt_ReadError(t *testing.T) {
 
 	_, err := newSalt(strings.NewReader(""))
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("newSalt() failed to return the expected error"+
+		t.Errorf("newSalt failed to return the expected error"+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
@@ -184,7 +187,7 @@ func Test_newSalt_ReadLengthError(t *testing.T) {
 
 	_, err := newSalt(strings.NewReader("A"))
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("newSalt() failed to return the expected error"+
+		t.Errorf("newSalt failed to return the expected error"+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
@@ -203,7 +206,7 @@ func Test_setInternalPayload(t *testing.T) {
 
 	payload := setInternalPayload(internalMessage, timestamp, sender, testMsg)
 	if err != nil {
-		t.Errorf("setInternalPayload() returned an error: %+v", err)
+		t.Errorf("setInternalPayload returned an error: %+v", err)
 	}
 
 	// Attempt to unmarshal and check all values
@@ -248,7 +251,7 @@ func Test_setPublicPayload(t *testing.T) {
 
 	payload := setPublicPayload(publicMessage, salt, encryptedPayload)
 	if err != nil {
-		t.Errorf("setPublicPayload() returned an error: %+v", err)
+		t.Errorf("setPublicPayload returned an error: %+v", err)
 	}
 
 	// Attempt to unmarshal and check all values

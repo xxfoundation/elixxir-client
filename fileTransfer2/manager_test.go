@@ -87,15 +87,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	// Set up the first client
 	myID1 := id.NewIdFromString("myID1", id.User, t)
 	kv1 := versioned.NewKV(ekv.MakeMemstore())
-	sendNewCbChan1 := make(chan *TransferInfo)
-	sendNewCb1 := func(recipient *id.ID, info *TransferInfo) error {
-		sendNewCbChan1 <- info
-		return nil
-	}
-	sendEndCbChan1 := make(chan *id.ID)
-	sendEndCb1 := func(recipient *id.ID) { sendEndCbChan1 <- recipient }
-	ftm1, err := NewManager(sendNewCb1, sendEndCb1, params, myID1,
-		newMockCmix(myID1, cMixHandler), kv1, rngGen)
+	ftm1, err := NewManager(
+		params, myID1, newMockCmix(myID1, cMixHandler), kv1, rngGen)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 1: %+v", err)
 	}
@@ -109,8 +102,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	// Set up the second client
 	myID2 := id.NewIdFromString("myID2", id.User, t)
 	kv2 := versioned.NewKV(ekv.MakeMemstore())
-	ftm2, err := NewManager(nil, nil, params, myID2,
-		newMockCmix(myID2, cMixHandler), kv2, rngGen)
+	ftm2, err := NewManager(
+		params, myID2, newMockCmix(myID2, cMixHandler), kv2, rngGen)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 2: %+v", err)
 	}
@@ -119,6 +112,12 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	stop2, err := m2.StartProcesses()
 	if err != nil {
 		t.Errorf("Failed to start processes for manager 2: %+v", err)
+	}
+
+	sendNewCbChan1 := make(chan *TransferInfo)
+	sendNewCb1 := func(info *TransferInfo) error {
+		sendNewCbChan1 <- info
+		return nil
 	}
 
 	// Wait group prevents the test from quiting before the file has completed
@@ -140,7 +139,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	go func() {
 		select {
 		case r := <-sendNewCbChan1:
-			tid, err := m2.AddNew(
+			tid, err := m2.HandleIncomingTransfer(
 				r.FileName, &r.Key, r.Mac, r.NumParts, r.Size, r.Retry, nil, 0)
 			if err != nil {
 				t.Errorf("Failed to add transfer: %+v", err)
@@ -185,8 +184,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 
 	// Send file.
 	sendStart := netTime.Now()
-	tid1, err := m1.Send(
-		fileName, fileType, fileData, myID2, retry, preview, sentProgressCb1, 0)
+	tid1, err := m1.Send(fileName, fileType, fileData, myID2, retry, preview,
+		sentProgressCb1, 0, sendNewCb1)
 	if err != nil {
 		t.Errorf("Failed to send file: %+v", err)
 	}
@@ -205,12 +204,6 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 
 	// Wait for file to be sent and received
 	wg.Wait()
-
-	select {
-	case <-sendEndCbChan1:
-	case <-time.After(15 * time.Millisecond):
-		t.Error("Timed out waiting for end callback to be called.")
-	}
 
 	err = m1.CloseSend(tid1)
 	if err != nil {

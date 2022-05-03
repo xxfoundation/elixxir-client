@@ -24,13 +24,21 @@ import (
 
 // Error messages.
 const (
-	newCmixMsgErr     = "failed to generate cMix messages for group chat: %+v"
-	sendManyCmixErr   = "failed to send group chat message from member %s to group %s: %+v"
-	messageLenErr     = "message length %d is greater than maximum message space %d"
-	newNoGroupErr     = "failed to create message for group %s that cannot be found"
-	newKeyErr         = "failed to generate key for encrypting group payload"
+
+	// manager.Send
+	newNoGroupErr   = "no group found with ID %s"
+	newCmixMsgErr   = "failed to generate cMix messages for group chat %q (%s): %+v"
+	sendManyCmixErr = "failed to send group chat message from member %s to group %q (%s): %+v"
+
+	// newCmixMsg
+	messageLenErr = "message length %d is greater than maximum payload size %d"
+	newKeyErr     = "failed to generate key for encrypting group payload"
+
+	// newMessageParts
 	newPublicMsgErr   = "failed to create new public group message for cMix message: %+v"
 	newInternalMsgErr = "failed to create new internal group message for cMix message: %+v"
+
+	// newSalt
 	saltReadErr       = "failed to generate salt for group message: %+v"
 	saltReadLengthErr = "length of generated salt %d != %d required"
 )
@@ -54,7 +62,7 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 	groupMessages, err := m.newMessages(g, tag, message, timeNow)
 	if err != nil {
 		return 0, time.Time{}, group.MessageID{},
-			errors.Errorf(newCmixMsgErr, err)
+			errors.Errorf(newCmixMsgErr, g.Name, g.ID, err)
 	}
 
 	// Obtain message ID
@@ -67,10 +75,10 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 	// Send all the groupMessages
 	param := cmix.GetDefaultCMIXParams()
 	param.DebugTag = "group.Message"
-	rid, _, err := m.services.SendMany(groupMessages, param)
+	rid, _, err := m.net.SendMany(groupMessages, param)
 	if err != nil {
 		return 0, time.Time{}, group.MessageID{},
-			errors.Errorf(sendManyCmixErr, m.receptionId, groupID, err)
+			errors.Errorf(sendManyCmixErr, m.receptionId, g.Name, g.ID, err)
 	}
 
 	jww.DEBUG.Printf("[GC] Sent message to %d members in group %s at %s.",
@@ -78,8 +86,7 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 	return rid, timeNow, msgId, nil
 }
 
-// newMessages quickly builds messages for all group chat members in multiple
-// threads.
+// newMessages builds a list of messages, one for each group chat member.
 func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
 	timestamp time.Time) ([]cmix.TargetedCmixMessage, error) {
 
@@ -97,7 +104,7 @@ func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
 
 		// Add cMix message to list
 		cMixMsg, err := newCmixMsg(g, tag, msg, timestamp, member, rng,
-			m.receptionId, m.services.GetMaxMessageLength())
+			m.receptionId, m.net.GetMaxMessageLength())
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +114,8 @@ func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
 	return messages, nil
 }
 
-// newCmixMsg generates a new cMix message to be sent to a group member.
+// newCmixMsg generates a new cmix.TargetedCmixMessage for the given group
+// member
 func newCmixMsg(g gs.Group, tag string, msg []byte, timestamp time.Time,
 	mem group.Member, rng io.Reader, senderId *id.ID, maxCmixMessageSize int) (
 	cmix.TargetedCmixMessage, error) {
@@ -164,7 +172,7 @@ func newCmixMsg(g gs.Group, tag string, msg []byte, timestamp time.Time,
 	return cmixMsg, nil
 }
 
-// Build the group message ID
+// getGroupMessageId builds the group message ID.
 func getGroupMessageId(grp *cyclic.Group, groupId, senderId *id.ID,
 	timestamp time.Time, msg []byte) (group.MessageID, error) {
 	cmixMsg := format.NewMessage(grp.GetP().ByteLen())

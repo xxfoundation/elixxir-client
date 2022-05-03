@@ -70,10 +70,10 @@ type GroupChat interface {
 
 	// AddService adds a service for all group chat partners of the given tag,
 	// which will call back on the given processor.
-	AddService(g gs.Group, tag string, p Processor)
+	AddService(tag string, p Processor) error
 
 	// RemoveService removes all services for the given tag.
-	RemoveService(g gs.Group, tag string, p Processor)
+	RemoveService(tag string) error
 }
 
 // RequestCallback is called when a GroupChat request is received.

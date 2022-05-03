@@ -9,6 +9,7 @@ package api
 
 import (
 	"encoding/binary"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	"math/rand"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -33,10 +34,7 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix,
 	prng := rand.New(rand.NewSource(int64(precannedID)))
 	prime := e2e.GetPBytes()
 	keyLen := len(prime)
-	e2eKeyBytes, err := csprng.GenerateInGroup(prime, keyLen, prng)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
+	e2eKey := diffieHellman.GeneratePrivateKey(keyLen, e2e, prng)
 
 	// Salt, UID, etc gen
 	salt := make([]byte, SaltSize)
@@ -57,7 +55,8 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix,
 		ReceptionID:      &userID,
 		ReceptionSalt:    salt,
 		Precanned:        true,
-		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
+		E2eDhPrivateKey:  e2eKey,
+		E2eDhPublicKey:   diffieHellman.GeneratePublicKey(e2eKey, e2e),
 		TransmissionRSA:  rsaKey,
 		ReceptionRSA:     rsaKey,
 	}

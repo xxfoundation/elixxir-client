@@ -244,17 +244,17 @@ func (g Group) GoString() string {
 		idString = g.ID.String()
 	}
 
-	str := make([]string, 9)
-
-	str[0] = "Name:" + fmt.Sprintf("%q", g.Name)
-	str[1] = "ID:" + idString
-	str[2] = "Key:" + g.Key.String()
-	str[3] = "IdPreimage:" + g.IdPreimage.String()
-	str[4] = "KeyPreimage:" + g.KeyPreimage.String()
-	str[5] = "InitMessage:" + fmt.Sprintf("%q", g.InitMessage)
-	str[6] = "Created:" + g.Created.String()
-	str[7] = "Members:" + g.Members.String()
-	str[8] = "DhKeys:" + g.DhKeys.GoString()
+	str := []string{
+		"Name:" + fmt.Sprintf("%q", g.Name),
+		"ID:" + idString,
+		"Key:" + g.Key.String(),
+		"IdPreimage:" + g.IdPreimage.String(),
+		"KeyPreimage:" + g.KeyPreimage.String(),
+		"InitMessage:" + fmt.Sprintf("%q", g.InitMessage),
+		"Created:" + g.Created.String(),
+		"Members:" + g.Members.String(),
+		"DhKeys:" + g.DhKeys.GoString(),
+	}
 
 	return "{" + strings.Join(str, ", ") + "}"
 }

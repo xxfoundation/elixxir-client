@@ -34,9 +34,6 @@ type SingleRequest struct {
 	Net          single.Cmix
 	Rng          csprng.Source
 	E2eGrp       *cyclic.Group
-	//func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
-	//	callback Response, param RequestParams, net Cmix, rng csprng.Source,
-	//	e2eGrp *cyclic.Group) ([]id.Round, receptionID.EphemeralIdentity, error)
 }
 
 // Request provides several Method of sending Data to the given URI

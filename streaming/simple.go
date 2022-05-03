@@ -49,7 +49,7 @@ func NewStream(c connect.Connection, params Params) (SimpleStreaming, error) {
 		readBuf:     nil,
 		readBufLock: sync.Mutex{},
 	}
-	// register a listener to feed into the readBuf
+	// register the listener which feeds into the read buffer
 	lid := c.RegisterListener(catalog.SimpleStream, s)
 	s.listenerID = lid
 	return s, nil
@@ -70,13 +70,15 @@ func (s *simple) Write(p []byte) (int, error) {
 /* io.Reader implementation */
 
 // Read at most len(p) bytes into array p, returning num bytes read
-// This reads off of simple.readBuf, which is a bytes buffer populated as the Hear callback is called
+// This reads off of simple.readBuf
 func (s *simple) Read(p []byte) (n int, err error) {
 	s.readBufLock.Lock()
 	defer s.readBufLock.Unlock()
 
-	// TODO: this will need consistency testing specifically to ensure no cases lose data on the end
+	// Copy data to passed in array
 	n = copy(p, s.readBuf)
+
+	// Remove read data from s.readBuf
 	if len(p) < len(s.readBuf) {
 		s.readBuf = s.readBuf[len(p):]
 	} else {
@@ -102,6 +104,7 @@ func (s *simple) Hear(item receive.Message) {
 	s.readBufLock.Lock()
 	defer s.readBufLock.Unlock()
 
+	// All received data is added to the readBuf until Read is called
 	s.readBuf = append(s.readBuf, item.Payload...)
 	return
 }

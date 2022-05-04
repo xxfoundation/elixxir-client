@@ -26,7 +26,7 @@ const listenerName = "NewFileTransferListener-E2E"
 // listener waits for a message indicating a new file transfer is starting.
 // Adheres to the receive.Listener interface.
 type listener struct {
-	m *Manager
+	m *Wrapper
 }
 
 // Hear is called when a new file transfer is received. It creates a new
@@ -41,7 +41,7 @@ func (l *listener) Hear(msg receive.Message) {
 	}
 
 	// Add new transfer to start receiving parts
-	tid, err := l.m.HandleIncomingTransfer(info.FileName, &info.Key, info.Mac,
+	tid, err := l.m.ft.HandleIncomingTransfer(info.FileName, &info.Key, info.Mac,
 		info.NumParts, info.Size, info.Retry, nil, 0)
 	if err != nil {
 		jww.ERROR.Printf(errNewReceivedTransfer, info.FileName, err)

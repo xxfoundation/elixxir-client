@@ -37,10 +37,12 @@ type SendNew func(info *TransferInfo) error
 
 // FileTransfer facilities the sending and receiving of large file transfers.
 // It allows for progress tracking of both inbound and outbound transfers.
+// FileTransfer handles the sending of the file data; however, the caller is
+// responsible for communicating to the recipient of the incoming file transfer.
 type FileTransfer interface {
 
-	// StartProcesses starts the listening for new file transfer messages and
-	// starts the sending threads that wait for transfers to send.
+	// StartProcesses starts the sending threads that wait for file transfers to
+	// send. Adheres to the api.Service type.
 	StartProcesses() (stoppable.Stoppable, error)
 
 	// MaxFileNameLen returns the max number of bytes allowed for a file name.
@@ -57,10 +59,11 @@ type FileTransfer interface {
 	MaxPreviewSize() int
 
 	/* === Sending ========================================================== */
-	/* The processes of sending a file involves three main steps:
-		 1. Sending the file using Send
-		 2. Receiving transfer progress
-	     3. Closing a finished send using CloseSend
+	/* The processes of sending a file involves four main steps:
+		 1. Set up a method to send initial file transfer details using SendNew.
+		 2. Sending the file using Send and register a progress callback.
+		 3. Receiving transfer progress on the progress callback.
+	     4. Closing a finished send using CloseSend.
 
 	   Once the file is sent, it is broken into individual, equal-length parts
 	   and sent to the recipient. Every time one of these parts arrives, it is
@@ -129,10 +132,14 @@ type FileTransfer interface {
 	CloseSend(tid *ftCrypto.TransferID) error
 
 	/* === Receiving ======================================================== */
-	/* The processes of receiving a file involves three main steps:
-		 1. Receiving a new file transfer on ReceiveCallback
-		 2. Receiving transfer progress
-	     3. Receiving the complete file using Receive
+	/* The processes of receiving a file involves four main steps:
+		 1. Receiving a new file transfer through a channel set up by the
+	        caller.
+	     2. Registering the file transfer and a progress callback with
+	        HandleIncomingTransfer.
+		 3. Receiving transfer progress on the progress callback.
+	     4. Receiving the complete file using Receive once the callback says
+	        the transfer is complete.
 
 	   Once the file transfer manager has started, it will call the
 	   ReceiveCallback for every new file transfer that is received. Once that
@@ -158,8 +165,8 @@ type FileTransfer interface {
 	//      update (or less if restricted by the period), or on fatal error.
 	//   period - A progress callback will be limited from triggering only once
 	//      per period.
-	HandleIncomingTransfer(fileName string, key *ftCrypto.TransferKey, transferMAC []byte,
-		numParts uint16, size uint32, retry float32,
+	HandleIncomingTransfer(fileName string, key *ftCrypto.TransferKey,
+		transferMAC []byte, numParts uint16, size uint32, retry float32,
 		progressCB ReceivedProgressCallback, period time.Duration) (
 		*ftCrypto.TransferID, error)
 

@@ -14,12 +14,13 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 )
 
+// Processor manages the handling of received group chat messages.
 type Processor interface {
 	// Process decrypts and hands off the message to its internal down stream
 	// message processing system.
 	Process(decryptedMsg MessageReceive, msg format.Message,
 		receptionID receptionID.EphemeralIdentity, round rounds.Round)
 
-	// Stringer interface for debugging
+	// Stringer interface for debugging.
 	fmt.Stringer
 }

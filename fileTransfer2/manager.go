@@ -189,7 +189,6 @@ func NewManager(params Params,
 
 // StartProcesses starts the sending threads. Adheres to the api.Service type.
 func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
-
 	// Construct stoppables
 	multiStop := stoppable.NewMulti(workerPoolStoppable)
 	batchBuilderStop := stoppable.NewSingle(batchBuilderThreadStoppable)

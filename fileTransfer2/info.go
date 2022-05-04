@@ -12,6 +12,9 @@ import (
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 )
 
+// TransferInfo contains all the information for a new transfer. This is the
+// information sent in the initial file transfer so the recipient can prepare
+// for the incoming file transfer parts.
 type TransferInfo struct {
 	FileName string               // Name of the file
 	FileType string               // String that indicates type of file
@@ -23,6 +26,7 @@ type TransferInfo struct {
 	Preview  []byte               // A preview of the file
 }
 
+// Marshal serialises the TransferInfo for sending over the network.
 func (ti *TransferInfo) Marshal() ([]byte, error) {
 	// Construct NewFileTransfer message
 	protoMsg := &NewFileTransfer{
@@ -39,6 +43,7 @@ func (ti *TransferInfo) Marshal() ([]byte, error) {
 	return proto.Marshal(protoMsg)
 }
 
+// UnmarshalTransferInfo deserializes the TransferInfo.
 func UnmarshalTransferInfo(data []byte) (*TransferInfo, error) {
 	// Unmarshal the request message
 	var newFT NewFileTransfer

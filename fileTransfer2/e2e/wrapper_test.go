@@ -5,12 +5,14 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package groupChat
+package e2e
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/e2e/receive"
 	ft "gitlab.com/elixxir/client/fileTransfer2"
-	"gitlab.com/elixxir/client/groupChat"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -25,17 +27,18 @@ import (
 )
 
 // Tests that E2e adheres to the e2e.Handler interface.
-var _ GroupChat = (groupChat.GroupChat)(nil)
+var _ E2e = (e2e.Handler)(nil)
 
 // Smoke test of the entire file transfer system.
 func Test_FileTransfer_Smoke(t *testing.T) {
 	// jww.SetStdoutThreshold(jww.LevelDebug)
 	// Set up cMix and E2E message handlers
 	cMixHandler := newMockCmixHandler()
-	gcHandler := newMockGcHandler()
+	e2eHandler := newMockE2eHandler()
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
-	params := ft.DefaultParams()
-	params.MaxThroughput = math.MaxInt
+	ftParams := ft.DefaultParams()
+	ftParams.MaxThroughput = math.MaxInt
+	params := DefaultParams()
 
 	type receiveCbValues struct {
 		tid      *ftCrypto.TransferID
@@ -47,19 +50,30 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	}
 
 	// Set up the first client
+	receiveCbChan1 := make(chan receiveCbValues, 10)
+	receiveCB1 := func(tid *ftCrypto.TransferID, fileName, fileType string,
+		sender *id.ID, size uint32, preview []byte) {
+		receiveCbChan1 <- receiveCbValues{
+			tid, fileName, fileType, sender, size, preview}
+	}
 	myID1 := id.NewIdFromString("myID1", id.User, t)
 	kv1 := versioned.NewKV(ekv.MakeMemstore())
-	gc1 := newMockGC(gcHandler)
-	ftManager1, err := ft.NewManager(
-		params, myID1, newMockCmix(myID1, cMixHandler), kv1, rngGen)
-	m1, err := NewManager(nil, ftManager1, gc1)
+	endE2eChan1 := make(chan receive.Message, 3)
+	e2e1 := newMockE2e(myID1, e2eHandler)
+	e2e1.RegisterListener(
+		myID1, catalog.EndFileTransfer, newMockListener(endE2eChan1))
+	cmix1 := newMockCmix(myID1, cMixHandler)
+	ftManager1, err := ft.NewManager(ftParams, myID1, cmix1, kv1, rngGen)
 	if err != nil {
-		t.Errorf("Failed to create new file transfer manager 1: %+v", err)
+		t.Errorf("Failed to make new file transfer manager: %+v", err)
 	}
-
-	stop1, err := m1.StartProcesses()
+	stop1, err := ftManager1.StartProcesses()
 	if err != nil {
 		t.Errorf("Failed to start processes for manager 1: %+v", err)
+	}
+	m1, err := NewWrapper(receiveCB1, params, ftManager1, myID1, e2e1, cmix1)
+	if err != nil {
+		t.Errorf("Failed to create new file transfer manager 1: %+v", err)
 	}
 
 	// Set up the second client
@@ -71,17 +85,22 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	}
 	myID2 := id.NewIdFromString("myID2", id.User, t)
 	kv2 := versioned.NewKV(ekv.MakeMemstore())
-	gc2 := newMockGC(gcHandler)
-	ftManager2, err := ft.NewManager(
-		params, myID2, newMockCmix(myID2, cMixHandler), kv2, rngGen)
-	m2, err := NewManager(receiveCB2, ftManager2, gc2)
+	endE2eChan2 := make(chan receive.Message, 3)
+	e2e2 := newMockE2e(myID2, e2eHandler)
+	e2e2.RegisterListener(
+		myID2, catalog.EndFileTransfer, newMockListener(endE2eChan2))
+	cmix2 := newMockCmix(myID1, cMixHandler)
+	ftManager2, err := ft.NewManager(ftParams, myID2, cmix2, kv2, rngGen)
 	if err != nil {
-		t.Errorf("Failed to create new file transfer manager 2: %+v", err)
+		t.Errorf("Failed to make new file transfer manager: %+v", err)
 	}
-
-	stop2, err := m2.StartProcesses()
+	stop2, err := ftManager2.StartProcesses()
 	if err != nil {
 		t.Errorf("Failed to start processes for manager 2: %+v", err)
+	}
+	m2, err := NewWrapper(receiveCB2, params, ftManager2, myID2, e2e2, cmix2)
+	if err != nil {
+		t.Errorf("Failed to create new file transfer manager 2: %+v", err)
 	}
 
 	// Wait group prevents the test from quiting before the file has completed
@@ -163,6 +182,12 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 
 	// Wait for file to be sent and received
 	wg.Wait()
+
+	select {
+	case <-endE2eChan2:
+	case <-time.After(15 * time.Millisecond):
+		t.Errorf("Timed out waiting for end file transfer message.")
+	}
 
 	err = m1.CloseSend(tid1)
 	if err != nil {

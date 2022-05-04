@@ -186,7 +186,8 @@ func (m *mockE2e) SendE2E(mt catalog.MessageType, recipient *id.ID, payload []by
 func (m *mockE2e) RegisterListener(senderID *id.ID, mt catalog.MessageType,
 	listener receive.Listener) receive.ListenerID {
 	if _, exists := m.handler.listeners[*senderID]; !exists {
-		m.handler.listeners[*senderID] = map[catalog.MessageType]receive.Listener{mt: listener}
+		m.handler.listeners[*senderID] =
+			map[catalog.MessageType]receive.Listener{mt: listener}
 	} else if _, exists = m.handler.listeners[*senderID][mt]; !exists {
 		m.handler.listeners[*senderID][mt] = listener
 	}

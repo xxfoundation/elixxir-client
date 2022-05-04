@@ -9,7 +9,6 @@ package groupChat
 
 import (
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	ft "gitlab.com/elixxir/client/fileTransfer2"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -19,9 +18,6 @@ const (
 	// sendNewFileTransferMessage
 	errMarshalInfo        = "failed to marshal new transfer info: %+v"
 	errNewFtSendGroupChat = "failed to send initial file transfer message via group chat: %+v"
-
-	// sendEndFileTransferMessage
-	errEndFtSendGroupChat = "[FT] Failed to send ending file transfer message via group chat: %+v"
 )
 
 // sendNewFileTransferMessage sends a group chat message to the group ID
@@ -42,13 +38,4 @@ func sendNewFileTransferMessage(
 	}
 
 	return nil
-}
-
-// sendEndFileTransferMessage sends a group chat message to the group ID
-// informing them that all file parts have arrived once the network is healthy.
-func sendEndFileTransferMessage(groupID *id.ID, gc GroupChat) {
-	_, _, _, err := gc.Send(groupID, endFileTransferTag, nil)
-	if err != nil {
-		jww.ERROR.Printf(errEndFtSendGroupChat, err)
-	}
 }

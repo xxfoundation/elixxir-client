@@ -102,25 +102,31 @@ func (m *Manager) Send(fileName, fileType string, fileData []byte,
 		return sendNewFileTransferMessage(recipient, info, m.e2e)
 	}
 
+	modifiedProgressCB := m.addEndMessageToCallback(progressCB)
+
 	return m.ft.Send(fileName, fileType, fileData, recipient, retry, preview,
-		progressCB, period, sendNew)
+		modifiedProgressCB, period, sendNew)
 }
 
 func (m *Manager) RegisterSentProgressCallback(tid *ftCrypto.TransferID,
 	progressCB ft.SentProgressCallback, period time.Duration) error {
 
-	progressCB2 := func(completed bool, arrived, total uint16,
-		t ft.FilePartTracker, err error) {
+	modifiedProgressCB := m.addEndMessageToCallback(progressCB)
+
+	return m.ft.RegisterSentProgressCallback(tid, modifiedProgressCB, period)
+}
+
+func (m *Manager) addEndMessageToCallback(progressCB ft.SentProgressCallback) ft.SentProgressCallback {
+	return func(completed bool, arrived, total uint16,
+		st ft.SentTransfer, t ft.FilePartTracker, err error) {
 
 		// If the transfer is completed, send last message informing recipient
 		if completed {
-			sendEndFileTransferMessage(nil, m.cmix, m.e2e)
+			sendEndFileTransferMessage(st.Recipient(), m.cmix, m.e2e)
 		}
 
-		progressCB(completed, arrived, total, t, err)
+		progressCB(completed, arrived, total, st, t, err)
 	}
-
-	return m.ft.RegisterSentProgressCallback(tid, progressCB, period)
 }
 
 func (m *Manager) CloseSend(tid *ftCrypto.TransferID) error {

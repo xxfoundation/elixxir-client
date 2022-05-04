@@ -100,8 +100,8 @@ func NewOrLoadReceived(kv *versioned.KV) (*Received, []*ReceivedTransfer, error)
 
 // AddTransfer adds the ReceivedTransfer to the map keyed on its transfer ID.
 func (r *Received) AddTransfer(key *ftCrypto.TransferKey,
-	tid *ftCrypto.TransferID, fileName string, transferMAC []byte, numParts,
-	numFps uint16, fileSize uint32) (*ReceivedTransfer, error) {
+	tid *ftCrypto.TransferID, fileName string, transferMAC []byte,
+	fileSize uint32, numParts, numFps uint16) (*ReceivedTransfer, error) {
 
 	r.mux.Lock()
 	defer r.mux.Unlock()
@@ -111,8 +111,8 @@ func (r *Received) AddTransfer(key *ftCrypto.TransferKey,
 		return nil, errors.Errorf(errAddExistingReceivedTransfer, tid)
 	}
 
-	rt, err := newReceivedTransfer(key, tid, fileName, transferMAC, numParts,
-		numFps, fileSize, r.kv)
+	rt, err := newReceivedTransfer(
+		key, tid, fileName, transferMAC, fileSize, numParts, numFps, r.kv)
 	if err != nil {
 		return nil, err
 	}

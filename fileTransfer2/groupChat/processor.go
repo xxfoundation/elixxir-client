@@ -8,13 +8,11 @@
 package groupChat
 
 import (
-	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	ft "gitlab.com/elixxir/client/fileTransfer2"
 	"gitlab.com/elixxir/client/groupChat"
-	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/primitives/format"
 )
 
@@ -26,33 +24,29 @@ const (
 )
 
 type processor struct {
-	*manager
+	*Manager
 }
 
 func (p *processor) Process(decryptedMsg groupChat.MessageReceive,
 	_ format.Message, _ receptionID.EphemeralIdentity, _ rounds.Round) {
 	// Unmarshal the request message
-	var newFT ft.NewFileTransfer
-	err := proto.Unmarshal(decryptedMsg.Payload, &newFT)
+	info, err := ft.UnmarshalTransferInfo(decryptedMsg.Payload)
 	if err != nil {
 		jww.ERROR.Printf(errProtoUnmarshal, err)
 		return
 	}
 
-	transferKey := ftCrypto.UnmarshalTransferKey(newFT.GetTransferKey())
-
 	// Add new transfer to start receiving parts
-	tid, err := p.HandleIncomingTransfer(newFT.FileName, &transferKey,
-		newFT.TransferMac, uint16(newFT.NumParts), newFT.Size, newFT.Retry,
-		nil, 0)
+	tid, err := p.HandleIncomingTransfer(info.FileName, &info.Key, info.Mac,
+		info.NumParts, info.Size, info.Retry, nil, 0)
 	if err != nil {
-		jww.ERROR.Printf(errNewReceivedTransfer, newFT.FileName, err)
+		jww.ERROR.Printf(errNewReceivedTransfer, info.FileName, err)
 		return
 	}
 
 	// Call the reception callback
-	go p.receiveCB(tid, newFT.FileName, newFT.FileType, decryptedMsg.SenderID,
-		newFT.Size, newFT.Preview)
+	go p.receiveCB(tid, info.FileName, info.FileType, decryptedMsg.SenderID,
+		info.Size, info.Preview)
 }
 
 func (p *processor) String() string {

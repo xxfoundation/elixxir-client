@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
+	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -24,7 +25,7 @@ const (
 	// NewManager
 	errNewFtManager = "cannot create new group chat file transfer manager: %+v"
 
-	// manager.StartProcesses
+	// Manager.StartProcesses
 	errAddNewService = "failed to add service to receive new group file transfers: %+v"
 )
 
@@ -36,32 +37,40 @@ const (
 	endFileTransferTag = "EndGroupFileTransfer"
 )
 
-// manager handles the sending and receiving of file transfers for group chats.
-type manager struct {
+// Manager handles the sending and receiving of file transfers for group chats.
+type Manager struct {
 	// Callback that is called every time a new file transfer is received
 	receiveCB ft.ReceiveCallback
 
-	// File transfer manager
+	// File transfer Manager
 	ft ft.FileTransfer
 
-	// Group chat manager
-	gc groupChat.GroupChat
+	// Group chat Manager
+	gc GroupChat
 
 	myID *id.ID
 	cmix ft.Cmix
 }
 
-// NewManager generates a new file transfer manager for group chat.
+// GroupChat interface matches a subset of the groupChat.GroupChat methods used
+// by the Manager for easier testing.
+type GroupChat interface {
+	Send(groupID *id.ID, tag string, message []byte) (
+		id.Round, time.Time, group.MessageID, error)
+	AddService(tag string, p groupChat.Processor) error
+}
+
+// NewManager generates a new file transfer Manager for group chat.
 func NewManager(receiveCB ft.ReceiveCallback, params ft.Params, myID *id.ID,
-	gc groupChat.GroupChat, cmix ft.Cmix, kv *versioned.KV,
-	rng *fastRNG.StreamGenerator) (ft.FileTransfer, error) {
+	gc GroupChat, cmix ft.Cmix, kv *versioned.KV, rng *fastRNG.StreamGenerator) (
+	*Manager, error) {
 
 	ftManager, err := ft.NewManager(params, myID, cmix, kv, rng)
 	if err != nil {
 		return nil, errors.Errorf(errNewFtManager, err)
 	}
 
-	return &manager{
+	return &Manager{
 		receiveCB: receiveCB,
 		ft:        ftManager,
 		gc:        gc,
@@ -70,49 +79,52 @@ func NewManager(receiveCB ft.ReceiveCallback, params ft.Params, myID *id.ID,
 	}, nil
 }
 
-func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
+func (m *Manager) StartProcesses() (stoppable.Stoppable, error) {
 	err := m.gc.AddService(newFileTransferTag, &processor{m})
 	if err != nil {
 		return nil, errors.Errorf(errAddNewService, err)
 	}
 
-	return m.StartProcesses()
+	return m.ft.StartProcesses()
 }
 
-func (m *manager) MaxFileNameLen() int {
-	return m.MaxFileNameLen()
+func (m *Manager) MaxFileNameLen() int {
+	return m.ft.MaxFileNameLen()
 }
 
-func (m *manager) MaxFileTypeLen() int {
-	return m.MaxFileTypeLen()
+func (m *Manager) MaxFileTypeLen() int {
+	return m.ft.MaxFileTypeLen()
 }
 
-func (m *manager) MaxFileSize() int {
-	return m.MaxFileSize()
+func (m *Manager) MaxFileSize() int {
+	return m.ft.MaxFileSize()
 }
 
-func (m *manager) MaxPreviewSize() int {
-	return m.MaxPreviewSize()
+func (m *Manager) MaxPreviewSize() int {
+	return m.ft.MaxPreviewSize()
 }
 
-func (m *manager) Send(fileName, fileType string, fileData []byte,
+func (m *Manager) Send(fileName, fileType string, fileData []byte,
 	recipient *id.ID, retry float32, preview []byte,
-	progressCB ft.SentProgressCallback, period time.Duration,
-	sendNew ft.SendNew) (*ftCrypto.TransferID, error) {
+	progressCB ft.SentProgressCallback, period time.Duration) (*ftCrypto.TransferID, error) {
+	sendNew := func(info *ft.TransferInfo) error {
+		return sendNewFileTransferMessage(recipient, info, m.gc)
+	}
+
 	return m.ft.Send(fileName, fileType, fileData, recipient, retry, preview,
 		progressCB, period, sendNew)
 }
 
-func (m *manager) RegisterSentProgressCallback(tid *ftCrypto.TransferID,
+func (m *Manager) RegisterSentProgressCallback(tid *ftCrypto.TransferID,
 	progressCB ft.SentProgressCallback, period time.Duration) error {
 	return m.ft.RegisterSentProgressCallback(tid, progressCB, period)
 }
 
-func (m *manager) CloseSend(tid *ftCrypto.TransferID) error {
-	return m.CloseSend(tid)
+func (m *Manager) CloseSend(tid *ftCrypto.TransferID) error {
+	return m.ft.CloseSend(tid)
 }
 
-func (m *manager) HandleIncomingTransfer(fileName string,
+func (m *Manager) HandleIncomingTransfer(fileName string,
 	key *ftCrypto.TransferKey, transferMAC []byte, numParts uint16, size uint32,
 	retry float32, progressCB ft.ReceivedProgressCallback,
 	period time.Duration) (*ftCrypto.TransferID, error) {
@@ -120,11 +132,11 @@ func (m *manager) HandleIncomingTransfer(fileName string,
 		fileName, key, transferMAC, numParts, size, retry, progressCB, period)
 }
 
-func (m *manager) RegisterReceivedProgressCallback(tid *ftCrypto.TransferID,
+func (m *Manager) RegisterReceivedProgressCallback(tid *ftCrypto.TransferID,
 	progressCB ft.ReceivedProgressCallback, period time.Duration) error {
 	return m.ft.RegisterReceivedProgressCallback(tid, progressCB, period)
 }
 
-func (m *manager) Receive(tid *ftCrypto.TransferID) ([]byte, error) {
-	return m.Receive(tid)
+func (m *Manager) Receive(tid *ftCrypto.TransferID) ([]byte, error) {
+	return m.ft.Receive(tid)
 }

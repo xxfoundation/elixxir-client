@@ -67,10 +67,11 @@ func TestNewOrLoadSent_Load(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 		tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
+		parts, file := generateTestParts(uint16(10 + i))
 		st, err2 := s.AddTransfer(
 			id.NewIdFromString("recipient"+strconv.Itoa(i), id.User, t),
-			&key, &tid, "file"+strconv.Itoa(i),
-			generateTestParts(uint16(10+i)), uint16(2*(10+i)))
+			&key, &tid, "file"+strconv.Itoa(i), uint32(len(file)), parts,
+			uint16(2*(10+i)))
 		if err2 != nil {
 			t.Errorf("Failed to add transfer #%d: %+v", i, err2)
 		}
@@ -130,9 +131,10 @@ func TestSent_AddTransfer(t *testing.T) {
 
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
+	parts, file := generateTestParts(10)
 
 	st, err := s.AddTransfer(id.NewIdFromString("recipient", id.User, t),
-		&key, &tid, "file", generateTestParts(10), 20)
+		&key, &tid, "file", uint32(len(file)), parts, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
@@ -152,7 +154,7 @@ func TestSent_AddTransfer_TransferAlreadyExists(t *testing.T) {
 	}
 
 	expectedErr := fmt.Sprintf(errAddExistingSentTransfer, tid)
-	_, err := s.AddTransfer(nil, nil, &tid, "", nil, 0)
+	_, err := s.AddTransfer(nil, nil, &tid, "", 0, nil, 0)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("Received unexpected error when adding transfer that already "+
 			"exists.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -166,9 +168,10 @@ func TestSent_GetTransfer(t *testing.T) {
 
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
+	parts, file := generateTestParts(10)
 
 	st, err := s.AddTransfer(id.NewIdFromString("recipient", id.User, t),
-		&key, &tid, "file", generateTestParts(10), 20)
+		&key, &tid, "file", uint32(len(file)), parts, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
@@ -192,9 +195,10 @@ func TestSent_RemoveTransfer(t *testing.T) {
 
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
+	parts, file := generateTestParts(10)
 
 	st, err := s.AddTransfer(id.NewIdFromString("recipient", id.User, t),
-		&key, &tid, "file", generateTestParts(10), 20)
+		&key, &tid, "file", uint32(len(file)), parts, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}

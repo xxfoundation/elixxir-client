@@ -8,11 +8,9 @@
 package e2e
 
 import (
-	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/fileTransfer2"
-	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
+	ft "gitlab.com/elixxir/client/fileTransfer2"
 )
 
 // Error messages.
@@ -36,27 +34,23 @@ type listener struct {
 // messages.
 func (l *listener) Hear(msg receive.Message) {
 	// Unmarshal the request message
-	newFT := &fileTransfer2.NewFileTransfer{}
-	err := proto.Unmarshal(msg.Payload, newFT)
+	info, err := ft.UnmarshalTransferInfo(msg.Payload)
 	if err != nil {
 		jww.ERROR.Printf(errProtoUnmarshal, err)
 		return
 	}
 
-	transferKey := ftCrypto.UnmarshalTransferKey(newFT.GetTransferKey())
-
 	// Add new transfer to start receiving parts
-	tid, err := l.m.HandleIncomingTransfer(newFT.FileName, &transferKey,
-		newFT.TransferMac, uint16(newFT.NumParts), newFT.Size, newFT.Retry,
-		nil, 0)
+	tid, err := l.m.HandleIncomingTransfer(info.FileName, &info.Key, info.Mac,
+		info.NumParts, info.Size, info.Retry, nil, 0)
 	if err != nil {
-		jww.ERROR.Printf(errNewReceivedTransfer, newFT.FileName, err)
+		jww.ERROR.Printf(errNewReceivedTransfer, info.FileName, err)
 		return
 	}
 
 	// Call the reception callback
-	go l.m.receiveCB(tid, newFT.FileName, newFT.FileType, msg.Sender,
-		newFT.Size, newFT.Preview)
+	go l.m.receiveCB(
+		tid, info.FileName, info.FileType, msg.Sender, info.Size, info.Preview)
 }
 
 // Name returns a name used for debugging.

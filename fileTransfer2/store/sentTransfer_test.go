@@ -56,6 +56,7 @@ func Test_newSentTransfer(t *testing.T) {
 		tid:           &tid,
 		fileName:      "file",
 		recipient:     id.NewIdFromString("user", id.User, t),
+		fileSize:      calcFileSize(parts),
 		numParts:      uint16(len(parts)),
 		status:        Running,
 		parts:         parts,
@@ -63,8 +64,8 @@ func Test_newSentTransfer(t *testing.T) {
 		kv:            stKv,
 	}
 
-	st, err := newSentTransfer(
-		expected.recipient, &key, &tid, expected.fileName, parts, numFps, kv)
+	st, err := newSentTransfer(expected.recipient, &key, &tid,
+		expected.fileName, expected.fileSize, parts, numFps, kv)
 	if err != nil {
 		t.Errorf("newSentTransfer returned an error: %+v", err)
 	}
@@ -235,17 +236,6 @@ func TestSentTransfer_Status(t *testing.T) {
 	}
 }
 
-// Tests that SentTransfer.NumParts returns the correct number of parts.
-func TestSentTransfer_NumParts(t *testing.T) {
-	numParts := uint16(16)
-	st, _, _, _, _ := newTestSentTransfer(numParts, t)
-
-	if st.NumParts() != numParts {
-		t.Errorf("Incorrect number of parts.\nexpected: %d\nreceived: %d",
-			numParts, st.NumParts())
-	}
-}
-
 // Tests that SentTransfer.TransferID returns the correct transfer ID.
 func TestSentTransfer_TransferID(t *testing.T) {
 	st, _, _, _, _ := newTestSentTransfer(16, t)
@@ -273,6 +263,28 @@ func TestSentTransfer_Recipient(t *testing.T) {
 	if !st.Recipient().Cmp(st.recipient) {
 		t.Errorf("Incorrect recipient ID.\nexpected: %s\nreceived: %s",
 			st.recipient, st.Recipient())
+	}
+}
+
+// Tests that SentTransfer.FileSize returns the correct file size.
+func TestSentTransfer_FileSize(t *testing.T) {
+	st, parts, _, _, _ := newTestSentTransfer(16, t)
+	fileSize := calcFileSize(parts)
+
+	if st.FileSize() != fileSize {
+		t.Errorf("Incorrect file size.\nexpected: %d\nreceived: %d",
+			fileSize, st.FileSize())
+	}
+}
+
+// Tests that SentTransfer.NumParts returns the correct number of parts.
+func TestSentTransfer_NumParts(t *testing.T) {
+	numParts := uint16(16)
+	st, _, _, _, _ := newTestSentTransfer(numParts, t)
+
+	if st.NumParts() != numParts {
+		t.Errorf("Incorrect number of parts.\nexpected: %d\nreceived: %d",
+			numParts, st.NumParts())
 	}
 }
 
@@ -444,37 +456,41 @@ func Test_makeSentTransferPrefix_Consistency(t *testing.T) {
 const numPrimeBytes = 512
 
 // newTestSentTransfer creates a new SentTransfer for testing.
-func newTestSentTransfer(numParts uint16, t *testing.T) (
-	*SentTransfer, [][]byte, *ftCrypto.TransferKey, uint16, *versioned.KV) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
+func newTestSentTransfer(numParts uint16, t *testing.T) (st *SentTransfer,
+	parts [][]byte, key *ftCrypto.TransferKey, numFps uint16, kv *versioned.KV) {
+	kv = versioned.NewKV(ekv.MakeMemstore())
 	recipient := id.NewIdFromString("recipient", id.User, t)
-	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
+	keyTmp, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
-	numFps := 2 * numParts
+	numFps = 2 * numParts
 	fileName := "helloFile"
-	parts := generateTestParts(numParts)
+	parts, file := generateTestParts(numParts)
 
-	st, err := newSentTransfer(recipient, &key, &tid, fileName, parts, numFps, kv)
+	st, err := newSentTransfer(
+		recipient, &keyTmp, &tid, fileName, uint32(len(file)), parts, numFps, kv)
 	if err != nil {
 		t.Errorf("Failed to make new SentTransfer: %+v", err)
 	}
 
-	return st, parts, &key, numFps, kv
+	return st, parts, &keyTmp, numFps, kv
 }
 
 // generateTestParts generates a list of file parts of the correct size to be
 // encrypted/decrypted.
-func generateTestParts(numParts uint16) [][]byte {
+func generateTestParts(numParts uint16) (parts [][]byte, file []byte) {
 	// Calculate part size
 	partSize := fileMessage.NewPartMessage(
 		format.NewMessage(numPrimeBytes).ContentsSize()).GetPartSize()
 
 	// Create list of parts and fill
-	parts := make([][]byte, numParts)
+	parts = make([][]byte, numParts)
+	var buff bytes.Buffer
+	buff.Grow(int(numParts) * partSize)
 	for i := range parts {
 		parts[i] = make([]byte, partSize)
 		copy(parts[i], "Hello "+strconv.Itoa(i))
+		buff.Write(parts[i])
 	}
 
-	return parts
+	return parts, buff.Bytes()
 }

@@ -5,74 +5,22 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package fileTransfer2
+package groupChat
 
 import (
-	"bytes"
-	"encoding/binary"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/groupChat"
+	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"io"
-	"math/rand"
 	"sync"
-	"testing"
 	"time"
 )
-
-// newFile generates a file with random data of size numParts * partSize.
-// Returns the full file and the file parts. If the partSize allows, each part
-// starts with a "|<[PART_001]" and ends with a ">|".
-func newFile(numParts uint16, partSize int, prng io.Reader, t *testing.T) (
-	[]byte, [][]byte) {
-	const (
-		prefix = "|<[PART_%3d]"
-		suffix = ">|"
-	)
-	// Create file buffer of the expected size
-	fileBuff := bytes.NewBuffer(make([]byte, 0, int(numParts)*partSize))
-	partList := make([][]byte, numParts)
-
-	// Create new rand.Rand with the seed generated from the io.Reader
-	b := make([]byte, 8)
-	_, err := prng.Read(b)
-	if err != nil {
-		t.Errorf("Failed to generate random seed: %+v", err)
-	}
-	seed := binary.LittleEndian.Uint64(b)
-	randPrng := rand.New(rand.NewSource(int64(seed)))
-
-	for partNum := range partList {
-		s := RandStringBytes(partSize, randPrng)
-		if len(s) >= (len(prefix) + len(suffix)) {
-			partList[partNum] = []byte(
-				prefix + s[:len(s)-(len(prefix)+len(suffix))] + suffix)
-		} else {
-			partList[partNum] = []byte(s)
-		}
-
-		fileBuff.Write(partList[partNum])
-	}
-
-	return fileBuff.Bytes(), partList
-}
-
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-// RandStringBytes generates a random string of length n consisting of the
-// characters in letterBytes.
-func RandStringBytes(n int, prng *rand.Rand) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letterBytes[prng.Intn(len(letterBytes))]
-	}
-	return string(b)
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock cMix Client                                                           //
@@ -119,7 +67,6 @@ func (m *mockCmix) GetMaxMessageLength() int {
 func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 	_ cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
 	m.handler.Lock()
-	defer m.handler.Unlock()
 	for _, targetedMsg := range messages {
 		msg := format.NewMessage(m.numPrimeBytes)
 		msg.SetContents(targetedMsg.Payload)
@@ -129,20 +76,21 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 			receptionID.EphemeralIdentity{Source: targetedMsg.Recipient},
 			rounds.Round{ID: 42})
 	}
+	m.handler.Unlock()
 	return 42, []ephemeral.Id{}, nil
 }
 
 func (m *mockCmix) AddFingerprint(_ *id.ID, fp format.Fingerprint, mp message.Processor) error {
-	m.handler.Lock()
-	defer m.handler.Unlock()
+	m.Lock()
+	defer m.Unlock()
 	m.handler.processorMap[fp] = mp
 	return nil
 }
 
 func (m *mockCmix) DeleteFingerprint(_ *id.ID, fp format.Fingerprint) {
 	m.handler.Lock()
-	defer m.handler.Unlock()
 	delete(m.handler.processorMap, fp)
+	m.handler.Unlock()
 }
 
 func (m *mockCmix) IsHealthy() bool {
@@ -172,5 +120,47 @@ func (m *mockCmix) RemoveHealthCallback(healthID uint64) {
 func (m *mockCmix) GetRoundResults(_ time.Duration,
 	roundCallback cmix.RoundEventCallback, _ ...id.Round) error {
 	go roundCallback(true, false, map[id.Round]cmix.RoundResult{42: {}})
+	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Mock Group Chat Manager                                                    //
+////////////////////////////////////////////////////////////////////////////////
+type mockGcHandler struct {
+	services map[string]groupChat.Processor
+	sync.Mutex
+}
+
+func newMockGcHandler() *mockGcHandler {
+	return &mockGcHandler{
+		services: make(map[string]groupChat.Processor),
+	}
+}
+
+type mockGC struct {
+	handler *mockGcHandler
+}
+
+func newMockGC(handler *mockGcHandler) *mockGC {
+	return &mockGC{
+		handler: handler,
+	}
+}
+
+func (m *mockGC) Send(groupID *id.ID, tag string, message []byte) (
+	id.Round, time.Time, group.MessageID, error) {
+	m.handler.Lock()
+	defer m.handler.Unlock()
+	m.handler.services[tag].Process(groupChat.MessageReceive{
+		GroupID: groupID,
+		Payload: message,
+	}, format.Message{}, receptionID.EphemeralIdentity{}, rounds.Round{})
+	return 0, time.Time{}, group.MessageID{}, nil
+}
+
+func (m *mockGC) AddService(tag string, p groupChat.Processor) error {
+	m.handler.Lock()
+	defer m.handler.Unlock()
+	m.handler.services[tag] = p
 	return nil
 }

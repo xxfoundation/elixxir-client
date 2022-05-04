@@ -8,7 +8,6 @@
 package e2e
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
@@ -20,7 +19,7 @@ import (
 // Error messages.
 const (
 	// sendNewFileTransferMessage
-	errProtoMarshal = "failed to proto marshal NewFileTransfer: %+v"
+	errMarshalInfo  = "failed to marshal new transfer info: %+v"
 	errNewFtSendE2e = "failed to send initial file transfer message via E2E: %+v"
 
 	// sendEndFileTransferMessage
@@ -42,22 +41,10 @@ const (
 func sendNewFileTransferMessage(
 	recipient *id.ID, info *ft.TransferInfo, e2eHandler E2e) error {
 
-	// Construct NewFileTransfer message
-	protoMsg := &ft.NewFileTransfer{
-		FileName:    info.FileName,
-		FileType:    info.FileType,
-		TransferKey: info.Key.Bytes(),
-		TransferMac: info.Mac,
-		NumParts:    uint32(info.NumParts),
-		Size:        info.Size,
-		Retry:       info.Retry,
-		Preview:     info.Preview,
-	}
-
 	// Marshal the message
-	payload, err := proto.Marshal(protoMsg)
+	payload, err := info.Marshal()
 	if err != nil {
-		return errors.Errorf(errProtoMarshal, err)
+		return errors.Errorf(errMarshalInfo, err)
 	}
 
 	// Get E2E parameters

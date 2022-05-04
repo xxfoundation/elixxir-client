@@ -34,7 +34,7 @@ func Test_newReceivedTransfer(t *testing.T) {
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
 	numFps := uint16(24)
-	parts := generateTestParts(16)
+	parts, _ := generateTestParts(16)
 	fileSize := uint32(len(parts) * len(parts[0]))
 	numParts := uint16(len(parts))
 	rtKv := kv.Prefix(makeReceivedTransferPrefix(&tid))
@@ -54,15 +54,15 @@ func Test_newReceivedTransfer(t *testing.T) {
 		tid:           &tid,
 		fileName:      "fileName",
 		transferMAC:   []byte("transferMAC"),
-		numParts:      numParts,
 		fileSize:      fileSize,
+		numParts:      numParts,
 		parts:         make([][]byte, numParts),
 		partStatus:    partStatus,
 		kv:            rtKv,
 	}
 
 	rt, err := newReceivedTransfer(&key, &tid, expected.fileName,
-		expected.transferMAC, numParts, numFps, fileSize, kv)
+		expected.transferMAC, fileSize, numParts, numFps, kv)
 	if err != nil {
 		t.Errorf("newReceivedTransfer returned an error: %+v", err)
 	}
@@ -76,7 +76,7 @@ func Test_newReceivedTransfer(t *testing.T) {
 // Tests that ReceivedTransfer.AddPart adds the part to the part list and marks
 // it as received
 func TestReceivedTransfer_AddPart(t *testing.T) {
-	rt, _, _, _ := newTestReceivedTransfer(16, t)
+	rt, _, _, _, _ := newTestReceivedTransfer(16, t)
 
 	part := []byte("Part")
 	partNum := 6
@@ -99,7 +99,7 @@ func TestReceivedTransfer_AddPart(t *testing.T) {
 // Tests that ReceivedTransfer.AddPart returns an error if the part number is
 // not within the range of part numbers
 func TestReceivedTransfer_AddPart_PartOutOfRangeError(t *testing.T) {
-	rt, _, _, _ := newTestReceivedTransfer(16, t)
+	rt, _, _, _, _ := newTestReceivedTransfer(16, t)
 
 	expectedErr := fmt.Sprintf(errPartOutOfRange, rt.partStatus.GetNumKeys(),
 		rt.partStatus.GetNumKeys()-1)
@@ -115,9 +115,9 @@ func TestReceivedTransfer_AddPart_PartOutOfRangeError(t *testing.T) {
 // parts are added to the transfer.
 func TestReceivedTransfer_GetFile(t *testing.T) {
 	// Generate parts and make last file part smaller than the rest
-	parts := generateTestParts(16)
+	parts, _ := generateTestParts(16)
 	lastPartLen := 6
-	rt, _, _, _ := newTestReceivedTransfer(uint16(len(parts)), t)
+	rt, _, _, _, _ := newTestReceivedTransfer(uint16(len(parts)), t)
 	rt.fileSize = uint32((len(parts)-1)*len(parts[0]) + lastPartLen)
 
 	for i, p := range parts {
@@ -143,7 +143,7 @@ func TestReceivedTransfer_GetFile(t *testing.T) {
 // unused cyphers.
 func TestReceivedTransfer_GetUnusedCyphers(t *testing.T) {
 	numParts := uint16(10)
-	rt, _, numFps, _ := newTestReceivedTransfer(numParts, t)
+	rt, _, _, numFps, _ := newTestReceivedTransfer(numParts, t)
 
 	// Check that all cyphers are returned after initialisation
 	unsentCyphers := rt.GetUnusedCyphers()
@@ -182,20 +182,9 @@ func TestReceivedTransfer_GetUnusedCyphers(t *testing.T) {
 	}
 }
 
-// Tests that ReceivedTransfer.NumParts returns the correct number of parts.
-func TestReceivedTransfer_NumParts(t *testing.T) {
-	numParts := uint16(16)
-	rt, _, _, _ := newTestReceivedTransfer(numParts, t)
-
-	if rt.NumParts() != numParts {
-		t.Errorf("Incorrect number of parts.\nexpected: %d\nreceived: %d",
-			numParts, rt.NumParts())
-	}
-}
-
 // Tests that ReceivedTransfer.TransferID returns the correct transfer ID.
 func TestReceivedTransfer_TransferID(t *testing.T) {
-	rt, _, _, _ := newTestReceivedTransfer(16, t)
+	rt, _, _, _, _ := newTestReceivedTransfer(16, t)
 
 	if rt.TransferID() != rt.tid {
 		t.Errorf("Incorrect transfer ID.\nexpected: %s\nreceived: %s",
@@ -205,7 +194,7 @@ func TestReceivedTransfer_TransferID(t *testing.T) {
 
 // Tests that ReceivedTransfer.FileName returns the correct file name.
 func TestReceivedTransfer_FileName(t *testing.T) {
-	rt, _, _, _ := newTestReceivedTransfer(16, t)
+	rt, _, _, _, _ := newTestReceivedTransfer(16, t)
 
 	if rt.FileName() != rt.fileName {
 		t.Errorf("Incorrect transfer ID.\nexpected: %s\nreceived: %s",
@@ -213,10 +202,32 @@ func TestReceivedTransfer_FileName(t *testing.T) {
 	}
 }
 
+// Tests that ReceivedTransfer.FileSize returns the correct file size.
+func TestReceivedTransfer_FileSize(t *testing.T) {
+	rt, file, _, _, _ := newTestReceivedTransfer(16, t)
+	fileSize := uint32(len(file))
+
+	if rt.FileSize() != fileSize {
+		t.Errorf("Incorrect file size.\nexpected: %d\nreceived: %d",
+			fileSize, rt.FileSize())
+	}
+}
+
+// Tests that ReceivedTransfer.NumParts returns the correct number of parts.
+func TestReceivedTransfer_NumParts(t *testing.T) {
+	numParts := uint16(16)
+	rt, _, _, _, _ := newTestReceivedTransfer(numParts, t)
+
+	if rt.NumParts() != numParts {
+		t.Errorf("Incorrect number of parts.\nexpected: %d\nreceived: %d",
+			numParts, rt.NumParts())
+	}
+}
+
 // Tests that ReceivedTransfer.NumReceived returns the correct number of
 // received parts.
 func TestReceivedTransfer_NumReceived(t *testing.T) {
-	rt, _, _, _ := newTestReceivedTransfer(16, t)
+	rt, _, _, _, _ := newTestReceivedTransfer(16, t)
 
 	if rt.NumReceived() != 0 {
 		t.Errorf("Incorrect number of received parts."+
@@ -238,7 +249,7 @@ func TestReceivedTransfer_NumReceived(t *testing.T) {
 // Tests that the state vector returned by ReceivedTransfer.CopyPartStatusVector
 // has the same values as the original but is a copy.
 func TestReceivedTransfer_CopyPartStatusVector(t *testing.T) {
-	rt, _, _, _ := newTestReceivedTransfer(64, t)
+	rt, _, _, _, _ := newTestReceivedTransfer(64, t)
 
 	// Check that the vectors have the same unused parts
 	partStatus := rt.CopyPartStatusVector()
@@ -268,8 +279,8 @@ func TestReceivedTransfer_CopyPartStatusVector(t *testing.T) {
 // Tests that a ReceivedTransfer loaded via loadReceivedTransfer matches the
 // original.
 func Test_loadReceivedTransfer(t *testing.T) {
-	parts := generateTestParts(16)
-	rt, _, _, kv := newTestReceivedTransfer(uint16(len(parts)), t)
+	parts, _ := generateTestParts(16)
+	rt, _, _, _, kv := newTestReceivedTransfer(uint16(len(parts)), t)
 
 	for i, p := range parts {
 		if i%2 == 0 {
@@ -295,7 +306,7 @@ func Test_loadReceivedTransfer(t *testing.T) {
 // Tests that ReceivedTransfer.Delete deletes the storage backend of the
 // ReceivedTransfer and that it cannot be loaded again.
 func TestReceivedTransfer_Delete(t *testing.T) {
-	rt, _, _, kv := newTestReceivedTransfer(64, t)
+	rt, _, _, _, kv := newTestReceivedTransfer(64, t)
 
 	err := rt.Delete()
 	if err != nil {
@@ -311,7 +322,7 @@ func TestReceivedTransfer_Delete(t *testing.T) {
 // Tests that the fields saved by ReceivedTransfer.save can be loaded from
 // storage.
 func TestReceivedTransfer_save(t *testing.T) {
-	rt, _, _, _ := newTestReceivedTransfer(64, t)
+	rt, _, _, _, _ := newTestReceivedTransfer(64, t)
 
 	err := rt.save()
 	if err != nil {
@@ -326,23 +337,24 @@ func TestReceivedTransfer_save(t *testing.T) {
 
 // newTestReceivedTransfer creates a new ReceivedTransfer for testing.
 func newTestReceivedTransfer(numParts uint16, t *testing.T) (
-	*ReceivedTransfer, *ftCrypto.TransferKey, uint16, *versioned.KV) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
+	rt *ReceivedTransfer, file []byte, key *ftCrypto.TransferKey,
+	numFps uint16, kv *versioned.KV) {
+	kv = versioned.NewKV(ekv.MakeMemstore())
+	keyTmp, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
 	transferMAC := []byte("I am a transfer MAC")
-	numFps := 2 * numParts
+	numFps = 2 * numParts
 	fileName := "helloFile"
-	parts := generateTestParts(numParts)
-	fileSize := uint32(len(parts) * len(parts[0]))
+	_, file = generateTestParts(numParts)
+	fileSize := uint32(len(file))
 
 	st, err := newReceivedTransfer(
-		&key, &tid, fileName, transferMAC, numParts, numFps, fileSize, kv)
+		&keyTmp, &tid, fileName, transferMAC, fileSize, numParts, numFps, kv)
 	if err != nil {
 		t.Errorf("Failed to make new SentTransfer: %+v", err)
 	}
 
-	return st, &key, numFps, kv
+	return st, file, &keyTmp, numFps, kv
 }
 
 // Tests that a ReceivedTransfer marshalled via ReceivedTransfer.marshal and
@@ -351,8 +363,8 @@ func TestReceivedTransfer_marshal_unmarshalReceivedTransfer(t *testing.T) {
 	rt := &ReceivedTransfer{
 		fileName:    "transferName",
 		transferMAC: []byte("I am a transfer MAC"),
-		numParts:    153,
 		fileSize:    735,
+		numParts:    153,
 	}
 
 	data, err := rt.marshal()

@@ -145,7 +145,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 				t.Errorf("Failed to add transfer: %+v", err)
 			}
 			receiveProgressCB := func(completed bool, received, total uint16,
-				fpt FilePartTracker, err error) {
+				rt ReceivedTransfer, fpt FilePartTracker, err error) {
 				if completed && !called {
 					timeReceived <- netTime.Now()
 					receivedFile, err2 := m2.Receive(tid)
@@ -176,7 +176,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	// Define sent progress callback
 	wg.Add(1)
 	sentProgressCb1 := func(completed bool, arrived, total uint16,
-		fpt FilePartTracker, err error) {
+		st SentTransfer, fpt FilePartTracker, err error) {
 		if completed {
 			wg.Done()
 		}

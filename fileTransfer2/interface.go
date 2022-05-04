@@ -18,12 +18,12 @@ import (
 // SentProgressCallback is a callback function that tracks the progress of
 // sending a file.
 type SentProgressCallback func(completed bool, arrived, total uint16,
-	t FilePartTracker, err error)
+	st SentTransfer, t FilePartTracker, err error)
 
 // ReceivedProgressCallback is a callback function that tracks the progress of
 // receiving a file.
 type ReceivedProgressCallback func(completed bool, received, total uint16,
-	t FilePartTracker, err error)
+	rt ReceivedTransfer, t FilePartTracker, err error)
 
 // ReceiveCallback is a callback function that notifies the receiver of an
 // incoming file transfer.
@@ -189,6 +189,22 @@ type FileTransfer interface {
 	// Receive can only be called once the progress callback returns that the
 	// file transfer is complete.
 	Receive(tid *ftCrypto.TransferID) ([]byte, error)
+}
+
+type SentTransfer interface {
+	Recipient() *id.ID
+	Transfer
+}
+
+type ReceivedTransfer interface {
+	Transfer
+}
+
+type Transfer interface {
+	TransferID() *ftCrypto.TransferID
+	FileName() string
+	FileSize() uint32
+	NumParts() uint16
 }
 
 // FilePartTracker tracks the status of each file part in a sent or received

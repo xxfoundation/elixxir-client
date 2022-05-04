@@ -5,14 +5,13 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package e2e
+package groupChat
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/receive"
 	ft "gitlab.com/elixxir/client/fileTransfer2"
+	"gitlab.com/elixxir/client/groupChat"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -27,14 +26,14 @@ import (
 )
 
 // Tests that E2e adheres to the e2e.Handler interface.
-var _ E2e = (e2e.Handler)(nil)
+var _ GroupChat = (groupChat.GroupChat)(nil)
 
 // Smoke test of the entire file transfer system.
 func Test_FileTransfer_Smoke(t *testing.T) {
 	// jww.SetStdoutThreshold(jww.LevelDebug)
 	// Set up cMix and E2E message handlers
 	cMixHandler := newMockCmixHandler()
-	e2eHandler := newMockE2eHandler()
+	gcHandler := newMockGcHandler()
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	params := ft.DefaultParams()
 	params.MaxThroughput = math.MaxInt
@@ -57,11 +56,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	}
 	myID1 := id.NewIdFromString("myID1", id.User, t)
 	kv1 := versioned.NewKV(ekv.MakeMemstore())
-	endE2eChan1 := make(chan receive.Message, 3)
-	e2e1 := newMockE2e(myID1, e2eHandler)
-	e2e1.RegisterListener(
-		myID1, catalog.EndFileTransfer, newMockListener(endE2eChan1))
-	m1, err := NewManager(receiveCB1, params, myID1, e2e1,
+	gc1 := newMockGC(gcHandler)
+	m1, err := NewManager(receiveCB1, params, myID1, gc1,
 		newMockCmix(myID1, cMixHandler), kv1, rngGen)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 1: %+v", err)
@@ -82,10 +78,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	myID2 := id.NewIdFromString("myID2", id.User, t)
 	kv2 := versioned.NewKV(ekv.MakeMemstore())
 	endE2eChan2 := make(chan receive.Message, 3)
-	e2e2 := newMockE2e(myID2, e2eHandler)
-	e2e2.RegisterListener(
-		myID2, catalog.EndFileTransfer, newMockListener(endE2eChan2))
-	m2, err := NewManager(receiveCB2, params, myID2, e2e2,
+	gc2 := newMockGC(gcHandler) /**/
+	m2, err := NewManager(receiveCB2, params, myID2, gc2,
 		newMockCmix(myID2, cMixHandler), kv2, rngGen)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 2: %+v", err)

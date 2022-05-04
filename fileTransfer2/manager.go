@@ -295,7 +295,8 @@ func (m *manager) Send(fileName, fileType string, fileData []byte,
 	numFps := calcNumberOfFingerprints(len(parts), retry)
 
 	// Create new sent transfer
-	st, err := m.sent.AddTransfer(recipient, &key, &tid, fileName, parts, numFps)
+	st, err := m.sent.AddTransfer(
+		recipient, &key, &tid, fileName, fileSize, parts, numFps)
 	if err != nil {
 		return nil, errors.Errorf(errAddSentTransfer, err)
 	}
@@ -343,7 +344,7 @@ func (m *manager) registerSentProgressCallback(st *store.SentTransfer,
 		tracker := &sentFilePartTracker{st.CopyPartStatusVector()}
 
 		// Call the progress callback
-		progressCB(completed, arrived, total, tracker, err)
+		progressCB(completed, arrived, total, st, tracker, err)
 	}
 
 	// Add the callback to the callback tracker
@@ -407,7 +408,7 @@ func (m *manager) HandleIncomingTransfer(fileName string,
 
 	// Store the transfer
 	rt, err := m.received.AddTransfer(
-		key, &tid, fileName, transferMAC, numParts, numFps, size)
+		key, &tid, fileName, transferMAC, size, numParts, numFps)
 	if err != nil {
 		return nil, errors.Errorf(errAddNewRt, tid, fileName, err)
 	}
@@ -496,7 +497,7 @@ func (m *manager) registerReceivedProgressCallback(rt *store.ReceivedTransfer,
 		tracker := &receivedFilePartTracker{rt.CopyPartStatusVector()}
 
 		// Call the progress callback
-		progressCB(completed, received, total, tracker, err)
+		progressCB(completed, received, total, rt, tracker, err)
 	}
 
 	// Add the callback to the callback tracker

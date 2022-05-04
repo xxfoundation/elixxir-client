@@ -220,6 +220,10 @@ func Test_listener_Stop(t *testing.T) {
 	}
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Mock cMix Client                                                           //
+////////////////////////////////////////////////////////////////////////////////
+
 type mockListenCmixHandler struct {
 	fingerprintMap map[id.ID]map[format.Fingerprint][]cMixMsg.Processor
 	serviceMap     map[id.ID]map[string][]cMixMsg.Processor

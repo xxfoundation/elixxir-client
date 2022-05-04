@@ -423,7 +423,7 @@ func TestRequestPayload_GetContents_GetContentsSize_GetMaxContentsSize(t *testin
 	}
 
 	if format.MinimumPrimeSize-requestMinSize != mp.GetMaxContentsSize() {
-		t.Errorf("GetMaxContentsSize did not return the expected size."+
+		t.Errorf("GetMaxResponsePartSize did not return the expected size."+
 			"\nexpected: %d\nreceived: %d",
 			format.MinimumPrimeSize-requestMinSize, mp.GetMaxContentsSize())
 	}

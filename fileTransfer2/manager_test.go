@@ -184,7 +184,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 
 	// Send file.
 	sendStart := netTime.Now()
-	tid1, err := m1.Send(fileName, fileType, fileData, myID2, retry, preview,
+	tid1, err := m1.Send(myID2, fileName, fileType, fileData, retry, preview,
 		sentProgressCb1, 0, sendNewCb1)
 	if err != nil {
 		t.Errorf("Failed to send file: %+v", err)

@@ -9,7 +9,6 @@ package groupChat
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/e2e/receive"
 	ft "gitlab.com/elixxir/client/fileTransfer2"
 	"gitlab.com/elixxir/client/groupChat"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -48,17 +47,12 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	}
 
 	// Set up the first client
-	receiveCbChan1 := make(chan receiveCbValues, 10)
-	receiveCB1 := func(tid *ftCrypto.TransferID, fileName, fileType string,
-		sender *id.ID, size uint32, preview []byte) {
-		receiveCbChan1 <- receiveCbValues{
-			tid, fileName, fileType, sender, size, preview}
-	}
 	myID1 := id.NewIdFromString("myID1", id.User, t)
 	kv1 := versioned.NewKV(ekv.MakeMemstore())
 	gc1 := newMockGC(gcHandler)
-	m1, err := NewManager(receiveCB1, params, myID1, gc1,
-		newMockCmix(myID1, cMixHandler), kv1, rngGen)
+	ftManager1, err := ft.NewManager(
+		params, myID1, newMockCmix(myID1, cMixHandler), kv1, rngGen)
+	m1, err := NewManager(nil, ftManager1, gc1)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 1: %+v", err)
 	}
@@ -77,10 +71,10 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	}
 	myID2 := id.NewIdFromString("myID2", id.User, t)
 	kv2 := versioned.NewKV(ekv.MakeMemstore())
-	endE2eChan2 := make(chan receive.Message, 3)
-	gc2 := newMockGC(gcHandler) /**/
-	m2, err := NewManager(receiveCB2, params, myID2, gc2,
-		newMockCmix(myID2, cMixHandler), kv2, rngGen)
+	gc2 := newMockGC(gcHandler)
+	ftManager2, err := ft.NewManager(
+		params, myID2, newMockCmix(myID2, cMixHandler), kv2, rngGen)
+	m2, err := NewManager(receiveCB2, ftManager2, gc2)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 2: %+v", err)
 	}
@@ -150,7 +144,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	// Send file
 	sendStart := netTime.Now()
 	tid1, err := m1.Send(
-		fileName, fileType, fileData, myID2, retry, preview, sentProgressCb1, 0)
+		myID2, fileName, fileType, fileData, retry, preview, sentProgressCb1, 0)
 	if err != nil {
 		t.Errorf("Failed to send file: %+v", err)
 	}
@@ -169,12 +163,6 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 
 	// Wait for file to be sent and received
 	wg.Wait()
-
-	select {
-	case <-endE2eChan2:
-	case <-time.After(15 * time.Millisecond):
-		t.Errorf("Timed out waiting for end file transfer message.")
-	}
 
 	err = m1.CloseSend(tid1)
 	if err != nil {

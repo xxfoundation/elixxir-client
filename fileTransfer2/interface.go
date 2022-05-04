@@ -82,13 +82,13 @@ type FileTransfer interface {
 	// In-progress transfers are restored when closing and reopening; however, a
 	// SentProgressCallback must be registered again.
 	//
+	//   recipient - ID of the receiver of the file transfer. The sender must
+	//      have an E2E relationship with the recipient.
 	//   fileName - Human-readable file name. Max length defined by
 	//      MaxFileNameLen.
 	//   fileType - Shorthand that identifies the type of file. Max length
 	//      defined by MaxFileTypeLen.
 	//   fileData - File contents. Max size defined by MaxFileSize.
-	//   recipient - ID of the receiver of the file transfer. The sender must
-	//      have an E2E relationship with the recipient.
 	//   retry - The number of sending retries allowed on send failure (e.g.
 	//      a retry of 2.0 with 6 parts means 12 total possible sends).
 	//   preview - A preview of the file data (e.g. a thumbnail). Max size
@@ -100,7 +100,7 @@ type FileTransfer interface {
 	//      per period.
 	//   sendNew - Function that sends the file transfer information to the
 	//      recipient.
-	Send(fileName, fileType string, fileData []byte, recipient *id.ID,
+	Send(recipient *id.ID, fileName, fileType string, fileData []byte,
 		retry float32, preview []byte, progressCB SentProgressCallback,
 		period time.Duration, sendNew SendNew) (*ftCrypto.TransferID, error)
 

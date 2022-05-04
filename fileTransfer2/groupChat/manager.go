@@ -12,8 +12,6 @@ import (
 	ft "gitlab.com/elixxir/client/fileTransfer2"
 	"gitlab.com/elixxir/client/groupChat"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
@@ -22,9 +20,6 @@ import (
 
 // Error messages.
 const (
-	// NewManager
-	errNewFtManager = "cannot create new group chat file transfer manager: %+v"
-
 	// Manager.StartProcesses
 	errAddNewService = "failed to add service to receive new group file transfers: %+v"
 )
@@ -47,9 +42,6 @@ type Manager struct {
 
 	// Group chat Manager
 	gc GroupChat
-
-	myID *id.ID
-	cmix ft.Cmix
 }
 
 // GroupChat interface matches a subset of the groupChat.GroupChat methods used
@@ -61,21 +53,12 @@ type GroupChat interface {
 }
 
 // NewManager generates a new file transfer Manager for group chat.
-func NewManager(receiveCB ft.ReceiveCallback, params ft.Params, myID *id.ID,
-	gc GroupChat, cmix ft.Cmix, kv *versioned.KV, rng *fastRNG.StreamGenerator) (
+func NewManager(receiveCB ft.ReceiveCallback, ft ft.FileTransfer, gc GroupChat) (
 	*Manager, error) {
-
-	ftManager, err := ft.NewManager(params, myID, cmix, kv, rng)
-	if err != nil {
-		return nil, errors.Errorf(errNewFtManager, err)
-	}
-
 	return &Manager{
 		receiveCB: receiveCB,
-		ft:        ftManager,
+		ft:        ft,
 		gc:        gc,
-		myID:      myID,
-		cmix:      cmix,
 	}, nil
 }
 
@@ -104,14 +87,15 @@ func (m *Manager) MaxPreviewSize() int {
 	return m.ft.MaxPreviewSize()
 }
 
-func (m *Manager) Send(fileName, fileType string, fileData []byte,
-	recipient *id.ID, retry float32, preview []byte,
-	progressCB ft.SentProgressCallback, period time.Duration) (*ftCrypto.TransferID, error) {
+func (m *Manager) Send(groupID *id.ID, fileName, fileType string,
+	fileData []byte, retry float32, preview []byte,
+	progressCB ft.SentProgressCallback, period time.Duration) (
+	*ftCrypto.TransferID, error) {
 	sendNew := func(info *ft.TransferInfo) error {
-		return sendNewFileTransferMessage(recipient, info, m.gc)
+		return sendNewFileTransferMessage(groupID, info, m.gc)
 	}
 
-	return m.ft.Send(fileName, fileType, fileData, recipient, retry, preview,
+	return m.ft.Send(groupID, fileName, fileType, fileData, retry, preview,
 		progressCB, period, sendNew)
 }
 

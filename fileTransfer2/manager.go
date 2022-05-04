@@ -230,8 +230,8 @@ func (m *manager) MaxPreviewSize() int {
 
 // Send partitions the given file into cMix message sized chunks and sends them
 // via cmix.SendMany.
-func (m *manager) Send(fileName, fileType string, fileData []byte,
-	recipient *id.ID, retry float32, preview []byte,
+func (m *manager) Send(recipient *id.ID, fileName, fileType string,
+	fileData []byte, retry float32, preview []byte,
 	progressCB SentProgressCallback, period time.Duration, sendNew SendNew) (
 	*ftCrypto.TransferID, error) {
 

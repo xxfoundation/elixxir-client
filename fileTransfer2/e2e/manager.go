@@ -8,24 +8,15 @@
 package e2e
 
 import (
-	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/receive"
 	ft "gitlab.com/elixxir/client/fileTransfer2"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/versioned"
 	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
-)
-
-// Error messages.
-const (
-	// NewManager
-	errNewFtManager = "cannot create new E2E file transfer manager: %+v"
 )
 
 // Manager handles the sending and receiving of file transfers using E2E
@@ -52,18 +43,11 @@ type E2e interface {
 }
 
 // NewManager generates a new file transfer manager using E2E.
-func NewManager(receiveCB ft.ReceiveCallback, params ft.Params, myID *id.ID,
-	e2e E2e, cmix ft.Cmix, kv *versioned.KV, rng *fastRNG.StreamGenerator) (
-	*Manager, error) {
-
-	ftManager, err := ft.NewManager(params, myID, cmix, kv, rng)
-	if err != nil {
-		return nil, errors.Errorf(errNewFtManager, err)
-	}
-
+func NewManager(receiveCB ft.ReceiveCallback, ft ft.FileTransfer, myID *id.ID,
+	e2e E2e, cmix ft.Cmix) (*Manager, error) {
 	return &Manager{
 		receiveCB: receiveCB,
-		ft:        ftManager,
+		ft:        ft,
 		myID:      myID,
 		cmix:      cmix,
 		e2e:       e2e,
@@ -93,8 +77,8 @@ func (m *Manager) MaxPreviewSize() int {
 	return m.ft.MaxPreviewSize()
 }
 
-func (m *Manager) Send(fileName, fileType string, fileData []byte,
-	recipient *id.ID, retry float32, preview []byte,
+func (m *Manager) Send(recipient *id.ID, fileName, fileType string,
+	fileData []byte, retry float32, preview []byte,
 	progressCB ft.SentProgressCallback, period time.Duration) (
 	*ftCrypto.TransferID, error) {
 
@@ -104,7 +88,7 @@ func (m *Manager) Send(fileName, fileType string, fileData []byte,
 
 	modifiedProgressCB := m.addEndMessageToCallback(progressCB)
 
-	return m.ft.Send(fileName, fileType, fileData, recipient, retry, preview,
+	return m.ft.Send(recipient, fileName, fileType, fileData, retry, preview,
 		modifiedProgressCB, period, sendNew)
 }
 

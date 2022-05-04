@@ -61,8 +61,12 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	e2e1 := newMockE2e(myID1, e2eHandler)
 	e2e1.RegisterListener(
 		myID1, catalog.EndFileTransfer, newMockListener(endE2eChan1))
-	m1, err := NewManager(receiveCB1, params, myID1, e2e1,
-		newMockCmix(myID1, cMixHandler), kv1, rngGen)
+	cmix1 := newMockCmix(myID1, cMixHandler)
+	ftManager1, err := ft.NewManager(params, myID1, cmix1, kv1, rngGen)
+	if err != nil {
+		t.Errorf("Failed to make new file transfer manager: %+v", err)
+	}
+	m1, err := NewManager(receiveCB1, ftManager1, myID1, e2e1, cmix1)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 1: %+v", err)
 	}
@@ -85,8 +89,12 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	e2e2 := newMockE2e(myID2, e2eHandler)
 	e2e2.RegisterListener(
 		myID2, catalog.EndFileTransfer, newMockListener(endE2eChan2))
-	m2, err := NewManager(receiveCB2, params, myID2, e2e2,
-		newMockCmix(myID2, cMixHandler), kv2, rngGen)
+	cmix2 := newMockCmix(myID1, cMixHandler)
+	ftManager2, err := ft.NewManager(params, myID2, cmix2, kv2, rngGen)
+	if err != nil {
+		t.Errorf("Failed to make new file transfer manager: %+v", err)
+	}
+	m2, err := NewManager(receiveCB2, ftManager2, myID2, e2e2, cmix2)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 2: %+v", err)
 	}
@@ -156,7 +164,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	// Send file
 	sendStart := netTime.Now()
 	tid1, err := m1.Send(
-		fileName, fileType, fileData, myID2, retry, preview, sentProgressCb1, 0)
+		myID2, fileName, fileType, fileData, retry, preview, sentProgressCb1, 0)
 	if err != nil {
 		t.Errorf("Failed to send file: %+v", err)
 	}

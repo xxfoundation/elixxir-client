@@ -15,7 +15,9 @@ import (
 	"gitlab.com/elixxir/client/cmix/message"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"time"
@@ -62,6 +64,15 @@ type Client interface {
 // listening for new messages on the callback immediately.
 func NewSymmetricClient(channel crypto.Symmetric, listenerCb ListenerFunc,
 	net Client, rng *fastRNG.StreamGenerator) Symmetric {
+	sc := &symmetricClient{
+		channel: channel,
+		net:     net,
+		rng:     rng,
+	}
+	if !sc.verifyID() {
+		jww.FATAL.Panicf("Failed ID verification for symmetric channel")
+	}
+
 	// Add channel's identity
 	net.AddIdentity(channel.ReceptionID, identity.Forever, true)
 
@@ -83,11 +94,7 @@ func NewSymmetricClient(channel crypto.Symmetric, listenerCb ListenerFunc,
 	jww.INFO.Printf("New symmetric broadcast client created for channel %q (%s)",
 		channel.Name, channel.ReceptionID)
 
-	return &symmetricClient{
-		channel: channel,
-		net:     net,
-		rng:     rng,
-	}
+	return sc
 }
 
 // MaxPayloadSize returns the maximum size for a broadcasted payload.
@@ -140,4 +147,21 @@ func (s *symmetricClient) Stop() {
 
 	// Delete all registered services
 	s.net.DeleteClientService(s.channel.ReceptionID)
+}
+
+func (s *symmetricClient) verifyID() bool {
+	h, err := hash.NewCMixHash()
+	if err != nil {
+		jww.FATAL.Panicf("[verifyID] Failed to create cmix hash")
+		return false
+	}
+	h.Write([]byte(s.channel.Name))
+	h.Write([]byte(s.channel.Description))
+	h.Write(s.channel.Salt)
+	h.Write(rsa.CreatePublicKeyPem(s.channel.RsaPubKey))
+	ridBytes := h.Sum(nil)
+	gen := &id.ID{}
+	copy(gen[:], ridBytes)
+	gen.SetType(id.User)
+	return s.channel.ReceptionID.Cmp(gen)
 }

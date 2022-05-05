@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/client/cmix/message"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -150,18 +149,10 @@ func (s *symmetricClient) Stop() {
 }
 
 func (s *symmetricClient) verifyID() bool {
-	h, err := hash.NewCMixHash()
+	gen, err := crypto.NewSymmetricID(s.channel.Name, s.channel.Description, s.channel.Salt, rsa.CreatePublicKeyPem(s.channel.RsaPubKey))
 	if err != nil {
-		jww.FATAL.Panicf("[verifyID] Failed to create cmix hash")
+		jww.FATAL.Panicf("[verifyID] Failed to generate verified channel ID")
 		return false
 	}
-	h.Write([]byte(s.channel.Name))
-	h.Write([]byte(s.channel.Description))
-	h.Write(s.channel.Salt)
-	h.Write(rsa.CreatePublicKeyPem(s.channel.RsaPubKey))
-	ridBytes := h.Sum(nil)
-	gen := &id.ID{}
-	copy(gen[:], ridBytes)
-	gen.SetType(id.User)
 	return s.channel.ReceptionID.Cmp(gen)
 }

@@ -10,9 +10,7 @@ import (
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
-	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
 	"os"
 	"time"
@@ -87,19 +85,10 @@ var symmetricCmd = &cobra.Command{
 				salt = []byte(viper.GetString("salt"))
 			}
 
-			h, err := hash.NewCMixHash()
+			rid, err := crypto.NewSymmetricID(name, desc, salt, pubKeyBytes)
 			if err != nil {
 
 			}
-			h.Write([]byte(name))
-			h.Write([]byte(desc))
-			h.Write(salt)
-			h.Write(pubKeyBytes)
-			ridBytes := h.Sum(nil)
-
-			rid := &id.ID{}
-			copy(rid[:], ridBytes)
-			rid.SetType(id.User)
 
 			symmetric = &crypto.Symmetric{
 				ReceptionID: rid,

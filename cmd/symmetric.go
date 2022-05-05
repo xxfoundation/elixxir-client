@@ -140,18 +140,18 @@ var symmetricCmd = &cobra.Command{
 		if message != "" {
 			broadcastMessage, err := broadcast.NewSizedBroadcast(scl.MaxPayloadSize(), []byte(message))
 			if err != nil {
-
+				jww.ERROR.Printf("Failed to create sized broadcast: %+v", err)
 			}
 			rid, eid, err := scl.Broadcast(broadcastMessage, cmix.GetDefaultCMIXParams())
 			if err != nil {
-				jww.ERROR.Printf("Failed to send symmentric broadcast message: %+v", err)
+				jww.ERROR.Printf("Failed to send symmetric broadcast message: %+v", err)
 			}
 			jww.INFO.Printf("Sent symmetric broadcast message to %s over round %d", eid, rid)
 		}
 
 		// Receive messages over the channel
-		expectedCnt := viper.GetUint("receiveCount")
 		waitSecs := viper.GetUint("waitTimeout")
+		expectedCnt := viper.GetUint("receiveCount")
 		waitTimeout := time.Duration(waitSecs) * time.Second
 		receivedCount := uint(0)
 		done := false
@@ -165,7 +165,7 @@ var symmetricCmd = &cobra.Command{
 					jww.ERROR.Printf("Failed to decode sized broadcast: %+v", err)
 					continue
 				}
-				fmt.Printf("Symmetric broadcast message received: %s\n", string(receivedBroadcast))
+				fmt.Printf("Symmetric broadcast message %d/%d received: %s\n", receivedCount, expectedCnt, string(receivedBroadcast))
 				if receivedCount == expectedCnt {
 					done = true
 				}
@@ -177,6 +177,7 @@ var symmetricCmd = &cobra.Command{
 		}
 
 		jww.INFO.Printf("Received %d/%d Messages!", receivedCount, expectedCnt)
+		scl.Stop()
 		err = client.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf(

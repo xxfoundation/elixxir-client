@@ -148,6 +148,8 @@ func (s *symmetricClient) Stop() {
 	s.net.DeleteClientService(s.channel.ReceptionID)
 }
 
+// verifyID generates a symmetric ID based on the info in the channel & compares it to the one passed in
+// TODO: it seems very odd to me that we do this, rather than just making the ID a private/ephemeral component like the key
 func (s *symmetricClient) verifyID() bool {
 	gen, err := crypto.NewSymmetricID(s.channel.Name, s.channel.Description, s.channel.Salt, rsa.CreatePublicKeyPem(s.channel.RsaPubKey))
 	if err != nil {

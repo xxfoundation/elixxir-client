@@ -1,0 +1,21 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
+syntax = "proto3";
+package authenticatedConnectionMessages;
+option go_package = "gitlab.com/elixxir/client/connections/authenticated";
+
+// Sent by the receiver of the authenticated connection request.
+message IdentityAuthentication {
+  bytes Signature      = 1;  // Signature of the connection fingerprint
+        // established between the two partners
+  bytes RsaPubKey = 2; // The RSA public key of the sender of this message,
+        // PEM-encoded
+}
+
+
+

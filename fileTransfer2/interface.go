@@ -33,7 +33,7 @@ type ReceiveCallback func(tid *ftCrypto.TransferID, fileName, fileType string,
 // SendNew handles the sending of the initial message informing the recipient
 // of the incoming file transfer parts. SendNew should block until the send
 // completes and return an error only on failed sends.
-type SendNew func(info *TransferInfo) error
+type SendNew func(transferInfo []byte) error
 
 // FileTransfer facilities the sending and receiving of large file transfers.
 // It allows for progress tracking of both inbound and outbound transfers.
@@ -151,8 +151,9 @@ type FileTransfer interface {
 	*/
 
 	// HandleIncomingTransfer starts tracking the received file parts for the
-	// given file information and returns a transfer ID that uniquely identifies
-	// this file transfer.
+	// given payload that contains the file transfer information and returns a
+	// transfer ID that uniquely identifies this file transfer along with the
+	// transfer information
 	//
 	// This function should be called once for every new file received on the
 	// registered SendNew callback.
@@ -160,15 +161,15 @@ type FileTransfer interface {
 	// In-progress transfers are restored when closing and reopening; however, a
 	// ReceivedProgressCallback must be registered again.
 	//
+	//   payload - A marshalled payload container the file transfer information.
 	//   progressCB - A callback that reports the progress of the file transfer.
 	//      The callback is called once on initialization, on every progress
 	//      update (or less if restricted by the period), or on fatal error.
 	//   period - A progress callback will be limited from triggering only once
 	//      per period.
-	HandleIncomingTransfer(fileName string, key *ftCrypto.TransferKey,
-		transferMAC []byte, numParts uint16, size uint32, retry float32,
+	HandleIncomingTransfer(transferInfo []byte,
 		progressCB ReceivedProgressCallback, period time.Duration) (
-		*ftCrypto.TransferID, error)
+		*ftCrypto.TransferID, *TransferInfo, error)
 
 	// RegisterReceivedProgressCallback allows for the registration of a
 	// callback to track the progress of an individual received file transfer.
@@ -198,15 +199,20 @@ type FileTransfer interface {
 	Receive(tid *ftCrypto.TransferID) ([]byte, error)
 }
 
+// SentTransfer tracks the information and individual parts of a sent file
+// transfer.
 type SentTransfer interface {
 	Recipient() *id.ID
 	Transfer
 }
 
+// ReceivedTransfer tracks the information and individual parts of a received
+// file transfer.
 type ReceivedTransfer interface {
 	Transfer
 }
 
+// Transfer is the generic structure for a file transfer.
 type Transfer interface {
 	TransferID() *ftCrypto.TransferID
 	FileName() string

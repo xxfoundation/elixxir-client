@@ -72,23 +72,13 @@ func (p *receptionProcessor) Process(message format.Message,
 
 	// Populate remaining fields from the top level
 	result.GroupID = p.g.ID
-	result.RecipientID = receptionID.Source
-	result.EphemeralID = receptionID.EphId
-	result.RoundID = round.ID
-	result.RoundTimestamp = round.Timestamps[states.QUEUED]
 
 	jww.DEBUG.Printf("[GC] Received group message with ID %s from sender "+
 		"%s in group %q with ID %s at %s.", result.ID, result.SenderID,
 		p.g.Name, p.g.ID, result.Timestamp)
 
-	// Send the received message on the callback
-	go p.m.receiveFunc(result)
-
-	// Send the decrypted message and original message to the processor, if one
-	// is registered
-	if p.p != nil {
-		p.p.Process(result, message, receptionID, round)
-	}
+	// Send the decrypted message and original message to the processor
+	p.p.Process(result, message, receptionID, round)
 }
 
 func (p *receptionProcessor) String() string {

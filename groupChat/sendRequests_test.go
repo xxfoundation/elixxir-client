@@ -26,7 +26,7 @@ import (
 // Tests that manager.ResendRequest sends all expected requests successfully.
 func Test_manager_ResendRequest(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 0, nil, t)
 
 	expected := &Request{
 		Name:        g.Name,
@@ -104,7 +104,7 @@ func Test_manager_ResendRequest(t *testing.T) {
 // ID exists.
 func Test_manager_ResendRequest_GetGroupError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, nil, t)
 	expectedErr := strings.SplitN(resendGroupIdErr, "%", 2)[0]
 
 	_, status, err := m.ResendRequest(id.NewIdFromString("invalidID", id.Group, t))
@@ -122,7 +122,7 @@ func Test_manager_ResendRequest_GetGroupError(t *testing.T) {
 // Tests that manager.sendRequests sends all expected requests successfully.
 func Test_manager_sendRequests(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 0, nil, t)
 
 	expected := &Request{
 		Name:        g.Name,
@@ -200,7 +200,7 @@ func Test_manager_sendRequests(t *testing.T) {
 // fail.
 func Test_manager_sendRequests_SendAllFail(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 1, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 1, nil, t)
 	expectedErr := fmt.Sprintf(sendRequestAllErr, len(g.Members)-1, "")
 
 	rounds, status, err := m.sendRequests(g)
@@ -229,7 +229,7 @@ func Test_manager_sendRequests_SendAllFail(t *testing.T) {
 // fail.
 func Test_manager_sendRequests_SendPartialSent(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 2, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 2, nil, t)
 	expectedErr := fmt.Sprintf(sendRequestPartialErr, (len(g.Members)-1)/2,
 		len(g.Members)-1, "")
 
@@ -270,7 +270,7 @@ func Test_manager_sendRequests_SendPartialSent(t *testing.T) {
 // Unit test of manager.sendRequest.
 func Test_manager_sendRequest(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 0, nil, t)
 
 	for i := range g.Members {
 		grp := m.grp
@@ -309,7 +309,7 @@ func Test_manager_sendRequest(t *testing.T) {
 // Error path: an error is returned when SendE2E fails
 func Test_manager_sendRequest_SendE2eError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 1, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 1, nil, t)
 	expectedErr := strings.SplitN(sendE2eErr, "%", 2)[0]
 
 	recipientID := id.NewIdFromString("memberID", id.User, t)

@@ -80,6 +80,7 @@ const (
 	errSendNetworkHealth = "cannot initiate file transfer of %q when network is not healthy."
 	errNewKey            = "could not generate new transfer key: %+v"
 	errNewID             = "could not generate new transfer ID: %+v"
+	errMarshalInfo       = "could not marshal transfer info: %+v"
 	errSendNewMsg        = "failed to send initial file transfer message: %+v"
 	errAddSentTransfer   = "failed to add transfer: %+v"
 
@@ -285,7 +286,11 @@ func (m *manager) Send(recipient *id.ID, fileName, fileType string,
 	// Send the initial file transfer message over E2E
 	info := &TransferInfo{
 		fileName, fileType, key, mac, numParts, fileSize, retry, preview}
-	err = sendNew(info)
+	transferInfo, err := info.Marshal()
+	if err != nil {
+		return nil, errors.Errorf(errMarshalInfo, err)
+	}
+	err = sendNew(transferInfo)
 	if err != nil {
 		return nil, errors.Errorf(errSendNewMsg, err)
 	}
@@ -385,31 +390,38 @@ func (m *manager) CloseSend(tid *ftCrypto.TransferID) error {
 
 /* === Receiving ============================================================ */
 
+const errUnmarshalInfo = "failed to unmarshal incoming transfer info: %+v"
+
 // HandleIncomingTransfer starts tracking the received file parts for the given
 // file information and returns a transfer ID that uniquely identifies this file
 // transfer.
-func (m *manager) HandleIncomingTransfer(fileName string,
-	key *ftCrypto.TransferKey, transferMAC []byte, numParts uint16, size uint32,
-	retry float32, progressCB ReceivedProgressCallback, period time.Duration) (
-	*ftCrypto.TransferID, error) {
+func (m *manager) HandleIncomingTransfer(transferInfo []byte,
+	progressCB ReceivedProgressCallback, period time.Duration) (
+	*ftCrypto.TransferID, *TransferInfo, error) {
+
+	// Unmarshal the payload
+	t, err := UnmarshalTransferInfo(transferInfo)
+	if err != nil {
+		return nil, nil, errors.Errorf(errUnmarshalInfo, err)
+	}
 
 	// Generate new transfer ID
 	rng := m.rng.GetStream()
 	tid, err := ftCrypto.NewTransferID(rng)
 	if err != nil {
 		rng.Close()
-		return nil, errors.Errorf(errNewRtTransferID, fileName, err)
+		return nil, nil, errors.Errorf(errNewRtTransferID, t.FileName, err)
 	}
 	rng.Close()
 
 	// Calculate the number of fingerprints based on the retry rate
-	numFps := calcNumberOfFingerprints(int(numParts), retry)
+	numFps := calcNumberOfFingerprints(int(t.NumParts), t.Retry)
 
 	// Store the transfer
 	rt, err := m.received.AddTransfer(
-		key, &tid, fileName, transferMAC, size, numParts, numFps)
+		&t.Key, &tid, t.FileName, t.Mac, t.Size, t.NumParts, numFps)
 	if err != nil {
-		return nil, errors.Errorf(errAddNewRt, tid, fileName, err)
+		return nil, nil, errors.Errorf(errAddNewRt, tid, t.FileName, err)
 	}
 
 	// Start tracking fingerprints for each file part
@@ -418,7 +430,7 @@ func (m *manager) HandleIncomingTransfer(fileName string,
 	// Register the progress callback
 	m.registerReceivedProgressCallback(rt, progressCB, period)
 
-	return &tid, nil
+	return &tid, t, nil
 }
 
 // Receive concatenates the received file and returns it. Only returns the file

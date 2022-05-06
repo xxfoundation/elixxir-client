@@ -11,7 +11,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
-	ft "gitlab.com/elixxir/client/fileTransfer2"
 	"gitlab.com/elixxir/client/groupChat"
 	"gitlab.com/elixxir/primitives/format"
 )
@@ -19,8 +18,7 @@ import (
 // Error messages.
 const (
 	// processor.Process
-	errProtoUnmarshal      = "[FT] Failed to proto unmarshal new file transfer request: %+v"
-	errNewReceivedTransfer = "[FT] Failed to add new received transfer for %q: %+v"
+	errNewReceivedTransfer = "[FT] Failed to add new received transfer: %+v"
 )
 
 // processor processes the incoming E2E new file transfer messages to start
@@ -35,18 +33,10 @@ type processor struct {
 // progress callback.
 func (p *processor) Process(decryptedMsg groupChat.MessageReceive,
 	_ format.Message, _ receptionID.EphemeralIdentity, _ rounds.Round) {
-	// Unmarshal the request message
-	info, err := ft.UnmarshalTransferInfo(decryptedMsg.Payload)
-	if err != nil {
-		jww.ERROR.Printf(errProtoUnmarshal, err)
-		return
-	}
-
 	// Add new transfer to start receiving parts
-	tid, err := p.ft.HandleIncomingTransfer(info.FileName, &info.Key, info.Mac,
-		info.NumParts, info.Size, info.Retry, nil, 0)
+	tid, info, err := p.ft.HandleIncomingTransfer(decryptedMsg.Payload, nil, 0)
 	if err != nil {
-		jww.ERROR.Printf(errNewReceivedTransfer, info.FileName, err)
+		jww.ERROR.Printf(errNewReceivedTransfer, err)
 		return
 	}
 

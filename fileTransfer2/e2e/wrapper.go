@@ -90,8 +90,8 @@ func (w *Wrapper) Send(recipient *id.ID, fileName, fileType string,
 	progressCB ft.SentProgressCallback, period time.Duration) (
 	*ftCrypto.TransferID, error) {
 
-	sendNew := func(info *ft.TransferInfo) error {
-		return sendNewFileTransferMessage(recipient, info, w.e2e)
+	sendNew := func(transferInfo []byte) error {
+		return sendNewFileTransferMessage(recipient, transferInfo, w.e2e)
 	}
 
 	modifiedProgressCB := w.addEndMessageToCallback(progressCB)

@@ -27,7 +27,7 @@ func TestRequestListener_Hear(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	requestChan := make(chan gs.Group)
 	requestFunc := func(g gs.Group) { requestChan <- g }
-	m, _ := newTestManagerWithStore(prng, 10, 0, requestFunc, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, requestFunc, t)
 	g := newTestGroupWithUser(m.grp,
 		m.receptionId, m.e2e.GetHistoricalDHPubkey(),
 		m.e2e.GetHistoricalDHPrivkey(), prng, t)
@@ -54,13 +54,13 @@ func TestRequestListener_Hear(t *testing.T) {
 	myVariant := sidh.KeyVariantSidhA
 	mySIDHPrivKey := util.NewSIDHPrivateKey(myVariant)
 	mySIDHPubKey := util.NewSIDHPublicKey(myVariant)
-	mySIDHPrivKey.Generate(prng)
+	_ = mySIDHPrivKey.Generate(prng)
 	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
 	theirVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
 	theirSIDHPrivKey := util.NewSIDHPrivateKey(theirVariant)
 	theirSIDHPubKey := util.NewSIDHPublicKey(theirVariant)
-	theirSIDHPrivKey.Generate(prng)
+	_ = theirSIDHPrivKey.Generate(prng)
 	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
 
 	_, _ = m.e2e.AddPartner(
@@ -91,7 +91,7 @@ func TestRequestListener_Hear_GroupExists(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	requestChan := make(chan gs.Group)
 	requestFunc := func(g gs.Group) { requestChan <- g }
-	m, g := newTestManagerWithStore(prng, 10, 0, requestFunc, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 0, requestFunc, t)
 
 	requestMarshaled, err := proto.Marshal(&Request{
 		Name:        g.Name,
@@ -127,7 +127,7 @@ func TestRequestListener_Hear_BadMessageType(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	requestChan := make(chan gs.Group)
 	requestFunc := func(g gs.Group) { requestChan <- g }
-	m, _ := newTestManagerWithStore(prng, 10, 0, requestFunc, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, requestFunc, t)
 
 	msg := receive.Message{
 		MessageType: catalog.NoType,
@@ -153,13 +153,13 @@ func Test_manager_readRequest(t *testing.T) {
 	myVariant := sidh.KeyVariantSidhA
 	mySIDHPrivKey := util.NewSIDHPrivateKey(myVariant)
 	mySIDHPubKey := util.NewSIDHPublicKey(myVariant)
-	mySIDHPrivKey.Generate(prng)
+	_ = mySIDHPrivKey.Generate(prng)
 	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
 	theirVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
 	theirSIDHPrivKey := util.NewSIDHPrivateKey(theirVariant)
 	theirSIDHPubKey := util.NewSIDHPublicKey(theirVariant)
-	theirSIDHPrivKey.Generate(prng)
+	_ = theirSIDHPrivKey.Generate(prng)
 	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
 
 	_, _ = m.e2e.AddPartner(

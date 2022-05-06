@@ -420,6 +420,32 @@ func TestStore_GroupIDs(t *testing.T) {
 	}
 }
 
+// Tests that Store.Groups returns a list with all the groups.
+func TestStore_Groups(t *testing.T) {
+	prng := rand.New(rand.NewSource(42))
+	store := Store{list: make(map[id.ID]Group, 10)}
+	expected := make([]Group, len(store.list))
+	for i := range expected {
+		grp := createTestGroup(prng, t)
+		expected[i] = grp
+		store.list[*grp.ID] = grp
+	}
+
+	groups := store.Groups()
+
+	sort.Slice(expected, func(i, j int) bool {
+		return bytes.Compare(expected[i].ID[:], expected[j].ID[:]) == -1
+	})
+	sort.Slice(groups, func(i, j int) bool {
+		return bytes.Compare(groups[i].ID[:], groups[j].ID[:]) == -1
+	})
+
+	if !reflect.DeepEqual(expected, groups) {
+		t.Errorf("List of Groups does not match expected."+
+			"\nexpected: %+v\nreceived: %+v", expected, groups)
+	}
+}
+
 // Unit test of Store.Get.
 func TestStore_Get(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))

@@ -28,10 +28,11 @@ func (m *manager) AddService(tag string, p Processor) error {
 	m.servicesMux.Lock()
 	defer m.servicesMux.Unlock()
 
-	// Add the service to the list
 	if _, exists := m.services[tag]; exists {
+		// Return an error if the service already exists
 		return errors.Errorf(errServiceExists, tag)
 	} else {
+		// Add the service to the list
 		m.services[tag] = p
 	}
 

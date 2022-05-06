@@ -251,7 +251,6 @@ func (s *Store) GroupIDs() []*id.ID {
 }
 
 // Groups returns a list of all groups.
-// TODO: add test
 func (s *Store) Groups() []Group {
 	s.mux.RLock()
 	defer s.mux.RUnlock()

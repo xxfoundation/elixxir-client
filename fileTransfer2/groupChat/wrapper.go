@@ -91,8 +91,8 @@ func (w *Wrapper) Send(groupID *id.ID, fileName, fileType string,
 	fileData []byte, retry float32, preview []byte,
 	progressCB ft.SentProgressCallback, period time.Duration) (
 	*ftCrypto.TransferID, error) {
-	sendNew := func(info *ft.TransferInfo) error {
-		return sendNewFileTransferMessage(groupID, info, w.gc)
+	sendNew := func(transferInfo []byte) error {
+		return sendNewFileTransferMessage(groupID, transferInfo, w.gc)
 	}
 
 	return w.ft.Send(groupID, fileName, fileType, fileData, retry, preview,

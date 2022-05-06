@@ -9,11 +9,14 @@ package groupChat
 
 import (
 	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
 	"reflect"
@@ -31,6 +34,14 @@ var _ GroupCmix = (cmix.Client)(nil)
 // Tests that GroupE2e adheres to the e2e.Handler interface.
 var _ GroupE2e = (e2e.Handler)(nil)
 
+type mockProcessor struct{ receiveChan chan MessageReceive }
+
+func (m mockProcessor) Process(msg MessageReceive, _ format.Message,
+	_ receptionID.EphemeralIdentity, _ rounds.Round) {
+	m.receiveChan <- msg
+}
+func (m mockProcessor) String() string { return "mockProcessor" }
+
 // Unit test of NewManager.
 func TestNewManager(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
@@ -41,9 +52,8 @@ func TestNewManager(t *testing.T) {
 	requestChan := make(chan gs.Group)
 	requestFunc := func(g gs.Group) { requestChan <- g }
 	receiveChan := make(chan MessageReceive)
-	receiveFunc := func(msg MessageReceive) { receiveChan <- msg }
-	gcInt, err := NewManager(nil, newTestE2eManager(user.DhKey), user.ID, nil, nil,
-		kv, requestFunc, receiveFunc)
+	gcInt, err := NewManager(nil, newTestE2eManager(user.DhKey), user.ID, nil,
+		nil, kv, requestFunc, mockProcessor{receiveChan})
 	if err != nil {
 		t.Errorf("NewManager returned an error: %+v", err)
 	}
@@ -66,14 +76,6 @@ func TestNewManager(t *testing.T) {
 	case <-requestChan:
 	case <-time.NewTimer(5 * time.Millisecond).C:
 		t.Errorf("Timed out waiting for requestFunc to be called.")
-	}
-
-	// Check if receiveFunc works
-	go m.receiveFunc(MessageReceive{})
-	select {
-	case <-receiveChan:
-	case <-time.NewTimer(5 * time.Millisecond).C:
-		t.Errorf("Timed out waiting for receiveFunc to be called.")
 	}
 }
 
@@ -291,7 +293,7 @@ func TestNewManager_LoadError(t *testing.T) {
 // Unit test of manager.JoinGroup.
 func Test_manager_JoinGroup(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, nil, t)
 	g := newTestGroup(m.grp, m.e2e.GetHistoricalDHPubkey(), prng, t)
 
 	err := m.JoinGroup(g)
@@ -307,7 +309,7 @@ func Test_manager_JoinGroup(t *testing.T) {
 // Error path: an error is returned when a group is joined twice.
 func Test_manager_JoinGroup_AddError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 0, nil, t)
 	expectedErr := strings.SplitN(joinGroupErr, "%", 2)[0]
 
 	err := m.JoinGroup(g)
@@ -320,7 +322,7 @@ func Test_manager_JoinGroup_AddError(t *testing.T) {
 // Unit test of manager.LeaveGroup.
 func Test_manager_LeaveGroup(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 0, nil, t)
 
 	err := m.LeaveGroup(g.ID)
 	if err != nil {
@@ -335,7 +337,7 @@ func Test_manager_LeaveGroup(t *testing.T) {
 // Error path: an error is returned when no group with the ID exists.
 func Test_manager_LeaveGroup_NoGroupError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, nil, t)
 	expectedErr := strings.SplitN(leaveGroupErr, "%", 2)[0]
 
 	err := m.LeaveGroup(id.NewIdFromString("invalidID", id.Group, t))
@@ -348,7 +350,7 @@ func Test_manager_LeaveGroup_NoGroupError(t *testing.T) {
 // Unit test of manager.GetGroups.
 func Test_manager_GetGroups(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, nil, t)
 
 	list := m.GetGroups()
 	for i, gid := range list {
@@ -366,7 +368,7 @@ func Test_manager_GetGroups(t *testing.T) {
 // Unit test of manager.GetGroup.
 func Test_manager_GetGroup(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 0, nil, t)
 
 	testGrp, exists := m.GetGroup(g.ID)
 	if !exists {
@@ -389,8 +391,7 @@ func Test_manager_GetGroup(t *testing.T) {
 // leaving each until the number left is 0.
 func Test_manager_NumGroups(t *testing.T) {
 	expectedNum := 10
-	m, _ := newTestManagerWithStore(rand.New(rand.NewSource(42)), expectedNum,
-		0, nil, nil, t)
+	m, _ := newTestManagerWithStore(rand.New(rand.NewSource(42)), expectedNum, 0, nil, t)
 
 	groups := append([]*id.ID{{}}, m.GetGroups()...)
 

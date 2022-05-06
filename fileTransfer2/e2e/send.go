@@ -19,7 +19,6 @@ import (
 // Error messages.
 const (
 	// sendNewFileTransferMessage
-	errMarshalInfo  = "failed to marshal new transfer info: %+v"
 	errNewFtSendE2e = "failed to send initial file transfer message via E2E: %+v"
 
 	// sendEndFileTransferMessage
@@ -39,13 +38,7 @@ const (
 // sendNewFileTransferMessage sends an E2E message to the recipient informing
 // them of the incoming file transfer.
 func sendNewFileTransferMessage(
-	recipient *id.ID, info *ft.TransferInfo, e2eHandler E2e) error {
-
-	// Marshal the message
-	payload, err := info.Marshal()
-	if err != nil {
-		return errors.Errorf(errMarshalInfo, err)
-	}
+	recipient *id.ID, transferInfo []byte, e2eHandler E2e) error {
 
 	// Get E2E parameters
 	params := e2e.GetDefaultParams()
@@ -53,8 +46,8 @@ func sendNewFileTransferMessage(
 	params.LastServiceTag = catalog.Silent
 	params.DebugTag = initialMessageDebugTag
 
-	_, _, _, err = e2eHandler.SendE2E(
-		catalog.NewFileTransfer, recipient, payload, params)
+	_, _, _, err := e2eHandler.SendE2E(
+		catalog.NewFileTransfer, recipient, transferInfo, params)
 	if err != nil {
 		return errors.Errorf(errNewFtSendE2e, err)
 	}

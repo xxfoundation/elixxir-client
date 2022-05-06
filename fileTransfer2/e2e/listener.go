@@ -10,14 +10,12 @@ package e2e
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/e2e/receive"
-	ft "gitlab.com/elixxir/client/fileTransfer2"
 )
 
 // Error messages.
 const (
 	// listener.Hear
-	errProtoUnmarshal      = "[FT] Failed to proto unmarshal new file transfer request: %+v"
-	errNewReceivedTransfer = "[FT] Failed to add new received transfer for %q: %+v"
+	errNewReceivedTransfer = "[FT] Failed to add new received transfer: %+v"
 )
 
 // Name of listener (used for debugging)
@@ -33,18 +31,10 @@ type listener struct {
 // internal received file transfer and starts waiting to receive file part
 // messages.
 func (l *listener) Hear(msg receive.Message) {
-	// Unmarshal the request message
-	info, err := ft.UnmarshalTransferInfo(msg.Payload)
-	if err != nil {
-		jww.ERROR.Printf(errProtoUnmarshal, err)
-		return
-	}
-
 	// Add new transfer to start receiving parts
-	tid, err := l.m.ft.HandleIncomingTransfer(info.FileName, &info.Key, info.Mac,
-		info.NumParts, info.Size, info.Retry, nil, 0)
+	tid, info, err := l.m.ft.HandleIncomingTransfer(msg.Payload, nil, 0)
 	if err != nil {
-		jww.ERROR.Printf(errNewReceivedTransfer, info.FileName, err)
+		jww.ERROR.Printf(errNewReceivedTransfer, err)
 		return
 	}
 

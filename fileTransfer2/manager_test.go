@@ -114,9 +114,9 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 		t.Errorf("Failed to start processes for manager 2: %+v", err)
 	}
 
-	sendNewCbChan1 := make(chan *TransferInfo)
-	sendNewCb1 := func(info *TransferInfo) error {
-		sendNewCbChan1 <- info
+	sendNewCbChan1 := make(chan []byte)
+	sendNewCb1 := func(transferInfo []byte) error {
+		sendNewCbChan1 <- transferInfo
 		return nil
 	}
 
@@ -139,8 +139,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	go func() {
 		select {
 		case r := <-sendNewCbChan1:
-			tid, err := m2.HandleIncomingTransfer(
-				r.FileName, &r.Key, r.Mac, r.NumParts, r.Size, r.Retry, nil, 0)
+			tid, _, err := m2.HandleIncomingTransfer(r, nil, 0)
 			if err != nil {
 				t.Errorf("Failed to add transfer: %+v", err)
 			}

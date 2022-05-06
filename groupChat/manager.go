@@ -13,9 +13,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
@@ -26,7 +24,6 @@ import (
 	crypto "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"sync"
@@ -88,9 +85,6 @@ type manager struct {
 	// Callback that is called when a new group request is received
 	requestFunc RequestCallback
 
-	// Callback that is called when a new group message is received
-	receiveFunc ReceiveCallback
-
 	receptionId *id.ID
 	net         GroupCmix
 	e2e         GroupE2e
@@ -101,7 +95,7 @@ type manager struct {
 // NewManager creates a new group chat manager
 func NewManager(services GroupCmix, e2e GroupE2e, receptionId *id.ID,
 	rng *fastRNG.StreamGenerator, grp *cyclic.Group, kv *versioned.KV,
-	requestFunc RequestCallback, receiveFunc ReceiveCallback) (GroupChat, error) {
+	requestFunc RequestCallback, receiveFunc Processor) (GroupChat, error) {
 
 	// Load the group chat storage or create one if one does not exist
 	gStore, err := gs.NewOrLoadStore(
@@ -115,7 +109,6 @@ func NewManager(services GroupCmix, e2e GroupE2e, receptionId *id.ID,
 		gs:          gStore,
 		services:    make(map[string]Processor),
 		requestFunc: requestFunc,
-		receiveFunc: receiveFunc,
 		receptionId: receptionId,
 		net:         services,
 		e2e:         e2e,
@@ -133,7 +126,7 @@ func NewManager(services GroupCmix, e2e GroupE2e, receptionId *id.ID,
 		return nil, err
 	}
 
-	err = m.AddService(defaultServiceTag, defaultService{m.receiveFunc})
+	err = m.AddService(defaultServiceTag, receiveFunc)
 	if err != nil {
 		return nil, errors.Errorf(errAddDefaultService, err)
 	}
@@ -196,18 +189,4 @@ func (m *manager) GetGroup(groupID *id.ID) (gs.Group, bool) {
 // NumGroups returns the number of groups the user is a part of.
 func (m *manager) NumGroups() int {
 	return m.gs.Len()
-}
-
-type defaultService struct {
-	// Callback that is called when a new group message is received
-	receiveFunc ReceiveCallback
-}
-
-func (d defaultService) Process(decryptedMsg MessageReceive, _ format.Message,
-	_ receptionID.EphemeralIdentity, _ rounds.Round) {
-	go d.receiveFunc(decryptedMsg)
-}
-
-func (d defaultService) String() string {
-	return defaultServiceTag
 }

@@ -26,14 +26,10 @@ import (
 )
 
 func Test_manager_Send(t *testing.T) {
-	receiveChan := make(chan MessageReceive, 100)
-	receiveFunc := func(msg MessageReceive) {
-		receiveChan <- msg
-	}
 	msgChan := make(chan MessageReceive, 10)
 
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 1, 0, nil, receiveFunc, t)
+	m, g := newTestManagerWithStore(prng, 1, 0, nil, t)
 	messageBytes := []byte("Group chat message.")
 	reception := &receptionProcessor{
 		m: m,
@@ -72,9 +68,6 @@ func Test_manager_Send(t *testing.T) {
 			if !bytes.Equal(result.Payload, messageBytes) {
 				t.Errorf("Payload mismatch")
 			}
-			if result.RoundID != roundId {
-				t.Errorf("Round mismatch")
-			}
 		}
 	}
 }
@@ -100,7 +93,7 @@ func TestGroup_newCmixMsg_InternalMsgSizeError(t *testing.T) {
 
 	// Create new test manager and Group
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 0, nil, t)
 
 	// Create test parameters
 	testMsg := make([]byte, 1500)

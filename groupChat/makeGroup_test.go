@@ -28,7 +28,7 @@ import (
 // Tests that manager.MakeGroup adds a group and returns the expected status.
 func Test_manager_MakeGroup(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, nil, t)
 	memberIDs, members, dkl := addPartners(m, t)
 	name := []byte("groupName")
 	message := []byte("Invite message.")
@@ -78,7 +78,7 @@ func Test_manager_MakeGroup(t *testing.T) {
 // message is too large.
 func Test_manager_MakeGroup_MaxMessageSizeError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, nil, t)
 	expectedErr := fmt.Sprintf(
 		maxInitMsgSizeErr, MaxInitMessageSize+1, MaxInitMessageSize)
 
@@ -98,7 +98,7 @@ func Test_manager_MakeGroup_MaxMessageSizeError(t *testing.T) {
 // membership list is too small.
 func Test_manager_MakeGroup_MembershipSizeError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, nil, t)
 	expectedErr := fmt.Sprintf(
 		maxMembersErr, group.MaxParticipants+1, group.MaxParticipants)
 
@@ -119,7 +119,7 @@ func Test_manager_MakeGroup_MembershipSizeError(t *testing.T) {
 // a group failed because the user is a part of too many groups already.
 func Test_manager_MakeGroup_AddGroupError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, gs.MaxGroupChats, 0, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, gs.MaxGroupChats, 0, nil, t)
 	memberIDs, _, _ := addPartners(m, t)
 	expectedErr := strings.SplitN(joinGroupErr, "%", 2)[0]
 
@@ -296,13 +296,13 @@ func addPartners(m *manager, t *testing.T) ([]*id.ID, group.Membership,
 		prng := rand.New(rand.NewSource(int64(i + 42)))
 		mySIDHPrivKey := util.NewSIDHPrivateKey(myVariant)
 		mySIDHPubKey := util.NewSIDHPublicKey(myVariant)
-		mySIDHPrivKey.Generate(prng)
+		_ = mySIDHPrivKey.Generate(prng)
 		mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
 		theirVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
 		theirSIDHPrivKey := util.NewSIDHPrivateKey(theirVariant)
 		theirSIDHPubKey := util.NewSIDHPublicKey(theirVariant)
-		theirSIDHPrivKey.Generate(prng)
+		_ = theirSIDHPrivKey.Generate(prng)
 		theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
 
 		// Add to lists

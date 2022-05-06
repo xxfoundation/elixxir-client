@@ -6,32 +6,24 @@
 
 package restlike
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+	"sync"
+)
 
 // URI defines the destination endpoint of a Request
 type URI string
 
 // Data provides a generic structure for data sent with a Request or received in a Message
 // NOTE: The way this is encoded is up to the implementation. For example, protobuf or JSON
-type Data string
+type Data []byte
 
 // Method defines the possible Request types
-type Method uint8
+type Method uint32
 
 // Callback provides the ability to make asynchronous Request
 // in order to get the Message later without blocking
-type Callback func(Message)
-
-// Param allows different configurations for each Request
-// that will be specified in the Request header
-type Param struct {
-	// Version allows for endpoints to be backwards-compatible
-	// and handle different formats of the same Request
-	Version uint
-
-	// Headers allows for custom headers to be included with a Request
-	Headers Data
-}
+type Callback func(*Message)
 
 const (
 	// Undefined default value
@@ -67,42 +59,54 @@ func (m Method) String() string {
 }
 
 // Endpoints represents a map of internal endpoints for a RestServer
-type Endpoints map[URI]map[Method]Callback
+type Endpoints struct {
+	endpoints map[URI]map[Method]Callback
+	sync.RWMutex
+}
 
 // Add a new Endpoint
 // Returns an error if Endpoint already exists
-func (e Endpoints) Add(path URI, method Method, cb Callback) error {
-	if _, ok := e[path]; !ok {
-		e[path] = make(map[Method]Callback)
+func (e *Endpoints) Add(path URI, method Method, cb Callback) error {
+	e.Lock()
+	defer e.Unlock()
+
+	if _, ok := e.endpoints[path]; !ok {
+		e.endpoints[path] = make(map[Method]Callback)
 	}
-	if _, ok := e[path][method]; ok {
+	if _, ok := e.endpoints[path][method]; ok {
 		return errors.Errorf("unable to RegisterEndpoint: %s/%s already exists", path, method)
 	}
-	e[path][method] = cb
+	e.endpoints[path][method] = cb
 	return nil
 }
 
 // Get an Endpoint
 // Returns an error if Endpoint does not exist
-func (e Endpoints) Get(path URI, method Method) (Callback, error) {
-	if _, ok := e[path]; !ok {
+func (e *Endpoints) Get(path URI, method Method) (Callback, error) {
+	e.RLock()
+	defer e.RUnlock()
+
+	if _, ok := e.endpoints[path]; !ok {
 		return nil, errors.Errorf("unable to locate endpoint: %s", path)
 	}
-	if _, innerOk := e[path][method]; !innerOk {
+	if _, innerOk := e.endpoints[path][method]; !innerOk {
 		return nil, errors.Errorf("unable to locate endpoint: %s/%s", path, method)
 	}
-	return e[path][method], nil
+	return e.endpoints[path][method], nil
 }
 
 // Remove an Endpoint
 // Returns an error if Endpoint does not exist
-func (e Endpoints) Remove(path URI, method Method) error {
+func (e *Endpoints) Remove(path URI, method Method) error {
+	e.Lock()
+	defer e.Unlock()
+
 	if _, err := e.Get(path, method); err != nil {
 		return errors.Errorf("unable to UnregisterEndpoint: %s", err.Error())
 	}
-	delete(e[path], method)
-	if len(e[path]) == 0 {
-		delete(e, path)
+	delete(e.endpoints[path], method)
+	if len(e.endpoints[path]) == 0 {
+		delete(e.endpoints, path)
 	}
 	return nil
 }

@@ -31,7 +31,7 @@ type RestServer interface {
 type singleServer struct {
 	receptionId *id.ID
 	listener    single.Listener
-	endpoints   Endpoints
+	endpoints   *Endpoints
 }
 
 // NewSingleServer builds a RestServer with single-use and
@@ -39,7 +39,7 @@ type singleServer struct {
 func NewSingleServer(receptionId *id.ID, privKey *cyclic.Int, net single.ListenCmix, e2eGrp *cyclic.Group) RestServer {
 	newServer := &singleServer{
 		receptionId: receptionId,
-		endpoints:   make(map[URI]map[Method]Callback),
+		endpoints:   &Endpoints{endpoints: make(map[URI]map[Method]Callback)},
 	}
 	newServer.listener = single.Listen(catalog.RestLike, receptionId, privKey,
 		net, e2eGrp, &singleReceiver{newServer.endpoints})
@@ -61,7 +61,7 @@ func (r *singleServer) UnregisterEndpoint(path URI, method Method) error {
 // Close the internal RestServer endpoints and external services
 func (r *singleServer) Close() {
 	// Clear all internal endpoints
-	r.endpoints = make(map[URI]map[Method]Callback)
+	r.endpoints = nil
 	// Destroy external services
 	r.listener.Stop()
 }

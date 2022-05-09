@@ -21,9 +21,13 @@ type Data []byte
 // Method defines the possible Request types
 type Method uint32
 
-// Callback provides the ability to make asynchronous Request
+// RequestCallback provides the ability to make asynchronous Request
 // in order to get the Message later without blocking
-type Callback func(*Message)
+type RequestCallback func(*Message)
+
+// Callback serves as an Endpoint function to be called when a Request is received
+// Should return the desired response to be sent back to the sender
+type Callback func(*Message) *Message
 
 const (
 	// Undefined default value
@@ -98,12 +102,12 @@ func (e *Endpoints) Get(path URI, method Method) (Callback, error) {
 // Remove an Endpoint
 // Returns an error if Endpoint does not exist
 func (e *Endpoints) Remove(path URI, method Method) error {
-	e.Lock()
-	defer e.Unlock()
-
 	if _, err := e.Get(path, method); err != nil {
 		return errors.Errorf("unable to UnregisterEndpoint: %s", err.Error())
 	}
+
+	e.Lock()
+	defer e.Unlock()
 	delete(e.endpoints[path], method)
 	if len(e.endpoints[path]) == 0 {
 		delete(e.endpoints, path)

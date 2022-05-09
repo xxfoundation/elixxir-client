@@ -14,7 +14,7 @@ import (
 
 // processor is the response handler for a Request
 type singleResponse struct {
-	responseCallback Callback
+	responseCallback RequestCallback
 }
 
 // Callback is the handler for single-use message responses for a Request

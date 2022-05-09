@@ -7,6 +7,7 @@
 package restlike
 
 import (
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
@@ -22,6 +23,7 @@ type singleReceiver struct {
 }
 
 // Callback is the handler for single-use message reception for a RestServer
+// Automatically responds to invalid endpoint requests
 func (s *singleReceiver) Callback(req *single.Request, receptionId receptionID.EphemeralIdentity, rounds []rounds.Round) {
 	// Unmarshal the payload
 	newMessage := &Message{}
@@ -31,22 +33,30 @@ func (s *singleReceiver) Callback(req *single.Request, receptionId receptionID.E
 		return
 	}
 
-	// Send the payload to the proper Callback
+	var respondErr error
 	if cb, err := s.endpoints.Get(URI(newMessage.GetUri()), Method(newMessage.GetMethod())); err == nil {
-		cb(newMessage)
+		// Send the payload to the proper Callback if it exists
+		respondErr = respond(cb(newMessage), req)
 	} else {
-		// If no callback, send an error response
-		responseMessage := &Message{Error: err.Error()}
-		payload, err := proto.Marshal(responseMessage)
-		if err != nil {
-			jww.ERROR.Printf("Unable to marshal restlike response message: %+v", err)
-			return
-		}
-		// Send the response
-		// TODO: Parameterize params and timeout
-		_, err = req.Respond(payload, cmix.GetDefaultCMIXParams(), 30*time.Second)
-		if err != nil {
-			jww.ERROR.Printf("Unable to send restlike response message: %+v", err)
-		}
+		// If no callback, automatically send an error response
+		respondErr = respond(&Message{Error: err.Error()}, req)
 	}
+	if respondErr != nil {
+		jww.ERROR.Printf("Unable to respond to request: %+v", err)
+	}
+}
+
+// respond to a single.Request with the given Message
+func respond(response *Message, req *single.Request) error {
+	payload, err := proto.Marshal(response)
+	if err != nil {
+		return errors.Errorf("unable to marshal restlike response message: %+v", err)
+	}
+
+	// TODO: Parameterize params and timeout
+	_, err = req.Respond(payload, cmix.GetDefaultCMIXParams(), 30*time.Second)
+	if err != nil {
+		return errors.Errorf("unable to send restlike response message: %+v", err)
+	}
+	return nil
 }

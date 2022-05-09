@@ -113,6 +113,11 @@ type mockCmixNet struct {
 	instance         *network.Instance
 }
 
+func (m mockCmixNet) Connect(ndf *ndf.NetworkDefinition) error {
+	// TODO implement me
+	panic("implement me")
+}
+
 func (m mockCmixNet) Follow(report cmix.ClientErrorReport) (stoppable.Stoppable, error) {
 	//TODO implement me
 	return nil, nil

@@ -221,7 +221,7 @@ func replySingleUse(timeout time.Duration, receiver *Receiver) {
 		// Create new payload from repeated received payloads so that each
 		// message part contains the same payload
 		resPayload := makeResponsePayload(payload, results.request.GetMaxParts(),
-			results.request.GetMaxContentsSize())
+			results.request.GetMaxResponsePartSize())
 
 		fmt.Printf("Sending single-use response message: %s\n", payload)
 		jww.DEBUG.Printf("Sending single-use response to %s: %s",

@@ -15,6 +15,7 @@ message IdentityAuthentication {
         // established between the two partners
   bytes RsaPubKey = 2; // The RSA public key of the sender of this message,
         // PEM-encoded
+  bytes Salt = 3; // Salt used to generate the network ID of the client
 }
 
 

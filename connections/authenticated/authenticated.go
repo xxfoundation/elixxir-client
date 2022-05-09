@@ -10,17 +10,12 @@ package authenticated
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/connections/connect"
-	clientE2e "gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner"
-	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
@@ -45,52 +40,25 @@ type Connection interface {
 type ConnectionCallback func(connection Connection)
 
 // ConnectWithAuthentication is called by the client, ie the initiator
-// of an authenticated.Connection.  This will send a request for an
-// authenticated connection to the server.
-func ConnectWithAuthentication(recipient contact.Contact,
-	myId *id.ID, dhPrivKey *cyclic.Int,
+// of establishing a connection. This will establish a connect.Connection with
+// the server and then authenticate their identity to the server.
+func ConnectWithAuthentication(recipient contact.Contact, myId *id.ID,
+	salt []byte, rsaPrivkey *rsa.PrivateKey, dhPrivKey *cyclic.Int,
 	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
 	p connect.Params) (Connection, error) {
 
-	// Build an ephemeral KV
-	kv := versioned.NewKV(ekv.MakeMemstore())
-
-	// Build E2e handler
-	err := clientE2e.Init(kv, myId, dhPrivKey, grp, p.Rekey)
+	conn, err := connect.Connect(recipient, myId, dhPrivKey, rng, grp, net, p)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithMessagef(err, "Failed to establish connection "+
+			"with recipient %s", recipient.ID)
 	}
-	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.Event)
-	if err != nil {
-		return nil, err
-	}
-
 	// Build the callback for the connection being established
 	authConnChan := make(chan Connection, 1)
-	cb := func(authConn Connection) {
+	cb := ConnectionCallback(func(authConn Connection) {
 		authConnChan <- authConn
-	}
+	})
 
-	// Build callback for E2E negotiation in the auth package
-	clientHandler := getClient(cb, e2eHandler, p)
-
-	// Register a listener for the server's response
-	e2eHandler.RegisterListener(recipient.ID,
-		catalog.ConnectionAuthenticationRequest,
-		clientHandler)
-
-	// Build auth object for E2E negotiation
-	authState, err := auth.NewState(kv, net, e2eHandler,
-		rng, p.Event, p.Auth, clientHandler, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Perform the auth request
-	_, err = authState.Request(recipient, nil)
-	if err != nil {
-		return nil, err
-	}
+	go initiateClientAuthentication(cb, conn, net, rng, rsaPrivkey, salt, p)
 
 	// Block waiting for auth to confirm it timeouts
 	jww.DEBUG.Printf("Connection waiting for authenticated "+
@@ -98,49 +66,55 @@ func ConnectWithAuthentication(recipient contact.Contact,
 	timeout := time.NewTimer(p.Timeout)
 	defer timeout.Stop()
 	select {
-	case newConnection := <-authConnChan:
-		if newConnection == nil {
+	case authConn := <-authConnChan:
+		if authConn == nil {
 			return nil, errors.Errorf(
 				"Unable to complete authenticated connection with partner %s",
 				recipient.ID.String())
 		}
-		return newConnection, nil
+		return authConn, nil
 	case <-timeout.C:
 		return nil, errors.Errorf("Authenticated connection with "+
 			"partner %s timed out", recipient.ID.String())
 	}
+
 }
 
-// StartAuthenticatedConnectionServer is Called by the receiver of an
-// authenticated connection request. Calling this indicated that they will
-// recognize and respond to identity authentication requests by
-// a client.
+// StartAuthenticatedConnectionServer is called by the receiver of an
+// authenticated connection request. Calling this will indicate that they
+// will handle authenticated requests and verify the client's attempt to
+// authenticate themselves. An established authenticated.Connection will
+// be passed via the callback.
 func StartAuthenticatedConnectionServer(cb ConnectionCallback,
-	myId *id.ID, salt []byte, rsaPrivkey *rsa.PrivateKey, privKey *cyclic.Int,
+	myId *id.ID, privKey *cyclic.Int,
 	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
 	p connect.Params) error {
 
-	// Build an ephemeral KV
-	kv := versioned.NewKV(ekv.MakeMemstore())
-
-	// Build E2e handler
-	err := clientE2e.Init(kv, myId, privKey, grp, p.Rekey)
+	// Register the waiter for a connection establishment
+	connChan := make(chan connect.Connection, 1)
+	connCb := connect.Callback(func(connection connect.Connection) {
+		connChan <- connection
+	})
+	err := connect.RegisterConnectionCallback(connCb, myId, privKey, rng, grp, net, p)
 	if err != nil {
 		return err
 	}
-	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.Event)
-	if err != nil {
-		return err
+
+	// Wait for a connection to be established
+	timer := time.NewTimer(p.Timeout)
+	defer timer.Stop()
+	select {
+	case conn := <-connChan:
+		// Upon establishing a connection, register a listener for the
+		// client's identity proof. If a identity authentication
+		// message is received and validated, an authenticated connection will be
+		// passed along via the callback
+		conn.RegisterListener(catalog.ConnectionAuthenticationRequest,
+			getServer(cb, conn))
+		return nil
+	case <-timer.C:
+		return errors.New("Timed out trying to establish a connection")
 	}
-
-	// Build callback for E2E negotiation
-	callback := getServer(cb, e2eHandler, net, rsaPrivkey, rng, p)
-
-	// Build auth object for E2E negotiation
-	_, err = auth.NewState(kv, net, e2eHandler,
-		rng, p.Event, p.Auth, callback, nil)
-
-	return err
 }
 
 // handler provides an implementation for the authenticated.Connection
@@ -152,16 +126,10 @@ type handler struct {
 }
 
 // buildAuthenticatedConnection assembles an authenticated.Connection object.
-// This is called by the connection server once it has sent an
-// IdentityAuthentication to the client.
-// This is called by the client when they have received and confirmed the data within
-// a IdentityAuthentication message.
-func buildAuthenticatedConnection(partner partner.Manager,
-	e2eHandler clientE2e.Handler,
-	p connect.Params) *handler {
-
+func buildAuthenticatedConnection(conn connect.Connection) *handler {
 	return &handler{
-		Connection: connect.BuildConnection(partner, e2eHandler, p),
+		Connection:      conn,
+		isAuthenticated: false,
 	}
 }
 

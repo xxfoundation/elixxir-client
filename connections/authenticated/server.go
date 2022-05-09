@@ -3,151 +3,117 @@ package authenticated
 import (
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/connections/connect"
-	clientE2e "gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// serverHandler handles the io operations of an
-// authenticated.Connection server.
-type serverHandler struct {
+// serverListenerName is the name of the client's listener interface.
+const serverListenerName = "AuthenticatedServerListener"
+
+// server is an interface that wraps receive.Listener. This handles
+// the server listening for the client's proof of identity message.
+type server interface {
+	receive.Listener
+}
+
+// serverListener provides an implementation of the server interface.
+// This will handle the identity message sent by the client.
+type serverListener struct {
 	// connectionCallback allows an authenticated.Connection
 	// to be passed back upon establishment.
 	connectionCallback ConnectionCallback
 
-	// Used for building new Connection objects
-	connectionE2e    clientE2e.Handler
-	connectionParams connect.Params
-
-	// Used for tracking the round the identity confirmation message was sent.
-	// A successful round assumes the client received the confirmation and
-	// an authenticated.Connection has been established
-	services cmix.Client
-
-	// Used for signing the connection fingerprint used as a nonce
-	// to confirm the user's identity
-	privateKey *rsa.PrivateKey
-	rng        *fastRNG.StreamGenerator
+	// conn used to retrieve the connection context with the partner.
+	conn connect.Connection
 }
 
-// getServer returns a serverHandler object. This is used to pass
-// into the auth.State object to handle the auth.Callbacks.
-func getServer(cb ConnectionCallback,
-	e2e clientE2e.Handler, services cmix.Client,
-	privateKey *rsa.PrivateKey,
-	rng *fastRNG.StreamGenerator, p connect.Params) serverHandler {
-	return serverHandler{
+// getServer returns a serverListener object.
+func getServer(cb ConnectionCallback, connection connect.Connection) server {
+	return serverListener{
 		connectionCallback: cb,
-		connectionE2e:      e2e,
-		connectionParams:   p,
-		privateKey:         privateKey,
-		rng:                rng,
-		services:           services,
+		conn:               connection,
 	}
 }
 
-// Request will be called when an auth Request message is processed.
-func (a serverHandler) Request(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-
-	// After confirmation, get the new partner
-	newPartner, err := a.connectionE2e.GetPartner(requestor.ID)
+// Hear handles the reception of an IdentityAuthentication by the
+// server.
+func (a serverListener) Hear(item receive.Message) {
+	// Process the message data into a protobuf
+	iar := &IdentityAuthentication{}
+	err := proto.Unmarshal(item.Payload, iar)
 	if err != nil {
 		jww.ERROR.Printf("Unable to build connection with "+
-			"partner %s: %+v", requestor.ID, err)
+			"partner %s: %+v", item.Sender, err)
 		// Send a nil connection to avoid hold-ups down the line
 		a.connectionCallback(nil)
 		return
 	}
 
-	authConn := buildAuthenticatedConnection(newPartner, a.connectionE2e,
-		a.connectionParams)
+	// Process the PEM encoded public key to an rsa.PublicKey object
+	partnerPubKey, err := rsa.LoadPublicKeyFromPem(iar.RsaPubKey)
+	if err != nil {
+		jww.ERROR.Printf("Unable to build connection with "+
+			"partner %s: %+v", item.Sender, err)
+		// Send a nil connection to avoid hold-ups down the line
+		a.connectionCallback(nil)
+		return
+	}
+
+	// Get the new partner
+	newPartner := a.conn.GetPartner()
+
+	// Verify the partner's known ID against the information passed
+	// along the wire
+	partnerWireId, err := xx.NewID(partnerPubKey, iar.Salt, id.User)
+	if err != nil {
+		jww.ERROR.Printf("Unable to parse identity information with "+
+			"partner %s: %+v", item.Sender, err)
+		// Send a nil connection to avoid hold-ups down the line
+		a.connectionCallback(nil)
+		return
+	}
+
+	if !newPartner.PartnerId().Cmp(partnerWireId) {
+		jww.ERROR.Printf("Unable to verify identity information with "+
+			"partner %s: %+v", item.Sender, err)
+		// Send a nil connection to avoid hold-ups down the line
+		a.connectionCallback(nil)
+		return
+	}
 
 	// The connection fingerprint (hashed) represents a shared nonce
 	// between these two partners
 	connectionFp := newPartner.ConnectionFingerprint().Bytes()
 
+	// Hash the connection fingerprint
 	opts := rsa.NewDefaultOptions()
 	h := opts.Hash.New()
 	h.Write(connectionFp)
 	nonce := h.Sum(nil)
 
-	// Sign the connection fingerprint
-	stream := a.rng.GetStream()
-	defer stream.Close()
-	signature, err := rsa.Sign(stream, a.privateKey,
-		opts.Hash, nonce, opts)
+	// Verify the signature
+	err = rsa.Verify(partnerPubKey, opts.Hash, nonce, iar.Signature, opts)
 	if err != nil {
 		jww.ERROR.Printf("Unable to build connection with "+
-			"partner %s: %+v", requestor.ID, err)
+			"partner %s: %+v", item.Sender, err)
 		// Send a nil connection to avoid hold-ups down the line
 		a.connectionCallback(nil)
 	}
 
-	// Construct message
-	pemEncodedRsaPubKey := rsa.CreatePublicKeyPem(a.privateKey.GetPublic())
-	iar := &IdentityAuthentication{
-		Signature: signature,
-		RsaPubKey: pemEncodedRsaPubKey,
-	}
-	payload, err := proto.Marshal(iar)
-	if err != nil {
-		jww.ERROR.Printf("Unable to build connection with "+
-			"partner %s: %+v", requestor.ID, err)
-		// Send a nil connection to avoid hold-ups down the line
-		a.connectionCallback(nil)
-	}
-
-	// Send message to user
-	rids, _, _, err := authConn.SendE2E(catalog.ConnectionAuthenticationRequest,
-		payload, clientE2e.GetDefaultParams())
-	if err != nil {
-		jww.ERROR.Printf("Unable to build connection with "+
-			"partner %s: %+v", requestor.ID, err)
-		// Send a nil connection to avoid hold-ups down the line
-		a.connectionCallback(nil)
-	}
-
-	// Determine that the message is properly sent by tracking the success
-	// of the round(s)
-	roundCb := cmix.RoundEventCallback(func(allRoundsSucceeded,
-		timedOut bool, rounds map[id.Round]cmix.RoundResult) {
-		if allRoundsSucceeded {
-			// If rounds succeeded, assume recipient has successfully
-			// confirmed the authentication
-			authConn.setAuthenticated()
-			a.connectionCallback(authConn)
-		} else {
-			jww.ERROR.Printf("Unable to build connection with "+
-				"partner %s: %+v", requestor.ID, err)
-			// Send a nil connection to avoid hold-ups down the line
-			a.connectionCallback(nil)
-		}
-	})
-	err = a.services.GetRoundResults(a.connectionParams.Timeout,
-		roundCb, rids...)
-	if err != nil {
-		jww.ERROR.Printf("Unable to build connection with "+
-			"partner %s: %+v", requestor.ID, err)
-		// Send a nil connection to avoid hold-ups down the line
-		a.connectionCallback(nil)
-	}
-
+	// If successful, pass along the established authenticated connection
+	// via the callback
+	jww.DEBUG.Printf("Connection auth request for %s confirmed",
+		item.Sender.String())
+	authConn := buildAuthenticatedConnection(a.conn)
+	authConn.setAuthenticated()
+	a.connectionCallback(authConn)
 }
 
-// Confirm will be called when an auth Confirm message is processed.
-func (a serverHandler) Confirm(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-}
-
-// Reset will be called when an auth Reset operation occurs.
-func (a serverHandler) Reset(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+// Name returns the name of this listener. This is typically for
+// printing/debugging purposes.
+func (a serverListener) Name() string {
+	return serverListenerName
 }

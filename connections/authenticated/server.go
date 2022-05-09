@@ -1,3 +1,10 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package authenticated
 
 import (
@@ -30,8 +37,9 @@ type serverListener struct {
 	conn connect.Connection
 }
 
-// getServer returns a serverListener object.
-func getServer(cb ConnectionCallback, connection connect.Connection) server {
+// handleAuthConfirmation returns a serverListener object.
+func handleAuthConfirmation(cb ConnectionCallback,
+	connection connect.Connection) server {
 	return serverListener{
 		connectionCallback: cb,
 		conn:               connection,

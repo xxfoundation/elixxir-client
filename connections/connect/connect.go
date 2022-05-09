@@ -145,10 +145,10 @@ func Connect(recipient contact.Contact, myId *id.ID, privKey *cyclic.Int,
 	}
 }
 
-// RegisterConnectionCallback assembles a Connection object on the reception-side
+// StartServer assembles a Connection object on the reception-side
 // and feeds it into the given Callback whenever an incoming request
 // for an E2E partnership with a partner.Manager is confirmed.
-func RegisterConnectionCallback(cb Callback, myId *id.ID, privKey *cyclic.Int,
+func StartServer(cb Callback, myId *id.ID, privKey *cyclic.Int,
 	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
 	p Params) error {
 

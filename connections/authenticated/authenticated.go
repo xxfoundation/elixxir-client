@@ -92,11 +92,11 @@ func ConnectWithAuthentication(recipient contact.Contact,
 		return nil, err
 	}
 
-	// Block waiting for auth to confirm
+	// Block waiting for auth to confirm it timeouts
 	jww.DEBUG.Printf("Connection waiting for authenticated "+
 		"connection with %s to be established...", recipient.ID.String())
-
 	timeout := time.NewTimer(p.Timeout)
+	defer timeout.Stop()
 	select {
 	case newConnection := <-authConnChan:
 		if newConnection == nil {
@@ -104,7 +104,6 @@ func ConnectWithAuthentication(recipient contact.Contact,
 				"Unable to complete authenticated connection with partner %s",
 				recipient.ID.String())
 		}
-
 		return newConnection, nil
 	case <-timeout.C:
 		return nil, errors.Errorf("Authenticated connection with "+

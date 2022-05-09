@@ -27,6 +27,15 @@ type client interface {
 
 // clientHandler provides an implementation of the client interface.
 type clientHandler struct {
+	// This will handle the client's auth.Callbacks
+	clientAuth
+	// This will handle the confirmation message sent by the serverHandler.
+	clientListener
+}
+
+// clientListener provides an implementation for client's listener.
+// This will handle the confirmation message sent by the serverHandler.
+type clientListener struct {
 	// connectionCallback allows an authenticated.Connection
 	// to be passed back upon establishment.
 	connectionCallback ConnectionCallback
@@ -36,35 +45,40 @@ type clientHandler struct {
 	connectionParams connect.Params
 }
 
+// clientAuth provides an implementation for client's auth.Callbacks.
+type clientAuth struct{}
+
 // getClient returns a client interface to be used to handle
 // auth.Callbacks and receive.Listener operations.
 func getClient(cb ConnectionCallback,
 	e2e clientE2e.Handler, p connect.Params) client {
 	return clientHandler{
-		connectionCallback: cb,
-		connectionE2e:      e2e,
-		connectionParams:   p,
+		clientListener: clientListener{
+			connectionCallback: cb,
+			connectionE2e:      e2e,
+			connectionParams:   p,
+		},
 	}
 }
 
 // Request will be called when an auth Request message is processed.
-func (a clientHandler) Request(requestor contact.Contact,
+func (a clientAuth) Request(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 }
 
 // Confirm will be called when an auth Confirm message is processed.
-func (a clientHandler) Confirm(requestor contact.Contact,
+func (a clientAuth) Confirm(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 }
 
 // Reset will be called when an auth Reset operation occurs.
-func (a clientHandler) Reset(requestor contact.Contact,
+func (a clientAuth) Reset(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 }
 
 // Hear handles the reception of an IdentityAuthentication by the
 // server.
-func (a clientHandler) Hear(item receive.Message) {
+func (a clientListener) Hear(item receive.Message) {
 	// Process the message data into a protobuf
 	iar := &IdentityAuthentication{}
 	err := proto.Unmarshal(item.Payload, iar)
@@ -122,6 +136,6 @@ func (a clientHandler) Hear(item receive.Message) {
 		a.connectionParams))
 }
 
-func (a clientHandler) Name() string {
+func (a clientListener) Name() string {
 	return clientListenerName
 }

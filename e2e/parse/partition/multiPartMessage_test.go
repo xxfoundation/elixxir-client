@@ -34,7 +34,7 @@ func Test_loadOrCreateMultiPartMessage_Create(t *testing.T) {
 		PresentParts:    0,
 		SenderTimestamp: time.Time{},
 		MessageType:     0,
-		kv:              versioned.NewKV(make(ekv.Memstore)),
+		kv:              versioned.NewKV(ekv.MakeMemstore()),
 	}
 	expectedData, err := json.Marshal(expectedMpm)
 	if err != nil {
@@ -70,7 +70,7 @@ func Test_loadOrCreateMultiPartMessage_Load(t *testing.T) {
 		PresentParts:    0,
 		SenderTimestamp: time.Time{},
 		MessageType:     0,
-		kv:              versioned.NewKV(make(ekv.Memstore)),
+		kv:              versioned.NewKV(ekv.MakeMemstore()),
 	}
 	err := expectedMpm.save()
 	if err != nil {
@@ -136,7 +136,7 @@ func TestMultiPartMessage_Add(t *testing.T) {
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	mpm := loadOrCreateMultiPartMessage(
 		id.NewIdFromUInt(prng.Uint64(), id.User, t), prng.Uint64(),
-		versioned.NewKV(make(ekv.Memstore)))
+		versioned.NewKV(ekv.MakeMemstore()))
 	partNums, parts := generateParts(prng, 0)
 
 	for i := range partNums {
@@ -184,7 +184,7 @@ func TestMultiPartMessage_AddFirst(t *testing.T) {
 		SenderTimestamp: netTime.Now(),
 		MessageType:     catalog.NoType,
 		parts:           make([][]byte, 3),
-		kv:              versioned.NewKV(make(ekv.Memstore)),
+		kv:              versioned.NewKV(ekv.MakeMemstore()),
 	}
 	expectedMpm.parts[2] = []byte{5, 8, 78, 9}
 	npm := loadOrCreateMultiPartMessage(expectedMpm.Sender,
@@ -213,7 +213,7 @@ func TestMultiPartMessage_IsComplete(t *testing.T) {
 	mid := prng.Uint64()
 	mpm := loadOrCreateMultiPartMessage(
 		id.NewIdFromUInt(prng.Uint64(), id.User, t), mid,
-		versioned.NewKV(make(ekv.Memstore)))
+		versioned.NewKV(ekv.MakeMemstore()))
 	partNums, parts := generateParts(prng, 75)
 
 	// Check that IsComplete is false where there are no parts
@@ -258,7 +258,7 @@ func TestMultiPartMessage_IsComplete(t *testing.T) {
 // Tests happy path of multiPartMessage.delete.
 func TestMultiPartMessage_delete(t *testing.T) {
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	mpm := loadOrCreateMultiPartMessage(
 		id.NewIdFromUInt(prng.Uint64(), id.User, t), prng.Uint64(), kv)
 

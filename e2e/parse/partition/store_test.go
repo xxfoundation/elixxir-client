@@ -20,7 +20,7 @@ import (
 
 // Tests happy path of NewOrLoad.
 func TestNewOrLoad(t *testing.T) {
-	rootKv := versioned.NewKV(make(ekv.Memstore))
+	rootKv := versioned.NewKV(ekv.MakeMemstore())
 	expectedStore := &Store{
 		multiParts:  make(map[multiPartID]*multiPartMessage),
 		activeParts: make(map[*multiPartMessage]bool),
@@ -38,7 +38,7 @@ func TestNewOrLoad(t *testing.T) {
 // Tests happy path of Store.AddFirst.
 func TestStore_AddFirst(t *testing.T) {
 	part := []byte("Test message.")
-	s := NewOrLoad(versioned.NewKV(ekv.Memstore{}))
+	s := NewOrLoad(versioned.NewKV(ekv.MakeMemstore()))
 
 	msg, complete := s.AddFirst(id.NewIdFromString("User", id.User, t),
 		catalog.XxMessage, 5, 0, 1, netTime.Now(), netTime.Now(), part,
@@ -58,7 +58,7 @@ func TestStore_AddFirst(t *testing.T) {
 func TestStore_Add(t *testing.T) {
 	part1 := []byte("Test message.")
 	part2 := []byte("Second Sentence.")
-	s := NewOrLoad(versioned.NewKV(ekv.Memstore{}))
+	s := NewOrLoad(versioned.NewKV(ekv.MakeMemstore()))
 
 	msg, complete := s.AddFirst(id.NewIdFromString("User", id.User, t),
 		catalog.XxMessage, 5, 0, 2, netTime.Now(), netTime.Now(), part1,
@@ -87,7 +87,7 @@ func TestStore_prune(t *testing.T) {
 	// new message
 	part1 := []byte("Test message.")
 	part2 := []byte("Second Sentence.")
-	s := NewOrLoad(versioned.NewKV(ekv.Memstore{}))
+	s := NewOrLoad(versioned.NewKV(ekv.MakeMemstore()))
 
 	partner1 := id.NewIdFromString("User", id.User, t)
 	messageId1 := uint64(5)

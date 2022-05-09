@@ -20,7 +20,7 @@ import (
 func Test_savePart(t *testing.T) {
 	// Set up test values
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))
 	prng.Read(part)
@@ -49,7 +49,7 @@ func Test_savePart(t *testing.T) {
 func Test_loadPart(t *testing.T) {
 	// Set up test values
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
-	rootKv := versioned.NewKV(make(ekv.Memstore))
+	rootKv := versioned.NewKV(ekv.MakeMemstore())
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))
 	prng.Read(part)
@@ -80,7 +80,7 @@ func Test_loadPart(t *testing.T) {
 func Test_loadPart_NotFoundError(t *testing.T) {
 	// Set up test values
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))
 	prng.Read(part)
@@ -102,7 +102,7 @@ func Test_loadPart_NotFoundError(t *testing.T) {
 func TestDeletePart(t *testing.T) {
 	// Set up test values
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))
 	prng.Read(part)

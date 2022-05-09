@@ -72,7 +72,7 @@ func newTestManager(t *testing.T) (manager, *versioned.KV) {
 	mySIDHPrivKey.Generate(rng.GetStream())
 	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	partnerID := id.NewIdFromString("partner", id.User, t)
 
 	myId := id.NewIdFromString("me", id.User, t)

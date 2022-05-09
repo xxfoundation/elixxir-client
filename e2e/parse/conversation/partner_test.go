@@ -19,7 +19,7 @@ import (
 // Tests happy path of LoadOrMakeConversation when making a new Conversation.
 func TestLoadOrMakeConversation_New(t *testing.T) {
 	// Set up test values
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	partner := id.NewIdFromString("partner ID", id.User, t)
 	expectedConv := &Conversation{
 		lastReceivedID:         0,
@@ -42,7 +42,7 @@ func TestLoadOrMakeConversation_New(t *testing.T) {
 // Tests happy path of LoadOrMakeConversation when loading a Conversation.
 func TestLoadOrMakeConversation_Load(t *testing.T) {
 	// Set up test values
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	partner := id.NewIdFromString("partner ID", id.User, t)
 	expectedConv := LoadOrMakeConversation(kv, partner)
 
@@ -60,7 +60,7 @@ func TestLoadOrMakeConversation_Load(t *testing.T) {
 func TestConversation_ProcessReceivedMessageID_Case_1(t *testing.T) {
 	// Set up test values
 	mid := uint32(5)
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	partner := id.NewIdFromString("partner ID", id.User, t)
 	expectedConv := LoadOrMakeConversation(kv, partner)
 	expectedConv.lastReceivedID = mid
@@ -84,7 +84,7 @@ func TestConversation_ProcessReceivedMessageID_Case_1(t *testing.T) {
 func TestConversation_ProcessReceivedMessageID_Case_0(t *testing.T) {
 	// Set up test values
 	mid := uint32(5)
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	partner := id.NewIdFromString("partner ID", id.User, t)
 	expectedConv := LoadOrMakeConversation(kv, partner)
 	expectedConv.lastReceivedID = mid
@@ -106,7 +106,7 @@ func TestConversation_ProcessReceivedMessageID_Case_0(t *testing.T) {
 func TestConversation_ProcessReceivedMessageID_Case_Neg1(t *testing.T) {
 	// Set up test values
 	mid := uint32(topRegion + 5)
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	partner := id.NewIdFromString("partner ID", id.User, t)
 	expectedConv := LoadOrMakeConversation(kv, partner)
 	expectedConv.lastReceivedID = bottomRegion - 5
@@ -128,7 +128,7 @@ func TestConversation_ProcessReceivedMessageID_Case_Neg1(t *testing.T) {
 // Tests happy path of Conversation.GetNextSendID.
 func TestConversation_GetNextSendID(t *testing.T) {
 	// Set up test values
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	partner := id.NewIdFromString("partner ID", id.User, t)
 	conv := LoadOrMakeConversation(kv, partner)
 	conv.nextSentID = maxTruncatedID - 100
@@ -148,7 +148,7 @@ func TestConversation_GetNextSendID(t *testing.T) {
 
 // Tests the happy path of save and loadConversation.
 func TestConversation_save_load(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	partner := id.NewIdFromString("partner ID", id.User, t)
 	expectedConv := makeRandomConv(kv, partner)
 	expectedErr := "loadConversation produced an error: Failed to Load " +
@@ -169,7 +169,7 @@ func TestConversation_save_load(t *testing.T) {
 			"\nexpected: %+v\nreceived: %+v", expectedConv, testConv)
 	}
 
-	_, err = loadConversation(versioned.NewKV(make(ekv.Memstore)), partner)
+	_, err = loadConversation(versioned.NewKV(ekv.MakeMemstore()), partner)
 	if err == nil {
 		t.Errorf("loadConversation failed to produce an error."+
 			"\nexpected: %s\nreceived: %v", expectedErr, nil)
@@ -178,7 +178,7 @@ func TestConversation_save_load(t *testing.T) {
 
 // Happy path.
 func TestConversation_Delete(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	partner := id.NewIdFromString("partner ID", id.User, t)
 	conv := makeRandomConv(kv, partner)
 
@@ -201,7 +201,7 @@ func TestConversation_Delete(t *testing.T) {
 
 // Tests the happy path of marshal and unmarshal.
 func TestConversation_marshal_unmarshal(t *testing.T) {
-	expectedConv := makeRandomConv(versioned.NewKV(make(ekv.Memstore)),
+	expectedConv := makeRandomConv(versioned.NewKV(ekv.MakeMemstore()),
 		id.NewIdFromString("partner ID", id.User, t))
 	testConv := LoadOrMakeConversation(expectedConv.kv, expectedConv.partner)
 

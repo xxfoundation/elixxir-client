@@ -30,6 +30,12 @@ import (
 	"time"
 )
 
+const (
+	// connectionTimeout is the time.Duration for a connection
+	// to be established before the requester times out.
+	connectionTimeout = 15 * time.Second
+)
+
 // Connection is a wrapper for the E2E and auth packages.
 // It can be used to automatically establish an E2E partnership
 // with a partner.Manager, or be built from an existing E2E partnership.
@@ -70,9 +76,10 @@ type Params struct {
 // GetDefaultParams returns a usable set of default Connection parameters.
 func GetDefaultParams() Params {
 	return Params{
-		Auth:  auth.GetDefaultParams(),
-		Rekey: rekey.GetDefaultParams(),
-		Event: event.NewEventManager(),
+		Auth:    auth.GetDefaultParams(),
+		Rekey:   rekey.GetDefaultParams(),
+		Event:   event.NewEventManager(),
+		Timeout: connectionTimeout,
 	}
 }
 
@@ -120,17 +127,22 @@ func Connect(recipient contact.Contact, myId *id.ID, privKey *cyclic.Int,
 	// Block waiting for auth to confirm
 	jww.DEBUG.Printf("Connection waiting for auth request "+
 		"for %s to be confirmed...", recipient.ID.String())
-	newConnection := <-signalChannel
-
-	// Verify the Connection is complete
-	if newConnection == nil {
-		return nil, errors.Errorf("Unable to complete connection "+
-			"with partner %s", recipient.ID.String())
+	timeout := time.NewTimer(p.Timeout)
+	defer timeout.Stop()
+	select {
+	case newConnection := <-signalChannel:
+		// Verify the Connection is complete
+		if newConnection == nil {
+			return nil, errors.Errorf("Unable to complete connection "+
+				"with partner %s", recipient.ID.String())
+		}
+		jww.DEBUG.Printf("Connection auth request for %s confirmed",
+			recipient.ID.String())
+		return newConnection, nil
+	case <-timeout.C:
+		return nil, errors.Errorf("Connection request with "+
+			"partner %s timed out", recipient.ID.String())
 	}
-	jww.DEBUG.Printf("Connection auth request for %s confirmed",
-		recipient.ID.String())
-
-	return newConnection, nil
 }
 
 // RegisterConnectionCallback assembles a Connection object on the reception-side

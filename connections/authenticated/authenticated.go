@@ -37,9 +37,9 @@ type Connection interface {
 	IsAuthenticated() bool
 }
 
-// ConnectionCallback is the callback format required to retrieve
+// Callback is the callback format required to retrieve
 // new authenticated.Connection objects as they are established.
-type ConnectionCallback func(connection Connection)
+type Callback func(connection Connection)
 
 // ConnectWithAuthentication is called by the client, ie the one establishing
 // connection with the server. Once a connect.Connection has been established
@@ -86,10 +86,9 @@ func ConnectWithAuthentication(recipient contact.Contact, myId *id.ID,
 	// Record since we first successfully sen the message
 	timeStart := netTime.Now()
 
-	authConnChan := make(chan Connection, 1)
-
 	// Determine that the message is properly sent by tracking the success
 	// of the round(s)
+	authConnChan := make(chan Connection, 1)
 	roundCb := cmix.RoundEventCallback(func(allRoundsSucceeded,
 		timedOut bool, rounds map[id.Round]cmix.RoundResult) {
 		if allRoundsSucceeded {
@@ -102,14 +101,18 @@ func ConnectWithAuthentication(recipient contact.Contact, myId *id.ID,
 		}
 	})
 
+	// Find the remaining time in the timeout since we first sent the message
 	remainingTime := e2eParams.Timeout - netTime.Since(timeStart)
+
+	// Track the result of the round(s) we sent the
+	// identity authentication message on
 	err = net.GetRoundResults(remainingTime,
 		roundCb, rids...)
 	if err != nil {
 		return nil, errors.Errorf("could not track rounds for successful " +
 			"identity confirmation message delivery")
 	}
-	// Block waiting for auth to confirm it timeouts
+	// Block waiting for confirmation of the round(s) success (or timeout
 	jww.DEBUG.Printf("Connection waiting for authenticated "+
 		"connection with %s to be established...", recipient.ID.String())
 	timeout := time.NewTimer(p.Timeout)
@@ -134,7 +137,7 @@ func ConnectWithAuthentication(recipient contact.Contact, myId *id.ID,
 // will handle authenticated requests and verify the client's attempt to
 // authenticate themselves. An established authenticated.Connection will
 // be passed via the callback.
-func StartServer(cb ConnectionCallback,
+func StartServer(cb Callback,
 	myId *id.ID, privKey *cyclic.Int,
 	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
 	p connect.Params) error {
@@ -146,7 +149,7 @@ func StartServer(cb ConnectionCallback,
 		// message is received and validated, an authenticated connection will
 		// be passed along via the callback
 		connection.RegisterListener(catalog.ConnectionAuthenticationRequest,
-			handleAuthConfirmation(cb, connection))
+			buildAuthConfirmationHandler(cb, connection))
 	})
 	return connect.StartServer(connCb, myId, privKey, rng, grp,
 		net, p)

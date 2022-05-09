@@ -31,42 +31,40 @@ type server interface {
 type serverListener struct {
 	// connectionCallback allows an authenticated.Connection
 	// to be passed back upon establishment.
-	connectionCallback ConnectionCallback
+	connectionCallback Callback
 
 	// conn used to retrieve the connection context with the partner.
 	conn connect.Connection
 }
 
-// handleAuthConfirmation returns a serverListener object.
-func handleAuthConfirmation(cb ConnectionCallback,
+// buildAuthConfirmationHandler returns a serverListener object.
+// This will handle incoming identity authentication confirmations
+// via the serverListener.Hear method. A successful authenticated.Connection
+// will be passed along via the serverListener.connectionCallback
+func buildAuthConfirmationHandler(cb Callback,
 	connection connect.Connection) server {
-	return serverListener{
+	return &serverListener{
 		connectionCallback: cb,
 		conn:               connection,
 	}
 }
 
 // Hear handles the reception of an IdentityAuthentication by the
-// server.
+// server. It will attempt to verify the identity confirmation of
+// the given client.
 func (a serverListener) Hear(item receive.Message) {
 	// Process the message data into a protobuf
 	iar := &IdentityAuthentication{}
 	err := proto.Unmarshal(item.Payload, iar)
 	if err != nil {
-		jww.ERROR.Printf("Unable to build connection with "+
-			"partner %s: %+v", item.Sender, err)
-		// Send a nil connection to avoid hold-ups down the line
-		a.connectionCallback(nil)
+		a.handleAuthConfirmationErr(err, item.Sender)
 		return
 	}
 
 	// Process the PEM encoded public key to an rsa.PublicKey object
 	partnerPubKey, err := rsa.LoadPublicKeyFromPem(iar.RsaPubKey)
 	if err != nil {
-		jww.ERROR.Printf("Unable to build connection with "+
-			"partner %s: %+v", item.Sender, err)
-		// Send a nil connection to avoid hold-ups down the line
-		a.connectionCallback(nil)
+		a.handleAuthConfirmationErr(err, item.Sender)
 		return
 	}
 
@@ -77,18 +75,12 @@ func (a serverListener) Hear(item receive.Message) {
 	// along the wire
 	partnerWireId, err := xx.NewID(partnerPubKey, iar.Salt, id.User)
 	if err != nil {
-		jww.ERROR.Printf("Unable to parse identity information with "+
-			"partner %s: %+v", item.Sender, err)
-		// Send a nil connection to avoid hold-ups down the line
-		a.connectionCallback(nil)
+		a.handleAuthConfirmationErr(err, item.Sender)
 		return
 	}
 
 	if !newPartner.PartnerId().Cmp(partnerWireId) {
-		jww.ERROR.Printf("Unable to verify identity information with "+
-			"partner %s: %+v", item.Sender, err)
-		// Send a nil connection to avoid hold-ups down the line
-		a.connectionCallback(nil)
+		a.handleAuthConfirmationErr(err, item.Sender)
 		return
 	}
 
@@ -105,10 +97,8 @@ func (a serverListener) Hear(item receive.Message) {
 	// Verify the signature
 	err = rsa.Verify(partnerPubKey, opts.Hash, nonce, iar.Signature, opts)
 	if err != nil {
-		jww.ERROR.Printf("Unable to build connection with "+
-			"partner %s: %+v", item.Sender, err)
-		// Send a nil connection to avoid hold-ups down the line
-		a.connectionCallback(nil)
+		a.handleAuthConfirmationErr(err, item.Sender)
+		return
 	}
 
 	// If successful, pass along the established authenticated connection
@@ -118,6 +108,20 @@ func (a serverListener) Hear(item receive.Message) {
 	authConn := buildAuthenticatedConnection(a.conn)
 	authConn.setAuthenticated()
 	a.connectionCallback(authConn)
+}
+
+// handleAuthConfirmationErr is a helper function which will close the connection
+// between the server and the client. It will also print out the passed in error.
+func (a serverListener) handleAuthConfirmationErr(err error, sender *id.ID) {
+	jww.ERROR.Printf("Unable to build connection with "+
+		"partner %s: %+v", sender, err)
+	// Send a nil connection to avoid hold-ups down the line
+	a.connectionCallback(nil)
+	err = a.conn.Close()
+	if err != nil {
+		jww.ERROR.Printf("Failed to close connection with partner %s: %v",
+			sender, err)
+	}
 }
 
 // Name returns the name of this listener. This is typically for

@@ -1,3 +1,10 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package authenticated
 
 import (
@@ -40,7 +47,6 @@ func makeClientAuthRequest(newPartner partner.Manager,
 	}
 	payload, err := proto.Marshal(iar)
 	if err != nil {
-
 		return nil, errors.Errorf("failed to marshal identity request "+
 			"message: %+v", err)
 	}

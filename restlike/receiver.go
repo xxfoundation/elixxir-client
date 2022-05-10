@@ -25,7 +25,7 @@ type singleReceiver struct {
 // Callback is the handler for single-use message reception for a RestServer
 // Automatically responds to invalid endpoint requests
 func (s *singleReceiver) Callback(req *single.Request, receptionId receptionID.EphemeralIdentity, rounds []rounds.Round) {
-	// Unmarshal the payload
+	// Unmarshal the request payload
 	newMessage := &Message{}
 	err := proto.Unmarshal(req.GetPayload(), newMessage)
 	if err != nil {
@@ -35,7 +35,7 @@ func (s *singleReceiver) Callback(req *single.Request, receptionId receptionID.E
 
 	var respondErr error
 	if cb, err := s.endpoints.Get(URI(newMessage.GetUri()), Method(newMessage.GetMethod())); err == nil {
-		// Send the payload to the proper Callback if it exists
+		// Send the payload to the proper Callback if it exists and respond with the result
 		respondErr = respond(cb(newMessage), req)
 	} else {
 		// If no callback, automatically send an error response

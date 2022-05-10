@@ -23,4 +23,6 @@ const (
 	Group   = "group"
 	EndFT   = "endFT"
 	GroupRq = "groupRq"
+
+	RestLike = "restLike"
 )

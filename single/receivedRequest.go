@@ -18,6 +18,7 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 )
 
@@ -222,4 +223,18 @@ func splitPayload(payload []byte, maxSize, maxParts int) [][]byte {
 		parts = append(parts, buff.Next(maxSize))
 	}
 	return parts
+}
+
+// BuildTestRequest can be used for mocking a Request
+func BuildTestRequest(payload []byte, t *testing.T) *Request {
+	return &Request{
+		sender:         nil,
+		senderPubKey:   nil,
+		dhKey:          nil,
+		tag:            "",
+		maxParts:       0,
+		used:           nil,
+		requestPayload: payload,
+		net:            nil,
+	}
 }

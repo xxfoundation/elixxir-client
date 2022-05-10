@@ -199,16 +199,10 @@ func (mci *mockCommsInstance) GetRoundEvents() *ds.RoundEvents {
 	return mci.RoundEvents
 }
 
-type mockCyHandler struct {
-}
+type mockCyHandler struct{}
 
-func (m mockCyHandler) AddKey(k *session2.Cypher) {
-	return
-}
-
-func (m mockCyHandler) DeleteKey(k *session2.Cypher) {
-	return
-}
+func (m mockCyHandler) AddKey(session2.Cypher)    {}
+func (m mockCyHandler) DeleteKey(session2.Cypher) {}
 
 type mockServiceHandler struct {
 }
@@ -223,6 +217,11 @@ func (m mockServiceHandler) DeleteService(clientID *id.ID, toDelete message.Serv
 }
 
 type mockNetManager struct{}
+
+func (m *mockNetManager) Connect(ndf *ndf.NetworkDefinition) error {
+	// TODO implement me
+	panic("implement me")
+}
 
 func (m *mockNetManager) GetIdentity(get *id.ID) (identity.TrackedID, error) {
 	//TODO implement me

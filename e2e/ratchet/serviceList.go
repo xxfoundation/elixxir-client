@@ -9,31 +9,31 @@ import (
 
 // Services is a subsection of the cmix.Manager interface used for services
 type Services interface {
-	AddService(AddService *id.ID, newService message.Service,
-		response message.Processor)
-	DeleteService(clientID *id.ID, toDelete message.Service,
-		processor message.Processor)
+	AddService(
+		clientID *id.ID, newService message.Service, response message.Processor)
+	DeleteService(
+		clientID *id.ID, toDelete message.Service, processor message.Processor)
 }
 
 func (r *Ratchet) add(m partner.Manager) {
-	r.servicesmux.RLock()
-	defer r.servicesmux.RUnlock()
+	r.servicesMux.RLock()
+	defer r.servicesMux.RUnlock()
 	for tag, process := range r.services {
-		r.sInteface.AddService(r.myID, m.MakeService(tag), process)
+		r.sInterface.AddService(r.myID, m.MakeService(tag), process)
 	}
 }
 
 func (r *Ratchet) delete(m partner.Manager) {
-	r.servicesmux.RLock()
-	defer r.servicesmux.RUnlock()
+	r.servicesMux.RLock()
+	defer r.servicesMux.RUnlock()
 	for tag, process := range r.services {
-		r.sInteface.DeleteService(r.myID, m.MakeService(tag), process)
+		r.sInterface.DeleteService(r.myID, m.MakeService(tag), process)
 	}
 }
 
 func (r *Ratchet) AddService(tag string, processor message.Processor) error {
-	r.servicesmux.Lock()
-	defer r.servicesmux.Unlock()
+	r.servicesMux.Lock()
+	defer r.servicesMux.Unlock()
 	//add the services to the list
 	if _, exists := r.services[tag]; exists {
 		return errors.Errorf("Cannot add more than one service '%s'", tag)
@@ -42,15 +42,15 @@ func (r *Ratchet) AddService(tag string, processor message.Processor) error {
 
 	//add a service for every manager
 	for _, m := range r.managers {
-		r.sInteface.AddService(r.myID, m.MakeService(tag), processor)
+		r.sInterface.AddService(r.myID, m.MakeService(tag), processor)
 	}
 
 	return nil
 }
 
 func (r *Ratchet) RemoveService(tag string) error {
-	r.servicesmux.Lock()
-	defer r.servicesmux.Unlock()
+	r.servicesMux.Lock()
+	defer r.servicesMux.Unlock()
 
 	oldServiceProcess, exists := r.services[tag]
 	if !exists {
@@ -61,7 +61,7 @@ func (r *Ratchet) RemoveService(tag string) error {
 	delete(r.services, tag)
 
 	for _, m := range r.managers {
-		r.sInteface.DeleteService(r.myID, m.MakeService(tag), oldServiceProcess)
+		r.sInterface.DeleteService(r.myID, m.MakeService(tag), oldServiceProcess)
 	}
 
 	return nil

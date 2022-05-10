@@ -26,7 +26,7 @@ type legacyPartnerData struct {
 	mySidhPrivKey     *sidh.PrivateKey
 	partnerSidhPubKey *sidh.PublicKey
 	sendFP            []byte
-	recieveFp         []byte
+	receiveFp         []byte
 }
 
 // TestRatchet_unmarshalOld tests the loading of legacy data
@@ -87,7 +87,7 @@ func TestLoadLegacy(t *testing.T) {
 			//  the legacy loading tests
 			sendFP: e2e.MakeRelationshipFingerprint(myPubKey, partnerPubKey,
 				myId, partnerID),
-			recieveFp: e2e.MakeRelationshipFingerprint(myPubKey, partnerPubKey,
+			receiveFp: e2e.MakeRelationshipFingerprint(myPubKey, partnerPubKey,
 				partnerID, myId),
 		}
 
@@ -96,12 +96,12 @@ func TestLoadLegacy(t *testing.T) {
 	}
 
 	// Construct kv with legacy data
-	//fs, err := ekv.NewFilestore("/home/josh/src/client/e2e/legacyEkv", "hello")
-	//if err != nil {
+	// fs, err := ekv.NewFilestore("/home/josh/src/client/e2e/legacyEkv", "hello")
+	// if err != nil {
 	//	t.Fatalf(
 	//		"Failed to create storage session: %+v", err)
-	//}
-	kv := versioned.NewKV(&ekv.MakeMemstore())
+	// }
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	err := ratchet.New(kv, myId, myPrivKey, grp)
 	if err != nil {
@@ -111,7 +111,7 @@ func TestLoadLegacy(t *testing.T) {
 	rng := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 
 	// Load legacy data
-	h, err := LoadLegacy(kv, &mockCmixNet{testingInterface: t}, myId,
+	h, err := LoadLegacy(kv, newMockCmix(nil, nil, t), myId,
 		grp, rng, mockEventsManager{}, rekey.GetDefaultParams())
 	if err != nil {
 		t.Fatalf("LoadLegacy error: %v", err)
@@ -121,20 +121,19 @@ func TestLoadLegacy(t *testing.T) {
 	for _, legacyPartner := range legacyData {
 		partnerManager, err := h.GetPartner(legacyPartner.partnerId)
 		if err != nil {
-			t.Errorf("Partner %d does not exist in handler.", legacyPartner.partnerId)
-		}
+			t.Errorf("Partner %s does not exist in handler.", legacyPartner.partnerId)
+		} else {
+			if !bytes.Equal(partnerManager.SendRelationshipFingerprint(), legacyPartner.sendFP) {
+				t.Fatalf("Send relationship fingerprint pulled from legacy does not match expected data."+
+					"\nExpected: %v"+
+					"\nReceived: %v", legacyPartner.sendFP, partnerManager.SendRelationshipFingerprint())
+			}
 
-		if !bytes.Equal(partnerManager.SendRelationshipFingerprint(), legacyPartner.sendFP) {
-			t.Fatalf("Send relationship fingerprint pulled from legacy does not match expected data."+
-				"\nExpected: %v"+
-				"\nReceived: %v", legacyPartner.sendFP, partnerManager.SendRelationshipFingerprint())
+			if !bytes.Equal(partnerManager.ReceiveRelationshipFingerprint(), legacyPartner.receiveFp) {
+				t.Fatalf("Receive relationship fingerprint pulled from legacy does not match expected data."+
+					"\nExpected: %v"+
+					"\nReceived: %v", legacyPartner.sendFP, partnerManager.SendRelationshipFingerprint())
+			}
 		}
-
-		if !bytes.Equal(partnerManager.ReceiveRelationshipFingerprint(), legacyPartner.recieveFp) {
-			t.Fatalf("Receive relationship fingerprint pulled from legacy does not match expected data."+
-				"\nExpected: %v"+
-				"\nReceived: %v", legacyPartner.sendFP, partnerManager.SendRelationshipFingerprint())
-		}
-
 	}
 }

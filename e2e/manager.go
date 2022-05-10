@@ -118,8 +118,7 @@ func loadE2E(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
 
 	m := &manager{
 		Switchboard: receive.New(),
-		partitioner: parse.NewPartitioner(kv,
-			net.GetMaxMessageLength()),
+		partitioner: parse.NewPartitioner(kv, net.GetMaxMessageLength()),
 		net:         net,
 		myID:        myDefaultID,
 		events:      events,

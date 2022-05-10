@@ -21,13 +21,9 @@ import (
 type mockCyHandler struct {
 }
 
-func (m mockCyHandler) AddKey(k *session.Cypher) {
-	return
-}
+func (m mockCyHandler) AddKey(session.Cypher) {}
 
-func (m mockCyHandler) DeleteKey(k *session.Cypher) {
-	return
-}
+func (m mockCyHandler) DeleteKey(session.Cypher) {}
 
 func getGroup() *cyclic.Group {
 	e2eGrp := cyclic.NewGroup(
@@ -65,11 +61,17 @@ func newTestManager(t *testing.T) (manager, *versioned.KV) {
 
 	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
 	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
-	partnerSIDHPrivKey.Generate(rng.GetStream())
+	err := partnerSIDHPrivKey.Generate(rng.GetStream())
+	if err != nil {
+		t.Errorf("Failed to generate private key: %+v", err)
+	}
 	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
 	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
 	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
-	mySIDHPrivKey.Generate(rng.GetStream())
+	err = mySIDHPrivKey.Generate(rng.GetStream())
+	if err != nil {
+		t.Errorf("Failed to generate private key: %+v", err)
+	}
 	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())

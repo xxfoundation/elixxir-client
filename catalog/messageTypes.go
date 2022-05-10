@@ -45,6 +45,6 @@ const (
 
 	// IdentityAuthenticationRequest is sent by the recipient
 	// of an authenticated connection request
-	// (see the connections/ package)
+	// (see the connect/ package)
 	ConnectionAuthenticationRequest = 60
 )

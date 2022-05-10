@@ -5,20 +5,20 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package authenticated
+package connect
 
 import (
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/connections/connect"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// serverListenerName is the name of the client's listener interface.
-const serverListenerName = "AuthenticatedServerListener"
+// authenticatedServerListenerName is the name of the client's
+//listener interface.
+const authenticatedServerListenerName = "AuthenticatedServerListener"
 
 // server is an interface that wraps receive.Listener. This handles
 // the server listening for the client's proof of identity message.
@@ -29,20 +29,20 @@ type server interface {
 // serverListener provides an implementation of the server interface.
 // This will handle the identity message sent by the client.
 type serverListener struct {
-	// connectionCallback allows an authenticated.Connection
+	// connectionCallback allows an AuthenticatedConnection
 	// to be passed back upon establishment.
-	connectionCallback Callback
+	connectionCallback AuthenticatedCallback
 
 	// conn used to retrieve the connection context with the partner.
-	conn connect.Connection
+	conn Connection
 }
 
 // buildAuthConfirmationHandler returns a serverListener object.
 // This will handle incoming identity authentication confirmations
-// via the serverListener.Hear method. A successful authenticated.Connection
+// via the serverListener.Hear method. A successful AuthenticatedConnection
 // will be passed along via the serverListener.connectionCallback
-func buildAuthConfirmationHandler(cb Callback,
-	connection connect.Connection) server {
+func buildAuthConfirmationHandler(cb AuthenticatedCallback,
+	connection Connection) server {
 	return &serverListener{
 		connectionCallback: cb,
 		conn:               connection,
@@ -84,8 +84,7 @@ func (a serverListener) Hear(item receive.Message) {
 		return
 	}
 
-	// The connection fingerprint (hashed) represents a shared nonce
-	// between these two partners
+	// The connection fingerprint (hashed) will be used as a nonce
 	connectionFp := newPartner.ConnectionFingerprint().Bytes()
 
 	// Hash the connection fingerprint
@@ -103,11 +102,11 @@ func (a serverListener) Hear(item receive.Message) {
 
 	// If successful, pass along the established authenticated connection
 	// via the callback
-	jww.DEBUG.Printf("Connection auth request for %s confirmed",
+	jww.DEBUG.Printf("AuthenticatedConnection auth request for %s confirmed",
 		item.Sender.String())
 	authConn := buildAuthenticatedConnection(a.conn)
 	authConn.setAuthenticated()
-	a.connectionCallback(authConn)
+	go a.connectionCallback(authConn)
 }
 
 // handleAuthConfirmationErr is a helper function which will close the connection
@@ -127,5 +126,5 @@ func (a serverListener) handleAuthConfirmationErr(err error, sender *id.ID) {
 // Name returns the name of this listener. This is typically for
 // printing/debugging purposes.
 func (a serverListener) Name() string {
-	return serverListenerName
+	return authenticatedServerListenerName
 }

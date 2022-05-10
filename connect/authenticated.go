@@ -5,14 +5,13 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package authenticated
+package connect
 
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/connections/connect"
 	clientE2e "gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -21,25 +20,32 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"time"
 )
 
-// Connection is a connect.Connection interface that
+// Constant error messages
+const (
+	roundTrackingTimeoutErr    = "timed out waiting for round results"
+	notAllRoundsSucceededErr   = "not all rounds succeeded"
+	failedToCloseConnectionErr = "failed to close connection with %s " +
+		"after error %v: %+v"
+)
+
+// AuthenticatedConnection is a connect.Connection interface that
 // has the receiver authenticating their identity back to the
 // initiator.
-type Connection interface {
-	// Connection is the base connections API. This allows
+type AuthenticatedConnection interface {
+	// Connection is the base Connect API. This allows
 	// sending and listening to the partner
-	connect.Connection
+	Connection
 
 	// IsAuthenticated is a function which returns whether the
 	// authenticated connection has been completely established.
 	IsAuthenticated() bool
 }
 
-// Callback is the callback format required to retrieve
-// new authenticated.Connection objects as they are established.
-type Callback func(connection Connection)
+// AuthenticatedCallback is the callback format required to retrieve
+// new AuthenticatedConnection objects as they are established.
+type AuthenticatedCallback func(connection AuthenticatedConnection)
 
 // ConnectWithAuthentication is called by the client, ie the one establishing
 // connection with the server. Once a connect.Connection has been established
@@ -47,62 +53,70 @@ type Callback func(connection Connection)
 func ConnectWithAuthentication(recipient contact.Contact, myId *id.ID,
 	salt []byte, myRsaPrivKey *rsa.PrivateKey, myDhPrivKey *cyclic.Int,
 	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
-	p connect.Params) (Connection, error) {
+	p Params) (AuthenticatedConnection, error) {
 
-	conn, err := connect.Connect(recipient, myId, myDhPrivKey, rng, grp, net, p)
+	// Track the time since we started to attempt to establish a connection
+	timeStart := netTime.Now()
+
+	// Establish a connection with the server
+	conn, err := Connect(recipient, myId, myDhPrivKey, rng, grp, net, p)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to establish connection "+
-			"with recipient %s", recipient.ID)
+		return nil, errors.Errorf("failed to establish connection "+
+			"with recipient %s: %v", recipient.ID, err)
 	}
 
-	// Construct message
+	// Construct message to prove your identity to the server
 	payload, err := makeClientAuthRequest(conn.GetPartner(), rng, myRsaPrivKey, salt)
 	if err != nil {
+		// Close connection on an error
 		errClose := conn.Close()
 		if errClose != nil {
 			return nil, errors.Errorf(
-				"failed to close connection with %s after error %v: %+v",
+				failedToCloseConnectionErr,
 				recipient.ID, err, errClose)
 		}
 		return nil, errors.WithMessagef(err, "failed to construct client "+
 			"authentication message")
 	}
 
-	// Send message to user
-	e2eParams := clientE2e.GetDefaultParams()
+	// Send message to server
 	rids, _, _, err := conn.SendE2E(catalog.ConnectionAuthenticationRequest,
-		payload, e2eParams)
+		payload, clientE2e.GetDefaultParams())
 	if err != nil {
+		// Close connection on an error
 		errClose := conn.Close()
 		if errClose != nil {
 			return nil, errors.Errorf(
-				"failed to close connection with %s after error %v: %+v",
+				failedToCloseConnectionErr,
 				recipient.ID, err, errClose)
 		}
-		return nil, errors.WithMessagef(err, "failed to construct client "+
+		return nil, errors.WithMessagef(err, "failed to send client "+
 			"authentication message")
 	}
-
-	// Record since we first successfully sen the message
-	timeStart := netTime.Now()
 
 	// Determine that the message is properly sent by tracking the success
 	// of the round(s)
-	authConnChan := make(chan Connection, 1)
+	roundErr := make(chan error, 1)
 	roundCb := cmix.RoundEventCallback(func(allRoundsSucceeded,
 		timedOut bool, rounds map[id.Round]cmix.RoundResult) {
-		if allRoundsSucceeded {
-			// If rounds succeeded, assume recipient has successfully
-			// confirmed the authentication. Pass the connection
-			// along via the callback
-			authConn := buildAuthenticatedConnection(conn)
-			authConn.setAuthenticated()
-			authConnChan <- authConn
+		// Check for failures while tracking rounds
+		if timedOut || !allRoundsSucceeded {
+			if timedOut {
+				roundErr <- errors.New(roundTrackingTimeoutErr)
+			} else {
+				// If we did not time out, then not all rounds succeeded
+				roundErr <- errors.New(notAllRoundsSucceededErr)
+			}
+			return
 		}
+
+		// If no errors occurred, signal so; an authenticated channel may
+		// be constructed now
+		roundErr <- nil
 	})
 
 	// Find the remaining time in the timeout since we first sent the message
-	remainingTime := e2eParams.Timeout - netTime.Since(timeStart)
+	remainingTime := p.Timeout - netTime.Since(timeStart)
 
 	// Track the result of the round(s) we sent the
 	// identity authentication message on
@@ -113,37 +127,42 @@ func ConnectWithAuthentication(recipient contact.Contact, myId *id.ID,
 			"identity confirmation message delivery")
 	}
 	// Block waiting for confirmation of the round(s) success (or timeout
-	jww.DEBUG.Printf("Connection waiting for authenticated "+
+	jww.DEBUG.Printf("AuthenticatedConnection waiting for authenticated "+
 		"connection with %s to be established...", recipient.ID.String())
-	timeout := time.NewTimer(p.Timeout)
-	defer timeout.Stop()
-	select {
-	case authConn := <-authConnChan:
-		if authConn == nil {
+	// Wait for the round callback to send a round error
+	err = <-roundErr
+	if err != nil {
+		// Close connection on an error
+		errClose := conn.Close()
+		if errClose != nil {
 			return nil, errors.Errorf(
-				"Unable to complete authenticated connection with partner %s",
-				recipient.ID.String())
+				failedToCloseConnectionErr,
+				recipient.ID, err, errClose)
 		}
-		return authConn, nil
-	case <-timeout.C:
-		return nil, errors.Errorf("Authenticated connection with "+
-			"partner %s timed out", recipient.ID.String())
+
+		return nil, errors.Errorf("failed to confirm if identity "+
+			"authentication message was sent to %s: %v", recipient.ID, err)
 	}
 
+	// If channel received no error, construct and return the
+	// authenticated connection
+	authConn := buildAuthenticatedConnection(conn)
+	authConn.setAuthenticated()
+	return authConn, nil
 }
 
-// StartServer is called by the receiver of an
+// StartAuthenticatedServer is called by the receiver of an
 // authenticated connection request. Calling this will indicate that they
 // will handle authenticated requests and verify the client's attempt to
-// authenticate themselves. An established authenticated.Connection will
+// authenticate themselves. An established AuthenticatedConnection will
 // be passed via the callback.
-func StartServer(cb Callback,
+func StartAuthenticatedServer(cb AuthenticatedCallback,
 	myId *id.ID, privKey *cyclic.Int,
 	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
-	p connect.Params) error {
+	p Params) error {
 
 	// Register the waiter for a connection establishment
-	connCb := connect.Callback(func(connection connect.Connection) {
+	connCb := Callback(func(connection Connection) {
 		// Upon establishing a connection, register a listener for the
 		// client's identity proof. If a identity authentication
 		// message is received and validated, an authenticated connection will
@@ -151,34 +170,35 @@ func StartServer(cb Callback,
 		connection.RegisterListener(catalog.ConnectionAuthenticationRequest,
 			buildAuthConfirmationHandler(cb, connection))
 	})
-	return connect.StartServer(connCb, myId, privKey, rng, grp,
+	return StartServer(connCb, myId, privKey, rng, grp,
 		net, p)
 }
 
-// handler provides an implementation for the authenticated.Connection
+// authenticatedHandler provides an implementation for the AuthenticatedConnection
 // interface.
-type handler struct {
-	connect.Connection
+type authenticatedHandler struct {
+	Connection
 	isAuthenticated bool
 	authMux         sync.Mutex
 }
 
-// buildAuthenticatedConnection assembles an authenticated.Connection object.
-func buildAuthenticatedConnection(conn connect.Connection) *handler {
-	return &handler{
+// buildAuthenticatedConnection assembles an AuthenticatedConnection object.
+func buildAuthenticatedConnection(conn Connection) *authenticatedHandler {
+	return &authenticatedHandler{
 		Connection:      conn,
 		isAuthenticated: false,
 	}
 }
 
-// IsAuthenticated returns whether the Connection has completed the authentication
-// process.
-func (h *handler) IsAuthenticated() bool {
+// IsAuthenticated returns whether the AuthenticatedConnection has completed the
+// authentication process.
+func (h *authenticatedHandler) IsAuthenticated() bool {
 	return h.isAuthenticated
 }
 
-// setAuthenticated is a helper function which sets the Connection as authenticated.
-func (h *handler) setAuthenticated() {
+// setAuthenticated is a helper function which sets the
+// AuthenticatedConnection as authenticated.
+func (h *authenticatedHandler) setAuthenticated() {
 	h.authMux.Lock()
 	defer h.authMux.Unlock()
 	h.isAuthenticated = true

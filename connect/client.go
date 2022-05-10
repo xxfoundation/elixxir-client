@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package authenticated
+package connect
 
 import (
 	"github.com/golang/protobuf/proto"
@@ -21,8 +21,7 @@ func makeClientAuthRequest(newPartner partner.Manager,
 	rng *fastRNG.StreamGenerator, rsaPrivKey *rsa.PrivateKey,
 	salt []byte) ([]byte, error) {
 
-	// The connection fingerprint (hashed) represents a shared nonce
-	// between these two partners
+	// The connection fingerprint (hashed) will be used as a nonce
 	connectionFp := newPartner.ConnectionFingerprint().Bytes()
 	opts := rsa.NewDefaultOptions()
 	h := opts.Hash.New()

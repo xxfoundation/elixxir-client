@@ -3,7 +3,6 @@ package ratchet
 import (
 	"io"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -52,7 +51,7 @@ func managersEqual(expected, received partner.Manager, t *testing.T) bool {
 		equal = false
 	}
 
-	if !strings.EqualFold(expected.ConnectionFingerprint(), received.ConnectionFingerprint()) {
+	if !reflect.DeepEqual(expected.ConnectionFingerprint(), received.ConnectionFingerprint()) {
 		t.Errorf("Did not Receive expected Manager.Receive."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.ConnectionFingerprint(), received.ConnectionFingerprint())
@@ -96,11 +95,11 @@ func genSidhKeys(rng io.Reader, variant sidh.KeyVariant) (*sidh.PrivateKey, *sid
 
 type mockCyHandler struct{}
 
-func (m mockCyHandler) AddKey(k *session.Cypher) {
+func (m mockCyHandler) AddKey(k session.Cypher) {
 	return
 }
 
-func (m mockCyHandler) DeleteKey(k *session.Cypher) {
+func (m mockCyHandler) DeleteKey(k session.Cypher) {
 	return
 }
 

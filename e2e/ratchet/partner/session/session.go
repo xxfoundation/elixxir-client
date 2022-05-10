@@ -327,7 +327,7 @@ func (s *Session) GetPartner() *id.ID {
 
 // PopKey Pops the first unused key, skipping any which are denoted as used.
 // will return if the remaining keys are designated as rekeys
-func (s *Session) PopKey() (*Cypher, error) {
+func (s *Session) PopKey() (Cypher, error) {
 	if s.keyState.GetNumAvailable() <= uint32(s.e2eParams.NumRekeys) {
 		return nil, errors.New("no more keys left, remaining reserved " +
 			"for rekey")
@@ -337,18 +337,18 @@ func (s *Session) PopKey() (*Cypher, error) {
 		return nil, err
 	}
 
-	return newKey(s, keyNum), nil
+	return newCypher(s, keyNum), nil
 }
 
 // PopReKey Pops the first unused key, skipping any which are denoted as used,
 // including keys designated for rekeys
-func (s *Session) PopReKey() (*Cypher, error) {
+func (s *Session) PopReKey() (Cypher, error) {
 	keyNum, err := s.keyState.Next()
 	if err != nil {
 		return nil, err
 	}
 
-	return newKey(s, keyNum), nil
+	return newCypher(s, keyNum), nil
 }
 
 // todo - doscstring
@@ -600,12 +600,12 @@ func (s *Session) buildChildKeys() {
 }
 
 //returns key objects for all unused keys
-func (s *Session) getUnusedKeys() []*Cypher {
+func (s *Session) getUnusedKeys() []Cypher {
 	keyNums := s.keyState.GetUnusedKeyNums()
 
-	keys := make([]*Cypher, len(keyNums))
+	keys := make([]Cypher, len(keyNums))
 	for i, keyNum := range keyNums {
-		keys[i] = newKey(s, keyNum)
+		keys[i] = newCypher(s, keyNum)
 	}
 
 	return keys

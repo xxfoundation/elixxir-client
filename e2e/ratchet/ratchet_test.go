@@ -68,7 +68,7 @@ func TestLoadStore(t *testing.T) {
 	}
 
 	store, err := Load(kv, &id.ID{},
-		expectedRatchet.grp, expectedRatchet.cyHandler, expectedRatchet.sInteface,
+		expectedRatchet.grp, expectedRatchet.cyHandler, expectedRatchet.sInterface,
 		expectedRatchet.rng)
 	if err != nil {
 		t.Errorf("LoadStore() produced an error: %v", err)

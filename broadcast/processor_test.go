@@ -42,7 +42,7 @@ func Test_processor_Process(t *testing.T) {
 		cbChan <- payload
 	}
 
-	p := &processor{
+	p := &symmetricProcessor{
 		s:  s,
 		cb: cb,
 	}

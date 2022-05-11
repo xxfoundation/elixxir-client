@@ -30,7 +30,7 @@ const (
 
 // Tags.
 const (
-	cMixSendTag                  = "SymmBcast"
+	symmCMixSendTag              = "SymmBcast"
 	symmetricBroadcastServiceTag = "SymmetricBroadcast"
 )
 
@@ -71,8 +71,8 @@ func NewSymmetricClient(channel crypto.Symmetric, listenerCb ListenerFunc,
 		Tag:        symmetricBroadcastServiceTag,
 	}
 
-	// Create new message processor
-	p := &processor{
+	// Create new message symmetricProcessor
+	p := &symmetricProcessor{
 		s:  &channel,
 		cb: listenerCb,
 	}
@@ -125,7 +125,7 @@ func (s *symmetricClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams) 
 	}
 
 	if cMixParams.DebugTag == cmix.DefaultDebugTag {
-		cMixParams.DebugTag = cMixSendTag
+		cMixParams.DebugTag = symmCMixSendTag
 	}
 
 	return s.net.Send(

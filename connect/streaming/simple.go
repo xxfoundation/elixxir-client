@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package streaming
 
 import (
@@ -9,6 +15,16 @@ import (
 	"io"
 	"sync"
 )
+
+/*
+This package contains an example of a simple streaming implementation to demonstrate use of the Connection interface
+This is not a functional interface for a number of reasons, its sole purpose is as demonstrative code
+The primary issues are related to sending - in order to make this a proper streaming implementation, it would
+need to properly handle partitioning & ordering of its payloads.  While this is possible, it would require changes to
+the underlying interface to expose the maximum payload size, its own retry logic, and some structure to contain
+ordering information.  As designed, the interface accepts a payload and handles partitioning in a
+manner opaque to this layer.
+*/
 
 // Params describes parameters for a simple streaming object
 type Params struct {

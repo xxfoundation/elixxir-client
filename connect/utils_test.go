@@ -1,13 +1,11 @@
 package connect
 
 import (
-	"fmt"
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/cmix/identity"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e"
@@ -15,20 +13,17 @@ import (
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/stoppable"
-	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 	"time"
 )
 
@@ -179,42 +174,13 @@ func (m mockConnection) Unregister(listenerID receive.ListenerID) {
 // Mock cMix Client                                                           //
 ////////////////////////////////////////////////////////////////////////////////
 
-type mockCmixHandler struct {
-	processorMap map[id.ID]map[string][]message.Processor
-	sync.RWMutex
-}
-
-func newMockCmixHandler() *mockCmixHandler {
-	return &mockCmixHandler{
-		processorMap: make(map[id.ID]map[string][]message.Processor),
-	}
-}
-
 type mockCmix struct {
-	numPrimeBytes int
-	health        bool
-	handler       *mockCmixHandler
-	instance      *network.Instance
+	instance *network.Instance
 }
 
-func newMockCmix(handler *mockCmixHandler, face interface{}) (*mockCmix, error) {
+func newMockCmix() *mockCmix {
 
-	instanceComms := &connect.ProtoComms{
-		Manager: connect.NewManagerTesting(face),
-	}
-
-	thisInstance, err := network.NewInstanceTesting(instanceComms, getNDF(),
-		getNDF(), nil, nil, face)
-	if err != nil {
-		return nil, err
-	}
-
-	return &mockCmix{
-		numPrimeBytes: 4096,
-		health:        true,
-		handler:       handler,
-		instance:      thisInstance,
-	}, nil
+	return &mockCmix{}
 }
 
 func (m mockCmix) Connect(ndf *ndf.NetworkDefinition) error {
@@ -226,37 +192,12 @@ func (m *mockCmix) Follow(report cmix.ClientErrorReport) (stoppable.Stoppable, e
 }
 
 func (m *mockCmix) GetMaxMessageLength() int {
-	return format.NewMessage(m.numPrimeBytes).ContentsSize()
+	return 4096
 }
 
 func (m *mockCmix) Send(recipient *id.ID, fingerprint format.Fingerprint,
 	service message.Service, payload, mac []byte,
 	cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
-	msg := format.NewMessage(m.numPrimeBytes)
-	msg.SetContents(payload)
-	msg.SetMac(mac)
-	msg.SetKeyFP(fingerprint)
-
-	mockRound := rounds.Round{
-		State:      states.COMPLETED,
-		Timestamps: map[states.Round]time.Time{states.COMPLETED: netTime.Now().Add(5 * time.Second)},
-		Raw:        &pb.RoundInfo{},
-	}
-
-	m.handler.RLock()
-	defer m.handler.RUnlock()
-	fmt.Printf("len procs: %v\n", len(m.handler.processorMap[*recipient][service.Tag]))
-	fmt.Printf("recipient: %s, tag: %s\n", recipient, service.Tag)
-
-	if service.Tag == catalog.E2e {
-		// todo need to activate the authenticated listener for the server here...
-		return 0, ephemeral.Id{}, nil
-	}
-
-	for _, p := range m.handler.processorMap[*recipient][service.Tag] {
-		fmt.Printf("running process with tag: %s\n", service.Tag)
-		p.Process(msg, receptionID.EphemeralIdentity{}, mockRound)
-	}
 
 	return 0, ephemeral.Id{}, nil
 }
@@ -266,52 +207,18 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXPara
 }
 
 func (m *mockCmix) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
-	m.handler.Lock()
-	defer m.handler.Unlock()
-
-	if _, exists := m.handler.processorMap[*id]; exists {
-		return
-	}
-	fmt.Printf("AddIdentity recipient: %s\n", id)
-
-	m.handler.processorMap[*id] = make(map[string][]message.Processor)
 }
 
 func (m *mockCmix) RemoveIdentity(id *id.ID) {
-	m.handler.Lock()
-	defer m.handler.Unlock()
-	fmt.Printf("RemoveIdentity recipient: %s\n", id)
-
-	delete(m.handler.processorMap, *id)
 }
 
 func (m *mockCmix) GetIdentity(get *id.ID) (identity.TrackedID, error) {
-	m.handler.RLock()
-	defer m.handler.RUnlock()
-
 	return identity.TrackedID{
 		Creation: netTime.Now().Add(-time.Minute),
 	}, nil
 }
 
 func (m *mockCmix) AddFingerprint(identity *id.ID, fp format.Fingerprint, mp message.Processor) error {
-	if _, exists := m.handler.processorMap[*identity][fp.String()]; !exists {
-
-		if underMap := m.handler.processorMap[*identity]; underMap == nil {
-			underMap = make(map[string][]message.Processor)
-			underMap[fp.String()] = []message.Processor{mp}
-			m.handler.processorMap[*identity] = underMap
-			return nil
-		}
-
-		m.handler.processorMap[*identity][fp.String()] =
-			[]message.Processor{mp}
-
-		return nil
-	}
-
-	m.handler.processorMap[*identity][fp.String()] =
-		append(m.handler.processorMap[*identity][fp.String()], mp)
 	return nil
 }
 
@@ -324,25 +231,6 @@ func (m *mockCmix) DeleteClientFingerprints(identity *id.ID) {
 }
 
 func (m *mockCmix) AddService(clientID *id.ID, newService message.Service, response message.Processor) {
-	fmt.Printf("AddService recipient: %s, tag: %s, proc: %v\n", clientID, newService.Tag, response)
-
-	if _, exists := m.handler.processorMap[*clientID][newService.Tag]; !exists {
-
-		if underMap := m.handler.processorMap[*clientID]; underMap == nil {
-			underMap = make(map[string][]message.Processor)
-			underMap[newService.Tag] = []message.Processor{response}
-			m.handler.processorMap[*clientID] = underMap
-			return
-		}
-
-		m.handler.processorMap[*clientID][newService.Tag] =
-			[]message.Processor{response}
-
-		return
-	}
-
-	m.handler.processorMap[*clientID][newService.Tag] =
-		append(m.handler.processorMap[*clientID][newService.Tag], response)
 	return
 }
 
@@ -351,12 +239,6 @@ func (m *mockCmix) DeleteService(clientID *id.ID, toDelete message.Service, proc
 }
 
 func (m *mockCmix) DeleteClientService(clientID *id.ID) {
-	m.handler.Lock()
-	defer m.handler.Unlock()
-
-	for tag := range m.handler.processorMap[*clientID] {
-		delete(m.handler.processorMap[*clientID], tag)
-	}
 }
 
 func (m *mockCmix) TrackServices(tracker message.ServicesTracker) {

@@ -20,16 +20,19 @@ import (
 	"time"
 )
 
-// TestConnectWithAuthentication using the
+// TestConnectWithAuthentication will test the client/server relationship for
+// an AuthenticatedConnection. This will construct a client which will send an
+// IdentityAuthentication message to the server, who will hear it and verify
+// the contents. This will use a mock connection interface and private
+// production code helper functions for easier testing.
 func TestConnectWithAuthentication(t *testing.T) {
 	grp := getGroup()
 	numPrimeByte := len(grp.GetPBytes())
 
-	cmixHandler := newMockCmixHandler()
-	mockNet, err := newMockCmix(cmixHandler, t)
-	if err != nil {
-		t.Fatalf("Failed to initialize mock network: %+v", err)
-	}
+	// Set up cmix handler
+	mockNet := newMockCmix()
+
+	// Set up connect arguments
 	prng := rand.New(rand.NewSource(42))
 	dhPrivKey := diffieHellman.GeneratePrivateKey(
 		numPrimeByte, grp, prng)
@@ -42,12 +45,17 @@ func TestConnectWithAuthentication(t *testing.T) {
 		t.Fatalf("Faled to load private key: %v", err)
 	}
 
+	// Construct client ID the proper way as server will need to verify it
+	// using the xx.NewID function call
 	myId, err := xx.NewID(myRsaPrivKey.GetPublic(), salt, id.User)
 	if err != nil {
 		t.Fatalf("Failed to generate client's id: %+v", err)
 	}
+
+	// Generate server ID using testing interface
 	serverID := id.NewIdFromString("server", id.User, t)
 
+	// Construct recipient
 	recipient := contact.Contact{
 		ID:       serverID,
 		DhPubKey: dhPubKey,
@@ -56,17 +64,19 @@ func TestConnectWithAuthentication(t *testing.T) {
 	rng := fastRNG.NewStreamGenerator(1, 1,
 		csprng.NewSystemRNG)
 
-	// Create the mock connection, which will be shared by the client and server.
-	// This will send the client's request to the server internally
+	// Create the mock connection, which will be shared by the client and
+	// server. This will send the client's request to the server internally
 	mockConn := newMockConnection(myId, serverID, dhPrivKey, dhPubKey)
 
-	// Set up the server
+	// Set up the server's callback, which will pass the authenticated
+	// connection through via a channel
 	authConnChan := make(chan AuthenticatedConnection, 1)
 	serverCb := AuthenticatedCallback(
 		func(connection AuthenticatedConnection) {
 			authConnChan <- connection
 		})
 
+	// Initialize params with a shorter timeout to hasten test results
 	customParams := GetDefaultParams()
 	customParams.Timeout = 3 * time.Second
 
@@ -85,9 +95,11 @@ func TestConnectWithAuthentication(t *testing.T) {
 		t.Fatalf("ConnectWithAuthentication error: %+v", err)
 	}
 
+	// Wait for the server to establish it's connection via the callback
 	timeout := time.NewTimer(customParams.Timeout)
 	select {
 	case <-authConnChan:
+		return
 	case <-timeout.C:
 		t.Fatalf("Timed out waiting for server's authenticated connection " +
 			"to be established")

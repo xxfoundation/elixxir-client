@@ -204,8 +204,8 @@ func buildAuthenticatedConnection(conn Connection) *authenticatedHandler {
 	}
 }
 
-// IsAuthenticated returns whether the AuthenticatedConnection has completed the
-// authentication process.
+// IsAuthenticated returns whether the AuthenticatedConnection has completed
+// the authentication process.
 func (h *authenticatedHandler) IsAuthenticated() bool {
 	return h.isAuthenticated
 }

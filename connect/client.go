@@ -15,9 +15,9 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
-// makeClientAuthRequest is a helper function which constructs a marshalled
+// buildClientAuthRequest is a helper function which constructs a marshalled
 // IdentityAuthentication message.
-func makeClientAuthRequest(newPartner partner.Manager,
+func buildClientAuthRequest(newPartner partner.Manager,
 	rng *fastRNG.StreamGenerator, rsaPrivKey *rsa.PrivateKey,
 	salt []byte) ([]byte, error) {
 

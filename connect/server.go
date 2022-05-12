@@ -9,6 +9,7 @@ package connect
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/xx_network/crypto/signature/rsa"
@@ -80,6 +81,7 @@ func (a serverListener) Hear(item receive.Message) {
 	}
 
 	if !newPartner.PartnerId().Cmp(partnerWireId) {
+		err = errors.New("Failed confirm partner's ID over the wire")
 		a.handleAuthConfirmationErr(err, item.Sender)
 		return
 	}

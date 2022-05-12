@@ -30,7 +30,7 @@ import (
 func TestNewStore(t *testing.T) {
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	privKey := grp.NewInt(57)
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	expectedStore := &Ratchet{
 		managers:               make(map[id.ID]partner.Manager),
 		advertisedDHPrivateKey: privKey,
@@ -68,7 +68,7 @@ func TestLoadStore(t *testing.T) {
 	}
 
 	store, err := Load(kv, &id.ID{},
-		expectedRatchet.grp, expectedRatchet.cyHandler, expectedRatchet.sInteface,
+		expectedRatchet.grp, expectedRatchet.cyHandler, expectedRatchet.sInterface,
 		expectedRatchet.rng)
 	if err != nil {
 		t.Errorf("LoadStore() produced an error: %v", err)

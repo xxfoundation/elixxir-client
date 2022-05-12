@@ -18,21 +18,25 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 )
 
-// Request contains the information to respond to a single-use contact.
+// Request contains the information contained in a single-use request message.
 type Request struct {
-	sender         *id.ID      // ID of the person to respond to
+	sender         *id.ID      // ID of the sender/ID to send response to
 	senderPubKey   *cyclic.Int // Public key of the sender
 	dhKey          *cyclic.Int // DH key
 	tag            string      // Identifies which callback to use
 	maxParts       uint8       // Max number of messages allowed in reply
-	used           *uint32     // Atomic variable
-	requestPayload []byte
-	net            RequestCmix
+	used           *uint32     // Set when response is sent
+	requestPayload []byte      // Request message payload
+
+	net RequestCmix
 }
 
+// RequestCmix interface matches a subset of the cmix.Client methods used by the
+// Request for easier testing.
 type RequestCmix interface {
 	GetMaxMessageLength() int
 	Send(recipient *id.ID, fingerprint format.Fingerprint,
@@ -41,55 +45,13 @@ type RequestCmix interface {
 	GetInstance() *network.Instance
 }
 
-// GetMaxParts returns the maximum number of message parts that can be sent in a
-// reply.
-func (r Request) GetMaxParts() uint8 {
-	return r.maxParts
-}
-
-// GetMaxResponseLength returns the maximum total payload size, which is the
-// maximum size of each individual part multiplied by the maximum number of parts
-func (r Request) GetMaxResponseLength() int {
-	return r.GetMaxContentsSize() * int(r.GetMaxParts())
-}
-
-// GetMaxContentsSize returns maximum payload size for an individual part
-func (r Request) GetMaxContentsSize() int {
-	responseMsg := message.NewResponsePart(r.net.GetMaxMessageLength())
-	return responseMsg.GetMaxContentsSize()
-}
-
-// GetPartner returns a copy of the sender ID.
-func (r Request) GetPartner() *id.ID {
-	return r.sender.DeepCopy()
-}
-
-// GetTag returns the tag for the request.
-func (r Request) GetTag() string {
-	return r.tag
-}
-
-// GetPayload returns the payload that came in the request
-func (r Request) GetPayload() []byte {
-	return r.requestPayload
-}
-
-// String returns a string of the Contact structure.
-func (r Request) String() string {
-	return fmt.Sprintf(
-		"{sender:%s senderPubKey:%s dhKey:%s tag:%q maxParts:%d used:%p(%d) "+
-			"requestPayload:%q net:%p}",
-		r.sender, r.senderPubKey.Text(10), r.dhKey.Text(10), r.tag, r.maxParts,
-		r.used, atomic.LoadUint32(r.used), r.requestPayload, r.net)
-}
-
 // Respond is used to respond to the request. It sends a payload up to
 // Request.GetMaxResponseLength. It will chunk the message into multiple cMix
 // messages if it is too long for a single message. It will fail if a single
 // cMix message cannot be sent.
-func (r Request) Respond(payload []byte, cMixParams cmix.CMIXParams,
+func (r *Request) Respond(payload []byte, cMixParams cmix.CMIXParams,
 	timeout time.Duration) ([]id.Round, error) {
-	// make sure this has only been run once
+	// Make sure this has only been run once
 	newRun := atomic.CompareAndSwapUint32(r.used, 0, 1)
 	if !newRun {
 		return nil, errors.Errorf("cannot respond to single-use response " +
@@ -185,13 +147,57 @@ func (r Request) Respond(payload []byte, cMixParams cmix.CMIXParams,
 	return rounds, nil
 }
 
+// GetMaxParts returns the maximum number of messages allowed to send in the
+// reply.
+func (r *Request) GetMaxParts() uint8 {
+	return r.maxParts
+}
+
+// GetMaxResponseLength returns the maximum size of the entire response message.
+func (r *Request) GetMaxResponseLength() int {
+	return r.GetMaxResponsePartSize() * int(r.GetMaxParts())
+}
+
+// GetMaxResponsePartSize returns maximum payload size for an individual part of
+// the response message.
+func (r *Request) GetMaxResponsePartSize() int {
+	responseMsg := message.NewResponsePart(r.net.GetMaxMessageLength())
+	return responseMsg.GetMaxContentsSize()
+}
+
+// GetPartner returns a copy of the sender ID.
+func (r *Request) GetPartner() *id.ID {
+	return r.sender.DeepCopy()
+}
+
+// GetTag returns the tag for the request.
+func (r *Request) GetTag() string {
+	return r.tag
+}
+
+// GetPayload returns the payload that came in the request
+func (r *Request) GetPayload() []byte {
+	return r.requestPayload
+}
+
+// GoString returns string showing the values of all the fields of Request.
+// Adheres to the fmt.GoStringer interface.
+func (r *Request) GoString() string {
+	return fmt.Sprintf(
+		"{sender:%s senderPubKey:%s dhKey:%s tag:%q maxParts:%d used:%p(%d) "+
+			"requestPayload:%q net:%p}",
+		r.sender, r.senderPubKey.Text(10), r.dhKey.Text(10), r.tag, r.maxParts,
+		r.used, atomic.LoadUint32(r.used), r.requestPayload, r.net)
+}
+
 // partitionResponse breaks a payload into its sub payloads for sending.
-func partitionResponse(payload []byte, cmixMessageLength int, maxParts uint8) []message.ResponsePart {
+func partitionResponse(payload []byte, cmixMessageLength int,
+	maxParts uint8) []message.ResponsePart {
 	responseMsg := message.NewResponsePart(cmixMessageLength)
 
 	// Split payloads
-	payloadParts := splitPayload(payload, responseMsg.GetMaxContentsSize(),
-		int(maxParts))
+	payloadParts := splitPayload(
+		payload, responseMsg.GetMaxContentsSize(), int(maxParts))
 
 	// Create messages
 	parts := make([]message.ResponsePart, len(payloadParts))
@@ -217,4 +223,18 @@ func splitPayload(payload []byte, maxSize, maxParts int) [][]byte {
 		parts = append(parts, buff.Next(maxSize))
 	}
 	return parts
+}
+
+// BuildTestRequest can be used for mocking a Request
+func BuildTestRequest(payload []byte, t *testing.T) *Request {
+	return &Request{
+		sender:         nil,
+		senderPubKey:   nil,
+		dhKey:          nil,
+		tag:            "",
+		maxParts:       0,
+		used:           nil,
+		requestPayload: payload,
+		net:            nil,
+	}
 }

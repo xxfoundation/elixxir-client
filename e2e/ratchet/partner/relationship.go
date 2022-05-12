@@ -249,7 +249,7 @@ func (r *relationship) GetNewest() *session.Session {
 }
 
 // returns the key which is most likely to be successful for sending
-func (r *relationship) getKeyForSending() (*session.Cypher, error) {
+func (r *relationship) getKeyForSending() (session.Cypher, error) {
 	r.sendMux.Lock()
 	defer r.sendMux.Unlock()
 	s := r.getSessionForSending()
@@ -325,7 +325,7 @@ func (r *relationship) TriggerNegotiation() []*session.Session {
 }
 
 // returns a key which should be used for rekeying
-func (r *relationship) getKeyForRekey() (*session.Cypher, error) {
+func (r *relationship) getKeyForRekey() (session.Cypher, error) {
 	r.sendMux.Lock()
 	defer r.sendMux.Unlock()
 	s := r.getNewestRekeyableSession()

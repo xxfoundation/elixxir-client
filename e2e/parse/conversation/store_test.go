@@ -17,7 +17,7 @@ import (
 
 // Happy path.
 func TestStore_Delete(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	store := NewStore(kv)
 	pIDs := make([]*id.ID, 10)
 

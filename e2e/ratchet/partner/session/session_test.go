@@ -172,10 +172,12 @@ func TestSession_Serialization(t *testing.T) {
 // PopKey should return a new key from this session
 func TestSession_PopKey(t *testing.T) {
 	s, _ := makeTestSession()
-	key, err := s.PopKey()
+	keyInterface, err := s.PopKey()
 	if err != nil {
 		t.Fatal(err)
 	}
+	key := keyInterface.(*cypher)
+
 	if key == nil {
 		t.Error("PopKey should have returned non-nil key")
 	}
@@ -232,10 +234,12 @@ func TestSession_PopKey_Error(t *testing.T) {
 // There's no boundary, except for the number of keyNums in the state vector
 func TestSession_PopReKey(t *testing.T) {
 	s, _ := makeTestSession()
-	key, err := s.PopReKey()
+	keyInterface, err := s.PopReKey()
 	if err != nil {
 		t.Fatal("PopKey should have returned an error")
 	}
+	key := keyInterface.(*cypher)
+
 	if key == nil {
 		t.Error("Key should be non-nil")
 	}

@@ -159,7 +159,7 @@ func TestRequestPart_SetContents_GetContents_GetContentsSize_GetMaxContentsSize(
 	}
 
 	if externalPayloadSize-reqPartMinSize != rmp.GetMaxContentsSize() {
-		t.Errorf("GetMaxContentsSize failed to return the expected max "+
+		t.Errorf("GetMaxResponsePartSize failed to return the expected max "+
 			"contents size.\nexpected: %d\nrecieved: %d",
 			externalPayloadSize-reqPartMinSize, rmp.GetMaxContentsSize())
 	}

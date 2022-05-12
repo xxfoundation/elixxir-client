@@ -39,11 +39,11 @@ func TestGenerateE2ESessionBaseKey(t *testing.T) {
 	// SIDH keys
 	pubA := sidh.NewPublicKey(sidh.Fp434, sidh.KeyVariantSidhA)
 	privA := sidh.NewPrivateKey(sidh.Fp434, sidh.KeyVariantSidhA)
-	privA.Generate(myRng)
+	_ = privA.Generate(myRng)
 	privA.GeneratePublicKey(pubA)
 	pubB := sidh.NewPublicKey(sidh.Fp434, sidh.KeyVariantSidhB)
 	privB := sidh.NewPrivateKey(sidh.Fp434, sidh.KeyVariantSidhB)
-	privB.Generate(myRng)
+	_ = privB.Generate(myRng)
 	privB.GeneratePublicKey(pubB)
 
 	myRng.Close()
@@ -60,47 +60,45 @@ func TestGenerateE2ESessionBaseKey(t *testing.T) {
 
 }
 
-// Happy path of newKey().
-func Test_newKey(t *testing.T) {
+// Happy path of newCypher.
+func Test_newCypher(t *testing.T) {
 	s, _ := makeTestSession()
 
-	expectedKey := &Cypher{
+	expectedKey := &cypher{
 		session: s,
 		keyNum:  rand.Uint32(),
 	}
 
-	testKey := newKey(expectedKey.session, expectedKey.keyNum)
+	testKey := newCypher(expectedKey.session, expectedKey.keyNum)
 
 	if !reflect.DeepEqual(expectedKey, testKey) {
-		t.Errorf("newKey() did not produce the expected Key."+
-			"\n\texpected: %v\n\treceived: %v",
+		t.Errorf("Unexpected new key.\nexpected: %+v\nreceived: %v",
 			expectedKey, testKey)
 	}
 }
 
-// Happy path of Key.GetSession().
-func TestKey_GetSession(t *testing.T) {
+// Happy path of cypher.GetSession.
+func Test_cypher_GetSession(t *testing.T) {
 	s, _ := makeTestSession()
 
-	k := newKey(s, rand.Uint32())
+	cy := newCypher(s, rand.Uint32())
 
-	testSession := k.GetSession()
+	testSession := cy.GetSession()
 
-	if !reflect.DeepEqual(k.session, testSession) {
-
-		if !reflect.DeepEqual(k.session, testSession) {
+	if !reflect.DeepEqual(cy.session, testSession) {
+		if !reflect.DeepEqual(cy.session, testSession) {
 			t.Errorf("GetSession() did not produce the expected Session."+
 				"\n\texpected: %v\n\treceived: %v",
-				k.session, testSession)
+				cy.session, testSession)
 		}
 	}
 }
 
-// Happy path of Key.Fingerprint().
-func TestKey_Fingerprint(t *testing.T) {
+// Happy path of cypher.Fingerprint.
+func Test_cypher_Fingerprint(t *testing.T) {
 	s, _ := makeTestSession()
 
-	k := newKey(s, rand.Uint32())
+	cy := newCypher(s, rand.Uint32())
 
 	// Generate test and expected fingerprints
 	testFingerprint := getFingerprint()
@@ -109,13 +107,13 @@ func TestKey_Fingerprint(t *testing.T) {
 		expectedFP format.Fingerprint
 	}{
 		{testFingerprint, *testFingerprint},
-		{nil, e2e.DeriveKeyFingerprint(k.session.baseKey, k.keyNum)},
+		{nil, e2e.DeriveKeyFingerprint(cy.session.baseKey, cy.keyNum)},
 	}
 
 	// Test cases
 	for _, data := range testData {
-		k.fp = data.testFP
-		testFP := k.Fingerprint()
+		cy.fp = data.testFP
+		testFP := cy.Fingerprint()
 
 		if !reflect.DeepEqual(data.expectedFP, testFP) {
 			t.Errorf("Fingerprint() did not produce the expected Fingerprint."+
@@ -125,7 +123,7 @@ func TestKey_Fingerprint(t *testing.T) {
 	}
 }
 
-func TestKey_EncryptDecrypt(t *testing.T) {
+func Test_cypher_EncryptDecrypt(t *testing.T) {
 
 	const numTests = 100
 
@@ -134,7 +132,7 @@ func TestKey_EncryptDecrypt(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 
 	for i := 0; i < numTests; i++ {
-		// finalizeKeyNegotation the baseKey and session
+		// Finalize Key negotiation the baseKey and session
 		privateKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 		publicKey := dh.GeneratePublicKey(privateKey, grp)
 		baseKey := dh.GenerateSessionKey(privateKey, publicKey, grp)
@@ -143,30 +141,30 @@ func TestKey_EncryptDecrypt(t *testing.T) {
 			baseKey: baseKey,
 		}
 
-		//create the keys
-		k := newKey(s, prng.Uint32())
+		// Create the cypher
+		cy := newCypher(s, prng.Uint32())
 
-		//make the message to be encrypted
+		// Make the message to be encrypted
 		msg := format.NewMessage(grp.GetP().ByteLen())
 
-		//set the contents
+		// Set the contents
 		contents := make([]byte, msg.ContentsSize())
 		prng.Read(contents)
 		msg.SetContents(contents)
 
 		// Encrypt
-		contentsEnc, mac := k.Encrypt(msg.GetContents())
+		contentsEnc, mac := cy.Encrypt(msg.GetContents())
 
-		//make the encrypted message
+		// Make the encrypted message
 		ecrMsg := format.NewMessage(grp.GetP().ByteLen())
-		ecrMsg.SetKeyFP(k.Fingerprint())
+		ecrMsg.SetKeyFP(cy.Fingerprint())
 		ecrMsg.SetContents(contentsEnc)
 		ecrMsg.SetMac(mac)
 
 		// Decrypt
-		contentsDecr, err := k.Decrypt(ecrMsg)
+		contentsDecr, err := cy.Decrypt(ecrMsg)
 		if err != nil {
-			t.Fatalf("Decrypt error: %v", err)
+			t.Fatalf("Decrypt error: %+v", err)
 		}
 
 		if !bytes.Equal(contentsDecr, msg.GetContents()) {
@@ -176,35 +174,34 @@ func TestKey_EncryptDecrypt(t *testing.T) {
 	}
 }
 
-// Happy path of Key.Use()
-func TestKey_denoteUse(t *testing.T) {
+// Happy path of cypher.Use.
+func Test_cypher_Use(t *testing.T) {
 	s, _ := makeTestSession()
 
 	keyNum := uint32(rand.Int31n(31))
 
-	k := newKey(s, keyNum)
+	k := newCypher(s, keyNum)
 
 	k.Use()
 
 	if !k.session.keyState.Used(keyNum) {
-		t.Errorf("Use() did not use the key")
+		t.Errorf("Use did not use the key")
 	}
 }
 
-// Happy path of generateKey().
-func TestKey_generateKey(t *testing.T) {
+// Happy path of cypher.generateKey.
+func Test_cypher_generateKey(t *testing.T) {
 	s, _ := makeTestSession()
 
-	k := newKey(s, rand.Uint32())
+	k := newCypher(s, rand.Uint32())
 
 	// Generate test CryptoType values and expected keys
 	expectedKey := e2e.DeriveKey(k.session.baseKey, k.keyNum)
 	testKey := k.generateKey()
 
 	if !reflect.DeepEqual(expectedKey, testKey) {
-		t.Errorf("generateKey() did not produce the expected e2e key."+
-			"\n\texpected: %v\n\treceived: %v",
-			expectedKey, testKey)
+		t.Errorf("generateKey did not produce the expected e2e key."+
+			"\nexpected: %v\nreceived: %v", expectedKey, testKey)
 	}
 
 }

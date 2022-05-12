@@ -23,7 +23,7 @@ import (
 func TestE2EMessageHandler_SaveMessage(t *testing.T) {
 	// Set up test values
 	emg := &e2eMessageHandler{}
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	testMsgs := makeTestE2EMessages(10, t)
 
 	for _, msg := range testMsgs {
@@ -60,7 +60,7 @@ func TestE2EMessageHandler_SaveMessage(t *testing.T) {
 func TestE2EMessageHandler_LoadMessage(t *testing.T) {
 	// Set up test values
 	cmh := &e2eMessageHandler{}
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	testMsgs := makeTestE2EMessages(10, t)
 
 	for _, msg := range testMsgs {
@@ -96,7 +96,7 @@ func TestE2EMessageHandler_LoadMessage(t *testing.T) {
 func TestE2EMessageHandler_Smoke(t *testing.T) {
 	// Set up test messages
 	testMsgs := makeTestE2EMessages(2, t)
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	// Create new buffer
 	cmb, err := NewOrLoadE2eMessageBuffer(kv, "testKey")
 	if err != nil {
@@ -178,7 +178,7 @@ func TestE2EParamMarshalUnmarshal(t *testing.T) {
 		Payload:     []byte{1, 2, 3, 4, 5, 6, 7, 8, 9},
 		MessageType: 42,
 		Params: Params{
-			CMIX: cmix.CMIXParams{
+			CMIXParams: cmix.CMIXParams{
 				RoundTries:       6,
 				Timeout:          99,
 				RetryDelay:       -4,

@@ -41,7 +41,7 @@ func TestFullExchange(t *testing.T) {
 	rng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	aliceID = id.NewIdFromString("zezima", id.User, t)
 
-	kv := versioned.NewKV(ekv.Memstore{})
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	// Maintain an ID for bob
 	bobID = id.NewIdFromBytes([]byte("test"), t)

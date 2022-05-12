@@ -19,6 +19,7 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -26,20 +27,6 @@ import (
 type Response interface {
 	Callback(payload []byte, receptionID receptionID.EphemeralIdentity,
 		rounds []rounds.Round, err error)
-}
-
-type RequestParams struct {
-	Timeout             time.Duration
-	MaxResponseMessages uint8
-	CmixParam           cmix.CMIXParams
-}
-
-func GetDefaultRequestParams() RequestParams {
-	return RequestParams{
-		Timeout:             30 * time.Second,
-		MaxResponseMessages: 255,
-		CmixParam:           cmix.GetDefaultCMIXParams(),
-	}
 }
 
 // Error messages.
@@ -51,7 +38,7 @@ const (
 	errMakeIDs         = "failed to generate IDs (%s for %s): %+v"
 	errAddFingerprint  = "failed to add fingerprint %d of %d: %+v (%s for %s)"
 	errSendRequest     = "failed to send %s request to %s: %+v"
-	errSendRequestPart = "failed to send request part %d of %d (%s for %s): %+v"
+	errSendRequestPart = "%d requests failed to send, the request will be handleable and will time out"
 
 	// generateDhKeys
 	errGenerateInGroup = "failed to generate private key in group: %+v"
@@ -69,8 +56,8 @@ const maxNumRequestParts = 255
 
 // GetMaxRequestSize returns the maximum size of a request payload.
 func GetMaxRequestSize(net Cmix, e2eGrp *cyclic.Group) int {
-	payloadSize := message.GetRequestPayloadSize(net.GetMaxMessageLength(),
-		e2eGrp.GetP().ByteLen())
+	payloadSize := message.GetRequestPayloadSize(
+		net.GetMaxMessageLength(), e2eGrp.GetP().ByteLen())
 	requestSize := message.GetRequestContentsSize(payloadSize)
 	requestPartSize := message.GetRequestPartContentsSize(
 		net.GetMaxMessageLength())
@@ -96,7 +83,7 @@ func GetMaxRequestSize(net Cmix, e2eGrp *cyclic.Group) int {
 //
 // The network follower must be running and healthy to transmit.
 func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
-	callback Response, param RequestParams, net Cmix, rng csprng.Source,
+	responseCB Response, params RequestParams, net Cmix, rng csprng.Source,
 	e2eGrp *cyclic.Group) ([]id.Round, receptionID.EphemeralIdentity, error) {
 
 	if len(payload) > GetMaxRequestSize(net, e2eGrp) {
@@ -132,12 +119,13 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	request := message.NewRequest(
 		net.GetMaxMessageLength(), e2eGrp.GetP().ByteLen())
 	requestPayload := message.NewRequestPayload(
-		request.GetPayloadSize(), firstPart, param.MaxResponseMessages)
+		request.GetPayloadSize(), firstPart, params.MaxResponseMessages)
+	requestPayload.SetNumRequestParts(1 + uint8(len(parts)))
 
 	// Generate new user ID and address ID
 	var sendingID receptionID.EphemeralIdentity
 	requestPayload, sendingID, err = makeIDs(
-		requestPayload, publicKey, addressSize, param.Timeout, timeStart, rng)
+		requestPayload, publicKey, addressSize, params.Timeout, timeStart, rng)
 	if err != nil {
 		return nil, receptionID.EphemeralIdentity{},
 			errors.Errorf(errMakeIDs, tag, recipient, err)
@@ -156,7 +144,7 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	request.SetPayload(encryptedPayload)
 
 	// Register the response pickup
-	collator := message.NewCollator(param.MaxResponseMessages)
+	collator := message.NewCollator(params.MaxResponseMessages)
 	timeoutKillChan := make(chan bool)
 	var callbackOnce sync.Once
 	wrapper := func(payload []byte, receptionID receptionID.EphemeralIdentity,
@@ -168,11 +156,11 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 
 		callbackOnce.Do(func() {
 			net.DeleteClientFingerprints(sendingID.Source)
-			go callback.Callback(payload, receptionID, rounds, err)
+			go responseCB.Callback(payload, receptionID, rounds, err)
 		})
 	}
 
-	cyphers := makeCyphers(dhKey, param.MaxResponseMessages,
+	cyphers := makeCyphers(dhKey, params.MaxResponseMessages,
 		singleUse.NewResponseKey, singleUse.NewResponseFingerprint)
 
 	roundIds := newRoundIdCollector(len(cyphers))
@@ -195,7 +183,7 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 		}
 	}
 
-	net.AddIdentity(sendingID.Source, timeStart.Add(param.Timeout), false)
+	net.AddIdentity(sendingID.Source, timeStart.Add(params.Timeout), false)
 
 	// Send the payload
 	svc := cmixMsg.Service{
@@ -203,36 +191,74 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 		Tag:        tag,
 		Metadata:   nil,
 	}
-	param.CmixParam.Timeout = param.Timeout
+	params.CmixParams.Timeout = params.Timeout
+	if params.CmixParams.DebugTag == cmix.DefaultDebugTag ||
+		params.CmixParams.DebugTag == "" {
+		params.CmixParams.DebugTag = "single-use.Request"
+	}
 
-	rid, _, err := net.Send(
-		recipient.ID, fp, svc, request.Marshal(), mac, param.CmixParam)
+	jww.INFO.Printf("[SU] Sending single-use request cMix message with %d "+
+		"parts to %s (%s).", 1+len(parts), recipient.ID, tag)
+
+	rid, ephID, err := net.Send(
+		recipient.ID, fp, svc, request.Marshal(), mac, params.CmixParams)
 	if err != nil {
 		return nil, receptionID.EphemeralIdentity{},
 			errors.Errorf(errSendRequest, tag, recipient, err)
 	}
 
+	jww.DEBUG.Printf("[SU] Sent single-use request cMix message part "+
+		"%d of %d on round %d to %s (eph ID %d) (%s).",
+		0, len(parts)+1, rid, recipient.ID, ephID.Int64(), tag)
+
+	var wg sync.WaitGroup
+	wg.Add(len(parts))
+	failed := uint32(0)
+
 	roundIDs := make([]id.Round, len(parts)+1)
 	roundIDs[0] = rid
 	for i, part := range parts {
-		requestPart := message.NewRequestPart(net.GetMaxMessageLength())
-		requestPart.SetPartNum(uint8(i + 1))
-		requestPart.SetContents(part)
+		go func(i int, part []byte) {
+			defer wg.Done()
+			requestPart := message.NewRequestPart(net.GetMaxMessageLength())
+			requestPart.SetPartNum(uint8(i))
+			requestPart.SetContents(part)
 
-		key = singleUse.NewResponseKey(dhKey, uint64(i+1))
-		fp = singleUse.NewResponseFingerprint(dhKey, uint64(i+1))
-		encryptedPayload = auth.Crypt(key, fp[:24], requestPart.Marshal())
-		mac = singleUse.MakeMAC(key, encryptedPayload)
+			key := singleUse.NewRequestPartKey(dhKey, uint64(i))
+			fp := singleUse.NewRequestPartFingerprint(dhKey, uint64(i))
+			encryptedPayload := auth.Crypt(key, fp[:24], requestPart.Marshal())
+			mac := singleUse.MakeMAC(key, encryptedPayload)
 
-		roundIDs[i+1], _, err = net.Send(
-			recipient.ID, fp, svc, encryptedPayload, mac, param.CmixParam)
-		if err != nil {
-			return nil, receptionID.EphemeralIdentity{}, errors.Errorf(
-				errSendRequestPart, i, len(part), tag, recipient, err)
-		}
+			var ephID ephemeral.Id
+			var err error
+			roundIDs[i], ephID, err = net.Send(recipient.ID, fp,
+				cmixMsg.Service{}, encryptedPayload, mac, params.CmixParams)
+			if err != nil {
+				atomic.AddUint32(&failed, 1)
+				jww.ERROR.Printf("[SU] Failed to send single-use request "+
+					"cMix message part %d of %d to %s (%s): %+v",
+					i, len(part)+1, recipient.ID, tag, err)
+				return
+			}
+
+			jww.DEBUG.Printf("[SU] Sent single-use request cMix message part "+
+				"%d of %d on round %d to %s (eph ID %d) (%s).", i,
+				len(parts)+1, roundIDs[i], recipient.ID, ephID.Int64(), tag)
+		}(i+1, part)
 	}
 
-	remainingTimeout := param.Timeout - netTime.Since(timeStart)
+	// Wait for all go routines to finish
+	wg.Wait()
+
+	if failed > 0 {
+		return nil, receptionID.EphemeralIdentity{},
+			errors.Errorf(errSendRequestPart, failed)
+	}
+
+	jww.INFO.Printf("[SU] Sent single-use request cMix message with %d "+
+		"parts to %s (%s).", 1+len(parts), recipient.ID, tag)
+
+	remainingTimeout := params.Timeout - netTime.Since(timeStart)
 	go waitForTimeout(timeoutKillChan, wrapper, remainingTimeout)
 
 	return []id.Round{rid}, sendingID, nil
@@ -294,8 +320,8 @@ func makeIDs(payload message.RequestPayload, publicKey *cyclic.Int,
 	}
 
 	jww.INFO.Printf("[SU] Generated singe-use sender reception ID: %s, "+
-		"ephId: %d, publicKey: %x, payload: %q",
-		rid, ephID.Int64(), publicKey.Bytes(), payload)
+		"ephId: %d, publicKey: %s, payload: %q",
+		rid, ephID.Int64(), publicKey.Text(10), payload)
 
 	return payload, receptionID.EphemeralIdentity{
 		EphId:  ephID,
@@ -310,12 +336,8 @@ func waitForTimeout(kill chan bool, cb callbackWrapper, timeout time.Duration) {
 	case <-kill:
 		return
 	case <-time.After(timeout):
-		cb(
-			nil,
-			receptionID.EphemeralIdentity{},
-			nil,
-			errors.Errorf(errResponseTimeout, timeout),
-		)
+		cb(nil, receptionID.EphemeralIdentity{}, nil,
+			errors.Errorf(errResponseTimeout, timeout))
 	}
 }
 

@@ -220,7 +220,6 @@ func mapRequestPayload(data []byte) RequestPayload {
 		size:             data[nonceSize+numRequestPartsSize+maxResponsePartsSize : requestMinSize],
 		contents:         data[requestMinSize:],
 	}
-	mp.numRequestParts[0] = 1
 
 	return mp
 }

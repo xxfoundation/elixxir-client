@@ -194,7 +194,6 @@ func TestNewRequestPayload(t *testing.T) {
 		size:             make([]byte, sizeSize),
 		contents:         make([]byte, payloadSize-requestMinSize),
 	}
-	expected.numRequestParts[0] = 1
 	binary.BigEndian.PutUint16(expected.size, uint16(payloadSize-requestMinSize))
 	expected.SetMaxResponseParts(10)
 	expected.data = append(expected.nonce,

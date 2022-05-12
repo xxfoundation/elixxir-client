@@ -22,6 +22,15 @@ import (
 	"time"
 )
 
+// Error messages.
+const (
+	// Request.Respond
+	errSendResponse      = "%d responses failed to send, the response will be handleable and will time out"
+	errUsed              = "cannot respond to single-use response that has already been responded to"
+	errMaxResponseLength = "length of provided payload %d greater than max payload %d"
+	errTrackResults      = "tracking results of %d rounds: %d round failures, %d round event time-outs; the send cannot be retried."
+)
+
 // Request contains the information contained in a single-use request message.
 type Request struct {
 	sender         *id.ID      // ID of the sender/ID to send response to
@@ -54,15 +63,13 @@ func (r *Request) Respond(payload []byte, cMixParams cmix.CMIXParams,
 	// Make sure this has only been run once
 	newRun := atomic.CompareAndSwapUint32(r.used, 0, 1)
 	if !newRun {
-		return nil, errors.Errorf("cannot respond to single-use response " +
-			"that has already been responded to")
+		return nil, errors.New(errUsed)
 	}
 
 	// Check that the payload is not too long
 	if len(payload) > r.GetMaxResponseLength() {
-		return nil, errors.Errorf("length of provided payload too long for "+
-			"message payload capacity, max: %d, received: %d",
-			r.GetMaxResponseLength(), len(payload))
+		return nil, errors.Errorf(
+			errMaxResponseLength, len(payload), r.GetMaxResponseLength())
 	}
 
 	// Partition the payload
@@ -74,20 +81,16 @@ func (r *Request) Respond(payload []byte, cMixParams cmix.CMIXParams,
 	rounds := make([]id.Round, len(parts))
 	sendResults := make(chan ds.EventReturn, len(parts))
 
-	if cMixParams.DebugTag != cmix.DefaultDebugTag {
-		cMixParams.DebugTag = "single.Response"
-	}
-
-	// fixme: should the above debug tag and the below service tag be flipped??
-	svc := cmixMsg.Service{
-		Identifier: r.dhKey.Bytes(),
-		Tag:        "single.response-dummyService",
-		Metadata:   nil,
+	if cMixParams.DebugTag == cmix.DefaultDebugTag || cMixParams.DebugTag == "" {
+		cMixParams.DebugTag = "single-use.Response"
 	}
 
 	var wg sync.WaitGroup
 	wg.Add(len(parts))
 	failed := uint32(0)
+
+	jww.INFO.Printf("[SU] Sending single-use response cMix message with %d "+
+		"parts to %s (%s)", len(parts), r.sender, r.tag)
 
 	for i := 0; i < len(parts); i++ {
 		go func(i int, part []byte) {
@@ -96,16 +99,18 @@ func (r *Request) Respond(payload []byte, cMixParams cmix.CMIXParams,
 
 			// Send Message
 			round, ephID, err := r.net.Send(
-				r.sender, partFP, svc, ecrPart, mac, cMixParams)
+				r.sender, partFP, cmixMsg.Service{}, ecrPart, mac, cMixParams)
 			if err != nil {
 				atomic.AddUint32(&failed, 1)
 				jww.ERROR.Printf("[SU] Failed to send single-use response "+
-					"cMix message part %d of %d: %+v", i, len(parts), err)
+					"cMix message part %d of %d to %s (%s): %+v",
+					i, len(parts), r.sender, r.tag, err)
 				return
 			}
 
 			jww.DEBUG.Printf("[SU] Sent single-use response cMix message part "+
-				"%d on round %d to address ID %d.", i, round, ephID.Int64())
+				"%d of %d on round %d to %s (eph ID %d) (%s).",
+				i, len(parts), round, r.sender, ephID.Int64(), r.tag)
 			rounds[i] = round
 
 			r.net.GetInstance().GetRoundEvents().AddRoundEventChan(
@@ -117,12 +122,11 @@ func (r *Request) Respond(payload []byte, cMixParams cmix.CMIXParams,
 	wg.Wait()
 
 	if failed > 0 {
-		return nil, errors.Errorf("One or more send failed for the " +
-			"response, the response will be handleable and will time out")
+		return nil, errors.Errorf(errSendResponse, failed)
 	}
 
-	jww.DEBUG.Printf("Sent %d single-use response CMIX messages to %s.",
-		len(parts), r.sender)
+	jww.INFO.Printf("[SU] Sent single-use response cMix message with %d "+
+		"parts to %s (%s).", len(parts), r.sender, r.tag)
 
 	// Count the number of rounds
 	roundMap := map[id.Round]struct{}{}
@@ -136,12 +140,11 @@ func (r *Request) Respond(payload []byte, cMixParams cmix.CMIXParams,
 	success, numRoundFail, numTimeOut := cmix.TrackResults(
 		sendResults, len(roundMap))
 	if !success {
-		return nil, errors.Errorf("tracking results of %d rounds: %d round "+
-			"failures, %d round event time outs; the send cannot be retried.",
-			len(rounds), numRoundFail, numTimeOut)
+		return nil, errors.Errorf(
+			errTrackResults, len(rounds), numRoundFail, numTimeOut)
 	}
 
-	jww.DEBUG.Printf("Tracked %d single-use response message round(s).",
+	jww.DEBUG.Printf("[SU] Tracked %d single-use response message round(s).",
 		len(roundMap))
 
 	return rounds, nil
@@ -225,8 +228,9 @@ func splitPayload(payload []byte, maxSize, maxParts int) [][]byte {
 	return parts
 }
 
-// BuildTestRequest can be used for mocking a Request
-func BuildTestRequest(payload []byte, t *testing.T) *Request {
+// BuildTestRequest can be used for mocking a Request. Should only be used for
+// tests.
+func BuildTestRequest(payload []byte, _ testing.TB) *Request {
 	return &Request{
 		sender:         nil,
 		senderPubKey:   nil,

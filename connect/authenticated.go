@@ -20,6 +20,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
+	"time"
 )
 
 // Constant error messages
@@ -62,11 +63,24 @@ func ConnectWithAuthentication(recipient contact.Contact, myId *id.ID,
 	conn, err := Connect(recipient, myId, myDhPrivKey, rng, grp, net, p)
 	if err != nil {
 		return nil, errors.Errorf("failed to establish connection "+
-			"with recipient %s: %v", recipient.ID, err)
+			"with recipient %s: %+v", recipient.ID, err)
 	}
 
+	// Build the authenticated connection and return
+	return connectWithAuthentication(conn, timeStart, recipient, salt, myRsaPrivKey,
+		rng, net, p)
+}
+
+// connectWithAuthentication builds and sends an IdentityAuthentication to
+// the server. This will wait until the round it sends on completes or a
+// timeout occurs.
+func connectWithAuthentication(conn Connection, timeStart time.Time,
+	recipient contact.Contact, salt []byte, myRsaPrivKey *rsa.PrivateKey,
+	rng *fastRNG.StreamGenerator,
+	net cmix.Client, p Params) (AuthenticatedConnection, error) {
 	// Construct message to prove your identity to the server
-	payload, err := makeClientAuthRequest(conn.GetPartner(), rng, myRsaPrivKey, salt)
+	payload, err := buildClientAuthRequest(conn.GetPartner(), rng,
+		myRsaPrivKey, salt)
 	if err != nil {
 		// Close connection on an error
 		errClose := conn.Close()
@@ -164,9 +178,9 @@ func StartAuthenticatedServer(cb AuthenticatedCallback,
 	// Register the waiter for a connection establishment
 	connCb := Callback(func(connection Connection) {
 		// Upon establishing a connection, register a listener for the
-		// client's identity proof. If a identity authentication
+		// client's identity proof. If an identity authentication
 		// message is received and validated, an authenticated connection will
-		// be passed along via the callback
+		// be passed along via the AuthenticatedCallback
 		connection.RegisterListener(catalog.ConnectionAuthenticationRequest,
 			buildAuthConfirmationHandler(cb, connection))
 	})
@@ -174,8 +188,8 @@ func StartAuthenticatedServer(cb AuthenticatedCallback,
 		net, p)
 }
 
-// authenticatedHandler provides an implementation for the AuthenticatedConnection
-// interface.
+// authenticatedHandler provides an implementation for the
+// AuthenticatedConnection interface.
 type authenticatedHandler struct {
 	Connection
 	isAuthenticated bool

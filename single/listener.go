@@ -89,28 +89,28 @@ func (l *listener) Process(ecrMsg format.Message,
 func (l *listener) process(ecrMsg format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) error {
 	// Unmarshal the cMix message contents to a request message
-	requestMsg, err := message.UnmarshalRequest(ecrMsg.GetContents(),
+	request, err := message.UnmarshalRequest(ecrMsg.GetContents(),
 		l.grp.GetP().ByteLen())
 	if err != nil {
 		return errors.Errorf("could not unmarshal contents: %+v", err)
 	}
 
 	// Generate DH key and symmetric key
-	senderPubkey := requestMsg.GetPubKey(l.grp)
+	senderPubkey := request.GetPubKey(l.grp)
 	dhKey := l.grp.Exp(senderPubkey, l.myPrivKey, l.grp.NewInt(1))
 	key := singleUse.NewRequestKey(dhKey)
 
 	// Verify the MAC
-	if !singleUse.VerifyMAC(key, requestMsg.GetPayload(), ecrMsg.GetMac()) {
+	if !singleUse.VerifyMAC(key, request.GetPayload(), ecrMsg.GetMac()) {
 		return errors.New("failed to verify MAC")
 	}
 
 	// Decrypt the request message payload
 	fp := ecrMsg.GetKeyFP()
-	decryptedPayload := cAuth.Crypt(key, fp[:24], requestMsg.GetPayload())
+	decryptedPayload := cAuth.Crypt(key, fp[:24], request.GetPayload())
 
 	// Unmarshal payload
-	payload, err := message.UnmarshalRequestPayload(decryptedPayload)
+	requestPayload, err := message.UnmarshalRequestPayload(decryptedPayload)
 	if err != nil {
 		return errors.Errorf("could not unmarshal decrypted payload: %+v", err)
 	}
@@ -118,11 +118,11 @@ func (l *listener) process(ecrMsg format.Message,
 	cbFunc := func(payloadContents []byte, rounds []rounds.Round) {
 		used := uint32(0)
 		r := Request{
-			sender:         payload.GetRecipientID(requestMsg.GetPubKey(l.grp)),
+			sender:         requestPayload.GetRecipientID(request.GetPubKey(l.grp)),
 			senderPubKey:   senderPubkey,
 			dhKey:          dhKey,
 			tag:            l.tag,
-			maxParts:       payload.GetMaxResponseParts(),
+			maxParts:       requestPayload.GetMaxResponseParts(),
 			used:           &used,
 			requestPayload: payloadContents,
 			net:            l.net,
@@ -131,9 +131,9 @@ func (l *listener) process(ecrMsg format.Message,
 		go l.cb.Callback(&r, receptionID, rounds)
 	}
 
-	if numParts := payload.GetNumParts(); numParts > 1 {
+	if numParts := requestPayload.GetNumRequestParts(); numParts > 1 {
 		c := message.NewCollator(numParts)
-		_, _, err = c.Collate(payload)
+		_, _, err = c.Collate(requestPayload)
 		if err != nil {
 			return errors.Errorf("could not collate initial payload: %+v", err)
 		}
@@ -143,8 +143,6 @@ func (l *listener) process(ecrMsg format.Message,
 		ridCollector := newRoundIdCollector(int(numParts))
 
 		for i, cy := range cyphers {
-			key = singleUse.NewRequestPartKey(dhKey, uint64(i+1))
-			fp = singleUse.NewRequestPartFingerprint(dhKey, uint64(i+1))
 			p := &requestPartProcessor{
 				myId:     l.myID,
 				tag:      l.tag,
@@ -154,7 +152,7 @@ func (l *listener) process(ecrMsg format.Message,
 				roundIDs: ridCollector,
 			}
 
-			err = l.net.AddFingerprint(l.myID, fp, p)
+			err = l.net.AddFingerprint(l.myID, cy.getFingerprint(), p)
 			if err != nil {
 				return errors.Errorf("could not add fingerprint for single-"+
 					"use request part %d of %d: %+v", i, numParts, err)
@@ -163,7 +161,7 @@ func (l *listener) process(ecrMsg format.Message,
 
 		l.net.CheckInProgressMessages()
 	} else {
-		cbFunc(payload.GetContents(), []rounds.Round{round})
+		cbFunc(requestPayload.GetContents(), []rounds.Round{round})
 	}
 
 	return nil

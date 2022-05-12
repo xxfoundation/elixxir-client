@@ -127,4 +127,6 @@ type mockPart struct {
 func (m mockPart) GetNumParts() uint8  { return m.numParts }
 func (m mockPart) GetPartNum() uint8   { return m.partNum }
 func (m mockPart) GetContents() []byte { return m.contents }
-func (m mockPart) Marshal() []byte     { return append([]byte{m.numParts, m.partNum}, m.contents...) }
+func (m mockPart) Marshal() []byte {
+	return append([]byte{m.numParts, m.partNum}, m.contents...)
+}

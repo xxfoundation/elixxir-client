@@ -26,7 +26,7 @@ type SingleRequest struct {
 
 // Request provides several Method of sending Data to the given URI
 // and blocks until the Message is returned
-func (s *SingleRequest) Request(method Method, recipient contact.Contact, path URI,
+func (s *SingleRequest) Request(recipient contact.Contact, method Method, path URI,
 	content Data, headers *Headers, singleParams single.RequestParams) (*Message, error) {
 	// Build the Message
 	newMessage := &Message{
@@ -63,7 +63,7 @@ func (s *SingleRequest) Request(method Method, recipient contact.Contact, path U
 
 // AsyncRequest provides several Method of sending Data to the given URI
 // and will return the Message to the given Callback when received
-func (s *SingleRequest) AsyncRequest(method Method, recipient contact.Contact, path URI,
+func (s *SingleRequest) AsyncRequest(recipient contact.Contact, method Method, path URI,
 	content Data, headers *Headers, cb RequestCallback, singleParams single.RequestParams) error {
 	// Build the Message
 	newMessage := &Message{

@@ -7,6 +7,7 @@
 package connect
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
@@ -169,8 +170,9 @@ func StartServer(cb Callback, myId *id.ID, privKey *cyclic.Int,
 	callback := getAuthCallback(cb, e2eHandler, p)
 
 	// Build auth object for E2E negotiation
-	_, err = auth.NewState(kv, net, e2eHandler,
+	authState, err := auth.NewState(kv, net, e2eHandler,
 		rng, p.Event, p.Auth, callback, nil)
+	callback.authState = authState
 	return err
 }
 
@@ -208,6 +210,7 @@ func (h *handler) GetPartner() partner.Manager {
 func (h *handler) SendE2E(mt catalog.MessageType, payload []byte,
 	params clientE2e.Params) (
 	[]id.Round, e2e.MessageID, time.Time, error) {
+	fmt.Printf("sending e2e\n")
 	return h.e2e.SendE2E(mt, h.partner.PartnerId(), payload, params)
 }
 
@@ -235,13 +238,14 @@ type authCallback struct {
 	// Used for building new Connection objects
 	connectionE2e    clientE2e.Handler
 	connectionParams Params
+	authState        auth.State
 }
 
 // getAuthCallback returns a callback interface to be passed into the creation
 // of an auth.State object.
 func getAuthCallback(cb Callback, e2e clientE2e.Handler,
-	params Params) authCallback {
-	return authCallback{
+	params Params) *authCallback {
+	return &authCallback{
 		connectionCallback: cb,
 		connectionE2e:      e2e,
 		connectionParams:   params,
@@ -272,6 +276,13 @@ func (a authCallback) Confirm(requestor contact.Contact,
 // Request will be called when an auth Request message is processed.
 func (a authCallback) Request(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	_, err := a.authState.Confirm(requestor)
+	if err != nil {
+		jww.ERROR.Printf("Unable to build connection with "+
+			"partner %s: %+v", requestor.ID, err)
+		// Send a nil connection to avoid hold-ups down the line
+		a.connectionCallback(nil)
+	}
 }
 
 // Reset will be called when an auth Reset operation occurs.

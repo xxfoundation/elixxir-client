@@ -7,7 +7,10 @@
 
 package fileTransfer2
 
-import "time"
+import (
+	"gitlab.com/elixxir/client/cmix"
+	"time"
+)
 
 const (
 	defaultMaxThroughput = 150_000 // 150 kB per second
@@ -24,6 +27,9 @@ type Params struct {
 	// times out. It is recommended that SendTimeout is not changed from its
 	// default.
 	SendTimeout time.Duration
+
+	// Cmix are the parameters used when sending a cMix message.
+	Cmix cmix.CMIXParams
 }
 
 // DefaultParams returns a Params object filled with the default values.
@@ -31,5 +37,6 @@ func DefaultParams() Params {
 	return Params{
 		MaxThroughput: defaultMaxThroughput,
 		SendTimeout:   defaultSendTimeout,
+		Cmix:          cmix.GetDefaultCMIXParams(),
 	}
 }

@@ -8,6 +8,7 @@
 package fileTransfer2
 
 import (
+	"gitlab.com/elixxir/client/cmix"
 	"reflect"
 	"testing"
 )
@@ -17,8 +18,10 @@ func TestDefaultParams(t *testing.T) {
 	expected := Params{
 		MaxThroughput: defaultMaxThroughput,
 		SendTimeout:   defaultSendTimeout,
+		Cmix:          cmix.GetDefaultCMIXParams(),
 	}
 	received := DefaultParams()
+	received.Cmix.Stop = expected.Cmix.Stop
 
 	if !reflect.DeepEqual(expected, received) {
 		t.Errorf("Received Params does not match expected."+

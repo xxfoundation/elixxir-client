@@ -51,20 +51,24 @@ const (
 // threads.
 func (m *manager) startSendingWorkerPool(multiStop *stoppable.Multi) {
 	// Set up cMix sending parameters
-	params := cmix.GetDefaultCMIXParams()
-	params.SendTimeout = m.params.SendTimeout
-	params.ExcludedRounds = sentRoundTracker.NewManager(clearSentRoundsAge)
-	params.DebugTag = cMixDebugTag
+	m.params.Cmix.SendTimeout = m.params.SendTimeout
+	m.params.Cmix.ExcludedRounds =
+		sentRoundTracker.NewManager(clearSentRoundsAge)
+
+	if m.params.Cmix.DebugTag == cmix.DefaultDebugTag ||
+		m.params.Cmix.DebugTag == "" {
+		m.params.Cmix.DebugTag = cMixDebugTag
+	}
 
 	for i := 0; i < workerPoolThreads; i++ {
 		stop := stoppable.NewSingle(sendThreadStoppableName + strconv.Itoa(i))
 		multiStop.Add(stop)
-		go m.sendingThread(params, stop)
+		go m.sendingThread(stop)
 	}
 }
 
 // sendingThread sends part packets that become available oin the send queue.
-func (m *manager) sendingThread(cMixParams cmix.CMIXParams, stop *stoppable.Single) {
+func (m *manager) sendingThread(stop *stoppable.Single) {
 	healthChan := make(chan bool, 10)
 	healthChanID := m.cmix.AddHealthCallback(func(b bool) { healthChan <- b })
 	for {
@@ -80,13 +84,13 @@ func (m *manager) sendingThread(cMixParams cmix.CMIXParams, stop *stoppable.Sing
 				healthy = <-healthChan
 			}
 		case packet := <-m.sendQueue:
-			m.sendCmix(packet, cMixParams)
+			m.sendCmix(packet)
 		}
 	}
 }
 
 // sendCmix sends the parts in the packet via Client.SendMany.
-func (m *manager) sendCmix(packet []store.Part, cMixParams cmix.CMIXParams) {
+func (m *manager) sendCmix(packet []store.Part) {
 	// validParts will contain all parts in the original packet excluding those
 	// that return an error from GetEncryptedPart
 	validParts := make([]store.Part, 0, len(packet))
@@ -115,12 +119,12 @@ func (m *manager) sendCmix(packet []store.Part, cMixParams cmix.CMIXParams) {
 	}
 
 	// Clear all old rounds from the sent rounds list
-	cMixParams.ExcludedRounds.(*sentRoundTracker.Manager).RemoveOldRounds()
+	m.params.Cmix.ExcludedRounds.(*sentRoundTracker.Manager).RemoveOldRounds()
 
 	jww.DEBUG.Printf("[FT] Sending %d file parts via SendManyCMIX",
 		len(messages))
 
-	rid, _, err := m.cmix.SendMany(messages, cMixParams)
+	rid, _, err := m.cmix.SendMany(messages, m.params.Cmix)
 	if err != nil {
 		jww.WARN.Printf("[FT] Failed to send %d file parts via "+
 			"SendManyCMIX: %+v", len(messages), err)

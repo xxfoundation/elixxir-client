@@ -73,11 +73,11 @@ func (p *testManager) Contact() contact.Contact {
 	panic("implement me")
 }
 
-func (p *testManager) PopSendCypher() (*session.Cypher, error) {
+func (p *testManager) PopSendCypher() (session.Cypher, error) {
 	panic("implement me")
 }
 
-func (p *testManager) PopRekeyCypher() (*session.Cypher, error) {
+func (p *testManager) PopRekeyCypher() (session.Cypher, error) {
 	panic("implement me")
 }
 

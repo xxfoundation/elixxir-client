@@ -44,18 +44,18 @@ type Ratchet struct {
 	cyHandler session.CypherHandler
 	rng       *fastRNG.StreamGenerator
 
-	//services handler
+	// services handler
 	services    map[string]message.Processor
-	sInteface   Services
-	servicesmux sync.RWMutex
+	sInterface  Services
+	servicesMux sync.RWMutex
 
 	kv *versioned.KV
 }
 
-// New creates a new store for the passed user id and private key.
+// New creates a new store for the passed user ID and private key.
 // The store can then be accessed by calling LoadStore.
 // Does not create at a unique prefix, if multiple Ratchets are needed, make
-// sure to add a uint prefix to the KV before instantiation.
+// sure to add an uint prefix to the KV before instantiation.
 func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group) error {
 
@@ -125,7 +125,7 @@ func (r *Ratchet) AddPartner(partnerID *id.ID,
 			partnerID, err)
 	}
 
-	//add services for the manager
+	// Add services for the manager
 	r.add(m)
 
 	return m, nil
@@ -158,7 +158,7 @@ func (r *Ratchet) DeletePartner(partnerID *id.ID) error {
 			partnerID)
 	}
 
-	//delete services
+	// Delete services
 	r.delete(m)
 
 	delete(r.managers, *partnerID)

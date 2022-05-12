@@ -5,25 +5,24 @@ import (
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 )
 
-// Wrapper which allows the network>manager's fingerprint interface to be
-// passed into ratchet without exposing ratchet to buisness logic
-// adheres to the CypherHandler interface in session
+// fpGenerator is a wrapper that allows the network manager's fingerprint
+// interface to be passed into ratchet without exposing ratchet to the business
+// logic.
 type fpGenerator struct {
-	*manager
+	m *manager
 }
 
-func (fp *fpGenerator) AddKey(k *session.Cypher) {
-	err := fp.net.AddFingerprint(fp.myID, k.Fingerprint(),
-		&processor{
-			cy: k,
-			m:  fp.manager,
-		})
+// AddKey adds a fingerprint to be tracked for the given cypher.
+func (fpg *fpGenerator) AddKey(cy session.Cypher) {
+	err := fpg.m.net.AddFingerprint(
+		fpg.m.myID, cy.Fingerprint(), &processor{cy, fpg.m})
 	if err != nil {
-		jww.ERROR.Printf("Could not add fingerprint %s: %+v",
-			k.Fingerprint(), err)
+		jww.ERROR.Printf(
+			"Could not add fingerprint %s: %+v", cy.Fingerprint(), err)
 	}
 }
 
-func (fp *fpGenerator) DeleteKey(k *session.Cypher) {
-	fp.net.DeleteFingerprint(fp.myID, k.Fingerprint())
+// DeleteKey deletes the fingerprint for the given cypher.
+func (fpg *fpGenerator) DeleteKey(cy session.Cypher) {
+	fpg.m.net.DeleteFingerprint(fpg.m.myID, cy.Fingerprint())
 }

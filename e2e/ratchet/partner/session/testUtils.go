@@ -97,7 +97,7 @@ func makeTestSession() (*Session, *versioned.KV) {
 		rekeyThreshold:    5,
 		partner:           &id.ID{},
 		grp:               grp,
-		cyHandler:         mockCyHandler{},
+		cyHandler:         &mockCyHandler{},
 		rng:               fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 	}
 	var err error
@@ -147,13 +147,7 @@ func cmpSerializedFields(a *Session, b *Session) error {
 	return nil
 }
 
-type mockCyHandler struct {
-}
+type mockCyHandler struct{}
 
-func (m mockCyHandler) AddKey(k *Cypher) {
-	return
-}
-
-func (m mockCyHandler) DeleteKey(k *Cypher) {
-	return
-}
+func (m *mockCyHandler) AddKey(Cypher)    {}
+func (m *mockCyHandler) DeleteKey(Cypher) {}

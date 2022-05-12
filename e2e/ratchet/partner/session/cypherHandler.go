@@ -1,6 +1,6 @@
 package session
 
 type CypherHandler interface {
-	AddKey(k *Cypher)
-	DeleteKey(k *Cypher)
+	AddKey(cy Cypher)
+	DeleteKey(cy Cypher)
 }

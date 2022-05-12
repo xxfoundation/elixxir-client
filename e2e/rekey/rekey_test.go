@@ -39,7 +39,7 @@ func TestRekey(t *testing.T) {
 
 	bobID = id.NewIdFromUInt(rand.Uint64(), id.User, t)
 
-	kv := versioned.NewKV(ekv.Memstore{})
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	err := ratchet.New(kv, aliceID, alicePrivKey, grp)
 	if err != nil {

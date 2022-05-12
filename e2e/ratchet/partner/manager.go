@@ -248,12 +248,12 @@ func (m *manager) NewSendSession(myPrivKey *cyclic.Int,
 }
 
 // PopSendCypher returns the key which is most likely to be successful for sending
-func (m *manager) PopSendCypher() (*session.Cypher, error) {
+func (m *manager) PopSendCypher() (session.Cypher, error) {
 	return m.send.getKeyForSending()
 }
 
 // PopRekeyCypher returns a key which should be used for rekeying
-func (m *manager) PopRekeyCypher() (*session.Cypher, error) {
+func (m *manager) PopRekeyCypher() (session.Cypher, error) {
 	return m.send.getKeyForRekey()
 
 }

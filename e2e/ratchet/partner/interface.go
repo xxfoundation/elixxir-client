@@ -29,9 +29,9 @@ type Manager interface {
 	Contact() contact.Contact
 
 	// PopSendCypher returns the key which is most likely to be successful for sending
-	PopSendCypher() (*session.Cypher, error)
+	PopSendCypher() (session.Cypher, error)
 	// PopRekeyCypher returns a key which should be used for rekeying
-	PopRekeyCypher() (*session.Cypher, error)
+	PopRekeyCypher() (session.Cypher, error)
 
 	// NewReceiveSession creates a new Receive session using the latest private key
 	// this user has sent and the new public key received from the partner. If the

@@ -875,7 +875,7 @@ func makeTestRelationshipManager(t *testing.T) (*manager, *versioned.KV) {
 	mySIDHPrivKey.Generate(rng)
 	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	frng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	return &manager{
 		kv:                      kv,

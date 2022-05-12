@@ -2,11 +2,14 @@ package e2e
 
 import (
 	"bytes"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/cmix/identity"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/primitives/format"
@@ -16,9 +19,235 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 )
+
+func e2eMessagesEqual(received, expected e2eMessage, t *testing.T) bool {
+	equals := true
+	if !bytes.Equal(received.Recipient, expected.Recipient) {
+		t.Errorf("Receipient values for messages are not equivalent")
+		equals = false
+	}
+
+	if !bytes.Equal(received.Payload, expected.Payload) {
+		equals = false
+		t.Errorf("Payload values for messages are not equivalent")
+	}
+
+	if received.MessageType != expected.MessageType {
+		equals = false
+		t.Errorf("MessageType values for messages are not equivalent")
+	}
+
+	return equals
+
+}
+
+// makeTestE2EMessages creates a list of messages with random data and the
+// expected map after they are added to the buffer.
+func makeTestE2EMessages(n int, t *testing.T) []e2eMessage {
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
+	msgs := make([]e2eMessage, n)
+	for i := range msgs {
+		rngBytes := make([]byte, 128)
+		prng.Read(rngBytes)
+		msgs[i].Recipient = id.NewIdFromBytes(rngBytes, t).Bytes()
+		prng.Read(rngBytes)
+		msgs[i].Payload = rngBytes
+		prng.Read(rngBytes)
+		msgs[i].MessageType = uint32(rngBytes[0])
+	}
+
+	return msgs
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Mock Listener                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
+type mockListener struct {
+	receiveChan chan receive.Message
+}
+
+func (m *mockListener) Hear(item receive.Message) { m.receiveChan <- item }
+func (m *mockListener) Name() string              { return "" }
+
+////////////////////////////////////////////////////////////////////////////////
+// Mock Events Manager                                                        //
+////////////////////////////////////////////////////////////////////////////////
+
+type mockEventsManager struct{}
+
+func (m mockEventsManager) Report(int, string, string, string) {}
+
+////////////////////////////////////////////////////////////////////////////////
+// Mock Services                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
+type mockServices struct {
+	services map[id.ID]map[string]message.Processor
+	sync.Mutex
+}
+
+func newMockServices() *mockServices {
+	return &mockServices{
+		services: make(map[id.ID]map[string]message.Processor),
+	}
+}
+
+func (m *mockServices) AddService(
+	clientID *id.ID, ms message.Service, p message.Processor) {
+	m.Lock()
+	defer m.Unlock()
+
+	if m.services[*clientID] == nil {
+		m.services[*clientID] = map[string]message.Processor{ms.Tag: p}
+	} else {
+		m.services[*clientID][ms.Tag] = p
+	}
+	m.services[*clientID][ms.Tag] = p
+}
+
+func (m *mockServices) DeleteService(
+	clientID *id.ID, ms message.Service, _ message.Processor) {
+	m.Lock()
+	defer m.Unlock()
+
+	if m.services[*clientID] != nil {
+		delete(m.services[*clientID], ms.Tag)
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Mock cMix Client                                                           //
+////////////////////////////////////////////////////////////////////////////////
+
+type mockCmixHandler struct {
+	processorMap map[format.Fingerprint]message.Processor
+	sync.Mutex
+}
+
+func newMockCmixHandler() *mockCmixHandler {
+	return &mockCmixHandler{
+		processorMap: make(map[format.Fingerprint]message.Processor),
+	}
+}
+
+// todo: implement this for specific tests
+type mockCmix struct {
+	t             testing.TB
+	myID          *id.ID
+	numPrimeBytes int
+	health        bool
+	handler       *mockCmixHandler
+	instance      *network.Instance
+}
+
+func newMockCmix(myID *id.ID, handler *mockCmixHandler, t testing.TB) *mockCmix {
+	comms := &connect.ProtoComms{Manager: connect.NewManagerTesting(t)}
+	def := getNDF()
+
+	instance, err := network.NewInstanceTesting(comms, def, def, nil, nil, t)
+	if err != nil {
+		panic(err)
+	}
+
+	return &mockCmix{
+		t:             t,
+		myID:          myID,
+		numPrimeBytes: 4096,
+		health:        true,
+		handler:       handler,
+		instance:      instance,
+	}
+}
+
+func (m *mockCmix) Connect(*ndf.NetworkDefinition) error                       { return nil }
+func (m *mockCmix) Follow(cmix.ClientErrorReport) (stoppable.Stoppable, error) { return nil, nil }
+
+func (m *mockCmix) GetMaxMessageLength() int {
+	msg := format.NewMessage(m.numPrimeBytes)
+	return msg.ContentsSize()
+}
+
+func (m *mockCmix) Send(_ *id.ID, fp format.Fingerprint, _ message.Service,
+	payload, mac []byte, _ cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	m.handler.Lock()
+	defer m.handler.Unlock()
+
+	msg := format.NewMessage(m.numPrimeBytes)
+	msg.SetContents(payload)
+	msg.SetMac(mac)
+	msg.SetKeyFP(fp)
+
+	if m.handler.processorMap[fp] == nil {
+		m.t.Errorf("No processor found for fingerprint %s", fp)
+		return 0, ephemeral.Id{},
+			errors.Errorf("No processor found for fingerprint %s", fp)
+	}
+
+	m.handler.processorMap[fp].Process(
+		msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+
+	return 0, ephemeral.Id{}, nil
+}
+
+func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
+	return 0, nil, nil
+}
+func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)            {}
+func (m *mockCmix) RemoveIdentity(*id.ID)                          {}
+func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error) { return identity.TrackedID{}, nil }
+
+func (m *mockCmix) AddFingerprint(_ *id.ID, fp format.Fingerprint, mp message.Processor) error {
+	m.handler.Lock()
+	defer m.handler.Unlock()
+	m.handler.processorMap[fp] = mp
+	return nil
+}
+
+func (m *mockCmix) DeleteFingerprint(_ *id.ID, fp format.Fingerprint) {
+	m.handler.Lock()
+	delete(m.handler.processorMap, fp)
+	m.handler.Unlock()
+}
+
+func (m *mockCmix) DeleteClientFingerprints(*id.ID)                          {}
+func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor)    {}
+func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) {}
+func (m *mockCmix) DeleteClientService(*id.ID)                               {}
+func (m *mockCmix) TrackServices(message.ServicesTracker)                    {}
+func (m *mockCmix) CheckInProgressMessages()                                 {}
+func (m *mockCmix) IsHealthy() bool                                          { return m.health }
+func (m *mockCmix) WasHealthy() bool                                         { return true }
+func (m *mockCmix) AddHealthCallback(func(bool)) uint64                      { return 0 }
+func (m *mockCmix) RemoveHealthCallback(uint64)                              {}
+func (m *mockCmix) HasNode(*id.ID) bool                                      { return true }
+func (m *mockCmix) NumRegisteredNodes() int                                  { return 0 }
+func (m *mockCmix) TriggerNodeRegistration(*id.ID)                           {}
+func (m *mockCmix) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round) error {
+	return nil
+}
+func (m *mockCmix) LookupHistoricalRound(id.Round, rounds.RoundResultCallback) error { return nil }
+func (m *mockCmix) SendToAny(func(host *connect.Host) (interface{}, error), *stoppable.Single) (interface{}, error) {
+	return nil, nil
+}
+func (m *mockCmix) SendToPreferred([]*id.ID, gateway.SendToPreferredFunc, *stoppable.Single, time.Duration) (interface{}, error) {
+	return nil, nil
+}
+func (m *mockCmix) SetGatewayFilter(gateway.Filter)                             {}
+func (m *mockCmix) GetHostParams() connect.HostParams                           { return connect.HostParams{} }
+func (m *mockCmix) GetAddressSpace() uint8                                      { return 0 }
+func (m *mockCmix) RegisterAddressSpaceNotification(string) (chan uint8, error) { return nil, nil }
+func (m *mockCmix) UnregisterAddressSpaceNotification(string)                   { return }
+func (m *mockCmix) GetInstance() *network.Instance                              { return m.instance }
+func (m *mockCmix) GetVerboseRounds() string                                    { return "" }
+
+////////////////////////////////////////////////////////////////////////////////
+// NDF                                                                        //
+////////////////////////////////////////////////////////////////////////////////
 
 func getNDF() *ndf.NetworkDefinition {
 	return &ndf.NetworkDefinition{
@@ -60,234 +289,4 @@ func getNDF() *ndf.NetworkDefinition {
 				"B6F116F7AD9CF505DF0F998E34AB27514B0FFE7",
 		},
 	}
-}
-
-func e2eMessagesEqual(received, expected e2eMessage, t *testing.T) bool {
-	equals := true
-	if !bytes.Equal(received.Recipient, expected.Recipient) {
-		t.Errorf("Receipient values for messages are not equivalent")
-		equals = false
-	}
-
-	if !bytes.Equal(received.Payload, expected.Payload) {
-		equals = false
-		t.Errorf("Payload values for messages are not equivalent")
-	}
-
-	if received.MessageType != expected.MessageType {
-		equals = false
-		t.Errorf("MessageType values for messages are not equivalent")
-	}
-
-	return equals
-
-}
-
-// makeTestE2EMessages creates a list of messages with random data and the
-// expected map after they are added to the buffer.
-func makeTestE2EMessages(n int, t *testing.T) []e2eMessage {
-	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
-	msgs := make([]e2eMessage, n)
-	for i := range msgs {
-		rngBytes := make([]byte, 128)
-		prng.Read(rngBytes)
-		msgs[i].Recipient = id.NewIdFromBytes(rngBytes, t).Bytes()
-		prng.Read(rngBytes)
-		msgs[i].Payload = rngBytes
-		prng.Read(rngBytes)
-		msgs[i].MessageType = uint32(rngBytes[0])
-	}
-
-	return msgs
-}
-
-type mockEventsManager struct{}
-
-func (m mockEventsManager) Report(priority int, category, evtType, details string) {
-
-}
-
-// todo: implement this for specific tests
-type mockCmixNet struct {
-	testingInterface interface{}
-	instance         *network.Instance
-}
-
-func (m mockCmixNet) Connect(ndf *ndf.NetworkDefinition) error {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (m mockCmixNet) Follow(report cmix.ClientErrorReport) (stoppable.Stoppable, error) {
-	//TODO implement me
-	return nil, nil
-}
-
-func (m mockCmixNet) GetMaxMessageLength() int {
-	//TODO implement me
-	return 0
-}
-
-func (m mockCmixNet) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
-	//TODO implement me
-	return 0, ephemeral.Id{}, nil
-}
-
-func (m mockCmixNet) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
-	//TODO implement me
-	return 0, nil, nil
-}
-
-func (m mockCmixNet) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
-	//TODO implement me
-	return
-}
-
-func (m mockCmixNet) RemoveIdentity(id *id.ID) {
-	//TODO implement me
-	return
-}
-
-func (m mockCmixNet) GetIdentity(get *id.ID) (identity.TrackedID, error) {
-	//TODO implement me
-	return identity.TrackedID{}, nil
-}
-
-func (m mockCmixNet) AddFingerprint(identity *id.ID, fingerprint format.Fingerprint, mp message.Processor) error {
-	//TODO implement me
-	return nil
-}
-
-func (m mockCmixNet) DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint) {
-	//TODO implement me
-	return
-}
-
-func (m mockCmixNet) DeleteClientFingerprints(identity *id.ID) {
-	//TODO implement me
-	return
-}
-
-func (m mockCmixNet) AddService(clientID *id.ID, newService message.Service, response message.Processor) {
-	//TODO implement me
-	return
-}
-
-func (m mockCmixNet) DeleteService(clientID *id.ID, toDelete message.Service, processor message.Processor) {
-	//TODO implement me
-	return
-}
-
-func (m mockCmixNet) DeleteClientService(clientID *id.ID) {
-	//TODO implement me
-	return
-}
-
-func (m mockCmixNet) TrackServices(tracker message.ServicesTracker) {
-	//TODO implement me
-	return
-}
-
-func (m mockCmixNet) CheckInProgressMessages() {
-	//TODO implement me
-	return
-}
-
-func (m mockCmixNet) IsHealthy() bool {
-	//TODO implement me
-	return true
-}
-
-func (m mockCmixNet) WasHealthy() bool {
-	//TODO implement me
-	return true
-}
-
-func (m mockCmixNet) AddHealthCallback(f func(bool)) uint64 {
-	//TODO implement me
-	return 0
-}
-
-func (m mockCmixNet) RemoveHealthCallback(u uint64) {
-	//TODO implement me
-	return
-}
-
-func (m mockCmixNet) HasNode(nid *id.ID) bool {
-	//TODO implement me
-	return true
-}
-
-func (m mockCmixNet) NumRegisteredNodes() int {
-	//TODO implement me
-	return 0
-}
-
-func (m mockCmixNet) TriggerNodeRegistration(nid *id.ID) {
-	//TODO implement me
-	return
-}
-
-func (m mockCmixNet) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) error {
-	//TODO implement me
-	return nil
-}
-
-func (m mockCmixNet) LookupHistoricalRound(rid id.Round, callback rounds.RoundResultCallback) error {
-	//TODO implement me
-	return nil
-}
-
-func (m mockCmixNet) SendToAny(sendFunc func(host *connect.Host) (interface{}, error), stop *stoppable.Single) (interface{}, error) {
-	//TODO implement me
-	return nil, nil
-}
-
-func (m mockCmixNet) SendToPreferred(targets []*id.ID, sendFunc gateway.SendToPreferredFunc, stop *stoppable.Single, timeout time.Duration) (interface{}, error) {
-	return nil, nil
-}
-
-func (m mockCmixNet) SetGatewayFilter(f gateway.Filter) {
-	return
-}
-
-func (m mockCmixNet) GetHostParams() connect.HostParams {
-	return connect.HostParams{}
-}
-
-func (m mockCmixNet) GetAddressSpace() uint8 {
-	return 0
-}
-
-func (m mockCmixNet) RegisterAddressSpaceNotification(tag string) (chan uint8, error) {
-	return nil, nil
-}
-
-func (m mockCmixNet) UnregisterAddressSpaceNotification(tag string) {
-	return
-}
-
-func (m *mockCmixNet) GetInstance() *network.Instance {
-	if m.instance == nil {
-		commsManager := connect.NewManagerTesting(m.testingInterface)
-
-		instanceComms := &connect.ProtoComms{
-			Manager: commsManager,
-		}
-
-		def := getNDF()
-
-		thisInstance, err := network.NewInstanceTesting(instanceComms, def, def, nil, nil, m.testingInterface)
-		if err != nil {
-			panic(err)
-		}
-
-		m.instance = thisInstance
-	}
-
-	return m.instance
-}
-
-func (m mockCmixNet) GetVerboseRounds() string {
-	return ""
 }

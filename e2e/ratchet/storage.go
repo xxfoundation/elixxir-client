@@ -49,10 +49,10 @@ func Load(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
 
 		kv: kv,
 
-		cyHandler: cyHandler,
-		grp:       grp,
-		rng:       rng,
-		sInteface: services,
+		cyHandler:  cyHandler,
+		grp:        grp,
+		rng:        rng,
+		sInterface: services,
 	}
 
 	obj, err := kv.Get(storeKey, currentStoreVersion)

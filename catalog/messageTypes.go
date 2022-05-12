@@ -43,7 +43,7 @@ const (
 	// inform the receiver that the file transfer has ended.
 	EndFileTransfer = 51
 
-	// IdentityAuthenticationRequest is sent by the recipient
+	// ConnectionAuthenticationRequest is sent by the recipient
 	// of an authenticated connection request
 	// (see the connect/ package)
 	ConnectionAuthenticationRequest = 60

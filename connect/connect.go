@@ -7,7 +7,6 @@
 package connect
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
@@ -210,7 +209,6 @@ func (h *handler) GetPartner() partner.Manager {
 func (h *handler) SendE2E(mt catalog.MessageType, payload []byte,
 	params clientE2e.Params) (
 	[]id.Round, e2e.MessageID, time.Time, error) {
-	fmt.Printf("sending e2e\n")
 	return h.e2e.SendE2E(mt, h.partner.PartnerId(), payload, params)
 }
 

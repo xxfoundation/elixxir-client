@@ -12,6 +12,9 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/primitives/format"
 	"os"
 	"time"
 
@@ -48,8 +51,8 @@ var groupCmd = &cobra.Command{
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
 		client.GetNetworkInterface().AddHealthCallback(
-			func(isconnected bool) {
-				connected <- isconnected
+			func(isConnected bool) {
+				connected <- isConnected
 			})
 		waitUntilConnected(connected)
 
@@ -115,9 +118,6 @@ var groupCmd = &cobra.Command{
 func initGroupManager(client *api.Client) (groupChat.GroupChat,
 	chan groupChat.MessageReceive, chan groupStore.Group) {
 	recChan := make(chan groupChat.MessageReceive, 10)
-	receiveCb := func(msg groupChat.MessageReceive) {
-		recChan <- msg
-	}
 
 	reqChan := make(chan groupStore.Group, 10)
 	requestCb := func(g groupStore.Group) {
@@ -128,12 +128,25 @@ func initGroupManager(client *api.Client) (groupChat.GroupChat,
 	manager, err := groupChat.NewManager(client.GetNetworkInterface(),
 		client.GetE2EHandler(), client.GetStorage().GetReceptionID(),
 		client.GetRng(), client.GetStorage().GetE2EGroup(),
-		client.GetStorage().GetKV(), requestCb, receiveCb)
+		client.GetStorage().GetKV(), requestCb, &receiveProcessor{recChan})
 	if err != nil {
 		jww.FATAL.Panicf("Failed to initialize group chat manager: %+v", err)
 	}
 
 	return manager, recChan, reqChan
+}
+
+type receiveProcessor struct {
+	recChan chan groupChat.MessageReceive
+}
+
+func (r *receiveProcessor) Process(decryptedMsg groupChat.MessageReceive,
+	_ format.Message, _ receptionID.EphemeralIdentity, _ rounds.Round) {
+	r.recChan <- decryptedMsg
+}
+
+func (r *receiveProcessor) String() string {
+	return "groupChatReceiveProcessor"
 }
 
 // createGroup creates a new group with the provided name and sends out requests
@@ -217,7 +230,7 @@ func sendGroup(groupIdString string, msg []byte, gm groupChat.GroupChat) {
 
 	jww.INFO.Printf("Sending to group %s message %q", groupID, msg)
 
-	rid, timestamp, _, err := gm.Send(groupID, msg)
+	rid, timestamp, _, err := gm.Send(groupID, "groupChatTest", msg)
 	if err != nil {
 		jww.FATAL.Panicf("Sending message to group %s: %+v", groupID, err)
 	}

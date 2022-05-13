@@ -4,12 +4,13 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package restlike
+package single
 
 import (
 	"bytes"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/restlike"
 	"google.golang.org/protobuf/proto"
 	"testing"
 	"time"
@@ -17,13 +18,13 @@ import (
 
 // Test happy path
 func TestSingleResponse_Callback(t *testing.T) {
-	resultChan := make(chan *Message, 1)
-	cb := func(input *Message) {
+	resultChan := make(chan *restlike.Message, 1)
+	cb := func(input *restlike.Message) {
 		resultChan <- input
 	}
 	testPath := "test/path"
-	testMethod := Get
-	testMessage := &Message{
+	testMethod := restlike.Get
+	testMessage := &restlike.Message{
 		Content: []byte("test"),
 		Headers: nil,
 		Method:  uint32(testMethod),
@@ -31,7 +32,7 @@ func TestSingleResponse_Callback(t *testing.T) {
 		Error:   "",
 	}
 
-	response := singleResponse{cb}
+	response := response{cb}
 
 	testPayload, err := proto.Marshal(testMessage)
 	if err != nil {
@@ -57,11 +58,11 @@ func TestSingleResponse_Callback(t *testing.T) {
 
 // Test error input path
 func TestSingleResponse_Callback_Err(t *testing.T) {
-	resultChan := make(chan *Message, 1)
-	cb := func(input *Message) {
+	resultChan := make(chan *restlike.Message, 1)
+	cb := func(input *restlike.Message) {
 		resultChan <- input
 	}
-	response := singleResponse{cb}
+	response := response{cb}
 
 	response.Callback(nil, receptionID.EphemeralIdentity{}, nil, errors.New("test"))
 
@@ -77,11 +78,11 @@ func TestSingleResponse_Callback_Err(t *testing.T) {
 
 // Test proto error path
 func TestSingleResponse_Callback_ProtoErr(t *testing.T) {
-	resultChan := make(chan *Message, 1)
-	cb := func(input *Message) {
+	resultChan := make(chan *restlike.Message, 1)
+	cb := func(input *restlike.Message) {
 		resultChan <- input
 	}
-	response := singleResponse{cb}
+	response := response{cb}
 
 	response.Callback([]byte("test"), receptionID.EphemeralIdentity{}, nil, nil)
 

@@ -9,16 +9,10 @@ package broadcast
 
 import (
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity"
 	"gitlab.com/elixxir/client/cmix/message"
-	crypto "gitlab.com/elixxir/crypto/broadcast"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"time"
 )
 
 // Error messages.
@@ -34,93 +28,31 @@ const (
 	symmetricBroadcastServiceTag = "SymmetricBroadcast"
 )
 
-// symmetricClient manages the sending and receiving of symmetric broadcast
-// messages on a given symmetric broadcast channel. Adheres to the Symmetric
-// interface.
-type symmetricClient struct {
-	channel crypto.Symmetric
-	net     Client
-	rng     *fastRNG.StreamGenerator
-}
-
-// Client contains the methods from cmix.Client that are required by
-// symmetricClient.
-type Client interface {
-	GetMaxMessageLength() int
-	Send(recipient *id.ID, fingerprint format.Fingerprint,
-		service message.Service, payload, mac []byte,
-		cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error)
-	IsHealthy() bool
-	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
-	AddService(clientID *id.ID, newService message.Service,
-		response message.Processor)
-	DeleteClientService(clientID *id.ID)
-	RemoveIdentity(id *id.ID)
-}
-
-// NewSymmetricClient generates a new Symmetric for the given channel. It starts
-// listening for new messages on the callback immediately.
-func NewSymmetricClient(channel crypto.Symmetric, listenerCb ListenerFunc,
-	net Client, rng *fastRNG.StreamGenerator) Symmetric {
-	// Add channel's identity
-	net.AddIdentity(channel.ReceptionID, identity.Forever, true)
-
-	// Create new service
-	service := message.Service{
-		Identifier: channel.ReceptionID.Bytes(),
-		Tag:        symmetricBroadcastServiceTag,
-	}
-
-	// Create new message symmetricProcessor
-	p := &symmetricProcessor{
-		s:  &channel,
-		cb: listenerCb,
-	}
-
-	// Add service
-	net.AddService(channel.ReceptionID, service, p)
-
-	jww.INFO.Printf("New symmetric broadcast client created for channel %q (%s)",
-		channel.Name, channel.ReceptionID)
-
-	return &symmetricClient{
-		channel: channel,
-		net:     net,
-		rng:     rng,
-	}
-}
-
 // MaxPayloadSize returns the maximum size for a broadcasted payload.
-func (s *symmetricClient) MaxPayloadSize() int {
-	return s.net.GetMaxMessageLength()
-}
-
-// Get returns the crypto.Symmetric object containing the cryptographic and
-// identifying information about the channel.
-func (s *symmetricClient) Get() crypto.Symmetric {
-	return s.channel
+func (bc *broadcastClient) MaxSymmetricPayloadSize() int {
+	return bc.net.GetMaxMessageLength()
 }
 
 // Broadcast broadcasts the payload to the channel.
-func (s *symmetricClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
+func (bc *broadcastClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
 	id.Round, ephemeral.Id, error) {
-	if !s.net.IsHealthy() {
+	if !bc.net.IsHealthy() {
 		return 0, ephemeral.Id{}, errors.New(errNetworkHealth)
 	}
 
-	if len(payload) != s.MaxPayloadSize() {
+	if len(payload) != bc.MaxSymmetricPayloadSize() {
 		return 0, ephemeral.Id{},
-			errors.Errorf(errPayloadSize, len(payload), s.MaxPayloadSize())
+			errors.Errorf(errPayloadSize, len(payload), bc.MaxSymmetricPayloadSize())
 	}
 
 	// Encrypt payload
-	rng := s.rng.GetStream()
-	encryptedPayload, mac, fp := s.channel.Encrypt(payload, rng)
+	rng := bc.rng.GetStream()
+	encryptedPayload, mac, fp := bc.channel.EncryptSymmetric(payload, rng)
 	rng.Close()
 
 	// Create service
 	service := message.Service{
-		Identifier: s.channel.ReceptionID.Bytes(),
+		Identifier: bc.channel.ReceptionID.Bytes(),
 		Tag:        symmetricBroadcastServiceTag,
 	}
 
@@ -128,16 +60,6 @@ func (s *symmetricClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams) 
 		cMixParams.DebugTag = symmCMixSendTag
 	}
 
-	return s.net.Send(
-		s.channel.ReceptionID, fp, service, encryptedPayload, mac, cMixParams)
-}
-
-// Stop unregisters the listener callback and stops the channel's identity
-// from being tracked.
-func (s *symmetricClient) Stop() {
-	// Removes currently tracked identity
-	s.net.RemoveIdentity(s.channel.ReceptionID)
-
-	// Delete all registered services
-	s.net.DeleteClientService(s.channel.ReceptionID)
+	return bc.net.Send(
+		bc.channel.ReceptionID, fp, service, encryptedPayload, mac, cMixParams)
 }

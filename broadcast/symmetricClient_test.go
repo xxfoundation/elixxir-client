@@ -25,7 +25,7 @@ import (
 )
 
 // Tests that symmetricClient adheres to the Symmetric interface.
-var _ Symmetric = (*symmetricClient)(nil)
+var _ Channel = (*broadcastClient)(nil)
 
 // Tests that symmetricClient adheres to the Symmetric interface.
 var _ Client = (cmix.Client)(nil)
@@ -36,7 +36,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 	// Initialise objects used by all clients
 	cMixHandler := newMockCmixHandler()
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
-	channel := crypto.Symmetric{
+	channel := crypto.Channel{
 		ReceptionID: id.NewIdFromString("ReceptionID", id.User, t),
 		Name:        "MyChannel",
 		Description: "This is my channel about stuff.",
@@ -47,7 +47,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 	// Set up callbacks, callback channels, and the symmetric clients
 	const n = 5
 	cbChans := make([]chan []byte, n)
-	clients := make([]Symmetric, n)
+	clients := make([]Channel, n)
 	for i := range clients {
 		cbChan := make(chan []byte, 10)
 		cb := func(payload []byte, _ receptionID.EphemeralIdentity,
@@ -55,8 +55,10 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 			cbChan <- payload
 		}
 
-		s := NewSymmetricClient(channel, cb, newMockCmix(cMixHandler), rngGen)
-
+		s, err := NewBroadcastChannel(channel, cb, newMockCmix(cMixHandler), rngGen, Param{Method: Symmetric})
+		if err != nil {
+			t.Errorf("Failed to create broadcast channel: %+v", err)
+		}
 		cbChans[i] = cbChan
 		clients[i] = s
 

@@ -34,7 +34,12 @@ func (p *processor) Process(msg format.Message,
 	var err error
 	switch p.method {
 	case Asymmetric:
-		payload, err = p.c.DecryptAsymmetric(msg.GetContents())
+		unsizedPayload, err := DecodeSizedBroadcast(msg.GetContents())
+		if err != nil {
+			jww.ERROR.Printf("Failed to decode sized broadcast: %+v", err)
+			return
+		}
+		payload, err = p.c.DecryptAsymmetric(unsizedPayload)
 		if err != nil {
 			jww.ERROR.Printf(errDecrypt, p.c.ReceptionID, p.c.Name, err)
 			return

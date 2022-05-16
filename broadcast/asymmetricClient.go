@@ -44,11 +44,16 @@ func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey, paylo
 		cMixParams.DebugTag = asymmCMixSendTag
 	}
 
+	sizedPayload, err := NewSizedBroadcast(bc.net.GetMaxMessageLength(), encryptedPayload)
+	if err != nil {
+		return id.Round(0), ephemeral.Id{}, err
+	}
+
 	return bc.net.Send(
-		bc.channel.ReceptionID, fp, service, encryptedPayload, mac, cMixParams)
+		bc.channel.ReceptionID, fp, service, sizedPayload, mac, cMixParams)
 }
 
 // MaxAsymmetricPayloadSize returns the maximum size for an asymmetric broadcast payload.
 func (bc *broadcastClient) MaxAsymmetricPayloadSize() int {
-	return bc.net.GetMaxMessageLength() // TODO: this is wrong, use math from xx_network/crypto layer
+	return bc.channel.MaxAsymmetricPayloadSize()
 }

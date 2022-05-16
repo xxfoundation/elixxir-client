@@ -17,15 +17,15 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// processor is the reception handler for a RestServer
-type connectReceiver struct {
+// receiver is the reception handler for a RestServer
+type receiver struct {
 	conn      connect.Connection
 	endpoints *restlike.Endpoints
 }
 
 // Hear handles connect.Connection message reception for a RestServer
 // Automatically responds to invalid endpoint requests
-func (c connectReceiver) Hear(item receive.Message) {
+func (c receiver) Hear(item receive.Message) {
 	// Unmarshal the request payload
 	newMessage := &restlike.Message{}
 	err := proto.Unmarshal(item.Payload, newMessage)
@@ -37,24 +37,24 @@ func (c connectReceiver) Hear(item receive.Message) {
 	var respondErr error
 	if cb, err := c.endpoints.Get(restlike.URI(newMessage.GetUri()), restlike.Method(newMessage.GetMethod())); err == nil {
 		// Send the payload to the proper Callback if it exists and singleRespond with the result
-		respondErr = connRespond(cb(newMessage), c.conn)
+		respondErr = respond(cb(newMessage), c.conn)
 	} else {
 		// If no callback, automatically send an error response
-		respondErr = connRespond(&restlike.Message{Error: err.Error()}, c.conn)
+		respondErr = respond(&restlike.Message{Error: err.Error()}, c.conn)
 	}
 	if respondErr != nil {
 		jww.ERROR.Printf("Unable to singleRespond to request: %+v", err)
 	}
 }
 
-// connRespond to connect.Connection with the given Message
-func connRespond(response *restlike.Message, conn connect.Connection) error {
+// respond to connect.Connection with the given Message
+func respond(response *restlike.Message, conn connect.Connection) error {
 	payload, err := proto.Marshal(response)
 	if err != nil {
 		return errors.Errorf("unable to marshal restlike response message: %+v", err)
 	}
 
-	// TODO: Parameterize params and timeout
+	// TODO: Parameterize params
 	_, _, _, err = conn.SendE2E(catalog.XxMessage, payload, e2e.GetDefaultParams())
 	if err != nil {
 		return errors.Errorf("unable to send restlike response message: %+v", err)
@@ -63,6 +63,6 @@ func connRespond(response *restlike.Message, conn connect.Connection) error {
 }
 
 // Name is used for debugging
-func (c connectReceiver) Name() string {
+func (c receiver) Name() string {
 	return "Restlike"
 }

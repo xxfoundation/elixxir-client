@@ -18,14 +18,14 @@ import (
 	"time"
 )
 
-// processor is the reception handler for a RestServer
-type singleReceiver struct {
+// receiver is the reception handler for a RestServer
+type receiver struct {
 	endpoints *restlike.Endpoints
 }
 
 // Callback is the handler for single-use message reception for a RestServer
 // Automatically responds to invalid endpoint requests
-func (s *singleReceiver) Callback(req *single.Request, receptionId receptionID.EphemeralIdentity, rounds []rounds.Round) {
+func (s *receiver) Callback(req *single.Request, receptionId receptionID.EphemeralIdentity, rounds []rounds.Round) {
 	// Unmarshal the request payload
 	newMessage := &restlike.Message{}
 	err := proto.Unmarshal(req.GetPayload(), newMessage)

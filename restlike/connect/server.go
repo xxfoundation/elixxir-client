@@ -33,7 +33,7 @@ func NewServer(receptionId *id.ID, privKey *cyclic.Int,
 
 	// Callback for connection requests
 	cb := func(conn connect.Connection) {
-		handler := connectReceiver{endpoints: newServer.endpoints, conn: conn}
+		handler := receiver{endpoints: newServer.endpoints, conn: conn}
 		conn.RegisterListener(catalog.XxMessage, handler)
 	}
 

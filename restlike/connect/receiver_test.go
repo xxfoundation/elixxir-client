@@ -4,12 +4,11 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package single
+package connect
 
 import (
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/restlike"
-	"gitlab.com/elixxir/client/single"
 	"testing"
 )
 
@@ -18,8 +17,7 @@ func TestSingleReceiver_Callback_FailUnmarshal(t *testing.T) {
 	ep := restlike.NewEndpoints()
 	r := receiver{endpoints: ep}
 
-	testReq := single.BuildTestRequest(make([]byte, 0), t)
-	r.Callback(testReq, receptionID.EphemeralIdentity{}, nil)
+	r.Hear(receive.Message{Payload: []byte("test")})
 }
 
 // Test happy path
@@ -44,7 +42,7 @@ func TestSingleReceiver_Callback_FailUnmarshal(t *testing.T) {
 //	if err != nil {
 //		t.Errorf(err.Error())
 //	}
-//	receiver := receiver{endpoints: ep}
+//	receiver := singleReceiver{endpoints: ep}
 //
 //	testPayload, err := proto.Marshal(testMessage)
 //	if err != nil {

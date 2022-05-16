@@ -4,12 +4,11 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package single
+package connect
 
 import (
 	"bytes"
-	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/restlike"
 	"google.golang.org/protobuf/proto"
 	"testing"
@@ -38,7 +37,7 @@ func TestSingleResponse_Callback(t *testing.T) {
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	r.Callback(testPayload, receptionID.EphemeralIdentity{}, nil, nil)
+	r.Hear(receive.Message{Payload: testPayload})
 
 	select {
 	case result := <-resultChan:
@@ -56,26 +55,6 @@ func TestSingleResponse_Callback(t *testing.T) {
 	}
 }
 
-// Test error input path
-func TestSingleResponse_Callback_Err(t *testing.T) {
-	resultChan := make(chan *restlike.Message, 1)
-	cb := func(input *restlike.Message) {
-		resultChan <- input
-	}
-	r := response{cb}
-
-	r.Callback(nil, receptionID.EphemeralIdentity{}, nil, errors.New("test"))
-
-	select {
-	case result := <-resultChan:
-		if len(result.Error) == 0 {
-			t.Errorf("Expected cb error!")
-		}
-	case <-time.After(3 * time.Second):
-		t.Errorf("Test SingleResponse input error timed out!")
-	}
-}
-
 // Test proto error path
 func TestSingleResponse_Callback_ProtoErr(t *testing.T) {
 	resultChan := make(chan *restlike.Message, 1)
@@ -84,7 +63,7 @@ func TestSingleResponse_Callback_ProtoErr(t *testing.T) {
 	}
 	r := response{cb}
 
-	r.Callback([]byte("test"), receptionID.EphemeralIdentity{}, nil, nil)
+	r.Hear(receive.Message{Payload: []byte("test")})
 
 	select {
 	case result := <-resultChan:

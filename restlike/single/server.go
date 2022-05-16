@@ -29,7 +29,7 @@ func NewServer(receptionId *id.ID, privKey *cyclic.Int, net single.ListenCmix, e
 		endpoints:   restlike.NewEndpoints(),
 	}
 	newServer.listener = single.Listen(catalog.RestLike, receptionId, privKey,
-		net, e2eGrp, &singleReceiver{newServer.endpoints})
+		net, e2eGrp, &receiver{newServer.endpoints})
 	return newServer
 }
 

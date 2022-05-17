@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                           //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
 package broadcast
 
 import (
@@ -9,28 +16,12 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 )
 
-type Method uint8
-
-const (
-	Symmetric Method = iota
-	Asymmetric
-)
-
-func (m Method) String() string {
-	switch m {
-	case Symmetric:
-		return "Symmetric"
-	case Asymmetric:
-		return "Asymmetric"
-	default:
-		return "Unknown"
-	}
-}
-
+// Param encapsulates configuration options for a broadcastClient
 type Param struct {
 	Method Method
 }
 
+// broadcastClient implements the Channel interface for sending/receiving asymmetric or symmetric broadcast messages
 type broadcastClient struct {
 	channel crypto.Channel
 	net     Client
@@ -64,8 +55,8 @@ func NewBroadcastChannel(channel crypto.Channel, listenerCb ListenerFunc, net Cl
 
 	net.AddService(channel.ReceptionID, service, p)
 
-	jww.INFO.Printf("New broadcast client created for channel %q (%s)",
-		channel.Name, channel.ReceptionID)
+	jww.INFO.Printf("New %s broadcast client created for channel %q (%s)",
+		param.Method, channel.Name, channel.ReceptionID)
 
 	return &broadcastClient{
 		channel: channel,
@@ -85,6 +76,7 @@ func (bc *broadcastClient) Stop() {
 	bc.net.DeleteClientService(bc.channel.ReceptionID)
 }
 
+// Get returns the underlying crypto.Channel object
 func (bc *broadcastClient) Get() crypto.Channel {
 	return bc.channel
 }

@@ -42,9 +42,8 @@ func (m Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) {
 			stop.ToStopped()
 			return
 		case receiveMsg := <-rawMsgs:
-			jww.DEBUG.Printf("Group message reception received cMix message on round %d (%d) sent by %s at %d.",
-				receiveMsg.RoundId, receiveMsg.RoundTimestamp.Unix(),
-				receiveMsg.Sender.String(), receiveMsg.Timestamp.Unix())
+			jww.DEBUG.Printf("Group message reception received cMix message on round %d (%d).",
+				receiveMsg.RoundId, receiveMsg.RoundTimestamp.Unix())
 
 			// If given zero time, try to guesstimate roundTimestamp as right now
 			if receiveMsg.RoundTimestamp.Equal(time.Unix(0, 0)) {

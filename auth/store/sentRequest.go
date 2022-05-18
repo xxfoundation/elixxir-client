@@ -11,6 +11,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"sync"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -20,7 +22,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 )
 
 const currentSentRequestVersion = 0
@@ -128,8 +129,8 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 		hex.EncodeToString(partner[:]))
 	jww.INFO.Printf("loadSentRequest historicalPubKey: %s",
 		hex.EncodeToString(historicalPubKey.Bytes()))
-	jww.INFO.Printf("loadSentRequest myPrivKey: %s",
-		hex.EncodeToString(myPrivKey.Bytes()))
+	// jww.INFO.Printf("loadSentRequest myPrivKey: %s",
+	// 	hex.EncodeToString(myPrivKey.Bytes()))
 	jww.INFO.Printf("loadSentRequest myPubKey: %s",
 		hex.EncodeToString(myPubKey.Bytes()))
 	jww.INFO.Printf("loadSentRequest fingerprint: %s",

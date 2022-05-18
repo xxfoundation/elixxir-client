@@ -169,8 +169,8 @@ func (sr *SentRequest) save() error {
 		hex.EncodeToString(sr.partner[:]))
 	jww.INFO.Printf("saveSentRequest historicalPubKey: %s",
 		hex.EncodeToString(sr.partnerHistoricalPubKey.Bytes()))
-	jww.INFO.Printf("saveSentRequest myPrivKey: %s",
-		hex.EncodeToString(sr.myPrivKey.Bytes()))
+	// jww.INFO.Printf("saveSentRequest myPrivKey: %s",
+	// 	hex.EncodeToString(sr.myPrivKey.Bytes()))
 	jww.INFO.Printf("saveSentRequest myPubKey: %s",
 		hex.EncodeToString(sr.myPubKey.Bytes()))
 	jww.INFO.Printf("saveSentRequest fingerprint: %s",

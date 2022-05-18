@@ -33,7 +33,7 @@ var broadcastCmd = &cobra.Command{
 
 		err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
+			jww.FATAL.Panicf("Failed to start network follower: %+v", err)
 		}
 
 		// Wait until connected or crash on timeout
@@ -74,13 +74,13 @@ var broadcastCmd = &cobra.Command{
 				// Create a new broadcast channel
 				channel, pk, err = crypto.NewChannel(name, desc, client.GetRng().GetStream())
 				if err != nil {
-					// TODO
+					jww.FATAL.Panicf("Failed to create new channel: %+v", err)
 				}
 
 				if keyPath != "" {
 					err = utils.WriteFile(path, rsa.CreatePrivateKeyPem(pk), os.ModePerm, os.ModeDir)
 					if err != nil {
-						// TODO
+						jww.ERROR.Printf("Failed to write private key to path %s: %+v", path, err)
 					}
 				} else {
 					fmt.Printf("Private key generated for channel: %+v", rsa.CreatePrivateKeyPem(pk))
@@ -90,13 +90,13 @@ var broadcastCmd = &cobra.Command{
 				pubKeyBytes := []byte(viper.GetString("rsaPub"))
 				pubKey, err := rsa.LoadPublicKeyFromPem(pubKeyBytes)
 				if err != nil {
-					// TODO
+					jww.FATAL.Panicf("Failed to load public key at path: %+v", err)
 				}
 				salt := []byte(viper.GetString("salt"))
 
 				rid, err := crypto.NewChannelID(name, desc, salt, pubKeyBytes)
 				if err != nil {
-					// TODO
+					jww.FATAL.Panicf("Failed to generate channel ID: %+v", err)
 				}
 
 				channel = &crypto.Channel{
@@ -112,14 +112,14 @@ var broadcastCmd = &cobra.Command{
 					if ep, err := utils.ExpandPath(keyPath); err == nil {
 						keyBytes, err := utils.ReadFile(ep)
 						if err != nil {
-							// TODO
+							jww.ERROR.Printf("Failed to read private key from %s: %+v", ep, err)
 						}
 						pk, err = rsa.LoadPrivateKeyFromPem(keyBytes)
 						if err != nil {
-							// TODO
+							jww.ERROR.Printf("Failed to load private key %+v: %+v", keyBytes, err)
 						}
 					} else {
-						// TODO
+						jww.ERROR.Printf("Failed to expand private key path: %+v", err)
 					}
 
 				}
@@ -128,13 +128,13 @@ var broadcastCmd = &cobra.Command{
 			// Save channel to disk
 			cBytes, err := channel.Marshal()
 			if err != nil {
-				// TODO
+				jww.ERROR.Printf("Failed to marshal channel to bytes: %+v", err)
 			}
 			// Write to file if there
 			if path != "" {
 				err = utils.WriteFile(path, cBytes, os.ModePerm, os.ModeDir)
 				if err != nil {
-					// TODO
+					jww.ERROR.Printf("Failed to write channel to file %s: %+v", path, err)
 				}
 			} else {
 				fmt.Printf("Channel marshalled: %+v", cBytes)
@@ -231,9 +231,7 @@ var broadcastCmd = &cobra.Command{
 		bcl.Stop()
 		err = client.StopNetworkFollower()
 		if err != nil {
-			jww.WARN.Printf(
-				"Failed to cleanly close threads: %+v\n",
-				err)
+			jww.WARN.Printf("Failed to cleanly close threads: %+v\n", err)
 		}
 	},
 }
@@ -245,31 +243,31 @@ func init() {
 	_ = viper.BindPFlag("name", broadcastCmd.Flags().Lookup("name"))
 
 	broadcastCmd.Flags().StringP("rsaPub", "", "",
-		"Symmetric channel rsa pub key")
+		"Broadcast channel rsa pub key")
 	_ = viper.BindPFlag("rsaPub", broadcastCmd.Flags().Lookup("rsaPub"))
 
 	broadcastCmd.Flags().StringP("salt", "", "",
-		"Symmetric channel salt")
+		"Broadcast channel salt")
 	_ = viper.BindPFlag("salt", broadcastCmd.Flags().Lookup("salt"))
 
 	broadcastCmd.Flags().StringP("description", "", "",
-		"Symmetric channel description")
+		"Broadcast channel description")
 	_ = viper.BindPFlag("description", broadcastCmd.Flags().Lookup("description"))
 
 	broadcastCmd.Flags().StringP("chanPath", "", "",
-		"Symmetric channel output path")
+		"Broadcast channel output path")
 	_ = viper.BindPFlag("chanPath", broadcastCmd.Flags().Lookup("chanPath"))
 
 	broadcastCmd.Flags().StringP("keyPath", "", "",
-		"Symmetric channel private key output path")
+		"Broadcast channel private key output path")
 	_ = viper.BindPFlag("keyPath", broadcastCmd.Flags().Lookup("keyPath"))
 
 	broadcastCmd.Flags().BoolP("new", "", false,
-		"Create new symmetric channel")
+		"Create new broadcast channel")
 	_ = viper.BindPFlag("new", broadcastCmd.Flags().Lookup("new"))
 
 	broadcastCmd.Flags().StringP("broadcast", "", "",
-		"Message to send via symmetric broadcast")
+		"Message contents for broadcast")
 	_ = viper.BindPFlag("broadcast", broadcastCmd.Flags().Lookup("broadcast"))
 
 	broadcastCmd.Flags().BoolP("symmetric", "", false,

@@ -49,7 +49,10 @@ func NewSizedBroadcast(maxPayloadSize int, payload []byte) ([]byte, error) {
 	b := make([]byte, sizeSize)
 	binary.LittleEndian.PutUint16(b, uint16(len(payload)))
 
-	return append(b, payload...), nil
+	ret := make([]byte, maxPayloadSize)
+	p := append(b, payload...)
+	copy(ret, p)
+	return ret, nil
 }
 
 // DecodeSizedBroadcast  the data into its original payload of the correct size.

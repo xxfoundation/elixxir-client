@@ -16,6 +16,7 @@ import (
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"time"
@@ -62,6 +63,15 @@ type Client interface {
 // listening for new messages on the callback immediately.
 func NewSymmetricClient(channel crypto.Symmetric, listenerCb ListenerFunc,
 	net Client, rng *fastRNG.StreamGenerator) Symmetric {
+	sc := &symmetricClient{
+		channel: channel,
+		net:     net,
+		rng:     rng,
+	}
+	if !sc.verifyID() {
+		jww.FATAL.Panicf("Failed ID verification for symmetric channel")
+	}
+
 	// Add channel's identity
 	net.AddIdentity(channel.ReceptionID, identity.Forever, true)
 
@@ -83,11 +93,7 @@ func NewSymmetricClient(channel crypto.Symmetric, listenerCb ListenerFunc,
 	jww.INFO.Printf("New symmetric broadcast client created for channel %q (%s)",
 		channel.Name, channel.ReceptionID)
 
-	return &symmetricClient{
-		channel: channel,
-		net:     net,
-		rng:     rng,
-	}
+	return sc
 }
 
 // MaxPayloadSize returns the maximum size for a broadcasted payload.
@@ -140,4 +146,15 @@ func (s *symmetricClient) Stop() {
 
 	// Delete all registered services
 	s.net.DeleteClientService(s.channel.ReceptionID)
+}
+
+// verifyID generates a symmetric ID based on the info in the channel & compares it to the one passed in
+// TODO: it seems very odd to me that we do this, rather than just making the ID a private/ephemeral component like the key
+func (s *symmetricClient) verifyID() bool {
+	gen, err := crypto.NewSymmetricID(s.channel.Name, s.channel.Description, s.channel.Salt, rsa.CreatePublicKeyPem(s.channel.RsaPubKey))
+	if err != nil {
+		jww.FATAL.Panicf("[verifyID] Failed to generate verified channel ID")
+		return false
+	}
+	return s.channel.ReceptionID.Cmp(gen)
 }

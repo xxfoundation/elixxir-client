@@ -8,7 +8,6 @@
 package user
 
 import (
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -57,10 +56,6 @@ type Info struct {
 }
 
 func (u Info) GetContact() contact.Contact {
-	if u.E2eDhPublicKey == nil ||
-		u.E2eDhPublicKey.GetLargeInt().Int64() <= 1 {
-		jww.FATAL.Panicf("Public key empty, invalid contact")
-	}
 	return contact.Contact{
 		ID:       u.ReceptionID.DeepCopy(),
 		DhPubKey: u.E2eDhPublicKey,

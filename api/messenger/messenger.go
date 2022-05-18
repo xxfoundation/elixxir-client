@@ -3,6 +3,7 @@ package messenger
 import (
 	"encoding/binary"
 	"encoding/json"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
@@ -108,7 +109,7 @@ func loadOrInitE2e(client *api.Client) (e2e.Handler, error) {
 func (m *Client) GetUser() user.Info {
 	u := m.Client.GetUser()
 	u.E2eDhPrivateKey = m.e2e.GetHistoricalDHPrivkey()
-	u.E2eDhPublicKey = m.e2e.GetHistoricalDHPrivkey()
+	u.E2eDhPublicKey = m.e2e.GetHistoricalDHPubkey()
 	return u
 }
 

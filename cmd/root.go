@@ -15,9 +15,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gitlab.com/elixxir/client/api/messenger"
-	"gitlab.com/elixxir/client/backup"
-	"gitlab.com/elixxir/client/e2e"
 	"io/fs"
 	"io/ioutil"
 	"log"
@@ -27,6 +24,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"gitlab.com/elixxir/client/api/messenger"
+	"gitlab.com/elixxir/client/backup"
+	"gitlab.com/elixxir/client/e2e"
 
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
@@ -195,6 +196,8 @@ var rootCmd = &cobra.Command{
 		client := initClient()
 
 		user := client.GetUser()
+		jww.INFO.Printf("USERPUBKEY: %s",
+			user.E2eDhPublicKey.TextVerbose(16, 0))
 		jww.INFO.Printf("User: %s", user.ReceptionID)
 		writeContact(user.GetContact())
 

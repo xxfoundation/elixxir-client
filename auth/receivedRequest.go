@@ -53,7 +53,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 		return
 	}
 
-	jww.INFO.Printf("partnerPubKeyBytes: %v", partnerPubKey.Bytes())
+	jww.INFO.Printf("partnerPubKey: %v", partnerPubKey.TextVerbose(16, 0))
 
 	jww.TRACE.Printf("processing requests: \n\t MYPUBKEY: %s "+
 		"\n\t PARTNERPUBKEY: %s \n\t ECRPAYLOAD: %s \n\t MAC: %s",

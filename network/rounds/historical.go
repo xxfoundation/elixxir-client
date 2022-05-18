@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/reception"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -120,9 +121,9 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, stop *stop
 		// process the returned historical roundRequests.
 		for i, roundInfo := range response.Rounds {
 			// The interface has missing returns returned as nil, such roundRequests
-			// need be be removes as processing so the network follower will
+			// need to be removes as processing so the network follower will
 			// pick them up in the future.
-			if roundInfo == nil {
+			if roundInfo == nil || roundInfo.State != uint32(states.COMPLETED) {
 				var errMsg string
 				roundRequests[i].numAttempts++
 				if roundRequests[i].numAttempts == m.params.MaxHistoricalRoundsRetries {

@@ -26,11 +26,8 @@ type ListenerFunc func(payload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round)
 
 type Channel interface {
-	// MaxSymmetricPayloadSize returns the maximum size for a symmetric broadcast payload.
-	MaxSymmetricPayloadSize() int
-
-	// MaxAsymmetricPayloadSize returns the maximum size for an asymmetric broadcast payload.
-	MaxAsymmetricPayloadSize() int
+	// MaxPayloadSize returns the maximum size for a broadcast payload.  Different math depending on broadcast method.
+	MaxPayloadSize() int
 
 	// Get returns the underlying crypto.Channel
 	Get() crypto.Channel
@@ -41,7 +38,7 @@ type Channel interface {
 		id.Round, ephemeral.Id, error)
 
 	// BroadcastAsymmetric broadcasts an asymmetric payload to the channel. The payload size must be
-	// equal to MaxPayloadSize.
+	// equal to MaxPayloadSize & private key for channel must be passed in
 	BroadcastAsymmetric(pk multicastRSA.PrivateKey, payload []byte, cMixParams cmix.CMIXParams) (
 		id.Round, ephemeral.Id, error)
 

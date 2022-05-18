@@ -73,7 +73,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 
 	// Send broadcast from each client
 	for i := range clients {
-		payload := make([]byte, clients[i].MaxAsymmetricPayloadSize())
+		payload := make([]byte, clients[i].MaxPayloadSize())
 		copy(payload,
 			fmt.Sprintf("Hello from client %d of %d.", i, len(clients)))
 
@@ -112,7 +112,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 		clients[i].Stop()
 	}
 
-	payload := make([]byte, clients[0].MaxAsymmetricPayloadSize())
+	payload := make([]byte, clients[0].MaxPayloadSize())
 	copy(payload, "This message should not get through.")
 
 	// Start waiting on channels and error if anything is received

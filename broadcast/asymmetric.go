@@ -23,7 +23,7 @@ const (
 )
 
 // MaxAsymmetricPayloadSize returns the maximum size for an asymmetric broadcast payload
-func (bc *broadcastClient) MaxAsymmetricPayloadSize() int {
+func (bc *broadcastClient) maxAsymmetricPayload() int {
 	return bc.maxParts() * bc.channel.MaxAsymmetricPayloadSize()
 }
 
@@ -42,9 +42,9 @@ func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey, paylo
 		return 0, ephemeral.Id{}, errors.New(errNetworkHealth)
 	}
 
-	if len(payload) != bc.MaxAsymmetricPayloadSize() {
+	if len(payload) != bc.maxAsymmetricPayload() {
 		return 0, ephemeral.Id{},
-			errors.Errorf(errPayloadSize, len(payload), bc.MaxAsymmetricPayloadSize())
+			errors.Errorf(errPayloadSize, len(payload), bc.maxAsymmetricPayload())
 	}
 
 	numParts := bc.maxParts()

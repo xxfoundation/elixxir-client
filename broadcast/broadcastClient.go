@@ -98,3 +98,14 @@ func (bc *broadcastClient) verifyID() bool {
 	}
 	return bc.channel.ReceptionID.Cmp(gen)
 }
+
+func (bc *broadcastClient) MaxPayloadSize() int {
+	switch bc.param.Method {
+	case Symmetric:
+		return bc.maxSymmetricPayload()
+	case Asymmetric:
+		return bc.maxAsymmetricPayload()
+	default:
+		return -1
+	}
+}

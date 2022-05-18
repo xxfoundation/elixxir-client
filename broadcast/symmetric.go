@@ -30,7 +30,7 @@ const (
 )
 
 // MaxSymmetricPayloadSize returns the maximum size for a broadcasted payload.
-func (bc *broadcastClient) MaxSymmetricPayloadSize() int {
+func (bc *broadcastClient) maxSymmetricPayload() int {
 	return bc.net.GetMaxMessageLength()
 }
 
@@ -48,9 +48,9 @@ func (bc *broadcastClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams)
 		return 0, ephemeral.Id{}, errors.New(errNetworkHealth)
 	}
 
-	if len(payload) != bc.MaxSymmetricPayloadSize() {
+	if len(payload) != bc.maxSymmetricPayload() {
 		return 0, ephemeral.Id{},
-			errors.Errorf(errPayloadSize, len(payload), bc.MaxSymmetricPayloadSize())
+			errors.Errorf(errPayloadSize, len(payload), bc.maxSymmetricPayload())
 	}
 
 	// Encrypt payload

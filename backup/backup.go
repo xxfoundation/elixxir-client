@@ -8,6 +8,7 @@
 package backup
 
 import (
+	"gitlab.com/elixxir/client/api/messenger"
 	"sync"
 	"time"
 
@@ -43,7 +44,7 @@ type Backup struct {
 	// Callback that is called with the encrypted backup when triggered
 	updateBackupCb UpdateBackupFn
 
-	container *Container
+	container *messenger.Container
 
 	jsonParams string
 
@@ -93,7 +94,7 @@ type UpdateBackupFn func(encryptedBackup []byte)
 // Call this to turn on backups for the first time or to replace the user's
 // password.
 func InitializeBackup(password string, updateBackupCb UpdateBackupFn,
-	container *Container, e2e E2e, session Session, ud UserDiscovery,
+	container *messenger.Container, e2e E2e, session Session, ud UserDiscovery,
 	kv *versioned.KV, rng *fastRNG.StreamGenerator) (*Backup, error) {
 	b := &Backup{
 		updateBackupCb: updateBackupCb,
@@ -143,7 +144,7 @@ func InitializeBackup(password string, updateBackupCb UpdateBackupFn,
 // ResumeBackup resumes a backup by restoring the Backup object and registering
 // a new callback. Call this to resume backups that have already been
 // initialized. Returns an error if backups have not already been initialized.
-func ResumeBackup(updateBackupCb UpdateBackupFn, container *Container,
+func ResumeBackup(updateBackupCb UpdateBackupFn, container *messenger.Container,
 	e2e E2e, session Session, ud UserDiscovery, kv *versioned.KV,
 	rng *fastRNG.StreamGenerator) (*Backup, error) {
 	_, err := loadPassword(kv)

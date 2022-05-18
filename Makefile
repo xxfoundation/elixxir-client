@@ -7,7 +7,7 @@ version:
 
 clean:
 	rm -rf vendor/
-	go mod vendor
+	go mod vendor -e
 
 update:
 	-GOFLAGS="" go get all

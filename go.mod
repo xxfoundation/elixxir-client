@@ -17,7 +17,7 @@ require (
 	gitlab.com/elixxir/ekv v0.1.7
 	gitlab.com/elixxir/primitives v0.0.3-0.20220330212736-cce83b5f948f
 	gitlab.com/xx_network/comms v0.0.4-0.20220315161313-76acb14429ac
-	gitlab.com/xx_network/crypto v0.0.5-0.20220317171841-084640957d71
+	gitlab.com/xx_network/crypto v0.0.5-0.20220502201458-dabab1ef2982
 	gitlab.com/xx_network/primitives v0.0.4-0.20220324193139-b292d1ae6e7e
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/crypto v0.0.0-20220128200615-198e4374d7ed

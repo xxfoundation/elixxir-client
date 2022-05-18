@@ -8,11 +8,12 @@
 package api
 
 import (
-	"gitlab.com/elixxir/crypto/diffieHellman"
 	"regexp"
 	"runtime"
 	"strings"
 	"sync"
+
+	"gitlab.com/elixxir/crypto/diffieHellman"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/user"
@@ -94,7 +95,7 @@ func createKeys(rng *fastRNG.StreamGenerator) (
 	transmissionRsaKey, receptionRsaKey *rsa.PrivateKey) {
 	wg := sync.WaitGroup{}
 
-	wg.Add(1)
+	wg.Add(2)
 
 	// RSA Keygen (4096 bit defaults)
 	go func() {

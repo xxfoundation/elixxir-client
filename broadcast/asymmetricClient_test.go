@@ -11,7 +11,6 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"sync"
 	"testing"
@@ -31,12 +30,20 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to generate priv key: %+v", err)
 	}
+	cname := "MyChannel"
+	cdesc := "This is my channel about stuff."
+	csalt := cMixCrypto.NewSalt(csprng.NewSystemRNG(), 32)
+	cpubkey := pk.GetPublic()
+	cid, err := crypto.NewChannelID(cname, cdesc, csalt, rsa.CreatePublicKeyPem(cpubkey))
+	if err != nil {
+		t.Errorf("Failed to create channel ID: %+v", err)
+	}
 	channel := crypto.Channel{
-		ReceptionID: id.NewIdFromString("ReceptionID", id.User, t),
-		Name:        "MyChannel",
-		Description: "This is my channel about stuff.",
-		Salt:        cMixCrypto.NewSalt(csprng.NewSystemRNG(), 32),
-		RsaPubKey:   pk.GetPublic(),
+		ReceptionID: cid,
+		Name:        cname,
+		Description: cdesc,
+		Salt:        csalt,
+		RsaPubKey:   cpubkey,
 	}
 
 	const n = 5

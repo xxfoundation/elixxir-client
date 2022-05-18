@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/cmix/message"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
 // Param encapsulates configuration options for a broadcastClient
@@ -31,6 +32,17 @@ type broadcastClient struct {
 
 // NewBroadcastChannel creates a channel interface based on crypto.Channel, accepts net client connection & callback for received messages
 func NewBroadcastChannel(channel crypto.Channel, listenerCb ListenerFunc, net Client, rng *fastRNG.StreamGenerator, param Param) (Channel, error) {
+	bc := &broadcastClient{
+		channel: channel,
+		net:     net,
+		rng:     rng,
+		param:   param,
+	}
+
+	if !bc.verifyID() {
+		jww.FATAL.Panicf("Failed ID verification for broadcast channel")
+	}
+
 	// Add channel's identity
 	net.AddIdentity(channel.ReceptionID, identity.Forever, true)
 
@@ -58,12 +70,7 @@ func NewBroadcastChannel(channel crypto.Channel, listenerCb ListenerFunc, net Cl
 	jww.INFO.Printf("New %s broadcast client created for channel %q (%s)",
 		param.Method, channel.Name, channel.ReceptionID)
 
-	return &broadcastClient{
-		channel: channel,
-		net:     net,
-		rng:     rng,
-		param:   param,
-	}, nil
+	return bc, nil
 }
 
 // Stop unregisters the listener callback and stops the channel's identity
@@ -79,4 +86,15 @@ func (bc *broadcastClient) Stop() {
 // Get returns the underlying crypto.Channel object
 func (bc *broadcastClient) Get() crypto.Channel {
 	return bc.channel
+}
+
+// verifyID generates a symmetric ID based on the info in the channel & compares it to the one passed in
+// TODO: it seems very odd to me that we do this, rather than just making the ID a private/ephemeral component like the key
+func (bc *broadcastClient) verifyID() bool {
+	gen, err := crypto.NewChannelID(bc.channel.Name, bc.channel.Description, bc.channel.Salt, rsa.CreatePublicKeyPem(bc.channel.RsaPubKey))
+	if err != nil {
+		jww.FATAL.Panicf("[verifyID] Failed to generate verified channel ID")
+		return false
+	}
+	return bc.channel.ReceptionID.Cmp(gen)
 }

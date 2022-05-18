@@ -17,7 +17,7 @@ import (
 	cMixCrypto "gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 	"reflect"
 	"sync"
 	"testing"
@@ -36,12 +36,20 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 	// Initialise objects used by all clients
 	cMixHandler := newMockCmixHandler()
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
+	cname := "MyChannel"
+	cdesc := "This is my channel about stuff."
+	csalt := cMixCrypto.NewSalt(csprng.NewSystemRNG(), 32)
+	cpubkey := newRsaPubKey(64, t)
+	cid, err := crypto.NewChannelID(cname, cdesc, csalt, rsa.CreatePublicKeyPem(cpubkey))
+	if err != nil {
+		t.Errorf("Failed to create channel ID: %+v", err)
+	}
 	channel := crypto.Channel{
-		ReceptionID: id.NewIdFromString("ReceptionID", id.User, t),
-		Name:        "MyChannel",
-		Description: "This is my channel about stuff.",
-		Salt:        cMixCrypto.NewSalt(csprng.NewSystemRNG(), 32),
-		RsaPubKey:   newRsaPubKey(64, t),
+		ReceptionID: cid,
+		Name:        cname,
+		Description: cdesc,
+		Salt:        csalt,
+		RsaPubKey:   cpubkey,
 	}
 
 	// Set up callbacks, callback channels, and the symmetric clients
@@ -128,7 +136,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 	}
 
 	// Broadcast payload
-	_, _, err := clients[0].Broadcast(payload, cmix.GetDefaultCMIXParams())
+	_, _, err = clients[0].Broadcast(payload, cmix.GetDefaultCMIXParams())
 	if err != nil {
 		t.Errorf("Client 0 failed to send broadcast: %+v", err)
 	}

@@ -42,11 +42,18 @@ func (m Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) {
 			stop.ToStopped()
 			return
 		case receiveMsg := <-rawMsgs:
-			jww.TRACE.Print("Group message reception received cMix message.")
+			jww.DEBUG.Printf("Group message reception received cMix message on round %d (%d) sent by %s at %d.",
+				receiveMsg.RoundId, receiveMsg.RoundTimestamp.Unix(),
+				receiveMsg.Sender.String(), receiveMsg.Timestamp.Unix())
+
+			// If given zero time, try to guesstimate roundTimestamp as right now
+			if receiveMsg.RoundTimestamp.Equal(time.Unix(0, 0)) {
+				jww.ERROR.Printf("getCryptKey missing roundTimestamp")
+				receiveMsg.RoundTimestamp = time.Now()
+			}
 
 			// Attempt to read the message
-			g, msgID, timestamp, senderID, msg, noFpMatch, err :=
-				m.readMessage(receiveMsg)
+			g, msgID, timestamp, senderID, msg, noFpMatch, err := m.readMessage(receiveMsg)
 			if err != nil {
 				if noFpMatch {
 					jww.TRACE.Printf("Received message not for group chat: %+v",
@@ -144,6 +151,9 @@ func (m *Manager) decryptMessage(g gs.Group, cMixMsg format.Message,
 	}
 
 	messageID := group.NewMessageID(g.ID, intlMsg.Marshal())
+
+	// Remove from garbled message on success to prevent reprocessing
+	m.store.GetGarbledMessages().Remove(cMixMsg)
 
 	return messageID, intlMsg.GetTimestamp(), senderID, intlMsg.GetPayload(), nil
 }

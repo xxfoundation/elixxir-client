@@ -374,6 +374,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 
 	if !m.param.RealtimeOnly {
 		roundsWithMessages2 = identity.UR.Iterate(func(rid id.Round) bool {
+			// TODO add set unchecked
 			if gwRoundsState.Checked(rid) {
 				return rounds.Checker(rid, filterList, identity.CR)
 			}
@@ -384,6 +385,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	for _, rid := range roundsWithMessages {
 		//denote that the round has been looked at in the tracking store
 		if identity.CR.Check(rid) {
+			// TODO: Err
 			m.round.GetMessagesFromRound(rid, identity)
 		}
 	}

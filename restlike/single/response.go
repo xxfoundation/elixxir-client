@@ -4,22 +4,23 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package restlike
+package single
 
 import (
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/restlike"
 	"google.golang.org/protobuf/proto"
 )
 
-// processor is the response handler for a Request
-type singleResponse struct {
-	responseCallback RequestCallback
+// response is the response handler for a Request
+type response struct {
+	responseCallback restlike.RequestCallback
 }
 
 // Callback is the handler for single-use message responses for a Request
-func (s *singleResponse) Callback(payload []byte, receptionID receptionID.EphemeralIdentity, rounds []rounds.Round, err error) {
-	newMessage := &Message{}
+func (s *response) Callback(payload []byte, receptionID receptionID.EphemeralIdentity, rounds []rounds.Round, err error) {
+	newMessage := &restlike.Message{}
 
 	// Handle response errors
 	if err != nil {

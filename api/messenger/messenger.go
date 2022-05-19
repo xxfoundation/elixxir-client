@@ -29,7 +29,7 @@ func Login(client *api.Client, callbacks auth.Callbacks) (m *Client, err error) 
 		backup: &Container{},
 	}
 
-	m.e2e, err = loadOrInitE2e(client)
+	m.e2e, err = LoadOrInitE2e(client)
 	if err != nil {
 		return nil, err
 	}
@@ -44,10 +44,10 @@ func Login(client *api.Client, callbacks auth.Callbacks) (m *Client, err error) 
 	return m, err
 }
 
-// loadOrInitE2e loads the e2e handler or makes a new one, generating a new
+// LoadOrInitE2e loads the e2e handler or makes a new one, generating a new
 // e2e private key. It attempts to load via a legacy construction, then tries
 // to load the modern one, creating a new modern ID if neither can be found
-func loadOrInitE2e(client *api.Client) (e2e.Handler, error) {
+func LoadOrInitE2e(client *api.Client) (e2e.Handler, error) {
 	usr := client.GetUser()
 	e2eGrp := client.GetStorage().GetE2EGroup()
 	kv := client.GetStorage().GetKV()

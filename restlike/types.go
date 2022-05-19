@@ -68,6 +68,11 @@ type Endpoints struct {
 	sync.RWMutex
 }
 
+// NewEndpoints returns a new Endpoints object
+func NewEndpoints() *Endpoints {
+	return &Endpoints{endpoints: make(map[URI]map[Method]Callback)}
+}
+
 // Add a new Endpoint
 // Returns an error if Endpoint already exists
 func (e *Endpoints) Add(path URI, method Method, cb Callback) error {

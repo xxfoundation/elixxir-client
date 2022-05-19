@@ -83,7 +83,7 @@ func TestManager_Lookup(t *testing.T) {
 	p := single.RequestParams{
 		Timeout:             timeout,
 		MaxResponseMessages: 1,
-		CmixParam:           cmix.GetDefaultCMIXParams(),
+		CmixParams:          cmix.GetDefaultCMIXParams(),
 	}
 
 	// Run the lookup

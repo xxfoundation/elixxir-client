@@ -111,15 +111,17 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 		// and add it to garbled messages to be handled later
 		msg = ecrMsg
 		raw := message.Receive{
-			Payload:        msg.Marshal(),
-			MessageType:    message.Raw,
-			Sender:         &id.ID{},
-			EphemeralID:    identity.EphId,
-			Timestamp:      time.Time{},
-			Encryption:     message.None,
-			RecipientID:    identity.Source,
-			RoundId:        id.Round(bundle.RoundInfo.ID),
-			RoundTimestamp: time.Unix(0, int64(bundle.RoundInfo.Timestamps[states.QUEUED])),
+			Payload:     msg.Marshal(),
+			MessageType: message.Raw,
+			Sender:      &id.ID{},
+			EphemeralID: identity.EphId,
+			Timestamp:   time.Time{},
+			Encryption:  message.None,
+			RecipientID: identity.Source,
+			RoundId:     id.Round(bundle.RoundInfo.ID),
+			// We use PRECOMPUTING here because all Rounds have that timestamp available to them
+			// QUEUED can be missing sometimes and cause a lot of hidden problems further down the line
+			RoundTimestamp: time.Unix(0, int64(bundle.RoundInfo.Timestamps[states.PRECOMPUTING])),
 		}
 		im := fmt.Sprintf("Received message of type Garbled/RAW: keyFP: %v, round: %d, "+
 			"msgDigest: %s", msg.GetKeyFP(), bundle.Round, msg.Digest())

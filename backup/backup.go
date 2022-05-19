@@ -8,10 +8,10 @@
 package backup
 
 import (
-	"gitlab.com/elixxir/client/api/messenger"
 	"sync"
 	"time"
 
+	"gitlab.com/elixxir/client/api/messenger"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/fact"
@@ -316,7 +316,11 @@ func (b *Backup) assembleBackup() backup.Backup {
 	}
 
 	// Get facts
-	bu.UserDiscoveryRegistration.FactList = b.ud.GetFacts()
+	if b.ud != nil {
+		bu.UserDiscoveryRegistration.FactList = b.ud.GetFacts()
+	} else {
+		bu.UserDiscoveryRegistration.FactList = fact.FactList{}
+	}
 
 	// Get contacts
 	bu.Contacts.Identities = b.e2e.GetAllPartnerIDs()

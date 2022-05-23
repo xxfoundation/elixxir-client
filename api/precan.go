@@ -9,6 +9,7 @@ package api
 
 import (
 	"encoding/binary"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/user"
@@ -59,15 +60,15 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
 		csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
 
-	def, err := parseNDF(defJSON)
+	def, err := ParseNDF(defJSON)
 	if err != nil {
 		return err
 	}
-	cmixGrp, e2eGrp := decodeGroups(def)
+	cmixGrp, e2eGrp := DecodeGroups(def)
 
 	protoUser := CreatePrecannedUser(precannedID, rngStream)
 
-	store, err := checkVersionAndSetupStorage(def, storageDir, password,
+	store, err := CheckVersionAndSetupStorage(def, storageDir, password,
 		protoUser, cmixGrp, e2eGrp, "")
 	if err != nil {
 		return err

@@ -2,6 +2,9 @@ package ud
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
@@ -13,8 +16,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"sync"
-	"time"
 )
 
 const (
@@ -116,7 +117,7 @@ func NewManager(services CMix, e2e E2E,
 	}
 
 	// Set storage to registered
-	if err = m.setRegistered(); err != nil && m.events != nil {
+	if err = setRegistered(kv); err != nil && m.events != nil {
 		m.events.Report(1, "UserDiscovery", "Registration",
 			fmt.Sprintf("User Registered with UD: %+v",
 				username))
@@ -163,6 +164,13 @@ func NewManagerFromBackup(services CMix,
 			"from backup")
 	}
 
+	// Set as registered. Since it's from a backup,
+	// the client is already registered
+	if err = setRegistered(kv); err != nil {
+		return nil, errors.WithMessage(err, "failed to set client as "+
+			"registered with user discovery.")
+	}
+
 	// Create the user discovery host object
 	_, err = m.getOrAddUdHost()
 	if err != nil {
@@ -170,14 +178,33 @@ func NewManagerFromBackup(services CMix,
 			"not be constructed.")
 	}
 
+	return m, nil
+}
+
+// InitStoreFromBackup initializes the UD storage from the backup subsystem
+func InitStoreFromBackup(kv *versioned.KV,
+	username, email, phone fact.Fact) error {
+	// Initialize our store
+	udStore, err := store.NewOrLoadStore(kv)
+	if err != nil {
+		return err
+	}
+
+	// Put any passed in missing facts into store
+	err = udStore.BackUpMissingFacts(email, phone)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to restore UD store "+
+			"from backup")
+	}
+
 	// Set as registered. Since it's from a backup,
 	// the client is already registered
-	if err = m.setRegistered(); err != nil {
-		return nil, errors.WithMessage(err, "failed to set client as "+
+	if err = setRegistered(kv); err != nil {
+		return errors.WithMessage(err, "failed to set client as "+
 			"registered with user discovery.")
 	}
 
-	return m, nil
+	return nil
 }
 
 // LoadManager loads the state of the Manager

@@ -25,7 +25,6 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/comms/client"
-	cryptoBackup "gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/version"
@@ -74,18 +73,18 @@ func NewClient(ndfJSON, storageDir string, password []byte,
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
 		csprng.NewSystemRNG)
 
-	def, err := parseNDF(ndfJSON)
+	def, err := ParseNDF(ndfJSON)
 	if err != nil {
 		return err
 	}
 
-	cmixGrp, e2eGrp := decodeGroups(def)
+	cmixGrp, e2eGrp := DecodeGroups(def)
 	start := netTime.Now()
 	protoUser := createNewUser(rngStreamGen)
 	jww.DEBUG.Printf("PortableUserInfo generation took: %s",
 		netTime.Now().Sub(start))
 
-	_, err = checkVersionAndSetupStorage(def, storageDir, password,
+	_, err = CheckVersionAndSetupStorage(def, storageDir, password,
 		protoUser, cmixGrp, e2eGrp, registrationCode)
 	if err != nil {
 		return err
@@ -107,69 +106,22 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 		csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
 
-	def, err := parseNDF(ndfJSON)
+	def, err := ParseNDF(ndfJSON)
 	if err != nil {
 		return err
 	}
-	cmixGrp, e2eGrp := decodeGroups(def)
+	cmixGrp, e2eGrp := DecodeGroups(def)
 
 	protoUser := createNewVanityUser(rngStream, cmixGrp, e2eGrp,
 		userIdPrefix)
 
-	_, err = checkVersionAndSetupStorage(def, storageDir, password,
+	_, err = CheckVersionAndSetupStorage(def, storageDir, password,
 		protoUser, cmixGrp, e2eGrp, registrationCode)
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-// NewClientFromBackup constructs a new Client from an encrypted
-// backup. The backup is decrypted using the backupPassphrase. On
-// success a successful client creation, the function will return a
-// JSON encoded list of the E2E partners contained in the backup and a
-// json-encoded string containing parameters stored in the backup
-func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
-	backupPassphrase []byte, backupFileContents []byte) ([]*id.ID,
-	string, error) {
-
-	backUp := &cryptoBackup.Backup{}
-	err := backUp.Decrypt(string(backupPassphrase), backupFileContents)
-	if err != nil {
-		return nil, "", errors.WithMessage(err,
-			"Failed to unmarshal decrypted client contents.")
-	}
-
-	usr := user.NewUserFromBackup(backUp)
-
-	def, err := parseNDF(ndfJSON)
-	if err != nil {
-		return nil, "", err
-	}
-
-	cmixGrp, e2eGrp := decodeGroups(def)
-
-	// Note we do not need registration here
-	storageSess, err := checkVersionAndSetupStorage(def, storageDir,
-		[]byte(sessionPassword), usr, cmixGrp, e2eGrp,
-		backUp.RegistrationCode)
-
-	storageSess.SetReceptionRegistrationValidationSignature(
-		backUp.ReceptionIdentity.RegistrarSignature)
-	storageSess.SetTransmissionRegistrationValidationSignature(
-		backUp.TransmissionIdentity.RegistrarSignature)
-	storageSess.SetRegistrationTimestamp(backUp.RegistrationTimestamp)
-
-	//move the registration state to indicate registered with
-	// registration on proto client
-	err = storageSess.ForwardRegistrationStatus(
-		storage.PermissioningComplete)
-	if err != nil {
-		return nil, "", err
-	}
-
-	return backUp.Contacts.Identities, backUp.JSONParams, nil
 }
 
 // OpenClient session, but don't connect to the network or log in
@@ -224,12 +176,12 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
 	protoClientJSON []byte) error {
 	jww.INFO.Printf("NewProtoClient_Unsafe")
 
-	def, err := parseNDF(ndfJSON)
+	def, err := ParseNDF(ndfJSON)
 	if err != nil {
 		return err
 	}
 
-	cmixGrp, e2eGrp := decodeGroups(def)
+	cmixGrp, e2eGrp := DecodeGroups(def)
 
 	protoUser := &user.Proto{}
 	err = json.Unmarshal(protoClientJSON, protoUser)
@@ -239,7 +191,7 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
 
 	usr := user.NewUserFromProto(protoUser)
 
-	storageSess, err := checkVersionAndSetupStorage(def, storageDir,
+	storageSess, err := CheckVersionAndSetupStorage(def, storageDir,
 		password, usr, cmixGrp, e2eGrp, protoUser.RegCode)
 	if err != nil {
 		return err
@@ -325,7 +277,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	params Params) (*Client, error) {
 	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
 
-	def, err := parseNDF(newBaseNdf)
+	def, err := ParseNDF(newBaseNdf)
 	if err != nil {
 		return nil, err
 	}
@@ -370,7 +322,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 	params Params) (*Client, error) {
 	jww.INFO.Printf("LoginWithProtoClient()")
 
-	def, err := parseNDF(newBaseNdf)
+	def, err := ParseNDF(newBaseNdf)
 	if err != nil {
 		return nil, err
 	}
@@ -689,9 +641,9 @@ func (c *Client) GetPreferredBins(countryCode string) ([]string, error) {
 }
 
 // ----- Utility Functions -----
-// parseNDF parses the initial ndf string for the client. do not check the
+// ParseNDF parses the initial ndf string for the client. do not check the
 // signature, it is deprecated.
-func parseNDF(ndfString string) (*ndf.NetworkDefinition, error) {
+func ParseNDF(ndfString string) (*ndf.NetworkDefinition, error) {
 	if ndfString == "" {
 		return nil, errors.New("ndf file empty")
 	}
@@ -704,8 +656,8 @@ func parseNDF(ndfString string) (*ndf.NetworkDefinition, error) {
 	return netDef, nil
 }
 
-// decodeGroups returns the e2e and cmix groups from the ndf
-func decodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
+// DecodeGroups returns the e2e and cmix groups from the ndf
+func DecodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 	largeIntBits := 16
 
 	//Generate the cmix group
@@ -720,10 +672,10 @@ func decodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 	return cmixGrp, e2eGrp
 }
 
-// checkVersionAndSetupStorage is common code shared by NewClient,
+// CheckVersionAndSetupStorage is common code shared by NewClient,
 // NewPrecannedClient and NewVanityClient it checks client version and
 // creates a new storage for user data
-func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
+func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition,
 	storageDir string, password []byte, protoUser user.Info,
 	cmixGrp, e2eGrp *cyclic.Group, registrationCode string) (
 	storage.Session, error) {

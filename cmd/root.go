@@ -560,8 +560,11 @@ func createClient() *api.Client {
 			}
 
 			// Construct client from backup data
-			backupIdList, _, err := api.NewClientFromBackup(string(ndfJSON), storeDir,
+			backupIdList, _, err := messenger.NewClientFromBackup(string(ndfJSON), storeDir,
 				pass, backupPass, backupFile)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
 
 			backupIdListPath := viper.GetString("backupIdList")
 			if backupIdListPath != "" {

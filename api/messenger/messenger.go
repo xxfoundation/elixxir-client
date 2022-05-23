@@ -69,11 +69,20 @@ func LoadOrInitE2e(client *api.Client) (e2e.Handler, error) {
 			//generate the key
 			var privkey *cyclic.Int
 			if client.GetStorage().IsPrecanned() {
-				precannedID := binary.BigEndian.Uint64(client.GetStorage().GetReceptionID()[:])
-				privkey = generatePrecanDHKeypair(uint(precannedID), client.GetStorage().GetE2EGroup())
+				jww.WARN.Printf("Using Precanned DH key")
+				precannedID := binary.BigEndian.Uint64(
+					client.GetStorage().GetReceptionID()[:])
+				privkey = generatePrecanDHKeypair(
+					uint(precannedID),
+					client.GetStorage().GetE2EGroup())
+			} else if usr.E2eDhPrivateKey != nil {
+				jww.INFO.Printf("Using pre-existing DH key")
+				privkey = usr.E2eDhPrivateKey
 			} else {
+				jww.INFO.Printf("Generating new DH key")
 				rngStream := client.GetRng().GetStream()
-				privkey = diffieHellman.GeneratePrivateKey(len(e2eGrp.GetPBytes()),
+				privkey = diffieHellman.GeneratePrivateKey(
+					len(e2eGrp.GetPBytes()),
 					e2eGrp, rngStream)
 				rngStream.Close()
 			}

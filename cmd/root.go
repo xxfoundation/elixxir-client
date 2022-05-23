@@ -25,6 +25,10 @@ import (
 	"sync"
 	"time"
 
+	"gitlab.com/elixxir/client/api/messenger"
+	"gitlab.com/elixxir/client/backup"
+	"gitlab.com/elixxir/client/e2e"
+
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
@@ -192,6 +196,8 @@ var rootCmd = &cobra.Command{
 		client := initClient()
 
 		user := client.GetUser()
+		jww.INFO.Printf("USERPUBKEY: %s",
+			user.E2eDhPublicKey.TextVerbose(16, 0))
 		jww.INFO.Printf("User: %s", user.ReceptionID)
 		writeContact(user.GetContact())
 
@@ -213,7 +219,7 @@ var rootCmd = &cobra.Command{
 			recipientContact = user.GetContact()
 		}
 
-		client.GetE2EHandler().EnableUnsafeReception()
+		client.GetE2E().EnableUnsafeReception()
 		recvCh := registerMessageListener(client)
 
 		err := client.StartNetworkFollower(5 * time.Second)
@@ -223,7 +229,7 @@ var rootCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetNetworkInterface().AddHealthCallback(
+		client.GetCmix().AddHealthCallback(
 			func(isconnected bool) {
 				connected <- isconnected
 			})
@@ -248,7 +254,7 @@ var rootCmd = &cobra.Command{
 				numReg, total)
 		}
 
-		client.GetBackup().TriggerBackup("Integration test.")
+		client.GetBackupContainer().TriggerBackup("Integration test.")
 
 		// Send Messages
 		msgBody := viper.GetString("message")
@@ -264,7 +270,7 @@ var rootCmd = &cobra.Command{
 			authConfirmed = true
 		}
 
-		if client.HasAuthenticatedChannel(recipientID) {
+		if client.GetE2E().HasAuthenticatedChannel(recipientID) {
 			jww.INFO.Printf("Authenticated channel already in "+
 				"place for %s", recipientID)
 			authConfirmed = true
@@ -324,25 +330,46 @@ var rootCmd = &cobra.Command{
 		}
 
 		if viper.GetBool("delete-receive-requests") {
-			client.DeleteReceiveRequests()
+			err = client.GetAuth().DeleteReceiveRequests()
+			if err != nil {
+				jww.FATAL.Panicf("Failed to delete received requests:"+
+					" %+v", err)
+			}
 		}
 
 		if viper.GetBool("delete-sent-requests") {
-			client.DeleteSentRequests()
+			err = client.GetAuth().DeleteSentRequests()
+			if err != nil {
+				jww.FATAL.Panicf("Failed to delete sent requests:"+
+					" %+v", err)
+			}
 		}
 
 		if viper.GetBool("delete-all-requests") {
-			client.DeleteAllRequests()
+			err = client.GetAuth().DeleteAllRequests()
+			if err != nil {
+				jww.FATAL.Panicf("Failed to delete all requests:"+
+					" %+v", err)
+			}
 		}
 
 		if viper.GetBool("delete-request") {
-			client.DeleteRequest(recipientID)
+			err = client.GetAuth().DeleteRequest(recipientID)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to delete request for %s:"+
+					" %+v", recipientID, err)
+			}
 		}
 
 		mt := catalog.MessageType(catalog.XxMessage)
 		payload := []byte(msgBody)
 		recipient := recipientID
-		params := initParams()
+
+		paramsE2E := e2e.GetDefaultParams()
+		if viper.GetBool("splitSends") {
+			paramsE2E.ExcludedRounds = excludedRounds.NewSet()
+		}
+
 		wg := &sync.WaitGroup{}
 		sendCnt := int(viper.GetUint("sendCount"))
 		wg.Add(sendCnt)
@@ -355,18 +382,16 @@ var rootCmd = &cobra.Command{
 					for {
 						// Send messages
 						var roundIDs []id.Round
-						var roundTimeout time.Duration
+						roundTimeout := paramsE2E.CMIXParams.SendTimeout
 						if unsafe {
-							params.E2E.CMIXParams.DebugTag = "cmd.Unsafe"
-							roundIDs, _, err = client.SendUnsafe(
+							paramsE2E.CMIXParams.DebugTag = "cmd.Unsafe"
+							roundIDs, _, err = client.GetE2E().SendUnsafe(
 								mt, recipient, payload,
-								params.E2E)
-							roundTimeout = params.Network.Timeout
+								paramsE2E)
 						} else {
-							params.E2E.CMIXParams.DebugTag = "cmd.E2E"
-							roundIDs, _, _, err = client.SendE2E(mt,
-								recipient, payload, params.E2E)
-							roundTimeout = params.E2E.CMIXParams.Timeout
+							paramsE2E.CMIXParams.DebugTag = "cmd.E2E"
+							roundIDs, _, _, err = client.GetE2E().SendE2E(mt,
+								recipient, payload, paramsE2E)
 						}
 						if err != nil {
 							jww.FATAL.Panicf("%+v", err)
@@ -388,7 +413,7 @@ var rootCmd = &cobra.Command{
 							}
 
 							// Monitor rounds for results
-							err = client.GetNetworkInterface().GetRoundResults(roundTimeout, f, roundIDs...)
+							err = client.GetCmix().GetRoundResults(roundTimeout, f, roundIDs...)
 							if err != nil {
 								jww.DEBUG.Printf("Could not verify messages were sent successfully, resending messages...")
 								continue
@@ -467,7 +492,7 @@ var rootCmd = &cobra.Command{
 		jww.INFO.Printf("Received %d/%d Messages!", receiveCnt, expectedCnt)
 		fmt.Printf("Received %d\n", receiveCnt)
 		if roundsNotepad != nil {
-			roundsNotepad.INFO.Printf("\n%s", client.GetNetworkInterface().GetVerboseRounds())
+			roundsNotepad.INFO.Printf("\n%s", client.GetCmix().GetVerboseRounds())
 		}
 		wg.Wait()
 		err = client.StopNetworkFollower()
@@ -591,14 +616,10 @@ func initParams() api.Params {
 	}
 	p.CMix.VerboseRoundTracking = viper.GetBool(
 		"verboseRoundTracking")
-	if viper.GetBool("splitSends") {
-		p.Network.ExcludedRounds = excludedRounds.NewSet()
-	}
-
 	return p
 }
 
-func initClient() *api.Client {
+func initClient() *messenger.Client {
 	createClient()
 
 	pass := parsePassword(viper.GetString("password"))
@@ -608,13 +629,21 @@ func initClient() *api.Client {
 	params := initParams()
 
 	// load the client
-	authCbs = makeAuthCallbacks(nil,
-		viper.GetBool("unsafe-channel-creation"))
-	client, err := api.Login(storeDir, pass, authCbs, params)
-	authCbs.client = client
+	baseclient, err := api.Login(storeDir, pass, authCbs, params)
+
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
+
+	authCbs = makeAuthCallbacks(nil,
+		viper.GetBool("unsafe-channel-creation"))
+
+	client, err := messenger.Login(baseclient, authCbs)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+
+	authCbs.client = client
 
 	if protoUser := viper.GetString("protoUserOut"); protoUser != "" {
 
@@ -664,8 +693,9 @@ func initClient() *api.Client {
 				}
 			}
 		}
-
-		_, err = client.InitializeBackup(backupPass, updateBackupCb)
+		_, err = backup.InitializeBackup(backupPass, updateBackupCb,
+			client.GetBackupContainer(), client.GetE2E(), client.GetStorage(),
+			nil, client.GetStorage().GetKV(), client.GetRng())
 		if err != nil {
 			jww.FATAL.Panicf("Failed to initialize backup with key %q: %+v",
 				backupPass, err)
@@ -675,27 +705,27 @@ func initClient() *api.Client {
 	return client
 }
 
-func acceptChannel(client *api.Client, recipientID *id.ID) {
-	recipientContact, err := client.GetAuthenticatedChannelRequest(
+func acceptChannel(client *messenger.Client, recipientID *id.ID) {
+	recipientContact, err := client.GetAuth().GetReceivedRequest(
 		recipientID)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	_, err = client.ConfirmAuthenticatedChannel(
+	_, err = client.GetAuth().Confirm(
 		recipientContact)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 }
 
-func deleteChannel(client *api.Client, partnerId *id.ID) {
+func deleteChannel(client *messenger.Client, partnerId *id.ID) {
 	err := client.DeleteContact(partnerId)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 }
 
-func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
+func addAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
 	recipient contact.Contact) {
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {
@@ -721,8 +751,8 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 		me := client.GetUser().GetContact()
 		jww.INFO.Printf("Requesting auth channel from: %s",
 			recipientID)
-		_, err := client.RequestAuthenticatedChannel(recipientContact,
-			me, msg)
+		_, err := client.GetAuth().Request(recipientContact,
+			me.Facts)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -732,7 +762,7 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 	}
 }
 
-func resetAuthenticatedChannel(client *api.Client, recipientID *id.ID,
+func resetAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
 	recipient contact.Contact) {
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {
@@ -755,11 +785,9 @@ func resetAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 	recipientContact := recipient
 
 	if recipientContact.ID != nil && recipientContact.DhPubKey != nil {
-		me := client.GetUser().GetContact()
 		jww.INFO.Printf("Requesting auth channel from: %s",
 			recipientID)
-		_, err := client.ResetSession(recipientContact,
-			me, msg)
+		_, err := client.GetAuth().Reset(recipientContact)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

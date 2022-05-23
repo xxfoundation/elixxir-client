@@ -53,11 +53,11 @@ func (rrs *receivedRequestService) Process(message format.Message,
 		return
 	}
 
-	jww.INFO.Printf("partnerPubKeyBytes: %v", partnerPubKey.Bytes())
+	jww.INFO.Printf("partnerPubKey: %v", partnerPubKey.TextVerbose(16, 0))
 
-	jww.TRACE.Printf("processing requests: \n\t MYPUBKEY: %s "+
+	jww.TRACE.Printf("processing requests: \n\t MYHISTORICALPUBKEY: %s "+
 		"\n\t PARTNERPUBKEY: %s \n\t ECRPAYLOAD: %s \n\t MAC: %s",
-		state.e2e.GetHistoricalDHPubkey().Text(16),
+		state.e2e.GetHistoricalDHPubkey().TextVerbose(16, 0),
 		partnerPubKey.TextVerbose(16, 0),
 		base64.StdEncoding.EncodeToString(baseFmt.data),
 		base64.StdEncoding.EncodeToString(message.GetMac()))
@@ -80,6 +80,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 		jww.WARN.Printf("Failed to decode the auth request: %+v", err)
 		return
 	}
+	jww.INFO.Printf("\t PARTNERSIDHPUBKEY: %v", partnerSIDHPubKey)
 
 	//create the contact, note that no facts are sent in the payload
 	c := contact.Contact{

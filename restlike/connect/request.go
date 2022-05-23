@@ -4,32 +4,33 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package restlike
+package connect
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/single"
-	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/elixxir/client/connect"
+	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/restlike"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/crypto/csprng"
 	"google.golang.org/protobuf/proto"
 )
 
-// SingleRequest allows for making REST-like requests to a RestServer using single-use messages
+// Request allows for making REST-like requests to a RestServer using connect.Connection
 // Can be used as stateful or declared inline without state
-type SingleRequest struct {
-	Net    single.Cmix
+type Request struct {
+	Net    connect.Connection
 	Rng    csprng.Source
 	E2eGrp *cyclic.Group
 }
 
 // Request provides several Method of sending Data to the given URI
 // and blocks until the Message is returned
-func (s *SingleRequest) Request(recipient contact.Contact, method Method, path URI,
-	content Data, headers *Headers, singleParams single.RequestParams) (*Message, error) {
+func (s *Request) Request(method restlike.Method, path restlike.URI,
+	content restlike.Data, headers *restlike.Headers, e2eParams e2e.Params) (*restlike.Message, error) {
 	// Build the Message
-	newMessage := &Message{
+	newMessage := &restlike.Message{
 		Content: content,
 		Headers: headers,
 		Method:  uint32(method),
@@ -40,33 +41,35 @@ func (s *SingleRequest) Request(recipient contact.Contact, method Method, path U
 		return nil, err
 	}
 
-	// Build callback for the single-use response
-	signalChannel := make(chan *Message, 1)
-	cb := func(msg *Message) {
+	// Build callback for the response
+	signalChannel := make(chan *restlike.Message, 1)
+	cb := func(msg *restlike.Message) {
 		signalChannel <- msg
 	}
+	s.Net.RegisterListener(catalog.XxMessage, response{responseCallback: cb})
 
 	// Transmit the Message
-	_, _, err = single.TransmitRequest(recipient, catalog.RestLike, msg,
-		&singleResponse{responseCallback: cb}, singleParams, s.Net, s.Rng, s.E2eGrp)
+	_, _, _, err = s.Net.SendE2E(catalog.XxMessage, msg, e2eParams)
 	if err != nil {
 		return nil, err
 	}
 
 	// Block waiting for single-use response
-	jww.DEBUG.Printf("Restlike waiting for single-use response from %s...", recipient.ID.String())
+	jww.DEBUG.Printf("Restlike waiting for connect response from %s...",
+		s.Net.GetPartner().PartnerId().String())
 	newResponse := <-signalChannel
-	jww.DEBUG.Printf("Restlike single-use response received from %s", recipient.ID.String())
+	jww.DEBUG.Printf("Restlike connect response received from %s",
+		s.Net.GetPartner().PartnerId().String())
 
 	return newResponse, nil
 }
 
 // AsyncRequest provides several Method of sending Data to the given URI
 // and will return the Message to the given Callback when received
-func (s *SingleRequest) AsyncRequest(recipient contact.Contact, method Method, path URI,
-	content Data, headers *Headers, cb RequestCallback, singleParams single.RequestParams) error {
+func (s *Request) AsyncRequest(method restlike.Method, path restlike.URI,
+	content restlike.Data, headers *restlike.Headers, cb restlike.RequestCallback, e2eParams e2e.Params) error {
 	// Build the Message
-	newMessage := &Message{
+	newMessage := &restlike.Message{
 		Content: content,
 		Headers: headers,
 		Method:  uint32(method),
@@ -77,8 +80,10 @@ func (s *SingleRequest) AsyncRequest(recipient contact.Contact, method Method, p
 		return err
 	}
 
+	// Build callback for the response
+	s.Net.RegisterListener(catalog.XxMessage, response{responseCallback: cb})
+
 	// Transmit the Message
-	_, _, err = single.TransmitRequest(recipient, catalog.RestLike, msg,
-		&singleResponse{responseCallback: cb}, singleParams, s.Net, s.Rng, s.E2eGrp)
+	_, _, _, err = s.Net.SendE2E(catalog.XxMessage, msg, e2eParams)
 	return err
 }

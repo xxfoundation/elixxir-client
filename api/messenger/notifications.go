@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package api
+package messenger
 
 import (
 	"github.com/pkg/errors"
@@ -23,33 +23,33 @@ import (
 // especially as these rely on third parties (i.e., Firebase *cough*
 // *cough* google's palantir *cough*) that may represent a security
 // risk to the user.
-func (c *Client) RegisterForNotifications(token string) error {
+func (m *Client) RegisterForNotifications(token string) error {
 	jww.INFO.Printf("RegisterForNotifications(%s)", token)
 	// Pull the host from the manage
-	notificationBotHost, ok := c.comms.GetHost(&id.NotificationBot)
+	notificationBotHost, ok := m.GetComms().GetHost(&id.NotificationBot)
 	if !ok {
 		return errors.New("RegisterForNotifications: Failed to retrieve host for notification bot")
 	}
-	intermediaryReceptionID, sig, err := c.getIidAndSig()
+	intermediaryReceptionID, sig, err := m.getIidAndSig()
 	if err != nil {
 		return err
 	}
 
-	privKey := c.userState.CryptographicIdentity.GetTransmissionRSA()
+	privKey := m.GetStorage().GetTransmissionRSA()
 	pubPEM := rsa.CreatePublicKeyPem(privKey.GetPublic())
-	regSig := c.userState.GetTransmissionRegistrationValidationSignature()
-	regTS := c.GetUser().RegistrationTimestamp
+	regSig := m.GetStorage().GetTransmissionRegistrationValidationSignature()
+	regTS := m.GetStorage().GetRegistrationTimestamp()
 
 	// Send the register message
-	_, err = c.comms.RegisterForNotifications(notificationBotHost,
+	_, err = m.GetComms().RegisterForNotifications(notificationBotHost,
 		&mixmessages.NotificationRegisterRequest{
 			Token:                 token,
 			IntermediaryId:        intermediaryReceptionID,
 			TransmissionRsa:       pubPEM,
-			TransmissionSalt:      c.GetUser().TransmissionSalt,
+			TransmissionSalt:      m.GetStorage().GetTransmissionSalt(),
 			TransmissionRsaSig:    regSig,
 			IIDTransmissionRsaSig: sig,
-			RegistrationTimestamp: regTS,
+			RegistrationTimestamp: regTS.UnixNano(),
 		})
 	if err != nil {
 		err := errors.Errorf("RegisterForNotifications: Unable to "+
@@ -61,19 +61,19 @@ func (c *Client) RegisterForNotifications(token string) error {
 }
 
 // UnregisterForNotifications turns of notifications for this client
-func (c *Client) UnregisterForNotifications() error {
+func (m *Client) UnregisterForNotifications() error {
 	jww.INFO.Printf("UnregisterForNotifications()")
 	// Pull the host from the manage
-	notificationBotHost, ok := c.comms.GetHost(&id.NotificationBot)
+	notificationBotHost, ok := m.GetComms().GetHost(&id.NotificationBot)
 	if !ok {
 		return errors.New("Failed to retrieve host for notification bot")
 	}
-	intermediaryReceptionID, sig, err := c.getIidAndSig()
+	intermediaryReceptionID, sig, err := m.getIidAndSig()
 	if err != nil {
 		return err
 	}
 	// Send the unregister message
-	_, err = c.comms.UnregisterForNotifications(notificationBotHost, &mixmessages.NotificationUnregisterRequest{
+	_, err = m.GetComms().UnregisterForNotifications(notificationBotHost, &mixmessages.NotificationUnregisterRequest{
 		IntermediaryId:        intermediaryReceptionID,
 		IIDTransmissionRsaSig: sig,
 	})
@@ -86,8 +86,8 @@ func (c *Client) UnregisterForNotifications() error {
 	return nil
 }
 
-func (c *Client) getIidAndSig() ([]byte, []byte, error) {
-	intermediaryReceptionID, err := ephemeral.GetIntermediaryId(c.GetUser().ReceptionID)
+func (m *Client) getIidAndSig() ([]byte, []byte, error) {
+	intermediaryReceptionID, err := ephemeral.GetIntermediaryId(m.GetStorage().GetReceptionID())
 	if err != nil {
 		return nil, nil, errors.WithMessage(err, "RegisterForNotifications: Failed to form intermediary ID")
 	}
@@ -100,10 +100,9 @@ func (c *Client) getIidAndSig() ([]byte, []byte, error) {
 		return nil, nil, errors.WithMessage(err, "RegisterForNotifications: Failed to write intermediary ID to hash")
 	}
 
-	stream := c.rng.GetStream()
-	c.GetUser()
+	stream := m.GetRng().GetStream()
 	sig, err := rsa.Sign(stream,
-		c.userState.GetTransmissionRSA(),
+		m.GetStorage().GetTransmissionRSA(),
 		hash.CMixHash, h.Sum(nil), nil)
 	if err != nil {
 		return nil, nil, errors.WithMessage(err, "RegisterForNotifications: Failed to sign intermediary ID")

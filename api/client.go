@@ -17,12 +17,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
-	"gitlab.com/elixxir/client/backup"
-	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/registration"
@@ -52,32 +47,21 @@ type Client struct {
 	// appropriate
 	storage storage.Session
 
-	// user state object
-	userState *user.User
-
-	//object used for communications
+	//Low level comms object
 	comms *client.Comms
-	// Network parameters, note e2e params wrap CMIXParams
-	parameters e2e.Params
 
+	//facilitates sane communications with cMix
 	network cmix.Client
+
 	//object used to register and communicate with permissioning
 	permissioning *registration.Registration
-	//object containing auth interactions
-	auth auth.State
-
-	e2e e2e.Handler
 
 	//services system to track running threads
-	followerServices *services
-
+	followerServices   *services
 	clientErrorChannel chan interfaces.ClientError
 
 	// Event reporting in event.go
 	events *event.Manager
-
-	// Handles the triggering and delivery of backups
-	backup *backup.Backup
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -97,13 +81,12 @@ func NewClient(ndfJSON, storageDir string, password []byte,
 
 	cmixGrp, e2eGrp := decodeGroups(def)
 	start := netTime.Now()
-	protoUser := createNewUser(rngStreamGen, cmixGrp, e2eGrp)
+	protoUser := createNewUser(rngStreamGen)
 	jww.DEBUG.Printf("PortableUserInfo generation took: %s",
 		netTime.Now().Sub(start))
 
 	_, err = checkVersionAndSetupStorage(def, storageDir, password,
-		protoUser, cmixGrp, e2eGrp, rngStreamGen,
-		registrationCode)
+		protoUser, cmixGrp, e2eGrp, registrationCode)
 	if err != nil {
 		return err
 	}
@@ -134,8 +117,7 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 		userIdPrefix)
 
 	_, err = checkVersionAndSetupStorage(def, storageDir, password,
-		protoUser, cmixGrp, e2eGrp, rngStreamGen,
-		registrationCode)
+		protoUser, cmixGrp, e2eGrp, registrationCode)
 	if err != nil {
 		return err
 	}
@@ -168,11 +150,9 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 
 	cmixGrp, e2eGrp := decodeGroups(def)
 
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
-
 	// Note we do not need registration here
 	storageSess, err := checkVersionAndSetupStorage(def, storageDir,
-		[]byte(sessionPassword), usr, cmixGrp, e2eGrp, rngStreamGen,
+		[]byte(sessionPassword), usr, cmixGrp, e2eGrp,
 		backUp.RegistrationCode)
 
 	storageSess.SetReceptionRegistrationValidationSignature(
@@ -213,22 +193,14 @@ func OpenClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	userState, err := user.LoadUser(storageSess.GetKV())
-	if err != nil {
-		return nil, err
-	}
-
 	c := &Client{
 		storage:            storageSess,
 		rng:                rngStreamGen,
 		comms:              nil,
 		network:            nil,
 		followerServices:   newServices(),
-		parameters:         parameters.E2E,
 		clientErrorChannel: make(chan interfaces.ClientError, 1000),
 		events:             event.NewEventManager(),
-		backup:             &backup.Backup{},
-		userState:          userState,
 	}
 
 	err = c.initComms()
@@ -237,15 +209,6 @@ func OpenClient(storageDir string, password []byte,
 	}
 
 	c.network, err = cmix.NewClient(parameters.CMix, c.comms, c.storage,
-		c.rng, c.events)
-	if err != nil {
-		return nil, err
-	}
-
-	user := c.userState.PortableUserInfo()
-
-	c.e2e, err = e2e.Load(c.storage.GetKV(), c.network,
-		user.ReceptionID, c.storage.GetE2EGroup(),
 		c.rng, c.events)
 	if err != nil {
 		return nil, err
@@ -260,8 +223,6 @@ func OpenClient(storageDir string, password []byte,
 func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
 	protoClientJSON []byte) error {
 	jww.INFO.Printf("NewProtoClient_Unsafe")
-
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 
 	def, err := parseNDF(ndfJSON)
 	if err != nil {
@@ -279,8 +240,7 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
 	usr := user.NewUserFromProto(protoUser)
 
 	storageSess, err := checkVersionAndSetupStorage(def, storageDir,
-		password, usr, cmixGrp, e2eGrp, rngStreamGen,
-		protoUser.RegCode)
+		password, usr, cmixGrp, e2eGrp, protoUser.RegCode)
 	if err != nil {
 		return err
 	}
@@ -312,9 +272,8 @@ func Login(storageDir string, password []byte,
 		return nil, err
 	}
 
-	u := c.userState.PortableUserInfo()
 	jww.INFO.Printf("Client Logged in: \n\tTransmissionID: %s "+
-		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
+		"\n\tReceptionID: %s", c.storage.GetTransmissionID(), c.storage.GetReceptionID())
 
 	def := c.storage.GetNDF()
 
@@ -346,16 +305,6 @@ func Login(storageDir string, password []byte,
 	}
 
 	err = c.network.Connect(def)
-	if err != nil {
-		return nil, err
-	}
-
-	// FIXME: The callbacks need to be set, so I suppose we would need to
-	//        either set them via a special type or add them
-	//        to the login call?
-	authParams := auth.GetDefaultParams()
-	c.auth, err = auth.NewState(c.storage.GetKV(), c.network, c.e2e, c.rng,
-		c.events, authParams, authCallbacks, c.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
@@ -405,15 +354,6 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	// FIXME: The callbacks need to be set, so I suppose we would need to
-	//        either set them via a special type or add them
-	//        to the login call?
-	c.auth, err = auth.NewState(c.storage.GetKV(), c.network, c.e2e, c.rng,
-		c.events, params.Auth, authCallbacks, c.backup.TriggerBackup)
-	if err != nil {
-		return nil, err
-	}
-
 	err = c.registerFollower()
 	if err != nil {
 		return nil, err
@@ -426,7 +366,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 // JSON containing the cryptographic primitives. This is designed for
 // some specific deployment procedures and is generally unsafe.
 func LoginWithProtoClient(storageDir string, password []byte,
-	protoClientJSON []byte, newBaseNdf string, authCallbacks auth.Callbacks,
+	protoClientJSON []byte, newBaseNdf string,
 	params Params) (*Client, error) {
 	jww.INFO.Printf("LoginWithProtoClient()")
 
@@ -461,8 +401,6 @@ func LoginWithProtoClient(storageDir string, password []byte,
 	// FIXME: The callbacks need to be set, so I suppose we would need to
 	//        either set them via a special type or add them
 	//        to the login call?
-	c.auth, err = auth.NewState(c.storage.GetKV(), c.network, c.e2e, c.rng,
-		c.events, params.Auth, authCallbacks, c.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
@@ -478,16 +416,13 @@ func (c *Client) initComms() error {
 	var err error
 
 	//get the user from session
-	u := c.userState
-	cryptoUser := u.CryptographicIdentity
-
-	privKey := cryptoUser.GetTransmissionRSA()
+	privKey := c.storage.GetTransmissionRSA()
 	pubPEM := rsa.CreatePublicKeyPem(privKey.GetPublic())
 	privPEM := rsa.CreatePrivateKeyPem(privKey)
 
 	//start comms
-	c.comms, err = client.NewClientComms(cryptoUser.GetTransmissionID(),
-		pubPEM, privPEM, cryptoUser.GetTransmissionSalt())
+	c.comms, err = client.NewClientComms(c.storage.GetTransmissionID(),
+		pubPEM, privPEM, c.storage.GetTransmissionSalt())
 	if err != nil {
 		return errors.WithMessage(err, "failed to load client")
 	}
@@ -598,9 +533,8 @@ func (c *Client) GetErrorsChannel() <-chan interfaces.ClientError {
 //   - Auth Callback (/auth/callback.go)
 //      Handles both auth confirm and requests
 func (c *Client) StartNetworkFollower(timeout time.Duration) error {
-	u := c.GetUser()
 	jww.INFO.Printf("StartNetworkFollower() \n\tTransmissionID: %s "+
-		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
+		"\n\tReceptionID: %s", c.storage.GetTransmissionID(), c.storage.GetReceptionID())
 
 	return c.followerServices.start(timeout)
 }
@@ -640,39 +574,6 @@ func (c *Client) GetRoundEvents() interfaces.RoundEvents {
 	return c.network.GetInstance().GetRoundEvents()
 }
 
-// RegisterListener registers a callback struct for message receive
-// events.
-func (c *Client) RegisterListener(senderID *id.ID,
-	messageType catalog.MessageType,
-	newListener receive.Listener) receive.ListenerID {
-	jww.INFO.Printf("GetRoundEvents()")
-	jww.WARN.Printf("GetRoundEvents does not handle Client Errors " +
-		"edge case!")
-	return c.e2e.RegisterListener(senderID, messageType, newListener)
-}
-
-// RegisterListenerFunc registers a callback func for message receive
-// events.
-func (c *Client) RegisterListenerFunc(name string, senderID *id.ID,
-	messageType catalog.MessageType,
-	newListener receive.ListenerFunc) receive.ListenerID {
-	jww.INFO.Printf("GetRoundEvents()")
-	jww.WARN.Printf("GetRoundEvents does not handle Client Errors " +
-		"edge case!")
-	return c.e2e.RegisterFunc(name, senderID, messageType, newListener)
-}
-
-// RegisterListenerChannel registers a channel for message receive
-// events.
-func (c *Client) RegisterListenerChannel(name string, senderID *id.ID,
-	messageType catalog.MessageType,
-	newListener chan receive.Message) receive.ListenerID {
-	jww.INFO.Printf("GetRoundEvents()")
-	jww.WARN.Printf("GetRoundEvents does not handle Client Errors " +
-		"edge case!")
-	return c.e2e.RegisterChannel(name, senderID, messageType, newListener)
-}
-
 // AddService adds a service ot be controlled by the client thread control,
 // these will be started and stopped with the network follower
 func (c *Client) AddService(sp Service) error {
@@ -683,11 +584,7 @@ func (c *Client) AddService(sp Service) error {
 // can be serialized into a byte stream for out-of-band sharing.
 func (c *Client) GetUser() user.Info {
 	jww.INFO.Printf("GetUser()")
-	cMixUser := c.userState.PortableUserInfo()
-	// Add e2e dh keys
-	e2e := c.GetE2EHandler()
-	cMixUser.E2eDhPrivateKey = e2e.GetHistoricalDHPrivkey().DeepCopy()
-	cMixUser.E2eDhPublicKey = e2e.GetHistoricalDHPubkey().DeepCopy()
+	cMixUser := c.storage.PortableUserInfo()
 	return cMixUser
 }
 
@@ -706,32 +603,14 @@ func (c *Client) GetStorage() storage.Session {
 	return c.storage
 }
 
-// GetNetworkInterface returns the client Network Interface
-func (c *Client) GetNetworkInterface() cmix.Client {
+// GetCmix returns the client Network Interface
+func (c *Client) GetCmix() cmix.Client {
 	return c.network
-}
-
-// GetE2EHandler returns the e2e handler
-func (c *Client) GetE2EHandler() e2e.Handler {
-	return c.e2e
 }
 
 // GetEventReporter returns the event reporter
 func (c *Client) GetEventReporter() event.Reporter {
 	return c.events
-}
-
-// GetBackup returns a pointer to the backup container so that the backup can be
-// set and triggered.
-func (c *Client) GetBackup() *backup.Backup {
-	return c.backup
-}
-
-func (c *Client) InitializeBackup(backupPass string,
-	updateBackupCb backup.UpdateBackupFn) (*backup.Backup, error) {
-	container := &backup.Container{}
-	return backup.InitializeBackup(backupPass, updateBackupCb, container,
-		c.e2e, c.storage, nil, c.storage.GetKV(), c.rng)
 }
 
 // GetNodeRegistrationStatus gets the current state of nodes registration. It
@@ -740,7 +619,7 @@ func (c *Client) InitializeBackup(backupPass string,
 // healthy.
 func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	// Return an error if the network is not healthy
-	if !c.GetNetworkInterface().IsHealthy() {
+	if !c.GetCmix().IsHealthy() {
 		return 0, 0, errors.New("Cannot get number of nodes " +
 			"registrations when network is not healthy")
 	}
@@ -766,59 +645,6 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 
 	// get the number of in progress nodes registrations
 	return numRegistered, len(nodes) - numStale, nil
-}
-
-// DeleteRequest will delete a request, agnostic of request type
-// for the given partner ID. If no request exists for this
-// partner ID an error will be returned.
-func (c *Client) DeleteRequest(partnerId *id.ID) error {
-	jww.DEBUG.Printf("Deleting request for partner ID: %s", partnerId)
-	return c.auth.DeleteRequest(partnerId)
-}
-
-// DeleteAllRequests clears all requests from client's auth storage.
-func (c *Client) DeleteAllRequests() error {
-	jww.DEBUG.Printf("Deleting all requests")
-	return c.auth.DeleteAllRequests()
-}
-
-// DeleteSentRequests clears sent requests from client's auth storage.
-func (c *Client) DeleteSentRequests() error {
-	jww.DEBUG.Printf("Deleting all sent requests")
-	return c.auth.DeleteSentRequests()
-}
-
-// DeleteReceiveRequests clears receive requests from client's auth storage.
-func (c *Client) DeleteReceiveRequests() error {
-	jww.DEBUG.Printf("Deleting all received requests")
-	return c.auth.DeleteReceiveRequests()
-}
-
-// DeleteContact is a function which removes a partner from Client's storage
-func (c *Client) DeleteContact(partnerId *id.ID) error {
-	jww.DEBUG.Printf("Deleting contact with ID %s", partnerId)
-
-	_, err := c.e2e.GetPartner(partnerId)
-	if err != nil {
-		return errors.WithMessagef(err, "Could not delete %s because "+
-			"they could not be found", partnerId)
-	}
-
-	if err = c.e2e.DeletePartner(partnerId); err != nil {
-		return err
-	}
-
-	c.backup.TriggerBackup("contact deleted")
-
-	// FIXME: Do we need this?
-	// c.e2e.Conversations().Delete(partnerId)
-
-	// call delete requests to make sure nothing is lingering.
-	// this is for saftey to ensure the contact can be readded
-	// in the future
-	_ = c.auth.DeleteRequest(partnerId)
-
-	return nil
 }
 
 // GetPreferredBins returns the geographic bin or bins that the provided two
@@ -898,10 +724,9 @@ func decodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 // NewPrecannedClient and NewVanityClient it checks client version and
 // creates a new storage for user data
 func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
-	storageDir string, password []byte,
-	protoUser user.Info,
-	cmixGrp, e2eGrp *cyclic.Group, rngStreamGen *fastRNG.StreamGenerator,
-	registrationCode string) (storage.Session, error) {
+	storageDir string, password []byte, protoUser user.Info,
+	cmixGrp, e2eGrp *cyclic.Group, registrationCode string) (
+	storage.Session, error) {
 	// get current client version
 	currentVersion, err := version.ParseVersion(SEMVER)
 	if err != nil {
@@ -928,13 +753,6 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition,
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to denote state "+
 			"change in session")
-	}
-
-	// create new E2E
-	err = e2e.Init(storageSess.GetKV(), protoUser.ReceptionID,
-		protoUser.E2eDhPrivateKey, e2eGrp, rekey.GetDefaultParams())
-	if err != nil {
-		return nil, err
 	}
 
 	return storageSess, nil

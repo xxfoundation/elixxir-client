@@ -9,13 +9,13 @@ package cmd
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/api/messenger"
 	"io/ioutil"
 	"time"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/api"
 	ft "gitlab.com/elixxir/client/fileTransfer"
 	"gitlab.com/elixxir/crypto/contact"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -54,7 +54,7 @@ var ftCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetNetworkInterface().AddHealthCallback(
+		client.GetCmix().AddHealthCallback(
 			func(isconnected bool) {
 				connected <- isconnected
 			})
@@ -131,7 +131,7 @@ type receivedFtResults struct {
 // initFileTransferManager creates a new file transfer manager with a new
 // reception callback. Returns the file transfer manager and the channel that
 // will be triggered when the callback is called.
-func initFileTransferManager(client *api.Client, maxThroughput int) (
+func initFileTransferManager(client *messenger.Client, maxThroughput int) (
 	ft.FileTransfer, chan receivedFtResults) {
 
 	// Create interfaces.ReceiveCallback that returns the results on a channel

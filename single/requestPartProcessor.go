@@ -34,21 +34,21 @@ func (rpp *requestPartProcessor) Process(msg format.Message,
 	decrypted, err := rpp.cy.decrypt(msg.GetContents(), msg.GetMac())
 	if err != nil {
 		jww.ERROR.Printf("[SU] Failed to decrypt single-use request payload "+
-			"for %s to %s: %+v", rpp.tag, rpp.myId, err)
+			"%d (%s): %+v", rpp.cy.num, rpp.tag, err)
 		return
 	}
 
 	requestPart, err := message.UnmarshalRequestPart(decrypted)
 	if err != nil {
 		jww.ERROR.Printf("[SU] Failed to unmarshal single-use request part "+
-			"payload for %s to %s: %+v", rpp.tag, rpp.myId, err)
+			"payload %d (%s): %+v", rpp.cy.num, rpp.tag, err)
 		return
 	}
 
 	payload, done, err := rpp.c.Collate(requestPart)
 	if err != nil {
 		jww.ERROR.Printf("[SU] Failed to collate single-use request payload "+
-			"for %s to %s: %+v", rpp.tag, rpp.myId, err)
+			"%d (%s): %+v", rpp.cy.num, rpp.tag, err)
 		return
 	}
 

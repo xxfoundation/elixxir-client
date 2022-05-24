@@ -124,9 +124,10 @@ func Test_listener_Process(t *testing.T) {
 }
 
 // newRequestMessage creates a new encrypted request message for testing.
-func newRequestMessage(payload []byte, grp *cyclic.Group, recipient contact.Contact,
-	rng io.Reader, handler *mockListenCmixHandler, t *testing.T) (
-	format.Message, receptionID.EphemeralIdentity, *cyclic.Int, *cyclic.Int) {
+func newRequestMessage(payload []byte, grp *cyclic.Group,
+	recipient contact.Contact, rng io.Reader, handler *mockListenCmixHandler,
+	t *testing.T) (format.Message, receptionID.EphemeralIdentity, *cyclic.Int,
+	*cyclic.Int) {
 
 	net := newMockListenCmix(handler)
 	maxResponseMessages := uint8(6)

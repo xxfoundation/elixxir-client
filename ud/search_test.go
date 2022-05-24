@@ -68,7 +68,7 @@ func TestManager_Search(t *testing.T) {
 	p := single.RequestParams{
 		Timeout:             timeout,
 		MaxResponseMessages: 1,
-		CmixParam:           cmix.GetDefaultCMIXParams(),
+		CmixParams:          cmix.GetDefaultCMIXParams(),
 	}
 
 	_, _, err = Search(m.network, m.events, prng, m.e2e.GetGroup(),

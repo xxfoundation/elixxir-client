@@ -6,7 +6,7 @@
 
 // Provides various utility functions for access over the bindings
 
-package api
+package messenger
 
 import (
 	"bytes"

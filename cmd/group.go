@@ -12,6 +12,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"gitlab.com/elixxir/client/api/messenger"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/primitives/format"
@@ -21,7 +22,6 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/groupChat"
 	"gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/xx_network/primitives/id"
@@ -50,7 +50,7 @@ var groupCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetNetworkInterface().AddHealthCallback(
+		client.GetCmix().AddHealthCallback(
 			func(isConnected bool) {
 				connected <- isConnected
 			})
@@ -115,7 +115,7 @@ var groupCmd = &cobra.Command{
 
 // initGroupManager creates a new group chat manager and starts the process
 // service.
-func initGroupManager(client *api.Client) (groupChat.GroupChat,
+func initGroupManager(client *messenger.Client) (groupChat.GroupChat,
 	chan groupChat.MessageReceive, chan groupStore.Group) {
 	recChan := make(chan groupChat.MessageReceive, 10)
 
@@ -125,8 +125,8 @@ func initGroupManager(client *api.Client) (groupChat.GroupChat,
 	}
 
 	jww.INFO.Print("Creating new group manager.")
-	manager, err := groupChat.NewManager(client.GetNetworkInterface(),
-		client.GetE2EHandler(), client.GetStorage().GetReceptionID(),
+	manager, err := groupChat.NewManager(client.GetCmix(),
+		client.GetE2E(), client.GetStorage().GetReceptionID(),
 		client.GetRng(), client.GetStorage().GetE2EGroup(),
 		client.GetStorage().GetKV(), requestCb, &receiveProcessor{recChan})
 	if err != nil {

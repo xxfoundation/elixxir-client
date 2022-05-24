@@ -125,6 +125,10 @@ type Handler interface {
 	// an E2E relationship with.
 	GetAllPartnerIDs() []*id.ID
 
+	// HasAuthenticatedChannel returns true if an authenticated channel with the
+	// partner exists, otherwise returns false
+	HasAuthenticatedChannel(partner *id.ID) bool
+
 	/* === Services ===================================================== */
 
 	// AddService adds a service for all partners of the given

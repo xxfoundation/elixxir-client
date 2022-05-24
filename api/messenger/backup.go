@@ -5,7 +5,7 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package backup
+package messenger
 
 import "sync"
 

@@ -103,6 +103,7 @@ func readContact() contact.Contact {
 	if err != nil {
 		jww.FATAL.Panicf("Failed to unmarshal contact: %+v", err)
 	}
-	jww.INFO.Printf("PubKey READ: %s", c.DhPubKey.Text(10))
+	jww.INFO.Printf("CONTACTPUBKEY READ: %s",
+		c.DhPubKey.TextVerbose(16, 0))
 	return c
 }

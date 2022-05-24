@@ -9,32 +9,18 @@ package api
 
 import (
 	"encoding/binary"
-	"gitlab.com/elixxir/crypto/diffieHellman"
-	"math/rand"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/user"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// creates a precanned user
-func createPrecannedUser(precannedID uint, rng csprng.Source, cmix,
-	e2e *cyclic.Group) user.Info {
-	// DH Keygen
-	prng := rand.New(rand.NewSource(int64(precannedID)))
-	prime := e2e.GetPBytes()
-	keyLen := len(prime)
-	e2eKey := diffieHellman.GeneratePrivateKey(keyLen, e2e, prng)
+// CreatePrecannedUser creates a precanned user
+func CreatePrecannedUser(precannedID uint, rng csprng.Source) user.Info {
 
 	// Salt, UID, etc gen
 	salt := make([]byte, SaltSize)
@@ -55,8 +41,8 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix,
 		ReceptionID:      &userID,
 		ReceptionSalt:    salt,
 		Precanned:        true,
-		E2eDhPrivateKey:  e2eKey,
-		E2eDhPublicKey:   diffieHellman.GeneratePublicKey(e2eKey, e2e),
+		E2eDhPrivateKey:  nil,
+		E2eDhPublicKey:   nil,
 		TransmissionRSA:  rsaKey,
 		ReceptionRSA:     rsaKey,
 	}
@@ -74,17 +60,16 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
 		csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
 
-	def, err := parseNDF(defJSON)
+	def, err := ParseNDF(defJSON)
 	if err != nil {
 		return err
 	}
-	cmixGrp, e2eGrp := decodeGroups(def)
+	cmixGrp, e2eGrp := DecodeGroups(def)
 
-	protoUser := createPrecannedUser(precannedID, rngStream,
-		cmixGrp, e2eGrp)
+	protoUser := CreatePrecannedUser(precannedID, rngStream)
 
-	store, err := checkVersionAndSetupStorage(def, storageDir, password,
-		protoUser, cmixGrp, e2eGrp, rngStreamGen, "")
+	store, err := CheckVersionAndSetupStorage(def, storageDir, password,
+		protoUser, cmixGrp, e2eGrp, "")
 	if err != nil {
 		return err
 	}
@@ -97,64 +82,4 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
 	}
 
 	return nil
-}
-
-// Create an insecure e2e relationship with a precanned user
-func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (
-	contact.Contact, error) {
-
-	precan := c.MakePrecannedContact(precannedID)
-
-	myID := binary.BigEndian.Uint64(c.GetUser().GetContact().ID[:])
-	// Pick a variant based on if their ID is bigger than mine.
-	myVariant := sidh.KeyVariantSidhA
-	theirVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
-	if myID > uint64(precannedID) {
-		myVariant = sidh.KeyVariantSidhB
-		theirVariant = sidh.KeyVariantSidhA
-	}
-	prng1 := rand.New(rand.NewSource(int64(precannedID)))
-	theirSIDHPrivKey := util.NewSIDHPrivateKey(theirVariant)
-	theirSIDHPubKey := util.NewSIDHPublicKey(theirVariant)
-	theirSIDHPrivKey.Generate(prng1)
-	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
-
-	prng2 := rand.New(rand.NewSource(int64(myID)))
-	mySIDHPrivKey := util.NewSIDHPrivateKey(myVariant)
-	mySIDHPubKey := util.NewSIDHPublicKey(myVariant)
-	mySIDHPrivKey.Generate(prng2)
-	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
-
-	// add the precanned user as a e2e contact
-	// FIXME: these params need to be threaded through...
-	sesParam := session.GetDefaultParams()
-	_, err := c.e2e.AddPartner(precan.ID, precan.DhPubKey,
-		c.e2e.GetHistoricalDHPrivkey(), theirSIDHPubKey,
-		mySIDHPrivKey, sesParam, sesParam)
-
-	// check garbled messages in case any messages arrived before creating
-	// the channel
-	c.network.CheckInProgressMessages()
-
-	return precan, err
-}
-
-// Create an insecure e2e contact object for a precanned user
-func (c *Client) MakePrecannedContact(precannedID uint) contact.Contact {
-
-	e2eGrp := c.storage.GetE2EGroup()
-
-	precanned := createPrecannedUser(precannedID, c.rng.GetStream(),
-		c.storage.GetCmixGroup(), e2eGrp)
-
-	// compute their public e2e key
-	partnerPubKey := e2eGrp.ExpG(precanned.E2eDhPrivateKey,
-		e2eGrp.NewInt(1))
-
-	return contact.Contact{
-		ID:             precanned.ReceptionID,
-		DhPubKey:       partnerPubKey,
-		OwnershipProof: nil,
-		Facts:          make([]fact.Fact, 0),
-	}
 }

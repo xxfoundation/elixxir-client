@@ -9,7 +9,6 @@ package api
 
 import (
 	"encoding/json"
-
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/user"
@@ -17,10 +16,9 @@ import (
 
 // Returns an error if registration fails.
 func (c *Client) registerWithPermissioning() error {
-	userData := c.userState.CryptographicIdentity
 	//get the users public key
-	transmissionPubKey := userData.GetTransmissionRSA().GetPublic()
-	receptionPubKey := userData.GetReceptionRSA().GetPublic()
+	transmissionPubKey := c.storage.GetTransmissionRSA().GetPublic()
+	receptionPubKey := c.storage.GetReceptionRSA().GetPublic()
 
 	//load the registration code
 	regCode, err := c.storage.GetRegCode()
@@ -77,8 +75,8 @@ func (c *Client) ConstructProtoUserFile() ([]byte, error) {
 		RegCode:                      regCode,
 		TransmissionRegValidationSig: c.storage.GetTransmissionRegistrationValidationSignature(),
 		ReceptionRegValidationSig:    c.storage.GetReceptionRegistrationValidationSignature(),
-		E2eDhPrivateKey:              c.e2e.GetHistoricalDHPrivkey(),
-		E2eDhPublicKey:               c.e2e.GetHistoricalDHPubkey(),
+		E2eDhPrivateKey:              nil,
+		E2eDhPublicKey:               nil,
 	}
 
 	jsonBytes, err := json.Marshal(Usr)

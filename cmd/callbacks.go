@@ -10,9 +10,9 @@ package cmd
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/api/messenger"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
@@ -25,10 +25,10 @@ import (
 type authCallbacks struct {
 	autoConfirm bool
 	confCh      chan *id.ID
-	client      *api.Client
+	client      *messenger.Client
 }
 
-func makeAuthCallbacks(client *api.Client, autoConfirm bool) *authCallbacks {
+func makeAuthCallbacks(client *messenger.Client, autoConfirm bool) *authCallbacks {
 	return &authCallbacks{
 		autoConfirm: autoConfirm,
 		confCh:      make(chan *id.ID, 10),
@@ -46,7 +46,7 @@ func (a *authCallbacks) Request(requestor contact.Contact,
 	if a.autoConfirm {
 		jww.INFO.Printf("Channel Request: %s",
 			requestor.ID)
-		_, err := a.client.ConfirmAuthenticatedChannel(requestor)
+		_, err := a.client.GetAuth().Confirm(requestor)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -71,9 +71,9 @@ func (a *authCallbacks) Reset(requestor contact.Contact,
 	fmt.Printf(msg)
 }
 
-func registerMessageListener(client *api.Client) chan receive.Message {
+func registerMessageListener(client *messenger.Client) chan receive.Message {
 	recvCh := make(chan receive.Message, 10000)
-	listenerID := client.RegisterListenerChannel("DefaultCLIReceiver",
+	listenerID := client.GetE2E().RegisterChannel("DefaultCLIReceiver",
 		receive.AnyUser(), catalog.NoType, recvCh)
 	jww.INFO.Printf("Message ListenerID: %v", listenerID)
 	return recvCh

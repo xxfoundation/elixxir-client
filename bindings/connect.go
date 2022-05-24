@@ -5,28 +5,31 @@ import (
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/connect"
 	e2e2 "gitlab.com/elixxir/client/e2e"
-	contact2 "gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/xx_network/primitives/id"
-	"time"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner"
+	"gitlab.com/elixxir/client/e2e/receive"
+	"gitlab.com/elixxir/crypto/contact"
 )
 
 //connection tracker singleton, used to track connections so they can be
 //referenced by id back over the bindings
 var connectionTrackerSingleton = &connectionTracker{
-	connections: make(map[int]Connection),
+	connections: make(map[int]*Connection),
 	count:       0,
 }
 
+//
 type Connection struct {
-	connection connect.Connection
+	connection connect.AuthenticatedConnection
 	id         int
 }
 
-// Connect blocks until it connects to the remote
+// Connect performs auth key negotiation with the given recipient,
+// and returns a Connection object for the newly-created partner.Manager
+// This function is to be used sender-side and will block until the
+// partner.Manager is confirmed.
 func (c *Client) Connect(recipientContact []byte, myIdentity []byte) (
 	*Connection, error) {
-	cont, err := contact2.Unmarshal(recipientContact)
+	cont, err := contact.Unmarshal(recipientContact)
 	if err != nil {
 		return nil, err
 	}
@@ -45,12 +48,32 @@ func (c *Client) Connect(recipientContact []byte, myIdentity []byte) (
 	return connectionTrackerSingleton.make(connection), nil
 }
 
+// ConnectWithAuthentication is called by the client, ie the one establishing
+// connection with the server. Once a connect.Connection has been established
+// with the server and then authenticate their identity to the server.
+func (c *Client) ConnectWithAuthentication(recipientContact []byte, myIdentity []byte) (*Connection, error) {
+	cont, err := contact.Unmarshal(recipientContact)
+	if err != nil {
+		return nil, err
+	}
+	myID, rsaPriv, salt, myDHPriv, err := unmarshalIdentity(myIdentity)
+	if err != nil {
+		return nil, err
+	}
+
+	connection, err := connect.ConnectWithAuthentication(cont, myID, salt, rsaPriv, myDHPriv, c.api.GetRng(),
+		c.api.GetStorage().GetE2EGroup(), c.api.GetCmix(), connect.GetDefaultParams())
+	return connectionTrackerSingleton.make(connection), nil
+}
+
+//
 type E2ESendReport struct {
 	roundsList
 	MessageID []byte
 	Timestamp int64
 }
 
+// SendE2E is a wrapper for sending specifically to the Connection's partner.Manager
 func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 	rounds, mid, ts, err := c.connection.SendE2E(catalog.MessageType(mt), payload,
 		e2e2.GetDefaultParams())
@@ -67,4 +90,25 @@ func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 	sr.roundsList = makeRoundsList(rounds)
 
 	return json.Marshal(&sr)
+}
+
+// Close deletes this Connection's partner.Manager and releases resources
+func (c *Connection) Close() {
+	c.Close()
+}
+
+// GetPartner returns the partner.Manager for this Connection
+func (c *Connection) GetPartner() partner.Manager {
+
+}
+
+// RegisterListener is used for E2E reception
+// and allows for reading data sent from the partner.Manager
+func (c *Connection) RegisterListener(messageType int, newListener receive.Listener) receive.ListenerID {
+
+}
+
+// Unregister listener for E2E reception
+func (c *Connection) Unregister(listenerID receive.ListenerID) {
+
 }

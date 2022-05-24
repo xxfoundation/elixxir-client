@@ -6,14 +6,6 @@ import (
 	"sync"
 )
 
-package bindings
-
-import (
-"github.com/pkg/errors"
-"gitlab.com/elixxir/client/api"
-"sync"
-)
-
 // connectionTracker is a singleton used to keep track of extant clients, allowing
 // for race condition free passing over the bindings
 

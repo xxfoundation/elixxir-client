@@ -2,10 +2,10 @@ package bindings
 
 import (
 	"encoding/json"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/connect"
 	e2e2 "gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/crypto/contact"
 )
@@ -84,13 +84,79 @@ func (c *Connection) GetPartner() []byte {
 	return c.connection.GetPartner().PartnerId().Marshal()
 }
 
-// RegisterListener is used for E2E reception
-// and allows for reading data sent from the partner.Manager
-func (c *Connection) RegisterListener(messageType int, newListener receive.Listener) receive.ListenerID {
-
+// Listener provides a callback to hear a message
+// An object implementing this interface can be called back when the client
+// gets a message of the type that the registerer specified at registration
+// time.
+type Listener interface {
+	// Hear is called to receive a message in the UI
+	Hear(item []byte)
+	// Returns a name, used for debugging
+	Name() string
 }
 
-// Unregister listener for E2E reception
-func (c *Connection) Unregister(listenerID receive.ListenerID) {
+//
+type listener struct {
+	l Listener
+}
 
+//
+type Message struct {
+	MessageType int
+	ID          []byte
+	Payload     []byte
+
+	Sender      []byte
+	RecipientID []byte
+	EphemeralID int64
+	Timestamp   int64 // Message timestamp of when the user sent
+
+	Encrypted bool
+	RoundId   int
+}
+
+// Hear is called to receive a message in the UI
+func (l listener) Hear(item receive.Message) {
+	m := Message{
+		MessageType: int(item.MessageType),
+		ID:          item.ID.Marshal(),
+		Payload:     item.Payload,
+		Sender:      item.Sender.Marshal(),
+		RecipientID: item.RecipientID.Marshal(),
+		EphemeralID: item.EphemeralID.Int64(),
+		Timestamp:   item.Timestamp.UnixNano(),
+		Encrypted:   item.Encrypted,
+		RoundId:     int(item.Round.ID),
+	}
+	result, err := json.Marshal(&m)
+	if err != nil {
+		jww.ERROR.Printf("Unable to marshal Message: %+v", err.Error())
+	}
+	l.l.Hear(result)
+}
+
+// Returns a name, used for debugging
+func (l listener) Name() string {
+	return l.l.Name()
+}
+
+//
+type ListenerID struct {
+	userID      []byte
+	messageType int
+}
+
+// RegisterListener is used for E2E reception
+// and allows for reading data sent from the partner.Manager
+func (c *Connection) RegisterListener(messageType int, newListener Listener) []byte {
+	listenerId := c.connection.RegisterListener(catalog.MessageType(messageType), listener{l: newListener})
+	newlistenerId := ListenerID{
+		userID:      listenerId.GetUserID().Marshal(),
+		messageType: int(listenerId.GetMessageType()),
+	}
+	result, err := json.Marshal(&newlistenerId)
+	if err != nil {
+		jww.ERROR.Printf("Unable to marshal listenerId: %+v", err.Error())
+	}
+	return result
 }

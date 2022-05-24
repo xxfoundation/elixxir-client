@@ -30,7 +30,7 @@ const (
 )
 
 // ResendRequest allows a groupChat request to be sent again.
-func (m Manager) ResendRequest(groupID *id.ID) ([]id.Round, RequestStatus, error) {
+func (m *manager) ResendRequest(groupID *id.ID) ([]id.Round, RequestStatus, error) {
 	g, exists := m.GetGroup(groupID)
 	if !exists {
 		return nil, NotSent, errors.Errorf(resendGroupIdErr, groupID)
@@ -43,7 +43,7 @@ func (m Manager) ResendRequest(groupID *id.ID) ([]id.Round, RequestStatus, error
 
 // sendRequests sends group requests to each member in the group except for the
 // leader/sender
-func (m Manager) sendRequests(g gs.Group) ([]id.Round, RequestStatus, error) {
+func (m *manager) sendRequests(g gs.Group) ([]id.Round, RequestStatus, error) {
 	// Build request message
 	requestMarshaled, err := proto.Marshal(&Request{
 		Name:        g.Name,
@@ -115,7 +115,7 @@ func (m Manager) sendRequests(g gs.Group) ([]id.Round, RequestStatus, error) {
 }
 
 // sendRequest sends the group request to the user via E2E.
-func (m Manager) sendRequest(memberID *id.ID, request []byte) ([]id.Round, error) {
+func (m *manager) sendRequest(memberID *id.ID, request []byte) ([]id.Round, error) {
 	p := e2e.GetDefaultParams()
 	p.LastServiceTag = catalog.GroupRq
 	p.DebugTag = "group.Request"

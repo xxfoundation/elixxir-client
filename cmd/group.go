@@ -13,6 +13,9 @@ import (
 	"bufio"
 	"fmt"
 	"gitlab.com/elixxir/client/api/messenger"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/primitives/format"
 	"os"
 	"time"
 
@@ -48,8 +51,8 @@ var groupCmd = &cobra.Command{
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
 		client.GetCmix().AddHealthCallback(
-			func(isconnected bool) {
-				connected <- isconnected
+			func(isConnected bool) {
+				connected <- isConnected
 			})
 		waitUntilConnected(connected)
 
@@ -112,12 +115,9 @@ var groupCmd = &cobra.Command{
 
 // initGroupManager creates a new group chat manager and starts the process
 // service.
-func initGroupManager(client *messenger.Client) (*groupChat.Manager,
+func initGroupManager(client *messenger.Client) (groupChat.GroupChat,
 	chan groupChat.MessageReceive, chan groupStore.Group) {
 	recChan := make(chan groupChat.MessageReceive, 10)
-	receiveCb := func(msg groupChat.MessageReceive) {
-		recChan <- msg
-	}
 
 	reqChan := make(chan groupStore.Group, 10)
 	requestCb := func(g groupStore.Group) {
@@ -128,7 +128,7 @@ func initGroupManager(client *messenger.Client) (*groupChat.Manager,
 	manager, err := groupChat.NewManager(client.GetCmix(),
 		client.GetE2E(), client.GetStorage().GetReceptionID(),
 		client.GetRng(), client.GetStorage().GetE2EGroup(),
-		client.GetStorage().GetKV(), requestCb, receiveCb)
+		client.GetStorage().GetKV(), requestCb, &receiveProcessor{recChan})
 	if err != nil {
 		jww.FATAL.Panicf("Failed to initialize group chat manager: %+v", err)
 	}
@@ -136,9 +136,22 @@ func initGroupManager(client *messenger.Client) (*groupChat.Manager,
 	return manager, recChan, reqChan
 }
 
+type receiveProcessor struct {
+	recChan chan groupChat.MessageReceive
+}
+
+func (r *receiveProcessor) Process(decryptedMsg groupChat.MessageReceive,
+	_ format.Message, _ receptionID.EphemeralIdentity, _ rounds.Round) {
+	r.recChan <- decryptedMsg
+}
+
+func (r *receiveProcessor) String() string {
+	return "groupChatReceiveProcessor"
+}
+
 // createGroup creates a new group with the provided name and sends out requests
 // to the list of user IDs found at the given file path.
-func createGroup(name, msg []byte, filePath string, gm *groupChat.Manager) {
+func createGroup(name, msg []byte, filePath string, gm groupChat.GroupChat) {
 	userIdStrings := ReadLines(filePath)
 	userIDs := make([]*id.ID, 0, len(userIdStrings))
 	for _, userIdStr := range userIdStrings {
@@ -160,7 +173,7 @@ func createGroup(name, msg []byte, filePath string, gm *groupChat.Manager) {
 }
 
 // resendRequests resends group requests for the group ID.
-func resendRequests(groupIdString string, gm *groupChat.Manager) {
+func resendRequests(groupIdString string, gm groupChat.GroupChat) {
 	groupID, _ := parseRecipient(groupIdString)
 	rids, status, err := gm.ResendRequest(groupID)
 	if err != nil {
@@ -176,7 +189,7 @@ func resendRequests(groupIdString string, gm *groupChat.Manager) {
 // joinGroup joins a group when a request is received on the group request
 // channel.
 func joinGroup(reqChan chan groupStore.Group, timeout time.Duration,
-	gm *groupChat.Manager) {
+	gm groupChat.GroupChat) {
 	jww.INFO.Print("Waiting for group request to be received.")
 	fmt.Println("Waiting for group request to be received.")
 
@@ -198,7 +211,7 @@ func joinGroup(reqChan chan groupStore.Group, timeout time.Duration,
 }
 
 // leaveGroup leaves the group.
-func leaveGroup(groupIdString string, gm *groupChat.Manager) {
+func leaveGroup(groupIdString string, gm groupChat.GroupChat) {
 	groupID, _ := parseRecipient(groupIdString)
 	jww.INFO.Printf("Leaving group %s.", groupID)
 
@@ -212,12 +225,12 @@ func leaveGroup(groupIdString string, gm *groupChat.Manager) {
 }
 
 // sendGroup send the message to the group.
-func sendGroup(groupIdString string, msg []byte, gm *groupChat.Manager) {
+func sendGroup(groupIdString string, msg []byte, gm groupChat.GroupChat) {
 	groupID, _ := parseRecipient(groupIdString)
 
 	jww.INFO.Printf("Sending to group %s message %q", groupID, msg)
 
-	rid, timestamp, _, err := gm.Send(groupID, msg)
+	rid, timestamp, _, err := gm.Send(groupID, "groupChatTest", msg)
 	if err != nil {
 		jww.FATAL.Panicf("Sending message to group %s: %+v", groupID, err)
 	}
@@ -249,7 +262,7 @@ func messageWait(numMessages uint, timeout time.Duration,
 }
 
 // listGroups prints a list of all groups.
-func listGroups(gm *groupChat.Manager) {
+func listGroups(gm groupChat.GroupChat) {
 	for i, gid := range gm.GetGroups() {
 		jww.INFO.Printf("Group %d: %s", i, gid)
 	}
@@ -258,7 +271,7 @@ func listGroups(gm *groupChat.Manager) {
 }
 
 // showGroup prints all the information of the group.
-func showGroup(groupIdString string, gm *groupChat.Manager) {
+func showGroup(groupIdString string, gm groupChat.GroupChat) {
 	groupID, _ := parseRecipient(groupIdString)
 
 	grp, ok := gm.GetGroup(groupID)

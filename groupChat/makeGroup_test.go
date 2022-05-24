@@ -25,10 +25,10 @@ import (
 	"testing"
 )
 
-// Tests that Manager.MakeGroup adds a group and returns the expected status.
-func TestManager_MakeGroup(t *testing.T) {
+// Tests that manager.MakeGroup adds a group and returns the expected status.
+func Test_manager_MakeGroup(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, nil, t)
 	memberIDs, members, dkl := addPartners(m, t)
 	name := []byte("groupName")
 	message := []byte("Invite message.")
@@ -76,9 +76,9 @@ func TestManager_MakeGroup(t *testing.T) {
 
 // Error path: make sure an error and the correct status is returned when the
 // message is too large.
-func TestManager_MakeGroup_MaxMessageSizeError(t *testing.T) {
+func Test_manager_MakeGroup_MaxMessageSizeError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, nil, t)
 	expectedErr := fmt.Sprintf(
 		maxInitMsgSizeErr, MaxInitMessageSize+1, MaxInitMessageSize)
 
@@ -96,9 +96,9 @@ func TestManager_MakeGroup_MaxMessageSizeError(t *testing.T) {
 
 // Error path: make sure an error and the correct status is returned when the
 // membership list is too small.
-func TestManager_MakeGroup_MembershipSizeError(t *testing.T) {
+func Test_manager_MakeGroup_MembershipSizeError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, nil, t)
 	expectedErr := fmt.Sprintf(
 		maxMembersErr, group.MaxParticipants+1, group.MaxParticipants)
 
@@ -117,9 +117,9 @@ func TestManager_MakeGroup_MembershipSizeError(t *testing.T) {
 
 // Error path: make sure an error and the correct status is returned when adding
 // a group failed because the user is a part of too many groups already.
-func TestManager_MakeGroup_AddGroupError(t *testing.T) {
+func Test_manager_MakeGroup_AddGroupError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, gs.MaxGroupChats, 0, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, gs.MaxGroupChats, 0, nil, t)
 	memberIDs, _, _ := addPartners(m, t)
 	expectedErr := strings.SplitN(joinGroupErr, "%", 2)[0]
 
@@ -130,8 +130,8 @@ func TestManager_MakeGroup_AddGroupError(t *testing.T) {
 	}
 }
 
-// Unit test of Manager.buildMembership.
-func TestManager_buildMembership(t *testing.T) {
+// Unit test of manager.buildMembership.
+func Test_manager_buildMembership(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, _ := newTestManager(prng, t)
 	memberIDs, expected, expectedDKL := addPartners(m, t)
@@ -154,7 +154,7 @@ func TestManager_buildMembership(t *testing.T) {
 
 // Error path: an error is returned when the number of members in the membership
 // list is too few.
-func TestManager_buildMembership_MinParticipantsError(t *testing.T) {
+func Test_manager_buildMembership_MinParticipantsError(t *testing.T) {
 	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
 	memberIDs := make([]*id.ID, group.MinParticipants-1)
 	expectedErr := fmt.Sprintf(
@@ -169,7 +169,7 @@ func TestManager_buildMembership_MinParticipantsError(t *testing.T) {
 
 // Error path: an error is returned when the number of members in the membership
 // list is too many.
-func TestManager_buildMembership_MaxParticipantsError(t *testing.T) {
+func Test_manager_buildMembership_MaxParticipantsError(t *testing.T) {
 	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
 	memberIDs := make([]*id.ID, group.MaxParticipants+1)
 	expectedErr := fmt.Sprintf(
@@ -183,7 +183,7 @@ func TestManager_buildMembership_MaxParticipantsError(t *testing.T) {
 }
 
 // Error path: error returned when a partner cannot be found
-func TestManager_buildMembership_GetPartnerContactError(t *testing.T) {
+func Test_manager_buildMembership_GetPartnerContactError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, _ := newTestManager(prng, t)
 	memberIDs, _, _ := addPartners(m, t)
@@ -200,7 +200,7 @@ func TestManager_buildMembership_GetPartnerContactError(t *testing.T) {
 }
 
 // Error path: error returned when a member ID appears twice on the list.
-func TestManager_buildMembership_DuplicateContactError(t *testing.T) {
+func Test_manager_buildMembership_DuplicateContactError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, _ := newTestManager(prng, t)
 	memberIDs, _, _ := addPartners(m, t)
@@ -281,7 +281,7 @@ func TestRequestStatus_Message(t *testing.T) {
 
 // addPartners returns a list of user IDs and their matching membership and adds
 // them as partners.
-func addPartners(m *Manager, t *testing.T) ([]*id.ID, group.Membership,
+func addPartners(m *manager, t *testing.T) ([]*id.ID, group.Membership,
 	gs.DhKeyList) {
 	memberIDs := make([]*id.ID, 10)
 	members := group.Membership{m.gs.GetUser()}
@@ -296,13 +296,13 @@ func addPartners(m *Manager, t *testing.T) ([]*id.ID, group.Membership,
 		prng := rand.New(rand.NewSource(int64(i + 42)))
 		mySIDHPrivKey := util.NewSIDHPrivateKey(myVariant)
 		mySIDHPubKey := util.NewSIDHPublicKey(myVariant)
-		mySIDHPrivKey.Generate(prng)
+		_ = mySIDHPrivKey.Generate(prng)
 		mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
 		theirVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
 		theirSIDHPrivKey := util.NewSIDHPrivateKey(theirVariant)
 		theirSIDHPubKey := util.NewSIDHPublicKey(theirVariant)
-		theirSIDHPrivKey.Generate(prng)
+		_ = theirSIDHPrivKey.Generate(prng)
 		theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
 
 		// Add to lists

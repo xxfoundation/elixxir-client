@@ -41,14 +41,14 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-// newTestManager creates a new Manager for testing.
-func newTestManager(rng *rand.Rand, t *testing.T) (*Manager, gs.Group) {
-	m := &Manager{
+// newTestManager creates a new manager for testing.
+func newTestManager(rng *rand.Rand, t *testing.T) (*manager, gs.Group) {
+	m := &manager{
 		receptionId: id.NewIdFromString("test", id.User, t),
-		rng:         fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
-		grp:         getGroup(),
-		services:    newTestNetworkManager(0, t),
+		net:         newTestNetworkManager(0, t),
 		e2e:         newTestE2eManager(randCycInt(rng)),
+		grp:         getGroup(),
+		rng:         fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 	}
 	user := group.Member{
 		ID:    m.receptionId,
@@ -66,19 +66,16 @@ func newTestManager(rng *rand.Rand, t *testing.T) (*Manager, gs.Group) {
 	return m, g
 }
 
-// newTestManager creates a new Manager that has groups stored for testing. One
+// newTestManager creates a new manager that has groups stored for testing. One
 // of the groups in the list is also returned.
 func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
-	requestFunc RequestCallback, receiveFunc ReceiveCallback,
-	t *testing.T) (*Manager, gs.Group) {
+	requestFunc RequestCallback, t *testing.T) (*manager, gs.Group) {
 
-	m := &Manager{
-		receptionId: id.NewIdFromString("test", id.User, t),
-		rng:         fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
-		grp:         getGroup(),
+	m := &manager{
+		services:    make(map[string]Processor),
 		requestFunc: requestFunc,
-		receiveFunc: receiveFunc,
-		services:    newTestNetworkManager(sendErr, t),
+		receptionId: id.NewIdFromString("test", id.User, t),
+		net:         newTestNetworkManager(sendErr, t),
 		e2e: &testE2eManager{
 			e2eMessages: []testE2eMessage{},
 			sendErr:     sendErr,
@@ -86,6 +83,8 @@ func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
 			dhPubKey:    randCycInt(rng),
 			partners:    make(map[id.ID]partner.Manager),
 		},
+		grp: getGroup(),
+		rng: fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 	}
 	user := group.Member{
 		ID:    m.receptionId,
@@ -223,7 +222,7 @@ func getGroup() *cyclic.Group {
 		large.NewIntFromString(getNDF().E2E.Generator, 16))
 }
 
-func newTestNetworkManager(sendErr int, t *testing.T) GroupCmix {
+func newTestNetworkManager(sendErr int, _ *testing.T) GroupCmix {
 	return &testNetworkManager{
 		receptionMessages: [][]format.Message{},
 		sendMessages:      [][]cmix.TargetedCmixMessage{},
@@ -248,9 +247,9 @@ type testE2eMessage struct {
 	Payload   []byte
 }
 
-func (tnm *testE2eManager) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int,
-	partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey,
-	sendParams, receiveParams session.Params) (partner.Manager, error) {
+func (tnm *testE2eManager) AddPartner(partnerID *id.ID, partnerPubKey,
+	myPrivKey *cyclic.Int, _ *sidh.PublicKey, _ *sidh.PrivateKey,
+	_, _ session.Params) (partner.Manager, error) {
 
 	testPartner := partner.NewTestManager(partnerID, partnerPubKey, myPrivKey, &testing.T{})
 	tnm.partners[*partnerID] = testPartner
@@ -258,8 +257,8 @@ func (tnm *testE2eManager) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey
 }
 
 func (tnm *testE2eManager) GetPartner(partnerID *id.ID) (partner.Manager, error) {
-	if partner, ok := tnm.partners[*partnerID]; ok {
-		return partner, nil
+	if p, ok := tnm.partners[*partnerID]; ok {
+		return p, nil
 	}
 	return nil, errors.New("Unable to find partner")
 }
@@ -272,7 +271,9 @@ func (tnm *testE2eManager) GetHistoricalDHPrivkey() *cyclic.Int {
 	return tnm.dhPubKey
 }
 
-func (tnm *testE2eManager) SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte, params clientE2E.Params) ([]id.Round, e2e.MessageID, time.Time, error) {
+func (tnm *testE2eManager) SendE2E(_ catalog.MessageType, recipient *id.ID,
+	payload []byte, _ clientE2E.Params) ([]id.Round, e2e.MessageID, time.Time,
+	error) {
 	tnm.Lock()
 	defer tnm.Unlock()
 
@@ -291,11 +292,11 @@ func (tnm *testE2eManager) SendE2E(mt catalog.MessageType, recipient *id.ID, pay
 	return []id.Round{0, 1, 2, 3}, e2e.MessageID{}, time.Time{}, nil
 }
 
-func (*testE2eManager) RegisterListener(user *id.ID, messageType catalog.MessageType, newListener receive.Listener) receive.ListenerID {
+func (*testE2eManager) RegisterListener(*id.ID, catalog.MessageType, receive.Listener) receive.ListenerID {
 	return receive.ListenerID{}
 }
 
-func (*testE2eManager) AddService(tag string, processor message.Processor) error {
+func (*testE2eManager) AddService(string, message.Processor) error {
 	return nil
 }
 
@@ -327,7 +328,7 @@ func (tnm *testNetworkManager) GetMaxMessageLength() int {
 	return format.NewMessage(tnm.grp.GetP().ByteLen()).ContentsSize()
 }
 
-func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
+func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, _ cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
 	if tnm.sendErr == 1 {
 		return 0, nil, errors.New("SendManyCMIX error")
 	}
@@ -337,7 +338,7 @@ func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, p c
 
 	tnm.sendMessages = append(tnm.sendMessages, messages)
 
-	receiveMessages := []format.Message{}
+	var receiveMessages []format.Message
 	for _, msg := range messages {
 		receiveMsg := format.NewMessage(tnm.grp.GetP().ByteLen())
 		receiveMsg.SetMac(msg.Mac)
@@ -349,13 +350,8 @@ func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, p c
 	return 0, nil, nil
 }
 
-func (*testNetworkManager) AddService(clientID *id.ID, newService message.Service, response message.Processor) {
-	return
-}
-
-func (*testNetworkManager) DeleteService(clientID *id.ID, toDelete message.Service, processor message.Processor) {
-	return
-}
+func (*testNetworkManager) AddService(*id.ID, message.Service, message.Processor)    {}
+func (*testNetworkManager) DeleteService(*id.ID, message.Service, message.Processor) {}
 
 type dummyEventMgr struct{}
 

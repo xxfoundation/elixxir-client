@@ -632,7 +632,7 @@ func initClient() *messenger.Client {
 	params := initParams()
 
 	// load the client
-	baseclient, err := api.Login(storeDir, pass, authCbs, params)
+	baseclient, err := api.Login(storeDir, pass, params)
 
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)

@@ -50,7 +50,7 @@ const (
 // each member of the groupChat to add them to the groupChat. It blocks until
 // all the groupChat requests are sent. Returns an error if at least one request
 // to a member fails to send.
-func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
+func (m *manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 	[]id.Round, RequestStatus, error) {
 	// Return an error if the message is too long
 	if len(msg) > MaxInitMessageSize {
@@ -96,7 +96,7 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 // buildMembership retrieves the contact object for each member ID and creates a
 // new membership from them. The caller is set as the leader. For a member to be
 // added, the group leader must have an authenticated channel with the member.
-func (m Manager) buildMembership(members []*id.ID) (group.Membership,
+func (m *manager) buildMembership(members []*id.ID) (group.Membership,
 	gs.DhKeyList, error) {
 	// Return an error if the membership list has too few or too many members
 	if len(members) < group.MinParticipants {

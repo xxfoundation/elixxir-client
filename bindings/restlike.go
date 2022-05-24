@@ -13,7 +13,19 @@ import (
 	"gitlab.com/elixxir/client/restlike/connect"
 )
 
-//
+// RestlikeMessage is the bindings representation of a restlike.Message
+type RestlikeMessage struct {
+	Version uint32
+	Headers []byte
+	Content []byte
+	Method  int
+	URI     string
+	Error   string
+}
+
+// RestlikeRequest performs a normal restlike request
+// request - marshalled RestlikeMessage
+// Returns marshalled result RestlikeMessage
 func RestlikeRequest(clientID int, connectionID int, request []byte) ([]byte, error) {
 	cl, err := clientTrackerSingleton.get(clientID)
 	if err != nil {
@@ -46,17 +58,9 @@ func RestlikeRequest(clientID int, connectionID int, request []byte) ([]byte, er
 	return json.Marshal(result)
 }
 
-//
-type RestlikeMessage struct {
-	Version uint32
-	Headers []byte
-	Content []byte
-	Method  int
-	URI     string
-	Error   string
-}
-
-//
+// RestlikeRequestAuth performs an authenticated restlike request
+// request - marshalled RestlikeMessage
+// Returns marshalled result RestlikeMessage
 func RestlikeRequestAuth(clientID int, authConnectionID int, request []byte) ([]byte, error) {
 	cl, err := clientTrackerSingleton.get(clientID)
 	if err != nil {

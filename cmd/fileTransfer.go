@@ -16,7 +16,6 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/api"
 	ft "gitlab.com/elixxir/client/fileTransfer2"
 	ftE2e "gitlab.com/elixxir/client/fileTransfer2/e2e"
 	"gitlab.com/elixxir/crypto/contact"
@@ -154,7 +153,7 @@ func initFileTransferManager(client *messenger.Client, maxThroughput int) (
 	// Create new manager
 	manager, err := ft.NewManager(p,
 		client.GetUser().ReceptionID,
-		client.GetNetworkInterface(),
+		client.GetCmix(),
 		client.GetStorage().GetKV(),
 		client.GetRng())
 	if err != nil {
@@ -170,8 +169,7 @@ func initFileTransferManager(client *messenger.Client, maxThroughput int) (
 
 	e2eParams := ftE2e.DefaultParams()
 	e2eFt, err := ftE2e.NewWrapper(receiveCB, e2eParams, manager,
-		client.GetUser().ReceptionID, client.GetE2EHandler(),
-		client.GetNetworkInterface())
+		client.GetUser().ReceptionID, client.GetE2E(), client.GetCmix())
 	if err != nil {
 		jww.FATAL.Panicf(
 			"[FT] Failed to create new e2e file transfer wrapper: %+v", err)

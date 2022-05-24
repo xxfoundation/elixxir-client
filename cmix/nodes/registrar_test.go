@@ -22,7 +22,8 @@ import (
 	"time"
 )
 
-// Tests that LoadRegistrar returns a new Registrar when none exists in the KV.
+// Tests that LoadRegistrar returns a new Registrar when none exists
+// in the KV.
 func TestLoadRegistrar_New(t *testing.T) {
 	connect.TestingOnlyDisableTLS = true
 	session := storage.InitTestingSession(t)
@@ -36,7 +37,8 @@ func TestLoadRegistrar_New(t *testing.T) {
 	}
 	nodeChan := make(chan commNetwork.NodeGateway, InputChanLen)
 
-	r, err := LoadRegistrar(session, sender, NewMockClientComms(), rngGen, nodeChan)
+	r, err := LoadRegistrar(session, sender, &MockClientComms{},
+		rngGen, nodeChan)
 	if err != nil {
 		t.Fatalf("Failed to create new registrar: %+v", err)
 	}
@@ -50,7 +52,7 @@ func TestLoadRegistrar_New(t *testing.T) {
 }
 
 func TestLoadRegistrar_Load(t *testing.T) {
-	testR := makeTestRegistrar(t)
+	testR := makeTestRegistrar(&MockClientComms{}, t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
 	// Add a test nodes key
@@ -92,7 +94,7 @@ func TestLoadRegistrar_Load(t *testing.T) {
 }
 
 func Test_registrar_GetNodeKeys(t *testing.T) {
-	r := makeTestRegistrar(t)
+	r := makeTestRegistrar(&MockClientComms{}, t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
 	// Set up the circuit
@@ -118,7 +120,7 @@ func Test_registrar_GetNodeKeys(t *testing.T) {
 }
 
 func Test_registrar_GetNodeKeys_Missing(t *testing.T) {
-	r := makeTestRegistrar(t)
+	r := makeTestRegistrar(&MockClientComms{}, t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
 	// Set up the circuit
@@ -141,15 +143,17 @@ func Test_registrar_GetNodeKeys_Missing(t *testing.T) {
 	circuit := connect.NewCircuit(nodeIds)
 	result, err := r.GetNodeKeys(circuit)
 	if err == nil {
-		t.Error("GetNodeKeys did not return an error when keys should be missing.")
+		t.Error("GetNodeKeys did not return an error when keys " +
+			"should be missing.")
 	}
 	if result != nil {
-		t.Errorf("Expected nil value for result due to missing keys!")
+		t.Errorf("Expected nil value for result due to " +
+			"missing keys!")
 	}
 }
 
 func Test_registrar_HasNode(t *testing.T) {
-	r := makeTestRegistrar(t)
+	r := makeTestRegistrar(&MockClientComms{}, t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
 	nodeId := id.NewIdFromString("test", id.Node, t)
@@ -167,7 +171,7 @@ func Test_registrar_HasNode(t *testing.T) {
 
 // Tests that Has returns false when it does not have.
 func Test_registrar_Has_Not(t *testing.T) {
-	r := makeTestRegistrar(t)
+	r := makeTestRegistrar(&MockClientComms{}, t)
 
 	nodeId := id.NewIdFromString("test", id.Node, t)
 
@@ -177,7 +181,7 @@ func Test_registrar_Has_Not(t *testing.T) {
 }
 
 func Test_registrar_NumRegistered(t *testing.T) {
-	r := makeTestRegistrar(t)
+	r := makeTestRegistrar(&MockClientComms{}, t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
 	if r.NumRegisteredNodes() != 0 {

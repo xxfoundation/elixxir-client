@@ -215,8 +215,7 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
 }
 
 // Login initializes a client object from existing storage.
-func Login(storageDir string, password []byte,
-	authCallbacks auth.Callbacks, parameters Params) (*Client, error) {
+func Login(storageDir string, password []byte, parameters Params) (*Client, error) {
 	jww.INFO.Printf("Login()")
 
 	c, err := OpenClient(storageDir, password, parameters)

@@ -1,80 +1,54 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
-
 package bindings
 
 import (
-	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/primitives/fact"
+	"encoding/json"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/primitives/id"
 )
 
-/* fact object*/
-//creates a new fact. The factType must be either:
-//  0 - Username
-//  1 - Email
-//  2 - Phone Number
-// The fact must be well formed for the type and must not include commas or
-// semicolons. If it is not well formed, it will be rejected.  Phone numbers
-// must have the two letter country codes appended.  For the complete set of
-// validation, see /elixxir/primitives/fact/fact.go
-func NewFact(factType int, factStr string) (*Fact, error) {
-	f, err := fact.NewFact(fact.FactType(factType), factStr)
-	if err != nil {
-		return nil, err
-	}
-	return &Fact{f: &f}, nil
+type Identity struct {
+	ID            []byte
+	RSAPrivatePem []byte
+	Salt          []byte
+	DHKeyPrivate  []byte
 }
 
 type Fact struct {
-	f *fact.Fact
+	Fact string
+	Type string
 }
 
-func (f *Fact) Get() string {
-	return f.f.Fact
+// MakeIdentity generates a new cryptographic identity for receving
+// messages
+func (c *Client) MakeIdentity() ([]byte, error) {
+	I := Identity{}
+	return json.Marshal(&I)
 }
 
-func (f *Fact) Type() int {
-	return int(f.f.T)
+func GetContactFromIdentity(identity string) []byte {
+	I := Identity{}
 }
 
-func (f *Fact) Stringify() string {
-	return f.f.Stringify()
+func unmarshalIdentity(marshaled []byte) (*id.ID, *rsa.PrivateKey, []byte,
+	*cyclic.Int, error) {
+	return nil, nil, nil, nil, nil
 }
 
-/* contact object*/
-type Contact struct {
-	c *contact.Contact
+// SetFactsOnContact replaces the facts on the contact with the passed in facts
+// pass in empty facts in order to clear the facts
+func SetFactsOnContact(contact []byte, facts []byte) []byte {
+	I := Identity{}
 }
 
-// GetID returns the user ID for this user.
-func (c *Contact) GetID() []byte {
-	return c.c.ID.Bytes()
+func GetIDFromContact(contact []byte) []byte {
+
 }
 
-// GetDHPublicKey returns the public key associated with the Contact.
-func (c *Contact) GetDHPublicKey() []byte {
-	return c.c.DhPubKey.Bytes()
+func GetPubkeyFromContact(contact []byte) []byte {
+
 }
 
-// GetDHPublicKey returns hash of a DH proof of key ownership.
-func (c *Contact) GetOwnershipProof() []byte {
-	return c.c.OwnershipProof
-}
+func GetFactsFromContact(contact []byte) []byte {
 
-// Returns a fact list for adding and getting facts to and from the contact
-func (c *Contact) GetFactList() *FactList {
-	return &FactList{c: c.c}
-}
-
-func (c *Contact) Marshal() ([]byte, error) {
-	return c.c.Marshal(), nil
-}
-
-// GetAPIContact returns the api contact object. Not exported to bindings.
-func (c *Contact) GetAPIContact() *contact.Contact {
-	return c.c
 }

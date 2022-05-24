@@ -19,7 +19,7 @@ var connectionTrackerSingleton = &connectionTracker{
 
 //
 type Connection struct {
-	connection connect.AuthenticatedConnection
+	connection connect.Connection
 	id         int
 }
 
@@ -45,24 +45,6 @@ func (c *Client) Connect(recipientContact []byte, myIdentity []byte) (
 		return nil, err
 	}
 
-	return connectionTrackerSingleton.make(connection), nil
-}
-
-// ConnectWithAuthentication is called by the client, ie the one establishing
-// connection with the server. Once a connect.Connection has been established
-// with the server and then authenticate their identity to the server.
-func (c *Client) ConnectWithAuthentication(recipientContact []byte, myIdentity []byte) (*Connection, error) {
-	cont, err := contact.Unmarshal(recipientContact)
-	if err != nil {
-		return nil, err
-	}
-	myID, rsaPriv, salt, myDHPriv, err := unmarshalIdentity(myIdentity)
-	if err != nil {
-		return nil, err
-	}
-
-	connection, err := connect.ConnectWithAuthentication(cont, myID, salt, rsaPriv, myDHPriv, c.api.GetRng(),
-		c.api.GetStorage().GetE2EGroup(), c.api.GetCmix(), connect.GetDefaultParams())
 	return connectionTrackerSingleton.make(connection), nil
 }
 
@@ -98,8 +80,8 @@ func (c *Connection) Close() {
 }
 
 // GetPartner returns the partner.Manager for this Connection
-func (c *Connection) GetPartner() partner.Manager {
-
+func (c *Connection) GetPartner() []byte {
+	return c.connection.GetPartner().PartnerId().Marshal()
 }
 
 // RegisterListener is used for E2E reception

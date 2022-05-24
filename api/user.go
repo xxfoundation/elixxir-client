@@ -104,6 +104,8 @@ func createKeys(rng *fastRNG.StreamGenerator) (
 		stream := rng.GetStream()
 		transmissionRsaKey, err = rsa.GenerateKey(stream,
 			rsa.DefaultRSABitLen)
+		transmissionSalt = make([]byte, 32)
+		_, err = stream.Read(receptionSalt)
 		stream.Close()
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
@@ -116,6 +118,8 @@ func createKeys(rng *fastRNG.StreamGenerator) (
 		stream := rng.GetStream()
 		receptionRsaKey, err = rsa.GenerateKey(stream,
 			rsa.DefaultRSABitLen)
+		receptionSalt = make([]byte, 32)
+		_, err = stream.Read(receptionSalt)
 		stream.Close()
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())

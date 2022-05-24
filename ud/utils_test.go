@@ -78,7 +78,7 @@ func newTestManager(t *testing.T) (*Manager, *testNetworkManager) {
 
 	// Create our Manager object
 	m := &Manager{
-		e2e:    mockE2e{},
+		e2e:    mockE2e{grp: getGroup()},
 		events: event.NewEventManager(),
 		user:   mockUser{testing: t, key: key},
 		store:  udStore,
@@ -398,7 +398,13 @@ func (m mockComms) GetHost(hostId *id.ID) (*connect.Host, bool) {
 	return m.udHost, true
 }
 
-type mockE2e struct{}
+type mockE2e struct {
+	grp *cyclic.Group
+}
+
+func (m mockE2e) GetHistoricalDHPubkey() *cyclic.Int {
+	return m.grp.NewInt(6)
+}
 
 func (m mockE2e) GetReceptionID() *id.ID {
 	//TODO implement me

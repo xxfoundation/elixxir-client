@@ -35,7 +35,7 @@ func (c *Client) Connect(recipientContact []byte, myIdentity []byte) (
 	if err != nil {
 		return nil, err
 	}
-	myID, _, _, myDHPriv, err := unmarshalIdentity(myIdentity)
+	myID, _, _, myDHPriv, err := c.unmarshalIdentity(myIdentity)
 	if err != nil {
 		return nil, err
 	}

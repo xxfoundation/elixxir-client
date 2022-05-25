@@ -8,12 +8,13 @@
 package parse
 
 import (
+	"testing"
+
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"testing"
 )
 
 var ipsumTestStr = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras sit amet euismod est. Donec dolor " +
@@ -68,8 +69,8 @@ func TestPartitioner_Partition(t *testing.T) {
 
 // Test that Partitioner.HandlePartition can handle a message part.
 func TestPartitioner_HandlePartition(t *testing.T) {
-	p := NewPartitioner(versioned.NewKV(ekv.MakeMemstore()), len(ipsumTestStr))
-	m := newMessagePart(1107, 1, []byte(ipsumTestStr))
+	p := NewPartitioner(versioned.NewKV(ekv.MakeMemstore()), 256)
+	m := newMessagePart(1107, 1, []byte(ipsumTestStr), 256)
 
 	_, _ = p.HandlePartition(
 		&id.DummyUser,
@@ -80,9 +81,9 @@ func TestPartitioner_HandlePartition(t *testing.T) {
 
 // Test that HandlePartition can handle a first message part
 func TestPartitioner_HandleFirstPartition(t *testing.T) {
-	p := NewPartitioner(versioned.NewKV(ekv.MakeMemstore()), len(ipsumTestStr))
+	p := NewPartitioner(versioned.NewKV(ekv.MakeMemstore()), 256)
 	m := newFirstMessagePart(
-		catalog.XxMessage, 1107, 1, netTime.Now(), []byte(ipsumTestStr))
+		catalog.XxMessage, 1107, 1, netTime.Now(), []byte(ipsumTestStr), 256)
 
 	_, _ = p.HandlePartition(
 		&id.DummyUser,

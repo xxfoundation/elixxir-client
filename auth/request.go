@@ -120,7 +120,7 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	jww.TRACE.Printf("AuthRequest PARTNERPUBKEY: %v",
 		partner.DhPubKey.TextVerbose(16, 0))
 	jww.TRACE.Printf("AuthRequest MYSIDHPUBKEY: %s",
-		sidhPub)
+		util.StringSIDHPubKey(sidhPub))
 
 	jww.TRACE.Printf("AuthRequest HistoricalPUBKEY: %v",
 		historicalDHPub.TextVerbose(16, 0))

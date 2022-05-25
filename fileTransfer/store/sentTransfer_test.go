@@ -27,7 +27,7 @@ import (
 // Tests that newSentTransfer returns a new SentTransfer with the expected
 // values.
 func Test_newSentTransfer(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
 	numFps := uint16(24)
@@ -439,7 +439,7 @@ const numPrimeBytes = 512
 // newTestSentTransfer creates a new SentTransfer for testing.
 func newTestSentTransfer(numParts uint16, t *testing.T) (
 	*SentTransfer, [][]byte, *ftCrypto.TransferKey, uint16, *versioned.KV) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	recipient := id.NewIdFromString("recipient", id.User, t)
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())

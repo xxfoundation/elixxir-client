@@ -7,8 +7,16 @@ import (
 
 // Params is are the parameters for the auth package.
 type Params struct {
-	ReplayRequests bool
+	ReplayRequests  bool
+	RequestTag      string
+	ConfirmTag      string
+	ResetRequestTag string
+	ResetConfirmTag string
+}
 
+// paramsDisk will be the marshal-able and umarshal-able object.
+type paramsDisk struct {
+	ReplayRequests  bool
 	RequestTag      string
 	ConfirmTag      string
 	ResetRequestTag string
@@ -46,15 +54,6 @@ func GetDefaultTemporaryParams() Params {
 	p.ResetRequestTag = catalog.ResetEphemeral
 	p.ResetConfirmTag = catalog.ConfirmResetEphemeral
 	return p
-}
-
-// paramsDisk will be the marshal-able and umarshal-able object.
-type paramsDisk struct {
-	ReplayRequests  bool
-	RequestTag      string
-	ConfirmTag      string
-	ResetRequestTag string
-	ResetConfirmTag string
 }
 
 // MarshalJSON adheres to the json.Marshaler interface.

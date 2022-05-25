@@ -54,6 +54,7 @@ type paramsDisk struct {
 	ForceHistoricalRounds      bool
 }
 
+// GetDefaultParams returns a default set of Params.
 func GetDefaultParams() Params {
 	return Params{
 		NumMessageRetrievalWorkers: 8,

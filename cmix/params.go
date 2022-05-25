@@ -282,6 +282,8 @@ func (p *CMIXParams) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// NodeMap represents a map of nodes and whether they have been
+// blacklisted. This is designed for use with CMIXParams.BlacklistedNodes
 type NodeMap map[id.ID]bool
 
 // MarshalJSON adheres to the json.Marshaler interface.

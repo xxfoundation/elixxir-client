@@ -8,16 +8,17 @@
 package dummy
 
 import (
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 // Error messages.
@@ -94,15 +95,17 @@ func (m *Manager) sendMessages(msgs map[id.ID]format.Message) error {
 			defer wg.Done()
 
 			// Fill the preimage with random data to ensure it is not repeatable
-			p := params.GetDefaultCMIX()
-			p.IdentityPreimage = make([]byte, 32)
-			rng := m.rng.GetStream()
-			if _, err := rng.Read(p.IdentityPreimage); err != nil {
-				jww.FATAL.Panicf("Failed to generate data for random identity "+
-					"preimage in e2e send: %+v", err)
-			}
-			rng.Close()
-			p.DebugTag = "dummy"
+			p := cmix.GetDefaultParams()
+			// FIXME: these fields no longer available
+			//        through these params objects
+			// p.IdentityPreimage = make([]byte, 32)
+			// rng := m.rng.GetStream()
+			// if _, err := rng.Read(p.IdentityPreimage); err != nil {
+			// 	jww.FATAL.Panicf("Failed to generate data for random identity "+
+			// 		"preimage in e2e send: %+v", err)
+			// }
+			// rng.Close()
+			// p.DebugTag = "dummy"
 			_, _, err := m.net.SendCMIX(msg, &recipient, p)
 			if err != nil {
 				jww.WARN.Printf("Failed to send dummy message %d/%d via "+

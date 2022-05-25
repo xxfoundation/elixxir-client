@@ -142,30 +142,30 @@ func TestStore_AddSent(t *testing.T) {
 	}
 }
 
-// Error path: request with request already exists in map.
-func TestStore_AddSent_PartnerAlreadyExistsError(t *testing.T) {
-	s, _ := makeTestStore(t)
+// // Error path: request with request already exists in map.
+// func TestStore_AddSent_PartnerAlreadyExistsError(t *testing.T) {
+// 	s, _ := makeTestStore(t)
 
-	rng := csprng.NewSystemRNG()
-	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
+// 	rng := csprng.NewSystemRNG()
+// 	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
 
-	partner := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+// 	partner := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 
-	_, err := s.AddSent(partner, s.grp.NewInt(5), s.grp.NewInt(6),
-		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
-		format.Fingerprint{42}, true)
-	if err != nil {
-		t.Errorf("AddSent() produced an error: %+v", err)
-	}
+// 	_, err := s.AddSent(partner, s.grp.NewInt(5), s.grp.NewInt(6),
+// 		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+// 		format.Fingerprint{42}, true)
+// 	if err != nil {
+// 		t.Errorf("AddSent() produced an error: %+v", err)
+// 	}
 
-	_, err = s.AddSent(partner, s.grp.NewInt(5), s.grp.NewInt(6),
-		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
-		format.Fingerprint{42}, true)
-	if err == nil {
-		t.Errorf("AddSent() did not produce the expected error for " +
-			"a request that already exists.")
-	}
-}
+// 	_, err = s.AddSent(partner, s.grp.NewInt(5), s.grp.NewInt(6),
+// 		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+// 		format.Fingerprint{42}, true)
+// 	if err == nil {
+// 		t.Errorf("AddSent() did not produce the expected error for " +
+// 			"a request that already exists.")
+// 	}
+// }
 
 // Happy path.
 func TestStore_AddReceived(t *testing.T) {

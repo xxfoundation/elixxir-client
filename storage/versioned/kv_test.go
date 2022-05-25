@@ -197,6 +197,6 @@ func TestVersionedKV_Set(t *testing.T) {
 	o := &Object{}
 	err = kv.Get(key, o)
 	if err != nil {
-		t.Error("data store didn't have anything in the key: %+v", err)
+		t.Errorf("data store didn't have anything in the key: %+v", err)
 	}
 }

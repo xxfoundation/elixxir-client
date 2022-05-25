@@ -5,6 +5,17 @@ import (
 	"fmt"
 )
 
+// DEFAULT KEY GENERATION PARAMETERS
+// Hardcoded limits for keys
+// sets the number of keys very high, but with a low rekey threshold. In this case, if the other party is online, you will read
+const (
+	minKeys       uint16  = 1000
+	maxKeys       uint16  = 2000
+	rekeyThrshold float64 = 0.05
+	numReKeys     uint16  = 16
+	rekeyRatio    float64 = 1 / 10
+)
+
 type Params struct {
 	// using the DH as a seed, both sides finalizeKeyNegotation a number
 	// of keys to use before they must rekey because
@@ -23,16 +34,14 @@ type Params struct {
 	UnconfirmedRetryRatio float64
 }
 
-// DEFAULT KEY GENERATION PARAMETERS
-// Hardcoded limits for keys
-// sets the number of keys very high, but with a low rekey threshold. In this case, if the other party is online, you will read
-const (
-	minKeys       uint16  = 1000
-	maxKeys       uint16  = 2000
-	rekeyThrshold float64 = 0.05
-	numReKeys     uint16  = 16
-	rekeyRatio    float64 = 1 / 10
-)
+// paramsDisk will be the marshal-able and umarshal-able object.
+type paramsDisk struct {
+	MinKeys               uint16
+	MaxKeys               uint16
+	RekeyThreshold        float64
+	NumRekeys             uint16
+	UnconfirmedRetryRatio float64
+}
 
 // GetDefaultParams returns a default set of Params.
 func GetDefaultParams() Params {
@@ -59,24 +68,37 @@ func GetParameters(params string) (Params, error) {
 }
 
 // MarshalJSON adheres to the json.Marshaler interface.
-func (s Params) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s)
+func (p Params) MarshalJSON() ([]byte, error) {
+	pDisk := paramsDisk{
+		MinKeys:               p.MinKeys,
+		MaxKeys:               p.MaxKeys,
+		RekeyThreshold:        p.RekeyThreshold,
+		NumRekeys:             p.NumRekeys,
+		UnconfirmedRetryRatio: p.UnconfirmedRetryRatio,
+	}
+	return json.Marshal(&pDisk)
+
 }
 
 // UnmarshalJSON adheres to the json.Unmarshaler interface.
-func (s *Params) UnmarshalJSON(data []byte) error {
-	p := GetDefaultParams()
-	err := json.Unmarshal(data, &p)
+func (p *Params) UnmarshalJSON(data []byte) error {
+	pDisk := paramsDisk{}
+	err := json.Unmarshal(data, &pDisk)
 	if err != nil {
 		return err
 	}
 
-	*s = p
-
+	*p = Params{
+		MinKeys:               pDisk.MinKeys,
+		MaxKeys:               pDisk.MaxKeys,
+		RekeyThreshold:        pDisk.RekeyThreshold,
+		NumRekeys:             pDisk.NumRekeys,
+		UnconfirmedRetryRatio: pDisk.UnconfirmedRetryRatio,
+	}
 	return nil
 }
 
-func (s Params) String() string {
+func (p Params) String() string {
 	return fmt.Sprintf("SessionParams{ MinKeys: %d, MaxKeys: %d, NumRekeys: %d }",
-		s.MinKeys, s.MaxKeys, s.NumRekeys)
+		p.MinKeys, p.MaxKeys, p.NumRekeys)
 }

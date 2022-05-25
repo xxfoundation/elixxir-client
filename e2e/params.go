@@ -36,6 +36,7 @@ type paramsDisk struct {
 	KeyGetRetryCount uint
 	KeyGeRetryDelay  time.Duration
 	Rekey            bool
+	cmix.CMIXParams
 }
 
 // GetDefaultParams returns a default set of Params.
@@ -66,13 +67,14 @@ func GetParameters(params string) (Params, error) {
 }
 
 // MarshalJSON adheres to the json.Marshaler interface.
-func (r Params) MarshalJSON() ([]byte, error) {
+func (p Params) MarshalJSON() ([]byte, error) {
 	pDisk := paramsDisk{
-		ServiceTag:       r.ServiceTag,
-		LastServiceTag:   r.LastServiceTag,
-		KeyGetRetryCount: r.KeyGetRetryCount,
-		KeyGeRetryDelay:  r.KeyGeRetryDelay,
-		Rekey:            r.Rekey,
+		ServiceTag:       p.ServiceTag,
+		LastServiceTag:   p.LastServiceTag,
+		KeyGetRetryCount: p.KeyGetRetryCount,
+		KeyGeRetryDelay:  p.KeyGeRetryDelay,
+		Rekey:            p.Rekey,
+		CMIXParams:       p.CMIXParams,
 	}
 
 	return json.Marshal(&pDisk)
@@ -80,19 +82,20 @@ func (r Params) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON adheres to the json.Unmarshaler interface.
-func (r *Params) UnmarshalJSON(data []byte) error {
+func (p *Params) UnmarshalJSON(data []byte) error {
 	pDisk := paramsDisk{}
 	err := json.Unmarshal(data, &pDisk)
 	if err != nil {
 		return err
 	}
 
-	*r = Params{
+	*p = Params{
 		ServiceTag:       pDisk.ServiceTag,
 		LastServiceTag:   pDisk.LastServiceTag,
 		KeyGetRetryCount: pDisk.KeyGetRetryCount,
 		KeyGeRetryDelay:  pDisk.KeyGeRetryDelay,
 		Rekey:            pDisk.Rekey,
+		CMIXParams:       pDisk.CMIXParams,
 	}
 
 	return nil

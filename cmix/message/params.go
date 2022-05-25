@@ -56,13 +56,13 @@ func GetParameters(params string) (Params, error) {
 }
 
 // MarshalJSON adheres to the json.Marshaler interface.
-func (r Params) MarshalJSON() ([]byte, error) {
+func (p Params) MarshalJSON() ([]byte, error) {
 	pDisk := paramsDisk{
-		MessageReceptionBuffLen:        r.MessageReceptionBuffLen,
-		MessageReceptionWorkerPoolSize: r.MessageReceptionWorkerPoolSize,
-		MaxChecksInProcessMessage:      r.MaxChecksInProcessMessage,
-		InProcessMessageWait:           r.InProcessMessageWait,
-		RealtimeOnly:                   r.RealtimeOnly,
+		MessageReceptionBuffLen:        p.MessageReceptionBuffLen,
+		MessageReceptionWorkerPoolSize: p.MessageReceptionWorkerPoolSize,
+		MaxChecksInProcessMessage:      p.MaxChecksInProcessMessage,
+		InProcessMessageWait:           p.InProcessMessageWait,
+		RealtimeOnly:                   p.RealtimeOnly,
 	}
 
 	return json.Marshal(&pDisk)
@@ -70,14 +70,14 @@ func (r Params) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON adheres to the json.Unmarshaler interface.
-func (r *Params) UnmarshalJSON(data []byte) error {
+func (p *Params) UnmarshalJSON(data []byte) error {
 	pDisk := paramsDisk{}
 	err := json.Unmarshal(data, &pDisk)
 	if err != nil {
 		return err
 	}
 
-	*r = Params{
+	*p = Params{
 		MessageReceptionBuffLen:        pDisk.MessageReceptionBuffLen,
 		MessageReceptionWorkerPoolSize: pDisk.MessageReceptionWorkerPoolSize,
 		MaxChecksInProcessMessage:      pDisk.MaxChecksInProcessMessage,

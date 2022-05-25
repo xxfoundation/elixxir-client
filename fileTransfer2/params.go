@@ -37,6 +37,7 @@ type Params struct {
 type paramsDisk struct {
 	MaxThroughput int
 	SendTimeout   time.Duration
+	Cmix          cmix.CMIXParams
 }
 
 // DefaultParams returns a Params object filled with the default values.
@@ -62,10 +63,11 @@ func GetParameters(params string) (Params, error) {
 }
 
 // MarshalJSON adheres to the json.Marshaler interface.
-func (r Params) MarshalJSON() ([]byte, error) {
+func (p Params) MarshalJSON() ([]byte, error) {
 	pDisk := paramsDisk{
-		MaxThroughput: r.MaxThroughput,
-		SendTimeout:   r.SendTimeout,
+		MaxThroughput: p.MaxThroughput,
+		SendTimeout:   p.SendTimeout,
+		Cmix:          p.Cmix,
 	}
 
 	return json.Marshal(&pDisk)
@@ -73,16 +75,17 @@ func (r Params) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON adheres to the json.Unmarshaler interface.
-func (r *Params) UnmarshalJSON(data []byte) error {
+func (p *Params) UnmarshalJSON(data []byte) error {
 	pDisk := paramsDisk{}
 	err := json.Unmarshal(data, &pDisk)
 	if err != nil {
 		return err
 	}
 
-	*r = Params{
+	*p = Params{
 		MaxThroughput: pDisk.MaxThroughput,
 		SendTimeout:   pDisk.SendTimeout,
+		Cmix:          pDisk.Cmix,
 	}
 
 	return nil

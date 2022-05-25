@@ -85,7 +85,7 @@ type Callback func(connection Connection)
 
 // Params for managing Connection objects.
 type Params struct {
-	Auth    auth.Param
+	Auth    auth.Params
 	Rekey   rekey.Params
 	Event   event.Reporter `json:"-"`
 	Timeout time.Duration

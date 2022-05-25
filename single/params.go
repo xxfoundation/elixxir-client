@@ -37,6 +37,7 @@ type RequestParams struct {
 type requestParamsDisk struct {
 	Timeout             time.Duration
 	MaxResponseMessages uint8
+	CmixParams          cmix.CMIXParams
 }
 
 // GetDefaultRequestParams returns a RequestParams with the default
@@ -63,10 +64,11 @@ func GetParameters(params string) (RequestParams, error) {
 }
 
 // MarshalJSON adheres to the json.Marshaler interface.
-func (r RequestParams) MarshalJSON() ([]byte, error) {
+func (rp RequestParams) MarshalJSON() ([]byte, error) {
 	pDisk := requestParamsDisk{
-		Timeout:             r.Timeout,
-		MaxResponseMessages: r.MaxResponseMessages,
+		Timeout:             rp.Timeout,
+		MaxResponseMessages: rp.MaxResponseMessages,
+		CmixParams:          rp.CmixParams,
 	}
 
 	return json.Marshal(&pDisk)
@@ -74,16 +76,17 @@ func (r RequestParams) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON adheres to the json.Unmarshaler interface.
-func (r *RequestParams) UnmarshalJSON(data []byte) error {
+func (rp *RequestParams) UnmarshalJSON(data []byte) error {
 	pDisk := requestParamsDisk{}
 	err := json.Unmarshal(data, &pDisk)
 	if err != nil {
 		return err
 	}
 
-	*r = RequestParams{
+	*rp = RequestParams{
 		Timeout:             pDisk.Timeout,
 		MaxResponseMessages: pDisk.MaxResponseMessages,
+		CmixParams:          pDisk.CmixParams,
 	}
 
 	return nil

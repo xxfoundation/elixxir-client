@@ -48,21 +48,21 @@ func GetParameters(params string) (Params, error) {
 }
 
 // MarshalJSON adheres to the json.Marshaler interface.
-func (r Params) MarshalJSON() ([]byte, error) {
-	pDisk := paramsDisk{NotifyUponCompletion: r.NotifyUponCompletion}
+func (p Params) MarshalJSON() ([]byte, error) {
+	pDisk := paramsDisk{NotifyUponCompletion: p.NotifyUponCompletion}
 	return json.Marshal(&pDisk)
 
 }
 
 // UnmarshalJSON adheres to the json.Unmarshaler interface.
-func (r *Params) UnmarshalJSON(data []byte) error {
+func (p *Params) UnmarshalJSON(data []byte) error {
 	pDisk := paramsDisk{}
 	err := json.Unmarshal(data, &pDisk)
 	if err != nil {
 		return err
 	}
 
-	*r = Params{NotifyUponCompletion: pDisk.NotifyUponCompletion}
+	*p = Params{NotifyUponCompletion: pDisk.NotifyUponCompletion}
 
 	return nil
 }

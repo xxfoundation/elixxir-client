@@ -61,30 +61,30 @@ func GetParameters(params string) (UnknownRoundsParams, error) {
 	return p, nil
 }
 
+// MarshalJSON adheres to the json.Marshaler interface.
+func (urp UnknownRoundsParams) MarshalJSON() ([]byte, error) {
+	urpDisk := unknownRoundsParamsDisk{
+		MaxChecks: urp.MaxChecks,
+		Stored:    urp.Stored,
+	}
+
+	return json.Marshal(&urpDisk)
+}
+
 // UnmarshalJSON adheres to the json.Unmarshaler interface.
-func (f *UnknownRoundsParams) UnmarshalJSON(data []byte) error {
+func (urp *UnknownRoundsParams) UnmarshalJSON(data []byte) error {
 	urpDisk := unknownRoundsParamsDisk{}
 	err := json.Unmarshal(data, &urpDisk)
 	if err != nil {
 		return err
 	}
 
-	*f = UnknownRoundsParams{
+	*urp = UnknownRoundsParams{
 		MaxChecks: urpDisk.MaxChecks,
 		Stored:    urpDisk.Stored,
 	}
 
 	return nil
-}
-
-// MarshalJSON adheres to the json.Marshaler interface.
-func (f UnknownRoundsParams) MarshalJSON() ([]byte, error) {
-	urpDisk := unknownRoundsParamsDisk{
-		MaxChecks: f.MaxChecks,
-		Stored:    f.Stored,
-	}
-
-	return json.Marshal(&urpDisk)
 }
 
 // UnknownRounds tracks data for unknown rounds. Should adhere to UnknownRounds

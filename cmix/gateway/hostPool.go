@@ -109,6 +109,8 @@ type PoolParams struct {
 	ForceConnection bool
 
 	// HostParams is the parameters for the creation of new Host objects.
+	//fixme params: have this adhere to json.Marshaler.
+	// This will allow the PoolParams object to have full adherence.
 	HostParams connect.HostParams `json:"-"`
 }
 
@@ -156,32 +158,35 @@ func GetParameters(params string) (PoolParams, error) {
 }
 
 // MarshalJSON adheres to the json.Marshaler interface.
-func (f PoolParams) MarshalJSON() ([]byte, error) {
+func (pp PoolParams) MarshalJSON() ([]byte, error) {
 	ppd := poolParamsDisk{
-		MaxPoolSize:     f.MaxPoolSize,
-		PoolSize:        f.PoolSize,
-		ProxyAttempts:   f.ProxyAttempts,
-		MaxPings:        f.MaxPings,
-		ForceConnection: f.ForceConnection,
+		MaxPoolSize:     pp.MaxPoolSize,
+		PoolSize:        pp.PoolSize,
+		ProxyAttempts:   pp.ProxyAttempts,
+		MaxPings:        pp.MaxPings,
+		ForceConnection: pp.ForceConnection,
 	}
 
 	return json.Marshal(&ppd)
 }
 
 // UnmarshalJSON adheres to the json.Unmarshaler interface.
-func (f *PoolParams) UnmarshalJSON(data []byte) error {
-	ppd := poolParamsDisk{}
-	err := json.Unmarshal(data, &ppd)
+func (pp *PoolParams) UnmarshalJSON(data []byte) error {
+	ppDisk := poolParamsDisk{}
+	err := json.Unmarshal(data, &ppDisk)
 	if err != nil {
 		return err
 	}
 
-	*f = PoolParams{
-		MaxPoolSize:     ppd.MaxPoolSize,
-		PoolSize:        ppd.PoolSize,
-		ProxyAttempts:   ppd.ProxyAttempts,
-		MaxPings:        ppd.MaxPings,
-		ForceConnection: ppd.ForceConnection,
+	*pp = PoolParams{
+		MaxPoolSize:     ppDisk.MaxPoolSize,
+		PoolSize:        ppDisk.PoolSize,
+		ProxyAttempts:   ppDisk.ProxyAttempts,
+		MaxPings:        ppDisk.MaxPings,
+		ForceConnection: ppDisk.ForceConnection,
+		// Since this does not adhere to json.Marshaler yet,
+		// file it in manually assuming default values
+		HostParams: connect.GetDefaultHostParams(),
 	}
 
 	return nil

@@ -41,7 +41,7 @@ type state struct {
 	store *store.Store
 	event event.Reporter
 
-	params Param
+	params Params
 
 	backupTrigger func(reason string)
 }
@@ -101,7 +101,7 @@ type Callbacks interface {
 //   with a memory only versioned.KV) as well as a memory only versioned.KV for
 //   NewState and use GetDefaultTemporaryParams() for the parameters
 func NewState(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
-	rng *fastRNG.StreamGenerator, event event.Reporter, params Param,
+	rng *fastRNG.StreamGenerator, event event.Reporter, params Params,
 	callbacks Callbacks, backupTrigger func(reason string)) (State, error) {
 	kv = kv.Prefix(makeStorePrefix(e2e.GetReceptionID()))
 	return NewStateLegacy(
@@ -114,7 +114,7 @@ func NewState(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 // Does not modify the kv prefix for backwards compatibility
 // Otherwise, acts the same as NewState
 func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
-	rng *fastRNG.StreamGenerator, event event.Reporter, params Param,
+	rng *fastRNG.StreamGenerator, event event.Reporter, params Params,
 	callbacks Callbacks, backupTrigger func(reason string)) (State, error) {
 
 	s := &state{

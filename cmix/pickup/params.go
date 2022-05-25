@@ -80,16 +80,16 @@ func GetParameters(params string) (Params, error) {
 }
 
 // MarshalJSON adheres to the json.Marshaler interface.
-func (r Params) MarshalJSON() ([]byte, error) {
+func (p Params) MarshalJSON() ([]byte, error) {
 	pDisk := paramsDisk{
-		NumMessageRetrievalWorkers: r.NumMessageRetrievalWorkers,
-		LookupRoundsBufferLen:      r.LookupRoundsBufferLen,
-		MaxHistoricalRoundsRetries: r.MaxHistoricalRoundsRetries,
-		UncheckRoundPeriod:         r.UncheckRoundPeriod,
-		ForceMessagePickupRetry:    r.ForceMessagePickupRetry,
-		SendTimeout:                r.SendTimeout,
-		RealtimeOnly:               r.RealtimeOnly,
-		ForceHistoricalRounds:      r.ForceHistoricalRounds,
+		NumMessageRetrievalWorkers: p.NumMessageRetrievalWorkers,
+		LookupRoundsBufferLen:      p.LookupRoundsBufferLen,
+		MaxHistoricalRoundsRetries: p.MaxHistoricalRoundsRetries,
+		UncheckRoundPeriod:         p.UncheckRoundPeriod,
+		ForceMessagePickupRetry:    p.ForceMessagePickupRetry,
+		SendTimeout:                p.SendTimeout,
+		RealtimeOnly:               p.RealtimeOnly,
+		ForceHistoricalRounds:      p.ForceHistoricalRounds,
 	}
 
 	return json.Marshal(&pDisk)
@@ -97,14 +97,14 @@ func (r Params) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON adheres to the json.Unmarshaler interface.
-func (r *Params) UnmarshalJSON(data []byte) error {
+func (p *Params) UnmarshalJSON(data []byte) error {
 	pDisk := paramsDisk{}
 	err := json.Unmarshal(data, &pDisk)
 	if err != nil {
 		return err
 	}
 
-	*r = Params{
+	*p = Params{
 		NumMessageRetrievalWorkers: pDisk.NumMessageRetrievalWorkers,
 		LookupRoundsBufferLen:      pDisk.LookupRoundsBufferLen,
 		MaxHistoricalRoundsRetries: pDisk.MaxHistoricalRoundsRetries,

@@ -104,6 +104,24 @@ func (p Partitioner) HandlePartition(sender *id.ID,
 	}
 }
 
+// FirstPartitionSize returns the max partition payload size for the
+// first payload
+func (p Partitioner) FirstPartitionSize() uint {
+	return uint(p.firstContentsSize)
+}
+
+// SecondPartitionSize returns the max partition payload size for all
+// payloads after the first payload
+func (p Partitioner) SecondPartitionSize() uint {
+	return uint(p.partContentsSize)
+}
+
+// PayloadSize Returns the max payload size for a partitionable E2E
+// message
+func (p Partitioner) PayloadSize() uint {
+	return uint(p.maxSize)
+}
+
 func splitPayload(payload []byte, length int) ([]byte, []byte) {
 	if len(payload) < length {
 		return payload, payload

@@ -9,6 +9,7 @@ import (
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/e2e/parse"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/stoppable"
@@ -198,4 +199,34 @@ func getSendErrors(c chan error) (numFail int, errRtn string) {
 			return numFail, errRtn
 		}
 	}
+}
+
+// FirstPartitionSize returns the max partition payload size for the
+// first payload
+func (m *manager) FirstPartitionSize() uint {
+	return m.partitioner.FirstPartitionSize()
+}
+
+// SecondPartitionSize returns the max partition payload size for all
+// payloads after the first payload
+func (m *manager) SecondPartitionSize() uint {
+	return m.partitioner.SecondPartitionSize()
+}
+
+// PartitionSize returns the partition payload size for the given
+// payload index. The first payload is index 0.
+func (m *manager) PartitionSize(payloadIndex uint) uint {
+	if payloadIndex == 0 {
+		return m.FirstPartitionSize()
+	}
+	if payloadIndex > parse.MaxMessageParts {
+		return 0
+	}
+	return m.SecondPartitionSize()
+}
+
+// PayloadSize Returns the max payload size for a partitionable E2E
+// message
+func (m *manager) PayloadSize() uint {
+	return m.partitioner.PayloadSize()
 }

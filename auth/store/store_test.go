@@ -166,7 +166,7 @@ func TestStore_AddSent(t *testing.T) {
 // 			"a request that already exists.")
 // 	}
 // }
-gi
+
 // Happy path.
 func TestStore_AddReceived(t *testing.T) {
 	s, _ := makeTestStore(t)

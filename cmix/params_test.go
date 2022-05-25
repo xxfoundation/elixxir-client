@@ -18,7 +18,7 @@ import (
 
 // Tests that no data is lost when marshaling and
 // unmarshaling the Params object.
-func TestParams_MarshalJSON(t *testing.T) {
+func TestParams_MarshalUnmarshal(t *testing.T) {
 	// Construct a set of params
 	p := GetDefaultParams()
 
@@ -42,6 +42,8 @@ func TestParams_MarshalJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal error: %v", err)
 	}
+
+	t.Logf("%s", string(data2))
 
 	// Check that they match (it is done this way to avoid
 	// false failures with the reflect.DeepEqual function and

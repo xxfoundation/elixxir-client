@@ -1,11 +1,11 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                           //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
 
-package api
+package connect
 
 import (
 	"bytes"
@@ -13,8 +13,6 @@ import (
 	"testing"
 )
 
-// Tests that no data is lost when marshaling and
-// unmarshaling the Params object.
 func TestParams_MarshalUnmarshal(t *testing.T) {
 	// Construct a set of params
 	p := GetDefaultParams()

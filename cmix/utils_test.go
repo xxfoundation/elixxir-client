@@ -7,6 +7,9 @@
 package cmix
 
 import (
+	"testing"
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/cmix/nodes"
@@ -30,8 +33,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"testing"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // mockManagerComms
@@ -210,7 +212,7 @@ func mockFailCriticalSender(msg format.Message, recipient *id.ID,
 }
 
 func newTestClient(t *testing.T) (*client, error) {
-	kv := versioned.NewKV(ekv.Memstore{})
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	myID := id.NewIdFromString("zezima", id.User, t)
 	comms, err := commClient.NewClientComms(myID, nil, nil, nil)
 	if err != nil {

@@ -9,6 +9,12 @@ package store
 
 import (
 	"bytes"
+	"io"
+	"math/rand"
+	"reflect"
+	"sort"
+	"testing"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
@@ -26,12 +32,6 @@ import (
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"io"
-	"math/rand"
-	"reflect"
-	"sort"
-	"testing"
-	"time"
 )
 
 type mockSentRequestHandler struct{}
@@ -41,7 +41,7 @@ func (msrh *mockSentRequestHandler) Delete(sr *SentRequest) {}
 
 // Happy path.
 func TestNewOrLoadStore(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
 	_, err := NewOrLoadStore(kv, grp, &mockSentRequestHandler{})
@@ -869,7 +869,7 @@ func TestStore_DeleteAllRequests(t *testing.T) {
 }
 
 func makeTestStore(t *testing.T) (*Store, *versioned.KV) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
 
 	store, err := NewOrLoadStore(kv, grp, &mockSentRequestHandler{})

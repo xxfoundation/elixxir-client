@@ -8,6 +8,10 @@
 package store
 
 import (
+	"math/rand"
+	"reflect"
+	"testing"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -19,9 +23,6 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
-	"reflect"
-	"testing"
 )
 
 // Tests the four possible cases of Store.CheckIfNegotationIsNew:
@@ -36,7 +37,7 @@ import (
 //      Return newFingerprint = false, latest = true.
 func TestStore_AddIfNew(t *testing.T) {
 	s := &Store{
-		kv:                   versioned.NewKV(make(ekv.Memstore)),
+		kv:                   versioned.NewKV(ekv.MakeMemstore()),
 		previousNegotiations: make(map[id.ID]bool),
 	}
 	prng := rand.New(rand.NewSource(42))
@@ -161,7 +162,7 @@ func TestStore_AddIfNew(t *testing.T) {
 // previousNegotiations in storage and any confirmations in storage.
 func TestStore_deletePreviousNegotiationPartner(t *testing.T) {
 	s := &Store{
-		kv:                   versioned.NewKV(make(ekv.Memstore)),
+		kv:                   versioned.NewKV(ekv.MakeMemstore()),
 		previousNegotiations: make(map[id.ID]bool),
 	}
 	prng := rand.New(rand.NewSource(42))
@@ -257,7 +258,7 @@ func TestStore_deletePreviousNegotiationPartner(t *testing.T) {
 // via Store.savePreviousNegotiations andStore.newOrLoadPreviousNegotiations.
 func TestStore_savePreviousNegotiations_newOrLoadPreviousNegotiations(t *testing.T) {
 	s := &Store{
-		kv:                   versioned.NewKV(make(ekv.Memstore)),
+		kv:                   versioned.NewKV(ekv.MakeMemstore()),
 		previousNegotiations: make(map[id.ID]bool),
 	}
 	prng := rand.New(rand.NewSource(42))
@@ -291,7 +292,7 @@ func TestStore_savePreviousNegotiations_newOrLoadPreviousNegotiations(t *testing
 // they do not exist.
 func TestStore_newOrLoadPreviousNegotiations_noNegotiations(t *testing.T) {
 	s := &Store{
-		kv:                   versioned.NewKV(make(ekv.Memstore)),
+		kv:                   versioned.NewKV(ekv.MakeMemstore()),
 		previousNegotiations: make(map[id.ID]bool),
 	}
 	expected := make(map[id.ID]bool)
@@ -339,7 +340,7 @@ func Test_marshalPreviousNegotiations_unmarshalPreviousNegotiations(t *testing.T
 // loaded from storage via Store.saveNegotiationFingerprints and
 // Store.loadNegotiationFingerprints.
 func TestStore_saveNegotiationFingerprints_loadNegotiationFingerprints(t *testing.T) {
-	s := &Store{kv: versioned.NewKV(make(ekv.Memstore))}
+	s := &Store{kv: versioned.NewKV(ekv.MakeMemstore())}
 	rng := csprng.NewSystemRNG()
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 

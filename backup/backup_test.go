@@ -439,13 +439,14 @@ func newTestBackup(password string, cb UpdateBackupFn, t *testing.T) *Backup {
 // Tests that Backup.InitializeBackup returns a new Backup with a copy of the
 // key and the callback.
 func Benchmark_InitializeBackup(t *testing.B) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	cbChan := make(chan []byte, 2)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
 	expectedPassword := "MySuperSecurePassword"
 	for i := 0; i < t.N; i++ {
-		_, err := InitializeBackup(expectedPassword, cb, &Container{},
+		_, err := InitializeBackup(expectedPassword, cb,
+			&messenger.Container{},
 			newMockE2e(t),
 			newMockSession(t), newMockUserDiscovery(), kv, rngGen)
 		if err != nil {

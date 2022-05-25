@@ -8,6 +8,7 @@
 package single
 
 import (
+	"encoding/json"
 	"gitlab.com/elixxir/client/cmix"
 	"time"
 )
@@ -32,6 +33,12 @@ type RequestParams struct {
 	CmixParams cmix.CMIXParams
 }
 
+// requestParamsDisk will be the marshal-able and umarshal-able object.
+type requestParamsDisk struct {
+	Timeout             time.Duration
+	MaxResponseMessages uint8
+}
+
 // GetDefaultRequestParams returns a RequestParams with the default
 // configuration.
 func GetDefaultRequestParams() RequestParams {
@@ -40,4 +47,44 @@ func GetDefaultRequestParams() RequestParams {
 		MaxResponseMessages: defaultMaxResponseMessages,
 		CmixParams:          cmix.GetDefaultCMIXParams(),
 	}
+}
+
+// GetParameters returns the default network parameters, or override with given
+// parameters, if set.
+func GetParameters(params string) (RequestParams, error) {
+	p := GetDefaultRequestParams()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return RequestParams{}, err
+		}
+	}
+	return p, nil
+}
+
+// MarshalJSON adheres to the json.Marshaler interface.
+func (r RequestParams) MarshalJSON() ([]byte, error) {
+	pDisk := requestParamsDisk{
+		Timeout:             r.Timeout,
+		MaxResponseMessages: r.MaxResponseMessages,
+	}
+
+	return json.Marshal(&pDisk)
+
+}
+
+// UnmarshalJSON adheres to the json.Unmarshaler interface.
+func (r *RequestParams) UnmarshalJSON(data []byte) error {
+	pDisk := requestParamsDisk{}
+	err := json.Unmarshal(data, &pDisk)
+	if err != nil {
+		return err
+	}
+
+	*r = RequestParams{
+		Timeout:             pDisk.Timeout,
+		MaxResponseMessages: pDisk.MaxResponseMessages,
+	}
+
+	return nil
 }

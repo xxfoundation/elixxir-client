@@ -7,6 +7,7 @@
 package connect
 
 import (
+	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
@@ -69,7 +70,7 @@ type Callback func(connection Connection)
 type Params struct {
 	Auth    auth.Param
 	Rekey   rekey.Params
-	Event   event.Reporter
+	Event   event.Reporter `json:"-"`
 	Timeout time.Duration
 }
 
@@ -81,6 +82,19 @@ func GetDefaultParams() Params {
 		Event:   event.NewEventManager(),
 		Timeout: connectionTimeout,
 	}
+}
+
+// GetParameters returns the default Params, or override with given
+// parameters, if set.
+func GetParameters(params string) (Params, error) {
+	p := GetDefaultParams()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return Params{}, err
+		}
+	}
+	return p, nil
 }
 
 // Connect performs auth key negotiation with the given recipient,

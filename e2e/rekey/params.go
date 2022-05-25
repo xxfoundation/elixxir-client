@@ -1,6 +1,7 @@
 package rekey
 
 import (
+	"encoding/json"
 	"gitlab.com/elixxir/client/catalog"
 	"time"
 )
@@ -20,6 +21,36 @@ type Params struct {
 	ConfirmName   string
 	Confirm       catalog.MessageType
 	StoppableName string
+}
+
+// GetParameters returns the default network parameters, or override with given
+// parameters, if set.
+func GetParameters(params string) (Params, error) {
+	p := GetDefaultParams()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return Params{}, err
+		}
+	}
+	return p, nil
+}
+
+// MarshalJSON adheres to the json.Marshaler interface.
+func (c *Params) Marshal() ([]byte, error) {
+	return json.Marshal(c)
+}
+
+// UnmarshalJSON adheres to the json.Unmarshaler interface.
+func (c *Params) UnmarshalJSON(data []byte) error {
+	p := GetDefaultParams()
+	err := json.Unmarshal(data, &p)
+	if err != nil {
+		return err
+	}
+
+	*c = p
+	return nil
 }
 
 func GetDefaultParams() Params {

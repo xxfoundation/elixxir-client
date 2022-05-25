@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                           //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
 package cmix
 
 import (
@@ -57,6 +64,22 @@ type Params struct {
 	Historical rounds.Params
 }
 
+// paramsDisk will be the marshal-able and umarshal-able object.
+type paramsDisk struct {
+	TrackNetworkPeriod        time.Duration
+	MaxCheckedRounds          uint
+	RegNodesBufferLen         uint
+	NetworkHealthTimeout      time.Duration
+	ParallelNodeRegistrations uint
+	KnownRoundsThreshold      uint
+	FastPolling               bool
+	VerboseRoundTracking      bool
+	RealtimeOnly              bool
+	ReplayRequests            bool
+}
+
+// GetDefaultParams returns a Params object containing the
+// default parameters.
 func GetDefaultParams() Params {
 	n := Params{
 		TrackNetworkPeriod:        100 * time.Millisecond,
@@ -78,18 +101,7 @@ func GetDefaultParams() Params {
 	return n
 }
 
-func (n Params) Marshal() ([]byte, error) {
-	return json.Marshal(n)
-}
-
-func (n Params) SetRealtimeOnlyAll() Params {
-	n.RealtimeOnly = true
-	n.Pickup.RealtimeOnly = true
-	n.Message.RealtimeOnly = true
-	return n
-}
-
-// GetParameters returns the default network parameters, or override with given
+// GetParameters returns the default Params, or override with given
 // parameters, if set.
 func GetParameters(params string) (Params, error) {
 	p := GetDefaultParams()
@@ -102,7 +114,53 @@ func GetParameters(params string) (Params, error) {
 	return p, nil
 }
 
-type NodeMap map[id.ID]bool
+// MarshalJSON adheres to the json.Marshaler interface.
+func (n Params) MarshalJSON() ([]byte, error) {
+	pDisk := paramsDisk{
+		TrackNetworkPeriod:        n.TrackNetworkPeriod,
+		MaxCheckedRounds:          n.MaxCheckedRounds,
+		RegNodesBufferLen:         n.RegNodesBufferLen,
+		NetworkHealthTimeout:      n.NetworkHealthTimeout,
+		ParallelNodeRegistrations: n.ParallelNodeRegistrations,
+		KnownRoundsThreshold:      n.KnownRoundsThreshold,
+		FastPolling:               n.FastPolling,
+		VerboseRoundTracking:      n.VerboseRoundTracking,
+		RealtimeOnly:              n.RealtimeOnly,
+		ReplayRequests:            n.ReplayRequests,
+	}
+	return json.Marshal(&pDisk)
+}
+
+// UnmarshalJSON adheres to the json.Unmarshaler interface.
+func (n *Params) UnmarshalJSON(data []byte) error {
+	pDisk := paramsDisk{}
+	err := json.Unmarshal(data, &pDisk)
+	if err != nil {
+		return err
+	}
+
+	*n = Params{
+		TrackNetworkPeriod:        pDisk.TrackNetworkPeriod,
+		MaxCheckedRounds:          pDisk.MaxCheckedRounds,
+		RegNodesBufferLen:         pDisk.RegNodesBufferLen,
+		NetworkHealthTimeout:      pDisk.NetworkHealthTimeout,
+		ParallelNodeRegistrations: pDisk.ParallelNodeRegistrations,
+		KnownRoundsThreshold:      pDisk.KnownRoundsThreshold,
+		FastPolling:               pDisk.FastPolling,
+		VerboseRoundTracking:      pDisk.VerboseRoundTracking,
+		RealtimeOnly:              pDisk.RealtimeOnly,
+		ReplayRequests:            pDisk.ReplayRequests,
+	}
+
+	return nil
+}
+
+func (n Params) SetRealtimeOnlyAll() Params {
+	n.RealtimeOnly = true
+	n.Pickup.RealtimeOnly = true
+	n.Message.RealtimeOnly = true
+	return n
+}
 
 const DefaultDebugTag = "External"
 
@@ -137,6 +195,16 @@ type CMIXParams struct {
 	Critical bool
 }
 
+// cMixParamsDisk will be the marshal-able and umarshal-able object.
+type cMixParamsDisk struct {
+	RoundTries  uint
+	Timeout     time.Duration
+	RetryDelay  time.Duration
+	SendTimeout time.Duration
+	DebugTag    string
+	Critical    bool
+}
+
 func GetDefaultCMIXParams() CMIXParams {
 	return CMIXParams{
 		RoundTries:  10,
@@ -148,6 +216,41 @@ func GetDefaultCMIXParams() CMIXParams {
 		// wait on
 		Stop: stoppable.NewSingle("cmixParamsDefault"),
 	}
+}
+
+// MarshalJSON adheres to the json.Marshaler interface.
+func (r CMIXParams) MarshalJSON() ([]byte, error) {
+	pDisk := cMixParamsDisk{
+		RoundTries:  r.RoundTries,
+		Timeout:     r.Timeout,
+		RetryDelay:  r.RetryDelay,
+		SendTimeout: r.SendTimeout,
+		DebugTag:    r.DebugTag,
+		Critical:    r.Critical,
+	}
+
+	return json.Marshal(&pDisk)
+
+}
+
+// UnmarshalJSON adheres to the json.Unmarshaler interface.
+func (r *CMIXParams) UnmarshalJSON(data []byte) error {
+	pDisk := cMixParamsDisk{}
+	err := json.Unmarshal(data, &pDisk)
+	if err != nil {
+		return err
+	}
+
+	*r = CMIXParams{
+		RoundTries:  pDisk.RoundTries,
+		Timeout:     pDisk.Timeout,
+		RetryDelay:  pDisk.RetryDelay,
+		SendTimeout: pDisk.SendTimeout,
+		DebugTag:    pDisk.DebugTag,
+		Critical:    pDisk.Critical,
+	}
+
+	return nil
 }
 
 // GetCMIXParameters obtains default CMIX parameters, or overrides with given
@@ -162,6 +265,8 @@ func GetCMIXParameters(params string) (CMIXParams, error) {
 	}
 	return p, nil
 }
+
+type NodeMap map[id.ID]bool
 
 // MarshalJSON adheres to the json.Marshaler interface.
 func (nm NodeMap) MarshalJSON() ([]byte, error) {

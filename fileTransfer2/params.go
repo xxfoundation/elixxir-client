@@ -8,6 +8,7 @@
 package fileTransfer2
 
 import (
+	"encoding/json"
 	"gitlab.com/elixxir/client/cmix"
 	"time"
 )
@@ -32,6 +33,12 @@ type Params struct {
 	Cmix cmix.CMIXParams
 }
 
+// paramsDisk will be the marshal-able and umarshal-able object.
+type paramsDisk struct {
+	MaxThroughput int
+	SendTimeout   time.Duration
+}
+
 // DefaultParams returns a Params object filled with the default values.
 func DefaultParams() Params {
 	return Params{
@@ -39,4 +46,44 @@ func DefaultParams() Params {
 		SendTimeout:   defaultSendTimeout,
 		Cmix:          cmix.GetDefaultCMIXParams(),
 	}
+}
+
+// GetParameters returns the default network parameters, or override with given
+// parameters, if set.
+func GetParameters(params string) (Params, error) {
+	p := DefaultParams()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return Params{}, err
+		}
+	}
+	return p, nil
+}
+
+// MarshalJSON adheres to the json.Marshaler interface.
+func (r Params) MarshalJSON() ([]byte, error) {
+	pDisk := paramsDisk{
+		MaxThroughput: r.MaxThroughput,
+		SendTimeout:   r.SendTimeout,
+	}
+
+	return json.Marshal(&pDisk)
+
+}
+
+// UnmarshalJSON adheres to the json.Unmarshaler interface.
+func (r *Params) UnmarshalJSON(data []byte) error {
+	pDisk := paramsDisk{}
+	err := json.Unmarshal(data, &pDisk)
+	if err != nil {
+		return err
+	}
+
+	*r = Params{
+		MaxThroughput: pDisk.MaxThroughput,
+		SendTimeout:   pDisk.SendTimeout,
+	}
+
+	return nil
 }

@@ -1,6 +1,9 @@
 package session
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type Params struct {
 	// using the DH as a seed, both sides finalizeKeyNegotation a number
@@ -31,6 +34,7 @@ const (
 	rekeyRatio    float64 = 1 / 10
 )
 
+// GetDefaultParams returns a default set of Params.
 func GetDefaultParams() Params {
 	return Params{
 		MinKeys:               minKeys,
@@ -41,7 +45,38 @@ func GetDefaultParams() Params {
 	}
 }
 
-func (p Params) String() string {
+// GetParameters returns the default Params, or override with given
+// parameters, if set.
+func GetParameters(params string) (Params, error) {
+	p := GetDefaultParams()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return Params{}, err
+		}
+	}
+	return p, nil
+}
+
+// MarshalJSON adheres to the json.Marshaler interface.
+func (s Params) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s)
+}
+
+// UnmarshalJSON adheres to the json.Unmarshaler interface.
+func (s *Params) UnmarshalJSON(data []byte) error {
+	p := GetDefaultParams()
+	err := json.Unmarshal(data, &p)
+	if err != nil {
+		return err
+	}
+
+	*s = p
+
+	return nil
+}
+
+func (s Params) String() string {
 	return fmt.Sprintf("SessionParams{ MinKeys: %d, MaxKeys: %d, NumRekeys: %d }",
-		p.MinKeys, p.MaxKeys, p.NumRekeys)
+		s.MinKeys, s.MaxKeys, s.NumRekeys)
 }

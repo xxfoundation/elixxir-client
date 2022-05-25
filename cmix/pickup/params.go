@@ -1,7 +1,18 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                           //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
 package pickup
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
+// Params contains the parameters for the pickup package.
 type Params struct {
 	// Number of worker threads for retrieving messages from gateways
 	NumMessageRetrievalWorkers uint
@@ -31,6 +42,18 @@ type Params struct {
 	ForceHistoricalRounds bool
 }
 
+// paramsDisk will be the marshal-able and umarshal-able object.
+type paramsDisk struct {
+	NumMessageRetrievalWorkers uint
+	LookupRoundsBufferLen      uint
+	MaxHistoricalRoundsRetries uint
+	UncheckRoundPeriod         time.Duration
+	ForceMessagePickupRetry    bool
+	SendTimeout                time.Duration
+	RealtimeOnly               bool
+	ForceHistoricalRounds      bool
+}
+
 func GetDefaultParams() Params {
 	return Params{
 		NumMessageRetrievalWorkers: 8,
@@ -41,4 +64,56 @@ func GetDefaultParams() Params {
 		SendTimeout:                3 * time.Second,
 		RealtimeOnly:               false,
 	}
+}
+
+// GetParameters returns the default Params, or override with given
+// parameters, if set.
+func GetParameters(params string) (Params, error) {
+	p := GetDefaultParams()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return Params{}, err
+		}
+	}
+	return p, nil
+}
+
+// MarshalJSON adheres to the json.Marshaler interface.
+func (r Params) MarshalJSON() ([]byte, error) {
+	pDisk := paramsDisk{
+		NumMessageRetrievalWorkers: r.NumMessageRetrievalWorkers,
+		LookupRoundsBufferLen:      r.LookupRoundsBufferLen,
+		MaxHistoricalRoundsRetries: r.MaxHistoricalRoundsRetries,
+		UncheckRoundPeriod:         r.UncheckRoundPeriod,
+		ForceMessagePickupRetry:    r.ForceMessagePickupRetry,
+		SendTimeout:                r.SendTimeout,
+		RealtimeOnly:               r.RealtimeOnly,
+		ForceHistoricalRounds:      r.ForceHistoricalRounds,
+	}
+
+	return json.Marshal(&pDisk)
+
+}
+
+// UnmarshalJSON adheres to the json.Unmarshaler interface.
+func (r *Params) UnmarshalJSON(data []byte) error {
+	pDisk := paramsDisk{}
+	err := json.Unmarshal(data, &pDisk)
+	if err != nil {
+		return err
+	}
+
+	*r = Params{
+		NumMessageRetrievalWorkers: pDisk.NumMessageRetrievalWorkers,
+		LookupRoundsBufferLen:      pDisk.LookupRoundsBufferLen,
+		MaxHistoricalRoundsRetries: pDisk.MaxHistoricalRoundsRetries,
+		UncheckRoundPeriod:         pDisk.UncheckRoundPeriod,
+		ForceMessagePickupRetry:    pDisk.ForceMessagePickupRetry,
+		SendTimeout:                pDisk.SendTimeout,
+		RealtimeOnly:               pDisk.RealtimeOnly,
+		ForceHistoricalRounds:      pDisk.ForceHistoricalRounds,
+	}
+
+	return nil
 }

@@ -28,7 +28,7 @@ func (c *Client) ConnectWithAuthentication(recipientContact []byte, myIdentity [
 	if err != nil {
 		return nil, err
 	}
-	myID, rsaPriv, salt, myDHPriv, err := unmarshalIdentity(myIdentity)
+	myID, rsaPriv, salt, myDHPriv, err := c.unmarshalIdentity(myIdentity)
 	if err != nil {
 		return nil, err
 	}

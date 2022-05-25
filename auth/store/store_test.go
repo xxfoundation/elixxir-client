@@ -9,6 +9,12 @@ package store
 
 import (
 	"bytes"
+	"io"
+	"math/rand"
+	"reflect"
+	"sort"
+	"testing"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
@@ -26,12 +32,6 @@ import (
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"io"
-	"math/rand"
-	"reflect"
-	"sort"
-	"testing"
-	"time"
 )
 
 type mockSentRequestHandler struct{}
@@ -41,7 +41,7 @@ func (msrh *mockSentRequestHandler) Delete(sr *SentRequest) {}
 
 // Happy path.
 func TestNewOrLoadStore(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
 	_, err := NewOrLoadStore(kv, grp, &mockSentRequestHandler{})
@@ -142,30 +142,30 @@ func TestStore_AddSent(t *testing.T) {
 	}
 }
 
-// Error path: request with request already exists in map.
-func TestStore_AddSent_PartnerAlreadyExistsError(t *testing.T) {
-	s, _ := makeTestStore(t)
+// // Error path: request with request already exists in map.
+// func TestStore_AddSent_PartnerAlreadyExistsError(t *testing.T) {
+// 	s, _ := makeTestStore(t)
 
-	rng := csprng.NewSystemRNG()
-	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
+// 	rng := csprng.NewSystemRNG()
+// 	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
 
-	partner := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+// 	partner := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 
-	_, err := s.AddSent(partner, s.grp.NewInt(5), s.grp.NewInt(6),
-		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
-		format.Fingerprint{42}, true)
-	if err != nil {
-		t.Errorf("AddSent() produced an error: %+v", err)
-	}
+// 	_, err := s.AddSent(partner, s.grp.NewInt(5), s.grp.NewInt(6),
+// 		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+// 		format.Fingerprint{42}, true)
+// 	if err != nil {
+// 		t.Errorf("AddSent() produced an error: %+v", err)
+// 	}
 
-	_, err = s.AddSent(partner, s.grp.NewInt(5), s.grp.NewInt(6),
-		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
-		format.Fingerprint{42}, true)
-	if err == nil {
-		t.Errorf("AddSent() did not produce the expected error for " +
-			"a request that already exists.")
-	}
-}
+// 	_, err = s.AddSent(partner, s.grp.NewInt(5), s.grp.NewInt(6),
+// 		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+// 		format.Fingerprint{42}, true)
+// 	if err == nil {
+// 		t.Errorf("AddSent() did not produce the expected error for " +
+// 			"a request that already exists.")
+// 	}
+// }
 
 // Happy path.
 func TestStore_AddReceived(t *testing.T) {
@@ -869,7 +869,7 @@ func TestStore_DeleteAllRequests(t *testing.T) {
 }
 
 func makeTestStore(t *testing.T) (*Store, *versioned.KV) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
 
 	store, err := NewOrLoadStore(kv, grp, &mockSentRequestHandler{})

@@ -8,16 +8,17 @@
 package backup
 
 import (
+	"testing"
+
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
-	"testing"
 )
 
 // Tests that savePassword saves the password to storage by loading it and
 // comparing it to the original.
 func Test_savePassword(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	expectedPassword := "MySuperSecurePassword"
 
 	// Save the password
@@ -42,7 +43,7 @@ func Test_savePassword(t *testing.T) {
 // Tests that loadPassword restores the original password saved to stage and
 // compares it to the original.
 func Test_loadPassword(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	expectedPassword := "MySuperSecurePassword"
 
 	// Save the password
@@ -71,7 +72,7 @@ func Test_loadPassword(t *testing.T) {
 // Tests that deletePassword deletes the password from storage by trying to recover a
 // deleted password.
 func Test_deletePassword(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	expectedPassword := "MySuperSecurePassword"
 
 	// Save the password

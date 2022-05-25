@@ -8,6 +8,10 @@
 package store
 
 import (
+	"math/rand"
+	"reflect"
+	"testing"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -18,16 +22,13 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
-	"reflect"
-	"testing"
 )
 
 // Tests that a confirmation for different partners and sentByFingerprints can be
 // saved and loaded from storage via Store.StoreConfirmation and
 // Store.LoadConfirmation.
 func TestStore_StoreConfirmation_LoadConfirmation(t *testing.T) {
-	s := &Store{kv: versioned.NewKV(make(ekv.Memstore))}
+	s := &Store{kv: versioned.NewKV(ekv.MakeMemstore())}
 	prng := rand.New(rand.NewSource(42))
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
@@ -98,7 +99,7 @@ func TestStore_StoreConfirmation_LoadConfirmation(t *testing.T) {
 // Tests that Store.DeleteConfirmation deletes the correct confirmation from
 // storage and that it cannot be loaded from storage.
 func TestStore_deleteConfirmation(t *testing.T) {
-	s := &Store{kv: versioned.NewKV(make(ekv.Memstore))}
+	s := &Store{kv: versioned.NewKV(ekv.MakeMemstore())}
 	prng := rand.New(rand.NewSource(42))
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 

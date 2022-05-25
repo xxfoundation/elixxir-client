@@ -8,6 +8,11 @@
 package auth
 
 import (
+	"io"
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/cmix"
@@ -29,10 +34,6 @@ import (
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"io"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 type mockEventManager struct{}
@@ -185,7 +186,7 @@ loop:
 }
 
 func makeTestStore(t *testing.T) (*store.Store, *versioned.KV, []*cyclic.Int) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
 	privKeys := make([]*cyclic.Int, 10)
 	for i := range privKeys {

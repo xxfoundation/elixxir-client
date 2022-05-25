@@ -8,6 +8,9 @@ package connect
 
 import (
 	"encoding/json"
+	"io"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
@@ -27,8 +30,6 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
-	"io"
-	"time"
 )
 
 const (
@@ -60,6 +61,22 @@ type Connection interface {
 		newListener receive.Listener) receive.ListenerID
 	// Unregister listener for E2E reception
 	Unregister(listenerID receive.ListenerID)
+
+	// FirstPartitionSize returns the max partition payload size for the
+	// first payload
+	FirstPartitionSize() uint
+
+	// SecondPartitionSize returns the max partition payload size for all
+	// payloads after the first payload
+	SecondPartitionSize() uint
+
+	// PartitionSize returns the partition payload size for the given
+	// payload index. The first payload is index 0.
+	PartitionSize(payloadIndex uint) uint
+
+	// PayloadSize Returns the max payload size for a partitionable E2E
+	// message
+	PayloadSize() uint
 }
 
 // Callback is the callback format required to retrieve
@@ -300,4 +317,28 @@ func (a authCallback) Request(requestor contact.Contact,
 // Reset will be called when an auth Reset operation occurs.
 func (a authCallback) Reset(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+}
+
+// FirstPartitionSize returns the max partition payload size for the
+// first payload
+func (h *handler) FirstPartitionSize() uint {
+	return h.e2e.FirstPartitionSize()
+}
+
+// SecondPartitionSize returns the max partition payload size for all
+// payloads after the first payload
+func (h *handler) SecondPartitionSize() uint {
+	return h.e2e.SecondPartitionSize()
+}
+
+// PartitionSize returns the partition payload size for the given
+// payload index. The first payload is index 0.
+func (h *handler) PartitionSize(payloadIndex uint) uint {
+	return h.e2e.PartitionSize(payloadIndex)
+}
+
+// PayloadSize Returns the max payload size for a partitionable E2E
+// message
+func (h *handler) PayloadSize() uint {
+	return h.e2e.PayloadSize()
 }

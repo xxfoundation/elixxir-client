@@ -39,32 +39,6 @@ func createNewUser(rng *fastRNG.StreamGenerator) user.Info {
 	transmissionSalt, receptionSalt,
 		transmissionRsaKey, receptionRsaKey = createKeys(rng)
 
-	// Salt, UID, etc gen
-	stream := rng.GetStream()
-	transmissionSalt = make([]byte, SaltSize)
-
-	n, err := stream.Read(transmissionSalt)
-
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-	if n != SaltSize {
-		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
-	}
-
-	receptionSalt = make([]byte, SaltSize)
-
-	n, err = stream.Read(receptionSalt)
-
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-	if n != SaltSize {
-		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
-	}
-
-	stream.Close()
-
 	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(),
 		transmissionSalt, id.User)
 	if err != nil {
@@ -104,8 +78,11 @@ func createKeys(rng *fastRNG.StreamGenerator) (
 		stream := rng.GetStream()
 		transmissionRsaKey, err = rsa.GenerateKey(stream,
 			rsa.DefaultRSABitLen)
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
 		transmissionSalt = make([]byte, 32)
-		_, err = stream.Read(receptionSalt)
+		_, err = stream.Read(transmissionSalt)
 		stream.Close()
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
@@ -118,6 +95,9 @@ func createKeys(rng *fastRNG.StreamGenerator) (
 		stream := rng.GetStream()
 		receptionRsaKey, err = rsa.GenerateKey(stream,
 			rsa.DefaultRSABitLen)
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
 		receptionSalt = make([]byte, 32)
 		_, err = stream.Read(receptionSalt)
 		stream.Close()
@@ -127,6 +107,21 @@ func createKeys(rng *fastRNG.StreamGenerator) (
 	}()
 	wg.Wait()
 
+	isZero := func(data []byte) bool {
+		if len(data) == 0 {
+			return true
+		}
+		for i := len(data) - 1; i != 0; i-- {
+			if data[i] != 0 {
+				return false
+			}
+		}
+		return true
+	}
+
+	if isZero(receptionSalt) || isZero(transmissionSalt) {
+		jww.FATAL.Panicf("empty salt generation detected")
+	}
 	return
 
 }

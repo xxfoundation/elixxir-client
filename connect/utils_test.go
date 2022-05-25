@@ -83,11 +83,11 @@ func (m mockPartner) Contact() contact.Contact {
 	}
 }
 
-func (m mockPartner) PopSendCypher() (*session.Cypher, error) {
+func (m mockPartner) PopSendCypher() (session.Cypher, error) {
 	return nil, nil
 }
 
-func (m mockPartner) PopRekeyCypher() (*session.Cypher, error) {
+func (m mockPartner) PopRekeyCypher() (session.Cypher, error) {
 	return nil, nil
 }
 
@@ -141,6 +141,22 @@ func newMockConnection(partnerId, myId *id.ID,
 			myDhPrivKey, partnerDhPubKey),
 		payloadChan: make(chan []byte, 1),
 	}
+}
+
+func (m mockConnection) FirstPartitionSize() uint {
+	return 0
+}
+
+func (m mockConnection) SecondPartitionSize() uint {
+	return 0
+}
+
+func (m mockConnection) PartitionSize(payloadIndex uint) uint {
+	return 0
+}
+
+func (m mockConnection) PayloadSize() uint {
+	return 0
 }
 
 func (m mockConnection) Close() error {

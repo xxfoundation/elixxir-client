@@ -66,9 +66,10 @@ type Manager struct {
 // NewManager creates a new dummy Manager with the specified average send delta
 // and the range used for generating random durations.
 func NewManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
-	client *api.Client) *Manager {
+	client *api.Client, manager interfaces.NetworkManager) *Manager {
+	clientStorage := client.GetStorage()
 	return newManager(maxNumMessages, avgSendDelta, randomRange, client,
-		client.GetStorage(), client.GetNetworkInterface(), client.GetRng())
+		&clientStorage, manager, client.GetRng())
 }
 
 // newManager builds a new dummy Manager from fields explicitly passed in. This

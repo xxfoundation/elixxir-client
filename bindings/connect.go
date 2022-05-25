@@ -10,14 +10,14 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 )
 
-//connection tracker singleton, used to track connections so they can be
-//referenced by id back over the bindings
+// connectionTrackerSingleton is used to track connections so they can be
+// referenced by id back over the bindings
 var connectionTrackerSingleton = &connectionTracker{
 	connections: make(map[int]*Connection),
 	count:       0,
 }
 
-//
+// Connection is the bindings representation of a connect.Connection object that can be tracked
 type Connection struct {
 	connection connect.Connection
 	id         int
@@ -27,13 +27,15 @@ type Connection struct {
 // and returns a Connection object for the newly-created partner.Manager
 // This function is to be used sender-side and will block until the
 // partner.Manager is confirmed.
+// recipientContact - marshalled contact.Contact object
+// myIdentity - marshalled Identity object
 func (c *Client) Connect(recipientContact []byte, myIdentity []byte) (
 	*Connection, error) {
 	cont, err := contact.Unmarshal(recipientContact)
 	if err != nil {
 		return nil, err
 	}
-	myID, _, _, myDHPriv, err := unmarshalIdentity(myIdentity)
+	myID, _, _, myDHPriv, err := c.unmarshalIdentity(myIdentity)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +50,7 @@ func (c *Client) Connect(recipientContact []byte, myIdentity []byte) (
 	return connectionTrackerSingleton.make(connection), nil
 }
 
-//
+// E2ESendReport is the bindings representation of the return values of SendE2E
 type E2ESendReport struct {
 	roundsList
 	MessageID []byte
@@ -56,6 +58,7 @@ type E2ESendReport struct {
 }
 
 // SendE2E is a wrapper for sending specifically to the Connection's partner.Manager
+// Returns marshalled E2ESendReport
 func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 	rounds, mid, ts, err := c.connection.SendE2E(catalog.MessageType(mt), payload,
 		e2e2.GetDefaultParams())
@@ -100,7 +103,7 @@ type listener struct {
 	l Listener
 }
 
-//
+// Message is the bindings representation of a receive.Message
 type Message struct {
 	MessageType int
 	ID          []byte
@@ -135,12 +138,12 @@ func (l listener) Hear(item receive.Message) {
 	l.l.Hear(result)
 }
 
-// Returns a name, used for debugging
+// Name used for debugging
 func (l listener) Name() string {
 	return l.l.Name()
 }
 
-//
+// ListenerID represents the return type of RegisterListener
 type ListenerID struct {
 	userID      []byte
 	messageType int
@@ -148,6 +151,7 @@ type ListenerID struct {
 
 // RegisterListener is used for E2E reception
 // and allows for reading data sent from the partner.Manager
+// Returns marshalled ListenerID
 func (c *Connection) RegisterListener(messageType int, newListener Listener) []byte {
 	listenerId := c.connection.RegisterListener(catalog.MessageType(messageType), listener{l: newListener})
 	newlistenerId := ListenerID{

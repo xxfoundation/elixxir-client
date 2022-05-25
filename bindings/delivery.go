@@ -1,27 +1,50 @@
 package bindings
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
-type roundsList struct {
-	rounds []int
+type roundsList []int
+
+func (rl roundsList) Marshal() ([]byte, error) {
+	return json.Marshal(&rl)
 }
 
-func (rl roundsList) Marshal() []byte {
+func unmarshalRoundsList(marshaled []byte) ([]id.Round, error) {
+	rl := roundsList{}
+	err := json.Unmarshal(marshaled, &rl)
+	if err != nil {
+		return nil, err
+	}
 
-}
+	realRl := make([]id.Round, len(rl))
 
-func unmarshalRoundsList(marshaled []byte) []id.Round {
+	for _, rid := range rl {
+		realRl = append(realRl, id.Round(rid))
+	}
+
+	return realRl, nil
 
 }
 
 func makeRoundsList(rounds []id.Round) roundsList {
+	rl := make(roundsList, 0, len(rounds))
+	for _, rid := range rounds {
+		rl = append(rl, int(rid))
+	}
+	return rl
+}
 
+// MessageDeliveryCallback gets called on the determination if all events
+// related to a message send were successful.
+type MessageDeliveryCallback interface {
+	EventCallback(delivered, timedOut bool, roundResults []byte)
 }
 
 // WaitForMessageDelivery allows the caller to get notified if the rounds a
@@ -34,39 +57,39 @@ func makeRoundsList(rounds []id.Round) roundsList {
 // This function takes the marshaled send report to ensure a memory leak does
 // not occur as a result of both sides of the bindings holding a reference to
 // the same pointer.
-func (c *Client) WaitForMessageDelivery(marshaledSendReport []byte,
+func (c *Client) WaitForMessageDelivery(roundList []byte,
 	mdc MessageDeliveryCallback, timeoutMS int) error {
 	jww.INFO.Printf("WaitForMessageDelivery(%v, _, %v)",
-		marshaledSendReport, timeoutMS)
-	sr, err := UnmarshalSendReport(marshaledSendReport)
+		roundList, timeoutMS)
+	rl, err := unmarshalRoundsList(roundList)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to "+
 			"WaitForMessageDelivery callback due to bad Send Report: %+v", err))
 	}
 
-	if sr == nil || sr.rl == nil || len(sr.rl.list) == 0 {
+	if rl == nil || len(rl) == 0 {
 		return errors.New(fmt.Sprintf("Failed to "+
 			"WaitForMessageDelivery callback due to invalid Send Report "+
-			"unmarshal: %s", string(marshaledSendReport)))
+			"unmarshal: %s", string(roundList)))
 	}
 
-	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundLookupStatus) {
-		results := make([]byte, len(sr.rl.list))
+	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundResult) {
+		results := make([]byte, len(rl))
 		jww.INFO.Printf("Processing WaitForMessageDelivery report "+
-			"for %v, success: %v, timedout: %v", sr.mid, allRoundsSucceeded,
+			"success: %v, timedout: %v", allRoundsSucceeded,
 			timedOut)
-		for i, r := range sr.rl.list {
+		for i, r := range rl {
 			if result, exists := rounds[r]; exists {
-				results[i] = byte(result)
+				results[i] = byte(result.Status)
 			}
 		}
 
-		mdc.EventCallback(sr.mid.Marshal(), allRoundsSucceeded, timedOut, results)
+		mdc.EventCallback(allRoundsSucceeded, timedOut, results)
 	}
 
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 
-	err = c.api.GetRoundResults(sr.rl.list, timeout, f)
+	err = c.api.GetCmix().GetRoundResults(timeout, f, rl...)
 
 	return err
 }

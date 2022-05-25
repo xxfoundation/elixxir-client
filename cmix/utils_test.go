@@ -7,31 +7,23 @@
 package cmix
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/cmix/nodes"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/versioned"
-	commClient "gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/mixmessages"
 	commsNetwork "gitlab.com/elixxir/comms/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/comms/signature"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"testing"
-	"time"
 )
 
 // mockManagerComms
@@ -209,70 +201,70 @@ func mockFailCriticalSender(msg format.Message, recipient *id.ID,
 	return id.Round(1), ephemeral.Id{}, errors.New("Test error")
 }
 
-func newTestClient(t *testing.T) (*client, error) {
-	kv := versioned.NewKV(ekv.Memstore{})
-	myID := id.NewIdFromString("zezima", id.User, t)
-	comms, err := commClient.NewClientComms(myID, nil, nil, nil)
-	if err != nil {
-		return nil, err
-	}
+// func newTestClient(t *testing.T) (*client, error) {
+// 	kv := versioned.NewKV(ekv.MakeMemstore())
+// 	myID := id.NewIdFromString("zezima", id.User, t)
+// 	comms, err := commClient.NewClientComms(myID, nil, nil, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	inst, err := commsNetwork.NewInstanceTesting(comms.ProtoComms, getNDF(), getNDF(), getGroup(), getGroup(), t)
-	if err != nil {
-		return nil, err
-	}
-	pk, err := rsa.GenerateKey(csprng.NewSystemRNG(), 2048)
-	if err != nil {
-		return nil, err
-	}
-	pubKey := pk.GetPublic()
+// 	inst, err := commsNetwork.NewInstanceTesting(comms.ProtoComms, getNDF(), getNDF(), getGroup(), getGroup(), t)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	pk, err := rsa.GenerateKey(csprng.NewSystemRNG(), 2048)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	pubKey := pk.GetPublic()
 
-	now := netTime.Now()
-	timestamps := []uint64{
-		uint64(now.Add(-30 * time.Second).UnixNano()), //PENDING
-		uint64(now.Add(-25 * time.Second).UnixNano()), //PRECOMPUTING
-		uint64(now.Add(-5 * time.Second).UnixNano()),  //STANDBY
-		uint64(now.Add(5 * time.Second).UnixNano()),   //QUEUED
-		0} //REALTIME
+// 	now := netTime.Now()
+// 	timestamps := []uint64{
+// 		uint64(now.Add(-30 * time.Second).UnixNano()), //PENDING
+// 		uint64(now.Add(-25 * time.Second).UnixNano()), //PRECOMPUTING
+// 		uint64(now.Add(-5 * time.Second).UnixNano()),  //STANDBY
+// 		uint64(now.Add(5 * time.Second).UnixNano()),   //QUEUED
+// 		0} //REALTIME
 
-	nid1 := id.NewIdFromString("nid1", id.Node, t)
-	nid2 := id.NewIdFromString("nid2", id.Node, t)
-	nid3 := id.NewIdFromString("nid3", id.Node, t)
-	ri := &mixmessages.RoundInfo{
-		ID:                         3,
-		UpdateID:                   0,
-		State:                      uint32(states.QUEUED),
-		BatchSize:                  0,
-		Topology:                   [][]byte{nid1.Marshal(), nid2.Marshal(), nid3.Marshal()},
-		Timestamps:                 timestamps,
-		Errors:                     nil,
-		ClientErrors:               nil,
-		ResourceQueueTimeoutMillis: 0,
-		Signature:                  nil,
-		AddressSpaceSize:           4,
-	}
+// 	nid1 := id.NewIdFromString("nid1", id.Node, t)
+// 	nid2 := id.NewIdFromString("nid2", id.Node, t)
+// 	nid3 := id.NewIdFromString("nid3", id.Node, t)
+// 	ri := &mixmessages.RoundInfo{
+// 		ID:                         3,
+// 		UpdateID:                   0,
+// 		State:                      uint32(states.QUEUED),
+// 		BatchSize:                  0,
+// 		Topology:                   [][]byte{nid1.Marshal(), nid2.Marshal(), nid3.Marshal()},
+// 		Timestamps:                 timestamps,
+// 		Errors:                     nil,
+// 		ClientErrors:               nil,
+// 		ResourceQueueTimeoutMillis: 0,
+// 		Signature:                  nil,
+// 		AddressSpaceSize:           4,
+// 	}
 
-	err = signature.SignRsa(ri, pk)
-	if err != nil {
-		return nil, err
-	}
-	rnd := ds.NewRound(ri, pubKey, nil)
-	inst.GetWaitingRounds().Insert([]*ds.Round{rnd}, nil)
+// 	err = signature.SignRsa(ri, pk)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	rnd := ds.NewRound(ri, pubKey, nil)
+// 	inst.GetWaitingRounds().Insert([]*ds.Round{rnd}, nil)
 
-	m := &client{
-		session:   storage.InitTestingSession(t),
-		rng:       fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
-		instance:  inst,
-		comms:     &mockManagerComms{},
-		param:     GetDefaultParams(),
-		Sender:    &mockGatewaySender{},
-		Registrar: &mockNodesRegistrar{},
-		Monitor:   &mockMonitor{},
-		crit:      newCritical(kv, &mockMonitor{}, &mockRoundEventRegistrar{}, mockCriticalSender),
-		events:    &mockEventManager{},
-	}
-	return m, nil
-}
+// 	m := &client{
+// 		session:   storage.InitTestingSession(t),
+// 		rng:       fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
+// 		instance:  inst,
+// 		comms:     &mockManagerComms{},
+// 		param:     GetDefaultParams(),
+// 		Sender:    &mockGatewaySender{},
+// 		Registrar: &mockNodesRegistrar{},
+// 		Monitor:   &mockMonitor{},
+// 		crit:      newCritical(kv, &mockMonitor{}, &mockRoundEventRegistrar{}, mockCriticalSender),
+// 		events:    &mockEventManager{},
+// 	}
+// 	return m, nil
+// }
 
 // Constructs a mock ndf
 func getNDF() *ndf.NetworkDefinition {

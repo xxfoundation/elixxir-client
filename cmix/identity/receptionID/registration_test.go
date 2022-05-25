@@ -16,7 +16,7 @@ import (
 // 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 // 	idu, _ := generateFakeIdentity(rng, 15, timestamp)
 // 	id := idu.Identity
-// 	kv := versioned.NewKV(make(ekv.Memstore))
+// 	kv := versioned.NewKV(ekv.MakeMemstore())
 //
 // 	id.End = time.Time{}
 // 	id.ExtraChecks = 0

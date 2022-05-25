@@ -100,7 +100,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 			tid, fileName, fileType, sender, size, preview}
 	}
 	myID1 := id.NewIdFromString("myID1", id.User, t)
-	kv1 := versioned.NewKV(make(ekv.Memstore))
+	kv1 := versioned.NewKV(ekv.MakeMemstore())
 	endE2eChan1 := make(chan receive.Message, 3)
 	e2e1 := newMockE2e(myID1, e2eHandler)
 	e2e1.RegisterListener(
@@ -125,7 +125,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 			tid, fileName, fileType, sender, size, preview}
 	}
 	myID2 := id.NewIdFromString("myID2", id.User, t)
-	kv2 := versioned.NewKV(make(ekv.Memstore))
+	kv2 := versioned.NewKV(ekv.MakeMemstore())
 	endE2eChan2 := make(chan receive.Message, 3)
 	e2e2 := newMockE2e(myID1, e2eHandler)
 	e2e2.RegisterListener(

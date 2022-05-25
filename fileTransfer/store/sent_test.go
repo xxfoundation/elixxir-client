@@ -24,7 +24,7 @@ import (
 // Tests that NewOrLoadSent returns a new Sent when none exist in storage and
 // that the list of unsent parts is nil.
 func TestNewOrLoadSent_New(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	expected := &Sent{
 		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
 		kv:        kv.Prefix(sentTransfersStorePrefix),
@@ -49,7 +49,7 @@ func TestNewOrLoadSent_New(t *testing.T) {
 // Tests that NewOrLoadSent returns a loaded Sent when one exist in storage and
 // that the list of unsent parts is correct.
 func TestNewOrLoadSent_Load(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	s, _, err := NewOrLoadSent(kv)
 	if err != nil {
 		t.Errorf("Failed to make new Sent: %+v", err)
@@ -118,7 +118,7 @@ func TestNewOrLoadSent_Load(t *testing.T) {
 
 // Tests that Sent.AddTransfer makes a new transfer and adds it to the list.
 func TestSent_AddTransfer(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	s, _, _ := NewOrLoadSent(kv)
 
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
@@ -154,7 +154,7 @@ func TestSent_AddTransfer_TransferAlreadyExists(t *testing.T) {
 
 // Tests that Sent.GetTransfer returns the expected transfer.
 func TestSent_GetTransfer(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	s, _, _ := NewOrLoadSent(kv)
 
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
@@ -180,7 +180,7 @@ func TestSent_GetTransfer(t *testing.T) {
 
 // Tests that Sent.RemoveTransfer removes the transfer from the list.
 func TestSent_RemoveTransfer(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	s, _, _ := NewOrLoadSent(kv)
 
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
@@ -218,7 +218,7 @@ func TestSent_RemoveTransfer(t *testing.T) {
 // Tests that Sent.save saves the transfer ID list to storage by trying to load
 // it after a save.
 func TestSent_save(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	s, _, _ := NewOrLoadSent(kv)
 	s.transfers = map[ftCrypto.TransferID]*SentTransfer{
 		ftCrypto.TransferID{0}: nil, ftCrypto.TransferID{1}: nil,

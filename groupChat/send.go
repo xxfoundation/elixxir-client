@@ -48,6 +48,10 @@ const (
 func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 	id.Round, time.Time, group.MessageID, error) {
 
+	if tag == "" {
+		tag = defaultServiceTag
+	}
+
 	// Get the relevant group
 	g, exists := m.GetGroup(groupID)
 	if !exists {

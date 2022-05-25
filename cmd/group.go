@@ -68,7 +68,7 @@ var groupCmd = &cobra.Command{
 			jww.INFO.Printf("Registering with nodes (%d/%d)...", numReg, total)
 		}
 
-		// get group message and name
+		// Get group message and name
 		msgBody := []byte(viper.GetString("message"))
 		name := []byte(viper.GetString("name"))
 		timeout := viper.GetDuration("receiveTimeout")
@@ -124,13 +124,13 @@ func initGroupManager(client *messenger.Client) (groupChat.GroupChat,
 		reqChan <- g
 	}
 
-	jww.INFO.Print("Creating new group manager.")
+	jww.INFO.Print("[GC] Creating new group manager.")
 	manager, err := groupChat.NewManager(client.GetCmix(),
 		client.GetE2E(), client.GetStorage().GetReceptionID(),
 		client.GetRng(), client.GetStorage().GetE2EGroup(),
 		client.GetStorage().GetKV(), requestCb, &receiveProcessor{recChan})
 	if err != nil {
-		jww.FATAL.Panicf("Failed to initialize group chat manager: %+v", err)
+		jww.FATAL.Panicf("[GC] Failed to initialize group chat manager: %+v", err)
 	}
 
 	return manager, recChan, reqChan
@@ -161,12 +161,12 @@ func createGroup(name, msg []byte, filePath string, gm groupChat.GroupChat) {
 
 	grp, rids, status, err := gm.MakeGroup(userIDs, name, msg)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to create new group: %+v", err)
+		jww.FATAL.Panicf("[GC] Failed to create new group: %+v", err)
 	}
 
 	// Integration grabs the group ID from this line
-	jww.INFO.Printf("NewGroupID: b64:%s", grp.ID)
-	jww.INFO.Printf("Created Group: Requests:%s on rounds %#v, %v",
+	jww.INFO.Printf("[GC] NewGroupID: b64:%s", grp.ID)
+	jww.INFO.Printf("[GC] Created Group: Requests:%s on rounds %#v, %v",
 		status, rids, grp)
 	fmt.Printf("Created new group with name %q and message %q\n", grp.Name,
 		grp.InitMessage)
@@ -177,11 +177,11 @@ func resendRequests(groupIdString string, gm groupChat.GroupChat) {
 	groupID, _ := parseRecipient(groupIdString)
 	rids, status, err := gm.ResendRequest(groupID)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to resend requests to group %s: %+v",
+		jww.FATAL.Panicf("[GC] Failed to resend requests to group %s: %+v",
 			groupID, err)
 	}
 
-	jww.INFO.Printf("Resending requests to group %s: %v, %s",
+	jww.INFO.Printf("[GC] Resending requests to group %s: %v, %s",
 		groupID, rids, status)
 	fmt.Println("Resending group requests to group.")
 }
@@ -190,7 +190,7 @@ func resendRequests(groupIdString string, gm groupChat.GroupChat) {
 // channel.
 func joinGroup(reqChan chan groupStore.Group, timeout time.Duration,
 	gm groupChat.GroupChat) {
-	jww.INFO.Print("Waiting for group request to be received.")
+	jww.INFO.Print("[GC] Waiting for group request to be received.")
 	fmt.Println("Waiting for group request to be received.")
 
 	select {
@@ -200,11 +200,11 @@ func joinGroup(reqChan chan groupStore.Group, timeout time.Duration,
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		jww.INFO.Printf("Joined group: %s", grp.ID)
+		jww.INFO.Printf("[GC] Joined group %s (%+v)", grp.ID, grp)
 		fmt.Printf("Joined group with name %q and message %q\n",
 			grp.Name, grp.InitMessage)
-	case <-time.NewTimer(timeout).C:
-		jww.INFO.Printf("Timed out after %s waiting for group request.", timeout)
+	case <-time.After(timeout):
+		jww.INFO.Printf("[GC] Timed out after %s waiting for group request.", timeout)
 		fmt.Println("Timed out waiting for group request.")
 		return
 	}
@@ -213,14 +213,14 @@ func joinGroup(reqChan chan groupStore.Group, timeout time.Duration,
 // leaveGroup leaves the group.
 func leaveGroup(groupIdString string, gm groupChat.GroupChat) {
 	groupID, _ := parseRecipient(groupIdString)
-	jww.INFO.Printf("Leaving group %s.", groupID)
+	jww.INFO.Printf("[GC] Leaving group %s.", groupID)
 
 	err := gm.LeaveGroup(groupID)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to leave group %s: %+v", groupID, err)
+		jww.FATAL.Panicf("[GC] Failed to leave group %s: %+v", groupID, err)
 	}
 
-	jww.INFO.Printf("Left group: %s", groupID)
+	jww.INFO.Printf("[GC] Left group: %s", groupID)
 	fmt.Println("Left group.")
 }
 
@@ -228,14 +228,14 @@ func leaveGroup(groupIdString string, gm groupChat.GroupChat) {
 func sendGroup(groupIdString string, msg []byte, gm groupChat.GroupChat) {
 	groupID, _ := parseRecipient(groupIdString)
 
-	jww.INFO.Printf("Sending to group %s message %q", groupID, msg)
+	jww.INFO.Printf("[GC] Sending to group %s message %q", groupID, msg)
 
-	rid, timestamp, _, err := gm.Send(groupID, "groupChatTest", msg)
+	rid, timestamp, _, err := gm.Send(groupID, "", msg)
 	if err != nil {
-		jww.FATAL.Panicf("Sending message to group %s: %+v", groupID, err)
+		jww.FATAL.Panicf("[GC] Sending message to group %s: %+v", groupID, err)
 	}
 
-	jww.INFO.Printf("Sent to group %s on round %d at %s",
+	jww.INFO.Printf("[GC] Sent to group %s on round %d at %s",
 		groupID, rid, timestamp)
 	fmt.Printf("Sent message %q to group.\n", msg)
 }
@@ -244,17 +244,17 @@ func sendGroup(groupIdString string, msg []byte, gm groupChat.GroupChat) {
 // groupChat.MessageReceive channel.
 func messageWait(numMessages uint, timeout time.Duration,
 	recChan chan groupChat.MessageReceive) {
-	jww.INFO.Printf("Waiting for %d group message(s) to be received.", numMessages)
+	jww.INFO.Printf("[GC] Waiting for %d group message(s) to be received.", numMessages)
 	fmt.Printf("Waiting for %d group message(s) to be received.\n", numMessages)
 
 	for i := uint(0); i < numMessages; {
 		select {
 		case msg := <-recChan:
 			i++
-			jww.INFO.Printf("Received group message %d/%d: %s", i, numMessages, msg)
+			jww.INFO.Printf("[GC] Received group message %d/%d: %s", i, numMessages, msg)
 			fmt.Printf("Received group message: %q\n", msg.Payload)
 		case <-time.NewTimer(timeout).C:
-			jww.INFO.Printf("Timed out after %s waiting for group message.", timeout)
+			jww.INFO.Printf("[GC] Timed out after %s waiting for group message.", timeout)
 			fmt.Printf("Timed out waiting for %d group message(s).\n", numMessages)
 			return
 		}
@@ -264,7 +264,7 @@ func messageWait(numMessages uint, timeout time.Duration,
 // listGroups prints a list of all groups.
 func listGroups(gm groupChat.GroupChat) {
 	for i, gid := range gm.GetGroups() {
-		jww.INFO.Printf("Group %d: %s", i, gid)
+		jww.INFO.Printf("[GC] Group %d: %s", i, gid)
 	}
 
 	fmt.Printf("Printed list of %d groups.\n", gm.NumGroups())
@@ -276,10 +276,10 @@ func showGroup(groupIdString string, gm groupChat.GroupChat) {
 
 	grp, ok := gm.GetGroup(groupID)
 	if !ok {
-		jww.FATAL.Printf("Could not find group: %s", groupID)
+		jww.FATAL.Printf("[GC] Could not find group: %s", groupID)
 	}
 
-	jww.INFO.Printf("Show group %#v", grp)
+	jww.INFO.Printf("[GC] Show group %#v", grp)
 	fmt.Printf("Got group with name %q and message %q\n",
 		grp.Name, grp.InitMessage)
 }

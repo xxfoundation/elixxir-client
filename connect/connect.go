@@ -75,7 +75,7 @@ type Connection interface {
 
 	// PayloadSize Returns the max payload size for a partitionable E2E
 	// message
-	PayloadSize(payloadIndex uint) uint
+	PayloadSize() uint
 }
 
 // Callback is the callback format required to retrieve

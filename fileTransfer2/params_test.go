@@ -8,10 +8,48 @@
 package fileTransfer2
 
 import (
+	"bytes"
+	"encoding/json"
 	"gitlab.com/elixxir/client/cmix"
 	"reflect"
 	"testing"
 )
+
+// Tests that no data is lost when marshaling and
+// unmarshaling the Params object.
+func TestParams_MarshalJSON(t *testing.T) {
+	// Construct a set of params
+	p := DefaultParams()
+
+	// Marshal the params
+	data, err := json.Marshal(&p)
+	if err != nil {
+		t.Fatalf("Marshal error: %v", err)
+	}
+
+	t.Logf("%s", string(data))
+
+	// Unmarshal the params object
+	received := Params{}
+	err = json.Unmarshal(data, &received)
+	if err != nil {
+		t.Fatalf("Unmarshal error: %v", err)
+	}
+
+	// Re-marshal this params object
+	data2, err := json.Marshal(received)
+	if err != nil {
+		t.Fatalf("Marshal error: %v", err)
+	}
+
+	// Check that they match (it is done this way to avoid
+	// false failures with the reflect.DeepEqual function and
+	// pointers)
+	if !bytes.Equal(data, data2) {
+		t.Fatalf("Data was lost in marshal/unmarshal.")
+	}
+
+}
 
 // Tests that DefaultParams returns a Params object with the expected defaults.
 func TestDefaultParams(t *testing.T) {

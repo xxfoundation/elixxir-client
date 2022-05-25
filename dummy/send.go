@@ -156,7 +156,8 @@ func (m *Manager) newRandomMessages(rng csprng.Source) (
 // generated payload, fingerprint, and MAC.
 func (m *Manager) newRandomCmixMessage(rng csprng.Source) (format.Message, error) {
 	// Create new empty cMix message
-	cMixMsg := format.NewMessage(m.store.Cmix().GetGroup().GetP().ByteLen())
+	clientStorage := *m.store
+	cMixMsg := format.NewMessage(clientStorage.GetCmixGroup().GetP().ByteLen())
 
 	// Generate random message
 	randomMsg, err := newRandomPayload(cMixMsg.ContentsSize(), rng)

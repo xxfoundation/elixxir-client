@@ -44,6 +44,7 @@ func TestSpace_GetAddressSpace(t *testing.T) {
 	// Update address size
 	as.(*space).cond.L.Lock()
 	as.(*space).size = expectedSize
+	as.(*space).set = true
 	as.(*space).cond.L.Unlock()
 
 	// Call get and error if it does block
@@ -55,7 +56,7 @@ func TestSpace_GetAddressSpace(t *testing.T) {
 			t.Errorf("get returned the wrong size.\nexpected: %d\nreceived: %d",
 				expectedSize, size)
 		}
-	case <-time.NewTimer(15 * time.Millisecond).C:
+	case <-time.NewTimer(150 * time.Millisecond).C:
 		t.Error("get blocking when the size has been updated.")
 	}
 }

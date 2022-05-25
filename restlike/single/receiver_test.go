@@ -6,21 +6,14 @@
 
 package single
 
-import (
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/restlike"
-	"gitlab.com/elixxir/client/single"
-	"testing"
-)
+// // Test failure of proto unmarshal
+// func TestSingleReceiver_Callback_FailUnmarshal(t *testing.T) {
+// 	ep := restlike.NewEndpoints()
+// 	r := receiver{endpoints: ep}
 
-// Test failure of proto unmarshal
-func TestSingleReceiver_Callback_FailUnmarshal(t *testing.T) {
-	ep := restlike.NewEndpoints()
-	r := receiver{endpoints: ep}
-
-	testReq := single.BuildTestRequest(make([]byte, 0), t)
-	r.Callback(testReq, receptionID.EphemeralIdentity{}, nil)
-}
+// 	testReq := single.BuildTestRequest(make([]byte, 0), t)
+// 	r.Callback(testReq, receptionID.EphemeralIdentity{}, nil)
+// }
 
 // Test happy path
 //func TestSingleReceiver_Callback(t *testing.T) {

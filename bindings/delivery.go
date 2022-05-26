@@ -12,33 +12,36 @@ import (
 
 // Example marshalled roundList object:
 // [1001,1003,1006]
-type roundsList []int
+type RoundsList struct {
+	Rounds []int
+}
 
-func (rl roundsList) Marshal() ([]byte, error) {
+func (rl RoundsList) Marshal() ([]byte, error) {
 	return json.Marshal(&rl)
 }
 
+// unmarshalRoundsList accepts a marshalled E2ESendReport object & unmarshalls it into a RoundsList object, returning a list of id.Round
 func unmarshalRoundsList(marshaled []byte) ([]id.Round, error) {
-	rl := roundsList{}
-	err := json.Unmarshal(marshaled, &rl)
+	sr := RoundsList{}
+	err := json.Unmarshal(marshaled, &sr)
 	if err != nil {
 		return nil, err
 	}
 
-	realRl := make([]id.Round, len(rl))
+	realRl := make([]id.Round, len(sr.Rounds))
 
-	for _, rid := range rl {
-		realRl = append(realRl, id.Round(rid))
+	for i, rid := range sr.Rounds {
+		realRl[i] = id.Round(rid)
 	}
 
 	return realRl, nil
 
 }
 
-func makeRoundsList(rounds []id.Round) roundsList {
-	rl := make(roundsList, 0, len(rounds))
+func makeRoundsList(rounds []id.Round) RoundsList {
+	rl := RoundsList{}
 	for _, rid := range rounds {
-		rl = append(rl, int(rid))
+		rl.Rounds = append(rl.Rounds, int(rid))
 	}
 	return rl
 }

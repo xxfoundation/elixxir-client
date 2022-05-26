@@ -2,11 +2,9 @@ package bindings
 
 import (
 	"encoding/json"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/connect"
 	e2e2 "gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/crypto/contact"
 )
 
@@ -51,8 +49,12 @@ func (c *Client) Connect(recipientContact []byte, myIdentity []byte) (
 }
 
 // E2ESendReport is the bindings representation of the return values of SendE2E
+// Example E2ESendReport:
+// {"RoundList":{"Rounds":[1,5,9]},
+//  "MessageID":"51Yy47uZbP0o2Y9B/kkreDLTB6opUol3M3mYiY2dcdQ=",
+//  "Timestamp":1653582683183384000}
 type E2ESendReport struct {
-	roundsList
+	RoundsList
 	MessageID []byte
 	Timestamp int64
 }
@@ -72,7 +74,7 @@ func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 		Timestamp: ts.UnixNano(),
 	}
 
-	sr.roundsList = makeRoundsList(rounds)
+	sr.RoundsList = makeRoundsList(rounds)
 
 	return json.Marshal(&sr)
 }
@@ -87,80 +89,9 @@ func (c *Connection) GetPartner() []byte {
 	return c.connection.GetPartner().PartnerId().Marshal()
 }
 
-// Listener provides a callback to hear a message
-// An object implementing this interface can be called back when the client
-// gets a message of the type that the registerer specified at registration
-// time.
-type Listener interface {
-	// Hear is called to receive a message in the UI
-	Hear(item []byte)
-	// Returns a name, used for debugging
-	Name() string
-}
-
-//
-type listener struct {
-	l Listener
-}
-
-// Message is the bindings representation of a receive.Message
-type Message struct {
-	MessageType int
-	ID          []byte
-	Payload     []byte
-
-	Sender      []byte
-	RecipientID []byte
-	EphemeralID int64
-	Timestamp   int64 // Message timestamp of when the user sent
-
-	Encrypted bool
-	RoundId   int
-}
-
-// Hear is called to receive a message in the UI
-func (l listener) Hear(item receive.Message) {
-	m := Message{
-		MessageType: int(item.MessageType),
-		ID:          item.ID.Marshal(),
-		Payload:     item.Payload,
-		Sender:      item.Sender.Marshal(),
-		RecipientID: item.RecipientID.Marshal(),
-		EphemeralID: item.EphemeralID.Int64(),
-		Timestamp:   item.Timestamp.UnixNano(),
-		Encrypted:   item.Encrypted,
-		RoundId:     int(item.Round.ID),
-	}
-	result, err := json.Marshal(&m)
-	if err != nil {
-		jww.ERROR.Printf("Unable to marshal Message: %+v", err.Error())
-	}
-	l.l.Hear(result)
-}
-
-// Name used for debugging
-func (l listener) Name() string {
-	return l.l.Name()
-}
-
-// ListenerID represents the return type of RegisterListener
-type ListenerID struct {
-	userID      []byte
-	messageType int
-}
-
 // RegisterListener is used for E2E reception
 // and allows for reading data sent from the partner.Manager
 // Returns marshalled ListenerID
-func (c *Connection) RegisterListener(messageType int, newListener Listener) []byte {
-	listenerId := c.connection.RegisterListener(catalog.MessageType(messageType), listener{l: newListener})
-	newlistenerId := ListenerID{
-		userID:      listenerId.GetUserID().Marshal(),
-		messageType: int(listenerId.GetMessageType()),
-	}
-	result, err := json.Marshal(&newlistenerId)
-	if err != nil {
-		jww.ERROR.Printf("Unable to marshal listenerId: %+v", err.Error())
-	}
-	return result
+func (c *Connection) RegisterListener(messageType int, newListener Listener) {
+	_ = c.connection.RegisterListener(catalog.MessageType(messageType), listener{l: newListener})
 }

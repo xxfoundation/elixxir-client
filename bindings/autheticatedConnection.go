@@ -20,9 +20,10 @@ func (_ *AuthenticatedConnection) IsAuthenticated() bool {
 	return true
 }
 
-// ConnectWithAuthentication is called by the client, ie the one establishing
-// connection with the server. Once a connect.Connection has been established
+// ConnectWithAuthentication is called by the client (i.e. the one establishing
+// connection with the server). Once a connect.Connection has been established
 // with the server and then authenticate their identity to the server.
+// accepts a marshalled Identity and contact.Contact object
 func (c *Client) ConnectWithAuthentication(recipientContact []byte, myIdentity []byte) (*AuthenticatedConnection, error) {
 	cont, err := contact.Unmarshal(recipientContact)
 	if err != nil {

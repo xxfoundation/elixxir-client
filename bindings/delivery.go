@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+// Example marshalled roundList object:
+// [1001,1003,1006]
 type roundsList []int
 
 func (rl roundsList) Marshal() ([]byte, error) {

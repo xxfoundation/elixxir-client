@@ -14,6 +14,13 @@ import (
 )
 
 // RestlikeMessage is the bindings representation of a restlike.Message
+// Example marshalled RestlikeMessage:
+//{"Version":1,
+// "Headers":"Y29udGVudHM6YXBwbGljYXRpb24vanNvbg==",
+// "Content":"VGhpcyBpcyBhIHJlc3RsaWtlIG1lc3NhZ2U=",
+// "Method":2,
+// "URI":"xx://CmixRestlike/rest",
+// "Error":""}
 type RestlikeMessage struct {
 	Version uint32
 	Headers []byte

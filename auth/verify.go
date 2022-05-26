@@ -13,6 +13,8 @@ import (
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 )
 
+// VerifyOwnership calls the cAuth.VerifyOwnershipProof function
+// to cryptographically prove the received ownership.
 func VerifyOwnership(received, verified contact.Contact, e2e e2e.Handler) bool {
 	myHistoricalPrivKey := e2e.GetHistoricalDHPrivkey()
 	return cAuth.VerifyOwnershipProof(myHistoricalPrivKey, verified.DhPubKey,

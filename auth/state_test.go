@@ -35,6 +35,10 @@ import (
 	"time"
 )
 
+///////////////////////////////////////////////////////////////////////////////
+/////// Mock Event Manager ////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
 type mockEventManager struct{}
 
 func (mem *mockEventManager) Report(priority int, category, evtType, details string) {}
@@ -68,12 +72,13 @@ func (mnm *mockNetManager) Send(recipient *id.ID, fingerprint format.Fingerprint
 }
 
 type mockE2E struct {
-	group     *cyclic.Group
-	reception *id.ID
+	group      *cyclic.Group
+	reception  *id.ID
+	privateKey *cyclic.Int
 }
 
 func (me2e *mockE2E) GetHistoricalDHPubkey() *cyclic.Int {
-	return me2e.group.NewInt(5)
+	return me2e.privateKey
 }
 func (me2e *mockE2E) GetHistoricalDHPrivkey() *cyclic.Int {
 	return me2e.group.NewInt(4)
@@ -185,7 +190,7 @@ loop:
 }
 
 func makeTestStore(t *testing.T) (*store.Store, *versioned.KV, []*cyclic.Int) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
 	privKeys := make([]*cyclic.Int, 10)
 	for i := range privKeys {

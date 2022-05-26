@@ -19,13 +19,18 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/ndf"
 )
 
-func registerNodes(r *registrar, s storage.Session, stop *stoppable.Single,
+// registerNodes is a manager thread which waits on a channel for nodes
+// to register with. On reception, it tries to register with that node.
+// This thread is interrupted by the stoppable.Single passed in.
+// The sync.Map's keep track of the node(s) that were in progress
+// before an interruption and how many registration attempts have
+// been attempted.
+func registerNodes(r *registrar, s Session, stop *stoppable.Single,
 	inProgress, attempts *sync.Map) {
 
 	interval := time.Duration(500) * time.Millisecond
@@ -33,31 +38,40 @@ func registerNodes(r *registrar, s storage.Session, stop *stoppable.Single,
 	for {
 		select {
 		case <-stop.Quit():
+			// On a stop signal, close the thread
 			t.Stop()
 			stop.ToStopped()
 			return
 
 		case gw := <-r.c:
 			rng := r.rng.GetStream()
+
+			// Pull node information from channel
 			nidStr := hex.EncodeToString(gw.Node.ID)
 			nid, err := gw.Node.GetNodeId()
 			if err != nil {
 				jww.WARN.Printf(
 					"Could not process node ID for registration: %s", err)
+				rng.Close()
 				continue
 			}
 
+			// Check if the registrar has this node already
 			if r.HasNode(nid) {
 				jww.INFO.Printf(
 					"Not registering node %s, already registered", nid)
 			}
 
+			// Check if the client is already attempting to register with this
+			// node in another thread
 			if _, operating := inProgress.LoadOrStore(nidStr,
 				struct{}{}); operating {
+				rng.Close()
 				continue
 			}
 
-			// Keep track of how many times this has been attempted
+			// Keep track of how many times registering with this node
+			// has been attempted
 			numAttempts := uint(1)
 			if nunAttemptsInterface, hasValue := attempts.LoadOrStore(
 				nidStr, numAttempts); hasValue {
@@ -69,17 +83,24 @@ func registerNodes(r *registrar, s storage.Session, stop *stoppable.Single,
 			if isStale := gw.Node.Status == ndf.Stale; isStale {
 				jww.DEBUG.Printf(
 					"Skipping registration with stale nodes %s", nidStr)
+				rng.Close()
 				continue
 			}
+
+			// Register with this node
 			err = registerWithNode(r.sender, r.comms, gw, s, r, rng, stop)
+
+			// Remove from in progress immediately (success or failure)
 			inProgress.Delete(nidStr)
+
+			// Process the result
 			if err != nil {
 				jww.ERROR.Printf("Failed to register nodes: %+v", err)
 				// If we have not reached the attempt limit for this gateway,
 				// then send it back into the channel to retry
 				if numAttempts < maxAttempts {
 					go func() {
-						// Delay the send for a backoff
+						// Delay the send operation for a backoff
 						time.Sleep(delayTable[numAttempts-1])
 						r.c <- gw
 					}()

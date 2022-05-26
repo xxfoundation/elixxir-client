@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/versioned"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	commNetwork "gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -155,9 +156,16 @@ type mockSession struct {
 	transmissionSig []byte
 }
 
+func (m mockSession) GetCmixGroup() *cyclic.Group {
+	return nil
+}
+
+func (m mockSession) GetKV() *versioned.KV {
+	return nil
+}
+
 func (m mockSession) GetTransmissionID() *id.ID {
-	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (m mockSession) IsPrecanned() bool {

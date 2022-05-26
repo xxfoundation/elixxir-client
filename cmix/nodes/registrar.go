@@ -34,9 +34,9 @@ type registrar struct {
 	kv    *versioned.KV
 	mux   sync.RWMutex
 
-	session Session
+	session session
 	sender  gateway.Sender
-	comms   RegisterNodeCommsInterface
+	comms   registerNodeCommsInterface
 	rng     *fastRNG.StreamGenerator
 
 	c chan network.NodeGateway
@@ -44,8 +44,8 @@ type registrar struct {
 
 // LoadRegistrar loads a Registrar from disk or creates a new one if it does not
 // exist.
-func LoadRegistrar(session Session, sender gateway.Sender,
-	comms RegisterNodeCommsInterface, rngGen *fastRNG.StreamGenerator,
+func LoadRegistrar(session session, sender gateway.Sender,
+	comms registerNodeCommsInterface, rngGen *fastRNG.StreamGenerator,
 	c chan network.NodeGateway) (Registrar, error) {
 
 	kv := session.GetKV().Prefix(prefix)

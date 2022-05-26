@@ -62,16 +62,16 @@ type MixCypher interface {
 	MakeClientGatewayAuthMAC(salt, digest []byte) []byte
 }
 
-// RegisterNodeCommsInterface is a sub-interface of client.Comms containing
+// registerNodeCommsInterface is a sub-interface of client.Comms containing
 // the send function for registering with a cMix node.
-type RegisterNodeCommsInterface interface {
+type registerNodeCommsInterface interface {
 	SendRequestClientKeyMessage(host *connect.Host,
 		message *pb.SignedClientKeyRequest) (*pb.SignedKeyResponse, error)
 }
 
-// Session is a sub-interface of the storage.Session interface relevant to
+// session is a sub-interface of the storage.Session interface relevant to
 // the methods used in this package.
-type Session interface {
+type session interface {
 	GetTransmissionID() *id.ID
 	IsPrecanned() bool
 	GetCmixGroup() *cyclic.Group

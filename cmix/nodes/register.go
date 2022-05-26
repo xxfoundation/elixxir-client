@@ -30,7 +30,7 @@ import (
 // The sync.Map's keep track of the node(s) that were in progress
 // before an interruption and how many registration attempts have
 // been attempted.
-func registerNodes(r *registrar, s Session, stop *stoppable.Single,
+func registerNodes(r *registrar, s session, stop *stoppable.Single,
 	inProgress, attempts *sync.Map) {
 
 	interval := time.Duration(500) * time.Millisecond
@@ -114,8 +114,8 @@ func registerNodes(r *registrar, s Session, stop *stoppable.Single,
 
 // registerWithNode serves as a helper for registerNodes. It registers a user
 // with a specific in the client's NDF.
-func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
-	ngw network.NodeGateway, s Session, r *registrar,
+func registerWithNode(sender gateway.Sender, comms registerNodeCommsInterface,
+	ngw network.NodeGateway, s session, r *registrar,
 	rng csprng.Source, stop *stoppable.Single) error {
 
 	nodeID, err := ngw.Node.GetNodeId()

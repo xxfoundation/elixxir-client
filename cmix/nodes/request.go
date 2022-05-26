@@ -26,8 +26,8 @@ import (
 // requestKey is a helper function which constructs a ClientKeyRequest message.
 // This message is sent to the passed gateway. It will further handle the
 // request from the gateway.
-func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
-	ngw network.NodeGateway, s Session, r *registrar,
+func requestKey(sender gateway.Sender, comms registerNodeCommsInterface,
+	ngw network.NodeGateway, s session, r *registrar,
 	rng io.Reader,
 	stop *stoppable.Single) (*cyclic.Int, []byte, uint64, error) {
 
@@ -92,7 +92,7 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 // makeSignedKeyRequest is a helper function which constructs a
 // pb.SignedClientKeyRequest to send to the node/gateway pair the
 // user is trying to register with.
-func makeSignedKeyRequest(s Session, rng io.Reader,
+func makeSignedKeyRequest(s session, rng io.Reader,
 	gwId *id.ID, dhPub *cyclic.Int) (*pb.SignedClientKeyRequest, error) {
 
 	// Reconstruct client confirmation message

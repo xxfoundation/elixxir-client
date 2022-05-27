@@ -299,5 +299,5 @@ type ClientErrorReport func(source, message, trace string)
 type clientCommsInterface interface {
 	followNetworkComms
 	SendCmixCommsInterface
-	nodes.registerNodeCommsInterface
+	nodes.RegisterNodeCommsInterface
 }

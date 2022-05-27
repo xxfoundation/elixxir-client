@@ -114,7 +114,7 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 
 // registerWithNode serves as a helper for registerNodes. It registers a user
 // with a specific in the client's NDF.
-func registerWithNode(sender gateway.Sender, comms registerNodeCommsInterface,
+func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	ngw network.NodeGateway, s session, r *registrar,
 	rng csprng.Source, stop *stoppable.Single) error {
 

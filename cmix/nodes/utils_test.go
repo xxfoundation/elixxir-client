@@ -192,7 +192,7 @@ func (m mockSession) GetTransmissionRegistrationValidationSignature() []byte {
 ///////////////// Mock Comms Interface ///////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-// Mock client comms object adhering to registerNodeCommsInterface for testing.
+// Mock client comms object adhering to RegisterNodeCommsInterface for testing.
 type MockClientComms struct {
 	rsaPrivKey *rsa.PrivateKey
 	dhPrivKey  *cyclic.Int

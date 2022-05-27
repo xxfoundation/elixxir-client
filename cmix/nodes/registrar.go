@@ -36,7 +36,7 @@ type registrar struct {
 
 	session session
 	sender  gateway.Sender
-	comms   registerNodeCommsInterface
+	comms   RegisterNodeCommsInterface
 	rng     *fastRNG.StreamGenerator
 
 	c chan network.NodeGateway
@@ -45,7 +45,7 @@ type registrar struct {
 // LoadRegistrar loads a Registrar from disk or creates a new one if it does not
 // exist.
 func LoadRegistrar(session session, sender gateway.Sender,
-	comms registerNodeCommsInterface, rngGen *fastRNG.StreamGenerator,
+	comms RegisterNodeCommsInterface, rngGen *fastRNG.StreamGenerator,
 	c chan network.NodeGateway) (Registrar, error) {
 
 	kv := session.GetKV().Prefix(prefix)

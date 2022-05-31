@@ -35,10 +35,10 @@ func (m *manager) batchBuilderThread(stop *stoppable.Single) {
 	rl := ratelimit.NewUnlimited()
 	if m.params.MaxThroughput > 0 {
 		rate := m.params.MaxThroughput / avgSendSize
-		rl = ratelimit.New(rate, ratelimit.WithoutSlack)
 		jww.INFO.Printf("[FT] Max throughput is %d. "+
 			"File transfer will be rate limited to %d parts per second.",
 			m.params.MaxThroughput, rate)
+		rl = ratelimit.New(rate, ratelimit.WithoutSlack)
 	} else {
 		jww.WARN.Printf("[FT] Max throughput is %d. "+
 			"File transfer will not be rate limited.", m.params.MaxThroughput)

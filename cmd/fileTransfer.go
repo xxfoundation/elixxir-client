@@ -369,7 +369,7 @@ func init() {
 		"File preview data. Set either this flag or filePreviewPath.")
 	bindPFlagCheckErr("filePreviewString")
 
-	ftCmd.Flags().Int("maxThroughput", 0,
+	ftCmd.Flags().Int("maxThroughput", 1000,
 		"Maximum data transfer speed to send file parts (in bytes per second)")
 	bindPFlagCheckErr("maxThroughput")
 

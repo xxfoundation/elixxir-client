@@ -31,10 +31,15 @@ func (m *manager) batchBuilderThread(stop *stoppable.Single) {
 	avgNumMessages := (minPartsSendPerRound + maxPartsSendPerRound) / 2
 	avgSendSize := avgNumMessages * 8192
 
+	// Calculate the rate (sends per second) to achieve the desired bandwidth
+	rate := 1
+	if m.params.MaxThroughput > avgSendSize {
+		rate = m.params.MaxThroughput / avgSendSize
+	}
+
 	// Calculate rate and make rate limiter if max throughput is set
 	rl := ratelimit.NewUnlimited()
 	if m.params.MaxThroughput > 0 {
-		rate := m.params.MaxThroughput / avgSendSize
 		jww.INFO.Printf("[FT] Max throughput is %d. "+
 			"File transfer will be rate limited to %d parts per second.",
 			m.params.MaxThroughput, rate)

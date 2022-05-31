@@ -5,9 +5,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/gateway"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/versioned"
-	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
@@ -21,6 +19,7 @@ import (
 const InputChanLen = 1000
 const maxAttempts = 5
 
+// Backoff for attempting to register with a cMix node.
 var delayTable = [5]time.Duration{
 	0,
 	5 * time.Second,
@@ -29,27 +28,13 @@ var delayTable = [5]time.Duration{
 	120 * time.Second,
 }
 
-type Registrar interface {
-	StartProcesses(numParallel uint) stoppable.Stoppable
-	HasNode(nid *id.ID) bool
-	RemoveNode(nid *id.ID)
-	GetNodeKeys(topology *connect.Circuit) (MixCypher, error)
-	NumRegisteredNodes() int
-	GetInputChannel() chan<- network.NodeGateway
-	TriggerNodeRegistration(nid *id.ID)
-}
-
-type RegisterNodeCommsInterface interface {
-	SendRequestClientKeyMessage(host *connect.Host,
-		message *pb.SignedClientKeyRequest) (*pb.SignedKeyResponse, error)
-}
-
+// registrar is an implementation of the Registrar interface.
 type registrar struct {
 	nodes map[id.ID]*key
 	kv    *versioned.KV
 	mux   sync.RWMutex
 
-	session storage.Session
+	session session
 	sender  gateway.Sender
 	comms   RegisterNodeCommsInterface
 	rng     *fastRNG.StreamGenerator
@@ -59,7 +44,7 @@ type registrar struct {
 
 // LoadRegistrar loads a Registrar from disk or creates a new one if it does not
 // exist.
-func LoadRegistrar(session storage.Session, sender gateway.Sender,
+func LoadRegistrar(session session, sender gateway.Sender,
 	comms RegisterNodeCommsInterface, rngGen *fastRNG.StreamGenerator,
 	c chan network.NodeGateway) (Registrar, error) {
 
@@ -94,6 +79,8 @@ func LoadRegistrar(session storage.Session, sender gateway.Sender,
 	return r, nil
 }
 
+// StartProcesses initiates numParallel amount of threads
+// to register with nodes.
 func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 	multi := stoppable.NewMulti("NodeRegistrations")
 
@@ -111,19 +98,6 @@ func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 	}
 
 	return multi
-}
-
-func (r *registrar) GetInputChannel() chan<- network.NodeGateway {
-	return r.c
-}
-
-func (r *registrar) TriggerNodeRegistration(nid *id.ID) {
-	r.c <- network.NodeGateway{
-		Node: ndf.Node{
-			ID:     nid.Marshal(),
-			Status: ndf.Active, // Must be active because it is in a round
-		},
-	}
 }
 
 // GetNodeKeys returns a MixCypher for the topology and a list of nodes it did
@@ -182,4 +156,21 @@ func (r *registrar) NumRegisteredNodes() int {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 	return len(r.nodes)
+}
+
+// GetInputChannel returns the send-only channel for registering with
+// a cMix node.
+func (r *registrar) GetInputChannel() chan<- network.NodeGateway {
+	return r.c
+}
+
+// TriggerNodeRegistration initiates a registration with the given
+// cMix node by sending on the registrar's registration channel.
+func (r *registrar) TriggerNodeRegistration(nid *id.ID) {
+	r.c <- network.NodeGateway{
+		Node: ndf.Node{
+			ID:     nid.Marshal(),
+			Status: ndf.Active, // Must be active because it is in a round
+		},
+	}
 }

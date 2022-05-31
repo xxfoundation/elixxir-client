@@ -16,7 +16,7 @@ import (
 
 // Happy path add/remove test.
 func Test_registrar_add_remove(t *testing.T) {
-	r := makeTestRegistrar(t)
+	r := makeTestRegistrar(&MockClientComms{}, t)
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
 	nodeId := id.NewIdFromString("test", id.Node, t)

@@ -131,18 +131,6 @@ func NewManager(services GroupCmix, e2e GroupE2e, receptionId *id.ID,
 		return nil, errors.Errorf(errAddDefaultService, err)
 	}
 
-	// Register all groups
-	for _, gId := range m.GetGroups() {
-		g, exists := m.GetGroup(gId)
-		if !exists {
-			jww.WARN.Printf("[GC] Unexpected failure to locate GroupID %s", gId)
-			continue
-		}
-
-		// Add all services for this group
-		m.addAllServices(g)
-	}
-
 	return m, nil
 }
 

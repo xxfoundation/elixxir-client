@@ -31,9 +31,18 @@ func (m *manager) batchBuilderThread(stop *stoppable.Single) {
 	avgNumMessages := (minPartsSendPerRound + maxPartsSendPerRound) / 2
 	avgSendSize := avgNumMessages * 8192
 
-	// Calculate rate and make rate limiter
-	rate := m.params.MaxThroughput / avgSendSize
-	rl := ratelimit.New(rate, ratelimit.WithoutSlack)
+	// Calculate rate and make rate limiter if max throughput is set
+	rl := ratelimit.NewUnlimited()
+	if m.params.MaxThroughput > 0 {
+		rate := m.params.MaxThroughput / avgSendSize
+		rl = ratelimit.New(rate, ratelimit.WithoutSlack)
+		jww.INFO.Printf("[FT] Max throughput is %d. "+
+			"File transfer will be rate limited to %d parts per second.",
+			m.params.MaxThroughput, rate)
+	} else {
+		jww.WARN.Printf("[FT] Max throughput is %d. "+
+			"File transfer will not be rate limited.", m.params.MaxThroughput)
+	}
 
 	for {
 		numParts := generateRandomPacketSize(m.rng)

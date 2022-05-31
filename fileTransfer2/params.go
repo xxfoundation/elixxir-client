@@ -20,7 +20,7 @@ const (
 // Params contains parameters used for file transfer.
 type Params struct {
 	// MaxThroughput is the maximum data transfer speed to send file parts (in
-	// bytes per second)
+	// bytes per second). If set to 0, rate limiting will be disabled.
 	MaxThroughput int
 
 	// SendTimeout is the duration, in nanoseconds, before sending on a round

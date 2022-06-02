@@ -1071,9 +1071,9 @@ func init() {
 		"Ensure successful message sending by checking for round completion")
 	viper.BindPFlag("verify-sends", rootCmd.Flags().Lookup("verify-sends"))
 
-	rootCmd.Flags().UintP("receiveCount",
+	rootCmd.PersistentFlags().UintP("receiveCount",
 		"", 1, "How many messages we should wait for before quitting")
-	viper.BindPFlag("receiveCount", rootCmd.Flags().Lookup("receiveCount"))
+	viper.BindPFlag("receiveCount", rootCmd.PersistentFlags().Lookup("receiveCount"))
 	rootCmd.PersistentFlags().UintP("waitTimeout", "", 15,
 		"The number of seconds to wait for messages to arrive")
 	viper.BindPFlag("waitTimeout",

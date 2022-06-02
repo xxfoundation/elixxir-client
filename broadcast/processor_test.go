@@ -29,7 +29,7 @@ func Test_processor_Process(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to generate RSA key: %+v", err)
 	}
-	s := &crypto.Symmetric{
+	s := &crypto.Channel{
 		ReceptionID: id.NewIdFromString("channel", id.User, t),
 		Name:        "MyChannel",
 		Description: "This is my channel that I channel stuff on.",
@@ -43,14 +43,15 @@ func Test_processor_Process(t *testing.T) {
 	}
 
 	p := &processor{
-		s:  s,
-		cb: cb,
+		c:      s,
+		cb:     cb,
+		method: Symmetric,
 	}
 
 	msg := format.NewMessage(4092)
 	payload := make([]byte, msg.ContentsSize())
 	_, _ = rng.Read(payload)
-	encryptedPayload, mac, fp := p.s.Encrypt(payload, rng)
+	encryptedPayload, mac, fp := p.c.EncryptSymmetric(payload, rng)
 	msg.SetContents(encryptedPayload)
 	msg.SetMac(mac)
 	msg.SetKeyFP(fp)

@@ -38,7 +38,7 @@ var broadcastCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetNetworkInterface().AddHealthCallback(
+		client.GetCmix().AddHealthCallback(
 			func(isconnected bool) {
 				connected <- isconnected
 			})
@@ -147,7 +147,7 @@ var broadcastCmd = &cobra.Command{
 		receiveChan := make(chan []byte, 100)
 		cb := func(payload []byte,
 			receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-			jww.INFO.Printf("Received symmetric message from %s over round %d", receptionID, round)
+			jww.INFO.Printf("Received symmetric message from %s over round %d", receptionID, round.ID)
 			receiveChan <- payload
 		}
 
@@ -165,7 +165,7 @@ var broadcastCmd = &cobra.Command{
 		}
 
 		// Connect to broadcast channel
-		bcl, err := broadcast.NewBroadcastChannel(*channel, cb, client.GetNetworkInterface(), client.GetRng(), broadcast.Param{Method: method})
+		bcl, err := broadcast.NewBroadcastChannel(*channel, cb, client.GetCmix(), client.GetRng(), broadcast.Param{Method: method})
 
 		/* Create properly sized broadcast message */
 		message := viper.GetString("broadcast")

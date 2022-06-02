@@ -146,7 +146,7 @@ func TestManager_ReplayRequests(t *testing.T) {
 		rng:   fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 		store: s,
 		event: &mockEventManager{},
-		params: Param{
+		params: Params{
 			ReplayRequests: true,
 		},
 	}

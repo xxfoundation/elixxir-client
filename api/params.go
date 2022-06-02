@@ -8,6 +8,7 @@
 package api
 
 import (
+	"encoding/json"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 )
@@ -22,4 +23,17 @@ func GetDefaultParams() Params {
 		CMix:    cmix.GetDefaultParams(),
 		Session: session.GetDefaultParams(),
 	}
+}
+
+// GetParameters returns the default Params, or override with given
+// parameters, if set.
+func GetParameters(params string) (Params, error) {
+	p := GetDefaultParams()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return Params{}, err
+		}
+	}
+	return p, nil
 }

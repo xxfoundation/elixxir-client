@@ -8,10 +8,41 @@
 package single
 
 import (
+	"bytes"
+	"encoding/json"
 	"gitlab.com/elixxir/client/cmix"
 	"reflect"
 	"testing"
 )
+
+// Tests that no data is lost when marshaling and
+// unmarshaling the RequestParams object.
+func TestParams_MarshalUnmarshal(t *testing.T) {
+	p := GetDefaultRequestParams()
+	data, err := json.Marshal(p)
+	if err != nil {
+		t.Fatalf("Marshal error: %+v", err)
+	}
+
+	t.Logf("%s", string(data))
+
+	received := RequestParams{}
+	err = json.Unmarshal(data, &received)
+	if err != nil {
+		t.Fatalf("Unmarshal error: %+v", err)
+	}
+
+	data2, err := json.Marshal(received)
+	if err != nil {
+		t.Fatalf("Marshal error: %+v", err)
+	}
+
+	t.Logf("%s", string(data2))
+
+	if !bytes.Equal(data, data2) {
+		t.Fatalf("Data was lost in marshal/unmarshal.")
+	}
+}
 
 // Tests that GetDefaultRequestParams returns a RequestParams with the expected
 // default values.

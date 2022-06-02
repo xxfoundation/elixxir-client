@@ -37,9 +37,12 @@ const (
 +---------+-----------------+
 */
 
-// NewSizedBroadcast creates a new broadcast with its size information embedded.
+// NewSizedBroadcast creates a new broadcast payload of size maxPayloadSize that
+// contains the given payload so that it fits completely inside a broadcasted
+// cMix message payload. The length of the payload is stored internally and used
+// to strip extraneous padding when decoding the payload.
 // The maxPayloadSize is the maximum size of the resulting payload. Returns an
-// error when the sized broadcast cannot fit in the max payload size.
+// error when the provided payload cannot fit in the max payload size.
 func NewSizedBroadcast(maxPayloadSize int, payload []byte) ([]byte, error) {
 	if len(payload)+sizedBroadcastMinSize > maxPayloadSize {
 		return nil, errors.Errorf(errNewSizedBroadcastMaxSize,
@@ -49,10 +52,14 @@ func NewSizedBroadcast(maxPayloadSize int, payload []byte) ([]byte, error) {
 	b := make([]byte, sizeSize)
 	binary.LittleEndian.PutUint16(b, uint16(len(payload)))
 
-	return append(b, payload...), nil
+	sizedPayload := make([]byte, maxPayloadSize)
+	copy(sizedPayload, append(b, payload...))
+
+	return sizedPayload, nil
 }
 
-// DecodeSizedBroadcast  the data into its original payload of the correct size.
+// DecodeSizedBroadcast decodes the data into its original payload stripping off
+// extraneous padding.
 func DecodeSizedBroadcast(data []byte) ([]byte, error) {
 	if len(data) < sizedBroadcastMinSize {
 		return nil, errors.Errorf(
@@ -68,8 +75,9 @@ func DecodeSizedBroadcast(data []byte) ([]byte, error) {
 	return data[sizeSize : size+sizeSize], nil
 }
 
-// MaxSizedBroadcastPayloadSize returns the maximum payload size in a sized
-// broadcast for the given out message max payload size.
+// MaxSizedBroadcastPayloadSize returns the maximum size of a payload that can
+// fit in a sized broadcast message for the given maximum cMix message payload
+// size.
 func MaxSizedBroadcastPayloadSize(maxPayloadSize int) int {
 	return maxPayloadSize - sizedBroadcastMinSize
 }

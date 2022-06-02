@@ -26,7 +26,7 @@ var expectedMP = messagePart{
 
 // Tests that a new function part is successfully created.
 func Test_newMessagePart(t *testing.T) {
-	goTmp := newMessagePart(32, 6, []byte{'t', 'e', 's', 't', 'i', 'n', 'g'})
+	goTmp := newMessagePart(32, 6, []byte{'t', 'e', 's', 't', 'i', 'n', 'g'}, len(expectedMP.Data))
 	if !reflect.DeepEqual(goTmp, expectedMP) {
 		t.Errorf("MessagePart received and MessagePart expected do not match."+
 			"\nexpected: %#v\nreceived: %#v", expectedMP, goTmp)

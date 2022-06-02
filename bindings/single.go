@@ -9,6 +9,47 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+/* PUBLIC WRAPPER METHODS */
+
+// TransmitSingleUse accepts a marshalled recipient contact object, tag, payload, SingleUseResponse callback func & a
+// Client.  Transmits payload to recipient via single use
+func TransmitSingleUse(clientID int, recipient []byte, tag string, payload []byte, responseCB SingleUseResponse) ([]byte, error) {
+	cl, err := clientTrackerSingleton.get(clientID)
+	if err != nil {
+		return nil, err
+	}
+
+	recipientContact, err := contact.Unmarshal(recipient)
+	if err != nil {
+		return nil, err
+	}
+
+	rcb := &singleUseResponse{response: responseCB}
+
+	rids, eid, err := single.TransmitRequest(recipientContact, tag, payload, rcb, single.GetDefaultRequestParams(), cl.api.GetCmix(), cl.api.GetRng().GetStream(), cl.api.GetStorage().GetE2EGroup())
+
+	if err != nil {
+		return nil, err
+	}
+	sr := SingleUseSendReport{
+		EphID:      eid,
+		RoundsList: makeRoundsList(rids),
+	}
+	return json.Marshal(sr)
+}
+
+// Listen starts a single use listener on a given tag using the passed in client and SingleUseCallback func
+func Listen(clientID int, tag string, cb SingleUseCallback) (StopFunc, error) {
+	cl, err := clientTrackerSingleton.get(clientID)
+	if err != nil {
+		return nil, err
+	}
+
+	listener := singleUseListener{scb: cb}
+	l := single.Listen(tag, cl.api.GetUser().ReceptionID, cl.api.GetUser().E2eDhPrivateKey, cl.api.GetCmix(), cl.api.GetStorage().GetE2EGroup(), listener)
+	return l.Stop, nil
+}
+
 // JSON Types
 
 // SingleUseSendReport is the bindings struct used to represent information returned by single.TransmitRequest
@@ -61,11 +102,15 @@ type StopFunc func()
 
 // SingleUseCallback func is passed into Listen and called when messages are received
 // Accepts a SingleUseCallbackReport marshalled to json
-type SingleUseCallback func(callbackReport []byte, err error)
+type SingleUseCallback interface {
+	Callback(callbackReport []byte, err error)
+}
 
 // SingleUseResponse is the public facing callback func passed by bindings clients into TransmitSingleUse
 // Accepts a SingleUseResponseReport marshalled to json
-type SingleUseResponse func(responseReport []byte, err error)
+type SingleUseResponse interface {
+	Callback(responseReport []byte, err error)
+}
 
 /* CALLBACK WRAPPERS */
 
@@ -93,14 +138,14 @@ func (sl singleUseListener) Callback(req *single.Request, eid receptionID.Epheme
 		EphID:      eid,
 	}
 
-	sl.scb(json.Marshal(scr))
+	sl.scb.Callback(json.Marshal(scr))
 }
 
 /* response struct */
 
 // singleUseResponse is the private struct backing SingleUseResponse, which subscribes to the single.Response interface
 type singleUseResponse struct {
-	responseFunc SingleUseResponse
+	response SingleUseResponse
 }
 
 // Callback builds a SingleUseSendReport & passes the json marshalled version into the callback
@@ -116,36 +161,5 @@ func (sr singleUseResponse) Callback(payload []byte, receptionID receptionID.Eph
 		Payload:     payload,
 		Err:         err,
 	}
-	sr.responseFunc(json.Marshal(&sendReport))
-}
-
-/* PUBLIC WRAPPER METHODS */
-
-// TransmitSingleUse accepts a marshalled recipient contact object, tag, payload, SingleUseResponse callback func & a
-// Client.  Transmits payload to recipient via single use
-func TransmitSingleUse(recipient []byte, tag string, payload []byte, responseCB SingleUseResponse, cl *Client) ([]byte, error) {
-	recipientContact, err := contact.Unmarshal(recipient)
-	if err != nil {
-		return nil, err
-	}
-
-	rcb := &singleUseResponse{responseFunc: responseCB}
-
-	rids, eid, err := single.TransmitRequest(recipientContact, tag, payload, rcb, single.GetDefaultRequestParams(), cl.api.GetCmix(), cl.api.GetRng().GetStream(), cl.api.GetStorage().GetE2EGroup())
-
-	if err != nil {
-		return nil, err
-	}
-	sr := SingleUseSendReport{
-		EphID:      eid,
-		RoundsList: makeRoundsList(rids),
-	}
-	return json.Marshal(sr)
-}
-
-// Listen starts a single use listener on a given tag using the passed in client and SingleUseCallback func
-func Listen(tag string, cl *Client, cb SingleUseCallback) StopFunc {
-	listener := singleUseListener{scb: cb}
-	l := single.Listen(tag, cl.api.GetUser().ReceptionID, cl.api.GetUser().E2eDhPrivateKey, cl.api.GetCmix(), cl.api.GetStorage().GetE2EGroup(), listener)
-	return l.Stop
+	sr.response.Callback(json.Marshal(&sendReport))
 }

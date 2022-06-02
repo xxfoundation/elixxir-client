@@ -33,7 +33,7 @@ type RestlikeMessage struct {
 // RestlikeRequest performs a normal restlike request
 // request - marshalled RestlikeMessage
 // Returns marshalled result RestlikeMessage
-func RestlikeRequest(clientID int, connectionID int, request []byte) ([]byte, error) {
+func RestlikeRequest(clientID, connectionID int, request []byte) ([]byte, error) {
 	cl, err := clientTrackerSingleton.get(clientID)
 	if err != nil {
 		return nil, err

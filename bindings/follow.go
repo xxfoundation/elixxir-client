@@ -1,6 +1,8 @@
 package bindings
 
 import (
+	"fmt"
+	"github.com/pkg/errors"
 	"gitlab.com/xx_network/primitives/netTime"
 	"time"
 )
@@ -36,6 +38,19 @@ import (
 func (c *Client) StartNetworkFollower(timeoutMS int) error {
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 	return c.api.StartNetworkFollower(timeout)
+}
+
+// StopNetworkFollower stops the network follower if it is running.
+// It returns errors if the Follower is in the wrong status to stop or if it
+// fails to stop it.
+// if the network follower is running and this fails, the client object will
+// most likely be in an unrecoverable state and need to be trashed.
+func (c *Client) StopNetworkFollower() error {
+	if err := c.api.StopNetworkFollower(); err != nil {
+		return errors.New(fmt.Sprintf("Failed to stop the "+
+			"network follower: %+v", err))
+	}
+	return nil
 }
 
 // WaitForNewtwork will block until either the network is healthy or the

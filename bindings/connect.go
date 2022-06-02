@@ -15,10 +15,15 @@ var connectionTrackerSingleton = &connectionTracker{
 	count:       0,
 }
 
-// Connection is the bindings representation of a connect.Connection object that can be tracked
+// Connection is the bindings representation of a connect.Connection object that can be tracked by id
 type Connection struct {
 	connection connect.Connection
 	id         int
+}
+
+// GetId returns the Connection.id
+func (c *Connection) GetId() int {
+	return c.id
 }
 
 // Connect performs auth key negotiation with the given recipient,

@@ -32,6 +32,26 @@ type mockE2eHandler struct {
 	privKey *cyclic.Int
 }
 
+func (m mockE2eHandler) HasAuthenticatedChannel(partner *id.ID) bool {
+	panic("implement me")
+}
+
+func (m mockE2eHandler) FirstPartitionSize() uint {
+	panic("implement me")
+}
+
+func (m mockE2eHandler) SecondPartitionSize() uint {
+	panic("implement me")
+}
+
+func (m mockE2eHandler) PartitionSize(payloadIndex uint) uint {
+	panic("implement me")
+}
+
+func (m mockE2eHandler) PayloadSize() uint {
+	panic("implement me")
+}
+
 func (m mockE2eHandler) GetHistoricalDHPrivkey() *cyclic.Int {
 	return m.privKey
 }

@@ -10,27 +10,19 @@ package auth
 import (
 	"encoding/base64"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
+// state is an implementation of the State interface.
 type state struct {
 	callbacks Callbacks
 
@@ -46,45 +38,6 @@ type state struct {
 	backupTrigger func(reason string)
 }
 
-type cmixClient interface {
-	IsHealthy() bool
-	GetMaxMessageLength() int
-	AddService(clientID *id.ID, newService message.Service,
-		response message.Processor)
-	DeleteService(clientID *id.ID, toDelete message.Service,
-		processor message.Processor)
-	GetIdentity(get *id.ID) (identity.TrackedID, error)
-	AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,
-		mp message.Processor) error
-	DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint)
-	Send(recipient *id.ID, fingerprint format.Fingerprint,
-		service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
-		id.Round, ephemeral.Id, error)
-}
-
-type e2eHandler interface {
-	GetHistoricalDHPubkey() *cyclic.Int
-	GetHistoricalDHPrivkey() *cyclic.Int
-	GetGroup() *cyclic.Group
-	AddPartner(partnerID *id.ID,
-		partnerPubKey, myPrivKey *cyclic.Int,
-		partnerSIDHPubKey *sidh.PublicKey,
-		mySIDHPrivKey *sidh.PrivateKey, sendParams,
-		receiveParams session.Params) (partner.Manager, error)
-	GetPartner(partnerID *id.ID) (partner.Manager, error)
-	DeletePartner(partnerId *id.ID) error
-	GetReceptionID() *id.ID
-}
-
-type Callbacks interface {
-	Request(partner contact.Contact, receptionID receptionID.EphemeralIdentity,
-		round rounds.Round)
-	Confirm(partner contact.Contact, receptionID receptionID.EphemeralIdentity,
-		round rounds.Round)
-	Reset(partner contact.Contact, receptionID receptionID.EphemeralIdentity,
-		round rounds.Round)
-}
-
 // NewState loads the auth state or creates new auth state if one cannot be
 // found.
 // Bases its reception identity and keys off of what is found in e2e.
@@ -92,8 +45,8 @@ type Callbacks interface {
 // Parameters:
 //   The params object passed in determines the services that will be used
 //   to pick up requests and signal notifications. These are unique to an
-//   identity, so multiple auth states with the same service tags with different
-//   identities can run simultaneously.
+//   identity, so multiple auth states with the same service tags with
+//   different identities can run simultaneously.
 //   Default parameters can be retrieved via GetDefaultParameters()
 // Temporary:
 //   In some cases, for example client <-> server communications, connections
@@ -108,10 +61,9 @@ func NewState(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 		kv, net, e2e, rng, event, params, callbacks, backupTrigger)
 }
 
-// NewStateLegacy loads the auth state or creates new auth state if one cannot be
-// found.
-// Bases its reception identity and keys off of what is found in e2e.
-// Does not modify the kv prefix for backwards compatibility
+// NewStateLegacy loads the auth state or creates new auth state if one cannot
+// be found. Bases its reception identity and keys off of what is found in e2e.
+// Does not modify the kv prefix for backwards compatibility.
 // Otherwise, acts the same as NewState
 func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 	rng *fastRNG.StreamGenerator, event event.Reporter, params Param,
@@ -152,13 +104,14 @@ func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 	return s, nil
 }
 
-// CallAllReceivedRequests will iterate through all pending contact requests and replay
-// them on the callbacks.
+// CallAllReceivedRequests will iterate through all pending contact requests
+// and replay them on the callbacks.
 func (s *state) CallAllReceivedRequests() {
 	rrList := s.store.GetAllReceivedRequests()
 	for i := range rrList {
 		rr := rrList[i]
-		eph := receptionID.BuildIdentityFromRound(rr.GetContact().ID, rr.GetRound())
+		eph := receptionID.BuildIdentityFromRound(rr.GetContact().ID,
+			rr.GetRound())
 		s.callbacks.Request(rr.GetContact(), eph, rr.GetRound())
 	}
 }

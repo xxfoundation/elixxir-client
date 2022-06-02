@@ -1,6 +1,16 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                           //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
 package ratchet
 
 import (
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/primitives/format"
 	"io"
 	"reflect"
 	"testing"
@@ -20,6 +30,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+// Constructor for a mock ratchet
 func makeTestRatchet() (*Ratchet, *versioned.KV, error) {
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	privKey := grp.NewInt(57)
@@ -27,7 +38,8 @@ func makeTestRatchet() (*Ratchet, *versioned.KV, error) {
 	rng := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 	err := New(kv, &id.ID{}, privKey, grp)
 	if err != nil {
-		return nil, nil, errors.Errorf("NewStore() produced an error: %v", err)
+		return nil, nil,
+			errors.Errorf("NewStore() produced an error: %v", err)
 	}
 
 	cyHanlder := mockCyHandler{}
@@ -42,6 +54,7 @@ func makeTestRatchet() (*Ratchet, *versioned.KV, error) {
 	return r, kv, err
 }
 
+// Helper function which compares 2 partner.Manager's.
 func managersEqual(expected, received partner.Manager, t *testing.T) bool {
 	equal := true
 	if !reflect.DeepEqual(expected.PartnerId(), received.PartnerId()) {
@@ -54,7 +67,8 @@ func managersEqual(expected, received partner.Manager, t *testing.T) bool {
 	if !reflect.DeepEqual(expected.ConnectionFingerprint(), received.ConnectionFingerprint()) {
 		t.Errorf("Did not Receive expected Manager.Receive."+
 			"\n\texpected: %+v\n\treceived: %+v",
-			expected.ConnectionFingerprint(), received.ConnectionFingerprint())
+			expected.ConnectionFingerprint(),
+			received.ConnectionFingerprint())
 		equal = false
 	}
 	if !reflect.DeepEqual(expected.MyId(), received.MyId()) {
@@ -64,24 +78,30 @@ func managersEqual(expected, received partner.Manager, t *testing.T) bool {
 		equal = false
 	}
 
-	if !reflect.DeepEqual(expected.MyRootPrivateKey(), received.MyRootPrivateKey()) {
+	if !reflect.DeepEqual(expected.MyRootPrivateKey(),
+		received.MyRootPrivateKey()) {
 		t.Errorf("Did not Receive expected Manager.MyPrivateKey."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.MyRootPrivateKey(), received.MyRootPrivateKey())
 		equal = false
 	}
 
-	if !reflect.DeepEqual(expected.SendRelationshipFingerprint(), received.SendRelationshipFingerprint()) {
-		t.Errorf("Did not Receive expected Manager.SendRelationshipFingerprint."+
+	if !reflect.DeepEqual(expected.SendRelationshipFingerprint(),
+		received.SendRelationshipFingerprint()) {
+		t.Errorf("Did not Receive expected Manager."+
+			"SendRelationshipFingerprint."+
 			"\n\texpected: %+v\n\treceived: %+v",
-			expected.SendRelationshipFingerprint(), received.SendRelationshipFingerprint())
+			expected.SendRelationshipFingerprint(),
+			received.SendRelationshipFingerprint())
 		equal = false
 	}
 
 	return equal
 }
 
-func genSidhKeys(rng io.Reader, variant sidh.KeyVariant) (*sidh.PrivateKey, *sidh.PublicKey) {
+// Helper function for generating sidh keys.
+func genSidhKeys(rng io.Reader, variant sidh.KeyVariant) (*sidh.PrivateKey,
+	*sidh.PublicKey) {
 	sidHPrivKey := util.NewSIDHPrivateKey(variant)
 	sidHPubKey := util.NewSIDHPublicKey(variant)
 
@@ -93,6 +113,7 @@ func genSidhKeys(rng io.Reader, variant sidh.KeyVariant) (*sidh.PrivateKey, *sid
 	return sidHPrivKey, sidHPubKey
 }
 
+// Implements a mock session.CypherHandler.
 type mockCyHandler struct{}
 
 func (m mockCyHandler) AddKey(k session.Cypher) {
@@ -103,12 +124,30 @@ func (m mockCyHandler) DeleteKey(k session.Cypher) {
 	return
 }
 
+// Implements a mock Services interface.
 type mockServices struct{}
 
-func (s mockServices) AddService(AddService *id.ID, newService message.Service,
+func (s mockServices) AddService(AddService *id.ID,
+	newService message.Service,
 	response message.Processor) {
 }
 
-func (s mockServices) DeleteService(clientID *id.ID, toDelete message.Service,
+func (s mockServices) DeleteService(clientID *id.ID,
+	toDelete message.Service,
 	processor message.Processor) {
+}
+
+// Implements a message.Processor interface.
+type mockProcessor struct {
+	name string
+}
+
+func (m *mockProcessor) Process(message format.Message,
+	receptionID receptionID.EphemeralIdentity,
+	round rounds.Round) {
+
+}
+
+func (m *mockProcessor) String() string {
+	return m.name
 }

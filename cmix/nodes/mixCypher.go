@@ -17,12 +17,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-type MixCypher interface {
-	Encrypt(msg format.Message, salt []byte, roundID id.Round) (
-		format.Message, [][]byte)
-	MakeClientGatewayAuthMAC(salt, digest []byte) []byte
-}
-
+// mixCypher is an implementation of the MixCypher interface.
 type mixCypher struct {
 	keys []*key
 	g    *cyclic.Group

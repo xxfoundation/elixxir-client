@@ -247,7 +247,7 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 				Target:                    gatewayID.Bytes(),
 			})
 		if err != nil {
-			return nil, errors.WithMessage(err, "Register: Failed requesting client key from gateway")
+			return nil, errors.WithMessage(err, fmt.Sprintf("Register: Failed requesting client key from gateway %s", gatewayID.String()))
 		}
 		if keyResponse.Error != "" {
 			return nil, errors.WithMessage(err, "requestKey: clientKeyResponse error")

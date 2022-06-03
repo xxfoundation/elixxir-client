@@ -48,6 +48,9 @@ func makeRoundsList(rounds []id.Round) RoundsList {
 
 // MessageDeliveryCallback gets called on the determination if all events
 // related to a message send were successful.
+// If delivered == true, timedOut == false && roundResults != nil
+// If delivered == false, roundResults == nil
+// If timedOut == true, delivered == false && roundResults == nil
 type MessageDeliveryCallback interface {
 	EventCallback(delivered, timedOut bool, roundResults []byte)
 }

@@ -7,6 +7,7 @@
 package connect
 
 import (
+	"encoding/json"
 	"io"
 	"time"
 
@@ -84,9 +85,9 @@ type Callback func(connection Connection)
 
 // Params for managing Connection objects.
 type Params struct {
-	Auth    auth.Param
+	Auth    auth.Params
 	Rekey   rekey.Params
-	Event   event.Reporter
+	Event   event.Reporter `json:"-"`
 	Timeout time.Duration
 }
 
@@ -98,6 +99,19 @@ func GetDefaultParams() Params {
 		Event:   event.NewEventManager(),
 		Timeout: connectionTimeout,
 	}
+}
+
+// GetParameters returns the default Params, or override with given
+// parameters, if set.
+func GetParameters(params string) (Params, error) {
+	p := GetDefaultParams()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return Params{}, err
+		}
+	}
+	return p, nil
 }
 
 // Connect performs auth key negotiation with the given recipient,

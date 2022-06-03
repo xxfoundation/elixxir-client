@@ -7,6 +7,8 @@
 
 package e2e
 
+import "encoding/json"
+
 const (
 	defaultNotifyUponCompletion = true
 )
@@ -18,9 +20,47 @@ type Params struct {
 	NotifyUponCompletion bool
 }
 
+// paramsDisk will be the marshal-able and umarshal-able object.
+type paramsDisk struct {
+	NotifyUponCompletion bool
+}
+
 // DefaultParams returns a Params object filled with the default values.
 func DefaultParams() Params {
 	return Params{
 		NotifyUponCompletion: defaultNotifyUponCompletion,
 	}
+}
+
+// GetParameters returns the default Params, or override with given
+// parameters, if set.
+func GetParameters(params string) (Params, error) {
+	p := DefaultParams()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return Params{}, err
+		}
+	}
+	return p, nil
+}
+
+// MarshalJSON adheres to the json.Marshaler interface.
+func (p Params) MarshalJSON() ([]byte, error) {
+	pDisk := paramsDisk{NotifyUponCompletion: p.NotifyUponCompletion}
+	return json.Marshal(&pDisk)
+
+}
+
+// UnmarshalJSON adheres to the json.Unmarshaler interface.
+func (p *Params) UnmarshalJSON(data []byte) error {
+	pDisk := paramsDisk{}
+	err := json.Unmarshal(data, &pDisk)
+	if err != nil {
+		return err
+	}
+
+	*p = Params{NotifyUponCompletion: pDisk.NotifyUponCompletion}
+
+	return nil
 }

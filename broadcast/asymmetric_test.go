@@ -1,10 +1,3 @@
-////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
-//                                                                            //
-// Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
-////////////////////////////////////////////////////////////////////////////////
-
 package broadcast
 
 import (
@@ -17,7 +10,7 @@ import (
 	cMixCrypto "gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 	"reflect"
 	"sync"
 	"testing"
@@ -25,29 +18,37 @@ import (
 )
 
 // Tests that symmetricClient adheres to the Symmetric interface.
-var _ Symmetric = (*symmetricClient)(nil)
+var _ Channel = (*broadcastClient)(nil)
 
 // Tests that symmetricClient adheres to the Symmetric interface.
 var _ Client = (cmix.Client)(nil)
 
-// Tests that all clients listening on a symmetric broadcast channel receive the
-// message that is broadcasted.
-func Test_symmetricClient_Smoke(t *testing.T) {
-	// Initialise objects used by all clients
+func Test_asymmetricClient_Smoke(t *testing.T) {
 	cMixHandler := newMockCmixHandler()
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
-	channel := crypto.Symmetric{
-		ReceptionID: id.NewIdFromString("ReceptionID", id.User, t),
-		Name:        "MyChannel",
-		Description: "This is my channel about stuff.",
-		Salt:        cMixCrypto.NewSalt(csprng.NewSystemRNG(), 32),
-		RsaPubKey:   newRsaPubKey(64, t),
+	pk, err := rsa.GenerateKey(rngGen.GetStream(), 4096)
+	if err != nil {
+		t.Fatalf("Failed to generate priv key: %+v", err)
+	}
+	cname := "MyChannel"
+	cdesc := "This is my channel about stuff."
+	csalt := cMixCrypto.NewSalt(csprng.NewSystemRNG(), 32)
+	cpubkey := pk.GetPublic()
+	cid, err := crypto.NewChannelID(cname, cdesc, csalt, rsa.CreatePublicKeyPem(cpubkey))
+	if err != nil {
+		t.Errorf("Failed to create channel ID: %+v", err)
+	}
+	channel := crypto.Channel{
+		ReceptionID: cid,
+		Name:        cname,
+		Description: cdesc,
+		Salt:        csalt,
+		RsaPubKey:   cpubkey,
 	}
 
-	// Set up callbacks, callback channels, and the symmetric clients
 	const n = 5
 	cbChans := make([]chan []byte, n)
-	clients := make([]Symmetric, n)
+	clients := make([]Channel, n)
 	for i := range clients {
 		cbChan := make(chan []byte, 10)
 		cb := func(payload []byte, _ receptionID.EphemeralIdentity,
@@ -55,7 +56,10 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 			cbChan <- payload
 		}
 
-		s := NewSymmetricClient(channel, cb, newMockCmix(cMixHandler), rngGen)
+		s, err := NewBroadcastChannel(channel, cb, newMockCmix(cMixHandler), rngGen, Param{Method: Asymmetric})
+		if err != nil {
+			t.Errorf("Failed to create broadcast channel: %+v", err)
+		}
 
 		cbChans[i] = cbChan
 		clients[i] = s
@@ -69,7 +73,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 
 	// Send broadcast from each client
 	for i := range clients {
-		payload := make([]byte, newMockCmix(cMixHandler).GetMaxMessageLength())
+		payload := make([]byte, clients[i].MaxPayloadSize())
 		copy(payload,
 			fmt.Sprintf("Hello from client %d of %d.", i, len(clients)))
 
@@ -86,7 +90,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 							"payload from client %d."+
 							"\nexpected: %q\nreceived: %q", j, i, payload, r)
 					}
-				case <-time.After(25 * time.Millisecond):
+				case <-time.After(time.Second):
 					t.Errorf("Client %d timed out waiting for broadcast "+
 						"payload from client %d.", j, i)
 				}
@@ -94,7 +98,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 		}
 
 		// Broadcast payload
-		_, _, err := clients[i].Broadcast(payload, cmix.GetDefaultCMIXParams())
+		_, _, err := clients[i].BroadcastAsymmetric(pk, payload, cmix.GetDefaultCMIXParams())
 		if err != nil {
 			t.Errorf("Client %d failed to send broadcast: %+v", i, err)
 		}
@@ -108,7 +112,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 		clients[i].Stop()
 	}
 
-	payload := make([]byte, newMockCmix(cMixHandler).GetMaxMessageLength())
+	payload := make([]byte, clients[0].MaxPayloadSize())
 	copy(payload, "This message should not get through.")
 
 	// Start waiting on channels and error if anything is received
@@ -126,7 +130,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 	}
 
 	// Broadcast payload
-	_, _, err := clients[0].Broadcast(payload, cmix.GetDefaultCMIXParams())
+	_, _, err = clients[0].BroadcastAsymmetric(pk, payload, cmix.GetDefaultCMIXParams())
 	if err != nil {
 		t.Errorf("Client 0 failed to send broadcast: %+v", err)
 	}

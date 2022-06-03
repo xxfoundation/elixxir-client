@@ -8,6 +8,9 @@
 package groupChat
 
 import (
+	"sync"
+	"time"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -26,8 +29,6 @@ import (
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"sync"
-	"time"
 )
 
 // Error messages.

@@ -8,6 +8,7 @@
 package message
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"sync"
@@ -167,7 +168,9 @@ func (h *handler) handleMessageHelper(ecrMsg format.Message, bundle Bundle) bool
 	identity := bundle.Identity
 	round := bundle.RoundInfo
 
-	jww.INFO.Printf("handleMessage(%s)", ecrMsg.Digest())
+	jww.INFO.Printf("handleMessage(msgDigest: %s, SIH: %s, KeyFP: %s)",
+		ecrMsg.Digest(), fingerprint,
+		base64.StdEncoding.EncodeToString(ecrMsg.GetSIH()))
 
 	// If we have a fingerprint, process it
 	if proc, exists := h.pop(identity.Source, fingerprint); exists {

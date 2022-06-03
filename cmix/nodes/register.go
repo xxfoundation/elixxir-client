@@ -149,7 +149,7 @@ func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
 			sender, comms, ngw, s, r, rng, stop)
 
 		if err != nil {
-			return errors.Errorf("Failed to request key: %+v", err)
+			return errors.Errorf("Failed to request key: %v", err)
 		}
 
 	}

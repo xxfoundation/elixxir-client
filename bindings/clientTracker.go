@@ -24,7 +24,7 @@ func (ct *clientTracker) make(c *api.Client) *Client {
 	ct.count++
 
 	ct.clients[id] = &Client{
-		api: api.Client{},
+		api: c,
 		id:  id,
 	}
 

@@ -23,7 +23,7 @@ var clientTrackerSingleton = &clientTracker{
 // Client BindingsClient wraps the api.Client, implementing additional functions
 // to support the gomobile Client interface
 type Client struct {
-	api api.Client
+	api *api.Client
 	id  int
 }
 

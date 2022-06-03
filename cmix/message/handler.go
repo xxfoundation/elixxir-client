@@ -9,12 +9,13 @@ package message
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/xx_network/primitives/id"
 	"strconv"
 	"sync"
 	"time"
+
+	"gitlab.com/elixxir/client/event"
+	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/xx_network/primitives/id"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/stoppable"
@@ -191,7 +192,7 @@ func (h *handler) handleMessageHelper(ecrMsg format.Message, bundle Bundle) bool
 		return true
 	}
 
-	im := fmt.Sprintf("Message cannot be identify: keyFP: %v, round: %d "+
+	im := fmt.Sprintf("Message cannot be identified: keyFP: %v, round: %d "+
 		"msgDigest: %s, not determined to be for client",
 		ecrMsg.GetKeyFP(), bundle.Round, ecrMsg.Digest())
 	jww.TRACE.Printf(im)

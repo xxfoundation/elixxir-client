@@ -58,7 +58,7 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 
 			// Check if the registrar has this node already
 			if r.HasNode(nid) {
-				jww.INFO.Printf(
+				jww.TRACE.Printf(
 					"Not registering node %s, already registered", nid)
 			}
 
@@ -95,7 +95,7 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 
 			// Process the result
 			if err != nil {
-				jww.ERROR.Printf("Failed to register nodes: %+v", err)
+				jww.ERROR.Printf("Failed to register nodes: %s", err.Error())
 				// If we have not reached the attempt limit for this gateway,
 				// then send it back into the channel to retry
 				if numAttempts < maxAttempts {

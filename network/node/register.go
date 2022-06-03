@@ -109,7 +109,7 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 				regTimestamp, uci, cmix, rng, stop)
 			inProgress.Delete(nidStr)
 			if err != nil {
-				jww.ERROR.Printf("Failed to register node: %v", err)
+				jww.ERROR.Printf("Failed to register node: %s", err.Error())
 				//if we have not reached the attempt limit for this gateway, send it back into the channel to retry
 				if numAttempts < maxAttempts {
 					go func() {

@@ -95,7 +95,7 @@ func registerNodes(r *registrar, s session, stop *stoppable.Single,
 
 			// Process the result
 			if err != nil {
-				jww.ERROR.Printf("Failed to register nodes: %+v", err)
+				jww.ERROR.Printf("Failed to register nodes: %s", err.Error())
 				// If we have not reached the attempt limit for this gateway,
 				// then send it back into the channel to retry
 				if numAttempts < maxAttempts {

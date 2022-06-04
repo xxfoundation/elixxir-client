@@ -418,16 +418,16 @@ func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 		return
 	}
 
+	// Lock order is extremely important here
+	h.hostMux.Lock()
 	h.ndfMux.Lock()
 	h.ndf = ndf.DeepCopy()
-
-	h.hostMux.Lock()
 	err := h.updateConns()
-	h.hostMux.Unlock()
 	if err != nil {
 		jww.ERROR.Printf("Unable to updateConns: %+v", err)
 	}
 	h.ndfMux.Unlock()
+	h.hostMux.Unlock()
 }
 
 // SetGatewayFilter sets the filter used to filter gateways from the ID map.
@@ -566,8 +566,9 @@ func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) (bool, error) {
 		}
 	}
 
+	// If the Host is still in the pool
 	if doReplace {
-		// If the Host is still in the pool
+		// Lock order is extremely important here
 		h.hostMux.Lock()
 		if oldPoolIndex, ok := h.hostMap[*hostId]; ok {
 			// Replace it

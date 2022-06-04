@@ -48,3 +48,30 @@ const (
 	// (see the connect/ package)
 	ConnectionAuthenticationRequest = 60
 )
+
+func (mt MessageType) String() string {
+	switch mt {
+	case NoType:
+		return "NoType"
+	case XxMessage:
+		return "XxMessage"
+	case KeyExchangeTrigger:
+		return "KeyExchangeTrigger"
+	case KeyExchangeConfirm:
+		return "KeyExchangeConfirm"
+	case KeyExchangeTriggerEphemeral:
+		return "KeyExchangeTriggerEphemeral"
+	case KeyExchangeConfirmEphemeral:
+		return "KeyExchangeConfirmEphemeral"
+	case GroupCreationRequest:
+		return "GroupCreationRequest"
+	case NewFileTransfer:
+		return "NewFileTransfer"
+	case EndFileTransfer:
+		return "EndFileTransfer"
+	case ConnectionAuthenticationRequest:
+		return "ConnectionAuthenticationRequest"
+	default:
+		return "UNKNOWN TYPE"
+	}
+}

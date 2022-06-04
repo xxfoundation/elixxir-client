@@ -143,7 +143,7 @@ func Connect(recipient contact.Contact, myId *id.ID, privKey *cyclic.Int,
 	cb := func(connection Connection) {
 		signalChannel <- connection
 	}
-	callback := getAuthCallback(cb, e2eHandler, p)
+	callback := getAuthCallback(cb, nil, e2eHandler, p)
 
 	// Build auth object for E2E negotiation
 	authState, err := auth.NewState(kv, net, e2eHandler,
@@ -200,7 +200,7 @@ func StartServer(cb Callback, myId *id.ID, privKey *cyclic.Int,
 	}
 
 	// Build callback for E2E negotiation
-	callback := getAuthCallback(cb, e2eHandler, p)
+	callback := getAuthCallback(nil, cb, e2eHandler, p)
 
 	// Build auth object for E2E negotiation
 	authState, err := auth.NewState(kv, net, e2eHandler,
@@ -265,7 +265,8 @@ func (h *handler) Unregister(listenerID receive.ListenerID) {
 // building new Connection objects when an auth Request is received.
 type authCallback struct {
 	// Used for signaling confirmation of E2E partnership
-	connectionCallback Callback
+	confrimCallback Callback
+	requestCallback Callback
 
 	// Used for building new Connection objects
 	connectionE2e    clientE2e.Handler
@@ -275,12 +276,14 @@ type authCallback struct {
 
 // getAuthCallback returns a callback interface to be passed into the creation
 // of an auth.State object.
-func getAuthCallback(cb Callback, e2e clientE2e.Handler,
+// it will accept requests only if a request callback is passed in
+func getAuthCallback(confirm, request Callback, e2e clientE2e.Handler,
 	params Params) *authCallback {
 	return &authCallback{
-		connectionCallback: cb,
-		connectionE2e:      e2e,
-		connectionParams:   params,
+		confrimCallback:  confirm,
+		requestCallback:  request,
+		connectionE2e:    e2e,
+		connectionParams: params,
 	}
 }
 
@@ -296,25 +299,49 @@ func (a authCallback) Confirm(requestor contact.Contact,
 		jww.ERROR.Printf("Unable to build connection with "+
 			"partner %s: %+v", requestor.ID, err)
 		// Send a nil connection to avoid hold-ups down the line
-		a.connectionCallback(nil)
+		if a.confrimCallback != nil {
+			a.confrimCallback(nil)
+		}
+
 		return
 	}
 
 	// Return the new Connection object
-	a.connectionCallback(BuildConnection(newPartner, a.connectionE2e,
-		a.connectionParams))
+	if a.confrimCallback != nil {
+		a.confrimCallback(BuildConnection(newPartner, a.connectionE2e,
+			a.connectionParams))
+	}
+
 }
 
 // Request will be called when an auth Request message is processed.
 func (a authCallback) Request(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	if a.requestCallback == nil {
+		jww.ERROR.Printf("Recieved a request when requests are" +
+			"not enable, will not accept")
+	}
 	_, err := a.authState.Confirm(requestor)
 	if err != nil {
 		jww.ERROR.Printf("Unable to build connection with "+
 			"partner %s: %+v", requestor.ID, err)
 		// Send a nil connection to avoid hold-ups down the line
-		a.connectionCallback(nil)
+		a.requestCallback(nil)
 	}
+	// After confirmation, get the new partner
+	newPartner, err := a.connectionE2e.GetPartner(requestor.ID)
+	if err != nil {
+		jww.ERROR.Printf("Unable to build connection with "+
+			"partner %s: %+v", requestor.ID, err)
+		// Send a nil connection to avoid hold-ups down the line
+		a.requestCallback(nil)
+
+		return
+	}
+
+	// Return the new Connection object
+	a.requestCallback(BuildConnection(newPartner, a.connectionE2e,
+		a.connectionParams))
 }
 
 // Reset will be called when an auth Reset operation occurs.

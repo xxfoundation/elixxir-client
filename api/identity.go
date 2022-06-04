@@ -3,6 +3,7 @@ package api
 import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
@@ -16,35 +17,32 @@ type Identity struct {
 }
 
 // MakeIdentity generates a new cryptographic identity for receiving messages
-func (c *Client) MakeIdentity() (*Identity, error) {
-	stream := c.GetRng().GetStream()
-	defer stream.Close()
-
+func MakeIdentity(rng csprng.Source, grp *cyclic.Group) (Identity, error) {
 	//make RSA Key
-	rsaKey, err := rsa.GenerateKey(stream,
+	rsaKey, err := rsa.GenerateKey(rng,
 		rsa.DefaultRSABitLen)
 	if err != nil {
-		return nil, err
+		return Identity{}, err
 	}
 
 	//make salt
 	salt := make([]byte, 32)
-	_, err = stream.Read(salt)
+	_, err = rng.Read(salt)
 
 	//make dh private key
 	privkey := diffieHellman.GeneratePrivateKey(
-		len(c.GetStorage().GetE2EGroup().GetPBytes()),
-		c.GetStorage().GetE2EGroup(), stream)
+		len(grp.GetPBytes()),
+		grp, rng)
 
 	//make the ID
 	id, err := xx.NewID(rsaKey.GetPublic(),
 		salt, id.User)
 	if err != nil {
-		return nil, err
+		return Identity{}, err
 	}
 
 	//create the identity object
-	I := &Identity{
+	I := Identity{
 		ID:            id,
 		RSAPrivatePem: rsaKey,
 		Salt:          salt,

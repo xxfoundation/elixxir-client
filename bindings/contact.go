@@ -30,8 +30,8 @@ type Identity struct {
 // MakeIdentity generates a new cryptographic identity for receiving messages
 func (c *Client) MakeIdentity() ([]byte, error) {
 	s := c.api.GetRng().GetStream()
+	defer s.Close()
 	ident, err := api.MakeIdentity(s, c.api.GetStorage().GetE2EGroup())
-	s.Close()
 
 	dhPrivJson, err := ident.DHKeyPrivate.MarshalJSON()
 	if err != nil {

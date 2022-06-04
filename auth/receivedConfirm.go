@@ -98,7 +98,9 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 			"%s : %+v", rcs.GetPartner(), receptionID.Source, err)
 	}
 
-	rcs.s.backupTrigger("received confirmation from request")
+	if rcs.s.backupTrigger != nil {
+		rcs.s.backupTrigger("received confirmation from request")
+	}
 
 	// remove the service used for notifications of the confirm
 	state.net.DeleteService(receptionID.Source, rcs.notificationsService, nil)

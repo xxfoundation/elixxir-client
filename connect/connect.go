@@ -289,7 +289,7 @@ func (a authCallback) Confirm(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	jww.DEBUG.Printf("Connection auth request for %s confirmed",
 		requestor.ID.String())
-
+	jww.INFO.Printf("[FIND]confirming - getting partner")
 	// After confirmation, get the new partner
 	newPartner, err := a.connectionE2e.GetPartner(requestor.ID)
 	if err != nil {
@@ -300,6 +300,7 @@ func (a authCallback) Confirm(requestor contact.Contact,
 		return
 	}
 
+	jww.INFO.Printf("[FIND]confirming - building conenction and returning")
 	// Return the new Connection object
 	a.connectionCallback(BuildConnection(newPartner, a.connectionE2e,
 		a.connectionParams))

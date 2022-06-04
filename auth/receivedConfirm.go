@@ -88,7 +88,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 			"confirmation of %s", rcs.GetPartner())
 		return
 	}
-
+	jww.INFO.Printf("[FIND]Adding Partner")
 	// add the partner
 	p := session.GetDefaultParams()
 	_, err = state.e2e.AddPartner(rcs.GetPartner(), partnerPubKey,
@@ -97,12 +97,16 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 		jww.WARN.Printf("Failed to create channel with partner %s and "+
 			"%s : %+v", rcs.GetPartner(), receptionID.Source, err)
 	}
+	jww.INFO.Printf("[FIND]backup")
 
-	rcs.s.backupTrigger("received confirmation from request")
+	if rcs.s.backupTrigger != nil {
+		rcs.s.backupTrigger("received confirmation from request")
+	}
 
+	jww.INFO.Printf("[FIND]deleting service")
 	// remove the service used for notifications of the confirm
 	state.net.DeleteService(receptionID.Source, rcs.notificationsService, nil)
-
+	jww.INFO.Printf("[FIND]making contact")
 	// callbacks
 	c := contact.Contact{
 		ID:             rcs.GetPartner().DeepCopy(),
@@ -110,6 +114,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 		OwnershipProof: ecrFmt.GetOwnership(),
 		Facts:          make([]fact.Fact, 0),
 	}
+	jww.INFO.Printf("[FIND]adding callback")
 	state.callbacks.Confirm(c, receptionID, round)
 }
 

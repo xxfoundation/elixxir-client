@@ -46,7 +46,7 @@ func (s *Request) Request(method restlike.Method, path restlike.URI,
 	cb := func(msg *restlike.Message) {
 		signalChannel <- msg
 	}
-	s.Net.RegisterListener(catalog.XxMessage, response{responseCallback: cb})
+	s.Net.RegisterListener(catalog.XxMessage, &response{responseCallback: cb})
 
 	// Transmit the Message
 	_, _, _, err = s.Net.SendE2E(catalog.XxMessage, msg, e2eParams)
@@ -81,7 +81,7 @@ func (s *Request) AsyncRequest(method restlike.Method, path restlike.URI,
 	}
 
 	// Build callback for the response
-	s.Net.RegisterListener(catalog.XxMessage, response{responseCallback: cb})
+	s.Net.RegisterListener(catalog.XxMessage, &response{responseCallback: cb})
 
 	// Transmit the Message
 	_, _, _, err = s.Net.SendE2E(catalog.XxMessage, msg, e2eParams)

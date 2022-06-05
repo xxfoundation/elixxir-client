@@ -31,7 +31,7 @@ func TestSingleResponse_Callback(t *testing.T) {
 		Error:   "",
 	}
 
-	r := response{cb}
+	r := &response{cb}
 
 	testPayload, err := proto.Marshal(testMessage)
 	if err != nil {
@@ -61,7 +61,7 @@ func TestSingleResponse_Callback_ProtoErr(t *testing.T) {
 	cb := func(input *restlike.Message) {
 		resultChan <- input
 	}
-	r := response{cb}
+	r := &response{cb}
 
 	r.Hear(receive.Message{Payload: []byte("test")})
 

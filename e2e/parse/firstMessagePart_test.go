@@ -37,7 +37,6 @@ var expectedFMP = firstMessagePart{
 
 // Test that newFirstMessagePart returns a correctly made firstMessagePart.
 func Test_newFirstMessagePart(t *testing.T) {
-	testStr := []byte{'t', 'e', 's', 't', 'i', 'n', 'g', 's', 't', 'r', 'i', 'n', 'g'}
 	fmp := newFirstMessagePart(
 		catalog.XxMessage,
 		1077,

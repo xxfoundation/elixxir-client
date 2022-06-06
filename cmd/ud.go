@@ -181,7 +181,7 @@ var udCmd = &cobra.Command{
 				jww.FATAL.Panicf("BATCHADD: Couldn't read file: %+v", err)
 			}
 			restored, _, _, err := xxmutils.RestoreContactsFromBackup(
-				idListFile, client, userDiscoveryMgr, nil, nil)
+				idListFile, client, userDiscoveryMgr, nil)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}

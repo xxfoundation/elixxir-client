@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"gitlab.com/elixxir/client/api/messenger"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 
@@ -42,16 +43,6 @@ func Test_InitializeBackup(t *testing.T) {
 	case <-cbChan:
 	case <-time.After(10 * time.Millisecond):
 		t.Error("Timed out waiting for callback.")
-	}
-
-	// Check that the correct password is in storage
-	loadedPassword, err := loadPassword(b.kv)
-	if err != nil {
-		t.Errorf("Failed to load password: %+v", err)
-	}
-	if expectedPassword != loadedPassword {
-		t.Errorf("Loaded invalid key.\nexpected: %q\nreceived: %q",
-			expectedPassword, loadedPassword)
 	}
 
 	// Check that the key, salt, and params were saved to storage
@@ -121,17 +112,7 @@ func Test_ResumeBackup(t *testing.T) {
 		t.Errorf("ResumeBackup returned an error: %+v", err)
 	}
 
-	// Check that the correct password is in storage
-	loadedPassword, err := loadPassword(b.kv)
-	if err != nil {
-		t.Errorf("Failed to load password: %+v", err)
-	}
-	if expectedPassword != loadedPassword {
-		t.Errorf("Loaded invalid key.\nexpected: %q\nreceived: %q",
-			expectedPassword, loadedPassword)
-	}
-
-	// get key, salt, and parameters of resumed backup
+	// Get key, salt, and parameters of resumed backup
 	key2, salt2, _, err := loadBackup(b.kv)
 	if err != nil {
 		t.Errorf("Failed to load key, salt, and params from resumed "+
@@ -164,12 +145,12 @@ func Test_ResumeBackup(t *testing.T) {
 
 // Error path: Tests that ResumeBackup returns an error if no password is
 // present in storage.
-func Test_ResumeBackup_NoKeyError(t *testing.T) {
-	expectedErr := strings.Split(errLoadPassword, "%")[0]
-	kv := versioned.NewKV(ekv.MakeMemstore())
+func Test_resumeBackup_NoKeyError(t *testing.T) {
+	expectedErr := "object not found"
+	s := storage.InitTestingSession(t)
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	_, err := ResumeBackup(nil, &messenger.Container{}, newMockE2e(t), newMockSession(t),
-		newMockUserDiscovery(), kv, rngGen)
+		newMockUserDiscovery(), s.GetKV(), rngGen)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("ResumeBackup did not return the expected error when no "+
 			"password is present.\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -181,13 +162,8 @@ func Test_ResumeBackup_NoKeyError(t *testing.T) {
 func TestBackup_TriggerBackup(t *testing.T) {
 	cbChan := make(chan []byte)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
-	b := newTestBackup("MySuperSecurePassword", cb, t)
-
-	// get password
-	password, err := loadPassword(b.kv)
-	if err != nil {
-		t.Errorf("Failed to load password from storage: %+v", err)
-	}
+	password := "MySuperSecurePassword"
+	b := newTestBackup(password, cb, t)
 
 	collatedBackup := b.assembleBackup()
 
@@ -263,12 +239,6 @@ func TestBackup_StopBackup(t *testing.T) {
 	case r := <-cbChan:
 		t.Errorf("Callback received when it should not have been called: %q", r)
 	case <-time.After(10 * time.Millisecond):
-	}
-
-	// Make sure password is deleted
-	password, err := loadPassword(b.kv)
-	if err == nil || len(password) != 0 {
-		t.Errorf("Loaded password that should be deleted: %q", password)
 	}
 
 	// Make sure key, salt, and params are deleted

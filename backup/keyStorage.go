@@ -9,6 +9,7 @@ package backup
 
 import (
 	"bytes"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/backup"
@@ -99,30 +100,4 @@ func unmarshalBackup(buf []byte) (key, salt []byte, params backup.Params, err er
 	}
 
 	return
-}
-
-// savePassword saves the user's backup password to storage.
-func savePassword(password string, kv *versioned.KV) error {
-	obj := &versioned.Object{
-		Version:   passwordStorageVersion,
-		Timestamp: netTime.Now(),
-		Data:      []byte(password),
-	}
-
-	return kv.Set(passwordStorageKey, passwordStorageVersion, obj)
-}
-
-// loadPassword returns the user's backup password from storage.
-func loadPassword(kv *versioned.KV) (string, error) {
-	obj, err := kv.Get(passwordStorageKey, passwordStorageVersion)
-	if err != nil {
-		return "", err
-	}
-
-	return string(obj.Data), nil
-}
-
-// deletePassword deletes the user's backup password from storage.
-func deletePassword(kv *versioned.KV) error {
-	return kv.Delete(passwordStorageKey, passwordStorageVersion)
 }

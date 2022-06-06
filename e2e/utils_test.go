@@ -126,12 +126,14 @@ func (m *mockServices) DeleteService(
 
 type mockCmixHandler struct {
 	processorMap map[format.Fingerprint]message.Processor
+	serviceMap   map[string]message.Processor
 	sync.Mutex
 }
 
 func newMockCmixHandler() *mockCmixHandler {
 	return &mockCmixHandler{
 		processorMap: make(map[format.Fingerprint]message.Processor),
+		serviceMap:   make(map[string]message.Processor),
 	}
 }
 
@@ -172,7 +174,7 @@ func (m *mockCmix) GetMaxMessageLength() int {
 	return msg.ContentsSize()
 }
 
-func (m *mockCmix) Send(_ *id.ID, fp format.Fingerprint, _ message.Service,
+func (m *mockCmix) Send(_ *id.ID, fp format.Fingerprint, srv message.Service,
 	payload, mac []byte, _ cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 	m.handler.Lock()
 	defer m.handler.Unlock()
@@ -182,16 +184,20 @@ func (m *mockCmix) Send(_ *id.ID, fp format.Fingerprint, _ message.Service,
 	msg.SetMac(mac)
 	msg.SetKeyFP(fp)
 
-	if m.handler.processorMap[fp] == nil {
-		m.t.Errorf("No processor found for fingerprint %s", fp)
-		return 0, ephemeral.Id{},
-			errors.Errorf("No processor found for fingerprint %s", fp)
+	if m.handler.processorMap[fp] != nil {
+		m.handler.processorMap[fp].Process(
+			msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+		return 0, ephemeral.Id{}, nil
+	} else if m.handler.serviceMap[srv.Tag] != nil {
+		m.handler.serviceMap[srv.Tag].Process(
+			msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+		return 0, ephemeral.Id{}, nil
 	}
 
-	m.handler.processorMap[fp].Process(
-		msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+	m.t.Errorf("No processor found for fingerprint %s", fp)
+	return 0, ephemeral.Id{},
+		errors.Errorf("No processor found for fingerprint %s", fp)
 
-	return 0, ephemeral.Id{}, nil
 }
 
 func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
@@ -214,8 +220,14 @@ func (m *mockCmix) DeleteFingerprint(_ *id.ID, fp format.Fingerprint) {
 	m.handler.Unlock()
 }
 
+func (m *mockCmix) AddService(myId *id.ID, srv message.Service, proc message.Processor) {
+	m.handler.Lock()
+	m.handler.serviceMap[srv.Tag] = proc
+	m.handler.Unlock()
+
+}
+
 func (m *mockCmix) DeleteClientFingerprints(*id.ID)                          {}
-func (m *mockCmix) AddService(*id.ID, message.Service, message.Processor)    {}
 func (m *mockCmix) DeleteService(*id.ID, message.Service, message.Processor) {}
 func (m *mockCmix) DeleteClientService(*id.ID)                               {}
 func (m *mockCmix) TrackServices(message.ServicesTracker)                    {}

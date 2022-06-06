@@ -69,7 +69,7 @@ func TestPartitioner_Partition(t *testing.T) {
 // Test that Partitioner.HandlePartition can handle a message part.
 func TestPartitioner_HandlePartition(t *testing.T) {
 	p := NewPartitioner(versioned.NewKV(ekv.MakeMemstore()), len(ipsumTestStr))
-	m := newMessagePart(1107, 1, []byte(ipsumTestStr))
+	m := newMessagePart(1107, 1, []byte(ipsumTestStr), len(ipsumTestStr)+headerLen)
 
 	_, _ = p.HandlePartition(
 		&id.DummyUser,
@@ -82,7 +82,7 @@ func TestPartitioner_HandlePartition(t *testing.T) {
 func TestPartitioner_HandleFirstPartition(t *testing.T) {
 	p := NewPartitioner(versioned.NewKV(ekv.MakeMemstore()), len(ipsumTestStr))
 	m := newFirstMessagePart(
-		catalog.XxMessage, 1107, 1, netTime.Now(), []byte(ipsumTestStr))
+		catalog.XxMessage, 1107, 1, netTime.Now(), []byte(ipsumTestStr), len([]byte(ipsumTestStr))+firstHeaderLen)
 
 	_, _ = p.HandlePartition(
 		&id.DummyUser,

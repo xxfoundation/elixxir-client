@@ -23,7 +23,8 @@ import (
 )
 
 func TestManager_SendUnsafe(t *testing.T) {
-	streamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
+	streamGen := fastRNG.NewStreamGenerator(12,
+		1024, csprng.NewSystemRNG)
 	rng := streamGen.GetStream()
 	defer rng.Close()
 	netHandler := newMockCmixHandler()
@@ -70,7 +71,7 @@ func TestManager_SendUnsafe(t *testing.T) {
 	}
 
 	receiveChan := make(chan receive.Message, 10)
-	m2.Switchboard.RegisterListener(partnerID, catalog.NoType, &mockListener{receiveChan})
+	m2.Switchboard.RegisterListener(myID, catalog.NoType, &mockListener{receiveChan})
 
 	partnerPrivKey := dh.GeneratePrivateKey(
 		dh.DefaultPrivateKeyLength, m2.grp, rng)
@@ -84,6 +85,9 @@ func TestManager_SendUnsafe(t *testing.T) {
 
 	m1.Ratchet, err = ratchet.Load(
 		partnerKv, partnerID, m2.grp, partnerFpGen, partnerServices, streamGen)
+
+	m1.EnableUnsafeReception()
+	m2.EnableUnsafeReception()
 
 	// Generate partner identity and add partner
 	partnerPubKey, partnerSidhPubKey, mySidhPrivKey, sessionParams :=

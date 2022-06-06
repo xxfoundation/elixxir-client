@@ -9,6 +9,7 @@ package parse
 
 import (
 	"encoding/binary"
+	"fmt"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -43,6 +44,9 @@ func newFirstMessagePart(mt catalog.MessageType, id uint32, numParts uint8,
 	// Create the message structure
 	m := firstMessagePartFromBytes(make([]byte, size))
 
+	fmt.Printf("len of contents: %d"+
+		"\nsize: %d\n"+
+		"len m.contents: %d\n", len(contents), size, len(m.Contents))
 	// Set the message type
 	binary.BigEndian.PutUint32(m.Type, uint32(mt))
 

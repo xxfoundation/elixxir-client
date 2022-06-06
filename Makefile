@@ -20,7 +20,7 @@ update_release:
 	GOFLAGS="" go get gitlab.com/xx_network/primitives@release
 	GOFLAGS="" go get gitlab.com/elixxir/primitives@release
 	GOFLAGS="" go get gitlab.com/xx_network/crypto@release
-	GOFLAGS="" go get gitlab.com/elixxir/crypto@singleUseMultiPartRequest
+	GOFLAGS="" go get gitlab.com/elixxir/crypto@release
 	GOFLAGS="" go get gitlab.com/xx_network/comms@release
 	GOFLAGS="" go get gitlab.com/elixxir/comms@release
 	GOFLAGS="" go get gitlab.com/elixxir/ekv@master

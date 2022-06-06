@@ -11,7 +11,6 @@ import (
 	"bytes"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/large"
@@ -26,22 +25,14 @@ func TestNewStore(t *testing.T) {
 	vkv := versioned.NewKV(kv)
 
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
-	priv := grp.NewInt(2)
-	pub := diffieHellman.GeneratePublicKey(priv, grp)
 
-	store, err := NewStore(grp, vkv, priv)
+	store, err := NewStore(grp, vkv)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
 	if store.nodes == nil {
 		t.Errorf("Failed to initialize nodes")
-	}
-	if store.GetDHPrivateKey() == nil || store.GetDHPrivateKey().Cmp(priv) != 0 {
-		t.Errorf("Failed to set store.dhPrivateKey correctly")
-	}
-	if store.GetDHPublicKey() == nil || store.GetDHPublicKey().Cmp(pub) != 0 {
-		t.Errorf("Failed to set store.dhPublicKey correctly")
 	}
 	if store.grp == nil {
 		t.Errorf("Failed to set store.grp")
@@ -132,12 +123,6 @@ func TestLoadStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to load store: %+v", err)
 	}
-	if store.GetDHPublicKey().Cmp(testStore.GetDHPublicKey()) != 0 {
-		t.Errorf("LoadStore failed to load public key")
-	}
-	if store.GetDHPrivateKey().Cmp(testStore.GetDHPrivateKey()) != 0 {
-		t.Errorf("LoadStore failed to load public key")
-	}
 	if len(store.nodes) != len(testStore.nodes) {
 		t.Errorf("LoadStore failed to load node keys")
 	}
@@ -221,7 +206,7 @@ func TestStore_Count(t *testing.T) {
 	vkv := versioned.NewKV(make(ekv.Memstore))
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
-	store, err := NewStore(grp, vkv, grp.NewInt(2))
+	store, err := NewStore(grp, vkv)
 	if err != nil {
 		t.Fatalf("Failed to generate new Store: %+v", err)
 	}
@@ -249,9 +234,8 @@ func makeTestStore() (*Store, *versioned.KV) {
 	vkv := versioned.NewKV(kv)
 
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
-	priv := grp.NewInt(2)
 
-	testStore, _ := NewStore(grp, vkv, priv)
+	testStore, _ := NewStore(grp, vkv)
 
 	return testStore, vkv
 }

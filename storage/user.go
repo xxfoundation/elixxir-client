@@ -22,8 +22,6 @@ func (s *Session) GetUser() user.User {
 		ReceptionSalt:         copySlice(ci.GetReceptionSalt()),
 		ReceptionRSA:          ci.GetReceptionRSA(),
 		Precanned:             ci.IsPrecanned(),
-		CmixDhPrivateKey:      s.cmix.GetDHPrivateKey().DeepCopy(),
-		CmixDhPublicKey:       s.cmix.GetDHPublicKey().DeepCopy(),
 		E2eDhPrivateKey:       s.e2e.GetDHPrivateKey().DeepCopy(),
 		E2eDhPublicKey:        s.e2e.GetDHPublicKey().DeepCopy(),
 	}

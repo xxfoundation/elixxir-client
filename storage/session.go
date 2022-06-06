@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/client/storage/hostList"
 	"gitlab.com/elixxir/client/storage/rounds"
+	"gitlab.com/elixxir/client/storage/ud"
 	"gitlab.com/xx_network/primitives/rateLimiting"
 	"sync"
 	"testing"
@@ -74,6 +75,7 @@ type Session struct {
 	hostList            *hostList.Store
 	edgeCheck           *edge.Store
 	ringBuff            *conversation.Buff
+	ud                  *ud.Store
 }
 
 // Initialize a new Session object
@@ -116,7 +118,7 @@ func New(baseDir, password string, u userInterface.User,
 	}
 	uid := s.user.GetCryptographicIdentity().GetReceptionID()
 
-	s.cmix, err = cmix.NewStore(cmixGrp, s.kv, u.CmixDhPrivateKey)
+	s.cmix, err = cmix.NewStore(cmixGrp, s.kv)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create cmix store")
 	}
@@ -177,6 +179,11 @@ func New(baseDir, password string, u userInterface.User,
 
 	s.bucketStore = utility.NewStoredBucket(uint32(rateLimitParams.Capacity), uint32(rateLimitParams.LeakedTokens),
 		time.Duration(rateLimitParams.LeakDuration), s.kv)
+
+	s.ud, err = ud.NewStore(s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create ud store")
+	}
 
 	return s, nil
 }
@@ -275,6 +282,11 @@ func Load(baseDir, password string, currentVersion version.Version,
 			"Failed to load bucket store")
 	}
 
+	s.ud, err = ud.NewOrLoadStore(s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load ud store")
+	}
+
 	return s, nil
 }
 
@@ -364,6 +376,12 @@ func (s *Session) GetEdge() *edge.Store {
 	return s.edgeCheck
 }
 
+func (s *Session) GetUd() *ud.Store {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.ud
+}
+
 // GetBucketParams returns the bucket params store.
 func (s *Session) GetBucketParams() *utility.BucketParamStore {
 	s.mux.RLock()
@@ -445,7 +463,7 @@ func InitTestingSession(i interface{}) *Session {
 			"3A10B1C4D203CC76A470A33AFDCBDD92959859ABD8B56E1725252D78EAC66E71"+
 			"BA9AE3F1DD2487199874393CD4D832186800654760E1E34C09E4D155179F9EC0"+
 			"DC4473F996BDCE6EED1CABED8B6F116F7AD9CF505DF0F998E34AB27514B0FFE7", 16))
-	cmixStore, err := cmix.NewStore(cmixGrp, kv, cmixGrp.NewInt(2))
+	cmixStore, err := cmix.NewStore(cmixGrp, kv)
 	if err != nil {
 		jww.FATAL.Panicf("InitTestingSession failed to create dummy cmix session: %+v", err)
 	}
@@ -508,6 +526,11 @@ func InitTestingSession(i interface{}) *Session {
 	//if err != nil {
 	//	jww.FATAL.Panicf("Failed to create ring buffer store: %+v", err)
 	//}
+
+	s.ud, err = ud.NewStore(s.kv)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to create ud store: %v", err)
+	}
 
 	return s
 }

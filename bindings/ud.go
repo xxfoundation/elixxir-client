@@ -9,12 +9,13 @@ package bindings
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 // This package wraps the user discovery system
@@ -38,6 +39,55 @@ func NewUserDiscovery(client *Client) (*UserDiscovery, error) {
 	}
 	m, err := ud.NewManager(&client.api, single)
 
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
+	} else {
+		return &UserDiscovery{ud: m}, nil
+	}
+}
+
+// NewUserDiscoveryFromBackup returns a new user discovery object. It
+// wil set up the manager with the backup data. Pass into it the backed up
+// facts, one email and phone number each. This will add the registered facts
+// to the backed Store. Any one of these fields may be empty,
+// however both fields being empty will cause an error. Any other fact that is not
+// an email or phone number will return an error. You may only add a fact for the
+// accepted types once each. If you attempt to back up a fact type that has already
+// been backed up, an error will be returned. Anytime an error is returned, it means
+// the backup was not successful.
+// NOTE: Do not use this as a direct store operation. This feature is intended to add facts
+// to a backend store that have ALREADY BEEN REGISTERED on the account.
+// THIS IS NOT FOR ADDING NEWLY REGISTERED FACTS. That is handled on the backend.
+// Only call this once. It must be called after StartNetworkFollower
+// is called and will fail if the network has never been contacted.
+// This function technically has a memory leak because it causes both sides of
+// the bindings to think the other is in charge of the client object.
+// In general this is not an issue because the client object should exist
+// for the life of the program.
+// This must be called while start network follower is running.
+func NewUserDiscoveryFromBackup(client *Client,
+	email, phone string) (*UserDiscovery, error) {
+	single, err := client.getSingle()
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
+	}
+
+	var emailFact, phoneFact fact.Fact
+	if len(email) > 2 {
+		emailFact, err = fact.UnstringifyFact(email)
+		if err != nil {
+			return nil, errors.WithMessagef(err, "Failed to parse malformed email fact: %s", email)
+		}
+	}
+
+	if len(phone) > 2 {
+		phoneFact, err = fact.UnstringifyFact(phone)
+		if err != nil {
+			return nil, errors.WithMessagef(err, "Failed to parse malformed phone fact: %s", phone)
+		}
+	}
+
+	m, err := ud.NewManagerFromBackup(&client.api, single, emailFact, phoneFact)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
 	} else {
@@ -306,4 +356,8 @@ func (ud *UserDiscovery) SetAlternativeUserDiscovery(address, cert, contactFile 
 // the Manager object.
 func (ud *UserDiscovery) UnsetAlternativeUserDiscovery() error {
 	return ud.ud.UnsetAlternativeUserDiscovery()
+}
+
+func WrapUserDiscovery(ud *ud.Manager) *UserDiscovery {
+	return &UserDiscovery{ud: ud}
 }

@@ -49,14 +49,13 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 		case rl := <-m.lookupRoundMessages:
 			ri := rl.roundInfo
 			jww.DEBUG.Printf("Checking for messages in round %d", ri.ID)
-			if !m.params.RealtimeOnly{
+			if !m.params.RealtimeOnly {
 				err := m.Session.UncheckedRounds().AddRound(id.Round(ri.ID), ri,
 					rl.identity.Source, rl.identity.EphId)
 				if err != nil {
 					jww.FATAL.Panicf("Failed to denote Unchecked Round for round %d", id.Round(ri.ID))
 				}
 			}
-
 
 			// Convert gateways in round to proper ID format
 			gwIds := make([]*id.ID, len(ri.Topology))
@@ -132,14 +131,13 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				m.messageBundles <- bundle
 
 				jww.DEBUG.Printf("Removing round %d from unchecked store", ri.ID)
-				if !m.params.RealtimeOnly{
+				if !m.params.RealtimeOnly {
 					err = m.Session.UncheckedRounds().Remove(id.Round(ri.ID), rl.identity.Source, rl.identity.EphId)
 					if err != nil {
 						jww.ERROR.Printf("Could not remove round %d "+
 							"from unchecked rounds store: %v", ri.ID, err)
 					}
 				}
-
 
 			}
 
@@ -196,13 +194,12 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 			" in round %d. This happening every once in a while is normal,"+
 			" but can be indicative of a problem if it is consistent",
 			m.TransmissionID, roundID)
-		if m.params.RealtimeOnly{
+		if m.params.RealtimeOnly {
 			err = m.Session.UncheckedRounds().Remove(roundID, identity.Source, identity.EphId)
 			if err != nil {
 				jww.ERROR.Printf("Failed to remove round %d: %+v", roundID, err)
 			}
 		}
-
 
 		return message.Bundle{}, nil
 	}

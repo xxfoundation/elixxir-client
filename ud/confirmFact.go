@@ -40,5 +40,14 @@ func (m *Manager) confirmFact(confirmationID, code string, comm confirmFactComm)
 		Code:           code,
 	}
 	_, err = comm.SendConfirmFact(host, msg)
-	return err
+	if err != nil {
+		return err
+	}
+
+	err = m.storage.GetUd().ConfirmFact(confirmationID)
+	if err != nil {
+		return errors.WithMessagef(err, "Failed to confirm fact in storage with confirmation ID: %q", confirmationID)
+	}
+
+	return nil
 }

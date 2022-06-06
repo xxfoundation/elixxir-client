@@ -9,108 +9,130 @@ package auth
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/edge"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	"io"
 )
 
-func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
-	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
+func (m *Manager) ConfirmRequestAuth(partner contact.Contact) (id.Round, error) {
 
 	/*edge checking*/
 
 	// check that messages can be sent over the network
-	if !net.GetHealthTracker().IsHealthy() {
+	if !m.net.GetHealthTracker().IsHealthy() {
 		return 0, errors.New("Cannot confirm authenticated message " +
 			"when the network is not healthy")
+	}
+	return m.confirmRequestAuth(partner, false)
+}
+
+func (m *Manager) confirmRequestAuth(partner contact.Contact, critical bool) (id.Round,
+	error) {
+
+	// Cannot confirm already established channels
+	if _, err := m.storage.E2e().GetPartner(partner.ID); err == nil {
+		em := fmt.Sprintf("Cannot ConfirmRequestAuth for %s, "+
+			"channel already exists. Ignoring", partner.ID)
+		jww.WARN.Print(em)
+		m.net.GetEventManager().Report(5, "Auth",
+			"ConfirmRequestAuthIgnored", em)
+		//exit
+		return 0, errors.New(em)
 	}
 
 	// check if the partner has an auth in progress
 	// this takes the lock, from this point forward any errors need to
 	// release the lock
-	storedContact, theirSidhKey, err := storage.Auth().GetReceivedRequest(
+	storedContact, theirSidhKey, err := m.storage.Auth().GetReceivedRequest(
 		partner.ID)
 	if err != nil {
 		return 0, errors.Errorf(
 			"failed to find a pending Auth Request: %s",
 			err)
 	}
-	defer storage.Auth().Done(partner.ID)
+	defer m.storage.Auth().Done(partner.ID)
 
 	// verify the passed contact matches what is stored
 	if storedContact.DhPubKey.Cmp(partner.DhPubKey) != 0 {
-		storage.Auth().Done(partner.ID)
 		return 0, errors.WithMessage(err,
 			"Pending Auth Request has different pubkey than stored")
 	}
 
-	grp := storage.E2e().GetGroup()
+	grp := m.storage.E2e().GetGroup()
 
 	/*cryptographic generation*/
 
-	//generate ownership proof
-	ownership := cAuth.MakeOwnershipProof(storage.E2e().GetDHPrivateKey(),
-		partner.DhPubKey, storage.E2e().GetGroup())
+	// generate ownership proof
+	ownership := cAuth.MakeOwnershipProof(m.storage.E2e().GetDHPrivateKey(),
+		partner.DhPubKey, m.storage.E2e().GetGroup())
 
-	//generate new keypair
-	newPrivKey := diffieHellman.GeneratePrivateKey(256, grp, rng)
-	newPubKey := diffieHellman.GeneratePublicKey(newPrivKey, grp)
+	rng := m.rng.GetStream()
 
+	// generate new keypair
+	dhGrp := grp
+	dhPriv, dhPub := genDHKeys(dhGrp, rng)
 	sidhVariant := util.GetCompatibleSIDHVariant(theirSidhKey.Variant())
-	newSIDHPrivKey := util.NewSIDHPrivateKey(sidhVariant)
-	newSIDHPubKey := util.NewSIDHPublicKey(sidhVariant)
-	newSIDHPrivKey.Generate(rng)
-	newSIDHPrivKey.GeneratePublicKey(newSIDHPubKey)
+	sidhPriv, sidhPub := util.GenerateSIDHKeyPair(sidhVariant, rng)
+
+	rng.Close()
 
 	/*construct message*/
 	// we build the payload before we save because it is technically fallible
 	// which can get into a bricked state if it fails
-	cmixMsg := format.NewMessage(storage.Cmix().GetGroup().GetP().ByteLen())
+	cmixMsg := format.NewMessage(m.storage.Cmix().GetGroup().GetP().ByteLen())
 	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen())
 	ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
 
 	// setup the encrypted payload
 	ecrFmt.SetOwnership(ownership)
-	ecrFmt.SetSidHPubKey(newSIDHPubKey)
+	ecrFmt.SetSidHPubKey(sidhPub)
 	// confirmation has no custom payload
 
-	//encrypt the payload
-	ecrPayload, mac := cAuth.Encrypt(newPrivKey, partner.DhPubKey,
+	// encrypt the payload
+	ecrPayload, mac := cAuth.Encrypt(dhPriv, partner.DhPubKey,
 		ecrFmt.data, grp)
 
-	//get the fingerprint from the old ownership proof
+	// get the fingerprint from the old ownership proof
 	fp := cAuth.MakeOwnershipProofFP(storedContact.OwnershipProof)
 	preimg := preimage.Generate(fp[:], preimage.Confirm)
 
-	//final construction
+	// final construction
 	baseFmt.SetEcrPayload(ecrPayload)
-	baseFmt.SetPubKey(newPubKey)
+	baseFmt.SetPubKey(dhPub)
 
 	cmixMsg.SetKeyFP(fp)
 	cmixMsg.SetMac(mac)
 	cmixMsg.SetContents(baseFmt.Marshal())
 
+	jww.TRACE.Printf("SendConfirm cMixMsg contents: %v",
+		cmixMsg.GetContents())
+
+	jww.TRACE.Printf("SendConfirm PARTNERPUBKEY: %v",
+		partner.DhPubKey.Bytes())
+	jww.TRACE.Printf("SendConfirm MYPUBKEY: %v", dhPub.Bytes())
+
+	jww.TRACE.Printf("SendConfirm ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
+	jww.TRACE.Printf("SendConfirm MAC: %v", mac)
+
 	// fixme: channel can get into a bricked state if the first save occurs and
 	// the second does not or the two occur and the storage into critical
 	// messages does not occur
 
-	events := net.GetEventManager()
+	events := m.net.GetEventManager()
 
-	//create local relationship
-	p := storage.E2e().GetE2ESessionParams()
-	if err := storage.E2e().AddPartner(partner.ID, partner.DhPubKey,
-		newPrivKey, theirSidhKey, newSIDHPrivKey,
+	// create local relationship
+	p := m.storage.E2e().GetE2ESessionParams()
+	if err := m.storage.E2e().AddPartner(partner.ID, partner.DhPubKey,
+		dhPriv, theirSidhKey, sidhPriv,
 		p, p); err != nil {
 		em := fmt.Sprintf("Failed to create channel with partner (%s) "+
 			"on confirmation, this is likley a replay: %s",
@@ -119,44 +141,13 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 		events.Report(10, "Auth", "SendConfirmError", em)
 	}
 
-	//add the preimages
-	sessionPartner, err := storage.E2e().GetPartner(partner.ID)
-	if err != nil {
-		jww.FATAL.Panicf("Cannot find %s right after creating: %+v", partner.ID, err)
-	}
-	me := storage.GetUser().ReceptionID
+	m.backupTrigger("confirmed authenticated channel")
 
-	//e2e
-	storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetE2EPreimage(),
-		Type:   preimage.E2e,
-		Source: partner.ID[:],
-	}, me)
-
-	//slient (rekey)
-	storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetSilentPreimage(),
-		Type:   preimage.Silent,
-		Source: partner.ID[:],
-	}, me)
-
-	// File transfer end
-	storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetFileTransferPreimage(),
-		Type:   preimage.EndFT,
-		Source: partner.ID[:],
-	}, me)
-
-	//group Request
-	storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetGroupRequestPreimage(),
-		Type:   preimage.GroupRq,
-		Source: partner.ID[:],
-	}, me)
+	addPreimages(partner.ID, m.storage)
 
 	// delete the in progress negotiation
 	// this unlocks the request lock
-	//fixme - do these deletes at a later date
+	// fixme - do these deletes at a later date
 	/*if err := storage.Auth().Delete(partner.ID); err != nil {
 		return 0, errors.Errorf("UNRECOVERABLE! Failed to delete in "+
 			"progress negotiation with partner (%s) after creating confirmation: %+v",
@@ -170,13 +161,26 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	param.IdentityPreimage = preimg
 	param.DebugTag = "auth.Confirm"
 	/*send message*/
-	round, _, err := net.SendCMIX(cmixMsg, partner.ID, param)
+	if critical {
+		m.storage.GetCriticalRawMessages().AddProcessing(cmixMsg,
+			partner.ID)
+	}
+	round, _, err := m.net.SendCMIX(cmixMsg, partner.ID, param)
 	if err != nil {
 		// if the send fails just set it to failed, it will but automatically
 		// retried
 		jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) failed "+
 			"to transmit: %+v", partner.ID, cmixMsg.Digest(), err)
+		if critical {
+			m.storage.GetCriticalRawMessages().Failed(cmixMsg,
+				partner.ID)
+		}
 		return 0, errors.WithMessage(err, "Auth Confirm Failed to transmit")
+	}
+
+	if critical {
+		m.storage.GetCriticalRawMessages().Succeeded(cmixMsg,
+			partner.ID)
 	}
 
 	em := fmt.Sprintf("Confirm Request with %s (msgDigest: %s) sent on round %d",
@@ -185,4 +189,66 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	events.Report(1, "Auth", "SendConfirm", em)
 
 	return round, nil
+}
+
+func addPreimages(partner *id.ID, store *storage.Session) {
+	// add the preimages
+	sessionPartner, err := store.E2e().GetPartner(partner)
+	if err != nil {
+		jww.FATAL.Panicf("Cannot find %s right after creating: %+v",
+			partner, err)
+	}
+
+	// Delete any known pre-existing edges for this partner
+	existingEdges, _ := store.GetEdge().Get(partner)
+	for i := range existingEdges {
+		delete := true
+		switch existingEdges[i].Type {
+		case preimage.E2e:
+		case preimage.Silent:
+		case preimage.EndFT:
+		case preimage.GroupRq:
+		default:
+			delete = false
+		}
+
+		if delete {
+			err = store.GetEdge().Remove(existingEdges[i], partner)
+			if err != nil {
+				jww.ERROR.Printf(
+					"Unable to delete %s edge for %s: %v",
+					existingEdges[i].Type, partner, err)
+			}
+		}
+	}
+
+	me := store.GetUser().ReceptionID
+
+	// e2e
+	store.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetE2EPreimage(),
+		Type:   preimage.E2e,
+		Source: partner[:],
+	}, me)
+
+	// silent (rekey)
+	store.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetSilentPreimage(),
+		Type:   preimage.Silent,
+		Source: partner[:],
+	}, me)
+
+	// File transfer end
+	store.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetFileTransferPreimage(),
+		Type:   preimage.EndFT,
+		Source: partner[:],
+	}, me)
+
+	// group Request
+	store.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetGroupRequestPreimage(),
+		Type:   preimage.GroupRq,
+		Source: partner[:],
+	}, me)
 }

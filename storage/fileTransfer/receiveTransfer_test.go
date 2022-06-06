@@ -557,7 +557,7 @@ func TestReceivedTransfer_AddPart(t *testing.T) {
 	cmixMsg.SetMac(mac)
 
 	// Add encrypted part
-	complete, err := rt.AddPart(cmixMsg,fpNum)
+	complete, err := rt.AddPart(cmixMsg, fpNum)
 	if err != nil {
 		t.Errorf("AddPart returned an error: %+v", err)
 	}

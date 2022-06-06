@@ -75,6 +75,10 @@ func (m *Manager) addFact(inFact fact.Fact, uid *id.ID, aFC addFactComms) (strin
 		confirmationID = response.ConfirmationID
 	}
 
+	err = m.storage.GetUd().StoreUnconfirmedFact(confirmationID, f)
+	if err != nil {
+		return "", errors.WithMessagef(err, "Failed to store unconfirmed fact %v", f.Fact)
+	}
 	// Return the error
 	return confirmationID, err
 }

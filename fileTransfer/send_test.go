@@ -650,7 +650,7 @@ func TestManager_newCmixMessage(t *testing.T) {
 		t.Errorf("Failed to create a new SentTransfer: %+v", err)
 	}
 
-	cmixMsg, err := m.newCmixMessage(transfer, 0, prng)
+	cmixMsg, err := m.newCmixMessage(transfer, 0)
 	if err != nil {
 		t.Errorf("newCmixMessage returned an error: %+v", err)
 	}
@@ -663,7 +663,7 @@ func TestManager_newCmixMessage(t *testing.T) {
 	}
 
 	decrPart, err := ftCrypto.DecryptPart(key, cmixMsg.GetContents(),
-		 cmixMsg.GetMac(), 0,cmixMsg.GetKeyFP())
+		cmixMsg.GetMac(), 0, cmixMsg.GetKeyFP())
 	if err != nil {
 		t.Errorf("Failed to decrypt file part: %+v", err)
 	}
@@ -888,13 +888,11 @@ func TestManager_sendEndE2eMessage(t *testing.T) {
 	p := params.GetDefaultE2ESessionParams()
 
 	rng := csprng.NewSystemRNG()
-	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA,
-		rng)
-	theirSidhPub, _ := util.GenerateSIDHKeyPair(
-		sidh.KeyVariantSidhB, rng)
+	_, mySidhPriv := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhA, rng)
+	theirSidhPub, _ := util.GenerateSIDHKeyPair(sidh.KeyVariantSidhB, rng)
 
-	err := m.store.E2e().AddPartner(recipient, pubKey, dhKey, mySidhPriv,
-		theirSidhPub, p, p)
+	err := m.store.E2e().AddPartner(
+		recipient, pubKey, dhKey, mySidhPriv, theirSidhPub, p, p)
 	if err != nil {
 		t.Errorf("Failed to add partner %s: %+v", recipient, err)
 	}
@@ -1007,7 +1005,7 @@ func TestManager_getPartSize(t *testing.T) {
 	primeByteLen := m.store.Cmix().GetGroup().GetP().ByteLen()
 	cmixMsgUsedLen := format.AssociatedDataSize
 	filePartMsgUsedLen := ftStorage.FmMinSize
-	expected := 2*primeByteLen - cmixMsgUsedLen - filePartMsgUsedLen-1
+	expected := 2*primeByteLen - cmixMsgUsedLen - filePartMsgUsedLen - 1
 
 	// Get the part size
 	partSize, err := m.getPartSize()

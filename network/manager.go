@@ -11,9 +11,12 @@ package network
 // and intraclient state are accessible through the context object.
 
 import (
-	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"math"
+	"sync/atomic"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -34,9 +37,6 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"math"
-	"sync/atomic"
-	"time"
 )
 
 // fakeIdentityRange indicates the range generated between
@@ -133,6 +133,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	poolParams.HostParams.KaClientOpts.Time = time.Duration(math.MaxInt64)
 	// Enable optimized HostPool initialization
 	poolParams.MaxPings = 50
+	poolParams.ForceConnection = true
 	m.sender, err = gateway.NewSender(poolParams, rng,
 		ndf, comms, session, m.NodeRegistration)
 	if err != nil {
@@ -184,7 +185,7 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	multi.Add(trackNetworkStopper)
 
 	// Message reception
-	multi.Add(m.message.StartProcessies())
+	multi.Add(m.message.StartProcesses())
 
 	// Round processing
 	multi.Add(m.round.StartProcessors())
@@ -265,10 +266,12 @@ func (m *manager) SetFakeEarliestRound(rnd id.Round) {
 
 // GetFakeEarliestRound generates a random earliest round for a fake identity.
 func (m *manager) GetFakeEarliestRound() id.Round {
-	b, err := csprng.Generate(8, rand.Reader)
+	rng := m.Rng.GetStream()
+	b, err := csprng.Generate(8, rng)
 	if err != nil {
 		jww.FATAL.Panicf("Could not get random number: %v", err)
 	}
+	rng.Close()
 
 	rangeVal := binary.LittleEndian.Uint64(b) % 800
 

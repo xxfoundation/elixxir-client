@@ -1,6 +1,7 @@
 package ud
 
 import (
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/fact"
@@ -39,12 +40,23 @@ func TestRemoveFact(t *testing.T) {
 		net:        newTestNetworkManager(t),
 		privKey:    cpk,
 		registered: &isReg,
+		storage:    storage.InitTestingSession(t),
 		myID:       &id.ID{},
 	}
 
 	f := fact.Fact{
 		Fact: "testing",
 		T:    2,
+	}
+
+	// Set up storage for expected state
+	confirmId := "test"
+	if err = m.storage.GetUd().StoreUnconfirmedFact(confirmId, f); err != nil {
+		t.Fatalf("StoreUnconfirmedFact error: %v", err)
+	}
+
+	if err = m.storage.GetUd().ConfirmFact(confirmId); err != nil {
+		t.Fatalf("ConfirmFact error: %v", err)
 	}
 
 	tRFC := testRFC{}

@@ -152,7 +152,7 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	copy(fmp.Timestamp, ts)
 	msg.SetContents(fmp.Bytes())
 	encryptedMsg := key.Encrypt(msg)
-	msg.SetIdentityFP(fingerprint.IdentityFP( msg.GetContents(), preimage.Data))
+	msg.SetIdentityFP(fingerprint.IdentityFP(msg.GetContents(), preimage.Data))
 	i.Session.GetGarbledMessages().Add(encryptedMsg)
 
 	stop := stoppable.NewSingle("stop")

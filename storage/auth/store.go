@@ -9,6 +9,8 @@ package auth
 
 import (
 	"encoding/json"
+	"sync"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -20,7 +22,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 )
 
 const NoRequest = "Request Not Found"
@@ -31,11 +32,12 @@ const requestMapKey = "map"
 const requestMapVersion = 0
 
 type Store struct {
-	kv           *versioned.KV
-	grp          *cyclic.Group
-	requests     map[id.ID]*request
-	fingerprints map[format.Fingerprint]fingerprint
-	mux          sync.RWMutex
+	kv                   *versioned.KV
+	grp                  *cyclic.Group
+	requests             map[id.ID]*request
+	fingerprints         map[format.Fingerprint]fingerprint
+	previousNegotiations map[id.ID]struct{}
+	mux                  sync.RWMutex
 }
 
 // NewStore creates a new store. All passed in private keys are added as
@@ -43,10 +45,11 @@ type Store struct {
 func NewStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*Store, error) {
 	kv = kv.Prefix(storePrefix)
 	s := &Store{
-		kv:           kv,
-		grp:          grp,
-		requests:     make(map[id.ID]*request),
-		fingerprints: make(map[format.Fingerprint]fingerprint),
+		kv:                   kv,
+		grp:                  grp,
+		requests:             make(map[id.ID]*request),
+		fingerprints:         make(map[format.Fingerprint]fingerprint),
+		previousNegotiations: make(map[id.ID]struct{}),
 	}
 
 	for _, key := range privKeys {
@@ -57,6 +60,12 @@ func NewStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*Sto
 			PrivKey: key,
 			Request: nil,
 		}
+	}
+
+	err := s.savePreviousNegotiations()
+	if err != nil {
+		return nil, errors.Errorf(
+			"failed to load previousNegotiations partners: %+v", err)
 	}
 
 	return s, s.save()
@@ -72,10 +81,11 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 	}
 
 	s := &Store{
-		kv:           kv,
-		grp:          grp,
-		requests:     make(map[id.ID]*request),
-		fingerprints: make(map[format.Fingerprint]fingerprint),
+		kv:                   kv,
+		grp:                  grp,
+		requests:             make(map[id.ID]*request),
+		fingerprints:         make(map[format.Fingerprint]fingerprint),
+		previousNegotiations: make(map[id.ID]struct{}),
 	}
 
 	for _, key := range privKeys {
@@ -141,8 +151,15 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 			jww.FATAL.Panicf("Unknown request type: %d", r.rt)
 		}
 
-		//store in the request map
+		// store in the request map
 		s.requests[*rid] = r
+	}
+
+	// Load previous negotiations from storage
+	s.previousNegotiations, err = s.newOrLoadPreviousNegotiations()
+	if err != nil {
+		return nil, errors.Errorf("failed to load list of previouse "+
+			"negotation partner IDs: %+v", err)
 	}
 
 	return s, nil
@@ -270,6 +287,20 @@ func (s *Store) GetAllReceived() []contact.Contact {
 		r := s.requests[key]
 		if r.rt == Receive {
 			cList = append(cList, *r.receive)
+		}
+	}
+	return cList
+}
+
+// GetAllReceived returns all pending received contact requests from storage.
+func (s *Store) GetAllSentIDs() []*id.ID {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	cList := make([]*id.ID, 0, len(s.requests))
+	for key := range s.requests {
+		r := s.requests[key]
+		if r.rt == Sent {
+			cList = append(cList, r.sent.partner)
 		}
 	}
 	return cList
@@ -429,6 +460,11 @@ func (s *Store) Delete(partner *id.ID) error {
 			"deletion: %+v", err)
 	}
 
+	err := s.deletePreviousNegotiationPartner(partner)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to delete partner negotiations: %+v", err)
+	}
+
 	return nil
 }
 
@@ -453,6 +489,36 @@ func (s *Store) DeleteAllRequests() error {
 	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to store updated request map after "+
 			"deleting all requests: %+v", err)
+	}
+
+	return nil
+}
+
+// DeleteRequest deletes a request from Store given a partner ID.
+// If the partner ID exists as a request,  then the request will be deleted
+// and the state stored. If the partner does not exist, then an error will
+// be returned.
+func (s *Store) DeleteRequest(partnerId *id.ID) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	req, ok := s.requests[*partnerId]
+	if !ok {
+		return errors.Errorf("Request for %s does not exist", partnerId)
+	}
+
+	switch req.rt {
+	case Sent:
+		s.deleteSentRequest(req)
+	case Receive:
+		s.deleteReceiveRequest(req)
+	}
+
+	delete(s.requests, *partnerId)
+
+	if err := s.save(); err != nil {
+		jww.FATAL.Panicf("Failed to store updated request map after "+
+			"deleting receive request for partner %s: %+v", partnerId, err)
 	}
 
 	return nil

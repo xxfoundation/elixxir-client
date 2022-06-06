@@ -88,6 +88,9 @@ func TestLoadStore(t *testing.T) {
 		t.Fatalf("AddSent() produced an error: %+v", err)
 	}
 
+	s.AddIfNew(
+		sr.partner, auth.CreateNegotiationFingerprint(privKeys[0], sidhPubKey))
+
 	// Attempt to load the store
 	store, err := LoadStore(kv, s.grp, privKeys)
 	if err != nil {
@@ -901,6 +904,28 @@ func TestStore_GetAllReceived_MixSentReceived(t *testing.T) {
 			"It may be pulling from Sent Requests."+
 			"\nExpected: %d"+
 			"\nReceived: %d", numReceived, len(receivedContactList))
+	}
+
+}
+
+// Error case: Call DeleteRequest on a request that does
+// not exist.
+func TestStore_DeleteRequest_NonexistantRequest(t *testing.T) {
+	s, _, _ := makeTestStore(t)
+	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+	rng := csprng.NewSystemRNG()
+	_, sidhPubKey := genSidhAKeys(rng)
+	if err := s.AddReceived(c, sidhPubKey); err != nil {
+		t.Fatalf("AddReceived() returned an error: %+v", err)
+	}
+	if _, _, err := s.GetReceivedRequest(c.ID); err != nil {
+		t.Fatalf("GetReceivedRequest() returned an error: %+v", err)
+	}
+
+	err := s.DeleteRequest(c.ID)
+	if err != nil {
+		t.Errorf("DeleteRequest should return an error " +
+			"when trying to delete a receive request")
 	}
 
 }

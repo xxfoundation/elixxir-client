@@ -73,7 +73,7 @@ func (m *Manager) createMessages(groupID *id.ID, msg []byte, timestamp time.Time
 	cmixMsg := format.NewMessage(m.store.Cmix().GetGroup().GetP().ByteLen())
 	_, intlMsg, err := newMessageParts(cmixMsg.ContentsSize())
 	if err != nil {
-		return nil, group.MessageID{},errors.WithMessage(err,"Failed to make message parts for message ID")
+		return nil, group.MessageID{}, errors.WithMessage(err, "Failed to make message parts for message ID")
 	}
 	messageID := group.NewMessageID(groupID, setInternalPayload(intlMsg, timestamp, m.gs.GetUser().ID, msg))
 

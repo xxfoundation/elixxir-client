@@ -10,6 +10,8 @@ package cmd
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -17,9 +19,10 @@ import (
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/ud"
+	"gitlab.com/elixxir/client/xxmutils"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
-	"time"
+	"gitlab.com/xx_network/primitives/utils"
 )
 
 // udCmd is the user discovery subcommand, which allows for user lookup,
@@ -158,6 +161,26 @@ var udCmd = &cobra.Command{
 			time.Sleep(31 * time.Second)
 		}
 
+		if viper.GetString("batchadd") != "" {
+			idListFile, err := utils.ReadFile(viper.GetString("batchadd"))
+			if err != nil {
+				fmt.Printf("BATCHADD: Couldn't read file: %s\n",
+					err.Error())
+				jww.FATAL.Panicf("BATCHADD: Couldn't read file: %+v", err)
+			}
+			restored, _, _, err := xxmutils.RestoreContactsFromBackup(
+				idListFile, client, userDiscoveryMgr, nil, nil)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+			for i := 0; i < len(restored); i++ {
+				uid := restored[i]
+				for !client.HasAuthenticatedChannel(uid) {
+					time.Sleep(time.Second)
+				}
+				jww.INFO.Printf("Authenticated channel established for %s", uid)
+			}
+		}
 		usernameSearchStr := viper.GetString("searchusername")
 		emailSearchStr := viper.GetString("searchemail")
 		phoneSearchStr := viper.GetString("searchphone")
@@ -269,6 +292,10 @@ func init() {
 	udCmd.Flags().String("searchphone", "",
 		"Search for users with this email address.")
 	_ = viper.BindPFlag("searchphone", udCmd.Flags().Lookup("searchphone"))
+
+	udCmd.Flags().String("batchadd", "",
+		"Path to JSON marshalled slice of partner IDs that will be looked up on UD.")
+	_ = viper.BindPFlag("batchadd", udCmd.Flags().Lookup("batchadd"))
 
 	rootCmd.AddCommand(udCmd)
 }

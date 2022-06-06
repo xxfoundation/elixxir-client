@@ -117,10 +117,9 @@ func (m Manager) sendRequest(memberID *id.ID, request []byte) ([]id.Round, error
 		MessageType: message.GroupCreationRequest,
 	}
 
-
 	recipent, err := m.store.E2e().GetPartner(memberID)
-	if err!=nil{
-		return nil, errors.WithMessagef(err,"Failed to send request to %s " +
+	if err != nil {
+		return nil, errors.WithMessagef(err, "Failed to send request to %s "+
 			"because e2e relationship could not be found", memberID)
 	}
 

@@ -109,11 +109,11 @@ func (m *Manager) handleGarbledMessages() {
 					MessageType:    message.Raw,
 					Sender:         &id.ID{},
 					EphemeralID:    ephemeral.Id{},
-					Timestamp:      time.Time{},
+					Timestamp:      time.Unix(0, 0),
 					Encryption:     message.None,
 					RecipientID:    &id.ID{},
 					RoundId:        0,
-					RoundTimestamp: time.Time{},
+					RoundTimestamp: time.Unix(0, 0),
 				}
 				im := fmt.Sprintf("[GARBLE] RAW Message reprocessed: keyFP: %v, "+
 					"msgDigest: %s", grbldMsg.GetKeyFP(), grbldMsg.Digest())

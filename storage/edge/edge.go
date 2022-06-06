@@ -2,13 +2,14 @@ package edge
 
 import (
 	"encoding/json"
+	"sync"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	fingerprint2 "gitlab.com/elixxir/crypto/fingerprint"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 )
 
 // This stores Preimages which can be used with the identity fingerprint system.
@@ -65,6 +66,8 @@ func (s *Store) Add(preimage Preimage, identity *id.ID) {
 
 	// Add to the list
 	if !preimages.add(preimage) {
+		jww.ERROR.Printf("Preimage already exists for id %s: %v",
+			identity, preimage)
 		return
 	}
 

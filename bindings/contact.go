@@ -73,3 +73,8 @@ func (c *Contact) GetFactList() *FactList {
 func (c *Contact) Marshal() ([]byte, error) {
 	return c.c.Marshal(), nil
 }
+
+// GetAPIContact returns the api contact object. Not exported to bindings.
+func (c *Contact) GetAPIContact() *contact.Contact {
+	return c.c
+}

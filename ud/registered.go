@@ -32,7 +32,7 @@ func (m *Manager) IsRegistered() bool {
 	return atomic.LoadUint32(m.registered) == 1
 }
 
-// IsRegistered returns if the client is registered with user discovery
+// setRegistered sets the manager's state to registered.
 func (m *Manager) setRegistered() error {
 	if !atomic.CompareAndSwapUint32(m.registered, 0, 1) {
 		return errors.New("cannot register with User Discovery when " +

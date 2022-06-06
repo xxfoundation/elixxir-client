@@ -9,19 +9,25 @@ package auth
 
 import (
 	"bytes"
-	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
-	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
 	"reflect"
 	"testing"
+
+	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // Tests newBaseFormat
 func TestNewBaseFormat(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
-	payloadSize := pubKeySize + sidhinterface.PubKeyByteSize + 1
+	payloadSize := pubKeySize + sidhinterface.PubKeyByteSize + 2
 	baseMsg := newBaseFormat(payloadSize, pubKeySize)
+
+	if baseMsg.GetVersion() != requestFmtVersion {
+		t.Errorf("Incorrect version: %d, expect %d",
+			baseMsg.GetVersion(), requestFmtVersion)
+	}
 
 	// Check that the base format was constructed properly
 	if !bytes.Equal(baseMsg.pubkey, make([]byte, pubKeySize)) {
@@ -31,7 +37,7 @@ func TestNewBaseFormat(t *testing.T) {
 			"\n\tReceived: %v", make([]byte, pubKeySize), baseMsg.pubkey)
 	}
 
-	expectedEcrPayloadSize := payloadSize - (pubKeySize)
+	expectedEcrPayloadSize := payloadSize - (pubKeySize) - 1
 	if !bytes.Equal(baseMsg.ecrPayload, make([]byte, expectedEcrPayloadSize)) {
 		t.Errorf("NewBaseFormat error: "+
 			"Unexpected payload field in base format."+
@@ -56,7 +62,7 @@ func TestNewBaseFormat(t *testing.T) {
 func TestBaseFormat_SetGetPubKey(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
-	payloadSize := pubKeySize + sidhinterface.PubKeyByteSize + 1
+	payloadSize := pubKeySize + sidhinterface.PubKeyByteSize + 2
 	baseMsg := newBaseFormat(payloadSize, pubKeySize)
 
 	// Test setter
@@ -88,7 +94,7 @@ func TestBaseFormat_SetGetEcrPayload(t *testing.T) {
 	baseMsg := newBaseFormat(payloadSize, pubKeySize)
 
 	// Test setter
-	ecrPayloadSize := payloadSize - (pubKeySize)
+	ecrPayloadSize := payloadSize - (pubKeySize) - 1
 	ecrPayload := newPayload(ecrPayloadSize, "ecrPayload")
 	baseMsg.SetEcrPayload(ecrPayload)
 	if !bytes.Equal(ecrPayload, baseMsg.ecrPayload) {
@@ -123,7 +129,7 @@ func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 	pubKeySize := 256
 	payloadSize := (pubKeySize + sidhinterface.PubKeyByteSize) * 2
 	baseMsg := newBaseFormat(payloadSize, pubKeySize)
-	ecrPayloadSize := payloadSize - (pubKeySize)
+	ecrPayloadSize := payloadSize - (pubKeySize) - 1
 	ecrPayload := newPayload(ecrPayloadSize, "ecrPayload")
 	baseMsg.SetEcrPayload(ecrPayload)
 	grp := getGroup()
@@ -145,10 +151,10 @@ func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 			"Could not unmarshal into baseFormat: %v", err)
 	}
 
-	if !reflect.DeepEqual(newMsg, baseMsg) {
+	if !reflect.DeepEqual(*newMsg, baseMsg) {
 		t.Errorf("unmarshalBaseFormat() error: "+
 			"Unmarshalled message does not match originally marshalled message."+
-			"\n\tExpected: %v\n\tRecieved: %v", baseMsg, newMsg)
+			"\n\tExpected: %v\n\tRecieved: %v", baseMsg, *newMsg)
 	}
 
 	// Unmarshal error test: Invalid size parameter

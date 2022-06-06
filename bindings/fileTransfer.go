@@ -163,12 +163,13 @@ func (f *FileTransfer) RegisterSendProgressCallback(transferID []byte,
 
 // Resend resends a file if sending fails. This function should only be called
 // if the interfaces.SentProgressCallback returns an error.
-func (f *FileTransfer) Resend(transferID []byte) error {
+// Resend is not currently implemented.
+/*func (f *FileTransfer) Resend(transferID []byte) error {
 	// Unmarshal transfer ID
 	tid := ftCrypto.UnmarshalTransferID(transferID)
 
 	return f.m.Resend(tid)
-}
+}*/
 
 // CloseSend deletes a sent file transfer from the sent transfer map and from
 // storage once a transfer has completed or reached the retry limit. Returns an

@@ -59,13 +59,20 @@ func (srt *sentRoundTracker) Has(rid id.Round) bool {
 	return exists
 }
 
-// Insert adds the round to the tracker with the current time.
-func (srt *sentRoundTracker) Insert(rid id.Round) {
+// Insert adds the round to the tracker with the current time. Returns true if
+// the round was added.
+func (srt *sentRoundTracker) Insert(rid id.Round) bool {
 	timeNow := netTime.Now()
 	srt.mux.Lock()
 	defer srt.mux.Unlock()
 
+	_, exists := srt.rounds[rid]
+	if exists {
+		return false
+	}
+
 	srt.rounds[rid] = timeNow
+	return true
 }
 
 // Remove deletes a round ID from the tracker.

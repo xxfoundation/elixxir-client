@@ -7,10 +7,9 @@
 
 package bindings
 
-
 import (
-	"gitlab.com/xx_network/primitives/id"
 	"fmt"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 const dashboardBaseURL = "https://dashboard.xx.network"

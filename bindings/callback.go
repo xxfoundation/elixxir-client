@@ -60,6 +60,12 @@ type AuthConfirmCallback interface {
 	Callback(partner *Contact)
 }
 
+// AuthRequestCallback notifies the register whenever they receive an auth
+// request
+type AuthResetNotificationCallback interface {
+	Callback(requestor *Contact)
+}
+
 // Generic Unregister - a generic return used for all callbacks which can be
 // unregistered
 // Interface which allows the un-registration of a listener

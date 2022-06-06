@@ -21,6 +21,7 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/registration"
@@ -38,6 +39,10 @@ import (
 	"time"
 )
 
+const maxAttempts = 5
+
+var delayTable = [5]time.Duration{0, 5 * time.Second, 30 * time.Second, 60 * time.Second, 120 * time.Second}
+
 type RegisterNodeCommsInterface interface {
 	SendRequestClientKeyMessage(host *connect.Host,
 		message *pb.SignedClientKeyRequest) (*pb.SignedKeyResponse, error)
@@ -49,11 +54,14 @@ func StartRegistration(sender *gateway.Sender, session *storage.Session, rngGen 
 	multi := stoppable.NewMulti("NodeRegistrations")
 
 	inProgess := &sync.Map{}
+	// we are relying on the in progress check to
+	// ensure there is only a single operator at a time, as a result this is a map of ID -> int
+	attempts := &sync.Map{}
 
 	for i := uint(0); i < numParallel; i++ {
 		stop := stoppable.NewSingle(fmt.Sprintf("NodeRegistration %d", i))
 
-		go registerNodes(sender, session, rngGen, comms, stop, c, inProgess)
+		go registerNodes(sender, session, rngGen, comms, stop, c, inProgess, attempts)
 		multi.Add(stop)
 	}
 
@@ -62,7 +70,7 @@ func StartRegistration(sender *gateway.Sender, session *storage.Session, rngGen 
 
 func registerNodes(sender *gateway.Sender, session *storage.Session,
 	rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
-	stop *stoppable.Single, c chan network.NodeGateway, inProgress *sync.Map) {
+	stop *stoppable.Single, c chan network.NodeGateway, inProgress, attempts *sync.Map) {
 	u := session.User()
 	regSignature := u.GetTransmissionRegistrationValidationSignature()
 	// Timestamp in which user has registered with registration
@@ -84,6 +92,14 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 			if _, operating := inProgress.LoadOrStore(nidStr, struct{}{}); operating {
 				continue
 			}
+
+			//keep track of how many times this has been attempted
+			numAttempts := uint(1)
+			if nunAttemptsInterface, hasValue := attempts.LoadOrStore(nidStr, numAttempts); hasValue {
+				numAttempts = nunAttemptsInterface.(uint)
+				attempts.Store(nidStr, numAttempts+1)
+			}
+
 			// No need to register with stale nodes
 			if isStale := gw.Node.Status == ndf.Stale; isStale {
 				jww.DEBUG.Printf("Skipping registration with stale node %s", nidStr)
@@ -93,7 +109,15 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 				regTimestamp, uci, cmix, rng, stop)
 			inProgress.Delete(nidStr)
 			if err != nil {
-				jww.ERROR.Printf("Failed to register node: %+v", err)
+				jww.ERROR.Printf("Failed to register node: %s", err.Error())
+				//if we have not reached the attempt limit for this gateway, send it back into the channel to retry
+				if numAttempts < maxAttempts {
+					go func() {
+						//delay the send for a backoff
+						time.Sleep(delayTable[numAttempts-1])
+						c <- gw
+					}()
+				}
 			}
 		case <-t.C:
 		}
@@ -154,7 +178,19 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source,
 	stop *stoppable.Single) (*cyclic.Int, []byte, uint64, error) {
 
-	dhPub := store.GetDHPublicKey().Bytes()
+	grp := store.GetGroup()
+
+	// FIXME: Why 256 bits? -- this is spec but not explained, it has
+	// to do with optimizing operations on one side and still preserves
+	// decent security -- cite this.
+	dhPrivBytes, err := csprng.GenerateInGroup(store.GetGroup().GetPBytes(), 256, rng)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+
+	dhPriv := grp.NewIntFromBytes(dhPrivBytes)
+
+	dhPub := diffieHellman.GeneratePublicKey(dhPriv, grp)
 
 	// Reconstruct client confirmation message
 	userPubKeyRSA := rsa.CreatePublicKeyPem(uci.GetTransmissionRSA().GetPublic())
@@ -170,7 +206,7 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 			RegistrarSignature:             &messages.RSASignature{Signature: regSig},
 			ClientRegistrationConfirmation: confirmationSerialized,
 		},
-		ClientDHPubKey:        dhPub,
+		ClientDHPubKey:        dhPub.Bytes(),
 		RegistrationTimestamp: registrationTimestampNano,
 		RequestTimestamp:      netTime.Now().UnixNano(),
 	}
@@ -211,7 +247,7 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 				Target:                    gatewayID.Bytes(),
 			})
 		if err != nil {
-			return nil, errors.WithMessage(err, "Register: Failed requesting client key from gateway")
+			return nil, errors.WithMessage(err, fmt.Sprintf("Register: Failed requesting client key from gateway %s", gatewayID.String()))
 		}
 		if keyResponse.Error != "" {
 			return nil, errors.WithMessage(err, "requestKey: clientKeyResponse error")
@@ -262,12 +298,11 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	h.Reset()
 
 	// Convert Node DH Public key to a cyclic.Int
-	grp := store.GetGroup()
 	nodeDHPub := grp.NewIntFromBytes(keyResponse.NodeDHPubKey)
 
 	// Construct the session key
 	sessionKey := registration.GenerateBaseKey(grp,
-		nodeDHPub, store.GetDHPrivateKey(), h)
+		nodeDHPub, dhPriv, h)
 
 	// Verify the HMAC
 	h.Reset()

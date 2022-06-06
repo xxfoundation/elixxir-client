@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -24,50 +23,31 @@ import (
 const prefix = "cmix"
 const currentStoreVersion = 0
 const (
-	storeKey   = "KeyStore"
-	pubKeyKey  = "DhPubKey"
-	privKeyKey = "DhPrivKey"
-	grpKey     = "GroupKey"
+	storeKey = "KeyStore"
+	grpKey   = "GroupKey"
 )
 
 type Store struct {
-	nodes        map[id.ID]*key
-	dhPrivateKey *cyclic.Int
-	dhPublicKey  *cyclic.Int
-	validUntil   uint64
-	keyId        []byte
-	grp          *cyclic.Group
-	kv           *versioned.KV
-	mux          sync.RWMutex
+	nodes      map[id.ID]*key
+	validUntil uint64
+	keyId      []byte
+	grp        *cyclic.Group
+	kv         *versioned.KV
+	mux        sync.RWMutex
 }
 
 // NewStore returns a new cMix storage object.
-func NewStore(grp *cyclic.Group, kv *versioned.KV, priv *cyclic.Int) (*Store, error) {
+func NewStore(grp *cyclic.Group, kv *versioned.KV) (*Store, error) {
 	// Generate public key
-	pub := diffieHellman.GeneratePublicKey(priv, grp)
 	kv = kv.Prefix(prefix)
 
 	s := &Store{
-		nodes:        make(map[id.ID]*key),
-		dhPrivateKey: priv,
-		dhPublicKey:  pub,
-		grp:          grp,
-		kv:           kv,
+		nodes: make(map[id.ID]*key),
+		grp:   grp,
+		kv:    kv,
 	}
 
-	err := utility.StoreCyclicKey(kv, pub, pubKeyKey)
-	if err != nil {
-		return nil,
-			errors.WithMessage(err, "Failed to store cMix DH public key")
-	}
-
-	err = utility.StoreCyclicKey(kv, priv, privKeyKey)
-	if err != nil {
-		return nil,
-			errors.WithMessage(err, "Failed to store cMix DH private key")
-	}
-
-	err = utility.StoreGroup(kv, grp, grpKey)
+	err := utility.StoreGroup(kv, grp, grpKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to store cMix group")
 	}
@@ -172,16 +152,6 @@ func (s *Store) GetRoundKeys(topology *connect.Circuit) (*RoundKeys, []*id.ID) {
 	return rk, missingNodes
 }
 
-// GetDHPrivateKey returns the diffie hellman private key
-func (s *Store) GetDHPrivateKey() *cyclic.Int {
-	return s.dhPrivateKey
-}
-
-// GetDHPublicKey returns the diffie hellman public key.
-func (s *Store) GetDHPublicKey() *cyclic.Int {
-	return s.dhPublicKey
-}
-
 // GetGroup returns the cyclic group used for cMix.
 func (s *Store) GetGroup() *cyclic.Group {
 	return s.grp
@@ -249,16 +219,6 @@ func (s *Store) unmarshal(b []byte) error {
 			return errors.WithMessagef(err, "could not load node key for %s", &nid)
 		}
 		s.nodes[nid] = k
-	}
-
-	s.dhPrivateKey, err = utility.LoadCyclicKey(s.kv, privKeyKey)
-	if err != nil {
-		return errors.WithMessage(err, "Failed to load cMix DH private key")
-	}
-
-	s.dhPublicKey, err = utility.LoadCyclicKey(s.kv, pubKeyKey)
-	if err != nil {
-		return errors.WithMessage(err, "Failed to load cMix DH public key")
 	}
 
 	s.grp, err = utility.LoadGroup(s.kv, grpKey)

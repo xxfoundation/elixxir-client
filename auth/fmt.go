@@ -17,26 +17,33 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+const requestFmtVersion = 1
+
 //Basic Format//////////////////////////////////////////////////////////////////
 type baseFormat struct {
 	data       []byte
 	pubkey     []byte
 	ecrPayload []byte
+	version    []byte
 }
 
 func newBaseFormat(payloadSize, pubkeySize int) baseFormat {
-	total := pubkeySize + sidhinterface.PubKeyByteSize + 1
+	total := pubkeySize
+	// Size of sidh pubkey
+	total += sidhinterface.PubKeyByteSize + 1
+	// Size of version
+	total += 1
 	if payloadSize < total {
 		jww.FATAL.Panicf("Size of baseFormat is too small (%d), must be big "+
 			"enough to contain public key (%d) and sidh key (%d)"+
-			"which totals to %d", payloadSize, pubkeySize,
-			sidhinterface.PubKeyByteSize+1, total)
+			"and version which totals to %d", payloadSize,
+			pubkeySize, sidhinterface.PubKeyByteSize+1, total)
 	}
 
 	jww.INFO.Printf("Empty Space RequestAuth: %d", payloadSize-total)
 
 	f := buildBaseFormat(make([]byte, payloadSize), pubkeySize)
-
+	f.version[0] = requestFmtVersion
 	return f
 }
 
@@ -47,23 +54,37 @@ func buildBaseFormat(data []byte, pubkeySize int) baseFormat {
 
 	start := 0
 	end := pubkeySize
-	f.pubkey = f.data[:end]
+	f.pubkey = f.data[start:end]
 
 	start = end
-	f.ecrPayload = f.data[start:]
+	end = len(f.data) - 1
+	f.ecrPayload = f.data[start:end]
+
+	f.version = f.data[end:]
+
 	return f
 }
 
-func unmarshalBaseFormat(b []byte, pubkeySize int) (baseFormat, error) {
+func unmarshalBaseFormat(b []byte, pubkeySize int) (*baseFormat, error) {
 	if len(b) < pubkeySize {
-		return baseFormat{}, errors.New("Received baseFormat too small")
+		return nil, errors.New("Received baseFormat too small")
+	}
+	bfmt := buildBaseFormat(b, pubkeySize)
+	version := bfmt.GetVersion()
+	if version != requestFmtVersion {
+		return &bfmt, errors.Errorf(
+			"Unknown baseFormat version: %d", version)
 	}
 
-	return buildBaseFormat(b, pubkeySize), nil
+	return &bfmt, nil
 }
 
 func (f baseFormat) Marshal() []byte {
 	return f.data
+}
+
+func (f baseFormat) GetVersion() byte {
+	return f.version[0]
 }
 
 func (f baseFormat) GetPubKey(grp *cyclic.Group) *cyclic.Int {

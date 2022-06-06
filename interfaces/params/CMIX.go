@@ -39,7 +39,7 @@ func GetDefaultCMIX() CMIX {
 		Timeout:     25 * time.Second,
 		RetryDelay:  1 * time.Second,
 		SendTimeout: 3 * time.Second,
-		DebugTag: 	 "External",
+		DebugTag:    "External",
 	}
 }
 

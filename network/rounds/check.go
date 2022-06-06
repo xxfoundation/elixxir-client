@@ -56,11 +56,6 @@ func serializeRound(roundId id.Round) []byte {
 func (m *Manager) GetMessagesFromRound(roundID id.Round, identity reception.IdentityUse) {
 	ri, err := m.Instance.GetRound(roundID)
 	if err != nil || m.params.ForceHistoricalRounds {
-		if m.params.RealtimeOnly {
-			jww.WARN.Printf("Skipping round %d because it is not in ram and we are realtime only mode",
-				roundID)
-			return
-		}
 		if m.params.ForceHistoricalRounds {
 			jww.WARN.Printf("Forcing use of historical rounds for round ID %d.",
 				roundID)
@@ -68,7 +63,7 @@ func (m *Manager) GetMessagesFromRound(roundID id.Round, identity reception.Iden
 		jww.INFO.Printf("Messages found in round %d for %d (%s), looking "+
 			"up messages via historical lookup", roundID, identity.EphId.Int64(),
 			identity.Source)
-		//store the round as an unretreived round
+		//store the round as an unreceived round
 		err = m.Session.UncheckedRounds().AddRound(roundID, nil,
 			identity.Source, identity.EphId)
 		if err != nil {
@@ -84,7 +79,7 @@ func (m *Manager) GetMessagesFromRound(roundID id.Round, identity reception.Iden
 		jww.INFO.Printf("Messages found in round %d for %d (%s), looking "+
 			"up messages via in ram lookup", roundID, identity.EphId.Int64(),
 			identity.Source)
-		//store the round as an unretreived round
+		//store the round as an unreceived round
 		if !m.params.RealtimeOnly {
 			err = m.Session.UncheckedRounds().AddRound(roundID, ri,
 				identity.Source, identity.EphId)

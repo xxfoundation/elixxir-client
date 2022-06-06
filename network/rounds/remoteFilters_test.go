@@ -20,7 +20,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	jww.SetStdoutThreshold(jww.LevelTrace)
+	jww.SetStdoutThreshold(jww.LevelDebug)
 	connect.TestingOnlyDisableTLS = true
 	os.Exit(m.Run())
 }

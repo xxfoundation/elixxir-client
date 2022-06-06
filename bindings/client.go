@@ -10,8 +10,14 @@ package bindings
 import (
 	"bytes"
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime/pprof"
+	"strings"
+	"sync"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/message"
@@ -23,13 +29,9 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"google.golang.org/grpc/grpclog"
-	"runtime/pprof"
-	"strings"
-	"sync"
-	"time"
 )
 
-var extantClient bool
+var extantClient bool = false
 var loginMux sync.Mutex
 
 var clientSingleton *Client
@@ -79,6 +81,32 @@ func NewPrecannedClient(precannedID int, network, storageDir string, password []
 			"client: %+v", err))
 	}
 	return nil
+}
+
+type BackupReport struct {
+	RestoredContacts []*id.ID
+	Params           string
+}
+
+// NewClientFromBackup constructs a new Client from an encrypted backup. The backup
+// is decrypted using the backupPassphrase. On success a successful client creation,
+// the function will return a JSON encoded list of the E2E partners
+// contained in the backup and a json-encoded string of the parameters stored in the backup
+func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
+	backupPassphrase, backupFileContents []byte) ([]byte, error) {
+	backupPartnerIds, jsonParams, err := api.NewClientFromBackup(ndfJSON, storageDir,
+		sessionPassword, backupPassphrase, backupFileContents)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to create new "+
+			"client from backup: %+v", err))
+	}
+
+	report := BackupReport{
+		RestoredContacts: backupPartnerIds,
+		Params:           jsonParams,
+	}
+
+	return json.Marshal(report)
 }
 
 // Login will load an existing client from the storageDir
@@ -450,6 +478,19 @@ func (c *Client) GetNodeRegistrationStatus() (*NodeRegistrationsStatus, error) {
 	return &NodeRegistrationsStatus{registered, total}, err
 }
 
+// DeleteRequest will delete a request, agnostic of request type
+// for the given partner ID. If no request exists for this
+// partner ID an error will be returned.
+func (c *Client) DeleteRequest(requesterUserId []byte) error {
+	requesterId, err := id.Unmarshal(requesterUserId)
+	if err != nil {
+		return err
+	}
+
+	jww.DEBUG.Printf("Deleting request for partner ID: %s", requesterId)
+	return c.api.DeleteRequest(requesterId)
+}
+
 // DeleteAllRequests clears all requests from Client's auth storage.
 func (c *Client) DeleteAllRequests() error {
 	return c.api.DeleteAllRequests()
@@ -553,6 +594,16 @@ func (c *Client) getSingle() (*single.Manager, error) {
 	}
 
 	return c.single, nil
+}
+
+// GetInternalClient returns a reference to the client api. This is for internal
+// use only and should not be called by bindings clients.
+func (c *Client) GetInternalClient() api.Client {
+	return c.api
+}
+
+func WrapAPIClient(c *api.Client) *Client {
+	return &Client{api: *c}
 }
 
 // DumpStack returns a string with the stack trace of every running thread.

@@ -850,9 +850,9 @@ func TestSentTransfer_GetEncryptedPart(t *testing.T) {
 				"\nexpected: %+v\nreceived: %+v", partNum, i, expectedPart, partMsg.GetPart())
 		}
 
-		if partMsg.GetPartNum()!=i % st.numParts{
-			t.Errorf("Number of part did not match, expected: %d, " +
-				"received: %d", i % st.numParts, partMsg.GetPartNum())
+		if partMsg.GetPartNum() != i%st.numParts {
+			t.Errorf("Number of part did not match, expected: %d, "+
+				"received: %d", i%st.numParts, partMsg.GetPartNum())
 		}
 	}
 }

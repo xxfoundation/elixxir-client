@@ -71,7 +71,7 @@ func (n Network) Marshal() ([]byte, error) {
 	return json.Marshal(n)
 }
 
-func (n Network) SetRealtimeOnlyAll()Network {
+func (n Network) SetRealtimeOnlyAll() Network {
 	n.RealtimeOnly = true
 	n.Rounds.RealtimeOnly = true
 	n.Messages.RealtimeOnly = true

@@ -24,10 +24,9 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 func (m *Manager) StartProcesses() (stoppable.Stoppable, error) {
@@ -108,9 +107,18 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	jww.TRACE.Printf("handleRequest ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
 	jww.TRACE.Printf("handleRequest MAC: %v", cmixMsg.GetMac())
 
+	ecrPayload := baseFmt.GetEcrPayload()
 	success, payload := cAuth.Decrypt(myHistoricalPrivKey,
-		partnerPubKey, baseFmt.GetEcrPayload(),
+		partnerPubKey, ecrPayload,
 		cmixMsg.GetMac(), grp)
+
+	if !success {
+		jww.WARN.Printf("Attempting to decrypt old request packet...")
+		ecrPayload = append(ecrPayload, baseFmt.GetVersion())
+		success, payload = cAuth.Decrypt(myHistoricalPrivKey,
+			partnerPubKey, ecrPayload,
+			cmixMsg.GetMac(), grp)
+	}
 
 	if !success {
 		jww.WARN.Printf("Received auth request failed " +
@@ -153,6 +161,68 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	events.Report(1, "Auth", "RequestReceived", em)
 
 	/*do state edge checks*/
+	// Check if this is a reset, which are valid as of version 1
+	// Resets happen when our fingerprint is new AND we are
+	// the latest fingerprint to be added to the list and we already have
+	// a negotiation or authenticated channel in progress
+	fp := cAuth.CreateNegotiationFingerprint(partnerPubKey,
+		partnerSIDHPubKey)
+	newFP, latest := m.storage.Auth().AddIfNew(partnerID, fp)
+	resetSession := false
+	autoConfirm := false
+	if baseFmt.GetVersion() >= 1 && newFP && latest {
+		// If we had an existing session and it's new, then yes, we
+		// want to reset
+		if _, err := m.storage.E2e().GetPartner(partnerID); err == nil {
+			jww.INFO.Printf("Resetting session for %s", partnerID)
+			resetSession = true
+			// Most likely, we got 2 reset sessions at once, so this
+			// is a non-fatal error but we will record a warning
+			// just in case.
+			err = m.storage.E2e().DeletePartner(partnerID)
+			if err != nil {
+				jww.WARN.Printf("Unable to delete channel: %+v",
+					err)
+			}
+			// Also delete any existing request, sent or received
+			m.storage.Auth().Delete(partnerID)
+		}
+		// If we had an existing negotiation open, then it depends
+
+		// If we've only received, then user has not confirmed, treat as
+		// a non-duplicate request, so delete the old one (to cause new
+		// callback to be called)
+		rType, _, _, err := m.storage.Auth().GetRequest(partnerID)
+		if err != nil && rType == auth.Receive {
+			m.storage.Auth().Delete(partnerID)
+		}
+
+		// If we've already Sent and are now receiving,
+		// then we attempt auto-confirm as below
+		// This poses a potential problem if it is truly a session
+		// reset by the other user, because we may not actually
+		// autoconfirm based on our public key compared to theirs.
+		// This could result in a permanently broken association, as
+		// the other side has attempted to reset it's session and
+		// can no longer detect a sent request collision, so this side
+		// cannot ever successfully resend.
+		// We prevent this by stopping session resets if they
+		// are called when the other side is in the "Sent" state.
+		// If the other side is in the "received" state we also block,
+		// but we could autoconfirm.
+		// Note that you can still get into this state by one side
+		// deleting requests. In that case, both sides need to clear
+		// out all requests and retry negotiation from scratch.
+		// NOTE: This protocol part could use an overhaul/second look,
+		//       there's got to be a way to do this with far less state
+		//       but this is the spec so we're sticking with it for now.
+
+		// If not an existing request, we do nothing.
+	} else {
+		jww.WARN.Printf("Version: %d, newFP: %v, latest: %v", baseFmt.GetVersion(),
+			newFP, latest)
+	}
+
 	// check if a relationship already exists.
 	// if it does and the keys used are the same as we have, send a
 	// confirmation in case there are state issues.
@@ -232,57 +302,13 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				// If I do, delete my request on disk
 				m.storage.Auth().Delete(partnerID)
 
-				//process the inner payload
-				facts, _, err := fact.UnstringifyFactList(
-					string(requestFmt.msgPayload))
-				if err != nil {
-					em := fmt.Sprintf("failed to parse facts and message "+
-						"from Auth Request: %s", err)
-					jww.WARN.Print(em)
-					events.Report(10, "Auth", "RequestError", em)
-					return
-				}
-
+				// Do the normal, fall out of this if block and
 				// create the contact, note that we use the data
 				// sent in the request and not any data we had
 				// already
-				partnerContact := contact.Contact{
-					ID:             partnerID,
-					DhPubKey:       partnerPubKey,
-					OwnershipProof: copySlice(ownership),
-					Facts:          facts,
-				}
 
-				// add a confirmation to disk
-				if err = m.storage.Auth().AddReceived(partnerContact,
-					partnerSIDHPubKey); err != nil {
-					em := fmt.Sprintf("failed to store contact Auth "+
-						"Request: %s", err)
-					jww.WARN.Print(em)
-					events.Report(10, "Auth", "RequestError", em)
-				}
+				autoConfirm = true
 
-				// Call ConfirmRequestAuth to send confirmation
-				rngGen := fastRNG.NewStreamGenerator(1, 1,
-					csprng.NewSystemRNG)
-				rng := rngGen.GetStream()
-				rndNum, err := ConfirmRequestAuth(partnerContact,
-					rng, m.storage, m.net)
-				if err != nil {
-					jww.ERROR.Printf("Could not ConfirmRequestAuth: %+v",
-						err)
-					return
-				}
-
-				jww.INFO.Printf("ConfirmRequestAuth to %s on round %d",
-					partnerID, rndNum)
-				c := partnerContact
-				cbList := m.confirmCallbacks.Get(c.ID)
-				for _, cb := range cbList {
-					ccb := cb.(interfaces.ConfirmCallback)
-					go ccb(c)
-				}
-				return
 			}
 		}
 	}
@@ -300,8 +326,8 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 
 	//create the contact, note that no facts are sent in the payload
 	c := contact.Contact{
-		ID:             partnerID,
-		DhPubKey:       partnerPubKey,
+		ID:             partnerID.DeepCopy(),
+		DhPubKey:       partnerPubKey.DeepCopy(),
 		OwnershipProof: copySlice(ecrFmt.ownership),
 		Facts:          facts,
 	}
@@ -317,12 +343,44 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		return
 	}
 
-	//  fixme: if a crash occurs before or during the calls, the notification
-	//  will never be sent.
-	cbList := m.requestCallbacks.Get(c.ID)
-	for _, cb := range cbList {
-		rcb := cb.(interfaces.RequestCallback)
-		go rcb(c)
+	// We autoconfirm anytime we had already sent a request OR we are
+	// resetting an existing session
+	var rndNum id.Round
+	if autoConfirm || resetSession {
+		// Call ConfirmRequestAuth to send confirmation
+		rndNum, err = m.confirmRequestAuth(c, true)
+		if err != nil {
+			jww.ERROR.Printf("Could not ConfirmRequestAuth: %+v",
+				err)
+			return
+		}
+
+		if autoConfirm {
+			jww.INFO.Printf("ConfirmRequestAuth to %s on round %d",
+				partnerID, rndNum)
+			cbList := m.confirmCallbacks.Get(c.ID)
+			for _, cb := range cbList {
+				ccb := cb.(interfaces.ConfirmCallback)
+				go ccb(c)
+			}
+		}
+		if resetSession {
+			jww.INFO.Printf("Reset Auth %s on round %d",
+				partnerID, rndNum)
+			cbList := m.resetCallbacks.Get(c.ID)
+			for _, cb := range cbList {
+				ccb := cb.(interfaces.ResetNotificationCallback)
+				go ccb(c)
+			}
+		}
+	} else {
+		//  fixme: if a crash occurs before or during the calls, the notification
+		//  will never be sent.
+		cbList := m.requestCallbacks.Get(c.ID)
+		for _, cb := range cbList {
+			rcb := cb.(interfaces.RequestCallback)
+			go rcb(c)
+		}
 	}
 	return
 }
@@ -427,6 +485,8 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 			sr.GetPartner(), err)
 	}
 
+	m.backupTrigger("received confirmation from request")
+
 	//remove the confirm fingerprint
 	fp := sr.GetFingerprint()
 	if err := m.storage.GetEdge().Remove(edge.Preimage{
@@ -438,40 +498,7 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 			sr.GetPartner(), err)
 	}
 
-	//add the e2e and rekey firngeprints
-	//e2e
-	sessionPartner, err := m.storage.E2e().GetPartner(sr.GetPartner())
-	if err != nil {
-		jww.FATAL.Panicf("Cannot find %s right after creating: %+v", sr.GetPartner(), err)
-	}
-	me := m.storage.GetUser().ReceptionID
-
-	m.storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetE2EPreimage(),
-		Type:   preimage.E2e,
-		Source: sr.GetPartner()[:],
-	}, me)
-
-	//silent (rekey)
-	m.storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetSilentPreimage(),
-		Type:   preimage.Silent,
-		Source: sr.GetPartner()[:],
-	}, me)
-
-	// File transfer end
-	m.storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetFileTransferPreimage(),
-		Type:   preimage.EndFT,
-		Source: sr.GetPartner()[:],
-	}, me)
-
-	//group Request
-	m.storage.GetEdge().Add(edge.Preimage{
-		Data:   sessionPartner.GetGroupRequestPreimage(),
-		Type:   preimage.GroupRq,
-		Source: sr.GetPartner()[:],
-	}, me)
+	addPreimages(sr.GetPartner(), m.storage)
 
 	// delete the in progress negotiation
 	// this undoes the request lock
@@ -513,7 +540,7 @@ func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
 
 	baseFmt, err := unmarshalBaseFormat(cmixMsg.GetContents(),
 		grp.GetP().ByteLen())
-	if err != nil {
+	if err != nil && baseFmt == nil {
 		return baseFormat{}, nil, errors.WithMessage(err, "Failed to"+
 			" unmarshal auth")
 	}
@@ -524,5 +551,5 @@ func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
 	}
 	partnerPubKey := grp.NewIntFromBytes(baseFmt.pubkey)
 
-	return baseFmt, partnerPubKey, nil
+	return *baseFmt, partnerPubKey, nil
 }

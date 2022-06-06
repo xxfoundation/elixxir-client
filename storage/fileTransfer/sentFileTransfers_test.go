@@ -8,6 +8,7 @@
 package fileTransfer
 
 import (
+	"fmt"
 	"gitlab.com/elixxir/client/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/ekv"
@@ -582,30 +583,6 @@ func TestNewOrLoadSentFileTransfersStore_NewSentFileTransfersStore(t *testing.T)
 	}
 }
 
-// Error path: tests that the NewOrLoadSentFileTransfersStore returns the
-// expected error when the first transfer loaded from storage does not exist.
-func TestNewOrLoadSentFileTransfersStore_NoTransferInStorageError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
-	expectedErr := strings.Split(loadSentTransfersErr, "%")[0]
-
-	// Save list of one transfer ID to storage
-	obj := &versioned.Object{
-		Version:   sentFileTransfersStoreVersion,
-		Timestamp: netTime.Now(),
-		Data:      ftCrypto.UnmarshalTransferID([]byte("testID_01")).Bytes(),
-	}
-	err := kv.Prefix(sentFileTransfersStorePrefix).Set(
-		sentFileTransfersStoreKey, sentFileTransfersStoreVersion, obj)
-
-	// Load SentFileTransfersStore from storage
-	_, err = NewOrLoadSentFileTransfersStore(kv)
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("NewOrLoadSentFileTransfersStore did not return the expected "+
-			"error when there is no transfer saved in storage."+
-			"\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
 // Tests that SentFileTransfersStore.saveTransfersList saves all the transfer
 // IDs to storage by loading them from storage via
 // SentFileTransfersStore.loadTransfersList and comparing the list to the list
@@ -646,7 +623,7 @@ func TestSentFileTransfersStore_saveTransfersList_loadTransfersList(t *testing.T
 }
 
 // Tests that the transfer loaded by SentFileTransfersStore.loadTransfers from
-// storage matches the original in memory
+// storage matches the original in memory.
 func TestSentFileTransfersStore_loadTransfers(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	sft := &SentFileTransfersStore{
@@ -683,6 +660,37 @@ func TestSentFileTransfersStore_loadTransfers(t *testing.T) {
 		t.Errorf("Transfers loaded from storage does not match transfers in "+
 			"memory.\nexpected: %+v\nreceived: %+v",
 			sft.transfers, loadedSft.transfers)
+	}
+}
+
+// Error path: tests that SentFileTransfersStore.loadTransfers returns an error
+// when all file transfers fail to load from storage.
+func TestSentFileTransfersStore_loadTransfers_AllErrors(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore)).Prefix(sentFileTransfersStorePrefix)
+
+	// Add 10 transfers to map in memory
+	list := make([]ftCrypto.TransferID, 10)
+	for i := range list {
+		tid, st := newRandomSentTransfer(16, 24, kv, t)
+		list[i] = tid
+		err := st.delete()
+		if err != nil {
+			t.Errorf("Failed to delete transfer: %+v", err)
+		}
+	}
+
+	expectedErr := fmt.Sprintf(loadSentTransfersAllErr, len(list))
+
+	// Load the transfers into a new SentFileTransfersStore
+	loadedSft := &SentFileTransfersStore{
+		transfers: make(map[ftCrypto.TransferID]*SentTransfer),
+		kv:        kv,
+	}
+	err := loadedSft.loadTransfers(list)
+	if err == nil || err.Error() != expectedErr {
+		t.Errorf("loadTransfers did not return the expected error when none "+
+			"of the transfer could be loaded from storage."+
+			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
 

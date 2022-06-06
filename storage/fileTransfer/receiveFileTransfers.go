@@ -29,7 +29,7 @@ const (
 const (
 	saveReceivedTransfersListErr = "failed to save list of received items in transfer map to storage: %+v"
 	loadReceivedTransfersListErr = "failed to load list of received items in transfer map from storage: %+v"
-	loadReceivedFileTransfersErr = "failed to load received transfers from storage: %+v"
+	loadReceivedFileTransfersErr = "[FT] Failed to load received transfers from storage: %+v"
 
 	newReceivedTransferErr    = "failed to create new received transfer: %+v"
 	getReceivedTransferErr    = "received transfer with ID %s not found"
@@ -37,6 +37,10 @@ const (
 	noFingerprintErr          = "no part found with fingerprint %s"
 	addPartErr                = "failed to add part to transfer %s: %+v"
 	deleteReceivedTransferErr = "failed to delete received transfer with ID %s from store: %+v"
+
+	// ReceivedFileTransfersStore.load
+	loadReceivedTransferWarn    = "[FT] Failed to load received file transfer %d of %d with ID %s: %v"
+	loadReceivedTransfersAllErr = "failed to load all %d transfers"
 )
 
 // ReceivedFileTransfersStore contains information for tracking a received
@@ -265,7 +269,8 @@ func NewOrLoadReceivedFileTransfersStore(kv *versioned.KV) (
 	// Load transfers and fingerprints into the maps
 	err = rft.load(transfersList)
 	if err != nil {
-		return nil, errors.Errorf(loadReceivedFileTransfersErr, err)
+		jww.ERROR.Printf(loadReceivedFileTransfersErr, err)
+		return NewReceivedFileTransfersStore(kv)
 	}
 
 	return rft, nil
@@ -304,12 +309,16 @@ func (rft *ReceivedFileTransfersStore) loadTransfersList() (
 // map. Also adds all unused fingerprints in each ReceivedTransfer to the info
 // map.
 func (rft *ReceivedFileTransfersStore) load(list []ftCrypto.TransferID) error {
+	var errCount int
+
 	// Load each sentTransfer from storage into the map
-	for _, tid := range list {
+	for i, tid := range list {
 		// Load the transfer with the given transfer ID from storage
 		rt, err := loadReceivedTransfer(tid, rft.kv)
 		if err != nil {
-			return err
+			jww.WARN.Printf(loadReceivedTransferWarn, i, len(list), tid, err)
+			errCount++
+			continue
 		}
 
 		// Add transfer to transfer map
@@ -327,6 +336,11 @@ func (rft *ReceivedFileTransfersStore) load(list []ftCrypto.TransferID) error {
 				rft.info[fp] = &partInfo{tid, fpNum}
 			}
 		}
+	}
+
+	// Return an error if all transfers failed to load
+	if errCount == len(list) {
+		return errors.Errorf(loadReceivedTransfersAllErr, len(list))
 	}
 
 	return nil

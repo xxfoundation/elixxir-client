@@ -8,6 +8,7 @@
 package user
 
 import (
+	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/fact"
@@ -26,10 +27,6 @@ type User struct {
 	Precanned        bool
 	// Timestamp in which user has registered with the network
 	RegistrationTimestamp int64
-
-	//cmix Identity
-	CmixDhPrivateKey *cyclic.Int
-	CmixDhPublicKey  *cyclic.Int
 
 	//e2e Identity
 	E2eDhPrivateKey *cyclic.Int
@@ -54,9 +51,22 @@ func NewUserFromProto(proto *Proto) User {
 		ReceptionRSA:          proto.ReceptionRSA,
 		Precanned:             proto.Precanned,
 		RegistrationTimestamp: proto.RegistrationTimestamp,
-		CmixDhPrivateKey:      proto.CmixDhPrivateKey,
-		CmixDhPublicKey:       proto.CmixDhPublicKey,
 		E2eDhPrivateKey:       proto.E2eDhPrivateKey,
 		E2eDhPublicKey:        proto.E2eDhPublicKey,
+	}
+}
+
+func NewUserFromBackup(backup *backup.Backup) User {
+	return User{
+		TransmissionID:        backup.TransmissionIdentity.ComputedID,
+		TransmissionSalt:      backup.TransmissionIdentity.Salt,
+		TransmissionRSA:       backup.TransmissionIdentity.RSASigningPrivateKey,
+		ReceptionID:           backup.ReceptionIdentity.ComputedID,
+		ReceptionSalt:         backup.ReceptionIdentity.Salt,
+		ReceptionRSA:          backup.ReceptionIdentity.RSASigningPrivateKey,
+		Precanned:             false,
+		RegistrationTimestamp: backup.RegistrationTimestamp,
+		E2eDhPrivateKey:       backup.ReceptionIdentity.DHPrivateKey,
+		E2eDhPublicKey:        backup.ReceptionIdentity.DHPublicKey,
 	}
 }

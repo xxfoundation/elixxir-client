@@ -246,6 +246,22 @@ func (s *Store) GetPartnerContact(partnerID *id.ID) (contact.Contact, error) {
 	return c, nil
 }
 
+// GetPartners returns a list of all partner IDs that the user has
+// an E2E relationship with.
+func (s *Store) GetPartners() []*id.ID {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	partnerIds := make([]*id.ID, 0, len(s.managers))
+
+	for partnerId := range s.managers {
+		pid := partnerId
+		partnerIds = append(partnerIds, &pid)
+	}
+
+	return partnerIds
+}
+
 // PopKey pops a key for use based upon its fingerprint.
 func (s *Store) PopKey(f format.Fingerprint) (*Key, bool) {
 	return s.fingerprints.Pop(f)

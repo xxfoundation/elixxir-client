@@ -654,30 +654,6 @@ func TestNewOrLoadReceivedFileTransfersStore_NewReceivedFileTransfersStore(t *te
 	}
 }
 
-// Error path: tests that NewOrLoadReceivedFileTransfersStore returns the
-// expected error when the first transfer loaded from storage does not exist.
-func TestNewOrLoadReceivedFileTransfersStore_NoTransferInStorageError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
-	expectedErr := strings.Split(loadReceivedFileTransfersErr, "%")[0]
-
-	// Save list of one transfer ID to storage
-	obj := &versioned.Object{
-		Version:   receivedFileTransfersStoreVersion,
-		Timestamp: netTime.Now(),
-		Data:      ftCrypto.UnmarshalTransferID([]byte("testID_01")).Bytes(),
-	}
-	err := kv.Prefix(receivedFileTransfersStorePrefix).Set(
-		receivedFileTransfersStoreKey, receivedFileTransfersStoreVersion, obj)
-
-	// Load ReceivedFileTransfersStore from storage
-	_, err = NewOrLoadReceivedFileTransfersStore(kv)
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("NewOrLoadReceivedFileTransfersStore did not return the "+
-			"expected error when there is no transfer saved in storage."+
-			"\nexpected: %s\nreceived: %+v", expectedErr, err)
-	}
-}
-
 // Tests that the list saved by ReceivedFileTransfersStore.saveTransfersList
 // matches the list loaded by ReceivedFileTransfersStore.load.
 func TestReceivedFileTransfersStore_saveTransfersList_loadTransfersList(t *testing.T) {
@@ -799,6 +775,57 @@ func TestReceivedFileTransfersStore_load(t *testing.T) {
 					"\nexpected: %d\nreceived: %d", fpNum, info.fpNum)
 			}
 		}
+	}
+}
+
+// Error path: tests that ReceivedFileTransfersStore.load returns an error when
+// all file transfers fail to load from storage.
+func TestReceivedFileTransfersStore_load_AllFail(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	rft, err := NewReceivedFileTransfersStore(kv)
+	if err != nil {
+		t.Fatalf("Failed to create new ReceivedFileTransfersStore: %+v", err)
+	}
+
+	// Fill map with transfers
+	idList := make([]ftCrypto.TransferID, 7)
+	for i := range idList {
+		prng := NewPrng(int64(i))
+		key, _ := ftCrypto.NewTransferKey(prng)
+		mac := []byte("transferMAC")
+
+		idList[i], err = rft.AddTransfer(key, mac, 256, 16, 24, prng)
+		if err != nil {
+			t.Errorf("Failed to add new transfer #%d: %+v", i, err)
+		}
+
+		err = rft.DeleteTransfer(idList[i])
+		if err != nil {
+			t.Errorf("Failed to delete transfer: %+v", err)
+		}
+	}
+
+	// Save the list
+	err = rft.saveTransfersList()
+	if err != nil {
+		t.Errorf("saveTransfersList returned an error: %+v", err)
+	}
+
+	// Build new ReceivedFileTransfersStore
+	newRFT := &ReceivedFileTransfersStore{
+		transfers: make(map[ftCrypto.TransferID]*ReceivedTransfer),
+		info:      make(map[format.Fingerprint]*partInfo),
+		kv:        kv.Prefix(receivedFileTransfersStorePrefix),
+	}
+
+	expectedErr := fmt.Sprintf(loadReceivedTransfersAllErr, len(idList))
+
+	// Load saved transfers from storage
+	err = newRFT.load(idList)
+	if err == nil || err.Error() != expectedErr {
+		t.Errorf("load did not return the expected error when none of the "+
+			"transfer could be loaded from storage."+
+			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
 

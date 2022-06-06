@@ -1,8 +1,10 @@
 package ud
 
 import (
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
 	"reflect"
@@ -32,6 +34,7 @@ func TestManager_confirmFact(t *testing.T) {
 		comms:      comms,
 		net:        newTestNetworkManager(t),
 		registered: &isReg,
+		storage:    storage.InitTestingSession(t),
 	}
 
 	c := &testComm{}
@@ -39,6 +42,12 @@ func TestManager_confirmFact(t *testing.T) {
 	expectedRequest := &pb.FactConfirmRequest{
 		ConfirmationID: "test",
 		Code:           "1234",
+	}
+
+	// Set up store for expected state
+	err = m.storage.GetUd().StoreUnconfirmedFact(expectedRequest.ConfirmationID, fact.Fact{})
+	if err != nil {
+		t.Fatalf("StoreUnconfirmedFact error: %v", err)
 	}
 
 	err = m.confirmFact(expectedRequest.ConfirmationID, expectedRequest.Code, c)

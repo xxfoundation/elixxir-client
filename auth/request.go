@@ -8,7 +8,9 @@
 package auth
 
 import (
-	"fmt"
+	"io"
+	"strings"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -24,25 +26,50 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	"io"
-	"strings"
 )
 
 const terminator = ";"
 
 func RequestAuth(partner, me contact.Contact, rng io.Reader,
 	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
-	/*edge checks generation*/
-
-	// check that an authenticated channel does not already exists
+	// check that an authenticated channel does not already exist
 	if _, err := storage.E2e().GetPartner(partner.ID); err == nil ||
 		!strings.Contains(err.Error(), e2e.NoPartnerErrorStr) {
 		return 0, errors.Errorf("Authenticated channel already " +
 			"established with partner")
 	}
 
+	return requestAuth(partner, me, rng, false, storage, net)
+}
+
+func ResetSession(partner, me contact.Contact, rng io.Reader,
+	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
+
+	// Delete authenticated channel if it exists.
+	if err := storage.E2e().DeletePartner(partner.ID); err != nil {
+		jww.WARN.Printf("Unable to delete partner when "+
+			"resetting session: %+v", err)
+	} else {
+		// Delete any stored sent/received requests
+		storage.Auth().Delete(partner.ID)
+	}
+
+	rqType, _, _, err := storage.Auth().GetRequest(partner.ID)
+	if err == nil && rqType == auth.Sent {
+		return 0, errors.New("Cannot reset a session after " +
+			"sending request, caller must resend request instead")
+	}
+
+	// Try to initiate a clean session request
+	return requestAuth(partner, me, rng, true, storage, net)
+}
+
+// requestAuth internal helper
+func requestAuth(partner, me contact.Contact, rng io.Reader, reset bool,
+	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
+
+	/*edge checks generation*/
 	// check that the request is being sent from the proper ID
 	if !me.ID.Cmp(storage.GetUser().ReceptionID) {
 		return 0, errors.Errorf("Authenticated channel request " +
@@ -54,98 +81,81 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 
 	//lookup if an ongoing request is occurring
 	rqType, sr, _, err := storage.Auth().GetRequest(partner.ID)
-
-	if err == nil {
-		if rqType == auth.Receive {
-			return 0, errors.Errorf("Cannot send a request after " +
-				"receiving a request")
-		} else if rqType == auth.Sent {
-			resend = true
-		} else {
-			return 0, errors.Errorf("Cannot send a request after "+
-				" a stored request with unknown rqType: %d", rqType)
-		}
-	} else if !strings.Contains(err.Error(), auth.NoRequest) {
+	if err != nil && !strings.Contains(err.Error(), auth.NoRequest) {
 		return 0, errors.WithMessage(err,
 			"Cannot send a request after receiving unknown error "+
 				"on requesting contact status")
+	} else if err == nil {
+		switch rqType {
+		case auth.Receive:
+			if reset {
+				storage.Auth().DeleteRequest(partner.ID)
+			} else {
+				return 0, errors.Errorf("Cannot send a " +
+					"request after receiving a request")
+			}
+		case auth.Sent:
+			resend = true
+		default:
+			return 0, errors.Errorf("Cannot send a request after "+
+				"a stored request with unknown rqType: %d",
+				rqType)
+		}
 	}
-
-	grp := storage.E2e().GetGroup()
-
-	/*generate embedded message structures and check payload*/
-	cmixMsg := format.NewMessage(storage.Cmix().GetGroup().GetP().ByteLen())
-	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen())
-	ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
-	requestFmt, err := newRequestFormat(ecrFmt)
-	if err != nil {
-		return 0, errors.Errorf("failed to make request format: %+v", err)
-	}
-
-	//check the payload fits
-	facts := me.Facts.Stringify()
-	msgPayload := facts + terminator
-	msgPayloadBytes := []byte(msgPayload)
 
 	/*cryptographic generation*/
-	var newPrivKey, newPubKey *cyclic.Int
-	var sidHPrivKeyA *sidh.PrivateKey
-	var sidHPubKeyA *sidh.PublicKey
+	var dhPriv, dhPub *cyclic.Int
+	var sidhPriv *sidh.PrivateKey
+	var sidhPub *sidh.PublicKey
 
-	// in this case we have an ongoing request so we can resend the extant
-	// request
+	// NOTE: E2E group is the group used for DH key exchange, not cMix
+	dhGrp := storage.E2e().GetGroup()
+	// origin DH Priv key is the DH Key corresponding to the public key
+	// registered with user discovery
+	originDHPrivKey := storage.E2e().GetDHPrivateKey()
+
+	// If we are resending (valid sent request), reuse those keys
 	if resend {
-		newPrivKey = sr.GetMyPrivKey()
-		newPubKey = sr.GetMyPubKey()
-		sidHPrivKeyA = sr.GetMySIDHPrivKey()
-		sidHPubKeyA = sr.GetMySIDHPubKey()
-		//in this case it is a new request and we must generate new keys
+		dhPriv = sr.GetMyPrivKey()
+		dhPub = sr.GetMyPubKey()
+		sidhPriv = sr.GetMySIDHPrivKey()
+		sidhPub = sr.GetMySIDHPubKey()
+
 	} else {
-		//generate new keypair
-		newPrivKey = diffieHellman.GeneratePrivateKey(256, grp, rng)
-		newPubKey = diffieHellman.GeneratePublicKey(newPrivKey, grp)
-
-		sidHPrivKeyA = util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
-		sidHPubKeyA = util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
-
-		if err = sidHPrivKeyA.Generate(rng); err != nil {
-			return 0, errors.WithMessagef(err, "RequestAuth: "+
-				"could not generate SIDH private key")
-		}
-		sidHPrivKeyA.GeneratePublicKey(sidHPubKeyA)
-
+		dhPriv, dhPub = genDHKeys(dhGrp, rng)
+		sidhPriv, sidhPub = util.GenerateSIDHKeyPair(
+			sidh.KeyVariantSidhA, rng)
 	}
 
-	if len(msgPayloadBytes) > requestFmt.MsgPayloadLen() {
-		return 0, errors.Errorf("Combined message longer than space "+
-			"available in payload; available: %v, length: %v",
-			requestFmt.MsgPayloadLen(), len(msgPayloadBytes))
-	}
+	jww.TRACE.Printf("RequestAuth MYPUBKEY: %v", dhPub.Bytes())
+	jww.TRACE.Printf("RequestAuth THEIRPUBKEY: %v",
+		partner.DhPubKey.Bytes())
+
+	cMixPrimeSize := storage.Cmix().GetGroup().GetP().ByteLen()
+	cMixPayloadSize := getMixPayloadSize(cMixPrimeSize)
+
+	sender := storage.GetUser().ReceptionID
 
 	//generate ownership proof
-	ownership := cAuth.MakeOwnershipProof(storage.E2e().GetDHPrivateKey(),
-		partner.DhPubKey, storage.E2e().GetGroup())
-
-	jww.TRACE.Printf("RequestAuth MYPUBKEY: %v", newPubKey.Bytes())
-	jww.TRACE.Printf("RequestAuth THEIRPUBKEY: %v", partner.DhPubKey.Bytes())
-
-	/*encrypt payload*/
-	requestFmt.SetID(storage.GetUser().ReceptionID)
-	requestFmt.SetMsgPayload(msgPayloadBytes)
-	ecrFmt.SetOwnership(ownership)
-	ecrFmt.SetSidHPubKey(sidHPubKeyA)
-	ecrPayload, mac := cAuth.Encrypt(newPrivKey, partner.DhPubKey,
-		ecrFmt.data, grp)
+	ownership := cAuth.MakeOwnershipProof(originDHPrivKey, partner.DhPubKey,
+		dhGrp)
 	confirmFp := cAuth.MakeOwnershipProofFP(ownership)
+
+	// cMix fingerprint so the recipient can recognize this is a
+	// request message.
 	requestfp := cAuth.MakeRequestFingerprint(partner.DhPubKey)
 
-	/*construct message*/
-	baseFmt.SetEcrPayload(ecrPayload)
-	baseFmt.SetPubKey(newPubKey)
+	// My fact data so we can display in the interface.
+	msgPayload := []byte(me.Facts.Stringify() + terminator)
 
-	cmixMsg.SetKeyFP(requestfp)
-	cmixMsg.SetMac(mac)
-	cmixMsg.SetContents(baseFmt.Marshal())
+	// Create the request packet.
+	request, mac, err := createRequestAuth(sender, msgPayload, ownership,
+		dhPriv, dhPub, partner.DhPubKey, sidhPub,
+		dhGrp, cMixPayloadSize)
+	if err != nil {
+		return 0, err
+	}
+	contents := request.Marshal()
 
 	storage.GetEdge().Add(edge.Preimage{
 		Data:   preimage.Generate(confirmFp[:], preimage.Confirm),
@@ -153,40 +163,77 @@ func RequestAuth(partner, me contact.Contact, rng io.Reader,
 		Source: partner.ID[:],
 	}, me.ID)
 
-	jww.TRACE.Printf("RequestAuth ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
+	jww.TRACE.Printf("RequestAuth ECRPAYLOAD: %v", request.GetEcrPayload())
 	jww.TRACE.Printf("RequestAuth MAC: %v", mac)
 
 	/*store state*/
-	//fixme: channel is bricked if the first store succedes but the second fails
-	//store the in progress auth
+	//fixme: channel is bricked if the first store succedes but the second
+	//       fails
+	//store the in progress auth if this is not a resend.
 	if !resend {
-		err = storage.Auth().AddSent(partner.ID, partner.DhPubKey, newPrivKey,
-			newPubKey, sidHPrivKeyA, sidHPubKeyA, confirmFp)
+		err = storage.Auth().AddSent(partner.ID, partner.DhPubKey,
+			dhPriv, dhPub, sidhPriv, sidhPub, confirmFp)
 		if err != nil {
-			return 0, errors.Errorf("Failed to store auth request: %s", err)
+			return 0, errors.Errorf(
+				"Failed to store auth request: %s", err)
 		}
 	}
 
-	jww.INFO.Printf("Requesting Auth with %s, msgDigest: %s",
-		partner.ID, cmixMsg.Digest())
+	cMixParams := params.GetDefaultCMIX()
+	rndID, err := sendAuthRequest(partner.ID, contents, mac, cMixPrimeSize,
+		requestfp, net, cMixParams, reset)
+	return rndID, err
+}
 
-	/*send message*/
-	p := params.GetDefaultCMIX()
-	p.IdentityPreimage = preimage.GenerateRequest(partner.ID)
-	p.DebugTag = "auth.Request"
-	round, _, err := net.SendCMIX(cmixMsg, partner.ID, p)
+// genDHKeys is a short helper to generate a Diffie-Helman Keypair
+func genDHKeys(dhGrp *cyclic.Group, csprng io.Reader) (priv, pub *cyclic.Int) {
+	numBytes := len(dhGrp.GetPBytes())
+	newPrivKey := diffieHellman.GeneratePrivateKey(numBytes, dhGrp, csprng)
+	newPubKey := diffieHellman.GeneratePublicKey(newPrivKey, dhGrp)
+	return newPrivKey, newPubKey
+}
+
+// createRequestAuth Creates the request packet, including encrypting the
+// required parts of it.
+func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
+	myDHPub, theirDHPub *cyclic.Int, mySIDHPub *sidh.PublicKey,
+	dhGrp *cyclic.Group, cMixSize int) (*baseFormat, []byte, error) {
+	/*generate embedded message structures and check payload*/
+	dhPrimeSize := dhGrp.GetP().ByteLen()
+
+	// FIXME: This base -> ecr -> request structure is a little wonky.
+	// We should refactor so that is is more direct.
+	// I recommend we move to a request object that takes:
+	//   sender, dhPub, sidhPub, ownershipProof, payload
+	// with a Marshal/Unmarshal that takes the Dh/grp needed to gen
+	// the session key and encrypt or decrypt.
+
+	// baseFmt wraps ecrFmt. ecrFmt is encrypted
+	baseFmt := newBaseFormat(cMixSize, dhPrimeSize)
+	// ecrFmt wraps requestFmt
+	ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
+	requestFmt, err := newRequestFormat(ecrFmt)
 	if err != nil {
-		// if the send fails just set it to failed, it will
-		// but automatically retried
-		return 0, errors.WithMessagef(err, "Auth Request with %s "+
-			"(msgDigest: %s) failed to transmit: %+v", partner.ID,
-			cmixMsg.Digest(), err)
+		return nil, nil, errors.Errorf("failed to make request format: %+v", err)
 	}
 
-	em := fmt.Sprintf("Auth Request with %s (msgDigest: %s) sent"+
-		" on round %d", partner.ID, cmixMsg.Digest(), round)
-	jww.INFO.Print(em)
-	net.GetEventManager().Report(1, "Auth", "RequestSent", em)
+	if len(payload) > requestFmt.MsgPayloadLen() {
+		return nil, nil, errors.Errorf(
+			"Combined message longer than space "+
+				"available in payload; available: %v, length: %v",
+			requestFmt.MsgPayloadLen(), len(payload))
+	}
 
-	return round, nil
+	/*encrypt payload*/
+	requestFmt.SetID(sender)
+	requestFmt.SetMsgPayload(payload)
+	ecrFmt.SetOwnership(ownership)
+	ecrFmt.SetSidHPubKey(mySIDHPub)
+	ecrPayload, mac := cAuth.Encrypt(myDHPriv, theirDHPub, ecrFmt.data,
+		dhGrp)
+	/*construct message*/
+	baseFmt.SetEcrPayload(ecrPayload)
+	baseFmt.SetPubKey(myDHPub)
+
+	return &baseFmt, mac, nil
 }

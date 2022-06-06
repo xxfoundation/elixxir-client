@@ -52,14 +52,6 @@ func (u *User) IsPrecanned() bool {
 	return u.u.Precanned
 }
 
-func (u *User) GetCmixDhPrivateKey() []byte {
-	return u.u.CmixDhPrivateKey.Bytes()
-}
-
-func (u *User) GetCmixDhPublicKey() []byte {
-	return u.u.CmixDhPublicKey.Bytes()
-}
-
 func (u *User) GetE2EDhPrivateKey() []byte {
 	return u.u.E2eDhPrivateKey.Bytes()
 }

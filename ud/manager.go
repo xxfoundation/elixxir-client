@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -105,6 +106,71 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 	return m, nil
 }
 
+// NewManagerFromBackup builds a new user discover manager from a backup.
+// It will construct a manager that is already registered and restore
+// already registered facts into store.
+func NewManagerFromBackup(client *api.Client, single *single.Manager,
+	email, phone fact.Fact) (*Manager, error) {
+	jww.INFO.Println("ud.NewManagerFromBackup()")
+	if client.NetworkFollowerStatus() != api.Running {
+		return nil, errors.New(
+			"cannot start UD Manager when network follower is not running.")
+	}
+
+	registered := uint32(0)
+
+	m := &Manager{
+		client:     client,
+		comms:      client.GetComms(),
+		rng:        client.GetRng(),
+		sw:         client.GetSwitchboard(),
+		storage:    client.GetStorage(),
+		net:        client.GetNetworkInterface(),
+		single:     single,
+		registered: &registered,
+	}
+
+	err := m.client.GetStorage().GetUd().
+		BackUpMissingFacts(email, phone)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to restore UD store "+
+			"from backup")
+	}
+
+	// check that user discovery is available in the NDF
+	def := m.net.GetInstance().GetPartialNdf().Get()
+
+	if def.UDB.Cert == "" {
+		return nil, errors.New("NDF does not have User Discovery information, " +
+			"is there network access?: Cert not present.")
+	}
+
+	// Create the user discovery host object
+	hp := connect.GetDefaultHostParams()
+	// Client will not send KeepAlive packets
+	hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
+	hp.MaxRetries = 3
+	hp.SendTimeout = 3 * time.Second
+	hp.AuthEnabled = false
+
+	m.myID = m.storage.User().GetCryptographicIdentity().GetReceptionID()
+
+	// Get the commonly used data from storage
+	m.privKey = m.storage.GetUser().ReceptionRSA
+
+	// Set as registered. Since it's from a backup,
+	// the client is already registered
+	if err = m.setRegistered(); err != nil {
+		return nil, errors.WithMessage(err, "failed to set client as "+
+			"registered with user discovery.")
+	}
+
+	// Store the pointer to the group locally for easy access
+	m.grp = m.storage.E2e().GetGroup()
+
+	return m, nil
+}
+
 // SetAlternativeUserDiscovery sets the alternativeUd object within manager.
 // Once set, any user discovery operation will go through the alternative
 // user discovery service.
@@ -148,6 +214,18 @@ func (m *Manager) UnsetAlternativeUserDiscovery() error {
 
 	m.alternativeUd = nil
 	return nil
+}
+
+// GetFacts returns a list of fact.Fact objects that exist within the
+// Store's registeredFacts map.
+func (m *Manager) GetFacts() []fact.Fact {
+	return m.storage.GetUd().GetFacts()
+}
+
+// GetStringifiedFacts returns a list of stringified facts from the Store's
+// registeredFacts map.
+func (m *Manager) GetStringifiedFacts() []string {
+	return m.storage.GetUd().GetStringifiedFacts()
 }
 
 // getHost returns the current UD host for the UD ID found in the NDF. If the

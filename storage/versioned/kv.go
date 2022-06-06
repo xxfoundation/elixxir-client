@@ -53,8 +53,8 @@ func NewKV(data ekv.KeyValue) *KV {
 // Make sure to inspect the version returned in the versioned object
 func (v *KV) Get(key string, version uint64) (*Object, error) {
 	key = v.makeKey(key, version)
-	jww.TRACE.Printf("Get %p with key %v", v.r.data, key)
-	// Get raw data
+	jww.TRACE.Printf("get %p with key %v", v.r.data, key)
+	// get raw data
 	result := Object{}
 	err := v.r.data.Get(key, &result)
 	if err != nil {
@@ -88,9 +88,9 @@ func (v *KV) GetAndUpgrade(key string, ut UpgradeTable) (*Object, error) {
 	for version != 0 {
 		version--
 		key = v.makeKey(baseKey, version)
-		jww.TRACE.Printf("Get %p with key %v", v.r.data, key)
+		jww.TRACE.Printf("get %p with key %v", v.r.data, key)
 
-		// Get raw data
+		// get raw data
 		result = &Object{}
 		err := v.r.data.Get(key, result)
 		// Break when we find the *newest* version of the object
@@ -149,6 +149,11 @@ func (v *KV) Prefix(prefix string) *KV {
 		prefix: v.prefix + prefix + PrefixSeparator,
 	}
 	return &kvPrefix
+}
+
+func (v *KV) IsMemStore() bool {
+	_, success := v.r.data.(*ekv.Memstore)
+	return success
 }
 
 //Returns the key with all prefixes appended

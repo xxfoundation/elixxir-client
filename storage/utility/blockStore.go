@@ -72,7 +72,7 @@ func NewBlockStore(numBlocks, blockSize int, kv *versioned.KV) (*BlockStore, err
 func LoadBlockStore(kv *versioned.KV) (*BlockStore, [][]byte, error) {
 	bs := &BlockStore{kv: kv}
 
-	// Get BlockStore parameters from storage
+	// get BlockStore parameters from storage
 	err := bs.load()
 	if err != nil {
 		return nil, nil, err
@@ -81,7 +81,7 @@ func LoadBlockStore(kv *versioned.KV) (*BlockStore, [][]byte, error) {
 	// LoadBlockStore each block from storage and join together into single slice
 	var data, block [][]byte
 	for i := bs.firstSaved; i <= bs.lastSaved; i++ {
-		// Get the block from storage
+		// get the block from storage
 		block, err = bs.loadBlock(i)
 		if err != nil {
 			return nil, nil, err
@@ -165,7 +165,7 @@ func (bs *BlockStore) saveBlock() error {
 
 // loadBlock loads the block with the index from storage.
 func (bs *BlockStore) loadBlock(i int) ([][]byte, error) {
-	// Get the data from the kv
+	// get the data from the kv
 	obj, err := bs.kv.Get(bs.getKey(i), blockVersion)
 	if err != nil {
 		return nil, errors.Errorf(bKvLoadErr, i, err)
@@ -230,7 +230,7 @@ func (bs *BlockStore) save() error {
 
 // load loads BlockStore parameters from storage.
 func (bs *BlockStore) load() error {
-	// Get the data from the kv
+	// get the data from the kv
 	obj, err := bs.kv.Get(blockStoreKey, blockStoreVersion)
 	if err != nil {
 		return errors.Errorf(bsKvLoadErr, err)

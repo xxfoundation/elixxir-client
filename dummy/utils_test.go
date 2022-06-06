@@ -9,12 +9,14 @@ package dummy
 
 import (
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/gateway"
+	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -31,9 +33,9 @@ import (
 	"time"
 )
 
-////////////////////////////////////////////////////////////////////////////////
-// PRNG                                                                       //
-////////////////////////////////////////////////////////////////////////////////
+// ////////////////////////////////////////////////////////////////////////////////
+// // PRNG                                                                       //
+// ////////////////////////////////////////////////////////////////////////////////
 
 // Prng is a PRNG that satisfies the csprng.Source interface.
 type Prng struct{ prng io.Reader }
@@ -42,20 +44,21 @@ func NewPrng(seed int64) csprng.Source     { return &Prng{rand.New(rand.NewSourc
 func (s *Prng) Read(b []byte) (int, error) { return s.prng.Read(b) }
 func (s *Prng) SetSeed([]byte) error       { return nil }
 
-////////////////////////////////////////////////////////////////////////////////
-// Test Managers                                                              //
-////////////////////////////////////////////////////////////////////////////////
+// ////////////////////////////////////////////////////////////////////////////////
+// // Test Managers                                                              //
+// ////////////////////////////////////////////////////////////////////////////////
 
 // newTestManager creates a new Manager that has groups stored for testing. One
 // of the groups in the list is also returned.
 func newTestManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 	sendErr bool, t *testing.T) *Manager {
+	store := storage.InitTestingSession(t)
 	m := &Manager{
 		maxNumMessages: maxNumMessages,
 		avgSendDelta:   avgSendDelta,
 		randomRange:    randomRange,
 		statusChan:     make(chan bool, statusChanLen),
-		store:          storage.InitTestingSession(t),
+		store:          &store,
 		net:            newTestNetworkManager(sendErr, t),
 		rng:            fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 	}
@@ -63,11 +66,11 @@ func newTestManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 	return m
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Test Network Manager                                                       //
-////////////////////////////////////////////////////////////////////////////////
+// ////////////////////////////////////////////////////////////////////////////////
+// // Test Network State                                                       //
+// ////////////////////////////////////////////////////////////////////////////////
 
-// testNetworkManager is a test implementation of NetworkManager interface.
+// // testNetworkManager is a test implementation of NetworkManager interface.
 type testNetworkManager struct {
 	instance *network.Instance
 	messages map[id.ID]format.Message
@@ -111,22 +114,24 @@ func (tnm *testNetworkManager) GetMsg(recipient id.ID) format.Message {
 	return tnm.messages[recipient]
 }
 
-func (tnm *testNetworkManager) SendE2E(message.Send, params.E2E, *stoppable.Single) (
+// TEST
+func (tnm *testNetworkManager) SendE2E() (
 	[]id.Round, e2e.MessageID, time.Time, error) {
 	return nil, e2e.MessageID{}, time.Time{}, nil
 }
 
-func (tnm *testNetworkManager) SendUnsafe(message.Send, params.Unsafe) ([]id.Round, error) {
+// TEST
+func (tnm *testNetworkManager) SendUnsafe() ([]id.Round, error) {
 	return []id.Round{}, nil
 }
 
 func (tnm *testNetworkManager) SendCMIX(message format.Message,
-	recipient *id.ID, _ params.CMIX) (id.Round, ephemeral.Id, error) {
+	recipient *id.ID, _ cmix.Params) (id.Round, ephemeral.Id, error) {
 	tnm.Lock()
 	defer tnm.Unlock()
 
 	if tnm.sendErr {
-		return 0, ephemeral.Id{}, errors.New("SendCMIX error")
+		return 0, ephemeral.Id{}, errors.New("Send error")
 	}
 
 	tnm.messages[*recipient] = message
@@ -134,7 +139,7 @@ func (tnm *testNetworkManager) SendCMIX(message format.Message,
 	return 0, ephemeral.Id{}, nil
 }
 
-func (tnm *testNetworkManager) SendManyCMIX([]message.TargetedCmixMessage, params.CMIX) (
+func (tnm *testNetworkManager) SendManyCMIX([]cmix.TargetedCmixMessage, cmix.Params) (
 	id.Round, []ephemeral.Id, error) {
 	return 0, nil, nil
 }
@@ -142,16 +147,19 @@ func (tnm *testNetworkManager) SendManyCMIX([]message.TargetedCmixMessage, param
 type dummyEventMgr struct{}
 
 func (d *dummyEventMgr) Report(int, string, string, string) {}
-func (tnm *testNetworkManager) GetEventManager() interfaces.EventManager {
+func (tnm *testNetworkManager) GetEventManager() event.Reporter {
 	return &dummyEventMgr{}
 }
 
 func (tnm *testNetworkManager) GetInstance() *network.Instance             { return tnm.instance }
+func (tnm *testNetworkManager) GetAddressSpace() uint8                     { return 0 }
+func (tnm *testNetworkManager) GetHostParams() connect.HostParams          { return connect.HostParams{} }
 func (tnm *testNetworkManager) GetHealthTracker() interfaces.HealthTracker { return nil }
 func (tnm *testNetworkManager) Follow(interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
 	return nil, nil
 }
 func (tnm *testNetworkManager) CheckGarbledMessages()        {}
+func (tnm *testNetworkManager) CheckInProgressMessages()     {}
 func (tnm *testNetworkManager) InProgressRegistrations() int { return 0 }
 func (tnm *testNetworkManager) GetSender() *gateway.Sender   { return nil }
 func (tnm *testNetworkManager) GetAddressSize() uint8        { return 0 }
@@ -161,10 +169,44 @@ func (tnm *testNetworkManager) RegisterAddressSizeNotification(string) (chan uin
 func (tnm *testNetworkManager) UnregisterAddressSizeNotification(string) {}
 func (tnm *testNetworkManager) SetPoolFilter(gateway.Filter)             {}
 func (tnm *testNetworkManager) GetVerboseRounds() string                 { return "" }
+func (tnm *testNetworkManager) HasNode(*id.ID) bool                      { return false }
+func (tnm *testNetworkManager) LookupHistoricalRound(id.Round, func(*mixmessages.RoundInfo, bool)) error {
+	return nil
+}
+func (tnm *testNetworkManager) NumRegisteredNodes() int { return 0 }
+func (tnm *testNetworkManager) RegisterAddressSpaceNotification(string) (chan uint8, error) {
+	return nil, nil
+}
+func (tnm *testNetworkManager) SendToAny(func(*connect.Host) (interface{}, error), *stoppable.Single) (interface{}, error) {
+	return nil, nil
+}
+func (tnm *testNetworkManager) SendToPreferred([]*id.ID, func(*connect.Host, *id.ID, time.Duration) (interface{}, error), *stoppable.Single, time.Duration) (interface{}, error) {
+	return nil, nil
+}
+func (tnm *testNetworkManager) SetGatewayFilter(func(map[id.ID]int, *ndf.NetworkDefinition) map[id.ID]int) {
+}
+func (tnm *testNetworkManager) TrackServices(message.ServicesTracker)     {}
+func (tnm *testNetworkManager) TriggerNodeRegistration(*id.ID)            {}
+func (tnm *testNetworkManager) UnregisterAddressSpaceNotification(string) {}
 
-////////////////////////////////////////////////////////////////////////////////
-// NDF Primes                                                                 //
-////////////////////////////////////////////////////////////////////////////////
+func (tnm *testNetworkManager) AddFingerprint(*id.ID, format.Fingerprint, message.Processor) error {
+	return nil
+}
+func (tnm *testNetworkManager) DeleteFingerprint(*id.ID, format.Fingerprint) {}
+func (tnm *testNetworkManager) DeleteClientFingerprints(*id.ID)              {}
+
+func (tnm *testNetworkManager) AddIdentity(*id.ID, time.Time, bool) error { return nil }
+func (tnm *testNetworkManager) RemoveIdentity(*id.ID)                     {}
+
+func (tnm *testNetworkManager) AddTrigger(*id.ID, message.Service, message.Processor) {}
+func (tnm *testNetworkManager) DeleteTrigger(*id.ID, interfaces.Preimage, message.Processor) error {
+	return nil
+}
+func (tnm *testNetworkManager) DeleteClientTriggers(*id.ID) {}
+
+// ////////////////////////////////////////////////////////////////////////////////
+// // NDF Primes                                                                 //
+// ////////////////////////////////////////////////////////////////////////////////
 
 func getNDF() *ndf.NetworkDefinition {
 	return &ndf.NetworkDefinition{

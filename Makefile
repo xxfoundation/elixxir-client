@@ -7,7 +7,7 @@ version:
 
 clean:
 	rm -rf vendor/
-	go mod vendor
+	go mod vendor -e
 
 update:
 	-GOFLAGS="" go get all
@@ -23,6 +23,7 @@ update_release:
 	GOFLAGS="" go get gitlab.com/elixxir/crypto@release
 	GOFLAGS="" go get gitlab.com/xx_network/comms@release
 	GOFLAGS="" go get gitlab.com/elixxir/comms@release
+	GOFLAGS="" go get gitlab.com/elixxir/ekv@master
 
 update_master:
 	GOFLAGS="" go get gitlab.com/xx_network/primitives@master
@@ -31,6 +32,7 @@ update_master:
 	GOFLAGS="" go get gitlab.com/elixxir/crypto@master
 	GOFLAGS="" go get gitlab.com/xx_network/comms@master
 	GOFLAGS="" go get gitlab.com/elixxir/comms@master
+	GOFLAGS="" go get gitlab.com/elixxir/ekv@master
 
 master: update_master clean build version
 

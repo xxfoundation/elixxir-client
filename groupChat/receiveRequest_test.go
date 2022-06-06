@@ -10,10 +10,10 @@ package groupChat
 import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/e2e/receive"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/stoppable"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"math/rand"
 	"reflect"
@@ -23,14 +23,14 @@ import (
 )
 
 // Tests that the correct group is received from the request.
-func TestManager_receiveRequest(t *testing.T) {
+func TestRequestListener_Hear(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	requestChan := make(chan gs.Group)
 	requestFunc := func(g gs.Group) { requestChan <- g }
-	m, _ := newTestManagerWithStore(prng, 10, 0, requestFunc, nil, t)
-	g := newTestGroupWithUser(m.store.E2e().GetGroup(),
-		m.store.GetUser().ReceptionID, m.store.GetUser().E2eDhPublicKey,
-		m.store.GetUser().E2eDhPrivateKey, prng, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, requestFunc, t)
+	g := newTestGroupWithUser(m.grp,
+		m.receptionId, m.e2e.GetHistoricalDHPubkey(),
+		m.e2e.GetHistoricalDHPrivkey(), prng, t)
 
 	requestMarshaled, err := proto.Marshal(&Request{
 		Name:        g.Name,
@@ -44,37 +44,35 @@ func TestManager_receiveRequest(t *testing.T) {
 		t.Errorf("Failed to marshal proto message: %+v", err)
 	}
 
-	msg := message.Receive{
+	msg := receive.Message{
 		Sender:      g.Members[0].ID,
 		Payload:     requestMarshaled,
-		MessageType: message.GroupCreationRequest,
+		MessageType: catalog.GroupCreationRequest,
 	}
+	listener := requestListener{m: m}
 
 	myVariant := sidh.KeyVariantSidhA
 	mySIDHPrivKey := util.NewSIDHPrivateKey(myVariant)
 	mySIDHPubKey := util.NewSIDHPublicKey(myVariant)
-	mySIDHPrivKey.Generate(prng)
+	_ = mySIDHPrivKey.Generate(prng)
 	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
 	theirVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
 	theirSIDHPrivKey := util.NewSIDHPrivateKey(theirVariant)
 	theirSIDHPubKey := util.NewSIDHPublicKey(theirVariant)
-	theirSIDHPrivKey.Generate(prng)
+	_ = theirSIDHPrivKey.Generate(prng)
 	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
 
-	_ = m.store.E2e().AddPartner(
+	_, _ = m.e2e.AddPartner(
 		g.Members[0].ID,
 		g.Members[0].DhKey,
-		m.store.E2e().GetGroup().NewInt(2),
+		m.e2e.GetHistoricalDHPrivkey(),
 		theirSIDHPubKey, mySIDHPrivKey,
-		params.GetDefaultE2ESessionParams(),
-		params.GetDefaultE2ESessionParams(),
+		session.GetDefaultParams(),
+		session.GetDefaultParams(),
 	)
 
-	rawMessages := make(chan message.Receive)
-	quit := stoppable.NewSingle("groupReceiveRequestTestStoppable")
-	go m.receiveRequest(rawMessages, quit)
-	rawMessages <- msg
+	go listener.Hear(msg)
 
 	select {
 	case receivedGrp := <-requestChan:
@@ -89,11 +87,11 @@ func TestManager_receiveRequest(t *testing.T) {
 
 // Tests that the callback is not called when the group already exists in the
 // manager.
-func TestManager_receiveRequest_GroupExists(t *testing.T) {
+func TestRequestListener_Hear_GroupExists(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	requestChan := make(chan gs.Group)
 	requestFunc := func(g gs.Group) { requestChan <- g }
-	m, g := newTestManagerWithStore(prng, 10, 0, requestFunc, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 0, requestFunc, t)
 
 	requestMarshaled, err := proto.Marshal(&Request{
 		Name:        g.Name,
@@ -106,15 +104,14 @@ func TestManager_receiveRequest_GroupExists(t *testing.T) {
 		t.Errorf("Failed to marshal proto message: %+v", err)
 	}
 
-	msg := message.Receive{
+	listener := requestListener{m: m}
+
+	msg := receive.Message{
 		Payload:     requestMarshaled,
-		MessageType: message.GroupCreationRequest,
+		MessageType: catalog.GroupCreationRequest,
 	}
 
-	rawMessages := make(chan message.Receive)
-	stop := stoppable.NewSingle("testStoppable")
-	go m.receiveRequest(rawMessages, stop)
-	rawMessages <- msg
+	go listener.Hear(msg)
 
 	select {
 	case <-requestChan:
@@ -124,47 +121,21 @@ func TestManager_receiveRequest_GroupExists(t *testing.T) {
 	}
 }
 
-// Tests that the quit channel quits the worker.
-func TestManager_receiveRequest_QuitChan(t *testing.T) {
-	prng := rand.New(rand.NewSource(42))
-	requestChan := make(chan gs.Group)
-	requestFunc := func(g gs.Group) { requestChan <- g }
-	m, _ := newTestManagerWithStore(prng, 10, 0, requestFunc, nil, t)
-
-	rawMessages := make(chan message.Receive)
-	stop := stoppable.NewSingle("testStoppable")
-	done := make(chan struct{})
-	go func() {
-		m.receiveRequest(rawMessages, stop)
-		done <- struct{}{}
-	}()
-	if err := stop.Close(); err != nil {
-		t.Errorf("Failed to signal close to process: %+v", err)
-	}
-
-	select {
-	case <-done:
-	case <-time.NewTimer(5 * time.Millisecond).C:
-		t.Error("receiveRequest() failed to close when the quit.")
-	}
-}
-
 // Tests that the callback is not called when the send message is not of the
 // correct type.
-func TestManager_receiveRequest_SendMessageTypeError(t *testing.T) {
+func TestRequestListener_Hear_BadMessageType(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	requestChan := make(chan gs.Group)
 	requestFunc := func(g gs.Group) { requestChan <- g }
-	m, _ := newTestManagerWithStore(prng, 10, 0, requestFunc, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, requestFunc, t)
 
-	msg := message.Receive{
-		MessageType: message.NoType,
+	msg := receive.Message{
+		MessageType: catalog.NoType,
 	}
 
-	rawMessages := make(chan message.Receive)
-	stop := stoppable.NewSingle("singleStoppable")
-	go m.receiveRequest(rawMessages, stop)
-	rawMessages <- msg
+	listener := requestListener{m: m}
+
+	go listener.Hear(msg)
 
 	select {
 	case receivedGrp := <-requestChan:
@@ -175,29 +146,29 @@ func TestManager_receiveRequest_SendMessageTypeError(t *testing.T) {
 }
 
 // Unit test of readRequest.
-func TestManager_readRequest(t *testing.T) {
+func Test_manager_readRequest(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManager(prng, t)
 
 	myVariant := sidh.KeyVariantSidhA
 	mySIDHPrivKey := util.NewSIDHPrivateKey(myVariant)
 	mySIDHPubKey := util.NewSIDHPublicKey(myVariant)
-	mySIDHPrivKey.Generate(prng)
+	_ = mySIDHPrivKey.Generate(prng)
 	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
 	theirVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
 	theirSIDHPrivKey := util.NewSIDHPrivateKey(theirVariant)
 	theirSIDHPubKey := util.NewSIDHPublicKey(theirVariant)
-	theirSIDHPrivKey.Generate(prng)
+	_ = theirSIDHPrivKey.Generate(prng)
 	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
 
-	_ = m.store.E2e().AddPartner(
+	_, _ = m.e2e.AddPartner(
 		g.Members[0].ID,
 		g.Members[0].DhKey,
-		m.store.E2e().GetGroup().NewInt(2),
+		m.e2e.GetHistoricalDHPrivkey(),
 		theirSIDHPubKey, mySIDHPrivKey,
-		params.GetDefaultE2ESessionParams(),
-		params.GetDefaultE2ESessionParams(),
+		session.GetDefaultParams(),
+		session.GetDefaultParams(),
 	)
 
 	requestMarshaled, err := proto.Marshal(&Request{
@@ -212,9 +183,9 @@ func TestManager_readRequest(t *testing.T) {
 		t.Errorf("Failed to marshal proto message: %+v", err)
 	}
 
-	msg := message.Receive{
+	msg := receive.Message{
 		Payload:     requestMarshaled,
-		MessageType: message.GroupCreationRequest,
+		MessageType: catalog.GroupCreationRequest,
 	}
 
 	newGrp, err := m.readRequest(msg)
@@ -229,11 +200,11 @@ func TestManager_readRequest(t *testing.T) {
 }
 
 // Error path: an error is returned if the message type is incorrect.
-func TestManager_readRequest_MessageTypeError(t *testing.T) {
+func Test_manager_readRequest_MessageTypeError(t *testing.T) {
 	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
 	expectedErr := sendMessageTypeErr
-	msg := message.Receive{
-		MessageType: message.NoType,
+	msg := receive.Message{
+		MessageType: catalog.NoType,
 	}
 
 	_, err := m.readRequest(msg)
@@ -244,7 +215,7 @@ func TestManager_readRequest_MessageTypeError(t *testing.T) {
 }
 
 // Error path: an error is returned if the proto message cannot be unmarshalled.
-func TestManager_readRequest_ProtoUnmarshalError(t *testing.T) {
+func Test_manager_readRequest_ProtoUnmarshalError(t *testing.T) {
 	expectedErr := strings.SplitN(deserializeMembershipErr, "%", 2)[0]
 	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
 
@@ -255,9 +226,9 @@ func TestManager_readRequest_ProtoUnmarshalError(t *testing.T) {
 		t.Errorf("Failed to marshal proto message: %+v", err)
 	}
 
-	msg := message.Receive{
+	msg := receive.Message{
 		Payload:     requestMarshaled,
-		MessageType: message.GroupCreationRequest,
+		MessageType: catalog.GroupCreationRequest,
 	}
 
 	_, err = m.readRequest(msg)
@@ -268,12 +239,12 @@ func TestManager_readRequest_ProtoUnmarshalError(t *testing.T) {
 }
 
 // Error path: an error is returned if the membership cannot be deserialized.
-func TestManager_readRequest_DeserializeMembershipError(t *testing.T) {
+func Test_manager_readRequest_DeserializeMembershipError(t *testing.T) {
 	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
 	expectedErr := strings.SplitN(protoUnmarshalErr, "%", 2)[0]
-	msg := message.Receive{
+	msg := receive.Message{
 		Payload:     []byte("Invalid message."),
-		MessageType: message.GroupCreationRequest,
+		MessageType: catalog.GroupCreationRequest,
 	}
 
 	_, err := m.readRequest(msg)

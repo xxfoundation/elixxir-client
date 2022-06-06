@@ -1,107 +1,127 @@
 package ud
 
 import (
+	"fmt"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/single"
-	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/comms/client"
+	"gitlab.com/elixxir/client/event"
+	"gitlab.com/elixxir/client/storage/versioned"
+	store "gitlab.com/elixxir/client/ud/store"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"math"
-	"time"
 )
 
-type SingleInterface interface {
-	TransmitSingleUse(contact.Contact, []byte, string, uint8, single.ReplyComm,
-		time.Duration) error
-	StartProcesses() (stoppable.Stoppable, error)
-}
+const (
+	IsRegisteredErr = "NewManager is already registered. " +
+		"NewManager is meant for the first instantiation. Use LoadManager " +
+		"for all other calls"
+)
 
+// Manager is the control structure for the contacting the user discovery service.
 type Manager struct {
-	// External
-	client  *api.Client
-	comms   *client.Comms
-	rng     *fastRNG.StreamGenerator
-	sw      interfaces.Switchboard
-	storage *storage.Session
-	net     interfaces.NetworkManager
+	// Network is a sub-interface of the cmix.Client interface. It
+	// allows the Manager to retrieve network state.
+	network CMix
 
-	// Loaded from external access
-	privKey *rsa.PrivateKey
-	grp     *cyclic.Group
+	// e2e is a sub-interface of the e2e.Handler. It allows the Manager
+	// to retrieve the client's E2E information.
+	e2e E2E
 
-	// internal structures
-	single SingleInterface
-	myID   *id.ID
+	// events allows the Manager to report events to the other
+	// levels of the client.
+	events event.Reporter
 
-	// alternate User discovery service to circumvent production
+	// store is an instantiation of this package's storage object.
+	// It contains the facts that are in some state of being registered
+	// with the UD service
+	store *store.Store
+
+	// user is a sub-interface of the user.User object in the storage package.
+	// This allows the Manager to pull user information for registration
+	// and verifying the client's identity
+	user UserInfo
+
+	// comms is a sub-interface of the client.Comms interface. It contains
+	// gRPC functions for registering and fact operations.
+	comms Comms
+
+	// kv is a versioned key-value store used for isRegistered and
+	// setRegistered. This is separated from store operations as store's kv
+	// has a different prefix which breaks backwards compatibility.
+	kv *versioned.KV
+
+	// factMux is to be used for Add/Remove fact.Fact operations.
+	// This prevents simultaneous calls to Add/Remove calls which
+	// may cause unexpected behaviour.
+	factMux sync.Mutex
+
+	// alternativeUd is an alternate User discovery service to circumvent
+	// production. This is for testing with a separately deployed UD service.
 	alternativeUd *alternateUd
-
-	registered *uint32
 }
 
-// alternateUd is an alternative user discovery service.
-// This is used for testing, so client can avoid using
-// the production server.
-type alternateUd struct {
-	host     *connect.Host
-	dhPubKey []byte
-}
-
-// NewManager builds a new user discovery manager. It requires that an updated
+// NewManager builds a new user discovery manager.
+// It requires that an updated
 // NDF is available and will error if one is not.
-func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
+func NewManager(services CMix, e2e E2E,
+	follower NetworkStatus,
+	events event.Reporter, comms Comms, userStore UserInfo,
+	rng csprng.Source, username string,
+	kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
-	if client.NetworkFollowerStatus() != api.Running {
+
+	if follower() != api.Running {
 		return nil, errors.New(
 			"cannot start UD Manager when network follower is not running.")
 	}
 
+	// Initialize manager
 	m := &Manager{
-		client:  client,
-		comms:   client.GetComms(),
-		rng:     client.GetRng(),
-		sw:      client.GetSwitchboard(),
-		storage: client.GetStorage(),
-		net:     client.GetNetworkInterface(),
-		single:  single,
+		network: services,
+		e2e:     e2e,
+		events:  events,
+		comms:   comms,
+		user:    userStore,
+		kv:      kv,
 	}
 
-	// check that user discovery is available in the NDF
-	def := m.net.GetInstance().GetPartialNdf().Get()
-
-	if def.UDB.Cert == "" {
-		return nil, errors.New("NDF does not have User Discovery information, " +
-			"is there network access?: Cert not present.")
+	if m.isRegistered() {
+		return nil, errors.Errorf(IsRegisteredErr)
 	}
 
-	// Create the user discovery host object
-	hp := connect.GetDefaultHostParams()
-	// Client will not send KeepAlive packets
-	hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
-	hp.MaxRetries = 3
-	hp.SendTimeout = 3 * time.Second
-	hp.AuthEnabled = false
+	// Initialize store
+	var err error
+	m.store, err = store.NewOrLoadStore(kv)
+	if err != nil {
+		return nil, errors.Errorf("Failed to initialize store: %v", err)
+	}
 
-	m.myID = m.storage.User().GetCryptographicIdentity().GetReceptionID()
+	// Initialize/Get host
+	udHost, err := m.getOrAddUdHost()
+	if err != nil {
+		return nil, errors.WithMessage(err, "User Discovery host object could "+
+			"not be constructed.")
+	}
 
-	// Get the commonly used data from storage
-	m.privKey = m.storage.GetUser().ReceptionRSA
+	// Register with user discovery
+	err = m.register(username, rng, comms, udHost)
+	if err != nil {
+		return nil, errors.Errorf("Failed to register: %v", err)
+	}
 
-	// Load if the client is registered
-	m.loadRegistered()
-
-	// Store the pointer to the group locally for easy access
-	m.grp = m.storage.E2e().GetGroup()
+	// Set storage to registered
+	if err = setRegistered(kv); err != nil && m.events != nil {
+		m.events.Report(1, "UserDiscovery", "Registration",
+			fmt.Sprintf("User Registered with UD: %+v",
+				username))
+	}
 
 	return m, nil
 }
@@ -109,138 +129,193 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 // NewManagerFromBackup builds a new user discover manager from a backup.
 // It will construct a manager that is already registered and restore
 // already registered facts into store.
-func NewManagerFromBackup(client *api.Client, single *single.Manager,
-	email, phone fact.Fact) (*Manager, error) {
+func NewManagerFromBackup(services CMix,
+	e2e E2E, follower NetworkStatus,
+	events event.Reporter, comms Comms, userStore UserInfo,
+	email, phone fact.Fact, kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
-	if client.NetworkFollowerStatus() != api.Running {
+	if follower() != api.Running {
 		return nil, errors.New(
-			"cannot start UD Manager when network follower is not running.")
+			"cannot start UD Manager when " +
+				"network follower is not running.")
 	}
 
-	registered := uint32(0)
-
+	// Initialize manager
 	m := &Manager{
-		client:     client,
-		comms:      client.GetComms(),
-		rng:        client.GetRng(),
-		sw:         client.GetSwitchboard(),
-		storage:    client.GetStorage(),
-		net:        client.GetNetworkInterface(),
-		single:     single,
-		registered: &registered,
+		network: services,
+		e2e:     e2e,
+		events:  events,
+		comms:   comms,
+		user:    userStore,
+		kv:      kv,
 	}
 
-	err := m.client.GetStorage().GetUd().
-		BackUpMissingFacts(email, phone)
+	// Initialize our store
+	var err error
+	m.store, err = store.NewOrLoadStore(kv)
+	if err != nil {
+		return nil, err
+	}
+
+	// Put any passed in missing facts into store
+	err = m.store.BackUpMissingFacts(email, phone)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to restore UD store "+
 			"from backup")
 	}
 
-	// check that user discovery is available in the NDF
-	def := m.net.GetInstance().GetPartialNdf().Get()
-
-	if def.UDB.Cert == "" {
-		return nil, errors.New("NDF does not have User Discovery information, " +
-			"is there network access?: Cert not present.")
-	}
-
-	// Create the user discovery host object
-	hp := connect.GetDefaultHostParams()
-	// Client will not send KeepAlive packets
-	hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
-	hp.MaxRetries = 3
-	hp.SendTimeout = 3 * time.Second
-	hp.AuthEnabled = false
-
-	m.myID = m.storage.User().GetCryptographicIdentity().GetReceptionID()
-
-	// Get the commonly used data from storage
-	m.privKey = m.storage.GetUser().ReceptionRSA
-
 	// Set as registered. Since it's from a backup,
 	// the client is already registered
-	if err = m.setRegistered(); err != nil {
+	if err = setRegistered(kv); err != nil {
 		return nil, errors.WithMessage(err, "failed to set client as "+
 			"registered with user discovery.")
 	}
 
-	// Store the pointer to the group locally for easy access
-	m.grp = m.storage.E2e().GetGroup()
+	// Create the user discovery host object
+	_, err = m.getOrAddUdHost()
+	if err != nil {
+		return nil, errors.WithMessage(err, "User Discovery host object could "+
+			"not be constructed.")
+	}
 
 	return m, nil
 }
 
-// SetAlternativeUserDiscovery sets the alternativeUd object within manager.
-// Once set, any user discovery operation will go through the alternative
-// user discovery service.
-// To undo this operation, use UnsetAlternativeUserDiscovery.
-func (m *Manager) SetAlternativeUserDiscovery(altCert, altAddress, contactFile []byte) error {
-	params := connect.GetDefaultHostParams()
-	params.AuthEnabled = false
-
-	udIdBytes, dhPubKey, err := contact.ReadContactFromFile(contactFile)
+// InitStoreFromBackup initializes the UD storage from the backup subsystem
+func InitStoreFromBackup(kv *versioned.KV,
+	username, email, phone fact.Fact) error {
+	// Initialize our store
+	udStore, err := store.NewOrLoadStore(kv)
 	if err != nil {
 		return err
 	}
 
-	udID, err := id.Unmarshal(udIdBytes)
+	// Put any passed in missing facts into store
+	err = udStore.BackUpMissingFacts(email, phone)
 	if err != nil {
-		return err
+		return errors.WithMessage(err, "Failed to restore UD store "+
+			"from backup")
 	}
 
-	// Add a new host and return it if it does not already exist
-	host, err := m.comms.AddHost(udID, string(altAddress),
-		altCert, params)
-	if err != nil {
-		return errors.WithMessage(err, "User Discovery host object could "+
-			"not be constructed.")
-	}
-
-	m.alternativeUd = &alternateUd{
-		host:     host,
-		dhPubKey: dhPubKey,
+	// Set as registered. Since it's from a backup,
+	// the client is already registered
+	if err = setRegistered(kv); err != nil {
+		return errors.WithMessage(err, "failed to set client as "+
+			"registered with user discovery.")
 	}
 
 	return nil
 }
 
-// UnsetAlternativeUserDiscovery clears out the information from
-// the Manager object.
-func (m *Manager) UnsetAlternativeUserDiscovery() error {
-	if m.alternativeUd == nil {
-		return errors.New("Alternative User Discovery is already unset.")
+// LoadManager loads the state of the Manager
+// from disk. This is meant to be called after any the first
+// instantiation of the manager by NewUserDiscovery.
+func LoadManager(services CMix, e2e E2E,
+	events event.Reporter, comms Comms, userStore UserInfo,
+	kv *versioned.KV) (*Manager, error) {
+
+	m := &Manager{
+		network: services,
+		e2e:     e2e,
+		events:  events,
+		comms:   comms,
+		user:    userStore,
+
+		kv: kv,
 	}
 
-	m.alternativeUd = nil
-	return nil
+	if !m.isRegistered() {
+		return nil, errors.Errorf("LoadManager could not detect that " +
+			"the user has been registered. Has a manager been initiated before?")
+	}
+
+	var err error
+	m.store, err = store.NewOrLoadStore(kv)
+	if err != nil {
+		return nil, errors.Errorf("Failed to initialize store: %v", err)
+	}
+
+	return m, err
 }
 
 // GetFacts returns a list of fact.Fact objects that exist within the
 // Store's registeredFacts map.
 func (m *Manager) GetFacts() []fact.Fact {
-	return m.storage.GetUd().GetFacts()
+	return m.store.GetFacts()
 }
 
 // GetStringifiedFacts returns a list of stringified facts from the Store's
 // registeredFacts map.
 func (m *Manager) GetStringifiedFacts() []string {
-	return m.storage.GetUd().GetStringifiedFacts()
+	return m.store.GetStringifiedFacts()
 }
 
-// getHost returns the current UD host for the UD ID found in the NDF. If the
-// host does not exist, then it is added and returned
-func (m *Manager) getHost() (*connect.Host, error) {
+// GetContact returns the contact for UD as retrieved from the NDF.
+func (m *Manager) GetContact() (contact.Contact, error) {
+	grp := m.e2e.GetGroup()
+	// Return alternative User discovery contact if set
+	if m.alternativeUd != nil {
+		// Unmarshal UD DH public key
+		alternativeDhPubKey := grp.NewInt(1)
+		if err := alternativeDhPubKey.
+			UnmarshalJSON(m.alternativeUd.dhPubKey); err != nil {
+			return contact.Contact{},
+				errors.WithMessage(err, "Failed to unmarshal UD "+
+					"DH public key.")
+		}
+
+		return contact.Contact{
+			ID:             m.alternativeUd.host.GetId(),
+			DhPubKey:       alternativeDhPubKey,
+			OwnershipProof: nil,
+			Facts:          nil,
+		}, nil
+	}
+
+	netDef := m.network.GetInstance().GetPartialNdf().Get()
+
+	// Unmarshal UD ID from the NDF
+	udID, err := id.Unmarshal(netDef.UDB.ID)
+	if err != nil {
+		return contact.Contact{},
+			errors.Errorf("failed to unmarshal UD ID from NDF: %+v", err)
+	}
+
+	// Unmarshal UD DH public key
+	dhPubKey := grp.NewInt(1)
+	if err = dhPubKey.UnmarshalJSON(netDef.UDB.DhPubKey); err != nil {
+		return contact.Contact{},
+			errors.WithMessage(err, "Failed to unmarshal UD DH "+
+				"public key.")
+	}
+
+	return contact.Contact{
+		ID:             udID,
+		DhPubKey:       dhPubKey,
+		OwnershipProof: nil,
+		Facts:          nil,
+	}, nil
+}
+
+// getOrAddUdHost returns the current UD host for the UD ID found in the NDF.
+// If the host does not exist, then it is added and returned.
+func (m *Manager) getOrAddUdHost() (*connect.Host, error) {
 	// Return alternative User discovery service if it has been set
 	if m.alternativeUd != nil {
 		return m.alternativeUd.host, nil
 	}
 
-	netDef := m.net.GetInstance().GetPartialNdf().Get()
+	netDef := m.network.GetInstance().GetPartialNdf().Get()
+	if netDef.UDB.Cert == "" {
+		return nil, errors.New("NDF does not have User Discovery information, " +
+			"is there network access?: Cert not present.")
+	}
+
 	// Unmarshal UD ID from the NDF
 	udID, err := id.Unmarshal(netDef.UDB.ID)
 	if err != nil {
-		return nil, errors.Errorf("failed to unmarshal UD ID from NDF: %+v", err)
+		return nil, errors.Errorf("failed to "+
+			"unmarshal UD ID from NDF: %+v", err)
 	}
 
 	// Return the host, if it exists
@@ -257,52 +332,9 @@ func (m *Manager) getHost() (*connect.Host, error) {
 	host, err = m.comms.AddHost(udID, netDef.UDB.Address,
 		[]byte(netDef.UDB.Cert), params)
 	if err != nil {
-		return nil, errors.WithMessage(err, "User Discovery host object could "+
-			"not be constructed.")
+		return nil, errors.WithMessage(err, "User Discovery host "+
+			"object could not be constructed.")
 	}
 
 	return host, nil
-}
-
-// getContact returns the contact for UD as retrieved from the NDF.
-func (m *Manager) getContact() (contact.Contact, error) {
-	// Return alternative User discovery contact if set
-	if m.alternativeUd != nil {
-		// Unmarshal UD DH public key
-		alternativeDhPubKey := m.storage.E2e().GetGroup().NewInt(1)
-		if err := alternativeDhPubKey.UnmarshalJSON(m.alternativeUd.dhPubKey); err != nil {
-			return contact.Contact{},
-				errors.WithMessage(err, "Failed to unmarshal UD DH public key.")
-		}
-
-		return contact.Contact{
-			ID:             m.alternativeUd.host.GetId(),
-			DhPubKey:       alternativeDhPubKey,
-			OwnershipProof: nil,
-			Facts:          nil,
-		}, nil
-	}
-
-	netDef := m.net.GetInstance().GetPartialNdf().Get()
-
-	// Unmarshal UD ID from the NDF
-	udID, err := id.Unmarshal(netDef.UDB.ID)
-	if err != nil {
-		return contact.Contact{},
-			errors.Errorf("failed to unmarshal UD ID from NDF: %+v", err)
-	}
-
-	// Unmarshal UD DH public key
-	dhPubKey := m.storage.E2e().GetGroup().NewInt(1)
-	if err = dhPubKey.UnmarshalJSON(netDef.UDB.DhPubKey); err != nil {
-		return contact.Contact{},
-			errors.WithMessage(err, "Failed to unmarshal UD DH public key.")
-	}
-
-	return contact.Contact{
-		ID:             udID,
-		DhPubKey:       dhPubKey,
-		OwnershipProof: nil,
-		Facts:          nil,
-	}, nil
 }

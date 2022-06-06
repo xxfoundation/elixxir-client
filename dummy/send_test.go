@@ -114,7 +114,7 @@ func TestManager_sendMessages(t *testing.T) {
 		t.Errorf("sendMessages returned an error: %+v", err)
 	}
 
-	// Get sent messages
+	// get sent messages
 	receivedMsgs := m.net.(*testNetworkManager).GetMsgList()
 
 	// Test that all messages were received

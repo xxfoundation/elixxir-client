@@ -11,8 +11,7 @@ import (
 	"fmt"
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -24,10 +23,10 @@ import (
 	"testing"
 )
 
-// Tests that Manager.ResendRequest sends all expected requests successfully.
-func TestManager_ResendRequest(t *testing.T) {
+// Tests that manager.ResendRequest sends all expected requests successfully.
+func Test_manager_ResendRequest(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 0, nil, t)
 
 	expected := &Request{
 		Name:        g.Name,
@@ -39,16 +38,16 @@ func TestManager_ResendRequest(t *testing.T) {
 	}
 
 	for i := range g.Members {
-		grp := m.store.E2e().GetGroup()
+		grp := m.grp
 		dhKey := grp.NewInt(int64(i + 42))
 		pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
-		p := params.GetDefaultE2ESessionParams()
+		p := session.GetDefaultParams()
 		rng := csprng.NewSystemRNG()
 		_, mySidhPriv := util.GenerateSIDHKeyPair(
 			sidh.KeyVariantSidhA, rng)
 		theirSidhPub, _ := util.GenerateSIDHKeyPair(
 			sidh.KeyVariantSidhB, rng)
-		err := m.store.E2e().AddPartner(g.Members[i].ID, pubKey, dhKey,
+		_, err := m.e2e.AddPartner(g.Members[i].ID, pubKey, dhKey,
 			mySidhPriv, theirSidhPub, p, p)
 		if err != nil {
 			t.Errorf("Failed to add partner #%d %s: %+v", i, g.Members[i].ID, err)
@@ -65,14 +64,14 @@ func TestManager_ResendRequest(t *testing.T) {
 			"\nexpected: %s\nreceived: %s", AllSent, status)
 	}
 
-	if len(m.net.(*testNetworkManager).e2eMessages) < len(g.Members)-1 {
+	if len(m.e2e.(*testE2eManager).e2eMessages) < len(g.Members)-1 {
 		t.Errorf("ResendRequest() failed to send the correct number of requests."+
 			"\nexpected: %d\nreceived: %d", len(g.Members)-1,
-			len(m.net.(*testNetworkManager).e2eMessages))
+			len(m.e2e.(*testE2eManager).e2eMessages))
 	}
 
-	for i := 0; i < len(m.net.(*testNetworkManager).e2eMessages); i++ {
-		msg := m.net.(*testNetworkManager).GetE2eMsg(i)
+	for i := 0; i < len(m.e2e.(*testE2eManager).e2eMessages); i++ {
+		msg := m.e2e.(*testE2eManager).GetE2eMsg(i)
 
 		// Check if the message recipient is a member in the group
 		matchesMember := false
@@ -103,9 +102,9 @@ func TestManager_ResendRequest(t *testing.T) {
 
 // Error path: an error is returned when no group with the corresponding group
 // ID exists.
-func TestManager_ResendRequest_GetGroupError(t *testing.T) {
+func Test_manager_ResendRequest_GetGroupError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, nil, t)
 	expectedErr := strings.SplitN(resendGroupIdErr, "%", 2)[0]
 
 	_, status, err := m.ResendRequest(id.NewIdFromString("invalidID", id.Group, t))
@@ -120,10 +119,10 @@ func TestManager_ResendRequest_GetGroupError(t *testing.T) {
 	}
 }
 
-// Tests that Manager.sendRequests sends all expected requests successfully.
-func TestManager_sendRequests(t *testing.T) {
+// Tests that manager.sendRequests sends all expected requests successfully.
+func Test_manager_sendRequests(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 0, nil, t)
 
 	expected := &Request{
 		Name:        g.Name,
@@ -135,16 +134,16 @@ func TestManager_sendRequests(t *testing.T) {
 	}
 
 	for i := range g.Members {
-		grp := m.store.E2e().GetGroup()
+		grp := m.grp
 		dhKey := grp.NewInt(int64(i + 42))
 		pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
-		p := params.GetDefaultE2ESessionParams()
+		p := session.GetDefaultParams()
 		rng := csprng.NewSystemRNG()
 		_, mySidhPriv := util.GenerateSIDHKeyPair(
 			sidh.KeyVariantSidhA, rng)
 		theirSidhPub, _ := util.GenerateSIDHKeyPair(
 			sidh.KeyVariantSidhB, rng)
-		err := m.store.E2e().AddPartner(g.Members[i].ID, pubKey, dhKey,
+		_, err := m.e2e.AddPartner(g.Members[i].ID, pubKey, dhKey,
 			mySidhPriv, theirSidhPub, p, p)
 		if err != nil {
 			t.Errorf("Failed to add partner #%d %s: %+v", i, g.Members[i].ID, err)
@@ -161,14 +160,14 @@ func TestManager_sendRequests(t *testing.T) {
 			"\nexpected: %s\nreceived: %s", AllSent, status)
 	}
 
-	if len(m.net.(*testNetworkManager).e2eMessages) < len(g.Members)-1 {
+	if len(m.e2e.(*testE2eManager).e2eMessages) < len(g.Members)-1 {
 		t.Errorf("sendRequests() failed to send the correct number of requests."+
 			"\nexpected: %d\nreceived: %d", len(g.Members)-1,
-			len(m.net.(*testNetworkManager).e2eMessages))
+			len(m.e2e.(*testE2eManager).e2eMessages))
 	}
 
-	for i := 0; i < len(m.net.(*testNetworkManager).e2eMessages); i++ {
-		msg := m.net.(*testNetworkManager).GetE2eMsg(i)
+	for i := 0; i < len(m.e2e.(*testE2eManager).e2eMessages); i++ {
+		msg := m.e2e.(*testE2eManager).GetE2eMsg(i)
 
 		// Check if the message recipient is a member in the group
 		matchesMember := false
@@ -197,11 +196,11 @@ func TestManager_sendRequests(t *testing.T) {
 	}
 }
 
-// Tests that Manager.sendRequests returns the correct status when all sends
+// Tests that manager.sendRequests returns the correct status when all sends
 // fail.
-func TestManager_sendRequests_SendAllFail(t *testing.T) {
+func Test_manager_sendRequests_SendAllFail(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 1, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 1, nil, t)
 	expectedErr := fmt.Sprintf(sendRequestAllErr, len(g.Members)-1, "")
 
 	rounds, status, err := m.sendRequests(g)
@@ -220,31 +219,31 @@ func TestManager_sendRequests_SendAllFail(t *testing.T) {
 			"\nexpected: %v\nreceived: %v", nil, rounds)
 	}
 
-	if len(m.net.(*testNetworkManager).e2eMessages) != 0 {
+	if len(m.e2e.(*testE2eManager).e2eMessages) != 0 {
 		t.Errorf("sendRequests() sent %d messages when sending should have failed.",
-			len(m.net.(*testNetworkManager).e2eMessages))
+			len(m.e2e.(*testE2eManager).e2eMessages))
 	}
 }
 
-// Tests that Manager.sendRequests returns the correct status when some sends
+// Tests that manager.sendRequests returns the correct status when some sends
 // fail.
-func TestManager_sendRequests_SendPartialSent(t *testing.T) {
+func Test_manager_sendRequests_SendPartialSent(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 2, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 2, nil, t)
 	expectedErr := fmt.Sprintf(sendRequestPartialErr, (len(g.Members)-1)/2,
 		len(g.Members)-1, "")
 
 	for i := range g.Members {
-		grp := m.store.E2e().GetGroup()
+		grp := m.grp
 		dhKey := grp.NewInt(int64(i + 42))
 		pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
-		p := params.GetDefaultE2ESessionParams()
+		p := session.GetDefaultParams()
 		rng := csprng.NewSystemRNG()
 		_, mySidhPriv := util.GenerateSIDHKeyPair(
 			sidh.KeyVariantSidhA, rng)
 		theirSidhPub, _ := util.GenerateSIDHKeyPair(
 			sidh.KeyVariantSidhB, rng)
-		err := m.store.E2e().AddPartner(g.Members[i].ID, pubKey, dhKey,
+		_, err := m.e2e.AddPartner(g.Members[i].ID, pubKey, dhKey,
 			mySidhPriv, theirSidhPub, p, p)
 		if err != nil {
 			t.Errorf("Failed to add partner #%d %s: %+v", i, g.Members[i].ID, err)
@@ -262,45 +261,44 @@ func TestManager_sendRequests_SendPartialSent(t *testing.T) {
 			"\nexpected: %s\nreceived: %s", PartialSent, status)
 	}
 
-	if len(m.net.(*testNetworkManager).e2eMessages) != (len(g.Members)-1)/2+1 {
+	if len(m.e2e.(*testE2eManager).e2eMessages) != (len(g.Members)-1)/2+1 {
 		t.Errorf("sendRequests() sent %d out of %d expected messages.",
-			len(m.net.(*testNetworkManager).e2eMessages), (len(g.Members)-1)/2+1)
+			len(m.e2e.(*testE2eManager).e2eMessages), (len(g.Members)-1)/2+1)
 	}
 }
 
-// Unit test of Manager.sendRequest.
-func TestManager_sendRequest(t *testing.T) {
+// Unit test of manager.sendRequest.
+func Test_manager_sendRequest(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 0, nil, t)
 
 	for i := range g.Members {
-		grp := m.store.E2e().GetGroup()
+		grp := m.grp
 		dhKey := grp.NewInt(int64(i + 42))
 		pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
-		p := params.GetDefaultE2ESessionParams()
+		p := session.GetDefaultParams()
 		rng := csprng.NewSystemRNG()
 		_, mySidhPriv := util.GenerateSIDHKeyPair(
 			sidh.KeyVariantSidhA, rng)
 		theirSidhPub, _ := util.GenerateSIDHKeyPair(
 			sidh.KeyVariantSidhB, rng)
-		err := m.store.E2e().AddPartner(g.Members[i].ID, pubKey, dhKey,
+		_, err := m.e2e.AddPartner(g.Members[i].ID, pubKey, dhKey,
 			mySidhPriv, theirSidhPub, p, p)
 		if err != nil {
 			t.Errorf("Failed to add partner #%d %s: %+v", i, g.Members[i].ID, err)
 		}
 	}
 
-	expected := message.Send{
-		Recipient:   g.Members[0].ID,
-		Payload:     []byte("request message"),
-		MessageType: message.GroupCreationRequest,
-	}
-	_, err := m.sendRequest(expected.Recipient, expected.Payload)
+	_, err := m.sendRequest(g.Members[0].ID, []byte("request message"))
 	if err != nil {
 		t.Errorf("sendRequest() returned an error: %+v", err)
 	}
+	expected := testE2eMessage{
+		Recipient: g.Members[0].ID,
+		Payload:   []byte("request message"),
+	}
 
-	received := m.net.(*testNetworkManager).GetE2eMsg(0)
+	received := m.e2e.(*testE2eManager).GetE2eMsg(0)
 
 	if !reflect.DeepEqual(expected, received) {
 		t.Errorf("sendRequest() did not send the correct message."+
@@ -309,23 +307,23 @@ func TestManager_sendRequest(t *testing.T) {
 }
 
 // Error path: an error is returned when SendE2E fails
-func TestManager_sendRequest_SendE2eError(t *testing.T) {
+func Test_manager_sendRequest_SendE2eError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 1, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 1, nil, t)
 	expectedErr := strings.SplitN(sendE2eErr, "%", 2)[0]
 
 	recipientID := id.NewIdFromString("memberID", id.User, t)
 
-	grp := m.store.E2e().GetGroup()
+	grp := m.grp
 	dhKey := grp.NewInt(int64(42))
 	pubKey := diffieHellman.GeneratePublicKey(dhKey, grp)
-	p := params.GetDefaultE2ESessionParams()
+	p := session.GetDefaultParams()
 	rng := csprng.NewSystemRNG()
 	_, mySidhPriv := util.GenerateSIDHKeyPair(
 		sidh.KeyVariantSidhA, rng)
 	theirSidhPub, _ := util.GenerateSIDHKeyPair(
 		sidh.KeyVariantSidhB, rng)
-	err := m.store.E2e().AddPartner(recipientID, pubKey, dhKey,
+	_, err := m.e2e.AddPartner(recipientID, pubKey, dhKey,
 		mySidhPriv, theirSidhPub, p, p)
 	if err != nil {
 		t.Errorf("Failed to add partner %s: %+v", recipientID, err)

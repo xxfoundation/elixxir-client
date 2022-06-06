@@ -10,19 +10,18 @@ package cmd
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/single"
+	"gitlab.com/elixxir/client/ud"
+	"gitlab.com/elixxir/client/xxmutils"
+	"gitlab.com/elixxir/primitives/fact"
+	"gitlab.com/xx_network/primitives/utils"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/single"
-	"gitlab.com/elixxir/client/switchboard"
-	"gitlab.com/elixxir/client/ud"
-	"gitlab.com/elixxir/client/xxmutils"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/xx_network/primitives/utils"
 )
 
 // udCmd is the user discovery subcommand, which allows for user lookup,
@@ -36,34 +35,34 @@ var udCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		client := initClient()
 
-		// Get user and save contact to file
+		// get user and save contact to file
 		user := client.GetUser()
 		jww.INFO.Printf("User: %s", user.ReceptionID)
 		writeContact(user.GetContact())
 
-		// Set up reception handler
-		swBoard := client.GetSwitchboard()
-		recvCh := make(chan message.Receive, 10000)
-		listenerID := swBoard.RegisterChannel("DefaultCLIReceiver",
-			switchboard.AnyUser(), message.XxMessage, recvCh)
-		jww.INFO.Printf("Message ListenerID: %v", listenerID)
+		// // Set up reception handler
+		// swBoard := client.GetSwitchboard()
+		// recvCh := make(chan message.Receive, 10000)
+		// listenerID := swBoard.RegisterChannel("DefaultCLIReceiver",
+		// 	switchboard.AnyUser(), message.XxMessage, recvCh)
+		// jww.INFO.Printf("Message ListenerID: %v", listenerID)
 
-		// Set up auth request handler, which simply prints the user ID of the
-		// requester
-		authMgr := client.GetAuthRegistrar()
-		authMgr.AddGeneralRequestCallback(printChanRequest)
+		// // Set up auth request handler, which simply prints the user ID of the
+		// // requester
+		// authMgr := client.GetAuthRegistrar()
+		// authMgr.AddGeneralRequestCallback(printChanRequest)
 
-		// If unsafe channels, add auto-acceptor
-		if viper.GetBool("unsafe-channel-creation") {
-			authMgr.AddGeneralRequestCallback(func(
-				requester contact.Contact) {
-				jww.INFO.Printf("Got Request: %s", requester.ID)
-				_, err := client.ConfirmAuthenticatedChannel(requester)
-				if err != nil {
-					jww.FATAL.Panicf("%+v", err)
-				}
-			})
-		}
+		// // If unsafe channels, add auto-acceptor
+		// if viper.GetBool("unsafe-channel-creation") {
+		// 	authMgr.AddGeneralRequestCallback(func(
+		// 		requester contact.Contact) {
+		// 		jww.INFO.Printf("Got Request: %s", requester.ID)
+		// 		_, err := client.ConfirmAuthenticatedChannel(requester)
+		// 		if err != nil {
+		// 			jww.FATAL.Panicf("%+v", err)
+		// 		}
+		// 	})
+		// }
 
 		err := client.StartNetworkFollower(50 * time.Millisecond)
 		if err != nil {
@@ -72,29 +71,34 @@ var udCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetHealth().AddChannel(connected)
+		client.GetCmix().AddHealthCallback(
+			func(isconnected bool) {
+				connected <- isconnected
+			})
 		waitUntilConnected(connected)
 
-		// Make single-use manager and start receiving process
-		singleMng := single.NewManager(client)
-		err = client.AddService(singleMng.StartProcesses)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to add single use process: %+v", err)
-		}
-
 		// Make user discovery manager
-		userDiscoveryMgr, err := ud.NewManager(client, singleMng)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to create new UD manager: %+v", err)
-		}
-
+		stream := client.GetRng().GetStream()
+		defer stream.Close()
 		userToRegister := viper.GetString("register")
-		if userToRegister != "" {
-			err = userDiscoveryMgr.Register(userToRegister)
-			if err != nil {
-				fmt.Printf("Failed to register user %s: %s\n",
-					userToRegister, err.Error())
-				jww.FATAL.Panicf("Failed to register user %s: %+v", userToRegister, err)
+		userDiscoveryMgr, err := ud.NewManager(client.GetCmix(),
+			client.GetE2E(), client.NetworkFollowerStatus,
+			client.GetEventReporter(),
+			client.GetComms(), client.GetStorage(),
+			stream,
+			userToRegister, client.GetStorage().GetKV())
+		if err != nil {
+			if strings.Contains(err.Error(), ud.IsRegisteredErr) {
+				userDiscoveryMgr, err = ud.LoadManager(client.GetCmix(),
+					client.GetE2E(), client.GetEventReporter(),
+					client.GetComms(),
+					client.GetStorage(), client.GetStorage().GetKV())
+				if err != nil {
+					jww.FATAL.Panicf("Failed to load UD manager: %+v", err)
+				}
+			} else {
+				jww.FATAL.Panicf("Failed to create new UD manager: %+v", err)
+
 			}
 		}
 
@@ -130,12 +134,18 @@ var udCmd = &cobra.Command{
 
 		confirmID := viper.GetString("confirm")
 		if confirmID != "" {
-			err = userDiscoveryMgr.SendConfirmFact(confirmID, confirmID)
+			err = userDiscoveryMgr.ConfirmFact(confirmID, confirmID)
 			if err != nil {
 				fmt.Printf("Couldn't confirm fact: %s\n",
 					err.Error())
 				jww.FATAL.Panicf("%+v", err)
 			}
+		}
+
+		udContact, err := userDiscoveryMgr.GetContact()
+		if err != nil {
+			fmt.Printf("Failed to get user discovery contact object: %+v", err)
+			jww.FATAL.Printf("Failed to get user discovery contact object: %+v", err)
 		}
 
 		// Handle lookup (verification) process
@@ -146,14 +156,16 @@ var udCmd = &cobra.Command{
 			//if !ok {
 			//	jww.FATAL.Panicf("Could not parse recipient: %s", lookupIDStr)
 			//}
-			err = userDiscoveryMgr.Lookup(lookupID,
-				func(newContact contact.Contact, err error) {
-					if err != nil {
-						jww.FATAL.Panicf("UserDiscovery Lookup error: %+v", err)
-					}
-					printContact(newContact)
-				}, 30*time.Second)
 
+			cb := func(newContact contact.Contact, err error) {
+				if err != nil {
+					jww.FATAL.Panicf("UserDiscovery Lookup error: %+v", err)
+				}
+				printContact(newContact)
+			}
+			_, _, err = ud.Lookup(client.GetCmix(),
+				stream, client.GetE2E().GetGroup(),
+				udContact, cb, lookupID, single.GetDefaultRequestParams())
 			if err != nil {
 				jww.WARN.Printf("Failed UD lookup: %+v", err)
 			}
@@ -169,13 +181,13 @@ var udCmd = &cobra.Command{
 				jww.FATAL.Panicf("BATCHADD: Couldn't read file: %+v", err)
 			}
 			restored, _, _, err := xxmutils.RestoreContactsFromBackup(
-				idListFile, client, userDiscoveryMgr, nil, nil)
+				idListFile, client, userDiscoveryMgr, nil)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
 			for i := 0; i < len(restored); i++ {
 				uid := restored[i]
-				for !client.HasAuthenticatedChannel(uid) {
+				for !client.GetE2E().HasAuthenticatedChannel(uid) {
 					time.Sleep(time.Second)
 				}
 				jww.INFO.Printf("Authenticated channel established for %s", uid)
@@ -215,7 +227,7 @@ var udCmd = &cobra.Command{
 				jww.FATAL.Panicf(
 					"Failed to create new fact: %+v", err)
 			}
-			err = userDiscoveryMgr.RemoveUser(f)
+			err = userDiscoveryMgr.PermanentDeleteAccount(f)
 			if err != nil {
 				fmt.Printf("Couldn't remove user %s\n",
 					userToRemove)
@@ -235,15 +247,19 @@ var udCmd = &cobra.Command{
 			return
 		}
 
-		err = userDiscoveryMgr.Search(facts,
-			func(contacts []contact.Contact, err error) {
-				if err != nil {
-					jww.FATAL.Panicf("%+v", err)
-				}
-				for _, c := range contacts {
-					printContact(c)
-				}
-			}, 90*time.Second)
+		cb := func(contacts []contact.Contact, err error) {
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+			for _, c := range contacts {
+				printContact(c)
+			}
+		}
+
+		_, _, err = ud.Search(client.GetCmix(),
+			client.GetEventReporter(),
+			stream, client.GetE2E().GetGroup(),
+			udContact, cb, facts, single.GetDefaultRequestParams())
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

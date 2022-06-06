@@ -1,18 +1,17 @@
 package cmd
 
 import (
-	"fmt"
+	"io/ioutil"
+	"strconv"
+	"strings"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/cmix"
 	backupCrypto "gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/utils"
-	"io/ioutil"
-	"strconv"
-	"strings"
 )
 
 // todo: go through cmd package and organize utility functions
@@ -37,17 +36,10 @@ func loadBackup(backupPath, backupPass string) (backupCrypto.Backup, []byte) {
 ////////////////// Print functions /////////////////////////////
 /////////////////////////////////////////////////////////////////
 
-func printChanRequest(requestor contact.Contact) {
-	msg := fmt.Sprintf("Authentication channel request from: %s\n",
-		requestor.ID)
-	jww.INFO.Printf(msg)
-	fmt.Printf(msg)
-	// fmt.Printf(msg)
-}
-
 // Helper function which prints the round resuls
 func printRoundResults(allRoundsSucceeded, timedOut bool,
-	rounds map[id.Round]api.RoundResult, roundIDs []id.Round, msg message.Send) {
+	rounds map[id.Round]cmix.RoundResult, roundIDs []id.Round,
+	payload []byte, recipient *id.ID) {
 
 	// Done as string slices for easy and human readable printing
 	successfulRounds := make([]string, 0)
@@ -58,9 +50,9 @@ func printRoundResults(allRoundsSucceeded, timedOut bool,
 		// Group all round reports into a category based on their
 		// result (successful, failed, or timed out)
 		if result, exists := rounds[r]; exists {
-			if result == api.Succeeded {
+			if result.Status == cmix.Succeeded {
 				successfulRounds = append(successfulRounds, strconv.Itoa(int(r)))
-			} else if result == api.Failed {
+			} else if result.Status == cmix.Failed {
 				failedRounds = append(failedRounds, strconv.Itoa(int(r)))
 			} else {
 				timedOutRounds = append(timedOutRounds, strconv.Itoa(int(r)))
@@ -69,7 +61,7 @@ func printRoundResults(allRoundsSucceeded, timedOut bool,
 	}
 
 	jww.INFO.Printf("Result of sending message \"%s\" to \"%v\":",
-		msg.Payload, msg.Recipient)
+		payload, recipient)
 
 	// Print out all rounds results, if they are populated
 	if len(successfulRounds) > 0 {
@@ -90,6 +82,7 @@ func writeContact(c contact.Contact) {
 	if outfilePath == "" {
 		return
 	}
+	jww.INFO.Printf("PubKey WRITE: %s", c.DhPubKey.Text(10))
 	err := ioutil.WriteFile(outfilePath, c.Marshal(), 0644)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
@@ -110,5 +103,7 @@ func readContact() contact.Contact {
 	if err != nil {
 		jww.FATAL.Panicf("Failed to unmarshal contact: %+v", err)
 	}
+	jww.INFO.Printf("CONTACTPUBKEY READ: %s",
+		c.DhPubKey.TextVerbose(16, 0))
 	return c
 }

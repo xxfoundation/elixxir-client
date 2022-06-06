@@ -10,9 +10,10 @@ package groupChat
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/message"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -23,133 +24,118 @@ import (
 
 // Error messages.
 const (
-	newCmixMsgErr     = "failed to generate cMix messages for group chat: %+v"
-	sendManyCmixErr   = "failed to send group chat message from member %s to group %s: %+v"
-	newCmixErr        = "failed to generate cMix message for member %d with ID %s in group %s: %+v"
-	messageLenErr     = "message length %d is greater than maximum message space %d"
-	newNoGroupErr     = "failed to create message for group %s that cannot be found"
-	newKeyErr         = "failed to generate key for encrypting group payload"
+
+	// manager.Send
+	newNoGroupErr   = "no group found with ID %s"
+	newCmixMsgErr   = "failed to generate cMix messages for group chat %q (%s): %+v"
+	sendManyCmixErr = "failed to send group chat message from member %s to group %q (%s): %+v"
+
+	// newCmixMsg
+	messageLenErr = "message length %d is greater than maximum payload size %d"
+	newKeyErr     = "failed to generate key for encrypting group payload"
+
+	// newMessageParts
 	newPublicMsgErr   = "failed to create new public group message for cMix message: %+v"
 	newInternalMsgErr = "failed to create new internal group message for cMix message: %+v"
+
+	// newSalt
 	saltReadErr       = "failed to generate salt for group message: %+v"
 	saltReadLengthErr = "length of generated salt %d != %d required"
 )
 
-// Send sends a message to all group members using Client.SendManyCMIX. The
-// send fails if the message is too long.
-func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time, group.MessageID,
-	error) {
+// Send sends a message to all group members using Client.SendMany.
+// The send fails if the message is too long.
+func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
+	id.Round, time.Time, group.MessageID, error) {
+
+	if tag == "" {
+		tag = defaultServiceTag
+	}
+
+	// Get the relevant group
+	g, exists := m.GetGroup(groupID)
+	if !exists {
+		return 0, time.Time{}, group.MessageID{},
+			errors.Errorf(newNoGroupErr, groupID)
+	}
+
 	// Get the current time stripped of the monotonic clock
 	timeNow := netTime.Now().Round(0)
 
 	// Create a cMix message for each group member
-	messages, msgID, err := m.createMessages(groupID, message, timeNow)
-	if err != nil {
-		return 0, time.Time{}, group.MessageID{}, errors.Errorf(newCmixMsgErr, err)
-	}
-
-	param := params.GetDefaultCMIX()
-	param.IdentityPreimage = groupID[:]
-	param.DebugTag = "group.Message"
-
-	rid, _, err := m.net.SendManyCMIX(messages, param)
+	groupMessages, err := m.newMessages(g, tag, message, timeNow)
 	if err != nil {
 		return 0, time.Time{}, group.MessageID{},
-			errors.Errorf(sendManyCmixErr, m.gs.GetUser().ID, groupID, err)
+			errors.Errorf(newCmixMsgErr, g.Name, g.ID, err)
 	}
 
-	jww.DEBUG.Printf("Sent message to %d members in group %s at %s.",
-		len(messages), groupID, timeNow)
-
-	return rid, timeNow, msgID, nil
-}
-
-// createMessages generates a list of cMix messages and a list of corresponding
-// recipient IDs.
-func (m *Manager) createMessages(groupID *id.ID, msg []byte, timestamp time.Time) (
-	[]message.TargetedCmixMessage, group.MessageID, error) {
-
-	//make the message ID
-	cmixMsg := format.NewMessage(m.store.Cmix().GetGroup().GetP().ByteLen())
-	_, intlMsg, err := newMessageParts(cmixMsg.ContentsSize())
+	// Obtain message ID
+	msgId, err := getGroupMessageId(
+		m.grp, groupID, m.receptionId, timeNow, message)
 	if err != nil {
-		return nil, group.MessageID{}, errors.WithMessage(err, "Failed to make message parts for message ID")
-	}
-	messageID := group.NewMessageID(groupID, setInternalPayload(intlMsg, timestamp, m.gs.GetUser().ID, msg))
-
-	g, exists := m.gs.Get(groupID)
-	if !exists {
-		return []message.TargetedCmixMessage{}, group.MessageID{},
-			errors.Errorf(newNoGroupErr, groupID)
+		return 0, time.Time{}, group.MessageID{}, err
 	}
 
-	NewMessages, err := m.newMessages(g, msg, timestamp)
+	// Send all the groupMessages
+	param := cmix.GetDefaultCMIXParams()
+	param.DebugTag = "group.Message"
+	rid, _, err := m.net.SendMany(groupMessages, param)
+	if err != nil {
+		return 0, time.Time{}, group.MessageID{},
+			errors.Errorf(sendManyCmixErr, m.receptionId, g.Name, g.ID, err)
+	}
 
-	return NewMessages, messageID, err
+	jww.DEBUG.Printf("[GC] Sent message to %d members in group %s at %s.",
+		len(groupMessages), groupID, timeNow)
+	return rid, timeNow, msgId, nil
 }
 
-// newMessages is a private function that allows the passing in of a timestamp
-// and streamGen instead of a fastRNG.StreamGenerator for easier testing.
-func (m *Manager) newMessages(g gs.Group, msg []byte, timestamp time.Time) (
-	[]message.TargetedCmixMessage, error) {
-	// Create list of cMix messages
-	messages := make([]message.TargetedCmixMessage, 0, len(g.Members))
+// newMessages builds a list of messages, one for each group chat member.
+func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
+	timestamp time.Time) ([]cmix.TargetedCmixMessage, error) {
 
-	// Create channels to receive messages and errors on
-	type msgInfo struct {
-		msg format.Message
-		id  *id.ID
-	}
-	msgChan := make(chan msgInfo, len(g.Members)-1)
-	errChan := make(chan error, len(g.Members)-1)
+	// Create list of cMix messages
+	messages := make([]cmix.TargetedCmixMessage, 0, len(g.Members))
+	rng := m.rng.GetStream()
+	defer rng.Close()
 
 	// Create cMix messages in parallel
-	for i, member := range g.Members {
+	for _, member := range g.Members {
 		// Do not send to the sender
-		if m.gs.GetUser().ID.Cmp(member.ID) {
+		if m.receptionId.Cmp(member.ID) {
 			continue
 		}
 
-		// Start thread to build cMix message
-		go func(member group.Member, i int) {
-			// Create new stream
-			rng := m.rng.GetStream()
-			defer rng.Close()
-
-			// Add cMix message to list
-			cMixMsg, err := m.newCmixMsg(g, msg, timestamp, member, rng)
-			if err != nil {
-				errChan <- errors.Errorf(newCmixErr, i, member.ID, g.ID, err)
-			}
-			msgChan <- msgInfo{cMixMsg, member.ID}
-
-		}(member, i)
-	}
-
-	// Wait for messages or errors
-	for len(messages) < len(g.Members)-1 {
-		select {
-		case err := <-errChan:
-			// Return on the first error that occurs
+		// Add cMix message to list
+		cMixMsg, err := newCmixMsg(g, tag, msg, timestamp, member, rng,
+			m.receptionId, m.net.GetMaxMessageLength())
+		if err != nil {
 			return nil, err
-		case info := <-msgChan:
-			messages = append(messages, message.TargetedCmixMessage{
-				Recipient: info.id,
-				Message:   info.msg,
-			})
 		}
+		messages = append(messages, cMixMsg)
 	}
 
 	return messages, nil
 }
 
-// newCmixMsg generates a new cMix message to be sent to a group member.
-func (m *Manager) newCmixMsg(g gs.Group, msg []byte, timestamp time.Time,
-	mem group.Member, rng io.Reader) (format.Message, error) {
+// newCmixMsg generates a new cmix.TargetedCmixMessage for the given group
+// member
+func newCmixMsg(g gs.Group, tag string, msg []byte, timestamp time.Time,
+	mem group.Member, rng io.Reader, senderId *id.ID, maxCmixMessageSize int) (
+	cmix.TargetedCmixMessage, error) {
+
+	// Initialize targeted message
+	cmixMsg := cmix.TargetedCmixMessage{
+		Recipient: mem.ID,
+		Service: message.Service{
+			Identifier: g.ID[:],
+			Tag:        makeServiceTag(tag),
+			Metadata:   g.ID[:],
+		},
+	}
 
 	// Create three message layers
-	cmixMsg := format.NewMessage(m.store.Cmix().GetGroup().GetP().ByteLen())
-	pubMsg, intlMsg, err := newMessageParts(cmixMsg.ContentsSize())
+	pubMsg, intlMsg, err := newMessageParts(maxCmixMessageSize)
 	if err != nil {
 		return cmixMsg, err
 	}
@@ -167,7 +153,7 @@ func (m *Manager) newCmixMsg(g gs.Group, msg []byte, timestamp time.Time,
 	}
 
 	// Generate key fingerprint
-	keyFp := group.NewKeyFingerprint(g.Key, salt, mem.ID)
+	cmixMsg.Fingerprint = group.NewKeyFingerprint(g.Key, salt, mem.ID)
 
 	// Generate key
 	key, err := group.NewKdfKey(g.Key, group.ComputeEpoch(timestamp), salt)
@@ -176,23 +162,31 @@ func (m *Manager) newCmixMsg(g gs.Group, msg []byte, timestamp time.Time,
 	}
 
 	// Generate internal message
-	payload := setInternalPayload(intlMsg, timestamp, m.gs.GetUser().ID, msg)
+	payload := setInternalPayload(intlMsg, timestamp, senderId, msg)
 
 	// Encrypt internal message
-	encryptedPayload := group.Encrypt(key, keyFp, payload)
+	encryptedPayload := group.Encrypt(key, cmixMsg.Fingerprint, payload)
 
 	// Generate public message
-	publicPayload := setPublicPayload(pubMsg, salt, encryptedPayload)
+	cmixMsg.Payload = setPublicPayload(pubMsg, salt, encryptedPayload)
 
 	// Generate MAC
-	mac := group.NewMAC(key, encryptedPayload, g.DhKeys[*mem.ID])
-
-	// Construct cMix message
-	cmixMsg.SetContents(publicPayload)
-	cmixMsg.SetKeyFP(keyFp)
-	cmixMsg.SetMac(mac)
+	cmixMsg.Mac = group.NewMAC(key, encryptedPayload, g.DhKeys[*mem.ID])
 
 	return cmixMsg, nil
+}
+
+// getGroupMessageId builds the group message ID.
+func getGroupMessageId(grp *cyclic.Group, groupId, senderId *id.ID,
+	timestamp time.Time, msg []byte) (group.MessageID, error) {
+	cmixMsg := format.NewMessage(grp.GetP().ByteLen())
+	_, intlMsg, err := newMessageParts(cmixMsg.ContentsSize())
+	if err != nil {
+		return group.MessageID{}, errors.WithMessage(err,
+			"Failed to make message parts for message ID")
+	}
+	return group.NewMessageID(groupId,
+		setInternalPayload(intlMsg, timestamp, senderId, msg)), nil
 }
 
 // newMessageParts generates a public payload message and the internal payload

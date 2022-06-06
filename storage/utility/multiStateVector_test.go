@@ -25,7 +25,7 @@ import (
 // Tests that NewMultiStateVector returns a new MultiStateVector with the
 // expected values.
 func TestNewMultiStateVector(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	key := "testKey"
 	expected := &MultiStateVector{
 		numKeys:         189,
@@ -98,7 +98,7 @@ func TestNewMultiStateVector_StateMapError(t *testing.T) {
 // random states are generated and manually inserted into the vector and then
 // each key is checked for the expected vector
 func TestMultiStateVector_Get(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, nil, "", kv)
 	if err != nil {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
@@ -108,7 +108,7 @@ func TestMultiStateVector_Get(t *testing.T) {
 	for keyNum := uint16(0); keyNum < msv.numKeys; keyNum++ {
 		state, err := msv.Get(keyNum)
 		if err != nil {
-			t.Errorf("Get returned an error for key %d: %+v", keyNum, err)
+			t.Errorf("get returned an error for key %d: %+v", keyNum, err)
 		}
 		if state != 0 {
 			t.Errorf("Key %d has unexpected state.\nexpected: %d\nreceived: %d",
@@ -151,7 +151,7 @@ func TestMultiStateVector_Get(t *testing.T) {
 	for keyNum, expectedState := range expectedStates {
 		state, err := msv.Get(uint16(keyNum))
 		if err != nil {
-			t.Errorf("Get returned an error for key %d: %+v", keyNum, err)
+			t.Errorf("get returned an error for key %d: %+v", keyNum, err)
 		}
 
 		if expectedState != state {
@@ -164,7 +164,7 @@ func TestMultiStateVector_Get(t *testing.T) {
 // Error path: tests that MultiStateVector.get returns the expected error when
 // the key number is greater than the max key number.
 func TestMultiStateVector_get_KeyNumMaxError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, nil, "", kv)
 	if err != nil {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
@@ -190,7 +190,7 @@ func TestMultiStateVector_Set(t *testing.T) {
 		{false, false, true, false, true},
 		{false, false, false, false, false},
 	}
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, stateMap, "", kv)
 	if err != nil {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
@@ -243,7 +243,7 @@ func TestMultiStateVector_Set(t *testing.T) {
 // Error path: tests that MultiStateVector.Set returns the expected error when
 // the key number is greater than the last key number.
 func TestMultiStateVector_Set_KeyNumMaxError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, nil, "", kv)
 	if err != nil {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
@@ -262,7 +262,7 @@ func TestMultiStateVector_Set_KeyNumMaxError(t *testing.T) {
 
 // Tests that MultiStateVector.SetMany
 func TestMultiStateVector_SetMany(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, nil, "", kv)
 	if err != nil {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
@@ -301,7 +301,7 @@ func TestMultiStateVector_SetMany(t *testing.T) {
 // Error path: tests that MultiStateVector.SetMany returns the expected error
 // when one of the keys is greater than the last key number.
 func TestMultiStateVector_SetMany_KeyNumMaxError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, nil, "", kv)
 	if err != nil {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
@@ -321,7 +321,7 @@ func TestMultiStateVector_SetMany_KeyNumMaxError(t *testing.T) {
 // Error path: tests that MultiStateVector.set returns the expected error when
 // the key number is greater than the last key number.
 func TestMultiStateVector_set_KeyNumMaxError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, nil, "", kv)
 	if err != nil {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
@@ -340,7 +340,7 @@ func TestMultiStateVector_set_KeyNumMaxError(t *testing.T) {
 // Error path: tests that MultiStateVector.set returns the expected error when
 // the given state is greater than the last state.
 func TestMultiStateVector_set_NewStateMaxError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, nil, "", kv)
 	if err != nil {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
@@ -359,7 +359,7 @@ func TestMultiStateVector_set_NewStateMaxError(t *testing.T) {
 // Error path: tests that MultiStateVector.set returns the expected error when
 // the state read from the vector is greater than the last state.
 func TestMultiStateVector_set_OldStateMaxError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, nil, "", kv)
 	if err != nil {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
@@ -381,7 +381,7 @@ func TestMultiStateVector_set_OldStateMaxError(t *testing.T) {
 // the state change is not allowed by the state map.
 func TestMultiStateVector_set_StateChangeError(t *testing.T) {
 	stateMap := [][]bool{{true, false}, {true, true}}
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 2, stateMap, "", kv)
 	if err != nil {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
@@ -401,7 +401,7 @@ func TestMultiStateVector_set_StateChangeError(t *testing.T) {
 // Tests that MultiStateVector.GetNumKeys returns the expected number of keys.
 func TestMultiStateVector_GetNumKeys(t *testing.T) {
 	numKeys := uint16(155)
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(numKeys, 5, nil, "", kv)
 	if err != nil {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
@@ -416,7 +416,7 @@ func TestMultiStateVector_GetNumKeys(t *testing.T) {
 // Tests that MultiStateVector.GetCount returns the correct count for each state
 // after each key has been set to a random state.
 func TestMultiStateVector_GetCount(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(
 		156, 5, nil, "TestMultiStateVector_GetCount", kv)
 	if err != nil {
@@ -452,7 +452,7 @@ func TestMultiStateVector_GetCount(t *testing.T) {
 // Error path: tests that MultiStateVector.GetCount returns the expected error
 // when the given state is greater than the last state.
 func TestMultiStateVector_GetCount_NewStateMaxError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, nil, "", kv)
 	if err != nil {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
@@ -471,7 +471,7 @@ func TestMultiStateVector_GetCount_NewStateMaxError(t *testing.T) {
 // Tests that MultiStateVector.GetKeys returns the correct list of keys for each
 // state after each key has been set to a random state.
 func TestMultiStateVector_GetKeys(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(
 		156, 5, nil, "TestMultiStateVector_GetKeys", kv)
 	if err != nil {
@@ -495,7 +495,7 @@ func TestMultiStateVector_GetKeys(t *testing.T) {
 	for state, expected := range expectedKeys {
 		keys, err := msv.GetKeys(uint8(state))
 		if err != nil {
-			t.Errorf("GetKeys returned an error: %+v", err)
+			t.Errorf("GetNodeKeys returned an error: %+v", err)
 		}
 		if !reflect.DeepEqual(expected, keys) {
 			t.Errorf("Incorrect keys for state %d.\nexpected: %d\nreceived: %d",
@@ -507,7 +507,7 @@ func TestMultiStateVector_GetKeys(t *testing.T) {
 // Error path: tests that MultiStateVector.GetKeys returns the expected error
 // when the given state is greater than the last state.
 func TestMultiStateVector_GetKeys_NewStateMaxError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, nil, "", kv)
 	if err != nil {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
@@ -517,7 +517,7 @@ func TestMultiStateVector_GetKeys_NewStateMaxError(t *testing.T) {
 	expectedErr := fmt.Sprintf(stateMaxErr, state, msv.numStates-1)
 	_, err = msv.GetKeys(state)
 	if err == nil || err.Error() != expectedErr {
-		t.Errorf("GetKeys did not return the expected error when the state is "+
+		t.Errorf("GetNodeKeys did not return the expected error when the state is "+
 			"larger than the max number of states.\nexpected: %s\nreceived: %v",
 			expectedErr, err)
 	}
@@ -533,7 +533,7 @@ func TestMultiStateVector_DeepCopy(t *testing.T) {
 		{false, false, true, false, true},
 		{false, false, false, false, false},
 	}
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, stateMap, "", kv)
 	if err != nil {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
@@ -597,7 +597,7 @@ func TestMultiStateVector_DeepCopy(t *testing.T) {
 // Tests that MultiStateVector.DeepCopy is able to make the expected copy when
 // the state map is nil.
 func TestMultiStateVector_DeepCopy_NilStateMap(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	msv, err := NewMultiStateVector(155, 5, nil, "", kv)
 	if err != nil {
 		t.Errorf("Failed to create new MultiStateVector: %+v", err)
@@ -871,7 +871,7 @@ func TestLoadMultiStateVector(t *testing.T) {
 // no object is saved in storage.
 func TestLoadMultiStateVector_GetFromStorageError(t *testing.T) {
 	key := "TestLoadMultiStateVector_GetFromStorageError"
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	expectedErr := strings.Split(loadGetMsvErr, "%")[0]
 
 	_, err := LoadMultiStateVector(nil, key, kv)
@@ -885,7 +885,7 @@ func TestLoadMultiStateVector_GetFromStorageError(t *testing.T) {
 // Error path: tests that LoadMultiStateVector returns the expected error when
 // the data in storage cannot be unmarshalled.
 func TestLoadMultiStateVector_UnmarshalError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	key := "TestLoadMultiStateVector_MarshalError"
 	expectedErr := strings.Split(loadUnmarshalMsvErr, "%")[0]
 
@@ -920,7 +920,7 @@ func TestMultiStateVector_save(t *testing.T) {
 		vect:            []uint64{0, 1, 2},
 		stateUseCount:   []uint16{5, 12, 104, 0, 4000},
 		key:             makeStateVectorKey("TestMultiStateVector_save"),
-		kv:              versioned.NewKV(make(ekv.Memstore)),
+		kv:              versioned.NewKV(ekv.MakeMemstore()),
 	}
 
 	expectedData, err := msv.marshal()
@@ -1026,7 +1026,7 @@ func Test_makeMultiStateVectorKey(t *testing.T) {
 // random state.
 func newTestFilledMSV(numKeys uint16, numStates uint8, stateMap [][]bool,
 	key string, t *testing.T) (*MultiStateVector, *versioned.KV) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 
 	msv, err := NewMultiStateVector(numKeys, numStates, stateMap, key, kv)
 	if err != nil {

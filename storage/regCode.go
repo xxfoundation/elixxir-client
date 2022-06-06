@@ -18,7 +18,7 @@ const regCodeKey = "regCode"
 const regCodeVersion = 0
 
 // SetNDF stores a network definition json file
-func (s *Session) SetRegCode(regCode string) {
+func (s *session) SetRegCode(regCode string) {
 	if err := s.Set(regCodeKey,
 		&versioned.Object{
 			Version:   regCodeVersion,
@@ -30,7 +30,7 @@ func (s *Session) SetRegCode(regCode string) {
 }
 
 // Returns the stored network definition json file
-func (s *Session) GetRegCode() (string, error) {
+func (s *session) GetRegCode() (string, error) {
 	regCode, err := s.Get(regCodeKey)
 	if err != nil {
 		return "", errors.WithMessage(err, "Failed to load the regcode")

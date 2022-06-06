@@ -14,6 +14,7 @@ import (
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -249,4 +250,24 @@ func (rf requestFormat) MsgPayloadLen() int {
 
 func (rf requestFormat) GetMsgPayload() []byte {
 	return rf.msgPayload
+}
+
+//utility functions
+func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
+	*cyclic.Int, error) {
+
+	baseFmt, err := unmarshalBaseFormat(cmixMsg.GetContents(),
+		grp.GetP().ByteLen())
+	if err != nil && baseFmt == nil {
+		return baseFormat{}, nil, errors.WithMessage(err, "Failed to"+
+			" unmarshal auth")
+	}
+
+	if !grp.BytesInside(baseFmt.pubkey) {
+		return baseFormat{}, nil, errors.WithMessage(err, "Received "+
+			"auth confirmation public key is not in the e2e cyclic group")
+	}
+	partnerPubKey := grp.NewIntFromBytes(baseFmt.pubkey)
+
+	return *baseFmt, partnerPubKey, nil
 }

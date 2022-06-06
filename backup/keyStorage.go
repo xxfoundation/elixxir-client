@@ -77,7 +77,7 @@ func marshalBackup(key, salt []byte, params backup.Params) []byte {
 // unmarshalBackup unmarshalls the byte slice into a key, salt, and params.
 func unmarshalBackup(buf []byte) (key, salt []byte, params backup.Params, err error) {
 	buff := bytes.NewBuffer(buf)
-	// Get key
+	// get key
 	key = make([]byte, keyLen)
 	n, err := buff.Read(key)
 	if err != nil || n != keyLen {
@@ -85,7 +85,7 @@ func unmarshalBackup(buf []byte) (key, salt []byte, params backup.Params, err er
 		return
 	}
 
-	// Get salt
+	// get salt
 	salt = make([]byte, saltLen)
 	n, err = buff.Read(salt)
 	if err != nil || n != saltLen {
@@ -93,7 +93,7 @@ func unmarshalBackup(buf []byte) (key, salt []byte, params backup.Params, err er
 		return
 	}
 
-	// Get params from remaining bytes
+	// get params from remaining bytes
 	err = params.Unmarshal(buff.Bytes())
 	if err != nil {
 		err = errors.Errorf("reading params failed: %+v", err)

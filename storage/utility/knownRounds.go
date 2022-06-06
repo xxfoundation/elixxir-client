@@ -85,7 +85,7 @@ func (kr *KnownRounds) save() error {
 func (kr *KnownRounds) load() error {
 
 	// Load the versioned object
-	vo, err := kr.kv.Get(kr.key)
+	vo, err := kr.kv.get(kr.key)
 	if err != nil {
 		return err
 	}
@@ -100,8 +100,8 @@ func (kr *KnownRounds) load() error {
 }
 
 // Deletes a known rounds object from disk and memory
-func (kr *KnownRounds) Delete() error {
-	err := kr.kv.Delete(kr.key)
+func (kr *KnownRounds) DeleteFingerprint() error {
+	err := kr.kv.DeleteFingerprint(kr.key)
 	if err != nil {
 		return err
 	}

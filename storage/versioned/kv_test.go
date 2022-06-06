@@ -15,9 +15,9 @@ import (
 	"testing"
 )
 
-// KV Get should call the Upgrade function when it's available
+// KV get should call the Upgrade function when it's available
 func TestVersionedKV_Get_Err(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := NewKV(kv)
 	key := vkv.GetFullKey("test", 0)
 	result, err := vkv.Get(key, 0)
@@ -34,7 +34,7 @@ func TestVersionedKV_Get_Err(t *testing.T) {
 // Test versioned KV happy path
 func TestVersionedKV_GetUpgrade(t *testing.T) {
 	// Set up a dummy KV with the required data
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := NewKV(kv)
 	key := vkv.GetFullKey("test", 0)
 	original := Object{
@@ -42,8 +42,10 @@ func TestVersionedKV_GetUpgrade(t *testing.T) {
 		Timestamp: netTime.Now(),
 		Data:      []byte("not upgraded"),
 	}
-	originalSerialized := original.Marshal()
-	kv[key] = originalSerialized
+	err := kv.Set(key, &original)
+	if err != nil {
+		t.Errorf("Failed to set original: %+v", err)
+	}
 
 	upgrade := []Upgrade{func(oldObject *Object) (*Object, error) {
 		return &Object{
@@ -69,7 +71,7 @@ func TestVersionedKV_GetUpgrade(t *testing.T) {
 // Test versioned KV key not found path
 func TestVersionedKV_GetUpgrade_KeyNotFound(t *testing.T) {
 	// Set up a dummy KV with the required data
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := NewKV(kv)
 	key := "test"
 
@@ -91,7 +93,7 @@ func TestVersionedKV_GetUpgrade_KeyNotFound(t *testing.T) {
 // Test versioned KV upgrade func returns error path
 func TestVersionedKV_GetUpgrade_UpgradeReturnsError(t *testing.T) {
 	// Set up a dummy KV with the required data
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := NewKV(kv)
 	key := vkv.GetFullKey("test", 0)
 	original := Object{
@@ -99,8 +101,10 @@ func TestVersionedKV_GetUpgrade_UpgradeReturnsError(t *testing.T) {
 		Timestamp: netTime.Now(),
 		Data:      []byte("not upgraded"),
 	}
-	originalSerialized := original.Marshal()
-	kv[key] = originalSerialized
+	err := kv.Set(key, &original)
+	if err != nil {
+		t.Errorf("Failed to set original: %+v", err)
+	}
 
 	upgrade := []Upgrade{func(oldObject *Object) (*Object, error) {
 		return &Object{}, errors.New("test error")
@@ -119,7 +123,7 @@ func TestVersionedKV_GetUpgrade_UpgradeReturnsError(t *testing.T) {
 // Test delete key happy path
 func TestVersionedKV_Delete(t *testing.T) {
 	// Set up a dummy KV with the required data
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := NewKV(kv)
 	key := vkv.GetFullKey("test", 0)
 	original := Object{
@@ -127,24 +131,28 @@ func TestVersionedKV_Delete(t *testing.T) {
 		Timestamp: netTime.Now(),
 		Data:      []byte("not upgraded"),
 	}
-	originalSerialized := original.Marshal()
-	kv[key] = originalSerialized
+	err := kv.Set(key, &original)
+	if err != nil {
+		t.Errorf("Failed to set original: %+v", err)
+	}
 
-	err := vkv.Delete("test", 0)
+	err = vkv.Delete("test", 0)
 	if err != nil {
 		t.Fatalf("Error getting something that should have been in: %v",
 			err)
 	}
 
-	if _, ok := kv[key]; ok {
+	o := &Object{}
+	err = kv.Get(key, o)
+	if err == nil {
 		t.Fatal("Key still exists in kv map")
 	}
 }
 
-// Test Get without Upgrade path
+// Test get without Upgrade path
 func TestVersionedKV_Get(t *testing.T) {
 	// Set up a dummy KV with the required data
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := NewKV(kv)
 	originalVersion := uint64(0)
 	key := vkv.GetFullKey("test", originalVersion)
@@ -153,8 +161,10 @@ func TestVersionedKV_Get(t *testing.T) {
 		Timestamp: netTime.Now(),
 		Data:      []byte("not upgraded"),
 	}
-	originalSerialized := original.Marshal()
-	kv[key] = originalSerialized
+	err := kv.Set(key, &original)
+	if err != nil {
+		t.Errorf("Failed to set original in kv: %+v", err)
+	}
 
 	result, err := vkv.Get("test", originalVersion)
 	if err != nil {
@@ -169,7 +179,7 @@ func TestVersionedKV_Get(t *testing.T) {
 
 // Test that Set puts data in the store
 func TestVersionedKV_Set(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := NewKV(kv)
 	originalVersion := uint64(1)
 	key := vkv.GetFullKey("test", originalVersion)
@@ -184,8 +194,9 @@ func TestVersionedKV_Set(t *testing.T) {
 	}
 
 	// Store should now have data in it at that key
-	_, ok := kv[key]
-	if !ok {
-		t.Error("data store didn't have anything in the key")
+	o := &Object{}
+	err = kv.Get(key, o)
+	if err != nil {
+		t.Errorf("data store didn't have anything in the key: %+v", err)
 	}
 }

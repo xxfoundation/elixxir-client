@@ -15,7 +15,7 @@ import (
 
 // Unit test for StoreCyclicKey
 func TestStoreCyclicKey(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := versioned.NewKV(kv)
 	grp := getTestGroup()
 	x := grp.NewInt(77)
@@ -28,7 +28,7 @@ func TestStoreCyclicKey(t *testing.T) {
 
 // Unit test for LoadCyclicKey
 func TestLoadCyclicKey(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := versioned.NewKV(kv)
 	grp := getTestGroup()
 	x := grp.NewInt(77)
@@ -50,7 +50,7 @@ func TestLoadCyclicKey(t *testing.T) {
 
 // Unit test for DeleteCyclicKey
 func TestDeleteCyclicKey(t *testing.T) {
-	kv := make(ekv.Memstore)
+	kv := ekv.MakeMemstore()
 	vkv := versioned.NewKV(kv)
 	grp := getTestGroup()
 	x := grp.NewInt(77)

@@ -17,7 +17,7 @@ import (
 )
 
 type User struct {
-	ci *CryptographicIdentity
+	*CryptographicIdentity
 
 	transmissionRegValidationSig []byte
 	receptionRegValidationSig    []byte
@@ -37,7 +37,7 @@ func NewUser(kv *versioned.KV, transmissionID, receptionID *id.ID, transmissionS
 
 	ci := newCryptographicIdentity(transmissionID, receptionID, transmissionSalt, receptionSalt, transmissionRsa, receptionRsa, isPrecanned, kv)
 
-	return &User{ci: ci, kv: kv}, nil
+	return &User{CryptographicIdentity: ci, kv: kv}, nil
 }
 
 func LoadUser(kv *versioned.KV) (*User, error) {
@@ -47,15 +47,11 @@ func LoadUser(kv *versioned.KV) (*User, error) {
 			"due to failure to load cryptographic identity")
 	}
 
-	u := &User{ci: ci, kv: kv}
+	u := &User{CryptographicIdentity: ci, kv: kv}
 	u.loadTransmissionRegistrationValidationSignature()
 	u.loadReceptionRegistrationValidationSignature()
 	u.loadUsername()
 	u.loadRegistrationTimestamp()
 
 	return u, nil
-}
-
-func (u *User) GetCryptographicIdentity() *CryptographicIdentity {
-	return u.ci
 }

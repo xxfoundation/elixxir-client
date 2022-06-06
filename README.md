@@ -4,12 +4,12 @@
 [![coverage report](https://gitlab.com/elixxir/client/badges/master/coverage.svg)](https://gitlab.com/elixxir/client/commits/master)
 
 
-The client is a library and related command-line tool 
+The client is a library and related command-line tool
 that facilitates making full-featured xx clients for all platforms. It interfaces with the cMix system, enabling access
 to all xx network messaging features, including end-to-end encryption and metadata protection.
 
 This repository contains everything necessary to implement all of the
-xx network messaging features. It also contains features to extend the base 
+xx network messaging features. It also contains features to extend the base
 messaging protocols.
 
 The command-line tool accompanying the client library can be built for any platform supported by
@@ -27,7 +27,7 @@ The client is open-source software released under the simplified BSD License.
 ## Command Line Usage
 
 The command-line tool is intended for testing xx network functionality and not
-for regular user use. 
+for regular user use.
 
 These instructions assume that you have [Go 1.17.X installed](https://go.dev/doc/install), and GCC installed for Cgo (such as `build-essential` on Debian or Ubuntu).
 
@@ -51,9 +51,14 @@ GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/clie
 
 #### Fetching an NDF
 
-All actions performed with the client require a current [NDF](https://xxdk-dev.xx.network/technical-glossary#network-definition-file-ndf). The NDF is downloadable from the command line or [via an access point](https://xxdk-dev.xx.network/quick-reference#func-downloadandverifysignedndfwithurl) in the Client API.
+All actions performed with the client require a
+current [NDF](https://xxdk-dev.xx.network/technical-glossary#network-definition-file-ndf). The NDF is downloadable from
+the command line
+or [via an access point](https://xxdk-dev.xx.network/quick-reference#func-downloadandverifysignedndfwithurl) in the
+Client API.
 
-Use the `getndf` command to fetch the NDF via the command  line. `getndf` enables command-line users to poll the NDF from a network gateway without any pre-established client connection.
+Use the `getndf` command to fetch the NDF via the command line. `getndf` enables command-line users to poll the NDF from
+a network gateway without any pre-established client connection.
 
 First, you'll want to download an SSL certificate:
 
@@ -94,10 +99,14 @@ Sample content of `ndf.json`:
 
 #### Sending Safe Messages Between Two (2) Users
 
-**Note:** For information on receiving messages and troubleshooting authenticated channel requests, see [Receiving Messages](#receiving-messages) and [Confirming authenticated channel requests](#confirming-authenticated-channel-requests).
+**Note:** For information on receiving messages and troubleshooting authenticated channel requests,
+see [Receiving Messages](#receiving-messages)
+and [Confirming authenticated channel requests](#confirming-authenticated-channel-requests).
 
 To send messages with end-to-end encryption, you must first establish a connection
-or [authenticated channel](https://xxdk-dev.xx.network/technical-glossary#authenticated-channel) with the other user. See below for example commands for sending or confirming authenticated channel requests, as well as for sending E2E messages:
+or [authenticated channel](https://xxdk-dev.xx.network/technical-glossary#authenticated-channel) with the other user.
+See below for example commands for sending or confirming authenticated channel requests, as well as for sending E2E
+messages:
 
 ```
 # Get user contact jsons for each client
@@ -149,8 +158,10 @@ Note that the client defaults to sending to itself when a destination is not sup
 This is why we've used the `--unsafe` flag when creating the user contact jsons.
 However, when sending between users, it is dropped in exchange for `--unsafe-channel-creation`.
 
-For the authenticated channel creation to be considered "safe", the user should be prompted. You can do this by explicitly accepting the channel creation
-when sending a request with `--send-auth-request` (while excluding the `--unsafe-channel-creation` flag) or explicitly accepting a request with `--accept-channel`:
+For the authenticated channel creation to be considered "safe", the user should be prompted. You can do this by
+explicitly accepting the channel creation
+when sending a request with `--send-auth-request` (while excluding the `--unsafe-channel-creation` flag) or explicitly
+accepting a request with `--accept-channel`:
 
 ```
 $ client --password user-password --ndf ndf.json -l client.log -s session-directory --destfile user-contact.json --accept-channel
@@ -162,7 +173,8 @@ Received 1
 
 #### Receiving Messages
 
-There is no explicit command for receiving messages. Instead, the client will attempt to fetch pending messages on each run.
+There is no explicit command for receiving messages. Instead, the client will attempt to fetch pending messages on each
+run.
 
 You can use the `--receiveCount` flag to limit the number of messages the client waits for before a timeout occurs:
 
@@ -176,11 +188,14 @@ See [Sending Safe Messages Between Two (2) Users](#sending-safe-messages-between
 
 #### Confirming Authenticated Channel Requests
 
-Setting up an authenticated channel between clients is a back-and-forth process that happens in sequence. One client sends a request and waits for the other to accept it.
+Setting up an authenticated channel between clients is a back-and-forth process that happens in sequence. One client
+sends a request and waits for the other to accept it.
 
-See the previous section, [Sending safe messages between 2 users](#sending-safe-messages-between-2-users), for example commands showing how to set up an end-to-end connection between clients before sending messages.
+See the previous section, [Sending safe messages between 2 users](#sending-safe-messages-between-2-users), for example
+commands showing how to set up an end-to-end connection between clients before sending messages.
 
-As with received messages, there is no command for checking for authenticated channel requests; you'll be notified of any pending requests whenever the client is run.
+As with received messages, there is no command for checking for authenticated channel requests; you'll be notified of
+any pending requests whenever the client is run.
 
 ```
 $ ./client.win64 --password password --ndf ndf.json -l client.log -s session-directory --destfile user-contact8.json --waitTimeout 120 -m "Hi User 7, from User 8 with E2E Encryption"
@@ -195,15 +210,21 @@ Received 0
 
 **`panic: Could not confirm authentication channel for ...`**
 
-Suppose the receiving client does not confirm the authentication channel before the requesting client reaches a timeout (default 120s). In that case, the request eventually terminates in a `panic: Could not confirm authentication channel for ...` error.
+Suppose the receiving client does not confirm the authentication channel before the requesting client reaches a
+timeout (default 120s). In that case, the request eventually terminates in
+a `panic: Could not confirm authentication channel for ...` error.
 
-Retrying the request should fix this. If necessary, you may increase the time the client waits to confirm the channel before timeout using the `--auth-timeout` flag (default 120s).
+Retrying the request should fix this. If necessary, you may increase the time the client waits to confirm the channel
+before timeout using the `--auth-timeout` flag (default 120s).
 
-This error will also occur with the receiving client if it received the request but failed to confirm it before the requesting client reached a timeout. In this case, the request needs to be resent while the other client reattempts to confirm the channel. 
+This error will also occur with the receiving client if it received the request but failed to confirm it before the
+requesting client reached a timeout. In this case, the request needs to be resent while the other client reattempts to
+confirm the channel.
 
 **`panic: Received request not found`**
 
-You may also run into the `panic: Received request not found` error when attempting to confirm an authenticated channel request. This means your client has not received the request. If one has been sent, simply retrying should fix this.  
+You may also run into the `panic: Received request not found` error when attempting to confirm an authenticated channel
+request. This means your client has not received the request. If one has been sent, simply retrying should fix this.
 
 Full usage of client can be found with `client --help`:
 
@@ -275,9 +296,9 @@ Use "client [command] --help" for more information about a command.
 
 ## Library Overview
 
-The xx client is designed to be used as a go library (and by extension a 
-c library). 
- 
+The xx client is designed to be used as a go library (and by extension a
+c library).
+
 Support is also present for go mobile to build Android and iOS libraries. We
 bind all exported symbols from the bindings package for use on mobile
 platforms.
@@ -286,7 +307,8 @@ platforms.
 
 Clients need to perform the same actions *in the same order* as shown in
 `cmd/root.go`. Specifically, certain handlers need to be registered and
-set up before starting network threads. Additionally, you cannot perform certain actions until the network connection reaches a "healthy" state.
+set up before starting network threads. Additionally, you cannot perform certain actions until the network connection
+reaches a "healthy" state.
 
 See [main.go](https://git.xx.network/elixxir/xxdk-examples/-/blob/sample-messaging-app/sample-messaging-app/main.go) for relevant code listings on when and how to perform these actions.
 The [Getting Started](https://xxdk-dev.xx.network/getting-started) guide provides further detail.
@@ -394,7 +416,7 @@ parts of the roadmap that are intended for the client:
 * User Discovery - A bot that will allow the user to look for others on the
   network.
 * Notifications - An optional notifications system which uses firebase
-* Efficiency improvements - mechanisms for message pickup and network tracking 
+* Efficiency improvements - mechanisms for message pickup and network tracking
 * will evolve to allow tradeoffs and options for use
 
 We are also always looking at simplifying and improving the library interface.

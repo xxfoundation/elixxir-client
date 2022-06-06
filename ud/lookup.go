@@ -4,39 +4,51 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/fact"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 // LookupTag specifies which callback to trigger when UD receives a lookup
 // request.
 const LookupTag = "xxNetwork_UdLookup"
 
-// TODO: reconsider where this comes from
-const maxLookupMessages = 20
-
 type lookupCallback func(contact.Contact, error)
 
 // Lookup returns the public key of the passed ID as known by the user discovery
 // system or returns by the timeout.
-func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Duration) error {
-	jww.INFO.Printf("ud.Lookup(%s, %s)", uid, timeout)
-	return m.lookup(uid, callback, timeout)
+func Lookup(services CMix,
+	rng csprng.Source, grp *cyclic.Group,
+	udContact contact.Contact, callback lookupCallback,
+	uid *id.ID, p single.RequestParams) ([]id.Round,
+	receptionID.EphemeralIdentity, error) {
+
+	jww.INFO.Printf("ud.Lookup(%s, %s)", uid, p.Timeout)
+	return lookup(services, rng, uid, grp, udContact, callback, p)
 }
 
 // BatchLookup performs a Lookup operation on a list of user IDs.
 // The lookup performs a callback on each lookup on the returned contact object
 // constructed from the response.
-func (m *Manager) BatchLookup(uids []*id.ID, callback lookupCallback, timeout time.Duration) {
-	jww.INFO.Printf("ud.BatchLookup(%s, %s)", uids, timeout)
+func BatchLookup(udContact contact.Contact,
+	services CMix, callback lookupCallback,
+	rng csprng.Source,
+	uids []*id.ID, grp *cyclic.Group,
+	p single.RequestParams) {
+	jww.INFO.Printf("ud.BatchLookup(%s, %s)", uids, p.Timeout)
 
 	for _, uid := range uids {
 		go func(localUid *id.ID) {
-			err := m.lookup(localUid, callback, timeout)
+			_, _, err := lookup(services, rng, localUid, grp,
+				udContact, callback, p)
 			if err != nil {
-				jww.WARN.Printf("Failed batch lookup on user %s: %v", localUid, err)
+				jww.WARN.Printf("Failed batch lookup on user %s: %v",
+					localUid, err)
 			}
 		}(uid)
 	}
@@ -47,67 +59,73 @@ func (m *Manager) BatchLookup(uids []*id.ID, callback lookupCallback, timeout ti
 // lookup is a helper function which sends a lookup request to the user discovery
 // service. It will construct a contact object off of the returned public key.
 // The callback will be called on that contact object.
-func (m *Manager) lookup(uid *id.ID, callback lookupCallback, timeout time.Duration) error {
+func lookup(net CMix, rng csprng.Source, uid *id.ID,
+	grp *cyclic.Group, udContact contact.Contact,
+	callback lookupCallback,
+	p single.RequestParams) (
+	[]id.Round, receptionID.EphemeralIdentity, error) {
 	// Build the request and marshal it
 	request := &LookupSend{UserID: uid.Marshal()}
 	requestMarshaled, err := proto.Marshal(request)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to form outgoing lookup request.")
+		return []id.Round{},
+			receptionID.EphemeralIdentity{}, errors.WithMessage(err,
+				"Failed to form outgoing lookup request.")
 	}
 
-	f := func(payload []byte, err error) {
-		m.lookupResponseProcess(uid, callback, payload, err)
+	response := lookupResponse{
+		cb:  callback,
+		uid: uid,
+		grp: grp,
 	}
 
-	// Get UD contact
-	c, err := m.getContact()
-	if err != nil {
-		return err
-	}
-
-	err = m.single.TransmitSingleUse(c, requestMarshaled, LookupTag,
-		maxLookupMessages, f, timeout)
-	if err != nil {
-		return errors.WithMessage(err, "Failed to transmit lookup request.")
-	}
-
-	return nil
+	return single.TransmitRequest(udContact, LookupTag, requestMarshaled,
+		response, p, net, rng,
+		grp)
 }
 
-// lookupResponseProcess processes the lookup response. The returned public key
+// lookupResponse processes the lookup response. The returned public key
 // and the user ID will be constructed into a contact object. The contact object
 // will be passed into the callback.
-func (m *Manager) lookupResponseProcess(uid *id.ID, callback lookupCallback,
-	payload []byte, err error) {
+type lookupResponse struct {
+	cb  lookupCallback
+	uid *id.ID
+	grp *cyclic.Group
+}
+
+func (m lookupResponse) Callback(payload []byte,
+	receptionID receptionID.EphemeralIdentity,
+	rounds []rounds.Round, err error) {
+
 	if err != nil {
-		go callback(contact.Contact{}, errors.WithMessage(err, "Failed to lookup."))
+		go m.cb(contact.Contact{}, errors.WithMessage(err, "Failed to lookup."))
 		return
 	}
 
 	// Unmarshal the message
-	lookupResponse := &LookupResponse{}
-	if err := proto.Unmarshal(payload, lookupResponse); err != nil {
+	lr := &LookupResponse{}
+	if err := proto.Unmarshal(payload, lr); err != nil {
 		jww.WARN.Printf("Dropped a lookup response from user discovery due to "+
 			"failed unmarshal: %s", err)
 	}
-	if lookupResponse.Error != "" {
+	if lr.Error != "" {
 		err = errors.Errorf("User Discovery returned an error on lookup: %s",
-			lookupResponse.Error)
-		go callback(contact.Contact{}, err)
+			lr.Error)
+		go m.cb(contact.Contact{}, err)
 		return
 	}
 
 	c := contact.Contact{
-		ID:       uid,
-		DhPubKey: m.grp.NewIntFromBytes(lookupResponse.PubKey),
+		ID:       m.uid,
+		DhPubKey: m.grp.NewIntFromBytes(lr.PubKey),
 	}
 
-	if lookupResponse.Username != "" {
+	if lr.Username != "" {
 		c.Facts = fact.FactList{{
-			Fact: lookupResponse.Username,
+			Fact: lr.Username,
 			T:    fact.Username,
 		}}
 	}
 
-	go callback(c, nil)
+	go m.cb(c, nil)
 }

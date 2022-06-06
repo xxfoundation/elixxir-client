@@ -1,0 +1,30 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
+syntax = "proto3";
+package restLikeMessages;
+option go_package = "gitlab.com/elixxir/client/restlike";
+
+// Message are used for sending to and receiving from a RestServer
+message Message {
+  bytes content = 1;
+  Headers headers = 2;
+  uint32 method = 3;
+  string uri = 4;
+  string error = 5;
+}
+
+// Headers allows different configurations for each Request
+// that will be specified in the Request header
+message Headers {
+  // Headers allows for custom headers to be included with a Request
+  bytes headers = 1;
+
+  // Version allows for endpoints to be backwards-compatible
+  // and handle different formats of the same Request
+  uint32 version = 2;
+}

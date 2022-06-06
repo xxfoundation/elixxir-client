@@ -18,7 +18,7 @@ import (
 
 // Test normal function and errors for User's SetUsername function
 func TestUser_SetUsername(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	tid := id.NewIdFromString("trans", id.User, t)
 	rid := id.NewIdFromString("recv", id.User, t)
 	tsalt := []byte("tsalt")
@@ -52,7 +52,7 @@ func TestUser_SetUsername(t *testing.T) {
 
 // Test functionality of User's GetUsername function
 func TestUser_GetUsername(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	tid := id.NewIdFromString("trans", id.User, t)
 	rid := id.NewIdFromString("recv", id.User, t)
 	tsalt := []byte("tsalt")
@@ -80,7 +80,7 @@ func TestUser_GetUsername(t *testing.T) {
 
 // Test the loadUsername helper function
 func TestUser_loadUsername(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	tid := id.NewIdFromString("trans", id.User, t)
 	rid := id.NewIdFromString("recv", id.User, t)
 	tsalt := []byte("tsalt")

@@ -8,20 +8,21 @@
 package api
 
 import (
-	"encoding/binary"
+	"regexp"
+	"runtime"
+	"strings"
+	"sync"
+
+	"gitlab.com/elixxir/crypto/diffieHellman"
+
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/user"
+	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
-	"regexp"
-	"runtime"
-	"strings"
-	"sync"
 )
 
 const (
@@ -30,52 +31,27 @@ const (
 )
 
 // createNewUser generates an identity for cMix
-func createNewUser(rng *fastRNG.StreamGenerator, cmix, e2e *cyclic.Group) user.User {
+func createNewUser(rng *fastRNG.StreamGenerator) user.Info {
 	// CMIX Keygen
 	var transmissionRsaKey, receptionRsaKey *rsa.PrivateKey
+	var transmissionSalt, receptionSalt []byte
 
-	var e2eKeyBytes, transmissionSalt, receptionSalt []byte
+	transmissionSalt, receptionSalt,
+		transmissionRsaKey, receptionRsaKey = createKeys(rng)
 
-	e2eKeyBytes, transmissionSalt, receptionSalt,
-		transmissionRsaKey, receptionRsaKey = createDhKeys(rng, e2e)
-
-	// Salt, UID, etc gen
-	stream := rng.GetStream()
-	transmissionSalt = make([]byte, SaltSize)
-
-	n, err := stream.Read(transmissionSalt)
-
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-	if n != SaltSize {
-		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
-	}
-
-	receptionSalt = make([]byte, SaltSize)
-
-	n, err = stream.Read(receptionSalt)
-
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-	if n != SaltSize {
-		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
-	}
-
-	stream.Close()
-
-	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(), transmissionSalt, id.User)
+	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(),
+		transmissionSalt, id.User)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
 
-	receptionID, err := xx.NewID(receptionRsaKey.GetPublic(), receptionSalt, id.User)
+	receptionID, err := xx.NewID(receptionRsaKey.GetPublic(),
+		receptionSalt, id.User)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
 
-	return user.User{
+	return user.Info{
 		TransmissionID:   transmissionID.DeepCopy(),
 		TransmissionSalt: transmissionSalt,
 		TransmissionRSA:  transmissionRsaKey,
@@ -83,39 +59,30 @@ func createNewUser(rng *fastRNG.StreamGenerator, cmix, e2e *cyclic.Group) user.U
 		ReceptionSalt:    receptionSalt,
 		ReceptionRSA:     receptionRsaKey,
 		Precanned:        false,
-		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
+		E2eDhPrivateKey:  nil,
+		E2eDhPublicKey:   nil,
 	}
 }
 
-func createDhKeys(rng *fastRNG.StreamGenerator,
-	e2e *cyclic.Group) (e2eKeyBytes,
+func createKeys(rng *fastRNG.StreamGenerator) (
 	transmissionSalt, receptionSalt []byte,
 	transmissionRsaKey, receptionRsaKey *rsa.PrivateKey) {
 	wg := sync.WaitGroup{}
 
-	wg.Add(3)
-
-	go func() {
-		defer wg.Done()
-		var err error
-		// DH Keygen
-		// FIXME: Why 256 bits? -- this is spec but not explained, it has
-		// to do with optimizing operations on one side and still preserves
-		// decent security -- cite this. Why valid for BOTH e2e and cmix?
-		stream := rng.GetStream()
-		e2eKeyBytes, err = csprng.GenerateInGroup(e2e.GetPBytes(), 256, stream)
-		stream.Close()
-		if err != nil {
-			jww.FATAL.Panicf(err.Error())
-		}
-	}()
+	wg.Add(2)
 
 	// RSA Keygen (4096 bit defaults)
 	go func() {
 		defer wg.Done()
 		var err error
 		stream := rng.GetStream()
-		transmissionRsaKey, err = rsa.GenerateKey(stream, rsa.DefaultRSABitLen)
+		transmissionRsaKey, err = rsa.GenerateKey(stream,
+			rsa.DefaultRSABitLen)
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+		transmissionSalt = make([]byte, 32)
+		_, err = stream.Read(transmissionSalt)
 		stream.Close()
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
@@ -126,7 +93,13 @@ func createDhKeys(rng *fastRNG.StreamGenerator,
 		defer wg.Done()
 		var err error
 		stream := rng.GetStream()
-		receptionRsaKey, err = rsa.GenerateKey(stream, rsa.DefaultRSABitLen)
+		receptionRsaKey, err = rsa.GenerateKey(stream,
+			rsa.DefaultRSABitLen)
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+		receptionSalt = make([]byte, 32)
+		_, err = stream.Read(receptionSalt)
 		stream.Close()
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
@@ -134,59 +107,34 @@ func createDhKeys(rng *fastRNG.StreamGenerator,
 	}()
 	wg.Wait()
 
+	isZero := func(data []byte) bool {
+		if len(data) == 0 {
+			return true
+		}
+		for i := len(data) - 1; i != 0; i-- {
+			if data[i] != 0 {
+				return false
+			}
+		}
+		return true
+	}
+
+	if isZero(receptionSalt) || isZero(transmissionSalt) {
+		jww.FATAL.Panicf("empty salt generation detected")
+	}
 	return
 
 }
 
-// TODO: Add precanned user code structures here.
-// creates a precanned user
-func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.Group) user.User {
-	// DH Keygen
-	// FIXME: Why 256 bits? -- this is spec but not explained, it has
-	// to do with optimizing operations on one side and still preserves
-	// decent security -- cite this. Why valid for BOTH e2e and cmix?
-	prng := rand.New(rand.NewSource(int64(precannedID)))
-	e2eKeyBytes, err := csprng.GenerateInGroup(e2e.GetPBytes(), 256, prng)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-
-	// Salt, UID, etc gen
-	salt := make([]byte, SaltSize)
-
-	userID := id.ID{}
-	binary.BigEndian.PutUint64(userID[:], uint64(precannedID))
-	userID.SetType(id.User)
-
-	// NOTE: not used... RSA Keygen (4096 bit defaults)
-	rsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-
-	return user.User{
-		TransmissionID:   &userID,
-		TransmissionSalt: salt,
-		ReceptionID:      &userID,
-		ReceptionSalt:    salt,
-		Precanned:        true,
-		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
-		TransmissionRSA:  rsaKey,
-		ReceptionRSA:     rsaKey,
-	}
-}
-
 // createNewVanityUser generates an identity for cMix
 // The identity's ReceptionID is not random but starts with the supplied prefix
-func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix string) user.User {
+func createNewVanityUser(rng csprng.Source, cmix,
+	e2e *cyclic.Group, prefix string) user.Info {
 	// DH Keygen
-	// FIXME: Why 256 bits? -- this is spec but not explained, it has
-	// to do with optimizing operations on one side and still preserves
-	// decent security -- cite this. Why valid for BOTH e2e and cmix?
-	e2eKeyBytes, err := csprng.GenerateInGroup(e2e.GetPBytes(), 256, rng)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
+	prime := e2e.GetPBytes()
+	keyLen := len(prime)
+
+	e2eKey := diffieHellman.GeneratePrivateKey(keyLen, e2e, rng)
 
 	// RSA Keygen (4096 bit defaults)
 	transmissionRsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
@@ -203,7 +151,8 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 	if n != SaltSize {
 		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
 	}
-	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(), transmissionSalt, id.User)
+	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(),
+		transmissionSalt, id.User)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
@@ -213,7 +162,9 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 		jww.FATAL.Panicf(err.Error())
 	}
 
-	var mu sync.Mutex // just in case more than one go routine tries to access receptionSalt and receptionID
+	// just in case more than one go routine tries to access
+	// receptionSalt and receptionID
+	var mu sync.Mutex
 	done := make(chan struct{})
 	found := make(chan bool)
 	wg := &sync.WaitGroup{}
@@ -234,7 +185,8 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 	if match == false {
 		jww.FATAL.Panicf("Prefix contains non-Base64 characters")
 	}
-	jww.INFO.Printf("Vanity userID generation started. Prefix: %s Ignore-Case: %v NumCPU: %d", pref, ignoreCase, cores)
+	jww.INFO.Printf("Vanity userID generation started. Prefix: %s "+
+		"Ignore-Case: %v NumCPU: %d", pref, ignoreCase, cores)
 	for w := 0; w < cores; w++ {
 		wg.Add(1)
 		go func() {
@@ -245,14 +197,20 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 					defer wg.Done()
 					return
 				default:
-					n, err = csprng.NewSystemRNG().Read(rSalt)
+					n, err = csprng.NewSystemRNG().Read(
+						rSalt)
 					if err != nil {
 						jww.FATAL.Panicf(err.Error())
 					}
 					if n != SaltSize {
-						jww.FATAL.Panicf("receptionSalt size too small: %d", n)
+						jww.FATAL.Panicf(
+							"receptionSalt size "+
+								"too small: %d",
+							n)
 					}
-					rID, err := xx.NewID(receptionRsaKey.GetPublic(), rSalt, id.User)
+					rID, err := xx.NewID(
+						receptionRsaKey.GetPublic(),
+						rSalt, id.User)
 					if err != nil {
 						jww.FATAL.Panicf(err.Error())
 					}
@@ -273,11 +231,12 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 			}
 		}()
 	}
-	// wait for a solution then close the done channel to signal the workers to exit
+	// wait for a solution then close the done channel to signal
+	// the workers to exit
 	<-found
 	close(done)
 	wg.Wait()
-	return user.User{
+	return user.Info{
 		TransmissionID:   transmissionID.DeepCopy(),
 		TransmissionSalt: transmissionSalt,
 		TransmissionRSA:  transmissionRsaKey,
@@ -285,6 +244,7 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 		ReceptionSalt:    receptionSalt,
 		ReceptionRSA:     receptionRsaKey,
 		Precanned:        false,
-		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
+		E2eDhPrivateKey:  e2eKey,
+		E2eDhPublicKey:   diffieHellman.GeneratePublicKey(e2eKey, e2e),
 	}
 }

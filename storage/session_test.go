@@ -33,7 +33,7 @@ func TestSession_Smoke(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to set: %+v", err)
 	}
-	o, err := s.Get("testkey")
+	o, err := s.get("testkey")
 	if err != nil {
 		t.Errorf("Failed to get key")
 	}

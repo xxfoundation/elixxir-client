@@ -8,10 +8,15 @@
 package groupChat
 
 import (
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/e2e"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
 	"reflect"
@@ -20,9 +25,26 @@ import (
 	"time"
 )
 
-// Unit test of Manager.newManager.
-func Test_newManager(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+// Tests that manager adheres to the GroupChat interface.
+var _ GroupChat = (*manager)(nil)
+
+// Tests that GroupCmix adheres to the cmix.Client interface.
+var _ GroupCmix = (cmix.Client)(nil)
+
+// Tests that GroupE2e adheres to the e2e.Handler interface.
+var _ GroupE2e = (e2e.Handler)(nil)
+
+type mockProcessor struct{ receiveChan chan MessageReceive }
+
+func (m mockProcessor) Process(msg MessageReceive, _ format.Message,
+	_ receptionID.EphemeralIdentity, _ rounds.Round) {
+	m.receiveChan <- msg
+}
+func (m mockProcessor) String() string { return "mockProcessor" }
+
+// Unit test of NewManager.
+func TestNewManager(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := group.Member{
 		ID:    id.NewIdFromString("userID", id.User, t),
 		DhKey: randCycInt(rand.New(rand.NewSource(42))),
@@ -30,20 +52,21 @@ func Test_newManager(t *testing.T) {
 	requestChan := make(chan gs.Group)
 	requestFunc := func(g gs.Group) { requestChan <- g }
 	receiveChan := make(chan MessageReceive)
-	receiveFunc := func(msg MessageReceive) { receiveChan <- msg }
-	m, err := newManager(nil, user.ID, user.DhKey, nil, nil, nil, nil, kv,
-		requestFunc, receiveFunc)
+	gcInt, err := NewManager(nil, newTestE2eManager(user.DhKey), user.ID, nil,
+		nil, kv, requestFunc, mockProcessor{receiveChan})
 	if err != nil {
-		t.Errorf("newManager() returned an error: %+v", err)
+		t.Errorf("NewManager returned an error: %+v", err)
 	}
 
+	m := gcInt.(*manager)
+
 	if !m.gs.GetUser().Equal(user) {
-		t.Errorf("newManager() failed to create a store with the correct user."+
+		t.Errorf("NewManager failed to create a store with the correct user."+
 			"\nexpected: %s\nreceived: %s", user, m.gs.GetUser())
 	}
 
 	if m.gs.Len() != 0 {
-		t.Errorf("newManager() failed to create an empty store."+
+		t.Errorf("NewManager failed to create an empty store."+
 			"\nexpected: %d\nreceived: %d", 0, m.gs.Len())
 	}
 
@@ -54,20 +77,12 @@ func Test_newManager(t *testing.T) {
 	case <-time.NewTimer(5 * time.Millisecond).C:
 		t.Errorf("Timed out waiting for requestFunc to be called.")
 	}
-
-	// Check if receiveFunc works
-	go m.receiveFunc(MessageReceive{})
-	select {
-	case <-receiveChan:
-	case <-time.NewTimer(5 * time.Millisecond).C:
-		t.Errorf("Timed out waiting for receiveFunc to be called.")
-	}
 }
 
-// Tests that Manager.newManager loads a group storage when it exists.
-func Test_newManager_LoadStorage(t *testing.T) {
+// Tests that NewManager loads a group storage when it exists.
+func TestNewManager_LoadStorage(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := group.Member{
 		ID:    id.NewIdFromString("userID", id.User, t),
 		DhKey: randCycInt(rand.New(rand.NewSource(42))),
@@ -79,28 +94,31 @@ func Test_newManager_LoadStorage(t *testing.T) {
 	}
 
 	for i := 0; i < 10; i++ {
-		err := gStore.Add(newTestGroup(getGroup(), getGroup().NewInt(42), prng, t))
+		err := gStore.Add(
+			newTestGroup(getGroup(), getGroup().NewInt(42), prng, t))
 		if err != nil {
 			t.Errorf("Failed to add group %d: %+v", i, err)
 		}
 	}
 
-	m, err := newManager(
-		nil, user.ID, user.DhKey, nil, nil, nil, nil, kv, nil, nil)
+	gcInt, err := NewManager(newTestNetworkManager(0, t),
+		newTestE2eManager(user.DhKey), user.ID, nil, nil, kv, nil, nil)
 	if err != nil {
-		t.Errorf("newManager() returned an error: %+v", err)
+		t.Errorf("NewManager returned an error: %+v", err)
 	}
 
+	m := gcInt.(*manager)
+
 	if !reflect.DeepEqual(gStore, m.gs) {
-		t.Errorf("newManager() failed to load the expected storage."+
+		t.Errorf("NewManager failed to load the expected storage."+
 			"\nexpected: %+v\nreceived: %+v", gStore, m.gs)
 	}
 }
 
 // Error path: an error is returned when a group cannot be loaded from storage.
-func Test_newManager_LoadError(t *testing.T) {
+func TestNewManager_LoadError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := group.Member{
 		ID:    id.NewIdFromString("userID", id.User, t),
 		DhKey: randCycInt(rand.New(rand.NewSource(42))),
@@ -120,9 +138,9 @@ func Test_newManager_LoadError(t *testing.T) {
 
 	expectedErr := strings.SplitN(newGroupStoreErr, "%", 2)[0]
 
-	_, err = newManager(nil, user.ID, user.DhKey, nil, nil, nil, nil, kv, nil, nil)
+	_, err = NewManager(nil, newTestE2eManager(user.DhKey), user.ID, nil, nil, kv, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("newManager() did not return the expected error."+
+		t.Errorf("NewManager did not return the expected error."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
@@ -131,7 +149,7 @@ func Test_newManager_LoadError(t *testing.T) {
 //  user. To fix this test, they need to use different users, which requires
 //  modifying
 // storage.InitTestingSession.
-// func TestManager_StartProcesses(t *testing.T) {
+// func Test_manager_StartProcesses(t *testing.T) {
 // 	jww.SetLogThreshold(jww.LevelTrace)
 // 	jww.SetStdoutThreshold(jww.LevelTrace)
 // 	prng := rand.New(rand.NewSource(42))
@@ -152,8 +170,8 @@ func Test_newManager_LoadError(t *testing.T) {
 // 	m2, _ := newTestManagerWithStore(prng, 10, 0, requestFunc2, receiveFunc2, t)
 // 	m3, _ := newTestManagerWithStore(prng, 10, 0, requestFunc3, receiveFunc3, t)
 //
-// 	membership, err := group.NewMembership(m1.store.GetUser().GetContact(),
-// 		m2.store.GetUser().GetContact(), m3.store.GetUser().GetContact())
+// 	membership, err := group.NewMembership(m1.store.GetUser().Contact(),
+// 		m2.store.GetUser().Contact(), m3.store.GetUser().Contact())
 // 	if err != nil {
 // 		t.Errorf("Failed to generate new membership: %+v", err)
 // 	}
@@ -272,68 +290,67 @@ func Test_newManager_LoadError(t *testing.T) {
 // 	}
 // }
 
-// Unit test of Manager.JoinGroup.
-func TestManager_JoinGroup(t *testing.T) {
+// Unit test of manager.JoinGroup.
+func Test_manager_JoinGroup(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
-	g := newTestGroup(
-		m.store.E2e().GetGroup(), m.store.GetUser().E2eDhPrivateKey, prng, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, nil, t)
+	g := newTestGroup(m.grp, m.e2e.GetHistoricalDHPubkey(), prng, t)
 
 	err := m.JoinGroup(g)
 	if err != nil {
-		t.Errorf("JoinGroup() returned an error: %+v", err)
+		t.Errorf("JoinGroup returned an error: %+v", err)
 	}
 
 	if _, exists := m.gs.Get(g.ID); !exists {
-		t.Errorf("JoinGroup() failed to add the group %s.", g.ID)
+		t.Errorf("JoinGroup failed to add the group %s.", g.ID)
 	}
 }
 
 // Error path: an error is returned when a group is joined twice.
-func TestManager_JoinGroup_AddErr(t *testing.T) {
+func Test_manager_JoinGroup_AddError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 0, nil, t)
 	expectedErr := strings.SplitN(joinGroupErr, "%", 2)[0]
 
 	err := m.JoinGroup(g)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("JoinGroup() failed to return the expected error."+
+		t.Errorf("JoinGroup failed to return the expected error."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
 
-// Unit test of Manager.LeaveGroup.
-func TestManager_LeaveGroup(t *testing.T) {
+// Unit test of manager.LeaveGroup.
+func Test_manager_LeaveGroup(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 0, nil, t)
 
 	err := m.LeaveGroup(g.ID)
 	if err != nil {
-		t.Errorf("LeaveGroup() returned an error: %+v", err)
+		t.Errorf("LeaveGroup returned an error: %+v", err)
 	}
 
 	if _, exists := m.GetGroup(g.ID); exists {
-		t.Error("LeaveGroup() failed to delete the group.")
+		t.Error("LeaveGroup failed to delete the group.")
 	}
 }
 
-// Error path: an error is returned when no group with the ID exists
-func TestManager_LeaveGroup_NoGroupError(t *testing.T) {
+// Error path: an error is returned when no group with the ID exists.
+func Test_manager_LeaveGroup_NoGroupError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, nil, t)
 	expectedErr := strings.SplitN(leaveGroupErr, "%", 2)[0]
 
 	err := m.LeaveGroup(id.NewIdFromString("invalidID", id.Group, t))
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
-		t.Errorf("LeaveGroup() failed to return the expected error."+
+		t.Errorf("LeaveGroup failed to return the expected error."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}
 }
 
-// Unit test of Manager.GetGroups.
-func TestManager_GetGroups(t *testing.T) {
+// Unit test of manager.GetGroups.
+func Test_manager_GetGroups(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, _ := newTestManagerWithStore(prng, 10, 0, nil, t)
 
 	list := m.GetGroups()
 	for i, gid := range list {
@@ -343,39 +360,38 @@ func TestManager_GetGroups(t *testing.T) {
 	}
 
 	if m.gs.Len() != 0 {
-		t.Errorf("GetGroups() returned %d IDs, which is %d less than is in "+
+		t.Errorf("GetGroups returned %d IDs, which is %d less than is in "+
 			"memory.", len(list), m.gs.Len())
 	}
 }
 
-// Unit test of Manager.GetGroup.
-func TestManager_GetGroup(t *testing.T) {
+// Unit test of manager.GetGroup.
+func Test_manager_GetGroup(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
+	m, g := newTestManagerWithStore(prng, 10, 0, nil, t)
 
 	testGrp, exists := m.GetGroup(g.ID)
 	if !exists {
-		t.Error("GetGroup() failed to find a group that should exist.")
+		t.Error("GetGroup failed to find a group that should exist.")
 	}
 
 	if !reflect.DeepEqual(g, testGrp) {
-		t.Errorf("GetGroup() failed to return the expected group."+
+		t.Errorf("GetGroup failed to return the expected group."+
 			"\nexpected: %#v\nreceived: %#v", g, testGrp)
 	}
 
 	testGrp, exists = m.GetGroup(id.NewIdFromString("invalidID", id.Group, t))
 	if exists {
-		t.Errorf("GetGroup() returned a group that should not exist: %#v", testGrp)
+		t.Errorf("GetGroup returned a group that should not exist: %#v", testGrp)
 	}
 }
 
-// Unit test of Manager.NumGroups. First a manager is created with 10 groups
+// Unit test of manager.NumGroups. First a manager is created with 10 groups
 // and the initial number is checked. Then the number of groups is checked after
 // leaving each until the number left is 0.
-func TestManager_NumGroups(t *testing.T) {
+func Test_manager_NumGroups(t *testing.T) {
 	expectedNum := 10
-	m, _ := newTestManagerWithStore(rand.New(rand.NewSource(42)), expectedNum,
-		0, nil, nil, t)
+	m, _ := newTestManagerWithStore(rand.New(rand.NewSource(42)), expectedNum, 0, nil, t)
 
 	groups := append([]*id.ID{{}}, m.GetGroups()...)
 
@@ -383,10 +399,9 @@ func TestManager_NumGroups(t *testing.T) {
 		_ = m.LeaveGroup(gid)
 
 		if m.NumGroups() != expectedNum-i {
-			t.Errorf("NumGroups() failed to return the expected number of "+
+			t.Errorf("NumGroups failed to return the expected number of "+
 				"groups (%d).\nexpected: %d\nreceived: %d",
 				i, expectedNum-i, m.NumGroups())
 		}
 	}
-
 }

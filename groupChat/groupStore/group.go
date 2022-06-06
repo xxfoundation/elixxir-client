@@ -180,13 +180,13 @@ func DeserializeGroup(data []byte) (Group, error) {
 	var g Group
 	var err error
 
-	// Get name
+	// get name
 	nameLen := binary.LittleEndian.Uint64(buff.Next(8))
 	if nameLen > 0 {
 		g.Name = buff.Next(int(nameLen))
 	}
 
-	// Get group ID
+	// get group ID
 	var groupID id.ID
 	copy(groupID[:], buff.Next(id.ArrIDLen))
 	if groupID == [id.ArrIDLen]byte{} {
@@ -195,18 +195,18 @@ func DeserializeGroup(data []byte) (Group, error) {
 		g.ID = &groupID
 	}
 
-	// Get group key and preimages
+	// get group key and preimages
 	copy(g.Key[:], buff.Next(group.KeyLen))
 	copy(g.IdPreimage[:], buff.Next(group.IdPreimageLen))
 	copy(g.KeyPreimage[:], buff.Next(group.KeyPreimageLen))
 
-	// Get InitMessage
+	// get InitMessage
 	initMessageLength := binary.LittleEndian.Uint64(buff.Next(8))
 	if initMessageLength > 0 {
 		g.InitMessage = buff.Next(int(initMessageLength))
 	}
 
-	// Get created timestamp
+	// get created timestamp
 	createdNano := int64(binary.LittleEndian.Uint64(buff.Next(8)))
 	if createdNano == (time.Time{}).UnixNano() {
 		g.Created = time.Time{}
@@ -214,14 +214,14 @@ func DeserializeGroup(data []byte) (Group, error) {
 		g.Created = time.Unix(0, createdNano)
 	}
 
-	// Get member list
+	// get member list
 	membersLength := binary.LittleEndian.Uint64(buff.Next(8))
 	g.Members, err = group.DeserializeMembership(buff.Next(int(membersLength)))
 	if err != nil {
 		return Group{}, errors.Errorf(membershipErr, err)
 	}
 
-	// Get DH key list
+	// get DH key list
 	g.DhKeys, err = DeserializeDhKeyList(buff.Bytes())
 	if err != nil {
 		return Group{}, errors.Errorf(dhKeyListErr, err)
@@ -244,17 +244,17 @@ func (g Group) GoString() string {
 		idString = g.ID.String()
 	}
 
-	str := make([]string, 9)
-
-	str[0] = "Name:" + fmt.Sprintf("%q", g.Name)
-	str[1] = "ID:" + idString
-	str[2] = "Key:" + g.Key.String()
-	str[3] = "IdPreimage:" + g.IdPreimage.String()
-	str[4] = "KeyPreimage:" + g.KeyPreimage.String()
-	str[5] = "InitMessage:" + fmt.Sprintf("%q", g.InitMessage)
-	str[6] = "Created:" + g.Created.String()
-	str[7] = "Members:" + g.Members.String()
-	str[8] = "DhKeys:" + g.DhKeys.GoString()
+	str := []string{
+		"Name:" + fmt.Sprintf("%q", g.Name),
+		"ID:" + idString,
+		"Key:" + g.Key.String(),
+		"IdPreimage:" + g.IdPreimage.String(),
+		"KeyPreimage:" + g.KeyPreimage.String(),
+		"InitMessage:" + fmt.Sprintf("%q", g.InitMessage),
+		"Created:" + g.Created.String(),
+		"Members:" + g.Members.String(),
+		"DhKeys:" + g.DhKeys.GoString(),
+	}
 
 	return "{" + strings.Join(str, ", ") + "}"
 }

@@ -8,17 +8,16 @@
 package groupChat
 
 import (
+	"strconv"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/interfaces/preimage"
-	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strconv"
 )
 
 // Error messages.
@@ -31,7 +30,6 @@ const (
 	makeMembershipErr = "failed to assemble group chat membership: %+v"
 	newIdPreimageErr  = "failed to create group ID preimage: %+v"
 	newKeyPreimageErr = "failed to create group key preimage: %+v"
-	addGroupErr       = "failed to save new group: %+v"
 )
 
 // MaxInitMessageSize is the maximum allowable length of the initial message
@@ -53,7 +51,7 @@ const (
 // each member of the groupChat to add them to the groupChat. It blocks until
 // all the groupChat requests are sent. Returns an error if at least one request
 // to a member fails to send.
-func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
+func (m *manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 	[]id.Round, RequestStatus, error) {
 	// Return an error if the message is too long
 	if len(msg) > MaxInitMessageSize {
@@ -81,25 +79,16 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 	created := netTime.Now().Round(0)
 
 	// Create new group and add to manager
-	g := gs.NewGroup(
-		name, groupID, groupKey, idPreimage, keyPreimage, msg, created, mem, dkl)
-	if err = m.gs.Add(g); err != nil {
-		return gs.Group{}, nil, NotSent, errors.Errorf(addGroupErr, err)
-	}
+	g := gs.NewGroup(name, groupID, groupKey, idPreimage,
+		keyPreimage, msg, created, mem, dkl)
 
-	jww.DEBUG.Printf("Created new group %q with ID %s and %d members %s",
+	jww.DEBUG.Printf("[GC] Created new group %q with ID %s and %d members %s",
 		g.Name, g.ID, len(g.Members), g.Members)
 
 	// Send all group requests
 	roundIDs, status, err := m.sendRequests(g)
-
 	if err == nil {
-		edgeStore := m.store.GetEdge()
-		edgeStore.Add(edge.Preimage{
-			Data:   g.ID[:],
-			Type:   preimage.Group,
-			Source: g.ID[:],
-		}, m.store.GetUser().ReceptionID)
+		err = m.JoinGroup(g)
 	}
 
 	return g, roundIDs, status, err
@@ -108,7 +97,7 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 // buildMembership retrieves the contact object for each member ID and creates a
 // new membership from them. The caller is set as the leader. For a member to be
 // added, the group leader must have an authenticated channel with the member.
-func (m Manager) buildMembership(members []*id.ID) (group.Membership,
+func (m *manager) buildMembership(members []*id.ID) (group.Membership,
 	gs.DhKeyList, error) {
 	// Return an error if the membership list has too few or too many members
 	if len(members) < group.MinParticipants {
@@ -119,27 +108,26 @@ func (m Manager) buildMembership(members []*id.ID) (group.Membership,
 			errors.Errorf(maxMembersErr, len(members), group.MaxParticipants)
 	}
 
-	grp := m.store.E2e().GetGroup()
 	dkl := make(gs.DhKeyList, len(members))
 
 	// Lookup partner contact objects from their ID
 	contacts := make([]contact.Contact, len(members))
 	var err error
 	for i, uid := range members {
-		partner, err := m.store.E2e().GetPartner(uid)
+		partner, err := m.e2e.GetPartner(uid)
 		if err != nil {
 			return nil, nil, errors.Errorf(getPartnerErr, uid, err)
 		}
 
 		contacts[i] = contact.Contact{
-			ID:       partner.GetPartnerID(),
-			DhPubKey: partner.GetPartnerOriginPublicKey(),
+			ID:       partner.PartnerId(),
+			DhPubKey: partner.PartnerRootPublicKey(),
 		}
 
-		dkl.Add(partner.GetMyOriginPrivateKey(), group.Member{
-			ID:    partner.GetPartnerID(),
-			DhKey: partner.GetPartnerOriginPublicKey(),
-		}, grp)
+		dkl.Add(partner.MyRootPrivateKey(), group.Member{
+			ID:    partner.PartnerId(),
+			DhKey: partner.PartnerRootPublicKey(),
+		}, m.grp)
 	}
 
 	// Create new Membership from contact list and client's own contact.
@@ -158,7 +146,7 @@ func (m Manager) buildMembership(members []*id.ID) (group.Membership,
 func getPreimages(streamGen *fastRNG.StreamGenerator) (group.IdPreimage,
 	group.KeyPreimage, error) {
 
-	// Get new stream and defer its close
+	// get new stream and defer its close
 	rng := streamGen.GetStream()
 	defer rng.Close()
 

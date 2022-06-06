@@ -19,7 +19,7 @@ import (
 
 // Test for NewCryptographicIdentity function
 func TestNewCryptographicIdentity(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("zezima", id.User, t)
 	salt := []byte("salt")
 	_ = newCryptographicIdentity(uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false, kv)
@@ -32,7 +32,7 @@ func TestNewCryptographicIdentity(t *testing.T) {
 
 // Test loading cryptographic identity from KV store
 func TestLoadCryptographicIdentity(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("zezima", id.User, t)
 	salt := []byte("salt")
 	ci := newCryptographicIdentity(uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false, kv)
@@ -53,7 +53,7 @@ func TestLoadCryptographicIdentity(t *testing.T) {
 
 // Happy path for GetReceptionRSA function
 func TestCryptographicIdentity_GetReceptionRSA(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("zezima", id.User, t)
 	pk1, err := rsa.GenerateKey(rand.Reader, 64)
 	if err != nil {
@@ -72,7 +72,7 @@ func TestCryptographicIdentity_GetReceptionRSA(t *testing.T) {
 
 // Happy path for GetTransmissionRSA function
 func TestCryptographicIdentity_GetTransmissionRSA(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("zezima", id.User, t)
 	pk1, err := rsa.GenerateKey(rand.Reader, 64)
 	if err != nil {
@@ -91,7 +91,7 @@ func TestCryptographicIdentity_GetTransmissionRSA(t *testing.T) {
 
 // Happy path for GetSalt function
 func TestCryptographicIdentity_GetTransmissionSalt(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("zezima", id.User, t)
 	ts := []byte("transmission salt")
 	rs := []byte("reception salt")
@@ -103,7 +103,7 @@ func TestCryptographicIdentity_GetTransmissionSalt(t *testing.T) {
 
 // Happy path for GetSalt function
 func TestCryptographicIdentity_GetReceptionSalt(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("zezima", id.User, t)
 	ts := []byte("transmission salt")
 	rs := []byte("reception salt")
@@ -115,7 +115,7 @@ func TestCryptographicIdentity_GetReceptionSalt(t *testing.T) {
 
 // Happy path for GetUserID function
 func TestCryptographicIdentity_GetTransmissionID(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	rid := id.NewIdFromString("zezima", id.User, t)
 	tid := id.NewIdFromString("jakexx360", id.User, t)
 	salt := []byte("salt")
@@ -127,7 +127,7 @@ func TestCryptographicIdentity_GetTransmissionID(t *testing.T) {
 
 // Happy path for GetUserID function
 func TestCryptographicIdentity_GetReceptionID(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	rid := id.NewIdFromString("zezima", id.User, t)
 	tid := id.NewIdFromString("jakexx360", id.User, t)
 	salt := []byte("salt")
@@ -139,7 +139,7 @@ func TestCryptographicIdentity_GetReceptionID(t *testing.T) {
 
 // Happy path for IsPrecanned functions
 func TestCryptographicIdentity_IsPrecanned(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("zezima", id.User, t)
 	salt := []byte("salt")
 	ci := newCryptographicIdentity(uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, true, kv)

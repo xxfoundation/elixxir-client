@@ -8,15 +8,18 @@
 package groupChat
 
 import (
+	"fmt"
+	"gitlab.com/xx_network/primitives/netTime"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/primitives/id"
-	"time"
+	"gitlab.com/elixxir/primitives/states"
 )
 
 // Error messages.
@@ -24,137 +27,96 @@ const (
 	newDecryptKeyErr        = "failed to generate key for decrypting group payload: %+v"
 	unmarshalInternalMsgErr = "failed to unmarshal group internal message: %+v"
 	unmarshalSenderIdErr    = "failed to unmarshal sender ID: %+v"
-	unmarshalPublicMsgErr   = "failed to unmarshal group cMix message contents: %+v"
-	findGroupKeyFpErr       = "no group with key fingerprint %s"
+	unmarshalPublicMsgErr   = "[GC] Failed to unmarshal group cMix message contents from %d (%s) on round %d: %+v"
+	getDecryptionKeyErr     = "[GC] Unable to get decryption key: %+v"
+	decryptMsgErr           = "[GC] Failed to decrypt group message: %+v"
 	genCryptKeyMacErr       = "failed to generate encryption key for group " +
 		"cMix message because MAC verification failed (epoch %d could be off)"
 )
 
-// receive starts the group message reception worker that waits for new group
-// messages to arrive.
-func (m Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) {
-	jww.DEBUG.Print("Starting group message reception worker.")
-
-	for {
-		select {
-		case <-stop.Quit():
-			jww.DEBUG.Print("Stopping group message reception worker.")
-			stop.ToStopped()
-			return
-		case receiveMsg := <-rawMsgs:
-			jww.DEBUG.Printf("Group message reception received cMix message on round %d (%d).",
-				receiveMsg.RoundId, receiveMsg.RoundTimestamp.Unix())
-
-			// If given zero time, try to guesstimate roundTimestamp as right now
-			if receiveMsg.RoundTimestamp.Equal(time.Unix(0, 0)) {
-				jww.ERROR.Printf("getCryptKey missing roundTimestamp")
-				receiveMsg.RoundTimestamp = time.Now()
-			}
-
-			// Attempt to read the message
-			g, msgID, timestamp, senderID, msg, noFpMatch, err := m.readMessage(receiveMsg)
-			if err != nil {
-				if noFpMatch {
-					jww.TRACE.Printf("Received message not for group chat: %+v",
-						err)
-				} else {
-					jww.WARN.Printf("Group message reception failed to read "+
-						"cMix message: %+v", err)
-				}
-				continue
-			}
-
-			jww.DEBUG.Printf("Received group message with ID %s from sender "+
-				"%s in group %s with ID %s at %s.", msgID, senderID, g.Name,
-				g.ID, timestamp)
-
-			// If the message was read correctly, send it to the callback
-			go m.receiveFunc(MessageReceive{
-				GroupID:        g.ID,
-				ID:             msgID,
-				Payload:        msg,
-				SenderID:       senderID,
-				RecipientID:    receiveMsg.RecipientID,
-				EphemeralID:    receiveMsg.EphemeralID,
-				Timestamp:      timestamp,
-				RoundID:        receiveMsg.RoundId,
-				RoundTimestamp: receiveMsg.RoundTimestamp,
-			})
-		}
-	}
+// Adheres to message.Processor interface for reception processing.
+type receptionProcessor struct {
+	m *manager
+	g gs.Group
+	p Processor
 }
 
-// readMessage returns the group, message ID, timestamp, sender ID, and message
-// of a group message. The encrypted group message data is unmarshalled from a
-// cMix message in the message.Receive and then decrypted and the MAC is
-// verified. The group is found by finding the group with a matching key
-// fingerprint. Returns true if the key fingerprint cannot be found; in this
-// case no warning or error should be printed.
-func (m *Manager) readMessage(msg message.Receive) (gs.Group, group.MessageID,
-	time.Time, *id.ID, []byte, bool, error) {
-	// Unmarshal payload into cMix message
-	cMixMsg, err := format.Unmarshal(msg.Payload)
-	if err != nil {
-		return gs.Group{}, group.MessageID{}, time.Time{}, nil, nil,
-			false, err
-	}
+// Process incoming group chat messages.
+func (p *receptionProcessor) Process(message format.Message,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	jww.TRACE.Printf("[GC] Received group message from %d (%s) on round %d.",
+		receptionID.EphId.Int64(), receptionID.Source, round.ID)
+
 	// Unmarshal cMix message contents to get public message format
-	pubMsg, err := unmarshalPublicMsg(cMixMsg.GetContents())
+	pubMsg, err := unmarshalPublicMsg(message.GetContents())
 	if err != nil {
-		return gs.Group{}, group.MessageID{}, time.Time{}, nil, nil, false,
-			errors.Errorf(unmarshalPublicMsgErr, err)
+		jww.ERROR.Printf(unmarshalPublicMsgErr, receptionID.EphId.Int64(),
+			receptionID.Source, round.ID, err)
+		return
 	}
 
-	// Get the group from storage via key fingerprint lookup
-	g, exists := m.gs.GetByKeyFp(cMixMsg.GetKeyFP(), pubMsg.GetSalt())
-	if !exists {
-		return gs.Group{}, group.MessageID{}, time.Time{}, nil, nil, true,
-			errors.Errorf(findGroupKeyFpErr, cMixMsg.GetKeyFP())
+	// Obtain the decryption key for the public message
+	// We use PRECOMPUTING here because all Rounds have that timestamp available to them
+	// QUEUED can be missing sometimes and cause a lot of hidden problems further down the line
+	key, err := getCryptKey(p.g.Key, pubMsg.GetSalt(), message.GetMac(),
+		pubMsg.GetPayload(), p.g.DhKeys, round.Timestamps[states.PRECOMPUTING])
+	if err != nil {
+		jww.ERROR.Printf(getDecryptionKeyErr, err)
+		return
 	}
 
-	// Decrypt the payload and return the messages timestamp, sender ID, and
-	// message contents
-	messageID, timestamp, senderID, contents, err := m.decryptMessage(
-		g, cMixMsg, pubMsg, msg.RoundTimestamp)
-	return g, messageID, timestamp, senderID, contents, false, err
+	// Decrypt the message payload using the cryptKey
+	result, err := decryptMessage(
+		p.g, message.GetKeyFP(), key, pubMsg.GetPayload())
+	if err != nil {
+		jww.ERROR.Printf(decryptMsgErr, err)
+		return
+	}
+
+	// Populate remaining fields from the top level
+	result.GroupID = p.g.ID
+
+	jww.DEBUG.Printf("[GC] Received group message with ID %s from sender "+
+		"%s in group %q with ID %s at %s.", result.ID, result.SenderID,
+		p.g.Name, p.g.ID, result.Timestamp)
+
+	// Send the decrypted message and original message to the processor
+	p.p.Process(result, message, receptionID, round)
+}
+
+func (p *receptionProcessor) String() string {
+	if p.p == nil {
+		return fmt.Sprintf("GroupChatReception(%s)", p.m.receptionId)
+	}
+	return fmt.Sprintf("GroupChatReception(%s)-%s", p.m.receptionId, p.p)
 }
 
 // decryptMessage decrypts the group message payload and returns its message ID,
 // timestamp, sender ID, and message contents.
-func (m *Manager) decryptMessage(g gs.Group, cMixMsg format.Message,
-	publicMsg publicMsg, roundTimestamp time.Time) (group.MessageID, time.Time,
-	*id.ID, []byte, error) {
-
-	key, err := getCryptKey(g.Key, publicMsg.GetSalt(), cMixMsg.GetMac(),
-		publicMsg.GetPayload(), g.DhKeys, roundTimestamp)
-	if err != nil {
-		return group.MessageID{}, time.Time{}, nil, nil, err
-	}
+func decryptMessage(g gs.Group, fingerprint format.Fingerprint,
+	key group.CryptKey, payload []byte) (MessageReceive, error) {
 
 	// Decrypt internal message
-	decryptedPayload := group.Decrypt(key, cMixMsg.GetKeyFP(),
-		publicMsg.GetPayload())
+	decryptedPayload := group.Decrypt(key, fingerprint, payload)
 
 	// Unmarshal internal message
 	intlMsg, err := unmarshalInternalMsg(decryptedPayload)
 	if err != nil {
-		return group.MessageID{}, time.Time{}, nil, nil,
-			errors.Errorf(unmarshalInternalMsgErr, err)
+		return MessageReceive{}, errors.Errorf(unmarshalInternalMsgErr, err)
 	}
 
 	// Unmarshal sender ID
 	senderID, err := intlMsg.GetSenderID()
 	if err != nil {
-		return group.MessageID{}, time.Time{}, nil, nil,
-			errors.Errorf(unmarshalSenderIdErr, err)
+		return MessageReceive{}, errors.Errorf(unmarshalSenderIdErr, err)
 	}
 
-	messageID := group.NewMessageID(g.ID, intlMsg.Marshal())
-
-	// Remove from garbled message on success to prevent reprocessing
-	m.store.GetGarbledMessages().Remove(cMixMsg)
-
-	return messageID, intlMsg.GetTimestamp(), senderID, intlMsg.GetPayload(), nil
+	return MessageReceive{
+		ID:        group.NewMessageID(g.ID, intlMsg.Marshal()),
+		Payload:   intlMsg.GetPayload(),
+		SenderID:  senderID,
+		Timestamp: intlMsg.GetTimestamp(),
+	}, nil
 }
 
 // getCryptKey generates the decryption key for a group internal message. The
@@ -165,9 +127,15 @@ func (m *Manager) decryptMessage(g gs.Group, cMixMsg format.Message,
 // DH key is tried until there is a match.
 func getCryptKey(key group.Key, salt [group.SaltLen]byte, mac, payload []byte,
 	dhKeys gs.DhKeyList, roundTimestamp time.Time) (group.CryptKey, error) {
+
+	// If given zero time, try to guesstimate roundTimestamp as right now
+	if roundTimestamp.Equal(time.Unix(0, 0)) {
+		jww.ERROR.Printf("getCryptKey missing roundTimestamp")
+		roundTimestamp = netTime.Now()
+	}
+
 	// Compute the current epoch
 	epoch := group.ComputeEpoch(roundTimestamp)
-
 	for _, dhKey := range dhKeys {
 
 		// Create a key with the correct epoch

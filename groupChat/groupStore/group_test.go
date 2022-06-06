@@ -104,7 +104,7 @@ func TestGroup_DeepCopy(t *testing.T) {
 
 // Unit test of Group.store.
 func TestGroup_store(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	g := createTestGroup(rand.New(rand.NewSource(42)), t)
 
 	err := g.store(kv)
@@ -130,7 +130,7 @@ func TestGroup_store(t *testing.T) {
 
 // Unit test of Group.loadGroup.
 func Test_loadGroup(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	g := createTestGroup(rand.New(rand.NewSource(42)), t)
 
 	err := g.store(kv)
@@ -151,7 +151,7 @@ func Test_loadGroup(t *testing.T) {
 
 // Error path: an error is returned when no group with the ID exists in storage.
 func Test_loadGroup_InvalidGroupIdError(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	g := createTestGroup(rand.New(rand.NewSource(42)), t)
 	expectedErr := strings.SplitN(kvGetGroupErr, "%", 2)[0]
 
@@ -164,7 +164,7 @@ func Test_loadGroup_InvalidGroupIdError(t *testing.T) {
 
 // Unit test of Group.removeGroup.
 func Test_removeGroup(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	g := createTestGroup(rand.New(rand.NewSource(42)), t)
 
 	err := g.store(kv)

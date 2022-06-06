@@ -138,7 +138,7 @@ func InitializeBackup(password string, updateBackupCb UpdateBackupFn,
 func ResumeBackup(updateBackupCb UpdateBackupFn, container *messenger.Container,
 	e2e E2e, session Session, ud UserDiscovery, kv *versioned.KV,
 	rng *fastRNG.StreamGenerator) (*Backup, error) {
-	_, _, _, err := loadBackup(store.GetKV())
+	_, _, _, err := loadBackup(kv)
 	if err != nil {
 		return nil, err
 	}

@@ -113,7 +113,7 @@ func Test_ResumeBackup(t *testing.T) {
 	}
 
 	// Get key, salt, and parameters of resumed backup
-	key2, salt2, _, err := loadBackup(b.store.GetKV())
+	key2, salt2, _, err := loadBackup(b.kv)
 	if err != nil {
 		t.Errorf("Failed to load key, salt, and params from resumed "+
 			"backup: %+v", err)
@@ -148,7 +148,9 @@ func Test_ResumeBackup(t *testing.T) {
 func Test_resumeBackup_NoKeyError(t *testing.T) {
 	expectedErr := "object not found"
 	s := storage.InitTestingSession(t)
-	_, err := resumeBackup(nil, nil, s, &interfaces.BackupContainer{}, nil)
+	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
+	_, err := ResumeBackup(nil, &messenger.Container{}, newMockE2e(t), newMockSession(t),
+		newMockUserDiscovery(), s.GetKV(), rngGen)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("ResumeBackup did not return the expected error when no "+
 			"password is present.\nexpected: %s\nreceived: %+v", expectedErr, err)

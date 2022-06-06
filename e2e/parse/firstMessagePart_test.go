@@ -43,8 +43,7 @@ func Test_newFirstMessagePart(t *testing.T) {
 		1077,
 		2,
 		time.Unix(1609786229, 0).UTC(),
-		testStr,
-		len(testStr)+22,
+		[]byte{'t', 'e', 's', 't', 'i', 'n', 'g', 's', 't', 'r', 'i', 'n', 'g'}, len(expectedFMP.Data),
 	)
 
 	gotTime := fmp.getTimestamp()

@@ -324,23 +324,23 @@ func (h *HostPool) initialize(startIdx uint32) error {
 	return nil
 }
 
-// UpdateNdf Mutates internal ndf to the given ndf
+// UpdateNdf mutates internal NDF to the given NDF
 func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 	if len(ndf.Gateways) == 0 {
 		jww.WARN.Printf("Unable to UpdateNdf: no gateways available")
 		return
 	}
 
+	// Lock order is extremely important here
+	h.hostMux.Lock()
 	h.ndfMux.Lock()
 	h.ndf = ndf.DeepCopy()
-
-	h.hostMux.Lock()
 	err := h.updateConns()
-	h.hostMux.Unlock()
 	if err != nil {
 		jww.ERROR.Printf("Unable to updateConns: %+v", err)
 	}
 	h.ndfMux.Unlock()
+	h.hostMux.Unlock()
 }
 
 // SetFilter sets the filter used to filter gateways from the ID map.
@@ -691,7 +691,9 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 		}
 
 		// Add the new gateway host
-		_, err := h.manager.AddHost(gwId, gw.Address, []byte(gw.TlsCertificate), h.poolParams.HostParams)
+		_, err := h.manager.AddHost(
+			gwId, gw.Address, []byte(gw.TlsCertificate),
+			h.poolParams.HostParams)
 		if err != nil {
 			jww.ERROR.Printf("Could not add gateway host %s: %+v", gwId, err)
 		}

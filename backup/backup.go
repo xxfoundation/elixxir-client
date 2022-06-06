@@ -244,7 +244,7 @@ func (b *Backup) StopBackup() error {
 	defer b.mux.Unlock()
 	b.updateBackupCb = nil
 
-	err := deleteBackup(b.store.GetKV())
+	err := deleteBackup(b.kv)
 	if err != nil {
 		return errors.Errorf(errDeleteCrypto, err)
 	}

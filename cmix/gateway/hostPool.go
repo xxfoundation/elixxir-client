@@ -14,6 +14,7 @@ package gateway
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
@@ -108,7 +109,18 @@ type PoolParams struct {
 	ForceConnection bool
 
 	// HostParams is the parameters for the creation of new Host objects.
-	HostParams connect.HostParams
+	//fixme params: have this adhere to json.Marshaler.
+	// This will allow the PoolParams object to have full adherence.
+	HostParams connect.HostParams `json:"-"`
+}
+
+// poolParamsDisk will be the marshal-able and umarshal-able object.
+type poolParamsDisk struct {
+	MaxPoolSize     uint32
+	PoolSize        uint32
+	ProxyAttempts   uint32
+	MaxPings        uint32
+	ForceConnection bool
 }
 
 // DefaultPoolParams returns a default set of PoolParams.
@@ -130,6 +142,54 @@ func DefaultPoolParams() PoolParams {
 	p.HostParams.SendTimeout = 1000 * time.Millisecond
 	p.HostParams.PingTimeout = 1000 * time.Millisecond
 	return p
+}
+
+// GetParameters returns the default PoolParams, or
+// override with given parameters, if set.
+func GetParameters(params string) (PoolParams, error) {
+	p := DefaultPoolParams()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return PoolParams{}, err
+		}
+	}
+	return p, nil
+}
+
+// MarshalJSON adheres to the json.Marshaler interface.
+func (pp PoolParams) MarshalJSON() ([]byte, error) {
+	ppd := poolParamsDisk{
+		MaxPoolSize:     pp.MaxPoolSize,
+		PoolSize:        pp.PoolSize,
+		ProxyAttempts:   pp.ProxyAttempts,
+		MaxPings:        pp.MaxPings,
+		ForceConnection: pp.ForceConnection,
+	}
+
+	return json.Marshal(&ppd)
+}
+
+// UnmarshalJSON adheres to the json.Unmarshaler interface.
+func (pp *PoolParams) UnmarshalJSON(data []byte) error {
+	ppDisk := poolParamsDisk{}
+	err := json.Unmarshal(data, &ppDisk)
+	if err != nil {
+		return err
+	}
+
+	*pp = PoolParams{
+		MaxPoolSize:     ppDisk.MaxPoolSize,
+		PoolSize:        ppDisk.PoolSize,
+		ProxyAttempts:   ppDisk.ProxyAttempts,
+		MaxPings:        ppDisk.MaxPings,
+		ForceConnection: ppDisk.ForceConnection,
+		// Since this does not adhere to json.Marshaler yet,
+		// file it in manually assuming default values
+		HostParams: connect.GetDefaultHostParams(),
+	}
+
+	return nil
 }
 
 // newHostPool builds and returns a new HostPool object.

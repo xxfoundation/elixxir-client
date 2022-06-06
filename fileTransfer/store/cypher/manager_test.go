@@ -21,7 +21,7 @@ import (
 // Tests that NewManager returns a new Manager that matches the expected
 // manager.
 func TestNewManager(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	numFps := uint16(64)
 	fpv, _ := utility.NewStateVector(kv.Prefix(cypherManagerPrefix),
 		cypherManagerFpVectorKey, uint32(numFps))
@@ -134,7 +134,7 @@ func TestManager_Delete(t *testing.T) {
 
 // Tests that a transfer key saved via saveKey can be loaded via loadKey.
 func Test_saveKey_loadKey(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	key := &ftCrypto.TransferKey{42}
 
 	err := saveKey(key, kv)
@@ -160,7 +160,7 @@ func newTestManager(numFps uint16, t *testing.T) (*Manager, *versioned.KV) {
 		t.Errorf("Failed to generate transfer key: %+v", err)
 	}
 
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	m, err := NewManager(&key, numFps, kv)
 	if err != nil {
 		t.Errorf("Failed to make new Manager: %+v", err)

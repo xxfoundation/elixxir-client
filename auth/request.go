@@ -65,12 +65,18 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 
 	me := s.e2e.GetReceptionID()
 
-	dhPriv, dhPub := genDHKeys(s.e2e.GetGroup(), rng)
+	dhGrp := s.e2e.GetGroup()
+
+	dhPriv, dhPub := genDHKeys(dhGrp, rng)
 	sidhPriv, sidhPub := util.GenerateSIDHKeyPair(
 		sidh.KeyVariantSidhA, rng)
 
-	ownership := cAuth.MakeOwnershipProof(s.e2e.GetHistoricalDHPrivkey(),
-		partner.DhPubKey, s.e2e.GetGroup())
+	historicalDHPriv := s.e2e.GetHistoricalDHPrivkey()
+	historicalDHPub := diffieHellman.GeneratePublicKey(historicalDHPriv,
+		dhGrp)
+
+	ownership := cAuth.MakeOwnershipProof(historicalDHPriv,
+		partner.DhPubKey, dhGrp)
 	confirmFp := cAuth.MakeOwnershipProofFP(ownership)
 
 	// Add the sent request and use the return to build the
@@ -110,8 +116,17 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	}
 	contents := request.Marshal()
 
-	jww.TRACE.Printf("Request ECRPAYLOAD: %v", request.GetEcrPayload())
-	jww.TRACE.Printf("Request MAC: %v", mac)
+	jww.TRACE.Printf("AuthRequest MYPUBKEY: %v", dhPub.TextVerbose(16, 0))
+	jww.TRACE.Printf("AuthRequest PARTNERPUBKEY: %v",
+		partner.DhPubKey.TextVerbose(16, 0))
+	jww.TRACE.Printf("AuthRequest MYSIDHPUBKEY: %s",
+		util.StringSIDHPubKey(sidhPub))
+
+	jww.TRACE.Printf("AuthRequest HistoricalPUBKEY: %v",
+		historicalDHPub.TextVerbose(16, 0))
+
+	jww.TRACE.Printf("AuthRequest ECRPAYLOAD: %v", request.GetEcrPayload())
+	jww.TRACE.Printf("AuthRequest MAC: %v", mac)
 
 	jww.INFO.Printf("Requesting Auth with %s, msgDigest: %s, confirmFp: %s",
 		partner.ID, format.DigestContents(contents), confirmFp)

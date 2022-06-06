@@ -8,11 +8,12 @@
 package api
 
 import (
-	"gitlab.com/elixxir/crypto/diffieHellman"
 	"regexp"
 	"runtime"
 	"strings"
 	"sync"
+
+	"gitlab.com/elixxir/crypto/diffieHellman"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/user"
@@ -30,41 +31,13 @@ const (
 )
 
 // createNewUser generates an identity for cMix
-func createNewUser(rng *fastRNG.StreamGenerator, cmix,
-	e2e *cyclic.Group) user.Info {
+func createNewUser(rng *fastRNG.StreamGenerator) user.Info {
 	// CMIX Keygen
 	var transmissionRsaKey, receptionRsaKey *rsa.PrivateKey
-	var e2eKey *cyclic.Int
 	var transmissionSalt, receptionSalt []byte
 
-	transmissionSalt, receptionSalt, e2eKey,
-		transmissionRsaKey, receptionRsaKey = createKeys(rng, e2e)
-
-	// Salt, UID, etc gen
-	stream := rng.GetStream()
-	transmissionSalt = make([]byte, SaltSize)
-
-	n, err := stream.Read(transmissionSalt)
-
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-	if n != SaltSize {
-		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
-	}
-
-	receptionSalt = make([]byte, SaltSize)
-
-	n, err = stream.Read(receptionSalt)
-
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-	if n != SaltSize {
-		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
-	}
-
-	stream.Close()
+	transmissionSalt, receptionSalt,
+		transmissionRsaKey, receptionRsaKey = createKeys(rng)
 
 	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(),
 		transmissionSalt, id.User)
@@ -86,30 +59,17 @@ func createNewUser(rng *fastRNG.StreamGenerator, cmix,
 		ReceptionSalt:    receptionSalt,
 		ReceptionRSA:     receptionRsaKey,
 		Precanned:        false,
-		E2eDhPrivateKey:  e2eKey,
-		E2eDhPublicKey:   diffieHellman.GeneratePublicKey(e2eKey, e2e),
+		E2eDhPrivateKey:  nil,
+		E2eDhPublicKey:   nil,
 	}
 }
 
-func createKeys(rng *fastRNG.StreamGenerator,
-	e2e *cyclic.Group) (
-	transmissionSalt, receptionSalt []byte, e2eKey *cyclic.Int,
+func createKeys(rng *fastRNG.StreamGenerator) (
+	transmissionSalt, receptionSalt []byte,
 	transmissionRsaKey, receptionRsaKey *rsa.PrivateKey) {
 	wg := sync.WaitGroup{}
 
-	wg.Add(3)
-
-	go func() {
-		defer wg.Done()
-		var err error
-		rngStream := rng.GetStream()
-		e2eKey = diffieHellman.GeneratePrivateKey(len(e2e.GetPBytes()), e2e,
-			rngStream)
-		rngStream.Close()
-		if err != nil {
-			jww.FATAL.Panicf(err.Error())
-		}
-	}()
+	wg.Add(2)
 
 	// RSA Keygen (4096 bit defaults)
 	go func() {
@@ -118,6 +78,11 @@ func createKeys(rng *fastRNG.StreamGenerator,
 		stream := rng.GetStream()
 		transmissionRsaKey, err = rsa.GenerateKey(stream,
 			rsa.DefaultRSABitLen)
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+		transmissionSalt = make([]byte, 32)
+		_, err = stream.Read(transmissionSalt)
 		stream.Close()
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
@@ -130,6 +95,11 @@ func createKeys(rng *fastRNG.StreamGenerator,
 		stream := rng.GetStream()
 		receptionRsaKey, err = rsa.GenerateKey(stream,
 			rsa.DefaultRSABitLen)
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+		receptionSalt = make([]byte, 32)
+		_, err = stream.Read(receptionSalt)
 		stream.Close()
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
@@ -137,6 +107,21 @@ func createKeys(rng *fastRNG.StreamGenerator,
 	}()
 	wg.Wait()
 
+	isZero := func(data []byte) bool {
+		if len(data) == 0 {
+			return true
+		}
+		for i := len(data) - 1; i != 0; i-- {
+			if data[i] != 0 {
+				return false
+			}
+		}
+		return true
+	}
+
+	if isZero(receptionSalt) || isZero(transmissionSalt) {
+		jww.FATAL.Panicf("empty salt generation detected")
+	}
 	return
 
 }

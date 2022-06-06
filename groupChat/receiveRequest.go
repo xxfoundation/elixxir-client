@@ -27,7 +27,7 @@ const (
 
 // Adheres to receive.Listener interface
 type requestListener struct {
-	m *Manager
+	m *manager
 }
 
 // Hear waits for new group requests to arrive
@@ -42,8 +42,7 @@ func (l *requestListener) Hear(item receive.Message) {
 		return
 	}
 
-	// Call request callback with the new group if it does not already
-	// exist
+	// Call request callback with the new group if it does not already exist
 	if _, exists := l.m.GetGroup(g.ID); !exists {
 		jww.INFO.Printf(
 			"[GC] Received group request for group %s with ID %s.", g.Name, g.ID)
@@ -59,7 +58,7 @@ func (l *requestListener) Name() string {
 
 // readRequest returns the group described in the group request message. An
 // error is returned if the request is of the wrong type or cannot be read.
-func (m *Manager) readRequest(msg receive.Message) (gs.Group, error) {
+func (m *manager) readRequest(msg receive.Message) (gs.Group, error) {
 	// Return an error if the message is not of the right type
 	if msg.MessageType != catalog.GroupCreationRequest {
 		return gs.Group{}, errors.New(sendMessageTypeErr)

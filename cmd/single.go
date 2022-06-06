@@ -48,7 +48,7 @@ var singleCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetNetworkInterface().AddHealthCallback(
+		client.GetCmix().AddHealthCallback(
 			func(isconnected bool) {
 				connected <- isconnected
 			})
@@ -69,7 +69,7 @@ var singleCmd = &cobra.Command{
 		myID := client.GetUser().ReceptionID
 		listener := single.Listen(tag, myID,
 			client.GetUser().E2eDhPrivateKey,
-			client.GetNetworkInterface(),
+			client.GetCmix(),
 			client.GetStorage().GetE2EGroup(),
 			receiver)
 
@@ -92,7 +92,7 @@ var singleCmd = &cobra.Command{
 			partner := readSingleUseContact("contact")
 			maxMessages := uint8(viper.GetUint("maxMessages"))
 
-			sendSingleUse(client, partner, payload,
+			sendSingleUse(client.Client, partner, payload,
 				maxMessages, timeout, tag)
 		}
 
@@ -178,7 +178,7 @@ func sendSingleUse(m *api.Client, partner contact.Contact, payload []byte,
 
 	e2eGrp := m.GetStorage().GetE2EGroup()
 	rnd, ephID, err := single.TransmitRequest(partner, tag, payload, callback, params,
-		m.GetNetworkInterface(), rng, e2eGrp)
+		m.GetCmix(), rng, e2eGrp)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to transmit single-use message: %+v", err)
 	}

@@ -1,19 +1,20 @@
 package cmix
 
 import (
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	"testing"
-	"time"
 )
 
 // TestCritical tests the basic functions of the critical messaging system
 func TestCritical(t *testing.T) {
 	// Init mock structures & start thread
-	kv := versioned.NewKV(ekv.Memstore{})
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	mr := &mockRoundEventRegistrar{
 		statusReturn: true,
 	}

@@ -8,6 +8,11 @@
 package auth
 
 import (
+	"io"
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/cmix"
@@ -29,10 +34,6 @@ import (
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"io"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -145,7 +146,7 @@ func TestManager_ReplayRequests(t *testing.T) {
 		rng:   fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 		store: s,
 		event: &mockEventManager{},
-		params: Param{
+		params: Params{
 			ReplayRequests: true,
 		},
 	}

@@ -1,13 +1,14 @@
 package backup
 
 import (
+	"testing"
+
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
-	"testing"
 )
 
 func Test_storeJson_loadJson(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	json := "{'data': {'one': 1}}"
 
 	err := storeJson(json, kv)

@@ -7,6 +7,10 @@
 package connect
 
 import (
+	"encoding/json"
+	"io"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
@@ -26,8 +30,6 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
-	"io"
-	"time"
 )
 
 const (
@@ -59,6 +61,22 @@ type Connection interface {
 		newListener receive.Listener) receive.ListenerID
 	// Unregister listener for E2E reception
 	Unregister(listenerID receive.ListenerID)
+
+	// FirstPartitionSize returns the max partition payload size for the
+	// first payload
+	FirstPartitionSize() uint
+
+	// SecondPartitionSize returns the max partition payload size for all
+	// payloads after the first payload
+	SecondPartitionSize() uint
+
+	// PartitionSize returns the partition payload size for the given
+	// payload index. The first payload is index 0.
+	PartitionSize(payloadIndex uint) uint
+
+	// PayloadSize Returns the max payload size for a partitionable E2E
+	// message
+	PayloadSize() uint
 }
 
 // Callback is the callback format required to retrieve
@@ -67,9 +85,9 @@ type Callback func(connection Connection)
 
 // Params for managing Connection objects.
 type Params struct {
-	Auth    auth.Param
+	Auth    auth.Params
 	Rekey   rekey.Params
-	Event   event.Reporter
+	Event   event.Reporter `json:"-"`
 	Timeout time.Duration
 }
 
@@ -83,6 +101,19 @@ func GetDefaultParams() Params {
 	}
 }
 
+// GetParameters returns the default Params, or override with given
+// parameters, if set.
+func GetParameters(params string) (Params, error) {
+	p := GetDefaultParams()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return Params{}, err
+		}
+	}
+	return p, nil
+}
+
 // Connect performs auth key negotiation with the given recipient,
 // and returns a Connection object for the newly-created partner.Manager
 // This function is to be used sender-side and will block until the
@@ -90,6 +121,9 @@ func GetDefaultParams() Params {
 func Connect(recipient contact.Contact, myId *id.ID, privKey *cyclic.Int,
 	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
 	p Params) (Connection, error) {
+
+	//add the identity
+	net.AddIdentity(myId, time.Time{}, false)
 
 	// Build an ephemeral KV
 	kv := versioned.NewKV(ekv.MakeMemstore())
@@ -109,7 +143,7 @@ func Connect(recipient contact.Contact, myId *id.ID, privKey *cyclic.Int,
 	cb := func(connection Connection) {
 		signalChannel <- connection
 	}
-	callback := getAuthCallback(cb, e2eHandler, p)
+	callback := getAuthCallback(cb, nil, e2eHandler, p)
 
 	// Build auth object for E2E negotiation
 	authState, err := auth.NewState(kv, net, e2eHandler,
@@ -166,7 +200,7 @@ func StartServer(cb Callback, myId *id.ID, privKey *cyclic.Int,
 	}
 
 	// Build callback for E2E negotiation
-	callback := getAuthCallback(cb, e2eHandler, p)
+	callback := getAuthCallback(nil, cb, e2eHandler, p)
 
 	// Build auth object for E2E negotiation
 	authState, err := auth.NewState(kv, net, e2eHandler,
@@ -231,7 +265,8 @@ func (h *handler) Unregister(listenerID receive.ListenerID) {
 // building new Connection objects when an auth Request is received.
 type authCallback struct {
 	// Used for signaling confirmation of E2E partnership
-	connectionCallback Callback
+	confrimCallback Callback
+	requestCallback Callback
 
 	// Used for building new Connection objects
 	connectionE2e    clientE2e.Handler
@@ -241,12 +276,14 @@ type authCallback struct {
 
 // getAuthCallback returns a callback interface to be passed into the creation
 // of an auth.State object.
-func getAuthCallback(cb Callback, e2e clientE2e.Handler,
+// it will accept requests only if a request callback is passed in
+func getAuthCallback(confirm, request Callback, e2e clientE2e.Handler,
 	params Params) *authCallback {
 	return &authCallback{
-		connectionCallback: cb,
-		connectionE2e:      e2e,
-		connectionParams:   params,
+		confrimCallback:  confirm,
+		requestCallback:  request,
+		connectionE2e:    e2e,
+		connectionParams: params,
 	}
 }
 
@@ -262,28 +299,76 @@ func (a authCallback) Confirm(requestor contact.Contact,
 		jww.ERROR.Printf("Unable to build connection with "+
 			"partner %s: %+v", requestor.ID, err)
 		// Send a nil connection to avoid hold-ups down the line
-		a.connectionCallback(nil)
+		if a.confrimCallback != nil {
+			a.confrimCallback(nil)
+		}
+
 		return
 	}
 
 	// Return the new Connection object
-	a.connectionCallback(BuildConnection(newPartner, a.connectionE2e,
-		a.connectionParams))
+	if a.confrimCallback != nil {
+		a.confrimCallback(BuildConnection(newPartner, a.connectionE2e,
+			a.connectionParams))
+	}
+
 }
 
 // Request will be called when an auth Request message is processed.
 func (a authCallback) Request(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	if a.requestCallback == nil {
+		jww.ERROR.Printf("Recieved a request when requests are" +
+			"not enable, will not accept")
+	}
 	_, err := a.authState.Confirm(requestor)
 	if err != nil {
 		jww.ERROR.Printf("Unable to build connection with "+
 			"partner %s: %+v", requestor.ID, err)
 		// Send a nil connection to avoid hold-ups down the line
-		a.connectionCallback(nil)
+		a.requestCallback(nil)
 	}
+	// After confirmation, get the new partner
+	newPartner, err := a.connectionE2e.GetPartner(requestor.ID)
+	if err != nil {
+		jww.ERROR.Printf("Unable to build connection with "+
+			"partner %s: %+v", requestor.ID, err)
+		// Send a nil connection to avoid hold-ups down the line
+		a.requestCallback(nil)
+
+		return
+	}
+
+	// Return the new Connection object
+	a.requestCallback(BuildConnection(newPartner, a.connectionE2e,
+		a.connectionParams))
 }
 
 // Reset will be called when an auth Reset operation occurs.
 func (a authCallback) Reset(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+}
+
+// FirstPartitionSize returns the max partition payload size for the
+// first payload
+func (h *handler) FirstPartitionSize() uint {
+	return h.e2e.FirstPartitionSize()
+}
+
+// SecondPartitionSize returns the max partition payload size for all
+// payloads after the first payload
+func (h *handler) SecondPartitionSize() uint {
+	return h.e2e.SecondPartitionSize()
+}
+
+// PartitionSize returns the partition payload size for the given
+// payload index. The first payload is index 0.
+func (h *handler) PartitionSize(payloadIndex uint) uint {
+	return h.e2e.PartitionSize(payloadIndex)
+}
+
+// PayloadSize Returns the max payload size for a partitionable E2E
+// message
+func (h *handler) PayloadSize() uint {
+	return h.e2e.PayloadSize()
 }

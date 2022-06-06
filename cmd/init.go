@@ -10,9 +10,11 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
+	"gitlab.com/elixxir/client/api/messenger"
 )
 
 // initCmd creates a new user object with the given NDF
@@ -22,7 +24,13 @@ var initCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		client := createClient()
+		e2e, err := messenger.LoadOrInitE2e(client)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
 		user := client.GetUser()
+		user.E2eDhPublicKey = e2e.GetHistoricalDHPubkey()
+
 		jww.INFO.Printf("User: %s", user.ReceptionID)
 		writeContact(user.GetContact())
 		fmt.Printf("%s\n", user.ReceptionID)

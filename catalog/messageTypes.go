@@ -1,5 +1,7 @@
 package catalog
 
+import "fmt"
+
 type MessageType uint32
 
 const MessageTypeLen = 32 / 8
@@ -72,6 +74,6 @@ func (mt MessageType) String() string {
 	case ConnectionAuthenticationRequest:
 		return "ConnectionAuthenticationRequest"
 	default:
-		return "UNKNOWN TYPE"
+		return fmt.Sprintf("UNKNOWN TYPE (%d)", mt)
 	}
 }

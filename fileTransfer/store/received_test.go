@@ -23,7 +23,7 @@ import (
 // Tests that NewOrLoadReceived returns a new Received when none exist in
 // storage and that the list of incomplete transfers is nil.
 func TestNewOrLoadReceived_New(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	expected := &Received{
 		transfers: make(map[ftCrypto.TransferID]*ReceivedTransfer),
 		kv:        kv.Prefix(receivedTransfersStorePrefix),
@@ -48,7 +48,7 @@ func TestNewOrLoadReceived_New(t *testing.T) {
 // Tests that NewOrLoadReceived returns a loaded Received when one exist in
 // storage and that the list of incomplete transfers is correct.
 func TestNewOrLoadReceived_Load(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	r, _, err := NewOrLoadReceived(kv)
 	if err != nil {
 		t.Errorf("Failed to make new Received: %+v", err)
@@ -101,7 +101,7 @@ func TestNewOrLoadReceived_Load(t *testing.T) {
 
 // Tests that Received.AddTransfer makes a new transfer and adds it to the list.
 func TestReceived_AddTransfer(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	r, _, _ := NewOrLoadReceived(kv)
 
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
@@ -137,7 +137,7 @@ func TestReceived_AddTransfer_TransferAlreadyExists(t *testing.T) {
 
 // Tests that Received.GetTransfer returns the expected transfer.
 func TestReceived_GetTransfer(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	r, _, _ := NewOrLoadReceived(kv)
 
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
@@ -163,7 +163,7 @@ func TestReceived_GetTransfer(t *testing.T) {
 
 // Tests that Sent.RemoveTransfer removes the transfer from the list.
 func TestReceived_RemoveTransfer(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	r, _, _ := NewOrLoadReceived(kv)
 
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
@@ -201,7 +201,7 @@ func TestReceived_RemoveTransfer(t *testing.T) {
 // Tests that Received.save saves the transfer ID list to storage by trying to
 // load it after a save.
 func TestReceived_save(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	r, _, _ := NewOrLoadReceived(kv)
 	r.transfers = map[ftCrypto.TransferID]*ReceivedTransfer{
 		ftCrypto.TransferID{0}: nil, ftCrypto.TransferID{1}: nil,

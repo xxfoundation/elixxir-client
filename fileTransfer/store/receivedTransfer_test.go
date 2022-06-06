@@ -23,7 +23,7 @@ import (
 // Tests that newReceivedTransfer returns a new ReceivedTransfer with the
 // expected values.
 func Test_newReceivedTransfer(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
 	numFps := uint16(24)
@@ -320,7 +320,7 @@ func TestReceivedTransfer_save(t *testing.T) {
 // newTestReceivedTransfer creates a new ReceivedTransfer for testing.
 func newTestReceivedTransfer(numParts uint16, t *testing.T) (
 	*ReceivedTransfer, *ftCrypto.TransferKey, uint16, *versioned.KV) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
 	transferMAC := []byte("I am a transfer MAC")
@@ -382,7 +382,7 @@ func TestReceivedTransfer_marshal_unmarshalReceivedTransfer(t *testing.T) {
 
 // Tests that the part saved to storage via savePart can be loaded.
 func Test_savePart_loadPart(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	part := []byte("I am a part.")
 	partNum := 18
 

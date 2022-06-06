@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                           //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
 package cmix
 
 import (
@@ -57,6 +64,26 @@ type Params struct {
 	Historical rounds.Params
 }
 
+// paramsDisk will be the marshal-able and umarshal-able object.
+type paramsDisk struct {
+	TrackNetworkPeriod        time.Duration
+	MaxCheckedRounds          uint
+	RegNodesBufferLen         uint
+	NetworkHealthTimeout      time.Duration
+	ParallelNodeRegistrations uint
+	KnownRoundsThreshold      uint
+	FastPolling               bool
+	VerboseRoundTracking      bool
+	RealtimeOnly              bool
+	ReplayRequests            bool
+	Rounds                    rounds.Params
+	Pickup                    pickup.Params
+	Message                   message.Params
+	Historical                rounds.Params
+}
+
+// GetDefaultParams returns a Params object containing the
+// default parameters.
 func GetDefaultParams() Params {
 	n := Params{
 		TrackNetworkPeriod:        100 * time.Millisecond,
@@ -78,18 +105,7 @@ func GetDefaultParams() Params {
 	return n
 }
 
-func (n Params) Marshal() ([]byte, error) {
-	return json.Marshal(n)
-}
-
-func (n Params) SetRealtimeOnlyAll() Params {
-	n.RealtimeOnly = true
-	n.Pickup.RealtimeOnly = true
-	n.Message.RealtimeOnly = true
-	return n
-}
-
-// GetParameters returns the default network parameters, or override with given
+// GetParameters returns the default Params, or override with given
 // parameters, if set.
 func GetParameters(params string) (Params, error) {
 	p := GetDefaultParams()
@@ -102,7 +118,62 @@ func GetParameters(params string) (Params, error) {
 	return p, nil
 }
 
-type NodeMap map[id.ID]bool
+// MarshalJSON adheres to the json.Marshaler interface.
+func (p Params) MarshalJSON() ([]byte, error) {
+	pDisk := paramsDisk{
+		TrackNetworkPeriod:        p.TrackNetworkPeriod,
+		MaxCheckedRounds:          p.MaxCheckedRounds,
+		RegNodesBufferLen:         p.RegNodesBufferLen,
+		NetworkHealthTimeout:      p.NetworkHealthTimeout,
+		ParallelNodeRegistrations: p.ParallelNodeRegistrations,
+		KnownRoundsThreshold:      p.KnownRoundsThreshold,
+		FastPolling:               p.FastPolling,
+		VerboseRoundTracking:      p.VerboseRoundTracking,
+		RealtimeOnly:              p.RealtimeOnly,
+		ReplayRequests:            p.ReplayRequests,
+		Rounds:                    p.Rounds,
+		Pickup:                    p.Pickup,
+		Message:                   p.Message,
+		Historical:                p.Historical,
+	}
+
+	return json.Marshal(&pDisk)
+}
+
+// UnmarshalJSON adheres to the json.Unmarshaler interface.
+func (p *Params) UnmarshalJSON(data []byte) error {
+	pDisk := paramsDisk{}
+	err := json.Unmarshal(data, &pDisk)
+	if err != nil {
+		return err
+	}
+
+	*p = Params{
+		TrackNetworkPeriod:        pDisk.TrackNetworkPeriod,
+		MaxCheckedRounds:          pDisk.MaxCheckedRounds,
+		RegNodesBufferLen:         pDisk.RegNodesBufferLen,
+		NetworkHealthTimeout:      pDisk.NetworkHealthTimeout,
+		ParallelNodeRegistrations: pDisk.ParallelNodeRegistrations,
+		KnownRoundsThreshold:      pDisk.KnownRoundsThreshold,
+		FastPolling:               pDisk.FastPolling,
+		VerboseRoundTracking:      pDisk.VerboseRoundTracking,
+		RealtimeOnly:              pDisk.RealtimeOnly,
+		ReplayRequests:            pDisk.ReplayRequests,
+		Rounds:                    pDisk.Rounds,
+		Pickup:                    pDisk.Pickup,
+		Message:                   pDisk.Message,
+		Historical:                pDisk.Historical,
+	}
+
+	return nil
+}
+
+func (p Params) SetRealtimeOnlyAll() Params {
+	p.RealtimeOnly = true
+	p.Pickup.RealtimeOnly = true
+	p.Message.RealtimeOnly = true
+	return p
+}
 
 const DefaultDebugTag = "External"
 
@@ -137,6 +208,17 @@ type CMIXParams struct {
 	Critical bool
 }
 
+// cMixParamsDisk will be the marshal-able and umarshal-able object.
+type cMixParamsDisk struct {
+	RoundTries       uint
+	Timeout          time.Duration
+	RetryDelay       time.Duration
+	SendTimeout      time.Duration
+	DebugTag         string
+	BlacklistedNodes NodeMap
+	Critical         bool
+}
+
 func GetDefaultCMIXParams() CMIXParams {
 	return CMIXParams{
 		RoundTries:  10,
@@ -162,6 +244,47 @@ func GetCMIXParameters(params string) (CMIXParams, error) {
 	}
 	return p, nil
 }
+
+// MarshalJSON adheres to the json.Marshaler interface.
+func (p CMIXParams) MarshalJSON() ([]byte, error) {
+	pDisk := cMixParamsDisk{
+		RoundTries:       p.RoundTries,
+		Timeout:          p.Timeout,
+		RetryDelay:       p.RetryDelay,
+		SendTimeout:      p.SendTimeout,
+		DebugTag:         p.DebugTag,
+		Critical:         p.Critical,
+		BlacklistedNodes: p.BlacklistedNodes,
+	}
+
+	return json.Marshal(&pDisk)
+
+}
+
+// UnmarshalJSON adheres to the json.Unmarshaler interface.
+func (p *CMIXParams) UnmarshalJSON(data []byte) error {
+	pDisk := cMixParamsDisk{}
+	err := json.Unmarshal(data, &pDisk)
+	if err != nil {
+		return err
+	}
+
+	*p = CMIXParams{
+		RoundTries:       pDisk.RoundTries,
+		Timeout:          pDisk.Timeout,
+		RetryDelay:       pDisk.RetryDelay,
+		SendTimeout:      pDisk.SendTimeout,
+		DebugTag:         pDisk.DebugTag,
+		Critical:         pDisk.Critical,
+		BlacklistedNodes: pDisk.BlacklistedNodes,
+	}
+
+	return nil
+}
+
+// NodeMap represents a map of nodes and whether they have been
+// blacklisted. This is designed for use with CMIXParams.BlacklistedNodes
+type NodeMap map[id.ID]bool
 
 // MarshalJSON adheres to the json.Marshaler interface.
 func (nm NodeMap) MarshalJSON() ([]byte, error) {

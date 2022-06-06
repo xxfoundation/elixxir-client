@@ -9,6 +9,8 @@ package pickup
 
 import (
 	"encoding/binary"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/gateway"
@@ -22,7 +24,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"time"
 )
 
 type MessageRetrievalComms interface {
@@ -194,7 +195,7 @@ func (m *pickup) getMessagesFromGateway(roundID id.Round,
 			return msgResp, nil
 		}, stop, m.params.SendTimeout)
 
-	jww.INFO.Printf("Received message for round %d, processing...", roundID)
+	jww.INFO.Printf("Received messages for round %d, processing...", roundID)
 
 	// Fail the round if an error occurs so that it can be tried again later
 	if err != nil {
@@ -206,7 +207,7 @@ func (m *pickup) getMessagesFromGateway(roundID id.Round,
 	// If there are no messages, print a warning. Due to the probabilistic
 	// nature of the bloom filters, false positives will happen sometimes
 	msgs := msgResp.GetMessages()
-	if msgs == nil || len(msgs) == 0 {
+	if len(msgs) == 0 {
 		jww.WARN.Printf("no messages for client %s "+
 			" in round %d. This happening every once in a while is normal,"+
 			" but can be indicative of a problem if it is consistent",
@@ -229,15 +230,16 @@ func (m *pickup) getMessagesFromGateway(roundID id.Round,
 	bundle := message.Bundle{
 		Round:    roundID,
 		Messages: make([]format.Message, len(msgs)),
-		Finish: func() {
-			return
-		},
+		Finish:   func() {},
 	}
 
+	mSize := m.session.GetCmixGroup().GetP().ByteLen()
 	for i, slot := range msgs {
-		msg := format.NewMessage(m.session.GetCmixGroup().GetP().ByteLen())
+		msg := format.NewMessage(mSize)
 		msg.SetPayloadA(slot.PayloadA)
 		msg.SetPayloadB(slot.PayloadB)
+		jww.INFO.Printf("Received message of msgDigest: %s, round %d",
+			msg.Digest(), roundID)
 		bundle.Messages[i] = msg
 	}
 

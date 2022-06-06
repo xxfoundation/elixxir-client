@@ -24,6 +24,69 @@ const (
 	defaultMaxCheck             = 3
 )
 
+// UnknownRoundsParams allows configuration of UnknownRounds parameters.
+type UnknownRoundsParams struct {
+	// MaxChecks is the maximum amount of checks of a round before that round
+	// gets discarded
+	MaxChecks uint64
+
+	// Stored determines if the unknown rounds is stored to disk
+	Stored bool
+}
+
+// unknownRoundsParamsDisk will be the marshal-able and umarshal-able object.
+type unknownRoundsParamsDisk struct {
+	MaxChecks uint64
+	Stored    bool
+}
+
+// DefaultUnknownRoundsParams returns a default set of UnknownRoundsParams.
+func DefaultUnknownRoundsParams() UnknownRoundsParams {
+	return UnknownRoundsParams{
+		MaxChecks: defaultMaxCheck,
+		Stored:    true,
+	}
+}
+
+// GetParameters returns the default UnknownRoundsParams,
+// or override with given parameters, if set.
+func GetParameters(params string) (UnknownRoundsParams, error) {
+	p := DefaultUnknownRoundsParams()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return UnknownRoundsParams{}, err
+		}
+	}
+	return p, nil
+}
+
+// MarshalJSON adheres to the json.Marshaler interface.
+func (urp UnknownRoundsParams) MarshalJSON() ([]byte, error) {
+	urpDisk := unknownRoundsParamsDisk{
+		MaxChecks: urp.MaxChecks,
+		Stored:    urp.Stored,
+	}
+
+	return json.Marshal(&urpDisk)
+}
+
+// UnmarshalJSON adheres to the json.Unmarshaler interface.
+func (urp *UnknownRoundsParams) UnmarshalJSON(data []byte) error {
+	urpDisk := unknownRoundsParamsDisk{}
+	err := json.Unmarshal(data, &urpDisk)
+	if err != nil {
+		return err
+	}
+
+	*urp = UnknownRoundsParams{
+		MaxChecks: urpDisk.MaxChecks,
+		Stored:    urpDisk.Stored,
+	}
+
+	return nil
+}
+
 // UnknownRounds tracks data for unknown rounds. Should adhere to UnknownRounds
 // interface.
 type UnknownRounds struct {
@@ -37,24 +100,6 @@ type UnknownRounds struct {
 	kv *versioned.KV
 
 	mux sync.Mutex
-}
-
-// UnknownRoundsParams allows configuration of UnknownRounds parameters.
-type UnknownRoundsParams struct {
-	// MaxChecks is the maximum amount of checks of a round before that round
-	// gets discarded
-	MaxChecks uint64
-
-	// Stored determines if the unknown rounds is stored to disk
-	Stored bool
-}
-
-// DefaultUnknownRoundsParams returns a default set of UnknownRoundsParams.
-func DefaultUnknownRoundsParams() UnknownRoundsParams {
-	return UnknownRoundsParams{
-		MaxChecks: defaultMaxCheck,
-		Stored:    true,
-	}
 }
 
 // NewUnknownRounds builds and returns a new UnknownRounds object.

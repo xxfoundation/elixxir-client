@@ -9,22 +9,23 @@ package cmix
 
 import (
 	"bytes"
+	"math/rand"
+	"reflect"
+	"testing"
+
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"reflect"
-	"testing"
 )
 
 // Test happy path of cmixMessageHandler.SaveMessage.
 func Test_cmixMessageHandler_SaveMessage(t *testing.T) {
 	// Set up test values
 	cmh := &cmixMessageHandler{}
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	testMsgs, ids, _ := makeTestCmixMessages(10)
 
 	for i := range testMsgs {
@@ -59,7 +60,7 @@ func Test_cmixMessageHandler_SaveMessage(t *testing.T) {
 func Test_cmixMessageHandler_LoadMessage(t *testing.T) {
 	// Set up test values
 	cmh := &cmixMessageHandler{}
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	testMsgs, ids, _ := makeTestCmixMessages(10)
 
 	for i := range testMsgs {
@@ -94,7 +95,7 @@ func Test_cmixMessageBuffer_Smoke(t *testing.T) {
 	testMsgs, ids, _ := makeTestCmixMessages(2)
 
 	// Create new buffer
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	cmb, err := NewOrLoadCmixMessageBuffer(kv, "testKey")
 	if err != nil {
 		t.Errorf("Failed to make new cmixMessageHandler: %+v", err)

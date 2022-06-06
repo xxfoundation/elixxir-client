@@ -125,6 +125,10 @@ type Handler interface {
 	// an E2E relationship with.
 	GetAllPartnerIDs() []*id.ID
 
+	// HasAuthenticatedChannel returns true if an authenticated channel with the
+	// partner exists, otherwise returns false
+	HasAuthenticatedChannel(partner *id.ID) bool
+
 	/* === Services ===================================================== */
 
 	// AddService adds a service for all partners of the given
@@ -173,4 +177,20 @@ type Handler interface {
 
 	// GetReceptionID returns the default IDs
 	GetReceptionID() *id.ID
+
+	// FirstPartitionSize returns the max partition payload size for the
+	// first payload
+	FirstPartitionSize() uint
+
+	// SecondPartitionSize returns the max partition payload size for all
+	// payloads after the first payload
+	SecondPartitionSize() uint
+
+	// PartitionSize returns the partition payload size for the given
+	// payload index. The first payload is index 0.
+	PartitionSize(payloadIndex uint) uint
+
+	// PayloadSize Returns the max payload size for a partitionable E2E
+	// message
+	PayloadSize() uint
 }

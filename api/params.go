@@ -8,29 +8,32 @@
 package api
 
 import (
-	"gitlab.com/elixxir/client/auth"
+	"encoding/json"
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/e2e/rekey"
 )
 
 type Params struct {
-	E2E     e2e.Params
 	CMix    cmix.Params
-	Network cmix.CMIXParams
 	Session session.Params
-	Auth    auth.Param
-	Rekey   rekey.Params
 }
 
 func GetDefaultParams() Params {
 	return Params{
-		E2E:     e2e.GetDefaultParams(),
 		CMix:    cmix.GetDefaultParams(),
-		Network: cmix.GetDefaultCMIXParams(),
 		Session: session.GetDefaultParams(),
-		Auth:    auth.GetDefaultParams(),
-		Rekey:   rekey.GetDefaultParams(),
 	}
+}
+
+// GetParameters returns the default Params, or override with given
+// parameters, if set.
+func GetParameters(params string) (Params, error) {
+	p := GetDefaultParams()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return Params{}, err
+		}
+	}
+	return p, nil
 }

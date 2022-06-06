@@ -71,7 +71,7 @@ var udCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetNetworkInterface().AddHealthCallback(
+		client.GetCmix().AddHealthCallback(
 			func(isconnected bool) {
 				connected <- isconnected
 			})
@@ -81,16 +81,16 @@ var udCmd = &cobra.Command{
 		stream := client.GetRng().GetStream()
 		defer stream.Close()
 		userToRegister := viper.GetString("register")
-		userDiscoveryMgr, err := ud.NewManager(client.GetNetworkInterface(),
-			client.GetE2EHandler(), client.NetworkFollowerStatus,
+		userDiscoveryMgr, err := ud.NewManager(client.GetCmix(),
+			client.GetE2E(), client.NetworkFollowerStatus,
 			client.GetEventReporter(),
 			client.GetComms(), client.GetStorage(),
 			stream,
 			userToRegister, client.GetStorage().GetKV())
 		if err != nil {
 			if strings.Contains(err.Error(), ud.IsRegisteredErr) {
-				userDiscoveryMgr, err = ud.LoadManager(client.GetNetworkInterface(),
-					client.GetE2EHandler(), client.GetEventReporter(),
+				userDiscoveryMgr, err = ud.LoadManager(client.GetCmix(),
+					client.GetE2E(), client.GetEventReporter(),
 					client.GetComms(),
 					client.GetStorage(), client.GetStorage().GetKV())
 				if err != nil {
@@ -163,8 +163,8 @@ var udCmd = &cobra.Command{
 				}
 				printContact(newContact)
 			}
-			_, _, err = ud.Lookup(client.GetNetworkInterface(),
-				stream, client.GetE2EHandler().GetGroup(),
+			_, _, err = ud.Lookup(client.GetCmix(),
+				stream, client.GetE2E().GetGroup(),
 				udContact, cb, lookupID, single.GetDefaultRequestParams())
 			if err != nil {
 				jww.WARN.Printf("Failed UD lookup: %+v", err)
@@ -187,7 +187,7 @@ var udCmd = &cobra.Command{
 			}
 			for i := 0; i < len(restored); i++ {
 				uid := restored[i]
-				for !client.HasAuthenticatedChannel(uid) {
+				for !client.GetE2E().HasAuthenticatedChannel(uid) {
 					time.Sleep(time.Second)
 				}
 				jww.INFO.Printf("Authenticated channel established for %s", uid)
@@ -256,9 +256,9 @@ var udCmd = &cobra.Command{
 			}
 		}
 
-		_, _, err = ud.Search(client.GetNetworkInterface(),
+		_, _, err = ud.Search(client.GetCmix(),
 			client.GetEventReporter(),
-			stream, client.GetE2EHandler().GetGroup(),
+			stream, client.GetE2E().GetGroup(),
 			udContact, cb, facts, single.GetDefaultRequestParams())
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)

@@ -9,14 +9,15 @@ package cmd
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/api/messenger"
 	"io/ioutil"
 	"time"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/api"
-	ft "gitlab.com/elixxir/client/fileTransfer"
+	ft "gitlab.com/elixxir/client/fileTransfer2"
+	ftE2e "gitlab.com/elixxir/client/fileTransfer2/e2e"
 	"gitlab.com/elixxir/crypto/contact"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
@@ -54,9 +55,9 @@ var ftCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetNetworkInterface().AddHealthCallback(
-			func(isconnected bool) {
-				connected <- isconnected
+		client.GetCmix().AddHealthCallback(
+			func(isConnected bool) {
+				connected <- isConnected
 			})
 		waitUntilConnected(connected)
 
@@ -66,8 +67,8 @@ var ftCmd = &cobra.Command{
 
 			numReg, total, err = client.GetNodeRegistrationStatus()
 			if err != nil {
-				jww.FATAL.Panicf("Failed to get node registration status: %+v",
-					err)
+				jww.FATAL.Panicf(
+					"Failed to get node registration status: %+v", err)
 			}
 
 			jww.INFO.Printf("Registering with nodes (%d/%d)...", numReg, total)
@@ -131,8 +132,8 @@ type receivedFtResults struct {
 // initFileTransferManager creates a new file transfer manager with a new
 // reception callback. Returns the file transfer manager and the channel that
 // will be triggered when the callback is called.
-func initFileTransferManager(client *api.Client, maxThroughput int) (
-	ft.FileTransfer, chan receivedFtResults) {
+func initFileTransferManager(client *messenger.Client, maxThroughput int) (
+	*ftE2e.Wrapper, chan receivedFtResults) {
 
 	// Create interfaces.ReceiveCallback that returns the results on a channel
 	receiveChan := make(chan receivedFtResults, 100)
@@ -150,8 +151,11 @@ func initFileTransferManager(client *api.Client, maxThroughput int) (
 	}
 
 	// Create new manager
-	// TODO: Fix NewManager parameters
-	manager, err := ft.NewManager(receiveCB, p, nil, nil, nil, nil, nil)
+	manager, err := ft.NewManager(p,
+		client.GetUser().ReceptionID,
+		client.GetCmix(),
+		client.GetStorage().GetKV(),
+		client.GetRng())
 	if err != nil {
 		jww.FATAL.Panicf(
 			"[FT] Failed to create new file transfer manager: %+v", err)
@@ -163,12 +167,20 @@ func initFileTransferManager(client *api.Client, maxThroughput int) (
 		jww.FATAL.Panicf("[FT] Failed to start file transfer threads: %+v", err)
 	}
 
-	return manager, receiveChan
+	e2eParams := ftE2e.DefaultParams()
+	e2eFt, err := ftE2e.NewWrapper(receiveCB, e2eParams, manager,
+		client.GetUser().ReceptionID, client.GetE2E(), client.GetCmix())
+	if err != nil {
+		jww.FATAL.Panicf(
+			"[FT] Failed to create new e2e file transfer wrapper: %+v", err)
+	}
+
+	return e2eFt, receiveChan
 }
 
 // sendFile sends the file to the recipient and prints the progress.
 func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
-	recipientContactPath string, retry float32, m ft.FileTransfer,
+	recipientContactPath string, retry float32, m *ftE2e.Wrapper,
 	done chan struct{}) {
 
 	// Get file from path
@@ -205,7 +217,7 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 
 	// Create sent progress callback that prints the results
 	progressCB := func(completed bool, arrived, total uint16,
-		t ft.FilePartTracker, err error) {
+		st ft.SentTransfer, _ ft.FilePartTracker, err error) {
 		jww.INFO.Printf("[FT] Sent progress callback for %q "+
 			"{completed: %t, arrived: %d, total: %d, err: %v}",
 			fileName, completed, arrived, total, err)
@@ -236,7 +248,7 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 	sendStart = netTime.Now()
 
 	// Send the file
-	tid, err := m.Send(fileName, fileType, fileData, recipient.ID, retry,
+	tid, err := m.Send(recipient.ID, fileName, fileType, fileData, retry,
 		filePreviewData, progressCB, callbackPeriod)
 	if err != nil {
 		jww.FATAL.Panicf("[FT] Failed to send file %q to %s: %+v",
@@ -251,7 +263,7 @@ func sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 // receiveNewFileTransfers waits to receive new file transfers and prints its
 // information to the log.
 func receiveNewFileTransfers(receive chan receivedFtResults, done,
-	quit chan struct{}, m ft.FileTransfer) {
+	quit chan struct{}, m *ftE2e.Wrapper) {
 	jww.INFO.Print("[FT] Starting thread waiting to receive NewFileTransfer " +
 		"E2E message.")
 	for {
@@ -282,9 +294,9 @@ func receiveNewFileTransfers(receive chan receivedFtResults, done,
 // the results to the log.
 func newReceiveProgressCB(tid *ftCrypto.TransferID, fileName string,
 	done chan struct{}, receiveStart time.Time,
-	m ft.FileTransfer) ft.ReceivedProgressCallback {
+	m *ftE2e.Wrapper) ft.ReceivedProgressCallback {
 	return func(completed bool, received, total uint16,
-		t ft.FilePartTracker, err error) {
+		rt ft.ReceivedTransfer, t ft.FilePartTracker, err error) {
 		jww.INFO.Printf("[FT] Receive progress callback for transfer %s "+
 			"{completed: %t, received: %d, total: %d, err: %v}",
 			tid, completed, received, total, err)
@@ -357,7 +369,7 @@ func init() {
 		"File preview data. Set either this flag or filePreviewPath.")
 	bindPFlagCheckErr("filePreviewString")
 
-	ftCmd.Flags().Int("maxThroughput", 0,
+	ftCmd.Flags().Int("maxThroughput", 1000,
 		"Maximum data transfer speed to send file parts (in bytes per second)")
 	bindPFlagCheckErr("maxThroughput")
 

@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"gitlab.com/elixxir/client/api/messenger"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 
@@ -25,12 +26,13 @@ import (
 // Tests that Backup.InitializeBackup returns a new Backup with a copy of the
 // key and the callback.
 func Test_InitializeBackup(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	cbChan := make(chan []byte, 2)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
 	expectedPassword := "MySuperSecurePassword"
-	b, err := InitializeBackup(expectedPassword, cb, &Container{}, newMockE2e(t),
+	b, err := InitializeBackup(expectedPassword, cb, &messenger.Container{},
+		newMockE2e(t),
 		newMockSession(t), newMockUserDiscovery(), kv, rngGen)
 	if err != nil {
 		t.Errorf("InitializeBackup returned an error: %+v", err)
@@ -86,12 +88,12 @@ func Test_InitializeBackup(t *testing.T) {
 // callback but keeps the password.
 func Test_ResumeBackup(t *testing.T) {
 	// Start the first backup
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	cbChan1 := make(chan []byte)
 	cb1 := func(encryptedBackup []byte) { cbChan1 <- encryptedBackup }
 	expectedPassword := "MySuperSecurePassword"
-	b, err := InitializeBackup(expectedPassword, cb1, &Container{},
+	b, err := InitializeBackup(expectedPassword, cb1, &messenger.Container{},
 		newMockE2e(t), newMockSession(t), newMockUserDiscovery(), kv, rngGen)
 	if err != nil {
 		t.Errorf("Failed to initialize new Backup: %+v", err)
@@ -113,7 +115,7 @@ func Test_ResumeBackup(t *testing.T) {
 	// Resume the backup with a new callback
 	cbChan2 := make(chan []byte)
 	cb2 := func(encryptedBackup []byte) { cbChan2 <- encryptedBackup }
-	b2, err := ResumeBackup(cb2, &Container{}, newMockE2e(t), newMockSession(t),
+	b2, err := ResumeBackup(cb2, &messenger.Container{}, newMockE2e(t), newMockSession(t),
 		newMockUserDiscovery(), kv, rngGen)
 	if err != nil {
 		t.Errorf("ResumeBackup returned an error: %+v", err)
@@ -164,9 +166,9 @@ func Test_ResumeBackup(t *testing.T) {
 // present in storage.
 func Test_ResumeBackup_NoKeyError(t *testing.T) {
 	expectedErr := strings.Split(errLoadPassword, "%")[0]
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
-	_, err := ResumeBackup(nil, &Container{}, newMockE2e(t), newMockSession(t),
+	_, err := ResumeBackup(nil, &messenger.Container{}, newMockE2e(t), newMockSession(t),
 		newMockUserDiscovery(), kv, rngGen)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("ResumeBackup did not return the expected error when no "+
@@ -420,11 +422,11 @@ func newTestBackup(password string, cb UpdateBackupFn, t *testing.T) *Backup {
 	b, err := InitializeBackup(
 		password,
 		cb,
-		&Container{},
+		&messenger.Container{},
 		newMockE2e(t),
 		newMockSession(t),
 		newMockUserDiscovery(),
-		versioned.NewKV(make(ekv.Memstore)),
+		versioned.NewKV(ekv.MakeMemstore()),
 		fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 	)
 	if err != nil {
@@ -437,13 +439,14 @@ func newTestBackup(password string, cb UpdateBackupFn, t *testing.T) *Backup {
 // Tests that Backup.InitializeBackup returns a new Backup with a copy of the
 // key and the callback.
 func Benchmark_InitializeBackup(t *testing.B) {
-	kv := versioned.NewKV(make(ekv.Memstore))
+	kv := versioned.NewKV(ekv.MakeMemstore())
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	cbChan := make(chan []byte, 2)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
 	expectedPassword := "MySuperSecurePassword"
 	for i := 0; i < t.N; i++ {
-		_, err := InitializeBackup(expectedPassword, cb, &Container{},
+		_, err := InitializeBackup(expectedPassword, cb,
+			&messenger.Container{},
 			newMockE2e(t),
 			newMockSession(t), newMockUserDiscovery(), kv, rngGen)
 		if err != nil {

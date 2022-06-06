@@ -1,15 +1,6 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2021 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
-
 package bindings
 
-import (
-	"gitlab.com/elixxir/client/api"
-)
+import "gitlab.com/elixxir/client/api"
 
 // DownloadAndVerifySignedNdfWithUrl retrieves the NDF from a specified URL.
 // The NDF is processed into a protobuf containing a signature which

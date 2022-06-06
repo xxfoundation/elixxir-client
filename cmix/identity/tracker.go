@@ -130,7 +130,7 @@ func NewOrLoadTracker(session storage.Session, addrSpace address.Space) *manager
 
 // StartProcesses track runs a thread which checks for past and present address
 // ID.
-func (t manager) StartProcesses() stoppable.Stoppable {
+func (t *manager) StartProcesses() stoppable.Stoppable {
 	stop := stoppable.NewSingle(ephemeralStoppable)
 
 	go t.track(stop)

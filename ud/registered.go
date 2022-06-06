@@ -2,6 +2,7 @@ package ud
 
 import (
 	"encoding/binary"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -21,8 +22,8 @@ func (m *Manager) isRegistered() bool {
 	return true
 }
 
-// isRegistered returns if the client is registered with user discovery
-func (m *Manager) setRegistered() error {
+// setRegistered sets the user to registered
+func setRegistered(kv *versioned.KV) error {
 	data := make([]byte, 4)
 	binary.BigEndian.PutUint32(data, 1)
 	obj := &versioned.Object{
@@ -31,7 +32,7 @@ func (m *Manager) setRegistered() error {
 		Data:      data,
 	}
 
-	if err := m.kv.Set(isRegisteredKey, isRegisteredVersion, obj); err != nil {
+	if err := kv.Set(isRegisteredKey, isRegisteredVersion, obj); err != nil {
 		jww.FATAL.Panicf("Failed to store that the client is "+
 			"registered: %+v", err)
 	}

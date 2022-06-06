@@ -196,6 +196,13 @@ func (m *manager) EnableUnsafeReception() {
 	})
 }
 
+// HasAuthenticatedChannel returns true if an authenticated channel with the
+// partner exists, otherwise returns false
+func (m *manager) HasAuthenticatedChannel(partner *id.ID) bool {
+	p, err := m.GetPartner(partner)
+	return p != nil && err == nil
+}
+
 func makeE2ePrefix(myid *id.ID) string {
 	return "e2eStore:" + myid.String()
 }

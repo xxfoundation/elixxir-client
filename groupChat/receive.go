@@ -9,6 +9,7 @@ package groupChat
 
 import (
 	"fmt"
+	"gitlab.com/xx_network/primitives/netTime"
 	"time"
 
 	"github.com/pkg/errors"
@@ -55,8 +56,10 @@ func (p *receptionProcessor) Process(message format.Message,
 	}
 
 	// Obtain the decryption key for the public message
+	// We use PRECOMPUTING here because all Rounds have that timestamp available to them
+	// QUEUED can be missing sometimes and cause a lot of hidden problems further down the line
 	key, err := getCryptKey(p.g.Key, pubMsg.GetSalt(), message.GetMac(),
-		pubMsg.GetPayload(), p.g.DhKeys, round.Timestamps[states.QUEUED])
+		pubMsg.GetPayload(), p.g.DhKeys, round.Timestamps[states.PRECOMPUTING])
 	if err != nil {
 		jww.ERROR.Printf(getDecryptionKeyErr, err)
 		return
@@ -124,6 +127,12 @@ func decryptMessage(g gs.Group, fingerprint format.Fingerprint,
 // DH key is tried until there is a match.
 func getCryptKey(key group.Key, salt [group.SaltLen]byte, mac, payload []byte,
 	dhKeys gs.DhKeyList, roundTimestamp time.Time) (group.CryptKey, error) {
+
+	// If given zero time, try to guesstimate roundTimestamp as right now
+	if roundTimestamp.Equal(time.Unix(0, 0)) {
+		jww.ERROR.Printf("getCryptKey missing roundTimestamp")
+		roundTimestamp = netTime.Now()
+	}
 
 	// Compute the current epoch
 	epoch := group.ComputeEpoch(roundTimestamp)

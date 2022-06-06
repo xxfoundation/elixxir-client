@@ -271,7 +271,7 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 	return result, nil
 }
 
-// initialize initializes the HostPool with a performant set of Hosts.
+// initialize the HostPool with a performant set of Hosts.
 func (h *HostPool) initialize(startIdx uint32) error {
 	// If HostPool is full, there is no need to initialize
 	if startIdx == h.poolParams.PoolSize {

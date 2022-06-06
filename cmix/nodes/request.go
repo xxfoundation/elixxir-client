@@ -64,8 +64,8 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	result, err := sender.SendToAny(func(host *connect.Host) (interface{}, error) {
 		keyResponse, err2 := comms.SendRequestClientKeyMessage(host, signedKeyReq)
 		if err2 != nil {
-			return nil, errors.WithMessage(err2,
-				"Register: Failed requesting client key from gateway")
+			return nil, errors.WithMessagef(err2,
+				"Register: Failed requesting client key from gateway %s", gatewayID.String())
 		}
 		if keyResponse.Error != "" {
 			return nil, errors.WithMessage(err2,

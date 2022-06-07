@@ -135,28 +135,18 @@ func (c *client) getRoundResults(roundList []id.Round, timeout time.Duration,
 			}
 		}
 	}
-	historicalRoundsCh := make(chan RoundResult, len(historicalRequest))
+
 	// Find out what happened to old (historical) rounds if any are needed
 	if len(historicalRequest) > 0 {
 		for _, rnd := range historicalRequest {
 			rrc := func(round rounds.Round, success bool) {
-				var status RoundLookupStatus
-				if success {
-					status = Succeeded
-				} else {
-					status = TimeOut
+				result := ds.EventReturn{
+					RoundInfo: round.Raw,
+					TimedOut:  success,
 				}
-				historicalRoundsCh <- RoundResult{
-					Status: status,
-					Round:  round,
-				}
+				sendResults <- result
 			}
-			err := c.Retriever.LookupHistoricalRound(rnd, rrc)
-			if err != nil {
-				historicalRoundsCh <- RoundResult{
-					Status: TimeOut,
-				}
-			}
+			_ = c.Retriever.LookupHistoricalRound(rnd, rrc)
 		}
 
 	}
@@ -181,8 +171,6 @@ func (c *client) getRoundResults(roundList []id.Round, timeout time.Duration,
 			case <-timer.C:
 				roundCallback(false, true, roundsResults)
 				return
-			case result = <-historicalRoundsCh:
-				hasResult = true
 			case roundReport := <-sendResults:
 				numResults--
 

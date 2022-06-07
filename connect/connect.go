@@ -94,8 +94,8 @@ type Params struct {
 // GetDefaultParams returns a usable set of default Connection parameters.
 func GetDefaultParams() Params {
 	return Params{
-		Auth:    auth.GetDefaultParams(),
-		Rekey:   rekey.GetDefaultParams(),
+		Auth:    auth.GetDefaultTemporaryParams(),
+		Rekey:   rekey.GetDefaultEphemeralParams(),
 		Event:   event.NewEventManager(),
 		Timeout: connectionTimeout,
 	}

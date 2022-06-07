@@ -142,13 +142,12 @@ func (c *client) getRoundResults(roundList []id.Round, timeout time.Duration,
 			rrc := func(round rounds.Round, success bool) {
 				result := ds.EventReturn{
 					RoundInfo: round.Raw,
-					TimedOut:  success,
+					TimedOut:  !success,
 				}
 				sendResults <- result
 			}
 			_ = c.Retriever.LookupHistoricalRound(rnd, rrc)
 		}
-
 	}
 
 	// Determine the results of all rounds requested

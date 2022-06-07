@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"io"
 )
 
 type State interface {
@@ -94,6 +95,9 @@ type State interface {
 
 	// VerifyOwnership checks if the received ownership proof is valid
 	VerifyOwnership(received, verified contact.Contact, e2e e2e.Handler) bool
+
+	//Closer stops listening to auth
+	io.Closer
 }
 
 // Callbacks is the interface for auth callback methods.

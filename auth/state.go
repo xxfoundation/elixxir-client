@@ -119,3 +119,18 @@ func (s *state) CallAllReceivedRequests() {
 func makeStorePrefix(partner *id.ID) string {
 	return "authStore:" + base64.StdEncoding.EncodeToString(partner.Marshal())
 }
+
+func (s *state) Close() error {
+	s.net.DeleteService(s.e2e.GetReceptionID(), message.Service{
+		Identifier: s.e2e.GetReceptionID()[:],
+		Tag:        s.params.RequestTag,
+		Metadata:   nil,
+	}, nil)
+
+	s.net.AddService(s.e2e.GetReceptionID(), message.Service{
+		Identifier: s.e2e.GetReceptionID()[:],
+		Tag:        s.params.ResetRequestTag,
+		Metadata:   nil,
+	}, nil)
+	return nil
+}

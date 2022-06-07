@@ -36,12 +36,10 @@ func loadBackup(backupPath, backupPass string) (backupCrypto.Backup, []byte) {
 ////////////////// Print functions /////////////////////////////
 /////////////////////////////////////////////////////////////////
 
-// Helper function which prints the round resuls
-func printRoundResults(allRoundsSucceeded, timedOut bool,
-	rounds map[id.Round]cmix.RoundResult, roundIDs []id.Round,
-	payload []byte, recipient *id.ID) {
+// Helper function which prints the round results
+func printRoundResults(rounds map[id.Round]cmix.RoundResult, roundIDs []id.Round, payload []byte, recipient *id.ID) {
 
-	// Done as string slices for easy and human readable printing
+	// Done as string slices for easy and human-readable printing
 	successfulRounds := make([]string, 0)
 	failedRounds := make([]string, 0)
 	timedOutRounds := make([]string, 0)
@@ -71,8 +69,8 @@ func printRoundResults(allRoundsSucceeded, timedOut bool,
 		jww.ERROR.Printf("\tRound(s) %v failed", strings.Join(failedRounds, ","))
 	}
 	if len(timedOutRounds) > 0 {
-		jww.ERROR.Printf("\tRound(s) %v timed "+
-			"\n\tout (no network resolution could be found)", strings.Join(timedOutRounds, ","))
+		jww.ERROR.Printf("\tRound(s) %v timed out (no network resolution could be found)",
+			strings.Join(timedOutRounds, ","))
 	}
 
 }

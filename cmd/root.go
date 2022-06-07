@@ -382,7 +382,6 @@ var rootCmd = &cobra.Command{
 					for {
 						// Send messages
 						var roundIDs []id.Round
-						roundTimeout := paramsE2E.CMIXParams.SendTimeout
 						if unsafe {
 							paramsE2E.CMIXParams.DebugTag = "cmd.Unsafe"
 							roundIDs, _, err = client.GetE2E().SendUnsafe(
@@ -413,7 +412,7 @@ var rootCmd = &cobra.Command{
 							}
 
 							// Monitor rounds for results
-							err = client.GetCmix().GetRoundResults(roundTimeout, f, roundIDs...)
+							err = client.GetCmix().GetRoundResults(paramsE2E.CMIXParams.Timeout, f, roundIDs...)
 							if err != nil {
 								jww.DEBUG.Printf("Could not verify messages were sent successfully, resending messages...")
 								continue

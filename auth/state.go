@@ -127,7 +127,7 @@ func (s *state) Close() error {
 		Metadata:   nil,
 	}, nil)
 
-	s.net.AddService(s.e2e.GetReceptionID(), message.Service{
+	s.net.DeleteService(s.e2e.GetReceptionID(), message.Service{
 		Identifier: s.e2e.GetReceptionID()[:],
 		Tag:        s.params.ResetRequestTag,
 		Metadata:   nil,

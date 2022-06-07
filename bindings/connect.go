@@ -2,6 +2,7 @@ package bindings
 
 import (
 	"encoding/json"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/connect"
 	e2e2 "gitlab.com/elixxir/client/e2e"
@@ -86,7 +87,10 @@ func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 
 // Close deletes this Connection's partner.Manager and releases resources
 func (c *Connection) Close() error {
-	return c.connection.Close()
+	jww.INFO.Printf("Closing the connection")
+	err := c.connection.Close()
+	jww.INFO.Printf("connection closed")
+	return err
 }
 
 // GetPartner returns the partner.Manager for this Connection

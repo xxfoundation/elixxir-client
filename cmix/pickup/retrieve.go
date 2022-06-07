@@ -129,7 +129,7 @@ func (m *pickup) processMessageRetrieval(comms MessageRetrievalComms,
 
 			}
 
-			jww.DEBUG.Printf("messages: %v\n", bundle.Messages)
+			jww.TRACE.Printf("messages: %v\n", bundle.Messages)
 
 			if len(bundle.Messages) != 0 {
 				// If successful and there are messages, we send them to another

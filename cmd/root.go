@@ -404,7 +404,7 @@ var rootCmd = &cobra.Command{
 							// Construct the callback function which
 							// verifies successful message send or retries
 							f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundResult) {
-								printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, payload, recipientID)
+								printRoundResults(rounds, roundIDs, payload, recipientID)
 								if !allRoundsSucceeded {
 									retryChan <- struct{}{}
 								} else {

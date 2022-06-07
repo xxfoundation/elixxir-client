@@ -152,6 +152,8 @@ func Connect(recipient contact.Contact, myId *id.ID, privKey *cyclic.Int,
 		return nil, err
 	}
 
+	callback.authState = authState
+
 	// Perform the auth request
 	_, err = authState.Request(recipient, nil)
 	if err != nil {
@@ -282,8 +284,8 @@ type authCallback struct {
 // getAuthCallback returns a callback interface to be passed into the creation
 // of an auth.State object.
 // it will accept requests only if a request callback is passed in
-func getAuthCallback(confirm, request Callback, e2e clientE2e.Handler,
-	params Params) *authCallback {
+func getAuthCallback(confirm, request Callback,
+	e2e clientE2e.Handler, params Params) *authCallback {
 	return &authCallback{
 		confrimCallback:  confirm,
 		requestCallback:  request,

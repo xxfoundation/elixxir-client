@@ -95,7 +95,7 @@ server, err := single.NewServer(myIdentity.ID, myIdentity.DHKeyPrivate,
 	client.GetStorage().GetE2EGroup(), client.GetCmix())
 ```
 
-# Adding Server Endpoints.
+# Adding Server Endpoints
 
 Once you have a `server` object, you can begin adding Endpoints to process incoming client requests.
 See documentation in restlike/types.go for more information.

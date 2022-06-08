@@ -23,13 +23,13 @@ type Server struct {
 
 // NewServer builds a RestServer with single-use and
 // the provided arguments, then registers necessary external services
-func NewServer(receptionId *id.ID, privKey *cyclic.Int, net single.ListenCmix, e2eGrp *cyclic.Group) *Server {
+func NewServer(receptionId *id.ID, privKey *cyclic.Int, grp *cyclic.Group, net single.ListenCmix) *Server {
 	newServer := &Server{
 		receptionId: receptionId,
 		endpoints:   restlike.NewEndpoints(),
 	}
 	newServer.listener = single.Listen(catalog.RestLike, receptionId, privKey,
-		net, e2eGrp, &receiver{newServer.endpoints})
+		net, grp, &receiver{newServer.endpoints})
 	return newServer
 }
 

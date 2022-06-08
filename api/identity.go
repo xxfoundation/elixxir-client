@@ -35,7 +35,7 @@ func MakeIdentity(rng csprng.Source, grp *cyclic.Group) (Identity, error) {
 		grp, rng)
 
 	//make the ID
-	id, err := xx.NewID(rsaKey.GetPublic(),
+	newId, err := xx.NewID(rsaKey.GetPublic(),
 		salt, id.User)
 	if err != nil {
 		return Identity{}, err
@@ -43,7 +43,7 @@ func MakeIdentity(rng csprng.Source, grp *cyclic.Group) (Identity, error) {
 
 	//create the identity object
 	I := Identity{
-		ID:            id,
+		ID:            newId,
 		RSAPrivatePem: rsaKey,
 		Salt:          salt,
 		DHKeyPrivate:  privkey,

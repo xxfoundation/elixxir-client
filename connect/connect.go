@@ -121,7 +121,6 @@ func GetParameters(params string) (Params, error) {
 func Connect(recipient contact.Contact, myId *id.ID, privKey *cyclic.Int,
 	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
 	p Params) (Connection, error) {
-
 	//add the identity
 	net.AddIdentity(myId, time.Time{}, false)
 

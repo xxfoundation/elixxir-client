@@ -86,11 +86,7 @@ func NewClient(ndfJSON, storageDir string, password []byte,
 
 	_, err = CheckVersionAndSetupStorage(def, storageDir, password,
 		protoUser, cmixGrp, e2eGrp, registrationCode)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // NewVanityClient creates a user with a receptionID that starts with
@@ -442,8 +438,8 @@ func (c *Client) registerFollower() error {
 
 // ----- Client Functions -----
 
-// GetErrorsChannel returns a channel which passess errors from the
-// long running threads controlled by StartNetworkFollower and
+// GetErrorsChannel returns a channel which passes errors from the
+// long-running threads controlled by StartNetworkFollower and
 // StopNetworkFollower
 func (c *Client) GetErrorsChannel() <-chan interfaces.ClientError {
 	return c.clientErrorChannel

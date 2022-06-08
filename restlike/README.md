@@ -1,4 +1,4 @@
-# Initialization
+# Server Initialization
 
 These steps must first be performed in order to begin creating server objects of any variety.
 
@@ -9,7 +9,7 @@ The api.Client object created here will be used for all types of api.Identity an
 1. Obtain the NDF
 
 ```go
-ndfJson, err := DownloadAndVerifySignedNdfWithUrl(url, cert)
+ndfJson, err := api.DownloadAndVerifySignedNdfWithUrl(url, cert)
 ```
 
 2. If not done in previous runs, create a new api.Client object in storage using ndfJson.
@@ -18,7 +18,7 @@ ndfJson, err := DownloadAndVerifySignedNdfWithUrl(url, cert)
 Example:
 
 ```go
-err := NewClient(ndfJson, "/clientStorage", []byte("testPassword"), "")
+err := api.NewClient(ndfJson, "/clientStorage", []byte("testPassword"), "")
 ```
 
 3. Login in order to obtain the api.Client object.
@@ -28,7 +28,7 @@ err := NewClient(ndfJson, "/clientStorage", []byte("testPassword"), "")
 Example:
 
 ```go
-client, err := Login("/clientStorage", []byte("testPassword"), api.GetDefaultParams())
+client, err := api.Login("/clientStorage", []byte("testPassword"), api.GetDefaultParams())
 ```
 
 4. Start the network follower. Timeout may be modified as needed.
@@ -47,10 +47,10 @@ It requires an api.Client object.
 Example:
 
 ```go
-identity, err := MakeIdentity(client.GetRng(), client.GetStorage().GetE2EGroup())
+identity, err := api.MakeIdentity(client.GetRng(), client.GetStorage().GetE2EGroup())
 ```
 
-# Creating Servers
+# Building Servers
 
 ### Creating Connect-backed Servers
 

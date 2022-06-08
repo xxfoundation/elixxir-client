@@ -263,8 +263,45 @@ var rootCmd = &cobra.Command{
 
 		// Accept auth request for this recipient
 		authConfirmed := false
+		paramsE2E := e2e.GetDefaultParams()
+		roundTimeout := paramsE2E.CMIXParams.SendTimeout
 		if viper.GetBool("accept-channel") {
-			acceptChannel(client, recipientID)
+			done := make(chan struct{}, 1)
+			retryChan := make(chan struct{}, 1)
+			for {
+
+				rid := acceptChannel(client, recipientID)
+				// Construct the callback function which
+				// verifies successful message send or retries
+				f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundResult) {
+					if !allRoundsSucceeded {
+						retryChan <- struct{}{}
+					} else {
+						done <- struct{}{}
+					}
+				}
+
+				// Monitor rounds for results
+				err = client.GetCmix().GetRoundResults(roundTimeout, f, rid)
+				if err != nil {
+					jww.DEBUG.Printf("Could not verify messages were sent successfully, resending messages...")
+					continue
+				}
+
+				select {
+				case <-retryChan:
+					// On a retry, go to the top of the loop
+					jww.DEBUG.Printf("Messages were not sent successfully, resending messages...")
+					continue
+				case <-done:
+					// Close channels on verification success
+					close(done)
+					close(retryChan)
+					break
+				}
+				break
+			}
+
 			// Do not wait for channel confirmations if we
 			// accepted one
 			authConfirmed = true
@@ -365,7 +402,6 @@ var rootCmd = &cobra.Command{
 		payload := []byte(msgBody)
 		recipient := recipientID
 
-		paramsE2E := e2e.GetDefaultParams()
 		if viper.GetBool("splitSends") {
 			paramsE2E.ExcludedRounds = excludedRounds.NewSet()
 		}
@@ -382,7 +418,6 @@ var rootCmd = &cobra.Command{
 					for {
 						// Send messages
 						var roundIDs []id.Round
-						roundTimeout := paramsE2E.CMIXParams.SendTimeout
 						if unsafe {
 							paramsE2E.CMIXParams.DebugTag = "cmd.Unsafe"
 							roundIDs, _, err = client.GetE2E().SendUnsafe(
@@ -708,17 +743,19 @@ func initClient() *messenger.Client {
 	return client
 }
 
-func acceptChannel(client *messenger.Client, recipientID *id.ID) {
+func acceptChannel(client *messenger.Client, recipientID *id.ID) id.Round {
 	recipientContact, err := client.GetAuth().GetReceivedRequest(
 		recipientID)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	_, err = client.GetAuth().Confirm(
+	rid, err := client.GetAuth().Confirm(
 		recipientContact)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
+
+	return rid
 }
 
 func deleteChannel(client *messenger.Client, partnerId *id.ID) {
@@ -754,11 +791,50 @@ func addAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
 		me := client.GetUser().GetContact()
 		jww.INFO.Printf("Requesting auth channel from: %s",
 			recipientID)
-		_, err := client.GetAuth().Request(recipientContact,
-			me.Facts)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
+		retryChan := make(chan struct{}, 1)
+		done := make(chan struct{}, 1)
+		paramsE2E := e2e.GetDefaultParams()
+		roundTimeout := paramsE2E.CMIXParams.SendTimeout
+		for {
+			// Construct the callback function which
+			// verifies successful message send or retries
+			f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundResult) {
+				if !allRoundsSucceeded {
+					retryChan <- struct{}{}
+				} else {
+					done <- struct{}{}
+				}
+			}
+
+			rid, err := client.GetAuth().Request(recipientContact,
+				me.Facts)
+			if err != nil {
+				continue
+			}
+
+			// Monitor rounds for results
+			err = client.GetCmix().GetRoundResults(roundTimeout, f, rid)
+			if err != nil {
+				jww.DEBUG.Printf("Could not verify auth request was sent " +
+					"successfully, resending...")
+				continue
+			}
+
+			select {
+			case <-retryChan:
+				// On a retry, go to the top of the loop
+				jww.DEBUG.Printf("Auth Request was not sent " +
+					"successfully, resending...")
+				continue
+			case <-done:
+				// Close channels on verification success
+				close(done)
+				close(retryChan)
+				break
+			}
+			break
 		}
+
 	} else {
 		jww.ERROR.Printf("Could not add auth channel for %s",
 			recipientID)

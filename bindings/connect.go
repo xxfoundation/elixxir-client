@@ -6,6 +6,7 @@ import (
 	"gitlab.com/elixxir/client/connect"
 	e2e2 "gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/crypto/contact"
+	"time"
 )
 
 // connectionTrackerSingleton is used to track connections so they can be
@@ -43,8 +44,10 @@ func (c *Client) Connect(recipientContact []byte, myIdentity []byte) (
 		return nil, err
 	}
 
+	params := connect.GetDefaultParams()
+	params.Timeout = 30 * time.Second
 	connection, err := connect.Connect(cont, myID, myDHPriv, c.api.GetRng(),
-		c.api.GetStorage().GetE2EGroup(), c.api.GetCmix(), connect.GetDefaultParams())
+		c.api.GetStorage().GetE2EGroup(), c.api.GetCmix(), params)
 
 	if err != nil {
 		return nil, err

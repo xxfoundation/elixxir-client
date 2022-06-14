@@ -284,14 +284,17 @@ var rootCmd = &cobra.Command{
 				// Monitor rounds for results
 				err = client.GetCmix().GetRoundResults(roundTimeout, f, rid)
 				if err != nil {
-					jww.DEBUG.Printf("Could not verify messages were sent successfully, resending messages...")
+					jww.DEBUG.Printf("Could not verify "+
+						"confirmation message for relationship with %s were sent "+
+						"successfully, resending messages...", recipientID)
 					continue
 				}
 
 				select {
 				case <-retryChan:
 					// On a retry, go to the top of the loop
-					jww.DEBUG.Printf("Messages were not sent successfully, resending messages...")
+					jww.DEBUG.Printf("Confirmation message for relationship with %s "+
+						"were not sent successfully, resending messages...", recipientID)
 					continue
 				case <-done:
 					// Close channels on verification success

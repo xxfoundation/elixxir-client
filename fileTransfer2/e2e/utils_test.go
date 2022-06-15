@@ -101,6 +101,8 @@ func (m *mockCmix) DeleteFingerprint(_ *id.ID, fp format.Fingerprint) {
 	m.handler.Unlock()
 }
 
+func (m *mockCmix) CheckInProgressMessages() {}
+
 func (m *mockCmix) IsHealthy() bool {
 	return m.health
 }

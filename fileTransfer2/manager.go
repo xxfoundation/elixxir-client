@@ -137,6 +137,7 @@ type Cmix interface {
 	AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,
 		mp message.Processor) error
 	DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint)
+	CheckInProgressMessages()
 	IsHealthy() bool
 	AddHealthCallback(f func(bool)) uint64
 	RemoveHealthCallback(uint64)
@@ -567,4 +568,6 @@ func (m *manager) addFingerprints(rt *store.ReceivedTransfer) {
 				"%s: %+v", rt.TransferID(), err)
 		}
 	}
+
+	m.cmix.CheckInProgressMessages()
 }

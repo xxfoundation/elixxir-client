@@ -113,7 +113,8 @@ func (w *Wrapper) RegisterSentProgressCallback(tid *ftCrypto.TransferID,
 // addEndMessageToCallback adds the sending of an E2E message when the transfer
 // completed to the callback. If NotifyUponCompletion is not set, then the
 // message is not sent.
-func (w *Wrapper) addEndMessageToCallback(progressCB ft.SentProgressCallback) ft.SentProgressCallback {
+func (w *Wrapper) addEndMessageToCallback(
+	progressCB ft.SentProgressCallback) ft.SentProgressCallback {
 	if !w.p.NotifyUponCompletion {
 		return progressCB
 	}

@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/client/fileTransfer2/store/fileMessage"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/primitives/format"
@@ -120,10 +121,11 @@ type manager struct {
 	// File transfer parameters
 	params Params
 
-	myID *id.ID
-	cmix Cmix
-	kv   *versioned.KV
-	rng  *fastRNG.StreamGenerator
+	myID      *id.ID
+	cmix      Cmix
+	cmixGroup *cyclic.Group
+	kv        *versioned.KV
+	rng       *fastRNG.StreamGenerator
 }
 
 // Cmix interface matches a subset of the cmix.Client methods used by the
@@ -142,12 +144,19 @@ type Cmix interface {
 		roundCallback cmix.RoundEventCallback, roundList ...id.Round) error
 }
 
+// Storage interface matches a subset of the storage.Session methods used by the
+// manager for easier testing.
+type Storage interface {
+	GetKV() *versioned.KV
+	GetCmixGroup() *cyclic.Group
+}
+
 // NewManager creates a new file transfer manager object. If sent or received
 // transfers already existed, they are loaded from storage and queued to resume
 // once manager.startProcesses is called.
-func NewManager(params Params,
-	myID *id.ID, cmix Cmix, kv *versioned.KV,
+func NewManager(params Params, myID *id.ID, cmix Cmix, storage Storage,
 	rng *fastRNG.StreamGenerator) (FileTransfer, error) {
+	kv := storage.GetKV()
 
 	// Create a new list of sent file transfers or load one if it exists
 	sent, unsentParts, err := store.NewOrLoadSent(kv)
@@ -171,6 +180,7 @@ func NewManager(params Params,
 		params:     params,
 		myID:       myID,
 		cmix:       cmix,
+		cmixGroup:  storage.GetCmixGroup(),
 		kv:         kv,
 		rng:        rng,
 	}

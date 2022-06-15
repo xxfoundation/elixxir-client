@@ -11,10 +11,8 @@ import (
 	"bytes"
 	ft "gitlab.com/elixxir/client/fileTransfer2"
 	"gitlab.com/elixxir/client/groupChat"
-	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -48,10 +46,10 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 
 	// Set up the first client
 	myID1 := id.NewIdFromString("myID1", id.User, t)
-	kv1 := versioned.NewKV(ekv.MakeMemstore())
+	storage1 := newMockStorage()
 	gc1 := newMockGC(gcHandler)
-	ftManager1, err := ft.NewManager(
-		params, myID1, newMockCmix(myID1, cMixHandler), kv1, rngGen)
+	ftManager1, err := ft.NewManager(params, myID1,
+		newMockCmix(myID1, cMixHandler, storage1), storage1, rngGen)
 	if err != nil {
 		t.Errorf("Failed to create file transfer manager 2: %+v", err)
 	}
@@ -72,10 +70,10 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 			tid, fileName, fileType, sender, size, preview}
 	}
 	myID2 := id.NewIdFromString("myID2", id.User, t)
-	kv2 := versioned.NewKV(ekv.MakeMemstore())
+	storage2 := newMockStorage()
 	gc2 := newMockGC(gcHandler)
-	ftManager2, err := ft.NewManager(
-		params, myID2, newMockCmix(myID2, cMixHandler), kv2, rngGen)
+	ftManager2, err := ft.NewManager(params, myID2,
+		newMockCmix(myID2, cMixHandler, storage2), storage2, rngGen)
 	if err != nil {
 		t.Errorf("Failed to create file transfer manager 2: %+v", err)
 	}

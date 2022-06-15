@@ -14,8 +14,14 @@ import (
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/groupChat"
+	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"sync"
@@ -47,15 +53,15 @@ type mockCmix struct {
 	sync.Mutex
 }
 
-func newMockCmix(myID *id.ID, handler *mockCmixHandler) *mockCmix {
+func newMockCmix(
+	myID *id.ID, handler *mockCmixHandler, storage *mockStorage) *mockCmix {
 	return &mockCmix{
 		myID:          myID,
-		numPrimeBytes: 97,
-		// numPrimeBytes: 4096,
-		health:      true,
-		handler:     handler,
-		healthCBs:   make(map[uint64]func(b bool)),
-		healthIndex: 0,
+		numPrimeBytes: storage.GetCmixGroup().GetP().ByteLen(),
+		health:        true,
+		handler:       handler,
+		healthCBs:     make(map[uint64]func(b bool)),
+		healthIndex:   0,
 	}
 }
 
@@ -164,3 +170,27 @@ func (m *mockGC) AddService(tag string, p groupChat.Processor) error {
 	m.handler.services[tag] = p
 	return nil
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Mock Storage Session                                                       //
+////////////////////////////////////////////////////////////////////////////////
+
+type mockStorage struct {
+	kv        *versioned.KV
+	cmixGroup *cyclic.Group
+}
+
+func newMockStorage() *mockStorage {
+	b := make([]byte, 768)
+	rng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG).GetStream()
+	_, _ = rng.Read(b)
+	rng.Close()
+
+	return &mockStorage{
+		kv:        versioned.NewKV(ekv.MakeMemstore()),
+		cmixGroup: cyclic.NewGroup(large.NewIntFromBytes(b), large.NewInt(2)),
+	}
+}
+
+func (m *mockStorage) GetKV() *versioned.KV        { return m.kv }
+func (m *mockStorage) GetCmixGroup() *cyclic.Group { return m.cmixGroup }

@@ -15,7 +15,13 @@ import (
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"io"
@@ -96,18 +102,20 @@ type mockCmix struct {
 	handler       *mockCmixHandler
 	healthCBs     map[uint64]func(b bool)
 	healthIndex   uint64
+	round         id.Round
 	sync.Mutex
 }
 
-func newMockCmix(myID *id.ID, handler *mockCmixHandler) *mockCmix {
+func newMockCmix(
+	myID *id.ID, handler *mockCmixHandler, storage *mockStorage) *mockCmix {
 	return &mockCmix{
 		myID:          myID,
-		numPrimeBytes: 97,
-		// numPrimeBytes: 4096,
-		health:      true,
-		handler:     handler,
-		healthCBs:   make(map[uint64]func(b bool)),
-		healthIndex: 0,
+		numPrimeBytes: storage.GetCmixGroup().GetP().ByteLen(),
+		health:        true,
+		handler:       handler,
+		healthCBs:     make(map[uint64]func(b bool)),
+		round:         0,
+		healthIndex:   0,
 	}
 }
 
@@ -120,6 +128,8 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 	_ cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
 	m.handler.Lock()
 	defer m.handler.Unlock()
+	round := m.round
+	m.round++
 	for _, targetedMsg := range messages {
 		msg := format.NewMessage(m.numPrimeBytes)
 		msg.SetContents(targetedMsg.Payload)
@@ -127,9 +137,9 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 		msg.SetKeyFP(targetedMsg.Fingerprint)
 		m.handler.processorMap[targetedMsg.Fingerprint].Process(msg,
 			receptionID.EphemeralIdentity{Source: targetedMsg.Recipient},
-			rounds.Round{ID: 42})
+			rounds.Round{ID: round})
 	}
-	return 42, []ephemeral.Id{}, nil
+	return round, []ephemeral.Id{}, nil
 }
 
 func (m *mockCmix) AddFingerprint(_ *id.ID, fp format.Fingerprint, mp message.Processor) error {
@@ -170,7 +180,31 @@ func (m *mockCmix) RemoveHealthCallback(healthID uint64) {
 }
 
 func (m *mockCmix) GetRoundResults(_ time.Duration,
-	roundCallback cmix.RoundEventCallback, _ ...id.Round) error {
-	go roundCallback(true, false, map[id.Round]cmix.RoundResult{42: {}})
+	roundCallback cmix.RoundEventCallback, rids ...id.Round) error {
+	go roundCallback(true, false, map[id.Round]cmix.RoundResult{rids[0]: {}})
 	return nil
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Mock Storage Session                                                       //
+////////////////////////////////////////////////////////////////////////////////
+
+type mockStorage struct {
+	kv        *versioned.KV
+	cmixGroup *cyclic.Group
+}
+
+func newMockStorage() *mockStorage {
+	b := make([]byte, 768)
+	rng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG).GetStream()
+	_, _ = rng.Read(b)
+	rng.Close()
+
+	return &mockStorage{
+		kv:        versioned.NewKV(ekv.MakeMemstore()),
+		cmixGroup: cyclic.NewGroup(large.NewIntFromBytes(b), large.NewInt(2)),
+	}
+}
+
+func (m *mockStorage) GetKV() *versioned.KV        { return m.kv }
+func (m *mockStorage) GetCmixGroup() *cyclic.Group { return m.cmixGroup }

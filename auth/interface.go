@@ -96,6 +96,12 @@ type State interface {
 	// VerifyOwnership checks if the received ownership proof is valid
 	VerifyOwnership(received, verified contact.Contact, e2e e2e.Handler) bool
 
+	// AddPartnerCallback that overrides the generic auth callback for the given partnerId
+	AddPartnerCallback(partnerId *id.ID, cb Callbacks)
+
+	// DeletePartnerCallback that overrides the generic auth callback for the given partnerId
+	DeletePartnerCallback(partnerId *id.ID)
+
 	//Closer stops listening to auth
 	io.Closer
 }

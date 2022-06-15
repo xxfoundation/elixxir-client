@@ -1,8 +1,11 @@
-package messenger
+package e2eApi
 
 import (
 	"encoding/binary"
 	"encoding/json"
+	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/ekv"
+	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -18,12 +21,31 @@ import (
 
 type Client struct {
 	*api.Client
-	auth   auth.State
-	e2e    e2e.Handler
-	backup *Container
+	auth        auth.State
+	e2e         e2e.Handler
+	backup      *Container
+	e2eIdentity TransmissionIdentity
 }
 
-func Login(client *api.Client, callbacks auth.Callbacks) (m *Client, err error) {
+// Login creates a new e2eApi.Client backed by the api.Client persistent versioned.KV
+// If identity == nil, a new TransmissionIdentity will be generated automagically
+func Login(client *api.Client, callbacks auth.Callbacks,
+	identity *TransmissionIdentity) (m *Client, err error) {
+	return login(client, callbacks, identity, client.GetStorage().GetKV())
+}
+
+// LoginEphemeral creates a new e2eApi.Client backed by a totally ephemeral versioned.KV
+// If identity == nil, a new TransmissionIdentity will be generated automagically
+func LoginEphemeral(client *api.Client, callbacks auth.Callbacks,
+	identity *TransmissionIdentity) (m *Client, err error) {
+	return login(client, callbacks, identity, versioned.NewKV(ekv.MakeMemstore()))
+}
+
+// LoginLegacy creates a new e2eApi.Client backed by the api.Client persistent versioned.KV
+// Uses the pre-generated transmission ID used by api.Client
+// This function is designed to maintain backwards compatibility with previous xx messenger designs
+// and should not be used for other purposes
+func LoginLegacy(client *api.Client, callbacks auth.Callbacks) (m *Client, err error) {
 	m = &Client{
 		Client: client,
 		backup: &Container{},
@@ -41,6 +63,63 @@ func Login(client *api.Client, callbacks auth.Callbacks) (m *Client, err error) 
 		return nil, err
 	}
 
+	u := m.Client.GetUser()
+	m.e2eIdentity = TransmissionIdentity{
+		ID:            u.TransmissionID,
+		RSAPrivatePem: u.TransmissionRSA,
+		Salt:          u.TransmissionSalt,
+		DHKeyPrivate:  u.E2eDhPrivateKey,
+	}
+
+	return m, err
+}
+
+// login creates a new e2eApi.Client backed by the given versioned.KV
+func login(client *api.Client, callbacks auth.Callbacks,
+	identity *TransmissionIdentity, kv *versioned.KV) (m *Client, err error) {
+	e2eGrp := client.GetStorage().GetE2EGroup()
+
+	// Create new identity automatically if one isn't specified
+	if identity == nil {
+		rng := client.GetRng().GetStream()
+		newIdentity, err := MakeTransmissionIdentity(rng, e2eGrp)
+		rng.Close()
+		if err != nil {
+			return nil, err
+		}
+		identity = &newIdentity
+		client.GetCmix().AddIdentity(identity.ID, time.Time{}, !kv.IsMemStore())
+	}
+
+	m = &Client{
+		Client:      client,
+		backup:      &Container{},
+		e2eIdentity: *identity,
+	}
+
+	//initialize the e2e storage
+	err = e2e.Init(kv, identity.ID, identity.DHKeyPrivate, e2eGrp,
+		rekey.GetDefaultEphemeralParams())
+	if err != nil {
+		return nil, err
+	}
+
+	//load the new e2e storage
+	m.e2e, err = e2e.Load(kv,
+		client.GetCmix(), identity.ID, e2eGrp, client.GetRng(),
+		client.GetEventReporter())
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load a "+
+			"newly created e2e store")
+	}
+
+	m.auth, err = auth.NewState(kv, client.GetCmix(),
+		m.e2e, client.GetRng(), client.GetEventReporter(),
+		auth.GetDefaultTemporaryParams(), callbacks, m.backup.TriggerBackup)
+	if err != nil {
+		return nil, err
+	}
+
 	return m, err
 }
 
@@ -52,7 +131,7 @@ func LoadOrInitE2e(client *api.Client) (e2e.Handler, error) {
 	e2eGrp := client.GetStorage().GetE2EGroup()
 	kv := client.GetStorage().GetKV()
 
-	//try to load a legacy e2e hander
+	//try to load a legacy e2e handler
 	e2eHandler, err := e2e.LoadLegacy(kv,
 		client.GetCmix(), usr.ReceptionID, e2eGrp, client.GetRng(),
 		client.GetEventReporter(), rekey.GetDefaultParams())
@@ -61,7 +140,7 @@ func LoadOrInitE2e(client *api.Client) (e2e.Handler, error) {
 		e2eHandler, err = e2e.Load(kv,
 			client.GetCmix(), usr.ReceptionID, e2eGrp, client.GetRng(),
 			client.GetEventReporter())
-		//if no new e2e handler exists, initilize an e2e user
+		//if no new e2e handler exists, initialize an e2e user
 		if err != nil {
 			jww.WARN.Printf("Failed to load e2e instance for %s, "+
 				"creating a new one", usr.ReceptionID)
@@ -102,6 +181,8 @@ func LoadOrInitE2e(client *api.Client) (e2e.Handler, error) {
 				return nil, errors.WithMessage(err, "Failed to load a "+
 					"newly created e2e store")
 			}
+
+			client.GetCmix().AddIdentity(usr.ReceptionID, time.Time{}, true)
 		} else {
 			jww.INFO.Printf("Loaded a modern e2e instance for %s",
 				usr.ReceptionID)
@@ -120,6 +201,11 @@ func (m *Client) GetUser() user.Info {
 	u.E2eDhPrivateKey = m.e2e.GetHistoricalDHPrivkey()
 	u.E2eDhPublicKey = m.e2e.GetHistoricalDHPubkey()
 	return u
+}
+
+// GetTransmissionIdentity returns a safe copy of the Client TransmissionIdentity
+func (m *Client) GetTransmissionIdentity() TransmissionIdentity {
+	return m.e2eIdentity.DeepCopy()
 }
 
 // ConstructProtoUserFile is a helper function which is used for proto
@@ -190,7 +276,7 @@ func (m *Client) DeleteContact(partnerId *id.ID) error {
 	// c.e2e.Conversations().Delete(partnerId)
 
 	// call delete requests to make sure nothing is lingering.
-	// this is for saftey to ensure the contact can be readded
+	// this is for safety to ensure the contact can be re-added
 	// in the future
 	_ = m.auth.DeleteRequest(partnerId)
 

@@ -1,7 +1,7 @@
 // FIXME: This is placeholder, there's got to be a better place to put
 // backup restoration than inside messenger.
 
-package messenger
+package e2eApi
 
 import (
 	"github.com/pkg/errors"

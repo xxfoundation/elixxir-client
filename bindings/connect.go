@@ -32,7 +32,7 @@ func (c *Connection) GetId() int {
 // partner.Manager is confirmed.
 // recipientContact - marshalled contact.Contact object
 // myIdentity - marshalled Identity object
-func (c *Client) Connect(recipientContact []byte, myIdentity []byte) (
+func (c *Client) Connect(e2eClientId int, recipientContact []byte) (
 	*Connection, error) {
 	cont, err := contact.Unmarshal(recipientContact)
 	if err != nil {
@@ -43,8 +43,7 @@ func (c *Client) Connect(recipientContact []byte, myIdentity []byte) (
 		return nil, err
 	}
 
-	connection, err := connect.Connect(cont, myID, myDHPriv, c.api.GetRng(),
-		c.api.GetStorage().GetE2EGroup(), c.api.GetCmix(), connect.GetDefaultParams())
+	connection, err := connect.Connect(cont, "test", connect.GetDefaultParams())
 
 	if err != nil {
 		return nil, err

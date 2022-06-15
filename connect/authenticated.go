@@ -10,6 +10,7 @@ package connect
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/api/e2eApi"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	clientE2e "gitlab.com/elixxir/client/e2e"
@@ -51,24 +52,23 @@ type AuthenticatedCallback func(connection AuthenticatedConnection)
 // ConnectWithAuthentication is called by the client, ie the one establishing
 // connection with the server. Once a connect.Connection has been established
 // with the server and then authenticate their identity to the server.
-func ConnectWithAuthentication(recipient contact.Contact, myId *id.ID,
-	salt []byte, myRsaPrivKey *rsa.PrivateKey, myDhPrivKey *cyclic.Int,
-	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
+func ConnectWithAuthentication(recipient contact.Contact, e2eClient *e2eApi.Client,
 	p Params) (AuthenticatedConnection, error) {
 
 	// Track the time since we started to attempt to establish a connection
 	timeStart := netTime.Now()
 
 	// Establish a connection with the server
-	conn, err := Connect(recipient, myId, myDhPrivKey, rng, grp, net, p)
+	conn, err := Connect(recipient, e2eClient, p)
 	if err != nil {
 		return nil, errors.Errorf("failed to establish connection "+
 			"with recipient %s: %+v", recipient.ID, err)
 	}
 
 	// Build the authenticated connection and return
-	return connectWithAuthentication(conn, timeStart, recipient, salt, myRsaPrivKey,
-		rng, net, p)
+	identity := e2eClient.GetTransmissionIdentity()
+	return connectWithAuthentication(conn, timeStart, recipient, identity.Salt, identity.RSAPrivatePem,
+		e2eClient.GetRng(), e2eClient.GetCmix(), p)
 }
 
 // connectWithAuthentication builds and sends an IdentityAuthentication to

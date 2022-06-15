@@ -14,17 +14,17 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/api/messenger"
+	"gitlab.com/elixxir/client/api/e2eApi"
 )
 
 // initCmd creates a new user object with the given NDF
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: ("Initialize a user ID but do not connect to the network"),
+	Short: "Initialize a user ID but do not connect to the network",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		client := createClient()
-		e2e, err := messenger.LoadOrInitE2e(client)
+		e2e, err := e2eApi.LoadOrInitE2e(client)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

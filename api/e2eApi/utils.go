@@ -6,7 +6,7 @@
 
 // Provides various utility functions for access over the bindings
 
-package messenger
+package e2eApi
 
 import (
 	"bytes"

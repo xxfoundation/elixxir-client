@@ -12,7 +12,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"gitlab.com/elixxir/client/api/messenger"
+	"gitlab.com/elixxir/client/api/e2eApi"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/primitives/format"
@@ -115,7 +115,7 @@ var groupCmd = &cobra.Command{
 
 // initGroupManager creates a new group chat manager and starts the process
 // service.
-func initGroupManager(client *messenger.Client) (groupChat.GroupChat,
+func initGroupManager(client *e2eApi.Client) (groupChat.GroupChat,
 	chan groupChat.MessageReceive, chan groupStore.Group) {
 	recChan := make(chan groupChat.MessageReceive, 10)
 

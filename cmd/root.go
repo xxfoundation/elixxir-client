@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.com/elixxir/client/api/messenger"
+	"gitlab.com/elixxir/client/api/e2eApi"
 	"gitlab.com/elixxir/client/backup"
 	"gitlab.com/elixxir/client/e2e"
 
@@ -559,7 +559,7 @@ func createClient() *api.Client {
 			}
 
 			// Construct client from backup data
-			backupIdList, _, err := messenger.NewClientFromBackup(string(ndfJSON), storeDir,
+			backupIdList, _, err := e2eApi.NewClientFromBackup(string(ndfJSON), storeDir,
 				pass, backupPass, backupFile)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
@@ -621,7 +621,7 @@ func initParams() api.Params {
 	return p
 }
 
-func initClient() *messenger.Client {
+func initClient() *e2eApi.Client {
 	createClient()
 
 	pass := parsePassword(viper.GetString("password"))
@@ -640,7 +640,7 @@ func initClient() *messenger.Client {
 	authCbs = makeAuthCallbacks(nil,
 		viper.GetBool("unsafe-channel-creation"))
 
-	client, err := messenger.Login(baseclient, authCbs)
+	client, err := e2eApi.LoginLegacy(baseclient, authCbs)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -707,7 +707,7 @@ func initClient() *messenger.Client {
 	return client
 }
 
-func acceptChannel(client *messenger.Client, recipientID *id.ID) {
+func acceptChannel(client *e2eApi.Client, recipientID *id.ID) {
 	recipientContact, err := client.GetAuth().GetReceivedRequest(
 		recipientID)
 	if err != nil {
@@ -720,14 +720,14 @@ func acceptChannel(client *messenger.Client, recipientID *id.ID) {
 	}
 }
 
-func deleteChannel(client *messenger.Client, partnerId *id.ID) {
+func deleteChannel(client *e2eApi.Client, partnerId *id.ID) {
 	err := client.DeleteContact(partnerId)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 }
 
-func addAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
+func addAuthenticatedChannel(client *e2eApi.Client, recipientID *id.ID,
 	recipient contact.Contact) {
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {
@@ -764,7 +764,7 @@ func addAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
 	}
 }
 
-func resetAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
+func resetAuthenticatedChannel(client *e2eApi.Client, recipientID *id.ID,
 	recipient contact.Contact) {
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {
@@ -1036,7 +1036,7 @@ func init() {
 	viper.BindPFlag("log", rootCmd.PersistentFlags().Lookup("log"))
 
 	rootCmd.Flags().StringP("regcode", "", "",
-		"Identity code (optional)")
+		"TransmissionIdentity code (optional)")
 	viper.BindPFlag("regcode", rootCmd.Flags().Lookup("regcode"))
 
 	rootCmd.PersistentFlags().StringP("message", "m", "",

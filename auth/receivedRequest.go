@@ -28,11 +28,11 @@ type receivedRequestService struct {
 
 func (rrs *receivedRequestService) Process(message format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-	state := rrs.s
+	authState := rrs.s
 
 	// check if the timestamp is before the id was created and therefore
 	// should be ignored
-	tid, err := state.net.GetIdentity(receptionID.Source)
+	tid, err := authState.net.GetIdentity(receptionID.Source)
 	if err != nil {
 		jww.ERROR.Printf("received a request on %s which does not exist, "+
 			"this should not be possible: %+v", receptionID.Source.String(), err)
@@ -47,7 +47,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 
 	//decode the outer format
 	baseFmt, partnerPubKey, err := handleBaseFormat(
-		message, state.e2e.GetGroup())
+		message, authState.e2e.GetGroup())
 	if err != nil {
 		jww.WARN.Printf("Failed to handle auth request: %s", err)
 		return
@@ -57,15 +57,15 @@ func (rrs *receivedRequestService) Process(message format.Message,
 
 	jww.TRACE.Printf("processing requests: \n\t MYHISTORICALPUBKEY: %s "+
 		"\n\t PARTNERPUBKEY: %s \n\t ECRPAYLOAD: %s \n\t MAC: %s",
-		state.e2e.GetHistoricalDHPubkey().TextVerbose(16, 0),
+		authState.e2e.GetHistoricalDHPubkey().TextVerbose(16, 0),
 		partnerPubKey.TextVerbose(16, 0),
 		base64.StdEncoding.EncodeToString(baseFmt.data),
 		base64.StdEncoding.EncodeToString(message.GetMac()))
 
 	//Attempt to decrypt the payload
-	success, payload := cAuth.Decrypt(state.e2e.GetHistoricalDHPrivkey(),
+	success, payload := cAuth.Decrypt(authState.e2e.GetHistoricalDHPrivkey(),
 		partnerPubKey, baseFmt.GetEcrPayload(), message.GetMac(),
-		state.e2e.GetGroup())
+		authState.e2e.GetGroup())
 
 	if !success {
 		jww.WARN.Printf("Received auth request of %s failed its mac "+
@@ -97,11 +97,11 @@ func (rrs *receivedRequestService) Process(message format.Message,
 		format.DigestContents(message.GetContents()),
 		base64.StdEncoding.EncodeToString(fp))
 	jww.INFO.Print(em)
-	state.event.Report(1, "Auth", "RequestReceived", em)
+	authState.event.Report(1, "Auth", "RequestReceived", em)
 
 	// check the uniqueness of the request. Requests can be duplicated, so we
 	// must verify this is is not a duplicate, and drop if it is
-	newFP, position := state.store.CheckIfNegotiationIsNew(partnerID, fp)
+	newFP, position := authState.store.CheckIfNegotiationIsNew(partnerID, fp)
 
 	if !newFP {
 		// if its the newest, resend the confirm
@@ -113,10 +113,10 @@ func (rrs *receivedRequestService) Process(message format.Message,
 
 			// check if we already accepted, if we did, resend the confirm if
 			// we can load it
-			if _, err = state.e2e.GetPartner(partnerID); err != nil {
+			if _, err = authState.e2e.GetPartner(partnerID); err != nil {
 				//attempt to load the confirm, if we can, resend it
 				confirmPayload, mac, keyfp, err :=
-					state.store.LoadConfirmation(partnerID)
+					authState.store.LoadConfirmation(partnerID)
 				if err != nil {
 					jww.ERROR.Printf("Could not reconfirm a duplicate "+
 						"request of an accepted confirm from %s to %s because "+
@@ -125,14 +125,26 @@ func (rrs *receivedRequestService) Process(message format.Message,
 				}
 				// resend the confirm. It sends as a critical message, so errors
 				// do not need to be handled
-				_, _ = sendAuthConfirm(state.net, partnerID, keyfp,
-					confirmPayload, mac, state.event, state.params.ResetConfirmTag)
-			} else if state.params.ReplayRequests {
+				_, _ = sendAuthConfirm(authState.net, partnerID, keyfp,
+					confirmPayload, mac, authState.event, authState.params.ResetConfirmTag)
+			} else if authState.params.ReplayRequests {
 				//if we did not already accept, auto replay the request
 				if rrs.reset {
-					state.callbacks.Reset(c, receptionID, round)
+					authState.partnerCallbacks.RLock()
+					if cb := authState.partnerCallbacks.getPartnerCallback(c.ID); cb != nil {
+						cb.Reset(c, receptionID, round)
+					} else {
+						authState.callbacks.Reset(c, receptionID, round)
+					}
+					authState.partnerCallbacks.RUnlock()
 				} else {
-					state.callbacks.Request(c, receptionID, round)
+					authState.partnerCallbacks.RLock()
+					if cb := authState.partnerCallbacks.getPartnerCallback(c.ID); cb != nil {
+						cb.Request(c, receptionID, round)
+					} else {
+						authState.callbacks.Request(c, receptionID, round)
+					}
+					authState.partnerCallbacks.RUnlock()
 				}
 			}
 			//if not confirm, and params.replay requests is true, we need to replay
@@ -159,21 +171,21 @@ func (rrs *receivedRequestService) Process(message format.Message,
 		// error to see if it did or didnt exist
 		// Note: due to the newFP handling above, this can ONLY run in the event of
 		// a reset or when the partner doesnt exist, so it is safe
-		if err = state.e2e.DeletePartner(partnerID); err != nil {
+		if err = authState.e2e.DeletePartner(partnerID); err != nil {
 			if !strings.Contains(err.Error(), ratchet.NoPartnerErrorStr) {
 				jww.FATAL.Panicf("Failed to do actual partner deletion: %+v", err)
 			}
 		} else {
 			reset = true
-			_ = state.store.DeleteConfirmation(partnerID)
-			_ = state.store.DeleteSentRequest(partnerID)
+			_ = authState.store.DeleteConfirmation(partnerID)
+			_ = authState.store.DeleteSentRequest(partnerID)
 		}
 	}
 
 	// if a new, unique request is received when one already exists, delete the
 	// old one and process the new one
 	// this works because message pickup is generally time-sequential.
-	if err = state.store.DeleteReceivedRequest(partnerID); err != nil {
+	if err = authState.store.DeleteReceivedRequest(partnerID); err != nil {
 		if !strings.Contains(err.Error(), store.NoRequestFound) {
 			jww.FATAL.Panicf("Failed to delete old received request: %+v",
 				err)
@@ -187,7 +199,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	// (SIDH keys have polarity, so both sent keys cannot be used together)
 	autoConfirm := false
 	bail := false
-	err = state.store.HandleSentRequest(partnerID,
+	err = authState.store.HandleSentRequest(partnerID,
 		func(request *store.SentRequest) error {
 
 			//if this code is running, then we know we sent a request and can
@@ -195,8 +207,8 @@ func (rrs *receivedRequestService) Process(message format.Message,
 			//This runner will auto delete the sent request if successful
 
 			//verify ownership proof
-			if !cAuth.VerifyOwnershipProof(state.e2e.GetHistoricalDHPrivkey(),
-				partnerPubKey, state.e2e.GetGroup(), ownershipProof) {
+			if !cAuth.VerifyOwnershipProof(authState.e2e.GetHistoricalDHPrivkey(),
+				partnerPubKey, authState.e2e.GetGroup(), ownershipProof) {
 				jww.WARN.Printf("Invalid ownership proof from %s to %s "+
 					"received, discarding msgDigest: %s, fp: %s",
 					partnerID, receptionID.Source,
@@ -233,25 +245,39 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	// warning: the client will never be notified of the channel creation if a
 	// crash occurs after the store but before the conclusion of the callback
 	//create the auth storage
-	if err = state.store.AddReceived(c, partnerSIDHPubKey, round); err != nil {
+	if err = authState.store.AddReceived(c, partnerSIDHPubKey, round); err != nil {
 		em := fmt.Sprintf("failed to store contact Auth "+
 			"Request: %s", err)
 		jww.WARN.Print(em)
-		state.event.Report(10, "Auth", "RequestError", em)
+		authState.event.Report(10, "Auth", "RequestError", em)
 		return
 	}
 
-	//autoconfirm if we should
+	// auto-confirm if we should
+	authState.partnerCallbacks.RLock()
+	defer authState.partnerCallbacks.RUnlock()
 	if autoConfirm || reset {
-		_, _ = state.confirm(c, state.params.getConfirmTag(reset))
+		_, _ = authState.confirm(c, authState.params.getConfirmTag(reset))
 		//handle callbacks
 		if autoConfirm {
-			state.callbacks.Confirm(c, receptionID, round)
+			if cb := authState.partnerCallbacks.getPartnerCallback(c.ID); cb != nil {
+				cb.Confirm(c, receptionID, round)
+			} else {
+				authState.callbacks.Confirm(c, receptionID, round)
+			}
 		} else if reset {
-			state.callbacks.Reset(c, receptionID, round)
+			if cb := authState.partnerCallbacks.getPartnerCallback(c.ID); cb != nil {
+				cb.Reset(c, receptionID, round)
+			} else {
+				authState.callbacks.Reset(c, receptionID, round)
+			}
 		}
 	} else {
-		state.callbacks.Request(c, receptionID, round)
+		if cb := authState.partnerCallbacks.getPartnerCallback(c.ID); cb != nil {
+			cb.Request(c, receptionID, round)
+		} else {
+			authState.callbacks.Request(c, receptionID, round)
+		}
 	}
 }
 

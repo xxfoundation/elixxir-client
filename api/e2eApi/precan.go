@@ -1,4 +1,4 @@
-package messenger
+package e2eApi
 
 import (
 	"encoding/binary"

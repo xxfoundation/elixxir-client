@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package messenger
+package e2eApi
 
 import (
 	"github.com/pkg/errors"

@@ -258,7 +258,6 @@ var rootCmd = &cobra.Command{
 
 		// Send Messages
 		msgBody := viper.GetString("message")
-
 		time.Sleep(10 * time.Second)
 
 		// Accept auth request for this recipient
@@ -268,41 +267,49 @@ var rootCmd = &cobra.Command{
 		if viper.GetBool("accept-channel") {
 			done := make(chan struct{}, 1)
 			retryChan := make(chan struct{}, 1)
-			for {
 
-				rid := acceptChannel(client, recipientID)
-				// Construct the callback function which
-				// verifies successful message send or retries
-				f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundResult) {
-					if !allRoundsSucceeded {
-						retryChan <- struct{}{}
-					} else {
-						done <- struct{}{}
+			if viper.GetBool("verify-sends") {
+				for {
+					rid := acceptChannel(client, recipientID)
+					// Verify message sends were successful
+
+					// Construct the callback function which
+					// verifies successful message send or retries
+					f := func(allRoundsSucceeded, timedOut bool,
+						rounds map[id.Round]cmix.RoundResult) {
+						if !allRoundsSucceeded {
+							retryChan <- struct{}{}
+						} else {
+							done <- struct{}{}
+						}
 					}
-				}
 
-				// Monitor rounds for results
-				err = client.GetCmix().GetRoundResults(roundTimeout, f, rid)
-				if err != nil {
-					jww.DEBUG.Printf("Could not verify "+
-						"confirmation message for relationship with %s were sent "+
-						"successfully, resending messages...", recipientID)
-					continue
-				}
+					// Monitor rounds for results
+					err = client.GetCmix().GetRoundResults(roundTimeout, f, rid)
+					if err != nil {
+						jww.DEBUG.Printf("Could not verify "+
+							"confirmation message for relationship with %s were sent "+
+							"successfully, resending messages...", recipientID)
+						continue
+					}
 
-				select {
-				case <-retryChan:
-					// On a retry, go to the top of the loop
-					jww.DEBUG.Printf("Confirmation message for relationship with %s "+
-						"were not sent successfully, resending messages...", recipientID)
-					continue
-				case <-done:
-					// Close channels on verification success
-					close(done)
-					close(retryChan)
+					select {
+					case <-retryChan:
+						// On a retry, go to the top of the loop
+						jww.DEBUG.Printf("Confirmation message for relationship"+
+							" with %s were not sent successfully, resending "+
+							"messages...", recipientID)
+						continue
+					case <-done:
+						// Close channels on verification success
+						close(done)
+						close(retryChan)
+						break
+					}
 					break
 				}
-				break
+			} else {
+				acceptChannel(client, recipientID)
 			}
 
 			// Do not wait for channel confirmations if we
@@ -318,7 +325,6 @@ var rootCmd = &cobra.Command{
 
 		// Send unsafe messages or not?
 		unsafe := viper.GetBool("unsafe")
-
 		sendAuthReq := viper.GetBool("send-auth-request")
 		if !unsafe && !authConfirmed && !isPrecanPartner &&
 			sendAuthReq {
@@ -441,8 +447,10 @@ var rootCmd = &cobra.Command{
 
 							// Construct the callback function which
 							// verifies successful message send or retries
-							f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundResult) {
-								printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, payload, recipientID)
+							f := func(allRoundsSucceeded, timedOut bool,
+								rounds map[id.Round]cmix.RoundResult) {
+								printRoundResults(allRoundsSucceeded, timedOut,
+									rounds, roundIDs, payload, recipientID)
 								if !allRoundsSucceeded {
 									retryChan <- struct{}{}
 								} else {
@@ -798,44 +806,52 @@ func addAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
 		done := make(chan struct{}, 1)
 		paramsE2E := e2e.GetDefaultParams()
 		roundTimeout := paramsE2E.CMIXParams.SendTimeout
-		for {
-			// Construct the callback function which
-			// verifies successful message send or retries
-			f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundResult) {
-				if !allRoundsSucceeded {
-					retryChan <- struct{}{}
-				} else {
-					done <- struct{}{}
+		if viper.GetBool("verify-sends") {
+			for {
+				// Construct the callback function which
+				// verifies successful message send or retries
+				f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundResult) {
+					if !allRoundsSucceeded {
+						retryChan <- struct{}{}
+					} else {
+						done <- struct{}{}
+					}
 				}
-			}
 
-			rid, err := client.GetAuth().Request(recipientContact,
-				me.Facts)
-			if err != nil {
-				continue
-			}
+				rid, err := client.GetAuth().Request(recipientContact,
+					me.Facts)
+				if err != nil {
+					continue
+				}
 
-			// Monitor rounds for results
-			err = client.GetCmix().GetRoundResults(roundTimeout, f, rid)
-			if err != nil {
-				jww.DEBUG.Printf("Could not verify auth request was sent " +
-					"successfully, resending...")
-				continue
-			}
+				// Monitor rounds for results
+				err = client.GetCmix().GetRoundResults(roundTimeout, f, rid)
+				if err != nil {
+					jww.DEBUG.Printf("Could not verify auth request was sent " +
+						"successfully, resending...")
+					continue
+				}
 
-			select {
-			case <-retryChan:
-				// On a retry, go to the top of the loop
-				jww.DEBUG.Printf("Auth Request was not sent " +
-					"successfully, resending...")
-				continue
-			case <-done:
-				// Close channels on verification success
-				close(done)
-				close(retryChan)
+				select {
+				case <-retryChan:
+					// On a retry, go to the top of the loop
+					jww.DEBUG.Printf("Auth Request was not sent " +
+						"successfully, resending...")
+					continue
+				case <-done:
+					// Close channels on verification success
+					close(done)
+					close(retryChan)
+					break
+				}
 				break
 			}
-			break
+		} else {
+			_, err := client.GetAuth().Request(recipientContact,
+				me.Facts)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
 		}
 
 	} else {

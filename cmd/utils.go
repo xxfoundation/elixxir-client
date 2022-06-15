@@ -105,5 +105,6 @@ func readContact() contact.Contact {
 	}
 	jww.INFO.Printf("CONTACTPUBKEY READ: %s",
 		c.DhPubKey.TextVerbose(16, 0))
+	jww.INFO.Printf("Contact ID: %s", c.ID)
 	return c
 }

@@ -13,10 +13,8 @@ import (
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/receive"
 	ft "gitlab.com/elixxir/client/fileTransfer2"
-	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -57,13 +55,13 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 			tid, fileName, fileType, sender, size, preview}
 	}
 	myID1 := id.NewIdFromString("myID1", id.User, t)
-	kv1 := versioned.NewKV(ekv.MakeMemstore())
+	storage1 := newMockStorage()
 	endE2eChan1 := make(chan receive.Message, 3)
 	e2e1 := newMockE2e(myID1, e2eHandler)
 	e2e1.RegisterListener(
 		myID1, catalog.EndFileTransfer, newMockListener(endE2eChan1))
-	cmix1 := newMockCmix(myID1, cMixHandler)
-	ftManager1, err := ft.NewManager(ftParams, myID1, cmix1, kv1, rngGen)
+	cmix1 := newMockCmix(myID1, cMixHandler, storage1)
+	ftManager1, err := ft.NewManager(ftParams, myID1, cmix1, storage1, rngGen)
 	if err != nil {
 		t.Errorf("Failed to make new file transfer manager: %+v", err)
 	}
@@ -84,13 +82,13 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 			tid, fileName, fileType, sender, size, preview}
 	}
 	myID2 := id.NewIdFromString("myID2", id.User, t)
-	kv2 := versioned.NewKV(ekv.MakeMemstore())
+	storage2 := newMockStorage()
 	endE2eChan2 := make(chan receive.Message, 3)
 	e2e2 := newMockE2e(myID2, e2eHandler)
 	e2e2.RegisterListener(
 		myID2, catalog.EndFileTransfer, newMockListener(endE2eChan2))
-	cmix2 := newMockCmix(myID1, cMixHandler)
-	ftManager2, err := ft.NewManager(ftParams, myID2, cmix2, kv2, rngGen)
+	cmix2 := newMockCmix(myID1, cMixHandler, storage2)
+	ftManager2, err := ft.NewManager(ftParams, myID2, cmix2, storage2, rngGen)
 	if err != nil {
 		t.Errorf("Failed to make new file transfer manager: %+v", err)
 	}

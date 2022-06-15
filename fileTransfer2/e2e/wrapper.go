@@ -57,7 +57,7 @@ func NewWrapper(receiveCB ft.ReceiveCallback, p Params, ft ft.FileTransfer,
 	}
 
 	// Register listener to receive new file transfers
-	w.e2e.RegisterListener(w.myID, catalog.NewFileTransfer, &listener{w})
+	w.e2e.RegisterListener(&id.ZeroUser, catalog.NewFileTransfer, &listener{w})
 
 	return w, nil
 }
@@ -113,7 +113,8 @@ func (w *Wrapper) RegisterSentProgressCallback(tid *ftCrypto.TransferID,
 // addEndMessageToCallback adds the sending of an E2E message when the transfer
 // completed to the callback. If NotifyUponCompletion is not set, then the
 // message is not sent.
-func (w *Wrapper) addEndMessageToCallback(progressCB ft.SentProgressCallback) ft.SentProgressCallback {
+func (w *Wrapper) addEndMessageToCallback(
+	progressCB ft.SentProgressCallback) ft.SentProgressCallback {
 	if !w.p.NotifyUponCompletion {
 		return progressCB
 	}

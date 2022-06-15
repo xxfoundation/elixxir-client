@@ -154,7 +154,7 @@ func initFileTransferManager(client *xxdk.E2e, maxThroughput int) (
 	manager, err := ft.NewManager(p,
 		client.GetUser().ReceptionID,
 		client.GetCmix(),
-		client.GetStorage().GetKV(),
+		client.GetStorage(),
 		client.GetRng())
 	if err != nil {
 		jww.FATAL.Panicf(

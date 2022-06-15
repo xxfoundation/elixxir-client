@@ -9,7 +9,7 @@ package cmd
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/xxdk/e2eApi"
+	"gitlab.com/elixxir/client/xxdk"
 	"io/ioutil"
 	"time"
 
@@ -132,7 +132,7 @@ type receivedFtResults struct {
 // initFileTransferManager creates a new file transfer manager with a new
 // reception callback. Returns the file transfer manager and the channel that
 // will be triggered when the callback is called.
-func initFileTransferManager(client *e2eApi.E2e, maxThroughput int) (
+func initFileTransferManager(client *xxdk.E2e, maxThroughput int) (
 	*ftE2e.Wrapper, chan receivedFtResults) {
 
 	// Create interfaces.ReceiveCallback that returns the results on a channel

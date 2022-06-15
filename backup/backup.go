@@ -8,11 +8,11 @@
 package backup
 
 import (
+	"gitlab.com/elixxir/client/xxdk"
 	"sync"
 	"time"
 
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/client/xxdk/e2eApi"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
@@ -41,7 +41,7 @@ type Backup struct {
 	// Callback that is called with the encrypted backup when triggered
 	updateBackupCb UpdateBackupFn
 
-	container *e2eApi.Container
+	container *xxdk.Container
 
 	jsonParams string
 
@@ -91,7 +91,7 @@ type UpdateBackupFn func(encryptedBackup []byte)
 // Call this to turn on backups for the first time or to replace the user's
 // password.
 func InitializeBackup(password string, updateBackupCb UpdateBackupFn,
-	container *e2eApi.Container, e2e E2e, session Session, ud UserDiscovery,
+	container *xxdk.Container, e2e E2e, session Session, ud UserDiscovery,
 	kv *versioned.KV, rng *fastRNG.StreamGenerator) (*Backup, error) {
 	b := &Backup{
 		updateBackupCb: updateBackupCb,
@@ -135,7 +135,7 @@ func InitializeBackup(password string, updateBackupCb UpdateBackupFn,
 // ResumeBackup resumes a backup by restoring the Backup object and registering
 // a new callback. Call this to resume backups that have already been
 // initialized. Returns an error if backups have not already been initialized.
-func ResumeBackup(updateBackupCb UpdateBackupFn, container *e2eApi.Container,
+func ResumeBackup(updateBackupCb UpdateBackupFn, container *xxdk.Container,
 	e2e E2e, session Session, ud UserDiscovery, kv *versioned.KV,
 	rng *fastRNG.StreamGenerator) (*Backup, error) {
 	_, _, _, err := loadBackup(kv)

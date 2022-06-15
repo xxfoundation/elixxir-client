@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"gitlab.com/elixxir/client/single"
-	"gitlab.com/elixxir/client/xxdk/e2eApi"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"strings"
@@ -37,7 +37,7 @@ import (
 // xxDK users should not use this function. This function is used by
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
-func RestoreContactsFromBackup(backupPartnerIDs []byte, client *e2eApi.E2e,
+func RestoreContactsFromBackup(backupPartnerIDs []byte, client *xxdk.E2e,
 	udManager *ud.Manager,
 	updatesCb interfaces.RestoreContactsUpdater) ([]*id.ID, []*id.ID,
 	[]error, error) {
@@ -178,7 +178,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, client *e2eApi.E2e,
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
 func LookupContacts(in chan *id.ID, out chan *contact.Contact,
-	failCh chan failure, client *e2eApi.E2e, udContact contact.Contact,
+	failCh chan failure, client *xxdk.E2e, udContact contact.Contact,
 	wg *sync.WaitGroup) {
 	defer wg.Done()
 	// Start looking up contacts with user discovery and feed this
@@ -205,7 +205,7 @@ func LookupContacts(in chan *id.ID, out chan *contact.Contact,
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
 func ResetSessions(in, out chan *contact.Contact, failCh chan failure,
-	client *e2eApi.E2e, wg *sync.WaitGroup) {
+	client *xxdk.E2e, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for c := range in {
 		_, err := client.GetAuth().Reset(*c)
@@ -224,7 +224,7 @@ func ResetSessions(in, out chan *contact.Contact, failCh chan failure,
 // xxDK users should not use this function. This function is used by
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
-func LookupContact(userID *id.ID, client *e2eApi.E2e, udContact contact.Contact) (
+func LookupContact(userID *id.ID, client *xxdk.E2e, udContact contact.Contact) (
 	*contact.Contact, error) {
 	// This is a little wonky, but wait until we get called then
 	// set the result to the contact objects details if there is

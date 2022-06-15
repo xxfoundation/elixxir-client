@@ -10,11 +10,11 @@ package cmd
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/xxdk"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/xxdk/e2eApi"
 )
 
 // initCmd creates a new user object with the given NDF
@@ -24,7 +24,7 @@ var initCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		client := createClient()
-		e2e, err := e2eApi.LoadOrInitE2e(client)
+		e2e, err := xxdk.LoadOrInitE2e(client)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

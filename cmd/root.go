@@ -411,7 +411,7 @@ var rootCmd = &cobra.Command{
 							// verifies successful message send or retries
 							f := func(allRoundsSucceeded, timedOut bool,
 								rounds map[id.Round]cmix.RoundResult) {
-								printRoundResults(allRoundsSucceeded, timedOut,
+								printRoundResults(
 									rounds, roundIDs, payload, recipientID)
 								if !allRoundsSucceeded {
 									retryChan <- struct{}{}
@@ -421,7 +421,7 @@ var rootCmd = &cobra.Command{
 							}
 
 							// Monitor rounds for results
-							err = client.GetCmix().GetRoundResults(roundTimeout, f, roundIDs...)
+							err = client.GetCmix().GetRoundResults(paramsE2E.CMIXParams.Timeout, f, roundIDs...)
 							if err != nil {
 								jww.DEBUG.Printf("Could not verify messages were sent successfully, resending messages...")
 								continue

@@ -16,8 +16,14 @@ import (
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/receive"
+	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/cyclic"
 	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -50,15 +56,14 @@ type mockCmix struct {
 	sync.Mutex
 }
 
-func newMockCmix(myID *id.ID, handler *mockCmixHandler) *mockCmix {
+func newMockCmix(myID *id.ID, handler *mockCmixHandler, storage *mockStorage) *mockCmix {
 	return &mockCmix{
 		myID:          myID,
-		numPrimeBytes: 97,
-		// numPrimeBytes: 4096,
-		health:      true,
-		handler:     handler,
-		healthCBs:   make(map[uint64]func(b bool)),
-		healthIndex: 0,
+		numPrimeBytes: storage.GetCmixGroup().GetP().ByteLen(),
+		health:        true,
+		handler:       handler,
+		healthCBs:     make(map[uint64]func(b bool)),
+		healthIndex:   0,
 	}
 }
 
@@ -95,6 +100,8 @@ func (m *mockCmix) DeleteFingerprint(_ *id.ID, fp format.Fingerprint) {
 	delete(m.handler.processorMap, fp)
 	m.handler.Unlock()
 }
+
+func (m *mockCmix) CheckInProgressMessages() {}
 
 func (m *mockCmix) IsHealthy() bool {
 	return m.health
@@ -143,13 +150,13 @@ func (l *mockListener) Name() string {
 
 type mockE2eHandler struct {
 	msgMap    map[id.ID]map[catalog.MessageType][][]byte
-	listeners map[id.ID]map[catalog.MessageType]receive.Listener
+	listeners map[catalog.MessageType]receive.Listener
 }
 
 func newMockE2eHandler() *mockE2eHandler {
 	return &mockE2eHandler{
 		msgMap:    make(map[id.ID]map[catalog.MessageType][][]byte),
-		listeners: make(map[id.ID]map[catalog.MessageType]receive.Listener),
+		listeners: make(map[catalog.MessageType]receive.Listener),
 	}
 }
 
@@ -173,7 +180,7 @@ func newMockE2e(myID *id.ID, handler *mockE2eHandler) *mockE2e {
 func (m *mockE2e) SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
 	_ e2e.Params) ([]id.Round, e2eCrypto.MessageID, time.Time, error) {
 
-	m.handler.listeners[*recipient][mt].Hear(receive.Message{
+	m.handler.listeners[mt].Hear(receive.Message{
 		MessageType: mt,
 		Payload:     payload,
 		Sender:      m.myID,
@@ -183,13 +190,32 @@ func (m *mockE2e) SendE2E(mt catalog.MessageType, recipient *id.ID, payload []by
 	return []id.Round{42}, e2eCrypto.MessageID{}, netTime.Now(), nil
 }
 
-func (m *mockE2e) RegisterListener(senderID *id.ID, mt catalog.MessageType,
+func (m *mockE2e) RegisterListener(_ *id.ID, mt catalog.MessageType,
 	listener receive.Listener) receive.ListenerID {
-	if _, exists := m.handler.listeners[*senderID]; !exists {
-		m.handler.listeners[*senderID] =
-			map[catalog.MessageType]receive.Listener{mt: listener}
-	} else if _, exists = m.handler.listeners[*senderID][mt]; !exists {
-		m.handler.listeners[*senderID][mt] = listener
-	}
+	m.handler.listeners[mt] = listener
 	return receive.ListenerID{}
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Mock Storage Session                                                       //
+////////////////////////////////////////////////////////////////////////////////
+
+type mockStorage struct {
+	kv        *versioned.KV
+	cmixGroup *cyclic.Group
+}
+
+func newMockStorage() *mockStorage {
+	b := make([]byte, 768)
+	rng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG).GetStream()
+	_, _ = rng.Read(b)
+	rng.Close()
+
+	return &mockStorage{
+		kv:        versioned.NewKV(ekv.MakeMemstore()),
+		cmixGroup: cyclic.NewGroup(large.NewIntFromBytes(b), large.NewInt(2)),
+	}
+}
+
+func (m *mockStorage) GetKV() *versioned.KV        { return m.kv }
+func (m *mockStorage) GetCmixGroup() *cyclic.Group { return m.cmixGroup }

@@ -189,8 +189,7 @@ func (h *handler) handleMessageHelper(ecrMsg format.Message, bundle Bundle) bool
 			go t.Process(ecrMsg, identity, round)
 		}
 		if len(services) == 0 {
-			jww.WARN.Printf("empty service list for %s: %s",
-				ecrMsg.Digest(), ecrMsg.GetSIH())
+			jww.WARN.Printf("Empty service list for %s", ecrMsg.Digest())
 		}
 		return true
 	}

@@ -39,11 +39,11 @@ const (
 
 	// NewFileTransfer is transmitted first on the initialization of a file
 	// transfer to inform the receiver about the incoming file.
-	NewFileTransfer = 50
+	NewFileTransfer MessageType = 50
 
 	// EndFileTransfer is sent once all file parts have been transmitted to
 	// inform the receiver that the file transfer has ended.
-	EndFileTransfer = 51
+	EndFileTransfer MessageType = 51
 
 	// ConnectionAuthenticationRequest is sent by the recipient
 	// of an authenticated connection request

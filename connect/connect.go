@@ -94,8 +94,8 @@ type Params struct {
 // GetDefaultParams returns a usable set of default Connection parameters.
 func GetDefaultParams() Params {
 	return Params{
-		Auth:    auth.GetDefaultParams(),
-		Rekey:   rekey.GetDefaultParams(),
+		Auth:    auth.GetDefaultTemporaryParams(),
+		Rekey:   rekey.GetDefaultEphemeralParams(),
 		Event:   event.NewEventManager(),
 		Timeout: connectionTimeout,
 	}
@@ -121,7 +121,6 @@ func GetParameters(params string) (Params, error) {
 func Connect(recipient contact.Contact, myId *id.ID, privKey *cyclic.Int,
 	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
 	p Params) (Connection, error) {
-
 	//add the identity
 	net.AddIdentity(myId, time.Time{}, false)
 
@@ -211,6 +210,7 @@ func StartServer(cb Callback, myId *id.ID, privKey *cyclic.Int,
 
 // handler provides an implementation for the Connection interface.
 type handler struct {
+	auth    auth.State
 	partner partner.Manager
 	e2e     clientE2e.Handler
 	params  Params
@@ -220,8 +220,9 @@ type handler struct {
 // after an E2E partnership has already been confirmed with the given
 // partner.Manager.
 func BuildConnection(partner partner.Manager, e2eHandler clientE2e.Handler,
-	p Params) Connection {
+	auth auth.State, p Params) Connection {
 	return &handler{
+		auth:    auth,
 		partner: partner,
 		params:  p,
 		e2e:     e2eHandler,
@@ -230,7 +231,10 @@ func BuildConnection(partner partner.Manager, e2eHandler clientE2e.Handler,
 
 // Close deletes this Connection's partner.Manager and releases resources.
 func (h *handler) Close() error {
-	return h.e2e.DeletePartner(h.partner.PartnerId())
+	if err := h.e2e.DeletePartner(h.partner.PartnerId()); err != nil {
+		return err
+	}
+	return h.auth.Close()
 }
 
 // GetPartner returns the partner.Manager for this Connection.
@@ -309,7 +313,7 @@ func (a authCallback) Confirm(requestor contact.Contact,
 	// Return the new Connection object
 	if a.confrimCallback != nil {
 		a.confrimCallback(BuildConnection(newPartner, a.connectionE2e,
-			a.connectionParams))
+			a.authState, a.connectionParams))
 	}
 
 }
@@ -341,7 +345,7 @@ func (a authCallback) Request(requestor contact.Contact,
 
 	// Return the new Connection object
 	a.requestCallback(BuildConnection(newPartner, a.connectionE2e,
-		a.connectionParams))
+		a.authState, a.connectionParams))
 }
 
 // Reset will be called when an auth Reset operation occurs.

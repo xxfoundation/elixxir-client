@@ -85,8 +85,8 @@ func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 }
 
 // Close deletes this Connection's partner.Manager and releases resources
-func (c *Connection) Close() {
-	c.Close()
+func (c *Connection) Close() error {
+	return c.connection.Close()
 }
 
 // GetPartner returns the partner.Manager for this Connection

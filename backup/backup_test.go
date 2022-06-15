@@ -9,6 +9,7 @@ package backup
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/xxdk"
 	"reflect"
 	"strings"
 	"testing"
@@ -16,7 +17,6 @@ import (
 
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/client/xxdk/e2eApi"
 	"gitlab.com/elixxir/ekv"
 
 	"gitlab.com/elixxir/crypto/backup"
@@ -32,7 +32,7 @@ func Test_InitializeBackup(t *testing.T) {
 	cbChan := make(chan []byte, 2)
 	cb := func(encryptedBackup []byte) { cbChan <- encryptedBackup }
 	expectedPassword := "MySuperSecurePassword"
-	b, err := InitializeBackup(expectedPassword, cb, &e2eApi.Container{},
+	b, err := InitializeBackup(expectedPassword, cb, &xxdk.Container{},
 		newMockE2e(t),
 		newMockSession(t), newMockUserDiscovery(), kv, rngGen)
 	if err != nil {
@@ -84,7 +84,7 @@ func Test_ResumeBackup(t *testing.T) {
 	cbChan1 := make(chan []byte)
 	cb1 := func(encryptedBackup []byte) { cbChan1 <- encryptedBackup }
 	expectedPassword := "MySuperSecurePassword"
-	b, err := InitializeBackup(expectedPassword, cb1, &e2eApi.Container{},
+	b, err := InitializeBackup(expectedPassword, cb1, &xxdk.Container{},
 		newMockE2e(t), newMockSession(t), newMockUserDiscovery(), kv, rngGen)
 	if err != nil {
 		t.Errorf("Failed to initialize new Backup: %+v", err)
@@ -106,7 +106,7 @@ func Test_ResumeBackup(t *testing.T) {
 	// Resume the backup with a new callback
 	cbChan2 := make(chan []byte)
 	cb2 := func(encryptedBackup []byte) { cbChan2 <- encryptedBackup }
-	b2, err := ResumeBackup(cb2, &e2eApi.Container{}, newMockE2e(t), newMockSession(t),
+	b2, err := ResumeBackup(cb2, &xxdk.Container{}, newMockE2e(t), newMockSession(t),
 		newMockUserDiscovery(), kv, rngGen)
 	if err != nil {
 		t.Errorf("ResumeBackup returned an error: %+v", err)
@@ -149,7 +149,7 @@ func Test_resumeBackup_NoKeyError(t *testing.T) {
 	expectedErr := "object not found"
 	s := storage.InitTestingSession(t)
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
-	_, err := ResumeBackup(nil, &e2eApi.Container{}, newMockE2e(t), newMockSession(t),
+	_, err := ResumeBackup(nil, &xxdk.Container{}, newMockE2e(t), newMockSession(t),
 		newMockUserDiscovery(), s.GetKV(), rngGen)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("ResumeBackup did not return the expected error when no "+
@@ -392,7 +392,7 @@ func newTestBackup(password string, cb UpdateBackupFn, t *testing.T) *Backup {
 	b, err := InitializeBackup(
 		password,
 		cb,
-		&e2eApi.Container{},
+		&xxdk.Container{},
 		newMockE2e(t),
 		newMockSession(t),
 		newMockUserDiscovery(),
@@ -416,7 +416,7 @@ func Benchmark_InitializeBackup(t *testing.B) {
 	expectedPassword := "MySuperSecurePassword"
 	for i := 0; i < t.N; i++ {
 		_, err := InitializeBackup(expectedPassword, cb,
-			&e2eApi.Container{},
+			&xxdk.Container{},
 			newMockE2e(t),
 			newMockSession(t), newMockUserDiscovery(), kv, rngGen)
 		if err != nil {

@@ -44,7 +44,7 @@ func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
 		return nil, err
 	}
 
-	connection, err := connect.Connect(cont, e2eClient, connect.GetDefaultParams())
+	connection, err := connect.Connect(cont, e2eClient.api, connect.GetDefaultParams())
 	if err != nil {
 		return nil, err
 	}

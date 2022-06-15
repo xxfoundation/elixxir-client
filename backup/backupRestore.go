@@ -7,7 +7,7 @@
 // FIXME: This is placeholder, there's got to be a better place to put
 // backup restoration than inside messenger.
 
-package xxdk
+package backup
 
 import (
 	"github.com/pkg/errors"
@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/ud"
+	"gitlab.com/elixxir/client/xxdk"
 	cryptoBackup "gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
@@ -39,16 +40,16 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 
 	usr := user.NewUserFromBackup(backUp)
 
-	def, err := ParseNDF(ndfJSON)
+	def, err := xxdk.ParseNDF(ndfJSON)
 	if err != nil {
 		return nil, "", err
 	}
 
-	cmixGrp, e2eGrp := DecodeGroups(def)
+	cmixGrp, e2eGrp := xxdk.DecodeGroups(def)
 
 	// Note we do not need registration here
-	storageSess, err := CheckVersionAndSetupStorage(def, storageDir,
-		[]byte(sessionPassword), usr, cmixGrp, e2eGrp,
+	storageSess, err := xxdk.CheckVersionAndSetupStorage(def, storageDir,
+		sessionPassword, usr, cmixGrp, e2eGrp,
 		backUp.RegistrationCode)
 	if err != nil {
 		return nil, "", err
@@ -89,7 +90,6 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 			phone = f
 		}
 	}
-	ud.InitStoreFromBackup(storageSess.GetKV(), username, email, phone)
-
-	return backUp.Contacts.Identities, backUp.JSONParams, nil
+	err = ud.InitStoreFromBackup(storageSess.GetKV(), username, email, phone)
+	return backUp.Contacts.Identities, backUp.JSONParams, err
 }

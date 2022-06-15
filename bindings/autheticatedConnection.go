@@ -35,6 +35,6 @@ func (c *Cmix) ConnectWithAuthentication(e2eId int, recipientContact []byte) (*A
 		return nil, err
 	}
 
-	connection, err := connect.ConnectWithAuthentication(cont, e2eClient, connect.GetDefaultParams())
+	connection, err := connect.ConnectWithAuthentication(cont, e2eClient.api, connect.GetDefaultParams())
 	return authenticatedConnectionTrackerSingleton.make(connection), nil
 }

@@ -558,7 +558,7 @@ func createClient() *xxdk.Cmix {
 			}
 
 			// Construct client from backup data
-			backupIdList, _, err := xxdk.NewClientFromBackup(string(ndfJSON), storeDir,
+			backupIdList, _, err := backup.NewClientFromBackup(string(ndfJSON), storeDir,
 				pass, backupPass, backupFile)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)

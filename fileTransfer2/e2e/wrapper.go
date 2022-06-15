@@ -57,7 +57,7 @@ func NewWrapper(receiveCB ft.ReceiveCallback, p Params, ft ft.FileTransfer,
 	}
 
 	// Register listener to receive new file transfers
-	w.e2e.RegisterListener(w.myID, catalog.NewFileTransfer, &listener{w})
+	w.e2e.RegisterListener(&id.ZeroUser, catalog.NewFileTransfer, &listener{w})
 
 	return w, nil
 }

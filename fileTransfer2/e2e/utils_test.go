@@ -148,13 +148,13 @@ func (l *mockListener) Name() string {
 
 type mockE2eHandler struct {
 	msgMap    map[id.ID]map[catalog.MessageType][][]byte
-	listeners map[id.ID]map[catalog.MessageType]receive.Listener
+	listeners map[catalog.MessageType]receive.Listener
 }
 
 func newMockE2eHandler() *mockE2eHandler {
 	return &mockE2eHandler{
 		msgMap:    make(map[id.ID]map[catalog.MessageType][][]byte),
-		listeners: make(map[id.ID]map[catalog.MessageType]receive.Listener),
+		listeners: make(map[catalog.MessageType]receive.Listener),
 	}
 }
 
@@ -178,7 +178,7 @@ func newMockE2e(myID *id.ID, handler *mockE2eHandler) *mockE2e {
 func (m *mockE2e) SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
 	_ e2e.Params) ([]id.Round, e2eCrypto.MessageID, time.Time, error) {
 
-	m.handler.listeners[*recipient][mt].Hear(receive.Message{
+	m.handler.listeners[mt].Hear(receive.Message{
 		MessageType: mt,
 		Payload:     payload,
 		Sender:      m.myID,
@@ -188,14 +188,9 @@ func (m *mockE2e) SendE2E(mt catalog.MessageType, recipient *id.ID, payload []by
 	return []id.Round{42}, e2eCrypto.MessageID{}, netTime.Now(), nil
 }
 
-func (m *mockE2e) RegisterListener(senderID *id.ID, mt catalog.MessageType,
+func (m *mockE2e) RegisterListener(_ *id.ID, mt catalog.MessageType,
 	listener receive.Listener) receive.ListenerID {
-	if _, exists := m.handler.listeners[*senderID]; !exists {
-		m.handler.listeners[*senderID] =
-			map[catalog.MessageType]receive.Listener{mt: listener}
-	} else if _, exists = m.handler.listeners[*senderID][mt]; !exists {
-		m.handler.listeners[*senderID][mt] = listener
-	}
+	m.handler.listeners[mt] = listener
 	return receive.ListenerID{}
 }
 

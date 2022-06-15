@@ -858,7 +858,7 @@ func acceptChannelVerified(client *xxdk.E2e, recipientID *id.ID,
 	}
 }
 
-func requestChannelVerified(client *messenger.Client,
+func requestChannelVerified(client *xxdk.E2e,
 	recipientContact, me contact.Contact) {
 	paramsE2E := e2e.GetDefaultParams()
 	roundTimeout := paramsE2E.CMIXParams.SendTimeout
@@ -898,7 +898,7 @@ func requestChannelVerified(client *messenger.Client,
 	}
 }
 
-func resetChannelVerified(client *messenger.Client, recipientContact contact.Contact) {
+func resetChannelVerified(client *xxdk.E2e, recipientContact contact.Contact) {
 	paramsE2E := e2e.GetDefaultParams()
 	roundTimeout := paramsE2E.CMIXParams.SendTimeout
 

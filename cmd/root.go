@@ -265,27 +265,17 @@ var rootCmd = &cobra.Command{
 		paramsE2E := e2e.GetDefaultParams()
 		roundTimeout := paramsE2E.CMIXParams.SendTimeout
 		if viper.GetBool("accept-channel") {
-			done := make(chan struct{}, 1)
-			retryChan := make(chan struct{}, 1)
-
+			// Verify that the confirmation message makes it to the
+			// original sender
 			if viper.GetBool("verify-sends") {
+				done := make(chan struct{}, 1)
+				retryChan := make(chan struct{}, 1)
 				for {
 					rid := acceptChannel(client, recipientID)
-					// Verify message sends were successful
-
-					// Construct the callback function which
-					// verifies successful message send or retries
-					f := func(allRoundsSucceeded, timedOut bool,
-						rounds map[id.Round]cmix.RoundResult) {
-						if !allRoundsSucceeded {
-							retryChan <- struct{}{}
-						} else {
-							done <- struct{}{}
-						}
-					}
 
 					// Monitor rounds for results
-					err = client.GetCmix().GetRoundResults(roundTimeout, f, rid)
+					err = client.GetCmix().GetRoundResults(roundTimeout,
+						makeVerifySendsCallback(retryChan, done), rid)
 					if err != nil {
 						jww.DEBUG.Printf("Could not verify "+
 							"confirmation message for relationship with %s were sent "+
@@ -309,6 +299,7 @@ var rootCmd = &cobra.Command{
 					break
 				}
 			} else {
+				// Accept channel, agnostic of round result
 				acceptChannel(client, recipientID)
 			}
 
@@ -802,22 +793,15 @@ func addAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
 		me := client.GetUser().GetContact()
 		jww.INFO.Printf("Requesting auth channel from: %s",
 			recipientID)
-		retryChan := make(chan struct{}, 1)
-		done := make(chan struct{}, 1)
 		paramsE2E := e2e.GetDefaultParams()
 		roundTimeout := paramsE2E.CMIXParams.SendTimeout
-		if viper.GetBool("verify-sends") {
-			for {
-				// Construct the callback function which
-				// verifies successful message send or retries
-				f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundResult) {
-					if !allRoundsSucceeded {
-						retryChan <- struct{}{}
-					} else {
-						done <- struct{}{}
-					}
-				}
 
+		// Verify that the auth request makes it to the recipient
+		// by monitoring the round result
+		if viper.GetBool("verify-sends") {
+			retryChan := make(chan struct{}, 1)
+			done := make(chan struct{}, 1)
+			for {
 				rid, err := client.GetAuth().Request(recipientContact,
 					me.Facts)
 				if err != nil {
@@ -825,7 +809,9 @@ func addAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
 				}
 
 				// Monitor rounds for results
-				err = client.GetCmix().GetRoundResults(roundTimeout, f, rid)
+				err = client.GetCmix().GetRoundResults(roundTimeout,
+					makeVerifySendsCallback(retryChan, done),
+					rid)
 				if err != nil {
 					jww.DEBUG.Printf("Could not verify auth request was sent " +
 						"successfully, resending...")
@@ -835,7 +821,7 @@ func addAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
 				select {
 				case <-retryChan:
 					// On a retry, go to the top of the loop
-					jww.DEBUG.Printf("Auth Request was not sent " +
+					jww.DEBUG.Printf("Auth request was not sent " +
 						"successfully, resending...")
 					continue
 				case <-done:
@@ -847,6 +833,7 @@ func addAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
 				break
 			}
 		} else {
+			// Just call Request, agnostic of round result
 			_, err := client.GetAuth().Request(recipientContact,
 				me.Facts)
 			if err != nil {

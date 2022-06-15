@@ -557,6 +557,12 @@ func (c *Client) GetRateLimitParams() (uint32, uint32, int64) {
 	return c.api.GetRateLimitParams()
 }
 
+// GetPartners returns a list of
+func (c *Client) GetPartners() ([]byte, error) {
+	partners := c.api.GetStorage().E2e().GetPartners()
+	return json.Marshal(partners)
+}
+
 /*
 // SearchWithHandler is a non-blocking search that also registers
 // a callback interface for user disovery events.

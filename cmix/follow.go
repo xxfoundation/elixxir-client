@@ -224,7 +224,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 
 			marshaledTid := c.session.GetTransmissionID().Marshal()
 			for _, clientErr := range update.ClientErrors {
-				// If this Client appears in the ClientError
+				// If this Cmix appears in the ClientError
 				if bytes.Equal(clientErr.ClientId, marshaledTid) {
 
 					// Obtain relevant NodeGateway information

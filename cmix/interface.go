@@ -212,7 +212,7 @@ type Client interface {
 	/* === Nodes ============================================================ */
 	/* Keys must be registered with nodes in order to send messages through
 	   them. This process is, in general, automatically handled by the Network
-	   Client. */
+	   Cmix. */
 
 	// HasNode can be used to determine if a keying relationship exists with a
 	// node.
@@ -229,7 +229,7 @@ type Client interface {
 	/* === Rounds =========================================================== */
 	/* A complete set of round info is not kept on the client, and sometimes
 	   the network will need to be queried to get round info. Historical rounds
-	   is the system internal to the Network Client to do this. It can be used
+	   is the system internal to the Network Cmix to do this. It can be used
 	   externally as well. */
 
 	// GetRoundResults adjudicates on the rounds requested. Checks if they are

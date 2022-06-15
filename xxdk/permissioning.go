@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package api
+package xxdk
 
 import (
 	"encoding/json"
@@ -15,7 +15,7 @@ import (
 )
 
 // Returns an error if registration fails.
-func (c *Client) registerWithPermissioning() error {
+func (c *Cmix) registerWithPermissioning() error {
 	//get the users public key
 	transmissionPubKey := c.storage.GetTransmissionRSA().GetPublic()
 	receptionPubKey := c.storage.GetReceptionRSA().GetPublic()
@@ -54,7 +54,7 @@ func (c *Client) registerWithPermissioning() error {
 
 // ConstructProtoUserFile is a helper function which is used for proto
 // client testing.  This is used for development testing.
-func (c *Client) ConstructProtoUserFile() ([]byte, error) {
+func (c *Cmix) ConstructProtoUserFile() ([]byte, error) {
 
 	//load the registration code
 	regCode, err := c.storage.GetRegCode()

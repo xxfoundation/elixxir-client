@@ -2,7 +2,7 @@ package bindings
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/xxdk"
 	"sync"
 )
 
@@ -16,7 +16,7 @@ type clientTracker struct {
 }
 
 // make makes a client from an API client, assigning it a unique ID
-func (ct *clientTracker) make(c *api.Client) *Client {
+func (ct *clientTracker) make(c *xxdk.Cmix) *Client {
 	ct.mux.Lock()
 	defer ct.mux.Unlock()
 

@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.com/elixxir/client/api/e2eApi"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/xxdk/e2eApi"
 	"gitlab.com/elixxir/ekv"
 
 	"gitlab.com/elixxir/crypto/backup"

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/xxdk"
 )
 
 // sets the log level
@@ -20,10 +20,10 @@ var clientTrackerSingleton = &clientTracker{
 	count:   0,
 }
 
-// Client BindingsClient wraps the api.Client, implementing additional functions
+// Client BindingsClient wraps the xxdk.Cmix, implementing additional functions
 // to support the gomobile Client interface
 type Client struct {
-	api *api.Client
+	api *xxdk.Cmix
 	id  int
 }
 
@@ -34,7 +34,7 @@ type Client struct {
 //
 // Users of this function should delete the storage directory on error.
 func NewClient(network, storageDir string, password []byte, regCode string) error {
-	if err := api.NewClient(network, storageDir, password, regCode); err != nil {
+	if err := xxdk.NewClient(network, storageDir, password, regCode); err != nil {
 		return errors.New(fmt.Sprintf("Failed to create new client: %+v",
 			err))
 	}
@@ -51,7 +51,7 @@ func NewClient(network, storageDir string, password []byte, regCode string) erro
 // TODO: add in custom parameters instead of the default
 func Login(storageDir string, password []byte) (*Client, error) {
 
-	client, err := api.Login(storageDir, password, api.GetDefaultParams())
+	client, err := xxdk.Login(storageDir, password, xxdk.GetDefaultParams())
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
@@ -62,6 +62,3 @@ func Login(storageDir string, password []byte) (*Client, error) {
 func (c *Client) GetID() int {
 	return c.id
 }
-
-
-

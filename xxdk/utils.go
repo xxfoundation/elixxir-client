@@ -1,12 +1,12 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2021 Privategrity Corporation                                   /
+// Copyright © 2022 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
 // Provides various utility functions for access over the bindings
 
-package e2eApi
+package xxdk
 
 import (
 	"bytes"

@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.com/elixxir/client/api/e2eApi"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/xxdk/e2eApi"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
@@ -45,7 +45,7 @@ type Backup struct {
 
 	jsonParams string
 
-	// Client structures
+	// E2e structures
 	e2e     E2e
 	session Session
 	ud      UserDiscovery

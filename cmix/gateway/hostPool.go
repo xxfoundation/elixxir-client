@@ -66,7 +66,7 @@ type HostManager interface {
 // accepted.
 type Filter func(map[id.ID]int, *ndf.NetworkDefinition) map[id.ID]int
 
-// HostPool Handles providing hosts to the Client
+// HostPool Handles providing hosts to the Cmix
 type HostPool struct {
 	hostMap  map[id.ID]uint32 // Map key to its index in the slice
 	hostList []*connect.Host  // Each index in the slice contains the value

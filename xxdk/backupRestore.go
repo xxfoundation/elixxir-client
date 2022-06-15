@@ -1,11 +1,16 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 // FIXME: This is placeholder, there's got to be a better place to put
 // backup restoration than inside messenger.
 
-package e2eApi
+package xxdk
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/storage"
@@ -16,7 +21,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// NewClientFromBackup constructs a new Client from an encrypted
+// NewClientFromBackup constructs a new E2e from an encrypted
 // backup. The backup is decrypted using the backupPassphrase. On
 // success a successful client creation, the function will return a
 // JSON encoded list of the E2E partners contained in the backup and a
@@ -34,15 +39,15 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 
 	usr := user.NewUserFromBackup(backUp)
 
-	def, err := api.ParseNDF(ndfJSON)
+	def, err := ParseNDF(ndfJSON)
 	if err != nil {
 		return nil, "", err
 	}
 
-	cmixGrp, e2eGrp := api.DecodeGroups(def)
+	cmixGrp, e2eGrp := DecodeGroups(def)
 
 	// Note we do not need registration here
-	storageSess, err := api.CheckVersionAndSetupStorage(def, storageDir,
+	storageSess, err := CheckVersionAndSetupStorage(def, storageDir,
 		[]byte(sessionPassword), usr, cmixGrp, e2eGrp,
 		backUp.RegistrationCode)
 	if err != nil {

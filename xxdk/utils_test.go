@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package api
+package xxdk
 
 import (
 	"testing"
@@ -26,7 +26,7 @@ import (
 	"gitlab.com/xx_network/primitives/utils"
 )
 
-func newTestingClient(face interface{}) (*Client, error) {
+func newTestingClient(face interface{}) (*Cmix, error) {
 	switch face.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break

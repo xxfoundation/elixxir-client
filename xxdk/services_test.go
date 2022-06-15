@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package api
+package xxdk
 
 import (
 	"errors"

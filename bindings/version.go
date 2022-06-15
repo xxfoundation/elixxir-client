@@ -6,19 +6,19 @@
 
 package bindings
 
-import "gitlab.com/elixxir/client/api"
+import "gitlab.com/elixxir/client/xxdk"
 
 // GetVersion returns the api SEMVER
 func GetVersion() string {
-	return api.SEMVER
+	return xxdk.SEMVER
 }
 
 // GetGitVersion rturns the api GITVERSION
 func GetGitVersion() string {
-	return api.GITVERSION
+	return xxdk.GITVERSION
 }
 
 // GetDependencies returns the api DEPENDENCIES
 func GetDependencies() string {
-	return api.DEPENDENCIES
+	return xxdk.DEPENDENCIES
 }

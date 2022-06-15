@@ -1,4 +1,10 @@
-package e2eApi
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
+package xxdk
 
 import (
 	"encoding/binary"
@@ -9,7 +15,6 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/rekey"
@@ -19,35 +24,35 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-type Client struct {
-	*api.Client
+type E2e struct {
+	*Cmix
 	auth        auth.State
 	e2e         e2e.Handler
 	backup      *Container
 	e2eIdentity TransmissionIdentity
 }
 
-// Login creates a new e2eApi.Client backed by the api.Client persistent versioned.KV
+// Login creates a new e2eApi.E2e backed by the xxdk.Cmix persistent versioned.KV
 // If identity == nil, a new TransmissionIdentity will be generated automagically
-func Login(client *api.Client, callbacks auth.Callbacks,
-	identity *TransmissionIdentity) (m *Client, err error) {
+func Login(client *Cmix, callbacks auth.Callbacks,
+	identity *TransmissionIdentity) (m *E2e, err error) {
 	return login(client, callbacks, identity, client.GetStorage().GetKV())
 }
 
-// LoginEphemeral creates a new e2eApi.Client backed by a totally ephemeral versioned.KV
+// LoginEphemeral creates a new e2eApi.E2e backed by a totally ephemeral versioned.KV
 // If identity == nil, a new TransmissionIdentity will be generated automagically
-func LoginEphemeral(client *api.Client, callbacks auth.Callbacks,
-	identity *TransmissionIdentity) (m *Client, err error) {
+func LoginEphemeral(client *Cmix, callbacks auth.Callbacks,
+	identity *TransmissionIdentity) (m *E2e, err error) {
 	return login(client, callbacks, identity, versioned.NewKV(ekv.MakeMemstore()))
 }
 
-// LoginLegacy creates a new e2eApi.Client backed by the api.Client persistent versioned.KV
-// Uses the pre-generated transmission ID used by api.Client
+// LoginLegacy creates a new e2eApi.E2e backed by the xxdk.Cmix persistent versioned.KV
+// Uses the pre-generated transmission ID used by xxdk.Cmix
 // This function is designed to maintain backwards compatibility with previous xx messenger designs
 // and should not be used for other purposes
-func LoginLegacy(client *api.Client, callbacks auth.Callbacks) (m *Client, err error) {
-	m = &Client{
-		Client: client,
+func LoginLegacy(client *Cmix, callbacks auth.Callbacks) (m *E2e, err error) {
+	m = &E2e{
+		Cmix:   client,
 		backup: &Container{},
 	}
 
@@ -63,7 +68,7 @@ func LoginLegacy(client *api.Client, callbacks auth.Callbacks) (m *Client, err e
 		return nil, err
 	}
 
-	u := m.Client.GetUser()
+	u := m.Cmix.GetUser()
 	m.e2eIdentity = TransmissionIdentity{
 		ID:            u.TransmissionID,
 		RSAPrivatePem: u.TransmissionRSA,
@@ -74,9 +79,9 @@ func LoginLegacy(client *api.Client, callbacks auth.Callbacks) (m *Client, err e
 	return m, err
 }
 
-// login creates a new e2eApi.Client backed by the given versioned.KV
-func login(client *api.Client, callbacks auth.Callbacks,
-	identity *TransmissionIdentity, kv *versioned.KV) (m *Client, err error) {
+// login creates a new e2eApi.E2e backed by the given versioned.KV
+func login(client *Cmix, callbacks auth.Callbacks,
+	identity *TransmissionIdentity, kv *versioned.KV) (m *E2e, err error) {
 	e2eGrp := client.GetStorage().GetE2EGroup()
 
 	// Create new identity automatically if one isn't specified
@@ -91,8 +96,8 @@ func login(client *api.Client, callbacks auth.Callbacks,
 		client.GetCmix().AddIdentity(identity.ID, time.Time{}, !kv.IsMemStore())
 	}
 
-	m = &Client{
-		Client:      client,
+	m = &E2e{
+		Cmix:        client,
 		backup:      &Container{},
 		e2eIdentity: *identity,
 	}
@@ -126,7 +131,7 @@ func login(client *api.Client, callbacks auth.Callbacks,
 // LoadOrInitE2e loads the e2e handler or makes a new one, generating a new
 // e2e private key. It attempts to load via a legacy construction, then tries
 // to load the modern one, creating a new modern ID if neither can be found
-func LoadOrInitE2e(client *api.Client) (e2e.Handler, error) {
+func LoadOrInitE2e(client *Cmix) (e2e.Handler, error) {
 	usr := client.GetUser()
 	e2eGrp := client.GetStorage().GetE2EGroup()
 	kv := client.GetStorage().GetKV()
@@ -194,23 +199,23 @@ func LoadOrInitE2e(client *api.Client) (e2e.Handler, error) {
 	return e2eHandler, nil
 }
 
-// GetUser replaces api.Client's GetUser with one which includes the e2e dh
+// GetUser replaces xxdk.Cmix's GetUser with one which includes the e2e dh
 // private keys
-func (m *Client) GetUser() user.Info {
-	u := m.Client.GetUser()
+func (m *E2e) GetUser() user.Info {
+	u := m.Cmix.GetUser()
 	u.E2eDhPrivateKey = m.e2e.GetHistoricalDHPrivkey()
 	u.E2eDhPublicKey = m.e2e.GetHistoricalDHPubkey()
 	return u
 }
 
-// GetTransmissionIdentity returns a safe copy of the Client TransmissionIdentity
-func (m *Client) GetTransmissionIdentity() TransmissionIdentity {
+// GetTransmissionIdentity returns a safe copy of the E2e TransmissionIdentity
+func (m *E2e) GetTransmissionIdentity() TransmissionIdentity {
 	return m.e2eIdentity.DeepCopy()
 }
 
 // ConstructProtoUserFile is a helper function which is used for proto
 // client testing.  This is used for development testing.
-func (m *Client) ConstructProtoUserFile() ([]byte, error) {
+func (m *E2e) ConstructProtoUserFile() ([]byte, error) {
 
 	//load the registration code
 	regCode, err := m.GetStorage().GetRegCode()
@@ -244,20 +249,20 @@ func (m *Client) ConstructProtoUserFile() ([]byte, error) {
 	return jsonBytes, nil
 }
 
-func (m *Client) GetAuth() auth.State {
+func (m *E2e) GetAuth() auth.State {
 	return m.auth
 }
 
-func (m *Client) GetE2E() e2e.Handler {
+func (m *E2e) GetE2E() e2e.Handler {
 	return m.e2e
 }
 
-func (m *Client) GetBackupContainer() *Container {
+func (m *E2e) GetBackupContainer() *Container {
 	return m.backup
 }
 
-// DeleteContact is a function which removes a partner from Client's storage
-func (m *Client) DeleteContact(partnerId *id.ID) error {
+// DeleteContact is a function which removes a partner from E2e's storage
+func (m *E2e) DeleteContact(partnerId *id.ID) error {
 	jww.DEBUG.Printf("Deleting contact with ID %s", partnerId)
 
 	_, err := m.e2e.GetPartner(partnerId)

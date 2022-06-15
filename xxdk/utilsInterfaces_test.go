@@ -4,7 +4,7 @@
 // Use of this source code is governed by a license that can be found in the //
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
-package api
+package xxdk
 
 import (
 	"gitlab.com/xx_network/primitives/ndf"

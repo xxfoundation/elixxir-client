@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package e2eApi
+package xxdk
 
 import (
 	"gitlab.com/elixxir/crypto/cyclic"

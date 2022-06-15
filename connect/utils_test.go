@@ -187,7 +187,7 @@ func (m mockConnection) Unregister(listenerID receive.ListenerID) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Mock cMix Client                                                           //
+// Mock cMix Cmix                                                           //
 ////////////////////////////////////////////////////////////////////////////////
 
 type mockCmix struct {

@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/api/e2eApi"
+	"gitlab.com/elixxir/client/xxdk/e2eApi"
 )
 
 // initCmd creates a new user object with the given NDF

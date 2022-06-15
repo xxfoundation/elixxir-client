@@ -98,7 +98,7 @@ func (m mockSessionCypher) Decrypt(format.Message) ([]byte, error)   { return ni
 func (m mockSessionCypher) Use()                                     {}
 
 ////////////////////////////////////////////////////////////////////////////////
-// Mock cMix Client                                                           //
+// Mock cMix Cmix                                                           //
 ////////////////////////////////////////////////////////////////////////////////
 
 type mockFpgCmix struct {

@@ -10,10 +10,10 @@ package connect
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/api/e2eApi"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	clientE2e "gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/xxdk/e2eApi"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -52,7 +52,7 @@ type AuthenticatedCallback func(connection AuthenticatedConnection)
 // ConnectWithAuthentication is called by the client, ie the one establishing
 // connection with the server. Once a connect.Connection has been established
 // with the server and then authenticate their identity to the server.
-func ConnectWithAuthentication(recipient contact.Contact, e2eClient *e2eApi.Client,
+func ConnectWithAuthentication(recipient contact.Contact, e2eClient *e2eApi.E2e,
 	p Params) (AuthenticatedConnection, error) {
 
 	// Track the time since we started to attempt to establish a connection

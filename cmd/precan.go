@@ -11,7 +11,7 @@ package cmd
 
 import (
 	"encoding/binary"
-	"gitlab.com/elixxir/client/api/e2eApi"
+	"gitlab.com/elixxir/client/xxdk/e2eApi"
 	"strconv"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -67,7 +67,7 @@ func getPrecanID(recipientID *id.ID) uint {
 	return uint(recipientID.Bytes()[7])
 }
 
-func addPrecanAuthenticatedChannel(client *e2eApi.Client, recipientID *id.ID,
+func addPrecanAuthenticatedChannel(client *e2eApi.E2e, recipientID *id.ID,
 	recipient contact.Contact) {
 	jww.WARN.Printf("Precanned user id detected: %s", recipientID)
 	preUsr, err := client.MakePrecannedAuthenticatedChannel(

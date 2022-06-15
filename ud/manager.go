@@ -7,10 +7,10 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/storage/versioned"
 	store "gitlab.com/elixxir/client/ud/store"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
@@ -77,7 +77,7 @@ func NewManager(services CMix, e2e E2E,
 	kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
 
-	if follower() != api.Running {
+	if follower() != xxdk.Running {
 		return nil, errors.New(
 			"cannot start UD Manager when network follower is not running.")
 	}
@@ -134,7 +134,7 @@ func NewManagerFromBackup(services CMix,
 	events event.Reporter, comms Comms, userStore UserInfo,
 	email, phone fact.Fact, kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
-	if follower() != api.Running {
+	if follower() != xxdk.Running {
 		return nil, errors.New(
 			"cannot start UD Manager when " +
 				"network follower is not running.")

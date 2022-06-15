@@ -34,7 +34,7 @@ func newRsaPubKey(seed int64, t *testing.T) *rsa.PublicKey {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Mock cMix Client                                                           //
+// Mock cMix Cmix                                                           //
 ////////////////////////////////////////////////////////////////////////////////
 
 type mockCmixHandler struct {

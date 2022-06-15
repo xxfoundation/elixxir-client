@@ -8,9 +8,9 @@ package connect
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/api/e2eApi"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/xxdk/e2eApi"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
@@ -119,7 +119,7 @@ func GetParameters(params string) (Params, error) {
 // and returns a Connection object for the newly-created partner.Manager
 // This function is to be used sender-side and will block until the
 // partner.Manager is confirmed.
-func Connect(recipient contact.Contact, e2eClient *e2eApi.Client,
+func Connect(recipient contact.Contact, e2eClient *e2eApi.E2e,
 	p Params) (Connection, error) {
 
 	// Build callback for E2E negotiation

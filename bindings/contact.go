@@ -2,7 +2,7 @@ package bindings
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/fact"
@@ -31,7 +31,7 @@ type Identity struct {
 func (c *Client) MakeIdentity() ([]byte, error) {
 	s := c.api.GetRng().GetStream()
 	defer s.Close()
-	ident, err := api.MakeIdentity(s, c.api.GetStorage().GetE2EGroup())
+	ident, err := xxdk.MakeIdentity(s, c.api.GetStorage().GetE2EGroup())
 
 	dhPrivJson, err := ident.DHKeyPrivate.MarshalJSON()
 	if err != nil {

@@ -10,7 +10,7 @@ package cmd
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/api/e2eApi"
+	"gitlab.com/elixxir/client/xxdk/e2eApi"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
@@ -25,10 +25,10 @@ import (
 type authCallbacks struct {
 	autoConfirm bool
 	confCh      chan *id.ID
-	client      *e2eApi.Client
+	client      *e2eApi.E2e
 }
 
-func makeAuthCallbacks(client *e2eApi.Client, autoConfirm bool) *authCallbacks {
+func makeAuthCallbacks(client *e2eApi.E2e, autoConfirm bool) *authCallbacks {
 	return &authCallbacks{
 		autoConfirm: autoConfirm,
 		confCh:      make(chan *id.ID, 10),
@@ -71,7 +71,7 @@ func (a *authCallbacks) Reset(requestor contact.Contact,
 	fmt.Printf(msg)
 }
 
-func registerMessageListener(client *e2eApi.Client) chan receive.Message {
+func registerMessageListener(client *e2eApi.E2e) chan receive.Message {
 	recvCh := make(chan receive.Message, 10000)
 	listenerID := client.GetE2E().RegisterChannel("DefaultCLIReceiver",
 		receive.AnyUser(), catalog.NoType, recvCh)

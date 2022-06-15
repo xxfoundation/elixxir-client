@@ -1,11 +1,10 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
 
-package e2eApi
+package xxdk
 
 import (
 	"github.com/pkg/errors"
@@ -23,7 +22,7 @@ import (
 // especially as these rely on third parties (i.e., Firebase *cough*
 // *cough* google's palantir *cough*) that may represent a security
 // risk to the user.
-func (m *Client) RegisterForNotifications(token string) error {
+func (m *E2e) RegisterForNotifications(token string) error {
 	jww.INFO.Printf("RegisterForNotifications(%s)", token)
 	// Pull the host from the manage
 	notificationBotHost, ok := m.GetComms().GetHost(&id.NotificationBot)
@@ -61,7 +60,7 @@ func (m *Client) RegisterForNotifications(token string) error {
 }
 
 // UnregisterForNotifications turns of notifications for this client
-func (m *Client) UnregisterForNotifications() error {
+func (m *E2e) UnregisterForNotifications() error {
 	jww.INFO.Printf("UnregisterForNotifications()")
 	// Pull the host from the manage
 	notificationBotHost, ok := m.GetComms().GetHost(&id.NotificationBot)
@@ -86,7 +85,7 @@ func (m *Client) UnregisterForNotifications() error {
 	return nil
 }
 
-func (m *Client) getIidAndSig() ([]byte, []byte, error) {
+func (m *E2e) getIidAndSig() ([]byte, []byte, error) {
 	intermediaryReceptionID, err := ephemeral.GetIntermediaryId(m.GetStorage().GetReceptionID())
 	if err != nil {
 		return nil, nil, errors.WithMessage(err, "RegisterForNotifications: Failed to form intermediary ID")

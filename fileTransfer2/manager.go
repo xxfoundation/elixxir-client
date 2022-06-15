@@ -188,7 +188,7 @@ func NewManager(params Params,
 	return m, nil
 }
 
-// StartProcesses starts the sending threads. Adheres to the api.Service type.
+// StartProcesses starts the sending threads. Adheres to the xxdk.Service type.
 func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 	// Construct stoppables
 	multiStop := stoppable.NewMulti(workerPoolStoppable)

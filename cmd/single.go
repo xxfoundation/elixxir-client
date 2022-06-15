@@ -16,11 +16,11 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/single"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/utils"
 )
@@ -92,7 +92,7 @@ var singleCmd = &cobra.Command{
 			partner := readSingleUseContact("contact")
 			maxMessages := uint8(viper.GetUint("maxMessages"))
 
-			sendSingleUse(client.Client, partner, payload,
+			sendSingleUse(client.Cmix, partner, payload,
 				maxMessages, timeout, tag)
 		}
 
@@ -152,7 +152,7 @@ func (r *Response) Callback(payload []byte, receptionID receptionID.EphemeralIde
 }
 
 // sendSingleUse sends a single use message.
-func sendSingleUse(m *api.Client, partner contact.Contact, payload []byte,
+func sendSingleUse(m *xxdk.Cmix, partner contact.Contact, payload []byte,
 	maxMessages uint8, timeout time.Duration, tag string) {
 	// Construct callback
 	callback := &Response{

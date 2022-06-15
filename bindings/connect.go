@@ -32,19 +32,19 @@ func (c *Connection) GetId() int {
 // partner.Manager is confirmed.
 // recipientContact - marshalled contact.Contact object
 // myIdentity - marshalled Identity object
-func (c *Client) Connect(e2eClientId int, recipientContact []byte) (
+func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
 	*Connection, error) {
 	cont, err := contact.Unmarshal(recipientContact)
 	if err != nil {
 		return nil, err
 	}
-	myID, _, _, myDHPriv, err := c.unmarshalIdentity(myIdentity)
+
+	e2eClient, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
 		return nil, err
 	}
 
-	connection, err := connect.Connect(cont, "test", connect.GetDefaultParams())
-
+	connection, err := connect.Connect(cont, e2eClient, connect.GetDefaultParams())
 	if err != nil {
 		return nil, err
 	}

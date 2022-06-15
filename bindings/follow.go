@@ -35,7 +35,7 @@ import (
 //		Responds to sent rekeys and executes them
 //   - KeyExchange Confirm (/keyExchange/confirm.go)
 //		Responds to confirmations of successful rekey operations
-func (c *Client) StartNetworkFollower(timeoutMS int) error {
+func (c *Cmix) StartNetworkFollower(timeoutMS int) error {
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 	return c.api.StartNetworkFollower(timeout)
 }
@@ -45,7 +45,7 @@ func (c *Client) StartNetworkFollower(timeoutMS int) error {
 // fails to stop it.
 // if the network follower is running and this fails, the client object will
 // most likely be in an unrecoverable state and need to be trashed.
-func (c *Client) StopNetworkFollower() error {
+func (c *Cmix) StopNetworkFollower() error {
 	if err := c.api.StopNetworkFollower(); err != nil {
 		return errors.New(fmt.Sprintf("Failed to stop the "+
 			"network follower: %+v", err))
@@ -55,7 +55,7 @@ func (c *Client) StopNetworkFollower() error {
 
 // WaitForNewtwork will block until either the network is healthy or the
 // passed timeout. It will return true if the network is healthy
-func (c *Client) WaitForNetwork(timeoutMS int) bool {
+func (c *Cmix) WaitForNetwork(timeoutMS int) bool {
 	start := netTime.Now()
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 	for netTime.Since(start) < timeout {
@@ -72,7 +72,7 @@ func (c *Client) WaitForNetwork(timeoutMS int) bool {
 // Starting - 1000
 // Running	- 2000
 // Stopping	- 3000
-func (c *Client) NetworkFollowerStatus() int {
+func (c *Cmix) NetworkFollowerStatus() int {
 	return int(c.api.NetworkFollowerStatus())
 }
 
@@ -82,13 +82,13 @@ func (c *Client) NetworkFollowerStatus() int {
 // Due to the handling of comms on iOS, where the OS can
 // block indefiently, it may not enter the stopped
 // state apropreatly. This can be used instead.
-func (c *Client) HasRunningProcessies() bool {
+func (c *Cmix) HasRunningProcessies() bool {
 	return c.api.HasRunningProcessies()
 }
 
 // IsNetworkHealthy returns true if the network is read to be in a healthy state where
 // messages can be sent
-func (c *Client) IsNetworkHealthy() bool {
+func (c *Cmix) IsNetworkHealthy() bool {
 	return c.api.GetCmix().IsHealthy()
 }
 
@@ -101,11 +101,11 @@ type NetworkHealthCallback interface {
 // RegisterNetworkHealthCB registers the network health callback to be called
 // any time the network health changes. Returns a unique ID that can be used to
 // unregister the network health callback.
-func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) int64 {
+func (c *Cmix) RegisterNetworkHealthCB(nhc NetworkHealthCallback) int64 {
 	return int64(c.api.GetCmix().AddHealthCallback(nhc.Callback))
 }
 
-func (c *Client) UnregisterNetworkHealthCB(funcID int64) {
+func (c *Cmix) UnregisterNetworkHealthCB(funcID int64) {
 	c.api.GetCmix().RemoveHealthCallback(uint64(funcID))
 }
 
@@ -115,7 +115,7 @@ type ClientError interface {
 
 // RegisterClientErrorCallback registers the callback to handle errors from the
 // long running threads controlled by StartNetworkFollower and StopNetworkFollower
-func (c *Client) RegisterClientErrorCallback(clientError ClientError) {
+func (c *Cmix) RegisterClientErrorCallback(clientError ClientError) {
 	errChan := c.api.GetErrorsChannel()
 	go func() {
 		for report := range errChan {

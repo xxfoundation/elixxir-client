@@ -7,22 +7,22 @@ import (
 	"gitlab.com/elixxir/client/xxdk"
 )
 
-// sets the log level
+// init sets the log level
 func init() {
 	jww.SetLogThreshold(jww.LevelInfo)
 	jww.SetStdoutThreshold(jww.LevelInfo)
 }
 
-//client tracker singleton, used to track clients so they can be referenced by
-//id back over the bindings
-var clientTrackerSingleton = &clientTracker{
-	clients: make(map[int]*Client),
+// cmixTrackerSingleton is used to track Cmix objects so that
+// they can be referenced by id back over the bindings
+var cmixTrackerSingleton = &cmixTracker{
+	clients: make(map[int]*Cmix),
 	count:   0,
 }
 
-// Client BindingsClient wraps the xxdk.Cmix, implementing additional functions
-// to support the gomobile Client interface
-type Client struct {
+// Cmix BindingsClient wraps the xxdk.Cmix, implementing additional functions
+// to support the gomobile Cmix interface
+type Cmix struct {
 	api *xxdk.Cmix
 	id  int
 }
@@ -49,16 +49,15 @@ func NewClient(network, storageDir string, password []byte, regCode string) erro
 // Login does not block on network connection, and instead loads and
 // starts subprocesses to perform network operations.
 // TODO: add in custom parameters instead of the default
-func Login(storageDir string, password []byte) (*Client, error) {
-
-	client, err := xxdk.Login(storageDir, password, xxdk.GetDefaultParams())
+func Login(storageDir string, password []byte) (*Cmix, error) {
+	client, err := xxdk.LoadCmix(storageDir, password, xxdk.GetDefaultParams())
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
 
-	return clientTrackerSingleton.make(client), nil
+	return cmixTrackerSingleton.make(client), nil
 }
 
-func (c *Client) GetID() int {
+func (c *Cmix) GetID() int {
 	return c.id
 }

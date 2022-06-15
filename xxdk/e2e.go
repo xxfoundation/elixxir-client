@@ -32,21 +32,21 @@ type E2e struct {
 	e2eIdentity TransmissionIdentity
 }
 
-// Login creates a new e2eApi.E2e backed by the xxdk.Cmix persistent versioned.KV
+// Login creates a new E2e backed by the xxdk.Cmix persistent versioned.KV
 // If identity == nil, a new TransmissionIdentity will be generated automagically
 func Login(client *Cmix, callbacks auth.Callbacks,
 	identity *TransmissionIdentity) (m *E2e, err error) {
 	return login(client, callbacks, identity, client.GetStorage().GetKV())
 }
 
-// LoginEphemeral creates a new e2eApi.E2e backed by a totally ephemeral versioned.KV
+// LoginEphemeral creates a new E2e backed by a totally ephemeral versioned.KV
 // If identity == nil, a new TransmissionIdentity will be generated automagically
 func LoginEphemeral(client *Cmix, callbacks auth.Callbacks,
 	identity *TransmissionIdentity) (m *E2e, err error) {
 	return login(client, callbacks, identity, versioned.NewKV(ekv.MakeMemstore()))
 }
 
-// LoginLegacy creates a new e2eApi.E2e backed by the xxdk.Cmix persistent versioned.KV
+// LoginLegacy creates a new E2e backed by the xxdk.Cmix persistent versioned.KV
 // Uses the pre-generated transmission ID used by xxdk.Cmix
 // This function is designed to maintain backwards compatibility with previous xx messenger designs
 // and should not be used for other purposes

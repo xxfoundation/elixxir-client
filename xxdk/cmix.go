@@ -120,10 +120,10 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 	return nil
 }
 
-// OpenClient session, but don't connect to the network or log in
-func OpenClient(storageDir string, password []byte,
+// OpenCmix session, but don't connect to the network or log in
+func OpenCmix(storageDir string, password []byte,
 	parameters Params) (*Cmix, error) {
-	jww.INFO.Printf("OpenClient()")
+	jww.INFO.Printf("OpenCmix()")
 
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
 		csprng.NewSystemRNG)
@@ -210,11 +210,11 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
 	return nil
 }
 
-// Login initializes a client object from existing storage.
-func Login(storageDir string, password []byte, parameters Params) (*Cmix, error) {
+// LoadCmix initializes a Cmix object from existing storage
+func LoadCmix(storageDir string, password []byte, parameters Params) (*Cmix, error) {
 	jww.INFO.Printf("Login()")
 
-	c, err := OpenClient(storageDir, password, parameters)
+	c, err := OpenCmix(storageDir, password, parameters)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +277,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := OpenClient(storageDir, password, params)
+	c, err := OpenCmix(storageDir, password, params)
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +328,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := OpenClient(storageDir, password, params)
+	c, err := OpenCmix(storageDir, password, params)
 	if err != nil {
 		return nil, err
 	}

@@ -27,7 +27,7 @@ import (
 
 	"gitlab.com/elixxir/client/backup"
 	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/xxdk/e2eApi"
+	"gitlab.com/elixxir/client/xxdk"
 
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
@@ -36,7 +36,6 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/xxdk"
 	backupCrypto "gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/excludedRounds"
@@ -559,7 +558,7 @@ func createClient() *xxdk.Cmix {
 			}
 
 			// Construct client from backup data
-			backupIdList, _, err := e2eApi.NewClientFromBackup(string(ndfJSON), storeDir,
+			backupIdList, _, err := xxdk.NewClientFromBackup(string(ndfJSON), storeDir,
 				pass, backupPass, backupFile)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
@@ -593,7 +592,7 @@ func createClient() *xxdk.Cmix {
 
 	params := initParams()
 
-	client, err := xxdk.OpenClient(storeDir, pass, params)
+	client, err := xxdk.OpenCmix(storeDir, pass, params)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -621,7 +620,7 @@ func initParams() xxdk.Params {
 	return p
 }
 
-func initClient() *e2eApi.E2e {
+func initClient() *xxdk.E2e {
 	createClient()
 
 	pass := parsePassword(viper.GetString("password"))
@@ -631,7 +630,7 @@ func initClient() *e2eApi.E2e {
 	params := initParams()
 
 	// load the client
-	baseclient, err := xxdk.Login(storeDir, pass, params)
+	baseclient, err := xxdk.LoadCmix(storeDir, pass, params)
 
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
@@ -640,7 +639,7 @@ func initClient() *e2eApi.E2e {
 	authCbs = makeAuthCallbacks(nil,
 		viper.GetBool("unsafe-channel-creation"))
 
-	client, err := e2eApi.LoginLegacy(baseclient, authCbs)
+	client, err := xxdk.LoginLegacy(baseclient, authCbs)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -707,7 +706,7 @@ func initClient() *e2eApi.E2e {
 	return client
 }
 
-func acceptChannel(client *e2eApi.E2e, recipientID *id.ID) {
+func acceptChannel(client *xxdk.E2e, recipientID *id.ID) {
 	recipientContact, err := client.GetAuth().GetReceivedRequest(
 		recipientID)
 	if err != nil {
@@ -720,14 +719,14 @@ func acceptChannel(client *e2eApi.E2e, recipientID *id.ID) {
 	}
 }
 
-func deleteChannel(client *e2eApi.E2e, partnerId *id.ID) {
+func deleteChannel(client *xxdk.E2e, partnerId *id.ID) {
 	err := client.DeleteContact(partnerId)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 }
 
-func addAuthenticatedChannel(client *e2eApi.E2e, recipientID *id.ID,
+func addAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 	recipient contact.Contact) {
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {
@@ -764,7 +763,7 @@ func addAuthenticatedChannel(client *e2eApi.E2e, recipientID *id.ID,
 	}
 }
 
-func resetAuthenticatedChannel(client *e2eApi.E2e, recipientID *id.ID,
+func resetAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 	recipient contact.Contact) {
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {

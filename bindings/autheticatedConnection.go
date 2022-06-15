@@ -24,17 +24,17 @@ func (_ *AuthenticatedConnection) IsAuthenticated() bool {
 // connection with the server). Once a connect.Connection has been established
 // with the server and then authenticate their identity to the server.
 // accepts a marshalled Identity and contact.Contact object
-func (c *Client) ConnectWithAuthentication(recipientContact []byte, myIdentity []byte) (*AuthenticatedConnection, error) {
+func (c *Cmix) ConnectWithAuthentication(e2eId int, recipientContact []byte) (*AuthenticatedConnection, error) {
 	cont, err := contact.Unmarshal(recipientContact)
 	if err != nil {
 		return nil, err
 	}
-	myID, rsaPriv, salt, myDHPriv, err := c.unmarshalIdentity(myIdentity)
+
+	e2eClient, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
 		return nil, err
 	}
 
-	connection, err := connect.ConnectWithAuthentication(cont, myID, salt, rsaPriv, myDHPriv, c.api.GetRng(),
-		c.api.GetStorage().GetE2EGroup(), c.api.GetCmix(), connect.GetDefaultParams())
+	connection, err := connect.ConnectWithAuthentication(cont, e2eClient, connect.GetDefaultParams())
 	return authenticatedConnectionTrackerSingleton.make(connection), nil
 }

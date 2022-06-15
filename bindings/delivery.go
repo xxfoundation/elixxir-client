@@ -65,7 +65,7 @@ type MessageDeliveryCallback interface {
 // This function takes the marshaled send report to ensure a memory leak does
 // not occur as a result of both sides of the bindings holding a reference to
 // the same pointer.
-func (c *Client) WaitForMessageDelivery(roundList []byte,
+func (c *Cmix) WaitForMessageDelivery(roundList []byte,
 	mdc MessageDeliveryCallback, timeoutMS int) error {
 	jww.INFO.Printf("WaitForMessageDelivery(%v, _, %v)",
 		roundList, timeoutMS)

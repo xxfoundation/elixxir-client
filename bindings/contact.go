@@ -28,10 +28,10 @@ type Identity struct {
 }
 
 // MakeIdentity generates a new cryptographic identity for receiving messages
-func (c *Client) MakeIdentity() ([]byte, error) {
+func (c *Cmix) MakeIdentity() ([]byte, error) {
 	s := c.api.GetRng().GetStream()
 	defer s.Close()
-	ident, err := xxdk.MakeIdentity(s, c.api.GetStorage().GetE2EGroup())
+	ident, err := xxdk.MakeTransmissionIdentity(s, c.api.GetStorage().GetE2EGroup())
 
 	dhPrivJson, err := ident.DHKeyPrivate.MarshalJSON()
 	if err != nil {
@@ -49,7 +49,7 @@ func (c *Client) MakeIdentity() ([]byte, error) {
 }
 
 // GetContactFromIdentity accepts a marshalled Identity object and returns a marshalled contact.Contact object
-func (c *Client) GetContactFromIdentity(identity []byte) ([]byte, error) {
+func (c *Cmix) GetContactFromIdentity(identity []byte) ([]byte, error) {
 	uID, _, _, dhKey, err := c.unmarshalIdentity(identity)
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func (c *Client) GetContactFromIdentity(identity []byte) ([]byte, error) {
 	return ct.Marshal(), nil
 }
 
-func (c *Client) unmarshalIdentity(marshaled []byte) (*id.ID, *rsa.PrivateKey, []byte,
+func (c *Cmix) unmarshalIdentity(marshaled []byte) (*id.ID, *rsa.PrivateKey, []byte,
 	*cyclic.Int, error) {
 	I := Identity{}
 	err := json.Unmarshal(marshaled, &I)

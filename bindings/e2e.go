@@ -7,6 +7,7 @@
 package bindings
 
 import (
+	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/xxdk"
@@ -27,10 +28,9 @@ type E2e struct {
 	id  int
 }
 
-// Login creates and returns a new E2e object
-// and adds it to the e2eTrackerSingleton
-// identity can be left nil such that a new
-// TransmissionIdentity will be created automatically
+// Login creates and returns a new E2e object and adds it to the e2eTrackerSingleton
+// identity can be left nil such that a new TransmissionIdentity will be created automatically
+// callbacks can be left nil and a default will be used
 func (e *E2e) Login(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error) {
 	cmix, err := cmixTrackerSingleton.get(cmixId)
 	if err != nil {
@@ -47,12 +47,21 @@ func (e *E2e) Login(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e,
 		}
 	}
 
-	authCallbacks := authCallback{bindingsCbs: callbacks}
-	newE2e, err := xxdk.Login(cmix.api, authCallbacks, newIdentity)
-	if err != nil {
-		return nil, err
+	if callbacks == nil {
+		authCallbacks := auth.DefaultAuthCallbacks{}
+		newE2e, err := xxdk.Login(cmix.api, authCallbacks, newIdentity)
+		if err != nil {
+			return nil, err
+		}
+		return e2eTrackerSingleton.make(newE2e), nil
+	} else {
+		authCallbacks := authCallback{bindingsCbs: callbacks}
+		newE2e, err := xxdk.Login(cmix.api, authCallbacks, newIdentity)
+		if err != nil {
+			return nil, err
+		}
+		return e2eTrackerSingleton.make(newE2e), nil
 	}
-	return e2eTrackerSingleton.make(newE2e), nil
 }
 
 // AuthCallbacks is the bindings-specific interface for auth.Callbacks methods.

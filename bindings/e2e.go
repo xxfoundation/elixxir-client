@@ -55,7 +55,7 @@ func (e *E2e) Login(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e,
 		}
 		return e2eTrackerSingleton.make(newE2e), nil
 	} else {
-		authCallbacks := authCallback{bindingsCbs: callbacks}
+		authCallbacks := &authCallback{bindingsCbs: callbacks}
 		newE2e, err := xxdk.Login(cmix.api, authCallbacks, newIdentity)
 		if err != nil {
 			return nil, err
@@ -89,19 +89,19 @@ func convertAuthCallbacks(requestor contact.Contact,
 }
 
 // Confirm will be called when an auth Confirm message is processed.
-func (a authCallback) Confirm(requestor contact.Contact,
+func (a *authCallback) Confirm(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	a.bindingsCbs.Confirm(convertAuthCallbacks(requestor, receptionID, round))
 }
 
 // Request will be called when an auth Request message is processed.
-func (a authCallback) Request(requestor contact.Contact,
+func (a *authCallback) Request(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	a.bindingsCbs.Request(convertAuthCallbacks(requestor, receptionID, round))
 }
 
 // Reset will be called when an auth Reset operation occurs.
-func (a authCallback) Reset(requestor contact.Contact,
+func (a *authCallback) Reset(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	a.bindingsCbs.Reset(convertAuthCallbacks(requestor, receptionID, round))
 }

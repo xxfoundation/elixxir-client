@@ -81,7 +81,7 @@ func RandStringBytes(n int, prng *rand.Rand) string {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Mock cMix Cmix                                                           //
+// Mock cMix                                                           //
 ////////////////////////////////////////////////////////////////////////////////
 
 type mockCmixHandler struct {

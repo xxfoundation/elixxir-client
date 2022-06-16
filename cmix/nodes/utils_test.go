@@ -234,7 +234,7 @@ func (m *MockClientComms) SendRequestClientKeyMessage(_ *connect.Host,
 
 	// Extract RSA pubkey
 	clientRsaPub := clientTransmissionConfirmation.RSAPubKey
-	// Assemble Cmix public key into rsa.PublicKey
+	// Assemble client public key into rsa.PublicKey
 	userPublicKey, err := rsa.LoadPublicKeyFromPem([]byte(clientRsaPub))
 	if err != nil {
 		m.t.Fatalf("Failed to load public key: %+v", err)

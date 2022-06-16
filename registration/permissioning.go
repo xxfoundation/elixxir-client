@@ -33,7 +33,7 @@ func Init(comms *client.Comms, def *ndf.NetworkDefinition) (*Registration, error
 	//add the registration host to comms
 	hParam := connect.GetDefaultHostParams()
 	hParam.AuthEnabled = false
-	// Cmix will not send KeepAlive packets
+	// Do not send KeepAlive packets
 	hParam.KaClientOpts.Time = time.Duration(math.MaxInt64)
 	hParam.MaxRetries = 3
 	perm.host, err = comms.AddHost(&id.ClientRegistration, def.Registration.ClientRegistrationAddress,

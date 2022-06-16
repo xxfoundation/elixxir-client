@@ -237,7 +237,7 @@ func LoadCmix(storageDir string, password []byte, parameters Params) (*Cmix, err
 
 	if def.Notification.Address != "" {
 		hp := connect.GetDefaultHostParams()
-		// Cmix will not send KeepAlive packets
+		// Do not send KeepAlive packets
 		hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
 		hp.AuthEnabled = false
 		hp.MaxRetries = 5

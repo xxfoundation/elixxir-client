@@ -103,5 +103,16 @@ func readContact() contact.Contact {
 	}
 	jww.INFO.Printf("CONTACTPUBKEY READ: %s",
 		c.DhPubKey.TextVerbose(16, 0))
+	jww.INFO.Printf("Contact ID: %s", c.ID)
 	return c
+}
+
+func makeVerifySendsCallback(retryChan, done chan struct{}) cmix.RoundEventCallback {
+	return func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundResult) {
+		if !allRoundsSucceeded {
+			retryChan <- struct{}{}
+		} else {
+			done <- struct{}{}
+		}
+	}
 }

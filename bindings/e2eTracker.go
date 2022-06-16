@@ -15,6 +15,7 @@ import (
 // e2eTracker is a singleton used to keep track of extant E2e objects,
 // preventing race conditions created by passing it over the bindings
 type e2eTracker struct {
+	// TODO: Key on Identity.ID to prevent duplication
 	clients map[int]*E2e
 	count   int
 	mux     sync.RWMutex

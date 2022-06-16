@@ -107,6 +107,7 @@ type State interface {
 }
 
 // Callbacks is the interface for auth callback methods.
+// TODO: Document this
 type Callbacks interface {
 	Request(partner contact.Contact, receptionID receptionID.EphemeralIdentity,
 		round rounds.Round)

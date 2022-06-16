@@ -68,30 +68,30 @@ func (c *Cmix) GetContactFromIdentity(identity []byte) ([]byte, error) {
 	return ct.Marshal(), nil
 }
 
-func (c *Cmix) unmarshalIdentity(marshaled []byte) (*xxdk.TransmissionIdentity, error) {
-	newIdentity := &xxdk.TransmissionIdentity{}
+func (c *Cmix) unmarshalIdentity(marshaled []byte) (xxdk.TransmissionIdentity, error) {
+	newIdentity := xxdk.TransmissionIdentity{}
 
 	// Unmarshal given identity into TransmissionIdentity object
 	givenIdentity := TransmissionIdentity{}
 	err := json.Unmarshal(marshaled, &givenIdentity)
 	if err != nil {
-		return nil, err
+		return xxdk.TransmissionIdentity{}, err
 	}
 
 	newIdentity.ID, err = id.Unmarshal(givenIdentity.ID)
 	if err != nil {
-		return nil, err
+		return xxdk.TransmissionIdentity{}, err
 	}
 
 	newIdentity.DHKeyPrivate = c.api.GetStorage().GetE2EGroup().NewInt(1)
 	err = newIdentity.DHKeyPrivate.UnmarshalJSON(givenIdentity.DHKeyPrivate)
 	if err != nil {
-		return nil, err
+		return xxdk.TransmissionIdentity{}, err
 	}
 
 	newIdentity.RSAPrivatePem, err = rsa.LoadPrivateKeyFromPem(givenIdentity.RSAPrivatePem)
 	if err != nil {
-		return nil, err
+		return xxdk.TransmissionIdentity{}, err
 	}
 
 	newIdentity.Salt = givenIdentity.Salt

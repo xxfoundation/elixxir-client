@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/xx"
 	"time"
 
 	"github.com/pkg/errors"
@@ -37,14 +38,14 @@ type E2e struct {
 // Login creates a new E2e backed by the xxdk.Cmix persistent versioned.KV
 // If identity == nil, a new TransmissionIdentity will be generated automagically
 func Login(client *Cmix, callbacks auth.Callbacks,
-	identity *TransmissionIdentity) (m *E2e, err error) {
+	identity TransmissionIdentity) (m *E2e, err error) {
 	return login(client, callbacks, identity, client.GetStorage().GetKV())
 }
 
 // LoginEphemeral creates a new E2e backed by a totally ephemeral versioned.KV
 // If identity == nil, a new TransmissionIdentity will be generated automagically
 func LoginEphemeral(client *Cmix, callbacks auth.Callbacks,
-	identity *TransmissionIdentity) (m *E2e, err error) {
+	identity TransmissionIdentity) (m *E2e, err error) {
 	return login(client, callbacks, identity, versioned.NewKV(ekv.MakeMemstore()))
 }
 
@@ -83,25 +84,23 @@ func LoginLegacy(client *Cmix, callbacks auth.Callbacks) (m *E2e, err error) {
 
 // login creates a new e2eApi.E2e backed by the given versioned.KV
 func login(client *Cmix, callbacks auth.Callbacks,
-	identity *TransmissionIdentity, kv *versioned.KV) (m *E2e, err error) {
-	e2eGrp := client.GetStorage().GetE2EGroup()
+	identity TransmissionIdentity, kv *versioned.KV) (m *E2e, err error) {
 
-	// Create new identity automatically if one isn't specified
-	if identity == nil {
-		rng := client.GetRng().GetStream()
-		newIdentity, err := MakeTransmissionIdentity(rng, e2eGrp)
-		rng.Close()
-		if err != nil {
-			return nil, err
-		}
-		identity = &newIdentity
-		client.GetCmix().AddIdentity(identity.ID, time.Time{}, !kv.IsMemStore())
+	// Verify the passed-in TransmissionIdentity matches its properties
+	generatedId, err := xx.NewID(identity.RSAPrivatePem.GetPublic(), identity.Salt, id.User)
+	if err != nil {
+		return nil, err
+	}
+	if !generatedId.Cmp(identity.ID) {
+		return nil, errors.Errorf("Given identity %s is invalid, generated ID does not match",
+			identity.ID.String())
 	}
 
+	e2eGrp := client.GetStorage().GetE2EGroup()
 	m = &E2e{
 		Cmix:        client,
 		backup:      &Container{},
-		e2eIdentity: *identity,
+		e2eIdentity: identity,
 	}
 
 	//initialize the e2e storage

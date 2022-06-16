@@ -16,7 +16,6 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
@@ -268,8 +267,7 @@ func LoadCmix(storageDir string, password []byte, parameters Params) (*Cmix, err
 // while replacing the base NDF.  This is designed for some specific deployment
 // procedures and is generally unsafe.
 func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
-	newBaseNdf string, authCallbacks auth.Callbacks,
-	params Params) (*Cmix, error) {
+	newBaseNdf string, params Params) (*Cmix, error) {
 	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
 
 	def, err := ParseNDF(newBaseNdf)

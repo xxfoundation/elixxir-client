@@ -24,6 +24,8 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+// E2e object bundles a TransmissionIdentity with a Cmix
+// and can be used for high level operations such as connections
 type E2e struct {
 	*Cmix
 	auth        auth.State

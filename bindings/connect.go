@@ -31,7 +31,7 @@ func (c *Connection) GetId() int {
 // This function is to be used sender-side and will block until the
 // partner.Manager is confirmed.
 // recipientContact - marshalled contact.Contact object
-// myIdentity - marshalled Identity object
+// myIdentity - marshalled TransmissionIdentity object
 func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
 	*Connection, error) {
 	cont, err := contact.Unmarshal(recipientContact)

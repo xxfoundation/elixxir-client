@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package api
+package xxdk
 
 import (
 	"testing"
@@ -26,7 +26,7 @@ import (
 	"gitlab.com/xx_network/primitives/utils"
 )
 
-func newTestingClient(face interface{}) (*Client, error) {
+func newTestingClient(face interface{}) (*Cmix, error) {
 	switch face.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
@@ -45,7 +45,7 @@ func newTestingClient(face interface{}) (*Client, error) {
 			"Could not construct a mock client: %v", err)
 	}
 
-	c, err := OpenClient(storageDir, password, GetDefaultParams())
+	c, err := OpenCmix(storageDir, password, GetDefaultParams())
 	if err != nil {
 		return nil, errors.Errorf("Could not open a mock client: %v",
 			err)

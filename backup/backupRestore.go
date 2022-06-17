@@ -1,22 +1,28 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 // FIXME: This is placeholder, there's got to be a better place to put
 // backup restoration than inside messenger.
 
-package messenger
+package backup
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/ud"
+	"gitlab.com/elixxir/client/xxdk"
 	cryptoBackup "gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// NewClientFromBackup constructs a new Client from an encrypted
+// NewClientFromBackup constructs a new E2e from an encrypted
 // backup. The backup is decrypted using the backupPassphrase. On
 // success a successful client creation, the function will return a
 // JSON encoded list of the E2E partners contained in the backup and a
@@ -34,16 +40,16 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 
 	usr := user.NewUserFromBackup(backUp)
 
-	def, err := api.ParseNDF(ndfJSON)
+	def, err := xxdk.ParseNDF(ndfJSON)
 	if err != nil {
 		return nil, "", err
 	}
 
-	cmixGrp, e2eGrp := api.DecodeGroups(def)
+	cmixGrp, e2eGrp := xxdk.DecodeGroups(def)
 
 	// Note we do not need registration here
-	storageSess, err := api.CheckVersionAndSetupStorage(def, storageDir,
-		[]byte(sessionPassword), usr, cmixGrp, e2eGrp,
+	storageSess, err := xxdk.CheckVersionAndSetupStorage(def, storageDir,
+		sessionPassword, usr, cmixGrp, e2eGrp,
 		backUp.RegistrationCode)
 	if err != nil {
 		return nil, "", err
@@ -84,7 +90,6 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 			phone = f
 		}
 	}
-	ud.InitStoreFromBackup(storageSess.GetKV(), username, email, phone)
-
-	return backUp.Contacts.Identities, backUp.JSONParams, nil
+	err = ud.InitStoreFromBackup(storageSess.GetKV(), username, email, phone)
+	return backUp.Contacts.Identities, backUp.JSONParams, err
 }

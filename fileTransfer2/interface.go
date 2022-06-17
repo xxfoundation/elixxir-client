@@ -42,7 +42,7 @@ type SendNew func(transferInfo []byte) error
 type FileTransfer interface {
 
 	// StartProcesses starts the sending threads that wait for file transfers to
-	// send. Adheres to the api.Service type.
+	// send. Adheres to the xxdk.Service type.
 	StartProcesses() (stoppable.Stoppable, error)
 
 	// MaxFileNameLen returns the max number of bytes allowed for a file name.

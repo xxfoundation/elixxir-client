@@ -105,7 +105,7 @@ func (u *User) PortableUserInfo() Info {
 		ReceptionRSA:          ci.GetReceptionRSA(),
 		Precanned:             ci.IsPrecanned(),
 		//fixme: set these in the e2e layer, the command line layer
-		//needs more logical seperation so this can be removed
+		//needs more logical separation so this can be removed
 		E2eDhPrivateKey: nil,
 		E2eDhPublicKey:  nil,
 	}

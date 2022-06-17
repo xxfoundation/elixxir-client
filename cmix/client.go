@@ -140,7 +140,7 @@ func (c *client) Connect(ndf *ndf.NetworkDefinition) error {
 	// Set up gateway.Sender
 	poolParams := gateway.DefaultPoolParams()
 
-	// Client will not send KeepAlive packets
+	// Disable KeepAlive packets
 	poolParams.HostParams.KaClientOpts.Time = time.Duration(math.MaxInt64)
 
 	// Enable optimized HostPool initialization

@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package api
+package xxdk
 
 import (
 	"encoding/json"
@@ -16,7 +16,6 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/interfaces"
@@ -39,7 +38,7 @@ import (
 
 const followerStoppableName = "client"
 
-type Client struct {
+type Cmix struct {
 	//generic RNG for client
 	rng *fastRNG.StreamGenerator
 	// the storage session securely stores data to disk and memoizes as is
@@ -120,10 +119,10 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 	return nil
 }
 
-// OpenClient session, but don't connect to the network or log in
-func OpenClient(storageDir string, password []byte,
-	parameters Params) (*Client, error) {
-	jww.INFO.Printf("OpenClient()")
+// OpenCmix session, but don't connect to the network or log in
+func OpenCmix(storageDir string, password []byte,
+	parameters Params) (*Cmix, error) {
+	jww.INFO.Printf("OpenCmix()")
 
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
 		csprng.NewSystemRNG)
@@ -141,7 +140,7 @@ func OpenClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c := &Client{
+	c := &Cmix{
 		storage:            storageSess,
 		rng:                rngStreamGen,
 		comms:              nil,
@@ -210,16 +209,16 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
 	return nil
 }
 
-// Login initializes a client object from existing storage.
-func Login(storageDir string, password []byte, parameters Params) (*Client, error) {
+// LoadCmix initializes a Cmix object from existing storage
+func LoadCmix(storageDir string, password []byte, parameters Params) (*Cmix, error) {
 	jww.INFO.Printf("Login()")
 
-	c, err := OpenClient(storageDir, password, parameters)
+	c, err := OpenCmix(storageDir, password, parameters)
 	if err != nil {
 		return nil, err
 	}
 
-	jww.INFO.Printf("Client Logged in: \n\tTransmissionID: %s "+
+	jww.INFO.Printf("Cmix Logged in: \n\tTransmissionID: %s "+
 		"\n\tReceptionID: %s", c.storage.GetTransmissionID(), c.storage.GetReceptionID())
 
 	def := c.storage.GetNDF()
@@ -232,13 +231,13 @@ func Login(storageDir string, password []byte, parameters Params) (*Client, erro
 		}
 	} else {
 		jww.WARN.Printf("Registration with permissioning skipped due " +
-			"to blank permissioning address. Client will not be " +
+			"to blank permissioning address. Cmix will not be " +
 			"able to register or track network.")
 	}
 
 	if def.Notification.Address != "" {
 		hp := connect.GetDefaultHostParams()
-		// Client will not send KeepAlive packets
+		// Do not send KeepAlive packets
 		hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
 		hp.AuthEnabled = false
 		hp.MaxRetries = 5
@@ -268,8 +267,7 @@ func Login(storageDir string, password []byte, parameters Params) (*Client, erro
 // while replacing the base NDF.  This is designed for some specific deployment
 // procedures and is generally unsafe.
 func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
-	newBaseNdf string, authCallbacks auth.Callbacks,
-	params Params) (*Client, error) {
+	newBaseNdf string, params Params) (*Cmix, error) {
 	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
 
 	def, err := ParseNDF(newBaseNdf)
@@ -277,7 +275,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := OpenClient(storageDir, password, params)
+	c, err := OpenCmix(storageDir, password, params)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +290,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		}
 	} else {
 		jww.WARN.Printf("Registration with permissioning skipped due " +
-			"to blank permissionign address. Client will not be " +
+			"to blank permissionign address. Cmix will not be " +
 			"able to register or track network.")
 	}
 
@@ -314,7 +312,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 // some specific deployment procedures and is generally unsafe.
 func LoginWithProtoClient(storageDir string, password []byte,
 	protoClientJSON []byte, newBaseNdf string,
-	params Params) (*Client, error) {
+	params Params) (*Cmix, error) {
 	jww.INFO.Printf("LoginWithProtoClient()")
 
 	def, err := ParseNDF(newBaseNdf)
@@ -328,7 +326,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := OpenClient(storageDir, password, params)
+	c, err := OpenCmix(storageDir, password, params)
 	if err != nil {
 		return nil, err
 	}
@@ -359,7 +357,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 	return c, nil
 }
 
-func (c *Client) initComms() error {
+func (c *Cmix) initComms() error {
 	var err error
 
 	//get the user from session
@@ -376,7 +374,7 @@ func (c *Client) initComms() error {
 	return nil
 }
 
-func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
+func (c *Cmix) initPermissioning(def *ndf.NetworkDefinition) error {
 	var err error
 	//initialize registration
 	c.permissioning, err = registration.Init(c.comms, def)
@@ -387,15 +385,15 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 
 	//register with registration if necessary
 	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {
-		jww.INFO.Printf("Client has not registered yet, " +
+		jww.INFO.Printf("Cmix has not registered yet, " +
 			"attempting registration")
 		err = c.registerWithPermissioning()
 		if err != nil {
-			jww.ERROR.Printf("Client has failed registration: %s",
+			jww.ERROR.Printf("Cmix has failed registration: %s",
 				err)
 			return errors.WithMessage(err, "failed to load client")
 		}
-		jww.INFO.Printf("Client successfully registered " +
+		jww.INFO.Printf("Cmix successfully registered " +
 			"with the network")
 	}
 	return nil
@@ -404,7 +402,7 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 // registerFollower adds the follower processes to the client's
 // follower service list.
 // This should only ever be called once
-func (c *Client) registerFollower() error {
+func (c *Cmix) registerFollower() error {
 	//build the error callback
 	cer := func(source, message, trace string) {
 		select {
@@ -436,12 +434,12 @@ func (c *Client) registerFollower() error {
 	return nil
 }
 
-// ----- Client Functions -----
+// ----- Cmix Functions -----
 
 // GetErrorsChannel returns a channel which passes errors from the
 // long-running threads controlled by StartNetworkFollower and
 // StopNetworkFollower
-func (c *Client) GetErrorsChannel() <-chan interfaces.ClientError {
+func (c *Cmix) GetErrorsChannel() <-chan interfaces.ClientError {
 	return c.clientErrorChannel
 }
 
@@ -479,7 +477,7 @@ func (c *Client) GetErrorsChannel() <-chan interfaces.ClientError {
 //		Responds to confirmations of successful rekey operations
 //   - Auth Callback (/auth/callback.go)
 //      Handles both auth confirm and requests
-func (c *Client) StartNetworkFollower(timeout time.Duration) error {
+func (c *Cmix) StartNetworkFollower(timeout time.Duration) error {
 	jww.INFO.Printf("StartNetworkFollower() \n\tTransmissionID: %s "+
 		"\n\tReceptionID: %s", c.storage.GetTransmissionID(), c.storage.GetReceptionID())
 
@@ -491,7 +489,7 @@ func (c *Client) StartNetworkFollower(timeout time.Duration) error {
 // fails to stop it.
 // if the network follower is running and this fails, the client object will
 // most likely be in an unrecoverable state and need to be trashed.
-func (c *Client) StopNetworkFollower() error {
+func (c *Cmix) StopNetworkFollower() error {
 	jww.INFO.Printf("StopNetworkFollower()")
 	return c.followerServices.stop()
 }
@@ -501,62 +499,62 @@ func (c *Client) StopNetworkFollower() error {
 // Starting - 1000
 // Running	- 2000
 // Stopping	- 3000
-func (c *Client) NetworkFollowerStatus() Status {
+func (c *Cmix) NetworkFollowerStatus() Status {
 	jww.INFO.Printf("NetworkFollowerStatus()")
 	return c.followerServices.status()
 }
 
 // HasRunningProcessies checks if any background threads are running
 // and returns true if one or more are
-func (c *Client) HasRunningProcessies() bool {
+func (c *Cmix) HasRunningProcessies() bool {
 	return !c.followerServices.stoppable.IsStopped()
 }
 
 // RegisterRoundEventsCb registers a callback for round
 // events.
-func (c *Client) GetRoundEvents() interfaces.RoundEvents {
+func (c *Cmix) GetRoundEvents() interfaces.RoundEvents {
 	jww.INFO.Printf("GetRoundEvents()")
-	jww.WARN.Printf("GetRoundEvents does not handle Client Errors " +
+	jww.WARN.Printf("GetRoundEvents does not handle Cmix Errors " +
 		"edge case!")
 	return c.network.GetInstance().GetRoundEvents()
 }
 
 // AddService adds a service ot be controlled by the client thread control,
 // these will be started and stopped with the network follower
-func (c *Client) AddService(sp Service) error {
+func (c *Cmix) AddService(sp Service) error {
 	return c.followerServices.add(sp)
 }
 
 // GetUser returns the current user Identity for this client. This
 // can be serialized into a byte stream for out-of-band sharing.
-func (c *Client) GetUser() user.Info {
+func (c *Cmix) GetUser() user.Info {
 	jww.INFO.Printf("GetUser()")
 	cMixUser := c.storage.PortableUserInfo()
 	return cMixUser
 }
 
 // GetComms returns the client comms object
-func (c *Client) GetComms() *client.Comms {
+func (c *Cmix) GetComms() *client.Comms {
 	return c.comms
 }
 
 // GetRng returns the client rng object
-func (c *Client) GetRng() *fastRNG.StreamGenerator {
+func (c *Cmix) GetRng() *fastRNG.StreamGenerator {
 	return c.rng
 }
 
 // GetStorage returns the client storage object
-func (c *Client) GetStorage() storage.Session {
+func (c *Cmix) GetStorage() storage.Session {
 	return c.storage
 }
 
 // GetCmix returns the client Network Interface
-func (c *Client) GetCmix() cmix.Client {
+func (c *Cmix) GetCmix() cmix.Client {
 	return c.network
 }
 
 // GetEventReporter returns the event reporter
-func (c *Client) GetEventReporter() event.Reporter {
+func (c *Cmix) GetEventReporter() event.Reporter {
 	return c.events
 }
 
@@ -564,7 +562,7 @@ func (c *Client) GetEventReporter() event.Reporter {
 // returns the total number of nodes in the NDF and the number of those which
 // are currently registers with. An error is returned if the network is not
 // healthy.
-func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
+func (c *Cmix) GetNodeRegistrationStatus() (int, int, error) {
 	// Return an error if the network is not healthy
 	if !c.GetCmix().IsHealthy() {
 		return 0, 0, errors.New("Cannot get number of nodes " +
@@ -596,7 +594,7 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 
 // GetPreferredBins returns the geographic bin or bins that the provided two
 // character country code is a part of.
-func (c *Client) GetPreferredBins(countryCode string) ([]string, error) {
+func (c *Cmix) GetPreferredBins(countryCode string) ([]string, error) {
 	// get the bin that the country is in
 	bin, exists := region.GetCountryBin(countryCode)
 	if !exists {

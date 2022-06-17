@@ -31,21 +31,20 @@ func (c *Connection) GetId() int {
 // This function is to be used sender-side and will block until the
 // partner.Manager is confirmed.
 // recipientContact - marshalled contact.Contact object
-// myIdentity - marshalled Identity object
-func (c *Client) Connect(recipientContact []byte, myIdentity []byte) (
+// myIdentity - marshalled TransmissionIdentity object
+func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
 	*Connection, error) {
 	cont, err := contact.Unmarshal(recipientContact)
 	if err != nil {
 		return nil, err
 	}
-	myID, _, _, myDHPriv, err := c.unmarshalIdentity(myIdentity)
+
+	e2eClient, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
 		return nil, err
 	}
 
-	connection, err := connect.Connect(cont, myID, myDHPriv, c.api.GetRng(),
-		c.api.GetStorage().GetE2EGroup(), c.api.GetCmix(), connect.GetDefaultParams())
-
+	connection, err := connect.Connect(cont, e2eClient.api, connect.GetDefaultParams())
 	if err != nil {
 		return nil, err
 	}

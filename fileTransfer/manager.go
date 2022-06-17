@@ -197,7 +197,7 @@ func NewManager(receiveCB ReceiveCallback, params Params, myID *id.ID,
 	return m, nil
 }
 
-// StartProcesses starts the sending threads. Adheres to the api.Service type.
+// StartProcesses starts the sending threads. Adheres to the xxdk.Service type.
 func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 	// Register listener to receive new file transfers
 	m.e2e.RegisterListener(

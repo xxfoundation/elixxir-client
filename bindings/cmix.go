@@ -4,26 +4,26 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/xxdk"
 )
 
-// sets the log level
+// init sets the log level
 func init() {
 	jww.SetLogThreshold(jww.LevelInfo)
 	jww.SetStdoutThreshold(jww.LevelInfo)
 }
 
-//client tracker singleton, used to track clients so they can be referenced by
-//id back over the bindings
-var clientTrackerSingleton = &clientTracker{
-	clients: make(map[int]*Client),
+// cmixTrackerSingleton is used to track Cmix objects so that
+// they can be referenced by id back over the bindings
+var cmixTrackerSingleton = &cmixTracker{
+	clients: make(map[int]*Cmix),
 	count:   0,
 }
 
-// Client BindingsClient wraps the api.Client, implementing additional functions
-// to support the gomobile Client interface
-type Client struct {
-	api *api.Client
+// Cmix BindingsClient wraps the xxdk.Cmix, implementing additional functions
+// to support the gomobile Cmix interface
+type Cmix struct {
+	api *xxdk.Cmix
 	id  int
 }
 
@@ -34,7 +34,7 @@ type Client struct {
 //
 // Users of this function should delete the storage directory on error.
 func NewClient(network, storageDir string, password []byte, regCode string) error {
-	if err := api.NewClient(network, storageDir, password, regCode); err != nil {
+	if err := xxdk.NewClient(network, storageDir, password, regCode); err != nil {
 		return errors.New(fmt.Sprintf("Failed to create new client: %+v",
 			err))
 	}
@@ -49,19 +49,15 @@ func NewClient(network, storageDir string, password []byte, regCode string) erro
 // Login does not block on network connection, and instead loads and
 // starts subprocesses to perform network operations.
 // TODO: add in custom parameters instead of the default
-func Login(storageDir string, password []byte) (*Client, error) {
-
-	client, err := api.Login(storageDir, password, api.GetDefaultParams())
+func Login(storageDir string, password []byte) (*Cmix, error) {
+	client, err := xxdk.LoadCmix(storageDir, password, xxdk.GetDefaultParams())
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
 
-	return clientTrackerSingleton.make(client), nil
+	return cmixTrackerSingleton.make(client), nil
 }
 
-func (c *Client) GetID() int {
+func (c *Cmix) GetID() int {
 	return c.id
 }
-
-
-

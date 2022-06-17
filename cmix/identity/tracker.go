@@ -103,21 +103,8 @@ func NewOrLoadTracker(session storage.Session, addrSpace address.Space) *manager
 			})
 		} else {
 			jww.WARN.Printf("No tracked identities found and no legacy " +
-				"stored timestamp found; creating a new tracked identity " +
-				"from scratch.")
-
-			t.tracked = append(t.tracked, TrackedID{
-				// Make the next generation now so a generation triggers on
-				// first run
-				NextGeneration: netTime.Now(),
-				// Start generation 24 hours ago to make sure all resent
-				// ephemeral do pickups
-				// TODO: Should we go back farther?
-				LastGeneration: netTime.Now().Add(-time.Duration(ephemeral.Period)),
-				Source:         t.session.GetReceptionID(),
-				ValidUntil:     Forever,
-				Persistent:     true,
-			})
+				"stored timestamp found; no messages can be picked up until an " +
+				"identity is added.")
 		}
 	} else if err != nil {
 		jww.FATAL.Panicf("Unable to create new Tracker: %+v", err)

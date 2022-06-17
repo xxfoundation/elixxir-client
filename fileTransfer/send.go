@@ -85,7 +85,7 @@ func (m *manager) sendingThread(cMixParams cmix.CMIXParams, stop *stoppable.Sing
 	}
 }
 
-// sendCmix sends the parts in the packet via Client.SendMany.
+// sendCmix sends the parts in the packet via Cmix.SendMany.
 func (m *manager) sendCmix(packet []store.Part, cMixParams cmix.CMIXParams) {
 	// validParts will contain all parts in the original packet excluding those
 	// that return an error from GetEncryptedPart

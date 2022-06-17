@@ -25,9 +25,9 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.com/elixxir/client/api/messenger"
 	"gitlab.com/elixxir/client/backup"
 	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/xxdk"
 
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
@@ -36,7 +36,6 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/api"
 	backupCrypto "gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/excludedRounds"
@@ -516,7 +515,7 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func createClient() *api.Client {
+func createClient() *xxdk.Cmix {
 	logLevel := viper.GetUint("logLevel")
 	initLog(logLevel, viper.GetString("log"))
 	jww.INFO.Printf(Version())
@@ -539,17 +538,17 @@ func createClient() *api.Client {
 		}
 
 		if precannedID != 0 {
-			err = api.NewPrecannedClient(precannedID,
+			err = xxdk.NewPrecannedClient(precannedID,
 				string(ndfJSON), storeDir, pass)
 		} else if protoUserPath != "" {
 			protoUserJson, err := utils.ReadFile(protoUserPath)
 			if err != nil {
 				jww.FATAL.Panicf("%v", err)
 			}
-			err = api.NewProtoClient_Unsafe(string(ndfJSON), storeDir,
+			err = xxdk.NewProtoClient_Unsafe(string(ndfJSON), storeDir,
 				pass, protoUserJson)
 		} else if userIDprefix != "" {
-			err = api.NewVanityClient(string(ndfJSON), storeDir,
+			err = xxdk.NewVanityClient(string(ndfJSON), storeDir,
 				pass, regCode, userIDprefix)
 		} else if backupPath != "" {
 
@@ -568,7 +567,7 @@ func createClient() *api.Client {
 			}
 
 			// Construct client from backup data
-			backupIdList, _, err := messenger.NewClientFromBackup(string(ndfJSON), storeDir,
+			backupIdList, _, err := backup.NewClientFromBackup(string(ndfJSON), storeDir,
 				pass, backupPass, backupFile)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
@@ -591,7 +590,7 @@ func createClient() *api.Client {
 			}
 
 		} else {
-			err = api.NewClient(string(ndfJSON), storeDir,
+			err = xxdk.NewClient(string(ndfJSON), storeDir,
 				pass, regCode)
 		}
 
@@ -602,15 +601,15 @@ func createClient() *api.Client {
 
 	params := initParams()
 
-	client, err := api.OpenClient(storeDir, pass, params)
+	client, err := xxdk.OpenCmix(storeDir, pass, params)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 	return client
 }
 
-func initParams() api.Params {
-	p := api.GetDefaultParams()
+func initParams() xxdk.Params {
+	p := xxdk.GetDefaultParams()
 	p.Session.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
 	p.Session.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
 	p.Session.NumRekeys = uint16(viper.GetUint("e2eNumReKeys"))
@@ -630,7 +629,7 @@ func initParams() api.Params {
 	return p
 }
 
-func initClient() *messenger.Client {
+func initClient() *xxdk.E2e {
 	createClient()
 
 	pass := parsePassword(viper.GetString("password"))
@@ -640,7 +639,7 @@ func initClient() *messenger.Client {
 	params := initParams()
 
 	// load the client
-	baseclient, err := api.Login(storeDir, pass, params)
+	baseclient, err := xxdk.LoadCmix(storeDir, pass, params)
 
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
@@ -649,7 +648,7 @@ func initClient() *messenger.Client {
 	authCbs = makeAuthCallbacks(nil,
 		viper.GetBool("unsafe-channel-creation"))
 
-	client, err := messenger.Login(baseclient, authCbs)
+	client, err := xxdk.LoginLegacy(baseclient, authCbs)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -716,7 +715,7 @@ func initClient() *messenger.Client {
 	return client
 }
 
-func acceptChannel(client *messenger.Client, recipientID *id.ID) id.Round {
+func acceptChannel(client *xxdk.E2e, recipientID *id.ID) id.Round {
 	recipientContact, err := client.GetAuth().GetReceivedRequest(
 		recipientID)
 	if err != nil {
@@ -731,14 +730,14 @@ func acceptChannel(client *messenger.Client, recipientID *id.ID) id.Round {
 	return rid
 }
 
-func deleteChannel(client *messenger.Client, partnerId *id.ID) {
+func deleteChannel(client *xxdk.E2e, partnerId *id.ID) {
 	err := client.DeleteContact(partnerId)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 }
 
-func addAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
+func addAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 	recipient contact.Contact) {
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {
@@ -784,7 +783,7 @@ func addAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
 	}
 }
 
-func resetAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
+func resetAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 	recipient contact.Contact) {
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {
@@ -825,7 +824,7 @@ func resetAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
 	}
 }
 
-func acceptChannelVerified(client *messenger.Client, recipientID *id.ID,
+func acceptChannelVerified(client *xxdk.E2e, recipientID *id.ID,
 	roundTimeout time.Duration) {
 	done := make(chan struct{}, 1)
 	retryChan := make(chan struct{}, 1)
@@ -859,7 +858,7 @@ func acceptChannelVerified(client *messenger.Client, recipientID *id.ID,
 	}
 }
 
-func requestChannelVerified(client *messenger.Client,
+func requestChannelVerified(client *xxdk.E2e,
 	recipientContact, me contact.Contact) {
 	paramsE2E := e2e.GetDefaultParams()
 	roundTimeout := paramsE2E.CMIXParams.SendTimeout
@@ -899,7 +898,7 @@ func requestChannelVerified(client *messenger.Client,
 	}
 }
 
-func resetChannelVerified(client *messenger.Client, recipientContact contact.Contact) {
+func resetChannelVerified(client *xxdk.E2e, recipientContact contact.Contact) {
 	paramsE2E := e2e.GetDefaultParams()
 	roundTimeout := paramsE2E.CMIXParams.SendTimeout
 
@@ -1177,7 +1176,7 @@ func init() {
 	viper.BindPFlag("log", rootCmd.PersistentFlags().Lookup("log"))
 
 	rootCmd.Flags().StringP("regcode", "", "",
-		"Identity code (optional)")
+		"TransmissionIdentity code (optional)")
 	viper.BindPFlag("regcode", rootCmd.Flags().Lookup("regcode"))
 
 	rootCmd.PersistentFlags().StringP("message", "m", "",

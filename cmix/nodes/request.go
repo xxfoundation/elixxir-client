@@ -218,6 +218,6 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 	// Construct the transmission key from the client key
 	transmissionKey := grp.NewIntFromBytes(clientKey)
 
-	// Use Client keypair to sign Server nonce
+	// Use Cmix keypair to sign Server nonce
 	return transmissionKey, keyResponse.KeyID, keyResponse.ValidUntil, nil
 }

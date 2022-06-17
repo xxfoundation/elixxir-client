@@ -59,13 +59,9 @@ func (e *E2e) Login(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e,
 	return e2eTrackerSingleton.make(newE2e), nil
 }
 
-// GetContactFromIdentity accepts a marshalled ReceptionIdentity object and returns a marshalled contact.Contact object
-func (e *E2e) GetContactFromIdentity(identity []byte) ([]byte, error) {
-	unmarshalledIdentity, err := e.unmarshalIdentity(identity)
-	if err != nil {
-		return nil, err
-	}
-	return unmarshalledIdentity.GetContact(e.api.GetStorage().GetE2EGroup()).Marshal(), nil
+// GetContact returns a marshalled contact.Contact object for the E2e ReceptionIdentity
+func (e *E2e) GetContact() []byte {
+	return e.api.GetReceptionIdentity().GetContact(e.api.GetStorage().GetE2EGroup()).Marshal()
 }
 
 // unmarshalIdentity is a helper function for taking in a marshalled xxdk.ReceptionIdentity and making it an object

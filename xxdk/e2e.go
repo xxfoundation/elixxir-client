@@ -209,8 +209,8 @@ func (m *E2e) GetUser() user.Info {
 	return u
 }
 
-// GetTransmissionIdentity returns a safe copy of the E2e ReceptionIdentity
-func (m *E2e) GetTransmissionIdentity() ReceptionIdentity {
+// GetReceptionIdentity returns a safe copy of the E2e ReceptionIdentity
+func (m *E2e) GetReceptionIdentity() ReceptionIdentity {
 	return m.e2eIdentity.DeepCopy()
 }
 

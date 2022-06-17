@@ -7,6 +7,7 @@
 package xxdk
 
 import (
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -59,13 +60,26 @@ func MakeReceptionIdentity(rng csprng.Source, grp *cyclic.Group) (ReceptionIdent
 }
 
 // DeepCopy produces a safe copy of a ReceptionIdentity
-func (t ReceptionIdentity) DeepCopy() ReceptionIdentity {
-	saltCopy := make([]byte, len(t.Salt))
-	copy(saltCopy, t.Salt)
+func (r ReceptionIdentity) DeepCopy() ReceptionIdentity {
+	saltCopy := make([]byte, len(r.Salt))
+	copy(saltCopy, r.Salt)
 	return ReceptionIdentity{
-		ID:            t.ID.DeepCopy(),
-		RSAPrivatePem: t.RSAPrivatePem,
+		ID:            r.ID.DeepCopy(),
+		RSAPrivatePem: r.RSAPrivatePem,
 		Salt:          saltCopy,
-		DHKeyPrivate:  t.DHKeyPrivate.DeepCopy(),
+		DHKeyPrivate:  r.DHKeyPrivate.DeepCopy(),
 	}
+}
+
+// GetContact accepts a xxdk.ReceptionIdentity object and returns a contact.Contact object
+func (r ReceptionIdentity) GetContact(grp *cyclic.Group) contact.Contact {
+	dhPub := grp.ExpG(r.DHKeyPrivate, grp.NewInt(1))
+
+	ct := contact.Contact{
+		ID:             r.ID,
+		DhPubKey:       dhPub,
+		OwnershipProof: nil,
+		Facts:          nil,
+	}
+	return ct
 }

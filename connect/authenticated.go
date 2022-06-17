@@ -66,7 +66,7 @@ func ConnectWithAuthentication(recipient contact.Contact, e2eClient *xxdk.E2e,
 	}
 
 	// Build the authenticated connection and return
-	identity := e2eClient.GetTransmissionIdentity()
+	identity := e2eClient.GetReceptionIdentity()
 	return connectWithAuthentication(conn, timeStart, recipient, identity.Salt, identity.RSAPrivatePem,
 		e2eClient.GetRng(), e2eClient.GetCmix(), p)
 }

@@ -7,11 +7,14 @@
 package bindings
 
 import (
+	"encoding/json"
 	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // e2eTrackerSingleton is used to track E2e objects so that
@@ -37,7 +40,7 @@ func (e *E2e) Login(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e,
 		return nil, err
 	}
 
-	newIdentity, err := cmix.unmarshalIdentity(identity)
+	newIdentity, err := e.unmarshalIdentity(identity)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +57,46 @@ func (e *E2e) Login(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e,
 		return nil, err
 	}
 	return e2eTrackerSingleton.make(newE2e), nil
+}
+
+// GetContactFromIdentity accepts a marshalled ReceptionIdentity object and returns a marshalled contact.Contact object
+func (e *E2e) GetContactFromIdentity(identity []byte) ([]byte, error) {
+	unmarshalledIdentity, err := e.unmarshalIdentity(identity)
+	if err != nil {
+		return nil, err
+	}
+	return unmarshalledIdentity.GetContact(e.api.GetStorage().GetE2EGroup()).Marshal(), nil
+}
+
+// unmarshalIdentity is a helper function for taking in a marshalled xxdk.ReceptionIdentity and making it an object
+func (e *E2e) unmarshalIdentity(marshaled []byte) (xxdk.ReceptionIdentity, error) {
+	newIdentity := xxdk.ReceptionIdentity{}
+
+	// Unmarshal given identity into ReceptionIdentity object
+	givenIdentity := ReceptionIdentity{}
+	err := json.Unmarshal(marshaled, &givenIdentity)
+	if err != nil {
+		return xxdk.ReceptionIdentity{}, err
+	}
+
+	newIdentity.ID, err = id.Unmarshal(givenIdentity.ID)
+	if err != nil {
+		return xxdk.ReceptionIdentity{}, err
+	}
+
+	newIdentity.DHKeyPrivate = e.api.GetStorage().GetE2EGroup().NewInt(1)
+	err = newIdentity.DHKeyPrivate.UnmarshalJSON(givenIdentity.DHKeyPrivate)
+	if err != nil {
+		return xxdk.ReceptionIdentity{}, err
+	}
+
+	newIdentity.RSAPrivatePem, err = rsa.LoadPrivateKeyFromPem(givenIdentity.RSAPrivatePem)
+	if err != nil {
+		return xxdk.ReceptionIdentity{}, err
+	}
+
+	newIdentity.Salt = givenIdentity.Salt
+	return newIdentity, nil
 }
 
 // AuthCallbacks is the bindings-specific interface for auth.Callbacks methods.

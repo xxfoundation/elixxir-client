@@ -6,7 +6,6 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/primitives/id"
 )
 
 // ReceptionIdentity struct
@@ -45,57 +44,6 @@ func (c *Cmix) MakeIdentity() ([]byte, error) {
 	}
 
 	return json.Marshal(&I)
-}
-
-// GetContactFromIdentity accepts a marshalled ReceptionIdentity object and returns a marshalled contact.Contact object
-func (c *Cmix) GetContactFromIdentity(identity []byte) ([]byte, error) {
-	unmarshalledIdentity, err := c.unmarshalIdentity(identity)
-	if err != nil {
-		return nil, err
-	}
-
-	grp := c.api.GetStorage().GetE2EGroup()
-
-	dhPub := grp.ExpG(unmarshalledIdentity.DHKeyPrivate, grp.NewInt(1))
-
-	ct := contact.Contact{
-		ID:             unmarshalledIdentity.ID,
-		DhPubKey:       dhPub,
-		OwnershipProof: nil,
-		Facts:          nil,
-	}
-
-	return ct.Marshal(), nil
-}
-
-func (c *Cmix) unmarshalIdentity(marshaled []byte) (xxdk.ReceptionIdentity, error) {
-	newIdentity := xxdk.ReceptionIdentity{}
-
-	// Unmarshal given identity into ReceptionIdentity object
-	givenIdentity := ReceptionIdentity{}
-	err := json.Unmarshal(marshaled, &givenIdentity)
-	if err != nil {
-		return xxdk.ReceptionIdentity{}, err
-	}
-
-	newIdentity.ID, err = id.Unmarshal(givenIdentity.ID)
-	if err != nil {
-		return xxdk.ReceptionIdentity{}, err
-	}
-
-	newIdentity.DHKeyPrivate = c.api.GetStorage().GetE2EGroup().NewInt(1)
-	err = newIdentity.DHKeyPrivate.UnmarshalJSON(givenIdentity.DHKeyPrivate)
-	if err != nil {
-		return xxdk.ReceptionIdentity{}, err
-	}
-
-	newIdentity.RSAPrivatePem, err = rsa.LoadPrivateKeyFromPem(givenIdentity.RSAPrivatePem)
-	if err != nil {
-		return xxdk.ReceptionIdentity{}, err
-	}
-
-	newIdentity.Salt = givenIdentity.Salt
-	return newIdentity, nil
 }
 
 // GetIDFromContact accepts a marshalled contact.Contact object & returns a marshalled id.ID object

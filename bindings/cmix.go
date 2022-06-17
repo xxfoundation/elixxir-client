@@ -27,13 +27,13 @@ type Cmix struct {
 	id  int
 }
 
-// NewClient creates client storage, generates keys, connects, and registers
+// NewKeystore creates client storage, generates keys, connects, and registers
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
 //
 // Users of this function should delete the storage directory on error.
-func NewClient(network, storageDir string, password []byte, regCode string) error {
+func NewKeystore(network, storageDir string, password []byte, regCode string) error {
 	if err := xxdk.NewClient(network, storageDir, password, regCode); err != nil {
 		return errors.New(fmt.Sprintf("Failed to create new client: %+v",
 			err))

@@ -25,27 +25,27 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// E2e object bundles a TransmissionIdentity with a Cmix
+// E2e object bundles a ReceptionIdentity with a Cmix
 // and can be used for high level operations such as connections
 type E2e struct {
 	*Cmix
 	auth        auth.State
 	e2e         e2e.Handler
 	backup      *Container
-	e2eIdentity TransmissionIdentity
+	e2eIdentity ReceptionIdentity
 }
 
 // Login creates a new E2e backed by the xxdk.Cmix persistent versioned.KV
-// If identity == nil, a new TransmissionIdentity will be generated automagically
+// If identity == nil, a new ReceptionIdentity will be generated automagically
 func Login(client *Cmix, callbacks auth.Callbacks,
-	identity TransmissionIdentity) (m *E2e, err error) {
+	identity ReceptionIdentity) (m *E2e, err error) {
 	return login(client, callbacks, identity, client.GetStorage().GetKV())
 }
 
 // LoginEphemeral creates a new E2e backed by a totally ephemeral versioned.KV
-// If identity == nil, a new TransmissionIdentity will be generated automagically
+// If identity == nil, a new ReceptionIdentity will be generated automagically
 func LoginEphemeral(client *Cmix, callbacks auth.Callbacks,
-	identity TransmissionIdentity) (m *E2e, err error) {
+	identity ReceptionIdentity) (m *E2e, err error) {
 	return login(client, callbacks, identity, versioned.NewKV(ekv.MakeMemstore()))
 }
 
@@ -72,7 +72,7 @@ func LoginLegacy(client *Cmix, callbacks auth.Callbacks) (m *E2e, err error) {
 	}
 
 	u := m.Cmix.GetUser()
-	m.e2eIdentity = TransmissionIdentity{
+	m.e2eIdentity = ReceptionIdentity{
 		ID:            u.TransmissionID,
 		RSAPrivatePem: u.TransmissionRSA,
 		Salt:          u.TransmissionSalt,
@@ -84,9 +84,9 @@ func LoginLegacy(client *Cmix, callbacks auth.Callbacks) (m *E2e, err error) {
 
 // login creates a new e2eApi.E2e backed by the given versioned.KV
 func login(client *Cmix, callbacks auth.Callbacks,
-	identity TransmissionIdentity, kv *versioned.KV) (m *E2e, err error) {
+	identity ReceptionIdentity, kv *versioned.KV) (m *E2e, err error) {
 
-	// Verify the passed-in TransmissionIdentity matches its properties
+	// Verify the passed-in ReceptionIdentity matches its properties
 	generatedId, err := xx.NewID(identity.RSAPrivatePem.GetPublic(), identity.Salt, id.User)
 	if err != nil {
 		return nil, err
@@ -209,8 +209,8 @@ func (m *E2e) GetUser() user.Info {
 	return u
 }
 
-// GetTransmissionIdentity returns a safe copy of the E2e TransmissionIdentity
-func (m *E2e) GetTransmissionIdentity() TransmissionIdentity {
+// GetTransmissionIdentity returns a safe copy of the E2e ReceptionIdentity
+func (m *E2e) GetTransmissionIdentity() ReceptionIdentity {
 	return m.e2eIdentity.DeepCopy()
 }
 

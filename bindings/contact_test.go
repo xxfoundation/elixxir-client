@@ -22,14 +22,14 @@ func TestIdentity_JSON(t *testing.T) {
 	dhpkJson, _ := dhpk.MarshalJSON()
 	op := make([]byte, 64)
 	_, _ = rng.Read(op)
-	identity := TransmissionIdentity{
+	identity := ReceptionIdentity{
 		ID:            uid.Marshal(),
 		RSAPrivatePem: rsa.CreatePrivateKeyPem(pk),
 		Salt:          salt,
 		DHKeyPrivate:  dhpkJson,
 	}
 	im, _ := json.Marshal(identity)
-	t.Log("Marshalled TransmissionIdentity object")
+	t.Log("Marshalled ReceptionIdentity object")
 	t.Log(string(im))
 }
 

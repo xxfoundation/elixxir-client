@@ -23,7 +23,7 @@ func (_ *AuthenticatedConnection) IsAuthenticated() bool {
 // ConnectWithAuthentication is called by the client (i.e. the one establishing
 // connection with the server). Once a connect.Connection has been established
 // with the server and then authenticate their identity to the server.
-// accepts a marshalled TransmissionIdentity and contact.Contact object
+// accepts a marshalled ReceptionIdentity and contact.Contact object
 func (c *Cmix) ConnectWithAuthentication(e2eId int, recipientContact []byte) (*AuthenticatedConnection, error) {
 	cont, err := contact.Unmarshal(recipientContact)
 	if err != nil {

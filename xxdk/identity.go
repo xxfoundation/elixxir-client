@@ -15,20 +15,20 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-type TransmissionIdentity struct {
+type ReceptionIdentity struct {
 	ID            *id.ID
 	RSAPrivatePem *rsa.PrivateKey
 	Salt          []byte
 	DHKeyPrivate  *cyclic.Int
 }
 
-// MakeTransmissionIdentity generates a new cryptographic identity for receiving messages
-func MakeTransmissionIdentity(rng csprng.Source, grp *cyclic.Group) (TransmissionIdentity, error) {
+// MakeReceptionIdentity generates a new cryptographic identity for receiving messages
+func MakeReceptionIdentity(rng csprng.Source, grp *cyclic.Group) (ReceptionIdentity, error) {
 	//make RSA Key
 	rsaKey, err := rsa.GenerateKey(rng,
 		rsa.DefaultRSABitLen)
 	if err != nil {
-		return TransmissionIdentity{}, err
+		return ReceptionIdentity{}, err
 	}
 
 	//make salt
@@ -44,11 +44,11 @@ func MakeTransmissionIdentity(rng csprng.Source, grp *cyclic.Group) (Transmissio
 	newId, err := xx.NewID(rsaKey.GetPublic(),
 		salt, id.User)
 	if err != nil {
-		return TransmissionIdentity{}, err
+		return ReceptionIdentity{}, err
 	}
 
 	//create the identity object
-	I := TransmissionIdentity{
+	I := ReceptionIdentity{
 		ID:            newId,
 		RSAPrivatePem: rsaKey,
 		Salt:          salt,
@@ -58,11 +58,11 @@ func MakeTransmissionIdentity(rng csprng.Source, grp *cyclic.Group) (Transmissio
 	return I, nil
 }
 
-// DeepCopy produces a safe copy of a TransmissionIdentity
-func (t TransmissionIdentity) DeepCopy() TransmissionIdentity {
+// DeepCopy produces a safe copy of a ReceptionIdentity
+func (t ReceptionIdentity) DeepCopy() ReceptionIdentity {
 	saltCopy := make([]byte, len(t.Salt))
 	copy(saltCopy, t.Salt)
-	return TransmissionIdentity{
+	return ReceptionIdentity{
 		ID:            t.ID.DeepCopy(),
 		RSAPrivatePem: t.RSAPrivatePem,
 		Salt:          saltCopy,

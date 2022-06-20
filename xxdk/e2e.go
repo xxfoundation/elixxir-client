@@ -49,9 +49,9 @@ func LoginEphemeral(client *Cmix, callbacks auth.Callbacks,
 }
 
 // LoginLegacy creates a new E2e backed by the xxdk.Cmix persistent versioned.KV
-// Uses the pre-generated transmission ID used by xxdk.Cmix
-// This function is designed to maintain backwards compatibility with previous xx messenger designs
-// and should not be used for other purposes
+// Uses the pre-generated transmission ID used by xxdk.Cmix.
+// This function is designed to maintain backwards compatibility with previous
+// xx messenger designs and should not be used for other purposes.
 func LoginLegacy(client *Cmix, callbacks auth.Callbacks) (m *E2e, err error) {
 	m = &E2e{
 		Cmix:   client,
@@ -82,7 +82,7 @@ func LoginLegacy(client *Cmix, callbacks auth.Callbacks) (m *E2e, err error) {
 	return m, err
 }
 
-// login creates a new e2eApi.E2e backed by the given versioned.KV
+// login creates a new xxdk.E2e backed by the given versioned.KV
 func login(client *Cmix, callbacks auth.Callbacks,
 	identity ReceptionIdentity, kv *versioned.KV) (m *E2e, err error) {
 

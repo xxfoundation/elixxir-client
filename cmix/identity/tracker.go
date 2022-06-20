@@ -41,7 +41,8 @@ const (
 	trackedIDChanSize = 1000
 	deleteIDChanSize  = 1000
 
-	// DefaultExtraChecks is the default value for ExtraChecks on receptionID.Identity.
+	// DefaultExtraChecks is the default value for ExtraChecks
+	// on receptionID.Identity.
 	DefaultExtraChecks = 10
 )
 
@@ -225,8 +226,8 @@ func (t *manager) track(stop *stoppable.Single) {
 	}
 }
 
-// processIdentities builds and adds new identities and removes old identities from the tracker
-// and returns the timestamp of the next ID event
+// processIdentities builds and adds new identities and removes old
+// identities from the tracker and returns the timestamp of the next ID event.
 func (t *manager) processIdentities(addressSize uint8) time.Time {
 	edits := false
 	toRemove := make(map[int]struct{})
@@ -304,7 +305,8 @@ func unmarshalTimestamp(lastTimestampObj *versioned.Object) (time.Time, error) {
 
 // generateIdentitiesOverRange generates and adds all not yet existing ephemeral Ids
 // and returns the timestamp of the next generation for the given TrackedID
-func (t *manager) generateIdentitiesOverRange(inQuestion TrackedID, addressSize uint8) time.Time {
+func (t *manager) generateIdentitiesOverRange(inQuestion TrackedID,
+	addressSize uint8) time.Time {
 	// Ensure that ephemeral IDs will not be generated after the
 	// identity is invalid
 	generateUntil := inQuestion.NextGeneration
@@ -337,7 +339,8 @@ func (t *manager) generateIdentitiesOverRange(inQuestion TrackedID, addressSize 
 		}
 		// Move up the end time if the source identity is invalid
 		// before the natural end of the ephemeral identity
-		if inQuestion.ValidUntil != Forever && newIdentity.End.After(inQuestion.ValidUntil) {
+		if inQuestion.ValidUntil != Forever && newIdentity.End.
+			After(inQuestion.ValidUntil) {
 			newIdentity.End = inQuestion.ValidUntil
 		}
 
@@ -348,7 +351,8 @@ func (t *manager) generateIdentitiesOverRange(inQuestion TrackedID, addressSize 
 
 		// Print debug information and set return value
 		if isLastIdentity := i == len(protoIds)-1; isLastIdentity {
-			jww.INFO.Printf("Current Identity: %d (source: %s), Start: %s, End: %s, addrSize: %d",
+			jww.INFO.Printf("Current Identity: %d (source: %s), Start: %s, "+
+				"End: %s, addrSize: %d",
 				newIdentity.EphId.Int64(),
 				newIdentity.Source,
 				newIdentity.StartValid,

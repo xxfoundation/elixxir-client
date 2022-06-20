@@ -23,12 +23,6 @@ import (
 	"time"
 )
 
-// Response interface allows for callbacks to
-type Response interface {
-	Callback(payload []byte, receptionID receptionID.EphemeralIdentity,
-		rounds []rounds.Round, err error)
-}
-
 // Error messages.
 const (
 	// TransmitRequest

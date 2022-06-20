@@ -23,8 +23,10 @@ type ReceptionIdentity struct {
 	DHKeyPrivate  *cyclic.Int
 }
 
-// MakeReceptionIdentity generates a new cryptographic identity for receiving messages
-func MakeReceptionIdentity(rng csprng.Source, grp *cyclic.Group) (ReceptionIdentity, error) {
+// MakeReceptionIdentity generates a new cryptographic identity
+// for receiving messages.
+func MakeReceptionIdentity(rng csprng.Source,
+	grp *cyclic.Group) (ReceptionIdentity, error) {
 	//make RSA Key
 	rsaKey, err := rsa.GenerateKey(rng,
 		rsa.DefaultRSABitLen)

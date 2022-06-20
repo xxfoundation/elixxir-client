@@ -8,14 +8,11 @@ import (
 	"gitlab.com/elixxir/client/cmix"
 	cmixMsg "gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/single/message"
-	"gitlab.com/elixxir/comms/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -42,16 +39,6 @@ type Request struct {
 	requestPayload []byte      // Request message payload
 
 	net RequestCmix
-}
-
-// RequestCmix interface matches a subset of the cmix.Client methods used by the
-// Request for easier testing.
-type RequestCmix interface {
-	GetMaxMessageLength() int
-	Send(recipient *id.ID, fingerprint format.Fingerprint,
-		service cmixMsg.Service, payload, mac []byte,
-		cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error)
-	GetInstance() *network.Instance
 }
 
 // Respond is used to respond to the request. It sends a payload up to

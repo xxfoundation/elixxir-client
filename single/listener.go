@@ -16,15 +16,6 @@ import (
 	"strings"
 )
 
-type Receiver interface {
-	Callback(*Request, receptionID.EphemeralIdentity, []rounds.Round)
-}
-
-type Listener interface {
-	// Stop unregisters the listener
-	Stop()
-}
-
 type listener struct {
 	tag       string
 	grp       *cyclic.Group
@@ -60,17 +51,6 @@ func Listen(tag string, myID *id.ID, privKey *cyclic.Int, net ListenCmix,
 	net.AddService(myID, svc, l)
 
 	return l
-}
-
-type ListenCmix interface {
-	RequestCmix
-	AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,
-		mp cMixMsg.Processor) error
-	AddService(
-		clientID *id.ID, newService cMixMsg.Service, response cMixMsg.Processor)
-	DeleteService(
-		clientID *id.ID, toDelete cMixMsg.Service, processor cMixMsg.Processor)
-	CheckInProgressMessages()
 }
 
 // Process decrypts and collates the encrypted single-use request message.

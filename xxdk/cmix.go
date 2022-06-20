@@ -331,6 +331,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
+	c.network.AddIdentity(c.GetUser().ReceptionID, time.Time{}, true)
 	c.storage.SetNDF(def)
 
 	err = c.initPermissioning(def)

@@ -35,15 +35,10 @@ func (bc *broadcastClient) maxSymmetricPayload() int {
 }
 
 // Broadcast broadcasts a payload over a symmetric channel.
-// broadcast method must be set to Symmetric
 // Network must be healthy to send
 // Requires a payload of size bc.MaxSymmetricPayloadSize()
 func (bc *broadcastClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
 	id.Round, ephemeral.Id, error) {
-	if bc.param.Method != Symmetric {
-		return 0, ephemeral.Id{}, errors.Errorf(errBroadcastMethodType, Symmetric, bc.param.Method)
-	}
-
 	if !bc.net.IsHealthy() {
 		return 0, ephemeral.Id{}, errors.New(errNetworkHealth)
 	}

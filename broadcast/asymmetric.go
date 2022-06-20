@@ -29,15 +29,10 @@ func (bc *broadcastClient) maxAsymmetricPayload() int {
 
 // BroadcastAsymmetric broadcasts the payload to the channel. Requires a healthy network state to send
 // Payload must be equal to bc.MaxAsymmetricPayloadSize, and the channel PrivateKey must be passed in
-// Broadcast method must be set to asymmetric
 // When a payload is sent, it is split into partitons of size bc.channel.MaxAsymmetricPayloadSize
 // which are each encrypted using multicastRSA
 func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey, payload []byte, cMixParams cmix.CMIXParams) (
 	id.Round, ephemeral.Id, error) {
-	if bc.param.Method != Asymmetric {
-		return 0, ephemeral.Id{}, errors.Errorf(errBroadcastMethodType, Asymmetric, bc.param.Method)
-	}
-
 	if !bc.net.IsHealthy() {
 		return 0, ephemeral.Id{}, errors.New(errNetworkHealth)
 	}

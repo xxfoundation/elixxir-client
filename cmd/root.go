@@ -1059,9 +1059,9 @@ func init() {
 	rootCmd.Flags().UintP("sendCount",
 		"", 1, "The number of times to send the message")
 	viper.BindPFlag("sendCount", rootCmd.Flags().Lookup("sendCount"))
-	rootCmd.Flags().UintP("sendDelay",
+	rootCmd.PersistentFlags().UintP("sendDelay",
 		"", 500, "The delay between sending the messages in ms")
-	viper.BindPFlag("sendDelay", rootCmd.Flags().Lookup("sendDelay"))
+	viper.BindPFlag("sendDelay", rootCmd.PersistentFlags().Lookup("sendDelay"))
 	rootCmd.Flags().BoolP("splitSends",
 		"", false, "Force sends to go over multiple rounds if possible")
 	viper.BindPFlag("splitSends", rootCmd.Flags().Lookup("splitSends"))

@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-// singleCmd is the single-use subcommand that allows for sending and responding
+// singleCmd is the single-use subcommand that allows for sening and responding
 // to single-use messages.
 var broadcastCmd = &cobra.Command{
 	Use:   "broadcast",
@@ -43,7 +43,6 @@ var broadcastCmd = &cobra.Command{
 				connected <- isconnected
 			})
 		waitUntilConnected(connected)
-
 		/* Set up underlying crypto broadcast.Channel */
 		var channel *crypto.Channel
 		var pk *rsa.PrivateKey
@@ -69,7 +68,6 @@ var broadcastCmd = &cobra.Command{
 				jww.FATAL.Panicf("description cannot be empty")
 			}
 
-			var channel *crypto.Channel
 			if viper.GetBool("new") {
 				// Create a new broadcast channel
 				channel, pk, err = crypto.NewChannel(name, desc, client.GetRng().GetStream())
@@ -78,7 +76,7 @@ var broadcastCmd = &cobra.Command{
 				}
 
 				if keyPath != "" {
-					err = utils.WriteFile(path, rsa.CreatePrivateKeyPem(pk), os.ModePerm, os.ModeDir)
+					err = utils.WriteFile(keyPath, rsa.CreatePrivateKeyPem(pk), os.ModePerm, os.ModeDir)
 					if err != nil {
 						jww.ERROR.Printf("Failed to write private key to path %s: %+v", path, err)
 					}
@@ -106,23 +104,6 @@ var broadcastCmd = &cobra.Command{
 					Salt:        salt,
 					RsaPubKey:   pubKey,
 				}
-
-				// Load key if it's there
-				if keyPath != "" {
-					if ep, err := utils.ExpandPath(keyPath); err == nil {
-						keyBytes, err := utils.ReadFile(ep)
-						if err != nil {
-							jww.ERROR.Printf("Failed to read private key from %s: %+v", ep, err)
-						}
-						pk, err = rsa.LoadPrivateKeyFromPem(keyBytes)
-						if err != nil {
-							jww.ERROR.Printf("Failed to load private key %+v: %+v", keyBytes, err)
-						}
-					} else {
-						jww.ERROR.Printf("Failed to expand private key path: %+v", err)
-					}
-
-				}
 			}
 
 			// Save channel to disk
@@ -141,66 +122,99 @@ var broadcastCmd = &cobra.Command{
 			}
 		}
 
+		// Load key if needed
+		if pk == nil && keyPath != "" {
+			jww.DEBUG.Printf("Attempting to load private key at %s")
+			if ep, err := utils.ExpandPath(keyPath); err == nil {
+				keyBytes, err := utils.ReadFile(ep)
+				if err != nil {
+					jww.ERROR.Printf("Failed to read private key from %s: %+v", ep, err)
+				}
+				pk, err = rsa.LoadPrivateKeyFromPem(keyBytes)
+				if err != nil {
+					jww.ERROR.Printf("Failed to load private key %+v: %+v", keyBytes, err)
+				}
+			} else {
+				jww.ERROR.Printf("Failed to expand private key path: %+v", err)
+			}
+		}
+
 		/* Broadcast client setup */
 
-		// Create receiver callback
+		// Select broadcast method
+		symmetric := viper.GetString("symmetric")
+		asymmetric := viper.GetString("asymmetric")
+
+		// Connect to broadcast channel
+		bcl, err := broadcast.NewBroadcastChannel(*channel, client.GetCmix(), client.GetRng())
+
+		// Create & register symmetric receiver callback
 		receiveChan := make(chan []byte, 100)
-		cb := func(payload []byte,
+		scb := func(payload []byte,
 			receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 			jww.INFO.Printf("Received symmetric message from %s over round %d", receptionID, round.ID)
 			receiveChan <- payload
 		}
-
-		// Select broadcast method
-		var method broadcast.Method
-		symmetric := viper.GetBool("symmetric")
-		asymmetric := viper.GetBool("asymmetric")
-		if symmetric && asymmetric {
-			jww.FATAL.Panicf("Cannot simultaneously broadcast symmetric & asymmetric")
-		}
-		if symmetric {
-			method = broadcast.Symmetric
-		} else if asymmetric {
-			method = broadcast.Asymmetric
+		err = bcl.RegisterListener(scb, broadcast.Symmetric)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to register symmetric listener: %+v", err)
 		}
 
-		// Connect to broadcast channel
-		bcl, err := broadcast.NewBroadcastChannel(*channel, cb, client.GetCmix(), client.GetRng(), broadcast.Param{Method: method})
-
-		/* Create properly sized broadcast message */
-		message := viper.GetString("broadcast")
-		fmt.Println(message)
-		var broadcastMessage []byte
-		if message != "" {
-			broadcastMessage, err = broadcast.NewSizedBroadcast(bcl.MaxPayloadSize(), []byte(message))
-			if err != nil {
-				jww.ERROR.Printf("Failed to create sized broadcast: %+v", err)
-			}
-
+		// Create & register asymmetric receiver callback
+		asymmetricReceiveChan := make(chan []byte, 100)
+		acb := func(payload []byte,
+			receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+			jww.INFO.Printf("Received asymmetric message from %s over round %d", receptionID, round.ID)
+			asymmetricReceiveChan <- payload
+		}
+		err = bcl.RegisterListener(acb, broadcast.Asymmetric)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to register asymmetric listener: %+v", err)
 		}
 
-		/* Broadcast message to the channel */
-		switch method {
-		case broadcast.Symmetric:
-			rid, eid, err := bcl.Broadcast(broadcastMessage, cmix.GetDefaultCMIXParams())
-			if err != nil {
-				jww.ERROR.Printf("Failed to send symmetric broadcast message: %+v", err)
+		jww.INFO.Printf("Broadcast listeners registered...")
+
+		/* Broadcast messages to the channel */
+		if symmetric != "" || asymmetric != "" {
+			jww.INFO.Printf("Attempting to send broadcasts...")
+			// Wait for sendDelay before sending (to allow connection to establish)
+			sendDelay := time.Duration(viper.GetUint("sendDelay"))
+			time.Sleep(sendDelay)
+
+			/* Send symmetric broadcast */
+			if symmetric != "" {
+				// Create properly sized broadcast message
+				broadcastMessage, err := broadcast.NewSizedBroadcast(bcl.MaxPayloadSize(), []byte(symmetric))
+				if err != nil {
+					jww.ERROR.Printf("Failed to create sized broadcast: %+v", err)
+				}
+				rid, eid, err := bcl.Broadcast(broadcastMessage, cmix.GetDefaultCMIXParams())
+				if err != nil {
+					jww.FATAL.Panicf("Failed to send symmetric broadcast message: %+v", err)
+				}
+				jww.INFO.Printf("Sent symmetric broadcast message to %s over round %d", eid, rid)
 			}
-			jww.INFO.Printf("Sent symmetric broadcast message to %s over round %d", eid, rid)
-		case broadcast.Asymmetric:
-			if pk == nil {
-				jww.FATAL.Panicf("CANNOT SEND ASYMMETRIC BROADCAST WITHOUT PRIVATE KEY")
+
+			/* Send asymmetric broadcast */
+			if asymmetric != "" {
+				// Create properly sized broadcast message
+				broadcastMessage, err := broadcast.NewSizedBroadcast(bcl.MaxAsymmetricPayloadSize(), []byte(asymmetric))
+				if err != nil {
+					jww.ERROR.Printf("Failed to create sized broadcast: %+v", err)
+				}
+				if pk == nil {
+					jww.FATAL.Panicf("CANNOT SEND ASYMMETRIC BROADCAST WITHOUT PRIVATE KEY")
+				}
+				rid, eid, err := bcl.BroadcastAsymmetric(pk, broadcastMessage, cmix.GetDefaultCMIXParams())
+				if err != nil {
+					jww.FATAL.Panicf("Failed to send asymmetric broadcast message: %+v", err)
+				}
+				jww.INFO.Printf("Sent asymmetric broadcast message to %s over round %d", eid, rid)
 			}
-			rid, eid, err := bcl.BroadcastAsymmetric(pk, broadcastMessage, cmix.GetDefaultCMIXParams())
-			if err != nil {
-				jww.ERROR.Printf("Failed to send asymmetric broadcast message: %+v", err)
-			}
-			jww.INFO.Printf("Sent asymmetric broadcast message to %s over round %d", eid, rid)
-		default:
-			jww.WARN.Printf("Unknown broadcast type (this should not happen)")
 		}
 
 		/* Receive broadcast messages over the channel */
+		jww.INFO.Printf("Waiting for message reception...")
 		waitSecs := viper.GetUint("waitTimeout")
 		expectedCnt := viper.GetUint("receiveCount")
 		waitTimeout := time.Duration(waitSecs) * time.Second
@@ -209,6 +223,17 @@ var broadcastCmd = &cobra.Command{
 		for !done && expectedCnt != 0 {
 			timeout := time.NewTimer(waitTimeout)
 			select {
+			case receivedPayload := <-asymmetricReceiveChan:
+				receivedCount++
+				receivedBroadcast, err := broadcast.DecodeSizedBroadcast(receivedPayload)
+				if err != nil {
+					jww.ERROR.Printf("Failed to decode sized broadcast: %+v", err)
+					continue
+				}
+				fmt.Printf("Asymmetric broadcast message %d/%d received: %s\n", receivedCount, expectedCnt, string(receivedBroadcast))
+				if receivedCount == expectedCnt {
+					done = true
+				}
 			case receivedPayload := <-receiveChan:
 				receivedCount++
 				receivedBroadcast, err := broadcast.DecodeSizedBroadcast(receivedPayload)
@@ -266,16 +291,12 @@ func init() {
 		"Create new broadcast channel")
 	_ = viper.BindPFlag("new", broadcastCmd.Flags().Lookup("new"))
 
-	broadcastCmd.Flags().StringP("broadcast", "", "",
-		"Message contents for broadcast")
-	_ = viper.BindPFlag("broadcast", broadcastCmd.Flags().Lookup("broadcast"))
-
-	broadcastCmd.Flags().BoolP("symmetric", "", false,
-		"Set broadcast method to symmetric")
+	broadcastCmd.Flags().StringP("symmetric", "", "",
+		"Send symmetric broadcast message")
 	_ = viper.BindPFlag("symmetric", broadcastCmd.Flags().Lookup("symmetric"))
 
-	broadcastCmd.Flags().BoolP("asymmetric", "", false,
-		"Set broadcast method to asymmetric")
+	broadcastCmd.Flags().StringP("asymmetric", "", "",
+		"Send asymmetric broadcast message (must be used with keyPath)")
 	_ = viper.BindPFlag("asymmetric", broadcastCmd.Flags().Lookup("asymmetric"))
 
 	rootCmd.AddCommand(broadcastCmd)

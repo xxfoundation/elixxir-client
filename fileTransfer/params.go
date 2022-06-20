@@ -9,6 +9,7 @@ package fileTransfer
 
 import (
 	"encoding/json"
+	"gitlab.com/elixxir/client/cmix"
 	"time"
 )
 
@@ -20,19 +21,23 @@ const (
 // Params contains parameters used for file transfer.
 type Params struct {
 	// MaxThroughput is the maximum data transfer speed to send file parts (in
-	// bytes per second)
+	// bytes per second). If set to 0, rate limiting will be disabled.
 	MaxThroughput int
 
 	// SendTimeout is the duration, in nanoseconds, before sending on a round
 	// times out. It is recommended that SendTimeout is not changed from its
 	// default.
 	SendTimeout time.Duration
+
+	// Cmix are the parameters used when sending a cMix message.
+	Cmix cmix.CMIXParams
 }
 
 // paramsDisk will be the marshal-able and umarshal-able object.
 type paramsDisk struct {
 	MaxThroughput int
 	SendTimeout   time.Duration
+	Cmix          cmix.CMIXParams
 }
 
 // DefaultParams returns a Params object filled with the default values.
@@ -40,6 +45,7 @@ func DefaultParams() Params {
 	return Params{
 		MaxThroughput: defaultMaxThroughput,
 		SendTimeout:   defaultSendTimeout,
+		Cmix:          cmix.GetDefaultCMIXParams(),
 	}
 }
 
@@ -61,9 +67,11 @@ func (p Params) MarshalJSON() ([]byte, error) {
 	pDisk := paramsDisk{
 		MaxThroughput: p.MaxThroughput,
 		SendTimeout:   p.SendTimeout,
+		Cmix:          p.Cmix,
 	}
 
 	return json.Marshal(&pDisk)
+
 }
 
 // UnmarshalJSON adheres to the json.Unmarshaler interface.
@@ -77,6 +85,7 @@ func (p *Params) UnmarshalJSON(data []byte) error {
 	*p = Params{
 		MaxThroughput: pDisk.MaxThroughput,
 		SendTimeout:   pDisk.SendTimeout,
+		Cmix:          pDisk.Cmix,
 	}
 
 	return nil

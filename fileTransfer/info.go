@@ -5,7 +5,7 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package fileTransfer2
+package fileTransfer
 
 import (
 	"github.com/golang/protobuf/proto"

@@ -5,25 +5,23 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package fileTransfer
+package e2e
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e"
-	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
+	ft "gitlab.com/elixxir/client/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 )
 
 // Error messages.
 const (
-	// manager.sendNewFileTransferMessage
-	errProtoMarshal = "failed to proto marshal NewFileTransfer: %+v"
+	// sendNewFileTransferMessage
 	errNewFtSendE2e = "failed to send initial file transfer message via E2E: %+v"
 
-	// manager.sendEndFileTransferMessage
+	// sendEndFileTransferMessage
 	errEndFtSendE2e = "[FT] Failed to send ending file transfer message via E2E: %+v"
 )
 
@@ -39,27 +37,8 @@ const (
 
 // sendNewFileTransferMessage sends an E2E message to the recipient informing
 // them of the incoming file transfer.
-func (m *manager) sendNewFileTransferMessage(recipient *id.ID, fileName,
-	fileType string, key *ftCrypto.TransferKey, mac []byte, numParts uint16,
-	fileSize uint32, retry float32, preview []byte) error {
-
-	// Construct NewFileTransfer message
-	protoMsg := &NewFileTransfer{
-		FileName:    fileName,
-		FileType:    fileType,
-		TransferKey: key.Bytes(),
-		TransferMac: mac,
-		NumParts:    uint32(numParts),
-		Size:        fileSize,
-		Retry:       retry,
-		Preview:     preview,
-	}
-
-	// Marshal the message
-	payload, err := proto.Marshal(protoMsg)
-	if err != nil {
-		return errors.Errorf(errProtoMarshal, err)
-	}
+func sendNewFileTransferMessage(
+	recipient *id.ID, transferInfo []byte, e2eHandler E2e) error {
 
 	// Get E2E parameters
 	params := e2e.GetDefaultParams()
@@ -67,8 +46,8 @@ func (m *manager) sendNewFileTransferMessage(recipient *id.ID, fileName,
 	params.LastServiceTag = catalog.Silent
 	params.DebugTag = initialMessageDebugTag
 
-	_, _, _, err = m.e2e.SendE2E(
-		catalog.NewFileTransfer, recipient, payload, params)
+	_, _, _, err := e2eHandler.SendE2E(
+		catalog.NewFileTransfer, recipient, transferInfo, params)
 	if err != nil {
 		return errors.Errorf(errNewFtSendE2e, err)
 	}
@@ -78,23 +57,23 @@ func (m *manager) sendNewFileTransferMessage(recipient *id.ID, fileName,
 
 // sendEndFileTransferMessage sends an E2E message to the recipient informing
 // them that all file parts have arrived once the network is healthy.
-func (m *manager) sendEndFileTransferMessage(recipient *id.ID) {
+func sendEndFileTransferMessage(recipient *id.ID, cmix ft.Cmix, e2eHandler E2e) {
 	callbackID := make(chan uint64, 1)
-	callbackID <- m.cmix.AddHealthCallback(
+	callbackID <- cmix.AddHealthCallback(
 		func(healthy bool) {
 			if healthy {
 				params := e2e.GetDefaultParams()
 				params.LastServiceTag = catalog.EndFT
 				params.DebugTag = lastMessageDebugTag
 
-				_, _, _, err := m.e2e.SendE2E(
+				_, _, _, err := e2eHandler.SendE2E(
 					catalog.EndFileTransfer, recipient, nil, params)
 				if err != nil {
 					jww.ERROR.Printf(errEndFtSendE2e, err)
 				}
 
 				cbID := <-callbackID
-				m.cmix.RemoveHealthCallback(cbID)
+				cmix.RemoveHealthCallback(cbID)
 			}
 		},
 	)

@@ -5,7 +5,7 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package fileTransfer2
+package fileTransfer
 
 import (
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"

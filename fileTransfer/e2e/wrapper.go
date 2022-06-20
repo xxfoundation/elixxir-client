@@ -5,22 +5,21 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package connect
+package e2e
 
 import (
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/receive"
-	ft "gitlab.com/elixxir/client/fileTransfer2"
+	ft "gitlab.com/elixxir/client/fileTransfer"
 	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
-// Wrapper handles the sending and receiving of file transfers using the
-// Connection interface messages to inform the recipient of incoming file
-// transfers.
+// Wrapper handles the sending and receiving of file transfers using E2E
+// messages to inform the recipient of incoming file transfers.
 type Wrapper struct {
 	// Callback that is called every time a new file transfer is received
 	receiveCB ft.ReceiveCallback
@@ -31,32 +30,34 @@ type Wrapper struct {
 	// Params for wrapper
 	p Params
 
+	myID *id.ID
 	cmix ft.Cmix
-	conn Connection
+	e2e  E2e
 }
 
-// Connection interface matches a subset of the connect.Connection methods used
-// by the Wrapper for easier testing.
-type Connection interface {
-	SendE2E(mt catalog.MessageType, payload []byte, params e2e.Params) (
-		[]id.Round, e2eCrypto.MessageID, time.Time, error)
-	RegisterListener(messageType catalog.MessageType,
+// E2e interface matches a subset of the e2e.Handler methods used by the Wrapper
+// for easier testing.
+type E2e interface {
+	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
+		params e2e.Params) ([]id.Round, e2eCrypto.MessageID, time.Time, error)
+	RegisterListener(senderID *id.ID, messageType catalog.MessageType,
 		newListener receive.Listener) receive.ListenerID
 }
 
-// NewWrapper generates a new file transfer manager using Connection E2E.
+// NewWrapper generates a new file transfer manager using E2E.
 func NewWrapper(receiveCB ft.ReceiveCallback, p Params, ft ft.FileTransfer,
-	conn Connection, cmix ft.Cmix) (*Wrapper, error) {
+	myID *id.ID, e2e E2e, cmix ft.Cmix) (*Wrapper, error) {
 	w := &Wrapper{
 		receiveCB: receiveCB,
 		ft:        ft,
 		p:         p,
+		myID:      myID,
 		cmix:      cmix,
-		conn:      conn,
+		e2e:       e2e,
 	}
 
 	// Register listener to receive new file transfers
-	w.conn.RegisterListener(catalog.NewFileTransfer, &listener{w})
+	w.e2e.RegisterListener(&id.ZeroUser, catalog.NewFileTransfer, &listener{w})
 
 	return w, nil
 }
@@ -83,14 +84,14 @@ func (w *Wrapper) MaxPreviewSize() int {
 
 // Send initiates the sending of a file to a recipient and returns a transfer ID
 // that uniquely identifies this file transfer. The initial and final messages
-// are sent via Connection E2E.
+// are sent via E2E.
 func (w *Wrapper) Send(recipient *id.ID, fileName, fileType string,
 	fileData []byte, retry float32, preview []byte,
 	progressCB ft.SentProgressCallback, period time.Duration) (
 	*ftCrypto.TransferID, error) {
 
 	sendNew := func(transferInfo []byte) error {
-		return sendNewFileTransferMessage(transferInfo, w.conn)
+		return sendNewFileTransferMessage(recipient, transferInfo, w.e2e)
 	}
 
 	modifiedProgressCB := w.addEndMessageToCallback(progressCB)
@@ -109,10 +110,11 @@ func (w *Wrapper) RegisterSentProgressCallback(tid *ftCrypto.TransferID,
 	return w.ft.RegisterSentProgressCallback(tid, modifiedProgressCB, period)
 }
 
-// addEndMessageToCallback adds the sending of an Connection E2E message when
-// the transfer completed to the callback. If NotifyUponCompletion is not set,
-// then the message is not sent.
-func (w *Wrapper) addEndMessageToCallback(progressCB ft.SentProgressCallback) ft.SentProgressCallback {
+// addEndMessageToCallback adds the sending of an E2E message when the transfer
+// completed to the callback. If NotifyUponCompletion is not set, then the
+// message is not sent.
+func (w *Wrapper) addEndMessageToCallback(
+	progressCB ft.SentProgressCallback) ft.SentProgressCallback {
 	if !w.p.NotifyUponCompletion {
 		return progressCB
 	}
@@ -121,7 +123,7 @@ func (w *Wrapper) addEndMessageToCallback(progressCB ft.SentProgressCallback) ft
 
 		// If the transfer is completed, send last message informing recipient
 		if completed {
-			sendEndFileTransferMessage(w.cmix, w.conn)
+			sendEndFileTransferMessage(st.Recipient(), w.cmix, w.e2e)
 		}
 
 		progressCB(completed, arrived, total, st, t, err)

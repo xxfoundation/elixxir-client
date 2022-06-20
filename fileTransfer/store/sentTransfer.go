@@ -68,6 +68,9 @@ type SentTransfer struct {
 	// ID of the recipient of the file transfer
 	recipient *id.ID
 
+	// The size of the entire file
+	fileSize uint32
+
 	// The number of file parts in the file
 	numParts uint16
 
@@ -87,8 +90,8 @@ type SentTransfer struct {
 // newSentTransfer generates a new SentTransfer with the specified transfer key,
 // transfer ID, and parts.
 func newSentTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
-	tid *ftCrypto.TransferID, fileName string, parts [][]byte, numFps uint16,
-	kv *versioned.KV) (*SentTransfer, error) {
+	tid *ftCrypto.TransferID, fileName string, fileSize uint32, parts [][]byte,
+	numFps uint16, kv *versioned.KV) (*SentTransfer, error) {
 	kv = kv.Prefix(makeSentTransferPrefix(tid))
 
 	// Create new cypher manager
@@ -109,6 +112,7 @@ func newSentTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 		tid:           tid,
 		fileName:      fileName,
 		recipient:     recipient,
+		fileSize:      fileSize,
 		numParts:      uint16(len(parts)),
 		status:        Running,
 		parts:         parts,
@@ -173,11 +177,6 @@ func (st *SentTransfer) Status() TransferStatus {
 	return st.status
 }
 
-// NumParts returns the total number of file parts in the transfer.
-func (st *SentTransfer) NumParts() uint16 {
-	return st.numParts
-}
-
 // TransferID returns the transfer's ID.
 func (st *SentTransfer) TransferID() *ftCrypto.TransferID {
 	return st.tid
@@ -191,6 +190,16 @@ func (st *SentTransfer) FileName() string {
 // Recipient returns the transfer's recipient ID.
 func (st *SentTransfer) Recipient() *id.ID {
 	return st.recipient
+}
+
+// FileSize returns the size of the entire file transfer.
+func (st *SentTransfer) FileSize() uint32 {
+	return st.fileSize
+}
+
+// NumParts returns the total number of file parts in the transfer.
+func (st *SentTransfer) NumParts() uint16 {
+	return st.numParts
 }
 
 // NumArrived returns the number of parts that have arrived.
@@ -243,6 +252,7 @@ func loadSentTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
 		tid:           tid,
 		fileName:      fileName,
 		recipient:     recipient,
+		fileSize:      calcFileSize(parts),
 		numParts:      uint16(len(parts)),
 		status:        status,
 		parts:         parts,
@@ -251,6 +261,14 @@ func loadSentTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
 	}
 
 	return st, nil
+}
+
+// calcFileSize calculates the size of the entire file from a list of parts. All
+// parts, except the last, are assumed to have the same length.
+func calcFileSize(parts [][]byte) uint32 {
+	lastPartSize := len(parts[len(parts)-1])
+	otherPartsSize := len(parts[0]) * (len(parts) - 1)
+	return uint32(lastPartSize + otherPartsSize)
 }
 
 // Delete deletes all data in the SentTransfer from storage.

@@ -12,7 +12,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e"
-	ft "gitlab.com/elixxir/client/fileTransfer2"
+	ft "gitlab.com/elixxir/client/fileTransfer"
 )
 
 // Error messages.

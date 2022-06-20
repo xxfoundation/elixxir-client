@@ -9,7 +9,7 @@ package groupChat
 
 import (
 	"github.com/pkg/errors"
-	ft "gitlab.com/elixxir/client/fileTransfer2"
+	ft "gitlab.com/elixxir/client/fileTransfer"
 	"gitlab.com/elixxir/client/groupChat"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/crypto/group"

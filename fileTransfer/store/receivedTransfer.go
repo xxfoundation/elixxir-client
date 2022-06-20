@@ -73,11 +73,11 @@ type ReceivedTransfer struct {
 	// The MAC for the entire file; used to verify the integrity of all parts
 	transferMAC []byte
 
-	// The number of file parts in the file
-	numParts uint16
-
 	// Size of the entire file in bytes
 	fileSize uint32
+
+	// The number of file parts in the file
+	numParts uint16
 
 	// Saves each part in order (has its own storage backend)
 	parts [][]byte
@@ -92,8 +92,8 @@ type ReceivedTransfer struct {
 // newReceivedTransfer generates a ReceivedTransfer with the specified transfer
 // key, transfer ID, and a number of parts.
 func newReceivedTransfer(key *ftCrypto.TransferKey, tid *ftCrypto.TransferID,
-	fileName string, transferMAC []byte, numParts, numFps uint16,
-	fileSize uint32, kv *versioned.KV) (*ReceivedTransfer, error) {
+	fileName string, transferMAC []byte, fileSize uint32, numParts,
+	numFps uint16, kv *versioned.KV) (*ReceivedTransfer, error) {
 	kv = kv.Prefix(makeReceivedTransferPrefix(tid))
 
 	// Create new cypher manager
@@ -114,8 +114,8 @@ func newReceivedTransfer(key *ftCrypto.TransferKey, tid *ftCrypto.TransferID,
 		tid:           tid,
 		fileName:      fileName,
 		transferMAC:   transferMAC,
-		numParts:      numParts,
 		fileSize:      fileSize,
+		numParts:      numParts,
 		parts:         make([][]byte, numParts),
 		partStatus:    partStatus,
 		kv:            kv,
@@ -168,11 +168,6 @@ func (rt *ReceivedTransfer) GetUnusedCyphers() []cypher.Cypher {
 	return rt.cypherManager.GetUnusedCyphers()
 }
 
-// NumParts returns the total number of file parts in the transfer.
-func (rt *ReceivedTransfer) NumParts() uint16 {
-	return rt.numParts
-}
-
 // TransferID returns the transfer's ID.
 func (rt *ReceivedTransfer) TransferID() *ftCrypto.TransferID {
 	return rt.tid
@@ -181,6 +176,16 @@ func (rt *ReceivedTransfer) TransferID() *ftCrypto.TransferID {
 // FileName returns the transfer's file name.
 func (rt *ReceivedTransfer) FileName() string {
 	return rt.fileName
+}
+
+// FileSize returns the size of the entire file transfer.
+func (rt *ReceivedTransfer) FileSize() uint32 {
+	return rt.fileSize
+}
+
+// NumParts returns the total number of file parts in the transfer.
+func (rt *ReceivedTransfer) NumParts() uint16 {
+	return rt.numParts
 }
 
 // NumReceived returns the number of parts that have been received.
@@ -247,8 +252,8 @@ func loadReceivedTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
 		tid:           tid,
 		fileName:      fileName,
 		transferMAC:   transferMAC,
-		numParts:      numParts,
 		fileSize:      fileSize,
+		numParts:      numParts,
 		parts:         parts,
 		partStatus:    partStatus,
 		kv:            kv,

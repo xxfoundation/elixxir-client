@@ -5,14 +5,12 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
-package connect
+package groupChat
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/connect"
-	"gitlab.com/elixxir/client/e2e/receive"
-	ft "gitlab.com/elixxir/client/fileTransfer2"
+	ft "gitlab.com/elixxir/client/fileTransfer"
+	"gitlab.com/elixxir/client/groupChat"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -25,19 +23,18 @@ import (
 	"time"
 )
 
-// Tests that Connection adheres to the connect.Connection interface.
-var _ Connection = (connect.Connection)(nil)
+// Tests that GroupChat adheres to the groupChat.GroupChat interface.
+var _ GroupChat = (groupChat.GroupChat)(nil)
 
 // Smoke test of the entire file transfer system.
 func Test_FileTransfer_Smoke(t *testing.T) {
 	// jww.SetStdoutThreshold(jww.LevelDebug)
 	// Set up cMix and E2E message handlers
 	cMixHandler := newMockCmixHandler()
-	e2eHandler := newMockConnectionHandler()
+	gcHandler := newMockGcHandler()
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
-	ftParams := ft.DefaultParams()
-	ftParams.MaxThroughput = math.MaxInt
-	params := DefaultParams()
+	params := ft.DefaultParams()
+	params.MaxThroughput = math.MaxInt
 
 	type receiveCbValues struct {
 		tid      *ftCrypto.TransferID
@@ -49,27 +46,19 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	}
 
 	// Set up the first client
-	receiveCbChan1 := make(chan receiveCbValues, 10)
-	receiveCB1 := func(tid *ftCrypto.TransferID, fileName, fileType string,
-		sender *id.ID, size uint32, preview []byte) {
-		receiveCbChan1 <- receiveCbValues{
-			tid, fileName, fileType, sender, size, preview}
-	}
 	myID1 := id.NewIdFromString("myID1", id.User, t)
 	storage1 := newMockStorage()
-	endE2eChan1 := make(chan receive.Message, 3)
-	conn1 := newMockConnection(myID1, e2eHandler)
-	conn1.RegisterListener(catalog.EndFileTransfer, newMockListener(endE2eChan1))
-	cmix1 := newMockCmix(myID1, cMixHandler, storage1)
-	ftManager1, err := ft.NewManager(ftParams, myID1, cmix1, storage1, rngGen)
+	gc1 := newMockGC(gcHandler)
+	ftManager1, err := ft.NewManager(params, myID1,
+		newMockCmix(myID1, cMixHandler, storage1), storage1, rngGen)
 	if err != nil {
-		t.Errorf("Failed to make new file transfer manager: %+v", err)
+		t.Errorf("Failed to create file transfer manager 2: %+v", err)
 	}
 	stop1, err := ftManager1.StartProcesses()
 	if err != nil {
-		t.Errorf("Failed to start processes for manager 1: %+v", err)
+		t.Errorf("Failed to start file transfer processes for manager 1: %+v", err)
 	}
-	m1, err := NewWrapper(receiveCB1, params, ftManager1, conn1, cmix1)
+	m1, err := NewWrapper(nil, ftManager1, gc1)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 1: %+v", err)
 	}
@@ -83,19 +72,17 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	}
 	myID2 := id.NewIdFromString("myID2", id.User, t)
 	storage2 := newMockStorage()
-	endE2eChan2 := make(chan receive.Message, 3)
-	conn2 := newMockConnection(myID2, e2eHandler)
-	conn2.RegisterListener(catalog.EndFileTransfer, newMockListener(endE2eChan2))
-	cmix2 := newMockCmix(myID1, cMixHandler, storage2)
-	ftManager2, err := ft.NewManager(ftParams, myID2, cmix2, storage2, rngGen)
+	gc2 := newMockGC(gcHandler)
+	ftManager2, err := ft.NewManager(params, myID2,
+		newMockCmix(myID2, cMixHandler, storage2), storage2, rngGen)
 	if err != nil {
-		t.Errorf("Failed to make new file transfer manager: %+v", err)
+		t.Errorf("Failed to create file transfer manager 2: %+v", err)
 	}
 	stop2, err := ftManager2.StartProcesses()
 	if err != nil {
-		t.Errorf("Failed to start processes for manager 2: %+v", err)
+		t.Errorf("Failed to start file transfer processes for manager 2: %+v", err)
 	}
-	m2, err := NewWrapper(receiveCB2, params, ftManager2, conn2, cmix2)
+	m2, err := NewWrapper(receiveCB2, ftManager2, gc2)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 2: %+v", err)
 	}
@@ -179,12 +166,6 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 
 	// Wait for file to be sent and received
 	wg.Wait()
-
-	select {
-	case <-endE2eChan2:
-	case <-time.After(15 * time.Millisecond):
-		t.Errorf("Timed out waiting for end file transfer message.")
-	}
 
 	err = m1.CloseSend(tid1)
 	if err != nil {

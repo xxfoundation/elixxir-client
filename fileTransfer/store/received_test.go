@@ -60,7 +60,7 @@ func TestNewOrLoadReceived_Load(t *testing.T) {
 		key, _ := ftCrypto.NewTransferKey(csprng.NewSystemRNG())
 		tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
 		rt, err2 := r.AddTransfer(&key, &tid, "file"+strconv.Itoa(i),
-			[]byte("transferMAC"+strconv.Itoa(i)), 10, 20, 128)
+			[]byte("transferMAC"+strconv.Itoa(i)), 128, 10, 20)
 		if err2 != nil {
 			t.Errorf("Failed to add transfer #%d: %+v", i, err2)
 		}
@@ -108,7 +108,7 @@ func TestReceived_AddTransfer(t *testing.T) {
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
 
 	rt, err := r.AddTransfer(
-		&key, &tid, "file", []byte("transferMAC"), 10, 20, 128)
+		&key, &tid, "file", []byte("transferMAC"), 128, 10, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
@@ -144,7 +144,7 @@ func TestReceived_GetTransfer(t *testing.T) {
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
 
 	rt, err := r.AddTransfer(
-		&key, &tid, "file", []byte("transferMAC"), 10, 20, 128)
+		&key, &tid, "file", []byte("transferMAC"), 128, 10, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}
@@ -170,7 +170,7 @@ func TestReceived_RemoveTransfer(t *testing.T) {
 	tid, _ := ftCrypto.NewTransferID(csprng.NewSystemRNG())
 
 	rt, err := r.AddTransfer(
-		&key, &tid, "file", []byte("transferMAC"), 10, 20, 128)
+		&key, &tid, "file", []byte("transferMAC"), 128, 10, 20)
 	if err != nil {
 		t.Errorf("Failed to add new transfer: %+v", err)
 	}

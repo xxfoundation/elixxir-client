@@ -10,17 +10,15 @@ package fileTransfer
 import (
 	"bytes"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/catalog"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/fileTransfer/callbackTracker"
 	"gitlab.com/elixxir/client/fileTransfer/store"
 	"gitlab.com/elixxir/client/fileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
-	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/elixxir/primitives/format"
@@ -83,6 +81,7 @@ const (
 	errSendNetworkHealth = "cannot initiate file transfer of %q when network is not healthy."
 	errNewKey            = "could not generate new transfer key: %+v"
 	errNewID             = "could not generate new transfer ID: %+v"
+	errMarshalInfo       = "could not marshal transfer info: %+v"
 	errSendNewMsg        = "failed to send initial file transfer message: %+v"
 	errAddSentTransfer   = "failed to add transfer: %+v"
 
@@ -90,6 +89,10 @@ const (
 	errDeleteIncompleteTransfer = "cannot delete transfer %s that has not completed or failed"
 	errDeleteSentTransfer       = "could not delete sent transfer %s: %+v"
 	errRemoveSentTransfer       = "could not remove transfer %s from list: %+v"
+
+	// manager.HandleIncomingTransfer
+	errNewRtTransferID = "failed to generate transfer ID for new received file transfer %q: %+v"
+	errAddNewRt        = "failed to add new file transfer %s (%q): %+v"
 
 	// manager.Receive
 	errIncompleteFile         = "cannot get incomplete file: missing %d of %d parts"
@@ -106,9 +109,6 @@ type manager struct {
 	// Storage-backed structure for tracking received file transfers
 	received *store.Received
 
-	// Callback that is called every time a new file transfer is received
-	receiveCB ReceiveCallback
-
 	// Progress callback tracker
 	callbacks *callbackTracker.Manager
 
@@ -121,13 +121,15 @@ type manager struct {
 	// File transfer parameters
 	params Params
 
-	myID *id.ID
-	cmix Cmix
-	e2e  E2e
-	kv   *versioned.KV
-	rng  *fastRNG.StreamGenerator
+	myID      *id.ID
+	cmix      Cmix
+	cmixGroup *cyclic.Group
+	kv        *versioned.KV
+	rng       *fastRNG.StreamGenerator
 }
 
+// Cmix interface matches a subset of the cmix.Client methods used by the
+// manager for easier testing.
 type Cmix interface {
 	GetMaxMessageLength() int
 	SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round,
@@ -135,26 +137,27 @@ type Cmix interface {
 	AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,
 		mp message.Processor) error
 	DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint)
+	CheckInProgressMessages()
 	IsHealthy() bool
 	AddHealthCallback(f func(bool)) uint64
 	RemoveHealthCallback(uint64)
-	GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback,
-		roundList ...id.Round) error
+	GetRoundResults(timeout time.Duration,
+		roundCallback cmix.RoundEventCallback, roundList ...id.Round) error
 }
 
-type E2e interface {
-	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
-		params e2e.Params) ([]id.Round, e2eCrypto.MessageID, time.Time, error)
-	RegisterListener(senderID *id.ID, messageType catalog.MessageType,
-		newListener receive.Listener) receive.ListenerID
+// Storage interface matches a subset of the storage.Session methods used by the
+// manager for easier testing.
+type Storage interface {
+	GetKV() *versioned.KV
+	GetCmixGroup() *cyclic.Group
 }
 
 // NewManager creates a new file transfer manager object. If sent or received
 // transfers already existed, they are loaded from storage and queued to resume
 // once manager.startProcesses is called.
-func NewManager(receiveCB ReceiveCallback, params Params, myID *id.ID,
-	cmix Cmix, e2e E2e, kv *versioned.KV,
+func NewManager(params Params, myID *id.ID, cmix Cmix, storage Storage,
 	rng *fastRNG.StreamGenerator) (FileTransfer, error) {
+	kv := storage.GetKV()
 
 	// Create a new list of sent file transfers or load one if it exists
 	sent, unsentParts, err := store.NewOrLoadSent(kv)
@@ -172,14 +175,13 @@ func NewManager(receiveCB ReceiveCallback, params Params, myID *id.ID,
 	m := &manager{
 		sent:       sent,
 		received:   received,
-		receiveCB:  receiveCB,
 		callbacks:  callbackTracker.NewManager(),
 		batchQueue: make(chan store.Part, batchQueueBuffLen),
 		sendQueue:  make(chan []store.Part, sendQueueBuffLen),
 		params:     params,
 		myID:       myID,
 		cmix:       cmix,
-		e2e:        e2e,
+		cmixGroup:  storage.GetCmixGroup(),
 		kv:         kv,
 		rng:        rng,
 	}
@@ -199,10 +201,6 @@ func NewManager(receiveCB ReceiveCallback, params Params, myID *id.ID,
 
 // StartProcesses starts the sending threads. Adheres to the xxdk.Service type.
 func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
-	// Register listener to receive new file transfers
-	m.e2e.RegisterListener(
-		m.myID, catalog.NewFileTransfer, &fileTransferListener{m})
-
 	// Construct stoppables
 	multiStop := stoppable.NewMulti(workerPoolStoppable)
 	batchBuilderStop := stoppable.NewSingle(batchBuilderThreadStoppable)
@@ -243,9 +241,9 @@ func (m *manager) MaxPreviewSize() int {
 
 // Send partitions the given file into cMix message sized chunks and sends them
 // via cmix.SendMany.
-func (m *manager) Send(fileName, fileType string, fileData []byte,
-	recipient *id.ID, retry float32, preview []byte,
-	progressCB SentProgressCallback, period time.Duration) (
+func (m *manager) Send(recipient *id.ID, fileName, fileType string,
+	fileData []byte, retry float32, preview []byte,
+	progressCB SentProgressCallback, period time.Duration, sendNew SendNew) (
 	*ftCrypto.TransferID, error) {
 
 	// Return an error if the file name is too long
@@ -297,8 +295,13 @@ func (m *manager) Send(fileName, fileType string, fileData []byte,
 	fileSize := uint32(len(fileData))
 
 	// Send the initial file transfer message over E2E
-	err = m.sendNewFileTransferMessage(recipient, fileName, fileType, &key, mac,
-		numParts, fileSize, retry, preview)
+	info := &TransferInfo{
+		fileName, fileType, key, mac, numParts, fileSize, retry, preview}
+	transferInfo, err := info.Marshal()
+	if err != nil {
+		return nil, errors.Errorf(errMarshalInfo, err)
+	}
+	err = sendNew(transferInfo)
 	if err != nil {
 		return nil, errors.Errorf(errSendNewMsg, err)
 	}
@@ -307,7 +310,8 @@ func (m *manager) Send(fileName, fileType string, fileData []byte,
 	numFps := calcNumberOfFingerprints(len(parts), retry)
 
 	// Create new sent transfer
-	st, err := m.sent.AddTransfer(recipient, &key, &tid, fileName, parts, numFps)
+	st, err := m.sent.AddTransfer(
+		recipient, &key, &tid, fileName, fileSize, parts, numFps)
 	if err != nil {
 		return nil, errors.Errorf(errAddSentTransfer, err)
 	}
@@ -351,16 +355,11 @@ func (m *manager) registerSentProgressCallback(st *store.SentTransfer,
 		arrived, total := st.NumArrived(), st.NumParts()
 		completed := arrived == total
 
-		// If the transfer is completed, send last message informing recipient
-		if completed {
-			m.sendEndFileTransferMessage(st.Recipient())
-		}
-
 		// Build part tracker from copy of part statuses vector
 		tracker := &sentFilePartTracker{st.CopyPartStatusVector()}
 
 		// Call the progress callback
-		progressCB(completed, arrived, total, tracker, err)
+		progressCB(completed, arrived, total, st, tracker, err)
 	}
 
 	// Add the callback to the callback tracker
@@ -401,6 +400,49 @@ func (m *manager) CloseSend(tid *ftCrypto.TransferID) error {
 }
 
 /* === Receiving ============================================================ */
+
+const errUnmarshalInfo = "failed to unmarshal incoming transfer info: %+v"
+
+// HandleIncomingTransfer starts tracking the received file parts for the given
+// file information and returns a transfer ID that uniquely identifies this file
+// transfer.
+func (m *manager) HandleIncomingTransfer(transferInfo []byte,
+	progressCB ReceivedProgressCallback, period time.Duration) (
+	*ftCrypto.TransferID, *TransferInfo, error) {
+
+	// Unmarshal the payload
+	t, err := UnmarshalTransferInfo(transferInfo)
+	if err != nil {
+		return nil, nil, errors.Errorf(errUnmarshalInfo, err)
+	}
+
+	// Generate new transfer ID
+	rng := m.rng.GetStream()
+	tid, err := ftCrypto.NewTransferID(rng)
+	if err != nil {
+		rng.Close()
+		return nil, nil, errors.Errorf(errNewRtTransferID, t.FileName, err)
+	}
+	rng.Close()
+
+	// Calculate the number of fingerprints based on the retry rate
+	numFps := calcNumberOfFingerprints(int(t.NumParts), t.Retry)
+
+	// Store the transfer
+	rt, err := m.received.AddTransfer(
+		&t.Key, &tid, t.FileName, t.Mac, t.Size, t.NumParts, numFps)
+	if err != nil {
+		return nil, nil, errors.Errorf(errAddNewRt, tid, t.FileName, err)
+	}
+
+	// Start tracking fingerprints for each file part
+	m.addFingerprints(rt)
+
+	// Register the progress callback
+	m.registerReceivedProgressCallback(rt, progressCB, period)
+
+	return &tid, t, nil
+}
 
 // Receive concatenates the received file and returns it. Only returns the file
 // if all file parts have been received and returns an error otherwise. Also
@@ -477,7 +519,7 @@ func (m *manager) registerReceivedProgressCallback(rt *store.ReceivedTransfer,
 		tracker := &receivedFilePartTracker{rt.CopyPartStatusVector()}
 
 		// Call the progress callback
-		progressCB(completed, received, total, tracker, err)
+		progressCB(completed, received, total, rt, tracker, err)
 	}
 
 	// Add the callback to the callback tracker
@@ -507,4 +549,25 @@ func partitionFile(file []byte, partSize int) [][]byte {
 // retry float.
 func calcNumberOfFingerprints(numParts int, retry float32) uint16 {
 	return uint16(float32(numParts) * (1 + retry))
+}
+
+// addFingerprints adds all fingerprints for unreceived parts in the received
+// transfer.
+func (m *manager) addFingerprints(rt *store.ReceivedTransfer) {
+	// Build processor for each file part and add its fingerprint to receive on
+	for _, c := range rt.GetUnusedCyphers() {
+		p := &processor{
+			Cypher:           c,
+			ReceivedTransfer: rt,
+			manager:          m,
+		}
+
+		err := m.cmix.AddFingerprint(m.myID, c.GetFingerprint(), p)
+		if err != nil {
+			jww.ERROR.Printf("[FT] Failed to add fingerprint for transfer "+
+				"%s: %+v", rt.TransferID(), err)
+		}
+	}
+
+	m.cmix.CheckInProgressMessages()
 }

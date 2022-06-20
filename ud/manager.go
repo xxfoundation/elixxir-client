@@ -66,6 +66,8 @@ type Manager struct {
 	// production. This is for testing with a separately deployed UD service.
 	alternativeUd *alternateUd
 
+	// rng is a fastRNG.StreamGenerator which is used to generate random
+	// data. This is used for signatures for adding/removing facts.
 	rng *fastRNG.StreamGenerator
 }
 

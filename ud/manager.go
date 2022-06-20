@@ -2,6 +2,7 @@ package ud
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"sync"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -65,6 +65,8 @@ type Manager struct {
 	// alternativeUd is an alternate User discovery service to circumvent
 	// production. This is for testing with a separately deployed UD service.
 	alternativeUd *alternateUd
+
+	rng *fastRNG.StreamGenerator
 }
 
 // NewManager builds a new user discovery manager.
@@ -73,7 +75,7 @@ type Manager struct {
 func NewManager(services CMix, e2e E2E,
 	follower NetworkStatus,
 	events event.Reporter, comms Comms, userStore UserInfo,
-	rng csprng.Source, username string,
+	rng *fastRNG.StreamGenerator, username string,
 	kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
 
@@ -90,6 +92,7 @@ func NewManager(services CMix, e2e E2E,
 		comms:   comms,
 		user:    userStore,
 		kv:      kv,
+		rng:     rng,
 	}
 
 	if m.isRegistered() {
@@ -111,7 +114,9 @@ func NewManager(services CMix, e2e E2E,
 	}
 
 	// Register with user discovery
-	err = m.register(username, rng, comms, udHost)
+	stream := rng.GetStream()
+	defer stream.Close()
+	err = m.register(username, stream, comms, udHost)
 	if err != nil {
 		return nil, errors.Errorf("Failed to register: %v", err)
 	}
@@ -132,6 +137,7 @@ func NewManager(services CMix, e2e E2E,
 func NewManagerFromBackup(services CMix,
 	e2e E2E, follower NetworkStatus,
 	events event.Reporter, comms Comms, userStore UserInfo,
+	rng *fastRNG.StreamGenerator,
 	email, phone fact.Fact, kv *versioned.KV) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
 	if follower() != xxdk.Running {
@@ -148,6 +154,7 @@ func NewManagerFromBackup(services CMix,
 		comms:   comms,
 		user:    userStore,
 		kv:      kv,
+		rng:     rng,
 	}
 
 	// Initialize our store
@@ -212,6 +219,7 @@ func InitStoreFromBackup(kv *versioned.KV,
 // instantiation of the manager by NewUserDiscovery.
 func LoadManager(services CMix, e2e E2E,
 	events event.Reporter, comms Comms, userStore UserInfo,
+	rng *fastRNG.StreamGenerator,
 	kv *versioned.KV) (*Manager, error) {
 
 	m := &Manager{
@@ -220,8 +228,8 @@ func LoadManager(services CMix, e2e E2E,
 		events:  events,
 		comms:   comms,
 		user:    userStore,
-
-		kv: kv,
+		rng:     rng,
+		kv:      kv,
 	}
 
 	if !m.isRegistered() {

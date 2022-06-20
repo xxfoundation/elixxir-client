@@ -1,7 +1,6 @@
 package ud
 
 import (
-	"crypto/rand"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -47,7 +46,9 @@ func (m *Manager) addFact(inFact fact.Fact, myId *id.ID,
 
 	// Sign our inFact for putting into the request
 	privKey := m.user.PortableUserInfo().ReceptionRSA
-	fSig, err := rsa.Sign(rand.Reader, privKey, hash.CMixHash, fHash, nil)
+	stream := m.rng.GetStream()
+	defer stream.Close()
+	fSig, err := rsa.Sign(stream, privKey, hash.CMixHash, fHash, nil)
 	if err != nil {
 		return "", err
 	}

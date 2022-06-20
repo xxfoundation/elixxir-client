@@ -331,7 +331,6 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c.network.AddIdentity(c.GetUser().ReceptionID, time.Time{}, true)
 	c.storage.SetNDF(def)
 
 	err = c.initPermissioning(def)
@@ -343,6 +342,8 @@ func LoginWithProtoClient(storageDir string, password []byte,
 	if err != nil {
 		return nil, err
 	}
+
+	c.network.AddIdentity(c.GetUser().ReceptionID, time.Time{}, true)
 
 	// FIXME: The callbacks need to be set, so I suppose we would need to
 	//        either set them via a special type or add them

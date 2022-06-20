@@ -20,6 +20,7 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -115,14 +116,14 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	// a progress callback that then checks that the file received is correct
 	// when done
 	wg.Add(1)
-	var called bool
+	called := uint32(0)
 	timeReceived := make(chan time.Time)
 	go func() {
 		select {
 		case r := <-receiveCbChan2:
 			receiveProgressCB := func(completed bool, received, total uint16,
 				rt ft.ReceivedTransfer, fpt ft.FilePartTracker, err error) {
-				if completed && !called {
+				if completed && atomic.CompareAndSwapUint32(&called, 0, 1) {
 					timeReceived <- netTime.Now()
 					receivedFile, err2 := m2.Receive(r.tid)
 					if err2 != nil {

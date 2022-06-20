@@ -91,7 +91,8 @@ var udCmd = &cobra.Command{
 				userDiscoveryMgr, err = ud.LoadManager(client.GetCmix(),
 					client.GetE2E(), client.GetEventReporter(),
 					client.GetComms(),
-					client.GetStorage(), client.GetStorage().GetKV())
+					client.GetStorage(), client.GetRng(),
+					client.GetStorage().GetKV())
 				if err != nil {
 					jww.FATAL.Panicf("Failed to load UD manager: %+v", err)
 				}

@@ -31,6 +31,10 @@ type E2e struct {
 	id  int
 }
 
+func (e *E2e) GetID() int {
+	return e.id
+}
+
 // Login creates and returns a new E2e object and adds it to the e2eTrackerSingleton
 // identity should be created via MakeIdentity() and passed in here
 // If callbacks is left nil, a default auth.Callbacks will be used

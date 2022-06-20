@@ -9,20 +9,19 @@ package xxdk
 import (
 	"encoding/binary"
 	"encoding/json"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/crypto/xx"
-	"time"
-
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/storage/user"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
+	"time"
 )
 
 // E2e object bundles a ReceptionIdentity with a Cmix
@@ -63,6 +62,7 @@ func LoginLegacy(client *Cmix, callbacks auth.Callbacks) (m *E2e, err error) {
 	if err != nil {
 		return nil, err
 	}
+	client.GetCmix().AddIdentity(client.GetUser().ReceptionID, time.Time{}, true)
 
 	m.auth, err = auth.NewState(client.GetStorage().GetKV(), client.GetCmix(),
 		m.e2e, client.GetRng(), client.GetEventReporter(),
@@ -187,8 +187,6 @@ func LoadOrInitE2e(client *Cmix) (e2e.Handler, error) {
 				return nil, errors.WithMessage(err, "Failed to load a "+
 					"newly created e2e store")
 			}
-
-			client.GetCmix().AddIdentity(usr.ReceptionID, time.Time{}, true)
 		} else {
 			jww.INFO.Printf("Loaded a modern e2e instance for %s",
 				usr.ReceptionID)

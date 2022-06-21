@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -35,16 +36,16 @@ func (e *E2e) GetID() int {
 	return e.id
 }
 
-// Login creates and returns a new E2e object and adds it to the e2eTrackerSingleton
+// LoginE2e creates and returns a new E2e object and adds it to the e2eTrackerSingleton
 // identity should be created via MakeIdentity() and passed in here
 // If callbacks is left nil, a default auth.Callbacks will be used
-func (e *E2e) Login(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error) {
+func LoginE2e(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error) {
 	cmix, err := cmixTrackerSingleton.get(cmixId)
 	if err != nil {
 		return nil, err
 	}
 
-	newIdentity, err := e.unmarshalIdentity(identity)
+	newIdentity, err := unmarshalIdentity(identity, cmix.api.GetStorage().GetE2EGroup())
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +70,7 @@ func (e *E2e) GetContact() []byte {
 }
 
 // unmarshalIdentity is a helper function for taking in a marshalled xxdk.ReceptionIdentity and making it an object
-func (e *E2e) unmarshalIdentity(marshaled []byte) (xxdk.ReceptionIdentity, error) {
+func unmarshalIdentity(marshaled []byte, e2eGrp *cyclic.Group) (xxdk.ReceptionIdentity, error) {
 	newIdentity := xxdk.ReceptionIdentity{}
 
 	// Unmarshal given identity into ReceptionIdentity object
@@ -84,7 +85,7 @@ func (e *E2e) unmarshalIdentity(marshaled []byte) (xxdk.ReceptionIdentity, error
 		return xxdk.ReceptionIdentity{}, err
 	}
 
-	newIdentity.DHKeyPrivate = e.api.GetStorage().GetE2EGroup().NewInt(1)
+	newIdentity.DHKeyPrivate = e2eGrp.NewInt(1)
 	err = newIdentity.DHKeyPrivate.UnmarshalJSON(givenIdentity.DHKeyPrivate)
 	if err != nil {
 		return xxdk.ReceptionIdentity{}, err

@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gitlab.com/elixxir/client/storage/user"
 	"io/fs"
 	"io/ioutil"
 	"log"
@@ -545,8 +546,15 @@ func createClient() *xxdk.Cmix {
 			if err != nil {
 				jww.FATAL.Panicf("%v", err)
 			}
+
+			protoUser := &user.Proto{}
+			err = json.Unmarshal(protoUserJson, protoUser)
+			if err != nil {
+				jww.FATAL.Panicf("%v", err)
+			}
+
 			err = xxdk.NewProtoClient_Unsafe(string(ndfJSON), storeDir,
-				pass, protoUserJson)
+				pass, protoUser)
 		} else if userIDprefix != "" {
 			err = xxdk.NewVanityClient(string(ndfJSON), storeDir,
 				pass, regCode, userIDprefix)

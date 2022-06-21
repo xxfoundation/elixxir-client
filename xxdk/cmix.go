@@ -8,7 +8,6 @@
 package xxdk
 
 import (
-	"encoding/json"
 	"math"
 	"time"
 
@@ -167,9 +166,11 @@ func OpenCmix(storageDir string, password []byte,
 // NewProtoClient_Unsafe initializes a client object from a JSON containing
 // predefined cryptographic which defines a user. This is designed for some
 // specific deployment procedures and is generally unsafe.
-func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
-	protoClientJSON []byte) error {
+func NewProtoClient_Unsafe(ndfJSON, storageDir string, password []byte,
+	protoUser *user.Proto) error {
 	jww.INFO.Printf("NewProtoClient_Unsafe")
+
+	usr := user.NewUserFromProto(protoUser)
 
 	def, err := ParseNDF(ndfJSON)
 	if err != nil {
@@ -177,14 +178,6 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
 	}
 
 	cmixGrp, e2eGrp := DecodeGroups(def)
-
-	protoUser := &user.Proto{}
-	err = json.Unmarshal(protoClientJSON, protoUser)
-	if err != nil {
-		return err
-	}
-
-	usr := user.NewUserFromProto(protoUser)
 
 	storageSess, err := CheckVersionAndSetupStorage(def, storageDir,
 		password, usr, cmixGrp, e2eGrp, protoUser.RegCode)
@@ -255,100 +248,6 @@ func LoadCmix(storageDir string, password []byte, parameters Params) (*Cmix, err
 		return nil, err
 	}
 
-	err = c.registerFollower()
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
-}
-
-// LoginWithNewBaseNDF_UNSAFE initializes a client object from existing storage
-// while replacing the base NDF.  This is designed for some specific deployment
-// procedures and is generally unsafe.
-func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
-	newBaseNdf string, params Params) (*Cmix, error) {
-	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
-
-	def, err := ParseNDF(newBaseNdf)
-	if err != nil {
-		return nil, err
-	}
-
-	c, err := OpenCmix(storageDir, password, params)
-	if err != nil {
-		return nil, err
-	}
-
-	//store the updated base NDF
-	c.storage.SetNDF(def)
-
-	if def.Registration.Address != "" {
-		err = c.initPermissioning(def)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		jww.WARN.Printf("Registration with permissioning skipped due " +
-			"to blank permissionign address. Cmix will not be " +
-			"able to register or track network.")
-	}
-
-	err = c.network.Connect(def)
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.registerFollower()
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
-}
-
-// LoginWithProtoClient creates a client object with a protoclient
-// JSON containing the cryptographic primitives. This is designed for
-// some specific deployment procedures and is generally unsafe.
-func LoginWithProtoClient(storageDir string, password []byte,
-	protoClientJSON []byte, newBaseNdf string,
-	params Params) (*Cmix, error) {
-	jww.INFO.Printf("LoginWithProtoClient()")
-
-	def, err := ParseNDF(newBaseNdf)
-	if err != nil {
-		return nil, err
-	}
-
-	err = NewProtoClient_Unsafe(newBaseNdf, storageDir, password,
-		protoClientJSON)
-	if err != nil {
-		return nil, err
-	}
-
-	c, err := OpenCmix(storageDir, password, params)
-	if err != nil {
-		return nil, err
-	}
-
-	c.storage.SetNDF(def)
-
-	err = c.initPermissioning(def)
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.network.Connect(def)
-	if err != nil {
-		return nil, err
-	}
-
-	// FIXME: The callbacks need to be set, so I suppose we would need to
-	//        either set them via a special type or add them
-	//        to the login call?
-	if err != nil {
-		return nil, err
-	}
 	err = c.registerFollower()
 	if err != nil {
 		return nil, err

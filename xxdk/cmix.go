@@ -167,9 +167,11 @@ func OpenCmix(storageDir string, password []byte,
 // NewProtoClient_Unsafe initializes a client object from a JSON containing
 // predefined cryptographic which defines a user. This is designed for some
 // specific deployment procedures and is generally unsafe.
-func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
-	protoClientJSON []byte) error {
+func NewProtoClient_Unsafe(ndfJSON, storageDir string, password []byte,
+	protoUser *user.Proto) error {
 	jww.INFO.Printf("NewProtoClient_Unsafe")
+
+	usr := user.NewUserFromProto(protoUser)
 
 	def, err := ParseNDF(ndfJSON)
 	if err != nil {
@@ -177,14 +179,6 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password,
 	}
 
 	cmixGrp, e2eGrp := DecodeGroups(def)
-
-	protoUser := &user.Proto{}
-	err = json.Unmarshal(protoClientJSON, protoUser)
-	if err != nil {
-		return err
-	}
-
-	usr := user.NewUserFromProto(protoUser)
 
 	storageSess, err := CheckVersionAndSetupStorage(def, storageDir,
 		password, usr, cmixGrp, e2eGrp, protoUser.RegCode)
@@ -267,7 +261,7 @@ func LoadCmix(storageDir string, password []byte, parameters Params) (*Cmix, err
 // while replacing the base NDF.  This is designed for some specific deployment
 // procedures and is generally unsafe.
 func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
-	newBaseNdf string, params Params) (*Cmix, error) {
+	newBaseNdf string, params Params) (*E2e, error) {
 	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
 
 	def, err := ParseNDF(newBaseNdf)
@@ -304,7 +298,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	return c, nil
+	return LoginLegacy(c, nil)
 }
 
 // LoginWithProtoClient creates a client object with a protoclient
@@ -312,7 +306,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 // some specific deployment procedures and is generally unsafe.
 func LoginWithProtoClient(storageDir string, password []byte,
 	protoClientJSON []byte, newBaseNdf string,
-	params Params) (*Cmix, error) {
+	params Params) (*E2e, error) {
 	jww.INFO.Printf("LoginWithProtoClient()")
 
 	def, err := ParseNDF(newBaseNdf)
@@ -320,8 +314,14 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
+	protoUser := &user.Proto{}
+	err = json.Unmarshal(protoClientJSON, protoUser)
+	if err != nil {
+		return nil, err
+	}
+
 	err = NewProtoClient_Unsafe(newBaseNdf, storageDir, password,
-		protoClientJSON)
+		protoUser)
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +356,12 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	return c, nil
+	return Login(c, nil, ReceptionIdentity{
+		ID:            protoUser.ReceptionID,
+		RSAPrivatePem: protoUser.ReceptionRSA,
+		Salt:          protoUser.ReceptionSalt,
+		DHKeyPrivate:  protoUser.E2eDhPrivateKey,
+	})
 }
 
 func (c *Cmix) initComms() error {

@@ -146,7 +146,6 @@ func LoadOrInitE2e(client *Cmix) (e2e.Handler, error) {
 		e2eHandler, err = e2e.Load(kv,
 			client.GetCmix(), usr.ReceptionID, e2eGrp, client.GetRng(),
 			client.GetEventReporter())
-		//if no new e2e handler exists, initialize an e2e user
 		if err != nil {
 			jww.WARN.Printf("Failed to load e2e instance for %s, "+
 				"creating a new one", usr.ReceptionID)
@@ -224,19 +223,21 @@ func (m *E2e) ConstructProtoUserFile() ([]byte, error) {
 	}
 
 	Usr := user.Proto{
-		TransmissionID:               m.GetUser().TransmissionID,
-		TransmissionSalt:             m.GetUser().TransmissionSalt,
-		TransmissionRSA:              m.GetUser().TransmissionRSA,
-		ReceptionID:                  m.GetUser().ReceptionID,
-		ReceptionSalt:                m.GetUser().ReceptionSalt,
-		ReceptionRSA:                 m.GetUser().ReceptionRSA,
-		Precanned:                    m.GetUser().Precanned,
-		RegistrationTimestamp:        m.GetUser().RegistrationTimestamp,
-		RegCode:                      regCode,
-		TransmissionRegValidationSig: m.GetStorage().GetTransmissionRegistrationValidationSignature(),
-		ReceptionRegValidationSig:    m.GetStorage().GetReceptionRegistrationValidationSignature(),
-		E2eDhPrivateKey:              m.e2e.GetHistoricalDHPrivkey(),
-		E2eDhPublicKey:               m.e2e.GetHistoricalDHPubkey(),
+		TransmissionID:        m.GetUser().TransmissionID,
+		TransmissionSalt:      m.GetUser().TransmissionSalt,
+		TransmissionRSA:       m.GetUser().TransmissionRSA,
+		ReceptionID:           m.GetUser().ReceptionID,
+		ReceptionSalt:         m.GetUser().ReceptionSalt,
+		ReceptionRSA:          m.GetUser().ReceptionRSA,
+		Precanned:             m.GetUser().Precanned,
+		RegistrationTimestamp: m.GetUser().RegistrationTimestamp,
+		RegCode:               regCode,
+		TransmissionRegValidationSig: m.GetStorage().
+			GetTransmissionRegistrationValidationSignature(),
+		ReceptionRegValidationSig: m.GetStorage().
+			GetReceptionRegistrationValidationSignature(),
+		E2eDhPrivateKey: m.e2e.GetHistoricalDHPrivkey(),
+		E2eDhPublicKey:  m.e2e.GetHistoricalDHPubkey(),
 	}
 
 	jsonBytes, err := json.Marshal(Usr)

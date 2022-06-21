@@ -10,6 +10,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/xxdk"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -46,10 +47,12 @@ func (a *authCallbacks) Request(requestor contact.Contact,
 	if a.autoConfirm {
 		jww.INFO.Printf("Channel Request: %s",
 			requestor.ID)
-		_, err := a.client.GetAuth().Confirm(requestor)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
+		if viper.GetBool("verify-sends") { // Verify message sends were successful
+			acceptChannelVerified(a.client, requestor.ID)
+		} else {
+			acceptChannel(a.client, requestor.ID)
 		}
+
 		a.confCh <- requestor.ID
 	}
 

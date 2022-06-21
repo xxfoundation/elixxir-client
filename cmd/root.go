@@ -263,12 +263,11 @@ var rootCmd = &cobra.Command{
 		// Accept auth request for this recipient
 		authConfirmed := false
 		paramsE2E := e2e.GetDefaultParams()
-		roundTimeout := paramsE2E.CMIXParams.SendTimeout
 		if viper.GetBool("accept-channel") {
 			// Verify that the confirmation message makes it to the
 			// original sender
 			if viper.GetBool("verify-sends") {
-				acceptChannelVerified(client, recipientID, roundTimeout)
+				acceptChannelVerified(client, recipientID)
 			} else {
 				// Accept channel, agnostic of round result
 				acceptChannel(client, recipientID)
@@ -832,8 +831,10 @@ func resetAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 	}
 }
 
-func acceptChannelVerified(client *xxdk.E2e, recipientID *id.ID,
-	roundTimeout time.Duration) {
+func acceptChannelVerified(client *xxdk.E2e, recipientID *id.ID) {
+	paramsE2E := e2e.GetDefaultParams()
+	roundTimeout := paramsE2E.CMIXParams.SendTimeout
+
 	done := make(chan struct{}, 1)
 	retryChan := make(chan struct{}, 1)
 	for {

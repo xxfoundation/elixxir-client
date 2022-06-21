@@ -82,6 +82,113 @@ func LoginLegacy(client *Cmix, callbacks auth.Callbacks) (m *E2e, err error) {
 	return m, err
 }
 
+// LoginWithNewBaseNDF_UNSAFE initializes a client object from existing storage
+// while replacing the base NDF.  This is designed for some specific deployment
+// procedures and is generally unsafe.
+func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
+	newBaseNdf string, params Params) (*E2e, error) {
+	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
+
+	def, err := ParseNDF(newBaseNdf)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := OpenCmix(storageDir, password, params)
+	if err != nil {
+		return nil, err
+	}
+
+	//store the updated base NDF
+	c.storage.SetNDF(def)
+
+	if def.Registration.Address != "" {
+		err = c.initPermissioning(def)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		jww.WARN.Printf("Registration with permissioning skipped due " +
+			"to blank permissionign address. Cmix will not be " +
+			"able to register or track network.")
+	}
+
+	err = c.network.Connect(def)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.registerFollower()
+	if err != nil {
+		return nil, err
+	}
+
+	return LoginLegacy(c, nil)
+}
+
+// LoginWithProtoClient creates a client object with a protoclient
+// JSON containing the cryptographic primitives. This is designed for
+// some specific deployment procedures and is generally unsafe.
+func LoginWithProtoClient(storageDir string, password []byte,
+	protoClientJSON []byte, newBaseNdf string,
+	params Params) (*E2e, error) {
+	jww.INFO.Printf("LoginWithProtoClient()")
+
+	def, err := ParseNDF(newBaseNdf)
+	if err != nil {
+		return nil, err
+	}
+
+	protoUser := &user.Proto{}
+	err = json.Unmarshal(protoClientJSON, protoUser)
+	if err != nil {
+		return nil, err
+	}
+
+	err = NewProtoClient_Unsafe(newBaseNdf, storageDir, password,
+		protoUser)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := OpenCmix(storageDir, password, params)
+	if err != nil {
+		return nil, err
+	}
+
+	c.storage.SetNDF(def)
+
+	err = c.initPermissioning(def)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.network.Connect(def)
+	if err != nil {
+		return nil, err
+	}
+
+	c.network.AddIdentity(c.GetUser().ReceptionID, time.Time{}, true)
+
+	// FIXME: The callbacks need to be set, so I suppose we would need to
+	//        either set them via a special type or add them
+	//        to the login call?
+	if err != nil {
+		return nil, err
+	}
+	err = c.registerFollower()
+	if err != nil {
+		return nil, err
+	}
+
+	return Login(c, nil, ReceptionIdentity{
+		ID:            protoUser.ReceptionID,
+		RSAPrivatePem: protoUser.ReceptionRSA,
+		Salt:          protoUser.ReceptionSalt,
+		DHKeyPrivate:  protoUser.E2eDhPrivateKey,
+	})
+}
+
 // login creates a new xxdk.E2e backed by the given versioned.KV
 func login(client *Cmix, callbacks auth.Callbacks,
 	identity ReceptionIdentity, kv *versioned.KV) (m *E2e, err error) {

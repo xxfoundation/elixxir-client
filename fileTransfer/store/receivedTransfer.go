@@ -85,6 +85,10 @@ type ReceivedTransfer struct {
 	// Stores the received status for each file part in a bitstream format
 	partStatus *utility.StateVector
 
+	// Unique identifier of the last progress callback called (used to prevent
+	// callback calls with duplicate data)
+	lastCallbackFingerprint string
+
 	mux sync.RWMutex
 	kv  *versioned.KV
 }
@@ -200,6 +204,37 @@ func (rt *ReceivedTransfer) NumReceived() uint16 {
 // when this function is called and not realtime.
 func (rt *ReceivedTransfer) CopyPartStatusVector() *utility.StateVector {
 	return rt.partStatus.DeepCopy()
+}
+
+// CompareAndSwapCallbackFps compares the fingerprint to the previous callback
+// call's fingerprint. If they are different, the new one is stored, and it
+// returns true. Returns fall if they are the same.
+func (rt *ReceivedTransfer) CompareAndSwapCallbackFps(
+	completed bool, received, total uint16, err error) bool {
+	fp := generateReceivedFp(completed, received, total, err)
+
+	rt.mux.Lock()
+	defer rt.mux.Unlock()
+
+	if fp != rt.lastCallbackFingerprint {
+		rt.lastCallbackFingerprint = fp
+		return true
+	}
+
+	return false
+}
+
+// generateReceivedFp generates a fingerprint for a received progress callback.
+func generateReceivedFp(completed bool, received, total uint16, err error) string {
+	errString := "<nil>"
+	if err != nil {
+		errString = err.Error()
+	}
+
+	return strconv.FormatBool(completed) +
+		strconv.FormatUint(uint64(received), 10) +
+		strconv.FormatUint(uint64(total), 10) +
+		errString
 }
 
 ////////////////////////////////////////////////////////////////////////////////

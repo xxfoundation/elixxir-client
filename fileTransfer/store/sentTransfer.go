@@ -18,6 +18,7 @@ import (
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"strconv"
 	"sync"
 )
 
@@ -82,6 +83,10 @@ type SentTransfer struct {
 
 	// Stores the status of each part in a bitstream format
 	partStatus *utility.StateVector
+
+	// Unique identifier of the last progress callback called (used to prevent
+	// callback calls with duplicate data)
+	lastCallbackFingerprint string
 
 	mux sync.RWMutex
 	kv  *versioned.KV
@@ -212,6 +217,36 @@ func (st *SentTransfer) NumArrived() uint16 {
 // when this function is called and not realtime.
 func (st *SentTransfer) CopyPartStatusVector() *utility.StateVector {
 	return st.partStatus.DeepCopy()
+}
+
+// CompareAndSwapCallbackFps compares the fingerprint to the previous callback
+// call's fingerprint. If they are different, the new one is stored, and it
+// returns true. Returns fall if they are the same.
+func (st *SentTransfer) CompareAndSwapCallbackFps(
+	completed bool, arrived, total uint16, err error) bool {
+	fp := generateSentFp(completed, arrived, total, err)
+	st.mux.Lock()
+	defer st.mux.Unlock()
+
+	if fp != st.lastCallbackFingerprint {
+		st.lastCallbackFingerprint = fp
+		return true
+	}
+
+	return false
+}
+
+// generateSentFp generates a fingerprint for a sent progress callback.
+func generateSentFp(completed bool, arrived, total uint16, err error) string {
+	errString := "<nil>"
+	if err != nil {
+		errString = err.Error()
+	}
+
+	return strconv.FormatBool(completed) +
+		strconv.FormatUint(uint64(arrived), 10) +
+		strconv.FormatUint(uint64(total), 10) +
+		errString
 }
 
 ////////////////////////////////////////////////////////////////////////////////

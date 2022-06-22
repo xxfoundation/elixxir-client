@@ -358,6 +358,11 @@ func (m *manager) registerSentProgressCallback(st *store.SentTransfer,
 		// Build part tracker from copy of part statuses vector
 		tracker := &sentFilePartTracker{st.CopyPartStatusVector()}
 
+		// If the callback data is the same as the last call, skip the call
+		if !st.CompareAndSwapCallbackFps(completed, arrived, total, err) {
+			return
+		}
+
 		// Call the progress callback
 		progressCB(completed, arrived, total, st, tracker, err)
 	}
@@ -517,6 +522,11 @@ func (m *manager) registerReceivedProgressCallback(rt *store.ReceivedTransfer,
 
 		// Build part tracker from copy of part statuses vector
 		tracker := &receivedFilePartTracker{rt.CopyPartStatusVector()}
+
+		// If the callback data is the same as the last call, skip the call
+		if !rt.CompareAndSwapCallbackFps(completed, received, total, err) {
+			return
+		}
 
 		// Call the progress callback
 		progressCB(completed, received, total, rt, tracker, err)

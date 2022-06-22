@@ -297,7 +297,7 @@ func newReceiveProgressCB(tid *ftCrypto.TransferID, fileName string,
 	m *ftE2e.Wrapper) ft.ReceivedProgressCallback {
 	return func(completed bool, received, total uint16,
 		rt ft.ReceivedTransfer, t ft.FilePartTracker, err error) {
-		jww.INFO.Printf("[FT] Receive progress callback for transfer %s "+
+		jww.INFO.Printf("[FT] Received progress callback for transfer %s "+
 			"{completed: %t, received: %d, total: %d, err: %v}",
 			tid, completed, received, total, err)
 

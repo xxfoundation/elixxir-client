@@ -140,7 +140,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 				r.tid, receiveProgressCB, 0)
 			if err3 != nil {
 				t.Errorf(
-					"Failed to Rregister received progress callback: %+v", err3)
+					"Failed to register received progress callback: %+v", err3)
 			}
 		case <-time.After(2100 * time.Millisecond):
 			t.Errorf("Timed out waiting to receive new file transfer.")

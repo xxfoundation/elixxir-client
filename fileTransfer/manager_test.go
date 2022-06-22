@@ -85,8 +85,6 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	cMixHandler := newMockCmixHandler()
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	params := DefaultParams()
-	// params.MaxThroughput = math.MaxInt
-	// params.MaxThroughput = 0
 
 	// Set up the first client
 	myID1 := id.NewIdFromString("myID1", id.User, t)

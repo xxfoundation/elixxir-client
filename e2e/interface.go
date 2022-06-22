@@ -22,7 +22,7 @@ type Handler interface {
 
 	// SendE2E send a message containing the payload to the
 	// recipient of the passed message type, per the given
-	// parameters - encrypted with end to end encryption.
+	// parameters - encrypted with end-to-end encryption.
 	// Default parameters can be retrieved through
 	// GetDefaultParams()
 	// If too long, it will chunk a message up into its messages
@@ -165,7 +165,7 @@ type Handler interface {
 
 	/* === Utility ====================================================== */
 
-	// GetGroup returns the cyclic group used for end to end encruption
+	// GetGroup returns the cyclic group used for end-to-end encryption
 	GetGroup() *cyclic.Group
 
 	// GetHistoricalDHPubkey returns the user's Historical DH

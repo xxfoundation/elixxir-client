@@ -32,6 +32,7 @@ type E2e struct {
 	id  int
 }
 
+// GetID returns the e2eTracker ID for the E2e object
 func (e *E2e) GetID() int {
 	return e.id
 }
@@ -58,6 +59,59 @@ func LoginE2e(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error
 	}
 
 	newE2e, err := xxdk.Login(cmix.api, authCallbacks, newIdentity)
+	if err != nil {
+		return nil, err
+	}
+	return e2eTrackerSingleton.make(newE2e), nil
+}
+
+// LoginE2eEphemeral creates and returns a new ephemeral E2e object and adds it to the e2eTrackerSingleton
+// identity should be created via MakeIdentity() and passed in here
+// If callbacks is left nil, a default auth.Callbacks will be used
+func LoginE2eEphemeral(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error) {
+	cmix, err := cmixTrackerSingleton.get(cmixId)
+	if err != nil {
+		return nil, err
+	}
+
+	newIdentity, err := unmarshalIdentity(identity, cmix.api.GetStorage().GetE2EGroup())
+	if err != nil {
+		return nil, err
+	}
+
+	var authCallbacks auth.Callbacks
+	if callbacks == nil {
+		authCallbacks = auth.DefaultAuthCallbacks{}
+	} else {
+		authCallbacks = &authCallback{bindingsCbs: callbacks}
+	}
+
+	newE2e, err := xxdk.LoginEphemeral(cmix.api, authCallbacks, newIdentity)
+	if err != nil {
+		return nil, err
+	}
+	return e2eTrackerSingleton.make(newE2e), nil
+}
+
+// LoginE2eLegacy creates a new E2e backed by the xxdk.Cmix persistent versioned.KV
+// Uses the pre-generated transmission ID used by xxdk.Cmix
+// If callbacks is left nil, a default auth.Callbacks will be used
+// This function is designed to maintain backwards compatibility with previous xx messenger designs
+// and should not be used for other purposes
+func LoginE2eLegacy(cmixId int, callbacks AuthCallbacks) (*E2e, error) {
+	cmix, err := cmixTrackerSingleton.get(cmixId)
+	if err != nil {
+		return nil, err
+	}
+
+	var authCallbacks auth.Callbacks
+	if callbacks == nil {
+		authCallbacks = auth.DefaultAuthCallbacks{}
+	} else {
+		authCallbacks = &authCallback{bindingsCbs: callbacks}
+	}
+
+	newE2e, err := xxdk.LoginLegacy(cmix.api, authCallbacks)
 	if err != nil {
 		return nil, err
 	}

@@ -311,7 +311,7 @@ func newReceiveProgressCB(tid *ftCrypto.TransferID, fileName string,
 			receivedFile, err2 := m.Receive(tid)
 			if err2 != nil {
 				jww.FATAL.Panicf(
-					"[FT] Failed to receive file %s: %+v", tid, err)
+					"[FT] Failed to receive file %s: %+v", tid, err2)
 			}
 			jww.INFO.Printf("[FT] Completed receiving file %q in %s.",
 				fileName, netTime.Since(receiveStart))

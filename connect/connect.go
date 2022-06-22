@@ -8,12 +8,7 @@ package connect
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/xxdk"
-	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/ekv"
 	"io"
 	"time"
 
@@ -157,34 +152,28 @@ func Connect(recipient contact.Contact, e2eClient *xxdk.E2e,
 	}
 }
 
-// StartServer assembles a Connection object on the reception-side
-// and feeds it into the given Callback whenever an incoming request
-// for an E2E partnership with a partner.Manager is confirmed.
-func StartServer(cb Callback, myId *id.ID, privKey *cyclic.Int,
-	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
-	p Params) error {
-
-	// Build an ephemeral KV
-	kv := versioned.NewKV(ekv.MakeMemstore())
-
-	// Build E2e handler
-	err := clientE2e.Init(kv, myId, privKey, grp, p.Rekey)
-	if err != nil {
-		return err
-	}
-	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.Event)
-	if err != nil {
-		return err
-	}
+// StartServer assembles a Connection object on the reception-side and feeds it
+// into the given Callback whenever an incoming request for an E2E partnership
+// with a partner.Manager is confirmed.
+//
+// It is recommended that this be called before StartNetworkFollower to ensure
+// no requests are missed.
+// This call does an xxDK.ephemeralLogin under the hood and the connection
+// server must be the only listener on auth.
+func StartServer(identity xxdk.ReceptionIdentity, cb Callback, net *xxdk.Cmix,
+	p Params) (*xxdk.E2e, error) {
 
 	// Build callback for E2E negotiation
-	callback := getAuthCallback(nil, cb, e2eHandler, nil, p)
+	callback := getAuthCallback(nil, cb, nil, nil, p)
 
-	// Build auth object for E2E negotiation
-	authState, err := auth.NewState(kv, net, e2eHandler,
-		rng, p.Event, p.Auth, callback, nil)
-	callback.authState = authState
-	return err
+	client, err := xxdk.LoginEphemeral(net, callback, identity)
+	if err != nil {
+		return nil, err
+	}
+
+	callback.connectionE2e = client.GetE2E()
+	callback.authState = client.GetAuth()
+	return client, nil
 }
 
 // handler provides an implementation for the Connection interface.

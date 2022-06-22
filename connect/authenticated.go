@@ -15,7 +15,6 @@ import (
 	clientE2e "gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -170,10 +169,8 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 // will handle authenticated requests and verify the client's attempt to
 // authenticate themselves. An established AuthenticatedConnection will
 // be passed via the callback.
-func StartAuthenticatedServer(cb AuthenticatedCallback,
-	myId *id.ID, privKey *cyclic.Int,
-	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
-	p Params) error {
+func StartAuthenticatedServer(identity xxdk.ReceptionIdentity,
+	cb AuthenticatedCallback, net *xxdk.Cmix, p Params) (*xxdk.E2e, error) {
 
 	// Register the waiter for a connection establishment
 	connCb := Callback(func(connection Connection) {
@@ -184,8 +181,7 @@ func StartAuthenticatedServer(cb AuthenticatedCallback,
 		connection.RegisterListener(catalog.ConnectionAuthenticationRequest,
 			buildAuthConfirmationHandler(cb, connection))
 	})
-	return StartServer(connCb, myId, privKey, rng, grp,
-		net, p)
+	return StartServer(identity, connCb, net, p)
 }
 
 // authenticatedHandler provides an implementation for the

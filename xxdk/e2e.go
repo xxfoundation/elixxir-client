@@ -64,6 +64,12 @@ func LoginLegacy(client *Cmix, callbacks auth.Callbacks) (m *E2e, err error) {
 	}
 	client.GetCmix().AddIdentity(client.GetUser().ReceptionID, time.Time{}, true)
 
+	err = client.AddService(m.e2e.StartProcesses)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to add "+
+			"the e2e processies")
+	}
+
 	m.auth, err = auth.NewState(client.GetStorage().GetKV(), client.GetCmix(),
 		m.e2e, client.GetRng(), client.GetEventReporter(),
 		auth.GetDefaultParams(), callbacks, m.backup.TriggerBackup)
@@ -214,6 +220,12 @@ func login(client *Cmix, callbacks auth.Callbacks,
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load a "+
 			"newly created e2e store")
+	}
+
+	err = client.AddService(m.e2e.StartProcesses)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to add "+
+			"the e2e processies")
 	}
 
 	m.auth, err = auth.NewState(kv, client.GetCmix(),

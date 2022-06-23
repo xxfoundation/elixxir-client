@@ -62,6 +62,7 @@ func LoginE2e(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error
 	if err != nil {
 		return nil, err
 	}
+
 	return e2eTrackerSingleton.make(newE2e), nil
 }
 

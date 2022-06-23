@@ -168,8 +168,6 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c.network.AddIdentity(c.GetUser().ReceptionID, time.Time{}, true)
-
 	// FIXME: The callbacks need to be set, so I suppose we would need to
 	//        either set them via a special type or add them
 	//        to the login call?
@@ -202,6 +200,9 @@ func login(client *Cmix, callbacks auth.Callbacks,
 		return nil, errors.Errorf("Given identity %s is invalid, generated ID does not match",
 			identity.ID.String())
 	}
+
+	// Add the identity to tracking
+	client.network.AddIdentity(identity.ID, time.Time{}, true)
 
 	e2eGrp := client.GetStorage().GetE2EGroup()
 	m = &E2e{

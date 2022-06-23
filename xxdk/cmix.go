@@ -119,6 +119,8 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 }
 
 // OpenCmix session, but don't connect to the network or log in
+// NOTE: This is a helper function that, in most applications, should not be used on its own
+//       Consider using LoadCmix instead, which calls this function for you.
 func OpenCmix(storageDir string, password []byte,
 	parameters Params) (*Cmix, error) {
 	jww.INFO.Printf("OpenCmix()")
@@ -202,9 +204,9 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password []byte,
 	return nil
 }
 
-// LoadCmix initializes a Cmix object from existing storage
+// LoadCmix initializes a Cmix object from existing storage and starts the network
 func LoadCmix(storageDir string, password []byte, parameters Params) (*Cmix, error) {
-	jww.INFO.Printf("Login()")
+	jww.INFO.Printf("LoadCmix()")
 
 	c, err := OpenCmix(storageDir, password, parameters)
 	if err != nil {

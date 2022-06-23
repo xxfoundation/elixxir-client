@@ -27,7 +27,7 @@ import (
 type manager struct {
 	*ratchet.Ratchet
 	*receive.Switchboard
-	partitioner parse.Partitioner
+	partitioner *parse.Partitioner
 	net         cmix.Client
 	myID        *id.ID
 	rng         *fastRNG.StreamGenerator
@@ -35,6 +35,7 @@ type manager struct {
 	grp         *cyclic.Group
 	crit        *critical
 	rekeyParams rekey.Params
+	kv          *versioned.KV
 }
 
 const e2eRekeyParamsKey = "e2eRekeyParams"
@@ -69,6 +70,8 @@ func initE2E(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 // Load returns an e2e manager from storage. It uses an ID to prefix the kv
 // and is used for partner relationships.
 // You can use a memkv for an ephemeral e2e id
+// Can be initialized with a nil cmix.Client, but will crash on start - use when
+// prebuilding e2e identity to be used later
 func Load(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
 	events event.Reporter) (Handler, error) {
@@ -82,6 +85,8 @@ func Load(kv *versioned.KV, net cmix.Client, myID *id.ID,
 // Does not modify the kv prefix in any way to maintain backwards compatibility
 // before multiple IDs were supported
 // You can use a memkv for an ephemeral e2e id
+// Can be initialized with a nil cmix.Client, but will crash on start - use when
+// prebuilding e2e identity to be used later
 func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator,
 	events event.Reporter, params rekey.Params) (Handler, error) {
@@ -118,12 +123,12 @@ func loadE2E(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
 
 	m := &manager{
 		Switchboard: receive.New(),
-		partitioner: parse.NewPartitioner(kv, net.GetMaxMessageLength()),
 		net:         net,
 		myID:        myDefaultID,
 		events:      events,
 		grp:         grp,
 		rekeyParams: rekey.Params{},
+		kv:          kv,
 	}
 	var err error
 
@@ -144,13 +149,19 @@ func loadE2E(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
 			"Failed to unmarshal rekeyParams data")
 	}
 
-	m.crit = newCritical(kv, net.AddHealthCallback, m.SendE2E)
-
 	return m, nil
 }
 
 func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 	multi := stoppable.NewMulti("e2eManager")
+
+	if m.partitioner == nil {
+		m.partitioner = parse.NewPartitioner(m.kv, m.net.GetMaxMessageLength())
+	}
+
+	if m.crit == nil {
+		m.crit = newCritical(m.kv, m.net.AddHealthCallback, m.SendE2E)
+	}
 
 	critcalNetworkStopper := stoppable.NewSingle(
 		"e2eCriticalMessagesStopper")

@@ -6,21 +6,22 @@
 
 package bindings
 
-//// IdList is a wrapper for a list of marshalled id.ID objects
-//type IdList struct {
-//	Ids [][]byte
-//}
-//
-//// E2ESendReport is the bindings representation of the return values of SendE2E
-//// Example E2ESendReport:
-//// {"Rounds":[1,5,9],
-////  "MessageID":"51Yy47uZbP0o2Y9B/kkreDLTB6opUol3M3mYiY2dcdQ=",
-////  "Timestamp":1653582683183384000}
-//type E2ESendReport struct {
-//	RoundsList
-//	MessageID []byte
-//	Timestamp int64
-//}
+// IdList is a wrapper for a list of marshalled id.ID objects
+type IdList struct {
+	Ids [][]byte
+}
+
+// E2ESendReport is the bindings representation of the return values of SendE2E
+// Example E2ESendReport:
+// {"Rounds":[1,5,9],
+//  "MessageID":"51Yy47uZbP0o2Y9B/kkreDLTB6opUol3M3mYiY2dcdQ=",
+//  "Timestamp":1653582683183384000}
+type E2ESendReport struct {
+	RoundsList
+	MessageID []byte
+	Timestamp int64
+}
+
 //
 //// GetReceptionID returns the marshalled default IDs
 //// Returns:

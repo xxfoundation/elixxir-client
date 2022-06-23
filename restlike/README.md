@@ -2,33 +2,33 @@
 
 These steps must first be performed in order to begin creating server objects of any variety.
 
-### Make an api.Client Object
+### Make an xxdk.Cmix Object
 
-The api.Client object created here will be used for all types of api.Identity and server initialization.
+The xxdk.Cmix object created here will be used for all types of xxdk.Identity and server initialization.
 
 1. Obtain the NDF
 
 ```go
-ndfJson, err := api.DownloadAndVerifySignedNdfWithUrl(url, cert)
+ndfJson, err := xxdk.DownloadAndVerifySignedNdfWithUrl(url, cert)
 ```
 
-2. If not done in previous runs, create a new api.Client object in storage using ndfJson.
+2. If not done in previous runs, create a new xxdk.Cmix object in storage using ndfJson.
    `storageDir` and `password` may be customized.
 
 Example:
 
 ```go
-err := api.NewClient(ndfJson, "/clientStorage", []byte("testPassword"), "")
+err := xxdk.NewClient(ndfJson, "/clientStorage", []byte("testPassword"), "")
 ```
 
-3. Login in order to obtain the api.Client object.
+3. LoadCmix in order to obtain the xxdk.Cmix object.
    `storageDir` and `password` may be customized, but must match the values provided to `NewClient()`.
-   The result of `api.GetDefaultParams()` may also be freely modified according to your needs.
+   The result of `xxdk.GetDefaultParams()` may also be freely modified according to your needs.
 
 Example:
 
 ```go
-client, err := api.Login("/clientStorage", []byte("testPassword"), api.GetDefaultParams())
+client, err := xxdk.LoadCmix("/clientStorage", []byte("testPassword"), xxdk.GetDefaultParams())
 ```
 
 4. Start the network follower. Timeout may be modified as needed.
@@ -39,15 +39,15 @@ Example:
 err := client.StartNetworkFollower(10*time.Second)
 ```
 
-### Make an api.Identity Object
+### Make an xxdk.Identity Object
 
-The api.Identity object created here will be used for all types of server initialization.
-It requires an api.Client object.
+The xxdk.Identity object created here will be used for all types of server initialization.
+It requires an xxdk.Cmix object.
 
 Example:
 
 ```go
-identity, err := api.MakeIdentity(client.GetRng(), client.GetStorage().GetE2EGroup())
+identity, err := xxdk.MakeIdentity(client.GetRng(), client.GetStorage().GetE2EGroup())
 ```
 
 # Building Servers
@@ -55,16 +55,16 @@ identity, err := api.MakeIdentity(client.GetRng(), client.GetStorage().GetE2EGro
 ### Creating Connect-backed Servers
 
 `receptionId`: the client ID that will be used for all incoming requests.
-Derived from api.Identity object
+Derived from xxdk.Identity object
 
 `privKey`: the private key belonging to the receptionId.
-Derived from api.Identity object
+Derived from xxdk.Identity object
 
-`rng`: from api.Client object
+`rng`: from xxdk.Cmix object
 
-`grp`: from api.Client storage object
+`grp`: from xxdk.Cmix storage object
 
-`net`: from api.Client object
+`net`: from xxdk.Cmix object
 
 `p`: customizable parameters for the server
 Obtained and mutable via `connect.GetDefaultParams()`
@@ -79,14 +79,14 @@ server, err := connect.NewServer(myIdentity.ID, myIdentity.DHKeyPrivate, client.
 ### Creating Single-backed Servers
 
 `receptionId`: the client ID that will be used for all incoming requests.
-Derived from api.Identity object
+Derived from xxdk.Identity object
 
 `privKey`: the private key belonging to the receptionId.
-Derived from api.Identity object
+Derived from xxdk.Identity object
 
-`grp`: from api.Client storage object
+`grp`: from xxdk.Cmix storage object
 
-`net`: from api.Client object
+`net`: from xxdk.Cmix object
 
 Example:
 

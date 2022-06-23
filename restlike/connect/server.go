@@ -8,11 +8,9 @@ package connect
 
 import (
 	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/connect"
 	"gitlab.com/elixxir/client/restlike"
-	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -24,10 +22,10 @@ type Server struct {
 
 // NewServer builds a RestServer with connect.Connection and
 // the provided arguments, then registers necessary external services
-func NewServer(receptionId *id.ID, privKey *cyclic.Int,
-	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client, p connect.Params) (*Server, error) {
+func NewServer(identity xxdk.ReceptionIdentity, net *xxdk.Cmix,
+	p connect.Params) (*Server, error) {
 	newServer := &Server{
-		receptionId: receptionId,
+		receptionId: identity.ID,
 		endpoints:   restlike.NewEndpoints(),
 	}
 
@@ -38,7 +36,7 @@ func NewServer(receptionId *id.ID, privKey *cyclic.Int,
 	}
 
 	// Build the connection listener
-	err := connect.StartServer(cb, receptionId, privKey, rng, grp, net, p)
+	_, err := connect.StartServer(identity, cb, net, p)
 	if err != nil {
 		return nil, err
 	}

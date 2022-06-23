@@ -2,6 +2,7 @@ package bindings
 
 import (
 	"encoding/json"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/connect"
 	e2e2 "gitlab.com/elixxir/client/e2e"
@@ -35,16 +36,19 @@ func (c *Connection) GetId() int {
 // myIdentity - marshalled ReceptionIdentity object
 func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
 	*Connection, error) {
+	jww.INFO.Printf("Connect(...) called") // TODO: remove me
 	cont, err := contact.Unmarshal(recipientContact)
 	if err != nil {
 		return nil, err
 	}
 
+	jww.INFO.Printf("Getting e2e client from singleton...") // TODO: remove me
 	e2eClient, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
 		return nil, err
 	}
 
+	jww.INFO.Printf("Calling connect.Connect(...)") // TODO: remove me
 	p := connect.GetDefaultParams()
 	p.Timeout = 45 * time.Second
 	connection, err := connect.Connect(cont, e2eClient.api, p)
@@ -52,6 +56,7 @@ func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
 		return nil, err
 	}
 
+	jww.INFO.Printf("Finishing with bindings.Connect") // TODO: remove me
 	return connectionTrackerSingleton.make(connection), nil
 }
 

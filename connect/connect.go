@@ -116,7 +116,7 @@ func GetParameters(params string) (Params, error) {
 // partner.Manager is confirmed.
 func Connect(recipient contact.Contact, e2eClient *xxdk.E2e,
 	p Params) (Connection, error) {
-
+	jww.INFO.Printf("connect.Connect(...) called") // TODO: remove me
 	// Build callback for E2E negotiation
 	signalChannel := make(chan Connection, 1)
 	cb := func(connection Connection) {
@@ -125,6 +125,7 @@ func Connect(recipient contact.Contact, e2eClient *xxdk.E2e,
 	callback := getAuthCallback(cb, nil, e2eClient.GetE2E(), e2eClient.GetAuth(), p)
 	e2eClient.GetAuth().AddPartnerCallback(recipient.ID, callback)
 
+	jww.INFO.Printf("Sending auth request...") // TODO: remove me
 	// Perform the auth request
 	_, err := e2eClient.GetAuth().Request(recipient, nil)
 	if err != nil {

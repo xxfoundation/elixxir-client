@@ -18,13 +18,28 @@ type IdList struct {
 	Ids [][]byte
 }
 
+// E2ESendReport is the bindings representation of the return values of SendE2E
+// Example E2ESendReport:
+// {"Rounds":[1,5,9],
+//  "MessageID":"51Yy47uZbP0o2Y9B/kkreDLTB6opUol3M3mYiY2dcdQ=",
+//  "Timestamp":1653582683183384000}
+type E2ESendReport struct {
+	RoundsList
+	MessageID []byte
+	Timestamp int64
+}
+
 // GetReceptionID returns the marshalled default IDs
+// Returns:
+//  - []byte - the marshalled bytes of the id.ID object.
 func (e *E2e) GetReceptionID() []byte {
 	return e.api.GetE2E().GetReceptionID().Marshal()
 }
 
 // GetAllPartnerIDs returns a marshalled list of all partner IDs that the user has
 // an E2E relationship with.
+// Returns:
+//  - []byte - the marshalled bytes of the IdList object.
 func (e *E2e) GetAllPartnerIDs() ([]byte, error) {
 	partnerIds := e.api.GetE2E().GetAllPartnerIDs()
 	convertedIds := make([][]byte, len(partnerIds))
@@ -59,18 +74,24 @@ func (e *E2e) FirstPartitionSize() int {
 }
 
 // GetHistoricalDHPrivkey returns the user's marshalled Historical DH Private Key
+// Returns:
+//  - []byte - the marshalled bytes of the cyclic.Int object.
 func (e *E2e) GetHistoricalDHPrivkey() ([]byte, error) {
 	return e.api.GetE2E().GetHistoricalDHPrivkey().MarshalJSON()
 }
 
 // GetHistoricalDHPubkey returns the user's marshalled Historical DH
 // Public Key
+// Returns:
+//  - []byte - the marshalled bytes of the cyclic.Int object.
 func (e *E2e) GetHistoricalDHPubkey() ([]byte, error) {
 	return e.api.GetE2E().GetHistoricalDHPubkey().MarshalJSON()
 }
 
 // HasAuthenticatedChannel returns true if an authenticated channel with the
 // partner exists, otherwise returns false
+// Parameters:
+//  - partnerId - the marshalled bytes of the id.ID object.
 func (e *E2e) HasAuthenticatedChannel(partnerId []byte) (bool, error) {
 	partner, err := id.Unmarshal(partnerId)
 	if err != nil {
@@ -88,6 +109,11 @@ func (e *E2e) RemoveService(tag string) error {
 // recipient of the passed message type, per the given
 // parameters - encrypted with end-to-end encryption.
 // Default parameters can be retrieved through
+// Parameters:
+//  - recipientId - the marshalled bytes of the id.ID object.
+//  - e2eParams - the marshalled bytes of the e2e.Params object.
+// Returns:
+//  - []byte - the marshalled bytes of the E2ESendReport object.
 func (e *E2e) SendE2E(messageType int, recipientId, payload,
 	e2eParams []byte) ([]byte, error) {
 
@@ -106,17 +132,10 @@ func (e *E2e) SendE2E(messageType int, recipientId, payload,
 		return nil, err
 	}
 
-	result := SendE2eResults{
-		roundIds:  roundIds,
-		messageId: messageId.Marshal(),
-		ts:        ts.UnixNano(),
+	result := E2ESendReport{
+		RoundsList: makeRoundsList(roundIds),
+		MessageID:  messageId.Marshal(),
+		Timestamp:  ts.UnixNano(),
 	}
 	return json.Marshal(result)
-}
-
-// SendE2eResults is the return type for SendE2e
-type SendE2eResults struct {
-	roundIds  []id.Round
-	messageId []byte
-	ts        int64
 }

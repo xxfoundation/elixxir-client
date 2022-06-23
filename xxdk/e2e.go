@@ -94,7 +94,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := OpenCmix(storageDir, password, params)
+	c, err := LoadCmix(storageDir, password, params)
 	if err != nil {
 		return nil, err
 	}
@@ -111,11 +111,6 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		jww.WARN.Printf("Registration with permissioning skipped due " +
 			"to blank permissionign address. Cmix will not be " +
 			"able to register or track network.")
-	}
-
-	err = c.network.Connect(def)
-	if err != nil {
-		return nil, err
 	}
 
 	err = c.registerFollower()
@@ -151,7 +146,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := OpenCmix(storageDir, password, params)
+	c, err := LoadCmix(storageDir, password, params)
 	if err != nil {
 		return nil, err
 	}
@@ -159,11 +154,6 @@ func LoginWithProtoClient(storageDir string, password []byte,
 	c.storage.SetNDF(def)
 
 	err = c.initPermissioning(def)
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.network.Connect(def)
 	if err != nil {
 		return nil, err
 	}

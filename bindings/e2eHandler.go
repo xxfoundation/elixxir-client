@@ -8,8 +8,12 @@ package bindings
 
 import (
 	"encoding/json"
+	"fmt"
 	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -138,4 +142,58 @@ func (e *E2e) SendE2E(messageType int, recipientId, payload,
 		Timestamp:  ts.UnixNano(),
 	}
 	return json.Marshal(result)
+}
+
+// AddService adds a service for all partners of the given
+// tag, which will call back on the given processor. These can
+// be sent to using the tag fields in the Params Object
+// Passing nil for the processor allows you to create a
+// service which is never called but will be visible by
+// notifications. Processes added this way are generally not
+// end-to-end encrypted messages themselves, but other
+// protocols which piggyback on e2e relationships to start
+// communication
+func (e *E2e) AddService(tag string, processor Processor) error {
+	return e.api.GetE2E().AddService(tag, &messageProcessor{bindingsCbs: processor})
+}
+
+// Processor is the bindings-specific interface for message.Processor methods.
+type Processor interface {
+	Process(message []byte, receptionId []byte, ephemeralId int64, roundId int64)
+	fmt.Stringer
+}
+
+// messageProcessor implements Processor as a way of obtaining
+// a message.Processor over the bindings
+type messageProcessor struct {
+	bindingsCbs Processor
+}
+
+// convertAuthCallbacks turns an auth.Callbacks into an AuthCallbacks
+func convertProcessor(msg format.Message,
+	receptionID receptionID.EphemeralIdentity,
+	round rounds.Round) (message []byte, receptionId []byte, ephemeralId int64, roundId int64) {
+
+	message = msg.Marshal()
+	receptionId = receptionID.Source.Marshal()
+	ephemeralId = int64(receptionID.EphId.UInt64())
+	roundId = int64(round.ID)
+	return
+}
+
+// Process decrypts and hands off the message to its internal down stream
+// message processing system.
+// CRITICAL: Fingerprints should never be used twice. Process must denote,
+// in long term storage, usage of a fingerprint and that fingerprint must
+// not be added again during application load.
+// It is a security vulnerability to reuse a fingerprint. It leaks privacy
+// and can lead to compromise of message contents and integrity.
+func (m *messageProcessor) Process(msg format.Message,
+	receptionID receptionID.EphemeralIdentity, roundId rounds.Round) {
+	m.bindingsCbs(convertProcessor(msg, receptionID, roundId))
+}
+
+// Stringer interface for debugging
+func (m *messageProcessor) String() string {
+	return m.bindingsCbs.String()
 }

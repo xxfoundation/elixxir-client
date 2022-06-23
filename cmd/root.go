@@ -597,7 +597,7 @@ func createClient() *xxdk.Cmix {
 			}
 
 		} else {
-			err = xxdk.NewClient(string(ndfJSON), storeDir,
+			err = xxdk.NewCmix(string(ndfJSON), storeDir,
 				pass, regCode)
 		}
 

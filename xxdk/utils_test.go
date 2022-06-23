@@ -39,7 +39,7 @@ func newTestingClient(face interface{}) (*Cmix, error) {
 	marshalledDef, _ := def.Marshal()
 	storageDir := "ignore.1"
 	password := []byte("hunter2")
-	err := NewClient(string(marshalledDef), storageDir, password, "AAAA")
+	err := NewCmix(string(marshalledDef), storageDir, password, "AAAA")
 	if err != nil {
 		return nil, errors.Errorf(
 			"Could not construct a mock client: %v", err)

@@ -61,13 +61,13 @@ type Cmix struct {
 	events *event.Manager
 }
 
-// NewClient creates client storage, generates keys, connects, and registers
+// NewCmix creates client storage, generates keys, connects, and registers
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
-func NewClient(ndfJSON, storageDir string, password []byte,
+func NewCmix(ndfJSON, storageDir string, password []byte,
 	registrationCode string) error {
-	jww.INFO.Printf("NewClient(dir: %s)", storageDir)
+	jww.INFO.Printf("NewCmix(dir: %s)", storageDir)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
 		csprng.NewSystemRNG)
 
@@ -566,7 +566,7 @@ func DecodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 	return cmixGrp, e2eGrp
 }
 
-// CheckVersionAndSetupStorage is common code shared by NewClient,
+// CheckVersionAndSetupStorage is common code shared by NewCmix,
 // NewPrecannedClient and NewVanityClient it checks client version and
 // creates a new storage for user data
 func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition,

@@ -34,7 +34,7 @@ type Cmix struct {
 //
 // Users of this function should delete the storage directory on error.
 func NewKeystore(network, storageDir string, password []byte, regCode string) error {
-	if err := xxdk.NewClient(network, storageDir, password, regCode); err != nil {
+	if err := xxdk.NewCmix(network, storageDir, password, regCode); err != nil {
 		return errors.New(fmt.Sprintf("Failed to create new client: %+v",
 			err))
 	}

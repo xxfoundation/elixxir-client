@@ -18,11 +18,11 @@ ndfJson, err := xxdk.DownloadAndVerifySignedNdfWithUrl(url, cert)
 Example:
 
 ```go
-err := xxdk.NewClient(ndfJson, "/clientStorage", []byte("testPassword"), "")
+err := xxdk.NewCmix(ndfJson, "/clientStorage", []byte("testPassword"), "")
 ```
 
 3. LoadCmix in order to obtain the xxdk.Cmix object.
-   `storageDir` and `password` may be customized, but must match the values provided to `NewClient()`.
+   `storageDir` and `password` may be customized, but must match the values provided to `NewCmix()`.
    The result of `xxdk.GetDefaultParams()` may also be freely modified according to your needs.
 
 Example:

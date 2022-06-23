@@ -89,23 +89,34 @@ func (e *E2e) RemoveService(tag string) error {
 // parameters - encrypted with end-to-end encryption.
 // Default parameters can be retrieved through
 func (e *E2e) SendE2E(messageType int, recipientId, payload,
-	e2eParams []byte) ([]byte, []byte, int64, error) {
+	e2eParams []byte) ([]byte, error) {
 
 	params := e2e.GetDefaultParams()
 	err := params.UnmarshalJSON(e2eParams)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, err
 	}
 	recipient, err := id.Unmarshal(recipientId)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, err
 	}
 
 	roundIds, messageId, ts, err := e.api.GetE2E().SendE2E(catalog.MessageType(messageType), recipient, payload, params)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, err
 	}
 
-	convertedRids, err := json.Marshal(roundIds)
-	return convertedRids, messageId[:], ts.UnixNano(), err
+	result := SendE2eResults{
+		roundIds:  roundIds,
+		messageId: messageId.Marshal(),
+		ts:        ts.UnixNano(),
+	}
+	return json.Marshal(result)
+}
+
+// SendE2eResults is the return type for SendE2e
+type SendE2eResults struct {
+	roundIds  []id.Round
+	messageId []byte
+	ts        int64
 }

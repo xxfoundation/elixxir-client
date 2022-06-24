@@ -76,8 +76,8 @@ var getNDFCmd = &cobra.Command{
 		} else {
 
 			// Note: getndf prints to stdout, so we default to not do that
-			logLevel := viper.GetUint("logLevel")
-			logPath := viper.GetString("log")
+			logLevel := viper.GetUint(logLevelFlag)
+			logPath := viper.GetString(logFlag)
 			if logPath == "-" || logPath == "" {
 				logPath = "getndf.log"
 			}

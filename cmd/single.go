@@ -88,7 +88,7 @@ var singleCmd = &cobra.Command{
 		// If the send flag is set, then send a message
 		if viper.GetBool("send") {
 			// get message details
-			payload := []byte(viper.GetString("message"))
+			payload := []byte(viper.GetString(messageFlag))
 			partner := readSingleUseContact("contact")
 			maxMessages := uint8(viper.GetUint("maxMessages"))
 

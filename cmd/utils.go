@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/xxdk"
 	"io/ioutil"
 	"strconv"
 	"strings"
@@ -15,6 +17,47 @@ import (
 )
 
 // todo: go through cmd package and organize utility functions
+
+func verifySendSuccess(client *xxdk.E2e, paramsE2E e2e.Params,
+	roundIDs []id.Round, partnerId *id.ID, payload []byte) bool {
+	retryChan := make(chan struct{})
+	done := make(chan struct{}, 1)
+
+	// Construct the callback function which
+	// verifies successful message send or retries
+	f := func(allRoundsSucceeded, timedOut bool,
+		rounds map[id.Round]cmix.RoundResult) {
+		printRoundResults(
+			rounds, roundIDs, payload, partnerId)
+		if !allRoundsSucceeded {
+			retryChan <- struct{}{}
+		} else {
+			done <- struct{}{}
+		}
+	}
+
+	// Monitor rounds for results
+	err := client.GetCmix().GetRoundResults(
+		paramsE2E.CMIXParams.Timeout, f, roundIDs...)
+	if err != nil {
+		jww.DEBUG.Printf("Could not verify messages were sent " +
+			"successfully, resending messages...")
+		return false
+	}
+
+	select {
+	case <-retryChan:
+		// On a retry, go to the top of the loop
+		jww.DEBUG.Printf("Messages were not sent successfully," +
+			" resending messages...")
+		return true
+	case <-done:
+		// Close channels on verification success
+		close(done)
+		close(retryChan)
+		return false
+	}
+}
 
 func loadBackup(backupPath, backupPass string) (backupCrypto.Backup, []byte) {
 	jww.INFO.Printf("Loading backup from path %q with password %q", backupPath, backupPass)
@@ -88,7 +131,7 @@ func writeContact(c contact.Contact) {
 }
 
 func readContact() contact.Contact {
-	inputFilePath := viper.GetString("destfile")
+	inputFilePath := viper.GetString(destFileFlag)
 	if inputFilePath == "" {
 		return contact.Contact{}
 	}

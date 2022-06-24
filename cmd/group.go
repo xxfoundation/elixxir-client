@@ -69,7 +69,7 @@ var groupCmd = &cobra.Command{
 		}
 
 		// Get group message and name
-		msgBody := []byte(viper.GetString("message"))
+		msgBody := []byte(viper.GetString(messageFlag))
 		name := []byte(viper.GetString("name"))
 		timeout := viper.GetDuration("receiveTimeout")
 

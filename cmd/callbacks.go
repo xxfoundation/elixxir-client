@@ -47,7 +47,7 @@ func (a *authCallbacks) Request(requestor contact.Contact,
 	if a.autoConfirm {
 		jww.INFO.Printf("Channel Request: %s",
 			requestor.ID)
-		if viper.GetBool("verify-sends") { // Verify message sends were successful
+		if viper.GetBool(verifySendFlag) { // Verify message sends were successful
 			acceptChannelVerified(a.client, requestor.ID)
 		} else {
 			acceptChannel(a.client, requestor.ID)

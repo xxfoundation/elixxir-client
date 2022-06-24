@@ -199,10 +199,6 @@ func newMockCmix() *mockCmix {
 	return &mockCmix{}
 }
 
-func (m mockCmix) Connect(ndf *ndf.NetworkDefinition) error {
-	return nil
-}
-
 func (m *mockCmix) Follow(report cmix.ClientErrorReport) (stoppable.Stoppable, error) {
 	return nil, nil
 }

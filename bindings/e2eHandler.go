@@ -190,7 +190,7 @@ func convertProcessor(msg format.Message,
 // and can lead to compromise of message contents and integrity.
 func (m *messageProcessor) Process(msg format.Message,
 	receptionID receptionID.EphemeralIdentity, roundId rounds.Round) {
-	m.bindingsCbs(convertProcessor(msg, receptionID, roundId))
+	m.bindingsCbs.Process(convertProcessor(msg, receptionID, roundId))
 }
 
 // Stringer interface for debugging

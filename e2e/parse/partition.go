@@ -32,7 +32,7 @@ type Partitioner struct {
 	partition         *partition.Store
 }
 
-func NewPartitioner(kv *versioned.KV, messageSize int) Partitioner {
+func NewPartitioner(kv *versioned.KV, messageSize int) *Partitioner {
 	p := Partitioner{
 		baseMessageSize:   messageSize,
 		firstContentsSize: messageSize - firstHeaderLen,
@@ -43,10 +43,10 @@ func NewPartitioner(kv *versioned.KV, messageSize int) Partitioner {
 	}
 	p.maxSize = p.firstContentsSize + (MaxMessageParts-1)*p.partContentsSize
 
-	return p
+	return &p
 }
 
-func (p Partitioner) Partition(recipient *id.ID, mt catalog.MessageType,
+func (p *Partitioner) Partition(recipient *id.ID, mt catalog.MessageType,
 	timestamp time.Time, payload []byte) ([][]byte, uint64, error) {
 
 	if len(payload) > p.maxSize {
@@ -77,7 +77,7 @@ func (p Partitioner) Partition(recipient *id.ID, mt catalog.MessageType,
 	return parts, fullMessageID, nil
 }
 
-func (p Partitioner) HandlePartition(sender *id.ID,
+func (p *Partitioner) HandlePartition(sender *id.ID,
 	contents []byte, relationshipFingerprint []byte) (receive.Message, bool) {
 
 	if isFirst(contents) {
@@ -106,19 +106,19 @@ func (p Partitioner) HandlePartition(sender *id.ID,
 
 // FirstPartitionSize returns the max partition payload size for the
 // first payload
-func (p Partitioner) FirstPartitionSize() uint {
+func (p *Partitioner) FirstPartitionSize() uint {
 	return uint(p.firstContentsSize)
 }
 
 // SecondPartitionSize returns the max partition payload size for all
 // payloads after the first payload
-func (p Partitioner) SecondPartitionSize() uint {
+func (p *Partitioner) SecondPartitionSize() uint {
 	return uint(p.partContentsSize)
 }
 
 // PayloadSize Returns the max payload size for a partitionable E2E
 // message
-func (p Partitioner) PayloadSize() uint {
+func (p *Partitioner) PayloadSize() uint {
 	return uint(p.maxSize)
 }
 

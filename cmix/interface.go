@@ -14,15 +14,9 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"gitlab.com/xx_network/primitives/ndf"
 )
 
 type Client interface {
-	// Connect turns on network handlers, initializing a host pool and
-	// network health monitors. This should be called before
-	// network Follow command is called.
-	Connect(ndf *ndf.NetworkDefinition) error
-
 	// Follow starts the tracking of the network in a new thread.
 	// Errors that occur are reported on the ClientErrorReport function if
 	// passed. The returned stoppable can be used to stop the follower.

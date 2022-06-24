@@ -20,7 +20,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"gitlab.com/xx_network/primitives/ndf"
 	"math/rand"
 	"sync"
 	"testing"
@@ -112,7 +111,6 @@ func newMockFpgCmix() *mockFpgCmix {
 	}
 }
 
-func (m *mockFpgCmix) Connect(*ndf.NetworkDefinition) error                       { return nil }
 func (m *mockFpgCmix) Follow(cmix.ClientErrorReport) (stoppable.Stoppable, error) { return nil, nil }
 func (m *mockFpgCmix) GetMaxMessageLength() int                                   { return 0 }
 func (m *mockFpgCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte, []byte, cmix.CMIXParams) (id.Round, ephemeral.Id, error) {

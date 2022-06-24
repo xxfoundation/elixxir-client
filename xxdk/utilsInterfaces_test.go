@@ -7,7 +7,6 @@
 package xxdk
 
 import (
-	"gitlab.com/xx_network/primitives/ndf"
 	"time"
 
 	"gitlab.com/elixxir/client/cmix"
@@ -93,9 +92,6 @@ func (d *dummyEventMgr) EventService() (stoppable.Stoppable, error) {
 }
 
 /* Below methods built for interface adherence */
-func (t *testNetworkManagerGeneric) Connect(ndf *ndf.NetworkDefinition) error {
-	return nil
-}
 func (t *testNetworkManagerGeneric) Follow(report cmix.ClientErrorReport) (stoppable.Stoppable, error) {
 	return nil, nil
 }

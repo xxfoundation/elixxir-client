@@ -64,6 +64,12 @@ func LoginLegacy(client *Cmix, callbacks auth.Callbacks) (m *E2e, err error) {
 	}
 	client.GetCmix().AddIdentity(client.GetUser().ReceptionID, time.Time{}, true)
 
+	err = client.AddService(m.e2e.StartProcesses)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to add "+
+			"the e2e processies")
+	}
+
 	m.auth, err = auth.NewState(client.GetStorage().GetKV(), client.GetCmix(),
 		m.e2e, client.GetRng(), client.GetEventReporter(),
 		auth.GetDefaultParams(), callbacks, m.backup.TriggerBackup)
@@ -94,7 +100,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := OpenCmix(storageDir, password, params)
+	c, err := LoadCmix(storageDir, password, params)
 	if err != nil {
 		return nil, err
 	}
@@ -111,11 +117,6 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		jww.WARN.Printf("Registration with permissioning skipped due " +
 			"to blank permissionign address. Cmix will not be " +
 			"able to register or track network.")
-	}
-
-	err = c.network.Connect(def)
-	if err != nil {
-		return nil, err
 	}
 
 	err = c.registerFollower()
@@ -151,7 +152,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := OpenCmix(storageDir, password, params)
+	c, err := LoadCmix(storageDir, password, params)
 	if err != nil {
 		return nil, err
 	}
@@ -159,11 +160,6 @@ func LoginWithProtoClient(storageDir string, password []byte,
 	c.storage.SetNDF(def)
 
 	err = c.initPermissioning(def)
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.network.Connect(def)
 	if err != nil {
 		return nil, err
 	}
@@ -224,6 +220,12 @@ func login(client *Cmix, callbacks auth.Callbacks,
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load a "+
 			"newly created e2e store")
+	}
+
+	err = client.AddService(m.e2e.StartProcesses)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to add "+
+			"the e2e processies")
 	}
 
 	m.auth, err = auth.NewState(kv, client.GetCmix(),

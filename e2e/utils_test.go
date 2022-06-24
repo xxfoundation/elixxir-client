@@ -166,7 +166,6 @@ func newMockCmix(myID *id.ID, handler *mockCmixHandler, t testing.TB) *mockCmix 
 	}
 }
 
-func (m *mockCmix) Connect(*ndf.NetworkDefinition) error                       { return nil }
 func (m *mockCmix) Follow(cmix.ClientErrorReport) (stoppable.Stoppable, error) { return nil, nil }
 
 func (m *mockCmix) GetMaxMessageLength() int {

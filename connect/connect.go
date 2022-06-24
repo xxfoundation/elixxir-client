@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/xxdk"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -122,12 +123,23 @@ func Connect(recipient contact.Contact, e2eClient *xxdk.E2e,
 	cb := func(connection Connection) {
 		signalChannel <- connection
 	}
-	callback := getAuthCallback(cb, nil, e2eClient.GetE2E(), e2eClient.GetAuth(), p)
+	callback := getAuthCallback(cb, nil, e2eClient.GetE2E(),
+		e2eClient.GetAuth(), p)
 	e2eClient.GetAuth().AddPartnerCallback(recipient.ID, callback)
 
 	// Perform the auth request
 	_, err := e2eClient.GetAuth().Request(recipient, nil)
 	if err != nil {
+		// Return connection if a partnership already exists
+		if strings.Contains(err.Error(), auth.ChannelExists) {
+			newPartner, err := e2eClient.GetE2E().GetPartner(recipient.ID)
+			if err != nil {
+				return nil, err
+			}
+			conn := BuildConnection(newPartner,
+				e2eClient.GetE2E(), e2eClient.GetAuth(), p)
+			return conn, nil
+		}
 		return nil, err
 	}
 

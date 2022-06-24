@@ -117,14 +117,14 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 	c.Handler = message.NewHandler(c.param.Message, c.session.GetKV(),
 		c.events, c.session.GetReceptionID())
 
-	err := c.connect(session.GetNDF())
+	err := c.initialize(session.GetNDF())
 	return c, err
 }
 
-// connect turns on network handlers, initializing a host pool and
+// initialize turns on network handlers, initializing a host pool and
 // network health monitors. This should be called before
 // network Follow command is called.
-func (c *client) connect(ndf *ndf.NetworkDefinition) error {
+func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
 	// Start network instance
 	instance, err := commNetwork.NewInstance(
 		c.comms.ProtoComms, ndf, nil, nil, commNetwork.None,

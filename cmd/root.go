@@ -15,7 +15,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gitlab.com/elixxir/client/storage/user"
 	"io/fs"
 	"io/ioutil"
 	"log"
@@ -25,6 +24,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"gitlab.com/elixxir/client/storage/user"
 
 	"gitlab.com/elixxir/client/backup"
 	"gitlab.com/elixxir/client/e2e"
@@ -195,6 +196,8 @@ var rootCmd = &cobra.Command{
 
 		client := initClient()
 
+		jww.INFO.Printf("Client Initialized...")
+
 		user := client.GetUser()
 		jww.INFO.Printf("USERPUBKEY: %s",
 			user.E2eDhPublicKey.TextVerbose(16, 0))
@@ -219,13 +222,20 @@ var rootCmd = &cobra.Command{
 			recipientContact = user.GetContact()
 		}
 
+		jww.INFO.Printf("Client: %s, Partner: %s", user.ReceptionID,
+			recipientID)
+
 		client.GetE2E().EnableUnsafeReception()
 		recvCh := registerMessageListener(client)
+
+		jww.INFO.Printf("Starting Network followers...")
 
 		err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
+
+		jww.INFO.Printf("Network followers started!")
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
@@ -244,6 +254,8 @@ var rootCmd = &cobra.Command{
 		// 85% of the nodes
 		numReg := 1
 		total := 100
+		jww.INFO.Printf("Registering with nodes...")
+
 		for numReg < (total*3)/4 {
 			time.Sleep(1 * time.Second)
 			numReg, total, err = client.GetNodeRegistrationStatus()
@@ -255,6 +267,8 @@ var rootCmd = &cobra.Command{
 		}
 
 		client.GetBackupContainer().TriggerBackup("Integration test.")
+
+		jww.INFO.Printf("Client backup triggered...")
 
 		// Send Messages
 		msgBody := viper.GetString("message")
@@ -376,6 +390,8 @@ var rootCmd = &cobra.Command{
 			paramsE2E.ExcludedRounds = excludedRounds.NewSet()
 		}
 
+		jww.INFO.Printf("Client Sending messages...")
+
 		wg := &sync.WaitGroup{}
 		sendCnt := int(viper.GetUint("sendCount"))
 		wg.Add(sendCnt)
@@ -455,6 +471,8 @@ var rootCmd = &cobra.Command{
 		waitTimeout := time.Duration(waitSecs) * time.Second
 		done := false
 
+		jww.INFO.Printf("Client receiving messages...")
+
 		for !done && expectedCnt != 0 {
 			timeoutTimer := time.NewTimer(waitTimeout)
 			select {
@@ -511,7 +529,7 @@ var rootCmd = &cobra.Command{
 		if profileOut != "" {
 			pprof.StopCPUProfile()
 		}
-
+		jww.INFO.Printf("Client exiting!")
 	},
 }
 

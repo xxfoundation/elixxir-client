@@ -165,7 +165,7 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 
 	critcalNetworkStopper := stoppable.NewSingle(
 		"e2eCriticalMessagesStopper")
-	m.crit.runCriticalMessages(critcalNetworkStopper,
+	go m.crit.runCriticalMessages(critcalNetworkStopper,
 		m.net.GetInstance().GetRoundEvents())
 	multi.Add(critcalNetworkStopper)
 

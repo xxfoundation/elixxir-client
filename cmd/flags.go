@@ -7,7 +7,10 @@
 
 package cmd
 
-// Flag name constants
+// This is a comprehensive list of CLI flag name constants. Organized by
+// subcommand, with root level CLI flags at the top of the list. Newly added
+// flags for any existing or new subcommands should be listed and organized
+// here. Pulling flags using Viper should use the constants defined here.
 // todo: fill this with all existing flags, replace hardcoded references with
 //  these constants
 const (
@@ -21,7 +24,9 @@ const (
 	// Log flags
 	logLevelFlag = "logLevel"
 	logFlag      = "log"
-	sessionFlag  = "session"
+
+	// Misc
+	sessionFlag = "session"
 
 	///////////////// Broadcast subcommand flags //////////////////////////////
 	// todo: populate

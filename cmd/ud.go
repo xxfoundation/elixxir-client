@@ -53,7 +53,7 @@ var udCmd = &cobra.Command{
 		// authMgr.AddGeneralRequestCallback(printChanRequest)
 
 		// // If unsafe channels, add auto-acceptor
-		// if viper.GetBool("unsafe-channel-creation") {
+		// if viper.GetBool(unsafeChannelCreationFlag) {
 		// 	authMgr.AddGeneralRequestCallback(func(
 		// 		requester contact.Contact) {
 		// 		jww.INFO.Printf("Got Request: %s", requester.ID)

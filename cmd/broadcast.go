@@ -201,8 +201,8 @@ var broadcastCmd = &cobra.Command{
 		}
 
 		/* Receive broadcast messages over the channel */
-		waitSecs := viper.GetUint("waitTimeout")
-		expectedCnt := viper.GetUint("receiveCount")
+		waitSecs := viper.GetUint(waitTimeoutFlag)
+		expectedCnt := viper.GetUint(receiveCountFlag)
 		waitTimeout := time.Duration(waitSecs) * time.Second
 		receivedCount := uint(0)
 		done := false

@@ -62,7 +62,7 @@ var rootCmd = &cobra.Command{
 	Short: "Runs a client for cMix anonymous communication platform",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		profileOut := viper.GetString("profile-cpu")
+		profileOut := viper.GetString(profileCpuFlag)
 		if profileOut != "" {
 			f, err := os.Create(profileOut)
 			if err != nil {
@@ -89,7 +89,7 @@ var rootCmd = &cobra.Command{
 		// Try to get recipientID from destid
 		if recipientID == nil {
 			recipientID, isPrecanPartner = parseRecipient(
-				viper.GetString("destid"))
+				viper.GetString(destIdFlag))
 		}
 
 		// Set it to myself
@@ -154,7 +154,7 @@ var rootCmd = &cobra.Command{
 		// Accept auth request for this recipient
 		authConfirmed := false
 		paramsE2E := e2e.GetDefaultParams()
-		if viper.GetBool("accept-channel") {
+		if viper.GetBool(acceptChannelFlag) {
 			// Verify that the confirmation message makes it to the
 			// original sender
 			if viper.GetBool(verifySendFlag) {
@@ -176,8 +176,8 @@ var rootCmd = &cobra.Command{
 		}
 
 		// Send unsafe messages or not?
-		unsafe := viper.GetBool("unsafe")
-		sendAuthReq := viper.GetBool("send-auth-request")
+		unsafe := viper.GetBool(unsafeFlag)
+		sendAuthReq := viper.GetBool(sendAuthRequestFlag)
 		if !unsafe && !authConfirmed && !isPrecanPartner &&
 			sendAuthReq {
 			addAuthenticatedChannel(client, recipientID,
@@ -207,7 +207,7 @@ var rootCmd = &cobra.Command{
 			jww.INFO.Printf("Waiting for authentication channel"+
 				" confirmation with partner %s", recipientID)
 			scnt := uint(0)
-			waitSecs := viper.GetUint("auth-timeout")
+			waitSecs := viper.GetUint(authTimeoutFlag)
 			for !authConfirmed && scnt < waitSecs {
 				time.Sleep(1 * time.Second)
 				scnt++
@@ -223,11 +223,11 @@ var rootCmd = &cobra.Command{
 		}
 
 		// DeleteFingerprint this recipient
-		if viper.GetBool("delete-channel") {
+		if viper.GetBool(deleteChannelFlag) {
 			deleteChannel(client, recipientID)
 		}
 
-		if viper.GetBool("delete-receive-requests") {
+		if viper.GetBool(deleteReceiveRequestsFlag) {
 			err = client.GetAuth().DeleteReceiveRequests()
 			if err != nil {
 				jww.FATAL.Panicf("Failed to delete received requests:"+
@@ -235,7 +235,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		if viper.GetBool("delete-sent-requests") {
+		if viper.GetBool(deleteSentRequestsFlag) {
 			err = client.GetAuth().DeleteSentRequests()
 			if err != nil {
 				jww.FATAL.Panicf("Failed to delete sent requests:"+
@@ -243,7 +243,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		if viper.GetBool("delete-all-requests") {
+		if viper.GetBool(deleteAllRequestsFlag) {
 			err = client.GetAuth().DeleteAllRequests()
 			if err != nil {
 				jww.FATAL.Panicf("Failed to delete all requests:"+
@@ -251,7 +251,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		if viper.GetBool("delete-request") {
+		if viper.GetBool(deleteRequestFlag) {
 			err = client.GetAuth().DeleteRequest(recipientID)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to delete request for %s:"+
@@ -263,17 +263,17 @@ var rootCmd = &cobra.Command{
 		payload := []byte(msgBody)
 		recipient := recipientID
 
-		if viper.GetBool("splitSends") {
+		if viper.GetBool(splitSendsFlag) {
 			paramsE2E.ExcludedRounds = excludedRounds.NewSet()
 		}
 
 		jww.INFO.Printf("Client Sending messages...")
 
 		wg := &sync.WaitGroup{}
-		sendCnt := int(viper.GetUint("sendCount"))
+		sendCnt := int(viper.GetUint(sendCountFlag))
 		wg.Add(sendCnt)
 		go func() {
-			sendDelay := time.Duration(viper.GetUint("sendDelay"))
+			sendDelay := time.Duration(viper.GetUint(sendDelayFlag))
 			for i := 0; i < sendCnt; i++ {
 				go func(i int) {
 					defer wg.Done()
@@ -313,9 +313,9 @@ var rootCmd = &cobra.Command{
 
 		// Wait until message timeout or we receive enough then exit
 		// TODO: Actually check for how many messages we've received
-		expectedCnt := viper.GetUint("receiveCount")
+		expectedCnt := viper.GetUint(receiveCountFlag)
 		receiveCnt := uint(0)
-		waitSecs := viper.GetUint("waitTimeout")
+		waitSecs := viper.GetUint(waitTimeoutFlag)
 		waitTimeout := time.Duration(waitSecs) * time.Second
 		done := false
 
@@ -386,19 +386,19 @@ func createClient() *xxdk.Cmix {
 	initLog(logLevel, viper.GetString(logFlag))
 	jww.INFO.Printf(Version())
 
-	pass := parsePassword(viper.GetString("password"))
+	pass := parsePassword(viper.GetString(passwordFlag))
 	storeDir := viper.GetString(sessionFlag)
-	regCode := viper.GetString("regcode")
-	precannedID := viper.GetUint("sendid")
+	regCode := viper.GetString(regCodeFlag)
+	precannedID := viper.GetUint(sendIdFlag)
 	userIDprefix := viper.GetString("userid-prefix")
-	protoUserPath := viper.GetString("protoUserPath")
-	backupPath := viper.GetString("backupIn")
-	backupPass := []byte(viper.GetString("backupPass"))
+	protoUserPath := viper.GetString(protoUserPathFlag)
+	backupPath := viper.GetString(backupInFlag)
+	backupPass := []byte(viper.GetString(backupPassFlag))
 
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Load NDF
-		ndfJSON, err := ioutil.ReadFile(viper.GetString("ndf"))
+		ndfJSON, err := ioutil.ReadFile(viper.GetString(ndfFlag))
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
 		}
@@ -434,7 +434,7 @@ func createClient() *xxdk.Cmix {
 			}
 
 			// Write the backup JSON to file
-			err = utils.WriteFileDef(viper.GetString("backupJsonOut"), backupJson)
+			err = utils.WriteFileDef(viper.GetString(backupJsonOutFlag), backupJson)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
 			}
@@ -446,7 +446,7 @@ func createClient() *xxdk.Cmix {
 				jww.FATAL.Panicf("%+v", err)
 			}
 
-			backupIdListPath := viper.GetString("backupIdList")
+			backupIdListPath := viper.GetString(backupIdListFlag)
 			if backupIdListPath != "" {
 				// Marshal backed up ID list to JSON
 				backedUpIdListJson, err := json.Marshal(backupIdList)
@@ -483,29 +483,29 @@ func createClient() *xxdk.Cmix {
 
 func initParams() xxdk.Params {
 	p := xxdk.GetDefaultParams()
-	p.Session.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
-	p.Session.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
-	p.Session.NumRekeys = uint16(viper.GetUint("e2eNumReKeys"))
-	p.Session.RekeyThreshold = viper.GetFloat64("e2eRekeyThreshold")
+	p.Session.MinKeys = uint16(viper.GetUint(e2eMinKeysFlag))
+	p.Session.MaxKeys = uint16(viper.GetUint(e2eMaxKeysFlag))
+	p.Session.NumRekeys = uint16(viper.GetUint(e2eNumReKeysFlag))
+	p.Session.RekeyThreshold = viper.GetFloat64(e2eRekeyThresholdFlag)
 	p.CMix.Pickup.ForceHistoricalRounds = viper.GetBool(
-		"forceHistoricalRounds")
-	p.CMix.FastPolling = !viper.GetBool("slowPolling")
+		forceHistoricalRoundsFlag)
+	p.CMix.FastPolling = !viper.GetBool(slowPollingFlag)
 	p.CMix.Pickup.ForceMessagePickupRetry = viper.GetBool(
-		"forceMessagePickupRetry")
+		forceMessagePickupRetryFlag)
 	if p.CMix.Pickup.ForceMessagePickupRetry {
 		period := 3 * time.Second
 		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
 		p.CMix.Pickup.UncheckRoundPeriod = period
 	}
 	p.CMix.VerboseRoundTracking = viper.GetBool(
-		"verboseRoundTracking")
+		verboseRoundTrackingFlag)
 	return p
 }
 
 func initClient() *xxdk.E2e {
 	createClient()
 
-	pass := parsePassword(viper.GetString("password"))
+	pass := parsePassword(viper.GetString(passwordFlag))
 	storeDir := viper.GetString(sessionFlag)
 	jww.DEBUG.Printf("sessionDur: %v", storeDir)
 
@@ -519,7 +519,7 @@ func initClient() *xxdk.E2e {
 	}
 
 	authCbs = makeAuthCallbacks(nil,
-		viper.GetBool("unsafe-channel-creation"))
+		viper.GetBool(unsafeChannelCreationFlag))
 
 	client, err := xxdk.LoginLegacy(baseclient, authCbs)
 	if err != nil {
@@ -528,7 +528,7 @@ func initClient() *xxdk.E2e {
 
 	authCbs.client = client
 
-	if protoUser := viper.GetString("protoUserOut"); protoUser != "" {
+	if protoUser := viper.GetString(protoUserOutFlag); protoUser != "" {
 
 		jsonBytes, err := client.ConstructProtoUserFile()
 		if err != nil {
@@ -544,8 +544,8 @@ func initClient() *xxdk.E2e {
 
 	}
 
-	if backupOut := viper.GetString("backupOut"); backupOut != "" {
-		backupPass := viper.GetString("backupPass")
+	if backupOut := viper.GetString(backupOutFlag); backupOut != "" {
+		backupPass := viper.GetString(backupPassFlag)
 		updateBackupCb := func(encryptedBackup []byte) {
 			jww.INFO.Printf("Backup update received, size %d",
 				len(encryptedBackup))
@@ -556,7 +556,7 @@ func initClient() *xxdk.E2e {
 					err)
 			}
 
-			backupJsonPath := viper.GetString("backupJsonOut")
+			backupJsonPath := viper.GetString(backupJsonOutFlag)
 
 			if backupJsonPath != "" {
 				var b backupCrypto.Backup
@@ -613,7 +613,7 @@ func deleteChannel(client *xxdk.E2e, partnerId *id.ID) {
 func addAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 	recipient contact.Contact) {
 	var allowed bool
-	if viper.GetBool("unsafe-channel-creation") {
+	if viper.GetBool(unsafeChannelCreationFlag) {
 		msg := "unsafe channel creation enabled\n"
 		jww.WARN.Printf(msg)
 		fmt.Printf("WARNING: %s", msg)
@@ -659,7 +659,7 @@ func addAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 func resetAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 	recipient contact.Contact) {
 	var allowed bool
-	if viper.GetBool("unsafe-channel-creation") {
+	if viper.GetBool(unsafeChannelCreationFlag) {
 		msg := "unsafe channel creation enabled\n"
 		jww.WARN.Printf(msg)
 		fmt.Printf("WARNING: %s", msg)
@@ -815,7 +815,7 @@ func resetChannelVerified(client *xxdk.E2e, recipientContact contact.Contact) {
 }
 
 func waitUntilConnected(connected chan bool) {
-	waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
+	waitTimeout := time.Duration(viper.GetUint(waitTimeoutFlag))
 	timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 	isConnected := false
 	// Wait until we connect or panic if we can't by a timeout
@@ -965,7 +965,7 @@ func initLog(threshold uint, logPath string) {
 		jww.SetLogThreshold(jww.LevelInfo)
 	}
 
-	if viper.GetBool("verboseRoundTracking") {
+	if viper.GetBool(verboseRoundTrackingFlag) {
 		initRoundLog(logPath)
 	}
 }
@@ -1022,202 +1022,202 @@ func init() {
 	viper.BindPFlag(logLevelFlag, rootCmd.PersistentFlags().
 		Lookup(logLevelFlag))
 
-	rootCmd.PersistentFlags().Bool("verboseRoundTracking", false,
+	rootCmd.PersistentFlags().Bool(verboseRoundTrackingFlag, false,
 		"Verbose round tracking, keeps track and prints all rounds the "+
 			"client was aware of while running. Defaults to false if not set.")
-	viper.BindPFlag("verboseRoundTracking", rootCmd.PersistentFlags().Lookup(
-		"verboseRoundTracking"))
+	viper.BindPFlag(verboseRoundTrackingFlag, rootCmd.PersistentFlags().Lookup(
+		verboseRoundTrackingFlag))
 
 	rootCmd.PersistentFlags().StringP(sessionFlag, "s",
 		"", "Sets the initial storage directory for "+
 			"client session data")
 	viper.BindPFlag(sessionFlag, rootCmd.PersistentFlags().Lookup(sessionFlag))
 
-	rootCmd.PersistentFlags().StringP("writeContact", "w",
+	rootCmd.PersistentFlags().StringP(writeContactFlag, "w",
 		"-", "Write contact information, if any, to this file, "+
 			" defaults to stdout")
-	viper.BindPFlag("writeContact", rootCmd.PersistentFlags().Lookup(
-		"writeContact"))
+	viper.BindPFlag(writeContactFlag, rootCmd.PersistentFlags().Lookup(
+		writeContactFlag))
 
-	rootCmd.PersistentFlags().StringP("password", "p", "",
+	rootCmd.PersistentFlags().StringP(passwordFlag, "p", "",
 		"Password to the session file")
-	viper.BindPFlag("password", rootCmd.PersistentFlags().Lookup(
-		"password"))
+	viper.BindPFlag(passwordFlag, rootCmd.PersistentFlags().Lookup(
+		passwordFlag))
 
-	rootCmd.PersistentFlags().StringP("ndf", "n", "ndf.json",
+	rootCmd.PersistentFlags().StringP(ndfFlag, "n", "ndf.json",
 		"Path to the network definition JSON file")
-	viper.BindPFlag("ndf", rootCmd.PersistentFlags().Lookup("ndf"))
+	viper.BindPFlag(ndfFlag, rootCmd.PersistentFlags().Lookup(ndfFlag))
 
 	rootCmd.PersistentFlags().StringP(logFlag, "l", "-",
 		"Path to the log output path (- is stdout)")
 	viper.BindPFlag(logFlag, rootCmd.PersistentFlags().Lookup(logFlag))
 
-	rootCmd.Flags().StringP("regcode", "", "",
+	rootCmd.Flags().StringP(regCodeFlag, "", "",
 		"ReceptionIdentity code (optional)")
-	viper.BindPFlag("regcode", rootCmd.Flags().Lookup("regcode"))
+	viper.BindPFlag(regCodeFlag, rootCmd.Flags().Lookup(regCodeFlag))
 
 	rootCmd.PersistentFlags().StringP(messageFlag, "m", "",
 		"Message to send")
 	viper.BindPFlag(messageFlag, rootCmd.PersistentFlags().Lookup(messageFlag))
 
-	rootCmd.Flags().UintP("sendid", "", 0,
+	rootCmd.Flags().UintP(sendIdFlag, "", 0,
 		"Use precanned user id (must be between 1 and 40, inclusive)")
-	viper.BindPFlag("sendid", rootCmd.Flags().Lookup("sendid"))
+	viper.BindPFlag(sendIdFlag, rootCmd.Flags().Lookup(sendIdFlag))
 
-	rootCmd.Flags().StringP("destid", "d", "0",
+	rootCmd.Flags().StringP(destIdFlag, "d", "0",
 		"ID to send message to (if below 40, will be precanned. Use "+
 			"'0x' or 'b64:' for hex and base64 representations)")
-	viper.BindPFlag("destid", rootCmd.Flags().Lookup("destid"))
+	viper.BindPFlag(destIdFlag, rootCmd.Flags().Lookup(destIdFlag))
 
 	rootCmd.Flags().StringP(destFileFlag, "",
 		"", "Read this contact file for the destination id")
 	viper.BindPFlag(destFileFlag, rootCmd.Flags().Lookup(destFileFlag))
 
-	rootCmd.Flags().UintP("sendCount",
+	rootCmd.Flags().UintP(sendCountFlag,
 		"", 1, "The number of times to send the message")
-	viper.BindPFlag("sendCount", rootCmd.Flags().Lookup("sendCount"))
-	rootCmd.Flags().UintP("sendDelay",
+	viper.BindPFlag(sendCountFlag, rootCmd.Flags().Lookup(sendCountFlag))
+	rootCmd.Flags().UintP(sendDelayFlag,
 		"", 500, "The delay between sending the messages in ms")
-	viper.BindPFlag("sendDelay", rootCmd.Flags().Lookup("sendDelay"))
-	rootCmd.Flags().BoolP("splitSends",
+	viper.BindPFlag(sendDelayFlag, rootCmd.Flags().Lookup(sendDelayFlag))
+	rootCmd.Flags().BoolP(splitSendsFlag,
 		"", false, "Force sends to go over multiple rounds if possible")
-	viper.BindPFlag("splitSends", rootCmd.Flags().Lookup("splitSends"))
+	viper.BindPFlag(splitSendsFlag, rootCmd.Flags().Lookup(splitSendsFlag))
 
 	rootCmd.Flags().BoolP(verifySendFlag, "", false,
 		"Ensure successful message sending by checking for round completion")
 	viper.BindPFlag(verifySendFlag, rootCmd.Flags().Lookup(verifySendFlag))
 
-	rootCmd.PersistentFlags().UintP("receiveCount",
+	rootCmd.PersistentFlags().UintP(receiveCountFlag,
 		"", 1, "How many messages we should wait for before quitting")
-	viper.BindPFlag("receiveCount", rootCmd.PersistentFlags().Lookup("receiveCount"))
-	rootCmd.PersistentFlags().UintP("waitTimeout", "", 15,
+	viper.BindPFlag(receiveCountFlag, rootCmd.PersistentFlags().Lookup(receiveCountFlag))
+	rootCmd.PersistentFlags().UintP(waitTimeoutFlag, "", 15,
 		"The number of seconds to wait for messages to arrive")
-	viper.BindPFlag("waitTimeout",
-		rootCmd.PersistentFlags().Lookup("waitTimeout"))
+	viper.BindPFlag(waitTimeoutFlag,
+		rootCmd.PersistentFlags().Lookup(waitTimeoutFlag))
 
-	rootCmd.Flags().BoolP("unsafe", "", false,
+	rootCmd.Flags().BoolP(unsafeFlag, "", false,
 		"Send raw, unsafe messages without e2e encryption.")
-	viper.BindPFlag("unsafe", rootCmd.Flags().Lookup("unsafe"))
+	viper.BindPFlag(unsafeFlag, rootCmd.Flags().Lookup(unsafeFlag))
 
-	rootCmd.PersistentFlags().BoolP("unsafe-channel-creation", "", false,
+	rootCmd.PersistentFlags().BoolP(unsafeChannelCreationFlag, "", false,
 		"Turns off the user identity authenticated channel check, "+
 			"automatically approving authenticated channels")
-	viper.BindPFlag("unsafe-channel-creation",
-		rootCmd.PersistentFlags().Lookup("unsafe-channel-creation"))
+	viper.BindPFlag(unsafeChannelCreationFlag,
+		rootCmd.PersistentFlags().Lookup(unsafeChannelCreationFlag))
 
-	rootCmd.Flags().BoolP("accept-channel", "", false,
+	rootCmd.Flags().BoolP(acceptChannelFlag, "", false,
 		"Accept the channel request for the corresponding recipient ID")
-	viper.BindPFlag("accept-channel",
-		rootCmd.Flags().Lookup("accept-channel"))
+	viper.BindPFlag(acceptChannelFlag,
+		rootCmd.Flags().Lookup(acceptChannelFlag))
 
-	rootCmd.PersistentFlags().Bool("delete-channel", false,
+	rootCmd.PersistentFlags().Bool(deleteChannelFlag, false,
 		"DeleteFingerprint the channel information for the corresponding recipient ID")
-	viper.BindPFlag("delete-channel",
-		rootCmd.PersistentFlags().Lookup("delete-channel"))
+	viper.BindPFlag(deleteChannelFlag,
+		rootCmd.PersistentFlags().Lookup(deleteChannelFlag))
 
-	rootCmd.PersistentFlags().Bool("delete-receive-requests", false,
+	rootCmd.PersistentFlags().Bool(deleteReceiveRequestsFlag, false,
 		"DeleteFingerprint the all received contact requests.")
-	viper.BindPFlag("delete-receive-requests",
-		rootCmd.PersistentFlags().Lookup("delete-receive-requests"))
+	viper.BindPFlag(deleteReceiveRequestsFlag,
+		rootCmd.PersistentFlags().Lookup(deleteReceiveRequestsFlag))
 
-	rootCmd.PersistentFlags().Bool("delete-sent-requests", false,
+	rootCmd.PersistentFlags().Bool(deleteSentRequestsFlag, false,
 		"DeleteFingerprint the all sent contact requests.")
-	viper.BindPFlag("delete-sent-requests",
-		rootCmd.PersistentFlags().Lookup("delete-sent-requests"))
+	viper.BindPFlag(deleteSentRequestsFlag,
+		rootCmd.PersistentFlags().Lookup(deleteSentRequestsFlag))
 
-	rootCmd.PersistentFlags().Bool("delete-all-requests", false,
+	rootCmd.PersistentFlags().Bool(deleteAllRequestsFlag, false,
 		"DeleteFingerprint the all contact requests, both sent and received.")
-	viper.BindPFlag("delete-all-requests",
-		rootCmd.PersistentFlags().Lookup("delete-all-requests"))
+	viper.BindPFlag(deleteAllRequestsFlag,
+		rootCmd.PersistentFlags().Lookup(deleteAllRequestsFlag))
 
-	rootCmd.PersistentFlags().Bool("delete-request", false,
+	rootCmd.PersistentFlags().Bool(deleteRequestFlag, false,
 		"DeleteFingerprint the request for the specified ID given by the "+
 			"destfile flag's contact file.")
-	viper.BindPFlag("delete-request",
-		rootCmd.PersistentFlags().Lookup("delete-request"))
+	viper.BindPFlag(deleteRequestFlag,
+		rootCmd.PersistentFlags().Lookup(deleteRequestFlag))
 
-	rootCmd.Flags().BoolP("send-auth-request", "", false,
+	rootCmd.Flags().BoolP(sendAuthRequestFlag, "", false,
 		"Send an auth request to the specified destination and wait"+
 			"for confirmation")
-	viper.BindPFlag("send-auth-request",
-		rootCmd.Flags().Lookup("send-auth-request"))
-	rootCmd.Flags().UintP("auth-timeout", "", 120,
+	viper.BindPFlag(sendAuthRequestFlag,
+		rootCmd.Flags().Lookup(sendAuthRequestFlag))
+	rootCmd.Flags().UintP(authTimeoutFlag, "", 120,
 		"The number of seconds to wait for an authentication channel"+
 			"to confirm")
-	viper.BindPFlag("auth-timeout",
-		rootCmd.Flags().Lookup("auth-timeout"))
+	viper.BindPFlag(authTimeoutFlag,
+		rootCmd.Flags().Lookup(authTimeoutFlag))
 
-	rootCmd.Flags().BoolP("forceHistoricalRounds", "", false,
+	rootCmd.Flags().BoolP(forceHistoricalRoundsFlag, "", false,
 		"Force all rounds to be sent to historical round retrieval")
-	viper.BindPFlag("forceHistoricalRounds",
-		rootCmd.Flags().Lookup("forceHistoricalRounds"))
+	viper.BindPFlag(forceHistoricalRoundsFlag,
+		rootCmd.Flags().Lookup(forceHistoricalRoundsFlag))
 
 	// Network params
-	rootCmd.Flags().BoolP("slowPolling", "", false,
+	rootCmd.Flags().BoolP(slowPollingFlag, "", false,
 		"Enables polling for unfiltered network updates with RSA signatures")
-	viper.BindPFlag("slowPolling",
-		rootCmd.Flags().Lookup("slowPolling"))
+	viper.BindPFlag(slowPollingFlag,
+		rootCmd.Flags().Lookup(slowPollingFlag))
 
-	rootCmd.Flags().Bool("forceMessagePickupRetry", false,
+	rootCmd.Flags().Bool(forceMessagePickupRetryFlag, false,
 		"Enable a mechanism which forces a 50% chance of no message pickup, "+
 			"instead triggering the message pickup retry mechanism")
-	viper.BindPFlag("forceMessagePickupRetry",
-		rootCmd.Flags().Lookup("forceMessagePickupRetry"))
+	viper.BindPFlag(forceMessagePickupRetryFlag,
+		rootCmd.Flags().Lookup(forceMessagePickupRetryFlag))
 
 	// E2E Params
 	defaultE2EParams := session.GetDefaultParams()
-	rootCmd.Flags().UintP("e2eMinKeys",
+	rootCmd.Flags().UintP(e2eMinKeysFlag,
 		"", uint(defaultE2EParams.MinKeys),
 		"Minimum number of keys used before requesting rekey")
-	viper.BindPFlag("e2eMinKeys", rootCmd.Flags().Lookup("e2eMinKeys"))
-	rootCmd.Flags().UintP("e2eMaxKeys",
+	viper.BindPFlag(e2eMinKeysFlag, rootCmd.Flags().Lookup(e2eMinKeysFlag))
+	rootCmd.Flags().UintP(e2eMaxKeysFlag,
 		"", uint(defaultE2EParams.MaxKeys),
 		"Max keys used before blocking until a rekey completes")
-	viper.BindPFlag("e2eMaxKeys", rootCmd.Flags().Lookup("e2eMaxKeys"))
-	rootCmd.Flags().UintP("e2eNumReKeys",
+	viper.BindPFlag(e2eMaxKeysFlag, rootCmd.Flags().Lookup(e2eMaxKeysFlag))
+	rootCmd.Flags().UintP(e2eNumReKeysFlag,
 		"", uint(defaultE2EParams.NumRekeys),
 		"Number of rekeys reserved for rekey operations")
-	viper.BindPFlag("e2eNumReKeys", rootCmd.Flags().Lookup("e2eNumReKeys"))
-	rootCmd.Flags().Float64P("e2eRekeyThreshold",
+	viper.BindPFlag(e2eNumReKeysFlag, rootCmd.Flags().Lookup(e2eNumReKeysFlag))
+	rootCmd.Flags().Float64P(e2eRekeyThresholdFlag,
 		"", defaultE2EParams.RekeyThreshold,
 		"Number between 0 an 1. Percent of keys used before a rekey is started")
-	viper.BindPFlag("e2eRekeyThreshold", rootCmd.Flags().Lookup("e2eRekeyThreshold"))
+	viper.BindPFlag(e2eRekeyThresholdFlag, rootCmd.Flags().Lookup(e2eRekeyThresholdFlag))
 
-	rootCmd.Flags().String("profile-cpu", "",
+	rootCmd.Flags().String(profileCpuFlag, "",
 		"Enable cpu profiling to this file")
-	viper.BindPFlag("profile-cpu", rootCmd.Flags().Lookup("profile-cpu"))
+	viper.BindPFlag(profileCpuFlag, rootCmd.Flags().Lookup(profileCpuFlag))
 
 	// Proto user flags
-	rootCmd.Flags().String("protoUserPath", "",
+	rootCmd.Flags().String(protoUserPathFlag, "",
 		"Path to proto user JSON file containing cryptographic primitives "+
 			"the client will load")
-	viper.BindPFlag("protoUserPath", rootCmd.Flags().Lookup("protoUserPath"))
-	rootCmd.Flags().String("protoUserOut", "",
+	viper.BindPFlag(protoUserPathFlag, rootCmd.Flags().Lookup(protoUserPathFlag))
+	rootCmd.Flags().String(protoUserOutFlag, "",
 		"Path to which a normally constructed client "+
 			"will write proto user JSON file")
-	viper.BindPFlag("protoUserOut", rootCmd.Flags().Lookup("protoUserOut"))
+	viper.BindPFlag(protoUserOutFlag, rootCmd.Flags().Lookup(protoUserOutFlag))
 
 	// Backup flags
-	rootCmd.Flags().String("backupOut", "",
+	rootCmd.Flags().String(backupOutFlag, "",
 		"Path to output encrypted client backup. If no path is supplied, the "+
 			"backup system is not started.")
-	viper.BindPFlag("backupOut", rootCmd.Flags().Lookup("backupOut"))
+	viper.BindPFlag(backupOutFlag, rootCmd.Flags().Lookup(backupOutFlag))
 
-	rootCmd.Flags().String("backupJsonOut", "",
+	rootCmd.Flags().String(backupJsonOutFlag, "",
 		"Path to output unencrypted client JSON backup.")
-	viper.BindPFlag("backupJsonOut", rootCmd.Flags().Lookup("backupJsonOut"))
+	viper.BindPFlag(backupJsonOutFlag, rootCmd.Flags().Lookup(backupJsonOutFlag))
 
-	rootCmd.Flags().String("backupIn", "",
+	rootCmd.Flags().String(backupInFlag, "",
 		"Path to load backup client from")
-	viper.BindPFlag("backupIn", rootCmd.Flags().Lookup("backupIn"))
+	viper.BindPFlag(backupInFlag, rootCmd.Flags().Lookup(backupInFlag))
 
-	rootCmd.Flags().String("backupPass", "",
+	rootCmd.Flags().String(backupPassFlag, "",
 		"Passphrase to encrypt/decrypt backup")
-	viper.BindPFlag("backupPass", rootCmd.Flags().Lookup("backupPass"))
+	viper.BindPFlag(backupPassFlag, rootCmd.Flags().Lookup(backupPassFlag))
 
-	rootCmd.Flags().String("backupIdList", "",
+	rootCmd.Flags().String(backupIdListFlag, "",
 		"JSON file containing the backed up partner IDs")
-	viper.BindPFlag("backupIdList", rootCmd.Flags().Lookup("backupIdList"))
+	viper.BindPFlag(backupIdListFlag, rootCmd.Flags().Lookup(backupIdListFlag))
 
 }
 

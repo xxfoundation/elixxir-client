@@ -16,17 +16,68 @@ package cmd
 const (
 	//////////////// Root flags ///////////////////////////////////////////////
 
-	// Send flags
-	verifySendFlag = "verify-sends"
-	destFileFlag   = "destfile"
-	messageFlag    = "message"
+	// Send/receive flags
+	verifySendFlag   = "verify-sends"
+	messageFlag      = "message"
+	destIdFlag       = "destid"
+	sendCountFlag    = "sendCount"
+	sendDelayFlag    = "sendDelay"
+	splitSendsFlag   = "splitSends"
+	receiveCountFlag = "receiveCount"
+	waitTimeoutFlag  = "waitTimeout"
+	unsafeFlag       = "unsafe"
+
+	// Channel flags
+	unsafeChannelCreationFlag = "unsafe-channel-creation"
+	acceptChannelFlag         = "accept-channel"
+	deleteChannelFlag         = "delete-channel"
+
+	// Request flags
+	deleteReceiveRequestsFlag = "delete-receive-requests"
+	deleteSentRequestsFlag    = "delete-sent-requests"
+	deleteAllRequestsFlag     = "delete-all-requests"
+	deleteRequestFlag         = "delete-request"
+	sendAuthRequestFlag       = "send-auth-request"
+	authTimeoutFlag           = "auth-timeout"
+
+	// Contact file flags
+	writeContactFlag = "writeContact"
+	destFileFlag     = "destfile"
 
 	// Log flags
 	logLevelFlag = "logLevel"
 	logFlag      = "log"
 
+	// Loading/establishing xxdk.E2E
+	sessionFlag       = "session"
+	passwordFlag      = "password"
+	ndfFlag           = "ndf"
+	regCodeFlag       = "regcode"
+	protoUserPathFlag = "protoUserPath"
+	protoUserOutFlag  = "protoUserOut"
+
+	// Backup flags
+	backupOutFlag     = "backupOut"
+	backupJsonOutFlag = "backupJsonOut"
+	backupInFlag      = "backupIn"
+	backupPassFlag    = "backupPass"
+	backupIdListFlag  = "backupIdList"
+
+	// Network following/logging flags
+	verboseRoundTrackingFlag    = "verboseRoundTracking"
+	forceHistoricalRoundsFlag   = "forceHistoricalRounds"
+	slowPollingFlag             = "slowPolling"
+	forceMessagePickupRetryFlag = "forceMessagePickupRetry"
+
+	// E2E Params
+	e2eMinKeysFlag        = "e2eMinKeys"
+	e2eMaxKeysFlag        = "e2eMaxKeys"
+	e2eNumReKeysFlag      = "e2eNumReKeys"
+	e2eRekeyThresholdFlag = "e2eRekeyThreshold"
+
 	// Misc
-	sessionFlag = "session"
+	sendIdFlag     = "sendid"
+	profileCpuFlag = "profile-cpu"
 
 	///////////////// Broadcast subcommand flags //////////////////////////////
 	// todo: populate

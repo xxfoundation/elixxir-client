@@ -119,7 +119,7 @@ func printRoundResults(rounds map[id.Round]cmix.RoundResult, roundIDs []id.Round
 }
 
 func writeContact(c contact.Contact) {
-	outfilePath := viper.GetString("writeContact")
+	outfilePath := viper.GetString(writeContactFlag)
 	if outfilePath == "" {
 		return
 	}

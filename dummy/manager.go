@@ -12,10 +12,10 @@ package dummy
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"sync/atomic"
 	"time"
@@ -56,8 +56,8 @@ type Manager struct {
 	// Pauses/Resumes the dummy send thread when triggered
 	statusChan chan bool
 
-	// Client interfaces
-	client *api.Client
+	// Cmix interfaces
+	client *xxdk.Cmix
 	store  *storage.Session
 	net    interfaces.NetworkManager
 	rng    *fastRNG.StreamGenerator
@@ -66,7 +66,7 @@ type Manager struct {
 // NewManager creates a new dummy Manager with the specified average send delta
 // and the range used for generating random durations.
 func NewManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
-	client *api.Client, manager interfaces.NetworkManager) *Manager {
+	client *xxdk.Cmix, manager interfaces.NetworkManager) *Manager {
 	clientStorage := client.GetStorage()
 	return newManager(maxNumMessages, avgSendDelta, randomRange, client,
 		&clientStorage, manager, client.GetRng())
@@ -75,7 +75,7 @@ func NewManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 // newManager builds a new dummy Manager from fields explicitly passed in. This
 // function is a helper function for NewManager to make it easier to test.
 func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
-	client *api.Client, store *storage.Session, net interfaces.NetworkManager,
+	client *xxdk.Cmix, store *storage.Session, net interfaces.NetworkManager,
 	rng *fastRNG.StreamGenerator) *Manager {
 	return &Manager{
 		maxNumMessages: maxNumMessages,
@@ -91,7 +91,7 @@ func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 }
 
 // StartDummyTraffic starts the process of sending dummy traffic. This function
-// matches the api.Service type.
+// matches the xxdk.Service type.
 func (m *Manager) StartDummyTraffic() (stoppable.Stoppable, error) {
 	stop := stoppable.NewSingle(dummyTrafficStoppableName)
 	go m.sendThread(stop)

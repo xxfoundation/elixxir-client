@@ -18,6 +18,7 @@ import (
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"strconv"
 	"sync"
 )
 
@@ -68,6 +69,9 @@ type SentTransfer struct {
 	// ID of the recipient of the file transfer
 	recipient *id.ID
 
+	// The size of the entire file
+	fileSize uint32
+
 	// The number of file parts in the file
 	numParts uint16
 
@@ -80,6 +84,10 @@ type SentTransfer struct {
 	// Stores the status of each part in a bitstream format
 	partStatus *utility.StateVector
 
+	// Unique identifier of the last progress callback called (used to prevent
+	// callback calls with duplicate data)
+	lastCallbackFingerprint string
+
 	mux sync.RWMutex
 	kv  *versioned.KV
 }
@@ -87,8 +95,8 @@ type SentTransfer struct {
 // newSentTransfer generates a new SentTransfer with the specified transfer key,
 // transfer ID, and parts.
 func newSentTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
-	tid *ftCrypto.TransferID, fileName string, parts [][]byte, numFps uint16,
-	kv *versioned.KV) (*SentTransfer, error) {
+	tid *ftCrypto.TransferID, fileName string, fileSize uint32, parts [][]byte,
+	numFps uint16, kv *versioned.KV) (*SentTransfer, error) {
 	kv = kv.Prefix(makeSentTransferPrefix(tid))
 
 	// Create new cypher manager
@@ -109,6 +117,7 @@ func newSentTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 		tid:           tid,
 		fileName:      fileName,
 		recipient:     recipient,
+		fileSize:      fileSize,
 		numParts:      uint16(len(parts)),
 		status:        Running,
 		parts:         parts,
@@ -173,11 +182,6 @@ func (st *SentTransfer) Status() TransferStatus {
 	return st.status
 }
 
-// NumParts returns the total number of file parts in the transfer.
-func (st *SentTransfer) NumParts() uint16 {
-	return st.numParts
-}
-
 // TransferID returns the transfer's ID.
 func (st *SentTransfer) TransferID() *ftCrypto.TransferID {
 	return st.tid
@@ -193,6 +197,16 @@ func (st *SentTransfer) Recipient() *id.ID {
 	return st.recipient
 }
 
+// FileSize returns the size of the entire file transfer.
+func (st *SentTransfer) FileSize() uint32 {
+	return st.fileSize
+}
+
+// NumParts returns the total number of file parts in the transfer.
+func (st *SentTransfer) NumParts() uint16 {
+	return st.numParts
+}
+
 // NumArrived returns the number of parts that have arrived.
 func (st *SentTransfer) NumArrived() uint16 {
 	return uint16(st.partStatus.GetNumUsed())
@@ -203,6 +217,36 @@ func (st *SentTransfer) NumArrived() uint16 {
 // when this function is called and not realtime.
 func (st *SentTransfer) CopyPartStatusVector() *utility.StateVector {
 	return st.partStatus.DeepCopy()
+}
+
+// CompareAndSwapCallbackFps compares the fingerprint to the previous callback
+// call's fingerprint. If they are different, the new one is stored, and it
+// returns true. Returns fall if they are the same.
+func (st *SentTransfer) CompareAndSwapCallbackFps(
+	completed bool, arrived, total uint16, err error) bool {
+	fp := generateSentFp(completed, arrived, total, err)
+	st.mux.Lock()
+	defer st.mux.Unlock()
+
+	if fp != st.lastCallbackFingerprint {
+		st.lastCallbackFingerprint = fp
+		return true
+	}
+
+	return false
+}
+
+// generateSentFp generates a fingerprint for a sent progress callback.
+func generateSentFp(completed bool, arrived, total uint16, err error) string {
+	errString := "<nil>"
+	if err != nil {
+		errString = err.Error()
+	}
+
+	return strconv.FormatBool(completed) +
+		strconv.FormatUint(uint64(arrived), 10) +
+		strconv.FormatUint(uint64(total), 10) +
+		errString
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -243,6 +287,7 @@ func loadSentTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
 		tid:           tid,
 		fileName:      fileName,
 		recipient:     recipient,
+		fileSize:      calcFileSize(parts),
 		numParts:      uint16(len(parts)),
 		status:        status,
 		parts:         parts,
@@ -251,6 +296,14 @@ func loadSentTransfer(tid *ftCrypto.TransferID, kv *versioned.KV) (
 	}
 
 	return st, nil
+}
+
+// calcFileSize calculates the size of the entire file from a list of parts. All
+// parts, except the last, are assumed to have the same length.
+func calcFileSize(parts [][]byte) uint32 {
+	lastPartSize := len(parts[len(parts)-1])
+	otherPartsSize := len(parts[0]) * (len(parts) - 1)
+	return uint32(lastPartSize + otherPartsSize)
 }
 
 // Delete deletes all data in the SentTransfer from storage.

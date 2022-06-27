@@ -66,7 +66,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 
 		// Test that Get returns the expected channel
 		if !reflect.DeepEqual(s.Get(), channel) {
-			t.Errorf("Client %d returned wrong channel."+
+			t.Errorf("Cmix %d returned wrong channel."+
 				"\nexpected: %+v\nreceived: %+v", i, channel, s.Get())
 		}
 	}
@@ -86,12 +86,12 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 				select {
 				case r := <-cbChan:
 					if !bytes.Equal(payload, r) {
-						t.Errorf("Client %d failed to receive expected "+
+						t.Errorf("Cmix %d failed to receive expected "+
 							"payload from client %d."+
 							"\nexpected: %q\nreceived: %q", j, i, payload, r)
 					}
 				case <-time.After(time.Second):
-					t.Errorf("Client %d timed out waiting for broadcast "+
+					t.Errorf("Cmix %d timed out waiting for broadcast "+
 						"payload from client %d.", j, i)
 				}
 			}(i, j, cbChans[j])
@@ -100,7 +100,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 		// Broadcast payload
 		_, _, err := clients[i].BroadcastAsymmetric(pk, payload, cmix.GetDefaultCMIXParams())
 		if err != nil {
-			t.Errorf("Client %d failed to send broadcast: %+v", i, err)
+			t.Errorf("Cmix %d failed to send broadcast: %+v", i, err)
 		}
 
 		// Wait for all clients to receive payload or time out
@@ -123,7 +123,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 			defer wg.Done()
 			select {
 			case r := <-cbChan:
-				t.Errorf("Client %d received message: %q", i, r)
+				t.Errorf("Cmix %d received message: %q", i, r)
 			case <-time.After(25 * time.Millisecond):
 			}
 		}(i, cbChans[i])
@@ -132,7 +132,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 	// Broadcast payload
 	_, _, err = clients[0].BroadcastAsymmetric(pk, payload, cmix.GetDefaultCMIXParams())
 	if err != nil {
-		t.Errorf("Client 0 failed to send broadcast: %+v", err)
+		t.Errorf("Cmix 0 failed to send broadcast: %+v", err)
 	}
 
 	wg.Wait()

@@ -187,7 +187,7 @@ func (m mockConnection) Unregister(listenerID receive.ListenerID) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Mock cMix Client                                                           //
+// Mock cMix                                                           //
 ////////////////////////////////////////////////////////////////////////////////
 
 type mockCmix struct {
@@ -197,10 +197,6 @@ type mockCmix struct {
 func newMockCmix() *mockCmix {
 
 	return &mockCmix{}
-}
-
-func (m mockCmix) Connect(ndf *ndf.NetworkDefinition) error {
-	return nil
 }
 
 func (m *mockCmix) Follow(report cmix.ClientErrorReport) (stoppable.Stoppable, error) {

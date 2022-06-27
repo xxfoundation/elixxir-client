@@ -2,8 +2,8 @@
 
 version:
 	go run main.go generate
-	sed -i.bak 's/package\ cmd/package\ api/g' version_vars.go
-	mv version_vars.go api/version_vars.go
+	sed -i.bak 's/package\ cmd/package\ xxdk/g' version_vars.go
+	mv version_vars.go xxdk/version_vars.go
 
 clean:
 	rm -rf vendor/

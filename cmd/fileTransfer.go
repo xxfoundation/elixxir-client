@@ -9,15 +9,15 @@ package cmd
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/api/messenger"
+	"gitlab.com/elixxir/client/xxdk"
 	"io/ioutil"
 	"time"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	ft "gitlab.com/elixxir/client/fileTransfer2"
-	ftE2e "gitlab.com/elixxir/client/fileTransfer2/e2e"
+	ft "gitlab.com/elixxir/client/fileTransfer"
+	ftE2e "gitlab.com/elixxir/client/fileTransfer/e2e"
 	"gitlab.com/elixxir/crypto/contact"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
@@ -132,7 +132,7 @@ type receivedFtResults struct {
 // initFileTransferManager creates a new file transfer manager with a new
 // reception callback. Returns the file transfer manager and the channel that
 // will be triggered when the callback is called.
-func initFileTransferManager(client *messenger.Client, maxThroughput int) (
+func initFileTransferManager(client *xxdk.E2e, maxThroughput int) (
 	*ftE2e.Wrapper, chan receivedFtResults) {
 
 	// Create interfaces.ReceiveCallback that returns the results on a channel
@@ -297,7 +297,7 @@ func newReceiveProgressCB(tid *ftCrypto.TransferID, fileName string,
 	m *ftE2e.Wrapper) ft.ReceivedProgressCallback {
 	return func(completed bool, received, total uint16,
 		rt ft.ReceivedTransfer, t ft.FilePartTracker, err error) {
-		jww.INFO.Printf("[FT] Receive progress callback for transfer %s "+
+		jww.INFO.Printf("[FT] Received progress callback for transfer %s "+
 			"{completed: %t, received: %d, total: %d, err: %v}",
 			tid, completed, received, total, err)
 
@@ -311,7 +311,7 @@ func newReceiveProgressCB(tid *ftCrypto.TransferID, fileName string,
 			receivedFile, err2 := m.Receive(tid)
 			if err2 != nil {
 				jww.FATAL.Panicf(
-					"[FT] Failed to receive file %s: %+v", tid, err)
+					"[FT] Failed to receive file %s: %+v", tid, err2)
 			}
 			jww.INFO.Printf("[FT] Completed receiving file %q in %s.",
 				fileName, netTime.Since(receiveStart))

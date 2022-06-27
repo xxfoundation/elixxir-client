@@ -1,24 +1,24 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                           //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
 
 syntax = "proto3";
 
 package parse;
-option go_package = "fileTransfer/";
+option go_package = "fileTransfer";
 
 // NewFileTransfer is transmitted first on the initialization of a file transfer
 // to inform the receiver about the incoming file.
 message NewFileTransfer {
-    string fileName = 1; // Name of the file; max 48 characters
-    string fileType = 2; // Type of file; max 8 characters
-    bytes transferKey = 3; // 256 bit encryption key to identify the transfer
-    bytes transferMac = 4; // 256 bit MAC of the entire file
+    string fileName = 1; // Name of the file
+    string fileType = 2; // String that indicates type of file
+    bytes  transferKey = 3; // 256-bit encryption key
+    bytes  transferMac = 4; // 256-bit MAC of the entire file
     uint32 numParts = 5; // Number of file parts
-    uint32 size = 6; // The size of the file; max of 250 kB
-    float retry = 7; // Used to determine how many times to retry sending
-    bytes preview = 8; // A preview of the file; max of 4 kB
+    uint32 size = 6; // The size of the file, in bytes
+    float  retry = 7; // Determines how many times to retry sending
+    bytes  preview = 8; // A preview of the file
 }

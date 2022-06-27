@@ -31,37 +31,25 @@ func (c *Connection) GetId() int {
 // This function is to be used sender-side and will block until the
 // partner.Manager is confirmed.
 // recipientContact - marshalled contact.Contact object
-// myIdentity - marshalled Identity object
-func (c *Client) Connect(recipientContact []byte, myIdentity []byte) (
+// myIdentity - marshalled ReceptionIdentity object
+func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
 	*Connection, error) {
 	cont, err := contact.Unmarshal(recipientContact)
 	if err != nil {
 		return nil, err
 	}
-	myID, _, _, myDHPriv, err := c.unmarshalIdentity(myIdentity)
+
+	e2eClient, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
 		return nil, err
 	}
 
-	connection, err := connect.Connect(cont, myID, myDHPriv, c.api.GetRng(),
-		c.api.GetStorage().GetE2EGroup(), c.api.GetCmix(), connect.GetDefaultParams())
-
+	connection, err := connect.Connect(cont, e2eClient.api, connect.GetDefaultParams())
 	if err != nil {
 		return nil, err
 	}
 
 	return connectionTrackerSingleton.make(connection), nil
-}
-
-// E2ESendReport is the bindings representation of the return values of SendE2E
-// Example E2ESendReport:
-// {"Rounds":[1,5,9],
-//  "MessageID":"51Yy47uZbP0o2Y9B/kkreDLTB6opUol3M3mYiY2dcdQ=",
-//  "Timestamp":1653582683183384000}
-type E2ESendReport struct {
-	RoundsList
-	MessageID []byte
-	Timestamp int64
 }
 
 // SendE2E is a wrapper for sending specifically to the Connection's partner.Manager

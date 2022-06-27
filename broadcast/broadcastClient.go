@@ -33,7 +33,7 @@ func NewBroadcastChannel(channel crypto.Channel, net Client, rng *fastRNG.Stream
 	}
 
 	if !bc.verifyID() {
-		jww.FATAL.Panicf("Failed ID verification for broadcast channel")
+		return nil, errors.New("Failed ID verification for broadcast channel")
 	}
 
 	// Add channel's identity

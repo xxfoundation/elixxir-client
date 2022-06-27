@@ -13,8 +13,8 @@ import (
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	clientE2e "gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -51,24 +51,23 @@ type AuthenticatedCallback func(connection AuthenticatedConnection)
 // ConnectWithAuthentication is called by the client, ie the one establishing
 // connection with the server. Once a connect.Connection has been established
 // with the server and then authenticate their identity to the server.
-func ConnectWithAuthentication(recipient contact.Contact, myId *id.ID,
-	salt []byte, myRsaPrivKey *rsa.PrivateKey, myDhPrivKey *cyclic.Int,
-	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
+func ConnectWithAuthentication(recipient contact.Contact, e2eClient *xxdk.E2e,
 	p Params) (AuthenticatedConnection, error) {
 
 	// Track the time since we started to attempt to establish a connection
 	timeStart := netTime.Now()
 
 	// Establish a connection with the server
-	conn, err := Connect(recipient, myId, myDhPrivKey, rng, grp, net, p)
+	conn, err := Connect(recipient, e2eClient, p)
 	if err != nil {
 		return nil, errors.Errorf("failed to establish connection "+
 			"with recipient %s: %+v", recipient.ID, err)
 	}
 
 	// Build the authenticated connection and return
-	return connectWithAuthentication(conn, timeStart, recipient, salt, myRsaPrivKey,
-		rng, net, p)
+	identity := e2eClient.GetReceptionIdentity()
+	return connectWithAuthentication(conn, timeStart, recipient, identity.Salt, identity.RSAPrivatePem,
+		e2eClient.GetRng(), e2eClient.GetCmix(), p)
 }
 
 // connectWithAuthentication builds and sends an IdentityAuthentication to
@@ -170,10 +169,8 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 // will handle authenticated requests and verify the client's attempt to
 // authenticate themselves. An established AuthenticatedConnection will
 // be passed via the callback.
-func StartAuthenticatedServer(cb AuthenticatedCallback,
-	myId *id.ID, privKey *cyclic.Int,
-	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
-	p Params) error {
+func StartAuthenticatedServer(identity xxdk.ReceptionIdentity,
+	cb AuthenticatedCallback, net *xxdk.Cmix, p Params) (*xxdk.E2e, error) {
 
 	// Register the waiter for a connection establishment
 	connCb := Callback(func(connection Connection) {
@@ -184,8 +181,7 @@ func StartAuthenticatedServer(cb AuthenticatedCallback,
 		connection.RegisterListener(catalog.ConnectionAuthenticationRequest,
 			buildAuthConfirmationHandler(cb, connection))
 	})
-	return StartServer(connCb, myId, privKey, rng, grp,
-		net, p)
+	return StartServer(identity, connCb, net, p)
 }
 
 // authenticatedHandler provides an implementation for the

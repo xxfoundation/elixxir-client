@@ -18,24 +18,31 @@ import (
 // SentProgressCallback is a callback function that tracks the progress of
 // sending a file.
 type SentProgressCallback func(completed bool, arrived, total uint16,
-	t FilePartTracker, err error)
+	st SentTransfer, t FilePartTracker, err error)
 
 // ReceivedProgressCallback is a callback function that tracks the progress of
 // receiving a file.
 type ReceivedProgressCallback func(completed bool, received, total uint16,
-	t FilePartTracker, err error)
+	rt ReceivedTransfer, t FilePartTracker, err error)
 
 // ReceiveCallback is a callback function that notifies the receiver of an
 // incoming file transfer.
 type ReceiveCallback func(tid *ftCrypto.TransferID, fileName, fileType string,
 	sender *id.ID, size uint32, preview []byte)
 
+// SendNew handles the sending of the initial message informing the recipient
+// of the incoming file transfer parts. SendNew should block until the send
+// completes and return an error only on failed sends.
+type SendNew func(transferInfo []byte) error
+
 // FileTransfer facilities the sending and receiving of large file transfers.
 // It allows for progress tracking of both inbound and outbound transfers.
+// FileTransfer handles the sending of the file data; however, the caller is
+// responsible for communicating to the recipient of the incoming file transfer.
 type FileTransfer interface {
 
-	// StartProcesses starts the listening for new file transfer messages and
-	// starts the sending threads that wait for transfers to send.
+	// StartProcesses starts the sending threads that wait for file transfers to
+	// send. Adheres to the xxdk.Service type.
 	StartProcesses() (stoppable.Stoppable, error)
 
 	// MaxFileNameLen returns the max number of bytes allowed for a file name.
@@ -52,10 +59,11 @@ type FileTransfer interface {
 	MaxPreviewSize() int
 
 	/* === Sending ========================================================== */
-	/* The processes of sending a file involves three main steps:
-		 1. Sending the file using Send
-		 2. Receiving transfer progress
-	     3. Closing a finished send using CloseSend
+	/* The processes of sending a file involves four main steps:
+		 1. Set up a method to send initial file transfer details using SendNew.
+		 2. Sending the file using Send and register a progress callback.
+		 3. Receiving transfer progress on the progress callback.
+	     4. Closing a finished send using CloseSend.
 
 	   Once the file is sent, it is broken into individual, equal-length parts
 	   and sent to the recipient. Every time one of these parts arrives, it is
@@ -73,15 +81,17 @@ type FileTransfer interface {
 
 	// Send initiates the sending of a file to the recipient and returns a
 	// transfer ID that uniquely identifies this file transfer.
+	//
 	// In-progress transfers are restored when closing and reopening; however, a
 	// SentProgressCallback must be registered again.
+	//
+	//   recipient - ID of the receiver of the file transfer. The sender must
+	//      have an E2E relationship with the recipient.
 	//   fileName - Human-readable file name. Max length defined by
 	//      MaxFileNameLen.
 	//   fileType - Shorthand that identifies the type of file. Max length
 	//      defined by MaxFileTypeLen.
 	//   fileData - File contents. Max size defined by MaxFileSize.
-	//   recipient - ID of the receiver of the file transfer. The sender must
-	//      have an E2E relationship with the recipient.
 	//   retry - The number of sending retries allowed on send failure (e.g.
 	//      a retry of 2.0 with 6 parts means 12 total possible sends).
 	//   preview - A preview of the file data (e.g. a thumbnail). Max size
@@ -91,9 +101,11 @@ type FileTransfer interface {
 	//      update (or less if restricted by the period), or on fatal error.
 	//   period - A progress callback will be limited from triggering only once
 	//      per period.
-	Send(fileName, fileType string, fileData []byte, recipient *id.ID,
+	//   sendNew - Function that sends the file transfer information to the
+	//      recipient.
+	Send(recipient *id.ID, fileName, fileType string, fileData []byte,
 		retry float32, preview []byte, progressCB SentProgressCallback,
-		period time.Duration) (*ftCrypto.TransferID, error)
+		period time.Duration, sendNew SendNew) (*ftCrypto.TransferID, error)
 
 	// RegisterSentProgressCallback allows for the registration of a callback to
 	// track the progress of an individual sent file transfer.
@@ -120,10 +132,14 @@ type FileTransfer interface {
 	CloseSend(tid *ftCrypto.TransferID) error
 
 	/* === Receiving ======================================================== */
-	/* The processes of receiving a file involves three main steps:
-		 1. Receiving a new file transfer on ReceiveCallback
-		 2. Receiving transfer progress
-	     3. Receiving the complete file using Receive
+	/* The processes of receiving a file involves four main steps:
+		 1. Receiving a new file transfer through a channel set up by the
+	        caller.
+	     2. Registering the file transfer and a progress callback with
+	        HandleIncomingTransfer.
+		 3. Receiving transfer progress on the progress callback.
+	     4. Receiving the complete file using Receive once the callback says
+	        the transfer is complete.
 
 	   Once the file transfer manager has started, it will call the
 	   ReceiveCallback for every new file transfer that is received. Once that
@@ -133,6 +149,27 @@ type FileTransfer interface {
 	   When the progress callback reports that the transfer is complete, the
 	   full file can be retrieved using Receive.
 	*/
+
+	// HandleIncomingTransfer starts tracking the received file parts for the
+	// given payload that contains the file transfer information and returns a
+	// transfer ID that uniquely identifies this file transfer along with the
+	// transfer information
+	//
+	// This function should be called once for every new file received on the
+	// registered SendNew callback.
+	//
+	// In-progress transfers are restored when closing and reopening; however, a
+	// ReceivedProgressCallback must be registered again.
+	//
+	//   payload - A marshalled payload container the file transfer information.
+	//   progressCB - A callback that reports the progress of the file transfer.
+	//      The callback is called once on initialization, on every progress
+	//      update (or less if restricted by the period), or on fatal error.
+	//   period - A progress callback will be limited from triggering only once
+	//      per period.
+	HandleIncomingTransfer(transferInfo []byte,
+		progressCB ReceivedProgressCallback, period time.Duration) (
+		*ftCrypto.TransferID, *TransferInfo, error)
 
 	// RegisterReceivedProgressCallback allows for the registration of a
 	// callback to track the progress of an individual received file transfer.
@@ -160,6 +197,27 @@ type FileTransfer interface {
 	// Receive can only be called once the progress callback returns that the
 	// file transfer is complete.
 	Receive(tid *ftCrypto.TransferID) ([]byte, error)
+}
+
+// SentTransfer tracks the information and individual parts of a sent file
+// transfer.
+type SentTransfer interface {
+	Recipient() *id.ID
+	Transfer
+}
+
+// ReceivedTransfer tracks the information and individual parts of a received
+// file transfer.
+type ReceivedTransfer interface {
+	Transfer
+}
+
+// Transfer is the generic structure for a file transfer.
+type Transfer interface {
+	TransferID() *ftCrypto.TransferID
+	FileName() string
+	FileSize() uint32
+	NumParts() uint16
 }
 
 // FilePartTracker tracks the status of each file part in a sent or received

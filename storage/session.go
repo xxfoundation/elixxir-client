@@ -104,7 +104,8 @@ func initStore(baseDir, password string) (*session, error) {
 
 // Creates new UserData in the session
 func New(baseDir, password string, u user.Info,
-	currentVersion version.Version, cmixGrp, e2eGrp *cyclic.Group) (Session, error) {
+	currentVersion version.Version,
+	cmixGrp, e2eGrp *cyclic.Group) (Session, error) {
 
 	s, err := initStore(baseDir, password)
 	if err != nil {

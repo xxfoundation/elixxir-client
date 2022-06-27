@@ -9,7 +9,6 @@ package auth
 
 import (
 	"encoding/base64"
-
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/cmix"
@@ -24,7 +23,10 @@ import (
 
 // state is an implementation of the State interface.
 type state struct {
+	// Main Callbacks for all auth operations
 	callbacks Callbacks
+	// partner-specific Callbacks
+	partnerCallbacks partnerCallbacks
 
 	net cmixClient
 	e2e e2eHandler
@@ -70,13 +72,14 @@ func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 	callbacks Callbacks, backupTrigger func(reason string)) (State, error) {
 
 	s := &state{
-		callbacks:     callbacks,
-		net:           net,
-		e2e:           e2e,
-		rng:           rng,
-		event:         event,
-		params:        params,
-		backupTrigger: backupTrigger,
+		callbacks:        callbacks,
+		partnerCallbacks: partnerCallbacks{callbacks: make(map[id.ID]Callbacks)},
+		net:              net,
+		e2e:              e2e,
+		rng:              rng,
+		event:            event,
+		params:           params,
+		backupTrigger:    backupTrigger,
 	}
 
 	// create the store
@@ -112,7 +115,13 @@ func (s *state) CallAllReceivedRequests() {
 		rr := rrList[i]
 		eph := receptionID.BuildIdentityFromRound(rr.GetContact().ID,
 			rr.GetRound())
-		s.callbacks.Request(rr.GetContact(), eph, rr.GetRound())
+		s.partnerCallbacks.RLock()
+		if cb := s.partnerCallbacks.getPartnerCallback(rr.GetContact().ID); cb != nil {
+			cb.Request(rr.GetContact(), eph, rr.GetRound())
+		} else {
+			s.callbacks.Request(rr.GetContact(), eph, rr.GetRound())
+		}
+		s.partnerCallbacks.RUnlock()
 	}
 }
 
@@ -133,4 +142,14 @@ func (s *state) Close() error {
 		Metadata:   nil,
 	}, nil)
 	return nil
+}
+
+// AddPartnerCallback that overrides the generic auth callback for the given partnerId
+func (s *state) AddPartnerCallback(partnerId *id.ID, cb Callbacks) {
+	s.partnerCallbacks.AddPartnerCallback(partnerId, cb)
+}
+
+// DeletePartnerCallback that overrides the generic auth callback for the given partnerId
+func (s *state) DeletePartnerCallback(partnerId *id.ID) {
+	s.partnerCallbacks.DeletePartnerCallback(partnerId)
 }

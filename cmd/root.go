@@ -25,9 +25,11 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.com/elixxir/client/api/messenger"
+	"gitlab.com/elixxir/client/storage/user"
+
 	"gitlab.com/elixxir/client/backup"
 	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/xxdk"
 
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
@@ -36,7 +38,6 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/api"
 	backupCrypto "gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/excludedRounds"
@@ -195,6 +196,8 @@ var rootCmd = &cobra.Command{
 
 		client := initClient()
 
+		jww.INFO.Printf("Client Initialized...")
+
 		user := client.GetUser()
 		jww.INFO.Printf("USERPUBKEY: %s",
 			user.E2eDhPublicKey.TextVerbose(16, 0))
@@ -219,13 +222,20 @@ var rootCmd = &cobra.Command{
 			recipientContact = user.GetContact()
 		}
 
+		jww.INFO.Printf("Client: %s, Partner: %s", user.ReceptionID,
+			recipientID)
+
 		client.GetE2E().EnableUnsafeReception()
 		recvCh := registerMessageListener(client)
+
+		jww.INFO.Printf("Starting Network followers...")
 
 		err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
+
+		jww.INFO.Printf("Network followers started!")
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
@@ -244,6 +254,8 @@ var rootCmd = &cobra.Command{
 		// 85% of the nodes
 		numReg := 1
 		total := 100
+		jww.INFO.Printf("Registering with nodes...")
+
 		for numReg < (total*3)/4 {
 			time.Sleep(1 * time.Second)
 			numReg, total, err = client.GetNodeRegistrationStatus()
@@ -256,15 +268,25 @@ var rootCmd = &cobra.Command{
 
 		client.GetBackupContainer().TriggerBackup("Integration test.")
 
+		jww.INFO.Printf("Client backup triggered...")
+
 		// Send Messages
 		msgBody := viper.GetString("message")
-
 		time.Sleep(10 * time.Second)
 
 		// Accept auth request for this recipient
 		authConfirmed := false
+		paramsE2E := e2e.GetDefaultParams()
 		if viper.GetBool("accept-channel") {
-			acceptChannel(client, recipientID)
+			// Verify that the confirmation message makes it to the
+			// original sender
+			if viper.GetBool("verify-sends") {
+				acceptChannelVerified(client, recipientID)
+			} else {
+				// Accept channel, agnostic of round result
+				acceptChannel(client, recipientID)
+			}
+
 			// Do not wait for channel confirmations if we
 			// accepted one
 			authConfirmed = true
@@ -278,7 +300,6 @@ var rootCmd = &cobra.Command{
 
 		// Send unsafe messages or not?
 		unsafe := viper.GetBool("unsafe")
-
 		sendAuthReq := viper.GetBool("send-auth-request")
 		if !unsafe && !authConfirmed && !isPrecanPartner &&
 			sendAuthReq {
@@ -365,10 +386,11 @@ var rootCmd = &cobra.Command{
 		payload := []byte(msgBody)
 		recipient := recipientID
 
-		paramsE2E := e2e.GetDefaultParams()
 		if viper.GetBool("splitSends") {
 			paramsE2E.ExcludedRounds = excludedRounds.NewSet()
 		}
+
+		jww.INFO.Printf("Client Sending messages...")
 
 		wg := &sync.WaitGroup{}
 		sendCnt := int(viper.GetUint("sendCount"))
@@ -402,8 +424,10 @@ var rootCmd = &cobra.Command{
 
 							// Construct the callback function which
 							// verifies successful message send or retries
-							f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundResult) {
-								printRoundResults(rounds, roundIDs, payload, recipientID)
+							f := func(allRoundsSucceeded, timedOut bool,
+								rounds map[id.Round]cmix.RoundResult) {
+								printRoundResults(
+									rounds, roundIDs, payload, recipientID)
 								if !allRoundsSucceeded {
 									retryChan <- struct{}{}
 								} else {
@@ -446,6 +470,8 @@ var rootCmd = &cobra.Command{
 		waitSecs := viper.GetUint("waitTimeout")
 		waitTimeout := time.Duration(waitSecs) * time.Second
 		done := false
+
+		jww.INFO.Printf("Client receiving messages...")
 
 		for !done && expectedCnt != 0 {
 			timeoutTimer := time.NewTimer(waitTimeout)
@@ -503,11 +529,11 @@ var rootCmd = &cobra.Command{
 		if profileOut != "" {
 			pprof.StopCPUProfile()
 		}
-
+		jww.INFO.Printf("Client exiting!")
 	},
 }
 
-func createClient() *api.Client {
+func createClient() *xxdk.Cmix {
 	logLevel := viper.GetUint("logLevel")
 	initLog(logLevel, viper.GetString("log"))
 	jww.INFO.Printf(Version())
@@ -530,17 +556,24 @@ func createClient() *api.Client {
 		}
 
 		if precannedID != 0 {
-			err = api.NewPrecannedClient(precannedID,
+			err = xxdk.NewPrecannedClient(precannedID,
 				string(ndfJSON), storeDir, pass)
 		} else if protoUserPath != "" {
 			protoUserJson, err := utils.ReadFile(protoUserPath)
 			if err != nil {
 				jww.FATAL.Panicf("%v", err)
 			}
-			err = api.NewProtoClient_Unsafe(string(ndfJSON), storeDir,
-				pass, protoUserJson)
+
+			protoUser := &user.Proto{}
+			err = json.Unmarshal(protoUserJson, protoUser)
+			if err != nil {
+				jww.FATAL.Panicf("%v", err)
+			}
+
+			err = xxdk.NewProtoClient_Unsafe(string(ndfJSON), storeDir,
+				pass, protoUser)
 		} else if userIDprefix != "" {
-			err = api.NewVanityClient(string(ndfJSON), storeDir,
+			err = xxdk.NewVanityClient(string(ndfJSON), storeDir,
 				pass, regCode, userIDprefix)
 		} else if backupPath != "" {
 
@@ -559,7 +592,7 @@ func createClient() *api.Client {
 			}
 
 			// Construct client from backup data
-			backupIdList, _, err := messenger.NewClientFromBackup(string(ndfJSON), storeDir,
+			backupIdList, _, err := backup.NewClientFromBackup(string(ndfJSON), storeDir,
 				pass, backupPass, backupFile)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
@@ -582,7 +615,7 @@ func createClient() *api.Client {
 			}
 
 		} else {
-			err = api.NewClient(string(ndfJSON), storeDir,
+			err = xxdk.NewCmix(string(ndfJSON), storeDir,
 				pass, regCode)
 		}
 
@@ -593,15 +626,15 @@ func createClient() *api.Client {
 
 	params := initParams()
 
-	client, err := api.OpenClient(storeDir, pass, params)
+	client, err := xxdk.OpenCmix(storeDir, pass, params)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 	return client
 }
 
-func initParams() api.Params {
-	p := api.GetDefaultParams()
+func initParams() xxdk.Params {
+	p := xxdk.GetDefaultParams()
 	p.Session.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
 	p.Session.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
 	p.Session.NumRekeys = uint16(viper.GetUint("e2eNumReKeys"))
@@ -621,7 +654,7 @@ func initParams() api.Params {
 	return p
 }
 
-func initClient() *messenger.Client {
+func initClient() *xxdk.E2e {
 	createClient()
 
 	pass := parsePassword(viper.GetString("password"))
@@ -631,7 +664,7 @@ func initClient() *messenger.Client {
 	params := initParams()
 
 	// load the client
-	baseclient, err := api.Login(storeDir, pass, params)
+	baseclient, err := xxdk.LoadCmix(storeDir, pass, params)
 
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
@@ -640,7 +673,7 @@ func initClient() *messenger.Client {
 	authCbs = makeAuthCallbacks(nil,
 		viper.GetBool("unsafe-channel-creation"))
 
-	client, err := messenger.Login(baseclient, authCbs)
+	client, err := xxdk.LoginLegacy(baseclient, authCbs)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -707,27 +740,29 @@ func initClient() *messenger.Client {
 	return client
 }
 
-func acceptChannel(client *messenger.Client, recipientID *id.ID) {
+func acceptChannel(client *xxdk.E2e, recipientID *id.ID) id.Round {
 	recipientContact, err := client.GetAuth().GetReceivedRequest(
 		recipientID)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	_, err = client.GetAuth().Confirm(
+	rid, err := client.GetAuth().Confirm(
 		recipientContact)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
+
+	return rid
 }
 
-func deleteChannel(client *messenger.Client, partnerId *id.ID) {
+func deleteChannel(client *xxdk.E2e, partnerId *id.ID) {
 	err := client.DeleteContact(partnerId)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 }
 
-func addAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
+func addAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 	recipient contact.Contact) {
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {
@@ -753,18 +788,27 @@ func addAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
 		me := client.GetUser().GetContact()
 		jww.INFO.Printf("Requesting auth channel from: %s",
 			recipientID)
-		_, err := client.GetAuth().Request(recipientContact,
-			me.Facts)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
+
+		// Verify that the auth request makes it to the recipient
+		// by monitoring the round result
+		if viper.GetBool("verify-sends") {
+			requestChannelVerified(client, recipientContact, me)
+		} else {
+			// Just call Request, agnostic of round result
+			_, err := client.GetAuth().Request(recipientContact,
+				me.Facts)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
 		}
+
 	} else {
 		jww.ERROR.Printf("Could not add auth channel for %s",
 			recipientID)
 	}
 }
 
-func resetAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
+func resetAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 	recipient contact.Contact) {
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {
@@ -789,14 +833,137 @@ func resetAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
 	if recipientContact.ID != nil && recipientContact.DhPubKey != nil {
 		jww.INFO.Printf("Requesting auth channel from: %s",
 			recipientID)
-		_, err := client.GetAuth().Reset(recipientContact)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
+		// Verify that the auth request makes it to the recipient
+		// by monitoring the round result
+		if viper.GetBool("verify-sends") {
+			resetChannelVerified(client, recipientContact)
+		} else {
+			_, err := client.GetAuth().Reset(recipientContact)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
 		}
 	} else {
 		jww.ERROR.Printf("Could not reset auth channel for %s",
 			recipientID)
 	}
+}
+
+func acceptChannelVerified(client *xxdk.E2e, recipientID *id.ID) {
+	paramsE2E := e2e.GetDefaultParams()
+	roundTimeout := paramsE2E.CMIXParams.SendTimeout
+
+	done := make(chan struct{}, 1)
+	retryChan := make(chan struct{}, 1)
+	for {
+		rid := acceptChannel(client, recipientID)
+
+		// Monitor rounds for results
+		err := client.GetCmix().GetRoundResults(roundTimeout,
+			makeVerifySendsCallback(retryChan, done), rid)
+		if err != nil {
+			jww.DEBUG.Printf("Could not verify "+
+				"confirmation message for relationship with %s were sent "+
+				"successfully, resending messages...", recipientID)
+			continue
+		}
+
+		select {
+		case <-retryChan:
+			// On a retry, go to the top of the loop
+			jww.DEBUG.Printf("Confirmation message for relationship"+
+				" with %s were not sent successfully, resending "+
+				"messages...", recipientID)
+			continue
+		case <-done:
+			// Close channels on verification success
+			close(done)
+			close(retryChan)
+			break
+		}
+		break
+	}
+}
+
+func requestChannelVerified(client *xxdk.E2e,
+	recipientContact, me contact.Contact) {
+	paramsE2E := e2e.GetDefaultParams()
+	roundTimeout := paramsE2E.CMIXParams.SendTimeout
+
+	retryChan := make(chan struct{}, 1)
+	done := make(chan struct{}, 1)
+	for {
+		rid, err := client.GetAuth().Request(recipientContact,
+			me.Facts)
+		if err != nil {
+			continue
+		}
+
+		// Monitor rounds for results
+		err = client.GetCmix().GetRoundResults(roundTimeout,
+			makeVerifySendsCallback(retryChan, done),
+			rid)
+		if err != nil {
+			jww.DEBUG.Printf("Could not verify auth request was sent " +
+				"successfully, resending...")
+			continue
+		}
+
+		select {
+		case <-retryChan:
+			// On a retry, go to the top of the loop
+			jww.DEBUG.Printf("Auth request was not sent " +
+				"successfully, resending...")
+			continue
+		case <-done:
+			// Close channels on verification success
+			close(done)
+			close(retryChan)
+			break
+		}
+		break
+	}
+}
+
+func resetChannelVerified(client *xxdk.E2e, recipientContact contact.Contact) {
+	paramsE2E := e2e.GetDefaultParams()
+	roundTimeout := paramsE2E.CMIXParams.SendTimeout
+
+	retryChan := make(chan struct{}, 1)
+	done := make(chan struct{}, 1)
+	for {
+
+		rid, err := client.GetAuth().Reset(recipientContact)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+
+		// Monitor rounds for results
+		err = client.GetCmix().GetRoundResults(roundTimeout,
+			makeVerifySendsCallback(retryChan, done),
+			rid)
+		if err != nil {
+			jww.DEBUG.Printf("Could not verify auth request was sent " +
+				"successfully, resending...")
+			continue
+		}
+
+		select {
+		case <-retryChan:
+			// On a retry, go to the top of the loop
+			jww.DEBUG.Printf("Auth request was not sent " +
+				"successfully, resending...")
+			continue
+		case <-done:
+			// Close channels on verification success
+			close(done)
+			close(retryChan)
+			break
+		}
+		break
+
+	}
+
 }
 
 func waitUntilConnected(connected chan bool) {
@@ -1036,7 +1203,7 @@ func init() {
 	viper.BindPFlag("log", rootCmd.PersistentFlags().Lookup("log"))
 
 	rootCmd.Flags().StringP("regcode", "", "",
-		"Identity code (optional)")
+		"ReceptionIdentity code (optional)")
 	viper.BindPFlag("regcode", rootCmd.Flags().Lookup("regcode"))
 
 	rootCmd.PersistentFlags().StringP("message", "m", "",

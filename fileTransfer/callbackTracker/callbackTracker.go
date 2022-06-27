@@ -74,7 +74,7 @@ func (ct *callbackTracker) call(err error) {
 	if timeSinceLastCall > ct.period {
 
 		// If no callback occurred, then trigger the callback now
-		go ct.cb(err)
+		ct.cb(err)
 		ct.lastCall = netTime.Now()
 	} else {
 		// If a callback did occur, then schedule a new callback to occur at the
@@ -89,7 +89,7 @@ func (ct *callbackTracker) call(err error) {
 				return
 			case <-timer.C:
 				ct.mux.Lock()
-				go ct.cb(err)
+				ct.cb(err)
 				ct.lastCall = netTime.Now()
 				ct.scheduled = false
 				ct.mux.Unlock()

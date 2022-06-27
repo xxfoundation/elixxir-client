@@ -1,9 +1,9 @@
 package ud
 
 import (
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/storage/user"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -37,6 +37,6 @@ type UserInfo interface {
 	GetReceptionRegistrationValidationSignature() []byte
 }
 
-// NetworkStatus is an interface for the api.Client's
+// NetworkStatus is an interface for the xxdk.Cmix's
 // NetworkFollowerStatus method.
-type NetworkStatus func() api.Status
+type NetworkStatus func() xxdk.Status

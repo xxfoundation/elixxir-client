@@ -8,6 +8,7 @@ package connect
 
 import (
 	"encoding/json"
+	"gitlab.com/elixxir/client/xxdk"
 	"io"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	clientE2e "gitlab.com/elixxir/client/e2e"
@@ -23,12 +23,8 @@ import (
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -118,41 +114,19 @@ func GetParameters(params string) (Params, error) {
 // and returns a Connection object for the newly-created partner.Manager
 // This function is to be used sender-side and will block until the
 // partner.Manager is confirmed.
-func Connect(recipient contact.Contact, myId *id.ID, privKey *cyclic.Int,
-	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
+func Connect(recipient contact.Contact, e2eClient *xxdk.E2e,
 	p Params) (Connection, error) {
-	//add the identity
-	net.AddIdentity(myId, time.Time{}, false)
-
-	// Build an ephemeral KV
-	kv := versioned.NewKV(ekv.MakeMemstore())
-
-	// Build E2e handler
-	err := clientE2e.Init(kv, myId, privKey, grp, p.Rekey)
-	if err != nil {
-		return nil, err
-	}
-	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.Event)
-	if err != nil {
-		return nil, err
-	}
 
 	// Build callback for E2E negotiation
 	signalChannel := make(chan Connection, 1)
 	cb := func(connection Connection) {
 		signalChannel <- connection
 	}
-	callback := getAuthCallback(cb, nil, e2eHandler, p)
-
-	// Build auth object for E2E negotiation
-	authState, err := auth.NewState(kv, net, e2eHandler,
-		rng, p.Event, p.Auth, callback, nil)
-	if err != nil {
-		return nil, err
-	}
+	callback := getAuthCallback(cb, nil, e2eClient.GetE2E(), e2eClient.GetAuth(), p)
+	e2eClient.GetAuth().AddPartnerCallback(recipient.ID, callback)
 
 	// Perform the auth request
-	_, err = authState.Request(recipient, nil)
+	_, err := e2eClient.GetAuth().Request(recipient, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -178,34 +152,28 @@ func Connect(recipient contact.Contact, myId *id.ID, privKey *cyclic.Int,
 	}
 }
 
-// StartServer assembles a Connection object on the reception-side
-// and feeds it into the given Callback whenever an incoming request
-// for an E2E partnership with a partner.Manager is confirmed.
-func StartServer(cb Callback, myId *id.ID, privKey *cyclic.Int,
-	rng *fastRNG.StreamGenerator, grp *cyclic.Group, net cmix.Client,
-	p Params) error {
-
-	// Build an ephemeral KV
-	kv := versioned.NewKV(ekv.MakeMemstore())
-
-	// Build E2e handler
-	err := clientE2e.Init(kv, myId, privKey, grp, p.Rekey)
-	if err != nil {
-		return err
-	}
-	e2eHandler, err := clientE2e.Load(kv, net, myId, grp, rng, p.Event)
-	if err != nil {
-		return err
-	}
+// StartServer assembles a Connection object on the reception-side and feeds it
+// into the given Callback whenever an incoming request for an E2E partnership
+// with a partner.Manager is confirmed.
+//
+// It is recommended that this be called before StartNetworkFollower to ensure
+// no requests are missed.
+// This call does an xxDK.ephemeralLogin under the hood and the connection
+// server must be the only listener on auth.
+func StartServer(identity xxdk.ReceptionIdentity, cb Callback, net *xxdk.Cmix,
+	p Params) (*xxdk.E2e, error) {
 
 	// Build callback for E2E negotiation
-	callback := getAuthCallback(nil, cb, e2eHandler, p)
+	callback := getAuthCallback(nil, cb, nil, nil, p)
 
-	// Build auth object for E2E negotiation
-	authState, err := auth.NewState(kv, net, e2eHandler,
-		rng, p.Event, p.Auth, callback, nil)
-	callback.authState = authState
-	return err
+	client, err := xxdk.LoginEphemeral(net, callback, identity)
+	if err != nil {
+		return nil, err
+	}
+
+	callback.connectionE2e = client.GetE2E()
+	callback.authState = client.GetAuth()
+	return client, nil
 }
 
 // handler provides an implementation for the Connection interface.
@@ -269,7 +237,7 @@ func (h *handler) Unregister(listenerID receive.ListenerID) {
 // building new Connection objects when an auth Request is received.
 type authCallback struct {
 	// Used for signaling confirmation of E2E partnership
-	confrimCallback Callback
+	confirmCallback Callback
 	requestCallback Callback
 
 	// Used for building new Connection objects
@@ -282,12 +250,13 @@ type authCallback struct {
 // of an auth.State object.
 // it will accept requests only if a request callback is passed in
 func getAuthCallback(confirm, request Callback, e2e clientE2e.Handler,
-	params Params) *authCallback {
+	auth auth.State, params Params) *authCallback {
 	return &authCallback{
-		confrimCallback:  confirm,
+		confirmCallback:  confirm,
 		requestCallback:  request,
 		connectionE2e:    e2e,
 		connectionParams: params,
+		authState:        auth,
 	}
 }
 
@@ -296,6 +265,7 @@ func (a authCallback) Confirm(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	jww.DEBUG.Printf("Connection auth request for %s confirmed",
 		requestor.ID.String())
+	defer a.authState.DeletePartnerCallback(requestor.ID)
 
 	// After confirmation, get the new partner
 	newPartner, err := a.connectionE2e.GetPartner(requestor.ID)
@@ -303,26 +273,24 @@ func (a authCallback) Confirm(requestor contact.Contact,
 		jww.ERROR.Printf("Unable to build connection with "+
 			"partner %s: %+v", requestor.ID, err)
 		// Send a nil connection to avoid hold-ups down the line
-		if a.confrimCallback != nil {
-			a.confrimCallback(nil)
+		if a.confirmCallback != nil {
+			a.confirmCallback(nil)
 		}
-
 		return
 	}
 
 	// Return the new Connection object
-	if a.confrimCallback != nil {
-		a.confrimCallback(BuildConnection(newPartner, a.connectionE2e,
+	if a.confirmCallback != nil {
+		a.confirmCallback(BuildConnection(newPartner, a.connectionE2e,
 			a.authState, a.connectionParams))
 	}
-
 }
 
 // Request will be called when an auth Request message is processed.
 func (a authCallback) Request(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	if a.requestCallback == nil {
-		jww.ERROR.Printf("Recieved a request when requests are" +
+		jww.ERROR.Printf("Received a request when requests are" +
 			"not enable, will not accept")
 	}
 	_, err := a.authState.Confirm(requestor)
@@ -371,7 +339,7 @@ func (h *handler) PartitionSize(payloadIndex uint) uint {
 	return h.e2e.PartitionSize(payloadIndex)
 }
 
-// PayloadSize Returns the max payload size for a partitionable E2E
+// PayloadSize Returns the max payload size for a partition-able E2E
 // message
 func (h *handler) PayloadSize() uint {
 	return h.e2e.PayloadSize()

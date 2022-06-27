@@ -124,7 +124,7 @@ var broadcastCmd = &cobra.Command{
 
 		// Load key if needed
 		if pk == nil && keyPath != "" {
-			jww.DEBUG.Printf("Attempting to load private key at %s")
+			jww.DEBUG.Printf("Attempting to load private key at %s", keyPath)
 			if ep, err := utils.ExpandPath(keyPath); err == nil {
 				keyBytes, err := utils.ReadFile(ep)
 				if err != nil {

@@ -56,9 +56,14 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 			cbChan <- payload
 		}
 
-		s, err := NewBroadcastChannel(channel, cb, newMockCmix(cMixHandler), rngGen, Param{Method: Asymmetric})
+		s, err := NewBroadcastChannel(channel, newMockCmix(cMixHandler), rngGen)
 		if err != nil {
 			t.Errorf("Failed to create broadcast channel: %+v", err)
+		}
+
+		err = s.RegisterListener(cb, Asymmetric)
+		if err != nil {
+			t.Errorf("Failed to register listener: %+v", err)
 		}
 
 		cbChans[i] = cbChan
@@ -73,7 +78,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 
 	// Send broadcast from each client
 	for i := range clients {
-		payload := make([]byte, clients[i].MaxPayloadSize())
+		payload := make([]byte, clients[i].MaxAsymmetricPayloadSize())
 		copy(payload,
 			fmt.Sprintf("Hello from client %d of %d.", i, len(clients)))
 
@@ -112,7 +117,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 		clients[i].Stop()
 	}
 
-	payload := make([]byte, clients[0].MaxPayloadSize())
+	payload := make([]byte, clients[0].MaxAsymmetricPayloadSize())
 	copy(payload, "This message should not get through.")
 
 	// Start waiting on channels and error if anything is received

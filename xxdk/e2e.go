@@ -35,14 +35,14 @@ type E2e struct {
 }
 
 // Login creates a new E2e backed by the xxdk.Cmix persistent versioned.KV
-// If identity == nil, a new ReceptionIdentity will be generated automagically
+// It bundles a Cmix object with a ReceptionIdentity object
+// and initializes the auth.State and e2e.Handler objects
 func Login(client *Cmix, callbacks auth.Callbacks,
 	identity ReceptionIdentity) (m *E2e, err error) {
 	return login(client, callbacks, identity, client.GetStorage().GetKV())
 }
 
 // LoginEphemeral creates a new E2e backed by a totally ephemeral versioned.KV
-// If identity == nil, a new ReceptionIdentity will be generated automagically
 func LoginEphemeral(client *Cmix, callbacks auth.Callbacks,
 	identity ReceptionIdentity) (m *E2e, err error) {
 	return login(client, callbacks, identity, versioned.NewKV(ekv.MakeMemstore()))

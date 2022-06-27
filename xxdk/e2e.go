@@ -9,6 +9,8 @@ package xxdk
 import (
 	"encoding/binary"
 	"encoding/json"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
@@ -21,7 +23,6 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 // E2e object bundles a ReceptionIdentity with a Cmix
@@ -70,18 +71,19 @@ func LoginLegacy(client *Cmix, callbacks auth.Callbacks) (m *E2e, err error) {
 			"the e2e processies")
 	}
 
-	m.auth, err = auth.NewState(client.GetStorage().GetKV(), client.GetCmix(),
-		m.e2e, client.GetRng(), client.GetEventReporter(),
-		auth.GetDefaultParams(), callbacks, m.backup.TriggerBackup)
+	m.auth, err = auth.NewStateLegacy(client.GetStorage().GetKV(),
+		client.GetCmix(), m.e2e, client.GetRng(),
+		client.GetEventReporter(), auth.GetDefaultParams(),
+		callbacks, m.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
 
 	u := m.Cmix.GetUser()
 	m.e2eIdentity = ReceptionIdentity{
-		ID:            u.TransmissionID,
-		RSAPrivatePem: u.TransmissionRSA,
-		Salt:          u.TransmissionSalt,
+		ID:            u.ReceptionID,
+		RSAPrivatePem: u.ReceptionRSA,
+		Salt:          u.ReceptionSalt,
 		DHKeyPrivate:  u.E2eDhPrivateKey,
 	}
 
@@ -218,8 +220,21 @@ func login(client *Cmix, callbacks auth.Callbacks,
 		client.GetCmix(), identity.ID, e2eGrp, client.GetRng(),
 		client.GetEventReporter())
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load a "+
-			"newly created e2e store")
+		jww.WARN.Printf("Cannot load e2e store (will init instead): %s",
+			err.Error())
+		//initialize the e2e storage
+		err = e2e.Init(kv, identity.ID, identity.DHKeyPrivate, e2eGrp,
+			rekey.GetDefaultEphemeralParams())
+		if err != nil {
+			return nil, err
+		}
+		m.e2e, err = e2e.Load(kv,
+			client.GetCmix(), identity.ID, e2eGrp, client.GetRng(),
+			client.GetEventReporter())
+		if err != nil {
+			return nil, errors.WithMessage(err, "Failed to load a "+
+				"newly created e2e store")
+		}
 	}
 
 	err = client.AddService(m.e2e.StartProcesses)

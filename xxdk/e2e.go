@@ -164,8 +164,6 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c.network.AddIdentity(c.GetUser().ReceptionID, time.Time{}, true)
-
 	// FIXME: The callbacks need to be set, so I suppose we would need to
 	//        either set them via a special type or add them
 	//        to the login call?
@@ -205,6 +203,8 @@ func login(client *Cmix, callbacks auth.Callbacks,
 		backup:      &Container{},
 		e2eIdentity: identity,
 	}
+
+	client.network.AddIdentity(identity.ID, time.Time{}, true)
 
 	//initialize the e2e storage
 	err = e2e.Init(kv, identity.ID, identity.DHKeyPrivate, e2eGrp,

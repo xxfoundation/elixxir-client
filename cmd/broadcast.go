@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -12,8 +15,6 @@ import (
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/utils"
-	"os"
-	"time"
 )
 
 // singleCmd is the single-use subcommand that allows for sending and responding
@@ -23,7 +24,8 @@ var broadcastCmd = &cobra.Command{
 	Short: "Send broadcast messages",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client := initClient()
+		cmixParams, e2eParams := initParams()
+		client := initClient(cmixParams, e2eParams)
 
 		// Write user contact to file
 		user := client.GetUser()

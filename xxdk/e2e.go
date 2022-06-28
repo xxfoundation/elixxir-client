@@ -83,14 +83,12 @@ func LoginLegacy(client *Cmix, callbacks AuthCallbacks) (m *E2e, err error) {
 			"the e2e processies")
 	}
 
-	acw := &authCallbacksAdapter{
-		ac:  callbacks,
-		e2e: m,
-	}
+	acw := MakeAuthCB(m, callbacks)
 
-	m.auth, err = auth.NewStateLegacy(client.GetStorage().GetKV(), client.GetCmix(),
-		m.e2e, client.GetRng(), client.GetEventReporter(),
-		auth.GetDefaultParams(), acw, m.backup.TriggerBackup)
+	m.auth, err = auth.NewStateLegacy(client.GetStorage().GetKV(),
+		client.GetCmix(), m.e2e, client.GetRng(),
+		client.GetEventReporter(), auth.GetDefaultParams(), acw,
+		m.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +108,7 @@ func LoginLegacy(client *Cmix, callbacks AuthCallbacks) (m *E2e, err error) {
 // while replacing the base NDF.  This is designed for some specific deployment
 // procedures and is generally unsafe.
 func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
-	newBaseNdf string, params Params) (*E2e, error) {
+	newBaseNdf string, params CMIXParams) (*E2e, error) {
 	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
 
 	def, err := ParseNDF(newBaseNdf)
@@ -150,7 +148,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 // some specific deployment procedures and is generally unsafe.
 func LoginWithProtoClient(storageDir string, password []byte,
 	protoClientJSON []byte, newBaseNdf string, callbacks AuthCallbacks,
-	params Params) (*E2e, error) {
+	params CMIXParams) (*E2e, error) {
 	jww.INFO.Printf("LoginWithProtoClient()")
 
 	def, err := ParseNDF(newBaseNdf)
@@ -253,10 +251,7 @@ func login(client *Cmix, callbacks AuthCallbacks,
 			"the e2e processies")
 	}
 
-	acw := &authCallbacksAdapter{
-		ac:  callbacks,
-		e2e: m,
-	}
+	acw := MakeAuthCB(m, callbacks)
 
 	m.auth, err = auth.NewState(kv, client.GetCmix(),
 		m.e2e, client.GetRng(), client.GetEventReporter(),
@@ -432,6 +427,13 @@ func (m *E2e) DeleteContact(partnerId *id.ID) error {
 type authCallbacksAdapter struct {
 	ac  AuthCallbacks
 	e2e *E2e
+}
+
+func MakeAuthCB(e2e *E2e, cbs AuthCallbacks) auth.Callbacks {
+	return &authCallbacksAdapter{
+		ac:  cbs,
+		e2e: e2e,
+	}
 }
 
 func (aca *authCallbacksAdapter) Request(partner contact.Contact,

@@ -12,12 +12,13 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"os"
+	"time"
+
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/primitives/format"
-	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -33,8 +34,8 @@ var groupCmd = &cobra.Command{
 	Short: "Group commands for cMix client",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		client := initClient()
+		cmixParams, e2eParams := initParams()
+		client := initClient(cmixParams, e2eParams)
 
 		// Print user's reception ID
 		user := client.GetUser()

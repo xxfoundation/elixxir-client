@@ -9,9 +9,10 @@ package cmd
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/xxdk"
 	"io/ioutil"
 	"time"
+
+	"gitlab.com/elixxir/client/xxdk"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -34,9 +35,8 @@ var ftCmd = &cobra.Command{
 	Short: "Send and receive file for cMix client",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		// Initialise a new client
-		client := initClient()
+		cmixParams, e2eParams := initParams()
+		client := initClient(cmixParams, e2eParams)
 
 		// Print user's reception ID and save contact file
 		user := client.GetUser()

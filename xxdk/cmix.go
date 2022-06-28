@@ -122,7 +122,7 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 // NOTE: This is a helper function that, in most applications, should not be used on its own
 //       Consider using LoadCmix instead, which calls this function for you.
 func OpenCmix(storageDir string, password []byte,
-	parameters Params) (*Cmix, error) {
+	parameters CMIXParams) (*Cmix, error) {
 	jww.INFO.Printf("OpenCmix()")
 
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
@@ -199,7 +199,7 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password []byte,
 }
 
 // LoadCmix initializes a Cmix object from existing storage and starts the network
-func LoadCmix(storageDir string, password []byte, parameters Params) (*Cmix, error) {
+func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (*Cmix, error) {
 	jww.INFO.Printf("LoadCmix()")
 
 	c, err := OpenCmix(storageDir, password, parameters)
@@ -207,7 +207,7 @@ func LoadCmix(storageDir string, password []byte, parameters Params) (*Cmix, err
 		return nil, err
 	}
 
-	c.network, err = cmix.NewClient(parameters.CMix, c.comms, c.storage,
+	c.network, err = cmix.NewClient(parameters.Network, c.comms, c.storage,
 		c.rng, c.events)
 	if err != nil {
 		return nil, err

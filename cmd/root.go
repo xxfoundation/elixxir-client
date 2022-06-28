@@ -28,7 +28,6 @@ import (
 	"gitlab.com/elixxir/client/storage/user"
 
 	"gitlab.com/elixxir/client/backup"
-	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/xxdk"
 
 	"gitlab.com/elixxir/client/catalog"
@@ -194,7 +193,9 @@ var rootCmd = &cobra.Command{
 			pprof.StartCPUProfile(f)
 		}
 
-		client := initClient()
+		cmixParams, e2eParams := initParams()
+
+		client := initClient(cmixParams, e2eParams)
 
 		jww.INFO.Printf("Client Initialized...")
 
@@ -276,12 +277,12 @@ var rootCmd = &cobra.Command{
 
 		// Accept auth request for this recipient
 		authConfirmed := false
-		paramsE2E := e2e.GetDefaultParams()
 		if viper.GetBool("accept-channel") {
 			// Verify that the confirmation message makes it to the
 			// original sender
 			if viper.GetBool("verify-sends") {
-				acceptChannelVerified(client, recipientID)
+				acceptChannelVerified(client, recipientID,
+					e2eParams)
 			} else {
 				// Accept channel, agnostic of round result
 				acceptChannel(client, recipientID)
@@ -304,7 +305,7 @@ var rootCmd = &cobra.Command{
 		if !unsafe && !authConfirmed && !isPrecanPartner &&
 			sendAuthReq {
 			addAuthenticatedChannel(client, recipientID,
-				recipientContact)
+				recipientContact, e2eParams)
 		} else if !unsafe && !authConfirmed && isPrecanPartner {
 			addPrecanAuthenticatedChannel(client,
 				recipientID, recipientContact)
@@ -313,7 +314,7 @@ var rootCmd = &cobra.Command{
 			sendAuthReq {
 			jww.WARN.Printf("Resetting negotiated auth channel")
 			resetAuthenticatedChannel(client, recipientID,
-				recipientContact)
+				recipientContact, e2eParams)
 			authConfirmed = false
 		}
 
@@ -386,10 +387,6 @@ var rootCmd = &cobra.Command{
 		payload := []byte(msgBody)
 		recipient := recipientID
 
-		if viper.GetBool("splitSends") {
-			paramsE2E.ExcludedRounds = excludedRounds.NewSet()
-		}
-
 		jww.INFO.Printf("Client Sending messages...")
 
 		wg := &sync.WaitGroup{}
@@ -405,14 +402,14 @@ var rootCmd = &cobra.Command{
 						// Send messages
 						var roundIDs []id.Round
 						if unsafe {
-							paramsE2E.CMIXParams.DebugTag = "cmd.Unsafe"
+							e2eParams.Base.DebugTag = "cmd.Unsafe"
 							roundIDs, _, err = client.GetE2E().SendUnsafe(
 								mt, recipient, payload,
-								paramsE2E)
+								e2eParams.Base)
 						} else {
-							paramsE2E.CMIXParams.DebugTag = "cmd.E2E"
+							e2eParams.Base.DebugTag = "cmd.E2E"
 							roundIDs, _, _, err = client.GetE2E().SendE2E(mt,
-								recipient, payload, paramsE2E)
+								recipient, payload, e2eParams.Base)
 						}
 						if err != nil {
 							jww.FATAL.Panicf("%+v", err)
@@ -436,7 +433,7 @@ var rootCmd = &cobra.Command{
 							}
 
 							// Monitor rounds for results
-							err = client.GetCmix().GetRoundResults(paramsE2E.CMIXParams.Timeout, f, roundIDs...)
+							err = client.GetCmix().GetRoundResults(e2eParams.Base.Timeout, f, roundIDs...)
 							if err != nil {
 								jww.DEBUG.Printf("Could not verify messages were sent successfully, resending messages...")
 								continue
@@ -624,54 +621,58 @@ func createClient() *xxdk.Cmix {
 		}
 	}
 
-	params := initParams()
+	cmixParams, _ := initParams()
 
-	client, err := xxdk.OpenCmix(storeDir, pass, params)
+	client, err := xxdk.OpenCmix(storeDir, pass, cmixParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 	return client
 }
 
-func initParams() xxdk.Params {
-	p := xxdk.GetDefaultParams()
-	p.Session.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
-	p.Session.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
-	p.Session.NumRekeys = uint16(viper.GetUint("e2eNumReKeys"))
-	p.Session.RekeyThreshold = viper.GetFloat64("e2eRekeyThreshold")
-	p.CMix.Pickup.ForceHistoricalRounds = viper.GetBool(
+func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
+	e2eParams := xxdk.GetDefaultE2EParams()
+	e2eParams.Session.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
+	e2eParams.Session.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
+	e2eParams.Session.NumRekeys = uint16(viper.GetUint("e2eNumReKeys"))
+	e2eParams.Session.RekeyThreshold = viper.GetFloat64("e2eRekeyThreshold")
+
+	if viper.GetBool("splitSends") {
+		e2eParams.Base.ExcludedRounds = excludedRounds.NewSet()
+	}
+
+	cmixParams := xxdk.GetDefaultCMixParams()
+	cmixParams.Network.Pickup.ForceHistoricalRounds = viper.GetBool(
 		"forceHistoricalRounds")
-	p.CMix.FastPolling = !viper.GetBool("slowPolling")
-	p.CMix.Pickup.ForceMessagePickupRetry = viper.GetBool(
+	cmixParams.Network.FastPolling = !viper.GetBool("slowPolling")
+	cmixParams.Network.Pickup.ForceMessagePickupRetry = viper.GetBool(
 		"forceMessagePickupRetry")
-	if p.CMix.Pickup.ForceMessagePickupRetry {
+	if cmixParams.Network.Pickup.ForceMessagePickupRetry {
 		period := 3 * time.Second
 		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
-		p.CMix.Pickup.UncheckRoundPeriod = period
+		cmixParams.Network.Pickup.UncheckRoundPeriod = period
 	}
-	p.CMix.VerboseRoundTracking = viper.GetBool(
+	cmixParams.Network.VerboseRoundTracking = viper.GetBool(
 		"verboseRoundTracking")
-	return p
+	return cmixParams, e2eParams
 }
 
-func initClient() *xxdk.E2e {
+func initClient(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
 	createClient()
 
 	pass := parsePassword(viper.GetString("password"))
 	storeDir := viper.GetString("session")
 	jww.DEBUG.Printf("sessionDur: %v", storeDir)
 
-	params := initParams()
-
 	// load the client
-	baseclient, err := xxdk.LoadCmix(storeDir, pass, params)
+	baseclient, err := xxdk.LoadCmix(storeDir, pass, cmixParams)
 
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 
 	authCbs = makeAuthCallbacks(
-		viper.GetBool("unsafe-channel-creation"))
+		viper.GetBool("unsafe-channel-creation"), e2eParams)
 
 	client, err := xxdk.LoginLegacy(baseclient, authCbs)
 	if err != nil {
@@ -761,7 +762,7 @@ func deleteChannel(client *xxdk.E2e, partnerId *id.ID) {
 }
 
 func addAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
-	recipient contact.Contact) {
+	recipient contact.Contact, e2eParams xxdk.E2EParams) {
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {
 		msg := "unsafe channel creation enabled\n"
@@ -790,7 +791,7 @@ func addAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 		// Verify that the auth request makes it to the recipient
 		// by monitoring the round result
 		if viper.GetBool("verify-sends") {
-			requestChannelVerified(client, recipientContact, me)
+			requestChannelVerified(client, recipientContact, me, e2eParams)
 		} else {
 			// Just call Request, agnostic of round result
 			_, err := client.GetAuth().Request(recipientContact,
@@ -807,7 +808,7 @@ func addAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 }
 
 func resetAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
-	recipient contact.Contact) {
+	recipient contact.Contact, e2eParams xxdk.E2EParams) {
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {
 		msg := "unsafe channel creation enabled\n"
@@ -834,7 +835,8 @@ func resetAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 		// Verify that the auth request makes it to the recipient
 		// by monitoring the round result
 		if viper.GetBool("verify-sends") {
-			resetChannelVerified(client, recipientContact)
+			resetChannelVerified(client, recipientContact,
+				e2eParams)
 		} else {
 			_, err := client.GetAuth().Reset(recipientContact)
 			if err != nil {
@@ -847,9 +849,9 @@ func resetAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 	}
 }
 
-func acceptChannelVerified(client *xxdk.E2e, recipientID *id.ID) {
-	paramsE2E := e2e.GetDefaultParams()
-	roundTimeout := paramsE2E.CMIXParams.SendTimeout
+func acceptChannelVerified(client *xxdk.E2e, recipientID *id.ID,
+	params xxdk.E2EParams) {
+	roundTimeout := params.Base.CMIXParams.SendTimeout
 
 	done := make(chan struct{}, 1)
 	retryChan := make(chan struct{}, 1)
@@ -884,9 +886,9 @@ func acceptChannelVerified(client *xxdk.E2e, recipientID *id.ID) {
 }
 
 func requestChannelVerified(client *xxdk.E2e,
-	recipientContact, me contact.Contact) {
-	paramsE2E := e2e.GetDefaultParams()
-	roundTimeout := paramsE2E.CMIXParams.SendTimeout
+	recipientContact, me contact.Contact,
+	params xxdk.E2EParams) {
+	roundTimeout := params.Base.CMIXParams.SendTimeout
 
 	retryChan := make(chan struct{}, 1)
 	done := make(chan struct{}, 1)
@@ -923,9 +925,9 @@ func requestChannelVerified(client *xxdk.E2e,
 	}
 }
 
-func resetChannelVerified(client *xxdk.E2e, recipientContact contact.Contact) {
-	paramsE2E := e2e.GetDefaultParams()
-	roundTimeout := paramsE2E.CMIXParams.SendTimeout
+func resetChannelVerified(client *xxdk.E2e, recipientContact contact.Contact,
+	params xxdk.E2EParams) {
+	roundTimeout := params.Base.CMIXParams.SendTimeout
 
 	retryChan := make(chan struct{}, 1)
 	done := make(chan struct{}, 1)

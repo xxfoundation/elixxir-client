@@ -42,6 +42,9 @@ func (p *partnerCallbacks) DeletePartnerCallback(partnerId *id.ID) {
 
 // getPartnerCallback returns the Callbacks for the given partnerId
 func (p *partnerCallbacks) getPartnerCallback(partnerId *id.ID) Callbacks {
+	p.RLock()
+	defer p.RUnlock()
+
 	return p.callbacks[*partnerId]
 }
 

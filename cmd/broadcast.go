@@ -255,7 +255,7 @@ var broadcastCmd = &cobra.Command{
 					jww.ERROR.Printf("Failed to decode sized broadcast: %+v", err)
 					continue
 				}
-				fmt.Printf("Asymmetric broadcast message %d/%d received: %s\n", receivedCount, expectedCnt, string(receivedBroadcast))
+				fmt.Printf("Asymmetric broadcast message received: %s\n", string(receivedBroadcast))
 				if receivedCount == expectedCnt {
 					done = true
 				}
@@ -266,7 +266,7 @@ var broadcastCmd = &cobra.Command{
 					jww.ERROR.Printf("Failed to decode sized broadcast: %+v", err)
 					continue
 				}
-				fmt.Printf("Symmetric broadcast message %d/%d received: %s\n", receivedCount, expectedCnt, string(receivedBroadcast))
+				fmt.Printf("Symmetric broadcast message received: %s\n", string(receivedBroadcast))
 				if receivedCount == expectedCnt {
 					done = true
 				}

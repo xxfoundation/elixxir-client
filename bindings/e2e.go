@@ -8,6 +8,7 @@ package bindings
 
 import (
 	"encoding/json"
+
 	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
@@ -51,12 +52,7 @@ func LoginE2e(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error
 		return nil, err
 	}
 
-	var authCallbacks auth.Callbacks
-	if callbacks == nil {
-		authCallbacks = auth.DefaultAuthCallbacks{}
-	} else {
-		authCallbacks = &authCallback{bindingsCbs: callbacks}
-	}
+	authCallbacks := &authCallback{bindingsCbs: callbacks}
 
 	newE2e, err := xxdk.Login(cmix.api, authCallbacks, newIdentity)
 	if err != nil {
@@ -79,12 +75,7 @@ func LoginE2eEphemeral(cmixId int, callbacks AuthCallbacks, identity []byte) (*E
 		return nil, err
 	}
 
-	var authCallbacks auth.Callbacks
-	if callbacks == nil {
-		authCallbacks = auth.DefaultAuthCallbacks{}
-	} else {
-		authCallbacks = &authCallback{bindingsCbs: callbacks}
-	}
+	authCallbacks := &authCallback{bindingsCbs: callbacks}
 
 	newE2e, err := xxdk.LoginEphemeral(cmix.api, authCallbacks, newIdentity)
 	if err != nil {
@@ -104,12 +95,7 @@ func LoginE2eLegacy(cmixId int, callbacks AuthCallbacks) (*E2e, error) {
 		return nil, err
 	}
 
-	var authCallbacks auth.Callbacks
-	if callbacks == nil {
-		authCallbacks = auth.DefaultAuthCallbacks{}
-	} else {
-		authCallbacks = &authCallback{bindingsCbs: callbacks}
-	}
+	authCallbacks := &authCallback{bindingsCbs: callbacks}
 
 	newE2e, err := xxdk.LoginLegacy(cmix.api, authCallbacks)
 	if err != nil {
@@ -181,18 +167,38 @@ func convertAuthCallbacks(requestor contact.Contact,
 
 // Confirm will be called when an auth Confirm message is processed.
 func (a *authCallback) Confirm(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-	a.bindingsCbs.Confirm(convertAuthCallbacks(requestor, receptionID, round))
+	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	e2e *xxdk.E2e) {
+	if a.bindingsCbs == nil {
+		auth.DefaultAuthCallbacks{}.Confirm(requestor, receptionID,
+			round)
+		return
+	}
+	a.bindingsCbs.Confirm(convertAuthCallbacks(requestor, receptionID,
+		round))
 }
 
 // Request will be called when an auth Request message is processed.
 func (a *authCallback) Request(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-	a.bindingsCbs.Request(convertAuthCallbacks(requestor, receptionID, round))
+	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	e2e *xxdk.E2e) {
+	if a.bindingsCbs == nil {
+		auth.DefaultAuthCallbacks{}.Request(requestor, receptionID,
+			round)
+		return
+	}
+	a.bindingsCbs.Request(convertAuthCallbacks(requestor, receptionID,
+		round))
 }
 
 // Reset will be called when an auth Reset operation occurs.
 func (a *authCallback) Reset(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	e2e *xxdk.E2e) {
+	if a.bindingsCbs == nil {
+		auth.DefaultAuthCallbacks{}.Reset(requestor, receptionID,
+			round)
+		return
+	}
 	a.bindingsCbs.Reset(convertAuthCallbacks(requestor, receptionID, round))
 }

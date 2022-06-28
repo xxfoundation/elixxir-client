@@ -2,6 +2,7 @@ package bindings
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/xxdk"
@@ -50,7 +51,7 @@ func NewKeystore(network, storageDir string, password []byte, regCode string) er
 // starts subprocesses to perform network operations.
 // TODO: add in custom parameters instead of the default
 func Login(storageDir string, password []byte) (*Cmix, error) {
-	client, err := xxdk.LoadCmix(storageDir, password, xxdk.GetDefaultParams())
+	client, err := xxdk.LoadCmix(storageDir, password, xxdk.GetDefaultCMixParams())
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}

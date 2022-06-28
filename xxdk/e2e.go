@@ -84,14 +84,9 @@ func LoginLegacy(client *Cmix, callbacks AuthCallbacks) (m *E2e, err error) {
 			"the e2e processies")
 	}
 
-	acw := &authCallbacksAdapter{
-		ac:  callbacks,
-		e2e: m,
-	}
-
 	m.auth, err = auth.NewState(client.GetStorage().GetKV(), client.GetCmix(),
 		m.e2e, client.GetRng(), client.GetEventReporter(),
-		auth.GetDefaultParams(), acw, m.backup.TriggerBackup)
+		auth.GetDefaultParams(), MakeAuthCallbacksAdapter(callbacks, m), m.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
@@ -241,14 +236,9 @@ func login(client *Cmix, callbacks AuthCallbacks,
 			"the e2e processies")
 	}
 
-	acw := &authCallbacksAdapter{
-		ac:  callbacks,
-		e2e: m,
-	}
-
 	m.auth, err = auth.NewState(kv, client.GetCmix(),
 		m.e2e, client.GetRng(), client.GetEventReporter(),
-		auth.GetDefaultTemporaryParams(), acw, m.backup.TriggerBackup)
+		auth.GetDefaultTemporaryParams(), MakeAuthCallbacksAdapter(callbacks, m), m.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
@@ -415,8 +405,16 @@ func (m *E2e) DeleteContact(partnerId *id.ID) error {
 	return nil
 }
 
-// Adapter type to make the xxdk auth callbacks type compatible with the
-// auth.callbacks
+// MakeAuthCallbacksAdapter creates an authCallbacksAdapter
+func MakeAuthCallbacksAdapter(ac AuthCallbacks, e2e *E2e) *authCallbacksAdapter {
+	return &authCallbacksAdapter{
+		ac:  ac,
+		e2e: e2e,
+	}
+}
+
+// authCallbacksAdapter is an adapter type to make the AuthCallbacks type
+// compatible with the auth.Callbacks type
 type authCallbacksAdapter struct {
 	ac  AuthCallbacks
 	e2e *E2e

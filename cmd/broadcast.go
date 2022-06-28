@@ -13,6 +13,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/utils"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -83,6 +84,7 @@ var broadcastCmd = &cobra.Command{
 				} else {
 					fmt.Printf("Private key generated for channel: %+v", rsa.CreatePrivateKeyPem(pk))
 				}
+				fmt.Printf("New broadcast channel generated")
 			} else {
 				// Read rest of info from config & build object manually
 				pubKeyBytes := []byte(viper.GetString("rsaPub"))
@@ -176,41 +178,64 @@ var broadcastCmd = &cobra.Command{
 
 		/* Broadcast messages to the channel */
 		if symmetric != "" || asymmetric != "" {
-			jww.INFO.Printf("Attempting to send broadcasts...")
-			// Wait for sendDelay before sending (to allow connection to establish)
-			sendDelay := time.Duration(viper.GetUint("sendDelay"))
-			time.Sleep(sendDelay)
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				jww.INFO.Printf("Attempting to send broadcasts...")
 
-			/* Send symmetric broadcast */
-			if symmetric != "" {
-				// Create properly sized broadcast message
-				broadcastMessage, err := broadcast.NewSizedBroadcast(bcl.MaxPayloadSize(), []byte(symmetric))
-				if err != nil {
-					jww.ERROR.Printf("Failed to create sized broadcast: %+v", err)
-				}
-				rid, eid, err := bcl.Broadcast(broadcastMessage, cmix.GetDefaultCMIXParams())
-				if err != nil {
-					jww.FATAL.Panicf("Failed to send symmetric broadcast message: %+v", err)
-				}
-				jww.INFO.Printf("Sent symmetric broadcast message to %s over round %d", eid, rid)
-			}
+				sendDelay := time.Duration(viper.GetUint("sendDelay"))
+				maxRetries := 10
+				retries := 0
+				for {
+					// Wait for sendDelay before sending (to allow connection to establish)
+					if maxRetries == retries {
+						jww.FATAL.Panicf("Max retries reached")
+					}
+					time.Sleep(sendDelay*time.Millisecond*time.Duration(retries) + 1)
 
-			/* Send asymmetric broadcast */
-			if asymmetric != "" {
-				// Create properly sized broadcast message
-				broadcastMessage, err := broadcast.NewSizedBroadcast(bcl.MaxAsymmetricPayloadSize(), []byte(asymmetric))
-				if err != nil {
-					jww.ERROR.Printf("Failed to create sized broadcast: %+v", err)
+					/* Send symmetric broadcast */
+					if symmetric != "" {
+						// Create properly sized broadcast message
+						broadcastMessage, err := broadcast.NewSizedBroadcast(bcl.MaxPayloadSize(), []byte(symmetric))
+						if err != nil {
+							jww.FATAL.Panicf("Failed to create sized broadcast: %+v", err)
+						}
+						rid, eid, err := bcl.Broadcast(broadcastMessage, cmix.GetDefaultCMIXParams())
+						if err != nil {
+							jww.ERROR.Printf("Failed to send symmetric broadcast message: %+v", err)
+							retries++
+							continue
+						}
+						fmt.Printf("Sent symmetric broadcast message: %s", symmetric)
+						jww.INFO.Printf("Sent symmetric broadcast message to %s over round %d", eid, rid)
+					}
+
+					/* Send asymmetric broadcast */
+					if asymmetric != "" {
+						// Create properly sized broadcast message
+						broadcastMessage, err := broadcast.NewSizedBroadcast(bcl.MaxAsymmetricPayloadSize(), []byte(asymmetric))
+						if err != nil {
+							jww.FATAL.Panicf("Failed to create sized broadcast: %+v", err)
+						}
+						if pk == nil {
+							jww.FATAL.Panicf("CANNOT SEND ASYMMETRIC BROADCAST WITHOUT PRIVATE KEY")
+						}
+						rid, eid, err := bcl.BroadcastAsymmetric(pk, broadcastMessage, cmix.GetDefaultCMIXParams())
+						if err != nil {
+							jww.ERROR.Printf("Failed to send asymmetric broadcast message: %+v", err)
+							retries++
+							continue
+						}
+						fmt.Printf("Sent asymmetric broadcast message: %s", asymmetric)
+						jww.INFO.Printf("Sent asymmetric broadcast message to %s over round %d", eid, rid)
+					}
+
+					wg.Done()
+					break
 				}
-				if pk == nil {
-					jww.FATAL.Panicf("CANNOT SEND ASYMMETRIC BROADCAST WITHOUT PRIVATE KEY")
-				}
-				rid, eid, err := bcl.BroadcastAsymmetric(pk, broadcastMessage, cmix.GetDefaultCMIXParams())
-				if err != nil {
-					jww.FATAL.Panicf("Failed to send asymmetric broadcast message: %+v", err)
-				}
-				jww.INFO.Printf("Sent asymmetric broadcast message to %s over round %d", eid, rid)
-			}
+			}()
+
+			wg.Wait()
 		}
 
 		/* Receive broadcast messages over the channel */

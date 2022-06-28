@@ -13,6 +13,7 @@ package xxdk
 import (
 	"encoding/json"
 
+	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
@@ -39,6 +40,7 @@ type E2EParams struct {
 	Base           e2e.Params
 	Rekey          rekey.Params
 	EphemeralRekey rekey.Params
+	Auth           auth.Params
 }
 
 ////////////////////////////////////////
@@ -75,6 +77,7 @@ func GetDefaultE2EParams() E2EParams {
 		Base:           e2e.GetDefaultParams(),
 		Rekey:          rekey.GetDefaultParams(),
 		EphemeralRekey: rekey.GetDefaultEphemeralParams(),
+		Auth:           auth.GetDefaultParams(),
 	}
 }
 

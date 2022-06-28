@@ -23,7 +23,7 @@ type Server struct {
 // NewServer builds a RestServer with connect.Connection and
 // the provided arguments, then registers necessary external services
 func NewServer(identity xxdk.ReceptionIdentity, net *xxdk.Cmix,
-	p connect.Params) (*Server, error) {
+	p xxdk.E2EParams) (*Server, error) {
 	newServer := &Server{
 		receptionId: identity.ID,
 		endpoints:   restlike.NewEndpoints(),

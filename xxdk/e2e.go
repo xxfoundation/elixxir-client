@@ -51,21 +51,24 @@ type AuthCallbacks interface {
 // It bundles a Cmix object with a ReceptionIdentity object
 // and initializes the auth.State and e2e.Handler objects
 func Login(client *Cmix, callbacks AuthCallbacks,
-	identity ReceptionIdentity) (m *E2e, err error) {
-	return login(client, callbacks, identity, client.GetStorage().GetKV())
+	identity ReceptionIdentity, params E2EParams) (m *E2e, err error) {
+	return login(client, callbacks, identity, client.GetStorage().GetKV(),
+		params)
 }
 
 // LoginEphemeral creates a new E2e backed by a totally ephemeral versioned.KV
 func LoginEphemeral(client *Cmix, callbacks AuthCallbacks,
-	identity ReceptionIdentity) (m *E2e, err error) {
-	return login(client, callbacks, identity, versioned.NewKV(ekv.MakeMemstore()))
+	identity ReceptionIdentity, params E2EParams) (m *E2e, err error) {
+	return login(client, callbacks, identity,
+		versioned.NewKV(ekv.MakeMemstore()), params)
 }
 
 // LoginLegacy creates a new E2e backed by the xxdk.Cmix persistent versioned.KV
 // Uses the pre-generated transmission ID used by xxdk.Cmix.
 // This function is designed to maintain backwards compatibility with previous
 // xx messenger designs and should not be used for other purposes.
-func LoginLegacy(client *Cmix, callbacks AuthCallbacks) (m *E2e, err error) {
+func LoginLegacy(client *Cmix, params E2EParams, callbacks AuthCallbacks) (
+	m *E2e, err error) {
 	m = &E2e{
 		Cmix:   client,
 		backup: &Container{},
@@ -87,8 +90,8 @@ func LoginLegacy(client *Cmix, callbacks AuthCallbacks) (m *E2e, err error) {
 
 	m.auth, err = auth.NewStateLegacy(client.GetStorage().GetKV(),
 		client.GetCmix(), m.e2e, client.GetRng(),
-		client.GetEventReporter(), auth.GetDefaultParams(), acw,
-		m.backup.TriggerBackup)
+		client.GetEventReporter(), params.Auth, params.Session,
+		acw, m.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +111,8 @@ func LoginLegacy(client *Cmix, callbacks AuthCallbacks) (m *E2e, err error) {
 // while replacing the base NDF.  This is designed for some specific deployment
 // procedures and is generally unsafe.
 func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
-	newBaseNdf string, params CMIXParams) (*E2e, error) {
+	newBaseNdf string, e2eParams E2EParams, cmixParams CMIXParams) (*E2e,
+	error) {
 	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
 
 	def, err := ParseNDF(newBaseNdf)
@@ -116,7 +120,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := LoadCmix(storageDir, password, params)
+	c, err := LoadCmix(storageDir, password, cmixParams)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +144,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	return LoginLegacy(c, nil)
+	return LoginLegacy(c, e2eParams, nil)
 }
 
 // LoginWithProtoClient creates a client object with a protoclient
@@ -148,7 +152,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 // some specific deployment procedures and is generally unsafe.
 func LoginWithProtoClient(storageDir string, password []byte,
 	protoClientJSON []byte, newBaseNdf string, callbacks AuthCallbacks,
-	params CMIXParams) (*E2e, error) {
+	cmixParams CMIXParams, e2eParams E2EParams) (*E2e, error) {
 	jww.INFO.Printf("LoginWithProtoClient()")
 
 	def, err := ParseNDF(newBaseNdf)
@@ -168,7 +172,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := LoadCmix(storageDir, password, params)
+	c, err := LoadCmix(storageDir, password, cmixParams)
 	if err != nil {
 		return nil, err
 	}
@@ -192,12 +196,12 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		RSAPrivatePem: protoUser.ReceptionRSA,
 		Salt:          protoUser.ReceptionSalt,
 		DHKeyPrivate:  protoUser.E2eDhPrivateKey,
-	})
+	}, e2eParams)
 }
 
 // login creates a new xxdk.E2e backed by the given versioned.KV
-func login(client *Cmix, callbacks AuthCallbacks,
-	identity ReceptionIdentity, kv *versioned.KV) (m *E2e, err error) {
+func login(client *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
+	kv *versioned.KV, params E2EParams) (m *E2e, err error) {
 
 	// Verify the passed-in ReceptionIdentity matches its properties
 	generatedId, err := xx.NewID(identity.RSAPrivatePem.GetPublic(), identity.Salt, id.User)
@@ -255,7 +259,7 @@ func login(client *Cmix, callbacks AuthCallbacks,
 
 	m.auth, err = auth.NewState(kv, client.GetCmix(),
 		m.e2e, client.GetRng(), client.GetEventReporter(),
-		auth.GetDefaultTemporaryParams(), acw, m.backup.TriggerBackup)
+		params.Auth, params.Session, acw, m.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}

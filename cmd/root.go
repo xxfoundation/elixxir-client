@@ -674,7 +674,7 @@ func initClient(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e 
 	authCbs = makeAuthCallbacks(
 		viper.GetBool("unsafe-channel-creation"), e2eParams)
 
-	client, err := xxdk.LoginLegacy(baseclient, authCbs)
+	client, err := xxdk.LoginLegacy(baseclient, e2eParams, authCbs)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}

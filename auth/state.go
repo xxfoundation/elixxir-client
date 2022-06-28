@@ -124,13 +124,11 @@ func (s *state) CallAllReceivedRequests() {
 		rr := rrList[i]
 		eph := receptionID.BuildIdentityFromRound(rr.GetContact().ID,
 			rr.GetRound())
-		s.partnerCallbacks.RLock()
 		if cb := s.partnerCallbacks.getPartnerCallback(rr.GetContact().ID); cb != nil {
 			cb.Request(rr.GetContact(), eph, rr.GetRound())
 		} else {
 			s.callbacks.Request(rr.GetContact(), eph, rr.GetRound())
 		}
-		s.partnerCallbacks.RUnlock()
 	}
 }
 

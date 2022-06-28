@@ -216,9 +216,8 @@ func (e *E2e) AddPartnerCallback(partnerID []byte, cb AuthCallbacks) error {
 		return err
 	}
 
-	acw := xxdk.MakeAuthCB(e.api, &authCallback{bindingsCbs: cb})
-
-	e.api.GetAuth().AddPartnerCallback(partnerId, acw)
+	e.api.GetAuth().AddPartnerCallback(partnerId,
+		xxdk.MakeAuthCallbacksAdapter(&authCallback{bindingsCbs: cb}, e.api))
 	return nil
 }
 

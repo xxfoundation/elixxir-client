@@ -3,6 +3,8 @@ package bindings
 import (
 	"encoding/json"
 
+	"time"
+
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/connect"
 	e2e2 "gitlab.com/elixxir/client/e2e"
@@ -46,8 +48,9 @@ func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
 		return nil, err
 	}
 
-	connection, err := connect.Connect(cont, e2eClient.api,
-		xxdk.GetDefaultE2EParams())
+	p := xxdk.GetDefaultE2EParams()
+	p.Base.Timeout = 45 * time.Second
+	connection, err := connect.Connect(cont, e2eClient.api, p)
 	if err != nil {
 		return nil, err
 	}

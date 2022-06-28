@@ -9,7 +9,7 @@ package bindings
 import (
 	"encoding/json"
 
-	"gitlab.com/elixxir/client/auth"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/xxdk"
@@ -52,13 +52,20 @@ func LoginE2e(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error
 		return nil, err
 	}
 
-	authCallbacks := &authCallback{bindingsCbs: callbacks}
+	var authCallbacks xxdk.AuthCallbacks
+	if callbacks == nil {
+		authCallbacks = defaultAuthCallbacks{}
+	} else {
+		authCallbacks = &authCallback{bindingsCbs: callbacks}
+	}
+
 	params := xxdk.GetDefaultE2EParams()
 
 	newE2e, err := xxdk.Login(cmix.api, authCallbacks, newIdentity, params)
 	if err != nil {
 		return nil, err
 	}
+
 	return e2eTrackerSingleton.make(newE2e), nil
 }
 
@@ -76,7 +83,13 @@ func LoginE2eEphemeral(cmixId int, callbacks AuthCallbacks, identity []byte) (*E
 		return nil, err
 	}
 
-	authCallbacks := &authCallback{bindingsCbs: callbacks}
+	var authCallbacks xxdk.AuthCallbacks
+	if callbacks == nil {
+		authCallbacks = defaultAuthCallbacks{}
+	} else {
+		authCallbacks = &authCallback{bindingsCbs: callbacks}
+	}
+
 	params := xxdk.GetDefaultE2EParams()
 
 	newE2e, err := xxdk.LoginEphemeral(cmix.api, authCallbacks, newIdentity, params)
@@ -97,7 +110,13 @@ func LoginE2eLegacy(cmixId int, callbacks AuthCallbacks) (*E2e, error) {
 		return nil, err
 	}
 
-	authCallbacks := &authCallback{bindingsCbs: callbacks}
+	var authCallbacks xxdk.AuthCallbacks
+	if callbacks == nil {
+		authCallbacks = defaultAuthCallbacks{}
+	} else {
+		authCallbacks = &authCallback{bindingsCbs: callbacks}
+	}
+
 	params := xxdk.GetDefaultE2EParams()
 
 	newE2e, err := xxdk.LoginLegacy(cmix.api, params, authCallbacks)
@@ -169,39 +188,41 @@ func convertAuthCallbacks(requestor contact.Contact,
 }
 
 // Confirm will be called when an auth Confirm message is processed.
-func (a *authCallback) Confirm(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round,
-	e2e *xxdk.E2e) {
-	if a.bindingsCbs == nil {
-		auth.DefaultAuthCallbacks{}.Confirm(requestor, receptionID,
-			round)
-		return
-	}
-	a.bindingsCbs.Confirm(convertAuthCallbacks(requestor, receptionID,
-		round))
+func (a *authCallback) Confirm(partner contact.Contact,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round, _ *xxdk.E2e) {
+	a.bindingsCbs.Confirm(convertAuthCallbacks(partner, receptionID, round))
 }
 
 // Request will be called when an auth Request message is processed.
-func (a *authCallback) Request(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round,
-	e2e *xxdk.E2e) {
-	if a.bindingsCbs == nil {
-		auth.DefaultAuthCallbacks{}.Request(requestor, receptionID,
-			round)
-		return
-	}
-	a.bindingsCbs.Request(convertAuthCallbacks(requestor, receptionID,
-		round))
+func (a *authCallback) Request(partner contact.Contact,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round, _ *xxdk.E2e) {
+	a.bindingsCbs.Request(convertAuthCallbacks(partner, receptionID, round))
 }
 
 // Reset will be called when an auth Reset operation occurs.
-func (a *authCallback) Reset(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round,
-	e2e *xxdk.E2e) {
-	if a.bindingsCbs == nil {
-		auth.DefaultAuthCallbacks{}.Reset(requestor, receptionID,
-			round)
-		return
-	}
-	a.bindingsCbs.Reset(convertAuthCallbacks(requestor, receptionID, round))
+func (a *authCallback) Reset(partner contact.Contact,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round, _ *xxdk.E2e) {
+	a.bindingsCbs.Reset(convertAuthCallbacks(partner, receptionID, round))
+}
+
+// defaultAuthCallbacks is a simple structure for providing a default Callbacks implementation
+// It should generally not be used.
+type defaultAuthCallbacks struct{}
+
+// Confirm will be called when an auth Confirm message is processed.
+func (a defaultAuthCallbacks) Confirm(contact.Contact,
+	receptionID.EphemeralIdentity, rounds.Round, *xxdk.E2e) {
+	jww.ERROR.Printf("No valid auth callback assigned!")
+}
+
+// Request will be called when an auth Request message is processed.
+func (a defaultAuthCallbacks) Request(contact.Contact,
+	receptionID.EphemeralIdentity, rounds.Round, *xxdk.E2e) {
+	jww.ERROR.Printf("No valid auth callback assigned!")
+}
+
+// Reset will be called when an auth Reset operation occurs.
+func (a defaultAuthCallbacks) Reset(contact.Contact,
+	receptionID.EphemeralIdentity, rounds.Round, *xxdk.E2e) {
+	jww.ERROR.Printf("No valid auth callback assigned!")
 }

@@ -38,6 +38,8 @@ type E2e struct {
 	e2eIdentity ReceptionIdentity
 }
 
+// AuthCallbacks is an adapter for the auth.Callbacks interface
+// that allows for initializing an E2e object without an E2e-dependant auth.Callbacks
 type AuthCallbacks interface {
 	Request(partner contact.Contact, receptionID receptionID.EphemeralIdentity,
 		round rounds.Round, e2e *E2e)
@@ -86,12 +88,10 @@ func LoginLegacy(client *Cmix, params E2EParams, callbacks AuthCallbacks) (
 			"the e2e processies")
 	}
 
-	acw := MakeAuthCB(m, callbacks)
-
-	m.auth, err = auth.NewStateLegacy(client.GetStorage().GetKV(),
-		client.GetCmix(), m.e2e, client.GetRng(),
-		client.GetEventReporter(), params.Auth, params.Session,
-		acw, m.backup.TriggerBackup)
+	m.auth, err = auth.NewState(client.GetStorage().GetKV(), client.GetCmix(),
+		m.e2e, client.GetRng(), client.GetEventReporter(), params.Auth,
+		params.Session, MakeAuthCallbacksAdapter(callbacks, m),
+		m.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
@@ -184,8 +184,6 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c.network.AddIdentity(c.GetUser().ReceptionID, time.Time{}, true)
-
 	err = c.registerFollower()
 	if err != nil {
 		return nil, err
@@ -219,6 +217,8 @@ func login(client *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
 		backup:      &Container{},
 		e2eIdentity: identity,
 	}
+
+	client.network.AddIdentity(identity.ID, time.Time{}, true)
 
 	//initialize the e2e storage
 	err = e2e.Init(kv, identity.ID, identity.DHKeyPrivate, e2eGrp,
@@ -255,11 +255,10 @@ func login(client *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
 			"the e2e processies")
 	}
 
-	acw := MakeAuthCB(m, callbacks)
-
 	m.auth, err = auth.NewState(kv, client.GetCmix(),
 		m.e2e, client.GetRng(), client.GetEventReporter(),
-		params.Auth, params.Session, acw, m.backup.TriggerBackup)
+		params.Auth, params.Session,
+		MakeAuthCallbacksAdapter(callbacks, m), m.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
@@ -426,8 +425,16 @@ func (m *E2e) DeleteContact(partnerId *id.ID) error {
 	return nil
 }
 
-// Adapter type to make the xxdk auth callbacks type compatible with the
-// auth.callbacks
+// MakeAuthCallbacksAdapter creates an authCallbacksAdapter
+func MakeAuthCallbacksAdapter(ac AuthCallbacks, e2e *E2e) *authCallbacksAdapter {
+	return &authCallbacksAdapter{
+		ac:  ac,
+		e2e: e2e,
+	}
+}
+
+// authCallbacksAdapter is an adapter type to make the AuthCallbacks type
+// compatible with the auth.Callbacks type
 type authCallbacksAdapter struct {
 	ac  AuthCallbacks
 	e2e *E2e

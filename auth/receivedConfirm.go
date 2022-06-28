@@ -112,13 +112,11 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 		Facts:          make([]fact.Fact, 0),
 	}
 
-	authState.partnerCallbacks.RLock()
 	if cb := authState.partnerCallbacks.getPartnerCallback(c.ID); cb != nil {
 		cb.Confirm(c, receptionID, round)
 	} else {
 		authState.callbacks.Confirm(c, receptionID, round)
 	}
-	authState.partnerCallbacks.RUnlock()
 }
 
 func (rcs *receivedConfirmService) String() string {

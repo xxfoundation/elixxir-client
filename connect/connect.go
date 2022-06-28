@@ -8,9 +8,10 @@ package connect
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/xxdk"
 	"io"
 	"time"
+
+	"gitlab.com/elixxir/client/xxdk"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -123,7 +124,8 @@ func Connect(recipient contact.Contact, e2eClient *xxdk.E2e,
 		signalChannel <- connection
 	}
 	callback := getAuthCallback(cb, nil, e2eClient.GetE2E(), e2eClient.GetAuth(), p)
-	e2eClient.GetAuth().AddPartnerCallback(recipient.ID, callback)
+	cbs := xxdk.MakeAuthCB(e2eClient, callback)
+	e2eClient.GetAuth().AddPartnerCallback(recipient.ID, cbs)
 
 	// Perform the auth request
 	_, err := e2eClient.GetAuth().Request(recipient, nil)
@@ -254,7 +256,6 @@ func getAuthCallback(confirm, request Callback, e2e clientE2e.Handler,
 	return &authCallback{
 		confirmCallback:  confirm,
 		requestCallback:  request,
-		connectionE2e:    e2e,
 		connectionParams: params,
 		authState:        auth,
 	}
@@ -262,7 +263,7 @@ func getAuthCallback(confirm, request Callback, e2e clientE2e.Handler,
 
 // Confirm will be called when an auth Confirm message is processed.
 func (a authCallback) Confirm(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	receptionID receptionID.EphemeralIdentity, round rounds.Round, e2e *xxdk.E2e) {
 	jww.DEBUG.Printf("Connection auth request for %s confirmed",
 		requestor.ID.String())
 	defer a.authState.DeletePartnerCallback(requestor.ID)
@@ -288,7 +289,8 @@ func (a authCallback) Confirm(requestor contact.Contact,
 
 // Request will be called when an auth Request message is processed.
 func (a authCallback) Request(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	e2e *xxdk.E2e) {
 	if a.requestCallback == nil {
 		jww.ERROR.Printf("Received a request when requests are" +
 			"not enable, will not accept")
@@ -301,7 +303,7 @@ func (a authCallback) Request(requestor contact.Contact,
 		a.requestCallback(nil)
 	}
 	// After confirmation, get the new partner
-	newPartner, err := a.connectionE2e.GetPartner(requestor.ID)
+	newPartner, err := e2e.GetE2E().GetPartner(requestor.ID)
 	if err != nil {
 		jww.ERROR.Printf("Unable to build connection with "+
 			"partner %s: %+v", requestor.ID, err)
@@ -312,13 +314,14 @@ func (a authCallback) Request(requestor contact.Contact,
 	}
 
 	// Return the new Connection object
-	a.requestCallback(BuildConnection(newPartner, a.connectionE2e,
+	a.requestCallback(BuildConnection(newPartner, e2e.GetE2E(),
 		a.authState, a.connectionParams))
 }
 
 // Reset will be called when an auth Reset operation occurs.
 func (a authCallback) Reset(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	e2e *xxdk.E2e) {
 }
 
 // FirstPartitionSize returns the max partition payload size for the

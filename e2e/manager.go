@@ -173,6 +173,7 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 		recipient *id.ID, payload []byte,
 		cmixParams cmix.CMIXParams) (
 		[]id.Round, e2e.MessageID, time.Time, error) {
+		// FIXME: we should have access to the e2e params here...
 		par := GetDefaultParams()
 		par.CMIXParams = cmixParams
 		return m.SendE2E(mt, recipient, payload, par)

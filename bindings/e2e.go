@@ -53,8 +53,9 @@ func LoginE2e(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error
 	}
 
 	authCallbacks := &authCallback{bindingsCbs: callbacks}
+	params := xxdk.GetDefaultE2EParams()
 
-	newE2e, err := xxdk.Login(cmix.api, authCallbacks, newIdentity)
+	newE2e, err := xxdk.Login(cmix.api, authCallbacks, newIdentity, params)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +77,9 @@ func LoginE2eEphemeral(cmixId int, callbacks AuthCallbacks, identity []byte) (*E
 	}
 
 	authCallbacks := &authCallback{bindingsCbs: callbacks}
+	params := xxdk.GetDefaultE2EParams()
 
-	newE2e, err := xxdk.LoginEphemeral(cmix.api, authCallbacks, newIdentity)
+	newE2e, err := xxdk.LoginEphemeral(cmix.api, authCallbacks, newIdentity, params)
 	if err != nil {
 		return nil, err
 	}
@@ -96,8 +98,9 @@ func LoginE2eLegacy(cmixId int, callbacks AuthCallbacks) (*E2e, error) {
 	}
 
 	authCallbacks := &authCallback{bindingsCbs: callbacks}
+	params := xxdk.GetDefaultE2EParams()
 
-	newE2e, err := xxdk.LoginLegacy(cmix.api, authCallbacks)
+	newE2e, err := xxdk.LoginLegacy(cmix.api, params, authCallbacks)
 	if err != nil {
 		return nil, err
 	}

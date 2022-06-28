@@ -2,9 +2,11 @@ package bindings
 
 import (
 	"encoding/json"
+
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/connect"
 	e2e2 "gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 )
 
@@ -44,7 +46,8 @@ func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
 		return nil, err
 	}
 
-	connection, err := connect.Connect(cont, e2eClient.api, connect.GetDefaultParams())
+	connection, err := connect.Connect(cont, e2eClient.api,
+		xxdk.GetDefaultE2EParams())
 	if err != nil {
 		return nil, err
 	}

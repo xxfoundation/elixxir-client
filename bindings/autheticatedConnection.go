@@ -2,6 +2,7 @@ package bindings
 
 import (
 	"gitlab.com/elixxir/client/connect"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 )
 
@@ -35,6 +36,7 @@ func (c *Cmix) ConnectWithAuthentication(e2eId int, recipientContact []byte) (*A
 		return nil, err
 	}
 
-	connection, err := connect.ConnectWithAuthentication(cont, e2eClient.api, connect.GetDefaultParams())
+	connection, err := connect.ConnectWithAuthentication(cont, e2eClient.api,
+		xxdk.GetDefaultE2EParams())
 	return authenticatedConnectionTrackerSingleton.make(connection), nil
 }

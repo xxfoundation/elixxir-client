@@ -114,7 +114,6 @@ func GetParameters(params string) (Params, error) {
 // partner.Manager is confirmed.
 func Connect(recipient contact.Contact, e2eClient *xxdk.E2e,
 	p Params) (Connection, error) {
-
 	// Build callback for E2E negotiation
 	signalChannel := make(chan Connection, 1)
 	cb := func(connection Connection) {

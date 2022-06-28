@@ -178,8 +178,6 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c.network.AddIdentity(c.GetUser().ReceptionID, time.Time{}, true)
-
 	err = c.registerFollower()
 	if err != nil {
 		return nil, err
@@ -213,6 +211,8 @@ func login(client *Cmix, callbacks AuthCallbacks,
 		backup:      &Container{},
 		e2eIdentity: identity,
 	}
+
+	client.network.AddIdentity(identity.ID, time.Time{}, true)
 
 	//initialize the e2e storage
 	err = e2e.Init(kv, identity.ID, identity.DHKeyPrivate, e2eGrp,

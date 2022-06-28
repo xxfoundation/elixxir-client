@@ -37,6 +37,8 @@ type E2e struct {
 	e2eIdentity ReceptionIdentity
 }
 
+// AuthCallbacks is an adapter for the auth.Callbacks interface
+// that allows for initializing an E2e object without an E2e-dependant auth.Callbacks
 type AuthCallbacks interface {
 	Request(partner contact.Contact, receptionID receptionID.EphemeralIdentity,
 		round rounds.Round, e2e *E2e)

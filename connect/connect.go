@@ -7,7 +7,6 @@
 package connect
 
 import (
-	"encoding/json"
 	"io"
 	"time"
 
@@ -22,8 +21,6 @@ import (
 	clientE2e "gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/e2e/rekey"
-	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
@@ -80,43 +77,12 @@ type Connection interface {
 // new Connection objects as they are established.
 type Callback func(connection Connection)
 
-// Params for managing Connection objects.
-type Params struct {
-	Auth    auth.Params
-	Rekey   rekey.Params
-	Event   event.Reporter `json:"-"`
-	Timeout time.Duration
-}
-
-// GetDefaultParams returns a usable set of default Connection parameters.
-func GetDefaultParams() Params {
-	return Params{
-		Auth:    auth.GetDefaultTemporaryParams(),
-		Rekey:   rekey.GetDefaultEphemeralParams(),
-		Event:   event.NewEventManager(),
-		Timeout: connectionTimeout,
-	}
-}
-
-// GetParameters returns the default Params, or override with given
-// parameters, if set.
-func GetParameters(params string) (Params, error) {
-	p := GetDefaultParams()
-	if len(params) > 0 {
-		err := json.Unmarshal([]byte(params), &p)
-		if err != nil {
-			return Params{}, err
-		}
-	}
-	return p, nil
-}
-
 // Connect performs auth key negotiation with the given recipient,
 // and returns a Connection object for the newly-created partner.Manager
 // This function is to be used sender-side and will block until the
 // partner.Manager is confirmed.
 func Connect(recipient contact.Contact, e2eClient *xxdk.E2e,
-	p Params) (Connection, error) {
+	p xxdk.E2EParams) (Connection, error) {
 
 	// Build callback for E2E negotiation
 	signalChannel := make(chan Connection, 1)
@@ -136,7 +102,7 @@ func Connect(recipient contact.Contact, e2eClient *xxdk.E2e,
 	// Block waiting for auth to confirm
 	jww.DEBUG.Printf("Connection waiting for auth request "+
 		"for %s to be confirmed...", recipient.ID.String())
-	timeout := time.NewTimer(p.Timeout)
+	timeout := time.NewTimer(p.Base.Timeout)
 	defer timeout.Stop()
 	select {
 	case newConnection := <-signalChannel:
@@ -163,12 +129,12 @@ func Connect(recipient contact.Contact, e2eClient *xxdk.E2e,
 // This call does an xxDK.ephemeralLogin under the hood and the connection
 // server must be the only listener on auth.
 func StartServer(identity xxdk.ReceptionIdentity, cb Callback, net *xxdk.Cmix,
-	p Params) (*xxdk.E2e, error) {
+	p xxdk.E2EParams) (*xxdk.E2e, error) {
 
 	// Build callback for E2E negotiation
 	callback := getAuthCallback(nil, cb, nil, nil, p)
 
-	client, err := xxdk.LoginEphemeral(net, callback, identity)
+	client, err := xxdk.LoginEphemeral(net, callback, identity, p)
 	if err != nil {
 		return nil, err
 	}
@@ -183,14 +149,14 @@ type handler struct {
 	auth    auth.State
 	partner partner.Manager
 	e2e     clientE2e.Handler
-	params  Params
+	params  xxdk.E2EParams
 }
 
 // BuildConnection assembles a Connection object
 // after an E2E partnership has already been confirmed with the given
 // partner.Manager.
 func BuildConnection(partner partner.Manager, e2eHandler clientE2e.Handler,
-	auth auth.State, p Params) Connection {
+	auth auth.State, p xxdk.E2EParams) Connection {
 	return &handler{
 		auth:    auth,
 		partner: partner,
@@ -244,7 +210,7 @@ type authCallback struct {
 
 	// Used for building new Connection objects
 	connectionE2e    clientE2e.Handler
-	connectionParams Params
+	connectionParams xxdk.E2EParams
 	authState        auth.State
 }
 
@@ -252,7 +218,7 @@ type authCallback struct {
 // of an auth.State object.
 // it will accept requests only if a request callback is passed in
 func getAuthCallback(confirm, request Callback, e2e clientE2e.Handler,
-	auth auth.State, params Params) *authCallback {
+	auth auth.State, params xxdk.E2EParams) *authCallback {
 	return &authCallback{
 		confirmCallback:  confirm,
 		requestCallback:  request,

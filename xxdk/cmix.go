@@ -156,12 +156,6 @@ func OpenCmix(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c.network, err = cmix.NewClient(parameters.CMix, c.comms, c.storage,
-		c.rng, c.events)
-	if err != nil {
-		return nil, err
-	}
-
 	return c, nil
 }
 
@@ -213,6 +207,12 @@ func LoadCmix(storageDir string, password []byte, parameters Params) (*Cmix, err
 		return nil, err
 	}
 
+	c.network, err = cmix.NewClient(parameters.CMix, c.comms, c.storage,
+		c.rng, c.events)
+	if err != nil {
+		return nil, err
+	}
+
 	jww.INFO.Printf("Cmix Logged in: \n\tTransmissionID: %s "+
 		"\n\tReceptionID: %s", c.storage.GetTransmissionID(), c.storage.GetReceptionID())
 
@@ -243,11 +243,6 @@ func LoadCmix(storageDir string, password []byte, parameters Params) (*Cmix, err
 			jww.WARN.Printf("Failed adding host for "+
 				"notifications: %+v", err)
 		}
-	}
-
-	err = c.network.Connect(def)
-	if err != nil {
-		return nil, err
 	}
 
 	err = c.registerFollower()

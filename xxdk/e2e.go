@@ -35,14 +35,14 @@ type E2e struct {
 }
 
 // Login creates a new E2e backed by the xxdk.Cmix persistent versioned.KV
-// If identity == nil, a new ReceptionIdentity will be generated automagically
+// It bundles a Cmix object with a ReceptionIdentity object
+// and initializes the auth.State and e2e.Handler objects
 func Login(client *Cmix, callbacks auth.Callbacks,
 	identity ReceptionIdentity) (m *E2e, err error) {
 	return login(client, callbacks, identity, client.GetStorage().GetKV())
 }
 
 // LoginEphemeral creates a new E2e backed by a totally ephemeral versioned.KV
-// If identity == nil, a new ReceptionIdentity will be generated automagically
 func LoginEphemeral(client *Cmix, callbacks auth.Callbacks,
 	identity ReceptionIdentity) (m *E2e, err error) {
 	return login(client, callbacks, identity, versioned.NewKV(ekv.MakeMemstore()))
@@ -63,6 +63,12 @@ func LoginLegacy(client *Cmix, callbacks auth.Callbacks) (m *E2e, err error) {
 		return nil, err
 	}
 	client.GetCmix().AddIdentity(client.GetUser().ReceptionID, time.Time{}, true)
+
+	err = client.AddService(m.e2e.StartProcesses)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to add "+
+			"the e2e processies")
+	}
 
 	m.auth, err = auth.NewState(client.GetStorage().GetKV(), client.GetCmix(),
 		m.e2e, client.GetRng(), client.GetEventReporter(),
@@ -94,7 +100,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := OpenCmix(storageDir, password, params)
+	c, err := LoadCmix(storageDir, password, params)
 	if err != nil {
 		return nil, err
 	}
@@ -111,11 +117,6 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		jww.WARN.Printf("Registration with permissioning skipped due " +
 			"to blank permissionign address. Cmix will not be " +
 			"able to register or track network.")
-	}
-
-	err = c.network.Connect(def)
-	if err != nil {
-		return nil, err
 	}
 
 	err = c.registerFollower()
@@ -151,7 +152,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := OpenCmix(storageDir, password, params)
+	c, err := LoadCmix(storageDir, password, params)
 	if err != nil {
 		return nil, err
 	}
@@ -163,10 +164,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	err = c.network.Connect(def)
-	if err != nil {
-		return nil, err
-	}
+	c.network.AddIdentity(c.GetUser().ReceptionID, time.Time{}, true)
 
 	// FIXME: The callbacks need to be set, so I suppose we would need to
 	//        either set them via a special type or add them
@@ -201,9 +199,6 @@ func login(client *Cmix, callbacks auth.Callbacks,
 			identity.ID.String())
 	}
 
-	// Add the identity to tracking
-	client.network.AddIdentity(identity.ID, time.Time{}, true)
-
 	e2eGrp := client.GetStorage().GetE2EGroup()
 	m = &E2e{
 		Cmix:        client,
@@ -225,6 +220,12 @@ func login(client *Cmix, callbacks auth.Callbacks,
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load a "+
 			"newly created e2e store")
+	}
+
+	err = client.AddService(m.e2e.StartProcesses)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to add "+
+			"the e2e processies")
 	}
 
 	m.auth, err = auth.NewState(kv, client.GetCmix(),

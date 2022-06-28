@@ -53,6 +53,7 @@ func newCritical(kv *versioned.KV, hm func(f func(bool)) uint64,
 		E2eMessageBuffer: cm,
 		trigger:          make(chan bool, 100),
 		send:             send,
+		healthcb:         hm,
 	}
 
 	return c

@@ -479,8 +479,15 @@ var rootCmd = &cobra.Command{
 				done = true
 				break
 			case m := <-recvCh:
-				fmt.Printf("Message received: %s\n", string(
-					m.Payload))
+				strToPrint := string(m.Payload)
+				if m.MessageType != catalog.XxMessage {
+					strToPrint = fmt.Sprintf("type is %s",
+						m.MessageType)
+				}
+
+				fmt.Printf("Message received: %s\n",
+					strToPrint)
+
 				// fmt.Printf("%s", m.Timestamp)
 				receiveCnt++
 				if receiveCnt == expectedCnt {

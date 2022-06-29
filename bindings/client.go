@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"runtime/pprof"
 	"strings"
 	"sync"
@@ -31,7 +32,7 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
-var extantClient bool = false
+var extantClient = false
 var loginMux sync.Mutex
 
 var clientSingleton *Client
@@ -165,6 +166,7 @@ func LogLevel(level int) error {
 	threshold := jww.Threshold(level)
 	jww.SetLogThreshold(threshold)
 	jww.SetStdoutThreshold(threshold)
+	jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
 	switch threshold {
 	case jww.LevelTrace:

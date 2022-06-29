@@ -297,7 +297,7 @@ func authenticatedConnections() {
 	}
 
 	// Wait for connection to be established
-	connectionTimeout := time.NewTimer(20 * time.Second)
+	connectionTimeout := time.NewTimer(35 * time.Second)
 	select {
 	case conn = <-connChan:
 	case <-connectionTimeout.C:
@@ -482,13 +482,13 @@ func (a *authConnHandler) Request(partner contact.Contact,
 	// Accept channel and send confirmation message
 	if viper.GetBool(verifySendFlag) {
 		// Verify message sends were successful
-		acceptChannelVerified(a.client, partnerId)
+		acceptChannelVerified(e2e, partnerId)
 	} else {
-		acceptChannel(a.client, partnerId)
+		acceptChannel(e2e, partnerId)
 	}
 
 	// After confirmation, get the new partner
-	newPartner, err := a.client.GetE2E().GetPartner(partner.ID)
+	newPartner, err := e2e.GetE2E().GetPartner(partner.ID)
 	if err != nil {
 		jww.ERROR.Printf("[CONN] Unable to build connection with "+
 			"partner %s: %+v", partner.ID, err)
@@ -499,15 +499,15 @@ func (a *authConnHandler) Request(partner contact.Contact,
 		return
 	}
 
-	a.conn = connect.BuildConnection(newPartner, a.client.GetE2E(),
-		a.client.GetAuth(), connect.GetDefaultParams())
+	a.conn = connect.BuildConnection(newPartner, e2e.GetE2E(),
+		e2e.GetAuth(), connect.GetDefaultParams())
 
 	if a.connCb != nil {
 		// Return the new Connection object
 		a.connCb(a.conn)
 	}
 
-	a.client.GetE2E().RegisterListener(partnerId, catalog.XxMessage, a)
+	e2e.GetE2E().RegisterListener(partnerId, catalog.XxMessage, a)
 
 	if a.isAuth {
 		a.conn.RegisterListener(catalog.ConnectionAuthenticationRequest, a)
@@ -517,9 +517,9 @@ func (a *authConnHandler) Request(partner contact.Contact,
 
 func (a *authConnHandler) Confirm(partner contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round,
-	e *xxdk.E2e) {
+	e2e *xxdk.E2e) {
 	// After confirmation, get the new partner
-	newPartner, err := a.client.GetE2E().GetPartner(partner.ID)
+	newPartner, err := e2e.GetE2E().GetPartner(partner.ID)
 	if err != nil {
 		jww.ERROR.Printf("[CONN] Unable to build connection with "+
 			"partner %s: %+v", partner.ID, err)
@@ -537,8 +537,8 @@ func (a *authConnHandler) Confirm(partner contact.Contact,
 
 	// Return the new Connection object
 	if a.connCb != nil {
-		a.connCb(connect.BuildConnection(newPartner, a.client.GetE2E(),
-			a.client.GetAuth(), connect.GetDefaultParams()))
+		a.connCb(connect.BuildConnection(newPartner, e2e.GetE2E(),
+			e2e.GetAuth(), connect.GetDefaultParams()))
 	}
 }
 

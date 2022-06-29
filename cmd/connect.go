@@ -128,6 +128,7 @@ func connections() {
 	contactPath := viper.GetString(connectionFlag)
 	if contactPath != "" {
 		serverContact := getContactFromFile(contactPath)
+		fmt.Println("Sending connection request")
 		jww.INFO.Printf("[CONN] Sending connection request to %s",
 			serverContact.ID)
 
@@ -153,6 +154,7 @@ func connections() {
 
 	}
 
+	fmt.Println("Established connection with partner")
 	jww.INFO.Printf("[CONN] Established connection with %s",
 		conn.GetPartner().PartnerId())
 
@@ -281,25 +283,21 @@ func authenticatedConnections() {
 	contactPath := viper.GetString(connectionFlag)
 	if contactPath != "" {
 		serverContact := getContactFromFile(contactPath)
+		fmt.Println("Sending connection request")
 
 		// Establish connection with partner
 		conn, err = connect.ConnectWithAuthentication(serverContact, client,
 			connectionParam)
 		if err != nil {
-			jww.FATAL.Panicf("[CONN] Failed to build connection with %s",
-				serverContact.ID)
+			jww.FATAL.Panicf("[CONN] Failed to build connection with %s: %v",
+				serverContact.ID, err)
 		}
 
 		connChan <- conn
 	}
 
 	// Wait for connection to be established
-	var connectionTimeout *time.Timer
-	if viper.GetBool(authenticatedFlag) {
-		connectionTimeout = time.NewTimer(20 * time.Second)
-	} else {
-		connectionTimeout = time.NewTimer(connectionParam.Timeout)
-	}
+	connectionTimeout := time.NewTimer(20 * time.Second)
 	select {
 	case conn = <-connChan:
 	case <-connectionTimeout.C:
@@ -312,8 +310,7 @@ func authenticatedConnections() {
 	jww.INFO.Printf("[CONN] Established connection with %s, "+
 		"awaiting authentication...",
 		conn.GetPartner().PartnerId())
-	fmt.Printf("Established connection with partner " +
-		"awaiting authentication...\n")
+	fmt.Println("Established connection with partner.")
 
 	// Send message
 	msgBody := viper.GetString(messageFlag)
@@ -467,7 +464,6 @@ func (a *authConnHandler) Hear(item receive.Message) {
 		jww.DEBUG.Printf("AuthenticatedConnection auth request "+
 			"for %s confirmed",
 			item.Sender.String())
-		fmt.Println("Authenticated connection established")
 		authConn := connect.BuildAuthenticatedConnection(a.conn)
 		go a.authConnCb(authConn)
 	}

@@ -8,6 +8,7 @@
 package connect
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
@@ -66,7 +67,8 @@ func ConnectWithAuthentication(recipient contact.Contact, e2eClient *xxdk.E2e,
 
 	// Build the authenticated connection and return
 	identity := e2eClient.GetReceptionIdentity()
-	return connectWithAuthentication(conn, timeStart, recipient, identity.Salt, identity.RSAPrivatePem,
+	return connectWithAuthentication(conn, timeStart, recipient,
+		identity.Salt, identity.RSAPrivatePem,
 		e2eClient.GetRng(), e2eClient.GetCmix(), p)
 }
 
@@ -159,7 +161,7 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 
 	// If channel received no error, construct and return the
 	// authenticated connection
-	authConn := buildAuthenticatedConnection(conn)
+	authConn := BuildAuthenticatedConnection(conn)
 	authConn.setAuthenticated()
 	return authConn, nil
 }
@@ -178,6 +180,8 @@ func StartAuthenticatedServer(identity xxdk.ReceptionIdentity,
 		// client's identity proof. If an identity authentication
 		// message is received and validated, an authenticated connection will
 		// be passed along via the AuthenticatedCallback
+		fmt.Println("registering a listener")
+		jww.INFO.Printf("registering listener")
 		connection.RegisterListener(catalog.ConnectionAuthenticationRequest,
 			buildAuthConfirmationHandler(cb, connection))
 	})
@@ -192,8 +196,8 @@ type authenticatedHandler struct {
 	authMux         sync.Mutex
 }
 
-// buildAuthenticatedConnection assembles an AuthenticatedConnection object.
-func buildAuthenticatedConnection(conn Connection) *authenticatedHandler {
+// BuildAuthenticatedConnection assembles an AuthenticatedConnection object.
+func BuildAuthenticatedConnection(conn Connection) *authenticatedHandler {
 	return &authenticatedHandler{
 		Connection:      conn,
 		isAuthenticated: false,

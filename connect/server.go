@@ -9,11 +9,9 @@ package connect
 
 import (
 	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/crypto/xx"
+	connCrypto "gitlab.com/elixxir/crypto/connect"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -41,7 +39,7 @@ type serverListener struct {
 // buildAuthConfirmationHandler returns a serverListener object.
 // This will handle incoming identity authentication confirmations
 // via the serverListener.Hear method. A successful AuthenticatedConnection
-// will be passed along via the serverListener.connectionCallback
+// will be passed along via the serverListener.connectionCallback.
 func buildAuthConfirmationHandler(cb AuthenticatedCallback,
 	connection Connection) server {
 	return &serverListener{
@@ -62,41 +60,13 @@ func (a serverListener) Hear(item receive.Message) {
 		return
 	}
 
-	// Process the PEM encoded public key to an rsa.PublicKey object
-	partnerPubKey, err := rsa.LoadPublicKeyFromPem(iar.RsaPubKey)
-	if err != nil {
-		a.handleAuthConfirmationErr(err, item.Sender)
-		return
-	}
-
 	// Get the new partner
 	newPartner := a.conn.GetPartner()
-
-	// Verify the partner's known ID against the information passed
-	// along the wire
-	partnerWireId, err := xx.NewID(partnerPubKey, iar.Salt, id.User)
-	if err != nil {
-		a.handleAuthConfirmationErr(err, item.Sender)
-		return
-	}
-
-	if !newPartner.PartnerId().Cmp(partnerWireId) {
-		err = errors.New("Failed confirm partner's ID over the wire")
-		a.handleAuthConfirmationErr(err, item.Sender)
-		return
-	}
-
-	// The connection fingerprint (hashed) will be used as a nonce
 	connectionFp := newPartner.ConnectionFingerprint().Bytes()
 
-	// Hash the connection fingerprint
-	opts := rsa.NewDefaultOptions()
-	h := opts.Hash.New()
-	h.Write(connectionFp)
-	nonce := h.Sum(nil)
-
-	// Verify the signature
-	err = rsa.Verify(partnerPubKey, opts.Hash, nonce, iar.Signature, opts)
+	// Verify the signature within the message
+	err = connCrypto.Verify(newPartner.PartnerId(),
+		iar.Signature, connectionFp, iar.RsaPubKey, iar.Salt)
 	if err != nil {
 		a.handleAuthConfirmationErr(err, item.Sender)
 		return
@@ -106,7 +76,7 @@ func (a serverListener) Hear(item receive.Message) {
 	// via the callback
 	jww.DEBUG.Printf("AuthenticatedConnection auth request for %s confirmed",
 		item.Sender.String())
-	authConn := buildAuthenticatedConnection(a.conn)
+	authConn := BuildAuthenticatedConnection(a.conn)
 	authConn.setAuthenticated()
 	go a.connectionCallback(authConn)
 }

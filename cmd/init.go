@@ -28,7 +28,7 @@ var initCmd = &cobra.Command{
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
-		user := client.GetUser()
+		user := client.GetStorage().PortableUserInfo()
 		user.E2eDhPublicKey = e2e.GetHistoricalDHPubkey()
 
 		jww.INFO.Printf("User: %s", user.ReceptionID)

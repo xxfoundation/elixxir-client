@@ -421,14 +421,6 @@ func (c *Cmix) AddService(sp Service) error {
 	return c.followerServices.add(sp)
 }
 
-// GetUser returns the current user Identity for this client. This
-// can be serialized into a byte stream for out-of-band sharing.
-func (c *Cmix) GetUser() user.Info {
-	jww.INFO.Printf("GetUser()")
-	cMixUser := c.storage.PortableUserInfo()
-	return cMixUser
-}
-
 // GetComms returns the client comms object
 func (c *Cmix) GetComms() *client.Comms {
 	return c.comms

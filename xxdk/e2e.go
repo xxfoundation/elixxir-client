@@ -76,7 +76,7 @@ func LoginLegacy(client *Cmix, callbacks AuthCallbacks) (m *E2e, err error) {
 	if err != nil {
 		return nil, err
 	}
-	client.GetCmix().AddIdentity(client.GetUser().ReceptionID, time.Time{}, true)
+	client.GetCmix().AddIdentity(m.GetUser().ReceptionID, time.Time{}, true)
 
 	err = client.AddService(m.e2e.StartProcesses)
 	if err != nil {
@@ -91,7 +91,7 @@ func LoginLegacy(client *Cmix, callbacks AuthCallbacks) (m *E2e, err error) {
 		return nil, err
 	}
 
-	u := m.Cmix.GetUser()
+	u := m.GetUser()
 	m.e2eIdentity = ReceptionIdentity{
 		ID:            u.TransmissionID,
 		RSAPrivatePem: u.TransmissionRSA,
@@ -250,7 +250,7 @@ func login(client *Cmix, callbacks AuthCallbacks,
 // e2e private key. It attempts to load via a legacy construction, then tries
 // to load the modern one, creating a new modern ID if neither can be found
 func LoadOrInitE2e(client *Cmix) (e2e.Handler, error) {
-	usr := client.GetUser()
+	usr := client.GetStorage().PortableUserInfo()
 	e2eGrp := client.GetStorage().GetE2EGroup()
 	kv := client.GetStorage().GetKV()
 
@@ -314,10 +314,10 @@ func LoadOrInitE2e(client *Cmix) (e2e.Handler, error) {
 	return e2eHandler, nil
 }
 
-// GetUser replaces xxdk.Cmix's GetUser with one which includes the e2e dh
-// private keys
+// GetUser returns the current user Identity for this client. This
+// can be serialized into a byte stream for out-of-band sharing.
 func (m *E2e) GetUser() user.Info {
-	u := m.Cmix.GetUser()
+	u := m.Cmix.GetStorage().PortableUserInfo()
 	u.E2eDhPrivateKey = m.e2e.GetHistoricalDHPrivkey()
 	u.E2eDhPublicKey = m.e2e.GetHistoricalDHPubkey()
 	return u

@@ -80,6 +80,10 @@ func LoginLegacy(client *Cmix, callbacks auth.Callbacks) (m *E2e, err error) {
 	}
 
 	u := m.Cmix.GetUser()
+	if u.E2eDhPrivateKey == nil {
+		u.E2eDhPrivateKey = m.e2e.GetHistoricalDHPrivkey()
+	}
+
 	m.e2eIdentity = ReceptionIdentity{
 		ID:            u.ReceptionID,
 		RSAPrivatePem: u.ReceptionRSA,

@@ -130,21 +130,17 @@ func (rrs *receivedRequestService) Process(message format.Message,
 			} else if authState.params.ReplayRequests {
 				//if we did not already accept, auto replay the request
 				if rrs.reset {
-					authState.partnerCallbacks.RLock()
 					if cb := authState.partnerCallbacks.getPartnerCallback(c.ID); cb != nil {
 						cb.Reset(c, receptionID, round)
 					} else {
 						authState.callbacks.Reset(c, receptionID, round)
 					}
-					authState.partnerCallbacks.RUnlock()
 				} else {
-					authState.partnerCallbacks.RLock()
 					if cb := authState.partnerCallbacks.getPartnerCallback(c.ID); cb != nil {
 						cb.Request(c, receptionID, round)
 					} else {
 						authState.callbacks.Request(c, receptionID, round)
 					}
-					authState.partnerCallbacks.RUnlock()
 				}
 			}
 			//if not confirm, and params.replay requests is true, we need to replay
@@ -254,8 +250,6 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	}
 
 	// auto-confirm if we should
-	authState.partnerCallbacks.RLock()
-	defer authState.partnerCallbacks.RUnlock()
 	if autoConfirm || reset {
 		_, _ = authState.confirm(c, authState.params.getConfirmTag(reset))
 		//handle callbacks

@@ -7,10 +7,6 @@
 package auth
 
 import (
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 )
@@ -42,27 +38,8 @@ func (p *partnerCallbacks) DeletePartnerCallback(partnerId *id.ID) {
 
 // getPartnerCallback returns the Callbacks for the given partnerId
 func (p *partnerCallbacks) getPartnerCallback(partnerId *id.ID) Callbacks {
+	p.RLock()
+	defer p.RUnlock()
+
 	return p.callbacks[*partnerId]
-}
-
-// DefaultAuthCallbacks is a simple structure for providing a default Callbacks implementation
-// It should generally not be used.
-type DefaultAuthCallbacks struct{}
-
-// Confirm will be called when an auth Confirm message is processed.
-func (a DefaultAuthCallbacks) Confirm(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-	jww.ERROR.Printf("No valid auth callback assigned!")
-}
-
-// Request will be called when an auth Request message is processed.
-func (a DefaultAuthCallbacks) Request(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-	jww.ERROR.Printf("No valid auth callback assigned!")
-}
-
-// Reset will be called when an auth Reset operation occurs.
-func (a DefaultAuthCallbacks) Reset(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-	jww.ERROR.Printf("No valid auth callback assigned!")
 }

@@ -519,15 +519,13 @@ func initClient() *xxdk.E2e {
 		jww.FATAL.Panicf("%+v", err)
 	}
 
-	authCbs = makeAuthCallbacks(nil,
+	authCbs = makeAuthCallbacks(
 		viper.GetBool(unsafeChannelCreationFlag))
 
 	client, err := xxdk.LoginLegacy(baseclient, authCbs)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-
-	authCbs.client = client
 
 	if protoUser := viper.GetString(protoUserOutFlag); protoUser != "" {
 

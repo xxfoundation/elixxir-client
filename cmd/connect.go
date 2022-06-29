@@ -475,7 +475,8 @@ func (a *authConnHandler) Name() string {
 }
 
 func (a *authConnHandler) Request(partner contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	receptionID receptionID.EphemeralIdentity,
+	round rounds.Round, e2e *xxdk.E2e) {
 	partnerId := partner.ID
 
 	// Accept channel and send confirmation message
@@ -515,7 +516,8 @@ func (a *authConnHandler) Request(partner contact.Contact,
 }
 
 func (a *authConnHandler) Confirm(partner contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	e *xxdk.E2e) {
 	// After confirmation, get the new partner
 	newPartner, err := a.client.GetE2E().GetPartner(partner.ID)
 	if err != nil {
@@ -541,7 +543,8 @@ func (a *authConnHandler) Confirm(partner contact.Contact,
 }
 
 func (a authConnHandler) Reset(partner contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	e *xxdk.E2e) {
 	return
 }
 

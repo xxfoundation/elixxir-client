@@ -8,6 +8,7 @@
 package bindings
 
 import (
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
@@ -215,7 +216,8 @@ func (e *E2e) AddPartnerCallback(partnerID []byte, cb AuthCallbacks) error {
 		return err
 	}
 
-	e.api.GetAuth().AddPartnerCallback(partnerId, &authCallback{bindingsCbs: cb})
+	e.api.GetAuth().AddPartnerCallback(partnerId,
+		xxdk.MakeAuthCallbacksAdapter(&authCallback{bindingsCbs: cb}, e.api))
 	return nil
 }
 

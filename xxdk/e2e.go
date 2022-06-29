@@ -315,7 +315,7 @@ func LoadOrInitE2e(client *Cmix) (e2e.Handler, error) {
 }
 
 // GetUser returns the current user Identity for this client. This
-// can be serialized into a byte stream for out-of-band sharing.
+// can be serialized into a byte stream or contact file for out-of-band sharing.
 func (m *E2e) GetUser() user.Info {
 	u := m.Cmix.GetStorage().PortableUserInfo()
 	u.E2eDhPrivateKey = m.e2e.GetHistoricalDHPrivkey()

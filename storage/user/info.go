@@ -93,6 +93,8 @@ func NewUserFromBackup(backup *backup.Backup) Info {
 	}
 }
 
+// PortableUserInfo provides an Info object without E2e keys
+// Due to lack of E2e keys, cannot be used as-is for generating contacts
 func (u *User) PortableUserInfo() Info {
 	ci := u.CryptographicIdentity
 	return Info{
@@ -104,12 +106,9 @@ func (u *User) PortableUserInfo() Info {
 		ReceptionSalt:         copySlice(ci.GetReceptionSalt()),
 		ReceptionRSA:          ci.GetReceptionRSA(),
 		Precanned:             ci.IsPrecanned(),
-		//fixme: set these in the e2e layer, the command line layer
-		//needs more logical separation so this can be removed
-		E2eDhPrivateKey: nil,
-		E2eDhPublicKey:  nil,
+		E2eDhPrivateKey:       nil,
+		E2eDhPublicKey:        nil,
 	}
-
 }
 
 func copySlice(s []byte) []byte {

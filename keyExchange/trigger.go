@@ -9,6 +9,7 @@ package keyExchange
 
 import (
 	"fmt"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -106,7 +107,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	//Send the Confirmation Message
 	//build the payload
 	payload, err := proto.Marshal(&RekeyConfirm{
-		SessionID: session.GetSource().Marshal(),
+		SessionID: session.GetID().Marshal(),
 	})
 
 	//If the payload cannot be marshaled, panic

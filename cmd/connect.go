@@ -59,10 +59,8 @@ var connectionCmd = &cobra.Command{
 }
 
 // connections is the CLI handler for un-authenticated connect.Connection's.
-// todo: port all fixes here to authenticatedConnections. Be sure prints
-//  are changed to accurately reflect separate codepath
 func connections() {
-	// fixme: for now this supports one connection for servers, for integration
+	// NOTE: for now this supports one connection for servers, for integration
 	//  testing.
 	connChan := make(chan connect.Connection, 1)
 	var conn connect.Connection
@@ -211,7 +209,7 @@ func connections() {
 // authenticatedConnections is the CLI handler for
 // connect.AuthenticatedConnection's.
 func authenticatedConnections() {
-	// fixme: for now this supports one connection for servers, for integration
+	// NOTE: for now this supports one connection for servers, for integration
 	//  testing.
 	connChan := make(chan connect.AuthenticatedConnection, 1)
 	var conn connect.AuthenticatedConnection
@@ -295,7 +293,6 @@ func authenticatedConnections() {
 		connChan <- conn
 	}
 
-	// todo: here is where you await authentication
 	// Wait for connection to be established
 	var connectionTimeout *time.Timer
 	if viper.GetBool(authenticatedFlag) {

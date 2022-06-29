@@ -463,6 +463,7 @@ func createClient() *xxdk.Cmix {
 			}
 
 		} else {
+			jww.INFO.Printf("loading from existing session")
 			err = xxdk.NewCmix(string(ndfJSON), storeDir,
 				pass, regCode)
 		}
@@ -1069,13 +1070,13 @@ func init() {
 			"'0x' or 'b64:' for hex and base64 representations)")
 	viper.BindPFlag(destIdFlag, rootCmd.Flags().Lookup(destIdFlag))
 
-	rootCmd.Flags().StringP(destFileFlag, "",
+	rootCmd.PersistentFlags().StringP(destFileFlag, "",
 		"", "Read this contact file for the destination id")
-	viper.BindPFlag(destFileFlag, rootCmd.Flags().Lookup(destFileFlag))
+	viper.BindPFlag(destFileFlag, rootCmd.PersistentFlags().Lookup(destFileFlag))
 
-	rootCmd.Flags().UintP(sendCountFlag,
+	rootCmd.PersistentFlags().UintP(sendCountFlag,
 		"", 1, "The number of times to send the message")
-	viper.BindPFlag(sendCountFlag, rootCmd.Flags().Lookup(sendCountFlag))
+	viper.BindPFlag(sendCountFlag, rootCmd.PersistentFlags().Lookup(sendCountFlag))
 	rootCmd.Flags().UintP(sendDelayFlag,
 		"", 500, "The delay between sending the messages in ms")
 	viper.BindPFlag(sendDelayFlag, rootCmd.Flags().Lookup(sendDelayFlag))

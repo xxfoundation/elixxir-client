@@ -76,7 +76,9 @@ func LoginLegacy(client *Cmix, callbacks AuthCallbacks) (m *E2e, err error) {
 	if err != nil {
 		return nil, err
 	}
-	client.GetCmix().AddIdentity(client.GetUser().ReceptionID, time.Time{}, true)
+
+	userInfo := client.GetStorage().PortableUserInfo()
+	client.GetCmix().AddIdentity(userInfo.ReceptionID, time.Time{}, true)
 
 	err = client.AddService(m.e2e.StartProcesses)
 	if err != nil {
@@ -91,14 +93,7 @@ func LoginLegacy(client *Cmix, callbacks AuthCallbacks) (m *E2e, err error) {
 		return nil, err
 	}
 
-	u := m.Cmix.GetUser()
-	m.e2eIdentity = ReceptionIdentity{
-		ID:            u.TransmissionID,
-		RSAPrivatePem: u.TransmissionRSA,
-		Salt:          u.TransmissionSalt,
-		DHKeyPrivate:  u.E2eDhPrivateKey,
-	}
-
+	m.e2eIdentity, err = buildReceptionIdentity(userInfo, m.e2e.GetGroup(), m.e2e.GetHistoricalDHPrivkey())
 	return m, err
 }
 
@@ -183,12 +178,9 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	return Login(c, callbacks, ReceptionIdentity{
-		ID:            protoUser.ReceptionID,
-		RSAPrivatePem: protoUser.ReceptionRSA,
-		Salt:          protoUser.ReceptionSalt,
-		DHKeyPrivate:  protoUser.E2eDhPrivateKey,
-	})
+	userInfo := c.GetStorage().PortableUserInfo()
+	receptionIdentity, err := buildReceptionIdentity(userInfo, c.GetStorage().GetE2EGroup(), protoUser.E2eDhPrivateKey)
+	return Login(c, callbacks, receptionIdentity)
 }
 
 // login creates a new xxdk.E2e backed by the given versioned.KV
@@ -196,7 +188,11 @@ func login(client *Cmix, callbacks AuthCallbacks,
 	identity ReceptionIdentity, kv *versioned.KV) (m *E2e, err error) {
 
 	// Verify the passed-in ReceptionIdentity matches its properties
-	generatedId, err := xx.NewID(identity.RSAPrivatePem.GetPublic(), identity.Salt, id.User)
+	privatePem, err := identity.GetRSAPrivatePem()
+	if err != nil {
+		return nil, err
+	}
+	generatedId, err := xx.NewID(privatePem.GetPublic(), identity.Salt, id.User)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +211,11 @@ func login(client *Cmix, callbacks AuthCallbacks,
 	client.network.AddIdentity(identity.ID, time.Time{}, true)
 
 	//initialize the e2e storage
-	err = e2e.Init(kv, identity.ID, identity.DHKeyPrivate, e2eGrp,
+	dhPrivKey, err := identity.GetDHKeyPrivate()
+	if err != nil {
+		return nil, err
+	}
+	err = e2e.Init(kv, identity.ID, dhPrivKey, e2eGrp,
 		rekey.GetDefaultEphemeralParams())
 	if err != nil {
 		return nil, err
@@ -250,7 +250,7 @@ func login(client *Cmix, callbacks AuthCallbacks,
 // e2e private key. It attempts to load via a legacy construction, then tries
 // to load the modern one, creating a new modern ID if neither can be found
 func LoadOrInitE2e(client *Cmix) (e2e.Handler, error) {
-	usr := client.GetUser()
+	usr := client.GetStorage().PortableUserInfo()
 	e2eGrp := client.GetStorage().GetE2EGroup()
 	kv := client.GetStorage().GetKV()
 
@@ -314,15 +314,6 @@ func LoadOrInitE2e(client *Cmix) (e2e.Handler, error) {
 	return e2eHandler, nil
 }
 
-// GetUser replaces xxdk.Cmix's GetUser with one which includes the e2e dh
-// private keys
-func (m *E2e) GetUser() user.Info {
-	u := m.Cmix.GetUser()
-	u.E2eDhPrivateKey = m.e2e.GetHistoricalDHPrivkey()
-	u.E2eDhPublicKey = m.e2e.GetHistoricalDHPubkey()
-	return u
-}
-
 // GetReceptionIdentity returns a safe copy of the E2e ReceptionIdentity
 func (m *E2e) GetReceptionIdentity() ReceptionIdentity {
 	return m.e2eIdentity.DeepCopy()
@@ -339,15 +330,22 @@ func (m *E2e) ConstructProtoUserFile() ([]byte, error) {
 			"permissioning")
 	}
 
+	transIdentity := m.Cmix.GetTransmissionIdentity()
+	receptionIdentity := m.GetReceptionIdentity()
+	privatePem, err := receptionIdentity.GetRSAPrivatePem()
+	if err != nil {
+		return nil, err
+	}
+
 	Usr := user.Proto{
-		TransmissionID:        m.GetUser().TransmissionID,
-		TransmissionSalt:      m.GetUser().TransmissionSalt,
-		TransmissionRSA:       m.GetUser().TransmissionRSA,
-		ReceptionID:           m.GetUser().ReceptionID,
-		ReceptionSalt:         m.GetUser().ReceptionSalt,
-		ReceptionRSA:          m.GetUser().ReceptionRSA,
-		Precanned:             m.GetUser().Precanned,
-		RegistrationTimestamp: m.GetUser().RegistrationTimestamp,
+		TransmissionID:        transIdentity.ID,
+		TransmissionSalt:      transIdentity.Salt,
+		TransmissionRSA:       transIdentity.RSAPrivatePem,
+		ReceptionID:           receptionIdentity.ID,
+		ReceptionSalt:         receptionIdentity.Salt,
+		ReceptionRSA:          privatePem,
+		Precanned:             m.GetStorage().IsPrecanned(),
+		RegistrationTimestamp: transIdentity.RegistrationTimestamp,
 		RegCode:               regCode,
 		TransmissionRegValidationSig: m.GetStorage().
 			GetTransmissionRegistrationValidationSignature(),

@@ -5,7 +5,6 @@ import (
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
 // ReceptionIdentity struct
@@ -27,23 +26,12 @@ type ReceptionIdentity struct {
 
 // MakeIdentity generates a new cryptographic identity for receiving messages
 func (c *Cmix) MakeIdentity() ([]byte, error) {
-	s := c.api.GetRng().GetStream()
-	defer s.Close()
-	ident, err := xxdk.MakeReceptionIdentity(s, c.api.GetStorage().GetE2EGroup())
-
-	dhPrivJson, err := ident.DHKeyPrivate.MarshalJSON()
+	ident, err := xxdk.MakeReceptionIdentity(c.api)
 	if err != nil {
 		return nil, err
 	}
-	//create the identity object
-	I := ReceptionIdentity{
-		ID:            ident.ID.Marshal(),
-		RSAPrivatePem: rsa.CreatePrivateKeyPem(ident.RSAPrivatePem),
-		Salt:          ident.Salt,
-		DHKeyPrivate:  dhPrivJson,
-	}
 
-	return json.Marshal(&I)
+	return ident.Marshal()
 }
 
 // GetIDFromContact accepts a marshalled contact.Contact object & returns a marshalled id.ID object

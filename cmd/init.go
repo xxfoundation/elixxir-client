@@ -9,13 +9,14 @@
 package cmd
 
 import (
-	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/xxdk"
 
 	"github.com/spf13/cobra"
-	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 )
+
+const identityStorageKey = "identityStorageKey"
 
 // initCmd creates a new user object with the given NDF
 var initCmd = &cobra.Command{
@@ -24,16 +25,19 @@ var initCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		client := createClient()
-		e2e, err := xxdk.LoadOrInitE2e(client)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-		user := client.GetUser()
-		user.E2eDhPublicKey = e2e.GetHistoricalDHPubkey()
 
-		jww.INFO.Printf("User: %s", user.ReceptionID)
-		writeContact(user.GetContact())
-		fmt.Printf("%s\n", user.ReceptionID)
+		identity, err := xxdk.MakeReceptionIdentity(client)
+		if err != nil {
+			return
+		}
+
+		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, client)
+		if err != nil {
+			return
+		}
+
+		jww.INFO.Printf("User: %s", identity.ID)
+		writeContact(identity.GetContact())
 	},
 }
 

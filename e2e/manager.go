@@ -179,7 +179,7 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 		return m.SendE2E(mt, recipient, payload, par)
 	}
 	rekeyStopper, err := rekey.Start(m.Switchboard, m.Ratchet,
-		rekeySendFunc, m.net, m.grp, rekey.GetDefaultParams())
+		rekeySendFunc, m.net, m.grp, m.rekeyParams)
 	if err != nil {
 		return nil, err
 	}

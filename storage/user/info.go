@@ -9,9 +9,7 @@ package user
 
 import (
 	"gitlab.com/elixxir/crypto/backup"
-	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -53,14 +51,6 @@ type Info struct {
 	//e2e Identity
 	E2eDhPrivateKey *cyclic.Int
 	E2eDhPublicKey  *cyclic.Int
-}
-
-func (u Info) GetContact() contact.Contact {
-	return contact.Contact{
-		ID:       u.ReceptionID.DeepCopy(),
-		DhPubKey: u.E2eDhPublicKey,
-		Facts:    make([]fact.Fact, 0),
-	}
 }
 
 func NewUserFromProto(proto *Proto) Info {

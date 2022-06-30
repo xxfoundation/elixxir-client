@@ -23,12 +23,11 @@ var broadcastCmd = &cobra.Command{
 	Short: "Send broadcast messages",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client := initClient()
+		client := initE2e()
 
 		// Write user contact to file
-		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ReceptionID)
-		jww.INFO.Printf("User Transmission: %s", user.TransmissionID)
+		user := client.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", user.ID)
 		writeContact(user.GetContact())
 
 		err := client.StartNetworkFollower(5 * time.Second)
@@ -39,8 +38,8 @@ var broadcastCmd = &cobra.Command{
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
 		client.GetCmix().AddHealthCallback(
-			func(isconnected bool) {
-				connected <- isconnected
+			func(isConnected bool) {
+				connected <- isConnected
 			})
 		waitUntilConnected(connected)
 
@@ -69,10 +68,10 @@ var broadcastCmd = &cobra.Command{
 				jww.FATAL.Panicf("description cannot be empty")
 			}
 
-			var channel *crypto.Channel
+			var cryptChannel *crypto.Channel
 			if viper.GetBool("new") {
 				// Create a new broadcast channel
-				channel, pk, err = crypto.NewChannel(name, desc, client.GetRng().GetStream())
+				cryptChannel, pk, err = crypto.NewChannel(name, desc, client.GetRng().GetStream())
 				if err != nil {
 					jww.FATAL.Panicf("Failed to create new channel: %+v", err)
 				}
@@ -99,7 +98,7 @@ var broadcastCmd = &cobra.Command{
 					jww.FATAL.Panicf("Failed to generate channel ID: %+v", err)
 				}
 
-				channel = &crypto.Channel{
+				cryptChannel = &crypto.Channel{
 					ReceptionID: rid,
 					Name:        name,
 					Description: desc,
@@ -126,7 +125,7 @@ var broadcastCmd = &cobra.Command{
 			}
 
 			// Save channel to disk
-			cBytes, err := channel.Marshal()
+			cBytes, err := cryptChannel.Marshal()
 			if err != nil {
 				jww.ERROR.Printf("Failed to marshal channel to bytes: %+v", err)
 			}

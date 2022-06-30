@@ -34,11 +34,11 @@ var groupCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		client := initClient()
+		client := initE2e()
 
 		// Print user's reception ID
-		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ReceptionID)
+		user := client.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", user.ID)
 
 		err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {

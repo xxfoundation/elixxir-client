@@ -5,7 +5,6 @@ import (
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
 // ReceptionIdentity struct
@@ -27,23 +26,12 @@ type ReceptionIdentity struct {
 
 // MakeIdentity generates a new cryptographic identity for receiving messages
 func (c *Cmix) MakeIdentity() ([]byte, error) {
-	s := c.api.GetRng().GetStream()
-	defer s.Close()
-	ident, err := xxdk.MakeReceptionIdentity(s, c.api.GetStorage().GetE2EGroup())
-
-	dhPrivJson, err := ident.DHKeyPrivate.MarshalJSON()
+	ident, err := xxdk.MakeReceptionIdentity(c.api)
 	if err != nil {
 		return nil, err
 	}
-	//create the identity object
-	I := ReceptionIdentity{
-		ID:            ident.ID.Marshal(),
-		RSAPrivatePem: rsa.CreatePrivateKeyPem(ident.RSAPrivatePem),
-		Salt:          ident.Salt,
-		DHKeyPrivate:  dhPrivJson,
-	}
 
-	return json.Marshal(&I)
+	return ident.Marshal()
 }
 
 // GetIDFromContact accepts a marshalled contact.Contact object & returns a marshalled id.ID object
@@ -121,4 +109,33 @@ func GetFactsFromContact(marshaled []byte) ([]byte, error) {
 		return nil, err
 	}
 	return factsListMarshaled, nil
+}
+
+// StoreReceptionIdentity stores the given identity in Cmix storage with the given key
+// This is the ideal way to securely store identities, as the caller of this function
+// is only required to store the given key separately rather than the keying material
+func StoreReceptionIdentity(key string, identity []byte, cmixId int) error {
+	cmix, err := cmixTrackerSingleton.get(cmixId)
+	if err != nil {
+		return err
+	}
+	receptionIdentity, err := xxdk.UnmarshalReceptionIdentity(identity)
+	if err != nil {
+		return err
+	}
+	return xxdk.StoreReceptionIdentity(key, receptionIdentity, cmix.api)
+}
+
+// LoadReceptionIdentity loads the given identity in Cmix storage with the given key
+func LoadReceptionIdentity(key string, cmixId int) ([]byte, error) {
+	cmix, err := cmixTrackerSingleton.get(cmixId)
+	if err != nil {
+		return nil, err
+	}
+	storageObj, err := cmix.api.GetStorage().Get(key)
+	if err != nil {
+		return nil, err
+	}
+
+	return storageObj.Data, nil
 }

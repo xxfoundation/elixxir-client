@@ -432,3 +432,25 @@ func (aca *authCallbacksAdapter) Reset(partner contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	aca.ac.Reset(partner, receptionID, round, aca.e2e)
 }
+
+// DefaultAuthCallbacks is a simple structure for providing a default Callbacks implementation
+// It should generally not be used.
+type DefaultAuthCallbacks struct{}
+
+// Confirm will be called when an auth Confirm message is processed.
+func (a DefaultAuthCallbacks) Confirm(contact.Contact,
+	receptionID.EphemeralIdentity, rounds.Round, *E2e) {
+	jww.ERROR.Printf("No valid auth callback assigned!")
+}
+
+// Request will be called when an auth Request message is processed.
+func (a DefaultAuthCallbacks) Request(contact.Contact,
+	receptionID.EphemeralIdentity, rounds.Round, *E2e) {
+	jww.ERROR.Printf("No valid auth callback assigned!")
+}
+
+// Reset will be called when an auth Reset operation occurs.
+func (a DefaultAuthCallbacks) Reset(contact.Contact,
+	receptionID.EphemeralIdentity, rounds.Round, *E2e) {
+	jww.ERROR.Printf("No valid auth callback assigned!")
+}

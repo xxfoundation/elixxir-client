@@ -23,7 +23,7 @@ var broadcastCmd = &cobra.Command{
 	Short: "Send broadcast messages",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client := initClient()
+		client := initE2e()
 
 		// Write user contact to file
 		user := client.GetReceptionIdentity()

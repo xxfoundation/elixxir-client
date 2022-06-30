@@ -9,14 +9,10 @@
 package cmd
 
 import (
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/xxdk"
-
 	"github.com/spf13/cobra"
+	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 )
-
-const identityStorageKey = "identityStorageKey"
 
 // initCmd creates a new user object with the given NDF
 var initCmd = &cobra.Command{
@@ -24,20 +20,10 @@ var initCmd = &cobra.Command{
 	Short: "Initialize a user ID but do not connect to the network",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		_, receptionIdentity := initCmix()
 
-		identity, err := xxdk.MakeReceptionIdentity(client)
-		if err != nil {
-			return
-		}
-
-		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, client)
-		if err != nil {
-			return
-		}
-
-		jww.INFO.Printf("User: %s", identity.ID)
-		writeContact(identity.GetContact())
+		jww.INFO.Printf("User: %s", receptionIdentity.ID)
+		writeContact(receptionIdentity.GetContact())
 	},
 }
 

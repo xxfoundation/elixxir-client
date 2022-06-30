@@ -167,6 +167,9 @@ EnretBzQkeKeBwoB2u6NTiOmUjk=
 	testNetCert = ``
 )
 
+// Key used for storing xxdk.ReceptionIdentity objects
+const identityStorageKey = "identityStorageKey"
+
 var authCbs *authCallbacks
 
 // Execute adds all child commands to the root command and sets flags
@@ -194,14 +197,12 @@ var rootCmd = &cobra.Command{
 			pprof.StartCPUProfile(f)
 		}
 
-		client := initClient()
+		client := initE2e()
 
 		jww.INFO.Printf("Client Initialized...")
 
-		user := client.GetUser()
-		jww.INFO.Printf("USERPUBKEY: %s",
-			user.E2eDhPublicKey.TextVerbose(16, 0))
-		jww.INFO.Printf("User: %s", user.ReceptionID)
+		user := client.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", user.ID)
 		writeContact(user.GetContact())
 
 		// get Recipient and/or set it to myself
@@ -218,11 +219,11 @@ var rootCmd = &cobra.Command{
 		// Set it to myself
 		if recipientID == nil {
 			jww.INFO.Printf("sending message to self")
-			recipientID = user.ReceptionID
+			recipientID = user.ID
 			recipientContact = user.GetContact()
 		}
 
-		jww.INFO.Printf("Client: %s, Partner: %s", user.ReceptionID,
+		jww.INFO.Printf("Client: %s, Partner: %s", user.ID,
 			recipientID)
 
 		client.GetE2E().EnableUnsafeReception()
@@ -533,7 +534,8 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func createClient() *xxdk.Cmix {
+// initCmix returns a newly-initialized xxdk.Cmix object and its stored xxdk.ReceptionIdentity
+func initCmix() (*xxdk.Cmix, xxdk.ReceptionIdentity) {
 	logLevel := viper.GetUint("logLevel")
 	initLog(logLevel, viper.GetString("log"))
 	jww.INFO.Printf(Version())
@@ -630,7 +632,21 @@ func createClient() *xxdk.Cmix {
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	return client
+
+	// Attempt to load extant xxdk.ReceptionIdentity
+	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, client)
+	if err != nil {
+		// If no extant xxdk.ReceptionIdentity, generate and store a new one
+		identity, err = xxdk.MakeReceptionIdentity(client)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, client)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+	}
+	return client, identity
 }
 
 func initParams() xxdk.Params {
@@ -654,8 +670,9 @@ func initParams() xxdk.Params {
 	return p
 }
 
-func initClient() *xxdk.E2e {
-	createClient()
+// initE2e returns a fully-formed xxdk.E2e object
+func initE2e() *xxdk.E2e {
+	_, receptionIdentity := initCmix()
 
 	pass := parsePassword(viper.GetString("password"))
 	storeDir := viper.GetString("session")
@@ -664,7 +681,7 @@ func initClient() *xxdk.E2e {
 	params := initParams()
 
 	// load the client
-	baseclient, err := xxdk.LoadCmix(storeDir, pass, params)
+	baseClient, err := xxdk.LoadCmix(storeDir, pass, params)
 
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
@@ -673,7 +690,7 @@ func initClient() *xxdk.E2e {
 	authCbs = makeAuthCallbacks(
 		viper.GetBool("unsafe-channel-creation"))
 
-	client, err := xxdk.LoginLegacy(baseclient, authCbs)
+	client, err := xxdk.Login(baseClient, authCbs, receptionIdentity)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -783,7 +800,7 @@ func addAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 	recipientContact := recipient
 
 	if recipientContact.ID != nil && recipientContact.DhPubKey != nil {
-		me := client.GetUser().GetContact()
+		me := client.GetReceptionIdentity().GetContact()
 		jww.INFO.Printf("Requesting auth channel from: %s",
 			recipientID)
 

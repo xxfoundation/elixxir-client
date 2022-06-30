@@ -682,7 +682,6 @@ func initE2e() *xxdk.E2e {
 
 	// load the client
 	baseClient, err := xxdk.LoadCmix(storeDir, pass, params)
-
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -690,9 +689,18 @@ func initE2e() *xxdk.E2e {
 	authCbs = makeAuthCallbacks(
 		viper.GetBool("unsafe-channel-creation"))
 
-	client, err := xxdk.Login(baseClient, authCbs, receptionIdentity)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
+	// Force LoginLegacy for precanned senderID
+	var client *xxdk.E2e
+	if isPrecanned := viper.GetUint("sendid") != 0; isPrecanned {
+		client, err = xxdk.LoginLegacy(baseClient, authCbs)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+	} else {
+		client, err = xxdk.Login(baseClient, authCbs, receptionIdentity)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
 	}
 
 	if protoUser := viper.GetString("protoUserOut"); protoUser != "" {

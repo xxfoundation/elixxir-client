@@ -141,11 +141,15 @@ func (r ReceptionIdentity) DeepCopy() ReceptionIdentity {
 
 	dhKeyCopy := make([]byte, len(r.DHKeyPrivate))
 	copy(dhKeyCopy, r.DHKeyPrivate)
+
+	grpCopy := make([]byte, len(r.E2eGrp))
+	copy(grpCopy, r.E2eGrp)
 	return ReceptionIdentity{
 		ID:            r.ID.DeepCopy(),
 		RSAPrivatePem: r.RSAPrivatePem,
 		Salt:          saltCopy,
 		DHKeyPrivate:  dhKeyCopy,
+		E2eGrp:        grpCopy,
 	}
 }
 

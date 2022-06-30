@@ -103,6 +103,10 @@ type Handler interface {
 	// will no longer get called
 	Unregister(listenerID receive.ListenerID)
 
+	// UnregisterUserListeners removes all the listeners registered with the
+	// specified user.
+	UnregisterUserListeners(userID *id.ID)
+
 	/* === Partners ===================================================== */
 
 	// AddPartner adds a partner. Automatically creates both send

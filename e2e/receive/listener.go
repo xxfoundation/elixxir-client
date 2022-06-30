@@ -11,6 +11,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/xx_network/primitives/id"
+	"strconv"
+	"strings"
 )
 
 //Listener interface for a listener adhere to
@@ -48,6 +50,19 @@ func (lid ListenerID) GetMessageType() catalog.MessageType {
 // GetName getter for name
 func (lid ListenerID) GetName() string {
 	return lid.listener.Name()
+}
+
+// String returns the values in the ListenerID in a human-readable format. This
+// functions adheres to the fmt.Stringer interface.
+func (lid ListenerID) String() string {
+	str := []string{
+		"userID:" + lid.userID.String(),
+		"messageType:" + lid.messageType.String() +
+			"(" + strconv.FormatUint(uint64(lid.messageType), 10) + ")",
+		"listener:" + lid.listener.Name(),
+	}
+
+	return "{" + strings.Join(str, " ") + "}"
 }
 
 /*internal listener implementations*/

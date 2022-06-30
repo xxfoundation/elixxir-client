@@ -215,11 +215,15 @@ type handler struct {
 // partner.Manager.
 func BuildConnection(partner partner.Manager, e2eHandler clientE2e.Handler,
 	auth auth.State, p Params) Connection {
+	lastUse := netTime.Now().UnixNano()
+	closed := uint32(0)
 	return &handler{
 		auth:    auth,
 		partner: partner,
 		params:  p,
 		e2e:     e2eHandler,
+		lastUse: &lastUse,
+		closed:  &closed,
 	}
 }
 

@@ -47,6 +47,7 @@ var errorsList = []string{
 	ndf.NO_NDF,
 	"Host is in cool down",
 	grpc.ErrClientConnClosing.Error(),
+	connect.TooManyProxyError,
 }
 
 // HostManager Interface allowing storage and retrieval of Host objects

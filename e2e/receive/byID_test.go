@@ -120,9 +120,9 @@ func TestById_Add_New(t *testing.T) {
 
 	uid := id.NewIdFromUInt(42, id.User, t)
 
-	l := &funcListener{}
+	lid := ListenerID{uid, 1, &funcListener{}}
 
-	nbi.Add(uid, l)
+	nbi.Add(lid)
 
 	s := nbi.list[*uid]
 
@@ -130,7 +130,7 @@ func TestById_Add_New(t *testing.T) {
 		t.Errorf("Should a set of the wrong size")
 	}
 
-	if !s.Has(l) {
+	if !s.Has(lid) {
 		t.Errorf("Wrong set returned")
 	}
 }
@@ -142,26 +142,26 @@ func TestById_Add_Old(t *testing.T) {
 
 	uid := id.NewIdFromUInt(42, id.User, t)
 
-	l1 := &funcListener{}
-	l2 := &funcListener{}
+	lid1 := ListenerID{uid, 1, &funcListener{}}
+	lid2 := ListenerID{uid, 1, &funcListener{}}
 
-	set1 := set.New(l1)
+	set1 := set.New(lid1)
 
 	nbi.list[*uid] = set1
 
-	nbi.Add(uid, l2)
+	nbi.Add(lid2)
 
 	s := nbi.list[*uid]
 
 	if s.Len() != 2 {
-		t.Errorf("Should have returned a set")
+		t.Errorf("Incorrect set length.\nexpected: %d\nreceived: %d", 2, s.Len())
 	}
 
-	if !s.Has(l1) {
+	if !s.Has(lid1) {
 		t.Errorf("Set does not include the initial listener")
 	}
 
-	if !s.Has(l2) {
+	if !s.Has(lid2) {
 		t.Errorf("Set does not include the new listener")
 	}
 }
@@ -171,11 +171,11 @@ func TestById_Add_Old(t *testing.T) {
 func TestById_Add_Generic(t *testing.T) {
 	nbi := newById()
 
-	l1 := &funcListener{}
-	l2 := &funcListener{}
+	lid1 := ListenerID{&id.ID{}, 1, &funcListener{}}
+	lid2 := ListenerID{AnyUser(), 1, &funcListener{}}
 
-	nbi.Add(&id.ID{}, l1)
-	nbi.Add(AnyUser(), l2)
+	nbi.Add(lid1)
+	nbi.Add(lid2)
 
 	s := nbi.generic
 
@@ -183,11 +183,11 @@ func TestById_Add_Generic(t *testing.T) {
 		t.Errorf("Should have returned a set of size 2")
 	}
 
-	if !s.Has(l1) {
+	if !s.Has(lid1) {
 		t.Errorf("Set does not include the ZeroUser listener")
 	}
 
-	if !s.Has(l2) {
+	if !s.Has(lid2) {
 		t.Errorf("Set does not include the empty user listener")
 	}
 }
@@ -199,14 +199,14 @@ func TestById_Remove_ManyInSet(t *testing.T) {
 
 	uid := id.NewIdFromUInt(42, id.User, t)
 
-	l1 := &funcListener{}
-	l2 := &funcListener{}
+	lid1 := ListenerID{uid, 1, &funcListener{}}
+	lid2 := ListenerID{uid, 1, &funcListener{}}
 
-	set1 := set.New(l1, l2)
+	set1 := set.New(lid1, lid2)
 
 	nbi.list[*uid] = set1
 
-	nbi.Remove(uid, l1)
+	nbi.Remove(lid1)
 
 	if _, ok := nbi.list[*uid]; !ok {
 		t.Errorf("Set removed when it should not have been")
@@ -217,11 +217,11 @@ func TestById_Remove_ManyInSet(t *testing.T) {
 			set1.Len())
 	}
 
-	if set1.Has(l1) {
+	if set1.Has(lid1) {
 		t.Errorf("Listener 1 still in set, it should not be")
 	}
 
-	if !set1.Has(l2) {
+	if !set1.Has(lid2) {
 		t.Errorf("Listener 2 not still in set, it should be")
 	}
 
@@ -234,13 +234,13 @@ func TestById_Remove_SingleInSet(t *testing.T) {
 
 	uid := id.NewIdFromUInt(42, id.User, t)
 
-	l1 := &funcListener{}
+	lid1 := ListenerID{uid, 1, &funcListener{}}
 
-	set1 := set.New(l1)
+	set1 := set.New(lid1)
 
 	nbi.list[*uid] = set1
 
-	nbi.Remove(uid, l1)
+	nbi.Remove(lid1)
 
 	if _, ok := nbi.list[*uid]; ok {
 		t.Errorf("Set not removed when it should have been")
@@ -251,7 +251,7 @@ func TestById_Remove_SingleInSet(t *testing.T) {
 			set1.Len())
 	}
 
-	if set1.Has(l1) {
+	if set1.Has(lid1) {
 		t.Errorf("Listener 1 still in set, it should not be")
 	}
 }
@@ -263,13 +263,13 @@ func TestById_Remove_SingleInSet_ZeroUser(t *testing.T) {
 
 	uid := &id.ZeroUser
 
-	l1 := &funcListener{}
+	lid1 := ListenerID{uid, 1, &funcListener{}}
 
-	set1 := set.New(l1)
+	set1 := set.New(lid1)
 
 	nbi.list[*uid] = set1
 
-	nbi.Remove(uid, l1)
+	nbi.Remove(lid1)
 
 	if _, ok := nbi.list[*uid]; !ok {
 		t.Errorf("Set removed when it should not have been")
@@ -280,7 +280,7 @@ func TestById_Remove_SingleInSet_ZeroUser(t *testing.T) {
 			set1.Len())
 	}
 
-	if set1.Has(l1) {
+	if set1.Has(lid1) {
 		t.Errorf("Listener 1 still in set, it should not be")
 	}
 }
@@ -292,13 +292,13 @@ func TestById_Remove_SingleInSet_EmptyUser(t *testing.T) {
 
 	uid := &id.ID{}
 
-	l1 := &funcListener{}
+	lid1 := ListenerID{uid, 1, &funcListener{}}
 
-	set1 := set.New(l1)
+	set1 := set.New(lid1)
 
 	nbi.list[*uid] = set1
 
-	nbi.Remove(uid, l1)
+	nbi.Remove(lid1)
 
 	if _, ok := nbi.list[*uid]; !ok {
 		t.Errorf("Set removed when it should not have been")
@@ -309,7 +309,7 @@ func TestById_Remove_SingleInSet_EmptyUser(t *testing.T) {
 			set1.Len())
 	}
 
-	if set1.Has(l1) {
+	if set1.Has(lid1) {
 		t.Errorf("Listener 1 still in set, it should not be")
 	}
 }

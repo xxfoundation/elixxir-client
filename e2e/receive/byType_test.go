@@ -10,6 +10,7 @@ package receive
 import (
 	"github.com/golang-collections/collections/set"
 	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/xx_network/primitives/id"
 	"testing"
 )
 
@@ -108,9 +109,9 @@ func TestByType_Add_New(t *testing.T) {
 
 	m := catalog.MessageType(42)
 
-	l := &funcListener{}
+	l := ListenerID{&id.ZeroUser, m, &funcListener{}}
 
-	nbt.Add(m, l)
+	nbt.Add(l)
 
 	s := nbt.list[m]
 
@@ -130,14 +131,14 @@ func TestByType_Add_Old(t *testing.T) {
 
 	m := catalog.MessageType(42)
 
-	l1 := &funcListener{}
-	l2 := &funcListener{}
+	lid1 := ListenerID{&id.ZeroUser, m, &funcListener{}}
+	lid2 := ListenerID{&id.ZeroUser, m, &funcListener{}}
 
-	set1 := set.New(l1)
+	set1 := set.New(lid1)
 
 	nbt.list[m] = set1
 
-	nbt.Add(m, l2)
+	nbt.Add(lid2)
 
 	s := nbt.list[m]
 
@@ -145,11 +146,11 @@ func TestByType_Add_Old(t *testing.T) {
 		t.Errorf("Should have returned a set")
 	}
 
-	if !s.Has(l1) {
+	if !s.Has(lid1) {
 		t.Errorf("Set does not include the initial listener")
 	}
 
-	if !s.Has(l2) {
+	if !s.Has(lid2) {
 		t.Errorf("Set does not include the new listener")
 	}
 }
@@ -159,9 +160,9 @@ func TestByType_Add_Old(t *testing.T) {
 func TestByType_Add_Generic(t *testing.T) {
 	nbt := newByType()
 
-	l1 := &funcListener{}
+	lid1 := ListenerID{&id.ZeroUser, AnyType, &funcListener{}}
 
-	nbt.Add(AnyType, l1)
+	nbt.Add(lid1)
 
 	s := nbt.generic
 
@@ -169,7 +170,7 @@ func TestByType_Add_Generic(t *testing.T) {
 		t.Errorf("Should have returned a set of size 2")
 	}
 
-	if !s.Has(l1) {
+	if !s.Has(lid1) {
 		t.Errorf("Set does not include the ZeroUser listener")
 	}
 }
@@ -181,13 +182,13 @@ func TestByType_Remove_SingleInSet(t *testing.T) {
 
 	m := catalog.MessageType(42)
 
-	l1 := &funcListener{}
+	lid1 := ListenerID{&id.ZeroUser, m, &funcListener{}}
 
-	set1 := set.New(l1)
+	set1 := set.New(lid1)
 
 	nbt.list[m] = set1
 
-	nbt.Remove(m, l1)
+	nbt.Remove(lid1)
 
 	if _, ok := nbt.list[m]; ok {
 		t.Errorf("Set not removed when it should have been")
@@ -198,7 +199,7 @@ func TestByType_Remove_SingleInSet(t *testing.T) {
 			set1.Len())
 	}
 
-	if set1.Has(l1) {
+	if set1.Has(lid1) {
 		t.Errorf("Listener 1 still in set, it should not be")
 	}
 }
@@ -210,13 +211,13 @@ func TestByType_Remove_SingleInSet_AnyType(t *testing.T) {
 
 	m := AnyType
 
-	l1 := &funcListener{}
+	lid1 := ListenerID{&id.ZeroUser, m, &funcListener{}}
 
-	set1 := set.New(l1)
+	set1 := set.New(lid1)
 
 	nbt.list[m] = set1
 
-	nbt.Remove(m, l1)
+	nbt.Remove(lid1)
 
 	if _, ok := nbt.list[m]; !ok {
 		t.Errorf("Set removed when it should not have been")
@@ -227,7 +228,7 @@ func TestByType_Remove_SingleInSet_AnyType(t *testing.T) {
 			set1.Len())
 	}
 
-	if set1.Has(l1) {
+	if set1.Has(lid1) {
 		t.Errorf("Listener 1 still in set, it should not be")
 	}
 }

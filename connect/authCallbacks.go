@@ -90,6 +90,9 @@ type serverAuthCallback struct {
 	confirmCallback Callback
 	requestCallback Callback
 
+	// Used to track stale connections
+	cl *ConnectionList
+
 	// Used for building new Connection objects
 	connectionParams Params
 }
@@ -97,10 +100,12 @@ type serverAuthCallback struct {
 // getServerAuthCallback returns a callback interface to be passed into the creation
 // of a xxdk.E2e object.
 // it will accept requests only if a request callback is passed in
-func getServerAuthCallback(confirm, request Callback, params Params) *serverAuthCallback {
+func getServerAuthCallback(confirm, request Callback, cl *ConnectionList,
+	params Params) *serverAuthCallback {
 	return &serverAuthCallback{
 		confirmCallback:  confirm,
 		requestCallback:  request,
+		cl:               cl,
 		connectionParams: params,
 	}
 }
@@ -136,8 +141,10 @@ func (a serverAuthCallback) Request(requestor contact.Contact,
 	}
 
 	// Return the new Connection object
-	a.requestCallback(BuildConnection(newPartner, e2e.GetE2E(),
-		e2e.GetAuth(), a.connectionParams))
+	c := BuildConnection(
+		newPartner, e2e.GetE2E(), e2e.GetAuth(), a.connectionParams)
+	a.cl.Add(c)
+	a.requestCallback(c)
 }
 
 // Reset will be called when an auth Reset operation occurs.

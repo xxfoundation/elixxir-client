@@ -170,7 +170,7 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 // authenticate themselves. An established AuthenticatedConnection will
 // be passed via the callback.
 func StartAuthenticatedServer(identity xxdk.ReceptionIdentity,
-	cb AuthenticatedCallback, net *xxdk.Cmix, p Params) (*xxdk.E2e, error) {
+	cb AuthenticatedCallback, net *xxdk.Cmix, p Params) (*ConnectionServer, error) {
 
 	// Register the waiter for a connection establishment
 	connCb := Callback(func(connection Connection) {
@@ -178,8 +178,14 @@ func StartAuthenticatedServer(identity xxdk.ReceptionIdentity,
 		// client's identity proof. If an identity authentication
 		// message is received and validated, an authenticated connection will
 		// be passed along via the AuthenticatedCallback
-		connection.RegisterListener(catalog.ConnectionAuthenticationRequest,
+		_, err := connection.RegisterListener(
+			catalog.ConnectionAuthenticationRequest,
 			buildAuthConfirmationHandler(cb, connection))
+		if err != nil {
+			jww.ERROR.Printf(
+				"Failed to register listener on connection with %s: %+v",
+				connection.GetPartner().PartnerId(), err)
+		}
 	})
 	return StartServer(identity, connCb, net, p)
 }

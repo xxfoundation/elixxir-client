@@ -41,7 +41,7 @@ type Connection interface {
 	SendE2E(mt catalog.MessageType, payload []byte, params e2e.Params) (
 		[]id.Round, e2eCrypto.MessageID, time.Time, error)
 	RegisterListener(messageType catalog.MessageType,
-		newListener receive.Listener) receive.ListenerID
+		newListener receive.Listener) (receive.ListenerID, error)
 }
 
 // NewWrapper generates a new file transfer manager using Connection E2E.
@@ -56,7 +56,10 @@ func NewWrapper(receiveCB ft.ReceiveCallback, p Params, ft ft.FileTransfer,
 	}
 
 	// Register listener to receive new file transfers
-	w.conn.RegisterListener(catalog.NewFileTransfer, &listener{w})
+	_, err := w.conn.RegisterListener(catalog.NewFileTransfer, &listener{w})
+	if err != nil {
+		return nil, err
+	}
 
 	return w, nil
 }
@@ -109,7 +112,7 @@ func (w *Wrapper) RegisterSentProgressCallback(tid *ftCrypto.TransferID,
 	return w.ft.RegisterSentProgressCallback(tid, modifiedProgressCB, period)
 }
 
-// addEndMessageToCallback adds the sending of an Connection E2E message when
+// addEndMessageToCallback adds the sending of a Connection E2E message when
 // the transfer completed to the callback. If NotifyUponCompletion is not set,
 // then the message is not sent.
 func (w *Wrapper) addEndMessageToCallback(progressCB ft.SentProgressCallback) ft.SentProgressCallback {

@@ -88,6 +88,8 @@ func (m mockE2eHandler) Unregister(listenerID receive.ListenerID) {
 	return
 }
 
+func (m mockE2eHandler) UnregisterUserListeners(*id.ID) {}
+
 func (m mockE2eHandler) AddPartner(partnerID *id.ID,
 	partnerPubKey, myPrivKey *cyclic.Int,
 	partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey,

@@ -217,7 +217,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		// Set it to myself
-		if recipientID == nil {
+		if recipientID == nil || recipientID.Cmp(user.ID) {
 			jww.INFO.Printf("sending message to self")
 			recipientID = user.ID
 			recipientContact = user.GetContact()
@@ -241,8 +241,8 @@ var rootCmd = &cobra.Command{
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
 		client.GetCmix().AddHealthCallback(
-			func(isconnected bool) {
-				connected <- isconnected
+			func(isConnected bool) {
+				connected <- isConnected
 			})
 		waitUntilConnected(connected)
 
@@ -692,11 +692,13 @@ func initE2e() *xxdk.E2e {
 	// Force LoginLegacy for precanned senderID
 	var client *xxdk.E2e
 	if isPrecanned := viper.GetUint("sendid") != 0; isPrecanned {
+		jww.INFO.Printf("Using LoginLegacy for precan sender")
 		client, err = xxdk.LoginLegacy(baseClient, authCbs)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 	} else {
+		jww.INFO.Printf("Using Login for non-precan sender")
 		client, err = xxdk.Login(baseClient, authCbs, receptionIdentity)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)

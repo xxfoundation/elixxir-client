@@ -66,7 +66,11 @@ func ConnectWithAuthentication(recipient contact.Contact, e2eClient *xxdk.E2e,
 
 	// Build the authenticated connection and return
 	identity := e2eClient.GetReceptionIdentity()
-	return connectWithAuthentication(conn, timeStart, recipient, identity.Salt, identity.RSAPrivatePem,
+	privKey, err := identity.GetRSAPrivatePem()
+	if err != nil {
+		return nil, err
+	}
+	return connectWithAuthentication(conn, timeStart, recipient, identity.Salt, privKey,
 		e2eClient.GetRng(), e2eClient.GetCmix(), p)
 }
 

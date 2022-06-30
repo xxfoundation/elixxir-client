@@ -110,3 +110,32 @@ func GetFactsFromContact(marshaled []byte) ([]byte, error) {
 	}
 	return factsListMarshaled, nil
 }
+
+// StoreReceptionIdentity stores the given identity in Cmix storage with the given key
+// This is the ideal way to securely store identities, as the caller of this function
+// is only required to store the given key separately rather than the keying material
+func StoreReceptionIdentity(key string, identity []byte, cmixId int) error {
+	cmix, err := cmixTrackerSingleton.get(cmixId)
+	if err != nil {
+		return err
+	}
+	receptionIdentity, err := xxdk.UnmarshalReceptionIdentity(identity)
+	if err != nil {
+		return err
+	}
+	return xxdk.StoreReceptionIdentity(key, receptionIdentity, cmix.api)
+}
+
+// LoadReceptionIdentity loads the given identity in Cmix storage with the given key
+func LoadReceptionIdentity(key string, cmixId int) ([]byte, error) {
+	cmix, err := cmixTrackerSingleton.get(cmixId)
+	if err != nil {
+		return nil, err
+	}
+	storageObj, err := cmix.api.GetStorage().Get(key)
+	if err != nil {
+		return nil, err
+	}
+
+	return storageObj.Data, nil
+}

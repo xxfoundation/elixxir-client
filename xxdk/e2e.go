@@ -72,7 +72,7 @@ func LoginLegacy(client *Cmix, callbacks AuthCallbacks) (m *E2e, err error) {
 		backup: &Container{},
 	}
 
-	m.e2e, err = LoadOrInitE2e(client)
+	m.e2e, err = loadOrInitE2eLegacy(client)
 	if err != nil {
 		return nil, err
 	}
@@ -222,9 +222,7 @@ func login(client *Cmix, callbacks AuthCallbacks,
 	}
 
 	//load the new e2e storage
-	m.e2e, err = e2e.Load(kv,
-		client.GetCmix(), identity.ID, e2eGrp, client.GetRng(),
-		client.GetEventReporter())
+	m.e2e, err = loadOrInitE2e(client, dhPrivKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load a "+
 			"newly created e2e store")
@@ -246,10 +244,40 @@ func login(client *Cmix, callbacks AuthCallbacks,
 	return m, err
 }
 
-// LoadOrInitE2e loads the e2e handler or makes a new one, generating a new
+// loadOrInitE2e loads the modern e2e handler or makes a new one,
+// generating a new e2e private key
+func loadOrInitE2e(client *Cmix, privKey *cyclic.Int) (e2e.Handler, error) {
+	usr := client.GetStorage().PortableUserInfo()
+	e2eGrp := client.GetStorage().GetE2EGroup()
+	kv := client.GetStorage().GetKV()
+
+	e2eHandler, err := e2e.Load(kv,
+		client.GetCmix(), usr.ReceptionID, e2eGrp, client.GetRng(),
+		client.GetEventReporter())
+	if err != nil {
+		//initialize the e2e storage
+		err = e2e.Init(kv, usr.ReceptionID, privKey, e2eGrp,
+			rekey.GetDefaultParams())
+		if err != nil {
+			return nil, err
+		}
+
+		//load the new e2e storage
+		e2eHandler, err = e2e.Load(kv,
+			client.GetCmix(), usr.ReceptionID, e2eGrp, client.GetRng(),
+			client.GetEventReporter())
+		if err != nil {
+			return nil, errors.WithMessage(err, "Failed to load a "+
+				"newly created e2e store")
+		}
+	}
+	return e2eHandler, nil
+}
+
+// loadOrInitE2eLegacy loads the e2e handler or makes a new one, generating a new
 // e2e private key. It attempts to load via a legacy construction, then tries
 // to load the modern one, creating a new modern ID if neither can be found
-func LoadOrInitE2e(client *Cmix) (e2e.Handler, error) {
+func loadOrInitE2eLegacy(client *Cmix) (e2e.Handler, error) {
 	usr := client.GetStorage().PortableUserInfo()
 	e2eGrp := client.GetStorage().GetE2EGroup()
 	kv := client.GetStorage().GetKV()

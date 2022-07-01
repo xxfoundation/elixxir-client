@@ -483,13 +483,14 @@ var rootCmd = &cobra.Command{
 				if m.MessageType != catalog.XxMessage {
 					strToPrint = fmt.Sprintf("type is %s",
 						m.MessageType)
+				} else {
+					receiveCnt++
 				}
 
 				fmt.Printf("Message received: %s\n",
 					strToPrint)
 
 				// fmt.Printf("%s", m.Timestamp)
-				receiveCnt++
 				if receiveCnt == expectedCnt {
 					done = true
 					break

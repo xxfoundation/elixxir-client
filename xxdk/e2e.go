@@ -221,11 +221,26 @@ func login(client *Cmix, callbacks AuthCallbacks,
 		return nil, err
 	}
 
-	//load the new e2e storage
-	m.e2e, err = loadOrInitE2e(client, dhPrivKey)
+	// load or init the new e2e storage
+	m.e2e, err = e2e.Load(kv,
+		client.GetCmix(), identity.ID, e2eGrp, client.GetRng(),
+		client.GetEventReporter())
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load a "+
-			"newly created e2e store")
+		//initialize the e2e storage
+		err = e2e.Init(kv, identity.ID, dhPrivKey, e2eGrp,
+			rekey.GetDefaultParams())
+		if err != nil {
+			return nil, err
+		}
+
+		//load the new e2e storage
+		m.e2e, err = e2e.Load(kv,
+			client.GetCmix(), identity.ID, e2eGrp, client.GetRng(),
+			client.GetEventReporter())
+		if err != nil {
+			return nil, errors.WithMessage(err, "Failed to load a "+
+				"newly created e2e store")
+		}
 	}
 
 	err = client.AddService(m.e2e.StartProcesses)
@@ -242,36 +257,6 @@ func login(client *Cmix, callbacks AuthCallbacks,
 	}
 
 	return m, err
-}
-
-// loadOrInitE2e loads the modern e2e handler or makes a new one,
-// generating a new e2e private key
-func loadOrInitE2e(client *Cmix, privKey *cyclic.Int) (e2e.Handler, error) {
-	usr := client.GetStorage().PortableUserInfo()
-	e2eGrp := client.GetStorage().GetE2EGroup()
-	kv := client.GetStorage().GetKV()
-
-	e2eHandler, err := e2e.Load(kv,
-		client.GetCmix(), usr.ReceptionID, e2eGrp, client.GetRng(),
-		client.GetEventReporter())
-	if err != nil {
-		//initialize the e2e storage
-		err = e2e.Init(kv, usr.ReceptionID, privKey, e2eGrp,
-			rekey.GetDefaultParams())
-		if err != nil {
-			return nil, err
-		}
-
-		//load the new e2e storage
-		e2eHandler, err = e2e.Load(kv,
-			client.GetCmix(), usr.ReceptionID, e2eGrp, client.GetRng(),
-			client.GetEventReporter())
-		if err != nil {
-			return nil, errors.WithMessage(err, "Failed to load a "+
-				"newly created e2e store")
-		}
-	}
-	return e2eHandler, nil
 }
 
 // loadOrInitE2eLegacy loads the e2e handler or makes a new one, generating a new

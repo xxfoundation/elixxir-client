@@ -201,29 +201,29 @@ var rootCmd = &cobra.Command{
 
 		jww.INFO.Printf("Client Initialized...")
 
-		user := client.GetReceptionIdentity()
-		jww.INFO.Printf("User: %s", user.ID)
-		writeContact(user.GetContact())
+		receptionIdentity := client.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", receptionIdentity.ID)
+		writeContact(receptionIdentity.GetContact())
 
-		// get Recipient and/or set it to myself
-		isPrecanPartner := false
-		recipientContact := readContact()
-		recipientID := recipientContact.ID
+		var recipientContact contact.Contact
+		var recipientID *id.ID
 
-		// Try to get recipientID from destid
-		if recipientID == nil {
-			recipientID, isPrecanPartner = parseRecipient(
-				viper.GetString("destid"))
+		destId := viper.GetString("destid")
+		sendId := viper.GetString("sendid")
+		if destId == "0" || sendId == destId {
+			jww.INFO.Printf("Sending message to self")
+			recipientID = receptionIdentity.ID
+			recipientContact = receptionIdentity.GetContact()
+		} else if destId != "0" {
+			recipientContact = readContact()
+			recipientID = parseRecipient(destId)
+		} else {
+			recipientContact = readContact()
+			recipientID = recipientContact.ID
 		}
+		isPrecanPartner := isPrecanID(recipientID)
 
-		// Set it to myself
-		if recipientID == nil || recipientID.Cmp(user.ID) {
-			jww.INFO.Printf("sending message to self")
-			recipientID = user.ID
-			recipientContact = user.GetContact()
-		}
-
-		jww.INFO.Printf("Client: %s, Partner: %s", user.ID,
+		jww.INFO.Printf("Client: %s, Partner: %s", receptionIdentity.ID,
 			recipientID)
 
 		client.GetE2E().EnableUnsafeReception()
@@ -318,19 +318,22 @@ var rootCmd = &cobra.Command{
 			authConfirmed = false
 		}
 
-		go func() {
-			for {
-				authID := <-authCbs.confCh
-				if authID.Cmp(recipientID) {
-					authConfirmed = true
-				}
-			}
-		}()
-
 		if !unsafe && !authConfirmed {
+			// Signal for authConfirm callback in a separate thread
+			go func() {
+				for {
+					authID := <-authCbs.confCh
+					if authID.Cmp(recipientID) {
+						authConfirmed = true
+					}
+				}
+			}()
+
 			jww.INFO.Printf("Waiting for authentication channel"+
 				" confirmation with partner %s", recipientID)
 			scnt := uint(0)
+
+			// Wait until authConfirmed
 			waitSecs := viper.GetUint("auth-timeout")
 			for !authConfirmed && scnt < waitSecs {
 				time.Sleep(1 * time.Second)
@@ -549,6 +552,9 @@ func initCmix() (*xxdk.Cmix, xxdk.ReceptionIdentity) {
 	backupPath := viper.GetString("backupIn")
 	backupPass := []byte(viper.GetString("backupPass"))
 
+	// FIXME: All branches of the upcoming path
+	var knownReception xxdk.ReceptionIdentity
+
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Load NDF
@@ -558,7 +564,7 @@ func initCmix() (*xxdk.Cmix, xxdk.ReceptionIdentity) {
 		}
 
 		if precannedID != 0 {
-			err = xxdk.NewPrecannedClient(precannedID,
+			knownReception, err = xxdk.NewPrecannedClient(precannedID,
 				string(ndfJSON), storeDir, pass)
 		} else if protoUserPath != "" {
 			protoUserJson, err := utils.ReadFile(protoUserPath)
@@ -627,10 +633,17 @@ func initCmix() (*xxdk.Cmix, xxdk.ReceptionIdentity) {
 	}
 
 	params := initParams()
-
 	client, err := xxdk.OpenCmix(storeDir, pass, params)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
+	}
+
+	// If there is a known xxdk.ReceptionIdentity, store it now
+	if knownReception.ID != nil {
+		err = xxdk.StoreReceptionIdentity(identityStorageKey, knownReception, client)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
 	}
 
 	// Attempt to load extant xxdk.ReceptionIdentity
@@ -691,7 +704,7 @@ func initE2e() *xxdk.E2e {
 
 	// Force LoginLegacy for precanned senderID
 	var client *xxdk.E2e
-	if isPrecanned := viper.GetUint("sendid") != 0; isPrecanned {
+	if isPrecanID(receptionIdentity.ID) {
 		jww.INFO.Printf("Using LoginLegacy for precan sender")
 		client, err = xxdk.LoginLegacy(baseClient, authCbs)
 		if err != nil {
@@ -1036,20 +1049,18 @@ func parsePassword(pwStr string) []byte {
 	}
 }
 
-func parseRecipient(idStr string) (*id.ID, bool) {
+func parseRecipient(idStr string) *id.ID {
 	if idStr == "0" {
-		return nil, false
+		jww.FATAL.Panicf("No recipient specified")
 	}
 
-	var recipientID *id.ID
 	if strings.HasPrefix(idStr, "0x") {
-		recipientID = getUIDFromHexString(idStr[2:])
+		return getUIDFromHexString(idStr[2:])
 	} else if strings.HasPrefix(idStr, "b64:") {
-		recipientID = getUIDFromb64String(idStr[4:])
+		return getUIDFromb64String(idStr[4:])
 	} else {
-		recipientID = getUIDFromString(idStr)
+		return getUIDFromString(idStr)
 	}
-	return recipientID, isPrecanID(recipientID)
 }
 
 func getUIDFromHexString(idStr string) *id.ID {

@@ -349,7 +349,7 @@ var rootCmd = &cobra.Command{
 			jww.INFO.Printf("Authentication channel confirmation"+
 				" took %d seconds", scnt)
 			jww.INFO.Printf("Authenticated partners saved: %v\n    PartnersList: %+v",
-				client.GetStorage().GetKV().IsMemStore(), client.GetE2E().GetAllPartnerIDs())
+				!client.GetStorage().GetKV().IsMemStore(), client.GetE2E().GetAllPartnerIDs())
 		}
 
 		// DeleteFingerprint this recipient

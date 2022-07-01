@@ -208,18 +208,18 @@ var rootCmd = &cobra.Command{
 		var recipientContact contact.Contact
 		var recipientID *id.ID
 
+		destFile := viper.GetString("destfile")
 		destId := viper.GetString("destid")
 		sendId := viper.GetString("sendid")
-		if destId == "0" || sendId == destId {
+		if destFile != "" {
+			recipientContact = readContact(destFile)
+			recipientID = recipientContact.ID
+		} else if destId == "0" || sendId == destId {
 			jww.INFO.Printf("Sending message to self")
 			recipientID = receptionIdentity.ID
 			recipientContact = receptionIdentity.GetContact()
-		} else if destId != "0" {
-			recipientContact = readContact()
-			recipientID = parseRecipient(destId)
 		} else {
-			recipientContact = readContact()
-			recipientID = recipientContact.ID
+			recipientID = parseRecipient(destId)
 		}
 		isPrecanPartner := isPrecanID(recipientID)
 

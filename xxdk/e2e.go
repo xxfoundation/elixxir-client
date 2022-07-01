@@ -201,26 +201,24 @@ func login(client *Cmix, callbacks AuthCallbacks,
 			identity.ID.String())
 	}
 
-	e2eGrp := client.GetStorage().GetE2EGroup()
 	m = &E2e{
 		Cmix:        client,
 		backup:      &Container{},
 		e2eIdentity: identity,
 	}
-
-	//initialize the e2e storage
 	dhPrivKey, err := identity.GetDHKeyPrivate()
 	if err != nil {
 		return nil, err
 	}
 
 	// load or init the new e2e storage
+	e2eGrp := client.GetStorage().GetE2EGroup()
 	m.e2e, err = e2e.Load(kv,
 		client.GetCmix(), identity.ID, e2eGrp, client.GetRng(),
 		client.GetEventReporter())
 	if err != nil {
 		//initialize the e2e storage
-		jww.INFO.Printf("Initializing new e2e.Handler...")
+		jww.INFO.Printf("Initializing new e2e.Handler for %s", identity.ID.String())
 		err = e2e.Init(kv, identity.ID, dhPrivKey, e2eGrp,
 			rekey.GetDefaultParams())
 		if err != nil {

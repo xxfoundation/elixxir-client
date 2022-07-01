@@ -348,6 +348,8 @@ var rootCmd = &cobra.Command{
 			}
 			jww.INFO.Printf("Authentication channel confirmation"+
 				" took %d seconds", scnt)
+			jww.INFO.Printf("Authenticated partners saved: %v\n    PartnersList: %+v",
+				client.GetStorage().GetKV().IsMemStore(), client.GetE2E().GetAllPartnerIDs())
 		}
 
 		// DeleteFingerprint this recipient
@@ -1328,7 +1330,7 @@ func init() {
 			"for confirmation")
 	viper.BindPFlag("send-auth-request",
 		rootCmd.Flags().Lookup("send-auth-request"))
-	rootCmd.Flags().UintP("auth-timeout", "", 120,
+	rootCmd.Flags().UintP("auth-timeout", "", 60,
 		"The number of seconds to wait for an authentication channel"+
 			"to confirm")
 	viper.BindPFlag("auth-timeout",

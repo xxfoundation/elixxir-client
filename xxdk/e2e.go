@@ -208,15 +208,8 @@ func login(client *Cmix, callbacks AuthCallbacks,
 		e2eIdentity: identity,
 	}
 
-	client.network.AddIdentity(identity.ID, time.Time{}, true)
-
 	//initialize the e2e storage
 	dhPrivKey, err := identity.GetDHKeyPrivate()
-	if err != nil {
-		return nil, err
-	}
-	err = e2e.Init(kv, identity.ID, dhPrivKey, e2eGrp,
-		rekey.GetDefaultEphemeralParams())
 	if err != nil {
 		return nil, err
 	}
@@ -227,6 +220,7 @@ func login(client *Cmix, callbacks AuthCallbacks,
 		client.GetEventReporter())
 	if err != nil {
 		//initialize the e2e storage
+		jww.INFO.Printf("Initializing new e2e.Handler...")
 		err = e2e.Init(kv, identity.ID, dhPrivKey, e2eGrp,
 			rekey.GetDefaultParams())
 		if err != nil {
@@ -256,6 +250,7 @@ func login(client *Cmix, callbacks AuthCallbacks,
 		return nil, err
 	}
 
+	client.network.AddIdentity(identity.ID, time.Time{}, true)
 	return m, err
 }
 

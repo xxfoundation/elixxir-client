@@ -293,6 +293,7 @@ var rootCmd = &cobra.Command{
 			authConfirmed = true
 		}
 
+		jww.INFO.Printf("Preexisting E2e partners: %+v", client.GetE2E().GetAllPartnerIDs())
 		if client.GetE2E().HasAuthenticatedChannel(recipientID) {
 			jww.INFO.Printf("Authenticated channel already in "+
 				"place for %s", recipientID)

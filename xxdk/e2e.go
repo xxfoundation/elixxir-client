@@ -72,7 +72,7 @@ func LoginLegacy(client *Cmix, callbacks AuthCallbacks) (m *E2e, err error) {
 		backup: &Container{},
 	}
 
-	m.e2e, err = LoadOrInitE2e(client)
+	m.e2e, err = loadOrInitE2eLegacy(client)
 	if err != nil {
 		return nil, err
 	}
@@ -201,33 +201,38 @@ func login(client *Cmix, callbacks AuthCallbacks,
 			identity.ID.String())
 	}
 
-	e2eGrp := client.GetStorage().GetE2EGroup()
 	m = &E2e{
 		Cmix:        client,
 		backup:      &Container{},
 		e2eIdentity: identity,
 	}
-
-	client.network.AddIdentity(identity.ID, time.Time{}, true)
-
-	//initialize the e2e storage
 	dhPrivKey, err := identity.GetDHKeyPrivate()
 	if err != nil {
 		return nil, err
 	}
-	err = e2e.Init(kv, identity.ID, dhPrivKey, e2eGrp,
-		rekey.GetDefaultEphemeralParams())
-	if err != nil {
-		return nil, err
-	}
 
-	//load the new e2e storage
+	// load or init the new e2e storage
+	e2eGrp := client.GetStorage().GetE2EGroup()
 	m.e2e, err = e2e.Load(kv,
 		client.GetCmix(), identity.ID, e2eGrp, client.GetRng(),
 		client.GetEventReporter())
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load a "+
-			"newly created e2e store")
+		//initialize the e2e storage
+		jww.INFO.Printf("Initializing new e2e.Handler for %s", identity.ID.String())
+		err = e2e.Init(kv, identity.ID, dhPrivKey, e2eGrp,
+			rekey.GetDefaultParams())
+		if err != nil {
+			return nil, err
+		}
+
+		//load the new e2e storage
+		m.e2e, err = e2e.Load(kv,
+			client.GetCmix(), identity.ID, e2eGrp, client.GetRng(),
+			client.GetEventReporter())
+		if err != nil {
+			return nil, errors.WithMessage(err, "Failed to load a "+
+				"newly created e2e store")
+		}
 	}
 
 	err = client.AddService(m.e2e.StartProcesses)
@@ -243,13 +248,14 @@ func login(client *Cmix, callbacks AuthCallbacks,
 		return nil, err
 	}
 
+	client.network.AddIdentity(identity.ID, time.Time{}, true)
 	return m, err
 }
 
-// LoadOrInitE2e loads the e2e handler or makes a new one, generating a new
+// loadOrInitE2eLegacy loads the e2e handler or makes a new one, generating a new
 // e2e private key. It attempts to load via a legacy construction, then tries
 // to load the modern one, creating a new modern ID if neither can be found
-func LoadOrInitE2e(client *Cmix) (e2e.Handler, error) {
+func loadOrInitE2eLegacy(client *Cmix) (e2e.Handler, error) {
 	usr := client.GetStorage().PortableUserInfo()
 	e2eGrp := client.GetStorage().GetE2EGroup()
 	kv := client.GetStorage().GetKV()

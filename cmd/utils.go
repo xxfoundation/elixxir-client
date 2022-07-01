@@ -87,8 +87,7 @@ func writeContact(c contact.Contact) {
 	}
 }
 
-func readContact() contact.Contact {
-	inputFilePath := viper.GetString("destfile")
+func readContact(inputFilePath string) contact.Contact {
 	if inputFilePath == "" {
 		return contact.Contact{}
 	}

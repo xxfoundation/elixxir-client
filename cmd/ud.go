@@ -152,7 +152,7 @@ var udCmd = &cobra.Command{
 		// Note: Cryptographic verification occurs above the bindings layer
 		lookupIDStr := viper.GetString("lookup")
 		if lookupIDStr != "" {
-			lookupID, _ := parseRecipient(lookupIDStr)
+			lookupID := parseRecipient(lookupIDStr)
 			//if !ok {
 			//	jww.FATAL.Panicf("Could not parse recipient: %s", lookupIDStr)
 			//}

@@ -7,16 +7,10 @@
 package bindings
 
 import (
-	"encoding/json"
-
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/primitives/id"
 )
 
 // e2eTrackerSingleton is used to track E2e objects so that
@@ -47,14 +41,14 @@ func LoginE2e(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error
 		return nil, err
 	}
 
-	newIdentity, err := unmarshalIdentity(identity, cmix.api.GetStorage().GetE2EGroup())
+	newIdentity, err := xxdk.UnmarshalReceptionIdentity(identity)
 	if err != nil {
 		return nil, err
 	}
 
 	var authCallbacks xxdk.AuthCallbacks
 	if callbacks == nil {
-		authCallbacks = defaultAuthCallbacks{}
+		authCallbacks = xxdk.DefaultAuthCallbacks{}
 	} else {
 		authCallbacks = &authCallback{bindingsCbs: callbacks}
 	}
@@ -78,14 +72,14 @@ func LoginE2eEphemeral(cmixId int, callbacks AuthCallbacks, identity []byte) (*E
 		return nil, err
 	}
 
-	newIdentity, err := unmarshalIdentity(identity, cmix.api.GetStorage().GetE2EGroup())
+	newIdentity, err := xxdk.UnmarshalReceptionIdentity(identity)
 	if err != nil {
 		return nil, err
 	}
 
 	var authCallbacks xxdk.AuthCallbacks
 	if callbacks == nil {
-		authCallbacks = defaultAuthCallbacks{}
+		authCallbacks = xxdk.DefaultAuthCallbacks{}
 	} else {
 		authCallbacks = &authCallback{bindingsCbs: callbacks}
 	}
@@ -112,7 +106,7 @@ func LoginE2eLegacy(cmixId int, callbacks AuthCallbacks) (*E2e, error) {
 
 	var authCallbacks xxdk.AuthCallbacks
 	if callbacks == nil {
-		authCallbacks = defaultAuthCallbacks{}
+		authCallbacks = xxdk.DefaultAuthCallbacks{}
 	} else {
 		authCallbacks = &authCallback{bindingsCbs: callbacks}
 	}
@@ -128,38 +122,7 @@ func LoginE2eLegacy(cmixId int, callbacks AuthCallbacks) (*E2e, error) {
 
 // GetContact returns a marshalled contact.Contact object for the E2e ReceptionIdentity
 func (e *E2e) GetContact() []byte {
-	return e.api.GetReceptionIdentity().GetContact(e.api.GetStorage().GetE2EGroup()).Marshal()
-}
-
-// unmarshalIdentity is a helper function for taking in a marshalled xxdk.ReceptionIdentity and making it an object
-func unmarshalIdentity(marshaled []byte, e2eGrp *cyclic.Group) (xxdk.ReceptionIdentity, error) {
-	newIdentity := xxdk.ReceptionIdentity{}
-
-	// Unmarshal given identity into ReceptionIdentity object
-	givenIdentity := ReceptionIdentity{}
-	err := json.Unmarshal(marshaled, &givenIdentity)
-	if err != nil {
-		return xxdk.ReceptionIdentity{}, err
-	}
-
-	newIdentity.ID, err = id.Unmarshal(givenIdentity.ID)
-	if err != nil {
-		return xxdk.ReceptionIdentity{}, err
-	}
-
-	newIdentity.DHKeyPrivate = e2eGrp.NewInt(1)
-	err = newIdentity.DHKeyPrivate.UnmarshalJSON(givenIdentity.DHKeyPrivate)
-	if err != nil {
-		return xxdk.ReceptionIdentity{}, err
-	}
-
-	newIdentity.RSAPrivatePem, err = rsa.LoadPrivateKeyFromPem(givenIdentity.RSAPrivatePem)
-	if err != nil {
-		return xxdk.ReceptionIdentity{}, err
-	}
-
-	newIdentity.Salt = givenIdentity.Salt
-	return newIdentity, nil
+	return e.api.GetReceptionIdentity().GetContact().Marshal()
 }
 
 // AuthCallbacks is the bindings-specific interface for auth.Callbacks methods.
@@ -203,26 +166,4 @@ func (a *authCallback) Request(partner contact.Contact,
 func (a *authCallback) Reset(partner contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round, _ *xxdk.E2e) {
 	a.bindingsCbs.Reset(convertAuthCallbacks(partner, receptionID, round))
-}
-
-// defaultAuthCallbacks is a simple structure for providing a default Callbacks implementation
-// It should generally not be used.
-type defaultAuthCallbacks struct{}
-
-// Confirm will be called when an auth Confirm message is processed.
-func (a defaultAuthCallbacks) Confirm(contact.Contact,
-	receptionID.EphemeralIdentity, rounds.Round, *xxdk.E2e) {
-	jww.ERROR.Printf("No valid auth callback assigned!")
-}
-
-// Request will be called when an auth Request message is processed.
-func (a defaultAuthCallbacks) Request(contact.Contact,
-	receptionID.EphemeralIdentity, rounds.Round, *xxdk.E2e) {
-	jww.ERROR.Printf("No valid auth callback assigned!")
-}
-
-// Reset will be called when an auth Reset operation occurs.
-func (a defaultAuthCallbacks) Reset(contact.Contact,
-	receptionID.EphemeralIdentity, rounds.Round, *xxdk.E2e) {
-	jww.ERROR.Printf("No valid auth callback assigned!")
 }

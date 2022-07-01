@@ -91,6 +91,7 @@ func (c *Connection) GetPartner() []byte {
 // RegisterListener is used for E2E reception
 // and allows for reading data sent from the partner.Manager
 // Returns marshalled ListenerID
-func (c *Connection) RegisterListener(messageType int, newListener Listener) {
-	_ = c.connection.RegisterListener(catalog.MessageType(messageType), listener{l: newListener})
+func (c *Connection) RegisterListener(messageType int, newListener Listener) error {
+	_, err := c.connection.RegisterListener(catalog.MessageType(messageType), listener{l: newListener})
+	return err
 }

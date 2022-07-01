@@ -44,7 +44,7 @@ func TestConnectWithAuthentication(t *testing.T) {
 
 	myRsaPrivKey, err := rsa.LoadPrivateKeyFromPem(getPrivKey())
 	if err != nil {
-		t.Fatalf("Faled to load private key: %v", err)
+		t.Fatalf("Failed to load private key: %v", err)
 	}
 
 	// Construct client ID the proper way as server will need to verify it

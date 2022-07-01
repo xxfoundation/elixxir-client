@@ -35,11 +35,11 @@ var groupCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmixParams, e2eParams := initParams()
-		client := initClient(cmixParams, e2eParams)
+		client := initE2e(cmixParams, e2eParams)
 
 		// Print user's reception ID
-		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ReceptionID)
+		user := client.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", user.ID)
 
 		err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {
@@ -156,7 +156,7 @@ func createGroup(name, msg []byte, filePath string, gm groupChat.GroupChat) {
 	userIdStrings := ReadLines(filePath)
 	userIDs := make([]*id.ID, 0, len(userIdStrings))
 	for _, userIdStr := range userIdStrings {
-		userID, _ := parseRecipient(userIdStr)
+		userID := parseRecipient(userIdStr)
 		userIDs = append(userIDs, userID)
 	}
 
@@ -175,7 +175,7 @@ func createGroup(name, msg []byte, filePath string, gm groupChat.GroupChat) {
 
 // resendRequests resends group requests for the group ID.
 func resendRequests(groupIdString string, gm groupChat.GroupChat) {
-	groupID, _ := parseRecipient(groupIdString)
+	groupID := parseRecipient(groupIdString)
 	rids, status, err := gm.ResendRequest(groupID)
 	if err != nil {
 		jww.FATAL.Panicf("[GC] Failed to resend requests to group %s: %+v",
@@ -213,7 +213,7 @@ func joinGroup(reqChan chan groupStore.Group, timeout time.Duration,
 
 // leaveGroup leaves the group.
 func leaveGroup(groupIdString string, gm groupChat.GroupChat) {
-	groupID, _ := parseRecipient(groupIdString)
+	groupID := parseRecipient(groupIdString)
 	jww.INFO.Printf("[GC] Leaving group %s.", groupID)
 
 	err := gm.LeaveGroup(groupID)
@@ -227,7 +227,7 @@ func leaveGroup(groupIdString string, gm groupChat.GroupChat) {
 
 // sendGroup send the message to the group.
 func sendGroup(groupIdString string, msg []byte, gm groupChat.GroupChat) {
-	groupID, _ := parseRecipient(groupIdString)
+	groupID := parseRecipient(groupIdString)
 
 	jww.INFO.Printf("[GC] Sending to group %s message %q", groupID, msg)
 
@@ -273,7 +273,7 @@ func listGroups(gm groupChat.GroupChat) {
 
 // showGroup prints all the information of the group.
 func showGroup(groupIdString string, gm groupChat.GroupChat) {
-	groupID, _ := parseRecipient(groupIdString)
+	groupID := parseRecipient(groupIdString)
 
 	grp, ok := gm.GetGroup(groupID)
 	if !ok {

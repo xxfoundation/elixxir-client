@@ -35,11 +35,11 @@ var udCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmixParams, e2eParams := initParams()
-		client := initClient(cmixParams, e2eParams)
+		client := initE2e(cmixParams, e2eParams)
 
 		// get user and save contact to file
-		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ReceptionID)
+		user := client.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", user.ID)
 		writeContact(user.GetContact())
 
 		// // Set up reception handler
@@ -154,7 +154,7 @@ var udCmd = &cobra.Command{
 		// Note: Cryptographic verification occurs above the bindings layer
 		lookupIDStr := viper.GetString("lookup")
 		if lookupIDStr != "" {
-			lookupID, _ := parseRecipient(lookupIDStr)
+			lookupID := parseRecipient(lookupIDStr)
 			//if !ok {
 			//	jww.FATAL.Panicf("Could not parse recipient: %s", lookupIDStr)
 			//}

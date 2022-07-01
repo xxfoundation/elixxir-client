@@ -392,7 +392,6 @@ func (c *Cmix) StopNetworkFollower() error {
 
 // NetworkFollowerStatus Gets the state of the network follower. Returns:
 // Stopped 	- 0
-// Starting - 1000
 // Running	- 2000
 // Stopping	- 3000
 func (c *Cmix) NetworkFollowerStatus() Status {
@@ -421,12 +420,11 @@ func (c *Cmix) AddService(sp Service) error {
 	return c.followerServices.add(sp)
 }
 
-// GetUser returns the current user Identity for this client. This
-// can be serialized into a byte stream for out-of-band sharing.
-func (c *Cmix) GetUser() user.Info {
-	jww.INFO.Printf("GetUser()")
+// GetTransmissionIdentity returns the current TransmissionIdentity for this client
+func (c *Cmix) GetTransmissionIdentity() TransmissionIdentity {
+	jww.INFO.Printf("GetTransmissionIdentity()")
 	cMixUser := c.storage.PortableUserInfo()
-	return cMixUser
+	return buildTransmissionIdentity(cMixUser)
 }
 
 // GetComms returns the client comms object

@@ -85,13 +85,13 @@ func TestSwitchboard_RegisterListener(t *testing.T) {
 	//check that the listener is registered in the appropriate location
 	setID := sw.id.Get(uid)
 
-	if !setID.Has(l) {
+	if !setID.Has(lid) {
 		t.Errorf("Listener is not registered by ID")
 	}
 
 	setType := sw.messageType.Get(mt)
 
-	if !setType.Has(l) {
+	if !setType.Has(lid) {
 		t.Errorf("Listener is not registered by Message Tag")
 	}
 
@@ -152,13 +152,13 @@ func TestSwitchboard_RegisterFunc(t *testing.T) {
 	//check that the listener is registered in the appropriate location
 	setID := sw.id.Get(uid)
 
-	if !setID.Has(lid.listener) {
+	if !setID.Has(lid) {
 		t.Errorf("Listener is not registered by ID")
 	}
 
 	setType := sw.messageType.Get(mt)
 
-	if !setType.Has(lid.listener) {
+	if !setType.Has(lid) {
 		t.Errorf("Listener is not registered by Message Tag")
 	}
 
@@ -221,13 +221,13 @@ func TestSwitchboard_RegisterChan(t *testing.T) {
 	//check that the listener is registered in the appropriate location
 	setID := sw.id.Get(uid)
 
-	if !setID.Has(lid.listener) {
+	if !setID.Has(lid) {
 		t.Errorf("Listener is not registered by ID")
 	}
 
 	setType := sw.messageType.Get(mt)
 
-	if !setType.Has(lid.listener) {
+	if !setType.Has(lid) {
 		t.Errorf("Listener is not registered by Message Tag")
 	}
 
@@ -330,21 +330,67 @@ func TestSwitchboard_Unregister(t *testing.T) {
 	setType := sw.messageType.Get(mt)
 
 	//check that the removed listener is not registered
-	if setID.Has(lid1.listener) {
+	if setID.Has(lid1) {
 		t.Errorf("Removed Listener is registered by ID, should not be")
 	}
 
-	if setType.Has(lid1.listener) {
+	if setType.Has(lid1) {
 		t.Errorf("Removed Listener not registered by Message Tag, " +
 			"should not be")
 	}
 
 	//check that the not removed listener is still registered
-	if !setID.Has(lid2.listener) {
+	if !setID.Has(lid2) {
 		t.Errorf("Remaining Listener is not registered by ID")
 	}
 
-	if !setType.Has(lid2.listener) {
+	if !setType.Has(lid2) {
 		t.Errorf("Remaining Listener is not registered by Message Tag")
+	}
+}
+
+// Tests that three listeners with three different message types but the same
+// user are deleted with Switchboard.UnregisterUserListeners and that three
+// other listeners with the same message types but different users are not
+// delete.
+func TestSwitchboard_UnregisterUserListeners(t *testing.T) {
+	sw := New()
+
+	uid1 := id.NewIdFromUInt(42, id.User, t)
+	uid2 := id.NewIdFromUInt(11, id.User, t)
+
+	l := func(receive Message) {}
+
+	lid1 := sw.RegisterFunc("a", uid1, catalog.NoType, l)
+	lid2 := sw.RegisterFunc("b", uid1, catalog.XxMessage, l)
+	lid3 := sw.RegisterFunc("c", uid1, catalog.KeyExchangeTrigger, l)
+	lid4 := sw.RegisterFunc("d", uid2, catalog.NoType, l)
+	lid5 := sw.RegisterFunc("e", uid2, catalog.XxMessage, l)
+	lid6 := sw.RegisterFunc("f", uid2, catalog.KeyExchangeTrigger, l)
+
+	sw.UnregisterUserListeners(uid1)
+
+	if s, exists := sw.id.list[*uid1]; exists {
+		t.Errorf("Set for ID %s still exists: %+v", uid1, s)
+	}
+
+	if sw.messageType.Get(lid1.messageType).Has(lid1) {
+		t.Errorf("Listener %+v still exists", lid1)
+	}
+	if sw.messageType.Get(lid2.messageType).Has(lid2) {
+		t.Errorf("Listener %+v still exists", lid2)
+	}
+	if sw.messageType.Get(lid3.messageType).Has(lid3) {
+		t.Errorf("Listener %+v still exists", lid3)
+	}
+
+	if !sw.messageType.Get(lid4.messageType).Has(lid4) {
+		t.Errorf("Listener %+v does not exist", lid4)
+	}
+	if !sw.messageType.Get(lid5.messageType).Has(lid5) {
+		t.Errorf("Listener %+v does not exist", lid5)
+	}
+	if !sw.messageType.Get(lid6.messageType).Has(lid6) {
+		t.Errorf("Listener %+v does not exist", lid6)
 	}
 }

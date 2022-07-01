@@ -76,11 +76,13 @@ func LoginLegacy(client *Cmix, params E2EParams, callbacks AuthCallbacks) (
 		backup: &Container{},
 	}
 
-	m.e2e, err = LoadOrInitE2e(client)
+	m.e2e, err = loadOrInitE2eLegacy(client)
 	if err != nil {
 		return nil, err
 	}
-	client.GetCmix().AddIdentity(client.GetUser().ReceptionID, time.Time{}, true)
+
+	userInfo := client.GetStorage().PortableUserInfo()
+	client.GetCmix().AddIdentity(userInfo.ReceptionID, time.Time{}, true)
 
 	err = client.AddService(m.e2e.StartProcesses)
 	if err != nil {
@@ -96,14 +98,8 @@ func LoginLegacy(client *Cmix, params E2EParams, callbacks AuthCallbacks) (
 		return nil, err
 	}
 
-	u := m.Cmix.GetUser()
-	m.e2eIdentity = ReceptionIdentity{
-		ID:            u.ReceptionID,
-		RSAPrivatePem: u.ReceptionRSA,
-		Salt:          u.ReceptionSalt,
-		DHKeyPrivate:  u.E2eDhPrivateKey,
-	}
-
+	m.e2eIdentity, err = buildReceptionIdentity(userInfo, m.e2e.GetGroup(),
+		m.e2e.GetHistoricalDHPrivkey())
 	return m, err
 }
 
@@ -189,12 +185,10 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	return Login(c, callbacks, ReceptionIdentity{
-		ID:            protoUser.ReceptionID,
-		RSAPrivatePem: protoUser.ReceptionRSA,
-		Salt:          protoUser.ReceptionSalt,
-		DHKeyPrivate:  protoUser.E2eDhPrivateKey,
-	}, e2eParams)
+	userInfo := c.GetStorage().PortableUserInfo()
+	receptionIdentity, err := buildReceptionIdentity(userInfo,
+		c.GetStorage().GetE2EGroup(), protoUser.E2eDhPrivateKey)
+	return Login(c, callbacks, receptionIdentity, e2eParams)
 }
 
 // login creates a new xxdk.E2e backed by the given versioned.KV
@@ -202,7 +196,11 @@ func login(client *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
 	kv *versioned.KV, params E2EParams) (m *E2e, err error) {
 
 	// Verify the passed-in ReceptionIdentity matches its properties
-	generatedId, err := xx.NewID(identity.RSAPrivatePem.GetPublic(), identity.Salt, id.User)
+	privatePem, err := identity.GetRSAPrivatePem()
+	if err != nil {
+		return nil, err
+	}
+	generatedId, err := xx.NewID(privatePem.GetPublic(), identity.Salt, id.User)
 	if err != nil {
 		return nil, err
 	}
@@ -211,35 +209,31 @@ func login(client *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
 			identity.ID.String())
 	}
 
-	e2eGrp := client.GetStorage().GetE2EGroup()
 	m = &E2e{
 		Cmix:        client,
 		backup:      &Container{},
 		e2eIdentity: identity,
 	}
-
-	client.network.AddIdentity(identity.ID, time.Time{}, true)
-
-	//initialize the e2e storage
-	err = e2e.Init(kv, identity.ID, identity.DHKeyPrivate, e2eGrp,
-		rekey.GetDefaultEphemeralParams())
+	dhPrivKey, err := identity.GetDHKeyPrivate()
 	if err != nil {
 		return nil, err
 	}
 
-	//load the new e2e storage
+	// load or init the new e2e storage
+	e2eGrp := client.GetStorage().GetE2EGroup()
 	m.e2e, err = e2e.Load(kv,
 		client.GetCmix(), identity.ID, e2eGrp, client.GetRng(),
 		client.GetEventReporter())
 	if err != nil {
-		jww.WARN.Printf("Cannot load e2e store (will init instead): %s",
-			err.Error())
 		//initialize the e2e storage
-		err = e2e.Init(kv, identity.ID, identity.DHKeyPrivate, e2eGrp,
-			rekey.GetDefaultEphemeralParams())
+		jww.INFO.Printf("Initializing new e2e.Handler for %s", identity.ID.String())
+		err = e2e.Init(kv, identity.ID, dhPrivKey, e2eGrp,
+			params.Rekey)
 		if err != nil {
 			return nil, err
 		}
+
+		//load the new e2e storage
 		m.e2e, err = e2e.Load(kv,
 			client.GetCmix(), identity.ID, e2eGrp, client.GetRng(),
 			client.GetEventReporter())
@@ -263,14 +257,15 @@ func login(client *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
 		return nil, err
 	}
 
+	client.network.AddIdentity(identity.ID, time.Time{}, true)
 	return m, err
 }
 
-// LoadOrInitE2e loads the e2e handler or makes a new one, generating a new
+// loadOrInitE2eLegacy loads the e2e handler or makes a new one, generating a new
 // e2e private key. It attempts to load via a legacy construction, then tries
 // to load the modern one, creating a new modern ID if neither can be found
-func LoadOrInitE2e(client *Cmix) (e2e.Handler, error) {
-	usr := client.GetUser()
+func loadOrInitE2eLegacy(client *Cmix) (e2e.Handler, error) {
+	usr := client.GetStorage().PortableUserInfo()
 	e2eGrp := client.GetStorage().GetE2EGroup()
 	kv := client.GetStorage().GetKV()
 
@@ -334,15 +329,6 @@ func LoadOrInitE2e(client *Cmix) (e2e.Handler, error) {
 	return e2eHandler, nil
 }
 
-// GetUser replaces xxdk.Cmix's GetUser with one which includes the e2e dh
-// private keys
-func (m *E2e) GetUser() user.Info {
-	u := m.Cmix.GetUser()
-	u.E2eDhPrivateKey = m.e2e.GetHistoricalDHPrivkey()
-	u.E2eDhPublicKey = m.e2e.GetHistoricalDHPubkey()
-	return u
-}
-
 // GetReceptionIdentity returns a safe copy of the E2e ReceptionIdentity
 func (m *E2e) GetReceptionIdentity() ReceptionIdentity {
 	return m.e2eIdentity.DeepCopy()
@@ -359,15 +345,22 @@ func (m *E2e) ConstructProtoUserFile() ([]byte, error) {
 			"permissioning")
 	}
 
+	transIdentity := m.Cmix.GetTransmissionIdentity()
+	receptionIdentity := m.GetReceptionIdentity()
+	privatePem, err := receptionIdentity.GetRSAPrivatePem()
+	if err != nil {
+		return nil, err
+	}
+
 	Usr := user.Proto{
-		TransmissionID:        m.GetUser().TransmissionID,
-		TransmissionSalt:      m.GetUser().TransmissionSalt,
-		TransmissionRSA:       m.GetUser().TransmissionRSA,
-		ReceptionID:           m.GetUser().ReceptionID,
-		ReceptionSalt:         m.GetUser().ReceptionSalt,
-		ReceptionRSA:          m.GetUser().ReceptionRSA,
-		Precanned:             m.GetUser().Precanned,
-		RegistrationTimestamp: m.GetUser().RegistrationTimestamp,
+		TransmissionID:        transIdentity.ID,
+		TransmissionSalt:      transIdentity.Salt,
+		TransmissionRSA:       transIdentity.RSAPrivatePem,
+		ReceptionID:           receptionIdentity.ID,
+		ReceptionSalt:         receptionIdentity.Salt,
+		ReceptionRSA:          privatePem,
+		Precanned:             m.GetStorage().IsPrecanned(),
+		RegistrationTimestamp: transIdentity.RegistrationTimestamp,
 		RegCode:               regCode,
 		TransmissionRegValidationSig: m.GetStorage().
 			GetTransmissionRegistrationValidationSignature(),
@@ -460,4 +453,26 @@ func (aca *authCallbacksAdapter) Confirm(partner contact.Contact,
 func (aca *authCallbacksAdapter) Reset(partner contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	aca.ac.Reset(partner, receptionID, round, aca.e2e)
+}
+
+// DefaultAuthCallbacks is a simple structure for providing a default Callbacks implementation
+// It should generally not be used.
+type DefaultAuthCallbacks struct{}
+
+// Confirm will be called when an auth Confirm message is processed.
+func (a DefaultAuthCallbacks) Confirm(contact.Contact,
+	receptionID.EphemeralIdentity, rounds.Round, *E2e) {
+	jww.ERROR.Printf("No valid auth callback assigned!")
+}
+
+// Request will be called when an auth Request message is processed.
+func (a DefaultAuthCallbacks) Request(contact.Contact,
+	receptionID.EphemeralIdentity, rounds.Round, *E2e) {
+	jww.ERROR.Printf("No valid auth callback assigned!")
+}
+
+// Reset will be called when an auth Reset operation occurs.
+func (a DefaultAuthCallbacks) Reset(contact.Contact,
+	receptionID.EphemeralIdentity, rounds.Round, *E2e) {
+	jww.ERROR.Printf("No valid auth callback assigned!")
 }

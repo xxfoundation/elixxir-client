@@ -34,12 +34,11 @@ var singleCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		cmixParams, e2eParams := initParams()
-		client := initClient(cmixParams, e2eParams)
+		client := initE2e(cmixParams, e2eParams)
 
 		// Write user contact to file
-		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ReceptionID)
-		jww.INFO.Printf("User Transmission: %s", user.TransmissionID)
+		user := client.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", user.ID)
 		writeContact(user.GetContact())
 
 		err := client.StartNetworkFollower(5 * time.Second)
@@ -67,9 +66,14 @@ var singleCmd = &cobra.Command{
 			}),
 		}
 
-		myID := client.GetUser().ReceptionID
+		dhKeyPriv, err := user.GetDHKeyPrivate()
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+
+		myID := user.ID
 		listener := single.Listen(tag, myID,
-			client.GetUser().E2eDhPrivateKey,
+			dhKeyPriv,
 			client.GetCmix(),
 			client.GetStorage().GetE2EGroup(),
 			receiver)

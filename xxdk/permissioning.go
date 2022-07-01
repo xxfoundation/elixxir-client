@@ -63,15 +63,16 @@ func (c *Cmix) ConstructProtoUserFile() ([]byte, error) {
 			"permissioning")
 	}
 
+	userInfo := c.GetStorage().PortableUserInfo()
 	Usr := user.Proto{
-		TransmissionID:               c.GetUser().TransmissionID,
-		TransmissionSalt:             c.GetUser().TransmissionSalt,
-		TransmissionRSA:              c.GetUser().TransmissionRSA,
-		ReceptionID:                  c.GetUser().ReceptionID,
-		ReceptionSalt:                c.GetUser().ReceptionSalt,
-		ReceptionRSA:                 c.GetUser().ReceptionRSA,
-		Precanned:                    c.GetUser().Precanned,
-		RegistrationTimestamp:        c.GetUser().RegistrationTimestamp,
+		TransmissionID:               userInfo.TransmissionID,
+		TransmissionSalt:             userInfo.TransmissionSalt,
+		TransmissionRSA:              userInfo.TransmissionRSA,
+		ReceptionID:                  userInfo.ReceptionID,
+		ReceptionSalt:                userInfo.ReceptionSalt,
+		ReceptionRSA:                 userInfo.ReceptionRSA,
+		Precanned:                    userInfo.Precanned,
+		RegistrationTimestamp:        userInfo.RegistrationTimestamp,
 		RegCode:                      regCode,
 		TransmissionRegValidationSig: c.storage.GetTransmissionRegistrationValidationSignature(),
 		ReceptionRegValidationSig:    c.storage.GetReceptionRegistrationValidationSignature(),

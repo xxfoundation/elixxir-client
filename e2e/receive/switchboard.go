@@ -56,20 +56,23 @@ func (sw *Switchboard) RegisterListener(user *id.ID,
 		jww.FATAL.Panicf("cannot register nil listener")
 	}
 
-	//register the listener by both ID and messageType
-	sw.mux.Lock()
-
-	sw.id.Add(user, newListener)
-	sw.messageType.Add(messageType, newListener)
-
-	sw.mux.Unlock()
-
-	//return a ListenerID so it can be unregistered in the future
-	return ListenerID{
+	// Create new listener ID
+	lid := ListenerID{
 		userID:      user,
 		messageType: messageType,
 		listener:    newListener,
 	}
+
+	//register the listener by both ID and messageType
+	sw.mux.Lock()
+
+	sw.id.Add(lid)
+	sw.messageType.Add(lid)
+
+	sw.mux.Unlock()
+
+	//return a ListenerID so it can be unregistered in the future
+	return lid
 }
 
 // RegisterFunc Registers a new listener built around the passed function.
@@ -145,8 +148,8 @@ func (sw *Switchboard) Speak(item Message) {
 
 	//Execute hear on all matched listeners in a new goroutine
 	matches.Do(func(i interface{}) {
-		r := i.(Listener)
-		go r.Hear(item)
+		lid := i.(ListenerID)
+		go lid.listener.Hear(item)
 	})
 
 	// print to log if nothing was heard
@@ -162,10 +165,30 @@ func (sw *Switchboard) Speak(item Message) {
 func (sw *Switchboard) Unregister(listenerID ListenerID) {
 	sw.mux.Lock()
 
-	sw.id.Remove(listenerID.userID, listenerID.listener)
-	sw.messageType.Remove(listenerID.messageType, listenerID.listener)
+	sw.id.Remove(listenerID)
+	sw.messageType.Remove(listenerID)
 
 	sw.mux.Unlock()
+}
+
+// UnregisterUserListeners removes all the listeners registered with the
+// specified user.
+func (sw *Switchboard) UnregisterUserListeners(userID *id.ID) {
+	sw.mux.Lock()
+	defer sw.mux.Unlock()
+
+	// Get list of all listeners for the specified user
+	idSet := sw.id.Get(userID)
+
+	// Find each listener in the messageType list and delete it
+	idSet.Do(func(i interface{}) {
+		lid := i.(ListenerID)
+		mtSet := sw.messageType.list[lid.messageType]
+		mtSet.Remove(lid)
+	})
+
+	// Remove all listeners for the user from the ID list
+	sw.id.RemoveId(userID)
 }
 
 // finds all listeners who match the items sender or ID, or have those fields

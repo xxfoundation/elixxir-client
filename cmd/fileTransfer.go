@@ -36,11 +36,11 @@ var ftCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmixParams, e2eParams := initParams()
-		client := initClient(cmixParams, e2eParams)
+		client := initE2e(cmixParams, e2eParams)
 
 		// Print user's reception ID and save contact file
-		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ReceptionID)
+		user := client.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", user.ID)
 		writeContact(user.GetContact())
 
 		// Start the network follower
@@ -152,7 +152,7 @@ func initFileTransferManager(client *xxdk.E2e, maxThroughput int) (
 
 	// Create new manager
 	manager, err := ft.NewManager(p,
-		client.GetUser().ReceptionID,
+		client.GetReceptionIdentity().ID,
 		client.GetCmix(),
 		client.GetStorage(),
 		client.GetRng())
@@ -169,7 +169,7 @@ func initFileTransferManager(client *xxdk.E2e, maxThroughput int) (
 
 	e2eParams := ftE2e.DefaultParams()
 	e2eFt, err := ftE2e.NewWrapper(receiveCB, e2eParams, manager,
-		client.GetUser().ReceptionID, client.GetE2E(), client.GetCmix())
+		client.GetReceptionIdentity().ID, client.GetE2E(), client.GetCmix())
 	if err != nil {
 		jww.FATAL.Panicf(
 			"[FT] Failed to create new e2e file transfer wrapper: %+v", err)

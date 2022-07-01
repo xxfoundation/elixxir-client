@@ -151,6 +151,22 @@ func (s *state) Close() error {
 	return nil
 }
 
+// DeletePartner deletes the request and/or confirmation for the given partner.
+func (s *state) DeletePartner(partner *id.ID) error {
+	err := s.store.DeleteRequest(partner)
+	err2 := s.store.DeleteConfirmation(partner)
+
+	// Only return an error if both failed to delete
+	if err != nil && err2 != nil {
+		return errors.Errorf("Failed to delete partner: no requests or "+
+			"confirmations found: %s, %s", err, err2)
+	}
+
+	s.DeletePartnerCallback(partner)
+
+	return nil
+}
+
 // AddPartnerCallback that overrides the generic auth callback for the given partnerId
 func (s *state) AddPartnerCallback(partnerId *id.ID, cb Callbacks) {
 	s.partnerCallbacks.AddPartnerCallback(partnerId, cb)

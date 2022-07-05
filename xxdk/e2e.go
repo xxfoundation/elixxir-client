@@ -178,8 +178,9 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	userInfo := c.GetStorage().PortableUserInfo()
-	receptionIdentity, err := buildReceptionIdentity(userInfo, c.GetStorage().GetE2EGroup(), protoUser.E2eDhPrivateKey)
+	userInfo := user.NewUserFromProto(protoUser)
+	receptionIdentity, err := buildReceptionIdentity(userInfo,
+		c.GetStorage().GetE2EGroup(), protoUser.E2eDhPrivateKey)
 	return Login(c, callbacks, receptionIdentity)
 }
 

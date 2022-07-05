@@ -248,6 +248,8 @@ func login(client *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
 	}
 
 	client.network.AddIdentity(identity.ID, time.Time{}, true)
+	jww.INFO.Printf("Client logged in: \n\tReceptionID: %s",
+		identity.ID)
 	return m, err
 }
 

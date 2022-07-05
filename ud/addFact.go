@@ -22,7 +22,7 @@ func (m *Manager) SendRegisterFact(f fact.Fact) (string, error) {
 	jww.INFO.Printf("ud.SendRegisterFact(%s)", f.Stringify())
 	m.factMux.Lock()
 	defer m.factMux.Unlock()
-	return m.addFact(f, m.e2e.GetReceptionID(), m.comms)
+	return m.addFact(f, m.e2e.GetReceptionIdentity().ID, m.comms)
 }
 
 // addFact is the helper function for SendRegisterFact.
@@ -45,7 +45,10 @@ func (m *Manager) addFact(inFact fact.Fact, myId *id.ID,
 	fHash := factID.Fingerprint(f)
 
 	// Sign our inFact for putting into the request
-	privKey := m.user.PortableUserInfo().ReceptionRSA
+	privKey, err := m.e2e.GetReceptionIdentity().GetRSAPrivatePem()
+	if err != nil {
+		return "", err
+	}
 	stream := m.rng.GetStream()
 	defer stream.Close()
 	fSig, err := rsa.Sign(stream, privKey, hash.CMixHash, fHash, nil)

@@ -213,12 +213,12 @@ func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (*Cmix,
 		return nil, err
 	}
 
-	jww.INFO.Printf("Cmix Logged in: \n\tTransmissionID: %s "+
-		"\n\tReceptionID: %s", c.storage.GetTransmissionID(), c.storage.GetReceptionID())
+	jww.INFO.Printf("Client loaded: \n\tTransmissionID: %s",
+		c.GetTransmissionIdentity().ID)
 
 	def := c.storage.GetNDF()
 
-	//initialize registration
+	//initialize registration.
 	if def.Registration.Address != "" {
 		err = c.initPermissioning(def)
 		if err != nil {
@@ -257,13 +257,14 @@ func (c *Cmix) initComms() error {
 	var err error
 
 	//get the user from session
-	privKey := c.storage.GetTransmissionRSA()
+	transmissionIdentity := c.GetTransmissionIdentity()
+	privKey := transmissionIdentity.RSAPrivatePem
 	pubPEM := rsa.CreatePublicKeyPem(privKey.GetPublic())
 	privPEM := rsa.CreatePrivateKeyPem(privKey)
 
 	//start comms
-	c.comms, err = client.NewClientComms(c.storage.GetTransmissionID(),
-		pubPEM, privPEM, c.storage.GetTransmissionSalt())
+	c.comms, err = client.NewClientComms(transmissionIdentity.ID,
+		pubPEM, privPEM, transmissionIdentity.Salt)
 	if err != nil {
 		return errors.WithMessage(err, "failed to load client")
 	}

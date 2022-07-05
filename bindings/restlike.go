@@ -34,7 +34,7 @@ type RestlikeMessage struct {
 // request - marshalled RestlikeMessage
 // Returns marshalled result RestlikeMessage
 func RestlikeRequest(clientID, connectionID int, request []byte) ([]byte, error) {
-	cl, err := clientTrackerSingleton.get(clientID)
+	cl, err := cmixTrackerSingleton.get(clientID)
 	if err != nil {
 		return nil, err
 	}

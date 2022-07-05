@@ -2,8 +2,9 @@ package bindings
 
 import (
 	"encoding/json"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/fileTransfer"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
@@ -14,7 +15,8 @@ import (
 
 // FileTransfer object is a bindings-layer struct which wraps a fileTransfer.FileTransfer interface
 type FileTransfer struct {
-	ft fileTransfer.FileTransfer
+	ft    fileTransfer.FileTransfer
+	e2eCl *E2e
 }
 
 // ReceivedFile is a public struct which represents the contents of an incoming file
@@ -86,51 +88,48 @@ type FileTransferReceiveProgressCallback interface {
 
 // InitFileTransfer creates a bindings-level File Transfer manager
 // Accepts client ID, ReceiveFileCallback and a ReporterFunc
-func InitFileTransfer(clientID int, cb ReceiveFileCallback, r ReporterFunc) (*FileTransfer, error) {
+func InitFileTransfer(clientID, e2eID int, cb ReceiveFileCallback) (*FileTransfer, error) {
 	// Get bindings client from singleton
-	c, err := clientTrackerSingleton.get(clientID)
+	//c, err := cmixTrackerSingleton.get(clientID)
+	//if err != nil {
+	//	return nil, err
+	//}
+	e2eCl, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create the callback to wrap the ReceiveFileCallback
-	rcb := func(tid *ftCrypto.TransferID, fileName, fileType string,
-		sender *id.ID, size uint32, preview []byte) {
-		f := &ReceivedFile{
-			TransferID: tid.Bytes(),
-			SenderID:   sender.Marshal(),
-			Preview:    preview,
-			Name:       fileName,
-			Type:       fileType,
-			Size:       size,
-		}
-		cb.Callback(json.Marshal(f))
-	}
+	//rcb := func(tid *ftCrypto.TransferID, fileName, fileType string,
+	//	sender *id.ID, size uint32, preview []byte) {
+	//	f := &ReceivedFile{
+	//		TransferID: tid.Bytes(),
+	//		SenderID:   sender.Marshal(),
+	//		Preview:    preview,
+	//		Name:       fileName,
+	//		Type:       fileType,
+	//		Size:       size,
+	//	}
+	//	cb.Callback(json.Marshal(f))
+	//}
 
 	// Client info
-	myID := c.api.GetUser().TransmissionID
-	kv := c.api.GetStorage().GetKV()
-	e2eGrp := c.api.GetStorage().GetE2EGroup()
-	rng := c.api.GetRng()
-
-	// Create e2e manager (should this have a singleton?)
-	err = e2e.Init(kv, myID, c.api.GetUser().E2eDhPrivateKey, e2eGrp, rekey.GetDefaultParams())
-	e2eManager, err := e2e.Load(kv, c.api.GetCmix(), myID, e2eGrp, rng, &reporter{
-		r: r,
-	})
+	e2eCl.api.GetTransmissionIdentity()
+	myID := e2eCl.api.GetTransmissionIdentity().ID
+	rng := e2eCl.api.GetRng()
 
 	// Create file transfer manager
-	m, err := fileTransfer.NewManager(rcb, fileTransfer.DefaultParams(), myID,
-		c.api.GetCmix(), e2eManager, kv, rng)
+	m, err := fileTransfer.NewManager(fileTransfer.DefaultParams(), myID,
+		e2eCl.api.GetCmix(), e2eCl.api.GetStorage(), rng)
 
 	// Add file transfer processes to client services tracking
-	err = c.api.AddService(m.StartProcesses)
+	err = e2eCl.api.AddService(m.StartProcesses)
 	if err != nil {
 		return nil, err
 	}
 
 	// Return wrapped manager
-	return &FileTransfer{ft: m}, nil
+	return &FileTransfer{ft: m, e2eCl: e2eCl}, nil
 }
 
 // Send is the bindings-level function for sending a File
@@ -147,7 +146,7 @@ func (f *FileTransfer) Send(payload, recipientID []byte, retry float32,
 
 	// Wrap transfer progress callback to be passed to fileTransfer layer
 	cb := func(completed bool, arrived, total uint16,
-		t fileTransfer.FilePartTracker, err error) {
+		st fileTransfer.SentTransfer, t fileTransfer.FilePartTracker, err error) {
 		prog := &Progress{
 			Completed:   completed,
 			Transmitted: arrived,
@@ -165,8 +164,21 @@ func (f *FileTransfer) Send(payload, recipientID []byte, retry float32,
 		return nil, err
 	}
 
+	sendNew := func(transferInfo []byte) error {
+		params, err := e2e.GetDefaultParams().MarshalJSON()
+		if err != nil {
+			return err
+		}
+		resp, err := f.e2eCl.SendE2E(int(catalog.NewFileTransfer), recipientID, transferInfo, params)
+		if err != nil {
+			return err
+		}
+		jww.INFO.Printf("New file transfer message sent: %s", resp)
+		return nil
+	}
+
 	// Send file
-	ftID, err := f.ft.Send(fs.Name, fs.Type, fs.Contents, recipient, retry, fs.Preview, cb, p)
+	ftID, err := f.ft.Send(recipient, fs.Name, fs.Type, fs.Contents, retry, fs.Preview, cb, p, sendNew)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +215,7 @@ func (f *FileTransfer) CloseSend(tidBytes []byte) error {
 func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 	callback FileTransferSentProgressCallback, period string) error {
 	cb := func(completed bool, arrived, total uint16,
-		t fileTransfer.FilePartTracker, err error) {
+		st fileTransfer.SentTransfer, t fileTransfer.FilePartTracker, err error) {
 		prog := &Progress{
 			Completed:   completed,
 			Transmitted: arrived,
@@ -224,7 +236,7 @@ func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 
 func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte, callback FileTransferReceiveProgressCallback, period string) error {
 	cb := func(completed bool, received, total uint16,
-		t fileTransfer.FilePartTracker, err error) {
+		rt fileTransfer.ReceivedTransfer, t fileTransfer.FilePartTracker, err error) {
 		prog := &Progress{
 			Completed:   completed,
 			Transmitted: received,
@@ -275,12 +287,12 @@ type FilePartTracker struct {
 // 1 = sent (sender has sent a part, but it has not arrived)
 // 2 = arrived (sender has sent a part, and it has arrived)
 // 3 = received (receiver has received a part)
-func (fpt *FilePartTracker) GetPartStatus(partNum int) int {
+func (fpt FilePartTracker) GetPartStatus(partNum int) int {
 	return int(fpt.m.GetPartStatus(uint16(partNum)))
 }
 
 // GetNumParts returns the total number of file parts in the transfer.
-func (fpt *FilePartTracker) GetNumParts() int {
+func (fpt FilePartTracker) GetNumParts() int {
 	return int(fpt.m.GetNumParts())
 }
 

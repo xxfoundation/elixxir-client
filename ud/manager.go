@@ -145,7 +145,7 @@ func NewManagerFromBackup(e2e E2E, follower NetworkStatus,
 	// Initialize manager
 	m := &Manager{
 		network: e2e.GetCmix(),
-		e2e:     e2e(),
+		e2e:     e2e,
 		events:  e2e.GetEventReporter(),
 		comms:   e2e.GetComms(),
 		kv:      e2e.GetStorage().GetKV(),

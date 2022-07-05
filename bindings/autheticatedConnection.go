@@ -2,7 +2,6 @@ package bindings
 
 import (
 	"gitlab.com/elixxir/client/connect"
-	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 )
 
@@ -26,6 +25,8 @@ func (_ *AuthenticatedConnection) IsAuthenticated() bool {
 // with the server and then authenticate their identity to the server.
 // accepts a marshalled ReceptionIdentity and contact.Contact object
 func (c *Cmix) ConnectWithAuthentication(e2eId int, recipientContact []byte) (*AuthenticatedConnection, error) {
+	paramsJSON := GetDefaultE2EParams()
+
 	cont, err := contact.Unmarshal(recipientContact)
 	if err != nil {
 		return nil, err
@@ -36,7 +37,12 @@ func (c *Cmix) ConnectWithAuthentication(e2eId int, recipientContact []byte) (*A
 		return nil, err
 	}
 
-	connection, err := connect.ConnectWithAuthentication(cont, e2eClient.api,
-		xxdk.GetDefaultE2EParams())
-	return authenticatedConnectionTrackerSingleton.make(connection), nil
+	params, err := parseE2EParams(paramsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	connection, err := connect.ConnectWithAuthentication(cont,
+		e2eClient.api, params)
+	return authenticatedConnectionTrackerSingleton.make(connection), err
 }

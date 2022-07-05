@@ -51,7 +51,13 @@ func NewKeystore(network, storageDir string, password []byte, regCode string) er
 // starts subprocesses to perform network operations.
 // TODO: add in custom parameters instead of the default
 func Login(storageDir string, password []byte) (*Cmix, error) {
-	client, err := xxdk.LoadCmix(storageDir, password, xxdk.GetDefaultCMixParams())
+	paramsJSON := GetDefaultCMixParams()
+	params, err := parseCMixParams(paramsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := xxdk.LoadCmix(storageDir, password, params)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}

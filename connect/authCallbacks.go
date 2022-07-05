@@ -27,7 +27,7 @@ type clientAuthCallback struct {
 
 	// Used for building new Connection objects
 	connectionE2e    clientE2e.Handler
-	connectionParams Params
+	connectionParams xxdk.E2EParams
 	authState        auth.State
 }
 
@@ -35,7 +35,7 @@ type clientAuthCallback struct {
 // of an auth.State object.
 // it will accept requests only if a request callback is passed in
 func getClientAuthCallback(confirm, request Callback, e2e clientE2e.Handler,
-	auth auth.State, params Params) *clientAuthCallback {
+	auth auth.State, params xxdk.E2EParams) *clientAuthCallback {
 	return &clientAuthCallback{
 		confirmCallback:  confirm,
 		requestCallback:  request,
@@ -94,14 +94,14 @@ type serverAuthCallback struct {
 	cl *ConnectionList
 
 	// Used for building new Connection objects
-	connectionParams Params
+	connectionParams xxdk.E2EParams
 }
 
 // getServerAuthCallback returns a callback interface to be passed into the creation
 // of a xxdk.E2e object.
 // it will accept requests only if a request callback is passed in
 func getServerAuthCallback(confirm, request Callback, cl *ConnectionList,
-	params Params) *serverAuthCallback {
+	params xxdk.E2EParams) *serverAuthCallback {
 	return &serverAuthCallback{
 		confirmCallback:  confirm,
 		requestCallback:  request,

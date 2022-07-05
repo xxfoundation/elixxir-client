@@ -8,11 +8,12 @@
 package receive
 
 import (
+	"sync"
+
 	"github.com/golang-collections/collections/set"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/xx_network/primitives/id"
-	"sync"
 )
 
 type Switchboard struct {
@@ -141,6 +142,9 @@ func (sw *Switchboard) Speak(item Message) {
 	// Matching listeners: include those that match all criteria perfectly, as
 	// well as those that do not care about certain criteria
 	matches := sw.matchListeners(item)
+
+	jww.TRACE.Printf("[E2E] Switchboard.Speak(SenderID: %s, MsgType: %s)",
+		item.Sender, item.MessageType)
 
 	//Execute hear on all matched listeners in a new goroutine
 	matches.Do(func(i interface{}) {

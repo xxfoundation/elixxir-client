@@ -9,7 +9,6 @@ import (
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/crypto/contact"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/primitives/fact"
@@ -90,7 +89,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 	}
 
 	// add the partner
-	p := session.GetDefaultParams()
+	p := authState.sessionParams
 	_, err = authState.e2e.AddPartner(rcs.GetPartner(), partnerPubKey,
 		rcs.GetMyPrivKey(), partnerSIDHPubKey, rcs.GetMySIDHPrivKey(), p, p)
 	if err != nil {

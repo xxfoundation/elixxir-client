@@ -10,13 +10,14 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/client/xxmutils"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/utils"
-	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -33,7 +34,8 @@ var udCmd = &cobra.Command{
 	Short: "Register for and search users using the xx network user discovery service.",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client := initE2e()
+		cmixParams, e2eParams := initParams()
+		client := initE2e(cmixParams, e2eParams)
 
 		// get user and save contact to file
 		user := client.GetReceptionIdentity()

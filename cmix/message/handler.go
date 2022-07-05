@@ -182,14 +182,13 @@ func (h *handler) handleMessageHelper(ecrMsg format.Message, bundle Bundle) bool
 
 	services, exists := h.get(
 		identity.Source, ecrMsg.GetSIH(), ecrMsg.GetContents())
-	if exists {
+	// If the id doesn't exist or there are no services for it, then
+	// we want messages to be reprocessed as garbled.
+	if exists && len(services) != 0 {
 		for _, t := range services {
 			jww.DEBUG.Printf("handleMessage service found: %s, %s",
 				ecrMsg.Digest(), t)
 			go t.Process(ecrMsg, identity, round)
-		}
-		if len(services) == 0 {
-			jww.WARN.Printf("Empty service list for %s", ecrMsg.Digest())
 		}
 		return true
 	}

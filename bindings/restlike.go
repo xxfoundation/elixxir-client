@@ -8,6 +8,7 @@ package bindings
 
 import (
 	"encoding/json"
+
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/restlike"
 	"gitlab.com/elixxir/client/restlike/connect"
@@ -34,11 +35,18 @@ type RestlikeMessage struct {
 // request - marshalled RestlikeMessage
 // Returns marshalled result RestlikeMessage
 func RestlikeRequest(clientID int, connectionID int, request []byte) ([]byte, error) {
+	paramsJSON := GetDefaultE2EParams()
+
 	cl, err := cmixTrackerSingleton.get(clientID)
 	if err != nil {
 		return nil, err
 	}
 	conn, err := connectionTrackerSingleton.get(connectionID)
+	if err != nil {
+		return nil, err
+	}
+
+	params, err := parseE2EParams(paramsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +66,7 @@ func RestlikeRequest(clientID int, connectionID int, request []byte) ([]byte, er
 	result, err := c.Request(restlike.Method(msg.Method), restlike.URI(msg.URI), msg.Content, &restlike.Headers{
 		Headers: msg.Headers,
 		Version: msg.Version,
-	}, e2e.GetDefaultParams())
+	}, params.Base)
 	if err != nil {
 		return nil, err
 	}

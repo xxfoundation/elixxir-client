@@ -36,6 +36,7 @@ func (e *E2e) GetID() int {
 // identity should be created via MakeIdentity() and passed in here
 // If callbacks is left nil, a default auth.Callbacks will be used
 func LoginE2e(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error) {
+	paramsJSON := GetDefaultE2EParams()
 	cmix, err := cmixTrackerSingleton.get(cmixId)
 	if err != nil {
 		return nil, err
@@ -53,7 +54,12 @@ func LoginE2e(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error
 		authCallbacks = &authCallback{bindingsCbs: callbacks}
 	}
 
-	newE2e, err := xxdk.Login(cmix.api, authCallbacks, newIdentity)
+	params, err := parseE2EParams(paramsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	newE2e, err := xxdk.Login(cmix.api, authCallbacks, newIdentity, params)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +71,7 @@ func LoginE2e(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error
 // identity should be created via MakeIdentity() and passed in here
 // If callbacks is left nil, a default auth.Callbacks will be used
 func LoginE2eEphemeral(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error) {
+	paramsJSON := GetDefaultE2EParams()
 	cmix, err := cmixTrackerSingleton.get(cmixId)
 	if err != nil {
 		return nil, err
@@ -82,7 +89,13 @@ func LoginE2eEphemeral(cmixId int, callbacks AuthCallbacks, identity []byte) (*E
 		authCallbacks = &authCallback{bindingsCbs: callbacks}
 	}
 
-	newE2e, err := xxdk.LoginEphemeral(cmix.api, authCallbacks, newIdentity)
+	params, err := parseE2EParams(paramsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	newE2e, err := xxdk.LoginEphemeral(cmix.api, authCallbacks,
+		newIdentity, params)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +108,7 @@ func LoginE2eEphemeral(cmixId int, callbacks AuthCallbacks, identity []byte) (*E
 // This function is designed to maintain backwards compatibility with previous xx messenger designs
 // and should not be used for other purposes
 func LoginE2eLegacy(cmixId int, callbacks AuthCallbacks) (*E2e, error) {
+	paramsJSON := GetDefaultE2EParams()
 	cmix, err := cmixTrackerSingleton.get(cmixId)
 	if err != nil {
 		return nil, err
@@ -107,7 +121,12 @@ func LoginE2eLegacy(cmixId int, callbacks AuthCallbacks) (*E2e, error) {
 		authCallbacks = &authCallback{bindingsCbs: callbacks}
 	}
 
-	newE2e, err := xxdk.LoginLegacy(cmix.api, authCallbacks)
+	params, err := parseE2EParams(paramsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	newE2e, err := xxdk.LoginLegacy(cmix.api, params, authCallbacks)
 	if err != nil {
 		return nil, err
 	}

@@ -102,8 +102,8 @@ func NewOrLoadSent(kv *versioned.KV) (*Sent, []Part, error) {
 // AddTransfer creates a SentTransfer and adds it to the map keyed on its
 // transfer ID.
 func (s *Sent) AddTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
-	tid *ftCrypto.TransferID, fileName string, parts [][]byte, numFps uint16) (
-	*SentTransfer, error) {
+	tid *ftCrypto.TransferID, fileName string, fileSize uint32, parts [][]byte,
+	numFps uint16) (*SentTransfer, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -112,7 +112,8 @@ func (s *Sent) AddTransfer(recipient *id.ID, key *ftCrypto.TransferKey,
 		return nil, errors.Errorf(errAddExistingSentTransfer, tid)
 	}
 
-	st, err := newSentTransfer(recipient, key, tid, fileName, parts, numFps, s.kv)
+	st, err := newSentTransfer(
+		recipient, key, tid, fileName, fileSize, parts, numFps, s.kv)
 	if err != nil {
 		return nil, errors.Errorf(errNewSentTransfer, tid)
 	}

@@ -170,26 +170,26 @@ func TestNewManager_LoadError(t *testing.T) {
 // 	m2, _ := newTestManagerWithStore(prng, 10, 0, requestFunc2, receiveFunc2, t)
 // 	m3, _ := newTestManagerWithStore(prng, 10, 0, requestFunc3, receiveFunc3, t)
 //
-// 	membership, err := group.NewMembership(m1.store.GetUser().Contact(),
-// 		m2.store.GetUser().Contact(), m3.store.GetUser().Contact())
+// 	membership, err := group.NewMembership(m1.store.GetTransmissionIdentity().Contact(),
+// 		m2.store.GetTransmissionIdentity().Contact(), m3.store.GetTransmissionIdentity().Contact())
 // 	if err != nil {
 // 		t.Errorf("Failed to generate new membership: %+v", err)
 // 	}
 //
-// 	dhKeys := gs.GenerateDhKeyList(m1.gs.GetUser().ID,
-// 		m1.store.GetUser().E2eDhPrivateKey, membership, m1.store.E2e().GetGroup())
+// 	dhKeys := gs.GenerateDhKeyList(m1.gs.GetTransmissionIdentity().ID,
+// 		m1.store.GetTransmissionIdentity().E2eDhPrivateKey, membership, m1.store.E2e().GetGroup())
 //
-// 	grp1 := newTestGroup(m1.store.E2e().GetGroup(), m1.store.GetUser().E2eDhPrivateKey, prng, t)
+// 	grp1 := newTestGroup(m1.store.E2e().GetGroup(), m1.store.GetTransmissionIdentity().E2eDhPrivateKey, prng, t)
 // 	grp1.Members = membership
 // 	grp1.DhKeys = dhKeys
 // 	grp1.ID = group.NewID(grp1.IdPreimage, grp1.Members)
 // 	grp1.Key = group.NewKey(grp1.KeyPreimage, grp1.Members)
 // 	grp2 := grp1.DeepCopy()
-// 	grp2.DhKeys = gs.GenerateDhKeyList(m2.gs.GetUser().ID,
-// 		m2.store.GetUser().E2eDhPrivateKey, membership, m2.store.E2e().GetGroup())
+// 	grp2.DhKeys = gs.GenerateDhKeyList(m2.gs.GetTransmissionIdentity().ID,
+// 		m2.store.GetTransmissionIdentity().E2eDhPrivateKey, membership, m2.store.E2e().GetGroup())
 // 	grp3 := grp1.DeepCopy()
-// 	grp3.DhKeys = gs.GenerateDhKeyList(m3.gs.GetUser().ID,
-// 		m3.store.GetUser().E2eDhPrivateKey, membership, m3.store.E2e().GetGroup())
+// 	grp3.DhKeys = gs.GenerateDhKeyList(m3.gs.GetTransmissionIdentity().ID,
+// 		m3.store.GetTransmissionIdentity().E2eDhPrivateKey, membership, m3.store.E2e().GetGroup())
 //
 // 	err = m1.gs.Add(grp1)
 // 	if err != nil {
@@ -222,7 +222,7 @@ func TestNewManager_LoadError(t *testing.T) {
 // 	msg := message.Receive{
 // 		Payload:     requestMarshaled,
 // 		MessageType: message.GroupCreationRequest,
-// 		Sender:      m1.gs.GetUser().ID,
+// 		Sender:      m1.gs.GetTransmissionIdentity().ID,
 // 	}
 //
 // 	m2.swb.(*switchboard.Switchboard).Speak(msg)
@@ -252,14 +252,14 @@ func TestNewManager_LoadError(t *testing.T) {
 // 	timestamp := netTime.Now()
 //
 // 	// Create cMix message and get public message
-// 	cMixMsg, err := m1.newCmixMsg(grp1, contents, timestamp, m2.gs.GetUser(), prng)
+// 	cMixMsg, err := m1.newCmixMsg(grp1, contents, timestamp, m2.gs.GetTransmissionIdentity(), prng)
 // 	if err != nil {
 // 		t.Errorf("Failed to create new cMix message: %+v", err)
 // 	}
 //
 // 	internalMsg, _ := newInternalMsg(cMixMsg.ContentsSize() - publicMinLen)
 // 	internalMsg.SetTimestamp(timestamp)
-// 	internalMsg.SetSenderID(m1.gs.GetUser().ID)
+// 	internalMsg.SetSenderID(m1.gs.GetTransmissionIdentity().ID)
 // 	internalMsg.SetPayload(contents)
 // 	expectedMsgID := group.NewMessageID(grp1.ID, internalMsg.Marshal())
 //
@@ -267,14 +267,14 @@ func TestNewManager_LoadError(t *testing.T) {
 // 		GroupID:        grp1.ID,
 // 		ID:             expectedMsgID,
 // 		Payload:        contents,
-// 		SenderID:       m1.gs.GetUser().ID,
+// 		SenderID:       m1.gs.GetTransmissionIdentity().ID,
 // 		RoundTimestamp: timestamp.Local(),
 // 	}
 //
 // 	msg = message.Receive{
 // 		Payload:        cMixMsg.Marshal(),
 // 		MessageType:    message.Raw,
-// 		Sender:         m1.gs.GetUser().ID,
+// 		Sender:         m1.gs.GetTransmissionIdentity().ID,
 // 		RoundTimestamp: timestamp.Local(),
 // 	}
 // 	m2.swb.(*switchboard.Switchboard).Speak(msg)

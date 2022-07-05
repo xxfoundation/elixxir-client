@@ -8,10 +8,10 @@
 package backup
 
 import (
+	"gitlab.com/elixxir/client/xxdk"
 	"sync"
 	"time"
 
-	"gitlab.com/elixxir/client/api/messenger"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/fact"
@@ -30,9 +30,6 @@ const (
 	errSavePassword      = "failed to save password: %+v"
 	errSaveKeySaltParams = "failed to save key, salt, and params: %+v"
 
-	// ResumeBackup
-	errLoadPassword = "backup not initialized: load user password failed: %+v"
-
 	// Backup.StopBackup
 	errDeletePassword = "failed to delete password: %+v"
 	errDeleteCrypto   = "failed to delete key, salt, and parameters: %+v"
@@ -44,11 +41,11 @@ type Backup struct {
 	// Callback that is called with the encrypted backup when triggered
 	updateBackupCb UpdateBackupFn
 
-	container *messenger.Container
+	container *xxdk.Container
 
 	jsonParams string
 
-	// Client structures
+	// E2e structures
 	e2e     E2e
 	session Session
 	ud      UserDiscovery
@@ -94,7 +91,7 @@ type UpdateBackupFn func(encryptedBackup []byte)
 // Call this to turn on backups for the first time or to replace the user's
 // password.
 func InitializeBackup(password string, updateBackupCb UpdateBackupFn,
-	container *messenger.Container, e2e E2e, session Session, ud UserDiscovery,
+	container *xxdk.Container, e2e E2e, session Session, ud UserDiscovery,
 	kv *versioned.KV, rng *fastRNG.StreamGenerator) (*Backup, error) {
 	b := &Backup{
 		updateBackupCb: updateBackupCb,
@@ -106,12 +103,6 @@ func InitializeBackup(password string, updateBackupCb UpdateBackupFn,
 		rng:            rng,
 	}
 
-	// Save password to storage
-	err := savePassword(password, b.kv)
-	if err != nil {
-		return nil, errors.Errorf(errSavePassword, err)
-	}
-
 	// Derive key and get generated salt and parameters
 	rand := b.rng.GetStream()
 	salt, err := backup.MakeSalt(rand)
@@ -121,9 +112,9 @@ func InitializeBackup(password string, updateBackupCb UpdateBackupFn,
 	rand.Close()
 
 	params := backup.DefaultParams()
-	params.Memory = 256 * 1024 // 256 MiB
-	params.Threads = 4
-	params.Time = 100
+	params.Memory = 64 * 1024 // 64 MiB
+	params.Threads = 1
+	params.Time = 5
 	key := backup.DeriveKey(password, salt, params)
 
 	// Save key, salt, and parameters to storage
@@ -144,12 +135,12 @@ func InitializeBackup(password string, updateBackupCb UpdateBackupFn,
 // ResumeBackup resumes a backup by restoring the Backup object and registering
 // a new callback. Call this to resume backups that have already been
 // initialized. Returns an error if backups have not already been initialized.
-func ResumeBackup(updateBackupCb UpdateBackupFn, container *messenger.Container,
+func ResumeBackup(updateBackupCb UpdateBackupFn, container *xxdk.Container,
 	e2e E2e, session Session, ud UserDiscovery, kv *versioned.KV,
 	rng *fastRNG.StreamGenerator) (*Backup, error) {
-	_, err := loadPassword(kv)
+	_, _, _, err := loadBackup(kv)
 	if err != nil {
-		return nil, errors.Errorf(errLoadPassword, err)
+		return nil, err
 	}
 
 	b := &Backup{
@@ -253,12 +244,7 @@ func (b *Backup) StopBackup() error {
 	defer b.mux.Unlock()
 	b.updateBackupCb = nil
 
-	err := deletePassword(b.kv)
-	if err != nil {
-		return errors.Errorf(errDeletePassword, err)
-	}
-
-	err = deleteBackup(b.kv)
+	err := deleteBackup(b.kv)
 	if err != nil {
 		return errors.Errorf(errDeleteCrypto, err)
 	}

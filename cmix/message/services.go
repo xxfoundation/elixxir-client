@@ -106,6 +106,8 @@ func (sm *ServicesManager) get(clientID *id.ID, receivedSIH,
 			// queries
 			return []Processor{}, false
 		}
+		jww.TRACE.Printf("Evaluated service not for me (%s): %s",
+			clientID, s)
 	}
 
 	return nil, false
@@ -153,6 +155,9 @@ func (sm *ServicesManager) AddService(clientID *id.ID, newService Service, respo
 		jww.FATAL.Panicf("Cannot add service %s, an identical "+
 			"service already exists", newService.Tag)
 	}
+
+	jww.DEBUG.Printf("Adding service %s, clientID: %s", newService,
+		clientID)
 
 	// Add the service to the internal map
 	sm.tmap[*clientID][newService.preimage()] = newEntry

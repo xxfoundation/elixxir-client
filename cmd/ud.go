@@ -33,11 +33,11 @@ var udCmd = &cobra.Command{
 	Short: "Register for and search users using the xx network user discovery service.",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client := initClient()
+		client := initE2e()
 
 		// get user and save contact to file
-		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ReceptionID)
+		user := client.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", user.ID)
 		writeContact(user.GetContact())
 
 		// // Set up reception handler
@@ -152,7 +152,7 @@ var udCmd = &cobra.Command{
 		// Note: Cryptographic verification occurs above the bindings layer
 		lookupIDStr := viper.GetString("lookup")
 		if lookupIDStr != "" {
-			lookupID, _ := parseRecipient(lookupIDStr)
+			lookupID := parseRecipient(lookupIDStr)
 			//if !ok {
 			//	jww.FATAL.Panicf("Could not parse recipient: %s", lookupIDStr)
 			//}

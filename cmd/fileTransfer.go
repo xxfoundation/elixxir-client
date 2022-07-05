@@ -9,15 +9,15 @@ package cmd
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/api/messenger"
+	"gitlab.com/elixxir/client/xxdk"
 	"io/ioutil"
 	"time"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	ft "gitlab.com/elixxir/client/fileTransfer2"
-	ftE2e "gitlab.com/elixxir/client/fileTransfer2/e2e"
+	ft "gitlab.com/elixxir/client/fileTransfer"
+	ftE2e "gitlab.com/elixxir/client/fileTransfer/e2e"
 	"gitlab.com/elixxir/crypto/contact"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
@@ -36,11 +36,11 @@ var ftCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		// Initialise a new client
-		client := initClient()
+		client := initE2e()
 
 		// Print user's reception ID and save contact file
-		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ReceptionID)
+		user := client.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", user.ID)
 		writeContact(user.GetContact())
 
 		// Start the network follower
@@ -132,7 +132,7 @@ type receivedFtResults struct {
 // initFileTransferManager creates a new file transfer manager with a new
 // reception callback. Returns the file transfer manager and the channel that
 // will be triggered when the callback is called.
-func initFileTransferManager(client *messenger.Client, maxThroughput int) (
+func initFileTransferManager(client *xxdk.E2e, maxThroughput int) (
 	*ftE2e.Wrapper, chan receivedFtResults) {
 
 	// Create interfaces.ReceiveCallback that returns the results on a channel
@@ -152,9 +152,9 @@ func initFileTransferManager(client *messenger.Client, maxThroughput int) (
 
 	// Create new manager
 	manager, err := ft.NewManager(p,
-		client.GetUser().ReceptionID,
+		client.GetReceptionIdentity().ID,
 		client.GetCmix(),
-		client.GetStorage().GetKV(),
+		client.GetStorage(),
 		client.GetRng())
 	if err != nil {
 		jww.FATAL.Panicf(
@@ -169,7 +169,7 @@ func initFileTransferManager(client *messenger.Client, maxThroughput int) (
 
 	e2eParams := ftE2e.DefaultParams()
 	e2eFt, err := ftE2e.NewWrapper(receiveCB, e2eParams, manager,
-		client.GetUser().ReceptionID, client.GetE2E(), client.GetCmix())
+		client.GetReceptionIdentity().ID, client.GetE2E(), client.GetCmix())
 	if err != nil {
 		jww.FATAL.Panicf(
 			"[FT] Failed to create new e2e file transfer wrapper: %+v", err)
@@ -297,7 +297,7 @@ func newReceiveProgressCB(tid *ftCrypto.TransferID, fileName string,
 	m *ftE2e.Wrapper) ft.ReceivedProgressCallback {
 	return func(completed bool, received, total uint16,
 		rt ft.ReceivedTransfer, t ft.FilePartTracker, err error) {
-		jww.INFO.Printf("[FT] Receive progress callback for transfer %s "+
+		jww.INFO.Printf("[FT] Received progress callback for transfer %s "+
 			"{completed: %t, received: %d, total: %d, err: %v}",
 			tid, completed, received, total, err)
 
@@ -311,7 +311,7 @@ func newReceiveProgressCB(tid *ftCrypto.TransferID, fileName string,
 			receivedFile, err2 := m.Receive(tid)
 			if err2 != nil {
 				jww.FATAL.Panicf(
-					"[FT] Failed to receive file %s: %+v", tid, err)
+					"[FT] Failed to receive file %s: %+v", tid, err2)
 			}
 			jww.INFO.Printf("[FT] Completed receiving file %q in %s.",
 				fileName, netTime.Since(receiveStart))

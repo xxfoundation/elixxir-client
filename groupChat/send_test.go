@@ -51,7 +51,7 @@ func Test_manager_Send(t *testing.T) {
 	}
 
 	timestamps := make(map[states.Round]time.Time)
-	timestamps[states.QUEUED] = netTime.Now().Round(0)
+	timestamps[states.PRECOMPUTING] = netTime.Now().Round(0)
 	for _, msg := range messages {
 		reception.Process(msg, receptionID.EphemeralIdentity{
 			EphId: ephemeral.Id{1, 2, 3}, Source: &id.ID{4, 5, 6},

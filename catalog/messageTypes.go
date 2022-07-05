@@ -1,5 +1,7 @@
 package catalog
 
+import "fmt"
+
 type MessageType uint32
 
 const MessageTypeLen = 32 / 8
@@ -37,14 +39,41 @@ const (
 
 	// NewFileTransfer is transmitted first on the initialization of a file
 	// transfer to inform the receiver about the incoming file.
-	NewFileTransfer = 50
+	NewFileTransfer MessageType = 50
 
 	// EndFileTransfer is sent once all file parts have been transmitted to
 	// inform the receiver that the file transfer has ended.
-	EndFileTransfer = 51
+	EndFileTransfer MessageType = 51
 
 	// ConnectionAuthenticationRequest is sent by the recipient
 	// of an authenticated connection request
 	// (see the connect/ package)
 	ConnectionAuthenticationRequest = 60
 )
+
+func (mt MessageType) String() string {
+	switch mt {
+	case NoType:
+		return "NoType"
+	case XxMessage:
+		return "XxMessage"
+	case KeyExchangeTrigger:
+		return "KeyExchangeTrigger"
+	case KeyExchangeConfirm:
+		return "KeyExchangeConfirm"
+	case KeyExchangeTriggerEphemeral:
+		return "KeyExchangeTriggerEphemeral"
+	case KeyExchangeConfirmEphemeral:
+		return "KeyExchangeConfirmEphemeral"
+	case GroupCreationRequest:
+		return "GroupCreationRequest"
+	case NewFileTransfer:
+		return "NewFileTransfer"
+	case EndFileTransfer:
+		return "EndFileTransfer"
+	case ConnectionAuthenticationRequest:
+		return "ConnectionAuthenticationRequest"
+	default:
+		return fmt.Sprintf("UNKNOWN TYPE (%d)", mt)
+	}
+}

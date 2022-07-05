@@ -14,15 +14,9 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"gitlab.com/xx_network/primitives/ndf"
 )
 
 type Client interface {
-	// Connect turns on network handlers, initializing a host pool and
-	// network health monitors. This should be called before
-	// network Follow command is called.
-	Connect(ndf *ndf.NetworkDefinition) error
-
 	// Follow starts the tracking of the network in a new thread.
 	// Errors that occur are reported on the ClientErrorReport function if
 	// passed. The returned stoppable can be used to stop the follower.
@@ -212,7 +206,7 @@ type Client interface {
 	/* === Nodes ============================================================ */
 	/* Keys must be registered with nodes in order to send messages through
 	   them. This process is, in general, automatically handled by the Network
-	   Client. */
+	   client. */
 
 	// HasNode can be used to determine if a keying relationship exists with a
 	// node.
@@ -229,7 +223,7 @@ type Client interface {
 	/* === Rounds =========================================================== */
 	/* A complete set of round info is not kept on the client, and sometimes
 	   the network will need to be queried to get round info. Historical rounds
-	   is the system internal to the Network Client to do this. It can be used
+	   is the system internal to the Network client to do this. It can be used
 	   externally as well. */
 
 	// GetRoundResults adjudicates on the rounds requested. Checks if they are

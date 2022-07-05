@@ -2,8 +2,8 @@
 
 version:
 	go run main.go generate
-	sed -i.bak 's/package\ cmd/package\ api/g' version_vars.go
-	mv version_vars.go api/version_vars.go
+	sed -i.bak 's/package\ cmd/package\ xxdk/g' version_vars.go
+	mv version_vars.go xxdk/version_vars.go
 
 clean:
 	rm -rf vendor/
@@ -20,7 +20,7 @@ update_release:
 	GOFLAGS="" go get gitlab.com/xx_network/primitives@release
 	GOFLAGS="" go get gitlab.com/elixxir/primitives@release
 	GOFLAGS="" go get gitlab.com/xx_network/crypto@release
-	GOFLAGS="" go get gitlab.com/elixxir/crypto@singleUseMultiPartRequest
+	GOFLAGS="" go get gitlab.com/elixxir/crypto@release
 	GOFLAGS="" go get gitlab.com/xx_network/comms@release
 	GOFLAGS="" go get gitlab.com/elixxir/comms@release
 	GOFLAGS="" go get gitlab.com/elixxir/ekv@master

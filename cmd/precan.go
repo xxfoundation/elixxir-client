@@ -11,7 +11,7 @@ package cmd
 
 import (
 	"encoding/binary"
-	"gitlab.com/elixxir/client/api/messenger"
+	"gitlab.com/elixxir/client/xxdk"
 	"strconv"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -67,7 +67,7 @@ func getPrecanID(recipientID *id.ID) uint {
 	return uint(recipientID.Bytes()[7])
 }
 
-func addPrecanAuthenticatedChannel(client *messenger.Client, recipientID *id.ID,
+func addPrecanAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 	recipient contact.Contact) {
 	jww.WARN.Printf("Precanned user id detected: %s", recipientID)
 	preUsr, err := client.MakePrecannedAuthenticatedChannel(

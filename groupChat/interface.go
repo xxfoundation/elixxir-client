@@ -50,7 +50,7 @@ type GroupChat interface {
 	// LeaveGroup removes a group from a list of groups the user is a part of.
 	LeaveGroup(groupID *id.ID) error
 
-	// Send sends a message to all GroupChat members using Client.SendManyCMIX.
+	// Send sends a message to all GroupChat members using Cmix.SendManyCMIX.
 	// The send fails if the message is too long. Returns the ID of the round
 	// sent on and the timestamp of the message send.
 	Send(groupID *id.ID, tag string, message []byte) (

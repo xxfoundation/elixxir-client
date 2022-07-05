@@ -18,7 +18,7 @@ import (
 	// "gitlab.com/elixxir/client/switchboard"
 	// "gitlab.com/elixxir/client/ud"
 	// "gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/xx_network/comms/connect"
 	//"time"
@@ -47,23 +47,23 @@ var getNDFCmd = &cobra.Command{
 			var err error
 			switch viper.GetString("env") {
 			case mainnet:
-				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(mainNetUrl, mainNetCert)
+				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(mainNetUrl, mainNetCert)
 				if err != nil {
 					jww.FATAL.Panicf(err.Error())
 				}
 			case release:
-				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(releaseUrl, releaseCert)
+				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(releaseUrl, releaseCert)
 				if err != nil {
 					jww.FATAL.Panicf(err.Error())
 				}
 
 			case dev:
-				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(devUrl, devCert)
+				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(devUrl, devCert)
 				if err != nil {
 					jww.FATAL.Panicf(err.Error())
 				}
 			case testnet:
-				ndfJSON, err = api.DownloadAndVerifySignedNdfWithUrl(testNetUrl, testNetCert)
+				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(testNetUrl, testNetCert)
 				if err != nil {
 					jww.FATAL.Panicf(err.Error())
 				}
@@ -113,7 +113,7 @@ var getNDFCmd = &cobra.Command{
 					},
 					LastUpdate:    uint64(0),
 					ReceptionID:   dummyID[:],
-					ClientVersion: []byte(api.SEMVER),
+					ClientVersion: []byte(xxdk.SEMVER),
 				}
 				resp, err := comms.SendPoll(host, pollMsg)
 				if err != nil {

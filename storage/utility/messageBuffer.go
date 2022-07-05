@@ -10,11 +10,12 @@ package utility
 import (
 	"encoding/base64"
 	"encoding/json"
+	"sync"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
 )
 
 // MessageHash stores the hash of a message, which is used as the key for each
@@ -198,6 +199,8 @@ func (mb *MessageBuffer) load() error {
 // Add adds a message to the buffer in "not processing" state.
 func (mb *MessageBuffer) Add(m interface{}) interface{} {
 	h := mb.handler.HashMessage(m)
+	jww.TRACE.Printf("Critical Messages Add(%s)",
+		base64.StdEncoding.EncodeToString(h[:]))
 
 	mb.mux.Lock()
 	defer mb.mux.Unlock()

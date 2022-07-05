@@ -8,13 +8,15 @@
 package message
 
 import (
+	"encoding/base64"
 	"fmt"
-	"gitlab.com/elixxir/client/event"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/xx_network/primitives/id"
 	"strconv"
 	"sync"
 	"time"
+
+	"gitlab.com/elixxir/client/event"
+	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/xx_network/primitives/id"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/stoppable"
@@ -166,7 +168,9 @@ func (h *handler) handleMessageHelper(ecrMsg format.Message, bundle Bundle) bool
 	identity := bundle.Identity
 	round := bundle.RoundInfo
 
-	jww.INFO.Printf("handleMessage(%s)", ecrMsg.Digest())
+	jww.INFO.Printf("handleMessage(msgDigest: %s, SIH: %s, KeyFP: %s)",
+		ecrMsg.Digest(), fingerprint,
+		base64.StdEncoding.EncodeToString(ecrMsg.GetSIH()))
 
 	// If we have a fingerprint, process it
 	if proc, exists := h.pop(identity.Source, fingerprint); exists {
@@ -185,13 +189,12 @@ func (h *handler) handleMessageHelper(ecrMsg format.Message, bundle Bundle) bool
 			go t.Process(ecrMsg, identity, round)
 		}
 		if len(services) == 0 {
-			jww.WARN.Printf("empty service list for %s: %s",
-				ecrMsg.Digest(), ecrMsg.GetSIH())
+			jww.WARN.Printf("Empty service list for %s", ecrMsg.Digest())
 		}
 		return true
 	}
 
-	im := fmt.Sprintf("Message cannot be identify: keyFP: %v, round: %d "+
+	im := fmt.Sprintf("Message cannot be identified: keyFP: %v, round: %d "+
 		"msgDigest: %s, not determined to be for client",
 		ecrMsg.GetKeyFP(), bundle.Round, ecrMsg.Digest())
 	jww.TRACE.Printf(im)

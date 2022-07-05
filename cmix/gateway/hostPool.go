@@ -14,6 +14,7 @@ package gateway
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
@@ -46,6 +47,7 @@ var errorsList = []string{
 	ndf.NO_NDF,
 	"Host is in cool down",
 	grpc.ErrClientConnClosing.Error(),
+	connect.TooManyProxyError,
 }
 
 // HostManager Interface allowing storage and retrieval of Host objects
@@ -65,7 +67,7 @@ type HostManager interface {
 // accepted.
 type Filter func(map[id.ID]int, *ndf.NetworkDefinition) map[id.ID]int
 
-// HostPool Handles providing hosts to the Client
+// HostPool Handles providing hosts to the client
 type HostPool struct {
 	hostMap  map[id.ID]uint32 // Map key to its index in the slice
 	hostList []*connect.Host  // Each index in the slice contains the value
@@ -108,7 +110,18 @@ type PoolParams struct {
 	ForceConnection bool
 
 	// HostParams is the parameters for the creation of new Host objects.
-	HostParams connect.HostParams
+	//fixme params: have this adhere to json.Marshaler.
+	// This will allow the PoolParams object to have full adherence.
+	HostParams connect.HostParams `json:"-"`
+}
+
+// poolParamsDisk will be the marshal-able and umarshal-able object.
+type poolParamsDisk struct {
+	MaxPoolSize     uint32
+	PoolSize        uint32
+	ProxyAttempts   uint32
+	MaxPings        uint32
+	ForceConnection bool
 }
 
 // DefaultPoolParams returns a default set of PoolParams.
@@ -130,6 +143,54 @@ func DefaultPoolParams() PoolParams {
 	p.HostParams.SendTimeout = 1000 * time.Millisecond
 	p.HostParams.PingTimeout = 1000 * time.Millisecond
 	return p
+}
+
+// GetParameters returns the default PoolParams, or
+// override with given parameters, if set.
+func GetParameters(params string) (PoolParams, error) {
+	p := DefaultPoolParams()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return PoolParams{}, err
+		}
+	}
+	return p, nil
+}
+
+// MarshalJSON adheres to the json.Marshaler interface.
+func (pp PoolParams) MarshalJSON() ([]byte, error) {
+	ppd := poolParamsDisk{
+		MaxPoolSize:     pp.MaxPoolSize,
+		PoolSize:        pp.PoolSize,
+		ProxyAttempts:   pp.ProxyAttempts,
+		MaxPings:        pp.MaxPings,
+		ForceConnection: pp.ForceConnection,
+	}
+
+	return json.Marshal(&ppd)
+}
+
+// UnmarshalJSON adheres to the json.Unmarshaler interface.
+func (pp *PoolParams) UnmarshalJSON(data []byte) error {
+	ppDisk := poolParamsDisk{}
+	err := json.Unmarshal(data, &ppDisk)
+	if err != nil {
+		return err
+	}
+
+	*pp = PoolParams{
+		MaxPoolSize:     ppDisk.MaxPoolSize,
+		PoolSize:        ppDisk.PoolSize,
+		ProxyAttempts:   ppDisk.ProxyAttempts,
+		MaxPings:        ppDisk.MaxPings,
+		ForceConnection: ppDisk.ForceConnection,
+		// Since this does not adhere to json.Marshaler yet,
+		// file it in manually assuming default values
+		HostParams: connect.GetDefaultHostParams(),
+	}
+
+	return nil
 }
 
 // newHostPool builds and returns a new HostPool object.
@@ -211,7 +272,7 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 	return result, nil
 }
 
-// initialize initializes the HostPool with a performant set of Hosts.
+// initialize the HostPool with a performant set of Hosts.
 func (h *HostPool) initialize(startIdx uint32) error {
 	// If HostPool is full, there is no need to initialize
 	if startIdx == h.poolParams.PoolSize {
@@ -358,16 +419,16 @@ func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 		return
 	}
 
+	// Lock order is extremely important here
+	h.hostMux.Lock()
 	h.ndfMux.Lock()
 	h.ndf = ndf.DeepCopy()
-
-	h.hostMux.Lock()
 	err := h.updateConns()
-	h.hostMux.Unlock()
 	if err != nil {
 		jww.ERROR.Printf("Unable to updateConns: %+v", err)
 	}
 	h.ndfMux.Unlock()
+	h.hostMux.Unlock()
 }
 
 // SetGatewayFilter sets the filter used to filter gateways from the ID map.
@@ -506,8 +567,9 @@ func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) (bool, error) {
 		}
 	}
 
+	// If the Host is still in the pool
 	if doReplace {
-		// If the Host is still in the pool
+		// Lock order is extremely important here
 		h.hostMux.Lock()
 		if oldPoolIndex, ok := h.hostMap[*hostId]; ok {
 			// Replace it

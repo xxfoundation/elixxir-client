@@ -9,6 +9,8 @@ package message
 
 import (
 	"encoding/json"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
@@ -20,7 +22,6 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 	"golang.org/x/crypto/blake2b"
 	"google.golang.org/protobuf/proto"
-	"time"
 )
 
 const currentMeteredCmixMessageVersion = 0
@@ -145,6 +146,8 @@ func (mcmb *MeteredCmixMessageBuffer) Add(m format.Message, ri *pb.RoundInfo,
 		jww.FATAL.Panic(
 			"Cannot handle a metered cMix message with a length of 0.")
 	}
+	jww.TRACE.Printf("Metered Messages Add(MsgDigest: %s)",
+		m.Digest())
 
 	msg := buildMsg(m, ri, identity)
 	addedMsgFace := mcmb.mb.Add(msg)

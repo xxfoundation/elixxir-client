@@ -8,6 +8,8 @@
 package groupChat
 
 import (
+	"strconv"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
@@ -16,7 +18,6 @@ import (
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strconv"
 )
 
 // Error messages.
@@ -78,8 +79,8 @@ func (m *manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 	created := netTime.Now().Round(0)
 
 	// Create new group and add to manager
-	g := gs.NewGroup(
-		name, groupID, groupKey, idPreimage, keyPreimage, msg, created, mem, dkl)
+	g := gs.NewGroup(name, groupID, groupKey, idPreimage,
+		keyPreimage, msg, created, mem, dkl)
 
 	jww.DEBUG.Printf("[GC] Created new group %q with ID %s and %d members %s",
 		g.Name, g.ID, len(g.Members), g.Members)

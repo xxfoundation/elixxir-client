@@ -62,14 +62,23 @@ func RestlikeRequest(clientID, connectionID int, request []byte) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(result)
+
+	respMessage := &RestlikeMessage{
+		Version: result.Headers.Version,
+		Headers: result.Headers.Headers,
+		Content: result.Content,
+		Method:  int(result.Method),
+		URI:     result.Uri,
+		Error:   result.Error,
+	}
+	return json.Marshal(respMessage)
 }
 
 // RestlikeRequestAuth performs an authenticated restlike request
 // request - marshalled RestlikeMessage
 // Returns marshalled result RestlikeMessage
 func RestlikeRequestAuth(clientID int, authConnectionID int, request []byte) ([]byte, error) {
-	cl, err := clientTrackerSingleton.get(clientID)
+	cl, err := cmixTrackerSingleton.get(clientID)
 	if err != nil {
 		return nil, err
 	}
@@ -97,5 +106,13 @@ func RestlikeRequestAuth(clientID int, authConnectionID int, request []byte) ([]
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(result)
+	respMessage := &RestlikeMessage{
+		Version: result.Headers.Version,
+		Headers: result.Headers.Headers,
+		Content: result.Content,
+		Method:  int(result.Method),
+		URI:     result.Uri,
+		Error:   result.Error,
+	}
+	return json.Marshal(respMessage)
 }

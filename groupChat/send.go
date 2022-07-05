@@ -43,7 +43,7 @@ const (
 	saltReadLengthErr = "length of generated salt %d != %d required"
 )
 
-// Send sends a message to all group members using Client.SendMany.
+// Send sends a message to all group members using Cmix.SendMany.
 // The send fails if the message is too long.
 func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 	id.Round, time.Time, group.MessageID, error) {

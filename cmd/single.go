@@ -16,11 +16,11 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/single"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/utils"
 )
@@ -33,12 +33,11 @@ var singleCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		client := initClient()
+		client := initE2e()
 
 		// Write user contact to file
-		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ReceptionID)
-		jww.INFO.Printf("User Transmission: %s", user.TransmissionID)
+		user := client.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", user.ID)
 		writeContact(user.GetContact())
 
 		err := client.StartNetworkFollower(5 * time.Second)
@@ -66,9 +65,14 @@ var singleCmd = &cobra.Command{
 			}),
 		}
 
-		myID := client.GetUser().ReceptionID
+		dhKeyPriv, err := user.GetDHKeyPrivate()
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+
+		myID := user.ID
 		listener := single.Listen(tag, myID,
-			client.GetUser().E2eDhPrivateKey,
+			dhKeyPriv,
 			client.GetCmix(),
 			client.GetStorage().GetE2EGroup(),
 			receiver)
@@ -92,7 +96,7 @@ var singleCmd = &cobra.Command{
 			partner := readSingleUseContact("contact")
 			maxMessages := uint8(viper.GetUint("maxMessages"))
 
-			sendSingleUse(client.Client, partner, payload,
+			sendSingleUse(client.Cmix, partner, payload,
 				maxMessages, timeout, tag)
 		}
 
@@ -152,7 +156,7 @@ func (r *Response) Callback(payload []byte, receptionID receptionID.EphemeralIde
 }
 
 // sendSingleUse sends a single use message.
-func sendSingleUse(m *api.Client, partner contact.Contact, payload []byte,
+func sendSingleUse(m *xxdk.Cmix, partner contact.Contact, payload []byte,
 	maxMessages uint8, timeout time.Duration, tag string) {
 	// Construct callback
 	callback := &Response{

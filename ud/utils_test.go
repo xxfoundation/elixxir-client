@@ -24,6 +24,7 @@ import (
 	"gitlab.com/elixxir/comms/testkeys"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/messages"
@@ -69,6 +70,8 @@ func newTestManager(t *testing.T) (*Manager, *testNetworkManager) {
 		t.Fatalf("Failed to initialize store %v", err)
 	}
 
+	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
+
 	// Create our Manager object
 	m := &Manager{
 		e2e:    mockE2e{grp: getGroup()},
@@ -76,6 +79,7 @@ func newTestManager(t *testing.T) (*Manager, *testNetworkManager) {
 		user:   mockUser{testing: t, key: key},
 		store:  udStore,
 		comms:  &mockComms{},
+		rng:    rngGen,
 		kv:     kv,
 	}
 	tnm := newTestNetworkManager(t)

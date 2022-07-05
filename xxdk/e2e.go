@@ -135,11 +135,6 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 			"able to register or track network.")
 	}
 
-	err = c.registerFollower()
-	if err != nil {
-		return nil, err
-	}
-
 	return LoginLegacy(c, e2eParams, nil)
 }
 
@@ -180,12 +175,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	err = c.registerFollower()
-	if err != nil {
-		return nil, err
-	}
-
-	userInfo := c.GetStorage().PortableUserInfo()
+	userInfo := user.NewUserFromProto(protoUser)
 	receptionIdentity, err := buildReceptionIdentity(userInfo,
 		c.GetStorage().GetE2EGroup(), protoUser.E2eDhPrivateKey)
 	return Login(c, callbacks, receptionIdentity, e2eParams)

@@ -54,17 +54,14 @@ func GetDefaultCMixParams() CMIXParams {
 	}
 }
 
-// ParseCMixParameters returns the default Params, or override with given
-// parameters, if set.
-func ParseCMixParameters(cmixParamsJSON string) (CMIXParams, error) {
-	p := GetDefaultCMixParams()
-	if len(cmixParamsJSON) > 0 {
-		err := json.Unmarshal([]byte(cmixParamsJSON), &p)
-		if err != nil {
-			return CMIXParams{}, err
-		}
-	}
-	return p, nil
+// Unmarshal fills an empty object with the deserialized contents of jsonData
+func (p *CMIXParams) Unmarshal(jsonData []byte) error {
+	return json.Unmarshal(jsonData, p)
+}
+
+// Marshal creates json data of the object
+func (p *CMIXParams) Marshal() ([]byte, error) {
+	return json.Marshal(p)
 }
 
 ////////////////////////////////////////
@@ -81,15 +78,12 @@ func GetDefaultE2EParams() E2EParams {
 	}
 }
 
-// GetParameters returns the default Params, or override with given
-// parameters, if set.
-func ParseE2EParameters(e2eParamsJSON string) (E2EParams, error) {
-	p := GetDefaultE2EParams()
-	if len(e2eParamsJSON) > 0 {
-		err := json.Unmarshal([]byte(e2eParamsJSON), &p)
-		if err != nil {
-			return E2EParams{}, err
-		}
-	}
-	return p, nil
+// Unmarshal fills an empty object with the deserialized contents of jsonData
+func (p *E2EParams) Unmarshal(jsonData []byte) error {
+	return json.Unmarshal(jsonData, p)
+}
+
+// Marshal creates json data of the object
+func (p *E2EParams) Marshal() ([]byte, error) {
+	return json.Marshal(p)
 }

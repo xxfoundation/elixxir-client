@@ -128,11 +128,6 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 			"able to register or track network.")
 	}
 
-	err = c.registerFollower()
-	if err != nil {
-		return nil, err
-	}
-
 	return LoginLegacy(c, nil)
 }
 
@@ -169,11 +164,6 @@ func LoginWithProtoClient(storageDir string, password []byte,
 	c.storage.SetNDF(def)
 
 	err = c.initPermissioning(def)
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.registerFollower()
 	if err != nil {
 		return nil, err
 	}

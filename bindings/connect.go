@@ -6,6 +6,7 @@ import (
 	"gitlab.com/elixxir/client/connect"
 	e2e2 "gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/crypto/contact"
+	"time"
 )
 
 // connectionTrackerSingleton is used to track connections so they can be
@@ -44,7 +45,9 @@ func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
 		return nil, err
 	}
 
-	connection, err := connect.Connect(cont, e2eClient.api, connect.GetDefaultParams())
+	p := connect.GetDefaultParams()
+	p.Timeout = 45 * time.Second
+	connection, err := connect.Connect(cont, e2eClient.api, p)
 	if err != nil {
 		return nil, err
 	}
@@ -85,6 +88,7 @@ func (c *Connection) GetPartner() []byte {
 // RegisterListener is used for E2E reception
 // and allows for reading data sent from the partner.Manager
 // Returns marshalled ListenerID
-func (c *Connection) RegisterListener(messageType int, newListener Listener) {
-	_ = c.connection.RegisterListener(catalog.MessageType(messageType), listener{l: newListener})
+func (c *Connection) RegisterListener(messageType int, newListener Listener) error {
+	_, err := c.connection.RegisterListener(catalog.MessageType(messageType), listener{l: newListener})
+	return err
 }

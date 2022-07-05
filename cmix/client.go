@@ -147,6 +147,11 @@ func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
 	// Disable KeepAlive packets
 	poolParams.HostParams.KaClientOpts.Time = time.Duration(math.MaxInt64)
 
+	// Configure the proxy error exponential moving average tracker
+	poolParams.HostParams.ProxyErrorMetricParams.Cutoff = 0.30
+	poolParams.HostParams.ProxyErrorMetricParams.InitialAverage =
+		0.75 * poolParams.HostParams.ProxyErrorMetricParams.Cutoff
+
 	// Enable optimized HostPool initialization
 	poolParams.MaxPings = 50
 	poolParams.ForceConnection = true

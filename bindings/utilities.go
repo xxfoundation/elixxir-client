@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"google.golang.org/grpc/grpclog"
+	"log"
 )
 
 // sets level of logging. All logs the set level and above will be displayed
@@ -25,6 +26,7 @@ func LogLevel(level int) error {
 	threshold := jww.Threshold(level)
 	jww.SetLogThreshold(threshold)
 	jww.SetStdoutThreshold(threshold)
+	jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
 	switch threshold {
 	case jww.LevelTrace:

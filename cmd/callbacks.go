@@ -26,20 +26,18 @@ import (
 type authCallbacks struct {
 	autoConfirm bool
 	confCh      chan *id.ID
-	client      *xxdk.E2e
 }
 
-func makeAuthCallbacks(client *xxdk.E2e, autoConfirm bool) *authCallbacks {
+func makeAuthCallbacks(autoConfirm bool) *authCallbacks {
 	return &authCallbacks{
 		autoConfirm: autoConfirm,
 		confCh:      make(chan *id.ID, 10),
-		client:      client,
 	}
 }
 
 func (a *authCallbacks) Request(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity,
-	round rounds.Round) {
+	round rounds.Round, client *xxdk.E2e) {
 	msg := fmt.Sprintf("Authentication channel request from: %s\n",
 		requestor.ID)
 	jww.INFO.Printf(msg)
@@ -48,9 +46,9 @@ func (a *authCallbacks) Request(requestor contact.Contact,
 		jww.INFO.Printf("Channel Request: %s",
 			requestor.ID)
 		if viper.GetBool("verify-sends") { // Verify message sends were successful
-			acceptChannelVerified(a.client, requestor.ID)
+			acceptChannelVerified(client, requestor.ID)
 		} else {
-			acceptChannel(a.client, requestor.ID)
+			acceptChannel(client, requestor.ID)
 		}
 
 		a.confCh <- requestor.ID
@@ -60,14 +58,14 @@ func (a *authCallbacks) Request(requestor contact.Contact,
 
 func (a *authCallbacks) Confirm(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity,
-	round rounds.Round) {
+	round rounds.Round, client *xxdk.E2e) {
 	jww.INFO.Printf("Channel Confirmed: %s", requestor.ID)
 	a.confCh <- requestor.ID
 }
 
 func (a *authCallbacks) Reset(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity,
-	round rounds.Round) {
+	round rounds.Round, client *xxdk.E2e) {
 	msg := fmt.Sprintf("Authentication channel reset from: %s\n",
 		requestor.ID)
 	jww.INFO.Printf(msg)

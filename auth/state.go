@@ -115,13 +115,11 @@ func (s *state) CallAllReceivedRequests() {
 		rr := rrList[i]
 		eph := receptionID.BuildIdentityFromRound(rr.GetContact().ID,
 			rr.GetRound())
-		s.partnerCallbacks.RLock()
 		if cb := s.partnerCallbacks.getPartnerCallback(rr.GetContact().ID); cb != nil {
 			cb.Request(rr.GetContact(), eph, rr.GetRound())
 		} else {
 			s.callbacks.Request(rr.GetContact(), eph, rr.GetRound())
 		}
-		s.partnerCallbacks.RUnlock()
 	}
 }
 
@@ -141,6 +139,22 @@ func (s *state) Close() error {
 		Tag:        s.params.ResetRequestTag,
 		Metadata:   nil,
 	}, nil)
+	return nil
+}
+
+// DeletePartner deletes the request and/or confirmation for the given partner.
+func (s *state) DeletePartner(partner *id.ID) error {
+	err := s.store.DeleteRequest(partner)
+	err2 := s.store.DeleteConfirmation(partner)
+
+	// Only return an error if both failed to delete
+	if err != nil && err2 != nil {
+		return errors.Errorf("Failed to delete partner: no requests or "+
+			"confirmations found: %s, %s", err, err2)
+	}
+
+	s.DeletePartnerCallback(partner)
+
 	return nil
 }
 

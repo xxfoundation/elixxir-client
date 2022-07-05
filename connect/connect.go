@@ -8,21 +8,21 @@ package connect
 
 import (
 	"encoding/json"
+	"gitlab.com/elixxir/client/e2e/rekey"
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/xx_network/primitives/netTime"
 	"io"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	clientE2e "gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/e2e/rekey"
-	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
@@ -33,6 +33,8 @@ const (
 	// to be established before the requester times out.
 	connectionTimeout = 15 * time.Second
 )
+
+var alreadyClosedErr = errors.New("connection is closed")
 
 // Connection is a wrapper for the E2E and auth packages.
 // It can be used to automatically establish an E2E partnership
@@ -54,7 +56,7 @@ type Connection interface {
 	// RegisterListener is used for E2E reception
 	// and allows for reading data sent from the partner.Manager
 	RegisterListener(messageType catalog.MessageType,
-		newListener receive.Listener) receive.ListenerID
+		newListener receive.Listener) (receive.ListenerID, error)
 	// Unregister listener for E2E reception
 	Unregister(listenerID receive.ListenerID)
 
@@ -73,6 +75,10 @@ type Connection interface {
 	// PayloadSize Returns the max payload size for a partitionable E2E
 	// message
 	PayloadSize() uint
+
+	// LastUse returns the timestamp of the last time the connection was
+	// utilised.
+	LastUse() time.Time
 }
 
 // Callback is the callback format required to retrieve
@@ -84,6 +90,7 @@ type Params struct {
 	Auth    auth.Params
 	Rekey   rekey.Params
 	Event   event.Reporter `json:"-"`
+	List    ConnectionListParams
 	Timeout time.Duration
 }
 
@@ -93,6 +100,7 @@ func GetDefaultParams() Params {
 		Auth:    auth.GetDefaultTemporaryParams(),
 		Rekey:   rekey.GetDefaultEphemeralParams(),
 		Event:   event.NewEventManager(),
+		List:    DefaultConnectionListParams(),
 		Timeout: connectionTimeout,
 	}
 }
@@ -116,13 +124,12 @@ func GetParameters(params string) (Params, error) {
 // partner.Manager is confirmed.
 func Connect(recipient contact.Contact, e2eClient *xxdk.E2e,
 	p Params) (Connection, error) {
-
 	// Build callback for E2E negotiation
 	signalChannel := make(chan Connection, 1)
 	cb := func(connection Connection) {
 		signalChannel <- connection
 	}
-	callback := getAuthCallback(cb, nil, e2eClient.GetE2E(), e2eClient.GetAuth(), p)
+	callback := getClientAuthCallback(cb, nil, e2eClient.GetE2E(), e2eClient.GetAuth(), p)
 	e2eClient.GetAuth().AddPartnerCallback(recipient.ID, callback)
 
 	// Perform the auth request
@@ -161,19 +168,31 @@ func Connect(recipient contact.Contact, e2eClient *xxdk.E2e,
 // This call does an xxDK.ephemeralLogin under the hood and the connection
 // server must be the only listener on auth.
 func StartServer(identity xxdk.ReceptionIdentity, cb Callback, net *xxdk.Cmix,
-	p Params) (*xxdk.E2e, error) {
+	p Params) (*ConnectionServer, error) {
 
-	// Build callback for E2E negotiation
-	callback := getAuthCallback(nil, cb, nil, nil, p)
-
-	client, err := xxdk.LoginEphemeral(net, callback, identity)
+	// Create connection list and start cleanup thread
+	cl := NewConnectionList(p.List)
+	err := net.AddService(cl.CleanupThread)
 	if err != nil {
 		return nil, err
 	}
 
-	callback.connectionE2e = client.GetE2E()
-	callback.authState = client.GetAuth()
-	return client, nil
+	// Build callback for E2E negotiation
+	callback := getServerAuthCallback(nil, cb, cl, p)
+
+	e2eClient, err := xxdk.LoginEphemeral(net, callback, identity)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return an ephemeral E2e object
+	return &ConnectionServer{e2eClient, cl}, nil
+}
+
+// ConnectionServer contains
+type ConnectionServer struct {
+	E2e *xxdk.E2e
+	Cl  *ConnectionList
 }
 
 // handler provides an implementation for the Connection interface.
@@ -181,7 +200,14 @@ type handler struct {
 	auth    auth.State
 	partner partner.Manager
 	e2e     clientE2e.Handler
-	params  Params
+
+	// Timestamp of last time a message was sent or received (Unix nanoseconds)
+	lastUse *int64
+
+	// Indicates if the connection has been closed (0 = open, 1 = closed)
+	closed *uint32
+
+	params Params
 }
 
 // BuildConnection assembles a Connection object
@@ -189,20 +215,42 @@ type handler struct {
 // partner.Manager.
 func BuildConnection(partner partner.Manager, e2eHandler clientE2e.Handler,
 	auth auth.State, p Params) Connection {
+	lastUse := netTime.Now().UnixNano()
+	closed := uint32(0)
 	return &handler{
 		auth:    auth,
 		partner: partner,
 		params:  p,
 		e2e:     e2eHandler,
+		lastUse: &lastUse,
+		closed:  &closed,
 	}
 }
 
-// Close deletes this Connection's partner.Manager and releases resources.
+// Close deletes this Connection's partner.Manager and releases resources. If
+// the connection is already closed, then nil is returned.
 func (h *handler) Close() error {
-	if err := h.e2e.DeletePartner(h.partner.PartnerId()); err != nil {
+	if h.isClosed() {
+		return nil
+	}
+
+	// Get partner ID once at the top because PartnerId makes a copy
+	partnerID := h.partner.PartnerId()
+
+	// Unregister all listeners
+	h.e2e.UnregisterUserListeners(partnerID)
+
+	// Delete partner from e2e and auth
+	if err := h.e2e.DeletePartner(partnerID); err != nil {
 		return err
 	}
-	return h.auth.Close()
+	if err := h.auth.DeletePartner(partnerID); err != nil {
+		return err
+	}
+
+	atomic.StoreUint32(h.closed, 1)
+
+	return nil
 }
 
 // GetPartner returns the partner.Manager for this Connection.
@@ -213,112 +261,30 @@ func (h *handler) GetPartner() partner.Manager {
 // SendE2E is a wrapper for sending specifically to the Connection's
 // partner.Manager.
 func (h *handler) SendE2E(mt catalog.MessageType, payload []byte,
-	params clientE2e.Params) (
-	[]id.Round, e2e.MessageID, time.Time, error) {
+	params clientE2e.Params) ([]id.Round, e2e.MessageID, time.Time, error) {
+	if h.isClosed() {
+		return nil, e2e.MessageID{}, time.Time{}, alreadyClosedErr
+	}
+
+	h.updateLastUse(netTime.Now())
+
 	return h.e2e.SendE2E(mt, h.partner.PartnerId(), payload, params)
 }
 
 // RegisterListener is used for E2E reception
 // and allows for reading data sent from the partner.Manager.
 func (h *handler) RegisterListener(messageType catalog.MessageType,
-	newListener receive.Listener) receive.ListenerID {
-	return h.e2e.RegisterListener(h.partner.PartnerId(),
-		messageType, newListener)
+	newListener receive.Listener) (receive.ListenerID, error) {
+	if h.isClosed() {
+		return receive.ListenerID{}, alreadyClosedErr
+	}
+	lt := &listenerTracker{h, newListener}
+	return h.e2e.RegisterListener(h.partner.PartnerId(), messageType, lt), nil
 }
 
 // Unregister listener for E2E reception.
 func (h *handler) Unregister(listenerID receive.ListenerID) {
 	h.e2e.Unregister(listenerID)
-}
-
-// authCallback provides callback functionality for interfacing between
-// auth.State and Connection. This is used both for blocking creation of a
-// Connection object until the auth Request is confirmed and for dynamically
-// building new Connection objects when an auth Request is received.
-type authCallback struct {
-	// Used for signaling confirmation of E2E partnership
-	confirmCallback Callback
-	requestCallback Callback
-
-	// Used for building new Connection objects
-	connectionE2e    clientE2e.Handler
-	connectionParams Params
-	authState        auth.State
-}
-
-// getAuthCallback returns a callback interface to be passed into the creation
-// of an auth.State object.
-// it will accept requests only if a request callback is passed in
-func getAuthCallback(confirm, request Callback, e2e clientE2e.Handler,
-	auth auth.State, params Params) *authCallback {
-	return &authCallback{
-		confirmCallback:  confirm,
-		requestCallback:  request,
-		connectionE2e:    e2e,
-		connectionParams: params,
-		authState:        auth,
-	}
-}
-
-// Confirm will be called when an auth Confirm message is processed.
-func (a authCallback) Confirm(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-	jww.DEBUG.Printf("Connection auth request for %s confirmed",
-		requestor.ID.String())
-	defer a.authState.DeletePartnerCallback(requestor.ID)
-
-	// After confirmation, get the new partner
-	newPartner, err := a.connectionE2e.GetPartner(requestor.ID)
-	if err != nil {
-		jww.ERROR.Printf("Unable to build connection with "+
-			"partner %s: %+v", requestor.ID, err)
-		// Send a nil connection to avoid hold-ups down the line
-		if a.confirmCallback != nil {
-			a.confirmCallback(nil)
-		}
-		return
-	}
-
-	// Return the new Connection object
-	if a.confirmCallback != nil {
-		a.confirmCallback(BuildConnection(newPartner, a.connectionE2e,
-			a.authState, a.connectionParams))
-	}
-}
-
-// Request will be called when an auth Request message is processed.
-func (a authCallback) Request(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-	if a.requestCallback == nil {
-		jww.ERROR.Printf("Received a request when requests are" +
-			"not enable, will not accept")
-	}
-	_, err := a.authState.Confirm(requestor)
-	if err != nil {
-		jww.ERROR.Printf("Unable to build connection with "+
-			"partner %s: %+v", requestor.ID, err)
-		// Send a nil connection to avoid hold-ups down the line
-		a.requestCallback(nil)
-	}
-	// After confirmation, get the new partner
-	newPartner, err := a.connectionE2e.GetPartner(requestor.ID)
-	if err != nil {
-		jww.ERROR.Printf("Unable to build connection with "+
-			"partner %s: %+v", requestor.ID, err)
-		// Send a nil connection to avoid hold-ups down the line
-		a.requestCallback(nil)
-
-		return
-	}
-
-	// Return the new Connection object
-	a.requestCallback(BuildConnection(newPartner, a.connectionE2e,
-		a.authState, a.connectionParams))
-}
-
-// Reset will be called when an auth Reset operation occurs.
-func (a authCallback) Reset(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 }
 
 // FirstPartitionSize returns the max partition payload size for the
@@ -343,4 +309,19 @@ func (h *handler) PartitionSize(payloadIndex uint) uint {
 // message
 func (h *handler) PayloadSize() uint {
 	return h.e2e.PayloadSize()
+}
+
+// LastUse returns the timestamp of the last time the connection was utilised.
+func (h *handler) LastUse() time.Time {
+	return time.Unix(0, atomic.LoadInt64(h.lastUse))
+}
+
+// updateLastUse updates the last use time stamp to the given time.
+func (h *handler) updateLastUse(t time.Time) {
+	atomic.StoreInt64(h.lastUse, t.UnixNano())
+}
+
+// isClosed returns true if the connection is closed.
+func (h *handler) isClosed() bool {
+	return atomic.LoadUint32(h.closed) == 1
 }

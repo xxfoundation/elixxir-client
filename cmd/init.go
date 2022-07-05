@@ -9,9 +9,6 @@
 package cmd
 
 import (
-	"fmt"
-	"gitlab.com/elixxir/client/xxdk"
-
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -23,17 +20,10 @@ var initCmd = &cobra.Command{
 	Short: "Initialize a user ID but do not connect to the network",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
-		e2e, err := xxdk.LoadOrInitE2e(client)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-		user := client.GetUser()
-		user.E2eDhPublicKey = e2e.GetHistoricalDHPubkey()
+		_, receptionIdentity := initCmix()
 
-		jww.INFO.Printf("User: %s", user.ReceptionID)
-		writeContact(user.GetContact())
-		fmt.Printf("%s\n", user.ReceptionID)
+		jww.INFO.Printf("User: %s", receptionIdentity.ID)
+		writeContact(receptionIdentity.GetContact())
 	},
 }
 

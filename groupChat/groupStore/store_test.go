@@ -558,7 +558,7 @@ func TestStore_GetUser(t *testing.T) {
 	}
 
 	if !user.Equal(store.GetUser()) {
-		t.Errorf("GetUser() failed to return the expected member."+
+		t.Errorf("GetTransmissionIdentity() failed to return the expected member."+
 			"\nexpected: %#v\nreceived: %#v", user, store.GetUser())
 	}
 }

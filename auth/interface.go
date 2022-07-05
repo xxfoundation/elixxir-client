@@ -100,6 +100,10 @@ type State interface {
 	// auth callback for the given partner ID.
 	DeletePartnerCallback(partnerId *id.ID)
 
+	// DeletePartner deletes the request and/or confirmation for the given
+	// partner.
+	DeletePartner(partner *id.ID) error
+
 	// Closer stops listening to auth.
 	io.Closer
 }

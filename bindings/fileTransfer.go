@@ -97,7 +97,7 @@ func InitFileTransfer(e2eID int) (*FileTransfer, error) {
 	}
 
 	// Client info
-	myID := e2eCl.api.GetTransmissionIdentity().ID
+	myID := e2eCl.api.GetReceptionIdentity().ID
 	rng := e2eCl.api.GetRng()
 
 	params, err := parseFileTransferParams(paramsJSON)

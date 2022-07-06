@@ -40,6 +40,9 @@ func GetDefaultE2EParams() []byte {
 	return data
 }
 
+// GetDefaultFileTransferParams returns a JSON serialized object with all the
+// File transfer parameters and their default values. Call this function and modify
+// the json to change file transfer settings.
 func GetDefaultFileTransferParams() []byte {
 	defaultParams := fileTransfer.DefaultParams()
 	data, err := defaultParams.MarshalJSON()
@@ -49,6 +52,9 @@ func GetDefaultFileTransferParams() []byte {
 	return data
 }
 
+// GetDefaultSingleUseParams returns a JSON serialized object with all the
+// single use parameters and their default values. Call this function and modify
+// the json to change single use settings.
 func GetDefaultSingleUseParams() []byte {
 	defaultParams := single.GetDefaultRequestParams()
 	data, err := defaultParams.MarshalJSON()

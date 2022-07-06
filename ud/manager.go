@@ -74,7 +74,7 @@ type Manager struct {
 // It requires that an updated
 // NDF is available and will error if one is not.
 // registrationValidationSignature may be set to nil
-func NewManager(e2e E2E, follower NetworkStatus,
+func NewManager(e2e E2E, comms Comms, follower NetworkStatus,
 	username string, registrationValidationSignature []byte) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
 
@@ -88,7 +88,7 @@ func NewManager(e2e E2E, follower NetworkStatus,
 		network:                         e2e.GetCmix(),
 		e2e:                             e2e,
 		events:                          e2e.GetEventReporter(),
-		comms:                           e2e.GetComms(),
+		comms:                           comms,
 		kv:                              e2e.GetStorage().GetKV(),
 		rng:                             e2e.GetRng(),
 		registrationValidationSignature: registrationValidationSignature,
@@ -133,7 +133,7 @@ func NewManager(e2e E2E, follower NetworkStatus,
 // NewManagerFromBackup builds a new user discover manager from a backup.
 // It will construct a manager that is already registered and restore
 // already registered facts into store.
-func NewManagerFromBackup(e2e E2E, follower NetworkStatus,
+func NewManagerFromBackup(e2e E2E, comms Comms, follower NetworkStatus,
 	email, phone fact.Fact) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
 	if follower() != xxdk.Running {
@@ -147,7 +147,7 @@ func NewManagerFromBackup(e2e E2E, follower NetworkStatus,
 		network: e2e.GetCmix(),
 		e2e:     e2e,
 		events:  e2e.GetEventReporter(),
-		comms:   e2e.GetComms(),
+		comms:   comms,
 		kv:      e2e.GetStorage().GetKV(),
 		rng:     e2e.GetRng(),
 	}
@@ -212,13 +212,13 @@ func InitStoreFromBackup(kv *versioned.KV,
 // LoadManager loads the state of the Manager
 // from disk. This is meant to be called after any the first
 // instantiation of the manager by NewUserDiscovery.
-func LoadManager(e2e E2E) (*Manager, error) {
+func LoadManager(e2e E2E, comms Comms) (*Manager, error) {
 
 	m := &Manager{
 		network: e2e.GetCmix(),
 		e2e:     e2e,
 		events:  e2e.GetEventReporter(),
-		comms:   e2e.GetComms(),
+		comms:   comms,
 		rng:     e2e.GetRng(),
 		kv:      e2e.GetStorage().GetKV(),
 	}

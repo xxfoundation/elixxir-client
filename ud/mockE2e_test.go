@@ -3,6 +3,7 @@ package ud
 import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
@@ -78,11 +79,7 @@ func (m mockE2e) GetEventReporter() event.Reporter {
 	return mockReporter{}
 }
 
-func (m mockE2e) GetComms() Comms {
-	return &mockComms{}
-}
-
-func (m mockE2e) GetCmix() CMix {
+func (m mockE2e) GetCmix() cmix.Client {
 	//TODO implement me
 	panic("implement me")
 }

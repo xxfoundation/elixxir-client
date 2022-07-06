@@ -82,11 +82,11 @@ var udCmd = &cobra.Command{
 		// Make user discovery manager
 		rng := client.GetRng()
 		userToRegister := viper.GetString("register")
-		userDiscoveryMgr, err := ud.NewManager(client,
+		userDiscoveryMgr, err := ud.NewManager(client, client.GetComms(),
 			client.NetworkFollowerStatus, userToRegister, nil)
 		if err != nil {
 			if strings.Contains(err.Error(), ud.IsRegisteredErr) {
-				userDiscoveryMgr, err = ud.LoadManager(client)
+				userDiscoveryMgr, err = ud.LoadManager(client, client.GetComms())
 				if err != nil {
 					jww.FATAL.Panicf("Failed to load UD manager: %+v", err)
 				}

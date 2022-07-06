@@ -1,6 +1,7 @@
 package ud
 
 import (
+	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/single"
@@ -21,10 +22,9 @@ type CMix interface {
 // relevant to what is used in this package.
 type E2E interface {
 	GetReceptionIdentity() xxdk.ReceptionIdentity
-	GetCmix() CMix
+	GetCmix() cmix.Client
 	GetE2E() e2e.Handler
 	GetEventReporter() event.Reporter
-	GetComms() Comms
 	GetRng() *fastRNG.StreamGenerator
 	GetStorage() storage.Session
 	GetTransmissionIdentity() xxdk.TransmissionIdentity

@@ -9,6 +9,7 @@
 package cmd
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"time"
@@ -21,8 +22,8 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// singleCmd is the single-use subcommand that allows for sending and responding
-// to single-use messages.
+// dumpRoundsCmd allows the user to view network information about a specific
+// round on the network.
 var dumpRoundsCmd = &cobra.Command{
 	Use:   "dumprounds",
 	Short: "Dump round information for specified rounds",
@@ -32,13 +33,11 @@ var dumpRoundsCmd = &cobra.Command{
 
 		cmixParams, e2eParams := initParams()
 		client := initE2e(cmixParams, e2eParams)
-
 		err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
 		client.GetCmix().AddHealthCallback(
 			func(isconnected bool) {
@@ -49,24 +48,74 @@ var dumpRoundsCmd = &cobra.Command{
 		numRequests := len(roundIDs)
 		requestCh := make(chan bool, numRequests)
 
-		ecp := client.GetStorage().GetNDF().Registration.EllipticPubKey
-		fmt.Printf("pubkey: %s\n\n", ecp)
+		registration := client.GetStorage().GetNDF().Registration
+		ecp := registration.EllipticPubKey
 		pubkey, err := ec.LoadPublicKey(ecp)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
-
-		fmt.Printf("pubkey unserialized: %s\n\n", pubkey.MarshalText())
+		fmt.Printf("registration pubkey: %s\n\n", pubkey.MarshalText())
 
 		rcb := func(round rounds.Round, success bool) {
-			fmt.Printf("Lookup for %v: %v\n\n", round.ID, success)
-			fmt.Printf("Info: %v\n\n", round)
+			if !success {
+				fmt.Printf("round %v lookup failed", round.ID)
+			}
+
+			fmt.Printf("Round %v:", round.ID)
+			fmt.Printf("\n\tBatch size: %v, State: %v",
+				round.BatchSize, round.State)
+			fmt.Printf("\n\tUpdateID: %v, AddrSpaceSize: %v",
+				round.UpdateID, round.AddressSpaceSize)
+
+			fmt.Printf("\n\tTopology: ")
+			for i, nodeId := range round.Raw.Topology {
+				nidStr := base64.StdEncoding.EncodeToString(
+					nodeId)
+				fmt.Printf("\n\t\t%d\t-\t%s", i, nidStr)
+			}
+
+			fmt.Printf("\n\tTimestamps: ")
+			for state, ts := range round.Timestamps {
+				fmt.Printf("\n\t\t%v  \t-\t%v", state, ts)
+			}
+
+			fmt.Printf("\n\tErrors (%d): ", len(round.Raw.Errors))
+			for i, err := range round.Raw.Errors {
+				fmt.Printf("\n\t\t%d - %v", i, err)
+			}
+
+			fmt.Printf("\n\tClientErrors (%d): ",
+				len(round.Raw.ClientErrors))
+			for _, ce := range round.Raw.ClientErrors {
+				fmt.Printf("\n\t\t%s - %v, Src: %v",
+					base64.StdEncoding.EncodeToString(
+						ce.ClientId),
+					ce.Error,
+					base64.StdEncoding.EncodeToString(
+						ce.Source))
+			}
 
 			ri := round.Raw
 			err = signature.VerifyEddsa(ri, pubkey)
 			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
+				fmt.Printf("\n\tECC signature failed: %v", err)
+				fmt.Printf("\n\tuse trace logging for sig details")
+			} else {
+				fmt.Printf("\n\tECC signature succeeded!\n\n")
 			}
+
+			// fmt.Printf("Round Info RAW: %v\n\n", round)
+
+			// rsapubkey, _ := rsa.LoadPublicKeyFromPem([]byte(
+			// 	registration.TlsCertificate))
+			// signature.VerifyRsa(ri, rsapubkey)
+			// if err != nil {
+			// 	fmt.Printf("RSA signature failed: %v", err)
+			// 	fmt.Printf("use trace logging for sig details")
+			// } else {
+			// 	fmt.Printf("RSA signature succeeded!")
+			// }
+
 			requestCh <- success
 		}
 

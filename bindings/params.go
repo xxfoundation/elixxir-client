@@ -11,6 +11,8 @@ package bindings
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/fileTransfer"
+	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/xxdk"
 )
 
@@ -36,6 +38,40 @@ func GetDefaultE2EParams() []byte {
 		jww.FATAL.Panicf("Unexpected error: %+v", err)
 	}
 	return data
+}
+
+// GetDefaultFileTransferParams returns a JSON serialized object with all the
+// File transfer parameters and their default values. Call this function and modify
+// the json to change file transfer settings.
+func GetDefaultFileTransferParams() []byte {
+	defaultParams := fileTransfer.DefaultParams()
+	data, err := defaultParams.MarshalJSON()
+	if err != nil {
+		jww.FATAL.Panicf("Unexpected error: %+v", err)
+	}
+	return data
+}
+
+// GetDefaultSingleUseParams returns a JSON serialized object with all the
+// single use parameters and their default values. Call this function and modify
+// the json to change single use settings.
+func GetDefaultSingleUseParams() []byte {
+	defaultParams := single.GetDefaultRequestParams()
+	data, err := defaultParams.MarshalJSON()
+	if err != nil {
+		jww.FATAL.Panicf("Unexpected error: %+v", err)
+	}
+	return data
+}
+
+func parseSingleUseParams(data []byte) (single.RequestParams, error) {
+	p := &single.RequestParams{}
+	return *p, p.UnmarshalJSON(data)
+}
+
+func parseFileTransferParams(data []byte) (fileTransfer.Params, error) {
+	p := &fileTransfer.Params{}
+	return *p, p.UnmarshalJSON(data)
 }
 
 func parseCMixParams(data []byte) (xxdk.CMIXParams, error) {

@@ -26,8 +26,9 @@ func TestSingleUseJsonMarshals(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	rng.Read(payload)
 	sendReport := SingleUseSendReport{
-		RoundsList: rl,
-		EphID:      ephId,
+		RoundsList:  rl,
+		EphID:       ephId.EphId.Int64(),
+		ReceptionID: ephId.Source.Marshal(),
 	}
 	srm, err := json.Marshal(sendReport)
 	if err != nil {
@@ -39,7 +40,8 @@ func TestSingleUseJsonMarshals(t *testing.T) {
 	responseReport := SingleUseResponseReport{
 		RoundsList:  rl,
 		Payload:     payload,
-		ReceptionID: ephId,
+		ReceptionID: ephId.Source.Marshal(),
+		EphID:       ephId.EphId.Int64(),
 		Err:         nil,
 	}
 	rrm, err := json.Marshal(responseReport)
@@ -50,10 +52,11 @@ func TestSingleUseJsonMarshals(t *testing.T) {
 	}
 
 	callbackReport := SingleUseCallbackReport{
-		RoundsList: rl,
-		Payload:    payload,
-		Partner:    rid,
-		EphID:      ephId,
+		RoundsList:  rl,
+		Payload:     payload,
+		Partner:     rid,
+		EphID:       ephId.EphId.Int64(),
+		ReceptionID: ephId.Source.Marshal(),
 	}
 	crm, err := json.Marshal(callbackReport)
 	if err != nil {

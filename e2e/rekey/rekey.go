@@ -96,6 +96,8 @@ func trigger(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSend
 func negotiate(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSender,
 	param Params, sess *session.Session, sendTimeout time.Duration) error {
 
+	// Note: All new sending sessions are set to "Sending" status by default
+
 	//generate public key
 	pubKey := diffieHellman.GeneratePublicKey(sess.GetMyPrivKey(), grp)
 

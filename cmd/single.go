@@ -33,7 +33,8 @@ var singleCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 
-		client := initE2e()
+		cmixParams, e2eParams := initParams()
+		client := initE2e(cmixParams, e2eParams)
 
 		// Write user contact to file
 		user := client.GetReceptionIdentity()

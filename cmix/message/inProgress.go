@@ -29,6 +29,8 @@ import (
 func (h *handler) CheckInProgressMessages() {
 	select {
 	case h.checkInProgress <- struct{}{}:
+		jww.DEBUG.Print("[Garbled] Sent signal to check garbled " +
+			"message queue...")
 	default:
 		jww.WARN.Print("Failed to check garbled messages due to full channel.")
 	}
@@ -54,16 +56,19 @@ func (h *handler) recheckInProgress() {
 	// Try to decrypt every garbled message, excising those whose counts are too
 	// high
 	for grbldMsg, ri, identity, has := h.inProcess.Next(); has; grbldMsg, ri, identity, has = h.inProcess.Next() {
+		bundleMsgs := []format.Message{grbldMsg}
 		bundle := Bundle{
 			Round:     id.Round(ri.ID),
 			RoundInfo: rounds.MakeRound(ri),
-			Messages:  []format.Message{grbldMsg},
+			Messages:  bundleMsgs,
 			Finish:    func() {},
 			Identity:  identity,
 		}
 
 		select {
 		case h.messageReception <- bundle:
+			jww.INFO.Printf("[GARBLE] Sent %d messages to process",
+				len(bundleMsgs))
 		default:
 			jww.WARN.Printf("Failed to send bundle, channel full.")
 		}

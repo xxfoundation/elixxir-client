@@ -10,13 +10,14 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/client/xxmutils"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/utils"
-	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -33,7 +34,8 @@ var udCmd = &cobra.Command{
 	Short: "Register for and search users using the xx network user discovery service.",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client := initE2e()
+		cmixParams, e2eParams := initParams()
+		client := initE2e(cmixParams, e2eParams)
 
 		// get user and save contact to file
 		user := client.GetReceptionIdentity()
@@ -78,21 +80,21 @@ var udCmd = &cobra.Command{
 		waitUntilConnected(connected)
 
 		// Make user discovery manager
-		stream := client.GetRng().GetStream()
-		defer stream.Close()
+		rng := client.GetRng()
 		userToRegister := viper.GetString("register")
 		userDiscoveryMgr, err := ud.NewManager(client.GetCmix(),
 			client.GetE2E(), client.NetworkFollowerStatus,
 			client.GetEventReporter(),
 			client.GetComms(), client.GetStorage(),
-			stream,
+			rng,
 			userToRegister, client.GetStorage().GetKV())
 		if err != nil {
 			if strings.Contains(err.Error(), ud.IsRegisteredErr) {
 				userDiscoveryMgr, err = ud.LoadManager(client.GetCmix(),
 					client.GetE2E(), client.GetEventReporter(),
 					client.GetComms(),
-					client.GetStorage(), client.GetStorage().GetKV())
+					client.GetStorage(), client.GetRng(),
+					client.GetStorage().GetKV())
 				if err != nil {
 					jww.FATAL.Panicf("Failed to load UD manager: %+v", err)
 				}
@@ -163,12 +165,15 @@ var udCmd = &cobra.Command{
 				}
 				printContact(newContact)
 			}
+
+			stream := rng.GetStream()
 			_, _, err = ud.Lookup(client.GetCmix(),
 				stream, client.GetE2E().GetGroup(),
 				udContact, cb, lookupID, single.GetDefaultRequestParams())
 			if err != nil {
 				jww.WARN.Printf("Failed UD lookup: %+v", err)
 			}
+			stream.Close()
 
 			time.Sleep(31 * time.Second)
 		}
@@ -256,6 +261,8 @@ var udCmd = &cobra.Command{
 			}
 		}
 
+		stream := rng.GetStream()
+		defer stream.Close()
 		_, _, err = ud.Search(client.GetCmix(),
 			client.GetEventReporter(),
 			stream, client.GetE2E().GetGroup(),

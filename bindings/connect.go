@@ -2,11 +2,10 @@ package bindings
 
 import (
 	"encoding/json"
+
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/connect"
-	e2e2 "gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/crypto/contact"
-	"time"
 )
 
 // connectionTrackerSingleton is used to track connections so they can be
@@ -35,6 +34,7 @@ func (c *Connection) GetId() int {
 // myIdentity - marshalled ReceptionIdentity object
 func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
 	*Connection, error) {
+	paramsJSON := GetDefaultE2EParams()
 	cont, err := contact.Unmarshal(recipientContact)
 	if err != nil {
 		return nil, err
@@ -45,8 +45,11 @@ func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
 		return nil, err
 	}
 
-	p := connect.GetDefaultParams()
-	p.Timeout = 45 * time.Second
+	p, err := parseE2EParams(paramsJSON)
+	if err != nil {
+		return nil, err
+	}
+
 	connection, err := connect.Connect(cont, e2eClient.api, p)
 	if err != nil {
 		return nil, err
@@ -58,8 +61,15 @@ func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
 // SendE2E is a wrapper for sending specifically to the Connection's partner.Manager
 // Returns marshalled E2ESendReport
 func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
+	paramsJSON := GetDefaultE2EParams()
+
+	params, err := parseE2EParams(paramsJSON)
+	if err != nil {
+		return nil, err
+	}
+
 	rounds, mid, ts, err := c.connection.SendE2E(catalog.MessageType(mt), payload,
-		e2e2.GetDefaultParams())
+		params.Base)
 
 	if err != nil {
 		return nil, err

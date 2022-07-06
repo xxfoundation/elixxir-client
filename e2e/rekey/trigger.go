@@ -53,6 +53,10 @@ func startTrigger(ratchet *ratchet.Ratchet, sender E2eSender, net cmix.Client,
 func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 	net cmix.Client, grp *cyclic.Group, request receive.Message,
 	param Params, stop *stoppable.Single) error {
+
+	jww.DEBUG.Printf("[REKEY] handleTrigger(partner: %s)",
+		request.Sender)
+
 	//ensure the message was encrypted properly
 	if !request.Encrypted {
 		errMsg := fmt.Sprintf(errBadTrigger, request.Sender)
@@ -105,9 +109,12 @@ func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 	}
 
 	//Send the Confirmation Message
-	//build the payload
+	// build the payload, note that for confirmations, we need only send the
+	// (generated from new keys) session id, which the other side should
+	// know about already.
+	// When sending a trigger, the source session id is sent instead
 	payload, err := proto.Marshal(&RekeyConfirm{
-		SessionID: sess.GetSource().Marshal(),
+		SessionID: sess.GetID().Marshal(),
 	})
 
 	//If the payload cannot be marshaled, panic
@@ -116,7 +123,7 @@ func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 			"Negotation Confirmation with %s", sess.GetPartner())
 	}
 
-	//send the trigger
+	//send the trigger confirmation
 	params := cmix.GetDefaultCMIXParams()
 	params.Critical = true
 	//ignore results, the passed sender interface makes it a critical message

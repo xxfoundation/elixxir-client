@@ -172,8 +172,8 @@ func (r ReceptionIdentity) GetContact() contact.Contact {
 // buildReceptionIdentity creates a new ReceptionIdentity
 // from the given user.Info
 func buildReceptionIdentity(userInfo user.Info, e2eGrp *cyclic.Group, dHPrivkey *cyclic.Int) (ReceptionIdentity, error) {
-	saltCopy := make([]byte, len(userInfo.TransmissionSalt))
-	copy(saltCopy, userInfo.TransmissionSalt)
+	saltCopy := make([]byte, len(userInfo.ReceptionSalt))
+	copy(saltCopy, userInfo.ReceptionSalt)
 
 	grp, err := e2eGrp.MarshalJSON()
 	if err != nil {

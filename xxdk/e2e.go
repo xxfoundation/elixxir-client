@@ -9,6 +9,8 @@ package xxdk
 import (
 	"encoding/binary"
 	"encoding/json"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
@@ -24,7 +26,6 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 // E2e object bundles a ReceptionIdentity with a Cmix
@@ -52,21 +53,24 @@ type AuthCallbacks interface {
 // It bundles a Cmix object with a ReceptionIdentity object
 // and initializes the auth.State and e2e.Handler objects
 func Login(client *Cmix, callbacks AuthCallbacks,
-	identity ReceptionIdentity) (m *E2e, err error) {
-	return login(client, callbacks, identity, client.GetStorage().GetKV())
+	identity ReceptionIdentity, params E2EParams) (m *E2e, err error) {
+	return login(client, callbacks, identity, client.GetStorage().GetKV(),
+		params)
 }
 
 // LoginEphemeral creates a new E2e backed by a totally ephemeral versioned.KV
 func LoginEphemeral(client *Cmix, callbacks AuthCallbacks,
-	identity ReceptionIdentity) (m *E2e, err error) {
-	return login(client, callbacks, identity, versioned.NewKV(ekv.MakeMemstore()))
+	identity ReceptionIdentity, params E2EParams) (m *E2e, err error) {
+	return login(client, callbacks, identity,
+		versioned.NewKV(ekv.MakeMemstore()), params)
 }
 
 // LoginLegacy creates a new E2e backed by the xxdk.Cmix persistent versioned.KV
 // Uses the pre-generated transmission ID used by xxdk.Cmix.
 // This function is designed to maintain backwards compatibility with previous
 // xx messenger designs and should not be used for other purposes.
-func LoginLegacy(client *Cmix, callbacks AuthCallbacks) (m *E2e, err error) {
+func LoginLegacy(client *Cmix, params E2EParams, callbacks AuthCallbacks) (
+	m *E2e, err error) {
 	m = &E2e{
 		Cmix:   client,
 		backup: &Container{},
@@ -87,13 +91,15 @@ func LoginLegacy(client *Cmix, callbacks AuthCallbacks) (m *E2e, err error) {
 	}
 
 	m.auth, err = auth.NewState(client.GetStorage().GetKV(), client.GetCmix(),
-		m.e2e, client.GetRng(), client.GetEventReporter(),
-		auth.GetDefaultParams(), MakeAuthCallbacksAdapter(callbacks, m), m.backup.TriggerBackup)
+		m.e2e, client.GetRng(), client.GetEventReporter(), params.Auth,
+		params.Session, MakeAuthCallbacksAdapter(callbacks, m),
+		m.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
 
-	m.e2eIdentity, err = buildReceptionIdentity(userInfo, m.e2e.GetGroup(), m.e2e.GetHistoricalDHPrivkey())
+	m.e2eIdentity, err = buildReceptionIdentity(userInfo, m.e2e.GetGroup(),
+		m.e2e.GetHistoricalDHPrivkey())
 	return m, err
 }
 
@@ -101,7 +107,8 @@ func LoginLegacy(client *Cmix, callbacks AuthCallbacks) (m *E2e, err error) {
 // while replacing the base NDF.  This is designed for some specific deployment
 // procedures and is generally unsafe.
 func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
-	newBaseNdf string, params Params) (*E2e, error) {
+	newBaseNdf string, e2eParams E2EParams, cmixParams CMIXParams) (*E2e,
+	error) {
 	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
 
 	def, err := ParseNDF(newBaseNdf)
@@ -109,7 +116,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := LoadCmix(storageDir, password, params)
+	c, err := LoadCmix(storageDir, password, cmixParams)
 	if err != nil {
 		return nil, err
 	}
@@ -128,12 +135,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 			"able to register or track network.")
 	}
 
-	err = c.registerFollower()
-	if err != nil {
-		return nil, err
-	}
-
-	return LoginLegacy(c, nil)
+	return LoginLegacy(c, e2eParams, nil)
 }
 
 // LoginWithProtoClient creates a client object with a protoclient
@@ -141,7 +143,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 // some specific deployment procedures and is generally unsafe.
 func LoginWithProtoClient(storageDir string, password []byte,
 	protoClientJSON []byte, newBaseNdf string, callbacks AuthCallbacks,
-	params Params) (*E2e, error) {
+	cmixParams CMIXParams, e2eParams E2EParams) (*E2e, error) {
 	jww.INFO.Printf("LoginWithProtoClient()")
 
 	def, err := ParseNDF(newBaseNdf)
@@ -161,7 +163,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	c, err := LoadCmix(storageDir, password, params)
+	c, err := LoadCmix(storageDir, password, cmixParams)
 	if err != nil {
 		return nil, err
 	}
@@ -173,19 +175,15 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	err = c.registerFollower()
-	if err != nil {
-		return nil, err
-	}
-
-	userInfo := c.GetStorage().PortableUserInfo()
-	receptionIdentity, err := buildReceptionIdentity(userInfo, c.GetStorage().GetE2EGroup(), protoUser.E2eDhPrivateKey)
-	return Login(c, callbacks, receptionIdentity)
+	userInfo := user.NewUserFromProto(protoUser)
+	receptionIdentity, err := buildReceptionIdentity(userInfo,
+		c.GetStorage().GetE2EGroup(), protoUser.E2eDhPrivateKey)
+	return Login(c, callbacks, receptionIdentity, e2eParams)
 }
 
 // login creates a new xxdk.E2e backed by the given versioned.KV
-func login(client *Cmix, callbacks AuthCallbacks,
-	identity ReceptionIdentity, kv *versioned.KV) (m *E2e, err error) {
+func login(client *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
+	kv *versioned.KV, params E2EParams) (m *E2e, err error) {
 
 	// Verify the passed-in ReceptionIdentity matches its properties
 	privatePem, err := identity.GetRSAPrivatePem()
@@ -220,7 +218,7 @@ func login(client *Cmix, callbacks AuthCallbacks,
 		//initialize the e2e storage
 		jww.INFO.Printf("Initializing new e2e.Handler for %s", identity.ID.String())
 		err = e2e.Init(kv, identity.ID, dhPrivKey, e2eGrp,
-			rekey.GetDefaultParams())
+			params.Rekey)
 		if err != nil {
 			return nil, err
 		}
@@ -243,7 +241,8 @@ func login(client *Cmix, callbacks AuthCallbacks,
 
 	m.auth, err = auth.NewState(kv, client.GetCmix(),
 		m.e2e, client.GetRng(), client.GetEventReporter(),
-		auth.GetDefaultTemporaryParams(), MakeAuthCallbacksAdapter(callbacks, m), m.backup.TriggerBackup)
+		params.Auth, params.Session,
+		MakeAuthCallbacksAdapter(callbacks, m), m.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
@@ -422,6 +421,13 @@ func MakeAuthCallbacksAdapter(ac AuthCallbacks, e2e *E2e) *authCallbacksAdapter 
 type authCallbacksAdapter struct {
 	ac  AuthCallbacks
 	e2e *E2e
+}
+
+func MakeAuthCB(e2e *E2e, cbs AuthCallbacks) auth.Callbacks {
+	return &authCallbacksAdapter{
+		ac:  cbs,
+		e2e: e2e,
+	}
 }
 
 func (aca *authCallbacksAdapter) Request(partner contact.Contact,

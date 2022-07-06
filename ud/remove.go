@@ -1,7 +1,6 @@
 package ud
 
 import (
-	"crypto/rand"
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -47,7 +46,9 @@ func (m *Manager) removeFact(f fact.Fact,
 
 	// Sign our inFact for putting into the request
 	privKey := m.user.PortableUserInfo().ReceptionRSA
-	fSig, err := rsa.Sign(rand.Reader, privKey, hash.CMixHash, fHash, nil)
+	stream := m.rng.GetStream()
+	defer stream.Close()
+	fSig, err := rsa.Sign(stream, privKey, hash.CMixHash, fHash, nil)
 	if err != nil {
 		return err
 	}
@@ -103,7 +104,9 @@ func (m *Manager) permanentDeleteAccount(f fact.Fact, myId *id.ID, privateKey *r
 	fHash := factID.Fingerprint(f)
 
 	// Sign our inFact for putting into the request
-	fsig, err := rsa.Sign(rand.Reader, privateKey, hash.CMixHash, fHash, nil)
+	stream := m.rng.GetStream()
+	defer stream.Close()
+	fsig, err := rsa.Sign(stream, privateKey, hash.CMixHash, fHash, nil)
 	if err != nil {
 		return err
 	}

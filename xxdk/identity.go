@@ -81,6 +81,12 @@ func (r ReceptionIdentity) GetRSAPrivatePem() (*rsa.PrivateKey, error) {
 	return rsa.LoadPrivateKeyFromPem(r.RSAPrivatePem)
 }
 
+// GetGroup returns the cyclic.Group in go format
+func (r ReceptionIdentity) GetGroup() (*cyclic.Group, error) {
+	grp := &cyclic.Group{}
+	return grp, grp.UnmarshalJSON(r.E2eGrp)
+}
+
 // MakeReceptionIdentity generates a new cryptographic identity
 // for receiving messages.
 func MakeReceptionIdentity(client *Cmix) (ReceptionIdentity, error) {
@@ -155,8 +161,7 @@ func (r ReceptionIdentity) DeepCopy() ReceptionIdentity {
 
 // GetContact accepts a xxdk.ReceptionIdentity object and returns a contact.Contact object
 func (r ReceptionIdentity) GetContact() contact.Contact {
-	grp := &cyclic.Group{}
-	_ = grp.UnmarshalJSON(r.E2eGrp)
+	grp, _ := r.GetGroup()
 	dhKeyPriv, _ := r.GetDHKeyPrivate()
 
 	dhPub := grp.ExpG(dhKeyPriv, grp.NewInt(1))

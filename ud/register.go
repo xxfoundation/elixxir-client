@@ -17,24 +17,37 @@ func (m *Manager) register(username string, rng csprng.Source,
 	comm registerUserComms, udHost *connect.Host) error {
 
 	var err error
-	cryptoUser := m.user.PortableUserInfo()
+	identity := m.e2e.GetReceptionIdentity()
+	privKey, err := identity.GetRSAPrivatePem()
+	if err != nil {
+		return err
+	}
+	grp, err := identity.GetGroup()
+	if err != nil {
+		return err
+	}
+	dhKeyPriv, err := identity.GetDHKeyPrivate()
+	if err != nil {
+		return err
+	}
+	dhKeyPub := grp.ExpG(dhKeyPriv, grp.NewInt(1))
 
 	// Construct the user registration message
 	msg := &pb.UDBUserRegistration{
-		PermissioningSignature: m.user.GetReceptionRegistrationValidationSignature(),
-		RSAPublicPem:           string(rsa.CreatePublicKeyPem(cryptoUser.ReceptionRSA.GetPublic())),
+		PermissioningSignature: m.registrationValidationSignature,
+		RSAPublicPem:           string(rsa.CreatePublicKeyPem(privKey.GetPublic())),
 		IdentityRegistration: &pb.Identity{
 			Username: username,
-			DhPubKey: m.e2e.GetHistoricalDHPubkey().Bytes(),
-			Salt:     cryptoUser.ReceptionSalt,
+			DhPubKey: dhKeyPub.Bytes(),
+			Salt:     identity.Salt,
 		},
-		UID:       cryptoUser.ReceptionID.Marshal(),
-		Timestamp: cryptoUser.RegistrationTimestamp,
+		UID:       identity.ID.Marshal(),
+		Timestamp: m.e2e.GetTransmissionIdentity().RegistrationTimestamp,
 	}
 
 	// Sign the identity data and add to user registration message
 	identityDigest := msg.IdentityRegistration.Digest()
-	msg.IdentitySignature, err = rsa.Sign(rng, cryptoUser.ReceptionRSA,
+	msg.IdentitySignature, err = rsa.Sign(rng, privKey,
 		hash.CMixHash, identityDigest, nil)
 	if err != nil {
 		return errors.Errorf("Failed to sign user's IdentityRegistration: %+v", err)
@@ -48,11 +61,11 @@ func (m *Manager) register(username string, rng csprng.Source,
 
 	// Hash and sign fact
 	hashedFact := factID.Fingerprint(usernameFact)
-	signedFact, err := rsa.Sign(rng, cryptoUser.ReceptionRSA, hash.CMixHash, hashedFact, nil)
+	signedFact, err := rsa.Sign(rng, privKey, hash.CMixHash, hashedFact, nil)
 
 	// Add username fact register request to the user registration message
 	msg.Frs = &pb.FactRegisterRequest{
-		UID: cryptoUser.ReceptionID.Marshal(),
+		UID: identity.ID.Marshal(),
 		Fact: &pb.Fact{
 			Fact:     username,
 			FactType: 0,

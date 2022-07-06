@@ -45,7 +45,11 @@ func (m *Manager) removeFact(f fact.Fact,
 	fHash := factID.Fingerprint(f)
 
 	// Sign our inFact for putting into the request
-	privKey := m.user.PortableUserInfo().ReceptionRSA
+	identity := m.e2e.GetReceptionIdentity()
+	privKey, err := identity.GetRSAPrivatePem()
+	if err != nil {
+		return err
+	}
 	stream := m.rng.GetStream()
 	defer stream.Close()
 	fSig, err := rsa.Sign(stream, privKey, hash.CMixHash, fHash, nil)
@@ -55,7 +59,7 @@ func (m *Manager) removeFact(f fact.Fact,
 
 	// Create our Fact Removal Request message data
 	remFactMsg := mixmessages.FactRemovalRequest{
-		UID:         m.e2e.GetReceptionID().Marshal(),
+		UID:         identity.ID.Marshal(),
 		RemovalData: &mmFact,
 		FactSig:     fSig,
 	}
@@ -84,9 +88,14 @@ func (m *Manager) PermanentDeleteAccount(f fact.Fact) error {
 	if err != nil {
 		return err
 	}
-	privKey := m.user.PortableUserInfo().ReceptionRSA
 
-	return m.permanentDeleteAccount(f, m.e2e.GetReceptionID(), privKey, m.comms, udHost)
+	identity := m.e2e.GetReceptionIdentity()
+	privKey, err := identity.GetRSAPrivatePem()
+	if err != nil {
+		return err
+	}
+
+	return m.permanentDeleteAccount(f, identity.ID, privKey, m.comms, udHost)
 }
 
 // permanentDeleteAccount is a helper function for PermanentDeleteAccount.

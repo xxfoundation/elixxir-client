@@ -1,11 +1,13 @@
 package ud
 
 import (
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/single"
-	"gitlab.com/elixxir/client/storage/user"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/xxdk"
-	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/elixxir/crypto/fastRNG"
 )
 
 // CMix is a sub-interface of the cmix.Client. It contains the methods
@@ -16,25 +18,16 @@ type CMix interface {
 	single.Cmix
 }
 
-// E2E is a sub-interface of the e2e.Handler. It contains the methods
+// E2E is a sub-interface of the xxdk.E2e. It contains the methods
 // relevant to what is used in this package.
 type E2E interface {
-	// GetGroup returns the cyclic group used for end to end encruption
-	GetGroup() *cyclic.Group
-
-	// GetReceptionID returns the default IDs
-	GetReceptionID() *id.ID
-
-	// GetHistoricalDHPubkey returns the user's Historical DH
-	// Public Key
-	GetHistoricalDHPubkey() *cyclic.Int
-}
-
-// UserInfo is a sub-interface for the user.User object in storage.
-// It contains the methods relevant to what is used in this package.
-type UserInfo interface {
-	PortableUserInfo() user.Info
-	GetReceptionRegistrationValidationSignature() []byte
+	GetReceptionIdentity() xxdk.ReceptionIdentity
+	GetCmix() cmix.Client
+	GetE2E() e2e.Handler
+	GetEventReporter() event.Reporter
+	GetRng() *fastRNG.StreamGenerator
+	GetStorage() storage.Session
+	GetTransmissionIdentity() xxdk.TransmissionIdentity
 }
 
 // NetworkStatus is an interface for the xxdk.Cmix's

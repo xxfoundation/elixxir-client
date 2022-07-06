@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/connect"
 	"gitlab.com/elixxir/crypto/contact"
 )
@@ -34,8 +35,12 @@ func (_ *AuthenticatedConnection) IsAuthenticated() bool {
 // connection with the server). Once a connect.Connection has been established
 // with the server and then authenticate their identity to the server.
 // accepts a marshalled ReceptionIdentity and contact.Contact object
-func (c *Cmix) ConnectWithAuthentication(e2eId int, recipientContact []byte) (*AuthenticatedConnection, error) {
-	paramsJSON := GetDefaultE2EParams()
+func (c *Cmix) ConnectWithAuthentication(e2eId int, recipientContact,
+	e2eParamsJSON []byte) (*AuthenticatedConnection, error) {
+	if len(e2eParamsJSON) == 0 {
+		jww.WARN.Printf("e2e params not specified, using defaults...")
+		e2eParamsJSON = GetDefaultE2EParams()
+	}
 
 	cont, err := contact.Unmarshal(recipientContact)
 	if err != nil {
@@ -47,7 +52,7 @@ func (c *Cmix) ConnectWithAuthentication(e2eId int, recipientContact []byte) (*A
 		return nil, err
 	}
 
-	params, err := parseE2EParams(paramsJSON)
+	params, err := parseE2EParams(e2eParamsJSON)
 	if err != nil {
 		return nil, err
 	}

@@ -1,13 +1,21 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package bindings
 
 import (
 	"encoding/json"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/fileTransfer"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 /* File Transfer Structs and Interfaces */

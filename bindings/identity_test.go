@@ -1,7 +1,16 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package bindings
 
 import (
 	"encoding/json"
+	"testing"
+
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
@@ -9,7 +18,6 @@ import (
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
-	"testing"
 )
 
 func TestIdentity_JSON(t *testing.T) {

@@ -1,7 +1,15 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package bindings
 
 import (
 	"encoding/json"
+
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/single"

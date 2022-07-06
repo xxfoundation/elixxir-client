@@ -1,10 +1,21 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package bindings
 
 import (
 	"encoding/json"
+	"sync"
 
+	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/connect"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 )
 
@@ -19,6 +30,7 @@ var connectionTrackerSingleton = &connectionTracker{
 type Connection struct {
 	connection connect.Connection
 	id         int
+	params     xxdk.E2EParams
 }
 
 // GetId returns the Connection.id
@@ -32,9 +44,12 @@ func (c *Connection) GetId() int {
 // partner.Manager is confirmed.
 // recipientContact - marshalled contact.Contact object
 // myIdentity - marshalled ReceptionIdentity object
-func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
+func (c *Cmix) Connect(e2eId int, recipientContact, e2eParamsJSON []byte) (
 	*Connection, error) {
-	paramsJSON := GetDefaultE2EParams()
+	if len(e2eParamsJSON) == 0 {
+		jww.WARN.Printf("e2e params not specified, using defaults...")
+		e2eParamsJSON = GetDefaultE2EParams()
+	}
 	cont, err := contact.Unmarshal(recipientContact)
 	if err != nil {
 		return nil, err
@@ -45,7 +60,7 @@ func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
 		return nil, err
 	}
 
-	p, err := parseE2EParams(paramsJSON)
+	p, err := parseE2EParams(e2eParamsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -55,21 +70,14 @@ func (c *Cmix) Connect(e2eId int, recipientContact []byte) (
 		return nil, err
 	}
 
-	return connectionTrackerSingleton.make(connection), nil
+	return connectionTrackerSingleton.make(connection, p), nil
 }
 
 // SendE2E is a wrapper for sending specifically to the Connection's partner.Manager
 // Returns marshalled E2ESendReport
 func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
-	paramsJSON := GetDefaultE2EParams()
-
-	params, err := parseE2EParams(paramsJSON)
-	if err != nil {
-		return nil, err
-	}
-
 	rounds, mid, ts, err := c.connection.SendE2E(catalog.MessageType(mt), payload,
-		params.Base)
+		c.params.Base)
 
 	if err != nil {
 		return nil, err
@@ -101,4 +109,53 @@ func (c *Connection) GetPartner() []byte {
 func (c *Connection) RegisterListener(messageType int, newListener Listener) error {
 	_, err := c.connection.RegisterListener(catalog.MessageType(messageType), listener{l: newListener})
 	return err
+}
+
+// connectionTracker is a singleton used to keep track of extant clients, allowing
+// for race condition free passing over the bindings
+
+type connectionTracker struct {
+	connections map[int]*Connection
+	count       int
+	mux         sync.RWMutex
+}
+
+// make makes a client from an API client, assigning it a unique ID
+func (ct *connectionTracker) make(c connect.Connection,
+	params xxdk.E2EParams) *Connection {
+	ct.mux.Lock()
+	defer ct.mux.Unlock()
+
+	id := ct.count
+	ct.count++
+
+	ct.connections[id] = &Connection{
+		connection: c,
+		id:         id,
+		params:     params,
+	}
+
+	return ct.connections[id]
+}
+
+//get returns a client given its ID
+func (ct *connectionTracker) get(id int) (*Connection, error) {
+	ct.mux.RLock()
+	defer ct.mux.RUnlock()
+
+	c, exist := ct.connections[id]
+	if !exist {
+		return nil, errors.Errorf("Cannot get client for id %d, client "+
+			"does not exist", id)
+	}
+
+	return c, nil
+}
+
+//deletes a client if it exists
+func (ct *connectionTracker) delete(id int) {
+	ct.mux.Lock()
+	defer ct.mux.Unlock()
+
+	delete(ct.connections, id)
 }

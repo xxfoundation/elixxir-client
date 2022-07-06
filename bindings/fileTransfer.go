@@ -86,9 +86,8 @@ type FileTransferReceiveProgressCallback interface {
 /* Main functions */
 
 // InitFileTransfer creates a bindings-level File Transfer manager
-// Accepts client ID, ReceiveFileCallback and a ReporterFunc
-func InitFileTransfer(e2eID int) (*FileTransfer, error) {
-	paramsJSON := GetDefaultFileTransferParams()
+// Accepts e2e client ID and marshalled params JSON
+func InitFileTransfer(e2eID int, paramsJSON []byte) (*FileTransfer, error) {
 
 	// Get bindings client from singleton
 	e2eCl, err := e2eTrackerSingleton.get(e2eID)
@@ -120,9 +119,15 @@ func InitFileTransfer(e2eID int) (*FileTransfer, error) {
 }
 
 // Send is the bindings-level function for sending a File
-func (f *FileTransfer) Send(payload, recipientID []byte, retry float32,
+// Accepts:
+//  FileSend JSON payload
+//  Marshalled recipient ID
+//  Marshalled e2e Params JSON
+//  Number of retries allowed
+//  Limit on duration between retries
+//  FileTransferSentProgressCallback interface
+func (f *FileTransfer) Send(payload, recipientID, paramsJSON []byte, retry float32,
 	period string, callback FileTransferSentProgressCallback) ([]byte, error) {
-	paramsJSON := GetDefaultE2EParams()
 	// Unmarshal recipient ID
 	recipient, err := id.Unmarshal(recipientID)
 	if err != nil {
@@ -196,6 +201,12 @@ func (f *FileTransfer) CloseSend(tidBytes []byte) error {
 
 /* Callback registration functions */
 
+// RegisterSentProgressCallback allows for the registration of a callback to
+// track the progress of an individual sent file transfer.
+// SentProgressCallback is auto registered on Send; this function should be
+// called when resuming clients or registering extra callbacks.
+// Accepts ID of the transfer, callback for transfer progress,
+// and period between retries
 func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 	callback FileTransferSentProgressCallback, period string) error {
 	cb := func(completed bool, arrived, total uint16,
@@ -218,6 +229,11 @@ func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 	return f.ft.RegisterSentProgressCallback(&tid, cb, p)
 }
 
+// RegisterReceivedProgressCallback allows for the registration of a
+// callback to track the progress of an individual received file transfer.
+// This should be done when a new transfer is received on the
+// ReceiveCallback.
+// Accepts ID of the transfer, callback for transfer progress and period between retries
 func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte, callback FileTransferReceiveProgressCallback, period string) error {
 	cb := func(completed bool, received, total uint16,
 		rt fileTransfer.ReceivedTransfer, t fileTransfer.FilePartTracker, err error) {

@@ -13,14 +13,10 @@ type RestlikeCallback interface {
 	Callback([]byte, error)
 }
 
-type RequestParams struct {
-}
-
 // RequestRestLike sends a restlike request to a given contact
-// Accepts marshalled contact object as recipient, byte slice payload & headers, method enum and a URI
+// Accepts marshalled contact object as recipient, marshalled RestlikeMessage and params JSON
 // Returns json marshalled restlike.Message & error
-func RequestRestLike(e2eID int, recipient, request []byte) ([]byte, error) {
-	paramsJSON := GetDefaultSingleUseParams()
+func RequestRestLike(e2eID int, recipient, request, paramsJSON []byte) ([]byte, error) {
 	c, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return nil, err
@@ -56,10 +52,11 @@ func RequestRestLike(e2eID int, recipient, request []byte) ([]byte, error) {
 }
 
 // AsyncRequestRestLike sends an asynchronous restlike request to a given contact
-// Accepts marshalled contact object as recipient, byte slice payload & headers, method enum, URI, and a RestlikeCallback
-// Returns an error, and the RestlikeCallback will be called with the results of json marshalling the response when received
-func AsyncRequestRestLike(e2eID int, recipient, request []byte, cb RestlikeCallback) error {
-	paramsJSON := GetDefaultSingleUseParams()
+// Accepts e2e client ID, marshalled contact object as recipient,
+// marshalled RestlikeMessage, marshalled Params json, and a RestlikeCallback
+// Returns an error, and the RestlikeCallback will be called with the results
+// of json marshalling the response when received
+func AsyncRequestRestLike(e2eID int, recipient, request, paramsJSON []byte, cb RestlikeCallback) error {
 	c, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return err

@@ -11,10 +11,9 @@ import (
 
 /* PUBLIC WRAPPER METHODS */
 
-// TransmitSingleUse accepts a marshalled recipient contact object, tag, payload, SingleUseResponse callback func & a
+// TransmitSingleUse accepts a marshalled recipient contact object, tag, payload, params JSON, SingleUseResponse callback func & a
 // Client.  Transmits payload to recipient via single use
-func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload []byte, responseCB SingleUseResponse) ([]byte, error) {
-	paramsJSON := GetDefaultSingleUseParams()
+func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload, paramsJSON []byte, responseCB SingleUseResponse) ([]byte, error) {
 	e2eCl, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return nil, err

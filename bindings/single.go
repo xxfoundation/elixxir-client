@@ -14,6 +14,7 @@ import (
 // TransmitSingleUse accepts a marshalled recipient contact object, tag, payload, SingleUseResponse callback func & a
 // Client.  Transmits payload to recipient via single use
 func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload []byte, responseCB SingleUseResponse) ([]byte, error) {
+	paramsJSON := GetDefaultSingleUseParams()
 	e2eCl, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return nil, err
@@ -26,7 +27,12 @@ func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload []byte, 
 
 	rcb := &singleUseResponse{response: responseCB}
 
-	rids, eid, err := single.TransmitRequest(recipientContact, tag, payload, rcb, single.GetDefaultRequestParams(), e2eCl.api.GetCmix(), e2eCl.api.GetRng().GetStream(), e2eCl.api.GetStorage().GetE2EGroup())
+	params, err := parseSingleUseParams(paramsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	rids, eid, err := single.TransmitRequest(recipientContact, tag, payload, rcb, params, e2eCl.api.GetCmix(), e2eCl.api.GetRng().GetStream(), e2eCl.api.GetStorage().GetE2EGroup())
 
 	if err != nil {
 		return nil, err

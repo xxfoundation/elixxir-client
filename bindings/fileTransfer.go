@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/fileTransfer"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
@@ -89,6 +88,8 @@ type FileTransferReceiveProgressCallback interface {
 // InitFileTransfer creates a bindings-level File Transfer manager
 // Accepts client ID, ReceiveFileCallback and a ReporterFunc
 func InitFileTransfer(e2eID int) (*FileTransfer, error) {
+	paramsJSON := GetDefaultFileTransferParams()
+
 	// Get bindings client from singleton
 	e2eCl, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
@@ -99,8 +100,13 @@ func InitFileTransfer(e2eID int) (*FileTransfer, error) {
 	myID := e2eCl.api.GetTransmissionIdentity().ID
 	rng := e2eCl.api.GetRng()
 
+	params, err := parseFileTransferParams(paramsJSON)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create file transfer manager
-	m, err := fileTransfer.NewManager(fileTransfer.DefaultParams(), myID,
+	m, err := fileTransfer.NewManager(params, myID,
 		e2eCl.api.GetCmix(), e2eCl.api.GetStorage(), rng)
 
 	// Add file transfer processes to client services tracking
@@ -116,6 +122,7 @@ func InitFileTransfer(e2eID int) (*FileTransfer, error) {
 // Send is the bindings-level function for sending a File
 func (f *FileTransfer) Send(payload, recipientID []byte, retry float32,
 	period string, callback FileTransferSentProgressCallback) ([]byte, error) {
+	paramsJSON := GetDefaultE2EParams()
 	// Unmarshal recipient ID
 	recipient, err := id.Unmarshal(recipientID)
 	if err != nil {
@@ -146,11 +153,7 @@ func (f *FileTransfer) Send(payload, recipientID []byte, retry float32,
 	}
 
 	sendNew := func(transferInfo []byte) error {
-		params, err := e2e.GetDefaultParams().MarshalJSON()
-		if err != nil {
-			return err
-		}
-		resp, err := f.e2eCl.SendE2E(int(catalog.NewFileTransfer), recipientID, transferInfo, params)
+		resp, err := f.e2eCl.SendE2E(int(catalog.NewFileTransfer), recipientID, transferInfo, paramsJSON)
 		if err != nil {
 			return err
 		}

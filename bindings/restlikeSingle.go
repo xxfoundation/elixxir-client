@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/restlike"
 	"gitlab.com/elixxir/client/restlike/single"
-	singleuse "gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/crypto/contact"
 )
 
@@ -21,6 +20,7 @@ type RequestParams struct {
 // Accepts marshalled contact object as recipient, byte slice payload & headers, method enum and a URI
 // Returns json marshalled restlike.Message & error
 func RequestRestLike(e2eID int, recipient, request []byte) ([]byte, error) {
+	paramsJSON := GetDefaultSingleUseParams()
 	c, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return nil, err
@@ -39,11 +39,16 @@ func RequestRestLike(e2eID int, recipient, request []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	params, err := parseSingleUseParams(paramsJSON)
+	if err != nil {
+		return nil, err
+	}
+
 	resp, err := req.Request(recipientContact, restlike.Method(message.Method), restlike.URI(message.URI),
 		message.Content, &restlike.Headers{
 			Headers: message.Headers,
 			Version: 0,
-		}, singleuse.GetDefaultRequestParams())
+		}, params)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +59,7 @@ func RequestRestLike(e2eID int, recipient, request []byte) ([]byte, error) {
 // Accepts marshalled contact object as recipient, byte slice payload & headers, method enum, URI, and a RestlikeCallback
 // Returns an error, and the RestlikeCallback will be called with the results of json marshalling the response when received
 func AsyncRequestRestLike(e2eID int, recipient, request []byte, cb RestlikeCallback) error {
+	paramsJSON := GetDefaultSingleUseParams()
 	c, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return err
@@ -76,9 +82,14 @@ func AsyncRequestRestLike(e2eID int, recipient, request []byte, cb RestlikeCallb
 		cb.Callback(json.Marshal(message))
 	}
 
+	params, err := parseSingleUseParams(paramsJSON)
+	if err != nil {
+		return err
+	}
+
 	return req.AsyncRequest(recipientContact, restlike.Method(message.Method), restlike.URI(message.URI),
 		message.Content, &restlike.Headers{
 			Headers: message.Headers,
 			Version: 0,
-		}, rlcb, singleuse.GetDefaultRequestParams())
+		}, rlcb, params)
 }

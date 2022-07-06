@@ -11,6 +11,8 @@ package bindings
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/fileTransfer"
+	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/xxdk"
 )
 
@@ -36,6 +38,34 @@ func GetDefaultE2EParams() []byte {
 		jww.FATAL.Panicf("Unexpected error: %+v", err)
 	}
 	return data
+}
+
+func GetDefaultFileTransferParams() []byte {
+	defaultParams := fileTransfer.DefaultParams()
+	data, err := defaultParams.MarshalJSON()
+	if err != nil {
+		jww.FATAL.Panicf("Unexpected error: %+v", err)
+	}
+	return data
+}
+
+func GetDefaultSingleUseParams() []byte {
+	defaultParams := single.GetDefaultRequestParams()
+	data, err := defaultParams.MarshalJSON()
+	if err != nil {
+		jww.FATAL.Panicf("Unexpected error: %+v", err)
+	}
+	return data
+}
+
+func parseSingleUseParams(data []byte) (single.RequestParams, error) {
+	p := &single.RequestParams{}
+	return *p, p.UnmarshalJSON(data)
+}
+
+func parseFileTransferParams(data []byte) (fileTransfer.Params, error) {
+	p := &fileTransfer.Params{}
+	return *p, p.UnmarshalJSON(data)
 }
 
 func parseCMixParams(data []byte) (xxdk.CMIXParams, error) {

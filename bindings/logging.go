@@ -1,11 +1,21 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
+// logging.go contains bindings log control functions
+
 package bindings
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"google.golang.org/grpc/grpclog"
-	"log"
 )
 
 // sets level of logging. All logs the set level and above will be displayed

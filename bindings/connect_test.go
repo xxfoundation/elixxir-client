@@ -1,13 +1,21 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package bindings
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 func TestE2ESendReport_JSON(t *testing.T) {

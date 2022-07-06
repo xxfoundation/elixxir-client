@@ -1,13 +1,21 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package bindings
 
 import (
 	"encoding/json"
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"testing"
-	"time"
 )
 
 func TestSingleUseJsonMarshals(t *testing.T) {

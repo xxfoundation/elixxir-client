@@ -14,11 +14,14 @@ type RestlikeCallback interface {
 	Callback([]byte, error)
 }
 
+type RequestParams struct {
+}
+
 // RequestRestLike sends a restlike request to a given contact
 // Accepts marshalled contact object as recipient, byte slice payload & headers, method enum and a URI
 // Returns json marshalled restlike.Message & error
-func RequestRestLike(clientID int, recipient, request []byte) ([]byte, error) {
-	c, err := clientTrackerSingleton.get(clientID)
+func RequestRestLike(e2eID int, recipient, request []byte) ([]byte, error) {
+	c, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return nil, err
 	}
@@ -50,8 +53,8 @@ func RequestRestLike(clientID int, recipient, request []byte) ([]byte, error) {
 // AsyncRequestRestLike sends an asynchronous restlike request to a given contact
 // Accepts marshalled contact object as recipient, byte slice payload & headers, method enum, URI, and a RestlikeCallback
 // Returns an error, and the RestlikeCallback will be called with the results of json marshalling the response when received
-func AsyncRequestRestLike(clientID int, recipient, request []byte, cb RestlikeCallback) error {
-	c, err := clientTrackerSingleton.get(clientID)
+func AsyncRequestRestLike(e2eID int, recipient, request []byte, cb RestlikeCallback) error {
+	c, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return err
 	}

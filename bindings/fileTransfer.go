@@ -35,7 +35,7 @@ type ReceivedFile struct {
 	Preview    []byte
 	Name       string
 	Type       string
-	Size       uint32
+	Size       int
 }
 
 // FileSend is a public struct which represents a file to be transferred
@@ -61,8 +61,8 @@ type FileSend struct {
 // }
 type Progress struct {
 	Completed   bool
-	Transmitted uint16
-	Total       uint16
+	Transmitted int
+	Total       int
 	Err         error
 }
 
@@ -88,33 +88,14 @@ type FileTransferReceiveProgressCallback interface {
 
 // InitFileTransfer creates a bindings-level File Transfer manager
 // Accepts client ID, ReceiveFileCallback and a ReporterFunc
-func InitFileTransfer(clientID, e2eID int, cb ReceiveFileCallback) (*FileTransfer, error) {
+func InitFileTransfer(e2eID int) (*FileTransfer, error) {
 	// Get bindings client from singleton
-	//c, err := cmixTrackerSingleton.get(clientID)
-	//if err != nil {
-	//	return nil, err
-	//}
 	e2eCl, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create the callback to wrap the ReceiveFileCallback
-	//rcb := func(tid *ftCrypto.TransferID, fileName, fileType string,
-	//	sender *id.ID, size uint32, preview []byte) {
-	//	f := &ReceivedFile{
-	//		TransferID: tid.Bytes(),
-	//		SenderID:   sender.Marshal(),
-	//		Preview:    preview,
-	//		Name:       fileName,
-	//		Type:       fileType,
-	//		Size:       size,
-	//	}
-	//	cb.Callback(json.Marshal(f))
-	//}
-
 	// Client info
-	e2eCl.api.GetTransmissionIdentity()
 	myID := e2eCl.api.GetTransmissionIdentity().ID
 	rng := e2eCl.api.GetRng()
 
@@ -149,8 +130,8 @@ func (f *FileTransfer) Send(payload, recipientID []byte, retry float32,
 		st fileTransfer.SentTransfer, t fileTransfer.FilePartTracker, err error) {
 		prog := &Progress{
 			Completed:   completed,
-			Transmitted: arrived,
-			Total:       total,
+			Transmitted: int(arrived),
+			Total:       int(total),
 			Err:         err,
 		}
 		pm, err := json.Marshal(prog)
@@ -218,8 +199,8 @@ func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 		st fileTransfer.SentTransfer, t fileTransfer.FilePartTracker, err error) {
 		prog := &Progress{
 			Completed:   completed,
-			Transmitted: arrived,
-			Total:       total,
+			Transmitted: int(arrived),
+			Total:       int(total),
 			Err:         err,
 		}
 		pm, err := json.Marshal(prog)
@@ -239,8 +220,8 @@ func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte, callbac
 		rt fileTransfer.ReceivedTransfer, t fileTransfer.FilePartTracker, err error) {
 		prog := &Progress{
 			Completed:   completed,
-			Transmitted: received,
-			Total:       total,
+			Transmitted: int(received),
+			Total:       int(total),
 			Err:         err,
 		}
 		pm, err := json.Marshal(prog)

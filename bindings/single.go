@@ -13,8 +13,8 @@ import (
 
 // TransmitSingleUse accepts a marshalled recipient contact object, tag, payload, SingleUseResponse callback func & a
 // Client.  Transmits payload to recipient via single use
-func TransmitSingleUse(clientID int, recipient []byte, tag string, payload []byte, responseCB SingleUseResponse) ([]byte, error) {
-	cl, err := clientTrackerSingleton.get(clientID)
+func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload []byte, responseCB SingleUseResponse) ([]byte, error) {
+	e2eCl, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return nil, err
 	}
@@ -26,27 +26,32 @@ func TransmitSingleUse(clientID int, recipient []byte, tag string, payload []byt
 
 	rcb := &singleUseResponse{response: responseCB}
 
-	rids, eid, err := single.TransmitRequest(recipientContact, tag, payload, rcb, single.GetDefaultRequestParams(), cl.api.GetCmix(), cl.api.GetRng().GetStream(), cl.api.GetStorage().GetE2EGroup())
+	rids, eid, err := single.TransmitRequest(recipientContact, tag, payload, rcb, single.GetDefaultRequestParams(), e2eCl.api.GetCmix(), e2eCl.api.GetRng().GetStream(), e2eCl.api.GetStorage().GetE2EGroup())
 
 	if err != nil {
 		return nil, err
 	}
 	sr := SingleUseSendReport{
-		EphID:      eid,
-		RoundsList: makeRoundsList(rids),
+		EphID:       eid.EphId.Int64(),
+		ReceptionID: eid.Source.Marshal(),
+		RoundsList:  makeRoundsList(rids),
 	}
 	return json.Marshal(sr)
 }
 
 // Listen starts a single use listener on a given tag using the passed in client and SingleUseCallback func
-func Listen(clientID int, tag string, cb SingleUseCallback) (StopFunc, error) {
-	cl, err := clientTrackerSingleton.get(clientID)
+func Listen(e2eID int, tag string, cb SingleUseCallback) (StopFunc, error) {
+	e2eCl, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return nil, err
 	}
 
 	listener := singleUseListener{scb: cb}
-	l := single.Listen(tag, cl.api.GetUser().ReceptionID, cl.api.GetUser().E2eDhPrivateKey, cl.api.GetCmix(), cl.api.GetStorage().GetE2EGroup(), listener)
+	dhpk, err := e2eCl.api.GetReceptionIdentity().GetDHKeyPrivate()
+	if err != nil {
+		return nil, err
+	}
+	l := single.Listen(tag, e2eCl.api.GetReceptionIdentity().ID, dhpk, e2eCl.api.GetCmix(), e2eCl.api.GetStorage().GetE2EGroup(), listener)
 	return l.Stop, nil
 }
 
@@ -60,7 +65,8 @@ func Listen(clientID int, tag string, cb SingleUseCallback) (StopFunc, error) {
 //  "Source":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}}
 type SingleUseSendReport struct {
 	RoundsList
-	EphID receptionID.EphemeralIdentity
+	ReceptionID []byte
+	EphID       int64
 }
 
 // SingleUseResponseReport is the bindings struct used to represent information passed
@@ -75,7 +81,8 @@ type SingleUseSendReport struct {
 type SingleUseResponseReport struct {
 	RoundsList
 	Payload     []byte
-	ReceptionID receptionID.EphemeralIdentity
+	ReceptionID []byte
+	EphID       int64
 	Err         error
 }
 
@@ -90,9 +97,10 @@ type SingleUseResponseReport struct {
 //  "Source":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}}
 type SingleUseCallbackReport struct {
 	RoundsList
-	Payload []byte
-	Partner *id.ID
-	EphID   receptionID.EphemeralIdentity
+	Payload     []byte
+	Partner     *id.ID
+	EphID       int64
+	ReceptionID []byte
 }
 
 // Function types
@@ -132,10 +140,11 @@ func (sl singleUseListener) Callback(req *single.Request, eid receptionID.Epheme
 
 	// Todo: what other info from req needs to get to bindings
 	scr := SingleUseCallbackReport{
-		Payload:    req.GetPayload(),
-		RoundsList: makeRoundsList(rids),
-		Partner:    req.GetPartner(),
-		EphID:      eid,
+		Payload:     req.GetPayload(),
+		RoundsList:  makeRoundsList(rids),
+		Partner:     req.GetPartner(),
+		EphID:       eid.EphId.Int64(),
+		ReceptionID: eid.Source.Marshal(),
 	}
 
 	sl.scb.Callback(json.Marshal(scr))
@@ -157,7 +166,8 @@ func (sr singleUseResponse) Callback(payload []byte, receptionID receptionID.Eph
 	}
 	sendReport := SingleUseResponseReport{
 		RoundsList:  makeRoundsList(rids),
-		ReceptionID: receptionID,
+		ReceptionID: receptionID.Source.Marshal(),
+		EphID:       receptionID.EphId.Int64(),
 		Payload:     payload,
 		Err:         err,
 	}

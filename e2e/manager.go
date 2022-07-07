@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"encoding/json"
+	jww "github.com/spf13/jwalterweatherman"
 	"strings"
 	"time"
 
@@ -46,6 +47,7 @@ const e2eRekeyParamsVer = 0
 // uses the passed ID to modify the kv prefix for a unique storage path
 func Init(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group, rekeyParams rekey.Params) error {
+	jww.INFO.Printf("Initializing new e2e.Handler for %s", myID.String())
 	kv = kv.Prefix(makeE2ePrefix(myID))
 	return initE2E(kv, myID, privKey, grp, rekeyParams)
 }

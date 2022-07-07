@@ -163,14 +163,14 @@ func OpenCmix(storageDir string, password []byte,
 // predefined cryptographic which defines a user. This is designed for some
 // specific deployment procedures and is generally unsafe.
 func NewProtoClient_Unsafe(ndfJSON, storageDir string, password []byte,
-	protoUser *user.Proto) error {
+	protoUser *user.Proto) (ReceptionIdentity, error) {
 	jww.INFO.Printf("NewProtoClient_Unsafe")
 
 	usr := user.NewUserFromProto(protoUser)
 
 	def, err := ParseNDF(ndfJSON)
 	if err != nil {
-		return err
+		return ReceptionIdentity{}, err
 	}
 
 	cmixGrp, e2eGrp := DecodeGroups(def)
@@ -178,7 +178,13 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password []byte,
 	storageSess, err := CheckVersionAndSetupStorage(def, storageDir,
 		password, usr, cmixGrp, e2eGrp, protoUser.RegCode)
 	if err != nil {
-		return err
+		return ReceptionIdentity{}, err
+	}
+
+	identity, err := buildReceptionIdentity(protoUser.ReceptionID, protoUser.ReceptionSalt,
+		protoUser.ReceptionRSA, e2eGrp, protoUser.E2eDhPrivateKey)
+	if err != nil {
+		return ReceptionIdentity{}, err
 	}
 
 	storageSess.SetReceptionRegistrationValidationSignature(
@@ -192,10 +198,10 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password []byte,
 	err = storageSess.ForwardRegistrationStatus(
 		storage.PermissioningComplete)
 	if err != nil {
-		return err
+		return ReceptionIdentity{}, err
 	}
 
-	return nil
+	return identity, nil
 }
 
 // LoadCmix initializes a Cmix object from existing storage and starts the network

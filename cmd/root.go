@@ -299,6 +299,9 @@ var rootCmd = &cobra.Command{
 			jww.INFO.Printf("Authenticated channel already in "+
 				"place for %s", recipientID)
 			authConfirmed = true
+		} else {
+			jww.INFO.Printf("No authenticated channel in "+
+				"place for %s", recipientID)
 		}
 
 		// Send unsafe messages or not?
@@ -586,7 +589,7 @@ func initCmix() (*xxdk.Cmix, xxdk.ReceptionIdentity) {
 				jww.FATAL.Panicf("%v", err)
 			}
 
-			err = xxdk.NewProtoClient_Unsafe(string(ndfJSON), storeDir,
+			knownReception, err = xxdk.NewProtoClient_Unsafe(string(ndfJSON), storeDir,
 				pass, protoUser)
 		} else if userIDprefix != "" {
 			err = xxdk.NewVanityClient(string(ndfJSON), storeDir,

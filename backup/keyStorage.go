@@ -9,7 +9,6 @@ package backup
 
 import (
 	"bytes"
-
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/backup"

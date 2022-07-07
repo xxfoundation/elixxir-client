@@ -643,9 +643,7 @@ func initCmix() (*xxdk.Cmix, xxdk.ReceptionIdentity) {
 		}
 	}
 
-	cmixParams, _ := initParams()
-
-	client, err := xxdk.OpenCmix(storeDir, pass, cmixParams)
+	client, err := xxdk.OpenCmix(storeDir, pass)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}

@@ -9,6 +9,8 @@ package xxdk
 
 import (
 	"encoding/binary"
+	"math/rand"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	util "gitlab.com/elixxir/client/storage/utility"
@@ -16,7 +18,6 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/primitives/fact"
-	"math/rand"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
@@ -77,7 +78,7 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
 	dhPrivKey := generatePrecanDHKeypair(precannedID, e2eGrp)
 
 	userInfo := CreatePrecannedUser(precannedID, rngStream)
-	identity, err := buildReceptionIdentity(userInfo.ReceptionID, userInfo.ReceptionSalt,
+	identity, err := BuildReceptionIdentity(userInfo.ReceptionID, userInfo.ReceptionSalt,
 		userInfo.ReceptionRSA, e2eGrp, dhPrivKey)
 	if err != nil {
 		return ReceptionIdentity{}, err

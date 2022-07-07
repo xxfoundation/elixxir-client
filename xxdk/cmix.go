@@ -181,7 +181,7 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password []byte,
 		return ReceptionIdentity{}, err
 	}
 
-	identity, err := buildReceptionIdentity(protoUser.ReceptionID, protoUser.ReceptionSalt,
+	identity, err := BuildReceptionIdentity(protoUser.ReceptionID, protoUser.ReceptionSalt,
 		protoUser.ReceptionRSA, e2eGrp, protoUser.E2eDhPrivateKey)
 	if err != nil {
 		return ReceptionIdentity{}, err

@@ -28,13 +28,13 @@ import (
 // JSON encoded list of the E2E partners contained in the backup and a
 // json-encoded string containing parameters stored in the backup
 func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
-	backupPassphrase []byte, backupFileContents []byte) ([]*id.ID,
-	string, error) {
+	backupPassphrase []byte, backupFileContents []byte) (
+	xxdk.ReceptionIdentity, []*id.ID, string, error) {
 
 	backUp := &cryptoBackup.Backup{}
 	err := backUp.Decrypt(string(backupPassphrase), backupFileContents)
 	if err != nil {
-		return nil, "", errors.WithMessage(err,
+		return xxdk.ReceptionIdentity{}, nil, "", errors.WithMessage(err,
 			"Failed to unmarshal decrypted client contents.")
 	}
 
@@ -42,7 +42,7 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 
 	def, err := xxdk.ParseNDF(ndfJSON)
 	if err != nil {
-		return nil, "", err
+		return xxdk.ReceptionIdentity{}, nil, "", err
 	}
 
 	cmixGrp, e2eGrp := xxdk.DecodeGroups(def)
@@ -52,7 +52,13 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 		sessionPassword, usr, cmixGrp, e2eGrp,
 		backUp.RegistrationCode)
 	if err != nil {
-		return nil, "", err
+		return xxdk.ReceptionIdentity{}, nil, "", err
+	}
+
+	identity, err := xxdk.BuildReceptionIdentity(usr.ReceptionID,
+		usr.ReceptionSalt, usr.ReceptionRSA, e2eGrp, usr.E2eDhPrivateKey)
+	if err != nil {
+		return xxdk.ReceptionIdentity{}, nil, "", err
 	}
 
 	storageSess.SetReceptionRegistrationValidationSignature(
@@ -66,7 +72,7 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 	err = storageSess.ForwardRegistrationStatus(
 		storage.PermissioningComplete)
 	if err != nil {
-		return nil, "", err
+		return xxdk.ReceptionIdentity{}, nil, "", err
 	}
 
 	privkey := usr.E2eDhPrivateKey
@@ -75,7 +81,7 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 	err = e2e.Init(storageSess.GetKV(), usr.ReceptionID, privkey, e2eGrp,
 		rekey.GetDefaultParams())
 	if err != nil {
-		return nil, "", err
+		return xxdk.ReceptionIdentity{}, nil, "", err
 	}
 
 	udInfo := backUp.UserDiscoveryRegistration
@@ -91,5 +97,5 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 		}
 	}
 	err = ud.InitStoreFromBackup(storageSess.GetKV(), username, email, phone)
-	return backUp.Contacts.Identities, backUp.JSONParams, err
+	return identity, backUp.Contacts.Identities, backUp.JSONParams, err
 }

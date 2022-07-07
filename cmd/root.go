@@ -611,8 +611,10 @@ func initCmix() (*xxdk.Cmix, xxdk.ReceptionIdentity) {
 			}
 
 			// Construct client from backup data
-			backupIdList, _, err := backup.NewClientFromBackup(string(ndfJSON), storeDir,
-				pass, backupPass, backupFile)
+			id, backupIdList, _, err := backup.NewClientFromBackup(
+				string(ndfJSON), storeDir, pass, backupPass,
+				backupFile)
+			knownReception = id
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}

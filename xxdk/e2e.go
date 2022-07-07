@@ -98,7 +98,7 @@ func LoginLegacy(client *Cmix, params E2EParams, callbacks AuthCallbacks) (
 		return nil, err
 	}
 
-	m.e2eIdentity, err = buildReceptionIdentity(userInfo.ReceptionID, userInfo.ReceptionSalt,
+	m.e2eIdentity, err = BuildReceptionIdentity(userInfo.ReceptionID, userInfo.ReceptionSalt,
 		userInfo.ReceptionRSA, m.e2e.GetGroup(), m.e2e.GetHistoricalDHPrivkey())
 	return m, err
 }

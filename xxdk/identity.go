@@ -8,6 +8,7 @@ package xxdk
 
 import (
 	"encoding/json"
+
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
@@ -174,9 +175,9 @@ func (r ReceptionIdentity) GetContact() contact.Contact {
 	return ct
 }
 
-// buildReceptionIdentity creates a new ReceptionIdentity
+// BuildReceptionIdentity creates a new ReceptionIdentity
 // from the given user.Info
-func buildReceptionIdentity(receptionId *id.ID, receptionSalt []byte, receptionRsa *rsa.PrivateKey,
+func BuildReceptionIdentity(receptionId *id.ID, receptionSalt []byte, receptionRsa *rsa.PrivateKey,
 	e2eGrp *cyclic.Group, dHPrivkey *cyclic.Int) (ReceptionIdentity, error) {
 	saltCopy := make([]byte, len(receptionSalt))
 	copy(saltCopy, receptionSalt)

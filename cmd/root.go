@@ -299,6 +299,9 @@ var rootCmd = &cobra.Command{
 			jww.INFO.Printf("Authenticated channel already in "+
 				"place for %s", recipientID)
 			authConfirmed = true
+		} else {
+			jww.INFO.Printf("No authenticated channel in "+
+				"place for %s", recipientID)
 		}
 
 		// Send unsafe messages or not?

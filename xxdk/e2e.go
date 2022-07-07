@@ -216,7 +216,6 @@ func login(client *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
 		client.GetEventReporter())
 	if err != nil {
 		//initialize the e2e storage
-		jww.INFO.Printf("Initializing new e2e.Handler for %s", identity.ID.String())
 		err = e2e.Init(kv, identity.ID, dhPrivKey, e2eGrp,
 			params.Rekey)
 		if err != nil {

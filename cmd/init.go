@@ -9,6 +9,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -24,6 +26,9 @@ var initCmd = &cobra.Command{
 
 		jww.INFO.Printf("User: %s", receptionIdentity.ID)
 		writeContact(receptionIdentity.GetContact())
+
+		// NOTE: DO NOT REMOVE THIS LINE. YOU WILL BREAK INTEGRATION
+		fmt.Printf("%s\n", receptionIdentity.ID)
 	},
 }
 

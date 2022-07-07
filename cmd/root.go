@@ -589,7 +589,7 @@ func initCmix() (*xxdk.Cmix, xxdk.ReceptionIdentity) {
 				jww.FATAL.Panicf("%v", err)
 			}
 
-			err = xxdk.NewProtoClient_Unsafe(string(ndfJSON), storeDir,
+			knownReception, err = xxdk.NewProtoClient_Unsafe(string(ndfJSON), storeDir,
 				pass, protoUser)
 		} else if userIDprefix != "" {
 			err = xxdk.NewVanityClient(string(ndfJSON), storeDir,

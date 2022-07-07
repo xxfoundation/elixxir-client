@@ -176,9 +176,10 @@ func (r ReceptionIdentity) GetContact() contact.Contact {
 
 // buildReceptionIdentity creates a new ReceptionIdentity
 // from the given user.Info
-func buildReceptionIdentity(userInfo user.Info, e2eGrp *cyclic.Group, dHPrivkey *cyclic.Int) (ReceptionIdentity, error) {
-	saltCopy := make([]byte, len(userInfo.ReceptionSalt))
-	copy(saltCopy, userInfo.ReceptionSalt)
+func buildReceptionIdentity(receptionId *id.ID, receptionSalt []byte, receptionRsa *rsa.PrivateKey,
+	e2eGrp *cyclic.Group, dHPrivkey *cyclic.Int) (ReceptionIdentity, error) {
+	saltCopy := make([]byte, len(receptionSalt))
+	copy(saltCopy, receptionSalt)
 
 	grp, err := e2eGrp.MarshalJSON()
 	if err != nil {
@@ -190,8 +191,8 @@ func buildReceptionIdentity(userInfo user.Info, e2eGrp *cyclic.Group, dHPrivkey 
 	}
 
 	return ReceptionIdentity{
-		ID:            userInfo.ReceptionID.DeepCopy(),
-		RSAPrivatePem: rsa.CreatePrivateKeyPem(userInfo.ReceptionRSA),
+		ID:            receptionId.DeepCopy(),
+		RSAPrivatePem: rsa.CreatePrivateKeyPem(receptionRsa),
 		Salt:          saltCopy,
 		DHKeyPrivate:  privKey,
 		E2eGrp:        grp,

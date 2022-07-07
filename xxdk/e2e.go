@@ -98,8 +98,8 @@ func LoginLegacy(client *Cmix, params E2EParams, callbacks AuthCallbacks) (
 		return nil, err
 	}
 
-	m.e2eIdentity, err = buildReceptionIdentity(userInfo, m.e2e.GetGroup(),
-		m.e2e.GetHistoricalDHPrivkey())
+	m.e2eIdentity, err = buildReceptionIdentity(userInfo.ReceptionID, userInfo.ReceptionSalt,
+		userInfo.ReceptionRSA, m.e2e.GetGroup(), m.e2e.GetHistoricalDHPrivkey())
 	return m, err
 }
 
@@ -157,7 +157,7 @@ func LoginWithProtoClient(storageDir string, password []byte,
 		return nil, err
 	}
 
-	err = NewProtoClient_Unsafe(newBaseNdf, storageDir, password,
+	receptionIdentity, err := NewProtoClient_Unsafe(newBaseNdf, storageDir, password,
 		protoUser)
 	if err != nil {
 		return nil, err
@@ -174,10 +174,6 @@ func LoginWithProtoClient(storageDir string, password []byte,
 	if err != nil {
 		return nil, err
 	}
-
-	userInfo := user.NewUserFromProto(protoUser)
-	receptionIdentity, err := buildReceptionIdentity(userInfo,
-		c.GetStorage().GetE2EGroup(), protoUser.E2eDhPrivateKey)
 	return Login(c, callbacks, receptionIdentity, e2eParams)
 }
 

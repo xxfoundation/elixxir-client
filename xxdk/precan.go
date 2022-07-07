@@ -76,14 +76,15 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
 
 	dhPrivKey := generatePrecanDHKeypair(precannedID, e2eGrp)
 
-	protoUser := CreatePrecannedUser(precannedID, rngStream)
-	identity, err := buildReceptionIdentity(protoUser, e2eGrp, dhPrivKey)
+	userInfo := CreatePrecannedUser(precannedID, rngStream)
+	identity, err := buildReceptionIdentity(userInfo.ReceptionID, userInfo.ReceptionSalt,
+		userInfo.ReceptionRSA, e2eGrp, dhPrivKey)
 	if err != nil {
 		return ReceptionIdentity{}, err
 	}
 
 	store, err := CheckVersionAndSetupStorage(def, storageDir, password,
-		protoUser, cmixGrp, e2eGrp, "")
+		userInfo, cmixGrp, e2eGrp, "")
 	if err != nil {
 		return ReceptionIdentity{}, err
 	}

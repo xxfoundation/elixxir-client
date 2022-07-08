@@ -13,9 +13,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/fs"
 	"io/ioutil"
 	"log"
 	"os"
@@ -24,8 +22,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"gitlab.com/elixxir/client/storage/user"
 
 	"gitlab.com/elixxir/client/backup"
 	"gitlab.com/elixxir/client/xxdk"
@@ -510,10 +506,10 @@ var rootCmd = &cobra.Command{
 
 		// wait an extra 5 seconds to make sure no messages were missed
 		done = false
-		waitTime := time.Duration(5 * time.Second)
+		waitTime := 5 * time.Second
 		if expectedCnt == 0 {
 			// Wait longer if we didn't expect to receive anything
-			waitTime = time.Duration(15 * time.Second)
+			waitTime = 15 * time.Second
 		}
 		timer := time.NewTimer(waitTime)
 		for !done {
@@ -548,137 +544,6 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-// initCmix returns a newly-initialized xxdk.Cmix object and its stored xxdk.ReceptionIdentity
-func initCmix() (*xxdk.Cmix, xxdk.ReceptionIdentity) {
-	logLevel := viper.GetUint("logLevel")
-	initLog(logLevel, viper.GetString("log"))
-	jww.INFO.Printf(Version())
-
-	pass := parsePassword(viper.GetString("password"))
-	storeDir := viper.GetString("session")
-	regCode := viper.GetString("regcode")
-	precannedID := viper.GetUint("sendid")
-	userIDprefix := viper.GetString("userid-prefix")
-	protoUserPath := viper.GetString("protoUserPath")
-	backupPath := viper.GetString("backupIn")
-	backupPass := []byte(viper.GetString("backupPass"))
-
-	// FIXME: All branches of the upcoming path
-	var knownReception xxdk.ReceptionIdentity
-
-	// create a new client if none exist
-	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
-		// Load NDF
-		ndfJSON, err := ioutil.ReadFile(viper.GetString("ndf"))
-		if err != nil {
-			jww.FATAL.Panicf(err.Error())
-		}
-
-		if precannedID != 0 {
-			knownReception, err = xxdk.NewPrecannedClient(precannedID,
-				string(ndfJSON), storeDir, pass)
-		} else if protoUserPath != "" {
-			protoUserJson, err := utils.ReadFile(protoUserPath)
-			if err != nil {
-				jww.FATAL.Panicf("%v", err)
-			}
-
-			protoUser := &user.Proto{}
-			err = json.Unmarshal(protoUserJson, protoUser)
-			if err != nil {
-				jww.FATAL.Panicf("%v", err)
-			}
-
-			knownReception, err = xxdk.NewProtoClient_Unsafe(string(ndfJSON), storeDir,
-				pass, protoUser)
-		} else if userIDprefix != "" {
-			err = xxdk.NewVanityClient(string(ndfJSON), storeDir,
-				pass, regCode, userIDprefix)
-		} else if backupPath != "" {
-
-			jww.INFO.Printf("Restoring user from %s", backupPath)
-			b, backupFile := loadBackup(backupPath, string(backupPass))
-
-			// Marshal the backup object in JSON
-			backupJson, err := json.Marshal(b)
-			if err != nil {
-				jww.ERROR.Printf("Failed to JSON Marshal backup: %+v", err)
-			}
-
-			// Write the backup JSON to file
-			err = utils.WriteFileDef(viper.GetString("backupJsonOut"), backupJson)
-			if err != nil {
-				jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
-			}
-
-			// Construct client from backup data
-			id, backupIdList, _, err := backup.NewClientFromBackup(
-				string(ndfJSON), storeDir, pass, backupPass,
-				backupFile)
-			knownReception = id
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
-
-			jww.INFO.Printf("User Restored: %v", knownReception.ID)
-
-			backupIdListPath := viper.GetString("backupIdList")
-			if backupIdListPath != "" {
-				// Marshal backed up ID list to JSON
-				backedUpIdListJson, err := json.Marshal(backupIdList)
-				if err != nil {
-					jww.ERROR.Printf("Failed to JSON Marshal backed up IDs: %+v", err)
-				}
-
-				// Write backed up ID list to file
-				err = utils.WriteFileDef(backupIdListPath, backedUpIdListJson)
-				if err != nil {
-					jww.FATAL.Panicf("Failed to write backed up IDs to file %q: %+v",
-						backupIdListPath, err)
-				}
-			}
-
-		} else {
-			err = xxdk.NewCmix(string(ndfJSON), storeDir,
-				pass, regCode)
-		}
-
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-	}
-
-	cmixParams, _ := initParams()
-
-	client, err := xxdk.OpenCmix(storeDir, pass, cmixParams)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-
-	// If there is a known xxdk.ReceptionIdentity, store it now
-	if knownReception.ID != nil {
-		err = xxdk.StoreReceptionIdentity(identityStorageKey, knownReception, client)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-	}
-
-	// Attempt to load extant xxdk.ReceptionIdentity
-	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, client)
-	if err != nil {
-		// If no extant xxdk.ReceptionIdentity, generate and store a new one
-		identity, err = xxdk.MakeReceptionIdentity(client)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, client)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-	}
-	return client, identity
-}
-
 func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 	e2eParams := xxdk.GetDefaultE2EParams()
 	e2eParams.Session.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
@@ -708,40 +573,40 @@ func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 
 // initE2e returns a fully-formed xxdk.E2e object
 func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
-	_, receptionIdentity := initCmix()
+	initLog(viper.GetUint("logLevel"), viper.GetString("log"))
+	jww.INFO.Printf(Version())
 
-	pass := parsePassword(viper.GetString("password"))
+	// Intake parameters for client initialization
+	precanId := viper.GetUint("sendid")
+	protoUserPath := viper.GetString("protoUserPath")
+	userIdPrefix := viper.GetString("userid-prefix")
+	backupPath := viper.GetString("backupIn")
+	backupPass := viper.GetString("backupPass")
+	storePassword := parsePassword(viper.GetString("password"))
 	storeDir := viper.GetString("session")
-	jww.DEBUG.Printf("sessionDur: %v", storeDir)
+	regCode := viper.GetString("regcode")
+	jww.DEBUG.Printf("sessionDir: %v", storeDir)
 
-	// load the client
-	baseClient, err := xxdk.LoadCmix(storeDir, pass, cmixParams)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-
+	// TODO: This probably shouldn't be initialized globally.
 	authCbs = makeAuthCallbacks(
 		viper.GetBool("unsafe-channel-creation"), e2eParams)
 
-	// Force LoginLegacy for precanned senderID
+	// Initialize the client of the proper type
 	var client *xxdk.E2e
-	if isPrecanID(receptionIdentity.ID) {
-		jww.INFO.Printf("Using LoginLegacy for precan sender")
-		client, err = xxdk.LoginLegacy(baseClient, e2eParams, authCbs)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
+	if precanId != 0 {
+		client = loadOrInitPrecan(precanId, storePassword, storeDir, cmixParams, e2eParams)
+	} else if protoUserPath != "" {
+		client = loadOrInitProto(protoUserPath, storePassword, storeDir, cmixParams, e2eParams)
+	} else if userIdPrefix != "" {
+		client = loadOrInitVanity(storePassword, storeDir, regCode, userIdPrefix, cmixParams, e2eParams)
+	} else if backupPath != "" {
+		client = loadOrInitBackup(backupPath, backupPass, storePassword, storeDir, cmixParams, e2eParams)
 	} else {
-		jww.INFO.Printf("Using Login for non-precan sender")
-		client, err = xxdk.Login(baseClient, authCbs, receptionIdentity,
-			e2eParams)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
+		client = loadOrInitClient(storePassword, storeDir, regCode, cmixParams, e2eParams)
 	}
 
+	// Handle protoUser output
 	if protoUser := viper.GetString("protoUserOut"); protoUser != "" {
-
 		jsonBytes, err := client.ConstructProtoUserFile()
 		if err != nil {
 			jww.FATAL.Panicf("cannot construct proto user file: %v",
@@ -753,16 +618,15 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
 			jww.FATAL.Panicf("cannot write proto user to file: %v",
 				err)
 		}
-
 	}
 
+	// Handle backup output
 	if backupOut := viper.GetString("backupOut"); backupOut != "" {
-		backupPass := viper.GetString("backupPass")
 		updateBackupCb := func(encryptedBackup []byte) {
 			jww.INFO.Printf("Backup update received, size %d",
 				len(encryptedBackup))
 			fmt.Println("Backup update received.")
-			err = utils.WriteFileDef(backupOut, encryptedBackup)
+			err := utils.WriteFileDef(backupOut, encryptedBackup)
 			if err != nil {
 				jww.FATAL.Panicf("cannot write backup: %+v",
 					err)
@@ -788,7 +652,7 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
 				}
 			}
 		}
-		_, err = backup.InitializeBackup(backupPass, updateBackupCb,
+		_, err := backup.InitializeBackup(backupPass, updateBackupCb,
 			client.GetBackupContainer(), client.GetE2E(), client.GetStorage(),
 			nil, client.GetStorage().GetKV(), client.GetRng())
 		if err != nil {
@@ -1060,16 +924,6 @@ func waitUntilConnected(connected chan bool) {
 			}
 		}
 	}()
-}
-
-func parsePassword(pwStr string) []byte {
-	if strings.HasPrefix(pwStr, "0x") {
-		return getPWFromHexString(pwStr[2:])
-	} else if strings.HasPrefix(pwStr, "b64:") {
-		return getPWFromb64String(pwStr[4:])
-	} else {
-		return []byte(pwStr)
-	}
 }
 
 func parseRecipient(idStr string) *id.ID {

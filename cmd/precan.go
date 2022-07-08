@@ -10,14 +10,62 @@
 package cmd
 
 import (
-	"encoding/binary"
-	"gitlab.com/elixxir/client/xxdk"
-	"strconv"
-
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"github.com/spf13/viper"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
+	"io/fs"
+	"io/ioutil"
+	"os"
 )
+
+// loadOrInitPrecan will build a new xxdk.E2e from existing storage
+// or from a new storage that it will create if none already exists
+func loadOrInitPrecan(precanId uint, password []byte, storeDir string,
+	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
+
+	// create a new client if none exist
+	var baseClient *xxdk.Cmix
+	var identity xxdk.ReceptionIdentity
+	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
+		// Initialize from scratch
+		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+
+		// TODO: Separate identity from this call
+		identity, err = xxdk.NewPrecannedClient(precanId, string(ndfJson), storeDir, password)
+		baseClient, err = xxdk.LoadCmix(storeDir, password, cmixParams)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+
+		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, baseClient)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+	} else {
+		// Initialize from storage
+		baseClient, err = xxdk.LoadCmix(storeDir, password, cmixParams)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+		identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, baseClient)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+	}
+
+	jww.INFO.Printf("Using Login for precan sender")
+	client, err := xxdk.Login(baseClient, authCbs, identity, e2eParams)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	return client
+}
 
 func isPrecanID(id *id.ID) bool {
 	// check if precanned
@@ -31,36 +79,6 @@ func isPrecanID(id *id.ID) bool {
 		return true
 	}
 	return false
-}
-
-// returns a simple numerical id if the user is a precanned user, otherwise
-// returns the normal string of the userID
-func printIDNice(uid *id.ID) string {
-
-	for index, puid := range precannedIDList {
-		if uid.Cmp(puid) {
-			return strconv.Itoa(index + 1)
-		}
-	}
-
-	return uid.String()
-}
-
-// build a list of precanned ids to use for comparision for nicer user id output
-var precannedIDList = buildPrecannedIDList()
-
-func buildPrecannedIDList() []*id.ID {
-
-	idList := make([]*id.ID, 40)
-
-	for i := 0; i < 40; i++ {
-		uid := new(id.ID)
-		binary.BigEndian.PutUint64(uid[:], uint64(i+1))
-		uid.SetType(id.User)
-		idList[i] = uid
-	}
-
-	return idList
 }
 
 func getPrecanID(recipientID *id.ID) uint {

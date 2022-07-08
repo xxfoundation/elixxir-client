@@ -106,11 +106,11 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 	}
 	cmixGrp, e2eGrp := DecodeGroups(def)
 
-	protoUser := createNewVanityUser(rngStream, cmixGrp, e2eGrp,
+	userInfo := createNewVanityUser(rngStream, cmixGrp, e2eGrp,
 		userIdPrefix)
 
 	_, err = CheckVersionAndSetupStorage(def, storageDir, password,
-		protoUser, cmixGrp, e2eGrp, registrationCode)
+		userInfo, cmixGrp, e2eGrp, registrationCode)
 	if err != nil {
 		return err
 	}
@@ -121,8 +121,7 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 // OpenCmix session, but don't connect to the network or log in
 // NOTE: This is a helper function that, in most applications, should not be used on its own
 //       Consider using LoadCmix instead, which calls this function for you.
-func OpenCmix(storageDir string, password []byte,
-	parameters CMIXParams) (*Cmix, error) {
+func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 	jww.INFO.Printf("OpenCmix()")
 
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
@@ -208,7 +207,7 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password []byte,
 func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (*Cmix, error) {
 	jww.INFO.Printf("LoadCmix()")
 
-	c, err := OpenCmix(storageDir, password, parameters)
+	c, err := OpenCmix(storageDir, password)
 	if err != nil {
 		return nil, err
 	}

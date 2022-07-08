@@ -8,7 +8,6 @@
 package connect
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -166,7 +165,7 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 
 	// If channel received no error, construct and return the
 	// authenticated connection
-	authConn := BuildAuthenticatedConnection(conn)
+	authConn := buildAuthenticatedConnection(conn)
 	authConn.setAuthenticated()
 	return authConn, nil
 }
@@ -177,7 +176,7 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 // authenticate themselves. An established AuthenticatedConnection will
 // be passed via the callback.
 func StartAuthenticatedServer(identity xxdk.ReceptionIdentity,
-	cb AuthenticatedCallback, net *xxdk.Cmix, p xxdk.E2EParams,
+	authCb AuthenticatedCallback, net *xxdk.Cmix, p xxdk.E2EParams,
 	clParams ConnectionListParams) (
 	*ConnectionServer, error) {
 
@@ -189,7 +188,7 @@ func StartAuthenticatedServer(identity xxdk.ReceptionIdentity,
 		// be passed along via the AuthenticatedCallback
 		_, err := connection.RegisterListener(
 			catalog.ConnectionAuthenticationRequest,
-			buildAuthConfirmationHandler(cb, connection))
+			buildAuthConfirmationHandler(authCb, connection))
 		if err != nil {
 			jww.ERROR.Printf(
 				"Failed to register listener on connection with %s: %+v",
@@ -207,8 +206,8 @@ type authenticatedHandler struct {
 	authMux         sync.Mutex
 }
 
-// BuildAuthenticatedConnection assembles an AuthenticatedConnection object.
-func BuildAuthenticatedConnection(conn Connection) *authenticatedHandler {
+// buildAuthenticatedConnection assembles an AuthenticatedConnection object.
+func buildAuthenticatedConnection(conn Connection) *authenticatedHandler {
 	return &authenticatedHandler{
 		Connection:      conn,
 		isAuthenticated: false,

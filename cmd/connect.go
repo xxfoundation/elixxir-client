@@ -9,19 +9,18 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/connect"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/xxdk"
-	connCrypto "gitlab.com/elixxir/crypto/connect"
-	"gitlab.com/elixxir/crypto/contact"
+	"io/fs"
+	"io/ioutil"
+	"os"
 	"time"
 )
 
@@ -31,28 +30,15 @@ var connectionCmd = &cobra.Command{
 	Short: "Runs clients and servers in the connections paradigm.",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
+		logLevel := viper.GetUint(logLevelFlag)
+		initLog(logLevel, viper.GetString(logFlag))
+		jww.INFO.Printf(Version())
+
+		// Handle either authenticated or standard connection path
 		if viper.GetBool(authenticatedFlag) {
 			authenticatedConnections()
 		} else {
 			connections()
-		}
-
-		// Handle server closing
-		serverTimeout := viper.GetDuration(serverTimeoutFlag)
-		if viper.GetBool(startServerFlag) {
-			// If server timeout is specified, close out on timeout
-			if viper.GetDuration(serverTimeoutFlag) != 0 {
-				timer := time.NewTimer(serverTimeout)
-				select {
-				case <-timer.C:
-					fmt.Println("Shutting down connection server")
-					timer.Stop()
-					return
-				}
-			}
-
-			// If timeout is not specified, leave as long-running thread
-			select {}
 		}
 
 	},
@@ -63,149 +49,175 @@ func connections() {
 	// NOTE: for now this supports one connection for servers, for integration
 	//  testing.
 	connChan := make(chan connect.Connection, 1)
-	var conn connect.Connection
 	var err error
-	var client *xxdk.E2e
-	connectionParam := connect.GetDefaultParams()
+	e2eParams := xxdk.GetDefaultE2EParams()
+	statePass := parsePassword(viper.GetString(passwordFlag))
+	statePath := viper.GetString(sessionFlag)
 
-	// Start connection server
+	// Connection Server path--------------------------------------------------------
 	if viper.GetBool(startServerFlag) {
-		// Construct connection callback
+
+		// Load client state and identity------------------------------------------
+		baseClient, identity := initializeBasicConnectionClient(statePath, statePass)
+
+		// Save contact file-------------------------------------------------------
+		writeContact(identity.GetContact())
+
+		// Handle incoming connections---------------------------------------------
 		cb := connect.Callback(func(connection connect.Connection) {
 			partnerId := connection.GetPartner().PartnerId()
-			jww.INFO.Printf("[CONN] Received connection from %s",
-				partnerId)
+			jww.INFO.Printf("[CONN] Received connection request from %s", partnerId)
+			fmt.Println("Established connection with client")
+
+			_, err = connection.RegisterListener(catalog.XxMessage, listener{"ConnectionServer"})
+			if err != nil {
+				jww.FATAL.Panicf("Failed to register listener for client message!")
+			}
 
 			connChan <- connection
 		})
 
-		// Construct a client
-		client = initializeConnectionServerE2e()
-		u := client.GetUser()
-		ri := xxdk.ReceptionIdentity{
-			ID:            u.ReceptionID,
-			RSAPrivatePem: u.ReceptionRSA,
-			Salt:          u.ReceptionSalt,
-			DHKeyPrivate:  client.GetE2E().GetHistoricalDHPrivkey(),
-		}
-
-		// Start a connection server
-		client, err = connect.StartServer(ri,
-			cb, client.Cmix, connectionParam)
+		// Start connection server-------------------------------------------------
+		connectionParam := connect.DefaultConnectionListParams()
+		connectServer, err := connect.StartServer(identity,
+			cb, baseClient, e2eParams, connectionParam)
 		if err != nil {
 			jww.FATAL.Panicf("[CONN] Failed to start connection server: %v", err)
 		}
 
-		connAuthCbs.connCb = cb
+		fmt.Println("Established connection server, begin listening...")
+		jww.INFO.Printf("[CONN] Established connection server, begin listening...")
 
-		// Start network follower
-		err = client.StartNetworkFollower(5 * time.Second)
+		// Start network threads---------------------------------------------------
+		networkFollowerTimeout := 5 * time.Second
+		err = connectServer.E2e.StartNetworkFollower(networkFollowerTimeout)
 		if err != nil {
-			jww.FATAL.Panicf("[CONN] Failed to start network follower: %+v", err)
+			jww.FATAL.Panicf("Failed to start network follower: %+v", err)
 		}
 
-		// Wait until connected or crash on timeout
+		// Set up a wait for the network to be connected
+		waitUntilConnected := func(connected chan bool) {
+			waitTimeout := 30 * time.Second
+			timeoutTimer := time.NewTimer(waitTimeout)
+			isConnected := false
+			// Wait until we connect or panic if we cannot before the timeout
+			for !isConnected {
+				select {
+				case isConnected = <-connected:
+					jww.INFO.Printf("Network Status: %v", isConnected)
+					break
+				case <-timeoutTimer.C:
+					jww.FATAL.Panicf("Timeout on starting network follower")
+				}
+			}
+		}
+
+		// Create a tracker channel to be notified of network changes
 		connected := make(chan bool, 10)
-		client.GetCmix().AddHealthCallback(
-			func(isconnected bool) {
-				connected <- isconnected
+		// Provide a callback that will be signalled when network health
+		// status changes
+		connectServer.E2e.GetCmix().AddHealthCallback(
+			func(isConnected bool) {
+				connected <- isConnected
 			})
+		// Wait until connected or crash on timeout
 		waitUntilConnected(connected)
 
-		// Print user's reception ID and save contact file
-		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ReceptionID)
-		writeContact(user.GetContact())
+		// Wait for connection establishment----------------------------------------
 
-		jww.INFO.Printf("[CONN] Established connection server, begin listening...")
-		fmt.Println("Established connection server, begin listening...")
+		// Wait for connection to be established
+		connectionTimeout := time.NewTimer(240 * time.Second)
+		select {
+		case conn := <-connChan:
+			// Perform functionality shared by client & server
+			miscConnectionFunctions(connectServer.E2e, conn)
+
+		case <-connectionTimeout.C:
+			connectionTimeout.Stop()
+			jww.FATAL.Panicf("[CONN] Failed to establish connection within " +
+				"default time period, closing process")
+		}
+
+		// Keep server running to receive messages------------------------------------
+		serverTimeout := viper.GetDuration(serverTimeoutFlag)
+		if viper.GetDuration(serverTimeoutFlag) != 0 {
+			timer := time.NewTimer(serverTimeout)
+			select {
+			case <-timer.C:
+				fmt.Println("Shutting down connection server")
+				timer.Stop()
+				return
+			}
+		}
+
+		// If timeout is not specified, leave as long-running thread
+		select {}
+
 	} else {
-		// Initialize client for client-side connection operations
-		client = initializeConnectionClient()
-	}
+		// Connection Client path--------------------------------------------------------
 
-	// Have client connect to connection server
-	contactPath := viper.GetString(connectionFlag)
-	if contactPath != "" {
+		// Load client ------------------------------------------------------------------
+		e2eClient := initializeConnectClient(statePath, statePass)
+
+		// Start network threads---------------------------------------------------------
+
+		// Set networkFollowerTimeout to a value of your choice (seconds)
+		networkFollowerTimeout := 5 * time.Second
+		err = e2eClient.StartNetworkFollower(networkFollowerTimeout)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to start network follower: %+v", err)
+		}
+
+		// Set up a wait for the network to be connected
+		waitUntilConnected := func(connected chan bool) {
+			waitTimeout := 30 * time.Second
+			timeoutTimer := time.NewTimer(waitTimeout)
+			isConnected := false
+			// Wait until we connect or panic if we cannot before the timeout
+			for !isConnected {
+				select {
+				case isConnected = <-connected:
+					jww.INFO.Printf("Network Status: %v", isConnected)
+					break
+				case <-timeoutTimer.C:
+					jww.FATAL.Panicf("Timeout on starting network follower")
+				}
+			}
+		}
+
+		// Create a tracker channel to be notified of network changes
+		connected := make(chan bool, 10)
+		// Provide a callback that will be signalled when network
+		// health status changes
+		e2eClient.GetCmix().AddHealthCallback(
+			func(isConnected bool) {
+				connected <- isConnected
+			})
+		// Wait until connected or crash on timeout
+		waitUntilConnected(connected)
+
+		// Connect with the server-------------------------------------------------
+		contactPath := viper.GetString(connectionFlag)
 		serverContact := getContactFromFile(contactPath)
 		fmt.Println("Sending connection request")
 		jww.INFO.Printf("[CONN] Sending connection request to %s",
 			serverContact.ID)
 
 		// Establish connection with partner
-		conn, err = connect.Connect(serverContact, client,
-			connectionParam)
+		handler, err := connect.Connect(serverContact, e2eClient,
+			e2eParams)
 		if err != nil {
 			jww.FATAL.Panicf("[CONN] Failed to build connection with %s: %v",
 				serverContact.ID, err)
+
 		}
 
-		connChan <- conn
-	}
+		fmt.Println("Established connection with server")
+		jww.INFO.Printf("[CONN] Established connection with %s", handler.GetPartner().PartnerId())
 
-	// Wait for connection to be established
-	connectionTimeout := time.NewTimer(240 * time.Second)
-	select {
-	case conn = <-connChan:
-	case <-connectionTimeout.C:
-		connectionTimeout.Stop()
-		jww.FATAL.Panicf("[CONN] Failed to establish connection within " +
-			"default time period, closing process")
+		miscConnectionFunctions(e2eClient, handler)
 
 	}
-
-	fmt.Println("Established connection with partner")
-	jww.INFO.Printf("[CONN] Established connection with %s",
-		conn.GetPartner().PartnerId())
-
-	// Send message
-	msgBody := viper.GetString(messageFlag)
-	if msgBody != "" {
-		jww.INFO.Printf("[CONN] Sending message to %s",
-			conn.GetPartner().PartnerId())
-		payload := []byte(msgBody)
-
-		for {
-			paramsE2E := e2e.GetDefaultParams()
-
-			roundIDs, _, _, err := conn.SendE2E(catalog.XxMessage, payload,
-				paramsE2E)
-			if err != nil {
-				jww.FATAL.Panicf("[CONN] Failed to send E2E message: %v", err)
-			}
-
-			// Verify message sends were successful when there is a flag
-			// asserting verification
-			if viper.GetBool(verifySendFlag) {
-				if !verifySendSuccess(client, paramsE2E, roundIDs,
-					conn.GetPartner().PartnerId(), payload) {
-					continue
-				}
-
-			}
-
-			break
-		}
-		jww.INFO.Printf("[CONN] Sent message %q to %s", msgBody,
-			conn.GetPartner().PartnerId())
-		fmt.Printf("Sent message %q to connection partner.\n", msgBody)
-
-	}
-
-	// Disconnect from partner
-	if viper.GetBool(disconnectFlag) {
-		jww.INFO.Printf("[CONN] Disconnecting from %s",
-			conn.GetPartner().PartnerId())
-		fmt.Println("Disconnecting from connection partner")
-		if err = conn.Close(); err != nil {
-			jww.FATAL.Panicf("Failed to disconnect with %s: %v",
-				conn.GetPartner().PartnerId(), err)
-		}
-		jww.INFO.Printf("[CONN] Disconnected from %s",
-			conn.GetPartner().PartnerId())
-		fmt.Println("Disconnected from partner")
-	}
-
 }
 
 // authenticatedConnections is the CLI handler for
@@ -213,214 +225,299 @@ func connections() {
 func authenticatedConnections() {
 	// NOTE: for now this supports one connection for servers, for integration
 	//  testing.
-	connChan := make(chan connect.AuthenticatedConnection, 1)
-	var conn connect.AuthenticatedConnection
+	connChan := make(chan connect.Connection, 1)
 	var err error
-	var client *xxdk.E2e
-	connectionParam := connect.GetDefaultParams()
-	// Start authentication connection server
+	e2eParams := xxdk.GetDefaultE2EParams()
+	statePass := parsePassword(viper.GetString(passwordFlag))
+	statePath := viper.GetString(sessionFlag)
+
+	// Connection Server path--------------------------------------------------------
 	if viper.GetBool(startServerFlag) {
-		// Construct connection callback
-		cb := connect.AuthenticatedCallback(
+		// Load client state and identity------------------------------------------
+		baseClient, identity := initializeBasicConnectionClient(statePath, statePass)
+
+		// Save contact file-------------------------------------------------------
+		writeContact(identity.GetContact())
+
+		// Handle incoming connections---------------------------------------------
+		authCb := connect.AuthenticatedCallback(
 			func(connection connect.AuthenticatedConnection) {
 				partnerId := connection.GetPartner().PartnerId()
-				fmt.Printf("Received authenticated connection from client\n")
-				jww.INFO.Printf("[CONN] Received authenticated connection "+
-					"from %s", partnerId)
+				jww.INFO.Printf("[CONN] Received authenticated connection from %s", partnerId)
+				fmt.Println("Established authenticated connection with client")
+
+				_, err = connection.RegisterListener(catalog.XxMessage, listener{"AuthServer"})
+				if err != nil {
+					jww.FATAL.Panicf("Failed to register listener for client message!")
+				}
 
 				connChan <- connection
 			})
 
-		// Construct a client
-		client = initializeConnectionServerE2e()
-		u := client.GetUser()
-		ri := xxdk.ReceptionIdentity{
-			ID:            u.ReceptionID,
-			RSAPrivatePem: u.ReceptionRSA,
-			Salt:          u.ReceptionSalt,
-			DHKeyPrivate:  client.GetE2E().GetHistoricalDHPrivkey(),
-		}
-
-		// Start a authenticated server
-		client, err = connect.StartAuthenticatedServer(
-			ri, cb, client.Cmix, connectionParam)
+		// Start connection server-------------------------------------------------
+		connectionParam := connect.DefaultConnectionListParams()
+		connectServer, err := connect.StartAuthenticatedServer(identity,
+			authCb, baseClient, e2eParams, connectionParam)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to start authenticated "+
 				"connection server: %v", err)
 		}
 
-		connAuthCbs.authConnCb = cb
+		fmt.Println("Established connection server, begin listening...")
+		jww.INFO.Printf("[CONN] Established connection server, begin listening...")
 
-		// Start network follower
-		err = client.StartNetworkFollower(5 * time.Second)
+		// Start network threads---------------------------------------------------
+		networkFollowerTimeout := 5 * time.Second
+		err = connectServer.E2e.StartNetworkFollower(networkFollowerTimeout)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to start network follower: %+v", err)
 		}
 
-		// Wait until connected or crash on timeout
+		// Set up a wait for the network to be connected
+		waitUntilConnected := func(connected chan bool) {
+			waitTimeout := 30 * time.Second
+			timeoutTimer := time.NewTimer(waitTimeout)
+			isConnected := false
+			// Wait until we connect or panic if we cannot before the timeout
+			for !isConnected {
+				select {
+				case isConnected = <-connected:
+					jww.INFO.Printf("Network Status: %v", isConnected)
+					break
+				case <-timeoutTimer.C:
+					jww.FATAL.Panicf("Timeout on starting network follower")
+				}
+			}
+		}
+
+		// Create a tracker channel to be notified of network changes
 		connected := make(chan bool, 10)
-		client.GetCmix().AddHealthCallback(
-			func(isconnected bool) {
-				connected <- isconnected
+		// Provide a callback that will be signalled when network health
+		// status changes
+		connectServer.E2e.GetCmix().AddHealthCallback(
+			func(isConnected bool) {
+				connected <- isConnected
 			})
+		// Wait until connected or crash on timeout
 		waitUntilConnected(connected)
 
-		// Print user's reception ID and save contact file
-		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ReceptionID)
-		writeContact(user.GetContact())
-		jww.INFO.Printf("[CONN] Established connection server, " +
-			"begin listening for authentication...")
-		fmt.Println("Established connection server, " +
-			"begin listening for authentication...")
+		// Wait for connection establishment----------------------------------------
+
+		// Wait for connection to be established
+		connectionTimeout := time.NewTimer(240 * time.Second)
+		select {
+		case conn := <-connChan:
+			// Perform functionality shared by client & server
+			miscConnectionFunctions(connectServer.E2e, conn)
+
+		case <-connectionTimeout.C:
+			connectionTimeout.Stop()
+			jww.FATAL.Panicf("[CONN] Failed to establish connection within " +
+				"default time period, closing process")
+		}
+
+		// Keep server running to receive messages------------------------------------
+		serverTimeout := viper.GetDuration(serverTimeoutFlag)
+		if viper.GetDuration(serverTimeoutFlag) != 0 {
+			timer := time.NewTimer(serverTimeout)
+			select {
+			case <-timer.C:
+				fmt.Println("Shutting down connection server")
+				timer.Stop()
+				return
+			}
+		}
+
+		// If timeout is not specified, leave as long-running thread
+		select {}
 
 	} else {
-		// Initialize client for client-side connection operations
-		client = initializeConnectionClient()
-	}
+		// Load client ------------------------------------------------------------------
+		e2eClient := initializeConnectClient(statePath, statePass)
 
-	// Have client connect to connection server
-	contactPath := viper.GetString(connectionFlag)
-	if contactPath != "" {
+		// Start network threads---------------------------------------------------------
+
+		// Set networkFollowerTimeout to a value of your choice (seconds)
+		networkFollowerTimeout := 5 * time.Second
+		err = e2eClient.StartNetworkFollower(networkFollowerTimeout)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to start network follower: %+v", err)
+		}
+
+		// Set up a wait for the network to be connected
+		waitUntilConnected := func(connected chan bool) {
+			waitTimeout := 30 * time.Second
+			timeoutTimer := time.NewTimer(waitTimeout)
+			isConnected := false
+			// Wait until we connect or panic if we cannot before the timeout
+			for !isConnected {
+				select {
+				case isConnected = <-connected:
+					jww.INFO.Printf("Network Status: %v", isConnected)
+					break
+				case <-timeoutTimer.C:
+					jww.FATAL.Panicf("Timeout on starting network follower")
+				}
+			}
+		}
+
+		// Create a tracker channel to be notified of network changes
+		connected := make(chan bool, 10)
+		// Provide a callback that will be signalled when network
+		// health status changes
+		e2eClient.GetCmix().AddHealthCallback(
+			func(isConnected bool) {
+				connected <- isConnected
+			})
+		// Wait until connected or crash on timeout
+		waitUntilConnected(connected)
+
+		// Connect with the server-------------------------------------------------
+
+		contactPath := viper.GetString(connectionFlag)
 		serverContact := getContactFromFile(contactPath)
 		fmt.Println("Sending connection request")
 
 		// Establish connection with partner
-		conn, err = connect.ConnectWithAuthentication(serverContact, client,
-			connectionParam)
+		conn, err := connect.ConnectWithAuthentication(serverContact, e2eClient,
+			e2eParams)
 		if err != nil {
 			jww.FATAL.Panicf("[CONN] Failed to build connection with %s: %v",
 				serverContact.ID, err)
 		}
 
-		connChan <- conn
-	}
+		jww.INFO.Printf("[CONN] Established authenticated connection with %s",
+			conn.GetPartner().PartnerId())
+		fmt.Println("Established authenticated connection with server.")
 
-	// Wait for connection to be established
-	connectionTimeout := time.NewTimer(35 * time.Second)
-	select {
-	case conn = <-connChan:
-	case <-connectionTimeout.C:
-		connectionTimeout.Stop()
-		jww.FATAL.Panicf("[CONN] Failed to establish connection within " +
-			"default time period, closing process")
+		miscConnectionFunctions(e2eClient, conn)
 
 	}
 
-	jww.INFO.Printf("[CONN] Established connection with %s, "+
-		"awaiting authentication...",
-		conn.GetPartner().PartnerId())
-	fmt.Println("Established connection with partner.")
+}
 
-	// Send message
+// miscConnectionFunctions contains miscellaneous functionality for the subcommand connect.
+// This functionality should be shared between client & server.
+func miscConnectionFunctions(client *xxdk.E2e, conn connect.Connection) {
+	// Send a message to connection partner--------------------------------------------
 	msgBody := viper.GetString(messageFlag)
+	paramsE2E := e2e.GetDefaultParams()
 	if msgBody != "" {
+		// Send message
 		jww.INFO.Printf("[CONN] Sending message to %s",
 			conn.GetPartner().PartnerId())
 		payload := []byte(msgBody)
 		for {
-			paramsE2E := e2e.GetDefaultParams()
 			roundIDs, _, _, err := conn.SendE2E(catalog.XxMessage, payload,
 				paramsE2E)
 			if err != nil {
 				jww.FATAL.Panicf("[CONN] Failed to send E2E message: %v", err)
 			}
 
-			// Verify message sends were successful when there is a flag
-			// asserting verification
+			// Verify message sends were successful when verifySendFlag is present
 			if viper.GetBool(verifySendFlag) {
 				if !verifySendSuccess(client, paramsE2E, roundIDs,
 					conn.GetPartner().PartnerId(), payload) {
 					continue
 				}
+
 			}
+			jww.INFO.Printf("[CONN] Sent message %q to %s", msgBody,
+				conn.GetPartner().PartnerId())
+			fmt.Printf("Sent message %q to connection partner.\n", msgBody)
 			break
 		}
-		jww.INFO.Printf("[CONN] Sent message %q to %s", msgBody,
-			conn.GetPartner().PartnerId())
-		fmt.Printf("Sent message %q to connection partner.\n", msgBody)
-
 	}
 
-	// Disconnect from partner
+	// Disconnect from connection partner--------------------------------------------
 	if viper.GetBool(disconnectFlag) {
-		jww.INFO.Printf("[CONN] Disconnecting from %s",
-			conn.GetPartner().PartnerId())
-		fmt.Println("Disconnecting from connection partner")
-
-		if err = conn.Close(); err != nil {
-			jww.FATAL.Panicf("[CONN] Failed to disconnect with %s: %v",
+		// Close the connection
+		if err := conn.Close(); err != nil {
+			jww.FATAL.Panicf("Failed to disconnect with %s: %v",
 				conn.GetPartner().PartnerId(), err)
 		}
 		jww.INFO.Printf("[CONN] Disconnected from %s",
 			conn.GetPartner().PartnerId())
 		fmt.Println("Disconnected from partner")
 	}
-
 }
 
-// Initialize a xxdk.E2e for use for the connection's server.
-// The server will create a new instance of an xxdk.E2e after a
-// call to connect.StartServer, however this initializes keys and
-// sets up local auth callbacks.
-func initializeConnectionServerE2e() *xxdk.E2e {
-	initClient()
+// Initialize a xxdk.Cmix client. Basic client may be used for server initialization
+// or for use in building a connection client.
+func initializeBasicConnectionClient(statePath string, statePass []byte) (*xxdk.Cmix,
+	xxdk.ReceptionIdentity) {
 
-	pass := parsePassword(viper.GetString(passwordFlag))
-	storeDir := viper.GetString(sessionFlag)
-	jww.DEBUG.Printf("sessionDur: %v", storeDir)
+	// Check if state exists
+	if _, err := os.Stat(statePath); errors.Is(err, fs.ErrNotExist) {
 
-	params := initParams()
+		// Load NDF----------------------------------------------------------------------
+		ndfJSON, err := ioutil.ReadFile(viper.GetString(ndfFlag))
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
 
-	// "oad the client
-	baseClient, err := xxdk.LoadCmix(storeDir, pass, params)
-
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
+		// Initialize the state----------------------------------------------------------
+		err = xxdk.NewCmix(string(ndfJSON), statePath, statePass, "")
+		if err != nil {
+			jww.FATAL.Panicf("Failed to initialize state: %+v", err)
+		}
 	}
 
-	// Create auth callbacks
-	connAuthCbs = makeAuthConnHandler(viper.GetBool(authenticatedFlag))
-
-	// Login to client
-	client, err := xxdk.LoginLegacy(baseClient, connAuthCbs)
+	// Load with the same sessionPath and sessionPass used to call NewClient()
+	baseClient, err := xxdk.LoadCmix(statePath, statePass,
+		xxdk.GetDefaultCMixParams())
 	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
+		jww.FATAL.Panicf("Failed to load state: %+v", err)
 	}
 
-	connAuthCbs.client = client
-
-	return client
-
+	return baseClient, loadOrMakeIdentity(baseClient)
 }
 
 // Initialize an xxdk.E2e for the connection client.
-func initializeConnectionClient() *xxdk.E2e {
-	// Initialise a new client
-	client := initClient()
+func initializeConnectClient(statePath string, statePass []byte) *xxdk.E2e {
+	// Initialize basic client-------------------------------------------------------
+	baseClient, identity := initializeBasicConnectionClient(statePath, statePass)
 
-	err := client.StartNetworkFollower(5 * time.Second)
+	// Connect Client Specific ------------------------------------------------------
+
+	// Create an E2E client
+	// The `connect` packages handles AuthCallbacks,
+	// `xxdk.DefaultAuthCallbacks` is fine here
+	params := xxdk.GetDefaultE2EParams()
+	jww.INFO.Printf("Using E2E parameters: %+v", params)
+	e2eClient, err := xxdk.Login(baseClient, xxdk.DefaultAuthCallbacks{},
+		identity, params)
 	if err != nil {
-		jww.FATAL.Panicf("[CONN] Failed to start network follower: %+v", err)
+		jww.FATAL.Panicf("Unable to Login: %+v", err)
 	}
 
-	// Wait until connected or crash on timeout
-	connected := make(chan bool, 10)
-	client.GetCmix().AddHealthCallback(
-		func(isconnected bool) {
-			connected <- isconnected
-		})
-	waitUntilConnected(connected)
-
-	return client
+	return e2eClient
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Recreated Callback & Listener for cmd
 ///////////////////////////////////////////////////////////////////////////////
 
-var connAuthCbs *authConnHandler
+//var connAuthCbs *authConnHandler
 
+// listener implements the receive.Listener interface
+type listener struct {
+	name string
+}
+
+// Hear will be called whenever a message matching
+// the RegisterListener call is received
+// User-defined message handling logic goes here
+func (l listener) Hear(item receive.Message) {
+	fmt.Printf("%s heard message \"%s\"\n", l.name, string(item.Payload))
+}
+
+// Name is used for debugging purposes
+func (l listener) Name() string {
+	return l.name
+}
+
+// todo: figure out if I need all this by testing in integration
 func makeAuthConnHandler(isAuthenticated bool) *authConnHandler {
 	return &authConnHandler{
 		isAuth: isAuthenticated,
@@ -436,117 +533,119 @@ type authConnHandler struct {
 	isAuth     bool
 }
 
-func (a *authConnHandler) Hear(item receive.Message) {
-	if item.MessageType == catalog.XxMessage {
-		fmt.Printf("Received message: %s\n", string(item.Payload))
-
-	} else if item.MessageType == catalog.ConnectionAuthenticationRequest {
-		// Process the message data into a protobuf
-		iar := &connect.IdentityAuthentication{}
-		err := proto.Unmarshal(item.Payload, iar)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to unmarshal message: %s", err)
-		}
-
-		// Get the new partner
-		newPartner := a.conn.GetPartner()
-		connectionFp := newPartner.ConnectionFingerprint().Bytes()
-
-		// Verify the signature within the message
-		err = connCrypto.Verify(newPartner.PartnerId(),
-			iar.Signature, connectionFp, iar.RsaPubKey, iar.Salt)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to verify message: %v", err)
-		}
-
-		// If successful, pass along the established authenticated connection
-		// via the callback
-		jww.DEBUG.Printf("AuthenticatedConnection auth request "+
-			"for %s confirmed",
-			item.Sender.String())
-		authConn := connect.BuildAuthenticatedConnection(a.conn)
-		go a.authConnCb(authConn)
-	}
-
-}
-
-func (a *authConnHandler) Name() string {
-	return "authConnHandler"
-}
-
-func (a *authConnHandler) Request(partner contact.Contact,
-	receptionID receptionID.EphemeralIdentity,
-	round rounds.Round, e2e *xxdk.E2e) {
-	partnerId := partner.ID
-
-	// Accept channel and send confirmation message
-	if viper.GetBool(verifySendFlag) {
-		// Verify message sends were successful
-		acceptChannelVerified(e2e, partnerId)
-	} else {
-		acceptChannel(e2e, partnerId)
-	}
-
-	// After confirmation, get the new partner
-	newPartner, err := e2e.GetE2E().GetPartner(partner.ID)
-	if err != nil {
-		jww.ERROR.Printf("[CONN] Unable to build connection with "+
-			"partner %s: %+v", partner.ID, err)
-		// Send a nil connection to avoid hold-ups down the line
-		if a.connCb != nil {
-			a.connCb(nil)
-		}
-		return
-	}
-
-	a.conn = connect.BuildConnection(newPartner, e2e.GetE2E(),
-		e2e.GetAuth(), connect.GetDefaultParams())
-
-	if a.connCb != nil {
-		// Return the new Connection object
-		a.connCb(a.conn)
-	}
-
-	e2e.GetE2E().RegisterListener(partnerId, catalog.XxMessage, a)
-
-	if a.isAuth {
-		a.conn.RegisterListener(catalog.ConnectionAuthenticationRequest, a)
-	}
-
-}
-
-func (a *authConnHandler) Confirm(partner contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round,
-	e2e *xxdk.E2e) {
-	// After confirmation, get the new partner
-	newPartner, err := e2e.GetE2E().GetPartner(partner.ID)
-	if err != nil {
-		jww.ERROR.Printf("[CONN] Unable to build connection with "+
-			"partner %s: %+v", partner.ID, err)
-		// Send a nil connection to avoid hold-ups down the line
-		if a.connCb != nil {
-			a.connCb(nil)
-		}
-
-		if a.authConnCb != nil {
-			a.authConnCb(nil)
-		}
-
-		return
-	}
-
-	// Return the new Connection object
-	if a.connCb != nil {
-		a.connCb(connect.BuildConnection(newPartner, e2e.GetE2E(),
-			e2e.GetAuth(), connect.GetDefaultParams()))
-	}
-}
-
-func (a authConnHandler) Reset(partner contact.Contact,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round,
-	e *xxdk.E2e) {
-	return
-}
+//func (a *authConnHandler) Hear(item receive.Message) {
+//	if item.MessageType == catalog.XxMessage {
+//		fmt.Printf("Received message: %s\n", string(item.Payload))
+//
+//	} else if item.MessageType == catalog.ConnectionAuthenticationRequest {
+//		// Process the message data into a protobuf
+//		iar := &connect.IdentityAuthentication{}
+//		err := proto.Unmarshal(item.Payload, iar)
+//		if err != nil {
+//			jww.FATAL.Panicf("Failed to unmarshal message: %s", err)
+//		}
+//
+//		// Get the new partner
+//		newPartner := a.conn.GetPartner()
+//		connectionFp := newPartner.ConnectionFingerprint().Bytes()
+//
+//		// Verify the signature within the message
+//		err = connCrypto.Verify(newPartner.PartnerId(),
+//			iar.Signature, connectionFp, iar.RsaPubKey, iar.Salt)
+//		if err != nil {
+//			jww.FATAL.Panicf("Failed to verify message: %v", err)
+//		}
+//
+//		// If successful, pass along the established authenticated connection
+//		// via the callback
+//		jww.DEBUG.Printf("AuthenticatedConnection auth request "+
+//			"for %s confirmed",
+//			item.Sender.String())
+//		authConn := connect.buildAuthenticatedConnection(a.conn)
+//		go a.authConnCb(authConn)
+//	}
+//
+//}
+//
+//func (a *authConnHandler) Name() string {
+//	return "authConnHandler"
+//}
+//
+//func (a *authConnHandler) Request(partner contact.Contact,
+//	receptionID receptionID.EphemeralIdentity,
+//	round rounds.Round, e2e *xxdk.E2e) {
+//	partnerId := partner.ID
+//
+//	// Accept channel and send confirmation message
+//	if viper.GetBool(verifySendFlag) {
+//		// Verify message sends were successful
+//		acceptChannelVerified(e2e, partnerId, xxdk.GetDefaultE2EParams())
+//	} else {
+//		acceptChannel(e2e, partnerId)
+//	}
+//
+//	// After confirmation, get the new partner
+//	newPartner, err := e2e.GetE2E().GetPartner(partner.ID)
+//	if err != nil {
+//		jww.ERROR.Printf("[CONN] Unable to build connection with "+
+//			"partner %s: %+v", partner.ID, err)
+//		// Send a nil connection to avoid hold-ups down the line
+//		if a.connCb != nil {
+//			a.connCb(nil)
+//		}
+//		return
+//	}
+//
+//	a.conn = connect.BuildConnection(newPartner, e2e.GetE2E(),
+//		e2e.GetAuth(), connect.GetDefaultParams())
+//
+//	if a.connCb != nil {
+//		// Return the new Connection object
+//		a.connCb(a.conn)
+//	}
+//
+//	e2e.GetE2E().RegisterListener(partnerId, catalog.XxMessage, a)
+//
+//	if a.isAuth {
+//		a.conn.RegisterListener(catalog.ConnectionAuthenticationRequest, a)
+//	}
+//
+//}
+//
+//func (a *authConnHandler) Confirm(partner contact.Contact,
+//	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+//	e2e *xxdk.E2e) {
+//
+//	_, e2eParams := initParams()
+//	// After confirmation, get the new partner
+//	newPartner, err := e2e.GetE2E().GetPartner(partner.ID)
+//	if err != nil {
+//		jww.ERROR.Printf("[CONN] Unable to build connection with "+
+//			"partner %s: %+v", partner.ID, err)
+//		// Send a nil connection to avoid hold-ups down the line
+//		if a.connCb != nil {
+//			a.connCb(nil)
+//		}
+//
+//		if a.authConnCb != nil {
+//			a.authConnCb(nil)
+//		}
+//
+//		return
+//	}
+//
+//	// Return the new Connection object
+//	if a.connCb != nil {
+//		a.connCb(connect.BuildConnection(newPartner, e2e.GetE2E(),
+//			e2e.GetAuth(), e2eParams))
+//	}
+//}
+//
+//func (a authConnHandler) Reset(partner contact.Contact,
+//	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+//	e *xxdk.E2e) {
+//	return
+//}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Command Line Flags                                                         /

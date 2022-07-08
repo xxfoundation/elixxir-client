@@ -43,6 +43,9 @@ import (
 	"gitlab.com/xx_network/primitives/utils"
 )
 
+// Key used for storing xxdk.ReceptionIdentity objects
+const identityStorageKey = "identityStorageKey"
+
 var authCbs *authCallbacks
 
 // Execute adds all child commands to the root command and sets flags
@@ -301,7 +304,7 @@ var rootCmd = &cobra.Command{
 
 						// Verify message sends were successful
 						if viper.GetBool(verifySendFlag) {
-							if !verifySendSuccess(client, paramsE2E,
+							if !verifySendSuccess(client, e2eParams.Base,
 								roundIDs, recipientID, payload) {
 								continue
 							}
@@ -505,19 +508,7 @@ func initCmix() (*xxdk.Cmix, xxdk.ReceptionIdentity) {
 	}
 
 	// Attempt to load extant xxdk.ReceptionIdentity
-	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, client)
-	if err != nil {
-		// If no extant xxdk.ReceptionIdentity, generate and store a new one
-		identity, err = xxdk.MakeReceptionIdentity(client)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, client)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-	}
-	return client, identity
+	return client, loadOrMakeIdentity(client)
 }
 
 func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {

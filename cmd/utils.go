@@ -18,6 +18,23 @@ import (
 
 // todo: go through cmd package and organize utility functions
 
+func loadOrMakeIdentity(baseClient *xxdk.Cmix) xxdk.ReceptionIdentity {
+	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, baseClient)
+	if err != nil {
+		// If no extant xxdk.ReceptionIdentity, generate and store a new one
+		identity, err = xxdk.MakeReceptionIdentity(baseClient)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to generate reception identity: %+v", err)
+		}
+		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, baseClient)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to store new reception identity: %+v", err)
+		}
+	}
+
+	return identity
+}
+
 func verifySendSuccess(client *xxdk.E2e, paramsE2E e2e.Params,
 	roundIDs []id.Round, partnerId *id.ID, payload []byte) bool {
 	retryChan := make(chan struct{})

@@ -90,11 +90,10 @@ func LoginLegacy(client *Cmix, params E2EParams, callbacks AuthCallbacks) (
 			"the e2e processies")
 	}
 
-	m.auth, err = auth.NewStateLegacy(client.GetStorage().GetKV(),
-		client.GetCmix(), m.e2e, client.GetRng(),
-		client.GetEventReporter(), params.Auth,
-		params.Session,
-		MakeAuthCallbacksAdapter(callbacks, m), m.backup.TriggerBackup)
+	m.auth, err = auth.NewState(client.GetStorage().GetKV(), client.GetCmix(),
+		m.e2e, client.GetRng(), client.GetEventReporter(), params.Auth,
+		params.Session, MakeAuthCallbacksAdapter(callbacks, m),
+		m.backup.TriggerBackup)
 	if err != nil {
 		return nil, err
 	}
@@ -220,18 +219,6 @@ func login(client *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
 		}
 
 		//load the new e2e storage
-		m.e2e, err = e2e.Load(kv,
-			client.GetCmix(), identity.ID, e2eGrp, client.GetRng(),
-			client.GetEventReporter())
-		if err != nil {
-			jww.WARN.Printf("Cannot load e2e store (will init instead): %s",
-			err.Error())
-		//initialize the e2e storage
-		err = e2e.Init(kv, identity.ID, identity.DHKeyPrivate, e2eGrp,
-			rekey.GetDefaultEphemeralParams())
-		if err != nil {
-			return nil, err
-		}
 		m.e2e, err = e2e.Load(kv,
 			client.GetCmix(), identity.ID, e2eGrp, client.GetRng(),
 			client.GetEventReporter())

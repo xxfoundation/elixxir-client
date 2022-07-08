@@ -76,7 +76,7 @@ func (a serverListener) Hear(item receive.Message) {
 	// via the callback
 	jww.DEBUG.Printf("AuthenticatedConnection auth request for %s confirmed",
 		item.Sender.String())
-	authConn := BuildAuthenticatedConnection(a.conn)
+	authConn := buildAuthenticatedConnection(a.conn)
 	authConn.setAuthenticated()
 	go a.connectionCallback(authConn)
 }

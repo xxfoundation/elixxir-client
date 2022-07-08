@@ -9,19 +9,17 @@
 package cmd
 
 import (
-<<<<<<< HEAD
 	"fmt"
 
-=======
+	"io/fs"
+	"io/ioutil"
+	"os"
+
 	"github.com/pkg/errors"
->>>>>>> origin/hotfix/RefactorCMD
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/xxdk"
-	"io/fs"
-	"io/ioutil"
-	"os"
 )
 
 // initCmd creates a new user object with the given NDF
@@ -61,7 +59,7 @@ var initCmd = &cobra.Command{
 		writeContact(identity.GetContact())
 
 		// NOTE: DO NOT REMOVE THIS LINE. YOU WILL BREAK INTEGRATION
-		fmt.Printf("%s\n", receptionIdentity.ID)
+		fmt.Printf("%s\n", identity.ID)
 	},
 }
 

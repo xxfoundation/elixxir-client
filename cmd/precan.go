@@ -59,8 +59,8 @@ func loadOrInitPrecan(precanId uint, password []byte, storeDir string,
 		}
 	}
 
-	jww.INFO.Printf("Using Login for precan sender")
-	client, err := xxdk.Login(baseClient, authCbs, identity, e2eParams)
+	jww.INFO.Printf("Using LoginLegacy for precan sender")
+	client, err := xxdk.LoginLegacy(baseClient, e2eParams, authCbs)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}

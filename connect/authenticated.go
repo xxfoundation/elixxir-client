@@ -9,6 +9,9 @@ package connect
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
@@ -20,8 +23,6 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
-	"time"
 )
 
 // Constant error messages
@@ -53,7 +54,7 @@ type AuthenticatedCallback func(connection AuthenticatedConnection)
 // connection with the server. Once a connect.Connection has been established
 // with the server and then authenticate their identity to the server.
 func ConnectWithAuthentication(recipient contact.Contact, e2eClient *xxdk.E2e,
-	p Params) (AuthenticatedConnection, error) {
+	p xxdk.E2EParams) (AuthenticatedConnection, error) {
 
 	// Track the time since we started to attempt to establish a connection
 	timeStart := netTime.Now()
@@ -67,8 +68,12 @@ func ConnectWithAuthentication(recipient contact.Contact, e2eClient *xxdk.E2e,
 
 	// Build the authenticated connection and return
 	identity := e2eClient.GetReceptionIdentity()
+	privKey, err := identity.GetRSAPrivatePem()
+	if err != nil {
+		return nil, err
+	}
 	return connectWithAuthentication(conn, timeStart, recipient,
-		identity.Salt, identity.RSAPrivatePem,
+		identity.Salt, privKey,
 		e2eClient.GetRng(), e2eClient.GetCmix(), p)
 }
 
@@ -78,7 +83,7 @@ func ConnectWithAuthentication(recipient contact.Contact, e2eClient *xxdk.E2e,
 func connectWithAuthentication(conn Connection, timeStart time.Time,
 	recipient contact.Contact, salt []byte, myRsaPrivKey *rsa.PrivateKey,
 	rng *fastRNG.StreamGenerator,
-	net cmix.Client, p Params) (AuthenticatedConnection, error) {
+	net cmix.Client, p xxdk.E2EParams) (AuthenticatedConnection, error) {
 	// Construct message to prove your identity to the server
 	payload, err := buildClientAuthRequest(conn.GetPartner(), rng,
 		myRsaPrivKey, salt)
@@ -131,7 +136,7 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 	})
 
 	// Find the remaining time in the timeout since we first sent the message
-	remainingTime := p.Timeout - netTime.Since(timeStart)
+	remainingTime := p.Base.Timeout - netTime.Since(timeStart)
 
 	// Track the result of the round(s) we sent the
 	// identity authentication message on
@@ -172,7 +177,9 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 // authenticate themselves. An established AuthenticatedConnection will
 // be passed via the callback.
 func StartAuthenticatedServer(identity xxdk.ReceptionIdentity,
-	cb AuthenticatedCallback, net *xxdk.Cmix, p Params) (*xxdk.E2e, error) {
+	cb AuthenticatedCallback, net *xxdk.Cmix, p xxdk.E2EParams,
+	clParams ConnectionListParams) (
+	*ConnectionServer, error) {
 
 	// Register the waiter for a connection establishment
 	connCb := Callback(func(connection Connection) {
@@ -180,12 +187,16 @@ func StartAuthenticatedServer(identity xxdk.ReceptionIdentity,
 		// client's identity proof. If an identity authentication
 		// message is received and validated, an authenticated connection will
 		// be passed along via the AuthenticatedCallback
-		fmt.Println("registering a listener")
-		jww.INFO.Printf("registering listener")
-		connection.RegisterListener(catalog.ConnectionAuthenticationRequest,
+		_, err := connection.RegisterListener(
+			catalog.ConnectionAuthenticationRequest,
 			buildAuthConfirmationHandler(cb, connection))
+		if err != nil {
+			jww.ERROR.Printf(
+				"Failed to register listener on connection with %s: %+v",
+				connection.GetPartner().PartnerId(), err)
+		}
 	})
-	return StartServer(identity, connCb, net, p)
+	return StartServer(identity, connCb, net, p, clParams)
 }
 
 // authenticatedHandler provides an implementation for the

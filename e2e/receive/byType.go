@@ -45,13 +45,13 @@ func (bt *byType) Get(messageType catalog.MessageType) *set.Set {
 
 // adds a listener to a set for the given messageType. Creates a new set to add
 // it to if the set does not exist
-func (bt *byType) Add(messageType catalog.MessageType, r Listener) *set.Set {
-	s, ok := bt.list[messageType]
+func (bt *byType) Add(lid ListenerID) *set.Set {
+	s, ok := bt.list[lid.messageType]
 	if !ok {
-		s = set.New(r)
-		bt.list[messageType] = s
+		s = set.New(lid)
+		bt.list[lid.messageType] = s
 	} else {
-		s.Insert(r)
+		s.Insert(lid)
 	}
 
 	return s
@@ -59,13 +59,13 @@ func (bt *byType) Add(messageType catalog.MessageType, r Listener) *set.Set {
 
 // Removes the passed listener from the set for messageType and
 // deletes the set if it is empty and the type is not AnyType
-func (bt *byType) Remove(mt catalog.MessageType, l Listener) {
-	s, ok := bt.list[mt]
+func (bt *byType) Remove(lid ListenerID) {
+	s, ok := bt.list[lid.messageType]
 	if ok {
-		s.Remove(l)
+		s.Remove(lid)
 
-		if s.Len() == 0 && mt != AnyType {
-			delete(bt.list, mt)
+		if s.Len() == 0 && lid.messageType != AnyType {
+			delete(bt.list, lid.messageType)
 		}
 	}
 }

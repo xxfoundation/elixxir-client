@@ -10,6 +10,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/xxdk"
 
@@ -26,12 +27,14 @@ import (
 type authCallbacks struct {
 	autoConfirm bool
 	confCh      chan *id.ID
+	params      xxdk.E2EParams
 }
 
-func makeAuthCallbacks(autoConfirm bool) *authCallbacks {
+func makeAuthCallbacks(autoConfirm bool, params xxdk.E2EParams) *authCallbacks {
 	return &authCallbacks{
 		autoConfirm: autoConfirm,
 		confCh:      make(chan *id.ID, 10),
+		params:      params,
 	}
 }
 
@@ -46,7 +49,7 @@ func (a *authCallbacks) Request(requestor contact.Contact,
 		jww.INFO.Printf("Channel Request: %s",
 			requestor.ID)
 		if viper.GetBool(verifySendFlag) { // Verify message sends were successful
-			acceptChannelVerified(client, requestor.ID)
+			acceptChannelVerified(client, requestor.ID, a.params)
 		} else {
 			acceptChannel(client, requestor.ID)
 		}

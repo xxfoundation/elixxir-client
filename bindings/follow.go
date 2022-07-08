@@ -1,10 +1,18 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package bindings
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/xx_network/primitives/netTime"
-	"time"
 )
 
 // StartNetworkFollower kicks off the tracking of the network. It starts

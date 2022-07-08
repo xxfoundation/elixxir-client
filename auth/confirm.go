@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/event"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
@@ -110,7 +109,7 @@ func (s *state) confirm(partner contact.Contact, serviceTag string) (
 			// into critical messages does not occur
 
 			// create local relationship
-			p := session.GetDefaultParams()
+			p := s.sessionParams
 			_, err := s.e2e.AddPartner(partner.ID, partner.DhPubKey, dhPriv,
 				rr.GetTheirSidHPubKeyA(), sidhPriv, p, p)
 			if err != nil {

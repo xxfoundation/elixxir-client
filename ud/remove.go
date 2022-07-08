@@ -1,7 +1,6 @@
 package ud
 
 import (
-	"crypto/rand"
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -46,15 +45,21 @@ func (m *Manager) removeFact(f fact.Fact,
 	fHash := factID.Fingerprint(f)
 
 	// Sign our inFact for putting into the request
-	privKey := m.user.PortableUserInfo().ReceptionRSA
-	fSig, err := rsa.Sign(rand.Reader, privKey, hash.CMixHash, fHash, nil)
+	identity := m.e2e.GetReceptionIdentity()
+	privKey, err := identity.GetRSAPrivatePem()
+	if err != nil {
+		return err
+	}
+	stream := m.rng.GetStream()
+	defer stream.Close()
+	fSig, err := rsa.Sign(stream, privKey, hash.CMixHash, fHash, nil)
 	if err != nil {
 		return err
 	}
 
 	// Create our Fact Removal Request message data
 	remFactMsg := mixmessages.FactRemovalRequest{
-		UID:         m.e2e.GetReceptionID().Marshal(),
+		UID:         identity.ID.Marshal(),
 		RemovalData: &mmFact,
 		FactSig:     fSig,
 	}
@@ -83,9 +88,14 @@ func (m *Manager) PermanentDeleteAccount(f fact.Fact) error {
 	if err != nil {
 		return err
 	}
-	privKey := m.user.PortableUserInfo().ReceptionRSA
 
-	return m.permanentDeleteAccount(f, m.e2e.GetReceptionID(), privKey, m.comms, udHost)
+	identity := m.e2e.GetReceptionIdentity()
+	privKey, err := identity.GetRSAPrivatePem()
+	if err != nil {
+		return err
+	}
+
+	return m.permanentDeleteAccount(f, identity.ID, privKey, m.comms, udHost)
 }
 
 // permanentDeleteAccount is a helper function for PermanentDeleteAccount.
@@ -103,7 +113,9 @@ func (m *Manager) permanentDeleteAccount(f fact.Fact, myId *id.ID, privateKey *r
 	fHash := factID.Fingerprint(f)
 
 	// Sign our inFact for putting into the request
-	fsig, err := rsa.Sign(rand.Reader, privateKey, hash.CMixHash, fHash, nil)
+	stream := m.rng.GetStream()
+	defer stream.Close()
+	fsig, err := rsa.Sign(stream, privateKey, hash.CMixHash, fHash, nil)
 	if err != nil {
 		return err
 	}

@@ -122,7 +122,7 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 // NOTE: This is a helper function that, in most applications, should not be used on its own
 //       Consider using LoadCmix instead, which calls this function for you.
 func OpenCmix(storageDir string, password []byte,
-	parameters Params) (*Cmix, error) {
+	parameters CMIXParams) (*Cmix, error) {
 	jww.INFO.Printf("OpenCmix()")
 
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
@@ -163,14 +163,14 @@ func OpenCmix(storageDir string, password []byte,
 // predefined cryptographic which defines a user. This is designed for some
 // specific deployment procedures and is generally unsafe.
 func NewProtoClient_Unsafe(ndfJSON, storageDir string, password []byte,
-	protoUser *user.Proto) error {
+	protoUser *user.Proto) (ReceptionIdentity, error) {
 	jww.INFO.Printf("NewProtoClient_Unsafe")
 
 	usr := user.NewUserFromProto(protoUser)
 
 	def, err := ParseNDF(ndfJSON)
 	if err != nil {
-		return err
+		return ReceptionIdentity{}, err
 	}
 
 	cmixGrp, e2eGrp := DecodeGroups(def)
@@ -178,7 +178,13 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password []byte,
 	storageSess, err := CheckVersionAndSetupStorage(def, storageDir,
 		password, usr, cmixGrp, e2eGrp, protoUser.RegCode)
 	if err != nil {
-		return err
+		return ReceptionIdentity{}, err
+	}
+
+	identity, err := buildReceptionIdentity(protoUser.ReceptionID, protoUser.ReceptionSalt,
+		protoUser.ReceptionRSA, e2eGrp, protoUser.E2eDhPrivateKey)
+	if err != nil {
+		return ReceptionIdentity{}, err
 	}
 
 	storageSess.SetReceptionRegistrationValidationSignature(
@@ -192,14 +198,14 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password []byte,
 	err = storageSess.ForwardRegistrationStatus(
 		storage.PermissioningComplete)
 	if err != nil {
-		return err
+		return ReceptionIdentity{}, err
 	}
 
-	return nil
+	return identity, nil
 }
 
 // LoadCmix initializes a Cmix object from existing storage and starts the network
-func LoadCmix(storageDir string, password []byte, parameters Params) (*Cmix, error) {
+func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (*Cmix, error) {
 	jww.INFO.Printf("LoadCmix()")
 
 	c, err := OpenCmix(storageDir, password, parameters)
@@ -207,18 +213,18 @@ func LoadCmix(storageDir string, password []byte, parameters Params) (*Cmix, err
 		return nil, err
 	}
 
-	c.network, err = cmix.NewClient(parameters.CMix, c.comms, c.storage,
+	c.network, err = cmix.NewClient(parameters.Network, c.comms, c.storage,
 		c.rng, c.events)
 	if err != nil {
 		return nil, err
 	}
 
-	jww.INFO.Printf("Cmix Logged in: \n\tTransmissionID: %s "+
-		"\n\tReceptionID: %s", c.storage.GetTransmissionID(), c.storage.GetReceptionID())
+	jww.INFO.Printf("Client loaded: \n\tTransmissionID: %s",
+		c.GetTransmissionIdentity().ID)
 
 	def := c.storage.GetNDF()
 
-	//initialize registration
+	//initialize registration.
 	if def.Registration.Address != "" {
 		err = c.initPermissioning(def)
 		if err != nil {
@@ -257,13 +263,14 @@ func (c *Cmix) initComms() error {
 	var err error
 
 	//get the user from session
-	privKey := c.storage.GetTransmissionRSA()
+	transmissionIdentity := c.GetTransmissionIdentity()
+	privKey := transmissionIdentity.RSAPrivatePem
 	pubPEM := rsa.CreatePublicKeyPem(privKey.GetPublic())
 	privPEM := rsa.CreatePrivateKeyPem(privKey)
 
 	//start comms
-	c.comms, err = client.NewClientComms(c.storage.GetTransmissionID(),
-		pubPEM, privPEM, c.storage.GetTransmissionSalt())
+	c.comms, err = client.NewClientComms(transmissionIdentity.ID,
+		pubPEM, privPEM, transmissionIdentity.Salt)
 	if err != nil {
 		return errors.WithMessage(err, "failed to load client")
 	}
@@ -392,7 +399,6 @@ func (c *Cmix) StopNetworkFollower() error {
 
 // NetworkFollowerStatus Gets the state of the network follower. Returns:
 // Stopped 	- 0
-// Starting - 1000
 // Running	- 2000
 // Stopping	- 3000
 func (c *Cmix) NetworkFollowerStatus() Status {
@@ -421,12 +427,11 @@ func (c *Cmix) AddService(sp Service) error {
 	return c.followerServices.add(sp)
 }
 
-// GetUser returns the current user Identity for this client. This
-// can be serialized into a byte stream for out-of-band sharing.
-func (c *Cmix) GetUser() user.Info {
-	jww.INFO.Printf("GetUser()")
+// GetTransmissionIdentity returns the current TransmissionIdentity for this client
+func (c *Cmix) GetTransmissionIdentity() TransmissionIdentity {
+	jww.INFO.Printf("GetTransmissionIdentity()")
 	cMixUser := c.storage.PortableUserInfo()
-	return cMixUser
+	return buildTransmissionIdentity(cMixUser)
 }
 
 // GetComms returns the client comms object

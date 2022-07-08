@@ -8,6 +8,11 @@
 package connect
 
 import (
+	"math/rand"
+	"testing"
+	"time"
+
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -15,9 +20,6 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 // TestConnectWithAuthentication will test the client/server relationship for
@@ -42,7 +44,7 @@ func TestConnectWithAuthentication(t *testing.T) {
 
 	myRsaPrivKey, err := rsa.LoadPrivateKeyFromPem(getPrivKey())
 	if err != nil {
-		t.Fatalf("Faled to load private key: %v", err)
+		t.Fatalf("Failed to load private key: %v", err)
 	}
 
 	// Construct client ID the proper way as server will need to verify it
@@ -77,8 +79,8 @@ func TestConnectWithAuthentication(t *testing.T) {
 		})
 
 	// Initialize params with a shorter timeout to hasten test results
-	customParams := GetDefaultParams()
-	customParams.Timeout = 3 * time.Second
+	customParams := xxdk.GetDefaultE2EParams()
+	customParams.Base.Timeout = 3 * time.Second
 
 	// Initialize the server
 	serverHandler := buildAuthConfirmationHandler(serverCb, mockConn)
@@ -96,7 +98,7 @@ func TestConnectWithAuthentication(t *testing.T) {
 	}
 
 	// Wait for the server to establish it's connection via the callback
-	timeout := time.NewTimer(customParams.Timeout)
+	timeout := time.NewTimer(customParams.Base.Timeout)
 	select {
 	case <-authConnChan:
 		return

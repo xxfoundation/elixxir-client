@@ -1,7 +1,16 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package bindings
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/xxdk"
@@ -49,8 +58,19 @@ func NewKeystore(network, storageDir string, password []byte, regCode string) er
 // Login does not block on network connection, and instead loads and
 // starts subprocesses to perform network operations.
 // TODO: add in custom parameters instead of the default
-func Login(storageDir string, password []byte) (*Cmix, error) {
-	client, err := xxdk.LoadCmix(storageDir, password, xxdk.GetDefaultParams())
+func Login(storageDir string, password []byte, cmixParamsJSON []byte) (*Cmix,
+	error) {
+	if len(cmixParamsJSON) == 0 {
+		jww.WARN.Printf("cmix params not specified, using defaults...")
+		cmixParamsJSON = GetDefaultCMixParams()
+	}
+
+	params, err := parseCMixParams(cmixParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := xxdk.LoadCmix(storageDir, password, params)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
@@ -60,4 +80,51 @@ func Login(storageDir string, password []byte) (*Cmix, error) {
 
 func (c *Cmix) GetID() int {
 	return c.id
+}
+
+// cmixTracker is a singleton used to keep track of extant Cmix objects,
+// preventing race conditions created by passing it over the bindings
+type cmixTracker struct {
+	clients map[int]*Cmix
+	count   int
+	mux     sync.RWMutex
+}
+
+// make a Cmix from an xxdk.Cmix, assigns it a unique ID,
+// and adds it to the cmixTracker
+func (ct *cmixTracker) make(c *xxdk.Cmix) *Cmix {
+	ct.mux.Lock()
+	defer ct.mux.Unlock()
+
+	id := ct.count
+	ct.count++
+
+	ct.clients[id] = &Cmix{
+		api: c,
+		id:  id,
+	}
+
+	return ct.clients[id]
+}
+
+// get a Cmix from the cmixTracker given its ID
+func (ct *cmixTracker) get(id int) (*Cmix, error) {
+	ct.mux.RLock()
+	defer ct.mux.RUnlock()
+
+	c, exist := ct.clients[id]
+	if !exist {
+		return nil, errors.Errorf("Cannot get client for id %d, client "+
+			"does not exist", id)
+	}
+
+	return c, nil
+}
+
+// delete a Cmix if it exists in the cmixTracker
+func (ct *cmixTracker) delete(id int) {
+	ct.mux.Lock()
+	defer ct.mux.Unlock()
+
+	delete(ct.clients, id)
 }

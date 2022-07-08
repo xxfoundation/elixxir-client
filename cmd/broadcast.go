@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -12,8 +15,6 @@ import (
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/utils"
-	"os"
-	"time"
 )
 
 // singleCmd is the single-use subcommand that allows for sending and responding
@@ -23,12 +24,12 @@ var broadcastCmd = &cobra.Command{
 	Short: "Send broadcast messages",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client := initClient()
+		cmixParams, e2eParams := initParams()
+		client := initE2e(cmixParams, e2eParams)
 
 		// Write user contact to file
-		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ReceptionID)
-		jww.INFO.Printf("User Transmission: %s", user.TransmissionID)
+		user := client.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", user.ID)
 		writeContact(user.GetContact())
 
 		err := client.StartNetworkFollower(5 * time.Second)
@@ -39,8 +40,8 @@ var broadcastCmd = &cobra.Command{
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
 		client.GetCmix().AddHealthCallback(
-			func(isconnected bool) {
-				connected <- isconnected
+			func(isConnected bool) {
+				connected <- isConnected
 			})
 		waitUntilConnected(connected)
 
@@ -69,10 +70,10 @@ var broadcastCmd = &cobra.Command{
 				jww.FATAL.Panicf("description cannot be empty")
 			}
 
-			var channel *crypto.Channel
+			var cryptChannel *crypto.Channel
 			if viper.GetBool("new") {
 				// Create a new broadcast channel
-				channel, pk, err = crypto.NewChannel(name, desc, client.GetRng().GetStream())
+				cryptChannel, pk, err = crypto.NewChannel(name, desc, client.GetRng().GetStream())
 				if err != nil {
 					jww.FATAL.Panicf("Failed to create new channel: %+v", err)
 				}
@@ -99,7 +100,7 @@ var broadcastCmd = &cobra.Command{
 					jww.FATAL.Panicf("Failed to generate channel ID: %+v", err)
 				}
 
-				channel = &crypto.Channel{
+				cryptChannel = &crypto.Channel{
 					ReceptionID: rid,
 					Name:        name,
 					Description: desc,
@@ -126,7 +127,7 @@ var broadcastCmd = &cobra.Command{
 			}
 
 			// Save channel to disk
-			cBytes, err := channel.Marshal()
+			cBytes, err := cryptChannel.Marshal()
 			if err != nil {
 				jww.ERROR.Printf("Failed to marshal channel to bytes: %+v", err)
 			}

@@ -62,7 +62,7 @@ func CreatePrecannedUser(precannedID uint, rng csprng.Source) user.Info {
 // username/identity, but merely creates a new cryptographic identity
 // for adding such information at a later date.
 func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
-	password []byte) error {
+	password []byte) (ReceptionIdentity, error) {
 	jww.INFO.Printf("NewPrecannedClient()")
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
 		csprng.NewSystemRNG)
@@ -70,26 +70,33 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
 
 	def, err := ParseNDF(defJSON)
 	if err != nil {
-		return err
+		return ReceptionIdentity{}, err
 	}
 	cmixGrp, e2eGrp := DecodeGroups(def)
 
-	protoUser := CreatePrecannedUser(precannedID, rngStream)
+	dhPrivKey := generatePrecanDHKeypair(precannedID, e2eGrp)
+
+	userInfo := CreatePrecannedUser(precannedID, rngStream)
+	identity, err := buildReceptionIdentity(userInfo.ReceptionID, userInfo.ReceptionSalt,
+		userInfo.ReceptionRSA, e2eGrp, dhPrivKey)
+	if err != nil {
+		return ReceptionIdentity{}, err
+	}
 
 	store, err := CheckVersionAndSetupStorage(def, storageDir, password,
-		protoUser, cmixGrp, e2eGrp, "")
+		userInfo, cmixGrp, e2eGrp, "")
 	if err != nil {
-		return err
+		return ReceptionIdentity{}, err
 	}
 
 	// Mark the precanned user as finished with permissioning and registered
 	// with the network.
 	err = store.ForwardRegistrationStatus(storage.PermissioningComplete)
 	if err != nil {
-		return err
+		return ReceptionIdentity{}, err
 	}
 
-	return nil
+	return identity, err
 }
 
 func generatePrecanDHKeypair(precannedID uint, e2eGrp *cyclic.Group) *cyclic.Int {

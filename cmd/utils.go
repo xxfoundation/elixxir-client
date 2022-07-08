@@ -130,11 +130,11 @@ func writeContact(c contact.Contact) {
 	}
 }
 
-func readContact() contact.Contact {
-	inputFilePath := viper.GetString(destFileFlag)
+func readContact(inputFilePath string) contact.Contact {
 	if inputFilePath == "" {
 		return contact.Contact{}
 	}
+
 	data, err := ioutil.ReadFile(inputFilePath)
 	jww.INFO.Printf("Contact file size read in: %d", len(data))
 	if err != nil {

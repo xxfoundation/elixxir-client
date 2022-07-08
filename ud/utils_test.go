@@ -20,18 +20,15 @@ import (
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/storage/versioned"
 	store "gitlab.com/elixxir/client/ud/store"
-	pb "gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/comms/testkeys"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/comms/messages"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"gitlab.com/xx_network/primitives/utils"
 	"io"
 	"math/rand"
 	"testing"
@@ -52,30 +49,28 @@ const dhKeyEnc = `hQj4FKeaQDt34eO/BQe5OSk571WMQBu4YNqMQ0TFeuzjzCM9lLMuOsQhcyjZcI
 const lookupRequestEnc = `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`
 
 func newTestManager(t *testing.T) (*Manager, *testNetworkManager) {
-
-	keyData, err := utils.ReadFile(testkeys.GetNodeKeyPath())
-	if err != nil {
-		t.Fatalf("Could not load private key: %v", err)
-	}
-
-	key, err := rsa.LoadPrivateKeyFromPem(keyData)
-	if err != nil {
-		t.Fatalf("Could not load public key")
-	}
-
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	udStore, err := store.NewOrLoadStore(kv)
 	if err != nil {
 		t.Fatalf("Failed to initialize store %v", err)
 	}
 
+	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
+	stream := rngGen.GetStream()
+	privKey, err := rsa.GenerateKey(stream, 1024)
+	stream.Close()
+
 	// Create our Manager object
 	m := &Manager{
-		e2e:    mockE2e{grp: getGroup()},
+		e2e: mockE2e{
+			grp: getGroup(),
+			t:   t,
+			key: privKey,
+		},
 		events: event.NewEventManager(),
-		user:   mockUser{testing: t, key: key},
 		store:  udStore,
 		comms:  &mockComms{},
+		rng:    rngGen,
 		kv:     kv,
 	}
 	tnm := newTestNetworkManager(t)
@@ -331,81 +326,10 @@ func (tnm *testNetworkManager) GetInstance() *network.Instance {
 	return tnm.instance
 }
 
-type mockUserStore struct{}
+type mockReporter struct{}
 
-func (m mockUserStore) PortableUserInfo() user.Info {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m mockUserStore) GetUsername() (string, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m mockUserStore) GetReceptionRegistrationValidationSignature() []byte {
-	//TODO implement me
-	panic("implement me")
-}
-
-type mockComms struct {
-	udHost *connect.Host
-}
-
-func (m mockComms) SendRegisterUser(host *connect.Host, message *pb.UDBUserRegistration) (*messages.Ack, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m mockComms) SendRegisterFact(host *connect.Host, message *pb.FactRegisterRequest) (*pb.FactRegisterResponse, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m mockComms) SendConfirmFact(host *connect.Host, message *pb.FactConfirmRequest) (*messages.Ack, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m mockComms) SendRemoveFact(host *connect.Host, message *pb.FactRemovalRequest) (*messages.Ack, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m mockComms) SendRemoveUser(host *connect.Host, message *pb.FactRemovalRequest) (*messages.Ack, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m *mockComms) AddHost(hid *id.ID, address string, cert []byte, params connect.HostParams) (host *connect.Host, err error) {
-	h, err := connect.NewHost(hid, address, cert, params)
-	if err != nil {
-		return nil, err
-	}
-
-	m.udHost = h
-	return h, nil
-}
-
-func (m mockComms) GetHost(hostId *id.ID) (*connect.Host, bool) {
-	return m.udHost, true
-}
-
-type mockE2e struct {
-	grp *cyclic.Group
-}
-
-func (m mockE2e) GetHistoricalDHPubkey() *cyclic.Int {
-	return m.grp.NewInt(6)
-}
-
-func (m mockE2e) GetReceptionID() *id.ID {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m mockE2e) GetGroup() *cyclic.Group {
-	return getGroup()
+func (m mockReporter) Report(priority int, category, evtType, details string) {
+	return
 }
 
 type mockResponse struct {

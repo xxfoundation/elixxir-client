@@ -1,14 +1,16 @@
-////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2022 Privategrity Corporation                                   /
-//                                                                             /
-// All rights reserved.                                                        /
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
 import (
 	"encoding/json"
 	"fmt"
+
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
@@ -120,7 +122,7 @@ func (e *E2e) RemoveService(tag string) error {
 //  - []byte - the marshalled bytes of the E2ESendReport object.
 func (e *E2e) SendE2E(messageType int, recipientId, payload,
 	e2eParams []byte) ([]byte, error) {
-
+	// Note that specifically these are the .Base params from xxdk.E2EParams
 	params := e2e.GetDefaultParams()
 	err := params.UnmarshalJSON(e2eParams)
 	if err != nil {

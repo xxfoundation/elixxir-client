@@ -32,6 +32,9 @@ func startConfirm(ratchet *ratchet.Ratchet, c chan receive.Message,
 }
 
 func handleConfirm(ratchet *ratchet.Ratchet, confirmation receive.Message) {
+	jww.DEBUG.Printf("[REKEY] handleConfirm(partner: %s)",
+		confirmation.Sender)
+
 	//ensure the message was encrypted properly
 	if !confirmation.Encrypted {
 		jww.ERROR.Printf(

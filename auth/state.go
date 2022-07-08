@@ -9,12 +9,14 @@ package auth
 
 import (
 	"encoding/base64"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -37,6 +39,10 @@ type state struct {
 
 	params Params
 
+	// These are the parameters used when creating/adding session
+	// partners
+	sessionParams session.Params
+
 	backupTrigger func(reason string)
 }
 
@@ -56,11 +62,12 @@ type state struct {
 //   with a memory only versioned.KV) as well as a memory only versioned.KV for
 //   NewState and use GetDefaultTemporaryParams() for the parameters
 func NewState(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
-	rng *fastRNG.StreamGenerator, event event.Reporter, params Params,
-	callbacks Callbacks, backupTrigger func(reason string)) (State, error) {
+	rng *fastRNG.StreamGenerator, event event.Reporter, authParams Params,
+	sessParams session.Params, callbacks Callbacks,
+	backupTrigger func(reason string)) (State, error) {
 	kv = kv.Prefix(makeStorePrefix(e2e.GetReceptionID()))
-	return NewStateLegacy(
-		kv, net, e2e, rng, event, params, callbacks, backupTrigger)
+	return NewStateLegacy(kv, net, e2e, rng, event, authParams, sessParams,
+		callbacks, backupTrigger)
 }
 
 // NewStateLegacy loads the auth state or creates new auth state if one cannot
@@ -68,8 +75,9 @@ func NewState(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 // Does not modify the kv prefix for backwards compatibility.
 // Otherwise, acts the same as NewState
 func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
-	rng *fastRNG.StreamGenerator, event event.Reporter, params Params,
-	callbacks Callbacks, backupTrigger func(reason string)) (State, error) {
+	rng *fastRNG.StreamGenerator, event event.Reporter, authParams Params,
+	sessParams session.Params, callbacks Callbacks,
+	backupTrigger func(reason string)) (State, error) {
 
 	s := &state{
 		callbacks:        callbacks,
@@ -78,7 +86,8 @@ func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 		e2e:              e2e,
 		rng:              rng,
 		event:            event,
-		params:           params,
+		params:           authParams,
+		sessionParams:    sessParams,
 		backupTrigger:    backupTrigger,
 	}
 
@@ -90,13 +99,13 @@ func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 	// register services
 	net.AddService(e2e.GetReceptionID(), message.Service{
 		Identifier: e2e.GetReceptionID()[:],
-		Tag:        params.RequestTag,
+		Tag:        authParams.RequestTag,
 		Metadata:   nil,
 	}, &receivedRequestService{s: s, reset: false})
 
 	net.AddService(e2e.GetReceptionID(), message.Service{
 		Identifier: e2e.GetReceptionID()[:],
-		Tag:        params.ResetRequestTag,
+		Tag:        authParams.ResetRequestTag,
 		Metadata:   nil,
 	}, &receivedRequestService{s: s, reset: true})
 
@@ -139,6 +148,22 @@ func (s *state) Close() error {
 		Tag:        s.params.ResetRequestTag,
 		Metadata:   nil,
 	}, nil)
+	return nil
+}
+
+// DeletePartner deletes the request and/or confirmation for the given partner.
+func (s *state) DeletePartner(partner *id.ID) error {
+	err := s.store.DeleteRequest(partner)
+	err2 := s.store.DeleteConfirmation(partner)
+
+	// Only return an error if both failed to delete
+	if err != nil && err2 != nil {
+		return errors.Errorf("Failed to delete partner: no requests or "+
+			"confirmations found: %s, %s", err, err2)
+	}
+
+	s.DeletePartnerCallback(partner)
+
 	return nil
 }
 

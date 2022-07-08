@@ -44,13 +44,13 @@ func (bi *byId) Get(uid *id.ID) *set.Set {
 
 // adds a listener to a set for the given ID. Creates a new set to add it to if
 // the set does not exist
-func (bi *byId) Add(uid *id.ID, l Listener) *set.Set {
-	s, ok := bi.list[*uid]
+func (bi *byId) Add(lid ListenerID) *set.Set {
+	s, ok := bi.list[*lid.userID]
 	if !ok {
-		s = set.New(l)
-		bi.list[*uid] = s
+		s = set.New(lid)
+		bi.list[*lid.userID] = s
 	} else {
-		s.Insert(l)
+		s.Insert(lid)
 	}
 
 	return s
@@ -58,13 +58,20 @@ func (bi *byId) Add(uid *id.ID, l Listener) *set.Set {
 
 // Removes the passed listener from the set for UserID and
 // deletes the set if it is empty if the ID is not a generic one
-func (bi *byId) Remove(uid *id.ID, l Listener) {
-	s, ok := bi.list[*uid]
+func (bi *byId) Remove(lid ListenerID) {
+	s, ok := bi.list[*lid.userID]
 	if ok {
-		s.Remove(l)
+		s.Remove(lid)
 
-		if s.Len() == 0 && !uid.Cmp(AnyUser()) && !uid.Cmp(&id.ID{}) {
-			delete(bi.list, *uid)
+		if s.Len() == 0 && !lid.userID.Cmp(AnyUser()) && !lid.userID.Cmp(&id.ID{}) {
+			delete(bi.list, *lid.userID)
 		}
+	}
+}
+
+// RemoveId removes all listeners registered for the given user ID.
+func (bi *byId) RemoveId(uid *id.ID) {
+	if !uid.Cmp(AnyUser()) && !uid.Cmp(&id.ID{}) {
+		delete(bi.list, *uid)
 	}
 }

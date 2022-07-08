@@ -2,6 +2,7 @@ package ud
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"sync"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -43,11 +43,6 @@ type Manager struct {
 	// with the UD service
 	store *store.Store
 
-	// user is a sub-interface of the user.User object in the storage package.
-	// This allows the Manager to pull user information for registration
-	// and verifying the client's identity
-	user UserInfo
-
 	// comms is a sub-interface of the client.Comms interface. It contains
 	// gRPC functions for registering and fact operations.
 	comms Comms
@@ -65,16 +60,22 @@ type Manager struct {
 	// alternativeUd is an alternate User discovery service to circumvent
 	// production. This is for testing with a separately deployed UD service.
 	alternativeUd *alternateUd
+
+	// rng is a fastRNG.StreamGenerator which is used to generate random
+	// data. This is used for signatures for adding/removing facts.
+	rng *fastRNG.StreamGenerator
+
+	// registrationValidationSignature for the ReceptionID
+	// Optional, depending on UD configuration
+	registrationValidationSignature []byte
 }
 
 // NewManager builds a new user discovery manager.
 // It requires that an updated
 // NDF is available and will error if one is not.
-func NewManager(services CMix, e2e E2E,
-	follower NetworkStatus,
-	events event.Reporter, comms Comms, userStore UserInfo,
-	rng csprng.Source, username string,
-	kv *versioned.KV) (*Manager, error) {
+// registrationValidationSignature may be set to nil
+func NewManager(e2e E2E, comms Comms, follower NetworkStatus,
+	username string, registrationValidationSignature []byte) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
 
 	if follower() != xxdk.Running {
@@ -84,12 +85,13 @@ func NewManager(services CMix, e2e E2E,
 
 	// Initialize manager
 	m := &Manager{
-		network: services,
-		e2e:     e2e,
-		events:  events,
-		comms:   comms,
-		user:    userStore,
-		kv:      kv,
+		network:                         e2e.GetCmix(),
+		e2e:                             e2e,
+		events:                          e2e.GetEventReporter(),
+		comms:                           comms,
+		kv:                              e2e.GetStorage().GetKV(),
+		rng:                             e2e.GetRng(),
+		registrationValidationSignature: registrationValidationSignature,
 	}
 
 	if m.isRegistered() {
@@ -98,7 +100,7 @@ func NewManager(services CMix, e2e E2E,
 
 	// Initialize store
 	var err error
-	m.store, err = store.NewOrLoadStore(kv)
+	m.store, err = store.NewOrLoadStore(m.kv)
 	if err != nil {
 		return nil, errors.Errorf("Failed to initialize store: %v", err)
 	}
@@ -111,13 +113,15 @@ func NewManager(services CMix, e2e E2E,
 	}
 
 	// Register with user discovery
-	err = m.register(username, rng, comms, udHost)
+	stream := m.rng.GetStream()
+	defer stream.Close()
+	err = m.register(username, stream, m.comms, udHost)
 	if err != nil {
 		return nil, errors.Errorf("Failed to register: %v", err)
 	}
 
 	// Set storage to registered
-	if err = setRegistered(kv); err != nil && m.events != nil {
+	if err = setRegistered(m.kv); err != nil && m.events != nil {
 		m.events.Report(1, "UserDiscovery", "Registration",
 			fmt.Sprintf("User Registered with UD: %+v",
 				username))
@@ -129,10 +133,8 @@ func NewManager(services CMix, e2e E2E,
 // NewManagerFromBackup builds a new user discover manager from a backup.
 // It will construct a manager that is already registered and restore
 // already registered facts into store.
-func NewManagerFromBackup(services CMix,
-	e2e E2E, follower NetworkStatus,
-	events event.Reporter, comms Comms, userStore UserInfo,
-	email, phone fact.Fact, kv *versioned.KV) (*Manager, error) {
+func NewManagerFromBackup(e2e E2E, comms Comms, follower NetworkStatus,
+	email, phone fact.Fact) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
 	if follower() != xxdk.Running {
 		return nil, errors.New(
@@ -142,17 +144,17 @@ func NewManagerFromBackup(services CMix,
 
 	// Initialize manager
 	m := &Manager{
-		network: services,
+		network: e2e.GetCmix(),
 		e2e:     e2e,
-		events:  events,
+		events:  e2e.GetEventReporter(),
 		comms:   comms,
-		user:    userStore,
-		kv:      kv,
+		kv:      e2e.GetStorage().GetKV(),
+		rng:     e2e.GetRng(),
 	}
 
 	// Initialize our store
 	var err error
-	m.store, err = store.NewOrLoadStore(kv)
+	m.store, err = store.NewOrLoadStore(m.kv)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +168,7 @@ func NewManagerFromBackup(services CMix,
 
 	// Set as registered. Since it's from a backup,
 	// the client is already registered
-	if err = setRegistered(kv); err != nil {
+	if err = setRegistered(m.kv); err != nil {
 		return nil, errors.WithMessage(err, "failed to set client as "+
 			"registered with user discovery.")
 	}
@@ -210,18 +212,15 @@ func InitStoreFromBackup(kv *versioned.KV,
 // LoadManager loads the state of the Manager
 // from disk. This is meant to be called after any the first
 // instantiation of the manager by NewUserDiscovery.
-func LoadManager(services CMix, e2e E2E,
-	events event.Reporter, comms Comms, userStore UserInfo,
-	kv *versioned.KV) (*Manager, error) {
+func LoadManager(e2e E2E, comms Comms) (*Manager, error) {
 
 	m := &Manager{
-		network: services,
+		network: e2e.GetCmix(),
 		e2e:     e2e,
-		events:  events,
+		events:  e2e.GetEventReporter(),
 		comms:   comms,
-		user:    userStore,
-
-		kv: kv,
+		rng:     e2e.GetRng(),
+		kv:      e2e.GetStorage().GetKV(),
 	}
 
 	if !m.isRegistered() {
@@ -230,7 +229,7 @@ func LoadManager(services CMix, e2e E2E,
 	}
 
 	var err error
-	m.store, err = store.NewOrLoadStore(kv)
+	m.store, err = store.NewOrLoadStore(m.kv)
 	if err != nil {
 		return nil, errors.Errorf("Failed to initialize store: %v", err)
 	}
@@ -252,7 +251,10 @@ func (m *Manager) GetStringifiedFacts() []string {
 
 // GetContact returns the contact for UD as retrieved from the NDF.
 func (m *Manager) GetContact() (contact.Contact, error) {
-	grp := m.e2e.GetGroup()
+	grp, err := m.e2e.GetReceptionIdentity().GetGroup()
+	if err != nil {
+		return contact.Contact{}, err
+	}
 	// Return alternative User discovery contact if set
 	if m.alternativeUd != nil {
 		// Unmarshal UD DH public key

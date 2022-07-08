@@ -32,7 +32,7 @@ import (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
-// Mock cMix                                                           //
+// Mock cMix                                                                  //
 ////////////////////////////////////////////////////////////////////////////////
 
 type mockCmixHandler struct {
@@ -137,6 +137,7 @@ func (m *mockCmix) GetRoundResults(_ time.Duration,
 ////////////////////////////////////////////////////////////////////////////////
 // Mock Connection Handler                                                    //
 ////////////////////////////////////////////////////////////////////////////////
+
 func newMockListener(hearChan chan receive.Message) *mockListener {
 	return &mockListener{hearChan: hearChan}
 }
@@ -161,6 +162,9 @@ func newMockConnectionHandler() *mockConnectionHandler {
 		listeners: make(map[catalog.MessageType]receive.Listener),
 	}
 }
+
+// Tests that mockConnection adheres to the Connection interface.
+var _ Connection = (*mockConnection)(nil)
 
 type mockConnection struct {
 	myID    *id.ID
@@ -193,12 +197,12 @@ func (m *mockConnection) SendE2E(mt catalog.MessageType, payload []byte,
 	return []id.Round{42}, e2eCrypto.MessageID{}, netTime.Now(), nil
 }
 
-func (m *mockConnection) RegisterListener(
-	mt catalog.MessageType, listener receive.Listener) receive.ListenerID {
+func (m *mockConnection) RegisterListener(mt catalog.MessageType,
+	listener receive.Listener) (receive.ListenerID, error) {
 	m.handler.Lock()
 	defer m.handler.Unlock()
 	m.handler.listeners[mt] = listener
-	return receive.ListenerID{}
+	return receive.ListenerID{}, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

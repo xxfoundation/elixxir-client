@@ -69,8 +69,8 @@ func loadOrInitProto(protoUserPath string, password []byte, storeDir string,
 		}
 	}
 
-	jww.INFO.Printf("Using LoginLegacy for proto sender")
-	client, err := xxdk.LoginLegacy(baseClient, e2eParams, authCbs)
+	jww.INFO.Printf("Using Login for proto sender")
+	client, err := xxdk.Login(baseClient, authCbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}

@@ -596,6 +596,7 @@ func initCmix() (*xxdk.Cmix, xxdk.ReceptionIdentity) {
 				pass, regCode, userIDprefix)
 		} else if backupPath != "" {
 
+			jww.INFO.Printf("Restoring user from %s", backupPath)
 			b, backupFile := loadBackup(backupPath, string(backupPass))
 
 			// Marshal the backup object in JSON
@@ -618,6 +619,8 @@ func initCmix() (*xxdk.Cmix, xxdk.ReceptionIdentity) {
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
+
+			jww.INFO.Printf("User Restored: %v", knownReception.ID)
 
 			backupIdListPath := viper.GetString("backupIdList")
 			if backupIdListPath != "" {

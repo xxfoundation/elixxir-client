@@ -11,6 +11,7 @@ package backup
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/rekey"
 	"gitlab.com/elixxir/client/storage"
@@ -37,6 +38,9 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 		return xxdk.ReceptionIdentity{}, nil, "", errors.WithMessage(err,
 			"Failed to unmarshal decrypted client contents.")
 	}
+
+	jww.INFO.Printf("Decrypted backup ID to Restore: %v",
+		backUp.ReceptionIdentity.ComputedID)
 
 	usr := user.NewUserFromBackup(backUp)
 

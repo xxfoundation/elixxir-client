@@ -542,22 +542,6 @@ func (l listener) Name() string {
 	return l.name
 }
 
-// todo: figure out if I need all this by testing in integration
-func makeAuthConnHandler(isAuthenticated bool) *authConnHandler {
-	return &authConnHandler{
-		isAuth: isAuthenticated,
-	}
-}
-
-type authConnHandler struct {
-	client *xxdk.E2e
-	conn   connect.Connection
-	connCb connect.Callback
-
-	authConnCb connect.AuthenticatedCallback
-	isAuth     bool
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 // Command Line Flags                                                         /
 ///////////////////////////////////////////////////////////////////////////////

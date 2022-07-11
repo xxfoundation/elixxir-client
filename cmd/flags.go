@@ -77,8 +77,9 @@ const (
 	e2eRekeyThresholdFlag = "e2eRekeyThreshold"
 
 	// Misc
-	sendIdFlag     = "sendid"
-	profileCpuFlag = "profile-cpu"
+	sendIdFlag       = "sendid"
+	profileCpuFlag   = "profile-cpu"
+	userIdPrefixFlag = "userid-prefix"
 
 	///////////////// Broadcast subcommand flags //////////////////////////////
 	broadcastNameFlag        = "name"
@@ -107,6 +108,12 @@ const (
 	filePreviewStringFlag = "filePreviewString"
 	fileMaxThroughputFlag = "maxThroughput"
 	fileRetry             = "retry"
+
+	///////////////// GetNdf subcommand flags //////////////////////////////
+	ndfGwHostFlag   = "gwhost"
+	ndfPermHostFlag = "permhost"
+	ndfCertFlag     = "cert"
+	ndfEnvFlag      = "env"
 
 	///////////////// Group subcommand flags //////////////////////////////////
 	groupCreateFlag         = "create"

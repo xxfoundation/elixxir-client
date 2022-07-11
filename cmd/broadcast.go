@@ -241,43 +241,43 @@ func init() {
 	// Single-use subcommand options
 	broadcastCmd.Flags().StringP(broadcastNameFlag, "", "",
 		"Symmetric channel name")
-	bindPFlagCheckErr(broadcastNameFlag, broadcastCmd)
+	bindFlagHelper(broadcastNameFlag, broadcastCmd)
 
 	broadcastCmd.Flags().StringP(broadcastRsaPubFlag, "", "",
 		"Broadcast channel rsa pub key")
-	bindPFlagCheckErr(broadcastRsaPubFlag, broadcastCmd)
+	bindFlagHelper(broadcastRsaPubFlag, broadcastCmd)
 
 	broadcastCmd.Flags().StringP(broadcastSaltFlag, "", "",
 		"Broadcast channel salt")
-	bindPFlagCheckErr(broadcastSaltFlag, broadcastCmd)
+	bindFlagHelper(broadcastSaltFlag, broadcastCmd)
 
 	broadcastCmd.Flags().StringP(broadcastDescriptionFlag, "", "",
 		"Broadcast channel description")
-	bindPFlagCheckErr(broadcastDescriptionFlag, broadcastCmd)
+	bindFlagHelper(broadcastDescriptionFlag, broadcastCmd)
 
 	broadcastCmd.Flags().StringP(broadcastChanPathFlag, "", "",
 		"Broadcast channel output path")
-	bindPFlagCheckErr(broadcastChanPathFlag, broadcastCmd)
+	bindFlagHelper(broadcastChanPathFlag, broadcastCmd)
 
 	broadcastCmd.Flags().StringP(broadcastKeyPathFlag, "", "",
 		"Broadcast channel private key output path")
-	bindPFlagCheckErr(broadcastKeyPathFlag, broadcastCmd)
+	bindFlagHelper(broadcastKeyPathFlag, broadcastCmd)
 
 	broadcastCmd.Flags().BoolP(broadcastNewFlag, "", false,
 		"Create new broadcast channel")
-	bindPFlagCheckErr(broadcastNewFlag, broadcastCmd)
+	bindFlagHelper(broadcastNewFlag, broadcastCmd)
 
 	broadcastCmd.Flags().StringP(broadcastFlag, "", "",
 		"Message contents for broadcast")
-	bindPFlagCheckErr(broadcastFlag, broadcastCmd)
+	bindFlagHelper(broadcastFlag, broadcastCmd)
 
 	broadcastCmd.Flags().BoolP(broadcastSymmetricFlag, "", false,
 		"Set broadcast method to symmetric")
-	bindPFlagCheckErr(broadcastSymmetricFlag, broadcastCmd)
+	bindFlagHelper(broadcastSymmetricFlag, broadcastCmd)
 
 	broadcastCmd.Flags().BoolP(broadcastAsymmetricFlag, "", false,
 		"Set broadcast method to asymmetric")
-	bindPFlagCheckErr(broadcastAsymmetricFlag, broadcastCmd)
+	bindFlagHelper(broadcastAsymmetricFlag, broadcastCmd)
 
 	rootCmd.AddCommand(broadcastCmd)
 }

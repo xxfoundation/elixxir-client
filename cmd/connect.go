@@ -557,14 +557,14 @@ func init() {
 			"If a connection already exists between "+
 			"the client and the server, this will be used instead of "+
 			"resending a connection request to the server.")
-	bindPFlagCheckErr(connectionFlag, connectionCmd)
+	bindFlagHelper(connectionFlag, connectionCmd)
 
 	connectionCmd.Flags().Bool(connectionStartServerFlag, false,
 		"This flag is a server-side operation and takes no arguments. "+
 			"This initiates a connection server. "+
 			"Calling this flag will have this process call "+
 			"connection.StartServer().")
-	bindPFlagCheckErr(connectionStartServerFlag, connectionCmd)
+	bindFlagHelper(connectionStartServerFlag, connectionCmd)
 
 	connectionCmd.Flags().Duration(connectionServerTimeoutFlag, time.Duration(0),
 		"This flag is a connection parameter. "+
@@ -572,21 +572,21 @@ func init() {
 			"This duration specifies how long a server will run before "+
 			"closing. Without this flag present, a server will be "+
 			"long-running.")
-	bindPFlagCheckErr(connectionServerTimeoutFlag, connectionCmd)
+	bindFlagHelper(connectionServerTimeoutFlag, connectionCmd)
 
 	connectionCmd.Flags().Bool(connectionDisconnectFlag, false,
 		"This flag is available to both server and client. "+
 			"This uses a contact object from a file specified by --destfile."+
 			"This will close the connection with the given contact "+
 			"if it exists.")
-	bindPFlagCheckErr(connectionDisconnectFlag, connectionCmd)
+	bindFlagHelper(connectionDisconnectFlag, connectionCmd)
 
 	connectionCmd.Flags().Bool(connectionAuthenticatedFlag, false,
 		"This flag is available to both server and client. "+
 			"This flag operates as a switch for the authenticated code-path. "+
 			"With this flag present, any additional connection related flags"+
 			" will call the applicable authenticated counterpart")
-	bindPFlagCheckErr(connectionAuthenticatedFlag, connectionCmd)
+	bindFlagHelper(connectionAuthenticatedFlag, connectionCmd)
 
 	rootCmd.AddCommand(connectionCmd)
 }

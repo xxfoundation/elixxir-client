@@ -314,43 +314,43 @@ func ReadLines(fileName string) []string {
 func init() {
 	groupCmd.Flags().String(groupCreateFlag, "",
 		"Create a group with from the list of contact file paths.")
-	bindPFlagCheckErr(groupCreateFlag, groupCmd)
+	bindFlagHelper(groupCreateFlag, groupCmd)
 
 	groupCmd.Flags().String(groupNameFlag, "Group Name",
 		"The name of the new group to create.")
-	bindPFlagCheckErr(groupNameFlag, groupCmd)
+	bindFlagHelper(groupNameFlag, groupCmd)
 
 	groupCmd.Flags().String(groupResendFlag, "",
 		"Resend invites for all users in this group ID.")
-	bindPFlagCheckErr(groupResendFlag, groupCmd)
+	bindFlagHelper(groupResendFlag, groupCmd)
 
 	groupCmd.Flags().Bool(groupJoinFlag, false,
 		"Waits for group request joins the group.")
-	bindPFlagCheckErr(groupJoinFlag, groupCmd)
+	bindFlagHelper(groupJoinFlag, groupCmd)
 
 	groupCmd.Flags().String(groupLeaveFlag, "",
 		"Leave this group ID.")
-	bindPFlagCheckErr(groupLeaveFlag, groupCmd)
+	bindFlagHelper(groupLeaveFlag, groupCmd)
 
 	groupCmd.Flags().String(groupSendMessageFlag, "",
 		"Send message to this group ID.")
-	bindPFlagCheckErr(groupSendMessageFlag, groupCmd)
+	bindFlagHelper(groupSendMessageFlag, groupCmd)
 
 	groupCmd.Flags().Uint(groupWaitFlag, 0,
 		"Waits for number of messages to be received.")
-	bindPFlagCheckErr(groupWaitFlag, groupCmd)
+	bindFlagHelper(groupWaitFlag, groupCmd)
 
 	groupCmd.Flags().Duration(groupReceiveTimeoutFlag, time.Minute,
 		"Amount of time to wait for a group request or message before timing out.")
-	bindPFlagCheckErr(groupReceiveTimeoutFlag, groupCmd)
+	bindFlagHelper(groupReceiveTimeoutFlag, groupCmd)
 
 	groupCmd.Flags().Bool(groupListFlag, false,
 		"Prints list all groups to which this client belongs.")
-	bindPFlagCheckErr(groupListFlag, groupCmd)
+	bindFlagHelper(groupListFlag, groupCmd)
 
 	groupCmd.Flags().String(groupShowFlag, "",
 		"Prints the members of this group ID.")
-	bindPFlagCheckErr(groupShowFlag, groupCmd)
+	bindFlagHelper(groupShowFlag, groupCmd)
 
 	rootCmd.AddCommand(groupCmd)
 }

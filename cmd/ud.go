@@ -275,42 +275,42 @@ func init() {
 	// User Discovery subcommand Options
 	udCmd.Flags().StringP(udRegisterFlag, "r", "",
 		"Register this user with user discovery.")
-	bindPFlagCheckErr(udRegisterFlag, udCmd)
+	bindFlagHelper(udRegisterFlag, udCmd)
 
 	udCmd.Flags().StringP(udRemoveFlag, "", "",
 		"Remove this user with user discovery.")
-	bindPFlagCheckErr(udRemoveFlag, udCmd)
+	bindFlagHelper(udRemoveFlag, udCmd)
 
 	udCmd.Flags().String(udAddPhoneFlag, "",
 		"Add phone number to existing user registration.")
-	bindPFlagCheckErr(udAddPhoneFlag, udCmd)
+	bindFlagHelper(udAddPhoneFlag, udCmd)
 
 	udCmd.Flags().StringP(udAddEmailFlag, "e", "",
 		"Add email to existing user registration.")
-	bindPFlagCheckErr(udAddEmailFlag, udCmd)
+	bindFlagHelper(udAddEmailFlag, udCmd)
 
 	udCmd.Flags().String(udConfirmFlag, "", "Confirm fact with confirmation ID.")
-	bindPFlagCheckErr(udConfirmFlag, udCmd)
+	bindFlagHelper(udConfirmFlag, udCmd)
 
 	udCmd.Flags().StringP(udLookupFlag, "u", "",
 		"Look up user ID. Use '0x' or 'b64:' for hex and base64 representations.")
-	bindPFlagCheckErr(udLookupFlag, udCmd)
+	bindFlagHelper(udLookupFlag, udCmd)
 
 	udCmd.Flags().String(udSearchUsernameFlag, "",
 		"Search for users with this username.")
-	bindPFlagCheckErr(udSearchUsernameFlag, udCmd)
+	bindFlagHelper(udSearchUsernameFlag, udCmd)
 
 	udCmd.Flags().String(udSearchEmailFlag, "",
 		"Search for users with this email address.")
-	bindPFlagCheckErr(udSearchEmailFlag, udCmd)
+	bindFlagHelper(udSearchEmailFlag, udCmd)
 
 	udCmd.Flags().String(udSearchPhoneFlag, "",
 		"Search for users with this email address.")
-	bindPFlagCheckErr(udSearchPhoneFlag, udCmd)
+	bindFlagHelper(udSearchPhoneFlag, udCmd)
 
 	udCmd.Flags().String(udBatchAddFlag, "",
 		"Path to JSON marshalled slice of partner IDs that will be looked up on UD.")
-	bindPFlagCheckErr(udBatchAddFlag, udCmd)
+	bindFlagHelper(udBatchAddFlag, udCmd)
 
 	rootCmd.AddCommand(udCmd)
 }

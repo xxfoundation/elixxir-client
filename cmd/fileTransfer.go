@@ -350,32 +350,32 @@ func getContactFromFile(path string) contact.Contact {
 func init() {
 	ftCmd.Flags().String(fileSendFlag, "",
 		"Sends a file to a recipient with the contact file at this path.")
-	bindPFlagCheckErr(fileSendFlag, ftCmd)
+	bindFlagHelper(fileSendFlag, ftCmd)
 
 	ftCmd.Flags().String(filePathFlag, "",
 		"The path to the file to send. Also used as the file name.")
-	bindPFlagCheckErr(filePathFlag, ftCmd)
+	bindFlagHelper(filePathFlag, ftCmd)
 
 	ftCmd.Flags().String(fileTypeFlag, "txt",
 		"8-byte file type.")
-	bindPFlagCheckErr(fileTypeFlag, ftCmd)
+	bindFlagHelper(fileTypeFlag, ftCmd)
 
 	ftCmd.Flags().String(filePreviewPathFlag, "",
 		"The path to the file preview to send. Set either this flag or "+
 			"filePreviewString.")
-	bindPFlagCheckErr(filePreviewPathFlag, ftCmd)
+	bindFlagHelper(filePreviewPathFlag, ftCmd)
 
 	ftCmd.Flags().String(filePreviewStringFlag, "",
 		"File preview data. Set either this flag or filePreviewPath.")
-	bindPFlagCheckErr(filePreviewStringFlag, ftCmd)
+	bindFlagHelper(filePreviewStringFlag, ftCmd)
 
 	ftCmd.Flags().Int(fileMaxThroughputFlag, 1000,
 		"Maximum data transfer speed to send file parts (in bytes per second)")
-	bindPFlagCheckErr(fileMaxThroughputFlag, ftCmd)
+	bindFlagHelper(fileMaxThroughputFlag, ftCmd)
 
 	ftCmd.Flags().Float64(fileRetry, 0.5,
 		"Retry rate.")
-	bindPFlagCheckErr(fileRetry, ftCmd)
+	bindFlagHelper(fileRetry, ftCmd)
 
 	rootCmd.AddCommand(ftCmd)
 }

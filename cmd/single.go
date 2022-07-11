@@ -114,27 +114,27 @@ func init() {
 	// Single-use subcommand options
 
 	singleCmd.Flags().Bool(singleSendFlag, false, "Sends a single-use message.")
-	bindPFlagCheckErr(singleSendFlag, singleCmd)
+	bindFlagHelper(singleSendFlag, singleCmd)
 
 	singleCmd.Flags().Bool(singleReplyFlag, false,
 		"Listens for a single-use message and sends a reply.")
-	bindPFlagCheckErr(singleReplyFlag, singleCmd)
+	bindFlagHelper(singleReplyFlag, singleCmd)
 
 	singleCmd.Flags().StringP(singleContactFlag, "c", "",
 		"Path to contact file to send message to.")
-	bindPFlagCheckErr(singleContactFlag, singleCmd)
+	bindFlagHelper(singleContactFlag, singleCmd)
 
 	singleCmd.Flags().StringP(singleTagFlag, "", "testTag",
 		"The tag that specifies the callback to trigger on reception.")
-	bindPFlagCheckErr(singleTagFlag, singleCmd)
+	bindFlagHelper(singleTagFlag, singleCmd)
 
 	singleCmd.Flags().Uint8(singleMaxMessagesFlag, 1,
 		"The max number of single-use response messages.")
-	bindPFlagCheckErr(singleMaxMessagesFlag, singleCmd)
+	bindFlagHelper(singleMaxMessagesFlag, singleCmd)
 
 	singleCmd.Flags().DurationP(singleTimeoutFlag, "t", 30*time.Second,
 		"Duration before stopping to wait for single-use message.")
-	bindPFlagCheckErr(singleTimeoutFlag, singleCmd)
+	bindFlagHelper(singleTimeoutFlag, singleCmd)
 
 	rootCmd.AddCommand(singleCmd)
 }

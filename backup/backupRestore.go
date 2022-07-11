@@ -4,9 +4,6 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-// FIXME: This is placeholder, there's got to be a better place to put
-// backup restoration than inside messenger.
-
 package backup
 
 import (
@@ -22,9 +19,9 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// NewClientFromBackup constructs a new E2e from an encrypted
+// NewClientFromBackup initializes a new e2e storage from an encrypted
 // backup. The backup is decrypted using the backupPassphrase. On
-// success a successful client creation, the function will return a
+// a successful client creation, the function will return a
 // JSON encoded list of the E2E partners contained in the backup and a
 // json-encoded string containing parameters stored in the backup
 func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
@@ -38,7 +35,7 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 			"Failed to unmarshal decrypted client contents.")
 	}
 
-	usr := user.NewUserFromBackup(backUp)
+	userInfo := user.NewUserFromBackup(backUp)
 
 	def, err := xxdk.ParseNDF(ndfJSON)
 	if err != nil {
@@ -49,7 +46,7 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 
 	// Note we do not need registration here
 	storageSess, err := xxdk.CheckVersionAndSetupStorage(def, storageDir,
-		sessionPassword, usr, cmixGrp, e2eGrp,
+		sessionPassword, userInfo, cmixGrp, e2eGrp,
 		backUp.RegistrationCode)
 	if err != nil {
 		return nil, "", err
@@ -69,10 +66,10 @@ func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
 		return nil, "", err
 	}
 
-	privkey := usr.E2eDhPrivateKey
+	privKey := userInfo.E2eDhPrivateKey
 
 	//initialize the e2e storage
-	err = e2e.Init(storageSess.GetKV(), usr.ReceptionID, privkey, e2eGrp,
+	err = e2e.Init(storageSess.GetKV(), userInfo.ReceptionID, privKey, e2eGrp,
 		rekey.GetDefaultParams())
 	if err != nil {
 		return nil, "", err

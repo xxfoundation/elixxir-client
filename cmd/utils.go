@@ -11,10 +11,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/cmix"
-	backupCrypto "gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/utils"
 )
 
 // todo: go through cmd package and organize utility functions
@@ -86,20 +84,14 @@ func verifySendSuccess(client *xxdk.E2e, paramsE2E e2e.Params,
 	}
 }
 
-func loadBackup(backupPath, backupPass string) (backupCrypto.Backup, []byte) {
-	jww.INFO.Printf("Loading backup from path %q with password %q", backupPath, backupPass)
-	backupFile, err := utils.ReadFile(backupPath)
-	if err != nil {
-		jww.FATAL.Panicf("%v", err)
+func parsePassword(pwStr string) []byte {
+	if strings.HasPrefix(pwStr, "0x") {
+		return getPWFromHexString(pwStr[2:])
+	} else if strings.HasPrefix(pwStr, "b64:") {
+		return getPWFromb64String(pwStr[4:])
+	} else {
+		return []byte(pwStr)
 	}
-
-	var b backupCrypto.Backup
-	err = b.Decrypt(backupPass, backupFile)
-	if err != nil {
-		jww.ERROR.Printf("Failed to decrypt backup: %+v", err)
-	}
-
-	return b, backupFile
 }
 
 /////////////////////////////////////////////////////////////////

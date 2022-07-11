@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/spf13/cobra"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/xxdk"
 	"io/ioutil"
@@ -17,6 +18,15 @@ import (
 )
 
 // todo: go through cmd package and organize utility functions
+
+// bindPFlagCheckErr binds the key to a pflag.Flag used by Cobra and prints an
+// error if one occurs.
+func bindPFlagCheckErr(key string, command *cobra.Command) {
+	err := viper.BindPFlag(key, command.Flags().Lookup(key))
+	if err != nil {
+		jww.ERROR.Printf("viper.BindPFlag failed for %q: %+v", key, err)
+	}
+}
 
 func loadOrMakeIdentity(baseClient *xxdk.Cmix) xxdk.ReceptionIdentity {
 	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, baseClient)

@@ -35,7 +35,7 @@ var connectionCmd = &cobra.Command{
 		jww.INFO.Printf(Version())
 
 		// Handle either authenticated or standard connection path
-		if viper.GetBool(authenticatedFlag) {
+		if viper.GetBool(connectionAuthenticatedFlag) {
 			authenticatedConnections()
 		} else {
 			connections()
@@ -55,7 +55,7 @@ func connections() {
 	statePath := viper.GetString(sessionFlag)
 
 	// Connection Server path--------------------------------------------------------
-	if viper.GetBool(startServerFlag) {
+	if viper.GetBool(connectionStartServerFlag) {
 
 		// Load client state and identity------------------------------------------
 		baseClient, identity := initializeBasicConnectionClient(statePath, statePass)
@@ -139,8 +139,8 @@ func connections() {
 		}
 
 		// Keep server running to receive messages------------------------------------
-		serverTimeout := viper.GetDuration(serverTimeoutFlag)
-		if viper.GetDuration(serverTimeoutFlag) != 0 {
+		serverTimeout := viper.GetDuration(connectionServerTimeoutFlag)
+		if viper.GetDuration(connectionServerTimeoutFlag) != 0 {
 			timer := time.NewTimer(serverTimeout)
 			select {
 			case <-timer.C:
@@ -232,7 +232,7 @@ func authenticatedConnections() {
 	statePath := viper.GetString(sessionFlag)
 
 	// Connection Server path--------------------------------------------------------
-	if viper.GetBool(startServerFlag) {
+	if viper.GetBool(connectionStartServerFlag) {
 		// Load client state and identity------------------------------------------
 		baseClient, identity := initializeBasicConnectionClient(statePath, statePass)
 
@@ -317,8 +317,8 @@ func authenticatedConnections() {
 		}
 
 		// Keep server running to receive messages------------------------------------
-		serverTimeout := viper.GetDuration(serverTimeoutFlag)
-		if viper.GetDuration(serverTimeoutFlag) != 0 {
+		serverTimeout := viper.GetDuration(connectionServerTimeoutFlag)
+		if viper.GetDuration(connectionServerTimeoutFlag) != 0 {
 			timer := time.NewTimer(serverTimeout)
 			select {
 			case <-timer.C:
@@ -430,7 +430,7 @@ func miscConnectionFunctions(client *xxdk.E2e, conn connect.Connection) {
 	}
 
 	// Disconnect from connection partner--------------------------------------------
-	if viper.GetBool(disconnectFlag) {
+	if viper.GetBool(connectionDisconnectFlag) {
 		// Close the connection
 		if err := conn.Close(); err != nil {
 			jww.FATAL.Panicf("Failed to disconnect with %s: %v",
@@ -666,38 +666,38 @@ func init() {
 	_ = viper.BindPFlag(connectionFlag, connectionCmd.Flags().
 		Lookup(connectionFlag))
 
-	connectionCmd.Flags().Bool(startServerFlag, false,
+	connectionCmd.Flags().Bool(connectionStartServerFlag, false,
 		"This flag is a server-side operation and takes no arguments. "+
 			"This initiates a connection server. "+
 			"Calling this flag will have this process call "+
 			"connection.StartServer().")
-	_ = viper.BindPFlag(startServerFlag, connectionCmd.Flags().
-		Lookup(startServerFlag))
+	_ = viper.BindPFlag(connectionStartServerFlag, connectionCmd.Flags().
+		Lookup(connectionStartServerFlag))
 
-	connectionCmd.Flags().Duration(serverTimeoutFlag, time.Duration(0),
+	connectionCmd.Flags().Duration(connectionServerTimeoutFlag, time.Duration(0),
 		"This flag is a connection parameter. "+
 			"This takes as an argument a time.Duration. "+
 			"This duration specifies how long a server will run before "+
 			"closing. Without this flag present, a server will be "+
 			"long-running.")
-	_ = viper.BindPFlag(serverTimeoutFlag, connectionCmd.Flags().
-		Lookup(serverTimeoutFlag))
+	_ = viper.BindPFlag(connectionServerTimeoutFlag, connectionCmd.Flags().
+		Lookup(connectionServerTimeoutFlag))
 
-	connectionCmd.Flags().Bool(disconnectFlag, false,
+	connectionCmd.Flags().Bool(connectionDisconnectFlag, false,
 		"This flag is available to both server and client. "+
 			"This uses a contact object from a file specified by --destfile."+
 			"This will close the connection with the given contact "+
 			"if it exists.")
-	_ = viper.BindPFlag(disconnectFlag, connectionCmd.Flags().
-		Lookup(disconnectFlag))
+	_ = viper.BindPFlag(connectionDisconnectFlag, connectionCmd.Flags().
+		Lookup(connectionDisconnectFlag))
 
-	connectionCmd.Flags().Bool(authenticatedFlag, false,
+	connectionCmd.Flags().Bool(connectionAuthenticatedFlag, false,
 		"This flag is available to both server and client. "+
 			"This flag operates as a switch for the authenticated code-path. "+
 			"With this flag present, any additional connection related flags"+
 			" will call the applicable authenticated counterpart")
-	_ = viper.BindPFlag(authenticatedFlag, connectionCmd.Flags().
-		Lookup(authenticatedFlag))
+	_ = viper.BindPFlag(connectionAuthenticatedFlag, connectionCmd.Flags().
+		Lookup(connectionAuthenticatedFlag))
 
 	rootCmd.AddCommand(connectionCmd)
 }

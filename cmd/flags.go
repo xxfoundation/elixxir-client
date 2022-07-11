@@ -81,25 +81,62 @@ const (
 	profileCpuFlag = "profile-cpu"
 
 	///////////////// Broadcast subcommand flags //////////////////////////////
-	// todo: populate
+	broadcastNameFlag        = "name"
+	broadcastRsaPubFlag      = "rsaPub"
+	broadcastSaltFlag        = "salt"
+	broadcastDescriptionFlag = "description"
+	broadcastChanPathFlag    = "chanPath"
+	broadcastKeyPathFlag     = "keyPath"
+	broadcastNewFlag         = "new"
+	broadcastFlag            = "broadcast"
+	broadcastSymmetricFlag   = "symmetric"
+	broadcastAsymmetricFlag  = "asymmetric"
 
 	///////////////// Connection subcommand flags /////////////////////////////
-	connectionFlag    = "connect"
-	startServerFlag   = "startServer"
-	serverTimeoutFlag = "serverTimeout"
-	disconnectFlag    = "disconnect"
-	authenticatedFlag = "authenticated"
+	connectionFlag              = "connect"
+	connectionStartServerFlag   = "startServer"
+	connectionServerTimeoutFlag = "serverTimeout"
+	connectionDisconnectFlag    = "disconnect"
+	connectionAuthenticatedFlag = "authenticated"
 
 	///////////////// File Transfer subcommand flags //////////////////////////
-	// todo: populate
+	fileSendFlag          = "sendFile"
+	filePathFlag          = "filePath"
+	fileTypeFlag          = "fileType"
+	filePreviewPathFlag   = "filePreviewPath"
+	filePreviewStringFlag = "filePreviewString"
+	fileMaxThroughputFlag = "maxThroughput"
+	fileRetry             = "retry"
 
 	///////////////// Group subcommand flags //////////////////////////////////
-	// todo: populate
+	groupCreateFlag         = "create"
+	groupNameFlag           = "name"
+	groupResendFlag         = "resend"
+	groupJoinFlag           = "join"
+	groupLeaveFlag          = "leave"
+	groupSendMessageFlag    = "sendMessage"
+	groupWaitFlag           = "wait"
+	groupReceiveTimeoutFlag = "receiveTimeout"
+	groupListFlag           = "list"
+	groupShowFlag           = "show"
 
 	///////////////// Single subcommand flags /////////////////////////////////
-	// todo: populate
+	singleSendFlag        = "send"
+	singleReplyFlag       = "reply"
+	singleContactFlag     = "contact"
+	singleTagFlag         = "tag"
+	singleMaxMessagesFlag = "maxMessages"
+	singleTimeoutFlag     = "timeout"
 
 	///////////////// User Discovery subcommand flags /////////////////////////
-	// todo: populate
-
+	udRegisterFlag       = "register"
+	udRemoveFlag         = "remove"
+	udAddPhoneFlag       = "addphone"
+	udAddEmailFlag       = "addemail"
+	udConfirmFlag        = "confirm"
+	udLookupFlag         = "lookup"
+	udSearchUsernameFlag = "searchusername"
+	udSearchEmailFlag    = "searchemail"
+	udSearchPhoneFlag    = "searchphone"
+	udBatchAddFlag       = "batchadd"
 )

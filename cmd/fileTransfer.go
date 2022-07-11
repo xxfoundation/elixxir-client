@@ -50,7 +50,7 @@ var ftCmd = &cobra.Command{
 		}
 
 		// Initialize the file transfer manager
-		maxThroughput := viper.GetInt("maxThroughput")
+		maxThroughput := viper.GetInt(fileMaxThroughputFlag)
 		m, receiveChan := initFileTransferManager(client, maxThroughput)
 
 		// Wait until connected or crash on timeout
@@ -81,13 +81,13 @@ var ftCmd = &cobra.Command{
 
 		// If set, send the file to the recipient
 		sendDone := make(chan struct{})
-		if viper.IsSet("sendFile") {
-			recipientContactPath := viper.GetString("sendFile")
-			filePath := viper.GetString("filePath")
-			fileType := viper.GetString("fileType")
-			filePreviewPath := viper.GetString("filePreviewPath")
-			filePreviewString := viper.GetString("filePreviewString")
-			retry := float32(viper.GetFloat64("retry"))
+		if viper.IsSet(fileSendFlag) {
+			recipientContactPath := viper.GetString(fileSendFlag)
+			filePath := viper.GetString(filePathFlag)
+			fileType := viper.GetString(fileTypeFlag)
+			filePreviewPath := viper.GetString(filePreviewPathFlag)
+			filePreviewString := viper.GetString(filePreviewStringFlag)
+			retry := float32(viper.GetFloat64(fileRetry))
 
 			sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 				recipientContactPath, retry, m, sendDone)
@@ -348,43 +348,34 @@ func getContactFromFile(path string) contact.Contact {
 
 // init initializes commands and flags for Cobra.
 func init() {
-	ftCmd.Flags().String("sendFile", "",
+	ftCmd.Flags().String(fileSendFlag, "",
 		"Sends a file to a recipient with the contact file at this path.")
-	bindPFlagCheckErr("sendFile")
+	bindPFlagCheckErr(fileSendFlag, ftCmd)
 
-	ftCmd.Flags().String("filePath", "",
+	ftCmd.Flags().String(filePathFlag, "",
 		"The path to the file to send. Also used as the file name.")
-	bindPFlagCheckErr("filePath")
+	bindPFlagCheckErr(filePathFlag, ftCmd)
 
-	ftCmd.Flags().String("fileType", "txt",
+	ftCmd.Flags().String(fileTypeFlag, "txt",
 		"8-byte file type.")
-	bindPFlagCheckErr("fileType")
+	bindPFlagCheckErr(fileTypeFlag, ftCmd)
 
-	ftCmd.Flags().String("filePreviewPath", "",
+	ftCmd.Flags().String(filePreviewPathFlag, "",
 		"The path to the file preview to send. Set either this flag or "+
 			"filePreviewString.")
-	bindPFlagCheckErr("filePreviewPath")
+	bindPFlagCheckErr(filePreviewPathFlag, ftCmd)
 
-	ftCmd.Flags().String("filePreviewString", "",
+	ftCmd.Flags().String(filePreviewStringFlag, "",
 		"File preview data. Set either this flag or filePreviewPath.")
-	bindPFlagCheckErr("filePreviewString")
+	bindPFlagCheckErr(filePreviewStringFlag, ftCmd)
 
-	ftCmd.Flags().Int("maxThroughput", 1000,
+	ftCmd.Flags().Int(fileMaxThroughputFlag, 1000,
 		"Maximum data transfer speed to send file parts (in bytes per second)")
-	bindPFlagCheckErr("maxThroughput")
+	bindPFlagCheckErr(fileMaxThroughputFlag, ftCmd)
 
-	ftCmd.Flags().Float64("retry", 0.5,
+	ftCmd.Flags().Float64(fileRetry, 0.5,
 		"Retry rate.")
-	bindPFlagCheckErr("retry")
+	bindPFlagCheckErr(fileRetry, ftCmd)
 
 	rootCmd.AddCommand(ftCmd)
-}
-
-// bindPFlagCheckErr binds the key to a pflag.Flag used by Cobra and prints an
-// error if one occurs.
-func bindPFlagCheckErr(key string) {
-	err := viper.BindPFlag(key, ftCmd.Flags().Lookup(key))
-	if err != nil {
-		jww.ERROR.Printf("viper.BindPFlag failed for %q: %+v", key, err)
-	}
 }

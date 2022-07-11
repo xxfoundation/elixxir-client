@@ -71,44 +71,44 @@ var groupCmd = &cobra.Command{
 
 		// Get group message and name
 		msgBody := []byte(viper.GetString(messageFlag))
-		name := []byte(viper.GetString("name"))
-		timeout := viper.GetDuration("receiveTimeout")
+		name := []byte(viper.GetString(groupNameFlag))
+		timeout := viper.GetDuration(groupReceiveTimeoutFlag)
 
-		if viper.IsSet("create") {
-			filePath := viper.GetString("create")
+		if viper.IsSet(groupCreateFlag) {
+			filePath := viper.GetString(groupCreateFlag)
 			createGroup(name, msgBody, filePath, groupManager)
 		}
 
-		if viper.IsSet("resend") {
-			groupIdString := viper.GetString("resend")
+		if viper.IsSet(groupResendFlag) {
+			groupIdString := viper.GetString(groupResendFlag)
 			resendRequests(groupIdString, groupManager)
 		}
 
-		if viper.GetBool("join") {
+		if viper.GetBool(groupJoinFlag) {
 			joinGroup(reqChan, timeout, groupManager)
 		}
 
-		if viper.IsSet("leave") {
-			groupIdString := viper.GetString("leave")
+		if viper.IsSet(groupLeaveFlag) {
+			groupIdString := viper.GetString(groupLeaveFlag)
 			leaveGroup(groupIdString, groupManager)
 		}
 
-		if viper.IsSet("sendMessage") {
-			groupIdString := viper.GetString("sendMessage")
+		if viper.IsSet(groupSendMessageFlag) {
+			groupIdString := viper.GetString(groupSendMessageFlag)
 			sendGroup(groupIdString, msgBody, groupManager)
 		}
 
-		if viper.IsSet("wait") {
-			numMessages := viper.GetUint("wait")
+		if viper.IsSet(groupWaitFlag) {
+			numMessages := viper.GetUint(groupWaitFlag)
 			messageWait(numMessages, timeout, recChan)
 		}
 
-		if viper.GetBool("list") {
+		if viper.GetBool(groupListFlag) {
 			listGroups(groupManager)
 		}
 
-		if viper.IsSet("show") {
-			groupIdString := viper.GetString("show")
+		if viper.IsSet(groupShowFlag) {
+			groupIdString := viper.GetString(groupShowFlag)
 			showGroup(groupIdString, groupManager)
 		}
 	},
@@ -312,61 +312,45 @@ func ReadLines(fileName string) []string {
 }
 
 func init() {
-	groupCmd.Flags().String("create", "",
+	groupCmd.Flags().String(groupCreateFlag, "",
 		"Create a group with from the list of contact file paths.")
-	err := viper.BindPFlag("create", groupCmd.Flags().Lookup("create"))
-	checkBindErr(err, "create")
+	bindPFlagCheckErr(groupCreateFlag, groupCmd)
 
-	groupCmd.Flags().String("name", "Group Name",
+	groupCmd.Flags().String(groupNameFlag, "Group Name",
 		"The name of the new group to create.")
-	err = viper.BindPFlag("name", groupCmd.Flags().Lookup("name"))
-	checkBindErr(err, "name")
+	bindPFlagCheckErr(groupNameFlag, groupCmd)
 
-	groupCmd.Flags().String("resend", "",
+	groupCmd.Flags().String(groupResendFlag, "",
 		"Resend invites for all users in this group ID.")
-	err = viper.BindPFlag("resend", groupCmd.Flags().Lookup("resend"))
-	checkBindErr(err, "resend")
+	bindPFlagCheckErr(groupResendFlag, groupCmd)
 
-	groupCmd.Flags().Bool("join", false,
+	groupCmd.Flags().Bool(groupJoinFlag, false,
 		"Waits for group request joins the group.")
-	err = viper.BindPFlag("join", groupCmd.Flags().Lookup("join"))
-	checkBindErr(err, "join")
+	bindPFlagCheckErr(groupJoinFlag, groupCmd)
 
-	groupCmd.Flags().String("leave", "",
+	groupCmd.Flags().String(groupLeaveFlag, "",
 		"Leave this group ID.")
-	err = viper.BindPFlag("leave", groupCmd.Flags().Lookup("leave"))
-	checkBindErr(err, "leave")
+	bindPFlagCheckErr(groupLeaveFlag, groupCmd)
 
-	groupCmd.Flags().String("sendMessage", "",
+	groupCmd.Flags().String(groupSendMessageFlag, "",
 		"Send message to this group ID.")
-	err = viper.BindPFlag("sendMessage", groupCmd.Flags().Lookup("sendMessage"))
-	checkBindErr(err, "sendMessage")
+	bindPFlagCheckErr(groupSendMessageFlag, groupCmd)
 
-	groupCmd.Flags().Uint("wait", 0,
+	groupCmd.Flags().Uint(groupWaitFlag, 0,
 		"Waits for number of messages to be received.")
-	err = viper.BindPFlag("wait", groupCmd.Flags().Lookup("wait"))
-	checkBindErr(err, "wait")
+	bindPFlagCheckErr(groupWaitFlag, groupCmd)
 
-	groupCmd.Flags().Duration("receiveTimeout", time.Minute,
+	groupCmd.Flags().Duration(groupReceiveTimeoutFlag, time.Minute,
 		"Amount of time to wait for a group request or message before timing out.")
-	err = viper.BindPFlag("receiveTimeout", groupCmd.Flags().Lookup("receiveTimeout"))
-	checkBindErr(err, "receiveTimeout")
+	bindPFlagCheckErr(groupReceiveTimeoutFlag, groupCmd)
 
-	groupCmd.Flags().Bool("list", false,
+	groupCmd.Flags().Bool(groupListFlag, false,
 		"Prints list all groups to which this client belongs.")
-	err = viper.BindPFlag("list", groupCmd.Flags().Lookup("list"))
-	checkBindErr(err, "list")
+	bindPFlagCheckErr(groupListFlag, groupCmd)
 
-	groupCmd.Flags().String("show", "",
+	groupCmd.Flags().String(groupShowFlag, "",
 		"Prints the members of this group ID.")
-	err = viper.BindPFlag("show", groupCmd.Flags().Lookup("show"))
-	checkBindErr(err, "show")
+	bindPFlagCheckErr(groupShowFlag, groupCmd)
 
 	rootCmd.AddCommand(groupCmd)
-}
-
-func checkBindErr(err error, key string) {
-	if err != nil {
-		jww.ERROR.Printf("viper.BindPFlag failed for %s: %+v", key, err)
-	}
 }

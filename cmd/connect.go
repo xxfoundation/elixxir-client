@@ -46,19 +46,19 @@ var connectionCmd = &cobra.Command{
 
 // connections is the CLI handler for un-authenticated connect.Connection's.
 func connections() {
-	// NOTE: for now this supports one connection for servers, for integration
-	//  testing.
 	connChan := make(chan connect.Connection, 1)
 	var err error
-	e2eParams := xxdk.GetDefaultE2EParams()
 	statePass := parsePassword(viper.GetString(passwordFlag))
 	statePath := viper.GetString(sessionFlag)
+	regCode := viper.GetString(regCodeFlag)
+	cmixParams, e2eParams := initParams()
 
 	// Connection Server path--------------------------------------------------------
 	if viper.GetBool(connectionStartServerFlag) {
 
 		// Load client state and identity------------------------------------------
-		baseClient, identity := initializeBasicConnectionClient(statePath, statePass)
+		baseClient, identity := initializeBasicConnectionClient(statePath, regCode,
+			statePass, cmixParams)
 
 		// Save contact file-------------------------------------------------------
 		writeContact(identity.GetContact())
@@ -157,7 +157,8 @@ func connections() {
 		// Connection Client path--------------------------------------------------------
 
 		// Load client ------------------------------------------------------------------
-		e2eClient := initializeConnectClient(statePath, statePass)
+		e2eClient := initializeConnectClient(statePath, regCode, statePass,
+			cmixParams, e2eParams)
 
 		// Start network threads---------------------------------------------------------
 
@@ -223,18 +224,18 @@ func connections() {
 // authenticatedConnections is the CLI handler for
 // connect.AuthenticatedConnection's.
 func authenticatedConnections() {
-	// NOTE: for now this supports one connection for servers, for integration
-	//  testing.
 	connChan := make(chan connect.Connection, 1)
 	var err error
-	e2eParams := xxdk.GetDefaultE2EParams()
 	statePass := parsePassword(viper.GetString(passwordFlag))
 	statePath := viper.GetString(sessionFlag)
+	regCode := viper.GetString(regCodeFlag)
+	cmixParams, e2eParams := initParams()
 
 	// Connection Server path--------------------------------------------------------
 	if viper.GetBool(connectionStartServerFlag) {
 		// Load client state and identity------------------------------------------
-		baseClient, identity := initializeBasicConnectionClient(statePath, statePass)
+		baseClient, identity := initializeBasicConnectionClient(statePath, regCode,
+			statePass, cmixParams)
 
 		// Save contact file-------------------------------------------------------
 		writeContact(identity.GetContact())
@@ -333,7 +334,8 @@ func authenticatedConnections() {
 
 	} else {
 		// Load client ------------------------------------------------------------------
-		e2eClient := initializeConnectClient(statePath, statePass)
+		e2eClient := initializeConnectClient(statePath, regCode, statePass,
+			cmixParams, e2eParams)
 
 		// Start network threads---------------------------------------------------------
 
@@ -444,49 +446,70 @@ func miscConnectionFunctions(client *xxdk.E2e, conn connect.Connection) {
 
 // Initialize a xxdk.Cmix client. Basic client may be used for server initialization
 // or for use in building a connection client.
-func initializeBasicConnectionClient(statePath string, statePass []byte) (*xxdk.Cmix,
+func initializeBasicConnectionClient(statePath, regCode string, statePass []byte,
+	parms xxdk.CMIXParams) (*xxdk.Cmix,
 	xxdk.ReceptionIdentity) {
+	// create a new client if none exist
+	var baseClient *xxdk.Cmix
+	var identity xxdk.ReceptionIdentity
 
 	// Check if state exists
 	if _, err := os.Stat(statePath); errors.Is(err, fs.ErrNotExist) {
 
-		// Load NDF----------------------------------------------------------------------
-		ndfJSON, err := ioutil.ReadFile(viper.GetString(ndfFlag))
+		// Initialize from scratch
+		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
 		if err != nil {
-			jww.FATAL.Panicf(err.Error())
+			jww.FATAL.Panicf("%+v", err)
 		}
 
-		// Initialize the state----------------------------------------------------------
-		err = xxdk.NewCmix(string(ndfJSON), statePath, statePass, "")
+		err = xxdk.NewCmix(string(ndfJson), statePath, statePass, regCode)
+		baseClient, err = xxdk.LoadCmix(statePath, statePass,
+			parms)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to initialize state: %+v", err)
+			jww.FATAL.Panicf("%+v", err)
+		}
+
+		identity, err = xxdk.MakeReceptionIdentity(baseClient)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+
+		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, baseClient)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+	} else {
+		// Load with the same sessionPath and sessionPass used to call NewClient()
+		baseClient, err := xxdk.LoadCmix(statePath, statePass,
+			xxdk.GetDefaultCMixParams())
+		if err != nil {
+			jww.FATAL.Panicf("Failed to load state: %+v", err)
+		}
+
+		identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, baseClient)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
 		}
 	}
 
-	// Load with the same sessionPath and sessionPass used to call NewClient()
-	baseClient, err := xxdk.LoadCmix(statePath, statePass,
-		xxdk.GetDefaultCMixParams())
-	if err != nil {
-		jww.FATAL.Panicf("Failed to load state: %+v", err)
-	}
-
-	return baseClient, loadOrMakeIdentity(baseClient)
+	return baseClient, identity
 }
 
 // Initialize an xxdk.E2e for the connection client.
-func initializeConnectClient(statePath string, statePass []byte) *xxdk.E2e {
+func initializeConnectClient(statePath, regCode string, statePass []byte,
+	cmixParms xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
 	// Initialize basic client-------------------------------------------------------
-	baseClient, identity := initializeBasicConnectionClient(statePath, statePass)
+	baseClient, identity := initializeBasicConnectionClient(statePath, regCode,
+		statePass, cmixParms)
 
 	// Connect Client Specific ------------------------------------------------------
 
 	// Create an E2E client
 	// The `connect` packages handles AuthCallbacks,
 	// `xxdk.DefaultAuthCallbacks` is fine here
-	params := xxdk.GetDefaultE2EParams()
-	jww.INFO.Printf("Using E2E parameters: %+v", params)
+	jww.INFO.Printf("Using E2E parameters: %+v", e2eParams)
 	e2eClient, err := xxdk.Login(baseClient, xxdk.DefaultAuthCallbacks{},
-		identity, params)
+		identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("Unable to Login: %+v", err)
 	}
@@ -533,127 +556,12 @@ type authConnHandler struct {
 	isAuth     bool
 }
 
-//func (a *authConnHandler) Hear(item receive.Message) {
-//	if item.MessageType == catalog.XxMessage {
-//		fmt.Printf("Received message: %s\n", string(item.Payload))
-//
-//	} else if item.MessageType == catalog.ConnectionAuthenticationRequest {
-//		// Process the message data into a protobuf
-//		iar := &connect.IdentityAuthentication{}
-//		err := proto.Unmarshal(item.Payload, iar)
-//		if err != nil {
-//			jww.FATAL.Panicf("Failed to unmarshal message: %s", err)
-//		}
-//
-//		// Get the new partner
-//		newPartner := a.conn.GetPartner()
-//		connectionFp := newPartner.ConnectionFingerprint().Bytes()
-//
-//		// Verify the signature within the message
-//		err = connCrypto.Verify(newPartner.PartnerId(),
-//			iar.Signature, connectionFp, iar.RsaPubKey, iar.Salt)
-//		if err != nil {
-//			jww.FATAL.Panicf("Failed to verify message: %v", err)
-//		}
-//
-//		// If successful, pass along the established authenticated connection
-//		// via the callback
-//		jww.DEBUG.Printf("AuthenticatedConnection auth request "+
-//			"for %s confirmed",
-//			item.Sender.String())
-//		authConn := connect.buildAuthenticatedConnection(a.conn)
-//		go a.authConnCb(authConn)
-//	}
-//
-//}
-//
-//func (a *authConnHandler) Name() string {
-//	return "authConnHandler"
-//}
-//
-//func (a *authConnHandler) Request(partner contact.Contact,
-//	receptionID receptionID.EphemeralIdentity,
-//	round rounds.Round, e2e *xxdk.E2e) {
-//	partnerId := partner.ID
-//
-//	// Accept channel and send confirmation message
-//	if viper.GetBool(verifySendFlag) {
-//		// Verify message sends were successful
-//		acceptChannelVerified(e2e, partnerId, xxdk.GetDefaultE2EParams())
-//	} else {
-//		acceptChannel(e2e, partnerId)
-//	}
-//
-//	// After confirmation, get the new partner
-//	newPartner, err := e2e.GetE2E().GetPartner(partner.ID)
-//	if err != nil {
-//		jww.ERROR.Printf("[CONN] Unable to build connection with "+
-//			"partner %s: %+v", partner.ID, err)
-//		// Send a nil connection to avoid hold-ups down the line
-//		if a.connCb != nil {
-//			a.connCb(nil)
-//		}
-//		return
-//	}
-//
-//	a.conn = connect.BuildConnection(newPartner, e2e.GetE2E(),
-//		e2e.GetAuth(), connect.GetDefaultParams())
-//
-//	if a.connCb != nil {
-//		// Return the new Connection object
-//		a.connCb(a.conn)
-//	}
-//
-//	e2e.GetE2E().RegisterListener(partnerId, catalog.XxMessage, a)
-//
-//	if a.isAuth {
-//		a.conn.RegisterListener(catalog.ConnectionAuthenticationRequest, a)
-//	}
-//
-//}
-//
-//func (a *authConnHandler) Confirm(partner contact.Contact,
-//	receptionID receptionID.EphemeralIdentity, round rounds.Round,
-//	e2e *xxdk.E2e) {
-//
-//	_, e2eParams := initParams()
-//	// After confirmation, get the new partner
-//	newPartner, err := e2e.GetE2E().GetPartner(partner.ID)
-//	if err != nil {
-//		jww.ERROR.Printf("[CONN] Unable to build connection with "+
-//			"partner %s: %+v", partner.ID, err)
-//		// Send a nil connection to avoid hold-ups down the line
-//		if a.connCb != nil {
-//			a.connCb(nil)
-//		}
-//
-//		if a.authConnCb != nil {
-//			a.authConnCb(nil)
-//		}
-//
-//		return
-//	}
-//
-//	// Return the new Connection object
-//	if a.connCb != nil {
-//		a.connCb(connect.BuildConnection(newPartner, e2e.GetE2E(),
-//			e2e.GetAuth(), e2eParams))
-//	}
-//}
-//
-//func (a authConnHandler) Reset(partner contact.Contact,
-//	receptionID receptionID.EphemeralIdentity, round rounds.Round,
-//	e *xxdk.E2e) {
-//	return
-//}
-
 ///////////////////////////////////////////////////////////////////////////////
 // Command Line Flags                                                         /
 ///////////////////////////////////////////////////////////////////////////////
 
 // init initializes commands and flags for Cobra.
 func init() {
-
 	connectionCmd.Flags().String(connectionFlag, "",
 		"This flag is a client side operation. "+
 			"This flag expects a path to a contact file (similar "+
@@ -663,16 +571,14 @@ func init() {
 			"If a connection already exists between "+
 			"the client and the server, this will be used instead of "+
 			"resending a connection request to the server.")
-	_ = viper.BindPFlag(connectionFlag, connectionCmd.Flags().
-		Lookup(connectionFlag))
+	bindPFlagCheckErr(connectionFlag, connectionCmd)
 
 	connectionCmd.Flags().Bool(connectionStartServerFlag, false,
 		"This flag is a server-side operation and takes no arguments. "+
 			"This initiates a connection server. "+
 			"Calling this flag will have this process call "+
 			"connection.StartServer().")
-	_ = viper.BindPFlag(connectionStartServerFlag, connectionCmd.Flags().
-		Lookup(connectionStartServerFlag))
+	bindPFlagCheckErr(connectionStartServerFlag, connectionCmd)
 
 	connectionCmd.Flags().Duration(connectionServerTimeoutFlag, time.Duration(0),
 		"This flag is a connection parameter. "+
@@ -680,24 +586,21 @@ func init() {
 			"This duration specifies how long a server will run before "+
 			"closing. Without this flag present, a server will be "+
 			"long-running.")
-	_ = viper.BindPFlag(connectionServerTimeoutFlag, connectionCmd.Flags().
-		Lookup(connectionServerTimeoutFlag))
+	bindPFlagCheckErr(connectionServerTimeoutFlag, connectionCmd)
 
 	connectionCmd.Flags().Bool(connectionDisconnectFlag, false,
 		"This flag is available to both server and client. "+
 			"This uses a contact object from a file specified by --destfile."+
 			"This will close the connection with the given contact "+
 			"if it exists.")
-	_ = viper.BindPFlag(connectionDisconnectFlag, connectionCmd.Flags().
-		Lookup(connectionDisconnectFlag))
+	bindPFlagCheckErr(connectionDisconnectFlag, connectionCmd)
 
 	connectionCmd.Flags().Bool(connectionAuthenticatedFlag, false,
 		"This flag is available to both server and client. "+
 			"This flag operates as a switch for the authenticated code-path. "+
 			"With this flag present, any additional connection related flags"+
 			" will call the applicable authenticated counterpart")
-	_ = viper.BindPFlag(connectionAuthenticatedFlag, connectionCmd.Flags().
-		Lookup(connectionAuthenticatedFlag))
+	bindPFlagCheckErr(connectionAuthenticatedFlag, connectionCmd)
 
 	rootCmd.AddCommand(connectionCmd)
 }

@@ -449,14 +449,14 @@ func miscConnectionFunctions(client *xxdk.E2e, conn connect.Connection) {
 func initializeBasicConnectionClient(statePath, regCode string, statePass []byte,
 	parms xxdk.CMIXParams) (*xxdk.Cmix,
 	xxdk.ReceptionIdentity) {
-	// create a new client if none exist
 	var baseClient *xxdk.Cmix
 	var identity xxdk.ReceptionIdentity
+	var err error
 
 	// Check if state exists
 	if _, err := os.Stat(statePath); errors.Is(err, fs.ErrNotExist) {
 
-		// Initialize from scratch
+		// create a new client if none exist------------------------------------
 		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
@@ -478,18 +478,20 @@ func initializeBasicConnectionClient(statePath, regCode string, statePass []byte
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
-	} else {
-		// Load with the same sessionPath and sessionPass used to call NewClient()
-		baseClient, err := xxdk.LoadCmix(statePath, statePass,
-			xxdk.GetDefaultCMixParams())
-		if err != nil {
-			jww.FATAL.Panicf("Failed to load state: %+v", err)
-		}
 
-		identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, baseClient)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
+		return baseClient, identity
+	}
+
+	// Load a client from storage---------------------------------------------------
+	baseClient, err = xxdk.LoadCmix(statePath, statePass,
+		xxdk.GetDefaultCMixParams())
+	if err != nil {
+		jww.FATAL.Panicf("Failed to load state: %+v", err)
+	}
+
+	identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, baseClient)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
 	}
 
 	return baseClient, identity

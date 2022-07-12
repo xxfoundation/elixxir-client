@@ -140,7 +140,7 @@ func MakeReceptionIdentity(net *Cmix) (ReceptionIdentity, error) {
 	return I, nil
 }
 
-// MakeLegacyReceptionIdentity generates a new cryptographic identity
+// MakeLegacyReceptionIdentity generates the cryptographic identity
 // for receiving messages based on the extant stored user.Info
 func MakeLegacyReceptionIdentity(net *Cmix) (ReceptionIdentity, error) {
 	userInfo := net.GetStorage().PortableUserInfo()

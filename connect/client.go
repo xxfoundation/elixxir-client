@@ -11,7 +11,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
-	cryptoConn "gitlab.com/elixxir/crypto/connect"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 )
@@ -26,7 +25,7 @@ func buildClientAuthRequest(newPartner partner.Manager,
 	stream := rng.GetStream()
 	defer stream.Close()
 
-	signature, err := cryptoConn.Sign(stream, rsaPrivKey, connectionFp)
+	signature, err := sign(stream, rsaPrivKey, connectionFp)
 
 	// Construct message
 	pemEncodedRsaPubKey := rsa.CreatePublicKeyPem(rsaPrivKey.GetPublic())

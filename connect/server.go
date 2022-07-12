@@ -11,7 +11,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/e2e/receive"
-	connCrypto "gitlab.com/elixxir/crypto/connect"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -64,9 +64,15 @@ func (a serverListener) Hear(item receive.Message) {
 	newPartner := a.conn.GetPartner()
 	connectionFp := newPartner.ConnectionFingerprint().Bytes()
 
+	// Process the PEM encoded public key to an rsa.PublicKey object
+	partnerPubKey, err := rsa.LoadPublicKeyFromPem(iar.RsaPubKey)
+	if err != nil {
+		a.handleAuthConfirmationErr(err, item.Sender)
+	}
+
 	// Verify the signature within the message
-	err = connCrypto.Verify(newPartner.PartnerId(),
-		iar.Signature, connectionFp, iar.RsaPubKey, iar.Salt)
+	err = verify(newPartner.PartnerId(), partnerPubKey,
+		iar.Signature, connectionFp, iar.Salt)
 	if err != nil {
 		a.handleAuthConfirmationErr(err, item.Sender)
 		return

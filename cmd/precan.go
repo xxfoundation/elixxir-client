@@ -25,6 +25,7 @@ import (
 // or from a new storage that it will create if none already exists
 func loadOrInitPrecan(precanId uint, password []byte, storeDir string,
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
+	jww.INFO.Printf("Using Precanned sender")
 
 	// create a new client if none exist
 	var net *xxdk.Cmix
@@ -63,7 +64,6 @@ func loadOrInitPrecan(precanId uint, password []byte, storeDir string,
 		}
 	}
 
-	jww.INFO.Printf("Using Precanned sender")
 	messenger, err := xxdk.Login(net, authCbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)

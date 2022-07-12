@@ -51,7 +51,7 @@ func (s *state) Request(partner contact.Contact, myfacts fact.FactList) (id.Roun
 	// check that an authenticated channel does not already exist
 	if _, err := s.e2e.GetPartner(partner.ID); err == nil ||
 		!strings.Contains(err.Error(), ratchet.NoPartnerErrorStr) {
-		return 0, errors.Errorf(ErrChannelExists, partner.ID)
+		return 0, errors.Errorf(ErrChannelExists)
 	}
 
 	return s.request(partner, myfacts, false)

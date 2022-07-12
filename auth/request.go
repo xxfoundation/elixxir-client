@@ -32,8 +32,11 @@ import (
 const terminator = ";"
 
 const (
-	ErrChannelExists = "Authenticated channel already " +
-		"established with partner"
+	// ErrChannelExists is a message returned in state.Request when an
+	// authenticated channel exists between the partner and me.
+	// Note that modifications to this should go over usages of this message
+	// in other packages (if applicable).
+	ErrChannelExists = "Authenticated channel already established with partner"
 )
 
 // Request sends a contact request from the user identity in the imported e2e

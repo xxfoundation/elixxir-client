@@ -8,6 +8,8 @@
 package user
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/crypto/signature/rsa"
@@ -85,6 +87,7 @@ func NewUserFromBackup(backup *backup.Backup) Info {
 
 func (u *User) PortableUserInfo() Info {
 	ci := u.CryptographicIdentity
+	pub, priv := u.loadLegacyDHKeys()
 	return Info{
 		TransmissionID:        ci.GetTransmissionID().DeepCopy(),
 		TransmissionSalt:      copySlice(ci.GetTransmissionSalt()),
@@ -94,12 +97,38 @@ func (u *User) PortableUserInfo() Info {
 		ReceptionSalt:         copySlice(ci.GetReceptionSalt()),
 		ReceptionRSA:          ci.GetReceptionRSA(),
 		Precanned:             ci.IsPrecanned(),
-		//fixme: set these in the e2e layer, the command line layer
-		//needs more logical separation so this can be removed
-		E2eDhPrivateKey: nil,
-		E2eDhPublicKey:  nil,
+		E2eDhPrivateKey:       priv,
+		E2eDhPublicKey:        pub,
 	}
 
+}
+
+// loadLegacyDHKeys attempts to load DH Keys from legacy storage. It
+// prints a warning to the log as users should be using ReceptionIdentity
+// instead of PortableUserInfo
+func (u *User) loadLegacyDHKeys() (pub, priv *cyclic.Int) {
+	jww.WARN.Printf("loading legacy e2e keys in cmix layer, please " +
+		"update your code to use xxdk.ReceptionIdentity")
+	// Legacy package prefixes and keys, see e2e/ratchet/storage.go
+	packagePrefix := "e2eSession"
+	pubKeyKey := "DhPubKey"
+	privKeyKey := "DhPrivKey"
+
+	kv := u.kv.Prefix(packagePrefix)
+
+	privKey, err := utility.LoadCyclicKey(kv, privKeyKey)
+	if err != nil {
+		jww.ERROR.Printf("Failed to load e2e DH private key: %v", err)
+		return nil, nil
+	}
+
+	pubKey, err := utility.LoadCyclicKey(kv, pubKeyKey)
+	if err != nil {
+		jww.ERROR.Printf("Failed to load e2e DH public key: %v", err)
+		return nil, nil
+	}
+
+	return pubKey, privKey
 }
 
 func copySlice(s []byte) []byte {

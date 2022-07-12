@@ -8,6 +8,8 @@
 package xxdk
 
 import (
+	"encoding/binary"
+	"math/rand"
 	"regexp"
 	"runtime"
 	"strings"
@@ -31,13 +33,13 @@ const (
 )
 
 // createNewUser generates an identity for cMix
-func createNewUser(rng *fastRNG.StreamGenerator) user.Info {
+func createNewUser(rng *fastRNG.StreamGenerator, e2eGroup *cyclic.Group) user.Info {
 	// CMIX Keygen
 	var transmissionRsaKey, receptionRsaKey *rsa.PrivateKey
 	var transmissionSalt, receptionSalt []byte
 
-	transmissionSalt, receptionSalt,
-		transmissionRsaKey, receptionRsaKey = createKeys(rng)
+	e2eKeyBytes, transmissionSalt, receptionSalt,
+		transmissionRsaKey, receptionRsaKey := createDhKeys(rng, e2eGroup)
 
 	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(),
 		transmissionSalt, id.User)
@@ -59,30 +61,40 @@ func createNewUser(rng *fastRNG.StreamGenerator) user.Info {
 		ReceptionSalt:    receptionSalt,
 		ReceptionRSA:     receptionRsaKey,
 		Precanned:        false,
-		E2eDhPrivateKey:  nil,
+		E2eDhPrivateKey:  e2eGroup.NewIntFromBytes(e2eKeyBytes),
 		E2eDhPublicKey:   nil,
 	}
 }
 
-func createKeys(rng *fastRNG.StreamGenerator) (
+func createDhKeys(rng *fastRNG.StreamGenerator,
+	e2e *cyclic.Group) (e2eKeyBytes,
 	transmissionSalt, receptionSalt []byte,
 	transmissionRsaKey, receptionRsaKey *rsa.PrivateKey) {
 	wg := sync.WaitGroup{}
 
-	wg.Add(2)
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+		var err error
+		// DH Keygen
+		// FIXME: Why 256 bits? -- this is spec but not explained, it has
+		// to do with optimizing operations on one side and still preserves
+		// decent security -- cite this. Why valid for BOTH e2e and cmix?
+		stream := rng.GetStream()
+		e2eKeyBytes, err = csprng.GenerateInGroup(e2e.GetPBytes(), 256, stream)
+		stream.Close()
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+	}()
 
 	// RSA Keygen (4096 bit defaults)
 	go func() {
 		defer wg.Done()
 		var err error
 		stream := rng.GetStream()
-		transmissionRsaKey, err = rsa.GenerateKey(stream,
-			rsa.DefaultRSABitLen)
-		if err != nil {
-			jww.FATAL.Panicf(err.Error())
-		}
-		transmissionSalt = make([]byte, 32)
-		_, err = stream.Read(transmissionSalt)
+		transmissionRsaKey, err = rsa.GenerateKey(stream, rsa.DefaultRSABitLen)
 		stream.Close()
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
@@ -93,13 +105,7 @@ func createKeys(rng *fastRNG.StreamGenerator) (
 		defer wg.Done()
 		var err error
 		stream := rng.GetStream()
-		receptionRsaKey, err = rsa.GenerateKey(stream,
-			rsa.DefaultRSABitLen)
-		if err != nil {
-			jww.FATAL.Panicf(err.Error())
-		}
-		receptionSalt = make([]byte, 32)
-		_, err = stream.Read(receptionSalt)
+		receptionRsaKey, err = rsa.GenerateKey(stream, rsa.DefaultRSABitLen)
 		stream.Close()
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
@@ -107,28 +113,13 @@ func createKeys(rng *fastRNG.StreamGenerator) (
 	}()
 	wg.Wait()
 
-	isZero := func(data []byte) bool {
-		if len(data) == 0 {
-			return true
-		}
-		for i := len(data) - 1; i != 0; i-- {
-			if data[i] != 0 {
-				return false
-			}
-		}
-		return true
-	}
-
-	if isZero(receptionSalt) || isZero(transmissionSalt) {
-		jww.FATAL.Panicf("empty salt generation detected")
-	}
 	return
 
 }
 
 // createNewVanityUser generates an identity for cMix
 // The identity's ReceptionID is not random but starts with the supplied prefix
-func createNewVanityUser(rng csprng.Source, cmix,
+func createNewVanityUser(rng csprng.Source,
 	e2e *cyclic.Group, prefix string) user.Info {
 	// DH Keygen
 	prime := e2e.GetPBytes()
@@ -246,5 +237,42 @@ func createNewVanityUser(rng csprng.Source, cmix,
 		Precanned:        false,
 		E2eDhPrivateKey:  e2eKey,
 		E2eDhPublicKey:   diffieHellman.GeneratePublicKey(e2eKey, e2e),
+	}
+}
+
+// createPrecannedUser
+func createPrecannedUser(precannedID uint, rng csprng.Source, e2e *cyclic.Group) user.Info {
+	// DH Keygen
+	// FIXME: Why 256 bits? -- this is spec but not explained, it has
+	// to do with optimizing operations on one side and still preserves
+	// decent security -- cite this. Why valid for BOTH e2e and cmix?
+	prng := rand.New(rand.NewSource(int64(precannedID)))
+	e2eKeyBytes, err := csprng.GenerateInGroup(e2e.GetPBytes(), 256, prng)
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+
+	// Salt, UID, etc gen
+	salt := make([]byte, SaltSize)
+
+	userID := id.ID{}
+	binary.BigEndian.PutUint64(userID[:], uint64(precannedID))
+	userID.SetType(id.User)
+
+	// NOTE: not used... RSA Keygen (4096 bit defaults)
+	rsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+
+	return user.Info{
+		TransmissionID:   &userID,
+		TransmissionSalt: salt,
+		ReceptionID:      &userID,
+		ReceptionSalt:    salt,
+		Precanned:        true,
+		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
+		TransmissionRSA:  rsaKey,
+		ReceptionRSA:     rsaKey,
 	}
 }

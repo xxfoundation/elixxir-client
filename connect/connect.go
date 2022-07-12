@@ -103,7 +103,7 @@ func Connect(recipient contact.Contact, e2eClient *xxdk.E2e,
 	_, err := e2eClient.GetAuth().Request(recipient, nil)
 	if err != nil {
 		// Return connection if a partnership already exists
-		if strings.Contains(err.Error(), auth.ChannelExists) {
+		if strings.Contains(err.Error(), auth.ErrChannelExists) {
 			newPartner, err := e2eClient.GetE2E().GetPartner(recipient.ID)
 			if err != nil {
 				return nil, err

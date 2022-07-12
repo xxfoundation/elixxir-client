@@ -49,7 +49,7 @@ func TestSignVerify_Consistency(t *testing.T) {
 
 	connFp := []byte("connFp")
 
-	signature, err := Sign(notRand, privKey, connFp)
+	signature, err := sign(notRand, privKey, connFp)
 	if err != nil {
 		t.Logf("Sign error: %v", err)
 	}
@@ -62,9 +62,7 @@ func TestSignVerify_Consistency(t *testing.T) {
 		t.Fatalf("NewId error: %v", err)
 	}
 
-	pubKeyPem := rsa.CreatePublicKeyPem(privKey.GetPublic())
-
-	err = Verify(partnerId, signature, connFp, pubKeyPem, salt)
+	err = verify(partnerId, privKey.GetPublic(), signature, connFp, salt)
 	if err != nil {
 		t.Fatalf("Verify error: %v", err)
 	}

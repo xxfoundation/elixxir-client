@@ -32,8 +32,7 @@ import (
 const terminator = ";"
 
 const (
-	ChannelExists = "Authenticated channel already " +
-		"established with partner"
+	ErrChannelExists = "[AUTH] channel exists between partner (%s) and myself"
 )
 
 // Request sends a contact request from the user identity in the imported e2e
@@ -51,7 +50,7 @@ func (s *state) Request(partner contact.Contact, myfacts fact.FactList) (id.Roun
 	// check that an authenticated channel does not already exist
 	if _, err := s.e2e.GetPartner(partner.ID); err == nil ||
 		!strings.Contains(err.Error(), ratchet.NoPartnerErrorStr) {
-		return 0, errors.Errorf(ChannelExists)
+		return 0, errors.Errorf(ErrChannelExists, partner.ID)
 	}
 
 	return s.request(partner, myfacts, false)

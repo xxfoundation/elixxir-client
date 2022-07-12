@@ -26,12 +26,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-const (
-	// connectionTimeout is the time.Duration for a connection
-	// to be established before the requester times out.
-	connectionTimeout = 15 * time.Second
-)
-
 var alreadyClosedErr = errors.New("connection is closed")
 
 // Connection is a wrapper for the E2E and auth packages.
@@ -87,19 +81,19 @@ type Callback func(connection Connection)
 // and returns a Connection object for the newly-created partner.Manager
 // This function is to be used sender-side and will block until the
 // partner.Manager is confirmed.
-func Connect(recipient contact.Contact, e2eClient *xxdk.E2e,
+func Connect(recipient contact.Contact, messenger *xxdk.E2e,
 	p xxdk.E2EParams) (Connection, error) {
 	// Build callback for E2E negotiation
 	signalChannel := make(chan Connection, 1)
 	cb := func(connection Connection) {
 		signalChannel <- connection
 	}
-	callback := getClientAuthCallback(cb, nil, e2eClient.GetE2E(),
-		e2eClient.GetAuth(), p)
-	e2eClient.GetAuth().AddPartnerCallback(recipient.ID, callback)
+	callback := getClientAuthCallback(cb, nil, messenger.GetE2E(),
+		messenger.GetAuth(), p)
+	messenger.GetAuth().AddPartnerCallback(recipient.ID, callback)
 
 	// Perform the auth request
-	_, err := e2eClient.GetAuth().Request(recipient, nil)
+	_, err := messenger.GetAuth().Request(recipient, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -75,6 +75,7 @@ func init() {
 // or from a new storage that it will create if none already exists
 func loadOrInitClient(password []byte, storeDir, regCode string,
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
+	jww.INFO.Printf("Using normal sender")
 
 	// create a new client if none exist
 	var baseClient *xxdk.Cmix
@@ -113,7 +114,6 @@ func loadOrInitClient(password []byte, storeDir, regCode string,
 		}
 	}
 
-	jww.INFO.Printf("Using Login for normal sender")
 	client, err := xxdk.Login(baseClient, authCbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
@@ -125,12 +125,13 @@ func loadOrInitClient(password []byte, storeDir, regCode string,
 // or from a new storage that it will create if none already exists
 func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
+	jww.INFO.Printf("Using Vanity sender")
 
 	// create a new client if none exist
-	var baseClient *xxdk.Cmix
+	var net *xxdk.Cmix
 	var identity xxdk.ReceptionIdentity
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
-		// Initialize precan from scratch
+		// Initialize from scratch
 		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
@@ -138,37 +139,35 @@ func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
 
 		err = xxdk.NewVanityClient(string(ndfJson), storeDir,
 			password, regCode, userIdPrefix)
-		baseClient, err = xxdk.LoadCmix(storeDir, password, cmixParams)
+		net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		// TODO: Get proper identity
-		identity, err = xxdk.MakeReceptionIdentity(baseClient)
+		identity, err = xxdk.MakeLegacyReceptionIdentity(net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, baseClient)
+		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 	} else {
-		// Initialize precan from storage
-		baseClient, err = xxdk.LoadCmix(storeDir, password, cmixParams)
+		// Initialize from storage
+		net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
-		identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, baseClient)
+		identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 	}
 
-	jww.INFO.Printf("Using LoginLegacy for vanity sender")
-	client, err := xxdk.LoginLegacy(baseClient, e2eParams, authCbs)
+	messenger, err := xxdk.Login(net, authCbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	return client
+	return messenger
 }

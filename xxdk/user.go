@@ -265,7 +265,9 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, e2e *cyclic.Group)
 		jww.FATAL.Panicf(err.Error())
 	}
 
-	dhPrivKey := e2e.NewIntFromBytes(e2eKeyBytes)
+	prime := e2e.GetPBytes()
+	keyLen := len(prime)
+	dhPrivKey := diffieHellman.GeneratePrivateKey(keyLen, e2e, prng)
 	return user.Info{
 		TransmissionID:   &userID,
 		TransmissionSalt: salt,

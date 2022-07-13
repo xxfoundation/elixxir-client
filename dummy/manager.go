@@ -57,25 +57,25 @@ type Manager struct {
 	statusChan chan bool
 
 	// Cmix interfaces
-	client *xxdk.Cmix
-	store  *storage.Session
-	net    interfaces.NetworkManager
-	rng    *fastRNG.StreamGenerator
+	net            *xxdk.Cmix
+	store          *storage.Session
+	networkManager interfaces.NetworkManager
+	rng            *fastRNG.StreamGenerator
 }
 
 // NewManager creates a new dummy Manager with the specified average send delta
 // and the range used for generating random durations.
 func NewManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
-	client *xxdk.Cmix, manager interfaces.NetworkManager) *Manager {
-	clientStorage := client.GetStorage()
-	return newManager(maxNumMessages, avgSendDelta, randomRange, client,
-		&clientStorage, manager, client.GetRng())
+	net *xxdk.Cmix, manager interfaces.NetworkManager) *Manager {
+	clientStorage := net.GetStorage()
+	return newManager(maxNumMessages, avgSendDelta, randomRange, net,
+		&clientStorage, manager, net.GetRng())
 }
 
 // newManager builds a new dummy Manager from fields explicitly passed in. This
 // function is a helper function for NewManager to make it easier to test.
 func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
-	client *xxdk.Cmix, store *storage.Session, net interfaces.NetworkManager,
+	net *xxdk.Cmix, store *storage.Session, networkManager interfaces.NetworkManager,
 	rng *fastRNG.StreamGenerator) *Manager {
 	return &Manager{
 		maxNumMessages: maxNumMessages,
@@ -83,9 +83,9 @@ func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 		randomRange:    randomRange,
 		status:         notStarted,
 		statusChan:     make(chan bool, statusChanLen),
-		client:         client,
-		store:          store,
 		net:            net,
+		store:          store,
+		networkManager: networkManager,
 		rng:            rng,
 	}
 }

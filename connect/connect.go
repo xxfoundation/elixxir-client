@@ -151,8 +151,8 @@ func StartServer(identity xxdk.ReceptionIdentity, cb Callback, net *xxdk.Cmix,
 
 // ConnectionServer contains
 type ConnectionServer struct {
-	E2e *xxdk.E2e
-	Cl  *ConnectionList
+	Messenger *xxdk.E2e
+	Cl        *ConnectionList
 }
 
 // handler provides an implementation for the Connection interface.

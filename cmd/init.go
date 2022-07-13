@@ -37,17 +37,17 @@ var initCmd = &cobra.Command{
 		}
 
 		err = xxdk.NewCmix(string(ndfJson), storeDir, storePassword, regCode)
-		baseClient, err := xxdk.OpenCmix(storeDir, storePassword)
+		net, err := xxdk.OpenCmix(storeDir, storePassword)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		identity, err := xxdk.MakeReceptionIdentity(baseClient)
+		identity, err := xxdk.MakeReceptionIdentity(net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, baseClient)
+		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -72,7 +72,7 @@ func loadOrInitClient(password []byte, storeDir, regCode string,
 	jww.INFO.Printf("Using normal sender")
 
 	// create a new client if none exist
-	var baseClient *xxdk.Cmix
+	var net *xxdk.Cmix
 	var identity xxdk.ReceptionIdentity
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
@@ -82,33 +82,33 @@ func loadOrInitClient(password []byte, storeDir, regCode string,
 		}
 
 		err = xxdk.NewCmix(string(ndfJson), storeDir, password, regCode)
-		baseClient, err = xxdk.LoadCmix(storeDir, password, cmixParams)
+		net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		identity, err = xxdk.MakeReceptionIdentity(baseClient)
+		identity, err = xxdk.MakeReceptionIdentity(net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, baseClient)
+		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 	} else {
 		// Initialize from storage
-		baseClient, err = xxdk.LoadCmix(storeDir, password, cmixParams)
+		net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
-		identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, baseClient)
+		identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 	}
 
-	client, err := xxdk.Login(baseClient, authCbs, identity, e2eParams)
+	client, err := xxdk.Login(net, authCbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}

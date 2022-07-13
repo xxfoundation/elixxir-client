@@ -120,6 +120,15 @@ bindings-android:
       - bindings.aar
       - bindings-sources.jar
 
+trigger-doc-update:
+  stage: trigger_integration
+  image: $DOCKER_IMAGE
+  script:
+    - go install gitlab.com/elixxir/client@$CI_COMMIT_REF_NAME
+  only:
+    - release
+    - master
+
 trigger-integration:
   stage: trigger_integration
   trigger:

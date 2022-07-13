@@ -114,11 +114,11 @@ func loadOrInitClient(password []byte, storeDir, regCode string,
 		}
 	}
 
-	client, err := xxdk.Login(net, authCbs, identity, e2eParams)
+	messenger, err := xxdk.Login(net, authCbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	return client
+	return messenger
 }
 
 // loadOrInitVanity will build a new xxdk.E2e from existing storage

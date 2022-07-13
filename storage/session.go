@@ -10,6 +10,8 @@
 package storage
 
 import (
+	"gitlab.com/elixxir/crypto/diffieHellman"
+	"math/rand"
 	"sync"
 	"testing"
 	"time"
@@ -230,7 +232,14 @@ func InitTestingSession(i interface{}) Session {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	s := &session{kv: kv}
 	uid := id.NewIdFromString("zezima", id.User, i)
-	u, err := user.NewUser(kv, uid, uid, []byte("salt"), []byte("salt"), privKey, privKey, false, nil, nil)
+
+	prng := rand.New(rand.NewSource(42))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	u, err := user.NewUser(kv, uid, uid, []byte("salt"), []byte("salt"), privKey, privKey, false, dhPrivKey, dhPubKey)
 	if err != nil {
 		jww.FATAL.Panicf("InitTestingSession failed to create dummy user: %+v", err)
 	}

@@ -186,7 +186,7 @@ func createNewVanityUser(rng csprng.Source,
 			for {
 				select {
 				case <-done:
-					defer wg.Done()
+					wg.Done()
 					return
 				default:
 					n, err = csprng.NewSystemRNG().Read(

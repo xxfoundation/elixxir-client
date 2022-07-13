@@ -121,7 +121,7 @@ func New(baseDir, password string, u user.Info,
 	}
 
 	s.User, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID, u.TransmissionSalt,
-		u.ReceptionSalt, u.TransmissionRSA, u.ReceptionRSA, u.Precanned, u.E2eDhPublicKey, u.E2eDhPublicKey)
+		u.ReceptionSalt, u.TransmissionRSA, u.ReceptionRSA, u.Precanned, u.E2eDhPrivateKey, u.E2eDhPublicKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create user")
 	}

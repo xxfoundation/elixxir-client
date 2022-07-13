@@ -10,6 +10,7 @@ package user
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
@@ -33,9 +34,11 @@ type User struct {
 
 // builds a new user.
 func NewUser(kv *versioned.KV, transmissionID, receptionID *id.ID, transmissionSalt,
-	receptionSalt []byte, transmissionRsa, receptionRsa *rsa.PrivateKey, isPrecanned bool) (*User, error) {
+	receptionSalt []byte, transmissionRsa, receptionRsa *rsa.PrivateKey, isPrecanned bool,
+	e2eDhPrivateKey, e2eDhPublicKey *cyclic.Int) (*User, error) {
 
-	ci := newCryptographicIdentity(transmissionID, receptionID, transmissionSalt, receptionSalt, transmissionRsa, receptionRsa, isPrecanned, kv)
+	ci := newCryptographicIdentity(transmissionID, receptionID, transmissionSalt,
+		receptionSalt, transmissionRsa, receptionRsa, isPrecanned, e2eDhPrivateKey, e2eDhPublicKey, kv)
 
 	return &User{CryptographicIdentity: ci, kv: kv}, nil
 }

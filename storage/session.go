@@ -119,7 +119,7 @@ func New(baseDir, password string, u user.Info,
 	}
 
 	s.User, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID, u.TransmissionSalt,
-		u.ReceptionSalt, u.TransmissionRSA, u.ReceptionRSA, u.Precanned)
+		u.ReceptionSalt, u.TransmissionRSA, u.ReceptionRSA, u.Precanned, u.E2eDhPublicKey, u.E2eDhPublicKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create user")
 	}
@@ -230,7 +230,7 @@ func InitTestingSession(i interface{}) Session {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	s := &session{kv: kv}
 	uid := id.NewIdFromString("zezima", id.User, i)
-	u, err := user.NewUser(kv, uid, uid, []byte("salt"), []byte("salt"), privKey, privKey, false)
+	u, err := user.NewUser(kv, uid, uid, []byte("salt"), []byte("salt"), privKey, privKey, false, nil, nil)
 	if err != nil {
 		jww.FATAL.Panicf("InitTestingSession failed to create dummy user: %+v", err)
 	}

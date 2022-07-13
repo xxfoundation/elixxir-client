@@ -122,6 +122,7 @@ func loadCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error)
 		if err != nil {
 			return nil, err
 		}
+		jww.WARN.Printf("Attempting to migrate cryptographic identity to new version...")
 		// Populate E2E keys from legacy storage
 		result.e2eDhPublicKey, result.e2eDhPrivateKey = loadLegacyDHKeys(kv)
 		// Migrate to the new version in storage

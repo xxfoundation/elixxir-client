@@ -94,10 +94,8 @@ func (u *User) PortableUserInfo() Info {
 		ReceptionSalt:         copySlice(ci.GetReceptionSalt()),
 		ReceptionRSA:          ci.GetReceptionRSA(),
 		Precanned:             ci.IsPrecanned(),
-		//fixme: set these in the e2e layer, the command line layer
-		//needs more logical separation so this can be removed
-		E2eDhPrivateKey: nil,
-		E2eDhPublicKey:  nil,
+		E2eDhPrivateKey:       ci.GetE2eDhPrivateKey(),
+		E2eDhPublicKey:        ci.GetE2eDhPublicKey(),
 	}
 
 }

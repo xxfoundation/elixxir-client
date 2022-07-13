@@ -9,11 +9,12 @@ package xxdk
 
 import (
 	"encoding/binary"
+	"math/rand"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
-	"math/rand"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
@@ -60,9 +61,18 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
 func (m *E2e) MakePrecannedAuthenticatedChannel(precannedID uint) (
 	contact.Contact, error) {
 
-	precan := m.GetReceptionIdentity().GetContact()
+	rng := m.GetRng().GetStream()
+	precanUserInfo := createPrecannedUser(precannedID, rng, m.GetStorage().GetE2EGroup())
+	rng.Close()
+	precanRecipient, err := buildReceptionIdentity(precanUserInfo.ReceptionID,
+		precanUserInfo.ReceptionSalt, precanUserInfo.ReceptionRSA,
+		m.GetStorage().GetE2EGroup(), precanUserInfo.E2eDhPrivateKey)
+	if err != nil {
+		return contact.Contact{}, err
+	}
+	precanContact := precanRecipient.GetContact()
 
-	myID := binary.BigEndian.Uint64(m.GetStorage().GetReceptionID()[:])
+	myID := binary.BigEndian.Uint64(m.GetReceptionIdentity().ID[:])
 	// Pick a variant based on if their ID is bigger than mine.
 	myVariant := sidh.KeyVariantSidhA
 	theirVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
@@ -73,7 +83,7 @@ func (m *E2e) MakePrecannedAuthenticatedChannel(precannedID uint) (
 	prng1 := rand.New(rand.NewSource(int64(precannedID)))
 	theirSIDHPrivKey := util.NewSIDHPrivateKey(theirVariant)
 	theirSIDHPubKey := util.NewSIDHPublicKey(theirVariant)
-	err := theirSIDHPrivKey.Generate(prng1)
+	err = theirSIDHPrivKey.Generate(prng1)
 	if err != nil {
 		return contact.Contact{}, err
 	}
@@ -91,7 +101,7 @@ func (m *E2e) MakePrecannedAuthenticatedChannel(precannedID uint) (
 	// add the precanned user as a e2e contact
 	// FIXME: these params need to be threaded through...
 	sesParam := session.GetDefaultParams()
-	_, err = m.e2e.AddPartner(precan.ID, precan.DhPubKey,
+	_, err = m.e2e.AddPartner(precanContact.ID, precanContact.DhPubKey,
 		m.e2e.GetHistoricalDHPrivkey(), theirSIDHPubKey,
 		mySIDHPrivKey, sesParam, sesParam)
 
@@ -99,5 +109,5 @@ func (m *E2e) MakePrecannedAuthenticatedChannel(precannedID uint) (
 	// the channel
 	m.GetCmix().CheckInProgressMessages()
 
-	return precan, err
+	return precanContact, err
 }

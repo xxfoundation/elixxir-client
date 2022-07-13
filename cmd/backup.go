@@ -8,6 +8,10 @@ package cmd
 
 import (
 	"encoding/json"
+	"io/fs"
+	"io/ioutil"
+	"os"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -15,9 +19,6 @@ import (
 	"gitlab.com/elixxir/client/xxdk"
 	backupCrypto "gitlab.com/elixxir/crypto/backup"
 	"gitlab.com/xx_network/primitives/utils"
-	"io/fs"
-	"io/ioutil"
-	"os"
 )
 
 // loadOrInitBackup will build a new xxdk.E2e from existing storage

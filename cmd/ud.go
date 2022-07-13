@@ -39,37 +39,15 @@ var udCmd = &cobra.Command{
 
 		// get user and save contact to file
 		user := client.GetReceptionIdentity()
-		jww.INFO.Printf("User: %s", user.ID)
+		jww.INFO.Printf("[UD]User: %s", user.ID)
 		writeContact(user.GetContact())
-
-		// // Set up reception handler
-		// swBoard := client.GetSwitchboard()
-		// recvCh := make(chan message.Receive, 10000)
-		// listenerID := swBoard.RegisterChannel("DefaultCLIReceiver",
-		// 	switchboard.AnyUser(), message.XxMessage, recvCh)
-		// jww.INFO.Printf("Message ListenerID: %v", listenerID)
-
-		// // Set up auth request handler, which simply prints the user ID of the
-		// // requester
-		// authMgr := client.GetAuthRegistrar()
-		// authMgr.AddGeneralRequestCallback(printChanRequest)
-
-		// // If unsafe channels, add auto-acceptor
-		// if viper.GetBool("unsafe-channel-creation") {
-		// 	authMgr.AddGeneralRequestCallback(func(
-		// 		requester contact.Contact) {
-		// 		jww.INFO.Printf("Got Request: %s", requester.ID)
-		// 		_, err := client.ConfirmAuthenticatedChannel(requester)
-		// 		if err != nil {
-		// 			jww.FATAL.Panicf("%+v", err)
-		// 		}
-		// 	})
-		// }
 
 		err := client.StartNetworkFollower(50 * time.Millisecond)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
+
+		jww.TRACE.Printf("[UD] Waiting for connection...")
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
@@ -79,9 +57,12 @@ var udCmd = &cobra.Command{
 			})
 		waitUntilConnected(connected)
 
+		jww.TRACE.Printf("[UD] Connected!")
+
 		// Make user discovery manager
 		rng := client.GetRng()
 		userToRegister := viper.GetString("register")
+		jww.TRACE.Printf("[UD] Registering user %v...", userToRegister)
 		userDiscoveryMgr, err := ud.NewManager(client, client.GetComms(),
 			client.NetworkFollowerStatus, userToRegister, nil)
 		if err != nil {
@@ -95,6 +76,7 @@ var udCmd = &cobra.Command{
 
 			}
 		}
+		jww.INFO.Printf("[UD] Registered user %v", userToRegister)
 
 		var newFacts fact.FactList
 		phone := viper.GetString("addphone")
@@ -116,24 +98,29 @@ var udCmd = &cobra.Command{
 		}
 
 		for i := 0; i < len(newFacts); i++ {
+			jww.INFO.Printf("[UD] Registering Fact: %v",
+				newFacts[i])
 			r, err := userDiscoveryMgr.SendRegisterFact(newFacts[i])
 			if err != nil {
 				fmt.Printf("Failed to register fact: %s\n",
 					newFacts[i])
-				jww.FATAL.Panicf("Failed to send register fact: %+v", err)
+				jww.FATAL.Panicf("[UD] Failed to send register fact: %+v", err)
 			}
 			// TODO Store the code?
-			jww.INFO.Printf("Fact Add Response: %+v", r)
+			jww.INFO.Printf("[UD] Fact Add Response: %+v", r)
 		}
 
 		confirmID := viper.GetString("confirm")
 		if confirmID != "" {
+			jww.INFO.Printf("[UD] Confirming fact: %v", confirmID)
 			err = userDiscoveryMgr.ConfirmFact(confirmID, confirmID)
 			if err != nil {
 				fmt.Printf("Couldn't confirm fact: %s\n",
 					err.Error())
 				jww.FATAL.Panicf("%+v", err)
 			}
+
+			jww.INFO.Printf("[UD] Confirmed %v", confirmID)
 		}
 
 		udContact, err := userDiscoveryMgr.GetContact()
@@ -147,9 +134,7 @@ var udCmd = &cobra.Command{
 		lookupIDStr := viper.GetString("lookup")
 		if lookupIDStr != "" {
 			lookupID := parseRecipient(lookupIDStr)
-			//if !ok {
-			//	jww.FATAL.Panicf("Could not parse recipient: %s", lookupIDStr)
-			//}
+			jww.INFO.Printf("[UD] Looking up %v", lookupID)
 
 			cb := func(newContact contact.Contact, err error) {
 				if err != nil {
@@ -177,6 +162,7 @@ var udCmd = &cobra.Command{
 					err.Error())
 				jww.FATAL.Panicf("BATCHADD: Couldn't read file: %+v", err)
 			}
+			jww.INFO.Printf("[UD] BATCHADD: Running")
 			restored, _, _, err := xxmutils.RestoreContactsFromBackup(
 				idListFile, client, userDiscoveryMgr, nil)
 			if err != nil {
@@ -187,7 +173,7 @@ var udCmd = &cobra.Command{
 				for !client.GetE2E().HasAuthenticatedChannel(uid) {
 					time.Sleep(time.Second)
 				}
-				jww.INFO.Printf("Authenticated channel established for %s", uid)
+				jww.INFO.Printf("[UD] Authenticated channel established for %s", uid)
 			}
 		}
 		usernameSearchStr := viper.GetString("searchusername")
@@ -232,7 +218,7 @@ var udCmd = &cobra.Command{
 					"Failed to remove user %s: %+v",
 					userToRemove, err)
 			}
-			fmt.Printf("Removed user from discovery: %s\n",
+			fmt.Printf("[UD] Removed user from discovery: %s\n",
 				userToRemove)
 		}
 
@@ -255,6 +241,7 @@ var udCmd = &cobra.Command{
 
 		stream := rng.GetStream()
 		defer stream.Close()
+		jww.INFO.Printf("[UD] Search: %v", facts)
 		_, _, err = ud.Search(client.GetCmix(),
 			client.GetEventReporter(),
 			stream, client.GetE2E().GetGroup(),

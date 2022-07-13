@@ -39,7 +39,7 @@ func createNewUser(rng *fastRNG.StreamGenerator, e2eGroup *cyclic.Group) user.In
 	var transmissionSalt, receptionSalt []byte
 
 	e2eKeyBytes, transmissionSalt, receptionSalt,
-		transmissionRsaKey, receptionRsaKey := createDhKeys(rng, e2eGroup)
+		transmissionRsaKey, receptionRsaKey := createKeys(rng, e2eGroup)
 
 	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(),
 		transmissionSalt, id.User)
@@ -53,6 +53,7 @@ func createNewUser(rng *fastRNG.StreamGenerator, e2eGroup *cyclic.Group) user.In
 		jww.FATAL.Panicf(err.Error())
 	}
 
+	dhPrivKey := e2eGroup.NewIntFromBytes(e2eKeyBytes)
 	return user.Info{
 		TransmissionID:   transmissionID.DeepCopy(),
 		TransmissionSalt: transmissionSalt,
@@ -61,12 +62,12 @@ func createNewUser(rng *fastRNG.StreamGenerator, e2eGroup *cyclic.Group) user.In
 		ReceptionSalt:    receptionSalt,
 		ReceptionRSA:     receptionRsaKey,
 		Precanned:        false,
-		E2eDhPrivateKey:  e2eGroup.NewIntFromBytes(e2eKeyBytes),
-		E2eDhPublicKey:   nil,
+		E2eDhPrivateKey:  dhPrivKey,
+		E2eDhPublicKey:   diffieHellman.GeneratePublicKey(dhPrivKey, e2eGroup),
 	}
 }
 
-func createDhKeys(rng *fastRNG.StreamGenerator,
+func createKeys(rng *fastRNG.StreamGenerator,
 	e2e *cyclic.Group) (e2eKeyBytes,
 	transmissionSalt, receptionSalt []byte,
 	transmissionRsaKey, receptionRsaKey *rsa.PrivateKey) {
@@ -95,6 +96,11 @@ func createDhKeys(rng *fastRNG.StreamGenerator,
 		var err error
 		stream := rng.GetStream()
 		transmissionRsaKey, err = rsa.GenerateKey(stream, rsa.DefaultRSABitLen)
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+		transmissionSalt = make([]byte, SaltSize)
+		_, err = stream.Read(transmissionSalt)
 		stream.Close()
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
@@ -106,6 +112,11 @@ func createDhKeys(rng *fastRNG.StreamGenerator,
 		var err error
 		stream := rng.GetStream()
 		receptionRsaKey, err = rsa.GenerateKey(stream, rsa.DefaultRSABitLen)
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+		receptionSalt = make([]byte, SaltSize)
+		_, err = stream.Read(receptionSalt)
 		stream.Close()
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
@@ -185,7 +196,7 @@ func createNewVanityUser(rng csprng.Source,
 			for {
 				select {
 				case <-done:
-					defer wg.Done()
+					wg.Done()
 					return
 				default:
 					n, err = csprng.NewSystemRNG().Read(
@@ -205,17 +216,17 @@ func createNewVanityUser(rng csprng.Source,
 					if err != nil {
 						jww.FATAL.Panicf(err.Error())
 					}
-					id := rID.String()
+					rid := rID.String()
 					if ignoreCase {
-						id = strings.ToLower(id)
+						rid = strings.ToLower(rid)
 					}
-					if strings.HasPrefix(id, pref) {
+					if strings.HasPrefix(rid, pref) {
 						mu.Lock()
 						receptionID = rID
 						receptionSalt = rSalt
 						mu.Unlock()
 						found <- true
-						defer wg.Done()
+						wg.Done()
 						return
 					}
 				}
@@ -241,17 +252,7 @@ func createNewVanityUser(rng csprng.Source,
 }
 
 // createPrecannedUser
-func createPrecannedUser(precannedID uint, rng csprng.Source, e2e *cyclic.Group) user.Info {
-	// DH Keygen
-	// FIXME: Why 256 bits? -- this is spec but not explained, it has
-	// to do with optimizing operations on one side and still preserves
-	// decent security -- cite this. Why valid for BOTH e2e and cmix?
-	prng := rand.New(rand.NewSource(int64(precannedID)))
-	e2eKeyBytes, err := csprng.GenerateInGroup(e2e.GetPBytes(), 256, prng)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-
+func createPrecannedUser(precannedID uint, rng csprng.Source, grp *cyclic.Group) user.Info {
 	// Salt, UID, etc gen
 	salt := make([]byte, SaltSize)
 
@@ -265,13 +266,18 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, e2e *cyclic.Group)
 		jww.FATAL.Panicf(err.Error())
 	}
 
+	prime := grp.GetPBytes()
+	keyLen := len(prime)
+	prng := rand.New(rand.NewSource(int64(precannedID)))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(keyLen, grp, prng)
 	return user.Info{
 		TransmissionID:   &userID,
 		TransmissionSalt: salt,
 		ReceptionID:      &userID,
 		ReceptionSalt:    salt,
 		Precanned:        true,
-		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
+		E2eDhPrivateKey:  dhPrivKey,
+		E2eDhPublicKey:   diffieHellman.GeneratePublicKey(dhPrivKey, grp),
 		TransmissionRSA:  rsaKey,
 		ReceptionRSA:     rsaKey,
 	}

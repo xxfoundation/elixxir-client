@@ -9,14 +9,17 @@
 package cmd
 
 import (
+	"fmt"
+
+	"io/fs"
+	"io/ioutil"
+	"os"
+
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/xxdk"
-	"io/fs"
-	"io/ioutil"
-	"os"
 )
 
 // initCmd creates a new user object with the given NDF
@@ -54,6 +57,9 @@ var initCmd = &cobra.Command{
 
 		jww.INFO.Printf("User: %s", identity.ID)
 		writeContact(identity.GetContact())
+
+		// NOTE: DO NOT REMOVE THIS LINE. YOU WILL BREAK INTEGRATION
+		fmt.Printf("%s\n", identity.ID)
 	},
 }
 
@@ -65,9 +71,9 @@ func init() {
 	rootCmd.AddCommand(initCmd)
 }
 
-// loadOrInitClient will build a new xxdk.E2e from existing storage
+// loadOrInitMessenger will build a new xxdk.E2e from existing storage
 // or from a new storage that it will create if none already exists
-func loadOrInitClient(password []byte, storeDir, regCode string,
+func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode string,
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
 	jww.INFO.Printf("Using normal sender")
 
@@ -87,7 +93,12 @@ func loadOrInitClient(password []byte, storeDir, regCode string,
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		identity, err = xxdk.MakeReceptionIdentity(net)
+		if forceLegacy {
+			jww.INFO.Printf("Forcing legacy sender")
+			identity, err = xxdk.MakeLegacyReceptionIdentity(net)
+		} else {
+			identity, err = xxdk.MakeReceptionIdentity(net)
+		}
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -108,11 +119,11 @@ func loadOrInitClient(password []byte, storeDir, regCode string,
 		}
 	}
 
-	client, err := xxdk.Login(net, authCbs, identity, e2eParams)
+	messenger, err := xxdk.Login(net, authCbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	return client
+	return messenger
 }
 
 // loadOrInitVanity will build a new xxdk.E2e from existing storage

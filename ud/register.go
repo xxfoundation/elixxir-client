@@ -3,6 +3,7 @@ package ud
 import (
 	"github.com/pkg/errors"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/factID"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/fact"
@@ -30,7 +31,7 @@ func (m *Manager) register(username string, rng csprng.Source,
 	if err != nil {
 		return err
 	}
-	dhKeyPub := grp.ExpG(dhKeyPriv, grp.NewInt(1))
+	dhKeyPub := diffieHellman.GeneratePublicKey(dhKeyPriv, grp)
 
 	// Construct the user registration message
 	msg := &pb.UDBUserRegistration{

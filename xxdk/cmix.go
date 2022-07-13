@@ -78,12 +78,12 @@ func NewCmix(ndfJSON, storageDir string, password []byte,
 
 	cmixGrp, e2eGrp := DecodeGroups(def)
 	start := netTime.Now()
-	protoUser := createNewUser(rngStreamGen)
+	userInfo := createNewUser(rngStreamGen, e2eGrp)
 	jww.DEBUG.Printf("PortableUserInfo generation took: %s",
 		netTime.Now().Sub(start))
 
 	_, err = CheckVersionAndSetupStorage(def, storageDir, password,
-		protoUser, cmixGrp, e2eGrp, registrationCode)
+		userInfo, cmixGrp, e2eGrp, registrationCode)
 	return err
 }
 
@@ -106,8 +106,7 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte,
 	}
 	cmixGrp, e2eGrp := DecodeGroups(def)
 
-	userInfo := createNewVanityUser(rngStream, cmixGrp, e2eGrp,
-		userIdPrefix)
+	userInfo := createNewVanityUser(rngStream, e2eGrp, userIdPrefix)
 
 	_, err = CheckVersionAndSetupStorage(def, storageDir, password,
 		userInfo, cmixGrp, e2eGrp, registrationCode)
@@ -162,28 +161,21 @@ func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 // predefined cryptographic which defines a user. This is designed for some
 // specific deployment procedures and is generally unsafe.
 func NewProtoClient_Unsafe(ndfJSON, storageDir string, password []byte,
-	protoUser *user.Proto) (ReceptionIdentity, error) {
+	protoUser *user.Proto) error {
 	jww.INFO.Printf("NewProtoClient_Unsafe")
 
 	usr := user.NewUserFromProto(protoUser)
 
 	def, err := ParseNDF(ndfJSON)
 	if err != nil {
-		return ReceptionIdentity{}, err
+		return err
 	}
 
 	cmixGrp, e2eGrp := DecodeGroups(def)
-
 	storageSess, err := CheckVersionAndSetupStorage(def, storageDir,
 		password, usr, cmixGrp, e2eGrp, protoUser.RegCode)
 	if err != nil {
-		return ReceptionIdentity{}, err
-	}
-
-	identity, err := buildReceptionIdentity(protoUser.ReceptionID, protoUser.ReceptionSalt,
-		protoUser.ReceptionRSA, e2eGrp, protoUser.E2eDhPrivateKey)
-	if err != nil {
-		return ReceptionIdentity{}, err
+		return err
 	}
 
 	storageSess.SetReceptionRegistrationValidationSignature(
@@ -197,10 +189,10 @@ func NewProtoClient_Unsafe(ndfJSON, storageDir string, password []byte,
 	err = storageSess.ForwardRegistrationStatus(
 		storage.PermissioningComplete)
 	if err != nil {
-		return ReceptionIdentity{}, err
+		return err
 	}
 
-	return identity, nil
+	return nil
 }
 
 // LoadCmix initializes a Cmix object from existing storage and starts the network
@@ -569,7 +561,7 @@ func DecodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 // NewPrecannedClient and NewVanityClient it checks client version and
 // creates a new storage for user data
 func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition,
-	storageDir string, password []byte, protoUser user.Info,
+	storageDir string, password []byte, userInfo user.Info,
 	cmixGrp, e2eGrp *cyclic.Group, registrationCode string) (
 	storage.Session, error) {
 	// get current client version
@@ -581,7 +573,7 @@ func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition,
 
 	// Create Storage
 	passwordStr := string(password)
-	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
+	storageSess, err := storage.New(storageDir, passwordStr, userInfo,
 		currentVersion, cmixGrp, e2eGrp)
 	if err != nil {
 		return nil, err

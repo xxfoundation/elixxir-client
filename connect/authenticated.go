@@ -52,27 +52,27 @@ type AuthenticatedCallback func(connection AuthenticatedConnection)
 // ConnectWithAuthentication is called by the client, ie the one establishing
 // connection with the server. Once a connect.Connection has been established
 // with the server and then authenticate their identity to the server.
-func ConnectWithAuthentication(recipient contact.Contact, e2eClient *xxdk.E2e,
+func ConnectWithAuthentication(recipient contact.Contact, messenger *xxdk.E2e,
 	p xxdk.E2EParams) (AuthenticatedConnection, error) {
 
 	// Track the time since we started to attempt to establish a connection
 	timeStart := netTime.Now()
 
 	// Establish a connection with the server
-	conn, err := Connect(recipient, e2eClient, p)
+	conn, err := Connect(recipient, messenger, p)
 	if err != nil {
 		return nil, errors.Errorf("failed to establish connection "+
 			"with recipient %s: %+v", recipient.ID, err)
 	}
 
 	// Build the authenticated connection and return
-	identity := e2eClient.GetReceptionIdentity()
+	identity := messenger.GetReceptionIdentity()
 	privKey, err := identity.GetRSAPrivatePem()
 	if err != nil {
 		return nil, err
 	}
 	return connectWithAuthentication(conn, timeStart, recipient, identity.Salt, privKey,
-		e2eClient.GetRng(), e2eClient.GetCmix(), p)
+		messenger.GetRng(), messenger.GetCmix(), p)
 }
 
 // connectWithAuthentication builds and sends an IdentityAuthentication to

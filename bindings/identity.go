@@ -42,6 +42,16 @@ func (c *Cmix) MakeIdentity() ([]byte, error) {
 	return ident.Marshal()
 }
 
+// MakeLegacyIdentity generates the legacy identity for receiving messages
+func (c *Cmix) MakeLegacyIdentity() ([]byte, error) {
+	ident, err := xxdk.MakeLegacyReceptionIdentity(c.api)
+	if err != nil {
+		return nil, err
+	}
+
+	return ident.Marshal()
+}
+
 // GetIDFromContact accepts a marshalled contact.Contact object & returns a marshalled id.ID object
 func GetIDFromContact(marshaled []byte) ([]byte, error) {
 	cnt, err := contact.Unmarshal(marshaled)

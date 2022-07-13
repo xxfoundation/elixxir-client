@@ -585,6 +585,7 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
 	storePassword := parsePassword(viper.GetString("password"))
 	storeDir := viper.GetString("session")
 	regCode := viper.GetString("regcode")
+	forceLegacy := viper.GetBool("force-legacy")
 	jww.DEBUG.Printf("sessionDir: %v", storeDir)
 
 	// TODO: This probably shouldn't be initialized globally.
@@ -592,22 +593,22 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
 		viper.GetBool("unsafe-channel-creation"), e2eParams)
 
 	// Initialize the client of the proper type
-	var client *xxdk.E2e
+	var messenger *xxdk.E2e
 	if precanId != 0 {
-		client = loadOrInitPrecan(precanId, storePassword, storeDir, cmixParams, e2eParams)
+		messenger = loadOrInitPrecan(precanId, storePassword, storeDir, cmixParams, e2eParams)
 	} else if protoUserPath != "" {
-		client = loadOrInitProto(protoUserPath, storePassword, storeDir, cmixParams, e2eParams)
+		messenger = loadOrInitProto(protoUserPath, storePassword, storeDir, cmixParams, e2eParams)
 	} else if userIdPrefix != "" {
-		client = loadOrInitVanity(storePassword, storeDir, regCode, userIdPrefix, cmixParams, e2eParams)
+		messenger = loadOrInitVanity(storePassword, storeDir, regCode, userIdPrefix, cmixParams, e2eParams)
 	} else if backupPath != "" {
-		client = loadOrInitBackup(backupPath, backupPass, storePassword, storeDir, cmixParams, e2eParams)
+		messenger = loadOrInitBackup(backupPath, backupPass, storePassword, storeDir, cmixParams, e2eParams)
 	} else {
-		client = loadOrInitClient(storePassword, storeDir, regCode, cmixParams, e2eParams)
+		messenger = loadOrInitMessenger(forceLegacy, storePassword, storeDir, regCode, cmixParams, e2eParams)
 	}
 
 	// Handle protoUser output
 	if protoUser := viper.GetString("protoUserOut"); protoUser != "" {
-		jsonBytes, err := client.ConstructProtoUserFile()
+		jsonBytes, err := messenger.ConstructProtoUserFile()
 		if err != nil {
 			jww.FATAL.Panicf("cannot construct proto user file: %v",
 				err)
@@ -622,6 +623,9 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
 
 	// Handle backup output
 	if backupOut := viper.GetString("backupOut"); backupOut != "" {
+		if !forceLegacy {
+			jww.FATAL.Panicf("Unable to make backup for non-legacy sender!")
+		}
 		updateBackupCb := func(encryptedBackup []byte) {
 			jww.INFO.Printf("Backup update received, size %d",
 				len(encryptedBackup))
@@ -653,24 +657,24 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
 			}
 		}
 		_, err := backup.InitializeBackup(backupPass, updateBackupCb,
-			client.GetBackupContainer(), client.GetE2E(), client.GetStorage(),
-			nil, client.GetStorage().GetKV(), client.GetRng())
+			messenger.GetBackupContainer(), messenger.GetE2E(), messenger.GetStorage(),
+			nil, messenger.GetStorage().GetKV(), messenger.GetRng())
 		if err != nil {
 			jww.FATAL.Panicf("Failed to initialize backup with key %q: %+v",
 				backupPass, err)
 		}
 	}
 
-	return client
+	return messenger
 }
 
-func acceptChannel(client *xxdk.E2e, recipientID *id.ID) id.Round {
-	recipientContact, err := client.GetAuth().GetReceivedRequest(
+func acceptChannel(messenger *xxdk.E2e, recipientID *id.ID) id.Round {
+	recipientContact, err := messenger.GetAuth().GetReceivedRequest(
 		recipientID)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	rid, err := client.GetAuth().Confirm(
+	rid, err := messenger.GetAuth().Confirm(
 		recipientContact)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
@@ -679,14 +683,14 @@ func acceptChannel(client *xxdk.E2e, recipientID *id.ID) id.Round {
 	return rid
 }
 
-func deleteChannel(client *xxdk.E2e, partnerId *id.ID) {
-	err := client.DeleteContact(partnerId)
+func deleteChannel(messenger *xxdk.E2e, partnerId *id.ID) {
+	err := messenger.DeleteContact(partnerId)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 }
 
-func addAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
+func addAuthenticatedChannel(messenger *xxdk.E2e, recipientID *id.ID,
 	recipient contact.Contact, e2eParams xxdk.E2EParams) {
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {
@@ -709,17 +713,17 @@ func addAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 	recipientContact := recipient
 
 	if recipientContact.ID != nil && recipientContact.DhPubKey != nil {
-		me := client.GetReceptionIdentity().GetContact()
+		me := messenger.GetReceptionIdentity().GetContact()
 		jww.INFO.Printf("Requesting auth channel from: %s",
 			recipientID)
 
 		// Verify that the auth request makes it to the recipient
 		// by monitoring the round result
 		if viper.GetBool("verify-sends") {
-			requestChannelVerified(client, recipientContact, me, e2eParams)
+			requestChannelVerified(messenger, recipientContact, me, e2eParams)
 		} else {
 			// Just call Request, agnostic of round result
-			_, err := client.GetAuth().Request(recipientContact,
+			_, err := messenger.GetAuth().Request(recipientContact,
 				me.Facts)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
@@ -732,7 +736,7 @@ func addAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 	}
 }
 
-func resetAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
+func resetAuthenticatedChannel(messenger *xxdk.E2e, recipientID *id.ID,
 	recipient contact.Contact, e2eParams xxdk.E2EParams) {
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {
@@ -760,10 +764,10 @@ func resetAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 		// Verify that the auth request makes it to the recipient
 		// by monitoring the round result
 		if viper.GetBool("verify-sends") {
-			resetChannelVerified(client, recipientContact,
+			resetChannelVerified(messenger, recipientContact,
 				e2eParams)
 		} else {
-			_, err := client.GetAuth().Reset(recipientContact)
+			_, err := messenger.GetAuth().Reset(recipientContact)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
@@ -774,17 +778,17 @@ func resetAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
 	}
 }
 
-func acceptChannelVerified(client *xxdk.E2e, recipientID *id.ID,
+func acceptChannelVerified(messenger *xxdk.E2e, recipientID *id.ID,
 	params xxdk.E2EParams) {
 	roundTimeout := params.Base.CMIXParams.SendTimeout
 
 	done := make(chan struct{}, 1)
 	retryChan := make(chan struct{}, 1)
 	for {
-		rid := acceptChannel(client, recipientID)
+		rid := acceptChannel(messenger, recipientID)
 
 		// Monitor rounds for results
-		err := client.GetCmix().GetRoundResults(roundTimeout,
+		err := messenger.GetCmix().GetRoundResults(roundTimeout,
 			makeVerifySendsCallback(retryChan, done), rid)
 		if err != nil {
 			jww.DEBUG.Printf("Could not verify "+
@@ -810,7 +814,7 @@ func acceptChannelVerified(client *xxdk.E2e, recipientID *id.ID,
 	}
 }
 
-func requestChannelVerified(client *xxdk.E2e,
+func requestChannelVerified(messenger *xxdk.E2e,
 	recipientContact, me contact.Contact,
 	params xxdk.E2EParams) {
 	roundTimeout := params.Base.CMIXParams.SendTimeout
@@ -818,14 +822,14 @@ func requestChannelVerified(client *xxdk.E2e,
 	retryChan := make(chan struct{}, 1)
 	done := make(chan struct{}, 1)
 	for {
-		rid, err := client.GetAuth().Request(recipientContact,
+		rid, err := messenger.GetAuth().Request(recipientContact,
 			me.Facts)
 		if err != nil {
 			continue
 		}
 
 		// Monitor rounds for results
-		err = client.GetCmix().GetRoundResults(roundTimeout,
+		err = messenger.GetCmix().GetRoundResults(roundTimeout,
 			makeVerifySendsCallback(retryChan, done),
 			rid)
 		if err != nil {
@@ -850,7 +854,7 @@ func requestChannelVerified(client *xxdk.E2e,
 	}
 }
 
-func resetChannelVerified(client *xxdk.E2e, recipientContact contact.Contact,
+func resetChannelVerified(messenger *xxdk.E2e, recipientContact contact.Contact,
 	params xxdk.E2EParams) {
 	roundTimeout := params.Base.CMIXParams.SendTimeout
 
@@ -858,13 +862,13 @@ func resetChannelVerified(client *xxdk.E2e, recipientContact contact.Contact,
 	done := make(chan struct{}, 1)
 	for {
 
-		rid, err := client.GetAuth().Reset(recipientContact)
+		rid, err := messenger.GetAuth().Reset(recipientContact)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
 		// Monitor rounds for results
-		err = client.GetCmix().GetRoundResults(roundTimeout,
+		err = messenger.GetCmix().GetRoundResults(roundTimeout,
 			makeVerifySendsCallback(retryChan, done),
 			rid)
 		if err != nil {
@@ -1131,6 +1135,9 @@ func init() {
 		"ID to send message to (if below 40, will be precanned. Use "+
 			"'0x' or 'b64:' for hex and base64 representations)")
 	viper.BindPFlag("destid", rootCmd.Flags().Lookup("destid"))
+	rootCmd.PersistentFlags().Bool("force-legacy", false,
+		"Force client to operate using legacy identities.")
+	viper.BindPFlag("force-legacy", rootCmd.PersistentFlags().Lookup("force-legacy"))
 
 	rootCmd.Flags().StringP("destfile", "",
 		"", "Read this contact file for the destination id")

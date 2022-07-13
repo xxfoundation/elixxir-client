@@ -11,10 +11,14 @@ import (
 	"bytes"
 	"encoding/binary"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"math/rand"
 	"testing"
 	"time"
 )
@@ -24,7 +28,15 @@ func TestUser_GetRegistrationValidationSignature(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
-	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
+
+	prng := rand.New(rand.NewSource(42))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{},
+		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -59,7 +71,15 @@ func TestUser_SetRegistrationValidationSignature(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
-	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
+
+	prng := rand.New(rand.NewSource(42))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{},
+		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -102,7 +122,15 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
-	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
+
+	prng := rand.New(rand.NewSource(42))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{},
+		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -145,7 +173,15 @@ func TestUser_GetRegistrationTimestamp(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
-	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
+
+	prng := rand.New(rand.NewSource(42))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{},
+		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -194,7 +230,15 @@ func TestUser_loadRegistrationTimestamp(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uid := id.NewIdFromString("test", id.User, t)
 	salt := []byte("salt")
-	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
+
+	prng := rand.New(rand.NewSource(42))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{},
+		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}

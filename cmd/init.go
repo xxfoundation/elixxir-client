@@ -9,14 +9,17 @@
 package cmd
 
 import (
+	"fmt"
+
+	"io/fs"
+	"io/ioutil"
+	"os"
+
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/xxdk"
-	"io/fs"
-	"io/ioutil"
-	"os"
 )
 
 // initCmd creates a new user object with the given NDF
@@ -37,23 +40,26 @@ var initCmd = &cobra.Command{
 		}
 
 		err = xxdk.NewCmix(string(ndfJson), storeDir, storePassword, regCode)
-		baseClient, err := xxdk.OpenCmix(storeDir, storePassword)
+		net, err := xxdk.OpenCmix(storeDir, storePassword)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		identity, err := xxdk.MakeReceptionIdentity(baseClient)
+		identity, err := xxdk.MakeReceptionIdentity(net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, baseClient)
+		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
 		jww.INFO.Printf("User: %s", identity.ID)
 		writeContact(identity.GetContact())
+
+		// NOTE: DO NOT REMOVE THIS LINE. YOU WILL BREAK INTEGRATION
+		fmt.Printf("%s\n", identity.ID)
 	},
 }
 
@@ -65,13 +71,14 @@ func init() {
 	rootCmd.AddCommand(initCmd)
 }
 
-// loadOrInitClient will build a new xxdk.E2e from existing storage
+// loadOrInitMessenger will build a new xxdk.E2e from existing storage
 // or from a new storage that it will create if none already exists
-func loadOrInitClient(password []byte, storeDir, regCode string,
+func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode string,
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
+	jww.INFO.Printf("Using normal sender")
 
 	// create a new client if none exist
-	var baseClient *xxdk.Cmix
+	var net *xxdk.Cmix
 	var identity xxdk.ReceptionIdentity
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
@@ -81,50 +88,55 @@ func loadOrInitClient(password []byte, storeDir, regCode string,
 		}
 
 		err = xxdk.NewCmix(string(ndfJson), storeDir, password, regCode)
-		baseClient, err = xxdk.LoadCmix(storeDir, password, cmixParams)
+		net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		identity, err = xxdk.MakeReceptionIdentity(baseClient)
+		if forceLegacy {
+			jww.INFO.Printf("Forcing legacy sender")
+			identity, err = xxdk.MakeLegacyReceptionIdentity(net)
+		} else {
+			identity, err = xxdk.MakeReceptionIdentity(net)
+		}
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, baseClient)
+		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 	} else {
 		// Initialize from storage
-		baseClient, err = xxdk.LoadCmix(storeDir, password, cmixParams)
+		net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
-		identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, baseClient)
+		identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 	}
 
-	jww.INFO.Printf("Using Login for normal sender")
-	client, err := xxdk.Login(baseClient, authCbs, identity, e2eParams)
+	messenger, err := xxdk.Login(net, authCbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	return client
+	return messenger
 }
 
 // loadOrInitVanity will build a new xxdk.E2e from existing storage
 // or from a new storage that it will create if none already exists
 func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
+	jww.INFO.Printf("Using Vanity sender")
 
 	// create a new client if none exist
-	var baseClient *xxdk.Cmix
+	var net *xxdk.Cmix
 	var identity xxdk.ReceptionIdentity
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
-		// Initialize precan from scratch
+		// Initialize from scratch
 		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
@@ -132,37 +144,35 @@ func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
 
 		err = xxdk.NewVanityClient(string(ndfJson), storeDir,
 			password, regCode, userIdPrefix)
-		baseClient, err = xxdk.LoadCmix(storeDir, password, cmixParams)
+		net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		// TODO: Get proper identity
-		identity, err = xxdk.MakeReceptionIdentity(baseClient)
+		identity, err = xxdk.MakeLegacyReceptionIdentity(net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, baseClient)
+		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 	} else {
-		// Initialize precan from storage
-		baseClient, err = xxdk.LoadCmix(storeDir, password, cmixParams)
+		// Initialize from storage
+		net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
-		identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, baseClient)
+		identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 	}
 
-	jww.INFO.Printf("Using LoginLegacy for vanity sender")
-	client, err := xxdk.LoginLegacy(baseClient, e2eParams, authCbs)
+	messenger, err := xxdk.Login(net, authCbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	return client
+	return messenger
 }

@@ -117,41 +117,6 @@ func LoginE2eEphemeral(cmixId int, callbacks AuthCallbacks, identity,
 	return e2eTrackerSingleton.make(newE2e), nil
 }
 
-// LoginE2eLegacy creates a new E2e backed by the xxdk.Cmix persistent versioned.KV
-// Uses the pre-generated transmission ID used by xxdk.Cmix
-// If callbacks is left nil, a default auth.Callbacks will be used
-// This function is designed to maintain backwards compatibility with previous xx messenger designs
-// and should not be used for other purposes
-func LoginE2eLegacy(cmixId int, callbacks AuthCallbacks, e2eParamsJSON []byte) (*E2e, error) {
-	if len(e2eParamsJSON) == 0 {
-		jww.WARN.Printf("e2e params not specified, using defaults...")
-		e2eParamsJSON = GetDefaultE2EParams()
-	}
-
-	cmix, err := cmixTrackerSingleton.get(cmixId)
-	if err != nil {
-		return nil, err
-	}
-
-	var authCallbacks xxdk.AuthCallbacks
-	if callbacks == nil {
-		authCallbacks = xxdk.DefaultAuthCallbacks{}
-	} else {
-		authCallbacks = &authCallback{bindingsCbs: callbacks}
-	}
-
-	params, err := parseE2EParams(e2eParamsJSON)
-	if err != nil {
-		return nil, err
-	}
-
-	newE2e, err := xxdk.LoginLegacy(cmix.api, params, authCallbacks)
-	if err != nil {
-		return nil, err
-	}
-	return e2eTrackerSingleton.make(newE2e), nil
-}
-
 // GetContact returns a marshalled contact.Contact object for the E2e ReceptionIdentity
 func (e *E2e) GetContact() []byte {
 	return e.api.GetReceptionIdentity().GetContact().Marshal()

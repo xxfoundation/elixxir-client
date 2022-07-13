@@ -263,7 +263,6 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, grp *cyclic.Group)
 	// NOTE: not used... RSA Keygen (4096 bit defaults)
 	rsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
 	if err != nil {
-		r
 		jww.FATAL.Panicf(err.Error())
 	}
 

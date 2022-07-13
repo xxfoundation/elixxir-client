@@ -242,16 +242,6 @@ func createNewVanityUser(rng csprng.Source,
 
 // createPrecannedUser
 func createPrecannedUser(precannedID uint, rng csprng.Source, e2e *cyclic.Group) user.Info {
-	// DH Keygen
-	// FIXME: Why 256 bits? -- this is spec but not explained, it has
-	// to do with optimizing operations on one side and still preserves
-	// decent security -- cite this. Why valid for BOTH e2e and cmix?
-	prng := rand.New(rand.NewSource(int64(precannedID)))
-	e2eKeyBytes, err := csprng.GenerateInGroup(e2e.GetPBytes(), 256, prng)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-
 	// Salt, UID, etc gen
 	salt := make([]byte, SaltSize)
 
@@ -267,6 +257,7 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, e2e *cyclic.Group)
 
 	prime := e2e.GetPBytes()
 	keyLen := len(prime)
+	prng := rand.New(rand.NewSource(int64(precannedID)))
 	dhPrivKey := diffieHellman.GeneratePrivateKey(keyLen, e2e, prng)
 	return user.Info{
 		TransmissionID:   &userID,

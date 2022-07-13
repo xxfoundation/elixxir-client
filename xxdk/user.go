@@ -53,6 +53,7 @@ func createNewUser(rng *fastRNG.StreamGenerator, e2eGroup *cyclic.Group) user.In
 		jww.FATAL.Panicf(err.Error())
 	}
 
+	dhPrivKey := e2eGroup.NewIntFromBytes(e2eKeyBytes)
 	return user.Info{
 		TransmissionID:   transmissionID.DeepCopy(),
 		TransmissionSalt: transmissionSalt,
@@ -61,8 +62,8 @@ func createNewUser(rng *fastRNG.StreamGenerator, e2eGroup *cyclic.Group) user.In
 		ReceptionSalt:    receptionSalt,
 		ReceptionRSA:     receptionRsaKey,
 		Precanned:        false,
-		E2eDhPrivateKey:  e2eGroup.NewIntFromBytes(e2eKeyBytes),
-		E2eDhPublicKey:   nil,
+		E2eDhPrivateKey:  dhPrivKey,
+		E2eDhPublicKey:   diffieHellman.GeneratePublicKey(dhPrivKey, e2eGroup),
 	}
 }
 

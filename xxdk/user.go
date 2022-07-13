@@ -39,7 +39,7 @@ func createNewUser(rng *fastRNG.StreamGenerator, e2eGroup *cyclic.Group) user.In
 	var transmissionSalt, receptionSalt []byte
 
 	e2eKeyBytes, transmissionSalt, receptionSalt,
-		transmissionRsaKey, receptionRsaKey := createDhKeys(rng, e2eGroup)
+		transmissionRsaKey, receptionRsaKey := createKeys(rng, e2eGroup)
 
 	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(),
 		transmissionSalt, id.User)
@@ -67,7 +67,7 @@ func createNewUser(rng *fastRNG.StreamGenerator, e2eGroup *cyclic.Group) user.In
 	}
 }
 
-func createDhKeys(rng *fastRNG.StreamGenerator,
+func createKeys(rng *fastRNG.StreamGenerator,
 	e2e *cyclic.Group) (e2eKeyBytes,
 	transmissionSalt, receptionSalt []byte,
 	transmissionRsaKey, receptionRsaKey *rsa.PrivateKey) {
@@ -96,6 +96,11 @@ func createDhKeys(rng *fastRNG.StreamGenerator,
 		var err error
 		stream := rng.GetStream()
 		transmissionRsaKey, err = rsa.GenerateKey(stream, rsa.DefaultRSABitLen)
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+		transmissionSalt = make([]byte, SaltSize)
+		_, err = stream.Read(transmissionSalt)
 		stream.Close()
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
@@ -107,6 +112,11 @@ func createDhKeys(rng *fastRNG.StreamGenerator,
 		var err error
 		stream := rng.GetStream()
 		receptionRsaKey, err = rsa.GenerateKey(stream, rsa.DefaultRSABitLen)
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+		receptionSalt = make([]byte, SaltSize)
+		_, err = stream.Read(receptionSalt)
 		stream.Close()
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
@@ -206,17 +216,17 @@ func createNewVanityUser(rng csprng.Source,
 					if err != nil {
 						jww.FATAL.Panicf(err.Error())
 					}
-					id := rID.String()
+					rid := rID.String()
 					if ignoreCase {
-						id = strings.ToLower(id)
+						rid = strings.ToLower(rid)
 					}
-					if strings.HasPrefix(id, pref) {
+					if strings.HasPrefix(rid, pref) {
 						mu.Lock()
 						receptionID = rID
 						receptionSalt = rSalt
 						mu.Unlock()
 						found <- true
-						defer wg.Done()
+						wg.Done()
 						return
 					}
 				}

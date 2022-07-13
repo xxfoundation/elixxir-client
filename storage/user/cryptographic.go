@@ -10,15 +10,19 @@ package user
 import (
 	"bytes"
 	"encoding/gob"
+	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-const currentCryptographicIdentityVersion = 0
+const originalCryptographicIdentityVersion = 0
+const currentCryptographicIdentityVersion = 1
 const cryptographicIdentityKey = "cryptographicIdentity"
 
 type CryptographicIdentity struct {
@@ -29,6 +33,8 @@ type CryptographicIdentity struct {
 	receptionSalt      []byte
 	receptionRsaKey    *rsa.PrivateKey
 	isPrecanned        bool
+	e2eDhPrivateKey    *cyclic.Int
+	e2eDhPublicKey     *cyclic.Int
 }
 
 type ciDisk struct {
@@ -41,10 +47,23 @@ type ciDisk struct {
 	IsPrecanned        bool
 }
 
+type ciDiskV1 struct {
+	TransmissionID     *id.ID
+	TransmissionSalt   []byte
+	TransmissionRsaKey *rsa.PrivateKey
+	ReceptionID        *id.ID
+	ReceptionSalt      []byte
+	ReceptionRsaKey    *rsa.PrivateKey
+	IsPrecanned        bool
+	E2eDhPrivateKey    []byte
+	E2eDhPublicKey     []byte
+}
+
 func newCryptographicIdentity(transmissionID, receptionID *id.ID,
 	transmissionSalt, receptionSalt []byte,
 	transmissionRsa, receptionRsa *rsa.PrivateKey,
-	isPrecanned bool, kv *versioned.KV) *CryptographicIdentity {
+	isPrecanned bool, e2eDhPrivateKey, e2eDhPublicKey *cyclic.Int,
+	kv *versioned.KV) *CryptographicIdentity {
 
 	ci := &CryptographicIdentity{
 		transmissionID:     transmissionID,
@@ -54,6 +73,8 @@ func newCryptographicIdentity(transmissionID, receptionID *id.ID,
 		receptionSalt:      receptionSalt,
 		receptionRsaKey:    receptionRsa,
 		isPrecanned:        isPrecanned,
+		e2eDhPrivateKey:    e2eDhPrivateKey,
+		e2eDhPublicKey:     e2eDhPublicKey,
 	}
 
 	if err := ci.save(kv); err != nil {
@@ -64,39 +85,114 @@ func newCryptographicIdentity(transmissionID, receptionID *id.ID,
 	return ci
 }
 
-func loadCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error) {
-	obj, err := kv.Get(cryptographicIdentityKey,
-		currentCryptographicIdentityVersion)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to get user "+
-			"cryptographic identity from EKV")
-	}
-
-	var resultBuffer bytes.Buffer
+// loadOriginalCryptographicIdentity attempts to load the originalCryptographicIdentityVersion CryptographicIdentity
+func loadOriginalCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error) {
 	result := &CryptographicIdentity{}
+	obj, err := kv.Get(cryptographicIdentityKey, originalCryptographicIdentityVersion)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "Failed to get version %d user "+
+			"cryptographic identity from EKV", originalCryptographicIdentityVersion)
+	}
+	var resultBuffer bytes.Buffer
 	decodable := &ciDisk{}
 
 	resultBuffer.Write(obj.Data)
 	dec := gob.NewDecoder(&resultBuffer)
 	err = dec.Decode(decodable)
-
-	if decodable != nil {
-		result.isPrecanned = decodable.IsPrecanned
-		result.receptionRsaKey = decodable.ReceptionRsaKey
-		result.transmissionRsaKey = decodable.TransmissionRsaKey
-		result.transmissionSalt = decodable.TransmissionSalt
-		result.transmissionID = decodable.TransmissionID
-		result.receptionID = decodable.ReceptionID
-		result.receptionSalt = decodable.ReceptionSalt
+	if err != nil {
+		return nil, err
 	}
 
-	return result, err
+	result.isPrecanned = decodable.IsPrecanned
+	result.receptionRsaKey = decodable.ReceptionRsaKey
+	result.transmissionRsaKey = decodable.TransmissionRsaKey
+	result.transmissionSalt = decodable.TransmissionSalt
+	result.transmissionID = decodable.TransmissionID
+	result.receptionID = decodable.ReceptionID
+	result.receptionSalt = decodable.ReceptionSalt
+	return result, nil
+}
+
+func loadCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error) {
+	result := &CryptographicIdentity{}
+	obj, err := kv.Get(cryptographicIdentityKey,
+		currentCryptographicIdentityVersion)
+	if err != nil {
+		result, err = loadOriginalCryptographicIdentity(kv)
+		if err != nil {
+			return nil, err
+		}
+		// Populate E2E keys from legacy storage
+		result.e2eDhPublicKey, result.e2eDhPrivateKey = loadLegacyDHKeys(kv)
+		// Migrate to the new version in storage
+		return result, result.save(kv)
+	}
+
+	decodable := &ciDiskV1{}
+	err = json.Unmarshal(obj.Data, decodable)
+	if err != nil {
+		return nil, err
+	}
+
+	result.isPrecanned = decodable.IsPrecanned
+	result.receptionRsaKey = decodable.ReceptionRsaKey
+	result.transmissionRsaKey = decodable.TransmissionRsaKey
+	result.transmissionSalt = decodable.TransmissionSalt
+	result.transmissionID = decodable.TransmissionID
+	result.receptionID = decodable.ReceptionID
+	result.receptionSalt = decodable.ReceptionSalt
+
+	result.e2eDhPrivateKey = &cyclic.Int{}
+	err = result.e2eDhPrivateKey.UnmarshalJSON(decodable.E2eDhPrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	result.e2eDhPublicKey = &cyclic.Int{}
+	err = result.e2eDhPublicKey.UnmarshalJSON(decodable.E2eDhPublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// loadLegacyDHKeys attempts to load DH Keys from legacy storage. It
+// prints a warning to the log as users should be using ReceptionIdentity
+// instead of PortableUserInfo
+func loadLegacyDHKeys(kv *versioned.KV) (pub, priv *cyclic.Int) {
+	// Legacy package prefixes and keys, see e2e/ratchet/storage.go
+	packagePrefix := "e2eSession"
+	pubKeyKey := "DhPubKey"
+	privKeyKey := "DhPrivKey"
+
+	kvPrefix := kv.Prefix(packagePrefix)
+
+	privKey, err := utility.LoadCyclicKey(kvPrefix, privKeyKey)
+	if err != nil {
+		jww.ERROR.Printf("Failed to load e2e DH private key: %v", err)
+		return nil, nil
+	}
+
+	pubKey, err := utility.LoadCyclicKey(kvPrefix, pubKeyKey)
+	if err != nil {
+		jww.ERROR.Printf("Failed to load e2e DH public key: %v", err)
+		return nil, nil
+	}
+
+	return pubKey, privKey
 }
 
 func (ci *CryptographicIdentity) save(kv *versioned.KV) error {
-	var userDataBuffer bytes.Buffer
+	dhPriv, err := ci.e2eDhPrivateKey.MarshalJSON()
+	if err != nil {
+		return err
+	}
+	dhPub, err := ci.e2eDhPublicKey.MarshalJSON()
+	if err != nil {
+		return err
+	}
 
-	encodable := &ciDisk{
+	encodable := &ciDiskV1{
 		TransmissionID:     ci.transmissionID,
 		TransmissionSalt:   ci.transmissionSalt,
 		TransmissionRsaKey: ci.transmissionRsaKey,
@@ -104,10 +200,11 @@ func (ci *CryptographicIdentity) save(kv *versioned.KV) error {
 		ReceptionSalt:      ci.receptionSalt,
 		ReceptionRsaKey:    ci.receptionRsaKey,
 		IsPrecanned:        ci.isPrecanned,
+		E2eDhPrivateKey:    dhPriv,
+		E2eDhPublicKey:     dhPub,
 	}
 
-	enc := gob.NewEncoder(&userDataBuffer)
-	err := enc.Encode(encodable)
+	enc, err := json.Marshal(&encodable)
 	if err != nil {
 		return err
 	}
@@ -115,7 +212,7 @@ func (ci *CryptographicIdentity) save(kv *versioned.KV) error {
 	obj := &versioned.Object{
 		Version:   currentCryptographicIdentityVersion,
 		Timestamp: netTime.Now(),
-		Data:      userDataBuffer.Bytes(),
+		Data:      enc,
 	}
 
 	return kv.Set(cryptographicIdentityKey,
@@ -148,4 +245,12 @@ func (ci *CryptographicIdentity) GetTransmissionRSA() *rsa.PrivateKey {
 
 func (ci *CryptographicIdentity) IsPrecanned() bool {
 	return ci.isPrecanned
+}
+
+func (ci *CryptographicIdentity) GetE2eDhPublicKey() *cyclic.Int {
+	return ci.e2eDhPublicKey.DeepCopy()
+}
+
+func (ci *CryptographicIdentity) GetE2eDhPrivateKey() *cyclic.Int {
+	return ci.e2eDhPrivateKey.DeepCopy()
 }

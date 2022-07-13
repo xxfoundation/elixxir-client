@@ -265,13 +265,15 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, e2e *cyclic.Group)
 		jww.FATAL.Panicf(err.Error())
 	}
 
+	dhPrivKey := e2e.NewIntFromBytes(e2eKeyBytes)
 	return user.Info{
 		TransmissionID:   &userID,
 		TransmissionSalt: salt,
 		ReceptionID:      &userID,
 		ReceptionSalt:    salt,
 		Precanned:        true,
-		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
+		E2eDhPrivateKey:  dhPrivKey,
+		E2eDhPublicKey:   e2e.ExpG(dhPrivKey, e2e.NewInt(1)),
 		TransmissionRSA:  rsaKey,
 		ReceptionRSA:     rsaKey,
 	}

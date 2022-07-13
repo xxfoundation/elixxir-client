@@ -9,10 +9,14 @@ package user
 
 import (
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"math/rand"
 	"testing"
 )
 
@@ -23,7 +27,15 @@ func TestUser_SetUsername(t *testing.T) {
 	rid := id.NewIdFromString("recv", id.User, t)
 	tsalt := []byte("tsalt")
 	rsalt := []byte("rsalt")
-	u, err := NewUser(kv, tid, rid, tsalt, rsalt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
+
+	prng := rand.New(rand.NewSource(42))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	u, err := NewUser(kv, tid, rid, tsalt, rsalt, &rsa.PrivateKey{},
+		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -57,7 +69,15 @@ func TestUser_GetUsername(t *testing.T) {
 	rid := id.NewIdFromString("recv", id.User, t)
 	tsalt := []byte("tsalt")
 	rsalt := []byte("rsalt")
-	u, err := NewUser(kv, tid, rid, tsalt, rsalt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
+
+	prng := rand.New(rand.NewSource(42))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	u, err := NewUser(kv, tid, rid, tsalt, rsalt, &rsa.PrivateKey{},
+		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -85,7 +105,15 @@ func TestUser_loadUsername(t *testing.T) {
 	rid := id.NewIdFromString("recv", id.User, t)
 	tsalt := []byte("tsalt")
 	rsalt := []byte("rsalt")
-	u, err := NewUser(kv, tid, rid, tsalt, rsalt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
+
+	prng := rand.New(rand.NewSource(42))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	u, err := NewUser(kv, tid, rid, tsalt, rsalt, &rsa.PrivateKey{},
+		&rsa.PrivateKey{}, false, dhPrivKey, dhPubKey)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}

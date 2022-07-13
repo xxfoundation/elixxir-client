@@ -40,10 +40,10 @@ func TestManager_sendThread(t *testing.T) {
 	go func() {
 		var numReceived int
 		for i := 0; i < 2; i++ {
-			for m.net.(*testNetworkManager).GetMsgListLen() == numReceived {
+			for m.networkManager.(*testNetworkManager).GetMsgListLen() == numReceived {
 				time.Sleep(5 * time.Millisecond)
 			}
-			numReceived = m.net.(*testNetworkManager).GetMsgListLen()
+			numReceived = m.networkManager.(*testNetworkManager).GetMsgListLen()
 			msgChan <- true
 		}
 	}()
@@ -54,7 +54,7 @@ func TestManager_sendThread(t *testing.T) {
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
 			3*m.avgSendDelta)
 	case <-msgChan:
-		numReceived += m.net.(*testNetworkManager).GetMsgListLen()
+		numReceived += m.networkManager.(*testNetworkManager).GetMsgListLen()
 	}
 
 	select {
@@ -62,10 +62,10 @@ func TestManager_sendThread(t *testing.T) {
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
 			3*m.avgSendDelta)
 	case <-msgChan:
-		if m.net.(*testNetworkManager).GetMsgListLen() <= numReceived {
+		if m.networkManager.(*testNetworkManager).GetMsgListLen() <= numReceived {
 			t.Errorf("Failed to receive second send."+
 				"\nmessages on last receive: %d\nmessages on this receive: %d",
-				numReceived, m.net.(*testNetworkManager).GetMsgListLen())
+				numReceived, m.networkManager.(*testNetworkManager).GetMsgListLen())
 		}
 	}
 
@@ -115,7 +115,7 @@ func TestManager_sendMessages(t *testing.T) {
 	}
 
 	// get sent messages
-	receivedMsgs := m.net.(*testNetworkManager).GetMsgList()
+	receivedMsgs := m.networkManager.(*testNetworkManager).GetMsgList()
 
 	// Test that all messages were received
 	if len(receivedMsgs) != len(msgs) {

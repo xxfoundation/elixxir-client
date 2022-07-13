@@ -59,7 +59,7 @@ func newTestManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 		randomRange:    randomRange,
 		statusChan:     make(chan bool, statusChanLen),
 		store:          &store,
-		net:            newTestNetworkManager(sendErr, t),
+		networkManager: newTestNetworkManager(sendErr, t),
 		rng:            fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 	}
 

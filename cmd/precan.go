@@ -89,10 +89,10 @@ func getPrecanID(recipientID *id.ID) uint {
 	return uint(recipientID.Bytes()[7])
 }
 
-func addPrecanAuthenticatedChannel(client *xxdk.E2e, recipientID *id.ID,
+func addPrecanAuthenticatedChannel(messenger *xxdk.E2e, recipientID *id.ID,
 	recipient contact.Contact) {
 	jww.WARN.Printf("Precanned user id detected: %s", recipientID)
-	preUsr, err := client.MakePrecannedAuthenticatedChannel(
+	preUsr, err := messenger.MakePrecannedAuthenticatedChannel(
 		getPrecanID(recipientID))
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)

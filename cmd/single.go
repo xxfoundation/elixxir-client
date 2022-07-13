@@ -157,7 +157,7 @@ func (r *Response) Callback(payload []byte, receptionID receptionID.EphemeralIde
 }
 
 // sendSingleUse sends a single use message.
-func sendSingleUse(m *xxdk.Cmix, partner contact.Contact, payload []byte,
+func sendSingleUse(net *xxdk.Cmix, partner contact.Contact, payload []byte,
 	maxMessages uint8, timeout time.Duration, tag string) {
 	// Construct callback
 	callback := &Response{
@@ -178,12 +178,12 @@ func sendSingleUse(m *xxdk.Cmix, partner contact.Contact, payload []byte,
 		partner.ID, payload)
 	params := single.GetDefaultRequestParams()
 	params.MaxResponseMessages = maxMessages
-	rng := m.GetRng().GetStream()
+	rng := net.GetRng().GetStream()
 	defer rng.Close()
 
-	e2eGrp := m.GetStorage().GetE2EGroup()
+	e2eGrp := net.GetStorage().GetE2EGroup()
 	rnd, ephID, err := single.TransmitRequest(partner, tag, payload, callback, params,
-		m.GetCmix(), rng, e2eGrp)
+		net.GetCmix(), rng, e2eGrp)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to transmit single-use message: %+v", err)
 	}

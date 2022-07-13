@@ -252,7 +252,7 @@ func createNewVanityUser(rng csprng.Source,
 }
 
 // createPrecannedUser
-func createPrecannedUser(precannedID uint, rng csprng.Source, e2e *cyclic.Group) user.Info {
+func createPrecannedUser(precannedID uint, rng csprng.Source, grp *cyclic.Group) user.Info {
 	// Salt, UID, etc gen
 	salt := make([]byte, SaltSize)
 
@@ -263,13 +263,14 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, e2e *cyclic.Group)
 	// NOTE: not used... RSA Keygen (4096 bit defaults)
 	rsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
 	if err != nil {
+		r
 		jww.FATAL.Panicf(err.Error())
 	}
 
-	prime := e2e.GetPBytes()
+	prime := grp.GetPBytes()
 	keyLen := len(prime)
 	prng := rand.New(rand.NewSource(int64(precannedID)))
-	dhPrivKey := diffieHellman.GeneratePrivateKey(keyLen, e2e, prng)
+	dhPrivKey := diffieHellman.GeneratePrivateKey(keyLen, grp, prng)
 	return user.Info{
 		TransmissionID:   &userID,
 		TransmissionSalt: salt,
@@ -277,7 +278,7 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, e2e *cyclic.Group)
 		ReceptionSalt:    salt,
 		Precanned:        true,
 		E2eDhPrivateKey:  dhPrivKey,
-		E2eDhPublicKey:   e2e.ExpG(dhPrivKey, e2e.NewInt(1)),
+		E2eDhPublicKey:   diffieHellman.GeneratePublicKey(dhPrivKey, grp),
 		TransmissionRSA:  rsaKey,
 		ReceptionRSA:     rsaKey,
 	}

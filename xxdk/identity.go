@@ -8,6 +8,7 @@ package xxdk
 
 import (
 	"encoding/json"
+	"gitlab.com/elixxir/primitives/fact"
 
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -173,12 +174,11 @@ func (r ReceptionIdentity) GetContact() contact.Contact {
 	grp, _ := r.GetGroup()
 	dhKeyPriv, _ := r.GetDHKeyPrivate()
 
-	dhPub := grp.ExpG(dhKeyPriv, grp.NewInt(1))
 	ct := contact.Contact{
 		ID:             r.ID,
-		DhPubKey:       dhPub,
+		DhPubKey:       diffieHellman.GeneratePublicKey(dhKeyPriv, grp),
 		OwnershipProof: nil,
-		Facts:          nil,
+		Facts:          make([]fact.Fact, 0),
 	}
 	return ct
 }

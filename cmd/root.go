@@ -585,6 +585,7 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
 	storePassword := parsePassword(viper.GetString("password"))
 	storeDir := viper.GetString("session")
 	regCode := viper.GetString("regcode")
+	forceLegacy := viper.GetBool("force-legacy")
 	jww.DEBUG.Printf("sessionDir: %v", storeDir)
 
 	// TODO: This probably shouldn't be initialized globally.
@@ -602,7 +603,7 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
 	} else if backupPath != "" {
 		messenger = loadOrInitBackup(backupPath, backupPass, storePassword, storeDir, cmixParams, e2eParams)
 	} else {
-		messenger = loadOrInitClient(storePassword, storeDir, regCode, cmixParams, e2eParams)
+		messenger = loadOrInitMessenger(forceLegacy, storePassword, storeDir, regCode, cmixParams, e2eParams)
 	}
 
 	// Handle protoUser output
@@ -622,6 +623,9 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
 
 	// Handle backup output
 	if backupOut := viper.GetString("backupOut"); backupOut != "" {
+		if !forceLegacy {
+			jww.FATAL.Panicf("Unable to make backup for non-legacy sender!")
+		}
 		updateBackupCb := func(encryptedBackup []byte) {
 			jww.INFO.Printf("Backup update received, size %d",
 				len(encryptedBackup))
@@ -1131,6 +1135,9 @@ func init() {
 		"ID to send message to (if below 40, will be precanned. Use "+
 			"'0x' or 'b64:' for hex and base64 representations)")
 	viper.BindPFlag("destid", rootCmd.Flags().Lookup("destid"))
+	rootCmd.PersistentFlags().Bool("force-legacy", false,
+		"Force client to operate using legacy identities.")
+	viper.BindPFlag("force-legacy", rootCmd.PersistentFlags().Lookup("force-legacy"))
 
 	rootCmd.Flags().StringP("destfile", "",
 		"", "Read this contact file for the destination id")

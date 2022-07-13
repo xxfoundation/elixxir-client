@@ -71,9 +71,9 @@ func init() {
 	rootCmd.AddCommand(initCmd)
 }
 
-// loadOrInitClient will build a new xxdk.E2e from existing storage
+// loadOrInitMessenger will build a new xxdk.E2e from existing storage
 // or from a new storage that it will create if none already exists
-func loadOrInitClient(password []byte, storeDir, regCode string,
+func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode string,
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
 	jww.INFO.Printf("Using normal sender")
 
@@ -93,7 +93,12 @@ func loadOrInitClient(password []byte, storeDir, regCode string,
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		identity, err = xxdk.MakeReceptionIdentity(net)
+		if forceLegacy {
+			jww.INFO.Printf("Forcing legacy sender")
+			identity, err = xxdk.MakeLegacyReceptionIdentity(net)
+		} else {
+			identity, err = xxdk.MakeReceptionIdentity(net)
+		}
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

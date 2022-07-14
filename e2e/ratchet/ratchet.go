@@ -139,6 +139,7 @@ func (r *Ratchet) GetPartner(partnerID *id.ID) (partner.Manager, error) {
 	m, ok := r.managers[*partnerID]
 
 	if !ok {
+		jww.WARN.Printf("%s: %s", NoPartnerErrorStr, partnerID)
 		return nil, errors.New(NoPartnerErrorStr)
 	}
 
@@ -149,6 +150,7 @@ func (r *Ratchet) GetPartner(partnerID *id.ID) (partner.Manager, error) {
 func (r *Ratchet) DeletePartner(partnerID *id.ID) error {
 	m, ok := r.managers[*partnerID]
 	if !ok {
+		jww.WARN.Printf("%s: %s", NoPartnerErrorStr, partnerID)
 		return errors.New(NoPartnerErrorStr)
 	}
 

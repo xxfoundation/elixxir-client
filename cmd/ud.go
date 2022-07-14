@@ -218,7 +218,7 @@ var udCmd = &cobra.Command{
 					"Failed to remove user %s: %+v",
 					userToRemove, err)
 			}
-			fmt.Printf("[UD] Removed user from discovery: %s\n",
+			fmt.Printf("Removed user from discovery: %s\n",
 				userToRemove)
 		}
 

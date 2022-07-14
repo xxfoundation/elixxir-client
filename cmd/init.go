@@ -78,10 +78,7 @@ func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode st
 	jww.INFO.Printf("Using normal sender")
 
 	// create a new client if none exist
-	var net *xxdk.Cmix
-	var identity xxdk.ReceptionIdentity
-	_, err := os.Stat(storeDir)
-	if errors.Is(err, fs.ErrNotExist) {
+	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
 		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
 		if err != nil {
@@ -95,13 +92,13 @@ func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode st
 	}
 
 	// Initialize from storage
-	net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
+	net, err := xxdk.LoadCmix(storeDir, password, cmixParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 
 	// Load or initialize xxdk.ReceptionIdentity storage
-	identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, net)
+	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, net)
 	if err != nil {
 		if forceLegacy {
 			jww.INFO.Printf("Forcing legacy sender")
@@ -133,10 +130,7 @@ func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
 	jww.INFO.Printf("Using Vanity sender")
 
 	// create a new client if none exist
-	var net *xxdk.Cmix
-	var identity xxdk.ReceptionIdentity
-	_, err := os.Stat(storeDir)
-	if errors.Is(err, fs.ErrNotExist) {
+	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
 		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
 		if err != nil {
@@ -150,13 +144,13 @@ func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
 		}
 	}
 	// Initialize from storage
-	net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
+	net, err := xxdk.LoadCmix(storeDir, password, cmixParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 
 	// Load or initialize xxdk.ReceptionIdentity storage
-	identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, net)
+	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, net)
 	if err != nil {
 		identity, err = xxdk.MakeLegacyReceptionIdentity(net)
 		if err != nil {

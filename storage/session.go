@@ -34,8 +34,11 @@ import (
 )
 
 const currentSessionVersion = 0
+
+// NOTE: These are set this way for legacy purposes. If you want to change them
+// you will need to set up and upgrade path for old session files
 const cmixGroupKey = "cmix/GroupKey"
-const e2eGroupKey = "e2e/GroupKey"
+const e2eGroupKey = "e2eSession/Group"
 
 // Session object, backed by encrypted versioned.KVc
 type Session interface {

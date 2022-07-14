@@ -10,11 +10,12 @@
 package storage
 
 import (
-	"gitlab.com/elixxir/crypto/diffieHellman"
 	"math/rand"
 	"sync"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/crypto/diffieHellman"
 
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/xx_network/crypto/large"
@@ -33,8 +34,8 @@ import (
 )
 
 const currentSessionVersion = 0
-const cmixGroupKey = "cmixGroup"
-const e2eGroupKey = "e2eGroup"
+const cmixGroupKey = "cmix/GroupKey"
+const e2eGroupKey = "e2e/GroupKey"
 
 // Session object, backed by encrypted versioned.KVc
 type Session interface {

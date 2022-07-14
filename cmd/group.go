@@ -127,7 +127,7 @@ func initGroupManager(messenger *xxdk.E2e) (groupChat.GroupChat,
 
 	jww.INFO.Print("[GC] Creating new group manager.")
 	manager, err := groupChat.NewManager(messenger.GetCmix(),
-		messenger.GetE2E(), messenger.GetStorage().GetReceptionID(),
+		messenger.GetE2E(), messenger.GetReceptionIdentity().ID,
 		messenger.GetRng(), messenger.GetStorage().GetE2EGroup(),
 		messenger.GetStorage().GetKV(), requestCb, &receiveProcessor{recChan})
 	if err != nil {

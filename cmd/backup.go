@@ -30,7 +30,8 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 	// create a new client if none exist
 	var net *xxdk.Cmix
 	var identity xxdk.ReceptionIdentity
-	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
+	_, err := os.Stat(storeDir)
+	if errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
 		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
 		if err != nil {
@@ -73,28 +74,22 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 					backupIdListPath, err)
 			}
 		}
+	}
+	// Initialize from storage
+	net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
 
-		net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-
+	// Load or initialize xxdk.ReceptionIdentity storage
+	identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, net)
+	if err != nil {
 		identity, err = xxdk.MakeLegacyReceptionIdentity(net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
 		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-	} else {
-		// Initialize from storage
-		net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-		identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

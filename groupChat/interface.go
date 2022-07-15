@@ -29,7 +29,7 @@ import (
 	sessionImport "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
 	crypto "gitlab.com/elixxir/crypto/e2e"
@@ -100,6 +100,16 @@ type ReceiveCallback func(msg MessageReceive)
 // Sub-interfaces from other packages //////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////
 
+// messenger is a sub-interface mocking the xxdk.E2e object.
+// This contains methods specific for this package.
+type messenger interface {
+	GetCmix() cmix.Client
+	GetE2E() e2e.Handler
+	GetReceptionIdentity() xxdk.ReceptionIdentity
+	GetRng() *fastRNG.StreamGenerator
+	GetStorage() storage.Session
+}
+
 // groupCmix is a subset of the cmix.Client interface containing only the
 // methods needed by GroupChat
 type groupCmix interface {
@@ -126,21 +136,4 @@ type e2eHandler interface {
 	GetPartner(partnerID *id.ID) (partner.Manager, error)
 	GetHistoricalDHPubkey() *cyclic.Int
 	GetHistoricalDHPrivkey() *cyclic.Int
-}
-
-// messenger is a sub-interface mocking the xxdk.E2e object.
-// This contains methods specific for this package.
-type messenger interface {
-	GetCmix() groupCmix
-	GetE2E() e2eHandler
-	GetReceptionIdentity() xxdk.ReceptionIdentity
-	GetRng() *fastRNG.StreamGenerator
-	GetStorage() session
-}
-
-// session is a sub-interface of the storage.Session interface.
-// This contains the methods specific for this package.
-type session interface {
-	GetE2EGroup() *cyclic.Group
-	GetKV() *versioned.KV
 }

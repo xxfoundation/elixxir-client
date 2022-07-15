@@ -194,13 +194,14 @@ func loadOrInitE2eLegacy(identity ReceptionIdentity, net *Cmix) (e2e.Handler, er
 		net.GetCmix(), identity.ID, e2eGrp, net.GetRng(),
 		net.GetEventReporter(), rekey.GetDefaultParams())
 	if err != nil {
+		jww.DEBUG.Printf("e2e.LoadLegacy error: %v", err)
 		//if no legacy e2e handler exists, try to load a new one
 		e2eHandler, err = e2e.Load(kv,
 			net.GetCmix(), identity.ID, e2eGrp, net.GetRng(),
 			net.GetEventReporter())
 		if err != nil {
 			jww.WARN.Printf("Failed to load e2e instance for %s, "+
-				"creating a new one", identity.ID)
+				"creating a new one: %v", identity.ID, err)
 
 			//initialize the e2e storage
 			privKey, err := identity.GetDHKeyPrivate()

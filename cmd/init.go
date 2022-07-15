@@ -77,8 +77,45 @@ func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode st
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
 	jww.INFO.Printf("Using normal sender")
 
-	net := loadOrInitNet(password, storeDir, regCode, cmixParams)
-	identity := loadOrInitReceptionIdentity(forceLegacy, net)
+	// create a new client if none exist
+	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
+		// Initialize from scratch
+		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+
+		err = xxdk.NewCmix(string(ndfJson), storeDir, password, regCode)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+	}
+
+	// Initialize from storage
+	net, err := xxdk.LoadCmix(storeDir, password, cmixParams)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+
+	// Load or initialize xxdk.ReceptionIdentity storage
+	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, net)
+	if err != nil {
+		if forceLegacy {
+			jww.INFO.Printf("Forcing legacy sender")
+			identity, err = xxdk.MakeLegacyReceptionIdentity(net)
+		} else {
+			identity, err = xxdk.MakeReceptionIdentity(net)
+		}
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+
+		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+	}
+
 	messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
@@ -86,6 +123,8 @@ func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode st
 	return messenger
 }
 
+// loadOrInitNet will build a new xxdk.Cmix from existing storage
+// or from a new storage that it will create if none already exists
 func loadOrInitNet(password []byte, storeDir, regCode string,
 	cmixParams xxdk.CMIXParams) *xxdk.Cmix {
 	// create a new client if none exist
@@ -111,6 +150,8 @@ func loadOrInitNet(password []byte, storeDir, regCode string,
 	return net
 }
 
+// loadOrInitReceptionIdentity will build a new xxdk.ReceptionIdentity from existing storage
+// or from a new storage that it will create if none already exists
 func loadOrInitReceptionIdentity(forceLegacy bool, net *xxdk.Cmix) xxdk.ReceptionIdentity {
 	// Load or initialize xxdk.ReceptionIdentity storage
 	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, net)

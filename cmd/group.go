@@ -126,10 +126,8 @@ func initGroupManager(messenger *xxdk.E2e) (groupChat.GroupChat,
 	}
 
 	jww.INFO.Print("[GC] Creating new group manager.")
-	manager, err := groupChat.NewManager(messenger.GetCmix(),
-		messenger.GetE2E(), messenger.GetReceptionIdentity().ID,
-		messenger.GetRng(), messenger.GetStorage().GetE2EGroup(),
-		messenger.GetStorage().GetKV(), requestCb, &receiveProcessor{recChan})
+	manager, err := groupChat.NewManager(messenger, requestCb,
+		&receiveProcessor{recChan})
 	if err != nil {
 		jww.FATAL.Panicf("[GC] Failed to initialize group chat manager: %+v", err)
 	}

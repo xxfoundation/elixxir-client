@@ -34,7 +34,9 @@ var singleCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 
 		cmixParams, e2eParams := initParams()
-		client := initE2e(cmixParams, e2eParams)
+		authCbs := makeAuthCallbacks(
+			viper.GetBool("unsafe-channel-creation"), e2eParams)
+		client := initE2e(cmixParams, e2eParams, authCbs)
 
 		// Write user contact to file
 		user := client.GetReceptionIdentity()

@@ -58,12 +58,12 @@ func verifySendSuccess(client *xxdk.E2e, paramsE2E e2e.Params,
 		// On a retry, go to the top of the loop
 		jww.DEBUG.Printf("Messages were not sent successfully," +
 			" resending messages...")
-		return true
+		return false
 	case <-done:
 		// Close channels on verification success
 		close(done)
 		close(retryChan)
-		return false
+		return true
 	}
 }
 

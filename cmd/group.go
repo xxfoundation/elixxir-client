@@ -116,7 +116,7 @@ var groupCmd = &cobra.Command{
 
 // initGroupManager creates a new group chat manager and starts the process
 // service.
-func initGroupManager(client *xxdk.E2e) (groupChat.GroupChat,
+func initGroupManager(messenger *xxdk.E2e) (groupChat.GroupChat,
 	chan groupChat.MessageReceive, chan groupStore.Group) {
 	recChan := make(chan groupChat.MessageReceive, 10)
 
@@ -126,10 +126,10 @@ func initGroupManager(client *xxdk.E2e) (groupChat.GroupChat,
 	}
 
 	jww.INFO.Print("[GC] Creating new group manager.")
-	manager, err := groupChat.NewManager(client.GetCmix(),
-		client.GetE2E(), client.GetStorage().GetReceptionID(),
-		client.GetRng(), client.GetStorage().GetE2EGroup(),
-		client.GetStorage().GetKV(), requestCb, &receiveProcessor{recChan})
+	manager, err := groupChat.NewManager(messenger.GetCmix(),
+		messenger.GetE2E(), messenger.GetReceptionIdentity().ID,
+		messenger.GetRng(), messenger.GetStorage().GetE2EGroup(),
+		messenger.GetStorage().GetKV(), requestCb, &receiveProcessor{recChan})
 	if err != nil {
 		jww.FATAL.Panicf("[GC] Failed to initialize group chat manager: %+v", err)
 	}

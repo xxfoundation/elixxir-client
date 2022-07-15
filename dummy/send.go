@@ -106,7 +106,7 @@ func (m *Manager) sendMessages(msgs map[id.ID]format.Message) error {
 			// }
 			// rng.Close()
 			// p.DebugTag = "dummy"
-			_, _, err := m.net.SendCMIX(msg, &recipient, p)
+			_, _, err := m.networkManager.SendCMIX(msg, &recipient, p)
 			if err != nil {
 				jww.WARN.Printf("Failed to send dummy message %d/%d via "+
 					"Send: %+v", i, len(msgs), err)

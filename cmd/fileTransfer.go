@@ -132,7 +132,7 @@ type receivedFtResults struct {
 // initFileTransferManager creates a new file transfer manager with a new
 // reception callback. Returns the file transfer manager and the channel that
 // will be triggered when the callback is called.
-func initFileTransferManager(client *xxdk.E2e, maxThroughput int) (
+func initFileTransferManager(messenger *xxdk.E2e, maxThroughput int) (
 	*ftE2e.Wrapper, chan receivedFtResults) {
 
 	// Create interfaces.ReceiveCallback that returns the results on a channel
@@ -152,24 +152,24 @@ func initFileTransferManager(client *xxdk.E2e, maxThroughput int) (
 
 	// Create new manager
 	manager, err := ft.NewManager(p,
-		client.GetReceptionIdentity().ID,
-		client.GetCmix(),
-		client.GetStorage(),
-		client.GetRng())
+		messenger.GetReceptionIdentity().ID,
+		messenger.GetCmix(),
+		messenger.GetStorage(),
+		messenger.GetRng())
 	if err != nil {
 		jww.FATAL.Panicf(
 			"[FT] Failed to create new file transfer manager: %+v", err)
 	}
 
 	// Start the file transfer sending and receiving threads
-	err = client.AddService(manager.StartProcesses)
+	err = messenger.AddService(manager.StartProcesses)
 	if err != nil {
 		jww.FATAL.Panicf("[FT] Failed to start file transfer threads: %+v", err)
 	}
 
 	e2eParams := ftE2e.DefaultParams()
 	e2eFt, err := ftE2e.NewWrapper(receiveCB, e2eParams, manager,
-		client.GetReceptionIdentity().ID, client.GetE2E(), client.GetCmix())
+		messenger.GetReceptionIdentity().ID, messenger.GetE2E(), messenger.GetCmix())
 	if err != nil {
 		jww.FATAL.Panicf(
 			"[FT] Failed to create new e2e file transfer wrapper: %+v", err)

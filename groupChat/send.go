@@ -71,7 +71,7 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 
 	// Obtain message ID
 	msgId, err := getGroupMessageId(
-		m.grp, groupID, m.receptionId, timeNow, message)
+		m.getE2eGroup(), groupID, m.getReceptionId(), timeNow, message)
 	if err != nil {
 		return 0, time.Time{}, group.MessageID{}, err
 	}
@@ -79,10 +79,10 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 	// Send all the groupMessages
 	param := cmix.GetDefaultCMIXParams()
 	param.DebugTag = "group.Message"
-	rid, _, err := m.net.SendMany(groupMessages, param)
+	rid, _, err := m.getCMix().SendMany(groupMessages, param)
 	if err != nil {
 		return 0, time.Time{}, group.MessageID{},
-			errors.Errorf(sendManyCmixErr, m.receptionId, g.Name, g.ID, err)
+			errors.Errorf(sendManyCmixErr, m.getReceptionId(), g.Name, g.ID, err)
 	}
 
 	jww.DEBUG.Printf("[GC] Sent message to %d members in group %s at %s.",
@@ -96,19 +96,19 @@ func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
 
 	// Create list of cMix messages
 	messages := make([]cmix.TargetedCmixMessage, 0, len(g.Members))
-	rng := m.rng.GetStream()
+	rng := m.getRng().GetStream()
 	defer rng.Close()
 
 	// Create cMix messages in parallel
 	for _, member := range g.Members {
 		// Do not send to the sender
-		if m.receptionId.Cmp(member.ID) {
+		if m.getReceptionId().Cmp(member.ID) {
 			continue
 		}
 
 		// Add cMix message to list
 		cMixMsg, err := newCmixMsg(g, tag, msg, timestamp, member, rng,
-			m.receptionId, m.net.GetMaxMessageLength())
+			m.getReceptionId(), m.getCMix().GetMaxMessageLength())
 		if err != nil {
 			return nil, err
 		}

@@ -44,8 +44,8 @@ func Test_manager_Send(t *testing.T) {
 
 	// Get messages sent with or return an error if no messages were sent
 	var messages []format.Message
-	if len(m.net.(*testNetworkManager).receptionMessages) > 0 {
-		messages = m.net.(*testNetworkManager).receptionMessages[0]
+	if len(m.getCMix().(*testNetworkManager).receptionMessages) > 0 {
+		messages = m.getCMix().(*testNetworkManager).receptionMessages[0]
 	} else {
 		t.Error("No group cMix messages received.")
 	}
@@ -59,7 +59,7 @@ func Test_manager_Send(t *testing.T) {
 			rounds.Round{ID: roundId, Timestamps: timestamps})
 		select {
 		case result := <-msgChan:
-			if !result.SenderID.Cmp(m.receptionId) {
+			if !result.SenderID.Cmp(m.getReceptionId()) {
 				t.Errorf("Sender mismatch")
 			}
 			if result.ID.String() != msgId.String() {
@@ -75,12 +75,12 @@ func Test_manager_Send(t *testing.T) {
 // Error path: reader returns an error.
 func TestGroup_newCmixMsg_SaltReaderError(t *testing.T) {
 	expectedErr := strings.SplitN(saltReadErr, "%", 2)[0]
-	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
+	m, _ := newTestManager(t)
 
 	_, err := newCmixMsg(
 		gs.Group{ID: id.NewIdFromString("test", id.User, t)}, "",
 		[]byte{}, time.Time{}, group.Member{}, strings.NewReader(""),
-		m.receptionId, m.net.GetMaxMessageLength())
+		m.getReceptionId(), m.getCMix().GetMaxMessageLength())
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("newCmixMsg failed to return the expected error"+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -102,7 +102,7 @@ func TestGroup_newCmixMsg_InternalMsgSizeError(t *testing.T) {
 	// Create cMix message
 	prng = rand.New(rand.NewSource(42))
 	_, err := newCmixMsg(g, "", testMsg, netTime.Now(), mem, prng,
-		m.receptionId, m.net.GetMaxMessageLength())
+		m.getReceptionId(), m.getCMix().GetMaxMessageLength())
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("newCmixMsg failed to return the expected error"+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)

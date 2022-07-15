@@ -11,7 +11,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	sessionImport "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -132,8 +132,7 @@ func Test_manager_MakeGroup_AddGroupError(t *testing.T) {
 
 // Unit test of manager.buildMembership.
 func Test_manager_buildMembership(t *testing.T) {
-	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManager(prng, t)
+	m, _ := newTestManager(t)
 	memberIDs, expected, expectedDKL := addPartners(m, t)
 
 	membership, dkl, err := m.buildMembership(memberIDs)
@@ -155,7 +154,7 @@ func Test_manager_buildMembership(t *testing.T) {
 // Error path: an error is returned when the number of members in the membership
 // list is too few.
 func Test_manager_buildMembership_MinParticipantsError(t *testing.T) {
-	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
+	m, _ := newTestManager(t)
 	memberIDs := make([]*id.ID, group.MinParticipants-1)
 	expectedErr := fmt.Sprintf(
 		minMembersErr, len(memberIDs), group.MinParticipants)
@@ -170,7 +169,7 @@ func Test_manager_buildMembership_MinParticipantsError(t *testing.T) {
 // Error path: an error is returned when the number of members in the membership
 // list is too many.
 func Test_manager_buildMembership_MaxParticipantsError(t *testing.T) {
-	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
+	m, _ := newTestManager(t)
 	memberIDs := make([]*id.ID, group.MaxParticipants+1)
 	expectedErr := fmt.Sprintf(
 		maxMembersErr, len(memberIDs), group.MaxParticipants)
@@ -184,8 +183,7 @@ func Test_manager_buildMembership_MaxParticipantsError(t *testing.T) {
 
 // Error path: error returned when a partner cannot be found
 func Test_manager_buildMembership_GetPartnerContactError(t *testing.T) {
-	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManager(prng, t)
+	m, _ := newTestManager(t)
 	memberIDs, _, _ := addPartners(m, t)
 	expectedErr := strings.SplitN(getPartnerErr, "%", 2)[0]
 
@@ -201,8 +199,7 @@ func Test_manager_buildMembership_GetPartnerContactError(t *testing.T) {
 
 // Error path: error returned when a member ID appears twice on the list.
 func Test_manager_buildMembership_DuplicateContactError(t *testing.T) {
-	prng := rand.New(rand.NewSource(42))
-	m, _ := newTestManager(prng, t)
+	m, _ := newTestManager(t)
 	memberIDs, _, _ := addPartners(m, t)
 	expectedErr := strings.SplitN(makeMembershipErr, "%", 2)[0]
 
@@ -290,7 +287,7 @@ func addPartners(m *manager, t *testing.T) ([]*id.ID, group.Membership,
 	for i := range memberIDs {
 		// Build member data
 		uid := id.NewIdFromUInt(uint64(i), id.User, t)
-		dhKey := m.grp.NewInt(int64(i + 42))
+		dhKey := m.getE2eGroup().NewInt(int64(i + 42))
 
 		myVariant := sidh.KeyVariantSidhA
 		prng := rand.New(rand.NewSource(int64(i + 42)))
@@ -309,13 +306,13 @@ func addPartners(m *manager, t *testing.T) ([]*id.ID, group.Membership,
 		memberIDs[i] = uid
 		members = append(members, group.Member{ID: uid, DhKey: dhKey})
 		dkl.Add(dhKey, group.Member{ID: uid, DhKey: dhKey},
-			m.grp)
+			m.getE2eGroup())
 
 		// Add partner
-		_, err := m.e2e.AddPartner(uid, dhKey, dhKey,
+		_, err := m.getE2eHandler().AddPartner(uid, dhKey, dhKey,
 			theirSIDHPubKey, mySIDHPrivKey,
-			session.GetDefaultParams(),
-			session.GetDefaultParams())
+			sessionImport.GetDefaultParams(),
+			sessionImport.GetDefaultParams())
 		if err != nil {
 			t.Errorf("Failed to add partner %d: %+v", i, err)
 		}

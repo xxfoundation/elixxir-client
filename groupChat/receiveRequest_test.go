@@ -11,7 +11,7 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	sessionImport "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	util "gitlab.com/elixxir/client/storage/utility"
@@ -28,9 +28,9 @@ func TestRequestListener_Hear(t *testing.T) {
 	requestChan := make(chan gs.Group)
 	requestFunc := func(g gs.Group) { requestChan <- g }
 	m, _ := newTestManagerWithStore(prng, 10, 0, requestFunc, t)
-	g := newTestGroupWithUser(m.grp,
-		m.receptionId, m.e2e.GetHistoricalDHPubkey(),
-		m.e2e.GetHistoricalDHPrivkey(), prng, t)
+	g := newTestGroupWithUser(m.getE2eGroup(),
+		m.getReceptionId(), m.getE2eHandler().GetHistoricalDHPubkey(),
+		m.getE2eHandler().GetHistoricalDHPrivkey(), prng, t)
 
 	requestMarshaled, err := proto.Marshal(&Request{
 		Name:        g.Name,
@@ -63,13 +63,13 @@ func TestRequestListener_Hear(t *testing.T) {
 	_ = theirSIDHPrivKey.Generate(prng)
 	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
 
-	_, _ = m.e2e.AddPartner(
+	_, _ = m.getE2eHandler().AddPartner(
 		g.Members[0].ID,
 		g.Members[0].DhKey,
-		m.e2e.GetHistoricalDHPrivkey(),
+		m.getE2eHandler().GetHistoricalDHPrivkey(),
 		theirSIDHPubKey, mySIDHPrivKey,
-		session.GetDefaultParams(),
-		session.GetDefaultParams(),
+		sessionImport.GetDefaultParams(),
+		sessionImport.GetDefaultParams(),
 	)
 
 	go listener.Hear(msg)
@@ -148,7 +148,7 @@ func TestRequestListener_Hear_BadMessageType(t *testing.T) {
 // Unit test of readRequest.
 func Test_manager_readRequest(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	m, g := newTestManager(prng, t)
+	m, g := newTestManager(t)
 
 	myVariant := sidh.KeyVariantSidhA
 	mySIDHPrivKey := util.NewSIDHPrivateKey(myVariant)
@@ -162,13 +162,13 @@ func Test_manager_readRequest(t *testing.T) {
 	_ = theirSIDHPrivKey.Generate(prng)
 	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
 
-	_, _ = m.e2e.AddPartner(
+	_, _ = m.getE2eHandler().AddPartner(
 		g.Members[0].ID,
 		g.Members[0].DhKey,
-		m.e2e.GetHistoricalDHPrivkey(),
+		m.getE2eHandler().GetHistoricalDHPrivkey(),
 		theirSIDHPubKey, mySIDHPrivKey,
-		session.GetDefaultParams(),
-		session.GetDefaultParams(),
+		sessionImport.GetDefaultParams(),
+		sessionImport.GetDefaultParams(),
 	)
 
 	requestMarshaled, err := proto.Marshal(&Request{
@@ -201,7 +201,7 @@ func Test_manager_readRequest(t *testing.T) {
 
 // Error path: an error is returned if the message type is incorrect.
 func Test_manager_readRequest_MessageTypeError(t *testing.T) {
-	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
+	m, _ := newTestManager(t)
 	expectedErr := sendMessageTypeErr
 	msg := receive.Message{
 		MessageType: catalog.NoType,
@@ -217,7 +217,7 @@ func Test_manager_readRequest_MessageTypeError(t *testing.T) {
 // Error path: an error is returned if the proto message cannot be unmarshalled.
 func Test_manager_readRequest_ProtoUnmarshalError(t *testing.T) {
 	expectedErr := strings.SplitN(deserializeMembershipErr, "%", 2)[0]
-	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
+	m, _ := newTestManager(t)
 
 	requestMarshaled, err := proto.Marshal(&Request{
 		Members: []byte("Invalid membership serial."),
@@ -240,7 +240,7 @@ func Test_manager_readRequest_ProtoUnmarshalError(t *testing.T) {
 
 // Error path: an error is returned if the membership cannot be deserialized.
 func Test_manager_readRequest_DeserializeMembershipError(t *testing.T) {
-	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
+	m, _ := newTestManager(t)
 	expectedErr := strings.SplitN(protoUnmarshalErr, "%", 2)[0]
 	msg := receive.Message{
 		Payload:     []byte("Invalid message."),

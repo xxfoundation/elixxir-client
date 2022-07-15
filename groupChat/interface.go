@@ -20,9 +20,23 @@
 package groupChat
 
 import (
+	"github.com/cloudflare/circl/dh/sidh"
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner"
+	sessionImport "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/e2e/receive"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
+	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/crypto/cyclic"
+	crypto "gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"time"
 )
 
@@ -81,3 +95,52 @@ type RequestCallback func(g gs.Group)
 
 // ReceiveCallback is called when a GroupChat message is received.
 type ReceiveCallback func(msg MessageReceive)
+
+////////////////////////////////////////////////////////////////////////////////////
+// Sub-interfaces from other packages //////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
+
+// groupCmix is a subset of the cmix.Client interface containing only the
+// methods needed by GroupChat
+type groupCmix interface {
+	SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (
+		id.Round, []ephemeral.Id, error)
+	AddService(
+		clientID *id.ID, newService message.Service, response message.Processor)
+	DeleteService(
+		clientID *id.ID, toDelete message.Service, processor message.Processor)
+	GetMaxMessageLength() int
+}
+
+// e2eHandler is a subset of the e2e.Handler interface containing only the methods
+// needed by GroupChat
+type e2eHandler interface {
+	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
+		params e2e.Params) ([]id.Round, crypto.MessageID, time.Time, error)
+	RegisterListener(senderID *id.ID, messageType catalog.MessageType,
+		newListener receive.Listener) receive.ListenerID
+	AddService(tag string, processor message.Processor) error
+	AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int,
+		partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey,
+		sendParams, receiveParams sessionImport.Params) (partner.Manager, error)
+	GetPartner(partnerID *id.ID) (partner.Manager, error)
+	GetHistoricalDHPubkey() *cyclic.Int
+	GetHistoricalDHPrivkey() *cyclic.Int
+}
+
+// messenger is a sub-interface mocking the xxdk.E2e object.
+// This contains methods specific for this package.
+type messenger interface {
+	GetCmix() groupCmix
+	GetE2E() e2eHandler
+	GetReceptionIdentity() xxdk.ReceptionIdentity
+	GetRng() *fastRNG.StreamGenerator
+	GetStorage() session
+}
+
+// session is a sub-interface of the storage.Session interface.
+// This contains the methods specific for this package.
+type session interface {
+	GetE2EGroup() *cyclic.Group
+	GetKV() *versioned.KV
+}

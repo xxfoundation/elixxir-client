@@ -9,6 +9,10 @@ package groupChat
 
 import (
 	"encoding/base64"
+	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/crypto/csprng"
 	"math/rand"
 	"sync"
 	"testing"
@@ -21,19 +25,16 @@ import (
 	"gitlab.com/elixxir/client/cmix/message"
 	clientE2E "gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	sessionImport "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/event"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -41,22 +42,127 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-// newTestManager creates a new manager for testing.
-func newTestManager(rng *rand.Rand, t *testing.T) (*manager, gs.Group) {
-	m := &manager{
-		receptionId: id.NewIdFromString("test", id.User, t),
-		net:         newTestNetworkManager(0, t),
-		e2e:         newTestE2eManager(randCycInt(rng)),
-		grp:         getGroup(),
-		rng:         fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
+/////////////////////////////////////////////////////////////////////////////////////////
+// mockMessenger implementation for messenger interface /////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+
+type mockMessenger struct {
+	receptionId *id.ID
+	net         groupCmix
+	e2e         e2eHandler
+	e2eGroup    *cyclic.Group
+	rng         *fastRNG.StreamGenerator
+	storage     session
+}
+
+func newMockMessenger(t testing.TB, kv *versioned.KV) messenger {
+	receptionId := id.NewIdFromString("test", id.User, t)
+	mockCmix := newTestNetworkManager(0)
+	prng := rand.New(rand.NewSource(42))
+	e2eHandler := newTestE2eManager(randCycInt(prng), t)
+	grp := getGroup()
+	rng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
+	mockSession := newMockSesion(kv)
+
+	return mockMessenger{
+		receptionId: receptionId,
+		net:         mockCmix,
+		e2e:         e2eHandler,
+		e2eGroup:    grp,
+		rng:         rng,
+		storage:     mockSession,
 	}
-	user := group.Member{
-		ID:    m.receptionId,
-		DhKey: m.e2e.GetHistoricalDHPubkey(),
+}
+
+func newMockMessengerWithStore(t testing.TB, sendErr int) messenger {
+	receptionId := id.NewIdFromString("test", id.User, t)
+	mockCmix := newTestNetworkManager(sendErr)
+	prng := rand.New(rand.NewSource(42))
+	grp := getGroup()
+	rng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
+	mockSession := newMockSesion(nil)
+
+	return mockMessenger{
+		receptionId: receptionId,
+		net:         mockCmix,
+		e2e: &testE2eManager{
+			e2eMessages: []testE2eMessage{},
+			sendErr:     sendErr,
+			grp:         getGroup(),
+			dhPubKey:    randCycInt(prng),
+			partners:    make(map[id.ID]partner.Manager),
+		},
+		e2eGroup: grp,
+		rng:      rng,
+		storage:  mockSession,
+	}
+}
+
+func (m mockMessenger) GetCmix() groupCmix {
+	return m.net
+}
+
+func (m mockMessenger) GetE2E() e2eHandler {
+	return m.e2e
+}
+
+func (m mockMessenger) GetReceptionIdentity() xxdk.ReceptionIdentity {
+	keyData, _ := m.e2e.GetHistoricalDHPrivkey().MarshalJSON()
+	groupData, _ := getGroup().MarshalJSON()
+	return xxdk.ReceptionIdentity{
+		ID:           m.receptionId,
+		DHKeyPrivate: keyData,
+		E2eGrp:       groupData,
+	}
+}
+
+func (m mockMessenger) GetRng() *fastRNG.StreamGenerator {
+	return m.rng
+}
+
+func (m mockMessenger) GetStorage() session {
+	return m.storage
+}
+
+type mockSession struct {
+	kv *versioned.KV
+}
+
+func newMockSesion(kv *versioned.KV) session {
+	return mockSession{kv: kv}
+}
+
+func (m mockSession) GetE2EGroup() *cyclic.Group {
+	return getGroup()
+}
+
+func (m mockSession) GetKV() *versioned.KV {
+	if m.kv != nil {
+		return m.kv
 	}
 
-	g := newTestGroupWithUser(m.grp, user.ID, user.DhKey,
-		m.e2e.GetHistoricalDHPrivkey(), rng, t)
+	return versioned.NewKV(ekv.MakeMemstore())
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// mock manager implementation //////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// newTestManager creates a new manager for testing.
+func newTestManager(t testing.TB) (*manager, gs.Group) {
+	prng := rand.New(rand.NewSource(42))
+	mockMess := newMockMessenger(t, nil)
+
+	m := &manager{
+		messenger: mockMess,
+	}
+	user := group.Member{
+		ID:    m.getReceptionId(),
+		DhKey: m.getE2eHandler().GetHistoricalDHPubkey(),
+	}
+
+	g := newTestGroupWithUser(m.getE2eGroup(), user.ID, user.DhKey,
+		m.getE2eHandler().GetHistoricalDHPrivkey(), prng, t)
 	gStore, err := gs.NewStore(versioned.NewKV(ekv.MakeMemstore()), user)
 	if err != nil {
 		t.Fatalf("Failed to create new group store: %+v", err)
@@ -70,25 +176,16 @@ func newTestManager(rng *rand.Rand, t *testing.T) (*manager, gs.Group) {
 // of the groups in the list is also returned.
 func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
 	requestFunc RequestCallback, t *testing.T) (*manager, gs.Group) {
+	mockMess := newMockMessengerWithStore(t, sendErr)
 
 	m := &manager{
 		services:    make(map[string]Processor),
 		requestFunc: requestFunc,
-		receptionId: id.NewIdFromString("test", id.User, t),
-		net:         newTestNetworkManager(sendErr, t),
-		e2e: &testE2eManager{
-			e2eMessages: []testE2eMessage{},
-			sendErr:     sendErr,
-			grp:         getGroup(),
-			dhPubKey:    randCycInt(rng),
-			partners:    make(map[id.ID]partner.Manager),
-		},
-		grp: getGroup(),
-		rng: fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
+		messenger:   mockMess,
 	}
 	user := group.Member{
-		ID:    m.receptionId,
-		DhKey: m.e2e.GetHistoricalDHPubkey(),
+		ID:    m.getReceptionId(),
+		DhKey: m.getE2eHandler().GetHistoricalDHPubkey(),
 	}
 
 	gStore, err := gs.NewStore(versioned.NewKV(ekv.MakeMemstore()), user)
@@ -99,7 +196,7 @@ func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
 
 	var g gs.Group
 	for i := 0; i < numGroups; i++ {
-		g = newTestGroupWithUser(m.grp, user.ID, user.DhKey,
+		g = newTestGroupWithUser(m.getE2eGroup(), user.ID, user.DhKey,
 			randCycInt(rng), rng, t)
 		if err = gStore.Add(g); err != nil {
 			t.Fatalf("Failed to add group %d to group store: %+v", i, err)
@@ -108,7 +205,7 @@ func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
 	return m, g
 }
 
-func newTestE2eManager(dhPubKey *cyclic.Int) *testE2eManager {
+func newTestE2eManager(dhPubKey *cyclic.Int, t testing.TB) *testE2eManager {
 	return &testE2eManager{
 		e2eMessages: []testE2eMessage{},
 		errSkip:     0,
@@ -120,7 +217,7 @@ func newTestE2eManager(dhPubKey *cyclic.Int) *testE2eManager {
 
 // getMembership returns a Membership with random members for testing.
 func getMembership(size int, uid *id.ID, pubKey *cyclic.Int, grp *cyclic.Group,
-	prng *rand.Rand, t *testing.T) group.Membership {
+	prng *rand.Rand, t testing.TB) group.Membership {
 	contacts := make([]contact.Contact, size)
 	for i := range contacts {
 		randId, _ := id.NewRandomID(prng, id.User)
@@ -179,7 +276,7 @@ func newTestGroup(grp *cyclic.Group, privKey *cyclic.Int, rng *rand.Rand,
 
 // newTestGroup generates a new group with random values for testing.
 func newTestGroupWithUser(grp *cyclic.Group, uid *id.ID, pubKey,
-	privKey *cyclic.Int, rng *rand.Rand, t *testing.T) gs.Group {
+	privKey *cyclic.Int, rng *rand.Rand, t testing.TB) gs.Group {
 	// Generate name from base 64 encoded random data
 	nameBytes := make([]byte, 16)
 	rng.Read(nameBytes)
@@ -222,7 +319,7 @@ func getGroup() *cyclic.Group {
 		large.NewIntFromString(getNDF().E2E.Generator, 16))
 }
 
-func newTestNetworkManager(sendErr int, _ *testing.T) GroupCmix {
+func newTestNetworkManager(sendErr int) groupCmix {
 	return &testNetworkManager{
 		receptionMessages: [][]format.Message{},
 		sendMessages:      [][]cmix.TargetedCmixMessage{},
@@ -249,7 +346,7 @@ type testE2eMessage struct {
 
 func (tnm *testE2eManager) AddPartner(partnerID *id.ID, partnerPubKey,
 	myPrivKey *cyclic.Int, _ *sidh.PublicKey, _ *sidh.PrivateKey,
-	_, _ session.Params) (partner.Manager, error) {
+	_, _ sessionImport.Params) (partner.Manager, error) {
 
 	testPartner := partner.NewTestManager(partnerID, partnerPubKey, myPrivKey, &testing.T{})
 	tnm.partners[*partnerID] = testPartner

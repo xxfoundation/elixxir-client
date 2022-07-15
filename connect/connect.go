@@ -8,6 +8,7 @@ package connect
 
 import (
 	"io"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -95,6 +96,16 @@ func Connect(recipient contact.Contact, messenger *xxdk.E2e,
 	// Perform the auth request
 	_, err := messenger.GetAuth().Request(recipient, nil)
 	if err != nil {
+		// Return connection if a partnership already exists
+		if strings.Contains(err.Error(), auth.ErrChannelExists) {
+			newPartner, err := messenger.GetE2E().GetPartner(recipient.ID)
+			if err != nil {
+				return nil, err
+			}
+			conn := BuildConnection(newPartner,
+				messenger.GetE2E(), messenger.GetAuth(), p)
+			return conn, nil
+		}
 		return nil, err
 	}
 

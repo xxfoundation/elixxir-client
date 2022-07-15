@@ -21,21 +21,11 @@ func buildClientAuthRequest(newPartner partner.Manager,
 	rng *fastRNG.StreamGenerator, rsaPrivKey *rsa.PrivateKey,
 	salt []byte) ([]byte, error) {
 
-	// The connection fingerprint (hashed) will be used as a nonce
+	// Create signature
 	connectionFp := newPartner.ConnectionFingerprint().Bytes()
-	opts := rsa.NewDefaultOptions()
-	h := opts.Hash.New()
-	h.Write(connectionFp)
-	nonce := h.Sum(nil)
-
-	// Sign the connection fingerprint
 	stream := rng.GetStream()
 	defer stream.Close()
-	signature, err := rsa.Sign(stream, rsaPrivKey,
-		opts.Hash, nonce, opts)
-	if err != nil {
-		return nil, errors.Errorf("failed to sign nonce: %+v", err)
-	}
+	signature, err := sign(stream, rsaPrivKey, connectionFp)
 
 	// Construct message
 	pemEncodedRsaPubKey := rsa.CreatePublicKeyPem(rsaPrivKey.GetPublic())
@@ -44,11 +34,12 @@ func buildClientAuthRequest(newPartner partner.Manager,
 		RsaPubKey: pemEncodedRsaPubKey,
 		Salt:      salt,
 	}
+
+	// Marshal message
 	payload, err := proto.Marshal(iar)
 	if err != nil {
 		return nil, errors.Errorf("failed to marshal identity request "+
 			"message: %+v", err)
 	}
-
 	return payload, nil
 }

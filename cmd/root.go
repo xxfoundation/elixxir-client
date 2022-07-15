@@ -595,15 +595,15 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
 	// Initialize the client of the proper type
 	var messenger *xxdk.E2e
 	if precanId != 0 {
-		messenger = loadOrInitPrecan(precanId, storePassword, storeDir, cmixParams, e2eParams)
+		messenger = loadOrInitPrecan(precanId, storePassword, storeDir, cmixParams, e2eParams, authCbs)
 	} else if protoUserPath != "" {
-		messenger = loadOrInitProto(protoUserPath, storePassword, storeDir, cmixParams, e2eParams)
+		messenger = loadOrInitProto(protoUserPath, storePassword, storeDir, cmixParams, e2eParams, authCbs)
 	} else if userIdPrefix != "" {
-		messenger = loadOrInitVanity(storePassword, storeDir, regCode, userIdPrefix, cmixParams, e2eParams)
+		messenger = loadOrInitVanity(storePassword, storeDir, regCode, userIdPrefix, cmixParams, e2eParams, authCbs)
 	} else if backupPath != "" {
-		messenger = loadOrInitBackup(backupPath, backupPass, storePassword, storeDir, cmixParams, e2eParams)
+		messenger = loadOrInitBackup(backupPath, backupPass, storePassword, storeDir, cmixParams, e2eParams, authCbs)
 	} else {
-		messenger = loadOrInitMessenger(forceLegacy, storePassword, storeDir, regCode, cmixParams, e2eParams)
+		messenger = loadOrInitMessenger(forceLegacy, storePassword, storeDir, regCode, cmixParams, e2eParams, authCbs)
 	}
 
 	// Handle protoUser output

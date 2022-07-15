@@ -74,9 +74,20 @@ func init() {
 // loadOrInitMessenger will build a new xxdk.E2e from existing storage
 // or from a new storage that it will create if none already exists
 func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode string,
-	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
+	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
 	jww.INFO.Printf("Using normal sender")
 
+	net := loadOrInitNet(password, storeDir, regCode, cmixParams)
+	identity := loadOrInitReceptionIdentity(forceLegacy, net)
+	messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	return messenger
+}
+
+func loadOrInitNet(password []byte, storeDir, regCode string,
+	cmixParams xxdk.CMIXParams) *xxdk.Cmix {
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
@@ -97,6 +108,10 @@ func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode st
 		jww.FATAL.Panicf("%+v", err)
 	}
 
+	return net
+}
+
+func loadOrInitReceptionIdentity(forceLegacy bool, net *xxdk.Cmix) xxdk.ReceptionIdentity {
 	// Load or initialize xxdk.ReceptionIdentity storage
 	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, net)
 	if err != nil {
@@ -116,17 +131,14 @@ func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode st
 		}
 	}
 
-	messenger, err := xxdk.Login(net, authCbs, identity, e2eParams)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-	return messenger
+	return identity
+
 }
 
 // loadOrInitVanity will build a new xxdk.E2e from existing storage
 // or from a new storage that it will create if none already exists
 func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
-	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
+	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
 	jww.INFO.Printf("Using Vanity sender")
 
 	// create a new client if none exist
@@ -163,7 +175,7 @@ func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
 		}
 	}
 
-	messenger, err := xxdk.Login(net, authCbs, identity, e2eParams)
+	messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}

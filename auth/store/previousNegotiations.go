@@ -12,17 +12,18 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"strings"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strings"
 )
 
 const (
 	negotiationPartnersKey                = "NegotiationPartners"
-	negotiationPartnersVersion            = 0
+	negotiationPartnersVersion            = 1
 	negotiationFingerprintsKeyPrefix      = "NegotiationFingerprints/"
 	currentNegotiationFingerprintsVersion = 0
 )
@@ -125,15 +126,37 @@ func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]bool, error) {
 			obj := &versioned.Object{
 				Version:   negotiationPartnersVersion,
 				Timestamp: netTime.Now(),
-				Data:      marshalPreviousNegotiations(newPreviousNegotiations),
+				Data: marshalPreviousNegotiations(
+					newPreviousNegotiations),
 			}
-			err = s.kv.Set(negotiationPartnersKey, negotiationPartnersVersion, obj)
+			err = s.kv.Set(negotiationPartnersKey,
+				negotiationPartnersVersion, obj)
 			if err != nil {
 				return nil, err
 			}
 			return newPreviousNegotiations, nil
 		}
 		return nil, err
+	}
+
+	// Upgrade V0 entries
+	if obj.Version == 0 {
+		old := unmarshalPreviousNegotiationsV0(obj.Data)
+		newPrevNegotiations := make(map[id.ID]bool)
+		for id := range old {
+			newPrevNegotiations[id] = true
+		}
+		obj := &versioned.Object{
+			Version:   negotiationPartnersVersion,
+			Timestamp: netTime.Now(),
+			Data: marshalPreviousNegotiations(
+				newPrevNegotiations),
+		}
+		err = s.kv.Set(negotiationPartnersKey,
+			negotiationPartnersVersion, obj)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return unmarshalPreviousNegotiations(obj.Data)
@@ -241,4 +264,27 @@ func unmarshalNegotiationFingerprints(buf []byte) [][]byte {
 func makeNegotiationFingerprintsKey(partner *id.ID) string {
 	return negotiationFingerprintsKeyPrefix +
 		string(base64.StdEncoding.EncodeToString(partner.Marshal()))
+}
+
+// Historical functions
+
+// unmarshalPreviousNegotiations unmarshalls the marshalled byte slice into a
+// list of partner IDs.
+func unmarshalPreviousNegotiationsV0(buf []byte) map[id.ID]struct{} {
+	buff := bytes.NewBuffer(buf)
+
+	numberOfPartners := binary.LittleEndian.Uint64(buff.Next(8))
+	partners := make(map[id.ID]struct{}, numberOfPartners)
+
+	for i := uint64(0); i < numberOfPartners; i++ {
+		partner, err := id.Unmarshal(buff.Next(id.ArrIDLen))
+		if err != nil {
+			jww.FATAL.Panicf(
+				"Failed to unmarshal negotiation partner ID: %+v", err)
+		}
+
+		partners[*partner] = struct{}{}
+	}
+
+	return partners
 }

@@ -94,9 +94,10 @@ func loginLegacy(net *Cmix, callbacks AuthCallbacks,
 			"the e2e processies")
 	}
 
-	m.auth, err = auth.NewState(net.GetStorage().GetKV(), net.GetCmix(),
-		m.e2e, net.GetRng(), net.GetEventReporter(), params.Auth,
-		params.Session, MakeAuthCallbacksAdapter(callbacks, m),
+	m.auth, err = auth.NewStateLegacy(net.GetStorage().GetKV(),
+		net.GetCmix(), m.e2e, net.GetRng(), net.GetEventReporter(),
+		params.Auth, params.Session,
+		MakeAuthCallbacksAdapter(callbacks, m),
 		m.backup.TriggerBackup)
 	if err != nil {
 		return nil, err

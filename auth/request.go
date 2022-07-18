@@ -42,7 +42,7 @@ const terminator = ";"
 // auto resend it in the event of failure.
 // A request cannot be sent for a contact who has already received a request or
 // who is already a partner.
-func (s *state) Request(partner contact.Contact, myfacts fact.FactList) (id.Round, error) {
+func (s *state) Request(partner contact.Contact, myFacts fact.FactList) (id.Round, error) {
 	// check that an authenticated channel does not already exist
 	if _, err := s.e2e.GetPartner(partner.ID); err == nil ||
 		!strings.Contains(err.Error(), ratchet.NoPartnerErrorStr) {
@@ -50,12 +50,12 @@ func (s *state) Request(partner contact.Contact, myfacts fact.FactList) (id.Roun
 			"established with partner")
 	}
 
-	return s.request(partner, myfacts, false)
+	return s.request(partner, myFacts, false, s.params.RequestTag)
 }
 
 // request internal helper
 func (s *state) request(partner contact.Contact, myfacts fact.FactList,
-	reset bool) (id.Round, error) {
+	reset bool, tag string) (id.Round, error) {
 
 	jww.INFO.Printf("request(...) called")
 
@@ -102,7 +102,7 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	// cMix fingerprint. Used in old versions by the recipient can recognize
 	// this is a request message. Unchanged for backwards compatability
 	// (the SIH is used now)
-	requestfp := cAuth.MakeRequestFingerprint(partner.DhPubKey)
+	requestFp := cAuth.MakeRequestFingerprint(partner.DhPubKey)
 
 	// My fact data so we can display in the interface.
 	msgPayload := []byte(myfacts.Stringify() + terminator)
@@ -133,16 +133,12 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 
 	p := cmix.GetDefaultCMIXParams()
 	p.DebugTag = "auth.Request"
-	tag := s.params.RequestTag
-	if reset {
-		tag = s.params.ResetRequestTag
-	}
 	svc := message.Service{
 		Identifier: partner.ID.Marshal(),
 		Tag:        tag,
 		Metadata:   nil,
 	}
-	round, _, err := s.net.Send(partner.ID, requestfp, svc, contents, mac, p)
+	round, _, err := s.net.Send(partner.ID, requestFp, svc, contents, mac, p)
 	if err != nil {
 		// if the send fails just set it to failed, it will
 		// but automatically retried

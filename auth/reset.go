@@ -18,7 +18,11 @@ import (
 // A request cannot be sent for a contact who has already received a request or
 // who is already a partner.
 func (s *state) Reset(partner contact.Contact) (id.Round, error) {
+	return s.reset(partner, s.params.ResetRequestTag)
+}
 
+// reset is a helper for Reset that takes in the tag to be used for the Request message
+func (s *state) reset(partner contact.Contact, tag string) (id.Round, error) {
 	// Delete authenticated channel if it exists.
 	if err := s.e2e.DeletePartner(partner.ID); err != nil {
 		jww.WARN.Printf("Unable to delete partner when "+
@@ -29,9 +33,13 @@ func (s *state) Reset(partner contact.Contact) (id.Round, error) {
 	_ = s.store.DeleteConfirmation(partner.ID)
 	_ = s.store.DeleteSentRequest(partner.ID)
 	_ = s.store.DeleteReceivedRequest(partner.ID)
-
 	_ = s.store.DeleteSentRequest(partner.ID)
 
 	// Try to initiate a clean session request
-	return s.request(partner, fact.FactList{}, true)
+	return s.request(partner, fact.FactList{}, true, tag)
+}
+
+// RequestReset is equivalent to Reset, but it uses RequestTag as the tag for the Request
+func (s *state) RequestReset(partner contact.Contact) (id.Round, error) {
+	return s.reset(partner, s.params.RequestTag)
 }

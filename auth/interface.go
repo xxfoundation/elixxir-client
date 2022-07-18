@@ -61,6 +61,8 @@ type State interface {
 	// A request cannot be sent for a contact who has already received a request
 	// or who is already a partner.
 	Reset(partner contact.Contact) (id.Round, error)
+	// RequestReset
+	RequestReset(partner contact.Contact) (id.Round, error)
 
 	// ReplayConfirm resends a confirm to the partner. It will fail to send if
 	// the send relationship with the partner has already ratcheted.

@@ -88,7 +88,7 @@ func NewCmix(ndfJSON, storageDir string, password []byte,
 }
 
 // NewVanityClient creates a user with a receptionID that starts with
-// the supplied prefix It creates client storage, generates keys,
+// the supplied prefix. It creates client storage, generates keys,
 // connects, and registers with the network. Note that this does not
 // register a username/identity, but merely creates a new
 // cryptographic identity for adding such information at a later date.

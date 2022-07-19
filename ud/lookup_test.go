@@ -87,7 +87,7 @@ func TestManager_Lookup(t *testing.T) {
 	}
 
 	// Run the lookup
-	_, _, err = Lookup(m.network, prng,
+	_, _, err = Lookup(m.getCmix(), prng,
 		grp, udContact, callback, uid, p)
 	if err != nil {
 		t.Errorf("Lookup() returned an error: %+v", err)

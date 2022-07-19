@@ -49,7 +49,7 @@ func (m *Manager) addFact(inFact fact.Fact, myId *id.ID,
 	if err != nil {
 		return "", err
 	}
-	stream := m.rng.GetStream()
+	stream := m.getRng().GetStream()
 	defer stream.Close()
 	fSig, err := rsa.Sign(stream, privKey, hash.CMixHash, fHash, nil)
 	if err != nil {

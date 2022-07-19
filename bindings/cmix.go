@@ -57,7 +57,6 @@ func NewCmix(ndfJSON, storageDir string, password []byte, registrationCode strin
 // memory and stored as securely as possible using the memguard library.
 // LoadCmix does not block on network connection, and instead loads and
 // starts subprocesses to perform network operations.
-// TODO: add in custom parameters instead of the default
 func LoadCmix(storageDir string, password []byte, cmixParamsJSON []byte) (*Cmix,
 	error) {
 	if len(cmixParamsJSON) == 0 {

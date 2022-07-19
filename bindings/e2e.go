@@ -78,7 +78,7 @@ func Login(cmixId int, callbacks AuthCallbacks, identity,
 }
 
 // LoginEphemeral creates and returns a new ephemeral E2e object and adds it to the e2eTrackerSingleton
-// identity should be created via MakeReceptionIdentity() and passed in here
+// identity should be created via MakeReceptionIdentity() or MakeLegacyReceptionIdentity() and passed in here
 // If callbacks is left nil, a default auth.Callbacks will be used
 func LoginEphemeral(cmixId int, callbacks AuthCallbacks, identity,
 	e2eParamsJSON []byte) (*E2e, error) {

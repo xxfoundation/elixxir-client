@@ -37,10 +37,10 @@ func (e *E2e) GetID() int {
 	return e.id
 }
 
-// LoginE2e creates and returns a new E2e object and adds it to the e2eTrackerSingleton
-// identity should be created via MakeIdentity() and passed in here
+// Login creates and returns a new E2e object and adds it to the e2eTrackerSingleton
+// identity should be created via MakeReceptionIdentity() and passed in here
 // If callbacks is left nil, a default auth.Callbacks will be used
-func LoginE2e(cmixId int, callbacks AuthCallbacks, identity,
+func Login(cmixId int, callbacks AuthCallbacks, identity,
 	e2eParamsJSON []byte) (*E2e, error) {
 	if len(e2eParamsJSON) == 0 {
 		jww.WARN.Printf("e2e params not specified, using defaults...")
@@ -77,10 +77,10 @@ func LoginE2e(cmixId int, callbacks AuthCallbacks, identity,
 	return e2eTrackerSingleton.make(newE2e), nil
 }
 
-// LoginE2eEphemeral creates and returns a new ephemeral E2e object and adds it to the e2eTrackerSingleton
-// identity should be created via MakeIdentity() and passed in here
+// LoginEphemeral creates and returns a new ephemeral E2e object and adds it to the e2eTrackerSingleton
+// identity should be created via MakeReceptionIdentity() and passed in here
 // If callbacks is left nil, a default auth.Callbacks will be used
-func LoginE2eEphemeral(cmixId int, callbacks AuthCallbacks, identity,
+func LoginEphemeral(cmixId int, callbacks AuthCallbacks, identity,
 	e2eParamsJSON []byte) (*E2e, error) {
 	if len(e2eParamsJSON) == 0 {
 		jww.WARN.Printf("e2e params not specified, using defaults...")

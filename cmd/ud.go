@@ -295,26 +295,9 @@ func init() {
 		"Search for users with this email address.")
 	bindFlagHelper(udSearchPhoneFlag, udCmd)
 
-	udCmd.Flags().String("udBatch", "",
+	udCmd.Flags().String(udBatchAddFlag, "",
 		"Path to JSON marshalled slice of partner IDs that will be looked up on UD.")
-	err := viper.BindPFlag("udBatch", udCmd.Flags().Lookup("udBatch"))
-	if err != nil {
-		jww.ERROR.Printf("viper.BindPFlag failed for %q: %+v", "udBatch", err)
-	}
-
 	bindFlagHelper(udBatchAddFlag, udCmd)
 
 	rootCmd.AddCommand(udCmd)
-}
-
-func printContact(c contact.Contact) {
-	jww.DEBUG.Printf("Printing contact: %+v", c)
-	cBytes := c.Marshal()
-	if len(cBytes) == 0 {
-		jww.ERROR.Print("Marshaled contact has a size of 0.")
-	} else {
-		jww.DEBUG.Printf("Printing marshaled contact of size %d.", len(cBytes))
-	}
-
-	fmt.Print(string(cBytes))
 }

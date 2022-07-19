@@ -117,7 +117,18 @@ func printRoundResults(rounds map[id.Round]cmix.RoundResult, roundIDs []id.Round
 		jww.ERROR.Printf("\tRound(s) %v timed out (no network resolution could be found)",
 			strings.Join(timedOutRounds, ","))
 	}
+}
 
+func printContact(c contact.Contact) {
+	jww.DEBUG.Printf("Printing contact: %+v", c)
+	cBytes := c.Marshal()
+	if len(cBytes) == 0 {
+		jww.ERROR.Print("Marshaled contact has a size of 0.")
+	} else {
+		jww.DEBUG.Printf("Printing marshaled contact of size %d.", len(cBytes))
+	}
+
+	jww.INFO.Printf(string(cBytes))
 }
 
 func writeContact(c contact.Contact) {

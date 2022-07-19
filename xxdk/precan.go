@@ -22,11 +22,11 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 )
 
-// NewPrecannedClient creates an insecure user with predetermined keys
-// with nodes It creates client storage, generates keys, connects, and
-// registers with the network. Note that this does not register a
-// username/identity, but merely creates a new cryptographic identity
-// for adding such information at a later date.
+// NewPrecannedClient creates an insecure user with predetermined keys with
+// nodes. It creates client storage, generates keys, connects, and registers
+// with the network. Note that this does not register a username/identity, but
+// merely creates a new cryptographic identity for adding such information at a
+// later date.
 func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
 	password []byte) error {
 	jww.INFO.Printf("NewPrecannedClient()")
@@ -57,7 +57,8 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
 	return err
 }
 
-// MakePrecannedAuthenticatedChannel creates an insecure e2e relationship with a precanned user
+// MakePrecannedAuthenticatedChannel creates an insecure E2E relationship with a
+// precanned user.
 func (m *E2e) MakePrecannedAuthenticatedChannel(precannedID uint) (
 	contact.Contact, error) {
 
@@ -98,14 +99,14 @@ func (m *E2e) MakePrecannedAuthenticatedChannel(precannedID uint) (
 	}
 	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
-	// add the precanned user as a e2e contact
+	// Add the precanned user as a e2e contact
 	// FIXME: these params need to be threaded through...
 	sesParam := session.GetDefaultParams()
 	_, err = m.e2e.AddPartner(precanContact.ID, precanContact.DhPubKey,
 		m.e2e.GetHistoricalDHPrivkey(), theirSIDHPubKey,
 		mySIDHPrivKey, sesParam, sesParam)
 
-	// check garbled messages in case any messages arrived before creating
+	// Check garbled messages in case any messages arrived before creating
 	// the channel
 	m.GetCmix().CheckInProgressMessages()
 

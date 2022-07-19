@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// a service process starts itself in a new thread, returning from the
-// originator a stopable to control it
+// Service is a service process that starts itself in a new thread, returning
+// from the originator a stoppable to control it.
 type Service func() (stoppable.Stoppable, error)
 
 type services struct {
@@ -18,8 +18,8 @@ type services struct {
 	mux       sync.Mutex
 }
 
-// newServiceProcessiesList creates a new services list which will add its
-// services to the passed mux
+// newServices creates a new services list that will add its services to the
+// passed mux.
 func newServices() *services {
 	return &services{
 		services:  make([]Service, 0),
@@ -28,16 +28,16 @@ func newServices() *services {
 	}
 }
 
-// Add adds the service process to the list and adds it to the multi-stopable.
-// Start running it if services are running
+// add appends the service process to the list and adds it to the multi-
+// stoppable. Start running it if services are running.
 func (s *services) add(sp Service) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	//append the process to the list
+	// append the process to the list
 	s.services = append(s.services, sp)
 
-	//if services are running, start the process
+	// if services are running, start the process
 	if s.state == Running {
 		stop, err := sp()
 		if err != nil {
@@ -48,14 +48,14 @@ func (s *services) add(sp Service) error {
 	return nil
 }
 
-// Runs all services. If they are in the process of stopping,
-// it will wait for the stop to complete or the timeout to ellapse
-// Will error if already running
+// start runs all services. If they are in the process of stopping, it will wait
+// for the stop to complete or the timeout to elapse. Will error if already
+// running.
 func (s *services) start(timeout time.Duration) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	//handle various states
+	// handle various states
 	switch s.state {
 	case Stopped:
 		break
@@ -69,10 +69,10 @@ func (s *services) start(timeout time.Duration) error {
 		}
 	}
 
-	//create a new stopable
+	// Create a new stoppable
 	s.stoppable = stoppable.NewMulti(followerStoppableName)
 
-	//start all services and register with the stoppable
+	// Start all services and register with the stoppable
 	for _, sp := range s.services {
 		stop, err := sp()
 		if err != nil {
@@ -86,8 +86,8 @@ func (s *services) start(timeout time.Duration) error {
 	return nil
 }
 
-// Stops all currently running services. Will return an
-// error if the state is not "running"
+// stop closes all currently running services. It returns an error if the stat
+// is not Running.
 func (s *services) stop() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -108,7 +108,7 @@ func (s *services) stop() error {
 	return nil
 }
 
-// returns the current state of services
+// status returns the current state of services.
 func (s *services) status() Status {
 	s.mux.Lock()
 	defer s.mux.Unlock()

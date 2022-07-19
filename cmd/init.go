@@ -64,9 +64,9 @@ var initCmd = &cobra.Command{
 }
 
 func init() {
-	initCmd.Flags().StringP("userid-prefix", "", "",
+	initCmd.Flags().StringP(userIdPrefixFlag, "", "",
 		"Desired prefix of userID to brute force when running init command. Prepend (?i) for case-insensitive. Only Base64 characters are valid.")
-	_ = viper.BindPFlag("userid-prefix", initCmd.Flags().Lookup("userid-prefix"))
+	bindFlagHelper(userIdPrefixFlag, initCmd)
 
 	rootCmd.AddCommand(initCmd)
 }

@@ -9,13 +9,14 @@ package utility
 
 import (
 	"fmt"
+
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-const currentContactVersion = 0
+const currentContactVersion = 1
 
 func StoreContact(kv *versioned.KV, c contact.Contact) error {
 	now := netTime.Now()
@@ -29,13 +30,14 @@ func StoreContact(kv *versioned.KV, c contact.Contact) error {
 	return kv.Set(makeContactKey(c.ID), currentContactVersion, &obj)
 }
 
-func LoadContact(kv *versioned.KV, cid *id.ID) (contact.Contact, error) {
+func LoadContact(kv *versioned.KV, cid *id.ID) (contact.Contact, uint64, error) {
 	vo, err := kv.Get(makeContactKey(cid), currentContactVersion)
 	if err != nil {
-		return contact.Contact{}, err
+		return contact.Contact{}, vo.Version, err
 	}
 
-	return contact.Unmarshal(vo.Data)
+	c, err := contact.Unmarshal(vo.Data)
+	return c, vo.Version, err
 }
 
 func DeleteContact(kv *versioned.KV, cid *id.ID) error {

@@ -9,7 +9,6 @@ package store
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"os"
@@ -215,8 +214,8 @@ func saveNegotiationFingerprints(
 // loadNegotiationFingerprints loads the list of sentByFingerprints for the given
 // partner from storage.
 func loadNegotiationFingerprints(partner *id.ID, kv *versioned.KV) ([][]byte, error) {
-	obj, err := kv.Get(makeNegotiationFingerprintsKey(partner),
-		currentNegotiationFingerprintsVersion)
+	fpKey := makeNegotiationFingerprintsKey(partner)
+	obj, err := kv.Get(fpKey, currentNegotiationFingerprintsVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -262,8 +261,7 @@ func unmarshalNegotiationFingerprints(buf []byte) [][]byte {
 // makeOldNegotiationFingerprintsKey generates the key used to load and store
 // negotiation sentByFingerprints for the partner.
 func makeNegotiationFingerprintsKey(partner *id.ID) string {
-	return negotiationFingerprintsKeyPrefix +
-		string(base64.StdEncoding.EncodeToString(partner.Marshal()))
+	return negotiationFingerprintsKeyPrefix + partner.String()
 }
 
 // Historical functions

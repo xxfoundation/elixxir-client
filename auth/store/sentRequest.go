@@ -8,9 +8,10 @@
 package store
 
 import (
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"os"
 	"sync"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -24,7 +25,7 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-const currentSentRequestVersion = 0
+const currentSentRequestVersion = 1
 
 type SentRequest struct {
 	kv *versioned.KV
@@ -73,8 +74,19 @@ func newSentRequest(kv *versioned.KV, partner *id.ID, partnerHistoricalPubKey,
 func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*SentRequest, error) {
 
 	srKey := makeSentRequestKey(partner)
-	obj, err := kv.Get(srKey,
-		currentSentRequestVersion)
+	obj, err := kv.Get(srKey, currentSentRequestVersion)
+
+	// V0 Upgrade Path
+	if os.IsNotExist(err) {
+		obj2, err2 := kv.Get(makeOldSentRequestKey(partner), 0)
+		if err2 != nil {
+			jww.DEBUG.Printf("v0 loadSentRequest: %+v", err)
+		} else {
+			obj = obj2
+			err = nil
+		}
+		// Note: uses same encoding, just different keys
+	}
 
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Load "+
@@ -261,5 +273,11 @@ func (sr *SentRequest) getType() RequestType {
 }
 
 func makeSentRequestKey(partner *id.ID) string {
-	return "sentRequest:" + base64.StdEncoding.EncodeToString(partner.Marshal())
+	return "sentRequest:" + partner.String()
+}
+
+// V0 Utility Functions
+
+func makeOldSentRequestKey(partner *id.ID) string {
+	return fmt.Sprintf("Partner:%v", partner.String())
 }

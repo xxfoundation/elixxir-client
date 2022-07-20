@@ -1,7 +1,7 @@
 package store
 
 import (
-	"encoding/base64"
+	"os"
 	"sync"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -61,7 +61,7 @@ func newReceivedRequest(kv *versioned.KV, c contact.Contact,
 func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 	*ReceivedRequest, error) {
 
-	c, err := util.LoadContact(kv, partner)
+	c, contactVersion, err := util.LoadContact(kv, partner)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Load "+
 			"Received Auth Request Contact with %s",
@@ -78,9 +78,14 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 
 	round, err := rounds.LoadRound(kv, makeRoundKey(partner))
 	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to Load "+
-			"round request was received on with %s",
-			partner)
+		if contactVersion == 0 && os.IsNotExist(err) {
+			jww.WARN.Printf("Old contact version, round to nil")
+			round = rounds.Round{}
+		} else {
+			return nil, errors.WithMessagef(err, "Failed to Load "+
+				"round request was received on with %s",
+				partner)
+		}
 	}
 
 	return &ReceivedRequest{
@@ -120,6 +125,5 @@ func (rr *ReceivedRequest) getType() RequestType {
 }
 
 func makeRoundKey(partner *id.ID) string {
-	return "receivedRequestRound:" +
-		base64.StdEncoding.EncodeToString(partner.Marshal())
+	return "receivedRequestRound:" + partner.String()
 }

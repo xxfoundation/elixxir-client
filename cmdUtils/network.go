@@ -11,7 +11,7 @@ import (
 )
 
 func WaitUntilConnected(connected chan bool) {
-	waitTimeout := time.Duration(viper.GetUint(waitTimeoutFlag))
+	waitTimeout := time.Duration(viper.GetUint(WaitTimeoutFlag))
 	timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 	isConnected := false
 	// Wait until we connect or panic if we can't by a timeout

@@ -23,10 +23,10 @@ const (
 	MessageFlag      = "message"
 	destIdFlag       = "destid"
 	sendCountFlag    = "sendCount"
-	sendDelayFlag    = "sendDelay"
+	SendDelayFlag    = "sendDelay"
 	splitSendsFlag   = "splitSends"
-	receiveCountFlag = "receiveCount"
-	waitTimeoutFlag  = "waitTimeout"
+	ReceiveCountFlag = "receiveCount"
+	WaitTimeoutFlag  = "waitTimeout"
 	unsafeFlag       = "unsafe"
 
 	// Channel flags

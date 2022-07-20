@@ -83,16 +83,6 @@ const (
 	userIdPrefixFlag = "userid-prefix"
 
 	///////////////// Broadcast subcommand flags //////////////////////////////
-	broadcastNameFlag        = "name"
-	broadcastRsaPubFlag      = "rsaPub"
-	broadcastSaltFlag        = "salt"
-	broadcastDescriptionFlag = "description"
-	broadcastChanPathFlag    = "chanPath"
-	broadcastKeyPathFlag     = "keyPath"
-	broadcastNewFlag         = "new"
-	broadcastFlag            = "broadcast"
-	broadcastSymmetricFlag   = "symmetric"
-	broadcastAsymmetricFlag  = "asymmetric"
 
 	///////////////// GetNdf subcommand flags //////////////////////////////
 	ndfGwHostFlag   = "gwhost"

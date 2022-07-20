@@ -36,7 +36,7 @@ var udCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
-			viper.GetBool("unsafe-channel-creation"), e2eParams)
+			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
 		client := initE2e(cmixParams, e2eParams, authCbs)
 
 		// get user and save contact to file
@@ -63,7 +63,7 @@ var udCmd = &cobra.Command{
 
 		// Make user discovery manager
 		rng := client.GetRng()
-		userToRegister := viper.GetString("register")
+		userToRegister := viper.GetString(udRegisterFlag)
 		jww.TRACE.Printf("[UD] Registering user %v...", userToRegister)
 		userDiscoveryMgr, err := ud.NewManager(client, client.GetComms(),
 			client.NetworkFollowerStatus, userToRegister, nil)

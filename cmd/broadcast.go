@@ -27,7 +27,7 @@ var broadcastCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
-			viper.GetBool("unsafe-channel-creation"), e2eParams)
+			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
 		client := initE2e(cmixParams, e2eParams, authCbs)
 
 		// Write user contact to file
@@ -148,8 +148,8 @@ var broadcastCmd = &cobra.Command{
 		/* Broadcast client setup */
 
 		// Select broadcast method
-		symmetric := viper.GetString("symmetric")
-		asymmetric := viper.GetString("asymmetric")
+		symmetric := viper.GetString(broadcastSymmetricFlag)
+		asymmetric := viper.GetString(broadcastAsymmetricFlag)
 
 		// Connect to broadcast channel
 		bcl, err := broadcast.NewBroadcastChannel(*channel, client.GetCmix(), client.GetRng())
@@ -187,7 +187,7 @@ var broadcastCmd = &cobra.Command{
 			go func() {
 				jww.INFO.Printf("Attempting to send broadcasts...")
 
-				sendDelay := time.Duration(viper.GetUint("sendDelay"))
+				sendDelay := time.Duration(viper.GetUint(sendDelayFlag))
 				maxRetries := 10
 				retries := 0
 				for {

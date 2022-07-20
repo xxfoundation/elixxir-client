@@ -29,12 +29,12 @@ var initCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		// TODO: Handle userid-prefix argument
-		storePassword := parsePassword(viper.GetString("password"))
-		storeDir := viper.GetString("session")
-		regCode := viper.GetString("regcode")
+		storePassword := parsePassword(viper.GetString(passwordFlag))
+		storeDir := viper.GetString(sessionFlag)
+		regCode := viper.GetString(regCodeFlag)
 
 		// Initialize from scratch
-		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
+		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -78,7 +78,7 @@ func loadOrInitCmix(password []byte, storeDir, regCode string,
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
-		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
+		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -162,7 +162,7 @@ func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
-		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
+		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

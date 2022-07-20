@@ -70,7 +70,7 @@ var rootCmd = &cobra.Command{
 		cmixParams, e2eParams := initParams()
 
 		authCbs := makeAuthCallbacks(
-			viper.GetBool("unsafe-channel-creation"), e2eParams)
+			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
 		client := initE2e(cmixParams, e2eParams, authCbs)
 
 		jww.INFO.Printf("Client Initialized...")

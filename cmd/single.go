@@ -36,6 +36,7 @@ var singleCmd = &cobra.Command{
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
 			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
+		initLog(viper.GetUint(logLevelFlag), viper.GetString(logFlag))
 		client := initE2e(cmixParams, e2eParams, authCbs)
 
 		// Write user contact to file
@@ -116,27 +117,27 @@ func init() {
 	// Single-use subcommand options
 
 	singleCmd.Flags().Bool(singleSendFlag, false, "Sends a single-use message.")
-	bindFlagHelper(singleSendFlag, singleCmd)
+	BindFlagHelper(singleSendFlag, singleCmd)
 
 	singleCmd.Flags().Bool(singleReplyFlag, false,
 		"Listens for a single-use message and sends a reply.")
-	bindFlagHelper(singleReplyFlag, singleCmd)
+	BindFlagHelper(singleReplyFlag, singleCmd)
 
 	singleCmd.Flags().StringP(singleContactFlag, "c", "",
 		"Path to contact file to send message to.")
-	bindFlagHelper(singleContactFlag, singleCmd)
+	BindFlagHelper(singleContactFlag, singleCmd)
 
 	singleCmd.Flags().StringP(singleTagFlag, "", "testTag",
 		"The tag that specifies the callback to trigger on reception.")
-	bindFlagHelper(singleTagFlag, singleCmd)
+	BindFlagHelper(singleTagFlag, singleCmd)
 
 	singleCmd.Flags().Uint8(singleMaxMessagesFlag, 1,
 		"The max number of single-use response messages.")
-	bindFlagHelper(singleMaxMessagesFlag, singleCmd)
+	BindFlagHelper(singleMaxMessagesFlag, singleCmd)
 
 	singleCmd.Flags().DurationP(singleTimeoutFlag, "t", 30*time.Second,
 		"Duration before stopping to wait for single-use message.")
-	bindFlagHelper(singleTimeoutFlag, singleCmd)
+	BindFlagHelper(singleTimeoutFlag, singleCmd)
 
 	rootCmd.AddCommand(singleCmd)
 }

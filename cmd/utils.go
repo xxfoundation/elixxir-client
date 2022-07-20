@@ -17,9 +17,9 @@ import (
 
 // todo: go through cmd package and organize utility functions
 
-// bindFlagHelper binds the key to a pflag.Flag used by Cobra and prints an
+// BindFlagHelper binds the key to a pflag.Flag used by Cobra and prints an
 // error if one occurs.
-func bindFlagHelper(key string, command *cobra.Command) {
+func BindFlagHelper(key string, command *cobra.Command) {
 	err := viper.BindPFlag(key, command.Flags().Lookup(key))
 	if err != nil {
 		jww.ERROR.Printf("viper.BindPFlag failed for %q: %+v", key, err)

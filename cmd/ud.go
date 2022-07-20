@@ -37,6 +37,7 @@ var udCmd = &cobra.Command{
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
 			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
+		initLog(viper.GetUint(logLevelFlag), viper.GetString(logFlag))
 		client := initE2e(cmixParams, e2eParams, authCbs)
 
 		// get user and save contact to file
@@ -264,42 +265,42 @@ func init() {
 	// User Discovery subcommand Options
 	udCmd.Flags().StringP(udRegisterFlag, "r", "",
 		"Register this user with user discovery.")
-	bindFlagHelper(udRegisterFlag, udCmd)
+	BindFlagHelper(udRegisterFlag, udCmd)
 
 	udCmd.Flags().StringP(udRemoveFlag, "", "",
 		"Remove this user with user discovery.")
-	bindFlagHelper(udRemoveFlag, udCmd)
+	BindFlagHelper(udRemoveFlag, udCmd)
 
 	udCmd.Flags().String(udAddPhoneFlag, "",
 		"Add phone number to existing user registration.")
-	bindFlagHelper(udAddPhoneFlag, udCmd)
+	BindFlagHelper(udAddPhoneFlag, udCmd)
 
 	udCmd.Flags().StringP(udAddEmailFlag, "e", "",
 		"Add email to existing user registration.")
-	bindFlagHelper(udAddEmailFlag, udCmd)
+	BindFlagHelper(udAddEmailFlag, udCmd)
 
 	udCmd.Flags().String(udConfirmFlag, "", "Confirm fact with confirmation ID.")
-	bindFlagHelper(udConfirmFlag, udCmd)
+	BindFlagHelper(udConfirmFlag, udCmd)
 
 	udCmd.Flags().StringP(udLookupFlag, "u", "",
 		"Look up user ID. Use '0x' or 'b64:' for hex and base64 representations.")
-	bindFlagHelper(udLookupFlag, udCmd)
+	BindFlagHelper(udLookupFlag, udCmd)
 
 	udCmd.Flags().String(udSearchUsernameFlag, "",
 		"Search for users with this username.")
-	bindFlagHelper(udSearchUsernameFlag, udCmd)
+	BindFlagHelper(udSearchUsernameFlag, udCmd)
 
 	udCmd.Flags().String(udSearchEmailFlag, "",
 		"Search for users with this email address.")
-	bindFlagHelper(udSearchEmailFlag, udCmd)
+	BindFlagHelper(udSearchEmailFlag, udCmd)
 
 	udCmd.Flags().String(udSearchPhoneFlag, "",
 		"Search for users with this email address.")
-	bindFlagHelper(udSearchPhoneFlag, udCmd)
+	BindFlagHelper(udSearchPhoneFlag, udCmd)
 
 	udCmd.Flags().String(udBatchAddFlag, "",
 		"Path to JSON marshalled slice of partner IDs that will be looked up on UD.")
-	bindFlagHelper(udBatchAddFlag, udCmd)
+	BindFlagHelper(udBatchAddFlag, udCmd)
 
 	rootCmd.AddCommand(udCmd)
 }

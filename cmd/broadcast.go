@@ -28,6 +28,7 @@ var broadcastCmd = &cobra.Command{
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
 			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
+		initLog(viper.GetUint(logLevelFlag), viper.GetString(logFlag))
 		client := initE2e(cmixParams, e2eParams, authCbs)
 
 		// Write user contact to file
@@ -295,41 +296,41 @@ func init() {
 	// Single-use subcommand options
 	broadcastCmd.Flags().StringP(broadcastNameFlag, "", "",
 		"Symmetric channel name")
-	bindFlagHelper(broadcastNameFlag, broadcastCmd)
+	BindFlagHelper(broadcastNameFlag, broadcastCmd)
 
 	broadcastCmd.Flags().StringP(broadcastRsaPubFlag, "", "",
 		"Broadcast channel rsa pub key")
-	bindFlagHelper(broadcastRsaPubFlag, broadcastCmd)
+	BindFlagHelper(broadcastRsaPubFlag, broadcastCmd)
 
 	broadcastCmd.Flags().StringP(broadcastSaltFlag, "", "",
 		"Broadcast channel salt")
-	bindFlagHelper(broadcastSaltFlag, broadcastCmd)
+	BindFlagHelper(broadcastSaltFlag, broadcastCmd)
 
 	broadcastCmd.Flags().StringP(broadcastDescriptionFlag, "", "",
 		"Broadcast channel description")
-	bindFlagHelper(broadcastDescriptionFlag, broadcastCmd)
+	BindFlagHelper(broadcastDescriptionFlag, broadcastCmd)
 
 	broadcastCmd.Flags().StringP(broadcastChanPathFlag, "", "",
 		"Broadcast channel output path")
-	bindFlagHelper(broadcastChanPathFlag, broadcastCmd)
+	BindFlagHelper(broadcastChanPathFlag, broadcastCmd)
 
 	broadcastCmd.Flags().StringP(broadcastKeyPathFlag, "", "",
 		"Broadcast channel private key output path")
-	bindFlagHelper(broadcastKeyPathFlag, broadcastCmd)
+	BindFlagHelper(broadcastKeyPathFlag, broadcastCmd)
 
 	broadcastCmd.Flags().BoolP(broadcastNewFlag, "", false,
 		"Create new broadcast channel")
-	bindFlagHelper(broadcastNewFlag, broadcastCmd)
+	BindFlagHelper(broadcastNewFlag, broadcastCmd)
 
 	broadcastCmd.Flags().StringP(broadcastSymmetricFlag, "", "",
 		"Send symmetric broadcast message")
 	_ = viper.BindPFlag("symmetric", broadcastCmd.Flags().Lookup("symmetric"))
-	bindFlagHelper(broadcastSymmetricFlag, broadcastCmd)
+	BindFlagHelper(broadcastSymmetricFlag, broadcastCmd)
 
 	broadcastCmd.Flags().StringP(broadcastAsymmetricFlag, "", "",
 		"Send asymmetric broadcast message (must be used with keyPath)")
 	_ = viper.BindPFlag("asymmetric", broadcastCmd.Flags().Lookup("asymmetric"))
-	bindFlagHelper(broadcastAsymmetricFlag, broadcastCmd)
+	BindFlagHelper(broadcastAsymmetricFlag, broadcastCmd)
 
 	rootCmd.AddCommand(broadcastCmd)
 }

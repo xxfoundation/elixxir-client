@@ -37,6 +37,7 @@ var groupCmd = &cobra.Command{
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
 			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
+		initLog(viper.GetUint(logLevelFlag), viper.GetString(logFlag))
 		client := initE2e(cmixParams, e2eParams, authCbs)
 
 		// Print user's reception ID
@@ -314,43 +315,43 @@ func ReadLines(fileName string) []string {
 func init() {
 	groupCmd.Flags().String(groupCreateFlag, "",
 		"Create a group with from the list of contact file paths.")
-	bindFlagHelper(groupCreateFlag, groupCmd)
+	BindFlagHelper(groupCreateFlag, groupCmd)
 
 	groupCmd.Flags().String(groupNameFlag, "Group Name",
 		"The name of the new group to create.")
-	bindFlagHelper(groupNameFlag, groupCmd)
+	BindFlagHelper(groupNameFlag, groupCmd)
 
 	groupCmd.Flags().String(groupResendFlag, "",
 		"Resend invites for all users in this group ID.")
-	bindFlagHelper(groupResendFlag, groupCmd)
+	BindFlagHelper(groupResendFlag, groupCmd)
 
 	groupCmd.Flags().Bool(groupJoinFlag, false,
 		"Waits for group request joins the group.")
-	bindFlagHelper(groupJoinFlag, groupCmd)
+	BindFlagHelper(groupJoinFlag, groupCmd)
 
 	groupCmd.Flags().String(groupLeaveFlag, "",
 		"Leave this group ID.")
-	bindFlagHelper(groupLeaveFlag, groupCmd)
+	BindFlagHelper(groupLeaveFlag, groupCmd)
 
 	groupCmd.Flags().String(groupSendMessageFlag, "",
 		"Send message to this group ID.")
-	bindFlagHelper(groupSendMessageFlag, groupCmd)
+	BindFlagHelper(groupSendMessageFlag, groupCmd)
 
 	groupCmd.Flags().Uint(groupWaitFlag, 0,
 		"Waits for number of messages to be received.")
-	bindFlagHelper(groupWaitFlag, groupCmd)
+	BindFlagHelper(groupWaitFlag, groupCmd)
 
 	groupCmd.Flags().Duration(groupReceiveTimeoutFlag, time.Minute,
 		"Amount of time to wait for a group request or message before timing out.")
-	bindFlagHelper(groupReceiveTimeoutFlag, groupCmd)
+	BindFlagHelper(groupReceiveTimeoutFlag, groupCmd)
 
 	groupCmd.Flags().Bool(groupListFlag, false,
 		"Prints list all groups to which this client belongs.")
-	bindFlagHelper(groupListFlag, groupCmd)
+	BindFlagHelper(groupListFlag, groupCmd)
 
 	groupCmd.Flags().String(groupShowFlag, "",
 		"Prints the members of this group ID.")
-	bindFlagHelper(groupShowFlag, groupCmd)
+	BindFlagHelper(groupShowFlag, groupCmd)
 
 	rootCmd.AddCommand(groupCmd)
 }

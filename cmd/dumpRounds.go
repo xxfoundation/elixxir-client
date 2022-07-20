@@ -35,6 +35,7 @@ var dumpRoundsCmd = &cobra.Command{
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
 			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
+		initLog(viper.GetUint(logLevelFlag), viper.GetString(logFlag))
 		client := initE2e(cmixParams, e2eParams, authCbs)
 		err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {

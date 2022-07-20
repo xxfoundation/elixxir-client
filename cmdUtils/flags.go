@@ -18,8 +18,8 @@ const (
 	//////////////// Root flags ///////////////////////////////////////////////
 
 	// Send/receive flags
-	verifySendFlag   = "verify-sends"
-	messageFlag      = "message"
+	VerifySendFlag   = "verify-sends"
+	MessageFlag      = "message"
 	destIdFlag       = "destid"
 	sendCountFlag    = "sendCount"
 	sendDelayFlag    = "sendDelay"
@@ -46,14 +46,14 @@ const (
 	destFileFlag     = "destfile"
 
 	// Log flags
-	logLevelFlag = "logLevel"
-	logFlag      = "log"
+	LogLevelFlag = "logLevel"
+	LogFlag      = "log"
 
 	// Loading/establishing xxdk.E2E
-	sessionFlag       = "session"
-	passwordFlag      = "password"
-	ndfFlag           = "ndf"
-	regCodeFlag       = "regcode"
+	SessionFlag       = "session"
+	PasswordFlag      = "password"
+	NdfFlag           = "ndf"
+	RegCodeFlag       = "regcode"
 	protoUserPathFlag = "protoUserPath"
 	protoUserOutFlag  = "protoUserOut"
 	ForceLegacyFlag   = "force-legacy"
@@ -82,6 +82,7 @@ const (
 	profileCpuFlag   = "profile-cpu"
 	userIdPrefixFlag = "userid-prefix"
 
+	//todo: remove, these will belong to their respective package's cmd management
 	///////////////// Broadcast subcommand flags //////////////////////////////
 	broadcastNameFlag        = "name"
 	broadcastRsaPubFlag      = "rsaPub"

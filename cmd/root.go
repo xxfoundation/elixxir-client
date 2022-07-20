@@ -68,6 +68,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		cmixParams, e2eParams := initParams()
+		roundsNotepad := initLog(viper.GetUint(logLevelFlag), viper.GetString(logFlag))
 
 		authCbs := makeAuthCallbacks(
 			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
@@ -422,7 +423,6 @@ func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 // initE2e returns a fully-formed xxdk.E2e object
 func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams,
 	callbacks *authCallbacks) *xxdk.E2e {
-	initLog(viper.GetUint("logLevel"), viper.GetString("log"))
 	jww.INFO.Printf(Version())
 
 	// Intake parameters for client initialization
@@ -434,7 +434,7 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams,
 	storePassword := parsePassword(viper.GetString(passwordFlag))
 	storeDir := viper.GetString(sessionFlag)
 	regCode := viper.GetString(regCodeFlag)
-	forceLegacy := viper.GetBool(forceLegacyFlag)
+	forceLegacy := viper.GetBool(ForceLegacyFlag)
 	jww.DEBUG.Printf("sessionDir: %v", storeDir)
 
 	// Initialize the client of the proper type
@@ -850,7 +850,7 @@ func getUIDFromString(idStr string) *id.ID {
 	return ID
 }
 
-func initLog(threshold uint, logPath string) {
+func initLog(threshold uint, logPath string) *jww.Notepad {
 	if logPath != "-" && logPath != "" {
 		// Disable stdout output
 		jww.SetStdoutOutput(ioutil.Discard)
@@ -880,8 +880,10 @@ func initLog(threshold uint, logPath string) {
 	}
 
 	if viper.GetBool(verboseRoundTrackingFlag) {
-		initRoundLog(logPath)
+		return initRoundLog(logPath)
 	}
+
+	return nil
 }
 
 func askToCreateChannel(recipientID *id.ID) bool {
@@ -901,12 +903,11 @@ func askToCreateChannel(recipientID *id.ID) bool {
 }
 
 // this the the nodepad used for round logging.
-var roundsNotepad *jww.Notepad
 
 // initRoundLog creates the log output for round tracking. In debug mode,
 // the client will keep track of all rounds it evaluates if it has
 // messages in, and then will dump them to this log on client exit
-func initRoundLog(logPath string) {
+func initRoundLog(logPath string) *jww.Notepad {
 	parts := strings.Split(logPath, ".")
 	path := parts[0] + "-rounds." + parts[1]
 	logOutput, err := os.OpenFile(path,
@@ -914,7 +915,7 @@ func initRoundLog(logPath string) {
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
-	roundsNotepad = jww.NewNotepad(jww.LevelInfo, jww.LevelInfo,
+	return jww.NewNotepad(jww.LevelInfo, jww.LevelInfo,
 		ioutil.Discard, logOutput, "", log.Ldate|log.Ltime)
 }
 

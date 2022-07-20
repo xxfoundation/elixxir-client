@@ -149,20 +149,20 @@ var getNDFCmd = &cobra.Command{
 func init() {
 	getNDFCmd.Flags().StringP(ndfGwHostFlag, "", "",
 		"Poll this gateway host:port for the NDF")
-	bindFlagHelper(ndfGwHostFlag, getNDFCmd)
+	BindFlagHelper(ndfGwHostFlag, getNDFCmd)
 
 	getNDFCmd.Flags().StringP(ndfPermHostFlag, "", "",
 		"Poll this registration host:port for the NDF")
-	bindFlagHelper(ndfPermHostFlag, getNDFCmd)
+	BindFlagHelper(ndfPermHostFlag, getNDFCmd)
 
 	getNDFCmd.Flags().StringP(ndfCertFlag, "", "",
 		"Check with the TLS certificate at this path")
-	bindFlagHelper(ndfCertFlag, getNDFCmd)
+	BindFlagHelper(ndfCertFlag, getNDFCmd)
 
 	getNDFCmd.Flags().StringP(ndfEnvFlag, "", "",
 		"Downloads and verifies a signed NDF from a specified environment. "+
 			"Accepted environment flags include mainnet, release, testnet, and dev")
-	bindFlagHelper(ndfEnvFlag, getNDFCmd)
+	BindFlagHelper(ndfEnvFlag, getNDFCmd)
 
 	rootCmd.AddCommand(getNDFCmd)
 }

@@ -38,6 +38,7 @@ var ftCmd = &cobra.Command{
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
 			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
+		initLog(viper.GetUint(logLevelFlag), viper.GetString(logFlag))
 		client := initE2e(cmixParams, e2eParams, authCbs)
 
 		// Print user's reception ID and save contact file
@@ -352,32 +353,32 @@ func getContactFromFile(path string) contact.Contact {
 func init() {
 	ftCmd.Flags().String(fileSendFlag, "",
 		"Sends a file to a recipient with the contact file at this path.")
-	bindFlagHelper(fileSendFlag, ftCmd)
+	BindFlagHelper(fileSendFlag, ftCmd)
 
 	ftCmd.Flags().String(filePathFlag, "",
 		"The path to the file to send. Also used as the file name.")
-	bindFlagHelper(filePathFlag, ftCmd)
+	BindFlagHelper(filePathFlag, ftCmd)
 
 	ftCmd.Flags().String(fileTypeFlag, "txt",
 		"8-byte file type.")
-	bindFlagHelper(fileTypeFlag, ftCmd)
+	BindFlagHelper(fileTypeFlag, ftCmd)
 
 	ftCmd.Flags().String(filePreviewPathFlag, "",
 		"The path to the file preview to send. Set either this flag or "+
 			"filePreviewString.")
-	bindFlagHelper(filePreviewPathFlag, ftCmd)
+	BindFlagHelper(filePreviewPathFlag, ftCmd)
 
 	ftCmd.Flags().String(filePreviewStringFlag, "",
 		"File preview data. Set either this flag or filePreviewPath.")
-	bindFlagHelper(filePreviewStringFlag, ftCmd)
+	BindFlagHelper(filePreviewStringFlag, ftCmd)
 
 	ftCmd.Flags().Int(fileMaxThroughputFlag, 1000,
 		"Maximum data transfer speed to send file parts (in bytes per second)")
-	bindFlagHelper(fileMaxThroughputFlag, ftCmd)
+	BindFlagHelper(fileMaxThroughputFlag, ftCmd)
 
 	ftCmd.Flags().Float64(fileRetry, 0.5,
 		"Retry rate.")
-	bindFlagHelper(fileRetry, ftCmd)
+	BindFlagHelper(fileRetry, ftCmd)
 
 	rootCmd.AddCommand(ftCmd)
 }

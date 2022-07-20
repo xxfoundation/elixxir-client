@@ -27,9 +27,9 @@ const (
 // Manager is the control structure for the contacting the user discovery service.
 type Manager struct {
 
-	// e2e is a sub-interface of the e2e.Handler. It allows the Manager
+	// messenger is a sub-interface of the e2e.Handler. It allows the Manager
 	// to retrieve the client's E2E information.
-	e2e udE2e
+	messenger udE2e
 
 	// store is an instantiation of this package's storage object.
 	// It contains the facts that are in some state of being registered
@@ -58,7 +58,7 @@ type Manager struct {
 // It requires that an updated
 // NDF is available and will error if one is not.
 // registrationValidationSignature may be set to nil
-func NewManager(e2e udE2e, comms Comms, follower udNetworkStatus,
+func NewManager(messenger udE2e, comms Comms, follower udNetworkStatus,
 	username string, registrationValidationSignature []byte) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
 
@@ -69,7 +69,7 @@ func NewManager(e2e udE2e, comms Comms, follower udNetworkStatus,
 
 	// Initialize manager
 	m := &Manager{
-		e2e:                             e2e,
+		messenger:                       messenger,
 		comms:                           comms,
 		registrationValidationSignature: registrationValidationSignature,
 	}
@@ -113,7 +113,7 @@ func NewManager(e2e udE2e, comms Comms, follower udNetworkStatus,
 // NewManagerFromBackup builds a new user discover manager from a backup.
 // It will construct a manager that is already registered and restore
 // already registered facts into store.
-func NewManagerFromBackup(e2e udE2e, comms Comms, follower udNetworkStatus,
+func NewManagerFromBackup(messenger udE2e, comms Comms, follower udNetworkStatus,
 	email, phone fact.Fact) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
 	if follower() != xxdk.Running {
@@ -124,8 +124,8 @@ func NewManagerFromBackup(e2e udE2e, comms Comms, follower udNetworkStatus,
 
 	// Initialize manager
 	m := &Manager{
-		e2e:   e2e,
-		comms: comms,
+		messenger: messenger,
+		comms:     comms,
 	}
 
 	// Initialize our store
@@ -188,10 +188,10 @@ func InitStoreFromBackup(kv *versioned.KV,
 // LoadManager loads the state of the Manager
 // from disk. This is meant to be called after any the first
 // instantiation of the manager by NewUserDiscovery.
-func LoadManager(e2e udE2e, comms Comms) (*Manager, error) {
+func LoadManager(messenger udE2e, comms Comms) (*Manager, error) {
 	m := &Manager{
-		e2e:   e2e,
-		comms: comms,
+		messenger: messenger,
+		comms:     comms,
 	}
 
 	if !m.isRegistered() {
@@ -222,7 +222,7 @@ func (m *Manager) GetStringifiedFacts() []string {
 
 // GetContact returns the contact for UD as retrieved from the NDF.
 func (m *Manager) GetContact() (contact.Contact, error) {
-	grp, err := m.e2e.GetReceptionIdentity().GetGroup()
+	grp, err := m.messenger.GetReceptionIdentity().GetGroup()
 	if err != nil {
 		return contact.Contact{}, err
 	}
@@ -319,24 +319,24 @@ func (m *Manager) getOrAddUdHost() (*connect.Host, error) {
 // getCmix retrieve a sub-interface of cmix.Client.
 // It allows the Manager to retrieve network state.
 func (m *Manager) getCmix() udCmix {
-	return m.e2e.GetCmix()
+	return m.messenger.GetCmix()
 }
 
 // getKv returns a versioned.KV used for isRegistered and setRegistered.
 // This is separated from store operations as store's kv
 // has a different prefix which breaks backwards compatibility.
 func (m *Manager) getKv() *versioned.KV {
-	return m.e2e.GetStorage().GetKV()
+	return m.messenger.GetStorage().GetKV()
 }
 
 // getEventReporter returns an event.Reporter. This allows
 // the Manager to report events to the other levels of the client.
 func (m *Manager) getEventReporter() event.Reporter {
-	return m.e2e.GetEventReporter()
+	return m.messenger.GetEventReporter()
 }
 
 // getRng returns a fastRNG.StreamGenerator. This RNG is for
 // generating signatures for adding/removing facts.
 func (m *Manager) getRng() *fastRNG.StreamGenerator {
-	return m.e2e.GetRng()
+	return m.messenger.GetRng()
 }

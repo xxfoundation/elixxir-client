@@ -43,7 +43,7 @@ func TestManager_register(t *testing.T) {
 	isCorrect("testUser", c.msg, m, t)
 
 	// Verify the signed identity data
-	pubKeyPem := m.e2e.GetReceptionIdentity().RSAPrivatePem
+	pubKeyPem := m.messenger.GetReceptionIdentity().RSAPrivatePem
 	privKey, err := rsa.LoadPrivateKeyFromPem(pubKeyPem)
 	if err != nil {
 		t.Fatalf("Failed to load public key: %+v", err)
@@ -72,7 +72,7 @@ func isCorrect(username string, msg *pb.UDBUserRegistration, m *Manager, t *test
 			m.registrationValidationSignature, msg.PermissioningSignature)
 	}
 
-	identity := m.e2e.GetReceptionIdentity()
+	identity := m.messenger.GetReceptionIdentity()
 	privKey, err := rsa.LoadPrivateKeyFromPem(identity.RSAPrivatePem)
 	if err != nil {
 		t.Fatalf("Failed to load private key: %v", err)
@@ -97,7 +97,7 @@ func isCorrect(username string, msg *pb.UDBUserRegistration, m *Manager, t *test
 		t.Fatalf("%v", err)
 	}
 
-	grp := m.e2e.GetE2E().GetGroup()
+	grp := m.messenger.GetE2E().GetGroup()
 	dhKeyPub := grp.ExpG(dhKeyPriv, grp.NewInt(1))
 
 	if !bytes.Equal(dhKeyPub.Bytes(), msg.IdentityRegistration.DhPubKey) {

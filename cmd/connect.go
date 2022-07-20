@@ -13,12 +13,10 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/connect"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/xxdk"
-	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
@@ -434,44 +432,10 @@ func miscConnectionFunctions(client *xxdk.E2e, conn connect.Connection) {
 
 			// Verify message sends were successful when verifySendFlag is present
 			if viper.GetBool("verify-sends") {
-				retryChan := make(chan struct{})
-				done := make(chan struct{}, 1)
-
-				// Construct the callback function which
-				// verifies successful message send or retries
-				f := func(allRoundsSucceeded, timedOut bool,
-					rounds map[id.Round]cmix.RoundResult) {
-					printRoundResults(
-						rounds, roundIDs, payload, conn.GetPartner().PartnerId())
-					if !allRoundsSucceeded {
-						retryChan <- struct{}{}
-					} else {
-						done <- struct{}{}
-					}
-				}
-
-				// Monitor rounds for results
-				err := client.GetCmix().GetRoundResults(
-					paramsE2E.CMIXParams.Timeout, f, roundIDs...)
-				if err != nil {
-					jww.DEBUG.Printf("Could not verify messages were sent " +
-						"successfully, resending messages...")
+				if !verifySendSuccess(client, paramsE2E, roundIDs,
+					conn.GetPartner().PartnerId(), payload) {
 					continue
 				}
-
-				select {
-				case <-retryChan:
-					// On a retry, go to the top of the loop
-					jww.DEBUG.Printf("Messages were not sent successfully," +
-						" resending messages...")
-					continue
-				case <-done:
-					// Close channels on verification success
-					close(done)
-					close(retryChan)
-					break
-				}
-
 			}
 			jww.INFO.Printf("[CONN] Sent message %q to %s", msgBody,
 				conn.GetPartner().PartnerId())

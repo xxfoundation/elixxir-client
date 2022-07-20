@@ -94,23 +94,6 @@ const (
 	broadcastSymmetricFlag   = "symmetric"
 	broadcastAsymmetricFlag  = "asymmetric"
 
-	///////////////// Connection subcommand flags /////////////////////////////
-	connectionFlag              = "connect"
-	connectionStartServerFlag   = "startServer"
-	connectionServerTimeoutFlag = "serverTimeout"
-	connectionDisconnectFlag    = "disconnect"
-	connectionAuthenticatedFlag = "authenticated"
-	connectionEphemeralFlag     = "ephemeral"
-
-	///////////////// File Transfer subcommand flags //////////////////////////
-	fileSendFlag          = "sendFile"
-	filePathFlag          = "filePath"
-	fileTypeFlag          = "fileType"
-	filePreviewPathFlag   = "filePreviewPath"
-	filePreviewStringFlag = "filePreviewString"
-	fileMaxThroughputFlag = "maxThroughput"
-	fileRetry             = "retry"
-
 	///////////////// GetNdf subcommand flags //////////////////////////////
 	ndfGwHostFlag   = "gwhost"
 	ndfPermHostFlag = "permhost"

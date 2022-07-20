@@ -8,6 +8,7 @@
 package broadcast
 
 import (
+	"encoding/binary"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
@@ -35,14 +36,15 @@ func (p *processor) Process(msg format.Message,
 	var err error
 	switch p.method {
 	case Asymmetric:
-		// We use sized broadcast to fill any remaining bytes in the cmix payload, decode it here
-		encPartSize := p.c.RsaPubKey.Size() // Size of each chunk returned by multicast RSA encryption
-		encodedMessage := msg.GetContents()[:encPartSize]
-		payload, err = p.c.DecryptAsymmetric(encodedMessage)
-		if err != nil {
-			jww.ERROR.Printf(errDecrypt, p.c.ReceptionID, p.c.Name, err)
+		encPartSize := p.c.RsaPubKey.Size()               // Size returned by multicast RSA encryption
+		encodedMessage := msg.GetContents()[:encPartSize] // Only one message is encoded, rest of it is random data
+		decodedMessage, decryptErr := p.c.DecryptAsymmetric(encodedMessage)
+		if decryptErr != nil {
+			jww.ERROR.Printf(errDecrypt, p.c.ReceptionID, p.c.Name, decryptErr)
 			return
 		}
+		size := binary.BigEndian.Uint16(decodedMessage[:internalPayloadSizeLength])
+		payload = decodedMessage[internalPayloadSizeLength : size+internalPayloadSizeLength]
 
 	case Symmetric:
 		payload, err = p.c.DecryptSymmetric(msg.GetContents(), msg.GetMac(), msg.GetKeyFP())

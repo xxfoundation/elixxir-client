@@ -8,6 +8,7 @@
 package broadcast
 
 import (
+	"encoding/binary"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
@@ -19,6 +20,7 @@ import (
 const (
 	asymmetricBroadcastServiceTag = "AsymmBcast"
 	asymmCMixSendTag              = "AsymmetricBroadcast"
+	internalPayloadSizeLength     = 2
 )
 
 // MaxAsymmetricPayloadSize returns the maximum size for an asymmetric broadcast payload
@@ -28,20 +30,26 @@ func (bc *broadcastClient) maxAsymmetricPayload() int {
 
 // BroadcastAsymmetric broadcasts the payload to the channel. Requires a healthy network state to send
 // Payload must be equal to bc.MaxAsymmetricPayloadSize, and the channel PrivateKey must be passed in
-// When a payload is sent, it is split into partitons of size bc.channel.MaxAsymmetricPayloadSize
-// which are each encrypted using multicastRSA
 func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey, payload []byte, cMixParams cmix.CMIXParams) (
 	id.Round, ephemeral.Id, error) {
+	// Confirm network health
 	if !bc.net.IsHealthy() {
 		return 0, ephemeral.Id{}, errors.New(errNetworkHealth)
 	}
 
-	if len(payload) != bc.MaxAsymmetricPayloadSize() {
+	// Check payload size
+	if len(payload) > bc.MaxAsymmetricPayloadSize() {
 		return 0, ephemeral.Id{},
 			errors.Errorf(errPayloadSize, len(payload), bc.maxAsymmetricPayload())
 	}
+	payloadLength := uint16(len(payload))
 
-	encryptedPayload, mac, fp, err := bc.channel.EncryptAsymmetric(payload, pk, bc.rng.GetStream())
+	finalPayload := make([]byte, bc.maxAsymmetricPayloadSizeRaw())
+	binary.BigEndian.PutUint16(finalPayload[:internalPayloadSizeLength], payloadLength)
+	copy(finalPayload[internalPayloadSizeLength:], payload)
+
+	// Encrypt payload
+	encryptedPayload, mac, fp, err := bc.channel.EncryptAsymmetric(finalPayload, pk, bc.rng.GetStream())
 	if err != nil {
 		return 0, ephemeral.Id{}, errors.WithMessage(err, "Failed to encrypt asymmetric broadcast message")
 	}
@@ -56,7 +64,9 @@ func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey, paylo
 		cMixParams.DebugTag = asymmCMixSendTag
 	}
 
+	// Create payload sized for sending over cmix
 	sizedPayload := make([]byte, bc.net.GetMaxMessageLength())
+	// Read random data into sized payload
 	_, err = bc.rng.GetStream().Read(sizedPayload)
 	if err != nil {
 		return 0, ephemeral.Id{}, errors.WithMessage(err, "Failed to add random data to sized broadcast")

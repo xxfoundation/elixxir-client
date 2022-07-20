@@ -19,7 +19,7 @@ import (
 const (
 	// symmetricClient.Broadcast
 	errNetworkHealth       = "cannot send broadcast when the network is not healthy"
-	errPayloadSize         = "size of payload %d must be %d"
+	errPayloadSize         = "size of payload %d must be less than %d"
 	errBroadcastMethodType = "cannot call %s broadcast using %s channel"
 )
 

@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-// mockMessenger implementation for messenger interface
+// mockMessenger implementation for groupE2e interface
 type mockMessenger struct {
 	receptionId *id.ID
 	net         cmix.Client
@@ -25,7 +25,7 @@ type mockMessenger struct {
 	storage     storage.Session
 }
 
-func newMockMessenger(t testing.TB, kv *versioned.KV) messenger {
+func newMockMessenger(t testing.TB, kv *versioned.KV) groupE2e {
 	receptionId := id.NewIdFromString("test", id.User, t)
 	mockCmix := newTestNetworkManager(0)
 	prng := rand.New(rand.NewSource(42))
@@ -44,7 +44,7 @@ func newMockMessenger(t testing.TB, kv *versioned.KV) messenger {
 	}
 }
 
-func newMockMessengerWithStore(t testing.TB, sendErr int) messenger {
+func newMockMessengerWithStore(t testing.TB, sendErr int) groupE2e {
 	receptionId := id.NewIdFromString("test", id.User, t)
 	mockCmix := newTestNetworkManager(sendErr)
 	prng := rand.New(rand.NewSource(42))

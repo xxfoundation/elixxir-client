@@ -100,9 +100,9 @@ type ReceiveCallback func(msg MessageReceive)
 // Sub-interfaces from other packages //////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////
 
-// messenger is a sub-interface mocking the xxdk.E2e object.
+// groupE2e is a sub-interface mocking the xxdk.E2e object.
 // This contains methods specific for this package.
-type messenger interface {
+type groupE2e interface {
 	GetCmix() cmix.Client
 	GetE2E() e2e.Handler
 	GetReceptionIdentity() xxdk.ReceptionIdentity
@@ -122,9 +122,9 @@ type groupCmix interface {
 	GetMaxMessageLength() int
 }
 
-// e2eHandler is a subset of the e2e.Handler interface containing only the methods
+// groupE2eHandler is a subset of the e2e.Handler interface containing only the methods
 // needed by GroupChat
-type e2eHandler interface {
+type groupE2eHandler interface {
 	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
 		params e2e.Params) ([]id.Round, crypto.MessageID, time.Time, error)
 	RegisterListener(senderID *id.ID, messageType catalog.MessageType,

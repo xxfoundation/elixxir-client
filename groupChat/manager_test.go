@@ -31,8 +31,8 @@ var _ GroupChat = (*manager)(nil)
 // Tests that groupCmix adheres to the cmix.Client interface.
 var _ groupCmix = (cmix.Client)(nil)
 
-// Tests that e2eHandler adheres to the e2e.Handler interface.
-var _ e2eHandler = (e2eImport.Handler)(nil)
+// Tests that groupE2eHandler adheres to the e2e.Handler interface.
+var _ groupE2eHandler = (e2eImport.Handler)(nil)
 
 type mockProcessor struct{ receiveChan chan MessageReceive }
 

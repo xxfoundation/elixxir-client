@@ -47,11 +47,11 @@ type manager struct {
 	// Callback that is called when a new group request is received
 	requestFunc RequestCallback
 
-	messenger messenger
+	messenger groupE2e
 }
 
 // NewManager creates a new group chat manager
-func NewManager(messenger messenger,
+func NewManager(messenger groupE2e,
 	requestFunc RequestCallback, receiveFunc Processor) (GroupChat, error) {
 
 	// Initialize a member object
@@ -147,7 +147,7 @@ func (m *manager) getCMix() groupCmix {
 	return m.messenger.GetCmix()
 }
 
-func (m *manager) getE2eHandler() e2eHandler {
+func (m *manager) getE2eHandler() groupE2eHandler {
 	return m.messenger.GetE2E()
 }
 

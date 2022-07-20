@@ -33,7 +33,7 @@ func StoreContact(kv *versioned.KV, c contact.Contact) error {
 func LoadContact(kv *versioned.KV, cid *id.ID) (contact.Contact, uint64, error) {
 	vo, err := kv.Get(makeContactKey(cid), currentContactVersion)
 	if err != nil {
-		return contact.Contact{}, vo.Version, err
+		return contact.Contact{}, 0, err
 	}
 
 	c, err := contact.Unmarshal(vo.Data)

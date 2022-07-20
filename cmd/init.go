@@ -64,9 +64,9 @@ var initCmd = &cobra.Command{
 }
 
 func init() {
-	initCmd.Flags().StringP("userid-prefix", "", "",
+	initCmd.Flags().StringP(userIdPrefixFlag, "", "",
 		"Desired prefix of userID to brute force when running init command. Prepend (?i) for case-insensitive. Only Base64 characters are valid.")
-	_ = viper.BindPFlag("userid-prefix", initCmd.Flags().Lookup("userid-prefix"))
+	bindFlagHelper(userIdPrefixFlag, initCmd)
 
 	rootCmd.AddCommand(initCmd)
 }
@@ -78,8 +78,6 @@ func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode st
 	jww.INFO.Printf("Using normal sender")
 
 	// create a new client if none exist
-	var net *xxdk.Cmix
-	var identity xxdk.ReceptionIdentity
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
 		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
@@ -88,11 +86,20 @@ func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode st
 		}
 
 		err = xxdk.NewCmix(string(ndfJson), storeDir, password, regCode)
-		net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
+	}
 
+	// Initialize from storage
+	net, err := xxdk.LoadCmix(storeDir, password, cmixParams)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+
+	// Load or initialize xxdk.ReceptionIdentity storage
+	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, net)
+	if err != nil {
 		if forceLegacy {
 			jww.INFO.Printf("Forcing legacy sender")
 			identity, err = xxdk.MakeLegacyReceptionIdentity(net)
@@ -104,16 +111,6 @@ func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode st
 		}
 
 		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-	} else {
-		// Initialize from storage
-		net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-		identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -133,8 +130,6 @@ func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
 	jww.INFO.Printf("Using Vanity sender")
 
 	// create a new client if none exist
-	var net *xxdk.Cmix
-	var identity xxdk.ReceptionIdentity
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
 		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
@@ -144,27 +139,25 @@ func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
 
 		err = xxdk.NewVanityClient(string(ndfJson), storeDir,
 			password, regCode, userIdPrefix)
-		net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
+	}
+	// Initialize from storage
+	net, err := xxdk.LoadCmix(storeDir, password, cmixParams)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
 
+	// Load or initialize xxdk.ReceptionIdentity storage
+	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, net)
+	if err != nil {
 		identity, err = xxdk.MakeLegacyReceptionIdentity(net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
 		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-	} else {
-		// Initialize from storage
-		net, err = xxdk.LoadCmix(storeDir, password, cmixParams)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-		identity, err = xxdk.LoadReceptionIdentity(identityStorageKey, net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

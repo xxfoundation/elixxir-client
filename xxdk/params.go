@@ -20,8 +20,8 @@ import (
 	"gitlab.com/elixxir/client/e2e/rekey"
 )
 
-// CMIXParams contains the parameters for Network tracking and for
-// specific CMIX messaging settings.
+// CMIXParams contains the parameters for Network tracking and for specific CMIX
+// messaging settings.
 //
 // FIXME: this breakdown could be cleaner and is an unfortunate side effect of
 //        several refactors of the codebase.
@@ -32,8 +32,8 @@ type CMIXParams struct {
 
 // E2EParams holds all the settings for e2e and it's various submodules.
 //
-// NOTE: "Base" wraps cmix.CMIXParams to control message send params,
-//       so xxdk library users should copy the desired settings to both.
+// Note that Base wraps cmix.CMIXParams to control message send params, so that
+// xxdk library users should copy the desired settings to both.
 // FIXME: this should not wrap a copy of cmix.CMIXParams.
 type E2EParams struct {
 	Session        session.Params
@@ -43,10 +43,11 @@ type E2EParams struct {
 	Auth           auth.Params
 }
 
-////////////////////////////////////////
-// -- CMix Params Helper Functions -- //
-////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// CMix Params Helper Functions                                               //
+////////////////////////////////////////////////////////////////////////////////
 
+// GetDefaultCMixParams returns a new CMIXParams with the default parameters.
 func GetDefaultCMixParams() CMIXParams {
 	return CMIXParams{
 		Network: cmix.GetDefaultParams(),
@@ -54,20 +55,22 @@ func GetDefaultCMixParams() CMIXParams {
 	}
 }
 
-// Unmarshal fills an empty object with the deserialized contents of jsonData
+// Unmarshal fills an empty object with the deserialized contents of the JSON
+// data.
 func (p *CMIXParams) Unmarshal(jsonData []byte) error {
 	return json.Unmarshal(jsonData, p)
 }
 
-// Marshal creates json data of the object
+// Marshal creates JSON data of the object.
 func (p *CMIXParams) Marshal() ([]byte, error) {
 	return json.Marshal(p)
 }
 
-////////////////////////////////////////
-// -- E2E Params Helper Functions --  //
-////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// E2E Params Helper Functions                                                //
+////////////////////////////////////////////////////////////////////////////////
 
+// GetDefaultE2EParams returns a new E2EParams with the default parameters.
 func GetDefaultE2EParams() E2EParams {
 	return E2EParams{
 		Session:        session.GetDefaultParams(),
@@ -78,12 +81,13 @@ func GetDefaultE2EParams() E2EParams {
 	}
 }
 
-// Unmarshal fills an empty object with the deserialized contents of jsonData
+// Unmarshal fills an empty object with the deserialized contents of the JSON
+// data.
 func (p *E2EParams) Unmarshal(jsonData []byte) error {
 	return json.Unmarshal(jsonData, p)
 }
 
-// Marshal creates json data of the object
+// Marshal creates JSON data of the object.
 func (p *E2EParams) Marshal() ([]byte, error) {
 	return json.Marshal(p)
 }

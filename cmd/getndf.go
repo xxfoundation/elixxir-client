@@ -42,10 +42,10 @@ var getNDFCmd = &cobra.Command{
 		"and print it.",
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		if viper.GetString("env") != "" {
+		if viper.IsSet(ndfEnvFlag) {
 			var ndfJSON []byte
 			var err error
-			switch viper.GetString("env") {
+			switch viper.GetString(ndfEnvFlag) {
 			case mainnet:
 				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(mainNetUrl, mainNetCert)
 				if err != nil {
@@ -69,23 +69,23 @@ var getNDFCmd = &cobra.Command{
 				}
 			default:
 				jww.FATAL.Panicf("env flag with unknown flag (%s)",
-					viper.GetString("env"))
+					viper.GetString(ndfEnvFlag))
 			}
 			// Print to stdout
 			fmt.Printf("%s", ndfJSON)
 		} else {
 
 			// Note: getndf prints to stdout, so we default to not do that
-			logLevel := viper.GetUint("logLevel")
-			logPath := viper.GetString("log")
+			logLevel := viper.GetUint(logLevelFlag)
+			logPath := viper.GetString(logFlag)
 			if logPath == "-" || logPath == "" {
 				logPath = "getndf.log"
 			}
 			initLog(logLevel, logPath)
 			jww.INFO.Printf(Version())
-			gwHost := viper.GetString("gwhost")
-			permHost := viper.GetString("permhost")
-			certPath := viper.GetString("cert")
+			gwHost := viper.GetString(ndfGwHostFlag)
+			permHost := viper.GetString(ndfPermHostFlag)
+			certPath := viper.GetString(ndfCertFlag)
 
 			// Load the certificate
 			var cert []byte
@@ -147,25 +147,22 @@ var getNDFCmd = &cobra.Command{
 }
 
 func init() {
-	getNDFCmd.Flags().StringP("gwhost", "", "",
+	getNDFCmd.Flags().StringP(ndfGwHostFlag, "", "",
 		"Poll this gateway host:port for the NDF")
-	viper.BindPFlag("gwhost",
-		getNDFCmd.Flags().Lookup("gwhost"))
-	getNDFCmd.Flags().StringP("permhost", "", "",
+	bindFlagHelper(ndfGwHostFlag, getNDFCmd)
+
+	getNDFCmd.Flags().StringP(ndfPermHostFlag, "", "",
 		"Poll this registration host:port for the NDF")
-	viper.BindPFlag("permhost",
-		getNDFCmd.Flags().Lookup("permhost"))
+	bindFlagHelper(ndfPermHostFlag, getNDFCmd)
 
-	getNDFCmd.Flags().StringP("cert", "", "",
+	getNDFCmd.Flags().StringP(ndfCertFlag, "", "",
 		"Check with the TLS certificate at this path")
-	viper.BindPFlag("cert",
-		getNDFCmd.Flags().Lookup("cert"))
+	bindFlagHelper(ndfCertFlag, getNDFCmd)
 
-	getNDFCmd.Flags().StringP("env", "", "",
+	getNDFCmd.Flags().StringP(ndfEnvFlag, "", "",
 		"Downloads and verifies a signed NDF from a specified environment. "+
 			"Accepted environment flags include mainnet, release, testnet, and dev")
-	viper.BindPFlag("env",
-		getNDFCmd.Flags().Lookup("env"))
+	bindFlagHelper(ndfEnvFlag, getNDFCmd)
 
 	rootCmd.AddCommand(getNDFCmd)
 }

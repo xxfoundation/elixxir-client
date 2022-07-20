@@ -55,7 +55,7 @@ var singleCmd = &cobra.Command{
 		waitUntilConnected(connected)
 
 		// get the tag
-		tag := viper.GetString("tag")
+		tag := viper.GetString(singleTagFlag)
 
 		// Register the callback
 		receiver := &Receiver{
@@ -88,14 +88,14 @@ var singleCmd = &cobra.Command{
 				numReg, total)
 		}
 
-		timeout := viper.GetDuration("timeout")
+		timeout := viper.GetDuration(singleTimeoutFlag)
 
 		// If the send flag is set, then send a message
-		if viper.GetBool("send") {
+		if viper.GetBool(singleSendFlag) {
 			// get message details
-			payload := []byte(viper.GetString("message"))
-			partner := readSingleUseContact("contact")
-			maxMessages := uint8(viper.GetUint("maxMessages"))
+			payload := []byte(viper.GetString(messageFlag))
+			partner := readSingleUseContact(singleContactFlag)
+			maxMessages := uint8(viper.GetUint(singleMaxMessagesFlag))
 
 			sendSingleUse(client.Cmix, partner, payload,
 				maxMessages, timeout, tag)
@@ -103,7 +103,7 @@ var singleCmd = &cobra.Command{
 
 		// If the reply flag is set, then start waiting for a
 		// message and reply when it is received
-		if viper.GetBool("reply") {
+		if viper.GetBool(singleReplyFlag) {
 			replySingleUse(timeout, receiver)
 		}
 		listener.Stop()
@@ -113,28 +113,28 @@ var singleCmd = &cobra.Command{
 func init() {
 	// Single-use subcommand options
 
-	singleCmd.Flags().Bool("send", false, "Sends a single-use message.")
-	_ = viper.BindPFlag("send", singleCmd.Flags().Lookup("send"))
+	singleCmd.Flags().Bool(singleSendFlag, false, "Sends a single-use message.")
+	bindFlagHelper(singleSendFlag, singleCmd)
 
-	singleCmd.Flags().Bool("reply", false,
+	singleCmd.Flags().Bool(singleReplyFlag, false,
 		"Listens for a single-use message and sends a reply.")
-	_ = viper.BindPFlag("reply", singleCmd.Flags().Lookup("reply"))
+	bindFlagHelper(singleReplyFlag, singleCmd)
 
-	singleCmd.Flags().StringP("contact", "c", "",
+	singleCmd.Flags().StringP(singleContactFlag, "c", "",
 		"Path to contact file to send message to.")
-	_ = viper.BindPFlag("contact", singleCmd.Flags().Lookup("contact"))
+	bindFlagHelper(singleContactFlag, singleCmd)
 
-	singleCmd.Flags().StringP("tag", "", "testTag",
+	singleCmd.Flags().StringP(singleTagFlag, "", "testTag",
 		"The tag that specifies the callback to trigger on reception.")
-	_ = viper.BindPFlag("tag", singleCmd.Flags().Lookup("tag"))
+	bindFlagHelper(singleTagFlag, singleCmd)
 
-	singleCmd.Flags().Uint8("maxMessages", 1,
+	singleCmd.Flags().Uint8(singleMaxMessagesFlag, 1,
 		"The max number of single-use response messages.")
-	_ = viper.BindPFlag("maxMessages", singleCmd.Flags().Lookup("maxMessages"))
+	bindFlagHelper(singleMaxMessagesFlag, singleCmd)
 
-	singleCmd.Flags().DurationP("timeout", "t", 30*time.Second,
+	singleCmd.Flags().DurationP(singleTimeoutFlag, "t", 30*time.Second,
 		"Duration before stopping to wait for single-use message.")
-	_ = viper.BindPFlag("timeout", singleCmd.Flags().Lookup("timeout"))
+	bindFlagHelper(singleTimeoutFlag, singleCmd)
 
 	rootCmd.AddCommand(singleCmd)
 }

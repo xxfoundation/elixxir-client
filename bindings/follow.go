@@ -94,9 +94,9 @@ func (c *Cmix) HasRunningProcessies() bool {
 	return c.api.HasRunningProcessies()
 }
 
-// IsNetworkHealthy returns true if the network is read to be in a healthy state where
+// IsHealthy returns true if the network is read to be in a healthy state where
 // messages can be sent
-func (c *Cmix) IsNetworkHealthy() bool {
+func (c *Cmix) IsHealthy() bool {
 	return c.api.GetCmix().IsHealthy()
 }
 
@@ -106,14 +106,14 @@ type NetworkHealthCallback interface {
 	Callback(bool)
 }
 
-// RegisterNetworkHealthCB registers the network health callback to be called
+// AddHealthCallback registers the network health callback to be called
 // any time the network health changes. Returns a unique ID that can be used to
 // unregister the network health callback.
-func (c *Cmix) RegisterNetworkHealthCB(nhc NetworkHealthCallback) int64 {
+func (c *Cmix) AddHealthCallback(nhc NetworkHealthCallback) int64 {
 	return int64(c.api.GetCmix().AddHealthCallback(nhc.Callback))
 }
 
-func (c *Cmix) UnregisterNetworkHealthCB(funcID int64) {
+func (c *Cmix) RemoveHealthCallback(funcID int64) {
 	c.api.GetCmix().RemoveHealthCallback(uint64(funcID))
 }
 

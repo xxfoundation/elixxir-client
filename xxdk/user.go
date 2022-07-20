@@ -28,11 +28,11 @@ import (
 )
 
 const (
-	// SaltSize size of user salts
+	// SaltSize is the length of user salts, in bytes.
 	SaltSize = 32
 )
 
-// createNewUser generates an identity for cMix
+// createNewUser generates an identity for cMix.
 func createNewUser(rng *fastRNG.StreamGenerator, e2eGroup *cyclic.Group) user.Info {
 	// CMIX Keygen
 	var transmissionRsaKey, receptionRsaKey *rsa.PrivateKey
@@ -67,9 +67,8 @@ func createNewUser(rng *fastRNG.StreamGenerator, e2eGroup *cyclic.Group) user.In
 	}
 }
 
-func createKeys(rng *fastRNG.StreamGenerator,
-	e2e *cyclic.Group) (e2eKeyBytes,
-	transmissionSalt, receptionSalt []byte,
+func createKeys(rng *fastRNG.StreamGenerator, e2e *cyclic.Group) (
+	e2eKeyBytes, transmissionSalt, receptionSalt []byte,
 	transmissionRsaKey, receptionRsaKey *rsa.PrivateKey) {
 	wg := sync.WaitGroup{}
 
@@ -80,8 +79,8 @@ func createKeys(rng *fastRNG.StreamGenerator,
 		var err error
 		// DH Keygen
 		// FIXME: Why 256 bits? -- this is spec but not explained, it has
-		// to do with optimizing operations on one side and still preserves
-		// decent security -- cite this. Why valid for BOTH e2e and cmix?
+		//  to do with optimizing operations on one side and still preserves
+		//  decent security -- cite this. Why valid for BOTH e2e and cMix?
 		stream := rng.GetStream()
 		e2eKeyBytes, err = csprng.GenerateInGroup(e2e.GetPBytes(), 256, stream)
 		stream.Close()
@@ -128,8 +127,8 @@ func createKeys(rng *fastRNG.StreamGenerator,
 
 }
 
-// createNewVanityUser generates an identity for cMix
-// The identity's ReceptionID is not random but starts with the supplied prefix
+// createNewVanityUser generates an identity for cMix. The identity's
+// ReceptionID is not random but starts with the supplied prefix.
 func createNewVanityUser(rng csprng.Source,
 	e2e *cyclic.Group, prefix string) user.Info {
 	// DH Keygen
@@ -164,8 +163,8 @@ func createNewVanityUser(rng csprng.Source,
 		jww.FATAL.Panicf(err.Error())
 	}
 
-	// just in case more than one go routine tries to access
-	// receptionSalt and receptionID
+	// Just in case more than one go routine tries to access receptionSalt and
+	// receptionID
 	var mu sync.Mutex
 	done := make(chan struct{})
 	found := make(chan bool)
@@ -177,11 +176,13 @@ func createNewVanityUser(rng csprng.Source,
 
 	pref := prefix
 	ignoreCase := false
-	// check if case-insensitivity is enabled
+
+	// Check if case-insensitivity is enabled
 	if strings.HasPrefix(prefix, "(?i)") {
 		pref = strings.ToLower(pref[4:])
 		ignoreCase = true
 	}
+
 	// Check if prefix contains valid Base64 characters
 	match, _ := regexp.MatchString("^[A-Za-z0-9+/]+$", pref)
 	if match == false {
@@ -233,11 +234,13 @@ func createNewVanityUser(rng csprng.Source,
 			}
 		}()
 	}
-	// wait for a solution then close the done channel to signal
-	// the workers to exit
+
+	// Wait for a solution then close the done channel to signal the workers to
+	// exit
 	<-found
 	close(done)
 	wg.Wait()
+
 	return user.Info{
 		TransmissionID:   transmissionID.DeepCopy(),
 		TransmissionSalt: transmissionSalt,
@@ -251,7 +254,6 @@ func createNewVanityUser(rng csprng.Source,
 	}
 }
 
-// createPrecannedUser
 func createPrecannedUser(precannedID uint, rng csprng.Source, grp *cyclic.Group) user.Info {
 	// Salt, UID, etc gen
 	salt := make([]byte, SaltSize)

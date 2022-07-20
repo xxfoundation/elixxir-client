@@ -25,8 +25,8 @@ const (
 	desiredPreviewSize = 32 * 24
 )
 
-// CompressJpeg takes a JPEG image in byte format
-// and compresses it based on desired output size
+// CompressJpeg takes a JPEG image in byte format and compresses it based on
+// desired output size.
 func CompressJpeg(imgBytes []byte) ([]byte, error) {
 	// Convert bytes to a reader
 	imgBuf := bytes.NewReader(imgBytes)
@@ -76,8 +76,8 @@ func CompressJpeg(imgBytes []byte) ([]byte, error) {
 	return newImgBuf.Bytes(), nil
 }
 
-// CompressJpeg takes a JPEG image in byte format
-// and compresses it based on desired output size
+// CompressJpegForPreview takes a JPEG image in byte format and compresses it
+// based on desired output size.
 func CompressJpegForPreview(imgBytes []byte) ([]byte, error) {
 	// Convert bytes to a reader
 	imgBuf := bytes.NewReader(imgBytes)

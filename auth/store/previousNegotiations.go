@@ -12,7 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
-	"strings"
+	"os"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -121,7 +121,27 @@ func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]bool, error) {
 
 	obj, err := s.kv.Get(negotiationPartnersKey, negotiationPartnersVersion)
 	if err != nil {
-		if strings.Contains(err.Error(), "object not found") {
+		// Version 0 Upgrade Path
+		obj, err2 := s.kv.Get(negotiationPartnersKey, 0)
+		if err2 == nil && obj.Version == 0 {
+			old := unmarshalPreviousNegotiationsV0(obj.Data)
+			newPrevNegotiations := make(map[id.ID]bool)
+			for id := range old {
+				newPrevNegotiations[id] = true
+			}
+			obj = &versioned.Object{
+				Version:   negotiationPartnersVersion,
+				Timestamp: netTime.Now(),
+				Data: marshalPreviousNegotiations(
+					newPrevNegotiations),
+			}
+			err = s.kv.Set(negotiationPartnersKey,
+				negotiationPartnersVersion, obj)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if os.IsNotExist(err) {
 			newPreviousNegotiations := make(map[id.ID]bool)
 			obj := &versioned.Object{
 				Version:   negotiationPartnersVersion,
@@ -137,26 +157,6 @@ func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]bool, error) {
 			return newPreviousNegotiations, nil
 		}
 		return nil, err
-	}
-
-	// Upgrade V0 entries
-	if obj.Version == 0 {
-		old := unmarshalPreviousNegotiationsV0(obj.Data)
-		newPrevNegotiations := make(map[id.ID]bool)
-		for id := range old {
-			newPrevNegotiations[id] = true
-		}
-		obj := &versioned.Object{
-			Version:   negotiationPartnersVersion,
-			Timestamp: netTime.Now(),
-			Data: marshalPreviousNegotiations(
-				newPrevNegotiations),
-		}
-		err = s.kv.Set(negotiationPartnersKey,
-			negotiationPartnersVersion, obj)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return unmarshalPreviousNegotiations(obj.Data)

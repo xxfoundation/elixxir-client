@@ -50,7 +50,7 @@ func (m *Manager) removeFact(f fact.Fact,
 	if err != nil {
 		return err
 	}
-	stream := m.rng.GetStream()
+	stream := m.getRng().GetStream()
 	defer stream.Close()
 	fSig, err := rsa.Sign(stream, privKey, hash.CMixHash, fHash, nil)
 	if err != nil {
@@ -113,7 +113,7 @@ func (m *Manager) permanentDeleteAccount(f fact.Fact, myId *id.ID, privateKey *r
 	fHash := factID.Fingerprint(f)
 
 	// Sign our inFact for putting into the request
-	stream := m.rng.GetStream()
+	stream := m.getRng().GetStream()
 	defer stream.Close()
 	fsig, err := rsa.Sign(stream, privateKey, hash.CMixHash, fHash, nil)
 	if err != nil {

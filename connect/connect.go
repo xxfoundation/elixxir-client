@@ -138,8 +138,8 @@ func Connect(recipient contact.Contact, messenger *xxdk.E2e,
 // no requests are missed.
 // This call does an xxDK.ephemeralLogin under the hood and the connection
 // server must be the only listener on auth.
-func StartServer(identity xxdk.ReceptionIdentity, cb Callback, net *xxdk.Cmix,
-	p xxdk.E2EParams, clParams ConnectionListParams) (*ConnectionServer, error) {
+func StartServer(identity xxdk.ReceptionIdentity, connectionCallback Callback,
+	net *xxdk.Cmix, params xxdk.E2EParams, clParams ConnectionListParams) (*ConnectionServer, error) {
 
 	// Create connection list and start cleanup thread
 	cl := NewConnectionList(clParams)
@@ -149,9 +149,9 @@ func StartServer(identity xxdk.ReceptionIdentity, cb Callback, net *xxdk.Cmix,
 	}
 
 	// Build callback for E2E negotiation
-	callback := getServerAuthCallback(nil, cb, cl, p)
+	callback := getServerAuthCallback(nil, connectionCallback, cl, params)
 
-	e2eClient, err := xxdk.LoginEphemeral(net, callback, identity, p)
+	e2eClient, err := xxdk.LoginEphemeral(net, callback, identity, params)
 	if err != nil {
 		return nil, err
 	}

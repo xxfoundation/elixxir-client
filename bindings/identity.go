@@ -32,8 +32,8 @@ type ReceptionIdentity struct {
 	DHKeyPrivate  []byte
 }
 
-// MakeIdentity generates a new cryptographic identity for receiving messages
-func (c *Cmix) MakeIdentity() ([]byte, error) {
+// MakeReceptionIdentity generates a new cryptographic identity for receiving messages
+func (c *Cmix) MakeReceptionIdentity() ([]byte, error) {
 	ident, err := xxdk.MakeReceptionIdentity(c.api)
 	if err != nil {
 		return nil, err
@@ -42,8 +42,8 @@ func (c *Cmix) MakeIdentity() ([]byte, error) {
 	return ident.Marshal()
 }
 
-// MakeLegacyIdentity generates the legacy identity for receiving messages
-func (c *Cmix) MakeLegacyIdentity() ([]byte, error) {
+// MakeLegacyReceptionIdentity generates the legacy identity for receiving messages
+func (c *Cmix) MakeLegacyReceptionIdentity() ([]byte, error) {
 	ident, err := xxdk.MakeLegacyReceptionIdentity(c.api)
 	if err != nil {
 		return nil, err

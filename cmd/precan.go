@@ -30,7 +30,7 @@ func loadOrInitPrecan(precanId uint, password []byte, storeDir string,
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
-		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
+		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

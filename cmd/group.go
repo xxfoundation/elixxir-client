@@ -36,7 +36,7 @@ var groupCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
-			viper.GetBool("unsafe-channel-creation"), e2eParams)
+			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
 		client := initE2e(cmixParams, e2eParams, authCbs)
 
 		// Print user's reception ID

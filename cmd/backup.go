@@ -30,7 +30,7 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
-		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
+		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -44,7 +44,7 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 		}
 
 		// Write the backup JSON to file
-		err = utils.WriteFileDef(viper.GetString("backupJsonOut"), backupJson)
+		err = utils.WriteFileDef(viper.GetString(backupJsonOutFlag), backupJson)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
 		}
@@ -56,7 +56,7 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		backupIdListPath := viper.GetString("backupIdList")
+		backupIdListPath := viper.GetString(backupIdListFlag)
 		if backupIdListPath != "" {
 			// Marshal backed up ID list to JSON
 			backedUpIdListJson, err := json.Marshal(backupIdList)

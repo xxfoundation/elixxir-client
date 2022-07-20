@@ -45,7 +45,7 @@ func newTestingClient(face interface{}) (*Cmix, error) {
 			"Could not construct a mock client: %v", err)
 	}
 
-	c, err := OpenCmix(storageDir, password, GetDefaultParams())
+	c, err := OpenCmix(storageDir, password)
 	if err != nil {
 		return nil, errors.Errorf("Could not open a mock client: %v",
 			err)
@@ -58,8 +58,11 @@ func newTestingClient(face interface{}) (*Cmix, error) {
 		jww.FATAL.Panicf("Failed to create new test instance: %v", err)
 	}
 
-	commsManager.AddHost(&id.Permissioning, "", cert,
-		connect.GetDefaultHostParams())
+	_, err = commsManager.AddHost(
+		&id.Permissioning, "", cert, connect.GetDefaultHostParams())
+	if err != nil {
+		return nil, err
+	}
 	instanceComms := &connect.ProtoComms{
 		Manager: commsManager,
 	}
@@ -82,7 +85,7 @@ func newTestingClient(face interface{}) (*Cmix, error) {
 	return c, nil
 }
 
-// Helper function which generates an ndf for testing
+// Helper function that generates an NDF for testing.
 func getNDF(face interface{}) *ndf.NetworkDefinition {
 	switch face.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
@@ -152,8 +155,8 @@ func getNDF(face interface{}) *ndf.NetworkDefinition {
 	}
 }
 
-// Signs a passed round info with the key tied to the test nodes cert
-// used throughout utils and other tests
+// signRoundInfo signs a passed round info with the key tied to the test node's
+// cert used throughout utils and other tests.
 func signRoundInfo(ri *pb.RoundInfo) error {
 	privKeyFromFile := testkeys.LoadFromPath(testkeys.GetNodeKeyPath())
 

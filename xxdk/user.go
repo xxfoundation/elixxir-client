@@ -8,6 +8,8 @@
 package xxdk
 
 import (
+	"encoding/binary"
+	"math/rand"
 	"regexp"
 	"runtime"
 	"strings"
@@ -26,18 +28,18 @@ import (
 )
 
 const (
-	// SaltSize size of user salts
+	// SaltSize is the length of user salts, in bytes.
 	SaltSize = 32
 )
 
-// createNewUser generates an identity for cMix
-func createNewUser(rng *fastRNG.StreamGenerator) user.Info {
+// createNewUser generates an identity for cMix.
+func createNewUser(rng *fastRNG.StreamGenerator, e2eGroup *cyclic.Group) user.Info {
 	// CMIX Keygen
 	var transmissionRsaKey, receptionRsaKey *rsa.PrivateKey
 	var transmissionSalt, receptionSalt []byte
 
-	transmissionSalt, receptionSalt,
-		transmissionRsaKey, receptionRsaKey = createKeys(rng)
+	e2eKeyBytes, transmissionSalt, receptionSalt,
+		transmissionRsaKey, receptionRsaKey := createKeys(rng, e2eGroup)
 
 	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(),
 		transmissionSalt, id.User)
@@ -51,6 +53,7 @@ func createNewUser(rng *fastRNG.StreamGenerator) user.Info {
 		jww.FATAL.Panicf(err.Error())
 	}
 
+	dhPrivKey := e2eGroup.NewIntFromBytes(e2eKeyBytes)
 	return user.Info{
 		TransmissionID:   transmissionID.DeepCopy(),
 		TransmissionSalt: transmissionSalt,
@@ -59,29 +62,43 @@ func createNewUser(rng *fastRNG.StreamGenerator) user.Info {
 		ReceptionSalt:    receptionSalt,
 		ReceptionRSA:     receptionRsaKey,
 		Precanned:        false,
-		E2eDhPrivateKey:  nil,
-		E2eDhPublicKey:   nil,
+		E2eDhPrivateKey:  dhPrivKey,
+		E2eDhPublicKey:   diffieHellman.GeneratePublicKey(dhPrivKey, e2eGroup),
 	}
 }
 
-func createKeys(rng *fastRNG.StreamGenerator) (
-	transmissionSalt, receptionSalt []byte,
+func createKeys(rng *fastRNG.StreamGenerator, e2e *cyclic.Group) (
+	e2eKeyBytes, transmissionSalt, receptionSalt []byte,
 	transmissionRsaKey, receptionRsaKey *rsa.PrivateKey) {
 	wg := sync.WaitGroup{}
 
-	wg.Add(2)
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+		var err error
+		// DH Keygen
+		// FIXME: Why 256 bits? -- this is spec but not explained, it has
+		//  to do with optimizing operations on one side and still preserves
+		//  decent security -- cite this. Why valid for BOTH e2e and cMix?
+		stream := rng.GetStream()
+		e2eKeyBytes, err = csprng.GenerateInGroup(e2e.GetPBytes(), 256, stream)
+		stream.Close()
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+	}()
 
 	// RSA Keygen (4096 bit defaults)
 	go func() {
 		defer wg.Done()
 		var err error
 		stream := rng.GetStream()
-		transmissionRsaKey, err = rsa.GenerateKey(stream,
-			rsa.DefaultRSABitLen)
+		transmissionRsaKey, err = rsa.GenerateKey(stream, rsa.DefaultRSABitLen)
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
 		}
-		transmissionSalt = make([]byte, 32)
+		transmissionSalt = make([]byte, SaltSize)
 		_, err = stream.Read(transmissionSalt)
 		stream.Close()
 		if err != nil {
@@ -93,12 +110,11 @@ func createKeys(rng *fastRNG.StreamGenerator) (
 		defer wg.Done()
 		var err error
 		stream := rng.GetStream()
-		receptionRsaKey, err = rsa.GenerateKey(stream,
-			rsa.DefaultRSABitLen)
+		receptionRsaKey, err = rsa.GenerateKey(stream, rsa.DefaultRSABitLen)
 		if err != nil {
 			jww.FATAL.Panicf(err.Error())
 		}
-		receptionSalt = make([]byte, 32)
+		receptionSalt = make([]byte, SaltSize)
 		_, err = stream.Read(receptionSalt)
 		stream.Close()
 		if err != nil {
@@ -107,28 +123,13 @@ func createKeys(rng *fastRNG.StreamGenerator) (
 	}()
 	wg.Wait()
 
-	isZero := func(data []byte) bool {
-		if len(data) == 0 {
-			return true
-		}
-		for i := len(data) - 1; i != 0; i-- {
-			if data[i] != 0 {
-				return false
-			}
-		}
-		return true
-	}
-
-	if isZero(receptionSalt) || isZero(transmissionSalt) {
-		jww.FATAL.Panicf("empty salt generation detected")
-	}
 	return
 
 }
 
-// createNewVanityUser generates an identity for cMix
-// The identity's ReceptionID is not random but starts with the supplied prefix
-func createNewVanityUser(rng csprng.Source, cmix,
+// createNewVanityUser generates an identity for cMix. The identity's
+// ReceptionID is not random but starts with the supplied prefix.
+func createNewVanityUser(rng csprng.Source,
 	e2e *cyclic.Group, prefix string) user.Info {
 	// DH Keygen
 	prime := e2e.GetPBytes()
@@ -162,8 +163,8 @@ func createNewVanityUser(rng csprng.Source, cmix,
 		jww.FATAL.Panicf(err.Error())
 	}
 
-	// just in case more than one go routine tries to access
-	// receptionSalt and receptionID
+	// Just in case more than one go routine tries to access receptionSalt and
+	// receptionID
 	var mu sync.Mutex
 	done := make(chan struct{})
 	found := make(chan bool)
@@ -175,11 +176,13 @@ func createNewVanityUser(rng csprng.Source, cmix,
 
 	pref := prefix
 	ignoreCase := false
-	// check if case-insensitivity is enabled
+
+	// Check if case-insensitivity is enabled
 	if strings.HasPrefix(prefix, "(?i)") {
 		pref = strings.ToLower(pref[4:])
 		ignoreCase = true
 	}
+
 	// Check if prefix contains valid Base64 characters
 	match, _ := regexp.MatchString("^[A-Za-z0-9+/]+$", pref)
 	if match == false {
@@ -194,7 +197,7 @@ func createNewVanityUser(rng csprng.Source, cmix,
 			for {
 				select {
 				case <-done:
-					defer wg.Done()
+					wg.Done()
 					return
 				default:
 					n, err = csprng.NewSystemRNG().Read(
@@ -214,28 +217,30 @@ func createNewVanityUser(rng csprng.Source, cmix,
 					if err != nil {
 						jww.FATAL.Panicf(err.Error())
 					}
-					id := rID.String()
+					rid := rID.String()
 					if ignoreCase {
-						id = strings.ToLower(id)
+						rid = strings.ToLower(rid)
 					}
-					if strings.HasPrefix(id, pref) {
+					if strings.HasPrefix(rid, pref) {
 						mu.Lock()
 						receptionID = rID
 						receptionSalt = rSalt
 						mu.Unlock()
 						found <- true
-						defer wg.Done()
+						wg.Done()
 						return
 					}
 				}
 			}
 		}()
 	}
-	// wait for a solution then close the done channel to signal
-	// the workers to exit
+
+	// Wait for a solution then close the done channel to signal the workers to
+	// exit
 	<-found
 	close(done)
 	wg.Wait()
+
 	return user.Info{
 		TransmissionID:   transmissionID.DeepCopy(),
 		TransmissionSalt: transmissionSalt,
@@ -246,5 +251,36 @@ func createNewVanityUser(rng csprng.Source, cmix,
 		Precanned:        false,
 		E2eDhPrivateKey:  e2eKey,
 		E2eDhPublicKey:   diffieHellman.GeneratePublicKey(e2eKey, e2e),
+	}
+}
+
+func createPrecannedUser(precannedID uint, rng csprng.Source, grp *cyclic.Group) user.Info {
+	// Salt, UID, etc gen
+	salt := make([]byte, SaltSize)
+
+	userID := id.ID{}
+	binary.BigEndian.PutUint64(userID[:], uint64(precannedID))
+	userID.SetType(id.User)
+
+	// NOTE: not used... RSA Keygen (4096 bit defaults)
+	rsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+
+	prime := grp.GetPBytes()
+	keyLen := len(prime)
+	prng := rand.New(rand.NewSource(int64(precannedID)))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(keyLen, grp, prng)
+	return user.Info{
+		TransmissionID:   &userID,
+		TransmissionSalt: salt,
+		ReceptionID:      &userID,
+		ReceptionSalt:    salt,
+		Precanned:        true,
+		E2eDhPrivateKey:  dhPrivKey,
+		E2eDhPublicKey:   diffieHellman.GeneratePublicKey(dhPrivKey, grp),
+		TransmissionRSA:  rsaKey,
+		ReceptionRSA:     rsaKey,
 	}
 }

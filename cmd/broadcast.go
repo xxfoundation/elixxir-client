@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -12,9 +15,7 @@ import (
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/utils"
-	"os"
 	"sync"
-	"time"
 )
 
 // singleCmd is the single-use subcommand that allows for sening and responding
@@ -24,7 +25,8 @@ var broadcastCmd = &cobra.Command{
 	Short: "Send broadcast messages",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client := initE2e()
+		cmixParams, e2eParams := initParams()
+		client := initE2e(cmixParams, e2eParams)
 
 		// Write user contact to file
 		user := client.GetReceptionIdentity()
@@ -46,8 +48,8 @@ var broadcastCmd = &cobra.Command{
 		/* Set up underlying crypto broadcast.Channel */
 		var channel *crypto.Channel
 		var pk *rsa.PrivateKey
-		keyPath := viper.GetString("keyPath")
-		path, err := utils.ExpandPath(viper.GetString("chanPath"))
+		keyPath := viper.GetString(broadcastKeyPathFlag)
+		path, err := utils.ExpandPath(viper.GetString(broadcastChanPathFlag))
 		if utils.Exists(path) {
 			// Load symmetric from path
 			cBytes, err := utils.ReadFile(path)
@@ -60,8 +62,8 @@ var broadcastCmd = &cobra.Command{
 			}
 		} else {
 			// Load in broadcast channel info
-			name := viper.GetString("name")
-			desc := viper.GetString("description")
+			name := viper.GetString(broadcastNameFlag)
+			desc := viper.GetString(broadcastDescriptionFlag)
 			if name == "" {
 				jww.FATAL.Panicf("Name cannot be empty")
 			} else if desc == "" {
@@ -69,7 +71,7 @@ var broadcastCmd = &cobra.Command{
 			}
 
 			var cryptChannel *crypto.Channel
-			if viper.GetBool("new") {
+			if viper.GetBool(broadcastNewFlag) {
 				// Create a new broadcast channel
 				cryptChannel, pk, err = crypto.NewChannel(name, desc, client.GetRng().GetStream())
 				if err != nil {
@@ -87,12 +89,12 @@ var broadcastCmd = &cobra.Command{
 				fmt.Printf("New broadcast channel generated")
 			} else {
 				// Read rest of info from config & build object manually
-				pubKeyBytes := []byte(viper.GetString("rsaPub"))
+				pubKeyBytes := []byte(viper.GetString(broadcastRsaPubFlag))
 				pubKey, err := rsa.LoadPublicKeyFromPem(pubKeyBytes)
 				if err != nil {
 					jww.FATAL.Panicf("Failed to load public key at path: %+v", err)
 				}
-				salt := []byte(viper.GetString("salt"))
+				salt := []byte(viper.GetString(broadcastSaltFlag))
 
 				rid, err := crypto.NewChannelID(name, desc, salt, pubKeyBytes)
 				if err != nil {
@@ -159,7 +161,7 @@ var broadcastCmd = &cobra.Command{
 		}
 		err = bcl.RegisterListener(scb, broadcast.Symmetric)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to register symmetric listener: %+v", err)
+			jww.FATAL.Panicf("Failed to register asymmetric listener: %+v", err)
 		}
 
 		// Create & register asymmetric receiver callback
@@ -237,11 +239,12 @@ var broadcastCmd = &cobra.Command{
 
 			wg.Wait()
 		}
+		/* Create properly sized broadcast message */
 
 		/* Receive broadcast messages over the channel */
 		jww.INFO.Printf("Waiting for message reception...")
-		waitSecs := viper.GetUint("waitTimeout")
-		expectedCnt := viper.GetUint("receiveCount")
+		waitSecs := viper.GetUint(waitTimeoutFlag)
+		expectedCnt := viper.GetUint(receiveCountFlag)
 		waitTimeout := time.Duration(waitSecs) * time.Second
 		receivedCount := uint(0)
 		done := false
@@ -288,41 +291,43 @@ var broadcastCmd = &cobra.Command{
 
 func init() {
 	// Single-use subcommand options
-	broadcastCmd.Flags().StringP("name", "", "",
+	broadcastCmd.Flags().StringP(broadcastNameFlag, "", "",
 		"Symmetric channel name")
-	_ = viper.BindPFlag("name", broadcastCmd.Flags().Lookup("name"))
+	bindFlagHelper(broadcastNameFlag, broadcastCmd)
 
-	broadcastCmd.Flags().StringP("rsaPub", "", "",
+	broadcastCmd.Flags().StringP(broadcastRsaPubFlag, "", "",
 		"Broadcast channel rsa pub key")
-	_ = viper.BindPFlag("rsaPub", broadcastCmd.Flags().Lookup("rsaPub"))
+	bindFlagHelper(broadcastRsaPubFlag, broadcastCmd)
 
-	broadcastCmd.Flags().StringP("salt", "", "",
+	broadcastCmd.Flags().StringP(broadcastSaltFlag, "", "",
 		"Broadcast channel salt")
-	_ = viper.BindPFlag("salt", broadcastCmd.Flags().Lookup("salt"))
+	bindFlagHelper(broadcastSaltFlag, broadcastCmd)
 
-	broadcastCmd.Flags().StringP("description", "", "",
+	broadcastCmd.Flags().StringP(broadcastDescriptionFlag, "", "",
 		"Broadcast channel description")
-	_ = viper.BindPFlag("description", broadcastCmd.Flags().Lookup("description"))
+	bindFlagHelper(broadcastDescriptionFlag, broadcastCmd)
 
-	broadcastCmd.Flags().StringP("chanPath", "", "",
+	broadcastCmd.Flags().StringP(broadcastChanPathFlag, "", "",
 		"Broadcast channel output path")
-	_ = viper.BindPFlag("chanPath", broadcastCmd.Flags().Lookup("chanPath"))
+	bindFlagHelper(broadcastChanPathFlag, broadcastCmd)
 
-	broadcastCmd.Flags().StringP("keyPath", "", "",
+	broadcastCmd.Flags().StringP(broadcastKeyPathFlag, "", "",
 		"Broadcast channel private key output path")
-	_ = viper.BindPFlag("keyPath", broadcastCmd.Flags().Lookup("keyPath"))
+	bindFlagHelper(broadcastKeyPathFlag, broadcastCmd)
 
-	broadcastCmd.Flags().BoolP("new", "", false,
+	broadcastCmd.Flags().BoolP(broadcastNewFlag, "", false,
 		"Create new broadcast channel")
-	_ = viper.BindPFlag("new", broadcastCmd.Flags().Lookup("new"))
+	bindFlagHelper(broadcastNewFlag, broadcastCmd)
 
-	broadcastCmd.Flags().StringP("symmetric", "", "",
+	broadcastCmd.Flags().StringP(broadcastSymmetricFlag, "", "",
 		"Send symmetric broadcast message")
 	_ = viper.BindPFlag("symmetric", broadcastCmd.Flags().Lookup("symmetric"))
+	bindFlagHelper(broadcastSymmetricFlag, broadcastCmd)
 
-	broadcastCmd.Flags().StringP("asymmetric", "", "",
+	broadcastCmd.Flags().StringP(broadcastAsymmetricFlag, "", "",
 		"Send asymmetric broadcast message (must be used with keyPath)")
 	_ = viper.BindPFlag("asymmetric", broadcastCmd.Flags().Lookup("asymmetric"))
+	bindFlagHelper(broadcastAsymmetricFlag, broadcastCmd)
 
 	rootCmd.AddCommand(broadcastCmd)
 }

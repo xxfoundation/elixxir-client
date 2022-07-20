@@ -222,7 +222,7 @@ type cMixParamsDisk struct {
 func GetDefaultCMIXParams() CMIXParams {
 	return CMIXParams{
 		RoundTries:  10,
-		Timeout:     25 * time.Second,
+		Timeout:     45 * time.Second,
 		RetryDelay:  1 * time.Second,
 		SendTimeout: 3 * time.Second,
 		DebugTag:    DefaultDebugTag,

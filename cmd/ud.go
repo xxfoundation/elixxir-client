@@ -10,13 +10,14 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/client/xxmutils"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/utils"
-	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -33,41 +34,20 @@ var udCmd = &cobra.Command{
 	Short: "Register for and search users using the xx network user discovery service.",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		client := initE2e()
+		cmixParams, e2eParams := initParams()
+		client := initE2e(cmixParams, e2eParams)
 
 		// get user and save contact to file
 		user := client.GetReceptionIdentity()
-		jww.INFO.Printf("User: %s", user.ID)
+		jww.INFO.Printf("[UD]User: %s", user.ID)
 		writeContact(user.GetContact())
-
-		// // Set up reception handler
-		// swBoard := client.GetSwitchboard()
-		// recvCh := make(chan message.Receive, 10000)
-		// listenerID := swBoard.RegisterChannel("DefaultCLIReceiver",
-		// 	switchboard.AnyUser(), message.XxMessage, recvCh)
-		// jww.INFO.Printf("Message ListenerID: %v", listenerID)
-
-		// // Set up auth request handler, which simply prints the user ID of the
-		// // requester
-		// authMgr := client.GetAuthRegistrar()
-		// authMgr.AddGeneralRequestCallback(printChanRequest)
-
-		// // If unsafe channels, add auto-acceptor
-		// if viper.GetBool("unsafe-channel-creation") {
-		// 	authMgr.AddGeneralRequestCallback(func(
-		// 		requester contact.Contact) {
-		// 		jww.INFO.Printf("Got Request: %s", requester.ID)
-		// 		_, err := client.ConfirmAuthenticatedChannel(requester)
-		// 		if err != nil {
-		// 			jww.FATAL.Panicf("%+v", err)
-		// 		}
-		// 	})
-		// }
 
 		err := client.StartNetworkFollower(50 * time.Millisecond)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
+
+		jww.TRACE.Printf("[UD] Waiting for connection...")
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
@@ -77,22 +57,17 @@ var udCmd = &cobra.Command{
 			})
 		waitUntilConnected(connected)
 
+		jww.TRACE.Printf("[UD] Connected!")
+
 		// Make user discovery manager
 		rng := client.GetRng()
 		userToRegister := viper.GetString("register")
-		userDiscoveryMgr, err := ud.NewManager(client.GetCmix(),
-			client.GetE2E(), client.NetworkFollowerStatus,
-			client.GetEventReporter(),
-			client.GetComms(), client.GetStorage(),
-			rng,
-			userToRegister, client.GetStorage().GetKV())
+		jww.TRACE.Printf("[UD] Registering user %v...", userToRegister)
+		userDiscoveryMgr, err := ud.NewManager(client, client.GetComms(),
+			client.NetworkFollowerStatus, userToRegister, nil)
 		if err != nil {
 			if strings.Contains(err.Error(), ud.IsRegisteredErr) {
-				userDiscoveryMgr, err = ud.LoadManager(client.GetCmix(),
-					client.GetE2E(), client.GetEventReporter(),
-					client.GetComms(),
-					client.GetStorage(), client.GetRng(),
-					client.GetStorage().GetKV())
+				userDiscoveryMgr, err = ud.LoadManager(client, client.GetComms())
 				if err != nil {
 					jww.FATAL.Panicf("Failed to load UD manager: %+v", err)
 				}
@@ -101,9 +76,10 @@ var udCmd = &cobra.Command{
 
 			}
 		}
+		jww.INFO.Printf("[UD] Registered user %v", userToRegister)
 
 		var newFacts fact.FactList
-		phone := viper.GetString("addphone")
+		phone := viper.GetString(udAddPhoneFlag)
 		if phone != "" {
 			f, err := fact.NewFact(fact.Phone, phone)
 			if err != nil {
@@ -112,7 +88,7 @@ var udCmd = &cobra.Command{
 			newFacts = append(newFacts, f)
 		}
 
-		email := viper.GetString("addemail")
+		email := viper.GetString(udAddEmailFlag)
 		if email != "" {
 			f, err := fact.NewFact(fact.Email, email)
 			if err != nil {
@@ -122,24 +98,29 @@ var udCmd = &cobra.Command{
 		}
 
 		for i := 0; i < len(newFacts); i++ {
+			jww.INFO.Printf("[UD] Registering Fact: %v",
+				newFacts[i])
 			r, err := userDiscoveryMgr.SendRegisterFact(newFacts[i])
 			if err != nil {
 				fmt.Printf("Failed to register fact: %s\n",
 					newFacts[i])
-				jww.FATAL.Panicf("Failed to send register fact: %+v", err)
+				jww.FATAL.Panicf("[UD] Failed to send register fact: %+v", err)
 			}
 			// TODO Store the code?
-			jww.INFO.Printf("Fact Add Response: %+v", r)
+			jww.INFO.Printf("[UD] Fact Add Response: %+v", r)
 		}
 
-		confirmID := viper.GetString("confirm")
+		confirmID := viper.GetString(udConfirmFlag)
 		if confirmID != "" {
+			jww.INFO.Printf("[UD] Confirming fact: %v", confirmID)
 			err = userDiscoveryMgr.ConfirmFact(confirmID, confirmID)
 			if err != nil {
 				fmt.Printf("Couldn't confirm fact: %s\n",
 					err.Error())
 				jww.FATAL.Panicf("%+v", err)
 			}
+
+			jww.INFO.Printf("[UD] Confirmed %v", confirmID)
 		}
 
 		udContact, err := userDiscoveryMgr.GetContact()
@@ -150,12 +131,10 @@ var udCmd = &cobra.Command{
 
 		// Handle lookup (verification) process
 		// Note: Cryptographic verification occurs above the bindings layer
-		lookupIDStr := viper.GetString("lookup")
+		lookupIDStr := viper.GetString(udLookupFlag)
 		if lookupIDStr != "" {
 			lookupID := parseRecipient(lookupIDStr)
-			//if !ok {
-			//	jww.FATAL.Panicf("Could not parse recipient: %s", lookupIDStr)
-			//}
+			jww.INFO.Printf("[UD] Looking up %v", lookupID)
 
 			cb := func(newContact contact.Contact, err error) {
 				if err != nil {
@@ -176,13 +155,14 @@ var udCmd = &cobra.Command{
 			time.Sleep(31 * time.Second)
 		}
 
-		if viper.GetString("batchadd") != "" {
-			idListFile, err := utils.ReadFile(viper.GetString("batchadd"))
+		if viper.IsSet(udBatchAddFlag) {
+			idListFile, err := utils.ReadFile(viper.GetString(udBatchAddFlag))
 			if err != nil {
 				fmt.Printf("BATCHADD: Couldn't read file: %s\n",
 					err.Error())
 				jww.FATAL.Panicf("BATCHADD: Couldn't read file: %+v", err)
 			}
+			jww.INFO.Printf("[UD] BATCHADD: Running")
 			restored, _, _, err := xxmutils.RestoreContactsFromBackup(
 				idListFile, client, userDiscoveryMgr, nil)
 			if err != nil {
@@ -193,12 +173,12 @@ var udCmd = &cobra.Command{
 				for !client.GetE2E().HasAuthenticatedChannel(uid) {
 					time.Sleep(time.Second)
 				}
-				jww.INFO.Printf("Authenticated channel established for %s", uid)
+				jww.INFO.Printf("[UD] Authenticated channel established for %s", uid)
 			}
 		}
-		usernameSearchStr := viper.GetString("searchusername")
-		emailSearchStr := viper.GetString("searchemail")
-		phoneSearchStr := viper.GetString("searchphone")
+		usernameSearchStr := viper.GetString(udSearchUsernameFlag)
+		emailSearchStr := viper.GetString(udSearchEmailFlag)
+		phoneSearchStr := viper.GetString(udSearchPhoneFlag)
 
 		var facts fact.FactList
 		if usernameSearchStr != "" {
@@ -223,7 +203,7 @@ var udCmd = &cobra.Command{
 			facts = append(facts, f)
 		}
 
-		userToRemove := viper.GetString("remove")
+		userToRemove := viper.GetString(udRemoveFlag)
 		if userToRemove != "" {
 			f, err := fact.NewFact(fact.Username, userToRemove)
 			if err != nil {
@@ -261,6 +241,7 @@ var udCmd = &cobra.Command{
 
 		stream := rng.GetStream()
 		defer stream.Close()
+		jww.INFO.Printf("[UD] Search: %v", facts)
 		_, _, err = ud.Search(client.GetCmix(),
 			client.GetEventReporter(),
 			stream, client.GetE2E().GetGroup(),
@@ -279,56 +260,44 @@ var udCmd = &cobra.Command{
 
 func init() {
 	// User Discovery subcommand Options
-	udCmd.Flags().StringP("register", "r", "",
+	udCmd.Flags().StringP(udRegisterFlag, "r", "",
 		"Register this user with user discovery.")
-	_ = viper.BindPFlag("register", udCmd.Flags().Lookup("register"))
+	bindFlagHelper(udRegisterFlag, udCmd)
 
-	udCmd.Flags().StringP("remove", "", "",
+	udCmd.Flags().StringP(udRemoveFlag, "", "",
 		"Remove this user with user discovery.")
-	_ = viper.BindPFlag("remove", udCmd.Flags().Lookup("remove"))
+	bindFlagHelper(udRemoveFlag, udCmd)
 
-	udCmd.Flags().String("addphone", "",
+	udCmd.Flags().String(udAddPhoneFlag, "",
 		"Add phone number to existing user registration.")
-	_ = viper.BindPFlag("addphone", udCmd.Flags().Lookup("addphone"))
+	bindFlagHelper(udAddPhoneFlag, udCmd)
 
-	udCmd.Flags().StringP("addemail", "e", "",
+	udCmd.Flags().StringP(udAddEmailFlag, "e", "",
 		"Add email to existing user registration.")
-	_ = viper.BindPFlag("addemail", udCmd.Flags().Lookup("addemail"))
+	bindFlagHelper(udAddEmailFlag, udCmd)
 
-	udCmd.Flags().String("confirm", "", "Confirm fact with confirmation ID.")
-	_ = viper.BindPFlag("confirm", udCmd.Flags().Lookup("confirm"))
+	udCmd.Flags().String(udConfirmFlag, "", "Confirm fact with confirmation ID.")
+	bindFlagHelper(udConfirmFlag, udCmd)
 
-	udCmd.Flags().StringP("lookup", "u", "",
+	udCmd.Flags().StringP(udLookupFlag, "u", "",
 		"Look up user ID. Use '0x' or 'b64:' for hex and base64 representations.")
-	_ = viper.BindPFlag("lookup", udCmd.Flags().Lookup("lookup"))
+	bindFlagHelper(udLookupFlag, udCmd)
 
-	udCmd.Flags().String("searchusername", "",
+	udCmd.Flags().String(udSearchUsernameFlag, "",
 		"Search for users with this username.")
-	_ = viper.BindPFlag("searchusername", udCmd.Flags().Lookup("searchusername"))
+	bindFlagHelper(udSearchUsernameFlag, udCmd)
 
-	udCmd.Flags().String("searchemail", "",
+	udCmd.Flags().String(udSearchEmailFlag, "",
 		"Search for users with this email address.")
-	_ = viper.BindPFlag("searchemail", udCmd.Flags().Lookup("searchemail"))
+	bindFlagHelper(udSearchEmailFlag, udCmd)
 
-	udCmd.Flags().String("searchphone", "",
+	udCmd.Flags().String(udSearchPhoneFlag, "",
 		"Search for users with this email address.")
-	_ = viper.BindPFlag("searchphone", udCmd.Flags().Lookup("searchphone"))
+	bindFlagHelper(udSearchPhoneFlag, udCmd)
 
-	udCmd.Flags().String("batchadd", "",
+	udCmd.Flags().String(udBatchAddFlag, "",
 		"Path to JSON marshalled slice of partner IDs that will be looked up on UD.")
-	_ = viper.BindPFlag("batchadd", udCmd.Flags().Lookup("batchadd"))
+	bindFlagHelper(udBatchAddFlag, udCmd)
 
 	rootCmd.AddCommand(udCmd)
-}
-
-func printContact(c contact.Contact) {
-	jww.DEBUG.Printf("Printing contact: %+v", c)
-	cBytes := c.Marshal()
-	if len(cBytes) == 0 {
-		jww.ERROR.Print("Marshaled contact has a size of 0.")
-	} else {
-		jww.DEBUG.Printf("Printing marshaled contact of size %d.", len(cBytes))
-	}
-
-	fmt.Print(string(cBytes))
 }

@@ -27,7 +27,7 @@ type clientAuthCallback struct {
 
 	// Used for building new Connection objects
 	connectionE2e    clientE2e.Handler
-	connectionParams Params
+	connectionParams xxdk.E2EParams
 	authState        auth.State
 }
 
@@ -35,7 +35,7 @@ type clientAuthCallback struct {
 // of an auth.State object.
 // it will accept requests only if a request callback is passed in
 func getClientAuthCallback(confirm, request Callback, e2e clientE2e.Handler,
-	auth auth.State, params Params) *clientAuthCallback {
+	auth auth.State, params xxdk.E2EParams) *clientAuthCallback {
 	return &clientAuthCallback{
 		confirmCallback:  confirm,
 		requestCallback:  request,
@@ -94,14 +94,14 @@ type serverAuthCallback struct {
 	cl *ConnectionList
 
 	// Used for building new Connection objects
-	connectionParams Params
+	connectionParams xxdk.E2EParams
 }
 
 // getServerAuthCallback returns a callback interface to be passed into the creation
 // of a xxdk.E2e object.
 // it will accept requests only if a request callback is passed in
 func getServerAuthCallback(confirm, request Callback, cl *ConnectionList,
-	params Params) *serverAuthCallback {
+	params xxdk.E2EParams) *serverAuthCallback {
 	return &serverAuthCallback{
 		confirmCallback:  confirm,
 		requestCallback:  request,
@@ -117,12 +117,12 @@ func (a serverAuthCallback) Confirm(contact.Contact,
 
 // Request will be called when an auth Request message is processed.
 func (a serverAuthCallback) Request(requestor contact.Contact,
-	_ receptionID.EphemeralIdentity, _ rounds.Round, e2e *xxdk.E2e) {
+	_ receptionID.EphemeralIdentity, _ rounds.Round, messenger *xxdk.E2e) {
 	if a.requestCallback == nil {
 		jww.ERROR.Printf("Received a request when requests are" +
 			"not enable, will not accept")
 	}
-	_, err := e2e.GetAuth().Confirm(requestor)
+	_, err := messenger.GetAuth().Confirm(requestor)
 	if err != nil {
 		jww.ERROR.Printf("Unable to build connection with "+
 			"partner %s: %+v", requestor.ID, err)
@@ -130,7 +130,7 @@ func (a serverAuthCallback) Request(requestor contact.Contact,
 		a.requestCallback(nil)
 	}
 	// After confirmation, get the new partner
-	newPartner, err := e2e.GetE2E().GetPartner(requestor.ID)
+	newPartner, err := messenger.GetE2E().GetPartner(requestor.ID)
 	if err != nil {
 		jww.ERROR.Printf("Unable to build connection with "+
 			"partner %s: %+v", requestor.ID, err)
@@ -142,7 +142,7 @@ func (a serverAuthCallback) Request(requestor contact.Contact,
 
 	// Return the new Connection object
 	c := BuildConnection(
-		newPartner, e2e.GetE2E(), e2e.GetAuth(), a.connectionParams)
+		newPartner, messenger.GetE2E(), messenger.GetAuth(), a.connectionParams)
 	a.cl.Add(c)
 	a.requestCallback(c)
 }

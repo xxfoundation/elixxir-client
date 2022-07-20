@@ -16,14 +16,16 @@ import (
 
 // Server implements the RestServer interface using connect.Connection
 type Server struct {
-	receptionId *id.ID
-	endpoints   *restlike.Endpoints
+	receptionId   *id.ID
+	endpoints     *restlike.Endpoints
+	ConnectServer *connect.ConnectionServer
 }
 
 // NewServer builds a RestServer with connect.Connection and
 // the provided arguments, then registers necessary external services
 func NewServer(identity xxdk.ReceptionIdentity, net *xxdk.Cmix,
-	p connect.Params) (*Server, error) {
+	p xxdk.E2EParams, clParams connect.ConnectionListParams) (*Server, error) {
+	var err error
 	newServer := &Server{
 		receptionId: identity.ID,
 		endpoints:   restlike.NewEndpoints(),
@@ -36,7 +38,7 @@ func NewServer(identity xxdk.ReceptionIdentity, net *xxdk.Cmix,
 	}
 
 	// Build the connection listener
-	_, err := connect.StartServer(identity, cb, net, p)
+	newServer.ConnectServer, err = connect.StartServer(identity, cb, net, p, clParams)
 	if err != nil {
 		return nil, err
 	}

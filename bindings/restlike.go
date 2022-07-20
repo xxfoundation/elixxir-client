@@ -1,14 +1,16 @@
-////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2022 Privategrity Corporation                                   /
-//                                                                             /
-// All rights reserved.                                                        /
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/e2e"
+
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/restlike"
 	"gitlab.com/elixxir/client/restlike/connect"
 )
@@ -33,12 +35,23 @@ type RestlikeMessage struct {
 // RestlikeRequest performs a normal restlike request
 // request - marshalled RestlikeMessage
 // Returns marshalled result RestlikeMessage
-func RestlikeRequest(clientID int, connectionID int, request []byte) ([]byte, error) {
+func RestlikeRequest(clientID, connectionID int, request,
+	e2eParamsJSON []byte) ([]byte, error) {
+	if len(e2eParamsJSON) == 0 {
+		jww.WARN.Printf("restlike params unspecified, using defaults")
+		e2eParamsJSON = GetDefaultE2EParams()
+	}
+
 	cl, err := cmixTrackerSingleton.get(clientID)
 	if err != nil {
 		return nil, err
 	}
 	conn, err := connectionTrackerSingleton.get(connectionID)
+	if err != nil {
+		return nil, err
+	}
+
+	params, err := parseE2EParams(e2eParamsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +71,7 @@ func RestlikeRequest(clientID int, connectionID int, request []byte) ([]byte, er
 	result, err := c.Request(restlike.Method(msg.Method), restlike.URI(msg.URI), msg.Content, &restlike.Headers{
 		Headers: msg.Headers,
 		Version: msg.Version,
-	}, e2e.GetDefaultParams())
+	}, params.Base)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +90,17 @@ func RestlikeRequest(clientID int, connectionID int, request []byte) ([]byte, er
 // RestlikeRequestAuth performs an authenticated restlike request
 // request - marshalled RestlikeMessage
 // Returns marshalled result RestlikeMessage
-func RestlikeRequestAuth(clientID int, authConnectionID int, request []byte) ([]byte, error) {
+func RestlikeRequestAuth(clientID int, authConnectionID int, request,
+	e2eParamsJSON []byte) ([]byte, error) {
+	if len(e2eParamsJSON) == 0 {
+		jww.WARN.Printf("restlike params unspecified, using defaults")
+		e2eParamsJSON = GetDefaultE2EParams()
+	}
+	params, err := parseE2EParams(e2eParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
 	cl, err := cmixTrackerSingleton.get(clientID)
 	if err != nil {
 		return nil, err
@@ -102,7 +125,7 @@ func RestlikeRequestAuth(clientID int, authConnectionID int, request []byte) ([]
 	result, err := c.Request(restlike.Method(msg.Method), restlike.URI(msg.URI), msg.Content, &restlike.Headers{
 		Headers: msg.Headers,
 		Version: msg.Version,
-	}, e2e.GetDefaultParams())
+	}, params.Base)
 	if err != nil {
 		return nil, err
 	}

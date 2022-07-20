@@ -71,7 +71,7 @@ func TestManager_Search(t *testing.T) {
 		CmixParams:          cmix.GetDefaultCMIXParams(),
 	}
 
-	_, _, err = Search(m.network, m.events, prng, m.e2e.GetGroup(),
+	_, _, err = Search(m.getCmix(), m.getEventReporter(), prng, m.e2e.GetE2E().GetGroup(),
 		udContact, callback, factList, p)
 	if err != nil {
 		t.Fatalf("Search() returned an error: %+v", err)

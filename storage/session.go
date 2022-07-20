@@ -10,9 +10,12 @@
 package storage
 
 import (
+	"math/rand"
 	"sync"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/crypto/diffieHellman"
 
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/xx_network/crypto/large"
@@ -30,13 +33,14 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 )
 
-// Number of rounds to store in the CheckedRound buffer
-const CheckRoundsMaxSize = 1000000 / 64
 const currentSessionVersion = 0
-const cmixGroupKey = "cmixGroup"
-const e2eGroupKey = "e2eGroup"
 
-// Session object, backed by encrypted filestore
+// NOTE: These are set this way for legacy purposes. If you want to change them
+// you will need to set up and upgrade path for old session files
+const cmixGroupKey = "cmix/GroupKey"
+const e2eGroupKey = "e2eSession/Group"
+
+// Session object, backed by encrypted versioned.KVc
 type Session interface {
 	GetClientVersion() version.Version
 	Get(key string) (*versioned.Object, error)
@@ -86,7 +90,7 @@ type session struct {
 	clientVersion *clientVersion.Store
 }
 
-// Initialize a new Session object
+// initStore initializes a new Session object
 func initStore(baseDir, password string) (*session, error) {
 	fs, err := ekv.NewFilestore(baseDir, password)
 	var s *session
@@ -102,7 +106,7 @@ func initStore(baseDir, password string) (*session, error) {
 	return s, nil
 }
 
-// Creates new UserData in the session
+// New UserData in the session
 func New(baseDir, password string, u user.Info,
 	currentVersion version.Version,
 	cmixGrp, e2eGrp *cyclic.Group) (Session, error) {
@@ -119,7 +123,7 @@ func New(baseDir, password string, u user.Info,
 	}
 
 	s.User, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID, u.TransmissionSalt,
-		u.ReceptionSalt, u.TransmissionRSA, u.ReceptionRSA, u.Precanned)
+		u.ReceptionSalt, u.TransmissionRSA, u.ReceptionRSA, u.Precanned, u.E2eDhPrivateKey, u.E2eDhPublicKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create user")
 	}
@@ -139,7 +143,7 @@ func New(baseDir, password string, u user.Info,
 	return s, nil
 }
 
-// Loads existing user data into the session
+// Load existing user data into the session
 func Load(baseDir, password string, currentVersion version.Version) (Session, error) {
 
 	s, err := initStore(baseDir, password)
@@ -196,7 +200,7 @@ func (s *session) Set(key string, object *versioned.Object) error {
 	return s.kv.Set(key, currentSessionVersion, object)
 }
 
-// delete a value in the session
+// Delete a value in the session
 func (s *session) Delete(key string) error {
 	return s.kv.Delete(key, currentSessionVersion)
 }
@@ -206,17 +210,17 @@ func (s *session) GetKV() *versioned.KV {
 	return s.kv
 }
 
-// GetCmixGrouo returns cMix Group
+// GetCmixGroup returns cMix Group
 func (s *session) GetCmixGroup() *cyclic.Group {
 	return s.cmixGroup
 }
 
-// GetE2EGrouo returns cMix Group
+// GetE2EGroup returns cMix Group
 func (s *session) GetE2EGroup() *cyclic.Group {
 	return s.e2eGroup
 }
 
-// Initializes a Session object wrapped around a MemStore object.
+// InitTestingSession object wrapped around a MemStore object.
 // FOR TESTING ONLY
 func InitTestingSession(i interface{}) Session {
 	switch i.(type) {
@@ -230,7 +234,14 @@ func InitTestingSession(i interface{}) Session {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	s := &session{kv: kv}
 	uid := id.NewIdFromString("zezima", id.User, i)
-	u, err := user.NewUser(kv, uid, uid, []byte("salt"), []byte("salt"), privKey, privKey, false)
+
+	prng := rand.New(rand.NewSource(42))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	dhPrivKey := diffieHellman.GeneratePrivateKey(
+		diffieHellman.DefaultPrivateKeyLength, grp, prng)
+	dhPubKey := diffieHellman.GeneratePublicKey(dhPrivKey, grp)
+
+	u, err := user.NewUser(kv, uid, uid, []byte("salt"), []byte("salt"), privKey, privKey, false, dhPrivKey, dhPubKey)
 	if err != nil {
 		jww.FATAL.Panicf("InitTestingSession failed to create dummy user: %+v", err)
 	}

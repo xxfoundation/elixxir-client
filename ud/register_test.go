@@ -43,8 +43,13 @@ func TestManager_register(t *testing.T) {
 	isCorrect("testUser", c.msg, m, t)
 
 	// Verify the signed identity data
-	pubKey := m.user.PortableUserInfo().ReceptionRSA.GetPublic()
-	err = rsa.Verify(pubKey, hash.CMixHash, c.msg.IdentityRegistration.Digest(),
+	pubKeyPem := m.e2e.GetReceptionIdentity().RSAPrivatePem
+	privKey, err := rsa.LoadPrivateKeyFromPem(pubKeyPem)
+	if err != nil {
+		t.Fatalf("Failed to load public key: %+v", err)
+	}
+
+	err = rsa.Verify(privKey.GetPublic(), hash.CMixHash, c.msg.IdentityRegistration.Digest(),
 		c.msg.IdentitySignature, nil)
 	if err != nil {
 		t.Errorf("Failed to verify signed identity data: %+v", err)
@@ -52,7 +57,7 @@ func TestManager_register(t *testing.T) {
 
 	// Verify the signed fact
 	usernameFact, _ := fact.NewFact(fact.Username, "testUser")
-	err = rsa.Verify(pubKey, hash.CMixHash, factID.Fingerprint(usernameFact),
+	err = rsa.Verify(privKey.GetPublic(), hash.CMixHash, factID.Fingerprint(usernameFact),
 		c.msg.Frs.FactSig, nil)
 	if err != nil {
 		t.Errorf("Failed to verify signed fact data: %+v", err)
@@ -62,17 +67,23 @@ func TestManager_register(t *testing.T) {
 // isCorrect checks if the UDBUserRegistration has all the expected fields minus
 // any signatures.
 func isCorrect(username string, msg *pb.UDBUserRegistration, m *Manager, t *testing.T) {
-	userInfo := m.user.PortableUserInfo()
-
-	if !bytes.Equal(m.user.GetReceptionRegistrationValidationSignature(), msg.PermissioningSignature) {
+	if !bytes.Equal(m.registrationValidationSignature, msg.PermissioningSignature) {
 		t.Errorf("PermissioningSignature incorrect.\n\texpected: %v\n\treceived: %v",
-			m.user.GetReceptionRegistrationValidationSignature(), msg.PermissioningSignature)
+			m.registrationValidationSignature, msg.PermissioningSignature)
 	}
 
-	if string(rsa.CreatePublicKeyPem(userInfo.TransmissionRSA.GetPublic())) !=
+	identity := m.e2e.GetReceptionIdentity()
+	privKey, err := rsa.LoadPrivateKeyFromPem(identity.RSAPrivatePem)
+	if err != nil {
+		t.Fatalf("Failed to load private key: %v", err)
+	}
+
+	pubKeyPem := rsa.CreatePublicKeyPem(privKey.GetPublic())
+
+	if string(pubKeyPem) !=
 		msg.RSAPublicPem {
 		t.Errorf("RSAPublicPem incorrect.\n\texpected: %v\n\treceived: %v",
-			string(rsa.CreatePublicKeyPem(userInfo.TransmissionRSA.GetPublic())),
+			string(pubKeyPem),
 			msg.RSAPublicPem)
 	}
 
@@ -81,19 +92,27 @@ func isCorrect(username string, msg *pb.UDBUserRegistration, m *Manager, t *test
 			username, msg.IdentityRegistration.Username)
 	}
 
-	if !bytes.Equal(userInfo.E2eDhPublicKey.Bytes(), msg.IdentityRegistration.DhPubKey) {
+	dhKeyPriv, err := identity.GetDHKeyPrivate()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	grp := m.e2e.GetE2E().GetGroup()
+	dhKeyPub := grp.ExpG(dhKeyPriv, grp.NewInt(1))
+
+	if !bytes.Equal(dhKeyPub.Bytes(), msg.IdentityRegistration.DhPubKey) {
 		t.Errorf("IdentityRegistration DhPubKey incorrect.\n\texpected: %#v\n\treceived: %#v",
-			userInfo.E2eDhPublicKey.Bytes(), msg.IdentityRegistration.DhPubKey)
+			dhKeyPub.Bytes(), msg.IdentityRegistration.DhPubKey)
 	}
 
-	if !bytes.Equal(userInfo.TransmissionSalt, msg.IdentityRegistration.Salt) {
+	if !bytes.Equal(identity.Salt, msg.IdentityRegistration.Salt) {
 		t.Errorf("IdentityRegistration Salt incorrect.\n\texpected: %#v\n\treceived: %#v",
-			userInfo.TransmissionSalt, msg.IdentityRegistration.Salt)
+			identity.Salt, msg.IdentityRegistration.Salt)
 	}
 
-	if !bytes.Equal(userInfo.TransmissionID.Marshal(), msg.Frs.UID) {
+	if !bytes.Equal(identity.ID.Marshal(), msg.Frs.UID) {
 		t.Errorf("Frs UID incorrect.\n\texpected: %v\n\treceived: %v",
-			userInfo.TransmissionID.Marshal(), msg.Frs.UID)
+			identity.ID.Marshal(), msg.Frs.UID)
 	}
 
 	if !reflect.DeepEqual(&pb.Fact{Fact: username}, msg.Frs.Fact) {

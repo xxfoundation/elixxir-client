@@ -11,6 +11,7 @@ import (
 	"gitlab.com/elixxir/client/single/message"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -271,7 +272,7 @@ func generateDhKeys(grp *cyclic.Group, dhPubKey *cyclic.Int, rng io.Reader) (
 	privKey := grp.NewIntFromBytes(privKeyBytes)
 
 	// Generate public key and DH key
-	publicKey = grp.ExpG(privKey, grp.NewInt(1))
+	publicKey = diffieHellman.GeneratePublicKey(privKey, grp)
 	dhKey = grp.Exp(dhPubKey, privKey, grp.NewInt(1))
 
 	return dhKey, publicKey, nil

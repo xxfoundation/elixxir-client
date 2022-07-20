@@ -11,6 +11,11 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math"
+	"math/big"
+	"sync"
+	"testing"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -23,10 +28,6 @@ import (
 	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math"
-	"math/big"
-	"sync"
-	"testing"
 )
 
 const currentSessionVersion = 0

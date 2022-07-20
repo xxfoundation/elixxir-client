@@ -7,6 +7,9 @@
 package message
 
 import (
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/event"
@@ -17,8 +20,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
-	"testing"
-	"time"
 )
 
 type testProcessor struct {
@@ -150,9 +151,16 @@ func Test_handler_handleMessageHelper_Service(t *testing.T) {
 
 	contents := []byte{4, 4}
 	lazyPreimage := sih.MakePreimage(contents, "test")
+
+	s := Service{
+		Identifier:   nil,
+		Tag:          "test",
+		lazyPreimage: &lazyPreimage,
+	}
+
 	ecrMsg := format.NewMessage(2056)
 	ecrMsg.SetContents(contents)
-	ecrMsg.SetSIH(sih.Hash(lazyPreimage, ecrMsg.GetContents()))
+	ecrMsg.SetSIH(s.Hash(ecrMsg.GetContents()))
 
 	testRound := rounds.Round{
 		Timestamps:       make(map[states.Round]time.Time),
@@ -166,12 +174,9 @@ func Test_handler_handleMessageHelper_Service(t *testing.T) {
 		RoundInfo: testRound,
 	}
 
-	s := Service{
-		Identifier:   nil,
-		Tag:          "test",
-		lazyPreimage: &lazyPreimage,
-	}
-	m.AddService(testId, s, nil)
+	processor := &testProcessor{}
+
+	m.AddService(testId, s, processor)
 	result := m.handleMessageHelper(ecrMsg, bundle)
 	if !result {
 		t.Errorf("Expected handleMessage success!")

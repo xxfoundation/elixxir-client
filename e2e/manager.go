@@ -2,8 +2,9 @@ package e2e
 
 import (
 	"encoding/json"
-	"strings"
 	"time"
+
+	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/xx_network/primitives/netTime"
 
@@ -38,6 +39,7 @@ type manager struct {
 	kv          *versioned.KV
 }
 
+const legacyE2EKey = "legacyE2ESystem"
 const e2eRekeyParamsKey = "e2eRekeyParams"
 const e2eRekeyParamsVer = 0
 
@@ -46,6 +48,7 @@ const e2eRekeyParamsVer = 0
 // uses the passed ID to modify the kv prefix for a unique storage path
 func Init(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	grp *cyclic.Group, rekeyParams rekey.Params) error {
+	jww.INFO.Printf("Initializing new e2e.Handler for %s", myID.String())
 	kv = kv.Prefix(makeE2ePrefix(myID))
 	return initE2E(kv, myID, privKey, grp, rekeyParams)
 }
@@ -100,9 +103,12 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	// Check if values are already written. If they exist on disk/memory already,
 	// this would be a case where LoadLegacy is most likely not the correct
 	// code-path the caller should be following.
-	if _, err := kv.Get(e2eRekeyParamsKey, e2eRekeyParamsVer); err != nil && !strings.Contains(err.Error(), "object not found") {
-		return nil, errors.New("E2E rekey params are already on disk, " +
-			"LoadLegacy should not be called")
+	if _, err := kv.Get(e2eRekeyParamsKey, e2eRekeyParamsVer); err == nil {
+		if _, err = kv.Get(legacyE2EKey, e2eRekeyParamsVer); err != nil {
+			return nil, errors.New("E2E rekey params" +
+				" are already on disk, " +
+				"LoadLegacy should not be called")
+		}
 	}
 
 	// Store the rekey params to disk/memory
@@ -111,6 +117,17 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 		Timestamp: netTime.Now(),
 		Data:      rekeyParamsData,
 	})
+	if err != nil {
+		return nil, err
+	}
+	err = kv.Set(legacyE2EKey, e2eRekeyParamsVer, &versioned.Object{
+		Version:   e2eRekeyParamsVer,
+		Timestamp: netTime.Now(),
+		Data:      []byte{1},
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	// Load the legacy data
 	return loadE2E(kv, net, myID, grp, rng, events)
@@ -173,12 +190,13 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 		recipient *id.ID, payload []byte,
 		cmixParams cmix.CMIXParams) (
 		[]id.Round, e2e.MessageID, time.Time, error) {
+		// FIXME: we should have access to the e2e params here...
 		par := GetDefaultParams()
 		par.CMIXParams = cmixParams
 		return m.SendE2E(mt, recipient, payload, par)
 	}
 	rekeyStopper, err := rekey.Start(m.Switchboard, m.Ratchet,
-		rekeySendFunc, m.net, m.grp, rekey.GetDefaultParams())
+		rekeySendFunc, m.net, m.grp, m.rekeyParams)
 	if err != nil {
 		return nil, err
 	}

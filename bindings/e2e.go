@@ -1,12 +1,17 @@
-////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2022 Privategrity Corporation                                   /
-//                                                                             /
-// All rights reserved.                                                        /
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
 import (
+	"sync"
+
+	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/xxdk"
@@ -32,10 +37,16 @@ func (e *E2e) GetID() int {
 	return e.id
 }
 
-// LoginE2e creates and returns a new E2e object and adds it to the e2eTrackerSingleton
-// identity should be created via MakeIdentity() and passed in here
+// Login creates and returns a new E2e object and adds it to the e2eTrackerSingleton
+// identity should be created via MakeReceptionIdentity() and passed in here
 // If callbacks is left nil, a default auth.Callbacks will be used
-func LoginE2e(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error) {
+func Login(cmixId int, callbacks AuthCallbacks, identity,
+	e2eParamsJSON []byte) (*E2e, error) {
+	if len(e2eParamsJSON) == 0 {
+		jww.WARN.Printf("e2e params not specified, using defaults...")
+		e2eParamsJSON = GetDefaultE2EParams()
+	}
+
 	cmix, err := cmixTrackerSingleton.get(cmixId)
 	if err != nil {
 		return nil, err
@@ -53,7 +64,12 @@ func LoginE2e(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error
 		authCallbacks = &authCallback{bindingsCbs: callbacks}
 	}
 
-	newE2e, err := xxdk.Login(cmix.api, authCallbacks, newIdentity)
+	params, err := parseE2EParams(e2eParamsJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	newE2e, err := xxdk.Login(cmix.api, authCallbacks, newIdentity, params)
 	if err != nil {
 		return nil, err
 	}
@@ -61,10 +77,16 @@ func LoginE2e(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error
 	return e2eTrackerSingleton.make(newE2e), nil
 }
 
-// LoginE2eEphemeral creates and returns a new ephemeral E2e object and adds it to the e2eTrackerSingleton
-// identity should be created via MakeIdentity() and passed in here
+// LoginEphemeral creates and returns a new ephemeral E2e object and adds it to the e2eTrackerSingleton
+// identity should be created via MakeReceptionIdentity() or MakeLegacyReceptionIdentity() and passed in here
 // If callbacks is left nil, a default auth.Callbacks will be used
-func LoginE2eEphemeral(cmixId int, callbacks AuthCallbacks, identity []byte) (*E2e, error) {
+func LoginEphemeral(cmixId int, callbacks AuthCallbacks, identity,
+	e2eParamsJSON []byte) (*E2e, error) {
+	if len(e2eParamsJSON) == 0 {
+		jww.WARN.Printf("e2e params not specified, using defaults...")
+		e2eParamsJSON = GetDefaultE2EParams()
+	}
+
 	cmix, err := cmixTrackerSingleton.get(cmixId)
 	if err != nil {
 		return nil, err
@@ -82,32 +104,13 @@ func LoginE2eEphemeral(cmixId int, callbacks AuthCallbacks, identity []byte) (*E
 		authCallbacks = &authCallback{bindingsCbs: callbacks}
 	}
 
-	newE2e, err := xxdk.LoginEphemeral(cmix.api, authCallbacks, newIdentity)
-	if err != nil {
-		return nil, err
-	}
-	return e2eTrackerSingleton.make(newE2e), nil
-}
-
-// LoginE2eLegacy creates a new E2e backed by the xxdk.Cmix persistent versioned.KV
-// Uses the pre-generated transmission ID used by xxdk.Cmix
-// If callbacks is left nil, a default auth.Callbacks will be used
-// This function is designed to maintain backwards compatibility with previous xx messenger designs
-// and should not be used for other purposes
-func LoginE2eLegacy(cmixId int, callbacks AuthCallbacks) (*E2e, error) {
-	cmix, err := cmixTrackerSingleton.get(cmixId)
+	params, err := parseE2EParams(e2eParamsJSON)
 	if err != nil {
 		return nil, err
 	}
 
-	var authCallbacks xxdk.AuthCallbacks
-	if callbacks == nil {
-		authCallbacks = xxdk.DefaultAuthCallbacks{}
-	} else {
-		authCallbacks = &authCallback{bindingsCbs: callbacks}
-	}
-
-	newE2e, err := xxdk.LoginLegacy(cmix.api, authCallbacks)
+	newE2e, err := xxdk.LoginEphemeral(cmix.api, authCallbacks,
+		newIdentity, params)
 	if err != nil {
 		return nil, err
 	}
@@ -160,4 +163,52 @@ func (a *authCallback) Request(partner contact.Contact,
 func (a *authCallback) Reset(partner contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round, _ *xxdk.E2e) {
 	a.bindingsCbs.Reset(convertAuthCallbacks(partner, receptionID, round))
+}
+
+// e2eTracker is a singleton used to keep track of extant E2e objects,
+// preventing race conditions created by passing it over the bindings
+type e2eTracker struct {
+	// TODO: Key on Identity.ID to prevent duplication
+	clients map[int]*E2e
+	count   int
+	mux     sync.RWMutex
+}
+
+// make a E2e from an xxdk.E2e, assigns it a unique ID,
+// and adds it to the e2eTracker
+func (ct *e2eTracker) make(c *xxdk.E2e) *E2e {
+	ct.mux.Lock()
+	defer ct.mux.Unlock()
+
+	id := ct.count
+	ct.count++
+
+	ct.clients[id] = &E2e{
+		api: c,
+		id:  id,
+	}
+
+	return ct.clients[id]
+}
+
+// get an E2e from the e2eTracker given its ID
+func (ct *e2eTracker) get(id int) (*E2e, error) {
+	ct.mux.RLock()
+	defer ct.mux.RUnlock()
+
+	c, exist := ct.clients[id]
+	if !exist {
+		return nil, errors.Errorf("Cannot get client for id %d, client "+
+			"does not exist", id)
+	}
+
+	return c, nil
+}
+
+// delete an E2e if it exists in the e2eTracker
+func (ct *e2eTracker) delete(id int) {
+	ct.mux.Lock()
+	defer ct.mux.Unlock()
+
+	delete(ct.clients, id)
 }

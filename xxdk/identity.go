@@ -8,6 +8,8 @@ package xxdk
 
 import (
 	"encoding/json"
+	"gitlab.com/elixxir/primitives/fact"
+
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
@@ -21,8 +23,8 @@ import (
 
 const idVersion = 0
 
-// ReceptionIdentity is used by the E2e object for managing
-// identities used for message pickup
+// ReceptionIdentity is used by the E2e object for managing identities used for
+// message pickup.
 type ReceptionIdentity struct {
 	ID            *id.ID
 	RSAPrivatePem []byte
@@ -31,25 +33,27 @@ type ReceptionIdentity struct {
 	E2eGrp        []byte
 }
 
-// StoreReceptionIdentity stores the given identity in Cmix storage with the given key
-// This is the ideal way to securely store identities, as the caller of this function
-// is only required to store the given key separately rather than the keying material
-func StoreReceptionIdentity(key string, identity ReceptionIdentity, client *Cmix) error {
+// StoreReceptionIdentity stores the given identity in Cmix storage with the
+// given key. This is the ideal way to securely store identities, as the caller
+// of this function is only required to store the given key separately rather
+// than the keying material.
+func StoreReceptionIdentity(key string, identity ReceptionIdentity, net *Cmix) error {
 	marshalledIdentity, err := identity.Marshal()
 	if err != nil {
 		return err
 	}
 
-	return client.GetStorage().Set(key, &versioned.Object{
+	return net.GetStorage().Set(key, &versioned.Object{
 		Version:   idVersion,
 		Timestamp: netTime.Now(),
 		Data:      marshalledIdentity,
 	})
 }
 
-// LoadReceptionIdentity loads the given identity in Cmix storage with the given key
-func LoadReceptionIdentity(key string, client *Cmix) (ReceptionIdentity, error) {
-	storageObj, err := client.GetStorage().Get(key)
+// LoadReceptionIdentity loads the given identity in Cmix storage with the given
+// key.
+func LoadReceptionIdentity(key string, net *Cmix) (ReceptionIdentity, error) {
+	storageObj, err := net.GetStorage().Get(key)
 	if err != nil {
 		return ReceptionIdentity{}, err
 	}
@@ -57,56 +61,58 @@ func LoadReceptionIdentity(key string, client *Cmix) (ReceptionIdentity, error) 
 	return UnmarshalReceptionIdentity(storageObj.Data)
 }
 
-// Marshal returns the JSON representation of a ReceptionIdentity
+// Marshal returns the JSON representation of a ReceptionIdentity.
 func (r ReceptionIdentity) Marshal() ([]byte, error) {
 	return json.Marshal(&r)
 }
 
-// UnmarshalReceptionIdentity takes in a marshalled ReceptionIdentity
-// and converts it to an object
+// UnmarshalReceptionIdentity takes in a marshalled ReceptionIdentity and
+// converts it to an object.
 func UnmarshalReceptionIdentity(marshaled []byte) (ReceptionIdentity, error) {
 	newIdentity := ReceptionIdentity{}
 	return newIdentity, json.Unmarshal(marshaled, &newIdentity)
 }
 
-// GetDHKeyPrivate returns the DHKeyPrivate in go format
+// GetDHKeyPrivate returns the DHKeyPrivate.
 func (r ReceptionIdentity) GetDHKeyPrivate() (*cyclic.Int, error) {
 	dhKeyPriv := &cyclic.Int{}
 	err := dhKeyPriv.UnmarshalJSON(r.DHKeyPrivate)
 	return dhKeyPriv, err
 }
 
-// GetRSAPrivatePem returns the RSAPrivatePem in go format
+// GetRSAPrivatePem returns the RSAPrivatePem.
 func (r ReceptionIdentity) GetRSAPrivatePem() (*rsa.PrivateKey, error) {
 	return rsa.LoadPrivateKeyFromPem(r.RSAPrivatePem)
 }
 
-// MakeReceptionIdentity generates a new cryptographic identity
-// for receiving messages.
-func MakeReceptionIdentity(client *Cmix) (ReceptionIdentity, error) {
-	rng := client.GetRng().GetStream()
-	defer rng.Close()
-	grp := client.GetStorage().GetE2EGroup()
+// GetGroup returns the cyclic.Group.
+func (r ReceptionIdentity) GetGroup() (*cyclic.Group, error) {
+	grp := &cyclic.Group{}
+	return grp, grp.UnmarshalJSON(r.E2eGrp)
+}
 
-	//make RSA Key
-	rsaKey, err := rsa.GenerateKey(rng,
-		rsa.DefaultRSABitLen)
+// MakeReceptionIdentity generates a new cryptographic identity for receiving
+// messages.
+func MakeReceptionIdentity(net *Cmix) (ReceptionIdentity, error) {
+	rng := net.GetRng().GetStream()
+	defer rng.Close()
+	grp := net.GetStorage().GetE2EGroup()
+
+	// Make RSA Key
+	rsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
 	if err != nil {
 		return ReceptionIdentity{}, err
 	}
 
-	//make salt
+	// Make salt
 	salt := make([]byte, 32)
 	_, err = rng.Read(salt)
 
-	//make dh private key
-	privKey := diffieHellman.GeneratePrivateKey(
-		len(grp.GetPBytes()),
-		grp, rng)
+	// Make DH private key
+	privKey := diffieHellman.GeneratePrivateKey(len(grp.GetPBytes()), grp, rng)
 
-	//make the ID
-	newId, err := xx.NewID(rsaKey.GetPublic(),
-		salt, id.User)
+	// make the ID
+	newId, err := xx.NewID(rsaKey.GetPublic(), salt, id.User)
 	if err != nil {
 		return ReceptionIdentity{}, err
 	}
@@ -121,7 +127,7 @@ func MakeReceptionIdentity(client *Cmix) (ReceptionIdentity, error) {
 		return ReceptionIdentity{}, err
 	}
 
-	//create the identity object
+	// Create the identity object
 	rsaPem := rsa.CreatePrivateKeyPem(rsaKey)
 	I := ReceptionIdentity{
 		ID:            newId,
@@ -134,7 +140,15 @@ func MakeReceptionIdentity(client *Cmix) (ReceptionIdentity, error) {
 	return I, nil
 }
 
-// DeepCopy produces a safe copy of a ReceptionIdentity
+// MakeLegacyReceptionIdentity generates the cryptographic identity for
+// receiving messages based on the extant stored user.Info.
+func MakeLegacyReceptionIdentity(net *Cmix) (ReceptionIdentity, error) {
+	userInfo := net.GetStorage().PortableUserInfo()
+	return buildReceptionIdentity(userInfo.ReceptionID, userInfo.ReceptionSalt,
+		userInfo.ReceptionRSA, net.GetStorage().GetE2EGroup(), userInfo.E2eDhPrivateKey)
+}
+
+// DeepCopy produces a safe copy of the ReceptionIdentity.
 func (r ReceptionIdentity) DeepCopy() ReceptionIdentity {
 	saltCopy := make([]byte, len(r.Salt))
 	copy(saltCopy, r.Salt)
@@ -153,27 +167,27 @@ func (r ReceptionIdentity) DeepCopy() ReceptionIdentity {
 	}
 }
 
-// GetContact accepts a xxdk.ReceptionIdentity object and returns a contact.Contact object
+// GetContact returns a contact.Contact object of the reception identity.
 func (r ReceptionIdentity) GetContact() contact.Contact {
-	grp := &cyclic.Group{}
-	_ = grp.UnmarshalJSON(r.E2eGrp)
+	grp, _ := r.GetGroup()
 	dhKeyPriv, _ := r.GetDHKeyPrivate()
 
-	dhPub := grp.ExpG(dhKeyPriv, grp.NewInt(1))
 	ct := contact.Contact{
 		ID:             r.ID,
-		DhPubKey:       dhPub,
+		DhPubKey:       diffieHellman.GeneratePublicKey(dhKeyPriv, grp),
 		OwnershipProof: nil,
-		Facts:          nil,
+		Facts:          make([]fact.Fact, 0),
 	}
 	return ct
 }
 
-// buildReceptionIdentity creates a new ReceptionIdentity
-// from the given user.Info
-func buildReceptionIdentity(userInfo user.Info, e2eGrp *cyclic.Group, dHPrivkey *cyclic.Int) (ReceptionIdentity, error) {
-	saltCopy := make([]byte, len(userInfo.TransmissionSalt))
-	copy(saltCopy, userInfo.TransmissionSalt)
+// buildReceptionIdentity creates a new ReceptionIdentity from the given
+// user.Info.
+func buildReceptionIdentity(receptionId *id.ID, receptionSalt []byte,
+	receptionRsa *rsa.PrivateKey, e2eGrp *cyclic.Group, dHPrivkey *cyclic.Int) (
+	ReceptionIdentity, error) {
+	saltCopy := make([]byte, len(receptionSalt))
+	copy(saltCopy, receptionSalt)
 
 	grp, err := e2eGrp.MarshalJSON()
 	if err != nil {
@@ -185,25 +199,26 @@ func buildReceptionIdentity(userInfo user.Info, e2eGrp *cyclic.Group, dHPrivkey 
 	}
 
 	return ReceptionIdentity{
-		ID:            userInfo.ReceptionID.DeepCopy(),
-		RSAPrivatePem: rsa.CreatePrivateKeyPem(userInfo.ReceptionRSA),
+		ID:            receptionId.DeepCopy(),
+		RSAPrivatePem: rsa.CreatePrivateKeyPem(receptionRsa),
 		Salt:          saltCopy,
 		DHKeyPrivate:  privKey,
 		E2eGrp:        grp,
 	}, nil
 }
 
-// TransmissionIdentity represents the identity
-// used to transmit over the network via a specific Cmix object
+// TransmissionIdentity represents the identity used to transmit over the
+// network via a specific Cmix object.
 type TransmissionIdentity struct {
 	ID            *id.ID
 	RSAPrivatePem *rsa.PrivateKey
 	Salt          []byte
-	// Timestamp in which user has registered with the network
+
+	// Timestamp of when the user has registered with the network
 	RegistrationTimestamp int64
 }
 
-// DeepCopy produces a safe copy of a TransmissionIdentity
+// DeepCopy produces a safe copy of a TransmissionIdentity.
 func (t TransmissionIdentity) DeepCopy() TransmissionIdentity {
 	saltCopy := make([]byte, len(t.Salt))
 	copy(saltCopy, t.Salt)
@@ -215,8 +230,8 @@ func (t TransmissionIdentity) DeepCopy() TransmissionIdentity {
 	}
 }
 
-// buildTransmissionIdentity creates a new TransmissionIdentity
-// from the given user.Info
+// buildTransmissionIdentity creates a new TransmissionIdentity from the given
+// user.Info.
 func buildTransmissionIdentity(userInfo user.Info) TransmissionIdentity {
 	saltCopy := make([]byte, len(userInfo.TransmissionSalt))
 	copy(saltCopy, userInfo.TransmissionSalt)

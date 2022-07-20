@@ -1,12 +1,14 @@
 package rounds
 
 import (
+	"fmt"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 type Round struct {
@@ -126,4 +128,10 @@ func (r Round) GetEndTimestamp() time.Time {
 
 	// Unreachable
 	return time.Time{}
+}
+
+// String prints a formatted version of the client error string
+func (re *RoundError) String() string {
+	return fmt.Sprintf("ClientError(ClientID: %s, Err: %s)",
+		re.NodeID, re.Error)
 }

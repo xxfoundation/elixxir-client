@@ -9,9 +9,10 @@ package cmd
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/xxdk"
 	"io/ioutil"
 	"time"
+
+	"gitlab.com/elixxir/client/xxdk"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -34,9 +35,8 @@ var ftCmd = &cobra.Command{
 	Short: "Send and receive file for cMix client",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		// Initialise a new client
-		client := initE2e()
+		cmixParams, e2eParams := initParams()
+		client := initE2e(cmixParams, e2eParams)
 
 		// Print user's reception ID and save contact file
 		user := client.GetReceptionIdentity()
@@ -50,7 +50,7 @@ var ftCmd = &cobra.Command{
 		}
 
 		// Initialize the file transfer manager
-		maxThroughput := viper.GetInt("maxThroughput")
+		maxThroughput := viper.GetInt(fileMaxThroughputFlag)
 		m, receiveChan := initFileTransferManager(client, maxThroughput)
 
 		// Wait until connected or crash on timeout
@@ -81,13 +81,13 @@ var ftCmd = &cobra.Command{
 
 		// If set, send the file to the recipient
 		sendDone := make(chan struct{})
-		if viper.IsSet("sendFile") {
-			recipientContactPath := viper.GetString("sendFile")
-			filePath := viper.GetString("filePath")
-			fileType := viper.GetString("fileType")
-			filePreviewPath := viper.GetString("filePreviewPath")
-			filePreviewString := viper.GetString("filePreviewString")
-			retry := float32(viper.GetFloat64("retry"))
+		if viper.IsSet(fileSendFlag) {
+			recipientContactPath := viper.GetString(fileSendFlag)
+			filePath := viper.GetString(filePathFlag)
+			fileType := viper.GetString(fileTypeFlag)
+			filePreviewPath := viper.GetString(filePreviewPathFlag)
+			filePreviewString := viper.GetString(filePreviewStringFlag)
+			retry := float32(viper.GetFloat64(fileRetry))
 
 			sendFile(filePath, fileType, filePreviewPath, filePreviewString,
 				recipientContactPath, retry, m, sendDone)
@@ -132,7 +132,7 @@ type receivedFtResults struct {
 // initFileTransferManager creates a new file transfer manager with a new
 // reception callback. Returns the file transfer manager and the channel that
 // will be triggered when the callback is called.
-func initFileTransferManager(client *xxdk.E2e, maxThroughput int) (
+func initFileTransferManager(messenger *xxdk.E2e, maxThroughput int) (
 	*ftE2e.Wrapper, chan receivedFtResults) {
 
 	// Create interfaces.ReceiveCallback that returns the results on a channel
@@ -152,24 +152,24 @@ func initFileTransferManager(client *xxdk.E2e, maxThroughput int) (
 
 	// Create new manager
 	manager, err := ft.NewManager(p,
-		client.GetReceptionIdentity().ID,
-		client.GetCmix(),
-		client.GetStorage(),
-		client.GetRng())
+		messenger.GetReceptionIdentity().ID,
+		messenger.GetCmix(),
+		messenger.GetStorage(),
+		messenger.GetRng())
 	if err != nil {
 		jww.FATAL.Panicf(
 			"[FT] Failed to create new file transfer manager: %+v", err)
 	}
 
 	// Start the file transfer sending and receiving threads
-	err = client.AddService(manager.StartProcesses)
+	err = messenger.AddService(manager.StartProcesses)
 	if err != nil {
 		jww.FATAL.Panicf("[FT] Failed to start file transfer threads: %+v", err)
 	}
 
 	e2eParams := ftE2e.DefaultParams()
 	e2eFt, err := ftE2e.NewWrapper(receiveCB, e2eParams, manager,
-		client.GetReceptionIdentity().ID, client.GetE2E(), client.GetCmix())
+		messenger.GetReceptionIdentity().ID, messenger.GetE2E(), messenger.GetCmix())
 	if err != nil {
 		jww.FATAL.Panicf(
 			"[FT] Failed to create new e2e file transfer wrapper: %+v", err)
@@ -348,43 +348,34 @@ func getContactFromFile(path string) contact.Contact {
 
 // init initializes commands and flags for Cobra.
 func init() {
-	ftCmd.Flags().String("sendFile", "",
+	ftCmd.Flags().String(fileSendFlag, "",
 		"Sends a file to a recipient with the contact file at this path.")
-	bindPFlagCheckErr("sendFile")
+	bindFlagHelper(fileSendFlag, ftCmd)
 
-	ftCmd.Flags().String("filePath", "",
+	ftCmd.Flags().String(filePathFlag, "",
 		"The path to the file to send. Also used as the file name.")
-	bindPFlagCheckErr("filePath")
+	bindFlagHelper(filePathFlag, ftCmd)
 
-	ftCmd.Flags().String("fileType", "txt",
+	ftCmd.Flags().String(fileTypeFlag, "txt",
 		"8-byte file type.")
-	bindPFlagCheckErr("fileType")
+	bindFlagHelper(fileTypeFlag, ftCmd)
 
-	ftCmd.Flags().String("filePreviewPath", "",
+	ftCmd.Flags().String(filePreviewPathFlag, "",
 		"The path to the file preview to send. Set either this flag or "+
 			"filePreviewString.")
-	bindPFlagCheckErr("filePreviewPath")
+	bindFlagHelper(filePreviewPathFlag, ftCmd)
 
-	ftCmd.Flags().String("filePreviewString", "",
+	ftCmd.Flags().String(filePreviewStringFlag, "",
 		"File preview data. Set either this flag or filePreviewPath.")
-	bindPFlagCheckErr("filePreviewString")
+	bindFlagHelper(filePreviewStringFlag, ftCmd)
 
-	ftCmd.Flags().Int("maxThroughput", 1000,
+	ftCmd.Flags().Int(fileMaxThroughputFlag, 1000,
 		"Maximum data transfer speed to send file parts (in bytes per second)")
-	bindPFlagCheckErr("maxThroughput")
+	bindFlagHelper(fileMaxThroughputFlag, ftCmd)
 
-	ftCmd.Flags().Float64("retry", 0.5,
+	ftCmd.Flags().Float64(fileRetry, 0.5,
 		"Retry rate.")
-	bindPFlagCheckErr("retry")
+	bindFlagHelper(fileRetry, ftCmd)
 
 	rootCmd.AddCommand(ftCmd)
-}
-
-// bindPFlagCheckErr binds the key to a pflag.Flag used by Cobra and prints an
-// error if one occurs.
-func bindPFlagCheckErr(key string) {
-	err := viper.BindPFlag(key, ftCmd.Flags().Lookup(key))
-	if err != nil {
-		jww.ERROR.Printf("viper.BindPFlag failed for %q: %+v", key, err)
-	}
 }

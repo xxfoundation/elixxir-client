@@ -273,8 +273,8 @@ func (r *relationship) getSessionForSending() *session.Session {
 	for _, s := range sessions {
 		status := s.Status()
 		confirmed := s.IsConfirmed()
-		jww.TRACE.Printf("[REKEY] Session Status/Confirmed: %v, %v",
-			status, confirmed)
+		jww.TRACE.Printf("[REKEY] Session Status/Confirmed: (%v, %s), %v",
+			status, s.NegotiationStatus(), confirmed)
 		if status == session.Active && confirmed {
 			//always return the first confirmed active, happy path
 			return s

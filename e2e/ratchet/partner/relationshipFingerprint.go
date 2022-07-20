@@ -12,6 +12,7 @@ import (
 	session2 "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -20,7 +21,7 @@ import (
 func makeRelationshipFingerprint(t session2.RelationshipType, grp *cyclic.Group,
 	myPrivKey, partnerPubKey *cyclic.Int, me, partner *id.ID) []byte {
 
-	myPubKey := grp.ExpG(myPrivKey, grp.NewIntFromUInt(1))
+	myPubKey := diffieHellman.GeneratePublicKey(myPrivKey, grp)
 
 	switch t {
 	case session2.Send:

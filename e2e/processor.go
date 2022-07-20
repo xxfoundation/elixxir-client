@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"fmt"
+
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -18,6 +19,7 @@ type processor struct {
 func (p *processor) Process(ecrMsg format.Message,
 	receptionID receptionID.EphemeralIdentity,
 	round rounds.Round) {
+	jww.TRACE.Printf("[E2E] Process(ecrMsgDigest: %s)", ecrMsg.Digest())
 	// ensure the key will be marked used before returning
 	defer p.cy.Use()
 

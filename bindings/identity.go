@@ -1,7 +1,15 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package bindings
 
 import (
 	"encoding/json"
+
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
@@ -24,9 +32,19 @@ type ReceptionIdentity struct {
 	DHKeyPrivate  []byte
 }
 
-// MakeIdentity generates a new cryptographic identity for receiving messages
-func (c *Cmix) MakeIdentity() ([]byte, error) {
+// MakeReceptionIdentity generates a new cryptographic identity for receiving messages
+func (c *Cmix) MakeReceptionIdentity() ([]byte, error) {
 	ident, err := xxdk.MakeReceptionIdentity(c.api)
+	if err != nil {
+		return nil, err
+	}
+
+	return ident.Marshal()
+}
+
+// MakeLegacyReceptionIdentity generates the legacy identity for receiving messages
+func (c *Cmix) MakeLegacyReceptionIdentity() ([]byte, error) {
+	ident, err := xxdk.MakeLegacyReceptionIdentity(c.api)
 	if err != nil {
 		return nil, err
 	}

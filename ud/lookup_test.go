@@ -65,8 +65,8 @@ func TestManager_Lookup(t *testing.T) {
 
 	defer mockListener.Stop()
 
-	r := m.e2e.GetGroup().NewInt(1)
-	m.e2e.GetGroup().Random(r)
+	r := m.e2e.GetE2E().GetGroup().NewInt(1)
+	m.e2e.GetE2E().GetGroup().Random(r)
 	s := ""
 	jsonable, err := r.MarshalJSON()
 	if err != nil {
@@ -87,7 +87,7 @@ func TestManager_Lookup(t *testing.T) {
 	}
 
 	// Run the lookup
-	_, _, err = Lookup(m.network, prng,
+	_, _, err = Lookup(m.getCmix(), prng,
 		grp, udContact, callback, uid, p)
 	if err != nil {
 		t.Errorf("Lookup() returned an error: %+v", err)

@@ -8,6 +8,9 @@
 package connect
 
 import (
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
@@ -19,8 +22,6 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
-	"time"
 )
 
 // Constant error messages
@@ -51,27 +52,27 @@ type AuthenticatedCallback func(connection AuthenticatedConnection)
 // ConnectWithAuthentication is called by the client, ie the one establishing
 // connection with the server. Once a connect.Connection has been established
 // with the server and then authenticate their identity to the server.
-func ConnectWithAuthentication(recipient contact.Contact, e2eClient *xxdk.E2e,
-	p Params) (AuthenticatedConnection, error) {
+func ConnectWithAuthentication(recipient contact.Contact, messenger *xxdk.E2e,
+	p xxdk.E2EParams) (AuthenticatedConnection, error) {
 
 	// Track the time since we started to attempt to establish a connection
 	timeStart := netTime.Now()
 
 	// Establish a connection with the server
-	conn, err := Connect(recipient, e2eClient, p)
+	conn, err := Connect(recipient, messenger, p)
 	if err != nil {
 		return nil, errors.Errorf("failed to establish connection "+
 			"with recipient %s: %+v", recipient.ID, err)
 	}
 
 	// Build the authenticated connection and return
-	identity := e2eClient.GetReceptionIdentity()
+	identity := messenger.GetReceptionIdentity()
 	privKey, err := identity.GetRSAPrivatePem()
 	if err != nil {
 		return nil, err
 	}
 	return connectWithAuthentication(conn, timeStart, recipient, identity.Salt, privKey,
-		e2eClient.GetRng(), e2eClient.GetCmix(), p)
+		messenger.GetRng(), messenger.GetCmix(), p)
 }
 
 // connectWithAuthentication builds and sends an IdentityAuthentication to
@@ -80,7 +81,7 @@ func ConnectWithAuthentication(recipient contact.Contact, e2eClient *xxdk.E2e,
 func connectWithAuthentication(conn Connection, timeStart time.Time,
 	recipient contact.Contact, salt []byte, myRsaPrivKey *rsa.PrivateKey,
 	rng *fastRNG.StreamGenerator,
-	net cmix.Client, p Params) (AuthenticatedConnection, error) {
+	net cmix.Client, p xxdk.E2EParams) (AuthenticatedConnection, error) {
 	// Construct message to prove your identity to the server
 	payload, err := buildClientAuthRequest(conn.GetPartner(), rng,
 		myRsaPrivKey, salt)
@@ -133,7 +134,7 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 	})
 
 	// Find the remaining time in the timeout since we first sent the message
-	remainingTime := p.Timeout - netTime.Since(timeStart)
+	remainingTime := p.Base.Timeout - netTime.Since(timeStart)
 
 	// Track the result of the round(s) we sent the
 	// identity authentication message on
@@ -174,7 +175,9 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 // authenticate themselves. An established AuthenticatedConnection will
 // be passed via the callback.
 func StartAuthenticatedServer(identity xxdk.ReceptionIdentity,
-	cb AuthenticatedCallback, net *xxdk.Cmix, p Params) (*ConnectionServer, error) {
+	cb AuthenticatedCallback, net *xxdk.Cmix, p xxdk.E2EParams,
+	clParams ConnectionListParams) (
+	*ConnectionServer, error) {
 
 	// Register the waiter for a connection establishment
 	connCb := Callback(func(connection Connection) {
@@ -191,7 +194,7 @@ func StartAuthenticatedServer(identity xxdk.ReceptionIdentity,
 				connection.GetPartner().PartnerId(), err)
 		}
 	})
-	return StartServer(identity, connCb, net, p)
+	return StartServer(identity, connCb, net, p, clParams)
 }
 
 // authenticatedHandler provides an implementation for the

@@ -11,11 +11,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"testing"
+
+	"gitlab.com/elixxir/client/xxdk"
 )
 
 func TestParams_MarshalUnmarshal(t *testing.T) {
 	// Construct a set of params
-	p := GetDefaultParams()
+	p := xxdk.GetDefaultE2EParams()
 
 	// Marshal the params
 	data, err := json.Marshal(&p)
@@ -26,7 +28,7 @@ func TestParams_MarshalUnmarshal(t *testing.T) {
 	t.Logf("%s", string(data))
 
 	// Unmarshal the params object
-	received := Params{}
+	received := xxdk.E2EParams{}
 	err = json.Unmarshal(data, &received)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)

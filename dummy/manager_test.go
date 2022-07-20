@@ -59,7 +59,7 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 
 	msgChan := make(chan bool)
 	go func() {
-		for m.net.(*testNetworkManager).GetMsgListLen() == 0 {
+		for m.networkManager.(*testNetworkManager).GetMsgListLen() == 0 {
 			time.Sleep(5 * time.Millisecond)
 		}
 		msgChan <- true
@@ -71,7 +71,7 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
 			3*m.avgSendDelta)
 	case <-msgChan:
-		numReceived += m.net.(*testNetworkManager).GetMsgListLen()
+		numReceived += m.networkManager.(*testNetworkManager).GetMsgListLen()
 	}
 
 	err = stop.Close()
@@ -86,7 +86,7 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 
 	msgChan = make(chan bool)
 	go func() {
-		for m.net.(*testNetworkManager).GetMsgListLen() == numReceived {
+		for m.networkManager.(*testNetworkManager).GetMsgListLen() == numReceived {
 			time.Sleep(5 * time.Millisecond)
 		}
 		msgChan <- true
@@ -118,10 +118,10 @@ func TestManager_SetStatus(t *testing.T) {
 	go func() {
 		var numReceived int
 		for i := 0; i < 2; i++ {
-			for m.net.(*testNetworkManager).GetMsgListLen() == numReceived {
+			for m.networkManager.(*testNetworkManager).GetMsgListLen() == numReceived {
 				time.Sleep(5 * time.Millisecond)
 			}
-			numReceived = m.net.(*testNetworkManager).GetMsgListLen()
+			numReceived = m.networkManager.(*testNetworkManager).GetMsgListLen()
 			msgChan <- true
 		}
 	}()
@@ -161,7 +161,7 @@ func TestManager_SetStatus(t *testing.T) {
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
 			3*m.avgSendDelta)
 	case <-msgChan:
-		numReceived += m.net.(*testNetworkManager).GetMsgListLen()
+		numReceived += m.networkManager.(*testNetworkManager).GetMsgListLen()
 	}
 
 	// Setting status to true multiple times does not interrupt sending
@@ -177,10 +177,10 @@ func TestManager_SetStatus(t *testing.T) {
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
 			3*m.avgSendDelta)
 	case <-msgChan:
-		if m.net.(*testNetworkManager).GetMsgListLen() <= numReceived {
+		if m.networkManager.(*testNetworkManager).GetMsgListLen() <= numReceived {
 			t.Errorf("Failed to receive second send."+
 				"\nmessages on last receive: %d\nmessages on this receive: %d",
-				numReceived, m.net.(*testNetworkManager).GetMsgListLen())
+				numReceived, m.networkManager.(*testNetworkManager).GetMsgListLen())
 		}
 	}
 
@@ -254,10 +254,10 @@ func TestManager_GetStatus(t *testing.T) {
 	go func() {
 		var numReceived int
 		for i := 0; i < 2; i++ {
-			for m.net.(*testNetworkManager).GetMsgListLen() == numReceived {
+			for m.networkManager.(*testNetworkManager).GetMsgListLen() == numReceived {
 				time.Sleep(5 * time.Millisecond)
 			}
-			numReceived = m.net.(*testNetworkManager).GetMsgListLen()
+			numReceived = m.networkManager.(*testNetworkManager).GetMsgListLen()
 			msgChan <- true
 		}
 	}()
@@ -292,7 +292,7 @@ func TestManager_GetStatus(t *testing.T) {
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
 			3*m.avgSendDelta)
 	case <-msgChan:
-		numReceived += m.net.(*testNetworkManager).GetMsgListLen()
+		numReceived += m.networkManager.(*testNetworkManager).GetMsgListLen()
 	}
 
 	// Setting status to true multiple times does not interrupt sending
@@ -311,10 +311,10 @@ func TestManager_GetStatus(t *testing.T) {
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
 			3*m.avgSendDelta)
 	case <-msgChan:
-		if m.net.(*testNetworkManager).GetMsgListLen() <= numReceived {
+		if m.networkManager.(*testNetworkManager).GetMsgListLen() <= numReceived {
 			t.Errorf("Failed to receive second send."+
 				"\nmessages on last receive: %d\nmessages on this receive: %d",
-				numReceived, m.net.(*testNetworkManager).GetMsgListLen())
+				numReceived, m.networkManager.(*testNetworkManager).GetMsgListLen())
 		}
 	}
 

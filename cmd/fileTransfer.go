@@ -9,6 +9,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	cmdUtils "gitlab.com/elixxir/client/cmdUtils"
 	fileTransferCmd "gitlab.com/elixxir/client/fileTransfer/cmd"
 )
 
@@ -31,32 +32,32 @@ var ftCmd = &cobra.Command{
 func init() {
 	ftCmd.Flags().String(fileTransferCmd.FileSendFlag, "",
 		"Sends a file to a recipient with the contact file at this path.")
-	BindFlagHelper(fileTransferCmd.FileSendFlag, ftCmd)
+	cmdUtils.BindFlagHelper(fileTransferCmd.FileSendFlag, ftCmd)
 
 	ftCmd.Flags().String(fileTransferCmd.FilePathFlag, "",
 		"The path to the file to send. Also used as the file name.")
-	BindFlagHelper(fileTransferCmd.FilePathFlag, ftCmd)
+	cmdUtils.BindFlagHelper(fileTransferCmd.FilePathFlag, ftCmd)
 
 	ftCmd.Flags().String(fileTransferCmd.FileTypeFlag, "txt",
 		"8-byte file type.")
-	BindFlagHelper(fileTransferCmd.FileTypeFlag, ftCmd)
+	cmdUtils.BindFlagHelper(fileTransferCmd.FileTypeFlag, ftCmd)
 
 	ftCmd.Flags().String(fileTransferCmd.FilePreviewPathFlag, "",
 		"The path to the file preview to send. Set either this flag or "+
 			"filePreviewString.")
-	BindFlagHelper(fileTransferCmd.FilePreviewPathFlag, ftCmd)
+	cmdUtils.BindFlagHelper(fileTransferCmd.FilePreviewPathFlag, ftCmd)
 
 	ftCmd.Flags().String(fileTransferCmd.FilePreviewStringFlag, "",
 		"File preview data. Set either this flag or filePreviewPath.")
-	BindFlagHelper(fileTransferCmd.FilePreviewStringFlag, ftCmd)
+	cmdUtils.BindFlagHelper(fileTransferCmd.FilePreviewStringFlag, ftCmd)
 
 	ftCmd.Flags().Int(fileTransferCmd.FileMaxThroughputFlag, 1000,
 		"Maximum data transfer speed to send file parts (in bytes per second)")
-	BindFlagHelper(fileTransferCmd.FileMaxThroughputFlag, ftCmd)
+	cmdUtils.BindFlagHelper(fileTransferCmd.FileMaxThroughputFlag, ftCmd)
 
 	ftCmd.Flags().Float64(fileTransferCmd.FileRetry, 0.5,
 		"Retry rate.")
-	BindFlagHelper(fileTransferCmd.FileRetry, ftCmd)
+	cmdUtils.BindFlagHelper(fileTransferCmd.FileRetry, ftCmd)
 
 	rootCmd.AddCommand(ftCmd)
 }

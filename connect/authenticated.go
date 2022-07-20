@@ -71,8 +71,8 @@ func ConnectWithAuthentication(recipient contact.Contact, messenger *xxdk.E2e,
 	if err != nil {
 		return nil, err
 	}
-	return connectWithAuthentication(conn, timeStart, recipient, identity.Salt, privKey,
-		messenger.GetRng(), messenger.GetCmix(), p)
+	return connectWithAuthentication(conn, timeStart, recipient,
+		identity.Salt, privKey, messenger.GetRng(), messenger.GetCmix(), p)
 }
 
 // connectWithAuthentication builds and sends an IdentityAuthentication to
@@ -175,7 +175,7 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 // authenticate themselves. An established AuthenticatedConnection will
 // be passed via the callback.
 func StartAuthenticatedServer(identity xxdk.ReceptionIdentity,
-	cb AuthenticatedCallback, net *xxdk.Cmix, p xxdk.E2EParams,
+	authCb AuthenticatedCallback, net *xxdk.Cmix, p xxdk.E2EParams,
 	clParams ConnectionListParams) (
 	*ConnectionServer, error) {
 
@@ -187,7 +187,7 @@ func StartAuthenticatedServer(identity xxdk.ReceptionIdentity,
 		// be passed along via the AuthenticatedCallback
 		_, err := connection.RegisterListener(
 			catalog.ConnectionAuthenticationRequest,
-			buildAuthConfirmationHandler(cb, connection))
+			buildAuthConfirmationHandler(authCb, connection))
 		if err != nil {
 			jww.ERROR.Printf(
 				"Failed to register listener on connection with %s: %+v",

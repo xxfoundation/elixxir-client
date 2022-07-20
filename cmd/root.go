@@ -42,8 +42,6 @@ import (
 // Key used for storing xxdk.ReceptionIdentity objects
 const identityStorageKey = "identityStorageKey"
 
-var authCbs *authCallbacks
-
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
 // happen once to the rootCmd.
@@ -71,7 +69,9 @@ var rootCmd = &cobra.Command{
 
 		cmixParams, e2eParams := initParams()
 
-		client := initE2e(cmixParams, e2eParams)
+		authCbs := makeAuthCallbacks(
+			viper.GetBool("unsafe-channel-creation"), e2eParams)
+		client := initE2e(cmixParams, e2eParams, authCbs)
 
 		jww.INFO.Printf("Client Initialized...")
 
@@ -420,7 +420,8 @@ func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 }
 
 // initE2e returns a fully-formed xxdk.E2e object
-func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
+func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams,
+	callbacks *authCallbacks) *xxdk.E2e {
 	initLog(viper.GetUint("logLevel"), viper.GetString("log"))
 	jww.INFO.Printf(Version())
 
@@ -436,22 +437,18 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
 	forceLegacy := viper.GetBool(forceLegacyFlag)
 	jww.DEBUG.Printf("sessionDir: %v", storeDir)
 
-	// TODO: This probably shouldn't be initialized globally.
-	authCbs = makeAuthCallbacks(
-		viper.GetBool(unsafeChannelCreationFlag), e2eParams)
-
 	// Initialize the client of the proper type
 	var messenger *xxdk.E2e
 	if precanId != 0 {
-		messenger = loadOrInitPrecan(precanId, storePassword, storeDir, cmixParams, e2eParams)
+		messenger = loadOrInitPrecan(precanId, storePassword, storeDir, cmixParams, e2eParams, callbacks)
 	} else if protoUserPath != "" {
-		messenger = loadOrInitProto(protoUserPath, storePassword, storeDir, cmixParams, e2eParams)
+		messenger = loadOrInitProto(protoUserPath, storePassword, storeDir, cmixParams, e2eParams, callbacks)
 	} else if userIdPrefix != "" {
-		messenger = loadOrInitVanity(storePassword, storeDir, regCode, userIdPrefix, cmixParams, e2eParams)
+		messenger = loadOrInitVanity(storePassword, storeDir, regCode, userIdPrefix, cmixParams, e2eParams, callbacks)
 	} else if backupPath != "" {
-		messenger = loadOrInitBackup(backupPath, backupPass, storePassword, storeDir, cmixParams, e2eParams)
+		messenger = loadOrInitBackup(backupPath, backupPass, storePassword, storeDir, cmixParams, e2eParams, callbacks)
 	} else {
-		messenger = loadOrInitMessenger(forceLegacy, storePassword, storeDir, regCode, cmixParams, e2eParams)
+		messenger = loadOrInitMessenger(forceLegacy, storePassword, storeDir, regCode, cmixParams, e2eParams, callbacks)
 	}
 
 	// Handle protoUser output

@@ -36,7 +36,9 @@ var ftCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmixParams, e2eParams := initParams()
-		client := initE2e(cmixParams, e2eParams)
+		authCbs := makeAuthCallbacks(
+			viper.GetBool("unsafe-channel-creation"), e2eParams)
+		client := initE2e(cmixParams, e2eParams, authCbs)
 
 		// Print user's reception ID and save contact file
 		user := client.GetReceptionIdentity()

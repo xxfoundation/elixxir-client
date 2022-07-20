@@ -100,6 +100,7 @@ const (
 	connectionServerTimeoutFlag = "serverTimeout"
 	connectionDisconnectFlag    = "disconnect"
 	connectionAuthenticatedFlag = "authenticated"
+	connectionEphemeralFlag     = "ephemeral"
 
 	///////////////// File Transfer subcommand flags //////////////////////////
 	fileSendFlag          = "sendFile"

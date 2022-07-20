@@ -24,7 +24,7 @@ import (
 // loadOrInitBackup will build a new xxdk.E2e from existing storage
 // or from a new storage that it will create if none already exists
 func loadOrInitBackup(backupPath string, backupPass string, password []byte, storeDir string,
-	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
+	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
 	jww.INFO.Printf("Using Backup sender")
 
 	// create a new client if none exist
@@ -92,7 +92,7 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 		}
 	}
 
-	messenger, err := xxdk.Login(net, authCbs, identity, e2eParams)
+	messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}

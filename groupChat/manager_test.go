@@ -11,7 +11,7 @@ import (
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/e2e"
+	e2eImport "gitlab.com/elixxir/client/e2e"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/group"
@@ -28,11 +28,11 @@ import (
 // Tests that manager adheres to the GroupChat interface.
 var _ GroupChat = (*manager)(nil)
 
-// Tests that GroupCmix adheres to the cmix.Client interface.
-var _ GroupCmix = (cmix.Client)(nil)
+// Tests that groupCmix adheres to the cmix.Client interface.
+var _ groupCmix = (cmix.Client)(nil)
 
-// Tests that GroupE2e adheres to the e2e.Handler interface.
-var _ GroupE2e = (e2e.Handler)(nil)
+// Tests that groupE2eHandler adheres to the e2e.Handler interface.
+var _ groupE2eHandler = (e2eImport.Handler)(nil)
 
 type mockProcessor struct{ receiveChan chan MessageReceive }
 
@@ -44,18 +44,21 @@ func (m mockProcessor) String() string { return "mockProcessor" }
 
 // Unit test of NewManager.
 func TestNewManager(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	user := group.Member{
-		ID:    id.NewIdFromString("userID", id.User, t),
-		DhKey: randCycInt(rand.New(rand.NewSource(42))),
-	}
+
 	requestChan := make(chan gs.Group)
 	requestFunc := func(g gs.Group) { requestChan <- g }
 	receiveChan := make(chan MessageReceive)
-	gcInt, err := NewManager(nil, newTestE2eManager(user.DhKey), user.ID, nil,
-		nil, kv, requestFunc, mockProcessor{receiveChan})
+	mockMess := newMockMessenger(t, nil)
+	gcInt, err := NewManager(mockMess, requestFunc,
+		mockProcessor{receiveChan})
 	if err != nil {
 		t.Errorf("NewManager returned an error: %+v", err)
+	}
+
+	dhKeyPub := mockMess.GetE2E().GetHistoricalDHPubkey()
+	user := group.Member{
+		ID:    mockMess.GetReceptionIdentity().ID,
+		DhKey: dhKeyPub,
 	}
 
 	m := gcInt.(*manager)
@@ -85,7 +88,7 @@ func TestNewManager_LoadStorage(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	user := group.Member{
 		ID:    id.NewIdFromString("userID", id.User, t),
-		DhKey: randCycInt(rand.New(rand.NewSource(42))),
+		DhKey: randCycInt(prng),
 	}
 
 	gStore, err := gs.NewStore(kv, user)
@@ -93,25 +96,28 @@ func TestNewManager_LoadStorage(t *testing.T) {
 		t.Errorf("Failed to create new group storage: %+v", err)
 	}
 
+	expectedGroups := make([]gs.Group, 0)
 	for i := 0; i < 10; i++ {
-		err := gStore.Add(
-			newTestGroup(getGroup(), getGroup().NewInt(42), prng, t))
+		grp := newTestGroup(getGroup(), getGroup().NewInt(42), prng, t)
+		err := gStore.Add(grp)
 		if err != nil {
 			t.Errorf("Failed to add group %d: %+v", i, err)
 		}
+		expectedGroups = append(expectedGroups, grp)
 	}
 
-	gcInt, err := NewManager(newTestNetworkManager(0, t),
-		newTestE2eManager(user.DhKey), user.ID, nil, nil, kv, nil, nil)
+	mockMess := newMockMessenger(t, kv)
+	gcInt, err := NewManager(mockMess, nil, nil)
 	if err != nil {
 		t.Errorf("NewManager returned an error: %+v", err)
 	}
 
 	m := gcInt.(*manager)
 
-	if !reflect.DeepEqual(gStore, m.gs) {
-		t.Errorf("NewManager failed to load the expected storage."+
-			"\nexpected: %+v\nreceived: %+v", gStore, m.gs)
+	for _, grp := range expectedGroups {
+		if _, exists := m.gs.Get(grp.ID); !exists {
+			t.Errorf("NewManager failed to load the expected storage.")
+		}
 	}
 }
 
@@ -138,7 +144,8 @@ func TestNewManager_LoadError(t *testing.T) {
 
 	expectedErr := strings.SplitN(newGroupStoreErr, "%", 2)[0]
 
-	_, err = NewManager(nil, newTestE2eManager(user.DhKey), user.ID, nil, nil, kv, nil, nil)
+	mockMess := newMockMessenger(t, kv)
+	_, err = NewManager(mockMess, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("NewManager did not return the expected error."+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -294,7 +301,7 @@ func TestNewManager_LoadError(t *testing.T) {
 func Test_manager_JoinGroup(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, _ := newTestManagerWithStore(prng, 10, 0, nil, t)
-	g := newTestGroup(m.grp, m.e2e.GetHistoricalDHPubkey(), prng, t)
+	g := newTestGroup(m.getE2eGroup(), m.getE2eHandler().GetHistoricalDHPubkey(), prng, t)
 
 	err := m.JoinGroup(g)
 	if err != nil {

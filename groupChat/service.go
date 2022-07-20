@@ -39,7 +39,8 @@ func (m *manager) AddService(tag string, p Processor) error {
 	// Add a service for every group
 	for _, g := range m.gs.Groups() {
 		newService := makeService(g.ID, tag)
-		m.net.AddService(m.receptionId, newService, &receptionProcessor{m, g, p})
+		m.getCMix().AddService(m.getReceptionIdentity().ID, newService,
+			&receptionProcessor{m, g, p})
 	}
 
 	return nil
@@ -60,7 +61,8 @@ func (m *manager) RemoveService(tag string) error {
 	// Delete service for every group
 	for _, g := range m.gs.Groups() {
 		toDelete := makeService(g.ID, tag)
-		m.net.DeleteService(m.receptionId, toDelete, &receptionProcessor{m, g, oldProcess})
+		m.getCMix().DeleteService(m.getReceptionIdentity().ID, toDelete,
+			&receptionProcessor{m, g, oldProcess})
 	}
 
 	return nil
@@ -70,7 +72,8 @@ func (m *manager) RemoveService(tag string) error {
 func (m *manager) addAllServices(g gs.Group) {
 	for tag, p := range m.services {
 		newService := makeService(g.ID, tag)
-		m.net.AddService(m.receptionId, newService, &receptionProcessor{m, g, p})
+		m.getCMix().AddService(m.getReceptionIdentity().ID, newService,
+			&receptionProcessor{m, g, p})
 	}
 }
 
@@ -78,7 +81,7 @@ func (m *manager) addAllServices(g gs.Group) {
 func (m *manager) deleteAllServices(groupID *id.ID) {
 	for tag := range m.services {
 		toDelete := makeService(groupID, tag)
-		m.net.DeleteService(m.receptionId, toDelete, nil)
+		m.getCMix().DeleteService(m.getReceptionIdentity().ID, toDelete, nil)
 	}
 }
 

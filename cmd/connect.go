@@ -29,16 +29,16 @@ var connectionCmd = &cobra.Command{
 	Short: "Runs clients and servers in the connections paradigm.",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		logLevel := viper.GetUint("logleval")
-		logPath := viper.GetString("log")
+		logLevel := viper.GetUint(logLevelFlag)
+		logPath := viper.GetString(logFlag)
 		initLog(logLevel, logPath)
 		jww.INFO.Printf(Version())
 
-		statePass := parsePassword(viper.GetString("password"))
-		statePath := viper.GetString("session")
-		regCode := viper.GetString("regcode")
+		statePass := parsePassword(viper.GetString(passwordFlag))
+		statePath := viper.GetString(sessionFlag)
+		regCode := viper.GetString(regCodeFlag)
 		cmixParams, e2eParams := initParams()
-		forceLegacy := viper.GetBool("force-legacy")
+		forceLegacy := viper.GetBool(forceLegacyFlag)
 		if viper.GetBool(connectionStartServerFlag) {
 			if viper.GetBool(connectionAuthenticatedFlag) {
 				secureConnServer(forceLegacy, statePass, statePath, regCode,
@@ -460,7 +460,7 @@ func insecureConnClient(forceLegacy bool, statePass []byte, statePath, regCode s
 // This functionality should be shared between client & server.
 func miscConnectionFunctions(client *xxdk.E2e, conn connect.Connection) {
 	// Send a message to connection partner--------------------------------------------
-	msgBody := viper.GetString("message")
+	msgBody := viper.GetString(messageFlag)
 	paramsE2E := e2e.GetDefaultParams()
 	if msgBody != "" {
 		// Send message
@@ -475,7 +475,7 @@ func miscConnectionFunctions(client *xxdk.E2e, conn connect.Connection) {
 			}
 
 			// Verify message sends were successful when verifySendFlag is present
-			if viper.GetBool("verify-sends") {
+			if viper.GetBool(verifySendFlag) {
 				if !verifySendSuccess(client, paramsE2E, roundIDs,
 					conn.GetPartner().PartnerId(), payload) {
 					continue

@@ -31,11 +31,11 @@ import (
 
 const terminator = ";"
 
+// Error constant strings. Any changes to these should go over usages of the
+// affected messages in other applications (if applicable)
 const (
 	// ErrChannelExists is a message returned in state.Request when an
 	// authenticated channel exists between the partner and me.
-	// Note that modifications to this should go over usages of this message
-	// in other packages (if applicable).
 	ErrChannelExists = "Authenticated channel already established with partner"
 )
 

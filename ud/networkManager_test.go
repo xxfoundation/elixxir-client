@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-// testNetworkManager is a mock implementation of the CMix interface.
+// testNetworkManager is a mock implementation of the udCmix interface.
 type testNetworkManager struct {
 	requestProcess    message.Processor
 	instance          *network.Instance

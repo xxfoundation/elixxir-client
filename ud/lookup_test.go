@@ -65,8 +65,8 @@ func TestManager_Lookup(t *testing.T) {
 
 	defer mockListener.Stop()
 
-	r := m.e2e.GetE2E().GetGroup().NewInt(1)
-	m.e2e.GetE2E().GetGroup().Random(r)
+	r := m.messenger.GetE2E().GetGroup().NewInt(1)
+	m.messenger.GetE2E().GetGroup().Random(r)
 	s := ""
 	jsonable, err := r.MarshalJSON()
 	if err != nil {

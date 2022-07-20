@@ -28,7 +28,7 @@ type searchCallback func([]contact.Contact, error)
 // used to search for multiple users at once; that can have a privacy reduction.
 // Instead, it is intended to be used to search for a user where multiple pieces
 // of information is known.
-func Search(services CMix, events event.Reporter,
+func Search(net udCmix, events event.Reporter,
 	rng csprng.Source, grp *cyclic.Group,
 	udContact contact.Contact, callback searchCallback,
 	list fact.FactList,
@@ -48,7 +48,7 @@ func Search(services CMix, events event.Reporter,
 
 	response := searchResponse{
 		cb:       callback,
-		services: services,
+		services: net,
 		events:   events,
 		grp:      grp,
 		factMap:  factMap,
@@ -56,7 +56,7 @@ func Search(services CMix, events event.Reporter,
 
 	rndId, ephId, err := single.TransmitRequest(udContact, SearchTag,
 		requestMarshaled,
-		response, params, services, rng, grp)
+		response, params, net, rng, grp)
 	if err != nil {
 		return []id.Round{}, receptionID.EphemeralIdentity{},
 			errors.WithMessage(err, "Failed to transmit search request.")
@@ -72,7 +72,7 @@ func Search(services CMix, events event.Reporter,
 
 type searchResponse struct {
 	cb       searchCallback
-	services CMix
+	services udCmix
 	events   event.Reporter
 	grp      *cyclic.Group
 	factMap  map[string]fact.Fact

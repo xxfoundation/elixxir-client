@@ -29,7 +29,7 @@ type Manager struct {
 
 	// e2e is a sub-interface of the e2e.Handler. It allows the Manager
 	// to retrieve the client's E2E information.
-	e2e E2E
+	e2e udE2e
 
 	// store is an instantiation of this package's storage object.
 	// It contains the facts that are in some state of being registered
@@ -58,7 +58,7 @@ type Manager struct {
 // It requires that an updated
 // NDF is available and will error if one is not.
 // registrationValidationSignature may be set to nil
-func NewManager(e2e E2E, comms Comms, follower NetworkStatus,
+func NewManager(e2e udE2e, comms Comms, follower udNetworkStatus,
 	username string, registrationValidationSignature []byte) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
 
@@ -113,7 +113,7 @@ func NewManager(e2e E2E, comms Comms, follower NetworkStatus,
 // NewManagerFromBackup builds a new user discover manager from a backup.
 // It will construct a manager that is already registered and restore
 // already registered facts into store.
-func NewManagerFromBackup(e2e E2E, comms Comms, follower NetworkStatus,
+func NewManagerFromBackup(e2e udE2e, comms Comms, follower udNetworkStatus,
 	email, phone fact.Fact) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
 	if follower() != xxdk.Running {
@@ -188,7 +188,7 @@ func InitStoreFromBackup(kv *versioned.KV,
 // LoadManager loads the state of the Manager
 // from disk. This is meant to be called after any the first
 // instantiation of the manager by NewUserDiscovery.
-func LoadManager(e2e E2E, comms Comms) (*Manager, error) {
+func LoadManager(e2e udE2e, comms Comms) (*Manager, error) {
 	m := &Manager{
 		e2e:   e2e,
 		comms: comms,
@@ -318,7 +318,7 @@ func (m *Manager) getOrAddUdHost() (*connect.Host, error) {
 
 // getCmix retrieve a sub-interface of cmix.Client.
 // It allows the Manager to retrieve network state.
-func (m *Manager) getCmix() CMix {
+func (m *Manager) getCmix() udCmix {
 	return m.e2e.GetCmix()
 }
 

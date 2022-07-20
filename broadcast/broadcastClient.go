@@ -102,5 +102,5 @@ func (bc *broadcastClient) MaxPayloadSize() int {
 }
 
 func (bc *broadcastClient) MaxAsymmetricPayloadSize() int {
-	return bc.maxAsymmetricPayload()
+	return bc.channel.MaxAsymmetricPayloadSize()
 }

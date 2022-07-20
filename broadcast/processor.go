@@ -36,23 +36,12 @@ func (p *processor) Process(msg format.Message,
 	switch p.method {
 	case Asymmetric:
 		// We use sized broadcast to fill any remaining bytes in the cmix payload, decode it here
-		unsizedPayload, err := DecodeSizedBroadcast(msg.GetContents())
+		encPartSize := p.c.RsaPubKey.Size() // Size of each chunk returned by multicast RSA encryption
+		encodedMessage := msg.GetContents()[:encPartSize]
+		payload, err = p.c.DecryptAsymmetric(encodedMessage)
 		if err != nil {
-			jww.ERROR.Printf("Failed to decode sized broadcast: %+v", err)
+			jww.ERROR.Printf(errDecrypt, p.c.ReceptionID, p.c.Name, err)
 			return
-		}
-		encPartSize := p.c.RsaPubKey.Size()           // Size of each chunk returned by multicast RSA encryption
-		numParts := len(unsizedPayload) / encPartSize // Number of chunks in the payload
-		// Iterate through & decrypt each chunk, appending to aggregate payload
-		for i := 0; i < numParts; i++ {
-			var decrypted []byte
-			decrypted, err = p.c.DecryptAsymmetric(unsizedPayload[:encPartSize])
-			if err != nil {
-				jww.ERROR.Printf(errDecrypt, p.c.ReceptionID, p.c.Name, err)
-				return
-			}
-			unsizedPayload = unsizedPayload[encPartSize:]
-			payload = append(payload, decrypted...)
 		}
 
 	case Symmetric:

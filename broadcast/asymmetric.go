@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/multicastRSA"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -37,26 +36,14 @@ func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey, paylo
 		return 0, ephemeral.Id{}, errors.New(errNetworkHealth)
 	}
 
-	if len(payload) != bc.maxAsymmetricPayload() {
+	if len(payload) != bc.MaxAsymmetricPayloadSize() {
 		return 0, ephemeral.Id{},
 			errors.Errorf(errPayloadSize, len(payload), bc.maxAsymmetricPayload())
 	}
 
-	numParts := bc.maxParts()
-	size := bc.channel.MaxAsymmetricPayloadSize()
-	var mac []byte
-	var fp format.Fingerprint
-	var sequential []byte
-	for i := 0; i < numParts; i++ {
-		// Encrypt payload to send using asymmetric channel
-		var encryptedPayload []byte
-		var err error
-		encryptedPayload, mac, fp, err = bc.channel.EncryptAsymmetric(payload[:size], pk, bc.rng.GetStream())
-		if err != nil {
-			return 0, ephemeral.Id{}, errors.WithMessage(err, "Failed to encrypt asymmetric broadcast message")
-		}
-		payload = payload[size:]
-		sequential = append(sequential, encryptedPayload...)
+	encryptedPayload, mac, fp, err := bc.channel.EncryptAsymmetric(payload, pk, bc.rng.GetStream())
+	if err != nil {
+		return 0, ephemeral.Id{}, errors.WithMessage(err, "Failed to encrypt asymmetric broadcast message")
 	}
 
 	// Create service object to send message
@@ -69,10 +56,12 @@ func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey, paylo
 		cMixParams.DebugTag = asymmCMixSendTag
 	}
 
-	sizedPayload, err := NewSizedBroadcast(bc.net.GetMaxMessageLength(), sequential)
+	sizedPayload := make([]byte, bc.net.GetMaxMessageLength())
+	_, err = bc.rng.GetStream().Read(sizedPayload)
 	if err != nil {
-		return id.Round(0), ephemeral.Id{}, err
+		return 0, ephemeral.Id{}, errors.WithMessage(err, "Failed to add random data to sized broadcast")
 	}
+	copy(sizedPayload[:len(encryptedPayload)], encryptedPayload)
 
 	return bc.net.Send(
 		bc.channel.ReceptionID, fp, service, sizedPayload, mac, cMixParams)

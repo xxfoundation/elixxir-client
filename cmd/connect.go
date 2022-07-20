@@ -71,7 +71,7 @@ func secureConnServer(forceLegacy bool, statePass []byte, statePath, regCode str
 	connChan := make(chan connect.Connection, 1)
 
 	// Load client state and identity------------------------------------------
-	net := loadOrInitNet(statePass, statePath, regCode, cmixParams)
+	net := loadOrInitCmix(statePass, statePath, regCode, cmixParams)
 	identity := loadOrInitReceptionIdentity(forceLegacy, net)
 
 	// Save contact file-------------------------------------------------------
@@ -191,7 +191,7 @@ func insecureConnServer(forceLegacy bool, statePass []byte, statePath, regCode s
 	connChan := make(chan connect.Connection, 1)
 
 	// Load client state and identity------------------------------------------
-	net := loadOrInitNet(statePass, statePath, regCode, cmixParams)
+	net := loadOrInitCmix(statePass, statePath, regCode, cmixParams)
 	identity := loadOrInitReceptionIdentity(forceLegacy, net)
 
 	// Save contact file-------------------------------------------------------
@@ -311,7 +311,7 @@ func secureConnClient(forceLegacy bool, statePass []byte, statePath, regCode str
 	var messenger *xxdk.E2e
 	if viper.GetBool(connectionEphemeralFlag) {
 		fmt.Println("Loading ephemerally")
-		messenger = loadOrInitMessengerEphemeral(forceLegacy, statePass, statePath, regCode,
+		messenger = loadOrInitEphemeral(forceLegacy, statePass, statePath, regCode,
 			cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
 	} else {
 		fmt.Println("Loading non-ephemerally")
@@ -385,7 +385,7 @@ func insecureConnClient(forceLegacy bool, statePass []byte, statePath, regCode s
 	var messenger *xxdk.E2e
 	if viper.GetBool(connectionEphemeralFlag) {
 		fmt.Println("Loading ephemerally")
-		messenger = loadOrInitMessengerEphemeral(forceLegacy, statePass, statePath, regCode,
+		messenger = loadOrInitEphemeral(forceLegacy, statePass, statePath, regCode,
 			cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
 	} else {
 		fmt.Println("Loading non-ephemerally")

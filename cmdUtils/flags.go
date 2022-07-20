@@ -17,7 +17,8 @@ package cmd
 const (
 	//////////////// Root flags ///////////////////////////////////////////////
 
-	// Send/receive flags
+	/// Send/receive flags
+
 	VerifySendFlag   = "verify-sends"
 	MessageFlag      = "message"
 	destIdFlag       = "destid"
@@ -29,7 +30,7 @@ const (
 	unsafeFlag       = "unsafe"
 
 	// Channel flags
-	unsafeChannelCreationFlag = "unsafe-channel-creation"
+	UnsafeChannelCreationFlag = "unsafe-channel-creation"
 	acceptChannelFlag         = "accept-channel"
 	deleteChannelFlag         = "delete-channel"
 
@@ -81,72 +82,4 @@ const (
 	sendIdFlag       = "sendid"
 	profileCpuFlag   = "profile-cpu"
 	userIdPrefixFlag = "userid-prefix"
-
-	//todo: remove, these will belong to their respective package's cmd management
-	///////////////// Broadcast subcommand flags //////////////////////////////
-	broadcastNameFlag        = "name"
-	broadcastRsaPubFlag      = "rsaPub"
-	broadcastSaltFlag        = "salt"
-	broadcastDescriptionFlag = "description"
-	broadcastChanPathFlag    = "chanPath"
-	broadcastKeyPathFlag     = "keyPath"
-	broadcastNewFlag         = "new"
-	broadcastFlag            = "broadcast"
-	broadcastSymmetricFlag   = "symmetric"
-	broadcastAsymmetricFlag  = "asymmetric"
-
-	///////////////// Connection subcommand flags /////////////////////////////
-	connectionFlag              = "connect"
-	connectionStartServerFlag   = "startServer"
-	connectionServerTimeoutFlag = "serverTimeout"
-	connectionDisconnectFlag    = "disconnect"
-	connectionAuthenticatedFlag = "authenticated"
-	connectionEphemeralFlag     = "ephemeral"
-
-	///////////////// File Transfer subcommand flags //////////////////////////
-	fileSendFlag          = "sendFile"
-	filePathFlag          = "filePath"
-	fileTypeFlag          = "fileType"
-	filePreviewPathFlag   = "filePreviewPath"
-	filePreviewStringFlag = "filePreviewString"
-	fileMaxThroughputFlag = "maxThroughput"
-	fileRetry             = "retry"
-
-	///////////////// GetNdf subcommand flags //////////////////////////////
-	ndfGwHostFlag   = "gwhost"
-	ndfPermHostFlag = "permhost"
-	ndfCertFlag     = "cert"
-	ndfEnvFlag      = "env"
-
-	///////////////// Group subcommand flags //////////////////////////////////
-	groupCreateFlag         = "create"
-	groupNameFlag           = "name"
-	groupResendFlag         = "resend"
-	groupJoinFlag           = "join"
-	groupLeaveFlag          = "leave"
-	groupSendMessageFlag    = "sendMessage"
-	groupWaitFlag           = "wait"
-	groupReceiveTimeoutFlag = "receiveTimeout"
-	groupListFlag           = "list"
-	groupShowFlag           = "show"
-
-	///////////////// Single subcommand flags /////////////////////////////////
-	singleSendFlag        = "send"
-	singleReplyFlag       = "reply"
-	singleContactFlag     = "contact"
-	singleTagFlag         = "tag"
-	singleMaxMessagesFlag = "maxMessages"
-	singleTimeoutFlag     = "timeout"
-
-	///////////////// User Discovery subcommand flags /////////////////////////
-	udRegisterFlag       = "register"
-	udRemoveFlag         = "remove"
-	udAddPhoneFlag       = "addphone"
-	udAddEmailFlag       = "addemail"
-	udConfirmFlag        = "confirm"
-	udLookupFlag         = "lookup"
-	udSearchUsernameFlag = "searchusername"
-	udSearchEmailFlag    = "searchemail"
-	udSearchPhoneFlag    = "searchphone"
-	udBatchAddFlag       = "batchadd"
 )

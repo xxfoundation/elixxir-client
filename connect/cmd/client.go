@@ -15,7 +15,7 @@ func secureConnClient(forceLegacy bool, statePass []byte, statePath, regCode str
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
 	// Load client ------------------------------------------------------------------
 	var messenger *xxdk.E2e
-	if viper.GetBool(connectionEphemeralFlag) {
+	if viper.GetBool(ConnectionEphemeralFlag) {
 		fmt.Println("Loading ephemerally")
 		messenger = loadOrInitEphemeral(forceLegacy, statePass, statePath, regCode,
 			cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
@@ -33,36 +33,16 @@ func secureConnClient(forceLegacy bool, statePass []byte, statePath, regCode str
 		jww.FATAL.Panicf("Failed to start network follower: %+v", err)
 	}
 
-	// Set up a wait for the network to be connected
-	waitUntilConnected := func(connected chan bool) {
-		waitTimeout := 30 * time.Second
-		timeoutTimer := time.NewTimer(waitTimeout)
-		isConnected := false
-		// Wait until we connect or panic if we cannot before the timeout
-		for !isConnected {
-			select {
-			case isConnected = <-connected:
-				jww.INFO.Printf("Network Status: %v", isConnected)
-				break
-			case <-timeoutTimer.C:
-				jww.FATAL.Panicf("Timeout on starting network follower")
-			}
-		}
-	}
-
-	// Create a tracker channel to be notified of network changes
+	// Wait until connected or crash on timeout
 	connected := make(chan bool, 10)
-	// Provide a callback that will be signalled when network
-	// health status changes
 	messenger.GetCmix().AddHealthCallback(
 		func(isConnected bool) {
 			connected <- isConnected
 		})
-	// Wait until connected or crash on timeout
-	waitUntilConnected(connected)
+	cmdUtils.WaitUntilConnected(connected)
 
 	// Connect with the server-------------------------------------------------
-	contactPath := viper.GetString(connectionFlag)
+	contactPath := viper.GetString(ConnectionFlag)
 	serverContact := cmdUtils.GetContactFromFile(contactPath)
 	fmt.Println("Sending connection request")
 
@@ -88,7 +68,7 @@ func insecureConnClient(forceLegacy bool, statePass []byte, statePath, regCode s
 
 	// Load client ------------------------------------------------------------------
 	var messenger *xxdk.E2e
-	if viper.GetBool(connectionEphemeralFlag) {
+	if viper.GetBool(ConnectionEphemeralFlag) {
 		fmt.Println("Loading ephemerally")
 		messenger = loadOrInitEphemeral(forceLegacy, statePass, statePath, regCode,
 			cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
@@ -135,7 +115,7 @@ func insecureConnClient(forceLegacy bool, statePass []byte, statePath, regCode s
 	waitUntilConnected(connected)
 
 	// Connect with the server-------------------------------------------------
-	contactPath := viper.GetString(connectionFlag)
+	contactPath := viper.GetString(ConnectionFlag)
 	serverContact := cmdUtils.GetContactFromFile(contactPath)
 	fmt.Println("Sending connection request")
 	jww.INFO.Printf("[CONN] Sending connection request to %s",

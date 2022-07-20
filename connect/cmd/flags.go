@@ -1,10 +1,10 @@
 package cmd
 
 const (
-	connectionFlag              = "connect"
-	connectionStartServerFlag   = "startServer"
-	connectionServerTimeoutFlag = "serverTimeout"
-	connectionDisconnectFlag    = "disconnect"
-	connectionAuthenticatedFlag = "authenticated"
-	connectionEphemeralFlag     = "ephemeral"
+	ConnectionFlag              = "connect"
+	ConnectionStartServerFlag   = "startServer"
+	ConnectionServerTimeoutFlag = "serverTimeout"
+	ConnectionDisconnectFlag    = "disconnect"
+	ConnectionAuthenticatedFlag = "authenticated"
+	ConnectionEphemeralFlag     = "ephemeral"
 )

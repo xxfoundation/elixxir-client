@@ -49,7 +49,7 @@ func miscConnectionFunctions(client *xxdk.E2e, conn connect.Connection) {
 	}
 
 	// Disconnect from connection partner--------------------------------------------
-	if viper.GetBool(connectionDisconnectFlag) {
+	if viper.GetBool(ConnectionDisconnectFlag) {
 		// Close the connection
 		if err := conn.Close(); err != nil {
 			jww.FATAL.Panicf("Failed to disconnect with %s: %v",

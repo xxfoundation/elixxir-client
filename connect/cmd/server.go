@@ -104,7 +104,7 @@ func secureConnServer(forceLegacy bool, statePass []byte, statePath, regCode str
 	}
 
 	// Keep server running to receive messages------------------------------------
-	serverTimeout := viper.GetDuration(connectionServerTimeoutFlag)
+	serverTimeout := viper.GetDuration(ConnectionServerTimeoutFlag)
 	if serverTimeout != 0 {
 		timer := time.NewTimer(serverTimeout)
 		select {
@@ -222,8 +222,8 @@ func insecureConnServer(forceLegacy bool, statePass []byte, statePath, regCode s
 	}
 
 	// Keep server running to receive messages------------------------------------
-	if viper.GetDuration(connectionServerTimeoutFlag) != 0 {
-		timer := time.NewTimer(viper.GetDuration(connectionServerTimeoutFlag))
+	if viper.GetDuration(ConnectionServerTimeoutFlag) != 0 {
+		timer := time.NewTimer(viper.GetDuration(ConnectionServerTimeoutFlag))
 		select {
 		case <-timer.C:
 			fmt.Println("Shutting down connection server")

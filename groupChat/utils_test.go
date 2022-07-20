@@ -38,7 +38,7 @@ func newTestManager(t testing.TB) (*manager, gs.Group) {
 		messenger: mockMess,
 	}
 	user := group.Member{
-		ID:    m.getReceptionId(),
+		ID:    m.getReceptionIdentity().ID,
 		DhKey: m.getE2eHandler().GetHistoricalDHPubkey(),
 	}
 
@@ -65,7 +65,7 @@ func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
 		messenger:   mockMess,
 	}
 	user := group.Member{
-		ID:    m.getReceptionId(),
+		ID:    m.getReceptionIdentity().ID,
 		DhKey: m.getE2eHandler().GetHistoricalDHPubkey(),
 	}
 

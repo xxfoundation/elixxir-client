@@ -59,7 +59,7 @@ func Test_manager_Send(t *testing.T) {
 			rounds.Round{ID: roundId, Timestamps: timestamps})
 		select {
 		case result := <-msgChan:
-			if !result.SenderID.Cmp(m.getReceptionId()) {
+			if !result.SenderID.Cmp(m.getReceptionIdentity().ID) {
 				t.Errorf("Sender mismatch")
 			}
 			if result.ID.String() != msgId.String() {
@@ -80,7 +80,7 @@ func TestGroup_newCmixMsg_SaltReaderError(t *testing.T) {
 	_, err := newCmixMsg(
 		gs.Group{ID: id.NewIdFromString("test", id.User, t)}, "",
 		[]byte{}, time.Time{}, group.Member{}, strings.NewReader(""),
-		m.getReceptionId(), m.getCMix().GetMaxMessageLength())
+		m.getReceptionIdentity().ID, m.getCMix().GetMaxMessageLength())
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("newCmixMsg failed to return the expected error"+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)
@@ -102,7 +102,7 @@ func TestGroup_newCmixMsg_InternalMsgSizeError(t *testing.T) {
 	// Create cMix message
 	prng = rand.New(rand.NewSource(42))
 	_, err := newCmixMsg(g, "", testMsg, netTime.Now(), mem, prng,
-		m.getReceptionId(), m.getCMix().GetMaxMessageLength())
+		m.getReceptionIdentity().ID, m.getCMix().GetMaxMessageLength())
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("newCmixMsg failed to return the expected error"+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)

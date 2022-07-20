@@ -87,10 +87,10 @@ func (p *receptionProcessor) Process(message format.Message,
 func (p *receptionProcessor) String() string {
 	if p.p == nil {
 		return fmt.Sprintf("GroupChatReception(%s)",
-			p.m.getReceptionId())
+			p.m.getReceptionIdentity().ID)
 	}
 	return fmt.Sprintf("GroupChatReception(%s)-%s",
-		p.m.getReceptionId(), p.p)
+		p.m.getReceptionIdentity().ID, p.p)
 }
 
 // decryptMessage decrypts the group message payload and returns its message ID,

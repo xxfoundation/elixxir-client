@@ -29,7 +29,7 @@ func TestRequestListener_Hear(t *testing.T) {
 	requestFunc := func(g gs.Group) { requestChan <- g }
 	m, _ := newTestManagerWithStore(prng, 10, 0, requestFunc, t)
 	g := newTestGroupWithUser(m.getE2eGroup(),
-		m.getReceptionId(), m.getE2eHandler().GetHistoricalDHPubkey(),
+		m.getReceptionIdentity().ID, m.getE2eHandler().GetHistoricalDHPubkey(),
 		m.getE2eHandler().GetHistoricalDHPrivkey(), prng, t)
 
 	requestMarshaled, err := proto.Marshal(&Request{

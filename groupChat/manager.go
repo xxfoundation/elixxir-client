@@ -151,10 +151,6 @@ func (m *manager) getE2eHandler() groupE2eHandler {
 	return m.messenger.GetE2E()
 }
 
-func (m *manager) getReceptionId() *id.ID {
-	return m.messenger.GetReceptionIdentity().ID
-}
-
 func (m *manager) getReceptionIdentity() xxdk.ReceptionIdentity {
 	return m.messenger.GetReceptionIdentity()
 }

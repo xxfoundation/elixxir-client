@@ -308,8 +308,16 @@ func insecureConnServer(forceLegacy bool, statePass []byte, statePath, regCode s
 func secureConnClient(forceLegacy bool, statePass []byte, statePath, regCode string,
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
 	// Load client ------------------------------------------------------------------
-	messenger := loadOrInitMessenger(forceLegacy, statePass, statePath, regCode,
-		cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
+	var messenger *xxdk.E2e
+	if viper.GetBool(connectionEphemeralFlag) {
+		fmt.Println("Loading ephemerally")
+		messenger = loadOrInitMessengerEphemeral(forceLegacy, statePass, statePath, regCode,
+			cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
+	} else {
+		fmt.Println("Loading non-ephemerally")
+		messenger = loadOrInitMessenger(forceLegacy, statePass, statePath, regCode,
+			cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
+	}
 
 	// Start network threads---------------------------------------------------------
 
@@ -374,8 +382,16 @@ func insecureConnClient(forceLegacy bool, statePass []byte, statePath, regCode s
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
 
 	// Load client ------------------------------------------------------------------
-	messenger := loadOrInitMessenger(forceLegacy, statePass, statePath, regCode,
-		cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
+	var messenger *xxdk.E2e
+	if viper.GetBool(connectionEphemeralFlag) {
+		fmt.Println("Loading ephemerally")
+		messenger = loadOrInitMessengerEphemeral(forceLegacy, statePass, statePath, regCode,
+			cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
+	} else {
+		fmt.Println("Loading non-ephemerally")
+		messenger = loadOrInitMessenger(forceLegacy, statePass, statePath, regCode,
+			cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
+	}
 
 	// Start network threads---------------------------------------------------------
 
@@ -553,6 +569,13 @@ func init() {
 			"With this flag present, any additional connection related flags"+
 			" will call the applicable authenticated counterpart")
 	bindFlagHelper(connectionAuthenticatedFlag, connectionCmd)
+
+	connectionCmd.Flags().Bool(connectionEphemeralFlag, false,
+		"This flag is available to both server and client. "+
+			"This flag operates as a switch determining the initialization path."+
+			"If present, the messenger will be initialized ephemerally. Without this flag, "+
+			"the messenger will be initialized as stateful.")
+	bindFlagHelper(connectionEphemeralFlag, connectionCmd)
 
 	rootCmd.AddCommand(connectionCmd)
 }

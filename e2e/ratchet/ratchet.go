@@ -104,10 +104,11 @@ func (r *Ratchet) AddPartner(partnerID *id.ID,
 
 	myID := r.myID
 
-	jww.INFO.Printf("Adding Partner %s:\n\tMy Private Key: %s"+
+	myPubKey := diffieHellman.GeneratePublicKey(myPrivKey, r.grp)
+	jww.INFO.Printf("Adding Partner %s:\n\tMy Public Key: %s"+
 		"\n\tPartner Public Key: %s to %s",
 		partnerID,
-		myPrivKey.TextVerbose(16, 0),
+		myPubKey.TextVerbose(16, 0),
 		partnerPubKey.TextVerbose(16, 0), myID)
 
 	mid := *partnerID

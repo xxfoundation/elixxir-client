@@ -11,11 +11,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
-	"os"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e/auth"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -140,7 +140,7 @@ func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]bool, error) {
 				return nil, err
 			}
 		}
-		if os.IsNotExist(err) {
+		if !ekv.Exists(err) {
 			newPreviousNegotiations := make(map[id.ID]bool)
 			obj := &versioned.Object{
 				Version:   negotiationPartnersVersion,

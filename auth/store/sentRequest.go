@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -20,6 +19,7 @@ import (
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -77,7 +77,7 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 	obj, err := kv.Get(srKey, currentSentRequestVersion)
 
 	// V0 Upgrade Path
-	if os.IsNotExist(err) {
+	if !ekv.Exists(err) {
 		obj2, err2 := kv.Get(makeOldSentRequestKey(partner), 0)
 		if err2 != nil {
 			jww.DEBUG.Printf("v0 loadSentRequest: %+v", err)

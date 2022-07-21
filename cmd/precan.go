@@ -10,63 +10,11 @@
 package cmd
 
 import (
-	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"github.com/spf13/viper"
-	cmdUtils "gitlab.com/elixxir/client/cmdUtils"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
-	"io/fs"
-	"io/ioutil"
-	"os"
 )
-
-// loadOrInitPrecan will build a new xxdk.E2e from existing storage
-// or from a new storage that it will create if none already exists
-func loadOrInitPrecan(precanId uint, password []byte, storeDir string,
-	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
-	jww.INFO.Printf("Using Precanned sender")
-
-	// create a new client if none exist
-	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
-		// Initialize from scratch
-		ndfJson, err := ioutil.ReadFile(viper.GetString(cmdUtils.NdfFlag))
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-
-		err = xxdk.NewPrecannedClient(precanId, string(ndfJson), storeDir, password)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-	}
-	// Initialize from storage
-	net, err := xxdk.LoadCmix(storeDir, password, cmixParams)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-
-	// Load or initialize xxdk.ReceptionIdentity storage
-	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, net)
-	if err != nil {
-		identity, err = xxdk.MakeLegacyReceptionIdentity(net)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-
-		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-	}
-
-	messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-	return messenger
-}
 
 func isPrecanID(id *id.ID) bool {
 	// check if precanned

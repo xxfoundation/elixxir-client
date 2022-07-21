@@ -12,15 +12,11 @@ import (
 	"fmt"
 	cmdUtils "gitlab.com/elixxir/client/cmdUtils"
 
-	"io/fs"
-	"io/ioutil"
-	"os"
-
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/xxdk"
+	"io/ioutil"
 )
 
 // initCmd creates a new user object with the given NDF
@@ -71,55 +67,4 @@ func init() {
 	cmdUtils.BindFlagHelper(cmdUtils.UserIdPrefixFlag, initCmd)
 
 	rootCmd.AddCommand(initCmd)
-}
-
-// loadOrInitCmix will build a new xxdk.Cmix from existing storage
-// or from a new storage that it will create if none already exists
-func loadOrInitCmix(password []byte, storeDir, regCode string,
-	cmixParams xxdk.CMIXParams) *xxdk.Cmix {
-	// create a new client if none exist
-	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
-		// Initialize from scratch
-		ndfJson, err := ioutil.ReadFile(viper.GetString(cmdUtils.NdfFlag))
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-
-		err = xxdk.NewCmix(string(ndfJson), storeDir, password, regCode)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-	}
-
-	// Initialize from storage
-	net, err := xxdk.LoadCmix(storeDir, password, cmixParams)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-
-	return net
-}
-
-// loadOrInitReceptionIdentity will build a new xxdk.ReceptionIdentity from existing storage
-// or from a new storage that it will create if none already exists
-func loadOrInitReceptionIdentity(forceLegacy bool, net *xxdk.Cmix) xxdk.ReceptionIdentity {
-	// Load or initialize xxdk.ReceptionIdentity storage
-	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, net)
-	if err != nil {
-		if forceLegacy {
-			jww.INFO.Printf("Forcing legacy sender")
-			identity, err = xxdk.MakeLegacyReceptionIdentity(net)
-		} else {
-			identity, err = xxdk.MakeReceptionIdentity(net)
-		}
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-
-		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-	}
-	return identity
 }

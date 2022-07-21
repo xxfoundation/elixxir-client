@@ -83,8 +83,8 @@ var getNDFCmd = &cobra.Command{
 			if logPath == "-" || logPath == "" {
 				logPath = "getndf.log"
 			}
-			initLog(logLevel, logPath)
-			jww.INFO.Printf(Version())
+			cmdUtils.InitLog(logLevel, logPath)
+			jww.INFO.Printf(cmdUtils.Version())
 			gwHost := viper.GetString(cmdUtils.NdfGwHostFlag)
 			permHost := viper.GetString(cmdUtils.NdfPermHostFlag)
 			certPath := viper.GetString(cmdUtils.NdfCertFlag)

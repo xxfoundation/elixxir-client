@@ -33,27 +33,33 @@ var dumpRoundsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		roundIDs := parseRoundIDs(args)
 
-		cmixParams, e2eParams := initParams()
+		// Initialize paramaters
+		cmixParams, e2eParams := cmdUtils.InitParams()
+
+		// Initialize log
+		cmdUtils.InitLog(viper.GetUint(cmdUtils.LogLevelFlag), viper.GetString(cmdUtils.LogFlag))
+
+		// Initialize messenger
 		authCbs := cmdUtils.MakeAuthCallbacks(
-			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
-		initLog(viper.GetUint(logLevelFlag), viper.GetString(logFlag))
-		client := initE2e(cmixParams, e2eParams, authCbs)
-		err := client.StartNetworkFollower(5 * time.Second)
+			viper.GetBool(cmdUtils.UnsafeChannelCreationFlag), e2eParams)
+		messenger := cmdUtils.InitE2e(cmixParams, e2eParams, authCbs)
+
+		// Start network threads
+		err := messenger.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
-
 		connected := make(chan bool, 10)
-		client.GetCmix().AddHealthCallback(
+		messenger.GetCmix().AddHealthCallback(
 			func(isconnected bool) {
 				connected <- isconnected
 			})
-		waitUntilConnected(connected)
+		cmdUtils.WaitUntilConnected(connected)
 
 		numRequests := len(roundIDs)
 		requestCh := make(chan bool, numRequests)
 
-		registration := client.GetStorage().GetNDF().Registration
+		registration := messenger.GetStorage().GetNDF().Registration
 		ecp := registration.EllipticPubKey
 		pubkey, err := ec.LoadPublicKey(ecp)
 		if err != nil {
@@ -126,7 +132,7 @@ var dumpRoundsCmd = &cobra.Command{
 
 		for i := range roundIDs {
 			rid := roundIDs[i]
-			err := client.GetCmix().LookupHistoricalRound(rid, rcb)
+			err := messenger.GetCmix().LookupHistoricalRound(rid, rcb)
 			if err != nil {
 				fmt.Printf("error on %v: %v", rid, err)
 			}

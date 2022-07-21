@@ -11,33 +11,21 @@ package cmd
 
 import (
 	"fmt"
+	cmdUtils "gitlab.com/elixxir/client/cmdUtils"
 
 	"github.com/spf13/cobra"
-	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/xx_network/primitives/utils"
 )
 
 // Change this value to set the version for this build
 const currentVersion = "4.2.0"
 
-func Version() string {
-	out := fmt.Sprintf("Elixxir Cmix v%s -- %s\n\n", xxdk.SEMVER,
-		xxdk.GITVERSION)
-	out += fmt.Sprintf("Dependencies:\n\n%s\n", xxdk.DEPENDENCIES)
-	return out
-}
-
-func init() {
-	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(generateCmd)
-}
-
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the version and dependency information for the Elixxir binary",
 	Long:  `Print the version and dependency information for the Elixxir binary`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf(Version())
+		fmt.Printf(cmdUtils.Version())
 	},
 }
 
@@ -48,4 +36,9 @@ var generateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		utils.GenerateVersionFile(currentVersion)
 	},
+}
+
+func init() {
+	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(generateCmd)
 }

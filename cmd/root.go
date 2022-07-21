@@ -393,21 +393,6 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func acceptChannel(messenger *xxdk.E2e, recipientID *id.ID) id.Round {
-	recipientContact, err := messenger.GetAuth().GetReceivedRequest(
-		recipientID)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-	rid, err := messenger.GetAuth().Confirm(
-		recipientContact)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-
-	return rid
-}
-
 func deleteChannel(messenger *xxdk.E2e, partnerId *id.ID) {
 	err := messenger.DeleteContact(partnerId)
 	if err != nil {

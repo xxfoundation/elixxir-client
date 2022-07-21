@@ -29,7 +29,8 @@ var singleCmd = &cobra.Command{
 
 func init() {
 	// Single-use subcommand options
-	singleCmd.Flags().Bool(singleCommand.SingleSendFlag, false, "Sends a single-use message.")
+	singleCmd.Flags().Bool(singleCommand.SingleSendFlag, false,
+		"Sends a single-use message.")
 	cmdUtils.BindFlagHelper(singleCommand.SingleSendFlag, singleCmd)
 
 	singleCmd.Flags().Bool(singleCommand.SingleReplyFlag, false,

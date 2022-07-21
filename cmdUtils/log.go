@@ -45,7 +45,7 @@ func InitLog(threshold uint, logPath string) (notePad *jww.Notepad) {
 		notePad = initRoundLog(logPath)
 	}
 
-	jww.INFO.Printf(version())
+	jww.INFO.Printf(Version())
 	return notePad
 }
 
@@ -64,7 +64,7 @@ func initRoundLog(logPath string) *jww.Notepad {
 		ioutil.Discard, logOutput, "", log.Ldate|log.Ltime)
 }
 
-func version() string {
+func Version() string {
 	out := fmt.Sprintf("Elixxir Cmix v%s -- %s\n\n", xxdk.SEMVER,
 		xxdk.GITVERSION)
 	out += fmt.Sprintf("Dependencies:\n\n%s\n", xxdk.DEPENDENCIES)

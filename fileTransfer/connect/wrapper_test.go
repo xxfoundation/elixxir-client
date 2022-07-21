@@ -56,10 +56,11 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 			tid, fileName, fileType, sender, size, preview}
 	}
 	myID1 := id.NewIdFromString("myID1", id.User, t)
+	myID2 := id.NewIdFromString("myID2", id.User, t)
 	storage1 := newMockStorage()
 	endE2eChan1 := make(chan receive.Message, 3)
-	conn1 := newMockConnection(myID1, e2eHandler)
-	conn1.RegisterListener(catalog.EndFileTransfer, newMockListener(endE2eChan1))
+	conn1 := newMockConnection(myID1, myID2, e2eHandler, t)
+	_, _ = conn1.RegisterListener(catalog.EndFileTransfer, newMockListener(endE2eChan1))
 	cmix1 := newMockCmix(myID1, cMixHandler, storage1)
 	ftManager1, err := ft.NewManager(ftParams, myID1, cmix1, storage1, rngGen)
 	if err != nil {
@@ -81,11 +82,10 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 		receiveCbChan2 <- receiveCbValues{
 			tid, fileName, fileType, sender, size, preview}
 	}
-	myID2 := id.NewIdFromString("myID2", id.User, t)
 	storage2 := newMockStorage()
 	endE2eChan2 := make(chan receive.Message, 3)
-	conn2 := newMockConnection(myID2, e2eHandler)
-	conn2.RegisterListener(catalog.EndFileTransfer, newMockListener(endE2eChan2))
+	conn2 := newMockConnection(myID2, myID1, e2eHandler, t)
+	_, _ = conn2.RegisterListener(catalog.EndFileTransfer, newMockListener(endE2eChan2))
 	cmix2 := newMockCmix(myID1, cMixHandler, storage2)
 	ftManager2, err := ft.NewManager(ftParams, myID2, cmix2, storage2, rngGen)
 	if err != nil {
@@ -160,7 +160,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	// Send file
 	sendStart := netTime.Now()
 	tid1, err := m1.Send(
-		myID2, fileName, fileType, fileData, retry, preview, sentProgressCb1, 0)
+		fileName, fileType, fileData, retry, preview, sentProgressCb1, 0)
 	if err != nil {
 		t.Errorf("Failed to send file: %+v", err)
 	}

@@ -18,7 +18,7 @@ func (m *Manager) register(username string, rng csprng.Source,
 	comm registerUserComms, udHost *connect.Host) error {
 
 	var err error
-	identity := m.e2e.GetReceptionIdentity()
+	identity := m.messenger.GetReceptionIdentity()
 	privKey, err := identity.GetRSAPrivatePem()
 	if err != nil {
 		return err
@@ -43,7 +43,7 @@ func (m *Manager) register(username string, rng csprng.Source,
 			Salt:     identity.Salt,
 		},
 		UID:       identity.ID.Marshal(),
-		Timestamp: m.e2e.GetTransmissionIdentity().RegistrationTimestamp,
+		Timestamp: m.messenger.GetTransmissionIdentity().RegistrationTimestamp,
 	}
 
 	// Sign the identity data and add to user registration message

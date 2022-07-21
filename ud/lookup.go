@@ -22,21 +22,21 @@ type lookupCallback func(contact.Contact, error)
 
 // Lookup returns the public key of the passed ID as known by the user discovery
 // system or returns by the timeout.
-func Lookup(services CMix,
+func Lookup(net udCmix,
 	rng csprng.Source, grp *cyclic.Group,
 	udContact contact.Contact, callback lookupCallback,
 	uid *id.ID, p single.RequestParams) ([]id.Round,
 	receptionID.EphemeralIdentity, error) {
 
 	jww.INFO.Printf("ud.Lookup(%s, %s)", uid, p.Timeout)
-	return lookup(services, rng, uid, grp, udContact, callback, p)
+	return lookup(net, rng, uid, grp, udContact, callback, p)
 }
 
 // BatchLookup performs a Lookup operation on a list of user IDs.
 // The lookup performs a callback on each lookup on the returned contact object
 // constructed from the response.
 func BatchLookup(udContact contact.Contact,
-	services CMix, callback lookupCallback,
+	net udCmix, callback lookupCallback,
 	rng csprng.Source,
 	uids []*id.ID, grp *cyclic.Group,
 	p single.RequestParams) {
@@ -44,7 +44,7 @@ func BatchLookup(udContact contact.Contact,
 
 	for _, uid := range uids {
 		go func(localUid *id.ID) {
-			_, _, err := lookup(services, rng, localUid, grp,
+			_, _, err := lookup(net, rng, localUid, grp,
 				udContact, callback, p)
 			if err != nil {
 				jww.WARN.Printf("Failed batch lookup on user %s: %v",
@@ -59,7 +59,7 @@ func BatchLookup(udContact contact.Contact,
 // lookup is a helper function which sends a lookup request to the user discovery
 // service. It will construct a contact object off of the returned public key.
 // The callback will be called on that contact object.
-func lookup(net CMix, rng csprng.Source, uid *id.ID,
+func lookup(net udCmix, rng csprng.Source, uid *id.ID,
 	grp *cyclic.Group, udContact contact.Contact,
 	callback lookupCallback,
 	p single.RequestParams) (

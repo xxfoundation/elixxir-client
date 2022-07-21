@@ -10,13 +10,11 @@ import (
 // Start is the ingress point for this package. This will handle CLI input and operations
 // for the fileTransfer subcommand.
 func Start() {
-	// Initialize paramaters
-	cmixParams, e2eParams := cmdUtils.InitParams()
-
 	// Initialize log
 	cmdUtils.InitLog(viper.GetUint(cmdUtils.LogLevelFlag), viper.GetString(cmdUtils.LogFlag))
 
 	// Initialize messenger
+	cmixParams, e2eParams := cmdUtils.InitParams()
 	authCbs := cmdUtils.MakeAuthCallbacks(
 		viper.GetBool(cmdUtils.UnsafeChannelCreationFlag), e2eParams)
 	messenger := cmdUtils.InitE2e(cmixParams, e2eParams, authCbs)

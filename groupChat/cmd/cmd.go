@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+// Start is the ingress point for this package. This will handle CLI input and operations
+// for the group subcommand.
 func Start() {
 	// Initialize parameters
 	cmixParams, e2eParams := cmdUtils.InitParams()
@@ -39,7 +41,7 @@ func Start() {
 		})
 	cmdUtils.WaitUntilConnected(connected)
 
-	// todo: some other cmd paths don't use this, determine if this is necessary across the board
+	// todo CMDRef: some other cmd paths don't use this, determine if this is necessary across the board
 	// After connection, make sure we have registered with at least 85% of
 	// the nodes
 	for numReg, total := 1, 100; numReg < (total*3)/4; {

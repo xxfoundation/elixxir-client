@@ -19,17 +19,15 @@ import (
 
 // Start is the ingress point for this package. This will handle CLI input and operations
 // for the broadcast subcommand.
-// todo: this function is a bit unwieldy, consider functionalizing some logic and putting them in utils.
+// todo CMDRef: this function is a bit unwieldy, consider functionalizing some logic and putting them in utils.
 func Start() {
-	// Initialize params
-	cmixParams, e2eParams := cmdUtils.InitParams()
-
 	// Initialize log
 	logLevel := viper.GetUint(cmdUtils.LogLevelFlag)
 	logPath := viper.GetString(cmdUtils.LogFlag)
 	cmdUtils.InitLog(logLevel, logPath)
 
 	// Initialize messenger
+	cmixParams, e2eParams := cmdUtils.InitParams()
 	authCbs := cmdUtils.MakeAuthCallbacks(
 		viper.GetBool(cmdUtils.UnsafeChannelCreationFlag), e2eParams)
 	messenger := cmdUtils.InitE2e(cmixParams, e2eParams, authCbs)

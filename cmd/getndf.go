@@ -13,6 +13,8 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
+	cmdUtils "gitlab.com/elixxir/client/cmdUtils"
+
 	// "gitlab.com/elixxir/crypto/contact"
 	// "gitlab.com/elixxir/client/interfaces/message"
 	// "gitlab.com/elixxir/client/switchboard"
@@ -42,50 +44,50 @@ var getNDFCmd = &cobra.Command{
 		"and print it.",
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		if viper.IsSet(ndfEnvFlag) {
+		if viper.IsSet(cmdUtils.NdfEnvFlag) {
 			var ndfJSON []byte
 			var err error
-			switch viper.GetString(ndfEnvFlag) {
-			case mainnet:
-				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(mainNetUrl, mainNetCert)
+			switch viper.GetString(cmdUtils.NdfEnvFlag) {
+			case cmdUtils.Mainnet:
+				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(cmdUtils.MainNetUrl, cmdUtils.MainNetCert)
 				if err != nil {
 					jww.FATAL.Panicf(err.Error())
 				}
-			case release:
-				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(releaseUrl, releaseCert)
+			case cmdUtils.Release:
+				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(cmdUtils.ReleaseUrl, cmdUtils.ReleaseCert)
 				if err != nil {
 					jww.FATAL.Panicf(err.Error())
 				}
 
-			case dev:
-				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(devUrl, devCert)
+			case cmdUtils.Dev:
+				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(cmdUtils.DevUrl, cmdUtils.DevCert)
 				if err != nil {
 					jww.FATAL.Panicf(err.Error())
 				}
-			case testnet:
-				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(testNetUrl, testNetCert)
+			case cmdUtils.Testnet:
+				ndfJSON, err = xxdk.DownloadAndVerifySignedNdfWithUrl(cmdUtils.TestNetUrl, cmdUtils.TestNetCert)
 				if err != nil {
 					jww.FATAL.Panicf(err.Error())
 				}
 			default:
 				jww.FATAL.Panicf("env flag with unknown flag (%s)",
-					viper.GetString(ndfEnvFlag))
+					viper.GetString(cmdUtils.NdfEnvFlag))
 			}
 			// Print to stdout
 			fmt.Printf("%s", ndfJSON)
 		} else {
 
 			// Note: getndf prints to stdout, so we default to not do that
-			logLevel := viper.GetUint(logLevelFlag)
-			logPath := viper.GetString(logFlag)
+			logLevel := viper.GetUint(cmdUtils.LogLevelFlag)
+			logPath := viper.GetString(cmdUtils.LogFlag)
 			if logPath == "-" || logPath == "" {
 				logPath = "getndf.log"
 			}
 			initLog(logLevel, logPath)
 			jww.INFO.Printf(Version())
-			gwHost := viper.GetString(ndfGwHostFlag)
-			permHost := viper.GetString(ndfPermHostFlag)
-			certPath := viper.GetString(ndfCertFlag)
+			gwHost := viper.GetString(cmdUtils.NdfGwHostFlag)
+			permHost := viper.GetString(cmdUtils.NdfPermHostFlag)
+			certPath := viper.GetString(cmdUtils.NdfCertFlag)
 
 			// Load the certificate
 			var cert []byte
@@ -147,22 +149,22 @@ var getNDFCmd = &cobra.Command{
 }
 
 func init() {
-	getNDFCmd.Flags().StringP(ndfGwHostFlag, "", "",
+	getNDFCmd.Flags().StringP(cmdUtils.NdfGwHostFlag, "", "",
 		"Poll this gateway host:port for the NDF")
-	BindFlagHelper(ndfGwHostFlag, getNDFCmd)
+	cmdUtils.BindFlagHelper(cmdUtils.NdfGwHostFlag, getNDFCmd)
 
-	getNDFCmd.Flags().StringP(ndfPermHostFlag, "", "",
+	getNDFCmd.Flags().StringP(cmdUtils.NdfPermHostFlag, "", "",
 		"Poll this registration host:port for the NDF")
-	BindFlagHelper(ndfPermHostFlag, getNDFCmd)
+	cmdUtils.BindFlagHelper(cmdUtils.NdfPermHostFlag, getNDFCmd)
 
-	getNDFCmd.Flags().StringP(ndfCertFlag, "", "",
+	getNDFCmd.Flags().StringP(cmdUtils.NdfCertFlag, "", "",
 		"Check with the TLS certificate at this path")
-	BindFlagHelper(ndfCertFlag, getNDFCmd)
+	cmdUtils.BindFlagHelper(cmdUtils.NdfCertFlag, getNDFCmd)
 
-	getNDFCmd.Flags().StringP(ndfEnvFlag, "", "",
+	getNDFCmd.Flags().StringP(cmdUtils.NdfEnvFlag, "", "",
 		"Downloads and verifies a signed NDF from a specified environment. "+
 			"Accepted environment flags include mainnet, release, testnet, and dev")
-	BindFlagHelper(ndfEnvFlag, getNDFCmd)
+	cmdUtils.BindFlagHelper(cmdUtils.NdfEnvFlag, getNDFCmd)
 
 	rootCmd.AddCommand(getNDFCmd)
 }

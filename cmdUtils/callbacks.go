@@ -4,8 +4,10 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
+	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
@@ -24,6 +26,10 @@ func MakeAuthCallbacks(autoConfirm bool, params xxdk.E2EParams) *AuthCallbacks {
 		confCh:      make(chan *id.ID, 10),
 		params:      params,
 	}
+}
+
+func (a *AuthCallbacks) ReceiveConfirmation() *id.ID {
+	return <-a.confCh
 }
 
 func (a *AuthCallbacks) Request(requestor contact.Contact,
@@ -61,4 +67,12 @@ func (a *AuthCallbacks) Reset(requestor contact.Contact,
 		requestor.ID)
 	jww.INFO.Printf(msg)
 	fmt.Printf(msg)
+}
+
+func RegisterMessageListener(client *xxdk.E2e) chan receive.Message {
+	recvCh := make(chan receive.Message, 10000)
+	listenerID := client.GetE2E().RegisterChannel("DefaultCLIReceiver",
+		receive.AnyUser(), catalog.NoType, recvCh)
+	jww.INFO.Printf("Message ListenerID: %v", listenerID)
+	return recvCh
 }

@@ -25,16 +25,25 @@ func BindFlagHelper(key string, command *cobra.Command) {
 	}
 }
 
+// BindPersistentFlagHelper binds the key to a Persistent pflag.Flag used by Cobra and prints an
+// error if one occurs.
+func BindPersistentFlagHelper(key string, command *cobra.Command) {
+	err := viper.BindPFlag(key, command.PersistentFlags().Lookup(key))
+	if err != nil {
+		jww.ERROR.Printf("viper.BindPFlag failed for %q: %+v", key, err)
+	}
+}
+
 //////////////////////////////////////////////////////////////////////////////////////
-// Logging and parameters
+// Parameters
 //////////////////////////////////////////////////////////////////////////////////////
 
 func InitParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 	e2eParams := xxdk.GetDefaultE2EParams()
-	e2eParams.Session.MinKeys = uint16(viper.GetUint(e2eMinKeysFlag))
-	e2eParams.Session.MaxKeys = uint16(viper.GetUint(e2eMaxKeysFlag))
-	e2eParams.Session.NumRekeys = uint16(viper.GetUint(e2eNumReKeysFlag))
-	e2eParams.Session.RekeyThreshold = viper.GetFloat64(e2eRekeyThresholdFlag)
+	e2eParams.Session.MinKeys = uint16(viper.GetUint(E2eMinKeysFlag))
+	e2eParams.Session.MaxKeys = uint16(viper.GetUint(E2eMaxKeysFlag))
+	e2eParams.Session.NumRekeys = uint16(viper.GetUint(E2eNumReKeysFlag))
+	e2eParams.Session.RekeyThreshold = viper.GetFloat64(E2eRekeyThresholdFlag)
 
 	if viper.GetBool("splitSends") {
 		e2eParams.Base.ExcludedRounds = excludedRounds.NewSet()
@@ -42,17 +51,17 @@ func InitParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 
 	cmixParams := xxdk.GetDefaultCMixParams()
 	cmixParams.Network.Pickup.ForceHistoricalRounds = viper.GetBool(
-		forceHistoricalRoundsFlag)
-	cmixParams.Network.FastPolling = !viper.GetBool(slowPollingFlag)
+		ForceHistoricalRoundsFlag)
+	cmixParams.Network.FastPolling = !viper.GetBool(SlowPollingFlag)
 	cmixParams.Network.Pickup.ForceMessagePickupRetry = viper.GetBool(
-		forceMessagePickupRetryFlag)
+		ForceMessagePickupRetryFlag)
 	if cmixParams.Network.Pickup.ForceMessagePickupRetry {
 		period := 3 * time.Second
 		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
 		cmixParams.Network.Pickup.UncheckRoundPeriod = period
 	}
 	cmixParams.Network.VerboseRoundTracking = viper.GetBool(
-		verboseRoundTrackingFlag)
+		VerboseRoundTrackingFlag)
 	return cmixParams, e2eParams
 }
 

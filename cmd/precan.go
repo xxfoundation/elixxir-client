@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
+	cmdUtils "gitlab.com/elixxir/client/cmdUtils"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
@@ -30,7 +31,7 @@ func loadOrInitPrecan(precanId uint, password []byte, storeDir string,
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
-		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
+		ndfJson, err := ioutil.ReadFile(viper.GetString(cmdUtils.NdfFlag))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

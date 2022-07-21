@@ -9,24 +9,24 @@ package cmd
 
 // Deployment environment constants for the download-ndf code path
 const (
-	mainnet = "mainnet"
-	release = "release"
-	dev     = "dev"
-	testnet = "testnet"
+	Mainnet = "mainnet"
+	Release = "release"
+	Dev     = "dev"
+	Testnet = "testnet"
 )
 
 // URL constants pointing to the NDF of the associated deployment environment
 // requested for the download-ndf code path.
 const (
-	mainNetUrl = "https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/mainnet.json"
-	releaseUrl = "https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/release.json"
-	devUrl     = "https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/default.json"
-	testNetUrl = "https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/testnet.json"
+	MainNetUrl = "https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/mainnet.json"
+	ReleaseUrl = "https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/release.json"
+	DevUrl     = "https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/default.json"
+	TestNetUrl = "https://elixxir-bins.s3.us-west-1.amazonaws.com/ndf/testnet.json"
 )
 
 // Certificates for deployment environments. Used to verify NDF signatures.
 const (
-	mainNetCert = `-----BEGIN CERTIFICATE-----
+	MainNetCert = `-----BEGIN CERTIFICATE-----
 MIIFqTCCA5GgAwIBAgIUO0qHXSeKrOMucO+Zz82Mf1Zlq4gwDQYJKoZIhvcNAQEL
 BQAwgYAxCzAJBgNVBAYTAktZMRQwEgYDVQQHDAtHZW9yZ2UgVG93bjETMBEGA1UE
 CgwKeHggbmV0d29yazEPMA0GA1UECwwGRGV2T3BzMRMwEQYDVQQDDAp4eC5uZXR3
@@ -59,7 +59,7 @@ NP7fjkISrD48P8P/TLS45sx5pB8MNGEsRw0lBKmuOdWDmdfhOltB6JxmbhpstNZp
 6LVLK6SEOwE76xnHiisR2KyhTTiroUq73BgPFWkWhoJDPbmL1DHgnbdKwwstG8Qu
 UGb8k8vh6tzqYZAOKg==
 -----END CERTIFICATE-----`
-	releaseCert = `-----BEGIN CERTIFICATE-----
+	ReleaseCert = `-----BEGIN CERTIFICATE-----
 MIIFtjCCA56gAwIBAgIJAJnUcpLbGSQiMA0GCSqGSIb3DQEBCwUAMIGMMQswCQYD
 VQQGEwJVUzELMAkGA1UECAwCQ0ExEjAQBgNVBAcMCUNsYXJlbW9udDEQMA4GA1UE
 CgwHRWxpeHhpcjEUMBIGA1UECwwLRGV2ZWxvcG1lbnQxEzARBgNVBAMMCmVsaXh4
@@ -92,7 +92,7 @@ ctzvAcXjhXm6ESRVVD/iZvkW5MP2mkgbDpW3RP9souK5JzbcpC7i3hEcAqPSPgzL
 tlqu6u77fbF9yaHtq7dvYxH1WioIUxMqbIC1CNgGC1Y/LhzgLRKPSTBCrbQyTcGc
 0b5cTzVKxdP6v6WOAXVOEkXTcBPZ4nEZxY0=
 -----END CERTIFICATE-----`
-	devCert = `-----BEGIN CERTIFICATE-----
+	DevCert = `-----BEGIN CERTIFICATE-----
 MIIF4DCCA8igAwIBAgIUegUvihtQooWNIzsNqj6lucXn6g8wDQYJKoZIhvcNAQEL
 BQAwgYwxCzAJBgNVBAYTAlVTMQswCQYDVQQIDAJDQTESMBAGA1UEBwwJQ2xhcmVt
 b250MRAwDgYDVQQKDAdFbGl4eGlyMRQwEgYDVQQLDAtEZXZlbG9wbWVudDETMBEG
@@ -126,5 +126,5 @@ jyMZC/3D721e5Anj/EqHpc3I9Yn3jRKw1xc8kpNLg/JIAibub8JYyDvT1gO4xjBO
 ek1mr+qBwSaNV9TA+RXVhvqd3DEKPPJ1WhfxP1K81RdUESvHOV/4kdwnSahDyao0
 EnretBzQkeKeBwoB2u6NTiOmUjk=
 -----END CERTIFICATE-----`
-	testNetCert = ``
+	TestNetCert = ``
 )

@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/spf13/viper"
+	cmdUtils "gitlab.com/elixxir/client/cmdUtils"
 	"strconv"
 	"time"
 
@@ -33,7 +34,7 @@ var dumpRoundsCmd = &cobra.Command{
 		roundIDs := parseRoundIDs(args)
 
 		cmixParams, e2eParams := initParams()
-		authCbs := makeAuthCallbacks(
+		authCbs := cmdUtils.MakeAuthCallbacks(
 			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
 		initLog(viper.GetUint(logLevelFlag), viper.GetString(logFlag))
 		client := initE2e(cmixParams, e2eParams, authCbs)

@@ -11,7 +11,8 @@ import (
 	"strings"
 )
 
-func InitLog(threshold uint, logPath string) {
+func InitLog(threshold uint, logPath string) (notePad *jww.Notepad) {
+
 	if logPath != "-" && logPath != "" {
 		// Disable stdout output
 		jww.SetStdoutOutput(ioutil.Discard)
@@ -40,11 +41,12 @@ func InitLog(threshold uint, logPath string) {
 		jww.SetLogThreshold(jww.LevelInfo)
 	}
 
-	if viper.GetBool(verboseRoundTrackingFlag) {
-		initRoundLog(logPath)
+	if viper.GetBool(VerboseRoundTrackingFlag) {
+		notePad = initRoundLog(logPath)
 	}
 
 	jww.INFO.Printf(version())
+	return notePad
 }
 
 // initRoundLog creates the log output for round tracking. In debug mode,

@@ -21,11 +21,11 @@ func InitE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams,
 	callbacks xxdk.AuthCallbacks) *xxdk.E2e {
 
 	// Intake parameters for client initialization
-	precanId := viper.GetUint(sendIdFlag)
-	protoUserPath := viper.GetString(protoUserPathFlag)
+	precanId := viper.GetUint(SendIdFlag)
+	protoUserPath := viper.GetString(ProtoUserPathFlag)
 	userIdPrefix := viper.GetString(userIdPrefixFlag)
-	backupPath := viper.GetString(backupInFlag)
-	backupPass := viper.GetString(backupPassFlag)
+	backupPath := viper.GetString(BackupInFlag)
+	backupPass := viper.GetString(BackupPassFlag)
 	storePassword := ParsePassword(viper.GetString(PasswordFlag))
 	storeDir := viper.GetString(SessionFlag)
 	regCode := viper.GetString(RegCodeFlag)
@@ -47,7 +47,7 @@ func InitE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams,
 	}
 
 	// Handle protoUser output
-	if protoUser := viper.GetString(protoUserOutFlag); protoUser != "" {
+	if protoUser := viper.GetString(ProtoUserOutFlag); protoUser != "" {
 		jsonBytes, err := messenger.ConstructProtoUserFile()
 		if err != nil {
 			jww.FATAL.Panicf("cannot construct proto user file: %v",
@@ -76,7 +76,7 @@ func InitE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams,
 					err)
 			}
 
-			backupJsonPath := viper.GetString(backupJsonOutFlag)
+			backupJsonPath := viper.GetString(BackupJsonOutFlag)
 
 			if backupJsonPath != "" {
 				var b backupCrypto.Backup
@@ -333,7 +333,7 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 		}
 
 		// Write the backup JSON to file
-		err = utils.WriteFileDef(viper.GetString(backupJsonOutFlag), backupJson)
+		err = utils.WriteFileDef(viper.GetString(BackupJsonOutFlag), backupJson)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
 		}
@@ -345,7 +345,7 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		backupIdListPath := viper.GetString(backupIdListFlag)
+		backupIdListPath := viper.GetString(BackupIdListFlag)
 		if backupIdListPath != "" {
 			// Marshal backed up ID list to JSON
 			backedUpIdListJson, err := json.Marshal(backupIdList)

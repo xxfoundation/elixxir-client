@@ -21,30 +21,30 @@ const (
 
 	VerifySendFlag   = "verify-sends"
 	MessageFlag      = "message"
-	destIdFlag       = "destid"
-	sendCountFlag    = "sendCount"
+	DestIdFlag       = "destid"
+	SendCountFlag    = "sendCount"
 	SendDelayFlag    = "sendDelay"
-	splitSendsFlag   = "splitSends"
+	SplitSendsFlag   = "splitSends"
 	ReceiveCountFlag = "receiveCount"
 	WaitTimeoutFlag  = "waitTimeout"
-	unsafeFlag       = "unsafe"
+	UnsafeFlag       = "unsafe"
 
 	// Channel flags
 	UnsafeChannelCreationFlag = "unsafe-channel-creation"
-	acceptChannelFlag         = "accept-channel"
-	deleteChannelFlag         = "delete-channel"
+	AcceptChannelFlag         = "accept-channel"
+	DeleteChannelFlag         = "delete-channel"
 
 	// Request flags
-	deleteReceiveRequestsFlag = "delete-receive-requests"
-	deleteSentRequestsFlag    = "delete-sent-requests"
-	deleteAllRequestsFlag     = "delete-all-requests"
-	deleteRequestFlag         = "delete-request"
-	sendAuthRequestFlag       = "send-auth-request"
-	authTimeoutFlag           = "auth-timeout"
+	DeleteReceiveRequestsFlag = "delete-receive-requests"
+	DeleteSentRequestsFlag    = "delete-sent-requests"
+	DeleteAllRequestsFlag     = "delete-all-requests"
+	DeleteRequestFlag         = "delete-request"
+	SendAuthRequestFlag       = "send-auth-request"
+	AuthTimeoutFlag           = "auth-timeout"
 
 	// Contact file flags
-	writeContactFlag = "writeContact"
-	destFileFlag     = "destfile"
+	WriteContactFlag = "writeContact"
+	DestFileFlag     = "destfile"
 
 	// Log flags
 	LogLevelFlag = "logLevel"
@@ -55,31 +55,37 @@ const (
 	PasswordFlag      = "password"
 	NdfFlag           = "ndf"
 	RegCodeFlag       = "regcode"
-	protoUserPathFlag = "protoUserPath"
-	protoUserOutFlag  = "protoUserOut"
+	ProtoUserPathFlag = "protoUserPath"
+	ProtoUserOutFlag  = "protoUserOut"
 	ForceLegacyFlag   = "force-legacy"
 
 	// Backup flags
-	backupOutFlag     = "backupOut"
-	backupJsonOutFlag = "backupJsonOut"
-	backupInFlag      = "backupIn"
-	backupPassFlag    = "backupPass"
-	backupIdListFlag  = "backupIdList"
+	BackupOutFlag     = "backupOut"
+	BackupJsonOutFlag = "backupJsonOut"
+	BackupInFlag      = "backupIn"
+	BackupPassFlag    = "backupPass"
+	BackupIdListFlag  = "backupIdList"
 
 	// Network following/logging flags
-	verboseRoundTrackingFlag    = "verboseRoundTracking"
-	forceHistoricalRoundsFlag   = "forceHistoricalRounds"
-	slowPollingFlag             = "slowPolling"
-	forceMessagePickupRetryFlag = "forceMessagePickupRetry"
+	VerboseRoundTrackingFlag    = "verboseRoundTracking"
+	ForceHistoricalRoundsFlag   = "forceHistoricalRounds"
+	SlowPollingFlag             = "slowPolling"
+	ForceMessagePickupRetryFlag = "forceMessagePickupRetry"
 
 	// E2E Params
-	e2eMinKeysFlag        = "e2eMinKeys"
-	e2eMaxKeysFlag        = "e2eMaxKeys"
-	e2eNumReKeysFlag      = "e2eNumReKeys"
-	e2eRekeyThresholdFlag = "e2eRekeyThreshold"
+	E2eMinKeysFlag        = "e2eMinKeys"
+	E2eMaxKeysFlag        = "e2eMaxKeys"
+	E2eNumReKeysFlag      = "e2eNumReKeys"
+	E2eRekeyThresholdFlag = "e2eRekeyThreshold"
 
 	// Misc
-	sendIdFlag       = "sendid"
-	profileCpuFlag   = "profile-cpu"
+	SendIdFlag       = "sendid"
+	ProfileCpuFlag   = "profile-cpu"
 	userIdPrefixFlag = "userid-prefix"
+
+	///////////////// GetNdf subcommand flags //////////////////////////////
+	NdfGwHostFlag   = "gwhost"
+	NdfPermHostFlag = "permhost"
+	NdfCertFlag     = "cert"
+	NdfEnvFlag      = "env"
 )

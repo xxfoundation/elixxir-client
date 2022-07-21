@@ -21,7 +21,15 @@ import (
 // for the broadcast subcommand.
 // todo: this function is a bit unwieldy, consider functionalizing some logic and putting them in utils.
 func Start() {
+	// Initialize params
 	cmixParams, e2eParams := cmdUtils.InitParams()
+
+	// Initialize log
+	logLevel := viper.GetUint(cmdUtils.LogLevelFlag)
+	logPath := viper.GetString(cmdUtils.LogFlag)
+	cmdUtils.InitLog(logLevel, logPath)
+
+	// Initialize messenger
 	authCbs := cmdUtils.MakeAuthCallbacks(
 		viper.GetBool(cmdUtils.UnsafeChannelCreationFlag), e2eParams)
 	messenger := cmdUtils.InitE2e(cmixParams, e2eParams, authCbs)

@@ -10,6 +10,7 @@ package utility
 import (
 	"fmt"
 
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
@@ -32,6 +33,15 @@ func StoreContact(kv *versioned.KV, c contact.Contact) error {
 
 func LoadContact(kv *versioned.KV, cid *id.ID) (contact.Contact, uint64, error) {
 	vo, err := kv.Get(makeContactKey(cid), currentContactVersion)
+	if err != nil {
+		vo2, err2 := kv.Get(makeContactKey(cid), 0)
+		if err2 == nil {
+			err = nil
+			vo = vo2
+		} else {
+			jww.DEBUG.Printf("LoadContact: %+v", err2)
+		}
+	}
 	if err != nil {
 		return contact.Contact{}, 0, err
 	}

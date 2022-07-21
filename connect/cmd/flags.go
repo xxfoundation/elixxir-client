@@ -6,5 +6,4 @@ const (
 	ConnectionServerTimeoutFlag = "serverTimeout"
 	ConnectionDisconnectFlag    = "disconnect"
 	ConnectionAuthenticatedFlag = "authenticated"
-	ConnectionEphemeralFlag     = "ephemeral"
 )

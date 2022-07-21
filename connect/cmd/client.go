@@ -11,18 +11,9 @@ import (
 )
 
 // Secure (authenticated) connection client path
-func secureConnClient(forceLegacy bool, statePass []byte, statePath, regCode string,
-	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
+func secureConnClient(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
 	// Load client ------------------------------------------------------------------
-	var messenger *xxdk.E2e
-	if viper.GetBool(ConnectionEphemeralFlag) {
-		fmt.Println("Loading ephemerally")
-		messenger = loadOrInitEphemeral(forceLegacy, statePass, statePath, regCode,
-			cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
-	} else {
-		fmt.Println("Loading non-ephemerally")
-		messenger = cmdUtils.InitE2e(cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
-	}
+	messenger := cmdUtils.InitE2e(cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
 
 	// Start network threads---------------------------------------------------------
 
@@ -63,19 +54,10 @@ func secureConnClient(forceLegacy bool, statePass []byte, statePath, regCode str
 }
 
 // Insecure (unauthenticated) connection client path
-func insecureConnClient(forceLegacy bool, statePass []byte, statePath, regCode string,
-	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
+func insecureConnClient(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
 
 	// Load client ------------------------------------------------------------------
-	var messenger *xxdk.E2e
-	if viper.GetBool(ConnectionEphemeralFlag) {
-		fmt.Println("Loading ephemerally")
-		messenger = loadOrInitEphemeral(forceLegacy, statePass, statePath, regCode,
-			cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
-	} else {
-		fmt.Println("Loading non-ephemerally")
-		messenger = cmdUtils.InitE2e(cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
-	}
+	messenger := cmdUtils.InitE2e(cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
 
 	// Start network threads---------------------------------------------------------
 

@@ -22,45 +22,46 @@ func Start() {
 	logPath := viper.GetString(cmdUtils.LogFlag)
 	cmdUtils.InitLog(logLevel, logPath)
 
-	// Pull flags to start a client
-	// todo: other cmd paths don't need to pull this out (albeit they call initE2e only).
-	//  see if there's a way to cleanly refactor existing code so we don't have to pull these
-	statePass := cmdUtils.ParsePassword(viper.GetString(cmdUtils.PasswordFlag))
-	statePath := viper.GetString(cmdUtils.SessionFlag)
-	regCode := viper.GetString(cmdUtils.RegCodeFlag)
+	// Initialize paramaters
 	cmixParams, e2eParams := cmdUtils.InitParams()
-	forceLegacy := viper.GetBool(cmdUtils.ForceLegacyFlag)
 
-	// Start connection instanct
+	// Start connection instance
 	if viper.GetBool(ConnectionStartServerFlag) {
-		startServer(forceLegacy, statePass, statePath, regCode,
-			cmixParams, e2eParams)
+		startServer(cmixParams, e2eParams)
 	} else {
-		startClient(forceLegacy, statePass, statePath, regCode,
-			cmixParams, e2eParams)
+		startClient(cmixParams, e2eParams)
 	}
 }
 
 // startServer is a helper function which initializes a connection server.
-func startServer(forceLegacy bool, statePass []byte, statePath string, regCode string,
-	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
+func startServer(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
+	// Pull flags for initializing a messenger
+	forceLegacy := viper.GetBool(cmdUtils.ForceLegacyFlag)
+	statePass := cmdUtils.ParsePassword(viper.GetString(cmdUtils.PasswordFlag))
+	statePath := viper.GetString(cmdUtils.SessionFlag)
+	regCode := viper.GetString(cmdUtils.RegCodeFlag)
+
+	// Load client state and identity------------------------------------------
+	net := cmdUtils.LoadOrInitCmix(statePass, statePath, regCode, cmixParams)
+	identity := cmdUtils.LoadOrInitReceptionIdentity(forceLegacy, net)
+
+	// Save contact file-------------------------------------------------------
+	cmdUtils.WriteContact(identity.GetContact())
+
+	// Start Server
 	if viper.GetBool(ConnectionAuthenticatedFlag) {
-		secureConnServer(forceLegacy, statePass, statePath, regCode,
-			cmixParams, e2eParams)
+		secureConnServer(net, identity, e2eParams)
 	} else {
-		insecureConnServer(forceLegacy, statePass, statePath, regCode,
-			cmixParams, e2eParams)
+		insecureConnServer(net, identity, e2eParams)
 	}
 }
 
 // startClient is a helper function which initializes a connection client.
-func startClient(forceLegacy bool, statePass []byte, statePath string, regCode string,
-	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
+func startClient(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
+	// Start Client
 	if viper.GetBool(ConnectionAuthenticatedFlag) {
-		secureConnClient(forceLegacy, statePass, statePath, regCode,
-			cmixParams, e2eParams)
+		secureConnClient(cmixParams, e2eParams)
 	} else {
-		insecureConnClient(forceLegacy, statePass, statePath, regCode,
-			cmixParams, e2eParams)
+		insecureConnClient(cmixParams, e2eParams)
 	}
 }

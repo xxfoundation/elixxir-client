@@ -14,19 +14,12 @@ import (
 	"time"
 )
 
-// Secure (authenticated) connection server path
-func secureConnServer(forceLegacy bool, statePass []byte, statePath, regCode string,
-	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
-	connChan := make(chan connect.Connection, 1)
-
-	// Load client state and identity------------------------------------------
-	net := cmdUtils.LoadOrInitCmix(statePass, statePath, regCode, cmixParams)
-	identity := cmdUtils.LoadOrInitReceptionIdentity(forceLegacy, net)
-
-	// Save contact file-------------------------------------------------------
-	cmdUtils.WriteContact(identity.GetContact())
+// Secure (authenticated) connection server path.
+func secureConnServer(net *xxdk.Cmix, identity xxdk.ReceptionIdentity,
+	e2eParams xxdk.E2EParams) {
 
 	// Handle incoming connections---------------------------------------------
+	connChan := make(chan connect.Connection, 1)
 	authCb := connect.AuthenticatedCallback(
 		func(connection connect.AuthenticatedConnection) {
 			partnerId := connection.GetPartner().PartnerId()
@@ -60,37 +53,15 @@ func secureConnServer(forceLegacy bool, statePass []byte, statePath, regCode str
 		jww.FATAL.Panicf("Failed to start network follower: %+v", err)
 	}
 
-	// Set up a wait for the network to be connected
-	waitUntilConnected := func(connected chan bool) {
-		waitTimeout := 30 * time.Second
-		timeoutTimer := time.NewTimer(waitTimeout)
-		isConnected := false
-		// Wait until we connect or panic if we cannot before the timeout
-		for !isConnected {
-			select {
-			case isConnected = <-connected:
-				jww.INFO.Printf("Network Status: %v", isConnected)
-				break
-			case <-timeoutTimer.C:
-				jww.FATAL.Panicf("Timeout on starting network follower")
-			}
-		}
-	}
-
-	// Create a tracker channel to be notified of network changes
+	// Wait until connected or crash on timeout
 	connected := make(chan bool, 10)
-	// Provide a callback that will be signalled when network health
-	// status changes
 	connectServer.Messenger.GetCmix().AddHealthCallback(
 		func(isConnected bool) {
 			connected <- isConnected
 		})
-	// Wait until connected or crash on timeout
-	waitUntilConnected(connected)
+	cmdUtils.WaitUntilConnected(connected)
 
 	// Wait for connection establishment----------------------------------------
-
-	// Wait for connection to be established
 	connectionTimeout := time.NewTimer(240 * time.Second)
 	select {
 	case conn := <-connChan:
@@ -116,8 +87,6 @@ func secureConnServer(forceLegacy bool, statePass []byte, statePath, regCode str
 	}
 
 	// Keep app running to receive messages------------------------------------
-
-	// Wait until the user terminates the program
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
@@ -133,20 +102,12 @@ func secureConnServer(forceLegacy bool, statePass []byte, statePath, regCode str
 
 }
 
-// Insecure (unauthenticated) connection server path
-func insecureConnServer(forceLegacy bool, statePass []byte, statePath, regCode string,
-	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
-
-	connChan := make(chan connect.Connection, 1)
-
-	// Load client state and identity------------------------------------------
-	net := cmdUtils.LoadOrInitCmix(statePass, statePath, regCode, cmixParams)
-	identity := cmdUtils.LoadOrInitReceptionIdentity(forceLegacy, net)
-
-	// Save contact file-------------------------------------------------------
-	cmdUtils.WriteContact(identity.GetContact())
+// Insecure (unauthenticated) connection server path.
+func insecureConnServer(net *xxdk.Cmix, identity xxdk.ReceptionIdentity,
+	e2eParams xxdk.E2EParams) {
 
 	// Handle incoming connections---------------------------------------------
+	connChan := make(chan connect.Connection, 1)
 	cb := connect.Callback(func(connection connect.Connection) {
 		partnerId := connection.GetPartner().PartnerId()
 		jww.INFO.Printf("[CONN] Received connection request from %s", partnerId)
@@ -178,37 +139,15 @@ func insecureConnServer(forceLegacy bool, statePass []byte, statePath, regCode s
 		jww.FATAL.Panicf("Failed to start network follower: %+v", err)
 	}
 
-	// Set up a wait for the network to be connected
-	waitUntilConnected := func(connected chan bool) {
-		waitTimeout := 30 * time.Second
-		timeoutTimer := time.NewTimer(waitTimeout)
-		isConnected := false
-		// Wait until we connect or panic if we cannot before the timeout
-		for !isConnected {
-			select {
-			case isConnected = <-connected:
-				jww.INFO.Printf("Network Status: %v", isConnected)
-				break
-			case <-timeoutTimer.C:
-				jww.FATAL.Panicf("Timeout on starting network follower")
-			}
-		}
-	}
-
-	// Create a tracker channel to be notified of network changes
+	// Wait until connected or crash on timeout
 	connected := make(chan bool, 10)
-	// Provide a callback that will be signalled when network health
-	// status changes
 	connectServer.Messenger.GetCmix().AddHealthCallback(
 		func(isConnected bool) {
 			connected <- isConnected
 		})
-	// Wait until connected or crash on timeout
-	waitUntilConnected(connected)
+	cmdUtils.WaitUntilConnected(connected)
 
 	// Wait for connection establishment----------------------------------------
-
-	// Wait for connection to be established
 	connectionTimeout := time.NewTimer(240 * time.Second)
 	select {
 	case conn := <-connChan:
@@ -231,9 +170,8 @@ func insecureConnServer(forceLegacy bool, statePass []byte, statePath, regCode s
 			return
 		}
 	}
-	// Keep app running to receive messages------------------------------------
 
-	// Wait until the user terminates the program
+	// Keep app running to receive messages------------------------------------
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c

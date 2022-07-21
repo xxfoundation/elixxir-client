@@ -23,7 +23,7 @@ func InitE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams,
 	// Intake parameters for client initialization
 	precanId := viper.GetUint(SendIdFlag)
 	protoUserPath := viper.GetString(ProtoUserPathFlag)
-	userIdPrefix := viper.GetString(userIdPrefixFlag)
+	userIdPrefix := viper.GetString(UserIdPrefixFlag)
 	backupPath := viper.GetString(BackupInFlag)
 	backupPass := viper.GetString(BackupPassFlag)
 	storePassword := ParsePassword(viper.GetString(PasswordFlag))

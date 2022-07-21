@@ -81,7 +81,7 @@ const (
 	// Misc
 	SendIdFlag       = "sendid"
 	ProfileCpuFlag   = "profile-cpu"
-	userIdPrefixFlag = "userid-prefix"
+	UserIdPrefixFlag = "userid-prefix"
 
 	///////////////// GetNdf subcommand flags //////////////////////////////
 	NdfGwHostFlag   = "gwhost"

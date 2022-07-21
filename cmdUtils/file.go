@@ -31,6 +31,26 @@ func GetContactFromFile(path string) contact.Contact {
 	return c
 }
 
+func readContact(inputFilePath string) contact.Contact {
+	if inputFilePath == "" {
+		return contact.Contact{}
+	}
+
+	data, err := ioutil.ReadFile(inputFilePath)
+	jww.INFO.Printf("Contact file size read in: %d", len(data))
+	if err != nil {
+		jww.FATAL.Panicf("Failed to read contact file: %+v", err)
+	}
+	c, err := contact.Unmarshal(data)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to unmarshal contact: %+v", err)
+	}
+	jww.INFO.Printf("CONTACTPUBKEY READ: %s",
+		c.DhPubKey.TextVerbose(16, 0))
+	jww.INFO.Printf("Contact ID: %s", c.ID)
+	return c
+}
+
 func WriteContact(c contact.Contact) {
 	outfilePath := viper.GetString(WriteContactFlag)
 	if outfilePath == "" {
@@ -41,6 +61,18 @@ func WriteContact(c contact.Contact) {
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
+}
+
+func PrintContact(c contact.Contact) {
+	jww.DEBUG.Printf("Printing contact: %+v", c)
+	cBytes := c.Marshal()
+	if len(cBytes) == 0 {
+		jww.ERROR.Print("Marshaled contact has a size of 0.")
+	} else {
+		jww.DEBUG.Printf("Printing marshaled contact of size %d.", len(cBytes))
+	}
+
+	jww.INFO.Printf(string(cBytes))
 }
 
 func ParseRecipient(idStr string) *id.ID {

@@ -68,7 +68,7 @@ var rootCmd = &cobra.Command{
 
 		receptionIdentity := messenger.GetReceptionIdentity()
 		jww.INFO.Printf("User: %s", receptionIdentity.ID)
-		writeContact(receptionIdentity.GetContact())
+		cmdUtils.PrintContact(receptionIdentity.GetContact())
 
 		var recipientContact contact.Contact
 		var recipientID *id.ID
@@ -77,7 +77,7 @@ var rootCmd = &cobra.Command{
 		destId := viper.GetString(cmdUtils.DestIdFlag)
 		sendId := viper.GetString(cmdUtils.SendIdFlag)
 		if destFile != "" {
-			recipientContact = readContact(destFile)
+			recipientContact = cmdUtils.GetContactFromFile(destFile)
 			recipientID = recipientContact.ID
 		} else if destId == "0" || sendId == destId {
 			jww.INFO.Printf("Sending message to self")

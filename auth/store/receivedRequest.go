@@ -1,7 +1,6 @@
 package store
 
 import (
-	"os"
 	"sync"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -76,12 +75,12 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 			partner)
 	}
 
-	round, err := rounds.LoadRound(kv, makeRoundKey(partner))
-	if err != nil {
-		if contactVersion == 0 && os.IsNotExist(err) {
-			jww.WARN.Printf("Old contact version, round to nil")
-			round = rounds.Round{}
-		} else {
+	round := rounds.Round{}
+	if contactVersion == 0 {
+		jww.WARN.Printf("Old contact version, round to nil")
+	} else {
+		round, err = rounds.LoadRound(kv, makeRoundKey(partner))
+		if err != nil {
 			return nil, errors.WithMessagef(err, "Failed to Load "+
 				"round request was received on with %s",
 				partner)

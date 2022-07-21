@@ -524,6 +524,10 @@ func init() {
 	// as local params to sub command."
 	cobra.OnInitialize(initConfig)
 
+	////////////////////////////////////////////////////////////////////////////
+	// Persistent flags
+	////////////////////////////////////////////////////////////////////////////
+
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
@@ -615,6 +619,12 @@ func init() {
 		"DeleteFingerprint the request for the specified ID given by the "+
 			"destfile flag's contact file.")
 	cmdUtils.BindPersistentFlagHelper(cmdUtils.DeleteRequestFlag, rootCmd)
+
+	connectionCmd.PersistentFlags().Bool(cmdUtils.EphemeralFlag, false,
+		"This flag operates as a switch determining the initialization path."+
+			"If present, the messenger will be initialized ephemerally. Without this flag, "+
+			"the messenger will be initialized as stateful.")
+	cmdUtils.BindPersistentFlagHelper(cmdUtils.EphemeralFlag, connectionCmd)
 
 	/////////////////////////////////////////////////////////////////////////////////////////
 	// Non-Persistant Flags

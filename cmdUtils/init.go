@@ -413,9 +413,17 @@ func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode st
 	net := LoadOrInitCmix(password, storeDir, regCode, cmixParams)
 	identity := LoadOrInitReceptionIdentity(forceLegacy, net)
 
-	messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
+	if viper.GetBool(EphemeralFlag) {
+		messenger, err := xxdk.LoginEphemeral(net, cbs, identity, e2eParams)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+		return messenger
+	} else {
+		messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+		return messenger
 	}
-	return messenger
 }

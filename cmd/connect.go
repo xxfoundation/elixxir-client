@@ -59,12 +59,5 @@ func init() {
 			" will call the applicable authenticated counterpart")
 	cmdUtils.BindFlagHelper(connCmd.ConnectionAuthenticatedFlag, connectionCmd)
 
-	connectionCmd.Flags().Bool(connCmd.ConnectionEphemeralFlag, false,
-		"This flag is available to both server and client. "+
-			"This flag operates as a switch determining the initialization path."+
-			"If present, the messenger will be initialized ephemerally. Without this flag, "+
-			"the messenger will be initialized as stateful.")
-	cmdUtils.BindFlagHelper(connCmd.ConnectionEphemeralFlag, connectionCmd)
-
 	rootCmd.AddCommand(connectionCmd)
 }

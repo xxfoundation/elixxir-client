@@ -47,14 +47,17 @@ const (
 	AuthTimeoutFlag           = "auth-timeout"
 
 	// Contact file flags
+
 	WriteContactFlag = "writeContact"
 	DestFileFlag     = "destfile"
 
 	// Log flags
+
 	LogLevelFlag = "logLevel"
 	LogFlag      = "log"
 
 	// Loading/establishing xxdk.E2E
+
 	SessionFlag       = "session"
 	PasswordFlag      = "password"
 	NdfFlag           = "ndf"
@@ -62,8 +65,10 @@ const (
 	ProtoUserPathFlag = "protoUserPath"
 	ProtoUserOutFlag  = "protoUserOut"
 	ForceLegacyFlag   = "force-legacy"
+	EphemeralFlag     = "ephemeral"
 
 	// Backup flags
+
 	BackupOutFlag     = "backupOut"
 	BackupJsonOutFlag = "backupJsonOut"
 	BackupInFlag      = "backupIn"
@@ -71,23 +76,27 @@ const (
 	BackupIdListFlag  = "backupIdList"
 
 	// Network following/logging flags
+
 	VerboseRoundTrackingFlag    = "verboseRoundTracking"
 	ForceHistoricalRoundsFlag   = "forceHistoricalRounds"
 	SlowPollingFlag             = "slowPolling"
 	ForceMessagePickupRetryFlag = "forceMessagePickupRetry"
 
 	// E2E Params
+
 	E2eMinKeysFlag        = "e2eMinKeys"
 	E2eMaxKeysFlag        = "e2eMaxKeys"
 	E2eNumReKeysFlag      = "e2eNumReKeys"
 	E2eRekeyThresholdFlag = "e2eRekeyThreshold"
 
 	// Misc
+
 	SendIdFlag       = "sendid"
 	ProfileCpuFlag   = "profile-cpu"
 	UserIdPrefixFlag = "userid-prefix"
 
 	///////////////// GetNdf subcommand flags //////////////////////////////
+
 	NdfGwHostFlag   = "gwhost"
 	NdfPermHostFlag = "permhost"
 	NdfCertFlag     = "cert"

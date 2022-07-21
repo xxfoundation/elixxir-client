@@ -33,13 +33,11 @@ var dumpRoundsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		roundIDs := parseRoundIDs(args)
 
-		// Initialize paramaters
-		cmixParams, e2eParams := cmdUtils.InitParams()
-
 		// Initialize log
 		cmdUtils.InitLog(viper.GetUint(cmdUtils.LogLevelFlag), viper.GetString(cmdUtils.LogFlag))
 
 		// Initialize messenger
+		cmixParams, e2eParams := cmdUtils.InitParams()
 		authCbs := cmdUtils.MakeAuthCallbacks(
 			viper.GetBool(cmdUtils.UnsafeChannelCreationFlag), e2eParams)
 		messenger := cmdUtils.InitE2e(cmixParams, e2eParams, authCbs)

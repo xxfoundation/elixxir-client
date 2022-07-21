@@ -17,23 +17,23 @@ func Start() {
 	// Initialize messenger
 	authCbs := cmdUtils.MakeAuthCallbacks(
 		viper.GetBool(cmdUtils.UnsafeChannelCreationFlag), e2eParams)
-	client := cmdUtils.InitE2e(cmixParams, e2eParams, authCbs)
+	messenger := cmdUtils.InitE2e(cmixParams, e2eParams, authCbs)
 
 	// Print user's reception ID
-	user := client.GetReceptionIdentity()
+	user := messenger.GetReceptionIdentity()
 	jww.INFO.Printf("User: %s", user.ID)
 
-	err := client.StartNetworkFollower(5 * time.Second)
+	err := messenger.StartNetworkFollower(5 * time.Second)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
 
 	// Initialize the group chat manager
-	groupManager, recChan, reqChan := initGroupManager(client)
+	groupManager, recChan, reqChan := initGroupManager(messenger)
 
 	// Wait until connected or crash on timeout
 	connected := make(chan bool, 10)
-	client.GetCmix().AddHealthCallback(
+	messenger.GetCmix().AddHealthCallback(
 		func(isConnected bool) {
 			connected <- isConnected
 		})
@@ -44,7 +44,7 @@ func Start() {
 	// the nodes
 	for numReg, total := 1, 100; numReg < (total*3)/4; {
 		time.Sleep(1 * time.Second)
-		numReg, total, err = client.GetNodeRegistrationStatus()
+		numReg, total, err = messenger.GetNodeRegistrationStatus()
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

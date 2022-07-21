@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+// WaitUntilConnected is a helper function which ensures the messenger
+// is connected to the cMix network.
 func WaitUntilConnected(connected chan bool) {
 	waitTimeout := time.Duration(viper.GetUint(WaitTimeoutFlag))
 	timeoutTimer := time.NewTimer(waitTimeout * time.Second)
@@ -45,7 +47,9 @@ func WaitUntilConnected(connected chan bool) {
 	}()
 }
 
-func VerifySendSuccess(client *xxdk.E2e, paramsE2E e2e.Params,
+// VerifySendSuccess ensures that the round a message was sent on succeeded.
+// If the round fails, this returns false. Otherwise this returns true.
+func VerifySendSuccess(messenger *xxdk.E2e, paramsE2E e2e.Params,
 	roundIDs []id.Round, partnerId *id.ID, payload []byte) bool {
 	retryChan := make(chan struct{})
 	done := make(chan struct{}, 1)
@@ -64,7 +68,7 @@ func VerifySendSuccess(client *xxdk.E2e, paramsE2E e2e.Params,
 	}
 
 	// Monitor rounds for results
-	err := client.GetCmix().GetRoundResults(
+	err := messenger.GetCmix().GetRoundResults(
 		paramsE2E.CMIXParams.Timeout, f, roundIDs...)
 	if err != nil {
 		jww.DEBUG.Printf("Could not verify messages were sent " +
@@ -84,27 +88,4 @@ func VerifySendSuccess(client *xxdk.E2e, paramsE2E e2e.Params,
 		close(retryChan)
 		return true
 	}
-}
-
-func acceptChannelVerified(messenger *xxdk.E2e, recipientID *id.ID,
-	params xxdk.E2EParams) {
-	for {
-		rid := acceptChannel(messenger, recipientID)
-		VerifySendSuccess(messenger, params.Base, []id.Round{rid}, recipientID, nil)
-	}
-}
-
-func acceptChannel(messenger *xxdk.E2e, recipientID *id.ID) id.Round {
-	recipientContact, err := messenger.GetAuth().GetReceivedRequest(
-		recipientID)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-	rid, err := messenger.GetAuth().Confirm(
-		recipientContact)
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-
-	return rid
 }

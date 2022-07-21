@@ -201,7 +201,7 @@ var rootCmd = &cobra.Command{
 			// Signal for authConfirm callback in a separate thread
 			go func() {
 				for {
-					authID := authCbs.ReceiveConfirmation()
+					authID := <-authCbs.GetConfirmationChan()
 					if authID.Cmp(recipientID) {
 						authConfirmed = true
 					}

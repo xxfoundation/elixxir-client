@@ -18,7 +18,7 @@ import (
 
 // miscConnectionFunctions contains miscellaneous functionality for the subcommand connect.
 // This functionality should be shared between client & server.
-func miscConnectionFunctions(client *xxdk.E2e, conn connect.Connection) {
+func miscConnectionFunctions(messenger *xxdk.E2e, conn connect.Connection) {
 	// Send a message to connection partner--------------------------------------------
 	msgBody := viper.GetString(cmdUtils.MessageFlag)
 	paramsE2E := e2e.GetDefaultParams()
@@ -36,7 +36,7 @@ func miscConnectionFunctions(client *xxdk.E2e, conn connect.Connection) {
 
 			// Verify message sends were successful when verifySendFlag is present
 			if viper.GetBool(cmdUtils.VerifySendFlag) {
-				if !cmdUtils.VerifySendSuccess(client, paramsE2E, roundIDs,
+				if !cmdUtils.VerifySendSuccess(messenger, paramsE2E, roundIDs,
 					conn.GetPartner().PartnerId(), payload) {
 					continue
 				}

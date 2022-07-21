@@ -7,15 +7,17 @@
 
 package cmd
 
-// This is a comprehensive list of CLI flag name constants. Organized by
-// subcommand, with root level CLI flags at the top of the list. Newly added
-// flags for any existing or new subcommands should be listed and organized
-// here. Pulling flags using Viper should use the constants defined here.
-// todo: fill this with all existing flags, replace hardcoded references with
-//  these constants. This makes renaming them easier, as well as having
-//  a consolidated place in code for these flags.
+import (
+	"github.com/spf13/cobra"
+	jww "github.com/spf13/jwalterweatherman"
+	"github.com/spf13/viper"
+)
+
+// This is a list of CLI flag name constants shared between root and subcommands.
+// Newly added flags for any flag which should be accessible by more than one command
+// should be listed here. Flags designed for a specific subcommand should go in its
+// respective cmd directory. Pulling flags using Viper should use the constants defined here.
 const (
-	//////////////// Root flags ///////////////////////////////////////////////
 
 	/// Send/receive flags
 
@@ -30,11 +32,13 @@ const (
 	UnsafeFlag       = "unsafe"
 
 	// Channel flags
+
 	UnsafeChannelCreationFlag = "unsafe-channel-creation"
 	AcceptChannelFlag         = "accept-channel"
 	DeleteChannelFlag         = "delete-channel"
 
 	// Request flags
+
 	DeleteReceiveRequestsFlag = "delete-receive-requests"
 	DeleteSentRequestsFlag    = "delete-sent-requests"
 	DeleteAllRequestsFlag     = "delete-all-requests"
@@ -89,3 +93,21 @@ const (
 	NdfCertFlag     = "cert"
 	NdfEnvFlag      = "env"
 )
+
+// BindFlagHelper binds the key to a pflag.Flag used by Cobra and prints an
+// error if one occurs.
+func BindFlagHelper(key string, command *cobra.Command) {
+	err := viper.BindPFlag(key, command.Flags().Lookup(key))
+	if err != nil {
+		jww.ERROR.Printf("viper.BindPFlag failed for %q: %+v", key, err)
+	}
+}
+
+// BindPersistentFlagHelper binds the key to a Persistent pflag.Flag used by Cobra and prints an
+// error if one occurs.
+func BindPersistentFlagHelper(key string, command *cobra.Command) {
+	err := viper.BindPFlag(key, command.PersistentFlags().Lookup(key))
+	if err != nil {
+		jww.ERROR.Printf("viper.BindPFlag failed for %q: %+v", key, err)
+	}
+}

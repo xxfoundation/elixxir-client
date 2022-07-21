@@ -4,35 +4,19 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
+	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/primitives/excludedRounds"
+	"gitlab.com/xx_network/primitives/id"
+	"strconv"
 	"strings"
 	"time"
 )
 
 // Key used for storing xxdk.ReceptionIdentity objects
 const IdentityStorageKey = "identityStorageKey"
-
-// BindFlagHelper binds the key to a pflag.Flag used by Cobra and prints an
-// error if one occurs.
-func BindFlagHelper(key string, command *cobra.Command) {
-	err := viper.BindPFlag(key, command.Flags().Lookup(key))
-	if err != nil {
-		jww.ERROR.Printf("viper.BindPFlag failed for %q: %+v", key, err)
-	}
-}
-
-// BindPersistentFlagHelper binds the key to a Persistent pflag.Flag used by Cobra and prints an
-// error if one occurs.
-func BindPersistentFlagHelper(key string, command *cobra.Command) {
-	err := viper.BindPFlag(key, command.PersistentFlags().Lookup(key))
-	if err != nil {
-		jww.ERROR.Printf("viper.BindPFlag failed for %q: %+v", key, err)
-	}
-}
 
 //////////////////////////////////////////////////////////////////////////////////////
 // Parameters
@@ -95,3 +79,46 @@ func getPWFromHexString(pwStr string) []byte {
 	}
 	return pwBytes
 }
+
+/////////////////////////////////////////////////////////////////////////////////////
+// Printing functions
+/////////////////////////////////////////////////////////////////////////////////////
+
+// Helper function which prints the round results
+func printRoundResults(rounds map[id.Round]cmix.RoundResult, roundIDs []id.Round, payload []byte, recipient *id.ID) {
+
+	// Done as string slices for easy and human-readable printing
+	successfulRounds := make([]string, 0)
+	failedRounds := make([]string, 0)
+	timedOutRounds := make([]string, 0)
+
+	for _, r := range roundIDs {
+		// Group all round reports into a category based on their
+		// result (successful, failed, or timed out)
+		if result, exists := rounds[r]; exists {
+			if result.Status == cmix.Succeeded {
+				successfulRounds = append(successfulRounds, strconv.Itoa(int(r)))
+			} else if result.Status == cmix.Failed {
+				failedRounds = append(failedRounds, strconv.Itoa(int(r)))
+			} else {
+				timedOutRounds = append(timedOutRounds, strconv.Itoa(int(r)))
+			}
+		}
+	}
+
+	jww.INFO.Printf("Result of sending message \"%s\" to \"%v\":",
+		payload, recipient)
+
+	// Print out all rounds results, if they are populated
+	if len(successfulRounds) > 0 {
+		jww.INFO.Printf("\tRound(s) %v successful", strings.Join(successfulRounds, ","))
+	}
+	if len(failedRounds) > 0 {
+		jww.ERROR.Printf("\tRound(s) %v failed", strings.Join(failedRounds, ","))
+	}
+	if len(timedOutRounds) > 0 {
+		jww.ERROR.Printf("\tRound(s) %v timed out (no network resolution could be found)",
+			strings.Join(timedOutRounds, ","))
+	}
+}
+

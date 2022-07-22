@@ -78,14 +78,11 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 
 	// V0 Upgrade Path
 	if !ekv.Exists(err) {
-		obj2, err2 := kv.Get(makeOldSentRequestKey(partner), 0)
-		if err2 != nil {
-			jww.DEBUG.Printf("v0 loadSentRequest: %+v", err)
-		} else {
-			obj = obj2
-			err = nil
+		upgradeErr := upgradeSentRequestKeyV0(kv, partner)
+		if upgradeErr != nil {
+			return nil, errors.Wrapf(err, "%+v", upgradeErr)
 		}
-		// Note: uses same encoding, just different keys
+		obj, err = kv.Get(srKey, currentSentRequestVersion)
 	}
 
 	if err != nil {
@@ -272,12 +269,37 @@ func (sr *SentRequest) getType() RequestType {
 	return Sent
 }
 
+// makeSentRequestKey makes the key string for accessing the
+// partners sent request object from the key value store.
 func makeSentRequestKey(partner *id.ID) string {
 	return "sentRequest:" + partner.String()
 }
 
 // V0 Utility Functions
 
-func makeOldSentRequestKey(partner *id.ID) string {
+// makeSentRequestKeyV0 The old key used the string pattern
+// "Partner:PartnerID" instead of "sentRequest:PartnerID".
+func makeSentRequestKeyV0(partner *id.ID) string {
 	return fmt.Sprintf("Partner:%v", partner.String())
+}
+
+// upgradeSentRequestKeyV0 upgrads the srKey from version 0 to 1 by
+// changing the version number.
+func upgradeSentRequestKeyV0(kv *versioned.KV, partner *id.ID) error {
+	oldKey := makeSentRequestKeyV0(partner)
+	obj, err := kv.Get(oldKey, 0)
+	if err != nil {
+		return err
+	}
+
+	jww.INFO.Printf("Upgrading legacy srKey for %s", partner)
+
+	// Note: uses same encoding, just different keys
+	obj.Version = 1
+	err = kv.Set(makeSentRequestKey(partner), 1, obj)
+	if err != nil {
+		return err
+	}
+
+	return kv.Delete(oldKey, 0)
 }

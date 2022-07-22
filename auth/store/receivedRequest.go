@@ -10,6 +10,7 @@ import (
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -60,7 +61,7 @@ func newReceivedRequest(kv *versioned.KV, c contact.Contact,
 func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 	*ReceivedRequest, error) {
 
-	c, contactVersion, err := util.LoadContact(kv, partner)
+	c, err := util.LoadContact(kv, partner)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Load "+
 			"Received Auth Request Contact with %s",
@@ -75,16 +76,13 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 			partner)
 	}
 
-	round := rounds.Round{}
-	if contactVersion == 0 {
-		jww.WARN.Printf("Old contact version, round to nil")
-	} else {
-		round, err = rounds.LoadRound(kv, makeRoundKey(partner))
-		if err != nil {
-			return nil, errors.WithMessagef(err, "Failed to Load "+
-				"round request was received on with %s",
-				partner)
-		}
+	round, err := rounds.LoadRound(kv, makeRoundKey(partner))
+	if err != nil && ekv.Exists(err) {
+		return nil, errors.WithMessagef(err, "Failed to Load "+
+			"round request was received on with %s",
+			partner)
+	} else if err != nil && !ekv.Exists(err) {
+		jww.WARN.Printf("No round info for partner %s", partner)
 	}
 
 	return &ReceivedRequest{

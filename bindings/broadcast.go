@@ -102,7 +102,7 @@ func NewBroadcastClient(clientID int, rawDef []byte) (*Channel, error) {
 	return &Channel{ch: ch}, nil
 }
 
-func (c *Channel) Listen(l BroadcastListener, method uint8) error {
+func (c *Channel) Listen(l BroadcastListener, method int) error {
 	broadcastMethod := broadcast.Method(method)
 	listen := func(payload []byte,
 		receptionID receptionID.EphemeralIdentity, round rounds.Round) {

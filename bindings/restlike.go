@@ -38,7 +38,7 @@ type RestlikeMessage struct {
 // RestlikeRequest performs a normal restlike request.
 //
 // Parameters:
-//  - clientID - ID of the cMix client in the tracker
+//  - cmixId - ID of the cMix object in the tracker
 //  - connectionID - ID of the connection in the tracker
 //  - request - JSON marshalled RestlikeMessage
 //  - e2eParamsJSON - JSON marshalled xxdk.E2EParams
@@ -46,13 +46,13 @@ type RestlikeMessage struct {
 // Returns:
 //  - []byte - JSON marshalled RestlikeMessage
 func RestlikeRequest(
-	clientID, connectionID int, request, e2eParamsJSON []byte) ([]byte, error) {
+	cmixId, connectionID int, request, e2eParamsJSON []byte) ([]byte, error) {
 	if len(e2eParamsJSON) == 0 {
 		jww.WARN.Printf("restlike params unspecified, using defaults")
 		e2eParamsJSON = GetDefaultE2EParams()
 	}
 
-	cl, err := cmixTrackerSingleton.get(clientID)
+	cl, err := cmixTrackerSingleton.get(cmixId)
 	if err != nil {
 		return nil, err
 	}
@@ -100,14 +100,14 @@ func RestlikeRequest(
 // RestlikeRequestAuth performs an authenticated restlike request.
 //
 // Parameters:
-//  - clientID - ID of the cMix client in the tracker
+//  - cmixId - ID of the cMix object in the tracker
 //  - authConnectionID - ID of the authenticated connection in the tracker
 //  - request - JSON marshalled RestlikeMessage
 //  - e2eParamsJSON - JSON marshalled xxdk.E2EParams
 //
 // Returns:
 //  - []byte - JSON marshalled RestlikeMessage
-func RestlikeRequestAuth(clientID int, authConnectionID int, request,
+func RestlikeRequestAuth(cmixId int, authConnectionID int, request,
 	e2eParamsJSON []byte) ([]byte, error) {
 	if len(e2eParamsJSON) == 0 {
 		jww.WARN.Printf("restlike params unspecified, using defaults")
@@ -118,7 +118,7 @@ func RestlikeRequestAuth(clientID int, authConnectionID int, request,
 		return nil, err
 	}
 
-	cl, err := cmixTrackerSingleton.get(clientID)
+	cl, err := cmixTrackerSingleton.get(cmixId)
 	if err != nil {
 		return nil, err
 	}

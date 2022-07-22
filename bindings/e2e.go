@@ -21,11 +21,11 @@ import (
 // e2eTrackerSingleton is used to track E2e objects so that they can be
 // referenced by ID back over the bindings.
 var e2eTrackerSingleton = &e2eTracker{
-	clients: make(map[int]*E2e),
+	tracked: make(map[int]*E2e),
 	count:   0,
 }
 
-// E2e BindingsClient wraps the xxdk.E2e, implementing additional functions
+// E2e wraps the xxdk.E2e, implementing additional functions
 // to support the bindings E2e interface.
 type E2e struct {
 	api *xxdk.E2e
@@ -172,7 +172,7 @@ func (a *authCallback) Reset(partner contact.Contact,
 // preventing race conditions created by passing it over the bindings.
 type e2eTracker struct {
 	// TODO: Key on Identity.ID to prevent duplication
-	clients map[int]*E2e
+	tracked map[int]*E2e
 	count   int
 	mux     sync.RWMutex
 }
@@ -186,12 +186,12 @@ func (ct *e2eTracker) make(c *xxdk.E2e) *E2e {
 	id := ct.count
 	ct.count++
 
-	ct.clients[id] = &E2e{
+	ct.tracked[id] = &E2e{
 		api: c,
 		id:  id,
 	}
 
-	return ct.clients[id]
+	return ct.tracked[id]
 }
 
 // get an E2e from the e2eTracker given its ID.
@@ -199,9 +199,9 @@ func (ct *e2eTracker) get(id int) (*E2e, error) {
 	ct.mux.RLock()
 	defer ct.mux.RUnlock()
 
-	c, exist := ct.clients[id]
+	c, exist := ct.tracked[id]
 	if !exist {
-		return nil, errors.Errorf("Cannot get client for ID %d, client "+
+		return nil, errors.Errorf("Cannot get E2e for ID %d, "+
 			"does not exist", id)
 	}
 
@@ -213,5 +213,5 @@ func (ct *e2eTracker) delete(id int) {
 	ct.mux.Lock()
 	defer ct.mux.Unlock()
 
-	delete(ct.clients, id)
+	delete(ct.tracked, id)
 }

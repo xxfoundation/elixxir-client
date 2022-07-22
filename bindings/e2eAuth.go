@@ -159,17 +159,17 @@ func (e *E2e) DeleteRequest(partnerID []byte) error {
 	return e.api.GetAuth().DeleteRequest(partner)
 }
 
-// DeleteAllRequests clears all requests from client's auth storage.
+// DeleteAllRequests clears all requests from auth storage.
 func (e *E2e) DeleteAllRequests() error {
 	return e.api.GetAuth().DeleteAllRequests()
 }
 
-// DeleteSentRequests clears all sent requests from client's auth storage.
+// DeleteSentRequests clears all sent requests from auth storage.
 func (e *E2e) DeleteSentRequests() error {
 	return e.api.GetAuth().DeleteSentRequests()
 }
 
-// DeleteReceiveRequests clears all received requests from client's auth
+// DeleteReceiveRequests clears all received requests from auth
 // storage.
 func (e *E2e) DeleteReceiveRequests() error {
 	return e.api.GetAuth().DeleteReceiveRequests()
@@ -214,13 +214,13 @@ func (e *E2e) VerifyOwnership(
 		return false, err
 	}
 
-	e2eClient, err := e2eTrackerSingleton.get(e2eId)
+	messenger, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
 		return false, err
 	}
 
 	return e.api.GetAuth().VerifyOwnership(
-		received, verified, e2eClient.api.GetE2E()), nil
+		received, verified, messenger.api.GetE2E()), nil
 }
 
 // AddPartnerCallback adds a new callback that overrides the generic auth

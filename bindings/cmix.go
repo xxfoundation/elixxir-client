@@ -24,7 +24,7 @@ func init() {
 // cmixTrackerSingleton is used to track Cmix objects so that they can be
 // referenced by ID back over the bindings.
 var cmixTrackerSingleton = &cmixTracker{
-	clients: make(map[int]*Cmix),
+	tracked: make(map[int]*Cmix),
 	count:   0,
 }
 
@@ -44,7 +44,7 @@ type Cmix struct {
 func NewCmix(ndfJSON, storageDir string, password []byte, registrationCode string) error {
 	err := xxdk.NewCmix(ndfJSON, storageDir, password, registrationCode)
 	if err != nil {
-		return errors.Errorf("Failed to create new client: %+v", err)
+		return errors.Errorf("Failed to create new cmix: %+v", err)
 	}
 	return nil
 }
@@ -69,12 +69,12 @@ func LoadCmix(storageDir string, password []byte, cmixParamsJSON []byte) (*Cmix,
 		return nil, err
 	}
 
-	client, err := xxdk.LoadCmix(storageDir, password, params)
+	net, err := xxdk.LoadCmix(storageDir, password, params)
 	if err != nil {
 		return nil, errors.Errorf("LoadCmix failed: %+v", err)
 	}
 
-	return cmixTrackerSingleton.make(client), nil
+	return cmixTrackerSingleton.make(net), nil
 }
 
 // GetID returns the ID for this Cmix in the cmixTracker.
@@ -85,7 +85,7 @@ func (c *Cmix) GetID() int {
 // cmixTracker is a singleton used to keep track of extant Cmix objects,
 // preventing race conditions created by passing it over the bindings.
 type cmixTracker struct {
-	clients map[int]*Cmix
+	tracked map[int]*Cmix
 	count   int
 	mux     sync.RWMutex
 }
@@ -99,12 +99,12 @@ func (ct *cmixTracker) make(c *xxdk.Cmix) *Cmix {
 	id := ct.count
 	ct.count++
 
-	ct.clients[id] = &Cmix{
+	ct.tracked[id] = &Cmix{
 		api: c,
 		id:  id,
 	}
 
-	return ct.clients[id]
+	return ct.tracked[id]
 }
 
 // get returns a Cmix from the cmixTracker given its ID.
@@ -112,10 +112,10 @@ func (ct *cmixTracker) get(id int) (*Cmix, error) {
 	ct.mux.RLock()
 	defer ct.mux.RUnlock()
 
-	c, exist := ct.clients[id]
+	c, exist := ct.tracked[id]
 	if !exist {
 		return nil, errors.Errorf(
-			"Cannot get client for ID %d, client does not exist", id)
+			"Cannot get Cmix for ID %d, does not exist", id)
 	}
 
 	return c, nil
@@ -126,5 +126,5 @@ func (ct *cmixTracker) delete(id int) {
 	ct.mux.Lock()
 	defer ct.mux.Unlock()
 
-	delete(ct.clients, id)
+	delete(ct.tracked, id)
 }

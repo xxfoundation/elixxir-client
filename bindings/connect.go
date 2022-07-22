@@ -60,7 +60,7 @@ func (c *Cmix) Connect(e2eId int, recipientContact, e2eParamsJSON []byte) (
 		return nil, err
 	}
 
-	e2eClient, err := e2eTrackerSingleton.get(e2eId)
+	messenger, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (c *Cmix) Connect(e2eId int, recipientContact, e2eParamsJSON []byte) (
 		return nil, err
 	}
 
-	connection, err := connect.Connect(cont, e2eClient.api, p)
+	connection, err := connect.Connect(cont, messenger.api, p)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (ct *connectionTracker) get(id int) (*Connection, error) {
 
 	c, exist := ct.connections[id]
 	if !exist {
-		return nil, errors.Errorf("Cannot get client for ID %d, client "+
+		return nil, errors.Errorf("Cannot get Connection for ID %d, "+
 			"does not exist", id)
 	}
 

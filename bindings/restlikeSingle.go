@@ -28,7 +28,7 @@ type RestlikeCallback interface {
 // RequestRestLike sends a restlike request to a given contact.
 //
 // Parameters:
-//  - e2eID - ID of the e2e client in the tracker
+//  - e2eID - ID of the e2e object in the tracker
 //  - recipient - marshalled contact.Contact object
 //  - request - JSON marshalled RestlikeMessage
 //  - paramsJSON - JSON marshalled single.RequestParams
@@ -74,7 +74,7 @@ func RequestRestLike(e2eID int, recipient, request, paramsJSON []byte) ([]byte, 
 // contact.
 //
 // Parameters:
-//  - e2eID - ID of the e2e client in the tracker
+//  - e2eID - ID of the e2e object in the tracker
 //  - recipient - marshalled contact.Contact object
 //  - request - JSON marshalled RestlikeMessage
 //  - paramsJSON - JSON marshalled single.RequestParams

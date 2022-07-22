@@ -24,7 +24,7 @@ import (
 // TransmitSingleUse transmits payload to recipient via single-use.
 //
 // Parameters:
-//  - e2eID - ID of the e2e client in the tracker
+//  - e2eID - ID of the e2e object in the tracker
 //  - recipient - marshalled contact.Contact object
 //  - tag - identifies the single-use message
 //  - payload - message contents
@@ -67,11 +67,11 @@ func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload,
 	return json.Marshal(sr)
 }
 
-// Listen starts a single-use listener on a given tag using the passed in client
+// Listen starts a single-use listener on a given tag using the passed in e2e object
 // and SingleUseCallback func.
 //
 // Parameters:
-//  - e2eID - ID of the e2e client in the tracker
+//  - e2eID - ID of the e2e object in the tracker
 //  - tag - identifies the single-use message
 //  - cb - the callback that will be called when a response is received
 //

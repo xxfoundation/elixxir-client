@@ -94,6 +94,8 @@ var rootCmd = &cobra.Command{
 			recipientContact = receptionIdentity.GetContact()
 		} else {
 			recipientID = parseRecipient(destId)
+			jww.INFO.Printf("destId: %v\nrecipientId: %v", destId, recipientID)
+
 		}
 		isPrecanPartner := isPrecanID(recipientID)
 
@@ -399,7 +401,7 @@ func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 	e2eParams.Session.NumRekeys = uint16(viper.GetUint(e2eNumReKeysFlag))
 	e2eParams.Session.RekeyThreshold = viper.GetFloat64(e2eRekeyThresholdFlag)
 
-	if viper.GetBool("splitSends") {
+	if viper.GetBool(splitSendsFlag) {
 		e2eParams.Base.ExcludedRounds = excludedRounds.NewSet()
 	}
 
@@ -422,7 +424,7 @@ func initParams() (xxdk.CMIXParams, xxdk.E2EParams) {
 // initE2e returns a fully-formed xxdk.E2e object
 func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams,
 	callbacks *authCallbacks) *xxdk.E2e {
-	initLog(viper.GetUint("logLevel"), viper.GetString("log"))
+	initLog(viper.GetUint(logLevelFlag), viper.GetString(logFlag))
 	jww.INFO.Printf(Version())
 
 	// Intake parameters for client initialization
@@ -467,7 +469,7 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams,
 	}
 
 	// Handle backup output
-	if backupOut := viper.GetString("backupOutFlag"); backupOut != "" {
+	if backupOut := viper.GetString(backupOutFlag); backupOut != "" {
 		if !forceLegacy {
 			jww.FATAL.Panicf("Unable to make backup for non-legacy sender!")
 		}

@@ -10,16 +10,13 @@ package utility
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-const currentContactVersion = 1
+const currentContactVersion = 0
 
 // StoreContact writes a contact into a versioned.KV using the
 // contact ID as the key.
@@ -53,15 +50,7 @@ func StoreContact(kv *versioned.KV, c contact.Contact) error {
 func LoadContact(kv *versioned.KV, cid *id.ID) (contact.Contact, error) {
 	vo, err := kv.Get(makeContactKey(cid), currentContactVersion)
 	if err != nil {
-		c, contactErr := loadLegacyContactV0(kv, cid)
-		// If we got an error on loading legacy contact, and it's not
-		// a missing object error, then return a wrapped error
-		if contactErr != nil && ekv.Exists(contactErr) {
-			return c, errors.Wrapf(err, "%+v", contactErr)
-		} else if contactErr != nil && !ekv.Exists(contactErr) {
-			return contact.Contact{}, err
-		}
-		return c, nil
+		return contact.Contact{}, err
 	}
 
 	return contact.Unmarshal(vo.Data)
@@ -80,27 +69,4 @@ func DeleteContact(kv *versioned.KV, cid *id.ID) error {
 
 func makeContactKey(cid *id.ID) string {
 	return fmt.Sprintf("Contact:%s", cid)
-}
-
-func loadLegacyContactV0(kv *versioned.KV, cid *id.ID) (contact.Contact,
-	error) {
-	vo, err := kv.Get(makeContactKey(cid), 0)
-	if err != nil {
-		return contact.Contact{}, err
-	}
-
-	jww.DEBUG.Printf("Upgrading legacy V0 contact...")
-
-	c, err := contact.Unmarshal(vo.Data)
-	if err != nil {
-		return contact.Contact{}, err
-	}
-
-	err = StoreContact(kv, c)
-	if err != nil {
-		return contact.Contact{}, err
-	}
-
-	kv.Delete(makeContactKey(cid), 0)
-	return c, err
 }

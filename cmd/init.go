@@ -29,12 +29,12 @@ var initCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		// TODO: Handle userid-prefix argument
-		storePassword := parsePassword(viper.GetString("password"))
-		storeDir := viper.GetString("session")
-		regCode := viper.GetString("regcode")
+		storePassword := parsePassword(viper.GetString(passwordFlag))
+		storeDir := viper.GetString(sessionFlag)
+		regCode := viper.GetString(regCodeFlag)
 
 		// Initialize from scratch
-		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
+		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -64,23 +64,21 @@ var initCmd = &cobra.Command{
 }
 
 func init() {
-	initCmd.Flags().StringP("userid-prefix", "", "",
+	initCmd.Flags().StringP(userIdPrefixFlag, "", "",
 		"Desired prefix of userID to brute force when running init command. Prepend (?i) for case-insensitive. Only Base64 characters are valid.")
-	_ = viper.BindPFlag("userid-prefix", initCmd.Flags().Lookup("userid-prefix"))
+	bindFlagHelper(userIdPrefixFlag, initCmd)
 
 	rootCmd.AddCommand(initCmd)
 }
 
-// loadOrInitMessenger will build a new xxdk.E2e from existing storage
+// loadOrInitCmix will build a new xxdk.Cmix from existing storage
 // or from a new storage that it will create if none already exists
-func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode string,
-	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
-	jww.INFO.Printf("Using normal sender")
-
+func loadOrInitCmix(password []byte, storeDir, regCode string,
+	cmixParams xxdk.CMIXParams) *xxdk.Cmix {
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
-		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
+		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -97,6 +95,12 @@ func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode st
 		jww.FATAL.Panicf("%+v", err)
 	}
 
+	return net
+}
+
+// loadOrInitReceptionIdentity will build a new xxdk.ReceptionIdentity from existing storage
+// or from a new storage that it will create if none already exists
+func loadOrInitReceptionIdentity(forceLegacy bool, net *xxdk.Cmix) xxdk.ReceptionIdentity {
 	// Load or initialize xxdk.ReceptionIdentity storage
 	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, net)
 	if err != nil {
@@ -115,8 +119,34 @@ func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode st
 			jww.FATAL.Panicf("%+v", err)
 		}
 	}
+	return identity
+}
 
-	messenger, err := xxdk.Login(net, authCbs, identity, e2eParams)
+// loadOrInitMessenger will build a new xxdk.E2e from existing storage
+// or from a new storage that it will create if none already exists
+func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode string,
+	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
+	jww.INFO.Printf("Using normal sender")
+
+	net := loadOrInitCmix(password, storeDir, regCode, cmixParams)
+	identity := loadOrInitReceptionIdentity(forceLegacy, net)
+
+	messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	return messenger
+}
+
+// loadOrInitEphemeral will build a new ephemeral xxdk.E2e.
+func loadOrInitEphemeral(forceLegacy bool, password []byte, storeDir, regCode string,
+	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
+	jww.INFO.Printf("Using ephemeral sender")
+
+	net := loadOrInitCmix(password, storeDir, regCode, cmixParams)
+	identity := loadOrInitReceptionIdentity(forceLegacy, net)
+
+	messenger, err := xxdk.LoginEphemeral(net, cbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -126,13 +156,13 @@ func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode st
 // loadOrInitVanity will build a new xxdk.E2e from existing storage
 // or from a new storage that it will create if none already exists
 func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
-	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
+	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
 	jww.INFO.Printf("Using Vanity sender")
 
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
-		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
+		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -163,7 +193,7 @@ func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
 		}
 	}
 
-	messenger, err := xxdk.Login(net, authCbs, identity, e2eParams)
+	messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}

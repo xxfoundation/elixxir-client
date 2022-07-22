@@ -14,36 +14,34 @@ import (
 	"gitlab.com/elixxir/client/storage/user"
 )
 
-// Returns an error if registration fails.
+// registerWithPermissioning returns an error if registration fails.
 func (c *Cmix) registerWithPermissioning() error {
-	//get the users public key
+	// Get the users public key
 	transmissionPubKey := c.storage.GetTransmissionRSA().GetPublic()
 	receptionPubKey := c.storage.GetReceptionRSA().GetPublic()
 
-	//load the registration code
+	// Load the registration code
 	regCode, err := c.storage.GetRegCode()
 	if err != nil {
-		return errors.WithMessage(err, "failed to register with "+
-			"permissioning")
+		return errors.WithMessage(err, "failed to register with permissioning")
 	}
 
-	//register with registration
+	// Register with registration
 	transmissionRegValidationSignature, receptionRegValidationSignature,
 		registrationTimestamp, err := c.permissioning.Register(
 		transmissionPubKey, receptionPubKey, regCode)
 	if err != nil {
-		return errors.WithMessage(err, "failed to register with "+
-			"permissioning")
+		return errors.WithMessage(err, "failed to register with permissioning")
 	}
 
-	//store the signature
+	// store the signature
 	c.storage.SetTransmissionRegistrationValidationSignature(
 		transmissionRegValidationSignature)
 	c.storage.SetReceptionRegistrationValidationSignature(
 		receptionRegValidationSignature)
 	c.storage.SetRegistrationTimestamp(registrationTimestamp)
 
-	//update the registration state
+	// Update the registration state
 	err = c.storage.ForwardRegistrationStatus(storage.PermissioningComplete)
 	if err != nil {
 		return errors.WithMessage(err, "failed to update local state "+
@@ -52,15 +50,14 @@ func (c *Cmix) registerWithPermissioning() error {
 	return nil
 }
 
-// ConstructProtoUserFile is a helper function which is used for proto
-// client testing.  This is used for development testing.
+// ConstructProtoUserFile is a helper function that is used for proto client
+// testing. This is used for development testing.
 func (c *Cmix) ConstructProtoUserFile() ([]byte, error) {
 
-	//load the registration code
+	// Load the registration code
 	regCode, err := c.storage.GetRegCode()
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed to register with "+
-			"permissioning")
+		return nil, errors.WithMessage(err, "failed to get registration code")
 	}
 
 	userInfo := c.GetStorage().PortableUserInfo()
@@ -82,8 +79,7 @@ func (c *Cmix) ConstructProtoUserFile() ([]byte, error) {
 
 	jsonBytes, err := json.Marshal(Usr)
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed to register with "+
-			"permissioning")
+		return nil, errors.WithMessage(err, "failed to JSON marshal user.Proto")
 	}
 
 	return jsonBytes, nil

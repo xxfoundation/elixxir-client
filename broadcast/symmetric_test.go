@@ -63,10 +63,16 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 			cbChan <- payload
 		}
 
-		s, err := NewBroadcastChannel(channel, cb, newMockCmix(cMixHandler), rngGen, Param{Method: Symmetric})
+		s, err := NewBroadcastChannel(channel, newMockCmix(cMixHandler), rngGen)
 		if err != nil {
 			t.Errorf("Failed to create broadcast channel: %+v", err)
 		}
+
+		err = s.RegisterListener(cb, Symmetric)
+		if err != nil {
+			t.Errorf("Failed to register listener: %+v", err)
+		}
+
 		cbChans[i] = cbChan
 		clients[i] = s
 

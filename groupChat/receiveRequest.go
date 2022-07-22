@@ -78,7 +78,7 @@ func (m *manager) readRequest(msg receive.Message) (gs.Group, error) {
 	}
 
 	// get the relationship with the group leader
-	partner, err := m.e2e.GetPartner(membership[0].ID)
+	partner, err := m.getE2eHandler().GetPartner(membership[0].ID)
 	if err != nil {
 		return gs.Group{}, errors.Errorf(getPrivKeyErr, err)
 	}
@@ -89,7 +89,7 @@ func (m *manager) readRequest(msg receive.Message) (gs.Group, error) {
 
 	// Generate the DH keys with each group member
 	privKey := partner.MyRootPrivateKey()
-	dkl := gs.GenerateDhKeyList(m.receptionId, privKey, membership, m.grp)
+	dkl := gs.GenerateDhKeyList(m.getReceptionIdentity().ID, privKey, membership, m.getE2eGroup())
 
 	// Restore the original public key for the leader so that the membership
 	// digest generated later is correct

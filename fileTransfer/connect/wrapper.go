@@ -10,6 +10,7 @@ package connect
 import (
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/receive"
 	ft "gitlab.com/elixxir/client/fileTransfer"
 	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
@@ -38,6 +39,7 @@ type Wrapper struct {
 // Connection interface matches a subset of the connect.Connection methods used
 // by the Wrapper for easier testing.
 type Connection interface {
+	GetPartner() partner.Manager
 	SendE2E(mt catalog.MessageType, payload []byte, params e2e.Params) (
 		[]id.Round, e2eCrypto.MessageID, time.Time, error)
 	RegisterListener(messageType catalog.MessageType,
@@ -84,10 +86,10 @@ func (w *Wrapper) MaxPreviewSize() int {
 	return w.ft.MaxPreviewSize()
 }
 
-// Send initiates the sending of a file to a recipient and returns a transfer ID
-// that uniquely identifies this file transfer. The initial and final messages
-// are sent via Connection E2E.
-func (w *Wrapper) Send(recipient *id.ID, fileName, fileType string,
+// Send initiates the sending of a file to the connection partner and returns a
+// transfer ID that uniquely identifies this file transfer. The initial and
+// final messages are sent via Connection E2E.
+func (w *Wrapper) Send(fileName, fileType string,
 	fileData []byte, retry float32, preview []byte,
 	progressCB ft.SentProgressCallback, period time.Duration) (
 	*ftCrypto.TransferID, error) {
@@ -97,6 +99,8 @@ func (w *Wrapper) Send(recipient *id.ID, fileName, fileType string,
 	}
 
 	modifiedProgressCB := w.addEndMessageToCallback(progressCB)
+
+	recipient := w.conn.GetPartner().PartnerId()
 
 	return w.ft.Send(recipient, fileName, fileType, fileData, retry, preview,
 		modifiedProgressCB, period, sendNew)

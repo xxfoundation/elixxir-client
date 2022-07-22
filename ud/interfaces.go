@@ -10,17 +10,21 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 )
 
-// CMix is a sub-interface of the cmix.Client. It contains the methods
+//////////////////////////////////////////////////////////////////////////////////////
+// UD sub-interfaces
+/////////////////////////////////////////////////////////////////////////////////////
+
+// udCmix is a sub-interface of the cmix.Client. It contains the methods
 // relevant to what is used in this package.
-type CMix interface {
-	// CMix is passed down into the single use package,
-	// and thus has to adhere to the sub-interface defined in that package
+type udCmix interface {
+	// Cmix within the single package is what udCmix must adhere to when passing
+	// arguments through to methods in the single package.
 	single.Cmix
 }
 
-// E2E is a sub-interface of the xxdk.E2e. It contains the methods
+// udE2e is a sub-interface of the xxdk.E2e. It contains the methods
 // relevant to what is used in this package.
-type E2E interface {
+type udE2e interface {
 	GetReceptionIdentity() xxdk.ReceptionIdentity
 	GetCmix() cmix.Client
 	GetE2E() e2e.Handler
@@ -30,6 +34,6 @@ type E2E interface {
 	GetTransmissionIdentity() xxdk.TransmissionIdentity
 }
 
-// NetworkStatus is an interface for the xxdk.Cmix's
+// udNetworkStatus is an interface for the xxdk.Cmix's
 // NetworkFollowerStatus method.
-type NetworkStatus func() xxdk.Status
+type udNetworkStatus func() xxdk.Status

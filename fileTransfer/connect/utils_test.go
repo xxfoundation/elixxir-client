@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -28,6 +29,7 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
+	"testing"
 	"time"
 )
 
@@ -167,19 +169,28 @@ func newMockConnectionHandler() *mockConnectionHandler {
 var _ Connection = (*mockConnection)(nil)
 
 type mockConnection struct {
-	myID    *id.ID
-	handler *mockConnectionHandler
+	myID      *id.ID
+	recipient *id.ID
+	handler   *mockConnectionHandler
+	t         *testing.T
 }
 
 type mockListener struct {
 	hearChan chan receive.Message
 }
 
-func newMockConnection(myID *id.ID, handler *mockConnectionHandler) *mockConnection {
+func newMockConnection(myID, recipient *id.ID, handler *mockConnectionHandler,
+	t *testing.T) *mockConnection {
 	return &mockConnection{
-		myID:    myID,
-		handler: handler,
+		myID:      myID,
+		recipient: recipient,
+		handler:   handler,
+		t:         t,
 	}
+}
+
+func (m *mockConnection) GetPartner() partner.Manager {
+	return partner.NewTestManager(m.recipient, nil, nil, m.t)
 }
 
 // SendE2E adds the message to the e2e handler map.

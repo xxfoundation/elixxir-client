@@ -66,7 +66,7 @@ func (m *manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 	}
 
 	// Generate ID and key preimages
-	idPreimage, keyPreimage, err := getPreimages(m.rng)
+	idPreimage, keyPreimage, err := getPreimages(m.getRng())
 	if err != nil {
 		return gs.Group{}, nil, NotSent, err
 	}
@@ -114,7 +114,7 @@ func (m *manager) buildMembership(members []*id.ID) (group.Membership,
 	contacts := make([]contact.Contact, len(members))
 	var err error
 	for i, uid := range members {
-		partner, err := m.e2e.GetPartner(uid)
+		partner, err := m.getE2eHandler().GetPartner(uid)
 		if err != nil {
 			return nil, nil, errors.Errorf(getPartnerErr, uid, err)
 		}
@@ -127,7 +127,7 @@ func (m *manager) buildMembership(members []*id.ID) (group.Membership,
 		dkl.Add(partner.MyRootPrivateKey(), group.Member{
 			ID:    partner.PartnerId(),
 			DhKey: partner.PartnerRootPublicKey(),
-		}, m.grp)
+		}, m.getE2eGroup())
 	}
 
 	// Create new Membership from contact list and client's own contact.

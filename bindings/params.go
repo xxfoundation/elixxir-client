@@ -16,50 +16,50 @@ import (
 	"gitlab.com/elixxir/client/xxdk"
 )
 
-// GetDefaultCMixParams returns a JSON serialized object with all of the
-// CMIX parameters and their default values. Call this function and modify
-// the json to change CMIX settings.
+// GetDefaultCMixParams returns a JSON serialized object with all of the cMix
+// parameters and their default values. Call this function and modify the JSON
+// to change cMix settings.
 func GetDefaultCMixParams() []byte {
 	defaultParams := xxdk.GetDefaultCMixParams()
 	data, err := defaultParams.Marshal()
 	if err != nil {
-		jww.FATAL.Panicf("Unexpected error: %+v", err)
+		jww.FATAL.Panicf("Failed to JSON marshal cMix params: %+v", err)
 	}
 	return data
 }
 
-// GetDefaultE2EParams returns a JSON serialized object with all of the
-// E2E parameters and their default values. Call this function and modify
-// the json to change E2E settings.
+// GetDefaultE2EParams returns a JSON serialized object with all of the E2E
+// parameters and their default values. Call this function and modify the JSON
+// to change E2E settings.
 func GetDefaultE2EParams() []byte {
 	defaultParams := xxdk.GetDefaultE2EParams()
 	data, err := defaultParams.Marshal()
 	if err != nil {
-		jww.FATAL.Panicf("Unexpected error: %+v", err)
+		jww.FATAL.Panicf("Failed to JSON marshal E2E params: %+v", err)
 	}
 	return data
 }
 
 // GetDefaultFileTransferParams returns a JSON serialized object with all the
-// File transfer parameters and their default values. Call this function and modify
-// the json to change file transfer settings.
+// file transfer parameters and their default values. Call this function and
+// modify the JSON to change file transfer settings.
 func GetDefaultFileTransferParams() []byte {
 	defaultParams := fileTransfer.DefaultParams()
 	data, err := defaultParams.MarshalJSON()
 	if err != nil {
-		jww.FATAL.Panicf("Unexpected error: %+v", err)
+		jww.FATAL.Panicf("Failed to JSON marshal file transfer params: %+v", err)
 	}
 	return data
 }
 
 // GetDefaultSingleUseParams returns a JSON serialized object with all the
-// single use parameters and their default values. Call this function and modify
-// the json to change single use settings.
+// single-use parameters and their default values. Call this function and modify
+// the JSON to change single use settings.
 func GetDefaultSingleUseParams() []byte {
 	defaultParams := single.GetDefaultRequestParams()
 	data, err := defaultParams.MarshalJSON()
 	if err != nil {
-		jww.FATAL.Panicf("Unexpected error: %+v", err)
+		jww.FATAL.Panicf("Failed to JSON marshal single-use params: %+v", err)
 	}
 	return data
 }

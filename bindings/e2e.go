@@ -18,29 +18,30 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 )
 
-// e2eTrackerSingleton is used to track E2e objects so that
-// they can be referenced by id back over the bindings
+// e2eTrackerSingleton is used to track E2e objects so that they can be
+// referenced by ID back over the bindings.
 var e2eTrackerSingleton = &e2eTracker{
 	clients: make(map[int]*E2e),
 	count:   0,
 }
 
 // E2e BindingsClient wraps the xxdk.E2e, implementing additional functions
-// to support the gomobile E2e interface
+// to support the bindings E2e interface.
 type E2e struct {
 	api *xxdk.E2e
 	id  int
 }
 
-// GetID returns the e2eTracker ID for the E2e object
+// GetID returns the e2eTracker ID for the E2e object.
 func (e *E2e) GetID() int {
 	return e.id
 }
 
-// LoginE2e creates and returns a new E2e object and adds it to the e2eTrackerSingleton
-// identity should be created via MakeIdentity() and passed in here
-// If callbacks is left nil, a default auth.Callbacks will be used
-func LoginE2e(cmixId int, callbacks AuthCallbacks, identity,
+// Login creates and returns a new E2e object and adds it to the
+// e2eTrackerSingleton. identity should be created via
+// Cmix.MakeReceptionIdentity and passed in here. If callbacks is left nil, a
+// default auth.Callbacks will be used.
+func Login(cmixId int, callbacks AuthCallbacks, identity,
 	e2eParamsJSON []byte) (*E2e, error) {
 	if len(e2eParamsJSON) == 0 {
 		jww.WARN.Printf("e2e params not specified, using defaults...")
@@ -77,10 +78,11 @@ func LoginE2e(cmixId int, callbacks AuthCallbacks, identity,
 	return e2eTrackerSingleton.make(newE2e), nil
 }
 
-// LoginE2eEphemeral creates and returns a new ephemeral E2e object and adds it to the e2eTrackerSingleton
-// identity should be created via MakeIdentity() and passed in here
-// If callbacks is left nil, a default auth.Callbacks will be used
-func LoginE2eEphemeral(cmixId int, callbacks AuthCallbacks, identity,
+// LoginEphemeral creates and returns a new ephemeral E2e object and adds it to
+// the e2eTrackerSingleton. identity should be created via
+// Cmix.MakeReceptionIdentity or Cmix.MakeLegacyReceptionIdentity and passed in
+// here. If callbacks is left nil, a default auth.Callbacks will be used.
+func LoginEphemeral(cmixId int, callbacks AuthCallbacks, identity,
 	e2eParamsJSON []byte) (*E2e, error) {
 	if len(e2eParamsJSON) == 0 {
 		jww.WARN.Printf("e2e params not specified, using defaults...")
@@ -117,7 +119,8 @@ func LoginE2eEphemeral(cmixId int, callbacks AuthCallbacks, identity,
 	return e2eTrackerSingleton.make(newE2e), nil
 }
 
-// GetContact returns a marshalled contact.Contact object for the E2e ReceptionIdentity
+// GetContact returns a marshalled contact.Contact object for the E2e
+// ReceptionIdentity.
 func (e *E2e) GetContact() []byte {
 	return e.api.GetReceptionIdentity().GetContact().Marshal()
 }
@@ -129,16 +132,16 @@ type AuthCallbacks interface {
 	Reset(contact, receptionId []byte, ephemeralId, roundId int64)
 }
 
-// authCallback implements AuthCallbacks as a way of obtaining
-// an auth.Callbacks over the bindings
+// authCallback implements AuthCallbacks as a way of obtaining an auth.Callbacks
+// over the bindings.
 type authCallback struct {
 	bindingsCbs AuthCallbacks
 }
 
-// convertAuthCallbacks turns an auth.Callbacks into an AuthCallbacks
+// convertAuthCallbacks turns an auth.Callbacks into an AuthCallbacks.
 func convertAuthCallbacks(requestor contact.Contact,
-	receptionID receptionID.EphemeralIdentity,
-	round rounds.Round) (contact []byte, receptionId []byte, ephemeralId int64, roundId int64) {
+	receptionID receptionID.EphemeralIdentity, round rounds.Round) (
+	contact []byte, receptionId []byte, ephemeralId int64, roundId int64) {
 
 	contact = requestor.Marshal()
 	receptionId = receptionID.Source.Marshal()
@@ -166,7 +169,7 @@ func (a *authCallback) Reset(partner contact.Contact,
 }
 
 // e2eTracker is a singleton used to keep track of extant E2e objects,
-// preventing race conditions created by passing it over the bindings
+// preventing race conditions created by passing it over the bindings.
 type e2eTracker struct {
 	// TODO: Key on Identity.ID to prevent duplication
 	clients map[int]*E2e
@@ -174,8 +177,8 @@ type e2eTracker struct {
 	mux     sync.RWMutex
 }
 
-// make a E2e from an xxdk.E2e, assigns it a unique ID,
-// and adds it to the e2eTracker
+// make create an E2e from a xxdk.E2e, assigns it a unique ID, and adds it to
+// the e2eTracker.
 func (ct *e2eTracker) make(c *xxdk.E2e) *E2e {
 	ct.mux.Lock()
 	defer ct.mux.Unlock()
@@ -191,21 +194,21 @@ func (ct *e2eTracker) make(c *xxdk.E2e) *E2e {
 	return ct.clients[id]
 }
 
-// get an E2e from the e2eTracker given its ID
+// get an E2e from the e2eTracker given its ID.
 func (ct *e2eTracker) get(id int) (*E2e, error) {
 	ct.mux.RLock()
 	defer ct.mux.RUnlock()
 
 	c, exist := ct.clients[id]
 	if !exist {
-		return nil, errors.Errorf("Cannot get client for id %d, client "+
+		return nil, errors.Errorf("Cannot get client for ID %d, client "+
 			"does not exist", id)
 	}
 
 	return c, nil
 }
 
-// delete an E2e if it exists in the e2eTracker
+// delete an E2e from the e2eTracker.
 func (ct *e2eTracker) delete(id int) {
 	ct.mux.Lock()
 	defer ct.mux.Unlock()

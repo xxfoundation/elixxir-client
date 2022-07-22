@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
 	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
@@ -24,13 +25,17 @@ import (
 )
 
 ///////////////////////////////////////////////////////////////////////////////
-// Mock of the E2E interface within this package //////////////////////////////
+// Mock of the udE2e interface within this package //////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 type mockE2e struct {
-	grp *cyclic.Group
-	t   testing.TB
-	key *rsa.PrivateKey
+	grp     *cyclic.Group
+	events  event.Reporter
+	rng     *fastRNG.StreamGenerator
+	kv      *versioned.KV
+	network cmix.Client
+	t       testing.TB
+	key     *rsa.PrivateKey
 }
 
 func (m mockE2e) GetE2E() e2e.Handler {
@@ -80,8 +85,7 @@ func (m mockE2e) GetEventReporter() event.Reporter {
 }
 
 func (m mockE2e) GetCmix() cmix.Client {
-	//TODO implement me
-	panic("implement me")
+	return m.network
 }
 
 func (m mockE2e) GetStorage() storage.Session {

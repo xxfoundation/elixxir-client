@@ -8,6 +8,10 @@ package xxdk
 
 import "sync"
 
+// TriggerBackup function is called to start a backup. The reason is used for
+// logging purposes and should describe the event that triggered a backup.
+//
+// For example, the reason can say "contact added" when a new contact is saved.
 type TriggerBackup func(reason string)
 
 // Container contains the trigger to call to initiate a backup.

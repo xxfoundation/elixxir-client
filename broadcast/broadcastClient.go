@@ -17,26 +17,19 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
-// Param encapsulates configuration options for a broadcastClient
-type Param struct {
-	Method Method
-}
-
 // broadcastClient implements the Channel interface for sending/receiving asymmetric or symmetric broadcast messages
 type broadcastClient struct {
 	channel crypto.Channel
 	net     Client
 	rng     *fastRNG.StreamGenerator
-	param   Param
 }
 
 // NewBroadcastChannel creates a channel interface based on crypto.Channel, accepts net client connection & callback for received messages
-func NewBroadcastChannel(channel crypto.Channel, listenerCb ListenerFunc, net Client, rng *fastRNG.StreamGenerator, param Param) (Channel, error) {
+func NewBroadcastChannel(channel crypto.Channel, net Client, rng *fastRNG.StreamGenerator) (Channel, error) {
 	bc := &broadcastClient{
 		channel: channel,
 		net:     net,
 		rng:     rng,
-		param:   param,
 	}
 
 	if !bc.verifyID() {
@@ -46,31 +39,37 @@ func NewBroadcastChannel(channel crypto.Channel, listenerCb ListenerFunc, net Cl
 	// Add channel's identity
 	net.AddIdentity(channel.ReceptionID, identity.Forever, true)
 
-	p := &processor{
-		c:      &channel,
-		cb:     listenerCb,
-		method: param.Method,
-	}
+	jww.INFO.Printf("New broadcast channel client created for channel %q (%s)",
+		channel.Name, channel.ReceptionID)
+
+	return bc, nil
+}
+
+// RegisterListener adds a service to hear broadcast messages of a given type via the passed in callback
+func (bc *broadcastClient) RegisterListener(listenerCb ListenerFunc, method Method) error {
 	var tag string
-	switch param.Method {
+	switch method {
 	case Symmetric:
 		tag = symmetricBroadcastServiceTag
 	case Asymmetric:
 		tag = asymmetricBroadcastServiceTag
 	default:
-		return nil, errors.Errorf("Cannot make broadcast client for unknown broadcast method %s", param.Method)
+		return errors.Errorf("Cannot register listener for broadcast method %s", method)
 	}
+
+	p := &processor{
+		c:      &bc.channel,
+		cb:     listenerCb,
+		method: method,
+	}
+
 	service := message.Service{
-		Identifier: channel.ReceptionID.Bytes(),
+		Identifier: bc.channel.ReceptionID.Bytes(),
 		Tag:        tag,
 	}
 
-	net.AddService(channel.ReceptionID, service, p)
-
-	jww.INFO.Printf("New %s broadcast client created for channel %q (%s)",
-		param.Method, channel.Name, channel.ReceptionID)
-
-	return bc, nil
+	bc.net.AddService(bc.channel.ReceptionID, service, p)
+	return nil
 }
 
 // Stop unregisters the listener callback and stops the channel's identity
@@ -89,7 +88,6 @@ func (bc *broadcastClient) Get() crypto.Channel {
 }
 
 // verifyID generates a symmetric ID based on the info in the channel & compares it to the one passed in
-// TODO: it seems very odd to me that we do this, rather than just making the ID a private/ephemeral component like the key
 func (bc *broadcastClient) verifyID() bool {
 	gen, err := crypto.NewChannelID(bc.channel.Name, bc.channel.Description, bc.channel.Salt, rsa.CreatePublicKeyPem(bc.channel.RsaPubKey))
 	if err != nil {
@@ -100,12 +98,13 @@ func (bc *broadcastClient) verifyID() bool {
 }
 
 func (bc *broadcastClient) MaxPayloadSize() int {
-	switch bc.param.Method {
-	case Symmetric:
-		return bc.maxSymmetricPayload()
-	case Asymmetric:
-		return bc.maxAsymmetricPayload()
-	default:
-		return -1
-	}
+	return bc.maxSymmetricPayload()
+}
+
+func (bc *broadcastClient) MaxAsymmetricPayloadSize() int {
+	return bc.maxAsymmetricPayloadSizeRaw() - internalPayloadSizeLength
+}
+
+func (bc *broadcastClient) maxAsymmetricPayloadSizeRaw() int {
+	return bc.channel.MaxAsymmetricPayloadSize()
 }

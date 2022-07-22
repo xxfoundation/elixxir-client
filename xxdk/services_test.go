@@ -8,15 +8,15 @@
 package xxdk
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/stoppable"
 	"reflect"
 	"testing"
 	"time"
 )
 
-// Unit test
-func TestNewServices(t *testing.T) {
+// Unit test of newServices.
+func Test_newServices(t *testing.T) {
 	expected := &services{
 		services:  make([]Service, 0),
 		stoppable: stoppable.NewMulti("services"),
@@ -32,8 +32,8 @@ func TestNewServices(t *testing.T) {
 	}
 }
 
-// Unit test
-func TestServices_Add(t *testing.T) {
+// Unit test of services.add.
+func Test_services_add(t *testing.T) {
 	mockService := func() (stoppable.Stoppable, error) {
 		return nil, nil
 	}
@@ -42,7 +42,7 @@ func TestServices_Add(t *testing.T) {
 
 	err := mockServices.add(mockService)
 	if err != nil {
-		t.Fatalf("Failed to add mock service to services: %v", err)
+		t.Fatalf("Failed to add mock service to the services list: %v", err)
 	}
 
 	err = mockServices.start(500 * time.Millisecond)
@@ -62,7 +62,8 @@ func TestServices_Add(t *testing.T) {
 	}
 }
 
-func TestServices_Start(t *testing.T) {
+// Unit test of services.start.
+func Test_services_start(t *testing.T) {
 	mockService := func() (stoppable.Stoppable, error) {
 		return nil, nil
 	}
@@ -71,7 +72,7 @@ func TestServices_Start(t *testing.T) {
 
 	err := mockServices.add(mockService)
 	if err != nil {
-		t.Fatalf("Failed to add mock service to services: %v", err)
+		t.Fatalf("Failed to add mock service to the services list: %v", err)
 	}
 
 	err = mockServices.start(500)
@@ -86,7 +87,8 @@ func TestServices_Start(t *testing.T) {
 	}
 }
 
-func TestServices_Stop(t *testing.T) {
+// Unit test of services.stop.
+func Test_services_stop(t *testing.T) {
 	mockService := func() (stoppable.Stoppable, error) {
 		return stoppable.NewSingle("test"), nil
 	}
@@ -95,7 +97,7 @@ func TestServices_Stop(t *testing.T) {
 
 	err := mockServices.add(mockService)
 	if err != nil {
-		t.Fatalf("Failed to add mock service to services: %v", err)
+		t.Fatalf("Failed to add mock service to the services list: %v", err)
 	}
 
 	err = mockServices.stop()

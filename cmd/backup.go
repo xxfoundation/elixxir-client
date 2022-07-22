@@ -24,13 +24,13 @@ import (
 // loadOrInitBackup will build a new xxdk.E2e from existing storage
 // or from a new storage that it will create if none already exists
 func loadOrInitBackup(backupPath string, backupPass string, password []byte, storeDir string,
-	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) *xxdk.E2e {
+	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
 	jww.INFO.Printf("Using Backup sender")
 
 	// create a new client if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
-		ndfJson, err := ioutil.ReadFile(viper.GetString("ndf"))
+		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -44,7 +44,7 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 		}
 
 		// Write the backup JSON to file
-		err = utils.WriteFileDef(viper.GetString("backupJsonOut"), backupJson)
+		err = utils.WriteFileDef(viper.GetString(backupJsonOutFlag), backupJson)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
 		}
@@ -56,7 +56,7 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		backupIdListPath := viper.GetString("backupIdList")
+		backupIdListPath := viper.GetString(backupIdListFlag)
 		if backupIdListPath != "" {
 			// Marshal backed up ID list to JSON
 			backedUpIdListJson, err := json.Marshal(backupIdList)
@@ -92,7 +92,7 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 		}
 	}
 
-	messenger, err := xxdk.Login(net, authCbs, identity, e2eParams)
+	messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}

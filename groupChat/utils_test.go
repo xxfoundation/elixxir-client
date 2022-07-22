@@ -9,54 +9,41 @@ package groupChat
 
 import (
 	"encoding/base64"
-	"math/rand"
-	"sync"
-	"testing"
-	"time"
-
-	"github.com/cloudflare/circl/dh/sidh"
-	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/catalog"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/message"
-	clientE2E "gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/event"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
+	"math/rand"
+	"testing"
 )
 
+/////////////////////////////////////////////////////////////////////////////////////////
+// mock manager implementation //////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+
 // newTestManager creates a new manager for testing.
-func newTestManager(rng *rand.Rand, t *testing.T) (*manager, gs.Group) {
+func newTestManager(t testing.TB) (*manager, gs.Group) {
+	prng := rand.New(rand.NewSource(42))
+	mockMess := newMockMessenger(t, nil)
+
 	m := &manager{
-		receptionId: id.NewIdFromString("test", id.User, t),
-		net:         newTestNetworkManager(0, t),
-		e2e:         newTestE2eManager(randCycInt(rng)),
-		grp:         getGroup(),
-		rng:         fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
+		messenger: mockMess,
 	}
 	user := group.Member{
-		ID:    m.receptionId,
-		DhKey: m.e2e.GetHistoricalDHPubkey(),
+		ID:    m.getReceptionIdentity().ID,
+		DhKey: m.getE2eHandler().GetHistoricalDHPubkey(),
 	}
 
-	g := newTestGroupWithUser(m.grp, user.ID, user.DhKey,
-		m.e2e.GetHistoricalDHPrivkey(), rng, t)
+	g := newTestGroupWithUser(m.getE2eGroup(), user.ID, user.DhKey,
+		m.getE2eHandler().GetHistoricalDHPrivkey(), prng, t)
 	gStore, err := gs.NewStore(versioned.NewKV(ekv.MakeMemstore()), user)
 	if err != nil {
 		t.Fatalf("Failed to create new group store: %+v", err)
@@ -70,25 +57,16 @@ func newTestManager(rng *rand.Rand, t *testing.T) (*manager, gs.Group) {
 // of the groups in the list is also returned.
 func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
 	requestFunc RequestCallback, t *testing.T) (*manager, gs.Group) {
+	mockMess := newMockMessengerWithStore(t, sendErr)
 
 	m := &manager{
 		services:    make(map[string]Processor),
 		requestFunc: requestFunc,
-		receptionId: id.NewIdFromString("test", id.User, t),
-		net:         newTestNetworkManager(sendErr, t),
-		e2e: &testE2eManager{
-			e2eMessages: []testE2eMessage{},
-			sendErr:     sendErr,
-			grp:         getGroup(),
-			dhPubKey:    randCycInt(rng),
-			partners:    make(map[id.ID]partner.Manager),
-		},
-		grp: getGroup(),
-		rng: fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
+		messenger:   mockMess,
 	}
 	user := group.Member{
-		ID:    m.receptionId,
-		DhKey: m.e2e.GetHistoricalDHPubkey(),
+		ID:    m.getReceptionIdentity().ID,
+		DhKey: m.getE2eHandler().GetHistoricalDHPubkey(),
 	}
 
 	gStore, err := gs.NewStore(versioned.NewKV(ekv.MakeMemstore()), user)
@@ -99,7 +77,7 @@ func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
 
 	var g gs.Group
 	for i := 0; i < numGroups; i++ {
-		g = newTestGroupWithUser(m.grp, user.ID, user.DhKey,
+		g = newTestGroupWithUser(m.getE2eGroup(), user.ID, user.DhKey,
 			randCycInt(rng), rng, t)
 		if err = gStore.Add(g); err != nil {
 			t.Fatalf("Failed to add group %d to group store: %+v", i, err)
@@ -108,7 +86,7 @@ func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
 	return m, g
 }
 
-func newTestE2eManager(dhPubKey *cyclic.Int) *testE2eManager {
+func newTestE2eManager(dhPubKey *cyclic.Int, t testing.TB) *testE2eManager {
 	return &testE2eManager{
 		e2eMessages: []testE2eMessage{},
 		errSkip:     0,
@@ -120,7 +98,7 @@ func newTestE2eManager(dhPubKey *cyclic.Int) *testE2eManager {
 
 // getMembership returns a Membership with random members for testing.
 func getMembership(size int, uid *id.ID, pubKey *cyclic.Int, grp *cyclic.Group,
-	prng *rand.Rand, t *testing.T) group.Membership {
+	prng *rand.Rand, t testing.TB) group.Membership {
 	contacts := make([]contact.Contact, size)
 	for i := range contacts {
 		randId, _ := id.NewRandomID(prng, id.User)
@@ -179,7 +157,7 @@ func newTestGroup(grp *cyclic.Group, privKey *cyclic.Int, rng *rand.Rand,
 
 // newTestGroup generates a new group with random values for testing.
 func newTestGroupWithUser(grp *cyclic.Group, uid *id.ID, pubKey,
-	privKey *cyclic.Int, rng *rand.Rand, t *testing.T) gs.Group {
+	privKey *cyclic.Int, rng *rand.Rand, t testing.TB) gs.Group {
 	// Generate name from base 64 encoded random data
 	nameBytes := make([]byte, 16)
 	rng.Read(nameBytes)
@@ -221,137 +199,6 @@ func getGroup() *cyclic.Group {
 		large.NewIntFromString(getNDF().E2E.Prime, 16),
 		large.NewIntFromString(getNDF().E2E.Generator, 16))
 }
-
-func newTestNetworkManager(sendErr int, _ *testing.T) GroupCmix {
-	return &testNetworkManager{
-		receptionMessages: [][]format.Message{},
-		sendMessages:      [][]cmix.TargetedCmixMessage{},
-		grp:               getGroup(),
-		sendErr:           sendErr,
-	}
-}
-
-// testE2eManager is a test implementation of NetworkManager interface.
-type testE2eManager struct {
-	e2eMessages []testE2eMessage
-	partners    map[id.ID]partner.Manager
-	errSkip     int
-	sendErr     int
-	dhPubKey    *cyclic.Int
-	grp         *cyclic.Group
-	sync.RWMutex
-}
-
-type testE2eMessage struct {
-	Recipient *id.ID
-	Payload   []byte
-}
-
-func (tnm *testE2eManager) AddPartner(partnerID *id.ID, partnerPubKey,
-	myPrivKey *cyclic.Int, _ *sidh.PublicKey, _ *sidh.PrivateKey,
-	_, _ session.Params) (partner.Manager, error) {
-
-	testPartner := partner.NewTestManager(partnerID, partnerPubKey, myPrivKey, &testing.T{})
-	tnm.partners[*partnerID] = testPartner
-	return testPartner, nil
-}
-
-func (tnm *testE2eManager) GetPartner(partnerID *id.ID) (partner.Manager, error) {
-	if p, ok := tnm.partners[*partnerID]; ok {
-		return p, nil
-	}
-	return nil, errors.New("Unable to find partner")
-}
-
-func (tnm *testE2eManager) GetHistoricalDHPubkey() *cyclic.Int {
-	return tnm.dhPubKey
-}
-
-func (tnm *testE2eManager) GetHistoricalDHPrivkey() *cyclic.Int {
-	return tnm.dhPubKey
-}
-
-func (tnm *testE2eManager) SendE2E(_ catalog.MessageType, recipient *id.ID,
-	payload []byte, _ clientE2E.Params) ([]id.Round, e2e.MessageID, time.Time,
-	error) {
-	tnm.Lock()
-	defer tnm.Unlock()
-
-	tnm.errSkip++
-	if tnm.sendErr == 1 {
-		return nil, e2e.MessageID{}, time.Time{}, errors.New("SendE2E error")
-	} else if tnm.sendErr == 2 && tnm.errSkip%2 == 0 {
-		return nil, e2e.MessageID{}, time.Time{}, errors.New("SendE2E error")
-	}
-
-	tnm.e2eMessages = append(tnm.e2eMessages, testE2eMessage{
-		Recipient: recipient,
-		Payload:   payload,
-	})
-
-	return []id.Round{0, 1, 2, 3}, e2e.MessageID{}, time.Time{}, nil
-}
-
-func (*testE2eManager) RegisterListener(*id.ID, catalog.MessageType, receive.Listener) receive.ListenerID {
-	return receive.ListenerID{}
-}
-
-func (*testE2eManager) AddService(string, message.Processor) error {
-	return nil
-}
-
-func (*testE2eManager) GetDefaultHistoricalDHPubkey() *cyclic.Int {
-	panic("implement me")
-}
-
-func (*testE2eManager) GetDefaultHistoricalDHPrivkey() *cyclic.Int {
-	panic("implement me")
-}
-
-func (tnm *testE2eManager) GetE2eMsg(i int) testE2eMessage {
-	tnm.RLock()
-	defer tnm.RUnlock()
-	return tnm.e2eMessages[i]
-}
-
-// testNetworkManager is a test implementation of NetworkManager interface.
-type testNetworkManager struct {
-	receptionMessages [][]format.Message
-	sendMessages      [][]cmix.TargetedCmixMessage
-	errSkip           int
-	sendErr           int
-	grp               *cyclic.Group
-	sync.RWMutex
-}
-
-func (tnm *testNetworkManager) GetMaxMessageLength() int {
-	return format.NewMessage(tnm.grp.GetP().ByteLen()).ContentsSize()
-}
-
-func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, _ cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
-	if tnm.sendErr == 1 {
-		return 0, nil, errors.New("SendManyCMIX error")
-	}
-
-	tnm.Lock()
-	defer tnm.Unlock()
-
-	tnm.sendMessages = append(tnm.sendMessages, messages)
-
-	var receiveMessages []format.Message
-	for _, msg := range messages {
-		receiveMsg := format.NewMessage(tnm.grp.GetP().ByteLen())
-		receiveMsg.SetMac(msg.Mac)
-		receiveMsg.SetContents(msg.Payload)
-		receiveMsg.SetKeyFP(msg.Fingerprint)
-		receiveMessages = append(receiveMessages, receiveMsg)
-	}
-	tnm.receptionMessages = append(tnm.receptionMessages, receiveMessages)
-	return 0, nil, nil
-}
-
-func (*testNetworkManager) AddService(*id.ID, message.Service, message.Processor)    {}
-func (*testNetworkManager) DeleteService(*id.ID, message.Service, message.Processor) {}
 
 type dummyEventMgr struct{}
 

@@ -8,10 +8,10 @@
 package broadcast
 
 import (
+	"encoding/binary"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/multicastRSA"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -20,6 +20,7 @@ import (
 const (
 	asymmetricBroadcastServiceTag = "AsymmBcast"
 	asymmCMixSendTag              = "AsymmetricBroadcast"
+	internalPayloadSizeLength     = 2
 )
 
 // MaxAsymmetricPayloadSize returns the maximum size for an asymmetric broadcast payload
@@ -29,39 +30,28 @@ func (bc *broadcastClient) maxAsymmetricPayload() int {
 
 // BroadcastAsymmetric broadcasts the payload to the channel. Requires a healthy network state to send
 // Payload must be equal to bc.MaxAsymmetricPayloadSize, and the channel PrivateKey must be passed in
-// Broadcast method must be set to asymmetric
-// When a payload is sent, it is split into partitons of size bc.channel.MaxAsymmetricPayloadSize
-// which are each encrypted using multicastRSA
 func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey, payload []byte, cMixParams cmix.CMIXParams) (
 	id.Round, ephemeral.Id, error) {
-	if bc.param.Method != Asymmetric {
-		return 0, ephemeral.Id{}, errors.Errorf(errBroadcastMethodType, Asymmetric, bc.param.Method)
-	}
-
+	// Confirm network health
 	if !bc.net.IsHealthy() {
 		return 0, ephemeral.Id{}, errors.New(errNetworkHealth)
 	}
 
-	if len(payload) != bc.maxAsymmetricPayload() {
+	// Check payload size
+	if len(payload) > bc.MaxAsymmetricPayloadSize() {
 		return 0, ephemeral.Id{},
 			errors.Errorf(errPayloadSize, len(payload), bc.maxAsymmetricPayload())
 	}
+	payloadLength := uint16(len(payload))
 
-	numParts := bc.maxParts()
-	size := bc.channel.MaxAsymmetricPayloadSize()
-	var mac []byte
-	var fp format.Fingerprint
-	var sequential []byte
-	for i := 0; i < numParts; i++ {
-		// Encrypt payload to send using asymmetric channel
-		var encryptedPayload []byte
-		var err error
-		encryptedPayload, mac, fp, err = bc.channel.EncryptAsymmetric(payload[:size], pk, bc.rng.GetStream())
-		if err != nil {
-			return 0, ephemeral.Id{}, errors.WithMessage(err, "Failed to encrypt asymmetric broadcast message")
-		}
-		payload = payload[size:]
-		sequential = append(sequential, encryptedPayload...)
+	finalPayload := make([]byte, bc.maxAsymmetricPayloadSizeRaw())
+	binary.BigEndian.PutUint16(finalPayload[:internalPayloadSizeLength], payloadLength)
+	copy(finalPayload[internalPayloadSizeLength:], payload)
+
+	// Encrypt payload
+	encryptedPayload, mac, fp, err := bc.channel.EncryptAsymmetric(finalPayload, pk, bc.rng.GetStream())
+	if err != nil {
+		return 0, ephemeral.Id{}, errors.WithMessage(err, "Failed to encrypt asymmetric broadcast message")
 	}
 
 	// Create service object to send message
@@ -74,10 +64,14 @@ func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey, paylo
 		cMixParams.DebugTag = asymmCMixSendTag
 	}
 
-	sizedPayload, err := NewSizedBroadcast(bc.net.GetMaxMessageLength(), sequential)
+	// Create payload sized for sending over cmix
+	sizedPayload := make([]byte, bc.net.GetMaxMessageLength())
+	// Read random data into sized payload
+	_, err = bc.rng.GetStream().Read(sizedPayload)
 	if err != nil {
-		return id.Round(0), ephemeral.Id{}, err
+		return 0, ephemeral.Id{}, errors.WithMessage(err, "Failed to add random data to sized broadcast")
 	}
+	copy(sizedPayload[:len(encryptedPayload)], encryptedPayload)
 
 	return bc.net.Send(
 		bc.channel.ReceptionID, fp, service, sizedPayload, mac, cMixParams)

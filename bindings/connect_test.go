@@ -21,7 +21,7 @@ import (
 func TestE2ESendReport_JSON(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	mid := e2e.MessageID{}
-	rng.Read(mid[:])
+	_, _ = rng.Read(mid[:])
 	origRL := []id.Round{1, 5, 9}
 	rl := makeRoundsList(origRL)
 	mrl, _ := json.Marshal(&rl)
@@ -40,6 +40,7 @@ func TestE2ESendReport_JSON(t *testing.T) {
 		t.Errorf("Failed to unmarshal rounds list from e2esendreport: %+v", err)
 	}
 	if !reflect.DeepEqual(unmarshalled, origRL) {
-		t.Errorf("Did not receive expected rounds list\n\tExpected: %+v\n\tReceived: %+v\n", rl.Rounds, unmarshalled)
+		t.Errorf("Did not receive expected rounds list"+
+			"\nexpected: %+v\nreceived: %+v", rl.Rounds, unmarshalled)
 	}
 }

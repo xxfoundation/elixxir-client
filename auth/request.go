@@ -31,6 +31,14 @@ import (
 
 const terminator = ";"
 
+// Error constant strings. Any changes to these should go over usages of the
+// affected messages in other applications (if applicable)
+const (
+	// ErrChannelExists is a message returned in state.Request when an
+	// authenticated channel exists between the partner and me.
+	ErrChannelExists = "Authenticated channel already established with partner"
+)
+
 // Request sends a contact request from the user identity in the imported e2e
 // structure to the passed contact, as well as the passed facts (will error if
 // they are too long).
@@ -46,8 +54,7 @@ func (s *state) Request(partner contact.Contact, myFacts fact.FactList) (id.Roun
 	// check that an authenticated channel does not already exist
 	if _, err := s.e2e.GetPartner(partner.ID); err == nil ||
 		!strings.Contains(err.Error(), ratchet.NoPartnerErrorStr) {
-		return 0, errors.Errorf("Authenticated channel already " +
-			"established with partner")
+		return 0, errors.Errorf(ErrChannelExists)
 	}
 
 	return s.request(partner, myFacts, false, s.params.RequestTag)

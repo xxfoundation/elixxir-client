@@ -11,6 +11,7 @@ package cmd
 import (
 	"encoding/base64"
 	"fmt"
+	"github.com/spf13/viper"
 	"strconv"
 	"time"
 
@@ -32,7 +33,9 @@ var dumpRoundsCmd = &cobra.Command{
 		roundIDs := parseRoundIDs(args)
 
 		cmixParams, e2eParams := initParams()
-		client := initE2e(cmixParams, e2eParams)
+		authCbs := makeAuthCallbacks(
+			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
+		client := initE2e(cmixParams, e2eParams, authCbs)
 		err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)

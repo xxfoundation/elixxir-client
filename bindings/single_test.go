@@ -24,7 +24,7 @@ func TestSingleUseJsonMarshals(t *testing.T) {
 	rid := id.NewIdFromString("zezima", id.User, t)
 	eid, _, _, err := ephemeral.GetId(rid, 16, time.Now().UnixNano())
 	if err != nil {
-		t.Fatalf("Failed to generate ephemeral id: %+v", err)
+		t.Fatalf("Failed to generate ephemeral ID: %+v", err)
 	}
 	ephId := receptionID.EphemeralIdentity{
 		EphId:  eid,
@@ -32,7 +32,7 @@ func TestSingleUseJsonMarshals(t *testing.T) {
 	}
 	payload := make([]byte, 64)
 	rng := csprng.NewSystemRNG()
-	rng.Read(payload)
+	_, _ = rng.Read(payload)
 	sendReport := SingleUseSendReport{
 		RoundsList:  rl,
 		EphID:       ephId.EphId.Int64(),

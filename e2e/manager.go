@@ -2,9 +2,9 @@ package e2e
 
 import (
 	"encoding/json"
-	jww "github.com/spf13/jwalterweatherman"
-	"strings"
 	"time"
+
+	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/xx_network/primitives/netTime"
 
@@ -39,6 +39,7 @@ type manager struct {
 	kv          *versioned.KV
 }
 
+const legacyE2EKey = "legacyE2ESystem"
 const e2eRekeyParamsKey = "e2eRekeyParams"
 const e2eRekeyParamsVer = 0
 
@@ -102,9 +103,12 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	// Check if values are already written. If they exist on disk/memory already,
 	// this would be a case where LoadLegacy is most likely not the correct
 	// code-path the caller should be following.
-	if _, err := kv.Get(e2eRekeyParamsKey, e2eRekeyParamsVer); err != nil && !strings.Contains(err.Error(), "object not found") {
-		return nil, errors.New("E2E rekey params are already on disk, " +
-			"LoadLegacy should not be called")
+	if _, err := kv.Get(e2eRekeyParamsKey, e2eRekeyParamsVer); err == nil {
+		if _, err = kv.Get(legacyE2EKey, e2eRekeyParamsVer); err != nil {
+			return nil, errors.New("E2E rekey params" +
+				" are already on disk, " +
+				"LoadLegacy should not be called")
+		}
 	}
 
 	// Store the rekey params to disk/memory
@@ -113,6 +117,17 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 		Timestamp: netTime.Now(),
 		Data:      rekeyParamsData,
 	})
+	if err != nil {
+		return nil, err
+	}
+	err = kv.Set(legacyE2EKey, e2eRekeyParamsVer, &versioned.Object{
+		Version:   e2eRekeyParamsVer,
+		Timestamp: netTime.Now(),
+		Data:      []byte{1},
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	// Load the legacy data
 	return loadE2E(kv, net, myID, grp, rng, events)

@@ -25,6 +25,7 @@ type Channel struct {
 }
 
 // ChannelDef is the bindings representation of an elixxir/crypto broadcast.Channel object.
+//
 // Example JSON:
 //  {"Name": "My broadcast channel",
 //   "Description":"A broadcast channel for me to test things",
@@ -39,6 +40,7 @@ type ChannelDef struct {
 }
 
 // BroadcastMessage is the bindings representation of a broadcast message.
+//
 // Example JSON:
 //  {"RoundID":42,
 //   "EphID":[0,0,0,0,0,0,24,61],
@@ -50,6 +52,7 @@ type BroadcastMessage struct {
 }
 
 // BroadcastReport is the bindings representation of the info on how a broadcast message was sent
+//
 // Example JSON:
 //  {"RoundID":42,
 //   "EphID":[0,0,0,0,0,0,24,61]
@@ -59,22 +62,25 @@ type BroadcastReport struct {
 	EphID   ephemeral.Id
 }
 
-// BroadcastListener is the public function type bindings can use to listen for broadcast messages
-// Accepts the result of calling json.Marshall on a BroadcastMessage object
+// BroadcastListener is the public function type bindings can use to listen for broadcast messages.
+// It accepts the result of calling json.Marshal on a BroadcastMessage object.
 type BroadcastListener interface {
 	Callback([]byte, error)
 }
 
-// NewBroadcastClient creates a bindings-layer broadcast channel & starts listening for new messages
-// Accepts a client ID, broadcast method, JSON marshalled channel definition & a BroadcastListener interface
-func NewBroadcastClient(clientID int, rawDef []byte) (*Channel, error) {
-	cl, err := cmixTrackerSingleton.get(clientID)
+// NewBroadcastChannel creates a bindings-layer broadcast channel & starts listening for new messages
+//
+// Params
+//  - cmixId - internal ID of cmix
+//  - channelDefinition - JSON marshalled ChannelDef object
+func NewBroadcastChannel(cmixId int, channelDefinition []byte) (*Channel, error) {
+	c, err := cmixTrackerSingleton.get(cmixId)
 	if err != nil {
 		return nil, err
 	}
 
 	def := &ChannelDef{}
-	err = json.Unmarshal(rawDef, def)
+	err = json.Unmarshal(channelDefinition, def)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to unmarshal underlying channel definition")
 	}
@@ -94,7 +100,7 @@ func NewBroadcastClient(clientID int, rawDef []byte) (*Channel, error) {
 		Description: def.Description,
 		Salt:        def.Salt,
 		RsaPubKey:   chanPubLoaded,
-	}, cl.api.GetCmix(), cl.api.GetRng())
+	}, c.api.GetCmix(), c.api.GetRng())
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create broadcast channel client")
 	}
@@ -102,6 +108,12 @@ func NewBroadcastClient(clientID int, rawDef []byte) (*Channel, error) {
 	return &Channel{ch: ch}, nil
 }
 
+// Listen registers a BroadcastListener for a given method.
+// This allows users to handle incoming broadcast messages.
+//
+// Params:
+//  - l - BroadcastListener object
+//  - method - int corresponding to broadcast.Method constant, 0 for symmetric or 1 for asymmetric
 func (c *Channel) Listen(l BroadcastListener, method int) error {
 	broadcastMethod := broadcast.Method(method)
 	listen := func(payload []byte,
@@ -117,7 +129,7 @@ func (c *Channel) Listen(l BroadcastListener, method int) error {
 	return c.ch.RegisterListener(listen, broadcastMethod)
 }
 
-// Broadcast sends a given payload over the broadcast channel using symmetric broadcast
+// Broadcast sends a given payload over the broadcast channel using symmetric broadcast.
 func (c *Channel) Broadcast(payload []byte) ([]byte, error) {
 	rid, eid, err := c.ch.Broadcast(payload, cmix.GetDefaultCMIXParams())
 	if err != nil {
@@ -129,8 +141,8 @@ func (c *Channel) Broadcast(payload []byte) ([]byte, error) {
 	})
 }
 
-// BroadcastAsymmetric sends a given payload over the broadcast channel using asymmetric broadcast
-// Requires a private key
+// BroadcastAsymmetric sends a given payload over the broadcast channel using asymmetric broadcast.
+// This mode of encryption requires a private key.
 func (c *Channel) BroadcastAsymmetric(payload, pk []byte) ([]byte, error) {
 	pkLoaded, err := rsa.LoadPrivateKeyFromPem(pk)
 	if err != nil {
@@ -146,17 +158,17 @@ func (c *Channel) BroadcastAsymmetric(payload, pk []byte) ([]byte, error) {
 	})
 }
 
-// MaxPayloadSize returns the maximum possible payload size which can be broadcast
+// MaxPayloadSize returns the maximum possible payload size which can be broadcast.
 func (c *Channel) MaxPayloadSize() int {
 	return c.ch.MaxPayloadSize()
 }
 
-// MaxAsymmetricPayloadSize returns the maximum possible payload size which can be broadcast
+// MaxAsymmetricPayloadSize returns the maximum possible payload size which can be broadcast.
 func (c *Channel) MaxAsymmetricPayloadSize() int {
 	return c.ch.MaxAsymmetricPayloadSize()
 }
 
-// Get returns the result of calling json.Marshal on a ChannelDef based on the underlying crypto broadcast.Channel
+// Get returns the result of calling json.Marshal on a ChannelDef based on the underlying crypto broadcast.Channel.
 func (c *Channel) Get() ([]byte, error) {
 	def := c.ch.Get()
 	return json.Marshal(&ChannelDef{
@@ -167,7 +179,7 @@ func (c *Channel) Get() ([]byte, error) {
 	})
 }
 
-// Stop stops the channel from listening for more messages
+// Stop stops the channel from listening for more messages.
 func (c *Channel) Stop() {
 	c.ch.Stop()
 }

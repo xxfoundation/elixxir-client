@@ -18,83 +18,115 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-/* File Transfer Structs and Interfaces */
+////////////////////////////////////////////////////////////////////////////////
+// File Transfer Structs and Interfaces                                       //
+////////////////////////////////////////////////////////////////////////////////
 
-// FileTransfer object is a bindings-layer struct which wraps a fileTransfer.FileTransfer interface
+// FileTransfer object is a bindings-layer struct which wraps a
+// fileTransfer.FileTransfer interface.
 type FileTransfer struct {
 	ft    fileTransfer.FileTransfer
 	e2eCl *E2e
 }
 
-// ReceivedFile is a public struct which represents the contents of an incoming file
+// ReceivedFile is a public struct that contains the metadata of a new file
+// transfer.
+//
 // Example JSON:
-// {
-//  "TransferID":"B4Z9cwU18beRoGbk5xBjbcd5Ryi9ZUFA2UBvi8FOHWo=", // ID of the incoming transfer for receiving
-//  "SenderID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",   // ID of sender of incoming file
-//  "Preview":"aXQncyBtZSBhIHByZXZpZXc=",                        // Preview of the incoming file
-//  "Name":"testfile.txt",                                       // Name of incoming file
-//  "Type":"text file",                                          // Incoming file type
-//  "Size":2048                                                  // Incoming file size
-// }
+//  {
+//   "TransferID":"B4Z9cwU18beRoGbk5xBjbcd5Ryi9ZUFA2UBvi8FOHWo=",
+//   "SenderID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//   "Preview":"aXQncyBtZSBhIHByZXZpZXc=",
+//   "Name":"testfile.txt",
+//   "Type":"text file",
+//   "Size":2048
+//  }
 type ReceivedFile struct {
-	TransferID []byte
-	SenderID   []byte
-	Preview    []byte
-	Name       string
-	Type       string
-	Size       int
+	TransferID []byte // ID of the file transfer
+	SenderID   []byte // ID of the file sender
+	Preview    []byte // A preview of the file
+	Name       string // Name of the file
+	Type       string // String that indicates type of file
+	Size       int    // The size of the file, in bytes
 }
 
-// FileSend is a public struct which represents a file to be transferred
-// {
-//  "Name":"testfile.txt",  														// File name
-//  "Type":"text file",     														// File type
-//  "Preview":"aXQncyBtZSBhIHByZXZpZXc=",  											// Preview of contents
-//  "Contents":"VGhpcyBpcyB0aGUgZnVsbCBjb250ZW50cyBvZiB0aGUgZmlsZSBpbiBieXRlcw==" 	// Full contents of the file
-// }
+// FileSend is a public struct that contains the file contents and its name,
+// type, and preview.
+//  {
+//   "Name":"testfile.txt",
+//   "Type":"text file",
+//   "Preview":"aXQncyBtZSBhIHByZXZpZXc=",
+//   "Contents":"VGhpcyBpcyB0aGUgZnVsbCBjb250ZW50cyBvZiB0aGUgZmlsZSBpbiBieXRlcw=="
+//  }
 type FileSend struct {
-	Name     string
-	Type     string
-	Preview  []byte
-	Contents []byte
+	Name     string // Name of the file
+	Type     string // String that indicates type of file
+	Preview  []byte // A preview of the file
+	Contents []byte // Full contents of the file
 }
 
-// Progress is a public struct which represents the progress of an in-progress file transfer
+// Progress is a public struct that represents the progress of an in-progress
+// file transfer.
+//
 // Example JSON:
-// {"Completed":false,	// Status of transfer (true if done)
-//  "Transmitted":128,	// Bytes transferred so far
-//  "Total":2048,		// Total size of file
-//  "Err":null			// Error status (if any)
-// }
+//  {
+//   "Completed":false,
+//   "Transmitted":128,
+//   "Total":2048,
+//   "Err":null
+//  }
 type Progress struct {
-	Completed   bool
-	Transmitted int
-	Total       int
-	Err         error
+	Completed   bool  // Status of transfer (true if done)
+	Transmitted int   // Number of file parts sent/received
+	Total       int   // Total number of file parts
+	Err         error // Error status (if any)
 }
 
-// ReceiveFileCallback is a bindings-layer interface which is called when a file is received
-// Accepts the result of calling json.Marshal on a ReceivedFile struct
+// ReceiveFileCallback is a bindings-layer interface that contains a callback
+// that is called when a file is received.
 type ReceiveFileCallback interface {
+	// Callback is called when a new file transfer is received.
+	//
+	// Parameters:
+	//  - payload - the JSON marshalled bytes of a ReceivedFile object.
+	//  - err - any errors that occurred during reception
 	Callback(payload []byte, err error)
 }
 
-// FileTransferSentProgressCallback is a bindings-layer interface which is called with the progress of a sending file
-// Accepts the result of calling json.Marshal on a Progress struct & a FilePartTracker interface
+// FileTransferSentProgressCallback is a bindings-layer interface that contains
+// a callback that is called when the sent progress updates.
 type FileTransferSentProgressCallback interface {
+	// Callback is called when a file part is sent or an error occurs.
+	//
+	// Parameters:
+	//  - payload - the JSON marshalled bytes of a Progress object.
+	//  - t - tracker that allows the lookup of the status of any file part
+	//  - err - any errors that occurred during sending
 	Callback(payload []byte, t *FilePartTracker, err error)
 }
 
-// FileTransferReceiveProgressCallback is a bindings-layer interface which is called with the progress of a received file
-// Accepts the result of calling json.Marshal on a Progress struct & a FilePartTracker interface
+// FileTransferReceiveProgressCallback is a bindings-layer interface that is
+// called with the progress of a received file.
+//
 type FileTransferReceiveProgressCallback interface {
+	// Callback is called when a file part is sent or an error occurs.
+	//
+	// Parameters:
+	//  - payload - the JSON marshalled bytes of a Progress object.
+	//  - t - tracker that allows the lookup of the status of any file part
+	//  - err - any errors that occurred during sending
 	Callback(payload []byte, t *FilePartTracker, err error)
 }
 
-/* Main functions */
+////////////////////////////////////////////////////////////////////////////////
+// Main functions                                                             //
+////////////////////////////////////////////////////////////////////////////////
 
-// InitFileTransfer creates a bindings-level File Transfer manager
-// Accepts e2e client ID and marshalled params JSON
+// InitFileTransfer creates a bindings-level file transfer manager.
+//
+// Parameters:
+//  - e2eID - e2e client ID
+//  - paramsJSON - JSON marshalled fileTransfer.Params
 func InitFileTransfer(e2eID int, paramsJSON []byte) (*FileTransfer, error) {
 
 	// Get bindings client from singleton
@@ -126,16 +158,20 @@ func InitFileTransfer(e2eID int, paramsJSON []byte) (*FileTransfer, error) {
 	return &FileTransfer{ft: m, e2eCl: e2eCl}, nil
 }
 
-// Send is the bindings-level function for sending a File
-// Accepts:
-//  FileSend JSON payload
-//  Marshalled recipient ID
-//  Marshalled e2e Params JSON
-//  Number of retries allowed
-//  Limit on duration between retries
-//  FileTransferSentProgressCallback interface
+// Send is the bindings-level function for sending a file.
+//
+// Parameters:
+//  - payload - JSON marshalled FileSend
+//  - recipientID - marshalled recipient id.ID
+//  - paramsJSON - JSON marshalled e2e.Params
+//  - retry - number of retries allowed
+//  - callback - callback that reports file sending progress
+//  - period - duration to wait between progress callbacks triggering
+//
+// Returns:
+//  - []byte - unique file transfer ID
 func (f *FileTransfer) Send(payload, recipientID, paramsJSON []byte, retry float32,
-	period string, callback FileTransferSentProgressCallback) ([]byte, error) {
+	callback FileTransferSentProgressCallback, period string) ([]byte, error) {
 	// Unmarshal recipient ID
 	recipient, err := id.Unmarshal(recipientID)
 	if err != nil {
@@ -184,37 +220,49 @@ func (f *FileTransfer) Send(payload, recipientID, paramsJSON []byte, retry float
 	return ftID.Bytes(), nil
 }
 
-// Receive returns the full file on the completion of the transfer.
-// It deletes internal references to the data and unregisters any attached
-// progress callback. Returns an error if the transfer is not complete, the
-// full file cannot be verified, or if the transfer cannot be found.
+// Receive returns the full file on the completion of the transfer. It deletes
+// internal references to the data and unregisters any attached progress
+// callbacks. Returns an error if the transfer is not complete, the full file
+// cannot be verified, or if the transfer cannot be found.
 //
 // Receive can only be called once the progress callback returns that the
 // file transfer is complete.
+//
+// Parameters:
+//  - tidBytes - file transfer ID
 func (f *FileTransfer) Receive(tidBytes []byte) ([]byte, error) {
 	tid := ftCrypto.UnmarshalTransferID(tidBytes)
 	return f.ft.Receive(&tid)
 }
 
 // CloseSend deletes a file from the internal storage once a transfer has
-// completed or reached the retry limit. Returns an error if the transfer
-// has not run out of retries.
+// completed or reached the retry limit. Returns an error if the transfer has
+// not run out of retries.
 //
-// This function should be called once a transfer completes or errors out
-// (as reported by the progress callback).
+// This function should be called once a transfer completes or errors out (as
+// reported by the progress callback).
+//
+// Parameters:
+//  - tidBytes - file transfer ID
 func (f *FileTransfer) CloseSend(tidBytes []byte) error {
 	tid := ftCrypto.UnmarshalTransferID(tidBytes)
 	return f.ft.CloseSend(&tid)
 }
 
-/* Callback registration functions */
+////////////////////////////////////////////////////////////////////////////////
+// Callback Registration Functions                                            //
+////////////////////////////////////////////////////////////////////////////////
 
 // RegisterSentProgressCallback allows for the registration of a callback to
 // track the progress of an individual sent file transfer.
+//
 // SentProgressCallback is auto registered on Send; this function should be
 // called when resuming clients or registering extra callbacks.
-// Accepts ID of the transfer, callback for transfer progress,
-// and period between retries
+//
+// Parameters:
+//  - tidBytes - file transfer ID
+//  - callback - callback that reports file reception progress
+//  - period - duration to wait between progress callbacks triggering
 func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 	callback FileTransferSentProgressCallback, period string) error {
 	cb := func(completed bool, arrived, total uint16,
@@ -237,12 +285,17 @@ func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 	return f.ft.RegisterSentProgressCallback(&tid, cb, p)
 }
 
-// RegisterReceivedProgressCallback allows for the registration of a
-// callback to track the progress of an individual received file transfer.
-// This should be done when a new transfer is received on the
-// ReceiveCallback.
-// Accepts ID of the transfer, callback for transfer progress and period between retries
-func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte, callback FileTransferReceiveProgressCallback, period string) error {
+// RegisterReceivedProgressCallback allows for the registration of a callback to
+// track the progress of an individual received file transfer.
+//
+// This should be done when a new transfer is received on the ReceiveCallback.
+//
+// Parameters:
+//  - tidBytes - file transfer ID
+//  - callback - callback that reports file reception progress
+//  - period - duration to wait between progress callbacks triggering
+func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte,
+	callback FileTransferReceiveProgressCallback, period string) error {
 	cb := func(completed bool, received, total uint16,
 		rt fileTransfer.ReceivedTransfer, t fileTransfer.FilePartTracker, err error) {
 		prog := &Progress{
@@ -262,20 +315,26 @@ func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte, callbac
 	return f.ft.RegisterReceivedProgressCallback(&tid, cb, p)
 }
 
-/* Utility Functions */
+////////////////////////////////////////////////////////////////////////////////
+// Utility Functions                                                          //
+////////////////////////////////////////////////////////////////////////////////
 
+// MaxFileNameLen returns the max number of bytes allowed for a file name.
 func (f *FileTransfer) MaxFileNameLen() int {
 	return f.ft.MaxFileNameLen()
 }
 
+// MaxFileTypeLen returns the max number of bytes allowed for a file type.
 func (f *FileTransfer) MaxFileTypeLen() int {
 	return f.ft.MaxFileTypeLen()
 }
 
+// MaxFileSize returns the max number of bytes allowed for a file.
 func (f *FileTransfer) MaxFileSize() int {
 	return f.ft.MaxFileSize()
 }
 
+// MaxPreviewSize returns the max number of bytes allowed for a file preview.
 func (f *FileTransfer) MaxPreviewSize() int {
 	return f.ft.MaxPreviewSize()
 }
@@ -284,17 +343,18 @@ func (f *FileTransfer) MaxPreviewSize() int {
 // File Part Tracker                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// FilePartTracker contains the interfaces.FilePartTracker.
+// FilePartTracker contains the fileTransfer.FilePartTracker.
 type FilePartTracker struct {
 	m fileTransfer.FilePartTracker
 }
 
 // GetPartStatus returns the status of the file part with the given part number.
+//
 // The possible values for the status are:
-// 0 = unsent
-// 1 = sent (sender has sent a part, but it has not arrived)
-// 2 = arrived (sender has sent a part, and it has arrived)
-// 3 = received (receiver has received a part)
+//  - 0 < Part does not exist
+//  - 0 = unsent
+//  - 1 = arrived (sender has sent a part, and it has arrived)
+//  - 2 = received (receiver has received a part)
 func (fpt FilePartTracker) GetPartStatus(partNum int) int {
 	return int(fpt.m.GetPartStatus(uint16(partNum)))
 }
@@ -308,13 +368,16 @@ func (fpt FilePartTracker) GetNumParts() int {
 // Event Reporter                                                             //
 ////////////////////////////////////////////////////////////////////////////////
 
-// EventReport is a public struct which represents the contents of an event report
+// EventReport is a public struct which represents the contents of an event
+// report.
+//
 // Example JSON:
-// {"Priority":1,
-//  "Category":"Test Events",
-//  "EventType":"Ping",
-//  "Details":"This is an example of an event report"
-// }
+//  {
+//   "Priority":1,
+//   "Category":"Test Events",
+//   "EventType":"Ping",
+//   "Details":"This is an example of an event report"
+//  }
 type EventReport struct {
 	Priority  int
 	Category  string
@@ -322,19 +385,22 @@ type EventReport struct {
 	Details   string
 }
 
-// ReporterFunc is a bindings-layer interface which receives info from the Event Manager
-// Accepts result of json.Marshal on an EventReport object
+// ReporterFunc is a bindings-layer interface that receives info from the Event
+// Manager.
+//
+// Parameters:
+//  - payload - JSON marshalled EventReport object
 type ReporterFunc interface {
 	Report(payload []byte, err error)
 }
 
-// reporter is the internal struct to match the event.Reporter interface
+// reporter is the internal struct to match the event.Reporter interface.
 type reporter struct {
 	r ReporterFunc
 }
 
-// Report matches the event.Reporter interface, wraps the info in an EventReport struct
-// and passes the marshalled struct to the internal callback
+// Report matches the event.Reporter interface, wraps the info in an EventReport
+// struct, and passes the marshalled struct to the internal callback.
 func (r *reporter) Report(priority int, category, evtType, details string) {
 	rep := &EventReport{
 		Priority:  priority,

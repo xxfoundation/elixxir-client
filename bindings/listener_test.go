@@ -20,9 +20,9 @@ import (
 func TestMessage_Json(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	messageID := e2e.MessageID{}
-	rng.Read(messageID[:])
+	_, _ = rng.Read(messageID[:])
 	payload := make([]byte, 64)
-	rng.Read(payload)
+	_, _ = rng.Read(payload)
 	sender := id.NewIdFromString("zezima", id.User, t)
 	receiver := id.NewIdFromString("jakexx360", id.User, t)
 	m := Message{

@@ -10,9 +10,9 @@ package bindings
 import "gitlab.com/elixxir/client/xxdk"
 
 // DownloadAndVerifySignedNdfWithUrl retrieves the NDF from a specified URL.
-// The NDF is processed into a protobuf containing a signature which
-// is verified using the cert string passed in. The NDF is returned as marshaled
-// byte data which may be used to start a client.
+// The NDF is processed into a protobuf containing a signature that is verified
+// using the cert string passed in. The NDF is returned as marshaled byte data
+// that may be used to start a client.
 func DownloadAndVerifySignedNdfWithUrl(url, cert string) ([]byte, error) {
 	return xxdk.DownloadAndVerifySignedNdfWithUrl(url, cert)
 }

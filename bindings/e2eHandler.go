@@ -19,31 +19,35 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// IdList is a wrapper for a list of marshalled id.ID objects
+// IdList is a wrapper for a list of marshalled id.ID objects.
 type IdList struct {
 	Ids [][]byte
 }
 
-// E2ESendReport is the bindings representation of the return values of SendE2E
+// E2ESendReport is the bindings' representation of the return values of
+// SendE2E.
+//
 // Example E2ESendReport:
-// {"Rounds":[1,5,9],
-//  "MessageID":"51Yy47uZbP0o2Y9B/kkreDLTB6opUol3M3mYiY2dcdQ=",
-//  "Timestamp":1653582683183384000}
+//  {"Rounds":[1,5,9],
+//   "MessageID":"51Yy47uZbP0o2Y9B/kkreDLTB6opUol3M3mYiY2dcdQ=",
+//   "Timestamp":1653582683183384000}
 type E2ESendReport struct {
 	RoundsList
 	MessageID []byte
 	Timestamp int64
 }
 
-// GetReceptionID returns the marshalled default IDs
+// GetReceptionID returns the marshalled default IDs.
+//
 // Returns:
 //  - []byte - the marshalled bytes of the id.ID object.
 func (e *E2e) GetReceptionID() []byte {
 	return e.api.GetE2E().GetReceptionID().Marshal()
 }
 
-// GetAllPartnerIDs returns a marshalled list of all partner IDs that the user has
-// an E2E relationship with.
+// GetAllPartnerIDs returns a marshalled list of all partner IDs that the user
+// has an E2E relationship with.
+//
 // Returns:
 //  - []byte - the marshalled bytes of the IdList object.
 func (e *E2e) GetAllPartnerIDs() ([]byte, error) {
@@ -55,39 +59,40 @@ func (e *E2e) GetAllPartnerIDs() ([]byte, error) {
 	return json.Marshal(IdList{Ids: convertedIds})
 }
 
-// PayloadSize Returns the max payload size for a partitionable E2E
-// message
+// PayloadSize returns the max payload size for a partitionable E2E message.
 func (e *E2e) PayloadSize() int {
 	return int(e.api.GetE2E().PayloadSize())
 }
 
-// SecondPartitionSize returns the max partition payload size for all
-// payloads after the first payload
+// SecondPartitionSize returns the max partition payload size for all payloads
+// after the first payload.
 func (e *E2e) SecondPartitionSize() int {
 	return int(e.api.GetE2E().SecondPartitionSize())
 }
 
-// PartitionSize returns the partition payload size for the given
-// payload index. The first payload is index 0.
+// PartitionSize returns the partition payload size for the given payload index.
+// The first payload is index 0.
 func (e *E2e) PartitionSize(payloadIndex int) int {
 	return int(e.api.GetE2E().PartitionSize(uint(payloadIndex)))
 }
 
-// FirstPartitionSize returns the max partition payload size for the
-// first payload
+// FirstPartitionSize returns the max partition payload size for the first
+// payload.
 func (e *E2e) FirstPartitionSize() int {
 	return int(e.api.GetE2E().FirstPartitionSize())
 }
 
-// GetHistoricalDHPrivkey returns the user's marshalled Historical DH Private Key
+// GetHistoricalDHPrivkey returns the user's marshalled historical DH private
+// key.
+//
 // Returns:
 //  - []byte - the marshalled bytes of the cyclic.Int object.
 func (e *E2e) GetHistoricalDHPrivkey() ([]byte, error) {
 	return e.api.GetE2E().GetHistoricalDHPrivkey().MarshalJSON()
 }
 
-// GetHistoricalDHPubkey returns the user's marshalled Historical DH
-// Public Key
+// GetHistoricalDHPubkey returns the user's marshalled historical DH public key.
+//
 // Returns:
 //  - []byte - the marshalled bytes of the cyclic.Int object.
 func (e *E2e) GetHistoricalDHPubkey() ([]byte, error) {
@@ -95,7 +100,8 @@ func (e *E2e) GetHistoricalDHPubkey() ([]byte, error) {
 }
 
 // HasAuthenticatedChannel returns true if an authenticated channel with the
-// partner exists, otherwise returns false
+// partner exists, otherwise returns false.
+//
 // Parameters:
 //  - partnerId - the marshalled bytes of the id.ID object.
 func (e *E2e) HasAuthenticatedChannel(partnerId []byte) (bool, error) {
@@ -106,23 +112,23 @@ func (e *E2e) HasAuthenticatedChannel(partnerId []byte) (bool, error) {
 	return e.api.GetE2E().HasAuthenticatedChannel(partner), nil
 }
 
-// RemoveService removes all services for the given tag
+// RemoveService removes all services for the given tag.
 func (e *E2e) RemoveService(tag string) error {
 	return e.api.GetE2E().RemoveService(tag)
 }
 
-// SendE2E send a message containing the payload to the
-// recipient of the passed message type, per the given
-// parameters - encrypted with end-to-end encryption.
-// Default parameters can be retrieved through
+// SendE2E send a message containing the payload to the recipient of the passed
+// message type, per the given parameters--encrypted with end-to-end encryption.
+//
 // Parameters:
 //  - recipientId - the marshalled bytes of the id.ID object.
 //  - e2eParams - the marshalled bytes of the e2e.Params object.
+//
 // Returns:
 //  - []byte - the marshalled bytes of the E2ESendReport object.
 func (e *E2e) SendE2E(messageType int, recipientId, payload,
 	e2eParams []byte) ([]byte, error) {
-	// Note that specifically these are the .Base params from xxdk.E2EParams
+	// Note that specifically these are the Base params from xxdk.E2EParams
 	params := e2e.GetDefaultParams()
 	err := params.UnmarshalJSON(e2eParams)
 	if err != nil {
@@ -133,7 +139,8 @@ func (e *E2e) SendE2E(messageType int, recipientId, payload,
 		return nil, err
 	}
 
-	roundIds, messageId, ts, err := e.api.GetE2E().SendE2E(catalog.MessageType(messageType), recipient, payload, params)
+	roundIds, messageId, ts, err := e.api.GetE2E().SendE2E(
+		catalog.MessageType(messageType), recipient, payload, params)
 	if err != nil {
 		return nil, err
 	}
@@ -146,17 +153,17 @@ func (e *E2e) SendE2E(messageType int, recipientId, payload,
 	return json.Marshal(result)
 }
 
-// AddService adds a service for all partners of the given
-// tag, which will call back on the given processor. These can
-// be sent to using the tag fields in the Params Object
-// Passing nil for the processor allows you to create a
-// service which is never called but will be visible by
-// notifications. Processes added this way are generally not
-// end-to-end encrypted messages themselves, but other
-// protocols which piggyback on e2e relationships to start
-// communication
+// AddService adds a service for all partners of the given tag, which will call
+// back on the given processor. These can be sent to using the tag fields in the
+// Params object.
+//
+// Passing nil for the processor allows you to create a service that is never
+// called but will be visible by notifications. Processes added this way are
+// generally not end-to-end encrypted messages themselves, but other protocols
+// that piggyback on e2e relationships to start communication.
 func (e *E2e) AddService(tag string, processor Processor) error {
-	return e.api.GetE2E().AddService(tag, &messageProcessor{bindingsCbs: processor})
+	return e.api.GetE2E().AddService(
+		tag, &messageProcessor{bindingsCbs: processor})
 }
 
 // Processor is the bindings-specific interface for message.Processor methods.
@@ -165,16 +172,16 @@ type Processor interface {
 	fmt.Stringer
 }
 
-// messageProcessor implements Processor as a way of obtaining
-// a message.Processor over the bindings
+// messageProcessor implements Processor as a way of obtaining a
+// message.Processor over the bindings.
 type messageProcessor struct {
 	bindingsCbs Processor
 }
 
 // convertAuthCallbacks turns an auth.Callbacks into an AuthCallbacks
 func convertProcessor(msg format.Message,
-	receptionID receptionID.EphemeralIdentity,
-	round rounds.Round) (message []byte, receptionId []byte, ephemeralId int64, roundId int64) {
+	receptionID receptionID.EphemeralIdentity, round rounds.Round) (
+	message []byte, receptionId []byte, ephemeralId int64, roundId int64) {
 
 	message = msg.Marshal()
 	receptionId = receptionID.Source.Marshal()
@@ -185,17 +192,18 @@ func convertProcessor(msg format.Message,
 
 // Process decrypts and hands off the message to its internal down stream
 // message processing system.
-// CRITICAL: Fingerprints should never be used twice. Process must denote,
-// in long term storage, usage of a fingerprint and that fingerprint must
-// not be added again during application load.
-// It is a security vulnerability to reuse a fingerprint. It leaks privacy
-// and can lead to compromise of message contents and integrity.
+//
+// CRITICAL: Fingerprints should never be used twice. Process must denote, in
+// long-term storage, usage of a fingerprint and that fingerprint must not be
+// added again during application load. It is a security vulnerability to reuse
+// a fingerprint. It leaks privacy and can lead to compromise of message
+// contents and integrity.
 func (m *messageProcessor) Process(msg format.Message,
 	receptionID receptionID.EphemeralIdentity, roundId rounds.Round) {
 	m.bindingsCbs.Process(convertProcessor(msg, receptionID, roundId))
 }
 
-// Stringer interface for debugging
+// String prints a name for debugging.
 func (m *messageProcessor) String() string {
 	return m.bindingsCbs.String()
 }

@@ -18,16 +18,20 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
-// sets level of logging. All logs the set level and above will be displayed
-// options are:
-//	TRACE		- 0
-//	DEBUG		- 1
-//	INFO 		- 2
-//	WARN		- 3
-//	ERROR		- 4
-//	CRITICAL	- 5
-//	FATAL		- 6
-// The default state without updates is: INFO
+// LogLevel sets level of logging. All logs at the set level and below will be
+// displayed (e.g., when log level is ERROR, only ERROR, CRITICAL, and FATAL
+// messages will be printed).
+//
+// Log level options:
+//	TRACE    - 0
+//	DEBUG    - 1
+//	INFO     - 2
+//	WARN     - 3
+//	ERROR    - 4
+//	CRITICAL - 5
+//	FATAL    - 6
+//
+// The default log level without updates is INFO.
 func LogLevel(level int) error {
 	if level < 0 || level > 6 {
 		return errors.New(fmt.Sprintf("log level is not valid: log level: %d", level))
@@ -62,12 +66,12 @@ type LogWriter interface {
 	Log(string)
 }
 
-//RegisterLogWriter registers a callback on which logs are written.
+// RegisterLogWriter registers a callback on which logs are written.
 func RegisterLogWriter(writer LogWriter) {
 	jww.SetLogOutput(&writerAdapter{lw: writer})
 }
 
-// EnableGrpcLogs sets GRPC trace logging
+// EnableGrpcLogs sets GRPC trace logging.
 func EnableGrpcLogs(writer LogWriter) {
 	logger := &writerAdapter{lw: writer}
 	grpclog.SetLoggerV2(grpclog.NewLoggerV2WithVerbosity(

@@ -23,11 +23,6 @@ const (
 	internalPayloadSizeLength     = 2
 )
 
-// MaxAsymmetricPayloadSize returns the maximum size for an asymmetric broadcast payload
-func (bc *broadcastClient) maxAsymmetricPayload() int {
-	return bc.maxParts() * bc.channel.MaxAsymmetricPayloadSize()
-}
-
 // BroadcastAsymmetric broadcasts the payload to the channel. Requires a healthy network state to send
 // Payload must be equal to bc.MaxAsymmetricPayloadSize, and the channel PrivateKey must be passed in
 func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey, payload []byte, cMixParams cmix.CMIXParams) (
@@ -40,7 +35,7 @@ func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey, paylo
 	// Check payload size
 	if len(payload) > bc.MaxAsymmetricPayloadSize() {
 		return 0, ephemeral.Id{},
-			errors.Errorf(errPayloadSize, len(payload), bc.maxAsymmetricPayload())
+			errors.Errorf(errPayloadSize, len(payload), bc.MaxAsymmetricPayloadSize())
 	}
 	payloadLength := uint16(len(payload))
 
@@ -54,7 +49,8 @@ func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey, paylo
 		return 0, ephemeral.Id{}, errors.WithMessage(err, "Failed to encrypt asymmetric broadcast message")
 	}
 
-	// Create service object to send message
+	// Create service using asymmetric broadcast service tag & channel reception ID
+	// Allows anybody with this info to listen for messages on this channel
 	service := message.Service{
 		Identifier: bc.channel.ReceptionID.Bytes(),
 		Tag:        asymmetricBroadcastServiceTag,
@@ -75,11 +71,4 @@ func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey, paylo
 
 	return bc.net.Send(
 		bc.channel.ReceptionID, fp, service, sizedPayload, mac, cMixParams)
-}
-
-// Helper function for maximum number of encrypted message parts
-func (bc *broadcastClient) maxParts() int {
-	encPartSize := bc.channel.RsaPubKey.Size()
-	maxSend := bc.net.GetMaxMessageLength()
-	return maxSend / encPartSize
 }

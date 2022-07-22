@@ -25,6 +25,7 @@ import (
 type ListenerFunc func(payload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round)
 
+// Channel is the public-facing interface to interact with broadcast channels
 type Channel interface {
 	// MaxPayloadSize returns the maximum size for a symmetric broadcast payload
 	MaxPayloadSize() int
@@ -45,6 +46,7 @@ type Channel interface {
 	BroadcastAsymmetric(pk multicastRSA.PrivateKey, payload []byte, cMixParams cmix.CMIXParams) (
 		id.Round, ephemeral.Id, error)
 
+	// RegisterListener registers a listener for broadcast messages
 	RegisterListener(listenerCb ListenerFunc, method Method) error
 
 	// Stop unregisters the listener callback and stops the channel's identity

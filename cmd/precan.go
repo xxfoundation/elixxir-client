@@ -7,39 +7,87 @@
 
 // precan.go handles functions for precan users, which are not usable
 // unless you are on a localized test network.
+
 package cmd
 
 import (
-	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
-	"io/fs"
 	"io/ioutil"
-	"os"
 )
 
-// loadOrInitPrecan will build a new xxdk.E2e from existing storage
-// or from a new storage that it will create if none already exists
-func loadOrInitPrecan(precanId uint, password []byte, storeDir string,
-	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
+// precanInitCmd creates a new precanned client object.
+var precanInitCmd = &cobra.Command{
+	Use:   "precan",
+	Short: "Initialize a precanned client",
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		precanId := viper.GetUint(sendIdFlag)
+		storePassword := parsePassword(viper.GetString(passwordFlag))
+		storeDir := viper.GetString(sessionFlag)
+		initLog(viper.GetUint(logLevelFlag), viper.GetString(logFlag))
+		initPrecan(precanId, storePassword, storeDir)
+	},
+}
+
+// precanCmd loads an existing precanned client from storage. This command will fail
+// if precanInitCmd was not called previously to initialize state.
+var precanCmd = &cobra.Command{
+	Use:   "precan",
+	Short: "Initialize a precanned client",
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
+		storePassword := parsePassword(viper.GetString(passwordFlag))
+		storeDir := viper.GetString(sessionFlag)
+		cmixParams, e2eParams := initParams()
+		authCbs := makeAuthCallbacks(
+			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
+		initLog(viper.GetUint(logLevelFlag), viper.GetString(logFlag))
+		loadPrecan(storePassword, storeDir, cmixParams, e2eParams, authCbs)
+		// todo: do precan specific operations (take precan responsibility away from root.go)
+	},
+}
+
+// initPrecan initializes a
+func initPrecan(precanId uint, password []byte, storeDir string) (*xxdk.Cmix, xxdk.ReceptionIdentity) {
+	// Initialize from scratch
+	ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+
+	err = xxdk.NewPrecannedClient(precanId, string(ndfJson), storeDir, password)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+
+	// Initialize from storage
+	net, err := xxdk.OpenCmix(storeDir, password)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+
+	identity, err := xxdk.MakeLegacyReceptionIdentity(net)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+
+	err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+
+	return net, identity
+}
+
+func loadPrecan(password []byte, storeDir string, cmixParams xxdk.CMIXParams,
+	e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
 	jww.INFO.Printf("Using Precanned sender")
 
-	// create a new client if none exist
-	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
-		// Initialize from scratch
-		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-
-		err = xxdk.NewPrecannedClient(precanId, string(ndfJson), storeDir, password)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-	}
 	// Initialize from storage
 	net, err := xxdk.LoadCmix(storeDir, password, cmixParams)
 	if err != nil {
@@ -49,15 +97,7 @@ func loadOrInitPrecan(precanId uint, password []byte, storeDir string,
 	// Load or initialize xxdk.ReceptionIdentity storage
 	identity, err := xxdk.LoadReceptionIdentity(identityStorageKey, net)
 	if err != nil {
-		identity, err = xxdk.MakeLegacyReceptionIdentity(net)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-
-		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
+		jww.FATAL.Panicf("%+v", err)
 	}
 
 	messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
@@ -102,4 +142,13 @@ func addPrecanAuthenticatedChannel(messenger *xxdk.E2e, recipientID *id.ID,
 				preBytes, idBytes)
 		}
 	}
+}
+
+func init() {
+	initCmd.AddCommand(precanInitCmd)
+	rootCmd.AddCommand(precanCmd)
+
+	// todo: sendIdFlag can probably be brought into this subcommand.
+	//  This is blocked until once root.go has been refactored to no longer
+	//  have usages of sendId and sendId is self-contained in this file.
 }

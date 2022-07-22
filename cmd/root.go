@@ -976,9 +976,9 @@ func init() {
 		"Message to send")
 	viper.BindPFlag(messageFlag, rootCmd.PersistentFlags().Lookup(messageFlag))
 
-	rootCmd.Flags().UintP(sendIdFlag, "", 0,
+	rootCmd.PersistentFlags().UintP(sendIdFlag, "", 0,
 		"Use precanned user id (must be between 1 and 40, inclusive)")
-	viper.BindPFlag(sendIdFlag, rootCmd.Flags().Lookup(sendIdFlag))
+	viper.BindPFlag(sendIdFlag, rootCmd.PersistentFlags().Lookup(sendIdFlag))
 
 	rootCmd.Flags().StringP(destIdFlag, "d", "0",
 		"ID to send message to (if below 40, will be precanned. Use "+
@@ -1002,9 +1002,9 @@ func init() {
 		"", false, "Force sends to go over multiple rounds if possible")
 	viper.BindPFlag(splitSendsFlag, rootCmd.Flags().Lookup(splitSendsFlag))
 
-	rootCmd.Flags().BoolP(verifySendFlag, "", false,
+	rootCmd.PersistentFlags().BoolP(verifySendFlag, "", false,
 		"Ensure successful message sending by checking for round completion")
-	viper.BindPFlag(verifySendFlag, rootCmd.Flags().Lookup(verifySendFlag))
+	viper.BindPFlag(verifySendFlag, rootCmd.PersistentFlags().Lookup(verifySendFlag))
 
 	rootCmd.PersistentFlags().UintP(receiveCountFlag,
 		"", 1, "How many messages we should wait for before quitting")

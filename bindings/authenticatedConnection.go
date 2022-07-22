@@ -16,8 +16,8 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 )
 
-//connection tracker singleton, used to track connections so they can be
-//referenced by id back over the bindings
+// authenticatedConnectionTrackerSingleton is used to track connections so that
+// they can be referenced by ID back over the bindings.
 var authenticatedConnectionTrackerSingleton = &authenticatedConnectionTracker{
 	connections: make(map[int]*AuthenticatedConnection),
 	count:       0,
@@ -31,9 +31,9 @@ func (_ *AuthenticatedConnection) IsAuthenticated() bool {
 	return true
 }
 
-// ConnectWithAuthentication is called by the client (i.e. the one establishing
+// ConnectWithAuthentication is called by the client (i.e., the one establishing
 // connection with the server). Once a connect.Connection has been established
-// with the server and then authenticate their identity to the server.
+// with the server, it then authenticates their identity to the server.
 // accepts a marshalled ReceptionIdentity and contact.Contact object
 func (c *Cmix) ConnectWithAuthentication(e2eId int, recipientContact,
 	e2eParamsJSON []byte) (*AuthenticatedConnection, error) {
@@ -47,7 +47,7 @@ func (c *Cmix) ConnectWithAuthentication(e2eId int, recipientContact,
 		return nil, err
 	}
 
-	e2eClient, err := e2eTrackerSingleton.get(e2eId)
+	messenger, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
 		return nil, err
 	}
@@ -58,21 +58,21 @@ func (c *Cmix) ConnectWithAuthentication(e2eId int, recipientContact,
 	}
 
 	connection, err := connect.ConnectWithAuthentication(cont,
-		e2eClient.api, params)
+		messenger.api, params)
 	return authenticatedConnectionTrackerSingleton.make(connection), err
 }
 
-// connectionTracker is a singleton used to keep track of extant clients, allowing
-// for race condition free passing over the bindings
-
+// authenticatedConnectionTracker is a singleton used to keep track of extant
+// AuthenticatedConnection, allowing for race condition-free passing over the bindings.
 type authenticatedConnectionTracker struct {
 	connections map[int]*AuthenticatedConnection
 	count       int
 	mux         sync.RWMutex
 }
 
-// make makes a client from an API client, assigning it a unique ID
-func (act *authenticatedConnectionTracker) make(c connect.AuthenticatedConnection) *AuthenticatedConnection {
+// make makes a AuthenticatedConnection, assigning it a unique ID
+func (act *authenticatedConnectionTracker) make(
+	c connect.AuthenticatedConnection) *AuthenticatedConnection {
 	act.mux.Lock()
 	defer act.mux.Unlock()
 
@@ -89,21 +89,22 @@ func (act *authenticatedConnectionTracker) make(c connect.AuthenticatedConnectio
 	return act.connections[id]
 }
 
-//get returns a client given its ID
-func (act *authenticatedConnectionTracker) get(id int) (*AuthenticatedConnection, error) {
+// get returns an AuthenticatedConnection given its ID.
+func (act *authenticatedConnectionTracker) get(id int) (
+	*AuthenticatedConnection, error) {
 	act.mux.RLock()
 	defer act.mux.RUnlock()
 
 	c, exist := act.connections[id]
 	if !exist {
-		return nil, errors.Errorf("Cannot get client for id %d, client "+
+		return nil, errors.Errorf("Cannot get AuthenticatedConnection for ID %d, "+
 			"does not exist", id)
 	}
 
 	return c, nil
 }
 
-//deletes a client if it exists
+// delete deletes an AuthenticatedConnection, if it exists.
 func (act *authenticatedConnectionTracker) delete(id int) {
 	act.mux.Lock()
 	defer act.mux.Unlock()

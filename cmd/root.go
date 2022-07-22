@@ -85,6 +85,7 @@ var rootCmd = &cobra.Command{
 			recipientContact = receptionIdentity.GetContact()
 		} else {
 			recipientID = cmdUtils.ParseRecipient(destId)
+			jww.INFO.Printf("destId: %v\nrecipientId: %v", destId, recipientID)
 		}
 		isPrecanPartner := isPrecanID(recipientID)
 

@@ -12,13 +12,16 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 )
 
-// GenerateSecret creates a secret password using a system-based
-// pseudorandom number generator. It takes 1 parameter, `numBytes`,
-// which should be set to 32, but can be set higher in certain cases.
+// GenerateSecret creates a secret password using a system-based pseudorandom
+// number generator.
+//
+// Parameters:
+//  - numBytes - The size of secret. It should be set to 32, but can be set
+//   higher in certain cases.
 func GenerateSecret(numBytes int) []byte {
 	if numBytes < 32 {
-		jww.FATAL.Panicf("Secrets must have at least 32 bytes " +
-			"(256 bits) of entropy.")
+		jww.FATAL.Panic(
+			"Secrets must have at least 32 bytes (256 bits) of entropy.")
 	}
 
 	out := make([]byte, numBytes)

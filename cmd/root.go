@@ -441,6 +441,8 @@ func initE2e(cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams,
 
 	// Initialize the client of the proper type
 	var messenger *xxdk.E2e
+	// todo: eventually this will be removed in lieu of respective init subcommands
+	//  for each code path (ie client init precan, etc).
 	if precanId != 0 {
 		messenger = loadOrInitPrecan(precanId, storePassword, storeDir, cmixParams, e2eParams, callbacks)
 	} else if protoUserPath != "" {

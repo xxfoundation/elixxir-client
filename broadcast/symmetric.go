@@ -53,7 +53,8 @@ func (bc *broadcastClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams)
 	encryptedPayload, mac, fp := bc.channel.EncryptSymmetric(payload, rng)
 	rng.Close()
 
-	// Create service
+	// Create service using symmetric broadcast service tag & channel reception ID
+	// Allows anybody with this info to listen for messages on this channel
 	service := message.Service{
 		Identifier: bc.channel.ReceptionID.Bytes(),
 		Tag:        symmetricBroadcastServiceTag,

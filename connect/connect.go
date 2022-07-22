@@ -93,7 +93,7 @@ func Connect(recipient contact.Contact, messenger *xxdk.E2e,
 	messenger.GetAuth().AddPartnerCallback(recipient.ID, callback)
 
 	// Perform the auth request
-	_, err := messenger.GetAuth().Request(recipient, nil)
+	_, err := messenger.GetAuth().Reset(recipient)
 	if err != nil {
 		return nil, err
 	}

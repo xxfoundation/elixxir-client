@@ -148,6 +148,7 @@ func (a serverAuthCallback) Request(requestor contact.Contact,
 }
 
 // Reset will be called when an auth Reset operation occurs.
-func (a serverAuthCallback) Reset(contact.Contact,
-	receptionID.EphemeralIdentity, rounds.Round, *xxdk.E2e) {
+func (a serverAuthCallback) Reset(requestor contact.Contact,
+	receptionId receptionID.EphemeralIdentity, round rounds.Round, messenger *xxdk.E2e) {
+	a.Request(requestor, receptionId, round, messenger)
 }

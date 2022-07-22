@@ -13,7 +13,6 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/factID"
 	"gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -28,8 +27,7 @@ type searchCallback func([]contact.Contact, error)
 // used to search for multiple users at once; that can have a privacy reduction.
 // Instead, it is intended to be used to search for a user where multiple pieces
 // of information is known.
-func Search(net udCmix, events event.Reporter,
-	rng csprng.Source, grp *cyclic.Group,
+func Search(messenger udE2e,
 	udContact contact.Contact, callback searchCallback,
 	list fact.FactList,
 	params single.RequestParams) ([]id.Round,
@@ -46,6 +44,14 @@ func Search(net udCmix, events event.Reporter,
 			errors.WithMessage(err, "Failed to form outgoing search request.")
 	}
 
+	// Extract information from messenger
+	net := messenger.GetCmix()
+	events := messenger.GetEventReporter()
+	grp := messenger.GetE2E().GetGroup()
+	rng := messenger.GetRng().GetStream()
+	defer rng.Close()
+
+	// Build response handler
 	response := searchResponse{
 		cb:       callback,
 		services: net,
@@ -54,6 +60,7 @@ func Search(net udCmix, events event.Reporter,
 		factMap:  factMap,
 	}
 
+	// Send message
 	rndId, ephId, err := single.TransmitRequest(udContact, SearchTag,
 		requestMarshaled,
 		response, params, net, rng, grp)

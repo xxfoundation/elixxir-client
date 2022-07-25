@@ -28,21 +28,21 @@ var broadcastCmd = &cobra.Command{
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
 			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
-		client := initE2e(cmixParams, e2eParams, authCbs)
+		user := initE2e(cmixParams, e2eParams, authCbs)
 
 		// Write user contact to file
-		user := client.GetReceptionIdentity()
-		jww.INFO.Printf("User: %s", user.ID)
-		writeContact(user.GetContact())
+		identity := user.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", identity.ID)
+		writeContact(identity.GetContact())
 
-		err := client.StartNetworkFollower(5 * time.Second)
+		err := user.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to start network follower: %+v", err)
 		}
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetCmix().AddHealthCallback(
+		user.GetCmix().AddHealthCallback(
 			func(isConnected bool) {
 				connected <- isConnected
 			})
@@ -75,7 +75,7 @@ var broadcastCmd = &cobra.Command{
 			var cryptChannel *crypto.Channel
 			if viper.GetBool(broadcastNewFlag) {
 				// Create a new broadcast channel
-				cryptChannel, pk, err = crypto.NewChannel(name, desc, client.GetRng().GetStream())
+				cryptChannel, pk, err = crypto.NewChannel(name, desc, user.GetRng().GetStream())
 				if err != nil {
 					jww.FATAL.Panicf("Failed to create new channel: %+v", err)
 				}
@@ -152,7 +152,7 @@ var broadcastCmd = &cobra.Command{
 		asymmetric := viper.GetString(broadcastAsymmetricFlag)
 
 		// Connect to broadcast channel
-		bcl, err := broadcast.NewBroadcastChannel(*channel, client.GetCmix(), client.GetRng())
+		bcl, err := broadcast.NewBroadcastChannel(*channel, user.GetCmix(), user.GetRng())
 
 		// Create & register symmetric receiver callback
 		receiveChan := make(chan []byte, 100)
@@ -284,7 +284,7 @@ var broadcastCmd = &cobra.Command{
 
 		jww.INFO.Printf("Received %d/%d Messages!", receivedCount, expectedCnt)
 		bcl.Stop()
-		err = client.StopNetworkFollower()
+		err = user.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf("Failed to cleanly close threads: %+v\n", err)
 		}

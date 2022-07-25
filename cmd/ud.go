@@ -27,7 +27,7 @@ import (
 
 // udCmd is the user discovery subcommand, which allows for user lookup,
 // registration, and search. This basically runs a client for these functions
-// with the UD module enabled. Normally, clients do not need it so it is not
+// with the UD module enabled. Normally, clients do not need it, so it is not
 // loaded for the rest of the commands.
 var udCmd = &cobra.Command{
 	Use:   "ud",
@@ -37,14 +37,14 @@ var udCmd = &cobra.Command{
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
 			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
-		client := initE2e(cmixParams, e2eParams, authCbs)
+		user := initE2e(cmixParams, e2eParams, authCbs)
 
-		// get user and save contact to file
-		user := client.GetReceptionIdentity()
-		jww.INFO.Printf("[UD]User: %s", user.ID)
-		writeContact(user.GetContact())
+		// get identity and save contact to file
+		identity := user.GetReceptionIdentity()
+		jww.INFO.Printf("[UD]User: %s", identity.ID)
+		writeContact(identity.GetContact())
 
-		err := client.StartNetworkFollower(50 * time.Millisecond)
+		err := user.StartNetworkFollower(50 * time.Millisecond)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -53,7 +53,7 @@ var udCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetCmix().AddHealthCallback(
+		user.GetCmix().AddHealthCallback(
 			func(isconnected bool) {
 				connected <- isconnected
 			})
@@ -62,14 +62,14 @@ var udCmd = &cobra.Command{
 		jww.TRACE.Printf("[UD] Connected!")
 
 		// Make user discovery manager
-		rng := client.GetRng()
+		rng := user.GetRng()
 		userToRegister := viper.GetString(udRegisterFlag)
-		jww.TRACE.Printf("[UD] Registering user %v...", userToRegister)
-		userDiscoveryMgr, err := ud.NewManager(client, client.GetComms(),
-			client.NetworkFollowerStatus, userToRegister, nil)
+		jww.TRACE.Printf("[UD] Registering identity %v...", userToRegister)
+		userDiscoveryMgr, err := ud.NewManager(user, user.GetComms(),
+			user.NetworkFollowerStatus, userToRegister, nil)
 		if err != nil {
 			if strings.Contains(err.Error(), ud.IsRegisteredErr) {
-				userDiscoveryMgr, err = ud.LoadManager(client, client.GetComms())
+				userDiscoveryMgr, err = ud.LoadManager(user, user.GetComms())
 				if err != nil {
 					jww.FATAL.Panicf("Failed to load UD manager: %+v", err)
 				}
@@ -78,7 +78,7 @@ var udCmd = &cobra.Command{
 
 			}
 		}
-		jww.INFO.Printf("[UD] Registered user %v", userToRegister)
+		jww.INFO.Printf("[UD] Registered identity %v", userToRegister)
 
 		var newFacts fact.FactList
 		phone := viper.GetString(udAddPhoneFlag)
@@ -127,8 +127,8 @@ var udCmd = &cobra.Command{
 
 		udContact, err := userDiscoveryMgr.GetContact()
 		if err != nil {
-			fmt.Printf("Failed to get user discovery contact object: %+v", err)
-			jww.FATAL.Printf("Failed to get user discovery contact object: %+v", err)
+			fmt.Printf("Failed to get identity discovery contact object: %+v", err)
+			jww.FATAL.Printf("Failed to get identity discovery contact object: %+v", err)
 		}
 
 		// Handle lookup (verification) process
@@ -146,8 +146,8 @@ var udCmd = &cobra.Command{
 			}
 
 			stream := rng.GetStream()
-			_, _, err = ud.Lookup(client.GetCmix(),
-				stream, client.GetE2E().GetGroup(),
+			_, _, err = ud.Lookup(user.GetCmix(),
+				stream, user.GetE2E().GetGroup(),
 				udContact, cb, lookupID, single.GetDefaultRequestParams())
 			if err != nil {
 				jww.WARN.Printf("Failed UD lookup: %+v", err)
@@ -166,13 +166,13 @@ var udCmd = &cobra.Command{
 			}
 			jww.INFO.Printf("[UD] BATCHADD: Running")
 			restored, _, _, err := xxmutils.RestoreContactsFromBackup(
-				idListFile, client, userDiscoveryMgr, nil)
+				idListFile, user, userDiscoveryMgr, nil)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
 			for i := 0; i < len(restored); i++ {
 				uid := restored[i]
-				for !client.GetE2E().HasAuthenticatedChannel(uid) {
+				for !user.GetE2E().HasAuthenticatedChannel(uid) {
 					time.Sleep(time.Second)
 				}
 				jww.INFO.Printf("[UD] Authenticated channel established for %s", uid)
@@ -214,18 +214,18 @@ var udCmd = &cobra.Command{
 			}
 			err = userDiscoveryMgr.PermanentDeleteAccount(f)
 			if err != nil {
-				fmt.Printf("Couldn't remove user %s\n",
+				fmt.Printf("Couldn't remove identity %s\n",
 					userToRemove)
 				jww.FATAL.Panicf(
-					"Failed to remove user %s: %+v",
+					"Failed to remove identity %s: %+v",
 					userToRemove, err)
 			}
-			fmt.Printf("Removed user from discovery: %s\n",
+			fmt.Printf("Removed identity from discovery: %s\n",
 				userToRemove)
 		}
 
 		if len(facts) == 0 {
-			err = client.StopNetworkFollower()
+			err = user.StopNetworkFollower()
 			if err != nil {
 				jww.WARN.Print(err)
 			}
@@ -244,16 +244,16 @@ var udCmd = &cobra.Command{
 		stream := rng.GetStream()
 		defer stream.Close()
 		jww.INFO.Printf("[UD] Search: %v", facts)
-		_, _, err = ud.Search(client.GetCmix(),
-			client.GetEventReporter(),
-			stream, client.GetE2E().GetGroup(),
+		_, _, err = ud.Search(user.GetCmix(),
+			user.GetEventReporter(),
+			stream, user.GetE2E().GetGroup(),
 			udContact, cb, facts, single.GetDefaultRequestParams())
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
 		time.Sleep(91 * time.Second)
-		err = client.StopNetworkFollower()
+		err = user.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Print(err)
 		}

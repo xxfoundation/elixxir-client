@@ -129,15 +129,15 @@ type FileTransferReceiveProgressCallback interface {
 //  - paramsJSON - JSON marshalled fileTransfer.Params
 func InitFileTransfer(e2eID int, paramsJSON []byte) (*FileTransfer, error) {
 
-	// Get messenger from singleton
-	messenger, err := e2eTrackerSingleton.get(e2eID)
+	// Get user from singleton
+	user, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Client info
-	myID := messenger.api.GetReceptionIdentity().ID
-	rng := messenger.api.GetRng()
+	myID := user.api.GetReceptionIdentity().ID
+	rng := user.api.GetRng()
 
 	params, err := parseFileTransferParams(paramsJSON)
 	if err != nil {
@@ -146,16 +146,16 @@ func InitFileTransfer(e2eID int, paramsJSON []byte) (*FileTransfer, error) {
 
 	// Create file transfer manager
 	m, err := fileTransfer.NewManager(params, myID,
-		messenger.api.GetCmix(), messenger.api.GetStorage(), rng)
+		user.api.GetCmix(), user.api.GetStorage(), rng)
 
 	// Add file transfer processes to client services tracking
-	err = messenger.api.AddService(m.StartProcesses)
+	err = user.api.AddService(m.StartProcesses)
 	if err != nil {
 		return nil, err
 	}
 
 	// Return wrapped manager
-	return &FileTransfer{ft: m, e2eCl: messenger}, nil
+	return &FileTransfer{ft: m, e2eCl: user}, nil
 }
 
 // Send is the bindings-level function for sending a file.

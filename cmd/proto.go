@@ -25,7 +25,7 @@ func loadOrInitProto(protoUserPath string, password []byte, storeDir string,
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
 	jww.INFO.Printf("Using Proto sender")
 
-	// create a new client if none exist
+	// create a new cMix if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
 		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
@@ -70,9 +70,9 @@ func loadOrInitProto(protoUserPath string, password []byte, storeDir string,
 		}
 	}
 
-	messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
+	user, err := xxdk.Login(net, cbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	return messenger
+	return user
 }

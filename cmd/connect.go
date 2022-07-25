@@ -70,7 +70,7 @@ func secureConnServer(forceLegacy bool, statePass []byte, statePath, regCode str
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
 	connChan := make(chan connect.Connection, 1)
 
-	// Load client state and identity------------------------------------------
+	// Load cMix state and identity------------------------------------------
 	net := loadOrInitCmix(statePass, statePath, regCode, cmixParams)
 	identity := loadOrInitReceptionIdentity(forceLegacy, net)
 
@@ -106,7 +106,7 @@ func secureConnServer(forceLegacy bool, statePass []byte, statePath, regCode str
 
 	// Start network threads---------------------------------------------------
 	networkFollowerTimeout := 5 * time.Second
-	err = connectServer.Messenger.StartNetworkFollower(networkFollowerTimeout)
+	err = connectServer.User.StartNetworkFollower(networkFollowerTimeout)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to start network follower: %+v", err)
 	}
@@ -132,7 +132,7 @@ func secureConnServer(forceLegacy bool, statePass []byte, statePath, regCode str
 	connected := make(chan bool, 10)
 	// Provide a callback that will be signalled when network health
 	// status changes
-	connectServer.Messenger.GetCmix().AddHealthCallback(
+	connectServer.User.GetCmix().AddHealthCallback(
 		func(isConnected bool) {
 			connected <- isConnected
 		})
@@ -146,7 +146,7 @@ func secureConnServer(forceLegacy bool, statePass []byte, statePath, regCode str
 	select {
 	case conn := <-connChan:
 		// Perform functionality shared by client & server
-		miscConnectionFunctions(connectServer.Messenger, conn)
+		miscConnectionFunctions(connectServer.User, conn)
 
 	case <-connectionTimeout.C:
 		connectionTimeout.Stop()
@@ -173,7 +173,7 @@ func secureConnServer(forceLegacy bool, statePass []byte, statePath, regCode str
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
 
-	err = connectServer.Messenger.StopNetworkFollower()
+	err = connectServer.User.StopNetworkFollower()
 	if err != nil {
 		jww.ERROR.Printf("Failed to stop network follower: %+v", err)
 	} else {
@@ -190,7 +190,7 @@ func insecureConnServer(forceLegacy bool, statePass []byte, statePath, regCode s
 
 	connChan := make(chan connect.Connection, 1)
 
-	// Load client state and identity------------------------------------------
+	// Load cMix state and identity------------------------------------------
 	net := loadOrInitCmix(statePass, statePath, regCode, cmixParams)
 	identity := loadOrInitReceptionIdentity(forceLegacy, net)
 
@@ -224,7 +224,7 @@ func insecureConnServer(forceLegacy bool, statePass []byte, statePath, regCode s
 
 	// Start network threads---------------------------------------------------
 	networkFollowerTimeout := 5 * time.Second
-	err = connectServer.Messenger.StartNetworkFollower(networkFollowerTimeout)
+	err = connectServer.User.StartNetworkFollower(networkFollowerTimeout)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to start network follower: %+v", err)
 	}
@@ -250,7 +250,7 @@ func insecureConnServer(forceLegacy bool, statePass []byte, statePath, regCode s
 	connected := make(chan bool, 10)
 	// Provide a callback that will be signalled when network health
 	// status changes
-	connectServer.Messenger.GetCmix().AddHealthCallback(
+	connectServer.User.GetCmix().AddHealthCallback(
 		func(isConnected bool) {
 			connected <- isConnected
 		})
@@ -264,7 +264,7 @@ func insecureConnServer(forceLegacy bool, statePass []byte, statePath, regCode s
 	select {
 	case conn := <-connChan:
 		// Perform functionality shared by client & server
-		miscConnectionFunctions(connectServer.Messenger, conn)
+		miscConnectionFunctions(connectServer.User, conn)
 
 	case <-connectionTimeout.C:
 		connectionTimeout.Stop()
@@ -289,7 +289,7 @@ func insecureConnServer(forceLegacy bool, statePass []byte, statePath, regCode s
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
 
-	err = connectServer.Messenger.StopNetworkFollower()
+	err = connectServer.User.StopNetworkFollower()
 	if err != nil {
 		jww.ERROR.Printf("Failed to stop network follower: %+v", err)
 	} else {
@@ -307,15 +307,15 @@ func insecureConnServer(forceLegacy bool, statePass []byte, statePath, regCode s
 // Secure (authenticated) connection client path
 func secureConnClient(forceLegacy bool, statePass []byte, statePath, regCode string,
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
-	// Load client ------------------------------------------------------------------
-	var messenger *xxdk.E2e
+	// Load user ------------------------------------------------------------------
+	var user *xxdk.E2e
 	if viper.GetBool(connectionEphemeralFlag) {
 		fmt.Println("Loading ephemerally")
-		messenger = loadOrInitEphemeral(forceLegacy, statePass, statePath, regCode,
+		user = loadOrInitEphemeral(forceLegacy, statePass, statePath, regCode,
 			cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
 	} else {
 		fmt.Println("Loading non-ephemerally")
-		messenger = loadOrInitMessenger(forceLegacy, statePass, statePath, regCode,
+		user = loadOrInitUser(forceLegacy, statePass, statePath, regCode,
 			cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
 	}
 
@@ -323,7 +323,7 @@ func secureConnClient(forceLegacy bool, statePass []byte, statePath, regCode str
 
 	// Set networkFollowerTimeout to a value of your choice (seconds)
 	networkFollowerTimeout := 5 * time.Second
-	err := messenger.StartNetworkFollower(networkFollowerTimeout)
+	err := user.StartNetworkFollower(networkFollowerTimeout)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to start network follower: %+v", err)
 	}
@@ -349,7 +349,7 @@ func secureConnClient(forceLegacy bool, statePass []byte, statePath, regCode str
 	connected := make(chan bool, 10)
 	// Provide a callback that will be signalled when network
 	// health status changes
-	messenger.GetCmix().AddHealthCallback(
+	user.GetCmix().AddHealthCallback(
 		func(isConnected bool) {
 			connected <- isConnected
 		})
@@ -362,7 +362,7 @@ func secureConnClient(forceLegacy bool, statePass []byte, statePath, regCode str
 	fmt.Println("Sending connection request")
 
 	// Establish connection with partner
-	conn, err := connect.ConnectWithAuthentication(serverContact, messenger,
+	conn, err := connect.ConnectWithAuthentication(serverContact, user,
 		e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("[CONN] Failed to build connection with %s: %v",
@@ -373,7 +373,7 @@ func secureConnClient(forceLegacy bool, statePass []byte, statePath, regCode str
 		conn.GetPartner().PartnerId())
 	fmt.Println("Established authenticated connection with server.")
 
-	miscConnectionFunctions(messenger, conn)
+	miscConnectionFunctions(user, conn)
 
 }
 
@@ -381,15 +381,15 @@ func secureConnClient(forceLegacy bool, statePass []byte, statePath, regCode str
 func insecureConnClient(forceLegacy bool, statePass []byte, statePath, regCode string,
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams) {
 
-	// Load client ------------------------------------------------------------------
-	var messenger *xxdk.E2e
+	// Load user ------------------------------------------------------------------
+	var user *xxdk.E2e
 	if viper.GetBool(connectionEphemeralFlag) {
 		fmt.Println("Loading ephemerally")
-		messenger = loadOrInitEphemeral(forceLegacy, statePass, statePath, regCode,
+		user = loadOrInitEphemeral(forceLegacy, statePass, statePath, regCode,
 			cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
 	} else {
 		fmt.Println("Loading non-ephemerally")
-		messenger = loadOrInitMessenger(forceLegacy, statePass, statePath, regCode,
+		user = loadOrInitUser(forceLegacy, statePass, statePath, regCode,
 			cmixParams, e2eParams, xxdk.DefaultAuthCallbacks{})
 	}
 
@@ -397,7 +397,7 @@ func insecureConnClient(forceLegacy bool, statePass []byte, statePath, regCode s
 
 	// Set networkFollowerTimeout to a value of your choice (seconds)
 	networkFollowerTimeout := 5 * time.Second
-	err := messenger.StartNetworkFollower(networkFollowerTimeout)
+	err := user.StartNetworkFollower(networkFollowerTimeout)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to start network follower: %+v", err)
 	}
@@ -423,7 +423,7 @@ func insecureConnClient(forceLegacy bool, statePass []byte, statePath, regCode s
 	connected := make(chan bool, 10)
 	// Provide a callback that will be signalled when network
 	// health status changes
-	messenger.GetCmix().AddHealthCallback(
+	user.GetCmix().AddHealthCallback(
 		func(isConnected bool) {
 			connected <- isConnected
 		})
@@ -438,7 +438,7 @@ func insecureConnClient(forceLegacy bool, statePass []byte, statePath, regCode s
 		serverContact.ID)
 
 	// Establish connection with partner
-	handler, err := connect.Connect(serverContact, messenger,
+	handler, err := connect.Connect(serverContact, user,
 		e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("[CONN] Failed to build connection with %s: %v",
@@ -449,7 +449,7 @@ func insecureConnClient(forceLegacy bool, statePass []byte, statePath, regCode s
 	fmt.Println("Established connection with server")
 	jww.INFO.Printf("[CONN] Established connection with %s", handler.GetPartner().PartnerId())
 
-	miscConnectionFunctions(messenger, handler)
+	miscConnectionFunctions(user, handler)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////
@@ -458,7 +458,7 @@ func insecureConnClient(forceLegacy bool, statePass []byte, statePath, regCode s
 
 // miscConnectionFunctions contains miscellaneous functionality for the subcommand connect.
 // This functionality should be shared between client & server.
-func miscConnectionFunctions(client *xxdk.E2e, conn connect.Connection) {
+func miscConnectionFunctions(user *xxdk.E2e, conn connect.Connection) {
 	// Send a message to connection partner--------------------------------------------
 	msgBody := viper.GetString(messageFlag)
 	paramsE2E := e2e.GetDefaultParams()
@@ -476,7 +476,7 @@ func miscConnectionFunctions(client *xxdk.E2e, conn connect.Connection) {
 
 			// Verify message sends were successful when verifySendFlag is present
 			if viper.GetBool(verifySendFlag) {
-				if !verifySendSuccess(client, paramsE2E, roundIDs,
+				if !verifySendSuccess(user, paramsE2E, roundIDs,
 					conn.GetPartner().PartnerId(), payload) {
 					continue
 				}

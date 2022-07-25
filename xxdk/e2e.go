@@ -39,11 +39,11 @@ type E2e struct {
 // initializing an E2e object without an E2e-dependant auth.Callbacks.
 type AuthCallbacks interface {
 	Request(partner contact.Contact, receptionID receptionID.EphemeralIdentity,
-		round rounds.Round, messenger *E2e)
+		round rounds.Round, user *E2e)
 	Confirm(partner contact.Contact, receptionID receptionID.EphemeralIdentity,
-		round rounds.Round, messenger *E2e)
+		round rounds.Round, user *E2e)
 	Reset(partner contact.Contact, receptionID receptionID.EphemeralIdentity,
-		round rounds.Round, messenger *E2e)
+		round rounds.Round, user *E2e)
 }
 
 // Login creates a new E2e backed by the xxdk.Cmix persistent versioned.KV. It

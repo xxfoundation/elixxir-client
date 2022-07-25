@@ -117,12 +117,12 @@ func (a serverAuthCallback) Confirm(contact.Contact,
 
 // Request will be called when an auth Request message is processed.
 func (a serverAuthCallback) Request(requestor contact.Contact,
-	_ receptionID.EphemeralIdentity, _ rounds.Round, messenger *xxdk.E2e) {
+	_ receptionID.EphemeralIdentity, _ rounds.Round, user *xxdk.E2e) {
 	if a.requestCallback == nil {
 		jww.ERROR.Printf("Received a request when requests are" +
 			"not enable, will not accept")
 	}
-	_, err := messenger.GetAuth().Confirm(requestor)
+	_, err := user.GetAuth().Confirm(requestor)
 	if err != nil {
 		jww.ERROR.Printf("Unable to build connection with "+
 			"partner %s: %+v", requestor.ID, err)
@@ -130,7 +130,7 @@ func (a serverAuthCallback) Request(requestor contact.Contact,
 		a.requestCallback(nil)
 	}
 	// After confirmation, get the new partner
-	newPartner, err := messenger.GetE2E().GetPartner(requestor.ID)
+	newPartner, err := user.GetE2E().GetPartner(requestor.ID)
 	if err != nil {
 		jww.ERROR.Printf("Unable to build connection with "+
 			"partner %s: %+v", requestor.ID, err)
@@ -142,13 +142,13 @@ func (a serverAuthCallback) Request(requestor contact.Contact,
 
 	// Return the new Connection object
 	c := BuildConnection(
-		newPartner, messenger.GetE2E(), messenger.GetAuth(), a.connectionParams)
+		newPartner, user.GetE2E(), user.GetAuth(), a.connectionParams)
 	a.cl.Add(c)
 	a.requestCallback(c)
 }
 
 // Reset will be called when an auth Reset operation occurs.
 func (a serverAuthCallback) Reset(requestor contact.Contact,
-	receptionId receptionID.EphemeralIdentity, round rounds.Round, messenger *xxdk.E2e) {
-	a.Request(requestor, receptionId, round, messenger)
+	receptionId receptionID.EphemeralIdentity, round rounds.Round, user *xxdk.E2e) {
+	a.Request(requestor, receptionId, round, user)
 }

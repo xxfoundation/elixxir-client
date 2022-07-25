@@ -40,7 +40,7 @@ func makeAuthCallbacks(autoConfirm bool, params xxdk.E2EParams) *authCallbacks {
 
 func (a *authCallbacks) Request(requestor contact.Contact,
 	receptionID receptionID.EphemeralIdentity,
-	round rounds.Round, messenger *xxdk.E2e) {
+	round rounds.Round, user *xxdk.E2e) {
 	msg := fmt.Sprintf("Authentication channel request from: %s\n",
 		requestor.ID)
 	jww.INFO.Printf(msg)
@@ -49,9 +49,9 @@ func (a *authCallbacks) Request(requestor contact.Contact,
 		jww.INFO.Printf("Channel Request: %s",
 			requestor.ID)
 		if viper.GetBool(verifySendFlag) { // Verify message sends were successful
-			acceptChannelVerified(messenger, requestor.ID, a.params)
+			acceptChannelVerified(user, requestor.ID, a.params)
 		} else {
-			acceptChannel(messenger, requestor.ID)
+			acceptChannel(user, requestor.ID)
 		}
 
 		a.confCh <- requestor.ID
@@ -75,9 +75,9 @@ func (a *authCallbacks) Reset(requestor contact.Contact,
 	fmt.Printf(msg)
 }
 
-func registerMessageListener(client *xxdk.E2e) chan receive.Message {
+func registerMessageListener(user *xxdk.E2e) chan receive.Message {
 	recvCh := make(chan receive.Message, 10000)
-	listenerID := client.GetE2E().RegisterChannel("DefaultCLIReceiver",
+	listenerID := user.GetE2E().RegisterChannel("DefaultCLIReceiver",
 		receive.AnyUser(), catalog.NoType, recvCh)
 	jww.INFO.Printf("Message ListenerID: %v", listenerID)
 	return recvCh

@@ -37,7 +37,7 @@ import (
 // xxDK users should not use this function. This function is used by
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
-func RestoreContactsFromBackup(backupPartnerIDs []byte, messenger *xxdk.E2e,
+func RestoreContactsFromBackup(backupPartnerIDs []byte, user *xxdk.E2e,
 	udManager *ud.Manager,
 	updatesCb interfaces.RestoreContactsUpdater) ([]*id.ID, []*id.ID,
 	[]error, error) {
@@ -63,7 +63,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, messenger *xxdk.E2e,
 	}
 
 	store := stateStore{
-		apiStore: messenger.GetStorage(),
+		apiStore: user.GetStorage(),
 	}
 
 	// Unmarshal IDs and then check restore state
@@ -99,8 +99,8 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, messenger *xxdk.E2e,
 	rsWg := &sync.WaitGroup{}
 	rsWg.Add(numRoutines)
 	for i := 0; i < numRoutines; i++ {
-		go LookupContacts(lookupCh, foundCh, failCh, messenger, udContact, lcWg)
-		go ResetSessions(resetContactCh, restoredCh, failCh, messenger,
+		go LookupContacts(lookupCh, foundCh, failCh, user, udContact, lcWg)
+		go ResetSessions(resetContactCh, restoredCh, failCh, user,
 			rsWg)
 	}
 
@@ -178,13 +178,13 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, messenger *xxdk.E2e,
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
 func LookupContacts(in chan *id.ID, out chan *contact.Contact,
-	failCh chan failure, messenger *xxdk.E2e, udContact contact.Contact,
+	failCh chan failure, user *xxdk.E2e, udContact contact.Contact,
 	wg *sync.WaitGroup) {
 	defer wg.Done()
 	// Start looking up contacts with user discovery and feed this
 	// contacts channel.
 	for lookupID := range in {
-		c, err := LookupContact(lookupID, messenger, udContact)
+		c, err := LookupContact(lookupID, user, udContact)
 		if err == nil {
 			out <- c
 			continue
@@ -205,10 +205,10 @@ func LookupContacts(in chan *id.ID, out chan *contact.Contact,
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
 func ResetSessions(in, out chan *contact.Contact, failCh chan failure,
-	messenger *xxdk.E2e, wg *sync.WaitGroup) {
+	user *xxdk.E2e, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for c := range in {
-		_, err := messenger.GetAuth().Reset(*c)
+		_, err := user.GetAuth().Reset(*c)
 		if err == nil {
 			out <- c
 			continue
@@ -224,7 +224,7 @@ func ResetSessions(in, out chan *contact.Contact, failCh chan failure,
 // xxDK users should not use this function. This function is used by
 // the mobile phone apps and are not intended to be part of the xxDK. It
 // should be treated as internal functions specific to the phone apps.
-func LookupContact(userID *id.ID, messenger *xxdk.E2e, udContact contact.Contact) (
+func LookupContact(userID *id.ID, user *xxdk.E2e, udContact contact.Contact) (
 	*contact.Contact, error) {
 	// This is a little wonky, but wait until we get called then
 	// set the result to the contact objects details if there is
@@ -243,9 +243,9 @@ func LookupContact(userID *id.ID, messenger *xxdk.E2e, udContact contact.Contact
 	waiter.Lock()
 
 	// in MS, so 90 seconds
-	stream := messenger.GetRng().GetStream()
+	stream := user.GetRng().GetStream()
 	defer stream.Close()
-	_, _, err = ud.Lookup(messenger.GetCmix(), stream, messenger.GetE2E().GetGroup(),
+	_, _, err = ud.Lookup(user.GetCmix(), stream, user.GetE2E().GetGroup(),
 		udContact, lookupCB, userID, single.GetDefaultRequestParams())
 
 	// Now force a wait for callback to exit

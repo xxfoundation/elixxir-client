@@ -38,26 +38,26 @@ var ftCmd = &cobra.Command{
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
 			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
-		client := initE2e(cmixParams, e2eParams, authCbs)
+		user := initE2e(cmixParams, e2eParams, authCbs)
 
 		// Print user's reception ID and save contact file
-		user := client.GetReceptionIdentity()
-		jww.INFO.Printf("User: %s", user.ID)
-		writeContact(user.GetContact())
+		identity := user.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", identity.ID)
+		writeContact(identity.GetContact())
 
 		// Start the network follower
-		err := client.StartNetworkFollower(5 * time.Second)
+		err := user.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to start the network follower: %+v", err)
 		}
 
 		// Initialize the file transfer manager
 		maxThroughput := viper.GetInt(fileMaxThroughputFlag)
-		m, receiveChan := initFileTransferManager(client, maxThroughput)
+		m, receiveChan := initFileTransferManager(user, maxThroughput)
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetCmix().AddHealthCallback(
+		user.GetCmix().AddHealthCallback(
 			func(isConnected bool) {
 				connected <- isConnected
 			})
@@ -67,7 +67,7 @@ var ftCmd = &cobra.Command{
 		for numReg, total := 1, 100; numReg < (total*3)/4; {
 			time.Sleep(1 * time.Second)
 
-			numReg, total, err = client.GetNodeRegistrationStatus()
+			numReg, total, err = user.GetNodeRegistrationStatus()
 			if err != nil {
 				jww.FATAL.Panicf(
 					"Failed to get node registration status: %+v", err)
@@ -110,7 +110,7 @@ var ftCmd = &cobra.Command{
 		receiveQuit <- struct{}{}
 
 		// Stop network follower
-		err = client.StopNetworkFollower()
+		err = user.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf("[FT] Failed to stop network follower: %+v", err)
 		}
@@ -134,7 +134,7 @@ type receivedFtResults struct {
 // initFileTransferManager creates a new file transfer manager with a new
 // reception callback. Returns the file transfer manager and the channel that
 // will be triggered when the callback is called.
-func initFileTransferManager(messenger *xxdk.E2e, maxThroughput int) (
+func initFileTransferManager(user *xxdk.E2e, maxThroughput int) (
 	*ftE2e.Wrapper, chan receivedFtResults) {
 
 	// Create interfaces.ReceiveCallback that returns the results on a channel
@@ -154,24 +154,24 @@ func initFileTransferManager(messenger *xxdk.E2e, maxThroughput int) (
 
 	// Create new manager
 	manager, err := ft.NewManager(p,
-		messenger.GetReceptionIdentity().ID,
-		messenger.GetCmix(),
-		messenger.GetStorage(),
-		messenger.GetRng())
+		user.GetReceptionIdentity().ID,
+		user.GetCmix(),
+		user.GetStorage(),
+		user.GetRng())
 	if err != nil {
 		jww.FATAL.Panicf(
 			"[FT] Failed to create new file transfer manager: %+v", err)
 	}
 
 	// Start the file transfer sending and receiving threads
-	err = messenger.AddService(manager.StartProcesses)
+	err = user.AddService(manager.StartProcesses)
 	if err != nil {
 		jww.FATAL.Panicf("[FT] Failed to start file transfer threads: %+v", err)
 	}
 
 	e2eParams := ftE2e.DefaultParams()
 	e2eFt, err := ftE2e.NewWrapper(receiveCB, e2eParams, manager,
-		messenger.GetReceptionIdentity().ID, messenger.GetE2E(), messenger.GetCmix())
+		user.GetReceptionIdentity().ID, user.GetE2E(), user.GetCmix())
 	if err != nil {
 		jww.FATAL.Panicf(
 			"[FT] Failed to create new e2e file transfer wrapper: %+v", err)

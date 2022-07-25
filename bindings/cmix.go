@@ -35,7 +35,7 @@ type Cmix struct {
 	id  int
 }
 
-// NewCmix creates client storage, generates keys, connects, and registers
+// NewCmix creates user storage, generates keys, connects, and registers
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
@@ -49,8 +49,8 @@ func NewCmix(ndfJSON, storageDir string, password []byte, registrationCode strin
 	return nil
 }
 
-// LoadCmix will load an existing client from the storageDir using the password.
-// This will fail if the client does not exist or the password is incorrect.
+// LoadCmix will load an existing user storage from the storageDir using the password.
+// This will fail if the user storage does not exist or the password is incorrect.
 //
 // The password is passed as a byte array so that it can be cleared from memory
 // and stored as securely as possible using the MemGuard library.

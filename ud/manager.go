@@ -143,7 +143,7 @@ func NewManagerFromBackup(user udE2e, comms Comms, follower udNetworkStatus,
 	}
 
 	// Set as registered. Since it's from a backup,
-	// the client is already registered
+	// the user is already registered
 	if err = setRegistered(m.getKv()); err != nil {
 		return nil, errors.WithMessage(err, "failed to set client as "+
 			"registered with user discovery.")
@@ -176,7 +176,7 @@ func InitStoreFromBackup(kv *versioned.KV,
 	}
 
 	// Set as registered. Since it's from a backup,
-	// the client is already registered
+	// the user is already registered
 	if err = setRegistered(kv); err != nil {
 		return errors.WithMessage(err, "failed to set client as "+
 			"registered with user discovery.")

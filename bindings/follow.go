@@ -16,7 +16,7 @@ import (
 )
 
 // StartNetworkFollower kicks off the tracking of the network. It starts long-
-// running network client threads and returns an object for checking state and
+// running network threads and returns an object for checking state and
 // stopping those threads.
 //
 // Call this when returning from sleep and close when going back to sleep.
@@ -57,7 +57,7 @@ func (c *Cmix) StartNetworkFollower(timeoutMS int) error {
 // an error if the follower is in the wrong state to stop or if it fails to stop
 // it.
 //
-// if the network follower is running and this fails, the client object will
+// if the network follower is running and this fails, the Cmix object will
 // most likely be in an unrecoverable state and need to be trashed.
 func (c *Cmix) StopNetworkFollower() error {
 	if err := c.api.StopNetworkFollower(); err != nil {

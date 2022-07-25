@@ -133,7 +133,7 @@ func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback, e2eFil
 		return nil, err
 	}
 
-	// Client info
+	// User info
 	myID := user.api.GetReceptionIdentity().ID
 	rng := user.api.GetRng()
 
@@ -168,7 +168,7 @@ func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback, e2eFil
 		return nil, err
 	}
 
-	// Add file transfer processes to client services tracking
+	// Add file transfer processes to API services tracking
 	err = user.api.AddService(m.StartProcesses)
 	if err != nil {
 		return nil, err

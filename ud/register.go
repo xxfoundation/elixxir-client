@@ -14,8 +14,8 @@ import (
 
 // register initiates registration with user discovery given a specified
 // username. Provided a comms sub-interface to facilitate testing.
-func (m *Manager) register(username string, rng csprng.Source,
-	comm registerUserComms, udHost *connect.Host) error {
+func (m *Manager) register(username string, networkSignature []byte,
+	rng csprng.Source, comm registerUserComms, udHost *connect.Host) error {
 
 	var err error
 	identity := m.messenger.GetReceptionIdentity()
@@ -35,7 +35,7 @@ func (m *Manager) register(username string, rng csprng.Source,
 
 	// Construct the user registration message
 	msg := &pb.UDBUserRegistration{
-		PermissioningSignature: m.registrationValidationSignature,
+		PermissioningSignature: networkSignature,
 		RSAPublicPem:           string(rsa.CreatePublicKeyPem(privKey.GetPublic())),
 		IdentityRegistration: &pb.Identity{
 			Username: username,

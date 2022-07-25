@@ -34,13 +34,15 @@ func TestManager_register(t *testing.T) {
 	c := &testRegisterComm{}
 	prng := NewPrng(42)
 
-	err = m.register("testUser", prng, c, udHost)
+	mockSig := []byte("mock")
+
+	err = m.register("testUser", mockSig, prng, c, udHost)
 	if err != nil {
 		t.Errorf("register() returned an error: %+v", err)
 	}
 
 	// Check if the UDBUserRegistration contents are correct
-	isCorrect("testUser", c.msg, m, t)
+	isCorrect("testUser", mockSig, c.msg, m, t)
 
 	// Verify the signed identity data
 	pubKeyPem := m.messenger.GetReceptionIdentity().RSAPrivatePem
@@ -66,10 +68,10 @@ func TestManager_register(t *testing.T) {
 
 // isCorrect checks if the UDBUserRegistration has all the expected fields minus
 // any signatures.
-func isCorrect(username string, msg *pb.UDBUserRegistration, m *Manager, t *testing.T) {
-	if !bytes.Equal(m.registrationValidationSignature, msg.PermissioningSignature) {
+func isCorrect(username string, mockSig []byte, msg *pb.UDBUserRegistration, m *Manager, t *testing.T) {
+	if !bytes.Equal(mockSig, msg.PermissioningSignature) {
 		t.Errorf("PermissioningSignature incorrect.\n\texpected: %v\n\treceived: %v",
-			m.registrationValidationSignature, msg.PermissioningSignature)
+			mockSig, msg.PermissioningSignature)
 	}
 
 	identity := m.messenger.GetReceptionIdentity()

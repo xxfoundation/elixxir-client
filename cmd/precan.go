@@ -35,7 +35,7 @@ func loadOrInitPrecan(precanId uint, password []byte, storeDir string,
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		err = xxdk.NewPrecannedClient(precanId, string(ndfJson), storeDir, password)
+		err = xxdk.NewPrecannedCmix(precanId, string(ndfJson), storeDir, password)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

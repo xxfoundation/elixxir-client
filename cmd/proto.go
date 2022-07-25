@@ -44,7 +44,7 @@ func loadOrInitProto(protoUserPath string, password []byte, storeDir string,
 			jww.FATAL.Panicf("%v", err)
 		}
 
-		err = xxdk.NewProtoClient_Unsafe(string(ndfJson), storeDir,
+		err = xxdk.NewProtoCmix_Unsafe(string(ndfJson), storeDir,
 			password, protoUser)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)

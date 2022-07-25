@@ -20,12 +20,12 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// NewClientFromBackup initializes a new e2e storage from an encrypted
+// NewCmixFromBackup initializes a new e2e storage from an encrypted
 // backup. The backup is decrypted using the backupPassphrase. On
 // a successful client creation, the function will return a
 // JSON encoded list of the E2E partners contained in the backup and a
 // json-encoded string containing parameters stored in the backup
-func NewClientFromBackup(ndfJSON, storageDir string, sessionPassword,
+func NewCmixFromBackup(ndfJSON, storageDir string, sessionPassword,
 	backupPassphrase []byte, backupFileContents []byte) ([]*id.ID,
 	string, error) {
 

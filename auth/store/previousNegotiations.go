@@ -12,6 +12,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e/auth"
@@ -119,42 +120,22 @@ func (s *Store) savePreviousNegotiations() error {
 func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]bool, error) {
 
 	obj, err := s.kv.Get(negotiationPartnersKey, negotiationPartnersVersion)
-	if err != nil {
-		// Version 0 Upgrade Path
-		obj, err2 := s.kv.Get(negotiationPartnersKey, 0)
-		if err2 == nil && obj.Version == 0 {
-			old := unmarshalPreviousNegotiationsV0(obj.Data)
-			newPrevNegotiations := make(map[id.ID]bool)
-			for id := range old {
-				newPrevNegotiations[id] = true
-			}
-			obj = &versioned.Object{
-				Version:   negotiationPartnersVersion,
-				Timestamp: netTime.Now(),
-				Data: marshalPreviousNegotiations(
-					newPrevNegotiations),
-			}
-			err = s.kv.Set(negotiationPartnersKey,
-				negotiationPartnersVersion, obj)
-			if err != nil {
-				return nil, err
-			}
+
+	// V0 Upgrade Path
+	if !ekv.Exists(err) {
+		upgradeErr := upgradePreviousNegotiationsV0(s.kv)
+		if upgradeErr != nil {
+			return nil, errors.Wrapf(err, "%+v", upgradeErr)
 		}
-		if !ekv.Exists(err) {
-			newPreviousNegotiations := make(map[id.ID]bool)
-			obj := &versioned.Object{
-				Version:   negotiationPartnersVersion,
-				Timestamp: netTime.Now(),
-				Data: marshalPreviousNegotiations(
-					newPreviousNegotiations),
-			}
-			err = s.kv.Set(negotiationPartnersKey,
-				negotiationPartnersVersion, obj)
-			if err != nil {
-				return nil, err
-			}
-			return newPreviousNegotiations, nil
-		}
+		obj, err = s.kv.Get(negotiationPartnersKey,
+			negotiationPartnersVersion)
+	}
+
+	// Note: if it still doesn't exist, return an empty one.
+	if err != nil && !ekv.Exists(err) {
+		newPreviousNegotiations := make(map[id.ID]bool)
+		return newPreviousNegotiations, nil
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -285,4 +266,26 @@ func unmarshalPreviousNegotiationsV0(buf []byte) map[id.ID]struct{} {
 	}
 
 	return partners
+}
+
+// upgradePreviousNegotiationsV0 upgrades the negotiations Partners key from V0
+// to V1
+func upgradePreviousNegotiationsV0(kv *versioned.KV) error {
+	obj, err := kv.Get(negotiationPartnersKey, 0)
+	if !ekv.Exists(err) {
+		return nil
+	}
+
+	old := unmarshalPreviousNegotiationsV0(obj.Data)
+	newPrevNegotiations := make(map[id.ID]bool)
+	for id := range old {
+		newPrevNegotiations[id] = true
+	}
+	obj = &versioned.Object{
+		Version:   negotiationPartnersVersion,
+		Timestamp: netTime.Now(),
+		Data: marshalPreviousNegotiations(
+			newPrevNegotiations),
+	}
+	return kv.Set(negotiationPartnersKey, negotiationPartnersVersion, obj)
 }

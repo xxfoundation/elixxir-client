@@ -23,8 +23,8 @@ import (
 	"time"
 )
 
-// Tests that GroupChat adheres to the groupChat.GroupChat interface.
-var _ GroupChat = (groupChat.GroupChat)(nil)
+// Tests that gcManager adheres to the groupChat.GroupChat interface.
+var _ gcManager = (groupChat.GroupChat)(nil)
 
 // Smoke test of the entire file transfer system.
 func Test_FileTransfer_Smoke(t *testing.T) {
@@ -49,8 +49,9 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	myID1 := id.NewIdFromString("myID1", id.User, t)
 	storage1 := newMockStorage()
 	gc1 := newMockGC(gcHandler)
-	ftManager1, err := ft.NewManager(params, myID1,
-		newMockCmix(myID1, cMixHandler, storage1), storage1, rngGen)
+	cMix1 := newMockCmix(myID1, cMixHandler, storage1)
+	user1 := newMockUser(myID1, cMix1, storage1, rngGen)
+	ftManager1, err := ft.NewManager(params, user1)
 	if err != nil {
 		t.Errorf("Failed to create file transfer manager 2: %+v", err)
 	}
@@ -73,8 +74,9 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	myID2 := id.NewIdFromString("myID2", id.User, t)
 	storage2 := newMockStorage()
 	gc2 := newMockGC(gcHandler)
-	ftManager2, err := ft.NewManager(params, myID2,
-		newMockCmix(myID2, cMixHandler, storage2), storage2, rngGen)
+	cMix2 := newMockCmix(myID2, cMixHandler, storage2)
+	user2 := newMockUser(myID1, cMix2, storage2, rngGen)
+	ftManager2, err := ft.NewManager(params, user2)
 	if err != nil {
 		t.Errorf("Failed to create file transfer manager 2: %+v", err)
 	}

@@ -89,8 +89,9 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	// Set up the first client
 	myID1 := id.NewIdFromString("myID1", id.User, t)
 	storage1 := newMockStorage()
-	ftm1, err := NewManager(params, myID1,
-		newMockCmix(myID1, cMixHandler, storage1), storage1, rngGen)
+	cMix1 := newMockCmix(myID1, cMixHandler, storage1)
+	user1 := newMockE2e(myID1, cMix1, storage1, rngGen)
+	ftm1, err := NewManager(params, user1)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 1: %+v", err)
 	}
@@ -104,8 +105,9 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	// Set up the second client
 	myID2 := id.NewIdFromString("myID2", id.User, t)
 	storage2 := newMockStorage()
-	ftm2, err := NewManager(params, myID2,
-		newMockCmix(myID2, cMixHandler, storage2), storage2, rngGen)
+	cMix2 := newMockCmix(myID2, cMixHandler, storage2)
+	user2 := newMockE2e(myID2, cMix2, storage2, rngGen)
+	ftm2, err := NewManager(params, user2)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 2: %+v", err)
 	}

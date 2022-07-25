@@ -37,19 +37,19 @@ type Wrapper struct {
 	ft ft.FileTransfer
 
 	// Group chat Manager
-	gc GroupChat
+	gc gcManager
 }
 
-// GroupChat interface matches a subset of the groupChat.GroupChat methods used
+// gcManager interface matches a subset of the groupChat.GroupChat methods used
 // by the Wrapper for easier testing.
-type GroupChat interface {
+type gcManager interface {
 	Send(groupID *id.ID, tag string, message []byte) (
 		id.Round, time.Time, group.MessageID, error)
 	AddService(tag string, p groupChat.Processor) error
 }
 
 // NewWrapper generates a new file transfer Wrapper for group chat.
-func NewWrapper(receiveCB ft.ReceiveCallback, ft ft.FileTransfer, gc GroupChat) (
+func NewWrapper(receiveCB ft.ReceiveCallback, ft ft.FileTransfer, gc gcManager) (
 	*Wrapper, error) {
 	w := &Wrapper{
 		receiveCB: receiveCB,

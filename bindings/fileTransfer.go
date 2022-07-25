@@ -125,17 +125,14 @@ type FileTransferReceiveProgressCallback interface {
 // Parameters:
 //  - e2eID - e2e object ID in the tracker
 //  - paramsJSON - JSON marshalled fileTransfer.Params
-func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback, e2eFileTransferParamsJson, fileTransferParamsJson []byte) (*FileTransfer, error) {
+func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback,
+	e2eFileTransferParamsJson, fileTransferParamsJson []byte) (*FileTransfer, error) {
 
 	// Get user from singleton
 	user, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return nil, err
 	}
-
-	// User info
-	myID := user.api.GetReceptionIdentity().ID
-	rng := user.api.GetRng()
 
 	e2eFileTransferParams, err := parseE2eFileTransferParams(e2eFileTransferParamsJson)
 	if err != nil {
@@ -148,8 +145,7 @@ func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback, e2eFil
 	}
 
 	// Create file transfer manager
-	m, err := fileTransfer.NewManager(fileTransferParams, myID,
-		user.api.GetCmix(), user.api.GetStorage(), rng)
+	m, err := fileTransfer.NewManager(fileTransferParams, user.api)
 
 	rcb := func(tid *ftCrypto.TransferID, fileName, fileType string,
 		sender *id.ID, size uint32, preview []byte) {
@@ -163,7 +159,7 @@ func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback, e2eFil
 		}))
 	}
 
-	w, err := e2e.NewWrapper(rcb, e2eFileTransferParams, m, myID, user.api.GetE2E(), user.api.GetCmix())
+	w, err := e2e.NewWrapper(rcb, e2eFileTransferParams, m, user.api)
 	if err != nil {
 		return nil, err
 	}

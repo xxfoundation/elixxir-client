@@ -15,14 +15,14 @@ const (
 	defaultNotifyUponCompletion = true
 )
 
-// Params contains parameters used for Connection file transfer.
+// Params contains parameters used for connection file transfer.
 type Params struct {
 	// NotifyUponCompletion indicates if a final notification message is sent
 	// to the recipient on completion of file transfer. If true, the ping is
 	NotifyUponCompletion bool
 }
 
-// paramsDisk will be the marshal-able and umarshal-able object.
+// paramsDisk will be the marshal-able and unmarshalable object.
 type paramsDisk struct {
 	NotifyUponCompletion bool
 }
@@ -34,8 +34,8 @@ func DefaultParams() Params {
 	}
 }
 
-// GetParameters returns the default Params, or override with given
-// parameters, if set.
+// GetParameters returns the default Params, or override with given parameters,
+// if set.
 func GetParameters(params string) (Params, error) {
 	p := DefaultParams()
 	if len(params) > 0 {

@@ -13,11 +13,14 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/fileTransfer/callbackTracker"
 	"gitlab.com/elixxir/client/fileTransfer/store"
 	"gitlab.com/elixxir/client/fileTransfer/store/fileMessage"
 	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -128,8 +131,18 @@ type manager struct {
 	rng       *fastRNG.StreamGenerator
 }
 
-// Cmix interface matches a subset of the cmix.Client methods used by the
-// manager for easier testing.
+// FtE2e interface matches a subset of the xxdk.E2e methods used by the file
+// transfer manager for easier testing.
+type FtE2e interface {
+	GetStorage() storage.Session
+	GetReceptionIdentity() xxdk.ReceptionIdentity
+	GetCmix() cmix.Client
+	GetRng() *fastRNG.StreamGenerator
+	GetE2E() e2e.Handler
+}
+
+// Cmix interface matches a subset of the cmix.Client methods used by the file
+// transfer manager for easier testing.
 type Cmix interface {
 	GetMaxMessageLength() int
 	SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round,
@@ -155,9 +168,9 @@ type Storage interface {
 // NewManager creates a new file transfer manager object. If sent or received
 // transfers already existed, they are loaded from storage and queued to resume
 // once manager.startProcesses is called.
-func NewManager(params Params, myID *id.ID, cmix Cmix, storage Storage,
-	rng *fastRNG.StreamGenerator) (FileTransfer, error) {
-	kv := storage.GetKV()
+func NewManager(params Params, user FtE2e) (FileTransfer, error) {
+
+	kv := user.GetStorage().GetKV()
 
 	// Create a new list of sent file transfers or load one if it exists
 	sent, unsentParts, err := store.NewOrLoadSent(kv)
@@ -179,11 +192,11 @@ func NewManager(params Params, myID *id.ID, cmix Cmix, storage Storage,
 		batchQueue: make(chan store.Part, batchQueueBuffLen),
 		sendQueue:  make(chan []store.Part, sendQueueBuffLen),
 		params:     params,
-		myID:       myID,
-		cmix:       cmix,
-		cmixGroup:  storage.GetCmixGroup(),
+		myID:       user.GetReceptionIdentity().ID,
+		cmix:       user.GetCmix(),
+		cmixGroup:  user.GetStorage().GetCmixGroup(),
 		kv:         kv,
-		rng:        rng,
+		rng:        user.GetRng(),
 	}
 
 	// Add all unsent file parts to queue

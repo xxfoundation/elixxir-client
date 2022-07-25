@@ -21,7 +21,7 @@ const (
 // sendNewFileTransferMessage sends a group chat message to the group ID
 // informing them of the incoming file transfer.
 func sendNewFileTransferMessage(
-	groupID *id.ID, transferInfo []byte, gc GroupChat) error {
+	groupID *id.ID, transferInfo []byte, gc gcManager) error {
 
 	// Send the message via group chat
 	_, _, _, err := gc.Send(groupID, newFileTransferTag, transferInfo)

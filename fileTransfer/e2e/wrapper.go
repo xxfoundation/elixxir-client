@@ -32,12 +32,12 @@ type Wrapper struct {
 
 	myID *id.ID
 	cmix ft.Cmix
-	e2e  E2e
+	e2e  e2eHandler
 }
 
-// E2e interface matches a subset of the e2e.Handler methods used by the Wrapper
+// e2eHandler interface matches a subset of the e2e.Handler methods used by the Wrapper
 // for easier testing.
-type E2e interface {
+type e2eHandler interface {
 	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
 		params e2e.Params) ([]id.Round, e2eCrypto.MessageID, time.Time, error)
 	RegisterListener(senderID *id.ID, messageType catalog.MessageType,
@@ -46,14 +46,14 @@ type E2e interface {
 
 // NewWrapper generates a new file transfer manager using E2E.
 func NewWrapper(receiveCB ft.ReceiveCallback, p Params, ft ft.FileTransfer,
-	myID *id.ID, e2e E2e, cmix ft.Cmix) (*Wrapper, error) {
+	user ft.FtE2e) (*Wrapper, error) {
 	w := &Wrapper{
 		receiveCB: receiveCB,
 		ft:        ft,
 		p:         p,
-		myID:      myID,
-		cmix:      cmix,
-		e2e:       e2e,
+		myID:      user.GetReceptionIdentity().ID,
+		cmix:      user.GetCmix(),
+		e2e:       user.GetE2E(),
 	}
 
 	// Register listener to receive new file transfers

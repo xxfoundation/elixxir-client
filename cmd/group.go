@@ -37,23 +37,23 @@ var groupCmd = &cobra.Command{
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
 			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
-		client := initE2e(cmixParams, e2eParams, authCbs)
+		user := initE2e(cmixParams, e2eParams, authCbs)
 
 		// Print user's reception ID
-		user := client.GetReceptionIdentity()
-		jww.INFO.Printf("User: %s", user.ID)
+		identity := user.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", identity.ID)
 
-		err := client.StartNetworkFollower(5 * time.Second)
+		err := user.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
 		// Initialize the group chat manager
-		groupManager, recChan, reqChan := initGroupManager(client)
+		groupManager, recChan, reqChan := initGroupManager(user)
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetCmix().AddHealthCallback(
+		user.GetCmix().AddHealthCallback(
 			func(isConnected bool) {
 				connected <- isConnected
 			})
@@ -63,7 +63,7 @@ var groupCmd = &cobra.Command{
 		// the nodes
 		for numReg, total := 1, 100; numReg < (total*3)/4; {
 			time.Sleep(1 * time.Second)
-			numReg, total, err = client.GetNodeRegistrationStatus()
+			numReg, total, err = user.GetNodeRegistrationStatus()
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
@@ -118,7 +118,7 @@ var groupCmd = &cobra.Command{
 
 // initGroupManager creates a new group chat manager and starts the process
 // service.
-func initGroupManager(messenger *xxdk.E2e) (groupChat.GroupChat,
+func initGroupManager(user *xxdk.E2e) (groupChat.GroupChat,
 	chan groupChat.MessageReceive, chan groupStore.Group) {
 	recChan := make(chan groupChat.MessageReceive, 10)
 
@@ -128,7 +128,7 @@ func initGroupManager(messenger *xxdk.E2e) (groupChat.GroupChat,
 	}
 
 	jww.INFO.Print("[GC] Creating new group manager.")
-	manager, err := groupChat.NewManager(messenger, requestCb,
+	manager, err := groupChat.NewManager(user, requestCb,
 		&receiveProcessor{recChan})
 	if err != nil {
 		jww.FATAL.Panicf("[GC] Failed to initialize group chat manager: %+v", err)

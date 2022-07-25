@@ -60,7 +60,7 @@ func (c *Cmix) Connect(e2eId int, recipientContact, e2eParamsJSON []byte) (
 		return nil, err
 	}
 
-	messenger, err := e2eTrackerSingleton.get(e2eId)
+	user, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (c *Cmix) Connect(e2eId int, recipientContact, e2eParamsJSON []byte) (
 		return nil, err
 	}
 
-	connection, err := connect.Connect(cont, messenger.api, p)
+	connection, err := connect.Connect(cont, user.api, p)
 	if err != nil {
 		return nil, err
 	}

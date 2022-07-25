@@ -87,14 +87,14 @@ func NewCmix(
 	return err
 }
 
-// NewVanityClient creates a user with a receptionID that starts with the
+// NewVanityCmix creates a user with a receptionID that starts with the
 // supplied prefix. It creates client storage, generates keys, and connects and
 // registers with the network. Note that this does not register a username/
 // identity, but merely creates a new cryptographic identity for adding such
 // information at a later date.
-func NewVanityClient(ndfJSON, storageDir string, password []byte,
+func NewVanityCmix(ndfJSON, storageDir string, password []byte,
 	registrationCode string, userIdPrefix string) error {
-	jww.INFO.Printf("NewVanityClient()")
+	jww.INFO.Printf("NewVanityCmix()")
 
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
@@ -154,12 +154,12 @@ func OpenCmix(storageDir string, password []byte) (*Cmix, error) {
 	return c, nil
 }
 
-// NewProtoClient_Unsafe initializes a client object from a JSON containing
+// NewProtoCmix_Unsafe initializes a client object from a JSON containing
 // predefined cryptographic that defines a user. This is designed for some
 // specific deployment procedures and is generally unsafe.
-func NewProtoClient_Unsafe(ndfJSON, storageDir string, password []byte,
+func NewProtoCmix_Unsafe(ndfJSON, storageDir string, password []byte,
 	protoUser *user.Proto) error {
-	jww.INFO.Printf("NewProtoClient_Unsafe")
+	jww.INFO.Printf("NewProtoCmix_Unsafe")
 
 	usr := user.NewUserFromProto(protoUser)
 
@@ -556,7 +556,7 @@ func DecodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 
 // CheckVersionAndSetupStorage checks the client version and creates a new
 // storage for user data. This function is common code shared by NewCmix,
-//// NewPrecannedClient and NewVanityClient.
+//// NewPrecannedCmix and NewVanityCmix.
 func CheckVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string,
 	password []byte, userInfo user.Info, cmixGrp, e2eGrp *cyclic.Group,
 	registrationCode string) (storage.Session, error) {

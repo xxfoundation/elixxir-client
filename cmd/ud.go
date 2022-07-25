@@ -27,7 +27,7 @@ import (
 
 // udCmd is the user discovery subcommand, which allows for user lookup,
 // registration, and search. This basically runs a client for these functions
-// with the UD module enabled. Normally, clients do not need it so it is not
+// with the UD module enabled. Normally, clients do not need it, so it is not
 // loaded for the rest of the commands.
 var udCmd = &cobra.Command{
 	Use:   "ud",
@@ -37,14 +37,14 @@ var udCmd = &cobra.Command{
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
 			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
-		messenger := initE2e(cmixParams, e2eParams, authCbs)
+		user := initE2e(cmixParams, e2eParams, authCbs)
 
-		// get user and save contact to file
-		user := messenger.GetReceptionIdentity()
-		jww.INFO.Printf("[UD]User: %s", user.ID)
-		writeContact(user.GetContact())
+		// get identity and save contact to file
+		identity := user.GetReceptionIdentity()
+		jww.INFO.Printf("[UD]User: %s", identity.ID)
+		writeContact(identity.GetContact())
 
-		err := messenger.StartNetworkFollower(50 * time.Millisecond)
+		err := user.StartNetworkFollower(50 * time.Millisecond)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -53,7 +53,7 @@ var udCmd = &cobra.Command{
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		messenger.GetCmix().AddHealthCallback(
+		user.GetCmix().AddHealthCallback(
 			func(isconnected bool) {
 				connected <- isconnected
 			})
@@ -62,14 +62,14 @@ var udCmd = &cobra.Command{
 		jww.TRACE.Printf("[UD] Connected!")
 
 		// Make user discovery manager
-		rng := messenger.GetRng()
+		rng := user.GetRng()
 		userToRegister := viper.GetString(udRegisterFlag)
-		jww.TRACE.Printf("[UD] Registering user %v...", userToRegister)
-		userDiscoveryMgr, err := ud.NewManager(messenger, messenger.GetComms(),
-			messenger.NetworkFollowerStatus, userToRegister, nil)
+		jww.TRACE.Printf("[UD] Registering identity %v...", userToRegister)
+		userDiscoveryMgr, err := ud.NewManager(user, user.GetComms(),
+			user.NetworkFollowerStatus, userToRegister, nil)
 		if err != nil {
 			if strings.Contains(err.Error(), ud.IsRegisteredErr) {
-				userDiscoveryMgr, err = ud.LoadManager(messenger, messenger.GetComms())
+				userDiscoveryMgr, err = ud.LoadManager(user, user.GetComms())
 				if err != nil {
 					jww.FATAL.Panicf("Failed to load UD manager: %+v", err)
 				}
@@ -146,7 +146,7 @@ var udCmd = &cobra.Command{
 			}
 
 			stream := rng.GetStream()
-			_, _, err = ud.Lookup(messenger,
+			_, _, err = ud.Lookup(user,
 				udContact, cb, lookupID, single.GetDefaultRequestParams())
 			if err != nil {
 				jww.WARN.Printf("Failed UD lookup: %+v", err)
@@ -165,13 +165,13 @@ var udCmd = &cobra.Command{
 			}
 			jww.INFO.Printf("[UD] BATCHADD: Running")
 			restored, _, _, err := xxmutils.RestoreContactsFromBackup(
-				idListFile, messenger, userDiscoveryMgr, nil)
+				idListFile, user, userDiscoveryMgr, nil)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
 			for i := 0; i < len(restored); i++ {
 				uid := restored[i]
-				for !messenger.GetE2E().HasAuthenticatedChannel(uid) {
+				for !user.GetE2E().HasAuthenticatedChannel(uid) {
 					time.Sleep(time.Second)
 				}
 				jww.INFO.Printf("[UD] Authenticated channel established for %s", uid)
@@ -224,7 +224,7 @@ var udCmd = &cobra.Command{
 		}
 
 		if len(facts) == 0 {
-			err = messenger.StopNetworkFollower()
+			err = user.StopNetworkFollower()
 			if err != nil {
 				jww.WARN.Print(err)
 			}
@@ -241,14 +241,14 @@ var udCmd = &cobra.Command{
 		}
 
 		jww.INFO.Printf("[UD] Search: %v", facts)
-		_, _, err = ud.Search(messenger,
+		_, _, err = ud.Search(user,
 			udContact, cb, facts, single.GetDefaultRequestParams())
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
 		time.Sleep(91 * time.Second)
-		err = messenger.StopNetworkFollower()
+		err = user.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Print(err)
 		}

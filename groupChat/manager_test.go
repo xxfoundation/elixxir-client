@@ -48,7 +48,7 @@ func TestNewManager(t *testing.T) {
 	requestChan := make(chan gs.Group)
 	requestFunc := func(g gs.Group) { requestChan <- g }
 	receiveChan := make(chan MessageReceive)
-	mockMess := newMockMessenger(t, nil)
+	mockMess := newMockE2e(t, nil)
 	gcInt, err := NewManager(mockMess, requestFunc,
 		mockProcessor{receiveChan})
 	if err != nil {
@@ -106,7 +106,7 @@ func TestNewManager_LoadStorage(t *testing.T) {
 		expectedGroups = append(expectedGroups, grp)
 	}
 
-	mockMess := newMockMessenger(t, kv)
+	mockMess := newMockE2e(t, kv)
 	gcInt, err := NewManager(mockMess, nil, nil)
 	if err != nil {
 		t.Errorf("NewManager returned an error: %+v", err)
@@ -144,7 +144,7 @@ func TestNewManager_LoadError(t *testing.T) {
 
 	expectedErr := strings.SplitN(newGroupStoreErr, "%", 2)[0]
 
-	mockMess := newMockMessenger(t, kv)
+	mockMess := newMockE2e(t, kv)
 	_, err = NewManager(mockMess, nil, nil)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("NewManager did not return the expected error."+

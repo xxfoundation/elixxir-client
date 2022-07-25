@@ -75,7 +75,7 @@ func init() {
 // or from a new storage that it will create if none already exists
 func loadOrInitCmix(password []byte, storeDir, regCode string,
 	cmixParams xxdk.CMIXParams) *xxdk.Cmix {
-	// create a new client if none exist
+	// create a new cMix if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
 		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
@@ -122,20 +122,20 @@ func loadOrInitReceptionIdentity(forceLegacy bool, net *xxdk.Cmix) xxdk.Receptio
 	return identity
 }
 
-// loadOrInitMessenger will build a new xxdk.E2e from existing storage
+// loadOrInitUser will build a new xxdk.E2e from existing storage
 // or from a new storage that it will create if none already exists
-func loadOrInitMessenger(forceLegacy bool, password []byte, storeDir, regCode string,
+func loadOrInitUser(forceLegacy bool, password []byte, storeDir, regCode string,
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
 	jww.INFO.Printf("Using normal sender")
 
 	net := loadOrInitCmix(password, storeDir, regCode, cmixParams)
 	identity := loadOrInitReceptionIdentity(forceLegacy, net)
 
-	messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
+	user, err := xxdk.Login(net, cbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	return messenger
+	return user
 }
 
 // loadOrInitEphemeral will build a new ephemeral xxdk.E2e.
@@ -146,11 +146,11 @@ func loadOrInitEphemeral(forceLegacy bool, password []byte, storeDir, regCode st
 	net := loadOrInitCmix(password, storeDir, regCode, cmixParams)
 	identity := loadOrInitReceptionIdentity(forceLegacy, net)
 
-	messenger, err := xxdk.LoginEphemeral(net, cbs, identity, e2eParams)
+	user, err := xxdk.LoginEphemeral(net, cbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	return messenger
+	return user
 }
 
 // loadOrInitVanity will build a new xxdk.E2e from existing storage
@@ -159,7 +159,7 @@ func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
 	jww.INFO.Printf("Using Vanity sender")
 
-	// create a new client if none exist
+	// create a new cMix if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
 		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
@@ -167,7 +167,7 @@ func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		err = xxdk.NewVanityClient(string(ndfJson), storeDir,
+		err = xxdk.NewVanityCmix(string(ndfJson), storeDir,
 			password, regCode, userIdPrefix)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
@@ -193,9 +193,9 @@ func loadOrInitVanity(password []byte, storeDir, regCode, userIdPrefix string,
 		}
 	}
 
-	messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
+	user, err := xxdk.Login(net, cbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	return messenger
+	return user
 }

@@ -27,7 +27,7 @@ func loadOrInitPrecan(precanId uint, password []byte, storeDir string,
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
 	jww.INFO.Printf("Using Precanned sender")
 
-	// create a new client if none exist
+	// create a new cMix if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
 		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
@@ -35,7 +35,7 @@ func loadOrInitPrecan(precanId uint, password []byte, storeDir string,
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		err = xxdk.NewPrecannedClient(precanId, string(ndfJson), storeDir, password)
+		err = xxdk.NewPrecannedCmix(precanId, string(ndfJson), storeDir, password)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -60,11 +60,11 @@ func loadOrInitPrecan(precanId uint, password []byte, storeDir string,
 		}
 	}
 
-	messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
+	user, err := xxdk.Login(net, cbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	return messenger
+	return user
 }
 
 func isPrecanID(id *id.ID) bool {
@@ -85,10 +85,10 @@ func getPrecanID(recipientID *id.ID) uint {
 	return uint(recipientID.Bytes()[7])
 }
 
-func addPrecanAuthenticatedChannel(messenger *xxdk.E2e, recipientID *id.ID,
+func addPrecanAuthenticatedChannel(user *xxdk.E2e, recipientID *id.ID,
 	recipient contact.Contact) {
 	jww.WARN.Printf("Precanned user id detected: %s", recipientID)
-	preUsr, err := messenger.MakePrecannedAuthenticatedChannel(
+	preUsr, err := user.MakePrecannedAuthenticatedChannel(
 		getPrecanID(recipientID))
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)

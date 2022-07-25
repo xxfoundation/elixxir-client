@@ -45,7 +45,7 @@ func (m *Manager) removeFact(f fact.Fact,
 	fHash := factID.Fingerprint(f)
 
 	// Sign our inFact for putting into the request
-	identity := m.messenger.GetReceptionIdentity()
+	identity := m.user.GetReceptionIdentity()
 	privKey, err := identity.GetRSAPrivatePem()
 	if err != nil {
 		return err
@@ -89,7 +89,7 @@ func (m *Manager) PermanentDeleteAccount(f fact.Fact) error {
 		return err
 	}
 
-	identity := m.messenger.GetReceptionIdentity()
+	identity := m.user.GetReceptionIdentity()
 	privKey, err := identity.GetRSAPrivatePem()
 	if err != nil {
 		return err

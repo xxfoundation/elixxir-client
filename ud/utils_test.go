@@ -58,7 +58,7 @@ func newTestManager(t *testing.T) (*Manager, *testNetworkManager) {
 	// Create our Manager object
 	tnm := newTestNetworkManager(t)
 	m := &Manager{
-		messenger: mockE2e{
+		user: mockE2e{
 			grp:     getGroup(),
 			events:  event.NewEventManager(),
 			rng:     rngGen,

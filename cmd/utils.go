@@ -26,7 +26,7 @@ func bindFlagHelper(key string, command *cobra.Command) {
 	}
 }
 
-func verifySendSuccess(client *xxdk.E2e, paramsE2E e2e.Params,
+func verifySendSuccess(user *xxdk.E2e, paramsE2E e2e.Params,
 	roundIDs []id.Round, partnerId *id.ID, payload []byte) bool {
 	retryChan := make(chan struct{})
 	done := make(chan struct{}, 1)
@@ -45,7 +45,7 @@ func verifySendSuccess(client *xxdk.E2e, paramsE2E e2e.Params,
 	}
 
 	// Monitor rounds for results
-	err := client.GetCmix().GetRoundResults(
+	err := user.GetCmix().GetRoundResults(
 		paramsE2E.CMIXParams.Timeout, f, roundIDs...)
 	if err != nil {
 		jww.DEBUG.Printf("Could not verify messages were sent " +

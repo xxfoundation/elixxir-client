@@ -35,14 +35,14 @@ var dumpRoundsCmd = &cobra.Command{
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
 			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
-		client := initE2e(cmixParams, e2eParams, authCbs)
-		err := client.StartNetworkFollower(5 * time.Second)
+		user := initE2e(cmixParams, e2eParams, authCbs)
+		err := user.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
 		connected := make(chan bool, 10)
-		client.GetCmix().AddHealthCallback(
+		user.GetCmix().AddHealthCallback(
 			func(isconnected bool) {
 				connected <- isconnected
 			})
@@ -51,7 +51,7 @@ var dumpRoundsCmd = &cobra.Command{
 		numRequests := len(roundIDs)
 		requestCh := make(chan bool, numRequests)
 
-		registration := client.GetStorage().GetNDF().Registration
+		registration := user.GetStorage().GetNDF().Registration
 		ecp := registration.EllipticPubKey
 		pubkey, err := ec.LoadPublicKey(ecp)
 		if err != nil {
@@ -124,7 +124,7 @@ var dumpRoundsCmd = &cobra.Command{
 
 		for i := range roundIDs {
 			rid := roundIDs[i]
-			err := client.GetCmix().LookupHistoricalRound(rid, rcb)
+			err := user.GetCmix().LookupHistoricalRound(rid, rcb)
 			if err != nil {
 				fmt.Printf("error on %v: %v", rid, err)
 			}

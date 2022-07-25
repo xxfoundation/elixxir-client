@@ -15,8 +15,8 @@ import (
 	"testing"
 )
 
-// mockMessenger implementation for groupE2e interface
-type mockMessenger struct {
+// mockE2e implementation for groupE2e interface
+type mockE2e struct {
 	receptionId *id.ID
 	net         cmix.Client
 	e2e         clientE2E.Handler
@@ -25,7 +25,7 @@ type mockMessenger struct {
 	storage     storage.Session
 }
 
-func newMockMessenger(t testing.TB, kv *versioned.KV) groupE2e {
+func newMockE2e(t testing.TB, kv *versioned.KV) groupE2e {
 	receptionId := id.NewIdFromString("test", id.User, t)
 	mockCmix := newTestNetworkManager(0)
 	prng := rand.New(rand.NewSource(42))
@@ -34,7 +34,7 @@ func newMockMessenger(t testing.TB, kv *versioned.KV) groupE2e {
 	rng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	mockSession := newMockSesion(kv)
 
-	return mockMessenger{
+	return mockE2e{
 		receptionId: receptionId,
 		net:         mockCmix,
 		e2e:         e2eHandler,
@@ -44,7 +44,7 @@ func newMockMessenger(t testing.TB, kv *versioned.KV) groupE2e {
 	}
 }
 
-func newMockMessengerWithStore(t testing.TB, sendErr int) groupE2e {
+func newMockE2eWithStore(t testing.TB, sendErr int) groupE2e {
 	receptionId := id.NewIdFromString("test", id.User, t)
 	mockCmix := newTestNetworkManager(sendErr)
 	prng := rand.New(rand.NewSource(42))
@@ -52,7 +52,7 @@ func newMockMessengerWithStore(t testing.TB, sendErr int) groupE2e {
 	rng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	mockSession := newMockSesion(nil)
 
-	return mockMessenger{
+	return mockE2e{
 		receptionId: receptionId,
 		net:         mockCmix,
 		e2e: &testE2eManager{
@@ -68,15 +68,15 @@ func newMockMessengerWithStore(t testing.TB, sendErr int) groupE2e {
 	}
 }
 
-func (m mockMessenger) GetCmix() cmix.Client {
+func (m mockE2e) GetCmix() cmix.Client {
 	return m.net
 }
 
-func (m mockMessenger) GetE2E() clientE2E.Handler {
+func (m mockE2e) GetE2E() clientE2E.Handler {
 	return m.e2e
 }
 
-func (m mockMessenger) GetReceptionIdentity() xxdk.ReceptionIdentity {
+func (m mockE2e) GetReceptionIdentity() xxdk.ReceptionIdentity {
 	keyData, _ := m.e2e.GetHistoricalDHPrivkey().MarshalJSON()
 	groupData, _ := getGroup().MarshalJSON()
 	return xxdk.ReceptionIdentity{
@@ -86,10 +86,10 @@ func (m mockMessenger) GetReceptionIdentity() xxdk.ReceptionIdentity {
 	}
 }
 
-func (m mockMessenger) GetRng() *fastRNG.StreamGenerator {
+func (m mockE2e) GetRng() *fastRNG.StreamGenerator {
 	return m.rng
 }
 
-func (m mockMessenger) GetStorage() storage.Session {
+func (m mockE2e) GetStorage() storage.Session {
 	return m.storage
 }

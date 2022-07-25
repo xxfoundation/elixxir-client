@@ -47,7 +47,7 @@ func (c *Cmix) ConnectWithAuthentication(e2eId int, recipientContact,
 		return nil, err
 	}
 
-	messenger, err := e2eTrackerSingleton.get(e2eId)
+	user, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (c *Cmix) ConnectWithAuthentication(e2eId int, recipientContact,
 	}
 
 	connection, err := connect.ConnectWithAuthentication(cont,
-		messenger.api, params)
+		user.api, params)
 	return authenticatedConnectionTrackerSingleton.make(connection), err
 }
 

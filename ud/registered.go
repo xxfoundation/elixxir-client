@@ -11,7 +11,7 @@ import (
 const isRegisteredKey = "isRegisteredKey"
 const isRegisteredVersion = 0
 
-// isRegistered loads from storage if the client is registered with user
+// isRegistered loads from storage if the user is registered with user
 // discovery.
 func (m *Manager) isRegistered() bool {
 	_, err := m.getKv().Get(isRegisteredKey, isRegisteredVersion)

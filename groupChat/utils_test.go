@@ -32,10 +32,10 @@ import (
 // newTestManager creates a new manager for testing.
 func newTestManager(t testing.TB) (*manager, gs.Group) {
 	prng := rand.New(rand.NewSource(42))
-	mockMess := newMockMessenger(t, nil)
+	mockMess := newMockE2e(t, nil)
 
 	m := &manager{
-		messenger: mockMess,
+		user: mockMess,
 	}
 	user := group.Member{
 		ID:    m.getReceptionIdentity().ID,
@@ -57,12 +57,12 @@ func newTestManager(t testing.TB) (*manager, gs.Group) {
 // of the groups in the list is also returned.
 func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
 	requestFunc RequestCallback, t *testing.T) (*manager, gs.Group) {
-	mockMess := newMockMessengerWithStore(t, sendErr)
+	mockMess := newMockE2eWithStore(t, sendErr)
 
 	m := &manager{
 		services:    make(map[string]Processor),
 		requestFunc: requestFunc,
-		messenger:   mockMess,
+		user:        mockMess,
 	}
 	user := group.Member{
 		ID:    m.getReceptionIdentity().ID,

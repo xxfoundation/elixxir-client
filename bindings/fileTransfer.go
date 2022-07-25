@@ -11,9 +11,8 @@ import (
 	"encoding/json"
 	"time"
 
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/fileTransfer"
+	"gitlab.com/elixxir/client/fileTransfer/e2e"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -25,8 +24,7 @@ import (
 // FileTransfer object is a bindings-layer struct which wraps a
 // fileTransfer.FileTransfer interface.
 type FileTransfer struct {
-	ft    fileTransfer.FileTransfer
-	e2eCl *E2e
+	w *e2e.Wrapper
 }
 
 // ReceivedFile is a public struct that contains the metadata of a new file
@@ -127,7 +125,7 @@ type FileTransferReceiveProgressCallback interface {
 // Parameters:
 //  - e2eID - e2e object ID in the tracker
 //  - paramsJSON - JSON marshalled fileTransfer.Params
-func InitFileTransfer(e2eID int, paramsJSON []byte) (*FileTransfer, error) {
+func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback, e2eFileTransferParamsJson, fileTransferParamsJson []byte) (*FileTransfer, error) {
 
 	// Get messenger from singleton
 	messenger, err := e2eTrackerSingleton.get(e2eID)
@@ -139,14 +137,36 @@ func InitFileTransfer(e2eID int, paramsJSON []byte) (*FileTransfer, error) {
 	myID := messenger.api.GetReceptionIdentity().ID
 	rng := messenger.api.GetRng()
 
-	params, err := parseFileTransferParams(paramsJSON)
+	e2eFileTransferParams, err := parseE2eFileTransferParams(e2eFileTransferParamsJson)
+	if err != nil {
+		return nil, err
+	}
+
+	fileTransferParams, err := parseFileTransferParams(fileTransferParamsJson)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create file transfer manager
-	m, err := fileTransfer.NewManager(params, myID,
+	m, err := fileTransfer.NewManager(fileTransferParams, myID,
 		messenger.api.GetCmix(), messenger.api.GetStorage(), rng)
+
+	rcb := func(tid *ftCrypto.TransferID, fileName, fileType string,
+		sender *id.ID, size uint32, preview []byte) {
+		receiveFileCallback.Callback(json.Marshal(ReceivedFile{
+			TransferID: tid.Bytes(),
+			SenderID:   sender.Marshal(),
+			Preview:    preview,
+			Name:       fileName,
+			Type:       fileType,
+			Size:       int(size),
+		}))
+	}
+
+	w, err := e2e.NewWrapper(rcb, e2eFileTransferParams, m, myID, messenger.api.GetE2E(), messenger.api.GetCmix())
+	if err != nil {
+		return nil, err
+	}
 
 	// Add file transfer processes to client services tracking
 	err = messenger.api.AddService(m.StartProcesses)
@@ -155,7 +175,7 @@ func InitFileTransfer(e2eID int, paramsJSON []byte) (*FileTransfer, error) {
 	}
 
 	// Return wrapped manager
-	return &FileTransfer{ft: m, e2eCl: messenger}, nil
+	return &FileTransfer{w: w}, nil
 }
 
 // Send is the bindings-level function for sending a file.
@@ -170,7 +190,7 @@ func InitFileTransfer(e2eID int, paramsJSON []byte) (*FileTransfer, error) {
 //
 // Returns:
 //  - []byte - unique file transfer ID
-func (f *FileTransfer) Send(payload, recipientID, paramsJSON []byte, retry float32,
+func (f *FileTransfer) Send(payload, recipientID []byte, retry float32,
 	callback FileTransferSentProgressCallback, period string) ([]byte, error) {
 	// Unmarshal recipient ID
 	recipient, err := id.Unmarshal(recipientID)
@@ -201,17 +221,8 @@ func (f *FileTransfer) Send(payload, recipientID, paramsJSON []byte, retry float
 		return nil, err
 	}
 
-	sendNew := func(transferInfo []byte) error {
-		resp, err := f.e2eCl.SendE2E(int(catalog.NewFileTransfer), recipientID, transferInfo, paramsJSON)
-		if err != nil {
-			return err
-		}
-		jww.INFO.Printf("New file transfer message sent: %s", resp)
-		return nil
-	}
-
 	// Send file
-	ftID, err := f.ft.Send(recipient, fs.Name, fs.Type, fs.Contents, retry, fs.Preview, cb, p, sendNew)
+	ftID, err := f.w.Send(recipient, fs.Name, fs.Type, fs.Contents, retry, fs.Preview, cb, p)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +243,7 @@ func (f *FileTransfer) Send(payload, recipientID, paramsJSON []byte, retry float
 //  - tidBytes - file transfer ID
 func (f *FileTransfer) Receive(tidBytes []byte) ([]byte, error) {
 	tid := ftCrypto.UnmarshalTransferID(tidBytes)
-	return f.ft.Receive(&tid)
+	return f.w.Receive(&tid)
 }
 
 // CloseSend deletes a file from the internal storage once a transfer has
@@ -246,7 +257,7 @@ func (f *FileTransfer) Receive(tidBytes []byte) ([]byte, error) {
 //  - tidBytes - file transfer ID
 func (f *FileTransfer) CloseSend(tidBytes []byte) error {
 	tid := ftCrypto.UnmarshalTransferID(tidBytes)
-	return f.ft.CloseSend(&tid)
+	return f.w.CloseSend(&tid)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -282,7 +293,7 @@ func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 	}
 	tid := ftCrypto.UnmarshalTransferID(tidBytes)
 
-	return f.ft.RegisterSentProgressCallback(&tid, cb, p)
+	return f.w.RegisterSentProgressCallback(&tid, cb, p)
 }
 
 // RegisterReceivedProgressCallback allows for the registration of a callback to
@@ -312,7 +323,7 @@ func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte,
 		return err
 	}
 	tid := ftCrypto.UnmarshalTransferID(tidBytes)
-	return f.ft.RegisterReceivedProgressCallback(&tid, cb, p)
+	return f.w.RegisterReceivedProgressCallback(&tid, cb, p)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -321,22 +332,22 @@ func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte,
 
 // MaxFileNameLen returns the max number of bytes allowed for a file name.
 func (f *FileTransfer) MaxFileNameLen() int {
-	return f.ft.MaxFileNameLen()
+	return f.w.MaxFileNameLen()
 }
 
 // MaxFileTypeLen returns the max number of bytes allowed for a file type.
 func (f *FileTransfer) MaxFileTypeLen() int {
-	return f.ft.MaxFileTypeLen()
+	return f.w.MaxFileTypeLen()
 }
 
 // MaxFileSize returns the max number of bytes allowed for a file.
 func (f *FileTransfer) MaxFileSize() int {
-	return f.ft.MaxFileSize()
+	return f.w.MaxFileSize()
 }
 
 // MaxPreviewSize returns the max number of bytes allowed for a file preview.
 func (f *FileTransfer) MaxPreviewSize() int {
-	return f.ft.MaxPreviewSize()
+	return f.w.MaxPreviewSize()
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -12,6 +12,7 @@ package bindings
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/fileTransfer"
+	e2eFileTransfer "gitlab.com/elixxir/client/fileTransfer/e2e"
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/xxdk"
 )
@@ -62,6 +63,23 @@ func GetDefaultSingleUseParams() []byte {
 		jww.FATAL.Panicf("Failed to JSON marshal single-use params: %+v", err)
 	}
 	return data
+}
+
+// GetDefaultE2eFileTransferParams returns a JSON serialized object with all the
+// e2e file transfer parameters and their default values. Call this function and modify
+// the JSON to change single use settings.
+func GetDefaultE2eFileTransferParams() []byte {
+	defaultParams := e2eFileTransfer.DefaultParams()
+	data, err := defaultParams.MarshalJSON()
+	if err != nil {
+		jww.FATAL.Panicf("Failed to JSON marshal e2e file transfer params: %+v", err)
+	}
+	return data
+}
+
+func parseE2eFileTransferParams(data []byte) (e2eFileTransfer.Params, error) {
+	p := &e2eFileTransfer.Params{}
+	return *p, p.UnmarshalJSON(data)
 }
 
 func parseSingleUseParams(data []byte) (single.RequestParams, error) {

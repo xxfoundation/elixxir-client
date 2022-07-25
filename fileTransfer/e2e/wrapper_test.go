@@ -25,8 +25,8 @@ import (
 	"time"
 )
 
-// Tests that E2e adheres to the e2e.Handler interface.
-var _ E2e = (e2e.Handler)(nil)
+// Tests that e2eHandler adheres to the e2e.Handler interface.
+var _ e2eHandler = (e2e.Handler)(nil)
 
 // Smoke test of the entire file transfer system.
 func Test_FileTransfer_Smoke(t *testing.T) {
@@ -61,8 +61,9 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	e2e1 := newMockE2e(myID1, e2eHandler)
 	e2e1.RegisterListener(
 		myID1, catalog.EndFileTransfer, newMockListener(endE2eChan1))
-	cmix1 := newMockCmix(myID1, cMixHandler, storage1)
-	ftManager1, err := ft.NewManager(ftParams, myID1, cmix1, storage1, rngGen)
+	cMix1 := newMockCmix(myID1, cMixHandler, storage1)
+	user1 := newMockUser(myID1, cMix1, e2e1, storage1, rngGen)
+	ftManager1, err := ft.NewManager(ftParams, user1)
 	if err != nil {
 		t.Errorf("Failed to make new file transfer manager: %+v", err)
 	}
@@ -70,7 +71,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to start processes for manager 1: %+v", err)
 	}
-	m1, err := NewWrapper(receiveCB1, params, ftManager1, myID1, e2e1, cmix1)
+	m1, err := NewWrapper(receiveCB1, params, ftManager1, user1)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 1: %+v", err)
 	}
@@ -88,8 +89,9 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	e2e2 := newMockE2e(myID2, e2eHandler)
 	e2e2.RegisterListener(
 		myID2, catalog.EndFileTransfer, newMockListener(endE2eChan2))
-	cmix2 := newMockCmix(myID1, cMixHandler, storage2)
-	ftManager2, err := ft.NewManager(ftParams, myID2, cmix2, storage2, rngGen)
+	cMix2 := newMockCmix(myID1, cMixHandler, storage2)
+	user2 := newMockUser(myID2, cMix2, e2e2, storage1, rngGen)
+	ftManager2, err := ft.NewManager(ftParams, user2)
 	if err != nil {
 		t.Errorf("Failed to make new file transfer manager: %+v", err)
 	}
@@ -97,7 +99,7 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to start processes for manager 2: %+v", err)
 	}
-	m2, err := NewWrapper(receiveCB2, params, ftManager2, myID2, e2e2, cmix2)
+	m2, err := NewWrapper(receiveCB2, params, ftManager2, user2)
 	if err != nil {
 		t.Errorf("Failed to create new file transfer manager 2: %+v", err)
 	}

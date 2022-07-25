@@ -33,12 +33,12 @@ type Wrapper struct {
 	p Params
 
 	cmix ft.Cmix
-	conn Connection
+	conn connection
 }
 
-// Connection interface matches a subset of the connect.Connection methods used
+// connection interface matches a subset of the connect.Connection methods used
 // by the Wrapper for easier testing.
-type Connection interface {
+type connection interface {
 	GetPartner() partner.Manager
 	SendE2E(mt catalog.MessageType, payload []byte, params e2e.Params) (
 		[]id.Round, e2eCrypto.MessageID, time.Time, error)
@@ -46,9 +46,9 @@ type Connection interface {
 		newListener receive.Listener) (receive.ListenerID, error)
 }
 
-// NewWrapper generates a new file transfer manager using Connection E2E.
+// NewWrapper generates a new file transfer manager using connection E2E.
 func NewWrapper(receiveCB ft.ReceiveCallback, p Params, ft ft.FileTransfer,
-	conn Connection, cmix ft.Cmix) (*Wrapper, error) {
+	conn connection, cmix ft.Cmix) (*Wrapper, error) {
 	w := &Wrapper{
 		receiveCB: receiveCB,
 		ft:        ft,
@@ -88,7 +88,7 @@ func (w *Wrapper) MaxPreviewSize() int {
 
 // Send initiates the sending of a file to the connection partner and returns a
 // transfer ID that uniquely identifies this file transfer. The initial and
-// final messages are sent via Connection E2E.
+// final messages are sent via connection E2E.
 func (w *Wrapper) Send(fileName, fileType string,
 	fileData []byte, retry float32, preview []byte,
 	progressCB ft.SentProgressCallback, period time.Duration) (
@@ -116,7 +116,7 @@ func (w *Wrapper) RegisterSentProgressCallback(tid *ftCrypto.TransferID,
 	return w.ft.RegisterSentProgressCallback(tid, modifiedProgressCB, period)
 }
 
-// addEndMessageToCallback adds the sending of a Connection E2E message when
+// addEndMessageToCallback adds the sending of a connection E2E message when
 // the transfer completed to the callback. If NotifyUponCompletion is not set,
 // then the message is not sent.
 func (w *Wrapper) addEndMessageToCallback(progressCB ft.SentProgressCallback) ft.SentProgressCallback {

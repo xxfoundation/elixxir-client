@@ -38,7 +38,7 @@ const (
 // sendNewFileTransferMessage sends an E2E message to the recipient informing
 // them of the incoming file transfer.
 func sendNewFileTransferMessage(
-	recipient *id.ID, transferInfo []byte, e2eHandler E2e) error {
+	recipient *id.ID, transferInfo []byte, e2eHandler e2eHandler) error {
 
 	// Get E2E parameters
 	params := e2e.GetDefaultParams()
@@ -57,7 +57,7 @@ func sendNewFileTransferMessage(
 
 // sendEndFileTransferMessage sends an E2E message to the recipient informing
 // them that all file parts have arrived once the network is healthy.
-func sendEndFileTransferMessage(recipient *id.ID, cmix ft.Cmix, e2eHandler E2e) {
+func sendEndFileTransferMessage(recipient *id.ID, cmix ft.Cmix, e2eHandler e2eHandler) {
 	callbackID := make(chan uint64, 1)
 	callbackID <- cmix.AddHealthCallback(
 		func(healthy bool) {

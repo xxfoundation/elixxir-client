@@ -153,11 +153,7 @@ func initFileTransferManager(user *xxdk.E2e, maxThroughput int) (
 	}
 
 	// Create new manager
-	manager, err := ft.NewManager(p,
-		user.GetReceptionIdentity().ID,
-		user.GetCmix(),
-		user.GetStorage(),
-		user.GetRng())
+	manager, err := ft.NewManager(p, user)
 	if err != nil {
 		jww.FATAL.Panicf(
 			"[FT] Failed to create new file transfer manager: %+v", err)
@@ -170,8 +166,7 @@ func initFileTransferManager(user *xxdk.E2e, maxThroughput int) (
 	}
 
 	e2eParams := ftE2e.DefaultParams()
-	e2eFt, err := ftE2e.NewWrapper(receiveCB, e2eParams, manager,
-		user.GetReceptionIdentity().ID, user.GetE2E(), user.GetCmix())
+	e2eFt, err := ftE2e.NewWrapper(receiveCB, e2eParams, manager, user)
 	if err != nil {
 		jww.FATAL.Panicf(
 			"[FT] Failed to create new e2e file transfer wrapper: %+v", err)

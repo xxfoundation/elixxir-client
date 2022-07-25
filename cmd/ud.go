@@ -78,7 +78,7 @@ var udCmd = &cobra.Command{
 
 			}
 		}
-		jww.INFO.Printf("[UD] Registered identity %v", userToRegister)
+		jww.INFO.Printf("[UD] Registered user %v", userToRegister)
 
 		var newFacts fact.FactList
 		phone := viper.GetString(udAddPhoneFlag)
@@ -146,8 +146,7 @@ var udCmd = &cobra.Command{
 			}
 
 			stream := rng.GetStream()
-			_, _, err = ud.Lookup(user.GetCmix(),
-				stream, user.GetE2E().GetGroup(),
+			_, _, err = ud.Lookup(user,
 				udContact, cb, lookupID, single.GetDefaultRequestParams())
 			if err != nil {
 				jww.WARN.Printf("Failed UD lookup: %+v", err)
@@ -241,12 +240,8 @@ var udCmd = &cobra.Command{
 			}
 		}
 
-		stream := rng.GetStream()
-		defer stream.Close()
 		jww.INFO.Printf("[UD] Search: %v", facts)
-		_, _, err = ud.Search(user.GetCmix(),
-			user.GetEventReporter(),
-			stream, user.GetE2E().GetGroup(),
+		_, _, err = ud.Search(user,
 			udContact, cb, facts, single.GetDefaultRequestParams())
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)

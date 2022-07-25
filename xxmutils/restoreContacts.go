@@ -243,10 +243,8 @@ func LookupContact(userID *id.ID, user *xxdk.E2e, udContact contact.Contact) (
 	waiter.Lock()
 
 	// in MS, so 90 seconds
-	stream := user.GetRng().GetStream()
-	defer stream.Close()
-	_, _, err = ud.Lookup(user.GetCmix(), stream, user.GetE2E().GetGroup(),
-		udContact, lookupCB, userID, single.GetDefaultRequestParams())
+	_, _, err = ud.Lookup(user, udContact, lookupCB, userID,
+		single.GetDefaultRequestParams())
 
 	// Now force a wait for callback to exit
 	waiter.Lock()

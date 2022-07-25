@@ -22,14 +22,14 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 )
 
-// NewPrecannedClient creates an insecure user with predetermined keys with
+// NewPrecannedCmix creates an insecure user with predetermined keys with
 // nodes. It creates client storage, generates keys, connects, and registers
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information at a
 // later date.
-func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
+func NewPrecannedCmix(precannedID uint, defJSON, storageDir string,
 	password []byte) error {
-	jww.INFO.Printf("NewPrecannedClient()")
+	jww.INFO.Printf("NewPrecannedCmix()")
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024,
 		csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()

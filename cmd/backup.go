@@ -27,7 +27,7 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 	cmixParams xxdk.CMIXParams, e2eParams xxdk.E2EParams, cbs xxdk.AuthCallbacks) *xxdk.E2e {
 	jww.INFO.Printf("Using Backup sender")
 
-	// create a new client if none exist
+	// create a new user if none exist
 	if _, err := os.Stat(storeDir); errors.Is(err, fs.ErrNotExist) {
 		// Initialize from scratch
 		ndfJson, err := ioutil.ReadFile(viper.GetString(ndfFlag))
@@ -49,8 +49,8 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 			jww.FATAL.Panicf("Failed to write backup to file: %+v", err)
 		}
 
-		// Construct client from backup data
-		backupIdList, _, err := backup.NewClientFromBackup(string(ndfJson), storeDir,
+		// Construct cMix from backup data
+		backupIdList, _, err := backup.NewCmixFromBackup(string(ndfJson), storeDir,
 			password, []byte(backupPass), backupFile)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
@@ -92,11 +92,11 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 		}
 	}
 
-	messenger, err := xxdk.Login(net, cbs, identity, e2eParams)
+	user, err := xxdk.Login(net, cbs, identity, e2eParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	return messenger
+	return user
 }
 
 func loadBackup(backupPath, backupPass string) (backupCrypto.Backup, []byte) {

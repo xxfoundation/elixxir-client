@@ -214,13 +214,13 @@ func (e *E2e) VerifyOwnership(
 		return false, err
 	}
 
-	messenger, err := e2eTrackerSingleton.get(e2eId)
+	user, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
 		return false, err
 	}
 
 	return e.api.GetAuth().VerifyOwnership(
-		received, verified, messenger.api.GetE2E()), nil
+		received, verified, user.api.GetE2E()), nil
 }
 
 // AddPartnerCallback adds a new callback that overrides the generic auth

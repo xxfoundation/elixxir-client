@@ -21,9 +21,9 @@ import (
 // Manager is the control structure for the contacting the user discovery service.
 type Manager struct {
 
-	// messenger is a sub-interface of the e2e.Handler. It allows the Manager
+	// user is a sub-interface of the e2e.Handler. It allows the Manager
 	// to retrieve the client's E2E information.
-	messenger udE2e
+	user udE2e
 
 	// store is an instantiation of this package's storage object.
 	// It contains the facts that are in some state of being registered
@@ -48,7 +48,7 @@ type Manager struct {
 // It requires that an updated
 // NDF is available and will error if one is not.
 // registrationValidationSignature may be set to nil
-func LoadOrNewManager(messenger udE2e, comms Comms, follower udNetworkStatus,
+func LoadOrNewManager(user udE2e, comms Comms, follower udNetworkStatus,
 	username string, networkValidationSig []byte) (*Manager, error) {
 	jww.INFO.Println("ud.LoadOrNewManager()")
 
@@ -59,7 +59,7 @@ func LoadOrNewManager(messenger udE2e, comms Comms, follower udNetworkStatus,
 
 	// Initialize manager
 	m := &Manager{
-		messenger: messenger,
+		user:                            user,
 		comms:     comms,
 	}
 
@@ -108,7 +108,7 @@ func LoadOrNewManager(messenger udE2e, comms Comms, follower udNetworkStatus,
 // NewManagerFromBackup builds a new user discover manager from a backup.
 // It will construct a manager that is already registered and restore
 // already registered facts into store.
-func NewManagerFromBackup(messenger udE2e, comms Comms, follower udNetworkStatus,
+func NewManagerFromBackup(user udE2e, comms Comms, follower udNetworkStatus,
 	email, phone fact.Fact) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
 	if follower() != xxdk.Running {
@@ -119,8 +119,8 @@ func NewManagerFromBackup(messenger udE2e, comms Comms, follower udNetworkStatus
 
 	// Initialize manager
 	m := &Manager{
-		messenger: messenger,
-		comms:     comms,
+		user:  user,
+		comms: comms,
 	}
 
 	// Initialize our store
@@ -138,7 +138,7 @@ func NewManagerFromBackup(messenger udE2e, comms Comms, follower udNetworkStatus
 	}
 
 	// Set as registered. Since it's from a backup,
-	// the client is already registered
+	// the user is already registered
 	if err = setRegistered(m.getKv()); err != nil {
 		return nil, errors.WithMessage(err, "failed to set client as "+
 			"registered with user discovery.")
@@ -171,7 +171,7 @@ func InitStoreFromBackup(kv *versioned.KV,
 	}
 
 	// Set as registered. Since it's from a backup,
-	// the client is already registered
+	// the user is already registered
 	if err = setRegistered(kv); err != nil {
 		return errors.WithMessage(err, "failed to set client as "+
 			"registered with user discovery.")
@@ -194,7 +194,7 @@ func (m *Manager) GetStringifiedFacts() []string {
 
 // GetContact returns the contact for UD as retrieved from the NDF.
 func (m *Manager) GetContact() (contact.Contact, error) {
-	grp, err := m.messenger.GetReceptionIdentity().GetGroup()
+	grp, err := m.user.GetReceptionIdentity().GetGroup()
 	if err != nil {
 		return contact.Contact{}, err
 	}
@@ -291,24 +291,24 @@ func (m *Manager) getOrAddUdHost() (*connect.Host, error) {
 // getCmix retrieve a sub-interface of cmix.Client.
 // It allows the Manager to retrieve network state.
 func (m *Manager) getCmix() udCmix {
-	return m.messenger.GetCmix()
+	return m.user.GetCmix()
 }
 
 // getKv returns a versioned.KV used for isRegistered and setRegistered.
 // This is separated from store operations as store's kv
 // has a different prefix which breaks backwards compatibility.
 func (m *Manager) getKv() *versioned.KV {
-	return m.messenger.GetStorage().GetKV()
+	return m.user.GetStorage().GetKV()
 }
 
 // getEventReporter returns an event.Reporter. This allows
 // the Manager to report events to the other levels of the client.
 func (m *Manager) getEventReporter() event.Reporter {
-	return m.messenger.GetEventReporter()
+	return m.user.GetEventReporter()
 }
 
 // getRng returns a fastRNG.StreamGenerator. This RNG is for
 // generating signatures for adding/removing facts.
 func (m *Manager) getRng() *fastRNG.StreamGenerator {
-	return m.messenger.GetRng()
+	return m.user.GetRng()
 }

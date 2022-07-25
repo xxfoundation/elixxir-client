@@ -18,7 +18,7 @@ func (m *Manager) register(username string, networkSignature []byte,
 	rng csprng.Source, comm registerUserComms, udHost *connect.Host) error {
 
 	var err error
-	identity := m.messenger.GetReceptionIdentity()
+	identity := m.user.GetReceptionIdentity()
 	privKey, err := identity.GetRSAPrivatePem()
 	if err != nil {
 		return err
@@ -43,7 +43,7 @@ func (m *Manager) register(username string, networkSignature []byte,
 			Salt:     identity.Salt,
 		},
 		UID:       identity.ID.Marshal(),
-		Timestamp: m.messenger.GetTransmissionIdentity().RegistrationTimestamp,
+		Timestamp: m.user.GetTransmissionIdentity().RegistrationTimestamp,
 	}
 
 	// Sign the identity data and add to user registration message

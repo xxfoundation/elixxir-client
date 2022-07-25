@@ -36,21 +36,21 @@ var singleCmd = &cobra.Command{
 		cmixParams, e2eParams := initParams()
 		authCbs := makeAuthCallbacks(
 			viper.GetBool(unsafeChannelCreationFlag), e2eParams)
-		client := initE2e(cmixParams, e2eParams, authCbs)
+		user := initE2e(cmixParams, e2eParams, authCbs)
 
 		// Write user contact to file
-		user := client.GetReceptionIdentity()
-		jww.INFO.Printf("User: %s", user.ID)
-		writeContact(user.GetContact())
+		identity := user.GetReceptionIdentity()
+		jww.INFO.Printf("User: %s", identity.ID)
+		writeContact(identity.GetContact())
 
-		err := client.StartNetworkFollower(5 * time.Second)
+		err := user.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
-		client.GetCmix().AddHealthCallback(
+		user.GetCmix().AddHealthCallback(
 			func(isconnected bool) {
 				connected <- isconnected
 			})
@@ -68,21 +68,21 @@ var singleCmd = &cobra.Command{
 			}),
 		}
 
-		dhKeyPriv, err := user.GetDHKeyPrivate()
+		dhKeyPriv, err := identity.GetDHKeyPrivate()
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		myID := user.ID
+		myID := identity.ID
 		listener := single.Listen(tag, myID,
 			dhKeyPriv,
-			client.GetCmix(),
-			client.GetStorage().GetE2EGroup(),
+			user.GetCmix(),
+			user.GetStorage().GetE2EGroup(),
 			receiver)
 
 		for numReg, total := 1, 100; numReg < (total*3)/4; {
 			time.Sleep(1 * time.Second)
-			numReg, total, err = client.GetNodeRegistrationStatus()
+			numReg, total, err = user.GetNodeRegistrationStatus()
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
@@ -99,7 +99,7 @@ var singleCmd = &cobra.Command{
 			partner := readSingleUseContact(singleContactFlag)
 			maxMessages := uint8(viper.GetUint(singleMaxMessagesFlag))
 
-			sendSingleUse(client.Cmix, partner, payload,
+			sendSingleUse(user.Cmix, partner, payload,
 				maxMessages, timeout, tag)
 		}
 

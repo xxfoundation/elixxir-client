@@ -47,22 +47,22 @@ type manager struct {
 	// Callback that is called when a new group request is received
 	requestFunc RequestCallback
 
-	messenger groupE2e
+	user groupE2e
 }
 
 // NewManager creates a new group chat manager
-func NewManager(messenger groupE2e,
+func NewManager(user groupE2e,
 	requestFunc RequestCallback, receiveFunc Processor) (GroupChat, error) {
 
 	// Initialize a member object
-	handler := messenger.GetE2E()
+	handler := user.GetE2E()
 	member := group.Member{
-		ID:    messenger.GetReceptionIdentity().ID,
+		ID:    user.GetReceptionIdentity().ID,
 		DhKey: handler.GetHistoricalDHPubkey(),
 	}
 
 	// Load the group chat storage or create one if one does not exist
-	kv := messenger.GetStorage().GetKV()
+	kv := user.GetStorage().GetKV()
 	gStore, err := gs.NewOrLoadStore(kv, member)
 	if err != nil {
 		return nil, errors.Errorf(newGroupStoreErr, err)
@@ -73,7 +73,7 @@ func NewManager(messenger groupE2e,
 		gs:          gStore,
 		services:    make(map[string]Processor),
 		requestFunc: requestFunc,
-		messenger:   messenger,
+		user:        user,
 	}
 
 	// Register listener for incoming e2e group chat requests
@@ -144,21 +144,21 @@ func (m *manager) NumGroups() int {
 /////////////////////////////////////////////////////////////////////////////////////////
 
 func (m *manager) getCMix() groupCmix {
-	return m.messenger.GetCmix()
+	return m.user.GetCmix()
 }
 
 func (m *manager) getE2eHandler() groupE2eHandler {
-	return m.messenger.GetE2E()
+	return m.user.GetE2E()
 }
 
 func (m *manager) getReceptionIdentity() xxdk.ReceptionIdentity {
-	return m.messenger.GetReceptionIdentity()
+	return m.user.GetReceptionIdentity()
 }
 
 func (m *manager) getRng() *fastRNG.StreamGenerator {
-	return m.messenger.GetRng()
+	return m.user.GetRng()
 }
 
 func (m *manager) getE2eGroup() *cyclic.Group {
-	return m.messenger.GetStorage().GetE2EGroup()
+	return m.user.GetStorage().GetE2EGroup()
 }

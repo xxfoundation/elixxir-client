@@ -81,19 +81,19 @@ type Callback func(connection Connection)
 // and returns a Connection object for the newly-created partner.Manager
 // This function is to be used sender-side and will block until the
 // partner.Manager is confirmed.
-func Connect(recipient contact.Contact, messenger *xxdk.E2e,
+func Connect(recipient contact.Contact, user *xxdk.E2e,
 	p xxdk.E2EParams) (Connection, error) {
 	// Build callback for E2E negotiation
 	signalChannel := make(chan Connection, 1)
 	cb := func(connection Connection) {
 		signalChannel <- connection
 	}
-	callback := getClientAuthCallback(cb, nil, messenger.GetE2E(),
-		messenger.GetAuth(), p)
-	messenger.GetAuth().AddPartnerCallback(recipient.ID, callback)
+	callback := getClientAuthCallback(cb, nil, user.GetE2E(),
+		user.GetAuth(), p)
+	user.GetAuth().AddPartnerCallback(recipient.ID, callback)
 
 	// Perform the auth request
-	_, err := messenger.GetAuth().Reset(recipient)
+	_, err := user.GetAuth().Reset(recipient)
 	if err != nil {
 		return nil, err
 	}
@@ -151,8 +151,8 @@ func StartServer(identity xxdk.ReceptionIdentity, connectionCallback Callback,
 
 // ConnectionServer contains
 type ConnectionServer struct {
-	Messenger *xxdk.E2e
-	Cl        *ConnectionList
+	User *xxdk.E2e
+	Cl   *ConnectionList
 }
 
 // handler provides an implementation for the Connection interface.

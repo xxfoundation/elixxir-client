@@ -243,10 +243,8 @@ func LookupContact(userID *id.ID, messenger *xxdk.E2e, udContact contact.Contact
 	waiter.Lock()
 
 	// in MS, so 90 seconds
-	stream := messenger.GetRng().GetStream()
-	defer stream.Close()
-	_, _, err = ud.Lookup(messenger.GetCmix(), stream, messenger.GetE2E().GetGroup(),
-		udContact, lookupCB, userID, single.GetDefaultRequestParams())
+	_, _, err = ud.Lookup(messenger, udContact, lookupCB, userID,
+		single.GetDefaultRequestParams())
 
 	// Now force a wait for callback to exit
 	waiter.Lock()

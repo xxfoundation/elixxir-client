@@ -27,7 +27,7 @@ type searchCallback func([]contact.Contact, error)
 // used to search for multiple users at once; that can have a privacy reduction.
 // Instead, it is intended to be used to search for a user where multiple pieces
 // of information is known.
-func Search(messenger udE2e,
+func Search(user udE2e,
 	udContact contact.Contact, callback searchCallback,
 	list fact.FactList,
 	params single.RequestParams) ([]id.Round,
@@ -44,11 +44,11 @@ func Search(messenger udE2e,
 			errors.WithMessage(err, "Failed to form outgoing search request.")
 	}
 
-	// Extract information from messenger
-	net := messenger.GetCmix()
-	events := messenger.GetEventReporter()
-	grp := messenger.GetE2E().GetGroup()
-	rng := messenger.GetRng().GetStream()
+	// Extract information from user
+	net := user.GetCmix()
+	events := user.GetEventReporter()
+	grp := user.GetE2E().GetGroup()
+	rng := user.GetRng().GetStream()
 	defer rng.Close()
 
 	// Build response handler

@@ -127,8 +127,8 @@ var udCmd = &cobra.Command{
 
 		udContact, err := userDiscoveryMgr.GetContact()
 		if err != nil {
-			fmt.Printf("Failed to get identity discovery contact object: %+v", err)
-			jww.FATAL.Printf("Failed to get identity discovery contact object: %+v", err)
+			fmt.Printf("Failed to get user discovery contact object: %+v", err)
+			jww.FATAL.Printf("Failed to get user discovery contact object: %+v", err)
 		}
 
 		// Handle lookup (verification) process
@@ -213,13 +213,13 @@ var udCmd = &cobra.Command{
 			}
 			err = userDiscoveryMgr.PermanentDeleteAccount(f)
 			if err != nil {
-				fmt.Printf("Couldn't remove identity %s\n",
+				fmt.Printf("Couldn't remove user %s\n",
 					userToRemove)
 				jww.FATAL.Panicf(
-					"Failed to remove identity %s: %+v",
+					"Failed to remove user %s: %+v",
 					userToRemove, err)
 			}
-			fmt.Printf("Removed identity from discovery: %s\n",
+			fmt.Printf("Removed user from discovery: %s\n",
 				userToRemove)
 		}
 

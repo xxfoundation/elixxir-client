@@ -163,7 +163,7 @@ func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback, e2eFil
 		}))
 	}
 
-	w, err := e2e.NewWrapper(rcb, e2eFileTransferParams, m, myID, messenger.api.GetE2E(), messenger.api.GetCmix())
+	w, err := e2e.NewWrapper(rcb, e2eFileTransferParams, m, myID, user.api.GetE2E(), user.api.GetCmix())
 	if err != nil {
 		return nil, err
 	}

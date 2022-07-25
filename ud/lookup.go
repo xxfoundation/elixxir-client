@@ -22,15 +22,15 @@ type lookupCallback func(contact.Contact, error)
 
 // Lookup returns the public key of the passed ID as known by the user discovery
 // system or returns by the timeout.
-func Lookup(messenger udE2e,
+func Lookup(user udE2e,
 	udContact contact.Contact, callback lookupCallback,
 	uid *id.ID, p single.RequestParams) ([]id.Round,
 	receptionID.EphemeralIdentity, error) {
 
-	// Extract information from messenger
-	net := messenger.GetCmix()
-	grp := messenger.GetE2E().GetGroup()
-	rng := messenger.GetRng().GetStream()
+	// Extract information from user
+	net := user.GetCmix()
+	grp := user.GetE2E().GetGroup()
+	rng := user.GetRng().GetStream()
 	defer rng.Close()
 
 	jww.INFO.Printf("ud.Lookup(%s, %s)", uid, p.Timeout)

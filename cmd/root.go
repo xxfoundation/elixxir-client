@@ -122,11 +122,6 @@ var rootCmd = &cobra.Command{
 			})
 		waitUntilConnected(connected)
 
-		// err = user.RegisterForNotifications("dJwuGGX3KUyKldWK5PgQH8:APA91bFjuvimRc4LqOyMDiy124aLedifA8DhldtaB_b76ggphnFYQWJc_fq0hzQ-Jk4iYp2wPpkwlpE1fsOjs7XWBexWcNZoU-zgMiM0Mso9vTN53RhbXUferCbAiEylucEOacy9pniN")
-		// if err != nil {
-		//	jww.FATAL.Panicf("Failed to register for notifications: %+v", err)
-		// }
-
 		// After connection, make sure we have registered with at least
 		// 85% of the nodes
 		numReg := 1

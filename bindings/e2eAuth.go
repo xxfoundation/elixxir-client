@@ -8,6 +8,7 @@
 package bindings
 
 import (
+	"encoding/json"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
@@ -38,15 +39,24 @@ import (
 //
 // Returns:
 //  - int64 - ID of the round (convert to uint64)
-func (e *E2e) Request(partnerContact []byte, myFactsString string) (int64, error) {
+func (e *E2e) Request(partnerContact, factsListJson []byte) (int64, error) {
+	var factsList []Fact
+	err := json.Unmarshal(factsListJson, &factsList)
+	if err != nil {
+		return 0, err
+	}
+
 	partner, err := contact.Unmarshal(partnerContact)
 	if err != nil {
 		return 0, err
 	}
 
-	myFacts, _, err := fact.UnstringifyFactList(myFactsString)
-	if err != nil {
-		return 0, err
+	myFacts := fact.FactList{}
+	for _, f := range factsList {
+		myFacts = append(myFacts, fact.Fact{
+			Fact: f.Fact,
+			T:    fact.FactType(f.Type),
+		})
 	}
 
 	roundID, err := e.api.GetAuth().Request(partner, myFacts)

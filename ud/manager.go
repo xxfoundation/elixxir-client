@@ -44,10 +44,18 @@ type Manager struct {
 	alternativeUd *alternateUd
 }
 
-// LoadOrNewManager builds a new user discovery manager.
-// It requires that an updated
-// NDF is available and will error if one is not.
-// registrationValidationSignature may be set to nil
+// LoadOrNewManager loads an existing Manager from storage or creates a
+// new one if there is no extant storage information.
+//
+// Params
+//  - user is an interface that adheres to the xxdk.E2e object.
+//  - comms is an interface that adheres to client.Comms object.
+//  - follower is a method off of xxdk.Cmix which returns the network follower's status.
+//  - username is the name of the user as it is registered with UD. This will be what the end user
+//  provides if through the bindings.
+//  - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
+//  be nil if the caller knows the manager will be loaded. If a new manager is created, a nil signature
+//  will cause an error.
 func LoadOrNewManager(user udE2e, comms Comms, follower udNetworkStatus,
 	username string, networkValidationSig []byte) (*Manager, error) {
 	jww.INFO.Println("ud.LoadOrNewManager()")
@@ -59,8 +67,8 @@ func LoadOrNewManager(user udE2e, comms Comms, follower udNetworkStatus,
 
 	// Initialize manager
 	m := &Manager{
-		user:                            user,
-		comms:     comms,
+		user:  user,
+		comms: comms,
 	}
 
 	if m.isRegistered() {

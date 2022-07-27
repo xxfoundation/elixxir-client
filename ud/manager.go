@@ -54,8 +54,7 @@ type Manager struct {
 //  - username is the name of the user as it is registered with UD. This will be what the end user
 //  provides if through the bindings.
 //  - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
-//  be nil if the caller knows the manager will be loaded. If a new manager is created, a nil signature
-//  will cause an error.
+//  be nil, however UD may return an error in some cases (e.g. in a production level environment).
 func LoadOrNewManager(user udE2e, comms Comms, follower udNetworkStatus,
 	username string, networkValidationSig []byte) (*Manager, error) {
 	jww.INFO.Println("ud.LoadOrNewManager()")

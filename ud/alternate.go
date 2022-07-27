@@ -19,6 +19,7 @@ type alternateUd struct {
 // SetAlternativeUserDiscovery sets the alternativeUd object within manager.
 // Once set, any user discovery operation will go through the alternative
 // user discovery service.
+//
 // To undo this operation, use UnsetAlternativeUserDiscovery.
 func (m *Manager) SetAlternativeUserDiscovery(altCert, altAddress,
 	contactFile []byte) error {

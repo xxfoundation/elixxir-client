@@ -76,7 +76,7 @@ func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload,
 //  - cb - the callback that will be called when a response is received
 //
 // Returns:
-//  - StopFunc - a function used to stop the listener
+//  - Stopper - an interface containing a function used to stop the listener
 func Listen(e2eID int, tag string, cb SingleUseCallback) (Stopper, error) {
 	e2eCl, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {

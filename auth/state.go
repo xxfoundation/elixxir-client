@@ -110,7 +110,8 @@ func NewStateLegacy(kv *versioned.KV, net cmix.Client, e2e e2e.Handler,
 	}, &receivedRequestService{s: s, reset: true})
 
 	if err != nil {
-		return nil, errors.Errorf("Failed to make Auth State manager")
+		return nil, errors.WithMessage(err,
+			"Failed to make Auth State manager")
 	}
 
 	return s, nil

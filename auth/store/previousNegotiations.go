@@ -9,20 +9,21 @@ package store
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e/auth"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strings"
 )
 
 const (
 	negotiationPartnersKey                = "NegotiationPartners"
-	negotiationPartnersVersion            = 0
+	negotiationPartnersVersion            = 1
 	negotiationFingerprintsKeyPrefix      = "NegotiationFingerprints/"
 	currentNegotiationFingerprintsVersion = 0
 )
@@ -119,20 +120,22 @@ func (s *Store) savePreviousNegotiations() error {
 func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]bool, error) {
 
 	obj, err := s.kv.Get(negotiationPartnersKey, negotiationPartnersVersion)
-	if err != nil {
-		if strings.Contains(err.Error(), "object not found") {
-			newPreviousNegotiations := make(map[id.ID]bool)
-			obj := &versioned.Object{
-				Version:   negotiationPartnersVersion,
-				Timestamp: netTime.Now(),
-				Data:      marshalPreviousNegotiations(newPreviousNegotiations),
-			}
-			err = s.kv.Set(negotiationPartnersKey, negotiationPartnersVersion, obj)
-			if err != nil {
-				return nil, err
-			}
-			return newPreviousNegotiations, nil
+
+	// V0 Upgrade Path
+	if !ekv.Exists(err) {
+		upgradeErr := upgradePreviousNegotiationsV0(s.kv)
+		if upgradeErr != nil {
+			return nil, errors.Wrapf(err, "%+v", upgradeErr)
 		}
+		obj, err = s.kv.Get(negotiationPartnersKey,
+			negotiationPartnersVersion)
+	}
+
+	// Note: if it still doesn't exist, return an empty one.
+	if err != nil && !ekv.Exists(err) {
+		newPreviousNegotiations := make(map[id.ID]bool)
+		return newPreviousNegotiations, nil
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -192,8 +195,8 @@ func saveNegotiationFingerprints(
 // loadNegotiationFingerprints loads the list of sentByFingerprints for the given
 // partner from storage.
 func loadNegotiationFingerprints(partner *id.ID, kv *versioned.KV) ([][]byte, error) {
-	obj, err := kv.Get(makeNegotiationFingerprintsKey(partner),
-		currentNegotiationFingerprintsVersion)
+	fpKey := makeNegotiationFingerprintsKey(partner)
+	obj, err := kv.Get(fpKey, currentNegotiationFingerprintsVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -239,6 +242,50 @@ func unmarshalNegotiationFingerprints(buf []byte) [][]byte {
 // makeOldNegotiationFingerprintsKey generates the key used to load and store
 // negotiation sentByFingerprints for the partner.
 func makeNegotiationFingerprintsKey(partner *id.ID) string {
-	return negotiationFingerprintsKeyPrefix +
-		string(base64.StdEncoding.EncodeToString(partner.Marshal()))
+	return negotiationFingerprintsKeyPrefix + partner.String()
+}
+
+// Historical functions
+
+// unmarshalPreviousNegotiations unmarshalls the marshalled byte slice into a
+// list of partner IDs.
+func unmarshalPreviousNegotiationsV0(buf []byte) map[id.ID]struct{} {
+	buff := bytes.NewBuffer(buf)
+
+	numberOfPartners := binary.LittleEndian.Uint64(buff.Next(8))
+	partners := make(map[id.ID]struct{}, numberOfPartners)
+
+	for i := uint64(0); i < numberOfPartners; i++ {
+		partner, err := id.Unmarshal(buff.Next(id.ArrIDLen))
+		if err != nil {
+			jww.FATAL.Panicf(
+				"Failed to unmarshal negotiation partner ID: %+v", err)
+		}
+
+		partners[*partner] = struct{}{}
+	}
+
+	return partners
+}
+
+// upgradePreviousNegotiationsV0 upgrades the negotiations Partners key from V0
+// to V1
+func upgradePreviousNegotiationsV0(kv *versioned.KV) error {
+	obj, err := kv.Get(negotiationPartnersKey, 0)
+	if !ekv.Exists(err) {
+		return nil
+	}
+
+	old := unmarshalPreviousNegotiationsV0(obj.Data)
+	newPrevNegotiations := make(map[id.ID]bool)
+	for id := range old {
+		newPrevNegotiations[id] = true
+	}
+	obj = &versioned.Object{
+		Version:   negotiationPartnersVersion,
+		Timestamp: netTime.Now(),
+		Data: marshalPreviousNegotiations(
+			newPrevNegotiations),
+	}
+	return kv.Set(negotiationPartnersKey, negotiationPartnersVersion, obj)
 }

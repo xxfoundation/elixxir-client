@@ -8,9 +8,9 @@
 package store
 
 import (
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -19,12 +19,13 @@ import (
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-const currentSentRequestVersion = 0
+const currentSentRequestVersion = 1
 
 type SentRequest struct {
 	kv *versioned.KV
@@ -73,8 +74,16 @@ func newSentRequest(kv *versioned.KV, partner *id.ID, partnerHistoricalPubKey,
 func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*SentRequest, error) {
 
 	srKey := makeSentRequestKey(partner)
-	obj, err := kv.Get(srKey,
-		currentSentRequestVersion)
+	obj, err := kv.Get(srKey, currentSentRequestVersion)
+
+	// V0 Upgrade Path
+	if !ekv.Exists(err) {
+		upgradeErr := upgradeSentRequestKeyV0(kv, partner)
+		if upgradeErr != nil {
+			return nil, errors.Wrapf(err, "%+v", upgradeErr)
+		}
+		obj, err = kv.Get(srKey, currentSentRequestVersion)
+	}
 
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Load "+
@@ -260,6 +269,37 @@ func (sr *SentRequest) getType() RequestType {
 	return Sent
 }
 
+// makeSentRequestKey makes the key string for accessing the
+// partners sent request object from the key value store.
 func makeSentRequestKey(partner *id.ID) string {
-	return "sentRequest:" + base64.StdEncoding.EncodeToString(partner.Marshal())
+	return "sentRequest:" + partner.String()
+}
+
+// V0 Utility Functions
+
+// makeSentRequestKeyV0 The old key used the string pattern
+// "Partner:PartnerID" instead of "sentRequest:PartnerID".
+func makeSentRequestKeyV0(partner *id.ID) string {
+	return fmt.Sprintf("Partner:%v", partner.String())
+}
+
+// upgradeSentRequestKeyV0 upgrads the srKey from version 0 to 1 by
+// changing the version number.
+func upgradeSentRequestKeyV0(kv *versioned.KV, partner *id.ID) error {
+	oldKey := makeSentRequestKeyV0(partner)
+	obj, err := kv.Get(oldKey, 0)
+	if err != nil {
+		return err
+	}
+
+	jww.INFO.Printf("Upgrading legacy srKey for %s", partner)
+
+	// Note: uses same encoding, just different keys
+	obj.Version = 1
+	err = kv.Set(makeSentRequestKey(partner), 1, obj)
+	if err != nil {
+		return err
+	}
+
+	return kv.Delete(oldKey, 0)
 }

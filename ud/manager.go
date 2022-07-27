@@ -161,7 +161,7 @@ func NewManagerFromBackup(user udE2e, comms Comms, follower udNetworkStatus,
 	return m, nil
 }
 
-// InitStoreFromBackup initializes the UD storage from the backup subsystem
+// InitStoreFromBackup initializes the UD storage from the backup subsystem.
 func InitStoreFromBackup(kv *versioned.KV,
 	username, email, phone fact.Fact) error {
 	// Initialize our store
@@ -189,7 +189,7 @@ func InitStoreFromBackup(kv *versioned.KV,
 
 // GetFacts returns a list of fact.Fact objects that exist within the
 // Store's registeredFacts map.
-func (m *Manager) GetFacts() []fact.Fact {
+func (m *Manager) GetFacts() fact.FactList {
 	return m.store.GetFacts()
 }
 
@@ -291,9 +291,9 @@ func (m *Manager) getOrAddUdHost() (*connect.Host, error) {
 	return host, nil
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
-// Internal getters /////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Internal Getters                                                           //
+////////////////////////////////////////////////////////////////////////////////
 
 // getCmix retrieve a sub-interface of cmix.Client.
 // It allows the Manager to retrieve network state.

@@ -14,10 +14,11 @@ import (
 // SendRegisterFact adds a fact for the user to user discovery. Will only
 // succeed if the user is already registered and the system does not have the
 // fact currently registered for any user.
+//
 // This does not complete the fact registration process, it returns a
-// confirmation id instead. Over the communications system the fact is
-// associated with, a code will be sent. This confirmation ID needs to be
-// called along with the code to finalize the fact.
+// confirmation ID instead. Over the communications system the fact is
+// associated with, a code will be sent. This confirmation ID needs to be called
+// along with the code to finalize the fact.
 func (m *Manager) SendRegisterFact(f fact.Fact) (string, error) {
 	jww.INFO.Printf("ud.SendRegisterFact(%s)", f.Stringify())
 	m.factMux.Lock()

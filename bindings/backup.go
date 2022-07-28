@@ -24,6 +24,9 @@ type Backup struct {
 
 // BackupReport is the bindings' representation of the return values of
 // NewCmixFromBackup.
+//
+// Example BackupReport:
+// {"BackupIdListJson":"WyJPRHRRTTA4ZERpV3lXaE0wWUhjanRHWnZQcHRSa1JOZ1pHR2FkTG10dE9BRCJd","BackupParams":""}
 type BackupReport struct {
 	// The JSON encoded list of E2E partner IDs
 	BackupIdListJson []byte

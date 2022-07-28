@@ -8,8 +8,13 @@
 package bindings
 
 import (
+	"encoding/json"
 	"gitlab.com/elixxir/client/backup"
 )
+
+////////////////////////////////////////////////////////////////////////////////
+// Structs and Interfaces                                                     //
+////////////////////////////////////////////////////////////////////////////////
 
 // Backup is a bindings-level struct encapsulating the backup.Backup
 // client object.
@@ -21,6 +26,48 @@ type Backup struct {
 type UpdateBackupFunc interface {
 	UpdateBackup(encryptedBackup []byte)
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Client functions                                                           //
+////////////////////////////////////////////////////////////////////////////////
+
+// NewCmixFromBackup initializes a new e2e storage from an encrypted
+// backup.
+//
+// Params
+//  - ndfJSON - JSON of the NDF.
+//  - storageDir - directory for the storage files.
+//  - sessionPassword - password used in LoadCmix.
+//  - backupPassphrase - backup passphrase provided by the user. Used to decrypt backup.
+//  - backupFileContents - the file contents of the backup.
+//
+// Return Values
+//  - backupIdListJson - JSON encoded list of the E2E partner IDs contained in the backup file.
+//  - backupParams - JSON encoded backup parameters contained in the backup file.
+func NewCmixFromBackup(ndfJSON, storageDir string, sessionPassword,
+	backupPassphrase []byte, backupFileContents []byte) (
+	backupIdListJson []byte, backupParams []byte, err error) {
+
+	// Restore from backup
+	backupIdList, backupParamsStr, err := backup.NewCmixFromBackup(
+		ndfJSON, storageDir, sessionPassword,
+		backupPassphrase, backupFileContents)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	backupIdListJson, err = json.Marshal(backupIdList)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return backupIdListJson, []byte(backupParamsStr), nil
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Backup functions                                                           //
+////////////////////////////////////////////////////////////////////////////////
 
 // InitializeBackup creates a bindings-layer Backup object.
 //

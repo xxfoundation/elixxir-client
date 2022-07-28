@@ -32,12 +32,13 @@ type UpdateBackupFunc interface {
 ////////////////////////////////////////////////////////////////////////////////
 
 // NewCmixFromBackup initializes a new e2e storage from an encrypted
-// backup.
+// backup. Users of this function should delete the storage directory on error.
+// Users of this function should call LoadCmix as normal once this call succeeds.
 //
 // Params
 //  - ndfJSON - JSON of the NDF.
 //  - storageDir - directory for the storage files.
-//  - sessionPassword - password used in LoadCmix.
+//  - sessionPassword - password to decrypt the data in the storageDir.
 //  - backupPassphrase - backup passphrase provided by the user. Used to decrypt backup.
 //  - backupFileContents - the file contents of the backup.
 //

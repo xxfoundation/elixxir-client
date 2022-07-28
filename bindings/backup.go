@@ -26,10 +26,10 @@ type Backup struct {
 // NewCmixFromBackup.
 type BackupReport struct {
 	// The JSON encoded list of E2E partner IDs
-	backupIdListJson []byte
+	BackupIdListJson []byte
 
 	// The backup parameters found within the backup file
-	backupParams []byte
+	BackupParams []byte
 }
 
 // UpdateBackupFunc contains a function callback that returns new backups.
@@ -73,8 +73,8 @@ func NewCmixFromBackup(ndfJSON, storageDir string, sessionPassword,
 
 	// Construct report
 	report := BackupReport{
-		backupIdListJson: backupIdListJson,
-		backupParams:     []byte(backupParamsStr),
+		BackupIdListJson: backupIdListJson,
+		BackupParams:     []byte(backupParamsStr),
 	}
 
 	// Marshal report

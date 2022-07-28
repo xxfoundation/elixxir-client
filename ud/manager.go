@@ -18,12 +18,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-const (
-	IsRegisteredErr = "NewManager is already registered. " +
-		"NewManager is meant for the first instantiation. Use LoadManager " +
-		"for all other calls"
-)
-
 // Manager is the control structure for the contacting the user discovery service.
 type Manager struct {
 
@@ -48,19 +42,22 @@ type Manager struct {
 	// alternativeUd is an alternate User discovery service to circumvent
 	// production. This is for testing with a separately deployed UD service.
 	alternativeUd *alternateUd
-
-	// registrationValidationSignature for the ReceptionID
-	// Optional, depending on UD configuration
-	registrationValidationSignature []byte
 }
 
-// NewManager builds a new user discovery manager.
-// It requires that an updated
-// NDF is available and will error if one is not.
-// registrationValidationSignature may be set to nil
-func NewManager(user udE2e, comms Comms, follower udNetworkStatus,
-	username string, registrationValidationSignature []byte) (*Manager, error) {
-	jww.INFO.Println("ud.NewManager()")
+// LoadOrNewManager loads an existing Manager from storage or creates a
+// new one if there is no extant storage information.
+//
+// Params
+//  - user is an interface that adheres to the xxdk.E2e object.
+//  - comms is an interface that adheres to client.Comms object.
+//  - follower is a method off of xxdk.Cmix which returns the network follower's status.
+//  - username is the name of the user as it is registered with UD. This will be what the end user
+//  provides if through the bindings.
+//  - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
+//  be nil, however UD may return an error in some cases (e.g. in a production level environment).
+func LoadOrNewManager(user udE2e, comms Comms, follower udNetworkStatus,
+	username string, networkValidationSig []byte) (*Manager, error) {
+	jww.INFO.Println("ud.LoadOrNewManager()")
 
 	if follower() != xxdk.Running {
 		return nil, errors.New(
@@ -69,13 +66,18 @@ func NewManager(user udE2e, comms Comms, follower udNetworkStatus,
 
 	// Initialize manager
 	m := &Manager{
-		user:                            user,
-		comms:                           comms,
-		registrationValidationSignature: registrationValidationSignature,
+		user:  user,
+		comms: comms,
 	}
 
 	if m.isRegistered() {
-		return nil, errors.Errorf(IsRegisteredErr)
+		// Load manager if already registered
+		var err error
+		m.store, err = store.NewOrLoadStore(m.getKv())
+		if err != nil {
+			return nil, errors.Errorf("Failed to initialize store: %v", err)
+		}
+		return m, nil
 	}
 
 	// Initialize store
@@ -95,7 +97,7 @@ func NewManager(user udE2e, comms Comms, follower udNetworkStatus,
 	// Register with user discovery
 	stream := m.getRng().GetStream()
 	defer stream.Close()
-	err = m.register(username, stream, m.comms, udHost)
+	err = m.register(username, networkValidationSig, stream, m.comms, udHost)
 	if err != nil {
 		return nil, errors.Errorf("Failed to register: %v", err)
 	}
@@ -159,7 +161,7 @@ func NewManagerFromBackup(user udE2e, comms Comms, follower udNetworkStatus,
 	return m, nil
 }
 
-// InitStoreFromBackup initializes the UD storage from the backup subsystem
+// InitStoreFromBackup initializes the UD storage from the backup subsystem.
 func InitStoreFromBackup(kv *versioned.KV,
 	username, email, phone fact.Fact) error {
 	// Initialize our store
@@ -185,32 +187,9 @@ func InitStoreFromBackup(kv *versioned.KV,
 	return nil
 }
 
-// LoadManager loads the state of the Manager
-// from disk. This is meant to be called after any the first
-// instantiation of the manager by NewUserDiscovery.
-func LoadManager(user udE2e, comms Comms) (*Manager, error) {
-	m := &Manager{
-		user:  user,
-		comms: comms,
-	}
-
-	if !m.isRegistered() {
-		return nil, errors.Errorf("LoadManager could not detect that " +
-			"the user has been registered. Has a manager been initiated before?")
-	}
-
-	var err error
-	m.store, err = store.NewOrLoadStore(m.getKv())
-	if err != nil {
-		return nil, errors.Errorf("Failed to initialize store: %v", err)
-	}
-
-	return m, err
-}
-
 // GetFacts returns a list of fact.Fact objects that exist within the
 // Store's registeredFacts map.
-func (m *Manager) GetFacts() []fact.Fact {
+func (m *Manager) GetFacts() fact.FactList {
 	return m.store.GetFacts()
 }
 
@@ -312,9 +291,9 @@ func (m *Manager) getOrAddUdHost() (*connect.Host, error) {
 	return host, nil
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
-// Internal getters /////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Internal Getters                                                           //
+////////////////////////////////////////////////////////////////////////////////
 
 // getCmix retrieve a sub-interface of cmix.Client.
 // It allows the Manager to retrieve network state.

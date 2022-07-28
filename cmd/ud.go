@@ -10,7 +10,6 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"gitlab.com/elixxir/client/single"
@@ -62,21 +61,12 @@ var udCmd = &cobra.Command{
 		jww.TRACE.Printf("[UD] Connected!")
 
 		// Make user discovery manager
-		rng := user.GetRng()
 		userToRegister := viper.GetString(udRegisterFlag)
 		jww.TRACE.Printf("[UD] Registering identity %v...", userToRegister)
-		userDiscoveryMgr, err := ud.NewManager(user, user.GetComms(),
+		userDiscoveryMgr, err := ud.LoadOrNewManager(user, user.GetComms(),
 			user.NetworkFollowerStatus, userToRegister, nil)
 		if err != nil {
-			if strings.Contains(err.Error(), ud.IsRegisteredErr) {
-				userDiscoveryMgr, err = ud.LoadManager(user, user.GetComms())
-				if err != nil {
-					jww.FATAL.Panicf("Failed to load UD manager: %+v", err)
-				}
-			} else {
-				jww.FATAL.Panicf("Failed to create new UD manager: %+v", err)
-
-			}
+			jww.FATAL.Panicf("Failed to load or create new UD manager: %+v", err)
 		}
 		jww.INFO.Printf("[UD] Registered user %v", userToRegister)
 
@@ -145,13 +135,11 @@ var udCmd = &cobra.Command{
 				printContact(newContact)
 			}
 
-			stream := rng.GetStream()
 			_, _, err = ud.Lookup(user,
 				udContact, cb, lookupID, single.GetDefaultRequestParams())
 			if err != nil {
 				jww.WARN.Printf("Failed UD lookup: %+v", err)
 			}
-			stream.Close()
 
 			time.Sleep(31 * time.Second)
 		}

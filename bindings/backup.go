@@ -22,6 +22,16 @@ type Backup struct {
 	b *backup.Backup
 }
 
+// BackupReport is the bindings' representation of the return values of
+// NewCmixFromBackup.
+type BackupReport struct {
+	// The JSON encoded list of E2E partner IDs
+	backupIdListJson []byte
+
+	// The backup parameters found within the backup file
+	backupParams []byte
+}
+
 // UpdateBackupFunc contains a function callback that returns new backups.
 type UpdateBackupFunc interface {
 	UpdateBackup(encryptedBackup []byte)
@@ -42,27 +52,33 @@ type UpdateBackupFunc interface {
 //  - backupPassphrase - backup passphrase provided by the user. Used to decrypt backup.
 //  - backupFileContents - the file contents of the backup.
 //
-// Return Values
-//  - backupIdListJson - JSON encoded list of the E2E partner IDs contained in the backup file.
-//  - backupParams - JSON encoded backup parameters contained in the backup file.
+// Returns:
+//  - []byte - the JSON marshalled bytes of the BackupReport object.
 func NewCmixFromBackup(ndfJSON, storageDir string, sessionPassword,
-	backupPassphrase []byte, backupFileContents []byte) (
-	backupIdListJson []byte, backupParams []byte, err error) {
+	backupPassphrase []byte, backupFileContents []byte) ([]byte, error) {
 
 	// Restore from backup
 	backupIdList, backupParamsStr, err := backup.NewCmixFromBackup(
 		ndfJSON, storageDir, sessionPassword,
 		backupPassphrase, backupFileContents)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	backupIdListJson, err = json.Marshal(backupIdList)
+	// Marshal ID List
+	backupIdListJson, err := json.Marshal(backupIdList)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return backupIdListJson, []byte(backupParamsStr), nil
+	// Construct report
+	report := BackupReport{
+		backupIdListJson: backupIdListJson,
+		backupParams:     []byte(backupParamsStr),
+	}
+
+	// Marshal report
+	return json.Marshal(report)
 
 }
 

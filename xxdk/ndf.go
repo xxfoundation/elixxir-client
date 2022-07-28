@@ -26,10 +26,9 @@ import (
 // DownloadNdfFromGateway will download an NDF from a gateway on the cMix network.
 // It will take the given address and certificate and send a request to a gateway
 // for an NDF over HTTP/2 using the xx network's gRPC implementation.
-// This returns a gRPC protobuf message which contains the NDF in the
-// PartialNDF field of the pb.GatewayPollResponse.
+// This returns a JSON marshalled version of the NDF.
 func DownloadNdfFromGateway(address string, cert []byte) (
-	*pb.GatewayPollResponse, error) {
+	[]byte, error) {
 	// Establish parameters for gRPC
 	params := connect.GetDefaultHostParams()
 	params.AuthEnabled = false
@@ -60,7 +59,12 @@ func DownloadNdfFromGateway(address string, cert []byte) (
 	}
 
 	// Send poll request and receive response containing NDF
-	return comms.SendPoll(host, pollMsg)
+	resp, err := comms.SendPoll(host, pollMsg)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.PartialNDF.Ndf, nil
 }
 
 // DownloadAndVerifySignedNdfWithUrl retrieves the NDF from a specified URL.

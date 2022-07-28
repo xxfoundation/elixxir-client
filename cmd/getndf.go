@@ -101,12 +101,11 @@ var getNDFCmd = &cobra.Command{
 
 			// Gateway lookup
 			if gwHost != "" {
-				resp, err := xxdk.DownloadNdfFromGateway(gwHost, cert)
-				fmt.Printf("%s", resp.PartialNDF.Ndf)
+				ndfJSon, err := xxdk.DownloadNdfFromGateway(gwHost, cert)
 				if err != nil {
 					jww.FATAL.Panicf("%v", err)
 				}
-				fmt.Printf("%s", resp.PartialNDF.Ndf)
+				fmt.Printf("%s", ndfJSon)
 				return
 			}
 

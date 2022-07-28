@@ -76,21 +76,21 @@ func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload,
 //  - cb - the callback that will be called when a response is received
 //
 // Returns:
-//  - StopFunc - a function used to stop the listener
-func Listen(e2eID int, tag string, cb SingleUseCallback) (StopFunc, error) {
+//  - Stopper - an interface containing a function used to stop the listener
+func Listen(e2eID int, tag string, cb SingleUseCallback) (Stopper, error) {
 	e2eCl, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
 		return nil, err
 	}
 
-	listener := singleUseListener{scb: cb}
+	suListener := singleUseListener{scb: cb}
 	dhpk, err := e2eCl.api.GetReceptionIdentity().GetDHKeyPrivate()
 	if err != nil {
 		return nil, err
 	}
 	l := single.Listen(tag, e2eCl.api.GetReceptionIdentity().ID, dhpk,
-		e2eCl.api.GetCmix(), e2eCl.api.GetStorage().GetE2EGroup(), listener)
-	return l.Stop, nil
+		e2eCl.api.GetCmix(), e2eCl.api.GetStorage().GetE2EGroup(), suListener)
+	return &stopper{l: l}, nil
 }
 
 // JSON Types
@@ -153,9 +153,10 @@ type SingleUseCallbackReport struct {
 // Function Types                                                             //
 ////////////////////////////////////////////////////////////////////////////////
 
-// StopFunc is the function to stop a listener returned to the bindings layer
-// when one is started.
-type StopFunc func()
+// Stopper is a public interface returned by Listen, allowing users to stop the registered listener.
+type Stopper interface {
+	Stop()
+}
 
 // SingleUseCallback func is passed into Listen and called when messages are
 // received.
@@ -207,6 +208,18 @@ func (sl singleUseListener) Callback(
 	}
 
 	sl.scb.Callback(json.Marshal(scr))
+}
+
+/* Listener stopper */
+
+// stopper is the internal struct backing the Stopper interface, allowing us
+// to pass the listener Stop method to the bindings layer.
+type stopper struct {
+	l single.Listener
+}
+
+func (s *stopper) Stop() {
+	s.l.Stop()
 }
 
 /* Response Struct */

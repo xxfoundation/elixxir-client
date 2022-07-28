@@ -13,18 +13,18 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
+	"gitlab.com/elixxir/comms/client"
+
 	// "gitlab.com/elixxir/crypto/contact"
 	// "gitlab.com/elixxir/client/interfaces/message"
 	// "gitlab.com/elixxir/client/switchboard"
 	// "gitlab.com/elixxir/client/ud"
 	// "gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/client/xxdk"
-	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/xx_network/comms/connect"
 	//"time"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/utils"
 )
 
@@ -99,38 +99,35 @@ var getNDFCmd = &cobra.Command{
 					opensslCertDL)
 			}
 
-			params := connect.GetDefaultHostParams()
-			params.AuthEnabled = false
-			comms, _ := client.NewClientComms(nil, nil, nil, nil)
 			// Gateway lookup
 			if gwHost != "" {
-				host, _ := connect.NewHost(&id.TempGateway, gwHost,
-					cert, params)
-				dummyID := ephemeral.ReservedIDs[0]
-				pollMsg := &pb.GatewayPoll{
-					Partial: &pb.NDFHash{
-						Hash: nil,
-					},
-					LastUpdate:    uint64(0),
-					ReceptionID:   dummyID[:],
-					ClientVersion: []byte(xxdk.SEMVER),
-				}
-				resp, err := comms.SendPoll(host, pollMsg)
+				resp, err := xxdk.DownloadNdfFromGateway(gwHost, cert)
+				fmt.Printf("%s", resp.PartialNDF.Ndf)
 				if err != nil {
-					jww.FATAL.Panicf("Unable to poll %s for NDF:"+
-						" %+v",
-						gwHost, err)
+					jww.FATAL.Panicf("%v", err)
 				}
 				fmt.Printf("%s", resp.PartialNDF.Ndf)
 				return
 			}
 
 			if permHost != "" {
+				// Establish parameters for gRPC
+				params := connect.GetDefaultHostParams()
+				params.AuthEnabled = false
+
+				// Construct client's gRPC comms object
+				comms, _ := client.NewClientComms(nil, nil, nil, nil)
+
+				// Establish host for scheduling server
 				host, _ := connect.NewHost(&id.Permissioning, permHost,
 					cert, params)
+
+				// Construct a dummy message
 				pollMsg := &pb.NDFHash{
 					Hash: []byte("DummyUserRequest"),
 				}
+
+				// Send request to scheduling and get response
 				resp, err := comms.RequestNdf(host, pollMsg)
 				if err != nil {
 					jww.FATAL.Panicf("Unable to ask %s for NDF:"+

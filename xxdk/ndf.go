@@ -11,13 +11,55 @@ import (
 	"encoding/base64"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/signature"
 	"gitlab.com/xx_network/crypto/tls"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"google.golang.org/protobuf/proto"
 	"io/ioutil"
 	"net/http"
 )
+
+// DownloadNdfFromGateway will download an NDF from a gateway on the cMix network.
+// It will take the given address and certificate and send a request to a gateway
+// for an NDF over HTTP/2 using the xx network's gRPC implementation.
+func DownloadNdfFromGateway(address string, cert []byte) (
+	*pb.GatewayPollResponse, error) {
+	// Establish parameters for gRPC
+	params := connect.GetDefaultHostParams()
+	params.AuthEnabled = false
+
+	// Construct client's gRPC comms object
+	comms, err := client.NewClientComms(nil, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct a host off of the gateway to connect to
+	host, err := connect.NewHost(&id.TempGateway, address,
+		cert, params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct a Poll message with dummy data.
+	// All that's needed is the NDF
+	dummyID := ephemeral.ReservedIDs[0]
+	pollMsg := &pb.GatewayPoll{
+		Partial: &pb.NDFHash{
+			Hash: nil,
+		},
+		LastUpdate:    uint64(0),
+		ReceptionID:   dummyID[:],
+		ClientVersion: []byte(SEMVER),
+	}
+
+	// Send poll request and receive response containing NDF
+	return comms.SendPoll(host, pollMsg)
+}
 
 // DownloadAndVerifySignedNdfWithUrl retrieves the NDF from a specified URL.
 // The NDF is processed into a protobuf containing a signature that is verified

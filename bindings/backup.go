@@ -8,8 +8,13 @@
 package bindings
 
 import (
+	"encoding/json"
 	"gitlab.com/elixxir/client/backup"
 )
+
+////////////////////////////////////////////////////////////////////////////////
+// Structs and Interfaces                                                     //
+////////////////////////////////////////////////////////////////////////////////
 
 // Backup is a bindings-level struct encapsulating the backup.Backup
 // client object.
@@ -17,10 +22,72 @@ type Backup struct {
 	b *backup.Backup
 }
 
+// BackupReport is the bindings' representation of the return values of
+// NewCmixFromBackup.
+//
+// Example BackupReport:
+// {"BackupIdListJson":"WyJPRHRRTTA4ZERpV3lXaE0wWUhjanRHWnZQcHRSa1JOZ1pHR2FkTG10dE9BRCJd","BackupParams":""}
+type BackupReport struct {
+	// The JSON encoded list of E2E partner IDs
+	BackupIdListJson []byte
+
+	// The backup parameters found within the backup file
+	BackupParams []byte
+}
+
 // UpdateBackupFunc contains a function callback that returns new backups.
 type UpdateBackupFunc interface {
 	UpdateBackup(encryptedBackup []byte)
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Client functions                                                           //
+////////////////////////////////////////////////////////////////////////////////
+
+// NewCmixFromBackup initializes a new e2e storage from an encrypted
+// backup. Users of this function should delete the storage directory on error.
+// Users of this function should call LoadCmix as normal once this call succeeds.
+//
+// Params
+//  - ndfJSON - JSON of the NDF.
+//  - storageDir - directory for the storage files.
+//  - sessionPassword - password to decrypt the data in the storageDir.
+//  - backupPassphrase - backup passphrase provided by the user. Used to decrypt backup.
+//  - backupFileContents - the file contents of the backup.
+//
+// Returns:
+//  - []byte - the JSON marshalled bytes of the BackupReport object.
+func NewCmixFromBackup(ndfJSON, storageDir string, sessionPassword,
+	backupPassphrase []byte, backupFileContents []byte) ([]byte, error) {
+
+	// Restore from backup
+	backupIdList, backupParamsStr, err := backup.NewCmixFromBackup(
+		ndfJSON, storageDir, sessionPassword,
+		backupPassphrase, backupFileContents)
+	if err != nil {
+		return nil, err
+	}
+
+	// Marshal ID List
+	backupIdListJson, err := json.Marshal(backupIdList)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct report
+	report := BackupReport{
+		BackupIdListJson: backupIdListJson,
+		BackupParams:     []byte(backupParamsStr),
+	}
+
+	// Marshal report
+	return json.Marshal(report)
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Backup functions                                                           //
+////////////////////////////////////////////////////////////////////////////////
 
 // InitializeBackup creates a bindings-layer Backup object.
 //

@@ -26,6 +26,8 @@ import (
 // DownloadNdfFromGateway will download an NDF from a gateway on the cMix network.
 // It will take the given address and certificate and send a request to a gateway
 // for an NDF over HTTP/2 using the xx network's gRPC implementation.
+// This returns a gRPC protobuf message which contains the NDF in the
+// PartialNDF field of the pb.GatewayPollResponse.
 func DownloadNdfFromGateway(address string, cert []byte) (
 	*pb.GatewayPollResponse, error) {
 	// Establish parameters for gRPC

@@ -11,9 +11,12 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
+	"gitlab.com/xx_network/primitives/id"
 	"sync"
 )
 
@@ -99,7 +102,7 @@ type UdNetworkStatus interface {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Main functions                                                             //
+// Manager functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
 // LoadOrNewUserDiscovery creates a bindings-level user discovery manager.
@@ -266,4 +269,155 @@ func (ud *UserDiscovery) SetAlternativeUserDiscovery(
 // object.
 func (ud *UserDiscovery) UnsetAlternativeUserDiscovery() error {
 	return ud.api.UnsetAlternativeUserDiscovery()
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// User Discovery Lookup                                                      //
+////////////////////////////////////////////////////////////////////////////////
+
+// UdLookupCallback contains the callback called by LookupUD that returns the
+// contact that matches the passed in ID.
+//
+// Parameters:
+//  - contactBytes - the marshalled bytes of contact.Contact returned from the
+//    lookup, or nil if an error occurs
+//  - err - any errors that occurred in the lookup
+type UdLookupCallback interface {
+	Callback(contactBytes []byte, err error)
+}
+
+// LookupUD returns the public key of the passed ID as known by the user
+// discovery system or returns by the timeout.
+//
+// Parameters:
+//  - e2eID - e2e object ID in the tracker
+//  - udContact - the marshalled bytes of the contact.Contact object
+//  - udIdBytes - the marshalled bytes of the id.ID object for the user
+//    discovery server
+//  - singleRequestParams - the JSON marshalled bytes of single.RequestParams
+//
+// Returns:
+//  - []byte - the JSON marshalled bytes of SingleUseSendReport
+func LookupUD(e2eID int, udContact []byte, cb UdLookupCallback,
+	udIdBytes []byte, singleRequestParamsJSON []byte) ([]byte, error) {
+
+	// Get user from singleton
+	user, err := e2eTrackerSingleton.get(e2eID)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := contact.Unmarshal(udContact)
+	if err != nil {
+		return nil, err
+	}
+
+	uid, err := id.Unmarshal(udIdBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	var p single.RequestParams
+	err = json.Unmarshal(singleRequestParamsJSON, &p)
+	if err != nil {
+		return nil, err
+	}
+
+	callback := func(c contact.Contact, err error) {
+		cb.Callback(c.Marshal(), err)
+	}
+
+	rids, eid, err := ud.Lookup(user.api, c, callback, uid, p)
+	if err != nil {
+		return nil, err
+	}
+
+	sr := SingleUseSendReport{
+		EphID:       eid.EphId.Int64(),
+		ReceptionID: eid.Source.Marshal(),
+		RoundsList:  makeRoundsList(rids),
+	}
+
+	return json.Marshal(sr)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// User Discovery Search                                                      //
+////////////////////////////////////////////////////////////////////////////////
+
+// UdSearchCallback contains the callback called by SearchUD that returns a list
+// of contact.Contact objects  that match the list of facts passed into
+// SearchUD.
+//
+// Parameters:
+//  - contactListJSON - the JSON marshalled bytes of []contact.Contact, or nil
+//    if an error occurs
+//  - err - any errors that occurred in the search
+type UdSearchCallback interface {
+	Callback(contactListJSON []byte, err error)
+}
+
+// SearchUD searches user discovery for the passed Facts. The searchCallback
+// will return a list of contacts, each having the facts it hit against. This is
+// NOT intended to be used to search for multiple users at once; that can have a
+// privacy reduction. Instead, it is intended to be used to search for a user
+// where multiple pieces of information is known.
+//
+// Parameters:
+//  - e2eID - e2e object ID in the tracker
+//  - udContact - the marshalled bytes of the contact.Contact for the user
+//    discovery server
+//  - factListJSON - the JSON marshalled bytes of fact.FactList
+//  - singleRequestParams - the JSON marshalled bytes of single.RequestParams
+//
+// Returns:
+//  - []byte - the JSON marshalled bytes of SingleUseSendReport
+func SearchUD(e2eID int, udContact []byte, cb UdSearchCallback,
+	factListJSON []byte, singleRequestParamsJSON []byte) ([]byte, error) {
+
+	// Get user from singleton
+	user, err := e2eTrackerSingleton.get(e2eID)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := contact.Unmarshal(udContact)
+	if err != nil {
+		return nil, err
+	}
+
+	var list fact.FactList
+	err = json.Unmarshal(factListJSON, &list)
+	if err != nil {
+		return nil, err
+	}
+
+	var p single.RequestParams
+	err = json.Unmarshal(singleRequestParamsJSON, &p)
+	if err != nil {
+		return nil, err
+	}
+
+	callback := func(contactList []contact.Contact, err error) {
+		contactListJSON, err2 := json.Marshal(contactList)
+		if err2 != nil {
+			jww.FATAL.Panicf(
+				"Failed to marshal list of contact.Contact: %+v", err2)
+		}
+
+		cb.Callback(contactListJSON, err)
+	}
+
+	rids, eid, err := ud.Search(user.api, c, callback, list, p)
+	if err != nil {
+		return nil, err
+	}
+
+	sr := SingleUseSendReport{
+		EphID:       eid.EphId.Int64(),
+		ReceptionID: eid.Source.Marshal(),
+		RoundsList:  makeRoundsList(rids),
+	}
+
+	return json.Marshal(sr)
 }

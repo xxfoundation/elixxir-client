@@ -90,7 +90,7 @@ type UpdateBackupFn func(encryptedBackup []byte)
 // new backups.
 // Call this to turn on backups for the first time or to replace the user's
 // password.
-func InitializeBackup(password string, updateBackupCb UpdateBackupFn,
+func InitializeBackup(backupPassphrase string, updateBackupCb UpdateBackupFn,
 	container *xxdk.Container, e2e E2e, session Session, ud UserDiscovery,
 	kv *versioned.KV, rng *fastRNG.StreamGenerator) (*Backup, error) {
 	b := &Backup{
@@ -115,7 +115,7 @@ func InitializeBackup(password string, updateBackupCb UpdateBackupFn,
 	params.Memory = 64 * 1024 // 64 MiB
 	params.Threads = 1
 	params.Time = 5
-	key := backup.DeriveKey(password, salt, params)
+	key := backup.DeriveKey(backupPassphrase, salt, params)
 
 	// Save key, salt, and parameters to storage
 	err = saveBackup(key, salt, params, b.kv)

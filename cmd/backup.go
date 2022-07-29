@@ -21,14 +21,6 @@ import (
 	"gitlab.com/xx_network/primitives/utils"
 )
 
-type BackupReport struct {
-	// The JSON encoded list of E2E partner IDs
-	BackupIdListJson []byte
-
-	// The backup parameters found within the backup file
-	BackupParams []byte
-}
-
 // loadOrInitBackup will build a new xxdk.E2e from existing storage
 // or from a new storage that it will create if none already exists
 func loadOrInitBackup(backupPath string, backupPass string, password []byte, storeDir string,
@@ -58,34 +50,11 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 		}
 
 		// Construct cMix from backup data
-		backupIdList, backupParams, err := backup.NewCmixFromBackup(string(ndfJson), storeDir,
+		backupIdList, _, err := backup.NewCmixFromBackup(string(ndfJson), storeDir,
 			backupPass, password, backupFile)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
-
-		backupIdListJson, err := json.Marshal(backupIdList)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to marshal backup ID: %v", err)
-		}
-
-		buReport := BackupReport{
-			BackupIdListJson: backupIdListJson,
-			BackupParams:     []byte(backupParams),
-		}
-
-		jww.INFO.Printf("")
-		jww.INFO.Printf("backup Report obj: %v", buReport)
-
-		reportJson, err := json.Marshal(buReport)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to marshal backup report: %v", err)
-		}
-
-		jww.INFO.Printf("backupIdList: %v\n"+
-			"backupParams: %s\n"+
-			"backup Report obj: %v\n"+
-			"backup report: \n%s", backupIdList, backupParams, buReport, string(reportJson))
 
 		backupIdListPath := viper.GetString(backupIdListFlag)
 		if backupIdListPath != "" {

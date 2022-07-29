@@ -148,4 +148,8 @@ const (
 	udSearchEmailFlag    = "searchemail"
 	udSearchPhoneFlag    = "searchphone"
 	udBatchAddFlag       = "batchadd"
+
+	///////////////// pickup subcommand flags //////////////////////////////
+	pickupGW = "gateway"
+	pickupID = "id"
 )

@@ -156,7 +156,7 @@ func dumpRounds(roundIDs []id.Round, user *xxdk.E2e) []rounds.Round {
 	for done := 0; done < numRequests; done++ {
 		res := <-requestCh
 		roundInfos = append(roundInfos, res)
-		fmt.Printf("request complete: %v", res)
+		jww.DEBUG.Printf("request complete: %v", res)
 	}
 	return roundInfos
 }

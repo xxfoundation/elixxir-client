@@ -26,13 +26,13 @@ type Backup struct {
 // NewCmixFromBackup.
 //
 // Example BackupReport:
-// {"BackupIdListJson":"WyJPRHRRTTA4ZERpV3lXaE0wWUhjanRHWnZQcHRSa1JOZ1pHR2FkTG10dE9BRCJd","BackupParams":""}
+//{"RestoredContacts":["0AeVYBe87SV45A2UI4AtIe6H4AIyZSLPBPrT6eTBLycD"],"Params":""}
 type BackupReport struct {
-	// The JSON encoded list of E2E partner IDs
-	BackupIdListJson []byte
+	// The list of restored E2E partner IDs
+	RestoredContacts IdList
 
 	// The backup parameters found within the backup file
-	BackupParams string
+	Params string
 }
 
 // UpdateBackupFunc contains a function callback that returns new backups.
@@ -68,19 +68,13 @@ func NewCmixFromBackup(ndfJSON, storageDir, backupPassphrase string,
 		return nil, err
 	}
 
-	// Marshal ID List
-	backupIdListJson, err := json.Marshal(backupIdList)
-	if err != nil {
-		return nil, err
-	}
-
 	// Construct report
 	report := BackupReport{
-		BackupIdListJson: backupIdListJson,
-		BackupParams:     backupParams,
+		RestoredContacts: makeIdList(backupIdList),
+		Params:           backupParams,
 	}
 
-	// Marshal report
+	// JSON marshal report
 	return json.Marshal(report)
 
 }

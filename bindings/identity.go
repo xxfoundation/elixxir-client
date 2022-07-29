@@ -9,11 +9,16 @@ package bindings
 
 import (
 	"encoding/json"
+	"gitlab.com/xx_network/primitives/id"
 
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 )
+
+////////////////////////////////////////////////////////////////////////////////
+// ReceptionIdentity                                                          //
+////////////////////////////////////////////////////////////////////////////////
 
 // ReceptionIdentity struct.
 //
@@ -29,6 +34,37 @@ type ReceptionIdentity struct {
 	RSAPrivatePem []byte // RSA Private key (PEM format)
 	Salt          []byte // Salt for identity (base64)
 	DHKeyPrivate  []byte // DH Private key
+}
+
+// StoreReceptionIdentity stores the given identity in Cmix storage with the
+// given key.  This is the ideal way to securely store identities, as the caller
+// of this function is only required to store the given key separately rather
+// than the keying material.
+func StoreReceptionIdentity(key string, identity []byte, cmixId int) error {
+	cmix, err := cmixTrackerSingleton.get(cmixId)
+	if err != nil {
+		return err
+	}
+	receptionIdentity, err := xxdk.UnmarshalReceptionIdentity(identity)
+	if err != nil {
+		return err
+	}
+	return xxdk.StoreReceptionIdentity(key, receptionIdentity, cmix.api)
+}
+
+// LoadReceptionIdentity loads the given identity in Cmix storage with the given
+// key.
+func LoadReceptionIdentity(key string, cmixId int) ([]byte, error) {
+	cmix, err := cmixTrackerSingleton.get(cmixId)
+	if err != nil {
+		return nil, err
+	}
+	storageObj, err := cmix.api.GetStorage().Get(key)
+	if err != nil {
+		return nil, err
+	}
+
+	return storageObj.Data, nil
 }
 
 // MakeReceptionIdentity generates a new cryptographic identity for receiving
@@ -53,6 +89,10 @@ func (c *Cmix) MakeLegacyReceptionIdentity() ([]byte, error) {
 	return ident.Marshal()
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Contact Functions                                                          //
+////////////////////////////////////////////////////////////////////////////////
+
 // GetIDFromContact accepts a marshalled contact.Contact object and returns a
 // marshalled id.ID object.
 func GetIDFromContact(marshaled []byte) ([]byte, error) {
@@ -74,6 +114,10 @@ func GetPubkeyFromContact(marshaled []byte) ([]byte, error) {
 
 	return json.Marshal(cnt.DhPubKey)
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Fact Functions                                                             //
+////////////////////////////////////////////////////////////////////////////////
 
 // Fact is an internal fact type for use in the bindings layer.
 //
@@ -140,33 +184,23 @@ func GetFactsFromContact(marshaled []byte) ([]byte, error) {
 	return factsListMarshaled, nil
 }
 
-// StoreReceptionIdentity stores the given identity in Cmix storage with the
-// given key.  This is the ideal way to securely store identities, as the caller
-// of this function is only required to store the given key separately rather
-// than the keying material.
-func StoreReceptionIdentity(key string, identity []byte, cmixId int) error {
-	cmix, err := cmixTrackerSingleton.get(cmixId)
-	if err != nil {
-		return err
-	}
-	receptionIdentity, err := xxdk.UnmarshalReceptionIdentity(identity)
-	if err != nil {
-		return err
-	}
-	return xxdk.StoreReceptionIdentity(key, receptionIdentity, cmix.api)
+////////////////////////////////////////////////////////////////////////////////
+// IdList Functions                                                           //
+////////////////////////////////////////////////////////////////////////////////
+
+// IdList is a wrapper for a list of marshalled id.ID objects.
+type IdList struct {
+	Ids [][]byte
 }
 
-// LoadReceptionIdentity loads the given identity in Cmix storage with the given
-// key.
-func LoadReceptionIdentity(key string, cmixId int) ([]byte, error) {
-	cmix, err := cmixTrackerSingleton.get(cmixId)
-	if err != nil {
-		return nil, err
+// makeIdList is a helper function which creates an IdList object
+// given a list of id.ID's. It serializes each element of the
+// given list of id.ID's, places that into a list of []byte's (ie [][]byte)
+// and places that in the IdList.
+func makeIdList(ids []*id.ID) IdList {
+	convertedIds := make([][]byte, len(ids))
+	for i, partnerId := range ids {
+		convertedIds[i] = partnerId.Marshal()
 	}
-	storageObj, err := cmix.api.GetStorage().Get(key)
-	if err != nil {
-		return nil, err
-	}
-
-	return storageObj.Data, nil
+	return IdList{Ids: convertedIds}
 }

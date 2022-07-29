@@ -19,11 +19,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// IdList is a wrapper for a list of marshalled id.ID objects.
-type IdList struct {
-	Ids [][]byte
-}
-
 // E2ESendReport is the bindings' representation of the return values of
 // SendE2E.
 //
@@ -52,11 +47,7 @@ func (e *E2e) GetReceptionID() []byte {
 //  - []byte - the marshalled bytes of the IdList object.
 func (e *E2e) GetAllPartnerIDs() ([]byte, error) {
 	partnerIds := e.api.GetE2E().GetAllPartnerIDs()
-	convertedIds := make([][]byte, len(partnerIds))
-	for i, partnerId := range partnerIds {
-		convertedIds[i] = partnerId.Marshal()
-	}
-	return json.Marshal(IdList{Ids: convertedIds})
+	return json.Marshal(makeIdList(partnerIds))
 }
 
 // PayloadSize returns the max payload size for a partitionable E2E message.

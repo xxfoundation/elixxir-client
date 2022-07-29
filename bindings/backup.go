@@ -68,15 +68,9 @@ func NewCmixFromBackup(ndfJSON, storageDir, backupPassphrase string,
 		return nil, err
 	}
 
-	// Serialize list of IDs into bytes
-	serializedIdList := make([][]byte, len(backupIdList))
-	for i, partnerId := range backupIdList {
-		serializedIdList[i] = partnerId.Marshal()
-	}
-
 	// Construct report
 	report := BackupReport{
-		RestoredContacts: IdList{Ids: serializedIdList},
+		RestoredContacts: makeIdList(backupIdList),
 		Params:           backupParams,
 	}
 

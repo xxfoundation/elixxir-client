@@ -11,16 +11,19 @@ package cmd
 import (
 	"encoding/base64"
 	"fmt"
-	"github.com/spf13/viper"
 	"strconv"
 	"time"
+
+	"github.com/spf13/viper"
 
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/xx_network/comms/signature"
 	"gitlab.com/xx_network/crypto/signature/ec"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/ndf"
 )
 
 // dumpRoundsCmd allows the user to view network information about a specific
@@ -48,97 +51,114 @@ var dumpRoundsCmd = &cobra.Command{
 			})
 		waitUntilConnected(connected)
 
-		numRequests := len(roundIDs)
-		requestCh := make(chan bool, numRequests)
+		roundInfos := dumpRounds(roundIDs, user)
 
-		registration := user.GetStorage().GetNDF().Registration
-		ecp := registration.EllipticPubKey
-		pubkey, err := ec.LoadPublicKey(ecp)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-		fmt.Printf("registration pubkey: %s\n\n", pubkey.MarshalText())
+		ndf := user.GetStorage().GetNDF()
 
-		rcb := func(round rounds.Round, success bool) {
-			if !success {
-				fmt.Printf("round %v lookup failed", round.ID)
-			}
-
-			fmt.Printf("Round %v:", round.ID)
-			fmt.Printf("\n\tBatch size: %v, State: %v",
-				round.BatchSize, round.State)
-			fmt.Printf("\n\tUpdateID: %v, AddrSpaceSize: %v",
-				round.UpdateID, round.AddressSpaceSize)
-
-			fmt.Printf("\n\tTopology: ")
-			for i, nodeId := range round.Raw.Topology {
-				nidStr := base64.StdEncoding.EncodeToString(
-					nodeId)
-				fmt.Printf("\n\t\t%d\t-\t%s", i, nidStr)
-			}
-
-			fmt.Printf("\n\tTimestamps: ")
-			for state, ts := range round.Timestamps {
-				fmt.Printf("\n\t\t%v  \t-\t%v", state, ts)
-			}
-
-			fmt.Printf("\n\tErrors (%d): ", len(round.Raw.Errors))
-			for i, err := range round.Raw.Errors {
-				fmt.Printf("\n\t\t%d - %v", i, err)
-			}
-
-			fmt.Printf("\n\tClientErrors (%d): ",
-				len(round.Raw.ClientErrors))
-			for _, ce := range round.Raw.ClientErrors {
-				fmt.Printf("\n\t\t%s - %v, Src: %v",
-					base64.StdEncoding.EncodeToString(
-						ce.ClientId),
-					ce.Error,
-					base64.StdEncoding.EncodeToString(
-						ce.Source))
-			}
-
-			ri := round.Raw
-			err = signature.VerifyEddsa(ri, pubkey)
-			if err != nil {
-				fmt.Printf("\n\tECC signature failed: %v", err)
-				fmt.Printf("\n\tuse trace logging for sig details")
-			} else {
-				fmt.Printf("\n\tECC signature succeeded!\n\n")
-			}
-
-			// fmt.Printf("Round Info RAW: %v\n\n", round)
-
-			// rsapubkey, _ := rsa.LoadPublicKeyFromPem([]byte(
-			// 	registration.TlsCertificate))
-			// signature.VerifyRsa(ri, rsapubkey)
-			// if err != nil {
-			// 	fmt.Printf("RSA signature failed: %v", err)
-			// 	fmt.Printf("use trace logging for sig details")
-			// } else {
-			// 	fmt.Printf("RSA signature succeeded!")
-			// }
-
-			requestCh <- success
-		}
-
-		for i := range roundIDs {
-			rid := roundIDs[i]
-			err := user.GetCmix().LookupHistoricalRound(rid, rcb)
-			if err != nil {
-				fmt.Printf("error on %v: %v", rid, err)
-			}
-		}
-
-		for done := 0; done < numRequests; done++ {
-			res := <-requestCh
-			fmt.Printf("request complete: %v", res)
+		for i := range roundInfos {
+			printRoundInfo(roundInfos[i])
+			printAndVerifyRoundSig(roundInfos[i], ndf)
 		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(dumpRoundsCmd)
+}
+
+func printRoundInfo(round rounds.Round) {
+	fmt.Printf("Round %v:", round.ID)
+	fmt.Printf("\n\tBatch size: %v, State: %v",
+		round.BatchSize, round.State)
+	fmt.Printf("\n\tUpdateID: %v, AddrSpaceSize: %v",
+		round.UpdateID, round.AddressSpaceSize)
+
+	fmt.Printf("\n\tTopology: ")
+	for i, nodeId := range round.Raw.Topology {
+		nidStr := base64.StdEncoding.EncodeToString(
+			nodeId)
+		fmt.Printf("\n\t\t%d\t-\t%s", i, nidStr)
+	}
+
+	fmt.Printf("\n\tTimestamps: ")
+	for state, ts := range round.Timestamps {
+		fmt.Printf("\n\t\t%v  \t-\t%v", state, ts)
+	}
+
+	fmt.Printf("\n\tErrors (%d): ", len(round.Raw.Errors))
+	for i, err := range round.Raw.Errors {
+		fmt.Printf("\n\t\t%d - %v", i, err)
+	}
+
+	fmt.Printf("\n\tClientErrors (%d): ",
+		len(round.Raw.ClientErrors))
+	for _, ce := range round.Raw.ClientErrors {
+		fmt.Printf("\n\t\t%s - %v, Src: %v",
+			base64.StdEncoding.EncodeToString(
+				ce.ClientId),
+			ce.Error,
+			base64.StdEncoding.EncodeToString(
+				ce.Source))
+	}
+}
+
+func printAndVerifyRoundSig(round rounds.Round, ndf *ndf.NetworkDefinition) {
+	registration := ndf.Registration
+	ecp := registration.EllipticPubKey
+	pubkey, err := ec.LoadPublicKey(ecp)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	fmt.Printf("registration pubkey: %s\n\n", pubkey.MarshalText())
+
+	ri := round.Raw
+	err = signature.VerifyEddsa(ri, pubkey)
+	if err != nil {
+		fmt.Printf("\n\tECC signature failed: %v", err)
+		fmt.Printf("\n\tuse trace logging for sig details")
+	} else {
+		fmt.Printf("\n\tECC signature succeeded!\n\n")
+	}
+
+	// fmt.Printf("Round Info RAW: %v\n\n", round)
+
+	// rsapubkey, _ := rsa.LoadPublicKeyFromPem([]byte(
+	// 	registration.TlsCertificate))
+	// signature.VerifyRsa(ri, rsapubkey)
+	// if err != nil {
+	// 	fmt.Printf("RSA signature failed: %v", err)
+	// 	fmt.Printf("use trace logging for sig details")
+	// } else {
+	// 	fmt.Printf("RSA signature succeeded!")
+	// }
+}
+
+func dumpRounds(roundIDs []id.Round, user *xxdk.E2e) []rounds.Round {
+	numRequests := len(roundIDs)
+	requestCh := make(chan rounds.Round, numRequests)
+
+	rcb := func(round rounds.Round, success bool) {
+		if !success {
+			fmt.Printf("round %v lookup failed", round.ID)
+		}
+		requestCh <- round
+	}
+
+	for i := range roundIDs {
+		rid := roundIDs[i]
+		err := user.GetCmix().LookupHistoricalRound(rid, rcb)
+		if err != nil {
+			fmt.Printf("error on %v: %v", rid, err)
+		}
+	}
+
+	roundInfos := make([]rounds.Round, 0)
+	for done := 0; done < numRequests; done++ {
+		res := <-requestCh
+		roundInfos = append(roundInfos, res)
+		fmt.Printf("request complete: %v", res)
+	}
+	return roundInfos
 }
 
 func parseRoundIDs(roundStrs []string) []id.Round {

@@ -32,7 +32,7 @@ type BackupReport struct {
 	BackupIdListJson []byte
 
 	// The backup parameters found within the backup file
-	BackupParams []byte
+	BackupParams string
 }
 
 // UpdateBackupFunc contains a function callback that returns new backups.
@@ -57,13 +57,13 @@ type UpdateBackupFunc interface {
 //
 // Returns:
 //  - []byte - the JSON marshalled bytes of the BackupReport object.
-func NewCmixFromBackup(ndfJSON, storageDir string, sessionPassword,
-	backupPassphrase []byte, backupFileContents []byte) ([]byte, error) {
+func NewCmixFromBackup(ndfJSON, storageDir, backupPassphrase string,
+	sessionPassword, backupFileContents []byte) ([]byte, error) {
 
 	// Restore from backup
-	backupIdList, backupParamsStr, err := backup.NewCmixFromBackup(
-		ndfJSON, storageDir, sessionPassword,
-		backupPassphrase, backupFileContents)
+	backupIdList, backupParams, err := backup.NewCmixFromBackup(
+		ndfJSON, storageDir, backupPassphrase, sessionPassword,
+		backupFileContents)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func NewCmixFromBackup(ndfJSON, storageDir string, sessionPassword,
 	// Construct report
 	report := BackupReport{
 		BackupIdListJson: backupIdListJson,
-		BackupParams:     []byte(backupParamsStr),
+		BackupParams:     backupParams,
 	}
 
 	// Marshal report
@@ -94,9 +94,9 @@ func NewCmixFromBackup(ndfJSON, storageDir string, sessionPassword,
 // Params
 //  - e2eID - ID of the E2e object in the e2e tracker.
 //  - udID - ID of the UserDiscovery object in the ud tracker.
-//  - password - password used in LoadCmix.
+//  - backupPassPhrase - backup passphrase provided by the user. Used to decrypt backup.
 //  - cb - the callback to be called when a backup is triggered.
-func InitializeBackup(e2eID, udID int, password string,
+func InitializeBackup(e2eID, udID int, backupPassPhrase string,
 	cb UpdateBackupFunc) (*Backup, error) {
 	// Retrieve the user from the tracker
 	user, err := e2eTrackerSingleton.get(e2eID)
@@ -111,7 +111,7 @@ func InitializeBackup(e2eID, udID int, password string,
 	}
 
 	// Initialize backup
-	b, err := backup.InitializeBackup(password, cb.UpdateBackup,
+	b, err := backup.InitializeBackup(backupPassPhrase, cb.UpdateBackup,
 		user.api.GetBackupContainer(), user.api.GetE2E(),
 		user.api.GetStorage(), ud.api,
 		user.api.GetStorage().GetKV(), user.api.GetRng())

@@ -51,7 +51,7 @@ func loadOrInitBackup(backupPath string, backupPass string, password []byte, sto
 
 		// Construct cMix from backup data
 		backupIdList, _, err := backup.NewCmixFromBackup(string(ndfJson), storeDir,
-			password, []byte(backupPass), backupFile)
+			backupPass, password, backupFile)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

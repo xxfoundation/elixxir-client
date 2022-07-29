@@ -25,12 +25,12 @@ import (
 // a successful client creation, the function will return a
 // JSON encoded list of the E2E partners contained in the backup and a
 // json-encoded string containing parameters stored in the backup
-func NewCmixFromBackup(ndfJSON, storageDir string, sessionPassword,
-	backupPassphrase []byte, backupFileContents []byte) ([]*id.ID,
+func NewCmixFromBackup(ndfJSON, storageDir, backupPassphrase string,
+	sessionPassword []byte, backupFileContents []byte) ([]*id.ID,
 	string, error) {
 
 	backUp := &cryptoBackup.Backup{}
-	err := backUp.Decrypt(string(backupPassphrase), backupFileContents)
+	err := backUp.Decrypt(backupPassphrase, backupFileContents)
 	if err != nil {
 		return nil, "", errors.WithMessage(err,
 			"Failed to unmarshal decrypted client contents.")

@@ -13,8 +13,13 @@
 package gateway
 
 import (
-	"encoding/binary"
 	"encoding/json"
+	"math"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
@@ -23,17 +28,12 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/shuffle"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
-	"io"
-	"math"
-	"sort"
-	"strings"
-	"sync"
-	"time"
 )
 
 // List of errors that initiate a Host replacement
@@ -496,7 +496,8 @@ func (h *HostPool) getAny(length uint32, excluded []*id.ID) []*connect.Host {
 		}
 
 		// Check the next HostPool index
-		gwIdx := readRangeUint32(0, h.poolParams.PoolSize, rng)
+		gwIdx := randomness.ReadRangeUint32(0, h.poolParams.PoolSize,
+			rng)
 		if _, ok := checked[gwIdx]; !ok {
 			result = append(result, h.hostList[gwIdx])
 			checked[gwIdx] = nil
@@ -537,7 +538,8 @@ func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 			continue
 		}
 
-		gwIdx := readRangeUint32(0, h.poolParams.PoolSize, rng)
+		gwIdx := randomness.ReadRangeUint32(0, h.poolParams.PoolSize,
+			rng)
 		if _, ok := checked[gwIdx]; !ok {
 			result[i] = h.hostList[gwIdx]
 			checked[gwIdx] = nil
@@ -591,7 +593,8 @@ func (h *HostPool) selectGateway() *id.ID {
 	// Loop until a replacement Host is found
 	for {
 		// Randomly select a new Gw by index in the NDF
-		ndfIdx := readRangeUint32(0, uint32(len(h.ndf.Gateways)), rng)
+		ndfIdx := randomness.ReadRangeUint32(0,
+			uint32(len(h.ndf.Gateways)), rng)
 
 		// Use the random ndfIdx to obtain a GwId from the NDF
 		gwId, err := id.Unmarshal(h.ndf.Gateways[ndfIdx].ID)
@@ -694,7 +697,7 @@ func (h *HostPool) forceAdd(gwId *id.ID) error {
 	}
 
 	// Randomly select another Gateway in the HostPool for replacement
-	poolIdx := readRangeUint32(0, h.poolParams.PoolSize, rng)
+	poolIdx := randomness.ReadRangeUint32(0, h.poolParams.PoolSize, rng)
 	return h.replaceHost(gwId, poolIdx)
 }
 
@@ -825,32 +828,4 @@ func getPoolSize(ndfLen, maxSize uint32) (uint32, error) {
 		return maxSize, nil
 	}
 	return poolSize, nil
-}
-
-// readUint32 reads an integer from an io.Reader (which should be a CSPRNG).
-func readUint32(rng io.Reader) uint32 {
-	var rndBytes [4]byte
-	i, err := rng.Read(rndBytes[:])
-	if i != 4 || err != nil {
-		jww.FATAL.Panicf("cannot read from rng: %+v", err)
-	}
-	return binary.BigEndian.Uint32(rndBytes[:])
-}
-
-// readRangeUint32 reduces an integer from 0, MaxUint32 to the range start, end.
-func readRangeUint32(start, end uint32, rng io.Reader) uint32 {
-	size := end - start
-	// Note that we could just do the part inside the () here, but then extra
-	// can == size which means a little range is wasted; either choice seems
-	// negligible, so we went with the "more correct"
-	extra := (math.MaxUint32%size + 1) % size
-	limit := math.MaxUint32 - extra
-	// Loop until we read something inside the limit
-	for {
-		res := readUint32(rng)
-		if res > limit {
-			continue
-		}
-		return (res % size) + start
-	}
 }

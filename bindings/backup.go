@@ -27,7 +27,7 @@ type Backup struct {
 // NewCmixFromBackup.
 //
 // Example BackupReport:
-// {"BackupIdListJson":"WyJPRHRRTTA4ZERpV3lXaE0wWUhjanRHWnZQcHRSa1JOZ1pHR2FkTG10dE9BRCJd","BackupParams":""}
+//{"RestoredContacts":["oTEWTJaa0gcNt3BHeogEnZ/b8CO984Cp9PNLjHNJfWMD"],"Params":""}
 type BackupReport struct {
 	// The list of restored E2E partner IDs
 	RestoredContacts []*id.ID

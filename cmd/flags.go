@@ -150,6 +150,7 @@ const (
 	udBatchAddFlag       = "batchadd"
 
 	///////////////// pickup subcommand flags //////////////////////////////
-	pickupGW = "gateway"
-	pickupID = "id"
+	pickupGW    = "gateway"
+	pickupID    = "id"
+	pickupEphID = "ephid"
 )

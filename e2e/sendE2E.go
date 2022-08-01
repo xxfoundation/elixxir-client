@@ -44,15 +44,26 @@ func (m *manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
 
 }
 
-func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, error) {
+// sendE2eFn contains a prepared sendE2E operation and sends an E2E message when
+// called, returning the results of the send.
+type sendE2eFn func() ([]id.Round, e2e.MessageID, time.Time, error)
+
+// prepareSendE2E makes a prepared function that does the e2e send.
+// This is so that when doing deletePartner we can prepare the send before
+// deleting and then send after deleting to ensure there is correctness.
+//
+// Note: the timestamp in the send is recorded in this call, not when the
+// sendE2e function is called.
+func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
+	payload []byte, params Params) (sendE2E sendE2eFn, err error) {
 	ts := netTime.Now()
+
+	sendFuncs := make([]func(), 0)
 
 	partitions, internalMsgId, err := m.partitioner.Partition(recipient,
 		mt, ts, payload)
 	if err != nil {
-		return nil, e2e.MessageID{}, time.Time{},
-			errors.WithMessage(err, "failed to send unsafe message")
+		return nil, errors.WithMessage(err, "failed to send unsafe message")
 	}
 
 	jww.INFO.Printf("E2E sending %d messages to %s", len(partitions), recipient)
@@ -66,7 +77,7 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 	// key negotiated for the ratchet
 	partner, err := m.Ratchet.GetPartner(recipient)
 	if err != nil {
-		return nil, e2e.MessageID{}, time.Time{}, errors.WithMessagef(err,
+		return nil, errors.WithMessagef(err,
 			"cannot send E2E message no relationship found with %s", recipient)
 	}
 
@@ -101,7 +112,7 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 			keyGetter, params.KeyGetRetryCount, params.KeyGeRetryDelay,
 			params.Stop, recipient, format.DigestContents(p), i)
 		if err != nil {
-			return nil, e2e.MessageID{}, time.Time{}, errors.WithMessagef(err,
+			return nil, errors.WithMessagef(err,
 				"Failed to get key for end-to-end encryption")
 		}
 
@@ -123,36 +134,56 @@ func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
 
 		// We send each partition in its own thread here; some may send in round
 		// X, others in X+1 or X+2, and so on
-		wg.Add(1)
-		go func(i int) {
-			var err error
-			roundIds[i], _, err = m.net.Send(recipient,
-				key.Fingerprint(), s, contentsEnc, mac, params.CMIXParams)
-			if err != nil {
-				errCh <- err
-			}
-			wg.Done()
-		}(i)
+		localI := i
+		thisSendFunc := func() {
+			wg.Add(1)
+			go func(i int) {
+				var err error
+				roundIds[i], _, err = m.net.Send(recipient,
+					key.Fingerprint(), s, contentsEnc, mac, params.CMIXParams)
+				if err != nil {
+					errCh <- err
+				}
+				wg.Done()
+			}(localI)
+		}
+		sendFuncs = append(sendFuncs, thisSendFunc)
 	}
 
-	wg.Wait()
+	sendE2E = func() ([]id.Round, e2e.MessageID, time.Time, error) {
+		for i := range sendFuncs {
+			sendFuncs[i]()
+		}
 
-	numFail, errRtn := getSendErrors(errCh)
-	if numFail > 0 {
-		jww.INFO.Printf("Failed to E2E send %d/%d to %s",
-			numFail, len(partitions), recipient)
-		return nil, e2e.MessageID{}, time.Time{}, errors.Errorf(
-			"Failed to E2E send %v/%v sub payloads: %s",
-			numFail, len(partitions), errRtn)
-	} else {
-		jww.INFO.Printf("Successfully E2E sent %d/%d to %s",
-			len(partitions)-numFail, len(partitions), recipient)
+		wg.Wait()
+
+		numFail, errRtn := getSendErrors(errCh)
+		if numFail > 0 {
+			jww.INFO.Printf("Failed to E2E send %d/%d to %s",
+				numFail, len(partitions), recipient)
+			return nil, e2e.MessageID{}, time.Time{}, errors.Errorf(
+				"Failed to E2E send %v/%v sub payloads: %s",
+				numFail, len(partitions), errRtn)
+		} else {
+			jww.INFO.Printf("Successfully E2E sent %d/%d to %s",
+				len(partitions)-numFail, len(partitions), recipient)
+		}
+
+		jww.INFO.Printf("Successful E2E Send of %d messages to %s with msgID %s",
+			len(partitions), recipient, msgID)
+
+		return roundIds, msgID, ts, nil
 	}
+	return sendE2E, nil
+}
 
-	jww.INFO.Printf("Successful E2E Send of %d messages to %s with msgID %s",
-		len(partitions), recipient, msgID)
-
-	return roundIds, msgID, ts, nil
+func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
+	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, error) {
+	sendFunc, err := m.prepareSendE2E(mt, recipient, payload, params)
+	if err != nil {
+		return nil, e2e.MessageID{}, time.Time{}, err
+	}
+	return sendFunc()
 }
 
 // waitForKey waits the designated amount of time for a key to become available

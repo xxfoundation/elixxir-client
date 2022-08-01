@@ -99,6 +99,11 @@ func (m mockE2e) GetStorage() storage.Session {
 
 type mockE2eHandler struct{}
 
+func (m mockE2eHandler) RegisterCallbacks(callbacks e2e.Callbacks) {
+	// TODO implement me
+	panic("implement me")
+}
+
 func (m mockE2eHandler) StartProcesses() (stoppable.Stoppable, error) {
 	//TODO implement me
 	panic("implement me")
@@ -145,7 +150,22 @@ func (m mockE2eHandler) GetPartner(partnerID *id.ID) (partner.Manager, error) {
 }
 
 func (m mockE2eHandler) DeletePartner(partnerId *id.ID) error {
-	//TODO implement me
+	// TODO implement me
+	panic("implement me")
+}
+
+func (tnm mockE2eHandler) DeletePartnerNotify(partnerId *id.ID, params e2e.Params) error {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2eHandler) AddPartnerCallbacks(partnerID *id.ID, cb e2e.Callbacks) {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2eHandler) DeletePartnerCallbacks(partnerID *id.ID) {
+	// TODO implement me
 	panic("implement me")
 }
 

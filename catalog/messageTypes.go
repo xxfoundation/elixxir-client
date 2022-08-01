@@ -32,6 +32,10 @@ const (
 	// to confirm completion of a rekey. For ephemeral only e2e instances.
 	KeyExchangeConfirmEphemeral = 33
 
+	// E2eClose message is sent when a user deletes a partner and wants to
+	// inform their partner that the connection is closed.
+	E2eClose MessageType = 34
+
 	/* Group chat message types */
 
 	// GroupCreationRequest - A group chat request message sent to all members in a group.
@@ -65,6 +69,8 @@ func (mt MessageType) String() string {
 		return "KeyExchangeTriggerEphemeral"
 	case KeyExchangeConfirmEphemeral:
 		return "KeyExchangeConfirmEphemeral"
+	case E2eClose:
+		return "E2eClose"
 	case GroupCreationRequest:
 		return "GroupCreationRequest"
 	case NewFileTransfer:

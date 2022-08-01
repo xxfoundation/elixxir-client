@@ -105,6 +105,10 @@ func (m mockE2eHandler) DeletePartner(partnerId *id.ID) error {
 	return nil
 }
 
+func (m mockE2eHandler) DeletePartnerNotify(partnerId *id.ID, params e2e.Params) error {
+	return nil
+}
+
 func (m mockE2eHandler) GetAllPartnerIDs() []*id.ID {
 	return nil
 }
@@ -137,6 +141,18 @@ func (m mockE2eHandler) GetHistoricalDHPubkey() *cyclic.Int {
 
 func (m mockE2eHandler) GetReceptionID() *id.ID {
 	return nil
+}
+
+func (m mockE2eHandler) RegisterCallbacks(callbacks e2e.Callbacks) {
+	panic("implement me")
+}
+
+func (m mockE2eHandler) AddPartnerCallbacks(partnerID *id.ID, cb e2e.Callbacks) {
+	panic("implement me")
+}
+
+func (m mockE2eHandler) DeletePartnerCallbacks(partnerID *id.ID) {
+	panic("implement me")
 }
 
 type mockSentRequestHandler struct{}

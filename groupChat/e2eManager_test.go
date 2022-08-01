@@ -97,6 +97,16 @@ func (*testE2eManager) AddService(string, message.Processor) error {
 // Unused & unimplemented methods of the test object ////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
 
+func (tnm *testE2eManager) DeletePartner(partnerId *id.ID) error {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testE2eManager) DeletePartnerNotify(partnerId *id.ID, params clientE2E.Params) error {
+	// TODO implement me
+	panic("implement me")
+}
+
 func (*testE2eManager) GetDefaultHistoricalDHPubkey() *cyclic.Int {
 	panic("implement me")
 }
@@ -130,8 +140,18 @@ func (tnm *testE2eManager) UnregisterUserListeners(userID *id.ID) {
 	panic("implement me")
 }
 
-func (tnm *testE2eManager) DeletePartner(partnerId *id.ID) error {
-	//TODO implement me
+func (tnm *testE2eManager) RegisterCallbacks(callbacks clientE2E.Callbacks) {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testE2eManager) AddPartnerCallbacks(partnerID *id.ID, cb clientE2E.Callbacks) {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testE2eManager) DeletePartnerCallbacks(partnerID *id.ID) {
+	// TODO implement me
 	panic("implement me")
 }
 

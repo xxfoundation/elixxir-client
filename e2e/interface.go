@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"time"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -121,9 +122,14 @@ type Handler interface {
 	// GetPartner returns the partner per its ID, if it exists
 	GetPartner(partnerID *id.ID) (partner.Manager, error)
 
-	// DeletePartner removes the associated contact from the E2E store
-	// myID is your ID in the relationship
+	// DeletePartner removes the contact associated with the partnerId from the
+	// E2E store.
 	DeletePartner(partnerId *id.ID) error
+
+	// DeletePartnerNotify removes the contact associated with the partnerId
+	// from the E2E store. It then sends a critical E2E message to the partner
+	// informing them that the E2E connection is closed.
+	DeletePartnerNotify(partnerId *id.ID, params Params) error
 
 	// GetAllPartnerIDs returns a list of all partner IDs that the user has
 	// an E2E relationship with.
@@ -148,6 +154,31 @@ type Handler interface {
 
 	// RemoveService removes all services for the given tag
 	RemoveService(tag string) error
+
+	/* === Callbacks ==================================================== */
+
+	// The E2E callbacks are a set of callbacks that are called in specific
+	// situations. For example, ConnectionClosed is called when you receive a
+	// message from a partner informing you they have deleted the partnership.
+	//
+	// By default, on E2E creation, callbacks are not set and no action is
+	// taken. To set generic callbacks, that is used for all partners, use
+	// RegisterCallbacks. Specific callbacks can be registered per user that are
+	// used instead of the generic ones.
+
+	// RegisterCallbacks registers a generic Callbacks. This function overwrites
+	// any previously saved Callbacks. By default, these callbacks are nil and
+	// ignored until set via this function.
+	RegisterCallbacks(callbacks Callbacks)
+
+	// AddPartnerCallbacks registers a new Callbacks that overrides the generic
+	// E2E callbacks for the given partner ID.
+	AddPartnerCallbacks(partnerID *id.ID, cb Callbacks)
+
+	// DeletePartnerCallbacks deletes the Callbacks that override the generic
+	// E2E callback for the given partner ID. Deleting these callbacks will
+	// result in the generic E2E callbacks being used.
+	DeletePartnerCallbacks(partnerID *id.ID)
 
 	/* === Unsafe ======================================================= */
 
@@ -197,4 +228,13 @@ type Handler interface {
 	// PayloadSize Returns the max payload size for a partitionable E2E
 	// message
 	PayloadSize() uint
+}
+
+// Callbacks contains the possible callbacks on E2E.
+type Callbacks interface {
+	// ConnectionClosed is called when you receive a message from a partner
+	// informing you that they have deleted the partnership and will no longer
+	// receive messages. It is called when a catalog.E2eClose E2E message is
+	// received.
+	ConnectionClosed(partner *id.ID, round rounds.Round)
 }

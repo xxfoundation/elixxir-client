@@ -150,5 +150,6 @@ type e2eHandler interface {
 		receiveParams session.Params) (partner.Manager, error)
 	GetPartner(partnerID *id.ID) (partner.Manager, error)
 	DeletePartner(partnerId *id.ID) error
+	DeletePartnerNotify(partnerId *id.ID, params e2e.Params) error
 	GetReceptionID() *id.ID
 }

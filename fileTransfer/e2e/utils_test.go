@@ -288,24 +288,28 @@ func (m *mockE2e) UnregisterUserListeners(*id.ID) { panic("implement me") }
 func (m *mockE2e) AddPartner(*id.ID, *cyclic.Int, *cyclic.Int, *sidh.PublicKey, *sidh.PrivateKey, session.Params, session.Params) (partner.Manager, error) {
 	panic("implement me")
 }
-func (m *mockE2e) GetPartner(*id.ID) (partner.Manager, error) { panic("implement me") }
-func (m *mockE2e) DeletePartner(*id.ID) error                 { panic("implement me") }
-func (m *mockE2e) GetAllPartnerIDs() []*id.ID                 { panic("implement me") }
-func (m *mockE2e) HasAuthenticatedChannel(*id.ID) bool        { panic("implement me") }
-func (m *mockE2e) AddService(string, message.Processor) error { panic("implement me") }
-func (m *mockE2e) RemoveService(string) error                 { panic("implement me") }
+func (m *mockE2e) GetPartner(*id.ID) (partner.Manager, error)   { panic("implement me") }
+func (m *mockE2e) DeletePartner(*id.ID) error                   { panic("implement me") }
+func (m *mockE2e) DeletePartnerNotify(*id.ID, e2e.Params) error { panic("implement me") }
+func (m *mockE2e) GetAllPartnerIDs() []*id.ID                   { panic("implement me") }
+func (m *mockE2e) HasAuthenticatedChannel(*id.ID) bool          { panic("implement me") }
+func (m *mockE2e) AddService(string, message.Processor) error   { panic("implement me") }
+func (m *mockE2e) RemoveService(string) error                   { panic("implement me") }
 func (m *mockE2e) SendUnsafe(catalog.MessageType, *id.ID, []byte, e2e.Params) ([]id.Round, time.Time, error) {
 	panic("implement me")
 }
-func (m *mockE2e) EnableUnsafeReception()              { panic("implement me") }
-func (m *mockE2e) GetGroup() *cyclic.Group             { panic("implement me") }
-func (m *mockE2e) GetHistoricalDHPubkey() *cyclic.Int  { panic("implement me") }
-func (m *mockE2e) GetHistoricalDHPrivkey() *cyclic.Int { panic("implement me") }
-func (m *mockE2e) GetReceptionID() *id.ID              { panic("implement me") }
-func (m *mockE2e) FirstPartitionSize() uint            { panic("implement me") }
-func (m *mockE2e) SecondPartitionSize() uint           { panic("implement me") }
-func (m *mockE2e) PartitionSize(uint) uint             { panic("implement me") }
-func (m *mockE2e) PayloadSize() uint                   { panic("implement me") }
+func (m *mockE2e) EnableUnsafeReception()                    { panic("implement me") }
+func (m *mockE2e) GetGroup() *cyclic.Group                   { panic("implement me") }
+func (m *mockE2e) GetHistoricalDHPubkey() *cyclic.Int        { panic("implement me") }
+func (m *mockE2e) GetHistoricalDHPrivkey() *cyclic.Int       { panic("implement me") }
+func (m *mockE2e) GetReceptionID() *id.ID                    { panic("implement me") }
+func (m *mockE2e) FirstPartitionSize() uint                  { panic("implement me") }
+func (m *mockE2e) SecondPartitionSize() uint                 { panic("implement me") }
+func (m *mockE2e) PartitionSize(uint) uint                   { panic("implement me") }
+func (m *mockE2e) PayloadSize() uint                         { panic("implement me") }
+func (m *mockE2e) RegisterCallbacks(e2e.Callbacks)           { panic("implement me") }
+func (m *mockE2e) AddPartnerCallbacks(*id.ID, e2e.Callbacks) { panic("implement me") }
+func (m *mockE2e) DeletePartnerCallbacks(*id.ID)             { panic("implement me") }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock Storage Session                                                       //

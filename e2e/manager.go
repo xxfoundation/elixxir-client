@@ -1,7 +1,10 @@
 package e2e
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
+	"sync"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -37,6 +40,14 @@ type manager struct {
 	crit        *critical
 	rekeyParams rekey.Params
 	kv          *versioned.KV
+
+	// Generic Callbacks for all E2E operations; by default this is nil and
+	// ignored until set via RegisterCallbacks
+	callbacks Callbacks
+	cbMux     sync.Mutex
+
+	// Partner-specific Callbacks
+	partnerCallbacks *partnerCallbacks
 }
 
 const legacyE2EKey = "legacyE2ESystem"
@@ -139,13 +150,15 @@ func loadE2E(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
 	events event.Reporter) (Handler, error) {
 
 	m := &manager{
-		Switchboard: receive.New(),
-		net:         net,
-		myID:        myDefaultID,
-		events:      events,
-		grp:         grp,
-		rekeyParams: rekey.Params{},
-		kv:          kv,
+		Switchboard:      receive.New(),
+		net:              net,
+		myID:             myDefaultID,
+		events:           events,
+		grp:              grp,
+		rekeyParams:      rekey.Params{},
+		kv:               kv,
+		callbacks:        nil,
+		partnerCallbacks: newPartnerCallbacks(),
 	}
 	var err error
 
@@ -166,7 +179,20 @@ func loadE2E(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
 			"Failed to unmarshal rekeyParams data")
 	}
 
+	// Register listener that calls the ConnectionClosed callback when a
+	// catalog.E2eClose message is received
+	m.Switchboard.RegisterFunc(
+		"connectionClosing", &id.ZeroUser, catalog.E2eClose, m.closeE2eListener)
+
 	return m, nil
+}
+
+// RegisterCallbacks registers the Callbacks to E2E. This function overwrite any
+// previously saved Callbacks.
+func (m *manager) RegisterCallbacks(callbacks Callbacks) {
+	m.cbMux.Lock()
+	defer m.cbMux.Unlock()
+	m.callbacks = callbacks
 }
 
 func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
@@ -204,6 +230,120 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 	multi.Add(rekeyStopper)
 
 	return multi, nil
+}
+
+// DeletePartner removes the contact associated with the partnerId from the E2E
+// store.
+func (m *manager) DeletePartner(partnerId *id.ID) error {
+	err := m.Ratchet.DeletePartner(partnerId)
+	if err != nil {
+		return err
+	}
+
+	m.DeletePartnerCallbacks(partnerId)
+
+	return m.Ratchet.DeletePartner(partnerId)
+}
+
+// DeletePartnerNotify removes the contact associated with the partnerId
+// from the E2E store. It then sends a critical E2E message to the partner
+// informing them that the E2E connection is closed.
+func (m *manager) DeletePartnerNotify(partnerId *id.ID, params Params) error {
+	// Check if the partner exists
+	p, err := m.GetPartner(partnerId)
+	if err != nil {
+		return err
+	}
+
+	// Enable critical message sending
+	params.Critical = true
+
+	// Setting the connection fingerprint as the payload allows the receiver
+	// to verify that this catalog.E2eClose message is from this specific
+	// E2E relationship. However, this is not strictly necessary since this
+	// message should not be received by any future E2E connection with the
+	// same partner. This is done as a sanity check and to plainly show
+	// which relationship this message belongs to.
+	payload := p.ConnectionFingerprint().Bytes()
+
+	// Prepare an E2E message informing the partner that you are closing the E2E
+	// connection. The send is prepared before deleting the partner because the
+	// partner needs to be available to build the E2E message. The message is
+	// not sent first to avoid sending the partner an erroneous message of
+	// deletion fails.
+	sendFunc, err := m.prepareSendE2E(
+		catalog.E2eClose, partnerId, payload, params)
+	if err != nil {
+		return err
+	}
+
+	err = m.Ratchet.DeletePartner(partnerId)
+	if err != nil {
+		return err
+	}
+
+	m.DeletePartnerCallbacks(partnerId)
+
+	// Send closing E2E message
+	rounds, msgID, timestamp, err := sendFunc()
+	if err != nil {
+		jww.ERROR.Printf("Failed to send %s E2E message to %s: %+v",
+			catalog.E2eClose, partnerId, err)
+	} else {
+		jww.INFO.Printf(
+			"Sent %s E2E message to %s on rounds %v with message ID %s at %s",
+			catalog.E2eClose, partnerId, rounds, msgID, timestamp)
+	}
+
+	return nil
+}
+
+// closeE2eListener calls the ConnectionClose callback when a catalog.E2eClose
+// message is received from a partner.
+func (m *manager) closeE2eListener(item receive.Message) {
+	p, err := m.GetPartner(item.Sender)
+	if err != nil {
+		jww.ERROR.Printf("Could not find sender %s of %s message: %+v",
+			item.Sender, catalog.E2eClose, err)
+		return
+	}
+
+	// Check the connection fingerprint to verify that the message is
+	// from the expected E2E relationship (refer to the comment in
+	// DeletePartner for more details)
+	if !bytes.Equal(p.ConnectionFingerprint().Bytes(), item.Payload) {
+		jww.ERROR.Printf("Received %s message from %s with incorrect "+
+			"connection fingerprint %s.", catalog.E2eClose, item.Sender,
+			base64.StdEncoding.EncodeToString(item.Payload))
+		return
+	}
+
+	jww.INFO.Printf("Received %s message from %s for relationship %s. "+
+		"Calling ConnectionClosed callback.",
+		catalog.E2eClose, item.Sender, p.ConnectionFingerprint())
+
+	if cb := m.partnerCallbacks.get(item.Sender); cb != nil {
+		cb.ConnectionClosed(item.Sender, item.Round)
+	} else if m.callbacks != nil {
+		m.cbMux.Lock()
+		m.callbacks.ConnectionClosed(item.Sender, item.Round)
+		m.cbMux.Unlock()
+	} else {
+		jww.INFO.Printf("No ConnectionClosed callback found.")
+	}
+}
+
+// AddPartnerCallbacks registers a new Callbacks that overrides the generic
+// e2e callbacks for the given partner ID.
+func (m *manager) AddPartnerCallbacks(partnerID *id.ID, cb Callbacks) {
+	m.partnerCallbacks.add(partnerID, cb)
+}
+
+// DeletePartnerCallbacks deletes the Callbacks that override the generic
+// e2e callback for the given partner ID. Deleting these callbacks will
+// result in the generic e2e callbacks being used.
+func (m *manager) DeletePartnerCallbacks(partnerID *id.ID) {
+	m.partnerCallbacks.delete(partnerID)
 }
 
 // EnableUnsafeReception enables the reception of unsafe message by registering

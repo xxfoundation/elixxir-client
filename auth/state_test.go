@@ -8,6 +8,7 @@
 package auth
 
 import (
+	"gitlab.com/elixxir/client/e2e"
 	"io"
 	"math/rand"
 	"testing"
@@ -98,6 +99,9 @@ func (me2e *mockE2E) GetPartner(partnerID *id.ID) (partner.Manager, error) {
 	return nil, nil
 }
 func (me2e *mockE2E) DeletePartner(partnerId *id.ID) error {
+	return nil
+}
+func (me2e *mockE2E) DeletePartnerNotify(partnerId *id.ID, params e2e.Params) error {
 	return nil
 }
 func (me2e *mockE2E) GetReceptionID() *id.ID {

@@ -320,6 +320,34 @@ func (m *E2e) DeleteContact(partnerId *id.ID) error {
 	return nil
 }
 
+// DeleteContactNotify removes a partner from E2e's storage and sends an E2E
+// message to the contact notifying them.
+func (m *E2e) DeleteContactNotify(partnerId *id.ID, params e2e.Params) error {
+	jww.DEBUG.Printf("Deleting contact with ID %s", partnerId)
+
+	_, err := m.e2e.GetPartner(partnerId)
+	if err != nil {
+		return errors.WithMessagef(err, "Could not delete %s because "+
+			"they could not be found", partnerId)
+	}
+
+	if err = m.e2e.DeletePartnerNotify(partnerId, params); err != nil {
+		return err
+	}
+
+	m.backup.TriggerBackup("contact deleted")
+
+	// FIXME: Do we need this?
+	// c.e2e.Conversations().Delete(partnerId)
+
+	// call delete requests to make sure nothing is lingering.
+	// this is for safety to ensure the contact can be re-added
+	// in the future
+	_ = m.auth.DeleteRequest(partnerId)
+
+	return nil
+}
+
 // MakeAuthCallbacksAdapter creates an authCallbacksAdapter.
 func MakeAuthCallbacksAdapter(ac AuthCallbacks, e2e *E2e) *authCallbacksAdapter {
 	return &authCallbacksAdapter{

@@ -72,10 +72,9 @@ var broadcastCmd = &cobra.Command{
 				jww.FATAL.Panicf("description cannot be empty")
 			}
 
-			var cryptChannel *crypto.Channel
 			if viper.GetBool(broadcastNewFlag) {
 				// Create a new broadcast channel
-				cryptChannel, pk, err = crypto.NewChannel(name, desc, user.GetRng().GetStream())
+				channel, pk, err = crypto.NewChannel(name, desc, user.GetRng().GetStream())
 				if err != nil {
 					jww.FATAL.Panicf("Failed to create new channel: %+v", err)
 				}
@@ -103,7 +102,7 @@ var broadcastCmd = &cobra.Command{
 					jww.FATAL.Panicf("Failed to generate channel ID: %+v", err)
 				}
 
-				cryptChannel = &crypto.Channel{
+				channel = &crypto.Channel{
 					ReceptionID: rid,
 					Name:        name,
 					Description: desc,
@@ -113,7 +112,7 @@ var broadcastCmd = &cobra.Command{
 			}
 
 			// Save channel to disk
-			cBytes, err := cryptChannel.Marshal()
+			cBytes, err := channel.Marshal()
 			if err != nil {
 				jww.ERROR.Printf("Failed to marshal channel to bytes: %+v", err)
 			}

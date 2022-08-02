@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/xxdk"
@@ -128,6 +129,8 @@ func printContact(c contact.Contact) {
 		jww.DEBUG.Printf("Printing marshaled contact of size %d.", len(cBytes))
 	}
 
+	// Do not remove fmt.Print, it's for integration
+	fmt.Print(string(cBytes))
 	jww.INFO.Printf(string(cBytes))
 }
 

@@ -10,7 +10,8 @@ package bindings
 import (
 	"encoding/json"
 	"fmt"
-
+	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
@@ -155,6 +156,42 @@ func (e *E2e) SendE2E(messageType int, recipientId, payload,
 func (e *E2e) AddService(tag string, processor Processor) error {
 	return e.api.GetE2E().AddService(
 		tag, &messageProcessor{bindingsCbs: processor})
+}
+
+// RegisterListener registers a new listener.
+//
+// Parameters:
+//  - senderId - the user ID who sends messages to this user that
+//    this function will register a listener for.
+//  - messageType - message type from the sender you want to listen for.
+//  - newListener: A provider for a callback to hear a message.
+//    Do not pass nil to this.
+func (e *E2e) RegisterListener(senderID []byte,
+	messageType int,
+	newListener Listener) error {
+	jww.INFO.Printf("RegisterListener(%v, %d)", senderID,
+		messageType)
+
+	// Convert senderID to id.Id object
+	var uid *id.ID
+	if len(senderID) == 0 {
+		uid = &id.ID{}
+	} else {
+		var err error
+		uid, err = id.Unmarshal(senderID)
+		if err != nil {
+			return errors.New(fmt.Sprintf("Failed to "+
+				"ResgisterListener: %+v", err))
+		}
+	}
+
+	// Register listener
+	// todo: when implementing an unregister function, return and provide a way
+	//  track this listener ID
+	_ = e.api.GetE2E().RegisterListener(uid,
+		catalog.MessageType(messageType), listener{l: newListener})
+
+	return nil
 }
 
 // Processor is the bindings-specific interface for message.Processor methods.

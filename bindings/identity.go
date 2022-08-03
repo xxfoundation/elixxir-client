@@ -89,6 +89,12 @@ func (c *Cmix) MakeLegacyReceptionIdentity() ([]byte, error) {
 	return ident.Marshal()
 }
 
+// GetReceptionRegistrationValidationSignature returns the signature provided by
+// the xx network.
+func (c *Cmix) GetReceptionRegistrationValidationSignature() []byte {
+	return c.api.GetStorage().GetReceptionRegistrationValidationSignature()
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Contact Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////

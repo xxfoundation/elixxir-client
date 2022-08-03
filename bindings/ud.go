@@ -110,6 +110,10 @@ type UdNetworkStatus interface {
 // Parameters:
 //  - e2eID - e2e object ID in the tracker
 //  - follower - network follower func wrapped in UdNetworkStatus
+//  - username - the username the user wants to register with UD.
+//    If the user is already registered, this field may be blank
+//  - registrationValidationSignature - the signature provided by the xx network.
+//    This signature is optional for other consumers who deploy their own UD.
 func LoadOrNewUserDiscovery(e2eID int, follower UdNetworkStatus,
 	username string, registrationValidationSignature []byte) (
 	*UserDiscovery, error) {

@@ -40,19 +40,26 @@ var errToUserErr = map[string]string{
 // error<Mux is a global lock for the errToUserErr global.
 var errorMux sync.RWMutex
 
-////// Error codes //////
+// Error codes
+const (
+	UnrecognizedCode    = "UR: "
+	UnrecognizedMessage = UnrecognizedCode + "Unrecognized error from XX backend, please report"
+)
 
-const UnrecognizedCode = "UR: "
-const UnrecognizedMessage = UnrecognizedCode + "Unrecognized error from XX backend, please report"
-
-// ErrorStringToUserFriendlyMessage takes a passed in errStr which will be
-// a backend generated error. These may be error specifically written by
-// the backend team or lower level errors gotten from low level dependencies.
-// This function will parse the error string for common errors provided from
-// errToUserErr to provide a more user-friendly error message for the front end.
-// If the error is not common, some simple parsing is done on the error message
-// to make it more user-accessible, removing backend specific jargon.
-func ErrorStringToUserFriendlyMessage(errStr string) string {
+// CreateUserFriendlyErrorMessage will convert the passed in error string
+// to an error string that is user-friendly if a substring match is
+// found to a common error. Common errors is a map which can be updated
+// using UpdateCommonErrors. If the error is not common, some simple parsing
+// is done on the error message to make it more user-accessible, removing
+// backend specific jargon.
+//
+// Parameters
+//   - errStr - an error returned from the backend.
+//
+// Returns
+//  - A user-friendly error message. This should be devoid of technical speak
+//    but still be meaningful for front-end or back-end teams.
+func CreateUserFriendlyErrorMessage(errStr string) string {
 	errorMux.RLock()
 	defer errorMux.RUnlock()
 	// Go through common errors
@@ -90,10 +97,17 @@ func ErrorStringToUserFriendlyMessage(errStr string) string {
 	return fmt.Sprintf("%s: %v", UnrecognizedCode, errStr)
 }
 
-// UpdateCommonErrors takes the passed in contents of a JSON file and updates the
-// errToUserErr map with the contents of the json file. The JSON's expected format
-// conform with the commented examples provides in errToUserErr above.
-// NOTE that you should not pass in a file path, but a preloaded JSON file
+// UpdateCommonErrors updates the internal error mapping DB. This internal database
+// maps errors returned from the backend to user-friendly error messages.
+//
+// Parameters
+//  - jsonFile - contents of a JSON file whose format conforms to the example below.
+// Example Input:
+//   {
+//  	"Failed to Unmarshal Conversation": "Could not retrieve conversation",
+//  	"Failed to unmarshal SentRequestMap": "Failed to pull up friend requests",
+//  	"cannot create username when network is not health": "Cannot create username, unable to connect to network",
+//  }
 func UpdateCommonErrors(jsonFile string) error {
 	errorMux.Lock()
 	defer errorMux.Unlock()

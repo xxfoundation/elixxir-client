@@ -241,8 +241,7 @@ func (m *manager) DeletePartner(partnerId *id.ID) error {
 	}
 
 	m.DeletePartnerCallbacks(partnerId)
-
-	return m.Ratchet.DeletePartner(partnerId)
+	return nil
 }
 
 // DeletePartnerNotify removes the contact associated with the partnerId

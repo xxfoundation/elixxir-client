@@ -296,14 +296,14 @@ type UdLookupCallback interface {
 // Parameters:
 //  - e2eID - e2e object ID in the tracker
 //  - udContact - the marshalled bytes of the contact.Contact object
-//  - udIdBytes - the marshalled bytes of the id.ID object for the user
-//    discovery server
+//  - lookupId - the marshalled bytes of the id.ID object for the user
+//    that LookupUD will look up.
 //  - singleRequestParams - the JSON marshalled bytes of single.RequestParams
 //
 // Returns:
 //  - []byte - the JSON marshalled bytes of SingleUseSendReport
 func LookupUD(e2eID int, udContact []byte, cb UdLookupCallback,
-	udIdBytes []byte, singleRequestParamsJSON []byte) ([]byte, error) {
+	lookupId []byte, singleRequestParamsJSON []byte) ([]byte, error) {
 
 	// Get user from singleton
 	user, err := e2eTrackerSingleton.get(e2eID)
@@ -316,7 +316,7 @@ func LookupUD(e2eID int, udContact []byte, cb UdLookupCallback,
 		return nil, err
 	}
 
-	uid, err := id.Unmarshal(udIdBytes)
+	uid, err := id.Unmarshal(lookupId)
 	if err != nil {
 		return nil, err
 	}

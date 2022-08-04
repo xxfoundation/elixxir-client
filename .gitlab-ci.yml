@@ -1,7 +1,7 @@
 include: 
   - 'https://git.xx.network/elixxir/ci-templates/-/raw/master/main-go-project.yml'
 
-# Stages are defined in 'https://git.xx.network/elixxir/ci-templates/-/raw/master/main-go-project.yml'
+# Stages and trigger_integration are defined in 'https://git.xx.network/elixxir/ci-templates/-/raw/master/main-go-project.yml'
 # The before_script def is imported from 'https://git.xx.network/elixxir/ci-templates/-/raw/master/before_script-go-project.yml'
 # The test job is imported from 'https://git.xx.network/elixxir/ci-templates/-/raw/master/test-go-project.yml'
 

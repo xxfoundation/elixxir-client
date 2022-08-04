@@ -446,7 +446,7 @@ func (c *Cmix) GetEventReporter() event.Reporter {
 
 // GetNodeRegistrationStatus gets the current state of nodes registration. It
 // returns  the number of nodes that the user is currently registered with and
-// the total number of nodes in the NDF and. An error is returned if the network
+// the total number of nodes in the NDF. An error is returned if the network
 // is not healthy.
 func (c *Cmix) GetNodeRegistrationStatus() (int, int, error) {
 	// Return an error if the network is not healthy

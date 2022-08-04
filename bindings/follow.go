@@ -83,19 +83,21 @@ func (c *Cmix) WaitForNetwork(timeoutMS int) bool {
 
 // NetworkFollowerStatus gets the state of the network follower. It returns a
 // status with the following values:
-//  Stopped  - 0
-//  Running  - 2000
-//  Stopping - 3000
+//
+// Status:
+//  - Stopped  - 0
+//  - Running  - 2000
+//  - Stopping - 3000
 func (c *Cmix) NetworkFollowerStatus() int {
 	return int(c.api.NetworkFollowerStatus())
 }
 
-// GetNodeRegistrationStatus returns the current state of nodes registration.
+// GetNodeRegistrationStatus returns the current state of node registration.
 //
 // Returns:
 //  - The number of nodes with which the user is registered.
 //  - The number of nodes present in the NDF.
-//  - An error. This will most likely occur if the network is unhealthy.
+//  - An error will most likely occur if the network is unhealthy.
 func (c *Cmix) GetNodeRegistrationStatus() (int, int, error) {
 	return c.api.GetNodeRegistrationStatus()
 }

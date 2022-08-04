@@ -1,52 +1,15 @@
-include: 'https://git.xx.network/elixxir/ci-templates/-/raw/master/build-go-project.yml'
-
-before_script:
-  - go version || echo "Go executable not found."
-  - echo $CI_BUILD_REF
-  - echo $CI_PROJECT_DIR
-  - echo $PWD
-  - eval $(ssh-agent -s)
-  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
-  - mkdir -p ~/.ssh
-  - chmod 700 ~/.ssh
-  - ssh-keyscan -t rsa $GITLAB_SERVER > ~/.ssh/known_hosts
-  - rm -rf ~/.gitconfig
-  - git config --global url."git@$GITLAB_SERVER:".insteadOf "https://gitlab.com/"
-  - git config --global url."git@$GITLAB_SERVER:".insteadOf "https://git.xx.network/" --add
-  - export PATH=$HOME/go/bin:$PATH
+include: 
+  - 'https://git.xx.network/elixxir/ci-templates/-/raw/master/before_script-go-project.yml'
+  - 'https://git.xx.network/elixxir/ci-templates/-/raw/master/test-go-project.yml'
+  - 'https://git.xx.network/elixxir/ci-templates/-/raw/master/build-go-project.yml'
 
 stages:
   - test
   - build
   - trigger_integration
 
-test:
-  stage: test
-  image: $DOCKER_IMAGE
-  except:
-    - tags
-  script:
-    - git clean -ffdx
-    - go mod vendor -v
-    - go build ./...
-    - go mod tidy
-    - mkdir -p testdata
-
-    # Test coverage
-    - go-acc --covermode atomic --output testdata/coverage.out ./... -- -v
-    # Exclude some specific packages and files
-    - cat testdata/coverage.out | grep -v cmd | grep -v mockserver | grep -v pb[.]go | grep -v main.go > testdata/coverage-real.out
-    - go tool cover -func=testdata/coverage-real.out
-    - go tool cover -html=testdata/coverage-real.out -o testdata/coverage.html
-
-    # Test Coverage Check
-    - go tool cover -func=testdata/coverage-real.out | grep "total:" | awk '{print $3}' | sed 's/\%//g' > testdata/coverage-percentage.txt
-    - export CODE_CHECK=$(echo "$(cat testdata/coverage-percentage.txt) >= $MIN_CODE_COVERAGE" | bc -l)
-    - (if [ "$CODE_CHECK" == "1" ]; then echo "Minimum coverage of $MIN_CODE_COVERAGE succeeded"; else echo "Minimum coverage of $MIN_CODE_COVERAGE failed"; exit 1; fi);
-  artifacts:
-    paths:
-      - vendor/
-      - testdata/
+# The before_script def is imported from 'https://git.xx.network/elixxir/ci-templates/-/raw/master/before_script-go-project.yml'
+# The test job is imported from 'https://git.xx.network/elixxir/ci-templates/-/raw/master/test-go-project.yml'
 
 build:
   stage: build

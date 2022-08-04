@@ -147,7 +147,6 @@ func secureConnServer(forceLegacy bool, statePass []byte, statePath, regCode str
 	case conn := <-connChan:
 		// Perform functionality shared by client & server
 		miscConnectionFunctions(connectServer.User, conn)
-
 	case <-connectionTimeout.C:
 		connectionTimeout.Stop()
 		jww.FATAL.Panicf("[CONN] Failed to establish connection within " +
@@ -375,6 +374,15 @@ func secureConnClient(forceLegacy bool, statePass []byte, statePath, regCode str
 
 	miscConnectionFunctions(user, conn)
 
+	// Close the connection
+	if err = conn.Close(); err != nil {
+		jww.FATAL.Panicf("Failed to disconnect with %s: %v",
+			conn.GetPartner().PartnerId(), err)
+	}
+	jww.INFO.Printf("[CONN] Disconnected from %s",
+		conn.GetPartner().PartnerId())
+	fmt.Println("Disconnected from partner")
+
 }
 
 // Insecure (unauthenticated) connection client path
@@ -450,6 +458,16 @@ func insecureConnClient(forceLegacy bool, statePass []byte, statePath, regCode s
 	jww.INFO.Printf("[CONN] Established connection with %s", handler.GetPartner().PartnerId())
 
 	miscConnectionFunctions(user, handler)
+
+	// Close the connection
+	if err = handler.Close(); err != nil {
+		jww.FATAL.Panicf("Failed to disconnect with %s: %v",
+			handler.GetPartner().PartnerId(), err)
+	}
+	jww.INFO.Printf("[CONN] Disconnected from %s",
+		handler.GetPartner().PartnerId())
+	fmt.Println("Disconnected from partner")
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////
@@ -488,17 +506,6 @@ func miscConnectionFunctions(user *xxdk.E2e, conn connect.Connection) {
 		}
 	}
 
-	// Disconnect from connection partner--------------------------------------------
-	if viper.GetBool(connectionDisconnectFlag) {
-		// Close the connection
-		if err := conn.Close(); err != nil {
-			jww.FATAL.Panicf("Failed to disconnect with %s: %v",
-				conn.GetPartner().PartnerId(), err)
-		}
-		jww.INFO.Printf("[CONN] Disconnected from %s",
-			conn.GetPartner().PartnerId())
-		fmt.Println("Disconnected from partner")
-	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -555,13 +562,6 @@ func init() {
 			"closing. Without this flag present, a server will be "+
 			"long-running.")
 	bindFlagHelper(connectionServerTimeoutFlag, connectionCmd)
-
-	connectionCmd.Flags().Bool(connectionDisconnectFlag, false,
-		"This flag is available to both server and client. "+
-			"This uses a contact object from a file specified by --destfile."+
-			"This will close the connection with the given contact "+
-			"if it exists.")
-	bindFlagHelper(connectionDisconnectFlag, connectionCmd)
 
 	connectionCmd.Flags().Bool(connectionAuthenticatedFlag, false,
 		"This flag is available to both server and client. "+

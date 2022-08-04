@@ -44,7 +44,7 @@ func getClientAuthCallback(confirm Callback, e2e clientE2e.Handler,
 // Confirm will be called when an auth Confirm message is processed.
 func (a clientAuthCallback) Confirm(requestor contact.Contact,
 	_ receptionID.EphemeralIdentity, _ rounds.Round) {
-	jww.DEBUG.Printf("Connection auth request for %s confirmed",
+	jww.DEBUG.Printf("Connection auth confirm for %s received",
 		requestor.ID.String())
 	defer a.authState.DeletePartnerCallback(requestor.ID)
 

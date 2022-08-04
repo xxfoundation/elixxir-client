@@ -110,11 +110,11 @@ func Connect(recipient contact.Contact, user *xxdk.E2e,
 			return nil, errors.Errorf("Unable to complete connection "+
 				"with partner %s", recipient.ID.String())
 		}
-		jww.DEBUG.Printf("Connection auth request for %s confirmed",
+		jww.INFO.Printf("Connection with %s established",
 			recipient.ID.String())
 		return newConnection, nil
 	case <-timeout.C:
-		return nil, errors.Errorf("Connection request with "+
+		return nil, errors.Errorf("Connection request for "+
 			"partner %s timed out", recipient.ID.String())
 	}
 }

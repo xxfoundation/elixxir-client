@@ -1,13 +1,7 @@
 include: 
-  - 'https://git.xx.network/elixxir/ci-templates/-/raw/master/before_script-go-project.yml'
-  - 'https://git.xx.network/elixxir/ci-templates/-/raw/master/test-go-project.yml'
-  - 'https://git.xx.network/elixxir/ci-templates/-/raw/master/build-go-project.yml'
+  - 'https://git.xx.network/elixxir/ci-templates/-/raw/master/main-go-project.yml'
 
-stages:
-  - test
-  - build
-  - trigger_integration
-
+# Stages are defined in 'https://git.xx.network/elixxir/ci-templates/-/raw/master/main-go-project.yml'
 # The before_script def is imported from 'https://git.xx.network/elixxir/ci-templates/-/raw/master/before_script-go-project.yml'
 # The test job is imported from 'https://git.xx.network/elixxir/ci-templates/-/raw/master/test-go-project.yml'
 
@@ -22,16 +16,6 @@ build:
   artifacts:
     paths:
      - release/
-
-tag:
-    stage: trigger_integration
-    only:
-        - master
-    image: $DOCKER_IMAGE
-    script:
-        - git remote add origin_tags git@$GITLAB_SERVER:elixxir/client.git || true
-        - git tag $(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3) -f
-        - git push origin_tags -f --tags
 
 bindings-ios:
   stage: build
@@ -85,7 +69,7 @@ bindings-android:
 # mod proxy does cache pulls for about 30 minutes, so if quickly successive commits are done in 
 # master/release, this will fail to pull the latest client, and the docs will not update.
 trigger-doc-update:
-  stage: trigger_integration
+  stage: events
   image: $DOCKER_IMAGE
   script:
     # We use GOPRIVATE blank because not want to directly pull client, we want to use the public cache.
@@ -94,17 +78,18 @@ trigger-doc-update:
     - release
     - master
 
-trigger-integration:
-  stage: trigger_integration
-  trigger:
-    project: elixxir/integration
-    branch: $CI_COMMIT_REF_NAME
-  only:
-    - master
-    - release
+tag:
+    stage: events
+    only:
+        - master
+    image: $DOCKER_IMAGE
+    script:
+        - git remote add origin_tags git@$GITLAB_SERVER:elixxir/client.git || true
+        - git tag $(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3) -f
+        - git push origin_tags -f --tags
 
 trigger-udb:
-  stage: trigger_integration
+  stage: events
   trigger:
     project: elixxir/user-discovery-bot
     branch: $CI_COMMIT_REF_NAME

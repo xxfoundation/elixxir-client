@@ -153,7 +153,7 @@ func (g *GroupChat) MakeGroup(membership IdList, message, name []byte) (
 	[]byte, error) {
 
 	// Construct membership list into a list of []*id.Id
-	members, err := deserializeIdList(membership.Ids)
+	members, err := deserializeIdList(membership)
 	if err != nil {
 		return nil, err
 	}

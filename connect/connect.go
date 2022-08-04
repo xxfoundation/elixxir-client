@@ -125,8 +125,11 @@ func Connect(recipient contact.Contact, user *xxdk.E2e,
 //
 // It is recommended that this be called before StartNetworkFollower to ensure
 // no requests are missed.
-// This call does an xxDK.ephemeralLogin under the hood and the connection
+//
+// This calls xxdk.LoginEphemeral under the hood and the connection
 // server must be the only listener on auth.
+//
+// The given Callback needs to handle receiving a nil Connection.
 func StartServer(identity xxdk.ReceptionIdentity, connectionCallback Callback,
 	net *xxdk.Cmix, params xxdk.E2EParams, clParams ConnectionListParams) (*ConnectionServer, error) {
 

@@ -17,13 +17,11 @@ import (
 )
 
 // clientAuthCallback provides callback functionality for interfacing between
-// auth.State and Connection. This is used both for blocking creation of a
-// Connection object until the auth Request is confirmed and for dynamically
-// building new Connection objects when an auth Request is received.
+// auth.State and Connection. This is used for building new Connection
+// objects when an auth Confirm is received.
 type clientAuthCallback struct {
 	// Used for signaling confirmation of E2E partnership
 	confirmCallback Callback
-	requestCallback Callback
 
 	// Used for building new Connection objects
 	connectionE2e    clientE2e.Handler
@@ -31,14 +29,12 @@ type clientAuthCallback struct {
 	authState        auth.State
 }
 
-// getClientAuthCallback returns a callback interface to be passed into the creation
-// of an auth.State object.
-// it will accept requests only if a request callback is passed in
-func getClientAuthCallback(confirm, request Callback, e2e clientE2e.Handler,
+// getClientAuthCallback returns an auth.Callbacks interface to be passed into the creation
+// of an auth.State object for connect clients.
+func getClientAuthCallback(confirm Callback, e2e clientE2e.Handler,
 	auth auth.State, params xxdk.E2EParams) *clientAuthCallback {
 	return &clientAuthCallback{
 		confirmCallback:  confirm,
-		requestCallback:  request,
 		connectionE2e:    e2e,
 		connectionParams: params,
 		authState:        auth,
@@ -58,17 +54,13 @@ func (a clientAuthCallback) Confirm(requestor contact.Contact,
 		jww.ERROR.Printf("Unable to build connection with "+
 			"partner %s: %+v", requestor.ID, err)
 		// Send a nil connection to avoid hold-ups down the line
-		if a.confirmCallback != nil {
-			a.confirmCallback(nil)
-		}
+		a.confirmCallback(nil)
 		return
 	}
 
 	// Return the new Connection object
-	if a.confirmCallback != nil {
-		a.confirmCallback(BuildConnection(newPartner, a.connectionE2e,
-			a.authState, a.connectionParams))
-	}
+	a.confirmCallback(BuildConnection(newPartner, a.connectionE2e,
+		a.authState, a.connectionParams))
 }
 
 // Request will be called when an auth Request message is processed.
@@ -82,12 +74,10 @@ func (a clientAuthCallback) Reset(contact.Contact,
 }
 
 // serverAuthCallback provides callback functionality for interfacing between
-// auth.State and Connection. This is used both for blocking creation of a
-// Connection object until the auth Request is confirmed and for dynamically
-// building new Connection objects when an auth Request is received.
+// auth.State and Connection. This is used for building new Connection
+//objects when an auth Request is received.
 type serverAuthCallback struct {
 	// Used for signaling confirmation of E2E partnership
-	confirmCallback Callback
 	requestCallback Callback
 
 	// Used to track stale connections
@@ -97,13 +87,11 @@ type serverAuthCallback struct {
 	connectionParams xxdk.E2EParams
 }
 
-// getServerAuthCallback returns a callback interface to be passed into the creation
-// of a xxdk.E2e object.
-// it will accept requests only if a request callback is passed in
-func getServerAuthCallback(confirm, request Callback, cl *ConnectionList,
+// getServerAuthCallback returns an auth.Callbacks interface to be passed into the creation
+// of a xxdk.E2e object for connect servers.
+func getServerAuthCallback(request Callback, cl *ConnectionList,
 	params xxdk.E2EParams) *serverAuthCallback {
 	return &serverAuthCallback{
-		confirmCallback:  confirm,
 		requestCallback:  request,
 		cl:               cl,
 		connectionParams: params,
@@ -118,25 +106,22 @@ func (a serverAuthCallback) Confirm(contact.Contact,
 // Request will be called when an auth Request message is processed.
 func (a serverAuthCallback) Request(requestor contact.Contact,
 	_ receptionID.EphemeralIdentity, _ rounds.Round, user *xxdk.E2e) {
-	if a.requestCallback == nil {
-		jww.ERROR.Printf("Received a request when requests are" +
-			"not enable, will not accept")
-	}
+	jww.DEBUG.Printf("Connection auth request for %s received",
+		requestor.ID.String())
+
+	// Auto-confirm the auth request
 	_, err := user.GetAuth().Confirm(requestor)
 	if err != nil {
 		jww.ERROR.Printf("Unable to build connection with "+
 			"partner %s: %+v", requestor.ID, err)
-		// Send a nil connection to avoid hold-ups down the line
-		a.requestCallback(nil)
+		return
 	}
+
 	// After confirmation, get the new partner
 	newPartner, err := user.GetE2E().GetPartner(requestor.ID)
 	if err != nil {
 		jww.ERROR.Printf("Unable to build connection with "+
 			"partner %s: %+v", requestor.ID, err)
-		// Send a nil connection to avoid hold-ups down the line
-		a.requestCallback(nil)
-
 		return
 	}
 

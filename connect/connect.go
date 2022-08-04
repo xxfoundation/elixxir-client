@@ -88,7 +88,7 @@ func Connect(recipient contact.Contact, user *xxdk.E2e,
 	cb := func(connection Connection) {
 		signalChannel <- connection
 	}
-	callback := getClientAuthCallback(cb, nil, user.GetE2E(),
+	callback := getClientAuthCallback(cb, user.GetE2E(),
 		user.GetAuth(), p)
 	user.GetAuth().AddPartnerCallback(recipient.ID, callback)
 
@@ -128,8 +128,6 @@ func Connect(recipient contact.Contact, user *xxdk.E2e,
 //
 // This calls xxdk.LoginEphemeral under the hood and the connection
 // server must be the only listener on auth.
-//
-// The given Callback needs to handle receiving a nil Connection.
 func StartServer(identity xxdk.ReceptionIdentity, connectionCallback Callback,
 	net *xxdk.Cmix, params xxdk.E2EParams, clParams ConnectionListParams) (*ConnectionServer, error) {
 
@@ -141,7 +139,7 @@ func StartServer(identity xxdk.ReceptionIdentity, connectionCallback Callback,
 	}
 
 	// Build callback for E2E negotiation
-	callback := getServerAuthCallback(nil, connectionCallback, cl, params)
+	callback := getServerAuthCallback(connectionCallback, cl, params)
 
 	e2eClient, err := xxdk.LoginEphemeral(net, callback, identity, params)
 	if err != nil {

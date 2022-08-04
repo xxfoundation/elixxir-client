@@ -95,11 +95,14 @@ func (c *Cmix) NetworkFollowerStatus() int {
 // GetNodeRegistrationStatus returns the current state of node registration.
 //
 // Returns:
-//  - The number of nodes with which the user is registered.
-//  - The number of nodes present in the NDF.
+//  - []int - The 0th element represents the number of nodes with which the user is registered.
+//            The 1st element represents the number of nodes present in the NDF.
 //  - An error will most likely occur if the network is unhealthy.
-func (c *Cmix) GetNodeRegistrationStatus() (int, int, error) {
-	return c.api.GetNodeRegistrationStatus()
+func (c *Cmix) GetNodeRegistrationStatus() ([]int, error) {
+	results := make([]int, 2)
+	var err error
+	results[0], results[1], err = c.api.GetNodeRegistrationStatus()
+	return results, err
 }
 
 // HasRunningProcessies checks if any background threads are running and returns

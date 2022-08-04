@@ -206,7 +206,8 @@ type messageProcessor struct {
 	bindingsCbs Processor
 }
 
-// convertAuthCallbacks turns an auth.Callbacks into an AuthCallbacks
+// convertProcessor turns the input of a message.Processor to the
+// binding-layer primitives equivalents within the Processor.Process.
 func convertProcessor(msg format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) (
 	message []byte, receptionId []byte, ephemeralId int64, roundId int64) {

@@ -210,3 +210,17 @@ func makeIdList(ids []*id.ID) IdList {
 	}
 	return IdList{Ids: convertedIds}
 }
+
+// deserializeIdList is a helper function which creates a list of id.ID's
+// given an IdList. It deserializes each element of the IdList using id.Unmarshal.
+func deserializeIdList(ids IdList) ([]*id.ID, error) {
+	convertedIds := make([]*id.ID, len(ids.Ids))
+	for i, serializedId := range ids.Ids {
+		deserializedId, err := id.Unmarshal(serializedId)
+		if err != nil {
+			return nil, err
+		}
+		convertedIds[i] = deserializedId
+	}
+	return convertedIds, nil
+}

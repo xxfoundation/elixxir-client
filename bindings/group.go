@@ -94,7 +94,7 @@ type GroupChat struct {
 // Parameters:
 //  - payload - a byte serialized representation of a group.
 type GroupRequest interface {
-	Callback(payload []byte)
+	Callback(payload Group)
 }
 
 // LoadOrNewGroupChat creates a bindings-layer group chat manager.
@@ -123,8 +123,10 @@ func LoadOrNewGroupChat(e2eID, groupID int, requestFunc GroupRequest,
 	requestCb := func(g gs.Group) {
 		//fixme: review this to see if should be json marshaled.
 		// At the moment, groupStore.DhKeyList is an unsupported
-		// type, it would need a MarshalJson method (see the docstring for JoinGroup)
-		requestFunc.Callback(g.Serialize())
+		// type, it would need a MarshalJson method. If we JSON marshal, change
+		// JoinGroup implementation and docstring accordingly.
+		// As for now, it's matching the construction as defined pre-restructure.
+		requestFunc.Callback(Group{g: g})
 	}
 
 	// Construct a group chat manager
@@ -224,17 +226,9 @@ func (g *GroupChat) ResendRequest(groupId []byte) ([]byte, error) {
 // JoinGroup allows a user to join a group when a request is received.
 //
 // Parameters:
-//  - group - a byte slice representing serialized Group.
-//    This is received by the GroupRequest.Callback. This is NOT a JSON marshalled
-//    version of a group and should not be treated as such. As of now, there is no
-//    functionality for JSON marshaling a Group.
-func (g *GroupChat) JoinGroup(group []byte) error {
-	// todo: see the todo comment in LoadOrNewGroupChat
-	grp, err := gs.DeserializeGroup(group)
-	if err != nil {
-		return err
-	}
-	return g.m.JoinGroup(grp)
+//  - group - a bindings-level Group object. This is received by GroupRequest.Callback.
+func (g *GroupChat) JoinGroup(group Group) error {
+	return g.m.JoinGroup(group.g)
 }
 
 // LeaveGroup deletes a group so a user no longer has access.
@@ -328,8 +322,7 @@ func (g *GroupChat) NumGroups() int {
 // Group structure contains the identifying and membership information of a
 // group chat.
 type Group struct {
-	g  gs.Group
-	id int
+	g gs.Group
 }
 
 // GetName returns the name set by the user for the group.

@@ -8,6 +8,7 @@
 package bindings
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -92,17 +93,31 @@ func (c *Cmix) NetworkFollowerStatus() int {
 	return int(c.api.NetworkFollowerStatus())
 }
 
+// NodeRegistrationReport is the report structure which
+// Cmix.GetNodeRegistrationStatus returns JSON marshalled.
+type NodeRegistrationReport struct {
+	NumberOfNodesRegistered int
+	NumberOfNodes           int
+	Err                     error
+}
+
 // GetNodeRegistrationStatus returns the current state of node registration.
 //
 // Returns:
-//  - []int - The 0th element represents the number of nodes with which the user is registered.
-//            The 1st element represents the number of nodes present in the NDF.
-//  - An error will most likely occur if the network is unhealthy.
-func (c *Cmix) GetNodeRegistrationStatus() ([]int, error) {
-	results := make([]int, 2)
-	var err error
-	results[0], results[1], err = c.api.GetNodeRegistrationStatus()
-	return results, err
+//  - []bye - A marshalled NodeRegistrationReport containing the number of
+//    nodes the user is registered with, the number of nodes present in the NDF and
+//    a nullable error. If the error is not null, the most likely cause is that the
+//    network is unhealthy.
+func (c *Cmix) GetNodeRegistrationStatus() ([]byte, error) {
+	numNodesRegistered, numNodes, err := c.api.GetNodeRegistrationStatus()
+
+	nodeRegReport := NodeRegistrationReport{
+		NumberOfNodesRegistered: numNodesRegistered,
+		NumberOfNodes:           numNodes,
+		Err:                     err,
+	}
+
+	return json.Marshal(nodeRegReport)
 }
 
 // HasRunningProcessies checks if any background threads are running and returns

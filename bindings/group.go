@@ -98,38 +98,44 @@ type GroupRequest interface {
 	Callback(payload []byte)
 }
 
-// NewManager creates a bindings-layer group chat manager.
+// LoadOrNewManager creates a bindings-layer group chat manager.
 //
 // Parameters:
 //  - e2eID - e2e object ID in the tracker.
+//  - groupID - GroupChat object ID in the tracker, given from previous call to LoadOrNewManager.
 //  - requestFunc - a callback to handle group chat requests.
 //  - processor - the group chat message processor.
-func NewManager(e2eID int, requestFunc GroupRequest,
+func LoadOrNewManager(e2eID, groupID int, requestFunc GroupRequest,
 	processor GroupChatProcessor) (*GroupChat, error) {
+	// Retrieve from singleton
+	groupChat, err := groupChatTrackerSingleton.get(groupID)
+	if err != nil { // If not present, create/load group chat manager
+		// Get user from singleton
+		user, err := e2eTrackerSingleton.get(e2eID)
+		if err != nil {
+			return nil, err
+		}
 
-	// Get user from singleton
-	user, err := e2eTrackerSingleton.get(e2eID)
-	if err != nil {
-		return nil, err
+		// Construct a wrapper for the request callback
+		requestCb := func(g gs.Group) {
+			//fixme: review this to see if should be json marshaled.
+			// At the moment, groupStore.DhKeyList is an unsupported
+			// type, it would need a MarshalJson method
+			requestFunc.Callback(g.Serialize())
+		}
+
+		// Construct a group chat manager
+		gcInt, err := gc.NewManager(user.api, requestCb,
+			&groupChatProcessor{bindingsCb: processor})
+		if err != nil {
+			return nil, err
+		}
+
+		// Construct wrapper
+		return groupChatTrackerSingleton.make(gcInt), nil
+
 	}
-
-	// Construct a wrapper for the request callback
-	requestCb := func(g gs.Group) {
-		//fixme: review this to see if should be json marshaled.
-		// At the moment, groupStore.DhKeyList is an unsupported
-		// type, it would need a MarshalJson method
-		requestFunc.Callback(g.Serialize())
-	}
-
-	// Construct a group chat manager
-	gcInt, err := gc.NewManager(user.api, requestCb,
-		&groupChatProcessor{bindingsCb: processor})
-	if err != nil {
-		return nil, err
-	}
-
-	// Construct wrapper
-	return groupChatTrackerSingleton.make(gcInt), nil
+	return groupChat, nil
 }
 
 // GetID returns the groupChatTracker ID for the GroupChat object.

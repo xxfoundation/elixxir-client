@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/client/cmix/rounds"
 	gc "gitlab.com/elixxir/client/groupChat"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
@@ -42,7 +41,7 @@ type groupChatTracker struct {
 }
 
 // make create a GroupChat from a groupChat.Wrapper, assigns it a unique ID, and
-// adds it to the udTracker.
+// adds it to the groupChatTracker.
 func (ut *groupChatTracker) make(gcInt gc.GroupChat) *GroupChat {
 	ut.mux.Lock()
 	defer ut.mux.Unlock()
@@ -66,7 +65,7 @@ func (ut *groupChatTracker) get(id int) (*GroupChat, error) {
 	c, exist := ut.tracked[id]
 	if !exist {
 		return nil, errors.Errorf(
-			"Cannot get UserDiscovery for ID %d, does not exist", id)
+			"Cannot get GroupChat for ID %d, does not exist", id)
 	}
 
 	return c, nil
@@ -98,44 +97,45 @@ type GroupRequest interface {
 	Callback(payload []byte)
 }
 
-// LoadOrNewManager creates a bindings-layer group chat manager.
+// LoadOrNewGroupChat creates a bindings-layer group chat manager.
 //
 // Parameters:
 //  - e2eID - e2e object ID in the tracker.
-//  - groupID - GroupChat object ID in the tracker, given from previous call to LoadOrNewManager.
+//  - groupID - GroupChat object ID in the tracker, given from previous call
+//    to LoadOrNewGroupChat.
 //  - requestFunc - a callback to handle group chat requests.
 //  - processor - the group chat message processor.
-func LoadOrNewManager(e2eID, groupID int, requestFunc GroupRequest,
+func LoadOrNewGroupChat(e2eID, groupID int, requestFunc GroupRequest,
 	processor GroupChatProcessor) (*GroupChat, error) {
 	// Retrieve from singleton
 	groupChat, err := groupChatTrackerSingleton.get(groupID)
-	if err != nil { // If not present, create/load group chat manager
-		// Get user from singleton
-		user, err := e2eTrackerSingleton.get(e2eID)
-		if err != nil {
-			return nil, err
-		}
-
-		// Construct a wrapper for the request callback
-		requestCb := func(g gs.Group) {
-			//fixme: review this to see if should be json marshaled.
-			// At the moment, groupStore.DhKeyList is an unsupported
-			// type, it would need a MarshalJson method
-			requestFunc.Callback(g.Serialize())
-		}
-
-		// Construct a group chat manager
-		gcInt, err := gc.NewManager(user.api, requestCb,
-			&groupChatProcessor{bindingsCb: processor})
-		if err != nil {
-			return nil, err
-		}
-
-		// Construct wrapper
-		return groupChatTrackerSingleton.make(gcInt), nil
-
+	if err == nil { // If present, return group chat manager from singleton
+		return groupChat, nil
 	}
-	return groupChat, nil
+
+	// Get user from singleton
+	user, err := e2eTrackerSingleton.get(e2eID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct a wrapper for the request callback
+	requestCb := func(g gs.Group) {
+		//fixme: review this to see if should be json marshaled.
+		// At the moment, groupStore.DhKeyList is an unsupported
+		// type, it would need a MarshalJson method (see the docstring for JoinGroup)
+		requestFunc.Callback(g.Serialize())
+	}
+
+	// Construct a group chat manager
+	gcInt, err := gc.NewManager(user.api, requestCb,
+		&groupChatProcessor{bindingsCb: processor})
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct wrapper
+	return groupChatTrackerSingleton.make(gcInt), nil
 }
 
 // GetID returns the groupChatTracker ID for the GroupChat object.
@@ -147,7 +147,7 @@ func (g *GroupChat) GetID() int {
 // group.
 //
 // Parameters:
-//  - membership - members the user wants in the group.
+//  - membership - IDs of members the user wants in the group.
 //  - message - the initial message sent to all members in the group. This is an
 //    optional parameter and may be nil.
 //  - tag - the name of the group decided by the creator. This is an optional parameter
@@ -166,17 +166,15 @@ func (g *GroupChat) MakeGroup(membership IdList, message, name []byte) (
 
 	// Construct group
 	grp, rounds, status, err := g.m.MakeGroup(members, name, message)
-	errStr := ""
 	if err != nil {
-		errStr = err.Error()
+		return nil, err
 	}
 
 	// Construct the group report
 	report := GroupReport{
 		Id:     grp.ID.Bytes(),
-		Rounds: makeRoundsList(rounds),
+		Rounds: makeRoundsList(rounds).Rounds,
 		Status: int(status),
-		Err:    errStr,
 	}
 
 	// Marshal the report
@@ -186,8 +184,8 @@ func (g *GroupChat) MakeGroup(membership IdList, message, name []byte) (
 // ResendRequest resends a group request to all members in the group.
 //
 // Parameters:
-//  - groupId - a byte representation of a group. This can be found in the data
-//    returned by GroupChat.MakeGroup.
+//  - groupId - a byte representation of a group's ID.
+//    This can be found in the report returned by GroupChat.MakeGroup.
 //
 // Returns:
 //  - []byte - a JSON-marshalled GroupReport.
@@ -206,19 +204,17 @@ func (g *GroupChat) ResendRequest(groupId []byte) ([]byte, error) {
 		return nil, errors.Errorf("Failed to find group %s", groupID)
 	}
 
-	// Resent request
+	// Resend request
 	rnds, status, err := g.m.ResendRequest(groupID)
-	errStr := ""
 	if err != nil {
-		errStr = err.Error()
+		return nil, err
 	}
 
-	// Construct the group report
+	// Construct the group report on resent request
 	report := &GroupReport{
 		Id:     grp.ID.Bytes(),
-		Rounds: makeRoundsList(rnds),
+		Rounds: makeRoundsList(rnds).Rounds,
 		Status: int(status),
-		Err:    errStr,
 	}
 
 	// Marshal the report
@@ -228,8 +224,12 @@ func (g *GroupChat) ResendRequest(groupId []byte) ([]byte, error) {
 // JoinGroup allows a user to join a group when a request is received.
 //
 // Parameters:
-//  - group - a serialized Group. This is received by the GroupRequest.Callback.
+//  - group - a byte slice representing serialized Group.
+//    This is received by the GroupRequest.Callback. This is NOT a JSON marshalled
+//    version of a group and should not be treated as such. As of now, there is no
+//    functionality for JSON marshaling a Group.
 func (g *GroupChat) JoinGroup(group []byte) error {
+	// todo: see the todo comment in LoadOrNewGroupChat
 	grp, err := gs.DeserializeGroup(group)
 	if err != nil {
 		return err
@@ -268,25 +268,30 @@ func (g *GroupChat) Send(groupId,
 		return nil, errors.Errorf("Failed to unmarshal group ID: %+v", err)
 	}
 
+	// Send group message
 	round, timestamp, msgID, err := g.m.Send(groupID, message, tag)
-	errStr := ""
 	if err != nil {
-		errStr = err.Error()
+		return nil, err
 	}
 
+	// Construct send report
 	sendReport := &GroupSendReport{
-		RoundID:   round,
-		Timestamp: timestamp,
-		MessageID: msgID,
-		Err:       errStr,
+		RoundID:   uint64(round),
+		Timestamp: timestamp.UnixNano(),
+		MessageID: msgID.Bytes(),
 	}
 
 	return json.Marshal(sendReport)
 }
 
 // GetGroups returns an IdList containing a list of group IDs that the user is a member of.
-func (g *GroupChat) GetGroups() IdList {
-	return makeIdList(g.m.GetGroups())
+//
+// Returns:
+//  - []byte - a JSON marshalled IdList representing all group ID's.
+func (g *GroupChat) GetGroups() ([]byte, error) {
+	groupIds := makeIdList(g.m.GetGroups())
+
+	return json.Marshal(groupIds)
 }
 
 // GetGroup returns the group with the group ID. If no group exists, then the
@@ -421,16 +426,14 @@ func (gcp *groupChatProcessor) String() string {
 // status of the send operation.
 type GroupReport struct {
 	Id     []byte
-	Rounds RoundsList
+	Rounds []int
 	Status int
-	Err    string
 }
 
 // GroupSendReport is returned when sending a group message. It contains the
 // round ID sent on and the timestamp of the send operation.
 type GroupSendReport struct {
-	RoundID   id.Round
-	Timestamp time.Time
-	MessageID group.MessageID
-	Err       string
+	RoundID   uint64
+	Timestamp int64
+	MessageID []byte
 }

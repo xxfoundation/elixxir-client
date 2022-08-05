@@ -144,8 +144,8 @@ func LoadOrNewUserDiscovery(e2eID int, follower UdNetworkStatus,
 // Parameters:
 //  - e2eID - e2e object ID in the tracker
 //  - follower - network follower func wrapped in UdNetworkStatus
-//  - emailFactJson - a JSON marshalled email fact.Fact
-//  - phoneFactJson - a JSON marshalled phone fact.Fact
+//  - emailFactJson - nullable JSON marshalled email fact.Fact
+//  - phoneFactJson - nullable JSON marshalled phone fact.Fact
 func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
 	phoneFactJson []byte) (*UserDiscovery, error) {
 
@@ -156,14 +156,18 @@ func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
 	}
 
 	var email, phone fact.Fact
-	err = json.Unmarshal(emailFactJson, &email)
-	if err != nil {
-		return nil, err
+	if emailFactJson != nil {
+		err = json.Unmarshal(emailFactJson, &email)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	err = json.Unmarshal(phoneFactJson, &phone)
-	if err != nil {
-		return nil, err
+	if phoneFactJson != nil {
+		err = json.Unmarshal(phoneFactJson, &phone)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	UdNetworkStatusFn := func() xxdk.Status {

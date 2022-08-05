@@ -98,23 +98,24 @@ func (c *Cmix) NetworkFollowerStatus() int {
 type NodeRegistrationReport struct {
 	NumberOfNodesRegistered int
 	NumberOfNodes           int
-	Err                     error
 }
 
 // GetNodeRegistrationStatus returns the current state of node registration.
 //
 // Returns:
 //  - []bye - A marshalled NodeRegistrationReport containing the number of
-//    nodes the user is registered with, the number of nodes present in the NDF and
-//    a nullable error. If the error is not null, the most likely cause is that the
-//    network is unhealthy.
+//    nodes the user is registered with and the number of nodes present in the NDF.
+//  - An error if it cannot get the node registration status. The most likely cause
+//    is that the network is unhealthy.
 func (c *Cmix) GetNodeRegistrationStatus() ([]byte, error) {
 	numNodesRegistered, numNodes, err := c.api.GetNodeRegistrationStatus()
+	if err != nil {
+		return nil, err
+	}
 
 	nodeRegReport := NodeRegistrationReport{
 		NumberOfNodesRegistered: numNodesRegistered,
 		NumberOfNodes:           numNodes,
-		Err:                     err,
 	}
 
 	return json.Marshal(nodeRegReport)

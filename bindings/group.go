@@ -88,13 +88,13 @@ type GroupChat struct {
 	m *gc.Wrapper
 }
 
-// LoadOrNewGroupChat creates a bindings-layer group chat manager.
+// NewGroupChat creates a bindings-layer group chat manager.
 //
 // Parameters:
 //  - e2eID - e2e object ID in the tracker.
 //  - requestFunc - a callback to handle group chat requests.
 //  - processor - the group chat message processor.
-func LoadOrNewGroupChat(e2eID int,
+func NewGroupChat(e2eID int,
 	requestFunc GroupRequest, processor GroupChatProcessor) (*GroupChat, error) {
 
 	// Get user from singleton
@@ -106,7 +106,7 @@ func LoadOrNewGroupChat(e2eID int,
 	// Construct a wrapper for the request callback
 	requestCb := func(g gs.Group) {
 		newGroup := groupTrackerSingleton.make(g)
-		requestFunc.Callback(newGroup.id)
+		requestFunc.Callback(newGroup)
 	}
 
 	// Construct a group chat manager
@@ -200,10 +200,12 @@ func (g *GroupChat) ResendRequest(groupId []byte) ([]byte, error) {
 }
 
 // JoinGroup allows a user to join a group when a request is received.
+// If an error is returned, handle it properly first; you may then retry later
+// with the same trackedGroupId.
 //
 // Parameters:
 //  - trackedGroupId - the ID to retrieve the Group object within the backend's
-//                     tracking system.
+//                     tracking system. This is received by GroupRequest.Callback.
 func (g *GroupChat) JoinGroup(trackedGroupId int) error {
 	// Retrieve group from singleton
 	grp, err := groupTrackerSingleton.get(trackedGroupId)
@@ -277,21 +279,29 @@ func (g *GroupChat) GetGroups() ([]byte, error) {
 	return json.Marshal(groupIds)
 }
 
-// GetGroup returns the Group with the tracked ID from the backend's Group tracker.
+// GetGroup returns the group with the group ID. If no group exists, then the
+// error "failed to find group" is returned.
 //
 // Parameters:
-//  - trackedGroupId - the ID to retrieve the Group object within the backend's
-//                     tracking system.
+//  - groupId - The byte data representing a group ID (a byte marshalled id.ID).
+//              This can be pulled from a marshalled GroupReport.
 // Returns:
-//  - Group - the bindings-layer representation of a group.
-func (g *GroupChat) GetGroup(trackedGroupId int) (*Group, error) {
-	// Retrieve group from singleton
-	group, err := groupTrackerSingleton.get(trackedGroupId)
+//  - Group - The bindings-layer representation of a group.
+func (g *GroupChat) GetGroup(groupId []byte) (*Group, error) {
+	// Unmarshal group ID
+	groupID, err := id.Unmarshal(groupId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("Failed to unmarshal group ID: %+v", err)
 	}
 
-	return group, nil
+	// Retrieve group from manager
+	grp, exists := g.m.GetGroup(groupID)
+	if !exists {
+		return nil, errors.New("failed to find group")
+	}
+
+	// Add to tracker and return Group object
+	return groupTrackerSingleton.make(grp), nil
 }
 
 // NumGroups returns the number of groups the user is a part of.
@@ -315,9 +325,14 @@ func (g *Group) GetName() []byte {
 	return g.g.Name
 }
 
-// GetID return the 33-byte unique group ID.
+// GetID return the 33-byte unique group ID. This represents the id.ID object
 func (g *Group) GetID() []byte {
 	return g.g.ID.Bytes()
+}
+
+// GetTrackedID returns the tracked ID of the Group object. This is used by the backend tracker.
+func (g *Group) GetTrackedID() int {
+	return g.id
 }
 
 // GetInitMessage returns initial message sent with the group request.
@@ -360,10 +375,9 @@ func (g *Group) Serialize() []byte {
 // GroupRequest is a bindings-layer interface that handles a group reception.
 //
 // Parameters:
-//  - trackedGroupId - the ID to retrieve the Group object within the backend's
-//                     tracking system.
+//  - trackedGroupId - a bindings layer Group object.
 type GroupRequest interface {
-	Callback(trackedGroupId int)
+	Callback(g *Group)
 }
 
 // GroupChatProcessor manages the handling of received group chat messages.

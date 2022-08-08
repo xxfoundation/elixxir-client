@@ -138,7 +138,7 @@ func (e *E2e) SendE2E(messageType int, recipientId, payload,
 	}
 
 	result := E2ESendReport{
-		RoundsList: makeRoundsList(roundIds),
+		RoundsList: makeRoundsList(roundIds...),
 		MessageID:  messageId.Marshal(),
 		Timestamp:  ts.UnixNano(),
 	}

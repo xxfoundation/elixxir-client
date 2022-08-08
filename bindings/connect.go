@@ -93,7 +93,7 @@ func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 		Timestamp: ts.UnixNano(),
 	}
 
-	sr.RoundsList = makeRoundsList(rounds)
+	sr.RoundsList = makeRoundsList(rounds...)
 
 	return json.Marshal(&sr)
 }

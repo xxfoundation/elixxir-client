@@ -20,7 +20,7 @@ import (
 
 func TestSingleUseJsonMarshals(t *testing.T) {
 	rids := []id.Round{1, 5, 9}
-	rl := makeRoundsList(rids)
+	rl := makeRoundsList(rids...)
 	rid := id.NewIdFromString("zezima", id.User, t)
 	eid, _, _, err := ephemeral.GetId(rid, 16, time.Now().UnixNano())
 	if err != nil {

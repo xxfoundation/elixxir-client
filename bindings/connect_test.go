@@ -23,7 +23,7 @@ func TestE2ESendReport_JSON(t *testing.T) {
 	mid := e2e.MessageID{}
 	_, _ = rng.Read(mid[:])
 	origRL := []id.Round{1, 5, 9}
-	rl := makeRoundsList(origRL)
+	rl := makeRoundsList(origRL...)
 	mrl, _ := json.Marshal(&rl)
 	sr := E2ESendReport{
 		RoundsList: rl,

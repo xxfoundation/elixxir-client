@@ -58,8 +58,8 @@ type BroadcastMessage struct {
 //   "EphID":[0,0,0,0,0,0,24,61]
 //  }
 type BroadcastReport struct {
-	RoundID int
-	EphID   ephemeral.Id
+	RoundsList
+	EphID ephemeral.Id
 }
 
 // BroadcastListener is the public function type bindings can use to listen for broadcast messages.
@@ -120,8 +120,8 @@ func (c *Channel) Listen(l BroadcastListener, method int) error {
 		receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 		l.Callback(json.Marshal(&BroadcastMessage{
 			BroadcastReport: BroadcastReport{
-				RoundID: int(round.ID),
-				EphID:   receptionID.EphId,
+				RoundsList: makeRoundsList(round.ID),
+				EphID:      receptionID.EphId,
 			},
 			Payload: payload,
 		}))
@@ -136,8 +136,8 @@ func (c *Channel) Broadcast(payload []byte) ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(BroadcastReport{
-		RoundID: int(rid),
-		EphID:   eid,
+		RoundsList: makeRoundsList(rid),
+		EphID:      eid,
 	})
 }
 
@@ -153,8 +153,8 @@ func (c *Channel) BroadcastAsymmetric(payload, pk []byte) ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(BroadcastReport{
-		RoundID: int(rid),
-		EphID:   eid,
+		RoundsList: makeRoundsList(rid),
+		EphID:      eid,
 	})
 }
 

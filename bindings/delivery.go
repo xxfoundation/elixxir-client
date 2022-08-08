@@ -22,7 +22,17 @@ import (
 // Example marshalled roundList object:
 //  [1001,1003,1006]
 type RoundsList struct {
-	Rounds []int
+	Rounds []uint64
+}
+
+// makeRoundsList converts a list of id.Round into a binding-compatable
+// RoundsList.
+func makeRoundsList(rounds ...id.Round) RoundsList {
+	rl := RoundsList{make([]uint64, len(rounds))}
+	for i, rid := range rounds {
+		rl.Rounds[i] = uint64(rid)
+	}
+	return rl
 }
 
 // Marshal JSON marshals the RoundsList.
@@ -46,15 +56,6 @@ func unmarshalRoundsList(marshaled []byte) ([]id.Round, error) {
 	}
 
 	return realRl, nil
-
-}
-
-func makeRoundsList(rounds []id.Round) RoundsList {
-	rl := RoundsList{}
-	for _, rid := range rounds {
-		rl.Rounds = append(rl.Rounds, int(rid))
-	}
-	return rl
 }
 
 // MessageDeliveryCallback gets called on the determination if all events
@@ -79,9 +80,12 @@ type MessageDeliveryCallback interface {
 // This function takes the marshaled send report to ensure a memory leak does
 // not occur as a result of both sides of the bindings holding a reference to
 // the same pointer.
+//
+// roundList is a JSON marshalled RoundsList or any JSON marshalled send report
+// that inherits a RoundsList object.
 func (c *Cmix) WaitForMessageDelivery(
 	roundList []byte, mdc MessageDeliveryCallback, timeoutMS int) error {
-	jww.INFO.Printf("WaitForMessageDelivery(%v, _, %v)", roundList, timeoutMS)
+	jww.INFO.Printf("WaitForMessageDelivery(%s, _, %d)", roundList, timeoutMS)
 	rl, err := unmarshalRoundsList(roundList)
 	if err != nil {
 		return errors.Errorf("Failed to WaitForMessageDelivery callback due "+

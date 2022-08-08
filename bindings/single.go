@@ -62,7 +62,7 @@ func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload,
 	sr := SingleUseSendReport{
 		EphID:       eid.EphId.Int64(),
 		ReceptionID: eid.Source.Marshal(),
-		RoundsList:  makeRoundsList(rids),
+		RoundsList:  makeRoundsList(rids...),
 	}
 	return json.Marshal(sr)
 }
@@ -201,7 +201,7 @@ func (sl singleUseListener) Callback(
 	// Todo: what other info from req needs to get to bindings
 	scr := SingleUseCallbackReport{
 		Payload:     req.GetPayload(),
-		RoundsList:  makeRoundsList(rids),
+		RoundsList:  makeRoundsList(rids...),
 		Partner:     req.GetPartner(),
 		EphID:       eid.EphId.Int64(),
 		ReceptionID: eid.Source.Marshal(),
@@ -239,7 +239,7 @@ func (sr singleUseResponse) Callback(payload []byte,
 		rids = append(rids, r.ID)
 	}
 	sendReport := SingleUseResponseReport{
-		RoundsList:  makeRoundsList(rids),
+		RoundsList:  makeRoundsList(rids...),
 		ReceptionID: receptionID.Source.Marshal(),
 		EphID:       receptionID.EphId.Int64(),
 		Payload:     payload,

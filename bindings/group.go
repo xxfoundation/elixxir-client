@@ -150,9 +150,9 @@ func (g *GroupChat) MakeGroup(membership IdList, message, name []byte) (
 
 	// Construct the group report
 	report := GroupReport{
-		Id:     grp.ID.Bytes(),
-		Rounds: makeRoundsList(rounds).Rounds,
-		Status: int(status),
+		Id:         grp.ID.Bytes(),
+		RoundsList: makeRoundsList(rounds...),
+		Status:     int(status),
 	}
 
 	// Marshal the report
@@ -190,9 +190,9 @@ func (g *GroupChat) ResendRequest(groupId []byte) ([]byte, error) {
 
 	// Construct the group report on resent request
 	report := &GroupReport{
-		Id:     grp.ID.Bytes(),
-		Rounds: makeRoundsList(rnds).Rounds,
-		Status: int(status),
+		Id:         grp.ID.Bytes(),
+		RoundsList: makeRoundsList(rnds...),
+		Status:     int(status),
 	}
 
 	// Marshal the report
@@ -261,9 +261,9 @@ func (g *GroupChat) Send(groupId,
 
 	// Construct send report
 	sendReport := &GroupSendReport{
-		RoundID:   uint64(round),
-		Timestamp: timestamp.UnixNano(),
-		MessageID: msgID.Bytes(),
+		RoundsList: makeRoundsList(round),
+		Timestamp:  timestamp.UnixNano(),
+		MessageID:  msgID.Bytes(),
 	}
 
 	return json.Marshal(sendReport)
@@ -426,15 +426,15 @@ func (gcp *groupChatProcessor) String() string {
 // the group, a list of rounds that the group requests were sent on, and the
 // status of the send operation.
 type GroupReport struct {
-	Id     []byte
-	Rounds []int
+	Id []byte
+	RoundsList
 	Status int
 }
 
 // GroupSendReport is returned when sending a group message. It contains the
 // round ID sent on and the timestamp of the send operation.
 type GroupSendReport struct {
-	RoundID   uint64
+	RoundsList
 	Timestamp int64
 	MessageID []byte
 }

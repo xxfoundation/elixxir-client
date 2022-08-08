@@ -63,7 +63,7 @@ var udCmd = &cobra.Command{
 		// Make user discovery manager
 		userToRegister := viper.GetString(udRegisterFlag)
 		jww.TRACE.Printf("[UD] Registering identity %v...", userToRegister)
-		userDiscoveryMgr, err := ud.LoadOrNewManager(user, user.GetComms(),
+		userDiscoveryMgr, err := ud.NewOrLoadFromNdf(user, user.GetComms(),
 			user.NetworkFollowerStatus, userToRegister, nil)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load or create new UD manager: %+v", err)

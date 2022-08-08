@@ -130,7 +130,7 @@ func LoadOrNewUserDiscovery(e2eID int, follower UdNetworkStatus,
 	}
 
 	// Build manager
-	u, err := ud.LoadOrNewManager(user.api, user.api.GetComms(),
+	u, err := ud.NewOrLoadFromNdf(user.api, user.api.GetComms(),
 		UdNetworkStatusFn, username, registrationValidationSignature)
 	if err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func LoadOrNewUserDiscovery(e2eID int, follower UdNetworkStatus,
 }
 
 // LoadOrNewAlternateUserDiscovery loads an existing Manager from storage or creates a
-// new one if there is no extant storage information. This is different from LoadOrNewManager
+// new one if there is no extant storage information. This is different from NewOrLoadFromNdf
 // in that it allows the user to provide alternate User Discovery contact information.
 // These parameters may be used to contact a separate UD server than the one run by the
 // xx network team, one the user or a third-party may operate.
@@ -177,7 +177,7 @@ func LoadOrNewAlternateUserDiscovery(e2eID int, follower UdNetworkStatus,
 	}
 
 	// Build manager
-	u, err := ud.LoadOrNewAlternateUserDiscovery(user.api, user.api.GetComms(),
+	u, err := ud.NewOrLoad(user.api, user.api.GetComms(),
 		UdNetworkStatusFn, username, registrationValidationSignature,
 		altCert, altAddress, marshalledContact)
 	if err != nil {

@@ -79,7 +79,11 @@ func (c *Cmix) Connect(e2eId int, recipientContact, e2eParamsJSON []byte) (
 }
 
 // SendE2E is a wrapper for sending specifically to the Connection's
-// partner.Manager. Returns a marshalled E2ESendReport.
+// partner.Manager.
+//
+// Returns:
+//  - []byte - the JSON marshalled bytes of the E2ESendReport object, which can
+//    be passed into WaitForRoundResult to see if the send succeeded.
 func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 	rounds, mid, ts, err := c.connection.SendE2E(catalog.MessageType(mt), payload,
 		c.params.Base)
@@ -89,11 +93,10 @@ func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 	}
 
 	sr := E2ESendReport{
-		MessageID: mid.Marshal(),
-		Timestamp: ts.UnixNano(),
+		RoundsList: makeRoundsList(rounds...),
+		MessageID:  mid.Marshal(),
+		Timestamp:  ts.UnixNano(),
 	}
-
-	sr.RoundsList = makeRoundsList(rounds...)
 
 	return json.Marshal(&sr)
 }

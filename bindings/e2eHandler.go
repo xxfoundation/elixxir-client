@@ -117,7 +117,8 @@ func (e *E2e) RemoveService(tag string) error {
 //  - e2eParams - the marshalled bytes of the e2e.Params object.
 //
 // Returns:
-//  - []byte - the marshalled bytes of the E2ESendReport object.
+//  - []byte - the JSON marshalled bytes of the E2ESendReport object, which can
+//    be passed into WaitForRoundResult to see if the send succeeded.
 func (e *E2e) SendE2E(messageType int, recipientId, payload,
 	e2eParams []byte) ([]byte, error) {
 	// Note that specifically these are the Base params from xxdk.E2EParams

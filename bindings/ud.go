@@ -305,7 +305,8 @@ type UdLookupCallback interface {
 //  - singleRequestParams - the JSON marshalled bytes of single.RequestParams
 //
 // Returns:
-//  - []byte - the JSON marshalled bytes of SingleUseSendReport
+//  - []byte - the JSON marshalled bytes of the SingleUseSendReport object,
+//    which can be passed into WaitForRoundResult to see if the send succeeded.
 func LookupUD(e2eID int, udContact []byte, cb UdLookupCallback,
 	lookupId []byte, singleRequestParamsJSON []byte) ([]byte, error) {
 
@@ -379,7 +380,8 @@ type UdSearchCallback interface {
 //  - singleRequestParams - the JSON marshalled bytes of single.RequestParams
 //
 // Returns:
-//  - []byte - the JSON marshalled bytes of SingleUseSendReport
+//  - []byte - the JSON marshalled bytes of the SingleUseSendReport object,
+//    which can be passed into WaitForRoundResult to see if the send succeeded.
 func SearchUD(e2eID int, udContact []byte, cb UdSearchCallback,
 	factListJSON []byte, singleRequestParamsJSON []byte) ([]byte, error) {
 

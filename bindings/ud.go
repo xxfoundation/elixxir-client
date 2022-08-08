@@ -124,16 +124,67 @@ func LoadOrNewUserDiscovery(e2eID int, follower UdNetworkStatus,
 		return nil, err
 	}
 
+	// Construct callback
 	UdNetworkStatusFn := func() xxdk.Status {
 		return xxdk.Status(follower.UdNetworkStatus())
 	}
 
+	// Build manager
 	u, err := ud.LoadOrNewManager(user.api, user.api.GetComms(),
 		UdNetworkStatusFn, username, registrationValidationSignature)
 	if err != nil {
 		return nil, err
 	}
 
+	// Track and return manager
+	return udTrackerSingleton.make(u), nil
+}
+
+// LoadOrNewAlternateUserDiscovery loads an existing Manager from storage or creates a
+// new one if there is no extant storage information. This is different from LoadOrNewManager
+// in that it allows the user to provide alternate User Discovery contact information.
+// These parameters may be used to contact a separate UD server than the one run by the
+// xx network team, one the user or a third-party may operate.
+//
+// Params
+//  - user is an interface that adheres to the xxdk.E2e object.
+//  - comms is an interface that adheres to client.Comms object.
+//  - follower is a method off of xxdk.Cmix which returns the network follower's status.
+//  - username is the name of the user as it is registered with UD. This will be what the end user
+//  provides if through the bindings.
+//  - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
+//  be nil, however UD may return an error in some cases (e.g. in a production level environment).
+//  - altCert is the TLS certificate for the alternate UD server.
+//  - altAddress is the IP address of the alternate UD server.
+//  - marshalledContact is the data within a marshalled contact.Contact.
+//
+// Returns
+//  - A Manager object which is registered to the specified alternate UD service.
+func LoadOrNewAlternateUserDiscovery(e2eID int, follower UdNetworkStatus,
+	username string, registrationValidationSignature,
+	altCert, altAddress, marshalledContact []byte) (
+	*UserDiscovery, error) {
+
+	// Get user from singleton
+	user, err := e2eTrackerSingleton.get(e2eID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct callback
+	UdNetworkStatusFn := func() xxdk.Status {
+		return xxdk.Status(follower.UdNetworkStatus())
+	}
+
+	// Build manager
+	u, err := ud.LoadOrNewAlternateUserDiscovery(user.api, user.api.GetComms(),
+		UdNetworkStatusFn, username, registrationValidationSignature,
+		altCert, altAddress, marshalledContact)
+	if err != nil {
+		return nil, err
+	}
+
+	// Track and return manager
 	return udTrackerSingleton.make(u), nil
 }
 
@@ -263,18 +314,9 @@ func (ud *UserDiscovery) RemoveFact(factJson []byte) error {
 	return ud.api.RemoveFact(f)
 }
 
-// SetAlternativeUserDiscovery sets the alternativeUd object within manager.
-// Once set, any user discovery operation will go through the alternative
-// user discovery service.
-//
-// To undo this operation, use UnsetAlternativeUserDiscovery.
-func (ud *UserDiscovery) SetAlternativeUserDiscovery(
-	altCert, altAddress, contactFile []byte) error {
-	return ud.api.SetAlternativeUserDiscovery(altCert, altAddress, contactFile)
-}
-
 // UnsetAlternativeUserDiscovery clears out the information from the Manager
 // object.
+// todo: should this be removed as well?
 func (ud *UserDiscovery) UnsetAlternativeUserDiscovery() error {
 	return ud.api.UnsetAlternativeUserDiscovery()
 }

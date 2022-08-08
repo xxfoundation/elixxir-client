@@ -16,12 +16,12 @@ type alternateUd struct {
 	dhPubKey []byte
 }
 
-// SetAlternativeUserDiscovery sets the alternativeUd object within manager.
+// setAlternateUserDiscovery sets the alternativeUd object within manager.
 // Once set, any user discovery operation will go through the alternative
 // user discovery service.
 //
 // To undo this operation, use UnsetAlternativeUserDiscovery.
-func (m *Manager) SetAlternativeUserDiscovery(altCert, altAddress,
+func (m *Manager) setAlternateUserDiscovery(altCert, altAddress,
 	contactFile []byte) error {
 	params := connect.GetDefaultHostParams()
 	params.AuthEnabled = false
@@ -54,6 +54,9 @@ func (m *Manager) SetAlternativeUserDiscovery(altCert, altAddress,
 
 // UnsetAlternativeUserDiscovery clears out the information from
 // the Manager object.
+// fixme: I think this should be removed to avoid creating a Manager object
+//  which has never been registered to production, and can't be w/o exporting
+//  the Manger.register method.
 func (m *Manager) UnsetAlternativeUserDiscovery() error {
 	if m.alternativeUd == nil {
 		return errors.New("Alternative User Discovery is already unset.")

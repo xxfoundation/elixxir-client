@@ -53,8 +53,8 @@ func TestManager_SetAlternativeUserDiscovery(t *testing.T) {
 	m, _ := newTestManager(t)
 
 	altAddr := "0.0.0.0:11420"
-	err := m.SetAlternativeUserDiscovery([]byte(testCert), []byte(altAddr), []byte(testContact))
+	err := m.setAlternateUserDiscovery([]byte(testCert), []byte(altAddr), []byte(testContact))
 	if err != nil {
-		t.Fatalf("Unexpected error in SetAlternativeUserDiscovery: %v", err)
+		t.Fatalf("Unexpected error in setAlternateUserDiscovery: %v", err)
 	}
 }

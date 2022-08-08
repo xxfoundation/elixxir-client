@@ -1,13 +1,13 @@
 package ud
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/factID"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 )
@@ -15,9 +15,17 @@ import (
 // register initiates registration with user discovery given a specified
 // username. Provided a comms sub-interface to facilitate testing.
 func (m *Manager) register(username string, networkSignature []byte,
-	rng csprng.Source, comm registerUserComms, udHost *connect.Host) error {
+	rng csprng.Source, comm registerUserComms) error {
 
-	var err error
+	// Initialize/Get host
+	udHost, err := m.getOrAddUdHost()
+	if err != nil {
+		return errors.WithMessage(err,
+			"User Discovery host object could "+
+				"not be constructed.")
+	}
+
+	// Retrieve data used for registration
 	identity := m.user.GetReceptionIdentity()
 	privKey, err := identity.GetRSAPrivatePem()
 	if err != nil {
@@ -63,6 +71,9 @@ func (m *Manager) register(username string, networkSignature []byte,
 	// Hash and sign fact
 	hashedFact := factID.Fingerprint(usernameFact)
 	signedFact, err := rsa.Sign(rng, privKey, hash.CMixHash, hashedFact, nil)
+	if err != nil {
+		return errors.Errorf("Failed to sign fact: %v", err)
+	}
 
 	// Add username fact register request to the user registration message
 	msg.Frs = &pb.FactRegisterRequest{
@@ -76,5 +87,16 @@ func (m *Manager) register(username string, networkSignature []byte,
 
 	// Register user with user discovery
 	_, err = comm.SendRegisterUser(udHost, msg)
+	if err != nil {
+		return err
+	}
+
+	// Set storage to registered
+	if err = setRegistered(m.getKv()); err != nil && m.getEventReporter() != nil {
+		m.getEventReporter().Report(1, "UserDiscovery", "Registration",
+			fmt.Sprintf("User Registered with UD: %+v",
+				username))
+	}
+
 	return err
 }

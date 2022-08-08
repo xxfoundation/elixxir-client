@@ -1,7 +1,6 @@
 package ud
 
 import (
-	"fmt"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"sync"
 	"time"
@@ -59,54 +58,18 @@ func LoadOrNewManager(user udE2e, comms Comms, follower udNetworkStatus,
 	username string, networkValidationSig []byte) (*Manager, error) {
 	jww.INFO.Println("ud.LoadOrNewManager()")
 
-	if follower() != xxdk.Running {
-		return nil, errors.New(
-			"cannot start UD Manager when network follower is not running.")
-	}
-
-	// Initialize manager
-	m := &Manager{
-		user:  user,
-		comms: comms,
-	}
-
-	if m.isRegistered() {
-		// Load manager if already registered
-		var err error
-		m.store, err = store.NewOrLoadStore(m.getKv())
-		if err != nil {
-			return nil, errors.Errorf("Failed to initialize store: %v", err)
-		}
-		return m, nil
-	}
-
-	// Initialize store
-	var err error
-	m.store, err = store.NewOrLoadStore(m.getKv())
+	// Construct manager
+	m, err := loadOrNewManager(user, comms, follower)
 	if err != nil {
-		return nil, errors.Errorf("Failed to initialize store: %v", err)
+		return nil, err
 	}
 
-	// Initialize/Get host
-	udHost, err := m.getOrAddUdHost()
+	// Register manager
+	rng := m.getRng().GetStream()
+	defer rng.Close()
+	err = m.register(username, networkValidationSig, rng, comms)
 	if err != nil {
-		return nil, errors.WithMessage(err, "User Discovery host object could "+
-			"not be constructed.")
-	}
-
-	// Register with user discovery
-	stream := m.getRng().GetStream()
-	defer stream.Close()
-	err = m.register(username, networkValidationSig, stream, m.comms, udHost)
-	if err != nil {
-		return nil, errors.Errorf("Failed to register: %v", err)
-	}
-
-	// Set storage to registered
-	if err = setRegistered(m.getKv()); err != nil && m.getEventReporter() != nil {
-		m.getEventReporter().Report(1, "UserDiscovery", "Registration",
-			fmt.Sprintf("User Registered with UD: %+v",
-				username))
+		return nil, err
 	}
 
 	return m, nil
@@ -156,6 +119,55 @@ func NewManagerFromBackup(user udE2e, comms Comms, follower udNetworkStatus,
 	if err != nil {
 		return nil, errors.WithMessage(err, "User Discovery host object could "+
 			"not be constructed.")
+	}
+
+	return m, nil
+}
+
+// LoadOrNewAlternateUserDiscovery loads an existing Manager from storage or creates a
+// new one if there is no extant storage information. This is different from LoadOrNewManager
+// in that it allows the user to provide alternate User Discovery contact information.
+// These parameters may be used to contact a separate UD server than the one run by the
+// xx network team, one the user or a third-party may operate.
+//
+// Params
+//  - user is an interface that adheres to the xxdk.E2e object.
+//  - comms is an interface that adheres to client.Comms object.
+//  - follower is a method off of xxdk.Cmix which returns the network follower's status.
+//  - username is the name of the user as it is registered with UD. This will be what the end user
+//  provides if through the bindings.
+//  - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
+//  be nil, however UD may return an error in some cases (e.g. in a production level environment).
+//  - altCert is the TLS certificate for the alternate UD server.
+//  - altAddress is the IP address of the alternate UD server.
+//  - marshalledContact is the data within a marshalled contact.Contact.
+//
+// Returns
+//  - A Manager object which is registered to the specified alternate UD service.
+func LoadOrNewAlternateUserDiscovery(user udE2e, comms Comms, follower udNetworkStatus,
+	username string, networkValidationSig []byte, altCert, altAddress,
+	marshalledContact []byte) (*Manager, error) {
+
+	jww.INFO.Println("ud.LoadOrNewAlternateUserDiscovery()")
+
+	// Construct manager
+	m, err := loadOrNewManager(user, comms, follower)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set alternative user discovery
+	err = m.setAlternateUserDiscovery(altCert, altAddress, marshalledContact)
+	if err != nil {
+		return nil, err
+	}
+
+	// Register manager
+	rng := m.getRng().GetStream()
+	defer rng.Close()
+	err = m.register(username, networkValidationSig, rng, comms)
+	if err != nil {
+		return nil, err
 	}
 
 	return m, nil
@@ -289,6 +301,41 @@ func (m *Manager) getOrAddUdHost() (*connect.Host, error) {
 	}
 
 	return host, nil
+}
+
+// loadOrNewManager is a helper function which loads from storage or
+// creates a new Manager object.
+func loadOrNewManager(user udE2e, comms Comms,
+	follower udNetworkStatus) (*Manager, error) {
+	if follower() != xxdk.Running {
+		return nil, errors.New(
+			"cannot start UD Manager when network follower is not running.")
+	}
+
+	// Initialize manager
+	m := &Manager{
+		user:  user,
+		comms: comms,
+	}
+
+	if m.isRegistered() {
+		// Load manager if already registered
+		var err error
+		m.store, err = store.NewOrLoadStore(m.getKv())
+		if err != nil {
+			return nil, errors.Errorf("Failed to initialize store: %v", err)
+		}
+		return m, nil
+	}
+
+	// Initialize store
+	var err error
+	m.store, err = store.NewOrLoadStore(m.getKv())
+	if err != nil {
+		return nil, errors.Errorf("Failed to initialize store: %v", err)
+	}
+
+	return m, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

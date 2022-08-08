@@ -189,7 +189,6 @@ func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
 	// Set up critical message tracking (sendCmix only)
 	critSender := func(msg format.Message, recipient *id.ID, params CMIXParams,
 	) (id.Round, ephemeral.Id, error) {
-		// TODO: Does this need to be reworked to take in a message compiler?  This has ramifications down the stack in critical messaging
 		compiler := func(round id.Round) (format.Message, error) {
 			return msg, nil
 		}

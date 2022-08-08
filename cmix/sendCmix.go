@@ -57,25 +57,48 @@ import (
 func (c *client) Send(recipient *id.ID, fingerprint format.Fingerprint,
 	service message.Service, payload, mac []byte, cmixParams CMIXParams) (
 	id.Round, ephemeral.Id, error) {
-	compiler := func(rid id.Round) (format.Fingerprint, message.Service, []byte, []byte) {
+	// create an internal assembler function to pass to sendWithAssembler
+	assembler := func(rid id.Round) (format.Fingerprint, message.Service, []byte, []byte) {
 		return fingerprint, service, payload, mac
 	}
-	return c.SendWithCompiler(recipient, compiler, cmixParams)
+	return c.sendWithAssembler(recipient, assembler, cmixParams)
 }
 
-type Compiler func(rid id.Round) (fingerprint format.Fingerprint, service message.Service, payload, mac []byte)
+// SendWithAssembler sends a variable cmix payload to the provided recipient.
+// The payload sent is based on the Complier function passed in, which accepts
+// a round ID and returns the necessary payload data.
+// Returns the round ID of the round the payload was sent or an error if it
+// fails.
+// This does not have end-to-end encryption on it and is used exclusively as
+// a send for higher order cryptographic protocols. Do not use unless
+// implementing a protocol on top.
+//   recipient - cMix ID of the recipient.
+//   assembler - MessageAssembler function, accepting round ID and returning fingerprint
+//   format.Fingerprint, service message.Service, payload, mac []byte
+// Will return an error if the network is unhealthy or if it fails to send
+// (along with the reason). Blocks until successful sends or errors.
+// WARNING: Do not roll your own crypto.
+func (c *client) SendWithAssembler(recipient *id.ID, assembler MessageAssembler, cmixParams CMIXParams) (
+	id.Round, ephemeral.Id, error) {
+	// Critical messaging and assembler-based message payloads are not compatible
+	if cmixParams.Critical {
+		return 0, ephemeral.Id{}, errors.New("Cannot send critical messages with a message assembler")
+	}
+	return c.sendWithAssembler(recipient, assembler, cmixParams)
+}
 
-type messageCompiler func(rid id.Round) (format.Message, error)
-
-func (c *client) SendWithCompiler(recipient *id.ID, compiler Compiler, cmixParams CMIXParams) (
+// sendWithAssembler wraps the passed in MessageAssembler in a messageAssembler for sendCmixHelper,
+// and sets up critical message handling where applicable.
+func (c *client) sendWithAssembler(recipient *id.ID, assembler MessageAssembler, cmixParams CMIXParams) (
 	id.Round, ephemeral.Id, error) {
 	if !c.Monitor.IsHealthy() {
 		return 0, ephemeral.Id{}, errors.New(
 			"Cannot send cmix message when the network is not healthy")
 	}
 
-	compilerFunc := func(rid id.Round) (format.Message, error) {
-		fingerprint, service, payload, mac := compiler(rid)
+	// Create an internal messageAssembler which returns a format.Message
+	assemblerFunc := func(rid id.Round) (format.Message, error) {
+		fingerprint, service, payload, mac := assembler(rid)
 
 		if len(payload) != c.maxMsgLen {
 			return format.Message{}, errors.Errorf(
@@ -100,7 +123,7 @@ func (c *client) SendWithCompiler(recipient *id.ID, compiler Compiler, cmixParam
 		return msg, nil
 	}
 
-	rid, ephID, msg, rtnErr := sendCmixHelper(c.Sender, compilerFunc, recipient, cmixParams,
+	rid, ephID, msg, rtnErr := sendCmixHelper(c.Sender, assemblerFunc, recipient, cmixParams,
 		c.instance, c.session.GetCmixGroup(), c.Registrar, c.rng, c.events,
 		c.session.GetTransmissionID(), c.comms)
 
@@ -121,7 +144,7 @@ func (c *client) SendWithCompiler(recipient *id.ID, compiler Compiler, cmixParam
 // If the message is successfully sent, the ID of the round sent it is returned,
 // which can be registered with the network instance to get a callback on its
 // status.
-func sendCmixHelper(sender gateway.Sender, msgCompiler messageCompiler, recipient *id.ID,
+func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient *id.ID,
 	cmixParams CMIXParams, instance *network.Instance, grp *cyclic.Group,
 	nodes nodes.Registrar, rng *fastRNG.StreamGenerator, events event.Reporter,
 	senderId *id.ID, comms SendCmixCommsInterface) (id.Round, ephemeral.Id, format.Message, error) {
@@ -198,7 +221,7 @@ func sendCmixHelper(sender gateway.Sender, msgCompiler messageCompiler, recipien
 			continue
 		}
 
-		msg, err := msgCompiler(id.Round(bestRound.ID))
+		msg, err := assembler(id.Round(bestRound.ID))
 		if err != nil {
 			jww.ERROR.Printf("Failed to compile message: %+v", err)
 			return 0, ephemeral.Id{}, format.Message{}, err

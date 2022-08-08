@@ -62,15 +62,19 @@ type BroadcastReport struct {
 	EphID ephemeral.Id
 }
 
-// BroadcastListener is the public function type bindings can use to listen for broadcast messages.
-// It accepts the result of calling json.Marshal on a BroadcastMessage object.
+// BroadcastListener is the public function type bindings can use to listen for
+// broadcast messages.
+//
+// Parameters:
+//  - []byte - the JSON marshalled bytes of the BroadcastMessage object, which
+//    can be passed into WaitForRoundResult to see if the broadcast succeeded.
 type BroadcastListener interface {
 	Callback([]byte, error)
 }
 
 // NewBroadcastChannel creates a bindings-layer broadcast channel & starts listening for new messages
 //
-// Params
+// Parameters:
 //  - cmixId - internal ID of cmix
 //  - channelDefinition - JSON marshalled ChannelDef object
 func NewBroadcastChannel(cmixId int, channelDefinition []byte) (*Channel, error) {
@@ -111,9 +115,10 @@ func NewBroadcastChannel(cmixId int, channelDefinition []byte) (*Channel, error)
 // Listen registers a BroadcastListener for a given method.
 // This allows users to handle incoming broadcast messages.
 //
-// Params:
+// Parameters:
 //  - l - BroadcastListener object
-//  - method - int corresponding to broadcast.Method constant, 0 for symmetric or 1 for asymmetric
+//  - method - int corresponding to broadcast.Method constant, 0 for symmetric
+//    or 1 for asymmetric
 func (c *Channel) Listen(l BroadcastListener, method int) error {
 	broadcastMethod := broadcast.Method(method)
 	listen := func(payload []byte,
@@ -129,7 +134,12 @@ func (c *Channel) Listen(l BroadcastListener, method int) error {
 	return c.ch.RegisterListener(listen, broadcastMethod)
 }
 
-// Broadcast sends a given payload over the broadcast channel using symmetric broadcast.
+// Broadcast sends a given payload over the broadcast channel using symmetric
+// broadcast.
+//
+// Returns:
+//  - []byte - the JSON marshalled bytes of the BroadcastReport object, which
+//    can be passed into WaitForRoundResult to see if the broadcast succeeded.
 func (c *Channel) Broadcast(payload []byte) ([]byte, error) {
 	rid, eid, err := c.ch.Broadcast(payload, cmix.GetDefaultCMIXParams())
 	if err != nil {
@@ -141,8 +151,12 @@ func (c *Channel) Broadcast(payload []byte) ([]byte, error) {
 	})
 }
 
-// BroadcastAsymmetric sends a given payload over the broadcast channel using asymmetric broadcast.
-// This mode of encryption requires a private key.
+// BroadcastAsymmetric sends a given payload over the broadcast channel using
+// asymmetric broadcast. This mode of encryption requires a private key.
+//
+// Returns:
+//  - []byte - the JSON marshalled bytes of the BroadcastReport object, which
+//    can be passed into WaitForRoundResult to see if the broadcast succeeded.
 func (c *Channel) BroadcastAsymmetric(payload, pk []byte) ([]byte, error) {
 	pkLoaded, err := rsa.LoadPrivateKeyFromPem(pk)
 	if err != nil {

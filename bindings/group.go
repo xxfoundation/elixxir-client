@@ -132,7 +132,9 @@ func NewGroupChat(e2eID int,
 //    and may be nil. If nil the group will be assigned the default name.
 //
 // Returns:
-//  - []byte - a JSON-marshalled GroupReport.
+//  - []byte - the JSON marshalled bytes of the GroupReport object, which can be
+//    passed into WaitForRoundResult to see if the group request message send
+//    succeeded.
 func (g *GroupChat) MakeGroup(membership IdList, message, name []byte) (
 	[]byte, error) {
 
@@ -166,7 +168,9 @@ func (g *GroupChat) MakeGroup(membership IdList, message, name []byte) (
 //    This can be found in the report returned by GroupChat.MakeGroup.
 //
 // Returns:
-//  - []byte - a JSON-marshalled GroupReport.
+//  - []byte - the JSON marshalled bytes of the GroupReport object, which can be
+//    passed into WaitForRoundResult to see if the group request message send
+//    succeeded.
 func (g *GroupChat) ResendRequest(groupId []byte) ([]byte, error) {
 
 	// Unmarshal the group ID
@@ -205,7 +209,7 @@ func (g *GroupChat) ResendRequest(groupId []byte) ([]byte, error) {
 //
 // Parameters:
 //  - trackedGroupId - the ID to retrieve the Group object within the backend's
-//                     tracking system. This is received by GroupRequest.Callback.
+//    tracking system. This is received by GroupRequest.Callback.
 func (g *GroupChat) JoinGroup(trackedGroupId int) error {
 	// Retrieve group from singleton
 	grp, err := groupTrackerSingleton.get(trackedGroupId)
@@ -245,7 +249,9 @@ func (g *GroupChat) LeaveGroup(groupId []byte) error {
 //  - tag - the tag associated with the message. This tag may be empty.
 //
 // Returns:
-//  - []byte - a JSON marshalled GroupSendReport.
+//  - []byte - the JSON marshalled bytes of the GroupSendReport object, which
+//    can be passed into WaitForRoundResult to see if the group message send
+//    succeeded.
 func (g *GroupChat) Send(groupId,
 	message []byte, tag string) ([]byte, error) {
 	groupID, err := id.Unmarshal(groupId)

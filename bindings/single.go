@@ -32,7 +32,8 @@ import (
 //  - responseCB - the callback that will be called when a response is received
 //
 // Returns:
-//  - []byte - JSON marshalled SingleUseSendReport
+//  - []byte - the JSON marshalled bytes of the SingleUseSendReport object,
+//    which can be passed into WaitForRoundResult to see if the send succeeded.
 func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload,
 	paramsJSON []byte, responseCB SingleUseResponse) ([]byte, error) {
 	e2eCl, err := e2eTrackerSingleton.get(e2eID)
@@ -162,7 +163,9 @@ type Stopper interface {
 // received.
 //
 // Parameters:
-//  - callbackReport - JSON marshalled SingleUseCallbackReport
+//  - callbackReport - the JSON marshalled bytes of the SingleUseCallbackReport
+//    object, which can be passed into WaitForRoundResult to see if the send
+//    succeeded.
 type SingleUseCallback interface {
 	Callback(callbackReport []byte, err error)
 }
@@ -171,7 +174,9 @@ type SingleUseCallback interface {
 // clients into TransmitSingleUse.
 //
 // Parameters:
-//  - callbackReport - JSON marshalled SingleUseResponseReport
+//  - callbackReport - the JSON marshalled bytes of the SingleUseResponseReport
+//    object, which can be passed into WaitForRoundResult to see if the send
+//    succeeded.
 type SingleUseResponse interface {
 	Callback(responseReport []byte, err error)
 }

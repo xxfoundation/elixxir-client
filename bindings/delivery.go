@@ -70,7 +70,7 @@ type MessageDeliveryCallback interface {
 	EventCallback(delivered, timedOut bool, roundResults []byte)
 }
 
-// WaitForMessageDelivery allows the caller to get notified if the rounds a
+// WaitForRoundResult allows the caller to get notified if the rounds a
 // message was sent in successfully completed. Under the hood, this uses an API
 // that uses the internal round data, network historical round lookup, and
 // waiting on network events to determine what has (or will) occur.
@@ -83,24 +83,25 @@ type MessageDeliveryCallback interface {
 //
 // roundList is a JSON marshalled RoundsList or any JSON marshalled send report
 // that inherits a RoundsList object.
-func (c *Cmix) WaitForMessageDelivery(
+func (c *Cmix) WaitForRoundResult(
 	roundList []byte, mdc MessageDeliveryCallback, timeoutMS int) error {
-	jww.INFO.Printf("WaitForMessageDelivery(%s, _, %d)", roundList, timeoutMS)
+	jww.INFO.Printf("WaitForRoundResult(%s, _, %d)", roundList, timeoutMS)
 	rl, err := unmarshalRoundsList(roundList)
 	if err != nil {
-		return errors.Errorf("Failed to WaitForMessageDelivery callback due "+
-			"to bad Send Report: %+v", err)
+		return errors.Errorf("Failed to WaitForRoundResult callback due to "+
+			"bad Send Report: %+v", err)
 	}
 
 	if rl == nil || len(rl) == 0 {
-		return errors.Errorf("Failed to WaitForMessageDelivery callback due "+
-			"to invalid Send Report unmarshal: %s", roundList)
+		return errors.Errorf("Failed to WaitForRoundResult callback due to "+
+			"invalid Send Report unmarshal: %s", roundList)
 	}
 
 	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundResult) {
 		results := make([]byte, len(rl))
-		jww.INFO.Printf("Processing WaitForMessageDelivery report "+
-			"success: %v, timeout: %v", allRoundsSucceeded, timedOut)
+		jww.INFO.Printf(
+			"Processing WaitForRoundResult report success: %t, timeout: %t",
+			allRoundsSucceeded, timedOut)
 		for i, r := range rl {
 			if result, exists := rounds[r]; exists {
 				results[i] = byte(result.Status)

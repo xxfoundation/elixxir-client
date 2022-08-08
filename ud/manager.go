@@ -141,15 +141,15 @@ func NewManagerFromBackup(user udE2e, comms Comms, follower udNetworkStatus,
 //    provides if through the bindings.
 //  - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
 //    be nil, however UD may return an error in some cases (e.g. in a production level environment).
-//  - altCert is the TLS certificate for the alternate UD server.
-//  - altAddress is the IP address of the alternate UD server.
-//  - marshalledContact is the data within a marshalled contact.Contact.
+//  - customCert is the TLS certificate for the alternate UD server.
+//  - customAddress is the IP address of the alternate UD server.
+//  - customContactFile is the data within a marshalled contact.Contact.
 //
 // Returns
 //  - A Manager object which is registered to the specified alternate UD service.
 func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
-	username string, networkValidationSig []byte, altCert, altAddress,
-	marshalledContact []byte) (*Manager, error) {
+	username string, networkValidationSig []byte,
+	customCert, customAddress, customContactFile []byte) (*Manager, error) {
 
 	jww.INFO.Println("ud.NewOrLoad()")
 
@@ -160,7 +160,7 @@ func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
 	}
 
 	// Set alternative user discovery
-	err = m.setAlternateUserDiscovery(altCert, altAddress, marshalledContact)
+	err = m.setAlternateUserDiscovery(customCert, customAddress, customContactFile)
 	if err != nil {
 		return nil, err
 	}

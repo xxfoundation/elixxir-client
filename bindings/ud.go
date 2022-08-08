@@ -105,7 +105,10 @@ type UdNetworkStatus interface {
 // Manager functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// LoadOrNewUserDiscovery creates a bindings-level user discovery manager.
+// NewOrLoadUdFromNdf loads an existing Manager from storage or creates a
+// new one if there is no extant storage information. This will default to connecting with
+// the xx network's UD server as found in the NDF. For connecting to a custom server, use
+// NewOrLoadUd.
 //
 // Parameters:
 //  - e2eID - e2e object ID in the tracker
@@ -113,8 +116,9 @@ type UdNetworkStatus interface {
 //  - username - the username the user wants to register with UD.
 //    If the user is already registered, this field may be blank
 //  - registrationValidationSignature - the signature provided by the xx network.
-//    This signature is optional for other consumers who deploy their own UD.
-func LoadOrNewUserDiscovery(e2eID int, follower UdNetworkStatus,
+//    This may be nil, however UD may return an error in some cases (e.g. in a production level
+//    environment).
+func NewOrLoadUdFromNdf(e2eID int, follower UdNetworkStatus,
 	username string, registrationValidationSignature []byte) (
 	*UserDiscovery, error) {
 
@@ -140,29 +144,29 @@ func LoadOrNewUserDiscovery(e2eID int, follower UdNetworkStatus,
 	return udTrackerSingleton.make(u), nil
 }
 
-// LoadOrNewAlternateUserDiscovery loads an existing Manager from storage or creates a
-// new one if there is no extant storage information. This is different from NewOrLoadFromNdf
+// NewOrLoadUd loads an existing Manager from storage or creates a
+// new one if there is no extant storage information. This is different from NewOrLoadUdFromNdf
 // in that it allows the user to provide alternate User Discovery contact information.
 // These parameters may be used to contact a separate UD server than the one run by the
 // xx network team, one the user or a third-party may operate.
 //
 // Params
-//  - user is an interface that adheres to the xxdk.E2e object.
-//  - comms is an interface that adheres to client.Comms object.
-//  - follower is a method off of xxdk.Cmix which returns the network follower's status.
-//  - username is the name of the user as it is registered with UD. This will be what the end user
-//  provides if through the bindings.
-//  - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
-//  be nil, however UD may return an error in some cases (e.g. in a production level environment).
-//  - altCert is the TLS certificate for the alternate UD server.
-//  - altAddress is the IP address of the alternate UD server.
-//  - marshalledContact is the data within a marshalled contact.Contact.
+//  - e2eID - e2e object ID in the tracker
+//  - follower - network follower func wrapped in UdNetworkStatus
+//  - username - the username the user wants to register with UD.
+//    If the user is already registered, this field may be blank
+//  - networkValidationSig is a signature provided by the network (i.e. the client registrar).
+//    This may be nil, however UD may return an error in some cases (e.g. in a production level
+//    environment).
+//  - customCert is the TLS certificate for the alternate UD server.
+//  - customAddress is the IP address of the alternate UD server.
+//  - customContactFile is the data within a marshalled contact.Contact.
 //
 // Returns
 //  - A Manager object which is registered to the specified alternate UD service.
-func LoadOrNewAlternateUserDiscovery(e2eID int, follower UdNetworkStatus,
+func NewOrLoadUd(e2eID int, follower UdNetworkStatus,
 	username string, registrationValidationSignature,
-	altCert, altAddress, marshalledContact []byte) (
+	customCert, customAddress, customContactFile []byte) (
 	*UserDiscovery, error) {
 
 	// Get user from singleton
@@ -179,7 +183,7 @@ func LoadOrNewAlternateUserDiscovery(e2eID int, follower UdNetworkStatus,
 	// Build manager
 	u, err := ud.NewOrLoad(user.api, user.api.GetComms(),
 		UdNetworkStatusFn, username, registrationValidationSignature,
-		altCert, altAddress, marshalledContact)
+		customCert, customAddress, customContactFile)
 	if err != nil {
 		return nil, err
 	}

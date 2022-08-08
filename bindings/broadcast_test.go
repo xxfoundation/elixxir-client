@@ -37,8 +37,8 @@ func TestBroadcastMessage_JSON(t *testing.T) {
 	}
 	bm := BroadcastMessage{
 		BroadcastReport: BroadcastReport{
-			RoundID: 42,
-			EphID:   eid,
+			RoundsList: makeRoundsList(42),
+			EphID:      eid,
 		},
 		Payload: []byte("Hello, broadcast friends!"),
 	}
@@ -56,8 +56,8 @@ func TestBroadcastReport_JSON(t *testing.T) {
 		t.Errorf("Failed to form ephemeral ID: %+v", err)
 	}
 	br := BroadcastReport{
-		RoundID: 42,
-		EphID:   eid,
+		RoundsList: makeRoundsList(42),
+		EphID:      eid,
 	}
 
 	brJson, err := json.Marshal(br)

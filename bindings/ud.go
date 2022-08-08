@@ -125,13 +125,13 @@ func LoadOrNewUserDiscovery(e2eID int, follower UdNetworkStatus,
 	}
 
 	// Construct callback
-	udNetworkStatusFn := func() xxdk.Status {
+	UdNetworkStatusFn := func() xxdk.Status {
 		return xxdk.Status(follower.UdNetworkStatus())
 	}
 
 	// Build manager
 	u, err := ud.LoadOrNewManager(user.api, user.api.GetComms(),
-		udNetworkStatusFn, username, registrationValidationSignature)
+		UdNetworkStatusFn, username, registrationValidationSignature)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func LoadOrNewUserDiscovery(e2eID int, follower UdNetworkStatus,
 //  be nil, however UD may return an error in some cases (e.g. in a production level environment).
 //  - altCert is the TLS certificate for the alternate UD server.
 //  - altAddress is the IP address of the alternate UD server.
-//  - marshalledContact is a JSON marshalled contact.Contact.
+//  - marshalledContact is the data within a marshalled contact.Contact.
 //
 // Returns
 //  - A Manager object which is registered to the specified alternate UD service.
@@ -172,13 +172,13 @@ func LoadOrNewAlternateUserDiscovery(e2eID int, follower UdNetworkStatus,
 	}
 
 	// Construct callback
-	udNetworkStatusFn := func() xxdk.Status {
+	UdNetworkStatusFn := func() xxdk.Status {
 		return xxdk.Status(follower.UdNetworkStatus())
 	}
 
 	// Build manager
 	u, err := ud.LoadOrNewAlternateUserDiscovery(user.api, user.api.GetComms(),
-		udNetworkStatusFn, username, registrationValidationSignature,
+		UdNetworkStatusFn, username, registrationValidationSignature,
 		altCert, altAddress, marshalledContact)
 	if err != nil {
 		return nil, err

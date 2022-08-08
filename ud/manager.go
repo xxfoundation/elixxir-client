@@ -140,7 +140,7 @@ func NewManagerFromBackup(user udE2e, comms Comms, follower udNetworkStatus,
 //  be nil, however UD may return an error in some cases (e.g. in a production level environment).
 //  - altCert is the TLS certificate for the alternate UD server.
 //  - altAddress is the IP address of the alternate UD server.
-//  - marshalledContact is a JSON marshalled contact.Contact.
+//  - marshalledContact is the data within a marshalled contact.Contact.
 //
 // Returns
 //  - A Manager object which is registered to the specified alternate UD service.

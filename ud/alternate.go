@@ -1,10 +1,10 @@
 package ud
 
 import (
-	"encoding/json"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // alternateUd is an alternative user discovery service.
@@ -26,28 +26,27 @@ func (m *Manager) setAlternateUserDiscovery(altCert, altAddress,
 	params := connect.GetDefaultHostParams()
 	params.AuthEnabled = false
 
-	c := &contact.Contact{}
-	err := json.Unmarshal(contactFile, c)
+	udIdBytes, dhPubKey, err := contact.ReadContactFromFile(contactFile)
 	if err != nil {
-		return errors.Errorf("Failed to unmarshal contact file: %v", err)
+		return err
+	}
+
+	udID, err := id.Unmarshal(udIdBytes)
+	if err != nil {
+		return err
 	}
 
 	// Add a new host and return it if it does not already exist
-	host, err := m.comms.AddHost(c.ID, string(altAddress),
+	host, err := m.comms.AddHost(udID, string(altAddress),
 		altCert, params)
 	if err != nil {
 		return errors.WithMessage(err, "User Discovery host object could "+
 			"not be constructed.")
 	}
 
-	dhPubJson, err := c.DhPubKey.MarshalJSON()
-	if err != nil {
-		return errors.Errorf("Failed to marshal Diffie-Helman public key: %v", err)
-	}
-
 	m.alternativeUd = &alternateUd{
 		host:     host,
-		dhPubKey: dhPubJson,
+		dhPubKey: dhPubKey,
 	}
 
 	return nil

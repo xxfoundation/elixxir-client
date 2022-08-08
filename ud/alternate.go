@@ -51,17 +51,3 @@ func (m *Manager) setAlternateUserDiscovery(altCert, altAddress,
 
 	return nil
 }
-
-// UnsetAlternativeUserDiscovery clears out the information from
-// the Manager object.
-// fixme: I think this should be removed to avoid creating a Manager object
-//  which has never been registered to production, and can't be w/o exporting
-//  the Manger.register method.
-func (m *Manager) UnsetAlternativeUserDiscovery() error {
-	if m.alternativeUd == nil {
-		return errors.New("Alternative User Discovery is already unset.")
-	}
-
-	m.alternativeUd = nil
-	return nil
-}

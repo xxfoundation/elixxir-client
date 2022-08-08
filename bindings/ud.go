@@ -314,13 +314,6 @@ func (ud *UserDiscovery) RemoveFact(factJson []byte) error {
 	return ud.api.RemoveFact(f)
 }
 
-// UnsetAlternativeUserDiscovery clears out the information from the Manager
-// object.
-// todo: should this be removed as well?
-func (ud *UserDiscovery) UnsetAlternativeUserDiscovery() error {
-	return ud.api.UnsetAlternativeUserDiscovery()
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // User Discovery Lookup                                                      //
 ////////////////////////////////////////////////////////////////////////////////

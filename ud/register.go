@@ -17,7 +17,7 @@ import (
 func (m *Manager) register(username string, networkSignature []byte,
 	rng csprng.Source, comm registerUserComms) error {
 
-	// Initialize/Get host
+	// Initialize or get host
 	udHost, err := m.getOrAddUdHost()
 	if err != nil {
 		return errors.WithMessage(err,

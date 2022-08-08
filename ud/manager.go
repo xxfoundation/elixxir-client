@@ -43,26 +43,40 @@ type Manager struct {
 	alternativeUd *alternateUd
 }
 
-// NewOrLoadFromNdf loads an existing Manager from storage or creates a
-// new one if there is no extant storage information. This will default to connecting with
-// the xx network's UD server as found in the NDF. For connecting to a custom server, use
-// NewOrLoad.
+// NewOrLoad loads an existing Manager from storage or creates a
+// new one if there is no extant storage information. Parameters need be provided
+// to specify how to connect to the User Discovery service. These parameters may be used
+// to contact either the UD server hosted by the xx network team or a custom
+// third-party operated server.
 //
 // Params
 //  - user is an interface that adheres to the xxdk.E2e object.
 //  - comms is an interface that adheres to client.Comms object.
 //  - follower is a method off of xxdk.Cmix which returns the network follower's status.
-//  - username is the name of the user as it is registered with UD. This will be what
-//    the end user provides if through the bindings.
-//  - networkValidationSig is a signature provided by the network (i.e. the client registrar).
-//    This may be nil, however UD may return an error in some cases (e.g. in a production level
-//    environment).
-func NewOrLoadFromNdf(user udE2e, comms Comms, follower udNetworkStatus,
-	username string, networkValidationSig []byte) (*Manager, error) {
-	jww.INFO.Println("ud.NewOrLoadFromNdf()")
+//  - username is the name of the user as it is registered with UD. This will be what the end user
+//    provides if through the bindings.
+//  - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
+//    be nil, however UD may return an error in some cases (e.g. in a production level environment).
+//  - customCert is the TLS certificate for the alternate UD server.
+//  - customAddress is the IP address of the alternate UD server.
+//  - customContactFile is the data within a marshalled contact.Contact.
+//
+// Returns
+//  - A Manager object which is registered to the specified alternate UD service.
+func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
+	username string, networkValidationSig []byte,
+	customCert, customAddress, customContactFile []byte) (*Manager, error) {
+
+	jww.INFO.Println("ud.NewOrLoad()")
 
 	// Construct manager
 	m, err := loadOrNewManager(user, comms, follower)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set alternative user discovery
+	err = m.setAlternateUserDiscovery(customCert, customAddress, customContactFile)
 	if err != nil {
 		return nil, err
 	}
@@ -123,54 +137,6 @@ func NewManagerFromBackup(user udE2e, comms Comms, follower udNetworkStatus,
 	if err != nil {
 		return nil, errors.WithMessage(err, "User Discovery host object could "+
 			"not be constructed.")
-	}
-
-	return m, nil
-}
-
-// NewOrLoad loads an existing Manager from storage or creates a
-// new one if there is no extant storage information. This call allows the user to provide
-// custom UD contact information. These parameters may be used to contact a separate UD server
-// than the one hosted by the xx network team, i.e. one the user or a third-party may operate.
-//
-// Params
-//  - user is an interface that adheres to the xxdk.E2e object.
-//  - comms is an interface that adheres to client.Comms object.
-//  - follower is a method off of xxdk.Cmix which returns the network follower's status.
-//  - username is the name of the user as it is registered with UD. This will be what the end user
-//    provides if through the bindings.
-//  - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
-//    be nil, however UD may return an error in some cases (e.g. in a production level environment).
-//  - customCert is the TLS certificate for the alternate UD server.
-//  - customAddress is the IP address of the alternate UD server.
-//  - customContactFile is the data within a marshalled contact.Contact.
-//
-// Returns
-//  - A Manager object which is registered to the specified alternate UD service.
-func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
-	username string, networkValidationSig []byte,
-	customCert, customAddress, customContactFile []byte) (*Manager, error) {
-
-	jww.INFO.Println("ud.NewOrLoad()")
-
-	// Construct manager
-	m, err := loadOrNewManager(user, comms, follower)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set alternative user discovery
-	err = m.setAlternateUserDiscovery(customCert, customAddress, customContactFile)
-	if err != nil {
-		return nil, err
-	}
-
-	// Register manager
-	rng := m.getRng().GetStream()
-	defer rng.Close()
-	err = m.register(username, networkValidationSig, rng, comms)
-	if err != nil {
-		return nil, err
 	}
 
 	return m, nil

@@ -35,7 +35,7 @@ type Manager struct {
 	factMux sync.Mutex
 
 	// ud is the tracker for the contact information of the specified UD server.
-	// This information is specified in NewOrLoad.
+	// This information is specified in Manager's constructors (NewOrLoad and NewManagerFromBackup).
 	ud *userDiscovery
 }
 
@@ -193,8 +193,8 @@ func (m *Manager) GetStringifiedFacts() []string {
 }
 
 // GetContact returns the contact.Contact for UD.
-func (m *Manager) GetContact() (contact.Contact, error) {
-	return m.ud.contact, nil
+func (m *Manager) GetContact() contact.Contact {
+	return m.ud.contact
 }
 
 // loadOrNewManager is a helper function which loads from storage or

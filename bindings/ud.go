@@ -226,12 +226,7 @@ func (ud *UserDiscovery) GetFacts() []byte {
 // GetContact returns the marshalled bytes of the contact.Contact for UD as
 // retrieved from the NDF.
 func (ud *UserDiscovery) GetContact() ([]byte, error) {
-	c, err := ud.api.GetContact()
-	if err != nil {
-		return nil, err
-	}
-
-	return c.Marshal(), nil
+	return ud.api.GetContact().Marshal(), nil
 }
 
 // ConfirmFact confirms a fact first registered via AddFact. The confirmation ID

@@ -124,11 +124,7 @@ var udCmd = &cobra.Command{
 			jww.INFO.Printf("[UD] Confirmed %v", confirmID)
 		}
 
-		udContact, err := userDiscoveryMgr.GetContact()
-		if err != nil {
-			fmt.Printf("Failed to get user discovery contact object: %+v", err)
-			jww.FATAL.Printf("Failed to get user discovery contact object: %+v", err)
-		}
+		udContact := userDiscoveryMgr.GetContact()
 
 		// Handle lookup (verification) process
 		// Note: Cryptographic verification occurs above the bindings layer

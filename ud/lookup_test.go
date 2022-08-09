@@ -37,11 +37,6 @@ func TestManager_Lookup(t *testing.T) {
 	// Set up mock manager
 	m, tnm := newTestManager(t)
 
-	udContact, err := m.GetContact()
-	if err != nil {
-		t.Fatalf("Failed to get contact: %v", err)
-	}
-
 	uid := id.NewIdFromUInt(0x500000000000000, id.User, t)
 	expectedContact := contact.Contact{
 		ID:       uid,
@@ -87,7 +82,7 @@ func TestManager_Lookup(t *testing.T) {
 	}
 
 	// Run the lookup
-	_, _, err = Lookup(m.user, udContact, callback, uid, p)
+	_, _, err = Lookup(m.user, m.GetContact(), callback, uid, p)
 	if err != nil {
 		t.Errorf("Lookup() returned an error: %+v", err)
 	}

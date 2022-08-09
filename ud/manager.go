@@ -10,7 +10,6 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/xx_network/primitives/id"
 	"sync"
 )
 
@@ -195,40 +194,7 @@ func (m *Manager) GetStringifiedFacts() []string {
 
 // GetContact returns the contact.Contact for UD.
 func (m *Manager) GetContact() (contact.Contact, error) {
-	grp, err := m.user.GetReceptionIdentity().GetGroup()
-	if err != nil {
-		return contact.Contact{}, err
-	}
-	// Return User discovery contact if set
-	if m.ud != nil {
-		return m.ud.contact, nil
-	}
-
-	// Otherwise construct one (this should be for testing purposes only)
-	netDef := m.getCmix().GetInstance().GetPartialNdf().Get()
-
-	// Unmarshal UD ID from the NDF
-	udID, err := id.Unmarshal(netDef.UDB.ID)
-	if err != nil {
-		return contact.Contact{},
-			errors.Errorf("failed to unmarshal UD ID from NDF: %+v", err)
-	}
-
-	// Unmarshal UD DH public key
-	dhPubKey := grp.NewInt(1)
-	if err = dhPubKey.UnmarshalJSON(netDef.UDB.DhPubKey); err != nil {
-		return contact.Contact{},
-			errors.WithMessage(err, "Failed to unmarshal UD DH "+
-				"public key.")
-	}
-
-	return contact.Contact{
-		ID:             udID,
-		DhPubKey:       dhPubKey,
-		OwnershipProof: nil,
-		Facts:          nil,
-	}, nil
-
+	return m.ud.contact, nil
 }
 
 // loadOrNewManager is a helper function which loads from storage or

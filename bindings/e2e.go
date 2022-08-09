@@ -8,7 +8,6 @@
 package bindings
 
 import (
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 
@@ -151,7 +150,7 @@ func (e *E2e) GetUdContactFromNdf() ([]byte, error) {
 	}
 
 	udDhPubKeyData := e.api.GetCmix().GetInstance().GetPartialNdf().Get().UDB.DhPubKey
-	var udDhPubKey *cyclic.Int
+	udDhPubKey := e.api.GetE2E().GetGroup().NewInt(1)
 	err = udDhPubKey.UnmarshalJSON(udDhPubKeyData)
 	if err != nil {
 		return nil, err

@@ -8,6 +8,7 @@
 package dummy
 
 import (
+	"gitlab.com/elixxir/client/cmix/message"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -32,7 +33,7 @@ const (
 
 // sendThread is a thread that sends the dummy messages at random intervals.
 func (m *Manager) sendThread(stop *stoppable.Single) {
-	jww.DEBUG.Print("Starting dummy traffic sending thread.")
+	jww.INFO.Print("Starting dummy traffic sending thread.")
 
 	nextSendChan := make(<-chan time.Time)
 	nextSendChanPtr := &(nextSendChan)
@@ -57,15 +58,16 @@ func (m *Manager) sendThread(stop *stoppable.Single) {
 			go func() {
 				// get list of random messages and recipients
 				rng := m.rng.GetStream()
+				defer rng.Close()
 				msgs, err := m.newRandomMessages(rng)
 				if err != nil {
-					jww.FATAL.Panicf("Failed to generate dummy messages: %+v", err)
+					jww.ERROR.Printf("Failed to generate dummy messages: %+v", err)
+					return
 				}
-				rng.Close()
 
-				err = m.sendMessages(msgs)
+				err = m.sendMessages(msgs, rng)
 				if err != nil {
-					jww.FATAL.Panicf("Failed to send dummy messages: %+v", err)
+					jww.ERROR.Printf("Failed to send dummy messages: %+v", err)
 				}
 			}()
 
@@ -84,7 +86,7 @@ func (m *Manager) stopSendThread(stop *stoppable.Single) {
 }
 
 // sendMessages generates and sends random messages.
-func (m *Manager) sendMessages(msgs map[id.ID]format.Message) error {
+func (m *Manager) sendMessages(msgs map[id.ID]format.Message, rng csprng.Source) error {
 	var sent, i int64
 	var wg sync.WaitGroup
 
@@ -95,18 +97,12 @@ func (m *Manager) sendMessages(msgs map[id.ID]format.Message) error {
 			defer wg.Done()
 
 			// Fill the preimage with random data to ensure it is not repeatable
-			p := cmix.GetDefaultParams()
-			// FIXME: these fields no longer available
-			//        through these params objects
-			// p.IdentityPreimage = make([]byte, 32)
-			// rng := m.rng.GetStream()
-			// if _, err := rng.Read(p.IdentityPreimage); err != nil {
-			// 	jww.FATAL.Panicf("Failed to generate data for random identity "+
-			// 		"preimage in e2e send: %+v", err)
-			// }
-			// rng.Close()
-			// p.DebugTag = "dummy"
-			_, _, err := m.networkManager.SendCMIX(msg, &recipient, p)
+			p := cmix.GetDefaultCMIXParams()
+			//Send(recipient *id.ID, fingerprint format.Fingerprint,
+			//	service message.Service, payload, mac []byte, cmixParams CMIXParams) (
+			//	id.Round, ephemeral.Id, error)
+			_, _, err := m.net.GetCmix().Send(&recipient, msg.GetKeyFP(),
+				message.GetRandomService(rng), msg.GetContents(), msg.GetMac(), p)
 			if err != nil {
 				jww.WARN.Printf("Failed to send dummy message %d/%d via "+
 					"Send: %+v", i, len(msgs), err)

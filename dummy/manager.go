@@ -12,7 +12,6 @@ package dummy
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/xxdk"
@@ -57,26 +56,23 @@ type Manager struct {
 	statusChan chan bool
 
 	// Cmix interfaces
-	net            *xxdk.Cmix
-	store          *storage.Session
-	networkManager interfaces.NetworkManager
-	rng            *fastRNG.StreamGenerator
+	net   *xxdk.Cmix
+	store *storage.Session
+	rng   *fastRNG.StreamGenerator
 }
 
 // NewManager creates a new dummy Manager with the specified average send delta
 // and the range used for generating random durations.
-func NewManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
-	net *xxdk.Cmix, manager interfaces.NetworkManager) *Manager {
+func NewManager(maxNumMessages int, avgSendDelta, randomRange time.Duration, net *xxdk.Cmix) *Manager {
 	clientStorage := net.GetStorage()
 	return newManager(maxNumMessages, avgSendDelta, randomRange, net,
-		&clientStorage, manager, net.GetRng())
+		&clientStorage, net.GetRng())
 }
 
 // newManager builds a new dummy Manager from fields explicitly passed in. This
 // function is a helper function for NewManager to make it easier to test.
 func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
-	net *xxdk.Cmix, store *storage.Session, networkManager interfaces.NetworkManager,
-	rng *fastRNG.StreamGenerator) *Manager {
+	net *xxdk.Cmix, store *storage.Session, rng *fastRNG.StreamGenerator) *Manager {
 	return &Manager{
 		maxNumMessages: maxNumMessages,
 		avgSendDelta:   avgSendDelta,
@@ -85,7 +81,6 @@ func newManager(maxNumMessages int, avgSendDelta, randomRange time.Duration,
 		statusChan:     make(chan bool, statusChanLen),
 		net:            net,
 		store:          store,
-		networkManager: networkManager,
 		rng:            rng,
 	}
 }

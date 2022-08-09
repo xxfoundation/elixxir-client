@@ -49,7 +49,7 @@ EnretBzQkeKeBwoB2u6NTiOmUjk=
 
 var testContact = `<xxc(2)LF2ccT+sdqh0AIKlFFeDOJdnxzbQQYhGStgxhOXmijIDkAZiB9kZo+Dl3bRSbBi5pXZ82rOu2IQXz9+5sspChvoccZqgC/dXGhlesmiNy/EbKxWtptTF4tcNyQxtnmCXg1p/HwKey4G2XDekTw86lq6Lpmj72jozvRWlQisqvWz/5deiPaeFGKDKC0OrrDFnIib7WnKqdYt4XyTKdmObnmbvdCbliZq0zBl7J40qKy5FypYXGlZjStIm0R1qtD4XHMZMsrMJEGxdM55zJdSzknXbR8MNahUrGMyUOTivXLHzojYLht0gFQifKMVWhrDjUoVQV43KOLPmdBwY/2Kc5KvVloDeuDXYY0i7tD63gNIp9JA3gJQUJymDdwqbS13riT1DMHHkdTzKEyGdHS+v2l7AVSlJBiTKuyM00FBNuXhhIcFR7ONFCf8cRPOPPBx3Q6iHNsvsca3KPNhwOJBgaQvHSkjIMsudiR954QbwG9rbi2vxVobIgWYMl5j6vlBS/9rfbE/uLdTEQZfNsLKDCIVCCI4I1bYZxZrDLPrfXTrN6W0sCLE7a/kRBQAAAgA7+LwJqiv9O1ogLnS4TYkSEg==xxc>`
 
-func TestManager_SetAlternativeUserDiscovery(t *testing.T) {
+func TestManager_setUserDiscovery(t *testing.T) {
 	m, _ := newTestManager(t)
 
 	altAddr := "0.0.0.0:11420"

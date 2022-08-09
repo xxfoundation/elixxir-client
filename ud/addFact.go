@@ -31,7 +31,7 @@ func (m *Manager) addFact(inFact fact.Fact, myId *id.ID,
 	aFC addFactComms) (string, error) {
 
 	// get UD host
-	udHost, err := m.getOrAddUdHost()
+	udHost, err := m.getHost()
 	if err != nil {
 		return "", err
 	}

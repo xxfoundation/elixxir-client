@@ -29,7 +29,7 @@ func (m *Manager) removeFact(f fact.Fact,
 	rFC removeFactComms) error {
 
 	// Get UD host
-	udHost, err := m.getOrAddUdHost()
+	udHost, err := m.getHost()
 	if err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func (m *Manager) PermanentDeleteAccount(f fact.Fact) error {
 			"a username. Cannot remove fact %q", f.Fact))
 	}
 
-	udHost, err := m.getOrAddUdHost()
+	udHost, err := m.getHost()
 	if err != nil {
 		return err
 	}

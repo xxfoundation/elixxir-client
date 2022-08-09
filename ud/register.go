@@ -18,7 +18,7 @@ func (m *Manager) register(username string, networkSignature []byte,
 	rng csprng.Source, comm registerUserComms) error {
 
 	// Initialize or get host
-	udHost, err := m.getOrAddUdHost()
+	udHost, err := m.getHost()
 	if err != nil {
 		return errors.WithMessage(err,
 			"User Discovery host object could "+

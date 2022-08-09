@@ -10,6 +10,9 @@ package cmd
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/xx_network/primitives/id"
 	"time"
 
 	"gitlab.com/elixxir/client/single"
@@ -60,11 +63,17 @@ var udCmd = &cobra.Command{
 
 		jww.TRACE.Printf("[UD] Connected!")
 
+		cert, contactFile, address, err := getUdContactInfo(user)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to load UD contact information from NDF: %+v", err)
+		}
+
 		// Make user discovery manager
 		userToRegister := viper.GetString(udRegisterFlag)
 		jww.TRACE.Printf("[UD] Registering identity %v...", userToRegister)
-		userDiscoveryMgr, err := ud.NewOrLoadFromNdf(user, user.GetComms(),
-			user.NetworkFollowerStatus, userToRegister, nil)
+		userDiscoveryMgr, err := ud.NewOrLoad(user, user.GetComms(),
+			user.NetworkFollowerStatus, userToRegister, nil,
+			cert, contactFile, address)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load or create new UD manager: %+v", err)
 		}
@@ -241,6 +250,42 @@ var udCmd = &cobra.Command{
 			jww.WARN.Print(err)
 		}
 	},
+}
+
+// getUdContactInfo is a helper function which retrieves the necessary information
+// to contact UD.
+func getUdContactInfo(user *xxdk.E2e) (cert, contactFile []byte, address string, err error) {
+	// Retrieve address
+	address = string([]byte(user.GetCmix().GetInstance().GetPartialNdf().
+		Get().UDB.Address))
+
+	// Retrieve certificate
+	cert = []byte(user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.Cert)
+
+	// Retrieve ID
+	udIdData := user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.ID
+	udId, err := id.Unmarshal(udIdData)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	// Retrieve DH Pub Key
+	udDhPubKeyData := user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.DhPubKey
+	var udDhPubKey *cyclic.Int
+	err = udDhPubKey.UnmarshalJSON(udDhPubKeyData)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	// Construct contact
+	udContact := contact.Contact{
+		ID:       udId,
+		DhPubKey: udDhPubKey,
+	}
+
+	contactFile = udContact.Marshal()
+
+	return
 }
 
 func init() {

@@ -105,50 +105,12 @@ type UdNetworkStatus interface {
 // Manager functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// NewOrLoadUdFromNdf loads an existing Manager from storage or creates a
-// new one if there is no extant storage information. This will default to connecting with
-// the xx network's UD server as found in the NDF. For connecting to a custom server, use
-// NewOrLoadUd.
-//
-// Parameters:
-//  - e2eID - e2e object ID in the tracker
-//  - follower - network follower func wrapped in UdNetworkStatus
-//  - username - the username the user wants to register with UD.
-//    If the user is already registered, this field may be blank
-//  - registrationValidationSignature - the signature provided by the xx network.
-//    This may be nil, however UD may return an error in some cases (e.g. in a production level
-//    environment).
-func NewOrLoadUdFromNdf(e2eID int, follower UdNetworkStatus,
-	username string, registrationValidationSignature []byte) (
-	*UserDiscovery, error) {
-
-	// Get user from singleton
-	user, err := e2eTrackerSingleton.get(e2eID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Construct callback
-	UdNetworkStatusFn := func() xxdk.Status {
-		return xxdk.Status(follower.UdNetworkStatus())
-	}
-
-	// Build manager
-	u, err := ud.NewOrLoadFromNdf(user.api, user.api.GetComms(),
-		UdNetworkStatusFn, username, registrationValidationSignature)
-	if err != nil {
-		return nil, err
-	}
-
-	// Track and return manager
-	return udTrackerSingleton.make(u), nil
-}
-
 // NewOrLoadUd loads an existing Manager from storage or creates a
-// new one if there is no extant storage information. This is different from NewOrLoadUdFromNdf
-// in that it allows the user to provide alternate User Discovery contact information.
-// These parameters may be used to contact a separate UD server than the one run by the
-// xx network team, one the user or a third-party may operate.
+// new one if there is no extant storage information. Parameters need be provided
+// to specify how to connect to the User Discovery service. These parameters may be used
+// to contact either the UD server hosted by the xx network team or a custom
+// third-party operated server. For the former, all the information may be pulled from the
+// NDF using the bindings.
 //
 // Params
 //  - e2eID - e2e object ID in the tracker
@@ -158,15 +120,19 @@ func NewOrLoadUdFromNdf(e2eID int, follower UdNetworkStatus,
 //  - networkValidationSig is a signature provided by the network (i.e. the client registrar).
 //    This may be nil, however UD may return an error in some cases (e.g. in a production level
 //    environment).
-//  - customCert is the TLS certificate for the alternate UD server.
-//  - customAddress is the IP address of the alternate UD server.
-//  - customContactFile is the data within a marshalled contact.Contact.
+//  - cert is the TLS certificate for the UD server this call will connect with.
+//    You may use the UD server run by the xx network team by using E2e.GetUdCertFromNdf.
+//  - contactFile is the data within a marshalled contact.Contact. This represents the
+//    contact file of the server this call will connect with.
+//    You may use the UD server run by the xx network team by using E2e.GetUdContactFromNdf.
+//  - address is the IP address of the UD server this call will connect with.
+//    You may use the UD server run by the xx network team by using E2e.GetUdAddressFromNdf.
 //
 // Returns
 //  - A Manager object which is registered to the specified alternate UD service.
 func NewOrLoadUd(e2eID int, follower UdNetworkStatus,
 	username string, registrationValidationSignature,
-	customCert, customAddress, customContactFile []byte) (
+	cert, contactFile []byte, address string) (
 	*UserDiscovery, error) {
 
 	// Get user from singleton
@@ -183,7 +149,7 @@ func NewOrLoadUd(e2eID int, follower UdNetworkStatus,
 	// Build manager
 	u, err := ud.NewOrLoad(user.api, user.api.GetComms(),
 		UdNetworkStatusFn, username, registrationValidationSignature,
-		customCert, customAddress, customContactFile)
+		cert, contactFile, address)
 	if err != nil {
 		return nil, err
 	}

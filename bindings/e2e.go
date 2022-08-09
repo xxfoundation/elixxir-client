@@ -8,6 +8,8 @@
 package bindings
 
 import (
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/xx_network/primitives/id"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -123,6 +125,44 @@ func LoginEphemeral(cmixId int, callbacks AuthCallbacks, identity,
 // ReceptionIdentity.
 func (e *E2e) GetContact() []byte {
 	return e.api.GetReceptionIdentity().GetContact().Marshal()
+}
+
+// GetUdAddressFromNdf retrieve the User Discovery's network address fom the NDF.
+func (e *E2e) GetUdAddressFromNdf() string {
+	return e.api.GetCmix().GetInstance().GetPartialNdf().
+		Get().UDB.Address
+}
+
+// GetUdCertFromNdf retrieves the User Discovery's TLS certificate from the NDF.
+func (e *E2e) GetUdCertFromNdf() []byte {
+	return []byte(e.api.GetCmix().GetInstance().GetPartialNdf().Get().UDB.Cert)
+}
+
+// GetUdContactFromNdf assembles the User Discovery's contact file from the data
+// within the NDF.
+//
+// Returns
+//  - []byte - A byte marshalled contact.Contact.
+func (e *E2e) GetUdContactFromNdf() ([]byte, error) {
+	udIdData := e.api.GetCmix().GetInstance().GetPartialNdf().Get().UDB.ID
+	udId, err := id.Unmarshal(udIdData)
+	if err != nil {
+		return nil, err
+	}
+
+	udDhPubKeyData := e.api.GetCmix().GetInstance().GetPartialNdf().Get().UDB.DhPubKey
+	var udDhPubKey *cyclic.Int
+	err = udDhPubKey.UnmarshalJSON(udDhPubKeyData)
+	if err != nil {
+		return nil, err
+	}
+
+	udContact := contact.Contact{
+		ID:       udId,
+		DhPubKey: udDhPubKey,
+	}
+
+	return udContact.Marshal(), nil
 }
 
 // AuthCallbacks is the bindings-specific interface for auth.Callbacks methods.

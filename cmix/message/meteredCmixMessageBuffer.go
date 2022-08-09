@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
@@ -21,7 +22,6 @@ import (
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/netTime"
 	"golang.org/x/crypto/blake2b"
-	"google.golang.org/protobuf/proto"
 )
 
 const currentMeteredCmixMessageVersion = 0

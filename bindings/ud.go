@@ -256,7 +256,7 @@ func (ud *UserDiscovery) GetContact() ([]byte, error) {
 		return nil, err
 	}
 
-	return json.Marshal(c)
+	return c.Marshal(), nil
 }
 
 // ConfirmFact confirms a fact first registered via AddFact. The confirmation ID

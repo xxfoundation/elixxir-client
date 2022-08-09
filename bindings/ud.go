@@ -129,7 +129,7 @@ type UdNetworkStatus interface {
 //    You may use the UD server run by the xx network team by using E2e.GetUdAddressFromNdf.
 //
 // Returns
-//  - A Manager object which is registered to the specified alternate UD service.
+//  - A Manager object which is registered to the specified UD service.
 func NewOrLoadUd(e2eID int, follower UdNetworkStatus,
 	username string, registrationValidationSignature,
 	cert, contactFile []byte, address string) (

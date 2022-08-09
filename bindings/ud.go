@@ -167,8 +167,15 @@ func NewOrLoadUd(e2eID int, follower UdNetworkStatus,
 //  - follower - network follower func wrapped in UdNetworkStatus
 //  - emailFactJson - nullable JSON marshalled email fact.Fact
 //  - phoneFactJson - nullable JSON marshalled phone fact.Fact
+//  - cert is the TLS certificate for the UD server this call will connect with.
+//    You may use the UD server run by the xx network team by using E2e.GetUdCertFromNdf.
+//  - contactFile is the data within a marshalled contact.Contact. This represents the
+//    contact file of the server this call will connect with.
+//    You may use the UD server run by the xx network team by using E2e.GetUdContactFromNdf.
+//  - address is the IP address of the UD server this call will connect with.
+//    You may use the UD server run by the xx network team by using E2e.GetUdAddressFromNdf.
 func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
-	phoneFactJson []byte) (*UserDiscovery, error) {
+	phoneFactJson []byte, cert, contactFile []byte, address string) (*UserDiscovery, error) {
 
 	// Get user from singleton
 	user, err := e2eTrackerSingleton.get(e2eID)
@@ -196,7 +203,9 @@ func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
 	}
 
 	u, err := ud.NewManagerFromBackup(
-		user.api, user.api.GetComms(), UdNetworkStatusFn, email, phone)
+		user.api, user.api.GetComms(), UdNetworkStatusFn,
+		email, phone,
+		cert, contactFile, address)
 	if err != nil {
 		return nil, err
 	}

@@ -38,9 +38,9 @@ type Manager struct {
 	// may cause unexpected behaviour.
 	factMux sync.Mutex
 
-	// alternativeUd is an alternate User discovery service to circumvent
-	// production. This is for testing with a separately deployed UD service.
-	alternativeUd *alternateUd
+	// ud is the tracker for the contact information of the specified UD server.
+	// This information is specified in NewOrLoad.
+	ud *userDiscovery
 }
 
 // NewOrLoad loads an existing Manager from storage or creates a
@@ -57,15 +57,16 @@ type Manager struct {
 //    provides if through the bindings.
 //  - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
 //    be nil, however UD may return an error in some cases (e.g. in a production level environment).
-//  - customCert is the TLS certificate for the alternate UD server.
-//  - customContactFile is the data within a marshalled contact.Contact.
-//  - customAddress is the IP address of the alternate UD server.
+//  - cert is the TLS certificate for the UD server this call will connect with.
+//  - contactFile is the data within a marshalled contact.Contact. This represents the
+//    contact file of the server this call will connect with.
+//  - address is the IP address of the UD server this call will connect with.
 //
 // Returns
-//  - A Manager object which is registered to the specified alternate UD service.
+//  - A Manager object which is registered to the specified UD service.
 func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
 	username string, networkValidationSig,
-	customCert, customContactFile []byte, customAddress string) (*Manager, error) {
+	cert, contactFile []byte, address string) (*Manager, error) {
 
 	jww.INFO.Println("ud.NewOrLoad()")
 
@@ -76,7 +77,7 @@ func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
 	}
 
 	// Set alternative user discovery
-	err = m.setAlternateUserDiscovery(customCert, customContactFile, customAddress)
+	err = m.setUserDiscovery(cert, contactFile, address)
 	if err != nil {
 		return nil, err
 	}
@@ -187,18 +188,18 @@ func (m *Manager) GetContact() (contact.Contact, error) {
 		return contact.Contact{}, err
 	}
 	// Return alternative User discovery contact if set
-	if m.alternativeUd != nil {
+	if m.ud != nil {
 		// Unmarshal UD DH public key
 		alternativeDhPubKey := grp.NewInt(1)
 		if err := alternativeDhPubKey.
-			UnmarshalJSON(m.alternativeUd.dhPubKey); err != nil {
+			UnmarshalJSON(m.ud.dhPubKey); err != nil {
 			return contact.Contact{},
 				errors.WithMessage(err, "Failed to unmarshal UD "+
 					"DH public key.")
 		}
 
 		return contact.Contact{
-			ID:             m.alternativeUd.host.GetId(),
+			ID:             m.ud.host.GetId(),
 			DhPubKey:       alternativeDhPubKey,
 			OwnershipProof: nil,
 			Facts:          nil,
@@ -234,8 +235,8 @@ func (m *Manager) GetContact() (contact.Contact, error) {
 // If the host does not exist, then it is added and returned.
 func (m *Manager) getOrAddUdHost() (*connect.Host, error) {
 	// Return alternative User discovery service if it has been set
-	if m.alternativeUd != nil {
-		return m.alternativeUd.host, nil
+	if m.ud != nil {
+		return m.ud.host, nil
 	}
 
 	netDef := m.getCmix().GetInstance().GetPartialNdf().Get()

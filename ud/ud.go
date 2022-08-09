@@ -7,21 +7,16 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// alternateUd is an alternative user discovery service.
-// This is used for testing, so client can avoid contacting
-// the production server. This requires an alternative,
-// deployed UD service.
-type alternateUd struct {
+// userDiscovery is the user discovery's contact information.
+type userDiscovery struct {
 	host     *connect.Host
 	dhPubKey []byte
 }
 
-// setAlternateUserDiscovery sets the alternativeUd object within manager.
-// Once set, any user discovery operation will go through the alternative
-// user discovery service.
-//
-// To undo this operation, use UnsetAlternativeUserDiscovery.
-func (m *Manager) setAlternateUserDiscovery(altCert,
+// setUserDiscovery sets the ud object within Manager.
+// The specified the contact information will be used for
+// all further Manager operations which contact the UD server.
+func (m *Manager) setUserDiscovery(altCert,
 	contactFile []byte, altAddress string) error {
 	params := connect.GetDefaultHostParams()
 	params.AuthEnabled = false
@@ -44,7 +39,7 @@ func (m *Manager) setAlternateUserDiscovery(altCert,
 			"not be constructed.")
 	}
 
-	m.alternativeUd = &alternateUd{
+	m.ud = &userDiscovery{
 		host:     host,
 		dhPubKey: dhPubKey,
 	}

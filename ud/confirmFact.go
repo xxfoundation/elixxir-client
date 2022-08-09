@@ -19,17 +19,11 @@ func (m *Manager) ConfirmFact(confirmationID, code string) error {
 
 // confirmFact is a helper function for ConfirmFact.
 func (m *Manager) confirmFact(confirmationID, code string, comm confirmFactComm) error {
-	// get UD host
-	udHost, err := m.getOrAddUdHost()
-	if err != nil {
-		return err
-	}
-
 	msg := &pb.FactConfirmRequest{
 		ConfirmationID: confirmationID,
 		Code:           code,
 	}
-	_, err = comm.SendConfirmFact(udHost, msg)
+	_, err := comm.SendConfirmFact(m.ud.host, msg)
 	if err != nil {
 		return err
 	}

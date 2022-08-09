@@ -28,12 +28,6 @@ func (m *Manager) RemoveFact(f fact.Fact) error {
 func (m *Manager) removeFact(f fact.Fact,
 	rFC removeFactComms) error {
 
-	// Get UD host
-	udHost, err := m.getOrAddUdHost()
-	if err != nil {
-		return err
-	}
-
 	// Construct the message to send
 	// Convert our Fact to a mixmessages Fact for sending
 	mmFact := mixmessages.Fact{
@@ -65,7 +59,7 @@ func (m *Manager) removeFact(f fact.Fact,
 	}
 
 	// Send the message
-	_, err = rFC.SendRemoveFact(udHost, &remFactMsg)
+	_, err = rFC.SendRemoveFact(m.ud.host, &remFactMsg)
 	if err != nil {
 		return err
 	}
@@ -83,19 +77,13 @@ func (m *Manager) PermanentDeleteAccount(f fact.Fact) error {
 		return errors.New(fmt.Sprintf("PermanentDeleteAccount must only remove "+
 			"a username. Cannot remove fact %q", f.Fact))
 	}
-
-	udHost, err := m.getOrAddUdHost()
-	if err != nil {
-		return err
-	}
-
 	identity := m.user.GetReceptionIdentity()
 	privKey, err := identity.GetRSAPrivatePem()
 	if err != nil {
 		return err
 	}
 
-	return m.permanentDeleteAccount(f, identity.ID, privKey, m.comms, udHost)
+	return m.permanentDeleteAccount(f, identity.ID, privKey, m.comms, m.ud.host)
 }
 
 // permanentDeleteAccount is a helper function for PermanentDeleteAccount.

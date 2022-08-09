@@ -42,11 +42,6 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, user *xxdk.E2e,
 	updatesCb interfaces.RestoreContactsUpdater) ([]*id.ID, []*id.ID,
 	[]error, error) {
 
-	udContact, err := udManager.GetContact()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
 	var restored, failed []*id.ID
 	var errs []error
 
@@ -99,7 +94,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, user *xxdk.E2e,
 	rsWg := &sync.WaitGroup{}
 	rsWg.Add(numRoutines)
 	for i := 0; i < numRoutines; i++ {
-		go LookupContacts(lookupCh, foundCh, failCh, user, udContact, lcWg)
+		go LookupContacts(lookupCh, foundCh, failCh, user, udManager.GetContact(), lcWg)
 		go ResetSessions(resetContactCh, restoredCh, failCh, user,
 			rsWg)
 	}
@@ -131,6 +126,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, user *xxdk.E2e,
 
 	// Event Processing
 	done := false
+	var err error
 	for !done {
 		// NOTE: Timer is reset every loop
 		timeoutTimer := time.NewTimer(restoreTimeout)

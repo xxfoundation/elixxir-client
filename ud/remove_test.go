@@ -86,9 +86,9 @@ package ud
 //
 //	tRFC := testRFC{}
 //
-//	udHost, err := m.getOrAddUdHost()
+//	udHost, err := m.getHost()
 //	if err != nil {
-//		t.Fatalf("getOrAddUdHost error: %v", err)
+//		t.Fatalf("getHost error: %v", err)
 //	}
 //
 //	err = m.permanentDeleteAccount(f, mockId, &tRFC, udHost)

@@ -29,13 +29,14 @@ import (
 ///////////////////////////////////////////////////////////////////////////////
 
 type mockE2e struct {
-	grp     *cyclic.Group
-	events  event.Reporter
-	rng     *fastRNG.StreamGenerator
-	kv      *versioned.KV
-	network cmix.Client
-	t       testing.TB
-	key     *rsa.PrivateKey
+	grp       *cyclic.Group
+	events    event.Reporter
+	rng       *fastRNG.StreamGenerator
+	kv        *versioned.KV
+	network   cmix.Client
+	mockStore mockStorage
+	t         testing.TB
+	key       *rsa.PrivateKey
 }
 
 func (m mockE2e) GetE2E() e2e.Handler {
@@ -89,8 +90,7 @@ func (m mockE2e) GetCmix() cmix.Client {
 }
 
 func (m mockE2e) GetStorage() storage.Session {
-	//TODO implement me
-	panic("implement me")
+	return m.mockStore
 }
 
 ///////////////////////////////////////////////////////////////////////////////

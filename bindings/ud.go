@@ -105,17 +105,34 @@ type UdNetworkStatus interface {
 // Manager functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// LoadOrNewUserDiscovery creates a bindings-level user discovery manager.
+// NewOrLoadUd loads an existing Manager from storage or creates a
+// new one if there is no extant storage information. Parameters need be provided
+// to specify how to connect to the User Discovery service. These parameters may be used
+// to contact either the UD server hosted by the xx network team or a custom
+// third-party operated server. For the former, all the information may be pulled from the
+// NDF using the bindings.
 //
-// Parameters:
+// Params
 //  - e2eID - e2e object ID in the tracker
 //  - follower - network follower func wrapped in UdNetworkStatus
 //  - username - the username the user wants to register with UD.
 //    If the user is already registered, this field may be blank
-//  - registrationValidationSignature - the signature provided by the xx network.
-//    This signature is optional for other consumers who deploy their own UD.
-func LoadOrNewUserDiscovery(e2eID int, follower UdNetworkStatus,
-	username string, registrationValidationSignature []byte) (
+//  - networkValidationSig is a signature provided by the network (i.e. the client registrar).
+//    This may be nil, however UD may return an error in some cases (e.g. in a production level
+//    environment).
+//  - cert is the TLS certificate for the UD server this call will connect with.
+//    You may use the UD server run by the xx network team by using E2e.GetUdCertFromNdf.
+//  - contactFile is the data within a marshalled contact.Contact. This represents the
+//    contact file of the server this call will connect with.
+//    You may use the UD server run by the xx network team by using E2e.GetUdContactFromNdf.
+//  - address is the IP address of the UD server this call will connect with.
+//    You may use the UD server run by the xx network team by using E2e.GetUdAddressFromNdf.
+//
+// Returns
+//  - A Manager object which is registered to the specified UD service.
+func NewOrLoadUd(e2eID int, follower UdNetworkStatus,
+	username string, registrationValidationSignature,
+	cert, contactFile []byte, address string) (
 	*UserDiscovery, error) {
 
 	// Get user from singleton
@@ -124,16 +141,20 @@ func LoadOrNewUserDiscovery(e2eID int, follower UdNetworkStatus,
 		return nil, err
 	}
 
+	// Construct callback
 	UdNetworkStatusFn := func() xxdk.Status {
 		return xxdk.Status(follower.UdNetworkStatus())
 	}
 
-	u, err := ud.LoadOrNewManager(user.api, user.api.GetComms(),
-		UdNetworkStatusFn, username, registrationValidationSignature)
+	// Build manager
+	u, err := ud.NewOrLoad(user.api, user.api.GetComms(),
+		UdNetworkStatusFn, username, registrationValidationSignature,
+		cert, contactFile, address)
 	if err != nil {
 		return nil, err
 	}
 
+	// Track and return manager
 	return udTrackerSingleton.make(u), nil
 }
 
@@ -146,8 +167,15 @@ func LoadOrNewUserDiscovery(e2eID int, follower UdNetworkStatus,
 //  - follower - network follower func wrapped in UdNetworkStatus
 //  - emailFactJson - nullable JSON marshalled email fact.Fact
 //  - phoneFactJson - nullable JSON marshalled phone fact.Fact
+//  - cert is the TLS certificate for the UD server this call will connect with.
+//    You may use the UD server run by the xx network team by using E2e.GetUdCertFromNdf.
+//  - contactFile is the data within a marshalled contact.Contact. This represents the
+//    contact file of the server this call will connect with.
+//    You may use the UD server run by the xx network team by using E2e.GetUdContactFromNdf.
+//  - address is the IP address of the UD server this call will connect with.
+//    You may use the UD server run by the xx network team by using E2e.GetUdAddressFromNdf.
 func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
-	phoneFactJson []byte) (*UserDiscovery, error) {
+	phoneFactJson []byte, cert, contactFile []byte, address string) (*UserDiscovery, error) {
 
 	// Get user from singleton
 	user, err := e2eTrackerSingleton.get(e2eID)
@@ -175,7 +203,9 @@ func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
 	}
 
 	u, err := ud.NewManagerFromBackup(
-		user.api, user.api.GetComms(), UdNetworkStatusFn, email, phone)
+		user.api, user.api.GetComms(), UdNetworkStatusFn,
+		email, phone,
+		cert, contactFile, address)
 	if err != nil {
 		return nil, err
 	}
@@ -196,12 +226,7 @@ func (ud *UserDiscovery) GetFacts() []byte {
 // GetContact returns the marshalled bytes of the contact.Contact for UD as
 // retrieved from the NDF.
 func (ud *UserDiscovery) GetContact() ([]byte, error) {
-	c, err := ud.api.GetContact()
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(c)
+	return ud.api.GetContact().Marshal(), nil
 }
 
 // ConfirmFact confirms a fact first registered via AddFact. The confirmation ID
@@ -261,22 +286,6 @@ func (ud *UserDiscovery) RemoveFact(factJson []byte) error {
 	}
 
 	return ud.api.RemoveFact(f)
-}
-
-// SetAlternativeUserDiscovery sets the alternativeUd object within manager.
-// Once set, any user discovery operation will go through the alternative
-// user discovery service.
-//
-// To undo this operation, use UnsetAlternativeUserDiscovery.
-func (ud *UserDiscovery) SetAlternativeUserDiscovery(
-	altCert, altAddress, contactFile []byte) error {
-	return ud.api.SetAlternativeUserDiscovery(altCert, altAddress, contactFile)
-}
-
-// UnsetAlternativeUserDiscovery clears out the information from the Manager
-// object.
-func (ud *UserDiscovery) UnsetAlternativeUserDiscovery() error {
-	return ud.api.UnsetAlternativeUserDiscovery()
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -47,10 +47,8 @@ func TestManager_Search(t *testing.T) {
 	grp = getGroup()
 
 	var contacts []*Contact
-	udContact, err := m.GetContact()
-	if err != nil {
-		t.Fatalf("Failed to get ud contact: %v", err)
-	}
+	udContact := m.GetContact()
+
 	contacts = append(contacts, &Contact{
 		UserID: udContact.ID.Bytes(),
 		PubKey: udContact.DhPubKey.Bytes(),

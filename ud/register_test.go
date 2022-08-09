@@ -26,17 +26,12 @@ func (t *testRegisterComm) SendRegisterUser(_ *connect.Host, msg *pb.UDBUserRegi
 func TestManager_register(t *testing.T) {
 	m, _ := newTestManager(t)
 
-	udHost, err := m.getOrAddUdHost()
-	if err != nil {
-		t.Fatalf("Failed to get/add ud host: %+v", err)
-	}
-
 	c := &testRegisterComm{}
 	prng := NewPrng(42)
 
 	mockSig := []byte("mock")
 
-	err = m.register("testUser", mockSig, prng, c, udHost)
+	err := m.register("testUser", mockSig, prng, c)
 	if err != nil {
 		t.Errorf("register() returned an error: %+v", err)
 	}

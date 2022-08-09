@@ -59,7 +59,7 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 
 	msgChan := make(chan bool)
 	go func() {
-		for m.networkManager.(*testNetworkManager).GetMsgListLen() == 0 {
+		for m.net.(*mockCmix).GetMsgListLen() == 0 {
 			time.Sleep(5 * time.Millisecond)
 		}
 		msgChan <- true
@@ -71,7 +71,7 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
 			3*m.avgSendDelta)
 	case <-msgChan:
-		numReceived += m.networkManager.(*testNetworkManager).GetMsgListLen()
+		numReceived += m.net.(*mockCmix).GetMsgListLen()
 	}
 
 	err = stop.Close()
@@ -86,7 +86,7 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 
 	msgChan = make(chan bool)
 	go func() {
-		for m.networkManager.(*testNetworkManager).GetMsgListLen() == numReceived {
+		for m.net.(*mockCmix).GetMsgListLen() == numReceived {
 			time.Sleep(5 * time.Millisecond)
 		}
 		msgChan <- true

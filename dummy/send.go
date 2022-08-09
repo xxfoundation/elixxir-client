@@ -101,7 +101,7 @@ func (m *Manager) sendMessages(msgs map[id.ID]format.Message, rng csprng.Source)
 			//Send(recipient *id.ID, fingerprint format.Fingerprint,
 			//	service message.Service, payload, mac []byte, cmixParams CMIXParams) (
 			//	id.Round, ephemeral.Id, error)
-			_, _, err := m.net.GetCmix().Send(&recipient, msg.GetKeyFP(),
+			_, _, err := m.net.Send(&recipient, msg.GetKeyFP(),
 				message.GetRandomService(rng), msg.GetContents(), msg.GetMac(), p)
 			if err != nil {
 				jww.WARN.Printf("Failed to send dummy message %d/%d via "+
@@ -152,8 +152,7 @@ func (m *Manager) newRandomMessages(rng csprng.Source) (
 // generated payload, fingerprint, and MAC.
 func (m *Manager) newRandomCmixMessage(rng csprng.Source) (format.Message, error) {
 	// Create new empty cMix message
-	clientStorage := *m.store
-	cMixMsg := format.NewMessage(clientStorage.GetCmixGroup().GetP().ByteLen())
+	cMixMsg := format.NewMessage(m.store.GetCmixGroup().GetP().ByteLen())
 
 	// Generate random message
 	randomMsg, err := newRandomPayload(cMixMsg.ContentsSize(), rng)

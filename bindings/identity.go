@@ -9,8 +9,6 @@ package bindings
 
 import (
 	"encoding/json"
-	"gitlab.com/xx_network/primitives/id"
-
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
@@ -188,39 +186,4 @@ func GetFactsFromContact(marshaled []byte) ([]byte, error) {
 		return nil, err
 	}
 	return factsListMarshaled, nil
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// IdList Functions                                                           //
-////////////////////////////////////////////////////////////////////////////////
-
-// IdList is a wrapper for a list of marshalled id.ID objects.
-type IdList struct {
-	Ids [][]byte
-}
-
-// makeIdList is a helper function which creates an IdList object
-// given a list of id.ID's. It serializes each element of the
-// given list of id.ID's, places that into a list of []byte's (ie [][]byte)
-// and places that in the IdList.
-func makeIdList(ids []*id.ID) IdList {
-	convertedIds := make([][]byte, len(ids))
-	for i, partnerId := range ids {
-		convertedIds[i] = partnerId.Marshal()
-	}
-	return IdList{Ids: convertedIds}
-}
-
-// deserializeIdList is a helper function which creates a list of id.ID's
-// given an IdList. It deserializes each element of the IdList using id.Unmarshal.
-func deserializeIdList(ids IdList) ([]*id.ID, error) {
-	convertedIds := make([]*id.ID, len(ids.Ids))
-	for i, serializedId := range ids.Ids {
-		deserializedId, err := id.Unmarshal(serializedId)
-		if err != nil {
-			return nil, err
-		}
-		convertedIds[i] = deserializedId
-	}
-	return convertedIds, nil
 }

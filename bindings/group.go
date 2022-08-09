@@ -125,21 +125,24 @@ func NewGroupChat(e2eID int,
 // group.
 //
 // Parameters:
-//  - membership - IDs of members the user wants in the group.
+//  - membershipBytes - the JSON marshalled list of []*id.ID; it contains the
+//    IDs of members the user wants to add to the group.
 //  - message - the initial message sent to all members in the group. This is an
 //    optional parameter and may be nil.
-//  - tag - the name of the group decided by the creator. This is an optional parameter
-//    and may be nil. If nil the group will be assigned the default name.
+//  - tag - the name of the group decided by the creator. This is an optional
+//    parameter and may be nil. If nil the group will be assigned the default
+//    name.
 //
 // Returns:
 //  - []byte - the JSON marshalled bytes of the GroupReport object, which can be
 //    passed into WaitForRoundResult to see if the group request message send
 //    succeeded.
-func (g *GroupChat) MakeGroup(membership IdList, message, name []byte) (
+func (g *GroupChat) MakeGroup(membershipBytes []byte, message, name []byte) (
 	[]byte, error) {
 
-	// Construct membership list into a list of []*id.Id
-	members, err := deserializeIdList(membership)
+	// Unmarshal membership list into a list of []*id.Id
+	var members []*id.ID
+	err := json.Unmarshal(membershipBytes, &members)
 	if err != nil {
 		return nil, err
 	}
@@ -275,14 +278,12 @@ func (g *GroupChat) Send(groupId,
 	return json.Marshal(sendReport)
 }
 
-// GetGroups returns an IdList containing a list of group IDs that the user is a member of.
+// GetGroups returns a list of group IDs that the user is a member of.
 //
 // Returns:
-//  - []byte - a JSON marshalled IdList representing all group ID's.
+//  - []byte - a JSON marshalled []*id.ID representing all group ID's.
 func (g *GroupChat) GetGroups() ([]byte, error) {
-	groupIds := makeIdList(g.m.GetGroups())
-
-	return json.Marshal(groupIds)
+	return json.Marshal(g.m.GetGroups())
 }
 
 // GetGroup returns the group with the group ID. If no group exists, then the

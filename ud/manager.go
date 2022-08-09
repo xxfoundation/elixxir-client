@@ -11,7 +11,9 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/primitives/id"
 	"sync"
+	"time"
 )
 
 // Manager is the control structure for the contacting the user discovery service.
@@ -92,10 +94,27 @@ func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
 
 // NewManagerFromBackup builds a new user discover manager from a backup.
 // It will construct a manager that is already registered and restore
-// already registered facts into store. This will default to using the UD server as defined
-// by the NDF.
+// already registered facts into store.
+//
+// Params
+//  - user is an interface that adheres to the xxdk.E2e object.
+//  - comms is an interface that adheres to client.Comms object.
+//  - follower is a method off of xxdk.Cmix which returns the network follower's status.
+//  - username is the name of the user as it is registered with UD. This will be what the end user
+//    provides if through the bindings.
+//  - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
+//    be nil, however UD may return an error in some cases (e.g. in a production level environment).
+//  - email is a fact.Fact (type Email) which has been registered with UD already.
+//  - phone is a fact.Fact (type Phone) which has been registered with UD already.
+//  - cert is the TLS certificate for the UD server this call will connect with.
+//  - contactFile is the data within a marshalled contact.Contact. This represents the
+//    contact file of the server this call will connect with.
+//  - address is the IP address of the UD server this call will connect with.
+//
+// Returns
+//  - A Manager object which is registered to the specified UD service.
 func NewManagerFromBackup(user udE2e, comms Comms, follower udNetworkStatus,
-	email, phone fact.Fact) (*Manager, error) {
+	email, phone fact.Fact, cert, contactFile []byte, address string) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
 	if follower() != xxdk.Running {
 		return nil, errors.New(
@@ -128,6 +147,11 @@ func NewManagerFromBackup(user udE2e, comms Comms, follower udNetworkStatus,
 	if err = setRegistered(m.getKv()); err != nil {
 		return nil, errors.WithMessage(err, "failed to set client as "+
 			"registered with user discovery.")
+	}
+
+	err = m.setUserDiscovery(cert, contactFile, address)
+	if err != nil {
+		return nil, err
 	}
 
 	// Create the user discovery host object
@@ -184,18 +208,31 @@ func (m *Manager) GetContact() (contact.Contact, error) {
 	if err != nil {
 		return contact.Contact{}, err
 	}
-	// Unmarshal UD DH public key
-	dhPubKey := grp.NewInt(1)
-	if err := dhPubKey.
-		UnmarshalJSON(m.ud.dhPubKey); err != nil {
-		return contact.Contact{},
-			errors.WithMessage(err, "Failed to unmarshal UD "+
-				"DH public key.")
+	// Return User discovery contact if set
+	if m.ud != nil {
+		return m.ud.contact, nil
 	}
 
-	// Return User discovery contact
+	// Otherwise construct one (this should be for testing purposes only)
+	netDef := m.getCmix().GetInstance().GetPartialNdf().Get()
+
+	// Unmarshal UD ID from the NDF
+	udID, err := id.Unmarshal(netDef.UDB.ID)
+	if err != nil {
+		return contact.Contact{},
+			errors.Errorf("failed to unmarshal UD ID from NDF: %+v", err)
+	}
+
+	// Unmarshal UD DH public key
+	dhPubKey := grp.NewInt(1)
+	if err = dhPubKey.UnmarshalJSON(netDef.UDB.DhPubKey); err != nil {
+		return contact.Contact{},
+			errors.WithMessage(err, "Failed to unmarshal UD DH "+
+				"public key.")
+	}
+
 	return contact.Contact{
-		ID:             m.ud.host.GetId(),
+		ID:             udID,
 		DhPubKey:       dhPubKey,
 		OwnershipProof: nil,
 		Facts:          nil,
@@ -205,8 +242,44 @@ func (m *Manager) GetContact() (contact.Contact, error) {
 
 // getHost returns the current UD host.
 func (m *Manager) getHost() (*connect.Host, error) {
-	return m.ud.host, nil
+	// Return User discovery service if it has been set
+	if m.ud != nil {
+		return m.ud.host, nil
+	}
 
+	// Otherwise construct one (this should be for testing purposes only)
+	netDef := m.getCmix().GetInstance().GetPartialNdf().Get()
+	if netDef.UDB.Cert == "" {
+		return nil, errors.New("NDF does not have User Discovery information, " +
+			"is there network access?: Cert not present.")
+	}
+
+	// Unmarshal UD ID from the NDF
+	udID, err := id.Unmarshal(netDef.UDB.ID)
+	if err != nil {
+		return nil, errors.Errorf("failed to "+
+			"unmarshal UD ID from NDF: %+v", err)
+	}
+
+	// Return the host, if it exists
+	host, exists := m.comms.GetHost(udID)
+	if exists {
+		return host, nil
+	}
+
+	params := connect.GetDefaultHostParams()
+	params.AuthEnabled = false
+	params.SendTimeout = 20 * time.Second
+
+	// Add a new host and return it if it does not already exist
+	host, err = m.comms.AddHost(udID, netDef.UDB.Address,
+		[]byte(netDef.UDB.Cert), params)
+	if err != nil {
+		return nil, errors.WithMessage(err, "User Discovery host "+
+			"object could not be constructed.")
+	}
+
+	return host, nil
 }
 
 // loadOrNewManager is a helper function which loads from storage or

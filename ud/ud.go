@@ -9,19 +9,19 @@ import (
 
 // userDiscovery is the user discovery's contact information.
 type userDiscovery struct {
-	host     *connect.Host
-	dhPubKey []byte
+	host    *connect.Host
+	contact contact.Contact
 }
 
 // setUserDiscovery sets the ud object within Manager.
 // The specified the contact information will be used for
 // all further Manager operations which contact the UD server.
-func (m *Manager) setUserDiscovery(altCert,
-	contactFile []byte, altAddress string) error {
+func (m *Manager) setUserDiscovery(cert,
+	contactFile []byte, address string) error {
 	params := connect.GetDefaultHostParams()
 	params.AuthEnabled = false
 
-	udIdBytes, dhPubKey, err := contact.ReadContactFromFile(contactFile)
+	udIdBytes, dhPubKeyBytes, err := contact.ReadContactFromFile(contactFile)
 	if err != nil {
 		return err
 	}
@@ -32,16 +32,25 @@ func (m *Manager) setUserDiscovery(altCert,
 	}
 
 	// Add a new host and return it if it does not already exist
-	host, err := m.comms.AddHost(udID, altAddress,
-		altCert, params)
+	host, err := m.comms.AddHost(udID, address,
+		cert, params)
 	if err != nil {
 		return errors.WithMessage(err, "User Discovery host object could "+
 			"not be constructed.")
 	}
 
+	dhPubKey := m.user.GetE2E().GetGroup().NewInt(1)
+	err = dhPubKey.UnmarshalJSON(dhPubKeyBytes)
+	if err != nil {
+		return err
+	}
+
 	m.ud = &userDiscovery{
-		host:     host,
-		dhPubKey: dhPubKey,
+		host: host,
+		contact: contact.Contact{
+			ID:       udID,
+			DhPubKey: dhPubKey,
+		},
 	}
 
 	return nil

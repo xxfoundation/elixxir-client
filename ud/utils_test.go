@@ -84,7 +84,7 @@ func newTestManager(t *testing.T) (*Manager, *testNetworkManager) {
 	params.SendTimeout = 20 * time.Second
 
 	// Add a new host and return it if it does not already exist
-	_, err = m.comms.AddHost(udID, netDef.UDB.Address,
+	host, err := m.comms.AddHost(udID, netDef.UDB.Address,
 		[]byte(netDef.UDB.Cert), params)
 	if err != nil {
 		t.Fatalf("User Discovery host " +
@@ -94,6 +94,10 @@ func newTestManager(t *testing.T) (*Manager, *testNetworkManager) {
 	udContact, err := m.GetContact()
 	if err != nil {
 		t.Fatalf("Failed to get contact: %v", err)
+	}
+	m.ud = &userDiscovery{
+		host:    host,
+		contact: udContact,
 	}
 
 	tnm.c = udContact

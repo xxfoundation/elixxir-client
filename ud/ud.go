@@ -5,6 +5,7 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
+	"time"
 )
 
 // userDiscovery is the user discovery's contact information.
@@ -20,6 +21,7 @@ func (m *Manager) setUserDiscovery(cert,
 	contactFile []byte, address string) error {
 	params := connect.GetDefaultHostParams()
 	params.AuthEnabled = false
+	params.SendTimeout = 20 * time.Second
 
 	udIdBytes, dhPubKeyBytes, err := contact.ReadContactFromFile(contactFile)
 	if err != nil {

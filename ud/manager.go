@@ -10,10 +10,8 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
-	"time"
 )
 
 // Manager is the control structure for the contacting the user discovery service.
@@ -154,13 +152,6 @@ func NewManagerFromBackup(user udE2e, comms Comms, follower udNetworkStatus,
 		return nil, err
 	}
 
-	// Create the user discovery host object
-	_, err = m.getHost()
-	if err != nil {
-		return nil, errors.WithMessage(err, "User Discovery host object could "+
-			"not be constructed.")
-	}
-
 	return m, nil
 }
 
@@ -238,48 +229,6 @@ func (m *Manager) GetContact() (contact.Contact, error) {
 		Facts:          nil,
 	}, nil
 
-}
-
-// getHost returns the current UD host.
-func (m *Manager) getHost() (*connect.Host, error) {
-	// Return User discovery service if it has been set
-	if m.ud != nil {
-		return m.ud.host, nil
-	}
-
-	// Otherwise construct one (this should be for testing purposes only)
-	netDef := m.getCmix().GetInstance().GetPartialNdf().Get()
-	if netDef.UDB.Cert == "" {
-		return nil, errors.New("NDF does not have User Discovery information, " +
-			"is there network access?: Cert not present.")
-	}
-
-	// Unmarshal UD ID from the NDF
-	udID, err := id.Unmarshal(netDef.UDB.ID)
-	if err != nil {
-		return nil, errors.Errorf("failed to "+
-			"unmarshal UD ID from NDF: %+v", err)
-	}
-
-	// Return the host, if it exists
-	host, exists := m.comms.GetHost(udID)
-	if exists {
-		return host, nil
-	}
-
-	params := connect.GetDefaultHostParams()
-	params.AuthEnabled = false
-	params.SendTimeout = 20 * time.Second
-
-	// Add a new host and return it if it does not already exist
-	host, err = m.comms.AddHost(udID, netDef.UDB.Address,
-		[]byte(netDef.UDB.Cert), params)
-	if err != nil {
-		return nil, errors.WithMessage(err, "User Discovery host "+
-			"object could not be constructed.")
-	}
-
-	return host, nil
 }
 
 // loadOrNewManager is a helper function which loads from storage or

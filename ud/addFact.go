@@ -30,12 +30,6 @@ func (m *Manager) SendRegisterFact(f fact.Fact) (string, error) {
 func (m *Manager) addFact(inFact fact.Fact, myId *id.ID,
 	aFC addFactComms) (string, error) {
 
-	// get UD host
-	udHost, err := m.getHost()
-	if err != nil {
-		return "", err
-	}
-
 	// Create a primitives Fact so we can hash it
 	f, err := fact.NewFact(inFact.T, inFact.Fact)
 	if err != nil {
@@ -68,7 +62,7 @@ func (m *Manager) addFact(inFact fact.Fact, myId *id.ID,
 	}
 
 	// Send the message
-	response, err := aFC.SendRegisterFact(udHost, &remFactMsg)
+	response, err := aFC.SendRegisterFact(m.ud.host, &remFactMsg)
 
 	confirmationID := ""
 	if response != nil {

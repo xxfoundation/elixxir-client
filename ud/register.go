@@ -17,14 +17,6 @@ import (
 func (m *Manager) register(username string, networkSignature []byte,
 	rng csprng.Source, comm registerUserComms) error {
 
-	// Initialize or get host
-	udHost, err := m.getHost()
-	if err != nil {
-		return errors.WithMessage(err,
-			"User Discovery host object could "+
-				"not be constructed.")
-	}
-
 	// Retrieve data used for registration
 	identity := m.user.GetReceptionIdentity()
 	privKey, err := identity.GetRSAPrivatePem()
@@ -86,7 +78,7 @@ func (m *Manager) register(username string, networkSignature []byte,
 	}
 
 	// Register user with user discovery
-	_, err = comm.SendRegisterUser(udHost, msg)
+	_, err = comm.SendRegisterUser(m.ud.host, msg)
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@ package bindings
 import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/backup"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -26,10 +27,16 @@ type Backup struct {
 // NewCmixFromBackup.
 //
 // Example BackupReport:
-//{"RestoredContacts":["0AeVYBe87SV45A2UI4AtIe6H4AIyZSLPBPrT6eTBLycD"],"Params":""}
+//  {
+//    "RestoredContacts": [
+//      "U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",
+//      "15tNdkKbYXoMn58NO6VbDMDWFEyIhTWEGsvgcJsHWAgD"
+//    ],
+//    "Params": ""
+//  }
 type BackupReport struct {
 	// The list of restored E2E partner IDs
-	RestoredContacts IdList
+	RestoredContacts []*id.ID
 
 	// The backup parameters found within the backup file
 	Params string
@@ -70,7 +77,7 @@ func NewCmixFromBackup(ndfJSON, storageDir, backupPassphrase string,
 
 	// Construct report
 	report := BackupReport{
-		RestoredContacts: makeIdList(backupIdList),
+		RestoredContacts: backupIdList,
 		Params:           backupParams,
 	}
 

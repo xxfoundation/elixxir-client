@@ -41,14 +41,13 @@ func (e *E2e) GetReceptionID() []byte {
 	return e.api.GetE2E().GetReceptionID().Marshal()
 }
 
-// GetAllPartnerIDs returns a marshalled list of all partner IDs that the user
-// has an E2E relationship with.
+// GetAllPartnerIDs returns a list of all partner IDs that the user has an E2E
+// relationship with.
 //
 // Returns:
-//  - []byte - the marshalled bytes of the IdList object.
+//  - []byte - the marshalled bytes of []*id.ID.
 func (e *E2e) GetAllPartnerIDs() ([]byte, error) {
-	partnerIds := e.api.GetE2E().GetAllPartnerIDs()
-	return json.Marshal(makeIdList(partnerIds))
+	return json.Marshal(e.api.GetE2E().GetAllPartnerIDs())
 }
 
 // PayloadSize returns the max payload size for a partitionable E2E message.

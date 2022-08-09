@@ -290,6 +290,14 @@ type Client interface {
 
 type ClientErrorReport func(source, message, trace string)
 
+// MessageAssembler func accepts a round ID, returning fingerprint, service, payload & mac.
+// This allows users to pass in a paylaod which will contain the round ID over which the message is sent.
+type MessageAssembler func(rid id.Round) (fingerprint format.Fingerprint, service message.Service, payload, mac []byte)
+
+// messageAssembler is an internal wrapper around MessageAssembler which returns a format.message
+// This is necessary to preserve the interaction between sendCmixHelper and critical messages
+type messageAssembler func(rid id.Round) (format.Message, error)
+
 type clientCommsInterface interface {
 	followNetworkComms
 	SendCmixCommsInterface

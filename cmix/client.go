@@ -189,9 +189,14 @@ func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
 	// Set up critical message tracking (sendCmix only)
 	critSender := func(msg format.Message, recipient *id.ID, params CMIXParams,
 	) (id.Round, ephemeral.Id, error) {
-		return sendCmixHelper(c.Sender, msg, recipient, params, c.instance,
+		compiler := func(round id.Round) (format.Message, error) {
+			return msg, nil
+		}
+		rid, eid, _, sendErr := sendCmixHelper(c.Sender, compiler, recipient, params, c.instance,
 			c.session.GetCmixGroup(), c.Registrar, c.rng, c.events,
 			c.session.GetTransmissionID(), c.comms)
+		return rid, eid, sendErr
+
 	}
 
 	c.crit = newCritical(c.session.GetKV(), c.Monitor,

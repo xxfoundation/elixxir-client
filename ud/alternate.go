@@ -21,8 +21,8 @@ type alternateUd struct {
 // user discovery service.
 //
 // To undo this operation, use UnsetAlternativeUserDiscovery.
-func (m *Manager) setAlternateUserDiscovery(altCert, altAddress,
-	contactFile []byte) error {
+func (m *Manager) setAlternateUserDiscovery(altCert,
+	contactFile []byte, altAddress string) error {
 	params := connect.GetDefaultHostParams()
 	params.AuthEnabled = false
 
@@ -37,7 +37,7 @@ func (m *Manager) setAlternateUserDiscovery(altCert, altAddress,
 	}
 
 	// Add a new host and return it if it does not already exist
-	host, err := m.comms.AddHost(udID, string(altAddress),
+	host, err := m.comms.AddHost(udID, altAddress,
 		altCert, params)
 	if err != nil {
 		return errors.WithMessage(err, "User Discovery host object could "+

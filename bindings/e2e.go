@@ -128,9 +128,9 @@ func (e *E2e) GetContact() []byte {
 }
 
 // GetUdAddressFromNdf retrieve the User Discovery's network address fom the NDF.
-func (e *E2e) GetUdAddressFromNdf() []byte {
-	return []byte(e.api.GetCmix().GetInstance().GetPartialNdf().
-		Get().UDB.Address)
+func (e *E2e) GetUdAddressFromNdf() string {
+	return e.api.GetCmix().GetInstance().GetPartialNdf().
+		Get().UDB.Address
 }
 
 // GetUdCertFromNdf retrieves the User Discovery's TLS certificate from the NDF.

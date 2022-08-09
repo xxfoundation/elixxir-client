@@ -120,15 +120,16 @@ type UdNetworkStatus interface {
 //  - networkValidationSig is a signature provided by the network (i.e. the client registrar).
 //    This may be nil, however UD may return an error in some cases (e.g. in a production level
 //    environment).
-//  - cert is the TLS certificate for the alternate UD server.
-//  - address is the IP address of the alternate UD server.
-//  - contactFile is the data within a marshalled contact.Contact.
+//  - cert is the TLS certificate for the UD server this call will connect with.
+//  - contactFile is the data within a marshalled contact.Contact. This represents the
+//    contact file of the server this call will connect with.
+//  - address is the IP address of the UD server this call will connect with.
 //
 // Returns
 //  - A Manager object which is registered to the specified alternate UD service.
 func NewOrLoadUd(e2eID int, follower UdNetworkStatus,
 	username string, registrationValidationSignature,
-	cert, address, contactFile []byte) (
+	cert, contactFile []byte, address string) (
 	*UserDiscovery, error) {
 
 	// Get user from singleton
@@ -145,7 +146,7 @@ func NewOrLoadUd(e2eID int, follower UdNetworkStatus,
 	// Build manager
 	u, err := ud.NewOrLoad(user.api, user.api.GetComms(),
 		UdNetworkStatusFn, username, registrationValidationSignature,
-		cert, address, contactFile)
+		cert, contactFile, address)
 	if err != nil {
 		return nil, err
 	}

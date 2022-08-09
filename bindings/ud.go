@@ -121,9 +121,12 @@ type UdNetworkStatus interface {
 //    This may be nil, however UD may return an error in some cases (e.g. in a production level
 //    environment).
 //  - cert is the TLS certificate for the UD server this call will connect with.
+//    You may use the UD server run by the xx network team by using E2e.GetUdCertFromNdf.
 //  - contactFile is the data within a marshalled contact.Contact. This represents the
 //    contact file of the server this call will connect with.
+//    You may use the UD server run by the xx network team by using E2e.GetUdContactFromNdf.
 //  - address is the IP address of the UD server this call will connect with.
+//    You may use the UD server run by the xx network team by using E2e.GetUdAddressFromNdf.
 //
 // Returns
 //  - A Manager object which is registered to the specified alternate UD service.

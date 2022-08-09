@@ -63,7 +63,7 @@ var udCmd = &cobra.Command{
 
 		jww.TRACE.Printf("[UD] Connected!")
 
-		address, cert, contactFile, err := getUdContactInfo(user)
+		cert, contactFile, address, err := getUdContactInfo(user)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load UD contact information from NDF: %+v", err)
 		}
@@ -73,7 +73,7 @@ var udCmd = &cobra.Command{
 		jww.TRACE.Printf("[UD] Registering identity %v...", userToRegister)
 		userDiscoveryMgr, err := ud.NewOrLoad(user, user.GetComms(),
 			user.NetworkFollowerStatus, userToRegister, nil,
-			cert, address, contactFile)
+			cert, contactFile, address)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load or create new UD manager: %+v", err)
 		}
@@ -254,10 +254,10 @@ var udCmd = &cobra.Command{
 
 // getUdContactInfo is a helper function which retrieves the necessary information
 // to contact UD.
-func getUdContactInfo(user *xxdk.E2e) (cert, address, contactFile []byte, err error) {
+func getUdContactInfo(user *xxdk.E2e) (cert, contactFile []byte, address string, err error) {
 	// Retrieve address
-	address = []byte(user.GetCmix().GetInstance().GetPartialNdf().
-		Get().UDB.Address)
+	address = string([]byte(user.GetCmix().GetInstance().GetPartialNdf().
+		Get().UDB.Address))
 
 	// Retrieve certificate
 	cert = []byte(user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.Cert)
@@ -266,7 +266,7 @@ func getUdContactInfo(user *xxdk.E2e) (cert, address, contactFile []byte, err er
 	udIdData := user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.ID
 	udId, err := id.Unmarshal(udIdData)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, "", err
 	}
 
 	// Retrieve DH Pub Key
@@ -274,7 +274,7 @@ func getUdContactInfo(user *xxdk.E2e) (cert, address, contactFile []byte, err er
 	var udDhPubKey *cyclic.Int
 	err = udDhPubKey.UnmarshalJSON(udDhPubKeyData)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, "", err
 	}
 
 	// Construct contact

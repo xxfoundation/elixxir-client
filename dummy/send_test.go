@@ -128,9 +128,10 @@ func TestManager_sendMessages(t *testing.T) {
 		receivedMsg, exists := receivedMsgs[recipient]
 		if !exists {
 			t.Errorf("Failed to receive message from %s: %+v", &recipient, msg)
-		} else if !reflect.DeepEqual(msg, receivedMsg) {
+		} else if !reflect.DeepEqual(msg.GetKeyFP().Bytes(), receivedMsg) {
+			// In mockCmix.Send, we map recipientId to the passed fingerprint.
 			t.Errorf("Received unexpected message for recipient %s."+
-				"\nexpected: %+v\nreceived: %+v", &recipient, msg, receivedMsg)
+				"\nexpected: %+v\nreceived: %+v", &recipient, msg.GetKeyFP(), receivedMsg)
 		}
 	}
 }

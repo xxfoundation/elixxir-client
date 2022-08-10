@@ -39,7 +39,7 @@ func newMockCmix() cmix.Client {
 func (m *mockCmix) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 	m.Lock()
 	defer m.Unlock()
-	m.messages[*recipient] = payload
+	m.messages[*recipient] = fingerprint.Bytes()
 
 	return 0, ephemeral.Id{}, nil
 }

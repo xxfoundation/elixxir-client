@@ -12,19 +12,29 @@ import (
 	"time"
 )
 
-// DummyTraffic contains the file dummy traffic manager. The manager can be used
-// to set and get the status of the send thread.
+// DummyTraffic is the bindings-layer dummy (or "cover") traffic manager. T
+// The manager can be used to set and get the status of the thread responsible for
+// sending dummy messages.
 type DummyTraffic struct {
 	m *dummy.Manager
 }
 
 // NewDummyTrafficManager creates a DummyTraffic manager and initialises the
-// dummy traffic send thread. Note that the manager does not start sending dummy
-// traffic until its status is set to true using DummyTraffic.SetStatus.
-// The maxNumMessages is the upper bound of the random number of messages sent
-// each send. avgSendDeltaMS is the average duration, in milliseconds, to wait
-// between sends. Sends occur every avgSendDeltaMS +/- a random duration with an
-// upper bound of randomRangeMS.
+// dummy traffic sending thread. Note that the manager does not start sending dummy
+// traffic until `True` is passed into DummyTraffic.SetStatus. The time duration
+// between each sending operation and the amount of messages sent each interval
+// are randomly generated values with bounds defined by the
+// given parameters below.
+//
+// Params:
+//  - e2eID - e2e object ID in the tracker.
+//  - maxNumMessages - the upper bound of the random number of messages sent
+//    each sending cycle.
+//  - avgSendDeltaMS - the average duration, in milliseconds, to wait
+//    between sends.
+//  - randomRangeMS - the upper bound of the interval between sending cycles.
+//    Sends occur every avgSendDeltaMS +/- a random duration with an
+//    upper bound of randomRangeMS
 func NewDummyTrafficManager(e2eID, maxNumMessages, avgSendDeltaMS,
 	randomRangeMS int) (*DummyTraffic, error) {
 
@@ -43,24 +53,32 @@ func NewDummyTrafficManager(e2eID, maxNumMessages, avgSendDeltaMS,
 	return &DummyTraffic{m}, user.api.AddService(m.StartDummyTraffic)
 }
 
-// SetStatus sets the state of the dummy traffic send thread, which determines
-// if the thread is running or paused. The possible statuses are:
-//  true  = send thread is sending dummy messages
-//  false = send thread is paused/stopped and not sending dummy messages
-// Returns an error if the channel is full.
-// Note that this function cannot change the status of the send thread if it has
-// yet to be started or stopped.
+// SetStatus sets the state of the dummy traffic send thread by passing in
+// a boolean parameter. There may be a small delay in between this call
+// and the status of the sending thread to change accordingly. For example,
+// passing False into this call while the sending thread is currently sending messages
+// will not cancel nor halt the sending operation, but will pause the thread once that
+// operation has completed.
+//
+// Params:
+//  - boolean - True: Sending thread is sending dummy messages.
+//  			False: Sending thread is paused/stopped and is not sending dummy messages
+// Returns:
+//  - error - if the DummyTraffic.SetStatus is called too frequently, causing the
+//    internal status channel to fill.
 func (dt *DummyTraffic) SetStatus(status bool) error {
 	return dt.m.SetStatus(status)
 }
 
-// GetStatus returns the current state of the dummy traffic send thread. It has
-// the following return values:
-//  true  = send thread is sending dummy messages
-//  false = send thread is paused/stopped and not sending dummy messages
-// Note that this function does not return the status set by SetStatus directly;
-// it returns the current status of the send thread, which means any call to
-// SetStatus will have a small delay before it is returned by GetStatus.
+// GetStatus returns the current state of the dummy traffic sending thread.
+// Note that this function does not return the status set by the most recent call to
+// SetStatus directly. Instead, this call returns the current status of the sending thread.
+// This is due to the small delay that may occur between calling SetStatus and the
+// sending thread taking into effect that status change.
+//
+// Returns:
+//   - boolean - True: Sending thread is sending dummy messages.
+//  		   - False: Sending thread is paused/stopped and is not sending dummy messages.
 func (dt *DummyTraffic) GetStatus() bool {
 	return dt.m.GetStatus()
 }

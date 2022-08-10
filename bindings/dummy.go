@@ -32,9 +32,9 @@ type DummyTraffic struct {
 //    each sending cycle.
 //  - avgSendDeltaMS - the average duration, in milliseconds, to wait
 //    between sends.
-//  - randomRangeMS - the upper bound of the interval between sending cycles.
-//    Sends occur every avgSendDeltaMS +/- a random duration with an
-//    upper bound of randomRangeMS
+//  - randomRangeMS - the upper bound of the interval between sending cycles,
+//    in milliseconds. Sends occur every avgSendDeltaMS +/- a random duration
+//    with an upper bound of randomRangeMS.
 func NewDummyTrafficManager(e2eID, maxNumMessages, avgSendDeltaMS,
 	randomRangeMS int) (*DummyTraffic, error) {
 
@@ -62,7 +62,7 @@ func NewDummyTrafficManager(e2eID, maxNumMessages, avgSendDeltaMS,
 //
 // Params:
 //  - boolean - True: Sending thread is sending dummy messages.
-//  			False: Sending thread is paused/stopped and is not sending dummy messages
+//  			False: Sending thread is paused/stopped and is not sending dummy messages.
 // Returns:
 //  - error - if the DummyTraffic.SetStatus is called too frequently, causing the
 //    internal status channel to fill.

@@ -48,7 +48,6 @@ func (m *Manager) newRandomCmixMessage(rng csprng.Source) (
 			errors.Errorf(recipientRngErr, err)
 	}
 
-	// todo: use error constants above?
 	// Generate random message payload
 	payloadSize := m.store.GetCmixGroup().GetP().ByteLen()
 	payload, err = newRandomPayload(payloadSize, rng)
@@ -124,7 +123,7 @@ func newRandomMAC(rng csprng.Source) ([]byte, error) {
 }
 
 //////////////////////////////////////////////////////////////////////////////////
-// Random Duration functions
+// Miscellaneous
 //////////////////////////////////////////////////////////////////////////////////
 
 // randomDuration returns a duration that is the base duration plus or minus a
@@ -140,10 +139,6 @@ func randomDuration(base, randomRange time.Duration, rng csprng.Source) (
 
 	return base + randomRange - time.Duration(delta), nil
 }
-
-//////////////////////////////////////////////////////////////////////////////////
-// Miscellaneous
-//////////////////////////////////////////////////////////////////////////////////
 
 // randomInt returns, as an int, a non-negative, non-zero random number in [1, n)
 // from the csprng.Source.

@@ -101,7 +101,8 @@ func (m *Manager) sendMessages() error {
 
 			err = m.sendMessage(localIndex, totalMessages, rng)
 			if err != nil {
-				jww.ERROR.Printf(err.Error())
+				jww.ERROR.Printf("Failed to send message %d/%d: %+v",
+					localIndex, numMessages, err)
 			}
 			// Add to counter of successful sends
 			atomic.AddInt64(&sent, 1)
@@ -119,16 +120,14 @@ func (m *Manager) sendMessage(index, totalMessages int, rng csprng.Source) error
 	// Generate message data
 	recipient, fp, service, payload, mac, err := m.newRandomCmixMessage(rng)
 	if err != nil {
-		return errors.Errorf("Failed to create dummy message %d/%d: %+v",
-			index, totalMessages, err)
+		return errors.Errorf("Failed to create random data: %+v", err)
 	}
 
 	// Send message
 	p := cmix.GetDefaultCMIXParams()
 	_, _, err = m.net.Send(recipient, fp, service, payload, mac, p)
 	if err != nil {
-		return errors.Errorf("Failed to send dummy message %d/%d: %+v",
-			index, totalMessages, err)
+		return errors.Errorf("Failed to send message: %+v", err)
 	}
 
 	return nil

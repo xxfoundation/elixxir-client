@@ -62,7 +62,7 @@ func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload,
 	}
 	sr := SingleUseSendReport{
 		EphID:       eid.EphId.Int64(),
-		ReceptionID: eid.Source.Marshal(),
+		ReceptionID: eid.Source,
 		RoundsList:  makeRoundsList(rids...),
 	}
 	return json.Marshal(sr)
@@ -85,11 +85,11 @@ func Listen(e2eID int, tag string, cb SingleUseCallback) (Stopper, error) {
 	}
 
 	suListener := singleUseListener{scb: cb}
-	dhpk, err := e2eCl.api.GetReceptionIdentity().GetDHKeyPrivate()
+	dhPk, err := e2eCl.api.GetReceptionIdentity().GetDHKeyPrivate()
 	if err != nil {
 		return nil, err
 	}
-	l := single.Listen(tag, e2eCl.api.GetReceptionIdentity().ID, dhpk,
+	l := single.Listen(tag, e2eCl.api.GetReceptionIdentity().ID, dhPk,
 		e2eCl.api.GetCmix(), e2eCl.api.GetStorage().GetE2EGroup(), suListener)
 	return &stopper{l: l}, nil
 }
@@ -102,12 +102,12 @@ func Listen(e2eID int, tag string, cb SingleUseCallback) (Stopper, error) {
 // JSON example:
 //  {
 //   "Rounds":[1,5,9],
-//   "EphID":{"EphId":[0,0,0,0,0,0,3,89],
-//   "Source":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}
+//   "EphID":1655533,
+//   "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}
 //  }
 type SingleUseSendReport struct {
 	RoundsList
-	ReceptionID []byte
+	ReceptionID *id.ID
 	EphID       int64
 }
 
@@ -119,14 +119,14 @@ type SingleUseSendReport struct {
 //  {
 //   "Rounds":[1,5,9],
 //   "Payload":"rSuPD35ELWwm5KTR9ViKIz/r1YGRgXIl5792SF8o8piZzN6sT4Liq4rUU/nfOPvQEjbfWNh/NYxdJ72VctDnWw==",
-//   "ReceptionID":{"EphId":[0,0,0,0,0,0,3,89],
-//   "Source":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"},
-//   "Err":null
+//   "EphID":1655533,
+//   "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"},
+//   "Err":"",
 //  }
 type SingleUseResponseReport struct {
 	RoundsList
 	Payload     []byte
-	ReceptionID []byte
+	ReceptionID *id.ID
 	EphID       int64
 	Err         error
 }
@@ -139,15 +139,15 @@ type SingleUseResponseReport struct {
 //   "Rounds":[1,5,9],
 //   "Payload":"rSuPD35ELWwm5KTR9ViKIz/r1YGRgXIl5792SF8o8piZzN6sT4Liq4rUU/nfOPvQEjbfWNh/NYxdJ72VctDnWw==",
 //   "Partner":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//   "EphID":{"EphId":[0,0,0,0,0,0,3,89],
-//   "Source":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}
+//   "EphID":1655533,
+//   "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}
 //  }
 type SingleUseCallbackReport struct {
 	RoundsList
 	Payload     []byte
 	Partner     *id.ID
 	EphID       int64
-	ReceptionID []byte
+	ReceptionID *id.ID
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -209,7 +209,7 @@ func (sl singleUseListener) Callback(
 		RoundsList:  makeRoundsList(rids...),
 		Partner:     req.GetPartner(),
 		EphID:       eid.EphId.Int64(),
-		ReceptionID: eid.Source.Marshal(),
+		ReceptionID: eid.Source,
 	}
 
 	sl.scb.Callback(json.Marshal(scr))
@@ -245,7 +245,7 @@ func (sr singleUseResponse) Callback(payload []byte,
 	}
 	sendReport := SingleUseResponseReport{
 		RoundsList:  makeRoundsList(rids...),
-		ReceptionID: receptionID.Source.Marshal(),
+		ReceptionID: receptionID.Source,
 		EphID:       receptionID.EphId.Int64(),
 		Payload:     payload,
 		Err:         err,

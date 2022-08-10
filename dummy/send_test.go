@@ -40,10 +40,10 @@ func TestManager_sendThread(t *testing.T) {
 	go func() {
 		var numReceived int
 		for i := 0; i < 2; i++ {
-			for m.networkManager.(*testNetworkManager).GetMsgListLen() == numReceived {
+			for m.net.(*mockCmix).GetMsgListLen() == numReceived {
 				time.Sleep(5 * time.Millisecond)
 			}
-			numReceived = m.networkManager.(*testNetworkManager).GetMsgListLen()
+			numReceived = m.net.(*mockCmix).GetMsgListLen()
 			msgChan <- true
 		}
 	}()
@@ -54,7 +54,7 @@ func TestManager_sendThread(t *testing.T) {
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
 			3*m.avgSendDelta)
 	case <-msgChan:
-		numReceived += m.networkManager.(*testNetworkManager).GetMsgListLen()
+		numReceived += m.net.(*mockCmix).GetMsgListLen()
 	}
 
 	select {
@@ -62,10 +62,10 @@ func TestManager_sendThread(t *testing.T) {
 		t.Errorf("Timed out after %s waiting for messages to be sent.",
 			3*m.avgSendDelta)
 	case <-msgChan:
-		if m.networkManager.(*testNetworkManager).GetMsgListLen() <= numReceived {
+		if m.net.(*mockCmix).GetMsgListLen() <= numReceived {
 			t.Errorf("Failed to receive second send."+
 				"\nmessages on last receive: %d\nmessages on this receive: %d",
-				numReceived, m.networkManager.(*testNetworkManager).GetMsgListLen())
+				numReceived, m.net.(*mockCmix).GetMsgListLen())
 		}
 	}
 
@@ -109,13 +109,13 @@ func TestManager_sendMessages(t *testing.T) {
 	}
 
 	// Send the messages
-	err := m.sendMessages(msgs)
+	err := m.sendMessages(msgs, prng)
 	if err != nil {
 		t.Errorf("sendMessages returned an error: %+v", err)
 	}
 
 	// get sent messages
-	receivedMsgs := m.networkManager.(*testNetworkManager).GetMsgList()
+	receivedMsgs := m.net.(*mockCmix).GetMsgList()
 
 	// Test that all messages were received
 	if len(receivedMsgs) != len(msgs) {
@@ -128,9 +128,10 @@ func TestManager_sendMessages(t *testing.T) {
 		receivedMsg, exists := receivedMsgs[recipient]
 		if !exists {
 			t.Errorf("Failed to receive message from %s: %+v", &recipient, msg)
-		} else if !reflect.DeepEqual(msg, receivedMsg) {
+		} else if !reflect.DeepEqual(msg.GetKeyFP().Bytes(), receivedMsg) {
+			// In mockCmix.Send, we map recipientId to the passed fingerprint.
 			t.Errorf("Received unexpected message for recipient %s."+
-				"\nexpected: %+v\nreceived: %+v", &recipient, msg, receivedMsg)
+				"\nexpected: %+v\nreceived: %+v", &recipient, msg.GetKeyFP(), receivedMsg)
 		}
 	}
 }

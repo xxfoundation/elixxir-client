@@ -352,7 +352,7 @@ func LookupUD(e2eID int, udContact []byte, cb UdLookupCallback,
 
 	sr := SingleUseSendReport{
 		EphID:       eid.EphId.Int64(),
-		ReceptionID: eid.Source.Marshal(),
+		ReceptionID: eid.Source,
 		RoundsList:  makeRoundsList(rids...),
 	}
 
@@ -434,7 +434,7 @@ func SearchUD(e2eID int, udContact []byte, cb UdSearchCallback,
 
 	sr := SingleUseSendReport{
 		EphID:       eid.EphId.Int64(),
-		ReceptionID: eid.Source.Marshal(),
+		ReceptionID: eid.Source,
 		RoundsList:  makeRoundsList(rids...),
 	}
 

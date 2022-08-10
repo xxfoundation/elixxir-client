@@ -98,9 +98,6 @@ func (m *Manager) sendMessages(msgs map[id.ID]format.Message, rng csprng.Source)
 
 			// Fill the preimage with random data to ensure it is not repeatable
 			p := cmix.GetDefaultCMIXParams()
-			//Send(recipient *id.ID, fingerprint format.Fingerprint,
-			//	service message.Service, payload, mac []byte, cmixParams CMIXParams) (
-			//	id.Round, ephemeral.Id, error)
 			_, _, err := m.net.Send(&recipient, msg.GetKeyFP(),
 				message.GetRandomService(rng), msg.GetContents(), msg.GetMac(), p)
 			if err != nil {

@@ -27,7 +27,7 @@ type DummyTraffic struct {
 // given parameters below.
 //
 // Params:
-//  - e2eID - e2e object ID in the tracker.
+//  - cmixId - a Cmix object ID in the tracker.
 //  - maxNumMessages - the upper bound of the random number of messages sent
 //    each sending cycle.
 //  - avgSendDeltaMS - the average duration, in milliseconds, to wait
@@ -35,11 +35,11 @@ type DummyTraffic struct {
 //  - randomRangeMS - the upper bound of the interval between sending cycles,
 //    in milliseconds. Sends occur every avgSendDeltaMS +/- a random duration
 //    with an upper bound of randomRangeMS.
-func NewDummyTrafficManager(e2eID, maxNumMessages, avgSendDeltaMS,
+func NewDummyTrafficManager(cmixId, maxNumMessages, avgSendDeltaMS,
 	randomRangeMS int) (*DummyTraffic, error) {
 
 	// Get user from singleton
-	user, err := e2eTrackerSingleton.get(e2eID)
+	net, err := cmixTrackerSingleton.get(cmixId)
 	if err != nil {
 		return nil, err
 	}
@@ -48,9 +48,9 @@ func NewDummyTrafficManager(e2eID, maxNumMessages, avgSendDeltaMS,
 	randomRange := time.Duration(randomRangeMS) * time.Millisecond
 
 	m := dummy.NewManager(
-		maxNumMessages, avgSendDelta, randomRange, user.api.Cmix)
+		maxNumMessages, avgSendDelta, randomRange, net.api)
 
-	return &DummyTraffic{m}, user.api.AddService(m.StartDummyTraffic)
+	return &DummyTraffic{m}, net.api.AddService(m.StartDummyTraffic)
 }
 
 // SetStatus sets the state of the dummy traffic send thread by passing in

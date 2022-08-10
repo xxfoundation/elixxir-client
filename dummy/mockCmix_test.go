@@ -25,21 +25,23 @@ import (
 
 // mockCmix is a testing structure that adheres to cmix.Client.
 type mockCmix struct {
-	messages map[id.ID][]byte
+	messages map[id.ID]format.Message
 	sync.RWMutex
+	payloadSize int
 }
 
-func newMockCmix() cmix.Client {
+func newMockCmix(payloadSize int) cmix.Client {
 
 	return &mockCmix{
-		messages: make(map[id.ID][]byte),
+		messages:    make(map[id.ID]format.Message),
+		payloadSize: payloadSize,
 	}
 }
 
 func (m *mockCmix) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 	m.Lock()
 	defer m.Unlock()
-	m.messages[*recipient] = fingerprint.Bytes()
+	m.messages[*recipient] = generateMessage(m.payloadSize, fingerprint, service, payload, mac)
 
 	return 0, ephemeral.Id{}, nil
 }
@@ -50,7 +52,7 @@ func (m *mockCmix) GetMsgListLen() int {
 	return len(m.messages)
 }
 
-func (m *mockCmix) GetMsgList() map[id.ID][]byte {
+func (m *mockCmix) GetMsgList() map[id.ID]format.Message {
 	m.RLock()
 	defer m.RUnlock()
 	return m.messages

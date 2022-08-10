@@ -165,8 +165,8 @@ func NewOrLoadUd(e2eID int, follower UdNetworkStatus,
 // Parameters:
 //  - e2eID - e2e object ID in the tracker
 //  - follower - network follower func wrapped in UdNetworkStatus
-//  - emailFactJson - nullable JSON marshalled email fact.Fact
-//  - phoneFactJson - nullable JSON marshalled phone fact.Fact
+//  - emailFactJson - nullable JSON marshalled email [fact.Fact]
+//  - phoneFactJson - nullable JSON marshalled phone [fact.Fact]
 //  - cert is the TLS certificate for the UD server this call will connect with.
 //    You may use the UD server run by the xx network team by using E2e.GetUdCertFromNdf.
 //  - contactFile is the data within a marshalled contact.Contact. This represents the
@@ -213,7 +213,7 @@ func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
 	return udTrackerSingleton.make(u), nil
 }
 
-// GetFacts returns a JSON marshalled list of fact.Fact objects that exist
+// GetFacts returns a JSON marshalled list of [fact.Fact] objects that exist
 // within the Store's registeredFacts map.
 func (ud *UserDiscovery) GetFacts() []byte {
 	jsonData, err := json.Marshal(ud.api.GetFacts())
@@ -246,7 +246,7 @@ func (ud *UserDiscovery) ConfirmFact(confirmationID, code string) error {
 // along with the code to finalize the fact.
 //
 // Parameters:
-//  - factJson - a JSON marshalled fact.Fact
+//  - factJson - a JSON marshalled [fact.Fact]
 func (ud *UserDiscovery) SendRegisterFact(factJson []byte) (string, error) {
 	var f fact.Fact
 	err := json.Unmarshal(factJson, &f)
@@ -262,7 +262,7 @@ func (ud *UserDiscovery) SendRegisterFact(factJson []byte) (string, error) {
 // be associated with this user.
 //
 // Parameters:
-//  - factJson - a JSON marshalled fact.Fact
+//  - factJson - a JSON marshalled [fact.Fact]
 func (ud *UserDiscovery) PermanentDeleteAccount(factJson []byte) error {
 	var f fact.Fact
 	err := json.Unmarshal(factJson, &f)
@@ -277,7 +277,7 @@ func (ud *UserDiscovery) PermanentDeleteAccount(factJson []byte) error {
 // passed in is not UD service does not associate this fact with this user.
 //
 // Parameters:
-//  - factJson - a JSON marshalled fact.Fact
+//  - factJson - a JSON marshalled [fact.Fact]
 func (ud *UserDiscovery) RemoveFact(factJson []byte) error {
 	var f fact.Fact
 	err := json.Unmarshal(factJson, &f)
@@ -385,7 +385,7 @@ type UdSearchCallback interface {
 //  - e2eID - e2e object ID in the tracker
 //  - udContact - the marshalled bytes of the contact.Contact for the user
 //    discovery server
-//  - factListJSON - the JSON marshalled bytes of fact.FactList
+//  - factListJSON - the JSON marshalled bytes of [fact.FactList]
 //  - singleRequestParams - the JSON marshalled bytes of single.RequestParams
 //
 // Returns:

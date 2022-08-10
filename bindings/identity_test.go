@@ -41,22 +41,6 @@ func TestIdentity_JSON(t *testing.T) {
 	t.Log(string(im))
 }
 
-func TestFacts_JSON(t *testing.T) {
-	fl := []Fact{
-		{
-			Fact: "Zezima",
-			Type: 0,
-		},
-		{
-			Fact: "Zezima@osrs.org",
-			Type: 2,
-		},
-	}
-	flm, _ := json.Marshal(fl)
-	t.Log("Marshalled []Fact")
-	t.Log(string(flm))
-}
-
 func getGroup() *cyclic.Group {
 	return cyclic.NewGroup(
 		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D4941"+

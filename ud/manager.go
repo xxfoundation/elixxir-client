@@ -66,16 +66,32 @@ func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
 
 	jww.INFO.Println("ud.NewOrLoad()")
 
-	// Construct manager
-	m, err := loadOrNewManager(user, comms, follower)
+	if follower() != xxdk.Running {
+		return nil, errors.New(
+			"cannot start UD Manager when network follower is not running.")
+	}
+
+	// Initialize manager
+	m := &Manager{
+		user:  user,
+		comms: comms,
+	}
+
+	// Set user discovery
+	err := m.setUserDiscovery(cert, contactFile, address)
 	if err != nil {
 		return nil, err
 	}
 
-	// Set user discovery
-	err = m.setUserDiscovery(cert, contactFile, address)
+	// Initialize store
+	m.store, err = store.NewOrLoadStore(m.getKv())
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("Failed to initialize store: %v", err)
+	}
+
+	// If already registered, return
+	if m.isRegistered() {
+		return m, nil
 	}
 
 	// Register manager
@@ -195,41 +211,6 @@ func (m *Manager) GetStringifiedFacts() []string {
 // GetContact returns the contact.Contact for UD.
 func (m *Manager) GetContact() contact.Contact {
 	return m.ud.contact
-}
-
-// loadOrNewManager is a helper function which loads from storage or
-// creates a new Manager object.
-func loadOrNewManager(user udE2e, comms Comms,
-	follower udNetworkStatus) (*Manager, error) {
-	if follower() != xxdk.Running {
-		return nil, errors.New(
-			"cannot start UD Manager when network follower is not running.")
-	}
-
-	// Initialize manager
-	m := &Manager{
-		user:  user,
-		comms: comms,
-	}
-
-	if m.isRegistered() {
-		// Load manager if already registered
-		var err error
-		m.store, err = store.NewOrLoadStore(m.getKv())
-		if err != nil {
-			return nil, errors.Errorf("Failed to initialize store: %v", err)
-		}
-		return m, nil
-	}
-
-	// Initialize store
-	var err error
-	m.store, err = store.NewOrLoadStore(m.getKv())
-	if err != nil {
-		return nil, errors.Errorf("Failed to initialize store: %v", err)
-	}
-
-	return m, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

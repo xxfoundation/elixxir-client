@@ -53,7 +53,7 @@ func NewDummyTrafficManager(cmixId, maxNumMessages, avgSendDeltaMS,
 	return &DummyTraffic{m}, net.api.AddService(m.StartDummyTraffic)
 }
 
-// SetStatus sets the state of the dummy traffic send thread by passing in
+// SetStatus sets the state of the DummyTraffic manager's send thread by passing in
 // a boolean parameter. There may be a small delay in between this call
 // and the status of the sending thread to change accordingly. For example,
 // passing False into this call while the sending thread is currently sending messages
@@ -61,8 +61,8 @@ func NewDummyTrafficManager(cmixId, maxNumMessages, avgSendDeltaMS,
 // operation has completed.
 //
 // Params:
-//  - boolean - True: Sending thread is sending dummy messages.
-//  			False: Sending thread is paused/stopped and is not sending dummy messages.
+//  - boolean - Input should be true if you want to send dummy messages.
+//  			Input should be false if you want to pause dummy messages.
 // Returns:
 //  - error - if the DummyTraffic.SetStatus is called too frequently, causing the
 //    internal status channel to fill.
@@ -70,15 +70,16 @@ func (dt *DummyTraffic) SetStatus(status bool) error {
 	return dt.m.SetStatus(status)
 }
 
-// GetStatus returns the current state of the dummy traffic sending thread.
+// GetStatus returns the current state of the DummyTraffic manager's sending thread.
 // Note that this function does not return the status set by the most recent call to
-// SetStatus directly. Instead, this call returns the current status of the sending thread.
+// SetStatus. Instead, this call returns the current status of the sending thread.
 // This is due to the small delay that may occur between calling SetStatus and the
 // sending thread taking into effect that status change.
 //
 // Returns:
-//   - boolean - True: Sending thread is sending dummy messages.
-//  		   - False: Sending thread is paused/stopped and is not sending dummy messages.
+//   - boolean - Returns true if sending thread is sending dummy messages.
+//  	         Returns false if sending thread is paused/stopped and is
+// 	             not sending dummy messages.
 func (dt *DummyTraffic) GetStatus() bool {
 	return dt.m.GetStatus()
 }

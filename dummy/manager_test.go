@@ -45,7 +45,7 @@ func Test_newManager(t *testing.T) {
 // Tests that Manager.StartDummyTraffic sends dummy messages and that it stops
 // when the stoppable is closed.
 func TestManager_StartDummyTraffic(t *testing.T) {
-	m := newTestManager(10, 50*time.Millisecond, 10*time.Millisecond, false, t)
+	m := newTestManager(10, 50*time.Millisecond, 10*time.Millisecond, t)
 
 	err := m.SetStatus(true)
 	if err != nil {
@@ -104,7 +104,7 @@ func TestManager_StartDummyTraffic(t *testing.T) {
 // can be called multiple times with the same status without it affecting
 // anything. Also tests that the thread quits even when paused.
 func TestManager_SetStatus(t *testing.T) {
-	m := newTestManager(10, 50*time.Millisecond, 10*time.Millisecond, false, t)
+	m := newTestManager(10, 50*time.Millisecond, 10*time.Millisecond, t)
 
 	err := m.SetStatus(false)
 	if err != nil {
@@ -213,7 +213,7 @@ func TestManager_SetStatus(t *testing.T) {
 // Error path: tests that Manager.SetStatus returns an error if the status
 // cannot be set.
 func TestManager_SetStatus_ChannelError(t *testing.T) {
-	m := newTestManager(10, 50*time.Millisecond, 10*time.Millisecond, false, t)
+	m := newTestManager(10, 50*time.Millisecond, 10*time.Millisecond, t)
 
 	// Send the max number of status changes on the channel
 	for i := 0; i < statusChanLen; i++ {
@@ -236,7 +236,7 @@ func TestManager_SetStatus_ChannelError(t *testing.T) {
 // Tests that Manager.GetStatus gets the correct status before the send thread
 // starts, while sending, while paused, and after it is stopped.
 func TestManager_GetStatus(t *testing.T) {
-	m := newTestManager(10, 50*time.Millisecond, 10*time.Millisecond, false, t)
+	m := newTestManager(10, 50*time.Millisecond, 10*time.Millisecond, t)
 
 	err := m.SetStatus(false)
 	if err != nil {

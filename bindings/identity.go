@@ -35,7 +35,7 @@ type ReceptionIdentity struct {
 }
 
 // StoreReceptionIdentity stores the given identity in Cmix storage with the
-// given key.  This is the ideal way to securely store identities, as the caller
+// given key. This is the ideal way to securely store identities, as the caller
 // of this function is only required to store the given key separately rather
 // than the keying material.
 func StoreReceptionIdentity(key string, identity []byte, cmixId int) error {
@@ -97,8 +97,13 @@ func (c *Cmix) GetReceptionRegistrationValidationSignature() []byte {
 // Contact Functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// GetIDFromContact accepts a marshalled contact.Contact object and returns a
-// marshalled id.ID object.
+// GetIDFromContact returns the ID in the [contact.Contact] object.
+//
+// Parameters:
+//  - marshaledContact - JSON marshalled bytes of [contact.Contact]
+//
+// Returns:
+//  - []byte - bytes of the [id.ID] object
 func GetIDFromContact(marshaledContact []byte) ([]byte, error) {
 	cnt, err := contact.Unmarshal(marshaledContact)
 	if err != nil {
@@ -108,8 +113,14 @@ func GetIDFromContact(marshaledContact []byte) ([]byte, error) {
 	return cnt.ID.Marshal(), nil
 }
 
-// GetPubkeyFromContact accepts a marshalled contact.Contact object and returns
-// a JSON marshalled large.Int DH public key.
+// GetPubkeyFromContact returns the DH public key in the [contact.Contact]
+// object.
+//
+// Parameters:
+//  - marshaledContact - JSON marshalled bytes of [contact.Contact]
+//
+// Returns:
+//  - []byte - JSON marshalled bytes of the [cyclic.Int] object
 func GetPubkeyFromContact(marshaledContact []byte) ([]byte, error) {
 	cnt, err := contact.Unmarshal(marshaledContact)
 	if err != nil {
@@ -127,8 +138,11 @@ func GetPubkeyFromContact(marshaledContact []byte) ([]byte, error) {
 // pass in empty facts in order to clear the facts.
 //
 // Parameters:
-//  - marshaledContact - the JSON marshalled bytes of contact.Contact object.
-//  - factListJSON - the JSON marshalled bytes of [fact.FactList].
+//  - marshaledContact - the JSON marshalled bytes of [contact.Contact]
+//  - factListJSON - the JSON marshalled bytes of [fact.FactList]
+//
+// Returns:
+//  - []byte - marshalled bytes of the modified [contact.Contact]
 func SetFactsOnContact(marshaledContact []byte, factListJSON []byte) ([]byte, error) {
 	cnt, err := contact.Unmarshal(marshaledContact)
 	if err != nil {
@@ -146,13 +160,13 @@ func SetFactsOnContact(marshaledContact []byte, factListJSON []byte) ([]byte, er
 	return cnt.Marshal(), nil
 }
 
-// GetFactsFromContact returns the fact list in the contact.Contact object.
+// GetFactsFromContact returns the fact list in the [contact.Contact] object.
 //
 // Parameters:
-//  - marshaledContact - the JSON marshalled bytes by of contact.Contact object.
+//  - marshaledContact - the JSON marshalled bytes of [contact.Contact]
 //
 // Returns:
-//  - []byte - the JSON marshalled bytes of [fact.FactList].
+//  - []byte - the JSON marshalled bytes of [fact.FactList]
 func GetFactsFromContact(marshaledContact []byte) ([]byte, error) {
 	cnt, err := contact.Unmarshal(marshaledContact)
 	if err != nil {

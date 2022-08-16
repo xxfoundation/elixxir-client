@@ -1,0 +1,59 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                           //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
+syntax = "proto3";
+
+package parse;
+option go_package = "channels";
+
+// ChannelMessage is transmitted by the channel. Effectively it is
+// a command for the channel sent by a user with admin access of the channel.
+message ChannelMessage{
+    // Lease is the length that this channel message will take effect.
+    int64  Lease = 1;
+
+    // The round this message was sent on
+    uint64 RoundID = 2;
+
+    // The type the below payload is. This may be some form of channel command,
+    // such as BAN<username1>.
+    uint32 PayloadType = 3;
+
+    // Payload is the actual message payload. It will be processed differently based
+    // on the PayloadType
+    bytes  Payload  = 4;
+}
+
+// UserMessage is a message sent by a user who is a member within the channel.
+message UserMessage {
+    // Message contains the contents of the message. This is typically what
+    // the end-user has submitted to the channel.
+    bytes  Message = 1;
+
+    // ValidationSignature is the signature validating this user owns
+    // their username and may send messages to the channel under this username.
+    // This signature is provided by UD and may be validated by all members of
+    // the channel.
+    // ValidationSignature = Sig(UD_ECCPrivKey,Username|ECCPublicKey|UsernameLease)
+    bytes  ValidationSignature = 2;
+
+    // Signature is the signature proving this message has been
+    // sent by the owner of this user's public key.
+    // Signature = Sig(User_ECCPublicKey,Message)
+    bytes  Signature = 3;
+
+    // Username is the username the user has registered with the channel and
+    // with UD.
+    string Username = 4;
+
+    // ECCPublicKey is the user's EC Public key. This is provided by the network.
+    bytes  ECCPublicKey = 5;
+
+    // UsernameLease is the lease that has been provided to the username.
+    // This value is provide by UD.
+    int64  UsernameLease = 6;
+}

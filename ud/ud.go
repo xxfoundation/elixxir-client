@@ -4,7 +4,6 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
@@ -23,35 +22,26 @@ func (m *Manager) setUserDiscovery(cert,
 	params.AuthEnabled = false
 	params.SendTimeout = 20 * time.Second
 
-	udIdBytes, dhPubKeyBytes, err := contact.ReadContactFromFile(contactFile)
-	if err != nil {
-		return err
-	}
-
-	udID, err := id.Unmarshal(udIdBytes)
+	// Unmarshal the new contact
+	con, err := contact.Unmarshal(contactFile)
 	if err != nil {
 		return err
 	}
 
 	// Add a new host and return it if it does not already exist
-	host, err := m.comms.AddHost(udID, address,
+	host, err := m.comms.AddHost(con.ID, address,
 		cert, params)
 	if err != nil {
 		return errors.WithMessage(err, "User Discovery host object could "+
 			"not be constructed.")
 	}
 
-	dhPubKey := m.user.GetE2E().GetGroup().NewInt(1)
-	err = dhPubKey.UnmarshalJSON(dhPubKeyBytes)
-	if err != nil {
-		return err
-	}
-
+	// Set the user discovery object within the manager
 	m.ud = &userDiscovery{
 		host: host,
 		contact: contact.Contact{
-			ID:       udID,
-			DhPubKey: dhPubKey,
+			ID:       con.ID,
+			DhPubKey: con.DhPubKey,
 		},
 	}
 

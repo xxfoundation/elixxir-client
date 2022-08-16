@@ -145,19 +145,34 @@ func (e *E2e) GetUdCertFromNdf() []byte {
 // Returns
 //  - []byte - A byte marshalled contact.Contact.
 func (e *E2e) GetUdContactFromNdf() ([]byte, error) {
-	udIdData := e.api.GetCmix().GetInstance().GetPartialNdf().Get().UDB.ID
+	// Retrieve data from E2e
+	netDef := e.api.GetCmix().GetInstance().GetPartialNdf().Get()
+	e2eGroup := e.api.GetE2E().GetGroup()
+
+	// Unmarshal UD ID
+	udIdData := netDef.UDB.ID
 	udId, err := id.Unmarshal(udIdData)
 	if err != nil {
 		return nil, err
 	}
 
-	udDhPubKeyData := e.api.GetCmix().GetInstance().GetPartialNdf().Get().UDB.DhPubKey
-	udDhPubKey := e.api.GetE2E().GetGroup().NewInt(1)
+	// Unmarshal DH pub key
+	udDhPubKeyData := netDef.UDB.DhPubKey
+	udDhPubKey := e2eGroup.NewInt(1)
 	err = udDhPubKey.UnmarshalJSON(udDhPubKeyData)
+
+	jww.WARN.Printf("GetUdContactFromNdf debug\n"+
+		"netDef UD: %v\n"+
+		"netDef DHPubKey: %v\n"+
+		"udDhPubKey.UnmarshalJSON (key:%v, err: %v)\n",
+		netDef.UDB, netDef.UDB.DhPubKey, udDhPubKey, err)
+
 	if err != nil {
+		jww.WARN.Printf("GetUdContactFromNdf debug fails on udDhPubKey.UnmarshalJSON")
 		return nil, err
 	}
 
+	// Construct contact
 	udContact := contact.Contact{
 		ID:       udId,
 		DhPubKey: udDhPubKey,

@@ -31,7 +31,8 @@ message ChannelMessage{
 // UserMessage is a message sent by a user who is a member within the channel.
 message UserMessage {
     // Message contains the contents of the message. This is typically what
-    // the end-user has submitted to the channel.
+    // the end-user has submitted to the channel. This is a serialization of the
+    // ChannelMessage.
     bytes  Message = 1;
 
     // ValidationSignature is the signature validating this user owns

@@ -22,7 +22,7 @@ import (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
-// Group Singleton Tracker                                               //
+// Group Singleton Tracker                                                    //
 ////////////////////////////////////////////////////////////////////////////////
 
 // groupTrackerSingleton is used to track Group objects so that they can be
@@ -129,16 +129,16 @@ func NewGroupChat(e2eID int,
 //    IDs of members the user wants to add to the group.
 //  - message - the initial message sent to all members in the group. This is an
 //    optional parameter and may be nil.
-//  - tag - the name of the group decided by the creator. This is an optional
+//  - name - the name of the group decided by the creator. This is an optional
 //    parameter and may be nil. If nil the group will be assigned the default
 //    name.
 //
 // Returns:
 //  - []byte - the JSON marshalled bytes of the GroupReport object, which can be
-//    passed into WaitForRoundResult to see if the group request message send
-//    succeeded.
-func (g *GroupChat) MakeGroup(membershipBytes []byte, message, name []byte) (
-	[]byte, error) {
+//    passed into Cmix.WaitForRoundResult to see if the group request message
+//    send succeeded.
+func (g *GroupChat) MakeGroup(
+	membershipBytes, message, name []byte) ([]byte, error) {
 
 	// Unmarshal membership list into a list of []*id.Id
 	var members []*id.ID
@@ -246,17 +246,16 @@ func (g *GroupChat) LeaveGroup(groupId []byte) error {
 // Send is the bindings-level function for sending to a group.
 //
 // Parameters:
-//  - groupId - the byte data representing a group ID.
-//    This can be pulled from a marshalled GroupReport.
+//  - groupId - the byte data representing a group ID. This can be pulled from
+//    marshalled GroupReport.
 //  - message - the message that the user wishes to send to the group.
 //  - tag - the tag associated with the message. This tag may be empty.
 //
 // Returns:
 //  - []byte - the JSON marshalled bytes of the GroupSendReport object, which
-//    can be passed into WaitForRoundResult to see if the group message send
-//    succeeded.
-func (g *GroupChat) Send(groupId,
-	message []byte, tag string) ([]byte, error) {
+//    can be passed into Cmix.WaitForRoundResult to see if the group message
+//    send succeeded.
+func (g *GroupChat) Send(groupId, message []byte, tag string) ([]byte, error) {
 	groupID, err := id.Unmarshal(groupId)
 	if err != nil {
 		return nil, errors.Errorf("Failed to unmarshal group ID: %+v", err)
@@ -291,7 +290,7 @@ func (g *GroupChat) GetGroups() ([]byte, error) {
 //
 // Parameters:
 //  - groupId - The byte data representing a group ID (a byte marshalled id.ID).
-//              This can be pulled from a marshalled GroupReport.
+//    This can be pulled from a marshalled GroupReport.
 // Returns:
 //  - Group - The bindings-layer representation of a group.
 func (g *GroupChat) GetGroup(groupId []byte) (*Group, error) {
@@ -317,7 +316,7 @@ func (g *GroupChat) NumGroups() int {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Group Structure
+// Group Structure                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
 // Group structure contains the identifying and membership information of a
@@ -332,12 +331,13 @@ func (g *Group) GetName() []byte {
 	return g.g.Name
 }
 
-// GetID return the 33-byte unique group ID. This represents the id.ID object
+// GetID return the 33-byte unique group ID. This represents the id.ID object.
 func (g *Group) GetID() []byte {
 	return g.g.ID.Bytes()
 }
 
-// GetTrackedID returns the tracked ID of the Group object. This is used by the backend tracker.
+// GetTrackedID returns the tracked ID of the Group object. This is used by the
+// backend tracker.
 func (g *Group) GetTrackedID() int {
 	return g.id
 }
@@ -375,9 +375,9 @@ func (g *Group) Serialize() []byte {
 	return g.g.Serialize()
 }
 
-//////////////////////////////////////////////////////////////////////////////////
-// Callbacks
-//////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Callbacks                                                                  //
+////////////////////////////////////////////////////////////////////////////////
 
 // GroupRequest is a bindings-layer interface that handles a group reception.
 //

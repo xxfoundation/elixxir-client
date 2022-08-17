@@ -107,7 +107,7 @@ func RestlikeRequest(
 //
 // Returns:
 //  - []byte - JSON marshalled RestlikeMessage
-func RestlikeRequestAuth(cmixId int, authConnectionID int, request,
+func RestlikeRequestAuth(cmixId, authConnectionID int, request,
 	e2eParamsJSON []byte) ([]byte, error) {
 	if len(e2eParamsJSON) == 0 {
 		jww.WARN.Printf("restlike params unspecified, using defaults")

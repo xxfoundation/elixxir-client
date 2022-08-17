@@ -6,8 +6,8 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 )
 
-// ConfirmFact confirms a fact first registered via AddFact. The
-// confirmation ID comes from AddFact while the code will come over the
+// ConfirmFact confirms a fact first registered via SendRegisterFact. The
+// confirmation ID comes from SendRegisterFact while the code will come over the
 // associated communications system.
 func (m *Manager) ConfirmFact(confirmationID, code string) error {
 	jww.INFO.Printf("ud.ConfirmFact(%s, %s)", confirmationID, code)

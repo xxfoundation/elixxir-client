@@ -27,28 +27,28 @@ import (
 //
 // Threads Started:
 //   - Network Follower (/network/follow.go)
-//   	tracks the network events and hands them off to workers for handling.
+//     tracks the network events and hands them off to workers for handling.
 //   - Historical Round Retrieval (/network/rounds/historical.go)
-// 		retrieves data about rounds that are too old to be stored by the client.
+//     retrieves data about rounds that are too old to be stored by the client.
 //	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
-//		requests all messages in a given round from the gateway of the last
-//		nodes.
+//	   requests all messages in a given round from the gateway of the last
+//	   nodes.
 //	 - Message Handling Worker Group (/network/message/handle.go)
-//		decrypts and partitions messages when signals via the Switchboard.
+//	   decrypts and partitions messages when signals via the Switchboard.
 //	 - Health Tracker (/network/health),
-//		via the network instance, tracks the state of the network.
+//	   via the network instance, tracks the state of the network.
 //	 - Garbled Messages (/network/message/garbled.go)
-//		can be signaled to check all recent messages that could be decoded. It
-//		uses a message store on disk for persistence.
+//	   can be signaled to check all recent messages that could be decoded. It
+//	   uses a message store on disk for persistence.
 //	 - Critical Messages (/network/message/critical.go)
-//		ensures all protocol layer mandatory messages are sent. It uses a
-//		message store on disk for persistence.
+//	   ensures all protocol layer mandatory messages are sent. It uses a message
+//	   store on disk for persistence.
 //	 - KeyExchange Trigger (/keyExchange/trigger.go)
-//		responds to sent rekeys and executes them.
+//	   responds to sent rekeys and executes them.
 //   - KeyExchange Confirm (/keyExchange/confirm.go)
-//		responds to confirmations of successful rekey operations.
+//	   responds to confirmations of successful rekey operations.
 //   - Auth Callback (/auth/callback.go)
-//      handles both auth confirm and requests.
+//     handles both auth confirm and requests.
 func (c *Cmix) StartNetworkFollower(timeoutMS int) error {
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 	return c.api.StartNetworkFollower(timeout)
@@ -58,7 +58,7 @@ func (c *Cmix) StartNetworkFollower(timeoutMS int) error {
 // an error if the follower is in the wrong state to stop or if it fails to stop
 // it.
 //
-// if the network follower is running and this fails, the Cmix object will
+// If the network follower is running and this fails, the Cmix object will
 // most likely be in an unrecoverable state and need to be trashed.
 func (c *Cmix) StopNetworkFollower() error {
 	if err := c.api.StopNetworkFollower(); err != nil {
@@ -84,11 +84,9 @@ func (c *Cmix) WaitForNetwork(timeoutMS int) bool {
 
 // NetworkFollowerStatus gets the state of the network follower. It returns a
 // status with the following values:
-//
-// Status:
-//  - Stopped  - 0
-//  - Running  - 2000
-//  - Stopping - 3000
+//  Stopped  - 0
+//  Running  - 2000
+//  Stopping - 3000
 func (c *Cmix) NetworkFollowerStatus() int {
 	return int(c.api.NetworkFollowerStatus())
 }
@@ -103,10 +101,11 @@ type NodeRegistrationReport struct {
 // GetNodeRegistrationStatus returns the current state of node registration.
 //
 // Returns:
-//  - []bye - A marshalled NodeRegistrationReport containing the number of
-//    nodes the user is registered with and the number of nodes present in the NDF.
-//  - An error if it cannot get the node registration status. The most likely cause
-//    is that the network is unhealthy.
+//  - []byte - A marshalled NodeRegistrationReport containing the number of
+//    nodes the user is registered with and the number of nodes present in the
+//    NDF.
+//  - An error if it cannot get the node registration status. The most likely
+//    cause is that the network is unhealthy.
 func (c *Cmix) GetNodeRegistrationStatus() ([]byte, error) {
 	numNodesRegistered, numNodes, err := c.api.GetNodeRegistrationStatus()
 	if err != nil {

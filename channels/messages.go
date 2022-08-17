@@ -14,35 +14,46 @@ import (
 
 // UserMessageInternal is the internal structure of a UserMessage protobuf.
 type UserMessageInternal struct {
-	mux sync.Mutex
-	*UserMessage
-	channelMsg *ChannelMessage
+	mux            sync.RWMutex
+	userMessage    *UserMessage
+	channelMessage *ChannelMessage
 }
 
 func NewUserMessageInternal(ursMsg *UserMessage) *UserMessageInternal {
 	return &UserMessageInternal{
-		mux:         sync.Mutex{},
-		UserMessage: ursMsg,
-		channelMsg:  nil,
+		mux:            sync.RWMutex{},
+		userMessage:    ursMsg,
+		channelMessage: nil,
 	}
 }
 
-// GetChannelMessage retrieves a serializes ChannelMessage within the
-// UserMessageInternal object.
+// GetUserMessage retrieves the UserMessage within
+// UserMessageInternal.
+func (umi *UserMessageInternal) GetUserMessage() *UserMessage {
+	umi.mux.RLock()
+	umi.mux.RUnlock()
+	return umi.userMessage
+}
+
+// GetChannelMessage retrieves the ChannelMessage within
+// UserMessageInternal. This is a lazy getter which will
+// deserialize the ChannelMessage within the UserMessage.Message field.
+// This deserialized ChannelMessage will then be placed into
+// UserMessageInternal's channelMessage field and return. On subsequent calls it will return
+// the message stored in UserMessageInternal.
 func (umi *UserMessageInternal) GetChannelMessage() (*ChannelMessage, error) {
 	umi.mux.Lock()
 	defer umi.mux.Unlock()
 
-	// check if channel message
-	if umi.channelMsg != nil {
-		return umi.channelMsg, nil
-	}
-	// if not, deserialize and store
-	unmarshalledChannelMsg := &ChannelMessage{}
-	err := proto.Unmarshal(umi.UserMessage.Message, unmarshalledChannelMsg)
-	if err != nil {
-		return nil, err
+	if umi.channelMessage == nil {
+		chanMessage := &ChannelMessage{}
+		err := proto.Unmarshal(umi.userMessage.Message, chanMessage)
+		if err != nil {
+			return nil, err
+		}
+
+		umi.channelMessage = chanMessage
 	}
 
-	return unmarshalledChannelMsg, nil
+	return umi.channelMessage, nil
 }

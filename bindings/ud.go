@@ -105,6 +105,29 @@ type UdNetworkStatus interface {
 // Manager functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
+// IsRegisteredWithUD is a function which checks the internal state
+// files to determine if a user has registered with UD in the past.
+//
+// Parameters:
+//  - e2eID -  REQUIRED. The tracked e2e object ID. This can be retrieved using [E2e.GetID].
+//
+// Returns:
+//   - bool - A boolean representing true if the user has been registered with UD already
+//            or false if it has not been registered already.
+//  - error - An error should only be returned if the internal tracker failed to retrieve an
+//            E2e object given the e2eId. If an error was returned, the registration state check
+//            was not performed properly, and the boolean returned should be ignored.
+func IsRegisteredWithUD(e2eId int) (bool, error) {
+
+	// Get user from singleton
+	user, err := e2eTrackerSingleton.get(e2eId)
+	if err != nil {
+		return false, err
+	}
+
+	return ud.IsRegistered(user.api.GetStorage().GetKV()), nil
+}
+
 // NewOrLoadUd loads an existing UserDiscovery from storage or creates a new
 // UserDiscovery if there is no storage data. Regardless of storage state,
 // the UserDiscovery object returned will be registered with the

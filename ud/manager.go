@@ -90,7 +90,7 @@ func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
 	}
 
 	// If already registered, return
-	if m.isRegistered() {
+	if IsRegistered(m.getKv()) {
 		return m, nil
 	}
 
@@ -223,7 +223,7 @@ func (m *Manager) getCmix() udCmix {
 	return m.user.GetCmix()
 }
 
-// getKv returns a versioned.KV used for isRegistered and setRegistered.
+// getKv returns a versioned.KV used for IsRegistered and setRegistered.
 // This is separated from store operations as store's kv
 // has a different prefix which breaks backwards compatibility.
 func (m *Manager) getKv() *versioned.KV {

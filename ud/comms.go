@@ -37,6 +37,8 @@ type Comms interface {
 	// object. This will be used to send to the UD service on the above
 	// gRPC send functions.
 	GetHost(hostId *id.ID) (*connect.Host, bool)
+
+	SendChannelAuthRequest(host *connect.Host, message *pb.ChannelAuthenticationRequest) (*pb.ChannelAuthenticationResponse, error)
 }
 
 // removeFactComms is a sub-interface of the Comms interface for the
@@ -67,4 +69,8 @@ type registerUserComms interface {
 // addFact comms
 type addFactComms interface {
 	SendRegisterFact(host *connect.Host, message *pb.FactRegisterRequest) (*pb.FactRegisterResponse, error)
+}
+
+type channelLeaseComms interface {
+	SendChannelAuthRequest(host *connect.Host, message *pb.ChannelAuthenticationRequest) (*pb.ChannelAuthenticationResponse, error)
 }

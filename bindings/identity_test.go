@@ -29,13 +29,16 @@ func TestIdentity_JSON(t *testing.T) {
 	dhpk := dh.GeneratePrivateKey(64, grp, rng)
 	dhpkJson, _ := dhpk.MarshalJSON()
 	op := make([]byte, 64)
+	e2eGrp, _ := getGroup().MarshalJSON()
 	_, _ = rng.Read(op)
 	identity := ReceptionIdentity{
 		ID:            uid.Marshal(),
 		RSAPrivatePem: rsa.CreatePrivateKeyPem(pk),
 		Salt:          salt,
 		DHKeyPrivate:  dhpkJson,
+		E2eGrp:        e2eGrp,
 	}
+
 	im, _ := json.Marshal(identity)
 	t.Log("Marshalled ReceptionIdentity object")
 	t.Log(string(im))

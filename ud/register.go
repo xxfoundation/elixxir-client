@@ -3,6 +3,7 @@ package ud
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/factID"
@@ -45,6 +46,14 @@ func (m *Manager) register(username string, networkSignature []byte,
 		UID:       identity.ID.Marshal(),
 		Timestamp: m.user.GetTransmissionIdentity().RegistrationTimestamp,
 	}
+
+	jww.WARN.Printf("UD DEBUG:"+
+		"\npermSig: %s"+
+		"\nrsaPubKey: %s"+
+		"\ntimestamp: %v",
+		networkSignature,
+		string(rsa.CreatePublicKeyPem(privKey.GetPublic())),
+		m.user.GetTransmissionIdentity().RegistrationTimestamp)
 
 	// Sign the identity data and add to user registration message
 	identityDigest := msg.IdentityRegistration.Digest()

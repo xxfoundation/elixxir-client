@@ -62,14 +62,6 @@ func register(comms registrationMessageSender, host *connect.Host,
 			"reception confirmation message")
 	}
 
-	transmissionConfirmation := &pb.ClientRegistrationConfirmation{}
-	err = proto.Unmarshal(response.GetClientReceptionConfirmation().
-		ClientRegistrationConfirmation, transmissionConfirmation)
-	if err != nil {
-		return nil, nil, 0, errors.WithMessage(err, "Failed to unmarshal "+
-			"transmission confirmation message")
-	}
-
 	// Verify reception signature
 	receptionSignature := response.GetClientReceptionConfirmation().
 		GetRegistrarSignature().Signature
@@ -78,6 +70,15 @@ func register(comms registrationMessageSender, host *connect.Host,
 		receptionSignature)
 	if err != nil {
 		return nil, nil, 0, errors.WithMessage(err, "Failed to verify reception signature")
+	}
+
+	// Unmarshal transmission confirmation
+	transmissionConfirmation := &pb.ClientRegistrationConfirmation{}
+	err = proto.Unmarshal(response.GetClientTransmissionConfirmation().
+		ClientRegistrationConfirmation, transmissionConfirmation)
+	if err != nil {
+		return nil, nil, 0, errors.WithMessage(err, "Failed to unmarshal "+
+			"transmission confirmation message")
 	}
 
 	// Verify transmission signature

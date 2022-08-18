@@ -140,8 +140,8 @@ func IsRegisteredWithUD(e2eId int) (bool, error) {
 //
 // Certain parameters are required every call to this function. These parameters are listed below
 // as "REQUIRED". For example, parameters need be provided to specify how to connect to the
-// User Discovery service. These parameters may be used to contact either the UD server hosted
-// by the xx network team or a custom third-party operated server. For the former,
+// User Discovery service. These parameters specifically may be used to contact either the UD
+// server hosted by the xx network team or a custom third-party operated server. For the former,
 // all the information may be fetched from the NDF using the bindings. These fetch
 // methods are detailed in the parameters section.
 //

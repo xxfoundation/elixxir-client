@@ -8,9 +8,7 @@
 package bindings
 
 import (
-	"encoding/base64"
 	"encoding/json"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
@@ -95,8 +93,6 @@ func (c *Cmix) MakeLegacyReceptionIdentity() ([]byte, error) {
 // the xx network.
 func (c *Cmix) GetReceptionRegistrationValidationSignature() []byte {
 	regSig := c.api.GetStorage().GetReceptionRegistrationValidationSignature()
-	jww.WARN.Printf("UD DEBUG: Reception reg valid sig: %v",
-		base64.StdEncoding.EncodeToString(regSig))
 	return regSig
 }
 

@@ -8,10 +8,8 @@
 package registration
 
 import (
-	"encoding/base64"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/xx_network/comms/connect"
@@ -82,13 +80,6 @@ func register(comms registrationMessageSender, host *connect.Host,
 		return nil, nil, 0, errors.WithMessage(err, "Failed to unmarshal "+
 			"transmission confirmation message")
 	}
-
-	jww.WARN.Printf("UD DEBUG: IN NETWORK REGISTER:"+
-		"\ntimestamp: %d"+
-		"\nrsa pub key PEM: %s"+
-		"\nperm sig: %s",
-		receptionConfirmation.Timestamp, receptionPem, base64.StdEncoding.EncodeToString(receptionSignature),
-	)
 
 	// Verify transmission signature
 	transmissionSignature := response.GetClientTransmissionConfirmation().

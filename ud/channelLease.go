@@ -38,7 +38,7 @@ func requestChannelLease(userPubKey ed25519.PublicKey,
 		UserPubKeyRSASignature: fSig,
 	}
 
-	resp, err := comms.SendChannelAuthRequest(ud.host, msg)
+	resp, err := comms.SendChannelLeaseRequest(ud.host, msg)
 	if err != nil {
 		return 0, nil, err
 	}

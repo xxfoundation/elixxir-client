@@ -44,3 +44,7 @@ func (m *mockComms) AddHost(hid *id.ID, address string, cert []byte, params conn
 func (m mockComms) GetHost(hostId *id.ID) (*connect.Host, bool) {
 	return m.udHost, true
 }
+
+func (m mockComms) SendChannelLeaseRequest(host *connect.Host, message *pb.ChannelLeaseRequest) (*pb.ChannelLeaseResponse, error) {
+	return nil, nil
+}

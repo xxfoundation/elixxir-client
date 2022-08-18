@@ -2,8 +2,6 @@ module gitlab.com/elixxir/client
 
 go 1.17
 
-replace gitlab.com/elixxir/crypto => /home/human/code/crypto
-replace gitlab.com/elixxir/comms => /home/human/code/comms
 require (
 	github.com/cloudflare/circl v1.2.0
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
@@ -14,8 +12,8 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.12.0
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
-	gitlab.com/elixxir/comms v0.0.4-0.20220805121030-b95005ac4528
-	gitlab.com/elixxir/crypto v0.0.7-0.20220808171640-473891de4c46
+	gitlab.com/elixxir/comms v0.0.4-0.20220809193754-b727304f659f
+	gitlab.com/elixxir/crypto v0.0.7-0.20220818193209-7e30352f35ef
 	gitlab.com/elixxir/ekv v0.1.7
 	gitlab.com/elixxir/primitives v0.0.3-0.20220606195757-40f7a589347f
 	gitlab.com/xx_network/comms v0.0.4-0.20220630163702-f3d372ef6acd

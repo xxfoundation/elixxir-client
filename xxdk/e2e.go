@@ -102,7 +102,7 @@ func loginLegacy(net *Cmix, callbacks AuthCallbacks,
 		return nil, err
 	}
 
-	rsaKey, err := identity.GetRSAPrivatePem()
+	rsaKey, err := identity.GetRSAPrivateKey()
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func login(net *Cmix, callbacks AuthCallbacks, identity ReceptionIdentity,
 	kv *versioned.KV, params E2EParams) (m *E2e, err error) {
 
 	// Verify the passed-in ReceptionIdentity matches its properties
-	privatePem, err := identity.GetRSAPrivatePem()
+	privatePem, err := identity.GetRSAPrivateKey()
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +246,7 @@ func (m *E2e) ConstructProtoUserFile() ([]byte, error) {
 
 	transIdentity := m.Cmix.GetTransmissionIdentity()
 	receptionIdentity := m.GetReceptionIdentity()
-	privatePem, err := receptionIdentity.GetRSAPrivatePem()
+	privatePem, err := receptionIdentity.GetRSAPrivateKey()
 	if err != nil {
 		return nil, err
 	}

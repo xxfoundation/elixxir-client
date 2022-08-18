@@ -40,7 +40,7 @@ func (m *Manager) addFact(inFact fact.Fact, myId *id.ID,
 	fHash := factID.Fingerprint(f)
 
 	// Sign our inFact for putting into the request
-	privKey, err := m.user.GetReceptionIdentity().GetRSAPrivatePem()
+	privKey, err := m.user.GetReceptionIdentity().GetRSAPrivateKey()
 	if err != nil {
 		return "", err
 	}

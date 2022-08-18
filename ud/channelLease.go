@@ -9,12 +9,13 @@ import (
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/comms/connect"
 )
 
 func requestChannelLease(userPubKey ed25519.PublicKey,
 	username string,
 	comms channelLeaseComms,
-	ud *userDiscovery,
+	host *connect.Host,
 	receptionIdentity xxdk.ReceptionIdentity,
 	rngGenerator *fastRNG.StreamGenerator,
 	signerPubKey ed25519.PublicKey) (int64, []byte, error) {
@@ -38,7 +39,7 @@ func requestChannelLease(userPubKey ed25519.PublicKey,
 		UserPubKeyRSASignature: fSig,
 	}
 
-	resp, err := comms.SendChannelLeaseRequest(ud.host, msg)
+	resp, err := comms.SendChannelLeaseRequest(host, msg)
 	if err != nil {
 		return 0, nil, err
 	}

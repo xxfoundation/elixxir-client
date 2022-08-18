@@ -173,6 +173,15 @@ func (c *clientIDTracker) Stop() {
 }
 
 func (c *clientIDTracker) registrationWorker() {
+
+	reg, err := loadRegistrationDisk(c.kv)
+	if err != nil {
+		jww.FATAL.Panic(err)
+	}
+	if reg.Lease == 0 {
+		c.register()
+	}
+
 	for {
 		select {
 		case <-c.haltCh:
@@ -210,6 +219,15 @@ func (c *clientIDTracker) ValidateChannelMessage(message []byte, lease time.Time
 	// XXX FIXME
 }
 
-func (c *clientIDTracker) register() {
+func (c *clientIDTracker) register() error {
 	// XXX FIXME
+
+	/*
+		lease, signature, err := requestChannelLease(userPubKey, username,
+			comms, userDiscovery, receptionIdentity, rngGenerator, signerPubKey)
+		if err != nil {
+			return err
+		}
+	*/
+	return nil
 }

@@ -38,6 +38,7 @@ type Comms interface {
 	// gRPC send functions.
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 
+	// SendChannelLeaseRequest sends a lease request.
 	SendChannelLeaseRequest(host *connect.Host, message *pb.ChannelLeaseRequest) (*pb.ChannelLeaseResponse, error)
 }
 

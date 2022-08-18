@@ -11,7 +11,14 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 )
 
-func requestChannelLease(userPubKey ed25519.PublicKey, username string, comms channelLeaseComms, ud *userDiscovery, receptionIdentity xxdk.ReceptionIdentity, rngGenerator *fastRNG.StreamGenerator) (int64, []byte, error) {
+func requestChannelLease(userPubKey ed25519.PublicKey,
+	username string,
+	comms channelLeaseComms,
+	ud *userDiscovery,
+	receptionIdentity xxdk.ReceptionIdentity,
+	rngGenerator *fastRNG.StreamGenerator,
+	signerPubKey ed25519.PublicKey) (int64, []byte, error) {
+
 	ts := time.Now().UnixNano()
 	privKey, err := receptionIdentity.GetRSAPrivatePem()
 	if err != nil {
@@ -24,11 +31,11 @@ func requestChannelLease(userPubKey ed25519.PublicKey, username string, comms ch
 	}
 	rng.Close()
 
-	msg := &mixmessages.ChannelAuthenticationRequest{
-		UserID:             receptionIdentity.ID.Marshal(),
-		UserEd25519PubKey:  userPubKey,
-		Timestamp:          ts,
-		UserSignedEdPubKey: fSig,
+	msg := &mixmessages.ChannelLeaseRequest{
+		UserID:                 receptionIdentity.ID.Marshal(),
+		UserEd25519PubKey:      userPubKey,
+		Timestamp:              ts,
+		UserPubKeyRSASignature: fSig,
 	}
 
 	resp, err := comms.SendChannelAuthRequest(ud.host, msg)
@@ -36,10 +43,11 @@ func requestChannelLease(userPubKey ed25519.PublicKey, username string, comms ch
 		return 0, nil, err
 	}
 
-	ok := channel.VerifyChannelLease(resp.UDLeaseEd25519Signature, resp.UDSignedEdPubKey, userPubKey, uint64(resp.Lease), nil)
+	ok := channel.VerifyChannelLease(resp.UDLeaseEd25519Signature,
+		userPubKey, username, time.Unix(0, resp.Lease), signerPubKey)
 	if !ok {
 		return 0, nil, errors.New("error could not verify signature returned with channel lease")
 	}
 
-	return resp.Lease, resp.UDSignedEdPubKey, err
+	return resp.Lease, resp.UDLeaseEd25519Signature, err
 }

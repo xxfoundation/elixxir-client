@@ -18,7 +18,7 @@ func requestChannelLease(userPubKey ed25519.PublicKey, username string, comms ch
 		return 0, nil, err
 	}
 	rng := rngGenerator.GetStream()
-	fSig, err := channel.SignChannelIdentityRequest(username, userPubKey, ts, privKey, rng)
+	fSig, err := channel.SignChannelIdentityRequest(userPubKey, time.Unix(0, ts), privKey, rng)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -36,7 +36,7 @@ func requestChannelLease(userPubKey ed25519.PublicKey, username string, comms ch
 		return 0, nil, err
 	}
 
-	ok := channel.VerifyChannelLease(resp.UDSignedEdPubKey, userPubKey, uint64(resp.Lease), nil)
+	ok := channel.VerifyChannelLease(resp.UDLeaseEd25519Signature, resp.UDSignedEdPubKey, userPubKey, uint64(resp.Lease), nil)
 	if !ok {
 		return 0, nil, errors.New("error could not verify signature returned with channel lease")
 	}

@@ -2,6 +2,7 @@ package ud
 
 import (
 	"crypto/ed25519"
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/xxdk"
+	"gitlab.com/elixxir/crypto/fastRNG"
 )
 
 const (
@@ -44,9 +46,9 @@ type NameService interface {
 func loadRegistrationDisk(kv *versioned.KV) (registrationDisk, error) {
 	obj, err := kv.Get(registrationDiskKey, registrationDiskVersion)
 	if err != nil {
-		return err
+		return registrationDisk{}, err
 	}
-	return UnmarshalRegistrationDisk(obj.data), nil
+	return UnmarshallRegistrationDisk(obj.Data)
 }
 
 func saveRegistrationDisk(kv *versioned.KV, reg registrationDisk) error {
@@ -56,10 +58,10 @@ func saveRegistrationDisk(kv *versioned.KV, reg registrationDisk) error {
 	}
 	obj := versioned.Object{
 		Version:   registrationDiskVersion,
-		Timestamp: now,
+		Timestamp: time.Now(),
 		Data:      regBytes,
 	}
-	kv.Set(registrationDiskKey, registrationDiskVersion, obj)
+	kv.Set(registrationDiskKey, registrationDiskVersion, &obj)
 	return nil
 }
 
@@ -79,12 +81,12 @@ func newRegistrationDisk(publicKey ed25519.PublicKey, privateKey ed25519.Private
 }
 
 func (r registrationDisk) Marshall() ([]byte, error) {
-	return json.Marshall(&r)
+	return json.Marshal(&r)
 }
 
 func UnmarshallRegistrationDisk(data []byte) (registrationDisk, error) {
 	var r registrationDisk
-	err := json.Unmarshall(&r, data)
+	err := json.Unmarshal(data, &r)
 	if err != nil {
 		return registrationDisk{}, err
 	}
@@ -108,16 +110,20 @@ type clientIDTracker struct {
 	registrationDisk  *registrationDisk
 	receptionIdentity *xxdk.ReceptionIdentity
 
+	pubKey  ed25519.PublicKey
+	privKey ed25519.PrivateKey
+
 	rngSource *fastRNG.StreamGenerator
 }
 
 var _ NameService = (*clientIDTracker)(nil)
 
 func newclientIDTracker(comms channelLeaseComms, username string, kv *versioned.KV,
-	receptionIdentity xxdk.ReceptionIdentity, rngSource *fastRNG.StreamGenerator) *clientIDTracker {
+	receptionIdentity xxdk.ReceptionIdentity, rngSource *fastRNG.StreamGenerator,
+	registrationDuration time.Duration) *clientIDTracker {
 
 	var err error
-	var reg registrationDiskKey
+	var reg registrationDisk
 
 	reg, err = loadRegistrationDisk(kv)
 	if err != nil {
@@ -143,7 +149,7 @@ func newclientIDTracker(comms channelLeaseComms, username string, kv *versioned.
 	return &clientIDTracker{
 		haltCh:               make(chan interface{}),
 		registrationDuration: registrationDuration,
-		receptionIdentity:    receptionIdentity,
+		receptionIdentity:    &receptionIdentity,
 		username:             username,
 	}
 

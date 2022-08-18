@@ -79,7 +79,8 @@ func (c *Cmix) MakeReceptionIdentity() ([]byte, error) {
 }
 
 // MakeLegacyReceptionIdentity generates the legacy identity for receiving
-// messages.
+// messages. As with all legacy calls, this should primarily be used
+// for the xx messenger team.
 func (c *Cmix) MakeLegacyReceptionIdentity() ([]byte, error) {
 	ident, err := xxdk.MakeLegacyReceptionIdentity(c.api)
 	if err != nil {

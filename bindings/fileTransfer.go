@@ -179,7 +179,6 @@ func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback,
 // Parameters:
 //  - payload - JSON marshalled FileSend
 //  - recipientID - marshalled recipient id.ID
-//  - paramsJSON - JSON marshalled e2e.Params
 //  - retry - number of retries allowed
 //  - callback - callback that reports file sending progress
 //  - period - duration to wait between progress callbacks triggering

@@ -40,7 +40,7 @@ func (m *Manager) removeFact(f fact.Fact,
 
 	// Sign our inFact for putting into the request
 	identity := m.user.GetReceptionIdentity()
-	privKey, err := identity.GetRSAPrivatePem()
+	privKey, err := identity.GetRSAPrivateKey()
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func (m *Manager) PermanentDeleteAccount(f fact.Fact) error {
 			"a username. Cannot remove fact %q", f.Fact))
 	}
 	identity := m.user.GetReceptionIdentity()
-	privKey, err := identity.GetRSAPrivatePem()
+	privKey, err := identity.GetRSAPrivateKey()
 	if err != nil {
 		return err
 	}

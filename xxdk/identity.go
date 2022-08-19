@@ -80,8 +80,8 @@ func (r ReceptionIdentity) GetDHKeyPrivate() (*cyclic.Int, error) {
 	return dhKeyPriv, err
 }
 
-// GetRSAPrivatePem returns the RSAPrivatePem.
-func (r ReceptionIdentity) GetRSAPrivatePem() (*rsa.PrivateKey, error) {
+// GetRSAPrivateKey returns the RSAPrivatePem.
+func (r ReceptionIdentity) GetRSAPrivateKey() (*rsa.PrivateKey, error) {
 	return rsa.LoadPrivateKeyFromPem(r.RSAPrivatePem)
 }
 

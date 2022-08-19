@@ -48,7 +48,7 @@ func (c *Connection) GetId() int {
 // Parameters:
 //  - e2eId - ID of the E2E object in the e2e tracker
 //  - recipientContact - marshalled contact.Contact object
-//  - myIdentity - marshalled ReceptionIdentity object
+//  - e2eParamsJSON - JSON marshalled byte of xxdk.E2EParams object
 func (c *Cmix) Connect(e2eId int, recipientContact, e2eParamsJSON []byte) (
 	*Connection, error) {
 	if len(e2eParamsJSON) == 0 {
@@ -83,7 +83,7 @@ func (c *Cmix) Connect(e2eId int, recipientContact, e2eParamsJSON []byte) (
 //
 // Returns:
 //  - []byte - the JSON marshalled bytes of the E2ESendReport object, which can
-//    be passed into WaitForRoundResult to see if the send succeeded.
+//    be passed into Cmix.WaitForRoundResult to see if the send succeeded.
 func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 	rounds, mid, ts, err := c.connection.SendE2E(catalog.MessageType(mt), payload,
 		c.params.Base)

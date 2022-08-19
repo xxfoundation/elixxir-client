@@ -55,7 +55,7 @@ type UpdateBackupFunc interface {
 // backup. Users of this function should delete the storage directory on error.
 // Users of this function should call LoadCmix as normal once this call succeeds.
 //
-// Params
+// Parameters:
 //  - ndfJSON - JSON of the NDF.
 //  - storageDir - directory for the storage files.
 //  - sessionPassword - password to decrypt the data in the storageDir.
@@ -92,10 +92,11 @@ func NewCmixFromBackup(ndfJSON, storageDir, backupPassphrase string,
 
 // InitializeBackup creates a bindings-layer Backup object.
 //
-// Params
+// Parameters:
 //  - e2eID - ID of the E2e object in the e2e tracker.
 //  - udID - ID of the UserDiscovery object in the ud tracker.
-//  - backupPassPhrase - backup passphrase provided by the user. Used to decrypt backup.
+//  - backupPassPhrase - backup passphrase provided by the user. Used to decrypt
+//    backup.
 //  - cb - the callback to be called when a backup is triggered.
 func InitializeBackup(e2eID, udID int, backupPassPhrase string,
 	cb UpdateBackupFunc) (*Backup, error) {
@@ -129,7 +130,7 @@ func InitializeBackup(e2eID, udID int, backupPassPhrase string,
 // To start the backup for the first time or to use a new password, use
 // InitializeBackup.
 //
-// Params
+// Parameters:
 //  - e2eID - ID of the E2e object in the e2e tracker.
 //  - udID - ID of the UserDiscovery object in the ud tracker.
 //  - cb - the callback to be called when a backup is triggered.

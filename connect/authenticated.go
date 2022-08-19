@@ -67,7 +67,7 @@ func ConnectWithAuthentication(recipient contact.Contact, user *xxdk.E2e,
 
 	// Build the authenticated connection and return
 	identity := user.GetReceptionIdentity()
-	privKey, err := identity.GetRSAPrivatePem()
+	privKey, err := identity.GetRSAPrivateKey()
 	if err != nil {
 		return nil, err
 	}

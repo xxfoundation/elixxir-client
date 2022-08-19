@@ -171,8 +171,7 @@ func (e *E2e) DeleteSentRequests() error {
 	return e.api.GetAuth().DeleteSentRequests()
 }
 
-// DeleteReceiveRequests clears all received requests from auth
-// storage.
+// DeleteReceiveRequests clears all received requests from auth storage.
 func (e *E2e) DeleteReceiveRequests() error {
 	return e.api.GetAuth().DeleteReceiveRequests()
 }

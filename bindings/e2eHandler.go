@@ -24,9 +24,11 @@ import (
 // SendE2E.
 //
 // Example E2ESendReport:
-//  {"Rounds":[1,5,9],
+//  {
+//   "Rounds":[1,5,9],
 //   "MessageID":"51Yy47uZbP0o2Y9B/kkreDLTB6opUol3M3mYiY2dcdQ=",
-//   "Timestamp":1653582683183384000}
+//   "Timestamp":1653582683183384000
+//  }
 type E2ESendReport struct {
 	RoundsList
 	MessageID []byte
@@ -117,7 +119,7 @@ func (e *E2e) RemoveService(tag string) error {
 //
 // Returns:
 //  - []byte - the JSON marshalled bytes of the E2ESendReport object, which can
-//    be passed into WaitForRoundResult to see if the send succeeded.
+//    be passed into Cmix.WaitForRoundResult to see if the send succeeded.
 func (e *E2e) SendE2E(messageType int, recipientId, payload,
 	e2eParams []byte) ([]byte, error) {
 	// Note that specifically these are the Base params from xxdk.E2EParams
@@ -166,11 +168,9 @@ func (e *E2e) AddService(tag string, processor Processor) error {
 //  - messageType - message type from the sender you want to listen for.
 //  - newListener: A provider for a callback to hear a message.
 //    Do not pass nil to this.
-func (e *E2e) RegisterListener(senderID []byte,
-	messageType int,
-	newListener Listener) error {
-	jww.INFO.Printf("RegisterListener(%v, %d)", senderID,
-		messageType)
+func (e *E2e) RegisterListener(
+	senderID []byte, messageType int, newListener Listener) error {
+	jww.INFO.Printf("RegisterListener(%v, %d)", senderID, messageType)
 
 	// Convert senderID to id.Id object
 	var uid *id.ID

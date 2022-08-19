@@ -68,8 +68,8 @@ func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload,
 	return json.Marshal(sr)
 }
 
-// Listen starts a single-use listener on a given tag using the passed in e2e object
-// and SingleUseCallback func.
+// Listen starts a single-use listener on a given tag using the passed in E2e
+// object and SingleUseCallback func.
 //
 // Parameters:
 //  - e2eID - ID of the e2e object in the tracker
@@ -154,7 +154,8 @@ type SingleUseCallbackReport struct {
 // Function Types                                                             //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Stopper is a public interface returned by Listen, allowing users to stop the registered listener.
+// Stopper is a public interface returned by Listen, allowing users to stop the
+// registered listener.
 type Stopper interface {
 	Stop()
 }
@@ -164,8 +165,8 @@ type Stopper interface {
 //
 // Parameters:
 //  - callbackReport - the JSON marshalled bytes of the SingleUseCallbackReport
-//    object, which can be passed into WaitForRoundResult to see if the send
-//    succeeded.
+//    object, which can be passed into Cmix.WaitForRoundResult to see if the
+//    send succeeded.
 type SingleUseCallback interface {
 	Callback(callbackReport []byte, err error)
 }
@@ -175,8 +176,8 @@ type SingleUseCallback interface {
 //
 // Parameters:
 //  - callbackReport - the JSON marshalled bytes of the SingleUseResponseReport
-//    object, which can be passed into WaitForRoundResult to see if the send
-//    succeeded.
+//    object, which can be passed into Cmix.WaitForRoundResult to see if the
+//    send succeeded.
 type SingleUseResponse interface {
 	Callback(responseReport []byte, err error)
 }

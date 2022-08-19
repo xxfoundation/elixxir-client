@@ -435,6 +435,8 @@ gitlab.com/elixxir/ekv v0.1.8-0.20220819191231-b09ccfc34bdd h1:0TKp/keclGT063K3Q
 gitlab.com/elixxir/ekv v0.1.8-0.20220819191231-b09ccfc34bdd/go.mod h1:e6WPUt97taFZe5PFLPb1Dupk7tqmDCTQu1kkstqJvw4=
 gitlab.com/elixxir/ekv v0.1.8-0.20220819202333-0f81cb310b1c h1:pD5NCcU61PPe5+x7JI0TIOPN6ZsScPqJ2PLABJSkCJg=
 gitlab.com/elixxir/ekv v0.1.8-0.20220819202333-0f81cb310b1c/go.mod h1:e6WPUt97taFZe5PFLPb1Dupk7tqmDCTQu1kkstqJvw4=
+gitlab.com/elixxir/ekv v0.1.8-0.20220819205151-41fba013dd11 h1:z/IUTdDxoXMRqH/psoywyOBhODtG4JFKhBG3ljawZJs=
+gitlab.com/elixxir/ekv v0.1.8-0.20220819205151-41fba013dd11/go.mod h1:e6WPUt97taFZe5PFLPb1Dupk7tqmDCTQu1kkstqJvw4=
 gitlab.com/elixxir/primitives v0.0.0-20200731184040-494269b53b4d/go.mod h1:OQgUZq7SjnE0b+8+iIAT2eqQF+2IFHn73tOo+aV11mg=
 gitlab.com/elixxir/primitives v0.0.0-20200804170709-a1896d262cd9/go.mod h1:p0VelQda72OzoUckr1O+vPW0AiFe0nyKQ6gYcmFSuF8=
 gitlab.com/elixxir/primitives v0.0.0-20200804182913-788f47bded40/go.mod h1:tzdFFvb1ESmuTCOl1z6+yf6oAICDxH2NPUemVgoNLxc=

@@ -102,6 +102,13 @@ func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
 		return nil, err
 	}
 
+	usernameFact, err := fact.NewFact(fact.Username, username)
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.store.StoreUsername(usernameFact)
+
 	return m, nil
 }
 

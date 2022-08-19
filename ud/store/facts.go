@@ -42,6 +42,22 @@ func (s *Store) RestoreFromBackUp(backupData fact.FactList) error {
 	return s.save()
 }
 
+// StoreUsername forces the storage of a username fact.Fact into the
+// Store's confirmedFacts map. The passed in fact.Fact must be of
+// type fact.Username or this will not store the username.
+func (s *Store) StoreUsername(f fact.Fact) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	if f.T != fact.Username {
+		return errors.Errorf("Fact (%s) is not of type username", f.Stringify())
+	}
+
+	s.confirmedFacts[f] = struct{}{}
+
+	return s.saveUnconfirmedFacts()
+}
+
 // StoreUnconfirmedFact stores a fact that has been added to UD but has not been
 // confirmed by the user. It is keyed on the confirmation ID given by UD.
 func (s *Store) StoreUnconfirmedFact(confirmationId string, f fact.Fact) error {

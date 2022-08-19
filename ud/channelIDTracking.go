@@ -44,7 +44,7 @@ type NameService interface {
 	SignChannelMessage(message []byte) (signature []byte, err error)
 
 	// ValidateChannelMessage
-	ValidateChannelMessage(message []byte, username string, lease time.Time, pubKey ed25519.PublicKey, authorIDSignature, messageSignature2 []byte) bool
+	ValidateChannelMessage(message []byte, username string, lease time.Time, pubKey ed25519.PublicKey, authorIDSignature, messageSignature []byte) bool
 
 	// Stop stops the NameService.
 	Stop()
@@ -249,7 +249,7 @@ func (c *clientIDTracker) SignChannelMessage(message []byte) ([]byte, error) {
 }
 
 // ValidateoChannelMessage
-func (c *clientIDTracker) ValidateChannelMessage(message []byte, username string, lease time.Time, pubKey ed25519.PublicKey, authorIDSignature, messageSignature2 []byte) bool {
+func (c *clientIDTracker) ValidateChannelMessage(message []byte, username string, lease time.Time, pubKey ed25519.PublicKey, authorIDSignature, messageSignature []byte) bool {
 	// XXX FIXME
 
 	return false

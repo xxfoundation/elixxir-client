@@ -143,14 +143,15 @@ type clientIDTracker struct {
 
 	rngSource *fastRNG.StreamGenerator
 
-	host  *connect.Host
-	comms channelLeaseComms
+	host     *connect.Host
+	comms    channelLeaseComms
+	udPubKey ed25519.PublicKey
 }
 
 var _ NameService = (*clientIDTracker)(nil)
 
 func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username string, kv *versioned.KV,
-	receptionIdentity xxdk.ReceptionIdentity, rngSource *fastRNG.StreamGenerator) *clientIDTracker {
+	receptionIdentity xxdk.ReceptionIdentity, udPubKey ed25519.PublicKey, rngSource *fastRNG.StreamGenerator) *clientIDTracker {
 
 	var err error
 
@@ -182,6 +183,7 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 		username:          username,
 		comms:             comms,
 		host:              host,
+		udPubKey:          udPubKey,
 	}
 
 }
@@ -294,12 +296,8 @@ func (c *clientIDTracker) requestChannelLease() (int64, []byte, error) {
 		return 0, nil, err
 	}
 
-	// XXX FIXME
-	jww.FATAL.Panic("FIXME")
-	signerPubKey := ed25519.PublicKey{}
-
 	ok := channel.VerifyChannelLease(resp.UDLeaseEd25519Signature,
-		userPubKey, c.username, time.Unix(0, resp.Lease), signerPubKey)
+		userPubKey, c.username, time.Unix(0, resp.Lease), c.udPubKey)
 	if !ok {
 		return 0, nil, ErrChannelLeaseSignature
 	}

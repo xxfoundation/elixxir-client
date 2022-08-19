@@ -128,6 +128,13 @@ func (r registrationDisk) GetPublicKey() ed25519.PublicKey {
 	return r.PublicKey
 }
 
+func (r registrationDisk) GetLease() ([]byte, time.Time) {
+	r.rwmutex.RLock()
+	defer r.rwmutex.RUnlock()
+
+	return r.Signature, time.Unix(0, r.Lease)
+}
+
 type clientIDTracker struct {
 	kv *versioned.KV
 
@@ -219,7 +226,7 @@ func (c *clientIDTracker) GetUsername() string {
 // GetChannelValidationSignature returns the validation
 // signature and the time it was signed.
 func (c *clientIDTracker) GetChannelValidationSignature() ([]byte, time.Time) {
-	return nil, time.Time{} // XXX FIXME
+	return registrationDisk.GetLease()
 }
 
 // GetChannelPubkey returns the user's public key.

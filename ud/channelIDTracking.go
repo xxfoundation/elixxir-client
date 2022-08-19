@@ -128,7 +128,7 @@ func (r registrationDisk) GetPublicKey() ed25519.PublicKey {
 	return r.PublicKey
 }
 
-func (r registrationDisk) GetLease() ([]byte, time.Time) {
+func (r registrationDisk) GetLeaseSignature() ([]byte, time.Time) {
 	r.rwmutex.RLock()
 	defer r.rwmutex.RUnlock()
 
@@ -226,7 +226,7 @@ func (c *clientIDTracker) GetUsername() string {
 // GetChannelValidationSignature returns the validation
 // signature and the time it was signed.
 func (c *clientIDTracker) GetChannelValidationSignature() ([]byte, time.Time) {
-	return registrationDisk.GetLease()
+	return c.registrationDisk.GetLeaseSignature()
 }
 
 // GetChannelPubkey returns the user's public key.
@@ -296,10 +296,17 @@ func (c *clientIDTracker) requestChannelLease() (int64, []byte, error) {
 }
 
 func (m *Manager) StartChannelNameService() NameService {
-	udPubKeyBytes := m.user.GetCMix().GetInstance().GetPartialNdf().Get().UDB.ChannelSigningPubKeyEd25519
+	udPubKeyBytes := m.user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.DhPubKey
 	var service NameService
 	startChannelNameServiceOnce.Do(func() {
-		service = newclientIDTracker(m.comms, m.ud.host, m.ud.GetUsername(), kv, receptionIdentity, udPubKey, rngSource)
+		service = newclientIDTracker(
+			m.comms,
+			m.ud.host,
+			m.user.GetUsername(),
+			m.getKv(),
+			m.user.GetReceptionIdentity(),
+			ed25519.PublicKey(udPubKeyBytes),
+			m.getRng())
 	})
 	return service
 }

@@ -105,31 +105,72 @@ type UdNetworkStatus interface {
 // Manager functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// NewOrLoadUd loads an existing Manager from storage or creates a new one if
-// there is no extant storage information. Parameters need be provided to
-// specify how to connect to the User Discovery service. These parameters may be
-// used to contact either the UD server hosted by the xx network team or a
-// custom third-party operated server. For the former, all the information may
-// be pulled from the NDF using the bindings.
+// IsRegisteredWithUD is a function which checks the internal state
+// files to determine if a user has registered with UD in the past.
+//
+// Parameters:
+//  - e2eID -  REQUIRED. The tracked e2e object ID. This can be retrieved using [E2e.GetID].
+//
+// Returns:
+//   - bool - A boolean representing true if the user has been registered with UD already
+//            or false if it has not been registered already.
+//  - error - An error should only be returned if the internal tracker failed to retrieve an
+//            E2e object given the e2eId. If an error was returned, the registration state check
+//            was not performed properly, and the boolean returned should be ignored.
+func IsRegisteredWithUD(e2eId int) (bool, error) {
+
+	// Get user from singleton
+	user, err := e2eTrackerSingleton.get(e2eId)
+	if err != nil {
+		return false, err
+	}
+
+	return ud.IsRegistered(user.api.GetStorage().GetKV()), nil
+}
+
+// NewOrLoadUd loads an existing UserDiscovery from storage or creates a new
+// UserDiscovery if there is no storage data. Regardless of storage state,
+// the UserDiscovery object returned will be registered with the
+// User Discovery service. If the user is not already registered, a call
+// to register will occur internally. If the user is already registered,
+// this call will simply load state and return to you a UserDiscovery object.
+// Some parameters are required for registering with the service, but are not required
+// if the user is already registered. These will be noted in the parameters section as
+// "SEMI-REQUIRED".
+//
+// Certain parameters are required every call to this function. These parameters are listed below
+// as "REQUIRED". For example, parameters need be provided to specify how to connect to the
+// User Discovery service. These parameters specifically may be used to contact either the UD
+// server hosted by the xx network team or a custom third-party operated server. For the former,
+// all the information may be fetched from the NDF using the bindings. These fetch
+// methods are detailed in the parameters section.
 //
 // Params
-//  - e2eID - e2e object ID in the tracker
-//  - follower - network follower func wrapped in UdNetworkStatus
-//  - username - the username the user wants to register with UD. If the user is
-//    already registered, this field may be blank
-//  - registrationValidationSignature - a signature provided by the network
-//    (i.e., the client registrar). This may be nil; however, UD may return an
-//    error in some cases (e.g., in a production level environment).
-//  - cert - the TLS certificate for the UD server this call will connect with.
-//    You may use the UD server run by the xx network team by using
-//    E2e.GetUdCertFromNdf.
-//  - contactFile - the data within a marshalled contact.Contact. This
-//    represents the contact file of the server this call will connect with. You
-//    may use the UD server run by the xx network team by using
-//    E2e.GetUdContactFromNdf.
-//  - address - the IP address of the UD server this call will connect with. You
-//    may use the UD server run by the xx network team by using
-//    E2e.GetUdAddressFromNdf.
+//  - e2eID -  REQUIRED. The tracked e2e object ID. This is returned by [E2e.GetID].
+//  - follower - REQUIRED. Network follower function. This will check if the network
+//    follower is running.
+//  - username - SEMI-REQUIRED. The username the user wants to register with UD.
+//    If the user is already registered, this field may be blank. If the user is not
+//    already registered, these field must be populated with a username that meets the
+//    requirements of the UD service. For example, in the xx network's UD service,
+//    the username must not be registered by another user.
+//  - registrationValidationSignature - SEMI-REQUIRED. A signature provided by the xx network
+//    (i.e. the client registrar). If the user is not already registered, this field is required
+//    in order to register with the xx network. This may be nil if the user is already registered
+//    or connecting to a third-party UD service unassociated with the xx network.
+//  - cert - REQUIRED. The TLS certificate for the UD server this call will connect with.
+//    If this is nil, you may not contact the UD server hosted by the xx network.
+//    Third-party services may vary.
+//    You may use the UD server run by the xx network team by using [E2e.GetUdCertFromNdf].
+//  - contactFile - REQUIRED. The data within a marshalled [contact.Contact]. This represents the
+//    contact file of the server this call will connect with.
+//    If this is nil, you may not contact the UD server hosted by the xx network.
+//    Third-party services may vary.
+//    You may use the UD server run by the xx network team by using [E2e.GetUdContactFromNdf].
+//  - address - REQUIRED. The IP address of the UD server this call will connect with.
+//    You may use the UD server run by the xx network team by using [E2e.GetUdAddressFromNdf].
+//    If this is nil, you may not contact the UD server hosted by the xx network.
+//    Third-party services may vary.
 //
 // Returns
 //  - A Manager object which is registered to the specified UD service.

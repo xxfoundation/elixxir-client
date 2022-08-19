@@ -19,7 +19,7 @@ func (m *Manager) register(username string, networkSignature []byte,
 
 	// Retrieve data used for registration
 	identity := m.user.GetReceptionIdentity()
-	privKey, err := identity.GetRSAPrivatePem()
+	privKey, err := identity.GetRSAPrivateKey()
 	if err != nil {
 		return err
 	}

@@ -426,6 +426,8 @@ gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f h1:yXGvNBqzZwA
 gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f/go.mod h1:H6jztdm0k+wEV2QGK/KYA+MY9nj9Zzatux/qIvDDv3k=
 gitlab.com/elixxir/comms v0.0.4-0.20220603231314-e47e4af13326 h1:Zid8oNHtbOqF6ebrcGIccvIMabFNGh9dzY1b7mgIcF0=
 gitlab.com/elixxir/comms v0.0.4-0.20220603231314-e47e4af13326/go.mod h1:tlHSrtSliKWUxsck8z/Ql/VJkMdSONV2BeWaUAAXzgk=
+gitlab.com/elixxir/comms v0.0.4-0.20220819220424-f2328c8b26b1 h1:KZ8wKOenvQaYNKo+4jdVhy3YJ7Xa3obiPxGziGJWUb4=
+gitlab.com/elixxir/comms v0.0.4-0.20220819220424-f2328c8b26b1/go.mod h1:j6so9oYAj2YRjOOu11gFBldtxy4ez/oPkYfqM2J1q1k=
 gitlab.com/elixxir/crypto v0.0.0-20200804182833-984246dea2c4/go.mod h1:ucm9SFKJo+K0N2GwRRpaNr+tKXMIOVWzmyUD0SbOu2c=
 gitlab.com/elixxir/crypto v0.0.3/go.mod h1:ZNgBOblhYToR4m8tj4cMvJ9UsJAUKq+p0gCp07WQmhA=
 gitlab.com/elixxir/crypto v0.0.7-0.20220317172048-3de167bd9406/go.mod h1:tD6XjtQh87T2nKZL5I/pYPck5M2wLpkZ1Oz7H/LqO10=
@@ -441,6 +443,8 @@ gitlab.com/elixxir/primitives v0.0.3-0.20220222212109-d412a6e46623/go.mod h1:MtF
 gitlab.com/elixxir/primitives v0.0.3-0.20220323183834-b98f255361b8/go.mod h1:MtFIyJUQn9P7djzVlBpEYkPNnnWFTjZvw89swoXY+QM=
 gitlab.com/elixxir/primitives v0.0.3-0.20220606195757-40f7a589347f h1:CTf2+ewHWYrzp5Ar3RwNvHePfTHyFniJTVjFW4zqoaE=
 gitlab.com/elixxir/primitives v0.0.3-0.20220606195757-40f7a589347f/go.mod h1:9Bb2+u+CDSwsEU5Droo6saDAXuBDvLRjexpBhPAYxhA=
+gitlab.com/elixxir/primitives v0.0.3-0.20220810173935-592f34a88326 h1:NrgEawIlebJXvIJXvw0wJOGMfOogb1HlcqbpucYteJY=
+gitlab.com/elixxir/primitives v0.0.3-0.20220810173935-592f34a88326/go.mod h1:9Bb2+u+CDSwsEU5Droo6saDAXuBDvLRjexpBhPAYxhA=
 gitlab.com/xx_network/comms v0.0.0-20200805174823-841427dd5023/go.mod h1:owEcxTRl7gsoM8c3RQ5KAm5GstxrJp5tn+6JfQ4z5Hw=
 gitlab.com/xx_network/comms v0.0.4-0.20220315161313-76acb14429ac/go.mod h1:isHnwem0v4rTcwwHP455FhVlFyPcHkHiVz+N3s/uCSI=
 gitlab.com/xx_network/comms v0.0.4-0.20220630163702-f3d372ef6acd h1:qYR2V/8KliGyJ2clWpVYhpgwpnfS1MXGpAbrFoOkSWk=

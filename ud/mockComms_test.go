@@ -11,6 +11,11 @@ type mockComms struct {
 	udHost *connect.Host
 }
 
+func (m mockComms) SendUsernameValidation(host *connect.Host, message *pb.UsernameValidationRequest) (*pb.UsernameValidation, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m mockComms) SendRegisterUser(host *connect.Host, message *pb.UDBUserRegistration) (*messages.Ack, error) {
 	return nil, nil
 }

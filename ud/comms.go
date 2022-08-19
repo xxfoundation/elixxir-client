@@ -37,6 +37,11 @@ type Comms interface {
 	// object. This will be used to send to the UD service on the above
 	// gRPC send functions.
 	GetHost(hostId *id.ID) (*connect.Host, bool)
+	// SendUsernameValidation is a client to User Discovery send function. This will send a
+	// mixmessages.UsernameValidationRequest to UD, which UD will validate and send back a
+	// mixmessages.UsernameValidation.
+	SendUsernameValidation(host *connect.Host,
+		message *pb.UsernameValidationRequest) (*pb.UsernameValidation, error)
 }
 
 // removeFactComms is a sub-interface of the Comms interface for the

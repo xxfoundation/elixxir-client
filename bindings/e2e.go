@@ -161,7 +161,6 @@ func (e *E2e) GetUdContactFromNdf() ([]byte, error) {
 	udDhPubKey := e2eGroup.NewInt(1)
 	err = udDhPubKey.UnmarshalJSON(udDhPubKeyData)
 	if err != nil {
-		jww.WARN.Printf("GetUdContactFromNdf debug fails on udDhPubKey.UnmarshalJSON")
 		return nil, err
 	}
 

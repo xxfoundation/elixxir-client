@@ -62,14 +62,14 @@ func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload,
 	}
 	sr := SingleUseSendReport{
 		EphID:       eid.EphId.Int64(),
-		ReceptionID: eid.Source.Marshal(),
+		ReceptionID: eid.Source,
 		RoundsList:  makeRoundsList(rids...),
 	}
 	return json.Marshal(sr)
 }
 
-// Listen starts a single-use listener on a given tag using the passed in e2e object
-// and SingleUseCallback func.
+// Listen starts a single-use listener on a given tag using the passed in E2e
+// object and SingleUseCallback func.
 //
 // Parameters:
 //  - e2eID - ID of the e2e object in the tracker
@@ -85,11 +85,11 @@ func Listen(e2eID int, tag string, cb SingleUseCallback) (Stopper, error) {
 	}
 
 	suListener := singleUseListener{scb: cb}
-	dhpk, err := e2eCl.api.GetReceptionIdentity().GetDHKeyPrivate()
+	dhPk, err := e2eCl.api.GetReceptionIdentity().GetDHKeyPrivate()
 	if err != nil {
 		return nil, err
 	}
-	l := single.Listen(tag, e2eCl.api.GetReceptionIdentity().ID, dhpk,
+	l := single.Listen(tag, e2eCl.api.GetReceptionIdentity().ID, dhPk,
 		e2eCl.api.GetCmix(), e2eCl.api.GetStorage().GetE2EGroup(), suListener)
 	return &stopper{l: l}, nil
 }
@@ -102,12 +102,12 @@ func Listen(e2eID int, tag string, cb SingleUseCallback) (Stopper, error) {
 // JSON example:
 //  {
 //   "Rounds":[1,5,9],
-//   "EphID":{"EphId":[0,0,0,0,0,0,3,89],
-//   "Source":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}
+//   "EphID":1655533,
+//   "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}
 //  }
 type SingleUseSendReport struct {
 	RoundsList
-	ReceptionID []byte
+	ReceptionID *id.ID
 	EphID       int64
 }
 
@@ -119,14 +119,14 @@ type SingleUseSendReport struct {
 //  {
 //   "Rounds":[1,5,9],
 //   "Payload":"rSuPD35ELWwm5KTR9ViKIz/r1YGRgXIl5792SF8o8piZzN6sT4Liq4rUU/nfOPvQEjbfWNh/NYxdJ72VctDnWw==",
-//   "ReceptionID":{"EphId":[0,0,0,0,0,0,3,89],
-//   "Source":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"},
-//   "Err":null
+//   "EphID":1655533,
+//   "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"},
+//   "Err":"",
 //  }
 type SingleUseResponseReport struct {
 	RoundsList
 	Payload     []byte
-	ReceptionID []byte
+	ReceptionID *id.ID
 	EphID       int64
 	Err         error
 }
@@ -139,22 +139,23 @@ type SingleUseResponseReport struct {
 //   "Rounds":[1,5,9],
 //   "Payload":"rSuPD35ELWwm5KTR9ViKIz/r1YGRgXIl5792SF8o8piZzN6sT4Liq4rUU/nfOPvQEjbfWNh/NYxdJ72VctDnWw==",
 //   "Partner":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//   "EphID":{"EphId":[0,0,0,0,0,0,3,89],
-//   "Source":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}
+//   "EphID":1655533,
+//   "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}
 //  }
 type SingleUseCallbackReport struct {
 	RoundsList
 	Payload     []byte
 	Partner     *id.ID
 	EphID       int64
-	ReceptionID []byte
+	ReceptionID *id.ID
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Function Types                                                             //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Stopper is a public interface returned by Listen, allowing users to stop the registered listener.
+// Stopper is a public interface returned by Listen, allowing users to stop the
+// registered listener.
 type Stopper interface {
 	Stop()
 }
@@ -164,8 +165,8 @@ type Stopper interface {
 //
 // Parameters:
 //  - callbackReport - the JSON marshalled bytes of the SingleUseCallbackReport
-//    object, which can be passed into WaitForRoundResult to see if the send
-//    succeeded.
+//    object, which can be passed into Cmix.WaitForRoundResult to see if the
+//    send succeeded.
 type SingleUseCallback interface {
 	Callback(callbackReport []byte, err error)
 }
@@ -175,8 +176,8 @@ type SingleUseCallback interface {
 //
 // Parameters:
 //  - callbackReport - the JSON marshalled bytes of the SingleUseResponseReport
-//    object, which can be passed into WaitForRoundResult to see if the send
-//    succeeded.
+//    object, which can be passed into Cmix.WaitForRoundResult to see if the
+//    send succeeded.
 type SingleUseResponse interface {
 	Callback(responseReport []byte, err error)
 }
@@ -209,7 +210,7 @@ func (sl singleUseListener) Callback(
 		RoundsList:  makeRoundsList(rids...),
 		Partner:     req.GetPartner(),
 		EphID:       eid.EphId.Int64(),
-		ReceptionID: eid.Source.Marshal(),
+		ReceptionID: eid.Source,
 	}
 
 	sl.scb.Callback(json.Marshal(scr))
@@ -245,7 +246,7 @@ func (sr singleUseResponse) Callback(payload []byte,
 	}
 	sendReport := SingleUseResponseReport{
 		RoundsList:  makeRoundsList(rids...),
-		ReceptionID: receptionID.Source.Marshal(),
+		ReceptionID: receptionID.Source,
 		EphID:       receptionID.EphId.Int64(),
 		Payload:     payload,
 		Err:         err,

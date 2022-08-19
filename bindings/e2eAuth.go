@@ -35,12 +35,12 @@ import (
 //
 // Parameters:
 //  - partnerContact - the marshalled bytes of the contact.Contact object.
-//  - myFacts - stringified list of fact.FactList.
+//  - factsListJson - the JSON marshalled bytes of [fact.FactList].
 //
 // Returns:
 //  - int64 - ID of the round (convert to uint64)
 func (e *E2e) Request(partnerContact, factsListJson []byte) (int64, error) {
-	var factsList []Fact
+	var factsList fact.FactList
 	err := json.Unmarshal(factsListJson, &factsList)
 	if err != nil {
 		return 0, err
@@ -51,15 +51,7 @@ func (e *E2e) Request(partnerContact, factsListJson []byte) (int64, error) {
 		return 0, err
 	}
 
-	myFacts := fact.FactList{}
-	for _, f := range factsList {
-		myFacts = append(myFacts, fact.Fact{
-			Fact: f.Fact,
-			T:    fact.FactType(f.Type),
-		})
-	}
-
-	roundID, err := e.api.GetAuth().Request(partner, myFacts)
+	roundID, err := e.api.GetAuth().Request(partner, factsList)
 
 	return int64(roundID), err
 }
@@ -179,8 +171,7 @@ func (e *E2e) DeleteSentRequests() error {
 	return e.api.GetAuth().DeleteSentRequests()
 }
 
-// DeleteReceiveRequests clears all received requests from auth
-// storage.
+// DeleteReceiveRequests clears all received requests from auth storage.
 func (e *E2e) DeleteReceiveRequests() error {
 	return e.api.GetAuth().DeleteReceiveRequests()
 }

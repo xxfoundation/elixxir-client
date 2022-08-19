@@ -19,18 +19,21 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
-// Channel is a bindings-level struct encapsulating the broadcast.Channel client object.
+// Channel is a bindings-level struct encapsulating the broadcast.Channel client
+// object.
 type Channel struct {
 	ch broadcast.Channel
 }
 
-// ChannelDef is the bindings representation of an elixxir/crypto broadcast.Channel object.
+// ChannelDef is the bindings representation of an elixxir/crypto
+// broadcast.Channel object.
 //
 // Example JSON:
-//  {"Name": "My broadcast channel",
-//   "Description":"A broadcast channel for me to test things",
-//   "Salt":"gpUqW7N22sffMXsvPLE7BA==",
-//   "PubKey":"LS0tLS1CRUdJTiBSU0EgUFVCTElDIEtFWS0tLS0tCk1DZ0NJUUN2YkZVckJKRFpqT3Y0Y0MvUHZZdXNvQkFtUTFkb3Znb044aHRuUjA2T3F3SURBUUFCCi0tLS0tRU5EIFJTQSBQVUJMSUMgS0VZLS0tLS0="
+//  {
+//    "Name": "My broadcast channel",
+//    "Description": "A broadcast channel for me to test things",
+//    "Salt": "gpUqW7N22sffMXsvPLE7BA==",
+//    "PubKey": "LS0tLS1CRUdJTiBSU0EgUFVCTElDIEtFWS0tLS0tCk1DZ0NJUUN2YkZVckJKRFpqT3Y0Y0MvUHZZdXNvQkFtUTFkb3Znb044aHRuUjA2T3F3SURBUUFCCi0tLS0tRU5EIFJTQSBQVUJMSUMgS0VZLS0tLS0="
 //  }
 type ChannelDef struct {
 	Name        string
@@ -51,7 +54,8 @@ type BroadcastMessage struct {
 	Payload []byte
 }
 
-// BroadcastReport is the bindings representation of the info on how a broadcast message was sent
+// BroadcastReport is the bindings representation of the info on how a broadcast
+// message was sent
 //
 // Example JSON:
 //  {"RoundID":42,
@@ -72,7 +76,8 @@ type BroadcastListener interface {
 	Callback([]byte, error)
 }
 
-// NewBroadcastChannel creates a bindings-layer broadcast channel & starts listening for new messages
+// NewBroadcastChannel creates a bindings-layer broadcast channel and starts
+// listening for new messages.
 //
 // Parameters:
 //  - cmixId - internal ID of cmix
@@ -112,8 +117,8 @@ func NewBroadcastChannel(cmixId int, channelDefinition []byte) (*Channel, error)
 	return &Channel{ch: ch}, nil
 }
 
-// Listen registers a BroadcastListener for a given method.
-// This allows users to handle incoming broadcast messages.
+// Listen registers a BroadcastListener for a given method. This allows users to
+// handle incoming broadcast messages.
 //
 // Parameters:
 //  - l - BroadcastListener object
@@ -139,7 +144,8 @@ func (c *Channel) Listen(l BroadcastListener, method int) error {
 //
 // Returns:
 //  - []byte - the JSON marshalled bytes of the BroadcastReport object, which
-//    can be passed into WaitForRoundResult to see if the broadcast succeeded.
+//    can be passed into Cmix.WaitForRoundResult to see if the broadcast
+//    succeeded.
 func (c *Channel) Broadcast(payload []byte) ([]byte, error) {
 	rid, eid, err := c.ch.Broadcast(payload, cmix.GetDefaultCMIXParams())
 	if err != nil {
@@ -172,17 +178,20 @@ func (c *Channel) BroadcastAsymmetric(payload, pk []byte) ([]byte, error) {
 	})
 }
 
-// MaxPayloadSize returns the maximum possible payload size which can be broadcast.
+// MaxPayloadSize returns the maximum possible payload size which can be
+// broadcast.
 func (c *Channel) MaxPayloadSize() int {
 	return c.ch.MaxPayloadSize()
 }
 
-// MaxAsymmetricPayloadSize returns the maximum possible payload size which can be broadcast.
+// MaxAsymmetricPayloadSize returns the maximum possible payload size which can
+// be broadcast.
 func (c *Channel) MaxAsymmetricPayloadSize() int {
 	return c.ch.MaxAsymmetricPayloadSize()
 }
 
-// Get returns the result of calling json.Marshal on a ChannelDef based on the underlying crypto broadcast.Channel.
+// Get returns the result of calling json.Marshal on a ChannelDef based on the
+// underlying crypto broadcast.Channel.
 func (c *Channel) Get() ([]byte, error) {
 	def := c.ch.Get()
 	return json.Marshal(&ChannelDef{

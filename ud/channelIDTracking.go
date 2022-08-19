@@ -24,6 +24,7 @@ const (
 	graceDuration           time.Duration = time.Hour
 )
 
+var startChannelNameServiceOnce sync.Once
 var ErrChannelLeaseSignature = errors.New("failure to validate lease signature")
 
 // NameService is an interface which encapsulates
@@ -285,4 +286,13 @@ func (c *clientIDTracker) requestChannelLease() (int64, []byte, error) {
 	}
 
 	return resp.Lease, resp.UDLeaseEd25519Signature, err
+}
+
+func (m *Manager) StartChannelNameService() NameService {
+	udPubKeyBytes := m.user.GetCMix().GetInstance().GetPartialNdf().Get().UDB.ChannelSigningPubKeyEd25519
+	var service NameService
+	startChannelNameServiceOnce.Do(func() {
+		service = newclientIDTracker(m.comms, m.ud.host, m.ud.GetUsername(), kv, receptionIdentity, udPubKey, rngSource)
+	})
+	return service
 }

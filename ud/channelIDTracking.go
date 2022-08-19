@@ -9,6 +9,7 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/comms/mixmessages"
@@ -44,10 +45,7 @@ type NameService interface {
 	SignChannelMessage(message []byte) (signature []byte, err error)
 
 	// ValidateChannelMessage
-	ValidateChannelMessage(message []byte, username string, lease time.Time, pubKey ed25519.PublicKey, authorIDSignature, messageSignature []byte) bool
-
-	// Stop stops the NameService.
-	Stop()
+	ValidateChannelMessage(username string, lease time.Time, pubKey ed25519.PublicKey, authorIDSignature ed25519.PublicKey) bool
 }
 
 func loadRegistrationDisk(kv *versioned.KV) (registrationDisk, error) {
@@ -130,10 +128,6 @@ func (r registrationDisk) GetPublicKey() ed25519.PublicKey {
 }
 
 type clientIDTracker struct {
-	wg        sync.WaitGroup
-	haltCh    chan interface{}
-	closeOnce sync.Once
-
 	kv *versioned.KV
 
 	username string
@@ -177,7 +171,6 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 	}
 
 	return &clientIDTracker{
-		haltCh:            make(chan interface{}),
 		registrationDisk:  &reg,
 		receptionIdentity: &receptionIdentity,
 		username:          username,
@@ -185,27 +178,16 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 		host:              host,
 		udPubKey:          udPubKey,
 	}
-
 }
 
 // Start starts the registration worker.
-func (c *clientIDTracker) Start() {
-	c.wg.Add(1)
-	go func() {
-		defer c.wg.Done()
-		c.registrationWorker()
-	}()
+func (c *clientIDTracker) Start() (stoppable.Stoppable, error) {
+	stopper := stoppable.NewSingle("ud.ClientIDTracker")
+	go c.registrationWorker(stopper)
+	return stopper, nil
 }
 
-// Stop stops the registration worker.
-func (c *clientIDTracker) Stop() {
-	c.closeOnce.Do(func() {
-		close(c.haltCh)
-	})
-	c.wg.Wait()
-}
-
-func (c *clientIDTracker) registrationWorker() {
+func (c *clientIDTracker) registrationWorker(stopper *stoppable.Single) {
 
 	for {
 		if time.Now().After(c.registrationDisk.GetLease().Add(-graceDuration)) {
@@ -213,14 +195,14 @@ func (c *clientIDTracker) registrationWorker() {
 		}
 
 		select {
-		case <-c.haltCh:
+		case <-stopper.Quit():
 			return
 		case <-time.After(c.registrationDisk.GetLease().Add(-graceDuration).Sub(time.Now())):
 		}
 
 		// Avoid spamming the server in the event that it's service is down.
 		select {
-		case <-c.haltCh:
+		case <-stopper.Quit():
 			return
 		case <-time.After(time.Second):
 		}
@@ -251,7 +233,7 @@ func (c *clientIDTracker) SignChannelMessage(message []byte) ([]byte, error) {
 }
 
 // ValidateoChannelMessage
-func (c *clientIDTracker) ValidateChannelMessage(message []byte, username string, lease time.Time, pubKey ed25519.PublicKey, authorIDSignature, messageSignature []byte) bool {
+func (c *clientIDTracker) ValidateChannelMessage(username string, lease time.Time, pubKey ed25519.PublicKey, authorIDSignature ed25519.PublicKey) bool {
 	// XXX FIXME
 
 	return false

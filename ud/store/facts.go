@@ -84,11 +84,11 @@ func (s *Store) ConfirmFact(confirmationId string) error {
 // If you attempt to back up a fact type that has already been backed up,
 // an error will be returned and nothing will be backed up.
 // Otherwise, it adds the fact and returns whether the Store saved successfully.
-func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
+func (s *Store) BackUpMissingFacts(username, email, phone fact.Fact) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	modifiedEmail, modifiedPhone := false, false
+	modifiedUsername, modifiedEmail, modifiedPhone := false, false, false
 
 	// Handle email if it is not zero (empty string)
 	if !isFactZero(email) {
@@ -106,6 +106,7 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 		}
 	}
 
+	// Handle phone if it is not an empty string
 	if !isFactZero(phone) {
 		// check if fact is expected type
 		if phone.T != fact.Phone {
@@ -121,6 +122,17 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 		}
 	}
 
+	if !isFactZero(username) {
+		// Check if fact type is already in map. You should not be able to
+		// overwrite your username.
+		if isFactTypeInMap(fact.Username, s.confirmedFacts) {
+			// If a username exists in memory, return an error
+			return errors.Errorf(factTypeExistsErr, username, fact.Username)
+		} else {
+			modifiedUsername = true
+		}
+	}
+
 	if modifiedPhone || modifiedEmail {
 		if modifiedEmail {
 			s.confirmedFacts[email] = struct{}{}
@@ -128,6 +140,10 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 
 		if modifiedPhone {
 			s.confirmedFacts[phone] = struct{}{}
+		}
+
+		if modifiedUsername {
+			s.confirmedFacts[username] = struct{}{}
 		}
 
 		return s.saveConfirmedFacts()

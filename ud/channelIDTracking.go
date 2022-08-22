@@ -260,9 +260,8 @@ func (c *clientIDTracker) register() error {
 }
 
 func (c *clientIDTracker) requestChannelLease() (int64, []byte, error) {
-
 	ts := time.Now().UnixNano()
-	privKey, err := c.receptionIdentity.GetRSAPrivatePem()
+	privKey, err := c.receptionIdentity.GetRSAPrivateKey()
 	if err != nil {
 		return 0, nil, err
 	}
@@ -298,11 +297,15 @@ func (c *clientIDTracker) requestChannelLease() (int64, []byte, error) {
 func (m *Manager) StartChannelNameService() NameService {
 	udPubKeyBytes := m.user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.DhPubKey
 	var service NameService
+	username, err := m.store.GetUsername()
+	if err != nil {
+		jww.FATAL.Panic(err)
+	}
 	startChannelNameServiceOnce.Do(func() {
 		service = newclientIDTracker(
 			m.comms,
 			m.ud.host,
-			m.user.GetUsername(),
+			username,
 			m.getKv(),
 			m.user.GetReceptionIdentity(),
 			ed25519.PublicKey(udPubKeyBytes),

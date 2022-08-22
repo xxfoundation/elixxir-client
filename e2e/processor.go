@@ -23,7 +23,7 @@ func (p *processor) Process(ecrMsg format.Message,
 	// ensure the key will be marked used before returning
 	defer p.cy.Use()
 
-	contents, err := p.cy.Decrypt(ecrMsg)
+	contents, residue, err := p.cy.Decrypt(ecrMsg)
 	if err != nil {
 		jww.ERROR.Printf("decrypt failed of %s (fp: %s), dropping: %+v",
 			ecrMsg.Digest(), p.cy.Fingerprint(), err)
@@ -32,7 +32,7 @@ func (p *processor) Process(ecrMsg format.Message,
 
 	sess := p.cy.GetSession()
 	message, done := p.m.partitioner.HandlePartition(sess.GetPartner(),
-		contents, sess.GetRelationshipFingerprint())
+		contents, sess.GetRelationshipFingerprint(), residue)
 	if done {
 		message.RecipientID = receptionID.Source
 		message.EphemeralID = receptionID.EphId

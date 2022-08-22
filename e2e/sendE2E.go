@@ -35,7 +35,7 @@ func (m *manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
 		params.Critical = false
 	}
 
-	rounds, msgID, t, err := m.sendE2E(mt, recipient, payload, params)
+	rounds, msgID, t, residue, err := m.sendE2E(mt, recipient, payload, params)
 
 	if handleCritical {
 		m.crit.handle(mt, recipient, payload, rounds, err)
@@ -46,7 +46,7 @@ func (m *manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
 
 // sendE2eFn contains a prepared sendE2E operation and sends an E2E message when
 // called, returning the results of the send.
-type sendE2eFn func() ([]id.Round, e2e.MessageID, time.Time, error)
+type sendE2eFn func() ([]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error)
 
 // prepareSendE2E makes a prepared function that does the e2e send.
 // This is so that when doing deletePartner we can prepare the send before
@@ -63,7 +63,8 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 	partitions, internalMsgId, err := m.partitioner.Partition(recipient,
 		mt, ts, payload)
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed to send unsafe message")
+		return nil,
+			errors.WithMessage(err, "failed to send unsafe message")
 	}
 
 	jww.INFO.Printf("E2E sending %d messages to %s", len(partitions), recipient)
@@ -85,7 +86,7 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 		partner.SendRelationshipFingerprint(), internalMsgId)
 
 	wg := sync.WaitGroup{}
-
+	var keyResidue e2e.KeyResidue
 	for i, p := range partitions {
 		if mt != catalog.KeyExchangeTrigger {
 			// Check if any rekeys need to happen and trigger them
@@ -118,7 +119,11 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 
 		// This does not encrypt for cMix but instead end-to-end encrypts the
 		// cMix message
-		contentsEnc, mac := key.Encrypt(p)
+		contentsEnc, mac, residue := key.Encrypt(p)
+		// Carry the first key residue to the top level
+		if i == 0 {
+			keyResidue = residue
+		}
 
 		jww.INFO.Printf(
 			"E2E sending %d/%d to %s with key fp: %s, msgID: %s (msgDigest %s)",
@@ -150,7 +155,7 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 		sendFuncs = append(sendFuncs, thisSendFunc)
 	}
 
-	sendE2E = func() ([]id.Round, e2e.MessageID, time.Time, error) {
+	sendE2E = func() ([]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error) {
 		for i := range sendFuncs {
 			sendFuncs[i]()
 		}
@@ -161,7 +166,7 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 		if numFail > 0 {
 			jww.INFO.Printf("Failed to E2E send %d/%d to %s",
 				numFail, len(partitions), recipient)
-			return nil, e2e.MessageID{}, time.Time{}, errors.Errorf(
+			return nil, e2e.MessageID{}, time.Time{}, keyResidue, errors.Errorf(
 				"Failed to E2E send %v/%v sub payloads: %s",
 				numFail, len(partitions), errRtn)
 		} else {
@@ -172,16 +177,16 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 		jww.INFO.Printf("Successful E2E Send of %d messages to %s with msgID %s",
 			len(partitions), recipient, msgID)
 
-		return roundIds, msgID, ts, nil
+		return roundIds, msgID, ts, keyResidue, nil
 	}
 	return sendE2E, nil
 }
 
 func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, error) {
+	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error) {
 	sendFunc, err := m.prepareSendE2E(mt, recipient, payload, params)
 	if err != nil {
-		return nil, e2e.MessageID{}, time.Time{}, err
+		return nil, e2e.MessageID{}, time.Time{}, e2e.KeyResidue{}, err
 	}
 	return sendFunc()
 }

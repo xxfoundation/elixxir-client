@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"golang.org/x/crypto/blake2b"
@@ -51,12 +52,13 @@ func NewOrLoad(kv *versioned.KV) *Store {
 
 func (s *Store) AddFirst(partner *id.ID, mt catalog.MessageType,
 	messageID uint64, partNum, numParts uint8, senderTimestamp,
-	storageTimestamp time.Time, part []byte, relationshipFingerprint []byte) (
+	storageTimestamp time.Time, part []byte, relationshipFingerprint []byte,
+	residue e2e.KeyResidue) (
 	receive.Message, bool) {
 
 	mpm := s.load(partner, messageID)
-
 	mpm.AddFirst(mt, partNum, numParts, senderTimestamp, storageTimestamp, part)
+	mpm.KeyResidue = residue
 	msg, ok := mpm.IsComplete(relationshipFingerprint)
 
 	s.mux.Lock()

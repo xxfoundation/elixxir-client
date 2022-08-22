@@ -63,13 +63,15 @@ type Cypher interface {
 
 	// Encrypt uses the E2E key to encrypt the message to its intended
 	// recipient. It also properly populates the associated data, including the
-	// MAC, fingerprint, and encrypted timestamp.
-	Encrypt(contents []byte) (ecrContents, mac []byte)
+	// MAC, fingerprint, and encrypted timestamp. It generates a residue of the
+	// key used to encrypt the contents.
+	Encrypt(contents []byte) (ecrContents, mac []byte, residue e2eCrypto.KeyResidue)
 
 	// Decrypt uses the E2E key to decrypt the message. It returns an error in
 	// case of HMAC verification failure or in case of a decryption error
-	// (related to padding).
-	Decrypt(msg format.Message) ([]byte, error)
+	// (related to padding). It generates a residue of the
+	//	// key used to encrypt the contents.
+	Decrypt(msg format.Message) (decryptedPayload []byte, residue e2eCrypto.KeyResidue, err error)
 
 	// Use sets the key as used. It cannot be used again.
 	Use()
@@ -110,10 +112,12 @@ func (k *cypher) Fingerprint() format.Fingerprint {
 
 // Encrypt uses the E2E key to encrypt the message to its intended recipient. It
 // also properly populates the associated data, including the MAC, fingerprint,
-// and encrypted timestamp.
-func (k *cypher) Encrypt(contents []byte) (ecrContents, mac []byte) {
+// and encrypted timestamp. It generates a residue of the key used to encrypt the contents.
+func (k *cypher) Encrypt(contents []byte) (ecrContents, mac []byte, residue e2eCrypto.KeyResidue) {
 	fp := k.Fingerprint()
 	key := k.generateKey()
+
+	residue = e2eCrypto.MakeKeyResidue(key)
 
 	// encrypt the payload
 	ecrContents = e2eCrypto.Crypt(key, fp, contents)
@@ -122,25 +126,28 @@ func (k *cypher) Encrypt(contents []byte) (ecrContents, mac []byte) {
 	// Currently, the MAC doesn't include any of the associated data
 	mac = hash.CreateHMAC(ecrContents, key[:])
 
-	return ecrContents, mac
+	return ecrContents, mac, residue
 }
 
 // Decrypt uses the E2E key to decrypt the message. It returns an error in case
 // of HMAC verification failure or in case of a decryption error (related to
-// padding).
-func (k *cypher) Decrypt(msg format.Message) ([]byte, error) {
+// padding). It generates a residue of the key used to encrypt the contents
+func (k *cypher) Decrypt(msg format.Message) (decryptedPayload []byte, residue e2eCrypto.KeyResidue, err error) {
 	fp := k.Fingerprint()
 	key := k.generateKey()
 
 	// Verify the MAC is correct
 	if !hash.VerifyHMAC(msg.GetContents(), msg.GetMac(), key[:]) {
-		return nil, errors.New("HMAC verification failed for E2E message")
+		return nil, e2eCrypto.KeyResidue{}, errors.New("HMAC verification failed for E2E message")
 	}
 
 	// Decrypt the payload
-	decryptedPayload := e2eCrypto.Crypt(key, fp, msg.GetContents())
+	decryptedPayload = e2eCrypto.Crypt(key, fp, msg.GetContents())
 
-	return decryptedPayload, nil
+	// Construct residue
+	residue = e2eCrypto.MakeKeyResidue(key)
+
+	return decryptedPayload, residue, nil
 }
 
 // Use sets the key as used. It cannot be used again.

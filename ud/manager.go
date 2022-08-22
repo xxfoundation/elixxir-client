@@ -102,6 +102,13 @@ func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
 		return nil, err
 	}
 
+	usernameFact, err := fact.NewFact(fact.Username, username)
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.store.StoreUsername(usernameFact)
+
 	return m, nil
 }
 
@@ -127,7 +134,8 @@ func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
 // Returns
 //  - A Manager object which is registered to the specified UD service.
 func NewManagerFromBackup(user udE2e, comms Comms, follower udNetworkStatus,
-	email, phone fact.Fact, cert, contactFile []byte, address string) (*Manager, error) {
+	username, email, phone fact.Fact,
+	cert, contactFile []byte, address string) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
 	if follower() != xxdk.Running {
 		return nil, errors.New(
@@ -149,7 +157,7 @@ func NewManagerFromBackup(user udE2e, comms Comms, follower udNetworkStatus,
 	}
 
 	// Put any passed in missing facts into store
-	err = m.store.BackUpMissingFacts(email, phone)
+	err = m.store.BackUpMissingFacts(username, email, phone)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to restore UD store "+
 			"from backup")
@@ -180,7 +188,7 @@ func InitStoreFromBackup(kv *versioned.KV,
 	}
 
 	// Put any passed in missing facts into store
-	err = udStore.BackUpMissingFacts(email, phone)
+	err = udStore.BackUpMissingFacts(username, email, phone)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to restore UD store "+
 			"from backup")

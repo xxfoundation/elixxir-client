@@ -42,6 +42,22 @@ func (s *Store) RestoreFromBackUp(backupData fact.FactList) error {
 	return s.save()
 }
 
+// StoreUsername forces the storage of a username fact.Fact into the
+// Store's confirmedFacts map. The passed in fact.Fact must be of
+// type fact.Username or this will not store the username.
+func (s *Store) StoreUsername(f fact.Fact) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	if f.T != fact.Username {
+		return errors.Errorf("Fact (%s) is not of type username", f.Stringify())
+	}
+
+	s.confirmedFacts[f] = struct{}{}
+
+	return s.saveUnconfirmedFacts()
+}
+
 // StoreUnconfirmedFact stores a fact that has been added to UD but has not been
 // confirmed by the user. It is keyed on the confirmation ID given by UD.
 func (s *Store) StoreUnconfirmedFact(confirmationId string, f fact.Fact) error {
@@ -84,11 +100,11 @@ func (s *Store) ConfirmFact(confirmationId string) error {
 // If you attempt to back up a fact type that has already been backed up,
 // an error will be returned and nothing will be backed up.
 // Otherwise, it adds the fact and returns whether the Store saved successfully.
-func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
+func (s *Store) BackUpMissingFacts(username, email, phone fact.Fact) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	modifiedEmail, modifiedPhone := false, false
+	modifiedUsername, modifiedEmail, modifiedPhone := false, false, false
 
 	// Handle email if it is not zero (empty string)
 	if !isFactZero(email) {
@@ -106,6 +122,7 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 		}
 	}
 
+	// Handle phone if it is not an empty string
 	if !isFactZero(phone) {
 		// check if fact is expected type
 		if phone.T != fact.Phone {
@@ -121,6 +138,17 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 		}
 	}
 
+	if !isFactZero(username) {
+		// Check if fact type is already in map. You should not be able to
+		// overwrite your username.
+		if isFactTypeInMap(fact.Username, s.confirmedFacts) {
+			// If a username exists in memory, return an error
+			return errors.Errorf(factTypeExistsErr, username, fact.Username)
+		} else {
+			modifiedUsername = true
+		}
+	}
+
 	if modifiedPhone || modifiedEmail {
 		if modifiedEmail {
 			s.confirmedFacts[email] = struct{}{}
@@ -128,6 +156,10 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 
 		if modifiedPhone {
 			s.confirmedFacts[phone] = struct{}{}
+		}
+
+		if modifiedUsername {
+			s.confirmedFacts[username] = struct{}{}
 		}
 
 		return s.saveConfirmedFacts()

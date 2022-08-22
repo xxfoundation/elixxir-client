@@ -203,7 +203,12 @@ func TestStore_BackUpMissingFacts(t *testing.T) {
 		T:    fact.Phone,
 	}
 
-	err = expectedStore.BackUpMissingFacts(email, phone)
+	username := fact.Fact{
+		Fact: "admin",
+		T:    fact.Username,
+	}
+
+	err = expectedStore.BackUpMissingFacts(username, email, phone)
 	if err != nil {
 		t.Fatalf("BackUpMissingFacts() produced an error: %v", err)
 	}
@@ -238,18 +243,23 @@ func TestStore_BackUpMissingFacts_DuplicateFactType(t *testing.T) {
 		T:    fact.Phone,
 	}
 
-	err = expectedStore.BackUpMissingFacts(email, phone)
+	username := fact.Fact{
+		Fact: "admin",
+		T:    fact.Username,
+	}
+
+	err = expectedStore.BackUpMissingFacts(username, email, phone)
 	if err != nil {
 		t.Fatalf("BackUpMissingFacts() produced an error: %v", err)
 	}
 
-	err = expectedStore.BackUpMissingFacts(email, fact.Fact{})
+	err = expectedStore.BackUpMissingFacts(username, email, fact.Fact{})
 	if err == nil {
 		t.Fatalf("BackUpMissingFacts() should not allow backing up an "+
 			"email when an email has already been backed up: %v", err)
 	}
 
-	err = expectedStore.BackUpMissingFacts(fact.Fact{}, phone)
+	err = expectedStore.BackUpMissingFacts(username, fact.Fact{}, phone)
 	if err == nil {
 		t.Fatalf("BackUpMissingFacts() should not allow backing up a "+
 			"phone number when a phone number has already been backed up: %v", err)
@@ -272,7 +282,12 @@ func TestStore_GetFacts(t *testing.T) {
 
 	emptyFact := fact.Fact{}
 
-	err = testStore.BackUpMissingFacts(emailFact, emptyFact)
+	username := fact.Fact{
+		Fact: "admin",
+		T:    fact.Username,
+	}
+
+	err = testStore.BackUpMissingFacts(username, emailFact, emptyFact)
 	if err != nil {
 		t.Fatalf("Faild to add fact %v: %v", emailFact, err)
 	}
@@ -282,7 +297,7 @@ func TestStore_GetFacts(t *testing.T) {
 		T:    fact.Phone,
 	}
 
-	err = testStore.BackUpMissingFacts(emptyFact, phoneFact)
+	err = testStore.BackUpMissingFacts(username, emptyFact, phoneFact)
 	if err != nil {
 		t.Fatalf("Faild to add fact %v: %v", phoneFact, err)
 	}
@@ -318,10 +333,14 @@ func TestStore_GetFactStrings(t *testing.T) {
 		Fact: "josh@elixxir.io",
 		T:    fact.Email,
 	}
+	username := fact.Fact{
+		Fact: "admin",
+		T:    fact.Username,
+	}
 
 	emptyFact := fact.Fact{}
 
-	err = testStore.BackUpMissingFacts(emailFact, emptyFact)
+	err = testStore.BackUpMissingFacts(username, emailFact, emptyFact)
 	if err != nil {
 		t.Fatalf("Faild to add fact %v: %v", emailFact, err)
 	}
@@ -331,12 +350,12 @@ func TestStore_GetFactStrings(t *testing.T) {
 		T:    fact.Phone,
 	}
 
-	err = testStore.BackUpMissingFacts(emptyFact, phoneFact)
+	err = testStore.BackUpMissingFacts(emptyFact, emptyFact, phoneFact)
 	if err != nil {
 		t.Fatalf("Faild to add fact %v: %v", phoneFact, err)
 	}
 
-	expectedFacts := []string{emailFact.Stringify(), phoneFact.Stringify()}
+	expectedFacts := []string{username.Stringify(), emailFact.Stringify(), phoneFact.Stringify()}
 
 	receivedFacts := testStore.GetStringifiedFacts()
 	sort.SliceStable(receivedFacts, func(i, j int) bool {

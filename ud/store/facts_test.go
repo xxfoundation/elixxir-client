@@ -297,12 +297,12 @@ func TestStore_GetFacts(t *testing.T) {
 		T:    fact.Phone,
 	}
 
-	err = testStore.BackUpMissingFacts(username, emptyFact, phoneFact)
+	err = testStore.BackUpMissingFacts(emptyFact, emptyFact, phoneFact)
 	if err != nil {
 		t.Fatalf("Faild to add fact %v: %v", phoneFact, err)
 	}
 
-	expectedFacts := []fact.Fact{emailFact, phoneFact}
+	expectedFacts := []fact.Fact{username, emailFact, phoneFact}
 
 	receivedFacts := testStore.GetFacts()
 

@@ -97,7 +97,7 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 	addressSize := net.GetAddressSpace()
 	timeStart := netTime.Now()
 
-	jww.INFO.Printf("ud contact: %v", recipient.Marshal())
+	jww.INFO.Printf("[single use debug] ud contact: %v", recipient.Marshal())
 	// Generate DH key and public key
 	dhKey, publicKey, err := generateDhKeys(e2eGrp, recipient.DhPubKey, rng)
 	if err != nil {
@@ -316,7 +316,7 @@ func makeIDs(payload message.RequestPayload, publicKey *cyclic.Int,
 
 	}
 
-	jww.INFO.Printf("using ephemeral id %d. "+
+	jww.INFO.Printf("[single use debug] using ephemeral id %d. "+
 		"\nStart: %s"+
 		"\nEnd: %s", ephID.Int64(), start.String(), end.String())
 

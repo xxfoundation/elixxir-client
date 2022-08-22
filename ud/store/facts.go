@@ -58,6 +58,26 @@ func (s *Store) StoreUsername(f fact.Fact) error {
 	return s.saveUnconfirmedFacts()
 }
 
+// GetUsername retrieves the username from the Store object.
+// If it is not directly in the Store's username field, it is
+// searched for in the map.
+func (s *Store) GetUsername() (string, error) {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	// todo: refactor this in the future so that
+	//  it's an O(1) lookup (place this object in another map
+	//  or have it's own field)
+	for f := range s.confirmedFacts {
+		if f.T == fact.Username {
+			return f.Fact, nil
+		}
+	}
+
+	return "", errors.New("Could not find username in store")
+
+}
+
 // StoreUnconfirmedFact stores a fact that has been added to UD but has not been
 // confirmed by the user. It is keyed on the confirmation ID given by UD.
 func (s *Store) StoreUnconfirmedFact(confirmationId string, f fact.Fact) error {
@@ -104,7 +124,7 @@ func (s *Store) BackUpMissingFacts(username, email, phone fact.Fact) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	modifiedUsername, modifiedEmail, modifiedPhone := false, false, false
+	modified := false
 
 	// Handle email if it is not zero (empty string)
 	if !isFactZero(email) {
@@ -118,7 +138,8 @@ func (s *Store) BackUpMissingFacts(username, email, phone fact.Fact) error {
 			// If an email exists in memory, return an error
 			return errors.Errorf(factTypeExistsErr, email, fact.Email)
 		} else {
-			modifiedEmail = true
+			s.confirmedFacts[email] = struct{}{}
+			modified = true
 		}
 	}
 
@@ -134,7 +155,8 @@ func (s *Store) BackUpMissingFacts(username, email, phone fact.Fact) error {
 			// If a phone exists in memory, return an error
 			return errors.Errorf(factTypeExistsErr, phone, fact.Phone)
 		} else {
-			modifiedPhone = true
+			s.confirmedFacts[phone] = struct{}{}
+			modified = true
 		}
 	}
 
@@ -145,23 +167,12 @@ func (s *Store) BackUpMissingFacts(username, email, phone fact.Fact) error {
 			// If a username exists in memory, return an error
 			return errors.Errorf(factTypeExistsErr, username, fact.Username)
 		} else {
-			modifiedUsername = true
+			s.confirmedFacts[username] = struct{}{}
+			modified = true
 		}
 	}
 
-	if modifiedPhone || modifiedEmail {
-		if modifiedEmail {
-			s.confirmedFacts[email] = struct{}{}
-		}
-
-		if modifiedPhone {
-			s.confirmedFacts[phone] = struct{}{}
-		}
-
-		if modifiedUsername {
-			s.confirmedFacts[username] = struct{}{}
-		}
-
+	if modified {
 		return s.saveConfirmedFacts()
 	}
 

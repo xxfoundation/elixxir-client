@@ -46,7 +46,7 @@ type NameService interface {
 	SignChannelMessage(message []byte) (signature []byte, err error)
 
 	// ValidateChannelMessage
-	ValidateChannelMessage(username string, lease time.Time, pubKey ed25519.PublicKey, authorIDSignature ed25519.PublicKey) bool
+	ValidateChannelMessage(username string, lease time.Time, pubKey ed25519.PublicKey, authorIDSignature []byte) bool
 }
 
 func loadRegistrationDisk(kv *versioned.KV) (registrationDisk, error) {
@@ -126,6 +126,13 @@ func (r registrationDisk) GetPublicKey() ed25519.PublicKey {
 	defer r.rwmutex.RUnlock()
 
 	return r.PublicKey
+}
+
+func (r registrationDisk) GetPrivateKey() ed25519.PrivateKey {
+	r.rwmutex.RLock()
+	defer r.rwmutex.RUnlock()
+
+	return r.PrivateKey
 }
 
 func (r registrationDisk) GetLeaseSignature() ([]byte, time.Time) {
@@ -237,18 +244,16 @@ func (c *clientIDTracker) GetChannelPubkey() ed25519.PublicKey {
 // SignChannelMessage returns the signature of the
 // given message.
 func (c *clientIDTracker) SignChannelMessage(message []byte) ([]byte, error) {
-	return nil, nil // XXX FIXME
+	privateKey := c.registrationDisk.GetPrivateKey()
+	return ed25519.Sign(privateKey, message), nil
 }
 
 // ValidateoChannelMessage
-func (c *clientIDTracker) ValidateChannelMessage(username string, lease time.Time, pubKey ed25519.PublicKey, authorIDSignature ed25519.PublicKey) bool {
-	// XXX FIXME
-
-	return false
+func (c *clientIDTracker) ValidateChannelMessage(username string, lease time.Time, pubKey ed25519.PublicKey, authorIDSignature []byte) bool {
+	return channel.VerifyChannelLease(authorIDSignature, pubKey, username, lease, c.udPubKey)
 }
 
 func (c *clientIDTracker) register() error {
-
 	lease, signature, err := c.requestChannelLease()
 	if err != nil {
 		return err

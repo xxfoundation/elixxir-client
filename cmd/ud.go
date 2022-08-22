@@ -11,7 +11,6 @@ package cmd
 import (
 	"fmt"
 	"gitlab.com/elixxir/client/xxdk"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 
@@ -267,7 +266,7 @@ func getUdContactInfo(user *xxdk.E2e) (cert, contactFile []byte, address string,
 
 	// Retrieve DH Pub Key
 	udDhPubKeyData := user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.DhPubKey
-	var udDhPubKey *cyclic.Int
+	udDhPubKey := user.GetE2E().GetGroup().NewInt(1)
 	err = udDhPubKey.UnmarshalJSON(udDhPubKeyData)
 	if err != nil {
 		return nil, nil, "", err

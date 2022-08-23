@@ -186,6 +186,8 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 	}
 
 	return &clientIDTracker{
+		kv:                kv,
+		rngSource:         rngSource,
 		registrationDisk:  &reg,
 		receptionIdentity: &receptionIdentity,
 		username:          username,
@@ -271,6 +273,7 @@ func (c *clientIDTracker) requestChannelLease() (int64, []byte, error) {
 	if err != nil {
 		return 0, nil, err
 	}
+
 	rng := c.rngSource.GetStream()
 	userPubKey := c.registrationDisk.GetPublicKey()
 	fSig, err := channel.SignChannelIdentityRequest(userPubKey, time.Unix(0, ts), privKey, rng)

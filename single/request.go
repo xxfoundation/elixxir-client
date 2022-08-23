@@ -318,7 +318,16 @@ func makeIDs(payload message.RequestPayload, publicKey *cyclic.Int,
 
 	jww.INFO.Printf("[single use debug] using ephemeral id %d. "+
 		"\nStart: %s"+
-		"\nEnd: %s", ephID.Int64(), start.String(), end.String())
+		"\nEnd: %s"+
+		"\ntimeNow: %d"+
+		"\nrid: %s"+
+		"\naddressSpace: %d",
+		ephID.Int64(),
+		start.UnixNano(),
+		end.UnixNano(),
+		timeNow.UnixNano(),
+		rid.String(),
+		addressSize)
 
 	jww.INFO.Printf("[SU] Generated singe-use sender reception ID: %s, "+
 		"ephId: %d, publicKey: %s, payload: %q",

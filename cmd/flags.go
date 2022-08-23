@@ -80,6 +80,7 @@ const (
 	// Misc
 	sendIdFlag       = "sendid"
 	profileCpuFlag   = "profile-cpu"
+	profileMemFlag   = "profile-mem"
 	userIdPrefixFlag = "userid-prefix"
 	setLegacyFlag    = "setLegacy"
 

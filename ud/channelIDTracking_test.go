@@ -20,7 +20,6 @@ import (
 )
 
 func TestChannelIDTracking(t *testing.T) {
-
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 
 	// AddHost
@@ -66,12 +65,30 @@ func TestChannelIDTracking(t *testing.T) {
 	//username, err := m.store.GetUsername()
 	//require.NoError(t, err)
 
-	udPubKeyBytes := m.user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.DhPubKey
+	udPubKeyBytes := m.user.GetCmix().GetInstance().
+		GetPartialNdf().Get().UDB.DhPubKey
 
-	myTestClientIDTracker := newclientIDTracker(comms, host, username, kv, m.user.GetReceptionIdentity(), ed25519.PublicKey(udPubKeyBytes), rngGen)
+	myTestClientIDTracker := newclientIDTracker(comms, host, username,
+		kv, m.user.GetReceptionIdentity(), ed25519.PublicKey(udPubKeyBytes), rngGen)
 
 	stopper, err := myTestClientIDTracker.Start()
 	require.NoError(t, err)
+
+	require.Equal(t, myTestClientIDTracker.GetUsername(), username)
+
+	signature, lease := myTestClientIDTracker.GetChannelValidationSignature()
+	t.Logf("signature %x lease %v", signature, lease)
+
+	chanPubKey := myTestClientIDTracker.GetChannelPubkey()
+	t.Logf("channel public key: %x", chanPubKey)
+
+	message := []byte("hello world")
+	signature2, err := myTestClientIDTracker.SignChannelMessage(message)
+	require.NoError(t, err)
+
+	t.Logf("signature2: %x", signature2)
+
+	//_ = myTestClientIDTracker.ValidateChannelMessage(username, lease, pubKey, authorIDSignature)
 
 	err = stopper.Close()
 	require.NoError(t, err)

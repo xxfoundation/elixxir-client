@@ -67,9 +67,9 @@ func TestManager_processIdentities(t *testing.T) {
 	addrSpace.UpdateAddressSpace(18)
 	session := storage.InitTestingSession(t)
 	m := &manager{
-		tracked:        make([]*trackedID, 0),
+		tracked:        make([]*TrackedID, 0),
 		session:        session,
-		newIdentity:    make(chan trackedID, trackedIDChanSize),
+		newIdentity:    make(chan TrackedID, trackedIDChanSize),
 		deleteIdentity: make(chan *id.ID, deleteIDChanSize),
 		addrSpace:      addrSpace,
 		ephemeral:      receptionID.NewOrLoadStore(session.GetKV()),
@@ -79,7 +79,7 @@ func TestManager_processIdentities(t *testing.T) {
 	// Add some expired test IDs
 	testId := id.NewIdFromUInt(0, id.User, t)
 	validUntil := netTime.Now().Add(time.Minute)
-	m.tracked = append(m.tracked, &trackedID{
+	m.tracked = append(m.tracked, &TrackedID{
 		NextGeneration: netTime.Now(),
 		LastGeneration: time.Time{},
 		Source:         testId,

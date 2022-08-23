@@ -1,6 +1,8 @@
 package cmix
 
 import (
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/health"
 	"gitlab.com/elixxir/client/stoppable"
@@ -10,7 +12,6 @@ import (
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"time"
 )
 
 const criticalRawMessagesKey = "RawCriticalMessages"
@@ -56,6 +57,12 @@ func newCritical(kv *versioned.KV, hm health.Monitor,
 	hm.AddHealthCallback(func(healthy bool) { c.trigger <- healthy })
 
 	return c
+}
+
+func (c *critical) startProcessies() *stoppable.Single {
+	stop := stoppable.NewSingle("criticalStopper")
+	go c.runCriticalMessages(stop)
+	return stop
 }
 
 func (c *critical) runCriticalMessages(stop *stoppable.Single) {

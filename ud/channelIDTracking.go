@@ -203,10 +203,12 @@ func (c *clientIDTracker) Start() (stoppable.Stoppable, error) {
 }
 
 func (c *clientIDTracker) registrationWorker(stopper *stoppable.Single) {
-
 	for {
 		if time.Now().After(c.registrationDisk.GetLease().Add(-graceDuration)) {
-			c.register()
+			err := c.register()
+			if err != nil {
+				jww.FATAL.Panic(err)
+			}
 		}
 
 		select {
@@ -221,7 +223,6 @@ func (c *clientIDTracker) registrationWorker(stopper *stoppable.Single) {
 			return
 		case <-time.After(time.Second):
 		}
-
 	}
 }
 

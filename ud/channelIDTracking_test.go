@@ -71,7 +71,10 @@ func TestChannelIDTracking(t *testing.T) {
 	myTestClientIDTracker := newclientIDTracker(comms, host, username,
 		kv, m.user.GetReceptionIdentity(), ed25519.PublicKey(udPubKeyBytes), rngGen)
 
-	stopper, err := myTestClientIDTracker.Start()
+	//stopper, err := myTestClientIDTracker.Start()
+	//require.NoError(t, err)
+
+	err = myTestClientIDTracker.register()
 	require.NoError(t, err)
 
 	require.Equal(t, myTestClientIDTracker.GetUsername(), username)
@@ -90,6 +93,6 @@ func TestChannelIDTracking(t *testing.T) {
 
 	//_ = myTestClientIDTracker.ValidateChannelMessage(username, lease, pubKey, authorIDSignature)
 
-	err = stopper.Close()
-	require.NoError(t, err)
+	//err = stopper.Close()
+	//require.NoError(t, err)
 }

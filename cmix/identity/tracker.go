@@ -371,11 +371,11 @@ func (t *manager) generateIdentitiesOverRange(inQuestion *trackedID,
 func (t *manager) save() {
 	t.mux.Lock()
 	defer t.mux.Unlock()
-	persistent := make([]*trackedID, 0, len(t.tracked))
+	persistent := make([]trackedID, 0, len(t.tracked))
 
 	for i := range t.tracked {
 		if t.tracked[i].Persistent {
-			persistent = append(persistent, t.tracked[i])
+			persistent = append(persistent, *t.tracked[i])
 		}
 	}
 

@@ -81,6 +81,7 @@ const (
 	sendIdFlag       = "sendid"
 	profileCpuFlag   = "profile-cpu"
 	userIdPrefixFlag = "userid-prefix"
+	setLegacyFlag    = "setLegacy"
 
 	///////////////// Broadcast subcommand flags //////////////////////////////
 	broadcastNameFlag        = "name"

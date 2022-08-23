@@ -45,9 +45,17 @@ var initCmd = &cobra.Command{
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		identity, err := xxdk.MakeReceptionIdentity(net)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
+		var identity xxdk.ReceptionIdentity
+		if viper.GetBool(setLegacyFlag) {
+			identity, err = xxdk.MakeLegacyReceptionIdentity(net)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+		} else {
+			identity, err = xxdk.MakeReceptionIdentity(net)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
 		}
 
 		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
@@ -67,6 +75,10 @@ func init() {
 	initCmd.Flags().StringP(userIdPrefixFlag, "", "",
 		"Desired prefix of userID to brute force when running init command. Prepend (?i) for case-insensitive. Only Base64 characters are valid.")
 	bindFlagHelper(userIdPrefixFlag, initCmd)
+
+	initCmd.Flags().BoolP(setLegacyFlag, "", false,
+		"Generates a legacy contact file if set. Otherwise generates a standard contact file.")
+	bindFlagHelper(setLegacyFlag, initCmd)
 
 	rootCmd.AddCommand(initCmd)
 }

@@ -80,7 +80,8 @@ func init() {
 	bindFlagHelper(userIdPrefixFlag, initCmd)
 
 	initCmd.Flags().BoolP(legacyFlag, "", false,
-		"Generates a legacy identity if set. Otherwise generates a standard contact file.")
+		"Generates a legacy identity if set. "+
+			"If this flag is absent, a standard identity will be generated.")
 	bindFlagHelper(legacyFlag, initCmd)
 
 	rootCmd.AddCommand(initCmd)

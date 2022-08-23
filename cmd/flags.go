@@ -82,7 +82,7 @@ const (
 	profileCpuFlag   = "profile-cpu"
 	profileMemFlag   = "profile-mem"
 	userIdPrefixFlag = "userid-prefix"
-	setLegacyFlag    = "setLegacy"
+	legacyFlag       = "legacy"
 
 	///////////////// Broadcast subcommand flags //////////////////////////////
 	broadcastNameFlag        = "name"

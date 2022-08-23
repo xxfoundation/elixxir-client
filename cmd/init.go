@@ -45,24 +45,27 @@ var initCmd = &cobra.Command{
 			jww.FATAL.Panicf("%+v", err)
 		}
 
+		// Generate identity
 		var identity xxdk.ReceptionIdentity
-		if viper.GetBool(setLegacyFlag) {
+		if viper.GetBool(legacyFlag) {
 			identity, err = xxdk.MakeLegacyReceptionIdentity(net)
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
 		} else {
 			identity, err = xxdk.MakeReceptionIdentity(net)
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
+
 		}
 
+		// Panic if conditional branch fails
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+
+		// Store identity
 		err = xxdk.StoreReceptionIdentity(identityStorageKey, identity, net)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
+		// Write contact to file
 		jww.INFO.Printf("User: %s", identity.ID)
 		writeContact(identity.GetContact())
 
@@ -76,9 +79,9 @@ func init() {
 		"Desired prefix of userID to brute force when running init command. Prepend (?i) for case-insensitive. Only Base64 characters are valid.")
 	bindFlagHelper(userIdPrefixFlag, initCmd)
 
-	initCmd.Flags().BoolP(setLegacyFlag, "", false,
-		"Generates a legacy contact file if set. Otherwise generates a standard contact file.")
-	bindFlagHelper(setLegacyFlag, initCmd)
+	initCmd.Flags().BoolP(legacyFlag, "", false,
+		"Generates a legacy identity if set. Otherwise generates a standard contact file.")
+	bindFlagHelper(legacyFlag, initCmd)
 
 	rootCmd.AddCommand(initCmd)
 }

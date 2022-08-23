@@ -24,6 +24,8 @@ type broadcastClient struct {
 	rng     *fastRNG.StreamGenerator
 }
 
+type NewBroadcastChannelFunc func(channel crypto.Channel, net Client, rng *fastRNG.StreamGenerator) (Channel, error)
+
 // NewBroadcastChannel creates a channel interface based on crypto.Channel, accepts net client connection & callback for received messages
 func NewBroadcastChannel(channel crypto.Channel, net Client, rng *fastRNG.StreamGenerator) (Channel, error) {
 	bc := &broadcastClient{

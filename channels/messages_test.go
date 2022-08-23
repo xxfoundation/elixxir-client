@@ -30,7 +30,7 @@ func TestUserMessageInternal_GetChannelMessage(t *testing.T) {
 		Username:            "hunter",
 	}
 
-	internal := NewUserMessageInternal(usrMsg)
+	internal, _ := NewUserMessageInternal(usrMsg)
 	received, err := internal.GetChannelMessage()
 	if err != nil {
 		t.Fatalf("GetChannelMessage error: %v", err)

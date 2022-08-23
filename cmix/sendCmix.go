@@ -58,8 +58,9 @@ func (c *client) Send(recipient *id.ID, fingerprint format.Fingerprint,
 	service message.Service, payload, mac []byte, cmixParams CMIXParams) (
 	id.Round, ephemeral.Id, error) {
 	// create an internal assembler function to pass to sendWithAssembler
-	assembler := func(rid id.Round) (format.Fingerprint, message.Service, []byte, []byte) {
-		return fingerprint, service, payload, mac
+	assembler := func(rid id.Round) (format.Fingerprint, message.Service,
+		[]byte, []byte, error) {
+		return fingerprint, service, payload, mac, nil
 	}
 	return c.sendWithAssembler(recipient, assembler, cmixParams)
 }
@@ -98,7 +99,11 @@ func (c *client) sendWithAssembler(recipient *id.ID, assembler MessageAssembler,
 
 	// Create an internal messageAssembler which returns a format.Message
 	assemblerFunc := func(rid id.Round) (format.Message, error) {
-		fingerprint, service, payload, mac := assembler(rid)
+		fingerprint, service, payload, mac, err := assembler(rid)
+
+		if err != nil {
+			return format.Message{}, err
+		}
 
 		if len(payload) != c.maxMsgLen {
 			return format.Message{}, errors.Errorf(

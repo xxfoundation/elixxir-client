@@ -80,6 +80,24 @@ type Client interface {
 	SendMany(messages []TargetedCmixMessage, p CMIXParams) (
 		id.Round, []ephemeral.Id, error)
 
+	// SendWithAssembler sends a variable cmix payload to the provided recipient.
+	// The payload sent is based on the Complier function passed in, which accepts
+	// a round ID and returns the necessary payload data.
+	// Returns the round ID of the round the payload was sent or an error if it
+	// fails.
+	// This does not have end-to-end encryption on it and is used exclusively as
+	// a send for higher order cryptographic protocols. Do not use unless
+	// implementing a protocol on top.
+	//   recipient - cMix ID of the recipient.
+	//   assembler - MessageAssembler function, accepting round ID and returning
+	//   fingerprint
+	//   format.Fingerprint, service message.Service, payload, mac []byte
+	// Will return an error if the network is unhealthy or if it fails to send
+	// (along with the reason). Blocks until successful sends or errors.
+	// WARNING: Do not roll your own crypto.
+	SendWithAssembler(recipient *id.ID, assembler MessageAssembler,
+		cmixParams CMIXParams) (id.Round, ephemeral.Id, error)
+
 	/* === Message Reception ================================================ */
 	/* Identities are all network identities which the client is currently
 	   trying to pick up message on. An identity must be added to receive
@@ -290,12 +308,15 @@ type Client interface {
 
 type ClientErrorReport func(source, message, trace string)
 
-// MessageAssembler func accepts a round ID, returning fingerprint, service, payload & mac.
-// This allows users to pass in a paylaod which will contain the round ID over which the message is sent.
-type MessageAssembler func(rid id.Round) (fingerprint format.Fingerprint, service message.Service, payload, mac []byte)
+// MessageAssembler func accepts a round ID, returning fingerprint, service,
+// payload & mac. This allows users to pass in a paylaod which will contain the
+// round ID over which the message is sent.
+type MessageAssembler func(rid id.Round) (fingerprint format.Fingerprint,
+	service message.Service, payload, mac []byte, err error)
 
-// messageAssembler is an internal wrapper around MessageAssembler which returns a format.message
-// This is necessary to preserve the interaction between sendCmixHelper and critical messages
+// messageAssembler is an internal wrapper around MessageAssembler which
+// returns a format.message This is necessary to preserve the interaction
+// between sendCmixHelper and critical messages
 type messageAssembler func(rid id.Round) (format.Message, error)
 
 type clientCommsInterface interface {

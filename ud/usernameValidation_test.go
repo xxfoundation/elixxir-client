@@ -16,6 +16,8 @@ import (
 	"testing"
 )
 
+// testUsernameValidation is a mock up of UD's response for a
+// SendUsernameValidation comm.
 type testUsernameValidation struct{}
 
 func (tuv *testUsernameValidation) SendUsernameValidation(host *connect.Host,
@@ -29,6 +31,7 @@ func (tuv *testUsernameValidation) SendUsernameValidation(host *connect.Host,
 	}, nil
 }
 
+// Unit test of getUsernameValidationSignature.
 func TestManager_GetUsernameValidationSignature(t *testing.T) {
 	// Create our Manager object
 	m, _ := newTestManager(t)

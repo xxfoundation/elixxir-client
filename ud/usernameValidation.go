@@ -69,6 +69,7 @@ func (m *Manager) getUsernameValidationSignature(
 		return nil, err
 	}
 
+	// Verify response is valid
 	err = crust.VerifyVerificationSignature(m.ud.host.GetPubKey(), username,
 		publicKeyPem, response.Signature)
 	if err != nil {

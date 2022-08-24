@@ -54,7 +54,7 @@ func (s *Store) AddFirst(partner *id.ID, mt catalog.MessageType,
 	messageID uint64, partNum, numParts uint8, senderTimestamp,
 	storageTimestamp time.Time, part []byte, relationshipFingerprint []byte,
 	residue e2e.KeyResidue) (
-	receive.Message, bool) {
+	receive.Message, e2e.KeyResidue, bool) {
 
 	mpm := s.load(partner, messageID)
 	mpm.AddFirst(mt, partNum, numParts, senderTimestamp, storageTimestamp, part)
@@ -64,34 +64,39 @@ func (s *Store) AddFirst(partner *id.ID, mt catalog.MessageType,
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
+	keyRes := e2e.KeyResidue{}
 	if !ok {
 		s.activeParts[mpm] = true
 		s.saveActiveParts()
 	} else {
+		keyRes = mpm.KeyResidue
 		mpID := getMultiPartID(mpm.Sender, mpm.MessageID)
 		delete(s.multiParts, mpID)
 	}
 
-	return msg, ok
+	return msg, keyRes, ok
 }
 
 func (s *Store) Add(partner *id.ID, messageID uint64, partNum uint8,
-	part []byte, relationshipFingerprint []byte) (receive.Message, bool) {
+	part []byte, relationshipFingerprint []byte) (
+	receive.Message, e2e.KeyResidue, bool) {
 
 	mpm := s.load(partner, messageID)
 
 	mpm.Add(partNum, part)
 
 	msg, ok := mpm.IsComplete(relationshipFingerprint)
+	keyRes := e2e.KeyResidue{}
 	if !ok {
 		s.activeParts[mpm] = true
 		s.saveActiveParts()
 	} else {
+		keyRes = mpm.KeyResidue
 		mpID := getMultiPartID(mpm.Sender, mpm.MessageID)
 		delete(s.multiParts, mpID)
 	}
 
-	return msg, ok
+	return msg, keyRes, ok
 }
 
 // prune clears old messages on it's stored timestamp.

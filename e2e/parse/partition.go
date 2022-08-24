@@ -80,7 +80,7 @@ func (p *Partitioner) Partition(recipient *id.ID, mt catalog.MessageType,
 
 func (p *Partitioner) HandlePartition(sender *id.ID,
 	contents []byte, relationshipFingerprint []byte,
-	residue e2eCrypto.KeyResidue) (receive.Message, bool) {
+	residue e2eCrypto.KeyResidue) (receive.Message, e2eCrypto.KeyResidue, bool) {
 
 	if isFirst(contents) {
 		// If it is the first message in a set, then handle it as so

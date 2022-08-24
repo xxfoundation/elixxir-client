@@ -8,6 +8,7 @@
 package partition
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
@@ -58,6 +59,12 @@ func (s *Store) AddFirst(partner *id.ID, mt catalog.MessageType,
 
 	mpm := s.load(partner, messageID)
 	mpm.AddFirst(mt, partNum, numParts, senderTimestamp, storageTimestamp, part)
+	if bytes.Equal(residue.Marshal(), []byte{}) {
+		// fixme: should this error or crash?
+		jww.WARN.Printf("Key reside from first message " +
+			"is empty, continuing...")
+	}
+
 	mpm.KeyResidue = residue
 	msg, ok := mpm.IsComplete(relationshipFingerprint)
 

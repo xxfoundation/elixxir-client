@@ -117,7 +117,7 @@ func (k *cypher) Encrypt(contents []byte) (ecrContents, mac []byte, residue e2eC
 	fp := k.Fingerprint()
 	key := k.generateKey()
 
-	residue = e2eCrypto.MakeKeyResidue(key)
+	residue = e2eCrypto.NewKeyResidue(key)
 
 	// encrypt the payload
 	ecrContents = e2eCrypto.Crypt(key, fp, contents)
@@ -145,7 +145,7 @@ func (k *cypher) Decrypt(msg format.Message) (decryptedPayload []byte, residue e
 	decryptedPayload = e2eCrypto.Crypt(key, fp, msg.GetContents())
 
 	// Construct residue
-	residue = e2eCrypto.MakeKeyResidue(key)
+	residue = e2eCrypto.NewKeyResidue(key)
 
 	return decryptedPayload, residue, nil
 }

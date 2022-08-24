@@ -31,9 +31,8 @@ import (
 //  }
 type E2ESendReport struct {
 	RoundsList
-	MessageID []byte
-	Timestamp int64
-	// todo: make marshal function
+	MessageID  []byte
+	Timestamp  int64
 	KeyResidue []byte
 }
 
@@ -145,7 +144,7 @@ func (e *E2e) SendE2E(messageType int, recipientId, payload,
 		RoundsList: makeRoundsList(roundIds...),
 		MessageID:  messageId.Marshal(),
 		Timestamp:  ts.UnixNano(),
-		KeyResidue: keyResidue,
+		KeyResidue: keyResidue.Marshal(),
 	}
 	return json.Marshal(result)
 }

@@ -96,7 +96,7 @@ func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 		RoundsList: makeRoundsList(rounds...),
 		MessageID:  mid.Marshal(),
 		Timestamp:  ts.UnixNano(),
-		KeyResidue: keyResidue,
+		KeyResidue: keyResidue.Marshal(),
 	}
 
 	return json.Marshal(&sr)

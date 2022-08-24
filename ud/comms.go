@@ -73,3 +73,10 @@ type registerUserComms interface {
 type addFactComms interface {
 	SendRegisterFact(host *connect.Host, message *pb.FactRegisterRequest) (*pb.FactRegisterResponse, error)
 }
+
+// userValidationComms is a sub-interface of the Comms interface for
+// username validation.
+type userValidationComms interface {
+	SendUsernameValidation(host *connect.Host,
+		message *pb.UsernameValidationRequest) (*pb.UsernameValidation, error)
+}

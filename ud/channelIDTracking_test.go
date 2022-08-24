@@ -64,26 +64,31 @@ func TestChannelIDTracking(t *testing.T) {
 	comms := new(mockComms)
 	username := "Alice"
 
-	udPubKeyBytes := m.user.GetCmix().GetInstance().
-		GetPartialNdf().Get().UDB.DhPubKey
+	/*
+		udPubKeyBytes := m.user.GetCmix().GetInstance().
+			GetPartialNdf().Get().UDB.DhPubKey
+	*/
+
+	udPubKey, udPrivKey, err := ed25519.GenerateKey(stream)
+	require.NoError(t, err)
 
 	myTestClientIDTracker := newclientIDTracker(
 		comms, host, username,
 		kv, m.user.GetReceptionIdentity(),
-		ed25519.PublicKey(udPubKeyBytes), rngGen)
+		udPubKey, rngGen)
 
 	rsaPrivKey, err := myTestClientIDTracker.receptionIdentity.GetRSAPrivateKey()
 	require.NoError(t, err)
 
 	comms.SetUserRSAPubKey(rsaPrivKey.GetPublic())
+	comms.SetUDEd25519PrivateKey(&udPrivKey)
 	comms.SetUserEd25519PubKey(myTestClientIDTracker.registrationDisk.GetPublicKey())
+	comms.SetUsername(username)
 
 	//sig, _ := myTestClientIDTracker.registrationDisk.GetLeaseSignature()
 	// XXX bad signature
 	sig := make([]byte, 64)
 	stream.Read(sig)
-
-	comms.SetLeaseSignature(sig)
 
 	err = myTestClientIDTracker.register()
 	require.NoError(t, err)

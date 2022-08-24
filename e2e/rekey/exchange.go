@@ -21,7 +21,7 @@ import (
 
 type E2eSender func(mt catalog.MessageType, recipient *id.ID, payload []byte,
 	cmixParams cmix.CMIXParams) (
-	[]id.Round, e2e.MessageID, time.Time, error)
+	[]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error)
 
 func Start(switchboard *receive.Switchboard, ratchet *ratchet.Ratchet,
 	sender E2eSender, net cmix.Client, grp *cyclic.Group, params Params) (stoppable.Stoppable, error) {

@@ -30,8 +30,9 @@ func (p *processor) Process(ecrMsg format.Message,
 		return
 	}
 
+	// todo: handle residue here
 	sess := p.cy.GetSession()
-	message, done := p.m.partitioner.HandlePartition(sess.GetPartner(),
+	message, _, done := p.m.partitioner.HandlePartition(sess.GetPartner(),
 		contents, sess.GetRelationshipFingerprint(), residue)
 	if done {
 		message.RecipientID = receptionID.Source

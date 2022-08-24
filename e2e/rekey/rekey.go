@@ -125,7 +125,8 @@ func negotiate(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSe
 	params := cmix.GetDefaultCMIXParams()
 	params.DebugTag = "kx.Request"
 
-	rounds, msgID, _, err := sendE2E(param.Trigger, sess.GetPartner(),
+	// fixme: should this use the key residue?
+	rounds, msgID, _, _, err := sendE2E(param.Trigger, sess.GetPartner(),
 		payload, params)
 	// If the send fails, returns the error so it can be handled. The caller
 	// should ensure the calling session is in a state where the Rekey will

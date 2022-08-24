@@ -35,7 +35,7 @@ type Handler interface {
 	// Will return an error if the network is not healthy or in
 	// the event of a failed send
 	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
-		params Params) ([]id.Round, e2e.MessageID, time.Time, error)
+		params Params) ([]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error)
 
 	/* === Reception ==================================================== */
 

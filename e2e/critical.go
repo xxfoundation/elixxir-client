@@ -29,7 +29,7 @@ type roundEventRegistrar interface {
 // anonymous function to include the structures from manager that critical is
 // not aware of.
 type criticalSender func(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, error)
+	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error)
 
 // critical is a structure that allows the auto resending of messages that must
 // be received.
@@ -138,7 +138,7 @@ func (c *critical) evaluate(stop *stoppable.Single) {
 				format.DigestContents(payload))
 
 			// Send the message
-			round, _, _, err := c.send(mt, recipient, payload,
+			round, _, _, _, err := c.send(mt, recipient, payload,
 				params)
 
 			// Pass to the handler

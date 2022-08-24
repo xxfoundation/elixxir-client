@@ -127,7 +127,8 @@ func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 	params := cmix.GetDefaultCMIXParams()
 	params.Critical = true
 	//ignore results, the passed sender interface makes it a critical message
-	_, _, _, _ = sender(param.Confirm, request.Sender, payload,
+	// fixme: sould this use the key residue
+	_, _, _, _, _ = sender(param.Confirm, request.Sender, payload,
 		params)
 
 	return nil

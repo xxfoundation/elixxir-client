@@ -33,8 +33,9 @@ func (up *UnsafeProcessor) Process(ecrMsg format.Message,
 	}
 
 	//Parse
-	message, done := up.m.partitioner.HandlePartition(sender,
-		ecrMsg.GetContents(), nil)
+	// todo: handle residue here
+	message, _, done := up.m.partitioner.HandlePartition(sender,
+		ecrMsg.GetContents(), nil, e2e.KeyResidue{})
 
 	if done {
 		message.RecipientID = receptionID.Source

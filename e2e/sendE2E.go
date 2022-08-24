@@ -20,10 +20,10 @@ import (
 )
 
 func (m *manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, error) {
+	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error) {
 
 	if !m.net.IsHealthy() {
-		return nil, e2e.MessageID{}, time.Time{},
+		return nil, e2e.MessageID{}, time.Time{}, e2e.KeyResidue{},
 			errors.New("cannot sendE2E when network is not healthy")
 	}
 
@@ -40,7 +40,7 @@ func (m *manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
 	if handleCritical {
 		m.crit.handle(mt, recipient, payload, rounds, err)
 	}
-	return rounds, msgID, t, err
+	return rounds, msgID, t, residue, err
 
 }
 
@@ -92,7 +92,7 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 			// Check if any rekeys need to happen and trigger them
 			rekeySendFunc := func(mt catalog.MessageType, recipient *id.ID,
 				payload []byte, cmixParams cmix.CMIXParams) (
-				[]id.Round, e2e.MessageID, time.Time, error) {
+				[]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error) {
 				par := params
 				par.CMIXParams = cmixParams
 				return m.SendE2E(mt, recipient, payload, par)

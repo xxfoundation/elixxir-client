@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -90,11 +91,15 @@ type mockSessionCypher struct {
 	fp format.Fingerprint
 }
 
-func (m mockSessionCypher) GetSession() *session.Session             { return nil }
-func (m mockSessionCypher) Fingerprint() format.Fingerprint          { return m.fp }
-func (m mockSessionCypher) Encrypt([]byte) (ecrContents, mac []byte) { return nil, nil }
-func (m mockSessionCypher) Decrypt(format.Message) ([]byte, error)   { return nil, nil }
-func (m mockSessionCypher) Use()                                     {}
+func (m mockSessionCypher) GetSession() *session.Session    { return nil }
+func (m mockSessionCypher) Fingerprint() format.Fingerprint { return m.fp }
+func (m mockSessionCypher) Encrypt([]byte) (ecrContents, mac []byte, residue e2e.KeyResidue) {
+	return nil, nil, e2e.KeyResidue{}
+}
+func (m mockSessionCypher) Decrypt(format.Message) ([]byte, e2e.KeyResidue, error) {
+	return nil, e2e.KeyResidue{}, nil
+}
+func (m mockSessionCypher) Use() {}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock cMix                                                           //

@@ -246,6 +246,9 @@ func (c *client) Follow(report ClientErrorReport) (stoppable.Stoppable, error) {
 	// Start the processes for the identity handler
 	multi.Add(c.Tracker.StartProcesses())
 
+	//Start the critical processing thread
+	multi.Add(c.crit.startProcessies())
+
 	return multi, nil
 }
 

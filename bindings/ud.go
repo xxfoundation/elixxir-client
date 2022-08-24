@@ -208,6 +208,9 @@ func NewOrLoadUd(e2eID int, follower UdNetworkStatus, username string,
 // Parameters:
 //  - e2eID - e2e object ID in the tracker
 //  - follower - network follower func wrapped in UdNetworkStatus
+//  - username - The username this user registered with initially. This should
+//               not be nullable, and be JSON marshalled as retrieved from
+//               UserDiscovery.GetFacts().
 //  - emailFactJson - nullable JSON marshalled email [fact.Fact]
 //  - phoneFactJson - nullable JSON marshalled phone [fact.Fact]
 //  - cert - the TLS certificate for the UD server this call will connect with.
@@ -220,8 +223,9 @@ func NewOrLoadUd(e2eID int, follower UdNetworkStatus, username string,
 //  - address - the IP address of the UD server this call will connect with. You
 //    may use the UD server run by the xx network team by using
 //    E2e.GetUdAddressFromNdf.
-func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
-	phoneFactJson, cert, contactFile []byte, address string) (*UserDiscovery, error) {
+func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus,
+	usernameJson, emailFactJson, phoneFactJson,
+	cert, contactFile []byte, address string) (*UserDiscovery, error) {
 
 	// Get user from singleton
 	user, err := e2eTrackerSingleton.get(e2eID)
@@ -229,7 +233,9 @@ func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
 		return nil, err
 	}
 
-	var email, phone fact.Fact
+	var email, phone, username fact.Fact
+
+	// Parse email if non-nil
 	if emailFactJson != nil {
 		err = json.Unmarshal(emailFactJson, &email)
 		if err != nil {
@@ -237,11 +243,18 @@ func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
 		}
 	}
 
+	// Parse phone if non-nil
 	if phoneFactJson != nil {
 		err = json.Unmarshal(phoneFactJson, &phone)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// Parse username
+	err = json.Unmarshal(usernameJson, &username)
+	if err != nil {
+		return nil, err
 	}
 
 	UdNetworkStatusFn := func() xxdk.Status {
@@ -250,7 +263,7 @@ func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
 
 	u, err := ud.NewManagerFromBackup(
 		user.api, user.api.GetComms(), UdNetworkStatusFn,
-		email, phone,
+		username, email, phone,
 		cert, contactFile, address)
 	if err != nil {
 		return nil, err

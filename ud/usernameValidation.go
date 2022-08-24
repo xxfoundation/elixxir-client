@@ -10,6 +10,7 @@ package ud
 import (
 	"github.com/pkg/errors"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/partnerships/crust"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
@@ -64,6 +65,12 @@ func (m *Manager) getUsernameValidationSignature(
 
 	// Send request
 	response, err := comms.SendUsernameValidation(m.ud.host, request)
+	if err != nil {
+		return nil, err
+	}
+
+	err = crust.VerifyVerificationSignature(m.ud.host.GetPubKey(), username,
+		publicKeyPem, response.Signature)
 	if err != nil {
 		return nil, err
 	}

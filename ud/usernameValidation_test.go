@@ -8,8 +8,11 @@
 package ud
 
 import (
+	"crypto/rand"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/partnerships/crust"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 	"testing"
 )
 
@@ -17,7 +20,13 @@ type testUsernameValidation struct{}
 
 func (tuv *testUsernameValidation) SendUsernameValidation(host *connect.Host,
 	message *pb.UsernameValidationRequest) (*pb.UsernameValidation, error) {
-	return &pb.UsernameValidation{}, nil
+	privKey, _ := rsa.LoadPrivateKeyFromPem([]byte(testKey))
+	sig, _ := crust.SignVerification(rand.Reader, privKey,
+		message.Username, message.ReceptionPublicKeyPem)
+
+	return &pb.UsernameValidation{
+		Signature: sig,
+	}, nil
 }
 
 func TestManager_GetUsernameValidationSignature(t *testing.T) {

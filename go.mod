@@ -14,7 +14,7 @@ require (
 	github.com/spf13/viper v1.12.0
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
 	gitlab.com/elixxir/comms v0.0.4-0.20220819220424-f2328c8b26b1
-	gitlab.com/elixxir/crypto v0.0.7-0.20220606201132-c370d5039cea
+	gitlab.com/elixxir/crypto v0.0.7-0.20220818194137-973a70947df4
 	gitlab.com/elixxir/ekv v0.1.7
 	gitlab.com/elixxir/primitives v0.0.3-0.20220810173935-592f34a88326
 	gitlab.com/xx_network/comms v0.0.4-0.20220630163702-f3d372ef6acd
@@ -38,6 +38,7 @@ require (
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/multiformats/go-multihash v0.2.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect

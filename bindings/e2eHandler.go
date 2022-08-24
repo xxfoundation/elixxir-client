@@ -33,6 +33,8 @@ type E2ESendReport struct {
 	RoundsList
 	MessageID []byte
 	Timestamp int64
+	// todo: make marshal function
+	KeyResidue []byte
 }
 
 // GetReceptionID returns the marshalled default IDs.
@@ -133,7 +135,7 @@ func (e *E2e) SendE2E(messageType int, recipientId, payload,
 		return nil, err
 	}
 
-	roundIds, messageId, ts, err := e.api.GetE2E().SendE2E(
+	roundIds, messageId, ts, keyResidue, err := e.api.GetE2E().SendE2E(
 		catalog.MessageType(messageType), recipient, payload, params)
 	if err != nil {
 		return nil, err
@@ -143,6 +145,7 @@ func (e *E2e) SendE2E(messageType int, recipientId, payload,
 		RoundsList: makeRoundsList(roundIds...),
 		MessageID:  messageId.Marshal(),
 		Timestamp:  ts.UnixNano(),
+		KeyResidue: keyResidue,
 	}
 	return json.Marshal(result)
 }

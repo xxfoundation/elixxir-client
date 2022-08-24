@@ -39,7 +39,8 @@ type Wrapper struct {
 // for easier testing.
 type e2eHandler interface {
 	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
-		params e2e.Params) ([]id.Round, e2eCrypto.MessageID, time.Time, error)
+		params e2e.Params) ([]id.Round, e2eCrypto.MessageID, time.Time,
+		e2eCrypto.KeyResidue, error)
 	RegisterListener(senderID *id.ID, messageType catalog.MessageType,
 		newListener receive.Listener) receive.ListenerID
 }

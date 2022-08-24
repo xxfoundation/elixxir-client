@@ -486,7 +486,7 @@ func miscConnectionFunctions(user *xxdk.E2e, conn connect.Connection) {
 			conn.GetPartner().PartnerId())
 		payload := []byte(msgBody)
 		for {
-			roundIDs, _, _, err := conn.SendE2E(catalog.XxMessage, payload,
+			roundIDs, _, _, _, err := conn.SendE2E(catalog.XxMessage, payload,
 				paramsE2E)
 			if err != nil {
 				jww.FATAL.Panicf("[CONN] Failed to send E2E message: %v", err)

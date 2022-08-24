@@ -126,7 +126,7 @@ type groupCmix interface {
 // needed by GroupChat
 type groupE2eHandler interface {
 	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
-		params e2e.Params) ([]id.Round, crypto.MessageID, time.Time, error)
+		params e2e.Params) ([]id.Round, crypto.MessageID, time.Time, crypto.KeyResidue, error)
 	RegisterListener(senderID *id.ID, messageType catalog.MessageType,
 		newListener receive.Listener) receive.ListenerID
 	AddService(tag string, processor message.Processor) error

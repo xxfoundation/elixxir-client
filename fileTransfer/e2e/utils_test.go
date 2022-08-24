@@ -259,7 +259,7 @@ func (m *mockE2e) StartProcesses() (stoppable.Stoppable, error) { panic("impleme
 
 // SendE2E adds the message to the e2e handler map.
 func (m *mockE2e) SendE2E(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, _ e2e.Params) ([]id.Round, e.MessageID, time.Time, error) {
+	payload []byte, _ e2e.Params) ([]id.Round, e.MessageID, time.Time, e.KeyResidue, error) {
 
 	m.handler.listeners[mt].Hear(receive.Message{
 		MessageType: mt,
@@ -268,7 +268,7 @@ func (m *mockE2e) SendE2E(mt catalog.MessageType, recipient *id.ID,
 		RecipientID: recipient,
 	})
 
-	return []id.Round{42}, e.MessageID{}, netTime.Now(), nil
+	return []id.Round{42}, e.MessageID{}, netTime.Now(), e.KeyResidue{}, nil
 }
 
 func (m *mockE2e) RegisterListener(_ *id.ID, mt catalog.MessageType,

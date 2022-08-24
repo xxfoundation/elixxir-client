@@ -98,7 +98,7 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 	}
 
 	// Send message to server
-	rids, _, _, err := conn.SendE2E(catalog.ConnectionAuthenticationRequest,
+	rids, _, _, _, err := conn.SendE2E(catalog.ConnectionAuthenticationRequest,
 		payload, clientE2e.GetDefaultParams())
 	if err != nil {
 		// Close connection on an error

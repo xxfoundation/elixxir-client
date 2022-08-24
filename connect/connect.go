@@ -43,7 +43,7 @@ type Connection interface {
 	// SendE2E is a wrapper for sending specifically to the Connection's
 	// partner.Manager
 	SendE2E(mt catalog.MessageType, payload []byte, params clientE2e.Params) (
-		[]id.Round, e2e.MessageID, time.Time, error)
+		[]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error)
 
 	// RegisterListener is used for E2E reception
 	// and allows for reading data sent from the partner.Manager
@@ -221,9 +221,9 @@ func (h *handler) GetPartner() partner.Manager {
 // SendE2E is a wrapper for sending specifically to the Connection's
 // partner.Manager.
 func (h *handler) SendE2E(mt catalog.MessageType, payload []byte,
-	params clientE2e.Params) ([]id.Round, e2e.MessageID, time.Time, error) {
+	params clientE2e.Params) ([]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error) {
 	if h.isClosed() {
-		return nil, e2e.MessageID{}, time.Time{}, alreadyClosedErr
+		return nil, e2e.MessageID{}, time.Time{}, e2e.KeyResidue{}, alreadyClosedErr
 	}
 
 	h.updateLastUse(netTime.Now())

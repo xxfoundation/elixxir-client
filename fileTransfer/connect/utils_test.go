@@ -268,7 +268,8 @@ func (m *mockConnection) GetPartner() partner.Manager {
 
 // SendE2E adds the message to the e2e handler map.
 func (m *mockConnection) SendE2E(mt catalog.MessageType, payload []byte,
-	_ e2e.Params) ([]id.Round, e2eCrypto.MessageID, time.Time, error) {
+	_ e2e.Params) ([]id.Round, e2eCrypto.MessageID, time.Time,
+	e2eCrypto.KeyResidue, error) {
 	m.handler.Lock()
 	defer m.handler.Unlock()
 
@@ -278,7 +279,8 @@ func (m *mockConnection) SendE2E(mt catalog.MessageType, payload []byte,
 		Sender:      m.myID,
 	})
 
-	return []id.Round{42}, e2eCrypto.MessageID{}, netTime.Now(), nil
+	return []id.Round{42}, e2eCrypto.MessageID{}, netTime.Now(),
+		e2eCrypto.KeyResidue{}, nil
 }
 
 func (m *mockConnection) RegisterListener(mt catalog.MessageType,

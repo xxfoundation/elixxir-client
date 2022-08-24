@@ -288,7 +288,7 @@ var rootCmd = &cobra.Command{
 								e2eParams.Base)
 						} else {
 							e2eParams.Base.DebugTag = "cmd.E2E"
-							roundIDs, _, _, err = user.GetE2E().SendE2E(mt,
+							roundIDs, _, _, _, err = user.GetE2E().SendE2E(mt,
 								recipient, payload, e2eParams.Base)
 						}
 						if err != nil {

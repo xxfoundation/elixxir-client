@@ -41,7 +41,7 @@ type Wrapper struct {
 type connection interface {
 	GetPartner() partner.Manager
 	SendE2E(mt catalog.MessageType, payload []byte, params e2e.Params) (
-		[]id.Round, e2eCrypto.MessageID, time.Time, error)
+		[]id.Round, e2eCrypto.MessageID, time.Time, e2eCrypto.KeyResidue, error)
 	RegisterListener(messageType catalog.MessageType,
 		newListener receive.Listener) (receive.ListenerID, error)
 }

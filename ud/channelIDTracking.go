@@ -145,7 +145,7 @@ func (r registrationDisk) GetPublicKey() ed25519.PublicKey {
 }
 
 // GetPrivateKey returns the current private key.
-func (r registrationDisk) GetPrivateKey() ed25519.PrivateKey {
+func (r registrationDisk) getPrivateKey() ed25519.PrivateKey {
 	r.rwmutex.RLock()
 	defer r.rwmutex.RUnlock()
 
@@ -277,7 +277,7 @@ func (c *clientIDTracker) GetChannelPubkey() ed25519.PublicKey {
 // message. The ed25519 private key stored in the registrationDisk on the
 // kv is used for signing.
 func (c *clientIDTracker) SignChannelMessage(message []byte) ([]byte, error) {
-	privateKey := c.registrationDisk.GetPrivateKey()
+	privateKey := c.registrationDisk.getPrivateKey()
 	return ed25519.Sign(privateKey, message), nil
 }
 

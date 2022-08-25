@@ -164,3 +164,9 @@ func (v *KV) GetFullKey(key string, version uint64) string {
 func (v *KV) makeKey(key string, version uint64) string {
 	return fmt.Sprintf("%s%s_%d", v.prefix, key, version)
 }
+
+// Exists returns false if the error indicates the element doesn't
+// exist.
+func (v *KV) Exists(err Error) bool {
+	return ekv.Exists(err)
+}

@@ -40,23 +40,6 @@ func TestSignChannelMessage(t *testing.T) {
 	require.True(t, ed25519.Verify(publicKey, message, sig))
 }
 
-func TestWTFBBQOMG2(t *testing.T) {
-	lease := time.Now()
-	storedLease := lease.UnixNano()
-	lease2 := time.Unix(0, storedLease)
-	storedLease2 := lease2.UnixNano()
-	require.Equal(t, storedLease, storedLease2)
-	t.Logf("storedLease is %v\nstoredLease2 is %v", storedLease, storedLease2)
-}
-
-func TestWTFBBQOMG(t *testing.T) {
-	lease := time.Now()
-	storedLease := lease.UnixNano()
-	lease2 := time.Unix(0, storedLease)
-	//require.Equal(t, lease, lease2)
-	t.Logf("lease is %v\nlease2 is %v", lease, lease2)
-}
-
 func TestNewRegistrationDisk(t *testing.T) {
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
@@ -65,10 +48,6 @@ func TestNewRegistrationDisk(t *testing.T) {
 	reg := newRegistrationDisk(publicKey, privateKey, lease, signature)
 	require.Equal(t, reg.PublicKey, publicKey)
 	require.Equal(t, reg.PrivateKey, privateKey)
-
-	// see TestWTFBBQOMG
-	t.Logf("time diff: %v", time.Unix(0, reg.Lease).Sub(lease))
-
 	require.Equal(t, reg.Signature, signature)
 }
 

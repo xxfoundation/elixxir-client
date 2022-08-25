@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"errors"
+	"os"
 	"sync"
 	"time"
 
@@ -185,7 +186,7 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 	var err error
 
 	reg, err := loadRegistrationDisk(kv)
-	if err != nil {
+	if os.IsNotExist(err) {
 		rng := rngSource.GetStream()
 		defer rng.Close()
 
@@ -203,6 +204,8 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 		if err != nil {
 			jww.FATAL.Panic(err)
 		}
+	} else if err != nil {
+		jww.FATAL.Panic(err)
 	}
 
 	c := &clientIDTracker{

@@ -167,6 +167,6 @@ func (v *KV) makeKey(key string, version uint64) string {
 
 // Exists returns false if the error indicates the element doesn't
 // exist.
-func (v *KV) Exists(err Error) bool {
+func (v *KV) Exists(err error) bool {
 	return ekv.Exists(err)
 }

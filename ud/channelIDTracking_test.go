@@ -44,8 +44,6 @@ func TestLoadSaveRegistration(t *testing.T) {
 func TestChannelIDTracking(t *testing.T) {
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 
-	t.Logf("rngGen: %v", rngGen)
-
 	// AddHost
 	stream := rngGen.GetStream()
 	privKey, err := rsa.GenerateKey(stream, 1024)
@@ -94,18 +92,17 @@ func TestChannelIDTracking(t *testing.T) {
 	udPubKey, udPrivKey, err := ed25519.GenerateKey(stream)
 	require.NoError(t, err)
 
-	myTestClientIDTracker := newclientIDTracker(
-		comms, host, username,
-		kv, m.user.GetReceptionIdentity(),
-		udPubKey, rngGen)
-
-	rsaPrivKey, err := myTestClientIDTracker.receptionIdentity.GetRSAPrivateKey()
+	rsaPrivKey, err := m.user.GetReceptionIdentity().GetRSAPrivateKey()
 	require.NoError(t, err)
 
 	comms.SetUserRSAPubKey(rsaPrivKey.GetPublic())
 	comms.SetUDEd25519PrivateKey(&udPrivKey)
-	comms.SetUserEd25519PubKey(myTestClientIDTracker.registrationDisk.GetPublicKey())
 	comms.SetUsername(username)
+
+	myTestClientIDTracker := newclientIDTracker(
+		comms, host, username,
+		kv, m.user.GetReceptionIdentity(),
+		udPubKey, rngGen)
 
 	//sig, _ := myTestClientIDTracker.registrationDisk.GetLeaseSignature()
 	// XXX bad signature

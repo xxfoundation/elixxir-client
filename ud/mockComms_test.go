@@ -63,10 +63,6 @@ func (m *mockComms) SetUserRSAPubKey(userRsaPub *rsa.PublicKey) {
 	m.userRsaPub = userRsaPub
 }
 
-func (m *mockComms) SetUserEd25519PubKey(key ed25519.PublicKey) {
-	m.userEd25519PubKey = []byte(key)
-}
-
 func (m *mockComms) SetUsername(u string) {
 	m.username = u
 }
@@ -84,7 +80,7 @@ func (m mockComms) SendChannelLeaseRequest(host *connect.Host, message *pb.Chann
 
 	d, _ := time.ParseDuration("4h30m")
 	lease := time.Now().Add(d).UnixNano()
-	signature := channel.SignChannelLease(m.userEd25519PubKey, m.username,
+	signature := channel.SignChannelLease(message.UserEd25519PubKey, m.username,
 		time.Unix(0, lease), *m.udPrivKey)
 
 	if err != nil {

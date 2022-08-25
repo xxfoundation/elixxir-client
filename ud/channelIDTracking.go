@@ -205,7 +205,7 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 		}
 	}
 
-	return &clientIDTracker{
+	c := &clientIDTracker{
 		kv:                kv,
 		rngSource:         rngSource,
 		registrationDisk:  &reg,
@@ -215,6 +215,8 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 		host:              host,
 		udPubKey:          udPubKey,
 	}
+	c.register()
+	return c
 }
 
 // Start starts the registration worker.

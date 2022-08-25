@@ -20,6 +20,29 @@ import (
 	"gitlab.com/elixxir/ekv"
 )
 
+func TestWTFBBQOMG(t *testing.T) {
+	lease := time.Now()
+	storedLease := lease.UnixNano()
+	lease2 := time.Unix(0, storedLease)
+	//require.Equal(t, lease, lease2)
+	t.Logf("lease is %v\nlease2 is %v", lease, lease2)
+}
+
+func TestNewRegistrationDisk(t *testing.T) {
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	lease := time.Now()
+	signature := make([]byte, 64)
+	reg := newRegistrationDisk(publicKey, privateKey, lease, signature)
+	require.Equal(t, reg.PublicKey, publicKey)
+	require.Equal(t, reg.PrivateKey, privateKey)
+
+	// see TestWTFBBQOMG
+	t.Logf("time diff: %v", time.Unix(0, reg.Lease).Sub(lease))
+
+	require.Equal(t, reg.Signature, signature)
+}
+
 func TestLoadSaveRegistration(t *testing.T) {
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)

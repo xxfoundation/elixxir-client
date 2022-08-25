@@ -303,6 +303,10 @@ func (c *clientIDTracker) requestChannelLease() (int64, []byte, error) {
 	return resp.Lease, resp.UDLeaseEd25519Signature, err
 }
 
+// StartChannelNameService creates a new clientIDTracker
+// and returns a reference to it's type as the NameService interface.
+// However it's scheduler thread isn't started until it's Start
+// method is called.
 func (m *Manager) StartChannelNameService() NameService {
 	udPubKeyBytes := m.user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.DhPubKey
 	var service NameService

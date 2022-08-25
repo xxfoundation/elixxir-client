@@ -20,6 +20,35 @@ import (
 	"gitlab.com/elixxir/ekv"
 )
 
+func TestSignChannelMessage(t *testing.T) {
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	reg := registrationDisk{
+		PublicKey:  publicKey,
+		PrivateKey: privateKey,
+		Lease:      0,
+	}
+	c := &clientIDTracker{
+		registrationDisk: &reg,
+	}
+
+	message := []byte("hello world")
+	sig, err := c.SignChannelMessage(message)
+	require.NoError(t, err)
+
+	require.True(t, ed25519.Verify(publicKey, message, sig))
+}
+
+func TestWTFBBQOMG2(t *testing.T) {
+	lease := time.Now()
+	storedLease := lease.UnixNano()
+	lease2 := time.Unix(0, storedLease)
+	storedLease2 := lease2.UnixNano()
+	require.Equal(t, storedLease, storedLease2)
+	t.Logf("storedLease is %v\nstoredLease2 is %v", storedLease, storedLease2)
+}
+
 func TestWTFBBQOMG(t *testing.T) {
 	lease := time.Now()
 	storedLease := lease.UnixNano()

@@ -139,7 +139,9 @@ func (r registrationDisk) GetPublicKey() ed25519.PublicKey {
 	r.rwmutex.RLock()
 	defer r.rwmutex.RUnlock()
 
-	return r.PublicKey
+	pubkey := make([]byte, ed25519.PublicKeySize)
+	copy(pubkey, r.PublicKey)
+	return pubkey
 }
 
 // GetPrivateKey returns the current private key.

@@ -18,8 +18,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/pkg/profile"
-
 	"strconv"
 	"strings"
 	"sync"
@@ -60,18 +58,7 @@ var rootCmd = &cobra.Command{
 	Short: "Runs a client for cMix anonymous communication platform",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		cpuProfileOut := viper.GetString(profileCpuFlag)
-		if cpuProfileOut != "" {
-			defer profile.Start(profile.CPUProfile,
-				profile.ProfilePath(cpuProfileOut),
-				profile.NoShutdownHook).Stop()
-		}
-		memProfileOut := viper.GetString(profileMemFlag)
-		if memProfileOut != "" {
-			defer profile.Start(profile.MemProfile,
-				profile.ProfilePath(memProfileOut),
-				profile.NoShutdownHook).Stop()
-		}
+		go startProfilersIfEnabled()
 
 		cmixParams, e2eParams := initParams()
 
@@ -1101,11 +1088,11 @@ func init() {
 	viper.BindPFlag(e2eRekeyThresholdFlag, rootCmd.Flags().Lookup(e2eRekeyThresholdFlag))
 
 	rootCmd.Flags().String(profileCpuFlag, "",
-		"Enable cpu profiling to this file")
+		"Enable cpu profiling to this directory")
 	viper.BindPFlag(profileCpuFlag, rootCmd.Flags().Lookup(profileCpuFlag))
 
 	rootCmd.Flags().String(profileMemFlag, "",
-		"Enable memory profiling to this file")
+		"Enable memory profiling to this directory")
 	viper.BindPFlag(profileMemFlag, rootCmd.Flags().Lookup(profileMemFlag))
 
 	// Proto user flags

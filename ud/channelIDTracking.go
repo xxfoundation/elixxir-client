@@ -268,8 +268,9 @@ func (c *clientIDTracker) GetChannelPubkey() ed25519.PublicKey {
 	return c.registrationDisk.GetPublicKey()
 }
 
-// SignChannelMessage returns the signature of the
-// given message.
+// SignChannelMessage returns the signature of the given
+// message. The ed25519 private key stored in the registrationDisk on the
+// kv is used for signing.
 func (c *clientIDTracker) SignChannelMessage(message []byte) ([]byte, error) {
 	privateKey := c.registrationDisk.GetPrivateKey()
 	return ed25519.Sign(privateKey, message), nil

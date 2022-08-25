@@ -31,11 +31,7 @@ func TestLoadSaveRegistration(t *testing.T) {
 
 	registrationDisk, err := loadRegistrationDisk(kv)
 	require.Error(t, err)
-	t.Logf("err is %v", err)
-
-	// kv api sucks... forcing me to do this:
-	objectNotFoundErr := "object not found"
-	require.Equal(t, err.Error(), objectNotFoundErr)
+	require.False(t, kv.Exists(err))
 
 	err = saveRegistrationDisk(kv, reg)
 	require.NoError(t, err)

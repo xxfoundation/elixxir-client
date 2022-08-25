@@ -4,7 +4,6 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"errors"
-	"os"
 	"sync"
 	"time"
 
@@ -185,12 +184,8 @@ var _ NameService = (*clientIDTracker)(nil)
 func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username string, kv *versioned.KV,
 	receptionIdentity xxdk.ReceptionIdentity, udPubKey ed25519.PublicKey, rngSource *fastRNG.StreamGenerator) *clientIDTracker {
 
-	var err error
-
-	// kv api sucks... forcing me to do this:
-	objectNotFoundErr := "object not found"
 	reg, err := loadRegistrationDisk(kv)
-	if os.IsNotExist(err) || err.Error() == objectNotFoundErr {
+	if !kv.Exists(err) {
 		rng := rngSource.GetStream()
 		defer rng.Close()
 

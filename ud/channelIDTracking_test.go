@@ -2,6 +2,7 @@ package ud
 
 import (
 	"crypto/ed25519"
+	"crypto/rand"
 	"testing"
 	"time"
 
@@ -18,6 +19,31 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 )
+
+func TestLoadSaveRegistration(t *testing.T) {
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	lease := time.Now()
+	signature := make([]byte, 64)
+	reg := newRegistrationDisk(publicKey, privateKey, lease, signature)
+
+	kv := versioned.NewKV(ekv.MakeMemstore())
+
+	registrationDisk, err := loadRegistrationDisk(kv)
+	require.Error(t, err)
+	t.Logf("err is %v", err)
+
+	// kv api sucks... forcing me to do this:
+	objectNotFoundErr := "object not found"
+	require.Equal(t, err.Error(), objectNotFoundErr)
+
+	err = saveRegistrationDisk(kv, reg)
+	require.NoError(t, err)
+
+	registrationDisk, err = loadRegistrationDisk(kv)
+	require.NoError(t, err)
+	require.Equal(t, registrationDisk, reg)
+}
 
 func TestChannelIDTracking(t *testing.T) {
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)

@@ -187,8 +187,10 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 
 	var err error
 
+	// kv api sucks... forcing me to do this:
+	objectNotFoundErr := "object not found"
 	reg, err := loadRegistrationDisk(kv)
-	if os.IsNotExist(err) {
+	if os.IsNotExist(err) || err.Error() == objectNotFoundErr {
 		rng := rngSource.GetStream()
 		defer rng.Close()
 

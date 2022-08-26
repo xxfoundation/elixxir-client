@@ -90,7 +90,7 @@ type registrationDisk struct {
 func newRegistrationDisk(publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey,
 	lease time.Time, signature []byte) registrationDisk {
 	return registrationDisk{
-		Lease:      lease.Unix(),
+		Lease:      lease.UnixNano(),
 		PublicKey:  publicKey,
 		PrivateKey: privateKey,
 		Signature:  signature,

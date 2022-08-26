@@ -43,12 +43,14 @@ func TestSignChannelMessage(t *testing.T) {
 func TestNewRegistrationDisk(t *testing.T) {
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	lease := time.Now()
+	lease := time.Now().UnixNano()
+
 	signature := make([]byte, 64)
-	reg := newRegistrationDisk(publicKey, privateKey, lease, signature)
+	reg := newRegistrationDisk(publicKey, privateKey, time.Unix(0, lease), signature)
 	require.Equal(t, reg.PublicKey, publicKey)
 	require.Equal(t, reg.PrivateKey, privateKey)
 	require.Equal(t, reg.Signature, signature)
+	require.Equal(t, reg.Lease, lease)
 }
 
 func TestLoadSaveRegistration(t *testing.T) {

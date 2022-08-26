@@ -11,13 +11,13 @@ import (
 	"time"
 )
 
-type genericUserListener struct {
+type userListener struct {
 	name   NameService
 	events *events
 	chID   *id.ID
 }
 
-func (gul *genericUserListener) Listen(payload []byte,
+func (gul *userListener) Listen(payload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
 	//Remove the padding
@@ -80,7 +80,7 @@ func (gul *genericUserListener) Listen(payload []byte,
 	//TODO: Processing of the message relative to admin commands will be here
 
 	//Submit the message to the event model for listening
-	gul.events.hear(gul.chID, umi, receptionID, round)
+	gul.events.triggerEvent(gul.chID, umi, receptionID, round)
 
 	return
 }

@@ -7,6 +7,7 @@ type MessageType uint32
 const (
 	Text      = MessageType(1)
 	AdminText = MessageType(2)
+	Reaction  = MessageType(3)
 )
 
 func (mt MessageType) String() string {

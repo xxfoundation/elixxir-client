@@ -29,7 +29,8 @@ type Channel interface {
 	// MaxPayloadSize returns the maximum size for a symmetric broadcast payload
 	MaxPayloadSize() int
 
-	// MaxAsymmetricPayloadSize returns the maximum size for an asymmetric broadcast payload
+	// MaxAsymmetricPayloadSize returns the maximum size for an asymmetric
+	//broadcast payload
 	MaxAsymmetricPayloadSize() int
 
 	// Get returns the underlying crypto.Channel
@@ -40,18 +41,27 @@ type Channel interface {
 	Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
 		id.Round, ephemeral.Id, error)
 
-	// BroadcastWithAssembler broadcasts a payload over a symmetric channel. With
-	// a payload assembled after the round is selected, allowing the round
-	// info to be included in the payload.
-	// Network must be healthy to send
+	// BroadcastWithAssembler broadcasts a payload over a symmetric channel.
+	// With a payload assembled after the round is selected, allowing the round
+	// info to be included in the payload. Network must be healthy to send.
 	// Requires a payload of size bc.MaxSymmetricPayloadSize()
 	BroadcastWithAssembler(assembler Assembler, cMixParams cmix.CMIXParams) (
 		id.Round, ephemeral.Id, error)
 
-	// BroadcastAsymmetric broadcasts an asymmetric payload to the channel. The payload size must be
-	// equal to MaxPayloadSize & private key for channel must be passed in
-	BroadcastAsymmetric(pk multicastRSA.PrivateKey, payload []byte, cMixParams cmix.CMIXParams) (
-		id.Round, ephemeral.Id, error)
+	// BroadcastAsymmetric broadcasts the payload to the channel. Requires a
+	// healthy network state to send. Payload length must be equal to
+	// bc.MaxAsymmetricPayloadSize and the channel PrivateKey must be passed in
+	BroadcastAsymmetric(pk multicastRSA.PrivateKey, payload []byte,
+		cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error)
+
+	// BroadcastAsymmetricWithAssembler broadcasts the payload to the channel.
+	// Requires a healthy network state to send. Payload length must be equal to
+	// bc.MaxAsymmetricPayloadSize and the channel PrivateKey must be passed in.
+	// The assembler will run once a round is selected and will receive the
+	// round ID
+	BroadcastAsymmetricWithAssembler(
+		pk multicastRSA.PrivateKey, assembler Assembler,
+		cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error)
 
 	// RegisterListener registers a listener for broadcast messages
 	RegisterListener(listenerCb ListenerFunc, method Method) error

@@ -2,7 +2,6 @@ package channels
 
 import (
 	"encoding/json"
-	"errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -18,11 +17,6 @@ const (
 	joinedChannelVersion  = 0
 	joinedChannelKey      = "JoinedChannelKey-"
 )
-
-var ChannelAlreadyExistsErr = errors.New("the channel cannot be added " +
-	"becasue it already exists")
-
-var ChannelDoesNotExistsErr = errors.New("the channel cannot be found")
 
 // store Stores the list of joined channels to disk while taking the read lock
 func (m *manager) store() error {
@@ -95,11 +89,20 @@ func (m *manager) addChannel(channel cryptoBroadcast.Channel) error {
 	}
 
 	//Connect to listeners
-	err = b.RegisterListener((&genericUserListener{
+	err = b.RegisterListener((&userListener{
 		name:   m.name,
 		events: &m.events,
 		chID:   channel.ReceptionID,
 	}).Listen, broadcast.Symmetric)
+	if err != nil {
+		return err
+	}
+
+	err = b.RegisterListener((&adminListener{
+		name:   m.name,
+		events: &m.events,
+		chID:   channel.ReceptionID,
+	}).Listen, broadcast.Asymmetric)
 	if err != nil {
 		return err
 	}
@@ -109,10 +112,12 @@ func (m *manager) addChannel(channel cryptoBroadcast.Channel) error {
 	}
 
 	if err = jc.Store(m.kv); err != nil {
+		go b.Stop()
 		return err
 	}
 
 	if err = m.storeUnsafe(); err != nil {
+		go b.Stop()
 		return err
 	}
 	return nil
@@ -197,11 +202,20 @@ func loadJoinedChannel(chId *id.ID, kv *versioned.KV, net broadcast.Client,
 		return nil, err
 	}
 
-	err = b.RegisterListener((&genericUserListener{
+	err = b.RegisterListener((&userListener{
 		name:   name,
 		events: e,
 		chID:   jcd.broadcast.ReceptionID,
 	}).Listen, broadcast.Symmetric)
+	if err != nil {
+		return nil, err
+	}
+
+	err = b.RegisterListener((&adminListener{
+		name:   name,
+		events: e,
+		chID:   jcd.broadcast.ReceptionID,
+	}).Listen, broadcast.Asymmetric)
 	if err != nil {
 		return nil, err
 	}

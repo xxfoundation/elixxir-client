@@ -1,0 +1,23 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                           //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
+syntax = "proto3";
+
+package parse;
+option go_package = "/channels";
+
+message CMIXChannelText {
+  uint32 version = 1;
+  string text = 2;
+  bytes replyMessageID = 3;
+}
+
+message CMIXChannelReaction {
+  uint32 version = 1;
+  uint32 reaction = 2;
+  bytes reactionMessageID = 3;
+}

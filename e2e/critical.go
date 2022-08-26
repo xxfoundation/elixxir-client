@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"gitlab.com/elixxir/crypto/e2e"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -28,7 +29,7 @@ type roundEventRegistrar interface {
 // anonymous function to include the structures from manager that critical is
 // not aware of.
 type criticalSender func(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, params Params) (SendReport, error)
+	payload []byte, params Params) (e2e.SendReport, error)
 
 // critical is a structure that allows the auto resending of messages that must
 // be received.

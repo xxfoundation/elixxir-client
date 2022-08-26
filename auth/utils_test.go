@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
+	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/large"
@@ -60,8 +61,8 @@ func (m mockE2eHandler) StartProcesses() (stoppable.Stoppable, error) {
 }
 
 func (m mockE2eHandler) SendE2E(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, params e2e.Params) (e2e.SendReport, error) {
-	return e2e.SendReport{}, nil
+	payload []byte, params e2e.Params) (cryptoE2e.SendReport, error) {
+	return cryptoE2e.SendReport{}, nil
 }
 
 func (m mockE2eHandler) RegisterListener(senderID *id.ID,

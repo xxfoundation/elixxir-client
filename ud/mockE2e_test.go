@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
+	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
@@ -108,7 +109,7 @@ func (m mockE2eHandler) StartProcesses() (stoppable.Stoppable, error) {
 	panic("implement me")
 }
 
-func (m mockE2eHandler) SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte, params e2e.Params) (e2e.SendReport, error) {
+func (m mockE2eHandler) SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte, params e2e.Params) (cryptoE2e.SendReport, error) {
 	//TODO implement me
 	panic("implement me")
 }

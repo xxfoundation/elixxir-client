@@ -8,7 +8,7 @@
 package rekey
 
 import (
-	e2e2 "gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/crypto/e2e"
 	"math/rand"
 	"testing"
 	"time"
@@ -74,7 +74,7 @@ func genSidhKeys() (*sidh.PrivateKey, *sidh.PublicKey, *sidh.PrivateKey, *sidh.P
 
 func testSendE2E(mt catalog.MessageType, recipient *id.ID,
 	payload []byte, cmixParams cmix.CMIXParams) (
-	e2e2.SendReport, error) {
+	e2e.SendReport, error) {
 	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
 	alicePartner, err := r.GetPartner(aliceID)
 	if err != nil {
@@ -110,7 +110,7 @@ func testSendE2E(mt catalog.MessageType, recipient *id.ID,
 
 	bobSwitchboard.Speak(confirmMessage)
 
-	return e2e2.SendReport{
+	return e2e.SendReport{
 		RoundList: rounds,
 	}, nil
 }

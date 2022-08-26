@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/crypto/e2e"
 	"sync"
 
 	"gitlab.com/xx_network/primitives/netTime"
@@ -211,7 +212,7 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 
 	rekeySendFunc := func(mt catalog.MessageType,
 		recipient *id.ID, payload []byte,
-		cmixParams cmix.CMIXParams) (SendReport, error) {
+		cmixParams cmix.CMIXParams) (e2e.SendReport, error) {
 		// FIXME: we should have access to the e2e params here...
 		par := GetDefaultParams()
 		par.CMIXParams = cmixParams

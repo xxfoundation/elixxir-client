@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
+	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/large"
@@ -114,7 +115,7 @@ func (m *mockConnection) Close() error {
 func (m *mockConnection) GetPartner() partner.Manager { return m.partner }
 
 func (m *mockConnection) SendE2E(
-	mt catalog.MessageType, payload []byte, _ e2e.Params) (e2e.SendReport, error) {
+	mt catalog.MessageType, payload []byte, _ e2e.Params) (cryptoE2e.SendReport, error) {
 	m.payloadChan <- payload
 	m.listener.Hear(receive.Message{
 		MessageType: mt,
@@ -122,7 +123,7 @@ func (m *mockConnection) SendE2E(
 		Sender:      m.partner.myID,
 		RecipientID: m.partner.partnerId,
 	})
-	return e2e.SendReport{}, nil
+	return cryptoE2e.SendReport{}, nil
 }
 
 func (m *mockConnection) RegisterListener(

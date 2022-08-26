@@ -7,6 +7,7 @@
 package connect
 
 import (
+	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"io"
 	"sync/atomic"
 	"time"
@@ -41,7 +42,7 @@ type Connection interface {
 	// SendE2E is a wrapper for sending specifically to the Connection's
 	// partner.Manager
 	SendE2E(mt catalog.MessageType, payload []byte, params clientE2e.Params) (
-		clientE2e.SendReport, error)
+		cryptoE2e.SendReport, error)
 
 	// RegisterListener is used for E2E reception
 	// and allows for reading data sent from the partner.Manager
@@ -219,9 +220,9 @@ func (h *handler) GetPartner() partner.Manager {
 // SendE2E is a wrapper for sending specifically to the Connection's
 // partner.Manager.
 func (h *handler) SendE2E(mt catalog.MessageType, payload []byte,
-	params clientE2e.Params) (clientE2e.SendReport, error) {
+	params clientE2e.Params) (cryptoE2e.SendReport, error) {
 	if h.isClosed() {
-		return clientE2e.SendReport{}, alreadyClosedErr
+		return cryptoE2e.SendReport{}, alreadyClosedErr
 	}
 
 	h.updateLastUse(netTime.Now())

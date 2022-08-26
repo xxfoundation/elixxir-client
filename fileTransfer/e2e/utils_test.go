@@ -28,6 +28,7 @@ import (
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
+	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
@@ -257,7 +258,7 @@ func (m *mockE2e) StartProcesses() (stoppable.Stoppable, error) { panic("impleme
 
 // SendE2E adds the message to the e2e handler map.
 func (m *mockE2e) SendE2E(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, _ e2e.Params) (e2e.SendReport, error) {
+	payload []byte, _ e2e.Params) (cryptoE2e.SendReport, error) {
 
 	m.handler.listeners[mt].Hear(receive.Message{
 		MessageType: mt,
@@ -266,7 +267,7 @@ func (m *mockE2e) SendE2E(mt catalog.MessageType, recipient *id.ID,
 		RecipientID: recipient,
 	})
 
-	return e2e.SendReport{RoundList: []id.Round{42}}, nil
+	return cryptoE2e.SendReport{RoundList: []id.Round{42}}, nil
 }
 
 func (m *mockE2e) RegisterListener(_ *id.ID, mt catalog.MessageType,

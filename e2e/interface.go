@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/crypto/e2e"
 	"time"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -34,7 +35,7 @@ type Handler interface {
 	// Will return an error if the network is not healthy or in
 	// the event of a failed send
 	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
-		params Params) (SendReport, error)
+		params Params) (e2e.SendReport, error)
 
 	/* === Reception ==================================================== */
 

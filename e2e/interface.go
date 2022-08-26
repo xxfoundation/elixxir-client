@@ -12,7 +12,6 @@ import (
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -35,7 +34,7 @@ type Handler interface {
 	// Will return an error if the network is not healthy or in
 	// the event of a failed send
 	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
-		params Params) ([]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error)
+		params Params) (SendReport, error)
 
 	/* === Reception ==================================================== */
 

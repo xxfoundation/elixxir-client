@@ -135,17 +135,17 @@ func (e *E2e) SendE2E(messageType int, recipientId, payload,
 		return nil, err
 	}
 
-	roundIds, messageId, ts, keyResidue, err := e.api.GetE2E().SendE2E(
+	sendReport, err := e.api.GetE2E().SendE2E(
 		catalog.MessageType(messageType), recipient, payload, params)
 	if err != nil {
 		return nil, err
 	}
 
 	result := E2ESendReport{
-		RoundsList: makeRoundsList(roundIds...),
-		MessageID:  messageId.Marshal(),
-		Timestamp:  ts.UnixNano(),
-		KeyResidue: keyResidue.Marshal(),
+		RoundsList: makeRoundsList(sendReport.RoundList...),
+		MessageID:  sendReport.MessageId.Marshal(),
+		Timestamp:  sendReport.SentTime.UnixNano(),
+		KeyResidue: sendReport.KeyResidue.Marshal(),
 	}
 	return json.Marshal(result)
 }

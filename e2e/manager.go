@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"sync"
-	"time"
-
 	jww "github.com/spf13/jwalterweatherman"
+	"sync"
 
 	"gitlab.com/xx_network/primitives/netTime"
 
@@ -23,7 +21,6 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -214,8 +211,7 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 
 	rekeySendFunc := func(mt catalog.MessageType,
 		recipient *id.ID, payload []byte,
-		cmixParams cmix.CMIXParams) (
-		[]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error) {
+		cmixParams cmix.CMIXParams) (SendReport, error) {
 		// FIXME: we should have access to the e2e params here...
 		par := GetDefaultParams()
 		par.CMIXParams = cmixParams
@@ -284,14 +280,15 @@ func (m *manager) DeletePartnerNotify(partnerId *id.ID, params Params) error {
 	m.DeletePartnerCallbacks(partnerId)
 
 	// Send closing E2E message
-	rounds, msgID, timestamp, _, err := sendFunc()
+
+	sendReport, err := sendFunc()
 	if err != nil {
 		jww.ERROR.Printf("Failed to send %s E2E message to %s: %+v",
 			catalog.E2eClose, partnerId, err)
 	} else {
 		jww.INFO.Printf(
 			"Sent %s E2E message to %s on rounds %v with message ID %s at %s",
-			catalog.E2eClose, partnerId, rounds, msgID, timestamp)
+			catalog.E2eClose, partnerId, sendReport.RoundList, sendReport.MessageId, sendReport.SentTime)
 	}
 
 	return nil

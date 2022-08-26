@@ -107,7 +107,7 @@ func Test_manager_SendE2E_Smoke(t *testing.T) {
 
 	payload := []byte("My Payload")
 	p := GetDefaultParams()
-	_, _, _, _, err = m1.SendE2E(catalog.NoType, partnerID, payload, p)
+	_, err = m1.SendE2E(catalog.NoType, partnerID, payload, p)
 	if err != nil {
 		t.Errorf("SendE2E failed: %+v", err)
 	}

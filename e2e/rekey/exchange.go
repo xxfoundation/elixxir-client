@@ -10,18 +10,16 @@ package rekey
 import (
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 type E2eSender func(mt catalog.MessageType, recipient *id.ID, payload []byte,
-	cmixParams cmix.CMIXParams) (
-	[]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error)
+	cmixParams cmix.CMIXParams) (e2e.SendReport, error)
 
 func Start(switchboard *receive.Switchboard, ratchet *ratchet.Ratchet,
 	sender E2eSender, net cmix.Client, grp *cyclic.Group, params Params) (stoppable.Stoppable, error) {

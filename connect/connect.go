@@ -22,8 +22,6 @@ import (
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/xx_network/primitives/id"
 )
 
 var alreadyClosedErr = errors.New("connection is closed")
@@ -43,7 +41,7 @@ type Connection interface {
 	// SendE2E is a wrapper for sending specifically to the Connection's
 	// partner.Manager
 	SendE2E(mt catalog.MessageType, payload []byte, params clientE2e.Params) (
-		[]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error)
+		clientE2e.SendReport, error)
 
 	// RegisterListener is used for E2E reception
 	// and allows for reading data sent from the partner.Manager
@@ -221,9 +219,9 @@ func (h *handler) GetPartner() partner.Manager {
 // SendE2E is a wrapper for sending specifically to the Connection's
 // partner.Manager.
 func (h *handler) SendE2E(mt catalog.MessageType, payload []byte,
-	params clientE2e.Params) ([]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error) {
+	params clientE2e.Params) (clientE2e.SendReport, error) {
 	if h.isClosed() {
-		return nil, e2e.MessageID{}, time.Time{}, e2e.KeyResidue{}, alreadyClosedErr
+		return clientE2e.SendReport{}, alreadyClosedErr
 	}
 
 	h.updateLastUse(netTime.Now())

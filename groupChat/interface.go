@@ -32,7 +32,6 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
-	crypto "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
@@ -126,7 +125,7 @@ type groupCmix interface {
 // needed by GroupChat
 type groupE2eHandler interface {
 	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
-		params e2e.Params) ([]id.Round, crypto.MessageID, time.Time, crypto.KeyResidue, error)
+		params e2e.Params) (e2e.SendReport, error)
 	RegisterListener(senderID *id.ID, messageType catalog.MessageType,
 		newListener receive.Listener) receive.ListenerID
 	AddService(tag string, processor message.Processor) error

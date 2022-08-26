@@ -11,7 +11,6 @@ import (
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 	"testing"
@@ -65,16 +64,15 @@ func (tnm *testE2eManager) GetE2eMsg(i int) testE2eMessage {
 }
 
 func (tnm *testE2eManager) SendE2E(_ catalog.MessageType, recipient *id.ID,
-	payload []byte, _ clientE2E.Params) ([]id.Round, e2e.MessageID, time.Time,
-	e2e.KeyResidue, error) {
+	payload []byte, _ clientE2E.Params) (clientE2E.SendReport, error) {
 	tnm.Lock()
 	defer tnm.Unlock()
 
 	tnm.errSkip++
 	if tnm.sendErr == 1 {
-		return nil, e2e.MessageID{}, time.Time{}, e2e.KeyResidue{}, errors.New("SendE2E error")
+		return clientE2E.SendReport{}, errors.New("SendE2E error")
 	} else if tnm.sendErr == 2 && tnm.errSkip%2 == 0 {
-		return nil, e2e.MessageID{}, time.Time{}, e2e.KeyResidue{}, errors.New("SendE2E error")
+		return clientE2E.SendReport{}, errors.New("SendE2E error")
 	}
 
 	tnm.e2eMessages = append(tnm.e2eMessages, testE2eMessage{
@@ -82,7 +80,7 @@ func (tnm *testE2eManager) SendE2E(_ catalog.MessageType, recipient *id.ID,
 		Payload:   payload,
 	})
 
-	return []id.Round{0, 1, 2, 3}, e2e.MessageID{}, time.Time{}, e2e.KeyResidue{}, nil
+	return clientE2E.SendReport{RoundList: []id.Round{0, 1, 2, 3}}, nil
 }
 
 func (*testE2eManager) RegisterListener(*id.ID, catalog.MessageType, receive.Listener) receive.ListenerID {

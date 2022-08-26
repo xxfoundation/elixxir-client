@@ -14,6 +14,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"gitlab.com/elixxir/client/e2e"
 	"io/ioutil"
 	"log"
 	"os"
@@ -288,8 +289,10 @@ var rootCmd = &cobra.Command{
 								e2eParams.Base)
 						} else {
 							e2eParams.Base.DebugTag = "cmd.E2E"
-							roundIDs, _, _, _, err = user.GetE2E().SendE2E(mt,
+							var sendReport e2e.SendReport
+							sendReport, err = user.GetE2E().SendE2E(mt,
 								recipient, payload, e2eParams.Base)
+							roundIDs = sendReport.RoundList
 						}
 						if err != nil {
 							jww.FATAL.Panicf("%+v", err)

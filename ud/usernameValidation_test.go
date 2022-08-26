@@ -20,16 +20,19 @@ import (
 // SendUsernameValidation comm.
 type testUsernameValidation struct {
 	pubKeyPem []byte
+	username  string
 }
 
 func (tuv *testUsernameValidation) SendUsernameValidation(host *connect.Host,
 	message *pb.UsernameValidationRequest) (*pb.UsernameValidation, error) {
 	privKey, _ := rsa.LoadPrivateKeyFromPem([]byte(testKey))
 	sig, _ := crust.SignVerification(rand.Reader, privKey,
-		message.Username, tuv.pubKeyPem)
+		tuv.username, tuv.pubKeyPem)
 
 	return &pb.UsernameValidation{
-		Signature: sig,
+		Signature:             sig,
+		ReceptionPublicKeyPem: tuv.pubKeyPem,
+		Username:              tuv.username,
 	}, nil
 }
 
@@ -46,9 +49,10 @@ func TestManager_GetUsernameValidationSignature(t *testing.T) {
 
 	c := &testUsernameValidation{
 		pubKeyPem: publicKeyPem,
+		username:  "admin",
 	}
 
-	_, err = m.getUsernameValidationSignature("admin", c)
+	_, err = m.getUsernameValidationSignature(c)
 	if err != nil {
 		t.Fatalf("getUsernameValidationSignature error: %+v", err)
 	}

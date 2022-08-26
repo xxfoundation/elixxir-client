@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"errors"
+	"math"
 	"sync"
 	"time"
 
@@ -234,11 +235,20 @@ func (c *clientIDTracker) Start() (stoppable.Stoppable, error) {
 // registrationWorker is meant to run in it's own goroutine
 // periodically registering, getting a new lease.
 func (c *clientIDTracker) registrationWorker(stopper *stoppable.Single) {
+	// start backoff at 32 seconds
+	base := 2
+	exponent := 5
+	waitTime := time.Second
+	maxBackoff := 300
 	for {
 		if time.Now().After(c.registrationDisk.GetLease().Add(-graceDuration)) {
 			err := c.register()
 			if err != nil {
-				jww.FATAL.Panic(err)
+				backoffSeconds := int(math.Pow(float64(base), float64(exponent)))
+				if backoffSeconds > maxBackoff {
+					backoffSeconds = maxBackoff
+				}
+				waitTime = time.Second * time.Duration(backoffSeconds)
 			}
 		}
 
@@ -252,7 +262,7 @@ func (c *clientIDTracker) registrationWorker(stopper *stoppable.Single) {
 		select {
 		case <-stopper.Quit():
 			return
-		case <-time.After(time.Second):
+		case <-time.After(waitTime):
 		}
 	}
 }

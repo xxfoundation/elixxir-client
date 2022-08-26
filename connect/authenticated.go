@@ -98,7 +98,7 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 	}
 
 	// Send message to server
-	rids, _, _, _, err := conn.SendE2E(catalog.ConnectionAuthenticationRequest,
+	sendReport, err := conn.SendE2E(catalog.ConnectionAuthenticationRequest,
 		payload, clientE2e.GetDefaultParams())
 	if err != nil {
 		// Close connection on an error
@@ -139,7 +139,7 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 	// Track the result of the round(s) we sent the
 	// identity authentication message on
 	err = net.GetRoundResults(remainingTime,
-		roundCb, rids...)
+		roundCb, sendReport.RoundList...)
 	if err != nil {
 		return nil, errors.Errorf("could not track rounds for successful " +
 			"identity confirmation message delivery")

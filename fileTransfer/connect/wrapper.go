@@ -13,9 +13,7 @@ import (
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/receive"
 	ft "gitlab.com/elixxir/client/fileTransfer"
-	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
-	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
@@ -41,7 +39,7 @@ type Wrapper struct {
 type connection interface {
 	GetPartner() partner.Manager
 	SendE2E(mt catalog.MessageType, payload []byte, params e2e.Params) (
-		[]id.Round, e2eCrypto.MessageID, time.Time, e2eCrypto.KeyResidue, error)
+		e2e.SendReport, error)
 	RegisterListener(messageType catalog.MessageType,
 		newListener receive.Listener) (receive.ListenerID, error)
 }

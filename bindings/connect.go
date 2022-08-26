@@ -85,7 +85,7 @@ func (c *Cmix) Connect(e2eId int, recipientContact, e2eParamsJSON []byte) (
 //  - []byte - the JSON marshalled bytes of the E2ESendReport object, which can
 //    be passed into Cmix.WaitForRoundResult to see if the send succeeded.
 func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
-	rounds, mid, ts, keyResidue, err := c.connection.SendE2E(catalog.MessageType(mt), payload,
+	sendReport, err := c.connection.SendE2E(catalog.MessageType(mt), payload,
 		c.params.Base)
 
 	if err != nil {
@@ -93,10 +93,10 @@ func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 	}
 
 	sr := E2ESendReport{
-		RoundsList: makeRoundsList(rounds...),
-		MessageID:  mid.Marshal(),
-		Timestamp:  ts.UnixNano(),
-		KeyResidue: keyResidue.Marshal(),
+		RoundsList: makeRoundsList(sendReport.RoundList...),
+		MessageID:  sendReport.MessageId.Marshal(),
+		Timestamp:  sendReport.SentTime.UnixNano(),
+		KeyResidue: sendReport.KeyResidue.Marshal(),
 	}
 
 	return json.Marshal(&sr)

@@ -55,7 +55,7 @@ func respond(response *restlike.Message, conn connect.Connection) error {
 	}
 
 	// TODO: Parameterize params
-	_, _, _, _, err = conn.SendE2E(catalog.XxMessage, payload, e2e.GetDefaultParams())
+	_, err = conn.SendE2E(catalog.XxMessage, payload, e2e.GetDefaultParams())
 	if err != nil {
 		return errors.Errorf("unable to send restlike response message: %+v", err)
 	}

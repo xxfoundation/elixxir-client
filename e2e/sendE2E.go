@@ -19,6 +19,17 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
+type SendReport struct {
+	// RoundList is the list of rounds which the message payload
+	// is sent.
+	RoundList []id.Round
+	MessageId e2e.MessageID
+
+	// SentTime is the time in which the message was sent.
+	// More specifically it is when SendE2e is called.
+	SentTime time.Time
+}
+
 func (m *manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
 	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, e2e.KeyResidue, error) {
 

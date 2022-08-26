@@ -18,13 +18,15 @@ import (
 
 // testUsernameValidation is a mock up of UD's response for a
 // SendUsernameValidation comm.
-type testUsernameValidation struct{}
+type testUsernameValidation struct {
+	pubKeyPem []byte
+}
 
 func (tuv *testUsernameValidation) SendUsernameValidation(host *connect.Host,
 	message *pb.UsernameValidationRequest) (*pb.UsernameValidation, error) {
 	privKey, _ := rsa.LoadPrivateKeyFromPem([]byte(testKey))
 	sig, _ := crust.SignVerification(rand.Reader, privKey,
-		message.Username, message.ReceptionPublicKeyPem)
+		message.Username, tuv.pubKeyPem)
 
 	return &pb.UsernameValidation{
 		Signature: sig,
@@ -34,10 +36,19 @@ func (tuv *testUsernameValidation) SendUsernameValidation(host *connect.Host,
 // Unit test of getUsernameValidationSignature.
 func TestManager_GetUsernameValidationSignature(t *testing.T) {
 	// Create our Manager object
-	m, _ := newTestManager(t)
-	c := &testUsernameValidation{}
 
-	_, err := m.getUsernameValidationSignature("admin", c)
+	m, _ := newTestManager(t)
+	rsaPrivKey, err := m.user.GetReceptionIdentity().GetRSAPrivateKey()
+	if err != nil {
+		t.Fatalf("Failed to retrieve private key: %v", err)
+	}
+	publicKeyPem := rsa.CreatePublicKeyPem(rsaPrivKey.GetPublic())
+
+	c := &testUsernameValidation{
+		pubKeyPem: publicKeyPem,
+	}
+
+	_, err = m.getUsernameValidationSignature("admin", c)
 	if err != nil {
 		t.Fatalf("getUsernameValidationSignature error: %+v", err)
 	}

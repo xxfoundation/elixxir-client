@@ -49,18 +49,10 @@ func (m *Manager) getUsernameValidationSignature(
 	username string, comms userValidationComms) (
 	[]byte, error) {
 
-	// Retrieve the public key and serialize it to a PEM file
-	rsaPrivKey, err := m.user.GetReceptionIdentity().GetRSAPrivateKey()
-	if err != nil {
-		return nil, err
-	}
-	publicKeyPem := rsa.CreatePublicKeyPem(rsaPrivKey.GetPublic())
-
 	// Construct request for username validation
 	request := &pb.UsernameValidationRequest{
-		Username:              username,
-		ReceptionPublicKeyPem: publicKeyPem,
-		UserId:                m.user.GetReceptionIdentity().ID.Bytes(),
+		Username: username,
+		UserId:   m.user.GetReceptionIdentity().ID.Bytes(),
 	}
 
 	// Send request
@@ -68,6 +60,13 @@ func (m *Manager) getUsernameValidationSignature(
 	if err != nil {
 		return nil, err
 	}
+
+	// Retrieve the public key and serialize it to a PEM file
+	rsaPrivKey, err := m.user.GetReceptionIdentity().GetRSAPrivateKey()
+	if err != nil {
+		return nil, err
+	}
+	publicKeyPem := rsa.CreatePublicKeyPem(rsaPrivKey.GetPublic())
 
 	// Verify response is valid
 	err = crust.VerifyVerificationSignature(m.ud.host.GetPubKey(), username,

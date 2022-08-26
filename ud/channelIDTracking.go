@@ -232,6 +232,17 @@ func (c *clientIDTracker) Start() (stoppable.Stoppable, error) {
 	return stopper, nil
 }
 
+func pow(base, exponent int) int {
+	if exponent == 0 {
+		return 1
+	}
+	result := base
+	for i := 2; i <= exponent; i++ {
+		result *= base
+	}
+	return result
+}
+
 // registrationWorker is meant to run in it's own goroutine
 // periodically registering, getting a new lease.
 func (c *clientIDTracker) registrationWorker(stopper *stoppable.Single) {
@@ -244,12 +255,13 @@ func (c *clientIDTracker) registrationWorker(stopper *stoppable.Single) {
 		if time.Now().After(c.registrationDisk.GetLease().Add(-graceDuration)) {
 			err := c.register()
 			if err != nil {
-				backoffSeconds := int(math.Pow(float64(base), float64(exponent)))
+				backoffSeconds := pow(base, exponent)
 				if backoffSeconds > maxBackoff {
 					backoffSeconds = maxBackoff
+				} else {
+					exponent += 1
 				}
 				waitTime = time.Second * time.Duration(backoffSeconds)
-				exponent += 1
 			}
 		}
 

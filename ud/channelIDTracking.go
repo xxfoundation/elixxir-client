@@ -249,6 +249,7 @@ func (c *clientIDTracker) registrationWorker(stopper *stoppable.Single) {
 					backoffSeconds = maxBackoff
 				}
 				waitTime = time.Second * time.Duration(backoffSeconds)
+				exponent += 1
 			}
 		}
 

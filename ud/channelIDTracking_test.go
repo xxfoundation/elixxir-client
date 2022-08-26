@@ -75,7 +75,7 @@ func TestLoadSaveRegistration(t *testing.T) {
 func TestChannelIDTracking(t *testing.T) {
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 
-	// AddHost
+	// comms AddHost
 	stream := rngGen.GetStream()
 	privKey, err := rsa.GenerateKey(stream, 1024)
 	require.NoError(t, err)
@@ -109,18 +109,13 @@ func TestChannelIDTracking(t *testing.T) {
 		[]byte(netDef.UDB.Cert), params)
 	require.NoError(t, err)
 
-	//
+	// register
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	comms := new(mockComms)
 	username := "Alice"
 
-	/*
-		udPubKeyBytes := m.user.GetCmix().GetInstance().
-			GetPartialNdf().Get().UDB.DhPubKey
-	*/
-
-	udPubKey, udPrivKey, err := ed25519.GenerateKey(stream)
+	udPubKey, udPrivKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
 	rsaPrivKey, err := m.user.GetReceptionIdentity().GetRSAPrivateKey()
@@ -134,11 +129,6 @@ func TestChannelIDTracking(t *testing.T) {
 		comms, host, username,
 		kv, m.user.GetReceptionIdentity(),
 		udPubKey, rngGen)
-
-	//sig, _ := myTestClientIDTracker.registrationDisk.GetLeaseSignature()
-	// XXX bad signature
-	sig := make([]byte, 64)
-	stream.Read(sig)
 
 	err = myTestClientIDTracker.register()
 	require.NoError(t, err)

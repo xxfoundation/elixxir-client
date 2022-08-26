@@ -19,6 +19,19 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
+// SendE2E send a message containing the payload to the
+// recipient of the passed message type, per the given
+// parameters - encrypted with end-to-end encryption.
+// Default parameters can be retrieved through
+// GetDefaultParams()
+// If too long, it will chunk a message up into its messages
+// and send each as a separate cmix message. It will return
+// the list of all rounds sent on, a unique ID for the
+// message, and the timestamp sent on.
+// the recipient must already have an e2e relationship,
+// otherwise an error will be returned.
+// Will return an error if the network is not healthy or in
+// the event of a failed send
 func (m *manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
 	payload []byte, params Params) (e2e.SendReport, error) {
 

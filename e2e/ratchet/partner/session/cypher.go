@@ -70,7 +70,7 @@ type Cypher interface {
 	// Decrypt uses the E2E key to decrypt the message. It returns an error in
 	// case of HMAC verification failure or in case of a decryption error
 	// (related to padding). It generates a residue of the
-	//	// key used to encrypt the contents.
+	// key used to encrypt the contents.
 	Decrypt(msg format.Message) (decryptedPayload []byte, residue e2eCrypto.KeyResidue, err error)
 
 	// Use sets the key as used. It cannot be used again.

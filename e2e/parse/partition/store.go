@@ -51,6 +51,7 @@ func NewOrLoad(kv *versioned.KV) *Store {
 	return partitionStore
 }
 
+// AddFirst adds the first partition message to the Store object.
 func (s *Store) AddFirst(partner *id.ID, mt catalog.MessageType,
 	messageID uint64, partNum, numParts uint8, senderTimestamp,
 	storageTimestamp time.Time, part []byte, relationshipFingerprint []byte,

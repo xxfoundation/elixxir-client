@@ -30,8 +30,8 @@ func (p *processor) Process(ecrMsg format.Message,
 		return
 	}
 
-	// todo: handle residue here
 	sess := p.cy.GetSession()
+	// todo: handle residue here
 	message, _, done := p.m.partitioner.HandlePartition(sess.GetPartner(),
 		contents, sess.GetRelationshipFingerprint(), residue)
 	if done {

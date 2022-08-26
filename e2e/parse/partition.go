@@ -8,7 +8,7 @@
 package parse
 
 import (
-	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/e2e"
 	"time"
 
 	"github.com/pkg/errors"
@@ -80,7 +80,7 @@ func (p *Partitioner) Partition(recipient *id.ID, mt catalog.MessageType,
 
 func (p *Partitioner) HandlePartition(sender *id.ID,
 	contents []byte, relationshipFingerprint []byte,
-	residue e2eCrypto.KeyResidue) (receive.Message, e2eCrypto.KeyResidue, bool) {
+	residue e2e.KeyResidue) (receive.Message, e2e.KeyResidue, bool) {
 
 	if isFirst(contents) {
 		// If it is the first message in a set, then handle it as so

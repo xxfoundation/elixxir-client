@@ -212,7 +212,7 @@ func (s *Store) unmarshalConfirmedFacts(data []byte) (map[fact.Fact]struct{}, er
 	var fStrings []string
 	err := json.Unmarshal(data, &fStrings)
 	if err != nil {
-		return nil, err
+		return make(map[fact.Fact]struct{}), err
 	}
 
 	// Deserialize the list into a map
@@ -220,7 +220,8 @@ func (s *Store) unmarshalConfirmedFacts(data []byte) (map[fact.Fact]struct{}, er
 	for _, fStr := range fStrings {
 		f, err := fact.UnstringifyFact(fStr)
 		if err != nil {
-			return nil, errors.WithMessage(err, malformedFactErr)
+			return make(map[fact.Fact]struct{}),
+				errors.WithMessage(err, malformedFactErr)
 		}
 
 		confirmedFacts[f] = struct{}{}
@@ -236,7 +237,7 @@ func (s *Store) unmarshalUnconfirmedFacts(data []byte) (map[string]fact.Fact, er
 	var ufdList []unconfirmedFactDisk
 	err := json.Unmarshal(data, &ufdList)
 	if err != nil {
-		return nil, err
+		return make(map[string]fact.Fact), err
 	}
 
 	// Deserialize the list into a map
@@ -244,7 +245,8 @@ func (s *Store) unmarshalUnconfirmedFacts(data []byte) (map[string]fact.Fact, er
 	for _, ufd := range ufdList {
 		f, err := fact.UnstringifyFact(ufd.stringifiedFact)
 		if err != nil {
-			return nil, errors.WithMessage(err, malformedFactErr)
+			return make(map[string]fact.Fact),
+				errors.WithMessage(err, malformedFactErr)
 		}
 
 		unconfirmedFacts[ufd.confirmationId] = f

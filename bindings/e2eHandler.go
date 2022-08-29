@@ -10,12 +10,12 @@ package bindings
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -123,20 +123,24 @@ func (e *E2e) RemoveService(tag string) error {
 //  - []byte - the JSON marshalled bytes of the E2ESendReport object, which can
 //    be passed into Cmix.WaitForRoundResult to see if the send succeeded.
 func (e *E2e) SendE2E(messageType int, recipientId, payload,
-	e2eParams []byte) ([]byte, error) {
-	// Note that specifically these are the Base params from xxdk.E2EParams
-	params := e2e.GetDefaultParams()
-	err := params.UnmarshalJSON(e2eParams)
+	e2eParamsJSON []byte) ([]byte, error) {
+	if len(e2eParamsJSON) == 0 {
+		jww.WARN.Printf("e2e params not specified, using defaults...")
+		e2eParamsJSON = GetDefaultE2EParams()
+	}
+	params, err := parseE2EParams(e2eParamsJSON)
 	if err != nil {
 		return nil, err
 	}
+
 	recipient, err := id.Unmarshal(recipientId)
 	if err != nil {
 		return nil, err
 	}
 
 	sendReport, err := e.api.GetE2E().SendE2E(
-		catalog.MessageType(messageType), recipient, payload, params)
+		catalog.MessageType(messageType), recipient, payload,
+		params.Base)
 	if err != nil {
 		return nil, err
 	}

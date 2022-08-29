@@ -100,3 +100,9 @@ func (p *Params) UnmarshalJSON(data []byte) error {
 
 	return nil
 }
+
+// String implements stringer interface by returning a json string
+func (p *Params) String() string {
+	json, _ := p.MarshalJSON()
+	return string(json)
+}

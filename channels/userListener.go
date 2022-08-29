@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+// the userListener adheres to the broadcast listener interface and is used
+// when user messages are received on the channel
 type userListener struct {
 	name   NameService
 	events *events

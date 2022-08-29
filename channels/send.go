@@ -206,9 +206,8 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 // be rejected otherwise.
 // Clients will drop the reaction if they do not recognize the reactTo message
 func (m *manager) SendReaction(channelID *id.ID, reaction string,
-	reactTo cryptoChannel.MessageID, validUntil time.Duration,
-	params cmix.CMIXParams) (cryptoChannel.MessageID, id.Round, ephemeral.Id,
-	error) {
+	reactTo cryptoChannel.MessageID, params cmix.CMIXParams) (
+	cryptoChannel.MessageID, id.Round, ephemeral.Id, error) {
 
 	if err := ValidateReaction(reaction); err != nil {
 		return cryptoChannel.MessageID{}, 0, ephemeral.Id{}, err
@@ -225,5 +224,6 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 		return cryptoChannel.MessageID{}, 0, ephemeral.Id{}, err
 	}
 
-	return m.SendGeneric(channelID, Reaction, reactMarshaled, validUntil, params)
+	return m.SendGeneric(channelID, Reaction, reactMarshaled, ValidForever,
+		params)
 }

@@ -10,6 +10,8 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+// the adminListener adheres to the broadcast listener interface and is used
+// when admin messages are received on the channel
 type adminListener struct {
 	name   NameService
 	events *events

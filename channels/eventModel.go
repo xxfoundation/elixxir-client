@@ -204,7 +204,10 @@ func (e *events) receiveTextMessage(ChannelID *id.ID,
 
 // receiveReaction is the internal function which handles the reception of
 // Reactions.
-// It does edge chaling
+// It does edge checking to ensure the received reaction is just a single emoji.
+// If the received reaction is not, the reaction is dropped.
+// If the messageID for the message the reaction is to is malformed, the reaction
+// is dropped.
 func (e *events) receiveReaction(ChannelID *id.ID,
 	MessageID cryptoChannel.MessageID, messageType MessageType,
 	SenderUsername string, Content []byte, timestamp time.Time,

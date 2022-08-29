@@ -23,7 +23,8 @@ type NameService interface {
 	// given message.
 	SignChannelMessage(message []byte) (signature []byte, err error)
 
-	// ValidateChannelMessage
+	// ValidateChannelMessage validates that a received channel message's
+	// username lease is signed by the NameService
 	ValidateChannelMessage(username string, lease time.Time,
 		pubKey ed25519.PublicKey, authorIDSignature []byte) bool
 }

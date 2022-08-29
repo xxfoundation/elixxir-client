@@ -30,7 +30,7 @@ func NewUserMessageInternal(ursMsg *UserMessage) (*UserMessageInternal, error) {
 	return &UserMessageInternal{
 		userMessage:    ursMsg,
 		channelMessage: channelMessage,
-		messageID:      channel.MakeMessageID(channelMessage.Payload),
+		messageID:      channel.MakeMessageID(ursMsg.Message),
 	}, nil
 }
 

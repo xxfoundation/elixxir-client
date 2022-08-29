@@ -44,7 +44,7 @@ func (al *adminListener) Listen(payload []byte,
 
 	// check the round to ensure the message is not a replay
 	if id.Round(cm.RoundID) != round.ID {
-		jww.WARN.Printf("The round message %s send on %d referenced "+
+		jww.WARN.Printf("The round message %s send on %s referenced "+
 			"(%d) was not the same as the round the message was found on (%d)",
 			msgID, al.chID, cm.RoundID, round.ID)
 		return

@@ -1,8 +1,8 @@
 package channels
 
 import (
-	"github.com/forPelevin/gomoji"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 var InvalidReaction = errors.New("The reaction is not valid, " +
@@ -10,13 +10,6 @@ var InvalidReaction = errors.New("The reaction is not valid, " +
 
 // ValidateReaction checks that the reaction only contains a single Emoji
 func ValidateReaction(reaction string) error {
-	if len(gomoji.RemoveEmojis(reaction)) > 0 {
-		return InvalidReaction
-	}
-
-	if len(gomoji.FindAll(reaction)) != 1 {
-		return InvalidReaction
-	}
-
+	jww.WARN.Printf("Reaction Validation Not Yet Implemented")
 	return nil
 }

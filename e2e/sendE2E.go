@@ -108,7 +108,7 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 			rekeySendFunc := func(mt catalog.MessageType,
 				recipient *id.ID,
 				payload []byte, cmixParams cmix.CMIXParams) (
-				[]id.Round, e2e.MessageID, time.Time, error) {
+				e2e.SendReport, error) {
 				par := params
 				par.CMIXParams = cmixParams
 				return m.SendE2E(mt, recipient, payload, par)

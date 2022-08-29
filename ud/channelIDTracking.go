@@ -59,6 +59,7 @@ func saveRegistrationDisk(kv *versioned.KV, reg registrationDisk) error {
 type registrationDisk struct {
 	rwmutex sync.RWMutex
 
+	Registered bool
 	PublicKey  ed25519.PublicKey
 	PrivateKey ed25519.PrivateKey
 	Lease      int64
@@ -76,12 +77,20 @@ func newRegistrationDisk(publicKey ed25519.PublicKey, privateKey ed25519.Private
 	}
 }
 
+func (r registrationDisk) IsRegistered() bool {
+	r.rwmutex.RLock()
+	defer r.rwmutex.RUnlock()
+
+	return r.Registered
+}
+
 // Update updates the registrationDisk that is currently
 // stored on the kv with a new lease and lease signature.
 func (r registrationDisk) Update(lease int64, signature []byte) {
 	r.rwmutex.Lock()
 	defer r.rwmutex.Unlock()
 
+	r.Registered = true
 	r.Lease = lease
 	r.Signature = signature
 }
@@ -182,12 +191,15 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 		if err != nil {
 			jww.FATAL.Panic(err)
 		}
+	} else if err != nil {
+		jww.FATAL.Panic(err)
+	}
+
+	if !reg.IsRegistered() {
 		err = c.register()
 		if err != nil {
 			jww.FATAL.Panic(err)
 		}
-	} else if err != nil {
-		jww.FATAL.Panic(err)
 	}
 
 	c := &clientIDTracker{

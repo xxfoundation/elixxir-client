@@ -105,34 +105,77 @@ type UdNetworkStatus interface {
 // Manager functions                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// NewOrLoadUd loads an existing Manager from storage or creates a
-// new one if there is no extant storage information. Parameters need be provided
-// to specify how to connect to the User Discovery service. These parameters may be used
-// to contact either the UD server hosted by the xx network team or a custom
-// third-party operated server. For the former, all the information may be pulled from the
-// NDF using the bindings.
+// IsRegisteredWithUD is a function which checks the internal state
+// files to determine if a user has registered with UD in the past.
+//
+// Parameters:
+//  - e2eID -  REQUIRED. The tracked e2e object ID. This can be retrieved using [E2e.GetID].
+//
+// Returns:
+//   - bool - A boolean representing true if the user has been registered with UD already
+//            or false if it has not been registered already.
+//  - error - An error should only be returned if the internal tracker failed to retrieve an
+//            E2e object given the e2eId. If an error was returned, the registration state check
+//            was not performed properly, and the boolean returned should be ignored.
+func IsRegisteredWithUD(e2eId int) (bool, error) {
+
+	// Get user from singleton
+	user, err := e2eTrackerSingleton.get(e2eId)
+	if err != nil {
+		return false, err
+	}
+
+	return ud.IsRegistered(user.api.GetStorage().GetKV()), nil
+}
+
+// NewOrLoadUd loads an existing UserDiscovery from storage or creates a new
+// UserDiscovery if there is no storage data. Regardless of storage state,
+// the UserDiscovery object returned will be registered with the
+// User Discovery service. If the user is not already registered, a call
+// to register will occur internally. If the user is already registered,
+// this call will simply load state and return to you a UserDiscovery object.
+// Some parameters are required for registering with the service, but are not required
+// if the user is already registered. These will be noted in the parameters section as
+// "SEMI-REQUIRED".
+//
+// Certain parameters are required every call to this function. These parameters are listed below
+// as "REQUIRED". For example, parameters need be provided to specify how to connect to the
+// User Discovery service. These parameters specifically may be used to contact either the UD
+// server hosted by the xx network team or a custom third-party operated server. For the former,
+// all the information may be fetched from the NDF using the bindings. These fetch
+// methods are detailed in the parameters section.
 //
 // Params
-//  - e2eID - e2e object ID in the tracker
-//  - follower - network follower func wrapped in UdNetworkStatus
-//  - username - the username the user wants to register with UD.
-//    If the user is already registered, this field may be blank
-//  - networkValidationSig is a signature provided by the network (i.e. the client registrar).
-//    This may be nil, however UD may return an error in some cases (e.g. in a production level
-//    environment).
-//  - cert is the TLS certificate for the UD server this call will connect with.
-//    You may use the UD server run by the xx network team by using E2e.GetUdCertFromNdf.
-//  - contactFile is the data within a marshalled contact.Contact. This represents the
+//  - e2eID -  REQUIRED. The tracked e2e object ID. This is returned by [E2e.GetID].
+//  - follower - REQUIRED. Network follower function. This will check if the network
+//    follower is running.
+//  - username - SEMI-REQUIRED. The username the user wants to register with UD.
+//    If the user is already registered, this field may be blank. If the user is not
+//    already registered, these field must be populated with a username that meets the
+//    requirements of the UD service. For example, in the xx network's UD service,
+//    the username must not be registered by another user.
+//  - registrationValidationSignature - SEMI-REQUIRED. A signature provided by the xx network
+//    (i.e. the client registrar). If the user is not already registered, this field is required
+//    in order to register with the xx network. This may be nil if the user is already registered
+//    or connecting to a third-party UD service unassociated with the xx network.
+//  - cert - REQUIRED. The TLS certificate for the UD server this call will connect with.
+//    If this is nil, you may not contact the UD server hosted by the xx network.
+//    Third-party services may vary.
+//    You may use the UD server run by the xx network team by using [E2e.GetUdCertFromNdf].
+//  - contactFile - REQUIRED. The data within a marshalled [contact.Contact]. This represents the
 //    contact file of the server this call will connect with.
-//    You may use the UD server run by the xx network team by using E2e.GetUdContactFromNdf.
-//  - address is the IP address of the UD server this call will connect with.
-//    You may use the UD server run by the xx network team by using E2e.GetUdAddressFromNdf.
+//    If this is nil, you may not contact the UD server hosted by the xx network.
+//    Third-party services may vary.
+//    You may use the UD server run by the xx network team by using [E2e.GetUdContactFromNdf].
+//  - address - REQUIRED. The IP address of the UD server this call will connect with.
+//    You may use the UD server run by the xx network team by using [E2e.GetUdAddressFromNdf].
+//    If this is nil, you may not contact the UD server hosted by the xx network.
+//    Third-party services may vary.
 //
 // Returns
 //  - A Manager object which is registered to the specified UD service.
-func NewOrLoadUd(e2eID int, follower UdNetworkStatus,
-	username string, registrationValidationSignature,
-	cert, contactFile []byte, address string) (
+func NewOrLoadUd(e2eID int, follower UdNetworkStatus, username string,
+	registrationValidationSignature, cert, contactFile []byte, address string) (
 	*UserDiscovery, error) {
 
 	// Get user from singleton
@@ -165,17 +208,24 @@ func NewOrLoadUd(e2eID int, follower UdNetworkStatus,
 // Parameters:
 //  - e2eID - e2e object ID in the tracker
 //  - follower - network follower func wrapped in UdNetworkStatus
-//  - emailFactJson - nullable JSON marshalled email fact.Fact
-//  - phoneFactJson - nullable JSON marshalled phone fact.Fact
-//  - cert is the TLS certificate for the UD server this call will connect with.
-//    You may use the UD server run by the xx network team by using E2e.GetUdCertFromNdf.
-//  - contactFile is the data within a marshalled contact.Contact. This represents the
-//    contact file of the server this call will connect with.
-//    You may use the UD server run by the xx network team by using E2e.GetUdContactFromNdf.
-//  - address is the IP address of the UD server this call will connect with.
-//    You may use the UD server run by the xx network team by using E2e.GetUdAddressFromNdf.
-func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
-	phoneFactJson []byte, cert, contactFile []byte, address string) (*UserDiscovery, error) {
+//  - username - The username this user registered with initially. This should
+//               not be nullable, and be JSON marshalled as retrieved from
+//               UserDiscovery.GetFacts().
+//  - emailFactJson - nullable JSON marshalled email [fact.Fact]
+//  - phoneFactJson - nullable JSON marshalled phone [fact.Fact]
+//  - cert - the TLS certificate for the UD server this call will connect with.
+//    You may use the UD server run by the xx network team by using
+//    E2e.GetUdCertFromNdf.
+//  - contactFile - the data within a marshalled contact.Contact. This
+//    represents the contact file of the server this call will connect with. You
+//    may use the UD server run by the xx network team by using
+//    E2e.GetUdContactFromNdf.
+//  - address - the IP address of the UD server this call will connect with. You
+//    may use the UD server run by the xx network team by using
+//    E2e.GetUdAddressFromNdf.
+func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus,
+	usernameJson, emailFactJson, phoneFactJson,
+	cert, contactFile []byte, address string) (*UserDiscovery, error) {
 
 	// Get user from singleton
 	user, err := e2eTrackerSingleton.get(e2eID)
@@ -183,7 +233,9 @@ func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
 		return nil, err
 	}
 
-	var email, phone fact.Fact
+	var email, phone, username fact.Fact
+
+	// Parse email if non-nil
 	if emailFactJson != nil {
 		err = json.Unmarshal(emailFactJson, &email)
 		if err != nil {
@@ -191,11 +243,18 @@ func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
 		}
 	}
 
+	// Parse phone if non-nil
 	if phoneFactJson != nil {
 		err = json.Unmarshal(phoneFactJson, &phone)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// Parse username
+	err = json.Unmarshal(usernameJson, &username)
+	if err != nil {
+		return nil, err
 	}
 
 	UdNetworkStatusFn := func() xxdk.Status {
@@ -204,7 +263,7 @@ func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
 
 	u, err := ud.NewManagerFromBackup(
 		user.api, user.api.GetComms(), UdNetworkStatusFn,
-		email, phone,
+		username, email, phone,
 		cert, contactFile, address)
 	if err != nil {
 		return nil, err
@@ -213,7 +272,7 @@ func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus, emailFactJson,
 	return udTrackerSingleton.make(u), nil
 }
 
-// GetFacts returns a JSON marshalled list of fact.Fact objects that exist
+// GetFacts returns a JSON marshalled list of [fact.Fact] objects that exist
 // within the Store's registeredFacts map.
 func (ud *UserDiscovery) GetFacts() []byte {
 	jsonData, err := json.Marshal(ud.api.GetFacts())
@@ -229,9 +288,9 @@ func (ud *UserDiscovery) GetContact() ([]byte, error) {
 	return ud.api.GetContact().Marshal(), nil
 }
 
-// ConfirmFact confirms a fact first registered via AddFact. The confirmation ID
-// comes from AddFact while the code will come over the associated
-// communications system.
+// ConfirmFact confirms a fact first registered via SendRegisterFact. The
+// confirmation ID comes from SendRegisterFact while the code will come over the
+// associated communications system.
 func (ud *UserDiscovery) ConfirmFact(confirmationID, code string) error {
 	return ud.api.ConfirmFact(confirmationID, code)
 }
@@ -246,7 +305,7 @@ func (ud *UserDiscovery) ConfirmFact(confirmationID, code string) error {
 // along with the code to finalize the fact.
 //
 // Parameters:
-//  - factJson - a JSON marshalled fact.Fact
+//  - factJson - a JSON marshalled [fact.Fact]
 func (ud *UserDiscovery) SendRegisterFact(factJson []byte) (string, error) {
 	var f fact.Fact
 	err := json.Unmarshal(factJson, &f)
@@ -262,7 +321,7 @@ func (ud *UserDiscovery) SendRegisterFact(factJson []byte) (string, error) {
 // be associated with this user.
 //
 // Parameters:
-//  - factJson - a JSON marshalled fact.Fact
+//  - factJson - a JSON marshalled [fact.Fact]
 func (ud *UserDiscovery) PermanentDeleteAccount(factJson []byte) error {
 	var f fact.Fact
 	err := json.Unmarshal(factJson, &f)
@@ -277,7 +336,7 @@ func (ud *UserDiscovery) PermanentDeleteAccount(factJson []byte) error {
 // passed in is not UD service does not associate this fact with this user.
 //
 // Parameters:
-//  - factJson - a JSON marshalled fact.Fact
+//  - factJson - a JSON marshalled [fact.Fact]
 func (ud *UserDiscovery) RemoveFact(factJson []byte) error {
 	var f fact.Fact
 	err := json.Unmarshal(factJson, &f)
@@ -309,13 +368,14 @@ type UdLookupCallback interface {
 // Parameters:
 //  - e2eID - e2e object ID in the tracker
 //  - udContact - the marshalled bytes of the contact.Contact object
-//  - lookupId - the marshalled bytes of the id.ID object for the user
-//    that LookupUD will look up.
+//  - lookupId - the marshalled bytes of the id.ID object for the user that
+//    LookupUD will look up.
 //  - singleRequestParams - the JSON marshalled bytes of single.RequestParams
 //
 // Returns:
 //  - []byte - the JSON marshalled bytes of the SingleUseSendReport object,
-//    which can be passed into WaitForRoundResult to see if the send succeeded.
+//    which can be passed into Cmix.WaitForRoundResult to see if the send
+//    succeeded.
 func LookupUD(e2eID int, udContact []byte, cb UdLookupCallback,
 	lookupId []byte, singleRequestParamsJSON []byte) ([]byte, error) {
 
@@ -352,7 +412,7 @@ func LookupUD(e2eID int, udContact []byte, cb UdLookupCallback,
 
 	sr := SingleUseSendReport{
 		EphID:       eid.EphId.Int64(),
-		ReceptionID: eid.Source.Marshal(),
+		ReceptionID: eid.Source,
 		RoundsList:  makeRoundsList(rids...),
 	}
 
@@ -369,8 +429,15 @@ func LookupUD(e2eID int, udContact []byte, cb UdLookupCallback,
 //
 // Parameters:
 //  - contactListJSON - the JSON marshalled bytes of []contact.Contact, or nil
-//    if an error occurs
-//  - err - any errors that occurred in the search
+//    if an error occurs.
+//
+//   JSON Example:
+//   {
+//  	"<xxc(2)F8dL9EC6gy+RMJuk3R+Au6eGExo02Wfio5cacjBcJRwDEgB7Ugdw/BAr6RkCABkWAFV1c2VybmFtZTA7c4LzV05sG+DMt+rFB0NIJg==xxc>",
+//  	"<xxc(2)eMhAi/pYkW5jCmvKE5ZaTglQb+fTo1D8NxVitr5CCFADEgB7Ugdw/BAr6RoCABkWAFV1c2VybmFtZTE7fElAa7z3IcrYrrkwNjMS2w==xxc>",
+//  	"<xxc(2)d7RJTu61Vy1lDThDMn8rYIiKSe1uXA/RCvvcIhq5Yg4DEgB7Ugdw/BAr6RsCABkWAFV1c2VybmFtZTI7N3XWrxIUpR29atpFMkcR6A==xxc>"
+//	}
+//  - err - any errors that occurred in the search.
 type UdSearchCallback interface {
 	Callback(contactListJSON []byte, err error)
 }
@@ -385,14 +452,15 @@ type UdSearchCallback interface {
 //  - e2eID - e2e object ID in the tracker
 //  - udContact - the marshalled bytes of the contact.Contact for the user
 //    discovery server
-//  - factListJSON - the JSON marshalled bytes of fact.FactList
+//  - factListJSON - the JSON marshalled bytes of [fact.FactList]
 //  - singleRequestParams - the JSON marshalled bytes of single.RequestParams
 //
 // Returns:
 //  - []byte - the JSON marshalled bytes of the SingleUseSendReport object,
-//    which can be passed into WaitForRoundResult to see if the send succeeded.
+//    which can be passed into Cmix.WaitForRoundResult to see if the send
+//    operation succeeded.
 func SearchUD(e2eID int, udContact []byte, cb UdSearchCallback,
-	factListJSON []byte, singleRequestParamsJSON []byte) ([]byte, error) {
+	factListJSON, singleRequestParamsJSON []byte) ([]byte, error) {
 
 	// Get user from singleton
 	user, err := e2eTrackerSingleton.get(e2eID)
@@ -418,7 +486,20 @@ func SearchUD(e2eID int, udContact []byte, cb UdSearchCallback,
 	}
 
 	callback := func(contactList []contact.Contact, err error) {
-		contactListJSON, err2 := json.Marshal(contactList)
+		marshaledContactList := make([][]byte, 0)
+		// fixme: it may be wiser to change this callback interface
+		//   to simply do the work below when parsing the response from UD.
+		//   that would change ud/search.go in two places:
+		//    - searchCallback
+		//    - parseContacts
+		//  I avoid doing that as it changes interfaces w/o approval
+		for i := range contactList {
+			con := contactList[i]
+			marshaledContactList = append(
+				marshaledContactList, con.Marshal())
+		}
+
+		contactListJSON, err2 := json.Marshal(marshaledContactList)
 		if err2 != nil {
 			jww.FATAL.Panicf(
 				"Failed to marshal list of contact.Contact: %+v", err2)
@@ -434,7 +515,7 @@ func SearchUD(e2eID int, udContact []byte, cb UdSearchCallback,
 
 	sr := SingleUseSendReport{
 		EphID:       eid.EphId.Int64(),
-		ReceptionID: eid.Source.Marshal(),
+		ReceptionID: eid.Source,
 		RoundsList:  makeRoundsList(rids...),
 	}
 

@@ -35,10 +35,10 @@ type Cmix struct {
 	id  int
 }
 
-// NewCmix creates user storage, generates keys, connects, and registers
-// with the network. Note that this does not register a username/identity, but
-// merely creates a new cryptographic identity for adding such information
-// at a later date.
+// NewCmix creates user storage, generates keys, connects, and registers with
+// the network. Note that this does not register a username/identity, but merely
+// creates a new cryptographic identity for adding such information at a later
+// date.
 //
 // Users of this function should delete the storage directory on error.
 func NewCmix(ndfJSON, storageDir string, password []byte, registrationCode string) error {
@@ -49,8 +49,9 @@ func NewCmix(ndfJSON, storageDir string, password []byte, registrationCode strin
 	return nil
 }
 
-// LoadCmix will load an existing user storage from the storageDir using the password.
-// This will fail if the user storage does not exist or the password is incorrect.
+// LoadCmix will load an existing user storage from the storageDir using the
+// password. This will fail if the user storage does not exist or the password
+// is incorrect.
 //
 // The password is passed as a byte array so that it can be cleared from memory
 // and stored as securely as possible using the MemGuard library.
@@ -82,6 +83,10 @@ func (c *Cmix) GetID() int {
 	return c.id
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// cMix Tracker                                                               //
+////////////////////////////////////////////////////////////////////////////////
+
 // cmixTracker is a singleton used to keep track of extant Cmix objects,
 // preventing race conditions created by passing it over the bindings.
 type cmixTracker struct {
@@ -90,8 +95,8 @@ type cmixTracker struct {
 	mux     sync.RWMutex
 }
 
-// make creates a Cmix from a xxdk.Cmix, assigns it a unique ID,and adds it to
-// the cmixTracker.
+// make creates a Cmix from a [xxdk.Cmix], assigns it a unique ID, and adds it
+// to the cmixTracker.
 func (ct *cmixTracker) make(c *xxdk.Cmix) *Cmix {
 	ct.mux.Lock()
 	defer ct.mux.Unlock()

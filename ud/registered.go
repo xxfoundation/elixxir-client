@@ -11,10 +11,10 @@ import (
 const isRegisteredKey = "isRegisteredKey"
 const isRegisteredVersion = 0
 
-// isRegistered loads from storage if the user is registered with user
+// IsRegistered loads from storage if the user is registered with user
 // discovery.
-func (m *Manager) isRegistered() bool {
-	_, err := m.getKv().Get(isRegisteredKey, isRegisteredVersion)
+func IsRegistered(kv *versioned.KV) bool {
+	_, err := kv.Get(isRegisteredKey, isRegisteredVersion)
 	if err != nil {
 		return false
 	}

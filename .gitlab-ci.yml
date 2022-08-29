@@ -83,9 +83,6 @@ bindings-ios:
   tags:
     - ios
   script:
-    - brew install go@1.17
-    - cat ~/.zshrc
-    - cat ~/.bash*
     - export PATH=$PATH:$HOME/go/bin
     - go mod tidy
     - rm -rf vendor/
@@ -109,7 +106,7 @@ bindings-android:
     - android
   script:
     - wget https://go.dev/dl/go1.17.13.linux-amd64.tar.gz
-    - rm -rf /usr/local/go && tar -C /usr/local -xzf go1.19.linux-amd64.tar.gz
+    - sudo rm -rf /usr/local/go && tar -C /usr/local -xzf go1.19.linux-amd64.tar.gz
     - export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin:/android-sdk/platform-tools/
     - export ANDROID_HOME=/android-sdk
     # Build the bindings

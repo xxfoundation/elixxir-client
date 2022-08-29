@@ -1,14 +1,24 @@
 package ud
 
 import (
-	pb "gitlab.com/elixxir/comms/mixmessages"
+	"crypto/ed25519"
+	"time"
+
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+
+	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/channel"
 )
 
 type mockComms struct {
-	udHost *connect.Host
+	udHost            *connect.Host
+	userRsaPub        *rsa.PublicKey
+	userEd25519PubKey []byte
+	udPrivKey         *ed25519.PrivateKey
+	username          string
 }
 
 func (m mockComms) SendRegisterUser(host *connect.Host, message *pb.UDBUserRegistration) (*messages.Ack, error) {
@@ -43,4 +53,45 @@ func (m *mockComms) AddHost(hid *id.ID, address string, cert []byte, params conn
 
 func (m mockComms) GetHost(hostId *id.ID) (*connect.Host, bool) {
 	return m.udHost, true
+}
+
+func (m *mockComms) SetUDEd25519PrivateKey(key *ed25519.PrivateKey) {
+	m.udPrivKey = key
+}
+
+func (m *mockComms) SetUserRSAPubKey(userRsaPub *rsa.PublicKey) {
+	m.userRsaPub = userRsaPub
+}
+
+func (m *mockComms) SetUsername(u string) {
+	m.username = u
+}
+
+func (m mockComms) SendChannelLeaseRequest(host *connect.Host, message *pb.ChannelLeaseRequest) (*pb.ChannelLeaseResponse, error) {
+
+	err := channel.VerifyChannelIdentityRequest(message.UserPubKeyRSASignature,
+		message.UserEd25519PubKey,
+		time.Now(),
+		time.Unix(0, message.Timestamp),
+		m.userRsaPub)
+	if err != nil {
+		panic(err)
+	}
+
+	d, _ := time.ParseDuration("4h30m")
+	lease := time.Now().Add(d).UnixNano()
+	signature := channel.SignChannelLease(message.UserEd25519PubKey, m.username,
+		time.Unix(0, lease), *m.udPrivKey)
+
+	if err != nil {
+		panic(err)
+	}
+
+	response := &pb.ChannelLeaseResponse{
+		Lease:                   lease,
+		UserEd25519PubKey:       m.userEd25519PubKey,
+		UDLeaseEd25519Signature: signature,
+	}
+
+	return response, nil
 }

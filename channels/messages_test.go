@@ -14,27 +14,27 @@ import (
 	"testing"
 )
 
-func TestUserMessageInternal_GetChannelMessage(t *testing.T) {
-	channelMsg := &ChannelMessage{
-		Lease:       69,
-		RoundID:     42,
-		PayloadType: 7,
-		Payload:     []byte("ban_badUSer"),
-	}
+func TestUnmarshalUserMessageInternal(t *testing.T) {
+	internal, usrMsg, _ := builtTestUMI(t, 7)
 
-	serialized, err := proto.Marshal(channelMsg)
+	usrMsgMarshaled, err := proto.Marshal(usrMsg)
 	if err != nil {
-		t.Fatalf("Marshal error: %v", err)
+		t.Fatalf("Failed to marshal user message: %+v", err)
 	}
 
-	usrMsg := &UserMessage{
-		Message:             serialized,
-		ValidationSignature: []byte("sig"),
-		Signature:           []byte("sig"),
-		Username:            "hunter",
+	umi, err := unmarshalUserMessageInternal(usrMsgMarshaled)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal user message: %+v", err)
 	}
 
-	internal, _ := NewUserMessageInternal(usrMsg)
+	if !umi.GetMessageID().Equals(internal.messageID) {
+		t.Errorf("Message IDs were changed in the unmarshal "+
+			"process, %s vs %s", internal.messageID, umi.GetMessageID())
+	}
+}
+
+func TestUserMessageInternal_GetChannelMessage(t *testing.T) {
+	internal, _, channelMsg := builtTestUMI(t, 7)
 	received := internal.GetChannelMessage()
 
 	if !reflect.DeepEqual(received.Payload, channelMsg.Payload) ||
@@ -48,28 +48,7 @@ func TestUserMessageInternal_GetChannelMessage(t *testing.T) {
 }
 
 func TestUserMessageInternal_GetUserMessage(t *testing.T) {
-	channelMsg := &ChannelMessage{
-		Lease:       69,
-		RoundID:     42,
-		PayloadType: 7,
-		Payload:     []byte("ban_badUSer"),
-	}
-
-	serialized, err := proto.Marshal(channelMsg)
-	if err != nil {
-		t.Fatalf("Marshal error: %v", err)
-	}
-
-	usrMsg := &UserMessage{
-		Message:             serialized,
-		ValidationSignature: []byte("sig"),
-		Signature:           []byte("sig2"),
-		Username:            "hunter2",
-		ECCPublicKey:        []byte("key"),
-		UsernameLease:       666,
-	}
-
-	internal, _ := NewUserMessageInternal(usrMsg)
+	internal, usrMsg, _ := builtTestUMI(t, 7)
 	received := internal.GetUserMessage()
 
 	if !reflect.DeepEqual(received.Message, usrMsg.Message) ||
@@ -85,28 +64,7 @@ func TestUserMessageInternal_GetUserMessage(t *testing.T) {
 }
 
 func TestUserMessageInternal_GetMessageID(t *testing.T) {
-	channelMsg := &ChannelMessage{
-		Lease:       69,
-		RoundID:     42,
-		PayloadType: 7,
-		Payload:     []byte("ban_badUSer"),
-	}
-
-	serialized, err := proto.Marshal(channelMsg)
-	if err != nil {
-		t.Fatalf("Marshal error: %v", err)
-	}
-
-	usrMsg := &UserMessage{
-		Message:             serialized,
-		ValidationSignature: []byte("sig"),
-		Signature:           []byte("sig2"),
-		Username:            "hunter2",
-		ECCPublicKey:        []byte("key"),
-		UsernameLease:       666,
-	}
-
-	internal, _ := NewUserMessageInternal(usrMsg)
+	internal, usrMsg, _ := builtTestUMI(t, 7)
 	received := internal.GetMessageID()
 
 	expected := channel.MakeMessageID(usrMsg.Message)
@@ -125,10 +83,22 @@ func TestUserMessageInternal_GetMessageID(t *testing.T) {
 func TestUserMessageInternal_GetMessageID_Consistency(t *testing.T) {
 	expected := "ChMsgID-cfw4O6M47N9pqdtTcQjm/SSVqehTPGQd7cAMrNP9bcc="
 
+	internal, _, _ := builtTestUMI(t, 7)
+
+	received := internal.GetMessageID()
+
+	if expected != received.String() {
+		t.Fatalf("GetMessageID did not return expected data."+
+			"\nExpected: %v"+
+			"\nReceived: %v", expected, received)
+	}
+}
+
+func builtTestUMI(t *testing.T, mt MessageType) (*userMessageInternal, *UserMessage, *ChannelMessage) {
 	channelMsg := &ChannelMessage{
 		Lease:       69,
 		RoundID:     42,
-		PayloadType: 7,
+		PayloadType: uint32(mt),
 		Payload:     []byte("ban_badUSer"),
 	}
 
@@ -146,12 +116,7 @@ func TestUserMessageInternal_GetMessageID_Consistency(t *testing.T) {
 		UsernameLease:       666,
 	}
 
-	internal, _ := NewUserMessageInternal(usrMsg)
-	received := internal.GetMessageID()
+	internal, _ := newUserMessageInternal(usrMsg)
 
-	if expected != received.String() {
-		t.Fatalf("GetMessageID did not return expected data."+
-			"\nExpected: %v"+
-			"\nReceived: %v", expected, received)
-	}
+	return internal, usrMsg, channelMsg
 }

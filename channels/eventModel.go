@@ -116,7 +116,7 @@ func (e *events) RegisterReceiveHandler(messageType MessageType,
 // triggerEvent is an internal function which is used to trigger message
 // reception on a message received from a user (symmetric encryption)
 // It will call the appropriate MessageTypeHandler assuming one exists.
-func (e *events) triggerEvent(chID *id.ID, umi *UserMessageInternal,
+func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	um := umi.GetUserMessage()
 	cm := umi.GetChannelMessage()

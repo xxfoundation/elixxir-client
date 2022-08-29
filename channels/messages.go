@@ -12,14 +12,14 @@ import (
 	"gitlab.com/elixxir/crypto/channel"
 )
 
-// UserMessageInternal is the internal structure of a UserMessage protobuf.
-type UserMessageInternal struct {
+// userMessageInternal is the internal structure of a UserMessage protobuf.
+type userMessageInternal struct {
 	userMessage    *UserMessage
 	channelMessage *ChannelMessage
 	messageID      channel.MessageID
 }
 
-func NewUserMessageInternal(ursMsg *UserMessage) (*UserMessageInternal, error) {
+func newUserMessageInternal(ursMsg *UserMessage) (*userMessageInternal, error) {
 	chanMessage := &ChannelMessage{}
 	err := proto.Unmarshal(ursMsg.Message, chanMessage)
 	if err != nil {
@@ -27,14 +27,14 @@ func NewUserMessageInternal(ursMsg *UserMessage) (*UserMessageInternal, error) {
 	}
 
 	channelMessage := chanMessage
-	return &UserMessageInternal{
+	return &userMessageInternal{
 		userMessage:    ursMsg,
 		channelMessage: channelMessage,
 		messageID:      channel.MakeMessageID(ursMsg.Message),
 	}, nil
 }
 
-func UnmarshalUserMessageInternal(usrMsg []byte) (*UserMessageInternal, error) {
+func unmarshalUserMessageInternal(usrMsg []byte) (*userMessageInternal, error) {
 
 	um := &UserMessage{}
 	if err := proto.Unmarshal(usrMsg, um); err != nil {
@@ -49,25 +49,26 @@ func UnmarshalUserMessageInternal(usrMsg []byte) (*UserMessageInternal, error) {
 
 	channelMessage := chanMessage
 
-	return &UserMessageInternal{
+	return &userMessageInternal{
 		userMessage:    um,
 		channelMessage: channelMessage,
+		messageID:      channel.MakeMessageID(um.Message),
 	}, nil
 }
 
 // GetUserMessage retrieves the UserMessage within
-// UserMessageInternal.
-func (umi *UserMessageInternal) GetUserMessage() *UserMessage {
+// userMessageInternal.
+func (umi *userMessageInternal) GetUserMessage() *UserMessage {
 	return umi.userMessage
 }
 
 // GetChannelMessage retrieves the ChannelMessage within
-// UserMessageInternal.
-func (umi *UserMessageInternal) GetChannelMessage() *ChannelMessage {
+// userMessageInternal.
+func (umi *userMessageInternal) GetChannelMessage() *ChannelMessage {
 	return umi.channelMessage
 }
 
 // GetMessageID retrieves the messageID for the message.
-func (umi *UserMessageInternal) GetMessageID() channel.MessageID {
+func (umi *userMessageInternal) GetMessageID() channel.MessageID {
 	return umi.messageID
 }

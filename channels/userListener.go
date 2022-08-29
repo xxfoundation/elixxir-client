@@ -31,7 +31,7 @@ func (gul *userListener) Listen(payload []byte,
 	}
 
 	//Decode the message as a user message
-	umi, err := UnmarshalUserMessageInternal(payloadUnpadded)
+	umi, err := unmarshalUserMessageInternal(payloadUnpadded)
 	if err != nil {
 		jww.WARN.Printf("Failed to unmarshal User Message on "+
 			"channel %s", gul.chID)

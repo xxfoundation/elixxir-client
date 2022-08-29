@@ -8,6 +8,7 @@
 package parse
 
 import (
+	"gitlab.com/elixxir/crypto/e2e"
 	"testing"
 
 	"gitlab.com/elixxir/client/catalog"
@@ -72,10 +73,11 @@ func TestPartitioner_HandlePartition(t *testing.T) {
 	p := NewPartitioner(versioned.NewKV(ekv.MakeMemstore()), len(ipsumTestStr))
 	m := newMessagePart(1107, 1, []byte(ipsumTestStr), len(ipsumTestStr)+headerLen)
 
-	_, _ = p.HandlePartition(
+	_, _, _ = p.HandlePartition(
 		&id.DummyUser,
 		m.bytes(),
 		[]byte{'t', 'e', 's', 't', 'i', 'n', 'g', 's', 't', 'r', 'i', 'n', 'g'},
+		e2e.KeyResidue{},
 	)
 }
 
@@ -85,9 +87,10 @@ func TestPartitioner_HandleFirstPartition(t *testing.T) {
 	m := newFirstMessagePart(
 		catalog.XxMessage, 1107, 1, netTime.Now(), []byte(ipsumTestStr), len([]byte(ipsumTestStr))+firstHeaderLen)
 
-	_, _ = p.HandlePartition(
+	_, _, _ = p.HandlePartition(
 		&id.DummyUser,
 		m.bytes(),
 		[]byte{'t', 'e', 's', 't', 'i', 'n', 'g', 's', 't', 'r', 'i', 'n', 'g'},
+		e2e.KeyResidue{},
 	)
 }

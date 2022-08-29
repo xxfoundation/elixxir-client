@@ -153,7 +153,7 @@ func Test_cypher_EncryptDecrypt(t *testing.T) {
 		msg.SetContents(contents)
 
 		// Encrypt
-		contentsEnc, mac := cy.Encrypt(msg.GetContents())
+		contentsEnc, mac, _ := cy.Encrypt(msg.GetContents())
 
 		// Make the encrypted message
 		ecrMsg := format.NewMessage(grp.GetP().ByteLen())
@@ -162,7 +162,7 @@ func Test_cypher_EncryptDecrypt(t *testing.T) {
 		ecrMsg.SetMac(mac)
 
 		// Decrypt
-		contentsDecr, err := cy.Decrypt(ecrMsg)
+		contentsDecr, _, err := cy.Decrypt(ecrMsg)
 		if err != nil {
 			t.Fatalf("Decrypt error: %+v", err)
 		}

@@ -16,12 +16,10 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 type E2eSender func(mt catalog.MessageType, recipient *id.ID, payload []byte,
-	cmixParams cmix.CMIXParams) (
-	[]id.Round, e2e.MessageID, time.Time, error)
+	cmixParams cmix.CMIXParams) (e2e.SendReport, error)
 
 func Start(switchboard *receive.Switchboard, ratchet *ratchet.Ratchet,
 	sender E2eSender, net cmix.Client, grp *cyclic.Group, params Params) (stoppable.Stoppable, error) {

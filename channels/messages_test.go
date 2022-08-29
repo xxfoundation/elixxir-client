@@ -31,14 +31,12 @@ func TestUserMessageInternal_GetChannelMessage(t *testing.T) {
 	}
 
 	internal, _ := NewUserMessageInternal(usrMsg)
-	received, err := internal.GetChannelMessage()
-	if err != nil {
-		t.Fatalf("GetChannelMessage error: %v", err)
-	}
+	received := internal.GetChannelMessage()
 
 	if !bytes.Equal(received.Payload, channelMsg.Payload) {
 		t.Fatalf("GetChannelMessage did not return expected data."+
 			"\nExpected: %v"+
 			"\nReceived: %v", channelMsg, received)
 	}
+
 }

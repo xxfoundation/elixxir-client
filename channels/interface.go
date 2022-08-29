@@ -27,7 +27,7 @@ type Manager interface {
 	SendReply(channelID *id.ID, msg string, replyTo cryptoChannel.MessageID,
 		validUntil time.Duration, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, id.Round, ephemeral.Id, error)
-	SendReaction(channelID *id.ID, msg []byte,
+	SendReaction(channelID *id.ID, reaction string, reactTo cryptoChannel.MessageID,
 		validUntil time.Duration, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, id.Round, ephemeral.Id, error)
 }

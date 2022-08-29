@@ -123,6 +123,22 @@ func (m *manager) addChannel(channel cryptoBroadcast.Channel) error {
 	return nil
 }
 
+func (m *manager) removeChannel(channelId *id.ID) error {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+
+	ch, exists := m.channels[channelId]
+	if !exists {
+		return ChannelDoesNotExistsErr
+	}
+
+	ch.broadcast.Stop()
+
+	delete(m.channels, channelId)
+
+	return nil
+}
+
 //getChannel returns the given channel, if it exists
 func (m *manager) getChannel(channelId *id.ID) (*joinedChannel, error) {
 	m.mux.RLock()

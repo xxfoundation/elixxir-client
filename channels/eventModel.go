@@ -2,6 +2,7 @@ package channels
 
 import (
 	"errors"
+	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/primitives/states"
@@ -26,22 +27,23 @@ type EventModel interface {
 	LeaveChannel(ChannelID *id.ID)
 
 	ReceiveMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID,
-		SenderUsername string, Content []byte,
+		SenderUsername string, text string,
 		timestamp time.Time, lease time.Duration, round rounds.Round)
 
 	ReceiveReply(ChannelID *id.ID, MessageID cryptoChannel.MessageID,
 		ReplyTo cryptoChannel.MessageID, SenderUsername string,
-		Content []byte, timestamp time.Time, lease time.Duration,
+		text string, timestamp time.Time, lease time.Duration,
 		round rounds.Round)
 	ReceiveReaction(ChannelID *id.ID, MessageID cryptoChannel.MessageID,
 		ReactionTo cryptoChannel.MessageID, SenderUsername string,
 		Reaction []byte, timestamp time.Time, lease time.Duration,
 		round rounds.Round)
 
-	IgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
-	UnIgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
-	PinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID, end time.Time)
-	UnPinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
+	//unimplemented
+	//IgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
+	//UnIgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
+	//PinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID, end time.Time)
+	//UnPinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
 }
 
 type MessageTypeReceiveMessage func(ChannelID *id.ID,
@@ -63,8 +65,9 @@ func initEvents(model EventModel) *events {
 	}
 
 	//set up default message types
-	e.registered[Text] = e.model.ReceiveTextMessage
-	e.registered[AdminText] = e.model.ReceiveAdminTextMessage
+	e.registered[Text] = e.receiveTextMessage
+	e.registered[AdminText] = e.receiveTextMessage
+	e.registered[Reaction] =
 	return e
 }
 
@@ -126,4 +129,71 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 	listener(chID, messageID, messageType, AdminUsername,
 		cm.Payload, round.Timestamps[states.QUEUED], time.Duration(cm.Lease), round)
 	return
+}
+
+func (e *events) receiveTextMessage(ChannelID *id.ID,
+	MessageID cryptoChannel.MessageID, messageType MessageType,
+	SenderUsername string, Content []byte, timestamp time.Time,
+	lease time.Duration, round rounds.Round) {
+	txt := &CMIXChannelText{}
+	if err := proto.Unmarshal(Content, txt); err != nil {
+		jww.ERROR.Printf("Failed to text unmarshal message %s from %s on "+
+			"channel %s, type %s, ts: %s, lease: %s, round: %d: %+v",
+			MessageID, SenderUsername, ChannelID, messageType, timestamp, lease,
+			round.ID, err)
+		return
+	}
+
+	if txt.ReplyMessageID != nil {
+		if len(txt.ReplyMessageID) == cryptoChannel.MessageIDLen {
+			var replyTo cryptoChannel.MessageID
+			copy(replyTo[:], txt.ReplyMessageID)
+			e.model.ReceiveReply(ChannelID, MessageID, replyTo, SenderUsername, txt.Text,
+				timestamp, lease, round)
+			return
+
+		} else {
+			jww.ERROR.Printf("Failed process reply to for message %s from %s on "+
+				"channel %s, type %s, ts: %s, lease: %s, round: %d, returning "+
+				"without reply",
+				MessageID, SenderUsername, ChannelID, messageType, timestamp, lease,
+				round.ID)
+		}
+	}
+
+	e.model.ReceiveMessage(ChannelID, MessageID, SenderUsername, txt.Text,
+		timestamp, lease, round)
+}
+
+func (e *events) receiveReaction(ChannelID *id.ID,
+	MessageID cryptoChannel.MessageID, messageType MessageType,
+	SenderUsername string, Content []byte, timestamp time.Time,
+	lease time.Duration, round rounds.Round) {
+	react := &CMIXChannelReaction{}
+	if err := proto.Unmarshal(Content, react); err != nil {
+		jww.ERROR.Printf("Failed to text unmarshal message %s from %s on "+
+			"channel %s, type %s, ts: %s, lease: %s, round: %d: %+v",
+			MessageID, SenderUsername, ChannelID, messageType, timestamp, lease,
+			round.ID, err)
+		return
+	}
+
+	if react.ReactionMessageID != nil && len(react.ReactionMessageID) == cryptoChannel.MessageIDLen {
+		var reactTo cryptoChannel.MessageID
+		copy(replyTo[:], react.ReactionMessageID)
+		e.model.ReceiveReply(ChannelID, MessageID, replyTo, SenderUsername, txt.Text,
+			timestamp, lease, round)
+		return
+
+	} else {
+		jww.ERROR.Printf("Failed process reply to for message %s from %s on "+
+			"channel %s, type %s, ts: %s, lease: %s, round: %d, returning "+
+			"without reply",
+			MessageID, SenderUsername, ChannelID, messageType, timestamp, lease,
+			round.ID)
+	}
+}
+
+e.model.ReceiveMessage(ChannelID, MessageID, SenderUsername, txt.Text,
+timestamp, lease, round)
 }

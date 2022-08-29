@@ -46,15 +46,15 @@ func (ut *groupTracker) make(g gs.Group) *Group {
 	ut.mux.Lock()
 	defer ut.mux.Unlock()
 
-	id := ut.count
+	utID := ut.count
 	ut.count++
 
-	ut.tracked[id] = &Group{
+	ut.tracked[utID] = &Group{
 		g:  g,
-		id: id,
+		id: utID,
 	}
 
-	return ut.tracked[id]
+	return ut.tracked[utID]
 }
 
 // get a Group from the groupChatTracker given its ID.
@@ -148,7 +148,7 @@ func (g *GroupChat) MakeGroup(
 	}
 
 	// Construct group
-	grp, rounds, status, err := g.m.MakeGroup(members, name, message)
+	grp, roundIDs, status, err := g.m.MakeGroup(members, name, message)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func (g *GroupChat) MakeGroup(
 	// Construct the group report
 	report := GroupReport{
 		Id:         grp.ID.Bytes(),
-		RoundsList: makeRoundsList(rounds...),
+		RoundsList: makeRoundsList(roundIDs...),
 		Status:     int(status),
 	}
 
@@ -365,7 +365,26 @@ func (g *Group) GetCreatedMS() int64 {
 // All subsequent members are ordered by their ID.
 //
 // Returns:
-//  - []byte - a JSON marshalled version of the member list.
+//  - []byte - JSON marshalled [group.Membership], which is an array of
+//    [group.Member].
+//
+// Example JSON [group.Membership] return:
+//  [
+//    {
+//      "ID": "U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",
+//      "DhKey": {
+//        "Value": 3534334367214237261,
+//        "Fingerprint": 16801541511233098363
+//      }
+//    },
+//    {
+//      "ID": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//      "DhKey": {
+//        "Value": 7497468244883513247,
+//        "Fingerprint": 16801541511233098363
+//      }
+//    }
+//  ]
 func (g *Group) GetMembership() ([]byte, error) {
 	return json.Marshal(g.g.Members)
 }

@@ -182,6 +182,10 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 		if err != nil {
 			jww.FATAL.Panic(err)
 		}
+		err = c.register()
+		if err != nil {
+			jww.FATAL.Panic(err)
+		}
 	} else if err != nil {
 		jww.FATAL.Panic(err)
 	}
@@ -195,10 +199,6 @@ func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username st
 		comms:             comms,
 		host:              host,
 		udPubKey:          udPubKey,
-	}
-	err = c.register()
-	if err != nil {
-		jww.FATAL.Panic(err)
 	}
 	return c
 }

@@ -10,6 +10,7 @@ package bindings
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
@@ -128,6 +129,9 @@ func (e *E2e) SendE2E(messageType int, recipientId, payload,
 	if err != nil {
 		return nil, err
 	}
+	jww.DEBUG.Printf("SendE2E Parameters Received: %s, Parsed: %s",
+		e2eParams, params.String())
+
 	recipient, err := id.Unmarshal(recipientId)
 	if err != nil {
 		return nil, err

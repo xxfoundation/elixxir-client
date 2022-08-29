@@ -48,11 +48,14 @@ func (m *manager) storeUnsafe() error {
 
 // loadChannels loads all currently joined channels from disk and registers
 // them for message reception
-func (m *manager) loadChannels() map[*id.ID]*joinedChannel {
+func (m *manager) loadChannels() {
 
 	obj, err := m.kv.Get(joinedChannelsKey,
 		joinedChannelsVersion)
-	if err != nil {
+	if !m.kv.Exists(err) {
+		m.channels = make(map[*id.ID]*joinedChannel)
+		return
+	} else if err != nil {
 		jww.FATAL.Panicf("Failed to load channels %+v", err)
 	}
 
@@ -72,7 +75,8 @@ func (m *manager) loadChannels() map[*id.ID]*joinedChannel {
 		}
 		chMap[chList[i]] = jc
 	}
-	return chMap
+
+	m.channels = chMap
 }
 
 //addChannel Adds a channel
@@ -120,6 +124,22 @@ func (m *manager) addChannel(channel cryptoBroadcast.Channel) error {
 		go b.Stop()
 		return err
 	}
+	return nil
+}
+
+func (m *manager) removeChannel(channelId *id.ID) error {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+
+	ch, exists := m.channels[channelId]
+	if !exists {
+		return ChannelDoesNotExistsErr
+	}
+
+	ch.broadcast.Stop()
+
+	delete(m.channels, channelId)
+
 	return nil
 }
 

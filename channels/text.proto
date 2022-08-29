@@ -18,6 +18,6 @@ message CMIXChannelText {
 
 message CMIXChannelReaction {
   uint32 version = 1;
-  uint32 reaction = 2;
+  string reaction = 2;
   bytes reactionMessageID = 3;
 }

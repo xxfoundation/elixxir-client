@@ -125,7 +125,8 @@ func negotiate(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSe
 	params := cmix.GetDefaultCMIXParams()
 	params.DebugTag = "kx.Request"
 
-	rounds, msgID, _, err := sendE2E(param.Trigger, sess.GetPartner(),
+	// fixme: should this use the key residue?
+	sendReport, err := sendE2E(param.Trigger, sess.GetPartner(),
 		payload, params)
 	// If the send fails, returns the error so it can be handled. The caller
 	// should ensure the calling session is in a state where the Rekey will
@@ -137,18 +138,18 @@ func negotiate(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSe
 	}
 
 	//create the runner which will handle the result of sending the messages
-	sendResults := make(chan ds.EventReturn, len(rounds))
+	sendResults := make(chan ds.EventReturn, len(sendReport.RoundList))
 
 	//Register the event for all rounds
 	roundEvents := instance.GetRoundEvents()
-	for _, r := range rounds {
+	for _, r := range sendReport.RoundList {
 		roundEvents.AddRoundEventChan(r, sendResults, sendTimeout,
 			states.COMPLETED, states.FAILED)
 	}
 
 	//Wait until the result tracking responds
 	success, numRoundFail, numTimeOut := cmix.TrackResults(sendResults,
-		len(rounds))
+		len(sendReport.RoundList))
 
 	// If a single partition of the Key Negotiation request does not
 	// transmit, the partner cannot read the result. Log the error and set
@@ -157,14 +158,14 @@ func negotiate(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSe
 		_ = sess.TrySetNegotiationStatus(session.Unconfirmed)
 		return errors.Errorf("[REKEY] Key Negotiation rekey for %s failed to "+
 			"transmit %v/%v paritions: %v round failures, %v timeouts, msgID: %s",
-			sess, numRoundFail+numTimeOut, len(rounds), numRoundFail,
-			numTimeOut, msgID)
+			sess, numRoundFail+numTimeOut, len(sendReport.RoundList), numRoundFail,
+			numTimeOut, sendReport.MessageId)
 	}
 
 	// otherwise, the transmission is a success and this should be denoted
 	// in the session and the log
 	jww.INFO.Printf("[REKEY] Key Negotiation rekey transmission for %s, msgID %s successful",
-		sess, msgID)
+		sess, sendReport.MessageId)
 	err = sess.TrySetNegotiationStatus(session.Sent)
 	if err != nil {
 		if sess.NegotiationStatus() == session.NewSessionTriggered {

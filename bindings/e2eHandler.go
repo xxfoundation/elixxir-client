@@ -25,15 +25,17 @@ import (
 // SendE2E.
 //
 // Example E2ESendReport:
-//  {
-//   "Rounds":[1,5,9],
-//   "MessageID":"51Yy47uZbP0o2Y9B/kkreDLTB6opUol3M3mYiY2dcdQ=",
-//   "Timestamp":1653582683183384000
-//  }
+//{
+//"Rounds": [ 1, 4, 9],
+//"MessageID": "iM34yCIr4Je8ZIzL9iAAG1UWAeDiHybxMTioMAaezvs=",
+//"Timestamp": 1661532254302612000,
+//"KeyResidue": "9q2/A69EAuFM1hFAT7Bzy5uGOQ4T6bPFF72h5PlgCWE="
+//}
 type E2ESendReport struct {
 	RoundsList
-	MessageID []byte
-	Timestamp int64
+	MessageID  []byte
+	Timestamp  int64
+	KeyResidue []byte
 }
 
 // GetReceptionID returns the marshalled default IDs.
@@ -137,16 +139,17 @@ func (e *E2e) SendE2E(messageType int, recipientId, payload,
 		return nil, err
 	}
 
-	roundIds, messageId, ts, err := e.api.GetE2E().SendE2E(
+	sendReport, err := e.api.GetE2E().SendE2E(
 		catalog.MessageType(messageType), recipient, payload, params)
 	if err != nil {
 		return nil, err
 	}
 
 	result := E2ESendReport{
-		RoundsList: makeRoundsList(roundIds...),
-		MessageID:  messageId.Marshal(),
-		Timestamp:  ts.UnixNano(),
+		RoundsList: makeRoundsList(sendReport.RoundList...),
+		MessageID:  sendReport.MessageId.Marshal(),
+		Timestamp:  sendReport.SentTime.UnixNano(),
+		KeyResidue: sendReport.KeyResidue.Marshal(),
 	}
 	return json.Marshal(result)
 }

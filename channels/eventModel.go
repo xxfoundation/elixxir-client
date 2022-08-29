@@ -36,7 +36,7 @@ type EventModel interface {
 		round rounds.Round)
 	ReceiveReaction(ChannelID *id.ID, MessageID cryptoChannel.MessageID,
 		ReactionTo cryptoChannel.MessageID, SenderUsername string,
-		Reaction []byte, timestamp time.Time, lease time.Duration,
+		Reaction string, timestamp time.Time, lease time.Duration,
 		round rounds.Round)
 
 	//unimplemented
@@ -67,7 +67,7 @@ func initEvents(model EventModel) *events {
 	//set up default message types
 	e.registered[Text] = e.receiveTextMessage
 	e.registered[AdminText] = e.receiveTextMessage
-	e.registered[Reaction] =
+	e.registered[Reaction] = e.receiveReaction
 	return e
 }
 
@@ -178,22 +178,25 @@ func (e *events) receiveReaction(ChannelID *id.ID,
 		return
 	}
 
+	//check that the reaction is a single emoji and ignore if it isn't
+	if err := ValidateReaction(react.Reaction); err != nil {
+		jww.ERROR.Printf("Failed process reaction %s from %s on channel "+
+			"%s, type %s, ts: %s, lease: %s, round: %d, due to malformed "+
+			"reaction (%s), ignoring reaction",
+			MessageID, SenderUsername, ChannelID, messageType, timestamp, lease,
+			round.ID, err)
+	}
+
 	if react.ReactionMessageID != nil && len(react.ReactionMessageID) == cryptoChannel.MessageIDLen {
 		var reactTo cryptoChannel.MessageID
-		copy(replyTo[:], react.ReactionMessageID)
-		e.model.ReceiveReply(ChannelID, MessageID, replyTo, SenderUsername, txt.Text,
-			timestamp, lease, round)
-		return
-
+		copy(reactTo[:], react.ReactionMessageID)
+		e.model.ReceiveReaction(ChannelID, MessageID, reactTo, SenderUsername,
+			react.Reaction, timestamp, lease, round)
 	} else {
-		jww.ERROR.Printf("Failed process reply to for message %s from %s on "+
-			"channel %s, type %s, ts: %s, lease: %s, round: %d, returning "+
-			"without reply",
+		jww.ERROR.Printf("Failed process reaction %s from %s on channel "+
+			"%s, type %s, ts: %s, lease: %s, round: %d, reacting to "+
+			"invalid message, ignoring reaction",
 			MessageID, SenderUsername, ChannelID, messageType, timestamp, lease,
 			round.ID)
 	}
-}
-
-e.model.ReceiveMessage(ChannelID, MessageID, SenderUsername, txt.Text,
-timestamp, lease, round)
 }

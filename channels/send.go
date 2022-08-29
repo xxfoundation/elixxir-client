@@ -1,7 +1,6 @@
 package channels
 
 import (
-	"github.com/forPelevin/gomoji"
 	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/cmix"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
@@ -17,9 +16,9 @@ const (
 	cmixChannelReactionVersion = 0
 )
 
-func (m *manager) SendGeneric(channelID *id.ID, msg []byte, validUntil time.Duration,
-	messageType MessageType, params cmix.CMIXParams) (cryptoChannel.MessageID,
-	id.Round, ephemeral.Id, error) {
+func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
+	msg []byte, validUntil time.Duration, params cmix.CMIXParams) (
+	cryptoChannel.MessageID, id.Round, ephemeral.Id, error) {
 
 	//find the channel
 	ch, err := m.getChannel(channelID)
@@ -160,7 +159,7 @@ func (m *manager) SendMessage(channelID *id.ID, msg string,
 		return cryptoChannel.MessageID{}, 0, ephemeral.Id{}, err
 	}
 
-	return m.SendGeneric(channelID, txtMarshaled, validUntil, Text, params)
+	return m.SendGeneric(channelID, Text, txtMarshaled, validUntil, params)
 }
 
 func (m *manager) SendReply(channelID *id.ID, msg string,
@@ -178,7 +177,7 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 		return cryptoChannel.MessageID{}, 0, ephemeral.Id{}, err
 	}
 
-	return m.SendGeneric(channelID, txtMarshaled, validUntil, Text, params)
+	return m.SendGeneric(channelID, Text, txtMarshaled, validUntil, params)
 }
 
 func (m *manager) SendReaction(channelID *id.ID, reaction string,
@@ -186,20 +185,20 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 	params cmix.CMIXParams) (cryptoChannel.MessageID, id.Round, ephemeral.Id,
 	error) {
 
-	if len(reaction) != 1 {
-		return error
+	if err := ValidateReaction(reaction); err != nil {
+		return cryptoChannel.MessageID{}, 0, ephemeral.Id{}, err
 	}
 
-	txt := &CMIXChannelReaction{
+	react := &CMIXChannelReaction{
 		Version:           cmixChannelReactionVersion,
 		Reaction:          reaction,
 		ReactionMessageID: replyTo[:],
 	}
 
-	txtMarshaled, err := proto.Marshal(txt)
+	reactMarshaled, err := proto.Marshal(react)
 	if err != nil {
 		return cryptoChannel.MessageID{}, 0, ephemeral.Id{}, err
 	}
 
-	return m.SendGeneric(channelID, txtMarshaled, validUntil, Text, params)
+	return m.SendGeneric(channelID, Reaction, reactMarshaled, validUntil, params)
 }

@@ -22,11 +22,30 @@ type manager struct {
 
 	//Events model
 	events
+
+	// make the function used to create broadcasts be a pointer so it
+	// can be replaced in tests
 	broadcastMaker broadcast.NewBroadcastChannelFunc
 }
 
-func NewManager() {
+func NewManager(kv *versioned.KV, client broadcast.Client,
+	rng *fastRNG.StreamGenerator, name NameService) Manager {
 
+	//prefix the kv with the username so multiple can be run
+	kv = kv.Prefix(name.GetUsername())
+
+	m := manager{
+		kv:             kv,
+		client:         client,
+		rng:            rng,
+		name:           name,
+		events:         events{},
+		broadcastMaker: broadcast.NewBroadcastChannel,
+	}
+
+	m.loadChannels()
+
+	return &m
 }
 
 func (m *manager) JoinChannel(channel cryptoBroadcast.Channel) error {

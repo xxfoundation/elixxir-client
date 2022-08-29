@@ -7,5 +7,5 @@
 #/ LICENSE file                                                               //
 #///////////////////////////////////////////////////////////////////////////////
 
-protoc --go_out=paths=source_relative:. messages.proto
+protoc --go_out=paths=source_relative:. channelMessages.proto
 protoc --go_out=paths=source_relative:. text.proto

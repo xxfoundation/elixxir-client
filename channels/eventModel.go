@@ -22,18 +22,37 @@ var (
 		"already been registered")
 )
 
+// EventModel is an interface which an external party which uses the channels
+// system passed an object which adheres to in order to get events on the channel
 type EventModel interface {
+	// JoinChannel is called whenever a channel is joined locally
 	JoinChannel(channel cryptoBroadcast.Channel)
+
+	// LeaveChannel is called whenever a channel is left locally
 	LeaveChannel(ChannelID *id.ID)
 
+	// ReceiveMessage is called whenever a message is received on a given channel
+	// It may be called multiple times on the same message, it is incumbent on
+	// the user of the API to filter such called by message ID
 	ReceiveMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID,
 		SenderUsername string, text string,
 		timestamp time.Time, lease time.Duration, round rounds.Round)
 
+	// ReceiveReply is called whenever a message is received which is a reply
+	// on a given channel. It may be called multiple times on the same message,
+	// it is incumbent on the user of the API to filter such called by message ID
+	// Messages may arrive our of order, so a reply in theory can arrive before
+	// the initial message, as a result it may be important to buffer replies.
 	ReceiveReply(ChannelID *id.ID, MessageID cryptoChannel.MessageID,
 		ReplyTo cryptoChannel.MessageID, SenderUsername string,
 		text string, timestamp time.Time, lease time.Duration,
 		round rounds.Round)
+
+	// ReceiveReaction is called whenever a reaction to a message is received
+	// on a given channel. It may be called multiple times on the same reaction,
+	// it is incumbent on the user of the API to filter such called by message ID
+	// Messages may arrive our of order, so a reply in theory can arrive before
+	// the initial message, as a result it may be important to buffer reactions.
 	ReceiveReaction(ChannelID *id.ID, MessageID cryptoChannel.MessageID,
 		ReactionTo cryptoChannel.MessageID, SenderUsername string,
 		Reaction string, timestamp time.Time, lease time.Duration,
@@ -57,6 +76,8 @@ type events struct {
 	mux        sync.RWMutex
 }
 
+// initEvents initializes the event model and registers default message type
+// handlers
 func initEvents(model EventModel) *events {
 	e := &events{
 		model:      model,
@@ -71,6 +92,11 @@ func initEvents(model EventModel) *events {
 	return e
 }
 
+// RegisterReceiveHandler is used to register handlers for non default message
+// types s they can be processed by modules. it is important that such modules
+// sync up with the event model implementation.
+// There can only be one handler per message type, and this will return an error
+// on a multiple registration.
 func (e *events) RegisterReceiveHandler(messageType MessageType,
 	listener MessageTypeReceiveMessage) error {
 	e.mux.Lock()
@@ -87,6 +113,9 @@ func (e *events) RegisterReceiveHandler(messageType MessageType,
 	return nil
 }
 
+// triggerEvent is an internal function which is used to trigger message
+// reception on a message received from a user (symmetric encryption)
+// It will call the appropriate MessageTypeHandler assuming one exists.
 func (e *events) triggerEvent(chID *id.ID, umi *UserMessageInternal,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	um := umi.GetUserMessage()
@@ -110,6 +139,9 @@ func (e *events) triggerEvent(chID *id.ID, umi *UserMessageInternal,
 	return
 }
 
+// triggerAdminEvent is an internal function which is used to trigger message
+// reception on a message received from the admin (asymmetric encryption)
+// It will call the appropriate MessageTypeHandler assuming one exists.
 func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 	messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	messageType := MessageType(cm.PayloadType)
@@ -131,6 +163,11 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 	return
 }
 
+// receiveTextMessage is the internal function which handles the reception of
+// text messages. It handles both messages and replies and calls the correct
+// function on the event model.
+// If the message has a reply but it is malformed, it will drop the reply and
+// write to the log
 func (e *events) receiveTextMessage(ChannelID *id.ID,
 	MessageID cryptoChannel.MessageID, messageType MessageType,
 	SenderUsername string, Content []byte, timestamp time.Time,
@@ -165,6 +202,9 @@ func (e *events) receiveTextMessage(ChannelID *id.ID,
 		timestamp, lease, round)
 }
 
+// receiveReaction is the internal function which handles the reception of
+// Reactions.
+// It does edge chaling
 func (e *events) receiveReaction(ChannelID *id.ID,
 	MessageID cryptoChannel.MessageID, messageType MessageType,
 	SenderUsername string, Content []byte, timestamp time.Time,

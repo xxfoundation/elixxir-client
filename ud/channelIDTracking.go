@@ -4,7 +4,6 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"errors"
-	"math"
 	"sync"
 	"time"
 
@@ -344,9 +343,9 @@ func (c *clientIDTracker) requestChannelLease() (int64, []byte, error) {
 // and returns a reference to it's type as the NameService interface.
 // However it's scheduler thread isn't started until it's Start
 // method is called.
-func (m *Manager) StartChannelNameService() NameService {
+func (m *Manager) StartChannelNameService() channels.NameService {
 	udPubKeyBytes := m.user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.DhPubKey
-	var service NameService
+	var service channels.NameService
 	username, err := m.store.GetUsername()
 	if err != nil {
 		jww.FATAL.Panic(err)

@@ -10,6 +10,7 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 
+	"gitlab.com/elixxir/client/channels"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/xxdk"
@@ -157,7 +158,7 @@ type clientIDTracker struct {
 }
 
 // clientIDTracker implements the NameService interface.
-var _ NameService = (*clientIDTracker)(nil)
+var _ channels.NameService = (*clientIDTracker)(nil)
 
 // newclientIDTracker creates a new clientIDTracker.
 func newclientIDTracker(comms channelLeaseComms, host *connect.Host, username string, kv *versioned.KV,

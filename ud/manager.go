@@ -38,7 +38,10 @@ type Manager struct {
 	// This information is specified in Manager's constructors (NewOrLoad and NewManagerFromBackup).
 	ud *userDiscovery
 
-	// todo: docstring
+	// These objects handle username validation.
+	// The validation signature is saved into usernameValidationSignature
+	// on the first query and lazily loaded. The usernameValidationMux
+	// handles asynchronous queries to get Manager.GetUsernameValidationSignature
 	usernameValidationMux       sync.Mutex
 	usernameValidationSignature []byte
 }

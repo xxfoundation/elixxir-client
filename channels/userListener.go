@@ -48,7 +48,7 @@ func (gul *userListener) Listen(payload []byte,
 	if id.Round(cm.RoundID) != round.ID {
 		jww.WARN.Printf("The round message %s send on %d referenced "+
 			"(%d) was not the same as the round the message was found on (%d)",
-			msgID, gul.chID, cm.RoundID, round.ID, gul.chID)
+			msgID, gul.chID, cm.RoundID, round.ID)
 		return
 	}
 

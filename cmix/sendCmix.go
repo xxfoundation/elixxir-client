@@ -109,6 +109,12 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 	nodes nodes.Registrar, rng *fastRNG.StreamGenerator, events event.Reporter,
 	senderId *id.ID, comms SendCmixCommsInterface) (id.Round, ephemeral.Id, error) {
 
+	if cmixParams.RoundTries == 0 {
+		return 0, ephemeral.Id{},
+			errors.Errorf("invalid parameter set, "+
+				"RoundTries cannot be 0: %+v", cmixParams)
+	}
+
 	timeStart := netTime.Now()
 	maxTimeout := sender.GetHostParams().SendTimeout
 
@@ -120,7 +126,8 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 	}
 
 	jww.INFO.Printf("[Send-%s] Looking for round to send cMix message to "+
-		"%s (msgDigest: %s)", cmixParams.DebugTag, recipient, msg.Digest())
+		"%s (msgDigest: %s)", cmixParams.DebugTag, recipient,
+		msg.Digest())
 
 	stream := rng.GetStream()
 	defer stream.Close()
@@ -129,7 +136,8 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 	// See cmix.SetGroupBits for more info.
 	cmix.SetGroupBits(msg, grp, stream)
 
-	for numRoundTries := uint(0); numRoundTries < cmixParams.RoundTries; numRoundTries++ {
+	for numRoundTries := uint(
+		0); numRoundTries < cmixParams.RoundTries; numRoundTries++ {
 		elapsed := netTime.Since(timeStart)
 		jww.TRACE.Printf("[Send-%s] try %d, elapsed: %s",
 			cmixParams.DebugTag, numRoundTries, elapsed)
@@ -137,42 +145,50 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 		if elapsed > cmixParams.Timeout {
 			jww.INFO.Printf("[Send-%s] No rounds to send to %s "+
 				"(msgDigest: %s) were found before timeout %s",
-				cmixParams.DebugTag, recipient, msg.Digest(), cmixParams.Timeout)
-			return 0, ephemeral.Id{}, errors.New("Sending cmix message timed out")
+				cmixParams.DebugTag, recipient, msg.Digest(),
+				cmixParams.Timeout)
+			return 0, ephemeral.Id{}, errors.New(
+				"Sending cmix message timed out")
 		}
 
 		if numRoundTries > 0 {
-			jww.INFO.Printf("[Send-%s] Attempt %d to find round to send "+
-				"message to %s (msgDigest: %s)", cmixParams.DebugTag,
+			jww.INFO.Printf("[Send-%s] Attempt %d to find round"+
+				" to send message to %s (msgDigest: %s)",
+				cmixParams.DebugTag,
 				numRoundTries+1, recipient, msg.Digest())
 		}
 
 		// Find the best round to send to, excluding attempted rounds
 		remainingTime := cmixParams.Timeout - elapsed
-		bestRound, err := instance.GetWaitingRounds().GetUpcomingRealtime(
+		waitingRounds := instance.GetWaitingRounds()
+		bestRound, err := waitingRounds.GetUpcomingRealtime(
 			remainingTime, attempted, sendTimeBuffer)
 		if err != nil {
-			jww.WARN.Printf("[Send-%s] Failed to GetUpcomingRealtime "+
-				"(msgDigest: %s): %+v", cmixParams.DebugTag, msg.Digest(), err)
+			jww.WARN.Printf("[Send-%s] GetUpcomingRealtime failed "+
+				"(msgDigest: %s): %+v", cmixParams.DebugTag,
+				msg.Digest(), err)
 		}
 
 		if bestRound == nil {
 			jww.WARN.Printf(
-				"[Send-%s] Best round on send is nil", cmixParams.DebugTag)
+				"[Send-%s] Best round on send is nil",
+				cmixParams.DebugTag)
 			continue
 		}
 
 		jww.TRACE.Printf("[Send-%s] Best round found: %+v",
 			cmixParams.DebugTag, bestRound)
 
-		// Determine whether the selected round contains any nodes that are
-		// blacklisted by the CMIXParams object
+		// Determine whether the selected round contains any
+		// nodes that are blacklisted by the CMIXParams object
 		containsBlacklisted := false
 		if cmixParams.BlacklistedNodes != nil {
+			blacklist := cmixParams.BlacklistedNodes
 			for _, nodeId := range bestRound.Topology {
 				var nid id.ID
 				copy(nid[:], nodeId)
-				if _, isBlacklisted := cmixParams.BlacklistedNodes[nid]; isBlacklisted {
+				_, isBlacklisted := blacklist[nid]
+				if isBlacklisted {
 					containsBlacklisted = true
 					break
 				}
@@ -180,8 +196,10 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 		}
 
 		if containsBlacklisted {
-			jww.WARN.Printf("[Send-%s] Round %d contains blacklisted "+
-				"nodes, skipping...", cmixParams.DebugTag, bestRound.ID)
+			jww.WARN.Printf("[Send-%s] Round %d "+
+				"contains blacklisted nodes, skipping...",
+				cmixParams.DebugTag,
+				bestRound.ID)
 			continue
 		}
 
@@ -290,5 +308,5 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 
 	}
 	return 0, ephemeral.Id{},
-		errors.New("failed to send the message, unknown error")
+		errors.New("failed to send the message, out of round retries")
 }

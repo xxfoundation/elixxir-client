@@ -16,6 +16,12 @@ const (
 	cmixChannelReactionVersion = 0
 )
 
+// SendGeneric is used to send a raw message over a channel. In general, it
+// should be wrapped in a function which defines the wire protocol
+// If the final message, before being sent over the wire, is too long, this will
+// return an error. Due to the underlying encoding using compression, it isn't
+// possible to define the largest payload that can be sent, but
+// it will always be possible to send a payload of 802 bytes at minimum
 func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	msg []byte, validUntil time.Duration, params cmix.CMIXParams) (
 	cryptoChannel.MessageID, id.Round, ephemeral.Id, error) {
@@ -62,7 +68,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 			Signature:           messageSig,
 			Username:            m.name.GetUsername(),
 			ECCPublicKey:        m.name.GetChannelPubkey(),
-			UsernameLease:       unameLease.Unix(),
+			UsernameLease:       unameLease.UnixNano(),
 		}
 
 		//Serialize the user message
@@ -89,6 +95,11 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	return msgId, rid, ephid, err
 }
 
+// SendAdminGeneric is used to send a raw message over a channel encrypted
+// with admin keys, identifying it as sent by the admin. In general, it
+// should be wrapped in a function which defines the wire protocol
+// If the final message, before being sent over the wire, is too long, this will
+// return an error. The message must be at most 510 bytes long.
 func (m *manager) SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
 	msg []byte, validUntil time.Duration, messageType MessageType,
 	params cmix.CMIXParams) (cryptoChannel.MessageID, id.Round, ephemeral.Id,
@@ -145,6 +156,10 @@ func (m *manager) SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
 	return msgId, rid, ephid, err
 }
 
+// SendMessage is used to send a formatted message over a channel.
+// Due to the underlying encoding using compression, it isn't
+// possible to define the largest payload that can be sent, but
+// it will always be possible to send a payload of 798 bytes at minimum
 func (m *manager) SendMessage(channelID *id.ID, msg string,
 	validUntil time.Duration, params cmix.CMIXParams) (
 	cryptoChannel.MessageID, id.Round, ephemeral.Id, error) {
@@ -162,6 +177,12 @@ func (m *manager) SendMessage(channelID *id.ID, msg string,
 	return m.SendGeneric(channelID, Text, txtMarshaled, validUntil, params)
 }
 
+// SendReply is used to send a formatted message over a channel.
+// Due to the underlying encoding using compression, it isn't
+// possible to define the largest payload that can be sent, but
+// it will always be possible to send a payload of 766 bytes at minimum.
+// If the message ID the reply is sent to doesnt exist, the other side will
+// post the message as a normal message and not a reply.
 func (m *manager) SendReply(channelID *id.ID, msg string,
 	replyTo cryptoChannel.MessageID, validUntil time.Duration,
 	params cmix.CMIXParams) (cryptoChannel.MessageID, id.Round, ephemeral.Id,
@@ -180,8 +201,12 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 	return m.SendGeneric(channelID, Text, txtMarshaled, validUntil, params)
 }
 
+// SendReaction is used to send a reaction to a message over a channel.
+// The reaction must be a single emoji with no other characters, and will
+// be rejected otherwise.
+// Clients will drop the reaction if they do not recognize the reactTo message
 func (m *manager) SendReaction(channelID *id.ID, reaction string,
-	replyTo cryptoChannel.MessageID, validUntil time.Duration,
+	reactTo cryptoChannel.MessageID, validUntil time.Duration,
 	params cmix.CMIXParams) (cryptoChannel.MessageID, id.Round, ephemeral.Id,
 	error) {
 
@@ -192,7 +217,7 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 	react := &CMIXChannelReaction{
 		Version:           cmixChannelReactionVersion,
 		Reaction:          reaction,
-		ReactionMessageID: replyTo[:],
+		ReactionMessageID: reactTo[:],
 	}
 
 	reactMarshaled, err := proto.Marshal(react)

@@ -21,15 +21,18 @@ type manager struct {
 	name   NameService
 
 	//Events model
-	events
+	*events
 
 	// make the function used to create broadcasts be a pointer so it
 	// can be replaced in tests
 	broadcastMaker broadcast.NewBroadcastChannelFunc
 }
 
+// NewManager Creates a new channel.Manager.
+// Prefix's teh KV with the username so multiple instances for multiple
+// users will not error.
 func NewManager(kv *versioned.KV, client broadcast.Client,
-	rng *fastRNG.StreamGenerator, name NameService) Manager {
+	rng *fastRNG.StreamGenerator, name NameService, model EventModel) Manager {
 
 	//prefix the kv with the username so multiple can be run
 	kv = kv.Prefix(name.GetUsername())
@@ -39,15 +42,18 @@ func NewManager(kv *versioned.KV, client broadcast.Client,
 		client:         client,
 		rng:            rng,
 		name:           name,
-		events:         events{},
 		broadcastMaker: broadcast.NewBroadcastChannel,
 	}
+
+	m.events = initEvents(model)
 
 	m.loadChannels()
 
 	return &m
 }
 
+// JoinChannel joins the given channel. Will fail if the channel
+// has already been joined.
 func (m *manager) JoinChannel(channel cryptoBroadcast.Channel) error {
 	err := m.addChannel(channel)
 	if err != nil {
@@ -57,6 +63,8 @@ func (m *manager) JoinChannel(channel cryptoBroadcast.Channel) error {
 	return nil
 }
 
+// LeaveChannel leaves the given channel. It will return an error
+// if the channel was not previously joined.
 func (m *manager) LeaveChannel(channelId *id.ID) error {
 	err := m.removeChannel(channelId)
 	if err != nil {

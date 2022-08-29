@@ -68,7 +68,7 @@ func (m *manager) loadChannels() {
 
 	for i := range chList {
 		jc, err := loadJoinedChannel(chList[i], m.kv, m.client, m.rng, m.name,
-			&m.events, m.broadcastMaker)
+			m.events, m.broadcastMaker)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load channel %s:  %+v",
 				chList[i], err)
@@ -95,7 +95,7 @@ func (m *manager) addChannel(channel cryptoBroadcast.Channel) error {
 	//Connect to listeners
 	err = b.RegisterListener((&userListener{
 		name:   m.name,
-		events: &m.events,
+		events: m.events,
 		chID:   channel.ReceptionID,
 	}).Listen, broadcast.Symmetric)
 	if err != nil {
@@ -104,7 +104,7 @@ func (m *manager) addChannel(channel cryptoBroadcast.Channel) error {
 
 	err = b.RegisterListener((&adminListener{
 		name:   m.name,
-		events: &m.events,
+		events: m.events,
 		chID:   channel.ReceptionID,
 	}).Listen, broadcast.Asymmetric)
 	if err != nil {

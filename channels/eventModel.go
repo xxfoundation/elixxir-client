@@ -29,13 +29,13 @@ type EventModel interface {
 	JoinChannel(channel cryptoBroadcast.Channel)
 
 	// LeaveChannel is called whenever a channel is left locally
-	LeaveChannel(ChannelID *id.ID)
+	LeaveChannel(channelID *id.ID)
 
 	// ReceiveMessage is called whenever a message is received on a given channel
 	// It may be called multiple times on the same message, it is incumbent on
 	// the user of the API to filter such called by message ID
-	ReceiveMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID,
-		SenderUsername string, text string,
+	ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
+		senderUsername string, text string,
 		timestamp time.Time, lease time.Duration, round rounds.Round)
 
 	// ReceiveReply is called whenever a message is received which is a reply
@@ -43,8 +43,8 @@ type EventModel interface {
 	// it is incumbent on the user of the API to filter such called by message ID
 	// Messages may arrive our of order, so a reply in theory can arrive before
 	// the initial message, as a result it may be important to buffer replies.
-	ReceiveReply(ChannelID *id.ID, MessageID cryptoChannel.MessageID,
-		ReplyTo cryptoChannel.MessageID, SenderUsername string,
+	ReceiveReply(ChannelID *id.ID, messageID cryptoChannel.MessageID,
+		replyTo cryptoChannel.MessageID, SenderUsername string,
 		text string, timestamp time.Time, lease time.Duration,
 		round rounds.Round)
 
@@ -53,9 +53,9 @@ type EventModel interface {
 	// it is incumbent on the user of the API to filter such called by message ID
 	// Messages may arrive our of order, so a reply in theory can arrive before
 	// the initial message, as a result it may be important to buffer reactions.
-	ReceiveReaction(ChannelID *id.ID, MessageID cryptoChannel.MessageID,
-		ReactionTo cryptoChannel.MessageID, SenderUsername string,
-		Reaction string, timestamp time.Time, lease time.Duration,
+	ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
+		reactionTo cryptoChannel.MessageID, senderUsername string,
+		reaction string, timestamp time.Time, lease time.Duration,
 		round rounds.Round)
 
 	//unimplemented
@@ -65,9 +65,9 @@ type EventModel interface {
 	//UnPinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
 }
 
-type MessageTypeReceiveMessage func(ChannelID *id.ID,
-	MessageID cryptoChannel.MessageID, messageType MessageType,
-	SenderUsername string, Content []byte, timestamp time.Time,
+type MessageTypeReceiveMessage func(channelID *id.ID,
+	messageID cryptoChannel.MessageID, messageType MessageType,
+	senderUsername string, content []byte, timestamp time.Time,
 	lease time.Duration, round rounds.Round)
 
 type events struct {
@@ -168,15 +168,15 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 // function on the event model.
 // If the message has a reply but it is malformed, it will drop the reply and
 // write to the log
-func (e *events) receiveTextMessage(ChannelID *id.ID,
-	MessageID cryptoChannel.MessageID, messageType MessageType,
-	SenderUsername string, Content []byte, timestamp time.Time,
+func (e *events) receiveTextMessage(channelID *id.ID,
+	messageID cryptoChannel.MessageID, messageType MessageType,
+	senderUsername string, content []byte, timestamp time.Time,
 	lease time.Duration, round rounds.Round) {
 	txt := &CMIXChannelText{}
-	if err := proto.Unmarshal(Content, txt); err != nil {
+	if err := proto.Unmarshal(content, txt); err != nil {
 		jww.ERROR.Printf("Failed to text unmarshal message %s from %s on "+
 			"channel %s, type %s, ts: %s, lease: %s, round: %d: %+v",
-			MessageID, SenderUsername, ChannelID, messageType, timestamp, lease,
+			messageID, senderUsername, channelID, messageType, timestamp, lease,
 			round.ID, err)
 		return
 	}
@@ -185,7 +185,7 @@ func (e *events) receiveTextMessage(ChannelID *id.ID,
 		if len(txt.ReplyMessageID) == cryptoChannel.MessageIDLen {
 			var replyTo cryptoChannel.MessageID
 			copy(replyTo[:], txt.ReplyMessageID)
-			e.model.ReceiveReply(ChannelID, MessageID, replyTo, SenderUsername, txt.Text,
+			e.model.ReceiveReply(channelID, messageID, replyTo, senderUsername, txt.Text,
 				timestamp, lease, round)
 			return
 
@@ -193,12 +193,12 @@ func (e *events) receiveTextMessage(ChannelID *id.ID,
 			jww.ERROR.Printf("Failed process reply to for message %s from %s on "+
 				"channel %s, type %s, ts: %s, lease: %s, round: %d, returning "+
 				"without reply",
-				MessageID, SenderUsername, ChannelID, messageType, timestamp, lease,
+				messageID, senderUsername, channelID, messageType, timestamp, lease,
 				round.ID)
 		}
 	}
 
-	e.model.ReceiveMessage(ChannelID, MessageID, SenderUsername, txt.Text,
+	e.model.ReceiveMessage(channelID, messageID, senderUsername, txt.Text,
 		timestamp, lease, round)
 }
 
@@ -208,15 +208,15 @@ func (e *events) receiveTextMessage(ChannelID *id.ID,
 // If the received reaction is not, the reaction is dropped.
 // If the messageID for the message the reaction is to is malformed, the reaction
 // is dropped.
-func (e *events) receiveReaction(ChannelID *id.ID,
-	MessageID cryptoChannel.MessageID, messageType MessageType,
-	SenderUsername string, Content []byte, timestamp time.Time,
+func (e *events) receiveReaction(channelID *id.ID,
+	messageID cryptoChannel.MessageID, messageType MessageType,
+	senderUsername string, content []byte, timestamp time.Time,
 	lease time.Duration, round rounds.Round) {
 	react := &CMIXChannelReaction{}
-	if err := proto.Unmarshal(Content, react); err != nil {
+	if err := proto.Unmarshal(content, react); err != nil {
 		jww.ERROR.Printf("Failed to text unmarshal message %s from %s on "+
 			"channel %s, type %s, ts: %s, lease: %s, round: %d: %+v",
-			MessageID, SenderUsername, ChannelID, messageType, timestamp, lease,
+			messageID, senderUsername, channelID, messageType, timestamp, lease,
 			round.ID, err)
 		return
 	}
@@ -226,20 +226,20 @@ func (e *events) receiveReaction(ChannelID *id.ID,
 		jww.ERROR.Printf("Failed process reaction %s from %s on channel "+
 			"%s, type %s, ts: %s, lease: %s, round: %d, due to malformed "+
 			"reaction (%s), ignoring reaction",
-			MessageID, SenderUsername, ChannelID, messageType, timestamp, lease,
+			messageID, senderUsername, channelID, messageType, timestamp, lease,
 			round.ID, err)
 	}
 
 	if react.ReactionMessageID != nil && len(react.ReactionMessageID) == cryptoChannel.MessageIDLen {
 		var reactTo cryptoChannel.MessageID
 		copy(reactTo[:], react.ReactionMessageID)
-		e.model.ReceiveReaction(ChannelID, MessageID, reactTo, SenderUsername,
+		e.model.ReceiveReaction(channelID, messageID, reactTo, senderUsername,
 			react.Reaction, timestamp, lease, round)
 	} else {
 		jww.ERROR.Printf("Failed process reaction %s from %s on channel "+
 			"%s, type %s, ts: %s, lease: %s, round: %d, reacting to "+
 			"invalid message, ignoring reaction",
-			MessageID, SenderUsername, ChannelID, messageType, timestamp, lease,
+			messageID, senderUsername, channelID, messageType, timestamp, lease,
 			round.ID)
 	}
 }

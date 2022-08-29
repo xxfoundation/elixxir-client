@@ -14,6 +14,10 @@ func (mt MessageType) String() string {
 	switch mt {
 	case Text:
 		return "Text"
+	case AdminText:
+		return "AdminText"
+	case Reaction:
+		return "Reaction"
 	default:
 		return fmt.Sprintf("Unknown messageType %d", mt)
 	}

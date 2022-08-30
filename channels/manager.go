@@ -10,6 +10,24 @@
 // replies, reactions, and eventually admin commands.
 package channels
 
+// on sending, data propagates as follows:
+// Send function (Example: SendMessage) - > SendGeneric ->
+//     Broadcast.BroadcastWithAssembler -> cmix.SendWithAssembler
+
+// on receiving messages propagate as follows:
+// cmix message pickup (by service)- > userListener ->
+//     events.triggerEvent -> messageTypeHandler (example: Text) ->
+//     eventModel (example: ReceiveMessage)
+
+// on sendingAdmin, data propagates as follows:
+// Send function - > SendAdminGeneric ->
+//     Broadcast.BroadcastAsymmetricWithAssembler -> cmix.SendWithAssembler
+
+// on receiving admin messages propagate as follows:
+// cmix message pickup (by service)- > adminListener ->
+//     events.triggerAdminEvent -> messageTypeHandler (example: Text) ->
+//     eventModel (example: ReceiveMessage)
+
 import (
 	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/storage/versioned"

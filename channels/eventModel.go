@@ -8,7 +8,6 @@
 package channels
 
 import (
-	"errors"
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
@@ -22,12 +21,9 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+// AdminUsername defines the displayed username of admin messages, which are
+// unique users for every channel defined by the channel's private key
 const AdminUsername = "Admin"
-
-var (
-	MessageTypeAlreadyRegistered = errors.New("the given message type has " +
-		"already been registered")
-)
 
 // EventModel is an interface which an external party which uses the channels
 // system passed an object which adheres to in order to get events on the channel
@@ -72,6 +68,8 @@ type EventModel interface {
 	//UnPinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
 }
 
+// MessageTypeReceiveMessage defines handlers for messages of various message
+// types. Default ones for Text, Reaction, and AdminText.
 type MessageTypeReceiveMessage func(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
 	senderUsername string, content []byte, timestamp time.Time,

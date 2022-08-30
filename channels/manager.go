@@ -5,6 +5,9 @@
 // LICENSE file                                                               //
 ////////////////////////////////////////////////////////////////////////////////
 
+// Package channels provides a channels implementation on top of broadcast
+// which is capable of handing the user facing features of channels, including
+// replies, reactions, and eventually admin commands.
 package channels
 
 import (

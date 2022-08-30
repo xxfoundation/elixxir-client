@@ -17,6 +17,10 @@ import (
 	"time"
 )
 
+// ValidForever is used as a validUntil lease when sending to denote the
+// message or operation never expires. Note: A message relay must be
+// present to enforce this otherwise things expire after 3 weeks due to
+// network retention.
 var ValidForever = time.Duration(math.MaxInt64)
 
 type Manager interface {

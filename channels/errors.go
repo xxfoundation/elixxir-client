@@ -18,4 +18,6 @@ var (
 		"the passed message is too long")
 	WrongPrivateKey = errors.New(
 		"the passed private key does not match the channel")
+	MessageTypeAlreadyRegistered = errors.New("the given message type has " +
+		"already been registered")
 )

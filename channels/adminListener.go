@@ -13,9 +13,8 @@ import (
 // the adminListener adheres to the broadcast listener interface and is used
 // when admin messages are received on the channel
 type adminListener struct {
-	name   NameService
-	events *events
-	chID   *id.ID
+	chID    *id.ID
+	trigger triggerAdminEventFunc
 }
 
 func (al *adminListener) Listen(payload []byte,
@@ -33,7 +32,7 @@ func (al *adminListener) Listen(payload []byte,
 	msgID := channel.MakeMessageID(payloadUnpadded)
 
 	//Decode the message as a channel message
-	var cm *ChannelMessage
+	cm := &ChannelMessage{}
 	if err = proto.Unmarshal(payloadUnpadded, cm); err != nil {
 		jww.WARN.Printf("Failed to unmarshal Channel Message from Admin"+
 			" on channel %s", al.chID)
@@ -51,7 +50,7 @@ func (al *adminListener) Listen(payload []byte,
 	}
 
 	//Submit the message to the event model for listening
-	al.events.triggerAdminEvent(al.chID, cm, msgID, receptionID, round)
+	al.trigger(al.chID, cm, msgID, receptionID, round)
 
 	return
 }

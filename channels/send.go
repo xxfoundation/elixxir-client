@@ -53,6 +53,9 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 			return nil, err
 		}
 
+		//make the messageID
+		msgId = cryptoChannel.MakeMessageID(chMsgSerial)
+
 		//Sign the message
 		messageSig, err := m.name.SignChannelMessage(chMsgSerial)
 		if err != nil {
@@ -83,8 +86,6 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		if err != nil {
 			return nil, err
 		}
-
-		msgId = cryptoChannel.MakeMessageID(usrMsgSerialSized)
 
 		return usrMsgSerialSized, nil
 	}
@@ -132,6 +133,8 @@ func (m *manager) SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
 			return nil, err
 		}
 
+		msgId = cryptoChannel.MakeMessageID(chMsgSerial)
+
 		//check if the message is too long
 		if len(chMsgSerial) > broadcast.MaxSizedBroadcastPayloadSize(privKey.Size()) {
 			return nil, MessageTooLongErr
@@ -143,8 +146,6 @@ func (m *manager) SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
 		if err != nil {
 			return nil, err
 		}
-
-		msgId = cryptoChannel.MakeMessageID(chMsgSerialSized)
 
 		return chMsgSerialSized, nil
 	}

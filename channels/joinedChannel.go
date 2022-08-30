@@ -91,18 +91,17 @@ func (m *manager) addChannel(channel cryptoBroadcast.Channel) error {
 
 	// Connect to listeners
 	err = b.RegisterListener((&userListener{
-		name:   m.name,
-		events: m.events,
-		chID:   channel.ReceptionID,
+		name:    m.name,
+		chID:    channel.ReceptionID,
+		trigger: m.events.triggerEvent,
 	}).Listen, broadcast.Symmetric)
 	if err != nil {
 		return err
 	}
 
 	err = b.RegisterListener((&adminListener{
-		name:   m.name,
-		events: m.events,
-		chID:   channel.ReceptionID,
+		chID:    channel.ReceptionID,
+		trigger: m.events.triggerAdminEvent,
 	}).Listen, broadcast.Asymmetric)
 	if err != nil {
 		return err
@@ -224,18 +223,17 @@ func loadJoinedChannel(chId *id.ID, kv *versioned.KV, net broadcast.Client,
 	}
 
 	err = b.RegisterListener((&userListener{
-		name:   name,
-		events: e,
-		chID:   jcd.broadcast.ReceptionID,
+		name:    name,
+		chID:    jcd.broadcast.ReceptionID,
+		trigger: e.triggerEvent,
 	}).Listen, broadcast.Symmetric)
 	if err != nil {
 		return nil, err
 	}
 
 	err = b.RegisterListener((&adminListener{
-		name:   name,
-		events: e,
-		chID:   jcd.broadcast.ReceptionID,
+		chID:    jcd.broadcast.ReceptionID,
+		trigger: e.triggerAdminEvent,
 	}).Listen, broadcast.Asymmetric)
 	if err != nil {
 		return nil, err

@@ -14,9 +14,9 @@ import (
 // the userListener adheres to the broadcast listener interface and is used
 // when user messages are received on the channel
 type userListener struct {
-	name   NameService
-	events *events
-	chID   *id.ID
+	name    NameService
+	chID    *id.ID
+	trigger triggerEventFunc
 }
 
 func (gul *userListener) Listen(payload []byte,
@@ -54,7 +54,7 @@ func (gul *userListener) Listen(payload []byte,
 
 	// check that the username lease is valid
 	usernameLeaseEnd := time.Unix(0, um.UsernameLease)
-	if usernameLeaseEnd.After(round.Timestamps[states.QUEUED]) {
+	if !usernameLeaseEnd.After(round.Timestamps[states.QUEUED]) {
 		jww.WARN.Printf("Message %s on channel %s purportedly from %s "+
 			"has an expired lease, ended %s, round %d was sent at %s", msgID,
 			gul.chID, um.Username, usernameLeaseEnd, round.ID,
@@ -82,7 +82,7 @@ func (gul *userListener) Listen(payload []byte,
 	//TODO: Processing of the message relative to admin commands will be here
 
 	//Submit the message to the event model for listening
-	gul.events.triggerEvent(gul.chID, umi, receptionID, round)
+	gul.trigger(gul.chID, umi, receptionID, round)
 
 	return
 }

@@ -2,21 +2,16 @@ package channels
 
 import (
 	"crypto/ed25519"
-	"testing"
 	"time"
 
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/ekv"
 )
 
 type mockBroadcastClient struct{}
@@ -51,7 +46,9 @@ func (m *mockBroadcastClient) DeleteClientService(clientID *id.ID) {}
 
 func (m *mockBroadcastClient) RemoveIdentity(id *id.ID) {}
 
-type mockNameService struct{}
+type mockNameService struct {
+	validChMsg bool
+}
 
 func (m *mockNameService) GetUsername() string {
 	return "Alice"
@@ -71,7 +68,7 @@ func (m *mockNameService) SignChannelMessage(message []byte) (signature []byte, 
 
 func (m *mockNameService) ValidateChannelMessage(username string, lease time.Time,
 	pubKey ed25519.PublicKey, authorIDSignature []byte) bool {
-	return true
+	return m.validChMsg
 }
 
 type mockEventModel struct{}
@@ -99,12 +96,13 @@ func (m *mockEventModel) ReceiveReaction(channelID *id.ID, messageID cryptoChann
 
 }
 
-func TestSendGeneric(t *testing.T) {
+/*func TestSendGeneric(t *testing.T) {
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	client := new(mockBroadcastClient)
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	nameService := new(mockNameService)
+	nameService.validChMsg = true
 	model := new(mockEventModel)
 
 	manager := NewManager(kv, client, rngGen, nameService, model)
@@ -134,4 +132,4 @@ func TestSendGeneric(t *testing.T) {
 	}
 	t.Logf("messageId %v, roundId %v, ephemeralId %v", messageId, roundId, ephemeralId)
 
-}
+}*/

@@ -113,6 +113,9 @@ func (e *events) RegisterReceiveHandler(messageType MessageType,
 	return nil
 }
 
+type triggerEventFunc func(chID *id.ID, umi *userMessageInternal,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round)
+
 // triggerEvent is an internal function which is used to trigger message
 // reception on a message received from a user (symmetric encryption)
 // It will call the appropriate MessageTypeHandler assuming one exists.
@@ -138,6 +141,10 @@ func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 		cm.Payload, round.Timestamps[states.QUEUED], time.Duration(cm.Lease), round)
 	return
 }
+
+type triggerAdminEventFunc func(chID *id.ID, cm *ChannelMessage,
+	messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
+	round rounds.Round)
 
 // triggerAdminEvent is an internal function which is used to trigger message
 // reception on a message received from the admin (asymmetric encryption)

@@ -3,6 +3,8 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
+	"github.com/golang/protobuf/proto"
+	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/xx_network/crypto/csprng"
 	"testing"
 	"time"
@@ -15,6 +17,8 @@ import (
 	"gitlab.com/elixxir/client/cmix"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 )
+
+const returnedRound = 42
 
 type mockBroadcastChannel struct {
 	hasRun bool
@@ -56,7 +60,7 @@ func (m *mockBroadcastChannel) BroadcastWithAssembler(assembler broadcast.Assemb
 
 	var err error
 
-	m.payload, err = assembler(42)
+	m.payload, err = assembler(returnedRound)
 	m.params = cMixParams
 
 	return id.Round(123), ephemeral.Id{}, err
@@ -81,7 +85,7 @@ func (m *mockBroadcastChannel) BroadcastAsymmetricWithAssembler(
 
 	var err error
 
-	m.payload, err = assembler(42)
+	m.payload, err = assembler(returnedRound)
 	m.params = cMixParams
 
 	m.pk = pk
@@ -179,6 +183,17 @@ func TestSendGeneric(t *testing.T) {
 		t.Errorf("The payload does not match. %s vs %s ",
 			umi.GetChannelMessage().Payload, msg)
 	}
+
+	if MessageType(umi.GetChannelMessage().PayloadType) != messageType {
+		t.Fatalf("Message types do not match, %s vs %s",
+			MessageType(umi.GetChannelMessage().PayloadType), messageType)
+	}
+
+	if umi.GetChannelMessage().RoundID != returnedRound {
+		t.Errorf("The returned round is incorrect, %d vs %d",
+			umi.GetChannelMessage().RoundID, returnedRound)
+	}
+
 }
 
 func TestAdminGeneric(t *testing.T) {
@@ -222,8 +237,77 @@ func TestAdminGeneric(t *testing.T) {
 		t.Fatalf("Failed to decode the sized broadcast: %s", err)
 	}
 
-	//decode the channel message
+	msgID := cryptoChannel.MakeMessageID(unsized)
 
+	if !msgID.Equals(messageId) {
+		t.Errorf("The message IDs do not match. %s vs %s ",
+			msgID, messageId)
+	}
+
+	//decode the channel message
+	chMgs := &ChannelMessage{}
+	err = proto.Unmarshal(unsized, chMgs)
+	if err != nil {
+		t.Fatalf("Failed to decode the channel message: %s", err)
+	}
+
+	if !bytes.Equal(chMgs.Payload, msg) {
+		t.Errorf("Messages do not match, %s vs %s", chMgs.Payload, msg)
+	}
+
+	if MessageType(chMgs.PayloadType) != messageType {
+		t.Errorf("Message types do not match, %s vs %s",
+			MessageType(chMgs.PayloadType), messageType)
+	}
+
+	if chMgs.RoundID != returnedRound {
+		t.Errorf("The returned round is incorrect, %d vs %d",
+			chMgs.RoundID, returnedRound)
+	}
+}
+
+func TestSendMessage(t *testing.T) {
+
+	nameService := new(mockNameService)
+	nameService.validChMsg = true
+
+	m := &manager{
+		channels: make(map[id.ID]*joinedChannel),
+		name:     nameService,
+	}
+
+	channelID := new(id.ID)
+	messageType := Text
+	msg := "hello world"
+	validUntil := time.Hour
+	params := new(cmix.CMIXParams)
+
+	mbc := &mockBroadcastChannel{}
+
+	m.channels[*channelID] = &joinedChannel{
+		broadcast: mbc,
+	}
+
+	messageId, roundId, ephemeralId, err := m.SendMessage(
+		channelID,
+		msg,
+		validUntil,
+		*params)
+	if err != nil {
+		t.Logf("ERROR %v", err)
+		t.Fail()
+	}
+	t.Logf("messageId %v, roundId %v, ephemeralId %v", messageId, roundId, ephemeralId)
+
+	//verify the message was handled correctly
+
+	//Unsize the broadcast
+	unsized, err := broadcast.DecodeSizedBroadcast(mbc.payload)
+	if err != nil {
+		t.Fatalf("Failed to decode the sized broadcast: %s", err)
+	}
+
+	//decode the user message
 	umi, err := unmarshalUserMessageInternal(unsized)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
@@ -235,8 +319,185 @@ func TestAdminGeneric(t *testing.T) {
 			umi.messageID, messageId)
 	}
 
-	if !bytes.Equal(umi.GetChannelMessage().Payload, msg) {
-		t.Errorf("The payload does not match. %s vs %s ",
-			umi.GetChannelMessage().Payload, msg)
+	if MessageType(umi.GetChannelMessage().PayloadType) != messageType {
+		t.Fatalf("Message types do not match, %s vs %s",
+			MessageType(umi.GetChannelMessage().PayloadType), messageType)
+	}
+
+	if umi.GetChannelMessage().RoundID != returnedRound {
+		t.Errorf("The returned round is incorrect, %d vs %d",
+			umi.GetChannelMessage().RoundID, returnedRound)
+	}
+
+	//decode the text message
+	txt := &CMIXChannelText{}
+	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
+	if err != nil {
+		t.Fatalf("Could not decode cmix channel text: %s", err)
+	}
+
+	if txt.Text != msg {
+		t.Errorf("Content of message is incorrect: %s vs %s", txt.Text, msg)
+	}
+
+	if txt.ReplyMessageID != nil {
+		t.Errorf("Reply ID on a text message is not nil")
+	}
+}
+
+func TestSendReply(t *testing.T) {
+
+	nameService := new(mockNameService)
+	nameService.validChMsg = true
+
+	m := &manager{
+		channels: make(map[id.ID]*joinedChannel),
+		name:     nameService,
+	}
+
+	channelID := new(id.ID)
+	messageType := Text
+	msg := "hello world"
+	validUntil := time.Hour
+	params := new(cmix.CMIXParams)
+
+	replyMsgID := cryptoChannel.MessageID{}
+	replyMsgID[0] = 69
+
+	mbc := &mockBroadcastChannel{}
+
+	m.channels[*channelID] = &joinedChannel{
+		broadcast: mbc,
+	}
+
+	messageId, roundId, ephemeralId, err := m.SendReply(
+		channelID, msg, replyMsgID, validUntil, *params)
+	if err != nil {
+		t.Logf("ERROR %v", err)
+		t.Fail()
+	}
+	t.Logf("messageId %v, roundId %v, ephemeralId %v", messageId, roundId, ephemeralId)
+
+	//verify the message was handled correctly
+
+	//Unsize the broadcast
+	unsized, err := broadcast.DecodeSizedBroadcast(mbc.payload)
+	if err != nil {
+		t.Fatalf("Failed to decode the sized broadcast: %s", err)
+	}
+
+	//decode the user message
+	umi, err := unmarshalUserMessageInternal(unsized)
+	if err != nil {
+		t.Fatalf("Failed to decode the user message: %s", err)
+	}
+
+	// do checks of the data
+	if !umi.GetMessageID().Equals(messageId) {
+		t.Errorf("The message IDs do not match. %s vs %s ",
+			umi.messageID, messageId)
+	}
+
+	if MessageType(umi.GetChannelMessage().PayloadType) != messageType {
+		t.Fatalf("Message types do not match, %s vs %s",
+			MessageType(umi.GetChannelMessage().PayloadType), messageType)
+	}
+
+	if umi.GetChannelMessage().RoundID != returnedRound {
+		t.Errorf("The returned round is incorrect, %d vs %d",
+			umi.GetChannelMessage().RoundID, returnedRound)
+	}
+
+	//decode the text message
+	txt := &CMIXChannelText{}
+	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
+	if err != nil {
+		t.Fatalf("Could not decode cmix channel text: %s", err)
+	}
+
+	if txt.Text != msg {
+		t.Errorf("Content of message is incorrect: %s vs %s", txt.Text, msg)
+	}
+
+	if !bytes.Equal(txt.ReplyMessageID, replyMsgID[:]) {
+		t.Errorf("The reply message ID is not what was passed in")
+	}
+}
+
+func TestSendReaction(t *testing.T) {
+
+	nameService := new(mockNameService)
+	nameService.validChMsg = true
+
+	m := &manager{
+		channels: make(map[id.ID]*joinedChannel),
+		name:     nameService,
+	}
+
+	channelID := new(id.ID)
+	messageType := Reaction
+	msg := "🍆"
+	params := new(cmix.CMIXParams)
+
+	replyMsgID := cryptoChannel.MessageID{}
+	replyMsgID[0] = 69
+
+	mbc := &mockBroadcastChannel{}
+
+	m.channels[*channelID] = &joinedChannel{
+		broadcast: mbc,
+	}
+
+	messageId, roundId, ephemeralId, err := m.SendReaction(
+		channelID, msg, replyMsgID, *params)
+	if err != nil {
+		t.Logf("ERROR %v", err)
+		t.Fail()
+	}
+	t.Logf("messageId %v, roundId %v, ephemeralId %v", messageId, roundId, ephemeralId)
+
+	//verify the message was handled correctly
+
+	//Unsize the broadcast
+	unsized, err := broadcast.DecodeSizedBroadcast(mbc.payload)
+	if err != nil {
+		t.Fatalf("Failed to decode the sized broadcast: %s", err)
+	}
+
+	//decode the user message
+	umi, err := unmarshalUserMessageInternal(unsized)
+	if err != nil {
+		t.Fatalf("Failed to decode the user message: %s", err)
+	}
+
+	// do checks of the data
+	if !umi.GetMessageID().Equals(messageId) {
+		t.Errorf("The message IDs do not match. %s vs %s ",
+			umi.messageID, messageId)
+	}
+
+	if MessageType(umi.GetChannelMessage().PayloadType) != messageType {
+		t.Fatalf("Message types do not match, %s vs %s",
+			MessageType(umi.GetChannelMessage().PayloadType), messageType)
+	}
+
+	if umi.GetChannelMessage().RoundID != returnedRound {
+		t.Errorf("The returned round is incorrect, %d vs %d",
+			umi.GetChannelMessage().RoundID, returnedRound)
+	}
+
+	//decode the text message
+	txt := &CMIXChannelReaction{}
+	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
+	if err != nil {
+		t.Fatalf("Could not decode cmix channel text: %s", err)
+	}
+
+	if txt.Reaction != msg {
+		t.Errorf("Content of message is incorrect: %s vs %s", txt.Reaction, msg)
+	}
+
+	if !bytes.Equal(txt.ReactionMessageID, replyMsgID[:]) {
+		t.Errorf("The reply message ID is not what was passed in")
 	}
 }

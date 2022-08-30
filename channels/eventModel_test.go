@@ -243,7 +243,7 @@ func TestEvents_triggerEvents(t *testing.T) {
 			dummy.content, umi.GetChannelMessage().Payload)
 	}
 
-	if !dummy.timestamp.Equal(r.Timestamps[states.QUEUED]) {
+	if !withinMutationWindow(r.Timestamps[states.QUEUED], dummy.timestamp) {
 		t.Errorf("The timestamps do not match %s vs %s",
 			dummy.timestamp, r.Timestamps[states.QUEUED])
 	}
@@ -314,7 +314,7 @@ func TestEvents_triggerAdminEvents(t *testing.T) {
 			dummy.senderUsername, cm.Payload)
 	}
 
-	if !dummy.timestamp.Equal(r.Timestamps[states.QUEUED]) {
+	if !withinMutationWindow(r.Timestamps[states.QUEUED], dummy.timestamp) {
 		t.Errorf("The timestamps do not match %s vs %s",
 			dummy.timestamp, r.Timestamps[states.QUEUED])
 	}

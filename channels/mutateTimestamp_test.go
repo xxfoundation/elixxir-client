@@ -1,7 +1,7 @@
 package channels
 
 import (
-	"crypto/rand"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -29,9 +29,11 @@ func TestMutateTimestampDeltaAverage(t *testing.T) {
 	t1 := time.Now()
 	sum := int64(0)
 
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
 	for i := 0; i < samples; i++ {
 		var msgID channel.MessageID
-		rand.Read(msgID[:])
+		rng.Read(msgID[:])
 		t2 := mutateTimestamp(t1, msgID)
 		delta := t2.Sub(t1)
 		sum += abs(int64(delta))

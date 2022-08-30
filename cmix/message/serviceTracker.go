@@ -23,7 +23,6 @@ func (sm *ServicesManager) TrackServices(tracker ServicesTracker) {
 // triggerServiceTracking triggers the tracking of services. Is it called when a
 // service is added or removed.
 func (sm *ServicesManager) triggerServiceTracking() {
-	sm.Mutex.Lock()
 	if len(sm.trackers) == 0 {
 		return
 	}
@@ -35,7 +34,6 @@ func (sm *ServicesManager) triggerServiceTracking() {
 		}
 		services[uid] = tList
 	}
-	sm.Mutex.Unlock()
 
 	for _, callback := range sm.trackers {
 		go callback(services)

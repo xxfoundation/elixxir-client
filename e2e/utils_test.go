@@ -199,6 +199,11 @@ func (m *mockCmix) Send(_ *id.ID, fp format.Fingerprint, srv message.Service,
 
 }
 
+func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
+
 func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
 	return 0, nil, nil
 }

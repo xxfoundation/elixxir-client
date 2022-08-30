@@ -71,6 +71,13 @@ func (tnm *testNetworkManager) Follow(report cmix.ClientErrorReport) (stoppable.
 	panic("implement me")
 }
 
+func (tnm *testNetworkManager) SendWithAssembler(recipient *id.ID,
+	assembler cmix.MessageAssembler, cmixParams cmix.CMIXParams) (id.Round,
+	ephemeral.Id, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 	//TODO implement me
 	panic("implement me")

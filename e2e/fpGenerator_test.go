@@ -116,6 +116,10 @@ func (m *mockFpgCmix) GetMaxMessageLength() int                                 
 func (m *mockFpgCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte, []byte, cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 	return 0, ephemeral.Id{}, nil
 }
+func (m *mockFpgCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	return 0, ephemeral.Id{}, nil
+}
 func (m *mockFpgCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
 	return 0, nil, nil
 }

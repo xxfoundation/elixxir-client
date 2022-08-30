@@ -237,6 +237,11 @@ func (m *mockNetManager) Send(recipient *id.ID, fingerprint format.Fingerprint,
 	return id.Round(0), ephemeral.Id{}, nil
 }
 
+func (m *mockNetManager) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	return id.Round(0), ephemeral.Id{}, nil
+}
+
 func (m *mockNetManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (
 	id.Round, []ephemeral.Id, error) {
 	return id.Round(0), nil, nil

@@ -116,6 +116,11 @@ func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
 	panic("implement me")
 }
 
+func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
+
 func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 	_ cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
 	m.handler.Lock()

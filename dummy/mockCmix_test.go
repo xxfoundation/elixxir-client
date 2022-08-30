@@ -46,6 +46,20 @@ func (m *mockCmix) Send(recipient *id.ID, fingerprint format.Fingerprint, servic
 	return 0, ephemeral.Id{}, nil
 }
 
+func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	m.Lock()
+	defer m.Unlock()
+
+	fingerprint, service, payload, mac, err := assembler(42)
+	if err != nil {
+		return 0, ephemeral.Id{}, err
+	}
+	m.messages[*recipient] = generateMessage(m.payloadSize, fingerprint, service, payload, mac)
+
+	return 0, ephemeral.Id{}, nil
+}
+
 func (m *mockCmix) GetMsgListLen() int {
 	m.RLock()
 	defer m.RUnlock()

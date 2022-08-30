@@ -112,6 +112,13 @@ func (t *testNetworkManagerGeneric) Send(*id.ID, format.Fingerprint,
 	ephemeral.Id, error) {
 	return id.Round(0), ephemeral.Id{}, nil
 }
+
+func (t *testNetworkManagerGeneric) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+
+	return 0, ephemeral.Id{}, nil
+}
+
 func (t *testNetworkManagerGeneric) SendMany(messages []cmix.TargetedCmixMessage,
 	p cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
 	return 0, []ephemeral.Id{}, nil

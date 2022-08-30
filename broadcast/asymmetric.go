@@ -31,7 +31,7 @@ func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey,
 	payload []byte, cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 	// Confirm network health
 
-	assemble := func(rid id.Round) (payload []byte, err error) {
+	assemble := func(rid id.Round) ([]byte, error) {
 		return payload, nil
 	}
 	return bc.BroadcastAsymmetricWithAssembler(pk, assemble, cMixParams)

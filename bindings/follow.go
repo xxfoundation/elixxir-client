@@ -10,6 +10,7 @@ package bindings
 import (
 	"encoding/json"
 	"fmt"
+	"gitlab.com/elixxir/client/cmix/message"
 	"time"
 
 	"github.com/pkg/errors"
@@ -167,4 +168,51 @@ func (c *Cmix) RegisterClientErrorCallback(clientError ClientError) {
 			go clientError.Report(report.Source, report.Message, report.Trace)
 		}
 	}()
+}
+
+// TrackServicesCallback is the callback for Cmix.TrackServices.
+// This will pass to the user a JSON-marshalled list of backend services.
+// If there was an error retrieving or marshalling the service list,
+// there is an error for the second parameter which will be non-null.
+//
+// Example JSON:
+//
+// [
+//  {
+//    "Id": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//    "Services": [
+//      {
+//        "Identifier": null,
+//        "Tag": "test",
+//        "Metadata": null
+//      }
+//    ]
+//  },
+//  {
+//    "Id": "AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//    "Services": [
+//      {
+//        "Identifier": null,
+//        "Tag": "test",
+//        "Metadata": null
+//      }
+//    ]
+//  },
+//]
+type TrackServicesCallback interface {
+	Callback(marshalData []byte, err error)
+}
+
+// TrackServices will return via a callback the list of services the
+// backend keeps track of, which is formally referred to as a
+// [message.ServiceList]. This may be passed into other bindings call which
+// may need context on the available services for this client.
+//
+// Parameters:
+//   - cb - A TrackServicesCallback, which will be passed the marshalled
+//     message.ServiceList.
+func (c *Cmix) TrackServices(cb TrackServicesCallback) {
+	c.api.GetCmix().TrackServices(func(list message.ServiceList) {
+		cb.Callback(json.Marshal(list))
+	})
 }

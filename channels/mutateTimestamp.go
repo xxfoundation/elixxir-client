@@ -38,7 +38,7 @@ func mutateTimestamp(ts time.Time, msgID channel.MessageID) time.Time {
 	// to get an offset factor. Use a prime close to 1000000 to make sure there
 	// are no patterns in the output and reduce the chance of collision. While
 	// the fields do not align, so there is some bias towards some parts of the
-	// output field, that bias a too small to matter because log2(10000019) ~23
+	// output field, that bias is too small to matter because log2(10000019) ~23
 	// while the input field is 256.
 	offsetLarge := large.NewIntFromBytes(msgID.Bytes())
 	offsetLarge.Mod(offsetLarge, tenMsInNsLargeInt)

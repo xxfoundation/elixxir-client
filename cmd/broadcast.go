@@ -151,7 +151,7 @@ var broadcastCmd = &cobra.Command{
 		asymmetric := viper.GetString(broadcastAsymmetricFlag)
 
 		// Connect to broadcast channel
-		bcl, err := broadcast.NewBroadcastChannel(*channel, user.GetCmix(), user.GetRng())
+		bcl, err := broadcast.NewBroadcastChannel(channel, user.GetCmix(), user.GetRng())
 
 		// Create & register symmetric receiver callback
 		receiveChan := make(chan []byte, 100)

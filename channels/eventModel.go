@@ -136,9 +136,12 @@ func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 			cm.Payload)
 	}
 
+	//modify the timestamp to reduce the chance message order will be ambiguous
+	ts := mutateTimestamp(round.Timestamps[states.QUEUED], umi.GetMessageID())
+
 	//Call the listener. This is already in an instanced event, no new thread needed.
 	listener(chID, umi.GetMessageID(), messageType, um.Username,
-		cm.Payload, round.Timestamps[states.QUEUED], time.Duration(cm.Lease), round)
+		cm.Payload, ts, time.Duration(cm.Lease), round)
 	return
 }
 
@@ -164,9 +167,12 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 			cm.Payload)
 	}
 
+	//modify the timestamp to reduce the chance message order will be ambiguous
+	ts := mutateTimestamp(round.Timestamps[states.QUEUED], messageID)
+
 	//Call the listener. This is already in an instanced event, no new thread needed.
 	listener(chID, messageID, messageType, AdminUsername,
-		cm.Payload, round.Timestamps[states.QUEUED], time.Duration(cm.Lease), round)
+		cm.Payload, ts, time.Duration(cm.Lease), round)
 	return
 }
 

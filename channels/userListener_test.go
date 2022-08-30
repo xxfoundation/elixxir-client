@@ -3,17 +3,28 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
+	jww "github.com/spf13/jwalterweatherman"
+	"math/rand"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/golang/protobuf/proto"
+
 	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
-	"testing"
-	"time"
 )
+
+func TestMain(m *testing.M) {
+	// many tests trigger warn prints, set the out threshold so the warns
+	// can be seen in the logs
+	jww.SetStdoutThreshold(jww.LevelWarn)
+	os.Exit(m.Run())
+}
 
 type triggerEventDummy struct {
 	gotData bool

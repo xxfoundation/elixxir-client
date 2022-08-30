@@ -33,6 +33,43 @@ func TestUnmarshalUserMessageInternal(t *testing.T) {
 	}
 }
 
+func TestUnmarshalUserMessageInternal_BadUserMessage(t *testing.T) {
+	_, err := unmarshalUserMessageInternal([]byte("Malformed"))
+	if err == nil {
+		t.Fatalf("Error not returned on unmarshaling a bad user " +
+			"message")
+	}
+}
+
+func TestUnmarshalUserMessageInternal_BadChannelMessage(t *testing.T) {
+	_, usrMsg, _ := builtTestUMI(t, 7)
+
+	usrMsg.Message = []byte("Malformed")
+
+	usrMsgMarshaled, err := proto.Marshal(usrMsg)
+	if err != nil {
+		t.Fatalf("Failed to marshal user message: %+v", err)
+	}
+
+	_, err = unmarshalUserMessageInternal(usrMsgMarshaled)
+	if err == nil {
+		t.Fatalf("Error not returned on unmarshaling a user message " +
+			"with a bad channel message")
+	}
+}
+
+func TestNewUserMessageInternal_BadChannelMessage(t *testing.T) {
+	_, usrMsg, _ := builtTestUMI(t, 7)
+
+	usrMsg.Message = []byte("Malformed")
+
+	_, err := newUserMessageInternal(usrMsg)
+
+	if err == nil {
+		t.Fatalf("failed to produce error with malformed user message")
+	}
+}
+
 func TestUserMessageInternal_GetChannelMessage(t *testing.T) {
 	internal, _, channelMsg := builtTestUMI(t, 7)
 	received := internal.GetChannelMessage()

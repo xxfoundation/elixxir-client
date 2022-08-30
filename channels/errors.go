@@ -9,4 +9,6 @@ var (
 		"the channel cannot be found")
 	MessageTooLongErr = errors.New(
 		"the passed message is too long")
+	WrongPrivateKey = errors.New(
+		"the passed private key does not match the channel")
 )

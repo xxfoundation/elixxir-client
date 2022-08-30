@@ -1,14 +1,15 @@
 package channels
 
 import (
+	"bufio"
+	"bytes"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"regexp"
 )
 
-// found at https://www.regextester.com/106421
-const findEmoji = `(\\u00a9|\\u00ae|[\\u2000-\\u3300]|\\ud83c[\\ud000-` +
-	`\\udfff]|\\ud83d[\\ud000-\\udfff]|\\ud83e[\\ud000-\\udfff])`
+//based on emojis found at https://unicode.org/emoji/charts/full-emoji-list.html
+const findEmoji = `[\xA9\xAE\x{2000}-\x{3300}\x{1F000}-\x{1FBFF}]`
 
 var InvalidReaction = errors.New(
 	"The reaction is not valid, it must be a single emoji")
@@ -35,8 +36,10 @@ func ValidateReaction(reaction string) error {
 		return InvalidReaction
 	}
 
-	// make sure it is only one emoji
-	if !compiledRegex.Match([]byte(reaction)) {
+	reader := bufio.NewReader(bytes.NewReader([]byte(reaction)))
+
+	// make sure it has emojis
+	if !compiledRegex.MatchReader(reader) {
 		return InvalidReaction
 	}
 

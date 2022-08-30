@@ -683,27 +683,25 @@ func TestEvents_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 	}
 }
 
-// todo: enable once ValidateReaction works
-/*
-func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T){
+func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T) {
 	me := &MockEvent{}
 
 	e := initEvents(me)
 
 	//craft the input for the event
 	chID := &id.ID{}
-	chID[0]=1
+	chID[0] = 1
 
 	replyMsgId := []byte("blarg")
 
 	textPayload := &CMIXChannelReaction{
-		Version:        0,
-		Reaction:           "Im not a reaction",
+		Version:           0,
+		Reaction:          "I'm not a reaction",
 		ReactionMessageID: replyMsgId[:],
 	}
 
 	textMarshaled, err := proto.Marshal(textPayload)
-	if err!=nil{
+	if err != nil {
 		t.Fatalf("failed to marshael the message proto: %+v", err)
 	}
 
@@ -712,42 +710,41 @@ func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T){
 	senderUsername := "Alice"
 	ts := time.Now()
 
-	lease := 69*time.Minute
+	lease := 69 * time.Minute
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED]=time.Now()
-
+	r.Timestamps[states.QUEUED] = time.Now()
 
 	//call the handler
 	e.receiveReaction(chID, msgID, 0, senderUsername,
 		textMarshaled, ts, lease, r)
 
 	//check the results on the model
-	if me.eventReceive.channelID!=nil{
+	if me.eventReceive.channelID != nil {
 		t.Errorf("Channel ID did propogated correctly when the reaction " +
 			"is bad")
 	}
 
-	if me.eventReceive.messageID.Equals(msgID){
+	if me.eventReceive.messageID.Equals(msgID) {
 		t.Errorf("Message ID propogated correctly when the reaction is " +
 			"bad")
 	}
 
-	if !me.eventReceive.reactionTo.Equals(cryptoChannel.MessageID{}){
+	if !me.eventReceive.reactionTo.Equals(cryptoChannel.MessageID{}) {
 		t.Errorf("Reaction ID propogated correctly when the reaction " +
 			"is bad")
 	}
 
-	if me.eventReceive.senderUsername!=""{
+	if me.eventReceive.senderUsername != "" {
 		t.Errorf("SenderID propogated correctly when the reaction " +
 			"is bad")
 	}
 
-	if me.eventReceive.lease!=0{
+	if me.eventReceive.lease != 0 {
 		t.Errorf("Message lease propogated correctly when the " +
 			"reaction is bad")
 	}
-}*/
+}
 
 func getFuncName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()

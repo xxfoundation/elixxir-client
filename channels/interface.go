@@ -30,7 +30,7 @@ type Manager interface {
 	// If the final message, before being sent over the wire, is too long, this will
 	// return an error. The message must be at most 510 bytes long.
 	SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
-		msg []byte, validUntil time.Duration, messageType MessageType,
+		messageType MessageType, msg []byte, validUntil time.Duration,
 		params cmix.CMIXParams) (cryptoChannel.MessageID, id.Round, ephemeral.Id,
 		error)
 

@@ -102,7 +102,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 // If the final message, before being sent over the wire, is too long, this will
 // return an error. The message must be at most 510 bytes long.
 func (m *manager) SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
-	msg []byte, validUntil time.Duration, messageType MessageType,
+	messageType MessageType, msg []byte, validUntil time.Duration,
 	params cmix.CMIXParams) (cryptoChannel.MessageID, id.Round, ephemeral.Id,
 	error) {
 
@@ -110,6 +110,11 @@ func (m *manager) SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
 	ch, err := m.getChannel(channelID)
 	if err != nil {
 		return cryptoChannel.MessageID{}, 0, ephemeral.Id{}, err
+	}
+
+	//verify the private key is correct
+	if ch.broadcast.Get().RsaPubKey.N.Cmp(privKey.GetPublic().N) != 0 {
+		return cryptoChannel.MessageID{}, 0, ephemeral.Id{}, WrongPrivateKey
 	}
 
 	var msgId cryptoChannel.MessageID

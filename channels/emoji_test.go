@@ -1,26 +1,24 @@
 package channels
 
 import (
-	"fmt"
-	"regexp"
 	"testing"
 )
 
 func TestValidateReaction(t *testing.T) {
-	r := "🍆"
 
-	reg, _ := regexp.Compile(findEmoji)
+	testReactions := []string{"🍆", "😂", "❤", "🤣", "👍", "😭", "🙏", "😘", "🥰", "😍",
+		"😊", "☺", "A", "b", "AA", "1", "🍆🍆", "🍆A", "👍👍👍", "👍😘A", "O"}
+	expected := []error{
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		InvalidReaction, InvalidReaction, InvalidReaction, InvalidReaction,
+		InvalidReaction, InvalidReaction, InvalidReaction, InvalidReaction,
+		InvalidReaction}
 
-	fmt.Println(reg.Match([]byte("🍆")))
-	fmt.Println(reg.Match([]byte("😋")))
-	fmt.Println(reg.Match([]byte("A")))
-	fmt.Println(reg.Match([]byte("R")))
-	fmt.Println(reg.Match([]byte("#⃣")))
-	fmt.Println(reg.Match([]byte("#️⃣")))
-	fmt.Println(reg.Match([]byte("💁🏽‍♀")))
-
-	err := ValidateReaction(r)
-	if err != nil {
-		t.Errorf("Got error: %+v", err)
+	for i, r := range testReactions {
+		err := ValidateReaction(r)
+		if err != expected[i] {
+			t.Errorf("Got incorrect response for `%s` (%d): "+
+				"`%s` vs `%s`", r, i, err, expected[i])
+		}
 	}
 }

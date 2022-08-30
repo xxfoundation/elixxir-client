@@ -8,7 +8,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	// many tests trigger warn prints, set the out threshold so the warns
+	// Many tests trigger WARN prints;, set the out threshold so the WARN prints
 	// can be seen in the logs
 	jww.SetStdoutThreshold(jww.LevelWarn)
 	os.Exit(m.Run())

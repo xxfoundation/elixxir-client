@@ -10,31 +10,30 @@ import (
 )
 
 type manager struct {
-	//List of all channels
+	// List of all channels
 	channels map[*id.ID]*joinedChannel
 	mux      sync.RWMutex
 
-	//External references
+	// External references
 	kv     *versioned.KV
 	client broadcast.Client
 	rng    *fastRNG.StreamGenerator
 	name   NameService
 
-	//Events model
+	// Events model
 	*events
 
-	// make the function used to create broadcasts be a pointer so it
-	// can be replaced in tests
+	// Makes the function that is used to create broadcasts be a pointer so that
+	// it can be replaced in tests
 	broadcastMaker broadcast.NewBroadcastChannelFunc
 }
 
-// NewManager Creates a new channel.Manager.
-// Prefix's teh KV with the username so multiple instances for multiple
-// users will not error.
+// NewManager creates a new channel.Manager. It prefixes the KV with the
+// username so that multiple instances for multiple users will not error.
 func NewManager(kv *versioned.KV, client broadcast.Client,
 	rng *fastRNG.StreamGenerator, name NameService, model EventModel) Manager {
 
-	//prefix the kv with the username so multiple can be run
+	// Prefix the kv with the username so multiple can be run
 	kv = kv.Prefix(name.GetUsername())
 
 	m := manager{
@@ -52,24 +51,28 @@ func NewManager(kv *versioned.KV, client broadcast.Client,
 	return &m
 }
 
-// JoinChannel joins the given channel. Will fail if the channel
-// has already been joined.
+// JoinChannel joins the given channel. It will fail if the channel has already
+// been joined.
 func (m *manager) JoinChannel(channel cryptoBroadcast.Channel) error {
 	err := m.addChannel(channel)
 	if err != nil {
 		return err
 	}
+
 	go m.events.model.JoinChannel(channel)
+
 	return nil
 }
 
-// LeaveChannel leaves the given channel. It will return an error
-// if the channel was not previously joined.
-func (m *manager) LeaveChannel(channelId *id.ID) error {
-	err := m.removeChannel(channelId)
+// LeaveChannel leaves the given channel. It will return an error if the channel
+// was not previously joined.
+func (m *manager) LeaveChannel(channelID *id.ID) error {
+	err := m.removeChannel(channelID)
 	if err != nil {
 		return err
 	}
-	go m.events.model.LeaveChannel(channelId)
+
+	go m.events.model.LeaveChannel(channelID)
+
 	return nil
 }

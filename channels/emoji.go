@@ -7,10 +7,10 @@ import (
 
 const findEmoji = "(\\\\u00a9|\\\\u00ae|[\\\\u2000-\\\\u3300]|\\\\ud83c[\\\\ud000-\\\\udfff]|\\\\ud83d[\\\\ud000-\\\\udfff]|\\\\ud83e[\\\\ud000-\\\\udfff])"
 
-var InvalidReaction = errors.New("The reaction is not valid, " +
-	"it must be a single emoji")
+var InvalidReaction = errors.New(
+	"The reaction is not valid, it must be a single emoji")
 
-// ValidateReaction checks that the reaction only contains a single Emoji
+// ValidateReaction checks that the reaction only contains a single emoji.
 func ValidateReaction(reaction string) error {
 	reactRunes := []rune(reaction)
 	if len(reactRunes) > 1 {

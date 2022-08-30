@@ -21,31 +21,30 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 )
 
-// Tests that symmetricClient adheres to the Symmetric interface.
+// Tests that broadcastClient adheres to the Channel interface.
 var _ Channel = (*broadcastClient)(nil)
 
-// Tests that symmetricClient adheres to the Symmetric interface.
+// Tests that cmix.Client adheres to the Client interface.
 var _ Client = (cmix.Client)(nil)
 
+// Tests that mockProcessor adheres to the message.Processor interface.
+var _ message.Processor = (*mockProcessor)(nil)
+
+// mockProcessor adheres to the message.Processor interface.
 type mockProcessor struct {
 	messages []format.Message
 }
-
-var _ message.Processor = (*mockProcessor)(nil)
 
 func newMockProcessor() *mockProcessor {
 	m := new(mockProcessor)
 	m.messages = make([]format.Message, 0)
 	return m
 }
-func (p *mockProcessor) Process(message format.Message, receptionID receptionID.EphemeralIdentity,
-	round rounds.Round) {
+func (p *mockProcessor) Process(message format.Message,
+	_ receptionID.EphemeralIdentity, _ rounds.Round) {
 	p.messages = append(p.messages, message)
 }
-
-func (p mockProcessor) String() string {
-	return "hello"
-}
+func (p *mockProcessor) String() string { return "hello" }
 
 func Test_asymmetricClient_Smoke(t *testing.T) {
 	cMixHandler := newMockCmixHandler()
@@ -54,30 +53,30 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to generate priv key: %+v", err)
 	}
-	cname := "MyChannel"
-	cdesc := "This is my channel about stuff."
-	csalt := cMixCrypto.NewSalt(csprng.NewSystemRNG(), 32)
-	cpubkey := pk.GetPublic()
-	cid, err := crypto.NewChannelID(cname, cdesc, csalt, rsa.CreatePublicKeyPem(cpubkey))
+	cName := "MyChannel"
+	cDesc := "This is my channel about stuff."
+	cSalt := cMixCrypto.NewSalt(csprng.NewSystemRNG(), 32)
+	cPubKey := pk.GetPublic()
+	cid, err := crypto.NewChannelID(
+		cName, cDesc, cSalt, rsa.CreatePublicKeyPem(cPubKey))
 	if err != nil {
 		t.Errorf("Failed to create channel ID: %+v", err)
 	}
 	channel := &crypto.Channel{
 		ReceptionID: cid,
-		Name:        cname,
-		Description: cdesc,
-		Salt:        csalt,
-		RsaPubKey:   cpubkey,
+		Name:        cName,
+		Description: cDesc,
+		Salt:        cSalt,
+		RsaPubKey:   cPubKey,
 	}
 
-	///
 	// must mutate cMixHandler such that it's processorMap contains a
 	// message.Processor
 	processor := newMockProcessor()
 	cMixHandler.processorMap[*cid] = make(map[string][]message.Processor)
 	cMixHandler.processorMap[*cid]["AsymmBcast"] = []message.Processor{processor}
 
-	const n = 5
+	const n = 1
 	cbChans := make([]chan []byte, n)
 	clients := make([]Channel, n)
 	for i := range clients {
@@ -122,9 +121,9 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 				select {
 				case r := <-cbChan:
 					if !bytes.Equal(payload, r) {
-						t.Errorf("Cmix %d failed to receive expected "+
-							"payload from client %d."+
-							"\nexpected: %q\nreceived: %q", j, i, payload, r)
+						t.Errorf("Cmix %d failed to receive expected payload "+
+							"from client %d.\nexpected: %q\nreceived: %q",
+							j, i, payload, r)
 					}
 				case <-time.After(time.Second):
 					t.Errorf("Cmix %d timed out waiting for broadcast "+
@@ -134,7 +133,8 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 		}
 
 		// Broadcast payload
-		_, _, err := clients[i].BroadcastAsymmetric(pk, payload, cmix.GetDefaultCMIXParams())
+		_, _, err = clients[i].BroadcastAsymmetric(
+			pk, payload, cmix.GetDefaultCMIXParams())
 		if err != nil {
 			t.Errorf("Cmix %d failed to send broadcast: %+v", i, err)
 		}

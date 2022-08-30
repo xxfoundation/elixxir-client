@@ -25,9 +25,9 @@ type triggerAdminEventDummy struct {
 	round       rounds.Round
 }
 
-func (taed *triggerAdminEventDummy) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
-	messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-	round rounds.Round) {
+func (taed *triggerAdminEventDummy) triggerAdminEvent(chID *id.ID,
+	cm *ChannelMessage, messageID cryptoChannel.MessageID,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	taed.gotData = true
 
 	taed.chID = chID
@@ -37,10 +37,10 @@ func (taed *triggerAdminEventDummy) triggerAdminEvent(chID *id.ID, cm *ChannelMe
 	taed.round = round
 }
 
-// Tests the happy path
+// Tests the happy path.
 func TestAdminListener_Listen(t *testing.T) {
 
-	//build inputs
+	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
 
@@ -67,7 +67,7 @@ func TestAdminListener_Listen(t *testing.T) {
 
 	msgID := cryptoChannel.MakeMessageID(cmSerial)
 
-	//build the listener
+	// Build the listener
 	dummy := &triggerAdminEventDummy{}
 
 	al := adminListener{
@@ -75,10 +75,10 @@ func TestAdminListener_Listen(t *testing.T) {
 		trigger: dummy.triggerAdminEvent,
 	}
 
-	//call the listener
+	// Call the listener
 	al.Listen(chMsgSerialSized, receptionID.EphemeralIdentity{}, r)
 
-	//check the results
+	// Check the results
 	if !dummy.gotData {
 		t.Fatalf("No data returned after valid listen")
 	}
@@ -103,11 +103,11 @@ func TestAdminListener_Listen(t *testing.T) {
 	}
 }
 
-// Tests that the message is rejected when the round it came on doesnt
-// match the round in the channel message
+// Tests that the message is rejected when the round it came on doesn't match
+// the round in the channel message.
 func TestAdminListener_Listen_BadRound(t *testing.T) {
 
-	//build inputs
+	// build inputs
 	chID := &id.ID{}
 	chID[0] = 1
 
@@ -116,7 +116,7 @@ func TestAdminListener_Listen_BadRound(t *testing.T) {
 
 	cm := &ChannelMessage{
 		Lease: int64(time.Hour),
-		// different from the round above
+		// Different from the round above
 		RoundID:     69,
 		PayloadType: 42,
 		Payload:     []byte("blarg"),
@@ -133,7 +133,7 @@ func TestAdminListener_Listen_BadRound(t *testing.T) {
 		t.Fatalf("Failed to size channel message: %+v", err)
 	}
 
-	//build the listener
+	// Build the listener
 	dummy := &triggerAdminEventDummy{}
 
 	al := adminListener{
@@ -141,10 +141,10 @@ func TestAdminListener_Listen_BadRound(t *testing.T) {
 		trigger: dummy.triggerAdminEvent,
 	}
 
-	//call the listener
+	// Call the listener
 	al.Listen(chMsgSerialSized, receptionID.EphemeralIdentity{}, r)
 
-	//check the results
+	// check the results
 	if dummy.gotData {
 		t.Fatalf("payload handled when it should have failed due to " +
 			"a round issue")
@@ -152,10 +152,10 @@ func TestAdminListener_Listen_BadRound(t *testing.T) {
 
 }
 
-// Tests that the message is rejected when the channel message is malformed
+// Tests that the message is rejected when the channel message is malformed.
 func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 
-	//build inputs
+	// Build inputs
 	chID := &id.ID{}
 	chID[0] = 1
 
@@ -170,7 +170,7 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 		t.Fatalf("Failed to size channel message: %+v", err)
 	}
 
-	//build the listener
+	// Build the listener
 	dummy := &triggerAdminEventDummy{}
 
 	al := adminListener{
@@ -178,10 +178,10 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 		trigger: dummy.triggerAdminEvent,
 	}
 
-	//call the listener
+	// Call the listener
 	al.Listen(chMsgSerialSized, receptionID.EphemeralIdentity{}, r)
 
-	//check the results
+	// Check the results
 	if dummy.gotData {
 		t.Fatalf("payload handled when it should have failed due to " +
 			"a malformed channel message")
@@ -190,10 +190,10 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 }
 
 // Tests that the message is rejected when the sized broadcast message is
-//malformed
+// malformed.
 func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
 
-	//build inputs
+	// build inputs
 	chID := &id.ID{}
 	chID[0] = 1
 
@@ -202,7 +202,7 @@ func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
 
 	cm := &ChannelMessage{
 		Lease: int64(time.Hour),
-		// different from the round above
+		// Different from the round above
 		RoundID:     69,
 		PayloadType: 42,
 		Payload:     []byte("blarg"),
@@ -219,10 +219,10 @@ func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
 		t.Fatalf("Failed to size channel message: %+v", err)
 	}
 
-	//remove half the sized broadcast to make it malformed
+	// Remove half the sized broadcast to make it malformed
 	chMsgSerialSized = chMsgSerialSized[:broadcast.GetSizedBroadcastSize(chMsgSerialSized)/2]
 
-	//build the listener
+	// Build the listener
 	dummy := &triggerAdminEventDummy{}
 
 	al := adminListener{
@@ -230,10 +230,10 @@ func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
 		trigger: dummy.triggerAdminEvent,
 	}
 
-	//call the listener
+	// Call the listener
 	al.Listen(chMsgSerialSized, receptionID.EphemeralIdentity{}, r)
 
-	//check the results
+	// Check the results
 	if dummy.gotData {
 		t.Fatalf("payload handled when it should have failed due to " +
 			"a malformed sized broadcast")

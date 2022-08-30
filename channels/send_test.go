@@ -2,17 +2,67 @@ package channels
 
 import (
 	"crypto/ed25519"
+	"testing"
 	"time"
 
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/crypto/multicastRSA"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 
+	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/ekv"
 )
+
+type mockBroadcastChannel struct{}
+
+func (m *mockBroadcastChannel) MaxPayloadSize() int {
+	return 12345
+}
+
+func (m *mockBroadcastChannel) MaxAsymmetricPayloadSize() int {
+	return 123
+}
+
+func (m *mockBroadcastChannel) Get() cryptoBroadcast.Channel {
+	return cryptoBroadcast.Channel{}
+}
+
+func (m *mockBroadcastChannel) Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
+	id.Round, ephemeral.Id, error) {
+	return id.Round(123), ephemeral.Id{}, nil
+}
+
+func (m *mockBroadcastChannel) BroadcastWithAssembler(assembler broadcast.Assembler, cMixParams cmix.CMIXParams) (
+	id.Round, ephemeral.Id, error) {
+	return id.Round(123), ephemeral.Id{}, nil
+}
+
+func (m *mockBroadcastChannel) BroadcastAsymmetric(pk multicastRSA.PrivateKey, payload []byte,
+	cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	return id.Round(123), ephemeral.Id{}, nil
+}
+
+func (m *mockBroadcastChannel) BroadcastAsymmetricWithAssembler(
+	pk multicastRSA.PrivateKey, assembler broadcast.Assembler,
+	cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+
+	return id.Round(123), ephemeral.Id{}, nil
+}
+
+func (m *mockBroadcastChannel) RegisterListener(listenerCb broadcast.ListenerFunc, method broadcast.Method) error {
+	return nil
+}
+
+func (m *mockBroadcastChannel) Stop() {
+}
 
 type mockBroadcastClient struct{}
 
@@ -96,7 +146,7 @@ func (m *mockEventModel) ReceiveReaction(channelID *id.ID, messageID cryptoChann
 
 }
 
-/*func TestSendGeneric(t *testing.T) {
+func TestSendGeneric(t *testing.T) {
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	client := new(mockBroadcastClient)
@@ -105,8 +155,8 @@ func (m *mockEventModel) ReceiveReaction(channelID *id.ID, messageID cryptoChann
 	nameService.validChMsg = true
 	model := new(mockEventModel)
 
-	manager := NewManager(kv, client, rngGen, nameService, model)
-	//m := manager.(*manager)
+	mm := NewManager(kv, client, rngGen, nameService, model)
+	m := mm.(*manager)
 
 	channelID := new(id.ID)
 	messageType := MessageType(Text)
@@ -114,13 +164,11 @@ func (m *mockEventModel) ReceiveReaction(channelID *id.ID, messageID cryptoChann
 	validUntil := time.Hour
 	params := new(cmix.CMIXParams)
 
-	// mutate manager's channels map
-	// channels map[*id.ID]*joinedChannel
-	// add channelID and a joinedChannel
+	m.channels[channelID] = &joinedChannel{
+		broadcast: &mockBroadcastChannel{},
+	}
 
-	//m.channels[channelID] = new(joinedChannel)
-
-	messageId, roundId, ephemeralId, err := manager.SendGeneric(
+	messageId, roundId, ephemeralId, err := mm.SendGeneric(
 		channelID,
 		messageType,
 		msg,
@@ -132,4 +180,4 @@ func (m *mockEventModel) ReceiveReaction(channelID *id.ID, messageID cryptoChann
 	}
 	t.Logf("messageId %v, roundId %v, ephemeralId %v", messageId, roundId, ephemeralId)
 
-}*/
+}

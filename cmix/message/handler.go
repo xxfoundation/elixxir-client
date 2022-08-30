@@ -43,6 +43,7 @@ type Handler interface {
 	DeleteService(clientID *id.ID, toDelete Service, response Processor)
 	DeleteClientService(clientID *id.ID)
 	TrackServices(triggerTracker ServicesTracker)
+	GetServices() ServiceList
 }
 
 type handler struct {

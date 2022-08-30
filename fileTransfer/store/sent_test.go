@@ -225,8 +225,8 @@ func TestSent_save(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	s, _, _ := NewOrLoadSent(kv)
 	s.transfers = map[ftCrypto.TransferID]*SentTransfer{
-		ftCrypto.TransferID{0}: nil, ftCrypto.TransferID{1}: nil,
-		ftCrypto.TransferID{2}: nil, ftCrypto.TransferID{3}: nil,
+		{0}: nil, {1}: nil,
+		{2}: nil, {3}: nil,
 	}
 
 	err := s.save()

@@ -204,8 +204,8 @@ func TestReceived_save(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	r, _, _ := NewOrLoadReceived(kv)
 	r.transfers = map[ftCrypto.TransferID]*ReceivedTransfer{
-		ftCrypto.TransferID{0}: nil, ftCrypto.TransferID{1}: nil,
-		ftCrypto.TransferID{2}: nil, ftCrypto.TransferID{3}: nil,
+		{0}: nil, {1}: nil,
+		{2}: nil, {3}: nil,
 	}
 
 	err := r.save()

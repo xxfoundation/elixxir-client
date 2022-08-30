@@ -43,7 +43,7 @@ func TestManager_Lookup(t *testing.T) {
 		DhPubKey: publicKey,
 	}
 
-	contacts := []*Contact{&Contact{
+	contacts := []*Contact{{
 		UserID: expectedContact.ID.Bytes(),
 		PubKey: expectedContact.DhPubKey.Bytes(),
 	}}

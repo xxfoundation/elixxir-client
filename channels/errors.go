@@ -20,4 +20,6 @@ var (
 		"the passed private key does not match the channel")
 	MessageTypeAlreadyRegistered = errors.New("the given message type has " +
 		"already been registered")
+	InvalidReaction = errors.New(
+		"The reaction is not valid, it must be a single emoji")
 )

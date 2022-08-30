@@ -10,16 +10,12 @@ package channels
 import (
 	"bufio"
 	"bytes"
-	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"regexp"
 )
 
 //based on emojis found at https://unicode.org/emoji/charts/full-emoji-list.html
 const findEmoji = `[\xA9\xAE\x{2000}-\x{3300}\x{1F000}-\x{1FBFF}]`
-
-var InvalidReaction = errors.New(
-	"The reaction is not valid, it must be a single emoji")
 
 var compiledRegex *regexp.Regexp
 

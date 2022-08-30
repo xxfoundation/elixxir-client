@@ -8,18 +8,20 @@
 package broadcast
 
 import (
+	"math/rand"
+	"sync"
+	"testing"
+	"time"
+
+	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
+
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"math/rand"
-	"sync"
-	"testing"
-	"time"
 )
 
 // newRsaPubKey generates a new random RSA public key for testing.
@@ -69,7 +71,10 @@ func (m *mockCmix) GetMaxMessageLength() int {
 func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
 	cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 
-	fingerprint, service, payload, mac, _ := assembler(42)
+	fingerprint, service, payload, mac, err := assembler(42)
+	if err != nil {
+		panic(err)
+	}
 
 	msg := format.NewMessage(m.numPrimeBytes)
 	msg.SetContents(payload)
@@ -78,6 +83,7 @@ func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAss
 
 	m.handler.Lock()
 	defer m.handler.Unlock()
+
 	for _, p := range m.handler.processorMap[*recipient][service.Tag] {
 		p.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
 	}

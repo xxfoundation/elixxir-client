@@ -3,18 +3,22 @@ package broadcast
 import (
 	"bytes"
 	"fmt"
-	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/client/cmix/rounds"
-	crypto "gitlab.com/elixxir/crypto/broadcast"
-	cMixCrypto "gitlab.com/elixxir/crypto/cmix"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
+
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/crypto/signature/rsa"
+
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
+	crypto "gitlab.com/elixxir/crypto/broadcast"
+	cMixCrypto "gitlab.com/elixxir/crypto/cmix"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 // Tests that symmetricClient adheres to the Symmetric interface.
@@ -22,6 +26,26 @@ var _ Channel = (*broadcastClient)(nil)
 
 // Tests that symmetricClient adheres to the Symmetric interface.
 var _ Client = (cmix.Client)(nil)
+
+type mockProcessor struct {
+	messages []format.Message
+}
+
+var _ message.Processor = (*mockProcessor)(nil)
+
+func newMockProcessor() *mockProcessor {
+	m := new(mockProcessor)
+	m.messages = make([]format.Message, 0)
+	return m
+}
+func (p *mockProcessor) Process(message format.Message, receptionID receptionID.EphemeralIdentity,
+	round rounds.Round) {
+	p.messages = append(p.messages, message)
+}
+
+func (p mockProcessor) String() string {
+	return "hello"
+}
 
 func Test_asymmetricClient_Smoke(t *testing.T) {
 	cMixHandler := newMockCmixHandler()
@@ -45,6 +69,13 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 		Salt:        csalt,
 		RsaPubKey:   cpubkey,
 	}
+
+	///
+	// must mutate cMixHandler such that it's processorMap contains a
+	// message.Processor
+	processor := newMockProcessor()
+	cMixHandler.processorMap[*cid] = make(map[string][]message.Processor)
+	cMixHandler.processorMap[*cid]["AsymmBcast"] = []message.Processor{processor}
 
 	const n = 5
 	cbChans := make([]chan []byte, n)

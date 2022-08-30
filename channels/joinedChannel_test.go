@@ -11,18 +11,24 @@ import (
 	"bytes"
 	"encoding/binary"
 	"gitlab.com/elixxir/client/broadcast"
+	clientCmix "gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
+	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"reflect"
 	"sort"
 	"strconv"
 	"testing"
+	"time"
 )
 
 // Tests that manager.store stores the channel list in the ekv.
@@ -461,4 +467,46 @@ func newTestChannel(name, description string, rng csprng.Source) (
 		Salt:        salt,
 		RsaPubKey:   pk.GetPublic(),
 	}, pk, nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Mock Broadcast Client                                                      //
+////////////////////////////////////////////////////////////////////////////////
+
+// mockBroadcastClient adheres to the broadcast.Client interface.
+type mockBroadcastClient struct{}
+
+func (m *mockBroadcastClient) GetMaxMessageLength() int { return 123 }
+
+func (m *mockBroadcastClient) SendWithAssembler(*id.ID,
+	clientCmix.MessageAssembler, clientCmix.CMIXParams) (
+	id.Round, ephemeral.Id, error) {
+	return id.Round(567), ephemeral.Id{}, nil
+}
+
+func (m *mockBroadcastClient) IsHealthy() bool                                       { return true }
+func (m *mockBroadcastClient) AddIdentity(*id.ID, time.Time, bool)                   {}
+func (m *mockBroadcastClient) AddService(*id.ID, message.Service, message.Processor) {}
+func (m *mockBroadcastClient) DeleteClientService(*id.ID)                            {}
+func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                                 {}
+
+////////////////////////////////////////////////////////////////////////////////
+// Mock EventModel                                                            //
+////////////////////////////////////////////////////////////////////////////////
+
+// mockEventModel adheres to the EventModel interface.
+type mockEventModel struct{}
+
+func (m *mockEventModel) JoinChannel(*cryptoBroadcast.Channel) {}
+func (m *mockEventModel) LeaveChannel(*id.ID)                  {}
+func (m *mockEventModel) ReceiveMessage(*id.ID, cryptoChannel.MessageID, string,
+	string, time.Time, time.Duration, rounds.Round) {
+}
+func (m *mockEventModel) ReceiveReply(*id.ID, cryptoChannel.MessageID,
+	cryptoChannel.MessageID, string, string, time.Time, time.Duration,
+	rounds.Round) {
+}
+func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoChannel.MessageID,
+	cryptoChannel.MessageID, string, string, time.Time, time.Duration,
+	rounds.Round) {
 }

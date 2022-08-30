@@ -239,5 +239,4 @@ func TestAdminGeneric(t *testing.T) {
 		t.Errorf("The payload does not match. %s vs %s ",
 			umi.GetChannelMessage().Payload, msg)
 	}
-	* /
 }

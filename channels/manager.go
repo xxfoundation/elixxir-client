@@ -11,7 +11,7 @@ import (
 
 type manager struct {
 	// List of all channels
-	channels map[*id.ID]*joinedChannel
+	channels map[id.ID]*joinedChannel
 	mux      sync.RWMutex
 
 	// External references
@@ -53,7 +53,7 @@ func NewManager(kv *versioned.KV, client broadcast.Client,
 
 // JoinChannel joins the given channel. It will fail if the channel has already
 // been joined.
-func (m *manager) JoinChannel(channel cryptoBroadcast.Channel) error {
+func (m *manager) JoinChannel(channel *cryptoBroadcast.Channel) error {
 	err := m.addChannel(channel)
 	if err != nil {
 		return err

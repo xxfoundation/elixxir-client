@@ -26,7 +26,7 @@ var (
 // system passed an object which adheres to in order to get events on the channel
 type EventModel interface {
 	// JoinChannel is called whenever a channel is joined locally
-	JoinChannel(channel cryptoBroadcast.Channel)
+	JoinChannel(channel *cryptoBroadcast.Channel)
 
 	// LeaveChannel is called whenever a channel is left locally
 	LeaveChannel(channelID *id.ID)

@@ -19,8 +19,8 @@ import (
 	"time"
 )
 
-// ListenerFunc is registered when creating a new broadcasting channel
-// and receives all new broadcast messages for the channel.
+// ListenerFunc is registered when creating a new broadcasting channel and
+// receives all new broadcast messages for the channel.
 type ListenerFunc func(payload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round)
 
@@ -30,11 +30,11 @@ type Channel interface {
 	MaxPayloadSize() int
 
 	// MaxAsymmetricPayloadSize returns the maximum size for an asymmetric
-	//broadcast payload
+	// broadcast payload
 	MaxAsymmetricPayloadSize() int
 
 	// Get returns the underlying crypto.Channel
-	Get() crypto.Channel
+	Get() *crypto.Channel
 
 	// Broadcast broadcasts the payload to the channel. The payload size must be
 	// equal to MaxPayloadSize.

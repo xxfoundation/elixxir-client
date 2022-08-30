@@ -176,9 +176,6 @@ type Client interface {
 	// running. Multiple trackTriggers can be registered.
 	TrackServices(tracker message.ServicesTracker)
 
-	// GetServices retrieves the message.ServiceList.
-	GetServices() message.ServiceList
-
 	/* === In inProcess ===================================================== */
 	/* It is possible to receive a message over cMix before the fingerprints or
 	   triggers are registered. As a result, when handling fails, messages are

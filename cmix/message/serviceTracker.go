@@ -20,17 +20,13 @@ func (sm *ServicesManager) TrackServices(tracker ServicesTracker) {
 	sm.trackers = append(sm.trackers, tracker)
 }
 
-// GetServices retrieves the ServiceList from the ServicesManager.
-// This is effectively a serializing of the
-// ServicesManager's internal tmap.
-func (sm *ServicesManager) GetServices() ServiceList {
+// triggerServiceTracking triggers the tracking of services. Is it called when a
+// service is added or removed.
+func (sm *ServicesManager) triggerServiceTracking() {
 	sm.Mutex.Lock()
-	defer sm.Mutex.Unlock()
-	return sm.getServices()
-}
-
-// getServices is the non-thread-safe version of GetServices.
-func (sm *ServicesManager) getServices() ServiceList {
+	if len(sm.trackers) == 0 {
+		return
+	}
 	services := make(ServiceList)
 	for uid, tmap := range sm.tmap {
 		tList := make([]Service, 0, len(tmap))
@@ -39,17 +35,6 @@ func (sm *ServicesManager) getServices() ServiceList {
 		}
 		services[uid] = tList
 	}
-	return services
-}
-
-// triggerServiceTracking triggers the tracking of services. Is it called when a
-// service is added or removed.
-func (sm *ServicesManager) triggerServiceTracking() {
-	sm.Mutex.Lock()
-	if len(sm.trackers) == 0 {
-		return
-	}
-	services := sm.GetServices()
 	sm.Mutex.Unlock()
 
 	for _, callback := range sm.trackers {

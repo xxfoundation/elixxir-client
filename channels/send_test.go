@@ -31,8 +31,8 @@ func (m *mockBroadcastChannel) MaxAsymmetricPayloadSize() int {
 	return 123
 }
 
-func (m *mockBroadcastChannel) Get() cryptoBroadcast.Channel {
-	return cryptoBroadcast.Channel{}
+func (m *mockBroadcastChannel) Get() *cryptoBroadcast.Channel {
+	return &cryptoBroadcast.Channel{}
 }
 
 func (m *mockBroadcastChannel) Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
@@ -123,7 +123,7 @@ func (m *mockNameService) ValidateChannelMessage(username string, lease time.Tim
 
 type mockEventModel struct{}
 
-func (m *mockEventModel) JoinChannel(channel cryptoBroadcast.Channel) {}
+func (m *mockEventModel) JoinChannel(channel *cryptoBroadcast.Channel) {}
 
 func (m *mockEventModel) LeaveChannel(channelID *id.ID) {}
 
@@ -164,7 +164,7 @@ func TestSendGeneric(t *testing.T) {
 	validUntil := time.Hour
 	params := new(cmix.CMIXParams)
 
-	m.channels[channelID] = &joinedChannel{
+	m.channels[*channelID] = &joinedChannel{
 		broadcast: &mockBroadcastChannel{},
 	}
 

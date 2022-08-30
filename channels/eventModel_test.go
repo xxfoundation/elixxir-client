@@ -30,8 +30,8 @@ type MockEvent struct {
 	eventReceive
 }
 
-func (*MockEvent) JoinChannel(channel cryptoBroadcast.Channel) {}
-func (*MockEvent) LeaveChannel(channelID *id.ID)               {}
+func (*MockEvent) JoinChannel(channel *cryptoBroadcast.Channel) {}
+func (*MockEvent) LeaveChannel(channelID *id.ID)                {}
 func (m *MockEvent) ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
 	senderUsername string, text string,
 	timestamp time.Time, lease time.Duration, round rounds.Round) {

@@ -103,7 +103,7 @@ func NewBroadcastChannel(cmixId int, channelDefinition []byte) (*Channel, error)
 		return nil, errors.WithMessage(err, "Failed to load public key")
 	}
 
-	ch, err := broadcast.NewBroadcastChannel(cryptoBroadcast.Channel{
+	ch, err := broadcast.NewBroadcastChannel(&cryptoBroadcast.Channel{
 		ReceptionID: channelID,
 		Name:        def.Name,
 		Description: def.Description,

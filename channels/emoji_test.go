@@ -1,6 +1,11 @@
 package channels
 
-/*
+import (
+	"fmt"
+	"regexp"
+	"testing"
+)
+
 func TestValidateReaction(t *testing.T) {
 	r := "🍆"
 
@@ -18,4 +23,4 @@ func TestValidateReaction(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got error: %+v", err)
 	}
-}*/
+}

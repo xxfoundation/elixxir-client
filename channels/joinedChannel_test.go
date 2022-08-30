@@ -495,10 +495,17 @@ func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                            
 ////////////////////////////////////////////////////////////////////////////////
 
 // mockEventModel adheres to the EventModel interface.
-type mockEventModel struct{}
+type mockEventModel struct {
+	joinedCh *cryptoBroadcast.Channel
+	leftCh   *id.ID
+}
 
-func (m *mockEventModel) JoinChannel(*cryptoBroadcast.Channel) {}
-func (m *mockEventModel) LeaveChannel(*id.ID)                  {}
+func (m *mockEventModel) JoinChannel(c *cryptoBroadcast.Channel) {
+	m.joinedCh = c
+}
+func (m *mockEventModel) LeaveChannel(c *id.ID) {
+	m.leftCh = c
+}
 func (m *mockEventModel) ReceiveMessage(*id.ID, cryptoChannel.MessageID, string,
 	string, time.Time, time.Duration, rounds.Round) {
 }

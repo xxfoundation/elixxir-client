@@ -13,7 +13,7 @@ import (
 
 func TestServiceList_Marshal_UnmarshalJSON(t *testing.T) {
 	var sl ServiceList = make(map[id.ID][]Service)
-	numServices := 10
+	numServices := 3
 	testString := "test"
 	for i := 0; i < numServices; i++ {
 		uid := id.NewIdFromUInt(uint64(i), id.User, t)
@@ -23,6 +23,8 @@ func TestServiceList_Marshal_UnmarshalJSON(t *testing.T) {
 	if err != nil {
 		t.Errorf(err.Error())
 	}
+
+	t.Logf("%s", jsonResult)
 
 	sl = make(map[id.ID][]Service)
 	err = sl.UnmarshalJSON(jsonResult)

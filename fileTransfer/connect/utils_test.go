@@ -26,7 +26,7 @@ import (
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
-	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
+	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
@@ -38,7 +38,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"testing"
 	"time"
@@ -273,7 +272,7 @@ func (m *mockConnection) GetPartner() partner.Manager {
 
 // SendE2E adds the message to the e2e handler map.
 func (m *mockConnection) SendE2E(mt catalog.MessageType, payload []byte,
-	_ e2e.Params) ([]id.Round, e2eCrypto.MessageID, time.Time, error) {
+	_ e2e.Params) (cryptoE2e.SendReport, error) {
 	m.handler.Lock()
 	defer m.handler.Unlock()
 
@@ -283,7 +282,7 @@ func (m *mockConnection) SendE2E(mt catalog.MessageType, payload []byte,
 		Sender:      m.myID,
 	})
 
-	return []id.Round{42}, e2eCrypto.MessageID{}, netTime.Now(), nil
+	return cryptoE2e.SendReport{RoundList: []id.Round{42}}, nil
 }
 
 func (m *mockConnection) RegisterListener(mt catalog.MessageType,

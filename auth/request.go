@@ -82,6 +82,11 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	historicalDHPub := diffieHellman.GeneratePublicKey(historicalDHPriv,
 		dhGrp)
 
+	if !dhGrp.Inside(partner.DhPubKey.GetLargeInt()) {
+		return 0, errors.Errorf("partner's DH public key is not in the E2E "+
+			"group; E2E group fingerprint is %d and DH key has %d",
+			dhGrp.GetFingerprint(), partner.DhPubKey.GetGroupFingerprint())
+	}
 	ownership := cAuth.MakeOwnershipProof(historicalDHPriv,
 		partner.DhPubKey, dhGrp)
 	confirmFp := cAuth.MakeOwnershipProofFP(ownership)

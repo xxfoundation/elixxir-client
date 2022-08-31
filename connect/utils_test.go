@@ -115,8 +115,7 @@ func (m *mockConnection) Close() error {
 func (m *mockConnection) GetPartner() partner.Manager { return m.partner }
 
 func (m *mockConnection) SendE2E(
-	mt catalog.MessageType, payload []byte, _ e2e.Params) (
-	[]id.Round, cryptoE2e.MessageID, time.Time, error) {
+	mt catalog.MessageType, payload []byte, _ e2e.Params) (cryptoE2e.SendReport, error) {
 	m.payloadChan <- payload
 	m.listener.Hear(receive.Message{
 		MessageType: mt,
@@ -124,7 +123,7 @@ func (m *mockConnection) SendE2E(
 		Sender:      m.partner.myID,
 		RecipientID: m.partner.partnerId,
 	})
-	return nil, cryptoE2e.MessageID{}, time.Time{}, nil
+	return cryptoE2e.SendReport{}, nil
 }
 
 func (m *mockConnection) RegisterListener(

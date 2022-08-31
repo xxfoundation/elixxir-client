@@ -41,6 +41,8 @@ type multiPartMessage struct {
 	StorageTimestamp time.Time
 	MessageType      catalog.MessageType
 
+	KeyResidue e2e.KeyResidue
+
 	parts [][]byte
 	kv    *versioned.KV
 	mux   sync.Mutex

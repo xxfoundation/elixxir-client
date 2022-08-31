@@ -10,12 +10,12 @@ package bindings
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -24,15 +24,17 @@ import (
 // SendE2E.
 //
 // Example E2ESendReport:
-//  {
-//   "Rounds":[1,5,9],
-//   "MessageID":"51Yy47uZbP0o2Y9B/kkreDLTB6opUol3M3mYiY2dcdQ=",
-//   "Timestamp":1653582683183384000
-//  }
+//{
+//"Rounds": [ 1, 4, 9],
+//"MessageID": "iM34yCIr4Je8ZIzL9iAAG1UWAeDiHybxMTioMAaezvs=",
+//"Timestamp": 1661532254302612000,
+//"KeyResidue": "9q2/A69EAuFM1hFAT7Bzy5uGOQ4T6bPFF72h5PlgCWE="
+//}
 type E2ESendReport struct {
 	RoundsList
-	MessageID []byte
-	Timestamp int64
+	MessageID  []byte
+	Timestamp  int64
+	KeyResidue []byte
 }
 
 // GetReceptionID returns the marshalled default IDs.
@@ -121,28 +123,33 @@ func (e *E2e) RemoveService(tag string) error {
 //  - []byte - the JSON marshalled bytes of the E2ESendReport object, which can
 //    be passed into Cmix.WaitForRoundResult to see if the send succeeded.
 func (e *E2e) SendE2E(messageType int, recipientId, payload,
-	e2eParams []byte) ([]byte, error) {
-	// Note that specifically these are the Base params from xxdk.E2EParams
-	params := e2e.GetDefaultParams()
-	err := params.UnmarshalJSON(e2eParams)
+	e2eParamsJSON []byte) ([]byte, error) {
+	if len(e2eParamsJSON) == 0 {
+		jww.WARN.Printf("e2e params not specified, using defaults...")
+		e2eParamsJSON = GetDefaultE2EParams()
+	}
+	params, err := parseE2EParams(e2eParamsJSON)
 	if err != nil {
 		return nil, err
 	}
+
 	recipient, err := id.Unmarshal(recipientId)
 	if err != nil {
 		return nil, err
 	}
 
-	roundIds, messageId, ts, err := e.api.GetE2E().SendE2E(
-		catalog.MessageType(messageType), recipient, payload, params)
+	sendReport, err := e.api.GetE2E().SendE2E(
+		catalog.MessageType(messageType), recipient, payload,
+		params.Base)
 	if err != nil {
 		return nil, err
 	}
 
 	result := E2ESendReport{
-		RoundsList: makeRoundsList(roundIds...),
-		MessageID:  messageId.Marshal(),
-		Timestamp:  ts.UnixNano(),
+		RoundsList: makeRoundsList(sendReport.RoundList...),
+		MessageID:  sendReport.MessageId.Marshal(),
+		Timestamp:  sendReport.SentTime.UnixNano(),
+		KeyResidue: sendReport.KeyResidue.Marshal(),
 	}
 	return json.Marshal(result)
 }

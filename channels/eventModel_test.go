@@ -173,6 +173,7 @@ func TestEvents_RegisterReceiveHandler(t *testing.T) {
 }
 
 type dummyMessageTypeHandler struct {
+	triggered      bool
 	channelID      *id.ID
 	messageID      cryptoChannel.MessageID
 	messageType    MessageType
@@ -187,6 +188,7 @@ func (dmth *dummyMessageTypeHandler) dummyMessageTypeReceiveMessage(
 	channelID *id.ID, messageID cryptoChannel.MessageID,
 	messageType MessageType, senderUsername string, content []byte,
 	timestamp time.Time, lease time.Duration, round rounds.Round) {
+	dmth.triggered = true
 	dmth.channelID = channelID
 	dmth.messageID = messageID
 	dmth.messageType = messageType
@@ -223,6 +225,11 @@ func TestEvents_triggerEvents(t *testing.T) {
 
 	//call the trigger
 	e.triggerEvent(chID, umi, receptionID.EphemeralIdentity{}, r)
+
+	//check that the event was triggered
+	if !dummy.triggered {
+		t.Errorf("The event was not triggered")
+	}
 
 	//check the data is stored in the dummy
 	if !dummy.channelID.Cmp(chID) {
@@ -266,6 +273,34 @@ func TestEvents_triggerEvents(t *testing.T) {
 	}
 }
 
+func TestEvents_triggerEvents_noChannel(t *testing.T) {
+	me := &MockEvent{}
+
+	e := initEvents(me)
+
+	dummy := &dummyMessageTypeHandler{}
+
+	//skip handler registration
+	mt := MessageType(42)
+
+	//craft the input for the event
+	chID := &id.ID{}
+	chID[0] = 1
+
+	umi, _, _ := builtTestUMI(t, mt)
+
+	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
+	r.Timestamps[states.QUEUED] = time.Now()
+
+	//call the trigger
+	e.triggerEvent(chID, umi, receptionID.EphemeralIdentity{}, r)
+
+	//check that the event was triggered
+	if dummy.triggered {
+		t.Errorf("The event was triggered when it is unregistered")
+	}
+}
+
 func TestEvents_triggerAdminEvents(t *testing.T) {
 	me := &MockEvent{}
 
@@ -294,6 +329,11 @@ func TestEvents_triggerAdminEvents(t *testing.T) {
 
 	//call the trigger
 	e.triggerAdminEvent(chID, cm, msgID, receptionID.EphemeralIdentity{}, r)
+
+	//check that the event was triggered
+	if !dummy.triggered {
+		t.Errorf("The admin event was not triggered")
+	}
 
 	//check the data is stored in the dummy
 	if !dummy.channelID.Cmp(chID) {
@@ -334,6 +374,36 @@ func TestEvents_triggerAdminEvents(t *testing.T) {
 	if dummy.round.ID != r.ID {
 		t.Errorf("The messge round does not match %s vs %s",
 			dummy.round.ID, r.ID)
+	}
+}
+
+func TestEvents_triggerAdminEvents_noChannel(t *testing.T) {
+	me := &MockEvent{}
+
+	e := initEvents(me)
+
+	dummy := &dummyMessageTypeHandler{}
+
+	mt := MessageType(42)
+	//skip handler registration
+
+	//craft the input for the event
+	chID := &id.ID{}
+	chID[0] = 1
+
+	u, _, cm := builtTestUMI(t, mt)
+
+	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
+	r.Timestamps[states.QUEUED] = time.Now()
+
+	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message)
+
+	//call the trigger
+	e.triggerAdminEvent(chID, cm, msgID, receptionID.EphemeralIdentity{}, r)
+
+	//check that the event was triggered
+	if dummy.triggered {
+		t.Errorf("The admin event was triggered when unregistered")
 	}
 }
 
@@ -699,7 +769,7 @@ func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T) {
 	chID := &id.ID{}
 	chID[0] = 1
 
-	replyMsgId := []byte("blarg")
+	replyMsgId := cryptoChannel.MakeMessageID([]byte("blarg"))
 
 	textPayload := &CMIXChannelReaction{
 		Version:           0,

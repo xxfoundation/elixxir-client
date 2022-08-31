@@ -13,13 +13,17 @@ import (
 
 func TestValidateReaction(t *testing.T) {
 
-	testReactions := []string{"🍆", "😂", "❤", "🤣", "👍", "😭", "🙏", "😘", "🥰", "😍",
-		"😊", "☺", "A", "b", "AA", "1", "🍆🍆", "🍆A", "👍👍👍", "👍😘A", "O"}
+	testReactions := []string{"🍆", "😂", "❤", "🤣", "👍", "😭", "🙏", "😘", "🥰",
+		"😍", "😊", "☺", "A", "b", "AA", "1", "🍆🍆", "🍆A", "👍👍👍", "👍😘A",
+		"O", "\u0000", "\u0011", "\u001F", "\u007F", "\u0080", "\u008A",
+		"\u009F"}
+
 	expected := []error{
 		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 		InvalidReaction, InvalidReaction, InvalidReaction, InvalidReaction,
 		InvalidReaction, InvalidReaction, InvalidReaction, InvalidReaction,
-		InvalidReaction}
+		InvalidReaction, InvalidReaction, InvalidReaction, InvalidReaction,
+		InvalidReaction, InvalidReaction, InvalidReaction, InvalidReaction}
 
 	for i, r := range testReactions {
 		err := ValidateReaction(r)

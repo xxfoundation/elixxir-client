@@ -8,7 +8,6 @@
 package channels
 
 import (
-	"bufio"
 	"bytes"
 	jww "github.com/spf13/jwalterweatherman"
 	"regexp"
@@ -39,7 +38,7 @@ func ValidateReaction(reaction string) error {
 		return InvalidReaction
 	}
 
-	reader := bufio.NewReader(bytes.NewReader([]byte(reaction)))
+	reader := bytes.NewReader([]byte(reaction))
 
 	// make sure it has emojis
 	if !compiledRegex.MatchReader(reader) {

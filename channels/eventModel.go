@@ -139,6 +139,7 @@ func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 			"round %d which could not be handled due to unregistered message "+
 			"type %s; Contents: %v", um.Username, chID, round.ID, messageType,
 			cm.Payload)
+		return
 	}
 
 	//modify the timestamp to reduce the chance message order will be ambiguous
@@ -170,6 +171,7 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 			"round %d which could not be handled due to unregistered message "+
 			"type %s; Contents: %v", AdminUsername, chID, round.ID, messageType,
 			cm.Payload)
+		return
 	}
 
 	//modify the timestamp to reduce the chance message order will be ambiguous
@@ -213,6 +215,8 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 				"without reply",
 				messageID, senderUsername, channelID, messageType, timestamp, lease,
 				round.ID)
+			// Still process the message, but drop the reply because it is
+			// malformed
 		}
 	}
 
@@ -246,6 +250,7 @@ func (e *events) receiveReaction(channelID *id.ID,
 			"reaction (%s), ignoring reaction",
 			messageID, senderUsername, channelID, messageType, timestamp, lease,
 			round.ID, err)
+		return
 	}
 
 	if react.ReactionMessageID != nil && len(react.ReactionMessageID) == cryptoChannel.MessageIDLen {

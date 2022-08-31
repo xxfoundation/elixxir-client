@@ -15,8 +15,9 @@ package channels
 //     Broadcast.BroadcastWithAssembler -> cmix.SendWithAssembler
 
 // on receiving messages propagate as follows:
-// cmix message pickup (by service)- > userListener ->
-//     events.triggerEvent -> messageTypeHandler (example: Text) ->
+// cmix message pickup (by service)- > broadcast.Processor ->
+//     userListener ->  events.triggerEvent ->
+//     messageTypeHandler (example: Text) ->
 //     eventModel (example: ReceiveMessage)
 
 // on sendingAdmin, data propagates as follows:
@@ -24,7 +25,7 @@ package channels
 //     Broadcast.BroadcastAsymmetricWithAssembler -> cmix.SendWithAssembler
 
 // on receiving admin messages propagate as follows:
-// cmix message pickup (by service)- > adminListener ->
+// cmix message pickup (by service)- > broadcast.Processor -> adminListener ->
 //     events.triggerAdminEvent -> messageTypeHandler (example: Text) ->
 //     eventModel (example: ReceiveMessage)
 

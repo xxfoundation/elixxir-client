@@ -4,7 +4,6 @@ go 1.17
 
 require (
 	github.com/cloudflare/circl v1.2.0
-	github.com/forPelevin/gomoji v1.1.6
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang/protobuf v1.5.2
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
@@ -16,7 +15,7 @@ require (
 	github.com/stretchr/testify v1.8.0
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
 	gitlab.com/elixxir/comms v0.0.4-0.20220822222744-66e73546e3b8
-	gitlab.com/elixxir/crypto v0.0.7-0.20220822200404-0be5ac9167ba
+	gitlab.com/elixxir/crypto v0.0.7-0.20220831152210-714c51858fba
 	gitlab.com/elixxir/ekv v0.1.7
 	gitlab.com/elixxir/primitives v0.0.3-0.20220810173935-592f34a88326
 	gitlab.com/xx_network/comms v0.0.4-0.20220822180006-a8837d3adaf3
@@ -36,6 +35,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/elliotchance/orderedmap v1.4.0 // indirect
+	github.com/forPelevin/gomoji v1.1.6 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/improbable-eng/grpc-web v0.15.0 // indirect

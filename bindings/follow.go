@@ -27,29 +27,28 @@ import (
 // they are stopped if there is no internet access.
 //
 // Threads Started:
-//   - Network Follower (/network/follow.go)
-//     tracks the network events and hands them off to workers for handling.
-//   - Historical Round Retrieval (/network/rounds/historical.go)
-//     retrieves data about rounds that are too old to be stored by the client.
-//	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
-//	   requests all messages in a given round from the gateway of the last
-//	   nodes.
-//	 - Message Handling Worker Group (/network/message/handle.go)
-//	   decrypts and partitions messages when signals via the Switchboard.
-//	 - Health Tracker (/network/health),
-//	   via the network instance, tracks the state of the network.
-//	 - Garbled Messages (/network/message/garbled.go)
-//	   can be signaled to check all recent messages that could be decoded. It
-//	   uses a message store on disk for persistence.
-//	 - Critical Messages (/network/message/critical.go)
-//	   ensures all protocol layer mandatory messages are sent. It uses a message
-//	   store on disk for persistence.
-//	 - KeyExchange Trigger (/keyExchange/trigger.go)
-//	   responds to sent rekeys and executes them.
-//   - KeyExchange Confirm (/keyExchange/confirm.go)
-//	   responds to confirmations of successful rekey operations.
-//   - Auth Callback (/auth/callback.go)
-//     handles both auth confirm and requests.
+//  - Network Follower (/network/follow.go)
+//    tracks the network events and hands them off to workers for handling.
+//  - Historical Round Retrieval (/network/rounds/historical.go)
+//    retrieves data about rounds that are too old to be stored by the client.
+//  - Message Retrieval Worker Group (/network/rounds/retrieve.go)
+//	  requests all messages in a given round from the gateway of the last nodes.
+//  - Message Handling Worker Group (/network/message/handle.go)
+//	  decrypts and partitions messages when signals via the Switchboard.
+//	- Health Tracker (/network/health),
+//	  via the network instance, tracks the state of the network.
+//  - Garbled Messages (/network/message/garbled.go)
+//	  can be signaled to check all recent messages that could be decoded. It
+//	  uses a message store on disk for persistence.
+//	- Critical Messages (/network/message/critical.go)
+//	  ensures all protocol layer mandatory messages are sent. It uses a message
+//	  store on disk for persistence.
+//	- KeyExchange Trigger (/keyExchange/trigger.go)
+//	  responds to sent rekeys and executes them.
+//  - KeyExchange Confirm (/keyExchange/confirm.go)
+//	  responds to confirmations of successful rekey operations.
+//  - Auth Callback (/auth/callback.go)
+//    handles both auth confirm and requests.
 func (c *Cmix) StartNetworkFollower(timeoutMS int) error {
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 	return c.api.StartNetworkFollower(timeout)
@@ -170,35 +169,39 @@ func (c *Cmix) RegisterClientErrorCallback(clientError ClientError) {
 	}()
 }
 
-// TrackServicesCallback is the callback for Cmix.TrackServices.
+// TrackServicesCallback is the callback for [Cmix.TrackServices].
 // This will pass to the user a JSON-marshalled list of backend services.
 // If there was an error retrieving or marshalling the service list,
 // there is an error for the second parameter which will be non-null.
 //
-// Example JSON:
+// Parameters:
+//  - marshalData - JSON marshalled bytes of [message.ServiceList], which is an
+//    array of [id.ID] and [message.Service].
+//  - err - JSON unmarshalling error
 //
-// [
-//  {
-//    "Id": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//    "Services": [
-//      {
-//        "Identifier": null,
-//        "Tag": "test",
-//        "Metadata": null
-//      }
-//    ]
-//  },
-//  {
-//    "Id": "AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//    "Services": [
-//      {
-//        "Identifier": null,
-//        "Tag": "test",
-//        "Metadata": null
-//      }
-//    ]
-//  },
-//]
+// Example JSON:
+//  [
+//    {
+//      "Id": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD", // bytes of id.ID encoded as base64 string
+//      "Services": [
+//        {
+//          "Identifier": "AQID",                             // bytes encoded as base64 string
+//          "Tag": "TestTag 1",                               // string
+//          "Metadata": "BAUG"                                // bytes encoded as base64 string
+//        }
+//      ]
+//    },
+//    {
+//      "Id": "AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//      "Services": [
+//        {
+//          "Identifier": "AQID",
+//          "Tag": "TestTag 2",
+//          "Metadata": "BAUG"
+//        }
+//      ]
+//    },
+//  ]
 type TrackServicesCallback interface {
 	Callback(marshalData []byte, err error)
 }
@@ -209,8 +212,8 @@ type TrackServicesCallback interface {
 // may need context on the available services for this client.
 //
 // Parameters:
-//   - cb - A TrackServicesCallback, which will be passed the marshalled
-//     message.ServiceList.
+//  - cb - A TrackServicesCallback, which will be passed the marshalled
+//    message.ServiceList.
 func (c *Cmix) TrackServices(cb TrackServicesCallback) {
 	c.api.GetCmix().TrackServices(func(list message.ServiceList) {
 		cb.Callback(json.Marshal(list))

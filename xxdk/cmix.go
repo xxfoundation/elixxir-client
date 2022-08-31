@@ -340,29 +340,28 @@ func (c *Cmix) GetErrorsChannel() <-chan interfaces.ClientError {
 // they are stopped if there is no internet access.
 //
 // Threads Started:
-//   - Network Follower (/network/follow.go)
-//     tracks the network events and hands them off to workers for handling.
-//   - Historical Round Retrieval (/network/rounds/historical.go)
-// 	   retrieves data about rounds that are too old to be stored by the client.
-//	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
-//	   requests all messages in a given round from the gateway of the last
-//	   nodes.
-//	 - Message Handling Worker Group (/network/message/handle.go)
-//	   decrypts and partitions messages when signals via the Switchboard.
-//	 - Health Tracker (/network/health),
-//	   via the network instance, tracks the state of the network.
-//	 - Garbled Messages (/network/message/garbled.go)
-//	   can be signaled to check all recent messages that could be decoded. It
-//	   uses a message store on disk for persistence.
-//	 - Critical Messages (/network/message/critical.go)
-//	   ensures all protocol layer mandatory messages are sent. It uses a
-//	   message store on disk for persistence.
-//	 - KeyExchange Trigger (/keyExchange/trigger.go)
-//	   responds to sent rekeys and executes them.
-//   - KeyExchange Confirm (/keyExchange/confirm.go)
-//	   responds to confirmations of successful rekey operations.
-//   - Auth Callback (/auth/callback.go)
-//     handles both auth confirm and requests.
+//  - Network Follower (/network/follow.go)
+//    tracks the network events and hands them off to workers for handling.
+//  - Historical Round Retrieval (/network/rounds/historical.go)
+//    retrieves data about rounds that are too old to be stored by the client.
+//  - Message Retrieval Worker Group (/network/rounds/retrieve.go)
+//	  requests all messages in a given round from the gateway of the last nodes.
+//  - Message Handling Worker Group (/network/message/handle.go)
+//	  decrypts and partitions messages when signals via the Switchboard.
+//	- Health Tracker (/network/health),
+//	  via the network instance, tracks the state of the network.
+//  - Garbled Messages (/network/message/garbled.go)
+//	  can be signaled to check all recent messages that could be decoded. It
+//	  uses a message store on disk for persistence.
+//	- Critical Messages (/network/message/critical.go)
+//	  ensures all protocol layer mandatory messages are sent. It uses a message
+//	  store on disk for persistence.
+//	- KeyExchange Trigger (/keyExchange/trigger.go)
+//	  responds to sent rekeys and executes them.
+//  - KeyExchange Confirm (/keyExchange/confirm.go)
+//	  responds to confirmations of successful rekey operations.
+//  - Auth Callback (/auth/callback.go)
+//    handles both auth confirm and requests.
 func (c *Cmix) StartNetworkFollower(timeout time.Duration) error {
 	jww.INFO.Printf(
 		"StartNetworkFollower() \n\tTransmissionID: %s \n\tReceptionID: %s",

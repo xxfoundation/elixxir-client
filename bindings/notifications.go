@@ -13,58 +13,58 @@ import (
 	"gitlab.com/elixxir/primitives/notifications"
 )
 
-// NotificationReports is a list of NotificationReport's. This will be returned
+// NotificationReports is a list of [NotificationReport]s. This will be returned
 // via GetNotificationsReport as a JSON marshalled byte data.
 //
 // Example JSON:
-//
-// [
-//  {
-//    "ForMe": true,
-//    "Type": "e2e",
-//    "Source": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
-//  },
-//  {
-//    "ForMe": true,
-//    "Type": "e2e",
-//    "Source": "AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
-//  },
-//  {
-//    "ForMe": true,
-//    "Type": "e2e",
-//    "Source": "AAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
-//  }
-//]
+//  [
+//    {
+//      "ForMe": true,                                           // boolean
+//      "Type": "e2e",                                           // string
+//      "Source": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD" // bytes of id.ID encoded as base64 string
+//    },
+//    {
+//      "ForMe": true,
+//      "Type": "e2e",
+//      "Source": "AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
+//    },
+//    {
+//      "ForMe": true,
+//      "Type": "e2e",
+//      "Source": "AAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
+//    }
+//  ]
 type NotificationReports []NotificationReport
+
+//  TODO: The table in the docstring below needs to be checked for completeness
+//   and/or accuracy to ensure descriptions/sources are still accurate (they are
+//   from the old implementation).
 
 // NotificationReport is the bindings' representation for notifications for
 // this user.
 //
 // Example NotificationReport JSON:
-//
-// {
-//  "ForMe": true,
-//  "Type": "e2e",
-//  "Source": "dGVzdGVyMTIzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-//}
+//  {
+//    "ForMe": true,
+//    "Type": "e2e",
+//    "Source": "dGVzdGVyMTIzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+//  }
 //
 // Given the Type, the Source value will have specific contextual meanings.
 // Below is a table that will define the contextual meaning of the Source field
 // given all possible Type fields.
 //
-//      TYPE     |     SOURCE         |    DESCRIPTION
-//     ________________________________________________________________________________________
-//     "default" |  recipient user ID |  A message with no association.
-//	   "request" |  sender user ID    |  A channel request has been received, from Source.
-//     "reset"   |  sender user ID    |  A channel reset has been received.
-//     "confirm" |  sender user ID    |  A channel request has been accepted.
-//     "silent"  |  sender user ID    |  A message where the user should not be notified.
-//     "e2e"     |  sender user ID    |  A reception of an E2E message.
-//     "group"   |  group ID          |  A reception of a group chat message.
-//     "endFT"   |  sender user ID    |  The last message sent confirming end of file transfer.
-//     "groupRQ" |  sender user ID    |  A request from Source to join a group chat.
-//  todo iterate over this docstring, ensure descriptions/sources are
-//    still accurate (they are from the old implementation
+//   TYPE     |     SOURCE         |    DESCRIPTION
+//  ----------+--------------------+--------------------------------------------------------
+//  "default" |  recipient user ID |  A message with no association.
+//  "request" |  sender user ID    |  A channel request has been received, from Source.
+//  "reset"   |  sender user ID    |  A channel reset has been received.
+//  "confirm" |  sender user ID    |  A channel request has been accepted.
+//  "silent"  |  sender user ID    |  A message where the user should not be notified.
+//  "e2e"     |  sender user ID    |  A reception of an E2E message.
+//  "group"   |  group ID          |  A reception of a group chat message.
+//  "endFT"   |  sender user ID    |  The last message sent confirming end of file transfer.
+//  "groupRQ" |  sender user ID    |  A request from Source to join a group chat.
 type NotificationReport struct {
 	// ForMe determines whether this value is for the user. If it is
 	// false, this report may be ignored.

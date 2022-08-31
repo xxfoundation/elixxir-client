@@ -14,10 +14,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"io/ioutil"
 	"log"
 	"os"
-	"runtime/pprof"
+
+	"github.com/pkg/profile"
+
 	"strconv"
 	"strings"
 	"sync"
@@ -58,13 +61,17 @@ var rootCmd = &cobra.Command{
 	Short: "Runs a client for cMix anonymous communication platform",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		profileOut := viper.GetString(profileCpuFlag)
-		if profileOut != "" {
-			f, err := os.Create(profileOut)
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
-			pprof.StartCPUProfile(f)
+		cpuProfileOut := viper.GetString(profileCpuFlag)
+		if cpuProfileOut != "" {
+			defer profile.Start(profile.CPUProfile,
+				profile.ProfilePath(cpuProfileOut),
+				profile.NoShutdownHook).Stop()
+		}
+		memProfileOut := viper.GetString(profileMemFlag)
+		if memProfileOut != "" {
+			defer profile.Start(profile.MemProfile,
+				profile.ProfilePath(memProfileOut),
+				profile.NoShutdownHook).Stop()
 		}
 
 		cmixParams, e2eParams := initParams()
@@ -288,8 +295,10 @@ var rootCmd = &cobra.Command{
 								e2eParams.Base)
 						} else {
 							e2eParams.Base.DebugTag = "cmd.E2E"
-							roundIDs, _, _, err = user.GetE2E().SendE2E(mt,
+							var sendReport cryptoE2e.SendReport
+							sendReport, err = user.GetE2E().SendE2E(mt,
 								recipient, payload, e2eParams.Base)
+							roundIDs = sendReport.RoundList
 						}
 						if err != nil {
 							jww.FATAL.Panicf("%+v", err)
@@ -381,9 +390,6 @@ var rootCmd = &cobra.Command{
 			jww.WARN.Printf(
 				"Failed to cleanly close threads: %+v\n",
 				err)
-		}
-		if profileOut != "" {
-			pprof.StopCPUProfile()
 		}
 		jww.INFO.Printf("Client exiting!")
 	},
@@ -1100,6 +1106,10 @@ func init() {
 	rootCmd.Flags().String(profileCpuFlag, "",
 		"Enable cpu profiling to this file")
 	viper.BindPFlag(profileCpuFlag, rootCmd.Flags().Lookup(profileCpuFlag))
+
+	rootCmd.Flags().String(profileMemFlag, "",
+		"Enable memory profiling to this file")
+	viper.BindPFlag(profileMemFlag, rootCmd.Flags().Lookup(profileMemFlag))
 
 	// Proto user flags
 	rootCmd.Flags().String(protoUserPathFlag, "",

@@ -429,8 +429,15 @@ func LookupUD(e2eID int, udContact []byte, cb UdLookupCallback,
 //
 // Parameters:
 //  - contactListJSON - the JSON marshalled bytes of []contact.Contact, or nil
-//    if an error occurs
-//  - err - any errors that occurred in the search
+//    if an error occurs.
+//
+//   JSON Example:
+//   {
+//  	"<xxc(2)F8dL9EC6gy+RMJuk3R+Au6eGExo02Wfio5cacjBcJRwDEgB7Ugdw/BAr6RkCABkWAFV1c2VybmFtZTA7c4LzV05sG+DMt+rFB0NIJg==xxc>",
+//  	"<xxc(2)eMhAi/pYkW5jCmvKE5ZaTglQb+fTo1D8NxVitr5CCFADEgB7Ugdw/BAr6RoCABkWAFV1c2VybmFtZTE7fElAa7z3IcrYrrkwNjMS2w==xxc>",
+//  	"<xxc(2)d7RJTu61Vy1lDThDMn8rYIiKSe1uXA/RCvvcIhq5Yg4DEgB7Ugdw/BAr6RsCABkWAFV1c2VybmFtZTI7N3XWrxIUpR29atpFMkcR6A==xxc>"
+//	}
+//  - err - any errors that occurred in the search.
 type UdSearchCallback interface {
 	Callback(contactListJSON []byte, err error)
 }
@@ -451,7 +458,7 @@ type UdSearchCallback interface {
 // Returns:
 //  - []byte - the JSON marshalled bytes of the SingleUseSendReport object,
 //    which can be passed into Cmix.WaitForRoundResult to see if the send
-//    succeeded.
+//    operation succeeded.
 func SearchUD(e2eID int, udContact []byte, cb UdSearchCallback,
 	factListJSON, singleRequestParamsJSON []byte) ([]byte, error) {
 
@@ -479,7 +486,20 @@ func SearchUD(e2eID int, udContact []byte, cb UdSearchCallback,
 	}
 
 	callback := func(contactList []contact.Contact, err error) {
-		contactListJSON, err2 := json.Marshal(contactList)
+		marshaledContactList := make([][]byte, 0)
+		// fixme: it may be wiser to change this callback interface
+		//   to simply do the work below when parsing the response from UD.
+		//   that would change ud/search.go in two places:
+		//    - searchCallback
+		//    - parseContacts
+		//  I avoid doing that as it changes interfaces w/o approval
+		for i := range contactList {
+			con := contactList[i]
+			marshaledContactList = append(
+				marshaledContactList, con.Marshal())
+		}
+
+		contactListJSON, err2 := json.Marshal(marshaledContactList)
 		if err2 != nil {
 			jww.FATAL.Panicf(
 				"Failed to marshal list of contact.Contact: %+v", err2)

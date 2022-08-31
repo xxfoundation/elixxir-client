@@ -49,7 +49,8 @@ func (s *Request) Request(method restlike.Method, path restlike.URI,
 	s.Net.RegisterListener(catalog.XxMessage, &response{responseCallback: cb})
 
 	// Transmit the Message
-	_, _, _, err = s.Net.SendE2E(catalog.XxMessage, msg, e2eParams)
+	// fixme: should this use the key residue?
+	_, err = s.Net.SendE2E(catalog.XxMessage, msg, e2eParams)
 	if err != nil {
 		return nil, err
 	}
@@ -84,6 +85,6 @@ func (s *Request) AsyncRequest(method restlike.Method, path restlike.URI,
 	s.Net.RegisterListener(catalog.XxMessage, &response{responseCallback: cb})
 
 	// Transmit the Message
-	_, _, _, err = s.Net.SendE2E(catalog.XxMessage, msg, e2eParams)
+	_, err = s.Net.SendE2E(catalog.XxMessage, msg, e2eParams)
 	return err
 }

@@ -61,9 +61,8 @@ func (m mockE2eHandler) StartProcesses() (stoppable.Stoppable, error) {
 }
 
 func (m mockE2eHandler) SendE2E(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, params e2e.Params) ([]id.Round, cryptoE2e.MessageID,
-	time.Time, error) {
-	return nil, cryptoE2e.MessageID{}, time.Time{}, nil
+	payload []byte, params e2e.Params) (cryptoE2e.SendReport, error) {
+	return cryptoE2e.SendReport{}, nil
 }
 
 func (m mockE2eHandler) RegisterListener(senderID *id.ID,

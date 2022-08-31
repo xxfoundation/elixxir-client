@@ -7,67 +7,141 @@
 
 package bindings
 
-// FIXME: This is the old NotificationsForMe code that needs to be fixed
-/*
-type NotificationForMeReport struct {
-	ForMe  bool
-	Type   string
+import (
+	"encoding/json"
+	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/primitives/notifications"
+)
+
+// NotificationReports is a list of NotificationReport's. This will be returned
+// via GetNotificationsReport as a JSON marshalled byte data.
+//
+// Example JSON:
+//
+// [
+//  {
+//    "ForMe": true,
+//    "Type": "e2e",
+//    "Source": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
+//  },
+//  {
+//    "ForMe": true,
+//    "Type": "e2e",
+//    "Source": "AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
+//  },
+//  {
+//    "ForMe": true,
+//    "Type": "e2e",
+//    "Source": "AAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
+//  }
+//]
+type NotificationReports []NotificationReport
+
+// NotificationReport is the bindings' representation for notifications for
+// this user.
+//
+// Example NotificationReport JSON:
+//
+// {
+//  "ForMe": true,
+//  "Type": "e2e",
+//  "Source": "dGVzdGVyMTIzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+//}
+//
+// Given the Type, the Source value will have specific contextual meanings.
+// Below is a table that will define the contextual meaning of the Source field
+// given all possible Type fields.
+//
+//      TYPE     |     SOURCE         |    DESCRIPTION
+//     ________________________________________________________________________________________
+//     "default" |  recipient user ID |  A message with no association.
+//	   "request" |  sender user ID    |  A channel request has been received, from Source.
+//     "reset"   |  sender user ID    |  A channel reset has been received.
+//     "confirm" |  sender user ID    |  A channel request has been accepted.
+//     "silent"  |  sender user ID    |  A message where the user should not be notified.
+//     "e2e"     |  sender user ID    |  A reception of an E2E message.
+//     "group"   |  group ID          |  A reception of a group chat message.
+//     "endFT"   |  sender user ID    |  The last message sent confirming end of file transfer.
+//     "groupRQ" |  sender user ID    |  A request from Source to join a group chat.
+//  todo iterate over this docstring, ensure descriptions/sources are
+//    still accurate (they are from the old implementation
+type NotificationReport struct {
+	// ForMe determines whether this value is for the user. If it is
+	// false, this report may be ignored.
+	ForMe bool
+	// Type is the type of notification. The list can be seen
+	Type string
+	// Source is the source of the notification.
 	Source []byte
 }
 
-type ManyNotificationForMeReport struct {
-	Many []*NotificationForMeReport
-}
-
-// NotificationsForMe Check if a notification received is for me
-// It returns a NotificationForMeReport which contains a ForMe bool stating if it is for the caller,
-// a Type, and a source. These are as follows:
-//	TYPE       	SOURCE				DESCRIPTION
-// 	"default"	recipient user ID	A message with no association
-//	"request"	sender user ID		A channel request has been received
-//	"reset"	    sender user ID		A channel reset has been received
-//	"confirm"	sender user ID		A channel request has been accepted
-//	"silent"	sender user ID		A message which should not be notified on
-//	"e2e"		sender user ID		reception of an E2E message
-//	"group"		group ID			reception of a group chat message
-//  "endFT"     sender user ID		Last message sent confirming end of file transfer
-//  "groupRQ"   sender user ID		Request from sender to join a group chat
-func NotificationsForMe(notifCSV, preimages string) (*ManyNotificationForMeReport, error) {
-	// Handle deserialization of preimages
-	var preimageList []edge.Preimage
-	if err := json.Unmarshal([]byte(preimages), &preimageList); err != nil {
-		return nil, errors.WithMessagef(err, "Failed to unmarshal the " +
-			"preimages list, cannot check if notification is for me")
-	}
-
-	list, err := notifications.DecodeNotificationsCSV(notifCSV)
+// GetNotificationsReport parses the received notification data to determine which
+// notifications are for this user. // This returns the JSON-marshalled
+// NotificationReports.
+//
+// Parameters:
+//  - e2eID - e2e object ID in the tracker
+//  - notificationCSV - the notification data received from the
+//    notifications' server.
+//  - marshalledServices - the JSON-marshalled list of services the backend
+//    keeps track of. Refer to Cmix.TrackServices for information about this.
+//
+// Returns:
+//  - []byte - A JSON marshalled NotificationReports. Some NotificationReport's
+//    within in this structure may have their NotificationReport.ForMe
+//    set to false. These may be ignored.
+func GetNotificationsReport(e2eId int, notificationCSV string,
+	marshalledServices []byte) ([]byte, error) {
+	// Retrieve user
+	user, err := e2eTrackerSingleton.get(e2eId)
 	if err != nil {
 		return nil, err
 	}
 
-	notifList := make([]*NotificationForMeReport, len(list))
+	serviceList := message.ServiceList{}
+	err = json.Unmarshal(marshalledServices, &serviceList)
+	if err != nil {
+		return nil, err
+	}
 
-	for i, notifData := range list {
-		notifList[i] = &NotificationForMeReport{
-			ForMe:  false,
-			Type:   "",
-			Source: nil,
-		}
-		// check if any preimages match with the passed in data
-		for _, preimage := range preimageList {
-			if fingerprint.CheckIdentityFpFromMessageHash(notifData.IdentityFP, notifData.MessageHash, preimage.Data) {
-				notifList[i] = &NotificationForMeReport{
+	// Retrieve the services for this user
+	services := serviceList[*user.api.GetReceptionIdentity().ID]
+
+	// Decode notifications' server data
+	notificationList, err := notifications.DecodeNotificationsCSV(notificationCSV)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct  a report list
+	reportList := make([]*NotificationReport, len(notificationList))
+
+	// Iterate over data provided by server
+	for i := range notificationList {
+		notifData := notificationList[i]
+
+		// Iterate over all services
+		for j := range services {
+			// Pull data from services and from notification data
+			service := services[j]
+			messageHash := notifData.MessageHash
+			hash := service.HashFromMessageHash(notifData.MessageHash)
+
+			// Check if this notification data is recognized by
+			// this service, ie "ForMe"
+			if service.ForMeFromMessageHash(messageHash, hash) {
+				// Fill report list with service data
+				reportList[i] = &NotificationReport{
 					ForMe:  true,
-					Type:   preimage.Type,
-					Source: preimage.Source,
+					Type:   service.Tag,
+					Source: service.Identifier,
 				}
-				break
 			}
 		}
 	}
 
-	return &ManyNotificationForMeReport{notifList}, nil
-}*/
+	return json.Marshal(reportList)
+}
 
 // RegisterForNotifications allows a client to register for push notifications.
 // The token is a firebase messaging token.

@@ -109,7 +109,7 @@ func (m mockE2eHandler) StartProcesses() (stoppable.Stoppable, error) {
 	panic("implement me")
 }
 
-func (m mockE2eHandler) SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte, params e2e.Params) ([]id.Round, cryptoE2e.MessageID, time.Time, error) {
+func (m mockE2eHandler) SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte, params e2e.Params) (cryptoE2e.SendReport, error) {
 	//TODO implement me
 	panic("implement me")
 }

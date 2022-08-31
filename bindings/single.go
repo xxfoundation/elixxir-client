@@ -166,7 +166,7 @@ type Stopper interface {
 // Parameters:
 //  - callbackReport - the JSON marshalled bytes of the SingleUseCallbackReport
 //    object, which can be passed into Cmix.WaitForRoundResult to see if the
-//    send succeeded.
+//    send operation succeeded.
 type SingleUseCallback interface {
 	Callback(callbackReport []byte, err error)
 }
@@ -177,7 +177,7 @@ type SingleUseCallback interface {
 // Parameters:
 //  - callbackReport - the JSON marshalled bytes of the SingleUseResponseReport
 //    object, which can be passed into Cmix.WaitForRoundResult to see if the
-//    send succeeded.
+//    send operation succeeded.
 type SingleUseResponse interface {
 	Callback(responseReport []byte, err error)
 }

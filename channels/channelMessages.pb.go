@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2022 xx foudnation                                             //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
 // LICENSE file                                                               //
@@ -27,8 +27,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ChannelMessage is transmitted by the channel. Effectively it is
-// a command for the channel sent by a user with admin access of the channel.
+// ChannelMessage is transmitted by the channel. Effectively it is a command for
+// the channel sent by a user with admin access of the channel.
 type ChannelMessage struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -36,13 +36,13 @@ type ChannelMessage struct {
 
 	// Lease is the length that this channel message will take effect.
 	Lease int64 `protobuf:"varint,1,opt,name=Lease,json=lease,proto3" json:"Lease,omitempty"`
-	// The round this message was sent on
+	// The round this message was sent on.
 	RoundID uint64 `protobuf:"varint,2,opt,name=RoundID,json=roundID,proto3" json:"RoundID,omitempty"`
 	// The type the below payload is. This may be some form of channel command,
 	// such as BAN<username1>.
 	PayloadType uint32 `protobuf:"varint,3,opt,name=PayloadType,json=payloadType,proto3" json:"PayloadType,omitempty"`
-	// Payload is the actual message payload. It will be processed differently based
-	// on the PayloadType
+	// Payload is the actual message payload. It will be processed differently
+	// based on the PayloadType.
 	Payload []byte `protobuf:"bytes,4,opt,name=Payload,json=payload,proto3" json:"Payload,omitempty"`
 }
 
@@ -112,27 +112,30 @@ type UserMessage struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Message contains the contents of the message. This is typically what
-	// the end-user has submitted to the channel. This is a serialization of the
+	// Message contains the contents of the message. This is typically what the
+	// end-user has submitted to the channel. This is a serialization of the
 	// ChannelMessage.
 	Message []byte `protobuf:"bytes,1,opt,name=Message,json=message,proto3" json:"Message,omitempty"`
-	// ValidationSignature is the signature validating this user owns
-	// their username and may send messages to the channel under this username.
-	// This signature is provided by UD and may be validated by all members of
-	// the channel.
-	// ValidationSignature = Sig(UD_ECCPrivKey,Username|ECCPublicKey|UsernameLease)
+	// ValidationSignature is the signature validating this user owns their
+	// username and may send messages to the channel under this username. This
+	// signature is provided by UD and may be validated by all members of the
+	// channel.
+	//
+	//  ValidationSignature = Sig(UD_ECCPrivKey, Username | ECCPublicKey | UsernameLease)
 	ValidationSignature []byte `protobuf:"bytes,2,opt,name=ValidationSignature,json=validationSignature,proto3" json:"ValidationSignature,omitempty"`
-	// Signature is the signature proving this message has been
-	// sent by the owner of this user's public key.
-	// Signature = Sig(User_ECCPublicKey,Message)
+	// Signature is the signature proving this message has been sent by the
+	// owner of this user's public key.
+	//
+	//  Signature = Sig(User_ECCPublicKey, Message)
 	Signature []byte `protobuf:"bytes,3,opt,name=Signature,json=signature,proto3" json:"Signature,omitempty"`
 	// Username is the username the user has registered with the channel and
 	// with UD.
 	Username string `protobuf:"bytes,4,opt,name=Username,json=username,proto3" json:"Username,omitempty"`
-	// ECCPublicKey is the user's EC Public key. This is provided by the network.
+	// ECCPublicKey is the user's EC Public key. This is provided by the
+	// network.
 	ECCPublicKey []byte `protobuf:"bytes,5,opt,name=ECCPublicKey,json=eCCPublicKey,proto3" json:"ECCPublicKey,omitempty"`
-	// UsernameLease is the lease that has been provided to the username.
-	// This value is provide by UD.
+	// UsernameLease is the lease that has been provided to the username. This
+	// value is provide by UD.
 	UsernameLease int64 `protobuf:"varint,6,opt,name=UsernameLease,json=usernameLease,proto3" json:"UsernameLease,omitempty"`
 }
 

@@ -368,7 +368,7 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 	if len(s.active) == 1 {
 		selected = s.active[0]
 	} else {
-		seed := make([]byte, 32)
+		seed := make([]byte, 32) //use 256 bits of entropy for the seed
 		if _, err := rng.Read(seed); err != nil {
 			return IdentityUse{}, errors.WithMessage(err, "Failed to choose "+
 				"ID due to RNG failure")

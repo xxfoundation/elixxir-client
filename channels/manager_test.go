@@ -8,11 +8,15 @@
 package channels
 
 import (
+	"fmt"
+	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/id"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -90,5 +94,104 @@ func TestManager_LeaveChannel(t *testing.T) {
 	if mem.leftCh == nil {
 		t.Errorf("the channel join call was not propogated to the event " +
 			"model")
+	}
+}
+
+func TestManager_GetChannels(t *testing.T) {
+	m := &manager{
+		channels: make(map[id.ID]*joinedChannel),
+		mux:      sync.RWMutex{},
+	}
+
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+
+	numtests := 10
+
+	chList := make(map[id.ID]interface{})
+
+	for i := 0; i < 10; i++ {
+		name := fmt.Sprintf("testChannel %d", numtests)
+		s := rng.GetStream()
+		tc, _, err := newTestChannel(name, "blarg", s)
+		s.Close()
+		if err != nil {
+			t.Fatalf("failed to generate channel %s", name)
+		}
+		bc, err := broadcast.NewBroadcastChannel(tc, new(mockBroadcastClient), rng)
+		if err != nil {
+			t.Fatalf("failed to generate broadcast %s", name)
+		}
+		m.channels[*tc.ReceptionID] = &joinedChannel{broadcast: bc}
+		chList[*tc.ReceptionID] = nil
+	}
+
+	receivedChList := m.GetChannels()
+
+	for _, receivedCh := range receivedChList {
+		if _, exists := chList[*receivedCh]; !exists {
+			t.Errorf("Channel was not returned")
+		}
+	}
+}
+
+func TestManager_GetChannel(t *testing.T) {
+	m := &manager{
+		channels: make(map[id.ID]*joinedChannel),
+		mux:      sync.RWMutex{},
+	}
+
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+
+	numtests := 10
+
+	chList := make([]*id.ID, 0, numtests)
+
+	for i := 0; i < 10; i++ {
+		name := fmt.Sprintf("testChannel %d", numtests)
+		s := rng.GetStream()
+		tc, _, err := newTestChannel(name, "blarg", s)
+		s.Close()
+		if err != nil {
+			t.Fatalf("failed to generate channel %s", name)
+		}
+		bc, err := broadcast.NewBroadcastChannel(tc, new(mockBroadcastClient), rng)
+		if err != nil {
+			t.Fatalf("failed to generate broadcast %s", name)
+		}
+		m.channels[*tc.ReceptionID] = &joinedChannel{broadcast: bc}
+		chList = append(chList, tc.ReceptionID)
+	}
+
+	for i, receivedCh := range chList {
+		ch, err := m.GetChannel(receivedCh)
+		if err != nil {
+			t.Errorf("Channel %d failed to be gotten", i)
+		} else if !ch.ReceptionID.Cmp(receivedCh) {
+			t.Errorf("Channel %d Get returned wrong channel", i)
+		}
+	}
+}
+
+func TestManager_GetChannel_BadChannel(t *testing.T) {
+	m := &manager{
+		channels: make(map[id.ID]*joinedChannel),
+		mux:      sync.RWMutex{},
+	}
+
+	numtests := 10
+
+	chList := make([]*id.ID, 0, numtests)
+
+	for i := 0; i < 10; i++ {
+		chId := &id.ID{}
+		chId[0] = byte(i)
+		chList = append(chList, chId)
+	}
+
+	for i, receivedCh := range chList {
+		_, err := m.GetChannel(receivedCh)
+		if err == nil {
+			t.Errorf("Channel %d returned when it doesnt exist", i)
+		}
 	}
 }

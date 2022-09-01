@@ -9,6 +9,7 @@ package channels
 
 import (
 	"gitlab.com/elixxir/client/cmix"
+	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -82,4 +83,17 @@ type Manager interface {
 	// on a multiple registration.
 	RegisterReceiveHandler(messageType MessageType,
 		listener MessageTypeReceiveMessage) error
+
+	// GetChannels returns the IDs of all channels that have been joined. Use
+	// getChannelsUnsafe if you already have taken the mux.
+	GetChannels() []*id.ID
+
+	// GetChannel returns the underlying cryptographic structure for a given channel.
+	GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error)
+
+	// ReplayChannel replays all messages from the channel within the network's
+	// memory (~3 weeks) over the event model. It does this by wiping the
+	// underlying state tracking for message pickup for the channel, causing all
+	// messages to be re-retrieved from the network
+	ReplayChannel(chID *id.ID) error
 }

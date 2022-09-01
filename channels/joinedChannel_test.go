@@ -45,7 +45,7 @@ func Test_manager_store(t *testing.T) {
 			t.Errorf("Failed to create new channel %d: %+v", i, err)
 		}
 
-		b, err := broadcast.NewBroadcastChannel(ch, m.client, m.rng)
+		b, err := broadcast.NewBroadcastChannel(ch, m.net, m.rng)
 		if err != nil {
 			t.Errorf("Failed to make new broadcast channel: %+v", err)
 		}
@@ -81,7 +81,7 @@ func Test_manager_loadChannels(t *testing.T) {
 			t.Errorf("Failed to create new channel %d: %+v", i, err)
 		}
 
-		b, err := broadcast.NewBroadcastChannel(ch, m.client, m.rng)
+		b, err := broadcast.NewBroadcastChannel(ch, m.net, m.rng)
 		if err != nil {
 			t.Errorf("Failed to make new broadcast channel: %+v", err)
 		}
@@ -104,7 +104,7 @@ func Test_manager_loadChannels(t *testing.T) {
 	newManager := &manager{
 		channels:       make(map[id.ID]*joinedChannel),
 		kv:             m.kv,
-		client:         m.client,
+		net:            m.net,
 		rng:            m.rng,
 		broadcastMaker: m.broadcastMaker,
 	}
@@ -369,7 +369,7 @@ func Test_loadJoinedChannel(t *testing.T) {
 		t.Errorf("Failed to add channel: %+v", err)
 	}
 
-	loadedJc, err := loadJoinedChannel(ch.ReceptionID, m.kv, m.client, m.rng,
+	loadedJc, err := loadJoinedChannel(ch.ReceptionID, m.kv, m.net, m.rng,
 		m.name, m.events, m.broadcastMaker)
 	if err != nil {
 		t.Errorf("Failed to load joinedChannel: %+v", err)

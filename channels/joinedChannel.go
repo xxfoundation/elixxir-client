@@ -72,7 +72,7 @@ func (m *manager) loadChannels() {
 
 	for i := range chList {
 		jc, err := loadJoinedChannel(
-			chList[i], m.kv, m.client, m.rng, m.name, m.events, m.broadcastMaker)
+			chList[i], m.kv, m.net, m.rng, m.name, m.events, m.broadcastMaker)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load channel %s: %+v", chList[i], err)
 		}
@@ -90,7 +90,7 @@ func (m *manager) addChannel(channel *cryptoBroadcast.Channel) error {
 		return ChannelAlreadyExistsErr
 	}
 
-	b, err := m.broadcastMaker(channel, m.client, m.rng)
+	b, err := m.broadcastMaker(channel, m.net, m.rng)
 	if err != nil {
 		return err
 	}
@@ -167,14 +167,6 @@ func (m *manager) getChannel(channelID *id.ID) (*joinedChannel, error) {
 	return jc, nil
 }
 
-// getChannels returns the IDs of all channels that have been joined. Use
-// getChannelsUnsafe if you already have taken the mux.
-func (m *manager) getChannels() []*id.ID {
-	m.mux.Lock()
-	defer m.mux.Unlock()
-	return m.getChannelsUnsafe()
-}
-
 // getChannelsUnsafe returns the IDs of all channels that have been joined. This
 // function is unsafe because it does not take the mux; only use this function
 // when under a lock.
@@ -230,27 +222,8 @@ func loadJoinedChannel(chId *id.ID, kv *versioned.KV, net broadcast.Client,
 	if err != nil {
 		return nil, err
 	}
-	b, err := broadcastMaker(jcd.Broadcast, net, rngGen)
-	if err != nil {
-		return nil, err
-	}
 
-	err = b.RegisterListener((&userListener{
-		name:    name,
-		chID:    jcd.Broadcast.ReceptionID,
-		trigger: e.triggerEvent,
-	}).Listen, broadcast.Symmetric)
-	if err != nil {
-		return nil, err
-	}
-
-	err = b.RegisterListener((&adminListener{
-		chID:    jcd.Broadcast.ReceptionID,
-		trigger: e.triggerAdminEvent,
-	}).Listen, broadcast.Asymmetric)
-	if err != nil {
-		return nil, err
-	}
+	b, err := initBroadcast(jcd.Broadcast, name, e, net, broadcastMaker, rngGen)
 
 	jc := &joinedChannel{broadcast: b}
 	return jc, nil
@@ -264,4 +237,33 @@ func (jc *joinedChannel) delete(kv *versioned.KV) error {
 
 func makeJoinedChannelKey(chId *id.ID) string {
 	return joinedChannelKey + chId.HexEncode()
+}
+
+func initBroadcast(c *cryptoBroadcast.Channel,
+	name NameService, e *events, net broadcast.Client,
+	broadcastMaker broadcast.NewBroadcastChannelFunc,
+	rngGen *fastRNG.StreamGenerator) (broadcast.Channel, error) {
+	b, err := broadcastMaker(c, net, rngGen)
+	if err != nil {
+		return nil, err
+	}
+
+	err = b.RegisterListener((&userListener{
+		name:    name,
+		chID:    c.ReceptionID,
+		trigger: e.triggerEvent,
+	}).Listen, broadcast.Symmetric)
+	if err != nil {
+		return nil, err
+	}
+
+	err = b.RegisterListener((&adminListener{
+		chID:    c.ReceptionID,
+		trigger: e.triggerAdminEvent,
+	}).Listen, broadcast.Asymmetric)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }

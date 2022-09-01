@@ -9,7 +9,6 @@ package channels
 
 import (
 	"bytes"
-	jww "github.com/spf13/jwalterweatherman"
 	"regexp"
 )
 
@@ -21,12 +20,7 @@ var compiledRegex *regexp.Regexp
 // compile the regular expression in an init so it is only
 // compiled once
 func init() {
-	var err error
-	compiledRegex, err = regexp.Compile(findEmoji)
-	if err != nil {
-		jww.FATAL.Panicf("failed to compile the regex for emoji finding " +
-			"within channels")
-	}
+	compiledRegex = regexp.MustCompile(findEmoji)
 }
 
 // ValidateReaction checks that the reaction only contains a single emoji.

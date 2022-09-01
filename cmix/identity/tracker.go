@@ -51,6 +51,7 @@ type Tracker interface {
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
 	RemoveIdentity(id *id.ID)
 	GetEphemeralIdentity(rng io.Reader, addressSize uint8) (receptionID.IdentityUse, error)
+	GetEphemeralIdentities(num int, rng io.Reader, addressSize uint8) ([]receptionID.IdentityUse, error)
 	GetIdentity(get *id.ID) (TrackedID, error)
 }
 

@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/shuffle"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -20,6 +21,8 @@ const (
 	receptionStoreStorageKey     = "receptionStoreKey"
 	receptionStoreStorageVersion = 0
 )
+
+var InvalidRequestedNumIdentities = errors.New("Cannot get less than 1 identities")
 
 type Store struct {
 	// Identities which are being actively checked
@@ -150,6 +153,8 @@ func (s *Store) makeStoredReferences() []storedReference {
 	return identities[:i]
 }
 
+// GetIdentity will return a single identity. If none are available, it will
+// return a fake one
 func (s *Store) GetIdentity(rng io.Reader, addressSize uint8) (IdentityUse, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -179,6 +184,47 @@ func (s *Store) GetIdentity(rng io.Reader, addressSize uint8) (IdentityUse, erro
 	}
 
 	return identity, nil
+}
+
+// GetIdentities will return up to 'num' identities randomly in a random order.
+// if no identities exist, it will return a single fake identity
+func (s *Store) GetIdentities(num int, rng io.Reader,
+	addressSize uint8) ([]IdentityUse, error) {
+
+	if num < 1 {
+		return nil, errors.New("Cannot get less than 1 identities")
+	}
+
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	now := netTime.Now()
+
+	// Remove any now expired identities
+	s.prune(now)
+
+	var identities []IdentityUse
+	var err error
+
+	// If the list is empty, then return a randomly generated identity to poll
+	// with so that we can continue tracking the network and to further
+	// obfuscate network identities.
+	if len(s.active) == 0 {
+		fakeIdentity, err := generateFakeIdentity(rng, addressSize, now)
+		if err != nil {
+			jww.FATAL.Panicf(
+				"Failed to generate a new ID when none available: %+v", err)
+		}
+		identities = append(identities, fakeIdentity)
+
+	} else {
+		identities, err = s.selectIdentities(num, rng, now)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to select a list of IDs: %+v", err)
+		}
+	}
+
+	return identities, nil
 }
 
 func (s *Store) AddIdentity(identity Identity) error {
@@ -352,4 +398,53 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 		ER:       selected.ER,
 		CR:       selected.CR,
 	}, nil
+}
+
+func (s *Store) selectIdentities(num int, rng io.Reader, now time.Time) ([]IdentityUse, error) {
+	// Choose a member from the list
+	selected := make([]IdentityUse, 0, num)
+
+	if len(s.active) == 1 {
+		selected = append(selected, makeIdentityUse(s.active[0], now))
+	} else {
+
+		// make the seed
+		seed := make([]byte, 32)
+		if _, err := rng.Read(seed); err != nil {
+			return nil, errors.WithMessage(err, "Failed to choose "+
+				"ID due to RNG failure")
+		}
+
+		// make the list to shuffle
+		registered := make([]*registration, 0, len(s.active))
+		for i := 0; i < len(s.active); i++ {
+			registered = append(registered, s.active[i])
+		}
+
+		//shuffle the list via fisher-yates
+		shuffle.ShuffleSwap(seed, len(s.active), func(i int, j int) {
+			registered[i], registered[j] = registered[j], registered[i]
+		})
+
+		//convert the list to identity use
+		for i := 0; i < len(registered) && (i < num); i++ {
+			selected = append(selected, makeIdentityUse(registered[i], now))
+		}
+
+	}
+
+	return selected, nil
+}
+
+func makeIdentityUse(selected *registration, now time.Time) IdentityUse {
+	if now.After(selected.End) {
+		selected.ExtraChecks--
+	}
+	return IdentityUse{
+		Identity: selected.Identity,
+		Fake:     false,
+		UR:       selected.UR,
+		ER:       selected.ER,
+		CR:       selected.CR,
+	}
 }

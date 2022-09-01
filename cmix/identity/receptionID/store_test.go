@@ -2,10 +2,13 @@ package receptionID
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
+	"math"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -162,6 +165,222 @@ func TestStore_GetIdentity(t *testing.T) {
 		t.Errorf("GetIdentity() did not return the expected Identity."+
 			"\nexpected: %s\nreceived: %s", testID, idu)
 	}
+}
+
+func TestStore_GetIdentity_NoIdentities(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	s := NewOrLoadStore(kv)
+	prng := rand.New(rand.NewSource(42))
+
+	idu, err := s.GetIdentity(prng, 15)
+	if err != nil {
+		t.Errorf("GetIdentity() produced an error: %+v", err)
+	}
+
+	if !idu.Fake {
+		t.Errorf("GetIdentity() did not return a fake identity")
+	}
+}
+
+func TestStore_GetIdentities(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	s := NewOrLoadStore(kv)
+	prng := rand.New(rand.NewSource(42))
+
+	numToTest := 100
+
+	idsGenerated := make(map[uint64]interface{})
+
+	for i := 0; i < numToTest; i++ {
+		testID, err := generateFakeIdentity(prng, 15, netTime.Now())
+		if err != nil {
+			t.Fatalf("Failed to generate fake ID: %+v", err)
+		}
+		testID.Fake = false
+		if s.AddIdentity(testID.Identity) != nil {
+			t.Errorf("AddIdentity() produced an error: %+v", err)
+		}
+
+		idsGenerated[getIDFp(testID.EphemeralIdentity)] = nil
+
+	}
+
+	//get one
+	idu, err := s.GetIdentities(1, prng, 15)
+	if err != nil {
+		t.Errorf("GetIdentity() produced an error: %+v", err)
+	}
+
+	if _, exists := idsGenerated[getIDFp(idu[0].EphemeralIdentity)]; !exists ||
+		idu[0].Fake {
+		t.Errorf("An unknown or fake identity was returned")
+	}
+
+	//get three
+	idu, err = s.GetIdentities(3, prng, 15)
+	if err != nil {
+		t.Errorf("GetIdentity() produced an error: %+v", err)
+	}
+
+	if len(idu) != 3 {
+		t.Errorf("the wrong number of identities was returned")
+	}
+
+	for i := 0; i < len(idu); i++ {
+		if _, exists := idsGenerated[getIDFp(idu[i].EphemeralIdentity)]; !exists ||
+			idu[i].Fake {
+			t.Errorf("An unknown or fake identity was returned")
+		}
+	}
+
+	//get ten
+	idu, err = s.GetIdentities(10, prng, 15)
+	if err != nil {
+		t.Errorf("GetIdentity() produced an error: %+v", err)
+	}
+
+	if len(idu) != 10 {
+		t.Errorf("the wrong number of identities was returned")
+	}
+
+	for i := 0; i < len(idu); i++ {
+		if _, exists := idsGenerated[getIDFp(idu[i].EphemeralIdentity)]; !exists ||
+			idu[i].Fake {
+			t.Errorf("An unknown or fake identity was returned")
+		}
+	}
+
+	//get fifty
+	idu, err = s.GetIdentities(50, prng, 15)
+	if err != nil {
+		t.Errorf("GetIdentity() produced an error: %+v", err)
+	}
+
+	if len(idu) != 50 {
+		t.Errorf("the wrong number of identities was returned")
+	}
+
+	for i := 0; i < len(idu); i++ {
+		if _, exists := idsGenerated[getIDFp(idu[i].EphemeralIdentity)]; !exists ||
+			idu[i].Fake {
+			t.Errorf("An unknown or fake identity was returned")
+		}
+	}
+
+	//get 100
+	idu, err = s.GetIdentities(100, prng, 15)
+	if err != nil {
+		t.Errorf("GetIdentity() produced an error: %+v", err)
+	}
+
+	if len(idu) != 100 {
+		t.Errorf("the wrong number of identities was returned")
+	}
+
+	for i := 0; i < len(idu); i++ {
+		if _, exists := idsGenerated[getIDFp(idu[i].EphemeralIdentity)]; !exists ||
+			idu[i].Fake {
+			t.Errorf("An unknown or fake identity was returned")
+		}
+	}
+
+	//get 1000, should only return 100
+	idu, err = s.GetIdentities(1000, prng, 15)
+	if err != nil {
+		t.Errorf("GetIdentity() produced an error: %+v", err)
+	}
+
+	if len(idu) != 100 {
+		t.Errorf("the wrong number of identities was returned")
+	}
+
+	for i := 0; i < len(idu); i++ {
+		if _, exists := idsGenerated[getIDFp(idu[i].EphemeralIdentity)]; !exists ||
+			idu[i].Fake {
+			t.Errorf("An unknown or fake identity was returned")
+		}
+	}
+
+	// get 100 a second time and make sure the order is not the same as a
+	// smoke test that the shuffle is working
+	idu2, err := s.GetIdentities(1000, prng, 15)
+	if err != nil {
+		t.Errorf("GetIdentity() produced an error: %+v", err)
+	}
+
+	diferent := false
+	for i := 0; i < len(idu); i++ {
+		if !idu[i].Source.Cmp(idu2[i].Source) {
+			diferent = true
+			break
+		}
+	}
+
+	if !diferent {
+		t.Errorf("The 2 100 shuffels retruned the same result, shuffling" +
+			" is likley not occuring")
+	}
+
+}
+
+func TestStore_GetIdentities_NoIdentities(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	s := NewOrLoadStore(kv)
+	prng := rand.New(rand.NewSource(42))
+
+	idu, err := s.GetIdentities(5, prng, 15)
+	if err != nil {
+		t.Errorf("GetIdentities() produced an error: %+v", err)
+	}
+
+	if len(idu) != 1 {
+		t.Errorf("GetIdenties() did not return only one identity " +
+			"when looking for a fake")
+	}
+
+	if !idu[0].Fake {
+		t.Errorf("GetIdenties() did not return a fake identity " +
+			"when only one is avalible")
+	}
+}
+
+func TestStore_GetIdentities_BadNum(t *testing.T) {
+	kv := versioned.NewKV(ekv.MakeMemstore())
+	s := NewOrLoadStore(kv)
+	prng := rand.New(rand.NewSource(42))
+
+	_, err := s.GetIdentities(0, prng, 15)
+	if err == nil {
+		t.Errorf("GetIdentities() shoud error with bad num value")
+	}
+
+	_, err = s.GetIdentities(-1, prng, 15)
+	if err == nil {
+		t.Errorf("GetIdentities() shoud error with bad num value")
+	}
+
+	_, err = s.GetIdentities(-100, prng, 15)
+	if err == nil {
+		t.Errorf("GetIdentities() shoud error with bad num value")
+	}
+
+	_, err = s.GetIdentities(-1000000, prng, 15)
+	if err == nil {
+		t.Errorf("GetIdentities() shoud error with bad num value")
+	}
+
+	_, err = s.GetIdentities(math.MinInt64, prng, 15)
+	if err == nil {
+		t.Errorf("GetIdentities() shoud error with bad num value")
+	}
+}
+
+func getIDFp(identity EphemeralIdentity) uint64 {
+	h, _ := hash.NewCMixHash()
+	h.Write(identity.EphId[:])
+	h.Write(identity.Source.Bytes())
+	r := h.Sum(nil)
+	return binary.BigEndian.Uint64(r)
 }
 
 func TestStore_AddIdentity(t *testing.T) {

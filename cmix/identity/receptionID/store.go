@@ -216,7 +216,7 @@ func (s *Store) GetIdentities(num int, rng io.Reader,
 				"Failed to generate a new ID when none available: %+v", err)
 		}
 		identities = append(identities, fakeIdentity)
-
+		// otherwise, select identities to return using a fisher-yates
 	} else {
 		identities, err = s.selectIdentities(num, rng, now)
 		if err != nil {
@@ -380,10 +380,6 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 		selected = s.active[selectedNum.Uint64()]
 	}
 
-	if now.After(selected.End) {
-		selected.ExtraChecks--
-	}
-
 	jww.TRACE.Printf("Selected identity: EphId: %d  ID: %s  End: %s  "+
 		"StartValid: %s  EndValid: %s",
 		selected.EphId.Int64(), selected.Source,
@@ -391,13 +387,7 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 		selected.StartValid.Format("01/02/06 03:04:05 pm"),
 		selected.EndValid.Format("01/02/06 03:04:05 pm"))
 
-	return IdentityUse{
-		Identity: selected.Identity,
-		Fake:     false,
-		UR:       selected.UR,
-		ER:       selected.ER,
-		CR:       selected.CR,
-	}, nil
+	return useIdentity(selected, now), nil
 }
 
 func (s *Store) selectIdentities(num int, rng io.Reader, now time.Time) ([]IdentityUse, error) {
@@ -405,7 +395,7 @@ func (s *Store) selectIdentities(num int, rng io.Reader, now time.Time) ([]Ident
 	selected := make([]IdentityUse, 0, num)
 
 	if len(s.active) == 1 {
-		selected = append(selected, makeIdentityUse(s.active[0], now))
+		selected = append(selected, useIdentity(s.active[0], now))
 	} else {
 
 		// make the seed
@@ -428,7 +418,7 @@ func (s *Store) selectIdentities(num int, rng io.Reader, now time.Time) ([]Ident
 
 		//convert the list to identity use
 		for i := 0; i < len(registered) && (i < num); i++ {
-			selected = append(selected, makeIdentityUse(registered[i], now))
+			selected = append(selected, useIdentity(registered[i], now))
 		}
 
 	}
@@ -436,7 +426,9 @@ func (s *Store) selectIdentities(num int, rng io.Reader, now time.Time) ([]Ident
 	return selected, nil
 }
 
-func makeIdentityUse(selected *registration, now time.Time) IdentityUse {
+// useIdentity makes the public IdentityUse object from a private *registration
+// and deals with denoting the usage in the *registration if nessessay
+func useIdentity(selected *registration, now time.Time) IdentityUse {
 	if now.After(selected.End) {
 		selected.ExtraChecks--
 	}

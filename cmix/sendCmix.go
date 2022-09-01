@@ -171,7 +171,7 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient
 	}
 
 	jww.INFO.Printf("[Send-%s] Looking for round to send cMix message to "+
-		"%s (msgDigest: %s)", cmixParams.DebugTag, recipient)
+		"%s", cmixParams.DebugTag, recipient)
 
 	stream := rng.GetStream()
 	defer stream.Close()

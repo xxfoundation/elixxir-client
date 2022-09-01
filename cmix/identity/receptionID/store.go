@@ -155,7 +155,7 @@ func (s *Store) makeStoredReferences() []storedReference {
 
 // GetIdentity will return a single identity. If none are available, it will
 // return a fake one
-func (s *Store) GetIdentity(rng io.Reader, addressSize uint8) (IdentityUse, error) {
+func (s *Store) GetIdentity(rng io.Reader, addressSize uint8) IdentityUse {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -183,7 +183,7 @@ func (s *Store) GetIdentity(rng io.Reader, addressSize uint8) (IdentityUse, erro
 		}
 	}
 
-	return identity, nil
+	return identity
 }
 
 // GetIdentities will return up to 'num' identities randomly in a random order.
@@ -359,6 +359,8 @@ func (s *Store) prune(now time.Time) {
 	}
 }
 
+// selectIdentity returns a random identity in an IdentityUse object and
+// increments its usage if necessary
 func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error) {
 	// Choose a member from the list
 	var selected *registration
@@ -390,6 +392,8 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 	return useIdentity(selected, now), nil
 }
 
+// selectIdentities returns up to 'num' identities in an IdentityUse object
+// selected via fisher-yates and increments their usage if necessary
 func (s *Store) selectIdentities(num int, rng io.Reader, now time.Time) ([]IdentityUse, error) {
 	// Choose a member from the list
 	selected := make([]IdentityUse, 0, num)

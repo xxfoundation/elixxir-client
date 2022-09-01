@@ -156,10 +156,7 @@ func TestStore_GetIdentity(t *testing.T) {
 		t.Errorf("AddIdentity() produced an error: %+v", err)
 	}
 
-	idu, err := s.GetIdentity(prng, 15)
-	if err != nil {
-		t.Errorf("GetIdentity() produced an error: %+v", err)
-	}
+	idu := s.GetIdentity(prng, 15)
 
 	if !testID.Equal(idu.Identity) {
 		t.Errorf("GetIdentity() did not return the expected Identity."+
@@ -172,10 +169,7 @@ func TestStore_GetIdentity_NoIdentities(t *testing.T) {
 	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 
-	idu, err := s.GetIdentity(prng, 15)
-	if err != nil {
-		t.Errorf("GetIdentity() produced an error: %+v", err)
-	}
+	idu := s.GetIdentity(prng, 15)
 
 	if !idu.Fake {
 		t.Errorf("GetIdentity() did not return a fake identity")

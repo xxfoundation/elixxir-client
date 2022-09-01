@@ -50,7 +50,7 @@ type Tracker interface {
 	StartProcesses() stoppable.Stoppable
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
 	RemoveIdentity(id *id.ID)
-	GetEphemeralIdentity(rng io.Reader, addressSize uint8) (receptionID.IdentityUse, error)
+	GetEphemeralIdentity(rng io.Reader, addressSize uint8) receptionID.IdentityUse
 	GetEphemeralIdentities(num int, rng io.Reader, addressSize uint8) ([]receptionID.IdentityUse, error)
 	GetIdentity(get *id.ID) (TrackedID, error)
 }
@@ -146,8 +146,8 @@ func (t *manager) RemoveIdentity(id *id.ID) {
 
 // GetEphemeralIdentity returns an ephemeral Identity to poll the network with.
 // It will return a fake identity if none are available.
-func (t *manager) GetEphemeralIdentity(rng io.Reader, addressSize uint8) (
-	receptionID.IdentityUse, error) {
+func (t *manager) GetEphemeralIdentity(rng io.Reader,
+	addressSize uint8) receptionID.IdentityUse {
 	return t.ephemeral.GetIdentity(rng, addressSize)
 }
 

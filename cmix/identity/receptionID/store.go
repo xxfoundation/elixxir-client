@@ -5,8 +5,8 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/crypto/shuffle"
 	"gitlab.com/xx_network/crypto/large"
+	"gitlab.com/xx_network/crypto/shuffle"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -264,7 +264,7 @@ func (s *Store) AddIdentity(identity Identity) error {
 }
 
 func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
-	go s.mux.Lock()
+	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	for i, inQuestion := range s.active {
@@ -416,13 +416,12 @@ func (s *Store) selectIdentities(n int, rng io.Reader, now time.Time) ([]Identit
 		}
 
 		//shuffle the list via fisher-yates
-		shuffle.ShuffleSwap(seed, len(s.active), func(i int, j int) {
-			registered[i], registered[j] = registered[j], registered[i]
-		})
+		registeredProxy := shuffle.SeededShuffle(len(s.active), seed)
 
 		//convert the list to identity use
 		for i := 0; i < len(registered) && (i < n); i++ {
-			selected = append(selected, useIdentity(registered[i], now))
+			selected = append(selected,
+				useIdentity(registered[registeredProxy[i]], now))
 		}
 
 	}

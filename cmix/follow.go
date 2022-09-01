@@ -70,7 +70,7 @@ func (c *client) followNetwork(report ClientErrorReport,
 	TrackTicker := time.NewTicker(debugTrackPeriod)
 	rng := c.rng.GetStream()
 
-	// adbandon tracks rounds which data was not found out about in
+	// abandon tracks rounds which data was not found out about in
 	// the verbose rounds debugging mode
 	abandon := func(round id.Round) { return }
 	dummyAbandon := func(round id.Round) { return }

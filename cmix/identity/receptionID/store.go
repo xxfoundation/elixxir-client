@@ -403,7 +403,7 @@ func (s *Store) selectIdentities(n int, rng io.Reader, now time.Time) ([]Identit
 	} else {
 
 		// make the seed
-		seed := make([]byte, 32)
+		seed := make([]byte, 32) //use 256 bits of entropy for the seed
 		if _, err := rng.Read(seed); err != nil {
 			return nil, errors.WithMessage(err, "Failed to choose "+
 				"ID due to RNG failure")

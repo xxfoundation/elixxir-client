@@ -51,7 +51,7 @@ type Tracker interface {
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
 	RemoveIdentity(id *id.ID)
 	GetEphemeralIdentity(rng io.Reader, addressSize uint8) receptionID.IdentityUse
-	GetEphemeralIdentities(num int, rng io.Reader, addressSize uint8) ([]receptionID.IdentityUse, error)
+	GetEphemeralIdentities(n int, rng io.Reader, addressSize uint8) ([]receptionID.IdentityUse, error)
 	GetIdentity(get *id.ID) (TrackedID, error)
 }
 
@@ -155,9 +155,9 @@ func (t *manager) GetEphemeralIdentity(rng io.Reader,
 // ephemeral identities. It will return a fake identity if none are available
 // and less than 'num' if less than 'num' are available.
 // 'num' must be positive non-zero
-func (t *manager) GetEphemeralIdentities(num int, rng io.Reader, addressSize uint8) (
+func (t *manager) GetEphemeralIdentities(n int, rng io.Reader, addressSize uint8) (
 	[]receptionID.IdentityUse, error) {
-	return t.ephemeral.GetIdentities(num, rng, addressSize)
+	return t.ephemeral.GetIdentities(n, rng, addressSize)
 }
 
 // GetIdentity returns a currently tracked identity

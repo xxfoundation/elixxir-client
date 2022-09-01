@@ -186,12 +186,12 @@ func (s *Store) GetIdentity(rng io.Reader, addressSize uint8) IdentityUse {
 	return identity
 }
 
-// GetIdentities will return up to 'num' identities randomly in a random order.
+// GetIdentities will return up to 'n' identities randomly in a random order.
 // if no identities exist, it will return a single fake identity
-func (s *Store) GetIdentities(num int, rng io.Reader,
+func (s *Store) GetIdentities(n int, rng io.Reader,
 	addressSize uint8) ([]IdentityUse, error) {
 
-	if num < 1 {
+	if n < 1 {
 		return nil, InvalidRequestedNumIdentities
 	}
 
@@ -218,7 +218,7 @@ func (s *Store) GetIdentities(num int, rng io.Reader,
 		identities = append(identities, fakeIdentity)
 		// otherwise, select identities to return using a fisher-yates
 	} else {
-		identities, err = s.selectIdentities(num, rng, now)
+		identities, err = s.selectIdentities(n, rng, now)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to select a list of IDs: %+v", err)
 		}
@@ -392,11 +392,11 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 	return useIdentity(selected, now), nil
 }
 
-// selectIdentities returns up to 'num' identities in an IdentityUse object
+// selectIdentities returns up to 'n' identities in an IdentityUse object
 // selected via fisher-yates and increments their usage if necessary
-func (s *Store) selectIdentities(num int, rng io.Reader, now time.Time) ([]IdentityUse, error) {
+func (s *Store) selectIdentities(n int, rng io.Reader, now time.Time) ([]IdentityUse, error) {
 	// Choose a member from the list
-	selected := make([]IdentityUse, 0, num)
+	selected := make([]IdentityUse, 0, n)
 
 	if len(s.active) == 1 {
 		selected = append(selected, useIdentity(s.active[0], now))
@@ -421,7 +421,7 @@ func (s *Store) selectIdentities(num int, rng io.Reader, now time.Time) ([]Ident
 		})
 
 		//convert the list to identity use
-		for i := 0; i < len(registered) && (i < num); i++ {
+		for i := 0; i < len(registered) && (i < n); i++ {
 			selected = append(selected, useIdentity(registered[i], now))
 		}
 

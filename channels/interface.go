@@ -25,6 +25,15 @@ import (
 var ValidForever = time.Duration(math.MaxInt64)
 
 type Manager interface {
+
+	// JoinChannel joins the given channel. It will fail if the channel has
+	// already been joined.
+	JoinChannel(channel *cryptoBroadcast.Channel) error
+
+	// LeaveChannel leaves the given channel. It will return an error if the
+	// channel was not previously joined.
+	LeaveChannel(channelID *id.ID) error
+
 	// SendGeneric is used to send a raw message over a channel. In general, it
 	// should be wrapped in a function which defines the wire protocol
 	// If the final message, before being sent over the wire, is too long, this will

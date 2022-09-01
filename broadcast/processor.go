@@ -56,7 +56,7 @@ func (p *processor) Process(msg format.Message,
 		jww.ERROR.Printf("Unrecognized broadcast method %d", p.method)
 	}
 
-	go p.cb(payload, receptionID, round)
+	p.cb(payload, receptionID, round)
 }
 
 // String returns a string identifying the symmetricProcessor for debugging purposes.

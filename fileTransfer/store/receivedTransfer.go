@@ -339,7 +339,7 @@ func (rt *ReceivedTransfer) save() error {
 	}
 
 	// Save versioned object
-	return rt.kv.Set(receivedTransferStoreKey, receivedTransferStoreVersion, vo)
+	return rt.kv.Set(receivedTransferStoreKey, vo)
 }
 
 // receivedTransferDisk structure is used to marshal and unmarshal
@@ -385,7 +385,7 @@ func savePart(part []byte, partNum int, kv *versioned.KV) error {
 		Data:      part,
 	}
 
-	return kv.Set(makeReceivedPartKey(partNum), receivedPartStoreVersion, obj)
+	return kv.Set(makeReceivedPartKey(partNum), obj)
 }
 
 // loadPart loads the part with the given part number from storage.

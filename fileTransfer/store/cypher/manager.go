@@ -164,7 +164,7 @@ func saveKey(key *ftCrypto.TransferKey, kv *versioned.KV) error {
 		Data:      key.Bytes(),
 	}
 
-	return kv.Set(cypherManagerKeyStoreKey, cypherManagerKeyStoreVersion, obj)
+	return kv.Set(cypherManagerKeyStoreKey, obj)
 }
 
 // loadKey loads the transfer key from storage.

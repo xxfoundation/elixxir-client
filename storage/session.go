@@ -195,9 +195,10 @@ func (s *session) Get(key string) (*versioned.Object, error) {
 	return s.kv.Get(key, currentSessionVersion)
 }
 
-// Set a value in the session
+// Set a value in the session. If you wish to maintain versioning,
+// the [versioned.Object]'s Version field must be set.
 func (s *session) Set(key string, object *versioned.Object) error {
-	return s.kv.Set(key, currentSessionVersion, object)
+	return s.kv.Set(key, object)
 }
 
 // Delete a value in the session

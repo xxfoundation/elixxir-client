@@ -890,7 +890,7 @@ func TestLoadMultiStateVector_UnmarshalError(t *testing.T) {
 	expectedErr := strings.Split(loadUnmarshalMsvErr, "%")[0]
 
 	// Save invalid data to storage
-	err := kv.Set(makeMultiStateVectorKey(key), multiStateVectorVersion,
+	err := kv.Set(makeMultiStateVectorKey(key),
 		&versioned.Object{
 			Version:   multiStateVectorVersion,
 			Timestamp: netTime.Now(),

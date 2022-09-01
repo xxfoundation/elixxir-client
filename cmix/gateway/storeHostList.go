@@ -36,7 +36,7 @@ func saveHostList(kv *versioned.KV, list []*id.ID) error {
 		Timestamp: netTime.Now(),
 	}
 
-	return kv.Set(hostListKey, hostListVersion, obj)
+	return kv.Set(hostListKey, obj)
 }
 
 // getHostList returns the host list from storage.

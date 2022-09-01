@@ -231,7 +231,7 @@ func (b *Buff) saveBuff() error {
 		Data:      b.marshal(),
 	}
 
-	return b.kv.Set(ringBuffKey, ringBuffVersion, obj)
+	return b.kv.Set(ringBuffKey, obj)
 }
 
 // marshal creates a byte buffer containing serialized information on the Buff.
@@ -293,7 +293,7 @@ func (b *Buff) saveMessage(msg *Message) error {
 	}
 
 	return b.kv.Set(
-		makeMessageKey(msg.MessageId.truncate()), messageVersion, obj)
+		makeMessageKey(msg.MessageId.truncate()), obj)
 
 }
 

@@ -65,8 +65,7 @@ func (ur *EarliestRound) save() {
 			Data:      urStr,
 		}
 
-		err = ur.kv.Set(earliestRoundStorageKey,
-			earliestRoundStorageVersion, obj)
+		err = ur.kv.Set(earliestRoundStorageKey, obj)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to store the earliest round: %+v", err)
 		}

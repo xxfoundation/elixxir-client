@@ -112,7 +112,7 @@ func (s *Store) savePreviousNegotiations() error {
 		Data:      marshalPreviousNegotiations(s.previousNegotiations),
 	}
 
-	return s.kv.Set(negotiationPartnersKey, negotiationPartnersVersion, obj)
+	return s.kv.Set(negotiationPartnersKey, obj)
 }
 
 // newOrLoadPreviousNegotiations loads the list of previousNegotiations partners
@@ -188,8 +188,7 @@ func saveNegotiationFingerprints(
 		Data:      marshalNegotiationFingerprints(fingerprints...),
 	}
 
-	return kv.Set(makeNegotiationFingerprintsKey(partner),
-		currentNegotiationFingerprintsVersion, obj)
+	return kv.Set(makeNegotiationFingerprintsKey(partner), obj)
 }
 
 // loadNegotiationFingerprints loads the list of sentByFingerprints for the given
@@ -287,5 +286,5 @@ func upgradePreviousNegotiationsV0(kv *versioned.KV) error {
 		Data: marshalPreviousNegotiations(
 			newPrevNegotiations),
 	}
-	return kv.Set(negotiationPartnersKey, negotiationPartnersVersion, obj)
+	return kv.Set(negotiationPartnersKey, obj)
 }

@@ -131,8 +131,10 @@ func (v *KV) Delete(key string, version uint64) error {
 // Set upserts new data into the storage
 // When calling this, you are responsible for prefixing the key with the correct
 // type optionally unique id! Call MakeKeyWithPrefix() to do so.
-func (v *KV) Set(key string, version uint64, object *Object) error {
-	key = v.makeKey(key, version)
+// The [Object] should contain the versioning if you are maintaining such
+// a functionality.
+func (v *KV) Set(key string, object *Object) error {
+	key = v.makeKey(key, object.Version)
 	jww.TRACE.Printf("Set %p with key %v", v.r.data, key)
 	return v.r.data.Set(key, object)
 }

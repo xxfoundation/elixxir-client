@@ -137,7 +137,7 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 
 	sig := []byte("transmissionsignature")
 	err = kv.Set(transmissionRegValidationSigKey,
-		currentRegValidationSigVersion, &versioned.Object{
+		&versioned.Object{
 			Version:   currentRegValidationSigVersion,
 			Timestamp: netTime.Now(),
 			Data:      sig,
@@ -153,7 +153,7 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 
 	sig = []byte("receptionsignature")
 	err = kv.Set(receptionRegValidationSigKey,
-		currentRegValidationSigVersion, &versioned.Object{
+		&versioned.Object{
 			Version:   currentRegValidationSigVersion,
 			Timestamp: netTime.Now(),
 			Data:      sig,
@@ -252,12 +252,12 @@ func TestUser_loadRegistrationTimestamp(t *testing.T) {
 	data := make([]byte, 8)
 	binary.BigEndian.PutUint64(data, uint64(testTime.UnixNano()))
 	vo := &versioned.Object{
-		Version:   currentRegValidationSigVersion,
+		Version:   registrationTimestampVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
 	}
-	err = kv.Set(registrationTimestampKey,
-		registrationTimestampVersion, vo)
+
+	err = kv.Set(registrationTimestampKey, vo)
 	if err != nil {
 		t.Errorf("Failed to set reg validation sig key in kv store: %+v", err)
 	}

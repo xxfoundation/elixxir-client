@@ -160,7 +160,7 @@ func (s *Store) saveActiveParts() {
 		Data:      data,
 	}
 
-	err = s.kv.Set(activePartitions, activePartitionVersion, &obj)
+	err = s.kv.Set(activePartitions, &obj)
 	if err != nil {
 		jww.FATAL.Panicf("Could not save active partitions: %+v", err)
 	}

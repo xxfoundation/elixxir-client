@@ -122,7 +122,7 @@ func (s *Store) save() error {
 		Data:      data,
 	}
 
-	err = s.kv.Set(receptionStoreStorageKey, receptionStoreStorageVersion, obj)
+	err = s.kv.Set(receptionStoreStorageKey, obj)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to store reception store")
 	}

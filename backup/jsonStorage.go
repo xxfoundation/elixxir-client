@@ -17,7 +17,7 @@ func storeJson(json string, kv *versioned.KV) error {
 		Data:      []byte(json),
 	}
 
-	return kv.Set(jsonStorageKey, jsonStorageVersion, obj)
+	return kv.Set(jsonStorageKey, obj)
 }
 
 func loadJson(kv *versioned.KV) string {

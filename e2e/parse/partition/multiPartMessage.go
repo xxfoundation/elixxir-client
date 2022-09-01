@@ -102,7 +102,7 @@ func (mpm *multiPartMessage) save() error {
 		Data:      data,
 	}
 
-	return mpm.kv.Set(messageKey, currentMultiPartMessageVersion, &obj)
+	return mpm.kv.Set(messageKey, &obj)
 }
 
 func (mpm *multiPartMessage) Add(partNumber uint8, part []byte) {

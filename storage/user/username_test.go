@@ -120,7 +120,7 @@ func TestUser_loadUsername(t *testing.T) {
 
 	u1 := "zezima"
 
-	err = u.kv.Set(usernameKey, currentUsernameVersion, &versioned.Object{
+	err = u.kv.Set(usernameKey, &versioned.Object{
 		Version:   currentUsernameVersion,
 		Timestamp: netTime.Now(),
 		Data:      []byte(u1),

@@ -149,7 +149,7 @@ func (s *Store) save() error {
 		Data:      data,
 	}
 
-	return s.kv.Set(requestMapKey, requestMapVersion, &obj)
+	return s.kv.Set(requestMapKey, &obj)
 }
 
 // NewStore creates a new store. All passed in private keys are added as

@@ -99,7 +99,7 @@ func (s *BucketParamStore) save() error {
 	}
 
 	// Store object into storage
-	return s.kv.Set(bucketParamsKey, bucketParamsVersion, object)
+	return s.kv.Set(bucketParamsKey, object)
 }
 
 // load extracts the bucket params from store and loads it into the

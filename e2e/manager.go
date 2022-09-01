@@ -68,7 +68,7 @@ func initE2E(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	if err != nil {
 		return errors.WithMessage(err, "Failed to marshal rekeyParams")
 	}
-	err = kv.Set(e2eRekeyParamsKey, e2eRekeyParamsVer, &versioned.Object{
+	err = kv.Set(e2eRekeyParamsKey, &versioned.Object{
 		Version:   e2eRekeyParamsVer,
 		Timestamp: netTime.Now(),
 		Data:      rekeyParamsData,
@@ -121,7 +121,7 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	}
 
 	// Store the rekey params to disk/memory
-	err = kv.Set(e2eRekeyParamsKey, e2eRekeyParamsVer, &versioned.Object{
+	err = kv.Set(e2eRekeyParamsKey, &versioned.Object{
 		Version:   e2eRekeyParamsVer,
 		Timestamp: netTime.Now(),
 		Data:      rekeyParamsData,
@@ -129,7 +129,7 @@ func LoadLegacy(kv *versioned.KV, net cmix.Client, myID *id.ID,
 	if err != nil {
 		return nil, err
 	}
-	err = kv.Set(legacyE2EKey, e2eRekeyParamsVer, &versioned.Object{
+	err = kv.Set(legacyE2EKey, &versioned.Object{
 		Version:   e2eRekeyParamsVer,
 		Timestamp: netTime.Now(),
 		Data:      []byte{1},

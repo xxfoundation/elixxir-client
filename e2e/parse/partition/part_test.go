@@ -57,7 +57,7 @@ func Test_loadPart(t *testing.T) {
 
 	// Save part to key value store
 	err := rootKv.Set(
-		key, 0, &versioned.Object{Timestamp: netTime.Now(), Data: part})
+		key, &versioned.Object{Timestamp: netTime.Now(), Data: part})
 	if err != nil {
 		t.Errorf("Failed to set object: %+v", err)
 	}

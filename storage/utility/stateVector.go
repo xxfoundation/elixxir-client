@@ -388,7 +388,7 @@ func (sv *StateVector) save() error {
 		Data:      data,
 	}
 
-	return sv.kv.Set(sv.key, currentStateVectorVersion, &obj)
+	return sv.kv.Set(sv.key, &obj)
 }
 
 // Delete remove the StateVector from storage.

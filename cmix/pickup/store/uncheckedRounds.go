@@ -147,7 +147,7 @@ func storeRoundInfo(kv *versioned.KV, info *pb.RoundInfo, recipient *id.ID,
 	}
 
 	return kv.Set(
-		roundKey(id.Round(info.ID), recipient, ephID), roundInfoVersion, &obj)
+		roundKey(id.Round(info.ID), recipient, ephID), &obj)
 }
 
 func loadRoundInfo(kv *versioned.KV, id id.Round, recipient *id.ID,

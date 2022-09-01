@@ -105,7 +105,7 @@ func (g Group) store(kv *versioned.KV) error {
 		Data:      g.Serialize(),
 	}
 
-	return kv.Set(groupStoreKey(g.ID), groupStoreVersion, obj)
+	return kv.Set(groupStoreKey(g.ID), obj)
 }
 
 // loadGroup returns the group with the corresponding ID from storage.

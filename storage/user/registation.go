@@ -95,8 +95,7 @@ func (u *User) SetTransmissionRegistrationValidationSignature(b []byte) {
 		Data:      b,
 	}
 
-	err := u.kv.Set(transmissionRegValidationSigKey,
-		currentRegValidationSigVersion, obj)
+	err := u.kv.Set(transmissionRegValidationSigKey, obj)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the transmission Identity Validation "+
 			"Signature: %s", err)
@@ -122,8 +121,7 @@ func (u *User) SetReceptionRegistrationValidationSignature(b []byte) {
 		Data:      b,
 	}
 
-	err := u.kv.Set(receptionRegValidationSigKey,
-		currentRegValidationSigVersion, obj)
+	err := u.kv.Set(receptionRegValidationSigKey, obj)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the reception Identity Validation "+
 			"Signature: %s", err)
@@ -153,6 +151,8 @@ func (u *User) SetRegistrationTimestamp(tsNano int64) {
 		Data:      tsBytes,
 	}
 
+	// fixme: this had differing versions in object and set,
+	//  reviewer please confirm this is correct before merge
 	err := u.kv.Set(registrationTimestampKey,
 		registrationTimestampVersion, obj)
 	if err != nil {

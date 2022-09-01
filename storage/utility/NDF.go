@@ -43,5 +43,5 @@ func SaveNDF(kv *versioned.KV, key string, ndf *ndf.NetworkDefinition) error {
 		Data:      marshaled,
 	}
 
-	return kv.Set(key, currentNDFVersion, &obj)
+	return kv.Set(key, &obj)
 }

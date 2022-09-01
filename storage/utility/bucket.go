@@ -68,7 +68,7 @@ func (s *BucketStore) save(inBucket uint32, timestamp int64) {
 		Data:      data,
 	}
 
-	err = s.kv.Set(bucketStoreKey, bucketStoreVersion, &obj)
+	err = s.kv.Set(bucketStoreKey, &obj)
 
 	if err != nil {
 		jww.ERROR.Printf("Failed to store %s bucket data: %v",

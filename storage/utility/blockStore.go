@@ -155,7 +155,7 @@ func (bs *BlockStore) saveBlock() error {
 	}
 
 	// Save to storage
-	err = bs.kv.Set(bs.getKey(bs.lastSaved), blockVersion, &obj)
+	err = bs.kv.Set(bs.getKey(bs.lastSaved), &obj)
 	if err != nil {
 		return errors.Errorf(bKvSaveErr, bs.lastSaved, err)
 	}
@@ -214,7 +214,7 @@ func (bs *BlockStore) save() error {
 	}
 
 	// Save to storage
-	err := bs.kv.Set(blockStoreKey, blockStoreVersion, &obj)
+	err := bs.kv.Set(blockStoreKey, &obj)
 	if err != nil {
 		return errors.Errorf(bsKvSaveErr, err)
 	}

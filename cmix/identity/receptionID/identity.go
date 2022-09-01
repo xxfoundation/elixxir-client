@@ -73,7 +73,7 @@ func (i Identity) store(kv *versioned.KV) error {
 	}
 
 	// Store the data
-	err = kv.Set(identityStorageKey, identityStorageVersion, obj)
+	err = kv.Set(identityStorageKey, obj)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to store Identity")
 	}

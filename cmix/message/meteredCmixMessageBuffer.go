@@ -55,6 +55,8 @@ func (*meteredCmixMessageHandler) SaveMessage(kv *versioned.KV, m interface{},
 	}
 
 	// Save versioned object
+	// fixme: this had differing versions in object and set,
+	//  reviewer please confirm this is correct before merge
 	return kv.Set(key, utility.CurrentMessageBufferVersion, &obj)
 }
 

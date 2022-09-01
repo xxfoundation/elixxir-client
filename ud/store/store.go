@@ -94,7 +94,7 @@ func (s *Store) saveConfirmedFacts() error {
 	}
 
 	// Save to storage
-	return s.kv.Set(confirmedFactKey, version, &obj)
+	return s.kv.Set(confirmedFactKey, &obj)
 }
 
 // saveUnconfirmedFacts saves all data within Store.unconfirmedFacts into storage.
@@ -113,7 +113,7 @@ func (s *Store) saveUnconfirmedFacts() error {
 	}
 
 	// Save to storage
-	return s.kv.Set(unconfirmedFactKey, version, &obj)
+	return s.kv.Set(unconfirmedFactKey, &obj)
 
 }
 

@@ -113,5 +113,5 @@ func (s *Store) save() error {
 		Data:      []byte(s.version.String()),
 	}
 
-	return s.kv.Set(storeKey, storeVersion, &obj)
+	return s.kv.Set(storeKey, &obj)
 }

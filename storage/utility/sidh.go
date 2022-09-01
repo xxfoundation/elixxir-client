@@ -93,7 +93,7 @@ func StoreSIDHPublicKey(kv *versioned.KV, sidH *sidh.PublicKey, key string) erro
 		Data:      sidHBytes,
 	}
 
-	return kv.Set(key, currentSIDHPubKeyVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 // LoadSIDHPubKeyA loads a public key from storage.
@@ -138,7 +138,7 @@ func StoreSIDHPrivateKey(kv *versioned.KV, sidH *sidh.PrivateKey, key string) er
 		Data:      sidHBytes,
 	}
 
-	return kv.Set(key, currentSIDHPrivKeyVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 // LoadSIDHPrivateKeyA loads a public key from storage.

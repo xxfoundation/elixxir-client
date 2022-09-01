@@ -51,7 +51,7 @@ func (emh *e2eMessageHandler) SaveMessage(kv *versioned.KV, m interface{},
 	}
 
 	// Save versioned object
-	return kv.Set(key, currentE2EMessageVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 // LoadMessage returns the e2eMessage with the specified key from the key value

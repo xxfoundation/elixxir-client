@@ -126,7 +126,7 @@ func (s *Store) saveGroupList() error {
 	}
 
 	// Save to storage
-	return s.kv.Set(groupListStorageKey, groupListVersion, obj)
+	return s.kv.Set(groupListStorageKey, obj)
 }
 
 // serializeGroupIdList serializes the list of group IDs.

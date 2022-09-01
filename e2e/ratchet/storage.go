@@ -92,7 +92,7 @@ func (r *Ratchet) save() error {
 		Data:      data,
 	}
 
-	return r.kv.Set(storeKey, currentStoreVersion, &obj)
+	return r.kv.Set(storeKey, &obj)
 }
 
 // ekv functions

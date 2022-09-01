@@ -40,15 +40,14 @@ func makeRelationshipFingerprint(t session2.RelationshipType, grp *cyclic.Group,
 func storeRelationshipFingerprint(fp []byte, kv *versioned.KV) error {
 	now := netTime.Now()
 	obj := versioned.Object{
-		Version:   currentRelationshipFingerprintVersion,
+		Version:   currentRelationshipVersion,
 		Timestamp: now,
 		Data:      fp,
 	}
 
 	// fixme: this had differing versions in object and set,
 	//  reviewer please confirm this is correct before merge
-	return kv.Set(relationshipFingerprintKey, currentRelationshipVersion,
-		&obj)
+	return kv.Set(relationshipFingerprintKey, &obj)
 }
 
 func loadRelationshipFingerprint(kv *versioned.KV) []byte {

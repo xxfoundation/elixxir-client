@@ -24,8 +24,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const currentMeteredCmixMessageVersion = 0
-
 type meteredCmixMessageHandler struct{}
 
 type meteredCmixMessage struct {
@@ -49,7 +47,7 @@ func (*meteredCmixMessageHandler) SaveMessage(kv *versioned.KV, m interface{},
 
 	// Create versioned object
 	obj := versioned.Object{
-		Version:   currentMeteredCmixMessageVersion,
+		Version:   utility.CurrentMessageBufferVersion,
 		Timestamp: netTime.Now(),
 		Data:      marshaled,
 	}
@@ -57,7 +55,7 @@ func (*meteredCmixMessageHandler) SaveMessage(kv *versioned.KV, m interface{},
 	// Save versioned object
 	// fixme: this had differing versions in object and set,
 	//  reviewer please confirm this is correct before merge
-	return kv.Set(key, utility.CurrentMessageBufferVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 // LoadMessage returns the message with the specified key from the key value
@@ -66,7 +64,7 @@ func (*meteredCmixMessageHandler) SaveMessage(kv *versioned.KV, m interface{},
 func (*meteredCmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (
 	interface{}, error) {
 	// Load the versioned object
-	vo, err := kv.Get(key, currentMeteredCmixMessageVersion)
+	vo, err := kv.Get(key, utility.CurrentMessageBufferVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +83,7 @@ func (*meteredCmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (
 // DeleteMessage deletes the message with the specified key from the key value
 // store.
 func (*meteredCmixMessageHandler) DeleteMessage(kv *versioned.KV, key string) error {
-	return kv.Delete(key, currentMeteredCmixMessageVersion)
+	return kv.Delete(key, utility.CurrentMessageBufferVersion)
 }
 
 // HashMessage generates a hash of the message.

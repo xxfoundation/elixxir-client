@@ -146,15 +146,14 @@ func (u *User) SetRegistrationTimestamp(tsNano int64) {
 	binary.BigEndian.PutUint64(tsBytes, uint64(tsNano))
 
 	obj := &versioned.Object{
-		Version:   currentRegValidationSigVersion,
+		Version:   registrationTimestampVersion,
 		Timestamp: netTime.Now(),
 		Data:      tsBytes,
 	}
 
 	// fixme: this had differing versions in object and set,
 	//  reviewer please confirm this is correct before merge
-	err := u.kv.Set(registrationTimestampKey,
-		registrationTimestampVersion, obj)
+	err := u.kv.Set(registrationTimestampKey, obj)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the reception timestamp: %s", err)
 	}

@@ -423,6 +423,13 @@ func (s *Store) selectIdentities(num int, rng io.Reader, now time.Time) ([]Ident
 
 	}
 
+	jww.TRACE.Printf("Selected %d identities, first identity: EphId: %d  ID: %s  End: %s  "+
+		"StartValid: %s  EndValid: %s", len(selected),
+		selected[0].EphId.Int64(), selected[0].Source,
+		selected[0].End.Format("01/02/06 03:04:05 pm"),
+		selected[0].StartValid.Format("01/02/06 03:04:05 pm"),
+		selected[0].EndValid.Format("01/02/06 03:04:05 pm"))
+
 	return selected, nil
 }
 

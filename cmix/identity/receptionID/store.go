@@ -204,7 +204,6 @@ func (s *Store) GetIdentities(n int, rng io.Reader,
 	s.prune(now)
 
 	var identities []IdentityUse
-	var err error
 
 	// If the list is empty, then return a randomly generated identity to poll
 	// with so that we can continue tracking the network and to further
@@ -218,6 +217,7 @@ func (s *Store) GetIdentities(n int, rng io.Reader,
 		identities = append(identities, fakeIdentity)
 		// otherwise, select identities to return using a fisher-yates
 	} else {
+		var err error
 		identities, err = s.selectIdentities(n, rng, now)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to select a list of IDs: %+v", err)
@@ -264,7 +264,7 @@ func (s *Store) AddIdentity(identity Identity) error {
 }
 
 func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
-	s.mux.Lock()
+	go s.mux.Lock()
 	defer s.mux.Unlock()
 
 	for i, inQuestion := range s.active {

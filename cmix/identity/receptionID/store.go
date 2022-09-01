@@ -22,7 +22,7 @@ const (
 	receptionStoreStorageVersion = 0
 )
 
-var InvalidRequestedNumIdentities = errors.New("Cannot get less than 1 identities")
+var InvalidRequestedNumIdentities = errors.New("cannot get less than one identity(s)")
 
 type Store struct {
 	// Identities which are being actively checked
@@ -192,7 +192,7 @@ func (s *Store) GetIdentities(num int, rng io.Reader,
 	addressSize uint8) ([]IdentityUse, error) {
 
 	if num < 1 {
-		return nil, errors.New("Cannot get less than 1 identities")
+		return nil, InvalidRequestedNumIdentities
 	}
 
 	s.mux.Lock()

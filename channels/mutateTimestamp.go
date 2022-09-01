@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	// use a prime close to one million to ensure patterns dont arise due to
-	// cofactors with the message ID when doing the modulo
+	// tenMsInNs is a prime close to one million to ensure patterns dont
+	// arise due to cofactors with the message ID when doing the modulo
 	tenMsInNs     = 10000019
 	halfTenMsInNs = tenMsInNs / 2
 )

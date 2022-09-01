@@ -18,14 +18,15 @@ import (
 	"time"
 )
 
-// the userListener adheres to the broadcast listener interface and is used
-// when user messages are received on the channel
+// the userListener adheres to the [broadcast.ListenerFunc] interface and is
+// used when user messages are received on the channel
 type userListener struct {
 	name    NameService
 	chID    *id.ID
 	trigger triggerEventFunc
 }
 
+// Listen is called when a message is received for the user listener
 func (gul *userListener) Listen(payload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 

@@ -75,6 +75,8 @@ type MessageTypeReceiveMessage func(channelID *id.ID,
 	senderUsername string, content []byte, timestamp time.Time,
 	lease time.Duration, round rounds.Round)
 
+// events is an internal structure which processes events and stores the
+// handlers for those events
 type events struct {
 	model      EventModel
 	registered map[MessageType]MessageTypeReceiveMessage

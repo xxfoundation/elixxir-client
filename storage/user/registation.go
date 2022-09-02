@@ -151,8 +151,6 @@ func (u *User) SetRegistrationTimestamp(tsNano int64) {
 		Data:      tsBytes,
 	}
 
-	// fixme: this had differing versions in object and set,
-	//  reviewer please confirm this is correct before merge
 	err := u.kv.Set(registrationTimestampKey, obj)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the reception timestamp: %s", err)

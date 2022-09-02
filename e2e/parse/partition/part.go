@@ -34,8 +34,6 @@ func savePart(kv *versioned.KV, partNum uint8, part []byte) error {
 		Timestamp: netTime.Now(),
 		Data:      part,
 	}
-	// fixme: this had differing versions in object and set,
-	//  reviewer please confirm this is correct before merge
 	return kv.Set(key, &obj)
 }
 

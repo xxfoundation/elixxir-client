@@ -45,8 +45,6 @@ func storeRelationshipFingerprint(fp []byte, kv *versioned.KV) error {
 		Data:      fp,
 	}
 
-	// fixme: this had differing versions in object and set,
-	//  reviewer please confirm this is correct before merge
 	return kv.Set(relationshipFingerprintKey, &obj)
 }
 

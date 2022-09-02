@@ -72,8 +72,6 @@ func (r *registrar) save() error {
 		Data:      data,
 	}
 
-	// fixme: this had differing versions in object and set,
-	//  reviewer please confirm this is correct before merge
 	return r.kv.Set(storeKey, &obj)
 }
 

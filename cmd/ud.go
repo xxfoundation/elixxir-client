@@ -252,8 +252,8 @@ var udCmd = &cobra.Command{
 // to contact UD.
 func getUdContactInfo(user *xxdk.E2e) (cert, contactFile []byte, address string, err error) {
 	// Retrieve address
-	address = string([]byte(user.GetCmix().GetInstance().GetPartialNdf().
-		Get().UDB.Address))
+	address = string(user.GetCmix().GetInstance().GetPartialNdf().
+		Get().UDB.Address)
 
 	// Retrieve certificate
 	cert = []byte(user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.Cert)

@@ -21,7 +21,7 @@ import (
 const currentVersion = "4.2.0"
 
 func Version() string {
-	out := fmt.Sprintf("Elixxir Cmix v%s -- %s\n\n", xxdk.SEMVER,
+	out := fmt.Sprintf("Elixxir Client v%s -- %s\n\n", xxdk.SEMVER,
 		xxdk.GITVERSION)
 	out += fmt.Sprintf("Dependencies:\n\n%s\n", xxdk.DEPENDENCIES)
 	return out

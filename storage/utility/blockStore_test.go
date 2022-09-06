@@ -215,7 +215,7 @@ func TestBlockStore_loadBlock_UnmarshalError(t *testing.T) {
 	}
 
 	// Save to storage
-	err := bs.kv.Set(bs.getKey(bs.lastSaved), blockVersion, &obj)
+	err := bs.kv.Set(bs.getKey(bs.lastSaved), &obj)
 	if err != nil {
 		t.Errorf("Failed to save data to KV: %+v", err)
 	}
@@ -345,7 +345,7 @@ func TestBlockStore_load_UnmarshalError(t *testing.T) {
 	}
 
 	// Save to storage
-	err := kv.Set(blockStoreKey, blockStoreVersion, &obj)
+	err := kv.Set(blockStoreKey, &obj)
 	if err != nil {
 		t.Fatalf("failed to save object to storage: %+v", err)
 	}

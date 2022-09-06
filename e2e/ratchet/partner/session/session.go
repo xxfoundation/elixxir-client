@@ -239,7 +239,7 @@ func (s *Session) Save() error {
 
 	jww.WARN.Printf("saving with KV: %v", s.kv)
 
-	return s.kv.Set(sessionKey, currentSessionVersion, &obj)
+	return s.kv.Set(sessionKey, &obj)
 }
 
 /*METHODS*/

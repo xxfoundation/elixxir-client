@@ -30,12 +30,11 @@ func savePart(kv *versioned.KV, partNum uint8, part []byte) error {
 	key := makeMultiPartMessagePartKey(partNum)
 
 	obj := versioned.Object{
-		Version:   currentMultiPartMessagePartVersion,
+		Version:   currentMultiPartMessageVersion,
 		Timestamp: netTime.Now(),
 		Data:      part,
 	}
-
-	return kv.Set(key, currentMultiPartMessageVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 func deletePart(kv *versioned.KV, partNum uint8) error {

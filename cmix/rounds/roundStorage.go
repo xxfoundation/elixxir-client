@@ -32,7 +32,7 @@ func StoreRound(kv *versioned.KV, round Round, key string) error {
 		Data:      marshaled,
 	}
 
-	return kv.Set(key, currentRoundVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 // LoadRound stores the round using the key.

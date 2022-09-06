@@ -39,7 +39,7 @@ func setRegistered(kv *versioned.KV) error {
 		Data:      data,
 	}
 
-	if err := kv.Set(isRegisteredKey, isRegisteredVersion, obj); err != nil {
+	if err := kv.Set(isRegisteredKey, obj); err != nil {
 		jww.FATAL.Panicf("Failed to store that the client is "+
 			"registered: %+v", err)
 	}

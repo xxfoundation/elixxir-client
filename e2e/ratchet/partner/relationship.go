@@ -161,7 +161,7 @@ func (r *relationship) save() error {
 		Data:      data,
 	}
 
-	return r.kv.Set(relationshipKey, currentRelationshipVersion, &obj)
+	return r.kv.Set(relationshipKey, &obj)
 }
 
 //ekv functions

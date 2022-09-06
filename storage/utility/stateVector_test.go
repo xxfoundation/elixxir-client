@@ -582,7 +582,7 @@ func TestLoadStateVector_UnmarshalError(t *testing.T) {
 		Timestamp: netTime.Now(),
 		Data:      []byte("invalidStateVector"),
 	}
-	err := kv.Set(makeStateVectorKey(key), currentStateVectorVersion, &obj)
+	err := kv.Set(makeStateVectorKey(key), &obj)
 	if err != nil {
 		t.Errorf("Failed to save invalid StateVector to storage: %+v", err)
 	}

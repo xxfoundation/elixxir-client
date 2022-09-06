@@ -157,7 +157,7 @@ func (r *Received) save() error {
 		Data:      data,
 	}
 
-	return r.kv.Set(receivedTransfersStoreKey, receivedTransfersStoreVersion, obj)
+	return r.kv.Set(receivedTransfersStoreKey, obj)
 }
 
 // marshalReceivedTransfersMap serialises the list of transfer IDs from a

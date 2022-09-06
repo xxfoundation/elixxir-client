@@ -29,7 +29,7 @@ func StoreCyclicKey(kv *versioned.KV, cy *cyclic.Int, key string) error {
 		Data:      data,
 	}
 
-	return kv.Set(key, currentCyclicVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 func LoadCyclicKey(kv *versioned.KV, key string) (*cyclic.Int, error) {

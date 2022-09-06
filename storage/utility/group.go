@@ -29,7 +29,7 @@ func StoreGroup(kv *versioned.KV, grp *cyclic.Group, key string) error {
 		Data:      data,
 	}
 
-	return kv.Set(key, currentGroupVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 func LoadGroup(kv *versioned.KV, key string) (*cyclic.Group, error) {

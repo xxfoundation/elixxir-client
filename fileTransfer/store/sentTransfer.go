@@ -346,7 +346,7 @@ func (st *SentTransfer) save() error {
 		Data:      data,
 	}
 
-	return st.kv.Set(sentTransferStoreKey, sentTransferStoreVersion, obj)
+	return st.kv.Set(sentTransferStoreKey, obj)
 }
 
 // sentTransferDisk structure is used to marshal and unmarshal SentTransfer

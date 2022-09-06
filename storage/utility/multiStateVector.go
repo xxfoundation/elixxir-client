@@ -502,7 +502,7 @@ func (msv *MultiStateVector) save() error {
 		Data:      data,
 	}
 
-	return msv.kv.Set(msv.key, multiStateVectorVersion, obj)
+	return msv.kv.Set(msv.key, obj)
 }
 
 // Delete removes the MultiStateVector from storage.

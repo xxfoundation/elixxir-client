@@ -39,7 +39,7 @@ func (u *User) SetUsername(username string) error {
 		Data:      []byte(username),
 	}
 
-	err := u.kv.Set(usernameKey, currentUsernameVersion, obj)
+	err := u.kv.Set(usernameKey, obj)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the username: %s", err)
 	}

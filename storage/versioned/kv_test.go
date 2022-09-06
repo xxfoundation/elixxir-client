@@ -188,7 +188,7 @@ func TestVersionedKV_Set(t *testing.T) {
 		Timestamp: netTime.Now(),
 		Data:      []byte("not upgraded"),
 	}
-	err := vkv.Set("test", originalVersion, &original)
+	err := vkv.Set("test", &original)
 	if err != nil {
 		t.Fatal(err)
 	}

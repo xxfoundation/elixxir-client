@@ -216,8 +216,7 @@ func (ci *CryptographicIdentity) save(kv *versioned.KV) error {
 		Data:      enc,
 	}
 
-	return kv.Set(cryptographicIdentityKey,
-		currentCryptographicIdentityVersion, obj)
+	return kv.Set(cryptographicIdentityKey, obj)
 }
 
 func (ci *CryptographicIdentity) GetTransmissionID() *id.ID {

@@ -84,7 +84,7 @@ func (k *key) save() error {
 		Data:      data,
 	}
 
-	return k.kv.Set(k.storeKey, currentKeyVersion, &obj)
+	return k.kv.Set(k.storeKey, &obj)
 }
 
 // delete deletes the key from the versioned keystore.

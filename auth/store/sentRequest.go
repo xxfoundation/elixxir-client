@@ -211,8 +211,7 @@ func (sr *SentRequest) save() error {
 		Data:      data,
 	}
 
-	return sr.kv.Set(makeSentRequestKey(sr.partner),
-		currentSentRequestVersion, &obj)
+	return sr.kv.Set(makeSentRequestKey(sr.partner), &obj)
 }
 
 func (sr *SentRequest) delete() {
@@ -296,7 +295,7 @@ func upgradeSentRequestKeyV0(kv *versioned.KV, partner *id.ID) error {
 
 	// Note: uses same encoding, just different keys
 	obj.Version = 1
-	err = kv.Set(makeSentRequestKey(partner), 1, obj)
+	err = kv.Set(makeSentRequestKey(partner), obj)
 	if err != nil {
 		return err
 	}

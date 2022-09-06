@@ -48,8 +48,7 @@ func (s *Store) StoreConfirmation(partner *id.ID,
 		Data:      confirmBytes,
 	}
 
-	return s.kv.Set(makeConfirmationKey(partner),
-		currentConfirmationVersion, obj)
+	return s.kv.Set(makeConfirmationKey(partner), obj)
 }
 
 // LoadConfirmation loads the confirmation for the given partner and fingerprint

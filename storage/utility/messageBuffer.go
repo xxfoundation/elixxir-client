@@ -146,7 +146,7 @@ func (mb *MessageBuffer) save() error {
 	}
 
 	// Save versioned object
-	return mb.kv.Set(mb.key, CurrentMessageBufferVersion, &obj)
+	return mb.kv.Set(mb.key, &obj)
 }
 
 // getMessageList returns a list of all message hashes stored in messages and

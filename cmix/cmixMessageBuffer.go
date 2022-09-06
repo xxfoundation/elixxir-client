@@ -52,7 +52,7 @@ func (cmh *cmixMessageHandler) SaveMessage(
 	}
 
 	// Save versioned object
-	return kv.Set(key, currentCmixMessageVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 // LoadMessage returns the message with the specified key from the key value

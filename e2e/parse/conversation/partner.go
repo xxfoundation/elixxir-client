@@ -163,7 +163,7 @@ func (c *Conversation) save() error {
 	}
 
 	key := makeConversationKey(c.partner)
-	return c.kv.Set(key, currentConversationVersion, &obj)
+	return c.kv.Set(key, &obj)
 }
 
 // delete removes the Conversation from KV storage.

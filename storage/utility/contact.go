@@ -35,7 +35,7 @@ func StoreContact(kv *versioned.KV, c contact.Contact) error {
 		Data:      c.Marshal(),
 	}
 
-	return kv.Set(makeContactKey(c.ID), currentContactVersion, &obj)
+	return kv.Set(makeContactKey(c.ID), &obj)
 }
 
 // LoadContact reads a contact from a versioned.KV vie their contact ID.

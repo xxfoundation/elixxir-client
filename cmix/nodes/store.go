@@ -67,12 +67,12 @@ func (r *registrar) save() error {
 	}
 
 	obj := versioned.Object{
-		Version:   currentStoreVersion,
+		Version:   currentKeyVersion,
 		Timestamp: now,
 		Data:      data,
 	}
 
-	return r.kv.Set(storeKey, currentKeyVersion, &obj)
+	return r.kv.Set(storeKey, &obj)
 }
 
 // marshal builds a byte representation of the registrar.

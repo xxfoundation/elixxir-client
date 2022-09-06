@@ -29,7 +29,7 @@ func StoreID(kv *versioned.KV, sid *id.ID, key string) error {
 		Data:      data,
 	}
 
-	return kv.Set(key, currentIDVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 func LoadID(kv *versioned.KV, key string) (*id.ID, error) {

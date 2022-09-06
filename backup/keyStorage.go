@@ -38,7 +38,7 @@ func saveBackup(key, salt []byte, params backup.Params, kv *versioned.KV) error 
 		Data:      marshalBackup(key, salt, params),
 	}
 
-	return kv.Set(cryptoStorageKey, cryptoStorageVersion, obj)
+	return kv.Set(cryptoStorageKey, obj)
 }
 
 // loadBackup loads the key, salt, and params from storage.

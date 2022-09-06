@@ -225,7 +225,7 @@ func (s *UncheckedRoundStore) save() error {
 	}
 
 	// Save to storage
-	err = s.kv.Set(uncheckedRoundKey, uncheckedRoundVersion, obj)
+	err = s.kv.Set(uncheckedRoundKey, obj)
 	if err != nil {
 		return errors.WithMessagef(err,
 			"Could not store data for unchecked rounds")

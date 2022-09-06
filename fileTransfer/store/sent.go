@@ -165,7 +165,7 @@ func (s *Sent) save() error {
 		Data:      data,
 	}
 
-	return s.kv.Set(sentTransfersStoreKey, sentTransfersStoreVersion, obj)
+	return s.kv.Set(sentTransfersStoreKey, obj)
 }
 
 // marshalSentTransfersMap serialises the list of transfer IDs from a

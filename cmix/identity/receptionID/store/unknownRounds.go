@@ -223,7 +223,7 @@ func (urs *UnknownRounds) save() error {
 	}
 
 	// Save to disk
-	return urs.kv.Set(unknownRoundsStorageKey, unknownRoundsStorageVersion, obj)
+	return urs.kv.Set(unknownRoundsStorageKey, obj)
 }
 
 func (urs *UnknownRounds) Delete() {

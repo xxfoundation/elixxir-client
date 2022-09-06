@@ -394,7 +394,7 @@ func (t *manager) save() {
 		Data:      data,
 	}
 
-	err = t.session.GetKV().Set(TrackerListKey, TrackerListVersion, obj)
+	err = t.session.GetKV().Set(TrackerListKey, obj)
 	if err != nil {
 		jww.FATAL.Panicf("Unable to save TrackedID list: %+v", err)
 	}

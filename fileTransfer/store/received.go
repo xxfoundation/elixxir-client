@@ -13,7 +13,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 )
@@ -56,7 +55,7 @@ func NewOrLoadReceived(kv *versioned.KV) (*Received, []*ReceivedTransfer, error)
 
 	obj, err := s.kv.Get(receivedTransfersStoreKey, receivedTransfersStoreVersion)
 	if err != nil {
-		if ekv.Exists(err) {
+		if kv.Exists(err) {
 			return nil, nil, errors.Errorf(errLoadReceived, err)
 		} else {
 			return s, nil, nil

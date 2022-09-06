@@ -16,7 +16,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e/auth"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -122,7 +121,7 @@ func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]bool, error) {
 	obj, err := s.kv.Get(negotiationPartnersKey, negotiationPartnersVersion)
 
 	// V0 Upgrade Path
-	if !ekv.Exists(err) {
+	if !s.kv.Exists(err) {
 		upgradeErr := upgradePreviousNegotiationsV0(s.kv)
 		if upgradeErr != nil {
 			return nil, errors.Wrapf(err, "%+v", upgradeErr)
@@ -132,7 +131,7 @@ func (s *Store) newOrLoadPreviousNegotiations() (map[id.ID]bool, error) {
 	}
 
 	// Note: if it still doesn't exist, return an empty one.
-	if err != nil && !ekv.Exists(err) {
+	if err != nil && !s.kv.Exists(err) {
 		newPreviousNegotiations := make(map[id.ID]bool)
 		return newPreviousNegotiations, nil
 	} else if err != nil {
@@ -271,7 +270,7 @@ func unmarshalPreviousNegotiationsV0(buf []byte) map[id.ID]struct{} {
 // to V1
 func upgradePreviousNegotiationsV0(kv *versioned.KV) error {
 	obj, err := kv.Get(negotiationPartnersKey, 0)
-	if !ekv.Exists(err) {
+	if !kv.Exists(err) {
 		return nil
 	}
 

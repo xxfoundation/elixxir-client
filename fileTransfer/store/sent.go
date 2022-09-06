@@ -13,7 +13,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
@@ -58,7 +57,7 @@ func NewOrLoadSent(kv *versioned.KV) (*Sent, []Part, error) {
 
 	obj, err := s.kv.Get(sentTransfersStoreKey, sentTransfersStoreVersion)
 	if err != nil {
-		if !ekv.Exists(err) {
+		if !kv.Exists(err) {
 			// Return the new Sent if none exists in storage
 			return s, nil, nil
 		} else {

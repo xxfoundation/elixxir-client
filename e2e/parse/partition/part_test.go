@@ -87,7 +87,7 @@ func Test_loadPart_NotFoundError(t *testing.T) {
 
 	// Load part from key value store
 	data, err := loadPart(kv, partNum)
-	if ekv.Exists(err) {
+	if kv.Exists(err) {
 		t.Errorf("loadPart found an item for the key: %v", err)
 	}
 
@@ -121,7 +121,7 @@ func TestDeletePart(t *testing.T) {
 
 	// Check if part was deleted
 	_, err = loadPart(kv, partNum)
-	if ekv.Exists(err) {
+	if kv.Exists(err) {
 		t.Errorf("part was found in key value store: %+v", err)
 	}
 }

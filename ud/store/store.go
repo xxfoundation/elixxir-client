@@ -15,8 +15,6 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/netTime"
-	"io/fs"
-	"strings"
 	"sync"
 )
 
@@ -138,8 +136,7 @@ func NewOrLoadStore(kv *versioned.KV) (*Store, error) {
 	}
 
 	if err := s.load(); err != nil {
-		if strings.Contains(err.Error(), "object not found") ||
-			errors.Is(err, fs.ErrNotExist) {
+		if err != nil && !s.kv.Exists(err) {
 			return s, s.save()
 		}
 	}

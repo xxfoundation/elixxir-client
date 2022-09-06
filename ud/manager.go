@@ -38,7 +38,8 @@ type Manager struct {
 	// This information is specified in Manager's constructors (NewOrLoad and NewManagerFromBackup).
 	ud *userDiscovery
 
-	//
+	// nameService adheres to the channels.NameService interface. This is
+	// implemented using the clientIDTracker.
 	nameService *clientIDTracker
 }
 

@@ -29,7 +29,7 @@ const (
 // Error constants
 const (
 	malformedFactErr = "Failed to load due to " +
-		"malformed fact"
+		"malformed fact: %s"
 	loadConfirmedFactErr   = "Failed to load confirmed facts"
 	loadUnconfirmedFactErr = "Failed to load unconfirmed facts"
 	saveUnconfirmedFactErr = "Failed to save unconfirmed facts"
@@ -53,8 +53,8 @@ func newStore(kv *versioned.KV) (*Store, error) {
 	kv = kv.Prefix(prefix)
 
 	s := &Store{
-		confirmedFacts:   make(map[fact.Fact]struct{}, 0),
-		unconfirmedFacts: make(map[string]fact.Fact, 0),
+		confirmedFacts:   make(map[fact.Fact]struct{}),
+		unconfirmedFacts: make(map[string]fact.Fact),
 		kv:               kv,
 	}
 
@@ -276,7 +276,8 @@ func (s *Store) unmarshalUnconfirmedFacts(data []byte) (map[string]fact.Fact, er
 		ufd := ufdList[i]
 		f, err := fact.UnstringifyFact(ufd.stringifiedFact)
 		if err != nil {
-			return unconfirmedFacts, errors.WithMessage(err, malformedFactErr)
+			return unconfirmedFacts, errors.WithMessagef(err,
+				malformedFactErr, string(data))
 		}
 
 		unconfirmedFacts[ufd.confirmationId] = f

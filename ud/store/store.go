@@ -48,8 +48,8 @@ type Store struct {
 	mux              sync.RWMutex
 }
 
-// NewStore creates a new, empty Store object.
-func NewStore(kv *versioned.KV) (*Store, error) {
+// newStore creates a new, empty Store object.
+func newStore(kv *versioned.KV) (*Store, error) {
 	kv = kv.Prefix(prefix)
 
 	s := &Store{
@@ -130,14 +130,11 @@ func (s *Store) saveUnconfirmedFacts() error {
 func NewOrLoadStore(kv *versioned.KV) (*Store, error) {
 
 	s := &Store{
-		confirmedFacts:   make(map[fact.Fact]struct{}, 0),
-		unconfirmedFacts: make(map[string]fact.Fact, 0),
-		kv:               kv.Prefix(prefix),
+		kv: kv.Prefix(prefix),
 	}
-
 	if err := s.load(); err != nil {
 		if !s.kv.Exists(err) {
-			return s, s.save()
+			return newStore(kv)
 		} else {
 			return nil, err
 		}
@@ -250,10 +247,11 @@ func (s *Store) unmarshalConfirmedFacts(data []byte) (map[fact.Fact]struct{}, er
 
 	// Deserialize the list into a map
 	confirmedFacts := make(map[fact.Fact]struct{}, 0)
-	for _, fStr := range fStrings {
+	for i := range fStrings {
+		fStr := fStrings[i]
 		f, err := fact.UnstringifyFact(fStr)
 		if err != nil {
-			return nil, errors.WithMessage(err, malformedFactErr)
+			return confirmedFacts, errors.WithMessage(err, malformedFactErr)
 		}
 
 		confirmedFacts[f] = struct{}{}

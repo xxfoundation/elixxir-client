@@ -274,10 +274,11 @@ func (s *Store) unmarshalUnconfirmedFacts(data []byte) (map[string]fact.Fact, er
 
 	// Deserialize the list into a map
 	unconfirmedFacts := make(map[string]fact.Fact, 0)
-	for _, ufd := range ufdList {
+	for i := range ufdList {
+		ufd := ufdList[i]
 		f, err := fact.UnstringifyFact(ufd.stringifiedFact)
 		if err != nil {
-			return nil, errors.WithMessage(err, malformedFactErr)
+			return unconfirmedFacts, errors.WithMessage(err, malformedFactErr)
 		}
 
 		unconfirmedFacts[ufd.confirmationId] = f

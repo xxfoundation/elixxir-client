@@ -136,8 +136,10 @@ func NewOrLoadStore(kv *versioned.KV) (*Store, error) {
 	}
 
 	if err := s.load(); err != nil {
-		if err != nil && !s.kv.Exists(err) {
+		if !s.kv.Exists(err) {
 			return s, s.save()
+		} else {
+			return nil, err
 		}
 	}
 

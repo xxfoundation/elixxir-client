@@ -6,7 +6,6 @@ require (
 	github.com/cloudflare/circl v1.2.0
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang/protobuf v1.5.2
-	github.com/hack-pad/go-indexeddb v0.2.0
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.6.0
@@ -33,6 +32,7 @@ require (
 	github.com/badoux/checkmail v1.2.1 // indirect
 	github.com/elliotchance/orderedmap v1.4.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
+	github.com/hack-pad/go-indexeddb v0.2.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.1.0 // indirect

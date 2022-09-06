@@ -242,8 +242,9 @@ func (s *Store) HandleReceivedRequest(partner *id.ID, handler func(*ReceivedRequ
 
 	s.mux.RLock()
 	rr, ok := s.receivedByID[*partner]
+	s.mux.RUnlock()
+
 	if !ok {
-		s.mux.RUnlock()
 		return errors.Errorf("Received request not "+
 			"found: %s", partner)
 	}
@@ -252,7 +253,16 @@ func (s *Store) HandleReceivedRequest(partner *id.ID, handler func(*ReceivedRequ
 	rr.mux.Lock()
 	defer rr.mux.Unlock()
 
+	// Check that the request still exists; it could have been deleted while the
+	// lock was taken
+	s.mux.RLock()
+	_, ok = s.receivedByID[*partner]
 	s.mux.RUnlock()
+
+	if !ok {
+		return errors.Errorf("Received request not "+
+			"found: %s", partner)
+	}
 
 	//run the handler
 	handleErr := handler(rr)

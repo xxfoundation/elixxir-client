@@ -12,6 +12,7 @@ package ud
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -28,8 +29,7 @@ const (
 
 // Error constants
 const (
-	malformedFactErr = "Failed to load due to " +
-		"malformed fact: %s"
+	malformedFactErr       = "Failed to load due to malformed fact %s"
 	loadConfirmedFactErr   = "Failed to load confirmed facts"
 	loadUnconfirmedFactErr = "Failed to load unconfirmed facts"
 	saveUnconfirmedFactErr = "Failed to save unconfirmed facts"
@@ -276,6 +276,7 @@ func (s *Store) unmarshalUnconfirmedFacts(data []byte) (map[string]fact.Fact, er
 		ufd := ufdList[i]
 		f, err := fact.UnstringifyFact(ufd.stringifiedFact)
 		if err != nil {
+			jww.ERROR.Printf("Bad fact data: %s", data)
 			return unconfirmedFacts, errors.WithMessagef(err,
 				malformedFactErr, string(data))
 		}

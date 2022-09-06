@@ -12,7 +12,6 @@ package ud
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -251,7 +250,8 @@ func (s *Store) unmarshalConfirmedFacts(data []byte) (map[fact.Fact]struct{}, er
 		fStr := fStrings[i]
 		f, err := fact.UnstringifyFact(fStr)
 		if err != nil {
-			return confirmedFacts, errors.WithMessage(err, malformedFactErr)
+			return confirmedFacts, errors.WithMessagef(err,
+				malformedFactErr, string(data))
 		}
 
 		confirmedFacts[f] = struct{}{}
@@ -276,7 +276,6 @@ func (s *Store) unmarshalUnconfirmedFacts(data []byte) (map[string]fact.Fact, er
 		ufd := ufdList[i]
 		f, err := fact.UnstringifyFact(ufd.stringifiedFact)
 		if err != nil {
-			jww.ERROR.Printf("Bad fact data: %s", data)
 			return unconfirmedFacts, errors.WithMessagef(err,
 				malformedFactErr, string(data))
 		}

@@ -23,8 +23,6 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-const NoRequest = "Request Not Found"
-
 const storePrefix = "requestMap"
 const requestMapKey = "map"
 

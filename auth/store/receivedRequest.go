@@ -33,7 +33,7 @@ type ReceivedRequest struct {
 	round rounds.Round
 
 	//lock to make sure only one operator at a time
-	mux *sync.Mutex
+	mux sync.Mutex
 }
 
 func newReceivedRequest(kv *versioned.KV, c contact.Contact,
@@ -60,7 +60,6 @@ func newReceivedRequest(kv *versioned.KV, c contact.Contact,
 		partner:          c,
 		theirSidHPubKeyA: key,
 		round:            round,
-		mux:              &sync.Mutex{},
 	}
 }
 

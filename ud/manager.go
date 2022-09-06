@@ -37,6 +37,9 @@ type Manager struct {
 	// ud is the tracker for the contact information of the specified UD server.
 	// This information is specified in Manager's constructors (NewOrLoad and NewManagerFromBackup).
 	ud *userDiscovery
+
+	//
+	nameService *clientIDTracker
 }
 
 // NewOrLoad loads an existing Manager from storage or creates a

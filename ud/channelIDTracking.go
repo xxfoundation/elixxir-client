@@ -25,7 +25,6 @@ const (
 	graceDuration           time.Duration = time.Hour
 )
 
-var startChannelNameServiceOnce sync.Once
 var ErrChannelLeaseSignature = errors.New("failure to validate lease signature")
 
 // loadRegistrationDisk loads a registrationDisk from the kv
@@ -356,24 +355,26 @@ func (c *clientIDTracker) requestChannelLease() (int64, []byte, error) {
 
 // StartChannelNameService creates a new clientIDTracker
 // and returns a reference to it's type as the NameService interface.
-// However it's scheduler thread isn't started until it's Start
+// However, it's scheduler thread isn't started until it's Start
 // method is called.
-func (m *Manager) StartChannelNameService() channels.NameService {
-	udPubKeyBytes := m.user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.DhPubKey
-	var service channels.NameService
-	username, err := m.store.GetUsername()
-	if err != nil {
-		jww.FATAL.Panic(err)
-	}
-	startChannelNameServiceOnce.Do(func() {
-		service = newclientIDTracker(
+func (m *Manager) StartChannelNameService() (channels.NameService, error) {
+
+	if m.nameService == nil {
+		udPubKeyBytes := m.user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.DhPubKey
+		username, err := m.store.GetUsername()
+		if err != nil {
+			return nil, err
+		}
+		m.nameService = newclientIDTracker(
 			m.comms,
 			m.ud.host,
 			username,
 			m.getKv(),
 			m.user.GetReceptionIdentity(),
-			ed25519.PublicKey(udPubKeyBytes),
+			udPubKeyBytes,
 			m.getRng())
-	})
-	return service
+
+	}
+
+	return m.nameService, nil
 }

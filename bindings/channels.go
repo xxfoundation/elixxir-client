@@ -84,7 +84,7 @@ func (cmt *channelManagerTracker) delete(id int) {
 // Basic Channel API                                                          //
 ////////////////////////////////////////////////////////////////////////////////
 
-// ChannelsManager is a bindings-layer struct that wraps an [channels.Manager]
+// ChannelsManager is a bindings-layer struct that wraps a [channels.Manager]
 // interface.
 type ChannelsManager struct {
 	api channels.Manager
@@ -96,7 +96,12 @@ func (cm *ChannelsManager) GetID() int {
 	return cm.id
 }
 
-// todo: docstring
+// NewChannelsManager constructs a ChannelsManager.
+//
+// Parameters:
+//  - e2eID - The tracked e2e object ID. This can be retrieved using [E2e.GetID].
+//  - udID  - The tracked UD object ID. This can be retrieved using
+//    [UserDiscovery.GetID].
 func NewChannelsManager(e2eID, udID int) (*ChannelsManager, error) {
 	// Get user from singleton
 	user, err := e2eTrackerSingleton.get(e2eID)

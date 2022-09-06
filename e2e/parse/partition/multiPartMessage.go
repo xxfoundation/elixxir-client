@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
@@ -57,7 +56,7 @@ func loadOrCreateMultiPartMessage(sender *id.ID, messageID uint64,
 
 	obj, err := kv.Get(messageKey, currentMultiPartMessageVersion)
 	if err != nil {
-		if !ekv.Exists(err) {
+		if !kv.Exists(err) {
 			mpm := &multiPartMessage{
 				Sender:          sender,
 				MessageID:       messageID,

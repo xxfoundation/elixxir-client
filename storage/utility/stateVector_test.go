@@ -563,7 +563,7 @@ func TestLoadStateVector_GetError(t *testing.T) {
 	expectedErr := "object not found"
 
 	_, err := LoadStateVector(kv, key)
-	if err == nil || err.Error() != expectedErr {
+	if err == nil || kv.Exists(err) {
 		t.Fatalf("LoadStateVector did not return the expected error when no "+
 			"object exists in storage.\nexpected: %s\nreceived: %+v",
 			expectedErr, err)

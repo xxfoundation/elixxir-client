@@ -264,7 +264,7 @@ func TestMultiPartMessage_delete(t *testing.T) {
 
 	mpm.delete()
 	obj, err := kv.Get(messageKey, 0)
-	if ekv.Exists(err) {
+	if kv.Exists(err) {
 		t.Errorf("delete did not properly delete key %s."+
 			"\n\tobject received: %+v", messageKey, obj)
 	}

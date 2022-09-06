@@ -11,7 +11,6 @@ import (
 	"bytes"
 	"gitlab.com/elixxir/client/xxdk"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -151,7 +150,7 @@ func Test_resumeBackup_NoKeyError(t *testing.T) {
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	_, err := ResumeBackup(nil, &xxdk.Container{}, newMockE2e(t), newMockSession(t),
 		newMockUserDiscovery(), s.GetKV(), rngGen)
-	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+	if err == nil || s.GetKV().Exists(err) {
 		t.Errorf("ResumeBackup did not return the expected error when no "+
 			"password is present.\nexpected: %s\nreceived: %+v", expectedErr, err)
 	}

@@ -19,7 +19,6 @@ import (
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -77,7 +76,7 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 	obj, err := kv.Get(srKey, currentSentRequestVersion)
 
 	// V0 Upgrade Path
-	if !ekv.Exists(err) {
+	if !kv.Exists(err) {
 		upgradeErr := upgradeSentRequestKeyV0(kv, partner)
 		if upgradeErr != nil {
 			return nil, errors.Wrapf(err, "%+v", upgradeErr)

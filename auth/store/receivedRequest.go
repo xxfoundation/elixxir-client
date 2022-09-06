@@ -10,7 +10,6 @@ import (
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -77,11 +76,11 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 	}
 
 	round, err := rounds.LoadRound(kv, makeRoundKey(partner))
-	if err != nil && ekv.Exists(err) {
+	if err != nil && kv.Exists(err) {
 		return nil, errors.WithMessagef(err, "Failed to Load "+
 			"round request was received on with %s",
 			partner)
-	} else if err != nil && !ekv.Exists(err) {
+	} else if err != nil && !kv.Exists(err) {
 		jww.WARN.Printf("No round info for partner %s", partner)
 	}
 

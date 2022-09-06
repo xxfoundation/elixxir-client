@@ -14,9 +14,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"io/fs"
 	"math"
-	"strings"
 	"sync"
 )
 
@@ -51,7 +49,7 @@ type conversationDisk struct {
 // saved to KV, and returned.
 func LoadOrMakeConversation(kv *versioned.KV, partner *id.ID) *Conversation {
 	c, err := loadConversation(kv, partner)
-	if err != nil && !(errors.Is(err, fs.ErrNotExist) || strings.Contains(err.Error(), "object not found")) {
+	if err != nil && kv.Exists(err) {
 		jww.FATAL.Panicf("Failed to load conversation from storage: %+v", err)
 	} else if c == nil {
 		// Create new conversation and save to KV if one does not exist

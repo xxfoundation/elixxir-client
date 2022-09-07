@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package nodes
 
@@ -67,12 +67,12 @@ func (r *registrar) save() error {
 	}
 
 	obj := versioned.Object{
-		Version:   currentStoreVersion,
+		Version:   currentKeyVersion,
 		Timestamp: now,
 		Data:      data,
 	}
 
-	return r.kv.Set(storeKey, currentKeyVersion, &obj)
+	return r.kv.Set(storeKey, &obj)
 }
 
 // marshal builds a byte representation of the registrar.

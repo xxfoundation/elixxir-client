@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package utility
 
@@ -68,7 +68,7 @@ func (s *BucketStore) save(inBucket uint32, timestamp int64) {
 		Data:      data,
 	}
 
-	err = s.kv.Set(bucketStoreKey, bucketStoreVersion, &obj)
+	err = s.kv.Set(bucketStoreKey, &obj)
 
 	if err != nil {
 		jww.ERROR.Printf("Failed to store %s bucket data: %v",

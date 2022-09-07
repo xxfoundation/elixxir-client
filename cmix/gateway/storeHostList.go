@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package gateway
@@ -36,7 +36,7 @@ func saveHostList(kv *versioned.KV, list []*id.ID) error {
 		Timestamp: netTime.Now(),
 	}
 
-	return kv.Set(hostListKey, hostListVersion, obj)
+	return kv.Set(hostListKey, obj)
 }
 
 // getHostList returns the host list from storage.

@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package groupStore
 
@@ -126,7 +126,7 @@ func (s *Store) saveGroupList() error {
 	}
 
 	// Save to storage
-	return s.kv.Set(groupListStorageKey, groupListVersion, obj)
+	return s.kv.Set(groupListStorageKey, obj)
 }
 
 // serializeGroupIdList serializes the list of group IDs.

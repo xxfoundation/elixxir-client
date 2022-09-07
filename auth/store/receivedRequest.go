@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package store
 
 import (
@@ -10,7 +17,6 @@ import (
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -27,7 +33,7 @@ type ReceivedRequest struct {
 	round rounds.Round
 
 	//lock to make sure only one operator at a time
-	mux *sync.Mutex
+	mux sync.Mutex
 }
 
 func newReceivedRequest(kv *versioned.KV, c contact.Contact,
@@ -54,7 +60,6 @@ func newReceivedRequest(kv *versioned.KV, c contact.Contact,
 		partner:          c,
 		theirSidHPubKeyA: key,
 		round:            round,
-		mux:              &sync.Mutex{},
 	}
 }
 
@@ -77,11 +82,11 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 	}
 
 	round, err := rounds.LoadRound(kv, makeRoundKey(partner))
-	if err != nil && ekv.Exists(err) {
+	if err != nil && kv.Exists(err) {
 		return nil, errors.WithMessagef(err, "Failed to Load "+
 			"round request was received on with %s",
 			partner)
-	} else if err != nil && !ekv.Exists(err) {
+	} else if err != nil && !kv.Exists(err) {
 		jww.WARN.Printf("No round info for partner %s", partner)
 	}
 

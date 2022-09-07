@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package utility
 
@@ -29,7 +29,7 @@ func StoreCyclicKey(kv *versioned.KV, cy *cyclic.Int, key string) error {
 		Data:      data,
 	}
 
-	return kv.Set(key, currentCyclicVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 func LoadCyclicKey(kv *versioned.KV, key string) (*cyclic.Int, error) {

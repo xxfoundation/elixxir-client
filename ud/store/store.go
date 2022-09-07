@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package ud
 
 // This file handles the storage operations on facts.
@@ -8,8 +15,6 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/netTime"
-	"io/fs"
-	"strings"
 	"sync"
 )
 
@@ -23,8 +28,7 @@ const (
 
 // Error constants
 const (
-	malformedFactErr = "Failed to load due to " +
-		"malformed fact"
+	malformedFactErr       = "Failed to load due to malformed fact %s"
 	loadConfirmedFactErr   = "Failed to load confirmed facts"
 	loadUnconfirmedFactErr = "Failed to load unconfirmed facts"
 	saveUnconfirmedFactErr = "Failed to save unconfirmed facts"
@@ -43,13 +47,13 @@ type Store struct {
 	mux              sync.RWMutex
 }
 
-// NewStore creates a new, empty Store object.
-func NewStore(kv *versioned.KV) (*Store, error) {
+// newStore creates a new, empty Store object.
+func newStore(kv *versioned.KV) (*Store, error) {
 	kv = kv.Prefix(prefix)
 
 	s := &Store{
-		confirmedFacts:   make(map[fact.Fact]struct{}, 0),
-		unconfirmedFacts: make(map[string]fact.Fact, 0),
+		confirmedFacts:   make(map[fact.Fact]struct{}),
+		unconfirmedFacts: make(map[string]fact.Fact),
 		kv:               kv,
 	}
 
@@ -94,7 +98,7 @@ func (s *Store) saveConfirmedFacts() error {
 	}
 
 	// Save to storage
-	return s.kv.Set(confirmedFactKey, version, &obj)
+	return s.kv.Set(confirmedFactKey, &obj)
 }
 
 // saveUnconfirmedFacts saves all data within Store.unconfirmedFacts into storage.
@@ -113,7 +117,7 @@ func (s *Store) saveUnconfirmedFacts() error {
 	}
 
 	// Save to storage
-	return s.kv.Set(unconfirmedFactKey, version, &obj)
+	return s.kv.Set(unconfirmedFactKey, &obj)
 
 }
 
@@ -125,15 +129,13 @@ func (s *Store) saveUnconfirmedFacts() error {
 func NewOrLoadStore(kv *versioned.KV) (*Store, error) {
 
 	s := &Store{
-		confirmedFacts:   make(map[fact.Fact]struct{}, 0),
-		unconfirmedFacts: make(map[string]fact.Fact, 0),
-		kv:               kv.Prefix(prefix),
+		kv: kv.Prefix(prefix),
 	}
-
 	if err := s.load(); err != nil {
-		if strings.Contains(err.Error(), "object not found") ||
-			errors.Is(err, fs.ErrNotExist) {
-			return s, s.save()
+		if !s.kv.Exists(err) {
+			return newStore(kv)
+		} else {
+			return nil, err
 		}
 	}
 
@@ -199,11 +201,11 @@ func (s *Store) loadUnconfirmedFacts() error {
 /////////////////////////////////////////////////////////////////
 
 // unconfirmedFactDisk is an object used to store the data of an unconfirmed fact.
-// It combines the key (confirmationId) and fact data (stringifiedFact) into a
+// It combines the key (ConfirmationId) and fact data (StringifiedFact) into a
 // single JSON-able object.
 type unconfirmedFactDisk struct {
-	confirmationId  string
-	stringifiedFact string
+	ConfirmationId  string
+	StringifiedFact string
 }
 
 // marshalConfirmedFacts is a marshaller which serializes the data
@@ -223,8 +225,8 @@ func (s *Store) marshalUnconfirmedFacts() ([]byte, error) {
 	ufdList := make([]unconfirmedFactDisk, 0, len(s.unconfirmedFacts))
 	for confirmationId, f := range s.unconfirmedFacts {
 		ufd := unconfirmedFactDisk{
-			confirmationId:  confirmationId,
-			stringifiedFact: f.Stringify(),
+			ConfirmationId:  confirmationId,
+			StringifiedFact: f.Stringify(),
 		}
 		ufdList = append(ufdList, ufd)
 	}
@@ -244,10 +246,12 @@ func (s *Store) unmarshalConfirmedFacts(data []byte) (map[fact.Fact]struct{}, er
 
 	// Deserialize the list into a map
 	confirmedFacts := make(map[fact.Fact]struct{}, 0)
-	for _, fStr := range fStrings {
+	for i := range fStrings {
+		fStr := fStrings[i]
 		f, err := fact.UnstringifyFact(fStr)
 		if err != nil {
-			return nil, errors.WithMessage(err, malformedFactErr)
+			return confirmedFacts, errors.WithMessagef(err,
+				malformedFactErr, string(data))
 		}
 
 		confirmedFacts[f] = struct{}{}
@@ -268,13 +272,15 @@ func (s *Store) unmarshalUnconfirmedFacts(data []byte) (map[string]fact.Fact, er
 
 	// Deserialize the list into a map
 	unconfirmedFacts := make(map[string]fact.Fact, 0)
-	for _, ufd := range ufdList {
-		f, err := fact.UnstringifyFact(ufd.stringifiedFact)
+	for i := range ufdList {
+		ufd := ufdList[i]
+		f, err := fact.UnstringifyFact(ufd.StringifiedFact)
 		if err != nil {
-			return nil, errors.WithMessage(err, malformedFactErr)
+			return unconfirmedFacts, errors.WithMessagef(err,
+				malformedFactErr, string(data))
 		}
 
-		unconfirmedFacts[ufd.confirmationId] = f
+		unconfirmedFacts[ufd.ConfirmationId] = f
 	}
 
 	return unconfirmedFacts, nil

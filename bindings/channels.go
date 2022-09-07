@@ -310,11 +310,14 @@ type ChannelSendReport struct {
 //    be retrieved using ChannelsManager.GetChannelId.
 //  - messageType - The message type of the message. This will be a valid
 //    [channels.MessageType].
-//  - message - The contents of the message.
+//  - message - The contents of the message. This need not be of data type
+//    string, as the message could be a specified format that the channel
+//    may recognize.
 //  - leaseTimeMS - The lease of the message. This will be how long the message
 //    is valid until, in MS. As per the channels.Manager
 //    documentation, this has different meanings depending on the use case.
-//    todo: should enumerate use cases
+//    These use cases may be generic enough that they will not be enumerated
+//    here.
 //  - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be
 //    empty, and GetDefaultCMixParams will be used internally.
 //
@@ -355,11 +358,13 @@ func (cm *ChannelsManager) SendGeneric(marshalledChanId []byte,
 //  - messageType - The message type of the message. This will be a valid
 //    [channels.MessageType].
 //  - message - The contents of the message. The message should be at most 510
-//    bytes.
+//    bytes. This need not be of data type string, as the message could be a
+//    specified format that the channel may recognize.
 //  - leaseTimeMS - The lease of the message. This will be how long the message
 //    is valid until, in MS. As per the channels.Manager
 //    documentation, this has different meanings depending on the use case.
-//    todo: should enumerate use cases
+//    These use cases may be generic enough that they will not be enumerated
+//    here.
 //  - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be
 //    empty, and GetDefaultCMixParams will be used internally.
 //
@@ -402,18 +407,20 @@ func (cm *ChannelsManager) SendAdminGeneric(adminPrivateKey,
 //  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may
 //    be retrieved using ChannelsManager.GetChannelId.
 //  - message - The contents of the message. The message should be at most 510
-//    bytes.
+//    bytes. This is expected to be Unicode, and thus a string data type is
+//    expected
 //  - leaseTimeMS - The lease of the message. This will be how long the message
 //    is valid until, in MS. As per the channels.Manager
 //    documentation, this has different meanings depending on the use case.
-//    todo: should enumerate use cases
+//    These use cases may be generic enough that they will not be enumerated
+//    here.
 //  - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be
 //    empty, and GetDefaultCMixParams will be used internally.
 //
 // Returns:
 //  - []byte - A JSON marshalled ChannelSendReport
 func (cm *ChannelsManager) SendMessage(marshalledChanId []byte,
-	message []byte, leaseTimeMS int64, cmixParamsJSON []byte) ([]byte, error) {
+	message string, leaseTimeMS int64, cmixParamsJSON []byte) ([]byte, error) {
 
 	// Unmarshal channel ID and parameters
 	chanId, params, err := parseChannelsParameters(marshalledChanId, cmixParamsJSON)
@@ -421,8 +428,8 @@ func (cm *ChannelsManager) SendMessage(marshalledChanId []byte,
 		return nil, err
 	}
 
-	// Send message fixme: why is message a string here?
-	chanMsgId, rndId, ephId, err := cm.api.SendMessage(chanId, string(message),
+	// Send message
+	chanMsgId, rndId, ephId, err := cm.api.SendMessage(chanId, message,
 		time.Duration(leaseTimeMS), params.CMIX)
 	if err != nil {
 		return nil, err
@@ -445,7 +452,8 @@ func (cm *ChannelsManager) SendMessage(marshalledChanId []byte,
 //  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may
 //    be retrieved using ChannelsManager.GetChannelId.
 //  - message - The contents of the message. The message should be at most 510
-//    bytes.
+//    bytes. This is expected to be Unicode, and thus a string data type is
+//    expected.
 //  - messageToReactTo - The marshalled [channel.MessageID] of the message
 //    you wish to reply to. This may be found in the ChannelSendReport if
 //    replying to your own. Alternatively, if reacting to another user's
@@ -454,14 +462,15 @@ func (cm *ChannelsManager) SendMessage(marshalledChanId []byte,
 //  - leaseTimeMS - The lease of the message. This will be how long the message
 //    is valid until, in MS. As per the channels.Manager
 //    documentation, this has different meanings depending on the use case.
-//    todo: should enumerate use cases
+//    These use cases may be generic enough that they will not be enumerated
+//    here.
 //  - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be
 //    empty, and GetDefaultCMixParams will be used internally.
 //
 // Returns:
 //  - []byte - A JSON marshalled ChannelSendReport
 func (cm *ChannelsManager) SendReply(marshalledChanId []byte,
-	message []byte, messageToReactTo []byte, leaseTimeMS int64,
+	message string, messageToReactTo []byte, leaseTimeMS int64,
 	cmixParamsJSON []byte) ([]byte, error) {
 
 	// Unmarshal channel ID and parameters
@@ -474,8 +483,8 @@ func (cm *ChannelsManager) SendReply(marshalledChanId []byte,
 	msgId := cryptoChannel.MessageID{}
 	copy(msgId[:], messageToReactTo)
 
-	// Send Reply fixme: why is message a string here?
-	chanMsgId, rndId, ephId, err := cm.api.SendReply(chanId, string(message),
+	// Send Reply
+	chanMsgId, rndId, ephId, err := cm.api.SendReply(chanId, message,
 		msgId, time.Duration(leaseTimeMS), params.CMIX)
 	if err != nil {
 		return nil, err
@@ -494,7 +503,7 @@ func (cm *ChannelsManager) SendReply(marshalledChanId []byte,
 //  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may
 //    be retrieved using ChannelsManager.GetChannelId.
 //  - reaction - The user's reaction. This should be a single emoji with no
-//    other characters.
+//    other characters. As such, a Unicode string is expected.
 //  - messageToReactTo - The marshalled [channel.MessageID] of the message
 //    you wish to reply to. This may be found in the ChannelSendReport if
 //    replying to your own. Alternatively, if reacting to another user's
@@ -503,14 +512,15 @@ func (cm *ChannelsManager) SendReply(marshalledChanId []byte,
 //  - leaseTimeMS - The lease of the message. This will be how long the message
 //    is valid until, in MS. As per the channels.Manager
 //    documentation, this has different meanings depending on the use case.
-//    todo: should enumerate use cases
+//    These use cases may be generic enough that they will not be enumerated
+//    here.
 //  - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be
 //    empty, and GetDefaultCMixParams will be used internally.
 //
 // Returns:
 //  - []byte - A JSON marshalled ChannelSendReport
 func (cm *ChannelsManager) SendReaction(marshalledChanId []byte,
-	reaction []byte, messageToReactTo []byte,
+	reaction string, messageToReactTo []byte,
 	cmixParamsJSON []byte) ([]byte, error) {
 
 	// Unmarshal channel ID and parameters
@@ -525,7 +535,7 @@ func (cm *ChannelsManager) SendReaction(marshalledChanId []byte,
 
 	// Send reaction
 	chanMsgId, rndId, ephId, err := cm.api.SendReaction(chanId,
-		string(reaction), msgId, params.CMIX)
+		reaction, msgId, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
@@ -534,6 +544,10 @@ func (cm *ChannelsManager) SendReaction(marshalledChanId []byte,
 	return constructChannelSendReport(chanMsgId, rndId, ephId)
 }
 
+// parseChannelsParameters is a helper function for the Send functions.
+// It parses the channel ID and the passed in parameters into their respective
+// objects. These objects are passed into the API via the internal send
+// functions.
 func parseChannelsParameters(marshalledChanId, cmixParamsJSON []byte) (
 	*id.ID, xxdk.CMIXParams, error) {
 	// Unmarshal channel ID

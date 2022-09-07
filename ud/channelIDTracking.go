@@ -20,9 +20,9 @@ import (
 )
 
 const (
-	registrationDiskKey                   = "registrationDiskKey"
-	registrationDiskVersion               = 0
-	graceDuration           time.Duration = time.Hour
+	registrationDiskKey     = "registrationDiskKey"
+	registrationDiskVersion = 0
+	graceDuration           = time.Hour
 )
 
 var startChannelNameServiceOnce sync.Once
@@ -50,8 +50,7 @@ func saveRegistrationDisk(kv *versioned.KV, reg registrationDisk) error {
 		Timestamp: time.Now(),
 		Data:      regBytes,
 	}
-	kv.Set(registrationDiskKey, registrationDiskVersion, &obj)
-	return nil
+	return kv.Set(registrationDiskKey, &obj)
 }
 
 // registrationDisk is used to encapsulate the channel user's key pair,

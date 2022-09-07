@@ -10,25 +10,6 @@
 // replies, reactions, and eventually admin commands.
 package channels
 
-// on sending, data propagates as follows:
-// Send function (Example: SendMessage) - > SendGeneric ->
-//     Broadcast.BroadcastWithAssembler -> cmix.SendWithAssembler
-
-// on receiving messages propagate as follows:
-// cmix message pickup (by service)- > broadcast.Processor ->
-//     userListener ->  events.triggerEvent ->
-//     messageTypeHandler (example: Text) ->
-//     eventModel (example: ReceiveMessage)
-
-// on sendingAdmin, data propagates as follows:
-// Send function - > SendAdminGeneric ->
-//     Broadcast.BroadcastAsymmetricWithAssembler -> cmix.SendWithAssembler
-
-// on receiving admin messages propagate as follows:
-// cmix message pickup (by service)- > broadcast.Processor -> adminListener ->
-//     events.triggerAdminEvent -> messageTypeHandler (example: Text) ->
-//     eventModel (example: ReceiveMessage)
-
 import (
 	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -44,10 +25,10 @@ type manager struct {
 	mux      sync.RWMutex
 
 	// External references
-	kv     *versioned.KV
-	client broadcast.Client
-	rng    *fastRNG.StreamGenerator
-	name   NameService
+	kv   *versioned.KV
+	net  broadcast.Client
+	rng  *fastRNG.StreamGenerator
+	name NameService
 
 	// Events model
 	*events
@@ -67,7 +48,7 @@ func NewManager(kv *versioned.KV, client broadcast.Client,
 
 	m := manager{
 		kv:             kv,
-		client:         client,
+		net:            client,
 		rng:            rng,
 		name:           name,
 		broadcastMaker: broadcast.NewBroadcastChannel,
@@ -104,4 +85,51 @@ func (m *manager) LeaveChannel(channelID *id.ID) error {
 	go m.events.model.LeaveChannel(channelID)
 
 	return nil
+}
+
+// GetChannels returns the IDs of all channels that have been joined. Use
+// getChannelsUnsafe if you already have taken the mux.
+func (m *manager) GetChannels() []*id.ID {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	return m.getChannelsUnsafe()
+}
+
+// GetChannel returns the underlying cryptographic structure for a given channel.
+func (m *manager) GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error) {
+	jc, err := m.getChannel(chID)
+	if err != nil {
+		return nil, err
+	}
+	return jc.broadcast.Get(), nil
+}
+
+// ReplayChannel replays all messages from the channel within the network's
+// memory (~3 weeks) over the event model. It does this by wiping the
+// underlying state tracking for message pickup for the channel, causing all
+// messages to be re-retrieved from the network
+func (m *manager) ReplayChannel(chID *id.ID) error {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
+
+	jc, exists := m.channels[*chID]
+	if !exists {
+		return ChannelDoesNotExistsErr
+	}
+
+	c := jc.broadcast.Get()
+
+	// stop the broadcast which will completely wipe it from the underlying
+	// cmix object
+	jc.broadcast.Stop()
+
+	//re-instantiate the broadcast, re-registering it from scratch
+	b, err := initBroadcast(c, m.name, m.events, m.net, m.broadcastMaker, m.rng)
+	if err != nil {
+		return err
+	}
+	jc.broadcast = b
+
+	return nil
+
 }

@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package partition
 
@@ -160,7 +160,7 @@ func (s *Store) saveActiveParts() {
 		Data:      data,
 	}
 
-	err = s.kv.Set(activePartitions, activePartitionVersion, &obj)
+	err = s.kv.Set(activePartitions, &obj)
 	if err != nil {
 		jww.FATAL.Panicf("Could not save active partitions: %+v", err)
 	}

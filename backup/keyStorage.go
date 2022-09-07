@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package backup
@@ -38,7 +38,7 @@ func saveBackup(key, salt []byte, params backup.Params, kv *versioned.KV) error 
 		Data:      marshalBackup(key, salt, params),
 	}
 
-	return kv.Set(cryptoStorageKey, cryptoStorageVersion, obj)
+	return kv.Set(cryptoStorageKey, obj)
 }
 
 // loadBackup loads the key, salt, and params from storage.

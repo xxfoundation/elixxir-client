@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package store
 
@@ -147,7 +147,7 @@ func storeRoundInfo(kv *versioned.KV, info *pb.RoundInfo, recipient *id.ID,
 	}
 
 	return kv.Set(
-		roundKey(id.Round(info.ID), recipient, ephID), roundInfoVersion, &obj)
+		roundKey(id.Round(info.ID), recipient, ephID), &obj)
 }
 
 func loadRoundInfo(kv *versioned.KV, id id.Round, recipient *id.ID,

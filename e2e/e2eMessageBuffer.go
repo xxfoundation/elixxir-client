@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package e2e
 
@@ -51,7 +51,7 @@ func (emh *e2eMessageHandler) SaveMessage(kv *versioned.KV, m interface{},
 	}
 
 	// Save versioned object
-	return kv.Set(key, currentE2EMessageVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 // LoadMessage returns the e2eMessage with the specified key from the key value

@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package store
@@ -13,7 +13,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 )
@@ -56,7 +55,7 @@ func NewOrLoadReceived(kv *versioned.KV) (*Received, []*ReceivedTransfer, error)
 
 	obj, err := s.kv.Get(receivedTransfersStoreKey, receivedTransfersStoreVersion)
 	if err != nil {
-		if ekv.Exists(err) {
+		if kv.Exists(err) {
 			return nil, nil, errors.Errorf(errLoadReceived, err)
 		} else {
 			return s, nil, nil
@@ -157,7 +156,7 @@ func (r *Received) save() error {
 		Data:      data,
 	}
 
-	return r.kv.Set(receivedTransfersStoreKey, receivedTransfersStoreVersion, obj)
+	return r.kv.Set(receivedTransfersStoreKey, obj)
 }
 
 // marshalReceivedTransfersMap serialises the list of transfer IDs from a

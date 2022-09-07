@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package rounds
 
 import (
@@ -25,7 +32,7 @@ func StoreRound(kv *versioned.KV, round Round, key string) error {
 		Data:      marshaled,
 	}
 
-	return kv.Set(key, currentRoundVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 // LoadRound stores the round using the key.

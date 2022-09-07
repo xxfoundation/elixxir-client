@@ -97,8 +97,9 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		return usrMsgSerialSized, nil
 	}
 
-	//TODO: send the send message over to reception manually so it is added to
-	//the database early
+	// TODO: send the send message over to reception manually so it is added to
+	// the database early This requires an entire project in order to track
+	// round state.
 	rid, ephid, err := ch.broadcast.BroadcastWithAssembler(assemble, params)
 	return msgId, rid, ephid, err
 }
@@ -162,8 +163,9 @@ func (m *manager) SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
 		return chMsgSerialSized, nil
 	}
 
-	//TODO: send the send message over to reception manually so it is added to
-	//the database early
+	// TODO: send the send message over to reception manually so it is added to
+	// the database early. This requires an entire project in order to track
+	// round state.
 	rid, ephid, err := ch.broadcast.BroadcastAsymmetricWithAssembler(privKey,
 		assemble, params)
 	return msgId, rid, ephid, err

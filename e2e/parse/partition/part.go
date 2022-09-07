@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package partition
 
@@ -30,12 +30,11 @@ func savePart(kv *versioned.KV, partNum uint8, part []byte) error {
 	key := makeMultiPartMessagePartKey(partNum)
 
 	obj := versioned.Object{
-		Version:   currentMultiPartMessagePartVersion,
+		Version:   currentMultiPartMessageVersion,
 		Timestamp: netTime.Now(),
 		Data:      part,
 	}
-
-	return kv.Set(key, currentMultiPartMessageVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 func deletePart(kv *versioned.KV, partNum uint8) error {

@@ -17,13 +17,14 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// adminListener adheres to the broadcast listener interface and is used when
-// admin messages are received on the channel.
+// adminListener adheres to the [broadcast.ListenerFunc] interface and is used
+// when admin messages are received on the channel.
 type adminListener struct {
 	chID    *id.ID
 	trigger triggerAdminEventFunc
 }
 
+// Listen is called when a message is received for the admin listener
 func (al *adminListener) Listen(payload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 

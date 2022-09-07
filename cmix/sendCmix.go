@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package cmix
 
@@ -171,7 +171,7 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient
 	}
 
 	jww.INFO.Printf("[Send-%s] Looking for round to send cMix message to "+
-		"%s (msgDigest: %s)", cmixParams.DebugTag, recipient)
+		"%s", cmixParams.DebugTag, recipient)
 
 	stream := rng.GetStream()
 	defer stream.Close()

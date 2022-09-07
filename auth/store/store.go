@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package store
 
@@ -22,8 +22,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
-
-const NoRequest = "Request Not Found"
 
 const storePrefix = "requestMap"
 const requestMapKey = "map"
@@ -149,7 +147,7 @@ func (s *Store) save() error {
 		Data:      data,
 	}
 
-	return s.kv.Set(requestMapKey, requestMapVersion, &obj)
+	return s.kv.Set(requestMapKey, &obj)
 }
 
 // NewStore creates a new store. All passed in private keys are added as
@@ -268,16 +266,15 @@ func (s *Store) HandleReceivedRequest(partner *id.ID, handler func(*ReceivedRequ
 
 	//run the handler
 	handleErr := handler(rr)
-
 	if handleErr != nil {
 		return errors.WithMessage(handleErr, "Received error from handler")
 	}
 
 	delete(s.receivedByID, *partner)
-	s.save()
+	err := s.save()
 	rr.delete()
 
-	return nil
+	return err
 }
 
 // HandleSentRequest handles the request singly, only a single operator
@@ -311,16 +308,15 @@ func (s *Store) HandleSentRequest(partner *id.ID, handler func(request *SentRequ
 
 	//run the handler
 	handleErr := handler(sr)
-
 	if handleErr != nil {
 		return errors.WithMessage(handleErr, "Received error from handler")
 	}
 
 	delete(s.sentByID, *partner)
-	s.save()
+	err := s.save()
 	sr.delete()
 
-	return nil
+	return err
 }
 
 // GetReceivedRequest returns the contact representing the partner request

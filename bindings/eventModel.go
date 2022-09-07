@@ -141,6 +141,7 @@ func (e *EventModel) JoinChannel(channelJson []byte) {
 //  - []byte - A JSON marshalled channel ID ([id.ID]). This may be retrieved
 //    using ChannelsManager.GetChannelId.
 func (e *EventModel) LeaveChannel(marshalledChanId []byte) {
+
 	// Unmarshal channel ID
 	channelId, err := id.Unmarshal(marshalledChanId)
 	if err != nil {
@@ -160,14 +161,17 @@ func (e *EventModel) LeaveChannel(marshalledChanId []byte) {
 // Parameters:
 //  - reportJson - A JSON marshalled ReceivedChannelMessageReport.
 func (e *EventModel) ReceiveMessage(reportJson []byte) {
+
+	// Parse message report
 	report, err := parseChannelMessageReport(reportJson)
 	if err != nil {
 		jww.ERROR.Printf("%+v", err)
 		return
 	}
 
+	// Call internal ReceiveMessage
 	// fixme: the internal API should accept an object, probably
-	//  just use receivedChannelMessageReport in the channels package
+	//  just move receivedChannelMessageReport to the channels package and export it.
 	e.api.ReceiveMessage(report.ChannelID, report.MessageID,
 		report.SenderUsername, report.Content, report.Timestamp,
 		report.Lease, report.Round)
@@ -184,14 +188,17 @@ func (e *EventModel) ReceiveMessage(reportJson []byte) {
 // Parameters:
 //  - reportJson - A JSON marshalled ReceivedChannelMessageReport.
 func (e *EventModel) ReceiveReply(reportJson []byte) {
+
+	// Parse message report
 	report, err := parseChannelMessageReport(reportJson)
 	if err != nil {
 		jww.ERROR.Printf("%+v", err)
 		return
 	}
 
+	// Call internal ReceiveReply
 	// fixme: the internal API should accept an object, probably
-	//  just use receivedChannelMessageReport in the channels package. This i
+	//  just move receivedChannelMessageReport to the channels package and export it.
 	e.api.ReceiveReply(report.ChannelID, report.MessageID, report.ReplyTo,
 		report.SenderUsername, report.Content, report.Timestamp,
 		report.Lease, report.Round)
@@ -206,12 +213,15 @@ func (e *EventModel) ReceiveReply(reportJson []byte) {
 // Parameters:
 //  - reportJson - A JSON marshalled ReceivedChannelMessageReport.
 func (e *EventModel) ReceiveReaction(reportJson []byte) {
+
+	// Parse message report
 	report, err := parseChannelMessageReport(reportJson)
 	if err != nil {
 		jww.ERROR.Printf("%+v", err)
 		return
 	}
 
+	// Call internal ReceiveReaction
 	// fixme: the internal API should accept an object, probably
 	//  just move receivedChannelMessageReport to the channels package and export it.
 	e.api.ReceiveReaction(report.ChannelID, report.MessageID, report.ReplyTo,
@@ -286,6 +296,7 @@ func parseChannelMessageReport(reportJson []byte) (
 	// Construct Round
 	rnd := rounds.Round{ID: id.Round(messageReport.Rounds[0])}
 
+	// Return message report
 	return receivedChannelMessageReport{
 		ChannelID:      chanId,
 		MessageID:      msgId,

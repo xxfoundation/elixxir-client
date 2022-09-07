@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2022 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -103,7 +103,7 @@ func NewBroadcastChannel(cmixId int, channelDefinition []byte) (*Channel, error)
 		return nil, errors.WithMessage(err, "Failed to load public key")
 	}
 
-	ch, err := broadcast.NewBroadcastChannel(cryptoBroadcast.Channel{
+	ch, err := broadcast.NewBroadcastChannel(&cryptoBroadcast.Channel{
 		ReceptionID: channelID,
 		Name:        def.Name,
 		Description: def.Description,

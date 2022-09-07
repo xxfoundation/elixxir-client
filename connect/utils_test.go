@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package connect
 
 import (
@@ -156,6 +163,12 @@ func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
 	[]byte, cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 	return 0, ephemeral.Id{}, nil
 }
+
+func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	return 0, ephemeral.Id{}, nil
+}
+
 func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
 	return 0, []ephemeral.Id{}, nil
 }

@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package partition
 
@@ -57,7 +57,7 @@ func Test_loadPart(t *testing.T) {
 
 	// Save part to key value store
 	err := rootKv.Set(
-		key, 0, &versioned.Object{Timestamp: netTime.Now(), Data: part})
+		key, &versioned.Object{Timestamp: netTime.Now(), Data: part})
 	if err != nil {
 		t.Errorf("Failed to set object: %+v", err)
 	}
@@ -87,7 +87,7 @@ func Test_loadPart_NotFoundError(t *testing.T) {
 
 	// Load part from key value store
 	data, err := loadPart(kv, partNum)
-	if ekv.Exists(err) {
+	if kv.Exists(err) {
 		t.Errorf("loadPart found an item for the key: %v", err)
 	}
 
@@ -121,7 +121,7 @@ func TestDeletePart(t *testing.T) {
 
 	// Check if part was deleted
 	_, err = loadPart(kv, partNum)
-	if ekv.Exists(err) {
+	if kv.Exists(err) {
 		t.Errorf("part was found in key value store: %+v", err)
 	}
 }

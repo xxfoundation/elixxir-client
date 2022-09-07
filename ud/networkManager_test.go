@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package ud
 
 import (
@@ -25,6 +32,41 @@ type testNetworkManager struct {
 	testingFace       interface{}
 	c                 contact.Contact
 	responseProcessor message.Processor
+}
+
+func (tnm *testNetworkManager) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+
+	msg := format.NewMessage(tnm.instance.GetE2EGroup().GetP().ByteLen())
+
+	var rid id.Round = 123
+	ephemeralId := new(ephemeral.Id)
+
+	fingerprint, service, payload, mac, err := assembler(rid)
+	if err != nil {
+		return rid, *ephemeralId, err
+	}
+
+	// Build message. Will panic if inputs are not correct.
+	msg.SetKeyFP(fingerprint)
+	msg.SetContents(payload)
+	msg.SetMac(mac)
+	msg.SetSIH(service.Hash(msg.GetContents()))
+	// If the recipient for a call to Send is UD, then this
+	// is the request pathway. Call the UD processor to simulate
+	// the UD picking up the request
+	if bytes.Equal(tnm.instance.GetFullNdf().
+		Get().UDB.ID,
+		recipient.Bytes()) {
+		tnm.responseProcessor.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+
+	} else {
+		// This should happen when the mock UD service Sends back a response.
+		// Calling process mocks up the requester picking up the response.
+		tnm.requestProcess.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
+	}
+
+	return 0, ephemeral.Id{}, nil
 }
 
 func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerprint,

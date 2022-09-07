@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package groupChat
 
 import (
@@ -67,6 +74,13 @@ func (*testNetworkManager) DeleteService(*id.ID, message.Service, message.Proces
 /////////////////////////////////////////////////////////////////////////////////////
 
 func (tnm *testNetworkManager) Follow(report cmix.ClientErrorReport) (stoppable.Stoppable, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) SendWithAssembler(recipient *id.ID,
+	assembler cmix.MessageAssembler, cmixParams cmix.CMIXParams) (id.Round,
+	ephemeral.Id, error) {
 	//TODO implement me
 	panic("implement me")
 }

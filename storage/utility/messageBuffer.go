@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package utility
 
@@ -146,7 +146,7 @@ func (mb *MessageBuffer) save() error {
 	}
 
 	// Save versioned object
-	return mb.kv.Set(mb.key, CurrentMessageBufferVersion, &obj)
+	return mb.kv.Set(mb.key, &obj)
 }
 
 // getMessageList returns a list of all message hashes stored in messages and

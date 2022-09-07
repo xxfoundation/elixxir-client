@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package broadcast
@@ -56,7 +56,7 @@ func (p *processor) Process(msg format.Message,
 		jww.ERROR.Printf("Unrecognized broadcast method %d", p.method)
 	}
 
-	go p.cb(payload, receptionID, round)
+	p.cb(payload, receptionID, round)
 }
 
 // String returns a string identifying the symmetricProcessor for debugging purposes.

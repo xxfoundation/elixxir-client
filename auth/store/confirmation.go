@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package store
@@ -48,8 +48,7 @@ func (s *Store) StoreConfirmation(partner *id.ID,
 		Data:      confirmBytes,
 	}
 
-	return s.kv.Set(makeConfirmationKey(partner),
-		currentConfirmationVersion, obj)
+	return s.kv.Set(makeConfirmationKey(partner), obj)
 }
 
 // LoadConfirmation loads the confirmation for the given partner and fingerprint

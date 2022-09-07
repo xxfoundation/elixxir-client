@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package groupChat
@@ -113,6 +113,11 @@ func (m *mockCmix) GetMaxMessageLength() int {
 
 func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
 	[]byte, cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
+
+func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
 

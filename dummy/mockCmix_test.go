@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package dummy
@@ -41,6 +41,20 @@ func newMockCmix(payloadSize int) cmix.Client {
 func (m *mockCmix) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 	m.Lock()
 	defer m.Unlock()
+	m.messages[*recipient] = generateMessage(m.payloadSize, fingerprint, service, payload, mac)
+
+	return 0, ephemeral.Id{}, nil
+}
+
+func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	m.Lock()
+	defer m.Unlock()
+
+	fingerprint, service, payload, mac, err := assembler(42)
+	if err != nil {
+		return 0, ephemeral.Id{}, err
+	}
 	m.messages[*recipient] = generateMessage(m.payloadSize, fingerprint, service, payload, mac)
 
 	return 0, ephemeral.Id{}, nil

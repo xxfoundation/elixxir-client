@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package broadcast
@@ -44,7 +44,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to create channel ID: %+v", err)
 	}
-	channel := crypto.Channel{
+	channel := &crypto.Channel{
 		ReceptionID: cid,
 		Name:        cname,
 		Description: cdesc,

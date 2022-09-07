@@ -9,6 +9,7 @@ package bindings
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -17,9 +18,20 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+// dashboardBaseURL is the base of the xx network's round dashboard URL.
+// This should be used by any type of send report's GetRoundURL method.
+const dashboardBaseURL = "https://dashboard.xx.network"
+
+// getRoundURL is a helper function which returns the specific round
+// within any type of send report, if they have a round in their RoundsList.
+// This helper function is messenger specific.
+func getRoundURL(round id.Round) string {
+	return fmt.Sprintf("%s/rounds/%d?xxmessenger=true", dashboardBaseURL, round)
+}
+
 // RoundsList contains a list of round IDs.
 //
-// Example marshalled roundList object:
+// JSON Example:
 //  [1001,1003,1006]
 type RoundsList struct {
 	Rounds []uint64

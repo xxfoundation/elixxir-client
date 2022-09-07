@@ -103,7 +103,7 @@ func (cm *ChannelsManager) GetID() int {
 //  - e2eID - The tracked e2e object ID. This can be retrieved using [E2e.GetID].
 //  - udID  - The tracked UD object ID. This can be retrieved using
 //    [UserDiscovery.GetID].
-func NewChannelsManager(e2eID, udID int) (*ChannelsManager, error) {
+func NewChannelsManager(e2eID, udID, eventModelId int) (*ChannelsManager, error) {
 	// Get user from singleton
 	user, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
@@ -115,14 +115,19 @@ func NewChannelsManager(e2eID, udID int) (*ChannelsManager, error) {
 		return nil, err
 	}
 
+	eventModel, err := eventModelTrackerSingleton.get(eventModelId)
+	if err != nil {
+		return nil, err
+	}
+
 	nameService, err := udMan.api.StartChannelNameService()
 	if err != nil {
 		return nil, err
 	}
 
-	// fixme: there is nothing adhering to event model
+	// Construct new channels manager
 	m := channels.NewManager(user.api.GetStorage().GetKV(), user.api.GetCmix(),
-		user.api.GetRng(), nameService, nil)
+		user.api.GetRng(), nameService, eventModel.api)
 
 	// Add channel to singleton and return
 	return channelManagerTrackerSingleton.make(m), nil
@@ -132,8 +137,7 @@ func NewChannelsManager(e2eID, udID int) (*ChannelsManager, error) {
 // been joined.
 //
 // Parameters:
-//  - channelJson - A JSON encoded [ChannelDef]. This may be retrieved from
-//    [Channel.Get], for example..
+//  - channelJson - A JSON encoded [ChannelDef].
 func (cm *ChannelsManager) JoinChannel(channelJson []byte) error {
 	// Unmarshal channel definition
 	def := ChannelDef{}
@@ -191,6 +195,7 @@ func (cm *ChannelsManager) GetChannels() ([]byte, error) {
 //
 // Returns:
 //  - []byte - A JSON encoded channel ID ([id.ID]).
+//
 //    JSON Example:
 //    "dGVzdAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
 func (cm *ChannelsManager) GetChannelId(channelJson []byte) ([]byte, error) {
@@ -284,17 +289,13 @@ func (cm *ChannelsManager) ReplayChannel(marshalledChanId []byte) error {
 //   JSON Example:
 //    {
 //  	"MessageId": "0kitNxoFdsF4q1VMSI/xPzfCnGB2l+ln2+7CTHjHbJw=",
-//  	"RoundId": {
-//    		"Rounds": [
-//    	  		123
-//   		]
-//    	},
+//      "Rounds":[1,5,9],
 //  	"EphId": 0
 //	   }
 type ChannelSendReport struct {
 	MessageId []byte
-	RoundId   RoundsList
-	EphId     int64
+	RoundsList
+	EphId int64
 }
 
 // SendGeneric is used to send a raw message over a channel. In general, it
@@ -571,9 +572,9 @@ func constructChannelSendReport(channelMessageId cryptoChannel.MessageID,
 	roundId id.Round, ephId ephemeral.Id) ([]byte, error) {
 	// Construct send report
 	chanSendReport := ChannelSendReport{
-		MessageId: channelMessageId.Bytes(),
-		RoundId:   makeRoundsList(roundId),
-		EphId:     ephId.Int64(),
+		MessageId:  channelMessageId.Bytes(),
+		RoundsList: makeRoundsList(roundId),
+		EphId:      ephId.Int64(),
 	}
 
 	// Marshal send report
@@ -584,7 +585,7 @@ func constructChannelSendReport(channelMessageId cryptoChannel.MessageID,
 // Channel Receiving Logic & Callback Registration                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-// ReceivedChannelMessage is a report structure returned via the
+// ReceivedChannelMessageReport is a report structure returned via the
 // ChannelMessageReceptionCallback. This report gives the context
 // for the channel the message was sent to and the message itself.
 // This is returned via the callback as JSON marshalled bytes.
@@ -593,26 +594,24 @@ func constructChannelSendReport(channelMessageId cryptoChannel.MessageID,
 //  {
 //     "ChannelId": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
 //     "MessageId": "3S6DiVjWH9mLmjy1oaam/3x45bJQzOW6u2KgeUn59wA=",
+//     "ReplyTo":"cxMyGUFJ+Ff1Xp2X+XkIpOnNAQEZmv8SNP5eYH4tCik=",
 //     "MessageType": 42,
 //     "SenderUsername": "hunter2",
 //     "Content": "YmFuX2JhZFVTZXI=",
 //     "Timestamp": 1662502150335283000,
 //     "Lease": 25,
-//     "RoundIds": {
-//        "Rounds": [
-//          11420
-//        ]
-//     }
+//     "Rounds": [ 1, 4, 9],
 //  }
-type ReceivedChannelMessage struct {
+type ReceivedChannelMessageReport struct {
 	ChannelId      []byte
 	MessageId      []byte
+	ReplyTo        []byte
 	MessageType    int
 	SenderUsername string
 	Content        []byte
 	Timestamp      int64
 	Lease          int64
-	RoundIds       RoundsList
+	RoundsList
 }
 
 // ChannelMessageReceptionCallback is the callback that returns the
@@ -642,7 +641,7 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 			content []byte, timestamp time.Time, lease time.Duration,
 			round rounds.Round) {
 
-			rcm := ReceivedChannelMessage{
+			rcm := ReceivedChannelMessageReport{
 				ChannelId:      channelID.Marshal(),
 				MessageId:      messageID.Bytes(),
 				MessageType:    int(messageType),
@@ -650,7 +649,7 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 				Content:        content,
 				Timestamp:      timestamp.UnixNano(),
 				Lease:          int64(lease),
-				RoundIds:       makeRoundsList(round.ID),
+				RoundsList:     makeRoundsList(round.ID),
 			}
 
 			listenerCb.Callback(json.Marshal(rcm))

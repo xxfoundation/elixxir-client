@@ -55,7 +55,7 @@ func (s *Store) StoreUsername(f fact.Fact) error {
 
 	s.confirmedFacts[f] = struct{}{}
 
-	return s.saveUnconfirmedFacts()
+	return s.saveConfirmedFacts()
 }
 
 // GetUsername retrieves the username from the Store object.

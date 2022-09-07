@@ -277,7 +277,7 @@ func TestStore_GetReceivedRequest_RequestDeleted(t *testing.T) {
 	}
 
 	// Check if the request's mutex is locked
-	if reflect.ValueOf(rr.mux).Elem().FieldByName("state").Int() != 0 {
+	if reflect.ValueOf(&rr.mux).Elem().FieldByName("state").Int() != 0 {
 		t.Errorf("GetReceivedRequest() did not unlock mutex.")
 	}
 }

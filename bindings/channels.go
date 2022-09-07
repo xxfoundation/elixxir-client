@@ -10,13 +10,14 @@ package bindings
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/channels"
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"sync"
 	"time"
 )
@@ -323,20 +324,8 @@ func (cm *ChannelsManager) SendGeneric(marshalledChanId []byte,
 	messageType int, message []byte, leaseTimeMS int64,
 	cmixParamsJSON []byte) ([]byte, error) {
 
-	// Unmarshal channel ID
-	chanId, err := id.Unmarshal(marshalledChanId)
-	if err != nil {
-		return nil, err
-	}
-
-	// If passed in empty params, use the default
-	if len(cmixParamsJSON) == 0 {
-		jww.WARN.Printf("cMix params not specified, using defaults...")
-		cmixParamsJSON = GetDefaultCMixParams()
-	}
-
-	// Unmarshal cmix params
-	params, err := parseCMixParams(cmixParamsJSON)
+	// Unmarshal channel ID and parameters
+	chanId, params, err := parseChannelsParameters(marshalledChanId, cmixParamsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -350,14 +339,7 @@ func (cm *ChannelsManager) SendGeneric(marshalledChanId []byte,
 	}
 
 	// Construct send report
-	chanSendReport := ChannelSendReport{
-		MessageId: chanMsgId.Bytes(),
-		RoundId:   makeRoundsList(rndId),
-		EphId:     ephId.Int64(),
-	}
-
-	// Marshal send report
-	return json.Marshal(chanSendReport)
+	return constructChannelSendReport(chanMsgId, rndId, ephId)
 }
 
 // SendAdminGeneric is used to send a raw message over a channel encrypted
@@ -394,20 +376,8 @@ func (cm *ChannelsManager) SendAdminGeneric(adminPrivateKey,
 		return nil, err
 	}
 
-	// Unmarshal channel ID
-	chanId, err := id.Unmarshal(marshalledChanId)
-	if err != nil {
-		return nil, err
-	}
-
-	// If passed in empty params, use the default
-	if len(cmixParamsJSON) == 0 {
-		jww.WARN.Printf("cMix params not specified, using defaults...")
-		cmixParamsJSON = GetDefaultCMixParams()
-	}
-
-	// Unmarshal cmix params
-	params, err := parseCMixParams(cmixParamsJSON)
+	// Unmarshal channel ID and parameters
+	chanId, params, err := parseChannelsParameters(marshalledChanId, cmixParamsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -418,13 +388,7 @@ func (cm *ChannelsManager) SendAdminGeneric(adminPrivateKey,
 		time.Duration(leaseTimeMS), params.CMIX)
 
 	// Construct send report
-	chanSendReport := ChannelSendReport{
-		MessageId: chanMsgId.Bytes(),
-		RoundId:   makeRoundsList(rndId),
-		EphId:     ephId.Int64(),
-	}
-
-	return json.Marshal(chanSendReport)
+	return constructChannelSendReport(chanMsgId, rndId, ephId)
 }
 
 // SendMessage is used to send a formatted message over a channel.
@@ -450,20 +414,9 @@ func (cm *ChannelsManager) SendAdminGeneric(adminPrivateKey,
 //  - []byte - A JSON marshalled ChannelSendReport
 func (cm *ChannelsManager) SendMessage(marshalledChanId []byte,
 	message []byte, leaseTimeMS int64, cmixParamsJSON []byte) ([]byte, error) {
-	// Unmarshal channel ID
-	chanId, err := id.Unmarshal(marshalledChanId)
-	if err != nil {
-		return nil, err
-	}
 
-	// If passed in empty params, use the default
-	if len(cmixParamsJSON) == 0 {
-		jww.WARN.Printf("cMix params not specified, using defaults...")
-		cmixParamsJSON = GetDefaultCMixParams()
-	}
-
-	// Unmarshal cmix params
-	params, err := parseCMixParams(cmixParamsJSON)
+	// Unmarshal channel ID and parameters
+	chanId, params, err := parseChannelsParameters(marshalledChanId, cmixParamsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -476,14 +429,7 @@ func (cm *ChannelsManager) SendMessage(marshalledChanId []byte,
 	}
 
 	// Construct send report
-	chanSendReport := ChannelSendReport{
-		MessageId: chanMsgId.Bytes(),
-		RoundId:   makeRoundsList(rndId),
-		EphId:     ephId.Int64(),
-	}
-
-	// Marshal send report
-	return json.Marshal(chanSendReport)
+	return constructChannelSendReport(chanMsgId, rndId, ephId)
 }
 
 // SendReply is used to send a formatted message over a channel.
@@ -517,20 +463,9 @@ func (cm *ChannelsManager) SendMessage(marshalledChanId []byte,
 func (cm *ChannelsManager) SendReply(marshalledChanId []byte,
 	message []byte, messageToReactTo []byte, leaseTimeMS int64,
 	cmixParamsJSON []byte) ([]byte, error) {
-	// Unmarshal channel ID
-	chanId, err := id.Unmarshal(marshalledChanId)
-	if err != nil {
-		return nil, err
-	}
 
-	// If passed in empty params, use the default
-	if len(cmixParamsJSON) == 0 {
-		jww.WARN.Printf("cMix params not specified, using defaults...")
-		cmixParamsJSON = GetDefaultCMixParams()
-	}
-
-	// Unmarshal cmix params
-	params, err := parseCMixParams(cmixParamsJSON)
+	// Unmarshal channel ID and parameters
+	chanId, params, err := parseChannelsParameters(marshalledChanId, cmixParamsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -547,14 +482,7 @@ func (cm *ChannelsManager) SendReply(marshalledChanId []byte,
 	}
 
 	// Construct send report
-	chanSendReport := ChannelSendReport{
-		MessageId: chanMsgId.Bytes(),
-		RoundId:   makeRoundsList(rndId),
-		EphId:     ephId.Int64(),
-	}
-
-	// Marshal send reportleaseTimeMS int
-	return json.Marshal(chanSendReport)
+	return constructChannelSendReport(chanMsgId, rndId, ephId)
 }
 
 // SendReaction is used to send a reaction to a message over a channel.
@@ -585,20 +513,8 @@ func (cm *ChannelsManager) SendReaction(marshalledChanId []byte,
 	reaction []byte, messageToReactTo []byte,
 	cmixParamsJSON []byte) ([]byte, error) {
 
-	//Unmarshal channel ID
-	chanId, err := id.Unmarshal(marshalledChanId)
-	if err != nil {
-		return nil, err
-	}
-
-	// If passed in empty params, use the default
-	if len(cmixParamsJSON) == 0 {
-		jww.WARN.Printf("cMix params not specified, using defaults...")
-		cmixParamsJSON = GetDefaultCMixParams()
-	}
-
-	// Unmarshal cmix params
-	params, err := parseCMixParams(cmixParamsJSON)
+	// Unmarshal channel ID and parameters
+	chanId, params, err := parseChannelsParameters(marshalledChanId, cmixParamsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -615,9 +531,34 @@ func (cm *ChannelsManager) SendReaction(marshalledChanId []byte,
 	}
 
 	// Construct send report
+	return constructChannelSendReport(chanMsgId, rndId, ephId)
+}
+
+func parseChannelsParameters(marshalledChanId, cmixParamsJSON []byte) (
+	*id.ID, xxdk.CMIXParams, error) {
+	// Unmarshal channel ID
+	chanId, err := id.Unmarshal(marshalledChanId)
+	if err != nil {
+		return nil, xxdk.CMIXParams{}, err
+	}
+
+	// Unmarshal cmix params
+	params, err := parseCMixParams(cmixParamsJSON)
+	if err != nil {
+		return nil, xxdk.CMIXParams{}, err
+	}
+
+	return chanId, params, nil
+}
+
+// constructChannelSendReport is a helper function which returns a JSON
+// marshalled ChannelSendReport.
+func constructChannelSendReport(channelMessageId cryptoChannel.MessageID,
+	roundId id.Round, ephId ephemeral.Id) ([]byte, error) {
+	// Construct send report
 	chanSendReport := ChannelSendReport{
-		MessageId: chanMsgId.Bytes(),
-		RoundId:   makeRoundsList(rndId),
+		MessageId: channelMessageId.Bytes(),
+		RoundId:   makeRoundsList(roundId),
 		EphId:     ephId.Int64(),
 	}
 

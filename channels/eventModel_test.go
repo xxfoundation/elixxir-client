@@ -9,6 +9,7 @@ package channels
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
@@ -83,6 +84,7 @@ func (m *MockEvent) ReceiveReply(channelID *id.ID, messageID cryptoChannel.Messa
 	replyTo cryptoChannel.MessageID, senderUsername string,
 	text string, timestamp time.Time, lease time.Duration,
 	round rounds.Round) {
+	fmt.Println(replyTo)
 	m.eventReceive = eventReceive{
 		channelID:      channelID,
 		messageID:      messageID,
@@ -537,7 +539,7 @@ func TestEvents_receiveTextMessage_Reply(t *testing.T) {
 	r.Timestamps[states.QUEUED] = time.Now()
 
 	//call the handler
-	e.receiveTextMessage(chID, msgID, 0, senderUsername,
+	e.receiveTextMessage(chID, msgID, Text, senderUsername,
 		textMarshaled, ts, lease, r)
 
 	//check the results on the model

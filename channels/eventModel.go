@@ -8,6 +8,7 @@
 package channels
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
@@ -226,6 +227,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 	senderUsername string, content []byte, timestamp time.Time,
 	lease time.Duration, round rounds.Round) {
 	txt := &CMIXChannelText{}
+
 	if err := proto.Unmarshal(content, txt); err != nil {
 		jww.ERROR.Printf("Failed to text unmarshal message %s from %s on "+
 			"channel %s, type %s, ts: %s, lease: %s, round: %d: %+v",
@@ -235,9 +237,12 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 	}
 
 	if txt.ReplyMessageID != nil {
+
 		if len(txt.ReplyMessageID) == cryptoChannel.MessageIDLen {
 			var replyTo cryptoChannel.MessageID
 			copy(replyTo[:], txt.ReplyMessageID)
+			e.model.ReceiveReply(channelID, messageID, replyTo,
+				senderUsername, txt.Text, timestamp, lease, round)
 			return
 
 		} else {
@@ -250,6 +255,8 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 			// malformed
 		}
 	}
+
+	fmt.Println(channelID)
 
 	e.model.ReceiveMessage(channelID, messageID, senderUsername, txt.Text,
 		timestamp, lease, round)

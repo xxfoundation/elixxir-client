@@ -69,8 +69,8 @@ func (mnm *mockNetManager) AddFingerprint(identity *id.ID, fingerprint format.Fi
 func (mnm *mockNetManager) DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint) {}
 func (mnm *mockNetManager) Send(recipient *id.ID, fingerprint format.Fingerprint,
 	service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
-	id.Round, ephemeral.Id, error) {
-	return id.Round(5), ephemeral.Id{}, nil
+	rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{ID: 5}, ephemeral.Id{}, nil
 }
 
 type mockE2E struct {

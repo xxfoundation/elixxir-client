@@ -181,7 +181,7 @@ func (m *mockCmix) GetMaxMessageLength() int {
 }
 
 func (m *mockCmix) Send(_ *id.ID, fp format.Fingerprint, srv message.Service,
-	payload, mac []byte, _ cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	payload, mac []byte, _ cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.handler.Lock()
 	defer m.handler.Unlock()
 
@@ -207,12 +207,12 @@ func (m *mockCmix) Send(_ *id.ID, fp format.Fingerprint, srv message.Service,
 }
 
 func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
-	cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
 
-func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
-	return 0, nil, nil
+func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, nil, nil
 }
 func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)            {}
 func (m *mockCmix) RemoveIdentity(*id.ID)                          {}

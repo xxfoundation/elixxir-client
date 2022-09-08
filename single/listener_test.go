@@ -255,7 +255,7 @@ func (m mockListenCmix) GetMaxMessageLength() int {
 
 func (m mockListenCmix) Send(recipient *id.ID, fingerprint format.Fingerprint,
 	service cMixMsg.Service, payload, mac []byte, _ cmix.CMIXParams) (
-	id.Round, ephemeral.Id, error) {
+	rounds.Round, ephemeral.Id, error) {
 	msg := format.NewMessage(m.numPrimeBytes)
 	msg.SetContents(payload)
 	msg.SetMac(mac)
@@ -270,7 +270,7 @@ func (m mockListenCmix) Send(recipient *id.ID, fingerprint format.Fingerprint,
 		p.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
 	}
 
-	return 0, ephemeral.Id{}, nil
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
 func (m mockListenCmix) GetInstance() *network.Instance {

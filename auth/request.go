@@ -167,7 +167,7 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 		" on round %d", partner.ID, format.DigestContents(contents), round)
 	jww.INFO.Print(em)
 	s.event.Report(1, "Auth", "RequestSent", em)
-	return round, nil
+	return round.ID, nil
 
 }
 

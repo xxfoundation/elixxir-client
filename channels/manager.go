@@ -12,11 +12,16 @@ package channels
 
 import (
 	"gitlab.com/elixxir/client/broadcast"
+	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"sync"
+	"time"
 )
 
 type manager struct {
@@ -26,7 +31,7 @@ type manager struct {
 
 	// External references
 	kv   *versioned.KV
-	net  broadcast.Client
+	net  Client
 	rng  *fastRNG.StreamGenerator
 	name NameService
 
@@ -38,9 +43,25 @@ type manager struct {
 	broadcastMaker broadcast.NewBroadcastChannelFunc
 }
 
+// Client contains the methods from cmix.Client that are required by
+// symmetricClient.
+type Client interface {
+	GetMaxMessageLength() int
+	SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
+	IsHealthy() bool
+	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
+	AddService(clientID *id.ID, newService message.Service,
+		response message.Processor)
+	DeleteClientService(clientID *id.ID)
+	RemoveIdentity(id *id.ID)
+	GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback,
+		roundList ...id.Round) error
+}
+
 // NewManager creates a new channel.Manager. It prefixes the KV with the
 // username so that multiple instances for multiple users will not error.
-func NewManager(kv *versioned.KV, client broadcast.Client,
+func NewManager(kv *versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, name NameService, model EventModel) Manager {
 
 	// Prefix the kv with the username so multiple can be run
@@ -48,7 +69,7 @@ func NewManager(kv *versioned.KV, client broadcast.Client,
 
 	m := manager{
 		kv:             kv,
-		net:            client,
+		net:            net,
 		rng:            rng,
 		name:           name,
 		broadcastMaker: broadcast.NewBroadcastChannel,

@@ -118,7 +118,7 @@ func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool) {}
 
 func (m *mockCmix) Send(recipient *id.ID, fp format.Fingerprint,
 	ms message.Service, payload, mac []byte, _ cmix.CMIXParams) (
-	id.Round, ephemeral.Id, error) {
+	rounds.Round, ephemeral.Id, error) {
 
 	msg := format.NewMessage(m.numPrimeBytes)
 	msg.SetMac(mac)
@@ -155,7 +155,7 @@ func (m *mockCmix) Send(recipient *id.ID, fp format.Fingerprint,
 		})
 	}
 
-	return 0, ephemeral.Id{}, nil
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
 func serviceKey(ms message.Service) string {

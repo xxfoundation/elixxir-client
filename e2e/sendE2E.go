@@ -170,8 +170,7 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 		thisSendFunc := func() {
 			wg.Add(1)
 			go func(i int) {
-				var err error
-				roundIds[i], _, err = m.net.Send(recipient,
+				r, _, err := m.net.Send(recipient,
 					key.Fingerprint(), s, contentsEnc, mac,
 					params.CMIXParams)
 				if err != nil {
@@ -179,6 +178,7 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 						"Send: %+v", err)
 					errCh <- err
 				}
+				roundIds[i] = r.ID
 				wg.Done()
 			}(localI)
 		}

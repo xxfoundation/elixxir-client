@@ -480,8 +480,8 @@ func (m *mockBroadcastClient) GetMaxMessageLength() int { return 123 }
 
 func (m *mockBroadcastClient) SendWithAssembler(*id.ID,
 	clientCmix.MessageAssembler, clientCmix.CMIXParams) (
-	id.Round, ephemeral.Id, error) {
-	return id.Round(567), ephemeral.Id{}, nil
+	rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{ID: id.Round(567)}, ephemeral.Id{}, nil
 }
 
 func (m *mockBroadcastClient) IsHealthy() bool                                       { return true }
@@ -489,6 +489,10 @@ func (m *mockBroadcastClient) AddIdentity(*id.ID, time.Time, bool)              
 func (m *mockBroadcastClient) AddService(*id.ID, message.Service, message.Processor) {}
 func (m *mockBroadcastClient) DeleteClientService(*id.ID)                            {}
 func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                                 {}
+func (m *mockBroadcastClient) GetRoundResults(timeout time.Duration,
+	roundCallback clientCmix.RoundEventCallback, roundList ...id.Round) error {
+	return nil
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock EventModel                                                            //

@@ -40,7 +40,8 @@ func (p *processor) Process(msg format.Message,
 		encPartSize := p.c.RsaPubKeyLength
 		// Only one message is encoded, rest of it is random data
 		encodedMessage := msg.GetContents()[:encPartSize]
-
+		nonce := msg.GetKeyFP()
+		mac := msg.GetMac()
 		decodedMessage, err := p.c.DecryptRSAToPublic(encodedMessage, mac, nonce)
 		if err != nil {
 			jww.ERROR.Printf(errDecrypt, p.c.ReceptionID, p.c.Name, err)

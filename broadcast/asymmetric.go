@@ -18,6 +18,7 @@ import (
 
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
+
 	"gitlab.com/elixxir/primitives/format"
 )
 
@@ -27,32 +28,42 @@ const (
 	internalPayloadSizeLength     = 2
 )
 
-// func (bc *broadcastClient) SendRSAToPrivate(pk *rsa.PrivateKey,
-// 	payload []byte, cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+func (bc *broadcastClient) SendRSAToPrivate(pk *rsa.PrivateKey,
+	payload []byte, cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 
-// 	// Confirm network health
-// 	if !bc.net.IsHealthy() {
-// 		return 0, ephemeral.Id{}, errors.New(errNetworkHealth)
-// 	}
+	if !bc.net.IsHealthy() {
+		return 0, ephemeral.Id{}, errors.New(errNetworkHealth)
+	}
 
-// 	assemble := func(rid id.Round) (fp format.Fingerprint,
-// 		service message.Service, encryptedPayload, mac []byte, err error) {
+	assemble := func(rid id.Round) (fp format.Fingerprint,
+		service message.Service, encryptedPayload, mac []byte, err error) {
 
-// 		encryptedPayload, err := crypto.EncryptRSAToPrivate(plaintext,
-// 			rng,
-// 			pk,
-// 			label)
+		encryptedPayload, err = bc.channel.EncryptRSAToPrivate(payload,
+			bc.rng.GetStream(),
+			pk)
 
-// 		if err != nil {
-// 			return format.Fingerprint{}, message.Service{}, nil,
-// 				nil, errors.WithMessage(err, "Failed to encrypt "+
-// 					"asymmetric RSAToPrivate message")
-// 		}
+		if err != nil {
+			return format.Fingerprint{}, message.Service{}, nil,
+				nil, errors.WithMessage(err, "Failed to encrypt "+
+					"asymmetric RSAToPrivate message")
+		}
 
-// 	}
+		// Create payload sized for sending over cmix
+		sizedPayload := make([]byte, bc.net.GetMaxMessageLength())
+		// Read random data into sized payload
+		_, err = bc.rng.GetStream().Read(sizedPayload)
+		if err != nil {
+			return format.Fingerprint{}, message.Service{}, nil,
+				nil, errors.WithMessage(err, "Failed to add "+
+					"random data to sized broadcast")
+		}
+		copy(sizedPayload[:len(encryptedPayload)], encryptedPayload)
 
-// 	return bc.net.SendWithAssembler(bc.channel.ReceptionID, assemble, cMixParams)
-// }
+		return
+	}
+
+	return bc.net.SendWithAssembler(bc.channel.ReceptionID, assemble, cMixParams)
+}
 
 // BroadcastAsymmetric broadcasts the payload to the channel. Requires a
 // healthy network state to send Payload length must be equal to

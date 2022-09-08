@@ -47,8 +47,8 @@ type EventModel interface {
 	// It may be called multiple times on the same message, it is incumbent on
 	// the user of the API to filter such called by message ID
 	ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
-		senderUsername string, text string,
-		timestamp time.Time, lease time.Duration, round rounds.Round)
+		senderUsername string, text string, timestamp time.Time,
+		lease time.Duration, round rounds.Round, status SentStatus)
 
 	// ReceiveReply is called whenever a message is received which is a reply
 	// on a given channel. It may be called multiple times on the same message,
@@ -58,7 +58,7 @@ type EventModel interface {
 	ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
 		reactionTo cryptoChannel.MessageID, senderUsername string,
 		text string, timestamp time.Time, lease time.Duration,
-		round rounds.Round)
+		round rounds.Round, status SentStatus)
 
 	// ReceiveReaction is called whenever a reaction to a message is received
 	// on a given channel. It may be called multiple times on the same reaction,
@@ -68,26 +68,7 @@ type EventModel interface {
 	ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
 		reactionTo cryptoChannel.MessageID, senderUsername string,
 		reaction string, timestamp time.Time, lease time.Duration,
-		round rounds.Round)
-
-	// MessageSent is called whenever the user sends a message. It should be
-	//designated as "sent" and that delivery is unknown.
-	MessageSent(channelID *id.ID, messageID cryptoChannel.MessageID,
-		myUsername string, text string, timestamp time.Time,
-		lease time.Duration, round rounds.Round)
-
-	// ReplySent is called whenever the user sends a reply. It should be
-	// designated as "sent" and that delivery is unknown.
-	ReplySent(channelID *id.ID, messageID cryptoChannel.MessageID,
-		replyTo cryptoChannel.MessageID, myUsername string, text string,
-		timestamp time.Time, lease time.Duration, round rounds.Round)
-
-	// ReactionSent is called whenever the user sends a reply. It should be
-	// designated as "sent" and that delivery is unknown.
-	ReactionSent(channelID *id.ID, messageID cryptoChannel.MessageID,
-		reactionTo cryptoChannel.MessageID, senderUsername string,
-		reaction string, timestamp time.Time, lease time.Duration,
-		round rounds.Round)
+		round rounds.Round, status SentStatus)
 
 	// UpdateSentStatus is called whenever the sent status of a message
 	// has changed
@@ -242,7 +223,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 			var replyTo cryptoChannel.MessageID
 			copy(replyTo[:], txt.ReplyMessageID)
 			e.model.ReceiveReply(channelID, messageID, replyTo,
-				senderUsername, txt.Text, timestamp, lease, round)
+				senderUsername, txt.Text, timestamp, lease, round, Delivered)
 			return
 
 		} else {
@@ -259,7 +240,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 	fmt.Println(channelID)
 
 	e.model.ReceiveMessage(channelID, messageID, senderUsername, txt.Text,
-		timestamp, lease, round)
+		timestamp, lease, round, Delivered)
 }
 
 // receiveReaction is the internal function which handles the reception of
@@ -295,7 +276,7 @@ func (e *events) receiveReaction(channelID *id.ID,
 		var reactTo cryptoChannel.MessageID
 		copy(reactTo[:], react.ReactionMessageID)
 		e.model.ReceiveReaction(channelID, messageID, reactTo, senderUsername,
-			react.Reaction, timestamp, lease, round)
+			react.Reaction, timestamp, lease, round, Delivered)
 	} else {
 		jww.ERROR.Printf("Failed process reaction %s from %s on channel "+
 			"%s, type %s, ts: %s, lease: %s, round: %d, reacting to "+

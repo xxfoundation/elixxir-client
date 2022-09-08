@@ -38,26 +38,6 @@ type MockEvent struct {
 	eventReceive
 }
 
-func (m *MockEvent) MessageSent(channelID *id.ID, messageID cryptoChannel.MessageID,
-	myUsername string, text string, timestamp time.Time, lease time.Duration, round rounds.Round) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m *MockEvent) ReplySent(channelID *id.ID, messageID cryptoChannel.MessageID,
-	replyTo cryptoChannel.MessageID, myUsername string, text string,
-	timestamp time.Time, lease time.Duration, round rounds.Round) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m *MockEvent) ReactionSent(channelID *id.ID, messageID cryptoChannel.MessageID,
-	reactionTo cryptoChannel.MessageID, senderUsername string, reaction string,
-	timestamp time.Time, lease time.Duration, round rounds.Round) {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (m *MockEvent) UpdateSentStatus(messageID cryptoChannel.MessageID,
 	status SentStatus) {
 	//TODO implement me
@@ -68,7 +48,7 @@ func (*MockEvent) JoinChannel(channel *cryptoBroadcast.Channel) {}
 func (*MockEvent) LeaveChannel(channelID *id.ID)                {}
 func (m *MockEvent) ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
 	senderUsername string, text string,
-	timestamp time.Time, lease time.Duration, round rounds.Round) {
+	timestamp time.Time, lease time.Duration, round rounds.Round, status SentStatus) {
 	m.eventReceive = eventReceive{
 		channelID:      channelID,
 		messageID:      messageID,
@@ -83,7 +63,7 @@ func (m *MockEvent) ReceiveMessage(channelID *id.ID, messageID cryptoChannel.Mes
 func (m *MockEvent) ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
 	replyTo cryptoChannel.MessageID, senderUsername string,
 	text string, timestamp time.Time, lease time.Duration,
-	round rounds.Round) {
+	round rounds.Round, status SentStatus) {
 	fmt.Println(replyTo)
 	m.eventReceive = eventReceive{
 		channelID:      channelID,
@@ -99,7 +79,7 @@ func (m *MockEvent) ReceiveReply(channelID *id.ID, messageID cryptoChannel.Messa
 func (m *MockEvent) ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
 	reactionTo cryptoChannel.MessageID, senderUsername string,
 	reaction string, timestamp time.Time, lease time.Duration,
-	round rounds.Round) {
+	round rounds.Round, status SentStatus) {
 	m.eventReceive = eventReceive{
 		channelID:      channelID,
 		messageID:      messageID,

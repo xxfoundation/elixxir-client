@@ -25,6 +25,7 @@ type Message struct {
 	RecipientID *id.ID
 	EphemeralID ephemeral.Id
 	Timestamp   time.Time // Message timestamp of when the user sent
+	KeyResidue  e2e.KeyResidue
 
 	Encrypted bool
 

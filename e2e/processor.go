@@ -39,13 +39,14 @@ func (p *processor) Process(ecrMsg format.Message,
 
 	sess := p.cy.GetSession()
 	// todo: handle residue here
-	message, _, done := p.m.partitioner.HandlePartition(sess.GetPartner(),
+	message, keyRes, done := p.m.partitioner.HandlePartition(sess.GetPartner(),
 		contents, sess.GetRelationshipFingerprint(), residue)
 	if done {
 		message.RecipientID = receptionID.Source
 		message.EphemeralID = receptionID.EphId
 		message.Round = round
 		message.Encrypted = true
+		message.KeyResidue = keyRes
 		p.m.Switchboard.Speak(message)
 	}
 }

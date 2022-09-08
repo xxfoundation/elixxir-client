@@ -60,6 +60,9 @@ const (
 	// of an authenticated connection request
 	// (see the connect/ package)
 	ConnectionAuthenticationRequest = 60
+
+	PaymentRequest = 70
+	PaymentConf    = 71
 )
 
 func (mt MessageType) String() string {
@@ -86,6 +89,8 @@ func (mt MessageType) String() string {
 		return "EndFileTransfer"
 	case ConnectionAuthenticationRequest:
 		return "ConnectionAuthenticationRequest"
+	case PaymentRequest:
+		return "PaymentRequest"
 	default:
 		return fmt.Sprintf("UNKNOWN TYPE (%d)", mt)
 	}

@@ -40,9 +40,10 @@ func (p *processor) Process(msg format.Message,
 		encPartSize := p.c.RsaPubKeyLength
 		// Only one message is encoded, rest of it is random data
 		encodedMessage := msg.GetContents()[:encPartSize]
+
 		decodedMessage, err := p.c.DecryptRSAToPublic(encodedMessage, mac, nonce)
 		if err != nil {
-			jww.ERROR.Printf(errDecrypt, p.c.ReceptionID, p.c.Name, decryptErr)
+			jww.ERROR.Printf(errDecrypt, p.c.ReceptionID, p.c.Name, err)
 			return
 		}
 		size := binary.BigEndian.Uint16(decodedMessage[:internalPayloadSizeLength])

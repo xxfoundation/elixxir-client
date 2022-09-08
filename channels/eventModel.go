@@ -54,9 +54,10 @@ type EventModel interface {
 	// it is incumbent on the user of the API to filter such called by message ID
 	// Messages may arrive our of order, so a reply in theory can arrive before
 	// the initial message, as a result it may be important to buffer replies.
-	ReceiveReply(ChannelID *id.ID, messageID cryptoChannel.MessageID,
-		SenderUsername string, text string, timestamp time.Time,
-		lease time.Duration, round rounds.Round)
+	ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
+		reactionTo cryptoChannel.MessageID, senderUsername string,
+		text string, timestamp time.Time, lease time.Duration,
+		round rounds.Round)
 
 	// ReceiveReaction is called whenever a reaction to a message is received
 	// on a given channel. It may be called multiple times on the same reaction,

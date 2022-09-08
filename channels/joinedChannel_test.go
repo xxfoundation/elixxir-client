@@ -500,6 +500,32 @@ type mockEventModel struct {
 	leftCh   *id.ID
 }
 
+func (m *mockEventModel) MessageSent(channelID *id.ID, messageID cryptoChannel.MessageID,
+	myUsername string, text string, timestamp time.Time, lease time.Duration, round rounds.Round) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockEventModel) ReplySent(channelID *id.ID, messageID cryptoChannel.MessageID,
+	replyTo cryptoChannel.MessageID, myUsername string, text string,
+	timestamp time.Time, lease time.Duration, round rounds.Round) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockEventModel) ReactionSent(channelID *id.ID, messageID cryptoChannel.MessageID,
+	reactionTo cryptoChannel.MessageID, senderUsername string, reaction string,
+	timestamp time.Time, lease time.Duration, round rounds.Round) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockEventModel) UpdateSentStatus(messageID cryptoChannel.MessageID,
+	status SentStatus) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *mockEventModel) JoinChannel(c *cryptoBroadcast.Channel) {
 	m.joinedCh = c
 }

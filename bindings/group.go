@@ -269,7 +269,7 @@ func (g *GroupChat) Send(groupId, message []byte, tag string) ([]byte, error) {
 
 	// Construct send report
 	sendReport := &GroupSendReport{
-		RoundsList: makeRoundsList(round),
+		RoundsList: makeRoundsList(round.ID),
 		Timestamp:  timestamp.UnixNano(),
 		MessageID:  msgID.Bytes(),
 	}

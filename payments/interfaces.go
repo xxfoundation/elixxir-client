@@ -18,6 +18,7 @@ type Payments interface {
 	Approve(signedTransaction, data []byte, paymentId PaymentID,
 		xxnetworkBlockchainDestination *id.ID) error
 	GetRequest(id PaymentID) (PaymentRequest, bool)
+	GetRequests() []PaymentRequest
 }
 
 // PaymentRequest is a public interface for stored payment data, allowing

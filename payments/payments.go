@@ -183,6 +183,13 @@ func (pm *manager) GetRequest(id PaymentID) (PaymentRequest, bool) {
 	return req, ok
 }
 
+func (pm *manager) GetRequests() (reqs []PaymentRequest) {
+	for _, val := range pm.pendingRequests {
+		reqs = append(reqs, val)
+	}
+	return
+}
+
 // waitOnPayment creates a broadcast channel client from the receipt channel
 // and starts a listener for status updates which both updates the status in
 // the manager & calls the status update callback
@@ -262,7 +269,7 @@ func (pm *manager) savePendingRequests() error {
 	if err != nil {
 		return err
 	}
-	err = pm.kv.Set(pendingRequestsKey, pendingRequestsVersion,
+	err = pm.kv.Set(pendingRequestsKey,
 		&versioned.Object{
 			Version:   pendingRequestsVersion,
 			Timestamp: time.Now(),

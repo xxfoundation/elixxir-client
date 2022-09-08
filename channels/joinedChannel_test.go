@@ -504,26 +504,6 @@ type mockEventModel struct {
 	leftCh   *id.ID
 }
 
-func (m *mockEventModel) MessageSent(channelID *id.ID, messageID cryptoChannel.MessageID,
-	myUsername string, text string, timestamp time.Time, lease time.Duration, round rounds.Round) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m *mockEventModel) ReplySent(channelID *id.ID, messageID cryptoChannel.MessageID,
-	replyTo cryptoChannel.MessageID, myUsername string, text string,
-	timestamp time.Time, lease time.Duration, round rounds.Round) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m *mockEventModel) ReactionSent(channelID *id.ID, messageID cryptoChannel.MessageID,
-	reactionTo cryptoChannel.MessageID, senderUsername string, reaction string,
-	timestamp time.Time, lease time.Duration, round rounds.Round) {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (m *mockEventModel) UpdateSentStatus(messageID cryptoChannel.MessageID,
 	status SentStatus) {
 	//TODO implement me
@@ -537,13 +517,13 @@ func (m *mockEventModel) LeaveChannel(c *id.ID) {
 	m.leftCh = c
 }
 func (m *mockEventModel) ReceiveMessage(*id.ID, cryptoChannel.MessageID, string,
-	string, time.Time, time.Duration, rounds.Round) {
+	string, time.Time, time.Duration, rounds.Round, SentStatus) {
 }
 func (m *mockEventModel) ReceiveReply(*id.ID, cryptoChannel.MessageID,
 	cryptoChannel.MessageID, string, string, time.Time, time.Duration,
-	rounds.Round) {
+	rounds.Round, SentStatus) {
 }
 func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoChannel.MessageID,
 	cryptoChannel.MessageID, string, string, time.Time, time.Duration,
-	rounds.Round) {
+	rounds.Round, SentStatus) {
 }

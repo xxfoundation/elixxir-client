@@ -211,7 +211,7 @@ func TransmitRequest(recipient contact.Contact, tag string, payload []byte,
 
 	jww.DEBUG.Printf("[SU] Sent single-use request cMix message part "+
 		"%d of %d on round %d to %s (eph ID %d) (%s).",
-		0, len(parts)+1, rid, recipient.ID, ephID.Int64(), tag)
+		0, len(parts)+1, rid.ID, recipient.ID, ephID.Int64(), tag)
 
 	var wg sync.WaitGroup
 	wg.Add(len(parts))

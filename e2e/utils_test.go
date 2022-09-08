@@ -193,15 +193,15 @@ func (m *mockCmix) Send(_ *id.ID, fp format.Fingerprint, srv message.Service,
 	if m.handler.processorMap[fp] != nil {
 		m.handler.processorMap[fp].Process(
 			msg, receptionID.EphemeralIdentity{}, rounds.Round{})
-		return 0, ephemeral.Id{}, nil
+		return rounds.Round{}, ephemeral.Id{}, nil
 	} else if m.handler.serviceMap[srv.Tag] != nil {
 		m.handler.serviceMap[srv.Tag].Process(
 			msg, receptionID.EphemeralIdentity{}, rounds.Round{})
-		return 0, ephemeral.Id{}, nil
+		return rounds.Round{}, ephemeral.Id{}, nil
 	}
 
 	m.t.Errorf("No processor found for fingerprint %s", fp)
-	return 0, ephemeral.Id{},
+	return rounds.Round{}, ephemeral.Id{},
 		errors.Errorf("No processor found for fingerprint %s", fp)
 
 }

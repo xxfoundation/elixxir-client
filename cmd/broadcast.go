@@ -217,7 +217,7 @@ var broadcastCmd = &cobra.Command{
 							continue
 						}
 						fmt.Printf("Sent symmetric broadcast message: %s", symmetric)
-						jww.INFO.Printf("Sent symmetric broadcast message to %s over round %d", eid, rid)
+						jww.INFO.Printf("Sent symmetric broadcast message to %s over round %d", eid, rid.ID)
 					}
 
 					/* Send asymmetric broadcast */
@@ -237,7 +237,7 @@ var broadcastCmd = &cobra.Command{
 							continue
 						}
 						fmt.Printf("Sent asymmetric broadcast message: %s", asymmetric)
-						jww.INFO.Printf("Sent asymmetric broadcast message to %s over round %d", eid, rid)
+						jww.INFO.Printf("Sent asymmetric broadcast message to %s over round %d", eid, rid.ID)
 					}
 
 					wg.Done()

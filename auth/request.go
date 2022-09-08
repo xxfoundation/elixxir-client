@@ -164,7 +164,7 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	}
 
 	em := fmt.Sprintf("Auth Request with %s (msgDigest: %s) sent"+
-		" on round %d", partner.ID, format.DigestContents(contents), round)
+		" on round %d", partner.ID, format.DigestContents(contents), round.ID)
 	jww.INFO.Print(em)
 	s.event.Report(1, "Auth", "RequestSent", em)
 	return round.ID, nil

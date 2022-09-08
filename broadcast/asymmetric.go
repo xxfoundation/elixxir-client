@@ -10,12 +10,14 @@ package broadcast
 import (
 	"encoding/binary"
 	"github.com/pkg/errors"
+
+	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
+
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/multicastRSA"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 const (
@@ -27,7 +29,7 @@ const (
 // BroadcastAsymmetric broadcasts the payload to the channel. Requires a
 // healthy network state to send Payload length must be equal to
 // bc.MaxAsymmetricPayloadSize, and the channel PrivateKey must be passed in
-func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey,
+func (bc *broadcastClient) BroadcastAsymmetric(pk *rsa.PrivateKey,
 	payload []byte, cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 	// Confirm network health
 
@@ -43,7 +45,7 @@ func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey,
 // bc.MaxAsymmetricPayloadSize when returned, and the channel PrivateKey
 // must be passed in
 func (bc *broadcastClient) BroadcastAsymmetricWithAssembler(
-	pk multicastRSA.PrivateKey, assembler Assembler,
+	pk *rsa.PrivateKey, assembler Assembler,
 	cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 	// Confirm network health
 	if !bc.net.IsHealthy() {
@@ -58,21 +60,21 @@ func (bc *broadcastClient) BroadcastAsymmetricWithAssembler(
 				nil, err
 		}
 		// Check payload size
-		if len(payload) > bc.MaxAsymmetricPayloadSize() {
+		if len(payload) > bc.MaxAsymmetricPayloadSize(pk.GetPublic()) {
 			return format.Fingerprint{}, message.Service{}, nil,
 				nil, errors.Errorf(errPayloadSize, len(payload),
-					bc.MaxAsymmetricPayloadSize())
+					bc.MaxAsymmetricPayloadSize(pk.GetPublic()))
 		}
 		payloadLength := uint16(len(payload))
 
-		finalPayload := make([]byte, bc.maxAsymmetricPayloadSizeRaw())
+		finalPayload := make([]byte, bc.maxAsymmetricPayloadSizeRaw(pk.GetPublic()))
 		binary.BigEndian.PutUint16(finalPayload[:internalPayloadSizeLength],
 			payloadLength)
 		copy(finalPayload[internalPayloadSizeLength:], payload)
 
 		// Encrypt payload
 		encryptedPayload, mac, fp, err =
-			bc.channel.EncryptAsymmetric(finalPayload, pk, bc.rng.GetStream())
+			bc.channel.EncryptRSAToPublic(finalPayload, pk, bc.rng.GetStream())
 		if err != nil {
 			return format.Fingerprint{}, message.Service{}, nil,
 				nil, errors.WithMessage(err, "Failed to encrypt "+

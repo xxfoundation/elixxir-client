@@ -8,15 +8,18 @@
 package broadcast
 
 import (
+	"time"
+
+	"gitlab.com/xx_network/crypto/multicastRSA"
+	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
+
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
-	"gitlab.com/xx_network/crypto/multicastRSA"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"time"
 )
 
 // ListenerFunc is registered when creating a new broadcasting channel and
@@ -31,7 +34,7 @@ type Channel interface {
 
 	// MaxAsymmetricPayloadSize returns the maximum size for an asymmetric
 	// broadcast payload
-	MaxAsymmetricPayloadSize() int
+	MaxAsymmetricPayloadSize(multicastRSA.PublicKey) int
 
 	// Get returns the underlying crypto.Channel
 	Get() *crypto.Channel
@@ -51,7 +54,7 @@ type Channel interface {
 	// BroadcastAsymmetric broadcasts the payload to the channel. Requires a
 	// healthy network state to send. Payload length must be equal to
 	// bc.MaxAsymmetricPayloadSize and the channel PrivateKey must be passed in
-	BroadcastAsymmetric(pk multicastRSA.PrivateKey, payload []byte,
+	BroadcastAsymmetric(pk *rsa.PrivateKey, payload []byte,
 		cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error)
 
 	// BroadcastAsymmetricWithAssembler broadcasts the payload to the channel.
@@ -60,7 +63,7 @@ type Channel interface {
 	// The assembler will run once a round is selected and will receive the
 	// round ID
 	BroadcastAsymmetricWithAssembler(
-		pk multicastRSA.PrivateKey, assembler Assembler,
+		pk *rsa.PrivateKey, assembler Assembler,
 		cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error)
 
 	// RegisterListener registers a listener for broadcast messages

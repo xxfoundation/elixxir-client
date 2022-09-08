@@ -10,11 +10,14 @@ package broadcast
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"golang.org/x/crypto/blake2b"
+
+	"gitlab.com/xx_network/crypto/multicastRSA"
+
 	"gitlab.com/elixxir/client/cmix/identity"
 	"gitlab.com/elixxir/client/cmix/message"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
 // broadcastClient implements the Channel interface for sending/receiving asymmetric or symmetric broadcast messages
@@ -92,8 +95,9 @@ func (bc *broadcastClient) Get() *crypto.Channel {
 // verifyID generates a symmetric ID based on the info in the channel and
 // compares it to the one passed in.
 func (bc *broadcastClient) verifyID() bool {
+	hashedSecret := blake2b.Sum256(bc.channel.Secret)
 	gen, err := crypto.NewChannelID(bc.channel.Name, bc.channel.Description,
-		bc.channel.Salt, rsa.CreatePublicKeyPem(bc.channel.RsaPubKey))
+		bc.channel.Salt, bc.channel.RsaPubKeyHash, hashedSecret[:])
 	if err != nil {
 		jww.FATAL.Panicf("[verifyID] Failed to generate verified channel ID")
 		return false
@@ -105,10 +109,10 @@ func (bc *broadcastClient) MaxPayloadSize() int {
 	return bc.maxSymmetricPayload()
 }
 
-func (bc *broadcastClient) MaxAsymmetricPayloadSize() int {
-	return bc.maxAsymmetricPayloadSizeRaw() - internalPayloadSizeLength
+func (bc *broadcastClient) MaxAsymmetricPayloadSize(pk multicastRSA.PublicKey) int {
+	return bc.maxAsymmetricPayloadSizeRaw(pk) - internalPayloadSizeLength
 }
 
-func (bc *broadcastClient) maxAsymmetricPayloadSizeRaw() int {
-	return bc.channel.MaxAsymmetricPayloadSize()
+func (bc *broadcastClient) maxAsymmetricPayloadSizeRaw(pk multicastRSA.PublicKey) int {
+	return bc.channel.MaxAsymmetricPayloadSize(pk)
 }

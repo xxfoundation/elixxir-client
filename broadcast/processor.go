@@ -36,16 +36,17 @@ func (p *processor) Process(msg format.Message,
 	var err error
 	switch p.method {
 	case Asymmetric:
-		encPartSize := p.c.RsaPubKey.Size()               // Size returned by multicast RSA encryption
-		encodedMessage := msg.GetContents()[:encPartSize] // Only one message is encoded, rest of it is random data
-		decodedMessage, decryptErr := p.c.DecryptAsymmetric(encodedMessage)
-		if decryptErr != nil {
+		// Size returned by multicast RSA encryption
+		encPartSize := p.c.RsaPubKeyLength
+		// Only one message is encoded, rest of it is random data
+		encodedMessage := msg.GetContents()[:encPartSize]
+		decodedMessage, err := p.c.DecryptRSAToPublic(encodedMessage, mac, nonce)
+		if err != nil {
 			jww.ERROR.Printf(errDecrypt, p.c.ReceptionID, p.c.Name, decryptErr)
 			return
 		}
 		size := binary.BigEndian.Uint16(decodedMessage[:internalPayloadSizeLength])
 		payload = decodedMessage[internalPayloadSizeLength : size+internalPayloadSizeLength]
-
 	case Symmetric:
 		payload, err = p.c.DecryptSymmetric(msg.GetContents(), msg.GetMac(), msg.GetKeyFP())
 		if err != nil {

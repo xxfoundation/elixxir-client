@@ -17,6 +17,7 @@ import (
 
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/crypto"
 	"gitlab.com/elixxir/primitives/format"
 )
 
@@ -25,6 +26,33 @@ const (
 	asymmCMixSendTag              = "AsymmetricBroadcast"
 	internalPayloadSizeLength     = 2
 )
+
+func (bc *broadcastClient) SendRSAToPrivate(pk *rsa.PrivateKey,
+	payload []byte, cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+
+	// Confirm network health
+	if !bc.net.IsHealthy() {
+		return 0, ephemeral.Id{}, errors.New(errNetworkHealth)
+	}
+
+	assemble := func(rid id.Round) (fp format.Fingerprint,
+		service message.Service, encryptedPayload, mac []byte, err error) {
+
+		encryptedPayload, err := crypto.EncryptRSAToPrivate(plaintext,
+			rng,
+			pk,
+			label)
+
+		if err != nil {
+			return format.Fingerprint{}, message.Service{}, nil,
+				nil, errors.WithMessage(err, "Failed to encrypt "+
+					"asymmetric RSAToPrivate message")
+		}
+
+	}
+
+	return bc.net.SendWithAssembler(bc.channel.ReceptionID, assemble, cMixParams)
+}
 
 // BroadcastAsymmetric broadcasts the payload to the channel. Requires a
 // healthy network state to send Payload length must be equal to

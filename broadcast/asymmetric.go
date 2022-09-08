@@ -27,6 +27,7 @@ const (
 	internalPayloadSizeLength     = 2
 )
 
+/*
 func (bc *broadcastClient) SendRSAToPrivate(pk *rsa.PrivateKey,
 	payload []byte, cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 
@@ -38,7 +39,7 @@ func (bc *broadcastClient) SendRSAToPrivate(pk *rsa.PrivateKey,
 	assemble := func(rid id.Round) (fp format.Fingerprint,
 		service message.Service, encryptedPayload, mac []byte, err error) {
 
-		encryptedPayload, err := crypto.EncryptRSAToPrivate(plaintext,
+		encryptedPayload, err := bc.channel.EncryptRSAToPrivate(plaintext,
 			rng,
 			pk,
 			label)
@@ -53,6 +54,7 @@ func (bc *broadcastClient) SendRSAToPrivate(pk *rsa.PrivateKey,
 
 	return bc.net.SendWithAssembler(bc.channel.ReceptionID, assemble, cMixParams)
 }
+*/
 
 // BroadcastAsymmetric broadcasts the payload to the channel. Requires a
 // healthy network state to send Payload length must be equal to

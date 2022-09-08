@@ -101,7 +101,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	// the database early This requires an entire project in order to track
 	// round state.
 	rid, ephid, err := ch.broadcast.BroadcastWithAssembler(assemble, params)
-	return msgId, rid, ephid, err
+	return msgId, rid.ID, ephid, err
 }
 
 // SendAdminGeneric is used to send a raw message over a channel encrypted
@@ -168,7 +168,7 @@ func (m *manager) SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
 	// round state.
 	rid, ephid, err := ch.broadcast.BroadcastAsymmetricWithAssembler(privKey,
 		assemble, params)
-	return msgId, rid, ephid, err
+	return msgId, rid.ID, ephid, err
 }
 
 // SendMessage is used to send a formatted message over a channel.

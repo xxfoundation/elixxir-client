@@ -12,6 +12,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/group"
@@ -46,7 +47,7 @@ const (
 // Send sends a message to all group members using Cmix.SendMany.
 // The send fails if the message is too long.
 func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
-	id.Round, time.Time, group.MessageID, error) {
+	rounds.Round, time.Time, group.MessageID, error) {
 
 	if tag == "" {
 		tag = defaultServiceTag
@@ -55,7 +56,7 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 	// Get the relevant group
 	g, exists := m.GetGroup(groupID)
 	if !exists {
-		return 0, time.Time{}, group.MessageID{},
+		return rounds.Round{}, time.Time{}, group.MessageID{},
 			errors.Errorf(newNoGroupErr, groupID)
 	}
 
@@ -65,7 +66,7 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 	// Create a cMix message for each group member
 	groupMessages, err := m.newMessages(g, tag, message, timeNow)
 	if err != nil {
-		return 0, time.Time{}, group.MessageID{},
+		return rounds.Round{}, time.Time{}, group.MessageID{},
 			errors.Errorf(newCmixMsgErr, g.Name, g.ID, err)
 	}
 
@@ -73,7 +74,7 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 	msgId, err := getGroupMessageId(
 		m.getE2eGroup(), groupID, m.getReceptionIdentity().ID, timeNow, message)
 	if err != nil {
-		return 0, time.Time{}, group.MessageID{}, err
+		return rounds.Round{}, time.Time{}, group.MessageID{}, err
 	}
 
 	// Send all the groupMessages
@@ -81,7 +82,7 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 	param.DebugTag = "group.Message"
 	rid, _, err := m.getCMix().SendMany(groupMessages, param)
 	if err != nil {
-		return 0, time.Time{}, group.MessageID{},
+		return rounds.Round{}, time.Time{}, group.MessageID{},
 			errors.Errorf(sendManyCmixErr, m.getReceptionIdentity().ID, g.Name, g.ID, err)
 	}
 

@@ -237,7 +237,7 @@ func sendGroup(groupIdString string, msg []byte, gm groupChat.GroupChat) {
 	}
 
 	jww.INFO.Printf("[GC] Sent to group %s on round %d at %s",
-		groupID, rid, timestamp)
+		groupID, rid.ID, timestamp)
 	fmt.Printf("Sent message %q to group.\n", msg)
 }
 

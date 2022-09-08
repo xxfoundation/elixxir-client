@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -39,7 +40,7 @@ func (bc *broadcastClient) maxSymmetricPayload() int {
 // Network must be healthy to send
 // Requires a payload of size bc.MaxSymmetricPayloadSize()
 func (bc *broadcastClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
-	id.Round, ephemeral.Id, error) {
+	rounds.Round, ephemeral.Id, error) {
 	assemble := func(rid id.Round) ([]byte, error) {
 		return payload, nil
 	}
@@ -52,9 +53,9 @@ func (bc *broadcastClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams)
 // Network must be healthy to send
 // Requires a payload of size bc.MaxSymmetricPayloadSize()
 func (bc *broadcastClient) BroadcastWithAssembler(assembler Assembler, cMixParams cmix.CMIXParams) (
-	id.Round, ephemeral.Id, error) {
+	rounds.Round, ephemeral.Id, error) {
 	if !bc.net.IsHealthy() {
-		return 0, ephemeral.Id{}, errors.New(errNetworkHealth)
+		return rounds.Round{}, ephemeral.Id{}, errors.New(errNetworkHealth)
 	}
 
 	assemble := func(rid id.Round) (fp format.Fingerprint,

@@ -35,7 +35,7 @@ type testNetworkManager struct {
 }
 
 func (tnm *testNetworkManager) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
-	cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 
 	msg := format.NewMessage(tnm.instance.GetE2EGroup().GetP().ByteLen())
 
@@ -44,7 +44,7 @@ func (tnm *testNetworkManager) SendWithAssembler(recipient *id.ID, assembler cmi
 
 	fingerprint, service, payload, mac, err := assembler(rid)
 	if err != nil {
-		return rid, *ephemeralId, err
+		return rounds.Round{ID: rid}, *ephemeralId, err
 	}
 
 	// Build message. Will panic if inputs are not correct.
@@ -66,12 +66,12 @@ func (tnm *testNetworkManager) SendWithAssembler(recipient *id.ID, assembler cmi
 		tnm.requestProcess.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
 	}
 
-	return 0, ephemeral.Id{}, nil
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
 func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerprint,
 	service message.Service,
-	payload, mac []byte, cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	payload, mac []byte, cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	msg := format.NewMessage(tnm.instance.GetE2EGroup().GetP().ByteLen())
 	// Build message. Will panic if inputs are not correct.
 	msg.SetKeyFP(fingerprint)
@@ -92,7 +92,7 @@ func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerp
 		tnm.requestProcess.Process(msg, receptionID.EphemeralIdentity{}, rounds.Round{})
 	}
 
-	return 0, ephemeral.Id{}, nil
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
 func (tnm *testNetworkManager) AddFingerprint(identity *id.ID,
@@ -171,7 +171,7 @@ func (tnm *testNetworkManager) SendToAny(sendFunc func(host *connect.Host) (inte
 	panic("implement me")
 }
 
-func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
+func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	//TODO implement me
 	panic("implement me")
 }

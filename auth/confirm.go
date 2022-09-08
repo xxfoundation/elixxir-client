@@ -171,8 +171,8 @@ func sendAuthConfirm(net cmixClient, partner *id.ID,
 	}
 
 	em := fmt.Sprintf("Confirm Request with %s (msgDigest: %s) sent on round %d",
-		partner, format.DigestContents(payload), sentRound)
+		partner, format.DigestContents(payload), sentRound.ID)
 	jww.INFO.Print(em)
 	event.Report(1, "Auth", "SendConfirm", em)
-	return sentRound, nil
+	return sentRound.ID, nil
 }

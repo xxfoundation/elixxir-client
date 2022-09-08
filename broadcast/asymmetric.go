@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/multicastRSA"
 	"gitlab.com/xx_network/primitives/id"
@@ -28,7 +29,7 @@ const (
 // healthy network state to send Payload length must be equal to
 // bc.MaxAsymmetricPayloadSize, and the channel PrivateKey must be passed in
 func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey,
-	payload []byte, cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	payload []byte, cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	// Confirm network health
 
 	assemble := func(rid id.Round) ([]byte, error) {
@@ -44,10 +45,10 @@ func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey,
 // must be passed in
 func (bc *broadcastClient) BroadcastAsymmetricWithAssembler(
 	pk multicastRSA.PrivateKey, assembler Assembler,
-	cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	// Confirm network health
 	if !bc.net.IsHealthy() {
-		return 0, ephemeral.Id{}, errors.New(errNetworkHealth)
+		return rounds.Round{}, ephemeral.Id{}, errors.New(errNetworkHealth)
 	}
 
 	assemble := func(rid id.Round) (fp format.Fingerprint,

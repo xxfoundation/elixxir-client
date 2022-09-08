@@ -39,20 +39,20 @@ type Channel interface {
 	// Broadcast broadcasts the payload to the channel. The payload size must be
 	// equal to MaxPayloadSize.
 	Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
-		id.Round, ephemeral.Id, error)
+		rounds.Round, ephemeral.Id, error)
 
 	// BroadcastWithAssembler broadcasts a payload over a symmetric channel.
 	// With a payload assembled after the round is selected, allowing the round
 	// info to be included in the payload. Network must be healthy to send.
 	// Requires a payload of size bc.MaxSymmetricPayloadSize()
 	BroadcastWithAssembler(assembler Assembler, cMixParams cmix.CMIXParams) (
-		id.Round, ephemeral.Id, error)
+		rounds.Round, ephemeral.Id, error)
 
 	// BroadcastAsymmetric broadcasts the payload to the channel. Requires a
 	// healthy network state to send. Payload length must be equal to
 	// bc.MaxAsymmetricPayloadSize and the channel PrivateKey must be passed in
 	BroadcastAsymmetric(pk multicastRSA.PrivateKey, payload []byte,
-		cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error)
+		cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 
 	// BroadcastAsymmetricWithAssembler broadcasts the payload to the channel.
 	// Requires a healthy network state to send. Payload length must be equal to
@@ -61,7 +61,7 @@ type Channel interface {
 	// round ID
 	BroadcastAsymmetricWithAssembler(
 		pk multicastRSA.PrivateKey, assembler Assembler,
-		cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error)
+		cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 
 	// RegisterListener registers a listener for broadcast messages
 	RegisterListener(listenerCb ListenerFunc, method Method) error
@@ -79,7 +79,7 @@ type Assembler func(rid id.Round) (payload []byte, err error)
 type Client interface {
 	GetMaxMessageLength() int
 	SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
-		cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error)
+		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 	IsHealthy() bool
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
 	AddService(clientID *id.ID, newService message.Service,

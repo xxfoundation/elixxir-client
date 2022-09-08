@@ -58,7 +58,7 @@ type Client interface {
 	// WARNING: Do not roll your own crypto.
 	Send(recipient *id.ID, fingerprint format.Fingerprint,
 		service message.Service, payload, mac []byte, cmixParams CMIXParams) (
-		id.Round, ephemeral.Id, error)
+		rounds.Round, ephemeral.Id, error)
 
 	// SendMany sends many "raw" cMix message payloads to the provided
 	// recipients all in the same round.
@@ -85,7 +85,7 @@ type Client interface {
 	// (along with the reason). Blocks until successful send or err.
 	// WARNING: Do not roll your own crypto.
 	SendMany(messages []TargetedCmixMessage, p CMIXParams) (
-		id.Round, []ephemeral.Id, error)
+		rounds.Round, []ephemeral.Id, error)
 
 	// SendWithAssembler sends a variable cmix payload to the provided recipient.
 	// The payload sent is based on the Complier function passed in, which accepts
@@ -103,7 +103,7 @@ type Client interface {
 	// (along with the reason). Blocks until successful sends or errors.
 	// WARNING: Do not roll your own crypto.
 	SendWithAssembler(recipient *id.ID, assembler MessageAssembler,
-		cmixParams CMIXParams) (id.Round, ephemeral.Id, error)
+		cmixParams CMIXParams) (rounds.Round, ephemeral.Id, error)
 
 	/* === Message Reception ================================================ */
 	/* Identities are all network identities which the client is currently

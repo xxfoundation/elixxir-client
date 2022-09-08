@@ -56,7 +56,7 @@ func Test_manager_Send(t *testing.T) {
 		reception.Process(msg, receptionID.EphemeralIdentity{
 			EphId: ephemeral.Id{1, 2, 3}, Source: &id.ID{4, 5, 6},
 		},
-			rounds.Round{ID: roundId, Timestamps: timestamps})
+			rounds.Round{ID: roundId.ID, Timestamps: timestamps})
 		select {
 		case result := <-msgChan:
 			if !result.SenderID.Cmp(m.getReceptionIdentity().ID) {

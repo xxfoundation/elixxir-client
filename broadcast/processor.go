@@ -53,7 +53,7 @@ func (p *processor) Process(msg format.Message,
 			return
 		}
 	default:
-		jww.ERROR.Printf("Unrecognized broadcast method %d", p.method)
+		jww.FATAL.Panicf("Unrecognized broadcast method %d", p.method)
 	}
 
 	p.cb(payload, receptionID, round)

@@ -480,8 +480,8 @@ func (m *mockBroadcastClient) GetMaxMessageLength() int { return 123 }
 
 func (m *mockBroadcastClient) SendWithAssembler(*id.ID,
 	clientCmix.MessageAssembler, clientCmix.CMIXParams) (
-	id.Round, ephemeral.Id, error) {
-	return id.Round(567), ephemeral.Id{}, nil
+	rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{ID: id.Round(567)}, ephemeral.Id{}, nil
 }
 
 func (m *mockBroadcastClient) IsHealthy() bool                                       { return true }
@@ -489,6 +489,10 @@ func (m *mockBroadcastClient) AddIdentity(*id.ID, time.Time, bool)              
 func (m *mockBroadcastClient) AddService(*id.ID, message.Service, message.Processor) {}
 func (m *mockBroadcastClient) DeleteClientService(*id.ID)                            {}
 func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                                 {}
+func (m *mockBroadcastClient) GetRoundResults(timeout time.Duration,
+	roundCallback clientCmix.RoundEventCallback, roundList ...id.Round) error {
+	return nil
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock EventModel                                                            //
@@ -498,6 +502,32 @@ func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                            
 type mockEventModel struct {
 	joinedCh *cryptoBroadcast.Channel
 	leftCh   *id.ID
+}
+
+func (m *mockEventModel) MessageSent(channelID *id.ID, messageID cryptoChannel.MessageID,
+	myUsername string, text string, timestamp time.Time, lease time.Duration, round rounds.Round) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockEventModel) ReplySent(channelID *id.ID, messageID cryptoChannel.MessageID,
+	replyTo cryptoChannel.MessageID, myUsername string, text string,
+	timestamp time.Time, lease time.Duration, round rounds.Round) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockEventModel) ReactionSent(channelID *id.ID, messageID cryptoChannel.MessageID,
+	reactionTo cryptoChannel.MessageID, senderUsername string, reaction string,
+	timestamp time.Time, lease time.Duration, round rounds.Round) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockEventModel) UpdateSentStatus(messageID cryptoChannel.MessageID,
+	status SentStatus) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (m *mockEventModel) JoinChannel(c *cryptoBroadcast.Channel) {

@@ -10,18 +10,20 @@ package broadcast
 import (
 	"bytes"
 	"fmt"
+	"reflect"
+	"sync"
+	"testing"
+	"time"
+
+	"gitlab.com/xx_network/crypto/csprng"
+	"golang.org/x/crypto/blake2b"
+
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	cMixCrypto "gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
-	"reflect"
-	"sync"
-	"testing"
-	"time"
 )
 
 // Tests that symmetricClient adheres to the Symmetric interface.
@@ -35,21 +37,29 @@ var _ Client = (cmix.Client)(nil)
 func Test_symmetricClient_Smoke(t *testing.T) {
 	// Initialise objects used by all clients
 	cMixHandler := newMockCmixHandler()
+	t.Logf("-------------------------------------------------payload len %d\n", newMockCmix(cMixHandler).GetMaxMessageLength())
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	cname := "MyChannel"
 	cdesc := "This is my channel about stuff."
 	csalt := cMixCrypto.NewSalt(csprng.NewSystemRNG(), 32)
 	cpubkey := newRsaPubKey(64, t)
-	cid, err := crypto.NewChannelID(cname, cdesc, csalt, rsa.CreatePublicKeyPem(cpubkey))
+	pubKeyHash := blake2b.Sum256(cpubkey.Bytes())
+	secret := make([]byte, 32)
+	_, err := rngGen.GetStream().Read(secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cid, err := crypto.NewChannelID(cname, cdesc, csalt, pubKeyHash[:], secret)
 	if err != nil {
 		t.Errorf("Failed to create channel ID: %+v", err)
 	}
 	channel := &crypto.Channel{
-		ReceptionID: cid,
-		Name:        cname,
-		Description: cdesc,
-		Salt:        csalt,
-		RsaPubKey:   cpubkey,
+		ReceptionID:   cid,
+		Name:          cname,
+		Description:   cdesc,
+		Salt:          csalt,
+		RsaPubKeyHash: pubKeyHash[:],
+		Secret:        secret,
 	}
 
 	// Set up callbacks, callback channels, and the symmetric clients
@@ -86,6 +96,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 	// Send broadcast from each client
 	for i := range clients {
 		payload := make([]byte, newMockCmix(cMixHandler).GetMaxMessageLength())
+
 		copy(payload,
 			fmt.Sprintf("Hello from client %d of %d.", i, len(clients)))
 

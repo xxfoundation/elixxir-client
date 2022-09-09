@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/crypto/blake2b"
+
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 
@@ -64,17 +66,23 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 	cDesc := "This is my channel about stuff."
 	cSalt := cMixCrypto.NewSalt(csprng.NewSystemRNG(), 32)
 	cPubKey := pk.GetPublic()
+	pubKeyHash := blake2b.Sum256(cPubKey.Bytes())
+	secret := make([]byte, 32)
+	_, err = rngGen.GetStream().Read(secret)
+	if err != nil {
+		t.Fatal(err)
+	}
 	cid, err := crypto.NewChannelID(
-		cName, cDesc, cSalt, rsa.CreatePublicKeyPem(cPubKey))
+		cName, cDesc, cSalt, pubKeyHash[:], secret)
 	if err != nil {
 		t.Errorf("Failed to create channel ID: %+v", err)
 	}
 	channel := &crypto.Channel{
-		ReceptionID: cid,
-		Name:        cName,
-		Description: cDesc,
-		Salt:        cSalt,
-		RsaPubKey:   cPubKey,
+		ReceptionID:   cid,
+		Name:          cName,
+		Description:   cDesc,
+		Salt:          cSalt,
+		RsaPubKeyHash: pubKeyHash[:],
 	}
 
 	// must mutate cMixHandler such that it's processorMap contains a
@@ -115,7 +123,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 
 	// Send broadcast from each client
 	for i := range clients {
-		payload := make([]byte, clients[i].MaxAsymmetricPayloadSize())
+		payload := make([]byte, clients[i].MaxAsymmetricPayloadSize(cPubKey))
 		copy(payload,
 			fmt.Sprintf("Hello from client %d of %d.", i, len(clients)))
 
@@ -155,7 +163,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 		clients[i].Stop()
 	}
 
-	payload := make([]byte, clients[0].MaxAsymmetricPayloadSize())
+	payload := make([]byte, clients[0].MaxAsymmetricPayloadSize(cPubKey))
 	copy(payload, "This message should not get through.")
 
 	// Start waiting on channels and error if anything is received

@@ -9,16 +9,20 @@ package broadcast
 
 import (
 	"bytes"
+	"testing"
+	"time"
+
+	"golang.org/x/crypto/blake2b"
+
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/primitives/id"
+
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/primitives/id"
-	"testing"
-	"time"
 )
 
 // Tests that process.Process properly decrypts the payload and passes it to the
@@ -29,12 +33,14 @@ func Test_processor_Process(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to generate RSA key: %+v", err)
 	}
+	cPubKey := rsaPrivKey.GetPublic()
+	pubKeyHash := blake2b.Sum256(cPubKey.Bytes())
 	s := &crypto.Channel{
-		ReceptionID: id.NewIdFromString("channel", id.User, t),
-		Name:        "MyChannel",
-		Description: "This is my channel that I channel stuff on.",
-		Salt:        cmix.NewSalt(rng, 32),
-		RsaPubKey:   rsaPrivKey.GetPublic(),
+		ReceptionID:   id.NewIdFromString("channel", id.User, t),
+		Name:          "MyChannel",
+		Description:   "This is my channel that I channel stuff on.",
+		Salt:          cmix.NewSalt(rng, 32),
+		RsaPubKeyHash: pubKeyHash[:],
 	}
 
 	cbChan := make(chan []byte)

@@ -98,12 +98,15 @@ func (cm *ChannelsManager) GetID() int {
 }
 
 // NewChannelsManager constructs a ChannelsManager.
+// fixme: this is a work in progress and should not be used
+//  an event model is implemented in the style of the bindings layer's
+//  AuthCallbacks. Remove this note when that has been done.
 //
 // Parameters:
 //  - e2eID - The tracked e2e object ID. This can be retrieved using [E2e.GetID].
 //  - udID  - The tracked UD object ID. This can be retrieved using
 //    [UserDiscovery.GetID].
-func NewChannelsManager(e2eID, udID, eventModelId int) (*ChannelsManager, error) {
+func NewChannelsManager(e2eID, udID int) (*ChannelsManager, error) {
 	// Get user from singleton
 	user, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {
@@ -115,19 +118,16 @@ func NewChannelsManager(e2eID, udID, eventModelId int) (*ChannelsManager, error)
 		return nil, err
 	}
 
-	eventModel, err := eventModelTrackerSingleton.get(eventModelId)
-	if err != nil {
-		return nil, err
-	}
-
 	nameService, err := udMan.api.StartChannelNameService()
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct new channels manager
+	// TODO: Implement a bindings layer event model, pass that in as a parameter
+	//  or the function and pass that into here.
 	m := channels.NewManager(user.api.GetStorage().GetKV(), user.api.GetCmix(),
-		user.api.GetRng(), nameService, eventModel.api)
+		user.api.GetRng(), nameService, nil)
 
 	// Add channel to singleton and return
 	return channelManagerTrackerSingleton.make(m), nil
@@ -605,7 +605,6 @@ func constructChannelSendReport(channelMessageId cryptoChannel.MessageID,
 type ReceivedChannelMessageReport struct {
 	ChannelId      []byte
 	MessageId      []byte
-	ReplyTo        []byte
 	MessageType    int
 	SenderUsername string
 	Content        []byte

@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/partnerships/crust"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
 // GetUsernameValidationSignature will lazily load a username validation
@@ -50,9 +51,15 @@ func (m *Manager) getUsernameValidationSignature(
 		return nil, err
 	}
 
+	publicKey, err := rsa.LoadPublicKeyFromPem(response.ReceptionPublicKeyPem)
+	if err != nil {
+		return nil, err
+	}
+
 	// Verify response is valid
-	err = crust.VerifyVerificationSignature(m.ud.host.GetPubKey(), response.Username,
-		response.ReceptionPublicKeyPem, response.Signature)
+	err = crust.VerifyVerificationSignature(m.ud.host.GetPubKey(),
+		crust.HashUsername(response.Username),
+		publicKey, response.Signature)
 	if err != nil {
 		return nil, err
 	}

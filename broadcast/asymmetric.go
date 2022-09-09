@@ -28,6 +28,15 @@ const (
 	internalPayloadSizeLength     = 2
 )
 
+func (bc *broadcastClient) ReceiveRSAtoPrivate(private *rsa.PrivateKey, listenerCb ListenerFunc) error {
+	err := bc.RegisterListener(listenerCb, Asymmetric)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (bc *broadcastClient) SendRSAToPrivate(pk *rsa.PrivateKey,
 	payload []byte, cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
 
@@ -37,6 +46,15 @@ func (bc *broadcastClient) SendRSAToPrivate(pk *rsa.PrivateKey,
 
 	assemble := func(rid id.Round) (fp format.Fingerprint,
 		service message.Service, encryptedPayload, mac []byte, err error) {
+
+		// calculate the overhead for two layers of encryption and make sure
+		// the payload size is within bounds
+		encryptionOverhead := 0
+		availablePayload := bc.channel.RsaPubKeyLength - encryptionOverhead
+		if len(encryptedPayload) > availablePayload {
+			return format.Fingerprint{}, message.Service{}, nil,
+				nil, errors.New("encryptedPayload length exceeds available payload capacity")
+		}
 
 		encryptedPayload, err = bc.channel.EncryptRSAToPrivate(payload,
 			bc.rng.GetStream(),

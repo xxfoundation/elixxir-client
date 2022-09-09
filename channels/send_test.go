@@ -11,8 +11,11 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"github.com/golang/protobuf/proto"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/storage/versioned"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"testing"
 	"time"
@@ -141,6 +144,15 @@ func TestSendGeneric(t *testing.T) {
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
 		name:     nameService,
+		st: loadSendTracker(&mockBroadcastClient{},
+			versioned.NewKV(ekv.MakeMemstore()), func(chID *id.ID,
+				umi *userMessageInternal,
+				receptionID receptionID.EphemeralIdentity,
+				round rounds.Round, status SentStatus) {
+			}, func(chID *id.ID, cm *ChannelMessage,
+				messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
+				round rounds.Round, status SentStatus) {
+			}, func(messageID cryptoChannel.MessageID, status SentStatus) {}),
 	}
 
 	channelID := new(id.ID)
@@ -212,6 +224,15 @@ func TestAdminGeneric(t *testing.T) {
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
 		name:     nameService,
+		st: loadSendTracker(&mockBroadcastClient{},
+			versioned.NewKV(ekv.MakeMemstore()), func(chID *id.ID,
+				umi *userMessageInternal,
+				receptionID receptionID.EphemeralIdentity,
+				round rounds.Round, status SentStatus) {
+			}, func(chID *id.ID, cm *ChannelMessage,
+				messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
+				round rounds.Round, status SentStatus) {
+			}, func(messageID cryptoChannel.MessageID, status SentStatus) {}),
 	}
 
 	messageType := Text
@@ -282,6 +303,15 @@ func TestSendMessage(t *testing.T) {
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
 		name:     nameService,
+		st: loadSendTracker(&mockBroadcastClient{},
+			versioned.NewKV(ekv.MakeMemstore()), func(chID *id.ID,
+				umi *userMessageInternal,
+				receptionID receptionID.EphemeralIdentity,
+				round rounds.Round, status SentStatus) {
+			}, func(chID *id.ID, cm *ChannelMessage,
+				messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
+				round rounds.Round, status SentStatus) {
+			}, func(messageID cryptoChannel.MessageID, status SentStatus) {}),
 	}
 
 	channelID := new(id.ID)
@@ -361,6 +391,15 @@ func TestSendReply(t *testing.T) {
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
 		name:     nameService,
+		st: loadSendTracker(&mockBroadcastClient{},
+			versioned.NewKV(ekv.MakeMemstore()), func(chID *id.ID,
+				umi *userMessageInternal,
+				receptionID receptionID.EphemeralIdentity,
+				round rounds.Round, status SentStatus) {
+			}, func(chID *id.ID, cm *ChannelMessage,
+				messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
+				round rounds.Round, status SentStatus) {
+			}, func(messageID cryptoChannel.MessageID, status SentStatus) {}),
 	}
 
 	channelID := new(id.ID)
@@ -440,6 +479,15 @@ func TestSendReaction(t *testing.T) {
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
 		name:     nameService,
+		st: loadSendTracker(&mockBroadcastClient{},
+			versioned.NewKV(ekv.MakeMemstore()), func(chID *id.ID,
+				umi *userMessageInternal,
+				receptionID receptionID.EphemeralIdentity,
+				round rounds.Round, status SentStatus) {
+			}, func(chID *id.ID, cm *ChannelMessage,
+				messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
+				round rounds.Round, status SentStatus) {
+			}, func(messageID cryptoChannel.MessageID, status SentStatus) {}),
 	}
 
 	channelID := new(id.ID)

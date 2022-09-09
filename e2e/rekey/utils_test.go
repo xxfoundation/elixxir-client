@@ -302,8 +302,7 @@ func (m *mockNetManager) NumRegisteredNodes() int {
 func (m *mockNetManager) TriggerNodeRegistration(nid *id.ID) {}
 
 func (m *mockNetManager) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback,
-	roundList ...id.Round) error {
-	return nil
+	roundList ...id.Round) {
 }
 
 func (m *mockNetManager) LookupHistoricalRound(

@@ -34,7 +34,8 @@ type triggerAdminEventDummy struct {
 
 func (taed *triggerAdminEventDummy) triggerAdminEvent(chID *id.ID,
 	cm *ChannelMessage, messageID cryptoChannel.MessageID,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	status SentStatus) {
 	taed.gotData = true
 
 	taed.chID = chID
@@ -78,8 +79,9 @@ func TestAdminListener_Listen(t *testing.T) {
 	dummy := &triggerAdminEventDummy{}
 
 	al := adminListener{
-		chID:    chID,
-		trigger: dummy.triggerAdminEvent,
+		chID:      chID,
+		trigger:   dummy.triggerAdminEvent,
+		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
 	}
 
 	// Call the listener
@@ -144,8 +146,9 @@ func TestAdminListener_Listen_BadRound(t *testing.T) {
 	dummy := &triggerAdminEventDummy{}
 
 	al := adminListener{
-		chID:    chID,
-		trigger: dummy.triggerAdminEvent,
+		chID:      chID,
+		trigger:   dummy.triggerAdminEvent,
+		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
 	}
 
 	// Call the listener
@@ -181,8 +184,9 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 	dummy := &triggerAdminEventDummy{}
 
 	al := adminListener{
-		chID:    chID,
-		trigger: dummy.triggerAdminEvent,
+		chID:      chID,
+		trigger:   dummy.triggerAdminEvent,
+		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
 	}
 
 	// Call the listener
@@ -233,8 +237,9 @@ func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
 	dummy := &triggerAdminEventDummy{}
 
 	al := adminListener{
-		chID:    chID,
-		trigger: dummy.triggerAdminEvent,
+		chID:      chID,
+		trigger:   dummy.triggerAdminEvent,
+		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
 	}
 
 	// Call the listener

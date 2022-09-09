@@ -72,7 +72,8 @@ func (m *manager) loadChannels() {
 
 	for i := range chList {
 		jc, err := loadJoinedChannel(
-			chList[i], m.kv, m.net, m.rng, m.name, m.events, m.broadcastMaker)
+			chList[i], m.kv, m.net, m.rng, m.name, m.events, m.broadcastMaker,
+			m.st.MessageReceive)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load channel %s: %+v", chList[i], err)
 		}
@@ -110,17 +111,19 @@ func (m *manager) addChannel(channel *cryptoBroadcast.Channel) error {
 
 	// Connect to listeners
 	err = b.RegisterListener((&userListener{
-		name:    m.name,
-		chID:    channel.ReceptionID,
-		trigger: m.events.triggerEvent,
+		name:      m.name,
+		chID:      channel.ReceptionID,
+		trigger:   m.events.triggerEvent,
+		checkSent: m.st.MessageReceive,
 	}).Listen, broadcast.Symmetric)
 	if err != nil {
 		return err
 	}
 
 	err = b.RegisterListener((&adminListener{
-		chID:    channel.ReceptionID,
-		trigger: m.events.triggerAdminEvent,
+		chID:      channel.ReceptionID,
+		trigger:   m.events.triggerAdminEvent,
+		checkSent: m.st.MessageReceive,
 	}).Listen, broadcast.Asymmetric)
 	if err != nil {
 		return err
@@ -209,7 +212,7 @@ func (jc *joinedChannel) Store(kv *versioned.KV) error {
 // loadJoinedChannel loads a given channel from ekv storage.
 func loadJoinedChannel(chId *id.ID, kv *versioned.KV, net broadcast.Client,
 	rngGen *fastRNG.StreamGenerator, name NameService, e *events,
-	broadcastMaker broadcast.NewBroadcastChannelFunc) (*joinedChannel, error) {
+	broadcastMaker broadcast.NewBroadcastChannelFunc, mr messageReceiveFunc) (*joinedChannel, error) {
 	obj, err := kv.Get(makeJoinedChannelKey(chId), joinedChannelVersion)
 	if err != nil {
 		return nil, err
@@ -222,7 +225,7 @@ func loadJoinedChannel(chId *id.ID, kv *versioned.KV, net broadcast.Client,
 		return nil, err
 	}
 
-	b, err := initBroadcast(jcd.Broadcast, name, e, net, broadcastMaker, rngGen)
+	b, err := initBroadcast(jcd.Broadcast, name, e, net, broadcastMaker, rngGen, mr)
 
 	jc := &joinedChannel{broadcast: b}
 	return jc, nil
@@ -241,24 +244,26 @@ func makeJoinedChannelKey(chId *id.ID) string {
 func initBroadcast(c *cryptoBroadcast.Channel,
 	name NameService, e *events, net broadcast.Client,
 	broadcastMaker broadcast.NewBroadcastChannelFunc,
-	rngGen *fastRNG.StreamGenerator) (broadcast.Channel, error) {
+	rngGen *fastRNG.StreamGenerator, mr messageReceiveFunc) (broadcast.Channel, error) {
 	b, err := broadcastMaker(c, net, rngGen)
 	if err != nil {
 		return nil, err
 	}
 
 	err = b.RegisterListener((&userListener{
-		name:    name,
-		chID:    c.ReceptionID,
-		trigger: e.triggerEvent,
+		name:      name,
+		chID:      c.ReceptionID,
+		trigger:   e.triggerEvent,
+		checkSent: mr,
 	}).Listen, broadcast.Symmetric)
 	if err != nil {
 		return nil, err
 	}
 
 	err = b.RegisterListener((&adminListener{
-		chID:    c.ReceptionID,
-		trigger: e.triggerAdminEvent,
+		chID:      c.ReceptionID,
+		trigger:   e.triggerAdminEvent,
+		checkSent: mr,
 	}).Listen, broadcast.Asymmetric)
 	if err != nil {
 		return nil, err

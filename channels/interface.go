@@ -9,6 +9,7 @@ package channels
 
 import (
 	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/xx_network/crypto/signature/rsa"
@@ -43,7 +44,7 @@ type Manager interface {
 	// Them meaning of validUntil depends on the use case.
 	SendGeneric(channelID *id.ID, messageType MessageType, msg []byte,
 		validUntil time.Duration, params cmix.CMIXParams) (
-		cryptoChannel.MessageID, id.Round, ephemeral.Id, error)
+		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
 	// SendAdminGeneric is used to send a raw message over a channel encrypted
 	// with admin keys, identifying it as sent by the admin. In general, it
@@ -52,8 +53,8 @@ type Manager interface {
 	// return an error. The message must be at most 510 bytes long.
 	SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
 		messageType MessageType, msg []byte, validUntil time.Duration,
-		params cmix.CMIXParams) (cryptoChannel.MessageID, id.Round, ephemeral.Id,
-		error)
+		params cmix.CMIXParams) (cryptoChannel.MessageID, rounds.Round,
+		ephemeral.Id, error)
 
 	// SendMessage is used to send a formatted message over a channel.
 	// Due to the underlying encoding using compression, it isn't
@@ -63,7 +64,7 @@ type Manager interface {
 	// lasting forever if ValidForever is used
 	SendMessage(channelID *id.ID, msg string,
 		validUntil time.Duration, params cmix.CMIXParams) (
-		cryptoChannel.MessageID, id.Round, ephemeral.Id, error)
+		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
 	// SendReply is used to send a formatted message over a channel.
 	// Due to the underlying encoding using compression, it isn't
@@ -75,14 +76,14 @@ type Manager interface {
 	// lasting forever if ValidForever is used
 	SendReply(channelID *id.ID, msg string, replyTo cryptoChannel.MessageID,
 		validUntil time.Duration, params cmix.CMIXParams) (
-		cryptoChannel.MessageID, id.Round, ephemeral.Id, error)
+		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
 	// SendReaction is used to send a reaction to a message over a channel.
 	// The reaction must be a single emoji with no other characters, and will
 	// be rejected otherwise.
 	// Clients will drop the reaction if they do not recognize the reactTo message
 	SendReaction(channelID *id.ID, reaction string, reactTo cryptoChannel.MessageID,
-		params cmix.CMIXParams) (cryptoChannel.MessageID, id.Round,
+		params cmix.CMIXParams) (cryptoChannel.MessageID, rounds.Round,
 		ephemeral.Id, error)
 
 	// RegisterReceiveHandler is used to register handlers for non default message

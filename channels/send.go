@@ -10,6 +10,7 @@ package channels
 import (
 	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -31,15 +32,17 @@ const (
 // it will always be possible to send a payload of 802 bytes at minimum
 func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	msg []byte, validUntil time.Duration, params cmix.CMIXParams) (
-	cryptoChannel.MessageID, id.Round, ephemeral.Id, error) {
+	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
 
 	//find the channel
 	ch, err := m.getChannel(channelID)
 	if err != nil {
-		return cryptoChannel.MessageID{}, 0, ephemeral.Id{}, err
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	var msgId cryptoChannel.MessageID
+	var usrMsg *UserMessage
+	var chMsg *ChannelMessage
 	//Note: we are not checking check if message is too long before trying to
 	//find a round
 
@@ -47,7 +50,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	assemble := func(rid id.Round) ([]byte, error) {
 
 		//Build the message
-		chMsg := &ChannelMessage{
+		chMsg = &ChannelMessage{
 			Lease:       validUntil.Nanoseconds(),
 			RoundID:     uint64(rid),
 			PayloadType: uint32(messageType),
@@ -72,7 +75,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		//Build the user message
 		validationSig, unameLease := m.name.GetChannelValidationSignature()
 
-		usrMsg := &UserMessage{
+		usrMsg = &UserMessage{
 			Message:             chMsgSerial,
 			ValidationSignature: validationSig,
 			Signature:           messageSig,
@@ -97,11 +100,16 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		return usrMsgSerialSized, nil
 	}
 
-	// TODO: send the send message over to reception manually so it is added to
-	// the database early This requires an entire project in order to track
-	// round state.
-	rid, ephid, err := ch.broadcast.BroadcastWithAssembler(assemble, params)
-	return msgId, rid.ID, ephid, err
+	r, ephid, err := ch.broadcast.BroadcastWithAssembler(assemble, params)
+	if err != nil {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+	m.st.send(channelID, &userMessageInternal{
+		userMessage:    usrMsg,
+		channelMessage: chMsg,
+		messageID:      msgId,
+	}, r)
+	return msgId, r, ephid, err
 }
 
 // SendAdminGeneric is used to send a raw message over a channel encrypted
@@ -111,21 +119,23 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 // return an error. The message must be at most 510 bytes long.
 func (m *manager) SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
 	messageType MessageType, msg []byte, validUntil time.Duration,
-	params cmix.CMIXParams) (cryptoChannel.MessageID, id.Round, ephemeral.Id,
+	params cmix.CMIXParams) (cryptoChannel.MessageID, rounds.Round, ephemeral.Id,
 	error) {
 
 	//find the channel
 	ch, err := m.getChannel(channelID)
 	if err != nil {
-		return cryptoChannel.MessageID{}, 0, ephemeral.Id{}, err
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	//verify the private key is correct
 	if ch.broadcast.Get().RsaPubKey.N.Cmp(privKey.GetPublic().N) != 0 {
-		return cryptoChannel.MessageID{}, 0, ephemeral.Id{}, WrongPrivateKey
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+			WrongPrivateKey
 	}
 
 	var msgId cryptoChannel.MessageID
+	var chMsg *ChannelMessage
 	//Note: we are not checking check if message is too long before trying to
 	//find a round
 
@@ -133,7 +143,7 @@ func (m *manager) SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
 	assemble := func(rid id.Round) ([]byte, error) {
 
 		//Build the message
-		chMsg := &ChannelMessage{
+		chMsg = &ChannelMessage{
 			Lease:       validUntil.Nanoseconds(),
 			RoundID:     uint64(rid),
 			PayloadType: uint32(messageType),
@@ -163,12 +173,11 @@ func (m *manager) SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
 		return chMsgSerialSized, nil
 	}
 
-	// TODO: send the send message over to reception manually so it is added to
-	// the database early. This requires an entire project in order to track
-	// round state.
-	rid, ephid, err := ch.broadcast.BroadcastAsymmetricWithAssembler(privKey,
+	r, ephid, err := ch.broadcast.BroadcastAsymmetricWithAssembler(privKey,
 		assemble, params)
-	return msgId, rid.ID, ephid, err
+
+	m.st.sendAdmin(channelID, chMsg, msgId, r)
+	return msgId, r, ephid, err
 }
 
 // SendMessage is used to send a formatted message over a channel.
@@ -177,7 +186,7 @@ func (m *manager) SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
 // it will always be possible to send a payload of 798 bytes at minimum
 func (m *manager) SendMessage(channelID *id.ID, msg string,
 	validUntil time.Duration, params cmix.CMIXParams) (
-	cryptoChannel.MessageID, id.Round, ephemeral.Id, error) {
+	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
 	txt := &CMIXChannelText{
 		Version:        cmixChannelTextVersion,
 		Text:           msg,
@@ -186,7 +195,7 @@ func (m *manager) SendMessage(channelID *id.ID, msg string,
 
 	txtMarshaled, err := proto.Marshal(txt)
 	if err != nil {
-		return cryptoChannel.MessageID{}, 0, ephemeral.Id{}, err
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	return m.SendGeneric(channelID, Text, txtMarshaled, validUntil, params)
@@ -200,8 +209,8 @@ func (m *manager) SendMessage(channelID *id.ID, msg string,
 // post the message as a normal message and not a reply.
 func (m *manager) SendReply(channelID *id.ID, msg string,
 	replyTo cryptoChannel.MessageID, validUntil time.Duration,
-	params cmix.CMIXParams) (cryptoChannel.MessageID, id.Round, ephemeral.Id,
-	error) {
+	params cmix.CMIXParams) (cryptoChannel.MessageID, rounds.Round,
+	ephemeral.Id, error) {
 	txt := &CMIXChannelText{
 		Version:        cmixChannelTextVersion,
 		Text:           msg,
@@ -210,7 +219,7 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 
 	txtMarshaled, err := proto.Marshal(txt)
 	if err != nil {
-		return cryptoChannel.MessageID{}, 0, ephemeral.Id{}, err
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	return m.SendGeneric(channelID, Text, txtMarshaled, validUntil, params)
@@ -222,10 +231,10 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 // Clients will drop the reaction if they do not recognize the reactTo message
 func (m *manager) SendReaction(channelID *id.ID, reaction string,
 	reactTo cryptoChannel.MessageID, params cmix.CMIXParams) (
-	cryptoChannel.MessageID, id.Round, ephemeral.Id, error) {
+	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
 
 	if err := ValidateReaction(reaction); err != nil {
-		return cryptoChannel.MessageID{}, 0, ephemeral.Id{}, err
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	react := &CMIXChannelReaction{
@@ -236,7 +245,7 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 
 	reactMarshaled, err := proto.Marshal(react)
 	if err != nil {
-		return cryptoChannel.MessageID{}, 0, ephemeral.Id{}, err
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
 	return m.SendGeneric(channelID, Reaction, reactMarshaled, ValidForever,

@@ -20,8 +20,9 @@ import (
 // adminListener adheres to the [broadcast.ListenerFunc] interface and is used
 // when admin messages are received on the channel.
 type adminListener struct {
-	chID    *id.ID
-	trigger triggerAdminEventFunc
+	chID      *id.ID
+	trigger   triggerAdminEventFunc
+	checkSent messageReceiveFunc
 }
 
 // Listen is called when a message is received for the admin listener
@@ -47,6 +48,11 @@ func (al *adminListener) Listen(payload []byte,
 		return
 	}
 
+	//check if we sent the message, ignore triggering if we sent
+	if al.checkSent(msgID) {
+		return
+	}
+
 	/* CRYPTOGRAPHICALLY RELEVANT CHECKS */
 
 	// Check the round to ensure that the message is not a replay
@@ -58,7 +64,7 @@ func (al *adminListener) Listen(payload []byte,
 	}
 
 	// Submit the message to the event model for listening
-	al.trigger(al.chID, cm, msgID, receptionID, round)
+	al.trigger(al.chID, cm, msgID, receptionID, round, Delivered)
 
 	return
 }

@@ -254,7 +254,7 @@ type Client interface {
 	// GetRoundResults adjudicates on the rounds requested. Checks if they are
 	// older rounds or in progress rounds.
 	GetRoundResults(timeout time.Duration, roundCallback RoundEventCallback,
-		roundList ...id.Round) error
+		roundList ...id.Round)
 
 	// LookupHistoricalRound looks up the passed historical round on the network.
 	// GetRoundResults does this lookup when needed, generally that is

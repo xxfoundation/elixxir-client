@@ -370,7 +370,9 @@ func Test_loadJoinedChannel(t *testing.T) {
 	}
 
 	loadedJc, err := loadJoinedChannel(ch.ReceptionID, m.kv, m.net, m.rng,
-		m.name, m.events, m.broadcastMaker)
+		m.name, m.events, m.broadcastMaker, func(messageID cryptoChannel.MessageID) bool {
+			return false
+		})
 	if err != nil {
 		t.Errorf("Failed to load joinedChannel: %+v", err)
 	}
@@ -490,9 +492,10 @@ func (m *mockBroadcastClient) AddService(*id.ID, message.Service, message.Proces
 func (m *mockBroadcastClient) DeleteClientService(*id.ID)                            {}
 func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                                 {}
 func (m *mockBroadcastClient) GetRoundResults(timeout time.Duration,
-	roundCallback clientCmix.RoundEventCallback, roundList ...id.Round) error {
-	return nil
+	roundCallback clientCmix.RoundEventCallback, roundList ...id.Round) {
 }
+func (m *mockBroadcastClient) AddHealthCallback(f func(bool)) uint64 { return 0 }
+func (m *mockBroadcastClient) RemoveHealthCallback(uint64)           {}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock EventModel                                                            //

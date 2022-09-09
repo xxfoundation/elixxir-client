@@ -156,7 +156,7 @@ type Cmix interface {
 	AddHealthCallback(f func(bool)) uint64
 	RemoveHealthCallback(uint64)
 	GetRoundResults(timeout time.Duration,
-		roundCallback cmix.RoundEventCallback, roundList ...id.Round) error
+		roundCallback cmix.RoundEventCallback, roundList ...id.Round)
 }
 
 // Storage interface matches a subset of the storage.Session methods used by the

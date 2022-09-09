@@ -38,6 +38,9 @@ type manager struct {
 	// Events model
 	*events
 
+	//send tracker
+	st *sendTracker
+
 	// Makes the function that is used to create broadcasts be a pointer so that
 	// it can be replaced in tests
 	broadcastMaker broadcast.NewBroadcastChannelFunc
@@ -56,7 +59,9 @@ type Client interface {
 	DeleteClientService(clientID *id.ID)
 	RemoveIdentity(id *id.ID)
 	GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback,
-		roundList ...id.Round) error
+		roundList ...id.Round)
+	AddHealthCallback(f func(bool)) uint64
+	RemoveHealthCallback(uint64)
 }
 
 // NewManager creates a new channel.Manager. It prefixes the KV with the
@@ -76,6 +81,9 @@ func NewManager(kv *versioned.KV, net Client,
 	}
 
 	m.events = initEvents(model)
+
+	m.st = loadSendTracker(net, kv, m.events.triggerEvent,
+		m.events.triggerAdminEvent, model.UpdateSentStatus)
 
 	m.loadChannels()
 
@@ -145,7 +153,8 @@ func (m *manager) ReplayChannel(chID *id.ID) error {
 	jc.broadcast.Stop()
 
 	//re-instantiate the broadcast, re-registering it from scratch
-	b, err := initBroadcast(c, m.name, m.events, m.net, m.broadcastMaker, m.rng)
+	b, err := initBroadcast(c, m.name, m.events, m.net, m.broadcastMaker, m.rng,
+		m.st.MessageReceive)
 	if err != nil {
 		return err
 	}

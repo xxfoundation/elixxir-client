@@ -177,7 +177,7 @@ func (m mockCmix) TriggerNodeRegistration(nid *id.ID) {
 	panic("implement me")
 }
 
-func (m mockCmix) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) error {
+func (m mockCmix) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) {
 	//TODO implement me
 	panic("implement me")
 }

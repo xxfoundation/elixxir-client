@@ -86,7 +86,11 @@ type EventModel interface {
 type MessageTypeReceiveMessage func(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
 	senderUsername string, content []byte, timestamp time.Time,
-	lease time.Duration, round rounds.Round)
+	lease time.Duration, round rounds.Round, status SentStatus)
+
+// updateStatusFunc is a function type for EventModel.UpdateSentStatus so it
+// can be mocked for testing where used
+type updateStatusFunc func(messageID cryptoChannel.MessageID, status SentStatus)
 
 // events is an internal structure which processes events and stores the
 // handlers for those events
@@ -134,13 +138,14 @@ func (e *events) RegisterReceiveHandler(messageType MessageType,
 }
 
 type triggerEventFunc func(chID *id.ID, umi *userMessageInternal,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round)
+	receptionID receptionID.EphemeralIdentity, round rounds.Round, status SentStatus)
 
 // triggerEvent is an internal function which is used to trigger message
 // reception on a message received from a user (symmetric encryption)
 // It will call the appropriate MessageTypeHandler assuming one exists.
 func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	status SentStatus) {
 	um := umi.GetUserMessage()
 	cm := umi.GetChannelMessage()
 	messageType := MessageType(cm.PayloadType)
@@ -162,19 +167,21 @@ func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 
 	//Call the listener. This is already in an instanced event, no new thread needed.
 	listener(chID, umi.GetMessageID(), messageType, um.Username,
-		cm.Payload, ts, time.Duration(cm.Lease), round)
+		cm.Payload, ts, time.Duration(cm.Lease), round, status)
 	return
 }
 
 type triggerAdminEventFunc func(chID *id.ID, cm *ChannelMessage,
 	messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-	round rounds.Round)
+	round rounds.Round, status SentStatus)
 
 // triggerAdminEvent is an internal function which is used to trigger message
 // reception on a message received from the admin (asymmetric encryption)
 // It will call the appropriate MessageTypeHandler assuming one exists.
 func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
-	messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+	messageID cryptoChannel.MessageID,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	status SentStatus) {
 	messageType := MessageType(cm.PayloadType)
 
 	//check if the type is already registered
@@ -194,7 +201,7 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 
 	//Call the listener. This is already in an instanced event, no new thread needed.
 	listener(chID, messageID, messageType, AdminUsername,
-		cm.Payload, ts, time.Duration(cm.Lease), round)
+		cm.Payload, ts, time.Duration(cm.Lease), round, status)
 	return
 }
 
@@ -206,7 +213,7 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 func (e *events) receiveTextMessage(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
 	senderUsername string, content []byte, timestamp time.Time,
-	lease time.Duration, round rounds.Round) {
+	lease time.Duration, round rounds.Round, status SentStatus) {
 	txt := &CMIXChannelText{}
 
 	if err := proto.Unmarshal(content, txt); err != nil {
@@ -223,7 +230,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 			var replyTo cryptoChannel.MessageID
 			copy(replyTo[:], txt.ReplyMessageID)
 			e.model.ReceiveReply(channelID, messageID, replyTo,
-				senderUsername, txt.Text, timestamp, lease, round, Delivered)
+				senderUsername, txt.Text, timestamp, lease, round, status)
 			return
 
 		} else {
@@ -240,7 +247,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 	fmt.Println(channelID)
 
 	e.model.ReceiveMessage(channelID, messageID, senderUsername, txt.Text,
-		timestamp, lease, round, Delivered)
+		timestamp, lease, round, status)
 }
 
 // receiveReaction is the internal function which handles the reception of
@@ -252,7 +259,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 func (e *events) receiveReaction(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
 	senderUsername string, content []byte, timestamp time.Time,
-	lease time.Duration, round rounds.Round) {
+	lease time.Duration, round rounds.Round, status SentStatus) {
 	react := &CMIXChannelReaction{}
 	if err := proto.Unmarshal(content, react); err != nil {
 		jww.ERROR.Printf("Failed to text unmarshal message %s from %s on "+
@@ -276,7 +283,7 @@ func (e *events) receiveReaction(channelID *id.ID,
 		var reactTo cryptoChannel.MessageID
 		copy(reactTo[:], react.ReactionMessageID)
 		e.model.ReceiveReaction(channelID, messageID, reactTo, senderUsername,
-			react.Reaction, timestamp, lease, round, Delivered)
+			react.Reaction, timestamp, lease, round, status)
 	} else {
 		jww.ERROR.Printf("Failed process reaction %s from %s on channel "+
 			"%s, type %s, ts: %s, lease: %s, round: %d, reacting to "+

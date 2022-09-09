@@ -166,7 +166,7 @@ var rootCmd = &cobra.Command{
 		time.Sleep(10 * time.Second)
 
 		// Accept auth request for this recipient
-		waitSecs := viper.GetUint(authTimeoutFlag)
+		authSecs := viper.GetUint(authTimeoutFlag)
 		authConfirmed := false
 		jww.INFO.Printf("Preexisting E2e partners: %+v", user.GetE2E().GetAllPartnerIDs())
 		if user.GetE2E().HasAuthenticatedChannel(recipientID) {
@@ -189,7 +189,7 @@ var rootCmd = &cobra.Command{
 							"unexpected request:"+
 								" %s", reqID)
 					}
-				case <-time.After(time.Duration(waitSecs) *
+				case <-time.After(time.Duration(authSecs) *
 					time.Second):
 					fmt.Print("timed out on auth request")
 					reqDone = true
@@ -245,15 +245,15 @@ var rootCmd = &cobra.Command{
 			scnt := uint(0)
 
 			// Wait until authConfirmed
-			for !authConfirmed && scnt < waitSecs {
+			for !authConfirmed && scnt < authSecs {
 				time.Sleep(1 * time.Second)
 				scnt++
 			}
-			if scnt == waitSecs {
+			if scnt == authSecs {
 				jww.FATAL.Panicf("Could not confirm "+
 					"authentication channel for %s, "+
 					"waited %d seconds.", recipientID,
-					waitSecs)
+					authSecs)
 			}
 			jww.INFO.Printf("Authentication channel confirmation"+
 				" took %d seconds", scnt)
@@ -359,6 +359,7 @@ var rootCmd = &cobra.Command{
 		// TODO: Actually check for how many messages we've received
 		expectedCnt := viper.GetUint(receiveCountFlag)
 		receiveCnt := uint(0)
+		waitSecs := viper.GetUint(waitTimeoutFlag)
 		waitTimeout := time.Duration(waitSecs) * time.Second
 		done := false
 

@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package nodes
 
@@ -84,7 +84,7 @@ func (k *key) save() error {
 		Data:      data,
 	}
 
-	return k.kv.Set(k.storeKey, currentKeyVersion, &obj)
+	return k.kv.Set(k.storeKey, &obj)
 }
 
 // delete deletes the key from the versioned keystore.

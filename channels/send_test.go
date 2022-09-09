@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"github.com/golang/protobuf/proto"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/xx_network/crypto/csprng"
 	"testing"
@@ -51,18 +52,18 @@ func (m *mockBroadcastChannel) Get() *cryptoBroadcast.Channel {
 }
 
 func (m *mockBroadcastChannel) Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
-	id.Round, ephemeral.Id, error) {
+	rounds.Round, ephemeral.Id, error) {
 
 	m.hasRun = true
 
 	m.payload = payload
 	m.params = cMixParams
 
-	return id.Round(123), ephemeral.Id{}, nil
+	return rounds.Round{ID: 123}, ephemeral.Id{}, nil
 }
 
 func (m *mockBroadcastChannel) BroadcastWithAssembler(assembler broadcast.Assembler, cMixParams cmix.CMIXParams) (
-	id.Round, ephemeral.Id, error) {
+	rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 
 	var err error
@@ -70,23 +71,23 @@ func (m *mockBroadcastChannel) BroadcastWithAssembler(assembler broadcast.Assemb
 	m.payload, err = assembler(returnedRound)
 	m.params = cMixParams
 
-	return id.Round(123), ephemeral.Id{}, err
+	return rounds.Round{ID: 123}, ephemeral.Id{}, err
 }
 
 func (m *mockBroadcastChannel) BroadcastAsymmetric(pk multicastRSA.PrivateKey, payload []byte,
-	cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 
 	m.payload = payload
 	m.params = cMixParams
 
 	m.pk = pk
-	return id.Round(123), ephemeral.Id{}, nil
+	return rounds.Round{ID: 123}, ephemeral.Id{}, nil
 }
 
 func (m *mockBroadcastChannel) BroadcastAsymmetricWithAssembler(
 	pk multicastRSA.PrivateKey, assembler broadcast.Assembler,
-	cMixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 
 	m.hasRun = true
 
@@ -97,7 +98,7 @@ func (m *mockBroadcastChannel) BroadcastAsymmetricWithAssembler(
 
 	m.pk = pk
 
-	return id.Round(123), ephemeral.Id{}, err
+	return rounds.Round{ID: 123}, ephemeral.Id{}, err
 }
 
 func (m *mockBroadcastChannel) RegisterListener(listenerCb broadcast.ListenerFunc, method broadcast.Method) error {

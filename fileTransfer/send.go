@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package fileTransfer
@@ -135,7 +135,7 @@ func (m *manager) sendCmix(packet []store.Part) {
 	}
 
 	err = m.cmix.GetRoundResults(
-		roundResultsTimeout, m.roundResultsCallback(validParts), rid)
+		roundResultsTimeout, m.roundResultsCallback(validParts), rid.ID)
 }
 
 // roundResultsCallback generates a network.RoundEventCallback that handles

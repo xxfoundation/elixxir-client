@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package broadcast
@@ -53,7 +53,7 @@ func (p *processor) Process(msg format.Message,
 			return
 		}
 	default:
-		jww.ERROR.Printf("Unrecognized broadcast method %d", p.method)
+		jww.FATAL.Panicf("Unrecognized broadcast method %d", p.method)
 	}
 
 	p.cb(payload, receptionID, round)

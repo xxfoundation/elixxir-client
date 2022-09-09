@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package utility
@@ -388,7 +388,7 @@ func (sv *StateVector) save() error {
 		Data:      data,
 	}
 
-	return sv.kv.Set(sv.key, currentStateVectorVersion, &obj)
+	return sv.kv.Set(sv.key, &obj)
 }
 
 // Delete remove the StateVector from storage.

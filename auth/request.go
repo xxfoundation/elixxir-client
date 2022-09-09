@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package auth
 
@@ -164,10 +164,10 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	}
 
 	em := fmt.Sprintf("Auth Request with %s (msgDigest: %s) sent"+
-		" on round %d", partner.ID, format.DigestContents(contents), round)
+		" on round %d", partner.ID, format.DigestContents(contents), round.ID)
 	jww.INFO.Print(em)
 	s.event.Report(1, "Auth", "RequestSent", em)
-	return round, nil
+	return round.ID, nil
 
 }
 

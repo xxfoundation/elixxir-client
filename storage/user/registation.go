@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package user
 
@@ -95,8 +95,7 @@ func (u *User) SetTransmissionRegistrationValidationSignature(b []byte) {
 		Data:      b,
 	}
 
-	err := u.kv.Set(transmissionRegValidationSigKey,
-		currentRegValidationSigVersion, obj)
+	err := u.kv.Set(transmissionRegValidationSigKey, obj)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the transmission Identity Validation "+
 			"Signature: %s", err)
@@ -122,8 +121,7 @@ func (u *User) SetReceptionRegistrationValidationSignature(b []byte) {
 		Data:      b,
 	}
 
-	err := u.kv.Set(receptionRegValidationSigKey,
-		currentRegValidationSigVersion, obj)
+	err := u.kv.Set(receptionRegValidationSigKey, obj)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the reception Identity Validation "+
 			"Signature: %s", err)
@@ -148,13 +146,12 @@ func (u *User) SetRegistrationTimestamp(tsNano int64) {
 	binary.BigEndian.PutUint64(tsBytes, uint64(tsNano))
 
 	obj := &versioned.Object{
-		Version:   currentRegValidationSigVersion,
+		Version:   registrationTimestampVersion,
 		Timestamp: netTime.Now(),
 		Data:      tsBytes,
 	}
 
-	err := u.kv.Set(registrationTimestampKey,
-		registrationTimestampVersion, obj)
+	err := u.kv.Set(registrationTimestampKey, obj)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the reception timestamp: %s", err)
 	}

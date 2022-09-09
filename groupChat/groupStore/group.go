@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package groupStore
 
@@ -105,7 +105,7 @@ func (g Group) store(kv *versioned.KV) error {
 		Data:      g.Serialize(),
 	}
 
-	return kv.Set(groupStoreKey(g.ID), groupStoreVersion, obj)
+	return kv.Set(groupStoreKey(g.ID), obj)
 }
 
 // loadGroup returns the group with the corresponding ID from storage.

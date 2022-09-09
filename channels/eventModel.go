@@ -8,6 +8,7 @@
 package channels
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
@@ -24,6 +25,14 @@ import (
 // AdminUsername defines the displayed username of admin messages, which are
 // unique users for every channel defined by the channel's private key
 const AdminUsername = "Admin"
+
+type SentStatus uint8
+
+const (
+	Sent SentStatus = iota
+	Delivered
+	Failed
+)
 
 // EventModel is an interface which an external party which uses the channels
 // system passed an object which adheres to in order to get events on the channel
@@ -46,8 +55,8 @@ type EventModel interface {
 	// it is incumbent on the user of the API to filter such called by message ID
 	// Messages may arrive our of order, so a reply in theory can arrive before
 	// the initial message, as a result it may be important to buffer replies.
-	ReceiveReply(ChannelID *id.ID, messageID cryptoChannel.MessageID,
-		replyTo cryptoChannel.MessageID, SenderUsername string,
+	ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
+		reactionTo cryptoChannel.MessageID, senderUsername string,
 		text string, timestamp time.Time, lease time.Duration,
 		round rounds.Round)
 
@@ -60,6 +69,29 @@ type EventModel interface {
 		reactionTo cryptoChannel.MessageID, senderUsername string,
 		reaction string, timestamp time.Time, lease time.Duration,
 		round rounds.Round)
+
+	// MessageSent is called whenever the user sends a message. It should be
+	//designated as "sent" and that delivery is unknown.
+	MessageSent(channelID *id.ID, messageID cryptoChannel.MessageID,
+		myUsername string, text string, timestamp time.Time,
+		lease time.Duration, round rounds.Round)
+
+	// ReplySent is called whenever the user sends a reply. It should be
+	// designated as "sent" and that delivery is unknown.
+	ReplySent(channelID *id.ID, messageID cryptoChannel.MessageID,
+		replyTo cryptoChannel.MessageID, myUsername string, text string,
+		timestamp time.Time, lease time.Duration, round rounds.Round)
+
+	// ReactionSent is called whenever the user sends a reply. It should be
+	// designated as "sent" and that delivery is unknown.
+	ReactionSent(channelID *id.ID, messageID cryptoChannel.MessageID,
+		reactionTo cryptoChannel.MessageID, senderUsername string,
+		reaction string, timestamp time.Time, lease time.Duration,
+		round rounds.Round)
+
+	// UpdateSentStatus is called whenever the sent status of a message
+	// has changed
+	UpdateSentStatus(messageID cryptoChannel.MessageID, status SentStatus)
 
 	//unimplemented
 	//IgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
@@ -195,6 +227,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 	senderUsername string, content []byte, timestamp time.Time,
 	lease time.Duration, round rounds.Round) {
 	txt := &CMIXChannelText{}
+
 	if err := proto.Unmarshal(content, txt); err != nil {
 		jww.ERROR.Printf("Failed to text unmarshal message %s from %s on "+
 			"channel %s, type %s, ts: %s, lease: %s, round: %d: %+v",
@@ -204,11 +237,12 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 	}
 
 	if txt.ReplyMessageID != nil {
+
 		if len(txt.ReplyMessageID) == cryptoChannel.MessageIDLen {
 			var replyTo cryptoChannel.MessageID
 			copy(replyTo[:], txt.ReplyMessageID)
-			e.model.ReceiveReply(channelID, messageID, replyTo, senderUsername, txt.Text,
-				timestamp, lease, round)
+			e.model.ReceiveReply(channelID, messageID, replyTo,
+				senderUsername, txt.Text, timestamp, lease, round)
 			return
 
 		} else {
@@ -221,6 +255,8 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 			// malformed
 		}
 	}
+
+	fmt.Println(channelID)
 
 	e.model.ReceiveMessage(channelID, messageID, senderUsername, txt.Text,
 		timestamp, lease, round)

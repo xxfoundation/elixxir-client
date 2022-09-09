@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -269,7 +269,7 @@ func (g *GroupChat) Send(groupId, message []byte, tag string) ([]byte, error) {
 
 	// Construct send report
 	sendReport := &GroupSendReport{
-		RoundsList: makeRoundsList(round),
+		RoundsList: makeRoundsList(round.ID),
 		Timestamp:  timestamp.UnixNano(),
 		MessageID:  msgID.Bytes(),
 	}

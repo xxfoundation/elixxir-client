@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package broadcast
@@ -37,7 +37,7 @@ func Test_processor_Process(t *testing.T) {
 		RsaPubKey:   rsaPrivKey.GetPublic(),
 	}
 
-	cbChan := make(chan []byte)
+	cbChan := make(chan []byte, 1)
 	cb := func(payload []byte, _ receptionID.EphemeralIdentity, _ rounds.Round) {
 		cbChan <- payload
 	}

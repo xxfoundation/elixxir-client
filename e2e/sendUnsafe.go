@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package e2e
 
 import (
@@ -65,13 +72,13 @@ func (m *manager) sendUnsafe(mt catalog.MessageType, recipient *id.ID,
 			jww.TRACE.Printf("sendUnsafe contents: %v, fp: %v, mac: %v",
 				payload, fp, unencryptedMAC)
 
-			var err error
-			roundIds[i], _, err = m.net.Send(recipient, fp,
+			r, _, err := m.net.Send(recipient, fp,
 				srvc, payload, unencryptedMAC,
 				params.CMIXParams)
 			if err != nil {
 				errCh <- err
 			}
+			roundIds[i] = r.ID
 			wg.Done()
 		}(i, p)
 	}

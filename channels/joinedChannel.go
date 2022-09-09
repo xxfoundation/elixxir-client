@@ -49,7 +49,7 @@ func (m *manager) storeUnsafe() error {
 		Data:      data,
 	}
 
-	return m.kv.Set(joinedChannelsKey, joinedChannelsVersion, obj)
+	return m.kv.Set(joinedChannelsKey, obj)
 }
 
 // loadChannels loads all currently joined channels from disk and registers them
@@ -203,8 +203,7 @@ func (jc *joinedChannel) Store(kv *versioned.KV) error {
 		Data:      data,
 	}
 
-	return kv.Set(makeJoinedChannelKey(jc.broadcast.Get().ReceptionID),
-		joinedChannelVersion, obj)
+	return kv.Set(makeJoinedChannelKey(jc.broadcast.Get().ReceptionID), obj)
 }
 
 // loadJoinedChannel loads a given channel from ekv storage.

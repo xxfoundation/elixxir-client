@@ -45,6 +45,19 @@ func (e *E2e) GetReceptionID() []byte {
 	return e.api.GetE2E().GetReceptionID().Marshal()
 }
 
+// DeleteContact removes a partner from E2e's storage.
+//
+// Parameters:
+//  - partnerID - the marshalled bytes of id.ID.
+func (e *E2e) DeleteContact(partnerID []byte) error {
+	partner, err := id.Unmarshal(partnerID)
+	if err != nil {
+		return err
+	}
+
+	return e.api.DeleteContact(partner)
+}
+
 // GetAllPartnerIDs returns a list of all partner IDs that the user has an E2E
 // relationship with.
 //

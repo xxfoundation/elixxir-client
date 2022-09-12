@@ -8,12 +8,16 @@
 package crust
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/ud"
+	"gitlab.com/elixxir/crypto/partnerships/crust"
+	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/primitives/netTime"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -34,9 +38,9 @@ const (
 // Uploading Backup Logic                                                     //
 ////////////////////////////////////////////////////////////////////////////////
 
-// UploadBackupHeader is the header that will be sent to the
+// uploadBackupHeader is the header that will be sent to the
 // Client's connection using Client.UploadChatHistory.
-type UploadBackupHeader struct {
+type uploadBackupHeader struct {
 
 	// UserPublicKey is the user's public key PEM encoded.
 	UserPublicKey string
@@ -56,7 +60,7 @@ type UploadBackupHeader struct {
 
 	// UploadTimestamp is the timestamp in which the user wanted to upload
 	// the file. This is what's passed into [crust.SignUpload].
-	UploadTimestamp int
+	UploadTimestamp int64
 
 	// FileHash is the hash of the file to be backed up. This can be obtained
 	// using [crust.HashFile].
@@ -64,12 +68,12 @@ type UploadBackupHeader struct {
 }
 
 // serialize is a helper function which serializes the header as per spec.
-func (header UploadBackupHeader) serialize() string {
-	auth := []byte(fmt.Sprintf("xx-%s-%s-%s-%s-%s:%s",
+func (header uploadBackupHeader) serialize() string {
+	auth := []byte(fmt.Sprintf("xx-%s-%s-%s-%d-%s:%s",
 		header.UserPublicKey,
 		base64.StdEncoding.EncodeToString(header.UsernameHash),
 		base64.StdEncoding.EncodeToString(header.FileHash),
-		strconv.Itoa(header.UploadTimestamp),
+		header.UploadTimestamp,
 		base64.StdEncoding.EncodeToString(header.UploadSignature),
 		base64.StdEncoding.EncodeToString(header.VerificationSignature),
 	))
@@ -77,8 +81,8 @@ func (header UploadBackupHeader) serialize() string {
 	return base64.StdEncoding.EncodeToString(auth)
 }
 
-// uploadBackupResponse is the response received from requestUploadBackup
-// after sending a backup file and a UploadBackupHeader.
+// uploadBackupResponse is the response received from uploadBackup
+// after sending a backup file and a uploadBackupHeader.
 type uploadBackupResponse struct {
 	Name string
 
@@ -92,14 +96,60 @@ type uploadBackupResponse struct {
 // UploadBackup will upload the file provided to the distributed file server.
 // This will return a PinResponse, which provides data on the status of the
 // upload. The file may be recovered using RecoverBackup.
-func UploadBackup(file string, headerInfo UploadBackupHeader) (
+func UploadBackup(file []byte, privateKey *rsa.PrivateKey, udMan *ud.Manager) (
 	*PinResponse, error) {
-	requestBackupResponse, err := requestUploadBackup(file, headerInfo)
+
+	// Retrieve validation signature
+	verificationSignature, err := udMan.GetUsernameValidationSignature()
+	if err != nil {
+		return nil, errors.Errorf("failed to get username "+
+			"validation signature: %+v", err)
+	}
+
+	// Retrieve username
+	username, err := udMan.GetUsername()
+	if err != nil {
+		return nil, errors.Errorf("failed to get username: %+v", err)
+	}
+
+	// Hash the username
+	usernameHash := crust.HashUsername(username)
+
+	// Hash the file
+	fileHash, err := crust.HashFile(file)
+	if err != nil {
+		return nil, errors.Errorf("failed to hash file: %+v", err)
+	}
+
+	// Sign the upload
+	uploadTimestamp := netTime.Now()
+	uploadSignature, err := crust.SignUpload(rand.Reader,
+		privateKey, file, uploadTimestamp)
+	if err != nil {
+		return nil, errors.Errorf("failed to sign upload: %+v", err)
+	}
+
+	// Serialize the public key PEM
+	pubKeyPem := string(rsa.CreatePublicKeyPem(privateKey.GetPublic()))
+
+	// Construct header
+	header := uploadBackupHeader{
+		UserPublicKey:         pubKeyPem,
+		UsernameHash:          usernameHash,
+		VerificationSignature: verificationSignature,
+		UploadSignature:       uploadSignature,
+		UploadTimestamp:       uploadTimestamp.UnixNano(),
+		FileHash:              fileHash,
+	}
+
+	// Send backup file to network
+	requestBackupResponse, err := uploadBackup(file, header.serialize())
 	if err != nil {
 		return nil, errors.Errorf("failed to upload backup: %+v", err)
 	}
 
-	pinResponse, err := requestPin(headerInfo, requestBackupResponse)
+	// Check on the status of the backup
+	pinResponse, err := requestPin(requestBackupResponse, header.serialize())
 	if err != nil {
 		return nil, errors.Errorf("failed to request PIN: %+v", err)
 	}
@@ -107,9 +157,9 @@ func UploadBackup(file string, headerInfo UploadBackupHeader) (
 	return pinResponse, nil
 }
 
-// requestUploadBackup is a sender function which sends the backup file
+// uploadBackup is a sender function which sends the backup file
 // to a backup gateway.
-func requestUploadBackup(file string, headerInfo UploadBackupHeader) (
+func uploadBackup(file []byte, serializedHeaderInfo string) (
 	*uploadBackupResponse, error) {
 
 	// Construct upload POST request
@@ -119,10 +169,10 @@ func requestUploadBackup(file string, headerInfo UploadBackupHeader) (
 	}
 
 	// Add file
-	req.Form.Add(fileKey, file)
+	req.Form.Add(fileKey, string(file))
 
 	// Add header
-	req.Header.Add(basicAuthHeader, headerInfo.serialize())
+	req.Header.Add(basicAuthHeader, serializedHeaderInfo)
 
 	responseData, err := sendRequest(req)
 	if err != nil {
@@ -156,8 +206,8 @@ type PinResponse struct {
 }
 
 // requestPin pins the backup to the network.
-func requestPin(headerInfo UploadBackupHeader,
-	backupResponse *uploadBackupResponse) (*PinResponse, error) {
+func requestPin(backupResponse *uploadBackupResponse,
+	serializedHeader string) (*PinResponse, error) {
 
 	// Construct pin request
 	req, err := http.NewRequest(http.MethodPost, pinnerURL, nil)
@@ -172,7 +222,7 @@ func requestPin(headerInfo UploadBackupHeader,
 	}
 
 	// Add headers
-	req.Header.Add(basicAuthHeader, headerInfo.serialize())
+	req.Header.Add(basicAuthHeader, serializedHeader)
 	req.Header.Add(jsonHeader, string(backupJson))
 
 	// Send request

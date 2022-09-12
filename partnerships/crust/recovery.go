@@ -5,11 +5,12 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package distributedBackup
+package crust
 
 import (
 	"encoding/base64"
 	"encoding/json"
+	"github.com/pkg/errors"
 	"net/http"
 )
 
@@ -20,8 +21,8 @@ const (
 	recoveryAuthToken = `c3ViLTVGcXdqWW9MUXE5Z2NXSGM2azVZd3RuZHg3Q01pQ1FlS1N2THpYb2plZ3ZYY005bToweDIwZjYxODc5ODhiNjIxZjk3ZDQwNGZlZmMzZTQ5MWU5OTU0MWY5MzdjNDNiYWQyNWE3NGQ2OTRjMjA2NWYzODFkOTc5YmY0YTQzYmI3MGZlYzY1MzIwMGI2MmFhZmRiOWFjNzEwODc1YzlkMjhlYTJjNTA2ZDcyZDc1Y2RjNzA2`
 )
 
-// CidResponse is the response from the RequestCid call to the pinner.
-type CidResponse struct {
+// cidResponse is the response from the requestCid call to the pinner.
+type cidResponse struct {
 	// Value is the CID associated with our username. This
 	// value allows us to request the file from the network.
 	Value string
@@ -33,9 +34,26 @@ type RecoveryResponse struct {
 	Value string
 }
 
-// RequestCid requests the CID associated with this username.
-// This allows the user to request their backup file using Recover.
-func RequestCid(usernameHash string) (*CidResponse, error) {
+// RecoverBackup retrieves the backup file uploaded to the distributed file
+// server. The user must have called UploadBackup successfully for a proper
+// file recover.
+func RecoverBackup(usernameHsh string) ([]byte, error) {
+	cidResp, err := requestCid(usernameHsh)
+	if err != nil {
+		return nil, errors.Errorf("failed to retrieve CID: %+v", err)
+	}
+
+	backupFile, err := requestBackupFile(cidResp)
+	if err != nil {
+		return nil, errors.Errorf("failed to retrieve backup file: %+v", err)
+	}
+
+	return backupFile, nil
+}
+
+// requestCid requests the CID associated with this username.
+// This allows the user to request their backup file using requestBackupFile.
+func requestCid(usernameHash string) (*cidResponse, error) {
 
 	// Construct request to get CID
 	req, err := http.NewRequest(http.MethodGet, cidRequestURL+usernameHash, nil)
@@ -53,7 +71,7 @@ func RequestCid(usernameHash string) (*CidResponse, error) {
 	}
 
 	// Parse request
-	cidResponse := &CidResponse{}
+	cidResponse := &cidResponse{}
 	err = json.Unmarshal(responseData, cidResponse)
 	if err != nil {
 		return nil, err
@@ -62,8 +80,9 @@ func RequestCid(usernameHash string) (*CidResponse, error) {
 	return cidResponse, nil
 }
 
-// Recover sends the CID to the network to retrieve the backed up file.
-func Recover(cid *CidResponse) ([]byte, error) {
+// requestBackupFile sends the CID to the network to retrieve the backed up
+// file.
+func requestBackupFile(cid *cidResponse) ([]byte, error) {
 
 	// Construct restore GET request
 	req, err := http.NewRequest(http.MethodGet, recoveryUrl+cid.Value, nil)

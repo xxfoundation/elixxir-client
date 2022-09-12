@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package distributedBackup
+package crust
 
 import (
 	"encoding/json"

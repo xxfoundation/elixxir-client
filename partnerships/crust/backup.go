@@ -5,12 +5,13 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package distributedBackup
+package crust
 
 import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -76,9 +77,9 @@ func (header UploadBackupHeader) serialize() string {
 	return base64.StdEncoding.EncodeToString(auth)
 }
 
-// UploadBackupResponse is the response received from RequestUploadBackup
+// uploadBackupResponse is the response received from requestUploadBackup
 // after sending a backup file and a UploadBackupHeader.
-type UploadBackupResponse struct {
+type uploadBackupResponse struct {
 	Name string
 
 	// Hash is the CID returned when uploading a backup.
@@ -88,10 +89,28 @@ type UploadBackupResponse struct {
 	Size int
 }
 
-// RequestUploadBackup is a sender function which sends the backup file
-// to a backup gateway..
-func RequestUploadBackup(file string, headerInfo UploadBackupHeader) (
-	*UploadBackupResponse, error) {
+// UploadBackup will upload the file provided to the distributed file server.
+// This will return a PinResponse, which provides data on the status of the
+// upload. The file may be recovered using RecoverBackup.
+func UploadBackup(file string, headerInfo UploadBackupHeader) (
+	*PinResponse, error) {
+	requestBackupResponse, err := requestUploadBackup(file, headerInfo)
+	if err != nil {
+		return nil, errors.Errorf("failed to upload backup: %+v", err)
+	}
+
+	pinResponse, err := requestPin(headerInfo, requestBackupResponse)
+	if err != nil {
+		return nil, errors.Errorf("failed to request PIN: %+v", err)
+	}
+
+	return pinResponse, nil
+}
+
+// requestUploadBackup is a sender function which sends the backup file
+// to a backup gateway.
+func requestUploadBackup(file string, headerInfo UploadBackupHeader) (
+	*uploadBackupResponse, error) {
 
 	// Construct upload POST request
 	req, err := http.NewRequest(http.MethodPost, backupUploadURL, nil)
@@ -111,7 +130,7 @@ func RequestUploadBackup(file string, headerInfo UploadBackupHeader) (
 	}
 
 	// Handle valid response
-	uploadResponse := &UploadBackupResponse{}
+	uploadResponse := &uploadBackupResponse{}
 	err = json.Unmarshal(responseData, uploadResponse)
 	if err != nil {
 		return nil, err
@@ -124,21 +143,21 @@ func RequestUploadBackup(file string, headerInfo UploadBackupHeader) (
 // Pinning Backup Logic                                                       //
 ////////////////////////////////////////////////////////////////////////////////
 
-// PinResponse is the response given when calling RequestPin.
+// PinResponse is the response given when calling requestPin.
 type PinResponse struct {
 	// RequestId is the server returns to the user.
 	RequestId string
 
-	// Status is the status of the RequestPin received from the server.
+	// Status is the status of the requestPin received from the server.
 	Status string
 
 	// Created is the timestamp that the pin was created.
 	Created time.Time
 }
 
-// RequestPin pins the backup to the network.
-func RequestPin(headerInfo UploadBackupHeader,
-	backupResponse *UploadBackupResponse) (*PinResponse, error) {
+// requestPin pins the backup to the network.
+func requestPin(headerInfo UploadBackupHeader,
+	backupResponse *uploadBackupResponse) (*PinResponse, error) {
 
 	// Construct pin request
 	req, err := http.NewRequest(http.MethodPost, pinnerURL, nil)

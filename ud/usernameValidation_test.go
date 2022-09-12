@@ -36,8 +36,8 @@ func (tuv *testUsernameValidation) SendUsernameValidation(host *connect.Host,
 	}, nil
 }
 
-// Unit test of getUsernameValidationSignature.
-func TestManager_GetUsernameValidationSignature(t *testing.T) {
+// Unit test of queryUsernameValidationSignature.
+func TestManager_queryUsernameValidationSignature(t *testing.T) {
 	// Create our Manager object
 
 	m, _ := newTestManager(t)
@@ -51,9 +51,9 @@ func TestManager_GetUsernameValidationSignature(t *testing.T) {
 		username: "admin",
 	}
 
-	_, err = m.getUsernameValidationSignature(c)
+	_, err = m.queryUsernameValidationSignature(c)
 	if err != nil {
-		t.Fatalf("getUsernameValidationSignature error: %+v", err)
+		t.Fatalf("queryUsernameValidationSignature error: %+v", err)
 	}
 
 }

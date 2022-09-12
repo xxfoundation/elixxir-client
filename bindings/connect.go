@@ -94,6 +94,7 @@ func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 
 	sr := E2ESendReport{
 		RoundsList: makeRoundsList(sendReport.RoundList...),
+		RoundURL:   getRoundURL(sendReport.RoundList[0]),
 		MessageID:  sendReport.MessageId.Marshal(),
 		Timestamp:  sendReport.SentTime.UnixNano(),
 		KeyResidue: sendReport.KeyResidue.Marshal(),

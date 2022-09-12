@@ -23,15 +23,17 @@ import (
 // E2ESendReport is the bindings' representation of the return values of
 // SendE2E.
 //
-// Example E2ESendReport:
-//{
-//"Rounds": [ 1, 4, 9],
-//"MessageID": "iM34yCIr4Je8ZIzL9iAAG1UWAeDiHybxMTioMAaezvs=",
-//"Timestamp": 1661532254302612000,
-//"KeyResidue": "9q2/A69EAuFM1hFAT7Bzy5uGOQ4T6bPFF72h5PlgCWE="
-//}
+// E2ESendReport Example JSON:
+//  {
+//		"Rounds": [ 1, 4, 9],
+//      "RoundURL":"https://dashboard.xx.network/rounds/25?xxmessenger=true",
+//		"MessageID": "iM34yCIr4Je8ZIzL9iAAG1UWAeDiHybxMTioMAaezvs=",
+//		"Timestamp": 1661532254302612000,
+//		"KeyResidue": "9q2/A69EAuFM1hFAT7Bzy5uGOQ4T6bPFF72h5PlgCWE="
+//  }
 type E2ESendReport struct {
 	RoundsList
+	RoundURL   string
 	MessageID  []byte
 	Timestamp  int64
 	KeyResidue []byte
@@ -147,6 +149,7 @@ func (e *E2e) SendE2E(messageType int, recipientId, payload,
 
 	result := E2ESendReport{
 		RoundsList: makeRoundsList(sendReport.RoundList...),
+		RoundURL:   getRoundURL(sendReport.RoundList[0]),
 		MessageID:  sendReport.MessageId.Marshal(),
 		Timestamp:  sendReport.SentTime.UnixNano(),
 		KeyResidue: sendReport.KeyResidue.Marshal(),

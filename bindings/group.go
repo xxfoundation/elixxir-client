@@ -157,6 +157,7 @@ func (g *GroupChat) MakeGroup(
 	report := GroupReport{
 		Id:         grp.ID.Bytes(),
 		RoundsList: makeRoundsList(roundIDs...),
+		RoundURL:   getRoundURL(roundIDs[0]),
 		Status:     int(status),
 	}
 
@@ -199,6 +200,7 @@ func (g *GroupChat) ResendRequest(groupId []byte) ([]byte, error) {
 	report := &GroupReport{
 		Id:         grp.ID.Bytes(),
 		RoundsList: makeRoundsList(rnds...),
+		RoundURL:   getRoundURL(rnds[0]),
 		Status:     int(status),
 	}
 
@@ -270,6 +272,7 @@ func (g *GroupChat) Send(groupId, message []byte, tag string) ([]byte, error) {
 	// Construct send report
 	sendReport := &GroupSendReport{
 		RoundsList: makeRoundsList(round),
+		RoundURL:   getRoundURL(round),
 		Timestamp:  timestamp.UnixNano(),
 		MessageID:  msgID.Bytes(),
 	}
@@ -451,16 +454,34 @@ func (gcp *groupChatProcessor) String() string {
 // GroupReport is returned when creating a new group and contains the ID of
 // the group, a list of rounds that the group requests were sent on, and the
 // status of the send operation.
+//
+// Example GroupReport JSON:
+//		{
+//			"Id": "AAAAAAAAAM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE",
+//			"Rounds": [25, 64],
+//			"RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
+//			"Status": 1
+//		}
 type GroupReport struct {
 	Id []byte
 	RoundsList
-	Status int
+	RoundURL string
+	Status   int
 }
 
 // GroupSendReport is returned when sending a group message. It contains the
 // round ID sent on and the timestamp of the send operation.
+//
+// Example GroupSendReport JSON:
+//      {
+//  	"Rounds": [25,	64],
+//  	"RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
+//  	"Timestamp": 1662577352813112000,
+//  	"MessageID": "69ug6FA50UT2q6MWH3hne9PkHQ+H9DnEDsBhc0m0Aww="
+//	    }
 type GroupSendReport struct {
 	RoundsList
+	RoundURL  string
 	Timestamp int64
 	MessageID []byte
 }

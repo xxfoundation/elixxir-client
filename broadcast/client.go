@@ -8,9 +8,10 @@
 package broadcast
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"golang.org/x/crypto/blake2b"
 
 	"gitlab.com/xx_network/crypto/multicastRSA"
 
@@ -95,13 +96,18 @@ func (bc *broadcastClient) Get() *crypto.Channel {
 // verifyID generates a symmetric ID based on the info in the channel and
 // compares it to the one passed in.
 func (bc *broadcastClient) verifyID() bool {
-	hashedSecret := blake2b.Sum256(bc.channel.Secret)
 	gen, err := crypto.NewChannelID(bc.channel.Name, bc.channel.Description,
-		bc.channel.Salt, bc.channel.RsaPubKeyHash, hashedSecret[:])
+		bc.channel.Salt, bc.channel.RsaPubKeyHash, bc.channel.Secret)
 	if err != nil {
-		jww.FATAL.Panicf("[verifyID] Failed to generate verified channel ID")
+
+		jww.FATAL.Panicf("[verifyID] Failed to generate verified channel ID: %s, secret len %d", err.Error(), len(bc.channel.Secret))
+		//jww.FATAL.Panicf("[verifyID] Failed to generate verified channel ID")
 		return false
 	}
+
+	fmt.Println(gen)
+	fmt.Println(bc.channel.ReceptionID)
+
 	return bc.channel.ReceptionID.Cmp(gen)
 }
 

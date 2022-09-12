@@ -62,6 +62,7 @@ type Message struct {
 
 	Encrypted bool
 	RoundId   int
+	RoundURL  string
 }
 
 // Hear is called to receive a message in the UI.
@@ -76,6 +77,7 @@ func (l listener) Hear(item receive.Message) {
 		Timestamp:   item.Timestamp.UnixNano(),
 		Encrypted:   item.Encrypted,
 		RoundId:     int(item.Round.ID),
+		RoundURL:    getRoundURL(item.Round.ID),
 	}
 	result, err := json.Marshal(&m)
 	if err != nil {

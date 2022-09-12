@@ -83,6 +83,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 		Description:   cDesc,
 		Salt:          cSalt,
 		RsaPubKeyHash: pubKeyHash[:],
+		Secret:        secret,
 	}
 
 	// must mutate cMixHandler such that it's processorMap contains a

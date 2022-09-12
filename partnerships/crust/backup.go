@@ -94,22 +94,22 @@ type uploadBackupResponse struct {
 }
 
 // UploadBackup will upload the file provided to the distributed file server.
-// This will return a pinResponse, which provides data on the status of the
+// This will return a UploadSuccessReport, which provides data on the status of the
 // upload. The file may be recovered using RecoverBackup.
 func UploadBackup(file []byte, privateKey *rsa.PrivateKey,
-	udMan *ud.Manager) error {
+	udMan *ud.Manager) (*UploadSuccessReport, error) {
 
 	// Retrieve validation signature
 	verificationSignature, err := udMan.GetUsernameValidationSignature()
 	if err != nil {
-		return errors.Errorf("failed to get username "+
+		return nil, errors.Errorf("failed to get username "+
 			"validation signature: %+v", err)
 	}
 
 	// Retrieve username
 	username, err := udMan.GetUsername()
 	if err != nil {
-		return errors.Errorf("failed to get username: %+v", err)
+		return nil, errors.Errorf("failed to get username: %+v", err)
 	}
 
 	// Hash the username
@@ -118,7 +118,7 @@ func UploadBackup(file []byte, privateKey *rsa.PrivateKey,
 	// Hash the file
 	fileHash, err := crust.HashFile(file)
 	if err != nil {
-		return errors.Errorf("failed to hash file: %+v", err)
+		return nil, errors.Errorf("failed to hash file: %+v", err)
 	}
 
 	// Sign the upload
@@ -126,7 +126,7 @@ func UploadBackup(file []byte, privateKey *rsa.PrivateKey,
 	uploadSignature, err := crust.SignUpload(rand.Reader,
 		privateKey, file, uploadTimestamp)
 	if err != nil {
-		return errors.Errorf("failed to sign upload: %+v", err)
+		return nil, errors.Errorf("failed to sign upload: %+v", err)
 	}
 
 	// Serialize the public key PEM
@@ -145,16 +145,16 @@ func UploadBackup(file []byte, privateKey *rsa.PrivateKey,
 	// Send backup file to network
 	requestBackupResponse, err := uploadBackup(file, header.serialize())
 	if err != nil {
-		return errors.Errorf("failed to upload backup: %+v", err)
+		return nil, errors.Errorf("failed to upload backup: %+v", err)
 	}
 
 	// Check on the status of the backup
-	err = requestPin(requestBackupResponse, header.serialize())
+	uploadSuccess, err := requestPin(requestBackupResponse, header.serialize())
 	if err != nil {
-		return errors.Errorf("failed to request PIN: %+v", err)
+		return nil, errors.Errorf("failed to request PIN: %+v", err)
 	}
 
-	return nil
+	return uploadSuccess, nil
 }
 
 // uploadBackup is a sender function which sends the backup file
@@ -193,8 +193,8 @@ func uploadBackup(file []byte, serializedHeaderInfo string) (
 // Pinning Backup Logic                                                       //
 ////////////////////////////////////////////////////////////////////////////////
 
-// pinResponse is the response given when calling requestPin.
-type pinResponse struct {
+// UploadSuccessReport is the response given when calling requestPin.
+type UploadSuccessReport struct {
 	// RequestId is the server returns to the user.
 	RequestId string
 
@@ -207,18 +207,18 @@ type pinResponse struct {
 
 // requestPin pins the backup to the network.
 func requestPin(backupResponse *uploadBackupResponse,
-	serializedHeader string) error {
+	serializedHeader string) (*UploadSuccessReport, error) {
 
 	// Construct pin request
 	req, err := http.NewRequest(http.MethodPost, pinnerURL, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Marshal backup response
 	backupJson, err := json.Marshal(backupResponse)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Add headers
@@ -226,10 +226,17 @@ func requestPin(backupResponse *uploadBackupResponse,
 	req.Header.Add(jsonHeader, string(backupJson))
 
 	// Send request
-	_, err = sendRequest(req)
+	responseData, err := sendRequest(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	// Unmarshal response
+	uploadSuccess := &UploadSuccessReport{}
+	err = json.Unmarshal(responseData, uploadSuccess)
+	if err != nil {
+		return nil, err
+	}
+
+	return uploadSuccess, nil
 }

@@ -14,8 +14,8 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
-	gitlab.com/elixxir/comms v0.0.4-0.20220912172457-ea893893d1ed
-	gitlab.com/elixxir/crypto v0.0.7-0.20220912171955-d3cc26626a7c
+	gitlab.com/elixxir/comms v0.0.4-0.20220912190426-e3ae80f48811
+	gitlab.com/elixxir/crypto v0.0.7-0.20220912190200-4c78de118a4f
 	gitlab.com/elixxir/ekv v0.2.1
 	gitlab.com/elixxir/primitives v0.0.3-0.20220901220638-1acc75fabdc6
 	gitlab.com/xx_network/comms v0.0.4-0.20220908215521-17222b8efc87

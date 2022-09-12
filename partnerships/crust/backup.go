@@ -69,6 +69,8 @@ type uploadBackupHeader struct {
 
 // serialize is a helper function which serializes the header as per spec.
 func (header uploadBackupHeader) serialize() string {
+	// NOTE: This is done per spec, and should not be changed without explicit
+	// reason, approval, and/or request from our business partner.
 	auth := []byte(fmt.Sprintf("xx-%s-%s-%s-%d-%s:%s",
 		header.UserPublicKey,
 		base64.StdEncoding.EncodeToString(header.UsernameHash),

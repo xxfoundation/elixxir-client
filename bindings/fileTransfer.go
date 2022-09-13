@@ -296,7 +296,8 @@ func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 // Parameters:
 //  - tidBytes - file transfer ID
 //  - callback - callback that reports file reception progress
-//  - period - duration (in ms) to wait between progress callbacks triggering
+//  - period - Duration (in ms) to wait between progress callbacks triggering.
+//             Suggested default: 50
 func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte,
 	callback FileTransferReceiveProgressCallback, period int) error {
 	cb := func(completed bool, received, total uint16,

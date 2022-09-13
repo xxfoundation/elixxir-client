@@ -268,7 +268,10 @@ func (f *FileTransfer) CloseSend(tidBytes []byte) error {
 // Parameters:
 //  - tidBytes - file transfer ID
 //  - callback - callback that reports file reception progress
-//  - period - duration to wait between progress callbacks triggering
+//  - period - duration to wait between progress callbacks triggering,
+//    formatted as a string containing a decimal number followed by unit
+//    specification such as "300ms", "-1.5h" or "2h45m".
+//    Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 	callback FileTransferSentProgressCallback, period string) error {
 	cb := func(completed bool, arrived, total uint16,
@@ -299,7 +302,10 @@ func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 // Parameters:
 //  - tidBytes - file transfer ID
 //  - callback - callback that reports file reception progress
-//  - period - duration to wait between progress callbacks triggering
+//  - period - duration to wait between progress callbacks triggering,
+//    formatted as a string containing a decimal number followed by unit
+//    specification such as "300ms", "-1.5h" or "2h45m".
+//    Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte,
 	callback FileTransferReceiveProgressCallback, period string) error {
 	cb := func(completed bool, received, total uint16,

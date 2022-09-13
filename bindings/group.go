@@ -157,6 +157,7 @@ func (g *GroupChat) MakeGroup(
 	report := GroupReport{
 		Id:         grp.ID.Bytes(),
 		RoundsList: makeRoundsList(roundIDs...),
+		RoundURL:   getRoundURL(roundIDs[0]),
 		Status:     int(status),
 	}
 
@@ -199,6 +200,7 @@ func (g *GroupChat) ResendRequest(groupId []byte) ([]byte, error) {
 	report := &GroupReport{
 		Id:         grp.ID.Bytes(),
 		RoundsList: makeRoundsList(rnds...),
+		RoundURL:   getRoundURL(rnds[0]),
 		Status:     int(status),
 	}
 
@@ -269,6 +271,7 @@ func (g *GroupChat) Send(groupId, message []byte, tag string) ([]byte, error) {
 
 	// Construct send report
 	sendReport := &GroupSendReport{
+		RoundURL:   getRoundURL(round),
 		RoundsList: makeRoundsList(round.ID),
 		Timestamp:  timestamp.UnixNano(),
 		MessageID:  msgID.Bytes(),
@@ -407,6 +410,7 @@ type GroupRequest interface {
 }
 
 // GroupChatProcessor manages the handling of received group chat messages.
+// The decryptedMessage field will be a JSON marshalled GroupChatMessage.
 type GroupChatProcessor interface {
 	Process(decryptedMessage, msg, receptionId []byte, ephemeralId,
 		roundId int64, err error)
@@ -419,13 +423,53 @@ type groupChatProcessor struct {
 	bindingsCb GroupChatProcessor
 }
 
+// GroupChatMessage is the bindings layer representation of the
+// [groupChat.MessageReceive].
+//
+// GroupChatMessage Example JSON:
+//  {
+//    "GroupId": "AAAAAAAJlasAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE",
+//    "SenderId": "AAAAAAAAB8gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//    "MessageId": "Zm9ydHkgZml2ZQAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+//    "Payload": "Zm9ydHkgZml2ZQ==",
+//    "Timestamp": 1663009269474079000
+//  }
+type GroupChatMessage struct {
+	// GroupId is the ID of the group that this message was sent on.
+	GroupId []byte
+
+	// SenderId is the ID of the sender of this message.
+	SenderId []byte
+
+	// MessageId is the ID of this group message.
+	MessageId []byte
+
+	// Payload is the content of the message.
+	Payload []byte
+
+	// Timestamp is the time this message was sent on.
+	Timestamp int64
+}
+
+// convertMessageReceive is a helper function which converts a
+// [groupChat.MessageReceive] to the bindings-layer representation GroupChatMessage.
+func convertMessageReceive(decryptedMsg gc.MessageReceive) GroupChatMessage {
+	return GroupChatMessage{
+		GroupId:   decryptedMsg.GroupID.Bytes(),
+		SenderId:  decryptedMsg.SenderID.Bytes(),
+		MessageId: decryptedMsg.ID.Bytes(),
+		Payload:   decryptedMsg.Payload,
+		Timestamp: decryptedMsg.Timestamp.UnixNano(),
+	}
+}
+
 // convertProcessor turns the input of a groupChat.Processor to the
 // binding-layer primitives equivalents within the GroupChatProcessor.Process.
 func convertGroupChatProcessor(decryptedMsg gc.MessageReceive, msg format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) (
 	decryptedMessage, message, receptionId []byte, ephemeralId, roundId int64, err error) {
 
-	decryptedMessage, err = json.Marshal(decryptedMsg)
+	decryptedMessage, err = json.Marshal(convertMessageReceive(decryptedMsg))
 	message = msg.Marshal()
 	receptionId = receptionID.Source.Marshal()
 	ephemeralId = receptionID.EphId.Int64()
@@ -451,16 +495,34 @@ func (gcp *groupChatProcessor) String() string {
 // GroupReport is returned when creating a new group and contains the ID of
 // the group, a list of rounds that the group requests were sent on, and the
 // status of the send operation.
+//
+// Example GroupReport JSON:
+//		{
+//			"Id": "AAAAAAAAAM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE",
+//			"Rounds": [25, 64],
+//			"RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
+//			"Status": 1
+//		}
 type GroupReport struct {
 	Id []byte
 	RoundsList
-	Status int
+	RoundURL string
+	Status   int
 }
 
 // GroupSendReport is returned when sending a group message. It contains the
 // round ID sent on and the timestamp of the send operation.
+//
+// Example GroupSendReport JSON:
+//      {
+//  	"Rounds": [25,	64],
+//  	"RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
+//  	"Timestamp": 1662577352813112000,
+//  	"MessageID": "69ug6FA50UT2q6MWH3hne9PkHQ+H9DnEDsBhc0m0Aww="
+//	    }
 type GroupSendReport struct {
 	RoundsList
+	RoundURL  string
 	Timestamp int64
 	MessageID []byte
 }

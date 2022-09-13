@@ -181,20 +181,21 @@ func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback,
 //  - recipientID - marshalled recipient id.ID
 //  - retry - number of retries allowed
 //  - callback - callback that reports file sending progress
-//  - period - duration to wait between progress callbacks triggering
+//  - period - Duration (in ms) to wait between progress callbacks triggering.
+//             This value should depend on how frequently you want to receive
+//             updates, and should be tuned to your implementation.
 //
 // Returns:
 //  - []byte - unique file transfer ID
 func (f *FileTransfer) Send(payload, recipientID []byte, retry float32,
-	callback FileTransferSentProgressCallback, period string) ([]byte, error) {
+	callback FileTransferSentProgressCallback, period int) ([]byte, error) {
 	// Unmarshal recipient ID
 	recipient, err := id.Unmarshal(recipientID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Parse duration to time.Duration
-	p, err := time.ParseDuration(period)
+	p := time.Millisecond * time.Duration(period)
 
 	// Wrap transfer progress callback to be passed to fileTransfer layer
 	cb := func(completed bool, arrived, total uint16,

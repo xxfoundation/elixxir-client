@@ -270,7 +270,7 @@ func (f *FileTransfer) CloseSend(tidBytes []byte) error {
 //  - callback - callback that reports file reception progress
 //  - period - Duration (in ms) to wait between progress callbacks triggering.
 //             This value should depend on how frequently you want to receive
-//             updates.  Suggested default: 50
+//             updates, and should be tuned to your implementation.
 func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 	callback FileTransferSentProgressCallback, period int) error {
 	cb := func(completed bool, arrived, total uint16,
@@ -300,7 +300,7 @@ func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 //  - callback - callback that reports file reception progress
 //  - period - Duration (in ms) to wait between progress callbacks triggering.
 //             This value should depend on how frequently you want to receive
-//             updates.  Suggested default: 50
+//             updates, and should be tuned to your implementation.
 func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte,
 	callback FileTransferReceiveProgressCallback, period int) error {
 	cb := func(completed bool, received, total uint16,

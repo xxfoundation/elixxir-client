@@ -152,6 +152,11 @@ func (ud *UserDiscovery) RemoveUser(fStr string) error {
 	return ud.ud.RemoveUser(f)
 }
 
+// GetUsername returns the username from the Manager's store.
+func (ud *UserDiscovery) GetUsername() (string, error) {
+	return ud.ud.GetUsername()
+}
+
 // SearchCallback returns the result of a search
 type SearchCallback interface {
 	Callback(contacts *ContactList, error string)

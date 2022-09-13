@@ -99,5 +99,11 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 		}
 	}
 
+	// Store username
+	err = m.storage.GetUd().StoreUsername(usernameFact)
+	if err != nil {
+		return err
+	}
+
 	return err
 }

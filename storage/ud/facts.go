@@ -204,6 +204,41 @@ func (s *Store) GetFacts() []fact.Fact {
 	return facts
 }
 
+// GetUsername retrieves the username from the Store object.
+// If it is not directly in the Store's username field, it is
+// searched for in the map.
+func (s *Store) GetUsername() (string, error) {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	// todo: refactor this in the future so that
+	//  it's an O(1) lookup (place this object in another map
+	//  or have it's own field)
+	for f := range s.confirmedFacts {
+		if f.T == fact.Username {
+			return f.Fact, nil
+		}
+	}
+
+	return "", errors.New("Could not find username in store")
+}
+
+// StoreUsername forces the storage of a username fact.Fact into the
+// Store's confirmedFacts map. The passed in fact.Fact must be of
+// type fact.Username or this will not store the username.
+func (s *Store) StoreUsername(f fact.Fact) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	if f.T != fact.Username {
+		return errors.Errorf("Fact (%s) is not of type username", f.Stringify())
+	}
+
+	s.confirmedFacts[f] = struct{}{}
+
+	return s.saveUnconfirmedFacts()
+}
+
 // serializeConfirmedFacts is a helper function which serializes Store's confirmedFacts
 // map into a list of strings. Each string in the list represents
 // a fact.Fact that has been Stringified.

@@ -25,15 +25,18 @@ const (
 // signature. If it is not already present within the Manager object, it will
 // retrieve it from storage. If the signature is not present in either
 // structure, it will query the signature from the UD service.
+// NOTE: If this call must perform a query to the UD service, this call
+// escalates to a network I/O operation and will block until a response
+// is received.
 func (m *Manager) GetUsernameValidationSignature() ([]byte, error) {
 	m.usernameValidationMux.Lock()
 	defer m.usernameValidationMux.Unlock()
 	var err error
 
-	// If validation signature is not present, request it from
-	// UD
 	if m.usernameValidationSignature == nil {
-		// Check if the data is in storage
+		// If validation signature is not present in memory
+		// check if the data is in storage. We set the value into memory
+		// so this can be avoided on future calls
 		m.usernameValidationSignature, err = m.loadOrGetUsernameValidation()
 		if err != nil {
 			return nil, err
@@ -52,8 +55,8 @@ func (m *Manager) loadOrGetUsernameValidation() ([]byte, error) {
 	// Attempt storage retrieval
 	obj, err := m.getKv().Get(usernameValidationStore, usernameValidationVersion)
 	if err != nil {
-		// If we failed to retrieve from storage,
-		// request the username from the network, and set on the object
+		// If validation signature is not present in storage,
+		// request the username from the network
 		validationSignature,
 			err = m.queryUsernameValidationSignature(m.comms)
 		if err != nil {

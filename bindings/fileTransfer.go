@@ -268,12 +268,9 @@ func (f *FileTransfer) CloseSend(tidBytes []byte) error {
 // Parameters:
 //  - tidBytes - file transfer ID
 //  - callback - callback that reports file reception progress
-//  - period - duration to wait between progress callbacks triggering,
-//    formatted as a string containing a decimal number followed by unit
-//    specification such as "300ms", "-1.5h" or "2h45m".
-//    Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+//  - period - duration (in ms) to wait between progress callbacks triggering
 func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
-	callback FileTransferSentProgressCallback, period string) error {
+	callback FileTransferSentProgressCallback, period int) error {
 	cb := func(completed bool, arrived, total uint16,
 		st fileTransfer.SentTransfer, t fileTransfer.FilePartTracker, err error) {
 		prog := &Progress{
@@ -285,10 +282,7 @@ func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 		pm, err := json.Marshal(prog)
 		callback.Callback(pm, &FilePartTracker{t}, err)
 	}
-	p, err := time.ParseDuration(period)
-	if err != nil {
-		return err
-	}
+	p := time.Millisecond * time.Duration(period)
 	tid := ftCrypto.UnmarshalTransferID(tidBytes)
 
 	return f.w.RegisterSentProgressCallback(&tid, cb, p)
@@ -302,12 +296,9 @@ func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 // Parameters:
 //  - tidBytes - file transfer ID
 //  - callback - callback that reports file reception progress
-//  - period - duration to wait between progress callbacks triggering,
-//    formatted as a string containing a decimal number followed by unit
-//    specification such as "300ms", "-1.5h" or "2h45m".
-//    Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+//  - period - duration (in ms) to wait between progress callbacks triggering
 func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte,
-	callback FileTransferReceiveProgressCallback, period string) error {
+	callback FileTransferReceiveProgressCallback, period int) error {
 	cb := func(completed bool, received, total uint16,
 		rt fileTransfer.ReceivedTransfer, t fileTransfer.FilePartTracker, err error) {
 		prog := &Progress{
@@ -319,10 +310,8 @@ func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte,
 		pm, err := json.Marshal(prog)
 		callback.Callback(pm, &FilePartTracker{t}, err)
 	}
-	p, err := time.ParseDuration(period)
-	if err != nil {
-		return err
-	}
+	p := time.Millisecond * time.Duration(period)
+
 	tid := ftCrypto.UnmarshalTransferID(tidBytes)
 	return f.w.RegisterReceivedProgressCallback(&tid, cb, p)
 }

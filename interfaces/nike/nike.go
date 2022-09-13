@@ -1,4 +1,4 @@
-package interfaces
+package nike
 
 // Key is an interface for types encapsulating key material.
 type Key interface {
@@ -42,17 +42,11 @@ type Nike interface {
 	// NewKeypair returns a newly generated key pair.
 	NewKeypair() (PrivateKey, PublicKey)
 
-	// NewEmptyPublicKey returns an uninitialized
-	// PublicKey which is suitable to be loaded
-	// via some serialization format via FromBytes
-	// or FromPEMFile methods.
-	NewEmptyPublicKey() PublicKey
+	// UnmarshalBinaryPublicKey unmarshals the public key bytes.
+	UnmarshalBinaryPublicKey(b []byte) (PublicKey, error)
 
-	// NewEmptyPrivateKey returns an uninitialized
-	// PrivateKey which is suitable to be loaded
-	// via some serialization format via FromBytes
-	// or FromPEMFile methods.
-	NewEmptyPrivateKey() PrivateKey
+	// UnmarshalBinaryPrivateKey unmarshals the public key bytes.
+	UnmarshalBinaryPrivateKey(b []byte) (PrivateKey, error)
 
 	// DeriveSecret derives a shared secret given a private key
 	// from one party and a public key from another.

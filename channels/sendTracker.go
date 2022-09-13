@@ -197,14 +197,14 @@ func (st *sendTracker) MessageReceive(messageID cryptoChannel.MessageID) bool {
 	//skip if already added
 	_, existsMessage := st.byMessageID[messageID]
 	st.mux.RUnlock()
-	if existsMessage {
+	if !existsMessage {
 		return false
 	}
 
 	st.mux.Lock()
 	defer st.mux.Unlock()
 	msgData, existsMessage := st.byMessageID[messageID]
-	if existsMessage {
+	if !existsMessage {
 		return false
 	}
 

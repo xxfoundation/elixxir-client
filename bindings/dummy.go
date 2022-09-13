@@ -29,12 +29,12 @@ type DummyTraffic struct {
 // Parameters:
 //  - cmixId - a Cmix object ID in the tracker.
 //  - maxNumMessages - the upper bound of the random number of messages sent
-//    each sending cycle.
+//    each sending cycle.  Suggested value: 5.
 //  - avgSendDeltaMS - the average duration, in milliseconds, to wait between
-//    sends.
+//    sends.  Suggested value: 60000.
 //  - randomRangeMS - the upper bound of the interval between sending cycles, in
 //    milliseconds. Sends occur every avgSendDeltaMS +/- a random duration with
-//    an upper bound of randomRangeMS.
+//    an upper bound of randomRangeMS.  Suggested value: 1000.
 func NewDummyTrafficManager(cmixId, maxNumMessages, avgSendDeltaMS,
 	randomRangeMS int) (*DummyTraffic, error) {
 

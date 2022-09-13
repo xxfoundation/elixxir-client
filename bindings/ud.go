@@ -422,7 +422,7 @@ func LookupUD(e2eID int, udContact []byte, cb UdLookupCallback,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// User Discovery Lookup                                                      //
+// User Discovery MultiLookup                                                      //
 ////////////////////////////////////////////////////////////////////////////////
 
 // UdMultiLookupCallback contains the callback called by MultiLookupUD that returns the

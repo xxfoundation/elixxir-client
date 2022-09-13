@@ -158,7 +158,7 @@ func (c *Channel) Broadcast(payload []byte) ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(BroadcastReport{
-		RoundURL:   getRoundURL(rid),
+		RoundURL:   getRoundURL(rid.ID),
 		RoundsList: makeRoundsList(rid.ID),
 		EphID:      eid,
 	})
@@ -181,7 +181,7 @@ func (c *Channel) BroadcastAsymmetric(payload, pk []byte) ([]byte, error) {
 	}
 	return json.Marshal(BroadcastReport{
 		RoundsList: makeRoundsList(rid.ID),
-		RoundURL:   getRoundURL(rid),
+		RoundURL:   getRoundURL(rid.ID),
 		EphID:      eid,
 	})
 }

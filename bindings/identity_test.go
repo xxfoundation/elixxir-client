@@ -9,10 +9,6 @@ package bindings
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/crypto/group"
-	"testing"
-	"time"
-
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
@@ -20,23 +16,8 @@ import (
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"testing"
 )
-
-func TestName(t *testing.T) {
-
-	gmid := group.MessageID{}
-	copy(gmid[:], []byte("forty five"))
-	mr := GroupChatMessage{
-		GroupId:   id.NewIdFromUInt(628139, id.Group, t).Bytes(),
-		MessageId: gmid.Bytes(),
-		Payload:   []byte("forty five"),
-		SenderId:  id.NewIdFromUInt(1992, id.User, t).Bytes(),
-		Timestamp: time.Now().UnixNano(),
-	}
-
-	mar, _ := json.Marshal(mr)
-	t.Logf("%s", mar)
-}
 
 func TestIdentity_JSON(t *testing.T) {
 	rng := csprng.NewSystemRNG()

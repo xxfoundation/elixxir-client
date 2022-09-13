@@ -61,16 +61,37 @@ func (m *Multi) GetStatus() Status {
 	lowestStatus := Stopped
 	m.mux.RLock()
 
-	for _, s := range m.stoppables {
+	for i := range m.stoppables {
+		s := m.stoppables[i]
 		status := s.GetStatus()
 		if status < lowestStatus {
 			lowestStatus = status
+			jww.DEBUG.Printf("Stoppable %s has status %s",
+				s.Name(), status.String())
 		}
 	}
 
 	m.mux.RUnlock()
 
 	return lowestStatus
+}
+
+// GetRunningProcesses returns a list of running Stoppable processes.
+func (m *Multi) GetRunningProcesses() []string {
+	m.mux.RLock()
+
+	runningProcesses := make([]string, 0)
+	for i := range m.stoppables {
+		s := m.stoppables[i]
+		status := s.GetStatus()
+		if status < Stopped {
+			runningProcesses = append(runningProcesses, s.Name())
+		}
+	}
+
+	m.mux.RUnlock()
+
+	return runningProcesses
 }
 
 // IsRunning returns true if Stoppable is marked as running.
@@ -90,7 +111,7 @@ func (m *Multi) IsStopped() bool {
 
 // Close issues a close signal to all child stoppables and marks the status of
 // the Multi Stoppable as stopping. Returns an error if one or more child
-// stoppables failed to close but it does not return their specific errors and
+// stoppables failed to close, but it does not return their specific errors and
 // assumes they print them to the log.
 func (m *Multi) Close() error {
 	var numErrors uint32

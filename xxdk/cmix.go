@@ -397,6 +397,12 @@ func (c *Cmix) HasRunningProcessies() bool {
 	return !c.followerServices.stoppable.IsStopped()
 }
 
+// GetRunningProcesses returns the name of all running processes at the time
+// of this call.
+func (c *Cmix) GetRunningProcesses() []string {
+	return c.followerServices.stoppable.GetRunningProcesses()
+}
+
 // GetRoundEvents registers a callback for round events.
 func (c *Cmix) GetRoundEvents() interfaces.RoundEvents {
 	jww.INFO.Printf("GetRoundEvents()")

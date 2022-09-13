@@ -136,6 +136,12 @@ func (c *Cmix) IsHealthy() bool {
 	return c.api.GetCmix().IsHealthy()
 }
 
+// GetRunningProcesses returns the name of all running processes at the time
+// of this call.
+func (c *Cmix) GetRunningProcesses() []string {
+	return c.api.GetRunningProcesses()
+}
+
 // NetworkHealthCallback contains a callback that is used to receive
 // notification if network health changes.
 type NetworkHealthCallback interface {

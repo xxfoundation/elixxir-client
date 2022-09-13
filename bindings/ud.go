@@ -438,9 +438,10 @@ func LookupUD(e2eID int, udContact []byte, cb UdLookupCallback,
 //  	"<xxc(2)eMhAi/pYkW5jCmvKE5ZaTglQb+fTo1D8NxVitr5CCFADEgB7Ugdw/BAr6RoCABkWAFV1c2VybmFtZTE7fElAa7z3IcrYrrkwNjMS2w==xxc>",
 //  	"<xxc(2)d7RJTu61Vy1lDThDMn8rYIiKSe1uXA/RCvvcIhq5Yg4DEgB7Ugdw/BAr6RsCABkWAFV1c2VybmFtZTI7N3XWrxIUpR29atpFMkcR6A==xxc>"
 //	}
+//  - failedIDs - JSON marshalled list of []*id.ID objects which failed lookup
 //  - err - any errors that occurred in the multilookup.
 type UdMultiLookupCallback interface {
-	Callback(contactListJSON []byte, err error)
+	Callback(contactListJSON []byte, failedIDs []byte, err error)
 }
 
 type lookupResp struct {
@@ -514,21 +515,35 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 
 	go func() {
 		var contactList []contact.Contact
+		var failedIDs []*id.ID
 		var errorString string
 		for numReturned := 0; numReturned < len(idList); numReturned++ {
 			response := <-respCh
 			if response.err != nil {
+				failedIDs = append(failedIDs, response.id)
 				contactList = append(contactList, response.contact)
 			} else {
-				errorString = errorString + fmt.Sprintf("Failed to lookup id %s: %+v", response.id, response.err)
+				errorString = errorString +
+					fmt.Sprintf("Failed to lookup id %s: %+v",
+						response.id, response.err)
 			}
+		}
+
+		marshalledFailedIds, err := json.Marshal(failedIDs)
+		if err != nil {
+			cb.Callback(nil, nil,
+				errors.WithMessage(err,
+					"Failed to marshal failed IDs"))
 		}
 
 		marshalled, err := json.Marshal(contactList)
 		if err != nil {
-			cb.Callback(nil, err)
+			cb.Callback(nil, nil,
+				errors.WithMessage(err,
+					"Failed to marshal contact list"))
 		} else {
-			cb.Callback(marshalled, errors.New(errorString))
+			cb.Callback(marshalled, marshalledFailedIds,
+				errors.New(errorString))
 		}
 	}()
 

@@ -16,8 +16,9 @@ import (
 // UploadBackup will upload the file provided to the distributed file server.
 // This will return a UploadSuccessReport, which provides data on the status of the
 // upload. The file may be recovered using RecoverBackup.
-func (c *Client) UploadBackup(file []byte, udManager *UserDiscovery) ([]byte, error) {
-	privateKey := c.api.GetUser().ReceptionRSA
+func UploadBackup(file []byte, udManager *UserDiscovery,
+	client *Client) ([]byte, error) {
+	privateKey := client.api.GetUser().ReceptionRSA
 	uploadSuccessReport, err := crust.UploadBackup(file, privateKey, udManager.ud)
 	if err != nil {
 		return nil, err
@@ -29,7 +30,7 @@ func (c *Client) UploadBackup(file []byte, udManager *UserDiscovery) ([]byte, er
 // RecoverBackup retrieves the backup file uploaded to the distributed file
 // server. The user must have called UploadBackup successfully for a proper
 // file recover.
-func (c *Client) RecoverBackup(username string) ([]byte, error) {
+func RecoverBackup(username string) ([]byte, error) {
 	usernameHash := crust2.HashUsername(username)
 
 	return crust.RecoverBackup(usernameHash)

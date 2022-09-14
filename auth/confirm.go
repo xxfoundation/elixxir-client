@@ -75,11 +75,14 @@ func (s *state) confirm(partner contact.Contact, serviceTag string) (
 			rng.Close()
 
 			/*construct message*/
-			// we build the payload before we save because it is technically
-			// fallible which can get into a bricked state if it fails
-			baseFmt := newBaseFormat(s.net.GetMaxMessageLength(),
+			// we build the payload before we save because
+			// it is technically fallible which can get
+			// into a bricked state if it fails
+			baseFmt := newLegacySIDHBaseFormat(
+				s.net.GetMaxMessageLength(),
 				s.e2e.GetGroup().GetP().ByteLen())
-			ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
+			ecrFmt := newLegacySIDHEcrFormat(
+				baseFmt.GetEcrPayloadLen())
 
 			// setup the encrypted payload
 			ecrFmt.SetOwnership(ownership)

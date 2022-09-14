@@ -321,10 +321,10 @@ func TestEcrFormat_MarshalUnmarshal(t *testing.T) {
 func TestNewRequestFormat(t *testing.T) {
 	// Construct message
 	payloadSize := id.ArrIDLen*2 - 1 + sidhinterface.PubKeyByteSize + 1
-	ecrMsg := newEcrFormat(payloadSize)
+	ecrMsg := newLegacySIDHEcrFormat(payloadSize)
 	expectedPayload := newPayload(id.ArrIDLen, "ownership")
 	ecrMsg.SetPayload(expectedPayload)
-	reqMsg, err := newRequestFormat(ecrMsg)
+	reqMsg, err := newRequestFormat(ecrMsg.GetPayload())
 	if err != nil {
 		t.Fatalf("newRequestFormat() error: "+
 			"Failed to construct message: %v", err)
@@ -348,8 +348,8 @@ func TestNewRequestFormat(t *testing.T) {
 	// }
 
 	payloadSize = ownershipSize*2 + sidhinterface.PubKeyByteSize + 1
-	ecrMsg = newEcrFormat(payloadSize)
-	reqMsg, err = newRequestFormat(ecrMsg)
+	ecrMsg = newLegacySIDHEcrFormat(payloadSize)
+	reqMsg, err = newRequestFormat(ecrMsg.GetPayload())
 	if err == nil {
 		t.Errorf("Expecter error: Should be invalid size when calling newRequestFormat")
 	}
@@ -365,7 +365,7 @@ func TestRequestFormat_SetGetID(t *testing.T) {
 	ecrMsg := newEcrFormat(payloadSize)
 	expectedPayload := newPayload(id.ArrIDLen, "ownership")
 	ecrMsg.SetPayload(expectedPayload)
-	reqMsg, err := newRequestFormat(ecrMsg)
+	reqMsg, err := newRequestFormat(ecrMsg.GetPayload())
 	if err != nil {
 		t.Fatalf("newRequestFormat() error: "+
 			"Failed to construct message: %v", err)
@@ -378,7 +378,8 @@ func TestRequestFormat_SetGetID(t *testing.T) {
 	if !bytes.Equal(reqMsg.id, expectedId.Bytes()) {
 		t.Errorf("SetID() error: "+
 			"Id field does not have expected value."+
-			"\n\tExpected: %v\n\tReceived: %v", expectedId, reqMsg.GetPayload())
+			"\n\tExpected: %v\n\tReceived: %v", expectedId,
+			reqMsg.id)
 	}
 
 	// Test GetID
@@ -402,11 +403,8 @@ func TestRequestFormat_SetGetID(t *testing.T) {
 // Unit test for get/SetMsgPayload
 func TestRequestFormat_SetGetMsgPayload(t *testing.T) {
 	// Construct message
-	payloadSize := id.ArrIDLen*3 - 1 + sidhinterface.PubKeyByteSize + 1
-	ecrMsg := newEcrFormat(payloadSize)
-	expectedPayload := newPayload(id.ArrIDLen*2, "ownership")
-	ecrMsg.SetPayload(expectedPayload)
-	reqMsg, err := newRequestFormat(ecrMsg)
+	expectedPayload := newPayload(id.ArrIDLen*3, "ownership")
+	reqMsg, err := newRequestFormat(expectedPayload)
 	if err != nil {
 		t.Fatalf("newRequestFormat() error: "+
 			"Failed to construct message: %v", err)
@@ -415,19 +413,21 @@ func TestRequestFormat_SetGetMsgPayload(t *testing.T) {
 	// Test SetMsgPayload
 	msgPayload := newPayload(id.ArrIDLen*2,
 		"msgPayload")
-	reqMsg.SetPayload(msgPayload)
-	if !bytes.Equal(reqMsg.GetPayload(), msgPayload) {
+	reqMsg.SetMsgPayload(msgPayload)
+	if !bytes.Equal(reqMsg.msgPayload, msgPayload) {
 		t.Errorf("SetMsgPayload() error: "+
 			"MsgPayload has unexpected value: "+
-			"\n\tExpected: %v\n\tReceived: %v", msgPayload, reqMsg.GetPayload())
+			"\n\tExpected: %v\n\tReceived: %v", msgPayload,
+			reqMsg.msgPayload)
 	}
 
 	// Test GetMsgPayload
-	retrievedMsgPayload := reqMsg.GetPayload()
+	retrievedMsgPayload := reqMsg.GetMsgPayload()
 	if !bytes.Equal(retrievedMsgPayload, msgPayload) {
 		t.Errorf("GetMsgPayload() error: "+
 			"MsgPayload has unexpected value: "+
-			"\n\tExpected: %v\n\tReceived: %v", msgPayload, retrievedMsgPayload)
+			"\n\tExpected: %v\n\tReceived: %v", msgPayload,
+			retrievedMsgPayload)
 
 	}
 
@@ -439,5 +439,5 @@ func TestRequestFormat_SetGetMsgPayload(t *testing.T) {
 		}
 	}()
 	expectedPayload = append(expectedPayload, expectedPayload...)
-	reqMsg.SetPayload(expectedPayload)
+	reqMsg.SetMsgPayload(expectedPayload)
 }

@@ -290,7 +290,7 @@ func (rrs *receivedRequestService) String() string {
 func processDecryptedMessage(b []byte) (*id.ID, *sidh.PublicKey, fact.FactList,
 	[]byte, error) {
 	//decode the ecr format
-	ecrFmt, err := unmarshalEcrFormat(b)
+	ecrFmt, err := unmarshalLegacySIDHEcrFormat(b)
 	if err != nil {
 		return nil, nil, nil, nil, errors.WithMessage(err, "Failed to "+
 			"unmarshal auth request's encrypted payload")
@@ -303,7 +303,7 @@ func processDecryptedMessage(b []byte) (*id.ID, *sidh.PublicKey, fact.FactList,
 	}
 
 	//decode the request format
-	requestFmt, err := newRequestFormat(ecrFmt)
+	requestFmt, err := newRequestFormat(ecrFmt.GetPayload())
 	if err != nil {
 		return nil, nil, nil, nil, errors.WithMessage(err, "Failed to "+
 			"unmarshal auth request's internal payload")

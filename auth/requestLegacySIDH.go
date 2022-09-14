@@ -9,16 +9,12 @@ package auth
 
 import (
 	"fmt"
-	"io"
-	"strings"
 
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/ratchet"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -29,39 +25,8 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-const terminator = ";"
-
-// Error constant strings. Any changes to these should go over usages of the
-// affected messages in other applications (if applicable)
-const (
-	// ErrChannelExists is a message returned in state.Request when an
-	// authenticated channel exists between the partner and me.
-	ErrChannelExists = "Authenticated channel already established with partner"
-)
-
-// Request sends a contact request from the user identity in the imported e2e
-// structure to the passed contact, as well as the passed facts (will error if
-// they are too long).
-// The other party must accept the request by calling Confirm in order to be
-// able to send messages using e2e.Handler.SendE2e. When the other party does so,
-// the "confirm" callback will get called.
-// The round the request is initially sent on will be returned, but the request
-// will be listed as a critical message, so the underlying cmix client will
-// auto resend it in the event of failure.
-// A request cannot be sent for a contact who has already received a request or
-// who is already a partner.
-func (s *state) Request(partner contact.Contact, myfacts fact.FactList) (id.Round, error) {
-	// check that an authenticated channel does not already exist
-	if _, err := s.e2e.GetPartner(partner.ID); err == nil ||
-		!strings.Contains(err.Error(), ratchet.NoPartnerErrorStr) {
-		return 0, errors.Errorf(ErrChannelExists)
-	}
-
-	return s.request(partner, myfacts, false)
-}
-
 // request internal helper
-func (s *state) request(partner contact.Contact, myfacts fact.FactList,
+func (s *state) requestLegacySIDH(partner contact.Contact, myfacts fact.FactList,
 	reset bool) (id.Round, error) {
 
 	jww.INFO.Printf("request(...) called")
@@ -120,7 +85,7 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	msgPayload := []byte(myfacts.Stringify() + terminator)
 
 	// Create the request packet.
-	request, mac, err := createRequestAuth(me, msgPayload, ownership,
+	request, mac, err := createLegacySIDHRequestAuth(me, msgPayload, ownership,
 		dhPriv, dhPub, partner.DhPubKey, sidhPub,
 		s.e2e.GetGroup(), s.net.GetMaxMessageLength())
 	if err != nil {
@@ -172,17 +137,9 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 
 }
 
-// genDHKeys is a short helper to generate a Diffie-Helman Keypair
-func genDHKeys(dhGrp *cyclic.Group, csprng io.Reader) (priv, pub *cyclic.Int) {
-	numBytes := len(dhGrp.GetPBytes())
-	newPrivKey := diffieHellman.GeneratePrivateKey(numBytes, dhGrp, csprng)
-	newPubKey := diffieHellman.GeneratePublicKey(newPrivKey, dhGrp)
-	return newPrivKey, newPubKey
-}
-
 // createRequestAuth Creates the request packet, including encrypting the
 // required parts of it.
-func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
+func createLegacySIDHRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
 	myDHPub, theirDHPub *cyclic.Int, mySIDHPub *sidh.PublicKey,
 	dhGrp *cyclic.Group, cMixSize int) (*baseFormat, []byte, error) {
 	/*generate embedded message structures and check payload*/
@@ -224,29 +181,4 @@ func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
 	baseFmt.SetPubKey(myDHPub)
 
 	return &baseFmt, mac, nil
-}
-
-func (s *state) GetReceivedRequest(partner *id.ID) (contact.Contact, error) {
-	return s.store.GetReceivedRequest(partner)
-}
-
-func (s *state) VerifyOwnership(received, verified contact.Contact,
-	e2e e2e.Handler) bool {
-	return VerifyOwnership(received, verified, e2e)
-}
-
-func (s *state) DeleteRequest(partnerID *id.ID) error {
-	return s.store.DeleteRequest(partnerID)
-}
-
-func (s *state) DeleteAllRequests() error {
-	return s.store.DeleteAllRequests()
-}
-
-func (s *state) DeleteSentRequests() error {
-	return s.store.DeleteSentRequests()
-}
-
-func (s *state) DeleteReceiveRequests() error {
-	return s.store.DeleteReceiveRequests()
 }

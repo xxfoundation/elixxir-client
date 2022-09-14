@@ -156,11 +156,11 @@ func (g *GroupChat) ResendRequest(groupId []byte) ([]byte, error) {
 //  - serializedGroupData - the result of calling Group.Serialize() on
 //    any Group object returned over the bindings
 func (g *GroupChat) JoinGroup(serializedGroupData []byte) error {
-	grp, err := gs.DeserializeGroup(serializedGroupData)
+	grp, err := DeserializeGroup(serializedGroupData)
 	if err != nil {
 		return err
 	}
-	return g.m.JoinGroup(grp)
+	return g.m.JoinGroup(grp.g)
 }
 
 // LeaveGroup deletes a group so a user no longer has access.
@@ -320,6 +320,16 @@ func (g *Group) GetMembership() ([]byte, error) {
 // Serialize serializes the Group.
 func (g *Group) Serialize() []byte {
 	return g.g.Serialize()
+}
+
+// DeserializeGroup converts the results of Group.Serialize() into a Group
+// so that its methods can be called.
+func DeserializeGroup(serializedGroupData []byte) (*Group, error) {
+	grp, err := gs.DeserializeGroup(serializedGroupData)
+	if err != nil {
+		return nil, err
+	}
+	return &Group{g: grp}, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

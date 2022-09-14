@@ -8,14 +8,15 @@
 package auth
 
 import (
-	ctidh "git.xx.network/elixxir/ctidh_cgo"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
+	"gitlab.com/xx_network/primitives/id"
+
+	"gitlab.com/elixxir/client/ctidh"
 	"gitlab.com/elixxir/client/interfaces/nike"
-	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/primitives/id"
 )
 
 const requestFmtVersion = 2
@@ -31,14 +32,14 @@ type baseFormat struct {
 func newBaseFormat(payloadSize, pubkeySize int) baseFormat {
 	total := pubkeySize
 	// Size of sidh pubkey
-	total += sidhinterface.PubKeyByteSize + 1
+	total += ctidh.NewCtidhNike().PublicKeySize()
 	// Size of version
 	total += 1
 	if payloadSize < total {
 		jww.FATAL.Panicf("Size of baseFormat is too small (%d), must be big "+
-			"enough to contain public key (%d) and sidh key (%d)"+
+			"enough to contain public key (%d) and CTIDH key (%d)"+
 			"and version which totals to %d", payloadSize,
-			pubkeySize, sidhinterface.PubKeyByteSize+1, total)
+			pubkeySize, ctidh.NewCtidhNike().PublicKeySize(), total)
 	}
 
 	jww.INFO.Printf("Empty Space RequestAuth: %d", payloadSize-total)
@@ -193,9 +194,7 @@ func (f ecrFormat) SetPQPublicKey(pqPublicKey nike.PublicKey) {
 // GetCTIDHPublicKey will attempt to decode a CTIDH post quantum
 // public key from a ecrFormat packet for auth requests.
 func (f ecrFormat) GetCTIDHPublicKey() (nike.PublicKey, error) {
-	pubKey := ctidh.NewEmptyPublicKey()
-	err := pubKey.FromBytes(f.pqPublicKey)
-	return pubKey, err
+	return ctidh.NewCtidhNike().UnmarshalBinaryPublicKey(f.pqPublicKey)
 }
 
 func (f ecrFormat) GetPayload() []byte {

@@ -8,17 +8,17 @@
 package auth
 
 import (
-	"github.com/cloudflare/circl/dh/sidh"
+	ctidh "git.xx.network/elixxir/ctidh_cgo"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
-	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 )
 
-const requestFmtVersion = 1
+const requestFmtVersion = 2
 
 //Basic Format//////////////////////////////////////////////////////////////////
 type baseFormat struct {
@@ -119,10 +119,10 @@ func (f baseFormat) SetEcrPayload(ecr []byte) {
 const ownershipSize = 32
 
 type ecrFormat struct {
-	data       []byte
-	ownership  []byte
-	sidHpubkey []byte
-	payload    []byte
+	data        []byte
+	ownership   []byte
+	pqPublicKey []byte
+	payload     []byte
 }
 
 func newEcrFormat(size int) ecrFormat {
@@ -147,7 +147,7 @@ func buildEcrFormat(data []byte) ecrFormat {
 
 	start = end
 	end = start + sidhinterface.PubKeyByteSize + 1
-	f.sidHpubkey = f.data[start:end]
+	f.pqPublicKey = f.data[start:end]
 
 	start = end
 	f.payload = f.data[start:]
@@ -178,15 +178,20 @@ func (f ecrFormat) SetOwnership(ownership []byte) {
 	copy(f.ownership, ownership)
 }
 
-func (f ecrFormat) SetSidHPubKey(pubKey *sidh.PublicKey) {
-	f.sidHpubkey[0] = byte(pubKey.Variant())
-	pubKey.Export(f.sidHpubkey[1:])
+// SetPQPublicKey sets the post quantum public key pqPublicKey
+// in the ecrFormat packet for auth requests. While we
+// only support CTIDH at this time, anything implementing NIKE
+// will work.
+func (f ecrFormat) SetPQPublicKey(pqPublicKey nike.PublicKey) {
+	pqBytes := pqPublicKey.Bytes()
+	copy(f.pqPublicKey[0:len(pqBytes)], pqBytes)
 }
 
-func (f ecrFormat) GetSidhPubKey() (*sidh.PublicKey, error) {
-	variant := sidh.KeyVariant(f.sidHpubkey[0])
-	pubKey := util.NewSIDHPublicKey(variant)
-	err := pubKey.Import(f.sidHpubkey[1:])
+// GetCTIDHPublicKey will attempt to decode a CTIDH post quantum
+// public key from a ecrFormat packet for auth requests.
+func (f ecrFormat) GetCTIDHPublicKey() (nike.PublicKey, error) {
+	pubKey := ctidh.NewEmptyPublicKey()
+	err := pubKey.FromBytes(f.pqPublicKey)
 	return pubKey, err
 }
 
@@ -208,22 +213,22 @@ func (f ecrFormat) SetPayload(p []byte) {
 
 //Request Format////////////////////////////////////////////////////////////////
 type requestFormat struct {
-	ecrFormat
+	data       []byte // Note: the following are mapped into this element..
 	id         []byte
 	msgPayload []byte
 }
 
-func newRequestFormat(ecrFmt ecrFormat) (requestFormat, error) {
-	if len(ecrFmt.payload) < id.ArrIDLen {
+func newRequestFormat(ecrFmtPayload []byte) (requestFormat, error) {
+	if len(ecrFmtPayload) < id.ArrIDLen {
 		return requestFormat{}, errors.New("Payload is not long enough")
 	}
 
 	rf := requestFormat{
-		ecrFormat: ecrFmt,
+		data: ecrFmtPayload,
 	}
 
-	rf.id = rf.payload[:id.ArrIDLen]
-	rf.msgPayload = rf.payload[id.ArrIDLen:]
+	rf.id = rf.data[:id.ArrIDLen]
+	rf.msgPayload = rf.data[id.ArrIDLen:]
 
 	return rf, nil
 }

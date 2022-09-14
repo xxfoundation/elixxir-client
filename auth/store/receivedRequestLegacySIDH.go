@@ -10,26 +10,24 @@ package store
 import (
 	"sync"
 
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-
-	"gitlab.com/xx_network/primitives/id"
-
 	"gitlab.com/elixxir/client/cmix/rounds"
-	"gitlab.com/elixxir/client/interfaces/nike"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/xx_network/primitives/id"
 )
 
-type ReceivedRequest struct {
+type ReceivedRequestLegacySIDH struct {
 	kv *versioned.KV
 
 	// contact of partner
 	partner contact.Contact
 
-	// CTIDH Public key of partner
-	theirCTIDHPubKey nike.PublicKey
+	//sidHPublic key of partner
+	theirSidHPubKeyA *sidh.PublicKey
 
 	//round received on
 	round rounds.Round
@@ -38,15 +36,15 @@ type ReceivedRequest struct {
 	mux sync.Mutex
 }
 
-func newReceivedRequest(kv *versioned.KV, c contact.Contact,
-	key nike.PublicKey, round rounds.Round) *ReceivedRequest {
+func newReceivedRequestLegacySIDH(kv *versioned.KV, c contact.Contact,
+	key *sidh.PublicKey, round rounds.Round) *ReceivedRequestLegacySIDH {
 
 	if err := util.StoreContact(kv, c); err != nil {
 		jww.FATAL.Panicf("Failed to save contact for partner %s: %+v", c.ID.String(), err)
 	}
 
-	ctidhStoreKey := util.MakeCTIDHPublicKeyKey(c.ID)
-	if err := util.StoreCTIDHPublicKey(kv, key, ctidhStoreKey); err != nil {
+	sidhStoreKey := util.MakeSIDHPublicKeyKey(c.ID)
+	if err := util.StoreSIDHPublicKey(kv, key, sidhStoreKey); err != nil {
 		jww.FATAL.Panicf("Failed to save contact SIDH pubKey for "+
 			"partner %s: %+v", c.ID.String(), err)
 	}
@@ -57,16 +55,16 @@ func newReceivedRequest(kv *versioned.KV, c contact.Contact,
 			"for partner %s: %+v", c.ID.String(), err)
 	}
 
-	return &ReceivedRequest{
+	return &ReceivedRequestLegacySIDH{
 		kv:               kv,
 		partner:          c,
-		theirCTIDHPubKey: key,
+		theirSidHPubKeyA: key,
 		round:            round,
 	}
 }
 
-func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
-	*ReceivedRequest, error) {
+func loadReceivedRequestLegacySIDH(kv *versioned.KV, partner *id.ID) (
+	*ReceivedRequestLegacySIDH, error) {
 
 	c, err := util.LoadContact(kv, partner)
 	if err != nil {
@@ -75,8 +73,8 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 			partner)
 	}
 
-	key, err := util.LoadCTIDHPublicKey(kv,
-		util.MakeCTIDHPublicKeyKey(partner))
+	key, err := util.LoadSIDHPublicKey(kv,
+		util.MakeSIDHPublicKeyKey(partner))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Load "+
 			"Received Auth Request Partner SIDHkey with %s",
@@ -92,42 +90,38 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 		jww.WARN.Printf("No round info for partner %s", partner)
 	}
 
-	return &ReceivedRequest{
+	return &ReceivedRequestLegacySIDH{
 		kv:               kv,
 		partner:          c,
-		theirCTIDHPubKey: key,
+		theirSidHPubKeyA: key,
 		round:            round,
 	}, nil
 }
 
-func (rr *ReceivedRequest) GetContact() contact.Contact {
+func (rr *ReceivedRequestLegacySIDH) GetContact() contact.Contact {
 	return rr.partner
 }
 
-func (rr *ReceivedRequest) GetTheirCTIDHPubKey() nike.PublicKey {
-	return rr.theirCTIDHPubKey
+func (rr *ReceivedRequestLegacySIDH) GetTheirSidHPubKeyA() *sidh.PublicKey {
+	return rr.theirSidHPubKeyA
 }
 
-func (rr *ReceivedRequest) GetRound() rounds.Round {
+func (rr *ReceivedRequestLegacySIDH) GetRound() rounds.Round {
 	return rr.round
 }
 
-func (rr *ReceivedRequest) delete() {
+func (rr *ReceivedRequestLegacySIDH) delete() {
 	if err := util.DeleteContact(rr.kv, rr.partner.ID); err != nil {
 		jww.FATAL.Panicf("Failed to delete received request "+
 			"contact for %s", rr.partner.ID)
 	}
-	if err := util.DeleteCTIDHPublicKey(rr.kv,
-		util.MakeCTIDHPublicKeyKey(rr.partner.ID)); err != nil {
+	if err := util.DeleteSIDHPublicKey(rr.kv,
+		util.MakeSIDHPublicKeyKey(rr.partner.ID)); err != nil {
 		jww.FATAL.Panicf("Failed to delete received request "+
 			"SIDH pubkey for %s", rr.partner.ID)
 	}
 }
 
-func (rr *ReceivedRequest) getType() RequestType {
+func (rr *ReceivedRequestLegacySIDH) getType() RequestType {
 	return Receive
-}
-
-func makeRoundKey(partner *id.ID) string {
-	return "receivedRequestRound:" + partner.String()
 }

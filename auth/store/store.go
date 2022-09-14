@@ -14,13 +14,16 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const storePrefix = "requestMap"
@@ -29,10 +32,11 @@ const requestMapKey = "map"
 const requestMapVersion = 0
 
 type Store struct {
-	kv           *versioned.KV
-	grp          *cyclic.Group
-	receivedByID map[id.ID]*ReceivedRequest
-	sentByID     map[id.ID]*SentRequest
+	kv                     *versioned.KV
+	grp                    *cyclic.Group
+	receivedByID           map[id.ID]*ReceivedRequest
+	receivedByIDLegacySIDH map[id.ID]*ReceivedRequestLegacySIDH
+	sentByID               map[id.ID]*SentRequest
 
 	previousNegotiations map[id.ID]bool
 
@@ -48,12 +52,13 @@ func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler)
 	kv = kv.Prefix(storePrefix)
 
 	s := &Store{
-		kv:                   kv,
-		grp:                  grp,
-		receivedByID:         make(map[id.ID]*ReceivedRequest),
-		sentByID:             make(map[id.ID]*SentRequest),
-		previousNegotiations: make(map[id.ID]bool),
-		srh:                  srh,
+		kv:                     kv,
+		grp:                    grp,
+		receivedByID:           make(map[id.ID]*ReceivedRequest),
+		receivedByIDLegacySIDH: make(map[id.ID]*ReceivedRequestLegacySIDH),
+		sentByID:               make(map[id.ID]*SentRequest),
+		previousNegotiations:   make(map[id.ID]bool),
+		srh:                    srh,
 	}
 
 	var requestList []requestDisk
@@ -129,6 +134,14 @@ func (s *Store) save() error {
 		requestIDList = append(requestIDList, rDisk)
 	}
 
+	for _, rr := range s.receivedByIDLegacySIDH {
+		rDisk := requestDisk{
+			T:  uint(rr.getType()),
+			ID: rr.partner.ID.Marshal(),
+		}
+		requestIDList = append(requestIDList, rDisk)
+	}
+
 	for _, sr := range s.sentByID {
 		rDisk := requestDisk{
 			T:  uint(sr.getType()),
@@ -155,12 +168,13 @@ func (s *Store) save() error {
 func newStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (
 	*Store, error) {
 	s := &Store{
-		kv:                   kv,
-		grp:                  grp,
-		receivedByID:         make(map[id.ID]*ReceivedRequest),
-		sentByID:             make(map[id.ID]*SentRequest),
-		previousNegotiations: make(map[id.ID]bool),
-		srh:                  srh,
+		kv:                     kv,
+		grp:                    grp,
+		receivedByID:           make(map[id.ID]*ReceivedRequest),
+		receivedByIDLegacySIDH: make(map[id.ID]*ReceivedRequestLegacySIDH),
+		sentByID:               make(map[id.ID]*SentRequest),
+		previousNegotiations:   make(map[id.ID]bool),
+		srh:                    srh,
 	}
 
 	err := s.savePreviousNegotiations()
@@ -209,7 +223,7 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 	return sr, nil
 }
 
-func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey,
+func (s *Store) AddReceived(c contact.Contact, key nike.PublicKey,
 	round rounds.Round) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -227,6 +241,7 @@ func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey,
 	r := newReceivedRequest(s.kv, c, key, round)
 
 	s.receivedByID[*r.GetContact().ID] = r
+
 	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to save Sent Request Map after adding "+
 			"partner %s", c.ID)

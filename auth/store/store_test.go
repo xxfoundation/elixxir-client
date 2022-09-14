@@ -61,8 +61,8 @@ func TestLoadStore(t *testing.T) {
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 	_, sidhPubKey := genSidhAKeys(rng)
 	r := makeTestRound(t)
-	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
-		t.Fatalf("AddReceived() returned an error: %+v", err)
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
 	}
 
 	// Create a sent request object and add it to the store
@@ -99,7 +99,7 @@ func TestLoadStore(t *testing.T) {
 			"\n\texpected: %+v\n\treceived: %+v", sr, srLoaded)
 	}
 
-	if s.receivedByID[*c.ID] == nil {
+	if s.receivedByIDLegacySIDH[*c.ID] == nil {
 		t.Errorf("AddSent() failed to add request to map for "+
 			"partner ID %s.", c.ID)
 	}
@@ -168,7 +168,7 @@ func TestStore_AddSent(t *testing.T) {
 // }
 
 // Happy path.
-func TestStore_AddReceived(t *testing.T) {
+func TestStore_AddReceivedLegacySIDH(t *testing.T) {
 	s, _ := makeTestStore(t)
 
 	rng := csprng.NewSystemRNG()
@@ -177,22 +177,22 @@ func TestStore_AddReceived(t *testing.T) {
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 	r := makeTestRound(t)
 
-	err := s.AddReceived(c, sidhPubKey, r)
+	err := s.AddReceivedLegacySIDH(c, sidhPubKey, r)
 	if err != nil {
-		t.Errorf("AddReceived() returned an error: %+v", err)
+		t.Errorf("AddReceivedLegacySIDH() returned an error: %+v", err)
 	}
 
-	if s.receivedByID[*c.ID] == nil {
-		t.Errorf("AddReceived() failed to add request to map for "+
+	if s.receivedByIDLegacySIDH[*c.ID] == nil {
+		t.Errorf("AddReceivedLegacySIDH() failed to add request to map for "+
 			"partner ID %s.", c.ID)
-	} else if !reflect.DeepEqual(r, s.receivedByID[*c.ID].round) {
-		t.Errorf("AddReceived() failed store the correct round."+
-			"\n\texpected: %+v\n\treceived: %+v", r, s.receivedByID[*c.ID].round)
+	} else if !reflect.DeepEqual(r, s.receivedByIDLegacySIDH[*c.ID].round) {
+		t.Errorf("AddReceivedLegacySIDH() failed store the correct round."+
+			"\n\texpected: %+v\n\treceived: %+v", r, s.receivedByIDLegacySIDH[*c.ID].round)
 	}
 }
 
 // Error path: request with request already exists in map.
-func TestStore_AddReceived_PartnerAlreadyExistsError(t *testing.T) {
+func TestStore_AddReceivedLegacySIDH_PartnerAlreadyExistsError(t *testing.T) {
 	s, _ := makeTestStore(t)
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 
@@ -201,14 +201,14 @@ func TestStore_AddReceived_PartnerAlreadyExistsError(t *testing.T) {
 
 	r := makeTestRound(t)
 
-	err := s.AddReceived(c, sidhPubKey, r)
+	err := s.AddReceivedLegacySIDH(c, sidhPubKey, r)
 	if err != nil {
-		t.Errorf("AddReceived() returned an error: %+v", err)
+		t.Errorf("AddReceivedLegacySIDH() returned an error: %+v", err)
 	}
 
-	err = s.AddReceived(c, sidhPubKey, r)
+	err = s.AddReceivedLegacySIDH(c, sidhPubKey, r)
 	if err == nil {
-		t.Errorf("AddReceived() did not produce the expected error " +
+		t.Errorf("AddReceivedLegacySIDH() did not produce the expected error " +
 			"for a request that already exists.")
 	}
 }
@@ -222,8 +222,8 @@ func TestStore_GetReceivedRequest(t *testing.T) {
 
 	r := makeTestRound(t)
 
-	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
-		t.Fatalf("AddReceived() returned an error: %+v", err)
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
 	}
 
 	testC, err := s.GetReceivedRequest(c.ID)
@@ -239,7 +239,7 @@ func TestStore_GetReceivedRequest(t *testing.T) {
 	keyBytes := make([]byte, sidhinterface.PubKeyByteSize)
 	sidhPubKey.Export(keyBytes)
 	expKeyBytes := make([]byte, sidhinterface.PubKeyByteSize)
-	s.receivedByID[*c.ID].theirSidHPubKeyA.Export(expKeyBytes)
+	s.receivedByIDLegacySIDH[*c.ID].theirSidHPubKeyA.Export(expKeyBytes)
 	if !reflect.DeepEqual(keyBytes, expKeyBytes) {
 		t.Errorf("GetReceivedRequest did not send proper sidh bytes")
 	}
@@ -254,14 +254,14 @@ func TestStore_GetReceivedRequest_RequestDeleted(t *testing.T) {
 
 	r := makeTestRound(t)
 
-	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
-		t.Fatalf("AddReceived() returned an error: %+v", err)
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
 	}
 
-	rr := s.receivedByID[*c.ID]
+	rr := s.receivedByIDLegacySIDH[*c.ID]
 	rr.mux.Lock()
 
-	delete(s.receivedByID, *c.ID)
+	delete(s.receivedByIDLegacySIDH, *c.ID)
 	rr.mux.Unlock()
 
 	testC, err := s.GetReceivedRequest(c.ID)
@@ -310,8 +310,8 @@ func TestStore_GetReceivedRequestData(t *testing.T) {
 
 	r := makeTestRound(t)
 
-	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
-		t.Fatalf("AddReceived() returned an error: %+v", err)
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
 	}
 
 	testC, err := s.GetReceivedRequest(c.ID)
@@ -353,8 +353,8 @@ func TestStore_GetRequest_ReceiveRequest(t *testing.T) {
 
 	r := makeTestRound(t)
 
-	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
-		t.Fatalf("AddReceived() returned an error: %+v", err)
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
 	}
 
 	con, err := s.GetReceivedRequest(c.ID)
@@ -406,7 +406,7 @@ func TestStore_GetRequest_ReceiveRequest(t *testing.T) {
 //func TestStore_GetRequest_InvalidType(t *testing.T) {
 //	s, _, _ := makeTestStore(t)
 //	uid := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-//	s.receivedByID[*uid] = &ReceivedRequest{rt: 42}
+//	s.receivedByIDLegacySIDH[*uid] = &ReceivedRequest{rt: 42}
 //
 //	rType, request, con, err := s.GetRequest(uid)
 //	if err == nil {
@@ -454,8 +454,8 @@ func TestStore_GetRequest_RequestNotInMap(t *testing.T) {
 //
 //  r := makeTestRound()
 //
-//	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
-//		t.Fatalf("AddReceived() returned an error: %+v", err)
+//	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+//		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
 //	}
 //	if _, err := s.GetReceivedRequest(c.ID); err != nil {
 //		t.Fatalf("GetReceivedRequest() returned an error: %+v", err)
@@ -470,7 +470,7 @@ func TestStore_GetRequest_RequestNotInMap(t *testing.T) {
 //	s.Done(c.ID)
 //
 //	// Check if the request's mutex is locked
-//	if reflect.ValueOf(&s.receivedByID[*c.ID].mux).Elem().FieldByName(
+//	if reflect.ValueOf(&s.receivedByIDLegacySIDH[*c.ID].mux).Elem().FieldByName(
 //		"state").Int() != 0 {
 //		t.Errorf("Done() did not unlock mutex.")
 //	}
@@ -499,8 +499,8 @@ func TestStore_Delete_ReceiveRequest(t *testing.T) {
 
 	r := makeTestRound(t)
 
-	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
-		t.Fatalf("AddReceived() returned an error: %+v", err)
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
 	}
 	if _, err := s.GetReceivedRequest(c.ID); err != nil {
 		t.Fatalf("GetReceivedRequest() returned an error: %+v", err)
@@ -511,7 +511,7 @@ func TestStore_Delete_ReceiveRequest(t *testing.T) {
 		t.Errorf("delete() returned an error: %+v", err)
 	}
 
-	if s.receivedByID[*c.ID] != nil {
+	if s.receivedByIDLegacySIDH[*c.ID] != nil {
 		t.Errorf("delete() failed to delete request for user %s.", c.ID)
 	}
 }
@@ -547,7 +547,7 @@ func TestStore_Delete_SentRequest(t *testing.T) {
 		t.Errorf("delete() returned an error: %+v", err)
 	}
 
-	if s.receivedByID[*sr.partner] != nil {
+	if s.receivedByIDLegacySIDH[*sr.partner] != nil {
 		t.Errorf("delete() failed to delete request for user %s.",
 			sr.partner)
 	}
@@ -583,8 +583,8 @@ func TestStore_GetAllReceived(t *testing.T) {
 
 		r := makeTestRound(t)
 
-		if err := s.AddReceived(c, sidhPubKey, r); err != nil {
-			t.Fatalf("AddReceived() returned an error: %+v", err)
+		if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+			t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
 		}
 
 		expectContactList = append(expectContactList, c)
@@ -672,8 +672,8 @@ func TestStore_GetAllReceived_MixSentReceived(t *testing.T) {
 
 		r := makeTestRound(t)
 
-		if err := s.AddReceived(c, sidhPubKey, r); err != nil {
-			t.Fatalf("AddReceived() returned an error: %+v", err)
+		if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+			t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
 		}
 
 		// Add sent request
@@ -707,8 +707,8 @@ func TestStore_DeleteRequest_NonexistantRequest(t *testing.T) {
 
 	r := makeTestRound(t)
 
-	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
-		t.Fatalf("AddReceived() returned an error: %+v", err)
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
 	}
 	if _, err := s.GetReceivedRequest(c.ID); err != nil {
 		t.Fatalf("GetReceivedRequest() returned an error: %+v", err)
@@ -731,8 +731,8 @@ func TestStore_DeleteReceiveRequests(t *testing.T) {
 
 	r := makeTestRound(t)
 
-	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
-		t.Fatalf("AddReceived() returned an error: %+v", err)
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
 	}
 	if _, err := s.GetReceivedRequest(c.ID); err != nil {
 		t.Fatalf("GetReceivedRequest() returned an error: %+v", err)
@@ -743,7 +743,7 @@ func TestStore_DeleteReceiveRequests(t *testing.T) {
 		t.Fatalf("DeleteReceiveRequests returned an error: %+v", err)
 	}
 
-	if s.receivedByID[*c.ID] != nil {
+	if s.receivedByIDLegacySIDH[*c.ID] != nil {
 		t.Errorf("delete() failed to delete request for user %s.", c.ID)
 	}
 }
@@ -767,7 +767,7 @@ func TestStore_DeleteSentRequests(t *testing.T) {
 		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
 	}
 
-	if s.receivedByID[*sr.partner] != nil {
+	if s.receivedByIDLegacySIDH[*sr.partner] != nil {
 		t.Errorf("delete() failed to delete request for user %s.",
 			sr.partner)
 	}
@@ -787,8 +787,8 @@ func TestStore_DeleteSentRequests_ReceiveInMap(t *testing.T) {
 
 	r := makeTestRound(t)
 
-	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
-		t.Fatalf("AddReceived() returned an error: %+v", err)
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
 	}
 
 	err := s.DeleteSentRequests()
@@ -796,7 +796,7 @@ func TestStore_DeleteSentRequests_ReceiveInMap(t *testing.T) {
 		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
 	}
 
-	if s.receivedByID[*c.ID] == nil {
+	if s.receivedByIDLegacySIDH[*c.ID] == nil {
 		t.Fatalf("DeleteSentRequests removes partner receivedByID!")
 	}
 
@@ -843,8 +843,8 @@ func TestStore_DeleteAllRequests(t *testing.T) {
 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 	_, sidhPubKey = genSidhAKeys(rng)
 	r := makeTestRound(t)
-	if err := s.AddReceived(c, sidhPubKey, r); err != nil {
-		t.Fatalf("AddReceived() returned an error: %+v", err)
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
 	}
 
 	err = s.DeleteAllRequests()
@@ -852,7 +852,7 @@ func TestStore_DeleteAllRequests(t *testing.T) {
 		t.Fatalf("DeleteAllRequests returned an error: %+v", err)
 	}
 
-	if s.receivedByID[*sr.partner] != nil {
+	if s.receivedByIDLegacySIDH[*sr.partner] != nil {
 		t.Errorf("delete() failed to delete request for user %s.",
 			sr.partner)
 	}
@@ -862,7 +862,7 @@ func TestStore_DeleteAllRequests(t *testing.T) {
 			sr.fingerprint)
 	}
 
-	if s.receivedByID[*c.ID] != nil {
+	if s.receivedByIDLegacySIDH[*c.ID] != nil {
 		t.Errorf("delete() failed to delete request for user %s.", c.ID)
 	}
 

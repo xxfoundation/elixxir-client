@@ -514,14 +514,15 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 	}
 
 	go func() {
-		var contactList []contact.Contact
+		marshaledContactList := make([][]byte, 0)
 		var failedIDs []*id.ID
 		var errorString string
 		for numReturned := 0; numReturned < len(idList); numReturned++ {
 			response := <-respCh
 			if response.err != nil {
 				failedIDs = append(failedIDs, response.id)
-				contactList = append(contactList, response.contact)
+				marshaledContactList = append(
+					marshaledContactList, response.contact.Marshal())
 			} else {
 				errorString = errorString +
 					fmt.Sprintf("Failed to lookup id %s: %+v",
@@ -536,16 +537,10 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 					"Failed to marshal failed IDs"))
 		}
 
-		marshaledContactList := make([][]byte, 0)
-		for _, con := range contactList {
-			marshaledContactList = append(
-				marshaledContactList, con.Marshal())
-		}
-
-		contactListJSON, err2 := json.Marshal(marshaledContactList)
-		if err2 != nil {
+		contactListJSON, err := json.Marshal(marshaledContactList)
+		if err != nil {
 			jww.FATAL.Panicf(
-				"Failed to marshal list of contact.Contact: %+v", err2)
+				"Failed to marshal list of contact.Contact: %+v", err)
 		}
 		cb.Callback(contactListJSON, marshalledFailedIds, errors.New(errorString))
 	}()

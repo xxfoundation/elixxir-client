@@ -14,12 +14,12 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
-	gitlab.com/elixxir/comms v0.0.4-0.20220907184530-d8eec143a1e8
-	gitlab.com/elixxir/crypto v0.0.7-0.20220902165412-5c5e3e990e84
-	gitlab.com/elixxir/ekv v0.2.1-0.20220901224437-ab4cbf94bf8b
+	gitlab.com/elixxir/comms v0.0.4-0.20220913220502-eed192f654bd
+	gitlab.com/elixxir/crypto v0.0.7-0.20220913220142-ab0771bad0af
+	gitlab.com/elixxir/ekv v0.2.1
 	gitlab.com/elixxir/primitives v0.0.3-0.20220901220638-1acc75fabdc6
-	gitlab.com/xx_network/comms v0.0.4-0.20220902164216-e3272eb0efac
-	gitlab.com/xx_network/crypto v0.0.5-0.20220902182733-69aad094b487
+	gitlab.com/xx_network/comms v0.0.4-0.20220913215811-c4bf83b27de3
+	gitlab.com/xx_network/crypto v0.0.5-0.20220913213008-98764f5b3287
 	gitlab.com/xx_network/primitives v0.0.4-0.20220809193445-9fc0a5209548
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
@@ -29,7 +29,7 @@ require (
 )
 
 require (
-	git.xx.network/elixxir/grpc-web-go-client v0.0.0-20220829220442-4f51c27ab822 // indirect
+	git.xx.network/elixxir/grpc-web-go-client v0.0.0-20220908170150-ef04339ffe65 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/badoux/checkmail v1.2.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
@@ -43,7 +43,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/klauspost/compress v1.11.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.1.0 // indirect
-	github.com/ktr0731/grpc-web-go-client v0.2.8 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect

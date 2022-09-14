@@ -27,6 +27,7 @@ import (
 type authCallbacks struct {
 	autoConfirm bool
 	confCh      chan *id.ID
+	reqCh       chan *id.ID
 	params      xxdk.E2EParams
 }
 
@@ -34,6 +35,7 @@ func makeAuthCallbacks(autoConfirm bool, params xxdk.E2EParams) *authCallbacks {
 	return &authCallbacks{
 		autoConfirm: autoConfirm,
 		confCh:      make(chan *id.ID, 10),
+		reqCh:       make(chan *id.ID, 10),
 		params:      params,
 	}
 }
@@ -44,7 +46,7 @@ func (a *authCallbacks) Request(requestor contact.Contact,
 	msg := fmt.Sprintf("Authentication channel request from: %s\n",
 		requestor.ID)
 	jww.INFO.Printf(msg)
-	fmt.Printf(msg)
+	fmt.Print(msg)
 	if a.autoConfirm {
 		jww.INFO.Printf("Channel Request: %s",
 			requestor.ID)
@@ -55,8 +57,9 @@ func (a *authCallbacks) Request(requestor contact.Contact,
 		}
 
 		a.confCh <- requestor.ID
+	} else {
+		a.reqCh <- requestor.ID
 	}
-
 }
 
 func (a *authCallbacks) Confirm(requestor contact.Contact,
@@ -72,7 +75,7 @@ func (a *authCallbacks) Reset(requestor contact.Contact,
 	msg := fmt.Sprintf("Authentication channel reset from: %s\n",
 		requestor.ID)
 	jww.INFO.Printf(msg)
-	fmt.Printf(msg)
+	fmt.Print(msg)
 }
 
 func registerMessageListener(user *xxdk.E2e) chan receive.Message {

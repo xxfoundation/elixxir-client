@@ -9,6 +9,7 @@ package bindings
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -17,9 +18,33 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
+// dashboardBaseURL is the base of the xx network's round dashboard URL.
+// This should be used by any type of send report's GetRoundURL method.
+var dashboardBaseURL = "https://dashboard.xx.network"
+
+// SetDashboardURL is a function which modifies the base dashboard URL
+// that is returned as part of any send report. Internally, this is defaulted
+// to "https://dashboard.xx.network". This should only be called if the user
+// explicitly wants to modify the dashboard URL. This function is not
+// thread-safe, and as such should only be called on setup.
+//
+// Parameters:
+//  - newURL - A valid URL that will be used for round look up on any send
+//    report.
+func SetDashboardURL(newURL string) {
+	dashboardBaseURL = newURL
+}
+
+// getRoundURL is a helper function which returns the specific round
+// within any type of send report, if they have a round in their RoundsList.
+// This helper function is messenger specific.
+func getRoundURL(round id.Round) string {
+	return fmt.Sprintf("%s/rounds/%d?xxmessenger=true", dashboardBaseURL, round)
+}
+
 // RoundsList contains a list of round IDs.
 //
-// Example marshalled roundList object:
+// JSON Example:
 //  [1001,1003,1006]
 type RoundsList struct {
 	Rounds []uint64

@@ -66,7 +66,6 @@ func (m *manager) startSendingWorkerPool(multiStop *stoppable.Multi) {
 		multiStop.Add(stop)
 	}
 
-	jww.DEBUG.Printf("startSendingWorkerPool multi after adding all: %v", multiStop)
 }
 
 // sendingThread sends part packets that become available oin the send queue.

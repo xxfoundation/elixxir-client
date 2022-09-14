@@ -83,7 +83,7 @@ func (s *Single) ToStopped() {
 			s.Name(), s.GetStatus(), Stopping)
 	}
 
-	jww.DEBUG.Printf("Switched status of single stoppable %q from %s to %s.",
+	jww.TRACE.Printf("Switched status of single stoppable %q from %s to %s.",
 		s.Name(), Stopping, Stopped)
 }
 

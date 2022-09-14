@@ -1,10 +1,3 @@
-////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2022 xx foundation                                             //
-//                                                                            //
-// Use of this source code is governed by a license that can be found in the  //
-// LICENSE file.                                                              //
-////////////////////////////////////////////////////////////////////////////////
-
 package auth
 
 import (
@@ -12,52 +5,21 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-
-	"gitlab.com/xx_network/primitives/id"
-
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e/ratchet"
-	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/cyclic"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
-	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/id"
 )
 
-const (
-	dummyErr = "dummy error so we dont delete the request"
-
-	NegotiationFingerprintLen = 32
-)
-
-// CreateNegotiationFingerprint creates a fingerprint for a re-authentication
-// negotiation from the partner's DH public key and SIDH public key.
-func CreateNegotiationFingerprint(partnerDhPubKey *cyclic.Int,
-	partnerCtidhPubKey nike.PublicKey) []byte {
-	h, err := hash.NewCMixHash()
-	if err != nil {
-		jww.FATAL.Panicf(
-			"Could not get hash to make request fingerprint: %+v", err)
-	}
-
-	h.Write(partnerDhPubKey.Bytes())
-	h.Write(partnerCtidhPubKey.Bytes())
-
-	return h.Sum(nil)[:NegotiationFingerprintLen]
-}
-
-type receivedRequestService struct {
-	s     *state
-	reset bool
-}
-
-func (rrs *receivedRequestService) Process(message format.Message,
+func (rrs *receivedRequestService) ProcessLegacySIDH(message format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	authState := rrs.s
 
@@ -105,13 +67,13 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	}
 
 	//extract data from the decrypted payload
-	partnerID, partnerCTIDHPubKey, facts, ownershipProof, err :=
+	partnerID, partnerSIDHPubKey, facts, ownershipProof, err :=
 		processDecryptedMessage(payload)
 	if err != nil {
 		jww.WARN.Printf("Failed to decode the auth request: %+v", err)
 		return
 	}
-	jww.INFO.Printf("\t PARTNER CTIDH PUBKEY: %v", partnerCTIDHPubKey)
+	jww.INFO.Printf("\t PARTNERSIDHPUBKEY: %v", partnerSIDHPubKey)
 
 	//create the contact, note that no facts are sent in the payload
 	c := contact.Contact{
@@ -121,8 +83,8 @@ func (rrs *receivedRequestService) Process(message format.Message,
 		Facts:          facts,
 	}
 
-	fp := CreateNegotiationFingerprint(partnerPubKey,
-		partnerCTIDHPubKey)
+	fp := cAuth.CreateNegotiationFingerprint(partnerPubKey,
+		partnerSIDHPubKey)
 	em := fmt.Sprintf("Received AuthRequest from %s,"+
 		" msgDigest: %s, FP: %s", partnerID,
 		format.DigestContents(message.GetContents()),
@@ -223,6 +185,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	// time they did. We need to auto-confirm if we are randomly selected
 	// (the one with the smaller id,when looked at as long unsigned integer,
 	// is selected)
+	// (SIDH keys have polarity, so both sent keys cannot be used together)
 	autoConfirm := false
 	bail := false
 	err = authState.store.HandleSentRequest(partnerID,
@@ -271,7 +234,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	// warning: the client will never be notified of the channel creation if a
 	// crash occurs after the store but before the conclusion of the callback
 	//create the auth storage
-	if err = authState.store.AddReceived(c, partnerCTIDHPubKey, round); err != nil {
+	if err = authState.store.AddReceivedLegacySIDH(c, partnerSIDHPubKey, round); err != nil {
 		em := fmt.Sprintf("failed to store contact Auth "+
 			"Request: %s", err)
 		jww.WARN.Print(em)
@@ -305,12 +268,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	}
 }
 
-func (rrs *receivedRequestService) String() string {
-	return fmt.Sprintf("authRequest(%s)",
-		rrs.s.e2e.GetReceptionID())
-}
-
-func processDecryptedMessage(b []byte) (*id.ID, nike.PublicKey, fact.FactList,
+func processDecryptedMessageLegacySIDH(b []byte) (*id.ID, *sidh.PublicKey, fact.FactList,
 	[]byte, error) {
 	//decode the ecr format
 	ecrFmt, err := unmarshalEcrFormat(b)
@@ -319,14 +277,14 @@ func processDecryptedMessage(b []byte) (*id.ID, nike.PublicKey, fact.FactList,
 			"unmarshal auth request's encrypted payload")
 	}
 
-	partnerCTIDHPubKey, err := ecrFmt.GetCTIDHPubKey()
+	partnerSIDHPubKey, err := ecrFmt.GetSidhPubKey()
 	if err != nil {
 		return nil, nil, nil, nil, errors.WithMessage(err, "Could not "+
-			"unmarshal partner CTIDH Pubkey")
+			"unmarshal partner SIDH Pubkey")
 	}
 
 	//decode the request format
-	requestFmt, err := newRequestFormat(ecrFmt.GetPayload())
+	requestFmt, err := newRequestFormat(ecrFmt)
 	if err != nil {
 		return nil, nil, nil, nil, errors.WithMessage(err, "Failed to "+
 			"unmarshal auth request's internal payload")
@@ -345,20 +303,5 @@ func processDecryptedMessage(b []byte) (*id.ID, nike.PublicKey, fact.FactList,
 			"unmarshal auth request's facts")
 	}
 
-	return partnerID, partnerCTIDHPubKey, facts, ecrFmt.GetOwnership(), nil
-}
-
-func iShouldResend(partner, me *id.ID) bool {
-	myBytes := me.Bytes()
-	theirBytes := partner.Bytes()
-	i := 0
-	for ; myBytes[i] == theirBytes[i] && i < len(myBytes); i++ {
-	}
-	return myBytes[i] < theirBytes[i]
-}
-
-func copySlice(s []byte) []byte {
-	c := make([]byte, len(s))
-	copy(c, s)
-	return c
+	return partnerID, partnerSIDHPubKey, facts, ecrFmt.GetOwnership(), nil
 }

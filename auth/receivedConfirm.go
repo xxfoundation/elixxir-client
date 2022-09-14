@@ -64,7 +64,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 	}
 
 	// parse the data
-	ecrFmt, err := unmarshalEcrFormat(payload)
+	ecrFmt, err := unmarshalLegacySIDHEcrFormat(payload)
 	if err != nil {
 		em := fmt.Sprintf("Failed to unmarshal auth confirmation's "+
 			"encrypted payload: %s", err)

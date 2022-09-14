@@ -164,7 +164,8 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	}
 
 	em := fmt.Sprintf("Auth Request with %s (msgDigest: %s) sent"+
-		" on round %d", partner.ID, format.DigestContents(contents), round)
+		" on round %d", partner.ID, format.DigestContents(contents),
+		round)
 	jww.INFO.Print(em)
 	s.event.Report(1, "Auth", "RequestSent", em)
 	return round, nil
@@ -195,18 +196,19 @@ func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
 	// the session key and encrypt or decrypt.
 
 	// baseFmt wraps ecrFmt. ecrFmt is encrypted
-	baseFmt := newBaseFormat(cMixSize, dhPrimeSize)
+	baseFmt := newLegacySIDHBaseFormat(cMixSize, dhPrimeSize)
 	// ecrFmt wraps requestFmt
-	ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
-	requestFmt, err := newRequestFormat(ecrFmt)
+	ecrFmt := newLegacySIDHEcrFormat(baseFmt.GetEcrPayloadLen())
+	requestFmt, err := newRequestFormat(ecrFmt.GetPayload())
 	if err != nil {
-		return nil, nil, errors.Errorf("failed to make request format: %+v", err)
+		return nil, nil, errors.Errorf(
+			"failed to make request format: %+v", err)
 	}
 
 	if len(payload) > requestFmt.MsgPayloadLen() {
-		return nil, nil, errors.Errorf(
-			"Combined message longer than space "+
-				"available in payload; available: %v, length: %v",
+		return nil, nil, errors.Errorf("Combined message "+
+			"longer than space available in "+
+			"payload; available: %v, length: %v",
 			requestFmt.MsgPayloadLen(), len(payload))
 	}
 

@@ -72,6 +72,8 @@ func unmarshalBaseFormat(b []byte, pubkeySize int) (*baseFormat, error) {
 	}
 	bfmt := buildBaseFormat(b, pubkeySize)
 	version := bfmt.GetVersion()
+	// FIXME: this is a touchpoint, when version 1 or 2 we behave
+	// differently from 3
 	if version != requestFmtVersion {
 		return &bfmt, errors.Errorf(
 			"Unknown baseFormat version: %d", version)

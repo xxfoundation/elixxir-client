@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package store
 
 import (
@@ -65,8 +72,7 @@ func (ur *EarliestRound) save() {
 			Data:      urStr,
 		}
 
-		err = ur.kv.Set(earliestRoundStorageKey,
-			earliestRoundStorageVersion, obj)
+		err = ur.kv.Set(earliestRoundStorageKey, obj)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to store the earliest round: %+v", err)
 		}

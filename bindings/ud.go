@@ -1,14 +1,15 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/single"
@@ -414,9 +415,137 @@ func LookupUD(e2eID int, udContact []byte, cb UdLookupCallback,
 		EphID:       eid.EphId.Int64(),
 		ReceptionID: eid.Source,
 		RoundsList:  makeRoundsList(rids...),
+		RoundURL:    getRoundURL(rids[0]),
 	}
 
 	return json.Marshal(sr)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// User Discovery MultiLookup                                                      //
+////////////////////////////////////////////////////////////////////////////////
+
+// UdMultiLookupCallback contains the callback called by MultiLookupUD that returns the
+// contacts which match the passed in IDs.
+//
+// Parameters:
+//  - contactListJSON - the JSON marshalled bytes of []contact.Contact, or nil
+//    if an error occurs.
+//
+//   JSON Example:
+//   {
+//  	"<xxc(2)F8dL9EC6gy+RMJuk3R+Au6eGExo02Wfio5cacjBcJRwDEgB7Ugdw/BAr6RkCABkWAFV1c2VybmFtZTA7c4LzV05sG+DMt+rFB0NIJg==xxc>",
+//  	"<xxc(2)eMhAi/pYkW5jCmvKE5ZaTglQb+fTo1D8NxVitr5CCFADEgB7Ugdw/BAr6RoCABkWAFV1c2VybmFtZTE7fElAa7z3IcrYrrkwNjMS2w==xxc>",
+//  	"<xxc(2)d7RJTu61Vy1lDThDMn8rYIiKSe1uXA/RCvvcIhq5Yg4DEgB7Ugdw/BAr6RsCABkWAFV1c2VybmFtZTI7N3XWrxIUpR29atpFMkcR6A==xxc>"
+//	}
+//  - failedIDs - JSON marshalled list of []*id.ID objects which failed lookup
+//  - err - any errors that occurred in the multilookup.
+type UdMultiLookupCallback interface {
+	Callback(contactListJSON []byte, failedIDs []byte, err error)
+}
+
+type lookupResp struct {
+	id      *id.ID
+	contact contact.Contact
+	err     error
+}
+
+// MultiLookupUD returns the public key of all passed in IDs as known by the
+// user discovery system or returns by the timeout.
+//
+// Parameters:
+//  - e2eID - e2e object ID in the tracker
+//  - udContact - the marshalled bytes of the contact.Contact object
+//  - lookupIds - JSON marshalled list of []*id.ID object for the users that
+//    MultiLookupUD will look up.
+//  - singleRequestParams - the JSON marshalled bytes of single.RequestParams
+//
+// Returns:
+//  - []byte - the JSON marshalled bytes of the SingleUseSendReport object,
+//    which can be passed into Cmix.WaitForRoundResult to see if the send
+//    succeeded.
+func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
+	lookupIds []byte, singleRequestParamsJSON []byte) error {
+
+	// Get user from singleton
+	user, err := e2eTrackerSingleton.get(e2eID)
+	if err != nil {
+		return err
+	}
+
+	c, err := contact.Unmarshal(udContact)
+	if err != nil {
+		return err
+	}
+
+	var idList []*id.ID
+	err = json.Unmarshal(lookupIds, &idList)
+	if err != nil {
+		return err
+	}
+
+	var p single.RequestParams
+	err = json.Unmarshal(singleRequestParamsJSON, &p)
+	if err != nil {
+		return err
+	}
+
+	respCh := make(chan lookupResp, len(idList))
+	for _, uid := range idList {
+		localID := uid.DeepCopy()
+		callback := func(c contact.Contact, err error) {
+			respCh <- lookupResp{
+				id:      localID,
+				contact: c,
+				err:     err,
+			}
+		}
+		go func() {
+			_, _, err := ud.Lookup(user.api, c, callback, localID, p)
+			if err != nil {
+				respCh <- lookupResp{
+					id:      localID,
+					contact: contact.Contact{},
+					err:     err,
+				}
+			}
+		}()
+
+	}
+
+	go func() {
+		marshaledContactList := make([][]byte, 0)
+		var failedIDs []*id.ID
+		var errorString string
+		for numReturned := 0; numReturned < len(idList); numReturned++ {
+			response := <-respCh
+			if response.err != nil {
+				failedIDs = append(failedIDs, response.id)
+				marshaledContactList = append(
+					marshaledContactList, response.contact.Marshal())
+			} else {
+				errorString = errorString +
+					fmt.Sprintf("Failed to lookup id %s: %+v",
+						response.id, response.err)
+			}
+		}
+
+		marshalledFailedIds, err := json.Marshal(failedIDs)
+		if err != nil {
+			cb.Callback(nil, nil,
+				errors.WithMessage(err,
+					"Failed to marshal failed IDs"))
+		}
+
+		contactListJSON, err := json.Marshal(marshaledContactList)
+		if err != nil {
+			jww.FATAL.Panicf(
+				"Failed to marshal list of contact.Contact: %+v", err)
+		}
+		cb.Callback(contactListJSON, marshalledFailedIds, errors.New(errorString))
+	}()
+
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -517,6 +646,7 @@ func SearchUD(e2eID int, udContact []byte, cb UdSearchCallback,
 		EphID:       eid.EphId.Int64(),
 		ReceptionID: eid.Source,
 		RoundsList:  makeRoundsList(rids...),
+		RoundURL:    getRoundURL(rids[0]),
 	}
 
 	return json.Marshal(sr)

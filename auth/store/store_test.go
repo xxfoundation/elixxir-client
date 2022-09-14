@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package store
 
@@ -277,7 +277,7 @@ func TestStore_GetReceivedRequest_RequestDeleted(t *testing.T) {
 	}
 
 	// Check if the request's mutex is locked
-	if reflect.ValueOf(rr.mux).Elem().FieldByName("state").Int() != 0 {
+	if reflect.ValueOf(&rr.mux).Elem().FieldByName("state").Int() != 0 {
 		t.Errorf("GetReceivedRequest() did not unlock mutex.")
 	}
 }

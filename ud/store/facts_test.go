@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package ud
 
@@ -20,9 +20,9 @@ func TestNewStore(t *testing.T) {
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	_, err := NewStore(kv)
+	_, err := newStore(kv)
 	if err != nil {
-		t.Errorf("NewStore() produced an error: %v", err)
+		t.Errorf("newStore() produced an error: %v", err)
 	}
 
 }
@@ -32,9 +32,9 @@ func TestStore_RestoreFromBackUp(t *testing.T) {
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	s, err := NewStore(kv)
+	s, err := newStore(kv)
 	if err != nil {
-		t.Errorf("NewStore() produced an error: %v", err)
+		t.Errorf("newStore() produced an error: %v", err)
 	}
 
 	expected := fact.Fact{
@@ -61,9 +61,9 @@ func TestStore_RestoreFromBackUp_StatefulStore(t *testing.T) {
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	s, err := NewStore(kv)
+	s, err := newStore(kv)
 	if err != nil {
-		t.Errorf("NewStore() produced an error: %v", err)
+		t.Errorf("newStore() produced an error: %v", err)
 	}
 
 	confirmId := "confirm"
@@ -90,9 +90,9 @@ func TestStore_RestoreFromBackUp_StatefulStore(t *testing.T) {
 func TestStore_ConfirmFact(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	expectedStore, err := NewStore(kv)
+	expectedStore, err := newStore(kv)
 	if err != nil {
-		t.Errorf("NewStore() produced an error: %v", err)
+		t.Errorf("newStore() produced an error: %v", err)
 	}
 
 	confirmId := "confirm"
@@ -128,9 +128,9 @@ func TestStore_ConfirmFact(t *testing.T) {
 func TestStore_StoreUnconfirmedFact(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	expectedStore, err := NewStore(kv)
+	expectedStore, err := newStore(kv)
 	if err != nil {
-		t.Errorf("NewStore() produced an error: %v", err)
+		t.Errorf("newStore() produced an error: %v", err)
 	}
 
 	confirmId := "confirm"
@@ -156,9 +156,9 @@ func TestStore_StoreUnconfirmedFact(t *testing.T) {
 func TestStore_DeleteFact(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	expectedStore, err := NewStore(kv)
+	expectedStore, err := newStore(kv)
 	if err != nil {
-		t.Errorf("NewStore() produced an error: %v", err)
+		t.Errorf("newStore() produced an error: %v", err)
 	}
 
 	expected := fact.Fact{
@@ -188,9 +188,9 @@ func TestStore_DeleteFact(t *testing.T) {
 func TestStore_BackUpMissingFacts(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	expectedStore, err := NewStore(kv)
+	expectedStore, err := newStore(kv)
 	if err != nil {
-		t.Errorf("NewStore() produced an error: %v", err)
+		t.Errorf("newStore() produced an error: %v", err)
 	}
 
 	email := fact.Fact{
@@ -228,9 +228,9 @@ func TestStore_BackUpMissingFacts(t *testing.T) {
 func TestStore_BackUpMissingFacts_DuplicateFactType(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	expectedStore, err := NewStore(kv)
+	expectedStore, err := newStore(kv)
 	if err != nil {
-		t.Errorf("NewStore() produced an error: %v", err)
+		t.Errorf("newStore() produced an error: %v", err)
 	}
 
 	email := fact.Fact{
@@ -270,9 +270,9 @@ func TestStore_BackUpMissingFacts_DuplicateFactType(t *testing.T) {
 func TestStore_GetFacts(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	testStore, err := NewStore(kv)
+	testStore, err := newStore(kv)
 	if err != nil {
-		t.Errorf("NewStore() produced an error: %v", err)
+		t.Errorf("newStore() produced an error: %v", err)
 	}
 
 	emailFact := fact.Fact{
@@ -324,9 +324,9 @@ func TestStore_GetFacts(t *testing.T) {
 func TestStore_GetFactStrings(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	testStore, err := NewStore(kv)
+	testStore, err := newStore(kv)
 	if err != nil {
-		t.Errorf("NewStore() produced an error: %v", err)
+		t.Errorf("newStore() produced an error: %v", err)
 	}
 
 	emailFact := fact.Fact{

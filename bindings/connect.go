@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -94,6 +94,7 @@ func (c *Connection) SendE2E(mt int, payload []byte) ([]byte, error) {
 
 	sr := E2ESendReport{
 		RoundsList: makeRoundsList(sendReport.RoundList...),
+		RoundURL:   getRoundURL(sendReport.RoundList[0]),
 		MessageID:  sendReport.MessageId.Marshal(),
 		Timestamp:  sendReport.SentTime.UnixNano(),
 		KeyResidue: sendReport.KeyResidue.Marshal(),

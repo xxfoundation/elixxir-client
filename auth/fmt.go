@@ -213,7 +213,7 @@ func (f ecrFormat) SetPayload(p []byte) {
 
 //Request Format////////////////////////////////////////////////////////////////
 type requestFormat struct {
-	data       []byte // Note: the following are mapped into this element..
+	data       []byte // Note: id and msgPayload are mapped into this..
 	id         []byte
 	msgPayload []byte
 }

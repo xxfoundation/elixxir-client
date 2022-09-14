@@ -397,8 +397,9 @@ func (c *Cmix) HasRunningProcessies() bool {
 	return !c.followerServices.stoppable.IsStopped()
 }
 
-// GetRunningProcesses returns the name of all running processes at the time
-// of this call.
+// GetRunningProcesses returns the names of all running processes at the time
+// of this call. Note that this list may change and is subject to race
+// conditions if multiple threads are in the process of starting or stopping.
 func (c *Cmix) GetRunningProcesses() []string {
 	return c.followerServices.stoppable.GetRunningProcesses()
 }

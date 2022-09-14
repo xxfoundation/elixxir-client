@@ -76,7 +76,9 @@ func (m *Multi) GetStatus() Status {
 	return lowestStatus
 }
 
-// GetRunningProcesses returns a list of running Stoppable processes.
+// GetRunningProcesses returns the names of all running processes at the time
+// of this call. Note that this list may change and is subject to race
+// conditions if multiple threads are in the process of starting or stopping.
 func (m *Multi) GetRunningProcesses() []string {
 	m.mux.RLock()
 

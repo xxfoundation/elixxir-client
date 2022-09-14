@@ -136,8 +136,18 @@ func (c *Cmix) IsHealthy() bool {
 	return c.api.GetCmix().IsHealthy()
 }
 
-// GetRunningProcesses returns the name of all running processes at the time
-// of this call.
+// GetRunningProcesses returns the names of all running processes at the time
+// of this call. Note that this list may change and is subject to race
+// conditions if multiple threads are in the process of starting or stopping.
+//
+// Returns:
+//  - []byte - A JSON marshalled list of all running processes.
+//
+// JSON Example:
+//  {
+//   "FileTransfer{BatchBuilderThread, FilePartSendingThread#0, FilePartSendingThread#1, FilePartSendingThread#2, FilePartSendingThread#3}",
+//   "MessageReception Worker 0"
+//  }
 func (c *Cmix) GetRunningProcesses() ([]byte, error) {
 	return json.Marshal(c.api.GetRunningProcesses())
 }

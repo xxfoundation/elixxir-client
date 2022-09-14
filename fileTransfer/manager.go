@@ -219,8 +219,8 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 	batchBuilderStop := stoppable.NewSingle(batchBuilderThreadStoppable)
 
 	// Start sending threads
-	// Note that the startSendingWorkerPool creates go routines for over worker
-	// As a result, there is no need to run it asynchronously. In fact,
+	// Note that the startSendingWorkerPool already creates thread for every
+	// worker. As a result, there is no need to run it asynchronously. In fact,
 	// running this asynchronously could result in a race condition where
 	// some worker threads are not added to senderPoolStop before that stoppable
 	// is added to the multiStoppable.
@@ -229,7 +229,6 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 
 	// Create a multi stoppable
 	multiStoppable := stoppable.NewMulti(fileTransferStoppable)
-	jww.DEBUG.Printf("Adding sender pool w/ name %s", senderPoolStop.Name())
 	multiStoppable.Add(senderPoolStop)
 	multiStoppable.Add(batchBuilderStop)
 

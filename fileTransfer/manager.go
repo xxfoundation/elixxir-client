@@ -215,14 +215,17 @@ func NewManager(params Params, user FtE2e) (FileTransfer, error) {
 // StartProcesses starts the sending threads. Adheres to the xxdk.Service type.
 func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 	// Construct stoppables
-	multiStoppable := stoppable.NewMulti(fileTransferStoppable)
+	senderPoolStop := stoppable.NewMulti(workerPoolStoppable)
 	batchBuilderStop := stoppable.NewSingle(batchBuilderThreadStoppable)
 
 	// Start sending threads
-	go m.startSendingWorkerPool(multiStoppable)
+	m.startSendingWorkerPool(senderPoolStop)
 	go m.batchBuilderThread(batchBuilderStop)
 
 	// Create a multi stoppable
+	multiStoppable := stoppable.NewMulti(fileTransferStoppable)
+	jww.DEBUG.Printf("Adding sender pool w/ name %s", senderPoolStop.Name())
+	multiStoppable.Add(senderPoolStop)
 	multiStoppable.Add(batchBuilderStop)
 
 	return multiStoppable, nil

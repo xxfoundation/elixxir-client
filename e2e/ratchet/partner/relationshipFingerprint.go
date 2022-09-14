@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package partner
 
@@ -40,13 +40,12 @@ func makeRelationshipFingerprint(t session2.RelationshipType, grp *cyclic.Group,
 func storeRelationshipFingerprint(fp []byte, kv *versioned.KV) error {
 	now := netTime.Now()
 	obj := versioned.Object{
-		Version:   currentRelationshipFingerprintVersion,
+		Version:   currentRelationshipVersion,
 		Timestamp: now,
 		Data:      fp,
 	}
 
-	return kv.Set(relationshipFingerprintKey, currentRelationshipVersion,
-		&obj)
+	return kv.Set(relationshipFingerprintKey, &obj)
 }
 
 func loadRelationshipFingerprint(kv *versioned.KV) []byte {

@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 // Session object definition
 
@@ -195,9 +195,10 @@ func (s *session) Get(key string) (*versioned.Object, error) {
 	return s.kv.Get(key, currentSessionVersion)
 }
 
-// Set a value in the session
+// Set a value in the session. If you wish to maintain versioning,
+// the [versioned.Object]'s Version field must be set.
 func (s *session) Set(key string, object *versioned.Object) error {
-	return s.kv.Set(key, currentSessionVersion, object)
+	return s.kv.Set(key, object)
 }
 
 // Delete a value in the session

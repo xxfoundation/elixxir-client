@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package ud
 
 import (
@@ -107,9 +114,7 @@ func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
 		return nil, err
 	}
 
-	err = m.store.StoreUsername(usernameFact)
-
-	return m, nil
+	return m, m.store.StoreUsername(usernameFact)
 }
 
 // NewManagerFromBackup builds a new user discover manager from a backup.

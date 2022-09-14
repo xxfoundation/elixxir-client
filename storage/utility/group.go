@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package utility
 
@@ -29,7 +29,7 @@ func StoreGroup(kv *versioned.KV, grp *cyclic.Group, key string) error {
 		Data:      data,
 	}
 
-	return kv.Set(key, currentGroupVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 func LoadGroup(kv *versioned.KV, key string) (*cyclic.Group, error) {

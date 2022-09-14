@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -64,6 +64,7 @@ func TransmitSingleUse(e2eID int, recipient []byte, tag string, payload,
 		EphID:       eid.EphId.Int64(),
 		ReceptionID: eid.Source,
 		RoundsList:  makeRoundsList(rids...),
+		RoundURL:    getRoundURL(rids[0]),
 	}
 	return json.Marshal(sr)
 }
@@ -99,14 +100,16 @@ func Listen(e2eID int, tag string, cb SingleUseCallback) (Stopper, error) {
 // SingleUseSendReport is the bindings-layer struct used to represent
 // information returned by single.TransmitRequest.
 //
-// JSON example:
+// SingleUseSendReport JSON example:
 //  {
 //   "Rounds":[1,5,9],
+//   "RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
 //   "EphID":1655533,
 //   "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}
 //  }
 type SingleUseSendReport struct {
 	RoundsList
+	RoundURL    string
 	ReceptionID *id.ID
 	EphID       int64
 }
@@ -115,9 +118,10 @@ type SingleUseSendReport struct {
 // information passed to the single.Response callback interface in response to
 // single.TransmitRequest.
 //
-// JSON example:
+// SingleUseResponseReport JSON example:
 //  {
 //   "Rounds":[1,5,9],
+//   "RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
 //   "Payload":"rSuPD35ELWwm5KTR9ViKIz/r1YGRgXIl5792SF8o8piZzN6sT4Liq4rUU/nfOPvQEjbfWNh/NYxdJ72VctDnWw==",
 //   "EphID":1655533,
 //   "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"},
@@ -125,6 +129,7 @@ type SingleUseSendReport struct {
 //  }
 type SingleUseResponseReport struct {
 	RoundsList
+	RoundURL    string
 	Payload     []byte
 	ReceptionID *id.ID
 	EphID       int64
@@ -134,16 +139,18 @@ type SingleUseResponseReport struct {
 // SingleUseCallbackReport is the bindings-layer struct used to represent
 // single -use messages received by a callback passed into single.Listen.
 //
-// JSON example:
-//  {
-//   "Rounds":[1,5,9],
-//   "Payload":"rSuPD35ELWwm5KTR9ViKIz/r1YGRgXIl5792SF8o8piZzN6sT4Liq4rUU/nfOPvQEjbfWNh/NYxdJ72VctDnWw==",
-//   "Partner":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//   "EphID":1655533,
-//   "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}
-//  }
+// SingleUseCallbackReport JSON example:
+//    {
+//      "Rounds":[1,5,9],
+//      "RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
+//      "Payload":"rSuPD35ELWwm5KTR9ViKIz/r1YGRgXIl5792SF8o8piZzN6sT4Liq4rUU/nfOPvQEjbfWNh/NYxdJ72VctDnWw==",
+//      "Partner":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//      "EphID":1655533,
+//      "ReceptionID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"}
+//    }
 type SingleUseCallbackReport struct {
 	RoundsList
+	RoundURL    string
 	Payload     []byte
 	Partner     *id.ID
 	EphID       int64
@@ -208,6 +215,7 @@ func (sl singleUseListener) Callback(
 	scr := SingleUseCallbackReport{
 		Payload:     req.GetPayload(),
 		RoundsList:  makeRoundsList(rids...),
+		RoundURL:    getRoundURL(rids[0]),
 		Partner:     req.GetPartner(),
 		EphID:       eid.EphId.Int64(),
 		ReceptionID: eid.Source,
@@ -246,6 +254,7 @@ func (sr singleUseResponse) Callback(payload []byte,
 	}
 	sendReport := SingleUseResponseReport{
 		RoundsList:  makeRoundsList(rids...),
+		RoundURL:    getRoundURL(rids[0]),
 		ReceptionID: receptionID.Source,
 		EphID:       receptionID.EphId.Int64(),
 		Payload:     payload,

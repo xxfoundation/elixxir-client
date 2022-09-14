@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package bindings
@@ -414,6 +414,7 @@ func LookupUD(e2eID int, udContact []byte, cb UdLookupCallback,
 		EphID:       eid.EphId.Int64(),
 		ReceptionID: eid.Source,
 		RoundsList:  makeRoundsList(rids...),
+		RoundURL:    getRoundURL(rids[0]),
 	}
 
 	return json.Marshal(sr)
@@ -517,6 +518,7 @@ func SearchUD(e2eID int, udContact []byte, cb UdSearchCallback,
 		EphID:       eid.EphId.Int64(),
 		ReceptionID: eid.Source,
 		RoundsList:  makeRoundsList(rids...),
+		RoundURL:    getRoundURL(rids[0]),
 	}
 
 	return json.Marshal(sr)

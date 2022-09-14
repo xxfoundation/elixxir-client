@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package store
 
@@ -19,7 +19,6 @@ import (
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -77,7 +76,7 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 	obj, err := kv.Get(srKey, currentSentRequestVersion)
 
 	// V0 Upgrade Path
-	if !ekv.Exists(err) {
+	if !kv.Exists(err) {
 		upgradeErr := upgradeSentRequestKeyV0(kv, partner)
 		if upgradeErr != nil {
 			return nil, errors.Wrapf(err, "%+v", upgradeErr)
@@ -211,8 +210,7 @@ func (sr *SentRequest) save() error {
 		Data:      data,
 	}
 
-	return sr.kv.Set(makeSentRequestKey(sr.partner),
-		currentSentRequestVersion, &obj)
+	return sr.kv.Set(makeSentRequestKey(sr.partner), &obj)
 }
 
 func (sr *SentRequest) delete() {
@@ -296,7 +294,7 @@ func upgradeSentRequestKeyV0(kv *versioned.KV, partner *id.ID) error {
 
 	// Note: uses same encoding, just different keys
 	obj.Version = 1
-	err = kv.Set(makeSentRequestKey(partner), 1, obj)
+	err = kv.Set(makeSentRequestKey(partner), obj)
 	if err != nil {
 		return err
 	}

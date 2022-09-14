@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package session
 
@@ -239,7 +239,7 @@ func (s *Session) Save() error {
 
 	jww.WARN.Printf("saving with KV: %v", s.kv)
 
-	return s.kv.Set(sessionKey, currentSessionVersion, &obj)
+	return s.kv.Set(sessionKey, &obj)
 }
 
 /*METHODS*/

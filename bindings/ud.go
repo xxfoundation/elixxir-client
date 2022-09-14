@@ -536,15 +536,18 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 					"Failed to marshal failed IDs"))
 		}
 
-		marshalled, err := json.Marshal(contactList)
-		if err != nil {
-			cb.Callback(nil, nil,
-				errors.WithMessage(err,
-					"Failed to marshal contact list"))
-		} else {
-			cb.Callback(marshalled, marshalledFailedIds,
-				errors.New(errorString))
+		marshaledContactList := make([][]byte, 0)
+		for _, con := range contactList {
+			marshaledContactList = append(
+				marshaledContactList, con.Marshal())
 		}
+
+		contactListJSON, err2 := json.Marshal(marshaledContactList)
+		if err2 != nil {
+			jww.FATAL.Panicf(
+				"Failed to marshal list of contact.Contact: %+v", err2)
+		}
+		cb.Callback(contactListJSON, marshalledFailedIds, errors.New(errorString))
 	}()
 
 	return nil

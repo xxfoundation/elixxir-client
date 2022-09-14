@@ -42,21 +42,21 @@ type channelManagerTracker struct {
 	mux     sync.RWMutex
 }
 
-// make create a ChannelsManager from an [channels.Manager], assigns it a
-// unique ID, and adds it to the channelManagerTracker.
+// make create a ChannelsManager from an [channels.Manager], assigns it a unique
+// ID, and adds it to the channelManagerTracker.
 func (cmt *channelManagerTracker) make(c channels.Manager) *ChannelsManager {
 	cmt.mux.Lock()
 	defer cmt.mux.Unlock()
 
-	id := cmt.count
+	chID := cmt.count
 	cmt.count++
 
-	cmt.tracked[id] = &ChannelsManager{
+	cmt.tracked[chID] = &ChannelsManager{
 		api: c,
-		id:  id,
+		id:  chID,
 	}
 
-	return cmt.tracked[id]
+	return cmt.tracked[chID]
 }
 
 // get an ChannelsManager from the channelManagerTracker given its ID.
@@ -98,13 +98,14 @@ func (cm *ChannelsManager) GetID() int {
 }
 
 // NewChannelsManager constructs a ChannelsManager.
-// fixme: this is a work in progress and should not be used
-//  an event model is implemented in the style of the bindings layer's
-//  AuthCallbacks. Remove this note when that has been done.
+// FIXME: This is a work in progress and should not be used an event model is
+//  implemented in the style of the bindings layer's AuthCallbacks. Remove this
+//  note when that has been done.
 //
 // Parameters:
-//  - e2eID - The tracked e2e object ID. This can be retrieved using [E2e.GetID].
-//  - udID  - The tracked UD object ID. This can be retrieved using
+//  - e2eID - The tracked e2e object ID. This can be retrieved using
+//    [E2e.GetID].
+//  - udID - The tracked UD object ID. This can be retrieved using
 //    [UserDiscovery.GetID].
 func NewChannelsManager(e2eID, udID int) (*ChannelsManager, error) {
 	// Get user from singleton
@@ -176,11 +177,12 @@ func (cm *ChannelsManager) JoinChannel(channelJson []byte) error {
 //
 // Returns:
 //  - []byte - A JSON marshalled list of IDs.
-//    JSON Example:
-//    {
-//      "U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",
-//      "15tNdkKbYXoMn58NO6VbDMDWFEyIhTWEGsvgcJsHWAgD"
-//    }
+//
+// JSON Example:
+//  {
+//    U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",
+//    "15tNdkKbYXoMn58NO6VbDMDWFEyIhTWEGsvgcJsHWAgD"
+//  }
 func (cm *ChannelsManager) GetChannels() ([]byte, error) {
 	channelIds := cm.api.GetChannels()
 	return json.Marshal(channelIds)
@@ -196,8 +198,8 @@ func (cm *ChannelsManager) GetChannels() ([]byte, error) {
 // Returns:
 //  - []byte - A JSON encoded channel ID ([id.ID]).
 //
-//    JSON Example:
-//    "dGVzdAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
+// JSON Example:
+//  "dGVzdAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
 func (cm *ChannelsManager) GetChannelId(channelJson []byte) ([]byte, error) {
 	def := ChannelDef{}
 	err := json.Unmarshal(channelJson, &def)
@@ -218,8 +220,9 @@ func (cm *ChannelsManager) GetChannelId(channelJson []byte) ([]byte, error) {
 // channel.
 //
 // Parameters:
-//  - []byte - A JSON marshalled channel ID ([id.ID]). This may be retrieved
-//    using ChannelsManager.GetChannelId.
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
+//    retrieved using ChannelsManager.GetChannelId.
+//
 // Returns:
 //  - []byte - A JSON marshalled ChannelDef.
 func (cm *ChannelsManager) GetChannel(marshalledChanId []byte) ([]byte, error) {
@@ -248,8 +251,8 @@ func (cm *ChannelsManager) GetChannel(marshalledChanId []byte) ([]byte, error) {
 // channel was not previously joined.
 //
 // Parameters:
-//  - []byte - A JSON marshalled channel ID ([id.ID]). This may be retrieved
-//    using ChannelsManager.GetChannelId.
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
+//    retrieved using ChannelsManager.GetChannelId.
 func (cm *ChannelsManager) LeaveChannel(marshalledChanId []byte) error {
 	// Unmarshal channel ID
 	channelId, err := id.Unmarshal(marshalledChanId)
@@ -265,8 +268,8 @@ func (cm *ChannelsManager) LeaveChannel(marshalledChanId []byte) error {
 // memory (~3 weeks) over the event model.
 //
 // Parameters:
-//  - []byte - A JSON marshalled channel ID ([id.ID]). This may be retrieved
-//    using ChannelsManager.GetChannelId.
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
+//    retrieved using ChannelsManager.GetChannelId.
 func (cm *ChannelsManager) ReplayChannel(marshalledChanId []byte) error {
 
 	// Unmarshal channel ID
@@ -286,12 +289,12 @@ func (cm *ChannelsManager) ReplayChannel(marshalledChanId []byte) error {
 // ChannelSendReport is the bindings' representation of the return values of
 // ChannelsManager's Send operations.
 //
-//   JSON Example:
-//    {
-//  	"MessageId": "0kitNxoFdsF4q1VMSI/xPzfCnGB2l+ln2+7CTHjHbJw=",
-//      "Rounds":[1,5,9],
-//  	"EphId": 0
-//	   }
+// JSON Example:
+//  {
+//    "MessageId": "0kitNxoFdsF4q1VMSI/xPzfCnGB2l+ln2+7CTHjHbJw=",
+//    "Rounds":[1,5,9],
+//    "EphId": 0
+//  }
 type ChannelSendReport struct {
 	MessageId []byte
 	RoundsList
@@ -299,28 +302,28 @@ type ChannelSendReport struct {
 }
 
 // SendGeneric is used to send a raw message over a channel. In general, it
-// should be wrapped in a function which defines the wire protocol
-// If the final message, before being sent over the wire, is too long, this will
-// return an error. Due to the underlying encoding using compression, it isn't
-// possible to define the largest payload that can be sent, but
-// it will always be possible to send a payload of 802 bytes at minimum
-// Them meaning of validUntil depends on the use case.
+// should be wrapped in a function that defines the wire protocol. If the final
+// message, before being sent over the wire, is too long, this will return an
+// error. Due to the underlying encoding using compression, it isn't possible to
+// define the largest payload that can be sent, but it will always be possible
+// to send a payload of 802 bytes at minimum. The meaning of validUntil depends
+// on the use case.
 //
 // Parameters:
-//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may
-//    be retrieved using ChannelsManager.GetChannelId.
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
+//    retrieved using ChannelsManager.GetChannelId.
 //  - messageType - The message type of the message. This will be a valid
 //    [channels.MessageType].
 //  - message - The contents of the message. This need not be of data type
-//    string, as the message could be a specified format that the channel
-//    may recognize.
+//    string, as the message could be a specified format that the channel may
+//    recognize.
 //  - leaseTimeMS - The lease of the message. This will be how long the message
-//    is valid until, in MS. As per the channels.Manager
+//    is valid until, in milliseconds. As per the channels.Manager
 //    documentation, this has different meanings depending on the use case.
 //    These use cases may be generic enough that they will not be enumerated
 //    here.
-//  - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be
-//    empty, and GetDefaultCMixParams will be used internally.
+//  - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
+//    and GetDefaultCMixParams will be used internally.
 //
 // Returns:
 //  - []byte - A JSON marshalled ChannelSendReport.
@@ -329,7 +332,8 @@ func (cm *ChannelsManager) SendGeneric(marshalledChanId []byte,
 	cmixParamsJSON []byte) ([]byte, error) {
 
 	// Unmarshal channel ID and parameters
-	chanId, params, err := parseChannelsParameters(marshalledChanId, cmixParamsJSON)
+	chanId, params, err := parseChannelsParameters(
+		marshalledChanId, cmixParamsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -346,28 +350,28 @@ func (cm *ChannelsManager) SendGeneric(marshalledChanId []byte,
 	return constructChannelSendReport(chanMsgId, rndId, ephId)
 }
 
-// SendAdminGeneric is used to send a raw message over a channel encrypted
-// with admin keys, identifying it as sent by the admin. In general, it
-// should be wrapped in a function which defines the wire protocol
-// If the final message, before being sent over the wire, is too long, this will
-// return an error. The message must be at most 510 bytes long.
+// SendAdminGeneric is used to send a raw message over a channel encrypted with
+// admin keys, identifying it as sent by the admin. In general, it should be
+// wrapped in a function that defines the wire protocol. If the final message,
+// before being sent over the wire, is too long, this will return an error. The
+// message must be at most 510 bytes long.
 //
 // Parameters:
-//  - adminPrivateKey - The PEM-encoded admin's RSA private key.
-//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may
-//    be retrieved using ChannelsManager.GetChannelId.
+//  - adminPrivateKey - The PEM-encoded admin RSA private key.
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
+//    retrieved using ChannelsManager.GetChannelId.
 //  - messageType - The message type of the message. This will be a valid
 //    [channels.MessageType].
 //  - message - The contents of the message. The message should be at most 510
 //    bytes. This need not be of data type string, as the message could be a
 //    specified format that the channel may recognize.
 //  - leaseTimeMS - The lease of the message. This will be how long the message
-//    is valid until, in MS. As per the channels.Manager
+//    is valid until, in milliseconds. As per the channels.Manager
 //    documentation, this has different meanings depending on the use case.
 //    These use cases may be generic enough that they will not be enumerated
 //    here.
-//  - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be
-//    empty, and GetDefaultCMixParams will be used internally.
+//  - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
+//    and GetDefaultCMixParams will be used internally.
 //
 // Returns:
 //  - []byte - A JSON marshalled ChannelSendReport.
@@ -383,7 +387,8 @@ func (cm *ChannelsManager) SendAdminGeneric(adminPrivateKey,
 	}
 
 	// Unmarshal channel ID and parameters
-	chanId, params, err := parseChannelsParameters(marshalledChanId, cmixParamsJSON)
+	chanId, params, err := parseChannelsParameters(
+		marshalledChanId, cmixParamsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -398,20 +403,21 @@ func (cm *ChannelsManager) SendAdminGeneric(adminPrivateKey,
 }
 
 // SendMessage is used to send a formatted message over a channel.
-// Due to the underlying encoding using compression, it isn't
-// possible to define the largest payload that can be sent, but
-// it will always be possible to send a payload of 798 bytes at minimum
+// Due to the underlying encoding using compression, it isn't possible to define
+// the largest payload that can be sent, but it will always be possible to send
+// a payload of 798 bytes at minimum.
+//
 // The message will auto delete validUntil after the round it is sent in,
 // lasting forever if [channels.ValidForever] is used.
 //
 // Parameters:
-//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may
-//    be retrieved using ChannelsManager.GetChannelId.
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
+//    retrieved using ChannelsManager.GetChannelId.
 //  - message - The contents of the message. The message should be at most 510
 //    bytes. This is expected to be Unicode, and thus a string data type is
 //    expected
 //  - leaseTimeMS - The lease of the message. This will be how long the message
-//    is valid until, in MS. As per the channels.Manager
+//    is valid until, in milliseconds. As per the channels.Manager
 //    documentation, this has different meanings depending on the use case.
 //    These use cases may be generic enough that they will not be enumerated
 //    here.
@@ -424,7 +430,8 @@ func (cm *ChannelsManager) SendMessage(marshalledChanId []byte,
 	message string, leaseTimeMS int64, cmixParamsJSON []byte) ([]byte, error) {
 
 	// Unmarshal channel ID and parameters
-	chanId, params, err := parseChannelsParameters(marshalledChanId, cmixParamsJSON)
+	chanId, params, err := parseChannelsParameters(
+		marshalledChanId, cmixParamsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -441,32 +448,33 @@ func (cm *ChannelsManager) SendMessage(marshalledChanId []byte,
 }
 
 // SendReply is used to send a formatted message over a channel.
-// Due to the underlying encoding using compression, it isn't
-// possible to define the largest payload that can be sent, but
-// it will always be possible to send a payload of 766 bytes at minimum.
-// If the message ID the reply is sent to does not exist, the other side will
-// post the message as a normal message and not a reply.
+// Due to the underlying encoding using compression, it isn't possible to define
+// the largest payload that can be sent, but it will always be possible to send
+// a payload of 766 bytes at minimum.
+//
+// If the message ID the reply is sent to does not exist, then the other side
+// will post the message as a normal message and not a reply.
 // The message will auto delete validUntil after the round it is sent in,
 // lasting forever if ValidForever is used.
 //
 // Parameters:
-//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may
-//    be retrieved using ChannelsManager.GetChannelId.
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
+//    retrieved using ChannelsManager.GetChannelId.
 //  - message - The contents of the message. The message should be at most 510
 //    bytes. This is expected to be Unicode, and thus a string data type is
 //    expected.
-//  - messageToReactTo - The marshalled [channel.MessageID] of the message
-//    you wish to reply to. This may be found in the ChannelSendReport if
-//    replying to your own. Alternatively, if reacting to another user's
-//    message, you may retrieve it via the ChannelMessageReceptionCallback
-//    registered using RegisterReceiveHandler.
+//  - messageToReactTo - The marshalled [channel.MessageID] of the message you
+//    wish to reply to. This may be found in the ChannelSendReport if replying
+//    to your own. Alternatively, if reacting to another user's message, you may
+//    retrieve it via the ChannelMessageReceptionCallback registered using
+//    RegisterReceiveHandler.
 //  - leaseTimeMS - The lease of the message. This will be how long the message
-//    is valid until, in MS. As per the channels.Manager
+//    is valid until, in milliseconds. As per the channels.Manager
 //    documentation, this has different meanings depending on the use case.
 //    These use cases may be generic enough that they will not be enumerated
 //    here.
-//  - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be
-//    empty, and GetDefaultCMixParams will be used internally.
+//  - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
+//    and GetDefaultCMixParams will be used internally.
 //
 // Returns:
 //  - []byte - A JSON marshalled ChannelSendReport
@@ -475,7 +483,8 @@ func (cm *ChannelsManager) SendReply(marshalledChanId []byte,
 	cmixParamsJSON []byte) ([]byte, error) {
 
 	// Unmarshal channel ID and parameters
-	chanId, params, err := parseChannelsParameters(marshalledChanId, cmixParamsJSON)
+	chanId, params, err := parseChannelsParameters(
+		marshalledChanId, cmixParamsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -501,31 +510,27 @@ func (cm *ChannelsManager) SendReply(marshalledChanId []byte,
 // Users will drop the reaction if they do not recognize the reactTo message.
 //
 // Parameters:
-//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may
-//    be retrieved using ChannelsManager.GetChannelId.
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
+//    retrieved using ChannelsManager.GetChannelId.
 //  - reaction - The user's reaction. This should be a single emoji with no
 //    other characters. As such, a Unicode string is expected.
-//  - messageToReactTo - The marshalled [channel.MessageID] of the message
-//    you wish to reply to. This may be found in the ChannelSendReport if
-//    replying to your own. Alternatively, if reacting to another user's
-//    message, you may retrieve it via the ChannelMessageReceptionCallback
-//    registered using RegisterReceiveHandler.
-//  - leaseTimeMS - The lease of the message. This will be how long the message
-//    is valid until, in MS. As per the channels.Manager
-//    documentation, this has different meanings depending on the use case.
-//    These use cases may be generic enough that they will not be enumerated
-//    here.
-//  - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be
-//    empty, and GetDefaultCMixParams will be used internally.
+//  - messageToReactTo - The marshalled [channel.MessageID] of the message you
+//    wish to reply to. This may be found in the ChannelSendReport if replying
+//    to your own. Alternatively, if reacting to another user's message, you may
+//    retrieve it via the ChannelMessageReceptionCallback registered using
+//    RegisterReceiveHandler.
+//  - cmixParamsJSON - A JSON marshalled [xxdk.CMIXParams]. This may be empty,
+//  and GetDefaultCMixParams will be used internally.
 //
 // Returns:
-//  - []byte - A JSON marshalled ChannelSendReport
+//  - []byte - A JSON marshalled ChannelSendReport.
 func (cm *ChannelsManager) SendReaction(marshalledChanId []byte,
 	reaction string, messageToReactTo []byte,
 	cmixParamsJSON []byte) ([]byte, error) {
 
 	// Unmarshal channel ID and parameters
-	chanId, params, err := parseChannelsParameters(marshalledChanId, cmixParamsJSON)
+	chanId, params, err := parseChannelsParameters(
+		marshalledChanId, cmixParamsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -545,8 +550,8 @@ func (cm *ChannelsManager) SendReaction(marshalledChanId []byte,
 	return constructChannelSendReport(chanMsgId, rndId, ephId)
 }
 
-// parseChannelsParameters is a helper function for the Send functions.
-// It parses the channel ID and the passed in parameters into their respective
+// parseChannelsParameters is a helper function for the Send functions. It
+// parses the channel ID and the passed in parameters into their respective
 // objects. These objects are passed into the API via the internal send
 // functions.
 func parseChannelsParameters(marshalledChanId, cmixParamsJSON []byte) (
@@ -582,25 +587,25 @@ func constructChannelSendReport(channelMessageId cryptoChannel.MessageID,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Channel Receiving Logic & Callback Registration                            //
+// Channel Receiving Logic and Callback Registration                          //
 ////////////////////////////////////////////////////////////////////////////////
 
 // ReceivedChannelMessageReport is a report structure returned via the
-// ChannelMessageReceptionCallback. This report gives the context
-// for the channel the message was sent to and the message itself.
-// This is returned via the callback as JSON marshalled bytes.
+// ChannelMessageReceptionCallback. This report gives the context for the
+// channel the message was sent to and the message itself. This is returned via
+// the callback as JSON marshalled bytes.
 //
-// Example JSON:
+// JSON Example:
 //  {
-//     "ChannelId": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-//     "MessageId": "3S6DiVjWH9mLmjy1oaam/3x45bJQzOW6u2KgeUn59wA=",
-//     "ReplyTo":"cxMyGUFJ+Ff1Xp2X+XkIpOnNAQEZmv8SNP5eYH4tCik=",
-//     "MessageType": 42,
-//     "SenderUsername": "hunter2",
-//     "Content": "YmFuX2JhZFVTZXI=",
-//     "Timestamp": 1662502150335283000,
-//     "Lease": 25,
-//     "Rounds": [ 1, 4, 9],
+//    "ChannelId": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+//    "MessageId": "3S6DiVjWH9mLmjy1oaam/3x45bJQzOW6u2KgeUn59wA=",
+//    "ReplyTo":"cxMyGUFJ+Ff1Xp2X+XkIpOnNAQEZmv8SNP5eYH4tCik=",
+//    "MessageType": 42,
+//    "SenderUsername": "hunter2",
+//    "Content": "YmFuX2JhZFVTZXI=",
+//    "Timestamp": 1662502150335283000,
+//    "Lease": 25,
+//    "Rounds": [ 1, 4, 9],
 //  }
 type ReceivedChannelMessageReport struct {
 	ChannelId      []byte
@@ -613,8 +618,8 @@ type ReceivedChannelMessageReport struct {
 	RoundsList
 }
 
-// ChannelMessageReceptionCallback is the callback that returns the
-// context for a channel message via the Callback.
+// ChannelMessageReceptionCallback is the callback that returns the context for
+// a channel message via the Callback.
 type ChannelMessageReceptionCallback interface {
 	Callback(receivedChannelMessageReport []byte, err error)
 }
@@ -622,12 +627,13 @@ type ChannelMessageReceptionCallback interface {
 // RegisterReceiveHandler is used to register handlers for non-default message
 // types. They can be processed by modules. It is important that such modules
 // sync up with the event model implementation.
+//
 // There can only be one handler per [channels.MessageType], and this will
 // return an error on any re-registration.
 //
 // Parameters:
-//  - messageType - represents the [channels.MessageType] which will
-//    have a registered listener
+//  - messageType - represents the [channels.MessageType] which will have a
+//    registered listener.
 //  - listenerCb - the callback which will be executed when a channel message
 //    of messageType is received.
 func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,

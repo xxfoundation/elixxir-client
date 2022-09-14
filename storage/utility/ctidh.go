@@ -35,7 +35,7 @@ func StoreCTIDHPublicKey(kv *versioned.KV, publicKey nike.PublicKey, key string)
 		Data:      publicKey.Bytes(),
 	}
 
-	return kv.Set(key, currentCTIDHPubKeyVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 // LoadCTIDHPubKeyA loads a public key from storage.
@@ -78,7 +78,7 @@ func StoreCTIDHPrivateKey(kv *versioned.KV, privateKey nike.PrivateKey, key stri
 		Data:      privateKey.Bytes(),
 	}
 
-	return kv.Set(key, currentCTIDHPrivKeyVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 // LoadCTIDHPrivateKeyA loads a public key from storage.

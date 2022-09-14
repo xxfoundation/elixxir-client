@@ -20,7 +20,7 @@ import (
 
 const requestFmtVersion = 2
 
-//Basic Format//////////////////////////////////////////////////////////////////
+// Basic Format//////////////////////////////////////////////////////////////////
 type baseFormat struct {
 	data       []byte
 	pubkey     []byte
@@ -117,7 +117,7 @@ func (f baseFormat) SetEcrPayload(ecr []byte) {
 	copy(f.ecrPayload, ecr)
 }
 
-//Encrypted Format//////////////////////////////////////////////////////////////
+// Encrypted Format//////////////////////////////////////////////////////////////
 const ownershipSize = 32
 
 type ecrFormat struct {
@@ -128,7 +128,7 @@ type ecrFormat struct {
 }
 
 func newEcrFormat(size int) ecrFormat {
-	if size < (ownershipSize + sidhinterface.PubKeyByteSize + 1) {
+	if size < (ownershipSize + ctidh.NewCtidhNike().PublicKeySize() + 1) {
 		jww.FATAL.Panicf("Size too small to hold")
 	}
 
@@ -148,7 +148,8 @@ func buildEcrFormat(data []byte) ecrFormat {
 	f.ownership = f.data[start:end]
 
 	start = end
-	end = start + sidhinterface.PubKeyByteSize + 1
+
+	end = start + ctidh.NewCtidhNike().PublicKeySize() + 1
 	f.pqPublicKey = f.data[start:end]
 
 	start = end
@@ -213,7 +214,7 @@ func (f ecrFormat) SetPayload(p []byte) {
 	copy(f.payload, p)
 }
 
-//Request Format////////////////////////////////////////////////////////////////
+// Request Format////////////////////////////////////////////////////////////////
 type requestFormat struct {
 	data       []byte // Note: id and msgPayload are mapped into this..
 	id         []byte
@@ -259,7 +260,7 @@ func (rf requestFormat) GetMsgPayload() []byte {
 	return rf.msgPayload
 }
 
-//utility functions
+// utility functions
 func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
 	*cyclic.Int, error) {
 

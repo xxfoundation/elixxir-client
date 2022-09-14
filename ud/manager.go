@@ -228,6 +228,11 @@ func (m *Manager) GetContact() contact.Contact {
 	return m.ud.contact
 }
 
+// GetUsername returns the username from the Manager's store.
+func (m *Manager) GetUsername() (string, error) {
+	return m.store.GetUsername()
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Internal Getters                                                           //
 ////////////////////////////////////////////////////////////////////////////////

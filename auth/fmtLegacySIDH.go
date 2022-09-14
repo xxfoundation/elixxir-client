@@ -15,7 +15,9 @@ import (
 	util "gitlab.com/elixxir/client/storage/utility"
 )
 
-const requestLegacySIDHFmtVersion = 1
+// Version 2 indicates a sidh packet compatible with the older format
+// type BUT with support for version 3
+const requestLegacySIDHFmtVersion = 2
 
 //Basic Format//////////////////////////////////////////////////////////////////
 func newLegacySIDHBaseFormat(payloadSize, pubkeySize int) baseFormat {

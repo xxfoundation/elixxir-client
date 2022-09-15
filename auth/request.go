@@ -12,14 +12,17 @@ import (
 	"io"
 	"strings"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
+	"gitlab.com/xx_network/primitives/id"
+
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/ctidh"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -27,7 +30,6 @@ import (
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/primitives/id"
 )
 
 const terminator = ";"
@@ -186,7 +188,7 @@ func genDHKeys(dhGrp *cyclic.Group, csprng io.Reader) (priv, pub *cyclic.Int) {
 // createRequestAuth Creates the request packet, including encrypting the
 // required parts of it.
 func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
-	myDHPub, theirDHPub *cyclic.Int, mySIDHPub *sidh.PublicKey,
+	myDHPub, theirDHPub *cyclic.Int, myCTIDHPub nike.PublicKey,
 	dhGrp *cyclic.Group, cMixSize int) (*baseFormat, []byte, error) {
 	/*generate embedded message structures and check payload*/
 	dhPrimeSize := dhGrp.GetP().ByteLen()

@@ -11,6 +11,9 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
+	"gitlab.com/xx_network/primitives/id"
+
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	util "gitlab.com/elixxir/client/storage/utility"
 )
@@ -19,7 +22,7 @@ import (
 // type BUT with support for version 3
 const requestLegacySIDHFmtVersion = 2
 
-//Basic Format//////////////////////////////////////////////////////////////////
+// Basic Format//////////////////////////////////////////////////////////////////
 func newLegacySIDHBaseFormat(payloadSize, pubkeySize int) baseFormat {
 	total := pubkeySize
 	// Size of sidh pubkey
@@ -131,4 +134,50 @@ func (f ecrLegacySIDHFormat) SetPayload(p []byte) {
 	}
 
 	copy(f.payload, p)
+}
+
+// Request Format////////////////////////////////////////////////////////////////
+type requestFormatLegacySIDH struct {
+	data       []byte // Note: id and msgPayload are mapped into this..
+	id         []byte
+	msgPayload []byte
+}
+
+func newRequestFormatLegacySIDH(ecrFmtPayload []byte) (requestFormatLegacySIDH, error) {
+	if len(ecrFmtPayload) < id.ArrIDLen {
+		return requestFormatLegacySIDH{}, errors.New("Payload is not long enough")
+	}
+
+	rf := requestFormatLegacySIDH{
+		data: ecrFmtPayload,
+	}
+
+	rf.id = rf.data[:id.ArrIDLen]
+	rf.msgPayload = rf.data[id.ArrIDLen:]
+
+	return rf, nil
+}
+
+func (rf requestFormatLegacySIDH) GetID() (*id.ID, error) {
+	return id.Unmarshal(rf.id)
+}
+
+func (rf requestFormatLegacySIDH) SetID(myId *id.ID) {
+	copy(rf.id, myId.Marshal())
+}
+
+func (rf requestFormatLegacySIDH) SetMsgPayload(b []byte) {
+	if len(b) > len(rf.msgPayload) {
+		jww.FATAL.Panicf("Message Payload is too long")
+	}
+
+	copy(rf.msgPayload, b)
+}
+
+func (rf requestFormatLegacySIDH) MsgPayloadLen() int {
+	return len(rf.msgPayload)
+}
+
+func (rf requestFormatLegacySIDH) GetMsgPayload() []byte {
+	return rf.msgPayload
 }

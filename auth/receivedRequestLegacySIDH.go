@@ -271,7 +271,7 @@ func (rrs *receivedRequestService) ProcessLegacySIDH(message format.Message,
 func processDecryptedMessageLegacySIDH(b []byte) (*id.ID, *sidh.PublicKey, fact.FactList,
 	[]byte, error) {
 	//decode the ecr format
-	ecrFmt, err := unmarshalEcrFormat(b)
+	ecrFmt, err := unmarshalLegacySIDHEcrFormat(b)
 	if err != nil {
 		return nil, nil, nil, nil, errors.WithMessage(err, "Failed to "+
 			"unmarshal auth request's encrypted payload")
@@ -284,7 +284,7 @@ func processDecryptedMessageLegacySIDH(b []byte) (*id.ID, *sidh.PublicKey, fact.
 	}
 
 	//decode the request format
-	requestFmt, err := newRequestFormat(ecrFmt)
+	requestFmt, err := newRequestFormatLegacySIDH(ecrFmt.Marshal())
 	if err != nil {
 		return nil, nil, nil, nil, errors.WithMessage(err, "Failed to "+
 			"unmarshal auth request's internal payload")

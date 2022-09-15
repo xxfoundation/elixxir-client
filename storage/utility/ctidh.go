@@ -1,7 +1,7 @@
 package utility
 
 import (
-	//"encoding/base64"
+	"encoding/base64"
 	"fmt"
 	//"io"
 
@@ -102,4 +102,9 @@ func DeleteCTIDHPrivateKey(kv *versioned.KV, key string) error {
 
 func MakeCTIDHPrivateKeyKey(cid *id.ID) string {
 	return fmt.Sprintf("CTIDHPrivKey:%s", cid)
+}
+
+// String interface impl to dump the contents of the public key as b64 string
+func StringCTIDHPubKey(k nike.PublicKey) string {
+	return base64.StdEncoding.EncodeToString(k.Bytes())
 }

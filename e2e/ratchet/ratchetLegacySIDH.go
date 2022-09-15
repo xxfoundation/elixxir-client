@@ -41,7 +41,7 @@ func (r *Ratchet) AddPartnerLegacySIDH(partnerID *id.ID,
 	if _, ok := r.managers[mid]; ok {
 		return nil, errors.New("Cannot overwrite existing partner")
 	}
-	m := partner.NewManager(r.kv, r.myID, partnerID, myPrivKey,
+	m := partner.NewManagerLegacySIDH(r.kv, r.myID, partnerID, myPrivKey,
 		partnerPubKey, mySIDHPrivKey, partnerSIDHPubKey,
 		sendParams, receiveParams, r.cyHandler, r.grp, r.rng)
 

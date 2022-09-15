@@ -61,7 +61,7 @@ func (s *state) requestLegacySIDH(partner contact.Contact, myfacts fact.FactList
 	// in process, wasting the key generation above. This is
 	// considered a reasonable loss due to the increase in code
 	// simplicity of this approach
-	sr, err := s.store.AddSent(partner.ID, partner.DhPubKey, dhPriv, dhPub,
+	sr, err := s.store.AddSentLegacySIDH(partner.ID, partner.DhPubKey, dhPriv, dhPub,
 		sidhPriv, sidhPub, confirmFp, reset)
 	if err != nil {
 		if sr == nil {

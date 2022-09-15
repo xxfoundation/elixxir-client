@@ -23,15 +23,17 @@ import (
 // E2ESendReport is the bindings' representation of the return values of
 // SendE2E.
 //
-// Example E2ESendReport:
-//{
-//"Rounds": [ 1, 4, 9],
-//"MessageID": "iM34yCIr4Je8ZIzL9iAAG1UWAeDiHybxMTioMAaezvs=",
-//"Timestamp": 1661532254302612000,
-//"KeyResidue": "9q2/A69EAuFM1hFAT7Bzy5uGOQ4T6bPFF72h5PlgCWE="
-//}
+// E2ESendReport Example JSON:
+//  {
+//		"Rounds": [ 1, 4, 9],
+//      "RoundURL":"https://dashboard.xx.network/rounds/25?xxmessenger=true",
+//		"MessageID": "iM34yCIr4Je8ZIzL9iAAG1UWAeDiHybxMTioMAaezvs=",
+//		"Timestamp": 1661532254302612000,
+//		"KeyResidue": "9q2/A69EAuFM1hFAT7Bzy5uGOQ4T6bPFF72h5PlgCWE="
+//  }
 type E2ESendReport struct {
 	RoundsList
+	RoundURL   string
 	MessageID  []byte
 	Timestamp  int64
 	KeyResidue []byte
@@ -43,6 +45,19 @@ type E2ESendReport struct {
 //  - []byte - the marshalled bytes of the id.ID object.
 func (e *E2e) GetReceptionID() []byte {
 	return e.api.GetE2E().GetReceptionID().Marshal()
+}
+
+// DeleteContact removes a partner from E2e's storage.
+//
+// Parameters:
+//  - partnerID - the marshalled bytes of id.ID.
+func (e *E2e) DeleteContact(partnerID []byte) error {
+	partner, err := id.Unmarshal(partnerID)
+	if err != nil {
+		return err
+	}
+
+	return e.api.DeleteContact(partner)
 }
 
 // GetAllPartnerIDs returns a list of all partner IDs that the user has an E2E
@@ -147,6 +162,7 @@ func (e *E2e) SendE2E(messageType int, recipientId, payload,
 
 	result := E2ESendReport{
 		RoundsList: makeRoundsList(sendReport.RoundList...),
+		RoundURL:   getRoundURL(sendReport.RoundList[0]),
 		MessageID:  sendReport.MessageId.Marshal(),
 		Timestamp:  sendReport.SentTime.UnixNano(),
 		KeyResidue: sendReport.KeyResidue.Marshal(),

@@ -171,7 +171,7 @@ func (s *Store) loadActivePartitions() {
 	defer s.mux.Unlock()
 	obj, err := s.kv.Get(activePartitions, activePartitionVersion)
 	if err != nil {
-		jww.DEBUG.Printf("Could not load active partitions: %+v", err)
+		jww.DEBUG.Printf("Could not load active partitions: %s", err.Error())
 		return
 	}
 

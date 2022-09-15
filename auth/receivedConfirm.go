@@ -65,7 +65,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 	}
 
 	// parse the data
-	ecrFmt, err := unmarshalLegacySIDHEcrFormat(payload)
+	ecrFmt, err := unmarshalEcrFormat(payload)
 	if err != nil {
 		em := fmt.Sprintf("Failed to unmarshal auth confirmation's "+
 			"encrypted payload: %s", err)
@@ -74,7 +74,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 		return
 	}
 
-	partnerSIDHPubKey, err := ecrFmt.GetSidhPubKey()
+	partnerCTIDHPubKey, err := ecrFmt.GetCTIDHPublicKey()
 	if err != nil {
 		em := fmt.Sprintf("Could not get auth conf SIDH Pubkey: %s",
 			err)
@@ -84,7 +84,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 	}
 
 	jww.TRACE.Printf("handleConfirm PARTNERSIDHPUBKEY: %v",
-		partnerSIDHPubKey)
+		partnerCTIDHPubKey)
 
 	// check the ownership proof, this verifies the respondent owns the
 	// initial identity
@@ -100,7 +100,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 	p := authState.sessionParams
 	_, err = authState.e2e.AddPartner(rcs.sentRequest.GetPartner(),
 		partnerPubKey,
-		rcs.sentRequest.GetMyPrivKey(), partnerSIDHPubKey,
+		rcs.sentRequest.GetMyPrivKey(), partnerCTIDHPubKey,
 		rcs.sentRequest.GetMyCTIDHPrivateKey(), p, p)
 	if err != nil {
 		jww.WARN.Printf("Failed to create channel with partner %s and "+

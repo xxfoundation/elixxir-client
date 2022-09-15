@@ -24,9 +24,20 @@ test:
   except:
     - tags
   script:
+    - mkdir high-ctidh
+    - cd high-ctidh
+    - 'wget -O high-ctidh.zip --header="PRIVATE-TOKEN: $GITLAB_ACCESS_TOKEN" "https://$GITLAB_SERVER/api/v4/projects/elixxir%2Fhigh-ctidh/jobs/artifacts/master/download?job=build"'
+    - unzip high-ctidh.zip
+    - curl https://git.xx.network/elixxir/ctidh_cgo/-/raw/master/binding1024.h > binding.h
+    - export P=`pwd`
+    - export CTIDH_BITS=1024
+    - export CGO_CFLAGS="-g -I${P} -DBITS=${CTIDH_BITS}"
+    - export CGO_LDFLAGS="-L${P} -Wl,-rpath,${P} -lhighctidh_${CTIDH_BITS}"
+    - cd ..
+
     - git clean -ffdx
     - go mod vendor -v
-    - go build ./...
+    - go build -tags ctidh ./...
     - go mod tidy
     - mkdir -p testdata
 
@@ -56,10 +67,10 @@ build:
     - make version
     - mkdir -p release
 #    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' ./...
-    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.linux64 main.go
+    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags ctidh -ldflags '-w -s' -o release/client.linux64 main.go
 #    - GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win64 main.go
 #    - GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win32 main.go
-    - GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.darwin64 main.go
+    - GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -tags ctidh -ldflags '-w -s' -o release/client.darwin64 main.go
     - /upload-artifacts.sh release/
   artifacts:
     paths:
@@ -75,50 +86,50 @@ tag:
         - git tag $(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3) -f
         - git push origin_tags -f --tags
 
-bindings-ios:
-  stage: build
-  dependencies: []
-  except:
-    - tags
-  tags:
-    - ios
-  script:
-    - export PATH=$PATH:$HOME/go/bin
-    - go mod tidy
-    - rm -rf vendor/
-    - go build ./...
-    - go get golang.org/x/mobile/bind
-    - go install golang.org/x/mobile/cmd/gomobile@latest
-    - gomobile init
-    - gomobile bind -target ios,iossimulator,macos gitlab.com/elixxir/client/bindings
-    - ls
-    - zip -r iOS.zip Bindings.xcframework
-  artifacts:
-    paths:
-      - iOS.zip
+# bindings-ios:
+#   stage: build
+#   dependencies: []
+#   except:
+#     - tags
+#   tags:
+#     - ios
+#   script:
+#     - export PATH=$PATH:$HOME/go/bin
+#     - go mod tidy
+#     - rm -rf vendor/
+#     - go build ./...
+#     - go get golang.org/x/mobile/bind
+#     - go install golang.org/x/mobile/cmd/gomobile@latest
+#     - gomobile init
+#     - gomobile bind -target ios,iossimulator,macos gitlab.com/elixxir/client/bindings
+#     - ls
+#     - zip -r iOS.zip Bindings.xcframework
+#   artifacts:
+#     paths:
+#       - iOS.zip
 
-bindings-android:
-  stage: build
-  dependencies: []
-  except:
-    - tags
-  tags:
-    - android
-  script:
-    - export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin:/android-sdk/platform-tools/
-    - export ANDROID_HOME=/android-sdk
-    # Build the bindings
-    - go mod tidy
-    - rm -rf vendor/
-    - go build ./...
-    - go get golang.org/x/mobile/bind
-    - go install golang.org/x/mobile/cmd/gomobile@latest
-    - gomobile init
-    - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
-  artifacts:
-    paths:
-      - bindings.aar
-      - bindings-sources.jar
+# bindings-android:
+#   stage: build
+#   dependencies: []
+#   except:
+#     - tags
+#   tags:
+#     - android
+#   script:
+#     - export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin:/android-sdk/platform-tools/
+#     - export ANDROID_HOME=/android-sdk
+#     # Build the bindings
+#     - go mod tidy
+#     - rm -rf vendor/
+#     - go build ./...
+#     - go get golang.org/x/mobile/bind
+#     - go install golang.org/x/mobile/cmd/gomobile@latest
+#     - gomobile init
+#     - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
+#   artifacts:
+#     paths:
+#       - bindings.aar
+#       - bindings-sources.jar
 
 # This pipeline job will attempt to have pkg.go.dev update docs for client/xxdk.
 #

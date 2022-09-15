@@ -16,6 +16,7 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -192,7 +193,7 @@ func (sr *SentRequestLegacySIDH) save() error {
 	sr.mySidHPrivKeyA.Export(sidHPriv)
 	sr.mySidHPubKeyA.Export(sidHPub)
 
-	ipd := sentRequestDisk{
+	ipd := sentRequestDiskLegacySIDH{
 		PartnerHistoricalPubKey: historicalPubKey,
 		MyPrivKey:               privKey,
 		MyPubKey:                pubKey,
@@ -303,4 +304,9 @@ func upgradeSentRequestKeyV0(kv *versioned.KV, partner *id.ID) error {
 	}
 
 	return kv.Delete(oldKey, 0)
+}
+
+func (sr *SentRequestLegacySIDH) GetMyCTIDHPrivateKey() nike.PrivateKey {
+	jww.FATAL.Panicf("this is a legacy sentRequest object")
+	return nil
 }

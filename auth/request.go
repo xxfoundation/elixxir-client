@@ -199,9 +199,9 @@ func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
 	// the session key and encrypt or decrypt.
 
 	// baseFmt wraps ecrFmt. ecrFmt is encrypted
-	baseFmt := newLegacySIDHBaseFormat(cMixSize, dhPrimeSize)
+	baseFmt := newBaseFormat(cMixSize, dhPrimeSize)
 	// ecrFmt wraps requestFmt
-	ecrFmt := newLegacySIDHEcrFormat(baseFmt.GetEcrPayloadLen())
+	ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
 	requestFmt, err := newRequestFormat(ecrFmt.GetPayload())
 	if err != nil {
 		return nil, nil, errors.Errorf(
@@ -219,7 +219,7 @@ func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
 	requestFmt.SetID(sender)
 	requestFmt.SetMsgPayload(payload)
 	ecrFmt.SetOwnership(ownership)
-	ecrFmt.SetSidHPubKey(mySIDHPub)
+	ecrFmt.SetCTIDHPubKey(mySIDHPub)
 	ecrPayload, mac := cAuth.Encrypt(myDHPriv, theirDHPub, ecrFmt.data,
 		dhGrp)
 	/*construct message*/

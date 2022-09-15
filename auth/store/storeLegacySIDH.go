@@ -118,13 +118,13 @@ func (s *Store) GetAllReceivedRequestsLegacySIDH() []*ReceivedRequestLegacySIDH 
 func (s *Store) AddSentLegacySIDH(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 	myPubKey *cyclic.Int, sidHPrivA *sidh.PrivateKey,
 	sidHPubA *sidh.PublicKey, fp format.Fingerprint,
-	reset bool) (*SentRequest, error) {
+	reset bool) (*SentRequestLegacySIDH, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	legacy := s.storeLegacySIDH
 
 	if !reset {
-		if sentRq, ok := s.sentByID[*partner]; ok {
+		if sentRq, ok := legacy.sentByID[*partner]; ok {
 			return sentRq, errors.Errorf("sent request "+
 				"already exists for partner %s",
 				partner)
@@ -136,8 +136,9 @@ func (s *Store) AddSentLegacySIDH(partner *id.ID, partnerHistoricalPubKey, myPri
 		}
 	}
 
-	sr, err := newSentRequest(s.kv, partner, partnerHistoricalPubKey,
-		myPrivKey, myPubKey, sidHPrivA, sidHPubA, fp, reset)
+	sr, err := newSentRequestLegacySIDH(s.kv, partner,
+		partnerHistoricalPubKey, myPrivKey, myPubKey, sidHPrivA,
+		sidHPubA, fp, reset)
 
 	if err != nil {
 		return nil, err

@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 
@@ -185,8 +184,8 @@ func newStore(kv *versioned.KV, grp *cyclic.Group,
 }
 
 func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
-	myPubKey *cyclic.Int, sidHPrivA *sidh.PrivateKey,
-	sidHPubA *sidh.PublicKey, fp format.Fingerprint,
+	myPubKey *cyclic.Int, pqPrivateKey nike.PrivateKey,
+	pqPublicKey nike.PublicKey, fp format.Fingerprint,
 	reset bool) (*SentRequest, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -204,8 +203,9 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 		}
 	}
 
-	sr, err := newSentRequest(s.kv, partner, partnerHistoricalPubKey,
-		myPrivKey, myPubKey, sidHPrivA, sidHPubA, fp, reset)
+	sr, err := newSentRequest(s.kv, partner,
+		partnerHistoricalPubKey,
+		myPrivKey, myPubKey, pqPrivateKey, pqPublicKey, fp, reset)
 
 	if err != nil {
 		return nil, err

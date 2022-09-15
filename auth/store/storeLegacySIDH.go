@@ -73,6 +73,51 @@ type storeLegacySIDH struct {
 	}
 */
 
+// HandleReceivedRequest handles the request singly, only a single operator
+// operates on the same request at a time. It will delete the request if no
+// error is returned from the handler
+func (s *Store) HandleReceivedRequestLegacySIDH(partner *id.ID,
+	handler func(*ReceivedRequestLegacySIDH) error) error {
+
+	legacy := s.storeLegacySIDH
+
+	s.mux.RLock()
+	rr, ok := legacy.receivedByID[*partner]
+	s.mux.RUnlock()
+
+	if !ok {
+		return errors.Errorf("Received request not "+
+			"found: %s", partner)
+	}
+
+	// Take the lock to ensure there is only one operator at a time
+	rr.mux.Lock()
+	defer rr.mux.Unlock()
+
+	// Check that the request still exists; it could have been
+	// deleted while the lock was taken
+	s.mux.RLock()
+	_, ok = legacy.receivedByID[*partner]
+	s.mux.RUnlock()
+
+	if !ok {
+		return errors.Errorf("Received request not "+
+			"found: %s", partner)
+	}
+
+	//run the handler
+	handleErr := handler(rr)
+	if handleErr != nil {
+		return errors.WithMessage(handleErr, "Received error from handler")
+	}
+
+	delete(legacy.receivedByID, *partner)
+	err := s.save()
+	rr.delete()
+
+	return err
+}
+
 func (s *Store) AddReceivedLegacySIDH(c contact.Contact, key *sidh.PublicKey,
 	round rounds.Round) error {
 	s.mux.Lock()

@@ -68,7 +68,7 @@ func (rrs *receivedRequestService) ProcessLegacySIDH(message format.Message,
 
 	//extract data from the decrypted payload
 	partnerID, partnerSIDHPubKey, facts, ownershipProof, err :=
-		processDecryptedMessage(payload)
+		processDecryptedMessageLegacySIDH(payload)
 	if err != nil {
 		jww.WARN.Printf("Failed to decode the auth request: %+v", err)
 		return

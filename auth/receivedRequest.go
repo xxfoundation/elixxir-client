@@ -319,7 +319,7 @@ func processDecryptedMessage(b []byte) (*id.ID, nike.PublicKey, fact.FactList,
 			"unmarshal auth request's encrypted payload")
 	}
 
-	partnerCTIDHPubKey, err := ecrFmt.GetCTIDHPubKey()
+	partnerCTIDHPubKey, err := ecrFmt.GetCTIDHPublicKey()
 	if err != nil {
 		return nil, nil, nil, nil, errors.WithMessage(err, "Could not "+
 			"unmarshal partner CTIDH Pubkey")

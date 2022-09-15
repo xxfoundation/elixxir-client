@@ -50,8 +50,8 @@ func (s *state) confirm(partner contact.Contact, serviceTag string) (
 	var sentRound id.Round
 
 	//run the handler
-	err := s.store.HandleReceivedRequest(partner.ID,
-		func(rr *store.ReceivedRequest) error {
+	err := s.store.HandleReceivedRequestLegacySIDH(partner.ID,
+		func(rr *store.ReceivedRequestLegacySIDH) error {
 			// verify the passed contact matches what is stored
 			if rr.GetContact().DhPubKey.Cmp(partner.DhPubKey) != 0 {
 				return errors.New("pending Auth Request has different " +

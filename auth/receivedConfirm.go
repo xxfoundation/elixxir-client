@@ -101,7 +101,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 	_, err = authState.e2e.AddPartner(rcs.sentRequest.GetPartner(),
 		partnerPubKey,
 		rcs.sentRequest.GetMyPrivKey(), partnerSIDHPubKey,
-		rcs.sentRequest.GetMyCTIDHPrivKey(), p, p)
+		rcs.sentRequest.GetMyCTIDHPrivateKey(), p, p)
 	if err != nil {
 		jww.WARN.Printf("Failed to create channel with partner %s and "+
 			"%s : %+v", rcs.sentRequest.GetPartner(),

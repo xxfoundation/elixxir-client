@@ -236,7 +236,7 @@ func (s *Store) StoreUsername(f fact.Fact) error {
 
 	s.confirmedFacts[f] = struct{}{}
 
-	return s.saveUnconfirmedFacts()
+	return s.saveConfirmedFacts()
 }
 
 // serializeConfirmedFacts is a helper function which serializes Store's confirmedFacts

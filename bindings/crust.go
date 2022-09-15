@@ -11,14 +11,26 @@ import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/partnerships/crust"
 	crust2 "gitlab.com/elixxir/crypto/partnerships/crust"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
 // UploadBackup will upload the file provided to the distributed file server.
 // This will return a UploadSuccessReport, which provides data on the status of the
 // upload. The file may be recovered using RecoverBackup.
+//
+// Parameters:
+//  - file - the backup file that will be uploaded to the backup server.
+//  - udManager - the UserDiscovery object.
+//  - receptionRsaPrivateKey - the PEM encoded reception RSA private key. This
+//    can be retrieved via Client.GetUser.GetReceptionRSAPrivateKeyPem.
 func UploadBackup(file []byte, udManager *UserDiscovery,
-	client *Client) ([]byte, error) {
-	privateKey := client.api.GetUser().ReceptionRSA
+	receptionRsaPrivateKey []byte) ([]byte, error) {
+
+	privateKey, err := rsa.LoadPrivateKeyFromPem(receptionRsaPrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
 	uploadSuccessReport, err := crust.UploadBackup(file, privateKey, udManager.ud)
 	if err != nil {
 		return nil, err

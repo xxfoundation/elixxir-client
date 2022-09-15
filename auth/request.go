@@ -17,6 +17,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/ctidh"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet"
 	util "gitlab.com/elixxir/client/storage/utility"
@@ -73,10 +74,12 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	me := s.e2e.GetReceptionID()
 
 	dhGrp := s.e2e.GetGroup()
-
 	dhPriv, dhPub := genDHKeys(dhGrp, rng)
-	sidhPriv, sidhPub := util.GenerateSIDHKeyPair(
-		sidh.KeyVariantSidhA, rng)
+
+	// fixme: maybe mynike defined in init as a module variable?
+	mynike := ctidh.NewCtidhNike()
+	// TODO: this should take an RNG
+	ctidhPriv, ctidhPub := mynike.NewKeypair()
 
 	historicalDHPriv := s.e2e.GetHistoricalDHPrivkey()
 	historicalDHPub := diffieHellman.GeneratePublicKey(historicalDHPriv,
@@ -97,7 +100,7 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	// considered a reasonable loss due to the increase in code
 	// simplicity of this approach
 	sr, err := s.store.AddSent(partner.ID, partner.DhPubKey, dhPriv, dhPub,
-		sidhPriv, sidhPub, confirmFp, reset)
+		ctidhPriv, ctidhPub, confirmFp, reset)
 	if err != nil {
 		if sr == nil {
 			return 0, err
@@ -106,8 +109,8 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 				"one was already sent", partner.ID, me)
 			dhPriv = sr.GetMyPrivKey()
 			dhPub = sr.GetMyPubKey()
-			//sidhPriv = sr.GetMySIDHPrivKey()
-			sidhPub = sr.GetMySIDHPubKey()
+			//ctidhPriv = sr.GetMyCTIDHPrivKey()
+			ctidhPub = sr.GetMyCTIDHPublicKey()
 		}
 	}
 
@@ -121,7 +124,7 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 
 	// Create the request packet.
 	request, mac, err := createRequestAuth(me, msgPayload, ownership,
-		dhPriv, dhPub, partner.DhPubKey, sidhPub,
+		dhPriv, dhPub, partner.DhPubKey, ctidhPub,
 		s.e2e.GetGroup(), s.net.GetMaxMessageLength())
 	if err != nil {
 		return 0, err
@@ -131,8 +134,8 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	jww.TRACE.Printf("AuthRequest MYPUBKEY: %v", dhPub.TextVerbose(16, 0))
 	jww.TRACE.Printf("AuthRequest PARTNERPUBKEY: %v",
 		partner.DhPubKey.TextVerbose(16, 0))
-	jww.TRACE.Printf("AuthRequest MYSIDHPUBKEY: %s",
-		util.StringSIDHPubKey(sidhPub))
+	jww.TRACE.Printf("AuthRequest MYCTIDHPUBKEY: %s",
+		util.StringCTIDHPubKey(ctidhPub))
 
 	jww.TRACE.Printf("AuthRequest HistoricalPUBKEY: %v",
 		historicalDHPub.TextVerbose(16, 0))

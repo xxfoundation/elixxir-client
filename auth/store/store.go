@@ -32,11 +32,12 @@ const requestMapKey = "map"
 const requestMapVersion = 0
 
 type Store struct {
-	kv                     *versioned.KV
-	grp                    *cyclic.Group
-	receivedByID           map[id.ID]*ReceivedRequest
-	receivedByIDLegacySIDH map[id.ID]*ReceivedRequestLegacySIDH
-	sentByID               map[id.ID]*SentRequest
+	storeLegacySIDH
+
+	kv           *versioned.KV
+	grp          *cyclic.Group
+	receivedByID map[id.ID]*ReceivedRequest
+	sentByID     map[id.ID]*SentRequest
 
 	previousNegotiations map[id.ID]bool
 
@@ -45,21 +46,14 @@ type Store struct {
 	mux sync.RWMutex
 }
 
-// NewOrLoadStore loads an extant new store. All passed in private keys are added as
-// sentByFingerprints so they can be used to trigger receivedByID.
-// If no store can be found, it creates a new one
-func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (*Store, error) {
+// NewOrLoadStore loads an extant new store. All passed in private
+// keys are added as sentByFingerprints so they can be used to trigger
+// receivedByID.  If no store can be found, it creates a new one
+func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group,
+	srh SentRequestHandler) (*Store, error) {
 	kv = kv.Prefix(storePrefix)
 
-	s := &Store{
-		kv:                     kv,
-		grp:                    grp,
-		receivedByID:           make(map[id.ID]*ReceivedRequest),
-		receivedByIDLegacySIDH: make(map[id.ID]*ReceivedRequestLegacySIDH),
-		sentByID:               make(map[id.ID]*SentRequest),
-		previousNegotiations:   make(map[id.ID]bool),
-		srh:                    srh,
-	}
+	s := newStore(kv, grp, srh)
 
 	var requestList []requestDisk
 
@@ -67,12 +61,9 @@ func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler)
 	sentObj, err := kv.Get(requestMapKey, requestMapVersion)
 	if err != nil {
 		//no store can be found, lets make a new one
-		jww.WARN.Printf("No auth store could be found, making a new one")
-		s, err := newStore(kv, grp, srh)
-		if err != nil {
-			return nil, errors.WithMessagef(err, "Failed to load requestMap")
-		}
-		return s, nil
+		jww.WARN.Printf("No auth store found, making a new one")
+		s := newStore(kv, grp, srh)
+		return s, s.save()
 	}
 
 	if err := json.Unmarshal(sentObj.Data, &requestList); err != nil {
@@ -92,6 +83,11 @@ func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler)
 			jww.FATAL.Panicf("Failed to load stored id: %+v", err)
 		}
 
+		// FIXME: This will need to handle legacy and current
+		// sent requests/received requests. I recommend we drop
+		// this coding pattern entirely in favor of something that
+		// will upgrade more cleanly but we can ignore that for
+		// PoC purposes.
 		switch requestType {
 		case Sent:
 			sr, err := loadSentRequest(kv, partner, grp)
@@ -121,7 +117,7 @@ func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler)
 			"negotation partner IDs: %+v", err)
 	}
 
-	return s, nil
+	return s, s.save()
 }
 
 func (s *Store) save() error {
@@ -134,7 +130,7 @@ func (s *Store) save() error {
 		requestIDList = append(requestIDList, rDisk)
 	}
 
-	for _, rr := range s.receivedByIDLegacySIDH {
+	for _, rr := range s.receivedByID {
 		rDisk := requestDisk{
 			T:  uint(rr.getType()),
 			ID: rr.partner.ID.Marshal(),
@@ -160,30 +156,32 @@ func (s *Store) save() error {
 		Data:      data,
 	}
 
+	err = s.savePreviousNegotiations()
+	if err != nil {
+		return err
+	}
+
 	return s.kv.Set(requestMapKey, &obj)
 }
 
-// NewStore creates a new store. All passed in private keys are added as
-// sentByFingerprints so they can be used to trigger receivedByID.
-func newStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (
-	*Store, error) {
-	s := &Store{
-		kv:                     kv,
-		grp:                    grp,
-		receivedByID:           make(map[id.ID]*ReceivedRequest),
-		receivedByIDLegacySIDH: make(map[id.ID]*ReceivedRequestLegacySIDH),
-		sentByID:               make(map[id.ID]*SentRequest),
-		previousNegotiations:   make(map[id.ID]bool),
-		srh:                    srh,
+// sewStore creates a new store. All passed in private keys would need
+// to be added as sentByFingerprints so they can be used to trigger
+// receivedByID. This is not done here because it is a simple initializaer func,
+// but callers should be aware to do this and save the result.
+func newStore(kv *versioned.KV, grp *cyclic.Group,
+	srh SentRequestHandler) *Store {
+	return &Store{
+		kv:                   kv,
+		grp:                  grp,
+		receivedByID:         make(map[id.ID]*ReceivedRequest),
+		sentByID:             make(map[id.ID]*SentRequest),
+		previousNegotiations: make(map[id.ID]bool),
+		srh:                  srh,
+		storeLegacySIDH: storeLegacySIDH{
+			receivedByID: make(map[id.ID]*ReceivedRequestLegacySIDH),
+			sentByID:     make(map[id.ID]*SentRequestLegacySIDH),
+		},
 	}
-
-	err := s.savePreviousNegotiations()
-	if err != nil {
-		return nil, errors.Errorf(
-			"failed to save previousNegotiations partners: %+v", err)
-	}
-
-	return s, s.save()
 }
 
 func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,

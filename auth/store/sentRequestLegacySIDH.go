@@ -10,59 +10,61 @@ package store
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"sync"
 
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/nike"
+	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-
-	util "gitlab.com/elixxir/client/storage/utility"
 )
 
-const currentSentRequestVersion = 3
+// version 1 is pre-legacy designation, but should be the same as 2
+const currentSentRequestLegacySIDHVersion = 2
 
-type SentRequest struct {
+type SentRequestLegacySIDH struct {
 	kv *versioned.KV
 
 	partner                 *id.ID
 	partnerHistoricalPubKey *cyclic.Int
 	myPrivKey               *cyclic.Int
 	myPubKey                *cyclic.Int
-	myCTIDHPrivKey          nike.PrivateKey
-	myCTIDHPubKey           nike.PublicKey
+	mySidHPrivKeyA          *sidh.PrivateKey
+	mySidHPubKeyA           *sidh.PublicKey
 	fingerprint             format.Fingerprint
 	reset                   bool
 
 	mux sync.Mutex
 }
 
-type sentRequestDisk struct {
+type sentRequestDiskLegacySIDH struct {
 	PartnerHistoricalPubKey []byte
 	MyPrivKey               []byte
 	MyPubKey                []byte
-	MyCTIDHPrivKey          []byte
-	MyCTIDHPubKey           []byte
+	MySidHPrivKeyA          []byte
+	MySidHPubKeyA           []byte
 	Fingerprint             []byte
 	Reset                   bool
 }
 
-func newSentRequest(kv *versioned.KV, partner *id.ID, partnerHistoricalPubKey,
-	myPrivKey, myPubKey *cyclic.Int, myCTIDHPrivKey nike.PrivateKey,
-	myCTIDHPubKey nike.PublicKey, fp format.Fingerprint, reset bool) (*SentRequest, error) {
+func newSentRequestLegacySIDH(kv *versioned.KV, partner *id.ID, partnerHistoricalPubKey,
+	myPrivKey, myPubKey *cyclic.Int, sidHPrivA *sidh.PrivateKey,
+	sidHPubA *sidh.PublicKey, fp format.Fingerprint,
+	reset bool) (*SentRequestLegacySIDH, error) {
 
-	sr := &SentRequest{
+	sr := &SentRequestLegacySIDH{
 		kv:                      kv,
 		partner:                 partner,
 		partnerHistoricalPubKey: partnerHistoricalPubKey,
 		myPrivKey:               myPrivKey,
 		myPubKey:                myPubKey,
-		myCTIDHPubKey:           myCTIDHPubKey,
-		myCTIDHPrivKey:          myCTIDHPrivKey,
+		mySidHPubKeyA:           sidHPubA,
+		mySidHPrivKeyA:          sidHPrivA,
 		fingerprint:             fp,
 		reset:                   reset,
 	}
@@ -70,16 +72,27 @@ func newSentRequest(kv *versioned.KV, partner *id.ID, partnerHistoricalPubKey,
 	return sr, sr.save()
 }
 
-func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*SentRequest, error) {
+func loadSentRequestLegacySIDH(kv *versioned.KV, partner *id.ID,
+	grp *cyclic.Group) (*SentRequestLegacySIDH, error) {
 
 	srKey := makeSentRequestKey(partner)
 	obj, err := kv.Get(srKey, currentSentRequestVersion)
+
+	// V0 Upgrade Path
+	if !kv.Exists(err) {
+		upgradeErr := upgradeSentRequestKeyV0(kv, partner)
+		if upgradeErr != nil {
+			return nil, errors.Wrapf(err, "%+v", upgradeErr)
+		}
+		obj, err = kv.Get(srKey, currentSentRequestVersion)
+	}
+
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Load "+
 			"SentRequest Auth with %s", partner)
 	}
 
-	srd := &sentRequestDisk{}
+	srd := &sentRequestDiskLegacySIDH{}
 
 	if err := json.Unmarshal(obj.Data, srd); err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Unmarshal "+
@@ -104,20 +117,20 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 			"key with %s for SentRequest Auth", partner)
 	}
 
-	myCTIDHPrivKey, err := util.LoadCTIDHPrivateKey(kv,
-		util.MakeCTIDHPrivateKeyKey(partner))
-	if err != nil {
+	mySidHPrivKeyA := sidh.NewPrivateKey(sidhinterface.KeyId,
+		sidh.KeyVariantSidhA)
+	if err = mySidHPrivKeyA.Import(srd.MySidHPrivKeyA); err != nil {
 		return nil, errors.WithMessagef(err,
-			"Failed to decode PQ private key "+
+			"Failed to decode sidh private key "+
 				"with %s for SentRequest Auth", partner)
 	}
 
-	myCTIDHPubKey, err := util.LoadCTIDHPublicKey(kv,
-		util.MakeCTIDHPublicKeyKey(partner))
-	if err != nil {
+	mySidHPubKeyA := sidh.NewPublicKey(sidhinterface.KeyId,
+		sidh.KeyVariantSidhA)
+	if err = mySidHPubKeyA.Import(srd.MySidHPubKeyA); err != nil {
 		return nil, errors.WithMessagef(err,
-			"Failed to decode PQ public key "+
-				"with %s for SentRequest Auth", partner)
+			"Failed to decode sidh public "+
+				"key with %s for SentRequest Auth", partner)
 	}
 
 	fp := format.Fingerprint{}
@@ -134,20 +147,20 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 	jww.INFO.Printf("loadSentRequest fingerprint: %s",
 		hex.EncodeToString(fp[:]))
 
-	return &SentRequest{
+	return &SentRequestLegacySIDH{
 		kv:                      kv,
 		partner:                 partner,
 		partnerHistoricalPubKey: historicalPubKey,
 		myPrivKey:               myPrivKey,
 		myPubKey:                myPubKey,
-		myCTIDHPrivKey:          myCTIDHPrivKey,
-		myCTIDHPubKey:           myCTIDHPubKey,
+		mySidHPrivKeyA:          mySidHPrivKeyA,
+		mySidHPubKeyA:           mySidHPubKeyA,
 		fingerprint:             fp,
 		reset:                   srd.Reset,
 	}, nil
 }
 
-func (sr *SentRequest) save() error {
+func (sr *SentRequestLegacySIDH) save() error {
 	privKey, err := sr.myPrivKey.GobEncode()
 	if err != nil {
 		return err
@@ -174,12 +187,17 @@ func (sr *SentRequest) save() error {
 	jww.INFO.Printf("saveSentRequest fingerprint: %s",
 		hex.EncodeToString(sr.fingerprint[:]))
 
+	sidHPriv := make([]byte, sidhinterface.PrivKeyByteSize)
+	sidHPub := make([]byte, sidhinterface.PubKeyByteSize)
+	sr.mySidHPrivKeyA.Export(sidHPriv)
+	sr.mySidHPubKeyA.Export(sidHPub)
+
 	ipd := sentRequestDisk{
 		PartnerHistoricalPubKey: historicalPubKey,
 		MyPrivKey:               privKey,
 		MyPubKey:                pubKey,
-		MyCTIDHPrivKey:          sr.myCTIDHPrivKey.Bytes(),
-		MyCTIDHPubKey:           sr.myCTIDHPubKey.Bytes(),
+		MySidHPrivKeyA:          sidHPriv,
+		MySidHPubKeyA:           sidHPub,
 		Fingerprint:             sr.fingerprint[:],
 		Reset:                   sr.reset,
 	}
@@ -198,7 +216,7 @@ func (sr *SentRequest) save() error {
 	return sr.kv.Set(makeSentRequestKey(sr.partner), &obj)
 }
 
-func (sr *SentRequest) delete() {
+func (sr *SentRequestLegacySIDH) delete() {
 	if err := sr.kv.Delete(makeSentRequestKey(sr.partner),
 		currentSentRequestVersion); err != nil {
 		jww.FATAL.Panicf("Failed to delete sent request from %s to %s: "+
@@ -206,54 +224,83 @@ func (sr *SentRequest) delete() {
 	}
 }
 
-func (sr *SentRequest) GetPartner() *id.ID {
+func (sr *SentRequestLegacySIDH) GetPartner() *id.ID {
 	return sr.partner
 }
 
-func (sr *SentRequest) GetPartnerHistoricalPubKey() *cyclic.Int {
+func (sr *SentRequestLegacySIDH) GetPartnerHistoricalPubKey() *cyclic.Int {
 	return sr.partnerHistoricalPubKey
 }
 
-func (sr *SentRequest) GetMyPrivKey() *cyclic.Int {
+func (sr *SentRequestLegacySIDH) GetMyPrivKey() *cyclic.Int {
 	return sr.myPrivKey
 }
 
-func (sr *SentRequest) GetMyPubKey() *cyclic.Int {
+func (sr *SentRequestLegacySIDH) GetMyPubKey() *cyclic.Int {
 	return sr.myPubKey
 }
 
-func (sr *SentRequest) GetMyCTIDHPrivateKey() nike.PrivateKey {
-	return sr.myCTIDHPrivKey
+func (sr *SentRequestLegacySIDH) GetMySIDHPrivKey() *sidh.PrivateKey {
+	return sr.mySidHPrivKeyA
 }
 
-func (sr *SentRequest) GetMyCTIDHPublicKey() nike.PublicKey {
-	return sr.myCTIDHPubKey
+func (sr *SentRequestLegacySIDH) GetMySIDHPubKey() *sidh.PublicKey {
+	return sr.mySidHPubKeyA
 }
 
-func (sr *SentRequest) IsReset() bool {
+func (sr *SentRequestLegacySIDH) IsReset() bool {
 	return sr.reset
 }
 
-// OverwriteCTIDHKeys is used to temporarily overwrite sidh keys
+// OverwriteSIDHKeys is used to temporarily overwrite sidh keys
 // to handle e.g., confirmation receivedByID.
 // FIXME: this is a code smell but was the cleanest solution at
 // the time. Business logic should probably handle this better?
-func (sr *SentRequest) OverwriteCTIDHKeys(priv nike.PrivateKey,
-	pub nike.PublicKey) {
-	sr.myCTIDHPrivKey = priv
-	sr.myCTIDHPubKey = pub
+func (sr *SentRequestLegacySIDH) OverwriteSIDHKeys(priv *sidh.PrivateKey,
+	pub *sidh.PublicKey) {
+	sr.mySidHPrivKeyA = priv
+	sr.mySidHPubKeyA = pub
 }
 
-func (sr *SentRequest) GetFingerprint() format.Fingerprint {
+func (sr *SentRequestLegacySIDH) GetFingerprint() format.Fingerprint {
 	return sr.fingerprint
 }
 
-func (sr *SentRequest) getType() RequestType {
+func (sr *SentRequestLegacySIDH) getType() RequestType {
 	return Sent
 }
 
 // makeSentRequestKey makes the key string for accessing the
 // partners sent request object from the key value store.
-func makeSentRequestKey(partner *id.ID) string {
+func makeSentRequestKeyLegacySIDH(partner *id.ID) string {
 	return "sentRequest:" + partner.String()
+}
+
+// V0 Utility Functions
+
+// makeSentRequestKeyV0 The old key used the string pattern
+// "Partner:PartnerID" instead of "sentRequest:PartnerID".
+func makeSentRequestKeyV0(partner *id.ID) string {
+	return fmt.Sprintf("Partner:%v", partner.String())
+}
+
+// upgradeSentRequestKeyV0 upgrads the srKey from version 0 to 1 by
+// changing the version number.
+func upgradeSentRequestKeyV0(kv *versioned.KV, partner *id.ID) error {
+	oldKey := makeSentRequestKeyV0(partner)
+	obj, err := kv.Get(oldKey, 0)
+	if err != nil {
+		return err
+	}
+
+	jww.INFO.Printf("Upgrading legacy srKey for %s", partner)
+
+	// Note: uses same encoding, just different keys
+	obj.Version = 1
+	err = kv.Set(makeSentRequestKeyLegacySIDH(partner), obj)
+	if err != nil {
+		return err
+	}
+
+	return kv.Delete(oldKey, 0)
 }

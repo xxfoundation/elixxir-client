@@ -47,7 +47,7 @@ func newReceivedRequest(kv *versioned.KV, c contact.Contact,
 
 	ctidhStoreKey := util.MakeCTIDHPublicKeyKey(c.ID)
 	if err := util.StoreCTIDHPublicKey(kv, key, ctidhStoreKey); err != nil {
-		jww.FATAL.Panicf("Failed to save contact SIDH pubKey for "+
+		jww.FATAL.Panicf("Failed to save contact PQ pubKey for "+
 			"partner %s: %+v", c.ID.String(), err)
 	}
 
@@ -79,7 +79,7 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 		util.MakeCTIDHPublicKeyKey(partner))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Load "+
-			"Received Auth Request Partner SIDHkey with %s",
+			"Received Auth Request Partner PQ key with %s",
 			partner)
 	}
 

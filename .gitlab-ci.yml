@@ -42,7 +42,7 @@ test:
     - mkdir -p testdata
 
     # Test coverage
-    - go-acc --covermode atomic --output testdata/coverage.out ./... -- -v
+    - go-acc --covermode atomic --output testdata/coverage.out ./... -- -v -tags ctidh
     # Exclude some specific packages and files
     - cat testdata/coverage.out | grep -v cmd | grep -v mockserver | grep -v pb[.]go | grep -v main.go > testdata/coverage-real.out
     - go tool cover -func=testdata/coverage-real.out

@@ -221,7 +221,7 @@ func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
 	requestFmt.SetID(sender)
 	requestFmt.SetMsgPayload(payload)
 	ecrFmt.SetOwnership(ownership)
-	ecrFmt.SetCTIDHPubKey(mySIDHPub)
+	ecrFmt.SetPQPublicKey(myCTIDHPub)
 	ecrPayload, mac := cAuth.Encrypt(myDHPriv, theirDHPub, ecrFmt.data,
 		dhGrp)
 	/*construct message*/

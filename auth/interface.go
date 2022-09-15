@@ -8,7 +8,13 @@
 package auth
 
 import (
+	"io"
+
 	"github.com/cloudflare/circl/dh/sidh"
+
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
+
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
@@ -17,13 +23,11 @@ import (
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"io"
 )
 
 type State interface {
@@ -151,6 +155,11 @@ type e2eHandler interface {
 	GetHistoricalDHPrivkey() *cyclic.Int
 	GetGroup() *cyclic.Group
 	AddPartner(partnerID *id.ID,
+		partnerPubKey, myPrivKey *cyclic.Int,
+		partnerCTIDHPubKey nike.PublicKey,
+		mySIDHPrivKey nike.PrivateKey, sendParams,
+		receiveParams session.Params) (partner.Manager, error)
+	AddPartnerLegacySIDH(partnerID *id.ID,
 		partnerPubKey, myPrivKey *cyclic.Int,
 		partnerSIDHPubKey *sidh.PublicKey,
 		mySIDHPrivKey *sidh.PrivateKey, sendParams,

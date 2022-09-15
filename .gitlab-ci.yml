@@ -24,6 +24,7 @@ test:
   except:
     - tags
   script:
+    - git clean -ffdx
     - mkdir high-ctidh
     - cd high-ctidh
     - 'wget -O high-ctidh.zip --header="PRIVATE-TOKEN: $GITLAB_ACCESS_TOKEN" "https://$GITLAB_SERVER/api/v4/projects/elixxir%2Fhigh-ctidh/jobs/artifacts/master/download?job=build"'
@@ -35,7 +36,6 @@ test:
     - export CGO_LDFLAGS="-L${P} -Wl,-rpath,${P} -lhighctidh_${CTIDH_BITS}"
     - cd ..
 
-    - git clean -ffdx
     - go mod vendor -v
     - go build -tags ctidh ./...
     - go mod tidy

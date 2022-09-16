@@ -7,8 +7,9 @@
 
 syntax = "proto3";
 
-package parse;
-option go_package = "fileTransfer";
+package fileTransfer;
+
+option go_package = "gitlab.com/elixxir/client/fileTransfer";
 
 // NewFileTransfer is transmitted first on the initialization of a file transfer
 // to inform the receiver about the incoming file.

@@ -17,6 +17,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"math"
+	"sync"
 	"time"
 )
 
@@ -47,6 +48,13 @@ type Manager struct {
 	alternativeUd *alternateUd
 
 	registered *uint32
+
+	// These objects handle username validation.
+	// The validation signature is saved into usernameValidationSignature
+	// on the first query and lazily loaded. The usernameValidationMux
+	// handles asynchronous queries to get Manager.GetUsernameValidationSignature
+	usernameValidationMux       sync.Mutex
+	usernameValidationSignature []byte
 }
 
 // alternateUd is an alternative user discovery service.

@@ -10,30 +10,23 @@ package partner
 import (
 	"encoding/base64"
 	"fmt"
+	"gitlab.com/elixxir/crypto/e2e"
 
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-
-	"gitlab.com/xx_network/primitives/id"
-
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/primitives/id"
 )
 
-const managerPrefix = "Manager{partner:%s}"
-const originMyPrivKeyKey = "originMyPrivKey"
-const originPartnerPubKey = "originPartnerPubKey"
-const relationshipFpLength = 15
-
-// Implements the partner.Manager interface
-type manager struct {
+// Implements the partner.ManagerLegacySIDH interface
+type managerLegacySIDH struct {
 	kv *versioned.KV
 
 	myID    *id.ID
@@ -42,8 +35,8 @@ type manager struct {
 	originMyPrivKey     *cyclic.Int
 	originPartnerPubKey *cyclic.Int
 
-	originMyPQPrivKey     nike.PrivateKey
-	originPartnerPQPubKey nike.PublicKey
+	originMySIDHPrivKey     *sidh.PrivateKey
+	originPartnerSIDHPubKey *sidh.PublicKey
 
 	receive *relationship
 	send    *relationship
@@ -53,26 +46,26 @@ type manager struct {
 	rng       *fastRNG.StreamGenerator
 }
 
-// NewManager creates the relationship and its first Send and Receive sessions.
-func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
-	partnerPubKey *cyclic.Int, myPQPrivKey nike.PrivateKey,
-	partnerPQPubKey nike.PublicKey, sendParams,
+// NewManagerLegacySIDH creates the relationship and its first Send and Receive sessions.
+func NewManagerLegacySIDH(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
+	partnerPubKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
+	partnerSIDHPubKey *sidh.PublicKey, sendParams,
 	receiveParams session.Params, cyHandler session.CypherHandler,
-	grp *cyclic.Group, rng *fastRNG.StreamGenerator) Manager {
+	grp *cyclic.Group, rng *fastRNG.StreamGenerator) ManagerLegacySIDH {
 
 	kv = kv.Prefix(makeManagerPrefix(partnerID))
 
-	m := &manager{
-		kv:                    kv,
-		originMyPrivKey:       myPrivKey,
-		originPartnerPubKey:   partnerPubKey,
-		originMyPQPrivKey:     myPQPrivKey,
-		originPartnerPQPubKey: partnerPQPubKey,
-		myID:                  myID,
-		partner:               partnerID,
-		cyHandler:             cyHandler,
-		grp:                   grp,
-		rng:                   rng,
+	m := &managerLegacySIDH{
+		kv:                      kv,
+		originMyPrivKey:         myPrivKey,
+		originPartnerPubKey:     partnerPubKey,
+		originMySIDHPrivKey:     mySIDHPrivKey,
+		originPartnerSIDHPubKey: partnerSIDHPubKey,
+		myID:                    myID,
+		partner:                 partnerID,
+		cyHandler:               cyHandler,
+		grp:                     grp,
+		rng:                     rng,
 	}
 	if err := utility.StoreCyclicKey(kv, myPrivKey,
 		originMyPrivKeyKey); err != nil {
@@ -87,36 +80,21 @@ func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
 	}
 
 	m.send = NewRelationship(m.kv, session.Send, myID, partnerID, myPrivKey,
-		partnerPubKey, myPQPrivKey, partnerPQPubKey,
+		partnerPubKey, mySIDHPrivKey, partnerSIDHPubKey,
 		sendParams, cyHandler, grp, rng)
 	m.receive = NewRelationship(m.kv, session.Receive, myID, partnerID,
-		myPrivKey, partnerPubKey, myPQPrivKey, partnerPQPubKey,
+		myPrivKey, partnerPubKey, mySIDHPrivKey, partnerSIDHPubKey,
 		receiveParams, cyHandler, grp, rng)
 
 	return m
 }
 
-// ConnectionFp represents a Partner connection fingerprint
-type ConnectionFp struct {
-	fingerprint []byte
-}
-
-func (c ConnectionFp) Bytes() []byte {
-	return c.fingerprint
-}
-
-func (c ConnectionFp) String() string {
-	// Base 64 encode hash and truncate
-	return base64.StdEncoding.EncodeToString(
-		c.fingerprint)[:relationshipFpLength]
-}
-
-// LoadManager loads a relationship and all buffers and sessions from disk
-func LoadManager(kv *versioned.KV, myID, partnerID *id.ID,
+// LoadManagerLegacySIDH loads a relationship and all buffers and sessions from disk
+func LoadManagerLegacySIDH(kv *versioned.KV, myID, partnerID *id.ID,
 	cyHandler session.CypherHandler, grp *cyclic.Group,
-	rng *fastRNG.StreamGenerator) (Manager, error) {
+	rng *fastRNG.StreamGenerator) (ManagerLegacySIDH, error) {
 
-	m := &manager{
+	m := &managerLegacySIDH{
 		kv:        kv.Prefix(makeManagerPrefix(partnerID)),
 		myID:      myID,
 		partner:   partnerID,
@@ -162,7 +140,7 @@ func LoadManager(kv *versioned.KV, myID, partnerID *id.ID,
 // Delete removes the relationship between the partner
 // and deletes the Send and Receive sessions. This includes the
 // sessions and the key vectors
-func (m *manager) Delete() error {
+func (m *managerLegacySIDH) Delete() error {
 	if err := m.deleteRelationships(); err != nil {
 		return errors.WithMessage(err,
 			"Failed to delete relationship")
@@ -179,7 +157,7 @@ func (m *manager) Delete() error {
 
 // deleteRelationships removes all relationship and
 // relationship adjacent information from storage
-func (m *manager) deleteRelationships() error {
+func (m *managerLegacySIDH) deleteRelationships() error {
 
 	// Delete the send information
 	sendKv := m.kv.Prefix(session.Send.Prefix())
@@ -213,14 +191,14 @@ func (m *manager) deleteRelationships() error {
 // session already exists, then it will not be overwritten and the extant
 // session will be returned with the bool set to true denoting a duplicate. This
 // allows for support of duplicate key exchange triggering.
-func (m *manager) NewReceiveSession(partnerPubKey *cyclic.Int,
-	partnerPQPubKey nike.PublicKey, e2eParams session.Params,
+func (m *managerLegacySIDH) NewReceiveSession(partnerPubKey *cyclic.Int,
+	partnerSIDHPubKey *sidh.PublicKey, e2eParams session.Params,
 	source *session.Session) (*session.Session, bool) {
 
 	// Check if the session already exists
 	baseKey := session.GenerateE2ESessionBaseKey(source.GetMyPrivKey(),
-		partnerPubKey, m.grp, source.GetMyPQPrivKey(),
-		partnerPQPubKey)
+		partnerPubKey, m.grp, source.GetMySIDHPrivKey(),
+		partnerSIDHPubKey)
 
 	sessionID := session.GetSessionIDFromBaseKey(baseKey)
 
@@ -230,7 +208,7 @@ func (m *manager) NewReceiveSession(partnerPubKey *cyclic.Int,
 
 	// Add the session to the buffer
 	s := m.receive.AddSession(source.GetMyPrivKey(), partnerPubKey, baseKey,
-		source.GetMyPQPrivKey(), partnerPQPubKey,
+		source.GetMySIDHPrivKey(), partnerSIDHPubKey,
 		source.GetID(), session.Confirmed, e2eParams)
 
 	return s, false
@@ -239,87 +217,87 @@ func (m *manager) NewReceiveSession(partnerPubKey *cyclic.Int,
 // NewSendSession creates a new Send session using the latest public key
 // received from the partner and a new private key for the user. Passing in a
 // private key is optional. A private key will be generated if none is passed.
-func (m *manager) NewSendSession(myPrivKey *cyclic.Int,
-	myPQPrivKey nike.PrivateKey, e2eParams session.Params,
+func (m *managerLegacySIDH) NewSendSession(myPrivKey *cyclic.Int,
+	mySIDHPrivKey *sidh.PrivateKey, e2eParams session.Params,
 	sourceSession *session.Session) *session.Session {
 
 	// Add the session to the Send session buffer and return
 	return m.send.AddSession(myPrivKey, sourceSession.GetPartnerPubKey(),
-		nil, myPQPrivKey, sourceSession.GetPartnerPQPubKey(),
+		nil, mySIDHPrivKey, sourceSession.GetPartnerSIDHPubKey(),
 		sourceSession.GetID(), session.Sending, e2eParams)
 }
 
 // PopSendCypher returns the key which is most likely to be successful for sending
-func (m *manager) PopSendCypher() (session.Cypher, error) {
+func (m *managerLegacySIDH) PopSendCypher() (session.Cypher, error) {
 	return m.send.getKeyForSending()
 }
 
 // PopRekeyCypher returns a key which should be used for rekeying
-func (m *manager) PopRekeyCypher() (session.Cypher, error) {
+func (m *managerLegacySIDH) PopRekeyCypher() (session.Cypher, error) {
 	return m.send.getKeyForRekey()
 
 }
 
 // PartnerId returns a copy of the ID of the partner.
-func (m *manager) PartnerId() *id.ID {
+func (m *managerLegacySIDH) PartnerId() *id.ID {
 	return m.partner.DeepCopy()
 }
 
 // MyId returns a copy of the ID used as self.
-func (m *manager) MyId() *id.ID {
+func (m *managerLegacySIDH) MyId() *id.ID {
 	return m.myID.DeepCopy()
 }
 
 // GetSendSession gets the Send session of the passed ID. Returns nil if no
 // session is found.
-func (m *manager) GetSendSession(sid session.SessionID) *session.Session {
+func (m *managerLegacySIDH) GetSendSession(sid session.SessionID) *session.Session {
 	return m.send.GetByID(sid)
 }
 
 // GetReceiveSession gets the Receive session of the passed ID. Returns nil if
 // no session is found.
-func (m *manager) GetReceiveSession(sid session.SessionID) *session.Session {
+func (m *managerLegacySIDH) GetReceiveSession(sid session.SessionID) *session.Session {
 	return m.receive.GetByID(sid)
 }
 
 // SendRelationshipFingerprint
-func (m *manager) SendRelationshipFingerprint() []byte {
+func (m *managerLegacySIDH) SendRelationshipFingerprint() []byte {
 	return m.send.fingerprint
 }
 
 // ReceiveRelationshipFingerprint
-func (m *manager) ReceiveRelationshipFingerprint() []byte {
+func (m *managerLegacySIDH) ReceiveRelationshipFingerprint() []byte {
 	return m.receive.fingerprint
 }
 
 // Confirm confirms a Send session is known about by the partner.
-func (m *manager) Confirm(sid session.SessionID) error {
+func (m *managerLegacySIDH) Confirm(sid session.SessionID) error {
 	return m.send.Confirm(sid)
 }
 
 // TriggerNegotiations returns a list of key exchange operations if any are necessary.
-func (m *manager) TriggerNegotiations() []*session.Session {
+func (m *managerLegacySIDH) TriggerNegotiations() []*session.Session {
 	return m.send.TriggerNegotiation()
 }
 
-func (m *manager) MyRootPrivateKey() *cyclic.Int {
+func (m *managerLegacySIDH) MyRootPrivateKey() *cyclic.Int {
 	return m.originMyPrivKey.DeepCopy()
 }
 
-func (m *manager) PartnerRootPublicKey() *cyclic.Int {
+func (m *managerLegacySIDH) PartnerRootPublicKey() *cyclic.Int {
 	return m.originPartnerPubKey.DeepCopy()
 }
 
 // ConnectionFingerprint returns a unique fingerprint for an E2E
 // relationship used for the e2e preimage.
-func (m *manager) ConnectionFingerprint() ConnectionFp {
+func (m *managerLegacySIDH) ConnectionFingerprint() ConnectionFp {
 	return ConnectionFp{fingerprint: e2e.GenerateConnectionFingerprint(m.send.fingerprint, m.receive.fingerprint)}
 }
 
 // MakeService Returns a service interface with the
 // appropriate identifier for who is being sent to. Will populate
 // the metadata with the partner
-func (m *manager) MakeService(tag string) message.Service {
+func (m *managerLegacySIDH) MakeService(tag string) message.Service {
 	return message.Service{
 		Identifier: m.ConnectionFingerprint().Bytes(),
 		Tag:        tag,
@@ -328,7 +306,7 @@ func (m *manager) MakeService(tag string) message.Service {
 }
 
 // Contact assembles and returns a contact.Contact with the partner's ID and DH key.
-func (m *manager) Contact() contact.Contact {
+func (m *managerLegacySIDH) Contact() contact.Contact {
 	// Assemble Contact
 	return contact.Contact{
 		ID:       m.PartnerId(),
@@ -336,6 +314,6 @@ func (m *manager) Contact() contact.Contact {
 	}
 }
 
-func makeManagerPrefix(pid *id.ID) string {
+func makeManagerLegacySIDHPrefix(pid *id.ID) string {
 	return fmt.Sprintf(managerPrefix, pid)
 }

@@ -11,3 +11,8 @@ type CypherHandler interface {
 	AddKey(cy Cypher)
 	DeleteKey(cy Cypher)
 }
+
+type CypherHandlerLegacySIDH interface {
+	AddKey(cy CypherLegacySIDH)
+	DeleteKey(cy CypherLegacySIDH)
+}

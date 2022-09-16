@@ -6,9 +6,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 syntax = "proto3";
-package gcRequestMessages;
-option go_package = "gitlab.com/elixxir/client/groupChat";
 
+package groupChat;
+
+option go_package = "gitlab.com/elixxir/client/groupChat";
 
 // Request to join the group sent from leader to all members.
 message Request {

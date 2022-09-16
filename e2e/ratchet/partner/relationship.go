@@ -14,12 +14,15 @@ import (
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const maxUnconfirmed uint = 3
@@ -62,8 +65,8 @@ type ServiceHandler interface {
 // todo - doscstring
 func NewRelationship(kv *versioned.KV, t session.RelationshipType,
 	myID, partnerID *id.ID, myOriginPrivateKey,
-	partnerOriginPublicKey *cyclic.Int, originMySIDHPrivKey *sidh.PrivateKey,
-	originPartnerSIDHPubKey *sidh.PublicKey, initialParams session.Params,
+	partnerOriginPublicKey *cyclic.Int, originMyPQPrivKey nike.PrivateKey,
+	originPartnerPQPubKey nike.PublicKey, initialParams session.Params,
 	cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) *relationship {
 
@@ -94,8 +97,8 @@ func NewRelationship(kv *versioned.KV, t session.RelationshipType,
 	// set to confirmed because the first session is always confirmed as a
 	// result of the negotiation before creation
 	s := session.NewSession(r.kv, r.t, partnerID, myOriginPrivateKey,
-		partnerOriginPublicKey, nil, originMySIDHPrivKey,
-		originPartnerSIDHPubKey, session.SessionID{},
+		partnerOriginPublicKey, nil, originMyPQPrivKey,
+		originPartnerPQPubKey, session.SessionID{},
 		r.fingerprint, session.Confirmed, initialParams, cyHandler,
 		grp, rng)
 
@@ -164,7 +167,7 @@ func (r *relationship) save() error {
 	return r.kv.Set(relationshipKey, &obj)
 }
 
-//ekv functions
+// ekv functions
 func (r *relationship) marshal() ([]byte, error) {
 	sessions := make([]session.SessionID, len(r.sessions))
 
@@ -212,14 +215,14 @@ func (r *relationship) Delete() {
 
 // todo - doscstring
 func (r *relationship) AddSession(myPrivKey, partnerPubKey, baseKey *cyclic.Int,
-	mySIDHPrivKey *sidh.PrivateKey, partnerSIDHPubKey *sidh.PublicKey,
+	myPQPrivKey nike.PrivateKey, partnerPQPubKey nike.PublicKey,
 	trigger session.SessionID, negotiationStatus session.Negotiation,
 	e2eParams session.Params) *session.Session {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
 	s := session.NewSession(r.kv, r.t, r.partnerID, myPrivKey, partnerPubKey, baseKey,
-		mySIDHPrivKey, partnerSIDHPubKey, trigger,
+		myPQPrivKey, partnerPQPubKey, trigger,
 		r.fingerprint, negotiationStatus, e2eParams, r.cyHandler, r.grp, r.rng)
 
 	r.addSession(s)

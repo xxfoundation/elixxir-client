@@ -17,6 +17,8 @@ type Key interface {
 // private key material.
 type PrivateKey interface {
 	Key
+
+	PublicKey() PublicKey
 }
 
 // PublicKey is an interface for types encapsulating

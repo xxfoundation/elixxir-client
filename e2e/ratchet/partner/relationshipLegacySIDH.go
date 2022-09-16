@@ -28,7 +28,7 @@ const relationshipLegacySIDHKey = "relationshipLegacySIDH"
 const relationshipLegacySIDHFingerprintKey = "relationshipLegacySIDHFingerprint"
 
 type relationshipLegacySIDH struct {
-	t session.RelationshipLegacySIDHType
+	t session.RelationshipType
 
 	kv *versioned.KV
 
@@ -50,16 +50,11 @@ type relationshipLegacySIDH struct {
 	serviceHandler ServiceHandler
 }
 
-type ServiceHandler interface {
-	AddService(identifier []byte, tag string, source []byte)
-	DeleteKey(identifier []byte, tag string)
-}
-
 // fixme - this is weird becasue it creates the relationsip and the session.
 // Should be refactored to create an empty relationshipLegacySIDH, with a second call
 // adding the session
 // todo - doscstring
-func NewRelationshipLegacySIDH(kv *versioned.KV, t session.RelationshipLegacySIDHType,
+func NewRelationshipLegacySIDH(kv *versioned.KV, t session.RelationshipType,
 	myID, partnerID *id.ID, myOriginPrivateKey,
 	partnerOriginPublicKey *cyclic.Int, originMySIDHPrivKey *sidh.PrivateKey,
 	originPartnerSIDHPubKey *sidh.PublicKey, initialParams session.Params,
@@ -114,7 +109,7 @@ func NewRelationshipLegacySIDH(kv *versioned.KV, t session.RelationshipLegacySID
 }
 
 // todo - doscstring
-func LoadRelationshipLegacySIDH(kv *versioned.KV, t session.RelationshipLegacySIDHType, myID,
+func LoadRelationshipLegacySIDH(kv *versioned.KV, t session.RelationshipType, myID,
 	partnerID *id.ID, cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (*relationshipLegacySIDH, error) {
 

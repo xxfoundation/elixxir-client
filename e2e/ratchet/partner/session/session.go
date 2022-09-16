@@ -16,18 +16,20 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
+	"gitlab.com/xx_network/crypto/randomness"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
-	"gitlab.com/xx_network/crypto/randomness"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const currentSessionVersion = 0
@@ -54,9 +56,9 @@ type Session struct {
 	// Partner Public Key
 	partnerPubKey *cyclic.Int
 
-	// SIDH Keys of the same
-	mySIDHPrivKey     *sidh.PrivateKey
-	partnerSIDHPubKey *sidh.PublicKey
+	// PQ Keys of the same
+	myPQPrivKey     nike.PrivateKey
+	partnerPQPubKey nike.PublicKey
 
 	// ID of the session which teh partner public key comes from for this
 	// sessions creation.  Shares a partner public key if a Send session,
@@ -99,14 +101,14 @@ type SessionDisk struct {
 	MyPrivKey []byte
 	// Partner Public Key
 	PartnerPubKey []byte
-	// Own SIDH Private Key
-	MySIDHPrivKey []byte
+	// Own PQ Private Key
+	MyPQPrivKey []byte
 	// Note: only 3 bit patterns: 001, 010, 100
-	MySIDHVariant byte
-	// Partner SIDH Public Key
-	PartnerSIDHPubKey []byte
+	MyPQVariant byte
+	// Partner PQ Public Key
+	PartnerPQPubKey []byte
 	// Note: only 3 bit patterns: 001, 010, 100
-	PartnerSIDHVariant byte
+	PartnerPQVariant byte
 
 	// ID of the session which triggered this sessions creation.
 	Trigger []byte
@@ -124,10 +126,10 @@ type SessionDisk struct {
 
 /*CONSTRUCTORS*/
 
-//NewSession - Generator which creates all keys and structures
+// NewSession - Generator which creates all keys and structures
 func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
-	partnerPubKey, baseKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
-	partnerSIDHPubKey *sidh.PublicKey, trigger SessionID,
+	partnerPubKey, baseKey *cyclic.Int, myPQPrivKey nike.PrivateKey,
+	partnerPQPubKey nike.PublicKey, trigger SessionID,
 	relationshipFingerprint []byte, negotiationStatus Negotiation,
 	e2eParams Params, cyHandler CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) *Session {
@@ -142,8 +144,8 @@ func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
 		t:                       t,
 		myPrivKey:               myPrivKey,
 		partnerPubKey:           partnerPubKey,
-		mySIDHPrivKey:           mySIDHPrivKey,
-		partnerSIDHPubKey:       partnerSIDHPubKey,
+		myPQPrivKey:             myPQPrivKey,
+		partnerPQPubKey:         partnerPQPubKey,
 		baseKey:                 baseKey,
 		relationshipFingerprint: relationshipFingerprint,
 		negotiationStatus:       negotiationStatus,
@@ -163,7 +165,7 @@ func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
 	jww.INFO.Printf("New Session with Partner %s:\n\tType: %s"+
 		"\n\tBaseKey: %s\n\tRelationship Fingerprint: %v\n\tNumKeys: %d"+
 		"\n\tMy Public Key: %s\n\tPartner Public Key: %s"+
-		"\n\tMy Public SIDH: %s\n\tPartner Public SIDH: %s",
+		"\n\tMy Public PQ: %s\n\tPartner Public PQ: %s",
 		partner,
 		t,
 		session.baseKey.TextVerbose(16, 0),
@@ -171,8 +173,8 @@ func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
 		session.rekeyThreshold,
 		myPubKey.TextVerbose(16, 0),
 		session.partnerPubKey.TextVerbose(16, 0),
-		utility.StringSIDHPrivKey(session.mySIDHPrivKey),
-		utility.StringSIDHPubKey(session.partnerSIDHPubKey))
+		utility.StringPQPubKey(session.myPQPrivKey.PublicKey()),
+		utility.StringPQPubKey(session.partnerPQPubKey))
 
 	err := session.Save()
 	if err != nil {
@@ -283,14 +285,14 @@ func (s *Session) GetPartnerPubKey() *cyclic.Int {
 	return s.partnerPubKey.DeepCopy()
 }
 
-func (s *Session) GetMySIDHPrivKey() *sidh.PrivateKey {
+func (s *Session) GetMyPQPrivKey() nike.PrivateKey {
 	// no lock is needed because this should never be edited
-	return s.mySIDHPrivKey
+	return s.myPQPrivKey
 }
 
-func (s *Session) GetPartnerSIDHPubKey() *sidh.PublicKey {
+func (s *Session) GetPartnerPQPubKey() nike.PublicKey {
 	// no lock is needed because this should never be edited
-	return s.partnerSIDHPubKey
+	return s.partnerPQPubKey
 }
 
 func (s *Session) GetSource() SessionID {
@@ -298,7 +300,7 @@ func (s *Session) GetSource() SessionID {
 	return s.partnerSource
 }
 
-//underlying definition of session id
+// underlying definition of session id
 // FOR TESTING PURPOSES ONLY
 func GetSessionIDFromBaseKeyForTesting(baseKey *cyclic.Int, i interface{}) SessionID {
 	switch i.(type) {
@@ -547,18 +549,18 @@ func (s *Session) finalizeKeyNegotiation() {
 		s.myPrivKey = dh.GeneratePrivateKey(len(grp.GetPBytes()),
 			grp, stream)
 		// get the variant opposite my partners variant
-		sidhVariant := utility.GetCompatibleSIDHVariant(
-			s.partnerSIDHPubKey.Variant())
-		s.mySIDHPrivKey = utility.NewSIDHPrivateKey(sidhVariant)
-		s.mySIDHPrivKey.Generate(stream)
+		sidhVariant := utility.GetCompatiblePQVariant(
+			s.partnerPQPubKey.Variant())
+		s.myPQPrivKey = utility.NewPQPrivateKey(sidhVariant)
+		s.myPQPrivKey.Generate(stream)
 		stream.Close()
 	}
 
 	// compute the base key if it is not already there
 	if s.baseKey == nil {
 		s.baseKey = GenerateE2ESessionBaseKey(s.myPrivKey,
-			s.partnerPubKey, grp, s.mySIDHPrivKey,
-			s.partnerSIDHPubKey)
+			s.partnerPubKey, grp, s.myPQPrivKey,
+			s.partnerPQPubKey)
 	}
 
 	s.sID = GetSessionIDFromBaseKey(s.baseKey)
@@ -600,7 +602,7 @@ func (s *Session) buildChildKeys() {
 	}
 }
 
-//returns key objects for all unused keys
+// returns key objects for all unused keys
 func (s *Session) getUnusedKeys() []Cypher {
 	keyNums := s.keyState.GetUnusedKeyNums()
 
@@ -612,7 +614,7 @@ func (s *Session) getUnusedKeys() []Cypher {
 	return keys
 }
 
-//ekv functions
+// ekv functions
 func (s *Session) marshal() ([]byte, error) {
 	sd := SessionDisk{}
 
@@ -621,14 +623,14 @@ func (s *Session) marshal() ([]byte, error) {
 	sd.BaseKey = s.baseKey.Bytes()
 	sd.MyPrivKey = s.myPrivKey.Bytes()
 	sd.PartnerPubKey = s.partnerPubKey.Bytes()
-	sd.MySIDHPrivKey = make([]byte, s.mySIDHPrivKey.Size())
-	sd.PartnerSIDHPubKey = make([]byte, s.partnerSIDHPubKey.Size())
+	sd.MyPQPrivKey = make([]byte, s.myPQPrivKey.Size())
+	sd.PartnerPQPubKey = make([]byte, s.partnerPQPubKey.Size())
 
-	s.mySIDHPrivKey.Export(sd.MySIDHPrivKey)
-	sd.MySIDHVariant = byte(s.mySIDHPrivKey.Variant())
+	s.myPQPrivKey.Export(sd.MyPQPrivKey)
+	sd.MyPQVariant = byte(s.myPQPrivKey.Variant())
 
-	s.partnerSIDHPubKey.Export(sd.PartnerSIDHPubKey)
-	sd.PartnerSIDHVariant = byte(s.partnerSIDHPubKey.Variant())
+	s.partnerPQPubKey.Export(sd.PartnerPQPubKey)
+	sd.PartnerPQVariant = byte(s.partnerPQPubKey.Variant())
 
 	sd.Trigger = s.partnerSource[:]
 	sd.RelationshipFingerprint = s.relationshipFingerprint
@@ -667,16 +669,16 @@ func (s *Session) unmarshal(b []byte) error {
 	s.myPrivKey = grp.NewIntFromBytes(sd.MyPrivKey)
 	s.partnerPubKey = grp.NewIntFromBytes(sd.PartnerPubKey)
 
-	mySIDHVariant := sidh.KeyVariant(sd.MySIDHVariant)
-	s.mySIDHPrivKey = utility.NewSIDHPrivateKey(mySIDHVariant)
-	err = s.mySIDHPrivKey.Import(sd.MySIDHPrivKey)
+	myPQVariant := sidh.KeyVariant(sd.MyPQVariant)
+	s.myPQPrivKey = utility.NewPQPrivateKey(myPQVariant)
+	err = s.myPQPrivKey.Import(sd.MyPQPrivKey)
 	if err != nil {
 		return err
 	}
 
-	partnerSIDHVariant := sidh.KeyVariant(sd.PartnerSIDHVariant)
-	s.partnerSIDHPubKey = utility.NewSIDHPublicKey(partnerSIDHVariant)
-	err = s.partnerSIDHPubKey.Import(sd.PartnerSIDHPubKey)
+	partnerPQVariant := sidh.KeyVariant(sd.PartnerPQVariant)
+	s.partnerPQPubKey = utility.NewPQPublicKey(partnerPQVariant)
+	err = s.partnerPQPubKey.Import(sd.PartnerPQPubKey)
 	if err != nil {
 		return err
 	}

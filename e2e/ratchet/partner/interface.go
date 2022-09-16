@@ -107,22 +107,22 @@ type ManagerLegacySIDH interface {
 	// allows for support of duplicate key exchange triggering.
 	NewReceiveSession(partnerPubKey *cyclic.Int,
 		partnerSIDHPubKey *sidh.PublicKey, e2eParams session.Params,
-		source *session.Session) (*session.Session, bool)
+		source *session.SessionLegacySIDH) (*session.SessionLegacySIDH, bool)
 	// NewSendSession creates a new Send session using the latest public key
 	// received from the partner and a new private key for the user. Passing in a
 	// private key is optional. A private key will be generated if none is passed.
 	NewSendSession(myDHPrivKey *cyclic.Int, mySIDHPrivateKey *sidh.PrivateKey,
-		e2eParams session.Params, source *session.Session) *session.Session
+		e2eParams session.Params, source *session.SessionLegacySIDH) *session.SessionLegacySIDH
 	// GetSendSession gets the Send session of the passed ID. Returns nil if no session is found.
-	GetSendSession(sid session.SessionID) *session.Session
+	GetSendSession(sid session.SessionID) *session.SessionLegacySIDH
 	//GetReceiveSession gets the Receive session of the passed ID. Returns nil if no session is found.
-	GetReceiveSession(sid session.SessionID) *session.Session
+	GetReceiveSession(sid session.SessionID) *session.SessionLegacySIDH
 
 	// Confirm sets the passed session ID as confirmed and cleans up old sessions
 	Confirm(sid session.SessionID) error
 
 	// TriggerNegotiations returns a list of session that need rekeys
-	TriggerNegotiations() []*session.Session
+	TriggerNegotiations() []*session.SessionLegacySIDH
 
 	// MakeService Returns a service interface with the
 	// appropriate identifier for who is being sent to. Will populate

@@ -38,8 +38,8 @@ type managerLegacySIDH struct {
 	originMySIDHPrivKey     *sidh.PrivateKey
 	originPartnerSIDHPubKey *sidh.PublicKey
 
-	receive *relationship
-	send    *relationship
+	receive *relationshipLegacySIDH
+	send    *relationshipLegacySIDH
 
 	grp       *cyclic.Group
 	cyHandler session.CypherHandler
@@ -50,7 +50,7 @@ type managerLegacySIDH struct {
 func NewManagerLegacySIDH(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
 	partnerPubKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
 	partnerSIDHPubKey *sidh.PublicKey, sendParams,
-	receiveParams session.Params, cyHandler session.CypherHandler,
+	receiveParams session.Params, cyHandler session.CypherHandlerLegacySIDH,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator) ManagerLegacySIDH {
 
 	kv = kv.Prefix(makeManagerPrefix(partnerID))
@@ -79,10 +79,10 @@ func NewManagerLegacySIDH(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
 			err)
 	}
 
-	m.send = NewRelationship(m.kv, session.Send, myID, partnerID, myPrivKey,
+	m.send = NewRelationshipLegacySIDH(m.kv, session.Send, myID, partnerID, myPrivKey,
 		partnerPubKey, mySIDHPrivKey, partnerSIDHPubKey,
 		sendParams, cyHandler, grp, rng)
-	m.receive = NewRelationship(m.kv, session.Receive, myID, partnerID,
+	m.receive = NewRelationshipLegacySIDH(m.kv, session.Receive, myID, partnerID,
 		myPrivKey, partnerPubKey, mySIDHPrivKey, partnerSIDHPubKey,
 		receiveParams, cyHandler, grp, rng)
 
@@ -91,7 +91,7 @@ func NewManagerLegacySIDH(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
 
 // LoadManagerLegacySIDH loads a relationship and all buffers and sessions from disk
 func LoadManagerLegacySIDH(kv *versioned.KV, myID, partnerID *id.ID,
-	cyHandler session.CypherHandler, grp *cyclic.Group,
+	cyHandler session.CypherHandlerLegacySIDH, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (ManagerLegacySIDH, error) {
 
 	m := &managerLegacySIDH{
@@ -118,7 +118,7 @@ func LoadManagerLegacySIDH(kv *versioned.KV, myID, partnerID *id.ID,
 			err)
 	}
 
-	m.send, err = LoadRelationship(m.kv, session.Send, myID, partnerID,
+	m.send, err = LoadRelationshipLegacySIDH(m.kv, session.Send, myID, partnerID,
 		cyHandler, grp, rng)
 	if err != nil {
 		return nil, errors.WithMessage(err,
@@ -126,7 +126,7 @@ func LoadManagerLegacySIDH(kv *versioned.KV, myID, partnerID *id.ID,
 				" to load the Send session buffer")
 	}
 
-	m.receive, err = LoadRelationship(m.kv, session.Receive, myID, partnerID,
+	m.receive, err = LoadRelationshipLegacySIDH(m.kv, session.Receive, myID, partnerID,
 		cyHandler, grp, rng)
 	if err != nil {
 		return nil, errors.WithMessage(err,
@@ -193,10 +193,10 @@ func (m *managerLegacySIDH) deleteRelationships() error {
 // allows for support of duplicate key exchange triggering.
 func (m *managerLegacySIDH) NewReceiveSession(partnerPubKey *cyclic.Int,
 	partnerSIDHPubKey *sidh.PublicKey, e2eParams session.Params,
-	source *session.Session) (*session.Session, bool) {
+	source *session.SessionLegacySIDH) (*session.SessionLegacySIDH, bool) {
 
 	// Check if the session already exists
-	baseKey := session.GenerateE2ESessionBaseKey(source.GetMyPrivKey(),
+	baseKey := session.GenerateE2ESessionBaseKeyLegacySIDH(source.GetMyPrivKey(),
 		partnerPubKey, m.grp, source.GetMySIDHPrivKey(),
 		partnerSIDHPubKey)
 
@@ -219,7 +219,7 @@ func (m *managerLegacySIDH) NewReceiveSession(partnerPubKey *cyclic.Int,
 // private key is optional. A private key will be generated if none is passed.
 func (m *managerLegacySIDH) NewSendSession(myPrivKey *cyclic.Int,
 	mySIDHPrivKey *sidh.PrivateKey, e2eParams session.Params,
-	sourceSession *session.Session) *session.Session {
+	sourceSession *session.SessionLegacySIDH) *session.SessionLegacySIDH {
 
 	// Add the session to the Send session buffer and return
 	return m.send.AddSession(myPrivKey, sourceSession.GetPartnerPubKey(),
@@ -250,13 +250,13 @@ func (m *managerLegacySIDH) MyId() *id.ID {
 
 // GetSendSession gets the Send session of the passed ID. Returns nil if no
 // session is found.
-func (m *managerLegacySIDH) GetSendSession(sid session.SessionID) *session.Session {
+func (m *managerLegacySIDH) GetSendSession(sid session.SessionID) *session.SessionLegacySIDH {
 	return m.send.GetByID(sid)
 }
 
 // GetReceiveSession gets the Receive session of the passed ID. Returns nil if
 // no session is found.
-func (m *managerLegacySIDH) GetReceiveSession(sid session.SessionID) *session.Session {
+func (m *managerLegacySIDH) GetReceiveSession(sid session.SessionID) *session.SessionLegacySIDH {
 	return m.receive.GetByID(sid)
 }
 
@@ -276,7 +276,7 @@ func (m *managerLegacySIDH) Confirm(sid session.SessionID) error {
 }
 
 // TriggerNegotiations returns a list of key exchange operations if any are necessary.
-func (m *managerLegacySIDH) TriggerNegotiations() []*session.Session {
+func (m *managerLegacySIDH) TriggerNegotiations() []*session.SessionLegacySIDH {
 	return m.send.TriggerNegotiation()
 }
 

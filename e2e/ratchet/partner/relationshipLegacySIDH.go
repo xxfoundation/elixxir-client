@@ -32,8 +32,8 @@ type relationshipLegacySIDH struct {
 
 	kv *versioned.KV
 
-	sessions    []*session.Session
-	sessionByID map[session.SessionID]*session.Session
+	sessions    []*session.SessionLegacySIDH
+	sessionByID map[session.SessionID]*session.SessionLegacySIDH
 
 	fingerprint []byte
 
@@ -44,7 +44,7 @@ type relationshipLegacySIDH struct {
 	myID      *id.ID
 	partnerID *id.ID
 
-	cyHandler session.CypherHandler
+	cyHandler session.CypherHandlerLegacySIDH
 	rng       *fastRNG.StreamGenerator
 
 	serviceHandler ServiceHandler
@@ -58,16 +58,16 @@ func NewRelationshipLegacySIDH(kv *versioned.KV, t session.RelationshipType,
 	myID, partnerID *id.ID, myOriginPrivateKey,
 	partnerOriginPublicKey *cyclic.Int, originMySIDHPrivKey *sidh.PrivateKey,
 	originPartnerSIDHPubKey *sidh.PublicKey, initialParams session.Params,
-	cyHandler session.CypherHandler, grp *cyclic.Group,
+	cyHandler session.CypherHandlerLegacySIDH, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) *relationshipLegacySIDH {
 
 	kv = kv.Prefix(t.Prefix())
 
-	fingerprint := makeRelationshipLegacySIDHFingerprint(t, grp,
+	fingerprint := makeRelationshipFingerprint(t, grp,
 		myOriginPrivateKey, partnerOriginPublicKey, myID,
 		partnerID)
 
-	if err := storeRelationshipLegacySIDHFingerprint(fingerprint, kv); err != nil {
+	if err := storeRelationshipFingerprint(fingerprint, kv); err != nil {
 		jww.FATAL.Panicf("Failed to store relationshipLegacySIDH fingerpint "+
 			"for new relationshipLegacySIDH: %+v", err)
 	}
@@ -75,8 +75,8 @@ func NewRelationshipLegacySIDH(kv *versioned.KV, t session.RelationshipType,
 	r := &relationshipLegacySIDH{
 		t:           t,
 		kv:          kv,
-		sessions:    make([]*session.Session, 0),
-		sessionByID: make(map[session.SessionID]*session.Session),
+		sessions:    make([]*session.SessionLegacySIDH, 0),
+		sessionByID: make(map[session.SessionID]*session.SessionLegacySIDH),
 		fingerprint: fingerprint,
 		grp:         grp,
 		cyHandler:   cyHandler,
@@ -87,7 +87,7 @@ func NewRelationshipLegacySIDH(kv *versioned.KV, t session.RelationshipType,
 
 	// set to confirmed because the first session is always confirmed as a
 	// result of the negotiation before creation
-	s := session.NewSession(r.kv, r.t, partnerID, myOriginPrivateKey,
+	s := session.NewSessionLegacySIDH(r.kv, r.t, partnerID, myOriginPrivateKey,
 		partnerOriginPublicKey, nil, originMySIDHPrivKey,
 		originPartnerSIDHPubKey, session.SessionID{},
 		r.fingerprint, session.Confirmed, initialParams, cyHandler,
@@ -117,7 +117,7 @@ func LoadRelationshipLegacySIDH(kv *versioned.KV, t session.RelationshipType, my
 
 	r := &relationshipLegacySIDH{
 		t:           t,
-		sessionByID: make(map[session.SessionID]*session.Session),
+		sessionByID: make(map[session.SessionID]*session.SessionLegacySIDH),
 		kv:          kv,
 		myID:        myID,
 		partnerID:   partnerID,
@@ -208,7 +208,7 @@ func (r *relationshipLegacySIDH) Delete() {
 func (r *relationshipLegacySIDH) AddSession(myPrivKey, partnerPubKey, baseKey *cyclic.Int,
 	mySIDHPrivKey *sidh.PrivateKey, partnerSIDHPubKey *sidh.PublicKey,
 	trigger session.SessionID, negotiationStatus session.Negotiation,
-	e2eParams session.Params) *session.Session {
+	e2eParams session.Params) *session.SessionLegacySIDH {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
@@ -226,14 +226,14 @@ func (r *relationshipLegacySIDH) AddSession(myPrivKey, partnerPubKey, baseKey *c
 }
 
 // todo - doscstring
-func (r *relationshipLegacySIDH) addSession(s *session.Session) {
-	r.sessions = append([]*session.Session{s}, r.sessions...)
+func (r *relationshipLegacySIDH) addSession(s *session.SessionLegacySIDH) {
+	r.sessions = append([]*session.SessionLegacySIDH{s}, r.sessions...)
 	r.sessionByID[s.GetID()] = s
 	return
 }
 
 // todo - doscstring
-func (r *relationshipLegacySIDH) GetNewest() *session.Session {
+func (r *relationshipLegacySIDH) GetNewest() *session.SessionLegacySIDH {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 	if len(r.sessions) == 0 {
@@ -255,12 +255,12 @@ func (r *relationshipLegacySIDH) getKeyForSending() (session.Cypher, error) {
 }
 
 // returns the session which is most likely to be successful for sending
-func (r *relationshipLegacySIDH) getSessionForSending() *session.Session {
+func (r *relationshipLegacySIDH) getSessionForSending() *session.SessionLegacySIDH {
 	sessions := r.sessions
 
-	var confirmedRekey []*session.Session
-	var unconfirmedActive []*session.Session
-	var unconfirmedRekey []*session.Session
+	var confirmedRekey []*session.SessionLegacySIDH
+	var unconfirmedActive []*session.SessionLegacySIDH
+	var unconfirmedRekey []*session.SessionLegacySIDH
 
 	jww.TRACE.Printf("[REKEY] Sessions Available: %d", len(sessions))
 
@@ -306,10 +306,10 @@ func (r *relationshipLegacySIDH) getSessionForSending() *session.Session {
 }
 
 // TriggerNegotiation returns a list of session that need rekeys. Nil instances mean a new rekey from scratch
-func (r *relationshipLegacySIDH) TriggerNegotiation() []*session.Session {
+func (r *relationshipLegacySIDH) TriggerNegotiation() []*session.SessionLegacySIDH {
 	// Don't need to take the lock due to the use of a copy of the buffer
 	sessions := r.getInternalBufferShallowCopy()
-	var instructions []*session.Session
+	var instructions []*session.SessionLegacySIDH
 	for _, ses := range sessions {
 		if ses.TriggerNegotiation() {
 			instructions = append(instructions, ses)
@@ -331,14 +331,14 @@ func (r *relationshipLegacySIDH) getKeyForRekey() (session.Cypher, error) {
 }
 
 // returns the newest session which can be used to start a key negotiation
-func (r *relationshipLegacySIDH) getNewestRekeyableSession() *session.Session {
+func (r *relationshipLegacySIDH) getNewestRekeyableSession() *session.SessionLegacySIDH {
 	//dont need to take the lock due to the use of a copy of the buffer
 	sessions := r.getInternalBufferShallowCopy()
 	if len(sessions) == 0 {
 		return nil
 	}
 
-	var unconfirmed *session.Session
+	var unconfirmed *session.SessionLegacySIDH
 
 	for _, s := range r.sessions {
 		jww.TRACE.Printf("[REKEY] Looking at session %s", s)
@@ -365,7 +365,7 @@ func (r *relationshipLegacySIDH) getNewestRekeyableSession() *session.Session {
 }
 
 // todo - doscstring
-func (r *relationshipLegacySIDH) GetByID(id session.SessionID) *session.Session {
+func (r *relationshipLegacySIDH) GetByID(id session.SessionID) *session.SessionLegacySIDH {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 	return r.sessionByID[id]
@@ -392,7 +392,7 @@ func (r *relationshipLegacySIDH) Confirm(id session.SessionID) error {
 // adding or removing a session is always done via replacing the entire
 // slice, this allow us to copy the slice under the read lock and do the
 // rest of the work while not taking the lock
-func (r *relationshipLegacySIDH) getInternalBufferShallowCopy() []*session.Session {
+func (r *relationshipLegacySIDH) getInternalBufferShallowCopy() []*session.SessionLegacySIDH {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 	return r.sessions
@@ -403,7 +403,7 @@ func (r *relationshipLegacySIDH) clean() {
 
 	numConfirmed := uint(0)
 
-	var newSessions []*session.Session
+	var newSessions []*session.SessionLegacySIDH
 	editsMade := false
 
 	for _, s := range r.sessions {

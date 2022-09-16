@@ -12,6 +12,7 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/partnerships/crust"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
 // userValidationComms is a sub-interface of the Comms interface for
@@ -19,6 +20,11 @@ import (
 type userValidationComms interface {
 	SendUsernameValidation(host *connect.Host,
 		message *pb.UsernameValidationRequest) (*pb.UsernameValidation, error)
+}
+
+// GetUsername returns the username from the Manager's store.
+func (m *Manager) GetUsername() (string, error) {
+	return m.storage.GetUd().GetUsername()
 }
 
 // GetUsernameValidationSignature will lazily load a username validation
@@ -64,9 +70,15 @@ func (m *Manager) getUsernameValidationSignature(
 		return nil, err
 	}
 
+	publicKey, err := rsa.LoadPublicKeyFromPem(response.ReceptionPublicKeyPem)
+	if err != nil {
+		return nil, err
+	}
+
 	// Verify response is valid
-	err = crust.VerifyVerificationSignature(host.GetPubKey(), response.Username,
-		response.ReceptionPublicKeyPem, response.Signature)
+	err = crust.VerifyVerificationSignature(host.GetPubKey(),
+		crust.HashUsername(response.Username),
+		publicKey, response.Signature)
 	if err != nil {
 		return nil, err
 	}

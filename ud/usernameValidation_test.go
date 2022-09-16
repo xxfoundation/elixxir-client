@@ -22,7 +22,7 @@ import (
 // testUsernameValidation is a mock up of UD's response for a
 // SendUsernameValidation comm.
 type testUsernameValidation struct {
-	pubKeyPem []byte
+	publicKey *rsa.PublicKey
 	username  string
 }
 
@@ -31,11 +31,11 @@ func (tuv *testUsernameValidation) SendUsernameValidation(host *connect.Host,
 	privKey, _ := rsa.LoadPrivateKeyFromPem([]byte(testKey))
 
 	sig, _ := crust.SignVerification(rand.Reader, privKey,
-		tuv.username, tuv.pubKeyPem)
+		tuv.username, tuv.publicKey)
 
 	return &pb.UsernameValidation{
 		Signature:             sig,
-		ReceptionPublicKeyPem: tuv.pubKeyPem,
+		ReceptionPublicKeyPem: rsa.CreatePublicKeyPem(tuv.publicKey),
 		Username:              tuv.username,
 	}, nil
 }
@@ -69,10 +69,8 @@ func TestManager_GetUsernameValidationSignature(t *testing.T) {
 		alternativeUd: &alternateUd{host: h},
 	}
 
-	publicKeyPem := rsa.CreatePublicKeyPem(rsaPrivKey.GetPublic())
-
 	c := &testUsernameValidation{
-		pubKeyPem: publicKeyPem,
+		publicKey: rsaPrivKey.GetPublic(),
 		username:  "admin",
 	}
 

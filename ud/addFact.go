@@ -17,6 +17,24 @@ type addFactComms interface {
 	SendRegisterFact(host *connect.Host, message *pb.FactRegisterRequest) (*pb.FactRegisterResponse, error)
 }
 
+// StoreUsername places the username into storage. This is only successful
+// if the user is already registered. This should only be called for clients
+// who have registered prior to this patch. Users registered after this patch
+// will already have their username stored as part of the call to
+// Manager.Register.
+func (m *Manager) StoreUsername(username string) error {
+	if !m.IsRegistered() {
+		return errors.New("Cannot store username if not registered.")
+	}
+
+	usernameFact, err := fact.NewFact(fact.Username, username)
+	if err != nil {
+		return err
+	}
+
+	return m.storage.GetUd().StoreUsername(usernameFact)
+}
+
 // SendRegisterFact adds a fact for the user to user discovery. Will only
 // succeed if the user is already registered and the system does not have the
 // fact currently registered for any user.

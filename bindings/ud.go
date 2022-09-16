@@ -152,6 +152,11 @@ func (ud *UserDiscovery) RemoveUser(fStr string) error {
 	return ud.ud.RemoveUser(f)
 }
 
+// GetUsername returns the username from the Manager's store.
+func (ud *UserDiscovery) GetUsername() (string, error) {
+	return ud.ud.GetUsername()
+}
+
 // SearchCallback returns the result of a search
 type SearchCallback interface {
 	Callback(contacts *ContactList, error string)
@@ -356,6 +361,19 @@ func (ud *UserDiscovery) SetAlternativeUserDiscovery(address, cert, contactFile 
 // the Manager object.
 func (ud *UserDiscovery) UnsetAlternativeUserDiscovery() error {
 	return ud.ud.UnsetAlternativeUserDiscovery()
+}
+
+// StoreUsername places the username into storage. This is only successful
+// if the user is already registered. This should only be called for clients
+// who have registered prior to this patch. Users registered after this patch
+// will already have their username stored as part of the call to
+// Manager.Register.
+func (ud *UserDiscovery) StoreUsername(username string) error {
+	if !ud.ud.IsRegistered() {
+		return errors.New("Cannot store username if not registered.")
+	}
+
+	return ud.ud.StoreUsername(username)
 }
 
 func WrapUserDiscovery(ud *ud.Manager) *UserDiscovery {

@@ -291,6 +291,8 @@ gitlab.com/elixxir/crypto v0.0.7-0.20220414225314-6f3eb9c073a5 h1:yw3G8ZEiWu2eSZ
 gitlab.com/elixxir/crypto v0.0.7-0.20220414225314-6f3eb9c073a5/go.mod h1:tD6XjtQh87T2nKZL5I/pYPck5M2wLpkZ1Oz7H/LqO10=
 gitlab.com/elixxir/crypto v0.0.7-0.20220829171734-2d924e097159 h1:6mVG0ZDOy5E6NTXEXKcj4wOO2mjdcAE74twJDL4u6p8=
 gitlab.com/elixxir/crypto v0.0.7-0.20220829171734-2d924e097159/go.mod h1:UTVC1SAdIK4dX6BmcrUwpZwaYPJwCSe8FwW481nTxTI=
+gitlab.com/elixxir/crypto v0.0.7-0.20220913192108-f1e3be8ab415 h1:JNdeNhfZvs+0oY+X3GU1rTU14KwUWmBiSGDNV/zEfws=
+gitlab.com/elixxir/crypto v0.0.7-0.20220913192108-f1e3be8ab415/go.mod h1:UTVC1SAdIK4dX6BmcrUwpZwaYPJwCSe8FwW481nTxTI=
 gitlab.com/elixxir/ekv v0.1.6 h1:M2hUSNhH/ChxDd+s8xBqSEKgoPtmE6hOEBqQ73KbN6A=
 gitlab.com/elixxir/ekv v0.1.6/go.mod h1:e6WPUt97taFZe5PFLPb1Dupk7tqmDCTQu1kkstqJvw4=
 gitlab.com/elixxir/primitives v0.0.0-20200731184040-494269b53b4d/go.mod h1:OQgUZq7SjnE0b+8+iIAT2eqQF+2IFHn73tOo+aV11mg=

@@ -7,8 +7,9 @@
 
 syntax = "proto3";
 
-package parse;
-option go_package = "/channels";
+option go_package = "gitlab.com/elixxir/client/channels";
+
+package channels;
 
 // CMIXChannelText is the payload for sending normal text messages to channels
 // the replyMessageID is nil when it is not a reply

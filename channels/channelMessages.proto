@@ -7,8 +7,9 @@
 
 syntax = "proto3";
 
-package parse;
-option go_package = "/channels";
+option go_package = "gitlab.com/elixxir/client/channels";
+
+package channels;
 
 // ChannelMessage is transmitted by the channel. Effectively it is a command for
 // the channel sent by a user with admin access of the channel.

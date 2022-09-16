@@ -28,7 +28,7 @@ require (
 )
 
 require (
-	git.xx.network/elixxir/ctidh_cgo v0.0.0-20220916152454-c765b86bb13d // indirect
+	git.xx.network/elixxir/ctidh_cgo v0.0.0-20220916163316-bc3f946a0e29 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/badoux/checkmail v1.2.1 // indirect
 	github.com/elliotchance/orderedmap v1.4.0 // indirect

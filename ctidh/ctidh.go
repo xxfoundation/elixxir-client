@@ -68,3 +68,13 @@ func (e *CtidhNike) DeriveSecret(privKey nike.PrivateKey, pubKey nike.PublicKey)
 func (e *CtidhNike) DerivePublicKey(privKey nike.PrivateKey) nike.PublicKey {
 	return ctidh.DerivePublicKey(privKey.(*ctidh.PrivateKey))
 }
+
+// PublicKeyEqual is a constant time key comparison.
+func (e *CtidhNike) PublicKeyEqual(a, b nike.PublicKey) bool {
+	return a.(*ctidh.PublicKey).Equal(b.(*ctidh.PublicKey))
+}
+
+// PrivateKeyEqual is a constant time key comparison.
+func (e *CtidhNike) PrivateKeyEqual(a, b nike.PrivateKey) bool {
+	return a.(*ctidh.PrivateKey).Equal(b.(*ctidh.PrivateKey))
+}

@@ -621,14 +621,8 @@ func (s *Session) marshal() ([]byte, error) {
 	sd.BaseKey = s.baseKey.Bytes()
 	sd.MyPrivKey = s.myPrivKey.Bytes()
 	sd.PartnerPubKey = s.partnerPubKey.Bytes()
-	sd.MyPQPrivKey = make([]byte, s.myPQPrivKey.Size())
-	sd.PartnerPQPubKey = make([]byte, s.partnerPQPubKey.Size())
-
-	s.myPQPrivKey.Export(sd.MyPQPrivKey)
-	sd.MyPQVariant = byte(s.myPQPrivKey.Variant())
-
-	s.partnerPQPubKey.Export(sd.PartnerPQPubKey)
-	sd.PartnerPQVariant = byte(s.partnerPQPubKey.Variant())
+	sd.MyPQPrivKey = s.myPQPrivKey.Bytes()
+	sd.PartnerPQPubKey = s.partnerPQPubKey.Bytes()
 
 	sd.Trigger = s.partnerSource[:]
 	sd.RelationshipFingerprint = s.relationshipFingerprint
@@ -667,16 +661,12 @@ func (s *Session) unmarshal(b []byte) error {
 	s.myPrivKey = grp.NewIntFromBytes(sd.MyPrivKey)
 	s.partnerPubKey = grp.NewIntFromBytes(sd.PartnerPubKey)
 
-	myPQVariant := sidh.KeyVariant(sd.MyPQVariant)
-	s.myPQPrivKey = utility.NewPQPrivateKey(myPQVariant)
-	err = s.myPQPrivKey.Import(sd.MyPQPrivKey)
+	err = s.myPQPrivKey.FromBytes(sd.MyPQPrivKey)
 	if err != nil {
 		return err
 	}
 
-	partnerPQVariant := sidh.KeyVariant(sd.PartnerPQVariant)
-	s.partnerPQPubKey = utility.NewPQPublicKey(partnerPQVariant)
-	err = s.partnerPQPubKey.Import(sd.PartnerPQPubKey)
+	err = s.partnerPQPubKey.FromBytes(sd.PartnerPQPubKey)
 	if err != nil {
 		return err
 	}

@@ -54,7 +54,7 @@ func GenerateE2ESessionBaseKeyLegacySIDH(myDHPrivKey, theirDHPubKey *cyclic.Int,
 // methods to encrypt and decrypt them.
 type CypherLegacySIDH interface {
 
-	// GetSessionLegacySIDH return pointers to higher level management structures.
+	// GetSession return pointers to higher level management structures.
 	GetSession() *SessionLegacySIDH
 
 	// Fingerprint returns the CypherLegacySIDH key fingerprint, if it has it. Otherwise,

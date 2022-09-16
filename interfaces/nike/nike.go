@@ -54,4 +54,10 @@ type Nike interface {
 
 	// DerivePublicKey derives a public key given a private key.
 	DerivePublicKey(PrivateKey) PublicKey
+
+	// PublicKeyEqual is a constant time key comparison.
+	PublicKeyEqual(PublicKey, PublicKey) bool
+
+	// PrivateKeyEqual is a constant time key comparison.
+	PrivateKeyEqual(PrivateKey, PrivateKey) bool
 }

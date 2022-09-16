@@ -13,11 +13,11 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.12.0
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
-	gitlab.com/elixxir/comms v0.0.4-0.20220914220142-601071b77d78
+	gitlab.com/elixxir/comms v0.0.4-0.20220916183942-257688b39f0c
 	gitlab.com/elixxir/crypto v0.0.7-0.20220901215826-1ceaeb59081f
 	gitlab.com/elixxir/ekv v0.2.1
 	gitlab.com/elixxir/primitives v0.0.3-0.20220901220638-1acc75fabdc6
-	gitlab.com/xx_network/comms v0.0.4-0.20220914220351-2e461edbfe48
+	gitlab.com/xx_network/comms v0.0.4-0.20220916183430-cc3077fedf9f
 	gitlab.com/xx_network/crypto v0.0.5-0.20220902182733-69aad094b487
 	gitlab.com/xx_network/primitives v0.0.4-0.20220902183448-319596e2fec8
 	go.uber.org/ratelimit v0.2.0

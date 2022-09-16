@@ -23,6 +23,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 
+	"gitlab.com/elixxir/client/ctidh"
 	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -173,7 +174,8 @@ func NewSession(kv *versioned.KV, t RelationshipType, partner *id.ID, myPrivKey,
 		session.rekeyThreshold,
 		myPubKey.TextVerbose(16, 0),
 		session.partnerPubKey.TextVerbose(16, 0),
-		utility.StringPQPubKey(session.myPQPrivKey.PublicKey()),
+
+		utility.StringPQPubKey(ctidh.NewCtidhNike().DerivePublicKey(session.myPQPrivKey)),
 		utility.StringPQPubKey(session.partnerPQPubKey))
 
 	err := session.Save()
@@ -548,11 +550,7 @@ func (s *Session) finalizeKeyNegotiation() {
 		stream := s.rng.GetStream()
 		s.myPrivKey = dh.GeneratePrivateKey(len(grp.GetPBytes()),
 			grp, stream)
-		// get the variant opposite my partners variant
-		sidhVariant := utility.GetCompatiblePQVariant(
-			s.partnerPQPubKey.Variant())
-		s.myPQPrivKey = utility.NewPQPrivateKey(sidhVariant)
-		s.myPQPrivKey.Generate(stream)
+		s.myPQPrivKey, _ = ctidh.NewCtidhNike().NewKeypair()
 		stream.Close()
 	}
 

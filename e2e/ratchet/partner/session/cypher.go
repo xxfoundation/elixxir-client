@@ -8,9 +8,11 @@
 package session
 
 import (
-	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
+	"gitlab.com/elixxir/client/ctidh"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
@@ -23,19 +25,18 @@ import (
 // exchange with the post-quantum secure Supersingular Isogeny DH exchange
 // results.
 func GenerateE2ESessionBaseKey(myDHPrivKey, theirDHPubKey *cyclic.Int,
-	dhGrp *cyclic.Group, mySIDHPrivKey *sidh.PrivateKey,
-	theirSIDHPubKey *sidh.PublicKey) *cyclic.Int {
+	dhGrp *cyclic.Group, myPQPrivKey nike.PrivateKey,
+	theirPQPubKey nike.PublicKey) *cyclic.Int {
 	// DH Key Gen
 	dhKey := dh.GenerateSessionKey(myDHPrivKey, theirDHPubKey, dhGrp)
 
-	// SIDH Key Gen
-	sidhKey := make([]byte, mySIDHPrivKey.SharedSecretSize())
-	mySIDHPrivKey.DeriveSecret(sidhKey, theirSIDHPubKey)
+	// PQ Key Gen
+	pqKey := ctidh.NewCtidhNike().DeriveSecret(myPQPrivKey, theirPQPubKey)
 
 	// Derive key
 	h := hash.CMixHash.New()
 	h.Write(dhKey.Bytes())
-	h.Write(sidhKey)
+	h.Write(pqKey)
 	keyDigest := h.Sum(nil)
 	// NOTE: Sadly the baseKey was a full DH key, and that key was used
 	// to create an "IDF" as well as in key generation and potentially other

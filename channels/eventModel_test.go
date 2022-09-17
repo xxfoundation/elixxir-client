@@ -38,26 +38,6 @@ type MockEvent struct {
 	eventReceive
 }
 
-func (m *MockEvent) MessageSent(channelID *id.ID, messageID cryptoChannel.MessageID,
-	myUsername string, text string, timestamp time.Time, lease time.Duration, round rounds.Round) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m *MockEvent) ReplySent(channelID *id.ID, messageID cryptoChannel.MessageID,
-	replyTo cryptoChannel.MessageID, myUsername string, text string,
-	timestamp time.Time, lease time.Duration, round rounds.Round) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m *MockEvent) ReactionSent(channelID *id.ID, messageID cryptoChannel.MessageID,
-	reactionTo cryptoChannel.MessageID, senderUsername string, reaction string,
-	timestamp time.Time, lease time.Duration, round rounds.Round) {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (m *MockEvent) UpdateSentStatus(messageID cryptoChannel.MessageID,
 	status SentStatus) {
 	//TODO implement me
@@ -68,7 +48,7 @@ func (*MockEvent) JoinChannel(channel *cryptoBroadcast.Channel) {}
 func (*MockEvent) LeaveChannel(channelID *id.ID)                {}
 func (m *MockEvent) ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
 	senderUsername string, text string,
-	timestamp time.Time, lease time.Duration, round rounds.Round) {
+	timestamp time.Time, lease time.Duration, round rounds.Round, status SentStatus) {
 	m.eventReceive = eventReceive{
 		channelID:      channelID,
 		messageID:      messageID,
@@ -83,7 +63,7 @@ func (m *MockEvent) ReceiveMessage(channelID *id.ID, messageID cryptoChannel.Mes
 func (m *MockEvent) ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
 	replyTo cryptoChannel.MessageID, senderUsername string,
 	text string, timestamp time.Time, lease time.Duration,
-	round rounds.Round) {
+	round rounds.Round, status SentStatus) {
 	fmt.Println(replyTo)
 	m.eventReceive = eventReceive{
 		channelID:      channelID,
@@ -99,7 +79,7 @@ func (m *MockEvent) ReceiveReply(channelID *id.ID, messageID cryptoChannel.Messa
 func (m *MockEvent) ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
 	reactionTo cryptoChannel.MessageID, senderUsername string,
 	reaction string, timestamp time.Time, lease time.Duration,
-	round rounds.Round) {
+	round rounds.Round, status SentStatus) {
 	m.eventReceive = eventReceive{
 		channelID:      channelID,
 		messageID:      messageID,
@@ -215,7 +195,8 @@ type dummyMessageTypeHandler struct {
 func (dmth *dummyMessageTypeHandler) dummyMessageTypeReceiveMessage(
 	channelID *id.ID, messageID cryptoChannel.MessageID,
 	messageType MessageType, senderUsername string, content []byte,
-	timestamp time.Time, lease time.Duration, round rounds.Round) {
+	timestamp time.Time, lease time.Duration, round rounds.Round,
+	status SentStatus) {
 	dmth.triggered = true
 	dmth.channelID = channelID
 	dmth.messageID = messageID
@@ -252,7 +233,7 @@ func TestEvents_triggerEvents(t *testing.T) {
 	r.Timestamps[states.QUEUED] = time.Now()
 
 	//call the trigger
-	e.triggerEvent(chID, umi, receptionID.EphemeralIdentity{}, r)
+	e.triggerEvent(chID, umi, receptionID.EphemeralIdentity{}, r, Delivered)
 
 	//check that the event was triggered
 	if !dummy.triggered {
@@ -321,7 +302,7 @@ func TestEvents_triggerEvents_noChannel(t *testing.T) {
 	r.Timestamps[states.QUEUED] = time.Now()
 
 	//call the trigger
-	e.triggerEvent(chID, umi, receptionID.EphemeralIdentity{}, r)
+	e.triggerEvent(chID, umi, receptionID.EphemeralIdentity{}, r, Delivered)
 
 	//check that the event was triggered
 	if dummy.triggered {
@@ -356,7 +337,8 @@ func TestEvents_triggerAdminEvents(t *testing.T) {
 	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message)
 
 	//call the trigger
-	e.triggerAdminEvent(chID, cm, msgID, receptionID.EphemeralIdentity{}, r)
+	e.triggerAdminEvent(chID, cm, msgID, receptionID.EphemeralIdentity{}, r,
+		Delivered)
 
 	//check that the event was triggered
 	if !dummy.triggered {
@@ -427,7 +409,8 @@ func TestEvents_triggerAdminEvents_noChannel(t *testing.T) {
 	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message)
 
 	//call the trigger
-	e.triggerAdminEvent(chID, cm, msgID, receptionID.EphemeralIdentity{}, r)
+	e.triggerAdminEvent(chID, cm, msgID, receptionID.EphemeralIdentity{}, r,
+		Delivered)
 
 	//check that the event was triggered
 	if dummy.triggered {
@@ -467,7 +450,7 @@ func TestEvents_receiveTextMessage_Message(t *testing.T) {
 
 	//call the handler
 	e.receiveTextMessage(chID, msgID, 0, senderUsername,
-		textMarshaled, ts, lease, r)
+		textMarshaled, ts, lease, r, Delivered)
 
 	//check the results on the model
 	if !me.eventReceive.channelID.Cmp(chID) {
@@ -540,7 +523,7 @@ func TestEvents_receiveTextMessage_Reply(t *testing.T) {
 
 	//call the handler
 	e.receiveTextMessage(chID, msgID, Text, senderUsername,
-		textMarshaled, ts, lease, r)
+		textMarshaled, ts, lease, r, Delivered)
 
 	//check the results on the model
 	if !me.eventReceive.channelID.Cmp(chID) {
@@ -613,7 +596,7 @@ func TestEvents_receiveTextMessage_Reply_BadReply(t *testing.T) {
 
 	//call the handler
 	e.receiveTextMessage(chID, msgID, 0, senderUsername,
-		textMarshaled, ts, lease, r)
+		textMarshaled, ts, lease, r, Delivered)
 
 	//check the results on the model
 	if !me.eventReceive.channelID.Cmp(chID) {
@@ -686,7 +669,7 @@ func TestEvents_receiveReaction(t *testing.T) {
 
 	//call the handler
 	e.receiveReaction(chID, msgID, 0, senderUsername,
-		textMarshaled, ts, lease, r)
+		textMarshaled, ts, lease, r, Delivered)
 
 	//check the results on the model
 	if !me.eventReceive.channelID.Cmp(chID) {
@@ -759,7 +742,7 @@ func TestEvents_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 
 	//call the handler
 	e.receiveReaction(chID, msgID, 0, senderUsername,
-		textMarshaled, ts, lease, r)
+		textMarshaled, ts, lease, r, Delivered)
 
 	//check the results on the model
 	if me.eventReceive.channelID != nil {
@@ -822,7 +805,7 @@ func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T) {
 
 	//call the handler
 	e.receiveReaction(chID, msgID, 0, senderUsername,
-		textMarshaled, ts, lease, r)
+		textMarshaled, ts, lease, r, Delivered)
 
 	//check the results on the model
 	if me.eventReceive.channelID != nil {

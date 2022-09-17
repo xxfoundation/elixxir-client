@@ -135,7 +135,7 @@ func (m *manager) sendCmix(packet []store.Part) {
 		}
 	}
 
-	err = m.cmix.GetRoundResults(
+	m.cmix.GetRoundResults(
 		roundResultsTimeout, m.roundResultsCallback(validParts), rid.ID)
 }
 

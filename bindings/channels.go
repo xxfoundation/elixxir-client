@@ -339,7 +339,7 @@ func (cm *ChannelsManager) SendGeneric(marshalledChanId []byte,
 	}
 
 	// Send message
-	chanMsgId, rndId, ephId, err := cm.api.SendGeneric(chanId,
+	chanMsgId, rnd, ephId, err := cm.api.SendGeneric(chanId,
 		channels.MessageType(messageType), message,
 		time.Duration(leaseTimeMS), params.CMIX)
 	if err != nil {
@@ -347,7 +347,7 @@ func (cm *ChannelsManager) SendGeneric(marshalledChanId []byte,
 	}
 
 	// Construct send report
-	return constructChannelSendReport(chanMsgId, rndId, ephId)
+	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
 }
 
 // SendAdminGeneric is used to send a raw message over a channel encrypted with
@@ -394,12 +394,12 @@ func (cm *ChannelsManager) SendAdminGeneric(adminPrivateKey,
 	}
 
 	// Send admin message
-	chanMsgId, rndId, ephId, err := cm.api.SendAdminGeneric(rsaPrivKey,
+	chanMsgId, rnd, ephId, err := cm.api.SendAdminGeneric(rsaPrivKey,
 		chanId, channels.MessageType(messageType), message,
 		time.Duration(leaseTimeMS), params.CMIX)
 
 	// Construct send report
-	return constructChannelSendReport(chanMsgId, rndId, ephId)
+	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
 }
 
 // SendMessage is used to send a formatted message over a channel.
@@ -437,14 +437,14 @@ func (cm *ChannelsManager) SendMessage(marshalledChanId []byte,
 	}
 
 	// Send message
-	chanMsgId, rndId, ephId, err := cm.api.SendMessage(chanId, message,
+	chanMsgId, rnd, ephId, err := cm.api.SendMessage(chanId, message,
 		time.Duration(leaseTimeMS), params.CMIX)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct send report
-	return constructChannelSendReport(chanMsgId, rndId, ephId)
+	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
 }
 
 // SendReply is used to send a formatted message over a channel.
@@ -494,14 +494,14 @@ func (cm *ChannelsManager) SendReply(marshalledChanId []byte,
 	copy(msgId[:], messageToReactTo)
 
 	// Send Reply
-	chanMsgId, rndId, ephId, err := cm.api.SendReply(chanId, message,
+	chanMsgId, rnd, ephId, err := cm.api.SendReply(chanId, message,
 		msgId, time.Duration(leaseTimeMS), params.CMIX)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct send report
-	return constructChannelSendReport(chanMsgId, rndId, ephId)
+	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
 }
 
 // SendReaction is used to send a reaction to a message over a channel.
@@ -540,14 +540,14 @@ func (cm *ChannelsManager) SendReaction(marshalledChanId []byte,
 	copy(msgId[:], messageToReactTo)
 
 	// Send reaction
-	chanMsgId, rndId, ephId, err := cm.api.SendReaction(chanId,
+	chanMsgId, rnd, ephId, err := cm.api.SendReaction(chanId,
 		reaction, msgId, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
 
 	// Construct send report
-	return constructChannelSendReport(chanMsgId, rndId, ephId)
+	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
 }
 
 // parseChannelsParameters is a helper function for the Send functions. It
@@ -641,10 +641,10 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 
 	// Wrap callback around backend interface
 	cb := channels.MessageTypeReceiveMessage(
-		func(channelID *id.ID, messageID cryptoChannel.MessageID,
-			messageType channels.MessageType, senderUsername string,
-			content []byte, timestamp time.Time, lease time.Duration,
-			round rounds.Round) {
+		func(channelID *id.ID,
+			messageID cryptoChannel.MessageID, messageType channels.MessageType,
+			senderUsername string, content []byte, timestamp time.Time,
+			lease time.Duration, round rounds.Round, status channels.SentStatus) {
 
 			rcm := ReceivedChannelMessageReport{
 				ChannelId:      channelID.Marshal(),

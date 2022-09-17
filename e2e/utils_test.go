@@ -250,8 +250,7 @@ func (m *mockCmix) RemoveHealthCallback(uint64)                              {}
 func (m *mockCmix) HasNode(*id.ID) bool                                      { return true }
 func (m *mockCmix) NumRegisteredNodes() int                                  { return 0 }
 func (m *mockCmix) TriggerNodeRegistration(*id.ID)                           {}
-func (m *mockCmix) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round) error {
-	return nil
+func (m *mockCmix) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round) {
 }
 func (m *mockCmix) LookupHistoricalRound(id.Round, rounds.RoundResultCallback) error { return nil }
 func (m *mockCmix) SendToAny(func(host *connect.Host) (interface{}, error), *stoppable.Single) (interface{}, error) {

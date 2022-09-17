@@ -183,8 +183,7 @@ func (t *testNetworkManagerGeneric) GetIdentity(get *id.ID) (
 	return identity.TrackedID{}, nil
 }
 func (t *testNetworkManagerGeneric) GetRoundResults(timeout time.Duration,
-	roundCallback cmix.RoundEventCallback, roundList ...id.Round) error {
-	return nil
+	roundCallback cmix.RoundEventCallback, roundList ...id.Round) {
 }
 func (t *testNetworkManagerGeneric) HasNode(nid *id.ID) bool { return false }
 func (t *testNetworkManagerGeneric) IsHealthy() bool         { return true }

@@ -191,9 +191,8 @@ func (m *mockCmix) NumRegisteredNodes() int        { panic("implement me") }
 func (m *mockCmix) TriggerNodeRegistration(*id.ID) { panic("implement me") }
 
 func (m *mockCmix) GetRoundResults(_ time.Duration,
-	roundCallback cmix.RoundEventCallback, _ ...id.Round) error {
+	roundCallback cmix.RoundEventCallback, _ ...id.Round) {
 	go roundCallback(true, false, map[id.Round]cmix.RoundResult{42: {}})
-	return nil
 }
 
 func (m *mockCmix) LookupHistoricalRound(id.Round, rounds.RoundResultCallback) error {

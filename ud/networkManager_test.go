@@ -231,7 +231,7 @@ func (tnm *testNetworkManager) TriggerNodeRegistration(nid *id.ID) {
 	panic("implement me")
 }
 
-func (tnm *testNetworkManager) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) error {
+func (tnm *testNetworkManager) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) {
 	//TODO implement me
 	panic("implement me")
 }

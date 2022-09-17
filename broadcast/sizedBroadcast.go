@@ -66,13 +66,23 @@ func DecodeSizedBroadcast(data []byte) ([]byte, error) {
 			errDecodeSizedBroadcastDataLen, len(data), sizedBroadcastMinSize)
 	}
 
-	size := binary.LittleEndian.Uint16(data[:sizeSize])
+	size := GetSizedBroadcastSize(data)
 	if int(size) > len(data[sizeSize:]) {
 		return nil, errors.Errorf(
 			errDecodeSizedBroadcastSize, size, len(data[sizeSize:]))
 	}
 
 	return data[sizeSize : size+sizeSize], nil
+}
+
+// GetSizedBroadcastSize returns the size of the sized broadcast, used for
+// testing
+func GetSizedBroadcastSize(data []byte) uint16 {
+	if len(data) < sizeSize {
+		return 0
+	}
+
+	return binary.LittleEndian.Uint16(data[:sizeSize])
 }
 
 // MaxSizedBroadcastPayloadSize returns the maximum size of a payload that can

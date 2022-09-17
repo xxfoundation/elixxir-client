@@ -181,7 +181,7 @@ func (m *mockCmix) GetMaxMessageLength() int {
 }
 
 func (m *mockCmix) Send(_ *id.ID, fp format.Fingerprint, srv message.Service,
-	payload, mac []byte, _ cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	payload, mac []byte, _ cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.handler.Lock()
 	defer m.handler.Unlock()
 
@@ -193,21 +193,26 @@ func (m *mockCmix) Send(_ *id.ID, fp format.Fingerprint, srv message.Service,
 	if m.handler.processorMap[fp] != nil {
 		m.handler.processorMap[fp].Process(
 			msg, receptionID.EphemeralIdentity{}, rounds.Round{})
-		return 0, ephemeral.Id{}, nil
+		return rounds.Round{}, ephemeral.Id{}, nil
 	} else if m.handler.serviceMap[srv.Tag] != nil {
 		m.handler.serviceMap[srv.Tag].Process(
 			msg, receptionID.EphemeralIdentity{}, rounds.Round{})
-		return 0, ephemeral.Id{}, nil
+		return rounds.Round{}, ephemeral.Id{}, nil
 	}
 
 	m.t.Errorf("No processor found for fingerprint %s", fp)
-	return 0, ephemeral.Id{},
+	return rounds.Round{}, ephemeral.Id{},
 		errors.Errorf("No processor found for fingerprint %s", fp)
 
 }
 
-func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
-	return 0, nil, nil
+func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
+
+func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, nil, nil
 }
 func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)            {}
 func (m *mockCmix) RemoveIdentity(*id.ID)                          {}

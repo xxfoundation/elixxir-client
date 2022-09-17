@@ -247,7 +247,7 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 		}
 	} else {
 		jww.WARN.Printf(
-			"Building new HostPool because no HostList stored: %+v", err)
+			"Building new HostPool because no HostList stored: %s", err.Error())
 	}
 
 	// Build the initial HostPool and return

@@ -12,14 +12,15 @@ require (
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.12.0
+	github.com/stretchr/testify v1.8.0
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
-	gitlab.com/elixxir/comms v0.0.4-0.20220916183942-257688b39f0c
-	gitlab.com/elixxir/crypto v0.0.7-0.20220901215826-1ceaeb59081f
+	gitlab.com/elixxir/comms v0.0.4-0.20220913220502-eed192f654bd
+	gitlab.com/elixxir/crypto v0.0.7-0.20220913220142-ab0771bad0af
 	gitlab.com/elixxir/ekv v0.2.1
 	gitlab.com/elixxir/primitives v0.0.3-0.20220901220638-1acc75fabdc6
-	gitlab.com/xx_network/comms v0.0.4-0.20220916183430-cc3077fedf9f
-	gitlab.com/xx_network/crypto v0.0.5-0.20220902182733-69aad094b487
-	gitlab.com/xx_network/primitives v0.0.4-0.20220902183448-319596e2fec8
+	gitlab.com/xx_network/comms v0.0.4-0.20220913215811-c4bf83b27de3
+	gitlab.com/xx_network/crypto v0.0.5-0.20220913213008-98764f5b3287
+	gitlab.com/xx_network/primitives v0.0.4-0.20220809193445-9fc0a5209548
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 	golang.org/x/net v0.0.0-20220822230855-b0a4917ee28c
@@ -28,10 +29,11 @@ require (
 )
 
 require (
-	git.xx.network/elixxir/grpc-web-go-client v0.0.0-20220826174128-b60c76b23331 // indirect
+	git.xx.network/elixxir/grpc-web-go-client v0.0.0-20220908170150-ef04339ffe65 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/badoux/checkmail v1.2.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/elliotchance/orderedmap v1.4.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
@@ -47,6 +49,8 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/rs/cors v1.8.2 // indirect
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/afero v1.9.2 // indirect

@@ -64,7 +64,7 @@ func NewOrLoadStore(kv *versioned.KV) *Store {
 	s, err := loadStore(kv)
 	if err != nil {
 		jww.WARN.Printf(
-			"ReceptionID store not found, creating a new one: %+v", err)
+			"ReceptionID store not found, creating a new one: %s", err.Error())
 
 		s = &Store{
 			active:  []*registration{},

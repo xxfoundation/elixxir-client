@@ -44,7 +44,7 @@ func Test_symmetricClient_Smoke(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to create channel ID: %+v", err)
 	}
-	channel := crypto.Channel{
+	channel := &crypto.Channel{
 		ReceptionID: cid,
 		Name:        cname,
 		Description: cdesc,

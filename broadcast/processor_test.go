@@ -37,7 +37,7 @@ func Test_processor_Process(t *testing.T) {
 		RsaPubKey:   rsaPrivKey.GetPublic(),
 	}
 
-	cbChan := make(chan []byte)
+	cbChan := make(chan []byte, 1)
 	cb := func(payload []byte, _ receptionID.EphemeralIdentity, _ rounds.Round) {
 		cbChan <- payload
 	}

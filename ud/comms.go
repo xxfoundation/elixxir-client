@@ -44,6 +44,8 @@ type Comms interface {
 	// object. This will be used to send to the UD service on the above
 	// gRPC send functions.
 	GetHost(hostId *id.ID) (*connect.Host, bool)
+
+	channelLeaseComms
 }
 
 // removeFactComms is a sub-interface of the Comms interface for the
@@ -74,4 +76,8 @@ type registerUserComms interface {
 // addFact comms
 type addFactComms interface {
 	SendRegisterFact(host *connect.Host, message *pb.FactRegisterRequest) (*pb.FactRegisterResponse, error)
+}
+
+type channelLeaseComms interface {
+	SendChannelLeaseRequest(host *connect.Host, message *pb.ChannelLeaseRequest) (*pb.ChannelLeaseResponse, error)
 }

@@ -19,13 +19,15 @@ import (
 
 // broadcastClient implements the Channel interface for sending/receiving asymmetric or symmetric broadcast messages
 type broadcastClient struct {
-	channel crypto.Channel
+	channel *crypto.Channel
 	net     Client
 	rng     *fastRNG.StreamGenerator
 }
 
+type NewBroadcastChannelFunc func(channel *crypto.Channel, net Client, rng *fastRNG.StreamGenerator) (Channel, error)
+
 // NewBroadcastChannel creates a channel interface based on crypto.Channel, accepts net client connection & callback for received messages
-func NewBroadcastChannel(channel crypto.Channel, net Client, rng *fastRNG.StreamGenerator) (Channel, error) {
+func NewBroadcastChannel(channel *crypto.Channel, net Client, rng *fastRNG.StreamGenerator) (Channel, error) {
 	bc := &broadcastClient{
 		channel: channel,
 		net:     net,
@@ -58,7 +60,7 @@ func (bc *broadcastClient) RegisterListener(listenerCb ListenerFunc, method Meth
 	}
 
 	p := &processor{
-		c:      &bc.channel,
+		c:      bc.channel,
 		cb:     listenerCb,
 		method: method,
 	}
@@ -82,14 +84,16 @@ func (bc *broadcastClient) Stop() {
 	bc.net.DeleteClientService(bc.channel.ReceptionID)
 }
 
-// Get returns the underlying crypto.Channel object
-func (bc *broadcastClient) Get() crypto.Channel {
+// Get returns the underlying crypto.Channel object.
+func (bc *broadcastClient) Get() *crypto.Channel {
 	return bc.channel
 }
 
-// verifyID generates a symmetric ID based on the info in the channel & compares it to the one passed in
+// verifyID generates a symmetric ID based on the info in the channel and
+// compares it to the one passed in.
 func (bc *broadcastClient) verifyID() bool {
-	gen, err := crypto.NewChannelID(bc.channel.Name, bc.channel.Description, bc.channel.Salt, rsa.CreatePublicKeyPem(bc.channel.RsaPubKey))
+	gen, err := crypto.NewChannelID(bc.channel.Name, bc.channel.Description,
+		bc.channel.Salt, rsa.CreatePublicKeyPem(bc.channel.RsaPubKey))
 	if err != nil {
 		jww.FATAL.Panicf("[verifyID] Failed to generate verified channel ID")
 		return false

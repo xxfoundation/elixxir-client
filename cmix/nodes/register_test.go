@@ -88,4 +88,3 @@ func TestRegisterWithNode(t *testing.T) {
 		t.Fatalf("registerWithNode error: %+v", err)
 	}
 }
-

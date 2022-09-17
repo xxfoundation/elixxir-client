@@ -108,7 +108,7 @@ func NewBroadcastChannel(cmixId int, channelDefinition []byte) (*Channel, error)
 		return nil, errors.WithMessage(err, "Failed to load public key")
 	}
 
-	ch, err := broadcast.NewBroadcastChannel(cryptoBroadcast.Channel{
+	ch, err := broadcast.NewBroadcastChannel(&cryptoBroadcast.Channel{
 		ReceptionID: channelID,
 		Name:        def.Name,
 		Description: def.Description,
@@ -158,8 +158,8 @@ func (c *Channel) Broadcast(payload []byte) ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(BroadcastReport{
-		RoundsList: makeRoundsList(rid),
-		RoundURL:   getRoundURL(rid),
+		RoundURL:   getRoundURL(rid.ID),
+		RoundsList: makeRoundsList(rid.ID),
 		EphID:      eid,
 	})
 }
@@ -180,8 +180,8 @@ func (c *Channel) BroadcastAsymmetric(payload, pk []byte) ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(BroadcastReport{
-		RoundsList: makeRoundsList(rid),
-		RoundURL:   getRoundURL(rid),
+		RoundsList: makeRoundsList(rid.ID),
+		RoundURL:   getRoundURL(rid.ID),
 		EphID:      eid,
 	})
 }

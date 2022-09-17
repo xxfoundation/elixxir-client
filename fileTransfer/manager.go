@@ -13,6 +13,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/fileTransfer/callbackTracker"
 	"gitlab.com/elixxir/client/fileTransfer/store"
@@ -145,7 +146,7 @@ type FtE2e interface {
 // transfer manager for easier testing.
 type Cmix interface {
 	GetMaxMessageLength() int
-	SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round,
+	SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (rounds.Round,
 		[]ephemeral.Id, error)
 	AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,
 		mp message.Processor) error

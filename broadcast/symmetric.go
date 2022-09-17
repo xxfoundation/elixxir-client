@@ -11,6 +11,8 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
@@ -38,32 +40,56 @@ func (bc *broadcastClient) maxSymmetricPayload() int {
 // Network must be healthy to send
 // Requires a payload of size bc.MaxSymmetricPayloadSize()
 func (bc *broadcastClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
-	id.Round, ephemeral.Id, error) {
+	rounds.Round, ephemeral.Id, error) {
+	assemble := func(rid id.Round) ([]byte, error) {
+		return payload, nil
+	}
+	return bc.BroadcastWithAssembler(assemble, cMixParams)
+}
+
+// BroadcastWithAssembler broadcasts a payload over a symmetric channel. With
+// a payload assembled after the round is selected, allowing the round
+// info to be included in the payload.
+// Network must be healthy to send
+// Requires a payload of size bc.MaxSymmetricPayloadSize()
+func (bc *broadcastClient) BroadcastWithAssembler(assembler Assembler, cMixParams cmix.CMIXParams) (
+	rounds.Round, ephemeral.Id, error) {
 	if !bc.net.IsHealthy() {
-		return 0, ephemeral.Id{}, errors.New(errNetworkHealth)
+		return rounds.Round{}, ephemeral.Id{}, errors.New(errNetworkHealth)
 	}
 
-	if len(payload) != bc.maxSymmetricPayload() {
-		return 0, ephemeral.Id{},
-			errors.Errorf(errPayloadSize, len(payload), bc.maxSymmetricPayload())
+	assemble := func(rid id.Round) (fp format.Fingerprint,
+		service message.Service, encryptedPayload, mac []byte, err error) {
+
+		//assemble the passed payload
+		payload, err := assembler(rid)
+		if err != nil {
+			return format.Fingerprint{}, message.Service{}, nil, nil, err
+		}
+
+		if len(payload) != bc.maxSymmetricPayload() {
+			return format.Fingerprint{}, message.Service{}, nil, nil,
+				errors.Errorf(errPayloadSize, len(payload), bc.maxSymmetricPayload())
+		}
+
+		// Encrypt payload
+		rng := bc.rng.GetStream()
+		defer rng.Close()
+		encryptedPayload, mac, fp = bc.channel.EncryptSymmetric(payload, rng)
+
+		// Create service using symmetric broadcast service tag & channel reception ID
+		// Allows anybody with this info to listen for messages on this channel
+		service = message.Service{
+			Identifier: bc.channel.ReceptionID.Bytes(),
+			Tag:        symmetricBroadcastServiceTag,
+		}
+
+		if cMixParams.DebugTag == cmix.DefaultDebugTag {
+			cMixParams.DebugTag = symmCMixSendTag
+		}
+		return
 	}
 
-	// Encrypt payload
-	rng := bc.rng.GetStream()
-	encryptedPayload, mac, fp := bc.channel.EncryptSymmetric(payload, rng)
-	rng.Close()
-
-	// Create service using symmetric broadcast service tag & channel reception ID
-	// Allows anybody with this info to listen for messages on this channel
-	service := message.Service{
-		Identifier: bc.channel.ReceptionID.Bytes(),
-		Tag:        symmetricBroadcastServiceTag,
-	}
-
-	if cMixParams.DebugTag == cmix.DefaultDebugTag {
-		cMixParams.DebugTag = symmCMixSendTag
-	}
-
-	return bc.net.Send(
-		bc.channel.ReceptionID, fp, service, encryptedPayload, mac, cMixParams)
+	return bc.net.SendWithAssembler(bc.channel.ReceptionID, assemble,
+		cMixParams)
 }

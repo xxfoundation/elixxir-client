@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package ratchet
 
 import (
@@ -92,7 +99,7 @@ func (r *Ratchet) save() error {
 		Data:      data,
 	}
 
-	return r.kv.Set(storeKey, currentStoreVersion, &obj)
+	return r.kv.Set(storeKey, &obj)
 }
 
 // ekv functions

@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2022 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -44,9 +44,11 @@ type ChannelDef struct {
 
 // BroadcastMessage is the bindings representation of a broadcast message.
 //
-// Example JSON:
-//  {"RoundID":42,
+// BroadcastMessage Example JSON:
+//  {
+// 	 "RoundID":42,
 //   "EphID":[0,0,0,0,0,0,24,61],
+//   "RoundURL":"https://dashboard.xx.network/rounds/25?xxmessenger=true",
 //   "Payload":"SGVsbG8sIGJyb2FkY2FzdCBmcmllbmRzIQ=="
 //  }
 type BroadcastMessage struct {
@@ -57,13 +59,16 @@ type BroadcastMessage struct {
 // BroadcastReport is the bindings representation of the info on how a broadcast
 // message was sent
 //
-// Example JSON:
-//  {"RoundID":42,
-//   "EphID":[0,0,0,0,0,0,24,61]
+// BroadcastReport Example JSON:
+//  {
+//	 "Rounds": [25, 26, 29],
+//   "EphID":[0,0,0,0,0,0,24,61],
+//   "RoundURL":"https://dashboard.xx.network/rounds/25?xxmessenger=true"
 //  }
 type BroadcastReport struct {
 	RoundsList
-	EphID ephemeral.Id
+	RoundURL string
+	EphID    ephemeral.Id
 }
 
 // BroadcastListener is the public function type bindings can use to listen for
@@ -131,6 +136,7 @@ func (c *Channel) Listen(l BroadcastListener, method int) error {
 		l.Callback(json.Marshal(&BroadcastMessage{
 			BroadcastReport: BroadcastReport{
 				RoundsList: makeRoundsList(round.ID),
+				RoundURL:   getRoundURL(round.ID),
 				EphID:      receptionID.EphId,
 			},
 			Payload: payload,
@@ -153,6 +159,7 @@ func (c *Channel) Broadcast(payload []byte) ([]byte, error) {
 	}
 	return json.Marshal(BroadcastReport{
 		RoundsList: makeRoundsList(rid),
+		RoundURL:   getRoundURL(rid),
 		EphID:      eid,
 	})
 }
@@ -174,6 +181,7 @@ func (c *Channel) BroadcastAsymmetric(payload, pk []byte) ([]byte, error) {
 	}
 	return json.Marshal(BroadcastReport{
 		RoundsList: makeRoundsList(rid),
+		RoundURL:   getRoundURL(rid),
 		EphID:      eid,
 	})
 }

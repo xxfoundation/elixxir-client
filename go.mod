@@ -13,13 +13,13 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.12.0
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
-	gitlab.com/elixxir/comms v0.0.4-0.20220826205301-ea9f03d7469b
-	gitlab.com/elixxir/crypto v0.0.7-0.20220826192201-c00efec3c556
-	gitlab.com/elixxir/ekv v0.1.7
-	gitlab.com/elixxir/primitives v0.0.3-0.20220810173935-592f34a88326
-	gitlab.com/xx_network/comms v0.0.4-0.20220826205007-a667162c07c7
-	gitlab.com/xx_network/crypto v0.0.5-0.20220729193517-1e5e96f39f6e
-	gitlab.com/xx_network/primitives v0.0.4-0.20220712193914-aebd8544396e
+	gitlab.com/elixxir/comms v0.0.4-0.20220916183942-257688b39f0c
+	gitlab.com/elixxir/crypto v0.0.7-0.20220901215826-1ceaeb59081f
+	gitlab.com/elixxir/ekv v0.2.1
+	gitlab.com/elixxir/primitives v0.0.3-0.20220901220638-1acc75fabdc6
+	gitlab.com/xx_network/comms v0.0.4-0.20220916183430-cc3077fedf9f
+	gitlab.com/xx_network/crypto v0.0.5-0.20220902182733-69aad094b487
+	gitlab.com/xx_network/primitives v0.0.4-0.20220902183448-319596e2fec8
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 	golang.org/x/net v0.0.0-20220822230855-b0a4917ee28c
@@ -47,7 +47,6 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
-	github.com/rs/cors v1.8.2 // indirect
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/afero v1.9.2 // indirect

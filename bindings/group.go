@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -17,67 +17,8 @@ import (
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	"sync"
 	"time"
 )
-
-////////////////////////////////////////////////////////////////////////////////
-// Group Singleton Tracker                                                    //
-////////////////////////////////////////////////////////////////////////////////
-
-// groupTrackerSingleton is used to track Group objects so that they can be
-// referenced by ID back over the bindings.
-var groupTrackerSingleton = &groupTracker{
-	tracked: make(map[int]*Group),
-	count:   0,
-}
-
-// groupTracker is a singleton used to keep track of extant Group objects,
-// preventing race conditions created by passing it over the bindings.
-type groupTracker struct {
-	tracked map[int]*Group
-	count   int
-	mux     sync.RWMutex
-}
-
-// make create a Group from a groupStore.Group, assigns it a unique ID, and
-// adds it to the groupChatTracker.
-func (ut *groupTracker) make(g gs.Group) *Group {
-	ut.mux.Lock()
-	defer ut.mux.Unlock()
-
-	utID := ut.count
-	ut.count++
-
-	ut.tracked[utID] = &Group{
-		g:  g,
-		id: utID,
-	}
-
-	return ut.tracked[utID]
-}
-
-// get a Group from the groupChatTracker given its ID.
-func (ut *groupTracker) get(id int) (*Group, error) {
-	ut.mux.RLock()
-	defer ut.mux.RUnlock()
-
-	g, exist := ut.tracked[id]
-	if !exist {
-		return nil, errors.Errorf(
-			"Cannot get Group for ID %d, does not exist", id)
-	}
-
-	return g, nil
-}
-
-// delete removes a Group from the groupTracker.
-func (ut *groupTracker) delete(id int) {
-	ut.mux.Lock()
-	defer ut.mux.Unlock()
-
-	delete(ut.tracked, id)
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Group Chat                                                                 //
@@ -105,8 +46,7 @@ func NewGroupChat(e2eID int,
 
 	// Construct a wrapper for the request callback
 	requestCb := func(g gs.Group) {
-		newGroup := groupTrackerSingleton.make(g)
-		requestFunc.Callback(newGroup)
+		requestFunc.Callback(&Group{g: g})
 	}
 
 	// Construct a group chat manager
@@ -157,6 +97,7 @@ func (g *GroupChat) MakeGroup(
 	report := GroupReport{
 		Id:         grp.ID.Bytes(),
 		RoundsList: makeRoundsList(roundIDs...),
+		RoundURL:   getRoundURL(roundIDs[0]),
 		Status:     int(status),
 	}
 
@@ -199,6 +140,7 @@ func (g *GroupChat) ResendRequest(groupId []byte) ([]byte, error) {
 	report := &GroupReport{
 		Id:         grp.ID.Bytes(),
 		RoundsList: makeRoundsList(rnds...),
+		RoundURL:   getRoundURL(rnds[0]),
 		Status:     int(status),
 	}
 
@@ -211,22 +153,14 @@ func (g *GroupChat) ResendRequest(groupId []byte) ([]byte, error) {
 // with the same trackedGroupId.
 //
 // Parameters:
-//  - trackedGroupId - the ID to retrieve the Group object within the backend's
-//    tracking system. This is received by GroupRequest.Callback.
-func (g *GroupChat) JoinGroup(trackedGroupId int) error {
-	// Retrieve group from singleton
-	grp, err := groupTrackerSingleton.get(trackedGroupId)
+//  - serializedGroupData - the result of calling Group.Serialize() on
+//    any Group object returned over the bindings
+func (g *GroupChat) JoinGroup(serializedGroupData []byte) error {
+	grp, err := DeserializeGroup(serializedGroupData)
 	if err != nil {
 		return err
 	}
-
-	// Join group
-	err = g.m.JoinGroup(grp.g)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return g.m.JoinGroup(grp.g)
 }
 
 // LeaveGroup deletes a group so a user no longer has access.
@@ -270,6 +204,7 @@ func (g *GroupChat) Send(groupId, message []byte, tag string) ([]byte, error) {
 	// Construct send report
 	sendReport := &GroupSendReport{
 		RoundsList: makeRoundsList(round),
+		RoundURL:   getRoundURL(round),
 		Timestamp:  timestamp.UnixNano(),
 		MessageID:  msgID.Bytes(),
 	}
@@ -307,7 +242,7 @@ func (g *GroupChat) GetGroup(groupId []byte) (*Group, error) {
 	}
 
 	// Add to tracker and return Group object
-	return groupTrackerSingleton.make(grp), nil
+	return &Group{g: grp}, nil
 }
 
 // NumGroups returns the number of groups the user is a part of.
@@ -322,8 +257,7 @@ func (g *GroupChat) NumGroups() int {
 // Group structure contains the identifying and membership information of a
 // group chat.
 type Group struct {
-	g  gs.Group
-	id int
+	g gs.Group
 }
 
 // GetName returns the name set by the user for the group.
@@ -334,12 +268,6 @@ func (g *Group) GetName() []byte {
 // GetID return the 33-byte unique group ID. This represents the id.ID object.
 func (g *Group) GetID() []byte {
 	return g.g.ID.Bytes()
-}
-
-// GetTrackedID returns the tracked ID of the Group object. This is used by the
-// backend tracker.
-func (g *Group) GetTrackedID() int {
-	return g.id
 }
 
 // GetInitMessage returns initial message sent with the group request.
@@ -394,6 +322,16 @@ func (g *Group) Serialize() []byte {
 	return g.g.Serialize()
 }
 
+// DeserializeGroup converts the results of Group.Serialize() into a Group
+// so that its methods can be called.
+func DeserializeGroup(serializedGroupData []byte) (*Group, error) {
+	grp, err := gs.DeserializeGroup(serializedGroupData)
+	if err != nil {
+		return nil, err
+	}
+	return &Group{g: grp}, nil
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Callbacks                                                                  //
 ////////////////////////////////////////////////////////////////////////////////
@@ -401,12 +339,13 @@ func (g *Group) Serialize() []byte {
 // GroupRequest is a bindings-layer interface that handles a group reception.
 //
 // Parameters:
-//  - trackedGroupId - a bindings layer Group object.
+//  - g - a bindings layer Group object.
 type GroupRequest interface {
 	Callback(g *Group)
 }
 
 // GroupChatProcessor manages the handling of received group chat messages.
+// The decryptedMessage field will be a JSON marshalled GroupChatMessage.
 type GroupChatProcessor interface {
 	Process(decryptedMessage, msg, receptionId []byte, ephemeralId,
 		roundId int64, err error)
@@ -419,13 +358,53 @@ type groupChatProcessor struct {
 	bindingsCb GroupChatProcessor
 }
 
+// GroupChatMessage is the bindings layer representation of the
+// [groupChat.MessageReceive].
+//
+// GroupChatMessage Example JSON:
+//  {
+//    "GroupId": "AAAAAAAJlasAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE",
+//    "SenderId": "AAAAAAAAB8gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//    "MessageId": "Zm9ydHkgZml2ZQAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+//    "Payload": "Zm9ydHkgZml2ZQ==",
+//    "Timestamp": 1663009269474079000
+//  }
+type GroupChatMessage struct {
+	// GroupId is the ID of the group that this message was sent on.
+	GroupId []byte
+
+	// SenderId is the ID of the sender of this message.
+	SenderId []byte
+
+	// MessageId is the ID of this group message.
+	MessageId []byte
+
+	// Payload is the content of the message.
+	Payload []byte
+
+	// Timestamp is the time this message was sent on.
+	Timestamp int64
+}
+
+// convertMessageReceive is a helper function which converts a
+// [groupChat.MessageReceive] to the bindings-layer representation GroupChatMessage.
+func convertMessageReceive(decryptedMsg gc.MessageReceive) GroupChatMessage {
+	return GroupChatMessage{
+		GroupId:   decryptedMsg.GroupID.Bytes(),
+		SenderId:  decryptedMsg.SenderID.Bytes(),
+		MessageId: decryptedMsg.ID.Bytes(),
+		Payload:   decryptedMsg.Payload,
+		Timestamp: decryptedMsg.Timestamp.UnixNano(),
+	}
+}
+
 // convertProcessor turns the input of a groupChat.Processor to the
 // binding-layer primitives equivalents within the GroupChatProcessor.Process.
 func convertGroupChatProcessor(decryptedMsg gc.MessageReceive, msg format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) (
 	decryptedMessage, message, receptionId []byte, ephemeralId, roundId int64, err error) {
 
-	decryptedMessage, err = json.Marshal(decryptedMsg)
+	decryptedMessage, err = json.Marshal(convertMessageReceive(decryptedMsg))
 	message = msg.Marshal()
 	receptionId = receptionID.Source.Marshal()
 	ephemeralId = receptionID.EphId.Int64()
@@ -451,16 +430,34 @@ func (gcp *groupChatProcessor) String() string {
 // GroupReport is returned when creating a new group and contains the ID of
 // the group, a list of rounds that the group requests were sent on, and the
 // status of the send operation.
+//
+// Example GroupReport JSON:
+//		{
+//			"Id": "AAAAAAAAAM0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE",
+//			"Rounds": [25, 64],
+//			"RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
+//			"Status": 1
+//		}
 type GroupReport struct {
 	Id []byte
 	RoundsList
-	Status int
+	RoundURL string
+	Status   int
 }
 
 // GroupSendReport is returned when sending a group message. It contains the
 // round ID sent on and the timestamp of the send operation.
+//
+// Example GroupSendReport JSON:
+//      {
+//  	"Rounds": [25,	64],
+//  	"RoundURL": "https://dashboard.xx.network/rounds/25?xxmessenger=true",
+//  	"Timestamp": 1662577352813112000,
+//  	"MessageID": "69ug6FA50UT2q6MWH3hne9PkHQ+H9DnEDsBhc0m0Aww="
+//	    }
 type GroupSendReport struct {
 	RoundsList
+	RoundURL  string
 	Timestamp int64
 	MessageID []byte
 }

@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package cypher
@@ -164,7 +164,7 @@ func saveKey(key *ftCrypto.TransferKey, kv *versioned.KV) error {
 		Data:      key.Bytes(),
 	}
 
-	return kv.Set(cypherManagerKeyStoreKey, cypherManagerKeyStoreVersion, obj)
+	return kv.Set(cypherManagerKeyStoreKey, obj)
 }
 
 // loadKey loads the transfer key from storage.

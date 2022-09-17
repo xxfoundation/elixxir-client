@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -181,20 +181,21 @@ func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback,
 //  - recipientID - marshalled recipient id.ID
 //  - retry - number of retries allowed
 //  - callback - callback that reports file sending progress
-//  - period - duration to wait between progress callbacks triggering
+//  - period - Duration (in ms) to wait between progress callbacks triggering.
+//             This value should depend on how frequently you want to receive
+//             updates, and should be tuned to your implementation.
 //
 // Returns:
 //  - []byte - unique file transfer ID
 func (f *FileTransfer) Send(payload, recipientID []byte, retry float32,
-	callback FileTransferSentProgressCallback, period string) ([]byte, error) {
+	callback FileTransferSentProgressCallback, period int) ([]byte, error) {
 	// Unmarshal recipient ID
 	recipient, err := id.Unmarshal(recipientID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Parse duration to time.Duration
-	p, err := time.ParseDuration(period)
+	p := time.Millisecond * time.Duration(period)
 
 	// Wrap transfer progress callback to be passed to fileTransfer layer
 	cb := func(completed bool, arrived, total uint16,
@@ -268,9 +269,11 @@ func (f *FileTransfer) CloseSend(tidBytes []byte) error {
 // Parameters:
 //  - tidBytes - file transfer ID
 //  - callback - callback that reports file reception progress
-//  - period - duration to wait between progress callbacks triggering
+//  - period - Duration (in ms) to wait between progress callbacks triggering.
+//             This value should depend on how frequently you want to receive
+//             updates, and should be tuned to your implementation.
 func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
-	callback FileTransferSentProgressCallback, period string) error {
+	callback FileTransferSentProgressCallback, period int) error {
 	cb := func(completed bool, arrived, total uint16,
 		st fileTransfer.SentTransfer, t fileTransfer.FilePartTracker, err error) {
 		prog := &Progress{
@@ -282,10 +285,7 @@ func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 		pm, err := json.Marshal(prog)
 		callback.Callback(pm, &FilePartTracker{t}, err)
 	}
-	p, err := time.ParseDuration(period)
-	if err != nil {
-		return err
-	}
+	p := time.Millisecond * time.Duration(period)
 	tid := ftCrypto.UnmarshalTransferID(tidBytes)
 
 	return f.w.RegisterSentProgressCallback(&tid, cb, p)
@@ -299,9 +299,11 @@ func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 // Parameters:
 //  - tidBytes - file transfer ID
 //  - callback - callback that reports file reception progress
-//  - period - duration to wait between progress callbacks triggering
+//  - period - Duration (in ms) to wait between progress callbacks triggering.
+//             This value should depend on how frequently you want to receive
+//             updates, and should be tuned to your implementation.
 func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte,
-	callback FileTransferReceiveProgressCallback, period string) error {
+	callback FileTransferReceiveProgressCallback, period int) error {
 	cb := func(completed bool, received, total uint16,
 		rt fileTransfer.ReceivedTransfer, t fileTransfer.FilePartTracker, err error) {
 		prog := &Progress{
@@ -313,10 +315,8 @@ func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte,
 		pm, err := json.Marshal(prog)
 		callback.Callback(pm, &FilePartTracker{t}, err)
 	}
-	p, err := time.ParseDuration(period)
-	if err != nil {
-		return err
-	}
+	p := time.Millisecond * time.Duration(period)
+
 	tid := ftCrypto.UnmarshalTransferID(tidBytes)
 	return f.w.RegisterReceivedProgressCallback(&tid, cb, p)
 }

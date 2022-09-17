@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package ud
 
 import (
@@ -13,9 +20,9 @@ import (
 func TestNewOrLoadStore_LoadStore(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	expectedStore, err := NewStore(kv)
+	expectedStore, err := newStore(kv)
 	if err != nil {
-		t.Errorf("NewStore() produced an error: %v", err)
+		t.Errorf("newStore() produced an error: %v", err)
 	}
 
 	receivedStore, err := NewOrLoadStore(kv)
@@ -59,9 +66,9 @@ func TestNewOrLoadStore_NewStore(t *testing.T) {
 func TestStore_MarshalUnmarshal_ConfirmedFacts(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	expectedStore, err := NewStore(kv)
+	expectedStore, err := newStore(kv)
 	if err != nil {
-		t.Errorf("NewStore() produced an error: %v", err)
+		t.Errorf("newStore() produced an error: %v", err)
 	}
 
 	data, err := expectedStore.kv.Get(confirmedFactKey, version)
@@ -75,7 +82,7 @@ func TestStore_MarshalUnmarshal_ConfirmedFacts(t *testing.T) {
 	}
 
 	if !bytes.Equal(expectedData, data.Data) {
-		t.Errorf("NewStore() returned incorrect Store."+
+		t.Errorf("newStore() returned incorrect Store."+
 			"\nexpected: %+v\nreceived: %+v", expectedData,
 			data.Data)
 	}
@@ -95,9 +102,9 @@ func TestStore_MarshalUnmarshal_ConfirmedFacts(t *testing.T) {
 func TestStore_MarshalUnmarshal_UnconfirmedFacts(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	expectedStore, err := NewStore(kv)
+	expectedStore, err := newStore(kv)
 	if err != nil {
-		t.Errorf("NewStore() produced an error: %v", err)
+		t.Errorf("newStore() produced an error: %v", err)
 	}
 
 	data, err := expectedStore.kv.Get(unconfirmedFactKey, version)
@@ -111,7 +118,7 @@ func TestStore_MarshalUnmarshal_UnconfirmedFacts(t *testing.T) {
 	}
 
 	if !bytes.Equal(expectedData, data.Data) {
-		t.Errorf("NewStore() returned incorrect Store."+
+		t.Errorf("newStore() returned incorrect Store."+
 			"\nexpected: %+v\nreceived: %+v", expectedData,
 			data.Data)
 	}

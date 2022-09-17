@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package receptionID
 
 import (
@@ -125,7 +132,7 @@ func (s *Store) save() error {
 		Data:      data,
 	}
 
-	err = s.kv.Set(receptionStoreStorageKey, receptionStoreStorageVersion, obj)
+	err = s.kv.Set(receptionStoreStorageKey, obj)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to store reception store")
 	}

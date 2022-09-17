@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package partition
 
@@ -264,7 +264,7 @@ func TestMultiPartMessage_delete(t *testing.T) {
 
 	mpm.delete()
 	obj, err := kv.Get(messageKey, 0)
-	if ekv.Exists(err) {
+	if kv.Exists(err) {
 		t.Errorf("delete did not properly delete key %s."+
 			"\n\tobject received: %+v", messageKey, obj)
 	}

@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package store
 
 import (
@@ -218,7 +225,7 @@ func (s *UncheckedRoundStore) save() error {
 	}
 
 	// Save to storage
-	err = s.kv.Set(uncheckedRoundKey, uncheckedRoundVersion, obj)
+	err = s.kv.Set(uncheckedRoundKey, obj)
 	if err != nil {
 		return errors.WithMessagef(err,
 			"Could not store data for unchecked rounds")

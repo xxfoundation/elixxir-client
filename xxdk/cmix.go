@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package xxdk
 
@@ -395,6 +395,13 @@ func (c *Cmix) NetworkFollowerStatus() Status {
 // true if one or more are.
 func (c *Cmix) HasRunningProcessies() bool {
 	return !c.followerServices.stoppable.IsStopped()
+}
+
+// GetRunningProcesses returns the names of all running processes at the time
+// of this call. Note that this list may change and is subject to race
+// conditions if multiple threads are in the process of starting or stopping.
+func (c *Cmix) GetRunningProcesses() []string {
+	return c.followerServices.stoppable.GetRunningProcesses()
 }
 
 // GetRoundEvents registers a callback for round events.

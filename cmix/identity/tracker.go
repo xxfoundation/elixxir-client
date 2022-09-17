@@ -1,16 +1,15 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package identity
 
 import (
 	"encoding/json"
 	"io"
-	"io/fs"
 	"sync"
 	"time"
 
@@ -87,7 +86,7 @@ func NewOrLoadTracker(session storage.Session, addrSpace address.Space) *manager
 
 	// Load this structure
 	err := t.load()
-	if err != nil && errors.Is(err, fs.ErrNotExist) {
+	if err != nil && !t.session.GetKV().Exists(err) {
 		oldTimestamp, err2 := getOldTimestampStore(t.session)
 		if err2 == nil {
 			jww.WARN.Printf("No tracked identities found, creating a new " +
@@ -405,7 +404,7 @@ func (t *manager) save() {
 		Data:      data,
 	}
 
-	err = t.session.GetKV().Set(TrackerListKey, TrackerListVersion, obj)
+	err = t.session.GetKV().Set(TrackerListKey, obj)
 	if err != nil {
 		jww.FATAL.Panicf("Unable to save TrackedID list: %+v", err)
 	}

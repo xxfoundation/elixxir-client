@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -134,6 +134,22 @@ func (c *Cmix) HasRunningProcessies() bool {
 // messages can be sent.
 func (c *Cmix) IsHealthy() bool {
 	return c.api.GetCmix().IsHealthy()
+}
+
+// GetRunningProcesses returns the names of all running processes at the time
+// of this call. Note that this list may change and is subject to race
+// conditions if multiple threads are in the process of starting or stopping.
+//
+// Returns:
+//  - []byte - A JSON marshalled list of all running processes.
+//
+// JSON Example:
+//  {
+//   "FileTransfer{BatchBuilderThread, FilePartSendingThread#0, FilePartSendingThread#1, FilePartSendingThread#2, FilePartSendingThread#3}",
+//   "MessageReception Worker 0"
+//  }
+func (c *Cmix) GetRunningProcesses() ([]byte, error) {
+	return json.Marshal(c.api.GetRunningProcesses())
 }
 
 // NetworkHealthCallback contains a callback that is used to receive

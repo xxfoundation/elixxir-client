@@ -28,8 +28,8 @@ type ReceivedRequest struct {
 	// contact of partner
 	partner contact.Contact
 
-	// CTIDH Public key of partner
-	theirCTIDHPubKey nike.PublicKey
+	// PQ Public key of partner
+	theirPQPubKey nike.PublicKey
 
 	//round received on
 	round rounds.Round
@@ -45,8 +45,8 @@ func newReceivedRequest(kv *versioned.KV, c contact.Contact,
 		jww.FATAL.Panicf("Failed to save contact for partner %s: %+v", c.ID.String(), err)
 	}
 
-	ctidhStoreKey := util.MakeCTIDHPublicKeyKey(c.ID)
-	if err := util.StoreCTIDHPublicKey(kv, key, ctidhStoreKey); err != nil {
+	pqStoreKey := util.MakePQPublicKeyKey(c.ID)
+	if err := util.StorePQPublicKey(kv, key, pqStoreKey); err != nil {
 		jww.FATAL.Panicf("Failed to save contact PQ pubKey for "+
 			"partner %s: %+v", c.ID.String(), err)
 	}
@@ -58,10 +58,10 @@ func newReceivedRequest(kv *versioned.KV, c contact.Contact,
 	}
 
 	return &ReceivedRequest{
-		kv:               kv,
-		partner:          c,
-		theirCTIDHPubKey: key,
-		round:            round,
+		kv:            kv,
+		partner:       c,
+		theirPQPubKey: key,
+		round:         round,
 	}
 }
 
@@ -75,8 +75,8 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 			partner)
 	}
 
-	key, err := util.LoadCTIDHPublicKey(kv,
-		util.MakeCTIDHPublicKeyKey(partner))
+	key, err := util.LoadPQPublicKey(kv,
+		util.MakePQPublicKeyKey(partner))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Load "+
 			"Received Auth Request Partner PQ key with %s",
@@ -93,10 +93,10 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 	}
 
 	return &ReceivedRequest{
-		kv:               kv,
-		partner:          c,
-		theirCTIDHPubKey: key,
-		round:            round,
+		kv:            kv,
+		partner:       c,
+		theirPQPubKey: key,
+		round:         round,
 	}, nil
 }
 
@@ -104,8 +104,8 @@ func (rr *ReceivedRequest) GetContact() contact.Contact {
 	return rr.partner
 }
 
-func (rr *ReceivedRequest) GetTheirCTIDHPubKey() nike.PublicKey {
-	return rr.theirCTIDHPubKey
+func (rr *ReceivedRequest) GetTheirPQPubKey() nike.PublicKey {
+	return rr.theirPQPubKey
 }
 
 func (rr *ReceivedRequest) GetRound() rounds.Round {
@@ -117,8 +117,8 @@ func (rr *ReceivedRequest) delete() {
 		jww.FATAL.Panicf("Failed to delete received request "+
 			"contact for %s", rr.partner.ID)
 	}
-	if err := util.DeleteCTIDHPublicKey(rr.kv,
-		util.MakeCTIDHPublicKeyKey(rr.partner.ID)); err != nil {
+	if err := util.DeletePQPublicKey(rr.kv,
+		util.MakePQPublicKeyKey(rr.partner.ID)); err != nil {
 		jww.FATAL.Panicf("Failed to delete received request "+
 			"SIDH pubkey for %s", rr.partner.ID)
 	}

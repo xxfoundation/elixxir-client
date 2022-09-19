@@ -31,5 +31,5 @@ type SentRequestInterface interface {
 	GetMyPrivKey() *cyclic.Int
 
 	GetPartnerHistoricalPubKey() *cyclic.Int
-	GetMyCTIDHPrivateKey() nike.PrivateKey
+	GetMyPQPrivateKey() nike.PrivateKey
 }

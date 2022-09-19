@@ -306,7 +306,7 @@ func upgradeSentRequestKeyV0(kv *versioned.KV, partner *id.ID) error {
 	return kv.Delete(oldKey, 0)
 }
 
-func (sr *SentRequestLegacySIDH) GetMyCTIDHPrivateKey() nike.PrivateKey {
+func (sr *SentRequestLegacySIDH) GetMyPrivateKey() nike.PrivateKey {
 	jww.FATAL.Panicf("this is a legacy sentRequest object")
 	return nil
 }

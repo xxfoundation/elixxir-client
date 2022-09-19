@@ -33,8 +33,8 @@ type SentRequest struct {
 	partnerHistoricalPubKey *cyclic.Int
 	myPrivKey               *cyclic.Int
 	myPubKey                *cyclic.Int
-	myCTIDHPrivKey          nike.PrivateKey
-	myCTIDHPubKey           nike.PublicKey
+	myPQPrivKey             nike.PrivateKey
+	myPQPubKey              nike.PublicKey
 	fingerprint             format.Fingerprint
 	reset                   bool
 
@@ -45,15 +45,15 @@ type sentRequestDisk struct {
 	PartnerHistoricalPubKey []byte
 	MyPrivKey               []byte
 	MyPubKey                []byte
-	MyCTIDHPrivKey          []byte
-	MyCTIDHPubKey           []byte
+	MyPQPrivKey             []byte
+	MyPQPubKey              []byte
 	Fingerprint             []byte
 	Reset                   bool
 }
 
 func newSentRequest(kv *versioned.KV, partner *id.ID, partnerHistoricalPubKey,
-	myPrivKey, myPubKey *cyclic.Int, myCTIDHPrivKey nike.PrivateKey,
-	myCTIDHPubKey nike.PublicKey, fp format.Fingerprint, reset bool) (*SentRequest, error) {
+	myPrivKey, myPubKey *cyclic.Int, myPQPrivKey nike.PrivateKey,
+	myPQPubKey nike.PublicKey, fp format.Fingerprint, reset bool) (*SentRequest, error) {
 
 	sr := &SentRequest{
 		kv:                      kv,
@@ -61,8 +61,8 @@ func newSentRequest(kv *versioned.KV, partner *id.ID, partnerHistoricalPubKey,
 		partnerHistoricalPubKey: partnerHistoricalPubKey,
 		myPrivKey:               myPrivKey,
 		myPubKey:                myPubKey,
-		myCTIDHPubKey:           myCTIDHPubKey,
-		myCTIDHPrivKey:          myCTIDHPrivKey,
+		myPQPubKey:              myPQPubKey,
+		myPQPrivKey:             myPQPrivKey,
 		fingerprint:             fp,
 		reset:                   reset,
 	}
@@ -104,16 +104,16 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 			"key with %s for SentRequest Auth", partner)
 	}
 
-	myCTIDHPrivKey, err := util.LoadCTIDHPrivateKey(kv,
-		util.MakeCTIDHPrivateKeyKey(partner))
+	myPQPrivKey, err := util.LoadPQPrivateKey(kv,
+		util.MakePQPrivateKeyKey(partner))
 	if err != nil {
 		return nil, errors.WithMessagef(err,
 			"Failed to decode PQ private key "+
 				"with %s for SentRequest Auth", partner)
 	}
 
-	myCTIDHPubKey, err := util.LoadCTIDHPublicKey(kv,
-		util.MakeCTIDHPublicKeyKey(partner))
+	myPQPubKey, err := util.LoadPQPublicKey(kv,
+		util.MakePQPublicKeyKey(partner))
 	if err != nil {
 		return nil, errors.WithMessagef(err,
 			"Failed to decode PQ public key "+
@@ -140,8 +140,8 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 		partnerHistoricalPubKey: historicalPubKey,
 		myPrivKey:               myPrivKey,
 		myPubKey:                myPubKey,
-		myCTIDHPrivKey:          myCTIDHPrivKey,
-		myCTIDHPubKey:           myCTIDHPubKey,
+		myPQPrivKey:             myPQPrivKey,
+		myPQPubKey:              myPQPubKey,
 		fingerprint:             fp,
 		reset:                   srd.Reset,
 	}, nil
@@ -178,8 +178,8 @@ func (sr *SentRequest) save() error {
 		PartnerHistoricalPubKey: historicalPubKey,
 		MyPrivKey:               privKey,
 		MyPubKey:                pubKey,
-		MyCTIDHPrivKey:          sr.myCTIDHPrivKey.Bytes(),
-		MyCTIDHPubKey:           sr.myCTIDHPubKey.Bytes(),
+		MyPQPrivKey:             sr.myPQPrivKey.Bytes(),
+		MyPQPubKey:              sr.myPQPubKey.Bytes(),
 		Fingerprint:             sr.fingerprint[:],
 		Reset:                   sr.reset,
 	}
@@ -222,26 +222,26 @@ func (sr *SentRequest) GetMyPubKey() *cyclic.Int {
 	return sr.myPubKey
 }
 
-func (sr *SentRequest) GetMyCTIDHPrivateKey() nike.PrivateKey {
-	return sr.myCTIDHPrivKey
+func (sr *SentRequest) GetMyPQPrivateKey() nike.PrivateKey {
+	return sr.myPQPrivKey
 }
 
-func (sr *SentRequest) GetMyCTIDHPublicKey() nike.PublicKey {
-	return sr.myCTIDHPubKey
+func (sr *SentRequest) GetMyPQPublicKey() nike.PublicKey {
+	return sr.myPQPubKey
 }
 
 func (sr *SentRequest) IsReset() bool {
 	return sr.reset
 }
 
-// OverwriteCTIDHKeys is used to temporarily overwrite sidh keys
+// OverwritePQKeys is used to temporarily overwrite sidh keys
 // to handle e.g., confirmation receivedByID.
 // FIXME: this is a code smell but was the cleanest solution at
 // the time. Business logic should probably handle this better?
-func (sr *SentRequest) OverwriteCTIDHKeys(priv nike.PrivateKey,
+func (sr *SentRequest) OverwritePQKeys(priv nike.PrivateKey,
 	pub nike.PublicKey) {
-	sr.myCTIDHPrivKey = priv
-	sr.myCTIDHPubKey = pub
+	sr.myPQPrivKey = priv
+	sr.myPQPubKey = pub
 }
 
 func (sr *SentRequest) GetFingerprint() format.Fingerprint {

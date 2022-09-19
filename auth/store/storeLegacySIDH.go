@@ -190,7 +190,9 @@ func (s *Store) AddSentLegacySIDH(partner *id.ID, partnerHistoricalPubKey, myPri
 	}
 
 	legacy.sentByID[*sr.GetPartner()] = sr
-	s.srh.Add(sr)
+	// XXX FIXME: Note(David): I'm not yet sure how to fix this
+	// so let's fix it later.
+	//s.srh.Add(sr)
 	if err = s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to save Sent Request Map after "+
 			"adding partner %s", partner)

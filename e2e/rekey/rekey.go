@@ -109,7 +109,7 @@ func negotiate(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSe
 	//build the payload
 	payload, err := proto.Marshal(&RekeyTrigger{
 		PublicKey:   pubKey.Bytes(),
-		PQPublicKey: pqPubKeyBytes,
+		PqPublicKey: pqPubKeyBytes,
 		SessionID:   sess.GetSource().Marshal(),
 	})
 

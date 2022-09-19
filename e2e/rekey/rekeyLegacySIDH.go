@@ -26,7 +26,7 @@ import (
 )
 
 func negotiateLegacySIDH(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSender,
-	param Params, sess *session.Session, sendTimeout time.Duration) error {
+	param Params, sess *session.SessionLegacySIDH, sendTimeout time.Duration) error {
 
 	// Note: All new sending sessions are set to "Sending" status by default
 
@@ -41,7 +41,7 @@ func negotiateLegacySIDH(instance *commsNetwork.Instance, grp *cyclic.Group, sen
 	sidhPubKey.Export(sidhPubKeyBytes[1:])
 
 	//build the payload
-	payload, err := proto.Marshal(&RekeyTrigger{
+	payload, err := proto.Marshal(&RekeyTriggerLegacySIDH{
 		PublicKey:     pubKey.Bytes(),
 		SidhPublicKey: sidhPubKeyBytes,
 		SessionID:     sess.GetSource().Marshal(),

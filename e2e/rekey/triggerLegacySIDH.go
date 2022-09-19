@@ -110,7 +110,7 @@ func handleTriggerLegacySIDH(ratchet *ratchet.Ratchet, sender E2eSender,
 func unmarshalSourceLegacySIDH(grp *cyclic.Group, payload []byte) (session.SessionID,
 	*cyclic.Int, *sidh.PublicKey, error) {
 
-	msg := &RekeyTrigger{}
+	msg := &RekeyTriggerLegacySIDH{}
 	if err := proto.Unmarshal(payload, msg); err != nil {
 		return session.SessionID{}, nil, nil, errors.Errorf(
 			"Failed to unmarshal payload: %s", err)

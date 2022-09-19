@@ -159,7 +159,7 @@ func unmarshalSource(grp *cyclic.Group, payload []byte) (session.SessionID,
 			msg.PublicKey)
 	}
 
-	theirPQPubKey, err := ctidh.NewCtidhNike().UnmarshalBinaryPublicKey(msg.PQPublicKey)
+	theirPQPubKey, err := ctidh.NewCtidhNike().UnmarshalBinaryPublicKey(msg.PqPublicKey)
 	if err != nil {
 		return session.SessionID{}, nil, nil, err
 	}

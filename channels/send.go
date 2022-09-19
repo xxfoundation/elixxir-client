@@ -8,11 +8,10 @@
 package channels
 
 import (
-	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"google.golang.org/protobuf/proto"
@@ -90,14 +89,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 			return nil, err
 		}
 
-		//Fill in any extra bits in the payload to ensure it is the right size
-		usrMsgSerialSized, err := broadcast.NewSizedBroadcast(
-			ch.broadcast.MaxAsymmetricPayloadSize(), usrMsgSerial)
-		if err != nil {
-			return nil, err
-		}
-
-		return usrMsgSerialSized, nil
+		return usrMsgSerial, nil
 	}
 
 	r, ephid, err := ch.broadcast.BroadcastWithAssembler(assemble, params)
@@ -117,7 +109,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 // should be wrapped in a function which defines the wire protocol
 // If the final message, before being sent over the wire, is too long, this will
 // return an error. The message must be at most 510 bytes long.
-func (m *manager) SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
+func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 	messageType MessageType, msg []byte, validUntil time.Duration,
 	params cmix.CMIXParams) (cryptoChannel.MessageID, rounds.Round, ephemeral.Id,
 	error) {
@@ -126,12 +118,6 @@ func (m *manager) SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
 	ch, err := m.getChannel(channelID)
 	if err != nil {
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
-	}
-
-	//verify the private key is correct
-	if ch.broadcast.Get().RsaPubKey.N.Cmp(privKey.GetPublic().N) != 0 {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
-			WrongPrivateKey
 	}
 
 	var msgId cryptoChannel.MessageID
@@ -159,21 +145,14 @@ func (m *manager) SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
 		msgId = cryptoChannel.MakeMessageID(chMsgSerial)
 
 		//check if the message is too long
-		if len(chMsgSerial) > broadcast.MaxSizedBroadcastPayloadSize(privKey.Size()) {
+		if len(chMsgSerial) > ch.broadcast.MaxRSAToPublicPayloadSize() {
 			return nil, MessageTooLongErr
 		}
 
-		//Fill in any extra bits in the payload to ensure it is the right size
-		chMsgSerialSized, err := broadcast.NewSizedBroadcast(
-			ch.broadcast.MaxAsymmetricPayloadSize(), chMsgSerial)
-		if err != nil {
-			return nil, err
-		}
-
-		return chMsgSerialSized, nil
+		return chMsgSerial, nil
 	}
 
-	r, ephid, err := ch.broadcast.BroadcastAsymmetricWithAssembler(privKey,
+	r, ephid, err := ch.broadcast.BroadcastRSAToPublicWithAssembler(privKey,
 		assemble, params)
 
 	m.st.sendAdmin(channelID, chMsg, msgId, r)

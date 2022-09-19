@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/client/cmix/message"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
 // broadcastClient implements the Channel interface for sending/receiving asymmetric or symmetric broadcast messages
@@ -34,7 +33,7 @@ func NewBroadcastChannel(channel *crypto.Channel, net Client, rng *fastRNG.Strea
 		rng:     rng,
 	}
 
-	if !bc.verifyID() {
+	if !channel.Verify() {
 		return nil, errors.New("Failed ID verification for broadcast channel")
 	}
 
@@ -53,8 +52,8 @@ func (bc *broadcastClient) RegisterListener(listenerCb ListenerFunc, method Meth
 	switch method {
 	case Symmetric:
 		tag = symmetricBroadcastServiceTag
-	case Asymmetric:
-		tag = asymmetricBroadcastServiceTag
+	case RSAToPublic:
+		tag = asymmetricRSAToPublicBroadcastServiceTag
 	default:
 		return errors.Errorf("Cannot register listener for broadcast method %s", method)
 	}
@@ -89,26 +88,22 @@ func (bc *broadcastClient) Get() *crypto.Channel {
 	return bc.channel
 }
 
-// verifyID generates a symmetric ID based on the info in the channel and
-// compares it to the one passed in.
-func (bc *broadcastClient) verifyID() bool {
-	gen, err := crypto.NewChannelID(bc.channel.Name, bc.channel.Description,
-		bc.channel.Salt, rsa.CreatePublicKeyPem(bc.channel.RsaPubKey))
-	if err != nil {
-		jww.FATAL.Panicf("[verifyID] Failed to generate verified channel ID")
-		return false
-	}
-	return bc.channel.ReceptionID.Cmp(gen)
-}
-
+// MaxPayloadSize returns the maximum payload size for a symmetric broadcast
 func (bc *broadcastClient) MaxPayloadSize() int {
 	return bc.maxSymmetricPayload()
 }
 
-func (bc *broadcastClient) MaxAsymmetricPayloadSize() int {
-	return bc.maxAsymmetricPayloadSizeRaw() - internalPayloadSizeLength
+func (bc *broadcastClient) maxSymmetricPayload() int {
+	return bc.channel.GetMaxSymmetricPayloadSize(bc.net.GetMaxMessageLength())
 }
 
-func (bc *broadcastClient) maxAsymmetricPayloadSizeRaw() int {
-	return bc.channel.MaxAsymmetricPayloadSize()
+// MaxRSAToPublicPayloadSize return the maximum payload size for an RSAToPublic
+// Asymmetric payload
+func (bc *broadcastClient) MaxRSAToPublicPayloadSize() int {
+	return bc.maxRSAToPublicPayloadSizeRaw() - internalPayloadSizeLength
+}
+
+func (bc *broadcastClient) maxRSAToPublicPayloadSizeRaw() int {
+	size, _, _ := bc.channel.GetRSAToPublicMessageLength()
+	return size
 }

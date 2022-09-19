@@ -12,7 +12,7 @@ import (
 	"gitlab.com/elixxir/client/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"math"
@@ -51,7 +51,7 @@ type Manager interface {
 	// should be wrapped in a function which defines the wire protocol
 	// If the final message, before being sent over the wire, is too long, this will
 	// return an error. The message must be at most 510 bytes long.
-	SendAdminGeneric(privKey *rsa.PrivateKey, channelID *id.ID,
+	SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 		messageType MessageType, msg []byte, validUntil time.Duration,
 		params cmix.CMIXParams) (cryptoChannel.MessageID, rounds.Round,
 		ephemeral.Id, error)

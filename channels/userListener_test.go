@@ -16,7 +16,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
@@ -92,12 +91,6 @@ func TestUserListener_Listen(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	umMsgSerialSized, err := broadcast.NewSizedBroadcast(
-		512, umSerial)
-	if err != nil {
-		t.Fatalf("Failed to size channel message: %+v", err)
-	}
-
 	//build the listener
 	dummy := &triggerEventDummy{}
 
@@ -109,7 +102,7 @@ func TestUserListener_Listen(t *testing.T) {
 	}
 
 	//call the listener
-	al.Listen(umMsgSerialSized, receptionID.EphemeralIdentity{}, r)
+	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
 
 	//check the results
 	if !dummy.gotData {
@@ -186,12 +179,6 @@ func TestUserListener_Listen_BadUserSig(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	umMsgSerialSized, err := broadcast.NewSizedBroadcast(
-		512, umSerial)
-	if err != nil {
-		t.Fatalf("Failed to size channel message: %+v", err)
-	}
-
 	//build the listener
 	dummy := &triggerEventDummy{}
 
@@ -203,7 +190,7 @@ func TestUserListener_Listen_BadUserSig(t *testing.T) {
 	}
 
 	//call the listener
-	al.Listen(umMsgSerialSized, receptionID.EphemeralIdentity{}, r)
+	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
 
 	//check the results
 	if dummy.gotData {
@@ -258,12 +245,6 @@ func TestUserListener_Listen_BadValidSig(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	umMsgSerialSized, err := broadcast.NewSizedBroadcast(
-		512, umSerial)
-	if err != nil {
-		t.Fatalf("Failed to size channel message: %+v", err)
-	}
-
 	//build the listener
 	dummy := &triggerEventDummy{}
 
@@ -275,7 +256,7 @@ func TestUserListener_Listen_BadValidSig(t *testing.T) {
 	}
 
 	//call the listener
-	al.Listen(umMsgSerialSized, receptionID.EphemeralIdentity{}, r)
+	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
 
 	//check the results
 	if dummy.gotData {
@@ -329,12 +310,6 @@ func TestUserListener_Listen_BadUnameTs(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	umMsgSerialSized, err := broadcast.NewSizedBroadcast(
-		512, umSerial)
-	if err != nil {
-		t.Fatalf("Failed to size channel message: %+v", err)
-	}
-
 	//build the listener
 	dummy := &triggerEventDummy{}
 
@@ -346,7 +321,7 @@ func TestUserListener_Listen_BadUnameTs(t *testing.T) {
 	}
 
 	//call the listener
-	al.Listen(umMsgSerialSized, receptionID.EphemeralIdentity{}, r)
+	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
 
 	//check the results
 	if dummy.gotData {
@@ -401,12 +376,6 @@ func TestUserListener_Listen_BadRound(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	umMsgSerialSized, err := broadcast.NewSizedBroadcast(
-		512, umSerial)
-	if err != nil {
-		t.Fatalf("Failed to size channel message: %+v", err)
-	}
-
 	//build the listener
 	dummy := &triggerEventDummy{}
 
@@ -418,7 +387,7 @@ func TestUserListener_Listen_BadRound(t *testing.T) {
 	}
 
 	//call the listener
-	al.Listen(umMsgSerialSized, receptionID.EphemeralIdentity{}, r)
+	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
 
 	//check the results
 	if dummy.gotData {
@@ -440,12 +409,6 @@ func TestUserListener_Listen_BadMessage(t *testing.T) {
 
 	umSerial := []byte("malformed")
 
-	umMsgSerialSized, err := broadcast.NewSizedBroadcast(
-		512, umSerial)
-	if err != nil {
-		t.Fatalf("Failed to size channel message: %+v", err)
-	}
-
 	//build the listener
 	dummy := &triggerEventDummy{}
 
@@ -457,7 +420,7 @@ func TestUserListener_Listen_BadMessage(t *testing.T) {
 	}
 
 	//call the listener
-	al.Listen(umMsgSerialSized, receptionID.EphemeralIdentity{}, r)
+	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
 
 	//check the results
 	if dummy.gotData {
@@ -511,14 +474,8 @@ func TestUserListener_Listen_BadSizedBroadcast(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	umMsgSerialSized, err := broadcast.NewSizedBroadcast(
-		512, umSerial)
-	if err != nil {
-		t.Fatalf("Failed to size channel message: %+v", err)
-	}
-
 	//remove half the sized broadcast to make it malformed
-	umMsgSerialSized = umMsgSerialSized[:broadcast.GetSizedBroadcastSize(umMsgSerialSized)/2]
+	umSerial = umSerial[:len(umSerial)/2]
 
 	//build the listener
 	dummy := &triggerEventDummy{}
@@ -531,7 +488,7 @@ func TestUserListener_Listen_BadSizedBroadcast(t *testing.T) {
 	}
 
 	//call the listener
-	al.Listen(umMsgSerialSized, receptionID.EphemeralIdentity{}, r)
+	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
 
 	//check the results
 	if dummy.gotData {

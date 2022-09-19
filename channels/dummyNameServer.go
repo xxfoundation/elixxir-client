@@ -1,16 +1,24 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package channels
 
 import (
 	"crypto/ed25519"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/xx_network/primitives/netTime"
 	"io"
 	"time"
 )
 
 // NewDummyNameService returns a dummy object adhering to the name service
 // This neither produces valid signatures or validates passed signature
-// is is for Development and Debugging purposes only
+// is is for Development and Debugging purposes only.
 func NewDummyNameService(username string, rng io.Reader) (NameService, error) {
 	jww.WARN.Printf("Creating a Dummy Name Service. This is for " +
 		"development and debugging only. It does not produce valid " +
@@ -19,7 +27,7 @@ func NewDummyNameService(username string, rng io.Reader) (NameService, error) {
 
 	dns := &dummyNameService{
 		username: username,
-		lease:    time.Now().Add(35 * 24 * time.Hour),
+		lease:    netTime.Now().Add(35 * 24 * time.Hour),
 	}
 
 	//generate the private key
@@ -60,7 +68,8 @@ func (dns *dummyNameService) GetChannelPubkey() ed25519.PublicKey {
 	return dns.public
 }
 
-func (dns *dummyNameService) SignChannelMessage(message []byte) (signature []byte, err error) {
+func (dns *dummyNameService) SignChannelMessage(message []byte) (
+	signature []byte, err error) {
 	jww.WARN.Printf("SignChannelMessage called on Dummy Name Service, " +
 		"signature from a random key - identity not proven. YOU SHOULD " +
 		"NEVER SEE THIS MESSAGE IN PRODUCTION")

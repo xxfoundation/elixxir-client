@@ -168,6 +168,38 @@ func NewChannelsManagerGoEventModel(e2eID, udID int,
 	return channelManagerTrackerSingleton.make(m), nil
 }
 
+// NewChannelsManagerGoEventModelDummyNameService constructs a
+// ChannelsManager. This is not compatible with GoMobile Bindings because
+// it receives the go event model. This uses the dummy name service
+// and is for debugging only
+// Parameters:
+//  - e2eID - The tracked e2e object ID. This can be retrieved using
+//    [E2e.GetID].
+//  - udID - The tracked UD object ID. This can be retrieved using
+//    [UserDiscovery.GetID].
+func NewChannelsManagerGoEventModelDummyNameService(e2eID int, username string,
+	goEvent channels.EventModel) (*ChannelsManager, error) {
+	// Get user from singleton
+	user, err := e2eTrackerSingleton.get(e2eID)
+	if err != nil {
+		return nil, err
+	}
+
+	rng := user.api.GetRng().GetStream()
+	defer rng.Close()
+
+	nameService, err := channels.NewDummyNameService(username, rng)
+	if err != nil {
+		return nil, err
+	}
+	// Construct new channels manager
+	m := channels.NewManager(user.api.GetStorage().GetKV(), user.api.GetCmix(),
+		user.api.GetRng(), nameService, goEvent)
+
+	// Add channel to singleton and return
+	return channelManagerTrackerSingleton.make(m), nil
+}
+
 type ChannelGeneration struct {
 	Channel    string
 	PrivateKey string

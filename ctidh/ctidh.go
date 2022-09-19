@@ -9,37 +9,36 @@ import (
 	"gitlab.com/elixxir/client/interfaces/nike"
 )
 
-// CtidhNike implements the Nike interface using our ctidh module.
-type CtidhNike struct {
-}
+// ctidhNIKE implements the Nike interface using our ctidh module.
+type ctidhNIKE struct{}
 
-// NewCtidhNike returns a new Ctidh Nike.
-func NewCtidhNike() *CtidhNike {
-	return new(CtidhNike)
+// NewCTIDHNIKE returns a new CTIDH NIKE.
+func NewCTIDHNIKE() *ctidhNIKE {
+	return new(ctidhNIKE)
 }
 
 var _ nike.PrivateKey = (*ctidh.PrivateKey)(nil)
 var _ nike.PublicKey = (*ctidh.PublicKey)(nil)
-var _ nike.Nike = (*CtidhNike)(nil)
+var _ nike.Nike = (*ctidhNIKE)(nil)
 
 // PublicKeySize returns the size in bytes of the public key.
-func (e *CtidhNike) PublicKeySize() int {
+func (e *ctidhNIKE) PublicKeySize() int {
 	return ctidh.PublicKeySize
 }
 
 // PrivateKeySize returns the size in bytes of the private key.
-func (e *CtidhNike) PrivateKeySize() int {
+func (e *ctidhNIKE) PrivateKeySize() int {
 	return ctidh.PrivateKeySize
 }
 
 // NewKeypair returns a newly generated key pair.
-func (e *CtidhNike) NewKeypair() (nike.PrivateKey, nike.PublicKey) {
+func (e *ctidhNIKE) NewKeypair() (nike.PrivateKey, nike.PublicKey) {
 	privKey, pubKey := ctidh.GenerateKeyPair()
 	return privKey, pubKey
 }
 
 // UnmarshalBinaryPublicKey unmarshals the public key bytes.
-func (e *CtidhNike) UnmarshalBinaryPublicKey(b []byte) (nike.PublicKey, error) {
+func (e *ctidhNIKE) UnmarshalBinaryPublicKey(b []byte) (nike.PublicKey, error) {
 	pubKey := ctidh.NewEmptyPublicKey()
 	err := pubKey.FromBytes(b)
 	if err != nil {
@@ -49,7 +48,7 @@ func (e *CtidhNike) UnmarshalBinaryPublicKey(b []byte) (nike.PublicKey, error) {
 }
 
 // UnmarshalBinaryPrivateKey unmarshals the public key bytes.
-func (e *CtidhNike) UnmarshalBinaryPrivateKey(b []byte) (nike.PrivateKey, error) {
+func (e *ctidhNIKE) UnmarshalBinaryPrivateKey(b []byte) (nike.PrivateKey, error) {
 	privKey := ctidh.NewEmptyPrivateKey()
 	err := privKey.FromBytes(b)
 	if err != nil {
@@ -60,21 +59,21 @@ func (e *CtidhNike) UnmarshalBinaryPrivateKey(b []byte) (nike.PrivateKey, error)
 
 // DeriveSecret derives a shared secret given a private key
 // from one party and a public key from another.
-func (e *CtidhNike) DeriveSecret(privKey nike.PrivateKey, pubKey nike.PublicKey) []byte {
+func (e *ctidhNIKE) DeriveSecret(privKey nike.PrivateKey, pubKey nike.PublicKey) []byte {
 	return ctidh.DeriveSecret(privKey.(*ctidh.PrivateKey), pubKey.(*ctidh.PublicKey))
 }
 
 // DerivePublicKey derives a public key given a private key.
-func (e *CtidhNike) DerivePublicKey(privKey nike.PrivateKey) nike.PublicKey {
+func (e *ctidhNIKE) DerivePublicKey(privKey nike.PrivateKey) nike.PublicKey {
 	return ctidh.DerivePublicKey(privKey.(*ctidh.PrivateKey))
 }
 
 // PublicKeyEqual is a constant time key comparison.
-func (e *CtidhNike) PublicKeyEqual(a, b nike.PublicKey) bool {
+func (e *ctidhNIKE) PublicKeyEqual(a, b nike.PublicKey) bool {
 	return a.(*ctidh.PublicKey).Equal(b.(*ctidh.PublicKey))
 }
 
 // PrivateKeyEqual is a constant time key comparison.
-func (e *CtidhNike) PrivateKeyEqual(a, b nike.PrivateKey) bool {
+func (e *ctidhNIKE) PrivateKeyEqual(a, b nike.PrivateKey) bool {
 	return a.(*ctidh.PrivateKey).Equal(b.(*ctidh.PrivateKey))
 }

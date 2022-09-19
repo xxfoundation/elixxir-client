@@ -163,7 +163,7 @@ type e2eHandler interface {
 		partnerPubKey, myPrivKey *cyclic.Int,
 		partnerSIDHPubKey *sidh.PublicKey,
 		mySIDHPrivKey *sidh.PrivateKey, sendParams,
-		receiveParams session.Params) (partner.Manager, error)
+		receiveParams session.Params) (partner.ManagerLegacySIDH, error)
 	GetPartner(partnerID *id.ID) (partner.Manager, error)
 	DeletePartner(partnerId *id.ID) error
 	DeletePartnerNotify(partnerId *id.ID, params e2e.Params) error

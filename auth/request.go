@@ -111,8 +111,8 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 				"one was already sent", partner.ID, me)
 			dhPriv = sr.GetMyPrivKey()
 			dhPub = sr.GetMyPubKey()
-			//ctidhPriv = sr.GetMyCTIDHPrivKey()
-			ctidhPub = sr.GetMyCTIDHPublicKey()
+			//ctidhPriv = sr.GetMyPQPrivKey()
+			ctidhPub = sr.GetMyPQPublicKey()
 		}
 	}
 
@@ -136,8 +136,8 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	jww.TRACE.Printf("AuthRequest MYPUBKEY: %v", dhPub.TextVerbose(16, 0))
 	jww.TRACE.Printf("AuthRequest PARTNERPUBKEY: %v",
 		partner.DhPubKey.TextVerbose(16, 0))
-	jww.TRACE.Printf("AuthRequest MYCTIDHPUBKEY: %s",
-		util.StringCTIDHPubKey(ctidhPub))
+	jww.TRACE.Printf("AuthRequest MYPQPUBKEY: %s",
+		util.StringPQPubKey(ctidhPub))
 
 	jww.TRACE.Printf("AuthRequest HistoricalPUBKEY: %v",
 		historicalDHPub.TextVerbose(16, 0))
@@ -188,7 +188,7 @@ func genDHKeys(dhGrp *cyclic.Group, csprng io.Reader) (priv, pub *cyclic.Int) {
 // createRequestAuth Creates the request packet, including encrypting the
 // required parts of it.
 func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
-	myDHPub, theirDHPub *cyclic.Int, myCTIDHPub nike.PublicKey,
+	myDHPub, theirDHPub *cyclic.Int, myPQPub nike.PublicKey,
 	dhGrp *cyclic.Group, cMixSize int) (*baseFormat, []byte, error) {
 	/*generate embedded message structures and check payload*/
 	dhPrimeSize := dhGrp.GetP().ByteLen()
@@ -221,7 +221,7 @@ func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
 	requestFmt.SetID(sender)
 	requestFmt.SetMsgPayload(payload)
 	ecrFmt.SetOwnership(ownership)
-	ecrFmt.SetPQPublicKey(myCTIDHPub)
+	ecrFmt.SetPQPublicKey(myPQPub)
 	ecrPayload, mac := cAuth.Encrypt(myDHPriv, theirDHPub, ecrFmt.data,
 		dhGrp)
 	/*construct message*/

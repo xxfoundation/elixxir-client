@@ -20,7 +20,6 @@ import (
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/ctidh"
 	"gitlab.com/elixxir/client/event"
-	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/primitives/format"
@@ -113,7 +112,7 @@ func (s *state) confirm(partner contact.Contact, serviceTag string) (
 			// create local relationship
 			p := s.sessionParams
 			_, err := s.e2e.AddPartner(partner.ID, partner.DhPubKey, dhPriv,
-				rr.GetTheirCTIDHPubKey(), ctidhPriv, p, p)
+				rr.GetTheirPQPubKey(), ctidhPriv, p, p)
 			if err != nil {
 				em := fmt.Sprintf("Failed to create channel with partner (%s) "+
 					"on confirmation, this is likley a replay: %s",

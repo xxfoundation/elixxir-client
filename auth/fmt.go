@@ -37,7 +37,7 @@ func newBaseFormat(payloadSize, pubkeySize int) baseFormat {
 	total += 1
 	if payloadSize < total {
 		jww.FATAL.Panicf("Size of baseFormat is too small (%d), must be big "+
-			"enough to contain public key (%d) and CTIDH key (%d)"+
+			"enough to contain public key (%d) and PQ key (%d)"+
 			"and version which totals to %d", payloadSize,
 			pubkeySize, ctidh.NewCtidhNike().PublicKeySize(), total)
 	}
@@ -184,16 +184,16 @@ func (f ecrFormat) SetOwnership(ownership []byte) {
 
 // SetPQPublicKey sets the post quantum public key pqPublicKey
 // in the ecrFormat packet for auth requests. While we
-// only support CTIDH at this time, anything implementing NIKE
+// only support PQ at this time, anything implementing NIKE
 // will work.
 func (f ecrFormat) SetPQPublicKey(pqPublicKey nike.PublicKey) {
 	pqBytes := pqPublicKey.Bytes()
 	copy(f.pqPublicKey[0:len(pqBytes)], pqBytes)
 }
 
-// GetCTIDHPublicKey will attempt to decode a CTIDH post quantum
+// GetPQPublicKey will attempt to decode a PQ post quantum
 // public key from a ecrFormat packet for auth requests.
-func (f ecrFormat) GetCTIDHPublicKey() (nike.PublicKey, error) {
+func (f ecrFormat) GetPQPublicKey() (nike.PublicKey, error) {
 	return ctidh.NewCtidhNike().UnmarshalBinaryPublicKey(f.pqPublicKey)
 }
 

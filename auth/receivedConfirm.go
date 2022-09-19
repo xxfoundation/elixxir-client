@@ -74,7 +74,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 		return
 	}
 
-	partnerCTIDHPubKey, err := ecrFmt.GetCTIDHPublicKey()
+	partnerPQPubKey, err := ecrFmt.GetPQPublicKey()
 	if err != nil {
 		em := fmt.Sprintf("Could not get auth conf SIDH Pubkey: %s",
 			err)
@@ -84,7 +84,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 	}
 
 	jww.TRACE.Printf("handleConfirm PARTNERSIDHPUBKEY: %v",
-		partnerCTIDHPubKey)
+		partnerPQPubKey)
 
 	// check the ownership proof, this verifies the respondent owns the
 	// initial identity
@@ -100,8 +100,8 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 	p := authState.sessionParams
 	_, err = authState.e2e.AddPartner(rcs.sentRequest.GetPartner(),
 		partnerPubKey,
-		rcs.sentRequest.GetMyPrivKey(), partnerCTIDHPubKey,
-		rcs.sentRequest.GetMyCTIDHPrivateKey(), p, p)
+		rcs.sentRequest.GetMyPrivKey(), partnerPQPubKey,
+		rcs.sentRequest.GetMyPQPrivateKey(), p, p)
 	if err != nil {
 		jww.WARN.Printf("Failed to create channel with partner %s and "+
 			"%s : %+v", rcs.sentRequest.GetPartner(),

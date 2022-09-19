@@ -105,13 +105,13 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	}
 
 	//extract data from the decrypted payload
-	partnerID, partnerCTIDHPubKey, facts, ownershipProof, err :=
+	partnerID, partnerPQPubKey, facts, ownershipProof, err :=
 		processDecryptedMessage(payload)
 	if err != nil {
 		jww.WARN.Printf("Failed to decode the auth request: %+v", err)
 		return
 	}
-	jww.INFO.Printf("\t PARTNER CTIDH PUBKEY: %v", partnerCTIDHPubKey)
+	jww.INFO.Printf("\t PARTNER PQ PUBKEY: %v", partnerPQPubKey)
 
 	//create the contact, note that no facts are sent in the payload
 	c := contact.Contact{
@@ -122,7 +122,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	}
 
 	fp := CreateNegotiationFingerprint(partnerPubKey,
-		partnerCTIDHPubKey)
+		partnerPQPubKey)
 	em := fmt.Sprintf("Received AuthRequest from %s,"+
 		" msgDigest: %s, FP: %s", partnerID,
 		format.DigestContents(message.GetContents()),
@@ -271,7 +271,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	// warning: the client will never be notified of the channel creation if a
 	// crash occurs after the store but before the conclusion of the callback
 	//create the auth storage
-	if err = authState.store.AddReceived(c, partnerCTIDHPubKey, round); err != nil {
+	if err = authState.store.AddReceived(c, partnerPQPubKey, round); err != nil {
 		em := fmt.Sprintf("failed to store contact Auth "+
 			"Request: %s", err)
 		jww.WARN.Print(em)
@@ -319,10 +319,10 @@ func processDecryptedMessage(b []byte) (*id.ID, nike.PublicKey, fact.FactList,
 			"unmarshal auth request's encrypted payload")
 	}
 
-	partnerCTIDHPubKey, err := ecrFmt.GetCTIDHPublicKey()
+	partnerPQPubKey, err := ecrFmt.GetPQPublicKey()
 	if err != nil {
 		return nil, nil, nil, nil, errors.WithMessage(err, "Could not "+
-			"unmarshal partner CTIDH Pubkey")
+			"unmarshal partner PQ Pubkey")
 	}
 
 	//decode the request format
@@ -345,7 +345,7 @@ func processDecryptedMessage(b []byte) (*id.ID, nike.PublicKey, fact.FactList,
 			"unmarshal auth request's facts")
 	}
 
-	return partnerID, partnerCTIDHPubKey, facts, ecrFmt.GetOwnership(), nil
+	return partnerID, partnerPQPubKey, facts, ecrFmt.GetOwnership(), nil
 }
 
 func iShouldResend(partner, me *id.ID) bool {

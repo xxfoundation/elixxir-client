@@ -8,6 +8,10 @@
 package groupChat
 
 import (
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/catalog"
@@ -16,13 +20,11 @@ import (
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	sessionImport "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/cyclic"
 	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
-	"sync"
-	"testing"
-	"time"
 )
 
 // testE2eManager is a test implementation of NetworkManager interface.
@@ -42,12 +44,21 @@ type testE2eMessage struct {
 }
 
 func (tnm *testE2eManager) AddPartner(partnerID *id.ID, partnerPubKey,
-	myPrivKey *cyclic.Int, _ *sidh.PublicKey, _ *sidh.PrivateKey,
+	myPrivKey *cyclic.Int, _ nike.PublicKey, _ nike.PrivateKey,
 	_, _ sessionImport.Params) (partner.Manager, error) {
 
 	testPartner := partner.NewTestManager(partnerID, partnerPubKey, myPrivKey, &testing.T{})
 	tnm.partners[*partnerID] = testPartner
 	return testPartner, nil
+}
+
+func (tnm *testE2eManager) AddPartnerLegacySIDH(partnerID *id.ID, partnerPubKey,
+	myPrivKey *cyclic.Int, _ *sidh.PublicKey, _ *sidh.PrivateKey,
+	_, _ sessionImport.Params) (partner.ManagerLegacySIDH, error) {
+
+	// testPartner := partner.NewTestManager(partnerID, partnerPubKey, myPrivKey, &testing.T{})
+	// tnm.partners[*partnerID] = testPartner
+	return nil, nil
 }
 
 func (tnm *testE2eManager) GetPartner(partnerID *id.ID) (partner.Manager, error) {

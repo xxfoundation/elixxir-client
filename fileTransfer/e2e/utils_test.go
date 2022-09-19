@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudflare/circl/dh/sidh"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
@@ -286,6 +287,9 @@ func (m *mockE2e) RegisterChannel(string, *id.ID, catalog.MessageType, chan rece
 func (m *mockE2e) Unregister(receive.ListenerID)  { panic("implement me") }
 func (m *mockE2e) UnregisterUserListeners(*id.ID) { panic("implement me") }
 func (m *mockE2e) AddPartner(*id.ID, *cyclic.Int, *cyclic.Int, nike.PublicKey, nike.PrivateKey, session.Params, session.Params) (partner.Manager, error) {
+	panic("implement me")
+}
+func (m *mockE2e) AddPartnerLegacySIDH(*id.ID, *cyclic.Int, *cyclic.Int, *sidh.PublicKey, *sidh.PrivateKey, session.Params, session.Params) (partner.ManagerLegacySIDH, error) {
 	panic("implement me")
 }
 func (m *mockE2e) GetPartner(*id.ID) (partner.Manager, error)   { panic("implement me") }

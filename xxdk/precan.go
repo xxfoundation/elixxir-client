@@ -9,9 +9,8 @@ package xxdk
 
 import (
 	"encoding/binary"
-	"math/rand"
 
-	"github.com/cloudflare/circl/dh/sidh"
+	ctidh "git.xx.network/elixxir/ctidh_cgo"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/storage"
@@ -55,6 +54,20 @@ func NewPrecannedCmix(precannedID uint, defJSON, storageDir string,
 	return err
 }
 
+const privPQ1PEM = `-----BEGIN CTIDH-1024 PRIVATE KEY-----
+AAEAAf4BAQD9AAAA/v3/AwAA/wAA//4A/v8AAP8AAQL//wD9AQAABAD//wAAAgD/
+AAECAf//AP4BAP//AAACAQEB/gABAf8A/wAAAP4CBP8AAAEAAAEBAAADAP8AAP7/
+/wEAAAAAAAEBAAAA//8AAQABAAABAgAA/wH/AAAAAf8AAA==
+-----END CTIDH-1024 PRIVATE KEY-----
+`
+
+const privPQ2PEM = `-----BEGIN CTIDH-1024 PRIVATE KEY-----
+AP8A/f8A/wD+Af4AAAEAAfsAAAAC/wAA//4A/v8AAgEB/wEA/wIAAv8B/wEAAQL/
+/wD//QAAAAAA/wD+AgAAAf//Af3/AAD/AAEAAAIBAQEAAP3/AAAAAAECAf//AAAB
+////AAABAAD/AAECAAAA/wABAAEAAQAAAAP/AAACAAAAAA==
+-----END CTIDH-1024 PRIVATE KEY-----
+`
+
 // MakePrecannedAuthenticatedChannel creates an insecure E2E relationship with a
 // precanned user.
 func (m *E2e) MakePrecannedAuthenticatedChannel(precannedID uint) (
@@ -73,35 +86,32 @@ func (m *E2e) MakePrecannedAuthenticatedChannel(precannedID uint) (
 
 	myID := binary.BigEndian.Uint64(m.GetReceptionIdentity().ID[:])
 
-	// Pick a variant based on if their ID is bigger than mine.
-	myVariant := sidh.KeyVariantSidhA
-	theirVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
-	if myID > uint64(precannedID) {
-		myVariant = sidh.KeyVariantSidhB
-		theirVariant = sidh.KeyVariantSidhA
-	}
-	prng1 := rand.New(rand.NewSource(int64(precannedID)))
-	err = theirSIDHPrivKey.Generate(prng1)
+	priv1 := ctidh.NewEmptyPrivateKey()
+	err = priv1.FromPEMFile(privPQ1PEM)
 	if err != nil {
 		return contact.Contact{}, err
 	}
-	theirSIDHPrivKey.GeneratePublicKey(theirSIDHPubKey)
+	priv2 := ctidh.NewEmptyPrivateKey()
+	err = priv2.FromPEMFile(privPQ2PEM)
+	if err != nil {
+		return contact.Contact{}, err
+	}
 
-	prng2 := rand.New(rand.NewSource(int64(myID)))
-	mySIDHPrivKey := util.NewSIDHPrivateKey(myVariant)
-	mySIDHPubKey := util.NewSIDHPublicKey(myVariant)
-	err = mySIDHPrivKey.Generate(prng2)
-	if err != nil {
-		return contact.Contact{}, err
+	myPriv := priv1
+	theirPriv := priv2
+	if myID > uint64(precannedID) {
+		myPriv = priv2
+		theirPriv = priv1
 	}
-	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
+
+	theirPub := ctidh.DerivePublicKey(theirPriv)
 
 	// Add the precanned user as a e2e contact
 	// FIXME: these params need to be threaded through...
 	sesParam := session.GetDefaultParams()
 	_, err = m.e2e.AddPartner(precanContact.ID, precanContact.DhPubKey,
-		m.e2e.GetHistoricalDHPrivkey(), theirSIDHPubKey,
-		mySIDHPrivKey, sesParam, sesParam)
+		m.e2e.GetHistoricalDHPrivkey(), theirPub,
+		myPriv, sesParam, sesParam)
 
 	// Check garbled messages in case any messages arrived before creating
 	// the channel

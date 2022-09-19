@@ -123,8 +123,8 @@ type Handler interface {
 	// and per the parameters sent
 	AddPartner(partnerID *id.ID,
 		partnerPubKey, myPrivKey *cyclic.Int,
-		partnerSIDHPubKey nike.PublicKey,
-		mySIDHPrivKey nike.PrivateKey, sendParams,
+		partnerPQPubKey nike.PublicKey,
+		myPQPrivKey nike.PrivateKey, sendParams,
 		receiveParams session.Params) (partner.Manager, error)
 
 	// AddPartner adds a partner. Automatically creates both send
@@ -134,7 +134,7 @@ type Handler interface {
 		partnerPubKey, myPrivKey *cyclic.Int,
 		partnerSIDHPubKey *sidh.PublicKey,
 		mySIDHPrivKey *sidh.PrivateKey, sendParams,
-		receiveParams session.Params) (partner.Manager, error)
+		receiveParams session.Params) (partner.ManagerLegacySIDH, error)
 
 	// GetPartner returns the partner per its ID, if it exists
 	GetPartner(partnerID *id.ID) (partner.Manager, error)

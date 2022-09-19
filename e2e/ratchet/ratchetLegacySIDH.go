@@ -23,7 +23,7 @@ import (
 func (r *Ratchet) AddPartnerLegacySIDH(partnerID *id.ID,
 	partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
 	mySIDHPrivKey *sidh.PrivateKey, sendParams,
-	receiveParams session.Params) (partner.Manager, error) {
+	receiveParams session.Params) (partner.ManagerLegacySIDH, error) {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
@@ -43,9 +43,9 @@ func (r *Ratchet) AddPartnerLegacySIDH(partnerID *id.ID,
 	}
 	m := partner.NewManagerLegacySIDH(r.kv, r.myID, partnerID, myPrivKey,
 		partnerPubKey, mySIDHPrivKey, partnerSIDHPubKey,
-		sendParams, receiveParams, r.cyHandler, r.grp, r.rng)
+		sendParams, receiveParams, r.cyHandlerLegacySIDH, r.grp, r.rng)
 
-	r.managers[mid] = m
+	r.managersLegacySIDH[mid] = m
 	if err := r.save(); err != nil {
 		jww.FATAL.Printf("Failed to add Partner %s: Save of store failed: %s",
 			partnerID, err)

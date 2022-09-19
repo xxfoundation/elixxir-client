@@ -34,16 +34,17 @@ var NoPartnerErrorStr = "No relationship with partner found"
 
 type Ratchet struct {
 	managers           map[id.ID]partner.Manager
-	managersLegacySIDH map[id.ID]partner.Manager
+	managersLegacySIDH map[id.ID]partner.ManagerLegacySIDH
 	mux                sync.RWMutex
 
 	myID                   *id.ID
 	advertisedDHPrivateKey *cyclic.Int
 	advertisedDHPublicKey  *cyclic.Int
 
-	grp       *cyclic.Group
-	cyHandler session.CypherHandler
-	rng       *fastRNG.StreamGenerator
+	grp                 *cyclic.Group
+	cyHandler           session.CypherHandler
+	cyHandlerLegacySIDH session.CypherHandlerLegacySIDH
+	rng                 *fastRNG.StreamGenerator
 
 	// services handler
 	services    map[string]message.Processor

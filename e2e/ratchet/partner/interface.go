@@ -134,3 +134,10 @@ type ManagerLegacySIDH interface {
 	// sessions and the key vectors
 	Delete() error
 }
+
+type ManagerService interface {
+	// MakeService Returns a service interface with the
+	// appropriate identifier for who is being sent to. Will populate
+	// the metadata with the partner
+	MakeService(tag string) message.Service
+}

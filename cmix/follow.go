@@ -114,11 +114,11 @@ func (c *client) followNetwork(report ClientErrorReport,
 
 			//trigger all others without getting network state updates
 			for i := 1; i < len(toTrack); i++ {
-				go func() {
-					c.follow(toTrack[i], report, rng, c.comms, stop,
+				go func(index int) {
+					c.follow(toTrack[index], report, rng, c.comms, stop,
 						dummyAbandon, false)
 					wg.Done()
-				}()
+				}(i)
 			}
 
 			//wait for all to complete

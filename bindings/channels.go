@@ -829,7 +829,7 @@ type EventModel interface {
 	ReceiveReaction(channelID []byte, messageID []byte,
 		reactionTo []byte, senderUsername string,
 		reaction string, timestamp int64, lease int64,
-		round int64, status int64)
+		roundId int64, status int64)
 
 	// UpdateSentStatus is called whenever the sent status of a message
 	// has changed.
@@ -855,7 +855,7 @@ type toEventModel struct {
 
 // NewEventModel is a constructor for a toEventModel. This will take in an
 // EventModel and wraps it around the toEventModel.
-func NewEventModel(em EventModel) *toEventModel {
+func NewEventModel(em channels.EventModel) *toEventModel {
 	return &toEventModel{em: em}
 }
 

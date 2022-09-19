@@ -21,7 +21,7 @@ type NameService interface {
 
 	// GetChannelValidationSignature returns the validation
 	// signature and the time it was signed.
-	GetChannelValidationSignature() (signature []byte, lease time.Time)
+	GetChannelValidationSignature() ([]byte, time.Time)
 
 	// GetChannelPubkey returns the user's public key.
 	GetChannelPubkey() ed25519.PublicKey

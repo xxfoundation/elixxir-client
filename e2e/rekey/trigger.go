@@ -15,7 +15,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/ctidh"
+	"gitlab.com/elixxir/client/e2e/pq"
 	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
@@ -159,7 +159,7 @@ func unmarshalSource(grp *cyclic.Group, payload []byte) (session.SessionID,
 			msg.PublicKey)
 	}
 
-	theirPQPubKey, err := ctidh.NewCtidhNike().UnmarshalBinaryPublicKey(msg.PqPublicKey)
+	theirPQPubKey, err := pq.NIKE.UnmarshalBinaryPublicKey(msg.PqPublicKey)
 	if err != nil {
 		return session.SessionID{}, nil, nil, err
 	}

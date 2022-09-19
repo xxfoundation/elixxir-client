@@ -13,7 +13,7 @@ import (
 
 	"gitlab.com/xx_network/primitives/id"
 
-	"gitlab.com/elixxir/client/ctidh"
+	"gitlab.com/elixxir/client/e2e/pq"
 	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
@@ -32,14 +32,14 @@ type baseFormat struct {
 func newBaseFormat(payloadSize, pubkeySize int) baseFormat {
 	total := pubkeySize
 	// Size of sidh pubkey
-	total += ctidh.NewCtidhNike().PublicKeySize()
+	total += pq.NIKE.PublicKeySize()
 	// Size of version
 	total += 1
 	if payloadSize < total {
 		jww.FATAL.Panicf("Size of baseFormat is too small (%d), must be big "+
 			"enough to contain public key (%d) and PQ key (%d)"+
 			"and version which totals to %d", payloadSize,
-			pubkeySize, ctidh.NewCtidhNike().PublicKeySize(), total)
+			pubkeySize, pq.NIKE.PublicKeySize(), total)
 	}
 
 	jww.INFO.Printf("Empty Space RequestAuth: %d", payloadSize-total)
@@ -129,7 +129,7 @@ type ecrFormat struct {
 }
 
 func newEcrFormat(size int) ecrFormat {
-	if size < (ownershipSize + ctidh.NewCtidhNike().PublicKeySize() + 1) {
+	if size < (ownershipSize + pq.NIKE.PublicKeySize() + 1) {
 		jww.FATAL.Panicf("Size too small to hold")
 	}
 
@@ -150,7 +150,7 @@ func buildEcrFormat(data []byte) ecrFormat {
 
 	start = end
 
-	end = start + ctidh.NewCtidhNike().PublicKeySize() + 1
+	end = start + pq.NIKE.PublicKeySize() + 1
 	f.pqPublicKey = f.data[start:end]
 
 	start = end
@@ -194,7 +194,7 @@ func (f ecrFormat) SetPQPublicKey(pqPublicKey nike.PublicKey) {
 // GetPQPublicKey will attempt to decode a PQ post quantum
 // public key from a ecrFormat packet for auth requests.
 func (f ecrFormat) GetPQPublicKey() (nike.PublicKey, error) {
-	return ctidh.NewCtidhNike().UnmarshalBinaryPublicKey(f.pqPublicKey)
+	return pq.NIKE.UnmarshalBinaryPublicKey(f.pqPublicKey)
 }
 
 func (f ecrFormat) GetPayload() []byte {

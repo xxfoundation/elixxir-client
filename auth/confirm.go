@@ -18,7 +18,7 @@ import (
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/ctidh"
+	"gitlab.com/elixxir/client/e2e/pq"
 	"gitlab.com/elixxir/client/event"
 	"gitlab.com/elixxir/crypto/contact"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
@@ -72,7 +72,7 @@ func (s *state) confirm(partner contact.Contact, serviceTag string) (
 			dhPriv, dhPub := genDHKeys(s.e2e.GetGroup(), rng)
 			rng.Close()
 
-			nike := ctidh.NewCtidhNike()
+			nike := pq.NIKE
 			ctidhPriv, ctidhPub := nike.NewKeypair()
 
 			/*construct message*/

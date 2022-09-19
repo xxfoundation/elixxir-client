@@ -19,8 +19,8 @@ import (
 
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
-	"gitlab.com/elixxir/client/ctidh"
 	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/e2e/pq"
 	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/client/interfaces/nike"
 	util "gitlab.com/elixxir/client/storage/utility"
@@ -79,7 +79,7 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	dhPriv, dhPub := genDHKeys(dhGrp, rng)
 
 	// fixme: maybe mynike defined in init as a module variable?
-	mynike := ctidh.NewCtidhNike()
+	mynike := pq.NIKE
 	// TODO: this should take an RNG
 	ctidhPriv, ctidhPub := mynike.NewKeypair()
 

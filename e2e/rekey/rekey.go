@@ -16,7 +16,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/ctidh"
+	"gitlab.com/elixxir/client/e2e/pq"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	session "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/event"
@@ -103,7 +103,7 @@ func negotiate(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSe
 	pubKey := diffieHellman.GeneratePublicKey(sess.GetMyPrivKey(), grp)
 
 	pqPrivKey := sess.GetMyPQPrivKey()
-	pqPubKey := ctidh.NewCtidhNike().DerivePublicKey(pqPrivKey)
+	pqPubKey := pq.NIKE.DerivePublicKey(pqPrivKey)
 	pqPubKeyBytes := pqPubKey.Bytes()
 
 	//build the payload

@@ -18,7 +18,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 
-	"gitlab.com/elixxir/client/ctidh"
+	"gitlab.com/elixxir/client/e2e/pq"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -78,9 +78,8 @@ func makeTestSession() (*Session, *versioned.KV) {
 	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 
-	nike := ctidh.NewCtidhNike()
-	_, partnerPQPubKey := nike.NewKeypair()
-	myPQPrivKey, _ := nike.NewKeypair()
+	_, partnerPQPubKey := pq.NIKE.NewKeypair()
+	myPQPrivKey, _ := pq.NIKE.NewKeypair()
 
 	baseKey := GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
 		myPQPrivKey, partnerPQPubKey)

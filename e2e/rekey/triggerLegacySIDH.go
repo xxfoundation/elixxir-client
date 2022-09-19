@@ -10,48 +10,20 @@ package rekey
 import (
 	"fmt"
 
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/ctidh"
 	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
-	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/stoppable"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/cyclic"
 )
 
-const (
-	errBadTrigger = "non-e2e trigger from partner %s"
-	errUnknown    = "unknown trigger from partner %s"
-	errFailed     = "Failed to handle rekey trigger: %s"
-)
-
-func startTrigger(ratchet *ratchet.Ratchet, sender E2eSender, net cmix.Client,
-	grp *cyclic.Group, c chan receive.Message, stop *stoppable.Single, params Params,
-	cleanup func()) {
-	for {
-		select {
-		case <-stop.Quit():
-			cleanup()
-			stop.ToStopped()
-			return
-		case request := <-c:
-			go func() {
-				err := handleTrigger(ratchet, sender, net, grp, request, params,
-					stop)
-				if err != nil {
-					jww.ERROR.Printf(errFailed, err)
-				}
-			}()
-		}
-	}
-}
-
-func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
+func handleTriggerLegacySIDH(ratchet *ratchet.Ratchet, sender E2eSender,
 	net cmix.Client, grp *cyclic.Group, request receive.Message,
 	param Params, stop *stoppable.Single) error {
 
@@ -74,7 +46,7 @@ func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 	}
 
 	//unmarshal the message
-	oldSessionID, PartnerPublicKey, PartnerPQPublicKey, err :=
+	oldSessionID, PartnerPublicKey, PartnerSIDHPublicKey, err :=
 		unmarshalSource(grp, request.Payload)
 	if err != nil {
 		jww.ERROR.Printf("[REKEY] could not unmarshal partner %s: %s",
@@ -93,7 +65,7 @@ func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 
 	//create the new session
 	sess, duplicate := partner.NewReceiveSession(PartnerPublicKey,
-		PartnerPQPublicKey, session.GetDefaultParams(),
+		PartnerSIDHPublicKey, session.GetDefaultParams(),
 		oldSession)
 	// new session being nil means the session was a duplicate. This is possible
 	// in edge cases where the partner crashes during operation. The session
@@ -135,8 +107,8 @@ func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 	return nil
 }
 
-func unmarshalSource(grp *cyclic.Group, payload []byte) (session.SessionID,
-	*cyclic.Int, nike.PublicKey, error) {
+func unmarshalSourceLegacySIDH(grp *cyclic.Group, payload []byte) (session.SessionID,
+	*cyclic.Int, *sidh.PublicKey, error) {
 
 	msg := &RekeyTrigger{}
 	if err := proto.Unmarshal(payload, msg); err != nil {
@@ -159,11 +131,10 @@ func unmarshalSource(grp *cyclic.Group, payload []byte) (session.SessionID,
 			msg.PublicKey)
 	}
 
-	theirPQPubKey, err := ctidh.NewCtidhNike().UnmarshalBinaryPublicKey(msg.PQPublicKey)
-	if err != nil {
-		return session.SessionID{}, nil, nil, err
-	}
+	theirSIDHVariant := sidh.KeyVariant(msg.SidhPublicKey[0])
+	theirSIDHPubKey := util.NewSIDHPublicKey(theirSIDHVariant)
+	theirSIDHPubKey.Import(msg.SidhPublicKey[1:])
 
 	return oldSessionID, grp.NewIntFromBytes(msg.PublicKey),
-		theirPQPubKey, nil
+		theirSIDHPubKey, nil
 }

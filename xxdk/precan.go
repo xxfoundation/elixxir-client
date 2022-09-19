@@ -12,12 +12,10 @@ import (
 	"math/rand"
 
 	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	util "gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/crypto/contact"
-
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 )
@@ -74,6 +72,7 @@ func (m *E2e) MakePrecannedAuthenticatedChannel(precannedID uint) (
 	precanContact := precanRecipient.GetContact()
 
 	myID := binary.BigEndian.Uint64(m.GetReceptionIdentity().ID[:])
+
 	// Pick a variant based on if their ID is bigger than mine.
 	myVariant := sidh.KeyVariantSidhA
 	theirVariant := sidh.KeyVariant(sidh.KeyVariantSidhB)
@@ -82,8 +81,6 @@ func (m *E2e) MakePrecannedAuthenticatedChannel(precannedID uint) (
 		theirVariant = sidh.KeyVariantSidhA
 	}
 	prng1 := rand.New(rand.NewSource(int64(precannedID)))
-	theirSIDHPrivKey := util.NewSIDHPrivateKey(theirVariant)
-	theirSIDHPubKey := util.NewSIDHPublicKey(theirVariant)
 	err = theirSIDHPrivKey.Generate(prng1)
 	if err != nil {
 		return contact.Contact{}, err

@@ -8,7 +8,8 @@
 package connect
 
 import (
-	"github.com/cloudflare/circl/dh/sidh"
+	"time"
+
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/gateway"
@@ -19,6 +20,7 @@ import (
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/contact"
@@ -30,7 +32,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"time"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -72,10 +73,10 @@ func (m *mockPartner) Contact() contact.Contact {
 }
 func (m *mockPartner) PopSendCypher() (session.Cypher, error)  { return nil, nil }
 func (m *mockPartner) PopRekeyCypher() (session.Cypher, error) { return nil, nil }
-func (m *mockPartner) NewReceiveSession(*cyclic.Int, *sidh.PublicKey, session.Params, *session.Session) (*session.Session, bool) {
+func (m *mockPartner) NewReceiveSession(*cyclic.Int, nike.PublicKey, session.Params, *session.Session) (*session.Session, bool) {
 	return nil, false
 }
-func (m *mockPartner) NewSendSession(*cyclic.Int, *sidh.PrivateKey, session.Params, *session.Session) *session.Session {
+func (m *mockPartner) NewSendSession(*cyclic.Int, nike.PrivateKey, session.Params, *session.Session) *session.Session {
 	return nil
 }
 func (m *mockPartner) GetSendSession(session.SessionID) *session.Session    { return nil }

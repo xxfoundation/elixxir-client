@@ -8,7 +8,9 @@
 package e2e
 
 import (
-	"github.com/cloudflare/circl/dh/sidh"
+	"sync"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
@@ -21,6 +23,7 @@ import (
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	userStorage "gitlab.com/elixxir/client/storage/user"
@@ -40,8 +43,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"sync"
-	"time"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -284,7 +285,7 @@ func (m *mockE2e) RegisterChannel(string, *id.ID, catalog.MessageType, chan rece
 }
 func (m *mockE2e) Unregister(receive.ListenerID)  { panic("implement me") }
 func (m *mockE2e) UnregisterUserListeners(*id.ID) { panic("implement me") }
-func (m *mockE2e) AddPartner(*id.ID, *cyclic.Int, *cyclic.Int, *sidh.PublicKey, *sidh.PrivateKey, session.Params, session.Params) (partner.Manager, error) {
+func (m *mockE2e) AddPartner(*id.ID, *cyclic.Int, *cyclic.Int, nike.PublicKey, nike.PrivateKey, session.Params, session.Params) (partner.Manager, error) {
 	panic("implement me")
 }
 func (m *mockE2e) GetPartner(*id.ID) (partner.Manager, error)   { panic("implement me") }

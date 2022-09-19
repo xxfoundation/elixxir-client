@@ -20,7 +20,8 @@
 package groupChat
 
 import (
-	"github.com/cloudflare/circl/dh/sidh"
+	"time"
+
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
@@ -29,6 +30,7 @@ import (
 	sessionImport "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -37,7 +39,6 @@ import (
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"time"
 )
 
 // GroupChat is used to send and receive cMix messages to/from multiple users.
@@ -131,7 +132,7 @@ type groupE2eHandler interface {
 		newListener receive.Listener) receive.ListenerID
 	AddService(tag string, processor message.Processor) error
 	AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int,
-		partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey,
+		partnerPQPubKey nike.PublicKey, myPQPrivKey nike.PrivateKey,
 		sendParams, receiveParams sessionImport.Params) (partner.Manager, error)
 	GetPartner(partnerID *id.ID) (partner.Manager, error)
 	GetHistoricalDHPubkey() *cyclic.Int

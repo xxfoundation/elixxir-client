@@ -7,83 +7,75 @@
 
 package auth
 
-import (
-	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/diffieHellman"
-	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
-	"math/rand"
-	"testing"
-)
+// // Unit test.
+// func TestVerifyOwnership(t *testing.T) {
+// 	const numTests = 100
 
-// Unit test.
-func TestVerifyOwnership(t *testing.T) {
-	const numTests = 100
+// 	grp := getGroup()
+// 	prng := rand.New(rand.NewSource(69))
 
-	grp := getGroup()
-	prng := rand.New(rand.NewSource(69))
+// 	for i := 0; i < numTests; i++ {
+// 		// Generate mock keys
+// 		myPrivKey := diffieHellman.GeneratePrivateKey(
+// 			diffieHellman.DefaultPrivateKeyLength, grp, prng)
+// 		partnerPubKey := diffieHellman.GeneratePublicKey(
+// 			diffieHellman.GeneratePrivateKey(512, grp, prng), grp)
 
-	for i := 0; i < numTests; i++ {
-		// Generate mock keys
-		myPrivKey := diffieHellman.GeneratePrivateKey(
-			diffieHellman.DefaultPrivateKeyLength, grp, prng)
-		partnerPubKey := diffieHellman.GeneratePublicKey(
-			diffieHellman.GeneratePrivateKey(512, grp, prng), grp)
+// 		// Init mock e2e Handler
+// 		mockHandler := mockE2eHandler{
+// 			privKey: myPrivKey,
+// 		}
 
-		// Init mock e2e Handler
-		mockHandler := mockE2eHandler{
-			privKey: myPrivKey,
-		}
+// 		proof := cAuth.MakeOwnershipProof(myPrivKey, partnerPubKey, grp)
 
-		proof := cAuth.MakeOwnershipProof(myPrivKey, partnerPubKey, grp)
+// 		// Generate mock contact objects to pass in
+// 		received := contact.Contact{
+// 			OwnershipProof: proof,
+// 		}
+// 		verified := contact.Contact{
+// 			DhPubKey: partnerPubKey,
+// 		}
 
-		// Generate mock contact objects to pass in
-		received := contact.Contact{
-			OwnershipProof: proof,
-		}
-		verified := contact.Contact{
-			DhPubKey: partnerPubKey,
-		}
+// 		// Call VerifyOwnership
+// 		if !VerifyOwnership(received, verified, mockHandler) {
+// 			t.Errorf("Proof could not be verified at index %v", i)
+// 		}
+// 	}
+// }
 
-		// Call VerifyOwnership
-		if !VerifyOwnership(received, verified, mockHandler) {
-			t.Errorf("Proof could not be verified at index %v", i)
-		}
-	}
-}
+// // Tests that bad proofs are not verified
+// func TestVerifyOwnershipProof_Bad(t *testing.T) {
 
-// Tests that bad proofs are not verified
-func TestVerifyOwnershipProof_Bad(t *testing.T) {
+// 	const numTests = 100
 
-	const numTests = 100
+// 	grp := getGroup()
+// 	prng := rand.New(rand.NewSource(420))
 
-	grp := getGroup()
-	prng := rand.New(rand.NewSource(420))
+// 	for i := 0; i < numTests; i++ {
+// 		myPrivKey := diffieHellman.GeneratePrivateKey(
+// 			diffieHellman.DefaultPrivateKeyLength, grp, prng)
+// 		partnerPubKey := diffieHellman.GeneratePublicKey(
+// 			diffieHellman.GeneratePrivateKey(512, grp, prng), grp)
+// 		proof := make([]byte, 32)
+// 		prng.Read(proof)
 
-	for i := 0; i < numTests; i++ {
-		myPrivKey := diffieHellman.GeneratePrivateKey(
-			diffieHellman.DefaultPrivateKeyLength, grp, prng)
-		partnerPubKey := diffieHellman.GeneratePublicKey(
-			diffieHellman.GeneratePrivateKey(512, grp, prng), grp)
-		proof := make([]byte, 32)
-		prng.Read(proof)
+// 		// Generate mock contact objects to pass in
+// 		received := contact.Contact{
+// 			OwnershipProof: proof,
+// 		}
+// 		verified := contact.Contact{
+// 			DhPubKey: partnerPubKey,
+// 		}
 
-		// Generate mock contact objects to pass in
-		received := contact.Contact{
-			OwnershipProof: proof,
-		}
-		verified := contact.Contact{
-			DhPubKey: partnerPubKey,
-		}
+// 		// Init mock e2e Handler
+// 		mockHandler := mockE2eHandler{
+// 			privKey: myPrivKey,
+// 		}
 
-		// Init mock e2e Handler
-		mockHandler := mockE2eHandler{
-			privKey: myPrivKey,
-		}
+// 		// Call VerifyOwnership
+// 		if VerifyOwnership(received, verified, mockHandler) {
+// 			t.Errorf("Proof was verified at index %v when it is bad", i)
+// 		}
 
-		// Call VerifyOwnership
-		if VerifyOwnership(received, verified, mockHandler) {
-			t.Errorf("Proof was verified at index %v when it is bad", i)
-		}
-
-	}
-}
+// 	}
+// }

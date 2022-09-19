@@ -740,6 +740,10 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 	return cm.api.RegisterReceiveHandler(channels.MessageType(messageType), cb)
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Event Model Logic                                                          //
+////////////////////////////////////////////////////////////////////////////////
+
 // EventModel is an interface which an external party which uses the channels
 // system passed an object which adheres to in order to get events on the channel.
 type EventModel interface {
@@ -770,9 +774,9 @@ type EventModel interface {
 	//  - Lease is a number of nanoseconds that the message is valid for.
 	//  - Status is the status of the message.
 	//    Statuses will be enumerated as such:
-	//     Sent 		- 0
-	//     Delivered 	- 1
-	//     Failed 		- 2
+	//     Sent      |  0
+	//     Delivered |  1
+	//     Failed    |  2
 	ReceiveMessage(channelID []byte, messageID []byte,
 		senderUsername string, text string, timestamp int64,
 		lease int64, roundId int64, status int64)
@@ -794,9 +798,9 @@ type EventModel interface {
 	//  - Lease is a number of nanoseconds that the message is valid for.
 	//  - Status is the status of the message.
 	//    Statuses will be enumerated as such:
-	//     Sent 		- 0
-	//     Delivered 	- 1
-	//     Failed 		- 2
+	//     Sent      |  0
+	//     Delivered |  1
+	//     Failed    |  2
 	ReceiveReply(channelID []byte, messageID []byte,
 		reactionTo []byte, senderUsername string,
 		text string, timestamp int64, lease int64,
@@ -808,7 +812,7 @@ type EventModel interface {
 	// Messages may arrive our of order, so a reply in theory can arrive before
 	// the initial message, as a result it may be important to buffer reactions.
 	//
-	// Parameters: //todo: enumerate all arguments
+	// Parameters:
 	//  - ChannelID is the marshalled channel ID.
 	//  - MessageID is the marshalled message ID of the received message.
 	//  - reactionTo is the message ID for the message that received a reaction.
@@ -819,9 +823,9 @@ type EventModel interface {
 	//  - Lease is a number of nanoseconds that the message is valid for.
 	//  - Status is the status of the message.
 	//    Statuses will be enumerated as such:
-	//     Sent 		- 0
-	//     Delivered 	- 1
-	//     Failed 		- 2
+	//     Sent      |  0
+	//     Delivered |  1
+	//     Failed    |  2
 	ReceiveReaction(channelID []byte, messageID []byte,
 		reactionTo []byte, senderUsername string,
 		reaction string, timestamp int64, lease int64,
@@ -849,8 +853,8 @@ type toEventModel struct {
 	em EventModel
 }
 
-// NewEventModel is a constructor for a toEventModel. This will take in the
-// passed EventModel and wraps it.
+// NewEventModel is a constructor for a toEventModel. This will take in an
+// EventModel and wraps it around the toEventModel.
 func NewEventModel(em EventModel) *toEventModel {
 	return &toEventModel{em: em}
 }

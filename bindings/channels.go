@@ -855,7 +855,7 @@ type toEventModel struct {
 
 // NewEventModel is a constructor for a toEventModel. This will take in an
 // EventModel and wraps it around the toEventModel.
-func NewEventModel(em channels.EventModel) *toEventModel {
+func NewEventModel(em EventModel) *toEventModel {
 	return &toEventModel{em: em}
 }
 

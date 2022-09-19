@@ -17,8 +17,9 @@ import (
 )
 
 // NewDummyNameService returns a dummy object adhering to the name service
-// This neither produces valid signatures or validates passed signature
-// is is for Development and Debugging purposes only.
+// This neither produces valid signatures nor validates passed signatures.
+//
+// THIS IS FOR DEVELOPMENT AND DEBUGGING PURPOSES ONLY.
 func NewDummyNameService(username string, rng io.Reader) (NameService, error) {
 	jww.WARN.Printf("Creating a Dummy Name Service. This is for " +
 		"development and debugging only. It does not produce valid " +
@@ -45,6 +46,8 @@ func NewDummyNameService(username string, rng io.Reader) (NameService, error) {
 	return dns, nil
 }
 
+// dummyNameService is a dummy NameService implementation. This is NOT meant
+// for use in production
 type dummyNameService struct {
 	private       ed25519.PrivateKey
 	public        ed25519.PublicKey
@@ -53,10 +56,18 @@ type dummyNameService struct {
 	lease         time.Time
 }
 
+// GetUsername returns the username for the dummyNameService. This is what was
+// passed in through NewDummyNameService.
+//
+// THIS IS FOR DEVELOPMENT AND DEBUGGING PURPOSES ONLY.
 func (dns *dummyNameService) GetUsername() string {
 	return dns.username
 }
 
+// GetChannelValidationSignature will return the dummy validation signature
+// generated in through the constructor, NewDummyNameService.
+//
+// THIS IS FOR DEVELOPMENT AND DEBUGGING PURPOSES ONLY.
 func (dns *dummyNameService) GetChannelValidationSignature() ([]byte, time.Time) {
 	jww.WARN.Printf("GetChannelValidationSignature called on Dummy Name " +
 		"Service, dummy signature from a random key returned - identity not " +
@@ -64,10 +75,16 @@ func (dns *dummyNameService) GetChannelValidationSignature() ([]byte, time.Time)
 	return dns.validationSig, dns.lease
 }
 
+// GetChannelPubkey returns the ed25519.PublicKey generates in the constructor,
+// NewDummyNameService.
 func (dns *dummyNameService) GetChannelPubkey() ed25519.PublicKey {
 	return dns.public
 }
 
+// SignChannelMessage will sign the passed in message using the
+// dummyNameService's private key.
+//
+// THIS IS FOR DEVELOPMENT AND DEBUGGING PURPOSES ONLY.
 func (dns *dummyNameService) SignChannelMessage(message []byte) (
 	signature []byte, err error) {
 	jww.WARN.Printf("SignChannelMessage called on Dummy Name Service, " +
@@ -77,6 +94,11 @@ func (dns *dummyNameService) SignChannelMessage(message []byte) (
 	return sig, nil
 }
 
+// ValidateChannelMessage will always return true, indicating the the channel
+// message is valid. This will ignore the passed in arguments. As a result,
+// these values may be dummy or precanned.
+//
+// THIS IS FOR DEVELOPMENT AND DEBUGGING PURPOSES ONLY.
 func (dns *dummyNameService) ValidateChannelMessage(username string, lease time.Time,
 	pubKey ed25519.PublicKey, authorIDSignature []byte) bool {
 	//ignore the authorIDSignature

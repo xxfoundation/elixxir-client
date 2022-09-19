@@ -110,7 +110,7 @@ func NewRelationshipLegacySIDH(kv *versioned.KV, t session.RelationshipType,
 
 // todo - doscstring
 func LoadRelationshipLegacySIDH(kv *versioned.KV, t session.RelationshipType, myID,
-	partnerID *id.ID, cyHandler session.CypherHandler, grp *cyclic.Group,
+	partnerID *id.ID, cyHandler session.CypherHandlerLegacySIDH, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (*relationshipLegacySIDH, error) {
 
 	kv = kv.Prefix(t.Prefix())
@@ -178,11 +178,11 @@ func (r *relationshipLegacySIDH) unmarshal(b []byte) error {
 		return err
 	}
 
-	r.fingerprint = loadRelationshipLegacySIDHFingerprint(r.kv)
+	r.fingerprint = loadRelationshipFingerprint(r.kv)
 
 	//load all the sessions
 	for _, sid := range sessions {
-		s, err := session.LoadSession(r.kv, sid, r.fingerprint,
+		s, err := session.LoadSessionLegacySIDH(r.kv, sid, r.fingerprint,
 			r.cyHandler, r.grp, r.rng)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load session %s for %s: %+v",
@@ -212,9 +212,11 @@ func (r *relationshipLegacySIDH) AddSession(myPrivKey, partnerPubKey, baseKey *c
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
-	s := session.NewSession(r.kv, r.t, r.partnerID, myPrivKey, partnerPubKey, baseKey,
+	s := session.NewSessionLegacySIDH(r.kv, r.t, r.partnerID, myPrivKey,
+		partnerPubKey, baseKey,
 		mySIDHPrivKey, partnerSIDHPubKey, trigger,
-		r.fingerprint, negotiationStatus, e2eParams, r.cyHandler, r.grp, r.rng)
+		r.fingerprint, negotiationStatus, e2eParams, r.cyHandler,
+		r.grp, r.rng)
 
 	r.addSession(s)
 	if err := r.save(); err != nil {
@@ -243,7 +245,7 @@ func (r *relationshipLegacySIDH) GetNewest() *session.SessionLegacySIDH {
 }
 
 // returns the key which is most likely to be successful for sending
-func (r *relationshipLegacySIDH) getKeyForSending() (session.Cypher, error) {
+func (r *relationshipLegacySIDH) getKeyForSending() (session.CypherLegacySIDH, error) {
 	r.sendMux.Lock()
 	defer r.sendMux.Unlock()
 	s := r.getSessionForSending()
@@ -319,7 +321,7 @@ func (r *relationshipLegacySIDH) TriggerNegotiation() []*session.SessionLegacySI
 }
 
 // returns a key which should be used for rekeying
-func (r *relationshipLegacySIDH) getKeyForRekey() (session.Cypher, error) {
+func (r *relationshipLegacySIDH) getKeyForRekey() (session.CypherLegacySIDH, error) {
 	r.sendMux.Lock()
 	defer r.sendMux.Unlock()
 	s := r.getNewestRekeyableSession()

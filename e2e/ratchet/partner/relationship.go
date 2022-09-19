@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 

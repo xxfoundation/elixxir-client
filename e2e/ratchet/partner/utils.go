@@ -10,9 +10,9 @@ package partner
 import (
 	"testing"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
@@ -76,11 +76,15 @@ func (p *testManager) PopRekeyCypher() (session.Cypher, error) {
 	panic("implement me")
 }
 
-func (p *testManager) NewReceiveSession(partnerPubKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey, e2eParams session.Params, source *session.Session) (*session.Session, bool) {
+func (p *testManager) NewReceiveSession(partnerPubKey *cyclic.Int,
+	partnerPQPubKey nike.PublicKey, e2eParams session.Params,
+	source *session.Session) (*session.Session, bool) {
 	panic("implement me")
 }
 
-func (p *testManager) NewSendSession(myDHPrivKey *cyclic.Int, mySIDHPrivateKey *sidh.PrivateKey, e2eParams session.Params, source *session.Session) *session.Session {
+func (p *testManager) NewSendSession(myDHPrivKey *cyclic.Int,
+	myPQPrivateKey nike.PrivateKey, e2eParams session.Params,
+	source *session.Session) *session.Session {
 	panic("implement me")
 }
 

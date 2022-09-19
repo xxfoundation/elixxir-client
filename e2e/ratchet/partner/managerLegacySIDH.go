@@ -8,8 +8,8 @@
 package partner
 
 import (
-	"encoding/base64"
 	"fmt"
+
 	"gitlab.com/elixxir/crypto/e2e"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -42,7 +42,7 @@ type managerLegacySIDH struct {
 	send    *relationshipLegacySIDH
 
 	grp       *cyclic.Group
-	cyHandler session.CypherHandler
+	cyHandler session.CypherHandlerLegacySIDH
 	rng       *fastRNG.StreamGenerator
 }
 
@@ -228,12 +228,12 @@ func (m *managerLegacySIDH) NewSendSession(myPrivKey *cyclic.Int,
 }
 
 // PopSendCypher returns the key which is most likely to be successful for sending
-func (m *managerLegacySIDH) PopSendCypher() (session.Cypher, error) {
+func (m *managerLegacySIDH) PopSendCypher() (session.CypherLegacySIDH, error) {
 	return m.send.getKeyForSending()
 }
 
 // PopRekeyCypher returns a key which should be used for rekeying
-func (m *managerLegacySIDH) PopRekeyCypher() (session.Cypher, error) {
+func (m *managerLegacySIDH) PopRekeyCypher() (session.CypherLegacySIDH, error) {
 	return m.send.getKeyForRekey()
 
 }

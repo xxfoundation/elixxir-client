@@ -739,3 +739,179 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 	// Register handler
 	return cm.api.RegisterReceiveHandler(channels.MessageType(messageType), cb)
 }
+
+// EventModel is an interface which an external party which uses the channels
+// system passed an object which adheres to in order to get events on the channel.
+type EventModel interface {
+	// JoinChannel is called whenever a channel is joined locally.
+	//
+	// Parameters:
+	//  - channel is the pretty print representation of a channel.
+	JoinChannel(channel string)
+
+	// LeaveChannel is called whenever a channel is left locally.
+	//
+	// Parameters:
+	//  - ChannelId is the marshalled chenn
+	// This will receive a marshalled channel ID.
+	LeaveChannel(channelID []byte)
+
+	// ReceiveMessage is called whenever a message is received on a given channel
+	// It may be called multiple times on the same message, it is incumbent on
+	// the user of the API to filter such called by message ID.
+	//
+	// Parameters:
+	//  - ChannelID is the marshalled channel ID.
+	//  - MessageID is the marshalled message ID of the received message.
+	//  - senderUsername is the username of the sender of the message.
+	//  - text is the content of the message.
+	//  - Timestamp is time the message was received, represented as
+	//    nanoseconds since unix epoch.
+	//  - Lease is a number of nanoseconds that the message is valid for.
+	//  - Status is the status of the message.
+	//    Statuses will be enumerated as such:
+	//     Sent 		- 0
+	//     Delivered 	- 1
+	//     Failed 		- 2
+	ReceiveMessage(channelID []byte, messageID []byte,
+		senderUsername string, text string, timestamp int64,
+		lease int64, roundId int64, status int64)
+
+	// ReceiveReply is called whenever a message is received which is a reply
+	// on a given channel. It may be called multiple times on the same message,
+	// it is incumbent on the user of the API to filter such called by message ID
+	// Messages may arrive out of order, so a reply in theory can arrive before
+	// the initial message, as a result it may be important to buffer replies.
+	//
+	// Parameters:
+	//  - ChannelID is the marshalled channel ID.
+	//  - MessageID is the marshalled message ID of the received message.
+	//  - reactionTo is the message ID for the message that received a reply.
+	//  - senderUsername is the username of the sender of the message.
+	//  - text is the content of the message, in this case a reply.
+	//  - Timestamp is time the message was received, represented as
+	//    nanoseconds since unix epoch.
+	//  - Lease is a number of nanoseconds that the message is valid for.
+	//  - Status is the status of the message.
+	//    Statuses will be enumerated as such:
+	//     Sent 		- 0
+	//     Delivered 	- 1
+	//     Failed 		- 2
+	ReceiveReply(channelID []byte, messageID []byte,
+		reactionTo []byte, senderUsername string,
+		text string, timestamp int64, lease int64,
+		roundId int64, status int64)
+
+	// ReceiveReaction is called whenever a reaction to a message is received
+	// on a given channel. It may be called multiple times on the same reaction,
+	// it is incumbent on the user of the API to filter such called by message ID
+	// Messages may arrive our of order, so a reply in theory can arrive before
+	// the initial message, as a result it may be important to buffer reactions.
+	//
+	// Parameters: //todo: enumerate all arguments
+	//  - ChannelID is the marshalled channel ID.
+	//  - MessageID is the marshalled message ID of the received message.
+	//  - reactionTo is the message ID for the message that received a reaction.
+	//  - senderUsername is the username of the sender of the message.
+	//  - reaction is the content of the message, in this case a reaction.
+	//  - Timestamp is time the message was received, represented as
+	//    nanoseconds since unix epoch.
+	//  - Lease is a number of nanoseconds that the message is valid for.
+	//  - Status is the status of the message.
+	//    Statuses will be enumerated as such:
+	//     Sent 		- 0
+	//     Delivered 	- 1
+	//     Failed 		- 2
+	ReceiveReaction(channelID []byte, messageID []byte,
+		reactionTo []byte, senderUsername string,
+		reaction string, timestamp int64, lease int64,
+		round int64, status int64)
+
+	// UpdateSentStatus is called whenever the sent status of a message
+	// has changed.
+	//
+	//  - Status is the status of the message.
+	//    Statuses will be enumerated as such:
+	//     Sent 		- 0
+	//     Delivered 	- 1
+	//     Failed 		- 2
+	UpdateSentStatus(messageID []byte, status int64)
+
+	//unimplemented
+	//IgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
+	//UnIgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
+	//PinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID, end time.Time)
+	//UnPinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
+}
+
+// toEventModel is a wrapper which wraps an existing EventModel object.
+type toEventModel struct {
+	em EventModel
+}
+
+// NewEventModel is a constructor for a toEventModel. This will take in the
+// passed EventModel and wraps it.
+func NewEventModel(em EventModel) *toEventModel {
+	return &toEventModel{em: em}
+}
+
+// JoinChannel is called whenever a channel is joined locally.
+func (tem *toEventModel) JoinChannel(channel *cryptoBroadcast.Channel) {
+	tem.em.JoinChannel(channel.PrettyPrint())
+}
+
+// LeaveChannel is called whenever a channel is left locally.
+func (tem *toEventModel) LeaveChannel(channelID *id.ID) {
+	tem.em.LeaveChannel(channelID[:])
+}
+
+// ReceiveMessage is called whenever a message is received on a given channel
+// It may be called multiple times on the same message, it is incumbent on
+// the user of the API to filter such called by message ID.
+func (tem *toEventModel) ReceiveMessage(channelID *id.ID,
+	messageID cryptoChannel.MessageID, senderUsername string, text string,
+	timestamp time.Time, lease time.Duration, round rounds.Round,
+	status channels.SentStatus) {
+
+	tem.em.ReceiveMessage(channelID[:], messageID[:], senderUsername, text,
+		timestamp.UnixNano(), int64(lease), int64(round.ID), int64(status))
+}
+
+// ReceiveReply is called whenever a message is received which is a reply
+// on a given channel. It may be called multiple times on the same message,
+// it is incumbent on the user of the API to filter such called by message ID
+// Messages may arrive our of order, so a reply in theory can arrive before
+// the initial message, as a result it may be important to buffer replies.
+func (tem *toEventModel) ReceiveReply(channelID *id.ID,
+	messageID cryptoChannel.MessageID,
+	reactionTo cryptoChannel.MessageID, senderUsername string,
+	text string, timestamp time.Time, lease time.Duration,
+	round rounds.Round, status channels.SentStatus) {
+
+	tem.em.ReceiveReply(channelID[:], messageID[:], reactionTo[:],
+		senderUsername, text, timestamp.UnixNano(), int64(lease),
+		int64(round.ID), int64(status))
+
+}
+
+// ReceiveReaction is called whenever a reaction to a message is received
+// on a given channel. It may be called multiple times on the same reaction,
+// it is incumbent on the user of the API to filter such called by message ID
+// Messages may arrive our of order, so a reply in theory can arrive before
+// the initial message, as a result it may be important to buffer reactions.
+func (tem *toEventModel) ReceiveReaction(channelID *id.ID,
+	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
+	senderUsername string, reaction string, timestamp time.Time,
+	lease time.Duration, round rounds.Round, status channels.SentStatus) {
+
+	tem.em.ReceiveReaction(channelID[:], messageID[:], reactionTo[:],
+		senderUsername, reaction, timestamp.UnixNano(), int64(lease),
+		int64(round.ID), int64(status))
+}
+
+// UpdateSentStatus is called whenever the sent status of a message
+// has changed.
+func (tem *toEventModel) UpdateSentStatus(messageID cryptoChannel.MessageID,
+	status channels.SentStatus) {
+	tem.em.UpdateSentStatus(messageID[:], int64(status))
+}

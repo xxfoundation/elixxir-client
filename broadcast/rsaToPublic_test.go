@@ -7,7 +7,6 @@
 
 package broadcast
 
-/*
 import (
 	"bytes"
 	"fmt"
@@ -57,23 +56,25 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	cName := "MyChannel"
 	cDesc := "This is my channel about stuff."
+	packetPayloadLength := newMockCmix(cMixHandler).GetMaxMessageLength()
 
-	channel, pk, _ := crypto.NewChannel(cName, cDesc,
-		newMockCmix(cMixHandler).GetMaxMessageLength(), rngGen.GetStream())
+	channel, pk, _ := crypto.NewChannel(
+		cName, cDesc, packetPayloadLength, rngGen.GetStream())
 	cid := channel.ReceptionID
-	// must mutate cMixHandler such that it's processorMap contains a
+
+	// Must mutate cMixHandler such that it's processorMap contains a
 	// message.Processor
-	processor := newMockProcessor()
+	mockProc := newMockProcessor()
 	cMixHandler.processorMap[*cid] = make(map[string][]message.Processor)
-	cMixHandler.processorMap[*cid]["AsymmBcast"] = []message.Processor{processor}
+	cMixHandler.processorMap[*cid]["AsymmBcast"] = []message.Processor{mockProc}
 
 	const n = 1
 	cbChans := make([]chan []byte, n)
 	clients := make([]Channel, n)
 	for i := range clients {
 		cbChan := make(chan []byte, 10)
-		cb := func(payload []byte, _ receptionID.EphemeralIdentity,
-			_ rounds.Round) {
+		cb := func(
+			payload []byte, _ receptionID.EphemeralIdentity, _ rounds.Round) {
 			cbChan <- payload
 		}
 
@@ -90,7 +91,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 		cbChans[i] = cbChan
 		clients[i] = s
 
-		// Test that Get returns the expected channel
+		// Test that Channel.Get returns the expected channel
 		if !reflect.DeepEqual(s.Get(), channel) {
 			t.Errorf("Cmix %d returned wrong channel."+
 				"\nexpected: %+v\nreceived: %+v", i, channel, s.Get())
@@ -163,4 +164,4 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 	}
 
 	wg.Wait()
-}*/
+}

@@ -8,12 +8,9 @@
 package broadcast
 
 import (
-	"math/rand"
 	"sync"
-	"testing"
 	"time"
 
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 
@@ -24,19 +21,8 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 )
 
-// newRsaPubKey generates a new random RSA public key for testing.
-func newRsaPubKey(seed int64, t *testing.T) *rsa.PublicKey {
-	prng := rand.New(rand.NewSource(seed))
-	privKey, err := rsa.GenerateKey(prng, 64)
-	if err != nil {
-		t.Errorf("Failed to generate new RSA key: %+v", err)
-	}
-
-	return privKey.GetPublic()
-}
-
 ////////////////////////////////////////////////////////////////////////////////
-// Mock cMix                                                           //
+// Mock cMix                                                                  //
 ////////////////////////////////////////////////////////////////////////////////
 
 type mockCmixHandler struct {
@@ -58,18 +44,19 @@ type mockCmix struct {
 
 func newMockCmix(handler *mockCmixHandler) *mockCmix {
 	return &mockCmix{
-		numPrimeBytes: 4096,
+		numPrimeBytes: 4096 / 8,
 		health:        true,
 		handler:       handler,
 	}
 }
 
 func (m *mockCmix) GetMaxMessageLength() int {
-	return format.NewMessage(m.numPrimeBytes * 2).ContentsSize()
+	return format.NewMessage(m.numPrimeBytes).ContentsSize()
 }
 
-func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
-	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+func (m *mockCmix) SendWithAssembler(recipient *id.ID,
+	assembler cmix.MessageAssembler, _ cmix.CMIXParams) (
+	rounds.Round, ephemeral.Id, error) {
 
 	fingerprint, service, payload, mac, err := assembler(42)
 	if err != nil {

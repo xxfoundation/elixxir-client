@@ -135,7 +135,8 @@ func NewChannelsManager(e2eID, udID int) (*ChannelsManager, error) {
 }
 
 // NewChannelsManagerGoEventModel constructs a ChannelsManager. This is not
-// compatible with GoMobile Bindings because it receives the go event model
+// compatible with GoMobile Bindings because it receives the go event model.
+//
 // Parameters:
 //  - e2eID - The tracked e2e object ID. This can be retrieved using
 //    [E2e.GetID].
@@ -172,25 +173,29 @@ type ChannelGeneration struct {
 	PrivateKey string
 }
 
-// GenerateChannel is used to create a channel. This makes a new channel
-// of which your are the admin. It is only for making new channels, not
-// joining existing ones.
-// it returns a prettyPrint of the channel and the private key
-// The name cannot be longer that ____ characters
-// the description cannot be longer than ___ and can only use ______ characters
+// GenerateChannel is used to create a channel. This makes a new channel of
+// which you are the admin. It is only for making new channels, not joining
+// existing ones.
+//
+// It returns a pretty print of the channel and the private key.
+//
+// The name cannot be longer that ____ characters.
+//
+// the description cannot be longer than ___ and can only use ______ characters.
 //
 // Parameters:
 //  - cmixID - The tracked cmix object ID. This can be retrieved using
 //    [Cmix.GetID].
-//  - name - the name of the new channel. The name cannot be longer than ____
+//  - name - The name of the new channel. The name cannot be longer than ____
 //    characters and must contain only _____ characters. It cannot be changed
 //    once a channel is created.
 //  - description - The description of a channel. The description cannot be
 //    longer than ____ characters and must contain only _____ characters. It
 //    cannot be changed once a channel is created.
+//
 // Returns:
-//  - []byte - ChannelGeneration describes a generated channel. it contains both
-//    the public channel info and the private key for the channel in PEM format
+//  - []byte - ChannelGeneration describes a generated channel. It contains both
+//    the public channel info and the private key for the channel in PEM format.
 //    fixme: document json
 func GenerateChannel(cmixID int, name, description string) ([]byte, error) {
 	// Get cmix from singleton so its rng can be used
@@ -220,13 +225,14 @@ type ChannelInfo struct {
 	ChannelID   string
 }
 
-// GetChannelInfo returns the info about a channel from its public description
+// GetChannelInfo returns the info about a channel from its public description.
 //
 // Parameters:
-//  - prettyPrint - The pretty print of the channel. Of the format:
-//    "<XXChannel-v1:Test Channel,description:This is a test channel,secrets:pn
-//     0kIs6P1pHvAe7u8kUyf33GYVKmkoCX9LhCtvKJZQI=,3A5eB5pzSHyxN09w1kOVrTIEr5Uy
-//     Bbzmmd9Ga5Dx0XA=,0,0,/zChIlLr2p3Vsm2X4+3TiFapoapaTi8EJIisJSqwfGc=>"
+//  - prettyPrint - The pretty print of the channel.
+//
+// The pretty print will be of the format:
+//  <XXChannel-v1:Test Channel,description:This is a test channel,secrets:pn0kIs6P1pHvAe7u8kUyf33GYVKmkoCX9LhCtvKJZQI=,3A5eB5pzSHyxN09w1kOVrTIEr5UyBbzmmd9Ga5Dx0XA=,0,0,/zChIlLr2p3Vsm2X4+3TiFapoapaTi8EJIisJSqwfGc=>
+//
 // Returns:
 //  - []byte - ChannelInfo describes all relevant channel info.
 //    fixme: document json
@@ -257,10 +263,11 @@ func getChannelInfo(prettyPrint string) (*cryptoBroadcast.Channel, []byte, error
 //
 // Parameters:
 //  - channelPretty - A portable channel string. Should be received from
-//    another user or generated via GenerateChannel().
-//    "<XXChannel-v1:Test Channel,description:This is a test channel,secrets:pn
-//     0kIs6P1pHvAe7u8kUyf33GYVKmkoCX9LhCtvKJZQI=,3A5eB5pzSHyxN09w1kOVrTIEr5Uy
-//     Bbzmmd9Ga5Dx0XA=,0,0,/zChIlLr2p3Vsm2X4+3TiFapoapaTi8EJIisJSqwfGc=>"
+//    another user or generated via GenerateChannel.
+//
+// The pretty print will be of the format:
+//  <XXChannel-v1:Test Channel,description:This is a test channel,secrets:pn0kIs6P1pHvAe7u8kUyf33GYVKmkoCX9LhCtvKJZQI=,3A5eB5pzSHyxN09w1kOVrTIEr5UyBbzmmd9Ga5Dx0XA=,0,0,/zChIlLr2p3Vsm2X4+3TiFapoapaTi8EJIisJSqwfGc=>"
+//
 // Returns:
 //  - []byte - ChannelInfo describes all relevant channel info.
 //    fixme: document json
@@ -295,8 +302,7 @@ func (cm *ChannelsManager) GetChannels() ([]byte, error) {
 // channel was not previously joined.
 //
 // Parameters:
-//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
-//    retrieved using ChannelsManager.GetChannelId.
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]).
 func (cm *ChannelsManager) LeaveChannel(marshalledChanId []byte) error {
 	// Unmarshal channel ID
 	channelId, err := id.Unmarshal(marshalledChanId)
@@ -312,8 +318,7 @@ func (cm *ChannelsManager) LeaveChannel(marshalledChanId []byte) error {
 // memory (~3 weeks) over the event model.
 //
 // Parameters:
-//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
-//    retrieved using ChannelsManager.GetChannelId.
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]).
 func (cm *ChannelsManager) ReplayChannel(marshalledChanId []byte) error {
 
 	// Unmarshal channel ID
@@ -354,8 +359,7 @@ type ChannelSendReport struct {
 // on the use case.
 //
 // Parameters:
-//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
-//    retrieved using ChannelsManager.GetChannelId.
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]).
 //  - messageType - The message type of the message. This will be a valid
 //    [channels.MessageType].
 //  - message - The contents of the message. This need not be of data type
@@ -402,8 +406,7 @@ func (cm *ChannelsManager) SendGeneric(marshalledChanId []byte,
 //
 // Parameters:
 //  - adminPrivateKey - The PEM-encoded admin RSA private key.
-//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
-//    retrieved using ChannelsManager.GetChannelId.
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]).
 //  - messageType - The message type of the message. This will be a valid
 //    [channels.MessageType].
 //  - message - The contents of the message. The message should be at most 510
@@ -455,8 +458,7 @@ func (cm *ChannelsManager) SendAdminGeneric(adminPrivateKey,
 // lasting forever if [channels.ValidForever] is used.
 //
 // Parameters:
-//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
-//    retrieved using ChannelsManager.GetChannelId.
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]).
 //  - message - The contents of the message. The message should be at most 510
 //    bytes. This is expected to be Unicode, and thus a string data type is
 //    expected
@@ -502,8 +504,7 @@ func (cm *ChannelsManager) SendMessage(marshalledChanId []byte,
 // lasting forever if ValidForever is used.
 //
 // Parameters:
-//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
-//    retrieved using ChannelsManager.GetChannelId.
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]).
 //  - message - The contents of the message. The message should be at most 510
 //    bytes. This is expected to be Unicode, and thus a string data type is
 //    expected.
@@ -554,8 +555,7 @@ func (cm *ChannelsManager) SendReply(marshalledChanId []byte,
 // Users will drop the reaction if they do not recognize the reactTo message.
 //
 // Parameters:
-//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
-//    retrieved using ChannelsManager.GetChannelId.
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]).
 //  - reaction - The user's reaction. This should be a single emoji with no
 //    other characters. As such, a Unicode string is expected.
 //  - messageToReactTo - The marshalled [channel.MessageID] of the message you

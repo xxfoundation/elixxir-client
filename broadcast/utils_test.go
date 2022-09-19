@@ -65,7 +65,7 @@ func newMockCmix(handler *mockCmixHandler) *mockCmix {
 }
 
 func (m *mockCmix) GetMaxMessageLength() int {
-	return format.NewMessage(m.numPrimeBytes).ContentsSize()
+	return format.NewMessage(m.numPrimeBytes * 2).ContentsSize()
 }
 
 func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,

@@ -13,38 +13,38 @@ import (
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/multicastRSA"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 const (
-	asymmetricBroadcastServiceTag = "AsymmBcast"
-	asymmCMixSendTag              = "AsymmetricBroadcast"
-	internalPayloadSizeLength     = 2
+	asymmetricRSAToPublicBroadcastServiceTag = "AsymmToPublicBcast"
+	asymmCMixSendTag                         = "AsymmetricBroadcast"
+	internalPayloadSizeLength                = 2
 )
 
-// BroadcastAsymmetric broadcasts the payload to the channel. Requires a
-// healthy network state to send Payload length must be equal to
-// bc.MaxAsymmetricPayloadSize, and the channel PrivateKey must be passed in
-func (bc *broadcastClient) BroadcastAsymmetric(pk multicastRSA.PrivateKey,
+// BroadcastRSAtoPublic broadcasts the payload to the channel. Requires a
+// healthy network state to send Payload length less than or equal to
+// bc.MaxRSAToPublicPayloadSize, and the channel PrivateKey must be passed in
+func (bc *broadcastClient) BroadcastRSAtoPublic(pk rsa.PrivateKey,
 	payload []byte, cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	// Confirm network health
 
 	assemble := func(rid id.Round) ([]byte, error) {
 		return payload, nil
 	}
-	return bc.BroadcastAsymmetricWithAssembler(pk, assemble, cMixParams)
+	return bc.BroadcastRSAToPublicWithAssembler(pk, assemble, cMixParams)
 }
 
-// BroadcastAsymmetricWithAssembler broadcasts the payload to the channel with
+// BroadcastRSAToPublicWithAssembler broadcasts the payload to the channel with
 // a function which builds the payload based upon the ID of the selected round.
-// Requires a healthy network state to send Payload must be equal to
-// bc.MaxAsymmetricPayloadSize when returned, and the channel PrivateKey
-// must be passed in
-func (bc *broadcastClient) BroadcastAsymmetricWithAssembler(
-	pk multicastRSA.PrivateKey, assembler Assembler,
+// Requires a healthy network state to send Payload must be shorter or equal in
+// length to bc.MaxRSAToPublicPayloadSize when returned, and the channel
+// PrivateKey must be passed in
+func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
+	pk rsa.PrivateKey, assembler Assembler,
 	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	// Confirm network health
 	if !bc.net.IsHealthy() {
@@ -59,21 +59,22 @@ func (bc *broadcastClient) BroadcastAsymmetricWithAssembler(
 				nil, err
 		}
 		// Check payload size
-		if len(payload) > bc.MaxAsymmetricPayloadSize() {
+		if len(payload) > bc.MaxRSAToPublicPayloadSize() {
 			return format.Fingerprint{}, message.Service{}, nil,
 				nil, errors.Errorf(errPayloadSize, len(payload),
-					bc.MaxAsymmetricPayloadSize())
+					bc.MaxRSAToPublicPayloadSize())
 		}
 		payloadLength := uint16(len(payload))
 
-		finalPayload := make([]byte, bc.maxAsymmetricPayloadSizeRaw())
+		finalPayload := make([]byte, bc.maxRSAToPublicPayloadSizeRaw())
 		binary.BigEndian.PutUint16(finalPayload[:internalPayloadSizeLength],
 			payloadLength)
 		copy(finalPayload[internalPayloadSizeLength:], payload)
 
 		// Encrypt payload
 		encryptedPayload, mac, fp, err =
-			bc.channel.EncryptAsymmetric(finalPayload, pk, bc.rng.GetStream())
+			bc.channel.EncryptRSAToPublic(finalPayload, pk, bc.net.GetMaxMessageLength(),
+				bc.rng.GetStream())
 		if err != nil {
 			return format.Fingerprint{}, message.Service{}, nil,
 				nil, errors.WithMessage(err, "Failed to encrypt "+
@@ -85,7 +86,7 @@ func (bc *broadcastClient) BroadcastAsymmetricWithAssembler(
 		// this channel
 		service = message.Service{
 			Identifier: bc.channel.ReceptionID.Bytes(),
-			Tag:        asymmetricBroadcastServiceTag,
+			Tag:        asymmetricRSAToPublicBroadcastServiceTag,
 		}
 
 		if cMixParams.DebugTag == cmix.DefaultDebugTag {

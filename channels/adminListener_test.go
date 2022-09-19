@@ -9,7 +9,6 @@ package channels
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/broadcast"
 	"testing"
 	"time"
 
@@ -67,12 +66,6 @@ func TestAdminListener_Listen(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	chMsgSerialSized, err := broadcast.NewSizedBroadcast(
-		512, cmSerial)
-	if err != nil {
-		t.Fatalf("Failed to size channel message: %+v", err)
-	}
-
 	msgID := cryptoChannel.MakeMessageID(cmSerial)
 
 	// Build the listener
@@ -85,7 +78,7 @@ func TestAdminListener_Listen(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(chMsgSerialSized, receptionID.EphemeralIdentity{}, r)
+	al.Listen(cmSerial, receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if !dummy.gotData {
@@ -136,12 +129,6 @@ func TestAdminListener_Listen_BadRound(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	chMsgSerialSized, err := broadcast.NewSizedBroadcast(
-		512, cmSerial)
-	if err != nil {
-		t.Fatalf("Failed to size channel message: %+v", err)
-	}
-
 	// Build the listener
 	dummy := &triggerAdminEventDummy{}
 
@@ -152,7 +139,7 @@ func TestAdminListener_Listen_BadRound(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(chMsgSerialSized, receptionID.EphemeralIdentity{}, r)
+	al.Listen(cmSerial, receptionID.EphemeralIdentity{}, r)
 
 	// check the results
 	if dummy.gotData {
@@ -174,12 +161,6 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 
 	cmSerial := []byte("blarg")
 
-	chMsgSerialSized, err := broadcast.NewSizedBroadcast(
-		512, cmSerial)
-	if err != nil {
-		t.Fatalf("Failed to size channel message: %+v", err)
-	}
-
 	// Build the listener
 	dummy := &triggerAdminEventDummy{}
 
@@ -190,7 +171,7 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 	}
 
 	// Call the listener
-	al.Listen(chMsgSerialSized, receptionID.EphemeralIdentity{}, r)
+	al.Listen(cmSerial, receptionID.EphemeralIdentity{}, r)
 
 	// Check the results
 	if dummy.gotData {
@@ -224,14 +205,8 @@ func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	chMsgSerialSized, err := broadcast.NewSizedBroadcast(
-		512, cmSerial)
-	if err != nil {
-		t.Fatalf("Failed to size channel message: %+v", err)
-	}
-
 	// Remove half the sized broadcast to make it malformed
-	chMsgSerialSized = chMsgSerialSized[:broadcast.GetSizedBroadcastSize(chMsgSerialSized)/2]
+	chMsgSerialSized := cmSerial[:len(cmSerial)/2]
 
 	// Build the listener
 	dummy := &triggerAdminEventDummy{}

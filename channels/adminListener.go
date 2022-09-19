@@ -10,7 +10,6 @@ package channels
 import (
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/crypto/channel"
@@ -28,21 +27,12 @@ type adminListener struct {
 // Listen is called when a message is received for the admin listener
 func (al *adminListener) Listen(payload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
-
-	// Remove the padding
-	payloadUnpadded, err := broadcast.DecodeSizedBroadcast(payload)
-	if err != nil {
-		jww.WARN.Printf(
-			"Failed to strip the padding on User Message on channel %s", al.chID)
-		return
-	}
-
 	// Get the message ID
-	msgID := channel.MakeMessageID(payloadUnpadded)
+	msgID := channel.MakeMessageID(payload)
 
 	// Decode the message as a channel message
 	cm := &ChannelMessage{}
-	if err = proto.Unmarshal(payloadUnpadded, cm); err != nil {
+	if err := proto.Unmarshal(payload, cm); err != nil {
 		jww.WARN.Printf("Failed to unmarshal Channel Message from Admin on "+
 			"channel %s", al.chID)
 		return

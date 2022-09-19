@@ -7,6 +7,7 @@
 
 package broadcast
 
+/*
 import (
 	"bytes"
 	"fmt"
@@ -16,14 +17,12 @@ import (
 	"time"
 
 	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
-	cMixCrypto "gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
 )
@@ -56,27 +55,12 @@ func (p *mockProcessor) String() string { return "hello" }
 func Test_asymmetricClient_Smoke(t *testing.T) {
 	cMixHandler := newMockCmixHandler()
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
-	pk, err := rsa.GenerateKey(rngGen.GetStream(), 4096)
-	if err != nil {
-		t.Fatalf("Failed to generate priv key: %+v", err)
-	}
 	cName := "MyChannel"
 	cDesc := "This is my channel about stuff."
-	cSalt := cMixCrypto.NewSalt(csprng.NewSystemRNG(), 32)
-	cPubKey := pk.GetPublic()
-	cid, err := crypto.NewChannelID(
-		cName, cDesc, cSalt, rsa.CreatePublicKeyPem(cPubKey))
-	if err != nil {
-		t.Errorf("Failed to create channel ID: %+v", err)
-	}
-	channel := &crypto.Channel{
-		ReceptionID: cid,
-		Name:        cName,
-		Description: cDesc,
-		Salt:        cSalt,
-		RsaPubKey:   cPubKey,
-	}
 
+	channel, pk, _ := crypto.NewChannel(cName, cDesc,
+		newMockCmix(cMixHandler).GetMaxMessageLength(), rngGen.GetStream())
+	cid := channel.ReceptionID
 	// must mutate cMixHandler such that it's processorMap contains a
 	// message.Processor
 	processor := newMockProcessor()
@@ -98,7 +82,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 			t.Errorf("Failed to create broadcast channel: %+v", err)
 		}
 
-		err = s.RegisterListener(cb, Asymmetric)
+		err = s.RegisterListener(cb, RSAToPublic)
 		if err != nil {
 			t.Errorf("Failed to register listener: %+v", err)
 		}
@@ -115,7 +99,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 
 	// Send broadcast from each client
 	for i := range clients {
-		payload := make([]byte, clients[i].MaxAsymmetricPayloadSize())
+		payload := make([]byte, clients[i].MaxRSAToPublicPayloadSize())
 		copy(payload,
 			fmt.Sprintf("Hello from client %d of %d.", i, len(clients)))
 
@@ -140,7 +124,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 		}
 
 		// Broadcast payload
-		_, _, err = clients[i].BroadcastAsymmetric(
+		_, _, err := clients[i].BroadcastRSAtoPublic(
 			pk, payload, cmix.GetDefaultCMIXParams())
 		if err != nil {
 			t.Errorf("Cmix %d failed to send broadcast: %+v", i, err)
@@ -155,7 +139,7 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 		clients[i].Stop()
 	}
 
-	payload := make([]byte, clients[0].MaxAsymmetricPayloadSize())
+	payload := make([]byte, clients[0].MaxRSAToPublicPayloadSize())
 	copy(payload, "This message should not get through.")
 
 	// Start waiting on channels and error if anything is received
@@ -173,10 +157,10 @@ func Test_asymmetricClient_Smoke(t *testing.T) {
 	}
 
 	// Broadcast payload
-	_, _, err = clients[0].BroadcastAsymmetric(pk, payload, cmix.GetDefaultCMIXParams())
+	_, _, err := clients[0].BroadcastRSAtoPublic(pk, payload, cmix.GetDefaultCMIXParams())
 	if err != nil {
 		t.Errorf("Cmix 0 failed to send broadcast: %+v", err)
 	}
 
 	wg.Wait()
-}
+}*/

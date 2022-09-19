@@ -124,7 +124,7 @@ func (m *manager) addChannel(channel *cryptoBroadcast.Channel) error {
 		chID:      channel.ReceptionID,
 		trigger:   m.events.triggerAdminEvent,
 		checkSent: m.st.MessageReceive,
-	}).Listen, broadcast.Asymmetric)
+	}).Listen, broadcast.RSAToPublic)
 	if err != nil {
 		return err
 	}
@@ -264,7 +264,7 @@ func initBroadcast(c *cryptoBroadcast.Channel,
 		chID:      c.ReceptionID,
 		trigger:   e.triggerAdminEvent,
 		checkSent: mr,
-	}).Listen, broadcast.Asymmetric)
+	}).Listen, broadcast.RSAToPublic)
 	if err != nil {
 		return nil, err
 	}

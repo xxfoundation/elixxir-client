@@ -35,10 +35,8 @@ func (p *processor) Process(msg format.Message,
 	var payload []byte
 	var err error
 	switch p.method {
-	case Asymmetric:
-		encPartSize := p.c.RsaPubKey.Size()               // Size returned by multicast RSA encryption
-		encodedMessage := msg.GetContents()[:encPartSize] // Only one message is encoded, rest of it is random data
-		decodedMessage, decryptErr := p.c.DecryptAsymmetric(encodedMessage)
+	case RSAToPublic:
+		decodedMessage, decryptErr := p.c.DecryptRSAToPublic(msg.GetContents(), msg.GetMac(), msg.GetKeyFP())
 		if decryptErr != nil {
 			jww.ERROR.Printf(errDecrypt, p.c.ReceptionID, p.c.Name, decryptErr)
 			return

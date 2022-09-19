@@ -46,7 +46,7 @@ func (m *mockBroadcastChannel) MaxPayloadSize() int {
 	return 1024
 }
 
-func (m *mockBroadcastChannel) MaxAsymmetricPayloadSize() int {
+func (m *mockBroadcastChannel) MaxRSAToPublicPayloadSize() int {
 	return 512
 }
 
@@ -77,7 +77,7 @@ func (m *mockBroadcastChannel) BroadcastWithAssembler(assembler broadcast.Assemb
 	return rounds.Round{ID: 123}, ephemeral.Id{}, err
 }
 
-func (m *mockBroadcastChannel) BroadcastAsymmetric(pk multicastRSA.PrivateKey, payload []byte,
+func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk multicastRSA.PrivateKey, payload []byte,
 	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 
@@ -88,7 +88,7 @@ func (m *mockBroadcastChannel) BroadcastAsymmetric(pk multicastRSA.PrivateKey, p
 	return rounds.Round{ID: 123}, ephemeral.Id{}, nil
 }
 
-func (m *mockBroadcastChannel) BroadcastAsymmetricWithAssembler(
+func (m *mockBroadcastChannel) BroadcastRSAToPublicWithAssembler(
 	pk multicastRSA.PrivateKey, assembler broadcast.Assembler,
 	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 

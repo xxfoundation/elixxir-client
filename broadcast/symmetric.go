@@ -31,14 +31,9 @@ const (
 	symmetricBroadcastServiceTag = "SymmetricBroadcast"
 )
 
-// MaxSymmetricPayloadSize returns the maximum size for a broadcasted payload.
-func (bc *broadcastClient) maxSymmetricPayload() int {
-	return bc.net.GetMaxMessageLength()
-}
-
 // Broadcast broadcasts a payload over a symmetric channel.
 // Network must be healthy to send
-// Requires a payload of size bc.MaxSymmetricPayloadSize()
+// Requires a payload of size bc.MaxSymmetricPayloadSize() or smaller
 func (bc *broadcastClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	assemble := func(rid id.Round) ([]byte, error) {
@@ -51,7 +46,7 @@ func (bc *broadcastClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams)
 // a payload assembled after the round is selected, allowing the round
 // info to be included in the payload.
 // Network must be healthy to send
-// Requires a payload of size bc.MaxSymmetricPayloadSize()
+// Requires a payload of size bc.MaxSymmetricPayloadSize() or smaller
 func (bc *broadcastClient) BroadcastWithAssembler(assembler Assembler, cMixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	if !bc.net.IsHealthy() {
@@ -75,7 +70,12 @@ func (bc *broadcastClient) BroadcastWithAssembler(assembler Assembler, cMixParam
 		// Encrypt payload
 		rng := bc.rng.GetStream()
 		defer rng.Close()
-		encryptedPayload, mac, fp = bc.channel.EncryptSymmetric(payload, rng)
+		encryptedPayload, mac, fp, err = bc.channel.EncryptSymmetric(payload,
+			bc.net.GetMaxMessageLength(), rng)
+		if err != nil {
+			return format.Fingerprint{}, message.Service{},
+				nil, nil, err
+		}
 
 		// Create service using symmetric broadcast service tag & channel reception ID
 		// Allows anybody with this info to listen for messages on this channel

@@ -62,7 +62,7 @@ func (bc *broadcastClient) BroadcastWithAssembler(assembler Assembler, cMixParam
 			return format.Fingerprint{}, message.Service{}, nil, nil, err
 		}
 
-		if len(payload) != bc.maxSymmetricPayload() {
+		if len(payload) > bc.maxSymmetricPayload() {
 			return format.Fingerprint{}, message.Service{}, nil, nil,
 				errors.Errorf(errPayloadSize, len(payload), bc.maxSymmetricPayload())
 		}

@@ -17,7 +17,6 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
@@ -446,29 +445,9 @@ func Test_makeJoinedChannelKey_Consistency(t *testing.T) {
 // cryptoBroadcast.NewChannel does but with a smaller RSA key and salt to make
 // tests run quicker.
 func newTestChannel(name, description string, rng csprng.Source) (
-	*cryptoBroadcast.Channel, *rsa.PrivateKey, error) {
-	// Uses 128 bits instead of 4096 bits
-	pk, err := rsa.GenerateKey(rng, 128)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Uses 16 bits instead of 512 bits
-	salt := cmix.NewSalt(rng, 16)
-
-	channelID, err := cryptoBroadcast.NewChannelID(
-		name, description, salt, rsa.CreatePublicKeyPem(pk.GetPublic()))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return &cryptoBroadcast.Channel{
-		ReceptionID: channelID,
-		Name:        name,
-		Description: description,
-		Salt:        salt,
-		RsaPubKey:   pk.GetPublic(),
-	}, pk, nil
+	*cryptoBroadcast.Channel, rsa.PrivateKey, error) {
+	c, pk, err := cryptoBroadcast.NewChannel(name, description, 1000, rng)
+	return c, pk, err
 }
 
 ////////////////////////////////////////////////////////////////////////////////

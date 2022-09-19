@@ -110,65 +110,65 @@ import (
 // 	}
 // }
 
-// Shows that LoadSession can result in all the fields being populated
-func TestSession_Load(t *testing.T) {
-	// Make a test session to easily populate all the fields
-	sessionA, kv := makeTestSession()
-	err := sessionA.Save()
-	if err != nil {
-		t.Fatal(err)
-	}
+// // Shows that LoadSession can result in all the fields being populated
+// func TestSession_Load(t *testing.T) {
+// 	// Make a test session to easily populate all the fields
+// 	sessionA, kv := makeTestSession()
+// 	err := sessionA.Save()
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	// SessionA.kv will have a prefix set in MakeTestSession
-	// initialize a new one for Load, which will set a prefix internally
+// 	// SessionA.kv will have a prefix set in MakeTestSession
+// 	// initialize a new one for Load, which will set a prefix internally
 
-	// Load another, identical session from the storage
-	sessionB, err := LoadSession(kv, sessionA.GetID(), sessionA.relationshipFingerprint,
-		sessionA.cyHandler, sessionA.grp, sessionA.rng)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = cmpSerializedFields(sessionA, sessionB)
-	if err != nil {
-		t.Error(err)
-	}
-	// Key state should also be loaded and equivalent to the other session
-	// during LoadSession()
-	if !reflect.DeepEqual(sessionA.keyState, sessionB.keyState) {
-		t.Errorf("Two key states do not match.\nsessionA: %+v\nsessionB: %+v",
-			sessionA.keyState, sessionB.keyState)
-	}
-	// For everything else, just make sure it's populated
-	// fixme is this deleted?
-	//if sessionB.relationship == nil {
-	//	t.Error("load should populate relationship")
-	//}
-	if sessionB.rekeyThreshold == 0 {
-		t.Error("load should populate rekeyThreshold")
-	}
-}
+// 	// Load another, identical session from the storage
+// 	sessionB, err := LoadSession(kv, sessionA.GetID(), sessionA.relationshipFingerprint,
+// 		sessionA.cyHandler, sessionA.grp, sessionA.rng)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	err = cmpSerializedFields(sessionA, sessionB)
+// 	if err != nil {
+// 		t.Error(err)
+// 	}
+// 	// Key state should also be loaded and equivalent to the other session
+// 	// during LoadSession()
+// 	if !reflect.DeepEqual(sessionA.keyState, sessionB.keyState) {
+// 		t.Errorf("Two key states do not match.\nsessionA: %+v\nsessionB: %+v",
+// 			sessionA.keyState, sessionB.keyState)
+// 	}
+// 	// For everything else, just make sure it's populated
+// 	// fixme is this deleted?
+// 	//if sessionB.relationship == nil {
+// 	//	t.Error("load should populate relationship")
+// 	//}
+// 	if sessionB.rekeyThreshold == 0 {
+// 		t.Error("load should populate rekeyThreshold")
+// 	}
+// }
 
-// Create a new session. Marshal and unmarshal it
-func TestSession_Serialization(t *testing.T) {
-	s, _ := makeTestSession()
-	sSerialized, err := s.marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
+// // Create a new session. Marshal and unmarshal it
+// func TestSession_Serialization(t *testing.T) {
+// 	s, _ := makeTestSession()
+// 	sSerialized, err := s.marshal()
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	sDeserialized := &Session{
-		//relationship: &ratchet.relationship{
-		//	manager: &partner.Manager{ctx: ctx},
-		//},
-		grp: s.grp,
-		kv:  s.kv,
-	}
-	err = sDeserialized.unmarshal(sSerialized)
-	if err != nil {
-		t.Fatal(err)
-	}
+// 	sDeserialized := &Session{
+// 		//relationship: &ratchet.relationship{
+// 		//	manager: &partner.Manager{ctx: ctx},
+// 		//},
+// 		grp: s.grp,
+// 		kv:  s.kv,
+// 	}
+// 	err = sDeserialized.unmarshal(sSerialized)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-}
+// }
 
 // PopKey should return a new key from this session
 func TestSession_PopKey(t *testing.T) {

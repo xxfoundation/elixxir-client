@@ -209,6 +209,8 @@ func LoadSession(kv *versioned.KV, sessionID SessionID,
 	// TODO: Not necessary until we have versions on this object...
 	//obj, err := sessionUpgradeTable.Upgrade(obj)
 
+	// FIXME: Currently CTIDH/SIDH key saving and/or loading is broken,
+	// will need to fix and re-enable the TestSession_Load test.
 	err = session.unmarshal(obj.Data)
 	if err != nil {
 		return nil, err

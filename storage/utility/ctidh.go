@@ -10,7 +10,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 
-	"gitlab.com/elixxir/client/ctidh"
+	"gitlab.com/elixxir/client/e2e/pq"
 	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/storage/versioned"
 )
@@ -22,8 +22,6 @@ const currentPQVersion = 0
 ////
 
 const currentPQPubKeyVersion = 0
-
-var mynike nike.Nike = ctidh.NewCtidhNike()
 
 // StorePQPublicKey stores the given public key in the kv.
 func StorePQPublicKey(kv *versioned.KV, publicKey nike.PublicKey, key string) error {
@@ -45,7 +43,7 @@ func LoadPQPublicKey(kv *versioned.KV, key string) (nike.PublicKey, error) {
 		return nil, err
 	}
 
-	pubKey, err := mynike.UnmarshalBinaryPublicKey(vo.Data)
+	pubKey, err := pq.NIKE.UnmarshalBinaryPublicKey(vo.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +86,7 @@ func LoadPQPrivateKey(kv *versioned.KV, key string) (nike.PrivateKey, error) {
 		return nil, err
 	}
 
-	privKey, err := mynike.UnmarshalBinaryPrivateKey(vo.Data)
+	privKey, err := pq.NIKE.UnmarshalBinaryPrivateKey(vo.Data)
 	if err != nil {
 		return nil, err
 	}

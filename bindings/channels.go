@@ -171,7 +171,7 @@ func NewChannelsManagerGoEventModel(e2eID, udID int,
 // NewChannelsManagerGoEventModelDummyNameService constructs a
 // ChannelsManager. This is not compatible with GoMobile Bindings because
 // it receives the go event model. This uses the dummy name service
-// and is for debugging only
+// and is for debugging only.
 // Parameters:
 //  - e2eID - The tracked e2e object ID. This can be retrieved using
 //    [E2e.GetID].

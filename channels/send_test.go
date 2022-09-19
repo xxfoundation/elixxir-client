@@ -15,12 +15,12 @@ import (
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"testing"
 	"time"
 
-	"gitlab.com/xx_network/crypto/multicastRSA"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 
@@ -37,7 +37,7 @@ type mockBroadcastChannel struct {
 	payload []byte
 	params  cmix.CMIXParams
 
-	pk multicastRSA.PrivateKey
+	pk rsa.PrivateKey
 
 	crypto *cryptoBroadcast.Channel
 }
@@ -77,7 +77,7 @@ func (m *mockBroadcastChannel) BroadcastWithAssembler(assembler broadcast.Assemb
 	return rounds.Round{ID: 123}, ephemeral.Id{}, err
 }
 
-func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk multicastRSA.PrivateKey, payload []byte,
+func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk rsa.PrivateKey, payload []byte,
 	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.hasRun = true
 
@@ -89,7 +89,7 @@ func (m *mockBroadcastChannel) BroadcastRSAtoPublic(pk multicastRSA.PrivateKey, 
 }
 
 func (m *mockBroadcastChannel) BroadcastRSAToPublicWithAssembler(
-	pk multicastRSA.PrivateKey, assembler broadcast.Assembler,
+	pk rsa.PrivateKey, assembler broadcast.Assembler,
 	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 
 	m.hasRun = true
@@ -181,14 +181,8 @@ func TestSendGeneric(t *testing.T) {
 
 	//verify the message was handled correctly
 
-	//Unsize the broadcast
-	unsized, err := broadcast.DecodeSizedBroadcast(mbc.payload)
-	if err != nil {
-		t.Fatalf("Failed to decode the sized broadcast: %s", err)
-	}
-
 	//decode the user message
-	umi, err := unmarshalUserMessageInternal(unsized)
+	umi, err := unmarshalUserMessageInternal(mbc.payload)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
 	}
@@ -240,7 +234,8 @@ func TestAdminGeneric(t *testing.T) {
 	validUntil := time.Hour
 
 	rng := &csprng.SystemRNG{}
-	ch, priv, err := cryptoBroadcast.NewChannel("test", "test", rng)
+	ch, priv, err := cryptoBroadcast.NewChannel("test", "test",
+		1000, rng)
 	if err != nil {
 		t.Fatalf("Failed to generate channel: %+v", err)
 	}
@@ -260,13 +255,7 @@ func TestAdminGeneric(t *testing.T) {
 
 	//verify the message was handled correctly
 
-	//Unsize the broadcast
-	unsized, err := broadcast.DecodeSizedBroadcast(mbc.payload)
-	if err != nil {
-		t.Fatalf("Failed to decode the sized broadcast: %s", err)
-	}
-
-	msgID := cryptoChannel.MakeMessageID(unsized)
+	msgID := cryptoChannel.MakeMessageID(mbc.payload)
 
 	if !msgID.Equals(messageId) {
 		t.Errorf("The message IDs do not match. %s vs %s ",
@@ -275,7 +264,7 @@ func TestAdminGeneric(t *testing.T) {
 
 	//decode the channel message
 	chMgs := &ChannelMessage{}
-	err = proto.Unmarshal(unsized, chMgs)
+	err = proto.Unmarshal(mbc.payload, chMgs)
 	if err != nil {
 		t.Fatalf("Failed to decode the channel message: %s", err)
 	}
@@ -339,14 +328,8 @@ func TestSendMessage(t *testing.T) {
 
 	//verify the message was handled correctly
 
-	//Unsize the broadcast
-	unsized, err := broadcast.DecodeSizedBroadcast(mbc.payload)
-	if err != nil {
-		t.Fatalf("Failed to decode the sized broadcast: %s", err)
-	}
-
 	//decode the user message
-	umi, err := unmarshalUserMessageInternal(unsized)
+	umi, err := unmarshalUserMessageInternal(mbc.payload)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
 	}
@@ -427,14 +410,8 @@ func TestSendReply(t *testing.T) {
 
 	//verify the message was handled correctly
 
-	//Unsize the broadcast
-	unsized, err := broadcast.DecodeSizedBroadcast(mbc.payload)
-	if err != nil {
-		t.Fatalf("Failed to decode the sized broadcast: %s", err)
-	}
-
 	//decode the user message
-	umi, err := unmarshalUserMessageInternal(unsized)
+	umi, err := unmarshalUserMessageInternal(mbc.payload)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
 	}
@@ -514,14 +491,8 @@ func TestSendReaction(t *testing.T) {
 
 	//verify the message was handled correctly
 
-	//Unsize the broadcast
-	unsized, err := broadcast.DecodeSizedBroadcast(mbc.payload)
-	if err != nil {
-		t.Fatalf("Failed to decode the sized broadcast: %s", err)
-	}
-
 	//decode the user message
-	umi, err := unmarshalUserMessageInternal(unsized)
+	umi, err := unmarshalUserMessageInternal(mbc.payload)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
 	}

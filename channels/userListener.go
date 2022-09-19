@@ -10,7 +10,6 @@ package channels
 import (
 	"crypto/ed25519"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/primitives/states"
@@ -31,16 +30,8 @@ type userListener struct {
 func (ul *userListener) Listen(payload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
-	//Remove the padding
-	payloadUnpadded, err := broadcast.DecodeSizedBroadcast(payload)
-	if err != nil {
-		jww.WARN.Printf("Failed to strip the padding on User Message "+
-			"on channel %s", ul.chID)
-		return
-	}
-
 	//Decode the message as a user message
-	umi, err := unmarshalUserMessageInternal(payloadUnpadded)
+	umi, err := unmarshalUserMessageInternal(payload)
 	if err != nil {
 		jww.WARN.Printf("Failed to unmarshal User Message on "+
 			"channel %s", ul.chID)

@@ -10,7 +10,7 @@
 syntax = "proto3";
 
 package parse;
-option go_package = "gitlab.com/elixxir/client/keyExchange";
+option go_package = "gitlab.com/elixxir/client/rekey";
 
 
 message RekeyTrigger {

@@ -20,7 +20,7 @@ import (
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	rsa2 "gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/utils"
 	"sync"
 )
@@ -56,7 +56,7 @@ var broadcastCmd = &cobra.Command{
 		waitUntilConnected(connected)
 		/* Set up underlying crypto broadcast.Channel */
 		var channel *crypto.Channel
-		var pk *rsa.PrivateKey
+		var pk rsa2.PrivateKey
 		keyPath := viper.GetString(broadcastKeyPathFlag)
 		path, err := utils.ExpandPath(viper.GetString(broadcastChanPathFlag))
 		if utils.Exists(path) {
@@ -81,23 +81,25 @@ var broadcastCmd = &cobra.Command{
 
 			if viper.GetBool(broadcastNewFlag) {
 				// Create a new broadcast channel
-				channel, pk, err = crypto.NewChannel(name, desc, user.GetRng().GetStream())
+				channel, pk, err = crypto.NewChannel(name, desc, user.GetCmix().GetMaxMessageLength(), user.GetRng().GetStream())
 				if err != nil {
 					jww.FATAL.Panicf("Failed to create new channel: %+v", err)
 				}
 
 				if keyPath != "" {
-					err = utils.WriteFile(keyPath, rsa.CreatePrivateKeyPem(pk), os.ModePerm, os.ModeDir)
+					err = utils.WriteFile(keyPath, pk.MarshalPem(), os.ModePerm, os.ModeDir)
 					if err != nil {
 						jww.ERROR.Printf("Failed to write private key to path %s: %+v", path, err)
 					}
 				} else {
-					fmt.Printf("Private key generated for channel: %+v", rsa.CreatePrivateKeyPem(pk))
+					fmt.Printf("Private key generated for channel: %+v", pk.MarshalPem())
 				}
 				fmt.Printf("New broadcast channel generated")
 			} else {
+				//fixme: redo channels, should be using pretty print over cli
+
 				// Read rest of info from config & build object manually
-				pubKeyBytes := []byte(viper.GetString(broadcastRsaPubFlag))
+				/*pubKeyBytes := []byte(viper.GetString(broadcastRsaPubFlag))
 				pubKey, err := rsa.LoadPublicKeyFromPem(pubKeyBytes)
 				if err != nil {
 					jww.FATAL.Panicf("Failed to load public key at path: %+v", err)
@@ -115,7 +117,7 @@ var broadcastCmd = &cobra.Command{
 					Description: desc,
 					Salt:        salt,
 					RsaPubKey:   pubKey,
-				}
+				}*/
 			}
 
 			// Save channel to disk
@@ -142,7 +144,8 @@ var broadcastCmd = &cobra.Command{
 				if err != nil {
 					jww.ERROR.Printf("Failed to read private key from %s: %+v", ep, err)
 				}
-				pk, err = rsa.LoadPrivateKeyFromPem(keyBytes)
+
+				pk, err = rsa2.GetScheme().UnmarshalPrivateKeyPEM(keyBytes)
 				if err != nil {
 					jww.ERROR.Printf("Failed to load private key %+v: %+v", keyBytes, err)
 				}
@@ -179,7 +182,7 @@ var broadcastCmd = &cobra.Command{
 			jww.INFO.Printf("Received asymmetric message from %s over round %d", receptionID, round.ID)
 			asymmetricReceiveChan <- payload
 		}
-		err = bcl.RegisterListener(acb, broadcast.Asymmetric)
+		err = bcl.RegisterListener(acb, broadcast.RSAToPublic)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to register asymmetric listener: %+v", err)
 		}
@@ -205,12 +208,7 @@ var broadcastCmd = &cobra.Command{
 
 					/* Send symmetric broadcast */
 					if symmetric != "" {
-						// Create properly sized broadcast message
-						broadcastMessage, err := broadcast.NewSizedBroadcast(bcl.MaxPayloadSize(), []byte(symmetric))
-						if err != nil {
-							jww.FATAL.Panicf("Failed to create sized broadcast: %+v", err)
-						}
-						rid, eid, err := bcl.Broadcast(broadcastMessage, cmix.GetDefaultCMIXParams())
+						rid, eid, err := bcl.Broadcast([]byte(symmetric), cmix.GetDefaultCMIXParams())
 						if err != nil {
 							jww.ERROR.Printf("Failed to send symmetric broadcast message: %+v", err)
 							retries++
@@ -223,14 +221,10 @@ var broadcastCmd = &cobra.Command{
 					/* Send asymmetric broadcast */
 					if asymmetric != "" {
 						// Create properly sized broadcast message
-						broadcastMessage, err := broadcast.NewSizedBroadcast(bcl.MaxAsymmetricPayloadSize(), []byte(asymmetric))
-						if err != nil {
-							jww.FATAL.Panicf("Failed to create sized broadcast: %+v", err)
-						}
 						if pk == nil {
 							jww.FATAL.Panicf("CANNOT SEND ASYMMETRIC BROADCAST WITHOUT PRIVATE KEY")
 						}
-						rid, eid, err := bcl.BroadcastAsymmetric(pk, broadcastMessage, cmix.GetDefaultCMIXParams())
+						rid, eid, err := bcl.BroadcastRSAtoPublic(pk, []byte(asymmetric), cmix.GetDefaultCMIXParams())
 						if err != nil {
 							jww.ERROR.Printf("Failed to send asymmetric broadcast message: %+v", err)
 							retries++
@@ -261,23 +255,13 @@ var broadcastCmd = &cobra.Command{
 			select {
 			case receivedPayload := <-asymmetricReceiveChan:
 				receivedCount++
-				receivedBroadcast, err := broadcast.DecodeSizedBroadcast(receivedPayload)
-				if err != nil {
-					jww.ERROR.Printf("Failed to decode sized broadcast: %+v", err)
-					continue
-				}
-				fmt.Printf("Asymmetric broadcast message received: %s\n", string(receivedBroadcast))
+				fmt.Printf("Asymmetric broadcast message received: %s\n", string(receivedPayload))
 				if receivedCount == expectedCnt {
 					done = true
 				}
 			case receivedPayload := <-receiveChan:
 				receivedCount++
-				receivedBroadcast, err := broadcast.DecodeSizedBroadcast(receivedPayload)
-				if err != nil {
-					jww.ERROR.Printf("Failed to decode sized broadcast: %+v", err)
-					continue
-				}
-				fmt.Printf("Symmetric broadcast message received: %s\n", string(receivedBroadcast))
+				fmt.Printf("Symmetric broadcast message received: %s\n", string(receivedPayload))
 				if receivedCount == expectedCnt {
 					done = true
 				}

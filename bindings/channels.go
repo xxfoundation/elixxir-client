@@ -15,7 +15,7 @@ import (
 	"gitlab.com/elixxir/client/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"sync"
@@ -134,43 +134,146 @@ func NewChannelsManager(e2eID, udID int) (*ChannelsManager, error) {
 	return channelManagerTrackerSingleton.make(m), nil
 }
 
+// NewChannelsManagerGoEventModel constructs a ChannelsManager. This is not
+// compatible with GoMobile Bindings because it receives the go event model
+// Parameters:
+//  - e2eID - The tracked e2e object ID. This can be retrieved using
+//    [E2e.GetID].
+//  - udID - The tracked UD object ID. This can be retrieved using
+//    [UserDiscovery.GetID].
+func NewChannelsManagerGoEventModel(e2eID, udID int,
+	goEvent channels.EventModel) (*ChannelsManager, error) {
+	// Get user from singleton
+	user, err := e2eTrackerSingleton.get(e2eID)
+	if err != nil {
+		return nil, err
+	}
+
+	udMan, err := udTrackerSingleton.get(udID)
+	if err != nil {
+		return nil, err
+	}
+
+	nameService, err := udMan.api.StartChannelNameService()
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct new channels manager
+	m := channels.NewManager(user.api.GetStorage().GetKV(), user.api.GetCmix(),
+		user.api.GetRng(), nameService, goEvent)
+
+	// Add channel to singleton and return
+	return channelManagerTrackerSingleton.make(m), nil
+}
+
+type ChannelGeneration struct {
+	Channel    string
+	PrivateKey string
+}
+
+// GenerateChannel is used to create a channel. This makes a new channel
+// of which your are the admin. It is only for making new channels, not
+// joining existing ones.
+// it returns a prettyPrint of the channel and the private key
+// The name cannot be longer that ____ characters
+// the description cannot be longer than ___ and can only use ______ characters
+//
+// Parameters:
+//  - cmixID - The tracked cmix object ID. This can be retrieved using
+//    [Cmix.GetID].
+//  - name - the name of the new channel. The name cannot be longer than ____
+//    characters and must contain only _____ characters. It cannot be changed
+//    once a channel is created.
+//  - description - The description of a channel. The description cannot be
+//    longer than ____ characters and must contain only _____ characters. It
+//    cannot be changed once a channel is created.
+// Returns:
+//  - []byte - ChannelGeneration describes a generated channel. it contains both
+//    the public channel info and the private key for the channel in PEM format
+//    fixme: document json
+func GenerateChannel(cmixID int, name, description string) ([]byte, error) {
+	// Get cmix from singleton so its rng can be used
+	cmix, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+
+	stream := cmix.api.GetRng().GetStream()
+	defer stream.Close()
+	c, pk, err := cryptoBroadcast.NewChannel(name, description, cmix.api.GetCmix().GetMaxMessageLength(), stream)
+	if err != nil {
+		return nil, err
+	}
+
+	gen := ChannelGeneration{
+		Channel:    c.PrettyPrint(),
+		PrivateKey: string(pk.MarshalPem()),
+	}
+
+	return json.Marshal(&gen)
+}
+
+type ChannelInfo struct {
+	Name        string
+	Description string
+	ChannelID   string
+}
+
+// GetChannelInfo returns the info about a channel from its public description
+//
+// Parameters:
+//  - prettyPrint - The pretty print of the channel. Of the format:
+//    "<XXChannel-v1:Test Channel,description:This is a test channel,secrets:pn
+//     0kIs6P1pHvAe7u8kUyf33GYVKmkoCX9LhCtvKJZQI=,3A5eB5pzSHyxN09w1kOVrTIEr5Uy
+//     Bbzmmd9Ga5Dx0XA=,0,0,/zChIlLr2p3Vsm2X4+3TiFapoapaTi8EJIisJSqwfGc=>"
+// Returns:
+//  - []byte - ChannelInfo describes all relevant channel info.
+//    fixme: document json
+func GetChannelInfo(prettyPrint string) ([]byte, error) {
+	_, bytes, err := getChannelInfo(prettyPrint)
+	return bytes, err
+}
+
+func getChannelInfo(prettyPrint string) (*cryptoBroadcast.Channel, []byte, error) {
+	c, err := cryptoBroadcast.NewChannelFromPrettyPrint(prettyPrint)
+	if err != nil {
+		return nil, nil, err
+	}
+	ci := &ChannelInfo{
+		Name:        c.Name,
+		Description: c.Description,
+		ChannelID:   c.ReceptionID.String(),
+	}
+	bytes, err := json.Marshal(ci)
+	if err != nil {
+		return nil, nil, err
+	}
+	return c, bytes, nil
+}
+
 // JoinChannel joins the given channel. It will fail if the channel has already
 // been joined.
 //
 // Parameters:
-//  - channelJson - A JSON encoded [ChannelDef].
-func (cm *ChannelsManager) JoinChannel(channelJson []byte) error {
-	// Unmarshal channel definition
-	def := ChannelDef{}
-	err := json.Unmarshal(channelJson, &def)
+//  - channelPretty - A portable channel string. Should be received from
+//    another user or generated via GenerateChannel().
+//    "<XXChannel-v1:Test Channel,description:This is a test channel,secrets:pn
+//     0kIs6P1pHvAe7u8kUyf33GYVKmkoCX9LhCtvKJZQI=,3A5eB5pzSHyxN09w1kOVrTIEr5Uy
+//     Bbzmmd9Ga5Dx0XA=,0,0,/zChIlLr2p3Vsm2X4+3TiFapoapaTi8EJIisJSqwfGc=>"
+// Returns:
+//  - []byte - ChannelInfo describes all relevant channel info.
+//    fixme: document json
+func (cm *ChannelsManager) JoinChannel(channelPretty string) ([]byte, error) {
+	c, info, err := getChannelInfo(channelPretty)
 	if err != nil {
-		return err
-	}
-
-	// Construct ID using the embedded cryptographic information
-	channelId, err := cryptoBroadcast.NewChannelID(def.Name, def.Description,
-		def.Salt, def.PubKey)
-	if err != nil {
-		return err
-	}
-
-	// Construct public key into object
-	rsaPubKey, err := rsa.LoadPublicKeyFromPem(def.PubKey)
-	if err != nil {
-		return err
-	}
-
-	// Construct cryptographic channel object
-	channel := &cryptoBroadcast.Channel{
-		ReceptionID: channelId,
-		Name:        def.Name,
-		Description: def.Description,
-		Salt:        def.Salt,
-		RsaPubKey:   rsaPubKey,
+		return nil, err
 	}
 
 	// Join the channel using the API
-	return cm.api.JoinChannel(channel)
+	err = cm.api.JoinChannel(c)
+
+	return info, err
 }
 
 // GetChannels returns the IDs of all channels that have been joined.
@@ -186,65 +289,6 @@ func (cm *ChannelsManager) JoinChannel(channelJson []byte) error {
 func (cm *ChannelsManager) GetChannels() ([]byte, error) {
 	channelIds := cm.api.GetChannels()
 	return json.Marshal(channelIds)
-}
-
-// GetChannelId returns the ID of the channel given the channel's cryptographic
-// information.
-//
-// Parameters:
-//  - channelJson - A JSON encoded [ChannelDef]. This may be retrieved from
-//    [Channel.Get], for example.
-//
-// Returns:
-//  - []byte - A JSON encoded channel ID ([id.ID]).
-//
-// JSON Example:
-//  "dGVzdAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD"
-func (cm *ChannelsManager) GetChannelId(channelJson []byte) ([]byte, error) {
-	def := ChannelDef{}
-	err := json.Unmarshal(channelJson, &def)
-	if err != nil {
-		return nil, err
-	}
-
-	channelId, err := cryptoBroadcast.NewChannelID(def.Name, def.Description,
-		def.Salt, def.PubKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(channelId)
-}
-
-// GetChannel returns the underlying cryptographic structure for a given
-// channel.
-//
-// Parameters:
-//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]). This may be
-//    retrieved using ChannelsManager.GetChannelId.
-//
-// Returns:
-//  - []byte - A JSON marshalled ChannelDef.
-func (cm *ChannelsManager) GetChannel(marshalledChanId []byte) ([]byte, error) {
-	// Unmarshal ID
-	chanId, err := id.Unmarshal(marshalledChanId)
-	if err != nil {
-		return nil, err
-	}
-
-	// Retrieve channel from manager
-	def, err := cm.api.GetChannel(chanId)
-	if err != nil {
-		return nil, err
-	}
-
-	// Marshal channel
-	return json.Marshal(&ChannelDef{
-		Name:        def.Name,
-		Description: def.Description,
-		Salt:        def.Salt,
-		PubKey:      rsa.CreatePublicKeyPem(def.RsaPubKey),
-	})
 }
 
 // LeaveChannel leaves the given channel. It will return an error if the
@@ -381,7 +425,7 @@ func (cm *ChannelsManager) SendAdminGeneric(adminPrivateKey,
 	cmixParamsJSON []byte) ([]byte, error) {
 
 	// Load private key from file
-	rsaPrivKey, err := rsa.LoadPrivateKeyFromPem(adminPrivateKey)
+	rsaPrivKey, err := rsa.GetScheme().UnmarshalPrivateKeyPEM(adminPrivateKey)
 	if err != nil {
 		return nil, err
 	}

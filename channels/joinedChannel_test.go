@@ -446,7 +446,7 @@ func Test_makeJoinedChannelKey_Consistency(t *testing.T) {
 // tests run quicker.
 func newTestChannel(name, description string, rng csprng.Source) (
 	*cryptoBroadcast.Channel, rsa.PrivateKey, error) {
-	c, pk, err := cryptoBroadcast.NewChannel(name, description, 1000, rng)
+	c, pk, err := cryptoBroadcast.NewChannelVariableKeyUnsafe(name, description, 1000, 512, rng)
 	return c, pk, err
 }
 

@@ -76,7 +76,7 @@ func newSentRequestLegacySIDH(kv *versioned.KV, partner *id.ID, partnerHistorica
 func loadSentRequestLegacySIDH(kv *versioned.KV, partner *id.ID,
 	grp *cyclic.Group) (*SentRequestLegacySIDH, error) {
 
-	srKey := makeSentRequestKey(partner)
+	srKey := makeSentRequestKeyLegacySIDH(partner)
 	obj, err := kv.Get(srKey, currentSentRequestVersion)
 
 	// V0 Upgrade Path
@@ -214,11 +214,11 @@ func (sr *SentRequestLegacySIDH) save() error {
 		Data:      data,
 	}
 
-	return sr.kv.Set(makeSentRequestKey(sr.partner), &obj)
+	return sr.kv.Set(makeSentRequestKeyLegacySIDH(sr.partner), &obj)
 }
 
 func (sr *SentRequestLegacySIDH) delete() {
-	if err := sr.kv.Delete(makeSentRequestKey(sr.partner),
+	if err := sr.kv.Delete(makeSentRequestKeyLegacySIDH(sr.partner),
 		currentSentRequestVersion); err != nil {
 		jww.FATAL.Panicf("Failed to delete sent request from %s to %s: "+
 			"%+v", sr.partner, sr.partner, err)
@@ -247,6 +247,11 @@ func (sr *SentRequestLegacySIDH) GetMySIDHPrivKey() *sidh.PrivateKey {
 
 func (sr *SentRequestLegacySIDH) GetMySIDHPubKey() *sidh.PublicKey {
 	return sr.mySidHPubKeyA
+}
+
+func (sr *SentRequestLegacySIDH) GetMyPQPrivateKey() nike.PrivateKey {
+	panic("SentRequestLegacySIDH.GetMyPQPrivateKey invalid")
+	return nil
 }
 
 func (sr *SentRequestLegacySIDH) IsReset() bool {

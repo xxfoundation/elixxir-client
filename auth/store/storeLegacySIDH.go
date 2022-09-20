@@ -130,7 +130,7 @@ func (s *Store) AddReceivedLegacySIDH(c contact.Contact, key *sidh.PublicKey,
 		return errors.Errorf("Cannot add contact for partner "+
 			"%s, one already exists", c.ID)
 	}
-	if _, ok := s.sentByID[*c.ID]; ok {
+	if _, ok := legacy.sentByID[*c.ID]; ok {
 		return errors.Errorf("Cannot add contact for partner "+
 			"%s, one already exists", c.ID)
 	}
@@ -190,9 +190,7 @@ func (s *Store) AddSentLegacySIDH(partner *id.ID, partnerHistoricalPubKey, myPri
 	}
 
 	legacy.sentByID[*sr.GetPartner()] = sr
-	// XXX FIXME: Note(David): I'm not yet sure how to fix this
-	// so let's fix it later.
-	//s.srh.Add(sr)
+	s.srh.AddLegacySIDH(sr)
 	if err = s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to save Sent Request Map after "+
 			"adding partner %s", partner)

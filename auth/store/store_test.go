@@ -14,25 +14,31 @@ import (
 	"testing"
 
 	"github.com/cloudflare/circl/dh/sidh"
+
+	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/crypto/large"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
-	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 
 	util "gitlab.com/elixxir/client/storage/utility"
 )
 
 type mockSentRequestHandler struct{}
 
-func (msrh *mockSentRequestHandler) Add(sr SentRequestInterface)    {}
-func (msrh *mockSentRequestHandler) Delete(sr SentRequestInterface) {}
+func (msrh *mockSentRequestHandler) AddLegacySIDH(sr SentRequestInterface) {}
+func (msrh *mockSentRequestHandler) Add(sr SentRequestInterface)           {}
+func (msrh *mockSentRequestHandler) Delete(sr SentRequestInterface)        {}
 
 // Happy path.
 func TestNewOrLoadStore(t *testing.T) {
@@ -45,67 +51,67 @@ func TestNewOrLoadStore(t *testing.T) {
 	}
 }
 
-// // Happy path.
-// func TestLoadStore(t *testing.T) {
-// 	rng := csprng.NewSystemRNG()
+// Happy path.
+func TestLoadStore(t *testing.T) {
+	rng := csprng.NewSystemRNG()
 
-// 	// Create a random storage object + keys
-// 	s, kv := makeTestStore(t)
+	// Create a random storage object + keys
+	s, kv := makeTestStore(t)
 
-// 	// Generate random contact information and add it to the store
-// 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
-// 	_, sidhPubKey := genSidhAKeys(rng)
-// 	r := makeTestRound(t)
-// 	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
-// 		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
-// 	}
+	// Generate random contact information and add it to the store
+	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+	_, sidhPubKey := genSidhAKeys(rng)
+	r := makeTestRound(t)
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
+	}
 
-// 	// Create a sent request object and add it to the store
-// 	privSidh, pubSidh := genSidhAKeys(rng)
-// 	var sr *SentRequestLegacySIDH
-// 	var err error
-// 	if sr, err = s.AddSentLegacySIDH(id.NewIdFromUInt(rand.Uint64(),
-// 		id.User, t),
-// 		s.grp.NewInt(5), s.grp.NewInt(6),
-// 		s.grp.NewInt(7), privSidh, pubSidh,
-// 		format.Fingerprint{42}, false); err != nil {
-// 		t.Fatalf("AddSent() produced an error: %+v", err)
-// 	}
+	// Create a sent request object and add it to the store
+	privSidh, pubSidh := genSidhAKeys(rng)
+	var sr *SentRequestLegacySIDH
+	var err error
+	if sr, err = s.AddSentLegacySIDH(id.NewIdFromUInt(rand.Uint64(),
+		id.User, t),
+		s.grp.NewInt(5), s.grp.NewInt(6),
+		s.grp.NewInt(7), privSidh, pubSidh,
+		format.Fingerprint{42}, false); err != nil {
+		t.Fatalf("AddSent() produced an error: %+v", err)
+	}
 
-// 	s.CheckIfNegotiationIsNew(
-// 		sr.partner, auth.CreateNegotiationFingerprint(sr.myPrivKey,
-// 			sidhPubKey))
+	s.CheckIfNegotiationIsNew(
+		sr.partner, auth.CreateNegotiationFingerprint(sr.myPrivKey,
+			sidhPubKey))
 
-// 	err = s.save()
-// 	if err != nil {
-// 		t.Errorf("Failed to save: %+v", err)
-// 	}
+	err = s.save()
+	if err != nil {
+		t.Errorf("Failed to save: %+v", err)
+	}
 
-// 	// Attempt to load the store
-// 	store, err := NewOrLoadStore(kv, s.grp, &mockSentRequestHandler{})
-// 	if err != nil {
-// 		t.Errorf("LoadStore() returned an error: %+v", err)
-// 	}
+	// Attempt to load the store
+	store, err := NewOrLoadStore(kv, s.grp, &mockSentRequestHandler{})
+	if err != nil {
+		t.Errorf("LoadStore() returned an error: %+v", err)
+	}
 
-// 	srLoaded, ok := store.storeLegacySIDH.sentByID[*sr.partner]
-// 	if !ok {
-// 		t.Error("Sent request could not be found")
-// 	}
+	srLoaded, ok := store.storeLegacySIDH.sentByID[*sr.partner]
+	if !ok {
+		t.Fatal("Sent request could not be found")
+	}
 
-// 	if sr.myPrivKey == srLoaded.myPrivKey &&
-// 		sr.mySidHPrivKeyA == srLoaded.mySidHPrivKeyA &&
-// 		sr.mySidHPubKeyA == srLoaded.mySidHPubKeyA &&
-// 		sr.fingerprint == srLoaded.fingerprint &&
-// 		sr.partnerHistoricalPubKey == sr.partnerHistoricalPubKey {
-// 		t.Errorf("GetReceivedRequest() returned incorrect send req."+
-// 			"\n\texpected: %+v\n\treceived: %+v", sr, srLoaded)
-// 	}
+	if sr.myPrivKey == srLoaded.myPrivKey &&
+		sr.mySidHPrivKeyA == srLoaded.mySidHPrivKeyA &&
+		sr.mySidHPubKeyA == srLoaded.mySidHPubKeyA &&
+		sr.fingerprint == srLoaded.fingerprint &&
+		sr.partnerHistoricalPubKey == sr.partnerHistoricalPubKey {
+		t.Errorf("GetReceivedRequest() returned incorrect send req."+
+			"\n\texpected: %+v\n\treceived: %+v", sr, srLoaded)
+	}
 
-// 	if s.storeLegacySIDH.receivedByID[*c.ID] == nil {
-// 		t.Errorf("AddSent() failed to add request to map for "+
-// 			"partner ID %s.", c.ID)
-// 	}
-// }
+	if s.storeLegacySIDH.receivedByID[*c.ID] == nil {
+		t.Errorf("AddSent() failed to add request to map for "+
+			"partner ID %s.", c.ID)
+	}
+}
 
 // // Happy path: tests that the correct SentRequest is added to the map.
 // func TestStore_AddSent(t *testing.T) {

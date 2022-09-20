@@ -17,6 +17,7 @@ import (
 // SentRequestHandler allows the lower level to assign and remove services
 type SentRequestHandler interface {
 	Add(sr SentRequestInterface)
+	AddLegacySIDH(sr SentRequestInterface)
 	Delete(sr SentRequestInterface)
 }
 

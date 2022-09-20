@@ -1,7 +1,7 @@
 package utility
 
 import (
-	//"encoding/base64"
+	"encoding/base64"
 	"fmt"
 	//"io"
 
@@ -10,27 +10,25 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 
-	"gitlab.com/elixxir/client/ctidh"
+	"gitlab.com/elixxir/client/e2e/pq"
 	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/storage/versioned"
 )
 
-const currentCTIDHVersion = 0
+const currentPQVersion = 0
 
 ////
 // Public Key Storage utility functions
 ////
 
-const currentCTIDHPubKeyVersion = 0
+const currentPQPubKeyVersion = 0
 
-var mynike nike.Nike = ctidh.NewCtidhNike()
-
-// StoreCTIDHPublicKey stores the given public key in the kv.
-func StoreCTIDHPublicKey(kv *versioned.KV, publicKey nike.PublicKey, key string) error {
+// StorePQPublicKey stores the given public key in the kv.
+func StorePQPublicKey(kv *versioned.KV, publicKey nike.PublicKey, key string) error {
 	now := netTime.Now()
 
 	obj := versioned.Object{
-		Version:   currentCTIDHPubKeyVersion,
+		Version:   currentPQPubKeyVersion,
 		Timestamp: now,
 		Data:      publicKey.Bytes(),
 	}
@@ -38,14 +36,14 @@ func StoreCTIDHPublicKey(kv *versioned.KV, publicKey nike.PublicKey, key string)
 	return kv.Set(key, &obj)
 }
 
-// LoadCTIDHPubKeyA loads a public key from storage.
-func LoadCTIDHPublicKey(kv *versioned.KV, key string) (nike.PublicKey, error) {
-	vo, err := kv.Get(key, currentCTIDHPubKeyVersion)
+// LoadPQPubKeyA loads a public key from storage.
+func LoadPQPublicKey(kv *versioned.KV, key string) (nike.PublicKey, error) {
+	vo, err := kv.Get(key, currentPQPubKeyVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	pubKey, err := mynike.UnmarshalBinaryPublicKey(vo.Data)
+	pubKey, err := pq.NIKE.UnmarshalBinaryPublicKey(vo.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -53,27 +51,27 @@ func LoadCTIDHPublicKey(kv *versioned.KV, key string) (nike.PublicKey, error) {
 	return pubKey, nil
 }
 
-// DeleteCTIDHPubKey removes the key from the store
-func DeleteCTIDHPublicKey(kv *versioned.KV, key string) error {
-	return kv.Delete(key, currentCTIDHPubKeyVersion)
+// DeletePQPubKey removes the key from the store
+func DeletePQPublicKey(kv *versioned.KV, key string) error {
+	return kv.Delete(key, currentPQPubKeyVersion)
 }
 
-func MakeCTIDHPublicKeyKey(cid *id.ID) string {
-	return fmt.Sprintf("CTIDHPubKey:%s", cid)
+func MakePQPublicKeyKey(cid *id.ID) string {
+	return fmt.Sprintf("PQPubKey:%s", cid)
 }
 
 ////
 // Private Key Storage utility functions
 ////
 
-const currentCTIDHPrivKeyVersion = 0
+const currentPQPrivKeyVersion = 0
 
-// StoreCTIDHPrivateKey is a helper to store the requestor public key.
-func StoreCTIDHPrivateKey(kv *versioned.KV, privateKey nike.PrivateKey, key string) error {
+// StorePQPrivateKey is a helper to store the requestor public key.
+func StorePQPrivateKey(kv *versioned.KV, privateKey nike.PrivateKey, key string) error {
 	now := netTime.Now()
 
 	obj := versioned.Object{
-		Version:   currentCTIDHPrivKeyVersion,
+		Version:   currentPQPrivKeyVersion,
 		Timestamp: now,
 		Data:      privateKey.Bytes(),
 	}
@@ -81,25 +79,30 @@ func StoreCTIDHPrivateKey(kv *versioned.KV, privateKey nike.PrivateKey, key stri
 	return kv.Set(key, &obj)
 }
 
-// LoadCTIDHPrivateKeyA loads a public key from storage.
-func LoadCTIDHPrivateKey(kv *versioned.KV, key string) (nike.PrivateKey, error) {
-	vo, err := kv.Get(key, currentCTIDHPrivKeyVersion)
+// LoadPQPrivateKeyA loads a public key from storage.
+func LoadPQPrivateKey(kv *versioned.KV, key string) (nike.PrivateKey, error) {
+	vo, err := kv.Get(key, currentPQPrivKeyVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	privKey, err := mynike.UnmarshalBinaryPrivateKey(vo.Data)
+	privKey, err := pq.NIKE.UnmarshalBinaryPrivateKey(vo.Data)
 	if err != nil {
 		return nil, err
 	}
 	return privKey, nil
 }
 
-// DeleteCTIDHPrivateKey removes the key from the store
-func DeleteCTIDHPrivateKey(kv *versioned.KV, key string) error {
-	return kv.Delete(key, currentCTIDHPrivKeyVersion)
+// DeletePQPrivateKey removes the key from the store
+func DeletePQPrivateKey(kv *versioned.KV, key string) error {
+	return kv.Delete(key, currentPQPrivKeyVersion)
 }
 
-func MakeCTIDHPrivateKeyKey(cid *id.ID) string {
-	return fmt.Sprintf("CTIDHPrivKey:%s", cid)
+func MakePQPrivateKeyKey(cid *id.ID) string {
+	return fmt.Sprintf("PQPrivKey:%s", cid)
+}
+
+// String interface impl to dump the contents of the public key as b64 string
+func StringPQPubKey(k nike.PublicKey) string {
+	return base64.StdEncoding.EncodeToString(k.Bytes())
 }

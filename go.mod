@@ -13,11 +13,11 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.12.0
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
-	gitlab.com/elixxir/comms v0.0.4-0.20220901222604-9fa1911afdd7
+	gitlab.com/elixxir/comms v0.0.4-0.20220916183942-257688b39f0c
 	gitlab.com/elixxir/crypto v0.0.7-0.20220901215826-1ceaeb59081f
 	gitlab.com/elixxir/ekv v0.2.1
 	gitlab.com/elixxir/primitives v0.0.3-0.20220901220638-1acc75fabdc6
-	gitlab.com/xx_network/comms v0.0.4-0.20220902183108-fe7b710b7efe
+	gitlab.com/xx_network/comms v0.0.4-0.20220916183430-cc3077fedf9f
 	gitlab.com/xx_network/crypto v0.0.5-0.20220902182733-69aad094b487
 	gitlab.com/xx_network/primitives v0.0.4-0.20220902183448-319596e2fec8
 	go.uber.org/ratelimit v0.2.0
@@ -28,7 +28,7 @@ require (
 )
 
 require (
-	git.xx.network/elixxir/ctidh_cgo v0.0.0-20220910163944-75bc92e30930 // indirect
+	git.xx.network/elixxir/ctidh_cgo v0.0.0-20220916163316-bc3f946a0e29 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/badoux/checkmail v1.2.1 // indirect
 	github.com/elliotchance/orderedmap v1.4.0 // indirect

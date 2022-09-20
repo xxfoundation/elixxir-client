@@ -11,8 +11,14 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
+
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/crypto/large"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+
+	"gitlab.com/elixxir/client/e2e/pq"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -20,10 +26,6 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 )
 
 func getGroup() *cyclic.Group {
@@ -76,17 +78,11 @@ func makeTestSession() (*Session, *versioned.KV) {
 	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 
-	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
-	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
-	partnerSIDHPrivKey.Generate(rng)
-	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
-	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
-	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
-	mySIDHPrivKey.Generate(rng)
-	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
+	_, partnerPQPubKey := pq.NIKE.NewKeypair()
+	myPQPrivKey, _ := pq.NIKE.NewKeypair()
 
 	baseKey := GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
-		mySIDHPrivKey, partnerSIDHPubKey)
+		myPQPrivKey, partnerPQPubKey)
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	sid := GetSessionIDFromBaseKey(baseKey)
 
@@ -94,8 +90,8 @@ func makeTestSession() (*Session, *versioned.KV) {
 		baseKey:           baseKey,
 		myPrivKey:         myPrivKey,
 		partnerPubKey:     partnerPubKey,
-		mySIDHPrivKey:     mySIDHPrivKey,
-		partnerSIDHPubKey: partnerSIDHPubKey,
+		myPQPrivKey:       myPQPrivKey,
+		partnerPQPubKey:   partnerPQPubKey,
 		e2eParams:         GetDefaultParams(),
 		sID:               sid,
 		kv:                kv.Prefix(MakeSessionPrefix(sid)),

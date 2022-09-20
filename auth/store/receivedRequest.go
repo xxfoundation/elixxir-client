@@ -10,14 +10,16 @@ package store
 import (
 	"sync"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
+	"gitlab.com/xx_network/primitives/id"
+
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/xx_network/primitives/id"
 )
 
 type ReceivedRequest struct {
@@ -26,8 +28,8 @@ type ReceivedRequest struct {
 	// contact of partner
 	partner contact.Contact
 
-	//sidHPublic key of partner
-	theirSidHPubKeyA *sidh.PublicKey
+	// PQ Public key of partner
+	theirPQPubKey nike.PublicKey
 
 	//round received on
 	round rounds.Round
@@ -37,15 +39,15 @@ type ReceivedRequest struct {
 }
 
 func newReceivedRequest(kv *versioned.KV, c contact.Contact,
-	key *sidh.PublicKey, round rounds.Round) *ReceivedRequest {
+	key nike.PublicKey, round rounds.Round) *ReceivedRequest {
 
 	if err := util.StoreContact(kv, c); err != nil {
 		jww.FATAL.Panicf("Failed to save contact for partner %s: %+v", c.ID.String(), err)
 	}
 
-	sidhStoreKey := util.MakeSIDHPublicKeyKey(c.ID)
-	if err := util.StoreSIDHPublicKey(kv, key, sidhStoreKey); err != nil {
-		jww.FATAL.Panicf("Failed to save contact SIDH pubKey for "+
+	pqStoreKey := util.MakePQPublicKeyKey(c.ID)
+	if err := util.StorePQPublicKey(kv, key, pqStoreKey); err != nil {
+		jww.FATAL.Panicf("Failed to save contact PQ pubKey for "+
 			"partner %s: %+v", c.ID.String(), err)
 	}
 
@@ -56,10 +58,10 @@ func newReceivedRequest(kv *versioned.KV, c contact.Contact,
 	}
 
 	return &ReceivedRequest{
-		kv:               kv,
-		partner:          c,
-		theirSidHPubKeyA: key,
-		round:            round,
+		kv:            kv,
+		partner:       c,
+		theirPQPubKey: key,
+		round:         round,
 	}
 }
 
@@ -73,11 +75,11 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 			partner)
 	}
 
-	key, err := util.LoadSIDHPublicKey(kv,
-		util.MakeSIDHPublicKeyKey(partner))
+	key, err := util.LoadPQPublicKey(kv,
+		util.MakePQPublicKeyKey(partner))
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Load "+
-			"Received Auth Request Partner SIDHkey with %s",
+			"Received Auth Request Partner PQ key with %s",
 			partner)
 	}
 
@@ -91,10 +93,10 @@ func loadReceivedRequest(kv *versioned.KV, partner *id.ID) (
 	}
 
 	return &ReceivedRequest{
-		kv:               kv,
-		partner:          c,
-		theirSidHPubKeyA: key,
-		round:            round,
+		kv:            kv,
+		partner:       c,
+		theirPQPubKey: key,
+		round:         round,
 	}, nil
 }
 
@@ -102,8 +104,8 @@ func (rr *ReceivedRequest) GetContact() contact.Contact {
 	return rr.partner
 }
 
-func (rr *ReceivedRequest) GetTheirSidHPubKeyA() *sidh.PublicKey {
-	return rr.theirSidHPubKeyA
+func (rr *ReceivedRequest) GetTheirPQPubKey() nike.PublicKey {
+	return rr.theirPQPubKey
 }
 
 func (rr *ReceivedRequest) GetRound() rounds.Round {
@@ -115,8 +117,8 @@ func (rr *ReceivedRequest) delete() {
 		jww.FATAL.Panicf("Failed to delete received request "+
 			"contact for %s", rr.partner.ID)
 	}
-	if err := util.DeleteSIDHPublicKey(rr.kv,
-		util.MakeSIDHPublicKeyKey(rr.partner.ID)); err != nil {
+	if err := util.DeletePQPublicKey(rr.kv,
+		util.MakePQPublicKeyKey(rr.partner.ID)); err != nil {
 		jww.FATAL.Panicf("Failed to delete received request "+
 			"SIDH pubkey for %s", rr.partner.ID)
 	}

@@ -56,6 +56,7 @@ test:
     paths:
       - vendor/
       - testdata/
+      - high-ctidh/
 
 build:
   stage: build
@@ -64,13 +65,19 @@ build:
     - tags
   script:
     - go mod vendor -v
+    - cd high-ctidh
+    - export P=`pwd`
+    - export CTIDH_BITS=1024
+    - export CGO_CFLAGS="-g -I${P} -DBITS=${CTIDH_BITS}"
+    - export CGO_LDFLAGS="-L${P} -Wl,-rpath,${P} -lhighctidh_${CTIDH_BITS}"
+    - cd ..
     - make version
     - mkdir -p release
 #    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' ./...
-    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags ctidh -ldflags '-w -s' -o release/client.linux64 main.go
+    - GOOS=linux GOARCH=amd64 go build -tags ctidh -ldflags '-w -s' -o release/client.linux64 main.go
 #    - GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win64 main.go
 #    - GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win32 main.go
-    - GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -tags ctidh -ldflags '-w -s' -o release/client.darwin64 main.go
+    # - GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -tags ctidh -ldflags '-w -s' -o release/client.darwin64 main.go
     - /upload-artifacts.sh release/
   artifacts:
     paths:

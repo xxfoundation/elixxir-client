@@ -8,19 +8,20 @@
 package auth
 
 import (
-	ctidh "git.xx.network/elixxir/ctidh_cgo"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
+	"gitlab.com/xx_network/primitives/id"
+
+	"gitlab.com/elixxir/client/e2e/pq"
 	"gitlab.com/elixxir/client/interfaces/nike"
-	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/primitives/id"
 )
 
 const requestFmtVersion = 2
 
-//Basic Format//////////////////////////////////////////////////////////////////
+// Basic Format//////////////////////////////////////////////////////////////////
 type baseFormat struct {
 	data       []byte
 	pubkey     []byte
@@ -31,14 +32,14 @@ type baseFormat struct {
 func newBaseFormat(payloadSize, pubkeySize int) baseFormat {
 	total := pubkeySize
 	// Size of sidh pubkey
-	total += sidhinterface.PubKeyByteSize + 1
+	total += pq.NIKE.PublicKeySize()
 	// Size of version
 	total += 1
 	if payloadSize < total {
 		jww.FATAL.Panicf("Size of baseFormat is too small (%d), must be big "+
-			"enough to contain public key (%d) and sidh key (%d)"+
+			"enough to contain public key (%d) and PQ key (%d)"+
 			"and version which totals to %d", payloadSize,
-			pubkeySize, sidhinterface.PubKeyByteSize+1, total)
+			pubkeySize, pq.NIKE.PublicKeySize(), total)
 	}
 
 	jww.INFO.Printf("Empty Space RequestAuth: %d", payloadSize-total)
@@ -117,7 +118,7 @@ func (f baseFormat) SetEcrPayload(ecr []byte) {
 	copy(f.ecrPayload, ecr)
 }
 
-//Encrypted Format//////////////////////////////////////////////////////////////
+// Encrypted Format//////////////////////////////////////////////////////////////
 const ownershipSize = 32
 
 type ecrFormat struct {
@@ -128,7 +129,7 @@ type ecrFormat struct {
 }
 
 func newEcrFormat(size int) ecrFormat {
-	if size < (ownershipSize + sidhinterface.PubKeyByteSize + 1) {
+	if size < (ownershipSize + pq.NIKE.PublicKeySize() + 1) {
 		jww.FATAL.Panicf("Size too small to hold")
 	}
 
@@ -148,7 +149,8 @@ func buildEcrFormat(data []byte) ecrFormat {
 	f.ownership = f.data[start:end]
 
 	start = end
-	end = start + sidhinterface.PubKeyByteSize + 1
+
+	end = start + pq.NIKE.PublicKeySize() + 1
 	f.pqPublicKey = f.data[start:end]
 
 	start = end
@@ -182,19 +184,17 @@ func (f ecrFormat) SetOwnership(ownership []byte) {
 
 // SetPQPublicKey sets the post quantum public key pqPublicKey
 // in the ecrFormat packet for auth requests. While we
-// only support CTIDH at this time, anything implementing NIKE
+// only support PQ at this time, anything implementing NIKE
 // will work.
 func (f ecrFormat) SetPQPublicKey(pqPublicKey nike.PublicKey) {
 	pqBytes := pqPublicKey.Bytes()
 	copy(f.pqPublicKey[0:len(pqBytes)], pqBytes)
 }
 
-// GetCTIDHPublicKey will attempt to decode a CTIDH post quantum
+// GetPQPublicKey will attempt to decode a PQ post quantum
 // public key from a ecrFormat packet for auth requests.
-func (f ecrFormat) GetCTIDHPublicKey() (nike.PublicKey, error) {
-	pubKey := ctidh.NewEmptyPublicKey()
-	err := pubKey.FromBytes(f.pqPublicKey)
-	return pubKey, err
+func (f ecrFormat) GetPQPublicKey() (nike.PublicKey, error) {
+	return pq.NIKE.UnmarshalBinaryPublicKey(f.pqPublicKey)
 }
 
 func (f ecrFormat) GetPayload() []byte {
@@ -213,7 +213,7 @@ func (f ecrFormat) SetPayload(p []byte) {
 	copy(f.payload, p)
 }
 
-//Request Format////////////////////////////////////////////////////////////////
+// Request Format////////////////////////////////////////////////////////////////
 type requestFormat struct {
 	data       []byte // Note: id and msgPayload are mapped into this..
 	id         []byte
@@ -259,7 +259,7 @@ func (rf requestFormat) GetMsgPayload() []byte {
 	return rf.msgPayload
 }
 
-//utility functions
+// utility functions
 func handleBaseFormat(cmixMsg format.Message, grp *cyclic.Group) (baseFormat,
 	*cyclic.Int, error) {
 

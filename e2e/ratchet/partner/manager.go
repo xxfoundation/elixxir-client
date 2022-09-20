@@ -10,19 +10,21 @@ package partner
 import (
 	"encoding/base64"
 	"fmt"
-	"gitlab.com/elixxir/crypto/e2e"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
+	"gitlab.com/xx_network/primitives/id"
+
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/primitives/id"
 )
 
 const managerPrefix = "Manager{partner:%s}"
@@ -40,8 +42,8 @@ type manager struct {
 	originMyPrivKey     *cyclic.Int
 	originPartnerPubKey *cyclic.Int
 
-	originMySIDHPrivKey     *sidh.PrivateKey
-	originPartnerSIDHPubKey *sidh.PublicKey
+	originMyPQPrivKey     nike.PrivateKey
+	originPartnerPQPubKey nike.PublicKey
 
 	receive *relationship
 	send    *relationship
@@ -53,24 +55,24 @@ type manager struct {
 
 // NewManager creates the relationship and its first Send and Receive sessions.
 func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
-	partnerPubKey *cyclic.Int, mySIDHPrivKey *sidh.PrivateKey,
-	partnerSIDHPubKey *sidh.PublicKey, sendParams,
+	partnerPubKey *cyclic.Int, myPQPrivKey nike.PrivateKey,
+	partnerPQPubKey nike.PublicKey, sendParams,
 	receiveParams session.Params, cyHandler session.CypherHandler,
 	grp *cyclic.Group, rng *fastRNG.StreamGenerator) Manager {
 
 	kv = kv.Prefix(makeManagerPrefix(partnerID))
 
 	m := &manager{
-		kv:                      kv,
-		originMyPrivKey:         myPrivKey,
-		originPartnerPubKey:     partnerPubKey,
-		originMySIDHPrivKey:     mySIDHPrivKey,
-		originPartnerSIDHPubKey: partnerSIDHPubKey,
-		myID:                    myID,
-		partner:                 partnerID,
-		cyHandler:               cyHandler,
-		grp:                     grp,
-		rng:                     rng,
+		kv:                    kv,
+		originMyPrivKey:       myPrivKey,
+		originPartnerPubKey:   partnerPubKey,
+		originMyPQPrivKey:     myPQPrivKey,
+		originPartnerPQPubKey: partnerPQPubKey,
+		myID:                  myID,
+		partner:               partnerID,
+		cyHandler:             cyHandler,
+		grp:                   grp,
+		rng:                   rng,
 	}
 	if err := utility.StoreCyclicKey(kv, myPrivKey,
 		originMyPrivKeyKey); err != nil {
@@ -85,10 +87,10 @@ func NewManager(kv *versioned.KV, myID, partnerID *id.ID, myPrivKey,
 	}
 
 	m.send = NewRelationship(m.kv, session.Send, myID, partnerID, myPrivKey,
-		partnerPubKey, mySIDHPrivKey, partnerSIDHPubKey,
+		partnerPubKey, myPQPrivKey, partnerPQPubKey,
 		sendParams, cyHandler, grp, rng)
 	m.receive = NewRelationship(m.kv, session.Receive, myID, partnerID,
-		myPrivKey, partnerPubKey, mySIDHPrivKey, partnerSIDHPubKey,
+		myPrivKey, partnerPubKey, myPQPrivKey, partnerPQPubKey,
 		receiveParams, cyHandler, grp, rng)
 
 	return m
@@ -109,7 +111,7 @@ func (c ConnectionFp) String() string {
 		c.fingerprint)[:relationshipFpLength]
 }
 
-//LoadManager loads a relationship and all buffers and sessions from disk
+// LoadManager loads a relationship and all buffers and sessions from disk
 func LoadManager(kv *versioned.KV, myID, partnerID *id.ID,
 	cyHandler session.CypherHandler, grp *cyclic.Group,
 	rng *fastRNG.StreamGenerator) (Manager, error) {
@@ -212,13 +214,13 @@ func (m *manager) deleteRelationships() error {
 // session will be returned with the bool set to true denoting a duplicate. This
 // allows for support of duplicate key exchange triggering.
 func (m *manager) NewReceiveSession(partnerPubKey *cyclic.Int,
-	partnerSIDHPubKey *sidh.PublicKey, e2eParams session.Params,
+	partnerPQPubKey nike.PublicKey, e2eParams session.Params,
 	source *session.Session) (*session.Session, bool) {
 
 	// Check if the session already exists
 	baseKey := session.GenerateE2ESessionBaseKey(source.GetMyPrivKey(),
-		partnerPubKey, m.grp, source.GetMySIDHPrivKey(),
-		partnerSIDHPubKey)
+		partnerPubKey, m.grp, source.GetMyPQPrivKey(),
+		partnerPQPubKey)
 
 	sessionID := session.GetSessionIDFromBaseKey(baseKey)
 
@@ -228,7 +230,7 @@ func (m *manager) NewReceiveSession(partnerPubKey *cyclic.Int,
 
 	// Add the session to the buffer
 	s := m.receive.AddSession(source.GetMyPrivKey(), partnerPubKey, baseKey,
-		source.GetMySIDHPrivKey(), partnerSIDHPubKey,
+		source.GetMyPQPrivKey(), partnerPQPubKey,
 		source.GetID(), session.Confirmed, e2eParams)
 
 	return s, false
@@ -238,12 +240,12 @@ func (m *manager) NewReceiveSession(partnerPubKey *cyclic.Int,
 // received from the partner and a new private key for the user. Passing in a
 // private key is optional. A private key will be generated if none is passed.
 func (m *manager) NewSendSession(myPrivKey *cyclic.Int,
-	mySIDHPrivKey *sidh.PrivateKey, e2eParams session.Params,
+	myPQPrivKey nike.PrivateKey, e2eParams session.Params,
 	sourceSession *session.Session) *session.Session {
 
 	// Add the session to the Send session buffer and return
 	return m.send.AddSession(myPrivKey, sourceSession.GetPartnerPubKey(),
-		nil, mySIDHPrivKey, sourceSession.GetPartnerSIDHPubKey(),
+		nil, myPQPrivKey, sourceSession.GetPartnerPQPubKey(),
 		sourceSession.GetID(), session.Sending, e2eParams)
 }
 

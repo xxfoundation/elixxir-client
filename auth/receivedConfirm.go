@@ -23,8 +23,8 @@ import (
 )
 
 type receivedConfirmService struct {
-	s *state
-	*store.SentRequest
+	s                    *state
+	sentRequest          store.SentRequestInterface
 	notificationsService message.Service
 }
 
@@ -46,13 +46,14 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 		"MYPUBKEY: %s\n\t PARTNERPUBKEY: %s \n\t "+
 		"ECRPAYLOAD: %s \n\t MAC: %s",
 		authState.e2e.GetHistoricalDHPubkey().TextVerbose(16, 0),
-		rcs.SentRequest.GetMyPubKey().TextVerbose(16, 0),
+		rcs.sentRequest.GetMyPubKey().TextVerbose(16, 0),
 		partnerPubKey.TextVerbose(16, 0),
 		base64.StdEncoding.EncodeToString(baseFmt.data),
 		base64.StdEncoding.EncodeToString(msg.GetMac()))
 
 	// decrypt the payload
-	success, payload := cAuth.Decrypt(rcs.GetMyPrivKey(), partnerPubKey,
+	success, payload := cAuth.Decrypt(rcs.sentRequest.GetMyPrivKey(),
+		partnerPubKey,
 		baseFmt.GetEcrPayload(), msg.GetMac(), authState.e2e.GetGroup())
 
 	if !success {
@@ -64,7 +65,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 	}
 
 	// parse the data
-	ecrFmt, err := unmarshalLegacySIDHEcrFormat(payload)
+	ecrFmt, err := unmarshalEcrFormat(payload)
 	if err != nil {
 		em := fmt.Sprintf("Failed to unmarshal auth confirmation's "+
 			"encrypted payload: %s", err)
@@ -73,7 +74,7 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 		return
 	}
 
-	partnerSIDHPubKey, err := ecrFmt.GetSidhPubKey()
+	partnerPQPubKey, err := ecrFmt.GetPQPublicKey()
 	if err != nil {
 		em := fmt.Sprintf("Could not get auth conf SIDH Pubkey: %s",
 			err)
@@ -83,25 +84,28 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 	}
 
 	jww.TRACE.Printf("handleConfirm PARTNERSIDHPUBKEY: %v",
-		partnerSIDHPubKey)
+		partnerPQPubKey)
 
 	// check the ownership proof, this verifies the respondent owns the
 	// initial identity
-	if !cAuth.VerifyOwnershipProof(rcs.SentRequest.GetMyPrivKey(),
-		rcs.GetPartnerHistoricalPubKey(),
+	if !cAuth.VerifyOwnershipProof(rcs.sentRequest.GetMyPrivKey(),
+		rcs.sentRequest.GetPartnerHistoricalPubKey(),
 		authState.e2e.GetGroup(), ecrFmt.GetOwnership()) {
 		jww.WARN.Printf("Failed authenticate identity for auth "+
-			"confirmation of %s", rcs.GetPartner())
+			"confirmation of %s", rcs.sentRequest.GetPartner())
 		return
 	}
 
 	// add the partner
 	p := authState.sessionParams
-	_, err = authState.e2e.AddPartner(rcs.GetPartner(), partnerPubKey,
-		rcs.GetMyPrivKey(), partnerSIDHPubKey, rcs.GetMySIDHPrivKey(), p, p)
+	_, err = authState.e2e.AddPartner(rcs.sentRequest.GetPartner(),
+		partnerPubKey,
+		rcs.sentRequest.GetMyPrivKey(), partnerPQPubKey,
+		rcs.sentRequest.GetMyPQPrivateKey(), p, p)
 	if err != nil {
 		jww.WARN.Printf("Failed to create channel with partner %s and "+
-			"%s : %+v", rcs.GetPartner(), receptionID.Source, err)
+			"%s : %+v", rcs.sentRequest.GetPartner(),
+			receptionID.Source, err)
 	}
 
 	if rcs.s.backupTrigger != nil {
@@ -109,11 +113,12 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 	}
 
 	// remove the service used for notifications of the confirm
-	authState.net.DeleteService(receptionID.Source, rcs.notificationsService, nil)
+	authState.net.DeleteService(receptionID.Source,
+		rcs.notificationsService, nil)
 
 	// callbacks
 	c := contact.Contact{
-		ID:             rcs.GetPartner().DeepCopy(),
+		ID:             rcs.sentRequest.GetPartner().DeepCopy(),
 		DhPubKey:       partnerPubKey.DeepCopy(),
 		OwnershipProof: ecrFmt.GetOwnership(),
 		Facts:          make([]fact.Fact, 0),
@@ -128,6 +133,6 @@ func (rcs *receivedConfirmService) Process(msg format.Message,
 
 func (rcs *receivedConfirmService) String() string {
 	return fmt.Sprintf("authConfirm(%s, %s, %s)",
-		rcs.s.e2e.GetReceptionID(), rcs.GetPartner(),
-		rcs.GetFingerprint())
+		rcs.s.e2e.GetReceptionID(), rcs.sentRequest.GetPartner(),
+		rcs.sentRequest.GetFingerprint())
 }

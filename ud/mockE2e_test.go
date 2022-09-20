@@ -8,6 +8,9 @@
 package ud
 
 import (
+	"testing"
+	"time"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
@@ -17,6 +20,7 @@ import (
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/event"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -27,8 +31,6 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
-	"testing"
-	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -146,7 +148,12 @@ func (m mockE2eHandler) UnregisterUserListeners(userID *id.ID) {
 	panic("implement me")
 }
 
-func (m mockE2eHandler) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey, sendParams, receiveParams session.Params) (partner.Manager, error) {
+func (m mockE2eHandler) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey nike.PublicKey, mySIDHPrivKey nike.PrivateKey, sendParams, receiveParams session.Params) (partner.Manager, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockE2eHandler) AddPartnerLegacySIDH(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey, sendParams, receiveParams session.Params) (partner.ManagerLegacySIDH, error) {
 	//TODO implement me
 	panic("implement me")
 }

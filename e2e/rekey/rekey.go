@@ -14,11 +14,12 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/e2e/pq"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	session "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/event"
-	util "gitlab.com/elixxir/client/storage/utility"
 	commsNetwork "gitlab.com/elixxir/comms/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -101,18 +102,15 @@ func negotiate(instance *commsNetwork.Instance, grp *cyclic.Group, sendE2E E2eSe
 	//generate public key
 	pubKey := diffieHellman.GeneratePublicKey(sess.GetMyPrivKey(), grp)
 
-	sidhPrivKey := sess.GetMySIDHPrivKey()
-	sidhPubKey := util.NewSIDHPublicKey(sidhPrivKey.Variant())
-	sidhPrivKey.GeneratePublicKey(sidhPubKey)
-	sidhPubKeyBytes := make([]byte, sidhPubKey.Size()+1)
-	sidhPubKeyBytes[0] = byte(sidhPubKey.Variant())
-	sidhPubKey.Export(sidhPubKeyBytes[1:])
+	pqPrivKey := sess.GetMyPQPrivKey()
+	pqPubKey := pq.NIKE.DerivePublicKey(pqPrivKey)
+	pqPubKeyBytes := pqPubKey.Bytes()
 
 	//build the payload
 	payload, err := proto.Marshal(&RekeyTrigger{
-		PublicKey:     pubKey.Bytes(),
-		SidhPublicKey: sidhPubKeyBytes,
-		SessionID:     sess.GetSource().Marshal(),
+		PublicKey:   pubKey.Bytes(),
+		PqPublicKey: pqPubKeyBytes,
+		SessionID:   sess.GetSource().Marshal(),
 	})
 
 	//If the payload cannot be marshaled, panic

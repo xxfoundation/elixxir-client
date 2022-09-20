@@ -12,21 +12,45 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
+	"gitlab.com/xx_network/primitives/id"
+
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e/ratchet"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/elixxir/crypto/cyclic"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
+	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/primitives/id"
 )
 
-const dummyErr = "dummy error so we dont delete the request"
+const (
+	dummyErr = "dummy error so we dont delete the request"
+
+	NegotiationFingerprintLen = 32
+)
+
+// CreateNegotiationFingerprint creates a fingerprint for a re-authentication
+// negotiation from the partner's DH public key and SIDH public key.
+func CreateNegotiationFingerprint(partnerDhPubKey *cyclic.Int,
+	partnerCtidhPubKey nike.PublicKey) []byte {
+	h, err := hash.NewCMixHash()
+	if err != nil {
+		jww.FATAL.Panicf(
+			"Could not get hash to make request fingerprint: %+v", err)
+	}
+
+	h.Write(partnerDhPubKey.Bytes())
+	h.Write(partnerCtidhPubKey.Bytes())
+
+	return h.Sum(nil)[:NegotiationFingerprintLen]
+}
 
 type receivedRequestService struct {
 	s     *state
@@ -81,13 +105,13 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	}
 
 	//extract data from the decrypted payload
-	partnerID, partnerSIDHPubKey, facts, ownershipProof, err :=
+	partnerID, partnerPQPubKey, facts, ownershipProof, err :=
 		processDecryptedMessage(payload)
 	if err != nil {
 		jww.WARN.Printf("Failed to decode the auth request: %+v", err)
 		return
 	}
-	jww.INFO.Printf("\t PARTNERSIDHPUBKEY: %v", partnerSIDHPubKey)
+	jww.INFO.Printf("\t PARTNER PQ PUBKEY: %v", partnerPQPubKey)
 
 	//create the contact, note that no facts are sent in the payload
 	c := contact.Contact{
@@ -97,8 +121,8 @@ func (rrs *receivedRequestService) Process(message format.Message,
 		Facts:          facts,
 	}
 
-	fp := cAuth.CreateNegotiationFingerprint(partnerPubKey,
-		partnerSIDHPubKey)
+	fp := CreateNegotiationFingerprint(partnerPubKey,
+		partnerPQPubKey)
 	em := fmt.Sprintf("Received AuthRequest from %s,"+
 		" msgDigest: %s, FP: %s", partnerID,
 		format.DigestContents(message.GetContents()),
@@ -199,7 +223,6 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	// time they did. We need to auto-confirm if we are randomly selected
 	// (the one with the smaller id,when looked at as long unsigned integer,
 	// is selected)
-	// (SIDH keys have polarity, so both sent keys cannot be used together)
 	autoConfirm := false
 	bail := false
 	err = authState.store.HandleSentRequest(partnerID,
@@ -248,7 +271,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 	// warning: the client will never be notified of the channel creation if a
 	// crash occurs after the store but before the conclusion of the callback
 	//create the auth storage
-	if err = authState.store.AddReceived(c, partnerSIDHPubKey, round); err != nil {
+	if err = authState.store.AddReceived(c, partnerPQPubKey, round); err != nil {
 		em := fmt.Sprintf("failed to store contact Auth "+
 			"Request: %s", err)
 		jww.WARN.Print(em)
@@ -287,19 +310,19 @@ func (rrs *receivedRequestService) String() string {
 		rrs.s.e2e.GetReceptionID())
 }
 
-func processDecryptedMessage(b []byte) (*id.ID, *sidh.PublicKey, fact.FactList,
+func processDecryptedMessage(b []byte) (*id.ID, nike.PublicKey, fact.FactList,
 	[]byte, error) {
 	//decode the ecr format
-	ecrFmt, err := unmarshalLegacySIDHEcrFormat(b)
+	ecrFmt, err := unmarshalEcrFormat(b)
 	if err != nil {
 		return nil, nil, nil, nil, errors.WithMessage(err, "Failed to "+
 			"unmarshal auth request's encrypted payload")
 	}
 
-	partnerSIDHPubKey, err := ecrFmt.GetSidhPubKey()
+	partnerPQPubKey, err := ecrFmt.GetPQPublicKey()
 	if err != nil {
 		return nil, nil, nil, nil, errors.WithMessage(err, "Could not "+
-			"unmarshal partner SIDH Pubkey")
+			"unmarshal partner PQ Pubkey")
 	}
 
 	//decode the request format
@@ -322,7 +345,7 @@ func processDecryptedMessage(b []byte) (*id.ID, *sidh.PublicKey, fact.FactList,
 			"unmarshal auth request's facts")
 	}
 
-	return partnerID, partnerSIDHPubKey, facts, ecrFmt.GetOwnership(), nil
+	return partnerID, partnerPQPubKey, facts, ecrFmt.GetOwnership(), nil
 }
 
 func iShouldResend(partner, me *id.ID) bool {

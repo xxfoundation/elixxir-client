@@ -54,4 +54,22 @@ type Nike interface {
 
 	// DerivePublicKey derives a public key given a private key.
 	DerivePublicKey(PrivateKey) PublicKey
+
+	// PublicKeyEqual is a constant time key comparison.
+	PublicKeyEqual(PublicKey, PublicKey) bool
+
+	// PrivateKeyEqual is a constant time key comparison.
+	PrivateKeyEqual(PrivateKey, PrivateKey) bool
+
+	// PublicKeyFromPEMFile unmarshals a public key from the PEM file.
+	PublicKeyFromPEMFile(string) (PublicKey, error)
+
+	// PublicKeyToPEMFile write the key to the PEM file.
+	PublicKeyToPEMFile(string, PublicKey) error
+
+	// PrivateKeyFromPEMFile unmarshals a private key from the PEM file.
+	PrivateKeyFromPEMFile(string) (PrivateKey, error)
+
+	// PrivateKeyToPEMFile writes the key to the PEM file.
+	PrivateKeyToPEMFile(string, PrivateKey) error
 }

@@ -1,7 +1,7 @@
 .PHONY: update master release update_master update_release build clean version
 
 version:
-	go run main.go generate
+	go run -tags ctidh main.go generate
 	sed -i.bak 's/package\ cmd/package\ xxdk/g' version_vars.go
 	mv version_vars.go xxdk/version_vars.go
 
@@ -13,7 +13,7 @@ update:
 	-GOFLAGS="" go get all
 
 build:
-	go build ./...
+	go build -tags ctidh ./...
 	go mod tidy
 
 update_release:

@@ -5,15 +5,22 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Call ./generate.sh to generate the protocol buffer code
-
 syntax = "proto3";
 
-package parse;
-option go_package = "gitlab.com/elixxir/client/keyExchange";
+package rekey;
 
+option go_package = "gitlab.com/elixxir/client/e2e/rekey";
 
 message RekeyTrigger {
+    // PublicKey used in the rekey
+    bytes publicKey = 1;
+    // PQPublicKey used in the rekey
+    bytes pqPublicKey = 2;
+    // ID of the session used to create this session
+    bytes sessionID = 3;
+}
+
+message RekeyTriggerLegacySIDH {
     // PublicKey used in the rekey
     bytes publicKey = 1;
     // SIDHPublicKey used in the rekey

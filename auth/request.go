@@ -12,13 +12,17 @@ import (
 	"io"
 	"strings"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
+	"gitlab.com/xx_network/primitives/id"
+
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/e2e/pq"
 	"gitlab.com/elixxir/client/e2e/ratchet"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -26,7 +30,6 @@ import (
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/primitives/id"
 )
 
 const terminator = ";"
@@ -73,10 +76,12 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	me := s.e2e.GetReceptionID()
 
 	dhGrp := s.e2e.GetGroup()
-
 	dhPriv, dhPub := genDHKeys(dhGrp, rng)
-	sidhPriv, sidhPub := util.GenerateSIDHKeyPair(
-		sidh.KeyVariantSidhA, rng)
+
+	// fixme: maybe mynike defined in init as a module variable?
+	mynike := pq.NIKE
+	// TODO: this should take an RNG
+	ctidhPriv, ctidhPub := mynike.NewKeypair()
 
 	historicalDHPriv := s.e2e.GetHistoricalDHPrivkey()
 	historicalDHPub := diffieHellman.GeneratePublicKey(historicalDHPriv,
@@ -97,7 +102,7 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	// considered a reasonable loss due to the increase in code
 	// simplicity of this approach
 	sr, err := s.store.AddSent(partner.ID, partner.DhPubKey, dhPriv, dhPub,
-		sidhPriv, sidhPub, confirmFp, reset)
+		ctidhPriv, ctidhPub, confirmFp, reset)
 	if err != nil {
 		if sr == nil {
 			return 0, err
@@ -106,8 +111,8 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 				"one was already sent", partner.ID, me)
 			dhPriv = sr.GetMyPrivKey()
 			dhPub = sr.GetMyPubKey()
-			//sidhPriv = sr.GetMySIDHPrivKey()
-			sidhPub = sr.GetMySIDHPubKey()
+			//ctidhPriv = sr.GetMyPQPrivKey()
+			ctidhPub = sr.GetMyPQPublicKey()
 		}
 	}
 
@@ -121,7 +126,7 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 
 	// Create the request packet.
 	request, mac, err := createRequestAuth(me, msgPayload, ownership,
-		dhPriv, dhPub, partner.DhPubKey, sidhPub,
+		dhPriv, dhPub, partner.DhPubKey, ctidhPub,
 		s.e2e.GetGroup(), s.net.GetMaxMessageLength())
 	if err != nil {
 		return 0, err
@@ -131,8 +136,8 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	jww.TRACE.Printf("AuthRequest MYPUBKEY: %v", dhPub.TextVerbose(16, 0))
 	jww.TRACE.Printf("AuthRequest PARTNERPUBKEY: %v",
 		partner.DhPubKey.TextVerbose(16, 0))
-	jww.TRACE.Printf("AuthRequest MYSIDHPUBKEY: %s",
-		util.StringSIDHPubKey(sidhPub))
+	jww.TRACE.Printf("AuthRequest MYPQPUBKEY: %s",
+		util.StringPQPubKey(ctidhPub))
 
 	jww.TRACE.Printf("AuthRequest HistoricalPUBKEY: %v",
 		historicalDHPub.TextVerbose(16, 0))
@@ -183,7 +188,7 @@ func genDHKeys(dhGrp *cyclic.Group, csprng io.Reader) (priv, pub *cyclic.Int) {
 // createRequestAuth Creates the request packet, including encrypting the
 // required parts of it.
 func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
-	myDHPub, theirDHPub *cyclic.Int, mySIDHPub *sidh.PublicKey,
+	myDHPub, theirDHPub *cyclic.Int, myPQPub nike.PublicKey,
 	dhGrp *cyclic.Group, cMixSize int) (*baseFormat, []byte, error) {
 	/*generate embedded message structures and check payload*/
 	dhPrimeSize := dhGrp.GetP().ByteLen()
@@ -196,9 +201,9 @@ func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
 	// the session key and encrypt or decrypt.
 
 	// baseFmt wraps ecrFmt. ecrFmt is encrypted
-	baseFmt := newLegacySIDHBaseFormat(cMixSize, dhPrimeSize)
+	baseFmt := newBaseFormat(cMixSize, dhPrimeSize)
 	// ecrFmt wraps requestFmt
-	ecrFmt := newLegacySIDHEcrFormat(baseFmt.GetEcrPayloadLen())
+	ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
 	requestFmt, err := newRequestFormat(ecrFmt.GetPayload())
 	if err != nil {
 		return nil, nil, errors.Errorf(
@@ -216,7 +221,7 @@ func createRequestAuth(sender *id.ID, payload, ownership []byte, myDHPriv,
 	requestFmt.SetID(sender)
 	requestFmt.SetMsgPayload(payload)
 	ecrFmt.SetOwnership(ownership)
-	ecrFmt.SetSidHPubKey(mySIDHPub)
+	ecrFmt.SetPQPublicKey(myPQPub)
 	ecrPayload, mac := cAuth.Encrypt(myDHPriv, theirDHPub, ecrFmt.data,
 		dhGrp)
 	/*construct message*/

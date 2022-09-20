@@ -12,9 +12,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
@@ -66,20 +64,20 @@ func newTestManager(t *testing.T) (manager, *versioned.KV) {
 	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng.GetStream())
 
-	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
-	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
-	err := partnerSIDHPrivKey.Generate(rng.GetStream())
-	if err != nil {
-		t.Errorf("Failed to generate private key: %+v", err)
-	}
-	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
-	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
-	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
-	err = mySIDHPrivKey.Generate(rng.GetStream())
-	if err != nil {
-		t.Errorf("Failed to generate private key: %+v", err)
-	}
-	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
+	// partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	// partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	// err := partnerSIDHPrivKey.Generate(rng.GetStream())
+	// if err != nil {
+	// 	t.Errorf("Failed to generate private key: %+v", err)
+	// }
+	// partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	// mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	// mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	// err = mySIDHPrivKey.Generate(rng.GetStream())
+	// if err != nil {
+	// 	t.Errorf("Failed to generate private key: %+v", err)
+	// }
+	// mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	partnerID := id.NewIdFromString("partner", id.User, t)
@@ -88,7 +86,7 @@ func newTestManager(t *testing.T) (manager, *versioned.KV) {
 
 	// Create new relationship
 	m := NewManager(kv, myId, partnerID, myPrivKey, partnerPubKey,
-		mySIDHPrivKey, partnerSIDHPubKey,
+		nil, nil,
 		session.GetDefaultParams(), session.GetDefaultParams(),
 		mockCyHandler{}, grp,
 		fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG))

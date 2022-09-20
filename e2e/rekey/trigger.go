@@ -10,16 +10,17 @@ package rekey
 import (
 	"fmt"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
 	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/e2e/pq"
 	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/stoppable"
-	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/cyclic"
 )
 
@@ -73,7 +74,7 @@ func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 	}
 
 	//unmarshal the message
-	oldSessionID, PartnerPublicKey, PartnerSIDHPublicKey, err :=
+	oldSessionID, PartnerPublicKey, PartnerPQPublicKey, err :=
 		unmarshalSource(grp, request.Payload)
 	if err != nil {
 		jww.ERROR.Printf("[REKEY] could not unmarshal partner %s: %s",
@@ -92,7 +93,7 @@ func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 
 	//create the new session
 	sess, duplicate := partner.NewReceiveSession(PartnerPublicKey,
-		PartnerSIDHPublicKey, session.GetDefaultParams(),
+		PartnerPQPublicKey, session.GetDefaultParams(),
 		oldSession)
 	// new session being nil means the session was a duplicate. This is possible
 	// in edge cases where the partner crashes during operation. The session
@@ -135,7 +136,7 @@ func handleTrigger(ratchet *ratchet.Ratchet, sender E2eSender,
 }
 
 func unmarshalSource(grp *cyclic.Group, payload []byte) (session.SessionID,
-	*cyclic.Int, *sidh.PublicKey, error) {
+	*cyclic.Int, nike.PublicKey, error) {
 
 	msg := &RekeyTrigger{}
 	if err := proto.Unmarshal(payload, msg); err != nil {
@@ -158,10 +159,11 @@ func unmarshalSource(grp *cyclic.Group, payload []byte) (session.SessionID,
 			msg.PublicKey)
 	}
 
-	theirSIDHVariant := sidh.KeyVariant(msg.SidhPublicKey[0])
-	theirSIDHPubKey := util.NewSIDHPublicKey(theirSIDHVariant)
-	theirSIDHPubKey.Import(msg.SidhPublicKey[1:])
+	theirPQPubKey, err := pq.NIKE.UnmarshalBinaryPublicKey(msg.PqPublicKey)
+	if err != nil {
+		return session.SessionID{}, nil, nil, err
+	}
 
 	return oldSessionID, grp.NewIntFromBytes(msg.PublicKey),
-		theirSIDHPubKey, nil
+		theirPQPubKey, nil
 }

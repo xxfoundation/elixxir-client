@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
@@ -122,9 +123,18 @@ type Handler interface {
 	// and per the parameters sent
 	AddPartner(partnerID *id.ID,
 		partnerPubKey, myPrivKey *cyclic.Int,
+		partnerPQPubKey nike.PublicKey,
+		myPQPrivKey nike.PrivateKey, sendParams,
+		receiveParams session.Params) (partner.Manager, error)
+
+	// AddPartner adds a partner. Automatically creates both send
+	// and receive sessions using the passed cryptographic data
+	// and per the parameters sent
+	AddPartnerLegacySIDH(partnerID *id.ID,
+		partnerPubKey, myPrivKey *cyclic.Int,
 		partnerSIDHPubKey *sidh.PublicKey,
 		mySIDHPrivKey *sidh.PrivateKey, sendParams,
-		receiveParams session.Params) (partner.Manager, error)
+		receiveParams session.Params) (partner.ManagerLegacySIDH, error)
 
 	// GetPartner returns the partner per its ID, if it exists
 	GetPartner(partnerID *id.ID) (partner.Manager, error)

@@ -10,12 +10,12 @@ package ratchet
 import (
 	"sync"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -33,16 +33,18 @@ const (
 var NoPartnerErrorStr = "No relationship with partner found"
 
 type Ratchet struct {
-	managers map[id.ID]partner.Manager
-	mux      sync.RWMutex
+	managers           map[id.ID]partner.Manager
+	managersLegacySIDH map[id.ID]partner.ManagerLegacySIDH
+	mux                sync.RWMutex
 
 	myID                   *id.ID
 	advertisedDHPrivateKey *cyclic.Int
 	advertisedDHPublicKey  *cyclic.Int
 
-	grp       *cyclic.Group
-	cyHandler session.CypherHandler
-	rng       *fastRNG.StreamGenerator
+	grp                 *cyclic.Group
+	cyHandler           session.CypherHandler
+	cyHandlerLegacySIDH session.CypherHandlerLegacySIDH
+	rng                 *fastRNG.StreamGenerator
 
 	// services handler
 	services    map[string]message.Processor
@@ -96,8 +98,8 @@ func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 // AddPartner adds a partner. Automatically creates both send and receive
 // sessions using the passed cryptographic data and per the parameters sent
 func (r *Ratchet) AddPartner(partnerID *id.ID,
-	partnerPubKey, myPrivKey *cyclic.Int, partnerSIDHPubKey *sidh.PublicKey,
-	mySIDHPrivKey *sidh.PrivateKey, sendParams,
+	partnerPubKey, myPrivKey *cyclic.Int, partnerCTIDHPubKey nike.PublicKey,
+	myCTIDHPrivKey nike.PrivateKey, sendParams,
 	receiveParams session.Params) (partner.Manager, error) {
 	r.mux.Lock()
 	defer r.mux.Unlock()
@@ -117,7 +119,7 @@ func (r *Ratchet) AddPartner(partnerID *id.ID,
 		return nil, errors.New("Cannot overwrite existing partner")
 	}
 	m := partner.NewManager(r.kv, r.myID, partnerID, myPrivKey,
-		partnerPubKey, mySIDHPrivKey, partnerSIDHPubKey,
+		partnerPubKey, myCTIDHPrivKey, partnerCTIDHPubKey,
 		sendParams, receiveParams, r.cyHandler, r.grp, r.rng)
 
 	r.managers[mid] = m

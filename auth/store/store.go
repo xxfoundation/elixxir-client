@@ -11,16 +11,18 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const storePrefix = "requestMap"
@@ -29,6 +31,8 @@ const requestMapKey = "map"
 const requestMapVersion = 0
 
 type Store struct {
+	storeLegacySIDH
+
 	kv           *versioned.KV
 	grp          *cyclic.Group
 	receivedByID map[id.ID]*ReceivedRequest
@@ -41,20 +45,14 @@ type Store struct {
 	mux sync.RWMutex
 }
 
-// NewOrLoadStore loads an extant new store. All passed in private keys are added as
-// sentByFingerprints so they can be used to trigger receivedByID.
-// If no store can be found, it creates a new one
-func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (*Store, error) {
+// NewOrLoadStore loads an extant new store. All passed in private
+// keys are added as sentByFingerprints so they can be used to trigger
+// receivedByID.  If no store can be found, it creates a new one
+func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group,
+	srh SentRequestHandler) (*Store, error) {
 	kv = kv.Prefix(storePrefix)
 
-	s := &Store{
-		kv:                   kv,
-		grp:                  grp,
-		receivedByID:         make(map[id.ID]*ReceivedRequest),
-		sentByID:             make(map[id.ID]*SentRequest),
-		previousNegotiations: make(map[id.ID]bool),
-		srh:                  srh,
-	}
+	s := newStore(kv, grp, srh)
 
 	var requestList []requestDisk
 
@@ -62,12 +60,9 @@ func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler)
 	sentObj, err := kv.Get(requestMapKey, requestMapVersion)
 	if err != nil {
 		//no store can be found, lets make a new one
-		jww.WARN.Printf("No auth store could be found, making a new one")
-		s, err := newStore(kv, grp, srh)
-		if err != nil {
-			return nil, errors.WithMessagef(err, "Failed to load requestMap")
-		}
-		return s, nil
+		jww.WARN.Printf("No auth store found, making a new one")
+		s := newStore(kv, grp, srh)
+		return s, s.save()
 	}
 
 	if err := json.Unmarshal(sentObj.Data, &requestList); err != nil {
@@ -87,6 +82,11 @@ func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler)
 			jww.FATAL.Panicf("Failed to load stored id: %+v", err)
 		}
 
+		// FIXME: This will need to handle legacy and current
+		// sent requests/received requests. I recommend we drop
+		// this coding pattern entirely in favor of something that
+		// will upgrade more cleanly but we can ignore that for
+		// PoC purposes.
 		switch requestType {
 		case Sent:
 			sr, err := loadSentRequest(kv, partner, grp)
@@ -116,11 +116,19 @@ func NewOrLoadStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler)
 			"negotation partner IDs: %+v", err)
 	}
 
-	return s, nil
+	return s, s.save()
 }
 
 func (s *Store) save() error {
 	requestIDList := make([]requestDisk, 0, len(s.receivedByID)+len(s.sentByID))
+	for _, rr := range s.receivedByID {
+		rDisk := requestDisk{
+			T:  uint(rr.getType()),
+			ID: rr.partner.ID.Marshal(),
+		}
+		requestIDList = append(requestIDList, rDisk)
+	}
+
 	for _, rr := range s.receivedByID {
 		rDisk := requestDisk{
 			T:  uint(rr.getType()),
@@ -147,34 +155,37 @@ func (s *Store) save() error {
 		Data:      data,
 	}
 
+	err = s.savePreviousNegotiations()
+	if err != nil {
+		return err
+	}
+
 	return s.kv.Set(requestMapKey, &obj)
 }
 
-// NewStore creates a new store. All passed in private keys are added as
-// sentByFingerprints so they can be used to trigger receivedByID.
-func newStore(kv *versioned.KV, grp *cyclic.Group, srh SentRequestHandler) (
-	*Store, error) {
-	s := &Store{
+// sewStore creates a new store. All passed in private keys would need
+// to be added as sentByFingerprints so they can be used to trigger
+// receivedByID. This is not done here because it is a simple initializaer func,
+// but callers should be aware to do this and save the result.
+func newStore(kv *versioned.KV, grp *cyclic.Group,
+	srh SentRequestHandler) *Store {
+	return &Store{
 		kv:                   kv,
 		grp:                  grp,
 		receivedByID:         make(map[id.ID]*ReceivedRequest),
 		sentByID:             make(map[id.ID]*SentRequest),
 		previousNegotiations: make(map[id.ID]bool),
 		srh:                  srh,
+		storeLegacySIDH: storeLegacySIDH{
+			receivedByID: make(map[id.ID]*ReceivedRequestLegacySIDH),
+			sentByID:     make(map[id.ID]*SentRequestLegacySIDH),
+		},
 	}
-
-	err := s.savePreviousNegotiations()
-	if err != nil {
-		return nil, errors.Errorf(
-			"failed to save previousNegotiations partners: %+v", err)
-	}
-
-	return s, s.save()
 }
 
 func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
-	myPubKey *cyclic.Int, sidHPrivA *sidh.PrivateKey,
-	sidHPubA *sidh.PublicKey, fp format.Fingerprint,
+	myPubKey *cyclic.Int, pqPrivateKey nike.PrivateKey,
+	pqPublicKey nike.PublicKey, fp format.Fingerprint,
 	reset bool) (*SentRequest, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -192,8 +203,9 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 		}
 	}
 
-	sr, err := newSentRequest(s.kv, partner, partnerHistoricalPubKey,
-		myPrivKey, myPubKey, sidHPrivA, sidHPubA, fp, reset)
+	sr, err := newSentRequest(s.kv, partner,
+		partnerHistoricalPubKey,
+		myPrivKey, myPubKey, pqPrivateKey, pqPublicKey, fp, reset)
 
 	if err != nil {
 		return nil, err
@@ -209,7 +221,7 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 	return sr, nil
 }
 
-func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey,
+func (s *Store) AddReceived(c contact.Contact, key nike.PublicKey,
 	round rounds.Round) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -227,6 +239,7 @@ func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey,
 	r := newReceivedRequest(s.kv, c, key, round)
 
 	s.receivedByID[*r.GetContact().ID] = r
+
 	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to save Sent Request Map after adding "+
 			"partner %s", c.ID)

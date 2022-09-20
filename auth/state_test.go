@@ -8,14 +8,11 @@
 package auth
 
 import (
-	"gitlab.com/elixxir/client/e2e"
 	"io"
-	"math/rand"
-	"testing"
-	"time"
+
+	"gitlab.com/elixxir/client/e2e"
 
 	"github.com/cloudflare/circl/dh/sidh"
-	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
@@ -23,16 +20,10 @@ import (
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/storage"
 	util "gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
-	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
@@ -127,88 +118,88 @@ func (mc *mockCallbacks) Reset(requestor contact.Contact, receptionID receptionI
 	mc.res <- true
 }
 
-func TestManager_ReplayRequests(t *testing.T) {
-	sess := storage.InitTestingSession(t)
+// func TestManager_ReplayRequests(t *testing.T) {
+// 	sess := storage.InitTestingSession(t)
 
-	s, err := store.NewOrLoadStore(sess.GetKV(), sess.GetCmixGroup(), &mockSentRequestHandler{})
-	if err != nil {
-		t.Errorf("Failed to create store: %+v", err)
-	}
+// 	s, err := store.NewOrLoadStore(sess.GetKV(), sess.GetCmixGroup(), &mockSentRequestHandler{})
+// 	if err != nil {
+// 		t.Errorf("Failed to create store: %+v", err)
+// 	}
 
-	ch := make(chan bool)
+// 	ch := make(chan bool)
 
-	// Construct barebones manager
-	m := state{
-		callbacks: &mockCallbacks{
-			con: ch,
-		},
-		net: &mockNetManager{},
-		e2e: &mockE2E{
-			group:     sess.GetCmixGroup(),
-			reception: id.NewIdFromString("zezima", id.User, t),
-		},
-		rng:   fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
-		store: s,
-		event: &mockEventManager{},
-		params: Params{
-			ReplayRequests: true,
-		},
-	}
+// 	// Construct barebones manager
+// 	m := state{
+// 		callbacks: &mockCallbacks{
+// 			con: ch,
+// 		},
+// 		net: &mockNetManager{},
+// 		e2e: &mockE2E{
+// 			group:     sess.GetCmixGroup(),
+// 			reception: id.NewIdFromString("zezima", id.User, t),
+// 		},
+// 		rng:   fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
+// 		store: s,
+// 		event: &mockEventManager{},
+// 		params: Params{
+// 			ReplayRequests: true,
+// 		},
+// 	}
 
-	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-	c := contact.Contact{ID: partnerID, DhPubKey: sess.GetCmixGroup().NewInt(5), OwnershipProof: []byte("proof")}
-	rng := csprng.NewSystemRNG()
-	_, sidhPubKey := genSidhAKeys(rng)
+// 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+// 	c := contact.Contact{ID: partnerID, DhPubKey: sess.GetCmixGroup().NewInt(5), OwnershipProof: []byte("proof")}
+// 	rng := csprng.NewSystemRNG()
+// 	_, sidhPubKey := genSidhAKeys(rng)
 
-	r := makeTestRound(t)
-	if err := m.store.AddReceived(c, sidhPubKey, r); err != nil {
-		t.Fatalf("AddReceived() returned an error: %+v", err)
-	}
+// 	r := makeTestRound(t)
+// 	if err := m.store.AddReceived(c, sidhPubKey, r); err != nil {
+// 		t.Fatalf("AddReceived() returned an error: %+v", err)
+// 	}
 
-	_, err = m.Confirm(c)
-	if err != nil {
-		t.Errorf("Failed to confirm: %+v", err)
-	}
+// 	_, err = m.Confirm(c)
+// 	if err != nil {
+// 		t.Errorf("Failed to confirm: %+v", err)
+// 	}
 
-	_, err = m.ReplayConfirm(partnerID)
-	if err != nil {
-		t.Errorf("Failed to replay confirm: %+v", err)
-	}
+// 	_, err = m.ReplayConfirm(partnerID)
+// 	if err != nil {
+// 		t.Errorf("Failed to replay confirm: %+v", err)
+// 	}
 
-	timeout := time.NewTimer(1 * time.Second)
-	numChannelReceived := 0
-loop:
-	for {
-		select {
-		case <-ch:
-			numChannelReceived++
-		case <-timeout.C:
-			break loop
-		}
-	}
+// 	timeout := time.NewTimer(1 * time.Second)
+// 	numChannelReceived := 0
+// loop:
+// 	for {
+// 		select {
+// 		case <-ch:
+// 			numChannelReceived++
+// 		case <-timeout.C:
+// 			break loop
+// 		}
+// 	}
 
-	if numChannelReceived > 0 {
-		t.Errorf("Unexpected number of callbacks called"+
-			"\nExpected: 1"+
-			"\nReceived: %d", numChannelReceived)
-	}
-}
+// 	if numChannelReceived > 0 {
+// 		t.Errorf("Unexpected number of callbacks called"+
+// 			"\nExpected: 1"+
+// 			"\nReceived: %d", numChannelReceived)
+// 	}
+// }
 
-func makeTestStore(t *testing.T) (*store.Store, *versioned.KV, []*cyclic.Int) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
-	privKeys := make([]*cyclic.Int, 10)
-	for i := range privKeys {
-		privKeys[i] = grp.NewInt(rand.Int63n(170) + 1)
-	}
+// func makeTestStore(t *testing.T) (*store.Store, *versioned.KV, []*cyclic.Int) {
+// 	kv := versioned.NewKV(ekv.MakeMemstore())
+// 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
+// 	privKeys := make([]*cyclic.Int, 10)
+// 	for i := range privKeys {
+// 		privKeys[i] = grp.NewInt(rand.Int63n(170) + 1)
+// 	}
 
-	store, err := store.NewOrLoadStore(kv, grp, &mockSentRequestHandler{})
-	if err != nil {
-		t.Fatalf("Failed to create new Store: %+v", err)
-	}
+// 	store, err := store.NewOrLoadStore(kv, grp, &mockSentRequestHandler{})
+// 	if err != nil {
+// 		t.Fatalf("Failed to create new Store: %+v", err)
+// 	}
 
-	return store, kv, privKeys
-}
+// 	return store, kv, privKeys
+// }
 
 func genSidhAKeys(rng io.Reader) (*sidh.PrivateKey, *sidh.PublicKey) {
 	sidHPrivKeyA := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)

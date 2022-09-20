@@ -22,6 +22,7 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 
 	"gitlab.com/elixxir/client/cmix/rounds"
+	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/contact"
@@ -175,87 +176,87 @@ func TestStore_AddSent(t *testing.T) {
 // 	}
 // }
 
-// // Happy path.
-// func TestStore_AddReceivedLegacySIDH(t *testing.T) {
-// 	s, _ := makeTestStore(t)
+// Happy path.
+func TestStore_AddReceivedLegacySIDH(t *testing.T) {
+	s, _ := makeTestStore(t)
 
-// 	rng := csprng.NewSystemRNG()
-// 	_, sidhPubKey := genSidhAKeys(rng)
+	rng := csprng.NewSystemRNG()
+	_, sidhPubKey := genSidhAKeys(rng)
 
-// 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
-// 	r := makeTestRound(t)
+	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+	r := makeTestRound(t)
 
-// 	err := s.AddReceivedLegacySIDH(c, sidhPubKey, r)
-// 	if err != nil {
-// 		t.Errorf("AddReceivedLegacySIDH() returned an error: %+v", err)
-// 	}
-// 	legacy := s.storeLegacySIDH
+	err := s.AddReceivedLegacySIDH(c, sidhPubKey, r)
+	if err != nil {
+		t.Errorf("AddReceivedLegacySIDH() returned an error: %+v", err)
+	}
+	legacy := s.storeLegacySIDH
 
-// 	if legacy.receivedByID[*c.ID] == nil {
-// 		t.Errorf("AddReceivedLegacySIDH() failed to add request to "+
-// 			"map for partner ID %s.", c.ID)
-// 	} else if !reflect.DeepEqual(r, legacy.receivedByID[*c.ID].round) {
-// 		t.Errorf("AddReceivedLegacySIDH() failed store "+
-// 			"the correct round."+
-// 			"\n\texpected: %+v\n\treceived: %+v", r,
-// 			legacy.receivedByID[*c.ID].round)
-// 	}
-// }
+	if legacy.receivedByID[*c.ID] == nil {
+		t.Errorf("AddReceivedLegacySIDH() failed to add request to "+
+			"map for partner ID %s.", c.ID)
+	} else if !reflect.DeepEqual(r, legacy.receivedByID[*c.ID].round) {
+		t.Errorf("AddReceivedLegacySIDH() failed store "+
+			"the correct round."+
+			"\n\texpected: %+v\n\treceived: %+v", r,
+			legacy.receivedByID[*c.ID].round)
+	}
+}
 
-// // Error path: request with request already exists in map.
-// func TestStore_AddReceivedLegacySIDH_PartnerAlreadyExistsError(t *testing.T) {
-// 	s, _ := makeTestStore(t)
-// 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+// Error path: request with request already exists in map.
+func TestStore_AddReceivedLegacySIDH_PartnerAlreadyExistsError(t *testing.T) {
+	s, _ := makeTestStore(t)
+	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
 
-// 	rng := csprng.NewSystemRNG()
-// 	_, sidhPubKey := genSidhAKeys(rng)
+	rng := csprng.NewSystemRNG()
+	_, sidhPubKey := genSidhAKeys(rng)
 
-// 	r := makeTestRound(t)
+	r := makeTestRound(t)
 
-// 	err := s.AddReceivedLegacySIDH(c, sidhPubKey, r)
-// 	if err != nil {
-// 		t.Errorf("AddReceivedLegacySIDH() returned an error: %+v", err)
-// 	}
+	err := s.AddReceivedLegacySIDH(c, sidhPubKey, r)
+	if err != nil {
+		t.Errorf("AddReceivedLegacySIDH() returned an error: %+v", err)
+	}
 
-// 	err = s.AddReceivedLegacySIDH(c, sidhPubKey, r)
-// 	if err == nil {
-// 		t.Errorf("AddReceivedLegacySIDH() did not produce the expected error " +
-// 			"for a request that already exists.")
-// 	}
-// }
+	err = s.AddReceivedLegacySIDH(c, sidhPubKey, r)
+	if err == nil {
+		t.Errorf("AddReceivedLegacySIDH() did not produce the expected error " +
+			"for a request that already exists.")
+	}
+}
 
-// // Happy path.
-// func TestStore_GetReceivedRequest(t *testing.T) {
-// 	s, _ := makeTestStore(t)
-// 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
-// 	rng := csprng.NewSystemRNG()
-// 	_, sidhPubKey := genSidhAKeys(rng)
+// Happy path.
+func TestStore_GetReceivedRequest(t *testing.T) {
+	s, _ := makeTestStore(t)
+	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+	rng := csprng.NewSystemRNG()
+	_, sidhPubKey := genSidhAKeys(rng)
 
-// 	r := makeTestRound(t)
+	r := makeTestRound(t)
 
-// 	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
-// 		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
-// 	}
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
+	}
 
-// 	testC, err := s.GetReceivedRequest(c.ID)
-// 	if err != nil {
-// 		t.Errorf("GetReceivedRequest() returned an error: %+v", err)
-// 	}
+	testC, err := s.GetReceivedRequestLegacySIDH(c.ID)
+	if err != nil {
+		t.Errorf("GetReceivedRequest() returned an error: %+v", err)
+	}
 
-// 	if !reflect.DeepEqual(c, testC) {
-// 		t.Errorf("GetReceivedRequest() returned incorrect Contact."+
-// 			"\n\texpected: %+v\n\treceived: %+v", c, testC)
-// 	}
+	if !reflect.DeepEqual(c, testC) {
+		t.Errorf("GetReceivedRequest() returned incorrect Contact."+
+			"\n\texpected: %+v\n\treceived: %+v", c, testC)
+	}
 
-// 	keyBytes := make([]byte, sidhinterface.PubKeyByteSize)
-// 	sidhPubKey.Export(keyBytes)
-// 	expKeyBytes := make([]byte, sidhinterface.PubKeyByteSize)
-// 	legacy := s.storeLegacySIDH
-// 	legacy.receivedByID[*c.ID].theirSidHPubKeyA.Export(expKeyBytes)
-// 	if !reflect.DeepEqual(keyBytes, expKeyBytes) {
-// 		t.Errorf("GetReceivedRequest did not send proper sidh bytes")
-// 	}
-// }
+	keyBytes := make([]byte, sidhinterface.PubKeyByteSize)
+	sidhPubKey.Export(keyBytes)
+	expKeyBytes := make([]byte, sidhinterface.PubKeyByteSize)
+	legacy := s.storeLegacySIDH
+	legacy.receivedByID[*c.ID].theirSidHPubKeyA.Export(expKeyBytes)
+	if !reflect.DeepEqual(keyBytes, expKeyBytes) {
+		t.Errorf("GetReceivedRequest did not send proper sidh bytes")
+	}
+}
 
 // // Error path: request is deleted between first and second check.
 // func TestStore_GetReceivedRequest_RequestDeleted(t *testing.T) {

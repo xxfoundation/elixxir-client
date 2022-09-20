@@ -258,86 +258,86 @@ func TestStore_GetReceivedRequest(t *testing.T) {
 	}
 }
 
-// // Error path: request is deleted between first and second check.
-// func TestStore_GetReceivedRequest_RequestDeleted(t *testing.T) {
-// 	s, _ := makeTestStore(t)
-// 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
-// 	rng := csprng.NewSystemRNG()
-// 	_, sidhPubKey := genSidhAKeys(rng)
+// Error path: request is deleted between first and second check.
+func TestStore_GetReceivedRequest_RequestDeleted(t *testing.T) {
+	s, _ := makeTestStore(t)
+	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+	rng := csprng.NewSystemRNG()
+	_, sidhPubKey := genSidhAKeys(rng)
 
-// 	r := makeTestRound(t)
+	r := makeTestRound(t)
 
-// 	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
-// 		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
-// 	}
-// 	legacy := s.storeLegacySIDH
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
+	}
+	legacy := s.storeLegacySIDH
 
-// 	rr := legacy.receivedByID[*c.ID]
-// 	rr.mux.Lock()
+	rr := legacy.receivedByID[*c.ID]
+	rr.mux.Lock()
 
-// 	delete(legacy.receivedByID, *c.ID)
-// 	rr.mux.Unlock()
+	delete(legacy.receivedByID, *c.ID)
+	rr.mux.Unlock()
 
-// 	testC, err := s.GetReceivedRequest(c.ID)
-// 	if err == nil {
-// 		t.Errorf("GetReceivedRequest() did not return an error " +
-// 			"when the request should not exist.")
-// 	}
+	testC, err := s.GetReceivedRequest(c.ID)
+	if err == nil {
+		t.Errorf("GetReceivedRequest() did not return an error " +
+			"when the request should not exist.")
+	}
 
-// 	if !reflect.DeepEqual(contact.Contact{}, testC) {
-// 		t.Errorf("GetReceivedRequest() returned incorrect Contact."+
-// 			"\n\texpected: %+v\n\treceived: %+v", contact.Contact{},
-// 			testC)
-// 	}
+	if !reflect.DeepEqual(contact.Contact{}, testC) {
+		t.Errorf("GetReceivedRequest() returned incorrect Contact."+
+			"\n\texpected: %+v\n\treceived: %+v", contact.Contact{},
+			testC)
+	}
 
-// 	// Check if the request's mutex is locked
-// 	if reflect.ValueOf(&rr.mux).Elem().FieldByName("state").Int() != 0 {
-// 		t.Errorf("GetReceivedRequest() did not unlock mutex.")
-// 	}
-// }
+	// Check if the request's mutex is locked
+	if reflect.ValueOf(&rr.mux).Elem().FieldByName("state").Int() != 0 {
+		t.Errorf("GetReceivedRequest() did not unlock mutex.")
+	}
+}
 
-// // Error path: request does not exist.
-// func TestStore_GetReceivedRequest_RequestNotInMap(t *testing.T) {
-// 	s, _ := makeTestStore(t)
+// Error path: request does not exist.
+func TestStore_GetReceivedRequest_RequestNotInMap(t *testing.T) {
+	s, _ := makeTestStore(t)
 
-// 	testC, err := s.GetReceivedRequest(
-// 		id.NewIdFromUInt(rand.Uint64(),
-// 			id.User, t))
-// 	if err == nil {
-// 		t.Errorf("GetReceivedRequest() did not return an error " +
-// 			"when the request should not exist.")
-// 	}
+	testC, err := s.GetReceivedRequest(
+		id.NewIdFromUInt(rand.Uint64(),
+			id.User, t))
+	if err == nil {
+		t.Errorf("GetReceivedRequest() did not return an error " +
+			"when the request should not exist.")
+	}
 
-// 	if !reflect.DeepEqual(contact.Contact{}, testC) {
-// 		t.Errorf("GetReceivedRequest() returned incorrect Contact."+
-// 			"\n\texpected: %+v\n\treceived: %+v", contact.Contact{},
-// 			testC)
-// 	}
-// }
+	if !reflect.DeepEqual(contact.Contact{}, testC) {
+		t.Errorf("GetReceivedRequest() returned incorrect Contact."+
+			"\n\texpected: %+v\n\treceived: %+v", contact.Contact{},
+			testC)
+	}
+}
 
-// // Happy path.
-// func TestStore_GetReceivedRequestData(t *testing.T) {
-// 	s, _ := makeTestStore(t)
-// 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
-// 	rng := csprng.NewSystemRNG()
-// 	_, sidhPubKey := genSidhAKeys(rng)
+// Happy path.
+func TestStore_GetReceivedRequestData(t *testing.T) {
+	s, _ := makeTestStore(t)
+	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+	rng := csprng.NewSystemRNG()
+	_, sidhPubKey := genSidhAKeys(rng)
 
-// 	r := makeTestRound(t)
+	r := makeTestRound(t)
 
-// 	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
-// 		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
-// 	}
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
+	}
 
-// 	testC, err := s.GetReceivedRequest(c.ID)
-// 	if err != nil {
-// 		t.Errorf("GetReceivedRequestData() returned an error: %+v", err)
-// 	}
+	testC, err := s.GetReceivedRequestLegacySIDH(c.ID)
+	if err != nil {
+		t.Errorf("GetReceivedRequestData() returned an error: %+v", err)
+	}
 
-// 	if !reflect.DeepEqual(c, testC) {
-// 		t.Errorf("GetReceivedRequestData() returned incorrect Contact."+
-// 			"\n\texpected: %+v\n\treceived: %+v", c, testC)
-// 	}
-// }
+	if !reflect.DeepEqual(c, testC) {
+		t.Errorf("GetReceivedRequestData() returned incorrect Contact."+
+			"\n\texpected: %+v\n\treceived: %+v", c, testC)
+	}
+}
 
 // Error path: request does not exist.
 func TestStore_GetReceivedRequestData_RequestNotInMap(t *testing.T) {
@@ -358,99 +358,56 @@ func TestStore_GetReceivedRequestData_RequestNotInMap(t *testing.T) {
 	}
 }
 
-// // Happy path: request is of type Receive.
-// func TestStore_GetRequest_ReceiveRequest(t *testing.T) {
+// Happy path: request is of type Receive.
+func TestStore_GetRequest_ReceiveRequest(t *testing.T) {
+	s, _ := makeTestStore(t)
+	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+	rng := csprng.NewSystemRNG()
+	_, sidhPubKey := genSidhAKeys(rng)
+
+	r := makeTestRound(t)
+
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
+	}
+
+	con, err := s.GetReceivedRequestLegacySIDH(c.ID)
+	if err != nil {
+		t.Errorf("GetRequest() returned an error: %+v", err)
+	}
+	if !reflect.DeepEqual(c, con) {
+		t.Errorf("GetRequest() returned incorrect Contact."+
+			"\n\texpected: %+v\n\treceived: %+v", c, con)
+	}
+}
+
+// // Happy path: request is of type Sent.
+
+// func TestStore_GetRequest_SentRequest(t *testing.T) {
 // 	s, _ := makeTestStore(t)
-// 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+// 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 // 	rng := csprng.NewSystemRNG()
-// 	_, sidhPubKey := genSidhAKeys(rng)
+// 	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
 
-// 	r := makeTestRound(t)
-
-// 	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
-// 		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
+// 	var sr *SentRequestLegacySIDH
+// 	var err error
+// 	if sr, err = s.AddSentLegacySIDH(partnerID, s.grp.NewInt(5), s.grp.NewInt(6),
+// 		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+// 		format.Fingerprint{42}, false); err != nil {
+// 		t.Fatalf("AddSent() returned an error: %+v", err)
 // 	}
 
-// 	con, err := s.GetReceivedRequest(c.ID)
+// 	rType, request, con, err := s.GetRequest(sr.partner)
 // 	if err != nil {
 // 		t.Errorf("GetRequest() returned an error: %+v", err)
 // 	}
-// 	if !reflect.DeepEqual(c, con) {
-// 		t.Errorf("GetRequest() returned incorrect Contact."+
-// 			"\n\texpected: %+v\n\treceived: %+v", c, con)
+// 	if rType != Sent {
+// 		t.Errorf("GetRequest() returned incorrect RequestType."+
+// 			"\n\texpected: %d\n\treceived: %d", Sent, rType)
 // 	}
-// }
-
-//
-//// Happy path: request is of type Sent.
-//func TestStore_GetRequest_SentRequest(t *testing.T) {
-//	s, _ := makeTestStore(t)
-//	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-//	rng := csprng.NewSystemRNG()
-//	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
-//
-//	var sr *SentRequest
-//	var err error
-//	if sr, err = s.AddSent(partnerID, s.grp.NewInt(5), s.grp.NewInt(6),
-//		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
-//		format.Fingerprint{42}, false); err != nil {
-//		t.Fatalf("AddSent() returned an error: %+v", err)
-//	}
-//
-//	rType, request, con, err := s.GetRequest(sr.partner)
-//	if err != nil {
-//		t.Errorf("GetRequest() returned an error: %+v", err)
-//	}
-//	if rType != Sent {
-//		t.Errorf("GetRequest() returned incorrect RequestType."+
-//			"\n\texpected: %d\n\treceived: %d", Sent, rType)
-//	}
-//	if !reflect.DeepEqual(sr, request) {
-//		t.Errorf("GetRequest() returned incorrect SentRequest."+
-//			"\n\texpected: %+v\n\treceived: %+v", sr, request)
-//	}
-//	if !reflect.DeepEqual(contact.Contact{}, con) {
-//		t.Errorf("GetRequest() returned incorrect Contact."+
-//			"\n\texpected: %+v\n\treceived: %+v", contact.Contact{},
-//			con)
-//	}
-//}
-//
-//// Error path: request type is invalid.
-//func TestStore_GetRequest_InvalidType(t *testing.T) {
-//	s, _, _ := makeTestStore(t)
-//	uid := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-//	s.receivedByIDLegacySIDH[*uid] = &ReceivedRequest{rt: 42}
-//
-//	rType, request, con, err := s.GetRequest(uid)
-//	if err == nil {
-//		t.Errorf("GetRequest() did not return an error " +
-//			"when the request type should be invalid.")
-//	}
-//	if rType != 0 {
-//		t.Errorf("GetRequest() returned incorrect RequestType."+
-//			"\n\texpected: %d\n\treceived: %d", 0, rType)
-//	}
-//	if request != nil {
-//		t.Errorf("GetRequest() returned incorrect SentRequest."+
-//			"\n\texpected: %+v\n\treceived: %+v", nil, request)
-//	}
-//	if !reflect.DeepEqual(contact.Contact{}, con) {
-//		t.Errorf("GetRequest() returned incorrect Contact."+
-//			"\n\texpected: %+v\n\treceived: %+v", contact.Contact{},
-//			con)
-//	}
-//}
-
-// // Error path: request does not exist in map.
-// func TestStore_GetRequest_RequestNotInMap(t *testing.T) {
-// 	s, _ := makeTestStore(t)
-// 	uid := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-
-// 	con, err := s.GetReceivedRequest(uid)
-// 	if err == nil {
-// 		t.Errorf("GetRequest() did not return an error " +
-// 			"when the request was not in the map.")
+// 	if !reflect.DeepEqual(sr, request) {
+// 		t.Errorf("GetRequest() returned incorrect SentRequest."+
+// 			"\n\texpected: %+v\n\treceived: %+v", sr, request)
 // 	}
 // 	if !reflect.DeepEqual(contact.Contact{}, con) {
 // 		t.Errorf("GetRequest() returned incorrect Contact."+
@@ -458,6 +415,49 @@ func TestStore_GetReceivedRequestData_RequestNotInMap(t *testing.T) {
 // 			con)
 // 	}
 // }
+
+// Error path: request type is invalid.
+// func TestStore_GetRequest_InvalidType(t *testing.T) {
+// 	s, _, _ := makeTestStore(t)
+// 	uid := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+// 	s.receivedByIDLegacySIDH[*uid] = &ReceivedRequest{rt: 42}
+
+// 	rType, request, con, err := s.GetRequest(uid)
+// 	if err == nil {
+// 		t.Errorf("GetRequest() did not return an error " +
+// 			"when the request type should be invalid.")
+// 	}
+// 	if rType != 0 {
+// 		t.Errorf("GetRequest() returned incorrect RequestType."+
+// 			"\n\texpected: %d\n\treceived: %d", 0, rType)
+// 	}
+// 	if request != nil {
+// 		t.Errorf("GetRequest() returned incorrect SentRequest."+
+// 			"\n\texpected: %+v\n\treceived: %+v", nil, request)
+// 	}
+// 	if !reflect.DeepEqual(contact.Contact{}, con) {
+// 		t.Errorf("GetRequest() returned incorrect Contact."+
+// 			"\n\texpected: %+v\n\treceived: %+v", contact.Contact{},
+// 			con)
+// 	}
+// }
+
+// Error path: request does not exist in map.
+func TestStore_GetRequest_RequestNotInMap(t *testing.T) {
+	s, _ := makeTestStore(t)
+	uid := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+
+	con, err := s.GetReceivedRequest(uid)
+	if err == nil {
+		t.Errorf("GetRequest() did not return an error " +
+			"when the request was not in the map.")
+	}
+	if !reflect.DeepEqual(contact.Contact{}, con) {
+		t.Errorf("GetRequest() returned incorrect Contact."+
+			"\n\texpected: %+v\n\treceived: %+v", contact.Contact{},
+			con)
+	}
+}
 
 // Happy path.
 //func TestStore_Fail(t *testing.T) {

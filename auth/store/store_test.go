@@ -531,50 +531,50 @@ func TestStore_Delete_ReceiveRequest(t *testing.T) {
 	}
 }
 
-// // Happy path: sent request.
-// func TestStore_Delete_SentRequest(t *testing.T) {
-// 	s, _ := makeTestStore(t)
-// 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-// 	rng := csprng.NewSystemRNG()
-// 	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
-// 	sr := &SentRequestLegacySIDH{
-// 		kv:                      s.kv,
-// 		partner:                 partnerID,
-// 		partnerHistoricalPubKey: s.grp.NewInt(1),
-// 		myPrivKey:               s.grp.NewInt(2),
-// 		myPubKey:                s.grp.NewInt(3),
-// 		mySidHPrivKeyA:          sidhPrivKey,
-// 		mySidHPubKeyA:           sidhPubKey,
-// 		fingerprint:             format.Fingerprint{5},
-// 	}
-// 	if _, err := s.AddSentLegacySIDH(sr.partner, s.grp.NewInt(5),
-// 		s.grp.NewInt(6),
-// 		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
-// 		format.Fingerprint{42}, false); err != nil {
-// 		t.Fatalf("AddSent() returned an error: %+v", err)
-// 	}
+// Happy path: sent request.
+func TestStore_Delete_SentRequest(t *testing.T) {
+	s, _ := makeTestStore(t)
+	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+	rng := csprng.NewSystemRNG()
+	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
+	sr := &SentRequestLegacySIDH{
+		kv:                      s.kv,
+		partner:                 partnerID,
+		partnerHistoricalPubKey: s.grp.NewInt(1),
+		myPrivKey:               s.grp.NewInt(2),
+		myPubKey:                s.grp.NewInt(3),
+		mySidHPrivKeyA:          sidhPrivKey,
+		mySidHPubKeyA:           sidhPubKey,
+		fingerprint:             format.Fingerprint{5},
+	}
+	if _, err := s.AddSentLegacySIDH(sr.partner, s.grp.NewInt(5),
+		s.grp.NewInt(6),
+		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+		format.Fingerprint{42}, false); err != nil {
+		t.Fatalf("AddSent() returned an error: %+v", err)
+	}
 
-// 	//if _, _, _, err := s.GetFingerprint(sr.fingerprint); err != nil {  // TODO legacy
-// 	//	t.Fatalf("GetFingerprint() returned an error: %+v", err)
-// 	//}
+	//if _, _, _, err := s.GetFingerprint(sr.fingerprint); err != nil {  // TODO legacy
+	//	t.Fatalf("GetFingerprint() returned an error: %+v", err)
+	//}
 
-// 	err := s.DeleteRequest(sr.partner)
-// 	if err != nil {
-// 		t.Errorf("delete() returned an error: %+v", err)
-// 	}
+	err := s.DeleteRequestLegacySIDH(sr.partner)
+	if err != nil {
+		t.Errorf("delete() returned an error: %+v", err)
+	}
 
-// 	legacy := s.storeLegacySIDH
+	legacy := s.storeLegacySIDH
 
-// 	if legacy.receivedByID[*sr.partner] != nil {
-// 		t.Errorf("delete() failed to delete request for user %s.",
-// 			sr.partner)
-// 	}
+	if legacy.receivedByID[*sr.partner] != nil {
+		t.Errorf("delete() failed to delete request for user %s.",
+			sr.partner)
+	}
 
-// 	if _, exists := legacy.sentByID[*sr.partner]; exists {
-// 		t.Errorf("delete() failed to delete fingerprint for fp %v.",
-// 			sr.fingerprint)
-// 	}
-// }
+	if _, exists := legacy.sentByID[*sr.partner]; exists {
+		t.Errorf("delete() failed to delete fingerprint for fp %v.",
+			sr.fingerprint)
+	}
+}
 
 // // Error path: request does not exist.
 // func TestStore_Delete_RequestNotInMap(t *testing.T) {

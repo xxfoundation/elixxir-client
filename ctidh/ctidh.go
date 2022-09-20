@@ -37,6 +37,33 @@ func (e *ctidhNIKE) NewKeypair() (nike.PrivateKey, nike.PublicKey) {
 	return privKey, pubKey
 }
 
+func (e *ctidhNIKE) PublicKeyFromPEMFile(f string) (nike.PublicKey, error) {
+	pubKey := ctidh.NewEmptyPublicKey()
+	err := pubKey.FromPEMFile(f)
+	if err != nil {
+		return nil, err
+	}
+	return pubKey, nil
+}
+
+func (e *ctidhNIKE) PrivateKeyFromPEMFile(f string) (nike.PrivateKey, error) {
+	privKey := ctidh.NewEmptyPrivateKey()
+	err := privKey.FromPEMFile(f)
+	if err != nil {
+		return nil, err
+	}
+	return privKey, nil
+}
+
+func (e *ctidhNIKE) PublicKeyToPEMFile(f string, pubKey nike.PublicKey) error {
+	return pubKey.(*ctidh.PublicKey).ToPEMFile(f)
+}
+
+func (e *ctidhNIKE) PrivateKeyToPEMFile(f string, privKey nike.PrivateKey) error {
+	return privKey.(*ctidh.PrivateKey).ToPEMFile(f)
+
+}
+
 // UnmarshalBinaryPublicKey unmarshals the public key bytes.
 func (e *ctidhNIKE) UnmarshalBinaryPublicKey(b []byte) (nike.PublicKey, error) {
 	pubKey := ctidh.NewEmptyPublicKey()

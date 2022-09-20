@@ -213,9 +213,9 @@ func getGroupMessageId(grp *cyclic.Group, groupId, senderId *id.ID,
 
 	mar, _ := json.Marshal(NewPublicInternalMessage_DeleteThis(intlMsg))
 	jww.INFO.Printf("GROUP MSG ID DEBUG (getGroupMsgId): "+
-		"senders group ID: %s, "+
-		"internalMessage: %s"+
-		"internalMessage: %s",
+		"senders group ID: %s\n, "+
+		"internalMessage marshal: %s\n"+
+		"internalMessage json: %s\n",
 		groupId,
 		base64.StdEncoding.EncodeToString(intlMsgMarshal),
 		string(mar))

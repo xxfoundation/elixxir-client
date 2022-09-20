@@ -118,9 +118,9 @@ func decryptMessage(g gs.Group, fingerprint format.Fingerprint,
 	mar, _ := json.Marshal(NewPublicInternalMessage_DeleteThis(intlMsg))
 
 	jww.INFO.Printf("GROUP MSG ID DEBUG (decryptMsg): "+
-		"senders group ID: %s, "+
-		"internalMessage: %s"+
-		"internalMessage: %s",
+		"senders group ID: %s\n, "+
+		"internalMessage marshal: %s\n"+
+		"internalMessage json: %s\n",
 		g.ID,
 		base64.StdEncoding.EncodeToString(intlMsg.Marshal()),
 		string(mar))

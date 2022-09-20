@@ -719,185 +719,185 @@ func TestStore_GetAllReceived_MixSentReceived(t *testing.T) {
 
 }
 
-// // Error case: Call DeleteRequest on a request that does
-// // not exist.
-// func TestStore_DeleteRequest_NonexistantRequest(t *testing.T) {
-// 	s, _ := makeTestStore(t)
-// 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
-// 	rng := csprng.NewSystemRNG()
-// 	_, sidhPubKey := genSidhAKeys(rng)
+// Error case: Call DeleteRequest on a request that does
+// not exist.
+func TestStore_DeleteRequest_NonexistantRequest(t *testing.T) {
+	s, _ := makeTestStore(t)
+	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+	rng := csprng.NewSystemRNG()
+	_, sidhPubKey := genSidhAKeys(rng)
 
-// 	r := makeTestRound(t)
+	r := makeTestRound(t)
 
-// 	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
-// 		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
-// 	}
-// 	if _, err := s.GetReceivedRequest(c.ID); err != nil {
-// 		t.Fatalf("GetReceivedRequest() returned an error: %+v", err)
-// 	}
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
+	}
+	if _, err := s.GetReceivedRequestLegacySIDH(c.ID); err != nil {
+		t.Fatalf("GetReceivedRequest() returned an error: %+v", err)
+	}
 
-// 	err := s.DeleteRequest(c.ID)
-// 	if err != nil {
-// 		t.Errorf("DeleteRequest should return an error " +
-// 			"when trying to delete a partner request")
-// 	}
+	err := s.DeleteRequestLegacySIDH(c.ID)
+	if err != nil {
+		t.Errorf("DeleteRequest should return an error " +
+			"when trying to delete a partner request")
+	}
 
-// }
+}
 
-// // Unit test.
-// func TestStore_DeleteReceiveRequests(t *testing.T) {
-// 	s, _ := makeTestStore(t)
-// 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
-// 	rng := csprng.NewSystemRNG()
-// 	_, sidhPubKey := genSidhAKeys(rng)
+// Unit test.
+func TestStore_DeleteReceiveRequests(t *testing.T) {
+	s, _ := makeTestStore(t)
+	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+	rng := csprng.NewSystemRNG()
+	_, sidhPubKey := genSidhAKeys(rng)
 
-// 	r := makeTestRound(t)
+	r := makeTestRound(t)
 
-// 	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
-// 		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
-// 	}
-// 	if _, err := s.GetReceivedRequest(c.ID); err != nil {
-// 		t.Fatalf("GetReceivedRequest() returned an error: %+v", err)
-// 	}
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
+	}
+	if _, err := s.GetReceivedRequestLegacySIDH(c.ID); err != nil {
+		t.Fatalf("GetReceivedRequest() returned an error: %+v", err)
+	}
 
-// 	err := s.DeleteReceiveRequests()
-// 	if err != nil {
-// 		t.Fatalf("DeleteReceiveRequests returned an error: %+v", err)
-// 	}
+	err := s.DeleteReceiveRequestsLegacySIDH()
+	if err != nil {
+		t.Fatalf("DeleteReceiveRequests returned an error: %+v", err)
+	}
 
-// 	legacy := s.storeLegacySIDH
-// 	if legacy.receivedByID[*c.ID] != nil {
-// 		t.Errorf("delete() failed to delete request for user %s.", c.ID)
-// 	}
-// }
+	legacy := s.storeLegacySIDH
+	if legacy.receivedByID[*c.ID] != nil {
+		t.Errorf("delete() failed to delete request for user %s.", c.ID)
+	}
+}
 
-// // Unit test.
-// func TestStore_DeleteSentRequests(t *testing.T) {
-// 	s, _ := makeTestStore(t)
-// 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-// 	rng := csprng.NewSystemRNG()
-// 	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
-// 	var sr *SentRequestLegacySIDH
-// 	var err error
-// 	if sr, err = s.AddSentLegacySIDH(partnerID, s.grp.NewInt(5),
-// 		s.grp.NewInt(6),
-// 		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
-// 		format.Fingerprint{42}, false); err != nil {
-// 		t.Fatalf("AddSent() returned an error: %+v", err)
-// 	}
+// Unit test.
+func TestStore_DeleteSentRequests(t *testing.T) {
+	s, _ := makeTestStore(t)
+	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+	rng := csprng.NewSystemRNG()
+	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
+	var sr *SentRequestLegacySIDH
+	var err error
+	if sr, err = s.AddSentLegacySIDH(partnerID, s.grp.NewInt(5),
+		s.grp.NewInt(6),
+		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+		format.Fingerprint{42}, false); err != nil {
+		t.Fatalf("AddSent() returned an error: %+v", err)
+	}
 
-// 	err = s.DeleteSentRequests()
-// 	if err != nil {
-// 		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
-// 	}
-// 	legacy := s.storeLegacySIDH
+	err = s.DeleteSentRequestsLegacySIDH()
+	if err != nil {
+		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
+	}
+	legacy := s.storeLegacySIDH
 
-// 	if legacy.receivedByID[*sr.partner] != nil {
-// 		t.Errorf("delete() failed to delete request for user %s.",
-// 			sr.partner)
-// 	}
+	if legacy.receivedByID[*sr.partner] != nil {
+		t.Errorf("delete() failed to delete request for user %s.",
+			sr.partner)
+	}
 
-// 	if _, exists := s.sentByID[*sr.partner]; exists {
-// 		t.Errorf("delete() failed to delete fingerprint for fp %v.",
-// 			sr.fingerprint)
-// 	}
-// }
+	if _, exists := s.sentByID[*sr.partner]; exists {
+		t.Errorf("delete() failed to delete fingerprint for fp %v.",
+			sr.fingerprint)
+	}
+}
 
-// // Tests that DeleteSentRequests does not affect partner receivedByID in map
-// func TestStore_DeleteSentRequests_ReceiveInMap(t *testing.T) {
-// 	s, _ := makeTestStore(t)
-// 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
-// 	rng := csprng.NewSystemRNG()
-// 	_, sidhPubKey := genSidhAKeys(rng)
+// Tests that DeleteSentRequests does not affect partner receivedByID in map
+func TestStore_DeleteSentRequests_ReceiveInMap(t *testing.T) {
+	s, _ := makeTestStore(t)
+	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+	rng := csprng.NewSystemRNG()
+	_, sidhPubKey := genSidhAKeys(rng)
 
-// 	r := makeTestRound(t)
+	r := makeTestRound(t)
 
-// 	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
-// 		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
-// 	}
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
+	}
 
-// 	err := s.DeleteSentRequests()
-// 	if err != nil {
-// 		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
-// 	}
+	err := s.DeleteSentRequestsLegacySIDH()
+	if err != nil {
+		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
+	}
 
-// 	legacy := s.storeLegacySIDH
+	legacy := s.storeLegacySIDH
 
-// 	if legacy.receivedByID[*c.ID] == nil {
-// 		t.Fatalf("DeleteSentRequests removes partner receivedByID!")
-// 	}
+	if legacy.receivedByID[*c.ID] == nil {
+		t.Fatalf("DeleteSentRequests removes partner receivedByID!")
+	}
 
-// }
+}
 
-// // Tests that DeleteReceiveRequests does not affect sentByID in map
-// func TestStore_DeleteReceiveRequests_SentInMap(t *testing.T) {
-// 	s, _ := makeTestStore(t)
-// 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-// 	rng := csprng.NewSystemRNG()
-// 	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
-// 	var err error
-// 	if _, err = s.AddSentLegacySIDH(partnerID, s.grp.NewInt(5),
-// 		s.grp.NewInt(6),
-// 		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
-// 		format.Fingerprint{42}, false); err != nil {
-// 		t.Fatalf("AddSent() returned an error: %+v", err)
-// 	}
+// Tests that DeleteReceiveRequests does not affect sentByID in map
+func TestStore_DeleteReceiveRequests_SentInMap(t *testing.T) {
+	s, _ := makeTestStore(t)
+	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+	rng := csprng.NewSystemRNG()
+	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
+	var err error
+	if _, err = s.AddSentLegacySIDH(partnerID, s.grp.NewInt(5),
+		s.grp.NewInt(6),
+		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+		format.Fingerprint{42}, false); err != nil {
+		t.Fatalf("AddSent() returned an error: %+v", err)
+	}
 
-// 	err = s.DeleteReceiveRequests()
-// 	if err != nil {
-// 		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
-// 	}
+	err = s.DeleteReceiveRequestsLegacySIDH()
+	if err != nil {
+		t.Fatalf("DeleteSentRequests returned an error: %+v", err)
+	}
 
-// 	if s.sentByID[*partnerID] == nil {
-// 		t.Fatalf("DeleteReceiveRequests removes sent receivedByID!")
-// 	}
+	if s.storeLegacySIDH.sentByID[*partnerID] == nil {
+		t.Fatalf("DeleteReceiveRequests removes sent receivedByID!")
+	}
 
-// }
+}
 
-// // Unit test.
-// func TestStore_DeleteAllRequests(t *testing.T) {
-// 	s, _ := makeTestStore(t)
-// 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-// 	rng := csprng.NewSystemRNG()
-// 	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
-// 	var sr *SentRequestLegacySIDH
-// 	var err error
-// 	if sr, err = s.AddSentLegacySIDH(partnerID, s.grp.NewInt(5),
-// 		s.grp.NewInt(6),
-// 		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
-// 		format.Fingerprint{42}, false); err != nil {
-// 		t.Fatalf("AddSent() returned an error: %+v", err)
-// 	}
+// Unit test.
+func TestStore_DeleteAllRequests(t *testing.T) {
+	s, _ := makeTestStore(t)
+	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+	rng := csprng.NewSystemRNG()
+	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
+	var sr *SentRequestLegacySIDH
+	var err error
+	if sr, err = s.AddSentLegacySIDH(partnerID, s.grp.NewInt(5),
+		s.grp.NewInt(6),
+		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+		format.Fingerprint{42}, false); err != nil {
+		t.Fatalf("AddSent() returned an error: %+v", err)
+	}
 
-// 	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
-// 	_, sidhPubKey = genSidhAKeys(rng)
-// 	r := makeTestRound(t)
-// 	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
-// 		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
-// 	}
+	c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+	_, sidhPubKey = genSidhAKeys(rng)
+	r := makeTestRound(t)
+	if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+		t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
+	}
 
-// 	err = s.DeleteAllRequests()
-// 	if err != nil {
-// 		t.Fatalf("DeleteAllRequests returned an error: %+v", err)
-// 	}
+	err = s.DeleteAllRequestsLegacySIDH()
+	if err != nil {
+		t.Fatalf("DeleteAllRequests returned an error: %+v", err)
+	}
 
-// 	legacy := s.storeLegacySIDH
+	legacy := s.storeLegacySIDH
 
-// 	if legacy.receivedByID[*sr.partner] != nil {
-// 		t.Errorf("delete() failed to delete request for user %s.",
-// 			sr.partner)
-// 	}
+	if legacy.receivedByID[*sr.partner] != nil {
+		t.Errorf("delete() failed to delete request for user %s.",
+			sr.partner)
+	}
 
-// 	if _, exists := s.sentByID[*sr.partner]; exists {
-// 		t.Errorf("delete() failed to delete fingerprint for fp %v.",
-// 			sr.fingerprint)
-// 	}
+	if _, exists := legacy.sentByID[*sr.partner]; exists {
+		t.Errorf("delete() failed to delete fingerprint for fp %v.",
+			sr.fingerprint)
+	}
 
-// 	if legacy.receivedByID[*c.ID] != nil {
-// 		t.Errorf("delete() failed to delete request for user %s.", c.ID)
-// 	}
+	if legacy.receivedByID[*c.ID] != nil {
+		t.Errorf("delete() failed to delete request for user %s.", c.ID)
+	}
 
-// }
+}
 
 func makeTestStore(t *testing.T) (*Store, *versioned.KV) {
 	kv := versioned.NewKV(ekv.MakeMemstore())

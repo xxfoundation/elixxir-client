@@ -198,3 +198,19 @@ func (s *Store) AddSentLegacySIDH(partner *id.ID, partnerHistoricalPubKey, myPri
 
 	return sr, nil
 }
+
+// GetReceivedRequest returns the contact representing the partner request
+// if it exists. It does not take the lock. It is only meant to return the
+// contact to an external API user.
+func (s *Store) GetReceivedRequestLegacySIDH(partner *id.ID) (contact.Contact, error) {
+	s.mux.RLock()
+	r, ok := s.storeLegacySIDH.receivedByID[*partner]
+	s.mux.RUnlock()
+
+	if !ok {
+		return contact.Contact{}, errors.Errorf("Received request not "+
+			"found: %s", partner)
+	}
+
+	return r.partner, nil
+}

@@ -8,9 +8,11 @@
 package store
 
 import (
+	"bytes"
 	"io"
 	"math/rand"
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -576,68 +578,68 @@ func TestStore_Delete_SentRequest(t *testing.T) {
 	}
 }
 
-// // Error path: request does not exist.
-// func TestStore_Delete_RequestNotInMap(t *testing.T) {
-// 	s, _ := makeTestStore(t)
+// Error path: request does not exist.
+func TestStore_Delete_RequestNotInMap(t *testing.T) {
+	s, _ := makeTestStore(t)
 
-// 	err := s.DeleteRequest(id.NewIdFromUInt(rand.Uint64(), id.User, t))
-// 	if err == nil {
-// 		t.Errorf("delete() did not return an error when the request " +
-// 			"was not in the map.")
-// 	}
-// }
+	err := s.DeleteRequestLegacySIDH(id.NewIdFromUInt(rand.Uint64(), id.User, t))
+	if err == nil {
+		t.Errorf("delete() did not return an error when the request " +
+			"was not in the map.")
+	}
+}
 
-// // Unit test of Store.GetAllReceived.
-// func TestStore_GetAllReceived(t *testing.T) {
-// 	s, _ := makeTestStore(t)
-// 	numReceived := 10
+// Unit test of Store.GetAllReceived.
+func TestStore_GetAllReceived(t *testing.T) {
+	s, _ := makeTestStore(t)
+	numReceived := 10
 
-// 	expectContactList := make([]contact.Contact, 0, numReceived)
-// 	// Add multiple received contact receivedByID
-// 	for i := 0; i < numReceived; i++ {
-// 		c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
-// 		rng := csprng.NewSystemRNG()
-// 		_, sidhPubKey := genSidhAKeys(rng)
+	expectContactList := make([]contact.Contact, 0, numReceived)
+	// Add multiple received contact receivedByID
+	for i := 0; i < numReceived; i++ {
+		c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+		rng := csprng.NewSystemRNG()
+		_, sidhPubKey := genSidhAKeys(rng)
 
-// 		r := makeTestRound(t)
+		r := makeTestRound(t)
 
-// 		if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
-// 			t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
-// 		}
+		if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+			t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
+		}
 
-// 		expectContactList = append(expectContactList, c)
-// 	}
+		expectContactList = append(expectContactList, c)
+	}
 
-// 	// Check that GetAllReceived returns all contacts
-// 	receivedRequestList := s.GetAllReceivedRequests()
-// 	var receivedContactList = make([]contact.Contact, len(receivedRequestList))
-// 	for i, req := range receivedRequestList {
-// 		receivedContactList[i] = req.GetContact()
-// 	}
+	// Check that GetAllReceived returns all contacts
+	receivedRequestList := s.GetAllReceivedRequestsLegacySIDH()
+	var receivedContactList = make([]contact.Contact, len(receivedRequestList))
+	for i, req := range receivedRequestList {
+		receivedContactList[i] = req.GetContact()
+	}
 
-// 	if len(receivedContactList) != numReceived {
-// 		t.Errorf("GetAllReceived did not return expected amount of contacts."+
-// 			"\nExpected: %d"+
-// 			"\nReceived: %d", numReceived, len(receivedContactList))
-// 	}
+	if len(receivedContactList) != numReceived {
+		t.Errorf("GetAllReceived did not return expected amount of contacts."+
+			"\nExpected: %d"+
+			"\nReceived: %d", numReceived, len(receivedContactList))
+	}
 
-// 	// Sort expected and received lists so that they are in the same order
-// 	// since extraction from a map does not maintain order
-// 	sort.Slice(expectContactList, func(i, j int) bool {
-// 		return bytes.Compare(expectContactList[i].ID.Bytes(), expectContactList[j].ID.Bytes()) == -1
-// 	})
-// 	sort.Slice(receivedContactList, func(i, j int) bool {
-// 		return bytes.Compare(receivedContactList[i].ID.Bytes(), receivedContactList[j].ID.Bytes()) == -1
-// 	})
+	// Sort expected and received lists so that they are in the same order
+	// since extraction from a map does not maintain order
+	sort.Slice(expectContactList, func(i, j int) bool {
+		return bytes.Compare(expectContactList[i].ID.Bytes(), expectContactList[j].ID.Bytes()) == -1
+	})
+	sort.Slice(receivedContactList, func(i, j int) bool {
+		return bytes.Compare(receivedContactList[i].ID.Bytes(), receivedContactList[j].ID.Bytes()) == -1
+	})
 
-// 	// Check validity of contacts
-// 	if !reflect.DeepEqual(expectContactList, receivedContactList) {
-// 		t.Errorf("GetAllReceived did not return expected contact list."+
-// 			"\nExpected: %+v"+
-// 			"\nReceived: %+v", expectContactList, receivedContactList)
-// 	}
+	// Check validity of contacts
+	if !reflect.DeepEqual(expectContactList, receivedContactList) {
+		t.Errorf("GetAllReceived did not return expected contact list."+
+			"\nExpected: %+v"+
+			"\nReceived: %+v", expectContactList, receivedContactList)
+	}
 
-// }
+}
 
 // // Tests that Store.GetAllReceived returns an empty list when there are no
 // // received receivedByID.

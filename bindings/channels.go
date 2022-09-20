@@ -363,6 +363,21 @@ func (cm *ChannelsManager) ReplayChannel(marshalledChanId []byte) error {
 	return cm.api.ReplayChannel(chanId)
 }
 
+// ReplayChannelFromPrettyPrint replays all messages from the channel within the network's
+// memory (~3 weeks) over the event model.
+//
+// Parameters:
+//  - marshalledChanId - A JSON marshalled channel ID ([id.ID]).
+func (cm *ChannelsManager) ReplayChannelFromPrettyPrint(prettyPrint string) error {
+	c, _, err := getChannelInfo(prettyPrint)
+	if err != nil {
+		return err
+	}
+
+	// Replay channel
+	return cm.api.ReplayChannel(c.ReceptionID)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Channel Sending Methods & Reports                                          //
 ////////////////////////////////////////////////////////////////////////////////

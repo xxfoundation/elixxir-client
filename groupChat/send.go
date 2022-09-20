@@ -101,6 +101,9 @@ func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
 	rng := m.getRng().GetStream()
 	defer rng.Close()
 
+	// fixme: maybe make internal message here, pass it into
+	//  newCmixMsg and return, instead of making it continuously?
+
 	// Create cMix messages in parallel
 	for _, member := range g.Members {
 		// Do not send to the sender
@@ -165,6 +168,16 @@ func newCmixMsg(g gs.Group, tag string, msg []byte, timestamp time.Time,
 
 	// Generate internal message
 	payload := setInternalPayload(intlMsg, timestamp, senderId, msg)
+
+	mar, _ := json.Marshal(NewPublicInternalMessage_DeleteThis(intlMsg))
+
+	jww.INFO.Printf("GROUP MSG ID DEBUG (newCmixMsg):"+
+		"senders group ID: %s\n, "+
+		"internalMessage marshal: %s\n"+
+		"internalMessage json: %s\n",
+		g.ID,
+		base64.StdEncoding.EncodeToString(intlMsg.Marshal()),
+		string(mar))
 
 	// Encrypt internal message
 	encryptedPayload := group.Encrypt(key, cmixMsg.Fingerprint, payload)

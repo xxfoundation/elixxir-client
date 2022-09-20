@@ -113,42 +113,42 @@ func NoTestLoadStore(t *testing.T) {
 	}
 }
 
-// // Happy path: tests that the correct SentRequest is added to the map.
-// func TestStore_AddSent(t *testing.T) {
-// 	rng := csprng.NewSystemRNG()
-// 	s, _ := makeTestStore(t)
+// Happy path: tests that the correct SentRequest is added to the map.
+func TestStore_AddSent(t *testing.T) {
+	rng := csprng.NewSystemRNG()
+	s, _ := makeTestStore(t)
 
-// 	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
+	sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
 
-// 	partner := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+	partner := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 
-// 	var sr *SentRequestLegacySIDH
-// 	sr, err := s.AddSentLegacySIDH(partner, s.grp.NewInt(5), s.grp.NewInt(6),
-// 		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
-// 		format.Fingerprint{42}, false)
-// 	if err != nil {
-// 		t.Errorf("AddSent() produced an error: %+v", err)
-// 	}
+	var sr *SentRequestLegacySIDH
+	sr, err := s.AddSentLegacySIDH(partner, s.grp.NewInt(5), s.grp.NewInt(6),
+		s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+		format.Fingerprint{42}, false)
+	if err != nil {
+		t.Errorf("AddSent() produced an error: %+v", err)
+	}
 
-// 	if s.sentByID[*partner] == nil {
-// 		t.Errorf("AddSent() failed to add request to map for "+
-// 			"partner ID %s.", partner)
-// 	} else if !reflect.DeepEqual(sr, s.sentByID[*partner]) {
-// 		t.Errorf("AddSent() failed store the correct SentRequest."+
-// 			"\n\texpected: %+v\n\treceived: %+v",
-// 			sr, s.sentByID[*partner])
-// 	}
+	if s.storeLegacySIDH.sentByID[*partner] == nil {
+		t.Fatalf("AddSent() failed to add request to map for "+
+			"partner ID %s.", partner)
+	} else if !reflect.DeepEqual(sr, s.storeLegacySIDH.sentByID[*partner]) {
+		t.Fatalf("AddSent() failed store the correct SentRequest."+
+			"\n\texpected: %+v\n\treceived: %+v",
+			sr, s.storeLegacySIDH.sentByID[*partner])
+	}
 
-// 	if _, exists := s.sentByID[*sr.partner]; !exists {
-// 		t.Errorf("AddSent() failed to add fingerprint to map for "+
-// 			"fingerprint %s.", sr.fingerprint)
-// 	} else if !reflect.DeepEqual(sr,
-// 		s.sentByID[*sr.partner]) {
-// 		t.Errorf("AddSent() failed store the correct fingerprint."+
-// 			"\n\texpected: %+v\n\treceived: %+v",
-// 			sr, s.sentByID[*sr.partner])
-// 	}
-// }
+	if _, exists := s.storeLegacySIDH.sentByID[*sr.partner]; !exists {
+		t.Fatalf("AddSent() failed to add fingerprint to map for "+
+			"fingerprint %s.", sr.fingerprint)
+	} else if !reflect.DeepEqual(sr,
+		s.storeLegacySIDH.sentByID[*sr.partner]) {
+		t.Fatalf("AddSent() failed store the correct fingerprint."+
+			"\n\texpected: %+v\n\treceived: %+v",
+			sr, s.storeLegacySIDH.sentByID[*sr.partner])
+	}
+}
 
 // // Error path: request with request already exists in map.
 // func TestStore_AddSent_PartnerAlreadyExistsError(t *testing.T) {

@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/client/cmix/rounds"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/rsa"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"google.golang.org/protobuf/proto"
@@ -91,6 +92,26 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 
 		return usrMsgSerial, nil
 	}
+
+	dummyR := rounds.Round{
+		ID:               0,
+		State:            0,
+		Topology:         nil,
+		Timestamps:       make(map[states.Round]time.Time),
+		Errors:           nil,
+		BatchSize:        0,
+		AddressSpaceSize: 0,
+		UpdateID:         0,
+		Raw:              nil,
+	}
+
+	dummyR.Timestamps[states.QUEUED] = time.Now()
+
+	m.st.denoteSend(channelID, &userMessageInternal{
+		userMessage:    usrMsg,
+		channelMessage: chMsg,
+		messageID:      msgId,
+	}, dummyR)
 
 	r, ephid, err := ch.broadcast.BroadcastWithAssembler(assemble, params)
 	if err != nil {

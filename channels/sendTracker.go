@@ -136,11 +136,16 @@ func (st *sendTracker) load() error {
 }
 
 // send tracks a generic send message
+func (st *sendTracker) denoteSend(channelID *id.ID,
+	umi *userMessageInternal, round rounds.Round) {
+	go st.trigger(channelID, umi,
+		receptionID.EphemeralIdentity{}, round, Sent)
+}
+
+// send tracks a generic send message
 func (st *sendTracker) send(channelID *id.ID,
 	umi *userMessageInternal, round rounds.Round) {
 	st.handleSend(channelID, umi.GetMessageID(), round)
-	go st.trigger(channelID, umi,
-		receptionID.EphemeralIdentity{}, round, Sent)
 }
 
 // sendAdmin tracks a generic sendAdmin message

@@ -56,6 +56,7 @@ test:
     paths:
       - vendor/
       - testdata/
+      - high-ctidh/
 
 build:
   stage: build
@@ -64,6 +65,12 @@ build:
     - tags
   script:
     - go mod vendor -v
+    - cd high-ctidh
+    - export P=`pwd`
+    - export CTIDH_BITS=1024
+    - export CGO_CFLAGS="-g -I${P} -DBITS=${CTIDH_BITS}"
+    - export CGO_LDFLAGS="-L${P} -Wl,-rpath,${P} -lhighctidh_${CTIDH_BITS}"
+    - cd ..
     - make version
     - mkdir -p release
 #    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' ./...

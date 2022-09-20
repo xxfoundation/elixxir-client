@@ -17,22 +17,17 @@ import (
 
 	"github.com/cloudflare/circl/dh/sidh"
 
-	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 
-	"gitlab.com/elixxir/client/cmix/rounds"
 	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/states"
 
 	util "gitlab.com/elixxir/client/storage/utility"
 )

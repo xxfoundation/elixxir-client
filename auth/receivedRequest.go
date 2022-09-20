@@ -17,40 +17,21 @@ import (
 
 	"gitlab.com/xx_network/primitives/id"
 
+	"gitlab.com/elixxir/client/auth/fingerprint"
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/crypto/contact"
-	"gitlab.com/elixxir/crypto/cyclic"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
-	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
 )
 
 const (
 	dummyErr = "dummy error so we dont delete the request"
-
-	NegotiationFingerprintLen = 32
 )
-
-// CreateNegotiationFingerprint creates a fingerprint for a re-authentication
-// negotiation from the partner's DH public key and SIDH public key.
-func CreateNegotiationFingerprint(partnerDhPubKey *cyclic.Int,
-	partnerCtidhPubKey nike.PublicKey) []byte {
-	h, err := hash.NewCMixHash()
-	if err != nil {
-		jww.FATAL.Panicf(
-			"Could not get hash to make request fingerprint: %+v", err)
-	}
-
-	h.Write(partnerDhPubKey.Bytes())
-	h.Write(partnerCtidhPubKey.Bytes())
-
-	return h.Sum(nil)[:NegotiationFingerprintLen]
-}
 
 type receivedRequestService struct {
 	s     *state
@@ -121,7 +102,7 @@ func (rrs *receivedRequestService) Process(message format.Message,
 		Facts:          facts,
 	}
 
-	fp := CreateNegotiationFingerprint(partnerPubKey,
+	fp := fingerprint.CreateNegotiationFingerprint(partnerPubKey,
 		partnerPQPubKey)
 	em := fmt.Sprintf("Received AuthRequest from %s,"+
 		" msgDigest: %s, FP: %s", partnerID,

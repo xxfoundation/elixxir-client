@@ -8,6 +8,8 @@
 package groupChat
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
@@ -176,6 +178,27 @@ func newCmixMsg(g gs.Group, tag string, msg []byte, timestamp time.Time,
 	return cmixMsg, nil
 }
 
+// PublicInternalMessage_DeleteThis so internalMsg could be json marshalled for legibility
+// in a debug ticket.
+type PublicInternalMessage_DeleteThis struct {
+	Data      []byte // Serial of all the parts of the message
+	Timestamp []byte // 64-bit Unix time timestamp stored in nanoseconds
+	SenderID  []byte // 264-bit sender ID
+	Size      []byte // Size of the payload
+	Payload   []byte // Message contents
+
+}
+
+func NewPublicInternalMessage_DeleteThis(msg internalMsg) *PublicInternalMessage_DeleteThis {
+	return &PublicInternalMessage_DeleteThis{
+		Data:      msg.data,
+		Timestamp: msg.timestamp,
+		SenderID:  msg.senderID,
+		Size:      msg.size,
+		Payload:   msg.payload,
+	}
+}
+
 // getGroupMessageId builds the group message ID.
 func getGroupMessageId(grp *cyclic.Group, groupId, senderId *id.ID,
 	timestamp time.Time, msg []byte) (group.MessageID, error) {
@@ -185,8 +208,19 @@ func getGroupMessageId(grp *cyclic.Group, groupId, senderId *id.ID,
 		return group.MessageID{}, errors.WithMessage(err,
 			"Failed to make message parts for message ID")
 	}
-	return group.NewMessageID(groupId,
-		setInternalPayload(intlMsg, timestamp, senderId, msg)), nil
+
+	intlMsgMarshal := setInternalPayload(intlMsg, timestamp, senderId, msg)
+
+	mar, _ := json.Marshal(NewPublicInternalMessage_DeleteThis(intlMsg))
+	jww.INFO.Printf("GROUP MSG ID DEBUG (getGroupMsgId): "+
+		"senders group ID: %s, "+
+		"internalMessage: %s"+
+		"internalMessage: %s",
+		groupId,
+		base64.StdEncoding.EncodeToString(intlMsgMarshal),
+		string(mar))
+
+	return group.NewMessageID(groupId, intlMsgMarshal), nil
 }
 
 // newMessageParts generates a public payload message and the internal payload

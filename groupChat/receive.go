@@ -8,6 +8,8 @@
 package groupChat
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"gitlab.com/xx_network/primitives/netTime"
 	"time"
@@ -112,6 +114,16 @@ func decryptMessage(g gs.Group, fingerprint format.Fingerprint,
 	if err != nil {
 		return MessageReceive{}, errors.Errorf(unmarshalSenderIdErr, err)
 	}
+
+	mar, _ := json.Marshal(NewPublicInternalMessage_DeleteThis(intlMsg))
+
+	jww.INFO.Printf("GROUP MSG ID DEBUG (decryptMsg): "+
+		"senders group ID: %s, "+
+		"internalMessage: %s"+
+		"internalMessage: %s",
+		g.ID,
+		base64.StdEncoding.EncodeToString(intlMsg.Marshal()),
+		string(mar))
 
 	return MessageReceive{
 		ID:        group.NewMessageID(g.ID, intlMsg.Marshal()),

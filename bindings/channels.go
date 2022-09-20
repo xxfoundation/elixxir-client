@@ -777,9 +777,9 @@ type EventModel interface {
 	//     Sent      |  0
 	//     Delivered |  1
 	//     Failed    |  2
-	ReceiveMessage(channelID []byte, messageID []byte,
-		senderUsername string, text string, timestamp int64,
-		lease int64, roundId int64, status int64)
+	ReceiveMessage(channelID, messageID []byte,
+		senderUsername, text string,
+		timestamp, lease, roundId, status int64)
 
 	// ReceiveReply is called whenever a message is received which is a reply
 	// on a given channel. It may be called multiple times on the same message,
@@ -801,10 +801,9 @@ type EventModel interface {
 	//     Sent      |  0
 	//     Delivered |  1
 	//     Failed    |  2
-	ReceiveReply(channelID []byte, messageID []byte,
-		reactionTo []byte, senderUsername string,
-		text string, timestamp int64, lease int64,
-		roundId int64, status int64)
+	ReceiveReply(channelID, messageID, reactionTo []byte,
+		senderUsername, text string,
+		timestamp, lease, roundId, status int64)
 
 	// ReceiveReaction is called whenever a reaction to a message is received
 	// on a given channel. It may be called multiple times on the same reaction,
@@ -826,10 +825,9 @@ type EventModel interface {
 	//     Sent      |  0
 	//     Delivered |  1
 	//     Failed    |  2
-	ReceiveReaction(channelID []byte, messageID []byte,
-		reactionTo []byte, senderUsername string,
-		reaction string, timestamp int64, lease int64,
-		roundId int64, status int64)
+	ReceiveReaction(channelID, messageID, reactionTo []byte,
+		senderUsername, reaction string,
+		timestamp, lease, roundId, status int64)
 
 	// UpdateSentStatus is called whenever the sent status of a message
 	// has changed.

@@ -48,14 +48,14 @@ func TestNewOrLoadStore(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 
-	_, err := NewOrLoadStore(kv, grp, &mockSentRequestHandler{})
+	_, err := NewOrLoadStoreLegacySIDH(kv, grp, &mockSentRequestHandler{})
 	if err != nil {
 		t.Errorf("NewStore() returned an error: %+v", err)
 	}
 }
 
 // Happy path.
-func NoTestLoadStore(t *testing.T) {
+func TestLoadStore(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 
 	// Create a random storage object + keys
@@ -85,13 +85,13 @@ func NoTestLoadStore(t *testing.T) {
 		sr.partner, auth.CreateNegotiationFingerprint(sr.myPrivKey,
 			sidhPubKey))
 
-	err = s.save()
+	err = s.saveLegacySIDH()
 	if err != nil {
 		t.Errorf("Failed to save: %+v", err)
 	}
 
 	// Attempt to load the store
-	store, err := NewOrLoadStore(kv, s.grp, &mockSentRequestHandler{})
+	store, err := NewOrLoadStoreLegacySIDH(kv, s.grp, &mockSentRequestHandler{})
 	if err != nil {
 		t.Errorf("LoadStore() returned an error: %+v", err)
 	}
@@ -903,7 +903,7 @@ func makeTestStore(t *testing.T) (*Store, *versioned.KV) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
 
-	store, err := NewOrLoadStore(kv, grp, &mockSentRequestHandler{})
+	store, err := NewOrLoadStoreLegacySIDH(kv, grp, &mockSentRequestHandler{})
 	if err != nil {
 		t.Fatalf("Failed to create new Store: %+v", err)
 	}

@@ -641,83 +641,83 @@ func TestStore_GetAllReceived(t *testing.T) {
 
 }
 
-// // Tests that Store.GetAllReceived returns an empty list when there are no
-// // received receivedByID.
-// func TestStore_GetAllReceived_EmptyList(t *testing.T) {
-// 	s, _ := makeTestStore(t)
+// Tests that Store.GetAllReceived returns an empty list when there are no
+// received receivedByID.
+func TestStore_GetAllReceived_EmptyList(t *testing.T) {
+	s, _ := makeTestStore(t)
 
-// 	// Check that GetAllReceived returns all contacts
-// 	receivedContactList := s.GetAllReceivedRequests()
-// 	if len(receivedContactList) != 0 {
-// 		t.Errorf("GetAllReceived did not return expected amount of contacts."+
-// 			"\nExpected: %d"+
-// 			"\nReceived: %d", 0, len(receivedContactList))
-// 	}
+	// Check that GetAllReceived returns all contacts
+	receivedContactList := s.GetAllReceivedRequests()
+	if len(receivedContactList) != 0 {
+		t.Errorf("GetAllReceived did not return expected amount of contacts."+
+			"\nExpected: %d"+
+			"\nReceived: %d", 0, len(receivedContactList))
+	}
 
-// 	// Add Sent and Receive receivedByID
-// 	for i := 0; i < 10; i++ {
-// 		partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-// 		rng := csprng.NewSystemRNG()
-// 		sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
-// 		if _, err := s.AddSentLegacySIDH(partnerID, s.grp.NewInt(5),
-// 			s.grp.NewInt(6),
-// 			s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
-// 			format.Fingerprint{42}, false); err != nil {
-// 			t.Fatalf("AddSent() returned an error: %+v", err)
-// 		}
-// 	}
+	// Add Sent and Receive receivedByID
+	for i := 0; i < 10; i++ {
+		partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+		rng := csprng.NewSystemRNG()
+		sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
+		if _, err := s.AddSentLegacySIDH(partnerID, s.grp.NewInt(5),
+			s.grp.NewInt(6),
+			s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+			format.Fingerprint{42}, false); err != nil {
+			t.Fatalf("AddSent() returned an error: %+v", err)
+		}
+	}
 
-// 	// Check that GetAllReceived returns all contacts
-// 	receivedContactList = s.GetAllReceivedRequests()
-// 	if len(receivedContactList) != 0 {
-// 		t.Errorf("GetAllReceived did not return expected amount "+
-// 			"of contacts. It may be pulling from Sent Requests."+
-// 			"\nExpected: %d"+
-// 			"\nReceived: %d", 0, len(receivedContactList))
-// 	}
+	// Check that GetAllReceived returns all contacts
+	receivedContactList = s.GetAllReceivedRequests()
+	if len(receivedContactList) != 0 {
+		t.Errorf("GetAllReceived did not return expected amount "+
+			"of contacts. It may be pulling from Sent Requests."+
+			"\nExpected: %d"+
+			"\nReceived: %d", 0, len(receivedContactList))
+	}
 
-// }
+}
 
-// // Tests that Store.GetAllReceived returns only Sent receivedByID when there
-// // are both Sent and Receive receivedByID in Store.
-// func TestStore_GetAllReceived_MixSentReceived(t *testing.T) {
-// 	s, _ := makeTestStore(t)
-// 	numReceived := 10
+// Tests that Store.GetAllReceived returns only Sent receivedByID when there
+// are both Sent and Receive receivedByID in Store.
+func TestStore_GetAllReceived_MixSentReceived(t *testing.T) {
+	s, _ := makeTestStore(t)
+	numReceived := 10
 
-// 	// Add multiple received contact receivedByID
-// 	for i := 0; i < numReceived; i++ {
-// 		// Add received request
-// 		c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
-// 		rng := csprng.NewSystemRNG()
-// 		_, sidhPubKey := genSidhAKeys(rng)
+	// Add multiple received contact receivedByID
+	for i := 0; i < numReceived; i++ {
+		// Add received request
+		c := contact.Contact{ID: id.NewIdFromUInt(rand.Uint64(), id.User, t)}
+		rng := csprng.NewSystemRNG()
+		_, sidhPubKey := genSidhAKeys(rng)
 
-// 		r := makeTestRound(t)
+		r := makeTestRound(t)
 
-// 		if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
-// 			t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
-// 		}
+		if err := s.AddReceivedLegacySIDH(c, sidhPubKey, r); err != nil {
+			t.Fatalf("AddReceivedLegacySIDH() returned an error: %+v", err)
+		}
 
-// 		// Add sent request
-// 		partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-// 		sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
-// 		if _, err := s.AddSentLegacySIDH(partnerID, s.grp.NewInt(5),
-// 			s.grp.NewInt(6),
-// 			s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
-// 			format.Fingerprint{42}, false); err != nil {
-// 			t.Fatalf("AddSent() returned an error: %+v", err)
-// 		}
-// 	}
+		// Add sent request
+		partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+		sidhPrivKey, sidhPubKey := genSidhAKeys(rng)
+		if _, err := s.AddSentLegacySIDH(partnerID, s.grp.NewInt(5),
+			s.grp.NewInt(6),
+			s.grp.NewInt(7), sidhPrivKey, sidhPubKey,
+			format.Fingerprint{42}, false); err != nil {
+			t.Fatalf("AddSent() returned an error: %+v", err)
+		}
+	}
 
-// 	// Check that GetAllReceived returns all contacts
-// 	receivedContactList := s.GetAllReceivedRequests()
-// 	if len(receivedContactList) != numReceived {
-// 		t.Errorf("GetAllReceived did not return expected amount of contacts. "+
-// 			"It may be pulling from Sent Requests."+
-// 			"\nExpected: %d"+
-// 			"\nReceived: %d", numReceived, len(receivedContactList))
-// 	}
+	// Check that GetAllReceived returns all contacts
+	receivedContactList := s.GetAllReceivedRequestsLegacySIDH()
+	if len(receivedContactList) != numReceived {
+		t.Errorf("GetAllReceived did not return expected amount of contacts. "+
+			"It may be pulling from Sent Requests."+
+			"\nExpected: %d"+
+			"\nReceived: %d", numReceived, len(receivedContactList))
+	}
 
-// }
+}
 
 // // Error case: Call DeleteRequest on a request that does
 // // not exist.

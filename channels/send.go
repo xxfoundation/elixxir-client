@@ -41,21 +41,25 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	}
 
 	var msgId cryptoChannel.MessageID
-	var usrMsg *UserMessage
-	var chMsg *ChannelMessage
 	//Note: we are not checking check if message is too long before trying to
 	//find a round
+
+	chMsg := &ChannelMessage{
+		Lease:       validUntil.Nanoseconds(),
+		PayloadType: uint32(messageType),
+		Payload:     msg,
+	}
+
+	usrMsg := &UserMessage{
+		Username:     m.name.GetUsername(),
+		ECCPublicKey: m.name.GetChannelPubkey(),
+	}
 
 	//Build the function pointer that will build the message
 	assemble := func(rid id.Round) ([]byte, error) {
 
 		//Build the message
-		chMsg = &ChannelMessage{
-			Lease:       validUntil.Nanoseconds(),
-			RoundID:     uint64(rid),
-			PayloadType: uint32(messageType),
-			Payload:     msg,
-		}
+		chMsg.RoundID = uint64(rid)
 
 		//Serialize the message
 		chMsgSerial, err := proto.Marshal(chMsg)
@@ -75,14 +79,10 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		//Build the user message
 		validationSig, unameLease := m.name.GetChannelValidationSignature()
 
-		usrMsg = &UserMessage{
-			Message:             chMsgSerial,
-			ValidationSignature: validationSig,
-			Signature:           messageSig,
-			Username:            m.name.GetUsername(),
-			ECCPublicKey:        m.name.GetChannelPubkey(),
-			UsernameLease:       unameLease.UnixNano(),
-		}
+		usrMsg.Message = chMsgSerial
+		usrMsg.Signature = messageSig
+		usrMsg.UsernameLease = unameLease.UnixNano()
+		usrMsg.ValidationSignature = validationSig
 
 		//Serialize the user message
 		usrMsgSerial, err := proto.Marshal(usrMsg)

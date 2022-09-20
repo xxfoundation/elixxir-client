@@ -322,7 +322,7 @@ func (cm *ChannelsManager) JoinChannel(channelPretty string) ([]byte, error) {
 //
 // JSON Example:
 //  {
-//    U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",
+//    "U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID",
 //    "15tNdkKbYXoMn58NO6VbDMDWFEyIhTWEGsvgcJsHWAgD"
 //  }
 func (cm *ChannelsManager) GetChannels() ([]byte, error) {
@@ -530,8 +530,8 @@ func (cm *ChannelsManager) SendMessage(marshalledChanId []byte,
 // the largest payload that can be sent, but it will always be possible to send
 // a payload of 766 bytes at minimum.
 //
-// If the message ID the reply is sent to does not exist, then the other side
-// will post the message as a normal message and not a reply.
+// If the message ID that the reply is sent to does not exist, then the other
+// side will post the message as a normal message and not a reply.
 // The message will auto delete validUntil after the round it is sent in,
 // lasting forever if ValidForever is used.
 //
@@ -839,14 +839,14 @@ type EventModel interface {
 	//     Failed 		- 2
 	UpdateSentStatus(messageID []byte, status int64)
 
-	//unimplemented
-	//IgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
-	//UnIgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
-	//PinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID, end time.Time)
-	//UnPinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
+	// unimplemented
+	// IgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
+	// UnIgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
+	// PinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID, end time.Time)
+	// UnPinMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
 }
 
-// toEventModel is a wrapper which wraps an existing EventModel object.
+// toEventModel is a wrapper which wraps an existing channels.EventModel object.
 type toEventModel struct {
 	em EventModel
 }

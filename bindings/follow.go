@@ -145,8 +145,8 @@ func (c *Cmix) IsHealthy() bool {
 //
 // JSON Example:
 //  {
-//   "FileTransfer{BatchBuilderThread, FilePartSendingThread#0, FilePartSendingThread#1, FilePartSendingThread#2, FilePartSendingThread#3}",
-//   "MessageReception Worker 0"
+//    "FileTransfer{BatchBuilderThread, FilePartSendingThread#0, FilePartSendingThread#1, FilePartSendingThread#2, FilePartSendingThread#3}",
+//    "MessageReception Worker 0"
 //  }
 func (c *Cmix) GetRunningProcesses() ([]byte, error) {
 	return json.Marshal(c.api.GetRunningProcesses())

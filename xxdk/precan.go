@@ -10,7 +10,8 @@ package xxdk
 import (
 	"encoding/binary"
 
-	ctidh "git.xx.network/elixxir/ctidh_cgo"
+	"gitlab.com/elixxir/client/e2e/pq"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/storage"
@@ -74,9 +75,11 @@ func (m *E2e) MakePrecannedAuthenticatedChannel(precannedID uint) (
 	contact.Contact, error) {
 
 	rng := m.GetRng().GetStream()
-	precanUserInfo := createPrecannedUser(precannedID, rng, m.GetStorage().GetE2EGroup())
+	precanUserInfo := createPrecannedUser(precannedID, rng,
+		m.GetStorage().GetE2EGroup())
 	rng.Close()
-	precanRecipient, err := buildReceptionIdentity(precanUserInfo.ReceptionID,
+	precanRecipient, err := buildReceptionIdentity(
+		precanUserInfo.ReceptionID,
 		precanUserInfo.ReceptionSalt, precanUserInfo.ReceptionRSA,
 		m.GetStorage().GetE2EGroup(), precanUserInfo.E2eDhPrivateKey)
 	if err != nil {
@@ -86,13 +89,11 @@ func (m *E2e) MakePrecannedAuthenticatedChannel(precannedID uint) (
 
 	myID := binary.BigEndian.Uint64(m.GetReceptionIdentity().ID[:])
 
-	priv1 := ctidh.NewEmptyPrivateKey()
-	err = priv1.FromPEMFile(privPQ1PEM)
+	priv1, err := pq.NIKE.PrivateKeyFromPEM([]byte(privPQ1PEM))
 	if err != nil {
 		return contact.Contact{}, err
 	}
-	priv2 := ctidh.NewEmptyPrivateKey()
-	err = priv2.FromPEMFile(privPQ2PEM)
+	priv2, err := pq.NIKE.PrivateKeyFromPEM([]byte(privPQ2PEM))
 	if err != nil {
 		return contact.Contact{}, err
 	}
@@ -104,7 +105,7 @@ func (m *E2e) MakePrecannedAuthenticatedChannel(precannedID uint) (
 		theirPriv = priv1
 	}
 
-	theirPub := ctidh.DerivePublicKey(theirPriv)
+	theirPub := pq.NIKE.DerivePublicKey(theirPriv)
 
 	// Add the precanned user as a e2e contact
 	// FIXME: these params need to be threaded through...

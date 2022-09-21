@@ -165,8 +165,8 @@ func (m *managerLegacySIDH) deleteRelationships() error {
 	if err := deleteRelationshipFingerprint(sendKv); err != nil {
 		return err
 	}
-	if err := sendKv.Delete(relationshipKey,
-		currentRelationshipVersion); err != nil {
+	if err := sendKv.Delete(relationshipLegacySIDHKey,
+		currentRelationshipLegacySIDHVersion); err != nil {
 		return errors.Errorf("cannot delete send relationship: %v",
 			err)
 	}
@@ -177,8 +177,8 @@ func (m *managerLegacySIDH) deleteRelationships() error {
 	if err := deleteRelationshipFingerprint(receiveKv); err != nil {
 		return err
 	}
-	if err := receiveKv.Delete(relationshipKey,
-		currentRelationshipVersion); err != nil {
+	if err := receiveKv.Delete(relationshipLegacySIDHKey,
+		currentRelationshipLegacySIDHVersion); err != nil {
 		return errors.Errorf("cannot delete receive relationship: %v",
 			err)
 	}

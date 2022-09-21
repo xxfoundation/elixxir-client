@@ -68,8 +68,9 @@ func New(kv *versioned.KV, myID *id.ID, privKey *cyclic.Int,
 	kv = kv.Prefix(packagePrefix)
 
 	r := &Ratchet{
-		managers: make(map[id.ID]partner.Manager),
-		services: make(map[string]message.Processor),
+		managersLegacySIDH: make(map[id.ID]partner.ManagerLegacySIDH),
+		managers:           make(map[id.ID]partner.Manager),
+		services:           make(map[string]message.Processor),
 
 		myID:                   myID,
 		advertisedDHPrivateKey: privKey,

@@ -14,76 +14,19 @@ import (
 	"sort"
 	"testing"
 
-	"gitlab.com/xx_network/crypto/large"
+	"github.com/cloudflare/circl/dh/sidh"
+
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 
-	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/elixxir/ekv"
-
-	"gitlab.com/elixxir/client/e2e/pq"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 )
 
-// Tests happy path of NewStore.
-func TestNewStore(t *testing.T) {
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
-	privKey := grp.NewInt(57)
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	expectedStore := &Ratchet{
-		managers:               make(map[id.ID]partner.Manager),
-		advertisedDHPrivateKey: privKey,
-		advertisedDHPublicKey:  diffieHellman.GeneratePublicKey(privKey, grp),
-		grp:                    grp,
-		kv:                     kv.Prefix(packagePrefix),
-	}
-	expectedData, err := expectedStore.marshal()
-	if err != nil {
-		t.Fatalf("marshal() produced an error: %v", err)
-	}
-
-	err = New(kv, &id.ID{}, privKey, grp)
-	if err != nil {
-		t.Errorf("NewStore() produced an error: %v", err)
-	}
-
-	key, err := expectedStore.kv.Get(storeKey, 0)
-	if err != nil {
-		t.Errorf("get() error when getting Ratchet from KV: %v", err)
-	}
-
-	if !bytes.Equal(expectedData, key.Data) {
-		t.Errorf("NewStore() returned incorrect Ratchet."+
-			"\n\texpected: %+v\n\treceived: %+v", expectedData,
-			key.Data)
-	}
-}
-
-// Tests happy path of LoadStore.
-func TestLoadStore(t *testing.T) {
-	expectedRatchet, kv, err := makeTestRatchet()
-	if err != nil {
-		t.Fatalf("Setup error: %v", err)
-	}
-
-	store, err := Load(kv, &id.ID{},
-		expectedRatchet.grp, expectedRatchet.cyHandler, expectedRatchet.cyHandlerLegacySIDH, expectedRatchet.sInterface,
-		expectedRatchet.rng)
-	if err != nil {
-		t.Errorf("LoadStore() produced an error: %v", err)
-	}
-
-	if !reflect.DeepEqual(expectedRatchet, store) {
-		t.Errorf("LoadStore() returned incorrect Ratchet."+
-			"\n\texpected: %#v\n\treceived: %#v", expectedRatchet,
-			store)
-	}
-}
-
 // Tests happy path of Ratchet.AddPartner.
-func TestStore_AddPartner(t *testing.T) {
+func TestStore_AddPartnerLegacySIDH(t *testing.T) {
+	rng := csprng.NewSystemRNG()
 	r, kv, err := makeTestRatchet()
 	if err != nil {
 		t.Fatalf("Setup error: %v", err)
@@ -92,43 +35,43 @@ func TestStore_AddPartner(t *testing.T) {
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	p := session.GetDefaultParams()
 	partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
-	// NOTE: e2e store doesn't contain a private PQ key, that's
+	// NOTE: e2e store doesn't contain a private SIDH key, that's
 	// because they're completely address as part of the
 	// initiation of the connection.
+	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
+	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
+	expectedManager := partner.NewManagerLegacySIDH(kv, r.myID, partnerID,
+		r.advertisedDHPrivateKey, partnerPubKey, myPrivSIDHKey, pubSIDHKey,
+		p, p, r.cyHandlerLegacySIDH, r.grp, r.rng)
 
-	_, pubPQKey := pq.NIKE.NewKeypair()
-	myPrivPQKey, _ := pq.NIKE.NewKeypair()
-	expectedManager := partner.NewManager(kv, r.myID, partnerID,
-		r.advertisedDHPrivateKey, partnerPubKey, myPrivPQKey, pubPQKey,
-		p, p, r.cyHandler, r.grp, r.rng)
-
-	receivedManager, err := r.AddPartner(
+	receivedManager, err := r.AddPartnerLegacySIDH(
 		partnerID,
 		partnerPubKey, r.advertisedDHPrivateKey,
-		pubPQKey, myPrivPQKey, p, p)
+		pubSIDHKey, myPrivSIDHKey, p, p)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
 	}
 
-	if !managersEqual(expectedManager, receivedManager, t) {
+	if !managersEqualLegacySIDH(expectedManager, receivedManager, t) {
 		t.Errorf("Inconsistent data between partner.Managers")
 	}
 
 	relationshipId := *partnerID
 
-	m, exists := r.managers[relationshipId]
+	m, exists := r.managersLegacySIDH[relationshipId]
 	if !exists {
 		t.Errorf("Manager does not exist in map.\n\tmap: %+v",
 			r.managers)
 	}
 
-	if !managersEqual(expectedManager, m, t) {
+	if !managersEqualLegacySIDH(expectedManager, m, t) {
 		t.Errorf("Inconsistent data between partner.Managers")
 	}
 }
 
 // Unit test for DeletePartner
-func TestStore_DeletePartner(t *testing.T) {
+func TestStore_DeletePartnerLegacySIDH(t *testing.T) {
+	rng := csprng.NewSystemRNG()
 	r, _, err := makeTestRatchet()
 	if err != nil {
 		t.Fatalf("Setup error: %v", err)
@@ -137,24 +80,24 @@ func TestStore_DeletePartner(t *testing.T) {
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
 	p := session.GetDefaultParams()
-	// NOTE: e2e store doesn't contain a private PQ key, that's
+	// NOTE: e2e store doesn't contain a private SIDH key, that's
 	// because they're completely address as part of the
 	// initiation of the connection.
-	_, pubPQKey := pq.NIKE.NewKeypair()
-	myPrivPQKey, _ := pq.NIKE.NewKeypair()
+	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
+	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
 
-	_, err = r.AddPartner(partnerID, r.advertisedDHPrivateKey,
-		partnerPubKey, pubPQKey, myPrivPQKey, p, p)
+	_, err = r.AddPartnerLegacySIDH(partnerID, r.advertisedDHPrivateKey,
+		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
 	}
 
-	err = r.DeletePartner(partnerID)
+	err = r.DeletePartnerLegacySIDH(partnerID)
 	if err != nil {
 		t.Fatalf("DeletePartner received an error: %v", err)
 	}
 
-	_, err = r.GetPartner(partnerID)
+	_, err = r.GetPartnerLegacySIDH(partnerID)
 	if err == nil {
 		t.Errorf("Shouldn't be able to pull deleted partner from store")
 	}
@@ -162,7 +105,8 @@ func TestStore_DeletePartner(t *testing.T) {
 }
 
 // Tests happy path of Ratchet.GetPartner.
-func TestStore_GetPartner(t *testing.T) {
+func TestStore_GetPartnerLegacySIDH(t *testing.T) {
+	rng := csprng.NewSystemRNG()
 	r, _, err := makeTestRatchet()
 	if err != nil {
 		t.Fatalf("Setup error: %v", err)
@@ -170,15 +114,15 @@ func TestStore_GetPartner(t *testing.T) {
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
 	p := session.GetDefaultParams()
-	_, pubPQKey := pq.NIKE.NewKeypair()
-	myPrivPQKey, _ := pq.NIKE.NewKeypair()
-	expectedManager, err := r.AddPartner(partnerID, r.advertisedDHPrivateKey,
-		partnerPubKey, pubPQKey, myPrivPQKey, p, p)
+	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
+	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
+	expectedManager, err := r.AddPartnerLegacySIDH(partnerID, r.advertisedDHPrivateKey,
+		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p)
 	if err != nil {
 		t.Fatalf("AddPartner returned an error: %v", err)
 	}
 
-	m, err := r.GetPartner(partnerID)
+	m, err := r.GetPartnerLegacySIDH(partnerID)
 	if err != nil {
 		t.Errorf("GetPartner() produced an error: %v", err)
 	}
@@ -190,10 +134,11 @@ func TestStore_GetPartner(t *testing.T) {
 }
 
 // Ratchet.GetAllPartnerIDs unit test.
-func TestRatchet_GetAllPartnerIDs(t *testing.T) {
+func TestRatchet_GetAllPartnerIDsLegacySIDH(t *testing.T) {
 	// Setup
 	numTests := 100
 	expectedPartners := make([]*id.ID, 0, numTests)
+	rng := csprng.NewSystemRNG()
 	r, _, err := makeTestRatchet()
 	if err != nil {
 		t.Fatalf("Setup error: %v", err)
@@ -204,10 +149,10 @@ func TestRatchet_GetAllPartnerIDs(t *testing.T) {
 		partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 		partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
 		p := session.GetDefaultParams()
-		_, pubPQKey := pq.NIKE.NewKeypair()
-		myPrivPQKey, _ := pq.NIKE.NewKeypair()
-		_, err := r.AddPartner(partnerID, r.advertisedDHPrivateKey,
-			partnerPubKey, pubPQKey, myPrivPQKey, p, p)
+		_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
+		myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
+		_, err := r.AddPartnerLegacySIDH(partnerID, r.advertisedDHPrivateKey,
+			partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p)
 		if err != nil {
 			t.Fatalf("AddPartner returned an error: %v", err)
 		}
@@ -215,7 +160,7 @@ func TestRatchet_GetAllPartnerIDs(t *testing.T) {
 		expectedPartners = append(expectedPartners, partnerID)
 	}
 
-	receivedPartners := r.GetAllPartnerIDs()
+	receivedPartners := r.GetAllPartnerIDsLegacySIDH()
 
 	// Sort these slices as GetAllPartnerIDs iterates over a map, which indices
 	// at random in Go
@@ -236,14 +181,14 @@ func TestRatchet_GetAllPartnerIDs(t *testing.T) {
 }
 
 // Tests that Ratchet.GetPartner returns an error for non existent partnerID.
-func TestStore_GetPartner_Error(t *testing.T) {
+func TestStore_GetPartner_ErrorLegacySIDH(t *testing.T) {
 	r, _, err := makeTestRatchet()
 	if err != nil {
 		t.Fatalf("Setup error: %v", err)
 	}
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 
-	m, err := r.GetPartner(partnerID)
+	m, err := r.GetPartnerLegacySIDH(partnerID)
 	if err == nil {
 		t.Error("GetPartner() did not produce an error.")
 	}
@@ -251,33 +196,5 @@ func TestStore_GetPartner_Error(t *testing.T) {
 	if m != nil {
 		t.Errorf("GetPartner() did not return a nil relationship."+
 			"\n\texpected: %v\n\treceived: %v", nil, m)
-	}
-}
-
-// Tests happy path of Ratchet.GetDHPrivateKey.
-func TestStore_GetDHPrivateKey(t *testing.T) {
-	r, _, err := makeTestRatchet()
-	if err != nil {
-		t.Fatalf("Setup error: %v", err)
-	}
-
-	if r.advertisedDHPrivateKey != r.GetDHPrivateKey() {
-		t.Errorf("GetDHPrivateKey() returned incorrect key."+
-			"\n\texpected: %v\n\treceived: %v",
-			r.advertisedDHPrivateKey, r.GetDHPrivateKey())
-	}
-}
-
-// Tests happy path of Ratchet.GetDHPublicKey.
-func TestStore_GetDHPublicKey(t *testing.T) {
-	r, _, err := makeTestRatchet()
-	if err != nil {
-		t.Fatalf("Setup error: %v", err)
-	}
-
-	if r.advertisedDHPublicKey != r.GetDHPublicKey() {
-		t.Errorf("GetDHPublicKey() returned incorrect key."+
-			"\n\texpected: %v\n\treceived: %v",
-			r.advertisedDHPublicKey, r.GetDHPublicKey())
 	}
 }

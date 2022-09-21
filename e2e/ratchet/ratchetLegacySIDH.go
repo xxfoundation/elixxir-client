@@ -56,3 +56,55 @@ func (r *Ratchet) AddPartnerLegacySIDH(partnerID *id.ID,
 
 	return m, nil
 }
+
+// GetPartnerLegacySIDH returns the partner per its ID, if it exists
+func (r *Ratchet) GetPartnerLegacySIDH(partnerID *id.ID) (partner.ManagerLegacySIDH, error) {
+	r.mux.RLock()
+	defer r.mux.RUnlock()
+
+	m, ok := r.managersLegacySIDH[*partnerID]
+
+	if !ok {
+		jww.WARN.Printf("%s: %s", NoPartnerErrorStr, partnerID)
+		return nil, errors.New(NoPartnerErrorStr)
+	}
+
+	return m, nil
+}
+
+// DeletePartner removes the associated contact from the E2E store
+func (r *Ratchet) DeletePartnerLegacySIDH(partnerID *id.ID) error {
+	m, ok := r.managersLegacySIDH[*partnerID]
+	if !ok {
+		jww.WARN.Printf("%s: %s", NoPartnerErrorStr, partnerID)
+		return errors.New(NoPartnerErrorStr)
+	}
+
+	if err := m.Delete(); err != nil {
+		return errors.WithMessagef(err,
+			"Could not remove partner %s from store",
+			partnerID)
+	}
+
+	// Delete services
+	r.delete(m)
+
+	delete(r.managersLegacySIDH, *partnerID)
+	return r.save()
+
+}
+
+// GetAllPartnerIDs returns a list of all partner IDs that the user has
+// an E2E relationship with.
+func (r *Ratchet) GetAllPartnerIDsLegacySIDH() []*id.ID {
+	r.mux.RLock()
+	defer r.mux.RUnlock()
+
+	partnerIDs := make([]*id.ID, 0, len(r.managersLegacySIDH))
+
+	for _, m := range r.managersLegacySIDH {
+		partnerIDs = append(partnerIDs, m.PartnerId())
+	}
+
+	return partnerIDs
+}

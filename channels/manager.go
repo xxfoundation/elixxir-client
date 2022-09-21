@@ -46,8 +46,8 @@ type manager struct {
 	broadcastMaker broadcast.NewBroadcastChannelFunc
 }
 
-// Client contains the methods from cmix.Client that are required by
-// symmetricClient.
+// Client contains the methods from cmix.Client that are required by the
+// [Manager].
 type Client interface {
 	GetMaxMessageLength() int
 	SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,

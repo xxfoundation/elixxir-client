@@ -19,7 +19,7 @@ import (
 
 // Error messages.
 const (
-	// symmetricClient.Broadcast
+	// broadcastClient.Broadcast
 	errNetworkHealth       = "cannot send broadcast when the network is not healthy"
 	errPayloadSize         = "size of payload %d must be less than %d"
 	errBroadcastMethodType = "cannot call %s broadcast using %s channel"
@@ -31,9 +31,10 @@ const (
 	symmetricBroadcastServiceTag = "SymmetricBroadcast"
 )
 
-// Broadcast broadcasts a payload over a symmetric channel.
-// Network must be healthy to send
-// Requires a payload of size bc.MaxSymmetricPayloadSize() or smaller
+// Broadcast broadcasts a payload to a symmetric channel. The payload must be of
+// size [broadcastClient.MaxPayloadSize] or smaller.
+//
+// The network must be healthy to send.
 func (bc *broadcastClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	assemble := func(rid id.Round) ([]byte, error) {
@@ -42,11 +43,13 @@ func (bc *broadcastClient) Broadcast(payload []byte, cMixParams cmix.CMIXParams)
 	return bc.BroadcastWithAssembler(assemble, cMixParams)
 }
 
-// BroadcastWithAssembler broadcasts a payload over a symmetric channel. With
-// a payload assembled after the round is selected, allowing the round
-// info to be included in the payload.
-// Network must be healthy to send
-// Requires a payload of size bc.MaxSymmetricPayloadSize() or smaller
+// BroadcastWithAssembler broadcasts a payload over a symmetric channel with a
+// payload assembled after the round is selected, allowing the round info to be
+// included in the payload.
+//
+// The payload must be of the size [Channel.MaxPayloadSize] or smaller.
+//
+// The network must be healthy to send.
 func (bc *broadcastClient) BroadcastWithAssembler(assembler Assembler, cMixParams cmix.CMIXParams) (
 	rounds.Round, ephemeral.Id, error) {
 	if !bc.net.IsHealthy() {

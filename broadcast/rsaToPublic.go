@@ -28,6 +28,13 @@ const (
 // BroadcastRSAtoPublic broadcasts the payload to the channel. Requires a
 // healthy network state to send Payload length less than or equal to
 // bc.MaxRSAToPublicPayloadSize, and the channel PrivateKey must be passed in
+//
+// BroadcastRSAtoPublic broadcasts the payload to the channel.
+//
+// The payload must be of the size [broadcastClient.MaxRSAToPublicPayloadSize]
+// or smaller and the channel [rsa.PrivateKey] must be passed in.
+//
+// The network must be healthy to send.
 func (bc *broadcastClient) BroadcastRSAtoPublic(pk rsa.PrivateKey,
 	payload []byte, cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	// Confirm network health
@@ -38,11 +45,14 @@ func (bc *broadcastClient) BroadcastRSAtoPublic(pk rsa.PrivateKey,
 	return bc.BroadcastRSAToPublicWithAssembler(pk, assemble, cMixParams)
 }
 
-// BroadcastRSAToPublicWithAssembler broadcasts the payload to the channel with
-// a function which builds the payload based upon the ID of the selected round.
-// Requires a healthy network state to send Payload must be shorter or equal in
-// length to bc.MaxRSAToPublicPayloadSize when returned, and the channel
-// PrivateKey must be passed in
+// BroadcastRSAToPublicWithAssembler broadcasts the payload to the channel
+// with a function that builds the payload based upon the ID of the selected
+// round.
+//
+// The payload must be of the size [broadcastClient.MaxRSAToPublicPayloadSize]
+// or smaller and the channel [rsa.PrivateKey] must be passed in.
+//
+// The network must be healthy to send.
 func (bc *broadcastClient) BroadcastRSAToPublicWithAssembler(
 	pk rsa.PrivateKey, assembler Assembler,
 	cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {

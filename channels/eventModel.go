@@ -8,7 +8,6 @@
 package channels
 
 import (
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
@@ -252,8 +251,6 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 			// malformed
 		}
 	}
-
-	fmt.Println(channelID)
 
 	e.model.ReceiveMessage(channelID, messageID, senderUsername, txt.Text,
 		timestamp, lease, round, status)

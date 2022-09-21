@@ -11,15 +11,20 @@ import (
 	"bytes"
 	"math/rand"
 	"reflect"
+	"sort"
 	"testing"
 
-	"gitlab.com/elixxir/client/e2e/ratchet/partner"
-	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/xx_network/crypto/large"
+	"gitlab.com/xx_network/primitives/id"
+
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/primitives/id"
+
+	"gitlab.com/elixxir/client/e2e/pq"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner"
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/storage/versioned"
 )
 
 // Tests happy path of NewStore.
@@ -77,161 +82,158 @@ func TestLoadStore(t *testing.T) {
 	}
 }
 
-// // Tests happy path of Ratchet.AddPartner.
-// func TestStore_AddPartner(t *testing.T) {
-// 	rng := csprng.NewSystemRNG()
-// 	r, kv, err := makeTestRatchet()
-// 	if err != nil {
-// 		t.Fatalf("Setup error: %v", err)
-// 	}
+// Tests happy path of Ratchet.AddPartner.
+func TestStore_AddPartner(t *testing.T) {
+	r, kv, err := makeTestRatchet()
+	if err != nil {
+		t.Fatalf("Setup error: %v", err)
+	}
 
-// 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-// 	p := session.GetDefaultParams()
-// 	partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
-// 	// NOTE: e2e store doesn't contain a private SIDH key, that's
-// 	// because they're completely address as part of the
-// 	// initiation of the connection.
-// 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
-// 	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
-// 	expectedManager := partner.NewManager(kv, r.myID, partnerID,
-// 		r.advertisedDHPrivateKey, partnerPubKey, myPrivSIDHKey, pubSIDHKey,
-// 		p, p, r.cyHandler, r.grp, r.rng)
+	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+	p := session.GetDefaultParams()
+	partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
+	// NOTE: e2e store doesn't contain a private PQ key, that's
+	// because they're completely address as part of the
+	// initiation of the connection.
 
-// 	receivedManager, err := r.AddPartner(
-// 		partnerID,
-// 		partnerPubKey, r.advertisedDHPrivateKey,
-// 		pubSIDHKey, myPrivSIDHKey, p, p)
-// 	if err != nil {
-// 		t.Fatalf("AddPartner returned an error: %v", err)
-// 	}
+	_, pubPQKey := pq.NIKE.NewKeypair()
+	myPrivPQKey, _ := pq.NIKE.NewKeypair()
+	expectedManager := partner.NewManager(kv, r.myID, partnerID,
+		r.advertisedDHPrivateKey, partnerPubKey, myPrivPQKey, pubPQKey,
+		p, p, r.cyHandler, r.grp, r.rng)
 
-// 	if !managersEqual(expectedManager, receivedManager, t) {
-// 		t.Errorf("Inconsistent data between partner.Managers")
-// 	}
+	receivedManager, err := r.AddPartner(
+		partnerID,
+		partnerPubKey, r.advertisedDHPrivateKey,
+		pubPQKey, myPrivPQKey, p, p)
+	if err != nil {
+		t.Fatalf("AddPartner returned an error: %v", err)
+	}
 
-// 	relationshipId := *partnerID
+	if !managersEqual(expectedManager, receivedManager, t) {
+		t.Errorf("Inconsistent data between partner.Managers")
+	}
 
-// 	m, exists := r.managers[relationshipId]
-// 	if !exists {
-// 		t.Errorf("Manager does not exist in map.\n\tmap: %+v",
-// 			r.managers)
-// 	}
+	relationshipId := *partnerID
 
-// 	if !managersEqual(expectedManager, m, t) {
-// 		t.Errorf("Inconsistent data between partner.Managers")
-// 	}
-// }
+	m, exists := r.managers[relationshipId]
+	if !exists {
+		t.Errorf("Manager does not exist in map.\n\tmap: %+v",
+			r.managers)
+	}
 
-// // Unit test for DeletePartner
-// func TestStore_DeletePartner(t *testing.T) {
-// 	rng := csprng.NewSystemRNG()
-// 	r, _, err := makeTestRatchet()
-// 	if err != nil {
-// 		t.Fatalf("Setup error: %v", err)
-// 	}
+	if !managersEqual(expectedManager, m, t) {
+		t.Errorf("Inconsistent data between partner.Managers")
+	}
+}
 
-// 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-// 	partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
-// 	p := session.GetDefaultParams()
-// 	// NOTE: e2e store doesn't contain a private SIDH key, that's
-// 	// because they're completely address as part of the
-// 	// initiation of the connection.
-// 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
-// 	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
+// Unit test for DeletePartner
+func TestStore_DeletePartner(t *testing.T) {
+	r, _, err := makeTestRatchet()
+	if err != nil {
+		t.Fatalf("Setup error: %v", err)
+	}
 
-// 	_, err = r.AddPartner(partnerID, r.advertisedDHPrivateKey,
-// 		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p)
-// 	if err != nil {
-// 		t.Fatalf("AddPartner returned an error: %v", err)
-// 	}
+	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+	partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
+	p := session.GetDefaultParams()
+	// NOTE: e2e store doesn't contain a private PQ key, that's
+	// because they're completely address as part of the
+	// initiation of the connection.
+	_, pubPQKey := pq.NIKE.NewKeypair()
+	myPrivPQKey, _ := pq.NIKE.NewKeypair()
 
-// 	err = r.DeletePartner(partnerID)
-// 	if err != nil {
-// 		t.Fatalf("DeletePartner received an error: %v", err)
-// 	}
+	_, err = r.AddPartner(partnerID, r.advertisedDHPrivateKey,
+		partnerPubKey, pubPQKey, myPrivPQKey, p, p)
+	if err != nil {
+		t.Fatalf("AddPartner returned an error: %v", err)
+	}
 
-// 	_, err = r.GetPartner(partnerID)
-// 	if err == nil {
-// 		t.Errorf("Shouldn't be able to pull deleted partner from store")
-// 	}
+	err = r.DeletePartner(partnerID)
+	if err != nil {
+		t.Fatalf("DeletePartner received an error: %v", err)
+	}
 
-// }
+	_, err = r.GetPartner(partnerID)
+	if err == nil {
+		t.Errorf("Shouldn't be able to pull deleted partner from store")
+	}
 
-// // Tests happy path of Ratchet.GetPartner.
-// func TestStore_GetPartner(t *testing.T) {
-// 	rng := csprng.NewSystemRNG()
-// 	r, _, err := makeTestRatchet()
-// 	if err != nil {
-// 		t.Fatalf("Setup error: %v", err)
-// 	}
-// 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-// 	partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
-// 	p := session.GetDefaultParams()
-// 	_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
-// 	myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
-// 	expectedManager, err := r.AddPartner(partnerID, r.advertisedDHPrivateKey,
-// 		partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p)
-// 	if err != nil {
-// 		t.Fatalf("AddPartner returned an error: %v", err)
-// 	}
+}
 
-// 	m, err := r.GetPartner(partnerID)
-// 	if err != nil {
-// 		t.Errorf("GetPartner() produced an error: %v", err)
-// 	}
+// Tests happy path of Ratchet.GetPartner.
+func TestStore_GetPartner(t *testing.T) {
+	r, _, err := makeTestRatchet()
+	if err != nil {
+		t.Fatalf("Setup error: %v", err)
+	}
+	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+	partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
+	p := session.GetDefaultParams()
+	_, pubPQKey := pq.NIKE.NewKeypair()
+	myPrivPQKey, _ := pq.NIKE.NewKeypair()
+	expectedManager, err := r.AddPartner(partnerID, r.advertisedDHPrivateKey,
+		partnerPubKey, pubPQKey, myPrivPQKey, p, p)
+	if err != nil {
+		t.Fatalf("AddPartner returned an error: %v", err)
+	}
 
-// 	if !reflect.DeepEqual(expectedManager, m) {
-// 		t.Errorf("GetPartner() returned wrong Manager."+
-// 			"\n\texpected: %v\n\treceived: %v", expectedManager, m)
-// 	}
-// }
+	m, err := r.GetPartner(partnerID)
+	if err != nil {
+		t.Errorf("GetPartner() produced an error: %v", err)
+	}
 
-// // Ratchet.GetAllPartnerIDs unit test.
-// func TestRatchet_GetAllPartnerIDs(t *testing.T) {
-// 	// Setup
-// 	numTests := 100
-// 	expectedPartners := make([]*id.ID, 0, numTests)
-// 	rng := csprng.NewSystemRNG()
-// 	r, _, err := makeTestRatchet()
-// 	if err != nil {
-// 		t.Fatalf("Setup error: %v", err)
-// 	}
+	if !reflect.DeepEqual(expectedManager, m) {
+		t.Errorf("GetPartner() returned wrong Manager."+
+			"\n\texpected: %v\n\treceived: %v", expectedManager, m)
+	}
+}
 
-// 	// Generate partners and add them ot the manager
-// 	for i := 0; i < numTests; i++ {
-// 		partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
-// 		partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
-// 		p := session.GetDefaultParams()
-// 		_, pubSIDHKey := genSidhKeys(rng, sidh.KeyVariantSidhA)
-// 		myPrivSIDHKey, _ := genSidhKeys(rng, sidh.KeyVariantSidhB)
-// 		_, err := r.AddPartner(partnerID, r.advertisedDHPrivateKey,
-// 			partnerPubKey, pubSIDHKey, myPrivSIDHKey, p, p)
-// 		if err != nil {
-// 			t.Fatalf("AddPartner returned an error: %v", err)
-// 		}
+// Ratchet.GetAllPartnerIDs unit test.
+func TestRatchet_GetAllPartnerIDs(t *testing.T) {
+	// Setup
+	numTests := 100
+	expectedPartners := make([]*id.ID, 0, numTests)
+	r, _, err := makeTestRatchet()
+	if err != nil {
+		t.Fatalf("Setup error: %v", err)
+	}
 
-// 		expectedPartners = append(expectedPartners, partnerID)
-// 	}
+	// Generate partners and add them ot the manager
+	for i := 0; i < numTests; i++ {
+		partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+		partnerPubKey := diffieHellman.GeneratePublicKey(r.advertisedDHPrivateKey, r.grp)
+		p := session.GetDefaultParams()
+		_, pubPQKey := pq.NIKE.NewKeypair()
+		myPrivPQKey, _ := pq.NIKE.NewKeypair()
+		_, err := r.AddPartner(partnerID, r.advertisedDHPrivateKey,
+			partnerPubKey, pubPQKey, myPrivPQKey, p, p)
+		if err != nil {
+			t.Fatalf("AddPartner returned an error: %v", err)
+		}
 
-// 	receivedPartners := r.GetAllPartnerIDs()
+		expectedPartners = append(expectedPartners, partnerID)
+	}
 
-// 	// Sort these slices as GetAllPartnerIDs iterates over a map, which indices
-// 	// at random in Go
-// 	sort.SliceStable(receivedPartners, func(i, j int) bool {
-// 		return bytes.Compare(receivedPartners[i].Bytes(), receivedPartners[j].Bytes()) == -1
-// 	})
+	receivedPartners := r.GetAllPartnerIDs()
 
-// 	sort.SliceStable(expectedPartners, func(i, j int) bool {
-// 		return bytes.Compare(expectedPartners[i].Bytes(), expectedPartners[j].Bytes()) == -1
-// 	})
+	// Sort these slices as GetAllPartnerIDs iterates over a map, which indices
+	// at random in Go
+	sort.SliceStable(receivedPartners, func(i, j int) bool {
+		return bytes.Compare(receivedPartners[i].Bytes(), receivedPartners[j].Bytes()) == -1
+	})
 
-// 	if !reflect.DeepEqual(receivedPartners, expectedPartners) {
-// 		t.Fatalf("Unexpected data retrieved from GetAllPartnerIDs."+
-// 			"\nExpected: %v"+
-// 			"\nReceived: %v", expectedPartners, receivedPartners)
-// 	}
+	sort.SliceStable(expectedPartners, func(i, j int) bool {
+		return bytes.Compare(expectedPartners[i].Bytes(), expectedPartners[j].Bytes()) == -1
+	})
 
-// }
+	if !reflect.DeepEqual(receivedPartners, expectedPartners) {
+		t.Fatalf("Unexpected data retrieved from GetAllPartnerIDs."+
+			"\nExpected: %v"+
+			"\nReceived: %v", expectedPartners, receivedPartners)
+	}
+
+}
 
 // Tests that Ratchet.GetPartner returns an error for non existent partnerID.
 func TestStore_GetPartner_Error(t *testing.T) {

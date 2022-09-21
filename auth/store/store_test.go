@@ -50,7 +50,7 @@ func TestNewOrLoadStore(t *testing.T) {
 }
 
 // Happy path.
-func NoTestLoadStore(t *testing.T) {
+func TestLoadStore(t *testing.T) {
 
 	// Create a random storage object + keys
 	s, kv := makeTestStore(t)
@@ -69,14 +69,16 @@ func NoTestLoadStore(t *testing.T) {
 	privPQ, pubPQ := pq.NIKE.NewKeypair()
 	var sr *SentRequest
 	var err error
-	if sr, err = s.AddSent(id.NewIdFromUInt(rand.Uint64(), id.User, t), s.grp.NewInt(5), s.grp.NewInt(6),
+	if sr, err = s.AddSent(id.NewIdFromUInt(rand.Uint64(), id.User, t),
+		s.grp.NewInt(5), s.grp.NewInt(6),
 		s.grp.NewInt(7), privPQ, pubPQ,
 		format.Fingerprint{42}, false); err != nil {
 		t.Fatalf("AddSent() produced an error: %+v", err)
 	}
 
-	s.CheckIfNegotiationIsNew(
-		sr.partner, authfingerprint.CreateNegotiationFingerprint(sr.myPrivKey, pqPubKey))
+	s.CheckIfNegotiationIsNew(sr.partner,
+		authfingerprint.CreateNegotiationFingerprint(
+			sr.myPrivKey, pqPubKey))
 
 	err = s.save()
 	if err != nil {
@@ -94,7 +96,11 @@ func NoTestLoadStore(t *testing.T) {
 		t.Error("Sent request could not be found")
 	}
 
-	if sr.myPrivKey == srLoaded.myPrivKey && sr.myPQPrivKey == srLoaded.myPQPrivKey && sr.myPQPubKey == srLoaded.myPQPubKey && sr.fingerprint == srLoaded.fingerprint && sr.partnerHistoricalPubKey == sr.partnerHistoricalPubKey {
+	if sr.myPrivKey == srLoaded.myPrivKey &&
+		sr.myPQPrivKey == srLoaded.myPQPrivKey &&
+		sr.myPQPubKey == srLoaded.myPQPubKey &&
+		sr.fingerprint == srLoaded.fingerprint &&
+		sr.partnerHistoricalPubKey == sr.partnerHistoricalPubKey {
 		t.Errorf("GetReceivedRequest() returned incorrect send req."+
 			"\n\texpected: %+v\n\treceived: %+v", sr, srLoaded)
 	}

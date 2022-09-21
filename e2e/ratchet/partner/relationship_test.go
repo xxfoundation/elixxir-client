@@ -83,13 +83,19 @@ func Test_deleteRelationship(t *testing.T) {
 	mgr, kv := makeTestRelationshipManager(t)
 
 	// Generate send relationship
-	mgr.send = NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	mgr.send = NewRelationship(kv, session.Send, mgr.myID,
+		mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey,
+		mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey,
+		session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 	if err := mgr.send.save(); err != nil {
 		t.Fatal(err)
 	}
 
 	// Generate receive relationship
-	mgr.receive = NewRelationship(kv, session.Receive, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	mgr.receive = NewRelationship(kv, session.Receive, mgr.myID,
+		mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey,
+		mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey,
+		session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
 	if err := mgr.receive.save(); err != nil {
 		t.Fatal(err)
 	}

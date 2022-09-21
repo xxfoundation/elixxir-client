@@ -163,8 +163,9 @@ func (m mockE2eHandler) DeletePartnerCallbacks(partnerID *id.ID) {
 
 type mockSentRequestHandler struct{}
 
-func (msrh *mockSentRequestHandler) Add(sr *store.SentRequest)    {}
-func (msrh *mockSentRequestHandler) Delete(sr *store.SentRequest) {}
+func (msrh *mockSentRequestHandler) Add(sr store.SentRequestInterface)           {}
+func (msrh *mockSentRequestHandler) AddLegacySIDH(sr store.SentRequestInterface) {}
+func (msrh *mockSentRequestHandler) Delete(sr store.SentRequestInterface)        {}
 
 func getGroup() *cyclic.Group {
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +

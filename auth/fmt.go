@@ -129,7 +129,7 @@ type ecrFormat struct {
 }
 
 func newEcrFormat(size int) ecrFormat {
-	if size < (ownershipSize + pq.NIKE.PublicKeySize() + 1) {
+	if size < (ownershipSize + pq.NIKE.PublicKeySize()) {
 		jww.FATAL.Panicf("Size too small to hold")
 	}
 
@@ -150,7 +150,7 @@ func buildEcrFormat(data []byte) ecrFormat {
 
 	start = end
 
-	end = start + pq.NIKE.PublicKeySize() + 1
+	end = start + pq.NIKE.PublicKeySize()
 	f.pqPublicKey = f.data[start:end]
 
 	start = end
@@ -188,7 +188,7 @@ func (f ecrFormat) SetOwnership(ownership []byte) {
 // will work.
 func (f ecrFormat) SetPQPublicKey(pqPublicKey nike.PublicKey) {
 	pqBytes := pqPublicKey.Bytes()
-	copy(f.pqPublicKey[0:len(pqBytes)], pqBytes)
+	copy(f.pqPublicKey, pqBytes)
 }
 
 // GetPQPublicKey will attempt to decode a PQ post quantum

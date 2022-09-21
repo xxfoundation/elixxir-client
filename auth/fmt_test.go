@@ -170,7 +170,7 @@ func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 // Tests newEcrFormat
 func TestNewEcrFormat(t *testing.T) {
 	// Construct message
-	payloadSize := ownershipSize*2 + pq.NIKE.PublicKeySize() + 1
+	payloadSize := ownershipSize*2 + pq.NIKE.PublicKeySize()
 	ecrMsg := newEcrFormat(payloadSize)
 
 	// Check that the ecrFormat was constructed properly
@@ -182,7 +182,7 @@ func TestNewEcrFormat(t *testing.T) {
 	}
 
 	if !bytes.Equal(ecrMsg.payload, make([]byte,
-		payloadSize-ownershipSize-pq.NIKE.PublicKeySize()-1)) {
+		payloadSize-ownershipSize-pq.NIKE.PublicKeySize())) {
 		t.Errorf("newEcrFormat error: "+
 			"Unexpected ownership field in ecrFormat."+
 			"\n\tExpected: %v"+
@@ -241,12 +241,12 @@ func TestEcrFormat_SetGetOwnership(t *testing.T) {
 // Set/get payload tests
 func TestEcrFormat_SetGetPayload(t *testing.T) {
 	// Construct message
-	payloadSize := ownershipSize*2 + pq.NIKE.PublicKeySize() + 1
+	payloadSize := ownershipSize*2 + pq.NIKE.PublicKeySize()
 	ecrMsg := newEcrFormat(payloadSize)
 
 	// Test set
 	expectedPayload := newPayload(
-		payloadSize-ownershipSize-pq.NIKE.PublicKeySize()-1,
+		payloadSize-ownershipSize-pq.NIKE.PublicKeySize(),
 		"ownership")
 	ecrMsg.SetPayload(expectedPayload)
 
@@ -279,10 +279,10 @@ func TestEcrFormat_SetGetPayload(t *testing.T) {
 // Marshal/ unmarshal tests
 func TestEcrFormat_MarshalUnmarshal(t *testing.T) {
 	// Construct message
-	payloadSize := ownershipSize*2 + pq.NIKE.PublicKeySize() + 1
+	payloadSize := ownershipSize*2 + pq.NIKE.PublicKeySize()
 	ecrMsg := newEcrFormat(payloadSize)
 	expectedPayload := newPayload(
-		payloadSize-ownershipSize-pq.NIKE.PublicKeySize()-1,
+		payloadSize-ownershipSize-pq.NIKE.PublicKeySize(),
 		"ownership")
 	ecrMsg.SetPayload(expectedPayload)
 	ownership := newOwnership("owner")
@@ -321,7 +321,7 @@ func TestEcrFormat_MarshalUnmarshal(t *testing.T) {
 // Tests newRequestFormat
 func TestNewRequestFormat(t *testing.T) {
 	// Construct message
-	payloadSize := id.ArrIDLen*2 - 1 + pq.NIKE.PublicKeySize() + 1
+	payloadSize := id.ArrIDLen*2 - 1 + pq.NIKE.PublicKeySize()
 	ecrMsg := newEcrFormat(payloadSize)
 	expectedPayload := newPayload(id.ArrIDLen, "ownership")
 	ecrMsg.SetPayload(expectedPayload)
@@ -348,7 +348,7 @@ func TestNewRequestFormat(t *testing.T) {
 	// 		"\n\tReceived: %v", make([]byte, 0), reqMsg.GetPayload())
 	// }
 
-	payloadSize = ownershipSize*2 + pq.NIKE.PublicKeySize() + 1
+	payloadSize = ownershipSize*2 + pq.NIKE.PublicKeySize()
 	ecrMsg = newEcrFormat(payloadSize)
 	reqMsg, err = newRequestFormat(ecrMsg.GetPayload())
 	if err == nil {
@@ -362,7 +362,7 @@ func TestNewRequestFormat(t *testing.T) {
 // Unit test for get/SetID
 func TestRequestFormat_SetGetID(t *testing.T) {
 	// Construct message
-	payloadSize := id.ArrIDLen*2 - 1 + pq.NIKE.PublicKeySize() + 1
+	payloadSize := id.ArrIDLen*2 - 1 + pq.NIKE.PublicKeySize()
 	ecrMsg := newEcrFormat(payloadSize)
 	expectedPayload := newPayload(id.ArrIDLen, "ownership")
 	ecrMsg.SetPayload(expectedPayload)

@@ -64,10 +64,11 @@ func Test_manager_SendE2E_Smoke(t *testing.T) {
 	}
 
 	myFpGen := &fpGenerator{m1}
+	myFpGenLegacySIDH := &fpGeneratorLegacySIDH{m1}
 	myServices := newMockServices()
 
 	m1.Ratchet, err = ratchet.Load(
-		myKv, myID, m1.grp, myFpGen, myServices, streamGen)
+		myKv, myID, m1.grp, myFpGen, myFpGenLegacySIDH, myServices, streamGen)
 
 	// Generate new E2E manager
 	partnerKv := versioned.NewKV(ekv.MakeMemstore())
@@ -94,10 +95,11 @@ func Test_manager_SendE2E_Smoke(t *testing.T) {
 	}
 
 	partnerFpGen := &fpGenerator{m2}
+	partnerFpGenLegacySIDH := &fpGeneratorLegacySIDH{m2}
 	partnerServices := newMockServices()
 
 	m1.Ratchet, err = ratchet.Load(
-		partnerKv, partnerID, m2.grp, partnerFpGen, partnerServices, streamGen)
+		partnerKv, partnerID, m2.grp, partnerFpGen, partnerFpGenLegacySIDH, partnerServices, streamGen)
 
 	// Generate partner identity and add partner
 

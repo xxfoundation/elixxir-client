@@ -60,6 +60,10 @@ git.xx.network/elixxir/ctidh_cgo v0.0.0-20220916152454-c765b86bb13d h1:36v7pFIeb
 git.xx.network/elixxir/ctidh_cgo v0.0.0-20220916152454-c765b86bb13d/go.mod h1:Mu7cP9WTzeUikr/qjF0Ll8aSw6FSk13hVpLWodSxnZY=
 git.xx.network/elixxir/ctidh_cgo v0.0.0-20220916163316-bc3f946a0e29 h1:jpbtuecvdUU/vwZthYn4fPYfYPPMaVnDtP+q85+hCMo=
 git.xx.network/elixxir/ctidh_cgo v0.0.0-20220916163316-bc3f946a0e29/go.mod h1:Mu7cP9WTzeUikr/qjF0Ll8aSw6FSk13hVpLWodSxnZY=
+git.xx.network/elixxir/ctidh_cgo v0.0.0-20220921023846-657d9ba25d15 h1:0BWl7pSPfWNe67p/96f83liBJuymt5FAxKl0RSg4o4k=
+git.xx.network/elixxir/ctidh_cgo v0.0.0-20220921023846-657d9ba25d15/go.mod h1:Mu7cP9WTzeUikr/qjF0Ll8aSw6FSk13hVpLWodSxnZY=
+git.xx.network/elixxir/ctidh_cgo v0.0.0-20220921025742-051a023d7613 h1:kRgJyBMWEMcj8qXDTgWjzoSK5HbD6NptpzK7L0yeiag=
+git.xx.network/elixxir/ctidh_cgo v0.0.0-20220921025742-051a023d7613/go.mod h1:Mu7cP9WTzeUikr/qjF0Ll8aSw6FSk13hVpLWodSxnZY=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=

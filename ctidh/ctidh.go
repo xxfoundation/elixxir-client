@@ -4,6 +4,8 @@
 package ctidh
 
 import (
+	"encoding/pem"
+
 	ctidh "git.xx.network/elixxir/ctidh_cgo"
 
 	"gitlab.com/elixxir/client/interfaces/nike"
@@ -46,9 +48,27 @@ func (e *ctidhNIKE) PublicKeyFromPEMFile(f string) (nike.PublicKey, error) {
 	return pubKey, nil
 }
 
+func (e *ctidhNIKE) PublicKeyFromPEM(pemBytes []byte) (nike.PublicKey, error) {
+	pubKey := ctidh.NewEmptyPublicKey()
+	err := pubKey.FromPEM(pemBytes)
+	if err != nil {
+		return nil, err
+	}
+	return pubKey, nil
+}
+
 func (e *ctidhNIKE) PrivateKeyFromPEMFile(f string) (nike.PrivateKey, error) {
 	privKey := ctidh.NewEmptyPrivateKey()
 	err := privKey.FromPEMFile(f)
+	if err != nil {
+		return nil, err
+	}
+	return privKey, nil
+}
+
+func (e *ctidhNIKE) PrivateKeyFromPEM(pemBytes []byte) (nike.PrivateKey, error) {
+	privKey := ctidh.NewEmptyPrivateKey()
+	err := privKey.FromPEM(pemBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -59,9 +79,16 @@ func (e *ctidhNIKE) PublicKeyToPEMFile(f string, pubKey nike.PublicKey) error {
 	return pubKey.(*ctidh.PublicKey).ToPEMFile(f)
 }
 
+func (e *ctidhNIKE) PublicKeyToPEM(pubKey nike.PublicKey) (*pem.Block, error) {
+	return pubKey.(*ctidh.PublicKey).ToPEM()
+}
+
 func (e *ctidhNIKE) PrivateKeyToPEMFile(f string, privKey nike.PrivateKey) error {
 	return privKey.(*ctidh.PrivateKey).ToPEMFile(f)
+}
 
+func (e *ctidhNIKE) PrivateKeyToPEM(privKey nike.PrivateKey) (*pem.Block, error) {
+	return privKey.(*ctidh.PrivateKey).ToPEM()
 }
 
 // UnmarshalBinaryPublicKey unmarshals the public key bytes.

@@ -13,51 +13,48 @@ import (
 	"reflect"
 	"testing"
 
+	"gitlab.com/xx_network/crypto/csprng"
+
+	"gitlab.com/elixxir/client/e2e/pq"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/crypto/csprng"
 )
 
-// // TestGenerateE2ESessionBaseKey smoke tests the GenerateE2ESessionBaseKey
-// // function to ensure that it produces the correct key on both sides of the
-// // connection.
-// func TestGenerateE2ESessionBaseKey(t *testing.T) {
-// 	rng := fastRNG.NewStreamGenerator(1, 3, csprng.NewSystemRNG)
-// 	myRng := rng.GetStream()
+// TestGenerateE2ESessionBaseKey smoke tests the GenerateE2ESessionBaseKey
+// function to ensure that it produces the correct key on both sides of the
+// connection.
+func TestGenerateE2ESessionBaseKey(t *testing.T) {
+	rng := fastRNG.NewStreamGenerator(1, 3, csprng.NewSystemRNG)
+	myRng := rng.GetStream()
 
-// 	// DH Keys
-// 	grp := getGroup()
-// 	dhPrivateKeyA := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp,
-// 		myRng)
-// 	dhPublicKeyA := dh.GeneratePublicKey(dhPrivateKeyA, grp)
-// 	dhPrivateKeyB := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp,
-// 		myRng)
-// 	dhPublicKeyB := dh.GeneratePublicKey(dhPrivateKeyB, grp)
+	// DH Keys
+	grp := getGroup()
+	dhPrivateKeyA := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp,
+		myRng)
+	dhPublicKeyA := dh.GeneratePublicKey(dhPrivateKeyA, grp)
+	dhPrivateKeyB := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp,
+		myRng)
+	dhPublicKeyB := dh.GeneratePublicKey(dhPrivateKeyB, grp)
 
-// 	// SIDH keys
-// 	pubA := sidh.NewPublicKey(sidh.Fp434, sidh.KeyVariantSidhA)
-// 	privA := sidh.NewPrivateKey(sidh.Fp434, sidh.KeyVariantSidhA)
-// 	_ = privA.Generate(myRng)
-// 	privA.GeneratePublicKey(pubA)
-// 	pubB := sidh.NewPublicKey(sidh.Fp434, sidh.KeyVariantSidhB)
-// 	privB := sidh.NewPrivateKey(sidh.Fp434, sidh.KeyVariantSidhB)
-// 	_ = privB.Generate(myRng)
-// 	privB.GeneratePublicKey(pubB)
+	// PQ keys
+	privA, pubA := pq.NIKE.NewKeypair()
+	privB, pubB := pq.NIKE.NewKeypair()
 
-// 	myRng.Close()
+	myRng.Close()
 
-// 	baseKey1 := GenerateE2ESessionBaseKey(dhPrivateKeyA, dhPublicKeyB,
-// 		grp, privA, pubB)
-// 	baseKey2 := GenerateE2ESessionBaseKey(dhPrivateKeyB, dhPublicKeyA,
-// 		grp, privB, pubA)
+	baseKey1 := GenerateE2ESessionBaseKey(dhPrivateKeyA, dhPublicKeyB,
+		grp, privA, pubB)
+	baseKey2 := GenerateE2ESessionBaseKey(dhPrivateKeyB, dhPublicKeyA,
+		grp, privB, pubA)
 
-// 	if !reflect.DeepEqual(baseKey1, baseKey2) {
-// 		t.Errorf("Cannot produce the same session key:\n%v\n%v",
-// 			baseKey1, baseKey2)
-// 	}
+	if !reflect.DeepEqual(baseKey1, baseKey2) {
+		t.Errorf("Cannot produce the same session key:\n%v\n%v",
+			baseKey1, baseKey2)
+	}
 
-// }
+}
 
 // Happy path of newCypher.
 func Test_newCypher(t *testing.T) {

@@ -9,18 +9,20 @@ package auth
 
 import (
 	"bytes"
+	"math/rand"
 	"reflect"
 	"testing"
 
-	sidhinterface "gitlab.com/elixxir/client/interfaces/sidh"
 	"gitlab.com/xx_network/primitives/id"
+
+	"gitlab.com/elixxir/client/e2e/pq"
 )
 
 // Tests newBaseFormat
 func TestNewBaseFormat(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
-	payloadSize := pubKeySize + sidhinterface.PubKeyByteSize + 2
+	payloadSize := pubKeySize + pq.NIKE.PublicKeySize() + 2
 	baseMsg := newBaseFormat(payloadSize, pubKeySize)
 
 	if baseMsg.GetVersion() != requestFmtVersion {
@@ -61,7 +63,7 @@ func TestNewBaseFormat(t *testing.T) {
 func TestBaseFormat_SetGetPubKey(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
-	payloadSize := pubKeySize + sidhinterface.PubKeyByteSize + 2
+	payloadSize := pubKeySize + pq.NIKE.PublicKeySize() + 2
 	baseMsg := newBaseFormat(payloadSize, pubKeySize)
 
 	// Test setter
@@ -89,7 +91,7 @@ func TestBaseFormat_SetGetPubKey(t *testing.T) {
 func TestBaseFormat_SetGetEcrPayload(t *testing.T) {
 	// Construct message
 	pubKeySize := 256
-	payloadSize := (pubKeySize + sidhinterface.PubKeyByteSize) * 2
+	payloadSize := (pubKeySize + pq.NIKE.PublicKeySize()) * 2
 	baseMsg := newBaseFormat(payloadSize, pubKeySize)
 
 	// Test setter
@@ -126,7 +128,7 @@ func TestBaseFormat_SetGetEcrPayload(t *testing.T) {
 func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 	// Construct a fully populated message
 	pubKeySize := 256
-	payloadSize := (pubKeySize + sidhinterface.PubKeyByteSize) * 2
+	payloadSize := (pubKeySize + pq.NIKE.PublicKeySize()) * 2
 	baseMsg := newBaseFormat(payloadSize, pubKeySize)
 	ecrPayloadSize := payloadSize - (pubKeySize) - 1
 	ecrPayload := newPayload(ecrPayloadSize, "ecrPayload")
@@ -165,45 +167,45 @@ func TestBaseFormat_MarshalUnmarshal(t *testing.T) {
 
 }
 
-// // Tests newEcrFormat
-// func TestNewEcrFormat(t *testing.T) {
-// 	// Construct message
-// 	payloadSize := ownershipSize*2 + sidhinterface.PubKeyByteSize + 1
-// 	ecrMsg := newEcrFormat(payloadSize)
+// Tests newEcrFormat
+func TestNewEcrFormat(t *testing.T) {
+	// Construct message
+	payloadSize := ownershipSize*2 + pq.NIKE.PublicKeySize() + 1
+	ecrMsg := newEcrFormat(payloadSize)
 
-// 	// Check that the ecrFormat was constructed properly
-// 	if !bytes.Equal(ecrMsg.ownership, make([]byte, ownershipSize)) {
-// 		t.Errorf("newEcrFormat error: "+
-// 			"Unexpected ownership field in ecrFormat."+
-// 			"\n\tExpected: %v"+
-// 			"\n\tReceived: %v", make([]byte, payloadSize), ecrMsg.ownership)
-// 	}
+	// Check that the ecrFormat was constructed properly
+	if !bytes.Equal(ecrMsg.ownership, make([]byte, ownershipSize)) {
+		t.Errorf("newEcrFormat error: "+
+			"Unexpected ownership field in ecrFormat."+
+			"\n\tExpected: %v"+
+			"\n\tReceived: %v", make([]byte, payloadSize), ecrMsg.ownership)
+	}
 
-// 	if !bytes.Equal(ecrMsg.payload, make([]byte,
-// 		payloadSize-ownershipSize-sidhinterface.PubKeyByteSize-1)) {
-// 		t.Errorf("newEcrFormat error: "+
-// 			"Unexpected ownership field in ecrFormat."+
-// 			"\n\tExpected: %v"+
-// 			"\n\tReceived: %v", make([]byte, payloadSize-ownershipSize), ecrMsg.payload)
-// 	}
+	if !bytes.Equal(ecrMsg.payload, make([]byte,
+		payloadSize-ownershipSize-pq.NIKE.PublicKeySize()-1)) {
+		t.Errorf("newEcrFormat error: "+
+			"Unexpected ownership field in ecrFormat."+
+			"\n\tExpected: %v"+
+			"\n\tReceived: %v", make([]byte, payloadSize-ownershipSize), ecrMsg.payload)
+	}
 
-// 	// Error case, where payload size is less than the public key
-// 	defer func() {
-// 		if r := recover(); r == nil {
-// 			t.Error("newEcrFormat() did not panic when the size of " +
-// 				"the payload is smaller than the size of the ownership")
-// 		}
-// 	}()
+	// Error case, where payload size is less than the public key
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("newEcrFormat() did not panic when the size of " +
+				"the payload is smaller than the size of the ownership")
+		}
+	}()
 
-// 	newEcrFormat(0)
-// }
+	newEcrFormat(0)
+}
 
 /* Tests the setter/getter methods for ecrFormat */
 
 // Set/get ownership tests
 func TestEcrFormat_SetGetOwnership(t *testing.T) {
 	// Construct message
-	payloadSize := ownershipSize*2 + sidhinterface.PubKeyByteSize + 1
+	payloadSize := ownershipSize*2 + pq.NIKE.PublicKeySize() + 1
 	ecrMsg := newEcrFormat(payloadSize)
 
 	// Test setter
@@ -236,91 +238,91 @@ func TestEcrFormat_SetGetOwnership(t *testing.T) {
 	ecrMsg.SetOwnership([]byte("ownership"))
 }
 
-// // Set/get payload tests
-// func TestEcrFormat_SetGetPayload(t *testing.T) {
-// 	// Construct message
-// 	payloadSize := ownershipSize*2 + sidhinterface.PubKeyByteSize + 1
-// 	ecrMsg := newEcrFormat(payloadSize)
+// Set/get payload tests
+func TestEcrFormat_SetGetPayload(t *testing.T) {
+	// Construct message
+	payloadSize := ownershipSize*2 + pq.NIKE.PublicKeySize() + 1
+	ecrMsg := newEcrFormat(payloadSize)
 
-// 	// Test set
-// 	expectedPayload := newPayload(
-// 		payloadSize-ownershipSize-sidhinterface.PubKeyByteSize-1,
-// 		"ownership")
-// 	ecrMsg.SetPayload(expectedPayload)
+	// Test set
+	expectedPayload := newPayload(
+		payloadSize-ownershipSize-pq.NIKE.PublicKeySize()-1,
+		"ownership")
+	ecrMsg.SetPayload(expectedPayload)
 
-// 	if !bytes.Equal(expectedPayload, ecrMsg.payload) {
-// 		t.Errorf("SetPayload() error: "+
-// 			"Payload field does not have expected value."+
-// 			"\n\tExpected: %v\n\tReceived: %v", expectedPayload, ecrMsg.payload)
-// 	}
+	if !bytes.Equal(expectedPayload, ecrMsg.payload) {
+		t.Errorf("SetPayload() error: "+
+			"Payload field does not have expected value."+
+			"\n\tExpected: %v\n\tReceived: %v", expectedPayload, ecrMsg.payload)
+	}
 
-// 	// Test get
-// 	receivedPayload := ecrMsg.GetPayload()
-// 	if !bytes.Equal(receivedPayload, expectedPayload) {
-// 		t.Errorf("GetPayload() error: "+
-// 			"Payload retrieved does not have expected value."+
-// 			"\n\tExpected: %v\n\tReceived: %v", expectedPayload, receivedPayload)
+	// Test get
+	receivedPayload := ecrMsg.GetPayload()
+	if !bytes.Equal(receivedPayload, expectedPayload) {
+		t.Errorf("GetPayload() error: "+
+			"Payload retrieved does not have expected value."+
+			"\n\tExpected: %v\n\tReceived: %v", expectedPayload, receivedPayload)
 
-// 	}
+	}
 
-// 	// Test setter error path: Setting payload of incorrect size
-// 	defer func() {
-// 		if r := recover(); r == nil {
-// 			t.Error("SetPayload() did not panic when the size of " +
-// 				"the payload is smaller than the required payload size.")
-// 		}
-// 	}()
+	// Test setter error path: Setting payload of incorrect size
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("SetPayload() did not panic when the size of " +
+				"the payload is smaller than the required payload size.")
+		}
+	}()
 
-// 	ecrMsg.SetPayload([]byte("payload"))
-// }
+	ecrMsg.SetPayload([]byte("payload"))
+}
 
-// // Marshal/ unmarshal tests
-// func TestEcrFormat_MarshalUnmarshal(t *testing.T) {
-// 	// Construct message
-// 	payloadSize := ownershipSize*2 + sidhinterface.PubKeyByteSize + 1
-// 	ecrMsg := newEcrFormat(payloadSize)
-// 	expectedPayload := newPayload(
-// 		payloadSize-ownershipSize-sidhinterface.PubKeyByteSize-1,
-// 		"ownership")
-// 	ecrMsg.SetPayload(expectedPayload)
-// 	ownership := newOwnership("owner")
-// 	ecrMsg.SetOwnership(ownership)
+// Marshal/ unmarshal tests
+func TestEcrFormat_MarshalUnmarshal(t *testing.T) {
+	// Construct message
+	payloadSize := ownershipSize*2 + pq.NIKE.PublicKeySize() + 1
+	ecrMsg := newEcrFormat(payloadSize)
+	expectedPayload := newPayload(
+		payloadSize-ownershipSize-pq.NIKE.PublicKeySize()-1,
+		"ownership")
+	ecrMsg.SetPayload(expectedPayload)
+	ownership := newOwnership("owner")
+	ecrMsg.SetOwnership(ownership)
 
-// 	// Test marshal
-// 	data := ecrMsg.Marshal()
-// 	if !bytes.Equal(data, ecrMsg.data) {
-// 		t.Errorf("ecrFormat.Marshal() error: "+
-// 			"Marshalled data is not expected."+
-// 			"\n\tExpected: %v\n\tReceived: %v", ecrMsg.data, data)
-// 	}
+	// Test marshal
+	data := ecrMsg.Marshal()
+	if !bytes.Equal(data, ecrMsg.data) {
+		t.Errorf("ecrFormat.Marshal() error: "+
+			"Marshalled data is not expected."+
+			"\n\tExpected: %v\n\tReceived: %v", ecrMsg.data, data)
+	}
 
-// 	// Test unmarshal
-// 	newMsg, err := unmarshalEcrFormat(data)
-// 	if err != nil {
-// 		t.Errorf("unmarshalEcrFormat() error: "+
-// 			"Could not unmarshal into ecrFormat: %v", err)
-// 	}
+	// Test unmarshal
+	newMsg, err := unmarshalEcrFormat(data)
+	if err != nil {
+		t.Errorf("unmarshalEcrFormat() error: "+
+			"Could not unmarshal into ecrFormat: %v", err)
+	}
 
-// 	if !reflect.DeepEqual(newMsg, ecrMsg) {
-// 		t.Errorf("unmarshalBaseFormat() error: "+
-// 			"Unmarshalled message does not match originally marshalled message."+
-// 			"\n\tExpected: %v\n\tRecieved: %v", ecrMsg, newMsg)
-// 	}
+	if !reflect.DeepEqual(newMsg, ecrMsg) {
+		t.Errorf("unmarshalBaseFormat() error: "+
+			"Unmarshalled message does not match originally marshalled message."+
+			"\n\tExpected: %v\n\tRecieved: %v", ecrMsg, newMsg)
+	}
 
-// 	// Unmarshal error test: Invalid size parameter
-// 	_, err = unmarshalEcrFormat(make([]byte, 0))
-// 	if err == nil {
-// 		t.Errorf("unmarshalEcrFormat() error: " +
-// 			"Should not be able to unmarshal when ecrFormat is too small")
-// 	}
+	// Unmarshal error test: Invalid size parameter
+	_, err = unmarshalEcrFormat(make([]byte, 0))
+	if err == nil {
+		t.Errorf("unmarshalEcrFormat() error: " +
+			"Should not be able to unmarshal when ecrFormat is too small")
+	}
 
-// }
+}
 
 // Tests newRequestFormat
 func TestNewRequestFormat(t *testing.T) {
 	// Construct message
-	payloadSize := id.ArrIDLen*2 - 1 + sidhinterface.PubKeyByteSize + 1
-	ecrMsg := newLegacySIDHEcrFormat(payloadSize)
+	payloadSize := id.ArrIDLen*2 - 1 + pq.NIKE.PublicKeySize() + 1
+	ecrMsg := newEcrFormat(payloadSize)
 	expectedPayload := newPayload(id.ArrIDLen, "ownership")
 	ecrMsg.SetPayload(expectedPayload)
 	reqMsg, err := newRequestFormat(ecrMsg.GetPayload())
@@ -339,15 +341,15 @@ func TestNewRequestFormat(t *testing.T) {
 
 	// FIXME: Commented out for now.. it's not clear why this was necessary
 	// if !bytes.Equal(reqMsg.GetPayload(), make([]byte, 0,
-	// 	sidhinterface.PubKeyByteSize)) {
+	// 	pq.NIKE.PublicKeySize())) {
 	// 	t.Errorf("newRequestFormat() error: "+
 	// 		"Unexpected msgPayload field in requestFormat."+
 	// 		"\n\tExpected: %v"+
 	// 		"\n\tReceived: %v", make([]byte, 0), reqMsg.GetPayload())
 	// }
 
-	payloadSize = ownershipSize*2 + sidhinterface.PubKeyByteSize + 1
-	ecrMsg = newLegacySIDHEcrFormat(payloadSize)
+	payloadSize = ownershipSize*2 + pq.NIKE.PublicKeySize() + 1
+	ecrMsg = newEcrFormat(payloadSize)
 	reqMsg, err = newRequestFormat(ecrMsg.GetPayload())
 	if err == nil {
 		t.Errorf("Expecter error: Should be invalid size when calling newRequestFormat")
@@ -357,47 +359,47 @@ func TestNewRequestFormat(t *testing.T) {
 
 /* Setter/Getter tests for RequestFormat */
 
-// // Unit test for get/SetID
-// func TestRequestFormat_SetGetID(t *testing.T) {
-// 	// Construct message
-// 	payloadSize := id.ArrIDLen*2 - 1 + sidhinterface.PubKeyByteSize + 1
-// 	ecrMsg := newEcrFormat(payloadSize)
-// 	expectedPayload := newPayload(id.ArrIDLen, "ownership")
-// 	ecrMsg.SetPayload(expectedPayload)
-// 	reqMsg, err := newRequestFormat(ecrMsg.GetPayload())
-// 	if err != nil {
-// 		t.Fatalf("newRequestFormat() error: "+
-// 			"Failed to construct message: %v", err)
-// 	}
+// Unit test for get/SetID
+func TestRequestFormat_SetGetID(t *testing.T) {
+	// Construct message
+	payloadSize := id.ArrIDLen*2 - 1 + pq.NIKE.PublicKeySize() + 1
+	ecrMsg := newEcrFormat(payloadSize)
+	expectedPayload := newPayload(id.ArrIDLen, "ownership")
+	ecrMsg.SetPayload(expectedPayload)
+	reqMsg, err := newRequestFormat(ecrMsg.GetPayload())
+	if err != nil {
+		t.Fatalf("newRequestFormat() error: "+
+			"Failed to construct message: %v", err)
+	}
 
-// 	// Test SetID
-// 	prng := rand.New(rand.NewSource(42))
-// 	expectedId := randID(prng, id.User)
-// 	reqMsg.SetID(expectedId)
-// 	if !bytes.Equal(reqMsg.id, expectedId.Bytes()) {
-// 		t.Errorf("SetID() error: "+
-// 			"Id field does not have expected value."+
-// 			"\n\tExpected: %v\n\tReceived: %v", expectedId,
-// 			reqMsg.id)
-// 	}
+	// Test SetID
+	prng := rand.New(rand.NewSource(42))
+	expectedId := randID(prng, id.User)
+	reqMsg.SetID(expectedId)
+	if !bytes.Equal(reqMsg.id, expectedId.Bytes()) {
+		t.Errorf("SetID() error: "+
+			"Id field does not have expected value."+
+			"\n\tExpected: %v\n\tReceived: %v", expectedId,
+			reqMsg.id)
+	}
 
-// 	// Test GetID
-// 	receivedId, err := reqMsg.GetID()
-// 	if err != nil {
-// 		t.Fatalf("GetID() error: "+
-// 			"Retrieved id does not match expected value:"+
-// 			"\n\tExpected: %v\n\tReceived: %v", expectedId, receivedId)
-// 	}
+	// Test GetID
+	receivedId, err := reqMsg.GetID()
+	if err != nil {
+		t.Fatalf("GetID() error: "+
+			"Retrieved id does not match expected value:"+
+			"\n\tExpected: %v\n\tReceived: %v", expectedId, receivedId)
+	}
 
-// 	// Test GetID error: unmarshal-able ID in requestFormat
-// 	reqMsg.id = []byte("badId")
-// 	receivedId, err = reqMsg.GetID()
-// 	if err == nil {
-// 		t.Errorf("GetID() error: " +
-// 			"Should not be able get ID from request message ")
-// 	}
+	// Test GetID error: unmarshal-able ID in requestFormat
+	reqMsg.id = []byte("badId")
+	receivedId, err = reqMsg.GetID()
+	if err == nil {
+		t.Errorf("GetID() error: " +
+			"Should not be able get ID from request message ")
+	}
 
-// }
+}
 
 // Unit test for get/SetMsgPayload
 func TestRequestFormat_SetGetMsgPayload(t *testing.T) {

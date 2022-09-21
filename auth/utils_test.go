@@ -8,7 +8,17 @@
 package auth
 
 import (
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/cloudflare/circl/dh/sidh"
+
+	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/crypto/large"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+
 	"gitlab.com/elixxir/client/auth/store"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix/message"
@@ -17,18 +27,12 @@ import (
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/e2e/receive"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
 	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/states"
-	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -98,8 +102,15 @@ func (m mockE2eHandler) UnregisterUserListeners(*id.ID) {}
 
 func (m mockE2eHandler) AddPartner(partnerID *id.ID,
 	partnerPubKey, myPrivKey *cyclic.Int,
-	partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey,
+	partnerPQPubKey nike.PublicKey, myPQPrivKey nike.PrivateKey,
 	sendParams, receiveParams session.Params) (partner.Manager, error) {
+	return nil, nil
+}
+
+func (m mockE2eHandler) AddPartnerLegacySIDH(partnerID *id.ID,
+	partnerPubKey, myPrivKey *cyclic.Int,
+	partnerSIDHPubKey *sidh.PublicKey, mySIDHPrivKey *sidh.PrivateKey,
+	sendParams, receiveParams session.Params) (partner.ManagerLegacySIDH, error) {
 	return nil, nil
 }
 
@@ -163,8 +174,9 @@ func (m mockE2eHandler) DeletePartnerCallbacks(partnerID *id.ID) {
 
 type mockSentRequestHandler struct{}
 
-func (msrh *mockSentRequestHandler) Add(sr *store.SentRequest)    {}
-func (msrh *mockSentRequestHandler) Delete(sr *store.SentRequest) {}
+func (msrh *mockSentRequestHandler) Add(sr store.SentRequestInterface)           {}
+func (msrh *mockSentRequestHandler) AddLegacySIDH(sr store.SentRequestInterface) {}
+func (msrh *mockSentRequestHandler) Delete(sr store.SentRequestInterface)        {}
 
 func getGroup() *cyclic.Group {
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +

@@ -9,23 +9,21 @@ package session
 
 import (
 	"bytes"
-	"math/rand"
-	"reflect"
-	"testing"
-
-	"gitlab.com/xx_network/crypto/csprng"
-
-	"gitlab.com/elixxir/client/e2e/pq"
+	"github.com/cloudflare/circl/dh/sidh"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/crypto/csprng"
+	"math/rand"
+	"reflect"
+	"testing"
 )
 
 // TestGenerateE2ESessionBaseKey smoke tests the GenerateE2ESessionBaseKey
 // function to ensure that it produces the correct key on both sides of the
 // connection.
-func TestGenerateE2ESessionBaseKey(t *testing.T) {
+func TestGenerateE2ESessionBaseKeyLegacySIDH(t *testing.T) {
 	rng := fastRNG.NewStreamGenerator(1, 3, csprng.NewSystemRNG)
 	myRng := rng.GetStream()
 
@@ -38,15 +36,21 @@ func TestGenerateE2ESessionBaseKey(t *testing.T) {
 		myRng)
 	dhPublicKeyB := dh.GeneratePublicKey(dhPrivateKeyB, grp)
 
-	// PQ keys
-	privA, pubA := pq.NIKE.NewKeypair()
-	privB, pubB := pq.NIKE.NewKeypair()
+	// SIDH keys
+	pubA := sidh.NewPublicKey(sidh.Fp434, sidh.KeyVariantSidhA)
+	privA := sidh.NewPrivateKey(sidh.Fp434, sidh.KeyVariantSidhA)
+	_ = privA.Generate(myRng)
+	privA.GeneratePublicKey(pubA)
+	pubB := sidh.NewPublicKey(sidh.Fp434, sidh.KeyVariantSidhB)
+	privB := sidh.NewPrivateKey(sidh.Fp434, sidh.KeyVariantSidhB)
+	_ = privB.Generate(myRng)
+	privB.GeneratePublicKey(pubB)
 
 	myRng.Close()
 
-	baseKey1 := GenerateE2ESessionBaseKey(dhPrivateKeyA, dhPublicKeyB,
+	baseKey1 := GenerateE2ESessionBaseKeyLegacySIDH(dhPrivateKeyA, dhPublicKeyB,
 		grp, privA, pubB)
-	baseKey2 := GenerateE2ESessionBaseKey(dhPrivateKeyB, dhPublicKeyA,
+	baseKey2 := GenerateE2ESessionBaseKeyLegacySIDH(dhPrivateKeyB, dhPublicKeyA,
 		grp, privB, pubA)
 
 	if !reflect.DeepEqual(baseKey1, baseKey2) {
@@ -57,7 +61,7 @@ func TestGenerateE2ESessionBaseKey(t *testing.T) {
 }
 
 // Happy path of newCypher.
-func Test_newCypher(t *testing.T) {
+func Test_newCypherLegacySIDH(t *testing.T) {
 	s, _ := makeTestSession()
 
 	expectedKey := &cypher{
@@ -74,7 +78,7 @@ func Test_newCypher(t *testing.T) {
 }
 
 // Happy path of cypher.GetSession.
-func Test_cypher_GetSession(t *testing.T) {
+func Test_cypher_GetSessionLegacySIDH(t *testing.T) {
 	s, _ := makeTestSession()
 
 	cy := newCypher(s, rand.Uint32())
@@ -91,7 +95,7 @@ func Test_cypher_GetSession(t *testing.T) {
 }
 
 // Happy path of cypher.Fingerprint.
-func Test_cypher_Fingerprint(t *testing.T) {
+func Test_cypher_FingerprintLegacySIDH(t *testing.T) {
 	s, _ := makeTestSession()
 
 	cy := newCypher(s, rand.Uint32())
@@ -119,7 +123,7 @@ func Test_cypher_Fingerprint(t *testing.T) {
 	}
 }
 
-func Test_cypher_EncryptDecrypt(t *testing.T) {
+func Test_cypher_EncryptDecryptLegacySIDH(t *testing.T) {
 
 	const numTests = 100
 
@@ -171,7 +175,7 @@ func Test_cypher_EncryptDecrypt(t *testing.T) {
 }
 
 // Happy path of cypher.Use.
-func Test_cypher_Use(t *testing.T) {
+func Test_cypher_UseLegacySIDH(t *testing.T) {
 	s, _ := makeTestSession()
 
 	keyNum := uint32(rand.Int31n(31))
@@ -186,7 +190,7 @@ func Test_cypher_Use(t *testing.T) {
 }
 
 // Happy path of cypher.generateKey.
-func Test_cypher_generateKey(t *testing.T) {
+func Test_cypher_generateKeyLegacySIDH(t *testing.T) {
 	s, _ := makeTestSession()
 
 	k := newCypher(s, rand.Uint32())

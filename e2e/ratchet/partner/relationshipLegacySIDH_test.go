@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/cloudflare/circl/dh/sidh"
+
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
@@ -20,18 +22,18 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 
-	"gitlab.com/elixxir/client/e2e/pq"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	util "gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 )
 
 // Subtest: unmarshal/marshal with one session in the buff
-func TestRelationship_MarshalUnmarshal(t *testing.T) {
-	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner,
-		mgr.originMyPrivKey, mgr.originPartnerPubKey,
-		mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey,
-		session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+func TestRelationship_MarshalUnmarshalLegacySIDH(t *testing.T) {
+	mgr, kv := makeTestRelationshipManagerLegacySIDH(t)
+	sb := NewRelationshipLegacySIDH(kv, session.Send, mgr.myID,
+		mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey,
+		mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey,
+		session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 
 	// Serialization should include session slice only
 	serialized, err := sb.marshal()
@@ -39,12 +41,12 @@ func TestRelationship_MarshalUnmarshal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sb2 := &relationship{
+	sb2 := &relationshipLegacySIDH{
 		grp:         mgr.grp,
 		t:           0,
 		kv:          sb.kv,
-		sessions:    make([]*session.Session, 0),
-		sessionByID: make(map[session.SessionID]*session.Session),
+		sessions:    make([]*session.SessionLegacySIDH, 0),
+		sessionByID: make(map[session.SessionID]*session.SessionLegacySIDH),
 	}
 
 	err = sb2.unmarshal(serialized)
@@ -53,49 +55,51 @@ func TestRelationship_MarshalUnmarshal(t *testing.T) {
 	}
 
 	// compare sb2 session list and map
-	if !relationshipsEqual(sb, sb2) {
+	if !relationshipsEqualLegacySIDH(sb, sb2) {
 		t.Error("session buffs not equal")
 	}
 }
 
 // Shows that Relationship returns an equivalent session buff to the one that was saved
-func TestLoadRelationship(t *testing.T) {
-	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+func TestLoadRelationshipLegacySIDH(t *testing.T) {
+	mgr, kv := makeTestRelationshipManagerLegacySIDH(t)
+	sb := NewRelationshipLegacySIDH(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 
 	err := sb.save()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	sb2, err := LoadRelationship(kv, session.Send, mgr.myID, mgr.partner, mockCyHandler{}, mgr.grp, mgr.rng)
+	sb2, err := LoadRelationshipLegacySIDH(kv, session.Send, mgr.myID, mgr.partner, mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !relationshipsEqual(sb, sb2) {
+	if !relationshipsEqualLegacySIDH(sb, sb2) {
 		t.Error("session buffers not equal")
 	}
 }
 
 // Shows that a deleted Relationship can no longer be pulled from store
-func Test_deleteRelationship(t *testing.T) {
-	mgr, kv := makeTestRelationshipManager(t)
+func Test_deleteRelationshipLegacySIDH(t *testing.T) {
+	mgr, kv := makeTestRelationshipManagerLegacySIDH(t)
 
 	// Generate send relationship
-	mgr.send = NewRelationship(kv, session.Send, mgr.myID,
-		mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey,
-		mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey,
-		session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	mgr.send = NewRelationshipLegacySIDH(kv, session.Send,
+		mgr.myID, mgr.partner, mgr.originMyPrivKey,
+		mgr.originPartnerPubKey, mgr.originMySIDHPrivKey,
+		mgr.originPartnerSIDHPubKey, session.GetDefaultParams(),
+		mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 	if err := mgr.send.save(); err != nil {
 		t.Fatal(err)
 	}
 
 	// Generate receive relationship
-	mgr.receive = NewRelationship(kv, session.Receive, mgr.myID,
-		mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey,
-		mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey,
-		session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	mgr.receive = NewRelationshipLegacySIDH(kv, session.Receive,
+		mgr.myID, mgr.partner, mgr.originMyPrivKey,
+		mgr.originPartnerPubKey, mgr.originMySIDHPrivKey,
+		mgr.originPartnerSIDHPubKey, session.GetDefaultParams(),
+		mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 	if err := mgr.receive.save(); err != nil {
 		t.Fatal(err)
 	}
@@ -105,19 +109,19 @@ func Test_deleteRelationship(t *testing.T) {
 		t.Fatalf("DeleteRelationship error: Could not delete manager: %v", err)
 	}
 
-	_, err = LoadRelationship(kv, session.Send, mgr.myID, mgr.partner, mockCyHandler{}, mgr.grp, mgr.rng)
+	_, err = LoadRelationshipLegacySIDH(kv, session.Send, mgr.myID, mgr.partner, mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 	if err == nil {
 		t.Fatalf("DeleteRelationship error: Should not have loaded deleted relationship: %v", err)
 	}
 
-	_, err = LoadRelationship(kv, session.Receive, mgr.myID, mgr.partner, mockCyHandler{}, mgr.grp, mgr.rng)
+	_, err = LoadRelationshipLegacySIDH(kv, session.Receive, mgr.myID, mgr.partner, mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 	if err == nil {
 		t.Fatalf("DeleteRelationship error: Should not have loaded deleted relationship: %v", err)
 	}
 }
 
 // Shows that a deleted relationship fingerprint can no longer be pulled from store
-func TestRelationship_deleteRelationshipFingerprint(t *testing.T) {
+func TestRelationship_deleteRelationshipFingerprintLegacySIDH(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Fatalf("deleteRelationshipFingerprint error: " +
@@ -125,8 +129,8 @@ func TestRelationship_deleteRelationshipFingerprint(t *testing.T) {
 		}
 	}()
 
-	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+	mgr, kv := makeTestRelationshipManagerLegacySIDH(t)
+	sb := NewRelationshipLegacySIDH(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 
 	err := sb.save()
 	if err != nil {
@@ -143,9 +147,9 @@ func TestRelationship_deleteRelationshipFingerprint(t *testing.T) {
 }
 
 // Shows that Relationship returns a valid session buff
-func TestNewRelationshipBuff(t *testing.T) {
-	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+func TestNewRelationshipLegacySIDHBuffLegacySIDH(t *testing.T) {
+	mgr, kv := makeTestRelationshipManagerLegacySIDH(t)
+	sb := NewRelationshipLegacySIDH(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 
 	if sb.sessionByID == nil || len(sb.sessionByID) != 1 {
 		t.Error("session map should not be nil, and should have one " +
@@ -158,9 +162,9 @@ func TestNewRelationshipBuff(t *testing.T) {
 }
 
 // Shows that AddSession adds one session to the relationship
-func TestRelationship_AddSession(t *testing.T) {
-	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+func TestRelationship_AddSessionLegacySIDH(t *testing.T) {
+	mgr, kv := makeTestRelationshipManagerLegacySIDH(t)
+	sb := NewRelationshipLegacySIDH(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 
 	if len(sb.sessions) != 1 {
 		t.Error("starting session slice length should be 1")
@@ -191,24 +195,30 @@ func TestRelationship_AddSession(t *testing.T) {
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 	partnerID := id.NewIdFromString("zezima", id.User, t)
 
-	_, partnerPQPubKey := pq.NIKE.NewKeypair()
-	myPQPrivKey, _ := pq.NIKE.NewKeypair()
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
-	baseKey := session.GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
-		myPQPrivKey, partnerPQPubKey)
+	baseKey := session.GenerateE2ESessionBaseKeyLegacySIDH(myPrivKey, partnerPubKey, grp,
+		mySIDHPrivKey, partnerSIDHPubKey)
 	sid := session.GetSessionIDFromBaseKey(baseKey)
 	frng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
-	s := session.NewSession(kv, session.Send, partnerID,
+	s := session.NewSessionLegacySIDH(kv, session.Send, partnerID,
 		myPrivKey, partnerPubKey, baseKey,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, []byte(""), session.Sending,
-		session.GetDefaultParams(), mockCyHandler{}, grp, frng)
+		session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, grp, frng)
 	// Note: AddSession doesn't change the session relationship or set anything else up
 	// to match the session to the session buffer. To work properly, the session
 	// should have been created using the same relationship (which is not the case in
 	// this test.)
 	sb.AddSession(myPrivKey, partnerPubKey, baseKey,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultParams())
 	if len(sb.sessions) != 2 {
 		t.Error("ending session slice length should be 2")
@@ -222,9 +232,9 @@ func TestRelationship_AddSession(t *testing.T) {
 }
 
 // GetNewest should get the session that was most recently added to the buff
-func TestRelationship_GetNewest(t *testing.T) {
-	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+func TestRelationship_GetNewestLegacySIDH(t *testing.T) {
+	mgr, kv := makeTestRelationshipManagerLegacySIDH(t)
+	sb := NewRelationshipLegacySIDH(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 
 	// The newest session should be nil upon session buffer creation
 	nilSession := sb.GetNewest()
@@ -255,33 +265,39 @@ func TestRelationship_GetNewest(t *testing.T) {
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 	partnerID := id.NewIdFromString("zezima", id.User, t)
 
-	_, partnerPQPubKey := pq.NIKE.NewKeypair()
-	myPQPrivKey, _ := pq.NIKE.NewKeypair()
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
-	baseKey := session.GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
-		myPQPrivKey, partnerPQPubKey)
+	baseKey := session.GenerateE2ESessionBaseKeyLegacySIDH(myPrivKey, partnerPubKey, grp,
+		mySIDHPrivKey, partnerSIDHPubKey)
 	sid := session.GetSessionIDFromBaseKey(baseKey)
 	frng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
-	s := session.NewSession(kv, session.Send, partnerID,
+	s := session.NewSessionLegacySIDH(kv, session.Send, partnerID,
 		myPrivKey, partnerPubKey, baseKey,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, []byte(""), session.Unconfirmed,
-		session.GetDefaultParams(), mockCyHandler{}, grp, frng)
+		session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, grp, frng)
 
 	sb.AddSession(myPrivKey, partnerPubKey, nil,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultParams())
 	if s.GetID() != sb.GetNewest().GetID() {
 		t.Error("session added should have same ID")
 	}
 
-	session2 := session.NewSession(kv, session.Send, partnerID,
+	session2 := session.NewSessionLegacySIDH(kv, session.Send, partnerID,
 		myPrivKey, partnerPubKey, baseKey,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, []byte(""), session.Unconfirmed,
-		session.GetDefaultParams(), mockCyHandler{}, grp, frng)
+		session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, grp, frng)
 	sb.AddSession(myPrivKey, partnerPubKey, nil,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultParams())
 	if session2.GetID() != sb.GetNewest().GetID() {
 		t.Error("session added should have same ID")
@@ -290,9 +306,9 @@ func TestRelationship_GetNewest(t *testing.T) {
 }
 
 // Shows that Confirm confirms the specified session in the buff
-func TestRelationship_Confirm(t *testing.T) {
-	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+func TestRelationship_ConfirmLegacySIDH(t *testing.T) {
+	mgr, kv := makeTestRelationshipManagerLegacySIDH(t)
+	sb := NewRelationshipLegacySIDH(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 
 	grp := cyclic.NewGroup(
 		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B"+
@@ -315,15 +331,21 @@ func TestRelationship_Confirm(t *testing.T) {
 	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 
-	_, partnerPQPubKey := pq.NIKE.NewKeypair()
-	myPQPrivKey, _ := pq.NIKE.NewKeypair()
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
-	baseKey := session.GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
-		myPQPrivKey, partnerPQPubKey)
+	baseKey := session.GenerateE2ESessionBaseKeyLegacySIDH(myPrivKey, partnerPubKey, grp,
+		mySIDHPrivKey, partnerSIDHPubKey)
 	sid := session.GetSessionIDFromBaseKey(baseKey)
 
 	sb.AddSession(myPrivKey, partnerPubKey, nil,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultParams())
 	sb.sessions[0].SetNegotiationStatus(session.Sent)
 
@@ -342,9 +364,9 @@ func TestRelationship_Confirm(t *testing.T) {
 }
 
 // Shows that the session buff returns an error when the session doesn't exist
-func TestRelationship_Confirm_Err(t *testing.T) {
-	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+func TestRelationship_Confirm_ErrLegacySIDH(t *testing.T) {
+	mgr, kv := makeTestRelationshipManagerLegacySIDH(t)
+	sb := NewRelationshipLegacySIDH(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 
 	grp := cyclic.NewGroup(
 		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B"+
@@ -368,18 +390,24 @@ func TestRelationship_Confirm_Err(t *testing.T) {
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 	partnerID := id.NewIdFromString("zezima", id.User, t)
 
-	_, partnerPQPubKey := pq.NIKE.NewKeypair()
-	myPQPrivKey, _ := pq.NIKE.NewKeypair()
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
-	baseKey := session.GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
-		myPQPrivKey, partnerPQPubKey)
+	baseKey := session.GenerateE2ESessionBaseKeyLegacySIDH(myPrivKey, partnerPubKey, grp,
+		mySIDHPrivKey, partnerSIDHPubKey)
 	sid := session.GetSessionIDFromBaseKey(baseKey)
 	frng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
-	s := session.NewSession(kv, session.Send, partnerID,
+	s := session.NewSessionLegacySIDH(kv, session.Send, partnerID,
 		myPrivKey, partnerPubKey, baseKey,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, []byte(""), session.Unconfirmed,
-		session.GetDefaultParams(), mockCyHandler{}, grp, frng)
+		session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, grp, frng)
 
 	err := sb.Confirm(s.GetID())
 	if err == nil {
@@ -388,9 +416,9 @@ func TestRelationship_Confirm_Err(t *testing.T) {
 }
 
 // Shows that a session can get got by ID from the buff
-func TestRelationship_GetByID(t *testing.T) {
-	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+func TestRelationship_GetByIDLegacySIDH(t *testing.T) {
+	mgr, kv := makeTestRelationshipManagerLegacySIDH(t)
+	sb := NewRelationshipLegacySIDH(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 
 	grp := cyclic.NewGroup(
 		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B"+
@@ -413,15 +441,21 @@ func TestRelationship_GetByID(t *testing.T) {
 	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 
-	_, partnerPQPubKey := pq.NIKE.NewKeypair()
-	myPQPrivKey, _ := pq.NIKE.NewKeypair()
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
-	baseKey := session.GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
-		myPQPrivKey, partnerPQPubKey)
+	baseKey := session.GenerateE2ESessionBaseKeyLegacySIDH(myPrivKey, partnerPubKey, grp,
+		mySIDHPrivKey, partnerSIDHPubKey)
 	sid := session.GetSessionIDFromBaseKey(baseKey)
 
 	s := sb.AddSession(myPrivKey, partnerPubKey, nil,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultParams())
 	session2 := sb.GetByID(s.GetID())
 	if !reflect.DeepEqual(s, session2) {
@@ -431,20 +465,20 @@ func TestRelationship_GetByID(t *testing.T) {
 
 // Shows that GetNewestRekeyableSession acts as expected:
 // returning sessions that are confirmed and past rekeyThreshold
-func TestRelationship_GetNewestRekeyableSession(t *testing.T) {
-	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
-	baseKey := session.GenerateE2ESessionBaseKey(mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.grp,
-		mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey)
+func TestRelationship_GetNewestRekeyableSessionLegacySIDH(t *testing.T) {
+	mgr, kv := makeTestRelationshipManagerLegacySIDH(t)
+	sb := NewRelationshipLegacySIDH(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
+	baseKey := session.GenerateE2ESessionBaseKeyLegacySIDH(mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.grp,
+		mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey)
 	sid := session.GetSessionIDFromBaseKey(baseKey)
-	sb.AddSession(mgr.originMyPrivKey, mgr.originPartnerPubKey, baseKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, sid, session.Unconfirmed, session.GetDefaultParams())
+	sb.AddSession(mgr.originMyPrivKey, mgr.originPartnerPubKey, baseKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, sid, session.Unconfirmed, session.GetDefaultParams())
 	// no available rekeyable sessions: nil
 	session2 := sb.getNewestRekeyableSession()
 	if session2 != sb.sessions[1] {
 		t.Error("newest rekeyable session should be the unconfired session")
 	}
 
-	_ = sb.AddSession(mgr.originMyPrivKey, mgr.originPartnerPubKey, baseKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, sid, session.Sending, session.GetDefaultParams())
+	_ = sb.AddSession(mgr.originMyPrivKey, mgr.originPartnerPubKey, baseKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, sid, session.Sending, session.GetDefaultParams())
 	sb.sessions[0].SetNegotiationStatus(session.Confirmed)
 	session3 := sb.getNewestRekeyableSession()
 
@@ -456,7 +490,7 @@ func TestRelationship_GetNewestRekeyableSession(t *testing.T) {
 
 	// add another rekeyable session: that session
 	// show the newest session is selected
-	_ = sb.AddSession(mgr.originMyPrivKey, mgr.originPartnerPubKey, baseKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, sid, session.Sending, session.GetDefaultParams())
+	_ = sb.AddSession(mgr.originMyPrivKey, mgr.originPartnerPubKey, baseKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, sid, session.Sending, session.GetDefaultParams())
 
 	sb.sessions[0].SetNegotiationStatus(session.Confirmed)
 
@@ -480,12 +514,12 @@ func TestRelationship_GetNewestRekeyableSession(t *testing.T) {
 }
 
 // Shows that GetSessionForSending follows the hierarchy of sessions correctly
-func TestRelationship_GetSessionForSending(t *testing.T) {
-	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+func TestRelationship_GetSessionForSendingLegacySIDH(t *testing.T) {
+	mgr, kv := makeTestRelationshipManagerLegacySIDH(t)
+	sb := NewRelationshipLegacySIDH(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 
-	sb.sessions = make([]*session.Session, 0)
-	sb.sessionByID = make(map[session.SessionID]*session.Session)
+	sb.sessions = make([]*session.SessionLegacySIDH, 0)
+	sb.sessionByID = make(map[session.SessionID]*session.SessionLegacySIDH)
 
 	none := sb.getSessionForSending()
 	if none != nil {
@@ -513,16 +547,22 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 
-	_, partnerPQPubKey := pq.NIKE.NewKeypair()
-	myPQPrivKey, _ := pq.NIKE.NewKeypair()
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
-	baseKey := session.GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
-		myPQPrivKey, partnerPQPubKey)
+	baseKey := session.GenerateE2ESessionBaseKeyLegacySIDH(myPrivKey, partnerPubKey, grp,
+		mySIDHPrivKey, partnerSIDHPubKey)
 	sid := session.GetSessionIDFromBaseKey(baseKey)
 
-	s, kv := session.CreateTestSession(2000, 1000, 1000, session.Unconfirmed, t)
+	s, kv := session.CreateTestSessionLegacySIDH(2000, 1000, 1000, session.Unconfirmed, t)
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultParams())
 	sb.sessions[0] = s
 	sending := sb.getSessionForSending()
@@ -535,9 +575,9 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 			sending.IsConfirmed())
 	}
 
-	s2, _ := session.CreateTestSession(2000, 2000, 1000, session.Unconfirmed, t)
+	s2, _ := session.CreateTestSessionLegacySIDH(2000, 2000, 1000, session.Unconfirmed, t)
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultParams())
 	sb.sessions[0] = s2
 	sending = sb.getSessionForSending()
@@ -552,9 +592,9 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 	}
 
 	// Third case: confirmed rekey
-	s3, _ := session.CreateTestSession(2000, 600, 1000, session.Confirmed, t)
+	s3, _ := session.CreateTestSessionLegacySIDH(2000, 600, 1000, session.Confirmed, t)
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultParams())
 	sb.sessions[0] = s3
 	sending = sb.getSessionForSending()
@@ -568,9 +608,9 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 	}
 
 	// Fourth case: confirmed active
-	s4, _ := session.CreateTestSession(2000, 2000, 1000, session.Confirmed, t)
+	s4, _ := session.CreateTestSessionLegacySIDH(2000, 2000, 1000, session.Confirmed, t)
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultParams())
 
 	sb.sessions[0] = s4
@@ -587,12 +627,12 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 }
 
 // Shows that GetKeyForRekey returns a key if there's an appropriate session for rekeying
-func TestSessionBuff_GetKeyForRekey(t *testing.T) {
-	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+func TestSessionBuff_GetKeyForRekeyLegacySIDH(t *testing.T) {
+	mgr, kv := makeTestRelationshipManagerLegacySIDH(t)
+	sb := NewRelationshipLegacySIDH(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 
-	sb.sessions = make([]*session.Session, 0)
-	sb.sessionByID = make(map[session.SessionID]*session.Session)
+	sb.sessions = make([]*session.SessionLegacySIDH, 0)
+	sb.sessionByID = make(map[session.SessionID]*session.SessionLegacySIDH)
 
 	// no available rekeyable sessions: error
 	key, err := sb.getKeyForRekey()
@@ -624,15 +664,21 @@ func TestSessionBuff_GetKeyForRekey(t *testing.T) {
 	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 
-	_, partnerPQPubKey := pq.NIKE.NewKeypair()
-	myPQPrivKey, _ := pq.NIKE.NewKeypair()
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
-	baseKey := session.GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
-		myPQPrivKey, partnerPQPubKey)
+	baseKey := session.GenerateE2ESessionBaseKeyLegacySIDH(myPrivKey, partnerPubKey, grp,
+		mySIDHPrivKey, partnerSIDHPubKey)
 	sid := session.GetSessionIDFromBaseKey(baseKey)
 
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultParams())
 	sb.sessions[0].SetNegotiationStatus(session.Confirmed)
 	key, err = sb.getKeyForRekey()
@@ -645,12 +691,12 @@ func TestSessionBuff_GetKeyForRekey(t *testing.T) {
 }
 
 // Shows that GetKeyForSending returns a key if there's an appropriate session for sending
-func TestSessionBuff_GetKeyForSending(t *testing.T) {
-	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey, session.GetDefaultParams(), mockCyHandler{}, mgr.grp, mgr.rng)
+func TestSessionBuff_GetKeyForSendingLegacySIDH(t *testing.T) {
+	mgr, kv := makeTestRelationshipManagerLegacySIDH(t)
+	sb := NewRelationshipLegacySIDH(kv, session.Send, mgr.myID, mgr.partner, mgr.originMyPrivKey, mgr.originPartnerPubKey, mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey, session.GetDefaultParams(), mockCyHandlerLegacySIDH{}, mgr.grp, mgr.rng)
 
-	sb.sessions = make([]*session.Session, 0)
-	sb.sessionByID = make(map[session.SessionID]*session.Session)
+	sb.sessions = make([]*session.SessionLegacySIDH, 0)
+	sb.sessionByID = make(map[session.SessionID]*session.SessionLegacySIDH)
 
 	// no available rekeyable sessions: error
 	key, err := sb.getKeyForSending()
@@ -682,15 +728,21 @@ func TestSessionBuff_GetKeyForSending(t *testing.T) {
 	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 
-	_, partnerPQPubKey := pq.NIKE.NewKeypair()
-	myPQPrivKey, _ := pq.NIKE.NewKeypair()
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
-	baseKey := session.GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
-		myPQPrivKey, partnerPQPubKey)
+	baseKey := session.GenerateE2ESessionBaseKeyLegacySIDH(myPrivKey, partnerPubKey, grp,
+		mySIDHPrivKey, partnerSIDHPubKey)
 	sid := session.GetSessionIDFromBaseKey(baseKey)
 
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultParams())
 	key, err = sb.getKeyForSending()
 	if err != nil {
@@ -702,16 +754,16 @@ func TestSessionBuff_GetKeyForSending(t *testing.T) {
 }
 
 // Shows that TriggerNegotiation sets up for negotiation correctly
-func TestSessionBuff_TriggerNegotiation(t *testing.T) {
-	mgr, kv := makeTestRelationshipManager(t)
-	sb := NewRelationship(kv, session.Send, mgr.myID, mgr.partner,
+func TestSessionBuff_TriggerNegotiationLegacySIDH(t *testing.T) {
+	mgr, kv := makeTestRelationshipManagerLegacySIDH(t)
+	sb := NewRelationshipLegacySIDH(kv, session.Send, mgr.myID, mgr.partner,
 		mgr.originMyPrivKey, mgr.originPartnerPubKey,
-		mgr.originMyPQPrivKey, mgr.originPartnerPQPubKey,
-		session.GetDefaultParams(), mockCyHandler{},
+		mgr.originMySIDHPrivKey, mgr.originPartnerSIDHPubKey,
+		session.GetDefaultParams(), mockCyHandlerLegacySIDH{},
 		mgr.grp, mgr.rng)
 
-	sb.sessions = make([]*session.Session, 0)
-	sb.sessionByID = make(map[session.SessionID]*session.Session)
+	sb.sessions = make([]*session.SessionLegacySIDH, 0)
+	sb.sessionByID = make(map[session.SessionID]*session.SessionLegacySIDH)
 
 	grp := getGroup()
 	rng := csprng.NewSystemRNG()
@@ -720,15 +772,21 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	partnerPubKey := dh.GeneratePublicKey(partnerPrivKey, grp)
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 
-	_, partnerPQPubKey := pq.NIKE.NewKeypair()
-	myPQPrivKey, _ := pq.NIKE.NewKeypair()
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
-	baseKey := session.GenerateE2ESessionBaseKey(myPrivKey, partnerPubKey, grp,
-		myPQPrivKey, partnerPQPubKey)
+	baseKey := session.GenerateE2ESessionBaseKeyLegacySIDH(myPrivKey, partnerPubKey, grp,
+		mySIDHPrivKey, partnerSIDHPubKey)
 	sid := session.GetSessionIDFromBaseKey(baseKey)
 
 	session1 := sb.AddSession(myPrivKey, partnerPubKey, nil,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultParams())
 	session1.SetNegotiationStatus(session.Confirmed)
 	// The added session isn't ready for rekey, so it's not returned here
@@ -738,9 +796,9 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	}
 
 	// Make only a few keys available to trigger the rekeyThreshold
-	session2, _ := session.CreateTestSession(0, 4, 0, session.Sending, t)
+	session2, _ := session.CreateTestSessionLegacySIDH(0, 4, 0, session.Sending, t)
 	_ = sb.AddSession(myPrivKey, partnerPubKey, nil,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, session.GetDefaultParams())
 	sb.sessions[0] = session2
 	session2.SetNegotiationStatus(session.Confirmed)
@@ -763,7 +821,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	//set the retry ratio so the unconfirmed session is always retried
 	p.UnconfirmedRetryRatio = 1
 	session3 := sb.AddSession(myPrivKey, partnerPubKey, nil,
-		myPQPrivKey, partnerPQPubKey,
+		mySIDHPrivKey, partnerSIDHPubKey,
 		sid, session.Sending, p)
 	session3.SetNegotiationStatus(session.Unconfirmed)
 
@@ -799,7 +857,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	}
 }
 
-func makeTestRelationshipManager(t *testing.T) (*manager, *versioned.KV) {
+func makeTestRelationshipManagerLegacySIDH(t *testing.T) (*managerLegacySIDH, *versioned.KV) {
 	grp := cyclic.NewGroup(
 		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B"+
 			"7A8ACCEDC298708F121951D9CF920EC5D146727AA4AE535B0922C688B55B3DD2AE"+
@@ -822,24 +880,26 @@ func makeTestRelationshipManager(t *testing.T) (*manager, *versioned.KV) {
 	myID := id.NewIdFromString("zezima", id.User, t)
 	myPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 
-	_, partnerPQPubKey := pq.NIKE.NewKeypair()
-	myPQPrivKey, _ := pq.NIKE.NewKeypair()
+	partnerSIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
+	partnerSIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
+	partnerSIDHPrivKey.Generate(rng)
+	partnerSIDHPrivKey.GeneratePublicKey(partnerSIDHPubKey)
+	mySIDHPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
+	mySIDHPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
+	mySIDHPrivKey.Generate(rng)
+	mySIDHPrivKey.GeneratePublicKey(mySIDHPubKey)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	frng := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
-	return &manager{
-		kv:                    kv,
-		myID:                  myID,
-		partner:               id.NewIdFromString("zezima", id.User, t),
-		originMyPrivKey:       myPrivKey,
-		originPartnerPubKey:   partnerPubKey,
-		originMyPQPrivKey:     myPQPrivKey,
-		originPartnerPQPubKey: partnerPQPubKey,
-		grp:                   grp,
-		rng:                   frng,
+	return &managerLegacySIDH{
+		kv:                      kv,
+		myID:                    myID,
+		partner:                 id.NewIdFromString("zezima", id.User, t),
+		originMyPrivKey:         myPrivKey,
+		originPartnerPubKey:     partnerPubKey,
+		originMySIDHPrivKey:     mySIDHPrivKey,
+		originPartnerSIDHPubKey: partnerSIDHPubKey,
+		grp:                     grp,
+		rng:                     frng,
 	}, kv
-}
-
-func Test_relationship_getNewestRekeyableSession(t *testing.T) {
-	// TODO: Add test cases.
 }

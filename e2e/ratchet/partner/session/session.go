@@ -663,11 +663,13 @@ func (s *Session) unmarshal(b []byte) error {
 	s.myPrivKey = grp.NewIntFromBytes(sd.MyPrivKey)
 	s.partnerPubKey = grp.NewIntFromBytes(sd.PartnerPubKey)
 
+	s.myPQPrivKey, _ = pq.NIKE.NewKeypair()
 	err = s.myPQPrivKey.FromBytes(sd.MyPQPrivKey)
 	if err != nil {
 		return err
 	}
 
+	_, s.partnerPQPubKey = pq.NIKE.NewKeypair()
 	err = s.partnerPQPubKey.FromBytes(sd.PartnerPQPubKey)
 	if err != nil {
 		return err

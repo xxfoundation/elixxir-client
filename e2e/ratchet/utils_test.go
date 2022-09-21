@@ -43,13 +43,14 @@ func makeTestRatchet() (*Ratchet, *versioned.KV, error) {
 	}
 
 	cyHanlder := mockCyHandler{}
+	cyHanlderLegacySIDH := mockCyHandlerLegacySIDH{}
 	service := mockServices{}
 
 	if err != nil {
 		panic("NewStore() produced an error: " + err.Error())
 	}
 
-	r, err := Load(kv, &id.ID{}, grp, cyHanlder, service, rng)
+	r, err := Load(kv, &id.ID{}, grp, cyHanlder, cyHanlderLegacySIDH, service, rng)
 
 	return r, kv, err
 }

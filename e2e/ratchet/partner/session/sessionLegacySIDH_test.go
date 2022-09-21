@@ -8,17 +8,16 @@
 package session
 
 import (
+	"gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/xx_network/primitives/netTime"
 	"reflect"
 	"testing"
 	"time"
-
-	"gitlab.com/elixxir/client/storage/utility"
-	"gitlab.com/xx_network/primitives/netTime"
 )
 
-func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
+func TestSession_generate_noPrivateKeyReceiveLegacySIDH(t *testing.T) {
 
-	s, _ := makeTestSession()
+	s, _ := makeTestSessionLegacySIDH()
 
 	// run the finalizeKeyNegotation command
 	s.finalizeKeyNegotiation()
@@ -29,8 +28,8 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 	}
 
 	// verify the base key is correct
-	expectedBaseKey := GenerateE2ESessionBaseKey(s.myPrivKey,
-		s.partnerPubKey, s.grp, s.myPQPrivKey, s.partnerPQPubKey)
+	expectedBaseKey := GenerateE2ESessionBaseKeyLegacySIDH(s.myPrivKey,
+		s.partnerPubKey, s.grp, s.mySIDHPrivKey, s.partnerSIDHPubKey)
 
 	if expectedBaseKey.Cmp(s.baseKey) != 0 {
 		t.Errorf("generated base key does not match expected base key")
@@ -48,10 +47,10 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 
 }
 
-func TestSession_generate_PrivateKeySend(t *testing.T) {
+func TestSession_generate_PrivateKeySendLegacySIDH(t *testing.T) {
 
 	// build the session
-	s, _ := makeTestSession()
+	s, _ := makeTestSessionLegacySIDH()
 
 	// run the finalizeKeyNegotation command
 	s.finalizeKeyNegotiation()
@@ -62,8 +61,8 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 	}
 
 	// verify the base key is correct
-	expectedBaseKey := GenerateE2ESessionBaseKey(s.myPrivKey,
-		s.partnerPubKey, s.grp, s.myPQPrivKey, s.partnerPQPubKey)
+	expectedBaseKey := GenerateE2ESessionBaseKeyLegacySIDH(s.myPrivKey,
+		s.partnerPubKey, s.grp, s.mySIDHPrivKey, s.partnerSIDHPubKey)
 
 	if expectedBaseKey.Cmp(s.baseKey) != 0 {
 		t.Errorf("generated base key does not match expected base key")
@@ -82,38 +81,38 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 }
 
 // Shows that NewSession can result in all the fields being populated
-func TestNewSession(t *testing.T) {
+func TestNewSessionLegacySIDH(t *testing.T) {
 	// Make a test session to easily populate all the fields
-	sessionA, _ := makeTestSession()
+	sessionA, _ := makeTestSessionLegacySIDH()
 
 	// Make a new session with the variables we got from MakeTestSession
-	sessionB := NewSession(sessionA.kv, sessionA.t, sessionA.partner,
+	sessionB := NewSessionLegacySIDH(sessionA.kv, sessionA.t, sessionA.partner,
 		sessionA.myPrivKey, sessionA.partnerPubKey, sessionA.baseKey,
-		sessionA.myPQPrivKey, sessionA.partnerPQPubKey,
+		sessionA.mySIDHPrivKey, sessionA.partnerSIDHPubKey,
 		sessionA.GetID(), []byte(""), sessionA.negotiationStatus,
 		sessionA.e2eParams, sessionA.cyHandler, sessionA.grp, sessionA.rng)
 
-	err := cmpSerializedFields(sessionA, sessionB)
+	err := cmpSerializedFieldsLegacySIDH(sessionA, sessionB)
 	if err != nil {
 		t.Error(err)
 	}
 	// For everything else, just make sure it's populated
 	if sessionB.keyState == nil {
-		t.Error("NewSession should populate keyState")
+		t.Error("NewSessionLegacySIDH should populate keyState")
 	}
 	// fixme is this deleted?
 	//if sessionB.relationship == nil {
-	//	t.Error("NewSession should populate relationship")
+	//	t.Error("NewSessionLegacySIDH should populate relationship")
 	//}
 	if sessionB.rekeyThreshold == 0 {
-		t.Error("NewSession should populate rekeyThreshold")
+		t.Error("NewSessionLegacySIDH should populate rekeyThreshold")
 	}
 }
 
 // Shows that LoadSession can result in all the fields being populated
-func TestSession_Load(t *testing.T) {
+func TestSession_LoadLegacySIDH(t *testing.T) {
 	// Make a test session to easily populate all the fields
-	sessionA, kv := makeTestSession()
+	sessionA, kv := makeTestSessionLegacySIDH()
 	err := sessionA.Save()
 	if err != nil {
 		t.Fatal(err)
@@ -123,12 +122,12 @@ func TestSession_Load(t *testing.T) {
 	// initialize a new one for Load, which will set a prefix internally
 
 	// Load another, identical session from the storage
-	sessionB, err := LoadSession(kv, sessionA.GetID(), sessionA.relationshipFingerprint,
+	sessionB, err := LoadSessionLegacySIDH(kv, sessionA.GetID(), sessionA.relationshipFingerprint,
 		sessionA.cyHandler, sessionA.grp, sessionA.rng)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = cmpSerializedFields(sessionA, sessionB)
+	err = cmpSerializedFieldsLegacySIDH(sessionA, sessionB)
 	if err != nil {
 		t.Error(err)
 	}
@@ -149,14 +148,14 @@ func TestSession_Load(t *testing.T) {
 }
 
 // Create a new session. Marshal and unmarshal it
-func TestSession_Serialization(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_SerializationLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	sSerialized, err := s.marshal()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	sDeserialized := &Session{
+	sDeserialized := &SessionLegacySIDH{
 		//relationship: &ratchet.relationship{
 		//	manager: &partner.Manager{ctx: ctx},
 		//},
@@ -171,13 +170,13 @@ func TestSession_Serialization(t *testing.T) {
 }
 
 // PopKey should return a new key from this session
-func TestSession_PopKey(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_PopKeyLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	keyInterface, err := s.PopKey()
 	if err != nil {
 		t.Fatal(err)
 	}
-	key := keyInterface.(*cypher)
+	key := keyInterface.(*cypherLegacySIDH)
 
 	if key == nil {
 		t.Error("PopKey should have returned non-nil key")
@@ -192,8 +191,8 @@ func TestSession_PopKey(t *testing.T) {
 }
 
 // delete should remove unused keys from this session
-func TestSession_Delete(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_DeleteLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	err := s.Save()
 	if err != nil {
 		t.Fatal(err)
@@ -216,8 +215,8 @@ func TestSession_Delete(t *testing.T) {
 // Unfortunately, the key state vector being out of keys is something
 // that will also get caught by the other error first. So it's only practical
 // to test the one error.
-func TestSession_PopKey_Error(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_PopKey_ErrorLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	// Construct a specific state vector that will quickly run out of keys
 	var err error
 	s.keyState, err = utility.NewStateVector(s.kv, "", 0)
@@ -233,13 +232,13 @@ func TestSession_PopKey_Error(t *testing.T) {
 
 // PopRekey should return the next key
 // There's no boundary, except for the number of keyNums in the state vector
-func TestSession_PopReKey(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_PopReKeyLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	keyInterface, err := s.PopReKey()
 	if err != nil {
 		t.Fatal("PopKey should have returned an error")
 	}
-	key := keyInterface.(*cypher)
+	key := keyInterface.(*cypherLegacySIDH)
 
 	if key == nil {
 		t.Error("Key should be non-nil")
@@ -255,8 +254,8 @@ func TestSession_PopReKey(t *testing.T) {
 
 // PopRekey should not return the next key if there are no more keys available
 // in the state vector
-func TestSession_PopReKey_Err(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_PopReKey_ErrLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	// Construct a specific state vector that will quickly run out of keys
 	var err error
 	s.keyState, err = utility.NewStateVector(s.kv, "", 0)
@@ -270,8 +269,8 @@ func TestSession_PopReKey_Err(t *testing.T) {
 }
 
 // Simple test that shows the base key can be got
-func TestSession_GetBaseKey(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_GetBaseKeyLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	baseKey := s.GetBaseKey()
 	if baseKey.Cmp(s.baseKey) != 0 {
 		t.Errorf("expected %v, got %v", baseKey.Text(16), s.baseKey.Text(16))
@@ -279,8 +278,8 @@ func TestSession_GetBaseKey(t *testing.T) {
 }
 
 // Smoke test for GetID
-func TestSession_GetID(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_GetIDLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	sid := s.GetID()
 	if len(sid.Marshal()) == 0 {
 		t.Error("Zero length for session ID!")
@@ -288,8 +287,8 @@ func TestSession_GetID(t *testing.T) {
 }
 
 // Smoke test for GetPartnerPubKey
-func TestSession_GetPartnerPubKey(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_GetPartnerPubKeyLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	partnerPubKey := s.GetPartnerPubKey()
 	if partnerPubKey.Cmp(s.partnerPubKey) != 0 {
 		t.Errorf("expected %v, got %v", partnerPubKey.Text(16), s.partnerPubKey.Text(16))
@@ -297,8 +296,8 @@ func TestSession_GetPartnerPubKey(t *testing.T) {
 }
 
 // Smoke test for GetMyPrivKey
-func TestSession_GetMyPrivKey(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_GetMyPrivKeyLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	myPrivKey := s.GetMyPrivKey()
 	if myPrivKey.Cmp(s.myPrivKey) != 0 {
 		t.Errorf("expected %v, got %v", myPrivKey.Text(16), s.myPrivKey.Text(16))
@@ -306,8 +305,8 @@ func TestSession_GetMyPrivKey(t *testing.T) {
 }
 
 // Shows that IsConfirmed returns whether the session is confirmed
-func TestSession_IsConfirmed(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_IsConfirmedLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	s.negotiationStatus = Unconfirmed
 	if s.IsConfirmed() {
 		t.Error("s was confirmed when it shouldn't have been")
@@ -319,8 +318,8 @@ func TestSession_IsConfirmed(t *testing.T) {
 }
 
 // Shows that Status can result in all possible statuses
-func TestSession_Status(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_StatusLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	var err error
 	s.keyState, err = utility.NewStateVector(s.kv, "", 500)
 	if err != nil {
@@ -348,8 +347,8 @@ func TestSession_Status(t *testing.T) {
 
 // Tests that state transitions as documented don't cause panics
 // Tests that the session saves or doesn't save when appropriate
-func TestSession_SetNegotiationStatus(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_SetNegotiationStatusLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	//	Normal paths: SetNegotiationStatus should not fail
 	// Use timestamps to determine whether a save has occurred
 	s.negotiationStatus = Sending
@@ -428,8 +427,8 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 }
 
 // Tests that TriggerNegotiation makes only valid state transitions
-func TestSession_TriggerNegotiation(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_TriggerNegotiationLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	// Set up num keys used to be > rekeyThreshold: should partnerSource negotiation
 	s.keyState.SetNumAvailableTEST(50, t)
 	s.keyState.SetNumKeysTEST(100, t)
@@ -478,14 +477,14 @@ func TestSession_TriggerNegotiation(t *testing.T) {
 
 // Shows that String doesn't cause errors or panics
 // Also can be used to examine or change output of String()
-func TestSession_String(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_StringLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	t.Log(s.String())
 }
 
 // Shows that GetSource gets the partnerSource we set
-func TestSession_GetTrigger(t *testing.T) {
-	s, _ := makeTestSession()
+func TestSession_GetTriggerLegacySIDH(t *testing.T) {
+	s, _ := makeTestSessionLegacySIDH()
 	thisTrigger := s.GetID()
 	s.partnerSource = thisTrigger
 	if !reflect.DeepEqual(s.GetSource(), thisTrigger) {

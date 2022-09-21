@@ -8,139 +8,142 @@
 package e2e
 
 import (
+	"bytes"
 	"io"
 	"testing"
 	"time"
 
-	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
+
+	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/id"
+
+	"gitlab.com/elixxir/client/catalog"
+	"gitlab.com/elixxir/client/e2e/parse"
+	"gitlab.com/elixxir/client/e2e/pq"
+	"gitlab.com/elixxir/client/e2e/ratchet"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/e2e/receive"
+	"gitlab.com/elixxir/client/e2e/rekey"
+	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/stoppable"
-	util "gitlab.com/elixxir/client/storage/utility"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/primitives/id"
 )
 
-// func Test_manager_SendE2E_Smoke(t *testing.T) {
-// 	streamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
-// 	rng := streamGen.GetStream()
-// 	defer rng.Close()
-// 	netHandler := newMockCmixHandler()
+func Test_manager_SendE2E_Smoke(t *testing.T) {
+	streamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
+	rng := streamGen.GetStream()
+	defer rng.Close()
+	netHandler := newMockCmixHandler()
 
-// 	// Generate new E2E manager
-// 	myKv := versioned.NewKV(ekv.MakeMemstore())
-// 	myID := id.NewIdFromString("myID", id.User, t)
-// 	myNet := newMockCmix(myID, netHandler, t)
-// 	m1 := &manager{
-// 		Switchboard: receive.New(),
-// 		partitioner: parse.NewPartitioner(myKv, myNet.GetMaxMessageLength()),
-// 		net:         myNet,
-// 		myID:        myID,
-// 		events:      mockEventsManager{},
-// 		grp:         myNet.GetInstance().GetE2EGroup(),
-// 		rekeyParams: rekey.GetDefaultParams(),
-// 	}
+	// Generate new E2E manager
+	myKv := versioned.NewKV(ekv.MakeMemstore())
+	myID := id.NewIdFromString("myID", id.User, t)
+	myNet := newMockCmix(myID, netHandler, t)
+	m1 := &manager{
+		Switchboard: receive.New(),
+		partitioner: parse.NewPartitioner(myKv, myNet.GetMaxMessageLength()),
+		net:         myNet,
+		myID:        myID,
+		events:      mockEventsManager{},
+		grp:         myNet.GetInstance().GetE2EGroup(),
+		rekeyParams: rekey.GetDefaultParams(),
+	}
 
-// 	myPrivKey := dh.GeneratePrivateKey(
-// 		dh.DefaultPrivateKeyLength, m1.grp, rng)
-// 	err := ratchet.New(myKv, myID, myPrivKey, m1.grp)
-// 	if err != nil {
-// 		t.Errorf("Failed to generate new ratchet: %+v", err)
-// 	}
+	myPrivKey := dh.GeneratePrivateKey(
+		dh.DefaultPrivateKeyLength, m1.grp, rng)
+	err := ratchet.New(myKv, myID, myPrivKey, m1.grp)
+	if err != nil {
+		t.Errorf("Failed to generate new ratchet: %+v", err)
+	}
 
-// 	myFpGen := &fpGenerator{m1}
-// 	myServices := newMockServices()
+	myFpGen := &fpGenerator{m1}
+	myFpGenLegacySIDH := &fpGeneratorLegacySIDH{m1}
+	myServices := newMockServices()
 
-// 	m1.Ratchet, err = ratchet.Load(
-// 		myKv, myID, m1.grp, myFpGen, myServices, streamGen)
+	m1.Ratchet, err = ratchet.Load(
+		myKv, myID, m1.grp, myFpGen, myFpGenLegacySIDH, myServices, streamGen)
 
-// 	// Generate new E2E manager
-// 	partnerKv := versioned.NewKV(ekv.MakeMemstore())
-// 	partnerID := id.NewIdFromString("partnerID", id.User, t)
-// 	partnerNet := newMockCmix(partnerID, netHandler, t)
-// 	m2 := &manager{
-// 		Switchboard: receive.New(),
-// 		partitioner: parse.NewPartitioner(partnerKv, partnerNet.GetMaxMessageLength()),
-// 		net:         partnerNet,
-// 		myID:        partnerID,
-// 		events:      mockEventsManager{},
-// 		grp:         partnerNet.GetInstance().GetE2EGroup(),
-// 		rekeyParams: rekey.GetDefaultParams(),
-// 	}
+	// Generate new E2E manager
+	partnerKv := versioned.NewKV(ekv.MakeMemstore())
+	partnerID := id.NewIdFromString("partnerID", id.User, t)
+	partnerNet := newMockCmix(partnerID, netHandler, t)
+	m2 := &manager{
+		Switchboard: receive.New(),
+		partitioner: parse.NewPartitioner(partnerKv, partnerNet.GetMaxMessageLength()),
+		net:         partnerNet,
+		myID:        partnerID,
+		events:      mockEventsManager{},
+		grp:         partnerNet.GetInstance().GetE2EGroup(),
+		rekeyParams: rekey.GetDefaultParams(),
+	}
 
-// 	receiveChan := make(chan receive.Message, 10)
-// 	m2.Switchboard.RegisterListener(partnerID, catalog.NoType, &mockListener{receiveChan})
+	receiveChan := make(chan receive.Message, 10)
+	m2.Switchboard.RegisterListener(partnerID, catalog.NoType, &mockListener{receiveChan})
 
-// 	partnerPrivKey := dh.GeneratePrivateKey(
-// 		dh.DefaultPrivateKeyLength, m2.grp, rng)
-// 	err = ratchet.New(partnerKv, partnerID, partnerPrivKey, m2.grp)
-// 	if err != nil {
-// 		t.Errorf("Failed to generate new ratchet: %+v", err)
-// 	}
+	partnerPrivKey := dh.GeneratePrivateKey(
+		dh.DefaultPrivateKeyLength, m2.grp, rng)
+	err = ratchet.New(partnerKv, partnerID, partnerPrivKey, m2.grp)
+	if err != nil {
+		t.Errorf("Failed to generate new ratchet: %+v", err)
+	}
 
-// 	partnerFpGen := &fpGenerator{m2}
-// 	partnerServices := newMockServices()
+	partnerFpGen := &fpGenerator{m2}
+	partnerFpGenLegacySIDH := &fpGeneratorLegacySIDH{m2}
+	partnerServices := newMockServices()
 
-// 	m1.Ratchet, err = ratchet.Load(
-// 		partnerKv, partnerID, m2.grp, partnerFpGen, partnerServices, streamGen)
+	m1.Ratchet, err = ratchet.Load(
+		partnerKv, partnerID, m2.grp, partnerFpGen, partnerFpGenLegacySIDH, partnerServices, streamGen)
 
-// 	// Generate partner identity and add partner
-// 	partnerPubKey, partnerSidhPubKey, mySidhPrivKey, sessionParams :=
-// 		genPartnerKeys(partnerPrivKey, m1.grp, rng, t)
-// 	_, err = m1.Ratchet.AddPartner(partnerID, partnerPubKey, myPrivKey,
-// 		partnerSidhPubKey, mySidhPrivKey, sessionParams, sessionParams)
-// 	if err != nil {
-// 		t.Errorf("Failed to add partner: %+v", err)
-// 	}
+	// Generate partner identity and add partner
 
-// 	payload := []byte("My Payload")
-// 	p := GetDefaultParams()
-// 	_, err = m1.SendE2E(catalog.NoType, partnerID, payload, p)
-// 	if err != nil {
-// 		t.Errorf("SendE2E failed: %+v", err)
-// 	}
+	partnerPubKey, partnerSidhPubKey, mySidhPrivKey, sessionParams :=
+		genPartnerKeys(partnerPrivKey, m1.grp, rng, t)
 
-// 	select {
-// 	case r := <-receiveChan:
-// 		if !bytes.Equal(payload, r.Payload) {
-// 			t.Errorf("Received payload does not match sent payload."+
-// 				"\nexpected: %q\nreceived: %q", payload, r.Payload)
-// 		}
-// 	case <-time.After(305 * time.Millisecond):
-// 		t.Errorf("Timed out waiting for E2E message.")
-// 	}
-// }
+	_, err = m1.Ratchet.AddPartner(partnerID, partnerPubKey, myPrivKey,
+		partnerSidhPubKey, mySidhPrivKey, sessionParams, sessionParams)
+	if err != nil {
+		t.Errorf("Failed to add partner: %+v", err)
+	}
+
+	payload := []byte("My Payload")
+	p := GetDefaultParams()
+	_, err = m1.SendE2E(catalog.NoType, partnerID, payload, p)
+	if err != nil {
+		t.Errorf("SendE2E failed: %+v", err)
+	}
+
+	select {
+	case r := <-receiveChan:
+		if !bytes.Equal(payload, r.Payload) {
+			t.Errorf("Received payload does not match sent payload."+
+				"\nexpected: %q\nreceived: %q", payload, r.Payload)
+		}
+	case <-time.After(305 * time.Millisecond):
+		t.Errorf("Timed out waiting for E2E message.")
+	}
+}
 
 // genPartnerKeys generates the keys needed to add a partner.
 func genPartnerKeys(partnerPrivKey *cyclic.Int, grp *cyclic.Group,
 	rng io.Reader, t testing.TB) (
-	partnerPubKey *cyclic.Int, partnerSidhPubKey *sidh.PublicKey,
-	mySidhPrivKey *sidh.PrivateKey, params session.Params) {
+	partnerPubKey *cyclic.Int, partnerPQPubKey nike.PublicKey,
+	myPQPrivKey nike.PrivateKey, params session.Params) {
 
 	partnerPubKey = dh.GeneratePublicKey(partnerPrivKey, grp)
 
-	partnerSidhPrivKey := util.NewSIDHPrivateKey(sidh.KeyVariantSidhA)
-	partnerSidhPubKey = util.NewSIDHPublicKey(sidh.KeyVariantSidhA)
-	err := partnerSidhPrivKey.Generate(rng)
-	if err != nil {
-		t.Fatalf("Failed to generate partner SIDH private key: %+v", err)
-	}
-	partnerSidhPrivKey.GeneratePublicKey(partnerSidhPubKey)
-
-	mySidhPrivKey = util.NewSIDHPrivateKey(sidh.KeyVariantSidhB)
-	mySidhPubKey := util.NewSIDHPublicKey(sidh.KeyVariantSidhB)
-	err = mySidhPrivKey.Generate(rng)
-	if err != nil {
-		t.Fatalf("Failed to generate my SIDH private key: %+v", err)
-	}
-	mySidhPrivKey.GeneratePublicKey(mySidhPubKey)
+	_, partnerPQPubKey = pq.NIKE.NewKeypair()
+	myPQPrivKey, _ = pq.NIKE.NewKeypair()
 
 	params = session.GetDefaultParams()
 
-	return partnerPubKey, partnerSidhPubKey, mySidhPrivKey, params
+	return partnerPubKey, partnerPQPubKey, myPQPrivKey, params
 }
 
 // Tests that waitForKey returns a key after it waits 5 times.

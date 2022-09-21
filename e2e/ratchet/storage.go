@@ -30,7 +30,7 @@ const (
 
 // Load loads an extant ratchet from disk
 func Load(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
-	cyHandler session.CypherHandler, services Services, rng *fastRNG.StreamGenerator) (
+	cyHandler session.CypherHandler, cyHandlerLegacySIDH session.CypherHandlerLegacySIDH, services Services, rng *fastRNG.StreamGenerator) (
 	*Ratchet, error) {
 	kv = kv.Prefix(packagePrefix)
 
@@ -47,8 +47,9 @@ func Load(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
 	}
 
 	r := &Ratchet{
-		managers: make(map[id.ID]partner.Manager),
-		services: make(map[string]message.Processor),
+		managers:           make(map[id.ID]partner.Manager),
+		managersLegacySIDH: make(map[id.ID]partner.ManagerLegacySIDH),
+		services:           make(map[string]message.Processor),
 
 		myID:                   myID,
 		advertisedDHPrivateKey: privKey,
@@ -56,7 +57,9 @@ func Load(kv *versioned.KV, myID *id.ID, grp *cyclic.Group,
 
 		kv: kv,
 
-		cyHandler:  cyHandler,
+		cyHandler:           cyHandler,
+		cyHandlerLegacySIDH: cyHandlerLegacySIDH,
+
 		grp:        grp,
 		rng:        rng,
 		sInterface: services,

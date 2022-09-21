@@ -168,7 +168,7 @@ func loadE2E(kv *versioned.KV, net cmix.Client, myDefaultID *id.ID,
 	var err error
 
 	m.Ratchet, err = ratchet.Load(kv, myDefaultID, grp,
-		&fpGenerator{m}, net, rng)
+		&fpGenerator{m}, &fpGeneratorLegacySIDH{m}, net, rng)
 	if err != nil {
 		return nil, err
 	}

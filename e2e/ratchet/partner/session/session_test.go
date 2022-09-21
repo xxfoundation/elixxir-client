@@ -16,159 +16,159 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
-// func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
+func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 
-// 	s, _ := makeTestSession()
+	s, _ := makeTestSession()
 
-// 	// run the finalizeKeyNegotation command
-// 	s.finalizeKeyNegotiation()
+	// run the finalizeKeyNegotation command
+	s.finalizeKeyNegotiation()
 
-// 	// check that it generated a private key
-// 	if s.myPrivKey == nil {
-// 		t.Errorf("Private key was not generated when missing")
-// 	}
+	// check that it generated a private key
+	if s.myPrivKey == nil {
+		t.Errorf("Private key was not generated when missing")
+	}
 
-// 	// verify the base key is correct
-// 	expectedBaseKey := GenerateE2ESessionBaseKey(s.myPrivKey,
-// 		s.partnerPubKey, s.grp, s.mySIDHPrivKey, s.partnerSIDHPubKey)
+	// verify the base key is correct
+	expectedBaseKey := GenerateE2ESessionBaseKey(s.myPrivKey,
+		s.partnerPubKey, s.grp, s.myPQPrivKey, s.partnerPQPubKey)
 
-// 	if expectedBaseKey.Cmp(s.baseKey) != 0 {
-// 		t.Errorf("generated base key does not match expected base key")
-// 	}
+	if expectedBaseKey.Cmp(s.baseKey) != 0 {
+		t.Errorf("generated base key does not match expected base key")
+	}
 
-// 	// verify the rekeyThreshold was generated
-// 	if s.rekeyThreshold == 0 {
-// 		t.Errorf("rekeyThreshold not generated")
-// 	}
+	// verify the rekeyThreshold was generated
+	if s.rekeyThreshold == 0 {
+		t.Errorf("rekeyThreshold not generated")
+	}
 
-// 	// verify key states was created
-// 	if s.keyState == nil {
-// 		t.Errorf("keystates not generated")
-// 	}
+	// verify key states was created
+	if s.keyState == nil {
+		t.Errorf("keystates not generated")
+	}
 
-// }
+}
 
-// func TestSession_generate_PrivateKeySend(t *testing.T) {
+func TestSession_generate_PrivateKeySend(t *testing.T) {
 
-// 	// build the session
-// 	s, _ := makeTestSession()
+	// build the session
+	s, _ := makeTestSession()
 
-// 	// run the finalizeKeyNegotation command
-// 	s.finalizeKeyNegotiation()
+	// run the finalizeKeyNegotation command
+	s.finalizeKeyNegotiation()
 
-// 	// check that it generated a private key
-// 	if s.myPrivKey.Cmp(s.myPrivKey) != 0 {
-// 		t.Errorf("Public key was generated when not missing")
-// 	}
+	// check that it generated a private key
+	if s.myPrivKey.Cmp(s.myPrivKey) != 0 {
+		t.Errorf("Public key was generated when not missing")
+	}
 
-// 	// verify the base key is correct
-// 	expectedBaseKey := GenerateE2ESessionBaseKey(s.myPrivKey,
-// 		s.partnerPubKey, s.grp, s.mySIDHPrivKey, s.partnerSIDHPubKey)
+	// verify the base key is correct
+	expectedBaseKey := GenerateE2ESessionBaseKey(s.myPrivKey,
+		s.partnerPubKey, s.grp, s.myPQPrivKey, s.partnerPQPubKey)
 
-// 	if expectedBaseKey.Cmp(s.baseKey) != 0 {
-// 		t.Errorf("generated base key does not match expected base key")
-// 	}
+	if expectedBaseKey.Cmp(s.baseKey) != 0 {
+		t.Errorf("generated base key does not match expected base key")
+	}
 
-// 	// verify the rekeyThreshold was generated
-// 	if s.rekeyThreshold == 0 {
-// 		t.Errorf("rekeyThreshold not generated")
-// 	}
+	// verify the rekeyThreshold was generated
+	if s.rekeyThreshold == 0 {
+		t.Errorf("rekeyThreshold not generated")
+	}
 
-// 	// verify keyState was created
-// 	if s.keyState == nil {
-// 		t.Errorf("keystates not generated")
-// 	}
+	// verify keyState was created
+	if s.keyState == nil {
+		t.Errorf("keystates not generated")
+	}
 
-// }
+}
 
-// // Shows that NewSession can result in all the fields being populated
-// func TestNewSession(t *testing.T) {
-// 	// Make a test session to easily populate all the fields
-// 	sessionA, _ := makeTestSession()
+// Shows that NewSession can result in all the fields being populated
+func TestNewSession(t *testing.T) {
+	// Make a test session to easily populate all the fields
+	sessionA, _ := makeTestSession()
 
-// 	// Make a new session with the variables we got from MakeTestSession
-// 	sessionB := NewSession(sessionA.kv, sessionA.t, sessionA.partner,
-// 		sessionA.myPrivKey, sessionA.partnerPubKey, sessionA.baseKey,
-// 		sessionA.mySIDHPrivKey, sessionA.partnerSIDHPubKey,
-// 		sessionA.GetID(), []byte(""), sessionA.negotiationStatus,
-// 		sessionA.e2eParams, sessionA.cyHandler, sessionA.grp, sessionA.rng)
+	// Make a new session with the variables we got from MakeTestSession
+	sessionB := NewSession(sessionA.kv, sessionA.t, sessionA.partner,
+		sessionA.myPrivKey, sessionA.partnerPubKey, sessionA.baseKey,
+		sessionA.myPQPrivKey, sessionA.partnerPQPubKey,
+		sessionA.GetID(), []byte(""), sessionA.negotiationStatus,
+		sessionA.e2eParams, sessionA.cyHandler, sessionA.grp, sessionA.rng)
 
-// 	err := cmpSerializedFields(sessionA, sessionB)
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
-// 	// For everything else, just make sure it's populated
-// 	if sessionB.keyState == nil {
-// 		t.Error("NewSession should populate keyState")
-// 	}
-// 	// fixme is this deleted?
-// 	//if sessionB.relationship == nil {
-// 	//	t.Error("NewSession should populate relationship")
-// 	//}
-// 	if sessionB.rekeyThreshold == 0 {
-// 		t.Error("NewSession should populate rekeyThreshold")
-// 	}
-// }
+	err := cmpSerializedFields(sessionA, sessionB)
+	if err != nil {
+		t.Error(err)
+	}
+	// For everything else, just make sure it's populated
+	if sessionB.keyState == nil {
+		t.Error("NewSession should populate keyState")
+	}
+	// fixme is this deleted?
+	//if sessionB.relationship == nil {
+	//	t.Error("NewSession should populate relationship")
+	//}
+	if sessionB.rekeyThreshold == 0 {
+		t.Error("NewSession should populate rekeyThreshold")
+	}
+}
 
-// // Shows that LoadSession can result in all the fields being populated
-// func TestSession_Load(t *testing.T) {
-// 	// Make a test session to easily populate all the fields
-// 	sessionA, kv := makeTestSession()
-// 	err := sessionA.Save()
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+// Shows that LoadSession can result in all the fields being populated
+func TestSession_Load(t *testing.T) {
+	// Make a test session to easily populate all the fields
+	sessionA, kv := makeTestSession()
+	err := sessionA.Save()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	// SessionA.kv will have a prefix set in MakeTestSession
-// 	// initialize a new one for Load, which will set a prefix internally
+	// SessionA.kv will have a prefix set in MakeTestSession
+	// initialize a new one for Load, which will set a prefix internally
 
-// 	// Load another, identical session from the storage
-// 	sessionB, err := LoadSession(kv, sessionA.GetID(), sessionA.relationshipFingerprint,
-// 		sessionA.cyHandler, sessionA.grp, sessionA.rng)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	err = cmpSerializedFields(sessionA, sessionB)
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
-// 	// Key state should also be loaded and equivalent to the other session
-// 	// during LoadSession()
-// 	if !reflect.DeepEqual(sessionA.keyState, sessionB.keyState) {
-// 		t.Errorf("Two key states do not match.\nsessionA: %+v\nsessionB: %+v",
-// 			sessionA.keyState, sessionB.keyState)
-// 	}
-// 	// For everything else, just make sure it's populated
-// 	// fixme is this deleted?
-// 	//if sessionB.relationship == nil {
-// 	//	t.Error("load should populate relationship")
-// 	//}
-// 	if sessionB.rekeyThreshold == 0 {
-// 		t.Error("load should populate rekeyThreshold")
-// 	}
-// }
+	// Load another, identical session from the storage
+	sessionB, err := LoadSession(kv, sessionA.GetID(), sessionA.relationshipFingerprint,
+		sessionA.cyHandler, sessionA.grp, sessionA.rng)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = cmpSerializedFields(sessionA, sessionB)
+	if err != nil {
+		t.Error(err)
+	}
+	// Key state should also be loaded and equivalent to the other session
+	// during LoadSession()
+	if !reflect.DeepEqual(sessionA.keyState, sessionB.keyState) {
+		t.Errorf("Two key states do not match.\nsessionA: %+v\nsessionB: %+v",
+			sessionA.keyState, sessionB.keyState)
+	}
+	// For everything else, just make sure it's populated
+	// fixme is this deleted?
+	//if sessionB.relationship == nil {
+	//	t.Error("load should populate relationship")
+	//}
+	if sessionB.rekeyThreshold == 0 {
+		t.Error("load should populate rekeyThreshold")
+	}
+}
 
-// // Create a new session. Marshal and unmarshal it
-// func TestSession_Serialization(t *testing.T) {
-// 	s, _ := makeTestSession()
-// 	sSerialized, err := s.marshal()
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+// Create a new session. Marshal and unmarshal it
+func TestSession_Serialization(t *testing.T) {
+	s, _ := makeTestSession()
+	sSerialized, err := s.marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	sDeserialized := &Session{
-// 		//relationship: &ratchet.relationship{
-// 		//	manager: &partner.Manager{ctx: ctx},
-// 		//},
-// 		grp: s.grp,
-// 		kv:  s.kv,
-// 	}
-// 	err = sDeserialized.unmarshal(sSerialized)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	sDeserialized := &Session{
+		//relationship: &ratchet.relationship{
+		//	manager: &partner.Manager{ctx: ctx},
+		//},
+		grp: s.grp,
+		kv:  s.kv,
+	}
+	err = sDeserialized.unmarshal(sSerialized)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// }
+}
 
 // PopKey should return a new key from this session
 func TestSession_PopKey(t *testing.T) {

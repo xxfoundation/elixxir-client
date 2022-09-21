@@ -14,14 +14,13 @@ import (
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/e2e/pq"
 	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-
-	util "gitlab.com/elixxir/client/storage/utility"
 )
 
 const currentSentRequestVersion = 3
@@ -104,16 +103,14 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 			"key with %s for SentRequest Auth", partner)
 	}
 
-	myPQPrivKey, err := util.LoadPQPrivateKey(kv,
-		util.MakePQPrivateKeyKey(partner))
+	myPQPrivKey, err := pq.NIKE.UnmarshalBinaryPrivateKey(srd.MyPQPrivKey)
 	if err != nil {
 		return nil, errors.WithMessagef(err,
 			"Failed to decode PQ private key "+
 				"with %s for SentRequest Auth", partner)
 	}
 
-	myPQPubKey, err := util.LoadPQPublicKey(kv,
-		util.MakePQPublicKeyKey(partner))
+	myPQPubKey, err := pq.NIKE.UnmarshalBinaryPublicKey(srd.MyPQPubKey)
 	if err != nil {
 		return nil, errors.WithMessagef(err,
 			"Failed to decode PQ public key "+

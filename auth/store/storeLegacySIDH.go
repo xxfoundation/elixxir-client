@@ -8,13 +8,17 @@
 package store
 
 import (
+	"encoding/json"
+
 	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
@@ -26,9 +30,34 @@ type storeLegacySIDH struct {
 	sentByID     map[id.ID]*SentRequestLegacySIDH
 }
 
-// TODO: NewOrLoad functionality for the legacy data store needs
-// to be added here.
-/*
+// NewOrLoadStore loads an extant new store. All passed in private
+// keys are added as sentByFingerprints so they can be used to trigger
+// receivedByID.  If no store can be found, it creates a new one
+func NewOrLoadStoreLegacySIDH(kv *versioned.KV, grp *cyclic.Group,
+	srh SentRequestHandler) (*Store, error) {
+	kv = kv.Prefix(storePrefix)
+
+	s := newStore(kv, grp, srh)
+
+	var requestList []requestDisk
+
+	//load all receivedByID
+	sentObj, err := kv.Get(requestMapKey, requestMapVersion)
+	if err != nil {
+		//no store can be found, lets make a new one
+		jww.WARN.Printf("No auth store found, making a new one")
+		s := newStore(kv, grp, srh)
+		return s, s.save()
+	}
+
+	if err := json.Unmarshal(sentObj.Data, &requestList); err != nil {
+		return nil, errors.WithMessagef(err, "Failed to "+
+			"unmarshal SentRequestMap")
+	}
+
+	jww.TRACE.Printf("%d found when loading AuthStore, prefix %s",
+		len(requestList), kv.GetPrefix())
+
 	for _, rDisk := range requestList {
 
 		requestType := RequestType(rDisk.T)
@@ -38,40 +67,86 @@ type storeLegacySIDH struct {
 			jww.FATAL.Panicf("Failed to load stored id: %+v", err)
 		}
 
+		// FIXME: This will need to handle legacy and current
+		// sent requests/received requests. I recommend we drop
+		// this coding pattern entirely in favor of something that
+		// will upgrade more cleanly but we can ignore that for
+		// PoC purposes.
 		switch requestType {
 		case Sent:
-			sr, err := loadSentRequest(kv, partner, grp)
+			sr, err := loadSentRequestLegacySIDH(kv, partner, grp)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to load stored sentRequest: %+v", err)
 			}
 
-			s.sentByID[*sr.GetPartner()] = sr
-			s.srh.Add(sr)
+			s.storeLegacySIDH.sentByID[*sr.GetPartner()] = sr
+			s.srh.AddLegacySIDH(sr)
 		case Receive:
-			rr, err := loadReceivedRequest(kv, partner)
+			rr, err := loadReceivedRequestLegacySIDH(kv, partner)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to load stored receivedRequest: %+v", err)
 			}
 
-			s.receivedByID[*rr.GetContact().ID] = rr
+			s.storeLegacySIDH.receivedByID[*rr.GetContact().ID] = rr
 
 		default:
 			jww.FATAL.Panicf("Unknown request type: %d", requestType)
 		}
 	}
-*/
 
-// TODO: save() functionality for the legacy data store needs to be
-// added here.
-/*
-   	for _, rr := range s.receivedByID {
+	// Load previous negotiations from storage
+	s.previousNegotiations, err = s.newOrLoadPreviousNegotiations()
+	if err != nil {
+		return nil, errors.Errorf("failed to load list of previouse "+
+			"negotation partner IDs: %+v", err)
+	}
+
+	return s, s.saveLegacySIDH()
+}
+
+func (s *Store) saveLegacySIDH() error {
+	requestIDList := make([]requestDisk, 0, len(s.receivedByID)+len(s.sentByID))
+	for _, rr := range s.storeLegacySIDH.receivedByID {
 		rDisk := requestDisk{
 			T:  uint(rr.getType()),
 			ID: rr.partner.ID.Marshal(),
 		}
 		requestIDList = append(requestIDList, rDisk)
 	}
-*/
+
+	for _, rr := range s.storeLegacySIDH.receivedByID {
+		rDisk := requestDisk{
+			T:  uint(rr.getType()),
+			ID: rr.partner.ID.Marshal(),
+		}
+		requestIDList = append(requestIDList, rDisk)
+	}
+
+	for _, sr := range s.storeLegacySIDH.sentByID {
+		rDisk := requestDisk{
+			T:  uint(sr.getType()),
+			ID: sr.partner.Marshal(),
+		}
+		requestIDList = append(requestIDList, rDisk)
+	}
+
+	data, err := json.Marshal(&requestIDList)
+	if err != nil {
+		return err
+	}
+	obj := versioned.Object{
+		Version:   requestMapVersion,
+		Timestamp: netTime.Now(),
+		Data:      data,
+	}
+
+	err = s.savePreviousNegotiations()
+	if err != nil {
+		return err
+	}
+
+	return s.kv.Set(requestMapKey, &obj)
+}
 
 // HandleReceivedRequest handles the request singly, only a single operator
 // operates on the same request at a time. It will delete the request if no

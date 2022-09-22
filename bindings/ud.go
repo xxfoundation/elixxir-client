@@ -220,35 +220,10 @@ func NewOrLoadUd(e2eID int, follower UdNetworkStatus, username string,
 //    may use the UD server run by the xx network team by using
 //    [E2e.GetUdAddressFromNdf].
 func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus,
-	usernameJson, emailFactJson, phoneFactJson,
 	cert, contactFile []byte, address string) (*UserDiscovery, error) {
 
 	// Get user from singleton
 	user, err := e2eTrackerSingleton.get(e2eID)
-	if err != nil {
-		return nil, err
-	}
-
-	var email, phone, username fact.Fact
-
-	// Parse email if non-nil
-	if emailFactJson != nil {
-		err = json.Unmarshal(emailFactJson, &email)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Parse phone if non-nil
-	if phoneFactJson != nil {
-		err = json.Unmarshal(phoneFactJson, &phone)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Parse username
-	err = json.Unmarshal(usernameJson, &username)
 	if err != nil {
 		return nil, err
 	}

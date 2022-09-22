@@ -49,8 +49,8 @@ type Tracker interface {
 	StartProcesses() stoppable.Stoppable
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
 	RemoveIdentity(id *id.ID)
-	GetEphemeralIdentity(rng io.Reader, addressSize uint8) receptionID.IdentityUse
-	GetEphemeralIdentities(n int, rng io.Reader, addressSize uint8) ([]receptionID.IdentityUse, error)
+	ForEach(n int, rng io.Reader, addressSize uint8,
+		operator func([]receptionID.IdentityUse) error) error
 	GetIdentity(get *id.ID) (TrackedID, error)
 }
 
@@ -143,20 +143,14 @@ func (t *manager) RemoveIdentity(id *id.ID) {
 	t.deleteIdentity <- id
 }
 
-// GetEphemeralIdentity returns an ephemeral Identity to poll the network with.
-// It will return a fake identity if none are available.
-func (t *manager) GetEphemeralIdentity(rng io.Reader,
-	addressSize uint8) receptionID.IdentityUse {
-	return t.ephemeral.GetIdentity(rng, addressSize)
-}
-
-// GetEphemeralIdentities returns a fisher-yates shuffled list of up to 'num'
-// ephemeral identities. It will return a fake identity if none are available
+// ForEach passes a fisher-yates shuffled list of up to 'num'
+// ephemeral identities into the operation function. It will pass a
+// fake identity if none are available
 // and less than 'num' if less than 'num' are available.
 // 'num' must be positive non-zero
-func (t *manager) GetEphemeralIdentities(n int, rng io.Reader, addressSize uint8) (
-	[]receptionID.IdentityUse, error) {
-	return t.ephemeral.GetIdentities(n, rng, addressSize)
+func (t *manager) ForEach(n int, rng io.Reader, addressSize uint8,
+	operator func([]receptionID.IdentityUse) error) error {
+	return t.ephemeral.ForEach(n, rng, addressSize, operator)
 }
 
 // GetIdentity returns a currently tracked identity

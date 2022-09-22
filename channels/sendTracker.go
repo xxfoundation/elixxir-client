@@ -214,7 +214,7 @@ func (st *sendTracker) MessageReceive(messageID cryptoChannel.MessageID) bool {
 	if len(roundList) == 1 {
 		delete(st.byRound, msgData.RoundID)
 	} else {
-		newRoundList := make([]*tracked, len(roundList)-1)
+		newRoundList := make([]*tracked, 0, len(roundList)-1)
 		for i := range roundList {
 			if !roundList[i].MsgID.Equals(messageID) {
 				newRoundList = append(newRoundList, roundList[i])

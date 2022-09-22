@@ -24,46 +24,58 @@ import (
 type ListenerFunc func(payload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round)
 
-// Channel is the public-facing interface to interact with broadcast channels
+// Channel is the public-facing interface to interact with broadcast channels.
 type Channel interface {
-	// MaxPayloadSize returns the maximum size for a symmetric broadcast payload
+	// MaxPayloadSize returns the maximum size for a symmetric broadcast
+	// payload.
 	MaxPayloadSize() int
 
 	// MaxRSAToPublicPayloadSize returns the maximum size for an asymmetric
-	// broadcast payload
+	// broadcast payload.
 	MaxRSAToPublicPayloadSize() int
 
-	// Get returns the underlying crypto.Channel
+	// Get returns the underlying [broadcast.Channel] object.
 	Get() *crypto.Channel
 
-	// Broadcast broadcasts the payload to the channel. The payload size must be
-	// equal to MaxPayloadSize or smaller.
+	// Broadcast broadcasts a payload to the channel. The payload must be of the
+	// size [Channel.MaxPayloadSize] or smaller.
+	//
+	// The network must be healthy to send.
 	Broadcast(payload []byte, cMixParams cmix.CMIXParams) (
 		rounds.Round, ephemeral.Id, error)
 
-	// BroadcastWithAssembler broadcasts a payload over a symmetric channel.
-	// With a payload assembled after the round is selected, allowing the round
-	// info to be included in the payload. Network must be healthy to send.
-	// Requires a payload of size bc.MaxSymmetricPayloadSize() or smaller
+	// BroadcastWithAssembler broadcasts a payload over a channel with a payload
+	// assembled after the round is selected, allowing the round info to be
+	// included in the payload.
+	//
+	// The payload must be of the size [Channel.MaxPayloadSize] or smaller.
+	//
+	// The network must be healthy to send.
 	BroadcastWithAssembler(assembler Assembler, cMixParams cmix.CMIXParams) (
 		rounds.Round, ephemeral.Id, error)
 
-	// BroadcastRSAtoPublic broadcasts the payload to the channel. Requires a
-	// healthy network state to send Payload length less than or equal to
-	// bc.MaxRSAToPublicPayloadSize, and the channel PrivateKey must be passed in
+	// BroadcastRSAtoPublic broadcasts the payload to the channel.
+	//
+	// The payload must be of the size [Channel.MaxRSAToPublicPayloadSize] or
+	// smaller and the channel [rsa.PrivateKey] must be passed in.
+	//
+	// The network must be healthy to send.
 	BroadcastRSAtoPublic(pk rsa.PrivateKey, payload []byte,
 		cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 
-	// BroadcastRSAToPublicWithAssembler broadcasts the payload to the channel with
-	// a function which builds the payload based upon the ID of the selected round.
-	// Requires a healthy network state to send Payload must be shorter or equal in
-	// length to bc.MaxRSAToPublicPayloadSize when returned, and the channel
-	// PrivateKey must be passed in
+	// BroadcastRSAToPublicWithAssembler broadcasts the payload to the channel
+	// with a function that builds the payload based upon the ID of the selected
+	// round.
+	//
+	// The payload must be of the size [Channel.MaxRSAToPublicPayloadSize] or
+	// smaller and the channel [rsa.PrivateKey] must be passed in.
+	//
+	// The network must be healthy to send.
 	BroadcastRSAToPublicWithAssembler(
 		pk rsa.PrivateKey, assembler Assembler,
 		cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 
-	// RegisterListener registers a listener for broadcast messages
+	// RegisterListener registers a listener for broadcast messages.
 	RegisterListener(listenerCb ListenerFunc, method Method) error
 
 	// Stop unregisters the listener callback and stops the channel's identity
@@ -74,8 +86,8 @@ type Channel interface {
 // Assembler is a function which allows a bre
 type Assembler func(rid id.Round) (payload []byte, err error)
 
-// Client contains the methods from cmix.Client that are required by
-// symmetricClient.
+// Client contains the methods from [cmix.Client] that are required by
+// broadcastClient.
 type Client interface {
 	SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
 		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)

@@ -325,6 +325,7 @@ func (s *Store) prune(now time.Time) {
 			pruned = append(pruned, inQuestion.EphId.Int64())
 
 			s.active = append(s.active[:i], s.active[i+1:]...)
+			delete(s.present, makeIdHash(inQuestion.EphId, inQuestion.Source))
 
 			i--
 		}

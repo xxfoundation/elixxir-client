@@ -445,9 +445,9 @@ type UdMultiLookupCallback interface {
 }
 
 type lookupResp struct {
-	id      *id.ID
-	contact contact.Contact
-	err     error
+	Id      *id.ID
+	Contact contact.Contact
+	Err     error
 }
 
 // MultiLookupUD returns the public key of all passed in IDs as known by the
@@ -495,18 +495,18 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 		localID := uid.DeepCopy()
 		callback := func(c contact.Contact, err error) {
 			respCh <- lookupResp{
-				id:      localID,
-				contact: c,
-				err:     err,
+				Id:      localID,
+				Contact: c,
+				Err:     err,
 			}
 		}
 		go func() {
 			_, _, err := ud.Lookup(user.api, c, callback, localID, p)
 			if err != nil {
 				respCh <- lookupResp{
-					id:      localID,
-					contact: contact.Contact{},
-					err:     err,
+					Id:      localID,
+					Contact: contact.Contact{},
+					Err:     err,
 				}
 			}
 		}()
@@ -519,14 +519,27 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 		var errorString string
 		for numReturned := 0; numReturned < len(idList); numReturned++ {
 			response := <-respCh
-			if response.err != nil {
-				failedIDs = append(failedIDs, response.id)
+
+			mar, _ := json.Marshal(response)
+			jww.DEBUG.Printf("MULTILOOKUP DEBUG: \n"+
+				"response: %v\n"+
+				"responseJSON: %v\n"+
+				"response ID: %s\n"+
+				"response Contact: %s\n"+
+				"response err: %s\n",
+				response,
+				mar,
+				response.Id,
+				response.Contact.Marshal(),
+				response.Err)
+			if response.Err != nil {
+				failedIDs = append(failedIDs, response.Id)
 				marshaledContactList = append(
-					marshaledContactList, response.contact.Marshal())
+					marshaledContactList, response.Contact.Marshal())
 			} else {
 				errorString = errorString +
 					fmt.Sprintf("Failed to lookup id %s: %+v",
-						response.id, response.err)
+						response.Id, response.Err)
 			}
 		}
 

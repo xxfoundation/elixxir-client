@@ -246,7 +246,7 @@ func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 		inQuestion := s.active[i]
 		if inQuestion.EphId == ephID {
 			s.active = append(s.active[:i], s.active[i+1:]...)
-
+			delete(s.present, makeIdHash(inQuestion.EphId, inQuestion.Source))
 			err := inQuestion.Delete()
 			if err != nil {
 				jww.FATAL.Panicf("Failed to delete identity: %+v", err)

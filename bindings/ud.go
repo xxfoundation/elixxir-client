@@ -478,6 +478,8 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 		return err
 	}
 
+	jww.INFO.Printf("MULTILOOKUP DEBUG idList: %s", lookupIds)
+
 	var idList []*id.ID
 	err = json.Unmarshal(lookupIds, &idList)
 	if err != nil {
@@ -485,7 +487,8 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 	}
 
 	mar, _ := json.Marshal(idList)
-	jww.INFO.Printf("MULTILOOKUP DEBUG idList: %s", mar)
+	jww.INFO.Printf("MULTILOOKUP DEBUG idList: %s\n"+
+		"idList %s\n", mar, idList)
 
 	var p single.RequestParams
 	err = json.Unmarshal(singleRequestParamsJSON, &p)

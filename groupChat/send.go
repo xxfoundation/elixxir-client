@@ -8,8 +8,6 @@
 package groupChat
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
@@ -117,16 +115,6 @@ func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
 	internalMessagePayload := setInternalPayload(intlMsg, timestamp,
 		m.getReceptionIdentity().ID, msg)
 
-	mar, _ := json.Marshal(NewPublicInternalMessage_DeleteThis(intlMsg))
-
-	jww.INFO.Printf("GROUP MSG ID DEBUG (newCmixMsg):"+
-		"senders group ID: %s\n, "+
-		"internalMessage marshal: %s\n"+
-		"internalMessage json: %s\n",
-		g.ID,
-		base64.StdEncoding.EncodeToString(internalMessagePayload),
-		string(mar))
-
 	// Create cMix messages
 	for _, member := range g.Members {
 		// Do not send to the sender
@@ -195,27 +183,6 @@ func newCmixMsg(g gs.Group, tag string, timestamp time.Time,
 	cmixMsg.Mac = group.NewMAC(key, encryptedPayload, g.DhKeys[*mem.ID])
 
 	return cmixMsg, nil
-}
-
-// PublicInternalMessage_DeleteThis so internalMsg could be json marshalled for legibility
-// in a debug ticket.
-type PublicInternalMessage_DeleteThis struct {
-	Data      []byte // Serial of all the parts of the message
-	Timestamp []byte // 64-bit Unix time timestamp stored in nanoseconds
-	SenderID  []byte // 264-bit sender ID
-	Size      []byte // Size of the payload
-	Payload   []byte // Message contents
-
-}
-
-func NewPublicInternalMessage_DeleteThis(msg internalMsg) *PublicInternalMessage_DeleteThis {
-	return &PublicInternalMessage_DeleteThis{
-		Data:      msg.data,
-		Timestamp: msg.timestamp,
-		SenderID:  msg.senderID,
-		Size:      msg.size,
-		Payload:   msg.payload,
-	}
 }
 
 // newSalt generates a new salt of the specified size.

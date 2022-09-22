@@ -212,15 +212,21 @@ func (t *manager) track(stop *stoppable.Single) {
 			continue
 
 		case deleteID := <-t.deleteIdentity:
+			removed := false
 			for i := range t.tracked {
 				inQuestion := t.tracked[i]
 				if inQuestion.Source.Cmp(deleteID) {
+					jww.INFO.Printf("Removing Identity %s from tracker")
+					removed = true
 					t.tracked = append(t.tracked[:i], t.tracked[i+1:]...)
 					t.save()
 					// Requires manual deletion in case identity is deleted before expiration
 					t.ephemeral.RemoveIdentities(deleteID)
 					break
 				}
+			}
+			if !removed {
+				jww.WARN.Printf("Identity %s failed to be removed from tracker")
 			}
 		case <-stop.Quit():
 			t.addrSpace.UnregisterAddressSpaceNotification(addressSpaceSizeChanTag)

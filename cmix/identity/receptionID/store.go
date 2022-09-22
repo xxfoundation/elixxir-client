@@ -160,46 +160,13 @@ func (s *Store) makeStoredReferences() []storedReference {
 	return identities[:i]
 }
 
-// GetIdentity will return a single identity. If none are available, it will
-// return a fake one
-func (s *Store) GetIdentity(rng io.Reader, addressSize uint8) IdentityUse {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	now := netTime.Now()
-
-	// Remove any now expired identities
-	s.prune(now)
-
-	var identity IdentityUse
-	var err error
-
-	// If the list is empty, then return a randomly generated identity to poll
-	// with so that we can continue tracking the network and to further
-	// obfuscate network identities.
-	if len(s.active) == 0 {
-		identity, err = generateFakeIdentity(rng, addressSize, now)
-		if err != nil {
-			jww.FATAL.Panicf(
-				"Failed to generate a new ID when none available: %+v", err)
-		}
-	} else {
-		identity, err = s.selectIdentity(rng, now)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to select an ID: %+v", err)
-		}
-	}
-
-	return identity
-}
-
-// GetIdentities will return up to 'n' identities randomly in a random order.
-// if no identities exist, it will return a single fake identity
-func (s *Store) GetIdentities(n int, rng io.Reader,
-	addressSize uint8) ([]IdentityUse, error) {
+// ForEach operates on 'n' identities randomly in a random order.
+// if no identities exist, it will operate on a single fake identity
+func (s *Store) ForEach(n int, rng io.Reader,
+	addressSize uint8, operate func([]IdentityUse) error) error {
 
 	if n < 1 {
-		return nil, InvalidRequestedNumIdentities
+		return InvalidRequestedNumIdentities
 	}
 
 	s.mux.Lock()
@@ -231,7 +198,8 @@ func (s *Store) GetIdentities(n int, rng io.Reader,
 		}
 	}
 
-	return identities, nil
+	// do the passed operation on all identities
+	return operate(identities)
 }
 
 func (s *Store) AddIdentity(identity Identity) error {
@@ -274,7 +242,8 @@ func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	for i, inQuestion := range s.active {
+	for i := 0; i < len(s.active); i++ {
+		inQuestion := s.active[i]
 		if inQuestion.EphId == ephID {
 			s.active = append(s.active[:i], s.active[i+1:]...)
 
@@ -290,6 +259,8 @@ func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 				}
 			}
 
+			i--
+
 			return
 		}
 	}
@@ -300,7 +271,8 @@ func (s *Store) RemoveIdentities(source *id.ID) {
 	defer s.mux.Unlock()
 
 	doSave := false
-	for i, inQuestion := range s.active {
+	for i := 0; i < len(s.active); i++ {
+		inQuestion := s.active[i]
 		if inQuestion.Source.Cmp(source) {
 			s.active = append(s.active[:i], s.active[i+1:]...)
 
@@ -310,6 +282,7 @@ func (s *Store) RemoveIdentities(source *id.ID) {
 			}
 
 			doSave = doSave || !inQuestion.Ephemeral
+			i--
 		}
 	}
 	if doSave {

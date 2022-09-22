@@ -151,38 +151,6 @@ func TestStore_makeStoredReferences(t *testing.T) {
 	}
 }
 
-func TestStore_GetIdentity(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	s := NewOrLoadStore(kv)
-	prng := rand.New(rand.NewSource(42))
-	testID, err := generateFakeIdentity(prng, 15, netTime.Now())
-	if err != nil {
-		t.Fatalf("Failed to generate fake ID: %+v", err)
-	}
-	if s.AddIdentity(testID.Identity) != nil {
-		t.Errorf("AddIdentity() produced an error: %+v", err)
-	}
-
-	idu := s.GetIdentity(prng, 15)
-
-	if !testID.Equal(idu.Identity) {
-		t.Errorf("GetIdentity() did not return the expected Identity."+
-			"\nexpected: %s\nreceived: %s", testID, idu)
-	}
-}
-
-func TestStore_GetIdentity_NoIdentities(t *testing.T) {
-	kv := versioned.NewKV(ekv.MakeMemstore())
-	s := NewOrLoadStore(kv)
-	prng := rand.New(rand.NewSource(42))
-
-	idu := s.GetIdentity(prng, 15)
-
-	if !idu.Fake {
-		t.Errorf("GetIdentity() did not return a fake identity")
-	}
-}
-
 func TestStore_GetIdentities(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	s := NewOrLoadStore(kv)
@@ -207,7 +175,12 @@ func TestStore_GetIdentities(t *testing.T) {
 	}
 
 	//get one
-	idu, err := s.GetIdentities(1, prng, 15)
+	var idu []IdentityUse
+	o := func(a []IdentityUse) error {
+		idu = a
+		return nil
+	}
+	err := s.ForEach(1, prng, 15, o)
 	if err != nil {
 		t.Errorf("GetIdentity() produced an error: %+v", err)
 	}
@@ -218,7 +191,7 @@ func TestStore_GetIdentities(t *testing.T) {
 	}
 
 	//get three
-	idu, err = s.GetIdentities(3, prng, 15)
+	err = s.ForEach(3, prng, 15, o)
 	if err != nil {
 		t.Errorf("GetIdentity() produced an error: %+v", err)
 	}
@@ -235,7 +208,7 @@ func TestStore_GetIdentities(t *testing.T) {
 	}
 
 	//get ten
-	idu, err = s.GetIdentities(10, prng, 15)
+	err = s.ForEach(10, prng, 15, o)
 	if err != nil {
 		t.Errorf("GetIdentity() produced an error: %+v", err)
 	}
@@ -252,7 +225,7 @@ func TestStore_GetIdentities(t *testing.T) {
 	}
 
 	//get fifty
-	idu, err = s.GetIdentities(50, prng, 15)
+	err = s.ForEach(50, prng, 15, o)
 	if err != nil {
 		t.Errorf("GetIdentity() produced an error: %+v", err)
 	}
@@ -269,7 +242,7 @@ func TestStore_GetIdentities(t *testing.T) {
 	}
 
 	//get 100
-	idu, err = s.GetIdentities(100, prng, 15)
+	err = s.ForEach(100, prng, 15, o)
 	if err != nil {
 		t.Errorf("GetIdentity() produced an error: %+v", err)
 	}
@@ -286,7 +259,7 @@ func TestStore_GetIdentities(t *testing.T) {
 	}
 
 	//get 1000, should only return 100
-	idu, err = s.GetIdentities(1000, prng, 15)
+	err = s.ForEach(1000, prng, 15, o)
 	if err != nil {
 		t.Errorf("GetIdentity() produced an error: %+v", err)
 	}
@@ -304,7 +277,13 @@ func TestStore_GetIdentities(t *testing.T) {
 
 	// get 100 a second time and make sure the order is not the same as a
 	// smoke test that the shuffle is working
-	idu2, err := s.GetIdentities(1000, prng, 15)
+	var idu2 []IdentityUse
+	o2 := func(a []IdentityUse) error {
+		idu2 = a
+		return nil
+	}
+
+	err = s.ForEach(1000, prng, 15, o2)
 	if err != nil {
 		t.Errorf("GetIdentity() produced an error: %+v", err)
 	}
@@ -329,7 +308,13 @@ func TestStore_GetIdentities_NoIdentities(t *testing.T) {
 	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 
-	idu, err := s.GetIdentities(5, prng, 15)
+	var idu []IdentityUse
+	o := func(a []IdentityUse) error {
+		idu = a
+		return nil
+	}
+
+	err := s.ForEach(5, prng, 15, o)
 	if err != nil {
 		t.Errorf("GetIdentities() produced an error: %+v", err)
 	}
@@ -350,27 +335,31 @@ func TestStore_GetIdentities_BadNum(t *testing.T) {
 	s := NewOrLoadStore(kv)
 	prng := rand.New(rand.NewSource(42))
 
-	_, err := s.GetIdentities(0, prng, 15)
+	o := func(a []IdentityUse) error {
+		return nil
+	}
+
+	err := s.ForEach(0, prng, 15, o)
 	if err == nil {
 		t.Errorf("GetIdentities() shoud error with bad num value")
 	}
 
-	_, err = s.GetIdentities(-1, prng, 15)
+	err = s.ForEach(-1, prng, 15, o)
 	if err == nil {
 		t.Errorf("GetIdentities() shoud error with bad num value")
 	}
 
-	_, err = s.GetIdentities(-100, prng, 15)
+	err = s.ForEach(-100, prng, 15, o)
 	if err == nil {
 		t.Errorf("GetIdentities() shoud error with bad num value")
 	}
 
-	_, err = s.GetIdentities(-1000000, prng, 15)
+	err = s.ForEach(-1000000, prng, 15, o)
 	if err == nil {
 		t.Errorf("GetIdentities() shoud error with bad num value")
 	}
 
-	_, err = s.GetIdentities(math.MinInt64, prng, 15)
+	err = s.ForEach(math.MinInt64, prng, 15, o)
 	if err == nil {
 		t.Errorf("GetIdentities() shoud error with bad num value")
 	}

@@ -87,42 +87,49 @@ func (c *client) followNetwork(report ClientErrorReport,
 			stop.ToStopped()
 			return
 		case <-ticker.C:
+
+			operator := func(toTrack []receptionID.IdentityUse) error {
+
+				// set up tracking tools
+				wg := &sync.WaitGroup{}
+				wg.Add(len(toTrack))
+
+				// trigger the first separately because it will get network state
+				// updates
+				go func() {
+					c.follow(toTrack[0], report, rng, c.comms, stop, abandon,
+						true)
+					wg.Done()
+				}()
+
+				//trigger all others without getting network state updates
+				for i := 1; i < len(toTrack); i++ {
+					go func(index int) {
+						c.follow(toTrack[index], report, rng, c.comms, stop,
+							dummyAbandon, false)
+						wg.Done()
+					}(i)
+				}
+
+				//wait for all to complete
+				wg.Wait()
+				return nil
+			}
+
 			// get the list of identities to track
 			stream := c.rng.GetStream()
-			toTrack, err := c.Tracker.GetEphemeralIdentities(
+			err := c.Tracker.ForEach(
 				int(c.param.MaxParallelIdentityTracks),
 				stream,
-				c.Space.GetAddressSpaceWithoutWait())
+				c.Space.GetAddressSpaceWithoutWait(),
+				operator)
 			stream.Close()
 
 			if err != nil {
-				jww.ERROR.Printf("failed to get identities to track")
+				jww.ERROR.Printf("failed to operate on identities to "+
+					"track: %s", err)
 				continue
 			}
-
-			// set up tracking tools
-			wg := &sync.WaitGroup{}
-			wg.Add(len(toTrack))
-
-			// trigger the first separately because it will get network state
-			// updates
-			go func() {
-				c.follow(toTrack[0], report, rng, c.comms, stop, abandon,
-					true)
-				wg.Done()
-			}()
-
-			//trigger all others without getting network state updates
-			for i := 1; i < len(toTrack); i++ {
-				go func(index int) {
-					c.follow(toTrack[index], report, rng, c.comms, stop,
-						dummyAbandon, false)
-					wg.Done()
-				}(i)
-			}
-
-			//wait for all to complete
-			wg.Wait()
 
 		case <-TrackTicker.C:
 			numPolls := atomic.SwapUint64(c.tracker, 0)

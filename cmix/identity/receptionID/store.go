@@ -276,7 +276,7 @@ func (s *Store) RemoveIdentities(source *id.ID) {
 		if inQuestion.Source.Cmp(source) {
 			s.active = append(s.active[:i], s.active[i+1:]...)
 			jww.INFO.Printf("Removing Identity %s:%d from tracker",
-				inQuestion.Source, inQuestion.EphId)
+				inQuestion.Source, inQuestion.EphId.Int64())
 			err := inQuestion.Delete()
 			if err != nil {
 				jww.FATAL.Panicf("Failed to delete identity: %+v", err)

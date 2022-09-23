@@ -9,6 +9,7 @@ package channels
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/primitives/states"
@@ -28,7 +29,8 @@ const AdminUsername = "Admin"
 type SentStatus uint8
 
 const (
-	Sent SentStatus = iota
+	Unsent SentStatus = iota
+	Sent
 	Delivered
 	Failed
 )
@@ -46,9 +48,20 @@ type EventModel interface {
 	// ReceiveMessage is called whenever a message is received on a given
 	// channel. It may be called multiple times on the same message. It is
 	// incumbent on the user of the API to filter such called by message ID.
+	//
+	// the api needs to return a uuid of the message which it may be
+	// referenced at a later time
+	//
+	// messageID, timestamp, and round are all nillable and may be updated
+	// based upon the UUID at a later date. A time of time.Time{} will be
+	// passed for a nilled timestamp.
+	//
+	// Nickname may be empty, in which case the UI is expected to display
+	// the codename
 	ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
-		senderUsername, text string, timestamp time.Time, lease time.Duration,
-		round rounds.Round, status SentStatus)
+		nickname, codename, extension, color, text string,
+		timestamp time.Time, lease time.Duration, round rounds.Round,
+		status SentStatus) uint64
 
 	// ReceiveReply is called whenever a message is received that is a reply on
 	// a given channel. It may be called multiple times on the same message. It
@@ -56,10 +69,20 @@ type EventModel interface {
 	//
 	// Messages may arrive our of order, so a reply in theory can arrive before
 	// the initial message. As a result, it may be important to buffer replies.
+	//
+	// the api needs to return a uuid of the message which it may be
+	// referenced at a later time
+	//
+	// messageID, timestamp, and round are all nillable and may be updated
+	// based upon the UUID at a later date. A time of time.Time{} will be
+	// passed for a nilled timestamp.
+	//
+	// Nickname may be empty, in which case the UI is expected to display
+	// the codename
 	ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
-		reactionTo cryptoChannel.MessageID, senderUsername string,
-		text string, timestamp time.Time, lease time.Duration,
-		round rounds.Round, status SentStatus)
+		reactionTo cryptoChannel.MessageID, nickname, codename, extension,
+		color, text string, timestamp time.Time, lease time.Duration,
+		round rounds.Round, status SentStatus) uint64
 
 	// ReceiveReaction is called whenever a reaction to a message is received
 	// on a given channel. It may be called multiple times on the same reaction.
@@ -69,14 +92,29 @@ type EventModel interface {
 	// Messages may arrive our of order, so a reply in theory can arrive before
 	// the initial message. As a result, it may be important to buffer
 	// reactions.
+	//
+	// the api needs to return a uuid of the message which it may be
+	// referenced at a later time
+	//
+	// messageID, timestamp, and round are all nillable and may be updated
+	// based upon the UUID at a later date. A time of time.Time{} will be
+	// passed for a nilled timestamp.
+	//
+	// Nickname may be empty, in which case the UI is expected to display
+	// the codename
 	ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
-		reactionTo cryptoChannel.MessageID, senderUsername string,
-		reaction string, timestamp time.Time, lease time.Duration,
-		round rounds.Round, status SentStatus)
+		reactionTo cryptoChannel.MessageID, nickname, codename, extension,
+		color, reaction string, timestamp time.Time, lease time.Duration,
+		round rounds.Round, status SentStatus) uint64
 
 	// UpdateSentStatus is called whenever the sent status of a message has
 	// changed.
-	UpdateSentStatus(messageID cryptoChannel.MessageID, status SentStatus)
+	//
+	// messageID, timestamp, and round are all nillable and may be updated
+	// based upon the UUID at a later date. A time of time.Time{} will be
+	// passed for a nilled timestamp. If a nil value is passed, make no update
+	UpdateSentStatus(uuid uint64, messageID cryptoChannel.MessageID,
+		timestamp time.Time, round rounds.Round, status SentStatus)
 
 	// unimplemented
 	// IgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
@@ -89,12 +127,14 @@ type EventModel interface {
 // types. Default ones for Text, Reaction, and AdminText.
 type MessageTypeReceiveMessage func(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
-	senderUsername string, content []byte, timestamp time.Time,
-	lease time.Duration, round rounds.Round, status SentStatus)
+	nickname, codename, extension, color string, content []byte,
+	timestamp time.Time, lease time.Duration, round rounds.Round,
+	status SentStatus)
 
 // updateStatusFunc is a function type for EventModel.UpdateSentStatus so it can
 // be mocked for testing where used.
-type updateStatusFunc func(messageID cryptoChannel.MessageID, status SentStatus)
+type updateStatusFunc func(uuid uint64, messageID cryptoChannel.MessageID,
+	timestamp time.Time, round rounds.Round, status SentStatus)
 
 // events is an internal structure that processes events and stores the handlers
 // for those events.
@@ -150,7 +190,9 @@ type triggerEventFunc func(chID *id.ID, umi *userMessageInternal,
 //
 // It will call the appropriate MessageTypeHandler assuming one exists.
 func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	Identity cryptoChannel.Identity, ts timestamp.Timestamp,
+	receptionID receptionID.EphemeralIdentity,
+	round rounds.Round,
 	status SentStatus) {
 	um := umi.GetUserMessage()
 	cm := umi.GetChannelMessage()
@@ -167,9 +209,6 @@ func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 			cm.Payload)
 		return
 	}
-
-	// Modify the timestamp to reduce the chance message order will be ambiguous
-	ts := mutateTimestamp(round.Timestamps[states.QUEUED], umi.GetMessageID())
 
 	// Call the listener. This is already in an instanced event, no new thread needed.
 	listener(chID, umi.GetMessageID(), messageType, um.Username,

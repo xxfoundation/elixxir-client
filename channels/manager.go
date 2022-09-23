@@ -11,12 +11,16 @@
 package channels
 
 import (
+	"crypto/ed25519"
+	"encoding/base64"
+	"fmt"
 	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
+	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -24,19 +28,26 @@ import (
 	"time"
 )
 
+const storageTagFormat = "channelManagerStorageTag-%s"
+
 type manager struct {
+	// Sender Identity
+	me cryptoChannel.PrivateIdentity
+
 	// List of all channels
 	channels map[id.ID]*joinedChannel
 	mux      sync.RWMutex
 
 	// External references
-	kv   *versioned.KV
-	net  Client
-	rng  *fastRNG.StreamGenerator
-	name NameService
+	kv  *versioned.KV
+	net Client
+	rng *fastRNG.StreamGenerator
 
 	// Events model
 	*events
+
+	// nicknames
+	*nicknameManager
 
 	//send tracker
 	st *sendTracker
@@ -64,19 +75,52 @@ type Client interface {
 	RemoveHealthCallback(uint64)
 }
 
-// NewManager creates a new channel.Manager. It prefixes the KV with the
-// username so that multiple instances for multiple users will not error.
-func NewManager(kv *versioned.KV, net Client,
-	rng *fastRNG.StreamGenerator, name NameService, model EventModel) Manager {
+// NewManager creates a new channel.Manager from a private identity. It
+// prefixes the KV with a tag derived from the public key which can be retried
+// for reloading using Manage.GetStorageTag.
+func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
+	net Client, rng *fastRNG.StreamGenerator, model EventModel) (Manager, error) {
 
 	// Prefix the kv with the username so multiple can be run
-	kv = kv.Prefix(name.GetUsername())
+	kv = kv.Prefix(getStorageTag(identity.PubKey))
+
+	if err := storeIdentity(kv, identity); err != nil {
+		return nil, err
+	}
+
+	m := setupManager(identity, kv, net, rng, model)
+
+	return &m, nil
+}
+
+// LoadManager restores a channel.Manager from disk stored at the given
+//storage tag.
+func LoadManager(storageTag string, kv *versioned.KV, net Client,
+	rng *fastRNG.StreamGenerator, name NameService, model EventModel) (Manager,
+	error) {
+
+	// Prefix the kv with the username so multiple can be run
+	kv = kv.Prefix(storageTag)
+
+	//load the identity
+	identity, err := loadIdentity(kv)
+	if err != nil {
+		return nil, err
+	}
+
+	m := setupManager(identity, kv, net, rng, model)
+
+	return &m
+}
+
+func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
+	net Client, rng *fastRNG.StreamGenerator, model EventModel) *manager {
 
 	m := manager{
+		me:             identity,
 		kv:             kv,
 		net:            net,
 		rng:            rng,
-		name:           name,
 		broadcastMaker: broadcast.NewBroadcastChannel,
 	}
 
@@ -86,6 +130,8 @@ func NewManager(kv *versioned.KV, net Client,
 		m.events.triggerAdminEvent, model.UpdateSentStatus)
 
 	m.loadChannels()
+
+	m.nicknameManager = loadOrNewNicknameManager(kv)
 
 	return &m
 }
@@ -162,4 +208,19 @@ func (m *manager) ReplayChannel(chID *id.ID) error {
 
 	return nil
 
+}
+
+// GetStorageTag returns the tag at which this manager is store for loading
+// it is derived from the public key
+func (m *manager) GetStorageTag() string {
+	return getStorageTag(m.me.PubKey)
+}
+
+// GetIdentity returns the public identity associated with this channel manager
+func (m *manager) GetIdentity() cryptoChannel.Identity {
+	return m.me.Identity
+}
+
+func getStorageTag(pub ed25519.PublicKey) string {
+	return fmt.Sprintf(storageTagFormat, base64.StdEncoding.EncodeToString(pub))
 }

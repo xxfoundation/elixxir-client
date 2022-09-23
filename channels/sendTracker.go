@@ -23,7 +23,11 @@ import (
 const (
 	sendTrackerStorageKey     = "sendTrackerStorageKey"
 	sendTrackerStorageVersion = 0
-	getRoundResultsTimeout    = 60 * time.Second
+
+	sendTrackerUnsentStorageKey     = "sendTrackerUnsentStorageKey"
+	sendTrackerUnsentStorageVersion = 0
+
+	getRoundResultsTimeout = 60 * time.Second
 	// number of times it will attempt to get round status before the round
 	// is assumed to have failed. Tracking per round does not persist across
 	// runs
@@ -34,6 +38,7 @@ type tracked struct {
 	MsgID     cryptoChannel.MessageID
 	ChannelID *id.ID
 	RoundID   id.Round
+	UUID      uint64
 }
 
 // the sendTracker tracks outbound messages and denotes when they are delivered
@@ -44,6 +49,8 @@ type sendTracker struct {
 	byRound map[id.Round][]*tracked
 
 	byMessageID map[cryptoChannel.MessageID]*tracked
+
+	unsent map[uint64]*tracked
 
 	mux sync.RWMutex
 
@@ -69,6 +76,7 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 	st := &sendTracker{
 		byRound:      make(map[id.Round][]*tracked),
 		byMessageID:  make(map[cryptoChannel.MessageID]*tracked),
+		unsent:       make(map[uint64]*tracked),
 		trigger:      trigger,
 		adminTrigger: adminTrigger,
 		updateStatus: updateStatus,
@@ -81,6 +89,13 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 	}*/
 	st.load()
 
+	//denote all unsent messages as failed and clear
+	for uuid := range st.unsent {
+		updateStatus(uuid, cryptoChannel.MessageID{},
+			time.Time{}, rounds.Round{}, Failed)
+	}
+	st.unsent = make(map[uint64]*tracked)
+
 	//register to check all outstanding rounds when the network becomes healthy
 	var callBackID uint64
 	callBackID = net.AddHealthCallback(func(f bool) {
@@ -89,6 +104,7 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 		}
 		net.RemoveHealthCallback(callBackID)
 		for rid := range st.byRound {
+
 			rr := &roundResults{
 				round: rid,
 				st:    st,
@@ -102,12 +118,29 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 
 // store writes the list of rounds that have been
 func (st *sendTracker) store() error {
+
+	//save sent messages
 	data, err := json.Marshal(&st.byRound)
 	if err != nil {
 		return err
 	}
-	return st.kv.Set(sendTrackerStorageKey, &versioned.Object{
+	err = st.kv.Set(sendTrackerStorageKey, &versioned.Object{
 		Version:   sendTrackerStorageVersion,
+		Timestamp: time.Now(),
+		Data:      data,
+	})
+	if err != nil {
+		return err
+	}
+
+	//save unsent messages
+	data, err = json.Marshal(&st.unsent)
+	if err != nil {
+		return err
+	}
+
+	return st.kv.Set(sendTrackerUnsentStorageKey, &versioned.Object{
+		Version:   sendTrackerUnsentStorageVersion,
 		Timestamp: time.Now(),
 		Data:      data,
 	})
@@ -132,7 +165,23 @@ func (st *sendTracker) load() error {
 			st.byMessageID[roundList[j].MsgID] = roundList[j]
 		}
 	}
+
+	obj, err = st.kv.Get(sendTrackerUnsentStorageKey, sendTrackerUnsentStorageVersion)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(obj.Data, &st.unsent)
+	if err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func denotePendingSend(channelID *id.ID,
+	umi *userMessageInternal, round rounds.Round) {
+
 }
 
 // send tracks a generic send message

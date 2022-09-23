@@ -26,7 +26,11 @@ message ChannelMessage{
 
     // Payload is the actual message payload. It will be processed differently
     // based on the PayloadType.
-    bytes  Payload  = 4;
+    bytes  Payload = 4;
+
+    // nickname is the name which the user is using for this message
+    // it will not be longer than 24 characters
+    string Nickname = 5;
 }
 
 // UserMessage is a message sent by a user who is a member within the channel.
@@ -36,29 +40,13 @@ message UserMessage {
     // ChannelMessage.
     bytes  Message = 1;
 
-    // ValidationSignature is the signature validating this user owns their
-    // username and may send messages to the channel under this username. This
-    // signature is provided by UD and may be validated by all members of the
-    // channel.
-    //
-    //  ValidationSignature = Sig(UD_ECCPrivKey, Username | ECCPublicKey | UsernameLease)
-    bytes  ValidationSignature = 2;
-
     // Signature is the signature proving this message has been sent by the
     // owner of this user's public key.
     //
     //  Signature = Sig(User_ECCPublicKey, Message)
     bytes  Signature = 3;
 
-    // Username is the username the user has registered with the channel and
-    // with UD.
-    string Username = 4;
-
     // ECCPublicKey is the user's EC Public key. This is provided by the
     // network.
     bytes  ECCPublicKey = 5;
-
-    // UsernameLease is the lease that has been provided to the username. This
-    // value is provide by UD.
-    int64  UsernameLease = 6;
 }

@@ -9,6 +9,7 @@ package channels
 
 import (
 	"gitlab.com/elixxir/client/cmix"
+	"gitlab.com/elixxir/client/cmix/pickup/store"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
@@ -27,6 +28,13 @@ var ValidForever = time.Duration(math.MaxInt64)
 
 type Manager interface {
 
+	// GetIdentity returns the public identity associated with this channel manager
+	GetIdentity() store.Identity
+
+	// GetStorageTag returns the tag at which this manager is store for loading
+	// it is derived from the public key
+	GetStorageTag() string
+
 	// JoinChannel joins the given channel. It will fail if the channel has
 	// already been joined.
 	JoinChannel(channel *cryptoBroadcast.Channel) error
@@ -42,8 +50,8 @@ type Manager interface {
 	// possible to define the largest payload that can be sent, but
 	// it will always be possible to send a payload of 802 bytes at minimum
 	// Them meaning of validUntil depends on the use case.
-	SendGeneric(channelID *id.ID, messageType MessageType, msg []byte,
-		validUntil time.Duration, params cmix.CMIXParams) (
+	SendGeneric(channelID *id.ID, messageType MessageType,
+		msg []byte, validUntil time.Duration, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
 	// SendAdminGeneric is used to send a raw message over a channel encrypted
@@ -106,4 +114,15 @@ type Manager interface {
 	// underlying state tracking for message pickup for the channel, causing all
 	// messages to be re-retrieved from the network
 	ReplayChannel(chID *id.ID) error
+
+	// SetNickname sets the nickname for a channel after checking that the nickname
+	// is valid using IsNicknameValid
+	SetNickname(newNick string, ch *id.ID) error
+
+	// DeleteNickname removes the nickname for a given channel, using the codename
+	// for that channel instead
+	DeleteNickname(ch *id.ID)
+
+	// GetNickname returns the nickname for the given channel if it exists
+	GetNickname(ch *id.ID) (nickname string, exists bool)
 }

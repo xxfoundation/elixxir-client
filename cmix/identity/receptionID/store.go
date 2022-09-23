@@ -29,8 +29,7 @@ const (
 	receptionStoreStorageVersion = 0
 )
 
-var InvalidRequestedNumIdentities = errors.New("cannot get less than one identity(s)")
-
+var InvalidRequestedNumIdentities = errors.New("cannot get less than one identity(s)")code
 type Store struct {
 	// Identities which are being actively checked
 	active  []*registration

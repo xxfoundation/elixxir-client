@@ -10,6 +10,7 @@ package ud
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/primitives/fact"
 )
 
@@ -48,6 +49,7 @@ func (s *Store) RestoreFromBackUp(backupData fact.FactList) error {
 func (s *Store) StoreUsername(f fact.Fact) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+	jww.INFO.Printf("USERNAME BACKUP DEBUG (StoreUsername): storing username: %+v", f)
 
 	if f.T != fact.Username {
 		return errors.Errorf("Fact (%s) is not of type username", f.Stringify())
@@ -210,11 +212,14 @@ func (s *Store) GetFacts() []fact.Fact {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 
+	jww.INFO.Printf("USERNAME BACKUP DEBUG (getFacts): all the facts in the map: %+v", s.confirmedFacts)
 	// Flatten the facts into a slice
 	facts := make([]fact.Fact, 0, len(s.confirmedFacts))
 	for f := range s.confirmedFacts {
 		facts = append(facts, f)
 	}
+
+	jww.INFO.Printf("USERNAME BACKUP DEBUG (getFacts): returned facts: %+v", facts)
 
 	return facts
 }

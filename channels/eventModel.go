@@ -9,7 +9,6 @@ package channels
 
 import (
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/primitives/states"
@@ -59,7 +58,7 @@ type EventModel interface {
 	// Nickname may be empty, in which case the UI is expected to display
 	// the codename
 	ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
-		nickname, codename, extension, color, text string,
+		nickname, text string, identity cryptoChannel.Identity,
 		timestamp time.Time, lease time.Duration, round rounds.Round,
 		status SentStatus) uint64
 
@@ -80,9 +79,9 @@ type EventModel interface {
 	// Nickname may be empty, in which case the UI is expected to display
 	// the codename
 	ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
-		reactionTo cryptoChannel.MessageID, nickname, codename, extension,
-		color, text string, timestamp time.Time, lease time.Duration,
-		round rounds.Round, status SentStatus) uint64
+		reactionTo cryptoChannel.MessageID, nickname, text string,
+		identity cryptoChannel.Identity, timestamp time.Time,
+		lease time.Duration, round rounds.Round, status SentStatus) uint64
 
 	// ReceiveReaction is called whenever a reaction to a message is received
 	// on a given channel. It may be called multiple times on the same reaction.
@@ -103,9 +102,9 @@ type EventModel interface {
 	// Nickname may be empty, in which case the UI is expected to display
 	// the codename
 	ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
-		reactionTo cryptoChannel.MessageID, nickname, codename, extension,
-		color, reaction string, timestamp time.Time, lease time.Duration,
-		round rounds.Round, status SentStatus) uint64
+		reactionTo cryptoChannel.MessageID, nickname, reaction string,
+		identity cryptoChannel.Identity, timestamp time.Time,
+		lease time.Duration, round rounds.Round, status SentStatus) uint64
 
 	// UpdateSentStatus is called whenever the sent status of a message has
 	// changed.
@@ -127,7 +126,7 @@ type EventModel interface {
 // types. Default ones for Text, Reaction, and AdminText.
 type MessageTypeReceiveMessage func(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
-	nickname, codename, extension, color string, content []byte,
+	nickname string, content []byte, identity cryptoChannel.Identity,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
 	status SentStatus)
 
@@ -190,13 +189,14 @@ type triggerEventFunc func(chID *id.ID, umi *userMessageInternal,
 //
 // It will call the appropriate MessageTypeHandler assuming one exists.
 func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
-	Identity cryptoChannel.Identity, ts timestamp.Timestamp,
-	receptionID receptionID.EphemeralIdentity,
+	Identity cryptoChannel.Identity, ts time.Time, receptionID receptionID.EphemeralIdentity,
 	round rounds.Round,
 	status SentStatus) {
 	um := umi.GetUserMessage()
 	cm := umi.GetChannelMessage()
 	messageType := MessageType(cm.PayloadType)
+
+	identity := cryptoChannel.ConstructIdentity(um.ECCPublicKey)
 
 	// Check if the type is already registered
 	e.mux.RLock()
@@ -205,14 +205,14 @@ func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 	if !exists {
 		jww.WARN.Printf("Received message from %s on channel %s in "+
 			"round %d which could not be handled due to unregistered message "+
-			"type %s; Contents: %v", um.Username, chID, round.ID, messageType,
+			"type %s; Contents: %v", identity.Codename, chID, round.ID, messageType,
 			cm.Payload)
 		return
 	}
 
 	// Call the listener. This is already in an instanced event, no new thread needed.
-	listener(chID, umi.GetMessageID(), messageType, um.Username,
-		cm.Payload, ts, time.Duration(cm.Lease), round, status)
+	listener(chID, umi.GetMessageID(), messageType, cm.Nickname, cm.Payload, identity,
+		ts, time.Duration(cm.Lease), round, status)
 	return
 }
 
@@ -246,8 +246,9 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 	ts := mutateTimestamp(round.Timestamps[states.QUEUED], messageID)
 
 	// Call the listener. This is already in an instanced event, no new thread needed.
-	listener(chID, messageID, messageType, AdminUsername,
-		cm.Payload, ts, time.Duration(cm.Lease), round, status)
+	listener(chID, messageID, messageType, AdminUsername, cm.Payload,
+		cryptoChannel.Identity{Codename: AdminUsername}, ts,
+		time.Duration(cm.Lease), round, status)
 	return
 }
 
@@ -259,14 +260,15 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 // write to the log.
 func (e *events) receiveTextMessage(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
-	senderUsername string, content []byte, timestamp time.Time,
-	lease time.Duration, round rounds.Round, status SentStatus) {
+	nickname string, content []byte, identity cryptoChannel.Identity,
+	timestamp time.Time, lease time.Duration, round rounds.Round,
+	status SentStatus) {
 	txt := &CMIXChannelText{}
 
 	if err := proto.Unmarshal(content, txt); err != nil {
 		jww.ERROR.Printf("Failed to text unmarshal message %s from %s on "+
 			"channel %s, type %s, ts: %s, lease: %s, round: %d: %+v",
-			messageID, senderUsername, channelID, messageType, timestamp, lease,
+			messageID, identity.Codename, channelID, messageType, timestamp, lease,
 			round.ID, err)
 		return
 	}
@@ -277,21 +279,21 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 			var replyTo cryptoChannel.MessageID
 			copy(replyTo[:], txt.ReplyMessageID)
 			e.model.ReceiveReply(channelID, messageID, replyTo,
-				senderUsername, txt.Text, timestamp, lease, round, status)
+				nickname, txt.Text, identity, timestamp, lease, round, status)
 			return
 
 		} else {
 			jww.ERROR.Printf("Failed process reply to for message %s from %s on "+
 				"channel %s, type %s, ts: %s, lease: %s, round: %d, returning "+
 				"without reply",
-				messageID, senderUsername, channelID, messageType, timestamp, lease,
+				messageID, identity.Codename, channelID, messageType, timestamp, lease,
 				round.ID)
 			// Still process the message, but drop the reply because it is
 			// malformed
 		}
 	}
 
-	e.model.ReceiveMessage(channelID, messageID, senderUsername, txt.Text,
+	e.model.ReceiveMessage(channelID, messageID, nickname, txt.Text, identity,
 		timestamp, lease, round, status)
 }
 
@@ -304,13 +306,14 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 // reaction is dropped.
 func (e *events) receiveReaction(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
-	senderUsername string, content []byte, timestamp time.Time,
-	lease time.Duration, round rounds.Round, status SentStatus) {
+	nickname string, content []byte, identity cryptoChannel.Identity,
+	timestamp time.Time, lease time.Duration, round rounds.Round,
+	status SentStatus) {
 	react := &CMIXChannelReaction{}
 	if err := proto.Unmarshal(content, react); err != nil {
 		jww.ERROR.Printf("Failed to text unmarshal message %s from %s on "+
 			"channel %s, type %s, ts: %s, lease: %s, round: %d: %+v",
-			messageID, senderUsername, channelID, messageType, timestamp, lease,
+			messageID, identity.Codename, channelID, messageType, timestamp, lease,
 			round.ID, err)
 		return
 	}
@@ -320,7 +323,7 @@ func (e *events) receiveReaction(channelID *id.ID,
 		jww.ERROR.Printf("Failed process reaction %s from %s on channel "+
 			"%s, type %s, ts: %s, lease: %s, round: %d, due to malformed "+
 			"reaction (%s), ignoring reaction",
-			messageID, senderUsername, channelID, messageType, timestamp, lease,
+			messageID, identity.Codename, channelID, messageType, timestamp, lease,
 			round.ID, err)
 		return
 	}
@@ -328,13 +331,13 @@ func (e *events) receiveReaction(channelID *id.ID,
 	if react.ReactionMessageID != nil && len(react.ReactionMessageID) == cryptoChannel.MessageIDLen {
 		var reactTo cryptoChannel.MessageID
 		copy(reactTo[:], react.ReactionMessageID)
-		e.model.ReceiveReaction(channelID, messageID, reactTo, senderUsername,
-			react.Reaction, timestamp, lease, round, status)
+		e.model.ReceiveReaction(channelID, messageID, reactTo, nickname,
+			react.Reaction, identity, timestamp, lease, round, status)
 	} else {
 		jww.ERROR.Printf("Failed process reaction %s from %s on channel "+
 			"%s, type %s, ts: %s, lease: %s, round: %d, reacting to "+
 			"invalid message, ignoring reaction",
-			messageID, senderUsername, channelID, messageType, timestamp, lease,
+			messageID, identity.Codename, channelID, messageType, timestamp, lease,
 			round.ID)
 	}
 }

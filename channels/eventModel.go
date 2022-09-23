@@ -8,6 +8,8 @@
 package channels
 
 import (
+	"errors"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
@@ -124,11 +126,13 @@ type EventModel interface {
 
 // MessageTypeReceiveMessage defines handlers for messages of various message
 // types. Default ones for Text, Reaction, and AdminText.
+// A unique uuid must be returned by which the message can be referenced later
+// via UpdateSentStatus
 type MessageTypeReceiveMessage func(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
 	nickname string, content []byte, identity cryptoChannel.Identity,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
-	status SentStatus)
+	status SentStatus) uint64
 
 // updateStatusFunc is a function type for EventModel.UpdateSentStatus so it can
 // be mocked for testing where used.
@@ -181,17 +185,17 @@ func (e *events) RegisterReceiveHandler(messageType MessageType,
 	return nil
 }
 
-type triggerEventFunc func(chID *id.ID, umi *userMessageInternal,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round, status SentStatus)
+type triggerEventFunc func(chID *id.ID, umi *userMessageInternal, ts time.Time,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	status SentStatus) (uint64, error)
 
 // triggerEvent is an internal function that is used to trigger message
 // reception on a message received from a user (symmetric encryption).
 //
 // It will call the appropriate MessageTypeHandler assuming one exists.
-func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
-	Identity cryptoChannel.Identity, ts time.Time, receptionID receptionID.EphemeralIdentity,
-	round rounds.Round,
-	status SentStatus) {
+func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal, ts time.Time,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	status SentStatus) (uint64, error) {
 	um := umi.GetUserMessage()
 	cm := umi.GetChannelMessage()
 	messageType := MessageType(cm.PayloadType)
@@ -203,17 +207,18 @@ func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
 	listener, exists := e.registered[messageType]
 	e.mux.RUnlock()
 	if !exists {
-		jww.WARN.Printf("Received message from %s on channel %s in "+
+		errStr := fmt.Sprintf("Received message from %s on channel %s in "+
 			"round %d which could not be handled due to unregistered message "+
 			"type %s; Contents: %v", identity.Codename, chID, round.ID, messageType,
 			cm.Payload)
-		return
+		jww.WARN.Printf(errStr)
+		return 0, errors.New(errStr)
 	}
 
 	// Call the listener. This is already in an instanced event, no new thread needed.
-	listener(chID, umi.GetMessageID(), messageType, cm.Nickname, cm.Payload, identity,
+	uuid := listener(chID, umi.GetMessageID(), messageType, cm.Nickname, cm.Payload, identity,
 		ts, time.Duration(cm.Lease), round, status)
-	return
+	return uuid, nil
 }
 
 type triggerAdminEventFunc func(chID *id.ID, cm *ChannelMessage,
@@ -262,7 +267,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
 	nickname string, content []byte, identity cryptoChannel.Identity,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
-	status SentStatus) {
+	status SentStatus) uint64 {
 	txt := &CMIXChannelText{}
 
 	if err := proto.Unmarshal(content, txt); err != nil {
@@ -270,7 +275,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 			"channel %s, type %s, ts: %s, lease: %s, round: %d: %+v",
 			messageID, identity.Codename, channelID, messageType, timestamp, lease,
 			round.ID, err)
-		return
+		return 0
 	}
 
 	if txt.ReplyMessageID != nil {
@@ -278,9 +283,8 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 		if len(txt.ReplyMessageID) == cryptoChannel.MessageIDLen {
 			var replyTo cryptoChannel.MessageID
 			copy(replyTo[:], txt.ReplyMessageID)
-			e.model.ReceiveReply(channelID, messageID, replyTo,
+			return e.model.ReceiveReply(channelID, messageID, replyTo,
 				nickname, txt.Text, identity, timestamp, lease, round, status)
-			return
 
 		} else {
 			jww.ERROR.Printf("Failed process reply to for message %s from %s on "+
@@ -293,7 +297,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 		}
 	}
 
-	e.model.ReceiveMessage(channelID, messageID, nickname, txt.Text, identity,
+	return e.model.ReceiveMessage(channelID, messageID, nickname, txt.Text, identity,
 		timestamp, lease, round, status)
 }
 
@@ -308,14 +312,14 @@ func (e *events) receiveReaction(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
 	nickname string, content []byte, identity cryptoChannel.Identity,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
-	status SentStatus) {
+	status SentStatus) uint64 {
 	react := &CMIXChannelReaction{}
 	if err := proto.Unmarshal(content, react); err != nil {
 		jww.ERROR.Printf("Failed to text unmarshal message %s from %s on "+
 			"channel %s, type %s, ts: %s, lease: %s, round: %d: %+v",
 			messageID, identity.Codename, channelID, messageType, timestamp, lease,
 			round.ID, err)
-		return
+		return 0
 	}
 
 	// check that the reaction is a single emoji and ignore if it isn't
@@ -325,13 +329,13 @@ func (e *events) receiveReaction(channelID *id.ID,
 			"reaction (%s), ignoring reaction",
 			messageID, identity.Codename, channelID, messageType, timestamp, lease,
 			round.ID, err)
-		return
+		return 0
 	}
 
 	if react.ReactionMessageID != nil && len(react.ReactionMessageID) == cryptoChannel.MessageIDLen {
 		var reactTo cryptoChannel.MessageID
 		copy(reactTo[:], react.ReactionMessageID)
-		e.model.ReceiveReaction(channelID, messageID, reactTo, nickname,
+		return e.model.ReceiveReaction(channelID, messageID, reactTo, nickname,
 			react.Reaction, identity, timestamp, lease, round, status)
 	} else {
 		jww.ERROR.Printf("Failed process reaction %s from %s on channel "+
@@ -340,4 +344,5 @@ func (e *events) receiveReaction(channelID *id.ID,
 			messageID, identity.Codename, channelID, messageType, timestamp, lease,
 			round.ID)
 	}
+	return 0
 }

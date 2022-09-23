@@ -178,6 +178,8 @@ func (s *Store) BackUpMissingFacts(username, email, phone fact.Fact) error {
 		return s.saveConfirmedFacts()
 	}
 
+	jww.INFO.Printf("USERNAME BACKUP DEBUG (BackUpMissingFacts): fact map after %+v", s.confirmedFacts)
+
 	return nil
 
 }

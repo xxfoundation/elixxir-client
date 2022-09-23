@@ -81,8 +81,6 @@ func NewCmixFromBackup(ndfJSON, storageDir, backupPassphrase string,
 	}
 
 	udInfo := backUp.UserDiscoveryRegistration
-	jww.INFO.Printf("USERNAME BACKUP DEBUG (NewCmixFromBackup): fact list %+v", udInfo)
-
 	var username, email, phone fact.Fact
 	for _, f := range udInfo.FactList {
 		switch f.T {
@@ -94,10 +92,6 @@ func NewCmixFromBackup(ndfJSON, storageDir, backupPassphrase string,
 			phone = f
 		}
 	}
-	jww.INFO.Printf("USERNAME BACKUP DEBUG (NewCmixFromBackup) facts found:"+
-		"\nusername: %v"+
-		"\nemail %v"+
-		"\nphone %+v", username, email, phone)
 
 	err = ud.InitStoreFromBackup(storageSess.GetKV(), username, email, phone)
 	return backUp.Contacts.Identities, backUp.JSONParams, err

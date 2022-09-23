@@ -94,7 +94,7 @@ func InitializeBackup(backupPassphrase string, updateBackupCb UpdateBackupFn,
 	container *xxdk.Container, e2e E2e, session Session, ud UserDiscovery,
 	kv *versioned.KV, rng *fastRNG.StreamGenerator) (*Backup, error) {
 
-	jww.INFO.Print("USERNAME BACKUP DEBUG (InitializeBackup): ud passed in is %+v", ud)
+	jww.INFO.Printf("USERNAME BACKUP DEBUG (InitializeBackup): ud passed in is %+v", ud)
 
 	b := &Backup{
 		updateBackupCb: updateBackupCb,
@@ -146,7 +146,7 @@ func ResumeBackup(updateBackupCb UpdateBackupFn, container *xxdk.Container,
 		return nil, err
 	}
 
-	jww.INFO.Print("USERNAME BACKUP DEBUG (resume backup): ud passed in is %+v", ud)
+	jww.INFO.Printf("USERNAME BACKUP DEBUG (resume backup): ud passed in is %+v", ud)
 
 	b := &Backup{
 		updateBackupCb: updateBackupCb,
@@ -308,10 +308,10 @@ func (b *Backup) assembleBackup() backup.Backup {
 
 	// Get facts
 	if b.ud != nil {
-		jww.INFO.Print("USERNAME BACKUP DEBUG (assembleBackup): Getting facts from UD: %v", b.ud.GetFacts())
+		jww.INFO.Printf("USERNAME BACKUP DEBUG (assembleBackup): Getting facts from UD: %v", b.ud.GetFacts())
 		bu.UserDiscoveryRegistration.FactList = b.ud.GetFacts()
 	} else {
-		jww.INFO.Print("USERNAME BACKUP DEBUG (assembleBackup): ud is nil, putting empty list")
+		jww.INFO.Printf("USERNAME BACKUP DEBUG (assembleBackup): ud is nil, putting empty list")
 		bu.UserDiscoveryRegistration.FactList = fact.FactList{}
 	}
 

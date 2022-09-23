@@ -70,8 +70,12 @@ func (s *Store) GetUsername() (string, error) {
 	// todo: refactor this in the future so that
 	//  it's an O(1) lookup (place this object in another map
 	//  or have it's own field)
+	jww.INFO.Printf("USERNAME BACKUP DEBUG (GetUsername): map: %+v", s.confirmedFacts)
+
 	for f := range s.confirmedFacts {
 		if f.T == fact.Username {
+			jww.INFO.Printf("USERNAME BACKUP DEBUG (GetUsername): found fact: %+v", f)
+
 			return f.Fact, nil
 		}
 	}
@@ -174,11 +178,11 @@ func (s *Store) BackUpMissingFacts(username, email, phone fact.Fact) error {
 		}
 	}
 
+	jww.INFO.Printf("USERNAME BACKUP DEBUG (BackUpMissingFacts): fact map after %+v", s.confirmedFacts)
+
 	if modified {
 		return s.saveConfirmedFacts()
 	}
-
-	jww.INFO.Printf("USERNAME BACKUP DEBUG (BackUpMissingFacts): fact map after %+v", s.confirmedFacts)
 
 	return nil
 

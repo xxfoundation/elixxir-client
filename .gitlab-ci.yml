@@ -68,8 +68,11 @@ build:
     - cd high-ctidh
     - export P=`pwd`
     - export CTIDH_BITS=1024
+    # The following sets the key size to use, and puts binding.h in the path
     - export CGO_CFLAGS="-g -I${P} -DBITS=${CTIDH_BITS}"
-    - export CGO_LDFLAGS="-L${P} -Wl,-rpath,${P} -lhighctidh_${CTIDH_BITS}"
+    # copy highctidh_*.so into the same as the build directory as highctidh.so
+    - cp highctidh_${CTIDH_BITS}.so ../highctidh.so
+    - export CGO_LDFLAGS="-L./ -Wl,-rpath,./ -lhighctidh"
     - cd ..
     - make version
     - mkdir -p release
@@ -79,6 +82,7 @@ build:
 #    - GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win32 main.go
     # - GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -tags ctidh -ldflags '-w -s' -o release/client.darwin64 main.go
     - /upload-artifacts.sh release/
+    - cp highctidh.so release/
   artifacts:
     paths:
      - release/

@@ -76,13 +76,13 @@ build:
     - cd ..
     - make version
     - mkdir -p release
+    - cp libhighctidh.so release/
 #    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' ./...
     - GOOS=linux GOARCH=amd64 go build -tags ctidh -ldflags '-w -s' -o release/client.linux64 main.go
 #    - GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win64 main.go
 #    - GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win32 main.go
     # - GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -tags ctidh -ldflags '-w -s' -o release/client.darwin64 main.go
     - /upload-artifacts.sh release/
-    - cp highctidh.so release/
   artifacts:
     paths:
      - release/

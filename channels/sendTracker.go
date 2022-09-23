@@ -32,6 +32,8 @@ const (
 	// is assumed to have failed. Tracking per round does not persist across
 	// runs
 	maxChecks = 3
+
+	onePointFiveSeconds = 15000 * time.Millisecond
 )
 
 type tracked struct {
@@ -119,22 +121,31 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 // store writes the list of rounds that have been
 func (st *sendTracker) store() error {
 
+	if err := st.storeSent(); err != nil {
+		return err
+	}
+
+	return st.storeUnsent()
+}
+
+func (st *sendTracker) storeSent() error {
+
 	//save sent messages
 	data, err := json.Marshal(&st.byRound)
 	if err != nil {
 		return err
 	}
-	err = st.kv.Set(sendTrackerStorageKey, &versioned.Object{
+	return st.kv.Set(sendTrackerStorageKey, &versioned.Object{
 		Version:   sendTrackerStorageVersion,
 		Timestamp: time.Now(),
 		Data:      data,
 	})
-	if err != nil {
-		return err
-	}
+}
 
+// store writes the list of rounds that have been
+func (st *sendTracker) storeUnsent() error {
 	//save unsent messages
-	data, err = json.Marshal(&st.unsent)
+	data, err := json.Marshal(&st.unsent)
 	if err != nil {
 		return err
 	}
@@ -179,9 +190,31 @@ func (st *sendTracker) load() error {
 	return nil
 }
 
-func denotePendingSend(channelID *id.ID,
-	umi *userMessageInternal, round rounds.Round) {
+func (st *sendTracker) denotePendingSend(channelID *id.ID,
+	umi *userMessageInternal, nickname string) {
+	ts := time.Now().Add(onePointFiveSeconds)
+	uuid := st.trigger(channelID, umi, ts, receptionID.EphemeralIdentity{},
+		rounds.Round{}, Unsent)
+}
 
+// handleDenoteSend does the nity gritty of editing internal structures
+func (st *sendTracker) handleDenoteSend(uuid uint64, channelID *id.ID,
+	messageID cryptoChannel.MessageID, round rounds.Round) {
+	st.mux.Lock()
+	defer st.mux.Unlock()
+
+	//skip if already added
+	_, existsMessage := st.unsent[uuid]
+	if existsMessage {
+		return
+	}
+
+	st.unsent[uuid] = &tracked{messageID, channelID, round.ID, uuid}
+
+	err := st.storeUnsent()
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
 }
 
 // send tracks a generic send message

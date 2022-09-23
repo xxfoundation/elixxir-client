@@ -72,7 +72,7 @@ build:
     - export CGO_CFLAGS="-g -I${P} -DBITS=${CTIDH_BITS}"
     # copy highctidh_*.so into the same as the build directory as highctidh.so
     - cp libhighctidh_${CTIDH_BITS}.so ../libhighctidh.so
-    - export CGO_LDFLAGS="-L./ -Wl,-rpath,./ -lhighctidh"
+    - export CGO_LDFLAGS="-L./ -Wl,-rpath,'$$ORIGIN' -lhighctidh"
     - cd ..
     - make version
     - mkdir -p release

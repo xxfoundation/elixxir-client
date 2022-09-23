@@ -71,7 +71,7 @@ build:
     # The following sets the key size to use, and puts binding.h in the path
     - export CGO_CFLAGS="-g -I${P} -DBITS=${CTIDH_BITS}"
     # copy highctidh_*.so into the same as the build directory as highctidh.so
-    - cp highctidh_${CTIDH_BITS}.so ../highctidh.so
+    - cp libhighctidh_${CTIDH_BITS}.so ../libhighctidh.so
     - export CGO_LDFLAGS="-L./ -Wl,-rpath,./ -lhighctidh"
     - cd ..
     - make version

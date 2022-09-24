@@ -89,10 +89,7 @@ func TestUserMessageInternal_GetUserMessage(t *testing.T) {
 	received := internal.GetUserMessage()
 
 	if !reflect.DeepEqual(received.Message, usrMsg.Message) ||
-		received.Username != usrMsg.Username ||
-		received.UsernameLease != usrMsg.UsernameLease ||
 		!reflect.DeepEqual(received.Signature, usrMsg.Signature) ||
-		!reflect.DeepEqual(received.ValidationSignature, usrMsg.ValidationSignature) ||
 		!reflect.DeepEqual(received.ECCPublicKey, usrMsg.ECCPublicKey) {
 		t.Fatalf("GetUserMessage did not return expected data."+
 			"\nExpected: %v"+
@@ -118,7 +115,7 @@ func TestUserMessageInternal_GetMessageID(t *testing.T) {
 // it would be good to know when this changes. If this test breaks, report it,
 // but it should be safe to update the expected
 func TestUserMessageInternal_GetMessageID_Consistency(t *testing.T) {
-	expected := "ChMsgID-cfw4O6M47N9pqdtTcQjm/SSVqehTPGQd7cAMrNP9bcc="
+	expected := "ChMsgID-s425CTIAcKxvhUEZNr6Dk1g6rrOOpzKOS9L97OzLJ2w="
 
 	internal, _, _ := builtTestUMI(t, 7)
 
@@ -137,6 +134,7 @@ func builtTestUMI(t *testing.T, mt MessageType) (*userMessageInternal, *UserMess
 		RoundID:     42,
 		PayloadType: uint32(mt),
 		Payload:     []byte("ban_badUSer"),
+		Nickname:    "paul",
 	}
 
 	serialized, err := proto.Marshal(channelMsg)
@@ -145,12 +143,9 @@ func builtTestUMI(t *testing.T, mt MessageType) (*userMessageInternal, *UserMess
 	}
 
 	usrMsg := &UserMessage{
-		Message:             serialized,
-		ValidationSignature: []byte("sig"),
-		Signature:           []byte("sig2"),
-		Username:            "hunter2",
-		ECCPublicKey:        []byte("key"),
-		UsernameLease:       666,
+		Message:      serialized,
+		Signature:    []byte("sig2"),
+		ECCPublicKey: []byte("key"),
 	}
 
 	internal, _ := newUserMessageInternal(usrMsg)

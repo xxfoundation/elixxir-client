@@ -32,9 +32,9 @@ type triggerAdminEventDummy struct {
 }
 
 func (taed *triggerAdminEventDummy) triggerAdminEvent(chID *id.ID,
-	cm *ChannelMessage, messageID cryptoChannel.MessageID,
+	cm *ChannelMessage, ts time.Time, messageID cryptoChannel.MessageID,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round,
-	status SentStatus) {
+	status SentStatus) (uint64, error) {
 	taed.gotData = true
 
 	taed.chID = chID
@@ -42,6 +42,8 @@ func (taed *triggerAdminEventDummy) triggerAdminEvent(chID *id.ID,
 	taed.msgID = messageID
 	taed.receptionID = receptionID
 	taed.round = round
+
+	return 0, nil
 }
 
 // Tests the happy path.

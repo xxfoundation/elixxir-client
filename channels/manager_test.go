@@ -11,10 +11,12 @@ import (
 	"fmt"
 	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/storage/versioned"
+	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
+	"math/rand"
 	"os"
 	"sync"
 	"testing"
@@ -33,10 +35,22 @@ func TestMain(m *testing.M) {
 func TestManager_JoinChannel(t *testing.T) {
 	mem := &mockEventModel{}
 
-	m := NewManager(versioned.NewKV(ekv.MakeMemstore()),
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockNameService), mem).(*manager)
+		mem)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
 
 	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
 	if err != nil {
@@ -64,10 +78,22 @@ func TestManager_JoinChannel(t *testing.T) {
 func TestManager_LeaveChannel(t *testing.T) {
 	mem := &mockEventModel{}
 
-	m := NewManager(versioned.NewKV(ekv.MakeMemstore()),
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockNameService), mem).(*manager)
+		mem)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
 
 	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
 	if err != nil {

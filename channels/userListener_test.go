@@ -34,7 +34,8 @@ type triggerEventDummy struct {
 }
 
 func (ted *triggerEventDummy) triggerEvent(chID *id.ID, umi *userMessageInternal,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round, sent SentStatus) {
+	ts time.Time, receptionID receptionID.EphemeralIdentity, round rounds.Round,
+	sent SentStatus) (uint64, error) {
 	ted.gotData = true
 
 	ted.chID = chID
@@ -42,6 +43,8 @@ func (ted *triggerEventDummy) triggerEvent(chID *id.ID, umi *userMessageInternal
 	ted.receptionID = receptionID
 	ted.round = round
 	ted.msgID = umi.GetMessageID()
+
+	return 0, nil
 }
 
 // Tests the happy path
@@ -78,12 +81,9 @@ func TestUserListener_Listen(t *testing.T) {
 	ns := &mockNameService{validChMsg: true}
 
 	um := &UserMessage{
-		Message:             cmSerial,
-		ValidationSignature: []byte("Not checked in test"),
-		Signature:           sig,
-		Username:            ns.GetUsername(),
-		ECCPublicKey:        pub,
-		UsernameLease:       time.Now().Add(time.Hour).UnixNano(),
+		Message:      cmSerial,
+		Signature:    sig,
+		ECCPublicKey: pub,
 	}
 
 	umSerial, err := proto.Marshal(um)
@@ -166,143 +166,9 @@ func TestUserListener_Listen_BadUserSig(t *testing.T) {
 	ns := &mockNameService{validChMsg: true}
 
 	um := &UserMessage{
-		Message:             cmSerial,
-		ValidationSignature: []byte("Not checked in test"),
-		Signature:           sig,
-		Username:            ns.GetUsername(),
-		ECCPublicKey:        pub,
-		UsernameLease:       time.Now().Add(time.Hour).UnixNano(),
-	}
-
-	umSerial, err := proto.Marshal(um)
-	if err != nil {
-		t.Fatalf("Failed to marshal proto: %+v", err)
-	}
-
-	//build the listener
-	dummy := &triggerEventDummy{}
-
-	al := userListener{
-		chID:      chID,
-		name:      ns,
-		trigger:   dummy.triggerEvent,
-		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
-	}
-
-	//call the listener
-	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
-
-	//check the results
-	if dummy.gotData {
-		t.Fatalf("Data returned after invalid listen")
-	}
-}
-
-//tests that the message is rejected when the validation signature cannot be
-//validated
-func TestUserListener_Listen_BadValidSig(t *testing.T) {
-
-	//build inputs
-	chID := &id.ID{}
-	chID[0] = 1
-
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
-
-	rng := rand.New(rand.NewSource(42))
-	pub, priv, err := ed25519.GenerateKey(rng)
-	if err != nil {
-		t.Fatalf("failed to generate ed25519 keypair, cant run test")
-	}
-
-	cm := &ChannelMessage{
-		Lease:       int64(time.Hour),
-		RoundID:     uint64(r.ID),
-		PayloadType: 42,
-		Payload:     []byte("blarg"),
-	}
-
-	cmSerial, err := proto.Marshal(cm)
-	if err != nil {
-		t.Fatalf("Failed to marshal proto: %+v", err)
-	}
-
-	sig := ed25519.Sign(priv, cmSerial)
-	//make the signature not validate
-	ns := &mockNameService{validChMsg: false}
-
-	um := &UserMessage{
-		Message:             cmSerial,
-		ValidationSignature: []byte("Not checked in test"),
-		Signature:           sig,
-		Username:            ns.GetUsername(),
-		ECCPublicKey:        pub,
-		UsernameLease:       time.Now().Add(time.Hour).UnixNano(),
-	}
-
-	umSerial, err := proto.Marshal(um)
-	if err != nil {
-		t.Fatalf("Failed to marshal proto: %+v", err)
-	}
-
-	//build the listener
-	dummy := &triggerEventDummy{}
-
-	al := userListener{
-		chID:      chID,
-		name:      ns,
-		trigger:   dummy.triggerEvent,
-		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
-	}
-
-	//call the listener
-	al.Listen(umSerial, receptionID.EphemeralIdentity{}, r)
-
-	//check the results
-	if dummy.gotData {
-		t.Fatalf("Data returned after invalid listen")
-	}
-}
-
-//tests that the message is rejected when the username timestamp is not valid
-func TestUserListener_Listen_BadUnameTs(t *testing.T) {
-
-	//build inputs
-	chID := &id.ID{}
-	chID[0] = 1
-
-	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
-
-	rng := rand.New(rand.NewSource(42))
-	pub, priv, err := ed25519.GenerateKey(rng)
-	if err != nil {
-		t.Fatalf("failed to generate ed25519 keypair, cant run test")
-	}
-
-	cm := &ChannelMessage{
-		Lease:       int64(time.Hour),
-		RoundID:     uint64(r.ID),
-		PayloadType: 42,
-		Payload:     []byte("blarg"),
-	}
-
-	cmSerial, err := proto.Marshal(cm)
-	if err != nil {
-		t.Fatalf("Failed to marshal proto: %+v", err)
-	}
-
-	sig := ed25519.Sign(priv, cmSerial)
-	ns := &mockNameService{validChMsg: true}
-
-	um := &UserMessage{
-		Message:             cmSerial,
-		ValidationSignature: []byte("Not checked in test"),
-		Signature:           sig,
-		Username:            ns.GetUsername(),
-		ECCPublicKey:        pub,
-		//make the username lease invalid
-		UsernameLease: 42,
+		Message:      cmSerial,
+		Signature:    sig,
+		ECCPublicKey: pub,
 	}
 
 	umSerial, err := proto.Marshal(um)
@@ -363,12 +229,9 @@ func TestUserListener_Listen_BadRound(t *testing.T) {
 	ns := &mockNameService{validChMsg: true}
 
 	um := &UserMessage{
-		Message:             cmSerial,
-		ValidationSignature: []byte("Not checked in test"),
-		Signature:           sig,
-		Username:            ns.GetUsername(),
-		ECCPublicKey:        pub,
-		UsernameLease:       time.Now().Add(time.Hour).UnixNano(),
+		Message:      cmSerial,
+		Signature:    sig,
+		ECCPublicKey: pub,
 	}
 
 	umSerial, err := proto.Marshal(um)
@@ -461,12 +324,9 @@ func TestUserListener_Listen_BadSizedBroadcast(t *testing.T) {
 	ns := &mockNameService{validChMsg: true}
 
 	um := &UserMessage{
-		Message:             cmSerial,
-		ValidationSignature: []byte("Not checked in test"),
-		Signature:           sig,
-		Username:            ns.GetUsername(),
-		ECCPublicKey:        pub,
-		UsernameLease:       time.Now().Add(time.Hour).UnixNano(),
+		Message:      cmSerial,
+		Signature:    sig,
+		ECCPublicKey: pub,
 	}
 
 	umSerial, err := proto.Marshal(um)

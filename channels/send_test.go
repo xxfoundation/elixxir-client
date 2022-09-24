@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -141,18 +142,33 @@ func TestSendGeneric(t *testing.T) {
 	nameService := new(mockNameService)
 	nameService.validChMsg = true
 
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
 	m := &manager{
+		me:       pi,
 		channels: make(map[id.ID]*joinedChannel),
-		name:     nameService,
+		nicknameManager: &nicknameManager{
+			byChannel: make(map[id.ID]string),
+			kv:        nil,
+		},
 		st: loadSendTracker(&mockBroadcastClient{},
 			versioned.NewKV(ekv.MakeMemstore()), func(chID *id.ID,
-				umi *userMessageInternal,
+				umi *userMessageInternal, ts time.Time,
 				receptionID receptionID.EphemeralIdentity,
-				round rounds.Round, status SentStatus) {
-			}, func(chID *id.ID, cm *ChannelMessage,
+				round rounds.Round, status SentStatus) (uint64, error) {
+				return 0, nil
+			}, func(chID *id.ID, cm *ChannelMessage, ts time.Time,
 				messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-				round rounds.Round, status SentStatus) {
-			}, func(messageID cryptoChannel.MessageID, status SentStatus) {}),
+				round rounds.Round, status SentStatus) (uint64, error) {
+				return 0, nil
+			}, func(uuid uint64, messageID cryptoChannel.MessageID,
+				timestamp time.Time, round rounds.Round, status SentStatus) {
+			}),
 	}
 
 	channelID := new(id.ID)
@@ -212,21 +228,33 @@ func TestSendGeneric(t *testing.T) {
 
 func TestAdminGeneric(t *testing.T) {
 
-	nameService := new(mockNameService)
-	nameService.validChMsg = true
+	prng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(prng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
-		name:     nameService,
+		nicknameManager: &nicknameManager{
+			byChannel: make(map[id.ID]string),
+			kv:        nil,
+		},
+		me: pi,
 		st: loadSendTracker(&mockBroadcastClient{},
 			versioned.NewKV(ekv.MakeMemstore()), func(chID *id.ID,
-				umi *userMessageInternal,
+				umi *userMessageInternal, ts time.Time,
 				receptionID receptionID.EphemeralIdentity,
-				round rounds.Round, status SentStatus) {
-			}, func(chID *id.ID, cm *ChannelMessage,
+				round rounds.Round, status SentStatus) (uint64, error) {
+				return 0, nil
+			}, func(chID *id.ID, cm *ChannelMessage, ts time.Time,
 				messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-				round rounds.Round, status SentStatus) {
-			}, func(messageID cryptoChannel.MessageID, status SentStatus) {}),
+				round rounds.Round, status SentStatus) (uint64, error) {
+				return 0, nil
+			}, func(uuid uint64, messageID cryptoChannel.MessageID,
+				timestamp time.Time, round rounds.Round, status SentStatus) {
+			}),
 	}
 
 	messageType := Text
@@ -289,18 +317,33 @@ func TestSendMessage(t *testing.T) {
 	nameService := new(mockNameService)
 	nameService.validChMsg = true
 
+	prng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(prng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
 	m := &manager{
+		me:       pi,
 		channels: make(map[id.ID]*joinedChannel),
-		name:     nameService,
+		nicknameManager: &nicknameManager{
+			byChannel: make(map[id.ID]string),
+			kv:        nil,
+		},
 		st: loadSendTracker(&mockBroadcastClient{},
 			versioned.NewKV(ekv.MakeMemstore()), func(chID *id.ID,
-				umi *userMessageInternal,
+				umi *userMessageInternal, ts time.Time,
 				receptionID receptionID.EphemeralIdentity,
-				round rounds.Round, status SentStatus) {
-			}, func(chID *id.ID, cm *ChannelMessage,
+				round rounds.Round, status SentStatus) (uint64, error) {
+				return 0, nil
+			}, func(chID *id.ID, cm *ChannelMessage, ts time.Time,
 				messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-				round rounds.Round, status SentStatus) {
-			}, func(messageID cryptoChannel.MessageID, status SentStatus) {}),
+				round rounds.Round, status SentStatus) (uint64, error) {
+				return 0, nil
+			}, func(uuid uint64, messageID cryptoChannel.MessageID,
+				timestamp time.Time, round rounds.Round, status SentStatus) {
+			}),
 	}
 
 	channelID := new(id.ID)
@@ -368,21 +411,33 @@ func TestSendMessage(t *testing.T) {
 
 func TestSendReply(t *testing.T) {
 
-	nameService := new(mockNameService)
-	nameService.validChMsg = true
+	prng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(prng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 
 	m := &manager{
+		me:       pi,
 		channels: make(map[id.ID]*joinedChannel),
-		name:     nameService,
+		nicknameManager: &nicknameManager{
+			byChannel: make(map[id.ID]string),
+			kv:        nil,
+		},
 		st: loadSendTracker(&mockBroadcastClient{},
 			versioned.NewKV(ekv.MakeMemstore()), func(chID *id.ID,
-				umi *userMessageInternal,
+				umi *userMessageInternal, ts time.Time,
 				receptionID receptionID.EphemeralIdentity,
-				round rounds.Round, status SentStatus) {
-			}, func(chID *id.ID, cm *ChannelMessage,
+				round rounds.Round, status SentStatus) (uint64, error) {
+				return 0, nil
+			}, func(chID *id.ID, cm *ChannelMessage, ts time.Time,
 				messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-				round rounds.Round, status SentStatus) {
-			}, func(messageID cryptoChannel.MessageID, status SentStatus) {}),
+				round rounds.Round, status SentStatus) (uint64, error) {
+				return 0, nil
+			}, func(uuid uint64, messageID cryptoChannel.MessageID,
+				timestamp time.Time, round rounds.Round, status SentStatus) {
+			}),
 	}
 
 	channelID := new(id.ID)
@@ -450,21 +505,33 @@ func TestSendReply(t *testing.T) {
 
 func TestSendReaction(t *testing.T) {
 
-	nameService := new(mockNameService)
-	nameService.validChMsg = true
+	prng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(prng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 
 	m := &manager{
+		me: pi,
+		nicknameManager: &nicknameManager{
+			byChannel: make(map[id.ID]string),
+			kv:        nil,
+		},
 		channels: make(map[id.ID]*joinedChannel),
-		name:     nameService,
 		st: loadSendTracker(&mockBroadcastClient{},
 			versioned.NewKV(ekv.MakeMemstore()), func(chID *id.ID,
-				umi *userMessageInternal,
+				umi *userMessageInternal, ts time.Time,
 				receptionID receptionID.EphemeralIdentity,
-				round rounds.Round, status SentStatus) {
-			}, func(chID *id.ID, cm *ChannelMessage,
+				round rounds.Round, status SentStatus) (uint64, error) {
+				return 0, nil
+			}, func(chID *id.ID, cm *ChannelMessage, ts time.Time,
 				messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-				round rounds.Round, status SentStatus) {
-			}, func(messageID cryptoChannel.MessageID, status SentStatus) {}),
+				round rounds.Round, status SentStatus) (uint64, error) {
+				return 0, nil
+			}, func(uuid uint64, messageID cryptoChannel.MessageID,
+				timestamp time.Time, round rounds.Round, status SentStatus) {
+			}),
 	}
 
 	channelID := new(id.ID)

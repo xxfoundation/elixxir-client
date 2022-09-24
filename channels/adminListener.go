@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -53,8 +54,15 @@ func (al *adminListener) Listen(payload []byte,
 		return
 	}
 
+	// Modify the timestamp to reduce the chance message order will be ambiguous
+	ts := mutateTimestamp(round.Timestamps[states.QUEUED], msgID)
+
 	// Submit the message to the event model for listening
-	al.trigger(al.chID, cm, msgID, receptionID, round, Delivered)
+	if uuid, err := al.trigger(al.chID, cm, ts, msgID, receptionID,
+		round, Delivered); err != nil {
+		jww.WARN.Printf("Error in passing off trigger for admin "+
+			"message (UUID: %d): %+v", uuid, err)
+	}
 
 	return
 }

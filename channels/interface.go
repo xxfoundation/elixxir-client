@@ -9,7 +9,6 @@ package channels
 
 import (
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/cmix/pickup/store"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
@@ -29,7 +28,7 @@ var ValidForever = time.Duration(math.MaxInt64)
 type Manager interface {
 
 	// GetIdentity returns the public identity associated with this channel manager
-	GetIdentity() store.Identity
+	GetIdentity() cryptoChannel.Identity
 
 	// GetStorageTag returns the tag at which this manager is store for loading
 	// it is derived from the public key
@@ -121,7 +120,7 @@ type Manager interface {
 
 	// DeleteNickname removes the nickname for a given channel, using the codename
 	// for that channel instead
-	DeleteNickname(ch *id.ID)
+	DeleteNickname(ch *id.ID) error
 
 	// GetNickname returns the nickname for the given channel if it exists
 	GetNickname(ch *id.ID) (nickname string, exists bool)

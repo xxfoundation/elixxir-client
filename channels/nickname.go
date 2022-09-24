@@ -129,11 +129,17 @@ func (nm *nicknameManager) load() error {
 // IsNicknameValid checks if a nickname is valid
 //
 // rules
-//   - a Nickname must not be longer than 24 characters
+//   - a nickname must not be longer than 24 characters
+//   - a nickname must not be shorter than 1 character
 // todo: add character filtering
-func IsNicknameValid(nm string) error {
-	if len([]rune(nm)) > 24 {
+func IsNicknameValid(nick string) error {
+	runeNick := []rune(nick)
+	if len(runeNick) > 24 {
 		return errors.New("nicknames must be 24 characters in length or less")
+	}
+
+	if len(runeNick) < 1 {
+		return errors.New("nicknames must be at least 1 character in length")
 	}
 
 	return nil

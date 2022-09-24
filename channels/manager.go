@@ -90,14 +90,13 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 	m := setupManager(identity, kv, net, rng, model)
 
-	return &m, nil
+	return m, nil
 }
 
 // LoadManager restores a channel.Manager from disk stored at the given
 //storage tag.
 func LoadManager(storageTag string, kv *versioned.KV, net Client,
-	rng *fastRNG.StreamGenerator, name NameService, model EventModel) (Manager,
-	error) {
+	rng *fastRNG.StreamGenerator, model EventModel) (Manager, error) {
 
 	// Prefix the kv with the username so multiple can be run
 	kv = kv.Prefix(storageTag)
@@ -110,7 +109,7 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 
 	m := setupManager(identity, kv, net, rng, model)
 
-	return &m
+	return m, nil
 }
 
 func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
@@ -199,7 +198,7 @@ func (m *manager) ReplayChannel(chID *id.ID) error {
 	jc.broadcast.Stop()
 
 	//re-instantiate the broadcast, re-registering it from scratch
-	b, err := initBroadcast(c, m.name, m.events, m.net, m.broadcastMaker, m.rng,
+	b, err := initBroadcast(c, m.events, m.net, m.broadcastMaker, m.rng,
 		m.st.MessageReceive)
 	if err != nil {
 		return err

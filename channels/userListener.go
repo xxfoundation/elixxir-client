@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 // the userListener adheres to the [broadcast.ListenerFunc] interface and is
@@ -57,37 +56,25 @@ func (ul *userListener) Listen(payload []byte,
 		return
 	}
 
-	// check that the username lease is valid
-	usernameLeaseEnd := time.Unix(0, um.UsernameLease)
-	if !usernameLeaseEnd.After(round.Timestamps[states.QUEUED]) {
-		jww.WARN.Printf("Message %s on channel %s purportedly from %s "+
-			"has an expired lease, ended %s, round %d was sent at %s", msgID,
-			ul.chID, um.Username, usernameLeaseEnd, round.ID,
-			round.Timestamps[states.QUEUED])
-		return
-	}
-
-	// check that the signature from the nameserver is valid
-	if !ul.name.ValidateChannelMessage(um.Username,
-		time.Unix(0, um.UsernameLease), um.ECCPublicKey, um.ValidationSignature) {
-		jww.WARN.Printf("Message %s on channel %s purportedly from %s "+
-			"failed the check of its Name Server with signature %v", msgID,
-			ul.chID, um.Username, um.ValidationSignature)
-		return
-	}
-
 	// check that the user properly signed the message
 	if !ed25519.Verify(um.ECCPublicKey, um.Message, um.Signature) {
 		jww.WARN.Printf("Message %s on channel %s purportedly from %s "+
 			"failed its user signature with signature %v", msgID,
-			ul.chID, um.Username, um.Signature)
+			ul.chID, cm.Nickname, um.Signature)
 		return
 	}
+
+	// Modify the timestamp to reduce the chance message order will be ambiguous
+	ts := mutateTimestamp(round.Timestamps[states.QUEUED], msgID)
 
 	//TODO: Processing of the message relative to admin commands will be here
 
 	//Submit the message to the event model for listening
-	ul.trigger(ul.chID, umi, receptionID, round, Delivered)
+	if uuid, err := ul.trigger(ul.chID, umi, ts, receptionID, round,
+		Delivered); err != nil {
+		jww.WARN.Printf("Error in passing off trigger for "+
+			"message (UUID: %d): %+v", uuid, err)
+	}
 
 	return
 }

@@ -72,7 +72,7 @@ func (m *manager) loadChannels() {
 
 	for i := range chList {
 		jc, err := loadJoinedChannel(
-			chList[i], m.kv, m.net, m.rng, m.name, m.events, m.broadcastMaker,
+			chList[i], m.kv, m.net, m.rng, m.events, m.broadcastMaker,
 			m.st.MessageReceive)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load channel %s: %+v", chList[i], err)
@@ -111,7 +111,6 @@ func (m *manager) addChannel(channel *cryptoBroadcast.Channel) error {
 
 	// Connect to listeners
 	err = b.RegisterListener((&userListener{
-		name:      m.name,
 		chID:      channel.ReceptionID,
 		trigger:   m.events.triggerEvent,
 		checkSent: m.st.MessageReceive,
@@ -211,7 +210,7 @@ func (jc *joinedChannel) Store(kv *versioned.KV) error {
 
 // loadJoinedChannel loads a given channel from ekv storage.
 func loadJoinedChannel(chId *id.ID, kv *versioned.KV, net broadcast.Client,
-	rngGen *fastRNG.StreamGenerator, name NameService, e *events,
+	rngGen *fastRNG.StreamGenerator, e *events,
 	broadcastMaker broadcast.NewBroadcastChannelFunc, mr messageReceiveFunc) (*joinedChannel, error) {
 	obj, err := kv.Get(makeJoinedChannelKey(chId), joinedChannelVersion)
 	if err != nil {
@@ -225,7 +224,7 @@ func loadJoinedChannel(chId *id.ID, kv *versioned.KV, net broadcast.Client,
 		return nil, err
 	}
 
-	b, err := initBroadcast(jcd.Broadcast, name, e, net, broadcastMaker, rngGen, mr)
+	b, err := initBroadcast(jcd.Broadcast, e, net, broadcastMaker, rngGen, mr)
 
 	jc := &joinedChannel{broadcast: b}
 	return jc, nil
@@ -242,7 +241,7 @@ func makeJoinedChannelKey(chId *id.ID) string {
 }
 
 func initBroadcast(c *cryptoBroadcast.Channel,
-	name NameService, e *events, net broadcast.Client,
+	e *events, net broadcast.Client,
 	broadcastMaker broadcast.NewBroadcastChannelFunc,
 	rngGen *fastRNG.StreamGenerator, mr messageReceiveFunc) (broadcast.Channel, error) {
 	b, err := broadcastMaker(c, net, rngGen)
@@ -251,7 +250,6 @@ func initBroadcast(c *cryptoBroadcast.Channel,
 	}
 
 	err = b.RegisterListener((&userListener{
-		name:      name,
 		chID:      c.ReceptionID,
 		trigger:   e.triggerEvent,
 		checkSent: mr,

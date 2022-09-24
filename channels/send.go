@@ -8,6 +8,7 @@
 package channels
 
 import (
+	"crypto/ed25519"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
@@ -39,9 +40,21 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
+	nickname, _ := m.nicknameManager.GetNickname(channelID)
+
 	var msgId cryptoChannel.MessageID
-	var usrMsg *UserMessage
-	var chMsg *ChannelMessage
+
+	chMsg := &ChannelMessage{
+		Lease:       validUntil.Nanoseconds(),
+		PayloadType: uint32(messageType),
+		Payload:     msg,
+		Nickname:    nickname,
+	}
+
+	usrMsg := &UserMessage{
+		ECCPublicKey: m.me.PubKey,
+	}
+
 	//Note: we are not checking check if message is too long before trying to
 	//find a round
 
@@ -49,12 +62,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	assemble := func(rid id.Round) ([]byte, error) {
 
 		//Build the message
-		chMsg = &ChannelMessage{
-			Lease:       validUntil.Nanoseconds(),
-			RoundID:     uint64(rid),
-			PayloadType: uint32(messageType),
-			Payload:     msg,
-		}
+		chMsg.RoundID = uint64(rid)
 
 		//Serialize the message
 		chMsgSerial, err := proto.Marshal(chMsg)
@@ -66,22 +74,10 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		msgId = cryptoChannel.MakeMessageID(chMsgSerial)
 
 		//Sign the message
-		messageSig, err := m.name.SignChannelMessage(chMsgSerial)
-		if err != nil {
-			return nil, err
-		}
+		messageSig := ed25519.Sign(*m.me.Privkey, chMsgSerial)
 
-		//Build the user message
-		validationSig, unameLease := m.name.GetChannelValidationSignature()
-
-		usrMsg = &UserMessage{
-			Message:             chMsgSerial,
-			ValidationSignature: validationSig,
-			Signature:           messageSig,
-			Username:            m.name.GetUsername(),
-			ECCPublicKey:        m.name.GetChannelPubkey(),
-			UsernameLease:       unameLease.UnixNano(),
-		}
+		usrMsg.Message = chMsgSerial
+		usrMsg.Signature = messageSig
 
 		//Serialize the user message
 		usrMsgSerial, err := proto.Marshal(usrMsg)
@@ -92,15 +88,17 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		return usrMsgSerial, nil
 	}
 
+	uuid, err := m.st.denotePendingSend(channelID, &userMessageInternal{
+		userMessage:    usrMsg,
+		channelMessage: chMsg,
+		messageID:      msgId,
+	})
+
 	r, ephid, err := ch.broadcast.BroadcastWithAssembler(assemble, params)
 	if err != nil {
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
-	m.st.send(channelID, &userMessageInternal{
-		userMessage:    usrMsg,
-		channelMessage: chMsg,
-		messageID:      msgId,
-	}, r)
+	err = m.st.send(uuid, msgId, r)
 	return msgId, r, ephid, err
 }
 
@@ -121,7 +119,12 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 	}
 
 	var msgId cryptoChannel.MessageID
-	var chMsg *ChannelMessage
+	chMsg := &ChannelMessage{
+		Lease:       validUntil.Nanoseconds(),
+		PayloadType: uint32(messageType),
+		Payload:     msg,
+		Nickname:    AdminUsername,
+	}
 	//Note: we are not checking check if message is too long before trying to
 	//find a round
 
@@ -129,12 +132,7 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 	assemble := func(rid id.Round) ([]byte, error) {
 
 		//Build the message
-		chMsg = &ChannelMessage{
-			Lease:       validUntil.Nanoseconds(),
-			RoundID:     uint64(rid),
-			PayloadType: uint32(messageType),
-			Payload:     msg,
-		}
+		chMsg.RoundID = uint64(rid)
 
 		//Serialize the message
 		chMsgSerial, err := proto.Marshal(chMsg)
@@ -152,10 +150,18 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 		return chMsgSerial, nil
 	}
 
+	uuid, err := m.st.denotePendingAdminSend(channelID, chMsg)
+	if err != nil {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+
 	r, ephid, err := ch.broadcast.BroadcastRSAToPublicWithAssembler(privKey,
 		assemble, params)
 
-	m.st.sendAdmin(channelID, chMsg, msgId, r)
+	err = m.st.sendAdmin(uuid, msgId, r)
+	if err != nil {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
 	return msgId, r, ephid, err
 }
 

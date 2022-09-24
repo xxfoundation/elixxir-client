@@ -9,12 +9,14 @@ package channels
 
 import (
 	"encoding/json"
+	"errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 	"time"
@@ -33,7 +35,7 @@ const (
 	// runs
 	maxChecks = 3
 
-	onePointFiveSeconds = 15000 * time.Millisecond
+	oneSecond = 1000 * time.Millisecond
 )
 
 type tracked struct {
@@ -190,11 +192,47 @@ func (st *sendTracker) load() error {
 	return nil
 }
 
+// denotePendingSend is called before the pending send. It tracks the send
+// internally and notifies the UI of the send
 func (st *sendTracker) denotePendingSend(channelID *id.ID,
-	umi *userMessageInternal, nickname string) {
-	ts := time.Now().Add(onePointFiveSeconds)
-	uuid := st.trigger(channelID, umi, ts, receptionID.EphemeralIdentity{},
+	umi *userMessageInternal) (uint64, error) {
+	// for a timestamp for the message, use 1 second from now to
+	// approximate the lag due to round submission
+	ts := time.Now().Add(oneSecond)
+
+	// submit the message to the UI
+	uuid, err := st.trigger(channelID, umi, ts, receptionID.EphemeralIdentity{},
 		rounds.Round{}, Unsent)
+	if err != nil {
+		return 0, err
+	}
+
+	// track the message on disk
+	st.handleDenoteSend(uuid, channelID, cryptoChannel.MessageID{},
+		rounds.Round{})
+	return uuid, nil
+}
+
+// denotePendingAdminSend is called before the pending admin send. It tracks the
+// send internally and notifies the UI of the send
+func (st *sendTracker) denotePendingAdminSend(channelID *id.ID,
+	cm *ChannelMessage) (uint64, error) {
+	// for a timestamp for the message, use 1 second from now to
+	// approximate the lag due to round submission
+	ts := time.Now().Add(oneSecond)
+
+	// submit the message to the UI
+	uuid, err := st.adminTrigger(channelID, cm, ts, cryptoChannel.MessageID{},
+		receptionID.EphemeralIdentity{},
+		rounds.Round{}, Unsent)
+
+	// track the message on disk
+	if err != nil {
+		return 0, err
+	}
+	st.handleDenoteSend(uuid, channelID, cryptoChannel.MessageID{},
+		rounds.Round{})
+	return uuid, nil
 }
 
 // handleDenoteSend does the nity gritty of editing internal structures
@@ -218,34 +256,62 @@ func (st *sendTracker) handleDenoteSend(uuid uint64, channelID *id.ID,
 }
 
 // send tracks a generic send message
-func (st *sendTracker) send(channelID *id.ID,
-	umi *userMessageInternal, round rounds.Round) {
-	st.handleSend(channelID, umi.GetMessageID(), round)
-	go st.trigger(channelID, umi,
-		receptionID.EphemeralIdentity{}, round, Sent)
+func (st *sendTracker) send(uuid uint64, msgID cryptoChannel.MessageID,
+	round rounds.Round) error {
+
+	// update the on disk message status
+	t, err := st.handleSend(uuid, msgID, round)
+	if err != nil {
+		return err
+	}
+
+	// Modify the timestamp to reduce the chance message order will be ambiguous
+	ts := mutateTimestamp(round.Timestamps[states.QUEUED], msgID)
+
+	//update the message on the UI
+	go st.updateStatus(t.UUID, msgID, ts, round, Sent)
+	return nil
 }
 
 // sendAdmin tracks a generic sendAdmin message
-func (st *sendTracker) sendAdmin(channelID *id.ID,
-	cm *ChannelMessage, msgID cryptoChannel.MessageID, round rounds.Round) {
-	st.handleSend(channelID, msgID, round)
-	go st.adminTrigger(channelID, cm, msgID,
-		receptionID.EphemeralIdentity{}, round, Sent)
+func (st *sendTracker) sendAdmin(uuid uint64, msgID cryptoChannel.MessageID,
+	round rounds.Round) error {
+
+	// update the on disk message status
+	t, err := st.handleSend(uuid, msgID, round)
+	if err != nil {
+		return err
+	}
+
+	// Modify the timestamp to reduce the chance message order will be ambiguous
+	ts := mutateTimestamp(round.Timestamps[states.QUEUED], msgID)
+
+	//update the message on the UI
+	go st.updateStatus(t.UUID, msgID, ts, round, Sent)
+
+	return nil
 }
 
 // handleSend does the nity gritty of editing internal structures
-func (st *sendTracker) handleSend(channelID *id.ID,
-	messageID cryptoChannel.MessageID, round rounds.Round) {
+func (st *sendTracker) handleSend(uuid uint64,
+	messageID cryptoChannel.MessageID, round rounds.Round) (*tracked, error) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 
-	//skip if already added
-	_, existsMessage := st.byMessageID[messageID]
-	if existsMessage {
-		return
+	//check if in unsent
+	t, exists := st.unsent[uuid]
+	if !exists {
+		return nil, errors.New("cannot handle send on an unprepared message")
 	}
 
-	t := &tracked{messageID, channelID, round.ID}
+	_, existsMessage := st.byMessageID[messageID]
+	if existsMessage {
+		return nil, errors.New("cannot handle send on a message which was " +
+			"already sent")
+	}
+
+	t.MsgID = messageID
+	t.RoundID = round.ID
 
 	//add the roundID
 	roundsList, existsRound := st.byRound[round.ID]
@@ -263,10 +329,12 @@ func (st *sendTracker) handleSend(channelID *id.ID,
 	}
 
 	//store the changed list to disk
-	err := st.store()
+	err := st.storeSent()
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
+
+	return t, nil
 }
 
 // MessageReceive is used when a message is received to check if the message
@@ -317,7 +385,7 @@ type roundResults struct {
 
 // callback is called when results are known about a round. it will re-trigger
 // the wait if it fails up to 'maxChecks' times.
-func (rr *roundResults) callback(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundResult) {
+func (rr *roundResults) callback(allRoundsSucceeded, timedOut bool, _ map[id.Round]cmix.RoundResult) {
 
 	rr.st.mux.Lock()
 
@@ -360,6 +428,7 @@ func (rr *roundResults) callback(allRoundsSucceeded, timedOut bool, rounds map[i
 	rr.st.mux.Unlock()
 
 	for i := range registered {
-		go rr.st.updateStatus(registered[i].MsgID, status)
+		go rr.st.updateStatus(registered[i].UUID, registered[i].MsgID, time.Time{},
+			rounds.Round{}, status)
 	}
 }

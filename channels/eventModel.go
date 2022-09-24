@@ -13,7 +13,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"gitlab.com/elixxir/primitives/states"
 	"sync"
 	"time"
 
@@ -128,6 +127,8 @@ type EventModel interface {
 // types. Default ones for Text, Reaction, and AdminText.
 // A unique uuid must be returned by which the message can be referenced later
 // via UpdateSentStatus
+// It must return a unique UUID for the message by which it can be referenced
+// later
 type MessageTypeReceiveMessage func(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
 	nickname string, content []byte, identity cryptoChannel.Identity,
@@ -221,18 +222,18 @@ func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal, ts time.Tim
 	return uuid, nil
 }
 
-type triggerAdminEventFunc func(chID *id.ID, cm *ChannelMessage,
+type triggerAdminEventFunc func(chID *id.ID, cm *ChannelMessage, ts time.Time,
 	messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-	round rounds.Round, status SentStatus)
+	round rounds.Round, status SentStatus) (uint64, error)
 
 // triggerAdminEvent is an internal function that is used to trigger message
 // reception on a message received from the admin (asymmetric encryption).
 //
 // It will call the appropriate MessageTypeHandler assuming one exists.
 func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
-	messageID cryptoChannel.MessageID,
+	ts time.Time, messageID cryptoChannel.MessageID,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round,
-	status SentStatus) {
+	status SentStatus) (uint64, error) {
 	messageType := MessageType(cm.PayloadType)
 
 	// check if the type is already registered
@@ -240,21 +241,19 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 	listener, exists := e.registered[messageType]
 	e.mux.RUnlock()
 	if !exists {
-		jww.WARN.Printf("Received Admin message from %s on channel %s in "+
+		errStr := fmt.Sprintf("Received Admin message from %s on channel %s in "+
 			"round %d which could not be handled due to unregistered message "+
 			"type %s; Contents: %v", AdminUsername, chID, round.ID, messageType,
 			cm.Payload)
-		return
+		jww.WARN.Printf(errStr)
+		return 0, errors.New(errStr)
 	}
 
-	// Modify the timestamp to reduce the chance message order will be ambiguous
-	ts := mutateTimestamp(round.Timestamps[states.QUEUED], messageID)
-
 	// Call the listener. This is already in an instanced event, no new thread needed.
-	listener(chID, messageID, messageType, AdminUsername, cm.Payload,
+	uuid := listener(chID, messageID, messageType, AdminUsername, cm.Payload,
 		cryptoChannel.Identity{Codename: AdminUsername}, ts,
 		time.Duration(cm.Lease), round, status)
-	return
+	return uuid, nil
 }
 
 // receiveTextMessage is the internal function that handles the reception of

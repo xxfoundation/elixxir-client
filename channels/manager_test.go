@@ -33,8 +33,6 @@ func TestMain(m *testing.M) {
 }
 
 func TestManager_JoinChannel(t *testing.T) {
-	mem := &mockEventModel{}
-
 	rng := rand.New(rand.NewSource(64))
 
 	pi, err := cryptoChannel.GenerateIdentity(rng)
@@ -45,12 +43,13 @@ func TestManager_JoinChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mem)
+		mockEventModelBuilder)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
 
 	m := mFace.(*manager)
+	mem := m.events.model.(*mockEventModel)
 
 	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
 	if err != nil {
@@ -76,7 +75,6 @@ func TestManager_JoinChannel(t *testing.T) {
 }
 
 func TestManager_LeaveChannel(t *testing.T) {
-	mem := &mockEventModel{}
 
 	rng := rand.New(rand.NewSource(64))
 
@@ -88,12 +86,13 @@ func TestManager_LeaveChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		mem)
+		mockEventModelBuilder)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
 
 	m := mFace.(*manager)
+	mem := m.events.model.(*mockEventModel)
 
 	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
 	if err != nil {

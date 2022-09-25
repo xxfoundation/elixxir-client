@@ -43,7 +43,7 @@ func Test_manager_store(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockEventModel))
+		mockEventModelBuilder)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -89,7 +89,7 @@ func Test_manager_loadChannels(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockEventModel))
+		mockEventModelBuilder)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -161,7 +161,7 @@ func Test_manager_addChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockEventModel))
+		mockEventModelBuilder)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -206,7 +206,7 @@ func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockEventModel))
+		mockEventModelBuilder)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -242,7 +242,7 @@ func Test_manager_removeChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockEventModel))
+		mockEventModelBuilder)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -287,7 +287,7 @@ func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockEventModel))
+		mockEventModelBuilder)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -319,7 +319,7 @@ func Test_manager_getChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockEventModel))
+		mockEventModelBuilder)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -360,7 +360,7 @@ func Test_manager_getChannel_ChannelDoesNotExistsErr(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockEventModel))
+		mockEventModelBuilder)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -393,7 +393,7 @@ func Test_manager_getChannels(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockEventModel))
+		mockEventModelBuilder)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -472,7 +472,7 @@ func Test_loadJoinedChannel(t *testing.T) {
 	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockEventModel))
+		mockEventModelBuilder)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -600,6 +600,10 @@ func (m *mockBroadcastClient) RemoveHealthCallback(uint64)           {}
 ////////////////////////////////////////////////////////////////////////////////
 // Mock EventModel                                                            //
 ////////////////////////////////////////////////////////////////////////////////
+
+func mockEventModelBuilder(string) EventModel {
+	return &mockEventModel{}
+}
 
 // mockEventModel adheres to the EventModel interface.
 type mockEventModel struct {

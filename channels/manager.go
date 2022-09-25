@@ -75,37 +75,43 @@ type Client interface {
 	RemoveHealthCallback(uint64)
 }
 
-// NewManager creates a new channel.Manager from a private identity. It
-// prefixes the KV with a tag derived from the public key which can be retried
-// for reloading using Manage.GetStorageTag.
+// EventModelBuilder initialises the event model using the given path.
+type EventModelBuilder func(path string) EventModel
+
+// NewManager creates a new channel Manager from a [channel.PrivateIdentity]. It
+// prefixes the KV with a tag derived from the public key that can be retried
+// for reloading using [Manager.GetStorageTag].
 func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
-	net Client, rng *fastRNG.StreamGenerator, model EventModel) (Manager, error) {
+	net Client, rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder) (
+	Manager, error) {
 
 	// Prefix the kv with the username so multiple can be run
-	kv = kv.Prefix(getStorageTag(identity.PubKey))
+	storageTag := getStorageTag(identity.PubKey)
+	kv = kv.Prefix(storageTag)
 
 	if err := storeIdentity(kv, identity); err != nil {
 		return nil, err
 	}
-
-	m := setupManager(identity, kv, net, rng, model)
+	m := setupManager(identity, kv, net, rng, modelBuilder(storageTag))
 
 	return m, nil
 }
 
-// LoadManager restores a channel.Manager from disk stored at the given
-//storage tag.
+// LoadManager restores a channel Manager from disk stored at the given storage
+// tag.
 func LoadManager(storageTag string, kv *versioned.KV, net Client,
-	rng *fastRNG.StreamGenerator, model EventModel) (Manager, error) {
+	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder) (Manager, error) {
 
 	// Prefix the kv with the username so multiple can be run
 	kv = kv.Prefix(storageTag)
 
-	//load the identity
+	// Load the identity
 	identity, err := loadIdentity(kv)
 	if err != nil {
 		return nil, err
 	}
+
+	model := modelBuilder(storageTag)
 
 	m := setupManager(identity, kv, net, rng, model)
 

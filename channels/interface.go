@@ -69,8 +69,8 @@ type Manager interface {
 	// it will always be possible to send a payload of 798 bytes at minimum
 	// The message will auto delete validUntil after the round it is sent in,
 	// lasting forever if ValidForever is used
-	SendMessage(channelID *id.ID, msg string,
-		validUntil time.Duration, params cmix.CMIXParams) (
+	SendMessage(channelID *id.ID, msg string, validUntil time.Duration,
+		params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
 	// SendReply is used to send a formatted message over a channel.
@@ -85,19 +85,22 @@ type Manager interface {
 		validUntil time.Duration, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
-	// SendReaction is used to send a reaction to a message over a channel.
-	// The reaction must be a single emoji with no other characters, and will
-	// be rejected otherwise.
-	// Clients will drop the reaction if they do not recognize the reactTo message
-	SendReaction(channelID *id.ID, reaction string, reactTo cryptoChannel.MessageID,
-		params cmix.CMIXParams) (cryptoChannel.MessageID, rounds.Round,
-		ephemeral.Id, error)
+	// SendReaction is used to send a reaction to a message over a channel. The
+	// reaction must be a single emoji with no other characters, and will be
+	// rejected otherwise.
+	//
+	// Clients will drop the reaction if they do not recognize the reactTo
+	// message.
+	SendReaction(channelID *id.ID, reaction string,
+		reactTo cryptoChannel.MessageID, params cmix.CMIXParams) (
+		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
-	// RegisterReceiveHandler is used to register handlers for non default message
-	// types s they can be processed by modules. it is important that such modules
-	// sync up with the event model implementation.
-	// There can only be one handler per message type, and this will return an error
-	// on a multiple registration.
+	// RegisterReceiveHandler is used to register handlers for non default
+	// message types so that they can be processed by modules. It is important
+	// that such modules sync up with the event model implementation.
+	//
+	// There can only be one handler per message type, and this will return an
+	// error on a multiple registration.
 	RegisterReceiveHandler(messageType MessageType,
 		listener MessageTypeReceiveMessage) error
 
@@ -105,7 +108,8 @@ type Manager interface {
 	// getChannelsUnsafe if you already have taken the mux.
 	GetChannels() []*id.ID
 
-	// GetChannel returns the underlying cryptographic structure for a given channel.
+	// GetChannel returns the underlying cryptographic structure for a given
+	// channel.
 	GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error)
 
 	// ReplayChannel replays all messages from the channel within the network's
@@ -114,14 +118,14 @@ type Manager interface {
 	// messages to be re-retrieved from the network
 	ReplayChannel(chID *id.ID) error
 
-	// SetNickname sets the nickname for a channel after checking that the nickname
-	// is valid using IsNicknameValid
+	// SetNickname sets the nickname for a channel after checking that the
+	// nickname is valid using IsNicknameValid.
 	SetNickname(newNick string, ch *id.ID) error
 
-	// DeleteNickname removes the nickname for a given channel, using the codename
-	// for that channel instead
+	// DeleteNickname removes the nickname for a given channel, using the
+	// codename for that channel instead.
 	DeleteNickname(ch *id.ID) error
 
-	// GetNickname returns the nickname for the given channel if it exists
+	// GetNickname returns the nickname for the given channel if it exists.
 	GetNickname(ch *id.ID) (nickname string, exists bool)
 }

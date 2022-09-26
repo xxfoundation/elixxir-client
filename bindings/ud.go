@@ -478,17 +478,11 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 		return err
 	}
 
-	jww.INFO.Printf("MULTILOOKUP DEBUG idList: %s", lookupIds)
-
 	var idList []*id.ID
 	err = json.Unmarshal(lookupIds, &idList)
 	if err != nil {
 		return err
 	}
-
-	mar, _ := json.Marshal(idList)
-	jww.INFO.Printf("MULTILOOKUP DEBUG idList: %s\n"+
-		"idList %s\n", mar, idList)
 
 	var p single.RequestParams
 	err = json.Unmarshal(singleRequestParamsJSON, &p)
@@ -506,7 +500,6 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 			}
 		}
 		go func(localID *id.ID) {
-			jww.INFO.Printf("MULTILOOKUP DEBUG looking up ID %s", localID)
 			_, _, err := ud.Lookup(user.api, c, callback, localID, p)
 			if err != nil {
 				respCh <- lookupResp{
@@ -525,19 +518,6 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 		var errorString string
 		for numReturned := 0; numReturned < len(idList); numReturned++ {
 			response := <-respCh
-
-			mar, _ := json.Marshal(response)
-			jww.DEBUG.Printf("MULTILOOKUP DEBUG (responses): \n"+
-				"response: %s\n"+
-				"responseJSON: %s\n"+
-				"response ID: %s\n"+
-				"response Contact: %s\n"+
-				"response err: %s\n",
-				response,
-				string(mar),
-				response.Id,
-				response.Contact.Marshal(),
-				response.Err)
 			if response.Err != nil {
 				failedIDs = append(failedIDs, response.Id)
 				errorString = errorString +

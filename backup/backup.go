@@ -93,6 +93,7 @@ type UpdateBackupFn func(encryptedBackup []byte)
 func InitializeBackup(backupPassphrase string, updateBackupCb UpdateBackupFn,
 	container *xxdk.Container, e2e E2e, session Session, ud UserDiscovery,
 	kv *versioned.KV, rng *fastRNG.StreamGenerator) (*Backup, error) {
+
 	b := &Backup{
 		updateBackupCb: updateBackupCb,
 		container:      container,

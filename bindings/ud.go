@@ -490,6 +490,8 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 		return err
 	}
 
+	jww.INFO.Printf("ud.MultiLookupUD(%s, %s)", idList, p.Timeout)
+
 	respCh := make(chan lookupResp, len(idList))
 	for _, uid := range idList {
 		callback := func(c contact.Contact, err error) {

@@ -72,12 +72,15 @@ build:
     - export CGO_CFLAGS="-g -I${P} -DBITS=${CTIDH_BITS}"
     # copy highctidh_*.so into the same as the build directory as highctidh.so
     - cp libhighctidh_${CTIDH_BITS}.so ../libhighctidh.so
-    - export CGO_LDFLAGS="-L./ -Wl,-rpath,'$ORIGIN' -lhighctidh"
+    # for make version call only.
+    - export CGO_LDFLAGS="-L./ -Wl,-rpath,./ -lhighctidh"
     - cd ..
     - make version
     - mkdir -p release
     - cp libhighctidh.so release/
 #    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' ./...
+    # Set the origin flag int he final binary
+    - export CGO_LDFLAGS="-L./ -Wl,-rpath,\$ORIGIN -lhighctidh"
     - GOOS=linux GOARCH=amd64 go build -tags ctidh -ldflags '-w -s' -o release/client.linux64 main.go
 #    - GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win64 main.go
 #    - GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win32 main.go

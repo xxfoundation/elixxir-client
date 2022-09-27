@@ -68,7 +68,7 @@ func (s *Single) toStopping() error {
 		return errors.Errorf(toStoppingErr, s.Name(), s.GetStatus(), Running)
 	}
 
-	jww.TRACE.Printf("Switched status of single stoppable %q from %s to %s.",
+	jww.INFO.Printf("Switched status of single stoppable %q from %s to %s.",
 		s.Name(), Running, Stopping)
 
 	return nil
@@ -83,7 +83,7 @@ func (s *Single) ToStopped() {
 			s.Name(), s.GetStatus(), Stopping)
 	}
 
-	jww.TRACE.Printf("Switched status of single stoppable %q from %s to %s.",
+	jww.INFO.Printf("Switched status of single stoppable %q from %s to %s.",
 		s.Name(), Stopping, Stopped)
 }
 

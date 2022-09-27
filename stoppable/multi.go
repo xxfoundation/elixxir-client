@@ -66,7 +66,7 @@ func (m *Multi) GetStatus() Status {
 		status := s.GetStatus()
 		if status < lowestStatus {
 			lowestStatus = status
-			jww.TRACE.Printf("Stoppable %s has status %s",
+			jww.INFO.Printf("Stoppable %s has status %s",
 				s.Name(), status.String())
 		}
 	}

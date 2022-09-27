@@ -229,6 +229,8 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 
 	// Create a multi stoppable
 	multiStoppable := stoppable.NewMulti(fileTransferStoppable)
+	jww.INFO.Printf("Adding senderStop with processes %v",
+		senderPoolStop.GetRunningProcesses())
 	multiStoppable.Add(senderPoolStop)
 	multiStoppable.Add(batchBuilderStop)
 

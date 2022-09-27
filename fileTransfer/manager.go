@@ -230,8 +230,8 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 	// Create a multi stoppable
 	multiStoppable.Add(batchBuilderStop)
 
-	jww.INFO.Printf("STOPPING FT THREAD DEBUG: multiStoppable: %v",
-		multiStoppable.GetRunningProcesses())
+	jww.INFO.Printf("STOPPING FT THREAD DEBUG: \nmultiStoppable running proc: %v\nmultistop: %v\n",
+		multiStoppable.GetRunningProcesses(), multiStoppable)
 
 	return multiStoppable, nil
 }

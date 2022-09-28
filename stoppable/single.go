@@ -105,7 +105,7 @@ func (s *Single) Close() error {
 			return
 		}
 
-		jww.TRACE.Printf("Sending on quit channel to single stoppable %q.",
+		jww.INFO.Printf("Sending on quit channel to single stoppable %q.",
 			s.Name())
 
 		// Send on quit channel

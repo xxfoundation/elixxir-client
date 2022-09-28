@@ -90,6 +90,7 @@ func (s *Single) ToStopped() {
 // Quit returns a receive-only channel that will be triggered when the Stoppable
 // quits.
 func (s *Single) Quit() <-chan struct{} {
+	jww.INFO.Printf("Quit for %s", s.name)
 	return s.quit
 }
 
@@ -110,6 +111,10 @@ func (s *Single) Close() error {
 
 		// Send on quit channel
 		s.quit <- struct{}{}
+
+		jww.INFO.Printf("Sent to quit channel for single stoppable %q.",
+			s.Name())
+
 	})
 
 	if err != nil {

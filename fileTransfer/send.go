@@ -62,7 +62,9 @@ func (m *manager) startSendingWorkerPool(multiStop *stoppable.Multi) {
 
 	for i := 0; i < workerPoolThreads; i++ {
 		stop := stoppable.NewSingle(sendThreadStoppableName + strconv.Itoa(i))
-		go m.sendingThread(stop)
+		go func(single *stoppable.Single) {
+			m.sendingThread(single)
+		}(stop)
 		jww.INFO.Printf("Adding stoppable %s", stop.Name())
 		multiStop.Add(stop)
 	}
@@ -83,9 +85,12 @@ func (m *manager) sendingThread(stop *stoppable.Single) {
 			return
 		case healthy := <-healthChan:
 			for !healthy {
+				jww.INFO.Printf("not healthy, waiting for health update")
 				healthy = <-healthChan
+				jww.INFO.Printf("received health update, it is now set to %s", healthy)
 			}
 		case packet := <-m.sendQueue:
+			jww.INFO.Printf("sending packet")
 			m.sendCmix(packet)
 		}
 	}

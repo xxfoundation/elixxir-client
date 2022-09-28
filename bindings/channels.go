@@ -636,15 +636,15 @@ func (cm *ChannelsManager) SendMessage(marshalledChanId []byte,
 	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
 }
 
-// SendReply is used to send a formatted message over a channel.
-// Due to the underlying encoding using compression, it isn't possible to define
-// the largest payload that can be sent, but it will always be possible to send
-// a payload of 766 bytes at minimum.
+// SendReply is used to send a formatted message over a channel. Due to the
+// underlying encoding using compression, it isn't possible to define the
+// largest payload that can be sent, but it will always be possible to send a
+// payload of 766 bytes at minimum.
 //
-// If the message ID that the reply is sent to does not exist, then the other
-// side will post the message as a normal message and not a reply.
-// The message will auto delete validUntil after the round it is sent in,
-// lasting forever if ValidForever is used.
+// If the message ID the reply is sent to is nonexistent, the other side will
+// post the message as a normal message and not a reply. The message will auto
+// delete validUntil after the round it is sent in, lasting forever if
+// [channels.ValidForever] is used.
 //
 // Parameters:
 //  - marshalledChanId - A JSON marshalled channel ID ([id.ID]).

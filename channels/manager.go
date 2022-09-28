@@ -14,6 +14,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
@@ -46,10 +47,10 @@ type manager struct {
 	// Events model
 	*events
 
-	// nicknames
+	// Nicknames
 	*nicknameManager
 
-	//send tracker
+	// Send tracker
 	st *sendTracker
 
 	// Makes the function that is used to create broadcasts be a pointer so that
@@ -76,7 +77,7 @@ type Client interface {
 }
 
 // EventModelBuilder initialises the event model using the given path.
-type EventModelBuilder func(path string) EventModel
+type EventModelBuilder func(path string) (EventModel, error)
 
 // NewManager creates a new channel Manager from a [channel.PrivateIdentity]. It
 // prefixes the KV with a tag derived from the public key that can be retried
@@ -92,7 +93,13 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	if err := storeIdentity(kv, identity); err != nil {
 		return nil, err
 	}
-	m := setupManager(identity, kv, net, rng, modelBuilder(storageTag))
+
+	model, err := modelBuilder(storageTag)
+	if err != nil {
+		return nil, errors.Errorf("Failed to build event model: %+v", err)
+	}
+
+	m := setupManager(identity, kv, net, rng, model)
 
 	return m, nil
 }
@@ -111,7 +118,10 @@ func LoadManager(storageTag string, kv *versioned.KV, net Client,
 		return nil, err
 	}
 
-	model := modelBuilder(storageTag)
+	model, err := modelBuilder(storageTag)
+	if err != nil {
+		return nil, errors.Errorf("Failed to build event model: %+v", err)
+	}
 
 	m := setupManager(identity, kv, net, rng, model)
 
@@ -199,11 +209,11 @@ func (m *manager) ReplayChannel(chID *id.ID) error {
 
 	c := jc.broadcast.Get()
 
-	// stop the broadcast which will completely wipe it from the underlying
-	// cmix object
+	// Stop the broadcast that will completely wipe it from the underlying cmix
+	// object
 	jc.broadcast.Stop()
 
-	//re-instantiate the broadcast, re-registering it from scratch
+	// Re-instantiate the broadcast, re-registering it from scratch
 	b, err := initBroadcast(c, m.events, m.net, m.broadcastMaker, m.rng,
 		m.st.MessageReceive)
 	if err != nil {

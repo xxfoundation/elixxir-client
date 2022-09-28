@@ -601,8 +601,8 @@ func (m *mockBroadcastClient) RemoveHealthCallback(uint64)           {}
 // Mock EventModel                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-func mockEventModelBuilder(string) EventModel {
-	return &mockEventModel{}
+func mockEventModelBuilder(string) (EventModel, error) {
+	return &mockEventModel{}, nil
 }
 
 // mockEventModel adheres to the EventModel interface.

@@ -259,8 +259,8 @@ func NewChannelsManager(cmixID int, privateIdentity []byte,
 		return nil, err
 	}
 
-	eb := func(path string) channels.EventModel {
-		return NewEventModel(eventBuilder.Build(path))
+	eb := func(path string) (channels.EventModel, error) {
+		return NewEventModel(eventBuilder.Build(path)), nil
 	}
 
 	// Construct new channels manager
@@ -297,8 +297,8 @@ func LoadChannelsManager(cmixID int, storageTag string,
 		return nil, err
 	}
 
-	eb := func(path string) channels.EventModel {
-		return NewEventModel(eventBuilder.Build(path))
+	eb := func(path string) (channels.EventModel, error) {
+		return NewEventModel(eventBuilder.Build(path)), nil
 	}
 
 	// Construct new channels manager

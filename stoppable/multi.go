@@ -128,9 +128,9 @@ func (m *Multi) Close() error {
 		// Attempt to stop each stoppable in its own goroutine
 		for _, stoppable := range m.stoppables {
 			wg.Add(1)
-			jww.INFO.Printf("FT DEBUG: stopping %s", stoppable.Name())
-			go func(stoppable Stoppable) {
-				if stoppable.Close() != nil {
+			go func(s Stoppable) {
+				jww.INFO.Printf("FT DEBUG: stopping %s", s.Name())
+				if s.Close() != nil {
 					atomic.AddUint32(&numErrors, 1)
 				}
 				wg.Done()

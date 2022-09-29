@@ -2,18 +2,15 @@ package ratchet
 
 import (
 	"gitlab.com/elixxir/primitives/format"
-
-	"gitlab.com/elixxir/client/interfaces/nike"
 )
 
 type Scheme interface {
 	FromBytes(serializedRatchet []byte) (Ratchet, error)
-	FromRatchet(Ratchet, theirPublicKey nike.PublicKey) Ratchet
-	New(myPrivateKey nike.PrivateKey, theirPublicKey nike.PublicKey) Ratchet
+	New(sharedSecret, salt []byte, fingerprintMapSize uint) Ratchet
 }
 
 type Ratchet interface {
-	Encrypt(plaintext []byte) *EncryptedMessage
+	Encrypt(plaintext []byte) (*EncryptedMessage, error)
 	Decrypt(*EncryptedMessage) (plaintext []byte, err error)
 	Save() ([]byte, error)
 }

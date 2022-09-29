@@ -12,8 +12,6 @@ import (
 	elixxirhash "gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
 
-	"gitlab.com/elixxir/client/interfaces/nike"
-	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/crypto/e2e"
 )
 
@@ -29,46 +27,69 @@ func NewScheme() *scheme {
 type scheme struct {
 }
 
-func (s *scheme) New(myPrivateKey nike.PrivateKey, theirPublicKey nike.PublicKey) Ratchet {
-	return &ratchet{}
-}
-
-type ratchet struct {
-	sharedSecret []byte
-
-	index uint32
-
-	fingerprintMapSize uint
-	fingerprintMap     map[format.Fingerprint]int
-
-	usedKeys *utility.StateVector
-
-	salt []byte // typically the relationship fingerprint
-}
-
-type RatchetDisk struct {
-	SharedSecret       []byte
-	Index              uint32
-	FingerprintMapSize uint
-	FingerprintMap     map[format.Fingerprint]int
-	UsedKeys           []byte
-	Salt               []byte
-}
-
-func New(myPrivateKey nike.PrivateKey, theirPublicKey nike.PublicKey, fingerprintMapSize uint) Ratchet {
+func (s *scheme) FromBytes(serializedRatchet []byte) (Ratchet, error) {
+	d := &RatchetDisk{}
+	err := cbor.Unmarshal(serializedRatchet, d)
+	if err != nil {
+		return nil, err
+	}
+	usedKeys := NewStateVector(d.Size)
+	err = usedKeys.Unmarshal(d.UsedKeys)
+	if err != nil {
+		return nil, err
+	}
 	r := &ratchet{
-		usedKeys:           utility.NewStateVector(kv, blah, fubar),
-		sharedSecret:       myPrivateKey.DeriveSecret(theirPublicKey),
-		fingerprintMapSize: fingerprintMapSize,
-		fingerprintMap:     make(map[format.Fingerprint]int),
+		size:           d.Size,
+		sharedSecret:   d.SharedSecret,
+		salt:           d.Salt,
+		usedKeys:       usedKeys,
+		fingerprintMap: make(map[format.Fingerprint]uint32),
+	}
+	fingerprints := r.DeriveFingerprints()
+	for i := uint32(0); i < r.size; i++ {
+		r.fingerprintMap[fingerprints[i]] = i
+	}
+	return r, nil
+}
+
+func (s *scheme) New(sharedSecret, salt []byte, size uint32) Ratchet {
+	r := &ratchet{
+		size:           size,
+		sharedSecret:   sharedSecret,
+		salt:           salt,
+		usedKeys:       NewStateVector(size),
+		fingerprintMap: make(map[format.Fingerprint]uint32),
+	}
+	fingerprints := r.DeriveFingerprints()
+	for i := uint32(0); i < r.size; i++ {
+		r.fingerprintMap[fingerprints[i]] = i
 	}
 	return r
 }
 
-func (r *ratchet) Encrypt(plaintext []byte) *EncryptedMessage {
-	fp := deriveKeyFingerprint(r.sharedSecret, r.index, r.salt)
-	key := deriveKey(r.sharedSecret, r.index, r.salt)
-	r.index++
+type ratchet struct {
+	size           uint32
+	sharedSecret   []byte
+	salt           []byte // typically the relationship fingerprint
+	usedKeys       *StateVector
+	fingerprintMap map[format.Fingerprint]uint32
+	fingerprints   []format.Fingerprint // not serialized to disk
+}
+
+type RatchetDisk struct {
+	Size         uint32
+	SharedSecret []byte
+	Salt         []byte
+	UsedKeys     []byte
+}
+
+func (r *ratchet) Encrypt(plaintext []byte) (*EncryptedMessage, error) {
+	index, err := r.usedKeys.Next()
+	if err != nil {
+		return nil, err
+	}
+	fp := deriveKeyFingerprint(r.sharedSecret, index, r.salt)
+	key := deriveKey(r.sharedSecret, index, r.salt)
 	residue := NewKeyResidue(key)
 	keyArr := [32]byte{}
 	copy(keyArr[:], key)
@@ -78,39 +99,49 @@ func (r *ratchet) Encrypt(plaintext []byte) *EncryptedMessage {
 		Ciphertext:  append(mac, ecrContents...),
 		Residue:     residue,
 		Fingerprint: fp,
-	}
+	}, nil
 }
 
 func (r *ratchet) Decrypt(encryptedMessage *EncryptedMessage) (plaintext []byte, err error) {
+	index := r.fingerprintMap[encryptedMessage.Fingerprint]
+	key := deriveKey(r.sharedSecret, index, r.salt)
+
 	const macSize = 32
 	macWanted := encryptedMessage.Ciphertext[:macSize]
 	ciphertext := encryptedMessage.Ciphertext[macSize:]
-	fp := deriveKeyFingerprint(r.sharedSecret, r.index, r.salt)
-	key := deriveKey(r.sharedSecret, r.index, r.salt)
+
 	keyArr := [32]byte{}
 	copy(keyArr[:], key)
 	if !elixxirhash.VerifyHMAC(ciphertext, macWanted, key) {
 		return nil, errors.New("MAC failure")
 	}
-	defer r.usedKeys.Use(r.index)
-	r.index++
-	return e2e.Crypt(e2e.Key(keyArr), fp, ciphertext), nil
+	return e2e.Crypt(e2e.Key(keyArr), encryptedMessage.Fingerprint, ciphertext), nil
 }
 
 func (r *ratchet) Save() ([]byte, error) {
-	usedKeys, err := r.usedKeys.Marshal()
+	userKeysBytes, err := r.usedKeys.Marshal()
 	if err != nil {
 		return nil, err
 	}
 	d := RatchetDisk{
-		SharedSecret:       r.sharedSecret,
-		Index:              r.index,
-		FingerprintMapSize: r.fingerprintMapSize,
-		FingerprintMap:     r.fingerprintMap,
-		UsedKeys:           usedKeys,
-		Salt:               r.salt,
+		SharedSecret: r.sharedSecret,
+		Salt:         r.salt,
+		Size:         r.size,
+		UsedKeys:     userKeysBytes,
 	}
 	return cbor.Marshal(d)
+}
+
+func (r *ratchet) DeriveFingerprints() []format.Fingerprint {
+	if r.fingerprints != nil {
+		return r.fingerprints
+	}
+	r.fingerprints = make([]format.Fingerprint, r.size)
+	for i := uint32(0); i < r.size; i++ {
+		fp := deriveKeyFingerprint(r.sharedSecret, i, r.salt)
+		r.fingerprints[i] = fp
+	}
+	return r.fingerprints
 }
 
 // derive creates a bit key from a key id and a byte slice by hashing them and

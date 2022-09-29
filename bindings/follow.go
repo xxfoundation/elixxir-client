@@ -10,6 +10,7 @@ package bindings
 import (
 	"encoding/json"
 	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/message"
 	"time"
 
@@ -75,10 +76,13 @@ func (c *Cmix) WaitForNetwork(timeoutMS int) bool {
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 	for netTime.Since(start) < timeout {
 		if c.api.GetCmix().IsHealthy() {
+			jww.INFO.Printf("WaitForNetwork() is reporting that network is HEALTHY")
 			return true
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
+
+	jww.INFO.Printf("WaitForNetwork() is reporting that network is NOT HEALTHY")
 	return false
 }
 
@@ -116,6 +120,8 @@ func (c *Cmix) GetNodeRegistrationStatus() ([]byte, error) {
 		NumberOfNodesRegistered: numNodesRegistered,
 		NumberOfNodes:           numNodes,
 	}
+
+	jww.INFO.Printf("GetNodeRegistrationStatus() reports registration with nodes (%d/%d)...", numNodesRegistered, numNodes)
 
 	return json.Marshal(nodeRegReport)
 }

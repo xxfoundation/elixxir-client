@@ -489,11 +489,17 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 		for numReturned := 0; numReturned < len(idList); numReturned++ {
 			response := <-respCh
 			if response.Err != nil {
+				jww.INFO.Printf(
+					"Received failed multi-lookup response for %q with error: %v",
+					response.Id, response.Err)
 				failedIDs = append(failedIDs, response.Id)
 				errorString = errorString +
 					fmt.Sprintf("Failed to lookup id %s: %+v",
 						response.Id, response.Err)
 			} else {
+				jww.INFO.Printf(
+					"Received successful multi-lookup response for %q",
+					response.Id)
 				marshaledContactList = append(
 					marshaledContactList, response.Contact.Marshal())
 			}
@@ -511,6 +517,12 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 			jww.FATAL.Panicf(
 				"Failed to marshal list of contact.Contact: %+v", err)
 		}
+
+		jww.INFO.Printf("Sending MultiLookup report through callback with:"+
+			"\n\tContact List JSON: %s"+
+			"\n\tFailed lookup IDs: %s"+
+			"\n\tError String: %s\n",
+			contactListJSON, marshalledFailedIds, errors.New(errorString))
 		cb.Callback(contactListJSON, marshalledFailedIds, errors.New(errorString))
 	}()
 

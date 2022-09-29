@@ -121,7 +121,7 @@ func (m *Multi) Close() error {
 	m.once.Do(func() {
 		var wg sync.WaitGroup
 
-		jww.TRACE.Printf("Sending on quit channel to multi stoppable %q with subprocesses %v.",
+		jww.TRACE.Printf("Sending on quit channel to multi stoppable %q with subprocesseses %v.",
 			m.Name(), m.GetRunningProcesses())
 
 		m.mux.Lock()

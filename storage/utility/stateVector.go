@@ -10,12 +10,13 @@ package utility
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
+	"testing"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
-	"testing"
 )
 
 // Storage key and version.
@@ -365,7 +366,7 @@ func LoadStateVector(kv *versioned.KV, key string) (*StateVector, error) {
 	}
 
 	// Unmarshal data
-	err = sv.unmarshal(obj.Data)
+	err = sv.Unmarshal(obj.Data)
 	if err != nil {
 		return nil, errors.Errorf(loadUnmarshalErr, err)
 	}
@@ -376,7 +377,7 @@ func LoadStateVector(kv *versioned.KV, key string) (*StateVector, error) {
 // save stores the StateVector in storage.
 func (sv *StateVector) save() error {
 	// Marshal the StateVector
-	data, err := sv.marshal()
+	data, err := sv.Marshal()
 	if err != nil {
 		return err
 	}
@@ -396,8 +397,8 @@ func (sv *StateVector) Delete() error {
 	return sv.kv.Delete(sv.key, currentStateVectorVersion)
 }
 
-// marshal serialises the StateVector.
-func (sv *StateVector) marshal() ([]byte, error) {
+// Marshal serialises the StateVector.
+func (sv *StateVector) Marshal() ([]byte, error) {
 	svd := stateVectorDisk{}
 
 	svd.FirstAvailable = sv.firstAvailable
@@ -408,8 +409,8 @@ func (sv *StateVector) marshal() ([]byte, error) {
 	return json.Marshal(&svd)
 }
 
-// unmarshal deserializes the byte slice into a StateVector.
-func (sv *StateVector) unmarshal(b []byte) error {
+// Unmarshal deserializes the byte slice into a StateVector.
+func (sv *StateVector) Unmarshal(b []byte) error {
 	var svd stateVectorDisk
 	err := json.Unmarshal(b, &svd)
 	if err != nil {

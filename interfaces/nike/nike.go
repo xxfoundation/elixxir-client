@@ -19,16 +19,14 @@ type Key interface {
 // private key material.
 type PrivateKey interface {
 	Key
+
+	DeriveSecret(PublicKey) []byte
 }
 
 // PublicKey is an interface for types encapsulating
 // public key material.
 type PublicKey interface {
 	Key
-
-	// Blind performs a blinding operation and mutates the public
-	// key with the blinded value.
-	Blind(blindingFactor []byte) error
 }
 
 // Nike is an interface encapsulating a

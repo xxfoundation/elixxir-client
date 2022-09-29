@@ -11,13 +11,14 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
+
+	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // Tests that NewStateVector creates the expected new StateVector and that it is
@@ -608,9 +609,9 @@ func TestStateVector_save(t *testing.T) {
 		key:            makeStateVectorKey(key),
 		kv:             versioned.NewKV(ekv.MakeMemstore()),
 	}
-	expectedData, err := sv.marshal()
+	expectedData, err := sv.Marshal()
 	if err != nil {
-		t.Errorf("Failed to marshal StateVector: %+v", err)
+		t.Errorf("Failed to Marshal StateVector: %+v", err)
 	}
 
 	// Save to storage
@@ -656,16 +657,16 @@ func TestStateVector_marshal_unmarshal(t *testing.T) {
 	}
 
 	// Marshal and unmarshal the StateVector
-	marshalledData, err := sv1.marshal()
+	marshalledData, err := sv1.Marshal()
 	if err != nil {
-		t.Errorf("marshal returned an error: %+v", err)
+		t.Errorf("Marshal returned an error: %+v", err)
 	}
 
 	// Unmarshal into new StateVector
 	sv2 := &StateVector{key: sv1.key, kv: sv1.kv}
-	err = sv2.unmarshal(marshalledData)
+	err = sv2.Unmarshal(marshalledData)
 	if err != nil {
-		t.Errorf("unmarshal returned an error: %+v", err)
+		t.Errorf("Unmarshal returned an error: %+v", err)
 	}
 
 	// Make sure that the unmarshalled StateVector matches the original
@@ -719,9 +720,9 @@ func TestStateVector_SaveTEST(t *testing.T) {
 		key:            makeStateVectorKey(key),
 		kv:             versioned.NewKV(ekv.MakeMemstore()),
 	}
-	expectedData, err := sv.marshal()
+	expectedData, err := sv.Marshal()
 	if err != nil {
-		t.Errorf("Failed to marshal StateVector: %+v", err)
+		t.Errorf("Failed to Marshal StateVector: %+v", err)
 	}
 
 	// Save to storage

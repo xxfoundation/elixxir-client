@@ -9,6 +9,7 @@ import (
 	"github.com/fxamacker/cbor/v2"
 	"golang.org/x/crypto/blake2b"
 
+	"gitlab.com/elixxir/client/interfaces/nike"
 	elixxirhash "gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
 
@@ -20,17 +21,17 @@ const (
 	KeyResidueLength = 32
 )
 
-func NewScheme() *scheme {
-	return &scheme{}
+func NewScheme() *symmetricKeyRatchetFactory {
+	return &symmetricKeyRatchetFactory{}
 }
 
-type scheme struct {
+type symmetricKeyRatchetFactory struct {
 }
 
-var _ Scheme = (*scheme)(nil)
-var _ Ratchet = (*ratchet)(nil)
+var _ SymmetricKeyRatchetFactory = (*symmetricKeyRatchetFactory)(nil)
+var _ SymmetricKeyRatchet = (*ratchet)(nil)
 
-func (s *scheme) FromBytes(serializedRatchet []byte) (Ratchet, error) {
+func (s *symmetricKeyRatchetFactory) FromBytes(serializedRatchet []byte) (SymmetricKeyRatchet, error) {
 	d := &RatchetDisk{}
 	err := cbor.Unmarshal(serializedRatchet, d)
 	if err != nil {
@@ -55,7 +56,7 @@ func (s *scheme) FromBytes(serializedRatchet []byte) (Ratchet, error) {
 	return r, nil
 }
 
-func (s *scheme) New(sharedSecret, salt []byte, size uint32) Ratchet {
+func (s *symmetricKeyRatchetFactory) New(sharedSecret, salt []byte, size uint32) SymmetricKeyRatchet {
 	r := &ratchet{
 		size:           size,
 		sharedSecret:   sharedSecret,
@@ -84,6 +85,14 @@ type RatchetDisk struct {
 	SharedSecret []byte
 	Salt         []byte
 	UsedKeys     []byte
+}
+
+func (r *ratchet) Salt() []byte {
+	return r.salt
+}
+
+func (r *ratchet) Size() uint32 {
+	return r.size
 }
 
 func (r *ratchet) Encrypt(plaintext []byte) (*EncryptedMessage, error) {
@@ -204,4 +213,63 @@ func NewKeyResidue(key []byte) []byte {
 	h.Write([]byte(residueSalt))
 	kr := h.Sum(nil)
 	return kr[:]
+}
+
+type receiveRatchet struct {
+	myPrivateKey            nike.PrivateKey
+	ratchet                 SymmetricKeyRatchet
+	nikeScheme              nike.Nike
+	symmetricRatchetFactory *symmetricKeyRatchetFactory
+}
+
+func (r *receiveRatchet) Decrypt(message *EncryptedMessage) (plaintext []byte, err error) {
+	return r.ratchet.Decrypt(message)
+}
+
+func (r *receiveRatchet) Save() ([]byte, error) {
+	return nil, nil // XXX FIXME
+}
+
+func (r *receiveRatchet) Next(theirPublicKey nike.PublicKey) ReceiveRatchet {
+	sharedSecret := r.myPrivateKey.DeriveSecret(theirPublicKey)
+	return &receiveRatchet{
+		myPrivateKey:            r.myPrivateKey,
+		ratchet:                 r.symmetricRatchetFactory.New(sharedSecret, r.ratchet.Salt(), r.ratchet.Size()),
+		nikeScheme:              r.nikeScheme,
+		symmetricRatchetFactory: r.symmetricRatchetFactory,
+	}
+}
+
+type sendRatchet struct {
+	myPublicKey             nike.PublicKey
+	ratchet                 SymmetricKeyRatchet
+	partnerPublicKey        nike.PublicKey
+	nikeScheme              nike.Nike
+	symmetricRatchetFactory *symmetricKeyRatchetFactory
+}
+
+func (r *sendRatchet) Encrypt(plaintext []byte) (*EncryptedMessage, error) {
+	return r.Encrypt(plaintext)
+}
+
+func (r *sendRatchet) Save() ([]byte, error) {
+	// FIXME
+	return nil, nil
+}
+
+func (r *sendRatchet) Next() SendRatchet {
+	privateKey, publicKey := r.nikeScheme.NewKeypair()
+	sharedSecret := privateKey.DeriveSecret(r.partnerPublicKey)
+
+	return &sendRatchet{
+		ratchet:                 r.symmetricRatchetFactory.New(sharedSecret, r.ratchet.Salt(), r.ratchet.Size()),
+		partnerPublicKey:        r.partnerPublicKey,
+		nikeScheme:              r.nikeScheme,
+		symmetricRatchetFactory: r.symmetricRatchetFactory,
+		myPublicKey:             publicKey,
+	}
+}
+
+func (r *sendRatchet) MyPublicKey() nike.PublicKey {
+	return r.myPublicKey
 }

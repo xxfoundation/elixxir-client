@@ -215,21 +215,21 @@ func NewManager(params Params, user FtE2e) (FileTransfer, error) {
 // StartProcesses starts the sending threads. Adheres to the xxdk.Service type.
 func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 	// Construct stoppables
+	multiStoppable := stoppable.NewMulti(fileTransferStoppable)
 	senderPoolStop := stoppable.NewMulti(workerPoolStoppable)
 	batchBuilderStop := stoppable.NewSingle(batchBuilderThreadStoppable)
 
 	// Start sending threads
+	go m.batchBuilderThread(batchBuilderStop)
+
 	// Note that the startSendingWorkerPool already creates thread for every
 	// worker. As a result, there is no need to run it asynchronously. In fact,
 	// running this asynchronously could result in a race condition where
 	// some worker threads are not added to senderPoolStop before that stoppable
 	// is added to the multiStoppable.
 	m.startSendingWorkerPool(senderPoolStop)
-	go m.batchBuilderThread(batchBuilderStop)
 
 	// Create a multi stoppable
-	multiStoppable := stoppable.NewMulti(fileTransferStoppable)
-	multiStoppable.Add(senderPoolStop)
 	multiStoppable.Add(batchBuilderStop)
 
 	return multiStoppable, nil

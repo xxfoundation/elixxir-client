@@ -9,6 +9,7 @@ package bindings
 
 import (
 	"encoding/json"
+	jww "github.com/spf13/jwalterweatherman"
 	"time"
 
 	"gitlab.com/elixxir/client/fileTransfer"
@@ -127,7 +128,7 @@ type FileTransferReceiveProgressCallback interface {
 //  - paramsJSON - JSON marshalled fileTransfer.Params
 func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback,
 	e2eFileTransferParamsJson, fileTransferParamsJson []byte) (*FileTransfer, error) {
-
+	jww.INFO.Printf("Calling InitFileTransfer()")
 	// Get user from singleton
 	user, err := e2eTrackerSingleton.get(e2eID)
 	if err != nil {

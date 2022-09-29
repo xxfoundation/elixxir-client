@@ -74,32 +74,44 @@ func (m *manager) sendingThread(stop *stoppable.Single) {
 	healthChanID := m.cmix.AddHealthCallback(func(b bool) { healthChan <- b })
 	for {
 		select {
+		// A quit signal has been sent by the user. Typically, this is a result
+		// of a user-level shutdown of the client.
 		case <-stop.Quit():
 			jww.DEBUG.Printf("[FT] Stopping file part sending thread (%s): "+
 				"stoppable triggered.", stop.Name())
 			m.cmix.RemoveHealthCallback(healthChanID)
 			stop.ToStopped()
 			return
+
+		// If the network becomes unhealthy, we will cease sending files until
+		// it is resolved.
 		case healthy := <-healthChan:
+			// There exists an edge case where an unhealthy signal is received
+			// due to a user-level shutdown, meaning the health tracker has
+			// ceased operation. If the health tracker is shutdown, a healthy
+			// signal will never be received, and this for loop will run
+			// infinitely. If we are caught in this loop, the stop's Quit()
+			// signal will never be received in case statement above, and this
+			// sender thread will run indefinitely. To avoid lingering threads
+			// in the case of a shutdown, we must actively listen for either the
+			// Quit() signal or a network health update here.
 			for !healthy {
 				select {
 				case <-stop.Quit():
-					// It's possible during shutdown that the health tracker gets
-					// shutdown before the quit signal is received by the case
-					// statement listening for stop.Quit() above. As a result, we
-					// must listen for the quit signal here, to avoid waiting
-					// for a healthy signal that will never come.
+					// Listen for a quit signal if the network becomes unhealthy
+					// before a user-level shutdown.
 					jww.DEBUG.Printf("[FT] Stopping file part sending "+
 						"thread (%s): stoppable triggered.", stop.Name())
 					m.cmix.RemoveHealthCallback(healthChanID)
 					stop.ToStopped()
 					return
 
-				// If a quit signal is not received, we must wait until the
-				// network is healthy before we can continue sending files.
+				// Wait for a healthy signal before continuing to send files.
 				case healthy = <-healthChan:
 				}
 			}
+		// A file part has been sent through the queue and must be sent by
+		// this thread.
 		case packet := <-m.sendQueue:
 			m.sendCmix(packet)
 		}

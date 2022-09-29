@@ -68,7 +68,7 @@ func (s *Single) toStopping() error {
 		return errors.Errorf(toStoppingErr, s.Name(), s.GetStatus(), Running)
 	}
 
-	jww.INFO.Printf("Switched status of single stoppable %q from %s to %s.",
+	jww.TRACE.Printf("Switched status of single stoppable %q from %s to %s.",
 		s.Name(), Running, Stopping)
 
 	return nil
@@ -83,14 +83,13 @@ func (s *Single) ToStopped() {
 			s.Name(), s.GetStatus(), Stopping)
 	}
 
-	jww.INFO.Printf("Switched status of single stoppable %q from %s to %s.",
+	jww.TRACE.Printf("Switched status of single stoppable %q from %s to %s.",
 		s.Name(), Stopping, Stopped)
 }
 
 // Quit returns a receive-only channel that will be triggered when the Stoppable
 // quits.
 func (s *Single) Quit() <-chan struct{} {
-	jww.INFO.Printf("Quit for %s", s.name)
 	return s.quit
 }
 
@@ -106,13 +105,13 @@ func (s *Single) Close() error {
 			return
 		}
 
-		jww.INFO.Printf("Sending on quit channel to single stoppable %q.",
+		jww.TRACE.Printf("Sending on quit channel to single stoppable %q.",
 			s.Name())
 
 		// Send on quit channel
 		s.quit <- struct{}{}
 
-		jww.INFO.Printf("Sent to quit channel for single stoppable %q.",
+		jww.TRACE.Printf("Sent to quit channel for single stoppable %q.",
 			s.Name())
 
 	})

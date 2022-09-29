@@ -9,7 +9,6 @@ package xxdk
 
 import (
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/stoppable"
 	"sync"
 	"time"
@@ -52,8 +51,6 @@ func (s *services) add(sp Service) error {
 			return errors.WithMessage(err, "Failed to start added service")
 		}
 		s.stoppable.Add(stop)
-		jww.INFO.Printf("STOPPING FT THREAD DEBUG: adding service %v", stop.Name())
-
 	}
 	return nil
 }

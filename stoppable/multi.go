@@ -66,7 +66,7 @@ func (m *Multi) GetStatus() Status {
 		status := s.GetStatus()
 		if status < lowestStatus {
 			lowestStatus = status
-			jww.INFO.Printf("Stoppable %s has status %s",
+			jww.TRACE.Printf("Stoppable %s has status %s",
 				s.Name(), status.String())
 		}
 	}
@@ -121,7 +121,7 @@ func (m *Multi) Close() error {
 	m.once.Do(func() {
 		var wg sync.WaitGroup
 
-		jww.INFO.Printf("Sending on quit channel to multi stoppable %q with processes: %v.",
+		jww.TRACE.Printf("Sending on quit channel to multi stoppable %q with subprocesses %v.",
 			m.Name(), m.GetRunningProcesses())
 
 		m.mux.Lock()
@@ -129,7 +129,6 @@ func (m *Multi) Close() error {
 		for _, stoppable := range m.stoppables {
 			wg.Add(1)
 			go func(s Stoppable) {
-				jww.INFO.Printf("FT DEBUG: stopping %s", s.Name())
 				if s.Close() != nil {
 					atomic.AddUint32(&numErrors, 1)
 				}

@@ -62,10 +62,7 @@ func (m *manager) startSendingWorkerPool(multiStop *stoppable.Multi) {
 
 	for i := 0; i < workerPoolThreads; i++ {
 		stop := stoppable.NewSingle(sendThreadStoppableName + strconv.Itoa(i))
-		go func(single *stoppable.Single) {
-			m.sendingThread(single)
-		}(stop)
-		jww.INFO.Printf("Adding stoppable %s", stop.Name())
+		m.sendingThread(stop)
 		multiStop.Add(stop)
 	}
 
@@ -85,22 +82,25 @@ func (m *manager) sendingThread(stop *stoppable.Single) {
 			return
 		case healthy := <-healthChan:
 			for !healthy {
-				jww.INFO.Printf("not healthy, waiting for health update")
 				select {
-				// Wait for health update or a quit signal
 				case <-stop.Quit():
-					jww.DEBUG.Printf("[FT] Stopping file part sending thread (%s): "+
-						"stoppable triggered.", stop.Name())
+					// It's possible during shutdown that the health tracker gets
+					// shutdown before the quit signal is received by the case
+					// statement listening for stop.Quit() above. As a result, we
+					// must listen for the quit signal here, to avoid waiting
+					// for a healthy signal that will never come.
+					jww.DEBUG.Printf("[FT] Stopping file part sending "+
+						"thread (%s): stoppable triggered.", stop.Name())
 					m.cmix.RemoveHealthCallback(healthChanID)
 					stop.ToStopped()
 					return
-				case healthy = <-healthChan:
-					jww.INFO.Printf("received health update, it is now set to %s", healthy)
 
+				// If a quit signal is not received, we must wait until the
+				// network is healthy before we can continue sending files.
+				case healthy = <-healthChan:
 				}
 			}
 		case packet := <-m.sendQueue:
-			jww.INFO.Printf("sending pack")
 			m.sendCmix(packet)
 		}
 	}

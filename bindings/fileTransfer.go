@@ -166,7 +166,6 @@ func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback,
 	}
 
 	// Add file transfer processes to API services tracking
-	jww.INFO.Printf("FT PROCESS IS STARTING HERE AT InitFileTransfer")
 	err = user.api.AddService(m.StartProcesses)
 	if err != nil {
 		return nil, err

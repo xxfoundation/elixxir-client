@@ -216,6 +216,7 @@ func NewManager(params Params, user FtE2e) (FileTransfer, error) {
 func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 	// Construct stoppables
 	multiStoppable := stoppable.NewMulti(fileTransferStoppable)
+	senderPoolStop := stoppable.NewMulti(workerPoolStoppable)
 	batchBuilderStop := stoppable.NewSingle(batchBuilderThreadStoppable)
 
 	// Start sending threads
@@ -226,15 +227,10 @@ func (m *manager) StartProcesses() (stoppable.Stoppable, error) {
 	// running this asynchronously could result in a race condition where
 	// some worker threads are not added to senderPoolStop before that stoppable
 	// is added to the multiStoppable.
-	m.startSendingWorkerPool(multiStoppable)
-	jww.INFO.Printf("STOPPING FT THREAD DEBUG: \nmultiStoppable running proc: %v\nmultistop: %v\n",
-		multiStoppable, multiStoppable.GetRunningProcesses())
+	m.startSendingWorkerPool(senderPoolStop)
 
 	// Create a multi stoppable
 	multiStoppable.Add(batchBuilderStop)
-
-	jww.INFO.Printf("STOPPING FT THREAD DEBUG: \nmultiStoppable running proc: %v\nmultistop: %v\n",
-		multiStoppable.GetRunningProcesses(), multiStoppable)
 
 	return multiStoppable, nil
 }

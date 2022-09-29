@@ -41,6 +41,7 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, user *xxdk.E2e,
 	udManager *ud.Manager,
 	updatesCb interfaces.RestoreContactsUpdater) ([]*id.ID, []*id.ID,
 	[]error, error) {
+	jww.INFO.Printf("RestoreContactsFromBackup(%s)", backupPartnerIDs)
 
 	var restored, failed []*id.ID
 	var errs []error
@@ -52,6 +53,12 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, user *xxdk.E2e,
 
 	update := func(numFound, numRestored, total int, err string) {
 		if updatesCb != nil {
+			jww.INFO.Printf("Reporting restored contacts with:"+
+				"\n\tNumber found: %d"+
+				"\n\tNumber restored: %d"+
+				"\n\tTotal: %d"+
+				"\n\tError: %v\n",
+				numFound, numRestored, total, err)
 			updatesCb.RestoreContactsCallback(numFound, numRestored,
 				total, err)
 		}
@@ -67,6 +74,12 @@ func RestoreContactsFromBackup(backupPartnerIDs []byte, user *xxdk.E2e,
 		return nil, nil, nil, err
 	}
 	lookupIDs, resetContacts, restored := checkRestoreState(idList, store)
+
+	jww.INFO.Printf("Check restore state results:"+
+		"\n\tLookupIds: %v"+
+		"\n\tContacts: %v"+
+		"\n\tRestored IDs: %v\n",
+		lookupIDs, resetContacts, restored)
 
 	// State variables, how many we have looked up successfully
 	// and how many we have already reset.
@@ -177,6 +190,7 @@ func LookupContacts(in chan *id.ID, out chan *contact.Contact,
 	failCh chan failure, user *xxdk.E2e, udContact contact.Contact,
 	wg *sync.WaitGroup) {
 	defer wg.Done()
+	jww.INFO.Printf("Looking up backed up contacts...")
 	// Start looking up contacts with user discovery and feed this
 	// contacts channel.
 	for lookupID := range in {
@@ -191,7 +205,7 @@ func LookupContacts(in chan *id.ID, out chan *contact.Contact,
 			failCh <- failure{ID: lookupID, Err: err}
 			continue
 		}
-		jww.WARN.Printf("could not lookup %s: %v", lookupID, err)
+		jww.WARN.Printf("Could not lookup %s: %v", lookupID, err)
 	}
 }
 
@@ -204,6 +218,7 @@ func ResetSessions(in, out chan *contact.Contact, failCh chan failure,
 	user *xxdk.E2e, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for c := range in {
+		jww.INFO.Printf("Resetting contact with partner ID %s", c.ID)
 		_, err := user.GetAuth().Reset(*c)
 		if err == nil {
 			out <- c
@@ -222,6 +237,8 @@ func ResetSessions(in, out chan *contact.Contact, failCh chan failure,
 // should be treated as internal functions specific to the phone apps.
 func LookupContact(userID *id.ID, user *xxdk.E2e, udContact contact.Contact) (
 	*contact.Contact, error) {
+	jww.DEBUG.Printf("Looking up contact with ID %s", userID)
+
 	// This is a little wonky, but wait until we get called then
 	// set the result to the contact objects details if there is
 	// no error

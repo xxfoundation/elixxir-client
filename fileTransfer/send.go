@@ -86,11 +86,21 @@ func (m *manager) sendingThread(stop *stoppable.Single) {
 		case healthy := <-healthChan:
 			for !healthy {
 				jww.INFO.Printf("not healthy, waiting for health update")
-				healthy = <-healthChan
-				jww.INFO.Printf("received health update, it is now set to %s", healthy)
+				select {
+				// Wait for health update or a quit signal
+				case <-stop.Quit():
+					jww.DEBUG.Printf("[FT] Stopping file part sending thread (%s): "+
+						"stoppable triggered.", stop.Name())
+					m.cmix.RemoveHealthCallback(healthChanID)
+					stop.ToStopped()
+					return
+				case healthy = <-healthChan:
+					jww.INFO.Printf("received health update, it is now set to %s", healthy)
+
+				}
 			}
 		case packet := <-m.sendQueue:
-			jww.INFO.Printf("sending packet")
+			jww.INFO.Printf("sending pack")
 			m.sendCmix(packet)
 		}
 	}

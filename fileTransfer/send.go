@@ -62,7 +62,7 @@ func (m *manager) startSendingWorkerPool(multiStop *stoppable.Multi) {
 
 	for i := 0; i < workerPoolThreads; i++ {
 		stop := stoppable.NewSingle(sendThreadStoppableName + strconv.Itoa(i))
-		m.sendingThread(stop)
+		go m.sendingThread(stop)
 		multiStop.Add(stop)
 	}
 

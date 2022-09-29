@@ -27,6 +27,9 @@ func NewScheme() *scheme {
 type scheme struct {
 }
 
+var _ Scheme = (*scheme)(nil)
+var _ Ratchet = (*ratchet)(nil)
+
 func (s *scheme) FromBytes(serializedRatchet []byte) (Ratchet, error) {
 	d := &RatchetDisk{}
 	err := cbor.Unmarshal(serializedRatchet, d)

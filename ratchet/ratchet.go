@@ -6,7 +6,7 @@ import (
 
 type Scheme interface {
 	FromBytes(serializedRatchet []byte) (Ratchet, error)
-	New(sharedSecret, salt []byte, fingerprintMapSize uint) Ratchet
+	New(sharedSecret, salt []byte, fingerprintMapSize uint32) Ratchet
 }
 
 type Ratchet interface {

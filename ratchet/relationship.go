@@ -258,8 +258,6 @@ func makeRelationshipFingerprint(senderKey, receiverKey nike.PublicKey, sender,
 		h.Write(senderKeyBytes)
 	}
 
-	h.Write(sender.Bytes())
-	h.Write(receiver.Bytes())
 	id := session.SessionID{}
 	id.Unmarshal(h.Sum(nil))
 	return id

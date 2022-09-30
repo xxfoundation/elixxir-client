@@ -9,6 +9,9 @@ import (
 type xxratchet struct {
 	nikeScheme nike.Nike
 
+	size uint32
+	salt []byte
+
 	// FIXME: we have needs to both lookup this way and
 	//        lookup state of a specific session id.
 	sendStates    map[NegotiationState][]ID
@@ -33,15 +36,21 @@ func (x *xxratchet) Decrypt(id ID,
 }
 
 // Rekey creates a new receiving ratchet defined
-// by the received rekey trigger public key.  This is called
-// by case 6 above.  This calls the cyHdlr.AddKey() for each
-// key fingerprint, and in theory can directly give it the
-// Receive Ratchet, eliminating the need to even bother with a
-// Decrypt function at this layer.
+// by the received public key. This is called
+// by case 6 above in our protocol description.
+//
+// TODO: This function needs to send the new fingerprints
+// to a callback interface method.
 func (x *xxratchet) Rekey(oldReceiverRatchetID ID,
-	theirPublicKey nike.PublicKey) (id ID, publicKey nike.PublicKey) {
+	theirPublicKey nike.PublicKey) (ID, nike.PublicKey) {
 
-	return
+	myPrivateKey, myPublicKey := x.nikeScheme.NewKeypair()
+
+	r, id := NewReceiveRatchet(myPrivateKey, theirPublicKey, x.salt, x.size)
+
+	x.recvRatchets[id] = r
+
+	return id, myPublicKey
 }
 
 func (x *xxratchet) SetState(senderRatchetID ID,

@@ -75,7 +75,7 @@ func (s *symmetricKeyRatchetFactory) New(sharedSecret, salt []byte, size uint32)
 type ratchet struct {
 	size           uint32
 	sharedSecret   []byte
-	salt           []byte // typically the relationship fingerprint
+	salt           []byte
 	usedKeys       *StateVector
 	fingerprintMap map[format.Fingerprint]uint32
 	fingerprints   []format.Fingerprint // not serialized to disk
@@ -260,10 +260,10 @@ func receiveRatchetFromBytes(blob []byte, nikeScheme nike.Nike,
 // keys to generate, and the salt is used to ???
 func NewReceiveRatchet(myPrivateKey nike.PrivateKey,
 	theirPublicKey nike.PublicKey, salt []byte,
-	size uint32) ReceiveRatchet {
+	size uint32) (ReceiveRatchet, ID) {
 	ratchetFactory := &symmetricKeyRatchetFactory{}
 	sharedSecret := myPrivateKey.DeriveSecret(theirPublicKey)
-
+	id := GetIDFromBaseKey(sharedSecret)
 	ratchet := ratchetFactory.New(sharedSecret,
 		salt, size)
 	return &receiveRatchet{
@@ -272,7 +272,7 @@ func NewReceiveRatchet(myPrivateKey nike.PrivateKey,
 		// FIXME: this is done wrong and should be the combined DH/CTIDH scheme.
 		nikeScheme:              ctidh.NewCTIDHNIKE(),
 		symmetricRatchetFactory: ratchetFactory,
-	}
+	}, id
 }
 
 func (r *receiveRatchet) Save() ([]byte, error) {

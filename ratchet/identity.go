@@ -11,7 +11,6 @@ import (
 	"encoding/base64"
 
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/hash"
 )
 
@@ -36,11 +35,11 @@ func (sid *ID) Unmarshal(b []byte) error {
 }
 
 // underlying definition of session id
-func GetIDFromBaseKey(baseKey *cyclic.Int) ID {
+func GetIDFromBaseKey(baseKey []byte) ID {
 	// no lock is needed because this cannot be edited
 	sid := ID{}
 	h, _ := hash.NewCMixHash()
-	h.Write(baseKey.Bytes())
+	h.Write(baseKey)
 	copy(sid[:], h.Sum(nil))
 	return sid
 }

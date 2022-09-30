@@ -1,7 +1,6 @@
 package ratchet
 
 import (
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/primitives/format"
 )
@@ -13,9 +12,9 @@ type EncryptedMessage struct {
 }
 
 type XXRatchet interface {
-	Encrypt(sendRatchetID session.SessionID,
+	Encrypt(sendRatchetID ID,
 		plaintext []byte) (*EncryptedMessage, error)
-	Decrypt(receiveRatchetID session.SessionID,
+	Decrypt(receiveRatchetID ID,
 		message *EncryptedMessage) (plaintext []byte, err error)
 
 	// Rekey creates a new receiving ratchet defined
@@ -24,18 +23,18 @@ type XXRatchet interface {
 	// key fingerprint, and in theory can directly give it the
 	// Receive Ratchet, eliminating the need to even bother with a
 	// Decrypt function at this layer.
-	Rekey(oldReceiverRatchetID session.SessionID,
-		theirPublicKey nike.PublicKey) (session.SessionID, nike.PublicKey)
+	Rekey(oldReceiverRatchetID ID,
+		theirPublicKey nike.PublicKey) (ID, nike.PublicKey)
 
 	// State Management Functions
-	SetState(senderID session.SessionID, newState session.Negotiation) error
-	SendRatchets() []session.SessionID
-	SendRatchetsByState(state session.Negotiation) []session.SessionID
-	ReceiveRatchets() []session.SessionID
+	SetState(senderID ID, newState NegotiationState) error
+	SendRatchets() []ID
+	SendRatchetsByState(state NegotiationState) []ID
+	ReceiveRatchets() []ID
 }
 
 type RekeyTrigger interface {
-	TriggerRekey(ratchetID session.SessionID, myPublicKey nike.PublicKey)
+	TriggerRekey(ratchetID ID, myPublicKey nike.PublicKey)
 }
 
 type SymmetricKeyRatchetFactory interface {

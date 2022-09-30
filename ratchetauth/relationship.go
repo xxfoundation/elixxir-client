@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package ratchet
+package auth
 
 import (
 	"bytes"
@@ -19,50 +19,25 @@ import (
 
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/interfaces/nike"
+	"gitlab.com/elixxir/client/ratchet"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/ekv"
 )
 
-type XXRatchet interface {
-	Encrypt(sendRatchetID session.SessionID,
-		plaintext []byte) (*EncryptedMessage, error)
-	Decrypt(receiveRatchetID session.SessionID,
-		message *EncryptedMessage) (plaintext []byte, err error)
-
-	// Rekey creates a new receiving ratchet defined
-	// by the received rekey trigger public key.  This is called
-	// by case 6 above.  This calls the cyHdlr.AddKey() for each
-	// key fingerprint, and in theory can directly give it the
-	// Receive Ratchet, eliminating the need to even bother with a
-	// Decrypt function at this layer.
-	Rekey(oldReceiverRatchetID session.SessionID,
-		theirPublicKey nike.PublicKey) (session.SessionID, nike.PublicKey)
-
-	// State Management Functions
-	SetState(senderID session.SessionID, newState session.Negotiation) error
-	SendRatchets() []session.SessionID
-	SendRatchetsByState(state session.Negotiation) []session.SessionID
-	ReceiveRatchets() []session.SessionID
-}
-
-type RekeyTrigger interface {
-	TriggerRekey(ratchetID session.SessionID, myPublicKey nike.PublicKey)
-}
-
 type xxratchet struct {
 	// FIXME: we have needs to both lookup this way and
 	//        lookup state of a specific session id.
-	sendStates    map[session.Negotiation][]session.SessionID
-	invSendStates map[session.SessionID]session.Negotiation
+	sendStates    map[ratchet.NegotiationState][]ratchet.ID
+	invSendStates map[ratchet.ID]ratchet.NegotiationState
 
-	sendRatchets map[session.SessionID]SendRatchet
-	recvRatchets map[session.SessionID]ReceiveRatchet
+	sendRatchets map[ratchet.ID]ratchet.SendRatchet
+	recvRatchets map[ratchet.ID]ratchet.ReceiveRatchet
 
-	rekeyTrigger RekeyTrigger
+	rekeyTrigger ratchet.RekeyTrigger
 }
 
-func (x *xxratchet) SetState(senderRatchetID session.SessionID,
-	newState session.Negotiation) error {
+func (x *xxratchet) SetState(senderRatchetID ratchet.ID,
+	newState ratchet.NegotiationState) error {
 	curState := x.invSendStates[senderRatchetID]
 
 	// validateStateTransition(curState, newState)
@@ -79,8 +54,8 @@ func (x *xxratchet) SetState(senderRatchetID session.SessionID,
 	return nil
 }
 
-func deleteRatchetIDFromList(ratchetID session.SessionID,
-	ratchets []session.SessionID) ([]session.SessionID, bool) {
+func deleteRatchetIDFromList(ratchetID ratchet.ID,
+	ratchets []ratchet.ID) ([]ratchet.ID, bool) {
 	found := false
 	for i := 0; i < len(ratchets); i++ {
 		if ratchetID == ratchets[i] {
@@ -142,14 +117,14 @@ func deleteRatchetIDFromList(ratchetID session.SessionID,
 //     a. A callback is registered to report new key fingerprints.
 //     b. Decryption can fail if a key is reused.
 type AuthenticatedChannel struct {
-	// The cMix ID of the user who shares this authenticated channel.
+	// The cMix ratchet.ID of the user who shares this authenticated channel.
 	// Used for ratchet identification and debugging information.
 	partner *id.ID
 	// The cMix ID of the sender for this authenticated channel.
 	// Used for ratchet identification and debugging information.
 	me *id.ID
 
-	ratchets XXRatchet
+	ratchets ratchet.XXRatchet
 
 	// Locks are handled on a per-ratchet basis
 	// FIXME: this needs to be it's own primitive, because the map
@@ -157,7 +132,7 @@ type AuthenticatedChannel struct {
 	// primitive that looked reasonable.. and only one was BSD...
 	// I think we may have this pattern elsewhere, and we should add
 	// a kmutex to primitives
-	ratchetMuxes map[session.SessionID]sync.Mutex
+	ratchetMuxes map[ratchet.ID]sync.Mutex
 	stateMux     sync.Mutex
 
 	// The key-value store for reading and writing to disk.
@@ -183,13 +158,13 @@ func NewAuthenticatedChannel(kv ekv.KeyValue, partner, me *id.ID, myPrivateKey n
 
 	// FIXME: We need to crib the alg for determing the size of these bufs
 
-	sendStates := make(map[session.Negotiation][]session.SessionID)
+	sendStates := make(map[ratchet.NegotiationState][]ratchet.ID)
 	for i := 0; i < int(session.NewSessionCreated); i++ {
-		sendStates[session.Negotiation(i)] = make([]session.SessionID, 0)
+		sendStates[ratchet.NegotiationState(i)] = make([]ratchet.ID, 0)
 	}
 
-	sendStates[session.NewSessionTriggered] = append(
-		sendStates[session.NewSessionTriggered], senderID)
+	sendStates[ratchet.NewSessionTriggered] = append(
+		sendStates[ratchet.NewSessionTriggered], senderID)
 
 	return &AuthenticatedChannel{
 		me:      me,
@@ -207,15 +182,15 @@ func NewAuthenticatedChannel(kv ekv.KeyValue, partner, me *id.ID, myPrivateKey n
 // searching the lists in sendStates to find the desired ID using the target
 // newState to figure out where to look. It is called by any states where
 // the transitions are explicitly defined above (3, 4, 7, 8)
-func (ac *AuthenticatedChannel) SetState(senderID session.SessionID,
-	newState session.Negotiation) error {
+func (ac *AuthenticatedChannel) SetState(senderID ratchet.ID,
+	newState ratchet.NegotiationState) error {
 	// TODO
 	return nil
 }
 
 // SendRatchets returns the IDs of all of the active send ratchets.
 // This is not thread safe. These IDs may not exist when you try to access them.
-func (ac *AuthenticatedChannel) SendRatchets() []session.SessionID {
+func (ac *AuthenticatedChannel) SendRatchets() []ratchet.ID {
 	// TODO
 	return nil
 }
@@ -223,7 +198,7 @@ func (ac *AuthenticatedChannel) SendRatchets() []session.SessionID {
 // SendRatchetsByState returns ids for all ratchets in the given state.
 // This is not thread safe. These IDs may not exist when you try to access them.
 func (ac *AuthenticatedChannel) SendRatchetsByState(
-	state session.Negotiation) []session.SessionID {
+	state ratchet.NegotiationState) []ratchet.ID {
 	/* FIXME
 	ac.stateMux.Lock()
 	defer ac.stateMux.Unlock()
@@ -233,8 +208,8 @@ func (ac *AuthenticatedChannel) SendRatchetsByState(
 }
 
 // ReceiveRatchets returns the IDs of all of the active receive ratchets.
-// This is not thread safe. These IDs may not exist when you try to access them.
-func (ac *AuthenticatedChannel) ReceiveRatchets() []session.SessionID {
+// This is not thread safe. These ratchet.IDs may not exist when you try to access them.
+func (ac *AuthenticatedChannel) ReceiveRatchets() []ratchet.ID {
 	// TODO
 	return nil
 }
@@ -243,7 +218,7 @@ func (ac *AuthenticatedChannel) ReceiveRatchets() []session.SessionID {
 // If the ratchet is running out of keys, then it returns an error of type ???
 // The caller should then also trigger a rekey.
 // FIXME: Figure out the error type or how we are gonna do this?
-func (ac *AuthenticatedChannel) Encrypt(plaintext []byte) (*EncryptedMessage, error) {
+func (ac *AuthenticatedChannel) Encrypt(plaintext []byte) (*ratchet.EncryptedMessage, error) {
 	// TODO
 	return nil, nil
 }
@@ -251,16 +226,16 @@ func (ac *AuthenticatedChannel) Encrypt(plaintext []byte) (*EncryptedMessage, er
 // Decrypt finds the ratchet to decrypt with and decrypts an encrypted
 // message. If the key has already been used, it refuses to do so and
 // returns an error instead.
-// NOTE: I think this could take a ratchet ID instead of doing it's own lookup?
-func (ac *AuthenticatedChannel) Decrypt(message *EncryptedMessage) (plaintext []byte,
+// NOTE: I think this could take a ratchet ratchet.ID instead of doing it's own lookup?
+func (ac *AuthenticatedChannel) Decrypt(message *ratchet.EncryptedMessage) (plaintext []byte,
 	err error) {
 	return nil, nil
 }
 
 // TriggerRekey creates a new sending ratchet in the triggered state and returns
-// the ID and public key.
+// the ratchet.ID and public key.
 // This is called by case 5 above.
-func (ac *AuthenticatedChannel) TriggerRekey() (session.SessionID,
+func (ac *AuthenticatedChannel) TriggerRekey() (ratchet.ID,
 	nike.PublicKey) {
 	// NOTE: The rekey trigger packet is of this form:
 	// &RekeyTrigger{
@@ -273,7 +248,7 @@ func (ac *AuthenticatedChannel) TriggerRekey() (session.SessionID,
 	// recently used receive ratchet instead of the initial one, fixing a
 	// fairly longstanding limitation in that we always DH off the original
 	// key for the other party.
-	return session.SessionID{}, nil
+	return ratchet.ID{}, nil
 }
 
 // HandleRekeyTrigger creates a new receiving ratchet defined by the
@@ -282,17 +257,17 @@ func (ac *AuthenticatedChannel) TriggerRekey() (session.SessionID,
 // This calls the cyHdlr.AddKey() for each key fingerprint, and in theory can
 // directly give it the Receive Ratchet, eliminating the need to even
 // bother with a Decrypt function at this layer.
-func (ac *AuthenticatedChannel) HandleRekeyTrigger(theirPublicKey nike.PublicKey) (session.SessionID,
+func (ac *AuthenticatedChannel) HandleRekeyTrigger(theirPublicKey nike.PublicKey) (ratchet.ID,
 	nike.PublicKey) {
-	return session.SessionID{}, nil
+	return ratchet.ID{}, nil
 }
 
 // makeRelationshipFingerprint is copied from crypto/e2e/relationshipFingerprint
 // and modified for the nike interface.
 // creates a unique relationship fingerprint which can be used to ensure keys
-// are unique and that message IDs are unique
+// are unique and that message ratchet.IDs are unique
 func makeRelationshipFingerprint(senderKey, receiverKey nike.PublicKey, sender,
-	receiver *id.ID) session.SessionID {
+	receiver *id.ID) ratchet.ID {
 	h, err := hash.NewCMixHash()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to get hash to make relationship"+
@@ -315,7 +290,7 @@ func makeRelationshipFingerprint(senderKey, receiverKey nike.PublicKey, sender,
 		h.Write(senderKeyBytes)
 	}
 
-	id := session.SessionID{}
+	id := ratchet.ID{}
 	id.Unmarshal(h.Sum(nil))
 	return id
 }

@@ -222,12 +222,52 @@ type receiveRatchet struct {
 	symmetricRatchetFactory *symmetricKeyRatchetFactory
 }
 
-func (r *receiveRatchet) Decrypt(message *EncryptedMessage) (plaintext []byte, err error) {
-	return r.ratchet.Decrypt(message)
+type ReceiveRatchetDisk struct {
+	MyPrivateKey []byte
+	Ratchet      []byte
+}
+
+func receiveRatchetFromBytes(blob []byte, nikeScheme nike.Nike,
+	symmetricRatchetFactory *symmetricKeyRatchetFactory) (*receiveRatchet, error) {
+
+	d := &ReceiveRatchetDisk{}
+	err := cbor.Unmarshal(blob, d)
+	if err != nil {
+		return nil, err
+	}
+
+	myPrivateKey, err := nikeScheme.UnmarshalBinaryPrivateKey(d.MyPrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	ratchet, err := symmetricRatchetFactory.FromBytes(d.Ratchet)
+	if err != nil {
+		return nil, err
+	}
+
+	return &receiveRatchet{
+		myPrivateKey:            myPrivateKey,
+		ratchet:                 ratchet,
+		nikeScheme:              nikeScheme,
+		symmetricRatchetFactory: symmetricRatchetFactory,
+	}, nil
 }
 
 func (r *receiveRatchet) Save() ([]byte, error) {
-	return nil, nil // XXX FIXME
+	symmetricRatchetBytes, err := r.ratchet.Save()
+	if err != nil {
+		return nil, err
+	}
+	d := &ReceiveRatchetDisk{
+		MyPrivateKey: r.myPrivateKey.Bytes(),
+		Ratchet:      symmetricRatchetBytes,
+	}
+	return cbor.Marshal(d)
+}
+
+func (r *receiveRatchet) Decrypt(message *EncryptedMessage) (plaintext []byte, err error) {
+	return r.ratchet.Decrypt(message)
 }
 
 func (r *receiveRatchet) Next(theirPublicKey nike.PublicKey) ReceiveRatchet {
@@ -248,13 +288,60 @@ type sendRatchet struct {
 	symmetricRatchetFactory *symmetricKeyRatchetFactory
 }
 
-func (r *sendRatchet) Encrypt(plaintext []byte) (*EncryptedMessage, error) {
-	return r.Encrypt(plaintext)
+type SendRatchetDisk struct {
+	MyPublicKey      []byte
+	Ratchet          []byte
+	PartnerPublicKey []byte
+}
+
+func sendRatchetFromBytes(blob []byte, nikeScheme nike.Nike,
+	symmetricRatchetFactory *symmetricKeyRatchetFactory) (*sendRatchet, error) {
+
+	d := &SendRatchetDisk{}
+	err := cbor.Unmarshal(blob, d)
+	if err != nil {
+		return nil, err
+	}
+
+	myPublicKey, err := nikeScheme.UnmarshalBinaryPublicKey(d.MyPublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	partnerPublicKey, err := nikeScheme.UnmarshalBinaryPublicKey(d.PartnerPublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	ratchet, err := symmetricRatchetFactory.FromBytes(d.Ratchet)
+	if err != nil {
+		return nil, err
+	}
+
+	return &sendRatchet{
+		myPublicKey:             myPublicKey,
+		ratchet:                 ratchet,
+		partnerPublicKey:        partnerPublicKey,
+		nikeScheme:              nikeScheme,
+		symmetricRatchetFactory: symmetricRatchetFactory,
+	}, nil
 }
 
 func (r *sendRatchet) Save() ([]byte, error) {
-	// FIXME
-	return nil, nil
+	symmetricRatchetBytes, err := r.ratchet.Save()
+	if err != nil {
+		return nil, err
+	}
+	d := &SendRatchetDisk{
+		MyPublicKey:      r.myPublicKey.Bytes(),
+		Ratchet:          symmetricRatchetBytes,
+		PartnerPublicKey: r.partnerPublicKey.Bytes(),
+	}
+	return cbor.Marshal(d)
+}
+
+func (r *sendRatchet) Encrypt(plaintext []byte) (*EncryptedMessage, error) {
+	return r.Encrypt(plaintext)
 }
 
 func (r *sendRatchet) Next() SendRatchet {

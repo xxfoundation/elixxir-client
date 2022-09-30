@@ -19,17 +19,15 @@ type xxratchet struct {
 func (x *xxratchet) SetState(senderRatchetID ID,
 	newState NegotiationState) error {
 	curState := x.invSendStates[senderRatchetID]
-
-	// validateStateTransition(curState, newState)
-
+	if !curState.IsNewStateLegal(newState) {
+		return errors.New("SetState: invalid state transition")
+	}
 	curList, ok := deleteRatchetIDFromList(senderRatchetID,
 		x.sendStates[curState])
 	if !ok {
 		return errors.New("senderRatchetID not found")
 	}
 	x.sendStates[curState] = curList
-
-	//Add senderRatcherID to the new state
 	x.sendStates[newState] = append(x.sendStates[newState], senderRatchetID)
 	return nil
 }

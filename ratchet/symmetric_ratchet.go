@@ -13,7 +13,7 @@ import (
 	elixxirhash "gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
 
-	"gitlab.com/elixxir/client/ctidh"
+	"gitlab.com/elixxir/client/nike/ctidh"
 	"gitlab.com/elixxir/crypto/e2e"
 )
 

@@ -17,12 +17,6 @@ type XXRatchet interface {
 	Decrypt(receiveRatchetID ID,
 		message *EncryptedMessage) (plaintext []byte, err error)
 
-	// Rekey creates a new receiving ratchet defined
-	// by the received rekey trigger public key.  This is called
-	// by case 6 above.  This calls the cyHdlr.AddKey() for each
-	// key fingerprint, and in theory can directly give it the
-	// Receive Ratchet, eliminating the need to even bother with a
-	// Decrypt function at this layer.
 	Rekey(oldReceiverRatchetID ID,
 		theirPublicKey nike.PublicKey) (ID, nike.PublicKey)
 

@@ -13,6 +13,7 @@ import (
 	elixxirhash "gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
 
+	"gitlab.com/elixxir/client/ctidh"
 	"gitlab.com/elixxir/crypto/e2e"
 )
 
@@ -254,6 +255,26 @@ func receiveRatchetFromBytes(blob []byte, nikeScheme nike.Nike,
 	}, nil
 }
 
+// NewReceiveRatchet creates a receive ratchet with a given starting
+// myPrivateKey and theirPublicKey. The size dictates how many
+// keys to generate, and the salt is used to ???
+func NewReceiveRatchet(myPrivateKey nike.PrivateKey,
+	theirPublicKey nike.PublicKey, salt []byte,
+	size uint32) ReceiveRatchet {
+	ratchetFactory := &symmetricKeyRatchetFactory{}
+	sharedSecret := myPrivateKey.DeriveSecret(theirPublicKey)
+
+	ratchet := ratchetFactory.New(sharedSecret,
+		salt, size)
+	return &receiveRatchet{
+		myPrivateKey: myPrivateKey,
+		ratchet:      ratchet,
+		// FIXME: this is done wrong and should be the combined DH/CTIDH scheme.
+		nikeScheme:              ctidh.NewCTIDHNIKE(),
+		symmetricRatchetFactory: ratchetFactory,
+	}
+}
+
 func (r *receiveRatchet) Save() ([]byte, error) {
 	symmetricRatchetBytes, err := r.ratchet.Save()
 	if err != nil {
@@ -325,6 +346,23 @@ func sendRatchetFromBytes(blob []byte, nikeScheme nike.Nike,
 		nikeScheme:              nikeScheme,
 		symmetricRatchetFactory: symmetricRatchetFactory,
 	}, nil
+}
+
+func NewSendRatchet(myPrivateKey nike.PrivateKey, myPublicKey,
+	theirPublicKey nike.PublicKey, salt []byte, size uint32) SendRatchet {
+	ratchetFactory := &symmetricKeyRatchetFactory{}
+
+	sharedSecret := myPrivateKey.DeriveSecret(theirPublicKey)
+	ratchet := ratchetFactory.New(sharedSecret, salt, size)
+
+	return &sendRatchet{
+		ratchet:          ratchet,
+		partnerPublicKey: theirPublicKey,
+		// FIXME: this is wrong
+		nikeScheme:              ctidh.NewCTIDHNIKE(),
+		symmetricRatchetFactory: ratchetFactory,
+		myPublicKey:             myPublicKey,
+	}
 }
 
 func (r *sendRatchet) Save() ([]byte, error) {

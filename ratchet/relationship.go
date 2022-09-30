@@ -9,6 +9,7 @@ package ratchet
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -18,6 +19,77 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 )
+
+type XXRatchet interface {
+	Encrypt(sendRatchetID session.SessionID,
+		plaintext []byte) (*EncryptedMessage, error)
+	Decrypt(receiveRatchetID session.SessionID,
+		message *EncryptedMessage) (plaintext []byte, err error)
+
+	// Rekey creates a new receiving ratchet defined
+	// by the received rekey trigger public key.  This is called
+	// by case 6 above.  This calls the cyHdlr.AddKey() for each
+	// key fingerprint, and in theory can directly give it the
+	// Receive Ratchet, eliminating the need to even bother with a
+	// Decrypt function at this layer.
+	Rekey(oldReceiverRatchetID session.SessionID,
+		theirPublicKey nike.PublicKey) (session.SessionID, nike.PublicKey)
+
+	// State Management Functions
+	SetState(senderID session.SessionID, newState session.Negotiation) error
+	SendRatchets() []session.SessionID
+	SendRatchetsByState(state session.Negotiation) []session.SessionID
+	ReceiveRatchets() []session.SessionID
+}
+
+type RekeyTrigger interface {
+	TriggerRekey(ratchetID session.SessionID, myPublicKey nike.PublicKey)
+}
+
+type xxratchet struct {
+	// FIXME: we have needs to both lookup this way and
+	//        lookup state of a specific session id.
+	sendStates    map[session.Negotiation][]session.SessionID
+	invSendStates map[session.SessionID]session.Negotiation
+
+	sendRatchets map[session.SessionID]SendRatchet
+	recvRatchets map[session.SessionID]ReceiveRatchet
+
+	rekeyTrigger RekeyTrigger
+}
+
+func (x *xxratchet) SetState(senderRatchetID session.SessionID,
+	newState session.Negotiation) error {
+	curState := x.invSendStates[senderRatchetID]
+
+	// validateStateTransition(curState, newState)
+
+	curList, ok := deleteRatchetIDFromList(senderRatchetID,
+		x.sendStates[curState])
+	if !ok {
+		return errors.New("senderRatchetID not found")
+	}
+	x.sendStates[curState] = curList
+
+	//Add senderRatcherID to the new state
+	x.sendStates[newState] = append(x.sendStates[newState], senderRatchetID)
+	return nil
+}
+
+func deleteRatchetIDFromList(ratchetID session.SessionID,
+	ratchets []session.SessionID) ([]session.SessionID, bool) {
+	found := false
+	for i := 0; i < len(ratchets); i++ {
+		if ratchetID == ratchets[i] {
+			head := ratchets[:i]
+			tail := ratchets[i+1:]
+			ratchets = append(head, tail...)
+			found = true
+			break
+		}
+	}
+	return ratchets, found
+}
 
 // AuthenticatedChannel
 //
@@ -74,12 +146,7 @@ type AuthenticatedChannel struct {
 	// Used for ratchet identification and debugging information.
 	me *id.ID
 
-	// FIXME: we have needs to both lookup this way and
-	//        lookup state of a specific session id.
-	sendStates map[session.Negotiation][]session.SessionID
-
-	sendRatchets map[session.SessionID]SendRatchet
-	recvRatchets map[session.SessionID]ReceiveRatchet
+	ratchets XXRatchet
 
 	// Locks are handled on a per-ratchet basis
 	// FIXME: this needs to be it's own primitive, because the map

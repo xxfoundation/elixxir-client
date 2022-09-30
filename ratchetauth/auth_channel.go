@@ -9,7 +9,6 @@ package auth
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"sync"
 
@@ -23,51 +22,6 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/ekv"
 )
-
-type xxratchet struct {
-	// FIXME: we have needs to both lookup this way and
-	//        lookup state of a specific session id.
-	sendStates    map[ratchet.NegotiationState][]ratchet.ID
-	invSendStates map[ratchet.ID]ratchet.NegotiationState
-
-	sendRatchets map[ratchet.ID]ratchet.SendRatchet
-	recvRatchets map[ratchet.ID]ratchet.ReceiveRatchet
-
-	rekeyTrigger ratchet.RekeyTrigger
-}
-
-func (x *xxratchet) SetState(senderRatchetID ratchet.ID,
-	newState ratchet.NegotiationState) error {
-	curState := x.invSendStates[senderRatchetID]
-
-	// validateStateTransition(curState, newState)
-
-	curList, ok := deleteRatchetIDFromList(senderRatchetID,
-		x.sendStates[curState])
-	if !ok {
-		return errors.New("senderRatchetID not found")
-	}
-	x.sendStates[curState] = curList
-
-	//Add senderRatcherID to the new state
-	x.sendStates[newState] = append(x.sendStates[newState], senderRatchetID)
-	return nil
-}
-
-func deleteRatchetIDFromList(ratchetID ratchet.ID,
-	ratchets []ratchet.ID) ([]ratchet.ID, bool) {
-	found := false
-	for i := 0; i < len(ratchets); i++ {
-		if ratchetID == ratchets[i] {
-			head := ratchets[:i]
-			tail := ratchets[i+1:]
-			ratchets = append(head, tail...)
-			found = true
-			break
-		}
-	}
-	return ratchets, found
-}
 
 // AuthenticatedChannel
 //

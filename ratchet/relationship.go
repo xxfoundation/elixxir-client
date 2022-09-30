@@ -178,39 +178,26 @@ func NewAuthenticatedChannel(kv ekv.KeyValue, partner, me *id.ID, myPrivateKey n
 	params session.Params) *AuthenticatedChannel {
 	senderID := makeRelationshipFingerprint(myPublicKey,
 		theirPublicKey, me, partner)
-	receiverID := makeRelationshipFingerprint(theirPublicKey,
-		myPublicKey, partner, me)
+	//	receiverID := makeRelationshipFingerprint(theirPublicKey,
+	//		myPublicKey, partner, me)
 
 	// FIXME: We need to crib the alg for determing the size of these bufs
-	recvRatchet := NewReceiveRatchet(myPrivateKey, theirPublicKey,
-		receiverID[:], uint32(params.MaxKeys))
-	sendRatchet := NewSendRatchet(myPrivateKey, myPublicKey, theirPublicKey,
-		senderID[:], uint32(params.MaxKeys))
 
 	sendStates := make(map[session.Negotiation][]session.SessionID)
 	for i := 0; i < int(session.NewSessionCreated); i++ {
 		sendStates[session.Negotiation(i)] = make([]session.SessionID, 0)
 	}
-	sendRatchets := make(map[session.SessionID]SendRatchet)
-	recvRatchets := make(map[session.SessionID]ReceiveRatchet)
-	ratchetLocks := make(map[session.SessionID]sync.Mutex)
 
 	sendStates[session.NewSessionTriggered] = append(
 		sendStates[session.NewSessionTriggered], senderID)
 
-	sendRatchets[senderID] = sendRatchet
-	recvRatchets[receiverID] = recvRatchet
-
 	return &AuthenticatedChannel{
-		me:           me,
-		partner:      partner,
-		kv:           kv,
-		params:       params,
-		sendRatchets: sendRatchets,
-		recvRatchets: recvRatchets,
-		sendStates:   sendStates,
-		ratchetMuxes: ratchetLocks,
-		cyHdlr:       cypherHandler,
+		me:      me,
+		partner: partner,
+		kv:      kv,
+		params:  params,
+		//		ratchetMuxes: ratchetLocks,
+		cyHdlr: cypherHandler,
 	}
 
 }
@@ -237,9 +224,12 @@ func (ac *AuthenticatedChannel) SendRatchets() []session.SessionID {
 // This is not thread safe. These IDs may not exist when you try to access them.
 func (ac *AuthenticatedChannel) SendRatchetsByState(
 	state session.Negotiation) []session.SessionID {
+	/* FIXME
 	ac.stateMux.Lock()
 	defer ac.stateMux.Unlock()
 	return ac.sendStates[state]
+	*/
+	return nil
 }
 
 // ReceiveRatchets returns the IDs of all of the active receive ratchets.

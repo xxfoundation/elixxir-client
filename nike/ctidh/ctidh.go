@@ -37,75 +37,31 @@ func (e *ctidhNIKE) PrivateKeySize() int {
 func (e *ctidhNIKE) NewKeypair() (nike.PrivateKey, nike.PublicKey) {
 	privKey, pubKey := ctidh.GenerateKeyPair()
 	return &PrivateKey{
+			nike:       e,
 			privateKey: privKey,
 		}, &PublicKey{
+			nike:      e,
 			publicKey: pubKey,
 		}
 }
 
-func (e *ctidhNIKE) PublicKeyFromPEMFile(f string) (nike.PublicKey, error) {
-	pubKey := ctidh.NewEmptyPublicKey()
-	err := pubKey.FromPEMFile(f)
-	if err != nil {
-		return nil, err
-	}
+func (e *ctidhNIKE) NewEmptyPublicKey() nike.PublicKey {
 	return &PublicKey{
-		publicKey: pubKey,
-	}, nil
+		nike:      e,
+		publicKey: ctidh.NewEmptyPublicKey(),
+	}
 }
 
-func (e *ctidhNIKE) PublicKeyFromPEM(pemBytes []byte) (nike.PublicKey, error) {
-	pubKey := ctidh.NewEmptyPublicKey()
-	err := pubKey.FromPEM(pemBytes)
-	if err != nil {
-		return nil, err
-	}
-	return &PublicKey{
-		publicKey: pubKey,
-	}, nil
-}
-
-func (e *ctidhNIKE) PrivateKeyFromPEMFile(f string) (nike.PrivateKey, error) {
-	privKey := ctidh.NewEmptyPrivateKey()
-	err := privKey.FromPEMFile(f)
-	if err != nil {
-		return nil, err
-	}
+func (e *ctidhNIKE) NewEmptyPrivateKey() nike.PrivateKey {
 	return &PrivateKey{
-		privateKey: privKey,
-	}, nil
-}
-
-func (e *ctidhNIKE) PrivateKeyFromPEM(pemBytes []byte) (nike.PrivateKey, error) {
-	privKey := ctidh.NewEmptyPrivateKey()
-	err := privKey.FromPEM(pemBytes)
-	if err != nil {
-		return nil, err
+		nike:       e,
+		privateKey: ctidh.NewEmptyPrivateKey(),
 	}
-	return &PrivateKey{
-		privateKey: privKey,
-	}, nil
-}
-
-func (e *ctidhNIKE) PublicKeyToPEMFile(f string, pubKey nike.PublicKey) error {
-	return pubKey.(*PublicKey).ToPEMFile(f)
-}
-
-func (e *ctidhNIKE) PublicKeyToPEM(pubKey nike.PublicKey) (*pem.Block, error) {
-	return pubKey.(*PublicKey).ToPEM()
-}
-
-func (e *ctidhNIKE) PrivateKeyToPEMFile(f string, privKey nike.PrivateKey) error {
-	return privKey.(*PrivateKey).ToPEMFile(f)
-}
-
-func (e *ctidhNIKE) PrivateKeyToPEM(privKey nike.PrivateKey) (*pem.Block, error) {
-	return privKey.(*PrivateKey).ToPEM()
 }
 
 // UnmarshalBinaryPublicKey unmarshals the public key bytes.
 func (e *ctidhNIKE) UnmarshalBinaryPublicKey(b []byte) (nike.PublicKey, error) {
-	pubKey := ctidh.NewEmptyPublicKey()
+	pubKey := e.NewEmptyPublicKey()
 	err := pubKey.FromBytes(b)
 	if err != nil {
 		return nil, err
@@ -115,39 +71,21 @@ func (e *ctidhNIKE) UnmarshalBinaryPublicKey(b []byte) (nike.PublicKey, error) {
 
 // UnmarshalBinaryPrivateKey unmarshals the public key bytes.
 func (e *ctidhNIKE) UnmarshalBinaryPrivateKey(b []byte) (nike.PrivateKey, error) {
-	privKey := ctidh.NewEmptyPrivateKey()
+	privKey := e.NewEmptyPrivateKey()
 	err := privKey.FromBytes(b)
 	if err != nil {
 		return nil, err
 	}
-	return &PrivateKey{
-		privateKey: privKey,
-	}, nil
-}
-
-// DeriveSecret derives a shared secret given a private key
-// from one party and a public key from another.
-func (e *ctidhNIKE) DeriveSecret(privKey nike.PrivateKey, pubKey nike.PublicKey) []byte {
-	return ctidh.DeriveSecret(privKey.(*PrivateKey).privateKey, pubKey.(*PublicKey).publicKey)
-}
-
-// DerivePublicKey derives a public key given a private key.
-func (e *ctidhNIKE) DerivePublicKey(privKey nike.PrivateKey) nike.PublicKey {
-	return ctidh.DerivePublicKey(privKey.(*PrivateKey).privateKey)
-}
-
-// PublicKeyEqual is a constant time key comparison.
-func (e *ctidhNIKE) PublicKeyEqual(a, b nike.PublicKey) bool {
-	return a.(*PublicKey).publicKey.Equal(b.(*PublicKey).publicKey)
-}
-
-// PrivateKeyEqual is a constant time key comparison.
-func (e *ctidhNIKE) PrivateKeyEqual(a, b nike.PrivateKey) bool {
-	return a.(*PrivateKey).privateKey.Equal(b.(*PrivateKey).privateKey)
+	return privKey, nil
 }
 
 type PrivateKey struct {
 	privateKey *ctidh.PrivateKey
+	nike       nike.Nike
+}
+
+func (p *PrivateKey) Scheme() nike.Nike {
+	return p.nike
 }
 
 func (p *PrivateKey) Reset() {
@@ -175,7 +113,12 @@ func (p *PrivateKey) DeriveSecret(publicKey nike.PublicKey) []byte {
 }
 
 type PublicKey struct {
+	nike      nike.Nike
 	publicKey *ctidh.PublicKey
+}
+
+func (p *PublicKey) Scheme() nike.Nike {
+	return p.nike
 }
 
 func (p *PublicKey) ToPEMFile(f string) error {

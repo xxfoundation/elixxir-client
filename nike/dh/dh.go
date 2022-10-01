@@ -47,11 +47,23 @@ func (d *dhNIKE) PrivateKeySize() int {
 	return privateKeySize
 }
 
-// UnmarshalBinaryPublicKey unmarshals the public key bytes.
-func (d *dhNIKE) UnmarshalBinaryPublicKey(b []byte) (nike.PublicKey, error) {
-	pubKey := &publicKey{
+func (d *dhNIKE) NewEmptyPrivateKey() nike.PrivateKey {
+	return &privateKey{
+		nike:       d,
+		privateKey: new(cyclic.Int),
+	}
+}
+
+func (d *dhNIKE) NewEmptyPublicKey() nike.PublicKey {
+	return &publicKey{
+		nike:      d,
 		publicKey: new(cyclic.Int),
 	}
+}
+
+// UnmarshalBinaryPublicKey unmarshals the public key bytes.
+func (d *dhNIKE) UnmarshalBinaryPublicKey(b []byte) (nike.PublicKey, error) {
+	pubKey := d.NewEmptyPublicKey()
 	err := pubKey.FromBytes(b)
 	if err != nil {
 		return nil, err
@@ -61,10 +73,7 @@ func (d *dhNIKE) UnmarshalBinaryPublicKey(b []byte) (nike.PublicKey, error) {
 
 // UnmarshalBinaryPrivateKey unmarshals the public key bytes.
 func (d *dhNIKE) UnmarshalBinaryPrivateKey(b []byte) (nike.PrivateKey, error) {
-	privKey := &privateKey{
-		nike:       d,
-		privateKey: new(cyclic.Int),
-	}
+	privKey := d.NewEmptyPrivateKey()
 	err := privKey.FromBytes(b)
 	if err != nil {
 		return nil, err
@@ -116,7 +125,12 @@ func (p *privateKey) FromBytes(data []byte) error {
 	return p.privateKey.BinaryDecode(data)
 }
 
+func (p *privateKey) Scheme() nike.Nike {
+	return p.nike
+}
+
 type publicKey struct {
+	nike      *dhNIKE
 	publicKey *cyclic.Int
 }
 
@@ -130,4 +144,8 @@ func (p *publicKey) Bytes() []byte {
 
 func (p *publicKey) FromBytes(data []byte) error {
 	return p.publicKey.BinaryDecode(data)
+}
+
+func (p *publicKey) Scheme() nike.Nike {
+	return p.nike
 }

@@ -11,6 +11,8 @@ type Key interface {
 
 	// FromBytes loads key material from the given byte slice.
 	FromBytes(data []byte) error
+
+	Scheme() Nike
 }
 
 // PrivateKey is an interface for types encapsulating
@@ -45,4 +47,12 @@ type Nike interface {
 
 	// UnmarshalBinaryPrivateKey unmarshals the public key bytes.
 	UnmarshalBinaryPrivateKey(b []byte) (PrivateKey, error)
+
+	// NewEmptyPrivateKey is helper method used to help
+	// implement UnmarshalBinaryPrivateKey.
+	NewEmptyPrivateKey() PrivateKey
+
+	// NewEmptyPublicKey is a helper method used to help
+	// implement UnmarshalBinaryPublicKey.
+	NewEmptyPublicKey() PublicKey
 }

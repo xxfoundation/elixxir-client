@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 
-	"gitlab.com/elixxir/client/e2e/pq"
 	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
@@ -31,7 +30,7 @@ func GenerateE2ESessionBaseKey(myDHPrivKey, theirDHPubKey *cyclic.Int,
 	dhKey := dh.GenerateSessionKey(myDHPrivKey, theirDHPubKey, dhGrp)
 
 	// PQ Key Gen
-	pqKey := pq.NIKE.DeriveSecret(myPQPrivKey, theirPQPubKey)
+	pqKey := myPQPrivKey.DeriveSecret(theirPQPubKey)
 
 	// Derive key
 	h := hash.CMixHash.New()

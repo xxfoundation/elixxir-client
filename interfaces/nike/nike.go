@@ -1,7 +1,5 @@
 package nike
 
-import "encoding/pem"
-
 // Key is an interface for types encapsulating key material.
 type Key interface {
 
@@ -47,41 +45,4 @@ type Nike interface {
 
 	// UnmarshalBinaryPrivateKey unmarshals the public key bytes.
 	UnmarshalBinaryPrivateKey(b []byte) (PrivateKey, error)
-
-	// DeriveSecret derives a shared secret given a private key
-	// from one party and a public key from another.
-	DeriveSecret(PrivateKey, PublicKey) []byte
-
-	// DerivePublicKey derives a public key given a private key.
-	DerivePublicKey(PrivateKey) PublicKey
-
-	// PublicKeyEqual is a constant time key comparison.
-	PublicKeyEqual(PublicKey, PublicKey) bool
-
-	// PrivateKeyEqual is a constant time key comparison.
-	PrivateKeyEqual(PrivateKey, PrivateKey) bool
-
-	// PublicKeyFromPEMFile unmarshals a public key from the PEM file.
-	PublicKeyFromPEMFile(string) (PublicKey, error)
-
-	// PublicKeyFromPEM unmarshals a public key from the PEM bytes.
-	PublicKeyFromPEM([]byte) (PublicKey, error)
-
-	// PublicKeyToPEMFile write the key to the PEM file.
-	PublicKeyToPEMFile(string, PublicKey) error
-
-	// PublicKeyToPEM writes the key to a PEM block.
-	PublicKeyToPEM(PublicKey) (*pem.Block, error)
-
-	// PrivateKeyFromPEMFile unmarshals a private key from the PEM file.
-	PrivateKeyFromPEMFile(string) (PrivateKey, error)
-
-	// PrivateKeyFromPEM unmarshals a private key from the PEM bytes.
-	PrivateKeyFromPEM([]byte) (PrivateKey, error)
-
-	// PrivateKeyToPEMFile writes the key to the PEM file.
-	PrivateKeyToPEMFile(string, PrivateKey) error
-
-	// PrivateKeyToPEM writes the key to a PEM block.
-	PrivateKeyToPEM(PrivateKey) (*pem.Block, error)
 }

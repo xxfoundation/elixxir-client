@@ -221,7 +221,6 @@ func NewKeyResidue(key []byte) []byte {
 type receiveRatchet struct {
 	myPrivateKey nike.PrivateKey
 	ratchet      SymmetricKeyRatchet
-	nikeScheme   nike.Nike
 }
 
 type ReceiveRatchetDisk struct {
@@ -229,7 +228,7 @@ type ReceiveRatchetDisk struct {
 	Ratchet      []byte
 }
 
-func receiveRatchetFromBytes(blob []byte, nikeScheme nike.Nike) (*receiveRatchet, error) {
+func receiveRatchetFromBytes(blob []byte) (*receiveRatchet, error) {
 
 	d := &ReceiveRatchetDisk{}
 	err := cbor.Unmarshal(blob, d)
@@ -237,7 +236,7 @@ func receiveRatchetFromBytes(blob []byte, nikeScheme nike.Nike) (*receiveRatchet
 		return nil, err
 	}
 
-	myPrivateKey, err := nikeScheme.UnmarshalBinaryPrivateKey(d.MyPrivateKey)
+	myPrivateKey, err := DefaultNIKE.UnmarshalBinaryPrivateKey(d.MyPrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +249,6 @@ func receiveRatchetFromBytes(blob []byte, nikeScheme nike.Nike) (*receiveRatchet
 	return &receiveRatchet{
 		myPrivateKey: myPrivateKey,
 		ratchet:      ratchet,
-		nikeScheme:   nikeScheme,
 	}, nil
 }
 
@@ -268,7 +266,6 @@ func NewReceiveRatchet(myPrivateKey nike.PrivateKey,
 	return &receiveRatchet{
 		myPrivateKey: myPrivateKey,
 		ratchet:      ratchet,
-		nikeScheme:   DefaultNIKE,
 	}, id
 }
 
@@ -293,7 +290,6 @@ func (r *receiveRatchet) Next(theirPublicKey nike.PublicKey) ReceiveRatchet {
 	return &receiveRatchet{
 		myPrivateKey: r.myPrivateKey,
 		ratchet:      DefaultSymmetricKeyRatchetFactory.New(sharedSecret, r.ratchet.Salt(), r.ratchet.Size()),
-		nikeScheme:   r.nikeScheme,
 	}
 }
 
@@ -301,7 +297,6 @@ type sendRatchet struct {
 	myPublicKey      nike.PublicKey
 	ratchet          SymmetricKeyRatchet
 	partnerPublicKey nike.PublicKey
-	nikeScheme       nike.Nike
 }
 
 type SendRatchetDisk struct {
@@ -310,7 +305,7 @@ type SendRatchetDisk struct {
 	PartnerPublicKey []byte
 }
 
-func sendRatchetFromBytes(blob []byte, nikeScheme nike.Nike) (*sendRatchet, error) {
+func sendRatchetFromBytes(blob []byte) (*sendRatchet, error) {
 
 	d := &SendRatchetDisk{}
 	err := cbor.Unmarshal(blob, d)
@@ -318,12 +313,12 @@ func sendRatchetFromBytes(blob []byte, nikeScheme nike.Nike) (*sendRatchet, erro
 		return nil, err
 	}
 
-	myPublicKey, err := nikeScheme.UnmarshalBinaryPublicKey(d.MyPublicKey)
+	myPublicKey, err := DefaultNIKE.UnmarshalBinaryPublicKey(d.MyPublicKey)
 	if err != nil {
 		return nil, err
 	}
 
-	partnerPublicKey, err := nikeScheme.UnmarshalBinaryPublicKey(d.PartnerPublicKey)
+	partnerPublicKey, err := DefaultNIKE.UnmarshalBinaryPublicKey(d.PartnerPublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +332,6 @@ func sendRatchetFromBytes(blob []byte, nikeScheme nike.Nike) (*sendRatchet, erro
 		myPublicKey:      myPublicKey,
 		ratchet:          ratchet,
 		partnerPublicKey: partnerPublicKey,
-		nikeScheme:       nikeScheme,
 	}, nil
 }
 
@@ -351,7 +345,6 @@ func NewSendRatchet(myPrivateKey nike.PrivateKey, myPublicKey,
 	return &sendRatchet{
 		ratchet:          ratchet,
 		partnerPublicKey: theirPublicKey,
-		nikeScheme:       DefaultNIKE,
 		myPublicKey:      myPublicKey,
 	}
 }
@@ -374,13 +367,12 @@ func (r *sendRatchet) Encrypt(plaintext []byte) (*EncryptedMessage, error) {
 }
 
 func (r *sendRatchet) Next() SendRatchet {
-	privateKey, publicKey := r.nikeScheme.NewKeypair()
+	privateKey, publicKey := DefaultNIKE.NewKeypair()
 	sharedSecret := privateKey.DeriveSecret(r.partnerPublicKey)
 
 	return &sendRatchet{
 		ratchet:          DefaultSymmetricKeyRatchetFactory.New(sharedSecret, r.ratchet.Salt(), r.ratchet.Size()),
 		partnerPublicKey: r.partnerPublicKey,
-		nikeScheme:       r.nikeScheme,
 		myPublicKey:      publicKey,
 	}
 }

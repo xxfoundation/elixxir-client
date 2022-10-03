@@ -957,6 +957,7 @@ type EventModel interface {
 	//  - identity - the json of the identity of the sender
 	//  - lease - The number of nanoseconds that the message is valid for.
 	//  - roundId - The ID of the round that the message was received on.
+	//  - mType - the type of the message, always 1 for this call
 	//  - status - the [channels.SentStatus] of the message.
 	//
 	// Statuses will be enumerated as such:
@@ -967,7 +968,8 @@ type EventModel interface {
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
 	ReceiveMessage(channelID, messageID []byte, nickname, text string,
-		identity []byte, timestamp, lease, roundId, status int64) int64
+		identity []byte, timestamp, lease, roundId, mType,
+		status int64) int64
 
 	// ReceiveReply is called whenever a message is received that is a reply on
 	// a given channel. It may be called multiple times on the same message. It
@@ -989,6 +991,7 @@ type EventModel interface {
 	//    since unix epoch.
 	//  - lease - The number of nanoseconds that the message is valid for.
 	//  - roundId - The ID of the round that the message was received on.
+	//  - mType - the type of the message, always 1 for this call
 	//  - status - the [channels.SentStatus] of the message.
 	//
 	// Statuses will be enumerated as such:
@@ -1000,7 +1003,7 @@ type EventModel interface {
 	// referenced by later with [EventModel.UpdateSentStatus].
 	ReceiveReply(channelID, messageID, reactionTo []byte,
 		nickname, text string, identity []byte,
-		timestamp, lease, roundId, status int64) int64
+		timestamp, lease, roundId, mType, status int64) int64
 
 	// ReceiveReaction is called whenever a reaction to a message is received
 	// on a given channel. It may be called multiple times on the same reaction.
@@ -1024,6 +1027,7 @@ type EventModel interface {
 	//    since unix epoch.
 	//  - lease - The number of nanoseconds that the message is valid for.
 	//  - roundId - The ID of the round that the message was received on.
+	//  - mType - the type of the message, always 1 for this call
 	//  - status - the [channels.SentStatus] of the message.
 	//
 	// Statuses will be enumerated as such:
@@ -1035,7 +1039,7 @@ type EventModel interface {
 	// referenced later with UpdateSentStatus
 	ReceiveReaction(channelID, messageID, reactionTo []byte,
 		nickname, reaction string, identity []byte,
-		timestamp, lease, roundId, status int64) int64
+		timestamp, lease, roundId, mtype, status int64) int64
 
 	// UpdateSentStatus is called whenever the sent status of a message has
 	// changed.
@@ -1086,6 +1090,7 @@ func (tem *toEventModel) LeaveChannel(channelID *id.ID) {
 func (tem *toEventModel) ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
 	nickname, text string, identity cryptoChannel.Identity,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
+	mType channels.MessageType,
 	status channels.SentStatus) uint64 {
 
 	idBytes, err := json.Marshal(&identity)
@@ -1095,7 +1100,7 @@ func (tem *toEventModel) ReceiveMessage(channelID *id.ID, messageID cryptoChanne
 	}
 
 	return uint64(tem.em.ReceiveMessage(channelID[:], messageID[:], nickname,
-		text, idBytes, timestamp.UnixNano(), int64(lease), int64(round.ID),
+		text, idBytes, timestamp.UnixNano(), int64(lease), int64(round.ID), int64(mType),
 		int64(status)))
 }
 
@@ -1108,7 +1113,8 @@ func (tem *toEventModel) ReceiveMessage(channelID *id.ID, messageID cryptoChanne
 func (tem *toEventModel) ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
 	reactionTo cryptoChannel.MessageID, nickname, text string,
 	identity cryptoChannel.Identity, timestamp time.Time,
-	lease time.Duration, round rounds.Round, status channels.SentStatus) uint64 {
+	lease time.Duration, round rounds.Round, mType channels.MessageType,
+	status channels.SentStatus) uint64 {
 
 	idBytes, err := json.Marshal(&identity)
 	if err != nil {
@@ -1118,7 +1124,7 @@ func (tem *toEventModel) ReceiveReply(channelID *id.ID, messageID cryptoChannel.
 
 	return uint64(tem.em.ReceiveReply(channelID[:], messageID[:], reactionTo[:],
 		nickname, text, idBytes, timestamp.UnixNano(), int64(lease),
-		int64(round.ID), int64(status)))
+		int64(round.ID), int64(mType), int64(status)))
 
 }
 
@@ -1131,7 +1137,8 @@ func (tem *toEventModel) ReceiveReply(channelID *id.ID, messageID cryptoChannel.
 func (tem *toEventModel) ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
 	reactionTo cryptoChannel.MessageID, nickname, reaction string,
 	identity cryptoChannel.Identity, timestamp time.Time,
-	lease time.Duration, round rounds.Round, status channels.SentStatus) uint64 {
+	lease time.Duration, round rounds.Round, mType channels.MessageType,
+	status channels.SentStatus) uint64 {
 
 	idBytes, err := json.Marshal(&identity)
 	if err != nil {
@@ -1141,7 +1148,7 @@ func (tem *toEventModel) ReceiveReaction(channelID *id.ID, messageID cryptoChann
 
 	return uint64(tem.em.ReceiveReaction(channelID[:], messageID[:],
 		reactionTo[:], nickname, reaction, idBytes, timestamp.UnixNano(),
-		int64(lease), int64(round.ID), int64(status)))
+		int64(lease), int64(round.ID), int64(mType), int64(status)))
 }
 
 // UpdateSentStatus is called whenever the sent status of a message has changed.

@@ -363,7 +363,7 @@ func (r *sendRatchet) Save() ([]byte, error) {
 }
 
 func (r *sendRatchet) Encrypt(plaintext []byte) (*EncryptedMessage, error) {
-	return r.Encrypt(plaintext)
+	return r.ratchet.Encrypt(plaintext)
 }
 
 func (r *sendRatchet) Next() SendRatchet {

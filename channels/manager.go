@@ -15,6 +15,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
@@ -199,6 +200,7 @@ func (m *manager) GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error) {
 // underlying state tracking for message pickup for the channel, causing all
 // messages to be re-retrieved from the network
 func (m *manager) ReplayChannel(chID *id.ID) error {
+	jww.INFO.Printf("Replaying messages on channel %s", chID)
 	m.mux.RLock()
 	defer m.mux.RUnlock()
 

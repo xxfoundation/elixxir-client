@@ -426,10 +426,16 @@ func (rr *roundResults) callback(allRoundsSucceeded, timedOut bool, _ map[id.Rou
 		delete(rr.st.byMessageID, registered[i].MsgID)
 	}
 
+	if err := rr.st.store(); err != nil {
+		jww.FATAL.Panicf("failed to store update after "+
+			"finalizing delivery of sent messages: %+v", err)
+	}
+
 	rr.st.mux.Unlock()
 
 	for i := range registered {
 		go rr.st.updateStatus(registered[i].UUID, registered[i].MsgID, time.Time{},
 			rounds.Round{}, status)
 	}
+
 }

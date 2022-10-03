@@ -626,18 +626,18 @@ func (m *mockEventModel) LeaveChannel(c *id.ID) {
 func (m *mockEventModel) ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
 	nickname, text string, identity cryptoChannel.Identity,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
-	status SentStatus) uint64 {
+	mType MessageType, status SentStatus) uint64 {
 	return 0
 }
 func (m *mockEventModel) ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
 	reactionTo cryptoChannel.MessageID, nickname, text string,
 	identity cryptoChannel.Identity, timestamp time.Time,
-	lease time.Duration, round rounds.Round, status SentStatus) uint64 {
+	lease time.Duration, round rounds.Round, mType MessageType, status SentStatus) uint64 {
 	return 0
 }
 func (m *mockEventModel) ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
 	reactionTo cryptoChannel.MessageID, nickname, reaction string,
 	identity cryptoChannel.Identity, timestamp time.Time,
-	lease time.Duration, round rounds.Round, status SentStatus) uint64 {
+	lease time.Duration, round rounds.Round, mType MessageType, status SentStatus) uint64 {
 	return 0
 }

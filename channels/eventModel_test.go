@@ -57,7 +57,7 @@ func (*MockEvent) LeaveChannel(channelID *id.ID)                {}
 func (m *MockEvent) ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
 	nickname, text string, identity cryptoChannel.Identity,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
-	status SentStatus) uint64 {
+	mType MessageType, status SentStatus) uint64 {
 	m.eventReceive = eventReceive{
 		channelID:  channelID,
 		messageID:  messageID,
@@ -73,7 +73,7 @@ func (m *MockEvent) ReceiveMessage(channelID *id.ID, messageID cryptoChannel.Mes
 func (m *MockEvent) ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
 	reactionTo cryptoChannel.MessageID, nickname, text string,
 	identity cryptoChannel.Identity, timestamp time.Time,
-	lease time.Duration, round rounds.Round, status SentStatus) uint64 {
+	lease time.Duration, round rounds.Round, mType MessageType, status SentStatus) uint64 {
 	fmt.Println(reactionTo)
 	m.eventReceive = eventReceive{
 		channelID:  channelID,
@@ -90,7 +90,7 @@ func (m *MockEvent) ReceiveReply(channelID *id.ID, messageID cryptoChannel.Messa
 func (m *MockEvent) ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
 	reactionTo cryptoChannel.MessageID, nickname, reaction string,
 	identity cryptoChannel.Identity, timestamp time.Time,
-	lease time.Duration, round rounds.Round, status SentStatus) uint64 {
+	lease time.Duration, round rounds.Round, mType MessageType, status SentStatus) uint64 {
 	m.eventReceive = eventReceive{
 		channelID:  channelID,
 		messageID:  messageID,

@@ -58,10 +58,13 @@ type EventModel interface {
 	//
 	// Nickname may be empty, in which case the UI is expected to display
 	// the codename
+	//
+	// Message type is included in the call, it will always be Text (1)
+	// for this call, but it may be required in downstream databases
 	ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
 		nickname, text string, identity cryptoChannel.Identity,
 		timestamp time.Time, lease time.Duration, round rounds.Round,
-		status SentStatus) uint64
+		mType MessageType, status SentStatus) uint64
 
 	// ReceiveReply is called whenever a message is received that is a reply on
 	// a given channel. It may be called multiple times on the same message. It
@@ -79,10 +82,14 @@ type EventModel interface {
 	//
 	// Nickname may be empty, in which case the UI is expected to display
 	// the codename
+	//
+	// Message type is included in the call, it will always be Text (1) for
+	// this call, but it may be required in downstream databases
 	ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
 		reactionTo cryptoChannel.MessageID, nickname, text string,
 		identity cryptoChannel.Identity, timestamp time.Time,
-		lease time.Duration, round rounds.Round, status SentStatus) uint64
+		lease time.Duration, round rounds.Round, mType MessageType,
+		status SentStatus) uint64
 
 	// ReceiveReaction is called whenever a reaction to a message is received
 	// on a given channel. It may be called multiple times on the same reaction.
@@ -102,10 +109,14 @@ type EventModel interface {
 	//
 	// Nickname may be empty, in which case the UI is expected to display
 	// the codename
+	//
+	// Message type is included in the call, it will always be Reaction (3) for
+	// this call, but it may be required in downstream databases
 	ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
 		reactionTo cryptoChannel.MessageID, nickname, reaction string,
 		identity cryptoChannel.Identity, timestamp time.Time,
-		lease time.Duration, round rounds.Round, status SentStatus) uint64
+		lease time.Duration, round rounds.Round, mType MessageType,
+		status SentStatus) uint64
 
 	// UpdateSentStatus is called whenever the sent status of a message has
 	// changed.
@@ -283,7 +294,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 			var replyTo cryptoChannel.MessageID
 			copy(replyTo[:], txt.ReplyMessageID)
 			return e.model.ReceiveReply(channelID, messageID, replyTo,
-				nickname, txt.Text, identity, timestamp, lease, round, status)
+				nickname, txt.Text, identity, timestamp, lease, round, Text, status)
 
 		} else {
 			jww.ERROR.Printf("Failed process reply to for message %s from %s on "+
@@ -297,7 +308,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 	}
 
 	return e.model.ReceiveMessage(channelID, messageID, nickname, txt.Text, identity,
-		timestamp, lease, round, status)
+		timestamp, lease, round, Text, status)
 }
 
 // receiveReaction is the internal function that handles the reception of
@@ -335,7 +346,7 @@ func (e *events) receiveReaction(channelID *id.ID,
 		var reactTo cryptoChannel.MessageID
 		copy(reactTo[:], react.ReactionMessageID)
 		return e.model.ReceiveReaction(channelID, messageID, reactTo, nickname,
-			react.Reaction, identity, timestamp, lease, round, status)
+			react.Reaction, identity, timestamp, lease, round, Reaction, status)
 	} else {
 		jww.ERROR.Printf("Failed process reaction %s from %s on channel "+
 			"%s, type %s, ts: %s, lease: %s, round: %d, reacting to "+

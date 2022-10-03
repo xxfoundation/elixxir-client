@@ -15,11 +15,13 @@ import (
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -153,6 +155,8 @@ func TestSendGeneric(t *testing.T) {
 	m := &manager{
 		me:       pi,
 		channels: make(map[id.ID]*joinedChannel),
+		mux:      sync.RWMutex{},
+		rng:      fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 		nicknameManager: &nicknameManager{
 			byChannel: make(map[id.ID]string),
 			kv:        nil,
@@ -196,9 +200,9 @@ func TestSendGeneric(t *testing.T) {
 	}
 	t.Logf("messageId %v, roundId %v, ephemeralId %v", messageId, roundId, ephemeralId)
 
-	//verify the message was handled correctly
+	// verify the message was handled correctly
 
-	//decode the user message
+	// decode the user message
 	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
@@ -242,7 +246,8 @@ func TestAdminGeneric(t *testing.T) {
 			byChannel: make(map[id.ID]string),
 			kv:        nil,
 		},
-		me: pi,
+		me:  pi,
+		rng: fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 		st: loadSendTracker(&mockBroadcastClient{},
 			versioned.NewKV(ekv.MakeMemstore()), func(chID *id.ID,
 				umi *userMessageInternal, ts time.Time,
@@ -282,7 +287,7 @@ func TestAdminGeneric(t *testing.T) {
 	}
 	t.Logf("messageId %v, roundId %v, ephemeralId %v", messageId, roundId, ephemeralId)
 
-	//verify the message was handled correctly
+	// verify the message was handled correctly
 
 	msgID := cryptoChannel.MakeMessageID(mbc.payload, ch.ReceptionID)
 
@@ -291,7 +296,7 @@ func TestAdminGeneric(t *testing.T) {
 			msgID, messageId)
 	}
 
-	//decode the channel message
+	// decode the channel message
 	chMgs := &ChannelMessage{}
 	err = proto.Unmarshal(mbc.payload, chMgs)
 	if err != nil {
@@ -332,6 +337,7 @@ func TestSendMessage(t *testing.T) {
 			byChannel: make(map[id.ID]string),
 			kv:        nil,
 		},
+		rng: fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 		st: loadSendTracker(&mockBroadcastClient{},
 			versioned.NewKV(ekv.MakeMemstore()), func(chID *id.ID,
 				umi *userMessageInternal, ts time.Time,
@@ -370,9 +376,9 @@ func TestSendMessage(t *testing.T) {
 	}
 	t.Logf("messageId %v, roundId %v, ephemeralId %v", messageId, roundId, ephemeralId)
 
-	//verify the message was handled correctly
+	// verify the message was handled correctly
 
-	//decode the user message
+	// decode the user message
 	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
@@ -394,7 +400,7 @@ func TestSendMessage(t *testing.T) {
 			umi.GetChannelMessage().RoundID, returnedRound)
 	}
 
-	//decode the text message
+	// decode the text message
 	txt := &CMIXChannelText{}
 	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
 	if err != nil {
@@ -426,6 +432,7 @@ func TestSendReply(t *testing.T) {
 			byChannel: make(map[id.ID]string),
 			kv:        nil,
 		},
+		rng: fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 		st: loadSendTracker(&mockBroadcastClient{},
 			versioned.NewKV(ekv.MakeMemstore()), func(chID *id.ID,
 				umi *userMessageInternal, ts time.Time,
@@ -464,9 +471,9 @@ func TestSendReply(t *testing.T) {
 	}
 	t.Logf("messageId %v, roundId %v, ephemeralId %v", messageId, roundId, ephemeralId)
 
-	//verify the message was handled correctly
+	// verify the message was handled correctly
 
-	//decode the user message
+	// decode the user message
 	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
@@ -488,7 +495,7 @@ func TestSendReply(t *testing.T) {
 			umi.GetChannelMessage().RoundID, returnedRound)
 	}
 
-	//decode the text message
+	// decode the text message
 	txt := &CMIXChannelText{}
 	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
 	if err != nil {
@@ -519,6 +526,7 @@ func TestSendReaction(t *testing.T) {
 			byChannel: make(map[id.ID]string),
 			kv:        nil,
 		},
+		rng:      fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG),
 		channels: make(map[id.ID]*joinedChannel),
 		st: loadSendTracker(&mockBroadcastClient{},
 			versioned.NewKV(ekv.MakeMemstore()), func(chID *id.ID,
@@ -557,9 +565,9 @@ func TestSendReaction(t *testing.T) {
 	}
 	t.Logf("messageId %v, roundId %v, ephemeralId %v", messageId, roundId, ephemeralId)
 
-	//verify the message was handled correctly
+	// verify the message was handled correctly
 
-	//decode the user message
+	// decode the user message
 	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
@@ -581,7 +589,7 @@ func TestSendReaction(t *testing.T) {
 			umi.GetChannelMessage().RoundID, returnedRound)
 	}
 
-	//decode the text message
+	// decode the text message
 	txt := &CMIXChannelReaction{}
 	err = proto.Unmarshal(umi.GetChannelMessage().Payload, txt)
 	if err != nil {

@@ -44,7 +44,7 @@ type SymmetricKeyRatchet interface {
 	Size() uint32
 }
 
-type RatchetFactory interface {
+type XXRatchetFactory interface {
 	NewRatchets(myPrivateKey nike.PrivateKey, partnerPublicKey nike.PublicKey) (SendRatchet, ReceiveRatchet)
 	SendRatchetFromBytes([]byte) (SendRatchet, error)
 	ReceiveRatchetFromBytes([]byte) (ReceiveRatchet, error)

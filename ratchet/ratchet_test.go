@@ -18,7 +18,7 @@ func TestRatchetEncryptDecrypt(t *testing.T) {
 
 	size := uint32(32)
 
-	scheme := NewScheme()
+	scheme := DefaultSymmetricKeyRatchetFactory
 	aliceRatchetSend := scheme.New(sharedSecret, salt, size)
 	aliceRatchetReceive := scheme.New(sharedSecret, salt, size)
 
@@ -54,7 +54,7 @@ func TestRatchetMarshal(t *testing.T) {
 
 	size := uint32(32)
 
-	scheme := NewScheme()
+	scheme := DefaultSymmetricKeyRatchetFactory
 	r1 := scheme.New(sharedSecret, salt, size)
 	blob1, err := r1.Save()
 	require.NoError(t, err)

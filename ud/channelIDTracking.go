@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"errors"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
 
@@ -46,7 +47,7 @@ func saveRegistrationDisk(kv *versioned.KV, reg registrationDisk) error {
 	}
 	obj := versioned.Object{
 		Version:   registrationDiskVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      regBytes,
 	}
 	return kv.Set(registrationDiskKey, &obj)
@@ -241,7 +242,7 @@ func (c *clientIDTracker) registrationWorker(stopper *stoppable.Single) {
 	waitTime := time.Second
 	maxBackoff := 300
 	for {
-		if time.Now().After(c.registrationDisk.GetLease().Add(-graceDuration)) {
+		if netTime.Now().After(c.registrationDisk.GetLease().Add(-graceDuration)) {
 			err := c.register()
 			if err != nil {
 				backoffSeconds := pow(base, exponent)
@@ -259,7 +260,7 @@ func (c *clientIDTracker) registrationWorker(stopper *stoppable.Single) {
 		select {
 		case <-stopper.Quit():
 			return
-		case <-time.After(c.registrationDisk.GetLease().Add(-graceDuration).Sub(time.Now())):
+		case <-time.After(c.registrationDisk.GetLease().Add(-graceDuration).Sub(netTime.Now())):
 		}
 
 		// Avoid spamming the server in the event that it's service is down.
@@ -317,7 +318,7 @@ func (c *clientIDTracker) register() error {
 // requestChannelLease requests a new channel lease
 // from the user discovery server.
 func (c *clientIDTracker) requestChannelLease() (int64, []byte, error) {
-	ts := time.Now().UnixNano()
+	ts := netTime.Now().UnixNano()
 	privKey, err := c.receptionIdentity.GetRSAPrivateKey()
 	if err != nil {
 		return 0, nil, err

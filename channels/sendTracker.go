@@ -18,6 +18,7 @@ import (
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
 )
@@ -139,7 +140,7 @@ func (st *sendTracker) storeSent() error {
 	}
 	return st.kv.Set(sendTrackerStorageKey, &versioned.Object{
 		Version:   sendTrackerStorageVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      data,
 	})
 }
@@ -154,7 +155,7 @@ func (st *sendTracker) storeUnsent() error {
 
 	return st.kv.Set(sendTrackerUnsentStorageKey, &versioned.Object{
 		Version:   sendTrackerUnsentStorageVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      data,
 	})
 }
@@ -198,7 +199,7 @@ func (st *sendTracker) denotePendingSend(channelID *id.ID,
 	umi *userMessageInternal) (uint64, error) {
 	// for a timestamp for the message, use 1 second from now to
 	// approximate the lag due to round submission
-	ts := time.Now().Add(oneSecond)
+	ts := netTime.Now().Add(oneSecond)
 
 	// submit the message to the UI
 	uuid, err := st.trigger(channelID, umi, ts, receptionID.EphemeralIdentity{},
@@ -219,7 +220,7 @@ func (st *sendTracker) denotePendingAdminSend(channelID *id.ID,
 	cm *ChannelMessage) (uint64, error) {
 	// for a timestamp for the message, use 1 second from now to
 	// approximate the lag due to round submission
-	ts := time.Now().Add(oneSecond)
+	ts := netTime.Now().Add(oneSecond)
 
 	// submit the message to the UI
 	uuid, err := st.adminTrigger(channelID, cm, ts, cryptoChannel.MessageID{},

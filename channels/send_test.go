@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"testing"
 	"time"
@@ -121,7 +122,7 @@ func (m *mockNameService) GetUsername() string {
 }
 
 func (m *mockNameService) GetChannelValidationSignature() (signature []byte, lease time.Time) {
-	return []byte("fake validation sig"), time.Now()
+	return []byte("fake validation sig"), netTime.Now()
 }
 
 func (m *mockNameService) GetChannelPubkey() ed25519.PublicKey {

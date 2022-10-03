@@ -10,6 +10,7 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"testing"
 	"time"
@@ -55,7 +56,7 @@ func TestUserListener_Listen(t *testing.T) {
 	chID[0] = 1
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	rng := rand.New(rand.NewSource(42))
 	pub, priv, err := ed25519.GenerateKey(rng)
@@ -137,7 +138,7 @@ func TestUserListener_Listen_BadUserSig(t *testing.T) {
 	chID[0] = 1
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	rng := rand.New(rand.NewSource(42))
 	pub, _, err := ed25519.GenerateKey(rng)
@@ -204,7 +205,7 @@ func TestUserListener_Listen_BadRound(t *testing.T) {
 	chID[0] = 1
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	rng := rand.New(rand.NewSource(42))
 	pub, priv, err := ed25519.GenerateKey(rng)
@@ -266,7 +267,7 @@ func TestUserListener_Listen_BadMessage(t *testing.T) {
 	chID[0] = 1
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	ns := &mockNameService{validChMsg: true}
 
@@ -299,7 +300,7 @@ func TestUserListener_Listen_BadSizedBroadcast(t *testing.T) {
 	chID[0] = 1
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	rng := rand.New(rand.NewSource(42))
 	pub, priv, err := ed25519.GenerateKey(rng)

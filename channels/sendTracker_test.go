@@ -10,6 +10,7 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
 	"time"
 )
@@ -69,7 +70,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
-			Lease:       time.Now().UnixNano(),
+			Lease:       netTime.Now().UnixNano(),
 			RoundID:     uint64(rid),
 			PayloadType: 0,
 			Payload:     []byte("hello"),
@@ -94,7 +95,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 	uuid2, err := st.denotePendingSend(cid2, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
-			Lease:       time.Now().UnixNano(),
+			Lease:       netTime.Now().UnixNano(),
 			RoundID:     uint64(rid),
 			PayloadType: 0,
 			Payload:     []byte("hello again"),

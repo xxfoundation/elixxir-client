@@ -17,6 +17,7 @@ import (
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"runtime"
@@ -243,10 +244,10 @@ func TestEvents_triggerEvents(t *testing.T) {
 	umi, _, _ := builtTestUMI(t, mt)
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	//call the trigger
-	_, err = e.triggerEvent(chID, umi, time.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
+	_, err = e.triggerEvent(chID, umi, netTime.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -314,10 +315,10 @@ func TestEvents_triggerEvents_noChannel(t *testing.T) {
 	umi, _, _ := builtTestUMI(t, mt)
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	//call the trigger
-	_, err := e.triggerEvent(chID, umi, time.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
+	_, err := e.triggerEvent(chID, umi, netTime.Now(), receptionID.EphemeralIdentity{}, r, Delivered)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -350,12 +351,12 @@ func TestEvents_triggerAdminEvents(t *testing.T) {
 	u, _, cm := builtTestUMI(t, mt)
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message)
 
 	//call the trigger
-	_, err = e.triggerAdminEvent(chID, cm, time.Now(), msgID, receptionID.EphemeralIdentity{}, r,
+	_, err = e.triggerAdminEvent(chID, cm, netTime.Now(), msgID, receptionID.EphemeralIdentity{}, r,
 		Delivered)
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -425,12 +426,12 @@ func TestEvents_triggerAdminEvents_noChannel(t *testing.T) {
 	u, _, cm := builtTestUMI(t, mt)
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message)
 
 	//call the trigger
-	_, err := e.triggerAdminEvent(chID, cm, time.Now(), msgID, receptionID.EphemeralIdentity{}, r,
+	_, err := e.triggerAdminEvent(chID, cm, netTime.Now(), msgID, receptionID.EphemeralIdentity{}, r,
 		Delivered)
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -472,12 +473,12 @@ func TestEvents_receiveTextMessage_Message(t *testing.T) {
 	}
 
 	senderNickname := "Alice"
-	ts := time.Now()
+	ts := netTime.Now()
 
 	lease := 69 * time.Minute
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	//call the handler
 	e.receiveTextMessage(chID, msgID, 0, senderNickname,
@@ -545,12 +546,12 @@ func TestEvents_receiveTextMessage_Reply(t *testing.T) {
 	msgID := cryptoChannel.MakeMessageID(textMarshaled)
 
 	senderUsername := "Alice"
-	ts := time.Now()
+	ts := netTime.Now()
 
 	lease := 69 * time.Minute
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	rng := rand.New(rand.NewSource(64))
 
@@ -625,12 +626,12 @@ func TestEvents_receiveTextMessage_Reply_BadReply(t *testing.T) {
 	msgID := cryptoChannel.MakeMessageID(textMarshaled)
 
 	senderUsername := "Alice"
-	ts := time.Now()
+	ts := netTime.Now()
 
 	lease := 69 * time.Minute
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	rng := rand.New(rand.NewSource(64))
 
@@ -705,12 +706,12 @@ func TestEvents_receiveReaction(t *testing.T) {
 	msgID := cryptoChannel.MakeMessageID(textMarshaled)
 
 	senderUsername := "Alice"
-	ts := time.Now()
+	ts := netTime.Now()
 
 	lease := 69 * time.Minute
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	rng := rand.New(rand.NewSource(64))
 
@@ -785,12 +786,12 @@ func TestEvents_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 	msgID := cryptoChannel.MakeMessageID(textMarshaled)
 
 	senderUsername := "Alice"
-	ts := time.Now()
+	ts := netTime.Now()
 
 	lease := 69 * time.Minute
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	rng := rand.New(rand.NewSource(64))
 
@@ -855,12 +856,12 @@ func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T) {
 	msgID := cryptoChannel.MakeMessageID(textMarshaled)
 
 	senderUsername := "Alice"
-	ts := time.Now()
+	ts := netTime.Now()
 
 	lease := 69 * time.Minute
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	rng := rand.New(rand.NewSource(64))
 

@@ -50,7 +50,6 @@ func TestNicknameManager_SetGetNickname_Reload(t *testing.T) {
 
 	for i := 0; i < numTests; i++ {
 		chId := id.NewIdFromUInt(uint64(i), id.User, t)
-		// nickname := "nickname#" + strconv.Itoa(i)
 		nick, exists := nm2.GetNickname(chId)
 		if !exists {
 			t.Fatalf("Nickname %d not found  ", i)

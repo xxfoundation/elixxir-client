@@ -9,6 +9,7 @@ package channels
 
 import (
 	"bytes"
+	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
 	"time"
 
@@ -54,7 +55,7 @@ func TestAdminListener_Listen(t *testing.T) {
 	chID[0] = 1
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	cm := &ChannelMessage{
 		Lease:       int64(time.Hour),
@@ -116,7 +117,7 @@ func TestAdminListener_Listen_BadRound(t *testing.T) {
 	chID[0] = 1
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	cm := &ChannelMessage{
 		Lease: int64(time.Hour),
@@ -159,7 +160,7 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 	chID[0] = 1
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	cmSerial := []byte("blarg")
 
@@ -192,7 +193,7 @@ func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
 	chID[0] = 1
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	cm := &ChannelMessage{
 		Lease: int64(time.Hour),

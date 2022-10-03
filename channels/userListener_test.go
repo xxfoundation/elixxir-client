@@ -99,7 +99,7 @@ func TestUserListener_Listen(t *testing.T) {
 		chID:      chID,
 		name:      ns,
 		trigger:   dummy.triggerEvent,
-		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
+		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
 	}
 
 	//call the listener
@@ -184,7 +184,7 @@ func TestUserListener_Listen_BadUserSig(t *testing.T) {
 		chID:      chID,
 		name:      ns,
 		trigger:   dummy.triggerEvent,
-		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
+		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
 	}
 
 	//call the listener
@@ -247,7 +247,7 @@ func TestUserListener_Listen_BadRound(t *testing.T) {
 		chID:      chID,
 		name:      ns,
 		trigger:   dummy.triggerEvent,
-		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
+		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
 	}
 
 	//call the listener
@@ -280,7 +280,7 @@ func TestUserListener_Listen_BadMessage(t *testing.T) {
 		chID:      chID,
 		name:      ns,
 		trigger:   dummy.triggerEvent,
-		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
+		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
 	}
 
 	//call the listener
@@ -345,7 +345,7 @@ func TestUserListener_Listen_BadSizedBroadcast(t *testing.T) {
 		chID:      chID,
 		name:      ns,
 		trigger:   dummy.triggerEvent,
-		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
+		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
 	}
 
 	//call the listener

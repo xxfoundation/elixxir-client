@@ -42,7 +42,7 @@ func (ul *userListener) Listen(payload []byte,
 	msgID := umi.GetMessageID()
 
 	//check if we sent the message, ignore triggering if we sent
-	if ul.checkSent(msgID) {
+	if ul.checkSent(msgID, round) {
 		return
 	}
 

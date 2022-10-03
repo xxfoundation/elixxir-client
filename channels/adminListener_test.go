@@ -77,7 +77,7 @@ func TestAdminListener_Listen(t *testing.T) {
 	al := adminListener{
 		chID:      chID,
 		trigger:   dummy.triggerAdminEvent,
-		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
+		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
 	}
 
 	// Call the listener
@@ -138,7 +138,7 @@ func TestAdminListener_Listen_BadRound(t *testing.T) {
 	al := adminListener{
 		chID:      chID,
 		trigger:   dummy.triggerAdminEvent,
-		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
+		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
 	}
 
 	// Call the listener
@@ -170,7 +170,7 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 	al := adminListener{
 		chID:      chID,
 		trigger:   dummy.triggerAdminEvent,
-		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
+		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
 	}
 
 	// Call the listener
@@ -217,7 +217,7 @@ func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
 	al := adminListener{
 		chID:      chID,
 		trigger:   dummy.triggerAdminEvent,
-		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
+		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
 	}
 
 	// Call the listener

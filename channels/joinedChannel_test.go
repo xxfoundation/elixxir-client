@@ -490,7 +490,7 @@ func Test_loadJoinedChannel(t *testing.T) {
 	}
 
 	loadedJc, err := loadJoinedChannel(ch.ReceptionID, m.kv, m.net, m.rng,
-		m.events, m.broadcastMaker, func(messageID cryptoChannel.MessageID) bool {
+		m.events, m.broadcastMaker, func(messageID cryptoChannel.MessageID, r rounds.Round) bool {
 			return false
 		})
 	if err != nil {

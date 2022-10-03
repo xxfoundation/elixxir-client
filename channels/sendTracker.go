@@ -70,7 +70,7 @@ type sendTracker struct {
 
 // messageReceiveFunc is a function type for sendTracker.MessageReceive so it
 // can be mocked for testing where used
-type messageReceiveFunc func(messageID cryptoChannel.MessageID) bool
+type messageReceiveFunc func(messageID cryptoChannel.MessageID, r rounds.Round) bool
 
 // loadSendTracker loads a sent tracker, restoring from disk. It will register a
 // function with the cmix client, delayed on when the network goes healthy,
@@ -342,7 +342,7 @@ func (st *sendTracker) handleSend(uuid uint64,
 // was sent by this user. If it was, the correct signal is sent to the event
 // model and the function returns true, notifying the caller to not process
 // the message
-func (st *sendTracker) MessageReceive(messageID cryptoChannel.MessageID) bool {
+func (st *sendTracker) MessageReceive(messageID cryptoChannel.MessageID, round rounds.Round) bool {
 	st.mux.RLock()
 
 	//skip if already added
@@ -373,6 +373,10 @@ func (st *sendTracker) MessageReceive(messageID cryptoChannel.MessageID) bool {
 		}
 		st.byRound[msgData.RoundID] = newRoundList
 	}
+
+	ts := mutateTimestamp(round.Timestamps[states.QUEUED], messageID)
+	go st.updateStatus(msgData.UUID, messageID, ts,
+		round, Delivered)
 
 	if err := st.storeSent(); err != nil {
 		jww.FATAL.Panicf("failed to store the updated sent list: %+v", err)

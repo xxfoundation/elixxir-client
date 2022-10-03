@@ -8,6 +8,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -45,6 +46,13 @@ func (mc *mockClient) RemoveHealthCallback(uint64) {}
 func TestSendTracker_MessageReceive(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	uuidNum := uint64(0)
+	rid := id.Round(2)
+
+	r := rounds.Round{
+		ID:         rid,
+		Timestamps: make(map[states.Round]time.Time),
+	}
+	r.Timestamps[states.QUEUED] = time.Now()
 	trigger := func(chID *id.ID, umi *userMessageInternal, ts time.Time,
 		receptionID receptionID.EphemeralIdentity, round rounds.Round,
 		status SentStatus) (uint64, error) {
@@ -62,12 +70,11 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 	st := loadSendTracker(&mockClient{}, kv, trigger, nil, updateStatus)
 
 	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
-	process := st.MessageReceive(mid)
+	process := st.MessageReceive(mid, r)
 	if process {
 		t.Fatalf("Did not receive expected result from MessageReceive")
 	}
 
-	rid := id.Round(2)
 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
@@ -87,7 +94,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	process = st.MessageReceive(mid)
+	process = st.MessageReceive(mid, r)
 	if !process {
 		t.Fatalf("Did not receive expected result from MessageReceive")
 	}
@@ -109,7 +116,7 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 		ID:    rid,
 		State: 1,
 	})
-	process = st.MessageReceive(mid)
+	process = st.MessageReceive(mid, r)
 	if !process {
 		t.Fatalf("Did not receive expected result from MessageReceive")
 	}

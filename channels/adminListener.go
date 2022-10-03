@@ -40,7 +40,7 @@ func (al *adminListener) Listen(payload []byte,
 	}
 
 	//check if we sent the message, ignore triggering if we sent
-	if al.checkSent(msgID) {
+	if al.checkSent(msgID, round) {
 		return
 	}
 

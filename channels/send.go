@@ -71,7 +71,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		}
 
 		//make the messageID
-		msgId = cryptoChannel.MakeMessageID(chMsgSerial)
+		msgId = cryptoChannel.MakeMessageID(chMsgSerial, channelID)
 
 		//Sign the message
 		messageSig := ed25519.Sign(*m.me.Privkey, chMsgSerial)
@@ -140,7 +140,7 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 			return nil, err
 		}
 
-		msgId = cryptoChannel.MakeMessageID(chMsgSerial)
+		msgId = cryptoChannel.MakeMessageID(chMsgSerial, channelID)
 
 		//check if the message is too long
 		if len(chMsgSerial) > ch.broadcast.MaxRSAToPublicPayloadSize() {

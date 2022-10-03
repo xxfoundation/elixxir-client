@@ -353,7 +353,7 @@ func TestEvents_triggerAdminEvents(t *testing.T) {
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
 	r.Timestamps[states.QUEUED] = netTime.Now()
 
-	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message)
+	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
 
 	//call the trigger
 	_, err = e.triggerAdminEvent(chID, cm, netTime.Now(), msgID, receptionID.EphemeralIdentity{}, r,
@@ -428,7 +428,7 @@ func TestEvents_triggerAdminEvents_noChannel(t *testing.T) {
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
 	r.Timestamps[states.QUEUED] = netTime.Now()
 
-	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message)
+	msgID := cryptoChannel.MakeMessageID(u.userMessage.Message, chID)
 
 	//call the trigger
 	_, err := e.triggerAdminEvent(chID, cm, netTime.Now(), msgID, receptionID.EphemeralIdentity{}, r,
@@ -463,7 +463,7 @@ func TestEvents_receiveTextMessage_Message(t *testing.T) {
 		t.Fatalf("failed to marshael the message proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(textMarshaled)
+	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
 
 	rng := rand.New(rand.NewSource(64))
 
@@ -530,7 +530,7 @@ func TestEvents_receiveTextMessage_Reply(t *testing.T) {
 	chID := &id.ID{}
 	chID[0] = 1
 
-	replyMsgId := cryptoChannel.MakeMessageID([]byte("blarg"))
+	replyMsgId := cryptoChannel.MakeMessageID([]byte("blarg"), chID)
 
 	textPayload := &CMIXChannelText{
 		Version:        0,
@@ -543,7 +543,7 @@ func TestEvents_receiveTextMessage_Reply(t *testing.T) {
 		t.Fatalf("failed to marshael the message proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(textMarshaled)
+	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
 
 	senderUsername := "Alice"
 	ts := netTime.Now()
@@ -623,7 +623,7 @@ func TestEvents_receiveTextMessage_Reply_BadReply(t *testing.T) {
 		t.Fatalf("failed to marshael the message proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(textMarshaled)
+	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
 
 	senderUsername := "Alice"
 	ts := netTime.Now()
@@ -690,7 +690,7 @@ func TestEvents_receiveReaction(t *testing.T) {
 	chID := &id.ID{}
 	chID[0] = 1
 
-	replyMsgId := cryptoChannel.MakeMessageID([]byte("blarg"))
+	replyMsgId := cryptoChannel.MakeMessageID([]byte("blarg"), chID)
 
 	textPayload := &CMIXChannelReaction{
 		Version:           0,
@@ -703,7 +703,7 @@ func TestEvents_receiveReaction(t *testing.T) {
 		t.Fatalf("failed to marshael the message proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(textMarshaled)
+	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
 
 	senderUsername := "Alice"
 	ts := netTime.Now()
@@ -783,7 +783,7 @@ func TestEvents_receiveReaction_InvalidReactionMessageID(t *testing.T) {
 		t.Fatalf("failed to marshael the message proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(textMarshaled)
+	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
 
 	senderUsername := "Alice"
 	ts := netTime.Now()
@@ -840,7 +840,7 @@ func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T) {
 	chID := &id.ID{}
 	chID[0] = 1
 
-	replyMsgId := cryptoChannel.MakeMessageID([]byte("blarg"))
+	replyMsgId := cryptoChannel.MakeMessageID([]byte("blarg"), chID)
 
 	textPayload := &CMIXChannelReaction{
 		Version:           0,
@@ -853,7 +853,7 @@ func TestEvents_receiveReaction_InvalidReactionContent(t *testing.T) {
 		t.Fatalf("failed to marshael the message proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(textMarshaled)
+	msgID := cryptoChannel.MakeMessageID(textMarshaled, chID)
 
 	senderUsername := "Alice"
 	ts := netTime.Now()

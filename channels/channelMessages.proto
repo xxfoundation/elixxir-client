@@ -31,6 +31,11 @@ message ChannelMessage{
     // nickname is the name which the user is using for this message
     // it will not be longer than 24 characters
     string Nickname = 5;
+
+    // Nonce is 32 bits of randomness to ensure that in the event that in the
+    // same round two messages are send with the same nickname, payload,
+    // and lease, they will not have the same message ID.
+    bytes  Nonce = 6;
 }
 
 // UserMessage is a message sent by a user who is a member within the channel.

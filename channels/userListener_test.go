@@ -76,7 +76,7 @@ func TestUserListener_Listen(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(cmSerial)
+	msgID := cryptoChannel.MakeMessageID(cmSerial, chID)
 
 	sig := ed25519.Sign(priv, cmSerial)
 	ns := &mockNameService{validChMsg: true}

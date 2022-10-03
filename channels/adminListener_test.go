@@ -69,7 +69,7 @@ func TestAdminListener_Listen(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(cmSerial)
+	msgID := cryptoChannel.MakeMessageID(cmSerial, chID)
 
 	// Build the listener
 	dummy := &triggerAdminEventDummy{}

@@ -57,15 +57,16 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 		timestamp time.Time, round rounds.Round, status SentStatus) {
 	}
 
+	cid := id.NewIdFromString("channel", id.User, t)
+
 	st := loadSendTracker(&mockClient{}, kv, trigger, nil, updateStatus)
 
-	mid := cryptoChannel.MakeMessageID([]byte("hello"))
+	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	process := st.MessageReceive(mid)
 	if process {
 		t.Fatalf("Did not receive expected result from MessageReceive")
 	}
 
-	cid := id.NewIdFromString("channel", id.User, t)
 	rid := id.Round(2)
 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},
@@ -135,7 +136,7 @@ func TestSendTracker_sendAdmin(t *testing.T) {
 	st := loadSendTracker(&mockClient{}, kv, nil, adminTrigger, updateStatus)
 
 	cid := id.NewIdFromString("channel", id.User, t)
-	mid := cryptoChannel.MakeMessageID([]byte("hello"))
+	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	rid := id.Round(2)
 	uuid, err := st.denotePendingAdminSend(cid, &ChannelMessage{
 		Lease:       0,
@@ -202,7 +203,7 @@ func TestSendTracker_send(t *testing.T) {
 	st := loadSendTracker(&mockClient{}, kv, trigger, nil, updateStatus)
 
 	cid := id.NewIdFromString("channel", id.User, t)
-	mid := cryptoChannel.MakeMessageID([]byte("hello"))
+	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	rid := id.Round(2)
 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},
@@ -260,7 +261,7 @@ func TestSendTracker_load_store(t *testing.T) {
 
 	st := loadSendTracker(&mockClient{}, kv, nil, nil, nil)
 	cid := id.NewIdFromString("channel", id.User, t)
-	mid := cryptoChannel.MakeMessageID([]byte("hello"))
+	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	rid := id.Round(2)
 	st.byRound[rid] = []*tracked{{MsgID: mid, ChannelID: cid, RoundID: rid}}
 	err := st.store()
@@ -290,7 +291,7 @@ func TestRoundResult_callback(t *testing.T) {
 	st := loadSendTracker(&mockClient{}, kv, trigger, nil, update)
 
 	cid := id.NewIdFromString("channel", id.User, t)
-	mid := cryptoChannel.MakeMessageID([]byte("hello"))
+	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	rid := id.Round(2)
 	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},

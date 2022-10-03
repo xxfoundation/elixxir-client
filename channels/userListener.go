@@ -30,7 +30,7 @@ func (ul *userListener) Listen(payload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 
 	//Decode the message as a user message
-	umi, err := unmarshalUserMessageInternal(payload)
+	umi, err := unmarshalUserMessageInternal(payload, ul.chID)
 	if err != nil {
 		jww.WARN.Printf("Failed to unmarshal User Message on "+
 			"channel %s", ul.chID)

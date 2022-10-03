@@ -10,6 +10,7 @@ package channels
 import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // userMessageInternal is the internal structure of a UserMessage protobuf.
@@ -19,7 +20,7 @@ type userMessageInternal struct {
 	messageID      channel.MessageID
 }
 
-func newUserMessageInternal(ursMsg *UserMessage) (*userMessageInternal, error) {
+func newUserMessageInternal(ursMsg *UserMessage, chid *id.ID) (*userMessageInternal, error) {
 	chanMessage := &ChannelMessage{}
 	err := proto.Unmarshal(ursMsg.Message, chanMessage)
 	if err != nil {
@@ -30,11 +31,11 @@ func newUserMessageInternal(ursMsg *UserMessage) (*userMessageInternal, error) {
 	return &userMessageInternal{
 		userMessage:    ursMsg,
 		channelMessage: channelMessage,
-		messageID:      channel.MakeMessageID(ursMsg.Message),
+		messageID:      channel.MakeMessageID(ursMsg.Message, chid),
 	}, nil
 }
 
-func unmarshalUserMessageInternal(usrMsg []byte) (*userMessageInternal, error) {
+func unmarshalUserMessageInternal(usrMsg []byte, chid *id.ID) (*userMessageInternal, error) {
 
 	um := &UserMessage{}
 	if err := proto.Unmarshal(usrMsg, um); err != nil {
@@ -52,7 +53,7 @@ func unmarshalUserMessageInternal(usrMsg []byte) (*userMessageInternal, error) {
 	return &userMessageInternal{
 		userMessage:    um,
 		channelMessage: channelMessage,
-		messageID:      channel.MakeMessageID(um.Message),
+		messageID:      channel.MakeMessageID(um.Message, chid),
 	}, nil
 }
 

@@ -29,7 +29,7 @@ type adminListener struct {
 func (al *adminListener) Listen(payload []byte,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
 	// Get the message ID
-	msgID := channel.MakeMessageID(payload)
+	msgID := channel.MakeMessageID(payload, al.chID)
 
 	// Decode the message as a channel message
 	cm := &ChannelMessage{}

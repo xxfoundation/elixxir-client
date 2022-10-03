@@ -199,7 +199,7 @@ func TestSendGeneric(t *testing.T) {
 	//verify the message was handled correctly
 
 	//decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
 	}
@@ -284,7 +284,7 @@ func TestAdminGeneric(t *testing.T) {
 
 	//verify the message was handled correctly
 
-	msgID := cryptoChannel.MakeMessageID(mbc.payload)
+	msgID := cryptoChannel.MakeMessageID(mbc.payload, ch.ReceptionID)
 
 	if !msgID.Equals(messageId) {
 		t.Errorf("The message IDs do not match. %s vs %s ",
@@ -373,7 +373,7 @@ func TestSendMessage(t *testing.T) {
 	//verify the message was handled correctly
 
 	//decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
 	}
@@ -467,7 +467,7 @@ func TestSendReply(t *testing.T) {
 	//verify the message was handled correctly
 
 	//decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
 	}
@@ -560,7 +560,7 @@ func TestSendReaction(t *testing.T) {
 	//verify the message was handled correctly
 
 	//decode the user message
-	umi, err := unmarshalUserMessageInternal(mbc.payload)
+	umi, err := unmarshalUserMessageInternal(mbc.payload, channelID)
 	if err != nil {
 		t.Fatalf("Failed to decode the user message: %s", err)
 	}

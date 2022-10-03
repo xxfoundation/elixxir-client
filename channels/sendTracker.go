@@ -386,7 +386,7 @@ type roundResults struct {
 
 // callback is called when results are known about a round. it will re-trigger
 // the wait if it fails up to 'maxChecks' times.
-func (rr *roundResults) callback(allRoundsSucceeded, timedOut bool, _ map[id.Round]cmix.RoundResult) {
+func (rr *roundResults) callback(allRoundsSucceeded, timedOut bool, results map[id.Round]cmix.RoundResult) {
 
 	rr.st.mux.Lock()
 
@@ -434,8 +434,10 @@ func (rr *roundResults) callback(allRoundsSucceeded, timedOut bool, _ map[id.Rou
 	rr.st.mux.Unlock()
 
 	for i := range registered {
-		go rr.st.updateStatus(registered[i].UUID, registered[i].MsgID, time.Time{},
-			rounds.Round{}, status)
+		round := results[rr.round].Round
+		ts := mutateTimestamp(round.Timestamps[states.QUEUED], registered[i].MsgID)
+		go rr.st.updateStatus(registered[i].UUID, registered[i].MsgID, ts,
+			round, status)
 	}
 
 }

@@ -95,14 +95,14 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 	st.load()
 
 	//denote all unsent messages as failed and clear
-	for uuid := range st.unsent {
-		updateStatus(uuid, cryptoChannel.MessageID{},
+	for uuid, t := range st.unsent {
+		updateStatus(uuid, t.MsgID,
 			time.Time{}, rounds.Round{}, Failed)
 	}
 	st.unsent = make(map[uint64]*tracked)
 
 	//register to check all outstanding rounds when the network becomes healthy
-	var callBackID uint64
+	/*var callBackID uint64
 	callBackID = net.AddHealthCallback(func(f bool) {
 		if !f {
 			return
@@ -116,7 +116,7 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 			}
 			st.net.GetRoundResults(getRoundResultsTimeout, rr.callback, rr.round)
 		}
-	})
+	})*/
 
 	return st
 }
@@ -315,19 +315,19 @@ func (st *sendTracker) handleSend(uuid uint64,
 	t.RoundID = round.ID
 
 	//add the roundID
-	roundsList, existsRound := st.byRound[round.ID]
+	roundsList, _ := st.byRound[round.ID]
 	st.byRound[round.ID] = append(roundsList, t)
 
 	//add the round
 	st.byMessageID[messageID] = t
 
-	if !existsRound {
+	/*if !existsRound {
 		rr := &roundResults{
 			round: round.ID,
 			st:    st,
 		}
 		st.net.GetRoundResults(getRoundResultsTimeout, rr.callback, rr.round)
-	}
+	}*/
 
 	//store the changed list to disk
 	err := st.storeSent()
@@ -372,6 +372,10 @@ func (st *sendTracker) MessageReceive(messageID cryptoChannel.MessageID) bool {
 			}
 		}
 		st.byRound[msgData.RoundID] = newRoundList
+	}
+
+	if err := st.storeSent(); err != nil {
+		jww.FATAL.Panicf("failed to store the updated sent list: %+v", err)
 	}
 
 	return true

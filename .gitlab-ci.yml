@@ -3,8 +3,10 @@ before_script:
   - echo $CI_BUILD_REF
   - echo $CI_PROJECT_DIR
   - echo $PWD
+  - rm -rf ~/.ssh
   - eval $(ssh-agent -s)
   - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+  - echo $SSH_PRIVATE_KEY > ~/.ssh/id_rsa
   - mkdir -p ~/.ssh
   - chmod 700 ~/.ssh
   - ssh-keyscan -t rsa $GITLAB_SERVER > ~/.ssh/known_hosts

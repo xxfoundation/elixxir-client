@@ -49,14 +49,12 @@ func (d *dhNIKE) PrivateKeySize() int {
 
 func (d *dhNIKE) NewEmptyPrivateKey() nike.PrivateKey {
 	return &privateKey{
-		nike:       d,
 		privateKey: new(cyclic.Int),
 	}
 }
 
 func (d *dhNIKE) NewEmptyPublicKey() nike.PublicKey {
 	return &publicKey{
-		nike:      d,
 		publicKey: new(cyclic.Int),
 	}
 }
@@ -94,7 +92,6 @@ func (d *dhNIKE) NewKeypair() (nike.PrivateKey, nike.PublicKey) {
 	privKey := diffieHellman.GeneratePrivateKey(privateKeySize, group, rng)
 	pubKey := diffieHellman.GeneratePublicKey(privKey, group)
 	return &privateKey{
-			nike:       d,
 			privateKey: privKey,
 		}, &publicKey{
 			publicKey: pubKey,
@@ -102,14 +99,13 @@ func (d *dhNIKE) NewKeypair() (nike.PrivateKey, nike.PublicKey) {
 }
 
 type privateKey struct {
-	nike       *dhNIKE
 	privateKey *cyclic.Int
 }
 
 func (p *privateKey) DeriveSecret(pubKey nike.PublicKey) []byte {
 	c := diffieHellman.GenerateSessionKey(p.privateKey,
 		(pubKey.(*publicKey)).publicKey,
-		p.nike.group())
+		DHNIKE.group())
 	return c.Bytes()
 }
 
@@ -126,11 +122,10 @@ func (p *privateKey) FromBytes(data []byte) error {
 }
 
 func (p *privateKey) Scheme() nike.Nike {
-	return p.nike
+	return DHNIKE
 }
 
 type publicKey struct {
-	nike      *dhNIKE
 	publicKey *cyclic.Int
 }
 
@@ -147,5 +142,5 @@ func (p *publicKey) FromBytes(data []byte) error {
 }
 
 func (p *publicKey) Scheme() nike.Nike {
-	return p.nike
+	return DHNIKE
 }

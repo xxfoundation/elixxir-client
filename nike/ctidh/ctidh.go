@@ -14,10 +14,9 @@ import (
 // ctidhNIKE implements the Nike interface using our ctidh module.
 type ctidhNIKE struct{}
 
-// NewCTIDHNIKE returns a new CTIDH NIKE.
-func NewCTIDHNIKE() *ctidhNIKE {
-	return new(ctidhNIKE)
-}
+// CTIDHNIKE is essentially a factory type which
+// has no state. It's used to build NIKE types.
+var CTIDHNIKE = new(ctidhNIKE)
 
 var _ nike.PrivateKey = (*PrivateKey)(nil)
 var _ nike.PublicKey = (*PublicKey)(nil)
@@ -37,24 +36,20 @@ func (e *ctidhNIKE) PrivateKeySize() int {
 func (e *ctidhNIKE) NewKeypair() (nike.PrivateKey, nike.PublicKey) {
 	privKey, pubKey := ctidh.GenerateKeyPair()
 	return &PrivateKey{
-			nike:       e,
 			privateKey: privKey,
 		}, &PublicKey{
-			nike:      e,
 			publicKey: pubKey,
 		}
 }
 
 func (e *ctidhNIKE) NewEmptyPublicKey() nike.PublicKey {
 	return &PublicKey{
-		nike:      e,
 		publicKey: ctidh.NewEmptyPublicKey(),
 	}
 }
 
 func (e *ctidhNIKE) NewEmptyPrivateKey() nike.PrivateKey {
 	return &PrivateKey{
-		nike:       e,
 		privateKey: ctidh.NewEmptyPrivateKey(),
 	}
 }
@@ -81,15 +76,14 @@ func (e *ctidhNIKE) UnmarshalBinaryPrivateKey(b []byte) (nike.PrivateKey, error)
 
 type PrivateKey struct {
 	privateKey *ctidh.PrivateKey
-	nike       nike.Nike
 }
 
 func (p *PrivateKey) Scheme() nike.Nike {
-	return p.nike
+	return CTIDHNIKE
 }
 
 func (p *PrivateKey) Reset() {
-	// no op
+	p.privateKey.Reset()
 }
 
 func (p *PrivateKey) ToPEMFile(f string) error {
@@ -118,7 +112,7 @@ type PublicKey struct {
 }
 
 func (p *PublicKey) Scheme() nike.Nike {
-	return p.nike
+	return CTIDHNIKE
 }
 
 func (p *PublicKey) ToPEMFile(f string) error {
@@ -130,7 +124,7 @@ func (p *PublicKey) ToPEM() (*pem.Block, error) {
 }
 
 func (p *PublicKey) Reset() {
-	// no op
+	p.publicKey.Reset()
 }
 
 func (p *PublicKey) Bytes() []byte {

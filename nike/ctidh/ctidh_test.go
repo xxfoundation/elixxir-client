@@ -7,8 +7,8 @@ import (
 )
 
 func TestNike(t *testing.T) {
-	alicePrivateKey, alicePublicKey := NewCTIDHNIKE().NewKeypair()
-	bobPrivateKey, bobPublicKey := NewCTIDHNIKE().NewKeypair()
+	alicePrivateKey, alicePublicKey := CTIDHNIKE.NewKeypair()
+	bobPrivateKey, bobPublicKey := CTIDHNIKE.NewKeypair()
 
 	secret1 := alicePrivateKey.DeriveSecret(bobPublicKey)
 	secret2 := bobPrivateKey.DeriveSecret(alicePublicKey)
@@ -17,10 +17,10 @@ func TestNike(t *testing.T) {
 }
 
 func TestPrivateKeyMarshaling(t *testing.T) {
-	alicePrivateKey, _ := NewCTIDHNIKE().NewKeypair()
+	alicePrivateKey, _ := CTIDHNIKE.NewKeypair()
 
 	alicePrivateKeyBytes := alicePrivateKey.Bytes()
-	alice2PrivateKey, _ := NewCTIDHNIKE().NewKeypair()
+	alice2PrivateKey, _ := CTIDHNIKE.NewKeypair()
 
 	err := alice2PrivateKey.FromBytes(alicePrivateKeyBytes)
 	require.NoError(t, err)
@@ -29,7 +29,7 @@ func TestPrivateKeyMarshaling(t *testing.T) {
 
 	require.Equal(t, alice2PrivateKeyBytes, alicePrivateKeyBytes)
 
-	alice3PrivateKey, err := NewCTIDHNIKE().UnmarshalBinaryPrivateKey(alice2PrivateKeyBytes)
+	alice3PrivateKey, err := CTIDHNIKE.UnmarshalBinaryPrivateKey(alice2PrivateKeyBytes)
 	require.NoError(t, err)
 
 	alice3PrivateKeyBytes := alice3PrivateKey.Bytes()
@@ -38,10 +38,10 @@ func TestPrivateKeyMarshaling(t *testing.T) {
 }
 
 func TestPublicKeyMarshaling(t *testing.T) {
-	_, alicePublicKey := NewCTIDHNIKE().NewKeypair()
+	_, alicePublicKey := CTIDHNIKE.NewKeypair()
 
 	alicePublicKeyBytes := alicePublicKey.Bytes()
-	_, alice2PublicKey := NewCTIDHNIKE().NewKeypair()
+	_, alice2PublicKey := CTIDHNIKE.NewKeypair()
 
 	err := alice2PublicKey.FromBytes(alicePublicKeyBytes)
 	require.NoError(t, err)
@@ -50,7 +50,7 @@ func TestPublicKeyMarshaling(t *testing.T) {
 
 	require.Equal(t, alice2PublicKeyBytes, alicePublicKeyBytes)
 
-	alice3PublicKey, err := NewCTIDHNIKE().UnmarshalBinaryPublicKey(alice2PublicKeyBytes)
+	alice3PublicKey, err := CTIDHNIKE.UnmarshalBinaryPublicKey(alice2PublicKeyBytes)
 	require.NoError(t, err)
 
 	alice3PublicKeyBytes := alice3PublicKey.Bytes()

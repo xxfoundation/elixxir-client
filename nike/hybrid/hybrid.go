@@ -8,7 +8,7 @@ import (
 
 var CTIDHDiffieHellman nike.Nike = &scheme{
 	name:   "CTIDHDiffieHellman",
-	first:  ctidh.NewCTIDHNIKE(),
+	first:  ctidh.CTIDHNIKE,
 	second: dh.DHNIKE,
 }
 
@@ -22,11 +22,9 @@ func (s *scheme) NewKeypair() (nike.PrivateKey, nike.PublicKey) {
 	privKey1, pubKey1 := s.first.NewKeypair()
 	privKey2, pubKey2 := s.second.NewKeypair()
 	return &privateKey{
-			scheme: s,
 			first:  privKey1,
 			second: privKey2,
 		}, &publicKey{
-			scheme: s,
 			first:  pubKey1,
 			second: pubKey2,
 		}
@@ -44,7 +42,6 @@ func (s *scheme) PrivateKeySize() int {
 
 func (s *scheme) NewEmptyPrivateKey() nike.PrivateKey {
 	return &privateKey{
-		scheme: s,
 		first:  s.first.NewEmptyPrivateKey(),
 		second: s.second.NewEmptyPrivateKey(),
 	}
@@ -52,7 +49,6 @@ func (s *scheme) NewEmptyPrivateKey() nike.PrivateKey {
 
 func (s *scheme) NewEmptyPublicKey() nike.PublicKey {
 	return &publicKey{
-		scheme: s,
 		first:  s.first.NewEmptyPublicKey(),
 		second: s.second.NewEmptyPublicKey(),
 	}
@@ -77,13 +73,12 @@ func (s *scheme) UnmarshalBinaryPrivateKey(b []byte) (nike.PrivateKey, error) {
 }
 
 type privateKey struct {
-	scheme *scheme
 	first  nike.PrivateKey
 	second nike.PrivateKey
 }
 
 func (p *privateKey) Scheme() nike.Nike {
-	return p.scheme
+	return CTIDHDiffieHellman
 }
 
 func (p *privateKey) DeriveSecret(pubKey nike.PublicKey) []byte {
@@ -110,13 +105,12 @@ func (p *privateKey) FromBytes(data []byte) error {
 }
 
 type publicKey struct {
-	scheme *scheme
 	first  nike.PublicKey
 	second nike.PublicKey
 }
 
 func (p *publicKey) Scheme() nike.Nike {
-	return p.scheme
+	return CTIDHDiffieHellman
 }
 
 func (p *publicKey) Reset() {

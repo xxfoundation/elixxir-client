@@ -254,7 +254,8 @@ func receiveRatchetFromBytes(blob []byte) (*receiveRatchet, error) {
 
 // NewReceiveRatchet creates a receive ratchet with a given starting
 // myPrivateKey and theirPublicKey. The size dictates how many
-// keys to generate, and the salt is used to ???
+// keys to generate, and the salt is used to seed the generation of
+// the symmetric ratchet KDF.
 func NewReceiveRatchet(myPrivateKey nike.PrivateKey,
 	theirPublicKey nike.PublicKey, salt []byte,
 	size uint32) (ReceiveRatchet, ID) {

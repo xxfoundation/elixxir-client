@@ -3,15 +3,50 @@ package ratchet
 import (
 	"errors"
 
+	"gitlab.com/xx_network/crypto/csprng"
+
 	"gitlab.com/elixxir/client/interfaces/nike"
+	"gitlab.com/elixxir/crypto/fastRNG"
 )
+
+type xxratchetFactory struct{}
+
+var DefaultXXRatchetFactory = &xxratchetFactory{}
+
+func (x *xxratchetFactory) NewXXRatchet(myPrivateKey nike.PrivateKey, myPublicKey nike.PublicKey, partnerPublicKey nike.PublicKey) XXRatchet {
+	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
+	rng := rngGen.GetStream()
+
+	size := uint32(32)
+	salt := make([]byte, 32)
+	count, err := rng.Read(salt)
+	if err != nil {
+		panic(err)
+	}
+	if count != 32 {
+		panic("rng failed")
+	}
+
+	r := newxxratchet(size, salt)
+
+	mySendRatchet := NewSendRatchet(myPrivateKey, myPublicKey, partnerPublicKey, salt, size)
+	myRecvRatchet, id := NewReceiveRatchet(myPrivateKey, partnerPublicKey, salt, size)
+
+	r.sendStates[Unconfirmed] = []ID{id}
+	r.invSendStates[id] = Unconfirmed
+	r.sendRatchets[id] = mySendRatchet
+	r.recvRatchets[id] = myRecvRatchet
+
+	// FIXME, set callback interface object
+	//r.rekeyTrigger = ...
+
+	return r
+}
 
 type xxratchet struct {
 	size uint32
 	salt []byte
 
-	// FIXME: we have needs to both lookup this way and
-	//        lookup state of a specific session id.
 	sendStates    map[NegotiationState][]ID
 	invSendStates map[ID]NegotiationState
 
@@ -22,6 +57,17 @@ type xxratchet struct {
 }
 
 var _ XXRatchet = (*xxratchet)(nil)
+
+func newxxratchet(size uint32, salt []byte) *xxratchet {
+	return &xxratchet{
+		size:          size,
+		salt:          salt,
+		sendStates:    make(map[NegotiationState][]ID),
+		invSendStates: make(map[ID]NegotiationState),
+		sendRatchets:  make(map[ID]SendRatchet),
+		recvRatchets:  make(map[ID]ReceiveRatchet),
+	}
+}
 
 func (x *xxratchet) Encrypt(id ID,
 	plaintext []byte) (*EncryptedMessage, error) {

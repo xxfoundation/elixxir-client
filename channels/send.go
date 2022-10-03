@@ -9,6 +9,7 @@ package channels
 
 import (
 	"crypto/ed25519"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
@@ -23,6 +24,9 @@ const (
 	cmixChannelTextVersion     = 0
 	cmixChannelReactionVersion = 0
 )
+
+// The size of the nonce used in the message ID.
+const messageNonceSize = 4
 
 // SendGeneric is used to send a raw message over a channel. In general, it
 // should be wrapped in a function which defines the wire protocol
@@ -49,6 +53,21 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		PayloadType: uint32(messageType),
 		Payload:     msg,
 		Nickname:    nickname,
+		Nonce:       make([]byte, messageNonceSize),
+	}
+
+	// Generate random nonce to be used for message ID generation. This makes it
+	// so two identical messages sent on the same round have different message IDs
+	rng := m.rng.GetStream()
+	n, err := rng.Read(chMsg.Nonce)
+	rng.Close()
+	if err != nil {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+			errors.Errorf("Failed to generate nonce: %+v", err)
+	} else if n != messageNonceSize {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+			errors.Errorf(
+				"Generated %d bytes for %-byte nonce", n, messageNonceSize)
 	}
 
 	usrMsg := &UserMessage{
@@ -124,9 +143,25 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 		PayloadType: uint32(messageType),
 		Payload:     msg,
 		Nickname:    AdminUsername,
+		Nonce:       make([]byte, messageNonceSize),
 	}
-	//Note: we are not checking check if message is too long before trying to
-	//find a round
+
+	// Generate random nonce to be used for message ID generation. This makes it
+	// so two identical messages sent on the same round have different message IDs
+	rng := m.rng.GetStream()
+	n, err := rng.Read(chMsg.Nonce)
+	rng.Close()
+	if err != nil {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+			errors.Errorf("Failed to generate nonce: %+v", err)
+	} else if n != messageNonceSize {
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+			errors.Errorf(
+				"Generated %d bytes for %-byte nonce", n, messageNonceSize)
+	}
+
+	// Note: we are not checking if message is too long before trying to
+	// find a round
 
 	//Build the function pointer that will build the message
 	assemble := func(rid id.Round) ([]byte, error) {

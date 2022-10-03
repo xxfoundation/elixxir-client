@@ -77,8 +77,8 @@ func (nm *nicknameManager) DeleteNickname(ch *id.ID) error {
 // channelIDToNickname is a serialization structure. This is used by the save
 // and load functions to serialize the nicknameManager's byChannel map.
 type channelIDToNickname struct {
-	channelId id.ID
-	nickname  string
+	ChannelId id.ID
+	Nickname  string
 }
 
 // save stores the nickname manager to disk. The caller of this must
@@ -87,8 +87,8 @@ func (nm *nicknameManager) save() error {
 	list := make([]channelIDToNickname, 0)
 	for chId, nickname := range nm.byChannel {
 		list = append(list, channelIDToNickname{
-			channelId: chId,
-			nickname:  nickname,
+			ChannelId: chId,
+			Nickname:  nickname,
 		})
 	}
 
@@ -120,7 +120,7 @@ func (nm *nicknameManager) load() error {
 
 	for i := range list {
 		current := list[i]
-		nm.byChannel[current.channelId] = current.nickname
+		nm.byChannel[current.ChannelId] = current.Nickname
 	}
 
 	return nil

@@ -7,8 +7,6 @@ import (
 )
 
 type xxratchet struct {
-	nikeScheme nike.Nike
-
 	size uint32
 	salt []byte
 
@@ -44,7 +42,7 @@ func (x *xxratchet) Decrypt(id ID,
 func (x *xxratchet) Rekey(oldReceiverRatchetID ID,
 	theirPublicKey nike.PublicKey) (ID, nike.PublicKey) {
 
-	myPrivateKey, myPublicKey := x.nikeScheme.NewKeypair()
+	myPrivateKey, myPublicKey := DefaultNIKE.NewKeypair()
 
 	r, id := NewReceiveRatchet(myPrivateKey, theirPublicKey, x.salt, x.size)
 

@@ -41,7 +41,7 @@ func TestPublicKeyMarshaling(t *testing.T) {
 	_, alicePublicKey := DHNIKE.NewKeypair()
 
 	alicePublicKeyBytes := alicePublicKey.Bytes()
-	alice2PublicKey, _ := DHNIKE.NewKeypair()
+	_, alice2PublicKey := DHNIKE.NewKeypair()
 
 	err := alice2PublicKey.FromBytes(alicePublicKeyBytes)
 	require.NoError(t, err)

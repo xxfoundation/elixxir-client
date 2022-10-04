@@ -10,8 +10,8 @@ package channels
 import (
 	"crypto/ed25519"
 	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
-	"time"
 )
 
 const numTests = 10
@@ -100,7 +100,7 @@ func TestDummyNameService_ValidateChannelMessage(t *testing.T) {
 	}
 
 	for i := 0; i < numTests; i++ {
-		if !ns.ValidateChannelMessage(username, time.Now(), nil, nil) {
+		if !ns.ValidateChannelMessage(username, netTime.Now(), nil, nil) {
 			t.Errorf("ValidateChannelMessage returned false. This should " +
 				"only ever return true.")
 		}

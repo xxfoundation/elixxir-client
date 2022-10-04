@@ -14,6 +14,7 @@ import (
 
 // NameService is an interface which encapsulates
 // the user identity channel tracking service.
+// NameService is currently unused
 type NameService interface {
 
 	// GetUsername returns the username.

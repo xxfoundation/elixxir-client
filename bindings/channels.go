@@ -10,6 +10,7 @@ package bindings
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/channels"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/xxdk"
@@ -97,88 +98,17 @@ func (cm *ChannelsManager) GetID() int {
 	return cm.id
 }
 
-// NewChannelsManager constructs a ChannelsManager.
-// FIXME: This is a work in progress and should not be used an event model is
-//  implemented in the style of the bindings layer's AuthCallbacks. Remove this
-//  note when that has been done.
+// GenerateChannelIdentity creates a new private channel identity
+// ([channel.PrivateIdentity]). The public component can be retrieved as JSON
+// via [GetPublicChannelIdentityFromPrivate].
 //
-// Parameters:
-//  - e2eID - The tracked e2e object ID. This can be retrieved using
-//    [E2e.GetID].
-//  - udID - The tracked UD object ID. This can be retrieved using
-//    [UserDiscovery.GetID].
-func NewChannelsManager(e2eID, udID int) (*ChannelsManager, error) {
-	// Get user from singleton
-	user, err := e2eTrackerSingleton.get(e2eID)
-	if err != nil {
-		return nil, err
-	}
-
-	udMan, err := udTrackerSingleton.get(udID)
-	if err != nil {
-		return nil, err
-	}
-
-	nameService, err := udMan.api.StartChannelNameService()
-	if err != nil {
-		return nil, err
-	}
-
-	// Construct new channels manager
-	// TODO: Implement a bindings layer event model, pass that in as a parameter
-	//  or the function and pass that into here.
-	m := channels.NewManager(user.api.GetStorage().GetKV(), user.api.GetCmix(),
-		user.api.GetRng(), nameService, nil)
-
-	// Add channel to singleton and return
-	return channelManagerTrackerSingleton.make(m), nil
-}
-
-// NewChannelsManagerGoEventModel constructs a ChannelsManager. This is not
-// compatible with GoMobile Bindings because it receives the go event model.
-//
-// Parameters:
-//  - e2eID - The tracked e2e object ID. This can be retrieved using
-//    [E2e.GetID].
-//  - udID - The tracked UD object ID. This can be retrieved using
-//    [UserDiscovery.GetID].
-func NewChannelsManagerGoEventModel(e2eID, udID int,
-	goEvent channels.EventModel) (*ChannelsManager, error) {
-	// Get user from singleton
-	user, err := e2eTrackerSingleton.get(e2eID)
-	if err != nil {
-		return nil, err
-	}
-
-	udMan, err := udTrackerSingleton.get(udID)
-	if err != nil {
-		return nil, err
-	}
-
-	nameService, err := udMan.api.StartChannelNameService()
-	if err != nil {
-		return nil, err
-	}
-
-	// Construct new channels manager
-	m := channels.NewManager(user.api.GetStorage().GetKV(), user.api.GetCmix(),
-		user.api.GetRng(), nameService, goEvent)
-
-	// Add channel to singleton and return
-	return channelManagerTrackerSingleton.make(m), nil
-}
-
-// NewChannelsManagerGoEventModelDummyNameService constructs a
-// ChannelsManager. This is not compatible with GoMobile Bindings because
-// it receives the go event model. This uses the dummy name service
-// and is for debugging only.
 // Parameters:
 //  - cmixID - The tracked cmix object ID. This can be retrieved using
 //    [Cmix.GetID].
-//  - username - the username the user wants.
-//  - goEvent - the channels event model
-func NewChannelsManagerGoEventModelDummyNameService(cmixID int, username string,
-	goEvent channels.EventModel) (*ChannelsManager, error) {
+//
+// Returns:
+//  - JSON of [channel.PrivateIdentity].
+func GenerateChannelIdentity(cmixID int) ([]byte, error) {
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
 	if err != nil {
@@ -187,14 +117,196 @@ func NewChannelsManagerGoEventModelDummyNameService(cmixID int, username string,
 
 	rng := user.api.GetRng().GetStream()
 	defer rng.Close()
-
-	nameService, err := channels.NewDummyNameService(username, rng)
+	pi, err := cryptoChannel.GenerateIdentity(rng)
 	if err != nil {
 		return nil, err
 	}
+	return pi.Marshal(), nil
+}
+
+// GetPublicChannelIdentity constructs a public identity ([channel.Identity])
+// from a bytes version and returns it JSON marshaled.
+//
+// Parameters:
+//  - marshaledPublic - Bytes of the public identity ([channel.Identity]).
+//
+// Returns:
+//  - JSON of the constructed [channel.Identity].
+func GetPublicChannelIdentity(marshaledPublic []byte) ([]byte, error) {
+	i, err := cryptoChannel.UnmarshalIdentity(marshaledPublic)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(&i)
+}
+
+// GetPublicChannelIdentityFromPrivate returns the public identity
+// ([channel.Identity]) contained in the given private identity
+// ([channel.PrivateIdentity]).
+//
+// Parameters:
+//  - marshaledPrivate - Bytes of the private identity
+//    (channel.PrivateIdentity]).
+//
+// Returns:
+//  - JSON of the public [channel.Identity].
+func GetPublicChannelIdentityFromPrivate(marshaledPrivate []byte) ([]byte, error) {
+	pi, err := cryptoChannel.UnmarshalPrivateIdentity(marshaledPrivate)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(&pi.Identity)
+}
+
+// NewChannelsManagerGoEventModel creates a new [ChannelsManager] from a new
+// private identity ([channel.PrivateIdentity]). This is not compatible with
+// GoMobile Bindings because it receives the go event model.
+//
+// This is for creating a manager for an identity for the first time. For
+// generating a new one channel identity, use [GenerateChannelIdentity]. To
+// reload this channel manager, use [LoadChannelsManagerGoEventModel], passing
+// in the storage tag retrieved by [ChannelsManager.GetStorageTag].
+//
+// Parameters:
+//  - cmixID - The tracked Cmix object ID. This can be retrieved using
+//    [Cmix.GetID].
+//  - privateIdentity - Bytes of a private identity ([channel.PrivateIdentity])
+//    that is generated by [GenerateChannelIdentity].
+//  - goEvent - A function that initialises and returns the event model that is
+//    not compatible with GoMobile bindings.
+func NewChannelsManagerGoEventModel(cmixID int, privateIdentity []byte,
+	goEventBuilder channels.EventModelBuilder) (*ChannelsManager, error) {
+	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get user from singleton
+	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+
 	// Construct new channels manager
-	m := channels.NewManager(user.api.GetStorage().GetKV(), user.api.GetCmix(),
-		user.api.GetRng(), nameService, goEvent)
+	m, err := channels.NewManager(pi, user.api.GetStorage().GetKV(),
+		user.api.GetCmix(), user.api.GetRng(), goEventBuilder)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add channel to singleton and return
+	return channelManagerTrackerSingleton.make(m), nil
+}
+
+// LoadChannelsManagerGoEventModel loads an existing ChannelsManager. This is not
+// compatible with GoMobile Bindings because it receives the go event model.
+// This is for creating a manager for an identity for the first time.
+// The channel manager should have first been created with
+// NewChannelsManagerGoEventModel and then the storage tag can be retrieved
+// with ChannelsManager.GetStorageTag
+//
+// Parameters:
+//  - cmixID - The tracked cmix object ID. This can be retrieved using
+//    [Cmix.GetID].
+//  - storageTag - retrieved with ChannelsManager.GetStorageTag
+//  - goEvent - A function that initialises and returns the event model that is
+//    not compatible with GoMobile bindings.
+func LoadChannelsManagerGoEventModel(cmixID int, storageTag string,
+	goEventBuilder channels.EventModelBuilder) (*ChannelsManager, error) {
+
+	// Get user from singleton
+	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct new channels manager
+	m, err := channels.LoadManager(storageTag, user.api.GetStorage().GetKV(),
+		user.api.GetCmix(), user.api.GetRng(), goEventBuilder)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add channel to singleton and return
+	return channelManagerTrackerSingleton.make(m), nil
+}
+
+// NewChannelsManager creates a new [ChannelsManager] from a new private
+// identity ([channel.PrivateIdentity]).
+//
+// This is for creating a manager for an identity for the first time. For
+// generating a new one channel identity, use [GenerateChannelIdentity]. To
+// reload this channel manager, use [LoadChannelsManager], passing in the
+// storage tag retrieved by [ChannelsManager.GetStorageTag].
+//
+// Parameters:
+//  - cmixID - The tracked Cmix object ID. This can be retrieved using
+//    [Cmix.GetID].
+//  - privateIdentity - Bytes of a private identity ([channel.PrivateIdentity])
+//    that is generated by [GenerateChannelIdentity].
+//  - event -  An interface that contains a function that initialises and returns
+//    the event model that is bindings-compatible.
+func NewChannelsManager(cmixID int, privateIdentity []byte,
+	eventBuilder EventModelBuilder) (*ChannelsManager, error) {
+	pi, err := cryptoChannel.UnmarshalPrivateIdentity(privateIdentity)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get user from singleton
+	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+
+	eb := func(path string) (channels.EventModel, error) {
+		return NewEventModel(eventBuilder.Build(path)), nil
+	}
+
+	// Construct new channels manager
+	m, err := channels.NewManager(pi, user.api.GetStorage().GetKV(),
+		user.api.GetCmix(), user.api.GetRng(), eb)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add channel to singleton and return
+	return channelManagerTrackerSingleton.make(m), nil
+}
+
+// LoadChannelsManager loads an existing [ChannelsManager].
+//
+// This is for loading a manager for an identity that has already been created.
+// The channel manager should have previously been created with
+// [NewChannelsManager] and the storage is retrievable with
+// [ChannelsManager.GetStorageTag].
+//
+// Parameters:
+//  - cmixID - The tracked cmix object ID. This can be retrieved using
+//    [Cmix.GetID].
+//  - storageTag - The storage tag associated with the previously created
+//    channel manager and retrieved with [ChannelsManager.GetStorageTag].
+//  - event - An interface that contains a function that initialises and returns
+//    the event model that is bindings-compatible.
+func LoadChannelsManager(cmixID int, storageTag string,
+	eventBuilder EventModelBuilder) (*ChannelsManager, error) {
+
+	// Get user from singleton
+	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+
+	eb := func(path string) (channels.EventModel, error) {
+		return NewEventModel(eventBuilder.Build(path)), nil
+	}
+
+	// Construct new channels manager
+	m, err := channels.LoadManager(storageTag, user.api.GetStorage().GetKV(),
+		user.api.GetCmix(), user.api.GetRng(), eb)
+	if err != nil {
+		return nil, err
+	}
 
 	// Add channel to singleton and return
 	return channelManagerTrackerSingleton.make(m), nil
@@ -205,24 +317,22 @@ type ChannelGeneration struct {
 	PrivateKey string
 }
 
-// GenerateChannel is used to create a channel. This makes a new channel of
-// which you are the admin. It is only for making new channels, not joining
-// existing ones.
+// GenerateChannel is used to create a channel a new channel of which you are
+// the admin. It is only for making new channels, not joining existing ones.
 //
 // It returns a pretty print of the channel and the private key.
 //
-// The name cannot be longer that ____ characters.
-//
-// the description cannot be longer than ___ and can only use ______ characters.
+// The name cannot be longer that __ characters. The description cannot be
+// longer than __ and can only use ______ characters.
 //
 // Parameters:
 //  - cmixID - The tracked cmix object ID. This can be retrieved using
 //    [Cmix.GetID].
-//  - name - The name of the new channel. The name cannot be longer than ____
+//  - name - The name of the new channel. The name cannot be longer than __
 //    characters and must contain only _____ characters. It cannot be changed
 //    once a channel is created.
 //  - description - The description of a channel. The description cannot be
-//    longer than ____ characters and must contain only _____ characters. It
+//    longer than __ characters and must contain only _____ characters. It
 //    cannot be changed once a channel is created.
 //
 // Returns:
@@ -238,7 +348,8 @@ func GenerateChannel(cmixID int, name, description string) ([]byte, error) {
 
 	stream := cmix.api.GetRng().GetStream()
 	defer stream.Close()
-	c, pk, err := cryptoBroadcast.NewChannel(name, description, cmix.api.GetCmix().GetMaxMessageLength(), stream)
+	c, pk, err := cryptoBroadcast.NewChannel(
+		name, description, cmix.api.GetCmix().GetMaxMessageLength(), stream)
 	if err != nil {
 		return nil, err
 	}
@@ -525,15 +636,15 @@ func (cm *ChannelsManager) SendMessage(marshalledChanId []byte,
 	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
 }
 
-// SendReply is used to send a formatted message over a channel.
-// Due to the underlying encoding using compression, it isn't possible to define
-// the largest payload that can be sent, but it will always be possible to send
-// a payload of 766 bytes at minimum.
+// SendReply is used to send a formatted message over a channel. Due to the
+// underlying encoding using compression, it isn't possible to define the
+// largest payload that can be sent, but it will always be possible to send a
+// payload of 766 bytes at minimum.
 //
-// If the message ID that the reply is sent to does not exist, then the other
-// side will post the message as a normal message and not a reply.
-// The message will auto delete validUntil after the round it is sent in,
-// lasting forever if ValidForever is used.
+// If the message ID the reply is sent to is nonexistent, the other side will
+// post the message as a normal message and not a reply. The message will auto
+// delete validUntil after the round it is sent in, lasting forever if
+// [channels.ValidForever] is used.
 //
 // Parameters:
 //  - marshalledChanId - A JSON marshalled channel ID ([id.ID]).
@@ -626,6 +737,61 @@ func (cm *ChannelsManager) SendReaction(marshalledChanId []byte,
 	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)
 }
 
+// GetIdentity returns the marshaled public identity ([channel.Identity]) that
+// the channel is using.
+func (cm *ChannelsManager) GetIdentity() ([]byte, error) {
+	i := cm.api.GetIdentity()
+	return json.Marshal(&i)
+}
+
+// GetStorageTag returns the storage tag needed to reload the manager.
+func (cm *ChannelsManager) GetStorageTag() string {
+	return cm.api.GetStorageTag()
+}
+
+// SetNickname sets the nickname for a given channel. The nickname must be valid
+// according to [IsNicknameValid].
+func (cm *ChannelsManager) SetNickname(newNick string, ch []byte) error {
+	chid, err := id.Unmarshal(ch)
+	if err != nil {
+		return err
+	}
+	return cm.api.SetNickname(newNick, chid)
+}
+
+// DeleteNickname deletes the nickname for a given channel.
+func (cm *ChannelsManager) DeleteNickname(ch []byte) error {
+	chid, err := id.Unmarshal(ch)
+	if err != nil {
+		return err
+	}
+	return cm.api.DeleteNickname(chid)
+}
+
+// GetNickname returns the nickname set for a given channel. Returns an error if
+// there is no nickname set.
+func (cm *ChannelsManager) GetNickname(ch []byte) (string, error) {
+	chid, err := id.Unmarshal(ch)
+	if err != nil {
+		return "", err
+	}
+	nick, exists := cm.api.GetNickname(chid)
+	if !exists {
+		return "", errors.New("no nickname found for the given channel")
+	}
+
+	return nick, nil
+}
+
+// IsNicknameValid checks if a nickname is valid.
+//
+// Rules:
+//  1. A nickname must not be longer than 24 characters.
+//  2. A nickname must not be shorter than 1 character.
+func IsNicknameValid(nick string) error {
+	return channels.IsNicknameValid(nick)
+}
+
 // parseChannelsParameters is a helper function for the Send functions. It
 // parses the channel ID and the passed in parameters into their respective
 // objects. These objects are passed into the API via the internal send
@@ -684,20 +850,23 @@ func constructChannelSendReport(channelMessageId cryptoChannel.MessageID,
 //    "Rounds": [ 1, 4, 9],
 //  }
 type ReceivedChannelMessageReport struct {
-	ChannelId      []byte
-	MessageId      []byte
-	MessageType    int
-	SenderUsername string
-	Content        []byte
-	Timestamp      int64
-	Lease          int64
+	ChannelId   []byte
+	MessageId   []byte
+	MessageType int
+	Nickname    string
+	Identity    []byte
+	Content     []byte
+	Timestamp   int64
+	Lease       int64
 	RoundsList
 }
 
 // ChannelMessageReceptionCallback is the callback that returns the context for
 // a channel message via the Callback.
+// It must return a unique UUID for the message by which it can be referenced
+// later
 type ChannelMessageReceptionCallback interface {
-	Callback(receivedChannelMessageReport []byte, err error)
+	Callback(receivedChannelMessageReport []byte, err error) int
 }
 
 // RegisterReceiveHandler is used to register handlers for non-default message
@@ -719,21 +888,29 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 	cb := channels.MessageTypeReceiveMessage(
 		func(channelID *id.ID,
 			messageID cryptoChannel.MessageID, messageType channels.MessageType,
-			senderUsername string, content []byte, timestamp time.Time,
-			lease time.Duration, round rounds.Round, status channels.SentStatus) {
+			nickname string, content []byte, identity cryptoChannel.Identity,
+			timestamp time.Time, lease time.Duration, round rounds.Round,
+			status channels.SentStatus) uint64 {
 
-			rcm := ReceivedChannelMessageReport{
-				ChannelId:      channelID.Marshal(),
-				MessageId:      messageID.Bytes(),
-				MessageType:    int(messageType),
-				SenderUsername: senderUsername,
-				Content:        content,
-				Timestamp:      timestamp.UnixNano(),
-				Lease:          int64(lease),
-				RoundsList:     makeRoundsList(round.ID),
+			idBytes, err := json.Marshal(&identity)
+			if err != nil {
+				jww.WARN.Printf("failed to marshal identity object: %+v", err)
+				return 0
 			}
 
-			listenerCb.Callback(json.Marshal(rcm))
+			rcm := ReceivedChannelMessageReport{
+				ChannelId:   channelID.Marshal(),
+				MessageId:   messageID.Bytes(),
+				MessageType: int(messageType),
+				Nickname:    nickname,
+				Identity:    idBytes,
+				Content:     content,
+				Timestamp:   timestamp.UnixNano(),
+				Lease:       int64(lease),
+				RoundsList:  makeRoundsList(round.ID),
+			}
+
+			return uint64(listenerCb.Callback(json.Marshal(rcm)))
 		})
 
 	// Register handler
@@ -743,6 +920,11 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 ////////////////////////////////////////////////////////////////////////////////
 // Event Model Logic                                                          //
 ////////////////////////////////////////////////////////////////////////////////
+
+// EventModelBuilder builds an event model
+type EventModelBuilder interface {
+	Build(path string) EventModel
+}
 
 // EventModel is an interface which an external party which uses the channels
 // system passed an object which adheres to in order to get events on the
@@ -768,20 +950,26 @@ type EventModel interface {
 	//  - channelID - The marshalled channel [id.ID].
 	//  - messageID - The bytes of the [channel.MessageID] of the received
 	//    message.
-	//  - senderUsername - The username of the sender of the message.
+	//  - nickname - The nickname of the sender of the message.
 	//  - text - The content of the message.
 	//  - timestamp - Time the message was received; represented as nanoseconds
 	//    since unix epoch.
+	//  - identity - the json of the identity of the sender
 	//  - lease - The number of nanoseconds that the message is valid for.
 	//  - roundId - The ID of the round that the message was received on.
+	//  - mType - the type of the message, always 1 for this call
 	//  - status - the [channels.SentStatus] of the message.
 	//
 	// Statuses will be enumerated as such:
 	//  Sent      =  0
 	//  Delivered =  1
 	//  Failed    =  2
-	ReceiveMessage(channelID, messageID []byte, senderUsername, text string,
-		timestamp, lease, roundId, status int64)
+	//
+	// Returns a non-negative unique UUID for the message that it can be
+	// referenced by later with [EventModel.UpdateSentStatus].
+	ReceiveMessage(channelID, messageID []byte, nickname, text string,
+		identity []byte, timestamp, lease, roundId, mType,
+		status int64) int64
 
 	// ReceiveReply is called whenever a message is received that is a reply on
 	// a given channel. It may be called multiple times on the same message. It
@@ -796,21 +984,26 @@ type EventModel interface {
 	//    message.
 	//  - reactionTo - The [channel.MessageID] for the message that received a
 	//    reply.
-	//  - senderUsername - The username of the sender of the message.
+	//  - nickname - The nickname of the sender of the message.
 	//  - text - The content of the message.
+	//  - identity - the json marshaled identity of the sender
 	//  - timestamp - Time the message was received; represented as nanoseconds
 	//    since unix epoch.
 	//  - lease - The number of nanoseconds that the message is valid for.
 	//  - roundId - The ID of the round that the message was received on.
+	//  - mType - the type of the message, always 1 for this call
 	//  - status - the [channels.SentStatus] of the message.
 	//
 	// Statuses will be enumerated as such:
 	//  Sent      =  0
 	//  Delivered =  1
 	//  Failed    =  2
+	//
+	// Returns a non-negative unique UUID for the message that it can be
+	// referenced by later with [EventModel.UpdateSentStatus].
 	ReceiveReply(channelID, messageID, reactionTo []byte,
-		senderUsername, text string,
-		timestamp, lease, roundId, status int64)
+		nickname, text string, identity []byte,
+		timestamp, lease, roundId, mType, status int64) int64
 
 	// ReceiveReaction is called whenever a reaction to a message is received
 	// on a given channel. It may be called multiple times on the same reaction.
@@ -827,21 +1020,26 @@ type EventModel interface {
 	//    message.
 	//  - reactionTo - The [channel.MessageID] for the message that received a
 	//    reply.
-	//  - senderUsername - The username of the sender of the message.
+	//  - nickname - The nickname of the sender of the message.
 	//  - reaction - The contents of the reaction message.
+	//  - identity - The json marshal of the identity of the sender
 	//  - timestamp - Time the message was received; represented as nanoseconds
 	//    since unix epoch.
 	//  - lease - The number of nanoseconds that the message is valid for.
 	//  - roundId - The ID of the round that the message was received on.
+	//  - mType - the type of the message, always 1 for this call
 	//  - status - the [channels.SentStatus] of the message.
 	//
 	// Statuses will be enumerated as such:
 	//  Sent      =  0
 	//  Delivered =  1
 	//  Failed    =  2
+	//
+	// Returns a non-negative unique uuid for the message by which it can be
+	// referenced later with UpdateSentStatus
 	ReceiveReaction(channelID, messageID, reactionTo []byte,
-		senderUsername, reaction string,
-		timestamp, lease, roundId, status int64)
+		nickname, reaction string, identity []byte,
+		timestamp, lease, roundId, mtype, status int64) int64
 
 	// UpdateSentStatus is called whenever the sent status of a message has
 	// changed.
@@ -855,7 +1053,8 @@ type EventModel interface {
 	//  Sent      =  0
 	//  Delivered =  1
 	//  Failed    =  2
-	UpdateSentStatus(messageID []byte, status int64)
+	UpdateSentStatus(
+		uuid int64, messageID []byte, timestamp, roundID, status int64)
 
 	// unimplemented
 	// IgnoreMessage(ChannelID *id.ID, MessageID cryptoChannel.MessageID)
@@ -871,7 +1070,7 @@ type toEventModel struct {
 
 // NewEventModel is a constructor for a toEventModel. This will take in an
 // EventModel and wraps it around the toEventModel.
-func NewEventModel(em EventModel) *toEventModel {
+func NewEventModel(em EventModel) channels.EventModel {
 	return &toEventModel{em: em}
 }
 
@@ -888,13 +1087,21 @@ func (tem *toEventModel) LeaveChannel(channelID *id.ID) {
 // ReceiveMessage is called whenever a message is received on a given channel.
 // It may be called multiple times on the same message. It is incumbent on the
 // user of the API to filter such called by message ID.
-func (tem *toEventModel) ReceiveMessage(channelID *id.ID,
-	messageID cryptoChannel.MessageID, senderUsername string, text string,
+func (tem *toEventModel) ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
+	nickname, text string, identity cryptoChannel.Identity,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
-	status channels.SentStatus) {
+	mType channels.MessageType,
+	status channels.SentStatus) uint64 {
 
-	tem.em.ReceiveMessage(channelID[:], messageID[:], senderUsername, text,
-		timestamp.UnixNano(), int64(lease), int64(round.ID), int64(status))
+	idBytes, err := json.Marshal(&identity)
+	if err != nil {
+		jww.WARN.Printf("failed to marshal identity object: %+v", err)
+		return 0
+	}
+
+	return uint64(tem.em.ReceiveMessage(channelID[:], messageID[:], nickname,
+		text, idBytes, timestamp.UnixNano(), int64(lease), int64(round.ID), int64(mType),
+		int64(status)))
 }
 
 // ReceiveReply is called whenever a message is received that is a reply on a
@@ -903,15 +1110,21 @@ func (tem *toEventModel) ReceiveMessage(channelID *id.ID,
 //
 // Messages may arrive our of order, so a reply in theory can arrive before the
 // initial message. As a result, it may be important to buffer replies.
-func (tem *toEventModel) ReceiveReply(channelID *id.ID,
-	messageID cryptoChannel.MessageID,
-	reactionTo cryptoChannel.MessageID, senderUsername string,
-	text string, timestamp time.Time, lease time.Duration,
-	round rounds.Round, status channels.SentStatus) {
+func (tem *toEventModel) ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
+	reactionTo cryptoChannel.MessageID, nickname, text string,
+	identity cryptoChannel.Identity, timestamp time.Time,
+	lease time.Duration, round rounds.Round, mType channels.MessageType,
+	status channels.SentStatus) uint64 {
 
-	tem.em.ReceiveReply(channelID[:], messageID[:], reactionTo[:],
-		senderUsername, text, timestamp.UnixNano(), int64(lease),
-		int64(round.ID), int64(status))
+	idBytes, err := json.Marshal(&identity)
+	if err != nil {
+		jww.WARN.Printf("failed to marshal identity object: %+v", err)
+		return 0
+	}
+
+	return uint64(tem.em.ReceiveReply(channelID[:], messageID[:], reactionTo[:],
+		nickname, text, idBytes, timestamp.UnixNano(), int64(lease),
+		int64(round.ID), int64(mType), int64(status)))
 
 }
 
@@ -921,18 +1134,27 @@ func (tem *toEventModel) ReceiveReply(channelID *id.ID,
 //
 // Messages may arrive our of order, so a reply in theory can arrive before the
 // initial message. As a result, it may be important to buffer reactions.
-func (tem *toEventModel) ReceiveReaction(channelID *id.ID,
-	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
-	senderUsername string, reaction string, timestamp time.Time,
-	lease time.Duration, round rounds.Round, status channels.SentStatus) {
+func (tem *toEventModel) ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
+	reactionTo cryptoChannel.MessageID, nickname, reaction string,
+	identity cryptoChannel.Identity, timestamp time.Time,
+	lease time.Duration, round rounds.Round, mType channels.MessageType,
+	status channels.SentStatus) uint64 {
 
-	tem.em.ReceiveReaction(channelID[:], messageID[:], reactionTo[:],
-		senderUsername, reaction, timestamp.UnixNano(), int64(lease),
-		int64(round.ID), int64(status))
+	idBytes, err := json.Marshal(&identity)
+	if err != nil {
+		jww.WARN.Printf("failed to marshal identity object: %+v", err)
+		return 0
+	}
+
+	return uint64(tem.em.ReceiveReaction(channelID[:], messageID[:],
+		reactionTo[:], nickname, reaction, idBytes, timestamp.UnixNano(),
+		int64(lease), int64(round.ID), int64(mType), int64(status)))
 }
 
 // UpdateSentStatus is called whenever the sent status of a message has changed.
-func (tem *toEventModel) UpdateSentStatus(messageID cryptoChannel.MessageID,
+func (tem *toEventModel) UpdateSentStatus(uuid uint64,
+	messageID cryptoChannel.MessageID, timestamp time.Time, round rounds.Round,
 	status channels.SentStatus) {
-	tem.em.UpdateSentStatus(messageID[:], int64(status))
+	tem.em.UpdateSentStatus(int64(uuid), messageID[:], timestamp.UnixNano(),
+		int64(round.ID), int64(status))
 }

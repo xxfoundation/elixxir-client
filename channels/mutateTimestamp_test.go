@@ -8,6 +8,7 @@
 package channels
 
 import (
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"testing"
 	"time"
@@ -33,10 +34,10 @@ func abs(n int64) int64 {
 
 func TestMutateTimestampDeltaAverage(t *testing.T) {
 	samples := 10000
-	t1 := time.Now()
+	t1 := netTime.Now()
 	sum := int64(0)
 
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	rng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 
 	for i := 0; i < samples; i++ {
 		var msgID channel.MessageID

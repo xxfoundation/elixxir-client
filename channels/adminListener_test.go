@@ -9,6 +9,7 @@ package channels
 
 import (
 	"bytes"
+	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
 	"time"
 
@@ -32,9 +33,9 @@ type triggerAdminEventDummy struct {
 }
 
 func (taed *triggerAdminEventDummy) triggerAdminEvent(chID *id.ID,
-	cm *ChannelMessage, messageID cryptoChannel.MessageID,
+	cm *ChannelMessage, ts time.Time, messageID cryptoChannel.MessageID,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round,
-	status SentStatus) {
+	status SentStatus) (uint64, error) {
 	taed.gotData = true
 
 	taed.chID = chID
@@ -42,6 +43,8 @@ func (taed *triggerAdminEventDummy) triggerAdminEvent(chID *id.ID,
 	taed.msgID = messageID
 	taed.receptionID = receptionID
 	taed.round = round
+
+	return 0, nil
 }
 
 // Tests the happy path.
@@ -52,7 +55,7 @@ func TestAdminListener_Listen(t *testing.T) {
 	chID[0] = 1
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	cm := &ChannelMessage{
 		Lease:       int64(time.Hour),
@@ -66,7 +69,7 @@ func TestAdminListener_Listen(t *testing.T) {
 		t.Fatalf("Failed to marshal proto: %+v", err)
 	}
 
-	msgID := cryptoChannel.MakeMessageID(cmSerial)
+	msgID := cryptoChannel.MakeMessageID(cmSerial, chID)
 
 	// Build the listener
 	dummy := &triggerAdminEventDummy{}
@@ -74,7 +77,7 @@ func TestAdminListener_Listen(t *testing.T) {
 	al := adminListener{
 		chID:      chID,
 		trigger:   dummy.triggerAdminEvent,
-		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
+		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
 	}
 
 	// Call the listener
@@ -114,7 +117,7 @@ func TestAdminListener_Listen_BadRound(t *testing.T) {
 	chID[0] = 1
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	cm := &ChannelMessage{
 		Lease: int64(time.Hour),
@@ -135,7 +138,7 @@ func TestAdminListener_Listen_BadRound(t *testing.T) {
 	al := adminListener{
 		chID:      chID,
 		trigger:   dummy.triggerAdminEvent,
-		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
+		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
 	}
 
 	// Call the listener
@@ -157,7 +160,7 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 	chID[0] = 1
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	cmSerial := []byte("blarg")
 
@@ -167,7 +170,7 @@ func TestAdminListener_Listen_BadChannelMessage(t *testing.T) {
 	al := adminListener{
 		chID:      chID,
 		trigger:   dummy.triggerAdminEvent,
-		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
+		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
 	}
 
 	// Call the listener
@@ -190,7 +193,7 @@ func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
 	chID[0] = 1
 
 	r := rounds.Round{ID: 420, Timestamps: make(map[states.Round]time.Time)}
-	r.Timestamps[states.QUEUED] = time.Now()
+	r.Timestamps[states.QUEUED] = netTime.Now()
 
 	cm := &ChannelMessage{
 		Lease: int64(time.Hour),
@@ -214,7 +217,7 @@ func TestAdminListener_Listen_BadSizedBroadcast(t *testing.T) {
 	al := adminListener{
 		chID:      chID,
 		trigger:   dummy.triggerAdminEvent,
-		checkSent: func(messageID cryptoChannel.MessageID) bool { return false },
+		checkSent: func(messageID cryptoChannel.MessageID, r rounds.Round) bool { return false },
 	}
 
 	// Call the listener

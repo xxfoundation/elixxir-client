@@ -8,8 +8,10 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
 	"time"
 )
@@ -43,53 +45,78 @@ func (mc *mockClient) RemoveHealthCallback(uint64) {}
 // Test MessageReceive basic logic
 func TestSendTracker_MessageReceive(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	trigger := func(chID *id.ID, umi *userMessageInternal,
-		receptionID receptionID.EphemeralIdentity, round rounds.Round, status SentStatus) {
+	uuidNum := uint64(0)
+	rid := id.Round(2)
+
+	r := rounds.Round{
+		ID:         rid,
+		Timestamps: make(map[states.Round]time.Time),
+	}
+	r.Timestamps[states.QUEUED] = time.Now()
+	trigger := func(chID *id.ID, umi *userMessageInternal, ts time.Time,
+		receptionID receptionID.EphemeralIdentity, round rounds.Round,
+		status SentStatus) (uint64, error) {
+		oldUUID := uuidNum
+		uuidNum++
+		return oldUUID, nil
 	}
 
-	st := loadSendTracker(&mockClient{}, kv, trigger, nil, nil)
+	updateStatus := func(uuid uint64, messageID cryptoChannel.MessageID,
+		timestamp time.Time, round rounds.Round, status SentStatus) {
+	}
 
-	mid := cryptoChannel.MakeMessageID([]byte("hello"))
-	process := st.MessageReceive(mid)
+	cid := id.NewIdFromString("channel", id.User, t)
+
+	st := loadSendTracker(&mockClient{}, kv, trigger, nil, updateStatus)
+
+	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
+	process := st.MessageReceive(mid, r)
 	if process {
 		t.Fatalf("Did not receive expected result from MessageReceive")
 	}
 
-	cid := id.NewIdFromString("channel", id.User, t)
-	rid := id.Round(2)
-	st.send(cid, &userMessageInternal{
+	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
-			Lease:       time.Now().UnixNano(),
+			Lease:       netTime.Now().UnixNano(),
 			RoundID:     uint64(rid),
 			PayloadType: 0,
 			Payload:     []byte("hello"),
-		},
-		messageID: mid,
-	}, rounds.Round{
+		}})
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	err = st.send(uuid, mid, rounds.Round{
 		ID:    rid,
 		State: 1,
 	})
-	process = st.MessageReceive(mid)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	process = st.MessageReceive(mid, r)
 	if !process {
 		t.Fatalf("Did not receive expected result from MessageReceive")
 	}
 
 	cid2 := id.NewIdFromString("channel two", id.User, t)
-	st.send(cid2, &userMessageInternal{
+	uuid2, err := st.denotePendingSend(cid2, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
-			Lease:       time.Now().UnixNano(),
+			Lease:       netTime.Now().UnixNano(),
 			RoundID:     uint64(rid),
 			PayloadType: 0,
 			Payload:     []byte("hello again"),
-		},
-		messageID: mid,
-	}, rounds.Round{
+		}})
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	err = st.send(uuid2, mid, rounds.Round{
 		ID:    rid,
 		State: 1,
 	})
-	process = st.MessageReceive(mid)
+	process = st.MessageReceive(mid, r)
 	if !process {
 		t.Fatalf("Did not receive expected result from MessageReceive")
 	}
@@ -102,26 +129,39 @@ func TestSendTracker_sendAdmin(t *testing.T) {
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	adminTrigger := func(chID *id.ID, cm *ChannelMessage,
+	adminTrigger := func(chID *id.ID, cm *ChannelMessage, ts time.Time,
 		messageID cryptoChannel.MessageID, receptionID receptionID.EphemeralIdentity,
-		round rounds.Round, status SentStatus) {
+		round rounds.Round, status SentStatus) (uint64, error) {
+		return 0, nil
+	}
+
+	updateStatus := func(uuid uint64, messageID cryptoChannel.MessageID,
+		timestamp time.Time, round rounds.Round, status SentStatus) {
 		triggerCh <- true
 	}
 
-	st := loadSendTracker(&mockClient{}, kv, nil, adminTrigger, nil)
+	st := loadSendTracker(&mockClient{}, kv, nil, adminTrigger, updateStatus)
 
 	cid := id.NewIdFromString("channel", id.User, t)
-	mid := cryptoChannel.MakeMessageID([]byte("hello"))
+	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	rid := id.Round(2)
-	st.sendAdmin(cid, &ChannelMessage{
+	uuid, err := st.denotePendingAdminSend(cid, &ChannelMessage{
 		Lease:       0,
 		RoundID:     uint64(rid),
 		PayloadType: 0,
 		Payload:     []byte("hello"),
-	}, mid, rounds.Round{
+	})
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	err = st.sendAdmin(uuid, mid, rounds.Round{
 		ID:    rid,
 		State: 2,
 	})
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 
 	timeout := time.NewTicker(time.Second * 5)
 	select {
@@ -157,17 +197,22 @@ func TestSendTracker_send(t *testing.T) {
 	triggerCh := make(chan bool)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
-	trigger := func(chID *id.ID, umi *userMessageInternal,
-		receptionID receptionID.EphemeralIdentity, round rounds.Round, status SentStatus) {
+	trigger := func(chID *id.ID, umi *userMessageInternal, ts time.Time,
+		receptionID receptionID.EphemeralIdentity, round rounds.Round, status SentStatus) (uint64, error) {
+		return 0, nil
+	}
+
+	updateStatus := func(uuid uint64, messageID cryptoChannel.MessageID,
+		timestamp time.Time, round rounds.Round, status SentStatus) {
 		triggerCh <- true
 	}
 
-	st := loadSendTracker(&mockClient{}, kv, trigger, nil, nil)
+	st := loadSendTracker(&mockClient{}, kv, trigger, nil, updateStatus)
 
 	cid := id.NewIdFromString("channel", id.User, t)
-	mid := cryptoChannel.MakeMessageID([]byte("hello"))
+	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	rid := id.Round(2)
-	st.send(cid, &userMessageInternal{
+	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
 			Lease:       0,
@@ -176,10 +221,18 @@ func TestSendTracker_send(t *testing.T) {
 			Payload:     []byte("hello"),
 		},
 		messageID: mid,
-	}, rounds.Round{
+	})
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	err = st.send(uuid, mid, rounds.Round{
 		ID:    rid,
 		State: 2,
 	})
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 
 	timeout := time.NewTicker(time.Second * 5)
 	select {
@@ -215,7 +268,7 @@ func TestSendTracker_load_store(t *testing.T) {
 
 	st := loadSendTracker(&mockClient{}, kv, nil, nil, nil)
 	cid := id.NewIdFromString("channel", id.User, t)
-	mid := cryptoChannel.MakeMessageID([]byte("hello"))
+	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	rid := id.Round(2)
 	st.byRound[rid] = []*tracked{{MsgID: mid, ChannelID: cid, RoundID: rid}}
 	err := st.store()
@@ -232,18 +285,22 @@ func TestSendTracker_load_store(t *testing.T) {
 func TestRoundResult_callback(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	triggerCh := make(chan bool)
-	update := func(messageID cryptoChannel.MessageID, status SentStatus) {
+	update := func(uuid uint64, messageID cryptoChannel.MessageID,
+		timestamp time.Time, round rounds.Round, status SentStatus) {
 		triggerCh <- true
 	}
-	trigger := func(chID *id.ID, umi *userMessageInternal,
-		receptionID receptionID.EphemeralIdentity, round rounds.Round, status SentStatus) {
+	trigger := func(chID *id.ID, umi *userMessageInternal, ts time.Time,
+		receptionID receptionID.EphemeralIdentity, round rounds.Round,
+		status SentStatus) (uint64, error) {
+		return 0, nil
 	}
+
 	st := loadSendTracker(&mockClient{}, kv, trigger, nil, update)
 
 	cid := id.NewIdFromString("channel", id.User, t)
-	mid := cryptoChannel.MakeMessageID([]byte("hello"))
+	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	rid := id.Round(2)
-	st.send(cid, &userMessageInternal{
+	uuid, err := st.denotePendingSend(cid, &userMessageInternal{
 		userMessage: &UserMessage{},
 		channelMessage: &ChannelMessage{
 			Lease:       0,
@@ -252,7 +309,12 @@ func TestRoundResult_callback(t *testing.T) {
 			Payload:     []byte("hello"),
 		},
 		messageID: mid,
-	}, rounds.Round{
+	})
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	err = st.send(uuid, mid, rounds.Round{
 		ID:    rid,
 		State: 2,
 	})

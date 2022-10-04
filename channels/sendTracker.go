@@ -9,13 +9,16 @@ package channels
 
 import (
 	"encoding/json"
+	"errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
 )
@@ -23,17 +26,24 @@ import (
 const (
 	sendTrackerStorageKey     = "sendTrackerStorageKey"
 	sendTrackerStorageVersion = 0
-	getRoundResultsTimeout    = 60 * time.Second
+
+	sendTrackerUnsentStorageKey     = "sendTrackerUnsentStorageKey"
+	sendTrackerUnsentStorageVersion = 0
+
+	getRoundResultsTimeout = 60 * time.Second
 	// number of times it will attempt to get round status before the round
 	// is assumed to have failed. Tracking per round does not persist across
 	// runs
 	maxChecks = 3
+
+	oneSecond = 1000 * time.Millisecond
 )
 
 type tracked struct {
 	MsgID     cryptoChannel.MessageID
 	ChannelID *id.ID
 	RoundID   id.Round
+	UUID      uint64
 }
 
 // the sendTracker tracks outbound messages and denotes when they are delivered
@@ -44,6 +54,8 @@ type sendTracker struct {
 	byRound map[id.Round][]*tracked
 
 	byMessageID map[cryptoChannel.MessageID]*tracked
+
+	unsent map[uint64]*tracked
 
 	mux sync.RWMutex
 
@@ -58,7 +70,7 @@ type sendTracker struct {
 
 // messageReceiveFunc is a function type for sendTracker.MessageReceive so it
 // can be mocked for testing where used
-type messageReceiveFunc func(messageID cryptoChannel.MessageID) bool
+type messageReceiveFunc func(messageID cryptoChannel.MessageID, r rounds.Round) bool
 
 // loadSendTracker loads a sent tracker, restoring from disk. It will register a
 // function with the cmix client, delayed on when the network goes healthy,
@@ -69,6 +81,7 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 	st := &sendTracker{
 		byRound:      make(map[id.Round][]*tracked),
 		byMessageID:  make(map[cryptoChannel.MessageID]*tracked),
+		unsent:       make(map[uint64]*tracked),
 		trigger:      trigger,
 		adminTrigger: adminTrigger,
 		updateStatus: updateStatus,
@@ -81,34 +94,68 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 	}*/
 	st.load()
 
+	//denote all unsent messages as failed and clear
+	for uuid, t := range st.unsent {
+		updateStatus(uuid, t.MsgID,
+			time.Time{}, rounds.Round{}, Failed)
+	}
+	st.unsent = make(map[uint64]*tracked)
+
 	//register to check all outstanding rounds when the network becomes healthy
-	var callBackID uint64
+	/*var callBackID uint64
 	callBackID = net.AddHealthCallback(func(f bool) {
 		if !f {
 			return
 		}
 		net.RemoveHealthCallback(callBackID)
 		for rid := range st.byRound {
+
 			rr := &roundResults{
 				round: rid,
 				st:    st,
 			}
 			st.net.GetRoundResults(getRoundResultsTimeout, rr.callback, rr.round)
 		}
-	})
+	})*/
 
 	return st
 }
 
 // store writes the list of rounds that have been
 func (st *sendTracker) store() error {
+
+	if err := st.storeSent(); err != nil {
+		return err
+	}
+
+	return st.storeUnsent()
+}
+
+func (st *sendTracker) storeSent() error {
+
+	//save sent messages
 	data, err := json.Marshal(&st.byRound)
 	if err != nil {
 		return err
 	}
 	return st.kv.Set(sendTrackerStorageKey, &versioned.Object{
 		Version:   sendTrackerStorageVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
+		Data:      data,
+	})
+}
+
+// store writes the list of rounds that have been
+func (st *sendTracker) storeUnsent() error {
+	//save unsent messages
+	data, err := json.Marshal(&st.unsent)
+	if err != nil {
+		return err
+	}
+
+	return st.kv.Set(sendTrackerUnsentStorageKey, &versioned.Object{
+		Version:   sendTrackerUnsentStorageVersion,
+		Timestamp: netTime.Now(),
 		Data:      data,
 	})
 }
@@ -132,66 +179,170 @@ func (st *sendTracker) load() error {
 			st.byMessageID[roundList[j].MsgID] = roundList[j]
 		}
 	}
+
+	obj, err = st.kv.Get(sendTrackerUnsentStorageKey, sendTrackerUnsentStorageVersion)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(obj.Data, &st.unsent)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// send tracks a generic send message
-func (st *sendTracker) send(channelID *id.ID,
-	umi *userMessageInternal, round rounds.Round) {
-	st.handleSend(channelID, umi.GetMessageID(), round)
-	go st.trigger(channelID, umi,
-		receptionID.EphemeralIdentity{}, round, Sent)
+// denotePendingSend is called before the pending send. It tracks the send
+// internally and notifies the UI of the send
+func (st *sendTracker) denotePendingSend(channelID *id.ID,
+	umi *userMessageInternal) (uint64, error) {
+	// for a timestamp for the message, use 1 second from now to
+	// approximate the lag due to round submission
+	ts := netTime.Now().Add(oneSecond)
+
+	// submit the message to the UI
+	uuid, err := st.trigger(channelID, umi, ts, receptionID.EphemeralIdentity{},
+		rounds.Round{}, Unsent)
+	if err != nil {
+		return 0, err
+	}
+
+	// track the message on disk
+	st.handleDenoteSend(uuid, channelID, cryptoChannel.MessageID{},
+		rounds.Round{})
+	return uuid, nil
 }
 
-// sendAdmin tracks a generic sendAdmin message
-func (st *sendTracker) sendAdmin(channelID *id.ID,
-	cm *ChannelMessage, msgID cryptoChannel.MessageID, round rounds.Round) {
-	st.handleSend(channelID, msgID, round)
-	go st.adminTrigger(channelID, cm, msgID,
-		receptionID.EphemeralIdentity{}, round, Sent)
+// denotePendingAdminSend is called before the pending admin send. It tracks the
+// send internally and notifies the UI of the send
+func (st *sendTracker) denotePendingAdminSend(channelID *id.ID,
+	cm *ChannelMessage) (uint64, error) {
+	// for a timestamp for the message, use 1 second from now to
+	// approximate the lag due to round submission
+	ts := netTime.Now().Add(oneSecond)
+
+	// submit the message to the UI
+	uuid, err := st.adminTrigger(channelID, cm, ts, cryptoChannel.MessageID{},
+		receptionID.EphemeralIdentity{},
+		rounds.Round{}, Unsent)
+
+	// track the message on disk
+	if err != nil {
+		return 0, err
+	}
+	st.handleDenoteSend(uuid, channelID, cryptoChannel.MessageID{},
+		rounds.Round{})
+	return uuid, nil
 }
 
-// handleSend does the nity gritty of editing internal structures
-func (st *sendTracker) handleSend(channelID *id.ID,
+// handleDenoteSend does the nity gritty of editing internal structures
+func (st *sendTracker) handleDenoteSend(uuid uint64, channelID *id.ID,
 	messageID cryptoChannel.MessageID, round rounds.Round) {
 	st.mux.Lock()
 	defer st.mux.Unlock()
 
 	//skip if already added
-	_, existsMessage := st.byMessageID[messageID]
+	_, existsMessage := st.unsent[uuid]
 	if existsMessage {
 		return
 	}
 
-	t := &tracked{messageID, channelID, round.ID}
+	st.unsent[uuid] = &tracked{messageID, channelID, round.ID, uuid}
+
+	err := st.storeUnsent()
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+}
+
+// send tracks a generic send message
+func (st *sendTracker) send(uuid uint64, msgID cryptoChannel.MessageID,
+	round rounds.Round) error {
+
+	// update the on disk message status
+	t, err := st.handleSend(uuid, msgID, round)
+	if err != nil {
+		return err
+	}
+
+	// Modify the timestamp to reduce the chance message order will be ambiguous
+	ts := mutateTimestamp(round.Timestamps[states.QUEUED], msgID)
+
+	//update the message on the UI
+	go st.updateStatus(t.UUID, msgID, ts, round, Sent)
+	return nil
+}
+
+// sendAdmin tracks a generic sendAdmin message
+func (st *sendTracker) sendAdmin(uuid uint64, msgID cryptoChannel.MessageID,
+	round rounds.Round) error {
+
+	// update the on disk message status
+	t, err := st.handleSend(uuid, msgID, round)
+	if err != nil {
+		return err
+	}
+
+	// Modify the timestamp to reduce the chance message order will be ambiguous
+	ts := mutateTimestamp(round.Timestamps[states.QUEUED], msgID)
+
+	//update the message on the UI
+	go st.updateStatus(t.UUID, msgID, ts, round, Sent)
+
+	return nil
+}
+
+// handleSend does the nity gritty of editing internal structures
+func (st *sendTracker) handleSend(uuid uint64,
+	messageID cryptoChannel.MessageID, round rounds.Round) (*tracked, error) {
+	st.mux.Lock()
+	defer st.mux.Unlock()
+
+	//check if in unsent
+	t, exists := st.unsent[uuid]
+	if !exists {
+		return nil, errors.New("cannot handle send on an unprepared message")
+	}
+
+	_, existsMessage := st.byMessageID[messageID]
+	if existsMessage {
+		return nil, errors.New("cannot handle send on a message which was " +
+			"already sent")
+	}
+
+	t.MsgID = messageID
+	t.RoundID = round.ID
 
 	//add the roundID
-	roundsList, existsRound := st.byRound[round.ID]
+	roundsList, _ := st.byRound[round.ID]
 	st.byRound[round.ID] = append(roundsList, t)
 
 	//add the round
 	st.byMessageID[messageID] = t
 
-	if !existsRound {
+	/*if !existsRound {
 		rr := &roundResults{
 			round: round.ID,
 			st:    st,
 		}
 		st.net.GetRoundResults(getRoundResultsTimeout, rr.callback, rr.round)
-	}
+	}*/
 
 	//store the changed list to disk
-	err := st.store()
+	err := st.storeSent()
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
+
+	return t, nil
 }
 
 // MessageReceive is used when a message is received to check if the message
 // was sent by this user. If it was, the correct signal is sent to the event
 // model and the function returns true, notifying the caller to not process
 // the message
-func (st *sendTracker) MessageReceive(messageID cryptoChannel.MessageID) bool {
+func (st *sendTracker) MessageReceive(messageID cryptoChannel.MessageID, round rounds.Round) bool {
 	st.mux.RLock()
 
 	//skip if already added
@@ -223,6 +374,14 @@ func (st *sendTracker) MessageReceive(messageID cryptoChannel.MessageID) bool {
 		st.byRound[msgData.RoundID] = newRoundList
 	}
 
+	ts := mutateTimestamp(round.Timestamps[states.QUEUED], messageID)
+	go st.updateStatus(msgData.UUID, messageID, ts,
+		round, Delivered)
+
+	if err := st.storeSent(); err != nil {
+		jww.FATAL.Panicf("failed to store the updated sent list: %+v", err)
+	}
+
 	return true
 }
 
@@ -235,7 +394,7 @@ type roundResults struct {
 
 // callback is called when results are known about a round. it will re-trigger
 // the wait if it fails up to 'maxChecks' times.
-func (rr *roundResults) callback(allRoundsSucceeded, timedOut bool, rounds map[id.Round]cmix.RoundResult) {
+func (rr *roundResults) callback(allRoundsSucceeded, timedOut bool, results map[id.Round]cmix.RoundResult) {
 
 	rr.st.mux.Lock()
 
@@ -275,9 +434,18 @@ func (rr *roundResults) callback(allRoundsSucceeded, timedOut bool, rounds map[i
 		delete(rr.st.byMessageID, registered[i].MsgID)
 	}
 
+	if err := rr.st.store(); err != nil {
+		jww.FATAL.Panicf("failed to store update after "+
+			"finalizing delivery of sent messages: %+v", err)
+	}
+
 	rr.st.mux.Unlock()
 
 	for i := range registered {
-		go rr.st.updateStatus(registered[i].MsgID, status)
+		round := results[rr.round].Round
+		ts := mutateTimestamp(round.Timestamps[states.QUEUED], registered[i].MsgID)
+		go rr.st.updateStatus(registered[i].UUID, registered[i].MsgID, ts,
+			round, status)
 	}
+
 }

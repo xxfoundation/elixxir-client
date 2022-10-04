@@ -23,6 +23,7 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"math/rand"
 	"reflect"
 	"sort"
 	"strconv"
@@ -32,10 +33,22 @@ import (
 
 // Tests that manager.store stores the channel list in the ekv.
 func Test_manager_store(t *testing.T) {
-	m := NewManager(versioned.NewKV(ekv.MakeMemstore()),
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockNameService), new(mockEventModel)).(*manager)
+		mockEventModelBuilder)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
 
 	for i := 0; i < 10; i++ {
 		ch, _, err := newTestChannel("name_"+strconv.Itoa(i),
@@ -52,7 +65,7 @@ func Test_manager_store(t *testing.T) {
 		m.channels[*ch.ReceptionID] = &joinedChannel{b}
 	}
 
-	err := m.store()
+	err = m.store()
 	if err != nil {
 		t.Errorf("Error storing channels: %+v", err)
 	}
@@ -66,10 +79,22 @@ func Test_manager_store(t *testing.T) {
 // Tests that the manager.loadChannels loads all the expected channels from the
 // ekv.
 func Test_manager_loadChannels(t *testing.T) {
-	m := NewManager(versioned.NewKV(ekv.MakeMemstore()),
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockNameService), new(mockEventModel)).(*manager)
+		mockEventModelBuilder)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
 
 	expected := make([]*joinedChannel, 10)
 
@@ -95,7 +120,7 @@ func Test_manager_loadChannels(t *testing.T) {
 		expected[i] = jc
 	}
 
-	err := m.store()
+	err = m.store()
 	if err != nil {
 		t.Errorf("Error storing channels: %+v", err)
 	}
@@ -126,10 +151,22 @@ func Test_manager_loadChannels(t *testing.T) {
 // Tests that manager.addChannel adds the channel to the map and stores it in
 // the kv.
 func Test_manager_addChannel(t *testing.T) {
-	m := NewManager(versioned.NewKV(ekv.MakeMemstore()),
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockNameService), new(mockEventModel)).(*manager)
+		mockEventModelBuilder)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
 
 	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
 	if err != nil {
@@ -159,10 +196,22 @@ func Test_manager_addChannel(t *testing.T) {
 // Error path: tests that manager.addChannel returns ChannelAlreadyExistsErr
 // when the channel was already added.
 func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
-	m := NewManager(versioned.NewKV(ekv.MakeMemstore()),
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockNameService), new(mockEventModel)).(*manager)
+		mockEventModelBuilder)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
 
 	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
 	if err != nil {
@@ -183,10 +232,22 @@ func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
 
 // Tests the manager.removeChannel deletes the channel from the map.
 func Test_manager_removeChannel(t *testing.T) {
-	m := NewManager(versioned.NewKV(ekv.MakeMemstore()),
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockNameService), new(mockEventModel)).(*manager)
+		mockEventModelBuilder)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
 
 	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
 	if err != nil {
@@ -216,10 +277,22 @@ func Test_manager_removeChannel(t *testing.T) {
 // Error path: tests that manager.removeChannel returns ChannelDoesNotExistsErr
 // when the channel was never added.
 func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
-	m := NewManager(versioned.NewKV(ekv.MakeMemstore()),
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockNameService), new(mockEventModel)).(*manager)
+		mockEventModelBuilder)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
 
 	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
 	if err != nil {
@@ -236,10 +309,22 @@ func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
 
 // Tests the manager.getChannel returns the expected channel.
 func Test_manager_getChannel(t *testing.T) {
-	m := NewManager(versioned.NewKV(ekv.MakeMemstore()),
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockNameService), new(mockEventModel)).(*manager)
+		mockEventModelBuilder)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
 
 	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
 	if err != nil {
@@ -265,10 +350,22 @@ func Test_manager_getChannel(t *testing.T) {
 // Error path: tests that manager.getChannel returns ChannelDoesNotExistsErr
 // when the channel was never added.
 func Test_manager_getChannel_ChannelDoesNotExistsErr(t *testing.T) {
-	m := NewManager(versioned.NewKV(ekv.MakeMemstore()),
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockNameService), new(mockEventModel)).(*manager)
+		mockEventModelBuilder)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
 
 	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
 	if err != nil {
@@ -286,10 +383,22 @@ func Test_manager_getChannel_ChannelDoesNotExistsErr(t *testing.T) {
 // Tests that manager.getChannels returns all the channels that were added to
 // the map.
 func Test_manager_getChannels(t *testing.T) {
-	m := NewManager(versioned.NewKV(ekv.MakeMemstore()),
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockNameService), new(mockEventModel)).(*manager)
+		mockEventModelBuilder)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
 
 	expected := make([]*id.ID, 10)
 
@@ -353,10 +462,22 @@ func Test_joinedChannel_Store(t *testing.T) {
 // Tests that loadJoinedChannel returns a joinedChannel from storage that
 // matches the original.
 func Test_loadJoinedChannel(t *testing.T) {
-	m := NewManager(versioned.NewKV(ekv.MakeMemstore()),
+	rng := rand.New(rand.NewSource(64))
+
+	pi, err := cryptoChannel.GenerateIdentity(rng)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	mFace, err := NewManager(pi, versioned.NewKV(ekv.MakeMemstore()),
 		new(mockBroadcastClient),
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
-		new(mockNameService), new(mockEventModel)).(*manager)
+		mockEventModelBuilder)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	m := mFace.(*manager)
 
 	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
 	if err != nil {
@@ -369,7 +490,7 @@ func Test_loadJoinedChannel(t *testing.T) {
 	}
 
 	loadedJc, err := loadJoinedChannel(ch.ReceptionID, m.kv, m.net, m.rng,
-		m.name, m.events, m.broadcastMaker, func(messageID cryptoChannel.MessageID) bool {
+		m.events, m.broadcastMaker, func(messageID cryptoChannel.MessageID, r rounds.Round) bool {
 			return false
 		})
 	if err != nil {
@@ -480,14 +601,18 @@ func (m *mockBroadcastClient) RemoveHealthCallback(uint64)           {}
 // Mock EventModel                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
+func mockEventModelBuilder(string) (EventModel, error) {
+	return &mockEventModel{}, nil
+}
+
 // mockEventModel adheres to the EventModel interface.
 type mockEventModel struct {
 	joinedCh *cryptoBroadcast.Channel
 	leftCh   *id.ID
 }
 
-func (m *mockEventModel) UpdateSentStatus(messageID cryptoChannel.MessageID,
-	status SentStatus) {
+func (m *mockEventModel) UpdateSentStatus(uuid uint64, messageID cryptoChannel.MessageID,
+	timestamp time.Time, round rounds.Round, status SentStatus) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -498,14 +623,21 @@ func (m *mockEventModel) JoinChannel(c *cryptoBroadcast.Channel) {
 func (m *mockEventModel) LeaveChannel(c *id.ID) {
 	m.leftCh = c
 }
-func (m *mockEventModel) ReceiveMessage(*id.ID, cryptoChannel.MessageID, string,
-	string, time.Time, time.Duration, rounds.Round, SentStatus) {
+func (m *mockEventModel) ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
+	nickname, text string, identity cryptoChannel.Identity,
+	timestamp time.Time, lease time.Duration, round rounds.Round,
+	mType MessageType, status SentStatus) uint64 {
+	return 0
 }
-func (m *mockEventModel) ReceiveReply(*id.ID, cryptoChannel.MessageID,
-	cryptoChannel.MessageID, string, string, time.Time, time.Duration,
-	rounds.Round, SentStatus) {
+func (m *mockEventModel) ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
+	reactionTo cryptoChannel.MessageID, nickname, text string,
+	identity cryptoChannel.Identity, timestamp time.Time,
+	lease time.Duration, round rounds.Round, mType MessageType, status SentStatus) uint64 {
+	return 0
 }
-func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoChannel.MessageID,
-	cryptoChannel.MessageID, string, string, time.Time, time.Duration,
-	rounds.Round, SentStatus) {
+func (m *mockEventModel) ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
+	reactionTo cryptoChannel.MessageID, nickname, reaction string,
+	identity cryptoChannel.Identity, timestamp time.Time,
+	lease time.Duration, round rounds.Round, mType MessageType, status SentStatus) uint64 {
+	return 0
 }

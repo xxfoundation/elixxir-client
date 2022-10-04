@@ -31,19 +31,6 @@ type RekeyTrigger interface {
 	TriggerRekey(ratchetID ID, myPublicKey nike.PublicKey)
 }
 
-type SymmetricKeyRatchetFactory interface {
-	FromBytes(serializedRatchet []byte) (SymmetricKeyRatchet, error)
-	New(sharedSecret, salt []byte, fingerprintMapSize uint32) SymmetricKeyRatchet
-}
-
-type SymmetricKeyRatchet interface {
-	Encrypt(plaintext []byte) (*EncryptedMessage, error)
-	Decrypt(*EncryptedMessage) (plaintext []byte, err error)
-	Save() ([]byte, error)
-	Salt() []byte
-	Size() uint32
-}
-
 type RatchetFactory interface {
 	NewRatchets(myPrivateKey nike.PrivateKey, myPublicKey nike.PublicKey, partnerPublicKey nike.PublicKey) (SendRatchet, ReceiveRatchet)
 	SendRatchetFromBytes([]byte) (SendRatchet, error)
@@ -61,4 +48,17 @@ type ReceiveRatchet interface {
 	Decrypt(*EncryptedMessage) (plaintext []byte, err error)
 	Save() ([]byte, error)
 	Next(theirPublicKey nike.PublicKey) ReceiveRatchet
+}
+
+type SymmetricKeyRatchetFactory interface {
+	FromBytes(serializedRatchet []byte) (SymmetricKeyRatchet, error)
+	New(sharedSecret, salt []byte, fingerprintMapSize uint32) SymmetricKeyRatchet
+}
+
+type SymmetricKeyRatchet interface {
+	Encrypt(plaintext []byte) (*EncryptedMessage, error)
+	Decrypt(*EncryptedMessage) (plaintext []byte, err error)
+	Save() ([]byte, error)
+	Salt() []byte
+	Size() uint32
 }

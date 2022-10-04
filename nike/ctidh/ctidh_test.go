@@ -35,6 +35,7 @@ func TestPrivateKeyMarshaling(t *testing.T) {
 	alice3PrivateKeyBytes := alice3PrivateKey.Bytes()
 
 	require.Equal(t, alice3PrivateKeyBytes, alice2PrivateKeyBytes)
+	require.Equal(t, len(alice3PrivateKeyBytes), CTIDHNIKE.PrivateKeySize())
 }
 
 func TestPublicKeyMarshaling(t *testing.T) {
@@ -56,4 +57,5 @@ func TestPublicKeyMarshaling(t *testing.T) {
 	alice3PublicKeyBytes := alice3PublicKey.Bytes()
 
 	require.Equal(t, alice3PublicKeyBytes, alice2PublicKeyBytes)
+	require.Equal(t, len(alice3PublicKeyBytes), CTIDHNIKE.PublicKeySize())
 }

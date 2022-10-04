@@ -1,6 +1,8 @@
 package dh
 
 import (
+	"errors"
+
 	"gitlab.com/elixxir/client/interfaces/nike"
 
 	"gitlab.com/xx_network/crypto/csprng"
@@ -11,10 +13,10 @@ import (
 )
 
 const (
-	bitSize        = 4096
+	bitSize        = 2048
 	groupSize      = bitSize / 8
-	privateKeySize = groupSize
-	publicKeySize  = groupSize
+	privateKeySize = groupSize + 8
+	publicKeySize  = groupSize + 8
 )
 
 var primeString = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
@@ -118,6 +120,9 @@ func (p *privateKey) Bytes() []byte {
 }
 
 func (p *privateKey) FromBytes(data []byte) error {
+	if len(data) != DHNIKE.PrivateKeySize() {
+		return errors.New("invalid key size")
+	}
 	return p.privateKey.BinaryDecode(data)
 }
 
@@ -138,7 +143,17 @@ func (p *publicKey) Bytes() []byte {
 }
 
 func (p *publicKey) FromBytes(data []byte) error {
-	return p.publicKey.BinaryDecode(data)
+	if len(data) != DHNIKE.PublicKeySize() {
+		return errors.New("invalid key size")
+	}
+	err := p.publicKey.BinaryDecode(data)
+	if err != nil {
+		return nil
+	}
+	if !diffieHellman.CheckPublicKey(DHNIKE.group(), p.publicKey) {
+		return errors.New("not a valid public key")
+	}
+	return nil
 }
 
 func (p *publicKey) Scheme() nike.Nike {

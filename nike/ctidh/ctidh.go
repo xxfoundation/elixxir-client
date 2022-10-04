@@ -107,7 +107,6 @@ func (p *PrivateKey) DeriveSecret(publicKey nike.PublicKey) []byte {
 }
 
 type PublicKey struct {
-	nike      nike.Nike
 	publicKey *ctidh.PublicKey
 }
 

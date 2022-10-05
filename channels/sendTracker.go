@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -66,6 +67,8 @@ type sendTracker struct {
 	net Client
 
 	kv *versioned.KV
+
+	rngSrc *fastRNG.StreamGenerator
 }
 
 // messageReceiveFunc is a function type for sendTracker.MessageReceive so it
@@ -76,8 +79,8 @@ type messageReceiveFunc func(messageID cryptoChannel.MessageID, r rounds.Round) 
 // function with the cmix client, delayed on when the network goes healthy,
 // which will attempt to discover the status of all rounds that are outstanding.
 func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
-	adminTrigger triggerAdminEventFunc,
-	updateStatus updateStatusFunc) *sendTracker {
+	adminTrigger triggerAdminEventFunc, updateStatus updateStatusFunc,
+	rngSource *fastRNG.StreamGenerator) *sendTracker {
 	st := &sendTracker{
 		byRound:      make(map[id.Round][]*tracked),
 		byMessageID:  make(map[cryptoChannel.MessageID]*tracked),
@@ -87,6 +90,7 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 		updateStatus: updateStatus,
 		net:          net,
 		kv:           kv,
+		rngSrc:       rngSource,
 	}
 
 	/*if err := st.load(); !kv.Exists(err){
@@ -208,8 +212,19 @@ func (st *sendTracker) denotePendingSend(channelID *id.ID,
 		return 0, err
 	}
 
+	// create a random message id so there will not be collisions in a database
+	// that requires a unique message ID
+	stream := st.rngSrc.GetStream()
+	randMid := cryptoChannel.MessageID{}
+	num, err := stream.Read(randMid[:])
+	if num != len(randMid[:]) || err != nil {
+		jww.FATAL.Panicf("failed to get a random message ID, read "+
+			"len: %d, err: %+v", num, err)
+	}
+	stream.Close()
+
 	// track the message on disk
-	st.handleDenoteSend(uuid, channelID, cryptoChannel.MessageID{},
+	st.handleDenoteSend(uuid, channelID, randMid,
 		rounds.Round{})
 	return uuid, nil
 }
@@ -227,11 +242,23 @@ func (st *sendTracker) denotePendingAdminSend(channelID *id.ID,
 		receptionID.EphemeralIdentity{},
 		rounds.Round{}, Unsent)
 
-	// track the message on disk
 	if err != nil {
 		return 0, err
 	}
-	st.handleDenoteSend(uuid, channelID, cryptoChannel.MessageID{},
+
+	// create a random message id so there will not be collisions in a database
+	// that requires a unique message ID
+	stream := st.rngSrc.GetStream()
+	randMid := cryptoChannel.MessageID{}
+	num, err := stream.Read(randMid[:])
+	if num != len(randMid[:]) || err != nil {
+		jww.FATAL.Panicf("failed to get a random message ID, read "+
+			"len: %d, err: %+v", num, err)
+	}
+	stream.Close()
+
+	// track the message on disk
+	st.handleDenoteSend(uuid, channelID, randMid,
 		rounds.Round{})
 	return uuid, nil
 }

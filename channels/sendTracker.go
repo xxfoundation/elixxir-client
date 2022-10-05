@@ -208,6 +208,7 @@ func (st *sendTracker) denotePendingSend(channelID *id.ID,
 	// create a random message id so there will not be collisions in a database
 	// that requires a unique message ID
 	stream := st.rngSrc.GetStream()
+	umi.messageID = cryptoChannel.MessageID{}
 	num, err := stream.Read(umi.messageID[:])
 	if num != len(umi.messageID[:]) || err != nil {
 		jww.FATAL.Panicf("failed to get a random message ID, read "+

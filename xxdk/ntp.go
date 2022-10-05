@@ -61,19 +61,18 @@ func (nt *NtpTime) sync(host string) int64 {
 
 	response, _ := ntp.Query(host)
 
-	first := 0
 	if len(nt.offsets) >= numOffsets {
-		first = 1
+		nt.offsets = append(nt.offsets[1:], response.ClockOffset)
+	} else {
+		nt.offsets = append(nt.offsets, response.ClockOffset)
 	}
-
-	nt.offsets = append(nt.offsets[first:], response.ClockOffset)
 
 	offsetSum := int64(0)
 	for _, offset := range nt.offsets {
 		offsetSum += int64(offset)
 	}
 
-	offsetAvg := (offsetSum + numOffsets/2) / numOffsets
+	offsetAvg := (offsetSum + int64(len(nt.offsets))/2) / int64(len(nt.offsets))
 
 	atomic.StoreInt64(nt.averageOffset, offsetAvg)
 	return offsetAvg

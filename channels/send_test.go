@@ -152,6 +152,8 @@ func TestSendGeneric(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+
 	m := &manager{
 		me:       pi,
 		channels: make(map[id.ID]*joinedChannel),
@@ -173,7 +175,7 @@ func TestSendGeneric(t *testing.T) {
 				return 0, nil
 			}, func(uuid uint64, messageID cryptoChannel.MessageID,
 				timestamp time.Time, round rounds.Round, status SentStatus) {
-			}),
+			}, crng),
 	}
 
 	channelID := new(id.ID)
@@ -240,6 +242,8 @@ func TestAdminGeneric(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+
 	m := &manager{
 		channels: make(map[id.ID]*joinedChannel),
 		nicknameManager: &nicknameManager{
@@ -260,7 +264,7 @@ func TestAdminGeneric(t *testing.T) {
 				return 0, nil
 			}, func(uuid uint64, messageID cryptoChannel.MessageID,
 				timestamp time.Time, round rounds.Round, status SentStatus) {
-			}),
+			}, crng),
 	}
 
 	messageType := Text
@@ -330,6 +334,8 @@ func TestSendMessage(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+
 	m := &manager{
 		me:       pi,
 		channels: make(map[id.ID]*joinedChannel),
@@ -350,7 +356,7 @@ func TestSendMessage(t *testing.T) {
 				return 0, nil
 			}, func(uuid uint64, messageID cryptoChannel.MessageID,
 				timestamp time.Time, round rounds.Round, status SentStatus) {
-			}),
+			}, crng),
 	}
 
 	channelID := new(id.ID)
@@ -425,6 +431,8 @@ func TestSendReply(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+
 	m := &manager{
 		me:       pi,
 		channels: make(map[id.ID]*joinedChannel),
@@ -445,7 +453,7 @@ func TestSendReply(t *testing.T) {
 				return 0, nil
 			}, func(uuid uint64, messageID cryptoChannel.MessageID,
 				timestamp time.Time, round rounds.Round, status SentStatus) {
-			}),
+			}, crng),
 	}
 
 	channelID := new(id.ID)
@@ -520,6 +528,8 @@ func TestSendReaction(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+
 	m := &manager{
 		me: pi,
 		nicknameManager: &nicknameManager{
@@ -540,7 +550,7 @@ func TestSendReaction(t *testing.T) {
 				return 0, nil
 			}, func(uuid uint64, messageID cryptoChannel.MessageID,
 				timestamp time.Time, round rounds.Round, status SentStatus) {
-			}),
+			}, crng),
 	}
 
 	channelID := new(id.ID)

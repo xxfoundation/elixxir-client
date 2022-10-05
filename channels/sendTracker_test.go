@@ -7,8 +7,10 @@ import (
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/states"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -67,7 +69,9 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 
 	cid := id.NewIdFromString("channel", id.User, t)
 
-	st := loadSendTracker(&mockClient{}, kv, trigger, nil, updateStatus)
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+
+	st := loadSendTracker(&mockClient{}, kv, trigger, nil, updateStatus, crng)
 
 	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	process := st.MessageReceive(mid, r)
@@ -140,7 +144,9 @@ func TestSendTracker_failedSend(t *testing.T) {
 		triggerCh <- status
 	}
 
-	st := loadSendTracker(&mockClient{}, kv, nil, adminTrigger, updateStatus)
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+
+	st := loadSendTracker(&mockClient{}, kv, nil, adminTrigger, updateStatus, crng)
 
 	cid := id.NewIdFromString("channel", id.User, t)
 	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
@@ -206,7 +212,9 @@ func TestSendTracker_send(t *testing.T) {
 		triggerCh <- true
 	}
 
-	st := loadSendTracker(&mockClient{}, kv, trigger, nil, updateStatus)
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+
+	st := loadSendTracker(&mockClient{}, kv, trigger, nil, updateStatus, crng)
 
 	cid := id.NewIdFromString("channel", id.User, t)
 	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
@@ -265,7 +273,9 @@ func TestSendTracker_send(t *testing.T) {
 func TestSendTracker_load_store(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
-	st := loadSendTracker(&mockClient{}, kv, nil, nil, nil)
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+
+	st := loadSendTracker(&mockClient{}, kv, nil, nil, nil, crng)
 	cid := id.NewIdFromString("channel", id.User, t)
 	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	rid := id.Round(2)
@@ -275,7 +285,7 @@ func TestSendTracker_load_store(t *testing.T) {
 		t.Fatalf("Failed to store byRound: %+v", err)
 	}
 
-	st2 := loadSendTracker(&mockClient{}, kv, nil, nil, nil)
+	st2 := loadSendTracker(&mockClient{}, kv, nil, nil, nil, crng)
 	if len(st2.byRound) != len(st.byRound) {
 		t.Fatalf("byRound was not properly loaded")
 	}
@@ -294,7 +304,9 @@ func TestRoundResult_callback(t *testing.T) {
 		return 0, nil
 	}
 
-	st := loadSendTracker(&mockClient{}, kv, trigger, nil, update)
+	crng := fastRNG.NewStreamGenerator(100, 5, csprng.NewSystemRNG)
+
+	st := loadSendTracker(&mockClient{}, kv, trigger, nil, update, crng)
 
 	cid := id.NewIdFromString("channel", id.User, t)
 	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)

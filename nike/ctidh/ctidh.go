@@ -19,11 +19,11 @@ type ctidhNIKE struct{}
 var CTIDHNIKE = new(ctidhNIKE)
 
 var _ nike.PrivateKey = (*PrivateKey)(nil)
-var _ nike.PublicKey = (*PublicKey)(nil)
+var _ nike.PublicKey = (*publicKey)(nil)
 var _ nike.Nike = (*ctidhNIKE)(nil)
 
 func (e *ctidhNIKE) DerivePublicKey(privKey nike.PrivateKey) nike.PublicKey {
-	return &PublicKey{
+	return &publicKey{
 		publicKey: ctidh.DerivePublicKey(privKey.(*PrivateKey).privateKey),
 	}
 }
@@ -43,13 +43,13 @@ func (e *ctidhNIKE) NewKeypair() (nike.PrivateKey, nike.PublicKey) {
 	privKey, pubKey := ctidh.GenerateKeyPair()
 	return &PrivateKey{
 			privateKey: privKey,
-		}, &PublicKey{
+		}, &publicKey{
 			publicKey: pubKey,
 		}
 }
 
 func (e *ctidhNIKE) NewEmptyPublicKey() nike.PublicKey {
-	return &PublicKey{
+	return &publicKey{
 		publicKey: ctidh.NewEmptyPublicKey(),
 	}
 }
@@ -108,34 +108,34 @@ func (p *PrivateKey) FromBytes(data []byte) error {
 	return p.privateKey.FromBytes(data)
 }
 
-func (p *PrivateKey) DeriveSecret(publicKey nike.PublicKey) []byte {
-	return p.privateKey.DeriveSecret(publicKey.(*PublicKey).publicKey)
+func (p *PrivateKey) DeriveSecret(pubKey nike.PublicKey) []byte {
+	return p.privateKey.DeriveSecret(pubKey.(*publicKey).publicKey)
 }
 
-type PublicKey struct {
+type publicKey struct {
 	publicKey *ctidh.PublicKey
 }
 
-func (p *PublicKey) Scheme() nike.Nike {
+func (p *publicKey) Scheme() nike.Nike {
 	return CTIDHNIKE
 }
 
-func (p *PublicKey) ToPEMFile(f string) error {
+func (p *publicKey) ToPEMFile(f string) error {
 	return p.publicKey.ToPEMFile(f)
 }
 
-func (p *PublicKey) ToPEM() (*pem.Block, error) {
+func (p *publicKey) ToPEM() (*pem.Block, error) {
 	return p.publicKey.ToPEM()
 }
 
-func (p *PublicKey) Reset() {
+func (p *publicKey) Reset() {
 	p.publicKey.Reset()
 }
 
-func (p *PublicKey) Bytes() []byte {
+func (p *publicKey) Bytes() []byte {
 	return p.publicKey.Bytes()
 }
 
-func (p *PublicKey) FromBytes(data []byte) error {
+func (p *publicKey) FromBytes(data []byte) error {
 	return p.publicKey.FromBytes(data)
 }

@@ -10,6 +10,7 @@ package channels
 import (
 	"crypto/ed25519"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
@@ -115,6 +116,11 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 
 	r, ephid, err := ch.broadcast.BroadcastWithAssembler(assemble, params)
 	if err != nil {
+		errDenote := m.st.failedSend(uuid)
+		if errDenote != nil {
+			jww.ERROR.Printf("Failed to update for a failed send to "+
+				"%s: %+v", channelID, err)
+		}
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 	err = m.st.send(uuid, msgId, r)
@@ -192,8 +198,16 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 
 	r, ephid, err := ch.broadcast.BroadcastRSAToPublicWithAssembler(privKey,
 		assemble, params)
+	if err != nil {
+		errDenote := m.st.failedSend(uuid)
+		if errDenote != nil {
+			jww.ERROR.Printf("Failed to update for a failed send to "+
+				"%s: %+v", channelID, err)
+		}
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
 
-	err = m.st.sendAdmin(uuid, msgId, r)
+	err = m.st.send(uuid, msgId, r)
 	if err != nil {
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}

@@ -274,22 +274,17 @@ func (st *sendTracker) send(uuid uint64, msgID cryptoChannel.MessageID,
 	return nil
 }
 
-// sendAdmin tracks a generic sendAdmin message
-func (st *sendTracker) sendAdmin(uuid uint64, msgID cryptoChannel.MessageID,
-	round rounds.Round) error {
+// send tracks a generic send message
+func (st *sendTracker) failedSend(uuid uint64) error {
 
 	// update the on disk message status
-	t, err := st.handleSend(uuid, msgID, round)
+	t, err := st.handleSendFailed(uuid)
 	if err != nil {
 		return err
 	}
 
-	// Modify the timestamp to reduce the chance message order will be ambiguous
-	ts := mutateTimestamp(round.Timestamps[states.QUEUED], msgID)
-
 	//update the message on the UI
-	go st.updateStatus(t.UUID, msgID, ts, round, Sent)
-
+	go st.updateStatus(t.UUID, cryptoChannel.MessageID{}, time.Time{}, rounds.Round{}, Failed)
 	return nil
 }
 
@@ -329,8 +324,32 @@ func (st *sendTracker) handleSend(uuid uint64,
 		st.net.GetRoundResults(getRoundResultsTimeout, rr.callback, rr.round)
 	}*/
 
+	delete(st.unsent, uuid)
+
 	//store the changed list to disk
-	err := st.storeSent()
+	err := st.store()
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+
+	return t, nil
+}
+
+// handleSendFailed does the nity gritty of editing internal structures
+func (st *sendTracker) handleSendFailed(uuid uint64) (*tracked, error) {
+	st.mux.Lock()
+	defer st.mux.Unlock()
+
+	//check if in unsent
+	t, exists := st.unsent[uuid]
+	if !exists {
+		return nil, errors.New("cannot handle send on an unprepared message")
+	}
+
+	delete(st.unsent, uuid)
+
+	//store the changed list to disk
+	err := st.storeUnsent()
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}

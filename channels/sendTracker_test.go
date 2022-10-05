@@ -122,10 +122,10 @@ func TestSendTracker_MessageReceive(t *testing.T) {
 	}
 }
 
-// Test sendAdmin function, confirming that data is stored appropriately
+// Test failedSend function, confirming that data is stored appropriately
 // and callbacks are called
-func TestSendTracker_sendAdmin(t *testing.T) {
-	triggerCh := make(chan bool)
+func TestSendTracker_failedSend(t *testing.T) {
+	triggerCh := make(chan SentStatus)
 
 	kv := versioned.NewKV(ekv.MakeMemstore())
 
@@ -137,7 +137,7 @@ func TestSendTracker_sendAdmin(t *testing.T) {
 
 	updateStatus := func(uuid uint64, messageID cryptoChannel.MessageID,
 		timestamp time.Time, round rounds.Round, status SentStatus) {
-		triggerCh <- true
+		triggerCh <- status
 	}
 
 	st := loadSendTracker(&mockClient{}, kv, nil, adminTrigger, updateStatus)
@@ -155,39 +155,38 @@ func TestSendTracker_sendAdmin(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	err = st.sendAdmin(uuid, mid, rounds.Round{
-		ID:    rid,
-		State: 2,
-	})
+	err = st.failedSend(uuid)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
 	timeout := time.NewTicker(time.Second * 5)
 	select {
-	case <-triggerCh:
+	case s := <-triggerCh:
+		if s != Failed {
+			t.Fatalf("Did not receive failed from failed message")
+		}
 		t.Log("Received over trigger chan")
 	case <-timeout.C:
 		t.Fatal("Timed out waiting for trigger chan")
 	}
 
 	trackedRound, ok := st.byRound[rid]
-	if !ok {
-		t.Fatal("Should have found a tracked round")
+	if ok {
+		t.Fatal("Should not have found a tracked round")
 	}
-	if len(trackedRound) != 1 {
+	if len(trackedRound) != 0 {
 		t.Fatal("Did not find expected number of trackedRounds")
 	}
-	if trackedRound[0].MsgID != mid {
-		t.Fatalf("Did not find expected message ID in trackedRounds")
+
+	_, ok = st.byMessageID[mid]
+	if ok {
+		t.Error("Should not have found tracked message")
 	}
 
-	trackedMsg, ok := st.byMessageID[mid]
-	if !ok {
-		t.Error("Should have found tracked message")
-	}
-	if trackedMsg.MsgID != mid {
-		t.Fatalf("Did not find expected message ID in byMessageID")
+	_, ok = st.unsent[uuid]
+	if ok {
+		t.Fatal("Should not have found an unsent")
 	}
 }
 

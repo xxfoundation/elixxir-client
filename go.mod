@@ -3,6 +3,7 @@ module gitlab.com/elixxir/client
 go 1.17
 
 require (
+	github.com/beevik/ntp v0.3.0
 	github.com/cloudflare/circl v1.2.0
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang/protobuf v1.5.2

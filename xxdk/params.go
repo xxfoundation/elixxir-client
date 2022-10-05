@@ -28,6 +28,7 @@ import (
 type CMIXParams struct {
 	Network cmix.Params
 	CMIX    cmix.CMIXParams
+	UseNTP  bool
 }
 
 // E2EParams holds all the settings for e2e and it's various submodules.
@@ -52,6 +53,7 @@ func GetDefaultCMixParams() CMIXParams {
 	return CMIXParams{
 		Network: cmix.GetDefaultParams(),
 		CMIX:    cmix.GetDefaultCMIXParams(),
+		UseNTP:  useNTPDefault,
 	}
 }
 

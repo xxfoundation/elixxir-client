@@ -202,6 +202,14 @@ func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (
 		return nil, err
 	}
 
+	if parameters.UseNTP {
+		ntp := InitNTP()
+		err = c.AddService(ntp.Start)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	c.network, err = cmix.NewClient(
 		parameters.Network, c.comms, c.storage, c.rng, c.events)
 	if err != nil {

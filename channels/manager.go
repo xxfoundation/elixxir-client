@@ -143,7 +143,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 	m.events = initEvents(model)
 
 	m.st = loadSendTracker(net, kv, m.events.triggerEvent,
-		m.events.triggerAdminEvent, model.UpdateSentStatus)
+		m.events.triggerAdminEvent, model.UpdateSentStatus, rng)
 
 	m.loadChannels()
 

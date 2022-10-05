@@ -100,6 +100,12 @@ func (d *dhNIKE) NewKeypair() (nike.PrivateKey, nike.PublicKey) {
 		}
 }
 
+func (d *dhNIKE) DerivePublicKey(privKey nike.PrivateKey) nike.PublicKey {
+	return &publicKey{
+		publicKey: diffieHellman.GeneratePublicKey(privKey.(*privateKey).privateKey, d.group()),
+	}
+}
+
 type privateKey struct {
 	privateKey *cyclic.Int
 }

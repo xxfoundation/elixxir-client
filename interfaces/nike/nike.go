@@ -55,4 +55,7 @@ type Nike interface {
 	// NewEmptyPublicKey is a helper method used to help
 	// implement UnmarshalBinaryPublicKey.
 	NewEmptyPublicKey() PublicKey
+
+	// DerivePublicKey derives a public key given a private key.
+	DerivePublicKey(PrivateKey) PublicKey
 }

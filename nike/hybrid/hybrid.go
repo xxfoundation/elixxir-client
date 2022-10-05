@@ -30,6 +30,15 @@ func (s *scheme) NewKeypair() (nike.PrivateKey, nike.PublicKey) {
 		}
 }
 
+func (s *scheme) DerivePublicKey(privKey nike.PrivateKey) nike.PublicKey {
+	pubKey1 := privKey.(*privateKey).first.Scheme().DerivePublicKey(privKey.(*privateKey).first)
+	pubKey2 := privKey.(*privateKey).second.Scheme().DerivePublicKey(privKey.(*privateKey).second)
+	return &publicKey{
+		first:  pubKey1,
+		second: pubKey2,
+	}
+}
+
 func (s *scheme) Name() string { return s.name }
 
 func (s *scheme) PublicKeySize() int {

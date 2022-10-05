@@ -22,6 +22,12 @@ var _ nike.PrivateKey = (*PrivateKey)(nil)
 var _ nike.PublicKey = (*PublicKey)(nil)
 var _ nike.Nike = (*ctidhNIKE)(nil)
 
+func (e *ctidhNIKE) DerivePublicKey(privKey nike.PrivateKey) nike.PublicKey {
+	return &PublicKey{
+		publicKey: ctidh.DerivePublicKey(privKey.(*PrivateKey).privateKey),
+	}
+}
+
 // PublicKeySize returns the size in bytes of the public key.
 func (e *ctidhNIKE) PublicKeySize() int {
 	return ctidh.PublicKeySize

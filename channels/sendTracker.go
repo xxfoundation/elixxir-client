@@ -205,6 +205,16 @@ func (st *sendTracker) denotePendingSend(channelID *id.ID,
 	// approximate the lag due to round submission
 	ts := netTime.Now().Add(oneSecond)
 
+	// create a random message id so there will not be collisions in a database
+	// that requires a unique message ID
+	stream := st.rngSrc.GetStream()
+	num, err := stream.Read(umi.messageID[:])
+	if num != len(umi.messageID[:]) || err != nil {
+		jww.FATAL.Panicf("failed to get a random message ID, read "+
+			"len: %d, err: %+v", num, err)
+	}
+	stream.Close()
+
 	// submit the message to the UI
 	uuid, err := st.trigger(channelID, umi, ts, receptionID.EphemeralIdentity{},
 		rounds.Round{}, Unsent)
@@ -212,19 +222,8 @@ func (st *sendTracker) denotePendingSend(channelID *id.ID,
 		return 0, err
 	}
 
-	// create a random message id so there will not be collisions in a database
-	// that requires a unique message ID
-	stream := st.rngSrc.GetStream()
-	randMid := cryptoChannel.MessageID{}
-	num, err := stream.Read(randMid[:])
-	if num != len(randMid[:]) || err != nil {
-		jww.FATAL.Panicf("failed to get a random message ID, read "+
-			"len: %d, err: %+v", num, err)
-	}
-	stream.Close()
-
 	// track the message on disk
-	st.handleDenoteSend(uuid, channelID, randMid,
+	st.handleDenoteSend(uuid, channelID, umi.messageID,
 		rounds.Round{})
 	return uuid, nil
 }
@@ -237,15 +236,6 @@ func (st *sendTracker) denotePendingAdminSend(channelID *id.ID,
 	// approximate the lag due to round submission
 	ts := netTime.Now().Add(oneSecond)
 
-	// submit the message to the UI
-	uuid, err := st.adminTrigger(channelID, cm, ts, cryptoChannel.MessageID{},
-		receptionID.EphemeralIdentity{},
-		rounds.Round{}, Unsent)
-
-	if err != nil {
-		return 0, err
-	}
-
 	// create a random message id so there will not be collisions in a database
 	// that requires a unique message ID
 	stream := st.rngSrc.GetStream()
@@ -256,6 +246,15 @@ func (st *sendTracker) denotePendingAdminSend(channelID *id.ID,
 			"len: %d, err: %+v", num, err)
 	}
 	stream.Close()
+
+	// submit the message to the UI
+	uuid, err := st.adminTrigger(channelID, cm, ts, randMid,
+		receptionID.EphemeralIdentity{},
+		rounds.Round{}, Unsent)
+
+	if err != nil {
+		return 0, err
+	}
 
 	// track the message on disk
 	st.handleDenoteSend(uuid, channelID, randMid,

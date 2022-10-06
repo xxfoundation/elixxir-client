@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/xx_network/crypto/csprng"
 
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/interfaces/nike"
 	"gitlab.com/elixxir/crypto/fastRNG"
 )
@@ -13,7 +14,9 @@ type xxratchetFactory struct{}
 
 var DefaultXXRatchetFactory = &xxratchetFactory{}
 
-func (x *xxratchetFactory) NewXXRatchet(myPrivateKey nike.PrivateKey, myPublicKey nike.PublicKey, partnerPublicKey nike.PublicKey) XXRatchet {
+func (x *xxratchetFactory) NewXXRatchet(myPrivateKey nike.PrivateKey,
+	myPublicKey nike.PublicKey, partnerPublicKey nike.PublicKey,
+	params session.Params) XXRatchet {
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	rng := rngGen.GetStream()
 
@@ -54,6 +57,8 @@ type xxratchet struct {
 	recvRatchets map[ID]ReceiveRatchet
 
 	rekeyTrigger RekeyTrigger
+
+	params session.Params
 }
 
 var _ XXRatchet = (*xxratchet)(nil)

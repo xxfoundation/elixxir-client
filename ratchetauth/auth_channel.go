@@ -15,6 +15,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/keyMutex"
 
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/interfaces/nike"
@@ -37,13 +38,8 @@ type AuthenticatedChannel struct {
 	ratchets ratchet.XXRatchet
 
 	// Locks are handled on a per-ratchet basis
-	// FIXME: this needs to be it's own primitive, because the map
-	// accesses need their own lock. I couldn't find a kmutex
-	// primitive that looked reasonable.. and only one was BSD...
-	// I think we may have this pattern elsewhere, and we should add
-	// a kmutex to primitives
-	ratchetMuxes map[ratchet.ID]sync.Mutex
-	stateMux     sync.Mutex
+	keyMux   *keyMutex.KeyMutex
+	stateMux sync.Mutex
 
 	// The key-value store for reading and writing to disk.
 	kv ekv.KeyValue

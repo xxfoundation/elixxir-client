@@ -348,7 +348,7 @@ type GroupRequest interface {
 // The decryptedMessage field will be a JSON marshalled GroupChatMessage.
 type GroupChatProcessor interface {
 	Process(decryptedMessage, msg, receptionId []byte, ephemeralId,
-		roundId int64, err error)
+		roundId int64, roundUrl string, err error)
 	fmt.Stringer
 }
 
@@ -402,13 +402,14 @@ func convertMessageReceive(decryptedMsg gc.MessageReceive) GroupChatMessage {
 // binding-layer primitives equivalents within the GroupChatProcessor.Process.
 func convertGroupChatProcessor(decryptedMsg gc.MessageReceive, msg format.Message,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) (
-	decryptedMessage, message, receptionId []byte, ephemeralId, roundId int64, err error) {
+	decryptedMessage, message, receptionId []byte, ephemeralId, roundId int64, roundUrl string, err error) {
 
 	decryptedMessage, err = json.Marshal(convertMessageReceive(decryptedMsg))
 	message = msg.Marshal()
 	receptionId = receptionID.Source.Marshal()
 	ephemeralId = receptionID.EphId.Int64()
 	roundId = int64(round.ID)
+	roundUrl = getRoundURL(round.ID)
 	return
 }
 

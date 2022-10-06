@@ -308,6 +308,10 @@ func (r *receiveRatchet) Decrypt(message *EncryptedMessage) (plaintext []byte, e
 	return r.ratchet.Decrypt(message)
 }
 
+func (r *receiveRatchet) DeriveFingerprints() []format.Fingerprint {
+	return r.ratchet.DeriveFingerprints()
+}
+
 func (r *receiveRatchet) Next(theirPublicKey nike.PublicKey) ReceiveRatchet {
 	sharedSecret := r.myPrivateKey.DeriveSecret(theirPublicKey)
 	return &receiveRatchet{

@@ -2,6 +2,7 @@ package ratchet
 
 import (
 	"errors"
+	"fmt"
 
 	"gitlab.com/xx_network/crypto/csprng"
 
@@ -16,7 +17,8 @@ var DefaultXXRatchetFactory = &xxratchetFactory{}
 
 func NewXXRatchet(myPrivateKey nike.PrivateKey,
 	myPublicKey nike.PublicKey, partnerPublicKey nike.PublicKey,
-	params session.Params, rekeyTrigger RekeyTrigger) XXRatchet {
+	params session.Params, rekeyTrigger RekeyTrigger,
+	fpTracker FingerprintTracker) XXRatchet {
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	rng := rngGen.GetStream()
 
@@ -50,6 +52,9 @@ func NewXXRatchet(myPrivateKey nike.PrivateKey,
 	r.sendRatchets[sendID] = mySendRatchet
 	r.recvRatchets[recvID] = myRecvRatchet
 	r.rekeyTrigger = rekeyTrigger
+	r.fpTracker = fpTracker
+
+	r.addKeyFingerprints(r.recvRatchets[recvID])
 
 	return r
 }
@@ -66,6 +71,7 @@ type xxratchet struct {
 	recvRatchets map[ID]ReceiveRatchet
 
 	rekeyTrigger RekeyTrigger
+	fpTracker    FingerprintTracker
 
 	params session.Params
 }
@@ -115,16 +121,18 @@ func (x *xxratchet) rekeySender(id ID) nike.PublicKey {
 // Rekey creates a new receiving ratchet defined
 // by the received public key. This is called
 // by case 6 above in our protocol description.
-//
-// TODO: This function needs to send the new fingerprints
-// to a callback interface method.
 func (x *xxratchet) Rekey(oldReceiverRatchetID ID,
-	theirPublicKey nike.PublicKey) (ID, nike.PublicKey) {
-	myPrivateKey, myPublicKey := DefaultNIKE.NewKeypair()
-	r := NewReceiveRatchet(myPrivateKey, theirPublicKey, x.salt, x.size, x.threshold)
+	theirPublicKey nike.PublicKey) (ID, error) {
+	oldRatchet, ok := x.recvRatchets[oldReceiverRatchetID]
+	if !ok {
+		return ID{}, fmt.Errorf("receiving ratchet id not found: %s",
+			oldReceiverRatchetID)
+	}
+	r := oldRatchet.Next(theirPublicKey)
 	id := r.ID()
 	x.recvRatchets[id] = r
-	return id, myPublicKey
+	x.addKeyFingerprints(x.recvRatchets[id])
+	return id, nil
 }
 
 func (x *xxratchet) SetState(senderRatchetID ID,
@@ -133,6 +141,7 @@ func (x *xxratchet) SetState(senderRatchetID ID,
 	if !curState.IsNewStateLegal(newState) {
 		return errors.New("SetState: invalid state transition")
 	}
+
 	curList, ok := deleteRatchetIDFromList(senderRatchetID,
 		x.sendStates[curState])
 	if !ok {
@@ -147,8 +156,8 @@ func (x *xxratchet) SetState(senderRatchetID ID,
 func (x *xxratchet) SendRatchets() []ID {
 	ids := make([]ID, len(x.sendRatchets))
 	i := 0
-	for id, _ := range x.sendRatchets {
-		ids[i] = id
+	for ratchetID, _ := range x.sendRatchets {
+		ids[i] = ratchetID
 		i++
 	}
 	return ids
@@ -161,11 +170,18 @@ func (x *xxratchet) SendRatchetsByState(state NegotiationState) []ID {
 func (x *xxratchet) ReceiveRatchets() []ID {
 	ids := make([]ID, len(x.recvRatchets))
 	i := 0
-	for id, _ := range x.recvRatchets {
-		ids[i] = id
+	for ratchetID, _ := range x.recvRatchets {
+		ids[i] = ratchetID
 		i++
 	}
 	return ids
+}
+
+func (x *xxratchet) addKeyFingerprints(ratchet ReceiveRatchet) {
+	fps := ratchet.DeriveFingerprints()
+	for i := 0; i < len(fps); i++ {
+		x.fpTracker.AddKey(fps[i])
+	}
 }
 
 func deleteRatchetIDFromList(ratchetID ID,

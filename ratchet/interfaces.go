@@ -18,7 +18,7 @@ type XXRatchet interface {
 		message *EncryptedMessage) (plaintext []byte, err error)
 
 	Rekey(oldReceiverRatchetID ID,
-		theirPublicKey nike.PublicKey) (ID, nike.PublicKey)
+		theirPublicKey nike.PublicKey) (ID, error)
 
 	// State Management Functions
 	SetState(senderID ID, newState NegotiationState) error
@@ -29,6 +29,11 @@ type XXRatchet interface {
 
 type RekeyTrigger interface {
 	TriggerRekey(ratchetID ID, myPublicKey nike.PublicKey)
+}
+
+type FingerprintTracker interface {
+	AddKey(fp format.Fingerprint)
+	DeleteKey(fp format.Fingerprint)
 }
 
 type RatchetFactory interface {
@@ -50,6 +55,7 @@ type ReceiveRatchet interface {
 	Decrypt(*EncryptedMessage) (plaintext []byte, err error)
 	Save() ([]byte, error)
 	Next(theirPublicKey nike.PublicKey) ReceiveRatchet
+	DeriveFingerprints() []format.Fingerprint
 }
 
 type SymmetricKeyRatchetFactory interface {
@@ -65,4 +71,5 @@ type SymmetricKeyRatchet interface {
 	Salt() []byte
 	Size() uint32
 	Threshold() uint32
+	DeriveFingerprints() []format.Fingerprint
 }

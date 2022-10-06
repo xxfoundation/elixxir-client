@@ -14,7 +14,7 @@ type xxratchetFactory struct{}
 
 var DefaultXXRatchetFactory = &xxratchetFactory{}
 
-func (x *xxratchetFactory) NewXXRatchet(myPrivateKey nike.PrivateKey,
+func NewXXRatchet(myPrivateKey nike.PrivateKey,
 	myPublicKey nike.PublicKey, partnerPublicKey nike.PublicKey,
 	params session.Params) XXRatchet {
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)

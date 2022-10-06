@@ -17,13 +17,14 @@ func TestRatchetEncryptDecrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	size := uint32(32)
+	threshhold := uint32(20)
 
 	scheme := DefaultSymmetricKeyRatchetFactory
-	aliceRatchetSend := scheme.New(sharedSecret, salt, size)
-	aliceRatchetReceive := scheme.New(sharedSecret, salt, size)
+	aliceRatchetSend := scheme.New(sharedSecret, salt, size, threshhold)
+	aliceRatchetReceive := scheme.New(sharedSecret, salt, size, threshhold)
 
-	bobRatchetSend := scheme.New(sharedSecret, salt, size)
-	bobRatchetReceive := scheme.New(sharedSecret, salt, size)
+	bobRatchetSend := scheme.New(sharedSecret, salt, size, threshhold)
+	bobRatchetReceive := scheme.New(sharedSecret, salt, size, threshhold)
 
 	msg1 := []byte("hello")
 	msg2 := []byte("hi hi")
@@ -53,9 +54,10 @@ func TestRatchetMarshal(t *testing.T) {
 	require.NoError(t, err)
 
 	size := uint32(32)
+	threshhold := uint32(20)
 
 	scheme := DefaultSymmetricKeyRatchetFactory
-	r1 := scheme.New(sharedSecret, salt, size)
+	r1 := scheme.New(sharedSecret, salt, size, threshhold)
 	blob1, err := r1.Save()
 	require.NoError(t, err)
 
@@ -70,15 +72,20 @@ func TestReceiveSendRatchetEncryptDecrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	size := uint32(32)
+	threshhold := uint32(20)
 
 	alicePrivateKey, alicePublicKey := DefaultNIKE.NewKeypair()
 	bobPrivateKey, bobPublicKey := DefaultNIKE.NewKeypair()
 
-	aliceReceiveRatchet := NewReceiveRatchet(alicePrivateKey, bobPublicKey, salt, size)
-	aliceSendRatchet := NewSendRatchet(alicePrivateKey, alicePublicKey, bobPublicKey, salt, size)
+	aliceReceiveRatchet := NewReceiveRatchet(alicePrivateKey, bobPublicKey,
+		salt, size, threshhold)
+	aliceSendRatchet := NewSendRatchet(alicePrivateKey, alicePublicKey,
+		bobPublicKey, salt, size, threshhold)
 
-	bobReceiveRatchet := NewReceiveRatchet(bobPrivateKey, alicePublicKey, salt, size)
-	bobSendRatchet := NewSendRatchet(bobPrivateKey, bobPublicKey, alicePublicKey, salt, size)
+	bobReceiveRatchet := NewReceiveRatchet(bobPrivateKey, alicePublicKey,
+		salt, size, threshhold)
+	bobSendRatchet := NewSendRatchet(bobPrivateKey, bobPublicKey,
+		alicePublicKey, salt, size, threshhold)
 
 	msg1 := []byte("hi bob")
 

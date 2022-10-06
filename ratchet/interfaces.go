@@ -38,6 +38,7 @@ type RatchetFactory interface {
 }
 
 type SendRatchet interface {
+	ID() ID
 	Encrypt(plaintext []byte) (*EncryptedMessage, error)
 	Save() ([]byte, error)
 	Next() SendRatchet
@@ -45,6 +46,7 @@ type SendRatchet interface {
 }
 
 type ReceiveRatchet interface {
+	ID() ID
 	Decrypt(*EncryptedMessage) (plaintext []byte, err error)
 	Save() ([]byte, error)
 	Next(theirPublicKey nike.PublicKey) ReceiveRatchet
@@ -56,6 +58,7 @@ type SymmetricKeyRatchetFactory interface {
 }
 
 type SymmetricKeyRatchet interface {
+	ID() ID
 	Encrypt(plaintext []byte) (*EncryptedMessage, error)
 	Decrypt(*EncryptedMessage) (plaintext []byte, err error)
 	Save() ([]byte, error)

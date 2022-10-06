@@ -26,7 +26,8 @@ import (
 
 // AuthenticatedChannel
 // TODO: Explain what an authenticated channel is and how it uses the
-//       lower layers.
+//
+//	lower layers.
 type AuthenticatedChannel struct {
 	// The cMix ratchet.ID of the user who shares this authenticated channel.
 	// Used for ratchet identification and debugging information.
@@ -43,8 +44,10 @@ type AuthenticatedChannel struct {
 
 	// The key-value store for reading and writing to disk.
 	kv ekv.KeyValue
+
 	// params holds the ratcheting parameters
 	params session.Params
+
 	// cyHdlr holds callbacks for Adding and deleting
 	// keys from the message processing layer.
 	cyHdlr session.CypherHandler
@@ -57,26 +60,21 @@ type AuthenticatedChannel struct {
 func NewAuthenticatedChannel(kv ekv.KeyValue, partner, me *id.ID, myPrivateKey nike.PrivateKey,
 	myPublicKey, theirPublicKey nike.PublicKey, cypherHandler session.CypherHandler,
 	params session.Params) *AuthenticatedChannel {
-	senderID := makeRelationshipFingerprint(myPublicKey,
-		theirPublicKey, me, partner)
+	//senderID := makeRelationshipFingerprint(myPublicKey,
+	//	theirPublicKey, me, partner)
 	//	receiverID := makeRelationshipFingerprint(theirPublicKey,
 	//		myPublicKey, partner, me)
 
-	// FIXME: We need to crib the alg for determing the size of these bufs
-
-	sendStates := make(map[ratchet.NegotiationState][]ratchet.ID)
-	for i := 0; i < int(session.NewSessionCreated); i++ {
-		sendStates[ratchet.NegotiationState(i)] = make([]ratchet.ID, 0)
-	}
-
-	sendStates[ratchet.NewSessionTriggered] = append(
-		sendStates[ratchet.NewSessionTriggered], senderID)
+	r := ratchet.NewXXRatchet(myPrivateKey,
+		myPublicKey, theirPublicKey,
+		params)
 
 	return &AuthenticatedChannel{
-		me:      me,
-		partner: partner,
-		kv:      kv,
-		params:  params,
+		ratchets: r,
+		me:       me,
+		partner:  partner,
+		kv:       kv,
+		params:   params,
 		//		ratchetMuxes: ratchetLocks,
 		cyHdlr: cypherHandler,
 	}

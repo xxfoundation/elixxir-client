@@ -33,12 +33,20 @@ func NewXXRatchet(myPrivateKey nike.PrivateKey,
 	r := newxxratchet(size, salt)
 
 	mySendRatchet := NewSendRatchet(myPrivateKey, myPublicKey, partnerPublicKey, salt, size)
-	myRecvRatchet, id := NewReceiveRatchet(myPrivateKey, partnerPublicKey, salt, size)
+	sendID := mySendRatchet.ID()
 
-	r.sendStates[Unconfirmed] = []ID{id}
-	r.invSendStates[id] = Unconfirmed
-	r.sendRatchets[id] = mySendRatchet
-	r.recvRatchets[id] = myRecvRatchet
+	myRecvRatchet := NewReceiveRatchet(myPrivateKey, partnerPublicKey, salt, size)
+	recvID := myRecvRatchet.ID()
+
+	for i := 0; i < int(NewSessionCreated); i++ {
+		r.sendStates[NegotiationState(i)] = make([]ID, 0)
+	}
+
+	r.sendStates[Unconfirmed] = []ID{sendID}
+
+	r.invSendStates[sendID] = Unconfirmed
+	r.sendRatchets[sendID] = mySendRatchet
+	r.recvRatchets[recvID] = myRecvRatchet
 
 	// FIXME, set callback interface object
 	//r.rekeyTrigger = ...
@@ -92,13 +100,10 @@ func (x *xxratchet) Decrypt(id ID,
 // to a callback interface method.
 func (x *xxratchet) Rekey(oldReceiverRatchetID ID,
 	theirPublicKey nike.PublicKey) (ID, nike.PublicKey) {
-
 	myPrivateKey, myPublicKey := DefaultNIKE.NewKeypair()
-
-	r, id := NewReceiveRatchet(myPrivateKey, theirPublicKey, x.salt, x.size)
-
+	r := NewReceiveRatchet(myPrivateKey, theirPublicKey, x.salt, x.size)
+	id := r.ID()
 	x.recvRatchets[id] = r
-
 	return id, myPublicKey
 }
 

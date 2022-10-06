@@ -74,10 +74,10 @@ func TestReceiveSendRatchetEncryptDecrypt(t *testing.T) {
 	alicePrivateKey, alicePublicKey := DefaultNIKE.NewKeypair()
 	bobPrivateKey, bobPublicKey := DefaultNIKE.NewKeypair()
 
-	aliceReceiveRatchet, _ := NewReceiveRatchet(alicePrivateKey, bobPublicKey, salt, size)
+	aliceReceiveRatchet := NewReceiveRatchet(alicePrivateKey, bobPublicKey, salt, size)
 	aliceSendRatchet := NewSendRatchet(alicePrivateKey, alicePublicKey, bobPublicKey, salt, size)
 
-	bobReceiveRatchet, _ := NewReceiveRatchet(bobPrivateKey, alicePublicKey, salt, size)
+	bobReceiveRatchet := NewReceiveRatchet(bobPrivateKey, alicePublicKey, salt, size)
 	bobSendRatchet := NewSendRatchet(bobPrivateKey, bobPublicKey, alicePublicKey, salt, size)
 
 	msg1 := []byte("hi bob")

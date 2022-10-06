@@ -90,6 +90,10 @@ type RatchetDisk struct {
 	UsedKeys     []byte
 }
 
+func (r *symmetricRatchet) ID() ID {
+	return GetIDFromBaseKey(r.sharedSecret)
+}
+
 func (r *symmetricRatchet) Salt() []byte {
 	return r.salt
 }
@@ -258,16 +262,19 @@ func receiveRatchetFromBytes(blob []byte) (*receiveRatchet, error) {
 // the symmetric ratchet KDF.
 func NewReceiveRatchet(myPrivateKey nike.PrivateKey,
 	theirPublicKey nike.PublicKey, salt []byte,
-	size uint32) (ReceiveRatchet, ID) {
+	size uint32) ReceiveRatchet {
 	ratchetFactory := &symmetricKeyRatchetFactory{}
 	sharedSecret := myPrivateKey.DeriveSecret(theirPublicKey)
-	id := GetIDFromBaseKey(sharedSecret)
 	ratchet := ratchetFactory.New(sharedSecret,
 		salt, size)
 	return &receiveRatchet{
 		myPrivateKey: myPrivateKey,
 		ratchet:      ratchet,
-	}, id
+	}
+}
+
+func (r *receiveRatchet) ID() ID {
+	return r.ratchet.ID()
 }
 
 func (r *receiveRatchet) Save() ([]byte, error) {
@@ -348,6 +355,10 @@ func NewSendRatchet(myPrivateKey nike.PrivateKey, myPublicKey,
 		partnerPublicKey: theirPublicKey,
 		myPublicKey:      myPublicKey,
 	}
+}
+
+func (r *sendRatchet) ID() ID {
+	return r.ratchet.ID()
 }
 
 func (r *sendRatchet) Save() ([]byte, error) {

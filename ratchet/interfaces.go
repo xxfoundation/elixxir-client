@@ -54,7 +54,7 @@ type ReceiveRatchet interface {
 
 type SymmetricKeyRatchetFactory interface {
 	FromBytes(serializedRatchet []byte) (SymmetricKeyRatchet, error)
-	New(sharedSecret, salt []byte, fingerprintMapSize uint32) SymmetricKeyRatchet
+	New(sharedSecret, salt []byte, fingerprintMapSize, threshold uint32) SymmetricKeyRatchet
 }
 
 type SymmetricKeyRatchet interface {
@@ -64,4 +64,5 @@ type SymmetricKeyRatchet interface {
 	Save() ([]byte, error)
 	Salt() []byte
 	Size() uint32
+	Threshold() uint32
 }

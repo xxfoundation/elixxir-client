@@ -30,6 +30,8 @@ var (
 	_ SymmetricKeyRatchet        = (*symmetricRatchet)(nil)
 	_ ReceiveRatchet             = (*receiveRatchet)(nil)
 	_ SendRatchet                = (*sendRatchet)(nil)
+
+	ErrRekeyThreshold = errors.New("error rekey threshold reached")
 )
 
 type symmetricKeyRatchetFactory struct{}
@@ -49,6 +51,7 @@ func (s *symmetricKeyRatchetFactory) FromBytes(serializedRatchet []byte) (Symmet
 		size:           d.Size,
 		sharedSecret:   d.SharedSecret,
 		salt:           d.Salt,
+		threshold:      d.Threshold,
 		usedKeys:       usedKeys,
 		fingerprintMap: make(map[format.Fingerprint]uint32),
 	}
@@ -59,13 +62,14 @@ func (s *symmetricKeyRatchetFactory) FromBytes(serializedRatchet []byte) (Symmet
 	return r, nil
 }
 
-func (s *symmetricKeyRatchetFactory) New(sharedSecret, salt []byte, size uint32) SymmetricKeyRatchet {
+func (s *symmetricKeyRatchetFactory) New(sharedSecret, salt []byte, size, threshold uint32) SymmetricKeyRatchet {
 	r := &symmetricRatchet{
 		size:           size,
 		sharedSecret:   sharedSecret,
 		salt:           salt,
 		usedKeys:       NewStateVector(size),
 		fingerprintMap: make(map[format.Fingerprint]uint32),
+		threshold:      threshold,
 	}
 	fingerprints := r.DeriveFingerprints()
 	for i := uint32(0); i < r.size; i++ {
@@ -81,6 +85,7 @@ type symmetricRatchet struct {
 	usedKeys       *StateVector
 	fingerprintMap map[format.Fingerprint]uint32
 	fingerprints   []format.Fingerprint // not serialized to disk
+	threshold      uint32
 }
 
 type RatchetDisk struct {
@@ -88,6 +93,7 @@ type RatchetDisk struct {
 	SharedSecret []byte
 	Salt         []byte
 	UsedKeys     []byte
+	Threshold    uint32
 }
 
 func (r *symmetricRatchet) ID() ID {
@@ -102,7 +108,15 @@ func (r *symmetricRatchet) Size() uint32 {
 	return r.size
 }
 
+func (r *symmetricRatchet) Threshold() uint32 {
+	return r.threshold
+}
+
 func (r *symmetricRatchet) Encrypt(plaintext []byte) (*EncryptedMessage, error) {
+	available := r.usedKeys.GetNumAvailable()
+	if available < r.threshold {
+		return nil, ErrRekeyThreshold
+	}
 	index, err := r.usedKeys.Next()
 	if err != nil {
 		return nil, err
@@ -147,6 +161,7 @@ func (r *symmetricRatchet) Save() ([]byte, error) {
 		Salt:         r.salt,
 		Size:         r.size,
 		UsedKeys:     userKeysBytes,
+		Threshold:    r.threshold,
 	}
 	return cbor.Marshal(d)
 }
@@ -262,11 +277,11 @@ func receiveRatchetFromBytes(blob []byte) (*receiveRatchet, error) {
 // the symmetric ratchet KDF.
 func NewReceiveRatchet(myPrivateKey nike.PrivateKey,
 	theirPublicKey nike.PublicKey, salt []byte,
-	size uint32) ReceiveRatchet {
+	size, threshold uint32) ReceiveRatchet {
 	ratchetFactory := &symmetricKeyRatchetFactory{}
 	sharedSecret := myPrivateKey.DeriveSecret(theirPublicKey)
 	ratchet := ratchetFactory.New(sharedSecret,
-		salt, size)
+		salt, size, threshold)
 	return &receiveRatchet{
 		myPrivateKey: myPrivateKey,
 		ratchet:      ratchet,
@@ -297,7 +312,10 @@ func (r *receiveRatchet) Next(theirPublicKey nike.PublicKey) ReceiveRatchet {
 	sharedSecret := r.myPrivateKey.DeriveSecret(theirPublicKey)
 	return &receiveRatchet{
 		myPrivateKey: r.myPrivateKey,
-		ratchet:      DefaultSymmetricKeyRatchetFactory.New(sharedSecret, r.ratchet.Salt(), r.ratchet.Size()),
+		ratchet: DefaultSymmetricKeyRatchetFactory.New(sharedSecret,
+			r.ratchet.Salt(),
+			r.ratchet.Size(),
+			r.ratchet.Threshold()),
 	}
 }
 
@@ -344,11 +362,11 @@ func sendRatchetFromBytes(blob []byte) (*sendRatchet, error) {
 }
 
 func NewSendRatchet(myPrivateKey nike.PrivateKey, myPublicKey,
-	theirPublicKey nike.PublicKey, salt []byte, size uint32) SendRatchet {
+	theirPublicKey nike.PublicKey, salt []byte, size, threshold uint32) SendRatchet {
 	ratchetFactory := &symmetricKeyRatchetFactory{}
 
 	sharedSecret := myPrivateKey.DeriveSecret(theirPublicKey)
-	ratchet := ratchetFactory.New(sharedSecret, salt, size)
+	ratchet := ratchetFactory.New(sharedSecret, salt, size, threshold)
 
 	return &sendRatchet{
 		ratchet:          ratchet,
@@ -383,7 +401,7 @@ func (r *sendRatchet) Next() SendRatchet {
 	sharedSecret := privateKey.DeriveSecret(r.partnerPublicKey)
 
 	return &sendRatchet{
-		ratchet:          DefaultSymmetricKeyRatchetFactory.New(sharedSecret, r.ratchet.Salt(), r.ratchet.Size()),
+		ratchet:          DefaultSymmetricKeyRatchetFactory.New(sharedSecret, r.ratchet.Salt(), r.ratchet.Size(), r.ratchet.Threshold()),
 		partnerPublicKey: r.partnerPublicKey,
 		myPublicKey:      publicKey,
 	}

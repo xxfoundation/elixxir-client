@@ -16,7 +16,7 @@ var DefaultXXRatchetFactory = &xxratchetFactory{}
 
 func NewXXRatchet(myPrivateKey nike.PrivateKey,
 	myPublicKey nike.PublicKey, partnerPublicKey nike.PublicKey,
-	params session.Params) XXRatchet {
+	params session.Params, rekeyTrigger RekeyTrigger) XXRatchet {
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	rng := rngGen.GetStream()
 
@@ -32,31 +32,32 @@ func NewXXRatchet(myPrivateKey nike.PrivateKey,
 
 	r := newxxratchet(size, salt)
 
-	mySendRatchet := NewSendRatchet(myPrivateKey, myPublicKey, partnerPublicKey, salt, size)
+	threshold := uint32(12345)
+
+	mySendRatchet := NewSendRatchet(myPrivateKey, myPublicKey, partnerPublicKey, salt, size, threshold)
 	sendID := mySendRatchet.ID()
 
-	myRecvRatchet := NewReceiveRatchet(myPrivateKey, partnerPublicKey, salt, size)
+	myRecvRatchet := NewReceiveRatchet(myPrivateKey, partnerPublicKey, salt, size, threshold)
 	recvID := myRecvRatchet.ID()
 
 	for i := 0; i < int(NewSessionCreated); i++ {
 		r.sendStates[NegotiationState(i)] = make([]ID, 0)
 	}
 
+	r.threshold = threshold
 	r.sendStates[Unconfirmed] = []ID{sendID}
-
 	r.invSendStates[sendID] = Unconfirmed
 	r.sendRatchets[sendID] = mySendRatchet
 	r.recvRatchets[recvID] = myRecvRatchet
-
-	// FIXME, set callback interface object
-	//r.rekeyTrigger = ...
+	r.rekeyTrigger = rekeyTrigger
 
 	return r
 }
 
 type xxratchet struct {
-	size uint32
-	salt []byte
+	size      uint32
+	threshold uint32
+	salt      []byte
 
 	sendStates    map[NegotiationState][]ID
 	invSendStates map[ID]NegotiationState
@@ -84,12 +85,31 @@ func newxxratchet(size uint32, salt []byte) *xxratchet {
 
 func (x *xxratchet) Encrypt(id ID,
 	plaintext []byte) (*EncryptedMessage, error) {
-	return x.sendRatchets[id].Encrypt(plaintext)
+	message, err := x.sendRatchets[id].Encrypt(plaintext)
+	switch err {
+	case nil:
+		return message, nil
+	case ErrRekeyThreshold:
+		myPubKey := x.rekeySender(id)
+		x.rekeyTrigger.TriggerRekey(id, myPubKey)
+		return message, nil
+	default:
+		return nil, err
+	}
 }
 
 func (x *xxratchet) Decrypt(id ID,
 	message *EncryptedMessage) (plaintext []byte, err error) {
 	return x.recvRatchets[id].Decrypt(message)
+}
+
+func (x *xxratchet) rekeySender(id ID) nike.PublicKey {
+	newSendRatchet := x.sendRatchets[id].Next()
+	newid := newSendRatchet.ID()
+	x.sendRatchets[newid] = newSendRatchet
+	x.sendStates[Unconfirmed] = append(x.sendStates[Unconfirmed], newid)
+	x.invSendStates[newid] = Unconfirmed
+	return newSendRatchet.MyPublicKey()
 }
 
 // Rekey creates a new receiving ratchet defined
@@ -101,7 +121,7 @@ func (x *xxratchet) Decrypt(id ID,
 func (x *xxratchet) Rekey(oldReceiverRatchetID ID,
 	theirPublicKey nike.PublicKey) (ID, nike.PublicKey) {
 	myPrivateKey, myPublicKey := DefaultNIKE.NewKeypair()
-	r := NewReceiveRatchet(myPrivateKey, theirPublicKey, x.salt, x.size)
+	r := NewReceiveRatchet(myPrivateKey, theirPublicKey, x.salt, x.size, x.threshold)
 	id := r.ID()
 	x.recvRatchets[id] = r
 	return id, myPublicKey
@@ -120,6 +140,7 @@ func (x *xxratchet) SetState(senderRatchetID ID,
 	}
 	x.sendStates[curState] = curList
 	x.sendStates[newState] = append(x.sendStates[newState], senderRatchetID)
+	x.invSendStates[senderRatchetID] = newState
 	return nil
 }
 

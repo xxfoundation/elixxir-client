@@ -65,9 +65,11 @@ func NewAuthenticatedChannel(kv ekv.KeyValue, partner, me *id.ID, myPrivateKey n
 	//	receiverID := makeRelationshipFingerprint(theirPublicKey,
 	//		myPublicKey, partner, me)
 
+	var rekeyTrigger ratchet.RekeyTrigger = nil // XXX FIXME
+
 	r := ratchet.NewXXRatchet(myPrivateKey,
 		myPublicKey, theirPublicKey,
-		params)
+		params, rekeyTrigger)
 
 	return &AuthenticatedChannel{
 		ratchets: r,

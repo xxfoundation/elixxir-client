@@ -487,6 +487,8 @@ gitlab.com/xx_network/primitives v0.0.4-0.20220630163313-7890038258c6/go.mod h1:
 gitlab.com/xx_network/primitives v0.0.4-0.20220712193914-aebd8544396e/go.mod h1:AXVVFt7dDAeIUpOGPiStCcUIKsBXLWbmV/BgZ4T+tOo=
 gitlab.com/xx_network/primitives v0.0.4-0.20220902183448-319596e2fec8 h1:esjWkrzTD+bpTgT5NphhdpX/fbSpZRXLpPaXb4HqkXg=
 gitlab.com/xx_network/primitives v0.0.4-0.20220902183448-319596e2fec8/go.mod h1:AXVVFt7dDAeIUpOGPiStCcUIKsBXLWbmV/BgZ4T+tOo=
+gitlab.com/xx_network/primitives v0.0.4-0.20221006180601-06923fa9395c h1:S36MdIyoSjQGW4y0BMy61ftjMaKsAKm9doJCMp0GuZY=
+gitlab.com/xx_network/primitives v0.0.4-0.20221006180601-06923fa9395c/go.mod h1:AXVVFt7dDAeIUpOGPiStCcUIKsBXLWbmV/BgZ4T+tOo=
 gitlab.com/xx_network/ring v0.0.3-0.20220222211904-da613960ad93 h1:eJZrXqHsMmmejEPWw8gNAt0I8CGAMNO/7C339Zco3TM=
 gitlab.com/xx_network/ring v0.0.3-0.20220222211904-da613960ad93/go.mod h1:aLzpP2TiZTQut/PVHR40EJAomzugDdHXetbieRClXIM=
 go.etcd.io/etcd/api/v3 v3.5.4/go.mod h1:5GB2vv4A4AOn3yk7MftYGHkUfGtDHnEraIjym4dYz5A=

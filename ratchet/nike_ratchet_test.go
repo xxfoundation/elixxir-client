@@ -1,8 +1,111 @@
 package ratchet
 
-// Major test:
-// Create a new ratchet with specific settings, "exhaust" it, and be
-// sure the callback is triggered at the appropriate time.
+import (
+	"testing"
+
+	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	"gitlab.com/elixxir/client/interfaces/nike"
+	"gitlab.com/elixxir/client/nike/hybrid"
+	"gitlab.com/elixxir/primitives/format"
+)
+
+type testRekeyTrigger struct {
+	ids  []ID
+	keys []nike.PublicKey
+}
+
+func (t *testRekeyTrigger) TriggerRekey(ratchetID ID, pubKey nike.PublicKey) {
+	t.ids = append(t.ids, ratchetID)
+	t.keys = append(t.keys, pubKey)
+}
+
+type testFPTracker struct {
+	added   []format.Fingerprint
+	deleted []format.Fingerprint
+}
+
+func (t *testFPTracker) AddKey(fp format.Fingerprint) {
+	t.added = append(t.added, fp)
+}
+func (t *testFPTracker) DeleteKey(fp format.Fingerprint) {
+	t.deleted = append(t.deleted, fp)
+}
+
+// TestXXRatchet_Smoke performs a smoke test to be sure the
+// ratchet is operating as intended. Specifically, we create 2 new
+// ratchets, then check to see:
+//  1. That they exhaust after the proper number of decryptions
+//  2. They cannot encrypt more than the stated number of keys
+//  3. That Rekey'ing produces the proper keys + state on both sides
+//  4. That rekey triggers via encrypt are called and that the keys
+//     can be rekeyed on the other side.
+func TestXXRatchet_Smoke(t *testing.T) {
+	alicePriv, alicePub := hybrid.CTIDHDiffieHellman.NewKeypair()
+	bobPriv, bobPub := hybrid.CTIDHDiffieHellman.NewKeypair()
+
+	// note we do not use defaults here, this is intentional
+	params := session.Params{
+		MinKeys:               10,
+		MaxKeys:               20,
+		RekeyThreshold:        0.05,
+		NumRekeys:             5,
+		UnconfirmedRetryRatio: 0.1,
+	}
+
+	rktAlice := &testRekeyTrigger{
+		ids:  make([]ID, 0),
+		keys: make([]nike.PublicKey, 0),
+	}
+	fptAlice := &testFPTracker{
+		added:   make([]format.Fingerprint, 0),
+		deleted: make([]format.Fingerprint, 0),
+	}
+	rktBob := &testRekeyTrigger{
+		ids:  make([]ID, 0),
+		keys: make([]nike.PublicKey, 0),
+	}
+	fptBob := &testFPTracker{
+		added:   make([]format.Fingerprint, 0),
+		deleted: make([]format.Fingerprint, 0),
+	}
+
+	alice := NewXXRatchet(alicePriv, alicePub, bobPub, params, rktAlice,
+		fptAlice)
+	bob := NewXXRatchet(bobPriv, bobPub, alicePub, params, rktBob, fptBob)
+
+	// Alice send ratchets should == bob receive ratchets
+	aliceSends := alice.SendRatchets()
+	bobRecvs := bob.ReceiveRatchets()
+	if len(aliceSends) != len(bobRecvs) || len(aliceSends) != 1 {
+		t.Errorf("incorrect length on bob receive ratchets and alice "+
+			"send ratchets: 1 != %d != %d", len(bobRecvs),
+			len(aliceSends))
+	}
+	if aliceSends[0].String() != bobRecvs[0].String() {
+		t.Errorf("ratchet id mismatch (alice<>bob): %s != %s",
+			aliceSends[0], bobRecvs[0])
+	}
+
+	// Bob send ratchets should == alice receive ratchets
+	bobSends := bob.SendRatchets()
+	aliceRecvs := alice.ReceiveRatchets()
+	if len(bobSends) != len(aliceRecvs) || len(bobSends) != 1 {
+		t.Errorf("incorrect length on bob receive ratchets and bob "+
+			"send ratchets: 1 != %d != %d", len(aliceRecvs),
+			len(bobSends))
+	}
+	if bobSends[0].String() != aliceRecvs[0].String() {
+		t.Errorf("ratchet id mismatch (bob<>alice): %s != %s",
+			bobSends[0], aliceRecvs[0])
+	}
+
+	// Ratchet FPs added should be MaxKeys + NumRekeys
+	if len(fptBob.added) != len(fptAlice.added) || len(fptBob.added) != 25 {
+		t.Errorf("invalid rekey size: 25 != %d != %d",
+			len(fptAlice.added), len(fptBob.added))
+	}
+
+}
 
 // Property Based Tests
 //  1. When Alice initiates an auth channel with Bob, Alice sends

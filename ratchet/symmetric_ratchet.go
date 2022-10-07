@@ -292,6 +292,10 @@ func (r *receiveRatchet) ID() ID {
 	return r.ratchet.ID()
 }
 
+func (r *receiveRatchet) Marshal() ([]byte, error) {
+	return r.Save()
+}
+
 func (r *receiveRatchet) Save() ([]byte, error) {
 	symmetricRatchetBytes, err := r.ratchet.Save()
 	if err != nil {
@@ -381,6 +385,10 @@ func NewSendRatchet(myPrivateKey nike.PrivateKey, myPublicKey,
 
 func (r *sendRatchet) ID() ID {
 	return r.ratchet.ID()
+}
+
+func (r *sendRatchet) Marshal() ([]byte, error) {
+	return r.Save()
 }
 
 func (r *sendRatchet) Save() ([]byte, error) {

@@ -116,6 +116,40 @@ func TestXXRatchet_Smoke(t *testing.T) {
 	require.Equal(t, len(rktAlice.keys), int(params.MaxKeys)/2)
 }
 
+func TestXXRatchet_SaveLoad(t *testing.T) {
+	alicePriv, alicePub := hybrid.CTIDHDiffieHellman.NewKeypair()
+
+	// note we do not use defaults here, this is intentional
+	params := session.Params{
+		MinKeys:               10,
+		MaxKeys:               20,
+		RekeyThreshold:        0.5,
+		NumRekeys:             5,
+		UnconfirmedRetryRatio: 0.1,
+	}
+
+	rktAlice := &testRekeyTrigger{
+		ids:  make([]ID, 0),
+		keys: make([]nike.PublicKey, 0),
+	}
+	fptAlice := &testFPTracker{
+		added:   make([]format.Fingerprint, 0),
+		deleted: make([]format.Fingerprint, 0),
+	}
+
+	_, bobPub := hybrid.CTIDHDiffieHellman.NewKeypair()
+
+	alice := NewXXRatchet(alicePriv, alicePub, bobPub, params, rktAlice,
+		fptAlice)
+
+	aliceBlob, err := alice.Save()
+	require.NoError(t, err)
+
+	_, err = NewXXRatchetFromBytes(aliceBlob)
+	require.NoError(t, err)
+
+}
+
 // Property Based Tests
 //  1. When Alice initiates an auth channel with Bob, Alice sends
 //     auth request to Bob, when Bob decides to confirm:

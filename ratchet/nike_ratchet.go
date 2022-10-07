@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/fxamacker/cbor/v2"
 	"gitlab.com/xx_network/crypto/csprng"
 
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
@@ -57,6 +58,20 @@ func NewXXRatchet(myPrivateKey nike.PrivateKey,
 	r.addKeyFingerprints(r.recvRatchets[recvID])
 
 	return r
+}
+
+type XXRatchetDisk struct {
+	Size      uint32
+	Threshold uint32
+	Salt      []byte
+
+	SendStates    map[NegotiationState][]ID
+	InvSendStates map[ID]NegotiationState
+
+	SendRatchets map[ID][]byte
+	RecvRatchets map[ID][]byte
+
+	Params session.Params
 }
 
 type xxratchet struct {
@@ -182,6 +197,79 @@ func (x *xxratchet) addKeyFingerprints(ratchet ReceiveRatchet) {
 	for i := 0; i < len(fps); i++ {
 		x.fpTracker.AddKey(fps[i])
 	}
+}
+
+func NewXXRatchetFromBytes(b []byte) (*xxratchet, error) {
+	d := &XXRatchetDisk{
+		SendStates:    make(map[NegotiationState][]ID),
+		InvSendStates: make(map[ID]NegotiationState),
+		SendRatchets:  make(map[ID][]byte),
+		RecvRatchets:  make(map[ID][]byte),
+	}
+	err := cbor.Unmarshal(b, d)
+	if err != nil {
+		return nil, err
+	}
+	r := &xxratchet{
+		size:          d.Size,
+		threshold:     d.Threshold,
+		salt:          d.Salt,
+		sendStates:    d.SendStates,
+		invSendStates: d.InvSendStates,
+		sendRatchets:  make(map[ID]SendRatchet),
+		recvRatchets:  make(map[ID]ReceiveRatchet),
+		params:        d.Params,
+		// XXX FIXME set rekeytrigger and fptracker
+	}
+
+	for k, v := range d.SendRatchets {
+		sendR, err := sendRatchetFromBytes(v)
+		if err != nil {
+			return nil, err
+		}
+		r.sendRatchets[k] = sendR
+	}
+
+	for k, v := range d.RecvRatchets {
+		recvR, err := receiveRatchetFromBytes(v)
+		if err != nil {
+			return nil, err
+		}
+		r.recvRatchets[k] = recvR
+	}
+
+	return r, nil
+}
+
+func (x *xxratchet) Save() ([]byte, error) {
+	d := &XXRatchetDisk{
+		Size:          x.size,
+		Threshold:     x.threshold,
+		Salt:          x.salt,
+		SendStates:    x.sendStates,
+		InvSendStates: x.invSendStates,
+		SendRatchets:  make(map[ID][]byte),
+		RecvRatchets:  make(map[ID][]byte),
+		Params:        x.params,
+	}
+	var err error
+	for k, v := range x.sendRatchets {
+		d.SendRatchets[k], err = v.Save()
+		if err != nil {
+			return nil, err
+		}
+	}
+	for k, v := range x.recvRatchets {
+		d.RecvRatchets[k], err = v.Save()
+		if err != nil {
+			return nil, err
+		}
+	}
+	b, err := cbor.Marshal(d)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
 func deleteRatchetIDFromList(ratchetID ID,

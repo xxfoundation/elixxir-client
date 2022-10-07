@@ -25,6 +25,8 @@ type XXRatchet interface {
 	SendRatchets() []ID
 	SendRatchetsByState(state NegotiationState) []ID
 	ReceiveRatchets() []ID
+
+	Save() ([]byte, error)
 }
 
 type RekeyTrigger interface {

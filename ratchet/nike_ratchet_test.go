@@ -1,7 +1,10 @@
 package ratchet
 
 import (
+	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/interfaces/nike"
@@ -15,6 +18,7 @@ type testRekeyTrigger struct {
 }
 
 func (t *testRekeyTrigger) TriggerRekey(ratchetID ID, pubKey nike.PublicKey) {
+	fmt.Println("TriggerRekey")
 	t.ids = append(t.ids, ratchetID)
 	t.keys = append(t.keys, pubKey)
 }
@@ -47,7 +51,7 @@ func TestXXRatchet_Smoke(t *testing.T) {
 	params := session.Params{
 		MinKeys:               10,
 		MaxKeys:               20,
-		RekeyThreshold:        0.05,
+		RekeyThreshold:        0.5,
 		NumRekeys:             5,
 		UnconfirmedRetryRatio: 0.1,
 	}
@@ -100,11 +104,16 @@ func TestXXRatchet_Smoke(t *testing.T) {
 	}
 
 	// Ratchet FPs added should be MaxKeys + NumRekeys
-	if len(fptBob.added) != len(fptAlice.added) || len(fptBob.added) != 25 {
-		t.Errorf("invalid rekey size: 25 != %d != %d",
-			len(fptAlice.added), len(fptBob.added))
+	msg1 := []byte("hello bob")
+	for i := 0; i < int(params.MaxKeys)+1; i++ {
+		t.Logf("Encrypt %d", i)
+		_, err := alice.Encrypt(bobRecvs[0], msg1)
+		require.NoError(t, err)
 	}
+	require.Equal(t, len(fptBob.added), int(params.MaxKeys))
+	require.Equal(t, len(fptAlice.added), int(params.MaxKeys))
 
+	require.Equal(t, len(rktAlice.keys), int(params.MaxKeys)/2)
 }
 
 // Property Based Tests

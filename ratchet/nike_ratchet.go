@@ -22,7 +22,7 @@ func NewXXRatchet(myPrivateKey nike.PrivateKey,
 	rngGen := fastRNG.NewStreamGenerator(1000, 10, csprng.NewSystemRNG)
 	rng := rngGen.GetStream()
 
-	size := uint32(32)
+	size := uint32(params.MaxKeys)
 	salt := make([]byte, 32)
 	count, err := rng.Read(salt)
 	if err != nil {
@@ -34,7 +34,7 @@ func NewXXRatchet(myPrivateKey nike.PrivateKey,
 
 	r := newxxratchet(size, salt)
 
-	threshold := uint32(12345)
+	threshold := uint32(float64(params.MaxKeys) * float64(params.RekeyThreshold))
 
 	mySendRatchet := NewSendRatchet(myPrivateKey, myPublicKey, partnerPublicKey, salt, size, threshold)
 	sendID := mySendRatchet.ID()

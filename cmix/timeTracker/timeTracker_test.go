@@ -10,6 +10,7 @@ package timeTracker
 
 import (
 	"crypto/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -64,4 +65,20 @@ func TestGatewayDelayAverage(t *testing.T) {
 	gwDelays.Add(t4)
 	avg := gwDelays.Average()
 	require.Equal(t, int(avg), 265)
+}
+
+func TestAddOffset(t *testing.T) {
+	tracker := &timeOffsetTracker{
+		gatewayClockDelays: new(sync.Map),
+		offsets:            make([]*time.Duration, maxHistogramSize),
+		currentIndex:       0,
+	}
+	offset := time.Second * 10
+
+	for i := 0; i < maxHistogramSize-1; i++ {
+		tracker.addOffset(offset)
+		require.Equal(t, i+1, tracker.currentIndex)
+	}
+	tracker.addOffset(offset)
+	require.Equal(t, 0, tracker.currentIndex)
 }

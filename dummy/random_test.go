@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package dummy
@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// Consistency test: tests that intRng returns the expected int when using a
+// Consistency test: tests that randomInt returns the expected int when using a
 // PRNG and that the result is not larger than the max.
 func Test_intRng_Consistency(t *testing.T) {
 	expectedInts := []int{15, 1, 35, 13, 42, 52, 57, 3, 48}
@@ -22,9 +22,9 @@ func Test_intRng_Consistency(t *testing.T) {
 	max := 64
 
 	for i, expected := range expectedInts {
-		v, err := intRng(max, prng)
+		v, err := randomInt(max, prng)
 		if err != nil {
-			t.Errorf("intRng returned an error (%d): %+v", i, err)
+			t.Errorf("randomInt returned an error (%d): %+v", i, err)
 		}
 
 		if v != expected {
@@ -40,7 +40,7 @@ func Test_intRng_Consistency(t *testing.T) {
 	}
 }
 
-// Consistency test: tests that durationRng returns the expected int when using
+// Consistency test: tests that randomDuration returns the expected int when using
 // a PRNG and that the result is within the allowed range.
 func Test_durationRng_Consistency(t *testing.T) {
 	expectedDurations := []time.Duration{
@@ -52,9 +52,9 @@ func Test_durationRng_Consistency(t *testing.T) {
 	base, randomRange := time.Minute, 15*time.Second
 
 	for i, expected := range expectedDurations {
-		v, err := durationRng(base, randomRange, prng)
+		v, err := randomDuration(base, randomRange, prng)
 		if err != nil {
-			t.Errorf("durationRng returned an error (%d): %+v", i, err)
+			t.Errorf("randomDuration returned an error (%d): %+v", i, err)
 		}
 
 		if v != expected {

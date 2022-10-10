@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package e2e
@@ -46,7 +46,7 @@ func sendNewFileTransferMessage(
 	params.LastServiceTag = catalog.Silent
 	params.DebugTag = initialMessageDebugTag
 
-	_, _, _, err := e2eHandler.SendE2E(
+	_, err := e2eHandler.SendE2E(
 		catalog.NewFileTransfer, recipient, transferInfo, params)
 	if err != nil {
 		return errors.Errorf(errNewFtSendE2e, err)
@@ -66,7 +66,7 @@ func sendEndFileTransferMessage(recipient *id.ID, cmix ft.Cmix, e2eHandler e2eHa
 				params.LastServiceTag = catalog.EndFT
 				params.DebugTag = lastMessageDebugTag
 
-				_, _, _, err := e2eHandler.SendE2E(
+				_, err := e2eHandler.SendE2E(
 					catalog.EndFileTransfer, recipient, nil, params)
 				if err != nil {
 					jww.ERROR.Printf(errEndFtSendE2e, err)

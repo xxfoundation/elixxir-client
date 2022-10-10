@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -26,20 +26,20 @@ var e2eTrackerSingleton = &e2eTracker{
 	count:   0,
 }
 
-// E2e wraps the xxdk.E2e, implementing additional functions
-// to support the bindings E2e interface.
+// E2e wraps the xxdk.E2e, implementing additional functions to support the
+// bindings E2e interface.
 type E2e struct {
 	api *xxdk.E2e
 	id  int
 }
 
-// GetID returns the e2eTracker ID for the E2e object.
+// GetID returns the ID for this E2e in the e2eTracker.
 func (e *E2e) GetID() int {
 	return e.id
 }
 
 // Login creates and returns a new E2e object and adds it to the
-// e2eTrackerSingleton. identity should be created via
+// e2eTrackerSingleton. Identity should be created via
 // Cmix.MakeReceptionIdentity and passed in here. If callbacks is left nil, a
 // default auth.Callbacks will be used.
 func Login(cmixId int, callbacks AuthCallbacks, identity,
@@ -80,7 +80,7 @@ func Login(cmixId int, callbacks AuthCallbacks, identity,
 }
 
 // LoginEphemeral creates and returns a new ephemeral E2e object and adds it to
-// the e2eTrackerSingleton. identity should be created via
+// the e2eTrackerSingleton. Identity should be created via
 // Cmix.MakeReceptionIdentity or Cmix.MakeLegacyReceptionIdentity and passed in
 // here. If callbacks is left nil, a default auth.Callbacks will be used.
 func LoginEphemeral(cmixId int, callbacks AuthCallbacks, identity,
@@ -126,13 +126,15 @@ func (e *E2e) GetContact() []byte {
 	return e.api.GetReceptionIdentity().GetContact().Marshal()
 }
 
-// GetUdAddressFromNdf retrieve the User Discovery's network address fom the NDF.
+// GetUdAddressFromNdf retrieve the User Discovery's network address fom the
+// NDF.
 func (e *E2e) GetUdAddressFromNdf() string {
 	return e.api.GetCmix().GetInstance().GetPartialNdf().
 		Get().UDB.Address
 }
 
-// GetUdCertFromNdf retrieves the User Discovery's TLS certificate from the NDF.
+// GetUdCertFromNdf retrieves the User Discovery's TLS certificate (in PEM
+// format) from the NDF.
 func (e *E2e) GetUdCertFromNdf() []byte {
 	return []byte(e.api.GetCmix().GetInstance().GetPartialNdf().Get().UDB.Cert)
 }
@@ -143,19 +145,26 @@ func (e *E2e) GetUdCertFromNdf() []byte {
 // Returns
 //  - []byte - A byte marshalled contact.Contact.
 func (e *E2e) GetUdContactFromNdf() ([]byte, error) {
-	udIdData := e.api.GetCmix().GetInstance().GetPartialNdf().Get().UDB.ID
+	// Retrieve data from E2e
+	netDef := e.api.GetCmix().GetInstance().GetPartialNdf().Get()
+	e2eGroup := e.api.GetE2E().GetGroup()
+
+	// Unmarshal UD ID
+	udIdData := netDef.UDB.ID
 	udId, err := id.Unmarshal(udIdData)
 	if err != nil {
 		return nil, err
 	}
 
-	udDhPubKeyData := e.api.GetCmix().GetInstance().GetPartialNdf().Get().UDB.DhPubKey
-	udDhPubKey := e.api.GetE2E().GetGroup().NewInt(1)
+	// Unmarshal DH pub key
+	udDhPubKeyData := netDef.UDB.DhPubKey
+	udDhPubKey := e2eGroup.NewInt(1)
 	err = udDhPubKey.UnmarshalJSON(udDhPubKeyData)
 	if err != nil {
 		return nil, err
 	}
 
+	// Construct contact
 	udContact := contact.Contact{
 		ID:       udId,
 		DhPubKey: udDhPubKey,
@@ -178,11 +187,11 @@ type authCallback struct {
 }
 
 // convertAuthCallbacks turns an auth.Callbacks into an AuthCallbacks.
-func convertAuthCallbacks(requestor contact.Contact,
+func convertAuthCallbacks(requester contact.Contact,
 	receptionID receptionID.EphemeralIdentity, round rounds.Round) (
 	contact []byte, receptionId []byte, ephemeralId int64, roundId int64) {
 
-	contact = requestor.Marshal()
+	contact = requester.Marshal()
 	receptionId = receptionID.Source.Marshal()
 	ephemeralId = int64(receptionID.EphId.UInt64())
 	roundId = int64(round.ID)
@@ -207,6 +216,10 @@ func (a *authCallback) Reset(partner contact.Contact,
 	a.bindingsCbs.Reset(convertAuthCallbacks(partner, receptionID, round))
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// E2E Tracker                                                                //
+////////////////////////////////////////////////////////////////////////////////
+
 // e2eTracker is a singleton used to keep track of extant E2e objects,
 // preventing race conditions created by passing it over the bindings.
 type e2eTracker struct {
@@ -222,15 +235,15 @@ func (ct *e2eTracker) make(c *xxdk.E2e) *E2e {
 	ct.mux.Lock()
 	defer ct.mux.Unlock()
 
-	id := ct.count
+	e2eID := ct.count
 	ct.count++
 
-	ct.tracked[id] = &E2e{
+	ct.tracked[e2eID] = &E2e{
 		api: c,
-		id:  id,
+		id:  e2eID,
 	}
 
-	return ct.tracked[id]
+	return ct.tracked[e2eID]
 }
 
 // get an E2e from the e2eTracker given its ID.

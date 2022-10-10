@@ -1,7 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2022 Privategrity Corporation                                   /
-//                                                                             /
-// All rights reserved.                                                        /
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package xxdk
@@ -80,8 +81,8 @@ func (r ReceptionIdentity) GetDHKeyPrivate() (*cyclic.Int, error) {
 	return dhKeyPriv, err
 }
 
-// GetRSAPrivatePem returns the RSAPrivatePem.
-func (r ReceptionIdentity) GetRSAPrivatePem() (*rsa.PrivateKey, error) {
+// GetRSAPrivateKey returns the RSAPrivatePem.
+func (r ReceptionIdentity) GetRSAPrivateKey() (*rsa.PrivateKey, error) {
 	return rsa.LoadPrivateKeyFromPem(r.RSAPrivatePem)
 }
 

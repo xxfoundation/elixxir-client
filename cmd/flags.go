@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2022 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package cmd
 
@@ -80,7 +80,9 @@ const (
 	// Misc
 	sendIdFlag       = "sendid"
 	profileCpuFlag   = "profile-cpu"
+	profileMemFlag   = "profile-mem"
 	userIdPrefixFlag = "userid-prefix"
+	legacyFlag       = "legacy"
 
 	///////////////// Broadcast subcommand flags //////////////////////////////
 	broadcastNameFlag        = "name"

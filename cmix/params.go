@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package cmix
@@ -58,6 +58,10 @@ type Params struct {
 	// times.
 	ReplayRequests bool
 
+	// MaxParallelIdentityTracks is the maximum number of parallel identities
+	// the system will poll in one iteration of the follower
+	MaxParallelIdentityTracks uint
+
 	Rounds     rounds.Params
 	Pickup     pickup.Params
 	Message    message.Params
@@ -80,6 +84,7 @@ type paramsDisk struct {
 	Pickup                    pickup.Params
 	Message                   message.Params
 	Historical                rounds.Params
+	MaxParallelIdentityTracks uint
 }
 
 // GetDefaultParams returns a Params object containing the
@@ -96,6 +101,7 @@ func GetDefaultParams() Params {
 		VerboseRoundTracking:      false,
 		RealtimeOnly:              false,
 		ReplayRequests:            true,
+		MaxParallelIdentityTracks: 20,
 	}
 	n.Rounds = rounds.GetDefaultParams()
 	n.Pickup = pickup.GetDefaultParams()
@@ -135,6 +141,7 @@ func (p Params) MarshalJSON() ([]byte, error) {
 		Pickup:                    p.Pickup,
 		Message:                   p.Message,
 		Historical:                p.Historical,
+		MaxParallelIdentityTracks: p.MaxParallelIdentityTracks,
 	}
 
 	return json.Marshal(&pDisk)
@@ -163,6 +170,7 @@ func (p *Params) UnmarshalJSON(data []byte) error {
 		Pickup:                    pDisk.Pickup,
 		Message:                   pDisk.Message,
 		Historical:                pDisk.Historical,
+		MaxParallelIdentityTracks: pDisk.MaxParallelIdentityTracks,
 	}
 
 	return nil

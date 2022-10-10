@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package e2e
 
 import (
@@ -19,11 +26,24 @@ import (
 	"gitlab.com/xx_network/primitives/netTime"
 )
 
+// SendE2E send a message containing the payload to the
+// recipient of the passed message type, per the given
+// parameters - encrypted with end-to-end encryption.
+// Default parameters can be retrieved through
+// GetDefaultParams()
+// If too long, it will chunk a message up into its messages
+// and send each as a separate cmix message. It will return
+// the list of all rounds sent on, a unique ID for the
+// message, and the timestamp sent on.
+// the recipient must already have an e2e relationship,
+// otherwise an error will be returned.
+// Will return an error if the network is not healthy or in
+// the event of a failed send
 func (m *manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, error) {
+	payload []byte, params Params) (e2e.SendReport, error) {
 
 	if !m.net.IsHealthy() {
-		return nil, e2e.MessageID{}, time.Time{},
+		return e2e.SendReport{},
 			errors.New("cannot sendE2E when network is not healthy")
 	}
 
@@ -35,18 +55,18 @@ func (m *manager) SendE2E(mt catalog.MessageType, recipient *id.ID,
 		params.Critical = false
 	}
 
-	rounds, msgID, t, err := m.sendE2E(mt, recipient, payload, params)
+	sendReport, err := m.sendE2E(mt, recipient, payload, params)
 
 	if handleCritical {
-		m.crit.handle(mt, recipient, payload, rounds, err)
+		m.crit.handle(mt, recipient, payload, sendReport.RoundList, err)
 	}
-	return rounds, msgID, t, err
+	return sendReport, err
 
 }
 
 // sendE2eFn contains a prepared sendE2E operation and sends an E2E message when
 // called, returning the results of the send.
-type sendE2eFn func() ([]id.Round, e2e.MessageID, time.Time, error)
+type sendE2eFn func() (e2e.SendReport, error)
 
 // prepareSendE2E makes a prepared function that does the e2e send.
 // This is so that when doing deletePartner we can prepare the send before
@@ -63,41 +83,46 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 	partitions, internalMsgId, err := m.partitioner.Partition(recipient,
 		mt, ts, payload)
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed to send unsafe message")
+		return nil, errors.WithMessage(err,
+			"failed to send unsafe message")
 	}
 
-	jww.INFO.Printf("E2E sending %d messages to %s", len(partitions), recipient)
+	jww.INFO.Printf("E2E sending %d messages to %s",
+		len(partitions), recipient)
 
-	// When sending E2E messages, we first partition into cMix packets and then
-	// send each partition over cMix
+	// When sending E2E messages, we first partition into cMix
+	// packets and then send each partition over cMix
 	roundIds := make([]id.Round, len(partitions))
 	errCh := make(chan error, len(partitions))
 
-	// The Key manager for the partner (recipient) ensures single use of each
-	// key negotiated for the ratchet
+	// The Key manager for the partner (recipient) ensures single
+	// use of each key negotiated for the ratchet
 	partner, err := m.Ratchet.GetPartner(recipient)
 	if err != nil {
 		return nil, errors.WithMessagef(err,
-			"cannot send E2E message no relationship found with %s", recipient)
+			"cannot send E2E message no relationship found with %s",
+			recipient)
 	}
 
 	msgID := e2e.NewMessageID(
 		partner.SendRelationshipFingerprint(), internalMsgId)
 
 	wg := sync.WaitGroup{}
-
+	var keyResidue e2e.KeyResidue
 	for i, p := range partitions {
 		if mt != catalog.KeyExchangeTrigger {
 			// Check if any rekeys need to happen and trigger them
-			rekeySendFunc := func(mt catalog.MessageType, recipient *id.ID,
+			rekeySendFunc := func(mt catalog.MessageType,
+				recipient *id.ID,
 				payload []byte, cmixParams cmix.CMIXParams) (
-				[]id.Round, e2e.MessageID, time.Time, error) {
+				e2e.SendReport, error) {
 				par := params
 				par.CMIXParams = cmixParams
 				return m.SendE2E(mt, recipient, payload, par)
 			}
-			rekey.CheckKeyExchanges(m.net.GetInstance(), m.grp, rekeySendFunc,
-				m.events, partner, m.rekeyParams, 1*time.Minute)
+			rekey.CheckKeyExchanges(m.net.GetInstance(), m.grp,
+				rekeySendFunc, m.events, partner,
+				m.rekeyParams, 1*time.Minute)
 		}
 
 		var keyGetter func() (session.Cypher, error)
@@ -107,23 +132,29 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 			keyGetter = partner.PopSendCypher
 		}
 
-		// FIXME: remove this wait, it is weird. Why is it here? we cant remember.
+		// FIXME: remove this wait, it is weird. Why is it
+		// here? we cant remember.
 		key, err := waitForKey(
-			keyGetter, params.KeyGetRetryCount, params.KeyGeRetryDelay,
+			keyGetter, params.KeyGetRetryCount,
+			params.KeyGeRetryDelay,
 			params.Stop, recipient, format.DigestContents(p), i)
 		if err != nil {
 			return nil, errors.WithMessagef(err,
 				"Failed to get key for end-to-end encryption")
 		}
 
-		// This does not encrypt for cMix but instead end-to-end encrypts the
-		// cMix message
-		contentsEnc, mac := key.Encrypt(p)
+		// This does not encrypt for cMix but instead
+		// end-to-end encrypts the cMix message
+		contentsEnc, mac, residue := key.Encrypt(p)
+		// Carry the first key residue to the top level
+		if i == 0 {
+			keyResidue = residue
+		}
 
-		jww.INFO.Printf(
-			"E2E sending %d/%d to %s with key fp: %s, msgID: %s (msgDigest %s)",
-			i+i, len(partitions), recipient, key.Fingerprint(), msgID,
-			format.DigestContents(p))
+		jww.INFO.Printf("E2E sending %d/%d to %s with key fp: %s, "+
+			"msgID: %s (msgDigest %s)",
+			i+i, len(partitions), recipient, key.Fingerprint(),
+			msgID, format.DigestContents(p))
 
 		var s message.Service
 		if i == len(partitions)-1 {
@@ -132,25 +163,29 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 			s = partner.MakeService(params.ServiceTag)
 		}
 
-		// We send each partition in its own thread here; some may send in round
-		// X, others in X+1 or X+2, and so on
+		// We send each partition in its own thread here; some
+		// may send in round X, others in X+1 or X+2, and so
+		// on
 		localI := i
 		thisSendFunc := func() {
 			wg.Add(1)
 			go func(i int) {
-				var err error
-				roundIds[i], _, err = m.net.Send(recipient,
-					key.Fingerprint(), s, contentsEnc, mac, params.CMIXParams)
+				r, _, err := m.net.Send(recipient,
+					key.Fingerprint(), s, contentsEnc, mac,
+					params.CMIXParams)
 				if err != nil {
+					jww.DEBUG.Printf("[E2E] cMix error on "+
+						"Send: %+v", err)
 					errCh <- err
 				}
+				roundIds[i] = r.ID
 				wg.Done()
 			}(localI)
 		}
 		sendFuncs = append(sendFuncs, thisSendFunc)
 	}
 
-	sendE2E = func() ([]id.Round, e2e.MessageID, time.Time, error) {
+	sendE2E = func() (e2e.SendReport, error) {
 		for i := range sendFuncs {
 			sendFuncs[i]()
 		}
@@ -161,27 +196,33 @@ func (m *manager) prepareSendE2E(mt catalog.MessageType, recipient *id.ID,
 		if numFail > 0 {
 			jww.INFO.Printf("Failed to E2E send %d/%d to %s",
 				numFail, len(partitions), recipient)
-			return nil, e2e.MessageID{}, time.Time{}, errors.Errorf(
+			return e2e.SendReport{}, errors.Errorf(
 				"Failed to E2E send %v/%v sub payloads: %s",
 				numFail, len(partitions), errRtn)
 		} else {
 			jww.INFO.Printf("Successfully E2E sent %d/%d to %s",
-				len(partitions)-numFail, len(partitions), recipient)
+				len(partitions)-numFail, len(partitions),
+				recipient)
 		}
 
-		jww.INFO.Printf("Successful E2E Send of %d messages to %s with msgID %s",
-			len(partitions), recipient, msgID)
+		jww.INFO.Printf("Successful E2E Send of %d messages to %s "+
+			"with msgID %s", len(partitions), recipient, msgID)
 
-		return roundIds, msgID, ts, nil
+		return e2e.SendReport{
+			RoundList:  roundIds,
+			MessageId:  msgID,
+			SentTime:   ts,
+			KeyResidue: keyResidue,
+		}, nil
 	}
 	return sendE2E, nil
 }
 
 func (m *manager) sendE2E(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, params Params) ([]id.Round, e2e.MessageID, time.Time, error) {
+	payload []byte, params Params) (e2e.SendReport, error) {
 	sendFunc, err := m.prepareSendE2E(mt, recipient, payload, params)
 	if err != nil {
-		return nil, e2e.MessageID{}, time.Time{}, err
+		return e2e.SendReport{}, err
 	}
 	return sendFunc()
 }

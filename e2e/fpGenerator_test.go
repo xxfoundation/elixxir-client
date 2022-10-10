@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package e2e
@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -90,11 +91,15 @@ type mockSessionCypher struct {
 	fp format.Fingerprint
 }
 
-func (m mockSessionCypher) GetSession() *session.Session             { return nil }
-func (m mockSessionCypher) Fingerprint() format.Fingerprint          { return m.fp }
-func (m mockSessionCypher) Encrypt([]byte) (ecrContents, mac []byte) { return nil, nil }
-func (m mockSessionCypher) Decrypt(format.Message) ([]byte, error)   { return nil, nil }
-func (m mockSessionCypher) Use()                                     {}
+func (m mockSessionCypher) GetSession() *session.Session    { return nil }
+func (m mockSessionCypher) Fingerprint() format.Fingerprint { return m.fp }
+func (m mockSessionCypher) Encrypt([]byte) (ecrContents, mac []byte, residue e2e.KeyResidue) {
+	return nil, nil, e2e.KeyResidue{}
+}
+func (m mockSessionCypher) Decrypt(format.Message) ([]byte, e2e.KeyResidue, error) {
+	return nil, e2e.KeyResidue{}, nil
+}
+func (m mockSessionCypher) Use() {}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock cMix                                                           //
@@ -113,11 +118,15 @@ func newMockFpgCmix() *mockFpgCmix {
 
 func (m *mockFpgCmix) Follow(cmix.ClientErrorReport) (stoppable.Stoppable, error) { return nil, nil }
 func (m *mockFpgCmix) GetMaxMessageLength() int                                   { return 0 }
-func (m *mockFpgCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte, []byte, cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
-	return 0, ephemeral.Id{}, nil
+func (m *mockFpgCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte, []byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
-func (m *mockFpgCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
-	return 0, nil, nil
+func (m *mockFpgCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{}, ephemeral.Id{}, nil
+}
+func (m *mockFpgCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, nil, nil
 }
 func (m *mockFpgCmix) AddIdentity(*id.ID, time.Time, bool) {}
 func (m *mockFpgCmix) RemoveIdentity(*id.ID)               {}
@@ -161,8 +170,7 @@ func (m *mockFpgCmix) RemoveHealthCallback(uint64)                              
 func (m *mockFpgCmix) HasNode(*id.ID) bool                                      { return false }
 func (m *mockFpgCmix) NumRegisteredNodes() int                                  { return 0 }
 func (m *mockFpgCmix) TriggerNodeRegistration(*id.ID)                           {}
-func (m *mockFpgCmix) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round) error {
-	return nil
+func (m *mockFpgCmix) GetRoundResults(time.Duration, cmix.RoundEventCallback, ...id.Round) {
 }
 func (m *mockFpgCmix) LookupHistoricalRound(id.Round, rounds.RoundResultCallback) error { return nil }
 func (m *mockFpgCmix) SendToAny(func(host *connect.Host) (interface{}, error), *stoppable.Single) (interface{}, error) {

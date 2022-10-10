@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package user
 
@@ -216,8 +216,7 @@ func (ci *CryptographicIdentity) save(kv *versioned.KV) error {
 		Data:      enc,
 	}
 
-	return kv.Set(cryptographicIdentityKey,
-		currentCryptographicIdentityVersion, obj)
+	return kv.Set(cryptographicIdentityKey, obj)
 }
 
 func (ci *CryptographicIdentity) GetTransmissionID() *id.ID {

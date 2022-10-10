@@ -1,12 +1,14 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package cmix
 
 import (
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"time"
 
 	"github.com/pkg/errors"
@@ -191,14 +193,14 @@ func (mrr *mockRoundEventRegistrar) AddRoundEventChan(rid id.Round, eventChan ch
 
 // mockCriticalSender
 func mockCriticalSender(msg format.Message, recipient *id.ID,
-	params CMIXParams) (id.Round, ephemeral.Id, error) {
-	return id.Round(1), ephemeral.Id{}, nil
+	params CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{ID: 1}, ephemeral.Id{}, nil
 }
 
 // mockFailCriticalSender
 func mockFailCriticalSender(msg format.Message, recipient *id.ID,
-	params CMIXParams) (id.Round, ephemeral.Id, error) {
-	return id.Round(1), ephemeral.Id{}, errors.New("Test error")
+	params CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{ID: 1}, ephemeral.Id{}, errors.New("Test error")
 }
 
 // func newTestClient(t *testing.T) (*client, error) {

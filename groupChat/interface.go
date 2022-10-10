@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 // Group chat is used to communicate the same content with multiple clients over
 // cMix. A group chat is controlled by a group leader who creates the group,
@@ -24,6 +24,7 @@ import (
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/ratchet/partner"
 	sessionImport "gitlab.com/elixxir/client/e2e/ratchet/partner/session"
@@ -32,7 +33,7 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/crypto/cyclic"
-	crypto "gitlab.com/elixxir/crypto/e2e"
+	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
@@ -68,7 +69,7 @@ type GroupChat interface {
 	// The send fails if the message is too long. Returns the ID of the round
 	// sent on and the timestamp of the message send.
 	Send(groupID *id.ID, tag string, message []byte) (
-		id.Round, time.Time, group.MessageID, error)
+		rounds.Round, time.Time, group.MessageID, error)
 
 	// GetGroups returns a list of all registered GroupChat IDs.
 	GetGroups() []*id.ID
@@ -114,7 +115,7 @@ type groupE2e interface {
 // methods needed by GroupChat
 type groupCmix interface {
 	SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (
-		id.Round, []ephemeral.Id, error)
+		rounds.Round, []ephemeral.Id, error)
 	AddService(
 		clientID *id.ID, newService message.Service, response message.Processor)
 	DeleteService(
@@ -126,7 +127,7 @@ type groupCmix interface {
 // needed by GroupChat
 type groupE2eHandler interface {
 	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
-		params e2e.Params) ([]id.Round, crypto.MessageID, time.Time, error)
+		params e2e.Params) (cryptoE2e.SendReport, error)
 	RegisterListener(senderID *id.ID, messageType catalog.MessageType,
 		newListener receive.Listener) receive.ListenerID
 	AddService(tag string, processor message.Processor) error

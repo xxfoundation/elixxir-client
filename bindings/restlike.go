@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -107,7 +107,7 @@ func RestlikeRequest(
 //
 // Returns:
 //  - []byte - JSON marshalled RestlikeMessage
-func RestlikeRequestAuth(cmixId int, authConnectionID int, request,
+func RestlikeRequestAuth(cmixId, authConnectionID int, request,
 	e2eParamsJSON []byte) ([]byte, error) {
 	if len(e2eParamsJSON) == 0 {
 		jww.WARN.Printf("restlike params unspecified, using defaults")

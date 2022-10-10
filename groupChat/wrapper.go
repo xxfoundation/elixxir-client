@@ -1,13 +1,14 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package groupChat
 
 import (
+	"gitlab.com/elixxir/client/cmix/rounds"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
@@ -53,7 +54,7 @@ func (w *Wrapper) LeaveGroup(groupID *id.ID) error {
 
 // Send calls GroupChat.Send.
 func (w *Wrapper) Send(groupID *id.ID, message []byte, tag string) (
-	id.Round, time.Time, group.MessageID, error) {
+	rounds.Round, time.Time, group.MessageID, error) {
 	return w.gc.Send(groupID, tag, message)
 }
 

@@ -1,15 +1,16 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
 import (
 	"encoding/json"
 	"fmt"
+	"gitlab.com/elixxir/client/cmix/message"
 	"time"
 
 	"github.com/pkg/errors"
@@ -26,29 +27,28 @@ import (
 // they are stopped if there is no internet access.
 //
 // Threads Started:
-//   - Network Follower (/network/follow.go)
-//   	tracks the network events and hands them off to workers for handling.
-//   - Historical Round Retrieval (/network/rounds/historical.go)
-// 		retrieves data about rounds that are too old to be stored by the client.
-//	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
-//		requests all messages in a given round from the gateway of the last
-//		nodes.
-//	 - Message Handling Worker Group (/network/message/handle.go)
-//		decrypts and partitions messages when signals via the Switchboard.
-//	 - Health Tracker (/network/health),
-//		via the network instance, tracks the state of the network.
-//	 - Garbled Messages (/network/message/garbled.go)
-//		can be signaled to check all recent messages that could be decoded. It
-//		uses a message store on disk for persistence.
-//	 - Critical Messages (/network/message/critical.go)
-//		ensures all protocol layer mandatory messages are sent. It uses a
-//		message store on disk for persistence.
-//	 - KeyExchange Trigger (/keyExchange/trigger.go)
-//		responds to sent rekeys and executes them.
-//   - KeyExchange Confirm (/keyExchange/confirm.go)
-//		responds to confirmations of successful rekey operations.
-//   - Auth Callback (/auth/callback.go)
-//      handles both auth confirm and requests.
+//  - Network Follower (/network/follow.go)
+//    tracks the network events and hands them off to workers for handling.
+//  - Historical Round Retrieval (/network/rounds/historical.go)
+//    retrieves data about rounds that are too old to be stored by the client.
+//  - Message Retrieval Worker Group (/network/rounds/retrieve.go)
+//	  requests all messages in a given round from the gateway of the last nodes.
+//  - Message Handling Worker Group (/network/message/handle.go)
+//	  decrypts and partitions messages when signals via the Switchboard.
+//	- Health Tracker (/network/health),
+//	  via the network instance, tracks the state of the network.
+//  - Garbled Messages (/network/message/garbled.go)
+//	  can be signaled to check all recent messages that could be decoded. It
+//	  uses a message store on disk for persistence.
+//	- Critical Messages (/network/message/critical.go)
+//	  ensures all protocol layer mandatory messages are sent. It uses a message
+//	  store on disk for persistence.
+//	- KeyExchange Trigger (/keyExchange/trigger.go)
+//	  responds to sent rekeys and executes them.
+//  - KeyExchange Confirm (/keyExchange/confirm.go)
+//	  responds to confirmations of successful rekey operations.
+//  - Auth Callback (/auth/callback.go)
+//    handles both auth confirm and requests.
 func (c *Cmix) StartNetworkFollower(timeoutMS int) error {
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 	return c.api.StartNetworkFollower(timeout)
@@ -58,7 +58,7 @@ func (c *Cmix) StartNetworkFollower(timeoutMS int) error {
 // an error if the follower is in the wrong state to stop or if it fails to stop
 // it.
 //
-// if the network follower is running and this fails, the Cmix object will
+// If the network follower is running and this fails, the Cmix object will
 // most likely be in an unrecoverable state and need to be trashed.
 func (c *Cmix) StopNetworkFollower() error {
 	if err := c.api.StopNetworkFollower(); err != nil {
@@ -84,11 +84,9 @@ func (c *Cmix) WaitForNetwork(timeoutMS int) bool {
 
 // NetworkFollowerStatus gets the state of the network follower. It returns a
 // status with the following values:
-//
-// Status:
-//  - Stopped  - 0
-//  - Running  - 2000
-//  - Stopping - 3000
+//  Stopped  - 0
+//  Running  - 2000
+//  Stopping - 3000
 func (c *Cmix) NetworkFollowerStatus() int {
 	return int(c.api.NetworkFollowerStatus())
 }
@@ -103,10 +101,11 @@ type NodeRegistrationReport struct {
 // GetNodeRegistrationStatus returns the current state of node registration.
 //
 // Returns:
-//  - []bye - A marshalled NodeRegistrationReport containing the number of
-//    nodes the user is registered with and the number of nodes present in the NDF.
-//  - An error if it cannot get the node registration status. The most likely cause
-//    is that the network is unhealthy.
+//  - []byte - A marshalled NodeRegistrationReport containing the number of
+//    nodes the user is registered with and the number of nodes present in the
+//    NDF.
+//  - An error if it cannot get the node registration status. The most likely
+//    cause is that the network is unhealthy.
 func (c *Cmix) GetNodeRegistrationStatus() ([]byte, error) {
 	numNodesRegistered, numNodes, err := c.api.GetNodeRegistrationStatus()
 	if err != nil {
@@ -135,6 +134,22 @@ func (c *Cmix) HasRunningProcessies() bool {
 // messages can be sent.
 func (c *Cmix) IsHealthy() bool {
 	return c.api.GetCmix().IsHealthy()
+}
+
+// GetRunningProcesses returns the names of all running processes at the time
+// of this call. Note that this list may change and is subject to race
+// conditions if multiple threads are in the process of starting or stopping.
+//
+// Returns:
+//  - []byte - A JSON marshalled list of all running processes.
+//
+// JSON Example:
+//  {
+//    "FileTransfer{BatchBuilderThread, FilePartSendingThread#0, FilePartSendingThread#1, FilePartSendingThread#2, FilePartSendingThread#3}",
+//    "MessageReception Worker 0"
+//  }
+func (c *Cmix) GetRunningProcesses() ([]byte, error) {
+	return json.Marshal(c.api.GetRunningProcesses())
 }
 
 // NetworkHealthCallback contains a callback that is used to receive
@@ -168,4 +183,55 @@ func (c *Cmix) RegisterClientErrorCallback(clientError ClientError) {
 			go clientError.Report(report.Source, report.Message, report.Trace)
 		}
 	}()
+}
+
+// TrackServicesCallback is the callback for [Cmix.TrackServices].
+// This will pass to the user a JSON-marshalled list of backend services.
+// If there was an error retrieving or marshalling the service list,
+// there is an error for the second parameter which will be non-null.
+//
+// Parameters:
+//  - marshalData - JSON marshalled bytes of [message.ServiceList], which is an
+//    array of [id.ID] and [message.Service].
+//  - err - JSON unmarshalling error
+//
+// Example JSON:
+//  [
+//    {
+//      "Id": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD", // bytes of id.ID encoded as base64 string
+//      "Services": [
+//        {
+//          "Identifier": "AQID",                             // bytes encoded as base64 string
+//          "Tag": "TestTag 1",                               // string
+//          "Metadata": "BAUG"                                // bytes encoded as base64 string
+//        }
+//      ]
+//    },
+//    {
+//      "Id": "AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//      "Services": [
+//        {
+//          "Identifier": "AQID",
+//          "Tag": "TestTag 2",
+//          "Metadata": "BAUG"
+//        }
+//      ]
+//    },
+//  ]
+type TrackServicesCallback interface {
+	Callback(marshalData []byte, err error)
+}
+
+// TrackServices will return via a callback the list of services the
+// backend keeps track of, which is formally referred to as a
+// [message.ServiceList]. This may be passed into other bindings call which
+// may need context on the available services for this client.
+//
+// Parameters:
+//  - cb - A TrackServicesCallback, which will be passed the marshalled
+//    message.ServiceList.
+func (c *Cmix) TrackServices(cb TrackServicesCallback) {
+	c.api.GetCmix().TrackServices(func(list message.ServiceList) {
+		cb.Callback(json.Marshal(list))
+	})
 }

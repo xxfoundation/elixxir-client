@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -46,14 +46,14 @@ const (
 	UnrecognizedMessage = UnrecognizedCode + "Unrecognized error from XX backend, please report"
 )
 
-// CreateUserFriendlyErrorMessage will convert the passed in error string
-// to an error string that is user-friendly if a substring match is
-// found to a common error. Common errors is a map which can be updated
-// using UpdateCommonErrors. If the error is not common, some simple parsing
-// is done on the error message to make it more user-accessible, removing
-// backend specific jargon.
+// CreateUserFriendlyErrorMessage will convert the passed in error string to an
+// error string that is user-friendly if a substring match is found to a
+// common error. Common errors is a map that can be updated using
+// UpdateCommonErrors. If the error is not common, some simple parsing is done
+// on the error message to make it more user-accessible, removing backend
+// specific jargon.
 //
-// Parameters
+// Parameters:
 //   - errStr - an error returned from the backend.
 //
 // Returns
@@ -97,16 +97,18 @@ func CreateUserFriendlyErrorMessage(errStr string) string {
 	return fmt.Sprintf("%s: %v", UnrecognizedCode, errStr)
 }
 
-// UpdateCommonErrors updates the internal error mapping DB. This internal database
-// maps errors returned from the backend to user-friendly error messages.
+// UpdateCommonErrors updates the internal error mapping database. This internal
+// database maps errors returned from the backend to user-friendly error
+// messages.
 //
-// Parameters
+// Parameters:
 //  - jsonFile - contents of a JSON file whose format conforms to the example below.
+//
 // Example Input:
-//   {
-//  	"Failed to Unmarshal Conversation": "Could not retrieve conversation",
-//  	"Failed to unmarshal SentRequestMap": "Failed to pull up friend requests",
-//  	"cannot create username when network is not health": "Cannot create username, unable to connect to network",
+//  {
+//    "Failed to Unmarshal Conversation": "Could not retrieve conversation",
+//    "Failed to unmarshal SentRequestMap": "Failed to pull up friend requests",
+//    "cannot create username when network is not health": "Cannot create username, unable to connect to network",
 //  }
 func UpdateCommonErrors(jsonFile string) error {
 	errorMux.Lock()

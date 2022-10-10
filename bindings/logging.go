@@ -1,16 +1,15 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 // logging.go contains bindings log control functions
 
 package bindings
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/pkg/errors"
@@ -34,7 +33,7 @@ import (
 // The default log level without updates is INFO.
 func LogLevel(level int) error {
 	if level < 0 || level > 6 {
-		return errors.New(fmt.Sprintf("log level is not valid: log level: %d", level))
+		return errors.Errorf("log level is not valid: log level: %d", level)
 	}
 
 	threshold := jww.Threshold(level)

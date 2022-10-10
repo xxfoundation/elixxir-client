@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package cmix
 
@@ -188,14 +188,14 @@ func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
 
 	// Set up critical message tracking (sendCmix only)
 	critSender := func(msg format.Message, recipient *id.ID, params CMIXParams,
-	) (id.Round, ephemeral.Id, error) {
+	) (rounds.Round, ephemeral.Id, error) {
 		compiler := func(round id.Round) (format.Message, error) {
 			return msg, nil
 		}
-		rid, eid, _, sendErr := sendCmixHelper(c.Sender, compiler, recipient, params, c.instance,
+		r, eid, _, sendErr := sendCmixHelper(c.Sender, compiler, recipient, params, c.instance,
 			c.session.GetCmixGroup(), c.Registrar, c.rng, c.events,
 			c.session.GetTransmissionID(), c.comms)
-		return rid, eid, sendErr
+		return r, eid, sendErr
 
 	}
 
@@ -250,6 +250,9 @@ func (c *client) Follow(report ClientErrorReport) (stoppable.Stoppable, error) {
 
 	// Start the processes for the identity handler
 	multi.Add(c.Tracker.StartProcesses())
+
+	//Start the critical processing thread
+	multi.Add(c.crit.startProcessies())
 
 	return multi, nil
 }

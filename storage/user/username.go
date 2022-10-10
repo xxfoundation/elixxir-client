@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package user
 
@@ -39,7 +39,7 @@ func (u *User) SetUsername(username string) error {
 		Data:      []byte(username),
 	}
 
-	err := u.kv.Set(usernameKey, currentUsernameVersion, obj)
+	err := u.kv.Set(usernameKey, obj)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the username: %s", err)
 	}

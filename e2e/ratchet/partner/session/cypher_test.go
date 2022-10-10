@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package session
 
@@ -153,7 +153,7 @@ func Test_cypher_EncryptDecrypt(t *testing.T) {
 		msg.SetContents(contents)
 
 		// Encrypt
-		contentsEnc, mac := cy.Encrypt(msg.GetContents())
+		contentsEnc, mac, _ := cy.Encrypt(msg.GetContents())
 
 		// Make the encrypted message
 		ecrMsg := format.NewMessage(grp.GetP().ByteLen())
@@ -162,7 +162,7 @@ func Test_cypher_EncryptDecrypt(t *testing.T) {
 		ecrMsg.SetMac(mac)
 
 		// Decrypt
-		contentsDecr, err := cy.Decrypt(ecrMsg)
+		contentsDecr, _, err := cy.Decrypt(ecrMsg)
 		if err != nil {
 			t.Fatalf("Decrypt error: %+v", err)
 		}

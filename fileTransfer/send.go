@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package fileTransfer
@@ -62,9 +62,10 @@ func (m *manager) startSendingWorkerPool(multiStop *stoppable.Multi) {
 
 	for i := 0; i < workerPoolThreads; i++ {
 		stop := stoppable.NewSingle(sendThreadStoppableName + strconv.Itoa(i))
-		multiStop.Add(stop)
 		go m.sendingThread(stop)
+		multiStop.Add(stop)
 	}
+
 }
 
 // sendingThread sends part packets that become available oin the send queue.
@@ -74,8 +75,8 @@ func (m *manager) sendingThread(stop *stoppable.Single) {
 	for {
 		select {
 		case <-stop.Quit():
-			jww.DEBUG.Printf("[FT] Stopping file part sending thread: " +
-				"stoppable triggered.")
+			jww.DEBUG.Printf("[FT] Stopping file part sending thread (%s): "+
+				"stoppable triggered.", stop.Name())
 			m.cmix.RemoveHealthCallback(healthChanID)
 			stop.ToStopped()
 			return
@@ -134,8 +135,8 @@ func (m *manager) sendCmix(packet []store.Part) {
 		}
 	}
 
-	err = m.cmix.GetRoundResults(
-		roundResultsTimeout, m.roundResultsCallback(validParts), rid)
+	m.cmix.GetRoundResults(
+		roundResultsTimeout, m.roundResultsCallback(validParts), rid.ID)
 }
 
 // roundResultsCallback generates a network.RoundEventCallback that handles

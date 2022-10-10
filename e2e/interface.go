@@ -1,7 +1,15 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package e2e
 
 import (
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/crypto/e2e"
 	"time"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -12,7 +20,6 @@ import (
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -35,7 +42,7 @@ type Handler interface {
 	// Will return an error if the network is not healthy or in
 	// the event of a failed send
 	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
-		params Params) ([]id.Round, e2e.MessageID, time.Time, error)
+		params Params) (e2e.SendReport, error)
 
 	/* === Reception ==================================================== */
 

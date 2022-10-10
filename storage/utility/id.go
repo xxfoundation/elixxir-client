@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package utility
 
 import (
@@ -22,7 +29,7 @@ func StoreID(kv *versioned.KV, sid *id.ID, key string) error {
 		Data:      data,
 	}
 
-	return kv.Set(key, currentIDVersion, &obj)
+	return kv.Set(key, &obj)
 }
 
 func LoadID(kv *versioned.KV, key string) (*id.ID, error) {

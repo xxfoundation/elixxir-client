@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package ud
 
 import (
@@ -40,7 +47,7 @@ func (m *Manager) removeFact(f fact.Fact,
 
 	// Sign our inFact for putting into the request
 	identity := m.user.GetReceptionIdentity()
-	privKey, err := identity.GetRSAPrivatePem()
+	privKey, err := identity.GetRSAPrivateKey()
 	if err != nil {
 		return err
 	}
@@ -78,7 +85,7 @@ func (m *Manager) PermanentDeleteAccount(f fact.Fact) error {
 			"a username. Cannot remove fact %q", f.Fact))
 	}
 	identity := m.user.GetReceptionIdentity()
-	privKey, err := identity.GetRSAPrivatePem()
+	privKey, err := identity.GetRSAPrivateKey()
 	if err != nil {
 		return err
 	}

@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package e2e
@@ -28,7 +28,7 @@ import (
 	"gitlab.com/elixxir/client/xxdk"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
-	e "gitlab.com/elixxir/crypto/e2e"
+	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
@@ -40,7 +40,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
 )
@@ -118,12 +117,17 @@ func (m *mockCmix) GetMaxMessageLength() int {
 }
 
 func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
-	[]byte, cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	[]byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
+}
+
+func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
 
 func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
-	_ cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
+	_ cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	m.handler.Lock()
 	for _, targetedMsg := range messages {
 		msg := format.NewMessage(m.numPrimeBytes)
@@ -135,7 +139,7 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 			rounds.Round{ID: 42})
 	}
 	m.handler.Unlock()
-	return 42, []ephemeral.Id{}, nil
+	return rounds.Round{ID: 42}, []ephemeral.Id{}, nil
 }
 
 func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)            { panic("implement me") }
@@ -187,9 +191,8 @@ func (m *mockCmix) NumRegisteredNodes() int        { panic("implement me") }
 func (m *mockCmix) TriggerNodeRegistration(*id.ID) { panic("implement me") }
 
 func (m *mockCmix) GetRoundResults(_ time.Duration,
-	roundCallback cmix.RoundEventCallback, _ ...id.Round) error {
+	roundCallback cmix.RoundEventCallback, _ ...id.Round) {
 	go roundCallback(true, false, map[id.Round]cmix.RoundResult{42: {}})
-	return nil
 }
 
 func (m *mockCmix) LookupHistoricalRound(id.Round, rounds.RoundResultCallback) error {
@@ -259,7 +262,7 @@ func (m *mockE2e) StartProcesses() (stoppable.Stoppable, error) { panic("impleme
 
 // SendE2E adds the message to the e2e handler map.
 func (m *mockE2e) SendE2E(mt catalog.MessageType, recipient *id.ID,
-	payload []byte, _ e2e.Params) ([]id.Round, e.MessageID, time.Time, error) {
+	payload []byte, _ e2e.Params) (cryptoE2e.SendReport, error) {
 
 	m.handler.listeners[mt].Hear(receive.Message{
 		MessageType: mt,
@@ -268,7 +271,7 @@ func (m *mockE2e) SendE2E(mt catalog.MessageType, recipient *id.ID,
 		RecipientID: recipient,
 	})
 
-	return []id.Round{42}, e.MessageID{}, netTime.Now(), nil
+	return cryptoE2e.SendReport{RoundList: []id.Round{42}}, nil
 }
 
 func (m *mockE2e) RegisterListener(_ *id.ID, mt catalog.MessageType,

@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -34,7 +34,6 @@ func (_ *AuthenticatedConnection) IsAuthenticated() bool {
 // ConnectWithAuthentication is called by the client (i.e., the one establishing
 // connection with the server). Once a connect.Connection has been established
 // with the server, it then authenticates their identity to the server.
-// accepts a marshalled ReceptionIdentity and contact.Contact object
 func (c *Cmix) ConnectWithAuthentication(e2eId int, recipientContact,
 	e2eParamsJSON []byte) (*AuthenticatedConnection, error) {
 	if len(e2eParamsJSON) == 0 {

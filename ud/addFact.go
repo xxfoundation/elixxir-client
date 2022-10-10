@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package ud
 
 import (
@@ -40,7 +47,7 @@ func (m *Manager) addFact(inFact fact.Fact, myId *id.ID,
 	fHash := factID.Fingerprint(f)
 
 	// Sign our inFact for putting into the request
-	privKey, err := m.user.GetReceptionIdentity().GetRSAPrivatePem()
+	privKey, err := m.user.GetReceptionIdentity().GetRSAPrivateKey()
 	if err != nil {
 		return "", err
 	}

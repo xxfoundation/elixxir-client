@@ -1,16 +1,14 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
 import (
 	"encoding/json"
-	"testing"
-
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
@@ -18,6 +16,7 @@ import (
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"testing"
 )
 
 func TestIdentity_JSON(t *testing.T) {
@@ -29,32 +28,19 @@ func TestIdentity_JSON(t *testing.T) {
 	dhpk := dh.GeneratePrivateKey(64, grp, rng)
 	dhpkJson, _ := dhpk.MarshalJSON()
 	op := make([]byte, 64)
+	e2eGrp, _ := getGroup().MarshalJSON()
 	_, _ = rng.Read(op)
 	identity := ReceptionIdentity{
 		ID:            uid.Marshal(),
 		RSAPrivatePem: rsa.CreatePrivateKeyPem(pk),
 		Salt:          salt,
 		DHKeyPrivate:  dhpkJson,
+		E2eGrp:        e2eGrp,
 	}
+
 	im, _ := json.Marshal(identity)
 	t.Log("Marshalled ReceptionIdentity object")
 	t.Log(string(im))
-}
-
-func TestFacts_JSON(t *testing.T) {
-	fl := []Fact{
-		{
-			Fact: "Zezima",
-			Type: 0,
-		},
-		{
-			Fact: "Zezima@osrs.org",
-			Type: 2,
-		},
-	}
-	flm, _ := json.Marshal(fl)
-	t.Log("Marshalled []Fact")
-	t.Log(string(flm))
 }
 
 func getGroup() *cyclic.Group {

@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package ud
 
@@ -40,6 +40,42 @@ func (s *Store) RestoreFromBackUp(backupData fact.FactList) error {
 	}
 
 	return s.save()
+}
+
+// StoreUsername forces the storage of a username fact.Fact into the
+// Store's confirmedFacts map. The passed in fact.Fact must be of
+// type fact.Username or this will not store the username.
+func (s *Store) StoreUsername(f fact.Fact) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	if f.T != fact.Username {
+		return errors.Errorf("Fact (%s) is not of type username", f.Stringify())
+	}
+
+	s.confirmedFacts[f] = struct{}{}
+
+	return s.saveConfirmedFacts()
+}
+
+// GetUsername retrieves the username from the Store object.
+// If it is not directly in the Store's username field, it is
+// searched for in the map.
+func (s *Store) GetUsername() (string, error) {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	// todo: refactor this in the future so that
+	//  it's an O(1) lookup (place this object in another map
+	//  or have it's own field)
+	for f := range s.confirmedFacts {
+		if f.T == fact.Username {
+			return f.Fact, nil
+		}
+	}
+
+	return "", errors.New("Could not find username in store")
+
 }
 
 // StoreUnconfirmedFact stores a fact that has been added to UD but has not been
@@ -84,11 +120,11 @@ func (s *Store) ConfirmFact(confirmationId string) error {
 // If you attempt to back up a fact type that has already been backed up,
 // an error will be returned and nothing will be backed up.
 // Otherwise, it adds the fact and returns whether the Store saved successfully.
-func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
+func (s *Store) BackUpMissingFacts(username, email, phone fact.Fact) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	modifiedEmail, modifiedPhone := false, false
+	modified := false
 
 	// Handle email if it is not zero (empty string)
 	if !isFactZero(email) {
@@ -102,10 +138,12 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 			// If an email exists in memory, return an error
 			return errors.Errorf(factTypeExistsErr, email, fact.Email)
 		} else {
-			modifiedEmail = true
+			s.confirmedFacts[email] = struct{}{}
+			modified = true
 		}
 	}
 
+	// Handle phone if it is not an empty string
 	if !isFactZero(phone) {
 		// check if fact is expected type
 		if phone.T != fact.Phone {
@@ -117,19 +155,24 @@ func (s *Store) BackUpMissingFacts(email, phone fact.Fact) error {
 			// If a phone exists in memory, return an error
 			return errors.Errorf(factTypeExistsErr, phone, fact.Phone)
 		} else {
-			modifiedPhone = true
+			s.confirmedFacts[phone] = struct{}{}
+			modified = true
 		}
 	}
 
-	if modifiedPhone || modifiedEmail {
-		if modifiedEmail {
-			s.confirmedFacts[email] = struct{}{}
+	if !isFactZero(username) {
+		// Check if fact type is already in map. You should not be able to
+		// overwrite your username.
+		if isFactTypeInMap(fact.Username, s.confirmedFacts) {
+			// If a username exists in memory, return an error
+			return errors.Errorf(factTypeExistsErr, username, fact.Username)
+		} else {
+			s.confirmedFacts[username] = struct{}{}
+			modified = true
 		}
+	}
 
-		if modifiedPhone {
-			s.confirmedFacts[phone] = struct{}{}
-		}
-
+	if modified {
 		return s.saveConfirmedFacts()
 	}
 

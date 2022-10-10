@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package partition
 
@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
@@ -41,6 +40,8 @@ type multiPartMessage struct {
 	StorageTimestamp time.Time
 	MessageType      catalog.MessageType
 
+	KeyResidue e2e.KeyResidue
+
 	parts [][]byte
 	kv    *versioned.KV
 	mux   sync.Mutex
@@ -55,7 +56,7 @@ func loadOrCreateMultiPartMessage(sender *id.ID, messageID uint64,
 
 	obj, err := kv.Get(messageKey, currentMultiPartMessageVersion)
 	if err != nil {
-		if !ekv.Exists(err) {
+		if !kv.Exists(err) {
 			mpm := &multiPartMessage{
 				Sender:          sender,
 				MessageID:       messageID,
@@ -100,7 +101,7 @@ func (mpm *multiPartMessage) save() error {
 		Data:      data,
 	}
 
-	return mpm.kv.Set(messageKey, currentMultiPartMessageVersion, &obj)
+	return mpm.kv.Set(messageKey, &obj)
 }
 
 func (mpm *multiPartMessage) Add(partNumber uint8, part []byte) {

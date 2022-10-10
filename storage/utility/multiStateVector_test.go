@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package utility
@@ -890,7 +890,7 @@ func TestLoadMultiStateVector_UnmarshalError(t *testing.T) {
 	expectedErr := strings.Split(loadUnmarshalMsvErr, "%")[0]
 
 	// Save invalid data to storage
-	err := kv.Set(makeMultiStateVectorKey(key), multiStateVectorVersion,
+	err := kv.Set(makeMultiStateVectorKey(key),
 		&versioned.Object{
 			Version:   multiStateVectorVersion,
 			Timestamp: netTime.Now(),

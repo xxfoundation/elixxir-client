@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package message
 
 import (
@@ -26,7 +33,6 @@ func (sm *ServicesManager) triggerServiceTracking() {
 	if len(sm.trackers) == 0 {
 		return
 	}
-
 	services := make(ServiceList)
 	for uid, tmap := range sm.tmap {
 		tList := make([]Service, 0, len(tmap))

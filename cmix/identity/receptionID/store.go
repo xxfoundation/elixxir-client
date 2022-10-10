@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package receptionID
 
 import (
@@ -6,6 +13,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/crypto/large"
+	"gitlab.com/xx_network/crypto/shuffle"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -20,6 +28,8 @@ const (
 	receptionStoreStorageKey     = "receptionStoreKey"
 	receptionStoreStorageVersion = 0
 )
+
+var InvalidRequestedNumIdentities = errors.New("cannot get less than one identity(s)")
 
 type Store struct {
 	// Identities which are being actively checked
@@ -54,7 +64,7 @@ func NewOrLoadStore(kv *versioned.KV) *Store {
 	s, err := loadStore(kv)
 	if err != nil {
 		jww.WARN.Printf(
-			"ReceptionID store not found, creating a new one: %+v", err)
+			"ReceptionID store not found, creating a new one: %s", err.Error())
 
 		s = &Store{
 			active:  []*registration{},
@@ -122,7 +132,7 @@ func (s *Store) save() error {
 		Data:      data,
 	}
 
-	err = s.kv.Set(receptionStoreStorageKey, receptionStoreStorageVersion, obj)
+	err = s.kv.Set(receptionStoreStorageKey, obj)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to store reception store")
 	}
@@ -150,7 +160,15 @@ func (s *Store) makeStoredReferences() []storedReference {
 	return identities[:i]
 }
 
-func (s *Store) GetIdentity(rng io.Reader, addressSize uint8) (IdentityUse, error) {
+// ForEach operates on 'n' identities randomly in a random order.
+// if no identities exist, it will operate on a single fake identity
+func (s *Store) ForEach(n int, rng io.Reader,
+	addressSize uint8, operate func([]IdentityUse) error) error {
+
+	if n < 1 {
+		return InvalidRequestedNumIdentities
+	}
+
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -159,26 +177,29 @@ func (s *Store) GetIdentity(rng io.Reader, addressSize uint8) (IdentityUse, erro
 	// Remove any now expired identities
 	s.prune(now)
 
-	var identity IdentityUse
-	var err error
+	var identities []IdentityUse
 
 	// If the list is empty, then return a randomly generated identity to poll
 	// with so that we can continue tracking the network and to further
 	// obfuscate network identities.
 	if len(s.active) == 0 {
-		identity, err = generateFakeIdentity(rng, addressSize, now)
+		fakeIdentity, err := generateFakeIdentity(rng, addressSize, now)
 		if err != nil {
 			jww.FATAL.Panicf(
 				"Failed to generate a new ID when none available: %+v", err)
 		}
+		identities = append(identities, fakeIdentity)
+		// otherwise, select identities to return using a fisher-yates
 	} else {
-		identity, err = s.selectIdentity(rng, now)
+		var err error
+		identities, err = s.selectIdentities(n, rng, now)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to select an ID: %+v", err)
+			jww.FATAL.Panicf("Failed to select a list of IDs: %+v", err)
 		}
 	}
 
-	return identity, nil
+	// do the passed operation on all identities
+	return operate(identities)
 }
 
 func (s *Store) AddIdentity(identity Identity) error {
@@ -221,10 +242,11 @@ func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	for i, inQuestion := range s.active {
+	for i := 0; i < len(s.active); i++ {
+		inQuestion := s.active[i]
 		if inQuestion.EphId == ephID {
 			s.active = append(s.active[:i], s.active[i+1:]...)
-
+			delete(s.present, makeIdHash(inQuestion.EphId, inQuestion.Source))
 			err := inQuestion.Delete()
 			if err != nil {
 				jww.FATAL.Panicf("Failed to delete identity: %+v", err)
@@ -237,6 +259,8 @@ func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 				}
 			}
 
+			i--
+
 			return
 		}
 	}
@@ -247,16 +271,20 @@ func (s *Store) RemoveIdentities(source *id.ID) {
 	defer s.mux.Unlock()
 
 	doSave := false
-	for i, inQuestion := range s.active {
+	for i := 0; i < len(s.active); i++ {
+		inQuestion := s.active[i]
 		if inQuestion.Source.Cmp(source) {
 			s.active = append(s.active[:i], s.active[i+1:]...)
-
+			delete(s.present, makeIdHash(inQuestion.EphId, inQuestion.Source))
+			jww.INFO.Printf("Removing Identity %s:%d from tracker",
+				inQuestion.Source, inQuestion.EphId.Int64())
 			err := inQuestion.Delete()
 			if err != nil {
 				jww.FATAL.Panicf("Failed to delete identity: %+v", err)
 			}
 
 			doSave = doSave || !inQuestion.Ephemeral
+			i--
 		}
 	}
 	if doSave {
@@ -298,6 +326,7 @@ func (s *Store) prune(now time.Time) {
 			pruned = append(pruned, inQuestion.EphId.Int64())
 
 			s.active = append(s.active[:i], s.active[i+1:]...)
+			delete(s.present, makeIdHash(inQuestion.EphId, inQuestion.Source))
 
 			i--
 		}
@@ -313,6 +342,8 @@ func (s *Store) prune(now time.Time) {
 	}
 }
 
+// selectIdentity returns a random identity in an IdentityUse object and
+// increments its usage if necessary
 func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error) {
 	// Choose a member from the list
 	var selected *registration
@@ -320,7 +351,7 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 	if len(s.active) == 1 {
 		selected = s.active[0]
 	} else {
-		seed := make([]byte, 32)
+		seed := make([]byte, 32) //use 256 bits of entropy for the seed
 		if _, err := rng.Read(seed); err != nil {
 			return IdentityUse{}, errors.WithMessage(err, "Failed to choose "+
 				"ID due to RNG failure")
@@ -334,10 +365,6 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 		selected = s.active[selectedNum.Uint64()]
 	}
 
-	if now.After(selected.End) {
-		selected.ExtraChecks--
-	}
-
 	jww.TRACE.Printf("Selected identity: EphId: %d  ID: %s  End: %s  "+
 		"StartValid: %s  EndValid: %s",
 		selected.EphId.Int64(), selected.Source,
@@ -345,11 +372,64 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 		selected.StartValid.Format("01/02/06 03:04:05 pm"),
 		selected.EndValid.Format("01/02/06 03:04:05 pm"))
 
+	return useIdentity(selected, now), nil
+}
+
+// selectIdentities returns up to 'n' identities in an IdentityUse object
+// selected via fisher-yates and increments their usage if necessary
+func (s *Store) selectIdentities(n int, rng io.Reader, now time.Time) ([]IdentityUse, error) {
+	// Choose a member from the list
+	selected := make([]IdentityUse, 0, n)
+
+	if len(s.active) == 1 {
+		selected = append(selected, useIdentity(s.active[0], now))
+	} else {
+
+		// make the seed
+		seed := make([]byte, 32) //use 256 bits of entropy for the seed
+		if _, err := rng.Read(seed); err != nil {
+			return nil, errors.WithMessage(err, "Failed to choose "+
+				"ID due to RNG failure")
+		}
+
+		// make the list to shuffle
+		registered := make([]*registration, 0, len(s.active))
+		for i := 0; i < len(s.active); i++ {
+			registered = append(registered, s.active[i])
+		}
+
+		//shuffle the list via fisher-yates
+		registeredProxy := shuffle.SeededShuffle(len(s.active), seed)
+
+		//convert the list to identity use
+		for i := 0; i < len(registered) && (i < n); i++ {
+			selected = append(selected,
+				useIdentity(registered[registeredProxy[i]], now))
+		}
+
+	}
+
+	jww.TRACE.Printf("Selected %d identities, first identity: EphId: %d  ID: %s  End: %s  "+
+		"StartValid: %s  EndValid: %s", len(selected),
+		selected[0].EphId.Int64(), selected[0].Source,
+		selected[0].End.Format("01/02/06 03:04:05 pm"),
+		selected[0].StartValid.Format("01/02/06 03:04:05 pm"),
+		selected[0].EndValid.Format("01/02/06 03:04:05 pm"))
+
+	return selected, nil
+}
+
+// useIdentity makes the public IdentityUse object from a private *registration
+// and deals with denoting the usage in the *registration if nessessay
+func useIdentity(selected *registration, now time.Time) IdentityUse {
+	if now.After(selected.End) {
+		selected.ExtraChecks--
+	}
 	return IdentityUse{
 		Identity: selected.Identity,
 		Fake:     false,
 		UR:       selected.UR,
 		ER:       selected.ER,
 		CR:       selected.CR,
-	}, nil
+	}
 }

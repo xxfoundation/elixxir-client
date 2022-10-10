@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package ud
 
 import (
@@ -11,10 +18,10 @@ import (
 const isRegisteredKey = "isRegisteredKey"
 const isRegisteredVersion = 0
 
-// isRegistered loads from storage if the user is registered with user
+// IsRegistered loads from storage if the user is registered with user
 // discovery.
-func (m *Manager) isRegistered() bool {
-	_, err := m.getKv().Get(isRegisteredKey, isRegisteredVersion)
+func IsRegistered(kv *versioned.KV) bool {
+	_, err := kv.Get(isRegisteredKey, isRegisteredVersion)
 	if err != nil {
 		return false
 	}
@@ -32,7 +39,7 @@ func setRegistered(kv *versioned.KV) error {
 		Data:      data,
 	}
 
-	if err := kv.Set(isRegisteredKey, isRegisteredVersion, obj); err != nil {
+	if err := kv.Set(isRegisteredKey, obj); err != nil {
 		jww.FATAL.Panicf("Failed to store that the client is "+
 			"registered: %+v", err)
 	}

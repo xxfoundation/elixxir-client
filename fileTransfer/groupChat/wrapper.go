@@ -1,14 +1,15 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package groupChat
 
 import (
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	ft "gitlab.com/elixxir/client/fileTransfer"
 	"gitlab.com/elixxir/client/groupChat"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
@@ -44,7 +45,7 @@ type Wrapper struct {
 // by the Wrapper for easier testing.
 type gcManager interface {
 	Send(groupID *id.ID, tag string, message []byte) (
-		id.Round, time.Time, group.MessageID, error)
+		rounds.Round, time.Time, group.MessageID, error)
 	AddService(tag string, p groupChat.Processor) error
 }
 

@@ -1,7 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2022 Privategrity Corporation                                   /
-//                                                                             /
-// All rights reserved.                                                        /
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package identity
@@ -67,7 +68,7 @@ func TestManager_processIdentities(t *testing.T) {
 	addrSpace.UpdateAddressSpace(18)
 	session := storage.InitTestingSession(t)
 	m := &manager{
-		tracked:        make([]TrackedID, 0),
+		tracked:        make([]*TrackedID, 0),
 		session:        session,
 		newIdentity:    make(chan TrackedID, trackedIDChanSize),
 		deleteIdentity: make(chan *id.ID, deleteIDChanSize),
@@ -79,7 +80,7 @@ func TestManager_processIdentities(t *testing.T) {
 	// Add some expired test IDs
 	testId := id.NewIdFromUInt(0, id.User, t)
 	validUntil := netTime.Now().Add(time.Minute)
-	m.tracked = append(m.tracked, TrackedID{
+	m.tracked = append(m.tracked, &TrackedID{
 		NextGeneration: netTime.Now(),
 		LastGeneration: time.Time{},
 		Source:         testId,

@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package broadcast
@@ -12,15 +12,18 @@ type Method uint8
 
 const (
 	Symmetric Method = iota
-	Asymmetric
+	RSAToPublic
+	RSAToPrivate
 )
 
 func (m Method) String() string {
 	switch m {
 	case Symmetric:
 		return "Symmetric"
-	case Asymmetric:
-		return "Asymmetric"
+	case RSAToPublic:
+		return "RSAToPublic"
+	case RSAToPrivate:
+		return "RSAToPrivate"
 	default:
 		return "Unknown"
 	}

@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 // The group subcommand allows creation and sending messages to groups
 
@@ -237,7 +237,7 @@ func sendGroup(groupIdString string, msg []byte, gm groupChat.GroupChat) {
 	}
 
 	jww.INFO.Printf("[GC] Sent to group %s on round %d at %s",
-		groupID, rid, timestamp)
+		groupID, rid.ID, timestamp)
 	fmt.Printf("Sent message %q to group.\n", msg)
 }
 

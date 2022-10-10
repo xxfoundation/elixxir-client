@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -36,7 +36,7 @@ func TestSingleUseJsonMarshals(t *testing.T) {
 	sendReport := SingleUseSendReport{
 		RoundsList:  rl,
 		EphID:       ephId.EphId.Int64(),
-		ReceptionID: ephId.Source.Marshal(),
+		ReceptionID: ephId.Source,
 	}
 	srm, err := json.Marshal(sendReport)
 	if err != nil {
@@ -48,7 +48,7 @@ func TestSingleUseJsonMarshals(t *testing.T) {
 	responseReport := SingleUseResponseReport{
 		RoundsList:  rl,
 		Payload:     payload,
-		ReceptionID: ephId.Source.Marshal(),
+		ReceptionID: ephId.Source,
 		EphID:       ephId.EphId.Int64(),
 		Err:         nil,
 	}
@@ -64,7 +64,7 @@ func TestSingleUseJsonMarshals(t *testing.T) {
 		Payload:     payload,
 		Partner:     rid,
 		EphID:       ephId.EphId.Int64(),
-		ReceptionID: ephId.Source.Marshal(),
+		ReceptionID: ephId.Source,
 	}
 	crm, err := json.Marshal(callbackReport)
 	if err != nil {

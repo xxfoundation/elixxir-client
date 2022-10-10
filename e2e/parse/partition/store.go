@@ -1,19 +1,21 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package partition
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e/receive"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"golang.org/x/crypto/blake2b"
@@ -49,47 +51,60 @@ func NewOrLoad(kv *versioned.KV) *Store {
 	return partitionStore
 }
 
+// AddFirst adds the first partition message to the Store object.
 func (s *Store) AddFirst(partner *id.ID, mt catalog.MessageType,
 	messageID uint64, partNum, numParts uint8, senderTimestamp,
-	storageTimestamp time.Time, part []byte, relationshipFingerprint []byte) (
-	receive.Message, bool) {
+	storageTimestamp time.Time, part []byte, relationshipFingerprint []byte,
+	residue e2e.KeyResidue) (
+	receive.Message, e2e.KeyResidue, bool) {
 
 	mpm := s.load(partner, messageID)
-
 	mpm.AddFirst(mt, partNum, numParts, senderTimestamp, storageTimestamp, part)
+	if bytes.Equal(residue.Marshal(), []byte{}) {
+		// fixme: should this error or crash?
+		jww.WARN.Printf("Key reside from first message " +
+			"is empty, continuing...")
+	}
+
+	mpm.KeyResidue = residue
 	msg, ok := mpm.IsComplete(relationshipFingerprint)
 
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
+	keyRes := e2e.KeyResidue{}
 	if !ok {
 		s.activeParts[mpm] = true
 		s.saveActiveParts()
 	} else {
+		keyRes = mpm.KeyResidue
 		mpID := getMultiPartID(mpm.Sender, mpm.MessageID)
 		delete(s.multiParts, mpID)
 	}
 
-	return msg, ok
+	return msg, keyRes, ok
 }
 
 func (s *Store) Add(partner *id.ID, messageID uint64, partNum uint8,
-	part []byte, relationshipFingerprint []byte) (receive.Message, bool) {
+	part []byte, relationshipFingerprint []byte) (
+	receive.Message, e2e.KeyResidue, bool) {
 
 	mpm := s.load(partner, messageID)
 
 	mpm.Add(partNum, part)
 
 	msg, ok := mpm.IsComplete(relationshipFingerprint)
+	keyRes := e2e.KeyResidue{}
 	if !ok {
 		s.activeParts[mpm] = true
 		s.saveActiveParts()
 	} else {
+		keyRes = mpm.KeyResidue
 		mpID := getMultiPartID(mpm.Sender, mpm.MessageID)
 		delete(s.multiParts, mpID)
 	}
 
-	return msg, ok
+	return msg, keyRes, ok
 }
 
 // prune clears old messages on it's stored timestamp.
@@ -145,7 +160,7 @@ func (s *Store) saveActiveParts() {
 		Data:      data,
 	}
 
-	err = s.kv.Set(activePartitions, activePartitionVersion, &obj)
+	err = s.kv.Set(activePartitions, &obj)
 	if err != nil {
 		jww.FATAL.Panicf("Could not save active partitions: %+v", err)
 	}
@@ -156,7 +171,7 @@ func (s *Store) loadActivePartitions() {
 	defer s.mux.Unlock()
 	obj, err := s.kv.Get(activePartitions, activePartitionVersion)
 	if err != nil {
-		jww.DEBUG.Printf("Could not load active partitions: %+v", err)
+		jww.DEBUG.Printf("Could not load active partitions: %s", err.Error())
 		return
 	}
 

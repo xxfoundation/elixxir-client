@@ -1,8 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                           //
+// Copyright © 2022 xx foundation                                             //
 //                                                                            //
 // Use of this source code is governed by a license that can be found in the  //
-// LICENSE file                                                               //
+// LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
 package e2e
@@ -12,7 +12,7 @@ import (
 	"gitlab.com/elixxir/client/e2e"
 	"gitlab.com/elixxir/client/e2e/receive"
 	ft "gitlab.com/elixxir/client/fileTransfer"
-	e2eCrypto "gitlab.com/elixxir/crypto/e2e"
+	cryptoE2e "gitlab.com/elixxir/crypto/e2e"
 	ftCrypto "gitlab.com/elixxir/crypto/fileTransfer"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -39,7 +39,7 @@ type Wrapper struct {
 // for easier testing.
 type e2eHandler interface {
 	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
-		params e2e.Params) ([]id.Round, e2eCrypto.MessageID, time.Time, error)
+		params e2e.Params) (cryptoE2e.SendReport, error)
 	RegisterListener(senderID *id.ID, messageType catalog.MessageType,
 		newListener receive.Listener) receive.ListenerID
 }

@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package cmix
 
@@ -26,6 +26,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -68,7 +70,10 @@ func (c *client) followNetwork(report ClientErrorReport,
 	TrackTicker := time.NewTicker(debugTrackPeriod)
 	rng := c.rng.GetStream()
 
+	// abandon tracks rounds which data was not found out about in
+	// the verbose rounds debugging mode
 	abandon := func(round id.Round) { return }
+	dummyAbandon := func(round id.Round) { return }
 	if c.verboseRounds != nil {
 		abandon = func(round id.Round) {
 			c.verboseRounds.denote(round, Abandoned)
@@ -82,7 +87,50 @@ func (c *client) followNetwork(report ClientErrorReport,
 			stop.ToStopped()
 			return
 		case <-ticker.C:
-			c.follow(report, rng, c.comms, stop, abandon)
+
+			operator := func(toTrack []receptionID.IdentityUse) error {
+
+				// set up tracking tools
+				wg := &sync.WaitGroup{}
+				wg.Add(len(toTrack))
+
+				// trigger the first separately because it will get network state
+				// updates
+				go func() {
+					c.follow(toTrack[0], report, rng, c.comms, stop, abandon,
+						true)
+					wg.Done()
+				}()
+
+				//trigger all others without getting network state updates
+				for i := 1; i < len(toTrack); i++ {
+					go func(index int) {
+						c.follow(toTrack[index], report, rng, c.comms, stop,
+							dummyAbandon, false)
+						wg.Done()
+					}(i)
+				}
+
+				//wait for all to complete
+				wg.Wait()
+				return nil
+			}
+
+			// get the list of identities to track
+			stream := c.rng.GetStream()
+			err := c.Tracker.ForEach(
+				int(c.param.MaxParallelIdentityTracks),
+				stream,
+				c.Space.GetAddressSpaceWithoutWait(),
+				operator)
+			stream.Close()
+
+			if err != nil {
+				jww.ERROR.Printf("failed to operate on identities to "+
+					"track: %s", err)
+				continue
+			}
+
 		case <-TrackTicker.C:
 			numPolls := atomic.SwapUint64(c.tracker, 0)
 			if c.numLatencies != 0 {
@@ -108,18 +156,10 @@ func (c *client) followNetwork(report ClientErrorReport,
 	}
 }
 
-// follow executes each iteration of the follower.
-func (c *client) follow(report ClientErrorReport, rng csprng.Source,
-	comms followNetworkComms, stop *stoppable.Single,
-	abandon func(round id.Round)) {
-
-	// Get the identity we will poll for
-	identity, err := c.GetEphemeralIdentity(
-		rng, c.Space.GetAddressSpaceWithoutWait())
-	if err != nil {
-		jww.FATAL.Panicf(
-			"Failed to get an identity, this should be impossible: %+v", err)
-	}
+// follow executes an iteration of the follower for a specific identity
+func (c *client) follow(identity receptionID.IdentityUse,
+	report ClientErrorReport, rng csprng.Source, comms followNetworkComms,
+	stop *stoppable.Single, abandon func(round id.Round), getUpdates bool) {
 
 	// While polling with a fake identity, it is necessary to have populated
 	// earliestRound data. However, as with fake identities, we want the values
@@ -147,6 +187,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 		ClientVersion:  []byte(version.String()),
 		FastPolling:    c.param.FastPolling,
 		LastRound:      uint64(identity.ER.Get()),
+		DisableUpdates: !getUpdates,
 	}
 
 	result, err := c.SendToAny(func(host *connect.Host) (interface{}, error) {
@@ -299,6 +340,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 		if !hasMessage && c.verboseRounds != nil {
 			c.verboseRounds.denote(rid, RoundState(NoMessageAvailable))
 		}
+		//jww.INFO.Printf("[LOOKUP] round %d checked for %d, has message: %s", rid, identity.EphId.Int64(), hasMessage)
 		return hasMessage
 	}
 
@@ -349,10 +391,10 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 		gwRoundsState.RangeUnchecked(
 			updatedEarliestRound, c.param.KnownRoundsThreshold, roundChecker)
 
-	jww.DEBUG.Printf("Processed RangeUnchecked, Oldest: %d, "+
+	jww.DEBUG.Printf("Processed RangeUnchecked for %d, Oldest: %d, "+
 		"firstUnchecked: %d, last Checked: %d, threshold: %d, "+
 		"NewEarliestRemaining: %d, NumWithMessages: %d, NumUnknown: %d",
-		updatedEarliestRound, gwRoundsState.GetFirstUnchecked(),
+		identity.EphId.Int64(), updatedEarliestRound, gwRoundsState.GetFirstUnchecked(),
 		gwRoundsState.GetLastChecked(), c.param.KnownRoundsThreshold,
 		earliestRemaining, len(roundsWithMessages), len(roundsUnknown))
 

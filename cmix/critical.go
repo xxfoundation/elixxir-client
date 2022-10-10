@@ -1,6 +1,16 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package cmix
 
 import (
+	"gitlab.com/elixxir/client/cmix/rounds"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/health"
 	"gitlab.com/elixxir/client/stoppable"
@@ -10,7 +20,6 @@ import (
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"time"
 )
 
 const criticalRawMessagesKey = "RawCriticalMessages"
@@ -27,7 +36,7 @@ type roundEventRegistrar interface {
 // anonymous function to include the structures from client that critical is
 // not aware of.
 type criticalSender func(msg format.Message, recipient *id.ID,
-	params CMIXParams) (id.Round, ephemeral.Id, error)
+	params CMIXParams) (rounds.Round, ephemeral.Id, error)
 
 // critical is a structure that allows the auto resending of messages that must
 // be received.
@@ -56,6 +65,12 @@ func newCritical(kv *versioned.KV, hm health.Monitor,
 	hm.AddHealthCallback(func(healthy bool) { c.trigger <- healthy })
 
 	return c
+}
+
+func (c *critical) startProcessies() *stoppable.Single {
+	stop := stoppable.NewSingle("criticalStopper")
+	go c.runCriticalMessages(stop)
+	return stop
 }
 
 func (c *critical) runCriticalMessages(stop *stoppable.Single) {
@@ -120,7 +135,7 @@ func (c *critical) evaluate(stop *stoppable.Single) {
 			round, _, err := c.send(msg, recipient, params)
 
 			// Pass to the handler
-			c.handle(msg, recipient, round, err)
+			c.handle(msg, recipient, round.ID, err)
 		}(msg, localRid, params)
 	}
 

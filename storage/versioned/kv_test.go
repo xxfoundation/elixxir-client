@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 package versioned
 
@@ -188,7 +188,7 @@ func TestVersionedKV_Set(t *testing.T) {
 		Timestamp: netTime.Now(),
 		Data:      []byte("not upgraded"),
 	}
-	err := vkv.Set("test", originalVersion, &original)
+	err := vkv.Set("test", &original)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,9 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
 
 // Package cmd initializes the CLI and config parsers as well as the logger.
 package cmd
@@ -11,7 +11,6 @@ package cmd
 import (
 	"fmt"
 	"gitlab.com/elixxir/client/xxdk"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 
@@ -252,8 +251,7 @@ var udCmd = &cobra.Command{
 // to contact UD.
 func getUdContactInfo(user *xxdk.E2e) (cert, contactFile []byte, address string, err error) {
 	// Retrieve address
-	address = string([]byte(user.GetCmix().GetInstance().GetPartialNdf().
-		Get().UDB.Address))
+	address = user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.Address
 
 	// Retrieve certificate
 	cert = []byte(user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.Cert)
@@ -267,7 +265,7 @@ func getUdContactInfo(user *xxdk.E2e) (cert, contactFile []byte, address string,
 
 	// Retrieve DH Pub Key
 	udDhPubKeyData := user.GetCmix().GetInstance().GetPartialNdf().Get().UDB.DhPubKey
-	var udDhPubKey *cyclic.Int
+	udDhPubKey := user.GetE2E().GetGroup().NewInt(1)
 	err = udDhPubKey.UnmarshalJSON(udDhPubKeyData)
 	if err != nil {
 		return nil, nil, "", err

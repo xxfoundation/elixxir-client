@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package auth
 
 import (
@@ -134,7 +141,7 @@ type cmixClient interface {
 	DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint)
 	Send(recipient *id.ID, fingerprint format.Fingerprint,
 		service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
-		id.Round, ephemeral.Id, error)
+		rounds.Round, ephemeral.Id, error)
 }
 
 // e2eHandler is a sub-interface of e2e.Handler containing

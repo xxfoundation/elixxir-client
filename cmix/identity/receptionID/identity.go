@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2022 xx foundation                                             //
+//                                                                            //
+// Use of this source code is governed by a license that can be found in the  //
+// LICENSE file.                                                              //
+////////////////////////////////////////////////////////////////////////////////
+
 package receptionID
 
 import (
@@ -73,7 +80,7 @@ func (i Identity) store(kv *versioned.KV) error {
 	}
 
 	// Store the data
-	err = kv.Set(identityStorageKey, identityStorageVersion, obj)
+	err = kv.Set(identityStorageKey, obj)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to store Identity")
 	}

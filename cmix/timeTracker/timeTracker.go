@@ -28,24 +28,36 @@ type TimeOffsetTracker interface {
 }
 
 type gatewayDelays struct {
-	lock   sync.RWMutex
-	delays []time.Duration
+	lock         sync.RWMutex
+	delays       []*time.Duration
+	currentIndex int
+}
+
+func (g *gatewayDelays) AddDelay(d time.Duration) {
+	g.lock.Lock()
+	defer g.lock.Unlock()
+
+	g.delays[g.currentIndex] = &d
+	g.currentIndex += 1
+	if g.currentIndex == len(g.delays) {
+		g.currentIndex = 0
+	}
 }
 
 type timeOffsetTracker struct {
-	numAvg int
+	gatewayClockDelays *sync.Map // id.ID -> *gatewayDelays
 
-	gatewayClockDelays *sync.Map // id.ID -> []time.Duration
-
-	lock    sync.RWMutex
-	offsets []time.Duration
+	lock         sync.RWMutex
+	offsets      []*time.Duration
+	currentIndex int
 }
 
 // New returns an implementation of TimeOffsetTracker.
 func New() TimeOffsetTracker {
 	t := &timeOffsetTracker{
-		numAvg:             maxHistogramSize,
 		gatewayClockDelays: new(sync.Map),
+		offsets:            make([]*time.Duration, maxHistogramSize),
+		currentIndex:       0,
 	}
 	return t
 }
@@ -53,20 +65,29 @@ func New() TimeOffsetTracker {
 func (t *timeOffsetTracker) Add(gwID *id.ID, startTime, rTs time.Time, rtt, gwD time.Duration) {
 	delay := rtt/2 - gwD
 
-	delays, _ := t.gatewayClockDelays.LoadOrStore(*gwID, []time.Duration{})
+	delays, _ := t.gatewayClockDelays.LoadOrStore(*gwID, &gatewayDelays{
+		delays: make([]*time.Duration, maxHistogramSize),
+	})
 
 	gwdelays := delays.(*gatewayDelays)
 
 	gwdelays.lock.Lock()
-	pushDurationRing(delay, gwdelays.delays, t.numAvg)
+	gwdelays.AddDelay(delay)
 	gwDelay := average(gwdelays.delays)
 	gwdelays.lock.Unlock()
 
 	offset := startTime.Sub(rTs.Add(-gwDelay))
+	t.addOffset(offset)
+}
 
+func (t *timeOffsetTracker) addOffset(offset time.Duration) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
-	pushDurationRing(offset, t.offsets, t.numAvg)
+	t.offsets[t.currentIndex] = &offset
+	t.currentIndex += 1
+	if t.currentIndex == len(t.offsets) {
+		t.currentIndex = 0
+	}
 }
 
 func (t *timeOffsetTracker) Aggregate() time.Duration {
@@ -75,17 +96,16 @@ func (t *timeOffsetTracker) Aggregate() time.Duration {
 	return average(t.offsets)
 }
 
-func pushDurationRing(duration time.Duration, durations []time.Duration, size int) {
-	durations = append(durations, duration)
-	if len(durations) > size {
-		durations = durations[1:]
-	}
-}
-
-func average(durations []time.Duration) time.Duration {
+func average(durations []*time.Duration) time.Duration {
 	sum := int64(0)
+	count := int64(0)
 	for i := 0; i < len(durations); i++ {
-		sum += int64(durations[i])
+		if durations[i] == nil {
+			break
+		}
+		sum += int64(*durations[i])
+		count += 1
 	}
-	return time.Duration(sum / int64(len(durations)))
+
+	return time.Duration(sum / count)
 }

@@ -13,7 +13,9 @@ import (
 )
 
 // SetTimeSource will set the time source that will be used when retrieving the
-// current time using [netTime.Now].
+// current time using [netTime.Now]. This should be called BEFORE Login()
+// and only be called once. Using this after Login is undefined behavior that
+// may result in a crash.
 //
 // Parameters:
 //  - timeNow is an object which adheres to [netTime.TimeSource]. Specifically,

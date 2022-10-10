@@ -94,7 +94,7 @@ func GetDefaultParams() Params {
 		TrackNetworkPeriod:        100 * time.Millisecond,
 		MaxCheckedRounds:          500,
 		RegNodesBufferLen:         1000,
-		NetworkHealthTimeout:      30 * time.Second,
+		NetworkHealthTimeout:      15 * time.Second,
 		ParallelNodeRegistrations: 20,
 		KnownRoundsThreshold:      1500, // 5 rounds/sec * 60 sec/min * 5 min
 		FastPolling:               true,

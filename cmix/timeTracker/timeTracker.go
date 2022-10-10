@@ -44,6 +44,12 @@ func (g *gatewayDelays) AddDelay(d time.Duration) {
 	}
 }
 
+func (g *gatewayDelays) Average() time.Duration {
+	g.lock.RLock()
+	defer g.lock.RUnlock()
+	return average(g.delays)
+}
+
 type timeOffsetTracker struct {
 	gatewayClockDelays *sync.Map // id.ID -> *gatewayDelays
 
@@ -66,15 +72,13 @@ func (t *timeOffsetTracker) Add(gwID *id.ID, startTime, rTs time.Time, rtt, gwD 
 	delay := rtt/2 - gwD
 
 	delays, _ := t.gatewayClockDelays.LoadOrStore(*gwID, &gatewayDelays{
-		delays: make([]*time.Duration, maxHistogramSize),
+		delays:       make([]*time.Duration, maxHistogramSize),
+		currentIndex: 0,
 	})
 
 	gwdelays := delays.(*gatewayDelays)
-
-	gwdelays.lock.Lock()
 	gwdelays.AddDelay(delay)
-	gwDelay := average(gwdelays.delays)
-	gwdelays.lock.Unlock()
+	gwDelay := gwdelays.Average()
 
 	offset := startTime.Sub(rTs.Add(-gwDelay))
 	t.addOffset(offset)

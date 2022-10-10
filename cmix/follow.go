@@ -340,7 +340,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 		if !hasMessage && c.verboseRounds != nil {
 			c.verboseRounds.denote(rid, RoundState(NoMessageAvailable))
 		}
-		jww.INFO.Printf("[LOOKUP] round %d checked for %d, has message: %s", rid, identity.EphId.Int64(), hasMessage)
+		//jww.INFO.Printf("[LOOKUP] round %d checked for %d, has message: %s", rid, identity.EphId.Int64(), hasMessage)
 		return hasMessage
 	}
 
@@ -391,7 +391,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 		gwRoundsState.RangeUnchecked(
 			updatedEarliestRound, c.param.KnownRoundsThreshold, roundChecker)
 
-	jww.DEBUG.Printf("Processed RangeUnchecked for %s, Oldest: %d, "+
+	jww.DEBUG.Printf("Processed RangeUnchecked for %d, Oldest: %d, "+
 		"firstUnchecked: %d, last Checked: %d, threshold: %d, "+
 		"NewEarliestRemaining: %d, NumWithMessages: %d, NumUnknown: %d",
 		identity.EphId.Int64(), updatedEarliestRound, gwRoundsState.GetFirstUnchecked(),

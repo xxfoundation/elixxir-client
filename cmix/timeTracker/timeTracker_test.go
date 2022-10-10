@@ -37,3 +37,31 @@ func TestTimeTrackerSmokeTest(t *testing.T) {
 
 	t.Logf("aggregate: %v", aggregate)
 }
+
+func TestAverage(t *testing.T) {
+	t1 := time.Duration(int64(10))
+	t2 := time.Duration(int64(20))
+	t3 := time.Duration(int64(30))
+	t4 := time.Duration(int64(1000))
+	durations := make([]*time.Duration, 100)
+	durations[0] = &t1
+	durations[1] = &t2
+	durations[2] = &t3
+	durations[3] = &t4
+	avg := average(durations)
+	require.Equal(t, int(avg), 265)
+}
+
+func TestGatewayDelayAverage(t *testing.T) {
+	t1 := time.Duration(int64(10))
+	t2 := time.Duration(int64(20))
+	t3 := time.Duration(int64(30))
+	t4 := time.Duration(int64(1000))
+	gwDelays := newGatewayDelays()
+	gwDelays.Add(t1)
+	gwDelays.Add(t2)
+	gwDelays.Add(t3)
+	gwDelays.Add(t4)
+	avg := gwDelays.Average()
+	require.Equal(t, int(avg), 265)
+}

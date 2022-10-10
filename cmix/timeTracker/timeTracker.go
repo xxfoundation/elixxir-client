@@ -33,7 +33,14 @@ type gatewayDelays struct {
 	currentIndex int
 }
 
-func (g *gatewayDelays) AddDelay(d time.Duration) {
+func newGatewayDelays() *gatewayDelays {
+	return &gatewayDelays{
+		delays:       make([]*time.Duration, maxHistogramSize),
+		currentIndex: 0,
+	}
+}
+
+func (g *gatewayDelays) Add(d time.Duration) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 
@@ -71,13 +78,10 @@ func New() TimeOffsetTracker {
 func (t *timeOffsetTracker) Add(gwID *id.ID, startTime, rTs time.Time, rtt, gwD time.Duration) {
 	delay := rtt/2 - gwD
 
-	delays, _ := t.gatewayClockDelays.LoadOrStore(*gwID, &gatewayDelays{
-		delays:       make([]*time.Duration, maxHistogramSize),
-		currentIndex: 0,
-	})
+	delays, _ := t.gatewayClockDelays.LoadOrStore(*gwID, newGatewayDelays())
 
 	gwdelays := delays.(*gatewayDelays)
-	gwdelays.AddDelay(delay)
+	gwdelays.Add(delay)
 	gwDelay := gwdelays.Average()
 
 	offset := startTime.Sub(rTs.Add(-gwDelay))
@@ -87,6 +91,7 @@ func (t *timeOffsetTracker) Add(gwID *id.ID, startTime, rTs time.Time, rtt, gwD 
 func (t *timeOffsetTracker) addOffset(offset time.Duration) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
+
 	t.offsets[t.currentIndex] = &offset
 	t.currentIndex += 1
 	if t.currentIndex == len(t.offsets) {
@@ -97,6 +102,7 @@ func (t *timeOffsetTracker) addOffset(offset time.Duration) {
 func (t *timeOffsetTracker) Aggregate() time.Duration {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
+
 	return average(t.offsets)
 }
 

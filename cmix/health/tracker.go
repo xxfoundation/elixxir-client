@@ -164,9 +164,17 @@ func (t *tracker) StartProcesses() (stoppable.Stoppable, error) {
 // health.
 func (t *tracker) start(stop *stoppable.Single) {
 
+	// ensures wasHealthy is only set once
 	hasSetWasHealthy := false
+
+	// denotation of the previous state in order to catch state changes
 	lastState := false
+
+	// flag denoting required exit, allows final signaling
 	quit := false
+
+	//ensured the timeout error is only printed once per timeout period
+	timedOut := true
 
 	for {
 
@@ -181,9 +189,14 @@ func (t *tracker) start(stop *stoppable.Single) {
 
 		case heartbeat := <-t.heartbeat:
 			t.updateHealth(heartbeat.HasWaitingRound, heartbeat.IsRoundComplete)
+			timedOut = false
 		case <-time.After(t.timeout):
-			jww.ERROR.Printf("Network health tracker timed out, network " +
-				"is no longer healthy, follower likely has stopped...")
+			if !timedOut {
+				jww.ERROR.Printf("Network health tracker timed out, network " +
+					"is no longer healthy, follower likely has stopped...")
+			}
+			timedOut = true
+
 			// note: no need to force to unhealthy because by definition the
 			// timestamps will be stale
 		}

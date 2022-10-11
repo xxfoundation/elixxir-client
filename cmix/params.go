@@ -62,6 +62,10 @@ type Params struct {
 	// the system will poll in one iteration of the follower
 	MaxParallelIdentityTracks uint
 
+	// ClockSkewClamp is the window (+/-) in which clock skew is
+	// ignored and local time is used
+	ClockSkewClamp time.Duration
+
 	Rounds     rounds.Params
 	Pickup     pickup.Params
 	Message    message.Params
@@ -102,6 +106,7 @@ func GetDefaultParams() Params {
 		RealtimeOnly:              false,
 		ReplayRequests:            true,
 		MaxParallelIdentityTracks: 20,
+		ClockSkewClamp:            150 * time.Millisecond,
 	}
 	n.Rounds = rounds.GetDefaultParams()
 	n.Pickup = pickup.GetDefaultParams()

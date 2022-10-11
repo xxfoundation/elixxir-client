@@ -127,7 +127,8 @@ func (c *client) followNetwork(report ClientErrorReport,
 
 			//update clock skew
 			estimatedSkew := c.skewTracker.Aggregate()
-			netTime.SetOffset(estimatedSkew)
+			// invert the skew because we need to reverse it
+			netTime.SetOffset(-estimatedSkew)
 
 			if err != nil {
 				jww.ERROR.Printf("failed to operate on identities to "+

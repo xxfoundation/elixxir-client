@@ -9,6 +9,7 @@
 package clockSkew
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"sync"
 	"time"
 
@@ -82,6 +83,12 @@ func New(clamp time.Duration) Tracker {
 
 // Add implements the Add method of the Tracker interface.
 func (t *timeOffsetTracker) Add(gwID *id.ID, startTime, rTs time.Time, rtt, gwD time.Duration) {
+	if abs(startTime.Sub(rTs)) > time.Hour {
+		jww.WARN.Printf("Time data from %s dropped, more than an hour off from"+
+			" local time; local: %s, remote: %s", startTime, rTs)
+		return
+	}
+
 	delay := (rtt - gwD) / 2
 
 	delays, _ := t.gatewayClockDelays.LoadOrStore(*gwID, newGatewayDelays())
@@ -92,6 +99,13 @@ func (t *timeOffsetTracker) Add(gwID *id.ID, startTime, rTs time.Time, rtt, gwD 
 
 	offset := startTime.Sub(rTs.Add(-gwDelay))
 	t.addOffset(offset)
+}
+
+func abs(duration time.Duration) time.Duration {
+	if duration < 0 {
+		return -duration
+	}
+	return duration
 }
 
 func (t *timeOffsetTracker) addOffset(offset time.Duration) {

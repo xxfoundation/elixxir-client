@@ -17,6 +17,7 @@ import (
 )
 
 const maxHistogramSize = 50
+const day = 24 * time.Hour
 
 // Tracker tracks local clock skew relative to various
 // gateways.
@@ -83,8 +84,8 @@ func New(clamp time.Duration) Tracker {
 
 // Add implements the Add method of the Tracker interface.
 func (t *timeOffsetTracker) Add(gwID *id.ID, startTime, rTs time.Time, rtt, gwD time.Duration) {
-	if abs(startTime.Sub(rTs)) > time.Hour {
-		jww.WARN.Printf("Time data from %s dropped, more than an hour off from"+
+	if abs(startTime.Sub(rTs)) > day {
+		jww.WARN.Printf("Time data from %s dropped, more than an day off from"+
 			" local time; local: %s, remote: %s", startTime, rTs)
 		return
 	}
@@ -142,6 +143,10 @@ func average(durations []*time.Duration) time.Duration {
 		}
 		sum += int64(*durations[i])
 		count += 1
+	}
+
+	if count == 0 {
+		return 0
 	}
 
 	return time.Duration(sum / count)

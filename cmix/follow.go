@@ -57,7 +57,7 @@ const (
 type followNetworkComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	SendPoll(host *connect.Host, message *pb.GatewayPoll) (
-		*pb.GatewayPollResponse, error)
+		*pb.GatewayPollResponse, time.Time, time.Duration, error)
 	RequestMessages(host *connect.Host, message *pb.GetMessages) (
 		*pb.GetMessagesResponse, error)
 }
@@ -125,6 +125,10 @@ func (c *client) followNetwork(report ClientErrorReport,
 				operator)
 			stream.Close()
 
+			//update clock skew
+			estimatedSkew := c.skewTracker.Aggregate()
+			netTime.SetOffset(estimatedSkew)
+
 			if err != nil {
 				jww.ERROR.Printf("failed to operate on identities to "+
 					"track: %s", err)
@@ -190,12 +194,20 @@ func (c *client) follow(identity receptionID.IdentityUse,
 		DisableUpdates: !getUpdates,
 	}
 
+	var rtt time.Duration
+	var sendTo *id.ID
+	var startTime time.Time
+
 	result, err := c.SendToAny(func(host *connect.Host) (interface{}, error) {
 		jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
 			identity.EphId.Int64(), identity.Source, identity.StartValid,
 			identity.EndValid, identity.EndValid.Sub(identity.StartValid),
 			host.GetId())
-		return comms.SendPoll(host, &pollReq)
+		var err error
+		var response *pb.GatewayPollResponse
+		response, startTime, rtt, err = comms.SendPoll(host, &pollReq)
+		sendTo = host.GetId()
+		return response, err
 	}, stop)
 
 	// Exit if the thread has been stopped
@@ -221,6 +233,11 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	}
 
 	pollResp := result.(*pb.GatewayPollResponse)
+
+	//execute clock skew update
+	c.skewTracker.Add(sendTo, startTime,
+		time.Unix(0, pollResp.ReceivedTs),
+		rtt, time.Duration(pollResp.GatewayDelay))
 
 	// ---- Process Network State Update Data ----
 	gwRoundsState := &knownRounds.KnownRounds{}

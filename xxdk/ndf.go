@@ -59,7 +59,7 @@ func DownloadNdfFromGateway(address string, cert []byte) (
 	}
 
 	// Send poll request and receive response containing NDF
-	resp, err := comms.SendPoll(host, pollMsg)
+	resp, _, _, err := comms.SendPoll(host, pollMsg)
 	if err != nil {
 		return nil, err
 	}

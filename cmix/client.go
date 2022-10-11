@@ -11,6 +11,8 @@ package cmix
 // and intra-client state are accessible through the context object.
 
 import (
+	"gitlab.com/elixxir/client/cmix/clockSkew"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"strconv"
 	"sync/atomic"
@@ -57,6 +59,8 @@ type client struct {
 	comms *commClient.Comms
 	// Contains the network instance
 	instance *commNetwork.Instance
+	//contains the clock skew tracker
+	skewTracker clockSkew.Tracker
 
 	// Parameters of the network
 	param Params
@@ -97,6 +101,8 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 	tracker := uint64(0)
 	earliest := uint64(0)
 
+	netTime.SetTimeSource(localTime{})
+
 	// Create client object
 	c := &client{
 		param:         params,
@@ -107,6 +113,7 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 		rng:           rng,
 		comms:         comms,
 		maxMsgLen:     tmpMsg.ContentsSize(),
+		skewTracker:   clockSkew.New(params.ClockSkewClamp),
 	}
 
 	if params.VerboseRoundTracking {

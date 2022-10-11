@@ -5,8 +5,8 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-// package timeTracker tracks local clock skew relative to gateways.
-package timeTracker
+// package clockSkew tracks local clock skew relative to gateways.
+package clockSkew
 
 import (
 	"crypto/rand"
@@ -20,7 +20,7 @@ import (
 )
 
 func TestTimeTrackerSmokeTest(t *testing.T) {
-	tracker := New()
+	tracker := New(0)
 	gwID := &id.ID{}
 	_, err := rand.Read(gwID[:])
 	require.NoError(t, err)

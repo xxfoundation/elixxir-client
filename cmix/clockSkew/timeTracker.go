@@ -5,8 +5,8 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-// package timeTracker tracks local clock skew relative to gateways.
-package timeTracker
+// package clockSkew tracks local clock skew relative to gateways.
+package clockSkew
 
 import (
 	"sync"
@@ -17,9 +17,9 @@ import (
 
 const maxHistogramSize = 50
 
-// TimeOffsetTracker tracks local clock skew relative to various
+// Tracker tracks local clock skew relative to various
 // gateways.
-type TimeOffsetTracker interface {
+type Tracker interface {
 	// Add additional data to our aggregate clock skews.
 	Add(gwID *id.ID, startTime, rTs time.Time, rtt, gwD time.Duration)
 
@@ -59,17 +59,18 @@ func (g *gatewayDelays) Average() time.Duration {
 	return average(g.delays)
 }
 
-// timeOffsetTracker implements the TimeOffsetTracker
+// timeOffsetTracker implements the Tracker
 type timeOffsetTracker struct {
 	gatewayClockDelays *sync.Map // id.ID -> *gatewayDelays
 
 	lock         sync.RWMutex
 	offsets      []*time.Duration
 	currentIndex int
+	clamp        time.Duration
 }
 
-// New returns an implementation of TimeOffsetTracker.
-func New() TimeOffsetTracker {
+// New returns an implementation of Tracker.
+func New(clamp time.Duration) Tracker {
 	t := &timeOffsetTracker{
 		gatewayClockDelays: new(sync.Map),
 		offsets:            make([]*time.Duration, maxHistogramSize),
@@ -78,7 +79,7 @@ func New() TimeOffsetTracker {
 	return t
 }
 
-// Add implements the Add method of the TimeOffsetTracker interface.
+// Add implements the Add method of the Tracker interface.
 func (t *timeOffsetTracker) Add(gwID *id.ID, startTime, rTs time.Time, rtt, gwD time.Duration) {
 	delay := rtt/2 - gwD
 
@@ -103,12 +104,18 @@ func (t *timeOffsetTracker) addOffset(offset time.Duration) {
 	}
 }
 
-// Aggregate implements the Aggregate method fo the TimeOffsetTracker interface.
+// Aggregate implements the Aggregate method fo the Tracker interface.
 func (t *timeOffsetTracker) Aggregate() time.Duration {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
 
-	return average(t.offsets)
+	avg := average(t.offsets)
+	if avg < (-t.clamp) || avg > t.clamp {
+		return avg
+	} else {
+		return 0
+	}
+
 }
 
 func average(durations []*time.Duration) time.Duration {

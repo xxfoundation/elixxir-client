@@ -27,6 +27,8 @@ type TimeOffsetTracker interface {
 	Aggregate() time.Duration
 }
 
+// gatewayDelays is a helper type used by the timeOffsetTracker below
+// to keep track of the last maxHistogramSize number of durations.
 type gatewayDelays struct {
 	lock         sync.RWMutex
 	delays       []*time.Duration
@@ -57,6 +59,7 @@ func (g *gatewayDelays) Average() time.Duration {
 	return average(g.delays)
 }
 
+// timeOffsetTracker implements the TimeOffsetTracker
 type timeOffsetTracker struct {
 	gatewayClockDelays *sync.Map // id.ID -> *gatewayDelays
 
@@ -75,6 +78,7 @@ func New() TimeOffsetTracker {
 	return t
 }
 
+// Add implements the Add method of the TimeOffsetTracker interface.
 func (t *timeOffsetTracker) Add(gwID *id.ID, startTime, rTs time.Time, rtt, gwD time.Duration) {
 	delay := rtt/2 - gwD
 
@@ -99,6 +103,7 @@ func (t *timeOffsetTracker) addOffset(offset time.Duration) {
 	}
 }
 
+// Aggregate implements the Aggregate method fo the TimeOffsetTracker interface.
 func (t *timeOffsetTracker) Aggregate() time.Duration {
 	t.lock.RLock()
 	defer t.lock.RUnlock()

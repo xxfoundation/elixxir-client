@@ -66,10 +66,11 @@ type timeOffsetTracker struct {
 	lock         sync.RWMutex
 	offsets      []*time.Duration
 	currentIndex int
+	clamp        time.Duration
 }
 
 // New returns an implementation of Tracker.
-func New() Tracker {
+func New(clamp time.Duration) Tracker {
 	t := &timeOffsetTracker{
 		gatewayClockDelays: new(sync.Map),
 		offsets:            make([]*time.Duration, maxHistogramSize),
@@ -108,7 +109,13 @@ func (t *timeOffsetTracker) Aggregate() time.Duration {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
 
-	return average(t.offsets)
+	avg := average(t.offsets)
+	if avg < (-t.clamp) || avg > t.clamp {
+		return avg
+	} else {
+		return 0
+	}
+
 }
 
 func average(durations []*time.Duration) time.Duration {

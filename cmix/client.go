@@ -113,7 +113,7 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 		rng:           rng,
 		comms:         comms,
 		maxMsgLen:     tmpMsg.ContentsSize(),
-		skewTracker:   clockSkew.New(),
+		skewTracker:   clockSkew.New(params.ClockSkewClamp),
 	}
 
 	if params.VerboseRoundTracking {

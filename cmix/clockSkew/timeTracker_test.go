@@ -20,7 +20,7 @@ import (
 )
 
 func TestTimeTrackerSmokeTest(t *testing.T) {
-	tracker := New()
+	tracker := New(0)
 	gwID := &id.ID{}
 	_, err := rand.Read(gwID[:])
 	require.NoError(t, err)

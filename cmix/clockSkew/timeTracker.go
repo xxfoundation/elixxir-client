@@ -82,7 +82,7 @@ func New(clamp time.Duration) Tracker {
 
 // Add implements the Add method of the Tracker interface.
 func (t *timeOffsetTracker) Add(gwID *id.ID, startTime, rTs time.Time, rtt, gwD time.Duration) {
-	delay := rtt/2 - gwD
+	delay := (rtt - gwD) / 2
 
 	delays, _ := t.gatewayClockDelays.LoadOrStore(*gwID, newGatewayDelays())
 

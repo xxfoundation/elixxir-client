@@ -106,7 +106,7 @@ func GetDefaultParams() Params {
 		RealtimeOnly:              false,
 		ReplayRequests:            true,
 		MaxParallelIdentityTracks: 20,
-		ClockSkewClamp:            150 * time.Millisecond,
+		ClockSkewClamp:            50 * time.Millisecond,
 	}
 	n.Rounds = rounds.GetDefaultParams()
 	n.Pickup = pickup.GetDefaultParams()

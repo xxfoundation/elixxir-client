@@ -75,6 +75,7 @@ func New(clamp time.Duration) Tracker {
 		gatewayClockDelays: new(sync.Map),
 		offsets:            make([]*time.Duration, maxHistogramSize),
 		currentIndex:       0,
+		clamp:              clamp,
 	}
 	return t
 }

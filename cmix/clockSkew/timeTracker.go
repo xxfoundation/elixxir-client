@@ -86,7 +86,7 @@ func New(clamp time.Duration) Tracker {
 func (t *timeOffsetTracker) Add(gwID *id.ID, startTime, rTs time.Time, rtt, gwD time.Duration) {
 	if abs(startTime.Sub(rTs)) > day {
 		jww.WARN.Printf("Time data from %s dropped, more than an day off from"+
-			" local time; local: %s, remote: %s", startTime, rTs)
+			" local time; local: %s, remote: %s", gwID, startTime, rTs)
 		return
 	}
 

@@ -13,12 +13,14 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/channels"
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
 )
@@ -359,7 +361,41 @@ func GenerateChannel(cmixID int, name, description string) ([]byte, error) {
 		PrivateKey: string(pk.MarshalPem()),
 	}
 
+	err = saveChannelPrivateKey(cmix, c.ReceptionID, pk)
+	if err != nil {
+		return nil, err
+	}
+
 	return json.Marshal(&gen)
+}
+
+const (
+	channelPrivateKeyStoreVersion = 0
+	channelPrivateKeyStoreKey     = "channelPrivateKey"
+)
+
+func saveChannelPrivateKey(cmix *Cmix, channelID *id.ID, pk rsa.PrivateKey) error {
+	return cmix.api.GetStorage().Set(
+		makeChannelPrivateKeyStoreKey(channelID),
+		&versioned.Object{
+			Version:   channelPrivateKeyStoreVersion,
+			Timestamp: netTime.Now(),
+			Data:      pk.MarshalPem(),
+		})
+}
+
+func loadChannelPrivateKey(cmix Cmix, channelID *id.ID) (rsa.PrivateKey, error) {
+	obj, err := cmix.api.GetStorage().Get(
+		makeChannelPrivateKeyStoreKey(channelID))
+	if err != nil {
+		return nil, err
+	}
+
+	return rsa.GetScheme().UnmarshalPrivateKeyPEM(obj.Data)
+}
+
+func makeChannelPrivateKeyStoreKey(channelID *id.ID) string {
+	return channelPrivateKeyStoreKey + "/" + channelID.String()
 }
 
 type ChannelInfo struct {

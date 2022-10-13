@@ -10,7 +10,9 @@ package channels
 import (
 	"crypto/ed25519"
 
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/primitives/id"
+	"golang.org/x/crypto/blake2b"
 
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -23,7 +25,7 @@ const (
 )
 
 type dmClient struct {
-	ReceptionID *id.ID
+	receptionID *id.ID
 	privateKey  *ed25519.PrivateKey
 
 	net Client
@@ -31,11 +33,19 @@ type dmClient struct {
 }
 
 func NewDMClient(privateEdwardsKey ed25519.PrivateKey) *dmClient {
-	alicePrivateKey := ecdh.ECDHNIKE.NewEmptyPrivateKey()
-	alicePrivateKey.FromEdwards(privateEdwardsKey)
+	privateKey := ecdh.ECDHNIKE.NewEmptyPrivateKey()
+	privateKey.FromEdwards(privateEdwardsKey)
+	publicKey := privateKey.DerivePublicKey()
+
+	hash := blake2b.Sum256(publicKey.Bytes())
+	receptionID, err := id.Unmarshal(hash[:])
+	if err != nil {
+		jww.FATAL.Panic(err)
+	}
 
 	return &dmClient{
-		privateKey: alicePrivateKey,
+		receptionID: receptionID,
+		privateKey:  alicePrivateKey,
 	}
 }
 

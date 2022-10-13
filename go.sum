@@ -468,7 +468,9 @@ github.com/nats-io/nuid v1.0.1/go.mod h1:19wcPz3Ph3q0Jbyiqsd0kePYG7A95tJPxeL+1OS
 github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 h1:zYyBkD/k9seD2A7fsi6Oo2LfFZAehjjQMERAvZLEDnQ=
 github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646/go.mod h1:jpp1/29i3P1S/RLdc7JQKbRpFeM1dOBd8T9ki5s+AY8=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
+github.com/oasisprotocol/curve25519-voi v0.0.0-20221003100820-41fad3beba17 h1:lpwUgSIAfvJJ9sQ9BB//ZCjqzzFSuSg8mYOf+8L96+E=
 github.com/oasisprotocol/curve25519-voi v0.0.0-20221003100820-41fad3beba17/go.mod h1:hVoHR2EVESiICEMbg137etN/Lx+lSrHPTD39Z/uE+2s=
+github.com/oasisprotocol/deoxysii v0.0.0-20220228165953-2091330c22b7 h1:1102pQc2SEPp5+xrS26wEaeb26sZy6k9/ZXlZN+eXE4=
 github.com/oasisprotocol/deoxysii v0.0.0-20220228165953-2091330c22b7/go.mod h1:UqoUn6cHESlliMhOnKLWr+CBH+e3bazUPvFj1XZwAjs=
 github.com/oklog/oklog v0.3.2/go.mod h1:FCV+B7mhrz4o+ueLpx+KqkyXRGMWOYEvfiXtdGtbWGs=
 github.com/oklog/run v1.0.0/go.mod h1:dlhp/R75TPv97u0XWUtDeV/lRKWPKSdTuV0TZvrmrQA=
@@ -667,8 +669,11 @@ gitlab.com/xx_network/primitives v0.0.4-0.20221010192422-3479f09b7769 h1:BBYSog3
 gitlab.com/xx_network/primitives v0.0.4-0.20221010192422-3479f09b7769/go.mod h1:AXVVFt7dDAeIUpOGPiStCcUIKsBXLWbmV/BgZ4T+tOo=
 gitlab.com/xx_network/ring v0.0.3-0.20220222211904-da613960ad93 h1:eJZrXqHsMmmejEPWw8gNAt0I8CGAMNO/7C339Zco3TM=
 gitlab.com/xx_network/ring v0.0.3-0.20220222211904-da613960ad93/go.mod h1:aLzpP2TiZTQut/PVHR40EJAomzugDdHXetbieRClXIM=
+gitlab.com/yawning/bsaes.git v0.0.0-20190805113838-0a714cd429ec h1:FpfFs4EhNehiVfzQttTuxanPIT43FtkkCFypIod8LHo=
 gitlab.com/yawning/bsaes.git v0.0.0-20190805113838-0a714cd429ec/go.mod h1:BZ1RAoRPbCxum9Grlv5aeksu2H8BiKehBYooU2LFiOQ=
+gitlab.com/yawning/nyquist.git v0.0.0-20221003103146-de5645224a22 h1:25fLWFlW+5awvcQhZj4drwVHP4Cmb+iZpfiS6LgE8f0=
 gitlab.com/yawning/nyquist.git v0.0.0-20221003103146-de5645224a22/go.mod h1:VvFd4eOUakA3ieUDzIpPT5GwkBTS/NKvIWr0SlNI8U4=
+gitlab.com/yawning/x448.git v0.0.0-20221003101044-617eb9b7d9b7 h1:ITrNVw6uSwSdEap0RR4us4RV1CHPBHvBZApENRcDk3c=
 gitlab.com/yawning/x448.git v0.0.0-20221003101044-617eb9b7d9b7/go.mod h1:BC2R0OW0tAYTMNLB4UMXwkk7WKokoDZP5n73hyLPyCo=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738/go.mod h1:dnLIgRNXwCJa5e+c6mIZCrds/GIG4ncV9HhK5PX7jPg=

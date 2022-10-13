@@ -14,9 +14,14 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"golang.org/x/crypto/blake2b"
 
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/crypto/dm"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/nike"
 	"gitlab.com/elixxir/crypto/nike/ecdh"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 const (
@@ -25,17 +30,21 @@ const (
 )
 
 type dmClient struct {
-	receptionID *id.ID
-	privateKey  *ed25519.PrivateKey
+	receptionID   *id.ID
+	privateKey    nike.PrivateKey
+	partnerPubKey nike.PublicKey
 
 	net Client
 	rng *fastRNG.StreamGenerator
 }
 
-func NewDMClient(privateEdwardsKey ed25519.PrivateKey) *dmClient {
+func NewDMClient(privateEdwardsKey ed25519.PrivateKey, partnerPublicKey ed25519.PublicKey, net Client, rng *fastRNG.StreamGenerator) *dmClient {
 	privateKey := ecdh.ECDHNIKE.NewEmptyPrivateKey()
-	privateKey.FromEdwards(privateEdwardsKey)
-	publicKey := privateKey.DerivePublicKey()
+	privateKey.(*ecdh.PrivateKey).FromEdwards(privateEdwardsKey)
+	publicKey := ecdh.ECDHNIKE.DerivePublicKey(privateKey)
+
+	partnerPubKey := ecdh.ECDHNIKE.NewEmptyPublicKey()
+	partnerPubKey.(*ecdh.PublicKey).FromEdwards(partnerPublicKey)
 
 	hash := blake2b.Sum256(publicKey.Bytes())
 	receptionID, err := id.Unmarshal(hash[:])
@@ -44,8 +53,11 @@ func NewDMClient(privateEdwardsKey ed25519.PrivateKey) *dmClient {
 	}
 
 	return &dmClient{
-		receptionID: receptionID,
-		privateKey:  alicePrivateKey,
+		receptionID:   receptionID,
+		privateKey:    privateKey,
+		partnerPubKey: partnerPubKey,
+		net:           net,
+		rng:           rng,
 	}
 }
 
@@ -57,10 +69,39 @@ func (dc *dmClient) RegisterListener(listenerCb ListenerFunc) error {
 	}
 
 	service := message.Service{
-		Identifier: dc.ReceptionID.Bytes(),
+		Identifier: dc.receptionID.Bytes(),
 		Tag:        directMessageServiceTag,
 	}
 
-	dc.net.AddService(dc.ReceptionID, service, p)
+	dc.net.AddService(dc.receptionID, service, p)
 	return nil
+}
+
+// ListenerFunc is registered when creating a new broadcasting channel and
+// receives all new broadcast messages for the channel.
+type ListenerFunc func(payload []byte,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round)
+
+// processor struct for message handling
+type processor struct {
+	c  *dmClient
+	cb ListenerFunc
+}
+
+// String returns a string identifying the symmetricProcessor for debugging purposes.
+func (p *processor) String() string {
+	return "directMessage-"
+}
+
+// Process decrypts the broadcast message and sends the results on the callback.
+func (p *processor) Process(msg format.Message,
+	receptionID receptionID.EphemeralIdentity, round rounds.Round) {
+
+	payload, err := dm.Cipher.Decrypt(msg.GetContents(), p.c.privateKey, p.c.partnerPubKey)
+	if err != nil {
+		jww.ERROR.Printf("failed to decrypt direct message: %s", err)
+		return
+	}
+
+	p.cb(payload, receptionID, round)
 }

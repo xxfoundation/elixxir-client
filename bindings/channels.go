@@ -126,6 +126,23 @@ func GenerateChannelIdentity(cmixID int) ([]byte, error) {
 	return pi.Marshal(), nil
 }
 
+// ImportPrivateIdentity generates a new [channel.PrivateIdentity] from exported
+// data.
+//
+// Parameters:
+//  - password - The password used to encrypt the identity.
+//  - data - The encrypted data.
+//
+// Returns:
+//  - JSON of [channel.PrivateIdentity].
+func ImportPrivateIdentity(password string, data []byte) ([]byte, error) {
+	pi, err := cryptoChannel.ImportPrivateIdentity(password, data)
+	if err != nil {
+		return nil, err
+	}
+	return pi.Marshal(), nil
+}
+
 // GetPublicChannelIdentity constructs a public identity ([channel.Identity])
 // from a bytes version and returns it JSON marshaled.
 //

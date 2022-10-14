@@ -358,7 +358,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 		if !hasMessage && c.verboseRounds != nil {
 			c.verboseRounds.denote(rid, RoundState(NoMessageAvailable))
 		}
-		//jww.INFO.Printf("[LOOKUP] round %d checked for %d, has message: %b", rid, identity.EphId.Int64(), hasMessage)
+		//jww.INFO.Printf("[LOOKUP] round %d checked for %d, has message: %v", rid, identity.EphId.Int64(), hasMessage)
 		return hasMessage
 	}
 

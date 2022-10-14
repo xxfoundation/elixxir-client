@@ -21,8 +21,8 @@ const (
 // Name of listener (used for debugging)
 const listenerName = "NewFileTransferListener-Connection"
 
-// listener waits for a message indicating a new file transfer is starting.
-// Adheres to the receive.Listener interface.
+// listener waits for a message indicating a new file transfer is starting. This
+// structure adheres to the [receive.Listener] interface.
 type listener struct {
 	m *Wrapper
 }

@@ -204,9 +204,11 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 				fileName, sendTime, fileSizeKb, throughput)
 
 			expectedThroughput := float64(params.MaxThroughput) * .001
-			delta := (math.Abs(expectedThroughput-throughput) / ((expectedThroughput + throughput) / 2)) * 100
+			delta := (math.Abs(expectedThroughput-throughput) /
+				((expectedThroughput + throughput) / 2)) * 100
 			t.Logf("Expected bandwidth:   %.2f kb/s", expectedThroughput)
-			t.Logf("Bandwidth difference: %.2f kb/s (%.2f%%)", expectedThroughput-throughput, delta)
+			t.Logf("Bandwidth difference: %.2f kb/s (%.2f%%)",
+				expectedThroughput-throughput, delta)
 		}
 	}()
 

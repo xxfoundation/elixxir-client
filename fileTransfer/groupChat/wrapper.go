@@ -49,8 +49,8 @@ type gcManager interface {
 }
 
 // NewWrapper generates a new file transfer Wrapper for group chat.
-func NewWrapper(receiveCB ft.ReceiveCallback, ft ft.FileTransfer, gc gcManager) (
-	*Wrapper, error) {
+func NewWrapper(receiveCB ft.ReceiveCallback, ft ft.FileTransfer,
+	gc gcManager) (*Wrapper, error) {
 	w := &Wrapper{
 		receiveCB: receiveCB,
 		ft:        ft,

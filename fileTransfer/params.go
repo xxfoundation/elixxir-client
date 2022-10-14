@@ -33,13 +33,6 @@ type Params struct {
 	Cmix cmix.CMIXParams
 }
 
-// paramsDisk will be the marshal-able and umarshal-able object.
-type paramsDisk struct {
-	MaxThroughput int
-	SendTimeout   time.Duration
-	Cmix          cmix.CMIXParams
-}
-
 // DefaultParams returns a Params object filled with the default values.
 func DefaultParams() Params {
 	return Params{
@@ -50,7 +43,9 @@ func DefaultParams() Params {
 }
 
 // GetParameters returns the default network parameters, or override with given
-// parameters, if set.
+// parameters, if set. Returns an error if provided invalid JSON. If the JSON is
+// valid but does not match the Params structure, the default parameters will be
+// returned.
 func GetParameters(params string) (Params, error) {
 	p := DefaultParams()
 	if len(params) > 0 {
@@ -60,33 +55,4 @@ func GetParameters(params string) (Params, error) {
 		}
 	}
 	return p, nil
-}
-
-// MarshalJSON adheres to the json.Marshaler interface.
-func (p Params) MarshalJSON() ([]byte, error) {
-	pDisk := paramsDisk{
-		MaxThroughput: p.MaxThroughput,
-		SendTimeout:   p.SendTimeout,
-		Cmix:          p.Cmix,
-	}
-
-	return json.Marshal(&pDisk)
-
-}
-
-// UnmarshalJSON adheres to the json.Unmarshaler interface.
-func (p *Params) UnmarshalJSON(data []byte) error {
-	pDisk := paramsDisk{}
-	err := json.Unmarshal(data, &pDisk)
-	if err != nil {
-		return err
-	}
-
-	*p = Params{
-		MaxThroughput: pDisk.MaxThroughput,
-		SendTimeout:   pDisk.SendTimeout,
-		Cmix:          pDisk.Cmix,
-	}
-
-	return nil
 }

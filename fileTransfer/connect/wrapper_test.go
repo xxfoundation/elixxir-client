@@ -25,7 +25,7 @@ import (
 	"time"
 )
 
-// Tests that Connection adheres to the connect.Connection interface.
+// Tests that Connection adheres to the [connect.Connection] interface.
 var _ connection = (connect.Connection)(nil)
 
 // Smoke test of the entire file transfer system.
@@ -60,7 +60,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	storage1 := newMockStorage()
 	endE2eChan1 := make(chan receive.Message, 3)
 	conn1 := newMockConnection(myID1, myID2, e2eHandler, t)
-	_, _ = conn1.RegisterListener(catalog.EndFileTransfer, newMockListener(endE2eChan1))
+	_, _ = conn1.RegisterListener(
+		catalog.EndFileTransfer, newMockListener(endE2eChan1))
 	cMix1 := newMockCmix(myID1, cMixHandler, storage1)
 	user1 := newMockUser(myID1, cMix1, storage1, rngGen)
 	ftManager1, err := ft.NewManager(ftParams, user1)
@@ -86,7 +87,8 @@ func Test_FileTransfer_Smoke(t *testing.T) {
 	storage2 := newMockStorage()
 	endE2eChan2 := make(chan receive.Message, 3)
 	conn2 := newMockConnection(myID2, myID1, e2eHandler, t)
-	_, _ = conn2.RegisterListener(catalog.EndFileTransfer, newMockListener(endE2eChan2))
+	_, _ = conn2.RegisterListener(
+		catalog.EndFileTransfer, newMockListener(endE2eChan2))
 	cMix2 := newMockCmix(myID1, cMixHandler, storage2)
 	user2 := newMockUser(myID2, cMix2, storage2, rngGen)
 	ftManager2, err := ft.NewManager(ftParams, user2)

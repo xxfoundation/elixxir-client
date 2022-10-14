@@ -10,6 +10,7 @@
 package bindings
 
 import (
+	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/fileTransfer"
 	e2eFileTransfer "gitlab.com/elixxir/client/fileTransfer/e2e"
@@ -46,7 +47,7 @@ func GetDefaultE2EParams() []byte {
 // modify the JSON to change file transfer settings.
 func GetDefaultFileTransferParams() []byte {
 	defaultParams := fileTransfer.DefaultParams()
-	data, err := defaultParams.MarshalJSON()
+	data, err := json.Marshal(defaultParams)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to JSON marshal file transfer params: %+v", err)
 	}
@@ -70,7 +71,7 @@ func GetDefaultSingleUseParams() []byte {
 // modify the JSON to change single use settings.
 func GetDefaultE2eFileTransferParams() []byte {
 	defaultParams := e2eFileTransfer.DefaultParams()
-	data, err := defaultParams.MarshalJSON()
+	data, err := json.Marshal(defaultParams)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to JSON marshal e2e file transfer params: %+v", err)
 	}
@@ -79,7 +80,7 @@ func GetDefaultE2eFileTransferParams() []byte {
 
 func parseE2eFileTransferParams(data []byte) (e2eFileTransfer.Params, error) {
 	p := &e2eFileTransfer.Params{}
-	return *p, p.UnmarshalJSON(data)
+	return *p, json.Unmarshal(data, p)
 }
 
 func parseSingleUseParams(data []byte) (single.RequestParams, error) {
@@ -89,7 +90,7 @@ func parseSingleUseParams(data []byte) (single.RequestParams, error) {
 
 func parseFileTransferParams(data []byte) (fileTransfer.Params, error) {
 	p := &fileTransfer.Params{}
-	return *p, p.UnmarshalJSON(data)
+	return *p, json.Unmarshal(data, p)
 }
 
 func parseCMixParams(data []byte) (xxdk.CMIXParams, error) {

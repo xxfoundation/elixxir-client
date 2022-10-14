@@ -170,11 +170,6 @@ func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
 	panic("implement me")
 }
 
-func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
-	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
-	panic("implement me")
-}
-
 func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 	_ cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	m.handler.Lock()
@@ -191,6 +186,11 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 			rounds.Round{ID: round})
 	}
 	return rounds.Round{ID: round}, []ephemeral.Id{}, nil
+}
+
+func (m *mockCmix) SendWithAssembler(*id.ID, cmix.MessageAssembler,
+	cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
 }
 
 func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)            { panic("implement me") }
@@ -249,10 +249,12 @@ func (m *mockCmix) GetRoundResults(_ time.Duration,
 func (m *mockCmix) LookupHistoricalRound(id.Round, rounds.RoundResultCallback) error {
 	panic("implement me")
 }
-func (m *mockCmix) SendToAny(func(host *connect.Host) (interface{}, error), *stoppable.Single) (interface{}, error) {
+func (m *mockCmix) SendToAny(func(host *connect.Host) (interface{}, error),
+	*stoppable.Single) (interface{}, error) {
 	panic("implement me")
 }
-func (m *mockCmix) SendToPreferred([]*id.ID, gateway.SendToPreferredFunc, *stoppable.Single, time.Duration) (interface{}, error) {
+func (m *mockCmix) SendToPreferred([]*id.ID, gateway.SendToPreferredFunc,
+	*stoppable.Single, time.Duration) (interface{}, error) {
 	panic("implement me")
 }
 func (m *mockCmix) SetGatewayFilter(gateway.Filter)   { panic("implement me") }

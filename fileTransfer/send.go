@@ -141,7 +141,8 @@ func (m *manager) sendCmix(packet []store.Part) {
 
 // roundResultsCallback generates a network.RoundEventCallback that handles
 // all parts in the packet once the round succeeds or fails.
-func (m *manager) roundResultsCallback(packet []store.Part) cmix.RoundEventCallback {
+func (m *manager) roundResultsCallback(
+	packet []store.Part) cmix.RoundEventCallback {
 	// Group file parts by transfer
 	grouped := map[ftCrypto.TransferID][]store.Part{}
 	for _, p := range packet {

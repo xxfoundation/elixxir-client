@@ -12,8 +12,10 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"golang.org/x/crypto/blake2b"
 
+	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
@@ -29,10 +31,26 @@ const (
 	directMessageServiceTag = "direct_message"
 )
 
+func DeriveReceptionID(publicKey nike.PublicKey, idToken []byte) *id.ID {
+	h, err := blake2b.New256(nil)
+	if err != nil {
+		panic(err)
+	}
+	h.Write(publicKey.Bytes())
+	h.Write(idToken)
+	idBytes := h.Sum(nil)
+	receptionID, err := id.Unmarshal(idBytes)
+	if err != nil {
+		panic(err)
+	}
+	return receptionID
+}
+
 type dmClient struct {
-	receptionID   *id.ID
-	privateKey    nike.PrivateKey
-	partnerPubKey nike.PublicKey
+	receptionID        *id.ID
+	partnerReceptionID *id.ID
+	privateKey         nike.PrivateKey
+	partnerPubKey      nike.PublicKey
 
 	net Client
 	rng *fastRNG.StreamGenerator
@@ -46,19 +64,27 @@ func NewDMClient(privateEdwardsKey ed25519.PrivateKey, partnerPublicKey ed25519.
 	partnerPubKey := ecdh.ECDHNIKE.NewEmptyPublicKey()
 	partnerPubKey.(*ecdh.PublicKey).FromEdwards(partnerPublicKey)
 
-	hash := blake2b.Sum256(publicKey.Bytes())
-	receptionID, err := id.Unmarshal(hash[:])
-	if err != nil {
-		jww.FATAL.Panic(err)
-	}
+	partnerReceptionID := DeriveReceptionID(partnerPubKey)
+	receptionID := DeriveReceptionID(publicKey)
 
 	return &dmClient{
-		receptionID:   receptionID,
-		privateKey:    privateKey,
-		partnerPubKey: partnerPubKey,
-		net:           net,
-		rng:           rng,
+		receptionID:        receptionID,
+		partnerReceptionID: partnerReceptionID,
+		privateKey:         privateKey,
+		partnerPubKey:      partnerPubKey,
+		net:                net,
+		rng:                rng,
 	}
+}
+
+func (dc *dmClient) SendMessage(plaintext []byte, cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	ciphertext := dm.Cipher.Encrypt(plaintext, dc.privateKey, dc.partnerPubKey)
+	assemble := func(rid id.Round) ([]byte, error) {
+		return ciphertext, nil
+	}
+	return dc.net.SendWithAssembler(dc.partnerReceptionID,
+		assemble,
+		cMixParams)
 }
 
 // RegisterListener registers a listener for broadcast messages.

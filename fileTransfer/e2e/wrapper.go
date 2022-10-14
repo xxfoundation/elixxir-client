@@ -35,8 +35,8 @@ type Wrapper struct {
 	e2e  e2eHandler
 }
 
-// e2eHandler interface matches a subset of the e2e.Handler methods used by the Wrapper
-// for easier testing.
+// e2eHandler interface matches a subset of the [e2e.Handler] methods used by
+// the Wrapper for easier testing.
 type e2eHandler interface {
 	SendE2E(mt catalog.MessageType, recipient *id.ID, payload []byte,
 		params e2e.Params) (cryptoE2e.SendReport, error)

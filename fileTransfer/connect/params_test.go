@@ -5,11 +5,10 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package fileTransfer
+package connect
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/cmix"
 	"reflect"
 	"testing"
 )
@@ -17,13 +16,10 @@ import (
 // Tests that DefaultParams returns a Params object with the expected defaults.
 func TestDefaultParams(t *testing.T) {
 	expected := Params{
-		MaxThroughput: defaultMaxThroughput,
-		SendTimeout:   defaultSendTimeout,
-		Cmix:          cmix.GetDefaultCMIXParams(),
+		NotifyUponCompletion: defaultNotifyUponCompletion,
 	}
-	received := DefaultParams()
-	received.Cmix.Stop = expected.Cmix.Stop
 
+	received := DefaultParams()
 	if !reflect.DeepEqual(expected, received) {
 		t.Errorf("Received Params does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expected, received)
@@ -33,19 +29,7 @@ func TestDefaultParams(t *testing.T) {
 // Tests that GetParameters uses the passed in parameters.
 func TestGetParameters(t *testing.T) {
 	expected := Params{
-		MaxThroughput: 42,
-		SendTimeout:   11,
-		Cmix: cmix.CMIXParams{
-			RoundTries:       5,
-			Timeout:          6,
-			RetryDelay:       7,
-			ExcludedRounds:   nil,
-			SendTimeout:      8,
-			DebugTag:         "9",
-			Stop:             nil,
-			BlacklistedNodes: cmix.NodeMap{},
-			Critical:         true,
-		},
+		NotifyUponCompletion: false,
 	}
 	expectedData, err := json.Marshal(expected)
 	if err != nil {
@@ -56,7 +40,6 @@ func TestGetParameters(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed get parameters: %+v", err)
 	}
-	p.Cmix.Stop = expected.Cmix.Stop
 
 	if !reflect.DeepEqual(expected, p) {
 		t.Errorf("Received Params does not match expected."+
@@ -73,7 +56,6 @@ func TestGetParameters_Default(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed get parameters: %+v", err)
 	}
-	p.Cmix.Stop = expected.Cmix.Stop
 
 	if !reflect.DeepEqual(expected, p) {
 		t.Errorf("Received Params does not match expected."+
@@ -95,7 +77,6 @@ func TestGetParameters_InvalidParamsStringError(t *testing.T) {
 func TestParams_JsonMarshalUnmarshal(t *testing.T) {
 	// Construct a set of params
 	expected := DefaultParams()
-	expected.Cmix.BlacklistedNodes = cmix.NodeMap{}
 
 	// Marshal the params
 	data, err := json.Marshal(&expected)
@@ -110,7 +91,6 @@ func TestParams_JsonMarshalUnmarshal(t *testing.T) {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
 
-	received.Cmix.Stop = expected.Cmix.Stop
 	if !reflect.DeepEqual(expected, received) {
 		t.Errorf("Marshalled and unmarshalled Params does not match original."+
 			"\nexpected: %#v\nreceived: %#v", expected, received)

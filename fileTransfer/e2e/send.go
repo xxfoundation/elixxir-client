@@ -57,7 +57,8 @@ func sendNewFileTransferMessage(
 
 // sendEndFileTransferMessage sends an E2E message to the recipient informing
 // them that all file parts have arrived once the network is healthy.
-func sendEndFileTransferMessage(recipient *id.ID, cmix ft.Cmix, e2eHandler e2eHandler) {
+func sendEndFileTransferMessage(
+	recipient *id.ID, cmix ft.Cmix, e2eHandler e2eHandler) {
 	callbackID := make(chan uint64, 1)
 	callbackID <- cmix.AddHealthCallback(
 		func(healthy bool) {

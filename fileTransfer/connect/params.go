@@ -19,11 +19,7 @@ const (
 type Params struct {
 	// NotifyUponCompletion indicates if a final notification message is sent
 	// to the recipient on completion of file transfer. If true, the ping is
-	NotifyUponCompletion bool
-}
-
-// paramsDisk will be the marshal-able and unmarshalable object.
-type paramsDisk struct {
+	// sent.
 	NotifyUponCompletion bool
 }
 
@@ -34,8 +30,10 @@ func DefaultParams() Params {
 	}
 }
 
-// GetParameters returns the default Params, or override with given parameters,
-// if set.
+// GetParameters returns the default network parameters, or override with given
+// parameters, if set. Returns an error if provided invalid JSON. If the JSON is
+// valid but does not match the Params structure, the default parameters will be
+// returned.
 func GetParameters(params string) (Params, error) {
 	p := DefaultParams()
 	if len(params) > 0 {
@@ -45,24 +43,4 @@ func GetParameters(params string) (Params, error) {
 		}
 	}
 	return p, nil
-}
-
-// MarshalJSON adheres to the json.Marshaler interface.
-func (p Params) MarshalJSON() ([]byte, error) {
-	pDisk := paramsDisk{NotifyUponCompletion: p.NotifyUponCompletion}
-	return json.Marshal(&pDisk)
-
-}
-
-// UnmarshalJSON adheres to the json.Unmarshaler interface.
-func (p *Params) UnmarshalJSON(data []byte) error {
-	pDisk := paramsDisk{}
-	err := json.Unmarshal(data, &pDisk)
-	if err != nil {
-		return err
-	}
-
-	*p = Params{NotifyUponCompletion: pDisk.NotifyUponCompletion}
-
-	return nil
 }

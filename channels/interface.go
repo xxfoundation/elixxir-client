@@ -30,6 +30,10 @@ type Manager interface {
 	// GetIdentity returns the public identity associated with this channel manager
 	GetIdentity() cryptoChannel.Identity
 
+	// ExportPrivateIdentity encrypts and exports the private identity to a
+	// portable string.
+	ExportPrivateIdentity(password string) ([]byte, error)
+
 	// GetStorageTag returns the tag at which this manager is store for loading
 	// it is derived from the public key
 	GetStorageTag() string

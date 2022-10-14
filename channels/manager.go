@@ -238,6 +238,14 @@ func (m *manager) GetIdentity() cryptoChannel.Identity {
 	return m.me.Identity
 }
 
+// ExportPrivateIdentity encrypts and exports the private identity to a portable
+// string.
+func (m *manager) ExportPrivateIdentity(password string) ([]byte, error) {
+	rng := m.rng.GetStream()
+	defer rng.Close()
+	return m.me.Export(password, rng)
+}
+
 func getStorageTag(pub ed25519.PublicKey) string {
 	return fmt.Sprintf(storageTagFormat, base64.StdEncoding.EncodeToString(pub))
 }

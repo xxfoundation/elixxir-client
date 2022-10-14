@@ -780,6 +780,12 @@ func (cm *ChannelsManager) GetIdentity() ([]byte, error) {
 	return json.Marshal(&i)
 }
 
+// ExportPrivateIdentity encrypts and exports the private identity to a portable
+// string.
+func (cm *ChannelsManager) ExportPrivateIdentity(password string) ([]byte, error) {
+	return cm.api.ExportPrivateIdentity(password)
+}
+
 // GetStorageTag returns the storage tag needed to reload the manager.
 func (cm *ChannelsManager) GetStorageTag() string {
 	return cm.api.GetStorageTag()

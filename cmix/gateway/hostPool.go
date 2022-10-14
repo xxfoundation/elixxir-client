@@ -14,6 +14,7 @@ package gateway
 
 import (
 	"encoding/json"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -822,10 +823,7 @@ func getPoolSize(ndfLen, maxSize uint32) (uint32, error) {
 			"Unable to create HostPool: no gateways available")
 	}
 
-	// fix-me: this is a HACK to get it working in testnet night of 10/12/2022
-	// DO NOT PUSH TO LIVE - gateway gossip shuffle must be fixed
-	//poolSize := uint32(math.Ceil(math.Sqrt(float64(ndfLen))))
-	poolSize := ndfLen
+	poolSize := uint32(math.Ceil(math.Sqrt(float64(ndfLen))))
 	if poolSize > maxSize {
 		return maxSize, nil
 	}

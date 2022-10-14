@@ -10,6 +10,7 @@ package channels
 import (
 	"crypto/ed25519"
 
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -56,7 +57,12 @@ type dmClient struct {
 	rng *fastRNG.StreamGenerator
 }
 
-func NewDMClient(privateEdwardsKey ed25519.PrivateKey, partnerPublicKey ed25519.PublicKey, net Client, rng *fastRNG.StreamGenerator) *dmClient {
+func NewDMClient(privateEdwardsKey ed25519.PrivateKey,
+	partnerPublicKey ed25519.PublicKey,
+	myIdToken, partnerIdToken []byte,
+	net Client,
+	rng *fastRNG.StreamGenerator) *dmClient {
+
 	privateKey := ecdh.ECDHNIKE.NewEmptyPrivateKey()
 	privateKey.(*ecdh.PrivateKey).FromEdwards(privateEdwardsKey)
 	publicKey := ecdh.ECDHNIKE.DerivePublicKey(privateKey)
@@ -64,8 +70,8 @@ func NewDMClient(privateEdwardsKey ed25519.PrivateKey, partnerPublicKey ed25519.
 	partnerPubKey := ecdh.ECDHNIKE.NewEmptyPublicKey()
 	partnerPubKey.(*ecdh.PublicKey).FromEdwards(partnerPublicKey)
 
-	partnerReceptionID := DeriveReceptionID(partnerPubKey)
-	receptionID := DeriveReceptionID(publicKey)
+	partnerReceptionID := DeriveReceptionID(partnerPubKey, partnerIdToken)
+	receptionID := DeriveReceptionID(publicKey, myIdToken)
 
 	return &dmClient{
 		receptionID:        receptionID,
@@ -78,10 +84,42 @@ func NewDMClient(privateEdwardsKey ed25519.PrivateKey, partnerPublicKey ed25519.
 }
 
 func (dc *dmClient) SendMessage(plaintext []byte, cMixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
-	ciphertext := dm.Cipher.Encrypt(plaintext, dc.privateKey, dc.partnerPubKey)
-	assemble := func(rid id.Round) ([]byte, error) {
-		return ciphertext, nil
+
+	assembler := func(rid id.Round) ([]byte, error) {
+		return plaintext, nil
 	}
+
+	assemble := func(rid id.Round) (fp format.Fingerprint,
+		service message.Service, encryptedPayload, mac []byte, err error) {
+		payload, err := assembler(rid)
+		if err != nil {
+			return format.Fingerprint{}, message.Service{}, nil,
+				nil, err
+		}
+		service = message.Service{
+			Identifier: dc.receptionID.Bytes(),
+			Tag:        directMessageServiceTag,
+		}
+
+		if cMixParams.DebugTag == cmix.DefaultDebugTag {
+			cMixParams.DebugTag = directMessageServiceTag
+		}
+
+		// Create payload sized for sending over cmix
+		sizedPayload := make([]byte, dc.net.GetMaxMessageLength())
+		// Read random data into sized payload
+		_, err = dc.rng.GetStream().Read(sizedPayload)
+		if err != nil {
+			return format.Fingerprint{}, message.Service{}, nil,
+				nil, errors.WithMessage(err, "Failed to add "+
+					"random data to sized broadcast")
+		}
+		encryptedPayload = dm.Cipher.Encrypt(payload, dc.privateKey, dc.partnerPubKey)
+		copy(sizedPayload[:len(encryptedPayload)], encryptedPayload)
+
+		return
+	}
+
 	return dc.net.SendWithAssembler(dc.partnerReceptionID,
 		assemble,
 		cMixParams)

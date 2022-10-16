@@ -18,9 +18,27 @@ const (
 	// arise due to cofactors with the message ID when doing the modulo
 	tenMsInNs     = 10000019
 	halfTenMsInNs = tenMsInNs / 2
+	beforeGrace   = 5 * time.Second
+	afterGrace    = 2 * time.Second
 )
 
 var tenMsInNsLargeInt = large.NewInt(tenMsInNs)
+
+// vetTimestamp determines which timestamp to use for a message. It will
+// use the local timestamp provided in the message as long as it is within 5
+// seconds before the round and 2 second after the round. Otherwise, it will
+// use the round timestamp via mutateTimestamp
+func vetTimestamp(localTS, ts time.Time, msgID channel.MessageID) time.Time {
+
+	before := ts.Add(-beforeGrace)
+	after := ts.Add(afterGrace)
+
+	if localTS.Before(before) || localTS.After(after) {
+		return mutateTimestamp(ts, msgID)
+	}
+
+	return localTS
+}
 
 // mutateTimestamp is used to modify the the timestamps on all messages in a
 // deterministic manner. This is because message ordering is done by timestamp

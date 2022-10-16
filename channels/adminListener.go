@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
+	"time"
 )
 
 // adminListener adheres to the [broadcast.ListenerFunc] interface and is used
@@ -54,8 +55,10 @@ func (al *adminListener) Listen(payload []byte,
 		return
 	}
 
-	// Modify the timestamp to reduce the chance message order will be ambiguous
-	ts := mutateTimestamp(round.Timestamps[states.QUEUED], msgID)
+	// Replace the timestamp on the message if it is outside of the
+	// allowable range
+	ts := vetTimestamp(time.Unix(0, cm.LocalTimestamp),
+		round.Timestamps[states.QUEUED], msgID)
 
 	// Submit the message to the event model for listening
 	if uuid, err := al.trigger(al.chID, cm, ts, msgID, receptionID,

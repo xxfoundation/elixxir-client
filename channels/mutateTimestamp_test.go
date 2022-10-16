@@ -53,3 +53,77 @@ func TestMutateTimestampDeltaAverage(t *testing.T) {
 		t.Fatal()
 	}
 }
+
+const generationRange = beforeGrace + afterGrace
+
+// TestVetTimestamp_Happy tests that when the localTS is within
+// the allowed range, it is unmodified
+func TestVetTimestamp_Happy(t *testing.T) {
+	samples := 10000
+
+	rng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
+
+	for i := 0; i < samples; i++ {
+
+		now := time.Now()
+
+		tested := now.Add(-beforeGrace).Add(time.Duration(rng.Int63()) % generationRange)
+
+		var msgID channel.MessageID
+		rng.Read(msgID[:])
+
+		result := vetTimestamp(tested, now, msgID)
+
+		if !tested.Equal(result) {
+			t.Errorf("Timestamp was molested unexpectedly")
+		}
+	}
+}
+
+// TestVetTimestamp_Happy tests that when the localTS is less than
+// the allowed time period it is replaced
+func TestVetTimestamp_BeforePeriod(t *testing.T) {
+	samples := 10000
+
+	rng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
+
+	for i := 0; i < samples; i++ {
+
+		now := time.Now()
+
+		tested := now.Add(-beforeGrace).Add(-time.Duration(rng.Int63()) % (100000 * time.Hour))
+
+		var msgID channel.MessageID
+		rng.Read(msgID[:])
+
+		result := vetTimestamp(tested, now, msgID)
+
+		if tested.Equal(result) {
+			t.Errorf("Timestamp was unmolested unexpectedly")
+		}
+	}
+}
+
+// TestVetTimestamp_Happy tests that when the localTS is greater than
+// the allowed time period it is replaced
+func TestVetTimestamp_AfterPeriod(t *testing.T) {
+	samples := 10000
+
+	rng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
+
+	for i := 0; i < samples; i++ {
+
+		now := time.Now()
+
+		tested := now.Add(afterGrace).Add(-time.Duration(rng.Int63()) % (100000 * time.Hour))
+
+		var msgID channel.MessageID
+		rng.Read(msgID[:])
+
+		result := vetTimestamp(tested, now, msgID)
+
+		if tested.Equal(result) {
+			t.Errorf("Timestamp was unmolested unexpectedly")
+		}
+	}
+}

@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
+	"time"
 )
 
 // the userListener adheres to the [broadcast.ListenerFunc] interface and is
@@ -64,8 +65,9 @@ func (ul *userListener) Listen(payload []byte,
 		return
 	}
 
-	// Modify the timestamp to reduce the chance message order will be ambiguous
-	ts := mutateTimestamp(round.Timestamps[states.QUEUED], msgID)
+	// Replace the timestamp on the message if it is outside of the
+	// allowable range
+	ts := vetTimestamp(time.Unix(0, cm.LocalTimestamp), round.Timestamps[states.QUEUED], msgID)
 
 	//TODO: Processing of the message relative to admin commands will be here
 

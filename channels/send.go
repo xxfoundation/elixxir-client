@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"google.golang.org/protobuf/proto"
 	"time"
 )
@@ -50,11 +51,12 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	var msgId cryptoChannel.MessageID
 
 	chMsg := &ChannelMessage{
-		Lease:       validUntil.Nanoseconds(),
-		PayloadType: uint32(messageType),
-		Payload:     msg,
-		Nickname:    nickname,
-		Nonce:       make([]byte, messageNonceSize),
+		Lease:          validUntil.Nanoseconds(),
+		PayloadType:    uint32(messageType),
+		Payload:        msg,
+		Nickname:       nickname,
+		Nonce:          make([]byte, messageNonceSize),
+		LocalTimestamp: netTime.Now().UnixNano(),
 	}
 
 	// Generate random nonce to be used for message ID generation. This makes it
@@ -75,7 +77,7 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		ECCPublicKey: m.me.PubKey,
 	}
 
-	//Note: we are not checking check if message is too long before trying to
+	//Note: we are not checking if message is too long before trying to
 	//find a round
 
 	//Build the function pointer that will build the message
@@ -145,11 +147,12 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 
 	var msgId cryptoChannel.MessageID
 	chMsg := &ChannelMessage{
-		Lease:       validUntil.Nanoseconds(),
-		PayloadType: uint32(messageType),
-		Payload:     msg,
-		Nickname:    AdminUsername,
-		Nonce:       make([]byte, messageNonceSize),
+		Lease:          validUntil.Nanoseconds(),
+		PayloadType:    uint32(messageType),
+		Payload:        msg,
+		Nickname:       AdminUsername,
+		Nonce:          make([]byte, messageNonceSize),
+		LocalTimestamp: netTime.Now().UnixNano(),
 	}
 
 	// Generate random nonce to be used for message ID generation. This makes it

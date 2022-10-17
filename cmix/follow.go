@@ -90,18 +90,18 @@ func (c *client) followNetwork(report ClientErrorReport,
 					c.latencySum/c.numLatencies)
 				c.latencySum, c.numLatencies = 0, 0
 
-				infoMsg := fmt.Sprintf("Polled the network %d times in the "+
+				infoMsg := fmt.Sprintf("[Follow] Polled the network %d times in the "+
 					"last %s, with an average newest packet latency of %s",
 					numPolls, debugTrackPeriod, latencyAvg)
 
-				jww.INFO.Printf(infoMsg)
+				jww.INFO.Printf("[Follow] " + infoMsg)
 				c.events.Report(1, "Polling", "MetricsWithLatency", infoMsg)
 			} else {
 				infoMsg := fmt.Sprintf(
-					"Polled the network %d times in the last %s", numPolls,
+					"[Follow] Polled the network %d times in the last %s", numPolls,
 					debugTrackPeriod)
 
-				jww.INFO.Printf(infoMsg)
+				jww.INFO.Printf("[Follow] " + infoMsg)
 				c.events.Report(1, "Polling", "Metrics", infoMsg)
 			}
 		}
@@ -118,7 +118,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 		rng, c.Space.GetAddressSpaceWithoutWait())
 	if err != nil {
 		jww.FATAL.Panicf(
-			"Failed to get an identity, this should be impossible: %+v", err)
+			"[Follow] Failed to get an identity, this should be impossible: %+v", err)
 	}
 
 	// While polling with a fake identity, it is necessary to have populated
@@ -150,7 +150,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 	}
 
 	result, err := c.SendToAny(func(host *connect.Host) (interface{}, error) {
-		jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
+		jww.DEBUG.Printf("[Follow] Executing poll for %v(%s) range: %s-%s(%s) from %s",
 			identity.EphId.Int64(), identity.Source, identity.StartValid,
 			identity.EndValid, identity.EndValid.Sub(identity.StartValid),
 			host.GetId())
@@ -175,7 +175,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 		}
 		errMsg := fmt.Sprintf("Unable to poll gateway: %+v", err)
 		c.events.Report(10, "Polling", "Error", errMsg)
-		jww.ERROR.Print(errMsg)
+		jww.ERROR.Print("[Follow] " + errMsg)
 		return
 	}
 
@@ -185,7 +185,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 	gwRoundsState := &knownRounds.KnownRounds{}
 	err = gwRoundsState.Unmarshal(pollResp.KnownRounds)
 	if err != nil {
-		jww.ERROR.Printf("Failed to unmarshal: %+v", err)
+		jww.ERROR.Printf("[Follow] Failed to unmarshal: %+v", err)
 		return
 	}
 
@@ -195,7 +195,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 	if pollResp.PartialNDF != nil {
 		err = c.instance.UpdatePartialNdf(pollResp.PartialNDF)
 		if err != nil {
-			jww.ERROR.Printf("Unable to update partial NDF: %+v", err)
+			jww.ERROR.Printf("[Follow] Unable to update partial NDF: %+v", err)
 			return
 		}
 
@@ -230,7 +230,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 					// Obtain relevant NodeGateway information
 					nid, err := id.Unmarshal(clientErr.Source)
 					if err != nil {
-						jww.ERROR.Printf("Unable to get NodeID: %+v", err)
+						jww.ERROR.Printf("[Follow] Unable to get NodeID: %+v", err)
 						return
 					}
 
@@ -250,7 +250,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 		// with ClientErrors
 		err = c.instance.RoundUpdates(pollResp.Updates)
 		if err != nil {
-			jww.ERROR.Printf("%+v", err)
+			jww.ERROR.Printf("[Follow] %+v", err)
 			return
 		}
 
@@ -272,12 +272,12 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 
 	// ---- Identity Specific Round Processing -----
 	if identity.Fake {
-		jww.DEBUG.Printf("Not processing result, identity.Fake == true")
+		jww.DEBUG.Printf("[Follow] Not processing result, identity.Fake == true")
 		return
 	}
 
 	if len(pollResp.Filters.Filters) == 0 {
-		jww.WARN.Printf("No filters found for the passed ID %d (%s), "+
+		jww.WARN.Printf("[Follow] No filters found for the passed ID %d (%s), "+
 			"skipping processing.", identity.EphId.Int64(), identity.Source)
 		return
 	}
@@ -295,6 +295,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
+		jww.TRACE.Printf("[Follow] checking round: %d", rid)
 		hasMessage := Checker(rid, filterList, identity.CR)
 		if !hasMessage && c.verboseRounds != nil {
 			c.verboseRounds.denote(rid, RoundState(NoMessageAvailable))
@@ -315,8 +316,8 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 		// received on this ID by using an estimate of how many rounds the
 		// network runs per second
 		timeSinceStartValid := netTime.Now().Sub(identity.StartValid)
-		roundsDelta :=
-			uint(timeSinceStartValid / time.Second * estimatedRoundsPerSecond)
+		secsSinceStart := timeSinceStartValid / time.Second
+		roundsDelta := uint(secsSinceStart * estimatedRoundsPerSecond)
 		if roundsDelta < c.param.KnownRoundsThreshold {
 			roundsDelta = c.param.KnownRoundsThreshold
 		}
@@ -324,6 +325,8 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 		if id.Round(roundsDelta) > lastCheckedRound {
 			// Handles edge case for new networks to prevent starting at
 			// negative rounds
+			jww.WARN.Printf("[Follow] roundsDelta(%d) > lastCheckedRound(%d)",
+				roundsDelta, lastCheckedRound)
 			updatedEarliestRound = 1
 		} else {
 			updatedEarliestRound = lastCheckedRound - id.Round(roundsDelta)
@@ -349,7 +352,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 		gwRoundsState.RangeUnchecked(
 			updatedEarliestRound, c.param.KnownRoundsThreshold, roundChecker)
 
-	jww.DEBUG.Printf("Processed RangeUnchecked, Oldest: %d, "+
+	jww.DEBUG.Printf("[Follow] Processed RangeUnchecked, Oldest: %d, "+
 		"firstUnchecked: %d, last Checked: %d, threshold: %d, "+
 		"NewEarliestRemaining: %d, NumWithMessages: %d, NumUnknown: %d",
 		updatedEarliestRound, gwRoundsState.GetFirstUnchecked(),
@@ -358,9 +361,9 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 
 	_, _, changed := identity.ER.Set(earliestRemaining)
 	if changed {
-		jww.TRACE.Printf("External returns of RangeUnchecked: %d, %v, %v",
+		jww.TRACE.Printf("[Follow] External returns of RangeUnchecked: %d, %v, %v",
 			earliestRemaining, roundsWithMessages, roundsUnknown)
-		jww.DEBUG.Printf("New Earliest Remaining: %d, Gateways last checked: %d",
+		jww.DEBUG.Printf("[Follow] New Earliest Remaining: %d, Gateways last checked: %d",
 			earliestRemaining, gwRoundsState.GetLastChecked())
 	}
 
@@ -385,7 +388,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 	identity.CR.Prune()
 	err = identity.CR.SaveCheckedRounds()
 	if err != nil {
-		jww.ERROR.Printf("Could not save rounds for identity %d (%s): %+v",
+		jww.ERROR.Printf("[Follow] Could not save rounds for identity %d (%s): %+v",
 			identity.EphId.Int64(), identity.Source, err)
 	}
 
@@ -399,7 +402,7 @@ func (c *client) follow(report ClientErrorReport, rng csprng.Source,
 			trackingStart = earliestRemaining - id.Round(c.param.KnownRoundsThreshold)
 		}
 
-		jww.DEBUG.Printf("Rounds tracked: %v to %v", trackingStart, earliestRemaining)
+		jww.DEBUG.Printf("[Follow] Rounds tracked: %v to %v", trackingStart, earliestRemaining)
 
 		for i := trackingStart; i <= earliestRemaining; i++ {
 			state := Unchecked

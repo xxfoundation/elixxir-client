@@ -307,11 +307,13 @@ func (h *HostPool) initialize(startIdx uint32) error {
 		id      *id.ID
 		latency time.Duration
 	}
+
 	numGatewaysToTry := h.poolParams.MaxPings
 	numGateways := uint32(len(randomGateways))
 	if numGatewaysToTry > numGateways {
 		numGatewaysToTry = numGateways
 	}
+
 	resultList := make([]gatewayDuration, 0, numGatewaysToTry)
 
 	// Begin trying gateways
@@ -320,12 +322,6 @@ func (h *HostPool) initialize(startIdx uint32) error {
 	i := uint32(0)
 	for !exit {
 		for ; i < numGateways; i++ {
-			// Ran out of Hosts to try
-			if i >= numGateways {
-				exit = true
-				break
-			}
-
 			// Select a gateway not yet selected
 			gwId, err := randomGateways[i].GetGatewayId()
 			if err != nil {
@@ -334,8 +330,6 @@ func (h *HostPool) initialize(startIdx uint32) error {
 
 			// Skip if already in HostPool
 			if _, ok := h.hostMap[*gwId]; ok {
-				// Try another Host instead
-				numGatewaysToTry++
 				continue
 			}
 
@@ -370,7 +364,7 @@ func (h *HostPool) initialize(startIdx uint32) error {
 				}
 
 				// Break if we have all needed slots
-				if uint32(len(resultList)) == numGatewaysToTry {
+				if uint32(len(resultList)) == numGatewaysToTry || i >= numGateways {
 					exit = true
 					timer.Stop()
 					break innerLoop

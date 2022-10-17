@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"gitlab.com/elixxir/client/broadcast"
 	"gitlab.com/elixxir/client/storage/versioned"
+	broadcast2 "gitlab.com/elixxir/crypto/broadcast"
 	cryptoChannel "gitlab.com/elixxir/crypto/channel"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
@@ -51,7 +52,8 @@ func TestManager_JoinChannel(t *testing.T) {
 	m := mFace.(*manager)
 	mem := m.events.model.(*mockEventModel)
 
-	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
+	ch, _, err := newTestChannel(
+		"name", "description", m.rng.GetStream(), broadcast2.Public)
 	if err != nil {
 		t.Errorf("Failed to create new channel: %+v", err)
 	}
@@ -94,7 +96,8 @@ func TestManager_LeaveChannel(t *testing.T) {
 	m := mFace.(*manager)
 	mem := m.events.model.(*mockEventModel)
 
-	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
+	ch, _, err := newTestChannel(
+		"name", "description", m.rng.GetStream(), broadcast2.Public)
 	if err != nil {
 		t.Errorf("Failed to create new channel: %+v", err)
 	}
@@ -135,9 +138,9 @@ func TestManager_GetChannels(t *testing.T) {
 	chList := make(map[id.ID]interface{})
 
 	for i := 0; i < 10; i++ {
-		name := fmt.Sprintf("testChannel %d", numtests)
+		name := fmt.Sprintf("testChannel_%d", numtests)
 		s := rng.GetStream()
-		tc, _, err := newTestChannel(name, "blarg", s)
+		tc, _, err := newTestChannel(name, "blarg", s, broadcast2.Public)
 		s.Close()
 		if err != nil {
 			t.Fatalf("failed to generate channel %s", name)
@@ -172,9 +175,9 @@ func TestManager_GetChannel(t *testing.T) {
 	chList := make([]*id.ID, 0, numtests)
 
 	for i := 0; i < 10; i++ {
-		name := fmt.Sprintf("testChannel %d", numtests)
+		name := fmt.Sprintf("testChannel_%d", numtests)
 		s := rng.GetStream()
-		tc, _, err := newTestChannel(name, "blarg", s)
+		tc, _, err := newTestChannel(name, "blarg", s, broadcast2.Public)
 		s.Close()
 		if err != nil {
 			t.Fatalf("failed to generate channel %s", name)

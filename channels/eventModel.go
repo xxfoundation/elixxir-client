@@ -36,7 +36,7 @@ const (
 	Failed
 )
 
-var AdminFakePubkey = ed25519.PublicKey{}
+var AdminFakePubKey = ed25519.PublicKey{}
 
 // EventModel is an interface which an external party which uses the channels
 // system passed an object which adheres to in order to get events on the
@@ -52,20 +52,20 @@ type EventModel interface {
 	// channel. It may be called multiple times on the same message. It is
 	// incumbent on the user of the API to filter such called by message ID.
 	//
-	// the api needs to return a uuid of the message which it may be
-	// referenced at a later time
+	// The API needs to return a UUID of the message that can be referenced at a
+	// later time.
 	//
-	// messageID, timestamp, and round are all nillable and may be updated
-	// based upon the UUID at a later date. A time of time.Time{} will be
-	// passed for a nilled timestamp.
+	// messageID, timestamp, and round are all nillable and may be updated based
+	// upon the UUID at a later date. A time of time.Time{} will be passed for a
+	// nilled timestamp.
 	//
-	// Nickname may be empty, in which case the UI is expected to display
-	// the codename
+	// Nickname may be empty, in which case the UI is expected to display the
+	// codename.
 	//
-	// Message type is included in the call, it will always be Text (1)
-	// for this call, but it may be required in downstream databases
+	// Message type is included in the call; it will always be Text (1) for this
+	// call, but it may be required in downstream databases.
 	ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
-		nickname, text string, pubkey ed25519.PublicKey, codeset uint8,
+		nickname, text string, pubKey ed25519.PublicKey, codeset uint8,
 		timestamp time.Time, lease time.Duration, round rounds.Round,
 		mType MessageType, status SentStatus) uint64
 
@@ -73,60 +73,60 @@ type EventModel interface {
 	// a given channel. It may be called multiple times on the same message. It
 	// is incumbent on the user of the API to filter such called by message ID.
 	//
-	// Messages may arrive our of order, so a reply in theory can arrive before
-	// the initial message. As a result, it may be important to buffer replies.
+	// Messages may arrive our of order, so a reply, in theory, can arrive
+	// before the initial message. As a result, it may be important to buffer
+	// replies.
 	//
-	// the api needs to return a uuid of the message which it may be
-	// referenced at a later time
+	// The API needs to return a UUID of the message that can be referenced at a
+	// later time.
 	//
-	// messageID, timestamp, and round are all nillable and may be updated
-	// based upon the UUID at a later date. A time of time.Time{} will be
-	// passed for a nilled timestamp.
+	// messageID, timestamp, and round are all nillable and may be updated based
+	// upon the UUID at a later date. A time of time.Time{} will be passed for a
+	// nilled timestamp.
 	//
-	// Nickname may be empty, in which case the UI is expected to display
-	// the codename
+	// Nickname may be empty, in which case the UI is expected to display the
+	// codename.
 	//
-	// Message type is included in the call, it will always be Text (1) for
-	// this call, but it may be required in downstream databases
+	// Message type is included in the call; it will always be Text (1) for this
+	// call, but it may be required in downstream databases.
 	ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
 		reactionTo cryptoChannel.MessageID, nickname, text string,
-		pubkey ed25519.PublicKey, codeset uint8, timestamp time.Time,
+		pubKey ed25519.PublicKey, codeset uint8, timestamp time.Time,
 		lease time.Duration, round rounds.Round, mType MessageType,
 		status SentStatus) uint64
 
-	// ReceiveReaction is called whenever a reaction to a message is received
-	// on a given channel. It may be called multiple times on the same reaction.
-	// It is incumbent on the user of the API to filter such called by message
-	// ID.
+	// ReceiveReaction is called whenever a reaction to a message is received on
+	// a given channel. It may be called multiple times on the same reaction. It
+	// is incumbent on the user of the API to filter such called by message ID.
 	//
-	// Messages may arrive our of order, so a reply in theory can arrive before
-	// the initial message. As a result, it may be important to buffer
-	// reactions.
+	// Messages may arrive our of order, so a reply, in theory, can arrive
+	// before the initial message. As a result, it may be important to buffer
+	// replies.
 	//
-	// the api needs to return a uuid of the message which it may be
-	// referenced at a later time
+	// The API needs to return a UUID of the message that can be referenced at a
+	// later time.
 	//
-	// messageID, timestamp, and round are all nillable and may be updated
-	// based upon the UUID at a later date. A time of time.Time{} will be
-	// passed for a nilled timestamp.
+	// messageID, timestamp, and round are all nillable and may be updated based
+	// upon the UUID at a later date. A time of time.Time{} will be passed for a
+	// nilled timestamp.
 	//
-	// Nickname may be empty, in which case the UI is expected to display
-	// the codename
+	// Nickname may be empty, in which case the UI is expected to display the
+	// codename.
 	//
-	// Message type is included in the call, it will always be Reaction (3) for
-	// this call, but it may be required in downstream databases
+	// Message type is included in the call; it will always be Text (1) for this
+	// call, but it may be required in downstream databases.
 	ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
 		reactionTo cryptoChannel.MessageID, nickname, reaction string,
-		ipubkey ed25519.PublicKey, codeset uint8, timestamp time.Time,
+		pubKey ed25519.PublicKey, codeset uint8, timestamp time.Time,
 		lease time.Duration, round rounds.Round, mType MessageType,
 		status SentStatus) uint64
 
 	// UpdateSentStatus is called whenever the sent status of a message has
 	// changed.
 	//
-	// messageID, timestamp, and round are all nillable and may be updated
-	// based upon the UUID at a later date. A time of time.Time{} will be
-	// passed for a nilled timestamp. If a nil value is passed, make no update
+	// messageID, timestamp, and round are all nillable and may be updated based
+	// upon the UUID at a later date. A time of time.Time{} will be passed for a
+	// nilled timestamp. If a nil value is passed, make no update.
 	UpdateSentStatus(uuid uint64, messageID cryptoChannel.MessageID,
 		timestamp time.Time, round rounds.Round, status SentStatus)
 
@@ -139,13 +139,15 @@ type EventModel interface {
 
 // MessageTypeReceiveMessage defines handlers for messages of various message
 // types. Default ones for Text, Reaction, and AdminText.
-// A unique uuid must be returned by which the message can be referenced later
-// via UpdateSentStatus
+//
+// A unique UUID must be returned by which the message can be referenced later
+// via [EventModel.UpdateSentStatus].
+//
 // It must return a unique UUID for the message by which it can be referenced
-// later
+// later.
 type MessageTypeReceiveMessage func(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
-	nickname string, content []byte, pubkey ed25519.PublicKey, codeset uint8,
+	nickname string, content []byte, pubKey ed25519.PublicKey, codeset uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
 	status SentStatus) uint64
 
@@ -208,8 +210,8 @@ type triggerEventFunc func(chID *id.ID, umi *userMessageInternal, ts time.Time,
 // reception on a message received from a user (symmetric encryption).
 //
 // It will call the appropriate MessageTypeHandler assuming one exists.
-func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal, ts time.Time,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round,
+func (e *events) triggerEvent(chID *id.ID, umi *userMessageInternal,
+	ts time.Time, _ receptionID.EphemeralIdentity, round rounds.Round,
 	status SentStatus) (uint64, error) {
 	um := umi.GetUserMessage()
 	cm := umi.GetChannelMessage()
@@ -245,8 +247,8 @@ type triggerAdminEventFunc func(chID *id.ID, cm *ChannelMessage, ts time.Time,
 // It will call the appropriate MessageTypeHandler assuming one exists.
 func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 	ts time.Time, messageID cryptoChannel.MessageID,
-	receptionID receptionID.EphemeralIdentity, round rounds.Round,
-	status SentStatus) (uint64, error) {
+	_ receptionID.EphemeralIdentity, round rounds.Round, status SentStatus) (
+	uint64, error) {
 	messageType := MessageType(cm.PayloadType)
 
 	// check if the type is already registered
@@ -264,7 +266,7 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 
 	// Call the listener. This is already in an instanced event, no new thread needed.
 	uuid := listener(chID, messageID, messageType, AdminUsername, cm.Payload,
-		AdminFakePubkey, 0, ts,
+		AdminFakePubKey, 0, ts,
 		time.Duration(cm.Lease), round, status)
 	return uuid, nil
 }
@@ -277,7 +279,7 @@ func (e *events) triggerAdminEvent(chID *id.ID, cm *ChannelMessage,
 // write to the log.
 func (e *events) receiveTextMessage(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
-	nickname string, content []byte, pubkey ed25519.PublicKey, codeset uint8,
+	nickname string, content []byte, pubKey ed25519.PublicKey, codeset uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
 	status SentStatus) uint64 {
 	txt := &CMIXChannelText{}
@@ -285,7 +287,7 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 	if err := proto.Unmarshal(content, txt); err != nil {
 		jww.ERROR.Printf("Failed to text unmarshal message %s from %x on "+
 			"channel %s, type %s, ts: %s, lease: %s, round: %d: %+v",
-			messageID, pubkey, channelID, messageType, timestamp, lease,
+			messageID, pubKey, channelID, messageType, timestamp, lease,
 			round.ID, err)
 		return 0
 	}
@@ -296,20 +298,20 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 			var replyTo cryptoChannel.MessageID
 			copy(replyTo[:], txt.ReplyMessageID)
 			return e.model.ReceiveReply(channelID, messageID, replyTo,
-				nickname, txt.Text, pubkey, codeset, timestamp, lease, round, Text, status)
+				nickname, txt.Text, pubKey, codeset, timestamp, lease, round, Text, status)
 
 		} else {
-			jww.ERROR.Printf("Failed process reply to for message %s from %s on "+
-				"channel %s, type %s, ts: %s, lease: %s, round: %d, returning "+
-				"without reply",
-				messageID, pubkey, codeset, channelID, messageType, timestamp, lease,
-				round.ID)
+			jww.ERROR.Printf("Failed process reply to for message %s from "+
+				"public key %v (codeset %d) on channel %s, type %s, ts: %s, "+
+				"lease: %s, round: %d, returning without reply",
+				messageID, pubKey, codeset, channelID, messageType, timestamp,
+				lease, round.ID)
 			// Still process the message, but drop the reply because it is
 			// malformed
 		}
 	}
 
-	return e.model.ReceiveMessage(channelID, messageID, nickname, txt.Text, pubkey, codeset,
+	return e.model.ReceiveMessage(channelID, messageID, nickname, txt.Text, pubKey, codeset,
 		timestamp, lease, round, Text, status)
 }
 
@@ -322,14 +324,14 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 // reaction is dropped.
 func (e *events) receiveReaction(channelID *id.ID,
 	messageID cryptoChannel.MessageID, messageType MessageType,
-	nickname string, content []byte, pubkey ed25519.PublicKey, codeset uint8,
+	nickname string, content []byte, pubKey ed25519.PublicKey, codeset uint8,
 	timestamp time.Time, lease time.Duration, round rounds.Round,
 	status SentStatus) uint64 {
 	react := &CMIXChannelReaction{}
 	if err := proto.Unmarshal(content, react); err != nil {
 		jww.ERROR.Printf("Failed to text unmarshal message %s from %x on "+
 			"channel %s, type %s, ts: %s, lease: %s, round: %d: %+v",
-			messageID, pubkey, channelID, messageType, timestamp, lease,
+			messageID, pubKey, channelID, messageType, timestamp, lease,
 			round.ID, err)
 		return 0
 	}
@@ -339,7 +341,7 @@ func (e *events) receiveReaction(channelID *id.ID,
 		jww.ERROR.Printf("Failed process reaction %s from %x on channel "+
 			"%s, type %s, ts: %s, lease: %s, round: %d, due to malformed "+
 			"reaction (%s), ignoring reaction",
-			messageID, pubkey, channelID, messageType, timestamp, lease,
+			messageID, pubKey, channelID, messageType, timestamp, lease,
 			round.ID, err)
 		return 0
 	}
@@ -348,13 +350,13 @@ func (e *events) receiveReaction(channelID *id.ID,
 		var reactTo cryptoChannel.MessageID
 		copy(reactTo[:], react.ReactionMessageID)
 		return e.model.ReceiveReaction(channelID, messageID, reactTo, nickname,
-			react.Reaction, pubkey, codeset, timestamp, lease, round, Reaction, status)
+			react.Reaction, pubKey, codeset, timestamp, lease, round, Reaction, status)
 	} else {
-		jww.ERROR.Printf("Failed process reaction %s from %s on channel "+
-			"%s, type %s, ts: %s, lease: %s, round: %d, reacting to "+
-			"invalid message, ignoring reaction",
-			messageID, pubkey, codeset, channelID, messageType, timestamp, lease,
-			round.ID)
+		jww.ERROR.Printf("Failed process reaction %s from public key %v "+
+			"(codeset %d) on channel %s, type %s, ts: %s, lease: %s, "+
+			"round: %d, reacting to invalid message, ignoring reaction",
+			messageID, pubKey, codeset, channelID, messageType, timestamp,
+			lease, round.ID)
 	}
 	return 0
 }

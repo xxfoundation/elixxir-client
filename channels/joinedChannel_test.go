@@ -9,6 +9,7 @@ package channels
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"encoding/binary"
 	"gitlab.com/elixxir/client/broadcast"
 	clientCmix "gitlab.com/elixxir/client/cmix"
@@ -591,11 +592,10 @@ func (m *mockBroadcastClient) AddIdentity(*id.ID, time.Time, bool)              
 func (m *mockBroadcastClient) AddService(*id.ID, message.Service, message.Processor) {}
 func (m *mockBroadcastClient) DeleteClientService(*id.ID)                            {}
 func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                                 {}
-func (m *mockBroadcastClient) GetRoundResults(timeout time.Duration,
-	roundCallback clientCmix.RoundEventCallback, roundList ...id.Round) {
+func (m *mockBroadcastClient) GetRoundResults(time.Duration, clientCmix.RoundEventCallback, ...id.Round) {
 }
-func (m *mockBroadcastClient) AddHealthCallback(f func(bool)) uint64 { return 0 }
-func (m *mockBroadcastClient) RemoveHealthCallback(uint64)           {}
+func (m *mockBroadcastClient) AddHealthCallback(func(bool)) uint64 { return 0 }
+func (m *mockBroadcastClient) RemoveHealthCallback(uint64)         {}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mock EventModel                                                            //
@@ -611,33 +611,29 @@ type mockEventModel struct {
 	leftCh   *id.ID
 }
 
-func (m *mockEventModel) UpdateSentStatus(uuid uint64, messageID cryptoChannel.MessageID,
-	timestamp time.Time, round rounds.Round, status SentStatus) {
-	//TODO implement me
-	panic("implement me")
+func (m *mockEventModel) JoinChannel(c *cryptoBroadcast.Channel) { m.joinedCh = c }
+func (m *mockEventModel) LeaveChannel(c *id.ID)                  { m.leftCh = c }
+
+func (m *mockEventModel) ReceiveMessage(*id.ID, cryptoChannel.MessageID, string,
+	string, ed25519.PublicKey, uint8, time.Time, time.Duration, rounds.Round,
+	MessageType, SentStatus) uint64 {
+	return 0
 }
 
-func (m *mockEventModel) JoinChannel(c *cryptoBroadcast.Channel) {
-	m.joinedCh = c
-}
-func (m *mockEventModel) LeaveChannel(c *id.ID) {
-	m.leftCh = c
-}
-func (m *mockEventModel) ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
-	nickname, text string, identity cryptoChannel.Identity,
-	timestamp time.Time, lease time.Duration, round rounds.Round,
-	mType MessageType, status SentStatus) uint64 {
+func (m *mockEventModel) ReceiveReply(*id.ID, cryptoChannel.MessageID,
+	cryptoChannel.MessageID, string, string, ed25519.PublicKey, uint8,
+	time.Time, time.Duration, rounds.Round, MessageType, SentStatus) uint64 {
 	return 0
 }
-func (m *mockEventModel) ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
-	reactionTo cryptoChannel.MessageID, nickname, text string,
-	identity cryptoChannel.Identity, timestamp time.Time,
-	lease time.Duration, round rounds.Round, mType MessageType, status SentStatus) uint64 {
+
+func (m *mockEventModel) ReceiveReaction(*id.ID, cryptoChannel.MessageID,
+	cryptoChannel.MessageID, string, string, ed25519.PublicKey, uint8,
+	time.Time, time.Duration, rounds.Round, MessageType, SentStatus) uint64 {
 	return 0
 }
-func (m *mockEventModel) ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
-	reactionTo cryptoChannel.MessageID, nickname, reaction string,
-	identity cryptoChannel.Identity, timestamp time.Time,
-	lease time.Duration, round rounds.Round, mType MessageType, status SentStatus) uint64 {
-	return 0
+
+func (m *mockEventModel) UpdateSentStatus(uint64, cryptoChannel.MessageID,
+	time.Time, rounds.Round, SentStatus) {
+	// TODO implement me
+	panic("implement me")
 }

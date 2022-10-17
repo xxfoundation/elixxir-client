@@ -52,8 +52,9 @@ func Test_manager_store(t *testing.T) {
 	m := mFace.(*manager)
 
 	for i := 0; i < 10; i++ {
-		ch, _, err := newTestChannel("name_"+strconv.Itoa(i),
-			"description_"+strconv.Itoa(i), m.rng.GetStream())
+		ch, _, err := newTestChannel(
+			"name_"+strconv.Itoa(i), "description_"+strconv.Itoa(i),
+			m.rng.GetStream(), cryptoBroadcast.Public)
 		if err != nil {
 			t.Errorf("Failed to create new channel %d: %+v", i, err)
 		}
@@ -100,8 +101,8 @@ func Test_manager_loadChannels(t *testing.T) {
 	expected := make([]*joinedChannel, 10)
 
 	for i := range expected {
-		ch, _, err := newTestChannel("name_"+strconv.Itoa(i),
-			"description_"+strconv.Itoa(i), m.rng.GetStream())
+		ch, _, err := newTestChannel(
+			"name_"+strconv.Itoa(i), "description_"+strconv.Itoa(i), m.rng.GetStream(), cryptoBroadcast.Public)
 		if err != nil {
 			t.Errorf("Failed to create new channel %d: %+v", i, err)
 		}
@@ -169,7 +170,8 @@ func Test_manager_addChannel(t *testing.T) {
 
 	m := mFace.(*manager)
 
-	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
+	ch, _, err := newTestChannel(
+		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
 	if err != nil {
 		t.Errorf("Failed to create new channel: %+v", err)
 	}
@@ -214,7 +216,8 @@ func Test_manager_addChannel_ChannelAlreadyExistsErr(t *testing.T) {
 
 	m := mFace.(*manager)
 
-	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
+	ch, _, err := newTestChannel(
+		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
 	if err != nil {
 		t.Errorf("Failed to create new channel: %+v", err)
 	}
@@ -250,7 +253,8 @@ func Test_manager_removeChannel(t *testing.T) {
 
 	m := mFace.(*manager)
 
-	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
+	ch, _, err := newTestChannel(
+		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
 	if err != nil {
 		t.Errorf("Failed to create new channel: %+v", err)
 	}
@@ -295,7 +299,8 @@ func Test_manager_removeChannel_ChannelDoesNotExistsErr(t *testing.T) {
 
 	m := mFace.(*manager)
 
-	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
+	ch, _, err := newTestChannel(
+		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
 	if err != nil {
 		t.Errorf("Failed to create new channel: %+v", err)
 	}
@@ -327,7 +332,8 @@ func Test_manager_getChannel(t *testing.T) {
 
 	m := mFace.(*manager)
 
-	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
+	ch, _, err := newTestChannel(
+		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
 	if err != nil {
 		t.Errorf("Failed to create new channel: %+v", err)
 	}
@@ -368,7 +374,8 @@ func Test_manager_getChannel_ChannelDoesNotExistsErr(t *testing.T) {
 
 	m := mFace.(*manager)
 
-	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
+	ch, _, err := newTestChannel(
+		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
 	if err != nil {
 		t.Errorf("Failed to create new channel: %+v", err)
 	}
@@ -404,8 +411,8 @@ func Test_manager_getChannels(t *testing.T) {
 	expected := make([]*id.ID, 10)
 
 	for i := range expected {
-		ch, _, err := newTestChannel("name_"+strconv.Itoa(i),
-			"description_"+strconv.Itoa(i), m.rng.GetStream())
+		ch, _, err := newTestChannel(
+			"name_"+strconv.Itoa(i), "description_"+strconv.Itoa(i), m.rng.GetStream(), cryptoBroadcast.Public)
 		if err != nil {
 			t.Errorf("Failed to create new channel %d: %+v", i, err)
 		}
@@ -437,7 +444,8 @@ func Test_manager_getChannels(t *testing.T) {
 func Test_joinedChannel_Store(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
-	ch, _, err := newTestChannel("name", "description", rng.GetStream())
+	ch, _, err := newTestChannel(
+		"name", "description", rng.GetStream(), cryptoBroadcast.Public)
 	if err != nil {
 		t.Errorf("Failed to create new channel: %+v", err)
 	}
@@ -480,7 +488,8 @@ func Test_loadJoinedChannel(t *testing.T) {
 
 	m := mFace.(*manager)
 
-	ch, _, err := newTestChannel("name", "description", m.rng.GetStream())
+	ch, _, err := newTestChannel(
+		"name", "description", m.rng.GetStream(), cryptoBroadcast.Public)
 	if err != nil {
 		t.Errorf("Failed to create new channel: %+v", err)
 	}
@@ -509,7 +518,8 @@ func Test_loadJoinedChannel(t *testing.T) {
 func Test_joinedChannel_delete(t *testing.T) {
 	kv := versioned.NewKV(ekv.MakeMemstore())
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
-	ch, _, err := newTestChannel("name", "description", rng.GetStream())
+	ch, _, err := newTestChannel(
+		"name", "description", rng.GetStream(), cryptoBroadcast.Public)
 	if err != nil {
 		t.Errorf("Failed to create new channel: %+v", err)
 	}
@@ -566,9 +576,11 @@ func Test_makeJoinedChannelKey_Consistency(t *testing.T) {
 // newTestChannel creates a new cryptoBroadcast.Channel in the same way that
 // cryptoBroadcast.NewChannel does but with a smaller RSA key and salt to make
 // tests run quicker.
-func newTestChannel(name, description string, rng csprng.Source) (
+func newTestChannel(name, description string, rng csprng.Source,
+	level cryptoBroadcast.PrivacyLevel) (
 	*cryptoBroadcast.Channel, rsa.PrivateKey, error) {
-	c, pk, err := cryptoBroadcast.NewChannelVariableKeyUnsafe(name, description, 1000, 512, rng)
+	c, pk, err := cryptoBroadcast.NewChannelVariableKeyUnsafe(
+		name, description, level, 1000, 512, rng)
 	return c, pk, err
 }
 

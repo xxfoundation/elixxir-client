@@ -331,6 +331,15 @@ func LoadChannelsManager(cmixID int, storageTag string,
 	return channelManagerTrackerSingleton.make(m), nil
 }
 
+// ChannelGeneration contains information about a newly generated channel. It
+// contains the public channel info formatted in pretty print and the private
+// key for the channel in PEM format.
+//
+// Example JSON:
+//  {
+//    "Channel": "\u003cSpeakeasy-v1:My_Channel,description:Here is information about my channel.,level:Public,secrets:8AS3SczFvAYZftWuj4ZkOM9muFPIwq/0HuVCUJgTK8w=,GpPl1510/G07J4RfdYX9J5plTX3WNLVm+uuGmCwgFeU=,5,1,mRfdUGM6WxWjjCuLzO+2+zc3BQh2zMT2CHD8ZnBwpVI=\u003e",
+//    "PrivateKey": "-----BEGIN RSA PRIVATE KEY-----\nMDECAQACBgDMIU9LpQIDAQABAgYAvCd9ewECAw0tzQIDD305AgMFu4UCAwd+kQID\nAQxc\n-----END RSA PRIVATE KEY-----"
+//  }
 type ChannelGeneration struct {
 	Channel    string
 	PrivateKey string
@@ -341,24 +350,35 @@ type ChannelGeneration struct {
 //
 // It returns a pretty print of the channel and the private key.
 //
-// The name cannot be longer that __ characters. The description cannot be
-// longer than __ and can only use ______ characters.
-//
 // Parameters:
 //  - cmixID - The tracked cmix object ID. This can be retrieved using
 //    [Cmix.GetID].
-//  - name - The name of the new channel. The name cannot be longer than __
-//    characters and must contain only _____ characters. It cannot be changed
+//  - name - The name of the new channel. The name must be between 3 and 24
+//    characters inclusive. It can only include upper and lowercase unicode
+//    letters, digits 0 through 9, and underscores (_). It cannot be changed
 //    once a channel is created.
-//  - description - The description of a channel. The description cannot be
-//    longer than __ characters and must contain only _____ characters. It
-//    cannot be changed once a channel is created.
+//  - description - The description of a channel. The description is optional
+//    but cannot be longer than 144 characters and can include all unicode
+//    characters. It cannot be changed once a channel is created.
+//  - privacyLevel - The broadcast.PrivacyLevel of the channel. 0 = public,
+//    1 = private, and 2 = secret. Refer to the comment below for more
+//    information.
 //
 // Returns:
-//  - []byte - ChannelGeneration describes a generated channel. It contains both
-//    the public channel info and the private key for the channel in PEM format.
-//    fixme: document json
-func GenerateChannel(cmixID int, name, description string) ([]byte, error) {
+//  - []byte - [ChannelGeneration] describes a generated channel. It contains
+//    both the public channel info and the private key for the channel in PEM
+//    format.
+//
+// The [broadcast.PrivacyLevel] of a channel indicates the level of channel
+// information revealed when sharing it via URL. For any channel besides public
+// channels, the secret information is encrypted and a password is required to
+// share and join a channel.
+//  - A privacy level of [broadcast.Public] reveals all the information
+//    including the name, description, privacy level, public key and salt.
+//  - A privacy level of [broadcast.Private] reveals only the name and
+//    description.
+//  - A privacy level of [broadcast.Secret] reveals nothing.
+func GenerateChannel(cmixID int, name, description string, privacyLevel int) ([]byte, error) {
 	// Get cmix from singleton so its rng can be used
 	cmix, err := cmixTrackerSingleton.get(cmixID)
 	if err != nil {
@@ -367,8 +387,9 @@ func GenerateChannel(cmixID int, name, description string) ([]byte, error) {
 
 	stream := cmix.api.GetRng().GetStream()
 	defer stream.Close()
-	c, pk, err := cryptoBroadcast.NewChannel(
-		name, description, cmix.api.GetCmix().GetMaxMessageLength(), stream)
+	level := cryptoBroadcast.PrivacyLevel(privacyLevel)
+	c, pk, err := cryptoBroadcast.NewChannel(name, description, level,
+		cmix.api.GetCmix().GetMaxMessageLength(), stream)
 	if err != nil {
 		return nil, err
 	}
@@ -415,6 +436,14 @@ func makeChannelPrivateKeyStoreKey(channelID *id.ID) string {
 	return channelPrivateKeyStoreKey + "/" + channelID.String()
 }
 
+// ChannelInfo contains information about a channel.
+//
+// Example of ChannelInfo JSON:
+//  {
+//    "Name": "Test Channel",
+//    "Description": "This is a test channel",
+//    "ChannelID": "RRnpRhmvXtW9ugS1nILJ3WfttdctDvC2jeuH43E0g/0D",
+//  }
 type ChannelInfo struct {
 	Name        string
 	Description string
@@ -427,11 +456,10 @@ type ChannelInfo struct {
 //  - prettyPrint - The pretty print of the channel.
 //
 // The pretty print will be of the format:
-//  <XXChannel-v1:Test Channel,description:This is a test channel,secrets:pn0kIs6P1pHvAe7u8kUyf33GYVKmkoCX9LhCtvKJZQI=,3A5eB5pzSHyxN09w1kOVrTIEr5UyBbzmmd9Ga5Dx0XA=,0,0,/zChIlLr2p3Vsm2X4+3TiFapoapaTi8EJIisJSqwfGc=>
+//  <Speakeasy-v1:Test Channel,description:This is a test channel,secrets:YxHhRAKy2D4XU2oW5xnW/3yaqOeh8nO+ZSd3nUmiQ3c=,6pXN2H9FXcOj7pjJIZoq6nMi4tGX2s53fWH5ze2dU1g=,493,1,MVjkHlm0JuPxQNAn6WHsPdOw9M/BUF39p7XB/QEkQyc=>
 //
 // Returns:
-//  - []byte - ChannelInfo describes all relevant channel info.
-//    fixme: document json
+//  - []byte - JSON of [ChannelInfo], which describes all relevant channel info.
 func GetChannelInfo(prettyPrint string) ([]byte, error) {
 	_, bytes, err := getChannelInfo(prettyPrint)
 	return bytes, err
@@ -462,13 +490,46 @@ func getChannelInfo(prettyPrint string) (*cryptoBroadcast.Channel, []byte, error
 //    another user or generated via GenerateChannel.
 //
 // The pretty print will be of the format:
-//  <XXChannel-v1:Test Channel,description:This is a test channel,secrets:pn0kIs6P1pHvAe7u8kUyf33GYVKmkoCX9LhCtvKJZQI=,3A5eB5pzSHyxN09w1kOVrTIEr5UyBbzmmd9Ga5Dx0XA=,0,0,/zChIlLr2p3Vsm2X4+3TiFapoapaTi8EJIisJSqwfGc=>"
+//  <Speakeasy-v1:Test Channel,description:This is a test channel,secrets:YxHhRAKy2D4XU2oW5xnW/3yaqOeh8nO+ZSd3nUmiQ3c=,6pXN2H9FXcOj7pjJIZoq6nMi4tGX2s53fWH5ze2dU1g=,493,1,MVjkHlm0JuPxQNAn6WHsPdOw9M/BUF39p7XB/QEkQyc=>
 //
 // Returns:
-//  - []byte - ChannelInfo describes all relevant channel info.
-//    fixme: document json
+//  - []byte - JSON of [ChannelInfo], which describes all relevant channel info.
 func (cm *ChannelsManager) JoinChannel(channelPretty string) ([]byte, error) {
 	c, info, err := getChannelInfo(channelPretty)
+	if err != nil {
+		return nil, err
+	}
+
+	// Join the channel using the API
+	err = cm.api.JoinChannel(c)
+
+	return info, err
+}
+
+// JoinChannelFromURL joins the given channel from a URL. It will fail if the
+// channel has already been joined. A password is required unless it is of the
+// privacy level [broadcast.Public], in which case it can be left empty. To get
+// the privacy level of a channel URL, use [GetShareUrlType].
+//
+// Parameters:
+//  - url - The channel's share URL. Should be received from another user or
+//    generated via [GetShareURL].
+//  - password - The password needed to decrypt the secret data in the URL. Only
+//    required for private or secret channels.
+//
+// Returns:
+//  - []byte - [ChannelInfo] describes all relevant channel info.
+func (cm *ChannelsManager) JoinChannelFromURL(url, password string) ([]byte, error) {
+	c, err := cryptoBroadcast.DecodeShareURL(url, password)
+	if err != nil {
+		return nil, err
+	}
+
+	info, err := json.Marshal(&ChannelInfo{
+		Name:        c.Name,
+		Description: c.Description,
+		ChannelID:   c.ReceptionID.String(),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -525,6 +586,116 @@ func (cm *ChannelsManager) ReplayChannel(marshalledChanId []byte) error {
 
 	// Replay channel
 	return cm.api.ReplayChannel(chanId)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Channel Share URL                                                          //
+////////////////////////////////////////////////////////////////////////////////
+
+// ShareURL is returned from ChannelsManager.GetShareURL. It includes the
+// channel's share URL and password, if it needs one.
+//
+// JSON example for a public channel:
+//  {
+//    "url": "https://internet.speakeasy.tech/?0Name=My_Channel&Description=Here+is+information+about+my+channel.&2Level=Public&e=3CCvzK8diF%2B6vUZetyZkcyemoiI8uFLGSh%2B%2F9%2Bh5YQE%3D&k=zBakjn1Snay7AMr2CZ%2BCoWCHbe9TrtQqAVftIDi9Fjs%3D&l=5&m=0&p=1&s=Seyvx%2F5%2FOVTj5LClUG42AuLamDnqrbtMOoLymyIpFqY%3D&v=0",
+//    "password": ""
+//  }
+//
+// JSON example for a private channel:
+//  {
+//    "url": "https://internet.speakeasy.tech/?0Name=My_Channel&1Description=Here+is+information+about+my+channel.&d=i%2FwBAK6i89YT3LjPYb5%2BMmog5Gjk2unYzYt25y%2BmZH3%2Bo08oUIHHEoC7JYjk50Q2%2BMcSj6fQh%2BW3LBvWv02f1g60PLXZ1H8OS2rqoxBhwHvTpNgXRdUIErbk6q3ljIdjtSqJtWIzAx5no%2F96jaIBsob0U9jDE1jgsU8XNGxDz3TeKcdTOFiUpnh4R%2BALcys%3D&m=1&v=0",
+//    "password": "easter boaster musket catalyze unproven vendetta plated grinning"
+//  }
+//
+// JSON example for a secret channel:
+//  {
+//    "url": "https://internet.speakeasy.tech/?d=xRORDN8lt%2BI2SAn%2F21ZpOzj50J3HOV1GkMsPkhtgoYyQUqpPBZhhKpewzuDI%2B3wTQlpANLDMtFVL4J7y2lBpvIz9LQ5%2F6CoRdVkoXbG7uRqv6wscYdwWPYZBARC2cJSyeVad6RbxnoZ65Z0dtEVEff328ri3ZpaMBlP%2BpUH928pcVHibALW7Bw04Rkmh%2FWx6wJGw%2FU0gTHo02UlYFHh4G9CC%2BIU1x13BmEuW6Hyk6Ty9BlHt29QbsQ7uU30RwzQOyg8%3D&m=2&v=0",
+//    "password": "florist angled valid snarl discharge endearing harbor hazy"
+//  }
+type ShareURL struct {
+	URL      string `json:"url"`
+	Password string `json:"password"`
+}
+
+// GetShareURL generates a URL that can be used to share this channel with
+// others on the given host.
+//
+// A URL comes in one of three forms based on the privacy level set when
+// generating the channel. Each privacy level hides more information than the
+// last with the lowest level revealing everything and the highest level
+// revealing nothing. For any level above the lowest, a password is returned,
+// which will be required when decoding the URL.
+//
+// The maxUses is the maximum number of times this URL can be used to join a
+// channel. If it is set to 0, then it can be shared unlimited times. The max
+// uses is set as a URL parameter using the key [broadcast.MaxUsesKey]. Note
+// that this number is also encoded in the secret data for private and secret
+// URLs, so if the number is changed in the URL, is will be verified when
+// calling [ChannelsManager.JoinChannelFromURL]. There is no enforcement for
+// public URLs.
+//
+// Parameters:
+//  - cmixID - The tracked Cmix object ID.
+//  - host - The URL to append the channel info to.
+//  - maxUses - The maximum number of uses the link can be used (0 for
+//    unlimited).
+//  - marshalledChanId - A marshalled channel ID ([id.ID]).
+//
+// Returns:
+//  - JSON of ShareURL.
+func (cm *ChannelsManager) GetShareURL(cmixID int, host string, maxUses int,
+	marshalledChanId []byte) ([]byte, error) {
+
+	// Unmarshal channel ID
+	chanId, err := id.Unmarshal(marshalledChanId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the channel from the ID
+	ch, err := cm.api.GetChannel(chanId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get user from singleton
+	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate share URL and password
+	rng := user.api.GetRng().GetStream()
+	url, password, err := ch.ShareURL(host, maxUses, rng)
+	rng.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	su := ShareURL{
+		URL:      url,
+		Password: password,
+	}
+
+	return json.Marshal(su)
+}
+
+// GetShareUrlType determines the [broadcast.PrivacyLevel] of the channel URL.
+// If the URL is an invalid channel URL, an error is returned.
+//
+// Parameters:
+//  - url - The channel share URL.
+//
+// Returns:
+//  - An int that corresponds to the [broadcast.PrivacyLevel] as outlined below.
+//
+// Possible returns:
+//  0 = public channel
+//  1 = private channel
+//  2 = secret channel
+func GetShareUrlType(url string) (int, error) {
+	level, err := cryptoBroadcast.GetShareUrlType(url)
+	return int(level), err
 }
 
 ////////////////////////////////////////////////////////////////////////////////

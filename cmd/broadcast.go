@@ -81,7 +81,8 @@ var broadcastCmd = &cobra.Command{
 
 			if viper.GetBool(broadcastNewFlag) {
 				// Create a new broadcast channel
-				channel, pk, err = crypto.NewChannel(name, desc, user.GetCmix().GetMaxMessageLength(), user.GetRng().GetStream())
+				channel, pk, err = crypto.NewChannel(name, desc, crypto.Public,
+					user.GetCmix().GetMaxMessageLength(), user.GetRng().GetStream())
 				if err != nil {
 					jww.FATAL.Panicf("Failed to create new channel: %+v", err)
 				}

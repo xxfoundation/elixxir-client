@@ -272,8 +272,8 @@ func TestAdminGeneric(t *testing.T) {
 	validUntil := time.Hour
 
 	rng := &csprng.SystemRNG{}
-	ch, priv, err := cryptoBroadcast.NewChannel("test", "test",
-		1000, rng)
+	ch, priv, err := cryptoBroadcast.NewChannel(
+		"test", "test", cryptoBroadcast.Public, 1000, rng)
 	if err != nil {
 		t.Fatalf("Failed to generate channel: %+v", err)
 	}

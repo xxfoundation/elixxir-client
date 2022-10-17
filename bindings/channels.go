@@ -8,9 +8,9 @@
 package bindings
 
 import (
+	"crypto/ed25519"
 	"encoding/json"
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/channels"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -109,7 +109,7 @@ func (cm *ChannelsManager) GetID() int {
 //    [Cmix.GetID].
 //
 // Returns:
-//  - JSON of [channel.PrivateIdentity].
+//  - Marshalled bytes of [channel.PrivateIdentity].
 func GenerateChannelIdentity(cmixID int) ([]byte, error) {
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -124,6 +124,24 @@ func GenerateChannelIdentity(cmixID int) ([]byte, error) {
 		return nil, err
 	}
 	return pi.Marshal(), nil
+}
+
+// ConstructIdentity constructs a [channel.Identity] from a user's public key
+// and codeset version.
+//
+// Parameters:
+//  - pubKey - The Ed25519 public key.
+//  - codesetVersion - The version of the codeset used to generate the identity.
+//
+// Returns:
+//  - JSON of [channel.Identity].
+func ConstructIdentity(pubKey []byte, codesetVersion int) ([]byte, error) {
+	identity, err := cryptoChannel.ConstructIdentity(
+		pubKey, uint8(codesetVersion))
+	if err != nil {
+		return nil, err
+	}
+	return identity.Marshal(), nil
 }
 
 // ImportPrivateIdentity generates a new [channel.PrivateIdentity] from exported
@@ -1084,7 +1102,8 @@ type ReceivedChannelMessageReport struct {
 	MessageId   []byte
 	MessageType int
 	Nickname    string
-	Identity    []byte
+	PubKey      []byte
+	Codeset     int
 	Content     []byte
 	Timestamp   int64
 	Lease       int64
@@ -1118,22 +1137,17 @@ func (cm *ChannelsManager) RegisterReceiveHandler(messageType int,
 	cb := channels.MessageTypeReceiveMessage(
 		func(channelID *id.ID,
 			messageID cryptoChannel.MessageID, messageType channels.MessageType,
-			nickname string, content []byte, identity cryptoChannel.Identity,
-			timestamp time.Time, lease time.Duration, round rounds.Round,
-			status channels.SentStatus) uint64 {
-
-			idBytes, err := json.Marshal(&identity)
-			if err != nil {
-				jww.WARN.Printf("failed to marshal identity object: %+v", err)
-				return 0
-			}
+			nickname string, content []byte, pubKey ed25519.PublicKey,
+			codeset uint8, timestamp time.Time, lease time.Duration,
+			round rounds.Round, status channels.SentStatus) uint64 {
 
 			rcm := ReceivedChannelMessageReport{
 				ChannelId:   channelID.Marshal(),
 				MessageId:   messageID.Bytes(),
 				MessageType: int(messageType),
 				Nickname:    nickname,
-				Identity:    idBytes,
+				PubKey:      pubKey,
+				Codeset:     int(codeset),
 				Content:     content,
 				Timestamp:   timestamp.UnixNano(),
 				Lease:       int64(lease),
@@ -1184,7 +1198,8 @@ type EventModel interface {
 	//  - text - The content of the message.
 	//  - timestamp - Time the message was received; represented as nanoseconds
 	//    since unix epoch.
-	//  - identity - the json of the identity of the sender
+	//  - pubKey - The sender's Ed25519 public key.
+	//  - codeset - The codeset version.
 	//  - lease - The number of nanoseconds that the message is valid for.
 	//  - roundId - The ID of the round that the message was received on.
 	//  - mType - the type of the message, always 1 for this call
@@ -1198,7 +1213,7 @@ type EventModel interface {
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
 	ReceiveMessage(channelID, messageID []byte, nickname, text string,
-		identity []byte, timestamp, lease, roundId, mType,
+		pubKey []byte, codeset int, timestamp, lease, roundId, mType,
 		status int64) int64
 
 	// ReceiveReply is called whenever a message is received that is a reply on
@@ -1216,7 +1231,8 @@ type EventModel interface {
 	//    reply.
 	//  - nickname - The nickname of the sender of the message.
 	//  - text - The content of the message.
-	//  - identity - the json marshaled identity of the sender
+	//  - pubKey - The sender's Ed25519 public key.
+	//  - codeset - The codeset version.
 	//  - timestamp - Time the message was received; represented as nanoseconds
 	//    since unix epoch.
 	//  - lease - The number of nanoseconds that the message is valid for.
@@ -1231,9 +1247,9 @@ type EventModel interface {
 	//
 	// Returns a non-negative unique UUID for the message that it can be
 	// referenced by later with [EventModel.UpdateSentStatus].
-	ReceiveReply(channelID, messageID, reactionTo []byte,
-		nickname, text string, identity []byte,
-		timestamp, lease, roundId, mType, status int64) int64
+	ReceiveReply(channelID, messageID, reactionTo []byte, nickname, text string,
+		pubKey []byte, codeset int, timestamp, lease, roundId, mType,
+		status int64) int64
 
 	// ReceiveReaction is called whenever a reaction to a message is received
 	// on a given channel. It may be called multiple times on the same reaction.
@@ -1252,7 +1268,8 @@ type EventModel interface {
 	//    reply.
 	//  - nickname - The nickname of the sender of the message.
 	//  - reaction - The contents of the reaction message.
-	//  - identity - The json marshal of the identity of the sender
+	//  - pubKey - The sender's Ed25519 public key.
+	//  - codeset - The codeset version.
 	//  - timestamp - Time the message was received; represented as nanoseconds
 	//    since unix epoch.
 	//  - lease - The number of nanoseconds that the message is valid for.
@@ -1267,9 +1284,9 @@ type EventModel interface {
 	//
 	// Returns a non-negative unique uuid for the message by which it can be
 	// referenced later with UpdateSentStatus
-	ReceiveReaction(channelID, messageID, reactionTo []byte,
-		nickname, reaction string, identity []byte,
-		timestamp, lease, roundId, mtype, status int64) int64
+	ReceiveReaction(channelID, messageID, reactionTo []byte, nickname,
+		reaction string, pubKey []byte, codeset int, timestamp, lease, roundId,
+		mType, status int64) int64
 
 	// UpdateSentStatus is called whenever the sent status of a message has
 	// changed.
@@ -1317,21 +1334,15 @@ func (tem *toEventModel) LeaveChannel(channelID *id.ID) {
 // ReceiveMessage is called whenever a message is received on a given channel.
 // It may be called multiple times on the same message. It is incumbent on the
 // user of the API to filter such called by message ID.
-func (tem *toEventModel) ReceiveMessage(channelID *id.ID, messageID cryptoChannel.MessageID,
-	nickname, text string, identity cryptoChannel.Identity,
-	timestamp time.Time, lease time.Duration, round rounds.Round,
-	mType channels.MessageType,
+func (tem *toEventModel) ReceiveMessage(channelID *id.ID,
+	messageID cryptoChannel.MessageID, nickname, text string,
+	pubKey ed25519.PublicKey, codeset uint8, timestamp time.Time,
+	lease time.Duration, round rounds.Round, mType channels.MessageType,
 	status channels.SentStatus) uint64 {
 
-	idBytes, err := json.Marshal(&identity)
-	if err != nil {
-		jww.WARN.Printf("failed to marshal identity object: %+v", err)
-		return 0
-	}
-
 	return uint64(tem.em.ReceiveMessage(channelID[:], messageID[:], nickname,
-		text, idBytes, timestamp.UnixNano(), int64(lease), int64(round.ID), int64(mType),
-		int64(status)))
+		text, pubKey, int(codeset), timestamp.UnixNano(), int64(lease),
+		int64(round.ID), int64(mType), int64(status)))
 }
 
 // ReceiveReply is called whenever a message is received that is a reply on a
@@ -1340,21 +1351,15 @@ func (tem *toEventModel) ReceiveMessage(channelID *id.ID, messageID cryptoChanne
 //
 // Messages may arrive our of order, so a reply in theory can arrive before the
 // initial message. As a result, it may be important to buffer replies.
-func (tem *toEventModel) ReceiveReply(channelID *id.ID, messageID cryptoChannel.MessageID,
-	reactionTo cryptoChannel.MessageID, nickname, text string,
-	identity cryptoChannel.Identity, timestamp time.Time,
-	lease time.Duration, round rounds.Round, mType channels.MessageType,
-	status channels.SentStatus) uint64 {
-
-	idBytes, err := json.Marshal(&identity)
-	if err != nil {
-		jww.WARN.Printf("failed to marshal identity object: %+v", err)
-		return 0
-	}
+func (tem *toEventModel) ReceiveReply(channelID *id.ID,
+	messageID cryptoChannel.MessageID, reactionTo cryptoChannel.MessageID,
+	nickname, text string, pubKey ed25519.PublicKey, codeset uint8,
+	timestamp time.Time, lease time.Duration, round rounds.Round,
+	mType channels.MessageType, status channels.SentStatus) uint64 {
 
 	return uint64(tem.em.ReceiveReply(channelID[:], messageID[:], reactionTo[:],
-		nickname, text, idBytes, timestamp.UnixNano(), int64(lease),
-		int64(round.ID), int64(mType), int64(status)))
+		nickname, text, pubKey, int(codeset), timestamp.UnixNano(),
+		int64(lease), int64(round.ID), int64(mType), int64(status)))
 
 }
 
@@ -1366,19 +1371,14 @@ func (tem *toEventModel) ReceiveReply(channelID *id.ID, messageID cryptoChannel.
 // initial message. As a result, it may be important to buffer reactions.
 func (tem *toEventModel) ReceiveReaction(channelID *id.ID, messageID cryptoChannel.MessageID,
 	reactionTo cryptoChannel.MessageID, nickname, reaction string,
-	identity cryptoChannel.Identity, timestamp time.Time,
+	pubKey ed25519.PublicKey, codeset uint8, timestamp time.Time,
 	lease time.Duration, round rounds.Round, mType channels.MessageType,
 	status channels.SentStatus) uint64 {
 
-	idBytes, err := json.Marshal(&identity)
-	if err != nil {
-		jww.WARN.Printf("failed to marshal identity object: %+v", err)
-		return 0
-	}
-
 	return uint64(tem.em.ReceiveReaction(channelID[:], messageID[:],
-		reactionTo[:], nickname, reaction, idBytes, timestamp.UnixNano(),
-		int64(lease), int64(round.ID), int64(mType), int64(status)))
+		reactionTo[:], nickname, reaction, pubKey, int(codeset),
+		timestamp.UnixNano(), int64(lease), int64(round.ID), int64(mType),
+		int64(status)))
 }
 
 // UpdateSentStatus is called whenever the sent status of a message has changed.

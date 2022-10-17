@@ -109,7 +109,7 @@ func (cm *ChannelsManager) GetID() int {
 //    [Cmix.GetID].
 //
 // Returns:
-//  - JSON of [channel.PrivateIdentity].
+//  - Marshalled bytes of [channel.PrivateIdentity].
 func GenerateChannelIdentity(cmixID int) ([]byte, error) {
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
@@ -124,6 +124,24 @@ func GenerateChannelIdentity(cmixID int) ([]byte, error) {
 		return nil, err
 	}
 	return pi.Marshal(), nil
+}
+
+// ConstructIdentity constructs a [channel.Identity] from a user's public key
+// and codeset version.
+//
+// Parameters:
+//  - pubKey - The Ed25519 public key.
+//  - codesetVersion - The version of the codeset used to generate the identity.
+//
+// Returns:
+//  - JSON of [channel.Identity].
+func ConstructIdentity(pubKey []byte, codesetVersion int) ([]byte, error) {
+	identity, err := cryptoChannel.ConstructIdentity(
+		pubKey, uint8(codesetVersion))
+	if err != nil {
+		return nil, err
+	}
+	return identity.Marshal(), nil
 }
 
 // ImportPrivateIdentity generates a new [channel.PrivateIdentity] from exported

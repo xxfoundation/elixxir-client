@@ -317,10 +317,12 @@ func (h *HostPool) initialize(startIdx uint32) error {
 	resultList := make([]gatewayDuration, 0, numGatewaysToTry)
 
 	// Begin trying gateways
-	c := make(chan gatewayDuration, numGatewaysToTry)
 	exit := false
 	i := uint32(0)
 	for !exit {
+
+		c := make(chan gatewayDuration, numGatewaysToTry)
+		numTried := 0
 		for ; i < numGateways; i++ {
 			// Select a gateway not yet selected
 			gwId, err := randomGateways[i].GetGatewayId()
@@ -332,6 +334,8 @@ func (h *HostPool) initialize(startIdx uint32) error {
 			if _, ok := h.hostMap[*gwId]; ok {
 				continue
 			}
+
+			numTried++
 
 			go func() {
 				// Obtain that GwId's Host object
@@ -364,8 +368,7 @@ func (h *HostPool) initialize(startIdx uint32) error {
 				}
 
 				// Break if we have all needed slots
-				if uint32(len(resultList)) == numGatewaysToTry || i >= numGateways {
-					exit = true
+				if len(resultList) == numTried {
 					timer.Stop()
 					break innerLoop
 				}
@@ -393,12 +396,13 @@ func (h *HostPool) initialize(startIdx uint32) error {
 		}
 		startIdx++
 		if startIdx >= h.poolParams.PoolSize {
+			exit = true
 			break
 		}
 	}
 
 	// Ran out of Hosts to try
-	if startIdx < h.poolParams.PoolSize {
+	if i >= numGateways && startIdx < h.poolParams.PoolSize {
 		return errors.Errorf(
 			"Unable to initialize enough viable hosts for HostPool")
 	}

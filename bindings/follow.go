@@ -10,6 +10,7 @@ package bindings
 import (
 	"encoding/json"
 	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/message"
 	"time"
 
@@ -80,6 +81,25 @@ func (c *Cmix) WaitForNetwork(timeoutMS int) bool {
 		time.Sleep(250 * time.Millisecond)
 	}
 	return false
+}
+
+// ReadyToSend determines if the network is ready to send messages on. It
+// returns true if the network is healthy and if the client has registered with
+// at least 70% of the nodes. Returns false otherwise.
+func (c *Cmix) ReadyToSend() bool {
+	// Check if the network is currently healthy
+	if !c.api.GetCmix().IsHealthy() {
+		return false
+	}
+
+	// If the network is healthy, then check the number of nodes that the client
+	// is currently registered with
+	numReg, total, err := c.api.GetNodeRegistrationStatus()
+	if err != nil {
+		jww.FATAL.Panicf("Failed to get node registration status: %+v", err)
+	}
+
+	return numReg >= total*7/10
 }
 
 // NetworkFollowerStatus gets the state of the network follower. It returns a

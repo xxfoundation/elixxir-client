@@ -10,11 +10,11 @@
 package bindings
 
 import (
+	"google.golang.org/grpc/grpclog"
 	"log"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	//"google.golang.org/grpc/grpclog"
 )
 
 // LogLevel sets level of logging. All logs at the set level and below will be
@@ -72,9 +72,9 @@ func RegisterLogWriter(writer LogWriter) {
 
 // EnableGrpcLogs sets GRPC trace logging.
 func EnableGrpcLogs(writer LogWriter) {
-	/*logger := &writerAdapter{lw: writer}
+	logger := &writerAdapter{lw: writer}
 	grpclog.SetLoggerV2(grpclog.NewLoggerV2WithVerbosity(
-		logger, logger, logger, 99))*/
+		logger, logger, logger, 99))
 }
 
 type writerAdapter struct {

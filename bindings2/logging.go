@@ -10,7 +10,7 @@
 package bindings2
 
 import (
-	//"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/grpclog"
 	"log"
 
 	"github.com/pkg/errors"
@@ -72,9 +72,9 @@ func RegisterLogWriter(writer LogWriter) {
 
 // EnableGrpcLogs sets GRPC trace logging.
 func EnableGrpcLogs(writer LogWriter) {
-	/*logger := &writerAdapter{lw: writer}
+	logger := &writerAdapter{lw: writer}
 	grpclog.SetLoggerV2(grpclog.NewLoggerV2WithVerbosity(
-		logger, logger, logger, 99))*/
+		logger, logger, logger, 99))
 }
 
 type writerAdapter struct {

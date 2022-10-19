@@ -12,7 +12,11 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	//"gitlab.com/elixxir/comms/client"
+	"gitlab.com/elixxir/comms/client"
+	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
+
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/comms/signature"
 	"gitlab.com/xx_network/crypto/tls"
@@ -27,7 +31,7 @@ import (
 func DownloadNdfFromGateway(address string, cert []byte) (
 	[]byte, error) {
 	// Establish parameters for gRPC
-	/*params := connect.GetDefaultHostParams()
+	params := connect.GetDefaultHostParams()
 	params.AuthEnabled = false
 
 	// Construct client's gRPC comms object
@@ -61,8 +65,7 @@ func DownloadNdfFromGateway(address string, cert []byte) (
 		return nil, err
 	}
 
-	return resp.PartialNDF.Ndf, nil*/
-	return nil, nil
+	return resp.PartialNDF.Ndf, nil
 }
 
 // DownloadAndVerifySignedNdfWithUrl retrieves the NDF from a specified URL.

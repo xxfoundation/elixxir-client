@@ -7,10 +7,10 @@
 
 // logging.go contains bindings log control functions
 
-package bindings2
+package bindings
 
 import (
-	//	"log"
+	//"log"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -39,7 +39,7 @@ func LogLevel(level int) error {
 	threshold := jww.Threshold(level)
 	jww.SetLogThreshold(threshold)
 	jww.SetStdoutThreshold(threshold)
-	//	jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
+	//jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
 	switch threshold {
 	case jww.LevelTrace:

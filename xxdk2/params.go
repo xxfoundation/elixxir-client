@@ -12,12 +12,10 @@ package xxdk2
 
 import (
 	"encoding/json"
-
-	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/cmix"
-	"gitlab.com/elixxir/client/e2e"
-	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
-	"gitlab.com/elixxir/client/e2e/rekey"
+	//	"gitlab.com/elixxir/client/e2e"
+	//	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
+	//	"gitlab.com/elixxir/client/e2e/rekey"
 )
 
 // CMIXParams contains the parameters for Network tracking and for specific CMIX
@@ -36,11 +34,11 @@ type CMIXParams struct {
 // xxdk library users should copy the desired settings to both.
 // FIXME: this should not wrap a copy of cmix.CMIXParams.
 type E2EParams struct {
-	Session        session.Params
-	Base           e2e.Params
-	Rekey          rekey.Params
-	EphemeralRekey rekey.Params
-	Auth           auth.Params
+	/*	Session        session.Params
+		Base           e2e.Params
+		Rekey          rekey.Params
+		EphemeralRekey rekey.Params
+		Auth           auth.Params*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -73,11 +71,11 @@ func (p *CMIXParams) Marshal() ([]byte, error) {
 // GetDefaultE2EParams returns a new E2EParams with the default parameters.
 func GetDefaultE2EParams() E2EParams {
 	return E2EParams{
-		Session:        session.GetDefaultParams(),
+		/*Session:        session.GetDefaultParams(),
 		Base:           e2e.GetDefaultParams(),
 		Rekey:          rekey.GetDefaultParams(),
 		EphemeralRekey: rekey.GetDefaultEphemeralParams(),
-		Auth:           auth.GetDefaultParams(),
+		Auth:           auth.GetDefaultParams(),*/
 	}
 }
 

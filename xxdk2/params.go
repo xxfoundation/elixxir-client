@@ -13,7 +13,7 @@ package xxdk2
 import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/cmix"
-	//	"gitlab.com/elixxir/client/e2e"
+	"gitlab.com/elixxir/client/e2e"
 	//	"gitlab.com/elixxir/client/e2e/ratchet/partner/session"
 	//	"gitlab.com/elixxir/client/e2e/rekey"
 )
@@ -34,11 +34,11 @@ type CMIXParams struct {
 // xxdk library users should copy the desired settings to both.
 // FIXME: this should not wrap a copy of cmix.CMIXParams.
 type E2EParams struct {
-	/*	Session        session.Params
-		Base           e2e.Params
-		Rekey          rekey.Params
-		EphemeralRekey rekey.Params
-		Auth           auth.Params*/
+	//Session        session.Params
+	Base e2e.Params
+	//Rekey          rekey.Params
+	//EphemeralRekey rekey.Params
+	//Auth           auth.Params
 }
 
 ////////////////////////////////////////////////////////////////////////////////

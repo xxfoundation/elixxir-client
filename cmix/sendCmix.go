@@ -9,6 +9,7 @@ package cmix
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"strings"
 	"time"
 
@@ -56,42 +57,87 @@ import (
 // WARNING: Do not roll your own crypto.
 func (c *client) Send(recipient *id.ID, fingerprint format.Fingerprint,
 	service message.Service, payload, mac []byte, cmixParams CMIXParams) (
-	id.Round, ephemeral.Id, error) {
+	rounds.Round, ephemeral.Id, error) {
+	// create an internal assembler function to pass to sendWithAssembler
+	assembler := func(rid id.Round) (format.Fingerprint, message.Service,
+		[]byte, []byte, error) {
+		return fingerprint, service, payload, mac, nil
+	}
+	return c.sendWithAssembler(recipient, assembler, cmixParams)
+}
+
+// SendWithAssembler sends a variable cmix payload to the provided recipient.
+// The payload sent is based on the Complier function passed in, which accepts
+// a round ID and returns the necessary payload data.
+// Returns the round ID of the round the payload was sent or an error if it
+// fails.
+// This does not have end-to-end encryption on it and is used exclusively as
+// a send for higher order cryptographic protocols. Do not use unless
+// implementing a protocol on top.
+//   recipient - cMix ID of the recipient.
+//   assembler - MessageAssembler function, accepting round ID and returning fingerprint
+//   format.Fingerprint, service message.Service, payload, mac []byte
+// Will return an error if the network is unhealthy or if it fails to send
+// (along with the reason). Blocks until successful sends or errors.
+// WARNING: Do not roll your own crypto.
+func (c *client) SendWithAssembler(recipient *id.ID, assembler MessageAssembler, cmixParams CMIXParams) (
+	rounds.Round, ephemeral.Id, error) {
+	// Critical messaging and assembler-based message payloads are not compatible
+	if cmixParams.Critical {
+		return rounds.Round{}, ephemeral.Id{}, errors.New("Cannot send critical messages with a message assembler")
+	}
+	return c.sendWithAssembler(recipient, assembler, cmixParams)
+}
+
+// sendWithAssembler wraps the passed in MessageAssembler in a messageAssembler for sendCmixHelper,
+// and sets up critical message handling where applicable.
+func (c *client) sendWithAssembler(recipient *id.ID, assembler MessageAssembler, cmixParams CMIXParams) (
+	rounds.Round, ephemeral.Id, error) {
 	if !c.Monitor.IsHealthy() {
-		return 0, ephemeral.Id{}, errors.New(
+		return rounds.Round{}, ephemeral.Id{}, errors.New(
 			"Cannot send cmix message when the network is not healthy")
 	}
 
-	if len(payload) != c.maxMsgLen {
-		return 0, ephemeral.Id{}, errors.Errorf(
-			"bad message length (%d, need %d)",
-			len(payload), c.maxMsgLen)
+	// Create an internal messageAssembler which returns a format.Message
+	assemblerFunc := func(rid id.Round) (format.Message, error) {
+		fingerprint, service, payload, mac, err := assembler(rid)
+
+		if err != nil {
+			return format.Message{}, err
+		}
+
+		if len(payload) != c.maxMsgLen {
+			return format.Message{}, errors.Errorf(
+				"bad message length (%d, need %d)",
+				len(payload), c.maxMsgLen)
+		}
+
+		// Build message. Will panic if inputs are not correct.
+		msg := format.NewMessage(c.session.GetCmixGroup().GetP().ByteLen())
+		msg.SetContents(payload)
+		msg.SetKeyFP(fingerprint)
+		msg.SetSIH(service.Hash(msg.GetContents()))
+		msg.SetMac(mac)
+
+		jww.TRACE.Printf("sendCmix Contents: %v, KeyFP: %v, MAC: %v, SIH: %v",
+			msg.GetContents(), msg.GetKeyFP(), msg.GetMac(),
+			msg.GetSIH())
+
+		if cmixParams.Critical {
+			c.crit.AddProcessing(msg, recipient, cmixParams)
+		}
+		return msg, nil
 	}
 
-	// Build message. Will panic if inputs are not correct.
-	msg := format.NewMessage(c.session.GetCmixGroup().GetP().ByteLen())
-	msg.SetContents(payload)
-	msg.SetKeyFP(fingerprint)
-	msg.SetSIH(service.Hash(msg.GetContents()))
-	msg.SetMac(mac)
-
-	jww.TRACE.Printf("sendCmix Contents: %v, KeyFP: %v, MAC: %v, SIH: %v",
-		msg.GetContents(), msg.GetKeyFP(), msg.GetMac(),
-		msg.GetSIH())
-
-	if cmixParams.Critical {
-		c.crit.AddProcessing(msg, recipient, cmixParams)
-	}
-
-	rid, ephID, rtnErr := sendCmixHelper(c.Sender, msg, recipient, cmixParams,
+	r, ephID, msg, rtnErr := sendCmixHelper(c.Sender, assemblerFunc, recipient, cmixParams,
 		c.instance, c.session.GetCmixGroup(), c.Registrar, c.rng, c.events,
 		c.session.GetTransmissionID(), c.comms)
 
 	if cmixParams.Critical {
-		c.crit.handle(msg, recipient, rid, rtnErr)
+		c.crit.handle(msg, recipient, r.ID, rtnErr)
 	}
 
-	return rid, ephID, rtnErr
+	return r, ephID, rtnErr
 }
 
 // sendCmixHelper is a helper function for client.SendCMIX.
@@ -104,13 +150,13 @@ func (c *client) Send(recipient *id.ID, fingerprint format.Fingerprint,
 // If the message is successfully sent, the ID of the round sent it is returned,
 // which can be registered with the network instance to get a callback on its
 // status.
-func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
+func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient *id.ID,
 	cmixParams CMIXParams, instance *network.Instance, grp *cyclic.Group,
 	nodes nodes.Registrar, rng *fastRNG.StreamGenerator, events event.Reporter,
-	senderId *id.ID, comms SendCmixCommsInterface) (id.Round, ephemeral.Id, error) {
+	senderId *id.ID, comms SendCmixCommsInterface) (rounds.Round, ephemeral.Id, format.Message, error) {
 
 	if cmixParams.RoundTries == 0 {
-		return 0, ephemeral.Id{},
+		return rounds.Round{}, ephemeral.Id{}, format.Message{},
 			errors.Errorf("invalid parameter set, "+
 				"RoundTries cannot be 0: %+v", cmixParams)
 	}
@@ -126,15 +172,10 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 	}
 
 	jww.INFO.Printf("[Send-%s] Looking for round to send cMix message to "+
-		"%s (msgDigest: %s)", cmixParams.DebugTag, recipient,
-		msg.Digest())
+		"%s", cmixParams.DebugTag, recipient)
 
 	stream := rng.GetStream()
 	defer stream.Close()
-
-	// Flip leading bits randomly to thwart a tagging attack.
-	// See cmix.SetGroupBits for more info.
-	cmix.SetGroupBits(msg, grp, stream)
 
 	for numRoundTries := uint(
 		0); numRoundTries < cmixParams.RoundTries; numRoundTries++ {
@@ -144,18 +185,15 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 
 		if elapsed > cmixParams.Timeout {
 			jww.INFO.Printf("[Send-%s] No rounds to send to %s "+
-				"(msgDigest: %s) were found before timeout %s",
-				cmixParams.DebugTag, recipient, msg.Digest(),
-				cmixParams.Timeout)
-			return 0, ephemeral.Id{}, errors.New(
-				"Sending cmix message timed out")
+				"were found before timeout %s",
+				cmixParams.DebugTag, recipient, cmixParams.Timeout)
+			return rounds.Round{}, ephemeral.Id{}, format.Message{}, errors.New("Sending cmix message timed out")
 		}
 
 		if numRoundTries > 0 {
-			jww.INFO.Printf("[Send-%s] Attempt %d to find round"+
-				" to send message to %s (msgDigest: %s)",
-				cmixParams.DebugTag,
-				numRoundTries+1, recipient, msg.Digest())
+			jww.INFO.Printf("[Send-%s] Attempt %d to find round to send "+
+				"message to %s", cmixParams.DebugTag,
+				numRoundTries+1, recipient)
 		}
 
 		// Find the best round to send to, excluding attempted rounds
@@ -164,9 +202,8 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 		bestRound, err := waitingRounds.GetUpcomingRealtime(
 			remainingTime, attempted, sendTimeBuffer)
 		if err != nil {
-			jww.WARN.Printf("[Send-%s] GetUpcomingRealtime failed "+
-				"(msgDigest: %s): %+v", cmixParams.DebugTag,
-				msg.Digest(), err)
+			jww.WARN.Printf("[Send-%s] failed to GetUpcomingRealtime: "+
+				"%+v", cmixParams.DebugTag, err)
 		}
 
 		if bestRound == nil {
@@ -203,6 +240,16 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 			continue
 		}
 
+		msg, err := assembler(id.Round(bestRound.ID))
+		if err != nil {
+			jww.ERROR.Printf("Failed to compile message: %+v", err)
+			return rounds.Round{}, ephemeral.Id{}, format.Message{}, err
+		}
+
+		// Flip leading bits randomly to thwart a tagging attack.
+		// See cmix.SetGroupBits for more info.
+		cmix.SetGroupBits(msg, grp, stream)
+
 		// Retrieve host and key information from round
 		firstGateway, roundKeys, err := processRound(
 			nodes, bestRound, recipient.String(), msg.Digest())
@@ -219,7 +266,7 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 		wrappedMsg, encMsg, ephID, err := buildSlotMessage(msg, recipient,
 			firstGateway, stream, senderId, bestRound, roundKeys)
 		if err != nil {
-			return 0, ephemeral.Id{}, err
+			return rounds.Round{}, ephemeral.Id{}, format.Message{}, err
 		}
 
 		jww.INFO.Printf("[Send-%s] Sending to EphID %d (%s), on round %d "+
@@ -269,7 +316,7 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 
 		// Exit if the thread has been stopped
 		if stoppable.CheckErr(err) {
-			return 0, ephemeral.Id{}, err
+			return rounds.Round{}, ephemeral.Id{}, format.Message{}, err
 		}
 
 		// If the comm errors or the message fails to send, continue retrying
@@ -278,7 +325,7 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 				jww.ERROR.Printf("[Send-%s] SendCmix failed to send to "+
 					"EphID %d (%s) on round %d: %+v", cmixParams.DebugTag,
 					ephID.Int64(), recipient, bestRound.ID, err)
-				return 0, ephemeral.Id{}, err
+				return rounds.Round{}, ephemeral.Id{}, format.Message{}, err
 			}
 
 			jww.ERROR.Printf("[Send-%s] SendCmix failed to send to "+
@@ -298,7 +345,7 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 			jww.INFO.Print(m)
 			events.Report(1, "MessageSend", "Metric", m)
 
-			return id.Round(bestRound.ID), ephID, nil
+			return rounds.MakeRound(bestRound), ephID, msg, nil
 		} else {
 			jww.FATAL.Panicf("[Send-%s] Gateway %s returned no error, "+
 				"but failed to accept message when sending to EphID %d (%s) "+
@@ -307,6 +354,6 @@ func sendCmixHelper(sender gateway.Sender, msg format.Message, recipient *id.ID,
 		}
 
 	}
-	return 0, ephemeral.Id{},
+	return rounds.Round{}, ephemeral.Id{}, format.Message{},
 		errors.New("failed to send the message, out of round retries")
 }

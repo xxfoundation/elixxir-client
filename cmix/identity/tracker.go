@@ -49,7 +49,8 @@ type Tracker interface {
 	StartProcesses() stoppable.Stoppable
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
 	RemoveIdentity(id *id.ID)
-	GetEphemeralIdentity(rng io.Reader, addressSize uint8) (receptionID.IdentityUse, error)
+	ForEach(n int, rng io.Reader, addressSize uint8,
+		operator func([]receptionID.IdentityUse) error) error
 	GetIdentity(get *id.ID) (TrackedID, error)
 }
 
@@ -142,10 +143,14 @@ func (t *manager) RemoveIdentity(id *id.ID) {
 	t.deleteIdentity <- id
 }
 
-// GetEphemeralIdentity returns an ephemeral Identity to poll the network with.
-func (t *manager) GetEphemeralIdentity(rng io.Reader, addressSize uint8) (
-	receptionID.IdentityUse, error) {
-	return t.ephemeral.GetIdentity(rng, addressSize)
+// ForEach passes a fisher-yates shuffled list of up to 'num'
+// ephemeral identities into the operation function. It will pass a
+// fake identity if none are available
+// and less than 'num' if less than 'num' are available.
+// 'num' must be positive non-zero
+func (t *manager) ForEach(n int, rng io.Reader, addressSize uint8,
+	operator func([]receptionID.IdentityUse) error) error {
+	return t.ephemeral.ForEach(n, rng, addressSize, operator)
 }
 
 // GetIdentity returns a currently tracked identity
@@ -207,15 +212,20 @@ func (t *manager) track(stop *stoppable.Single) {
 			continue
 
 		case deleteID := <-t.deleteIdentity:
+			removed := false
 			for i := range t.tracked {
 				inQuestion := t.tracked[i]
 				if inQuestion.Source.Cmp(deleteID) {
+					removed = true
 					t.tracked = append(t.tracked[:i], t.tracked[i+1:]...)
 					t.save()
 					// Requires manual deletion in case identity is deleted before expiration
 					t.ephemeral.RemoveIdentities(deleteID)
 					break
 				}
+			}
+			if !removed {
+				jww.WARN.Printf("Identity %s failed to be removed from tracker", deleteID)
 			}
 		case <-stop.Quit():
 			t.addrSpace.UnregisterAddressSpaceNotification(addressSpaceSizeChanTag)

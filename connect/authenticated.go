@@ -138,12 +138,8 @@ func connectWithAuthentication(conn Connection, timeStart time.Time,
 
 	// Track the result of the round(s) we sent the
 	// identity authentication message on
-	err = net.GetRoundResults(remainingTime,
+	net.GetRoundResults(remainingTime,
 		roundCb, sendReport.RoundList...)
-	if err != nil {
-		return nil, errors.Errorf("could not track rounds for successful " +
-			"identity confirmation message delivery")
-	}
 	// Block waiting for confirmation of the round(s) success (or timeout
 	jww.DEBUG.Printf("AuthenticatedConnection waiting for authenticated "+
 		"connection with %s to be established...", recipient.ID.String())

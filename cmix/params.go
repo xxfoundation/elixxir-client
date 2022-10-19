@@ -58,6 +58,14 @@ type Params struct {
 	// times.
 	ReplayRequests bool
 
+	// MaxParallelIdentityTracks is the maximum number of parallel identities
+	// the system will poll in one iteration of the follower
+	MaxParallelIdentityTracks uint
+
+	// ClockSkewClamp is the window (+/-) in which clock skew is
+	// ignored and local time is used
+	ClockSkewClamp time.Duration
+
 	Rounds     rounds.Params
 	Pickup     pickup.Params
 	Message    message.Params
@@ -80,6 +88,7 @@ type paramsDisk struct {
 	Pickup                    pickup.Params
 	Message                   message.Params
 	Historical                rounds.Params
+	MaxParallelIdentityTracks uint
 }
 
 // GetDefaultParams returns a Params object containing the
@@ -89,13 +98,15 @@ func GetDefaultParams() Params {
 		TrackNetworkPeriod:        100 * time.Millisecond,
 		MaxCheckedRounds:          500,
 		RegNodesBufferLen:         1000,
-		NetworkHealthTimeout:      30 * time.Second,
+		NetworkHealthTimeout:      15 * time.Second,
 		ParallelNodeRegistrations: 20,
 		KnownRoundsThreshold:      1500, // 5 rounds/sec * 60 sec/min * 5 min
 		FastPolling:               true,
 		VerboseRoundTracking:      false,
 		RealtimeOnly:              false,
 		ReplayRequests:            true,
+		MaxParallelIdentityTracks: 20,
+		ClockSkewClamp:            50 * time.Millisecond,
 	}
 	n.Rounds = rounds.GetDefaultParams()
 	n.Pickup = pickup.GetDefaultParams()
@@ -135,6 +146,7 @@ func (p Params) MarshalJSON() ([]byte, error) {
 		Pickup:                    p.Pickup,
 		Message:                   p.Message,
 		Historical:                p.Historical,
+		MaxParallelIdentityTracks: p.MaxParallelIdentityTracks,
 	}
 
 	return json.Marshal(&pDisk)
@@ -163,6 +175,7 @@ func (p *Params) UnmarshalJSON(data []byte) error {
 		Pickup:                    pDisk.Pickup,
 		Message:                   pDisk.Message,
 		Historical:                pDisk.Historical,
+		MaxParallelIdentityTracks: pDisk.MaxParallelIdentityTracks,
 	}
 
 	return nil

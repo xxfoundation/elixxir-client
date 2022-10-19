@@ -53,13 +53,8 @@ func verifySendSuccess(user *xxdk.E2e, paramsE2E e2e.Params,
 	}
 
 	// Monitor rounds for results
-	err := user.GetCmix().GetRoundResults(
+	user.GetCmix().GetRoundResults(
 		paramsE2E.CMIXParams.Timeout, f, roundIDs...)
-	if err != nil {
-		jww.DEBUG.Printf("Could not verify messages were sent " +
-			"successfully, resending messages...")
-		return false
-	}
 
 	select {
 	case <-retryChan:

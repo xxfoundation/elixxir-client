@@ -38,12 +38,26 @@ func newMockCmix(payloadSize int) cmix.Client {
 	}
 }
 
-func (m *mockCmix) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+func (m *mockCmix) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	m.Lock()
 	defer m.Unlock()
 	m.messages[*recipient] = generateMessage(m.payloadSize, fingerprint, service, payload, mac)
 
-	return 0, ephemeral.Id{}, nil
+	return rounds.Round{}, ephemeral.Id{}, nil
+}
+
+func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	m.Lock()
+	defer m.Unlock()
+
+	fingerprint, service, payload, mac, err := assembler(42)
+	if err != nil {
+		return rounds.Round{}, ephemeral.Id{}, err
+	}
+	m.messages[*recipient] = generateMessage(m.payloadSize, fingerprint, service, payload, mac)
+
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
 func (m *mockCmix) GetMsgListLen() int {
@@ -68,7 +82,7 @@ func (m mockCmix) GetMaxMessageLength() int {
 	panic("implement me")
 }
 
-func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
+func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -163,7 +177,7 @@ func (m mockCmix) TriggerNodeRegistration(nid *id.ID) {
 	panic("implement me")
 }
 
-func (m mockCmix) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) error {
+func (m mockCmix) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) {
 	//TODO implement me
 	panic("implement me")
 }

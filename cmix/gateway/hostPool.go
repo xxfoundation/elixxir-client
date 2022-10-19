@@ -247,7 +247,7 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 		}
 	} else {
 		jww.WARN.Printf(
-			"Building new HostPool because no HostList stored: %+v", err)
+			"Building new HostPool because no HostList stored: %s", err.Error())
 	}
 
 	// Build the initial HostPool and return
@@ -307,25 +307,22 @@ func (h *HostPool) initialize(startIdx uint32) error {
 		id      *id.ID
 		latency time.Duration
 	}
+
 	numGatewaysToTry := h.poolParams.MaxPings
 	numGateways := uint32(len(randomGateways))
 	if numGatewaysToTry > numGateways {
 		numGatewaysToTry = numGateways
 	}
+
 	resultList := make([]gatewayDuration, 0, numGatewaysToTry)
 
 	// Begin trying gateways
 	c := make(chan gatewayDuration, numGatewaysToTry)
-	exit := false
-	i := uint32(0)
-	for !exit {
-		for ; i < numGateways; i++ {
-			// Ran out of Hosts to try
-			if i >= numGateways {
-				exit = true
-				break
-			}
 
+	i := 0
+	for exit := false; !exit; {
+		triedHosts := uint32(0)
+		for ; triedHosts < numGateways && i < len(randomGateways); i++ {
 			// Select a gateway not yet selected
 			gwId, err := randomGateways[i].GetGatewayId()
 			if err != nil {
@@ -334,10 +331,9 @@ func (h *HostPool) initialize(startIdx uint32) error {
 
 			// Skip if already in HostPool
 			if _, ok := h.hostMap[*gwId]; ok {
-				// Try another Host instead
-				numGatewaysToTry++
 				continue
 			}
+			triedHosts++
 
 			go func() {
 				// Obtain that GwId's Host object
@@ -358,19 +354,22 @@ func (h *HostPool) initialize(startIdx uint32) error {
 		// Collect ping results
 		pingTimeout := 2 * h.poolParams.HostParams.PingTimeout
 		timer := time.NewTimer(pingTimeout)
+
+		newAppends := uint32(0)
 	innerLoop:
 		for {
 			select {
 			case gw := <-c:
 				// Only add successful pings
 				if gw.latency > 0 {
+					newAppends++
 					resultList = append(resultList, gw)
 					jww.DEBUG.Printf("Adding HostPool result %d/%d: %s: %d",
 						len(resultList), numGatewaysToTry, gw.id, gw.latency)
 				}
 
 				// Break if we have all needed slots
-				if uint32(len(resultList)) == numGatewaysToTry {
+				if newAppends == triedHosts {
 					exit = true
 					timer.Stop()
 					break innerLoop
@@ -381,6 +380,10 @@ func (h *HostPool) initialize(startIdx uint32) error {
 					pingTimeout)
 				break innerLoop
 			}
+		}
+
+		if i >= len(randomGateways) {
+			exit = true
 		}
 	}
 

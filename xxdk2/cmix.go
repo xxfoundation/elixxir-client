@@ -8,7 +8,7 @@
 package xxdk2
 
 import (
-	"gitlab.com/elixxir/comms/client"
+	//"gitlab.com/elixxir/comms/client"
 	"math"
 	"time"
 

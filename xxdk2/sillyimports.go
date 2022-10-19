@@ -1,12 +1,5 @@
 package xxdk2
 
-import (
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/user"
-	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/primitives/version"
-)
-
 // import (
 //	"gitlab.com/elixxir/client/storage"
 //	"gitlab.com/elixxir/client/storage/user"
@@ -36,7 +29,7 @@ import (
 //)
 
 func Silly() {
-	storage.New("", "", user.Info{}, version.Version{}, &cyclic.Group{}, &cyclic.Group{})
+	//storage.New("", "", user.Info{}, version.Version{}, &cyclic.Group{}, &cyclic.Group{})
 	/*netTime.SetOffset(time.Duration(0))
 	errors.New("Create an error")
 	cmix.GetCMIXParameters("")

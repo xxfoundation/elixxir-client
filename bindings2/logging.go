@@ -13,7 +13,7 @@ import (
 	//"log"
 
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
+	//jww "github.com/spf13/jwalterweatherman"
 	"google.golang.org/grpc/grpclog"
 )
 
@@ -36,10 +36,10 @@ func LogLevel(level int) error {
 		return errors.Errorf("log level is not valid: log level: %d", level)
 	}
 
-	threshold := jww.Threshold(level)
+	/*threshold := jww.Threshold(level)
 	jww.SetLogThreshold(threshold)
 	jww.SetStdoutThreshold(threshold)
-	//jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
+	jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
 	switch threshold {
 	case jww.LevelTrace:
@@ -56,7 +56,7 @@ func LogLevel(level int) error {
 		jww.CRITICAL.Printf("Log level set to: %s", threshold)
 	case jww.LevelFatal:
 		jww.FATAL.Printf("Log level set to: %s", threshold)
-	}
+	}*/
 
 	return nil
 }
@@ -67,7 +67,7 @@ type LogWriter interface {
 
 // RegisterLogWriter registers a callback on which logs are written.
 func RegisterLogWriter(writer LogWriter) {
-	jww.SetLogOutput(&writerAdapter{lw: writer})
+	//jww.SetLogOutput(&writerAdapter{lw: writer})
 }
 
 // EnableGrpcLogs sets GRPC trace logging.

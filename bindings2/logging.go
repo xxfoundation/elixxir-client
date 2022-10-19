@@ -7,7 +7,7 @@
 
 // logging.go contains bindings log control functions
 
-package bindings
+package bindings2
 
 import (
 	"github.com/pkg/errors"

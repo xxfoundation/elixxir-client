@@ -12,7 +12,7 @@ package bindings
 import (
 	//"log"
 
-	"github.com/pkg/errors"
+	//"github.com/pkg/errors"
 	//jww "github.com/spf13/jwalterweatherman"
 	"google.golang.org/grpc/grpclog"
 )
@@ -33,7 +33,7 @@ import (
 // The default log level without updates is INFO.
 func LogLevel(level int) error {
 	if level < 0 || level > 6 {
-		return errors.Errorf("log level is not valid: log level: %d", level)
+		//return errors.Errorf("log level is not valid: log level: %d", level)
 	}
 
 	/*threshold := jww.Threshold(level)

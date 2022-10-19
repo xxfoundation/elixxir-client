@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-const followerStoppableName = "client"
-
 // Service is a service process that starts itself in a new thread, returning
 // from the originator a stoppable to control it.
 type Service func() (stoppable.Stoppable, error)

@@ -7,7 +7,9 @@
 
 package bindings2
 
-import "gitlab.com/elixxir/client/xxdk"
+import (
+	xxdk "gitlab.com/elixxir/client/xxdk2"
+)
 
 // DownloadAndVerifySignedNdfWithUrl retrieves the NDF from a specified URL.
 // The NDF is processed into a protobuf containing a signature that is verified

@@ -9,7 +9,7 @@
 
 package bindings
 
-import "gitlab.com/elixxir/client/xxdk"
+import xxdk "gitlab.com/elixxir/client/xxdk2"
 
 // GetVersion returns the xxdk.SEMVER.
 func GetVersion() string {

@@ -10,12 +10,13 @@
 package bindings
 
 import (
-	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/fileTransfer"
-	e2eFileTransfer "gitlab.com/elixxir/client/fileTransfer/e2e"
+	xxdk "gitlab.com/elixxir/client/xxdk2"
+
+	//"gitlab.com/elixxir/client/fileTransfer"
+	//e2eFileTransfer "gitlab.com/elixxir/client/fileTransfer/e2e"
 	"gitlab.com/elixxir/client/single"
-	"gitlab.com/elixxir/client/xxdk"
+	//"gitlab.com/elixxir/client/xxdk"
 )
 
 // GetDefaultCMixParams returns a JSON serialized object with all of the cMix
@@ -42,18 +43,6 @@ func GetDefaultE2EParams() []byte {
 	return data
 }
 
-// GetDefaultFileTransferParams returns a JSON serialized object with all the
-// file transfer parameters and their default values. Call this function and
-// modify the JSON to change file transfer settings.
-func GetDefaultFileTransferParams() []byte {
-	defaultParams := fileTransfer.DefaultParams()
-	data, err := json.Marshal(defaultParams)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to JSON marshal file transfer params: %+v", err)
-	}
-	return data
-}
-
 // GetDefaultSingleUseParams returns a JSON serialized object with all the
 // single-use parameters and their default values. Call this function and modify
 // the JSON to change single use settings.
@@ -66,37 +55,11 @@ func GetDefaultSingleUseParams() []byte {
 	return data
 }
 
-// GetDefaultE2eFileTransferParams returns a JSON serialized object with all the
-// E2E file transfer parameters and their default values. Call this function and
-// modify the JSON to change single use settings.
-func GetDefaultE2eFileTransferParams() []byte {
-	defaultParams := e2eFileTransfer.DefaultParams()
-	data, err := json.Marshal(defaultParams)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to JSON marshal e2e file transfer params: %+v", err)
-	}
-	return data
-}
-
-// parseE2eFileTransferParams is a helper function which parses a JSON
-// marshalled [e2eFileTransfer.Params].
-func parseE2eFileTransferParams(data []byte) (e2eFileTransfer.Params, error) {
-	p := &e2eFileTransfer.Params{}
-	return *p, json.Unmarshal(data, p)
-}
-
 // parseSingleUseParams is a helper function which parses a JSON marshalled
 // [single.RequestParams].
 func parseSingleUseParams(data []byte) (single.RequestParams, error) {
 	p := &single.RequestParams{}
 	return *p, p.UnmarshalJSON(data)
-}
-
-// parseFileTransferParams is a helper function which parses a JSON marshalled
-// [fileTransfer.Params].
-func parseFileTransferParams(data []byte) (fileTransfer.Params, error) {
-	p := &fileTransfer.Params{}
-	return *p, json.Unmarshal(data, p)
 }
 
 // parseCMixParams is a helper function which parses a JSON marshalled

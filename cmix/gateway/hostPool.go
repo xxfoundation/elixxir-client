@@ -48,6 +48,7 @@ var errorsList = []string{
 	"Host is in cool down",
 	grpc.ErrClientConnClosing.Error(),
 	connect.TooManyProxyError,
+	"Failed to fetch",
 }
 
 // HostManager Interface allowing storage and retrieval of Host objects

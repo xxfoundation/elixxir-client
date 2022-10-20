@@ -27,7 +27,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
-	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -88,11 +87,6 @@ func (c *client) followNetwork(report ClientErrorReport,
 			stop.ToStopped()
 			return
 		case <-ticker.C:
-
-			if rand.Int()%6 == 0 {
-				jww.INFO.Printf("Registered with %d nodes", c.NumRegisteredNodes())
-			}
-
 			operator := func(toTrack []receptionID.IdentityUse) error {
 
 				// set up tracking tools

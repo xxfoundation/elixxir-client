@@ -99,6 +99,10 @@ func (c *Cmix) ReadyToSend() bool {
 		jww.FATAL.Panicf("Failed to get node registration status: %+v", err)
 	}
 
+	// FIXME: This is a fix put in place because not all nodes in the NDF are
+	//  online. This should be fixed.
+	total = 340
+
 	return numReg >= total*7/10
 }
 

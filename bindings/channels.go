@@ -141,7 +141,7 @@ func ConstructIdentity(pubKey []byte, codesetVersion int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return identity.Marshal(), nil
+	return json.Marshal(identity)
 }
 
 // ImportPrivateIdentity generates a new [channel.PrivateIdentity] from exported

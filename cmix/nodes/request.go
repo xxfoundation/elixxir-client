@@ -8,6 +8,8 @@
 package nodes
 
 import (
+	"io"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -27,7 +29,6 @@ import (
 	"gitlab.com/xx_network/crypto/tls"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"io"
 )
 
 // requestKey is a helper function which constructs a ClientKeyRequest message.
@@ -184,7 +185,7 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 	}
 
 	// Verify the response signature
-	err = rsa.Verify(nodePubKey, opts.Hash, hashedResponse,
+	err = verifyNodeSignature(nodePubKey, opts.Hash, hashedResponse,
 		signedKeyResponse.KeyResponseSignedByGateway.Signature, opts)
 	if err != nil {
 		return nil, nil, 0,

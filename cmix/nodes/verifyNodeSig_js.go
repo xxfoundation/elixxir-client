@@ -16,7 +16,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
-func verifyNodeSignature(pub *rsa.PublicKey, hash crypto.Hash,
+func verifyNodeSignature(pub string, hash crypto.Hash,
 	hashed []byte, sig []byte, opts *rsa.Options) error {
 	jww.WARN.Printf("node signature checking disabled for wasm")
 	return nil

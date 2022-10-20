@@ -26,7 +26,6 @@ import (
 	"gitlab.com/xx_network/crypto/chacha"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/crypto/tls"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 )
@@ -170,22 +169,8 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 	h.Write(signedKeyResponse.KeyResponse)
 	hashedResponse := h.Sum(nil)
 
-	// Load nodes certificate
-	gatewayCert, err := tls.LoadCertificate(ngw.Gateway.TlsCertificate)
-	if err != nil {
-		return nil, nil, 0,
-			errors.Errorf("Unable to load nodes's certificate: %+v", err)
-	}
-
-	// Extract public key
-	nodePubKey, err := tls.ExtractPublicKey(gatewayCert)
-	if err != nil {
-		return nil, nil, 0,
-			errors.Errorf("Unable to load node's public key: %v", err)
-	}
-
 	// Verify the response signature
-	err = verifyNodeSignature(nodePubKey, opts.Hash, hashedResponse,
+	err := verifyNodeSignature(ngw.Gateway.TlsCertificate, opts.Hash, hashedResponse,
 		signedKeyResponse.KeyResponseSignedByGateway.Signature, opts)
 	if err != nil {
 		return nil, nil, 0,

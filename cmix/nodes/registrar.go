@@ -24,15 +24,15 @@ import (
 )
 
 const InputChanLen = 1000
-const maxAttempts = 5
+const maxAttempts = 2
 
 // Backoff for attempting to register with a cMix node.
 var delayTable = [5]time.Duration{
 	0,
-	5 * time.Second,
 	30 * time.Second,
 	60 * time.Second,
 	120 * time.Second,
+	240 * time.Second,
 }
 
 // registrar is an implementation of the Registrar interface.

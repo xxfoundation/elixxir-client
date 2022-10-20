@@ -11,12 +11,27 @@ package nodes
 
 import (
 	"crypto"
+	"github.com/pkg/errors"
+	"gitlab.com/xx_network/crypto/tls"
 
 	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
-func verifyNodeSignature(pub *rsa.PublicKey, hash crypto.Hash,
+func verifyNodeSignature(certContents string, hash crypto.Hash,
 	hashed []byte, sig []byte, opts *rsa.Options) error {
+
+	// Load nodes certificate
+	gatewayCert, err := tls.LoadCertificate(certContents)
+	if err != nil {
+		return errors.Errorf("Unable to load nodes's certificate: %+v", err)
+	}
+
+	// Extract public key
+	nodePubKey, err := tls.ExtractPublicKey(gatewayCert)
+	if err != nil {
+		return errors.Errorf("Unable to load node's public key: %v", err)
+	}
+
 	// Verify the response signature
-	return rsa.Verify(pub, hash, hashed, sig, opts)
+	return rsa.Verify(nodePubKey, hash, hashed, sig, opts)
 }

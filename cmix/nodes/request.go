@@ -68,10 +68,11 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 
 	// Request nonce message from gateway
 	jww.INFO.Printf("Register: Requesting client key from "+
-		"gateway %s, setup took ", gatewayID, time.Since(start))
+		"gateway %s, setup took %s", gatewayID, time.Since(start))
 
 	start = time.Now()
 	result, err := sender.SendToAny(func(host *connect.Host) (interface{}, error) {
+		startInternal := time.Now()
 		keyResponse, err2 := comms.SendRequestClientKeyMessage(host, signedKeyReq)
 		if err2 != nil {
 			return nil, errors.WithMessagef(err2,
@@ -81,10 +82,11 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 			return nil, errors.WithMessage(err2,
 				"requestKey: clientKeyResponse error")
 		}
+		jww.INFO.Printf("just comm reg request took %s", time.Since(startInternal))
 
 		return keyResponse, nil
 	}, stop)
-	jww.INFO.Printf("reg request took %s", time.Since(start))
+	jww.INFO.Printf("full reg request took %s", time.Since(start))
 
 	if err != nil {
 		return nil, nil, 0, err

@@ -44,8 +44,7 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 
 	start := time.Now()
 	prime := grp.GetPBytes()
-	keyLen := len(prime)
-	dhPrivBytes, err := csprng.GenerateInGroup(prime, keyLen, rng)
+	dhPrivBytes, err := csprng.GenerateInGroup(prime, 32, rng)
 	if err != nil {
 		return nil, nil, 0, err
 	}

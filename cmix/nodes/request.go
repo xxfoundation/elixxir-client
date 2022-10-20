@@ -81,11 +81,11 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 			return nil, errors.WithMessage(err2,
 				"requestKey: clientKeyResponse error")
 		}
-		jww.INFO.Printf("just comm reg request took %s", time.Since(startInternal))
+		jww.TRACE.Printf("just comm reg request took %s", time.Since(startInternal))
 
 		return keyResponse, nil
 	}, stop)
-	jww.INFO.Printf("full reg request took %s", time.Since(start))
+	jww.TRACE.Printf("full reg request took %s", time.Since(start))
 
 	if err != nil {
 		return nil, nil, 0, err

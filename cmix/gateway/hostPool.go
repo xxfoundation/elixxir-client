@@ -128,7 +128,7 @@ type poolParamsDisk struct {
 // DefaultPoolParams returns a default set of PoolParams.
 func DefaultPoolParams() PoolParams {
 	p := PoolParams{
-		MaxPoolSize:     30,
+		MaxPoolSize:     5,
 		ProxyAttempts:   5,
 		PoolSize:        0,
 		MaxPings:        0,

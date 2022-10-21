@@ -29,7 +29,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/region"
@@ -208,8 +207,8 @@ func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (
 		return nil, err
 	}
 
-	jww.INFO.Printf(
-		"Client loaded: \n\tTransmissionID: %s", c.GetTransmissionIdentity().ID)
+	/*jww.INFO.Printf(
+	"Client loaded: \n\tTransmissionID: %s", c.GetTransmissionIdentity().ID)*/
 
 	def := c.storage.GetNDF()
 
@@ -248,10 +247,10 @@ func LoadCmix(storageDir string, password []byte, parameters CMIXParams) (
 }
 
 func (c *Cmix) initComms() error {
-	var err error
+	//var err error
 
 	// get the user from session
-	transmissionIdentity := c.GetTransmissionIdentity()
+	/*transmissionIdentity := c.GetTransmissionIdentity()
 	privKey := transmissionIdentity.RSAPrivatePem
 	pubPEM := rsa.CreatePublicKeyPem(privKey.GetPublic())
 	privPEM := rsa.CreatePrivateKeyPem(privKey)
@@ -261,7 +260,7 @@ func (c *Cmix) initComms() error {
 		pubPEM, privPEM, transmissionIdentity.Salt)
 	if err != nil {
 		return errors.WithMessage(err, "failed to load client")
-	}
+	}*/
 	return nil
 }
 
@@ -419,11 +418,11 @@ func (c *Cmix) AddService(sp Service) error {
 
 // GetTransmissionIdentity returns the current TransmissionIdentity for this
 // client.
-func (c *Cmix) GetTransmissionIdentity() TransmissionIdentity {
+/*func (c *Cmix) GetTransmissionIdentity() TransmissionIdentity {
 	jww.INFO.Printf("GetTransmissionIdentity()")
 	cMixUser := c.storage.PortableUserInfo()
 	return buildTransmissionIdentity(cMixUser)
-}
+}*/
 
 // GetComms returns the client comms object.
 func (c *Cmix) GetComms() *client.Comms {

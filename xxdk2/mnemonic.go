@@ -7,10 +7,15 @@
 
 package xxdk2
 
+// unique list:
+// "gitlab.com/xx_network/crypto/chacha"
+// xxMnemonic "gitlab.com/xx_network/crypto/mnemonic"
+// "gitlab.com/xx_network/primitives/utils"
+// "path/filepath"
+
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/crypto/chacha"
 	"gitlab.com/xx_network/crypto/csprng"
 	xxMnemonic "gitlab.com/xx_network/crypto/mnemonic"
 	"gitlab.com/xx_network/primitives/utils"
@@ -38,20 +43,20 @@ func StoreSecretWithMnemonic(secret []byte, path string) (string, error) {
 	}
 
 	// Decode mnemonic
-	decodedMnemonic, err := xxMnemonic.DecodeMnemonic(mnemonic)
+	_, err = xxMnemonic.DecodeMnemonic(mnemonic)
 	if err != nil {
 		return "", errors.Errorf("Failed to decode mnemonic: %v", err)
 	}
 
 	// Encrypt secret with mnemonic as key
-	ciphertext, err := chacha.Encrypt(decodedMnemonic, secret, rng)
+	/*ciphertext, err := chacha.Encrypt(decodedMnemonic, secret, rng)
 	if err != nil {
 		return "", errors.Errorf("Failed to encrypt secret with mnemonic: %v", err)
-	}
+	}*/
 
 	// Save encrypted secret to file
 	recoveryFile := path + mnemonicFile
-	err = utils.WriteFileDef(recoveryFile, ciphertext)
+	err = utils.WriteFileDef(recoveryFile, []byte{})
 	if err != nil {
 		return "", errors.Errorf("Failed to save mnemonic information to file")
 	}
@@ -75,22 +80,22 @@ func LoadSecretWithMnemonic(mnemonic, path string) (secret []byte, err error) {
 	}
 
 	// Read file from storage
-	data, err := utils.ReadFile(recoveryFile)
+	_, err = utils.ReadFile(recoveryFile)
 	if err != nil {
 		return nil, errors.Errorf("Failed to load mnemonic information: %v", err)
 	}
 
 	// Decode mnemonic
-	decodedMnemonic, err := xxMnemonic.DecodeMnemonic(mnemonic)
+	_, err = xxMnemonic.DecodeMnemonic(mnemonic)
 	if err != nil {
 		return nil, errors.Errorf("Failed to decode mnemonic: %v", err)
 	}
 
 	// Decrypt the stored secret
-	secret, err = chacha.Decrypt(decodedMnemonic, data)
+	/*secret, err = chacha.Decrypt(decodedMnemonic, data)
 	if err != nil {
 		return nil, errors.Errorf("Failed to decrypt secret: %v", err)
-	}
+	}*/
 
 	return secret, nil
 }

@@ -14,6 +14,7 @@ package gateway
 
 import (
 	"encoding/json"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"sort"
 	"strings"
@@ -87,6 +88,10 @@ type HostPool struct {
 
 	filterMux sync.Mutex
 	filter    Filter
+
+	// LastRotate tracks the last time that HostPool rotation occurred
+	lastRotate time.Time
+	rotateMux  sync.Mutex
 }
 
 // PoolParams allows configuration of HostPool parameters.
@@ -109,6 +114,9 @@ type PoolParams struct {
 	// ForceConnection determines whether host connections are initialized when
 	// added to HostPool.
 	ForceConnection bool
+
+	// RotationRate is the percent of the HostPool to rotate per second.
+	RotationRate float64
 
 	// HostParams is the parameters for the creation of new Host objects.
 	//fixme params: have this adhere to json.Marshaler.
@@ -133,6 +141,7 @@ func DefaultPoolParams() PoolParams {
 		PoolSize:        0,
 		MaxPings:        0,
 		ForceConnection: false,
+		RotationRate:    0.00027777777, // 50% of HostPool per 30 minutes
 		HostParams:      connect.GetDefaultHostParams(),
 	}
 	p.HostParams.MaxRetries = 1
@@ -218,6 +227,7 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 		rng:            rng,
 		addGatewayChan: addGateway,
 		kv:             storage.GetKV().Prefix(hostListPrefix),
+		lastRotate:     netTime.Now(),
 
 		// Initialise the filter so it does not filter any IDs
 		filter: func(m map[id.ID]int, _ *ndf.NetworkDefinition) map[id.ID]int {
@@ -469,6 +479,76 @@ func (h *HostPool) getFilter() Filter {
 	defer h.filterMux.Unlock()
 
 	return h.filter
+}
+
+//
+func (h *HostPool) rotateHosts() error {
+	h.rotateMux.Lock()
+	defer h.rotateMux.Unlock()
+
+	// Determine SecondsElapsed since last completed rotation
+	timeDifference := netTime.Now().Sub(h.lastRotate).Seconds()
+	// percentHostPool = PercentHostpool/Second * SecondsElapsed
+	percentHostPool := h.poolParams.RotationRate * timeDifference
+
+	// Determine number of Hosts represented by the percentage
+	numHostsToReplace := float64(h.poolParams.PoolSize) * percentHostPool
+	// Round down to the nearest integer
+	numHostsToReplace = math.Floor(numHostsToReplace)
+
+	// Skip if not ready to replace a full Host yet
+	if numHostsToReplace == 0 {
+		return nil
+	}
+
+	// Iterate through numHostsToReplace and replace a random Host for each
+	jww.INFO.Printf("Rotating %d Hosts...", numHostsToReplace)
+	rng := h.rng.GetStream()
+	defer rng.Close()
+	for i := float64(0); i < numHostsToReplace; i++ {
+		// Select a random Host to replace
+		gwIdx := randomness.ReadRangeUint32(0, h.poolParams.PoolSize, rng)
+
+		for {
+			// Select a replacement Host
+			h.ndfMux.RLock()
+			gwId := h.selectGateway()
+			h.ndfMux.RUnlock()
+
+			// Obtain that GwId's Host object
+			gwHost, ok := h.manager.GetHost(gwId)
+			if !ok {
+				continue
+			}
+
+			// Attempt to connect
+			err := gwHost.Connect()
+			if err != nil {
+				continue
+			}
+
+			// NOTE: Lock order is extremely important here
+			h.hostMux.Lock()
+			h.ndfMux.RLock()
+			// Verify selected gateway is still in the NDF
+			if _, ok = h.ndfMap[*gwId]; !ok {
+				jww.DEBUG.Printf("Rotated Host is no longer in ndf")
+				go gwHost.Disconnect()
+				continue
+			}
+			// Replace the random Host
+			err = h.replaceHost(gwId, gwIdx)
+			h.ndfMux.RUnlock()
+			h.hostMux.Unlock()
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// The replacement has run - step forward the lastRotate timestamp
+	h.lastRotate = netTime.Now()
+	return nil
 }
 
 // getAny obtains a random and unique list of hosts of the given length from the

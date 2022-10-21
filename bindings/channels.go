@@ -454,6 +454,74 @@ func makeChannelPrivateKeyStoreKey(channelID *id.ID) string {
 	return channelPrivateKeyStoreKey + "/" + channelID.String()
 }
 
+// DecodePublicURL decodes the channel URL into a channel pretty print. This
+// function can only be used for public channel URLs. To get the privacy level
+// of a channel URL, use [GetShareUrlType].
+//
+// Parameters:
+//  - url - The channel's share URL. Should be received from another user or
+//    generated via [GetShareURL].
+//
+// Returns:
+//  - string - The channel pretty print.
+func DecodePublicURL(url string) (string, error) {
+	c, err := cryptoBroadcast.DecodeShareURL(url, "")
+	if err != nil {
+		return "", err
+	}
+
+	return c.PrettyPrint(), nil
+}
+
+// DecodePrivateURL decodes the channel URL, using the password, into a channel
+// pretty print. This function can only be used for private or secret channel
+// URLs. To get the privacy level of a channel URL, use [GetShareUrlType].
+//
+// Parameters:
+//  - url - The channel's share URL. Should be received from another user or
+//    generated via [GetShareURL].
+//  - password - The password needed to decrypt the secret data in the URL.
+//
+// Returns:
+//  - The channel pretty print.
+func DecodePrivateURL(url, password string) (string, error) {
+	c, err := cryptoBroadcast.DecodeShareURL(url, password)
+	if err != nil {
+		return "", err
+	}
+
+	return c.PrettyPrint(), nil
+}
+
+// GetChannelJSON returns the JSON of the channel for the given pretty print.
+//
+// Parameters:
+//  - prettyPrint - The pretty print of the channel.
+//
+// Returns:
+//  - JSON of the [broadcast.Channel] object.
+//
+// Example JSON of [broadcast.Channel]:
+//  {
+//    "ReceptionID": "Ja/+Jh+1IXZYUOn+IzE3Fw/VqHOscomD0Q35p4Ai//kD",
+//    "Name": "My_Channel",
+//    "Description": "Here is information about my channel.",
+//    "Salt": "+tlrU/htO6rrV3UFDfpQALUiuelFZ+Cw9eZCwqRHk+g=",
+//    "RsaPubKeyHash": "PViT1mYkGBj6AYmE803O2RpA7BX24EjgBdldu3pIm4o=",
+//    "RsaPubKeyLength": 5,
+//    "RSASubPayloads": 1,
+//    "Secret": "JxZt/wPx2luoPdHY6jwbXqNlKnixVU/oa9DgypZOuyI=",
+//    "Level": 0
+//  }
+func GetChannelJSON(prettyPrint string) ([]byte, error) {
+	c, err := cryptoBroadcast.NewChannelFromPrettyPrint(prettyPrint)
+	if err != nil {
+		return nil, nil
+	}
+
+	return json.Marshal(c)
+}
+
 // ChannelInfo contains information about a channel.
 //
 // Example of ChannelInfo JSON:
@@ -514,40 +582,6 @@ func getChannelInfo(prettyPrint string) (*cryptoBroadcast.Channel, []byte, error
 //  - []byte - JSON of [ChannelInfo], which describes all relevant channel info.
 func (cm *ChannelsManager) JoinChannel(channelPretty string) ([]byte, error) {
 	c, info, err := getChannelInfo(channelPretty)
-	if err != nil {
-		return nil, err
-	}
-
-	// Join the channel using the API
-	err = cm.api.JoinChannel(c)
-
-	return info, err
-}
-
-// JoinChannelFromURL joins the given channel from a URL. It will fail if the
-// channel has already been joined. A password is required unless it is of the
-// privacy level [broadcast.Public], in which case it can be left empty. To get
-// the privacy level of a channel URL, use [GetShareUrlType].
-//
-// Parameters:
-//  - url - The channel's share URL. Should be received from another user or
-//    generated via [GetShareURL].
-//  - password - The password needed to decrypt the secret data in the URL. Only
-//    required for private or secret channels.
-//
-// Returns:
-//  - []byte - [ChannelInfo] describes all relevant channel info.
-func (cm *ChannelsManager) JoinChannelFromURL(url, password string) ([]byte, error) {
-	c, err := cryptoBroadcast.DecodeShareURL(url, password)
-	if err != nil {
-		return nil, err
-	}
-
-	info, err := json.Marshal(&ChannelInfo{
-		Name:        c.Name,
-		Description: c.Description,
-		ChannelID:   c.ReceptionID.String(),
-	})
 	if err != nil {
 		return nil, err
 	}

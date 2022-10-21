@@ -1390,42 +1390,42 @@ func (tem *toEventModel) UpdateSentStatus(uuid uint64,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Channel Cipher                                                             //
+// Channel ChannelDbCipher                                                             //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Cipher is the bindings layer representation of the [channel.Cipher].
-type Cipher struct {
+// ChannelDbCipher is the bindings layer representation of the [channel.Cipher].
+type ChannelDbCipher struct {
 	api  cryptoChannel.Cipher
 	salt []byte
 	id   int
 }
 
-// cipherTrackerSingleton is used to track Cipher objects
+// channelDbCipherTrackerSingleton is used to track ChannelDbCipher objects
 // so that they can be referenced by ID back over the bindings.
-var cipherTrackerSingleton = &cipherTracker{
-	tracked: make(map[int]*Cipher),
+var channelDbCipherTrackerSingleton = &channelDbCipherTracker{
+	tracked: make(map[int]*ChannelDbCipher),
 	count:   0,
 }
 
-// cipherTracker is a singleton used to keep track of extant
-// Cipher objects, preventing race conditions created by passing it
+// channelDbCipherTracker is a singleton used to keep track of extant
+// ChannelDbCipher objects, preventing race conditions created by passing it
 // over the bindings.
-type cipherTracker struct {
-	tracked map[int]*Cipher
+type channelDbCipherTracker struct {
+	tracked map[int]*ChannelDbCipher
 	count   int
 	mux     sync.RWMutex
 }
 
-// make create a Cipher from a [channel.Cipher], assigns it a unique
-// ID, and adds it to the cipherTracker.
-func (ct *cipherTracker) make(c cryptoChannel.Cipher) *Cipher {
+// make create a ChannelDbCipher from a [channel.Cipher], assigns it a unique
+// ID, and adds it to the channelDbCipherTracker.
+func (ct *channelDbCipherTracker) make(c cryptoChannel.Cipher) *ChannelDbCipher {
 	ct.mux.Lock()
 	defer ct.mux.Unlock()
 
 	chID := ct.count
 	ct.count++
 
-	ct.tracked[chID] = &Cipher{
+	ct.tracked[chID] = &ChannelDbCipher{
 		api: c,
 		id:  chID,
 	}
@@ -1433,31 +1433,39 @@ func (ct *cipherTracker) make(c cryptoChannel.Cipher) *Cipher {
 	return ct.tracked[chID]
 }
 
-// get an Cipher from the cipherTracker given its ID.
-func (ct *cipherTracker) get(id int) (*Cipher, error) {
+// get an ChannelDbCipher from the channelDbCipherTracker given its ID.
+func (ct *channelDbCipherTracker) get(id int) (*ChannelDbCipher, error) {
 	ct.mux.RLock()
 	defer ct.mux.RUnlock()
 
 	c, exist := ct.tracked[id]
 	if !exist {
 		return nil, errors.Errorf(
-			"Cannot get Cipher for ID %d, does not exist", id)
+			"Cannot get ChannelDbCipher for ID %d, does not exist", id)
 	}
 
 	return c, nil
 }
 
-// delete removes a Cipher from the cipherTracker.
-func (ct *cipherTracker) delete(id int) {
+// delete removes a ChannelDbCipher from the channelDbCipherTracker.
+func (ct *channelDbCipherTracker) delete(id int) {
 	ct.mux.Lock()
 	defer ct.mux.Unlock()
 
 	delete(ct.tracked, id)
 }
 
-// NewCipher constructs a Cipher object.
-func NewCipher(cmixID int, password string,
-	plaintTextBlockSize int) (*Cipher, error) {
+// NewChannelsDatabaseCipher constructs a ChannelDbCipher object.
+//
+// Parameters:
+//  - cmixID - The tracked [Cmix] object ID.
+//  - password - The password for storage. This should be the same password
+//    passed into [NewCmix].
+//  - plaintTextBlockSize - The maximum size of a payload to be encrypted.
+//    A payload passed into [ChannelDbCipher.Encrypt] that is larger than
+//    plaintTextBlockSize will result in an error.
+func NewChannelsDatabaseCipher(cmixID int, password []byte,
+	plaintTextBlockSize int) (*ChannelDbCipher, error) {
 	// Get user from singleton
 	user, err := cmixTrackerSingleton.get(cmixID)
 	if err != nil {
@@ -1475,29 +1483,33 @@ func NewCipher(cmixID int, password string,
 	}
 
 	// Construct a cipher
-	c, err := cryptoChannel.NewCipher([]byte(password), salt,
+	c, err := cryptoChannel.NewCipher(password, salt,
 		plaintTextBlockSize, stream)
 	if err != nil {
 		return nil, err
 	}
 
 	// Return a cipher
-	return cipherTrackerSingleton.make(c), nil
+	return channelDbCipherTrackerSingleton.make(c), nil
 }
 
-// Encrypt will encrypt the raw data. The returned ciphertext includes the
-// nonce (24 bytes) and the encrypted plaintext (with possible padding, if
-// needed). Prior to encryption the plaintext has been appended with
-// padding if the byte data is shorted than the pre-defined block size
-// passed into NewCipher. If plaintext longer than this pre-defined block
-// size is passed in, Encrypt will return an error.
-func (c *Cipher) Encrypt(plaintext []byte) ([]byte, error) {
+// Encrypt will encrypt the raw data. It will return a ciphertext. Padding is
+// done on the plaintext so all encrypted data looks uniform at rest.
+//
+// Parameters:
+//  - plaintext - The data to be encrypted. This must be smaller than the block
+//    size passed into [NewChannelsDatabaseCipher]. If it is larger, this will
+//    return an error.
+func (c *ChannelDbCipher) Encrypt(plaintext []byte) ([]byte, error) {
 	return c.api.Encrypt(plaintext)
 }
 
 // Decrypt will decrypt the passed in encrypted value. The plaintext will
-// be returned by this function. If the plaintext was padded, those
-// modifications will be discarded prior to returning.
-func (c *Cipher) Decrypt(ciphertext []byte) ([]byte, error) {
+// be returned by this function. Any padding will be discarded within
+// this function.
+//
+// Parameters:
+//  - ciphertext - the encrypted data returned by [ChannelDbCipher.Encrypt].
+func (c *ChannelDbCipher) Decrypt(ciphertext []byte) ([]byte, error) {
 	return c.api.Decrypt(ciphertext)
 }

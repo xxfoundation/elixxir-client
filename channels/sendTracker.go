@@ -106,7 +106,7 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 	st.unsent = make(map[uint64]*tracked)
 
 	//register to check all outstanding rounds when the network becomes healthy
-	/*var callBackID uint64
+	var callBackID uint64
 	callBackID = net.AddHealthCallback(func(f bool) {
 		if !f {
 			return
@@ -120,7 +120,7 @@ func loadSendTracker(net Client, kv *versioned.KV, trigger triggerEventFunc,
 			}
 			st.net.GetRoundResults(getRoundResultsTimeout, rr.callback, rr.round)
 		}
-	})*/
+	})
 
 	return st
 }
@@ -337,19 +337,19 @@ func (st *sendTracker) handleSend(uuid uint64,
 	t.RoundID = round.ID
 
 	//add the roundID
-	roundsList, _ := st.byRound[round.ID]
+	roundsList, existsRound := st.byRound[round.ID]
 	st.byRound[round.ID] = append(roundsList, t)
 
 	//add the round
 	st.byMessageID[messageID] = t
 
-	/*if !existsRound {
+	if !existsRound {
 		rr := &roundResults{
 			round: round.ID,
 			st:    st,
 		}
 		st.net.GetRoundResults(getRoundResultsTimeout, rr.callback, rr.round)
-	}*/
+	}
 
 	delete(st.unsent, uuid)
 
@@ -486,12 +486,11 @@ func (rr *roundResults) callback(allRoundsSucceeded, timedOut bool, results map[
 	}
 
 	rr.st.mux.Unlock()
-
-	for i := range registered {
-		round := results[rr.round].Round
-		ts := mutateTimestamp(round.Timestamps[states.QUEUED], registered[i].MsgID)
-		go rr.st.updateStatus(registered[i].UUID, registered[i].MsgID, ts,
-			round, status)
+	if status == Failed {
+		for i := range registered {
+			round := results[rr.round].Round
+			go rr.st.updateStatus(registered[i].UUID, registered[i].MsgID, time.Time{},
+				round, Failed)
+		}
 	}
-
 }

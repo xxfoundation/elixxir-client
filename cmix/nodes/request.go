@@ -199,7 +199,7 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 	sessionKey := registration.GenerateBaseKey(grp,
 		nodeDHPub, dhPrivKey, h)
 
-	jww.INFO.Printf("DH for reg took %s", time.Since(start))
+	jww.TRACE.Printf("DH for reg took %s", time.Since(start))
 
 	// Verify the HMAC
 	if !registration.VerifyClientHMAC(sessionKey.Bytes(),

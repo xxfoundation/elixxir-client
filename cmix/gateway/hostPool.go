@@ -502,7 +502,8 @@ func (h *HostPool) getAny(length uint32, excluded []*id.ID) []*connect.Host {
 		// Check the next HostPool index
 		gwIdx := randomness.ReadRangeUint32(0, h.poolParams.PoolSize,
 			rng)
-		if _, ok := checked[gwIdx]; !ok {
+		isConnected, _ := h.hostList[gwIdx].Connected()
+		if _, ok := checked[gwIdx]; !ok && isConnected {
 			result = append(result, h.hostList[gwIdx])
 			checked[gwIdx] = nil
 			i++
@@ -544,7 +545,8 @@ func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 
 		gwIdx := randomness.ReadRangeUint32(0, h.poolParams.PoolSize,
 			rng)
-		if _, ok := checked[gwIdx]; !ok {
+		isConnected, _ := h.hostList[gwIdx].Connected()
+		if _, ok := checked[gwIdx]; !ok && isConnected {
 			result[i] = h.hostList[gwIdx]
 			checked[gwIdx] = nil
 			i++
@@ -677,7 +679,13 @@ func (h *HostPool) replaceHostNoStore(newId *id.ID, oldPoolIndex uint32) error {
 			err := newHost.Connect()
 			if err != nil {
 				jww.WARN.Printf("Unable to initialize Host connection to %s: "+
-					"%+v", newId, err)
+					"%+v, replacing", newId, err)
+				// Remove Hosts that fail to connect. This is as terrifying as it looks.
+				h.hostMux.Lock()
+				h.ndfMux.RLock()
+				err = h.replaceHost(h.selectGateway(), oldPoolIndex)
+				h.ndfMux.RUnlock()
+				h.hostMux.Unlock()
 			}
 		}()
 	}

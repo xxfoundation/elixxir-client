@@ -1388,3 +1388,116 @@ func (tem *toEventModel) UpdateSentStatus(uuid uint64,
 	tem.em.UpdateSentStatus(int64(uuid), messageID[:], timestamp.UnixNano(),
 		int64(round.ID), int64(status))
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Channel Cipher                                                             //
+////////////////////////////////////////////////////////////////////////////////
+
+// Cipher is the bindings layer representation of the [channel.Cipher].
+type Cipher struct {
+	api  cryptoChannel.Cipher
+	salt []byte
+	id   int
+}
+
+// cipherTrackerSingleton is used to track Cipher objects
+// so that they can be referenced by ID back over the bindings.
+var cipherTrackerSingleton = &cipherTracker{
+	tracked: make(map[int]*Cipher),
+	count:   0,
+}
+
+// cipherTracker is a singleton used to keep track of extant
+// Cipher objects, preventing race conditions created by passing it
+// over the bindings.
+type cipherTracker struct {
+	tracked map[int]*Cipher
+	count   int
+	mux     sync.RWMutex
+}
+
+// make create a Cipher from a [channel.Cipher], assigns it a unique
+// ID, and adds it to the cipherTracker.
+func (ct *cipherTracker) make(c cryptoChannel.Cipher) *Cipher {
+	ct.mux.Lock()
+	defer ct.mux.Unlock()
+
+	chID := ct.count
+	ct.count++
+
+	ct.tracked[chID] = &Cipher{
+		api: c,
+		id:  chID,
+	}
+
+	return ct.tracked[chID]
+}
+
+// get an Cipher from the cipherTracker given its ID.
+func (ct *cipherTracker) get(id int) (*Cipher, error) {
+	ct.mux.RLock()
+	defer ct.mux.RUnlock()
+
+	c, exist := ct.tracked[id]
+	if !exist {
+		return nil, errors.Errorf(
+			"Cannot get Cipher for ID %d, does not exist", id)
+	}
+
+	return c, nil
+}
+
+// delete removes a Cipher from the cipherTracker.
+func (ct *cipherTracker) delete(id int) {
+	ct.mux.Lock()
+	defer ct.mux.Unlock()
+
+	delete(ct.tracked, id)
+}
+
+// NewCipher constructs a Cipher object.
+func NewCipher(cmixID int, password string,
+	plaintTextBlockSize int) (*Cipher, error) {
+	// Get user from singleton
+	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate RNG
+	stream := user.api.GetRng().GetStream()
+
+	// Load or generate a salt
+	salt, err := channels.NewOrLoadSalt(
+		user.api.GetStorage().GetKV(), stream)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct a cipher
+	c, err := cryptoChannel.NewCipher([]byte(password), salt,
+		plaintTextBlockSize, stream)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return a cipher
+	return cipherTrackerSingleton.make(c), nil
+}
+
+// Encrypt will encrypt the raw data. The returned ciphertext includes the
+// nonce (24 bytes) and the encrypted plaintext (with possible padding, if
+// needed). Prior to encryption the plaintext has been appended with
+// padding if the byte data is shorted than the pre-defined block size
+// passed into NewCipher. If plaintext longer than this pre-defined block
+// size is passed in, Encrypt will return an error.
+func (c *Cipher) Encrypt(plaintext []byte) ([]byte, error) {
+	return c.api.Encrypt(plaintext)
+}
+
+// Decrypt will decrypt the passed in encrypted value. The plaintext will
+// be returned by this function. If the plaintext was padded, those
+// modifications will be discarded prior to returning.
+func (c *Cipher) Decrypt(ciphertext []byte) ([]byte, error) {
+	return c.api.Decrypt(ciphertext)
+}

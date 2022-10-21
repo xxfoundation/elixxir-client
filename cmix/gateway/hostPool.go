@@ -502,7 +502,10 @@ func (h *HostPool) getAny(length uint32, excluded []*id.ID) []*connect.Host {
 		// Check the next HostPool index
 		gwIdx := randomness.ReadRangeUint32(0, h.poolParams.PoolSize,
 			rng)
-		isConnected, _ := h.hostList[gwIdx].Connected()
+		isConnected := true
+		if h.poolParams.ForceConnection {
+			isConnected, _ = h.hostList[gwIdx].Connected()
+		}
 		if _, ok := checked[gwIdx]; !ok && isConnected {
 			result = append(result, h.hostList[gwIdx])
 			checked[gwIdx] = nil
@@ -545,7 +548,10 @@ func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 
 		gwIdx := randomness.ReadRangeUint32(0, h.poolParams.PoolSize,
 			rng)
-		isConnected, _ := h.hostList[gwIdx].Connected()
+		isConnected := true
+		if h.poolParams.ForceConnection {
+			isConnected, _ = h.hostList[gwIdx].Connected()
+		}
 		if _, ok := checked[gwIdx]; !ok && isConnected {
 			result[i] = h.hostList[gwIdx]
 			checked[gwIdx] = nil

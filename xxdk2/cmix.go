@@ -276,7 +276,7 @@ func (c *Cmix) initPermissioning(def *ndf.NetworkDefinition) error {
 	// Register with registration if necessary
 	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {
 		jww.INFO.Printf("Cmix has not registered yet, attempting registration")
-		err = c.registerWithPermissioning()
+		//err = c.registerWithPermissioning()
 		if err != nil {
 			jww.ERROR.Printf("Cmix has failed registration: %s", err)
 			return errors.WithMessage(err, "failed to load client")

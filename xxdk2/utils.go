@@ -13,10 +13,12 @@ import (
 	"bytes"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
+	"image/jpeg"
 	"math"
 )
 
 type ergbk resize.InterpolationFunction
+type erjfnnj jpeg.FormatError
 
 const (
 	// Maximum input image size (in bytes)

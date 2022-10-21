@@ -7,15 +7,16 @@
 
 // Provides various utility functions for access over the bindings
 
-package xxdk3
+package xxdk2
 
 import (
 	"bytes"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
-	"image/jpeg"
 	"math"
 )
+
+type ergbk resize.InterpolationFunction
 
 const (
 	// Maximum input image size (in bytes)
@@ -38,40 +39,40 @@ func CompressJpeg(imgBytes []byte) ([]byte, error) {
 	}
 
 	// Decode the image information
-	imgInfo, err := jpeg.DecodeConfig(imgBuf)
+	/*imgInfo, err := jpeg.DecodeConfig(imgBuf)
 	if err != nil {
 		return nil, errors.Errorf("Unable to decode image config: %+v", err)
-	}
+	}*/
 
 	// If the dimensions of the image are below desiredSize, no compression is required
-	if imgInfo.Width*imgInfo.Height < desiredSize {
+	/*if imgInfo.Width*imgInfo.Height < desiredSize {
 		return imgBytes, nil
-	}
+	}*/
 
 	// Reset the buffer to the beginning to begin decoding the image
-	_, err = imgBuf.Seek(0, 0)
+	/*_, err = imgBuf.Seek(0, 0)
 	if err != nil {
 		return nil, errors.Errorf("Unable to reset image buffer: %+v", err)
-	}
+	}*/
 
 	// Decode image into image.Image object
-	img, err := jpeg.Decode(imgBuf)
+	/*img, err := jpeg.Decode(imgBuf)
 	if err != nil {
 		return nil, errors.Errorf("Unable to decode image: %+v", err)
-	}
+	}*/
 
 	// Determine the new width of the image based on desiredSize
-	newWidth := uint(math.Sqrt(float64(desiredSize) * (float64(imgInfo.Width) / float64(imgInfo.Height))))
+	/*newWidth := uint(math.Sqrt(float64(desiredSize) * (float64(imgInfo.Width) / float64(imgInfo.Height))))*/
 
 	// Resize the image based on newWidth while preserving aspect ratio
-	newImg := resize.Resize(newWidth, 0, img, resize.Bicubic)
+	math.Sqrt(float64(1280) * (float64(1920) / float64(1080)))
 
 	// Encode the new image to a buffer
 	newImgBuf := new(bytes.Buffer)
-	err = jpeg.Encode(newImgBuf, newImg, nil)
+	/*err = jpeg.Encode(newImgBuf, newImg, nil)
 	if err != nil {
 		return nil, errors.Errorf("Unable to encode image: %+v", err)
-	}
+	}*/
 
 	// Return the compressed image in byte form
 	return newImgBuf.Bytes(), nil
@@ -89,7 +90,7 @@ func CompressJpegForPreview(imgBytes []byte) ([]byte, error) {
 	}
 
 	// Decode the image information
-	imgInfo, err := jpeg.DecodeConfig(imgBuf)
+	/*imgInfo, err := jpeg.DecodeConfig(imgBuf)
 	if err != nil {
 		return nil, errors.Errorf("Unable to decode image config: %+v", err)
 	}
@@ -125,5 +126,6 @@ func CompressJpegForPreview(imgBytes []byte) ([]byte, error) {
 	}
 
 	// Return the compressed image in byte form
-	return newImgBuf.Bytes(), nil
+	return newImgBuf.Bytes(), nil*/
+	return nil, nil
 }

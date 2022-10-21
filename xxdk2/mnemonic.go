@@ -14,6 +14,7 @@ package xxdk2
 // "path/filepath"
 
 import (
+	errors2 "errors"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -30,6 +31,7 @@ func StoreSecretWithMnemonic(secret []byte, path string) (string, error) {
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rng := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG).GetStream()
 	rng.Read([]byte{})
+	errors2.New("blah")
 
 	// Ensure path is appended by filepath separator "/"
 	if !strings.HasSuffix(path, string(filepath.Separator)) {

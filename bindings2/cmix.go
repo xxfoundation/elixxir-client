@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package bindings
+package bindings2
 
 import (
 	"sync"

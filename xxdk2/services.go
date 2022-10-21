@@ -77,7 +77,7 @@ func (s *services) start(timeout time.Duration) error {
 	}
 
 	// Create a new stoppable
-	s.stoppable = stoppable.NewMulti(followerStoppableName)
+	//s.stoppable = stoppable.NewMulti(followerStoppableName)
 
 	// Start all services and register with the stoppable
 	for _, sp := range s.services {

@@ -12,14 +12,11 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 
 	"gitlab.com/elixxir/client/storage/user"
-	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/crypto/xx"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const idVersion = 0
@@ -38,7 +35,7 @@ type ReceptionIdentity struct {
 // given key. This is the ideal way to securely store identities, as the caller
 // of this function is only required to store the given key separately rather
 // than the keying material.
-func StoreReceptionIdentity(key string, identity ReceptionIdentity, net *Cmix) error {
+/*func StoreReceptionIdentity(key string, identity ReceptionIdentity, net *Cmix) error {
 	marshalledIdentity, err := identity.Marshal()
 	if err != nil {
 		return err
@@ -60,7 +57,7 @@ func LoadReceptionIdentity(key string, net *Cmix) (ReceptionIdentity, error) {
 	}
 
 	return UnmarshalReceptionIdentity(storageObj.Data)
-}
+}*/
 
 // Marshal returns the JSON representation of a ReceptionIdentity.
 func (r ReceptionIdentity) Marshal() ([]byte, error) {
@@ -94,7 +91,7 @@ func (r ReceptionIdentity) GetGroup() (*cyclic.Group, error) {
 
 // MakeReceptionIdentity generates a new cryptographic identity for receiving
 // messages.
-func MakeReceptionIdentity(net *Cmix) (ReceptionIdentity, error) {
+/*func MakeReceptionIdentity(net *Cmix) (ReceptionIdentity, error) {
 	rng := net.GetRng().GetStream()
 	defer rng.Close()
 	grp := net.GetStorage().GetE2EGroup()
@@ -139,15 +136,15 @@ func MakeReceptionIdentity(net *Cmix) (ReceptionIdentity, error) {
 	}
 
 	return I, nil
-}
+}*/
 
 // MakeLegacyReceptionIdentity generates the cryptographic identity for
 // receiving messages based on the extant stored user.Info.
-func MakeLegacyReceptionIdentity(net *Cmix) (ReceptionIdentity, error) {
+/*func MakeLegacyReceptionIdentity(net *Cmix) (ReceptionIdentity, error) {
 	userInfo := net.GetStorage().PortableUserInfo()
 	return buildReceptionIdentity(userInfo.ReceptionID, userInfo.ReceptionSalt,
 		userInfo.ReceptionRSA, net.GetStorage().GetE2EGroup(), userInfo.E2eDhPrivateKey)
-}
+}*/
 
 // DeepCopy produces a safe copy of the ReceptionIdentity.
 func (r ReceptionIdentity) DeepCopy() ReceptionIdentity {

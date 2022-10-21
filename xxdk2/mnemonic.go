@@ -17,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
-	xxMnemonic "gitlab.com/xx_network/crypto/mnemonic"
 	"gitlab.com/xx_network/primitives/utils"
 	"path/filepath"
 	"strings"
@@ -30,6 +29,7 @@ const mnemonicFile = ".recovery"
 func StoreSecretWithMnemonic(secret []byte, path string) (string, error) {
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rng := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG).GetStream()
+	rng.Read([]byte{})
 
 	// Ensure path is appended by filepath separator "/"
 	if !strings.HasSuffix(path, string(filepath.Separator)) {
@@ -37,7 +37,7 @@ func StoreSecretWithMnemonic(secret []byte, path string) (string, error) {
 	}
 
 	// Create a mnemonic
-	mnemonic, err := xxMnemonic.GenerateMnemonic(rng, 32)
+	/*mnemonic, err := xxMnemonic.GenerateMnemonic(rng, 32)
 	if err != nil {
 		return "", errors.Errorf("Failed to generate mnemonic: %v", err)
 	}
@@ -46,7 +46,7 @@ func StoreSecretWithMnemonic(secret []byte, path string) (string, error) {
 	_, err = xxMnemonic.DecodeMnemonic(mnemonic)
 	if err != nil {
 		return "", errors.Errorf("Failed to decode mnemonic: %v", err)
-	}
+	}*/
 
 	// Encrypt secret with mnemonic as key
 	/*ciphertext, err := chacha.Encrypt(decodedMnemonic, secret, rng)
@@ -56,12 +56,12 @@ func StoreSecretWithMnemonic(secret []byte, path string) (string, error) {
 
 	// Save encrypted secret to file
 	recoveryFile := path + mnemonicFile
-	err = utils.WriteFileDef(recoveryFile, []byte{})
+	err := utils.WriteFileDef(recoveryFile, []byte{})
 	if err != nil {
 		return "", errors.Errorf("Failed to save mnemonic information to file")
 	}
 
-	return mnemonic, nil
+	return "", nil
 }
 
 // LoadSecretWithMnemonic loads the encrypted secret from storage and decrypts
@@ -86,10 +86,10 @@ func LoadSecretWithMnemonic(mnemonic, path string) (secret []byte, err error) {
 	}
 
 	// Decode mnemonic
-	_, err = xxMnemonic.DecodeMnemonic(mnemonic)
+	/*_, err = xxMnemonic.DecodeMnemonic(mnemonic)
 	if err != nil {
 		return nil, errors.Errorf("Failed to decode mnemonic: %v", err)
-	}
+	}*/
 
 	// Decrypt the stored secret
 	/*secret, err = chacha.Decrypt(decodedMnemonic, data)

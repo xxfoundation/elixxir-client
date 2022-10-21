@@ -7,7 +7,7 @@
 
 // Provides various utility functions for access over the bindings
 
-package xxdk2
+package xxdk3
 
 import (
 	"bytes"

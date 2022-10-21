@@ -5,7 +5,7 @@
 // LICENSE file.                                                              //
 ////////////////////////////////////////////////////////////////////////////////
 
-package xxdk2
+package xxdk3
 
 import (
 	"github.com/pkg/errors"

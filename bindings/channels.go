@@ -1455,6 +1455,12 @@ func (ct *channelDbCipherTracker) delete(id int) {
 	delete(ct.tracked, id)
 }
 
+// GetChannelDbCipherTrackerFromID returns the ChannelDbCipher with the
+// corresponding ID in the tracker.
+func GetChannelDbCipherTrackerFromID(id int) (*ChannelDbCipher, error) {
+	return channelDbCipherTrackerSingleton.get(id)
+}
+
 // NewChannelsDatabaseCipher constructs a ChannelDbCipher object.
 //
 // Parameters:
@@ -1491,6 +1497,11 @@ func NewChannelsDatabaseCipher(cmixID int, password []byte,
 
 	// Return a cipher
 	return channelDbCipherTrackerSingleton.make(c), nil
+}
+
+// GetID returns the ID for this ChannelDbCipher in the channelDbCipherTracker.
+func (c *ChannelDbCipher) GetID() int {
+	return c.id
 }
 
 // Encrypt will encrypt the raw data. It will return a ciphertext. Padding is

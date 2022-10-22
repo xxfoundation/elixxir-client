@@ -355,7 +355,7 @@ func LoadChannelsManager(cmixID int, storageTag string,
 //
 // Example JSON:
 //  {
-//    "Channel": "\u003cSpeakeasy-v1:My_Channel,description:Here is information about my channel.,level:Public,secrets:8AS3SczFvAYZftWuj4ZkOM9muFPIwq/0HuVCUJgTK8w=,GpPl1510/G07J4RfdYX9J5plTX3WNLVm+uuGmCwgFeU=,5,1,mRfdUGM6WxWjjCuLzO+2+zc3BQh2zMT2CHD8ZnBwpVI=\u003e",
+//    "Channel": "\u003cSpeakeasy-v2:Test_Channel|description:Channel description.|level:Public|secrets:8AS3SczFvAYZftWuj4ZkOM9muFPIwq/0HuVCUJgTK8w=|GpPl1510/G07J4RfdYX9J5plTX3WNLVm+uuGmCwgFeU=|5|1|mRfdUGM6WxWjjCuLzO+2+zc3BQh2zMT2CHD8ZnBwpVI=\u003e",
 //    "PrivateKey": "-----BEGIN RSA PRIVATE KEY-----\nMDECAQACBgDMIU9LpQIDAQABAgYAvCd9ewECAw0tzQIDD305AgMFu4UCAwd+kQID\nAQxc\n-----END RSA PRIVATE KEY-----"
 //  }
 type ChannelGeneration struct {
@@ -463,7 +463,7 @@ func makeChannelPrivateKeyStoreKey(channelID *id.ID) string {
 //    generated via [GetShareURL].
 //
 // Returns:
-//  - string - The channel pretty print.
+//  - The channel pretty print.
 func DecodePublicURL(url string) (string, error) {
 	c, err := cryptoBroadcast.DecodeShareURL(url, "")
 	if err != nil {
@@ -542,7 +542,7 @@ type ChannelInfo struct {
 //  - prettyPrint - The pretty print of the channel.
 //
 // The pretty print will be of the format:
-//  <Speakeasy-v1:Test Channel,description:This is a test channel,secrets:YxHhRAKy2D4XU2oW5xnW/3yaqOeh8nO+ZSd3nUmiQ3c=,6pXN2H9FXcOj7pjJIZoq6nMi4tGX2s53fWH5ze2dU1g=,493,1,MVjkHlm0JuPxQNAn6WHsPdOw9M/BUF39p7XB/QEkQyc=>
+//  <Speakeasy-v2:Test_Channel|description:Channel description.|level:Public|secrets:+oHcqDbJPZaT3xD5NcdLY8OjOMtSQNKdKgLPmr7ugdU=|rCI0wr01dHFStjSFMvsBzFZClvDIrHLL5xbCOPaUOJ0=|493|1|7cBhJxVfQxWo+DypOISRpeWdQBhuQpAZtUbQHjBm8NQ=>
 //
 // Returns:
 //  - []byte - JSON of [ChannelInfo], which describes all relevant channel info.
@@ -576,7 +576,7 @@ func getChannelInfo(prettyPrint string) (*cryptoBroadcast.Channel, []byte, error
 //    another user or generated via GenerateChannel.
 //
 // The pretty print will be of the format:
-//  <Speakeasy-v1:Test Channel,description:This is a test channel,secrets:YxHhRAKy2D4XU2oW5xnW/3yaqOeh8nO+ZSd3nUmiQ3c=,6pXN2H9FXcOj7pjJIZoq6nMi4tGX2s53fWH5ze2dU1g=,493,1,MVjkHlm0JuPxQNAn6WHsPdOw9M/BUF39p7XB/QEkQyc=>
+//  <Speakeasy-v2:Test_Channel|description:Channel description.|level:Public|secrets:+oHcqDbJPZaT3xD5NcdLY8OjOMtSQNKdKgLPmr7ugdU=|rCI0wr01dHFStjSFMvsBzFZClvDIrHLL5xbCOPaUOJ0=|493|1|7cBhJxVfQxWo+DypOISRpeWdQBhuQpAZtUbQHjBm8NQ=>
 //
 // Returns:
 //  - []byte - JSON of [ChannelInfo], which describes all relevant channel info.

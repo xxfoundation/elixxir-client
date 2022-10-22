@@ -48,6 +48,7 @@ var errorsList = []string{
 	"Host is in cool down",
 	grpc.ErrClientConnClosing.Error(),
 	connect.TooManyProxyError,
+	"Failed to fetch",
 }
 
 // HostManager Interface allowing storage and retrieval of Host objects
@@ -127,7 +128,7 @@ type poolParamsDisk struct {
 // DefaultPoolParams returns a default set of PoolParams.
 func DefaultPoolParams() PoolParams {
 	p := PoolParams{
-		MaxPoolSize:     30,
+		MaxPoolSize:     5,
 		ProxyAttempts:   5,
 		PoolSize:        0,
 		MaxPings:        0,

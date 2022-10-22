@@ -87,7 +87,6 @@ func (c *client) followNetwork(report ClientErrorReport,
 			stop.ToStopped()
 			return
 		case <-ticker.C:
-
 			operator := func(toTrack []receptionID.IdentityUse) error {
 
 				// set up tracking tools

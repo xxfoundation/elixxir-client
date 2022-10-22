@@ -191,6 +191,8 @@ func (m *manager) GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error) {
 	jc, err := m.getChannel(chID)
 	if err != nil {
 		return nil, err
+	} else if jc.broadcast == nil {
+		return nil, errors.New("broadcast.Channel on joinedChannel is nil")
 	}
 	return jc.broadcast.Get(), nil
 }

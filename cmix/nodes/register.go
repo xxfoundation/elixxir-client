@@ -134,6 +134,8 @@ func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	var transmissionKey *cyclic.Int
 	var validUntil uint64
 	var keyId []byte
+
+	start := time.Now()
 	// TODO: should move this to a pre-canned user initialization
 	if s.IsPrecanned() {
 		userNum := int(s.GetTransmissionID().Bytes()[7])
@@ -156,7 +158,8 @@ func registerWithNode(sender gateway.Sender, comms RegisterNodeCommsInterface,
 
 	r.add(nodeID, transmissionKey, validUntil, keyId)
 
-	jww.INFO.Printf("Completed registration with node %s", nodeID)
+	jww.INFO.Printf("Completed registration with node %s,"+
+		" took %d", nodeID, time.Since(start))
 
 	return nil
 }

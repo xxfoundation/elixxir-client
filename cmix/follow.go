@@ -306,11 +306,13 @@ func (c *client) follow(identity receptionID.IdentityUse,
 
 		// Trigger RoundEvents for all polled updates, including modified rounds
 		// with ClientErrors
+		startroundUpdates := netTime.Now()
 		err = c.instance.RoundUpdates(pollResp.Updates)
 		if err != nil {
 			jww.ERROR.Printf("%+v", err)
 			return
 		}
+		jww.INFO.Printf("took %s to process round updates", netTime.Since(startroundUpdates))
 
 		newestTS := uint64(0)
 		for i := 0; i < len(pollResp.Updates[len(pollResp.Updates)-1].Timestamps); i++ {

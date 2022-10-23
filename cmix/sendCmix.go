@@ -10,6 +10,7 @@ package cmix
 import (
 	"fmt"
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/primitives/states"
 	"strings"
 	"time"
 
@@ -177,8 +178,10 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient
 	stream := rng.GetStream()
 	defer stream.Close()
 
-	for numRoundTries := uint(
-		0); numRoundTries < cmixParams.RoundTries; numRoundTries++ {
+	numAttempts := 0
+
+	for numRoundTries := uint(0); numRoundTries < cmixParams.RoundTries; numRoundTries,
+		numAttempts = numRoundTries+1, numAttempts+1 {
 		elapsed := netTime.Since(timeStart)
 		jww.TRACE.Printf("[Send-%s] try %d, elapsed: %s",
 			cmixParams.DebugTag, numRoundTries, elapsed)
@@ -196,11 +199,12 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient
 				numRoundTries+1, recipient)
 		}
 
+		startSearch := netTime.Now()
 		// Find the best round to send to, excluding attempted rounds
 		remainingTime := cmixParams.Timeout - elapsed
 		waitingRounds := instance.GetWaitingRounds()
-		bestRound, err := waitingRounds.GetUpcomingRealtime(
-			remainingTime, attempted, sendTimeBuffer)
+		bestRound, _, err := waitingRounds.GetUpcomingRealtime(
+			remainingTime, attempted, numAttempts, sendTimeBuffer)
 		if err != nil {
 			jww.WARN.Printf("[Send-%s] failed to GetUpcomingRealtime: "+
 				"%+v", cmixParams.DebugTag, err)
@@ -213,8 +217,8 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient
 			continue
 		}
 
-		jww.TRACE.Printf("[Send-%s] Best round found: %+v",
-			cmixParams.DebugTag, bestRound)
+		jww.INFO.Printf("[Send-%s] Best round found, took %s: %d",
+			cmixParams.DebugTag, bestRound.ID, time.Since(startSearch))
 
 		// Determine whether the selected round contains any
 		// nodes that are blacklisted by the CMIXParams object
@@ -269,10 +273,13 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient
 			return rounds.Round{}, ephemeral.Id{}, format.Message{}, err
 		}
 
+		timeRoundStart := time.Unix(0, int64(bestRound.Timestamps[states.QUEUED]))
+
 		jww.INFO.Printf("[Send-%s] Sending to EphID %d (%s), on round %d "+
-			"(msgDigest: %s, ecrMsgDigest: %s) via gateway %s",
-			cmixParams.DebugTag, ephID.Int64(), recipient, bestRound.ID,
-			msg.Digest(), encMsg.Digest(), firstGateway.String())
+			"(msgDigest: %s, ecrMsgDigest: %s) via gateway %s starting "+
+			"at %s (%s in the future)", cmixParams.DebugTag, ephID.Int64(),
+			recipient, bestRound.ID, msg.Digest(), encMsg.Digest(),
+			firstGateway.String(), timeRoundStart, netTime.Until(timeRoundStart))
 
 		// Send the payload
 		sendFunc := func(host *connect.Host, target *id.ID,

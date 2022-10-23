@@ -125,6 +125,7 @@ func (m *Manager) sendMessage(index, totalMessages int, rng csprng.Source) error
 
 	// Send message
 	p := cmix.GetDefaultCMIXParams()
+	p.Probe = true
 	_, _, err = m.net.Send(recipient, fp, service, payload, mac, p)
 	if err != nil {
 		return errors.Errorf("Failed to send message: %+v", err)

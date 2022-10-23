@@ -9,6 +9,7 @@ package cmix
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/cmix/attempts"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/primitives/states"
 	"strings"
@@ -132,7 +133,7 @@ func (c *client) sendWithAssembler(recipient *id.ID, assembler MessageAssembler,
 
 	r, ephID, msg, rtnErr := sendCmixHelper(c.Sender, assemblerFunc, recipient, cmixParams,
 		c.instance, c.session.GetCmixGroup(), c.Registrar, c.rng, c.events,
-		c.session.GetTransmissionID(), c.comms)
+		c.session.GetTransmissionID(), c.comms, c.attemptTracker)
 
 	if cmixParams.Critical {
 		c.crit.handle(msg, recipient, r.ID, rtnErr)
@@ -154,7 +155,7 @@ func (c *client) sendWithAssembler(recipient *id.ID, assembler MessageAssembler,
 func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient *id.ID,
 	cmixParams CMIXParams, instance *network.Instance, grp *cyclic.Group,
 	nodes nodes.Registrar, rng *fastRNG.StreamGenerator, events event.Reporter,
-	senderId *id.ID, comms SendCmixCommsInterface) (rounds.Round, ephemeral.Id, format.Message, error) {
+	senderId *id.ID, comms SendCmixCommsInterface, attemptTracker attempts.SendAttemptTracker) (rounds.Round, ephemeral.Id, format.Message, error) {
 
 	if cmixParams.RoundTries == 0 {
 		return rounds.Round{}, ephemeral.Id{}, format.Message{},
@@ -179,6 +180,16 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient
 	defer stream.Close()
 
 	numAttempts := 0
+	if !cmixParams.Probe {
+		optimalAttempts, ready := attemptTracker.GetOptimalNumAttempts()
+		if ready {
+			numAttempts = optimalAttempts
+		} else {
+			numAttempts = 4
+		}
+	} else {
+		defer attemptTracker.SubmitProbeAttempt(numAttempts)
+	}
 
 	for numRoundTries := uint(0); numRoundTries < cmixParams.RoundTries; numRoundTries,
 		numAttempts = numRoundTries+1, numAttempts+1 {

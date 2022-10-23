@@ -218,7 +218,7 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient
 		}
 
 		jww.INFO.Printf("[Send-%s] Best round found, took %s: %d",
-			cmixParams.DebugTag, bestRound.ID, time.Since(startSearch))
+			cmixParams.DebugTag, time.Since(startSearch), bestRound.ID)
 
 		// Determine whether the selected round contains any
 		// nodes that are blacklisted by the CMIXParams object

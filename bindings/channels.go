@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/channels"
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
@@ -1421,4 +1422,140 @@ func (tem *toEventModel) UpdateSentStatus(uuid uint64,
 	status channels.SentStatus) {
 	tem.em.UpdateSentStatus(int64(uuid), messageID[:], timestamp.UnixNano(),
 		int64(round.ID), int64(status))
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Channel ChannelDbCipher                                                             //
+////////////////////////////////////////////////////////////////////////////////
+
+// ChannelDbCipher is the bindings layer representation of the [channel.Cipher].
+type ChannelDbCipher struct {
+	api  cryptoChannel.Cipher
+	salt []byte
+	id   int
+}
+
+// channelDbCipherTrackerSingleton is used to track ChannelDbCipher objects
+// so that they can be referenced by ID back over the bindings.
+var channelDbCipherTrackerSingleton = &channelDbCipherTracker{
+	tracked: make(map[int]*ChannelDbCipher),
+	count:   0,
+}
+
+// channelDbCipherTracker is a singleton used to keep track of extant
+// ChannelDbCipher objects, preventing race conditions created by passing it
+// over the bindings.
+type channelDbCipherTracker struct {
+	tracked map[int]*ChannelDbCipher
+	count   int
+	mux     sync.RWMutex
+}
+
+// create creates a ChannelDbCipher from a [channel.Cipher], assigns it a unique
+// ID, and adds it to the channelDbCipherTracker.
+func (ct *channelDbCipherTracker) create(c cryptoChannel.Cipher) *ChannelDbCipher {
+	ct.mux.Lock()
+	defer ct.mux.Unlock()
+
+	chID := ct.count
+	ct.count++
+
+	ct.tracked[chID] = &ChannelDbCipher{
+		api: c,
+		id:  chID,
+	}
+
+	return ct.tracked[chID]
+}
+
+// get an ChannelDbCipher from the channelDbCipherTracker given its ID.
+func (ct *channelDbCipherTracker) get(id int) (*ChannelDbCipher, error) {
+	ct.mux.RLock()
+	defer ct.mux.RUnlock()
+
+	c, exist := ct.tracked[id]
+	if !exist {
+		return nil, errors.Errorf(
+			"Cannot get ChannelDbCipher for ID %d, does not exist", id)
+	}
+
+	return c, nil
+}
+
+// delete removes a ChannelDbCipher from the channelDbCipherTracker.
+func (ct *channelDbCipherTracker) delete(id int) {
+	ct.mux.Lock()
+	defer ct.mux.Unlock()
+
+	delete(ct.tracked, id)
+}
+
+// GetChannelDbCipherTrackerFromID returns the ChannelDbCipher with the
+// corresponding ID in the tracker.
+func GetChannelDbCipherTrackerFromID(id int) (*ChannelDbCipher, error) {
+	return channelDbCipherTrackerSingleton.get(id)
+}
+
+// NewChannelsDatabaseCipher constructs a ChannelDbCipher object.
+//
+// Parameters:
+//  - cmixID - The tracked [Cmix] object ID.
+//  - password - The password for storage. This should be the same password
+//    passed into [NewCmix].
+//  - plaintTextBlockSize - The maximum size of a payload to be encrypted.
+//    A payload passed into [ChannelDbCipher.Encrypt] that is larger than
+//    plaintTextBlockSize will result in an error.
+func NewChannelsDatabaseCipher(cmixID int, password []byte,
+	plaintTextBlockSize int) (*ChannelDbCipher, error) {
+	// Get user from singleton
+	user, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate RNG
+	stream := user.api.GetRng().GetStream()
+
+	// Load or generate a salt
+	salt, err := utility.NewOrLoadSalt(
+		user.api.GetStorage().GetKV(), stream)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct a cipher
+	c, err := cryptoChannel.NewCipher(password, salt,
+		plaintTextBlockSize, stream)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return a cipher
+	return channelDbCipherTrackerSingleton.create(c), nil
+}
+
+// GetID returns the ID for this ChannelDbCipher in the channelDbCipherTracker.
+func (c *ChannelDbCipher) GetID() int {
+	return c.id
+}
+
+// Encrypt will encrypt the raw data. It will return a ciphertext. Padding is
+// done on the plaintext so all encrypted data looks uniform at rest.
+//
+// Parameters:
+//  - plaintext - The data to be encrypted. This must be smaller than the block
+//    size passed into [NewChannelsDatabaseCipher]. If it is larger, this will
+//    return an error.
+func (c *ChannelDbCipher) Encrypt(plaintext []byte) ([]byte, error) {
+	return c.api.Encrypt(plaintext)
+}
+
+// Decrypt will decrypt the passed in encrypted value. The plaintext will
+// be returned by this function. Any padding will be discarded within
+// this function.
+//
+// Parameters:
+//  - ciphertext - the encrypted data returned by [ChannelDbCipher.Encrypt].
+func (c *ChannelDbCipher) Decrypt(ciphertext []byte) ([]byte, error) {
+	return c.api.Decrypt(ciphertext)
 }

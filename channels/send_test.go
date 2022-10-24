@@ -10,6 +10,11 @@ package channels
 import (
 	"bytes"
 	"crypto/ed25519"
+	"math/rand"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"gitlab.com/elixxir/client/cmix/rounds"
@@ -20,10 +25,6 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/netTime"
-	"math/rand"
-	"sync"
-	"testing"
-	"time"
 
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -195,6 +196,7 @@ func TestSendGeneric(t *testing.T) {
 		messageType,
 		msg,
 		validUntil,
+		"",
 		*params)
 	if err != nil {
 		t.Logf("ERROR %v", err)
@@ -285,7 +287,8 @@ func TestAdminGeneric(t *testing.T) {
 	}
 
 	messageId, roundId, ephemeralId, err := m.SendAdminGeneric(priv,
-		ch.ReceptionID, messageType, msg, validUntil, cmix.GetDefaultCMIXParams())
+		ch.ReceptionID, messageType, msg, validUntil, "",
+		cmix.GetDefaultCMIXParams())
 	if err != nil {
 		t.Fatalf("Failed to SendAdminGeneric: %v", err)
 	}

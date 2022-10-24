@@ -9,6 +9,7 @@ package bindings
 
 import (
 	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/channels"
@@ -441,7 +442,43 @@ func saveChannelPrivateKey(cmix *Cmix, channelID *id.ID, pk rsa.PrivateKey) erro
 		})
 }
 
-func loadChannelPrivateKey(cmix Cmix, channelID *id.ID) (rsa.PrivateKey, error) {
+// GetSavedChannelPrivateKeyUNSAFE loads the private key from storage for the
+// given channel ID.
+//
+// NOTE: This function is unsafe and only for debugging purposes only.
+//
+// Parameters:
+//  - cmixID - ID of [Cmix] object in tracker.
+//  - channelIdBase64 - The [id.ID] of the channel in base 64 encoding.
+//
+// Returns:
+//  - The PEM file of the private key.
+func GetSavedChannelPrivateKeyUNSAFE(cmixID int, channelIdBase64 string) (string, error) {
+	cmix, err := cmixTrackerSingleton.get(cmixID)
+	if err != nil {
+		return "", err
+	}
+
+	channelIdBytes, err := base64.StdEncoding.DecodeString(channelIdBase64)
+	if err != nil {
+		return "", errors.Errorf("failed to decode channel ID: %+v", err)
+	}
+
+	channelID, err := id.Unmarshal(channelIdBytes)
+	if err != nil {
+		return "", errors.Errorf("invalid channel ID: %+v", err)
+	}
+
+	privKey, err := loadChannelPrivateKey(cmix, channelID)
+	if err != nil {
+		return "", errors.Errorf(
+			"failed to load private key from storage: %+v", err)
+	}
+
+	return string(privKey.MarshalPem()), nil
+}
+
+func loadChannelPrivateKey(cmix *Cmix, channelID *id.ID) (rsa.PrivateKey, error) {
 	obj, err := cmix.api.GetStorage().Get(
 		makeChannelPrivateKeyStoreKey(channelID))
 	if err != nil {

@@ -10,6 +10,9 @@ package bindings
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/channels"
 	"gitlab.com/elixxir/client/cmix/rounds"
@@ -21,8 +24,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"sync"
-	"time"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -805,10 +806,13 @@ func (cm *ChannelsManager) SendGeneric(marshalledChanId []byte,
 		return nil, err
 	}
 
+	msgTy := channels.MessageType(messageType)
+	msgDigest := channels.MakeChanMsgDigest(chanId, msgTy, message)
+
 	// Send message
 	chanMsgId, rnd, ephId, err := cm.api.SendGeneric(chanId,
-		channels.MessageType(messageType), message,
-		time.Duration(leaseTimeMS), params.CMIX)
+		msgTy, message, time.Duration(leaseTimeMS),
+		msgDigest, params.CMIX)
 	if err != nil {
 		return nil, err
 	}
@@ -859,10 +863,13 @@ func (cm *ChannelsManager) SendAdminGeneric(adminPrivateKey,
 		return nil, err
 	}
 
+	msgTy := channels.MessageType(messageType)
+	msgDigest := channels.MakeChanMsgDigest(chanId, msgTy, message)
+
 	// Send admin message
 	chanMsgId, rnd, ephId, err := cm.api.SendAdminGeneric(rsaPrivKey,
-		chanId, channels.MessageType(messageType), message,
-		time.Duration(leaseTimeMS), params.CMIX)
+		chanId, msgTy, message, time.Duration(leaseTimeMS),
+		msgDigest, params.CMIX)
 
 	// Construct send report
 	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)

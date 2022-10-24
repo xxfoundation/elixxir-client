@@ -181,7 +181,7 @@ func TestSendTracker_failedSend(t *testing.T) {
 	if ok {
 		t.Fatal("Should not have found a tracked round")
 	}
-	if len(trackedRound) != 0 {
+	if len(trackedRound.List) != 0 {
 		t.Fatal("Did not find expected number of trackedRounds")
 	}
 
@@ -253,10 +253,10 @@ func TestSendTracker_send(t *testing.T) {
 	if !ok {
 		t.Fatal("Should have found a tracked round")
 	}
-	if len(trackedRound) != 1 {
+	if len(trackedRound.List) != 1 {
 		t.Fatal("Did not find expected number of trackedRounds")
 	}
-	if trackedRound[0].MsgID != mid {
+	if trackedRound.List[0].MsgID != mid {
 		t.Fatalf("Did not find expected message ID in trackedRounds")
 	}
 
@@ -279,7 +279,10 @@ func TestSendTracker_load_store(t *testing.T) {
 	cid := id.NewIdFromString("channel", id.User, t)
 	mid := cryptoChannel.MakeMessageID([]byte("hello"), cid)
 	rid := id.Round(2)
-	st.byRound[rid] = []*tracked{{MsgID: mid, ChannelID: cid, RoundID: rid}}
+	st.byRound[rid] = trackedList{
+		List:           []*tracked{{MsgID: mid, ChannelID: cid, RoundID: rid}},
+		RoundCompleted: false,
+	}
 	err := st.store()
 	if err != nil {
 		t.Fatalf("Failed to store byRound: %+v", err)

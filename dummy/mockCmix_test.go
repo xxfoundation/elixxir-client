@@ -78,8 +78,7 @@ func (m mockCmix) Follow(report cmix.ClientErrorReport) (stoppable.Stoppable, er
 }
 
 func (m mockCmix) GetMaxMessageLength() int {
-	//TODO implement me
-	panic("implement me")
+	return 100
 }
 
 func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {

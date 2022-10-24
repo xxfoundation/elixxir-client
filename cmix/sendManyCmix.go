@@ -9,6 +9,7 @@ package cmix
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/cmix/attempts"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	"strings"
 	"time"
@@ -90,7 +91,7 @@ func (c *client) SendMany(messages []TargetedCmixMessage,
 
 	return sendManyCmixHelper(c.Sender, acms, p,
 		c.instance, c.session.GetCmixGroup(), c.Registrar, c.rng, c.events,
-		c.session.GetTransmissionID(), c.comms)
+		c.session.GetTransmissionID(), c.comms, c.attemptTracker)
 }
 
 type assembledCmixMessage struct {
@@ -109,11 +110,11 @@ type assembledCmixMessage struct {
 // If the message is successfully sent, the ID of the round sent it is returned,
 // which can be registered with the network instance to get a callback on its
 // status.
-func sendManyCmixHelper(sender gateway.Sender,
-	msgs []assembledCmixMessage, param CMIXParams, instance *network.Instance,
-	grp *cyclic.Group, registrar nodes.Registrar,
-	rng *fastRNG.StreamGenerator, events event.Reporter,
-	senderId *id.ID, comms SendCmixCommsInterface) (
+func sendManyCmixHelper(sender gateway.Sender, msgs []assembledCmixMessage,
+	param CMIXParams, instance *network.Instance, grp *cyclic.Group,
+	registrar nodes.Registrar, rng *fastRNG.StreamGenerator,
+	events event.Reporter, senderId *id.ID, comms SendCmixCommsInterface,
+	attemptTracker attempts.SendAttemptTracker) (
 	rounds.Round, []ephemeral.Id, error) {
 
 	timeStart := netTime.Now()
@@ -141,7 +142,29 @@ func sendManyCmixHelper(sender gateway.Sender,
 		cmix.SetGroupBits(msgs[i].Message, grp, stream)
 	}
 
-	for numRoundTries := uint(0); numRoundTries < param.RoundTries; numRoundTries++ {
+	numAttempts := 0
+	if !param.Probe {
+		optimalAttempts, ready := attemptTracker.GetOptimalNumAttempts()
+		if ready {
+			numAttempts = optimalAttempts
+			jww.INFO.Printf("[SendMany-%s] Looking for round to send cMix "+
+				"messages to %s, sending non probe with %d optimalAttempts",
+				param.DebugTag, recipientString, numAttempts)
+		} else {
+			numAttempts = 4
+			jww.INFO.Printf("[SendMany-%s] Looking for round to send cMix "+
+				"messages to %s, sending non probe with %d non optimalAttempts, "+
+				"insufficient data", param.DebugTag, recipientString, numAttempts)
+		}
+	} else {
+		jww.INFO.Printf("[SendMany-%s] Looking for round to send cMix messages "+
+			"to %s, sending probe with %d Attempts, insufficient data",
+			param.DebugTag, recipientString, numAttempts)
+		defer attemptTracker.SubmitProbeAttempt(numAttempts)
+	}
+
+	for numRoundTries := uint(0); numRoundTries < param.RoundTries; numRoundTries,
+		numAttempts = numRoundTries+1, numAttempts+1 {
 		elapsed := netTime.Since(timeStart)
 
 		if elapsed > param.Timeout {
@@ -162,7 +185,7 @@ func sendManyCmixHelper(sender gateway.Sender,
 
 		// Find the best round to send to, excluding attempted rounds
 		bestRound, _, _ := instance.GetWaitingRounds().GetUpcomingRealtime(
-			remainingTime, attempted, int(numRoundTries), sendTimeBuffer)
+			remainingTime, attempted, numAttempts, sendTimeBuffer)
 		if bestRound == nil {
 			continue
 		}

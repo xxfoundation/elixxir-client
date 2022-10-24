@@ -299,9 +299,10 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 			var replyTo cryptoChannel.MessageID
 			copy(replyTo[:], txt.ReplyMessageID)
 			tag := makeChaDebugTag(channelID, pubKey, content, SendReplyTag)
-			jww.INFO.Printf("[%s]UserListener - Received reply from %s "+
-				"to %s", tag, base64.StdEncoding.EncodeToString(pubKey),
-				base64.StdEncoding.EncodeToString(txt.ReplyMessageID))
+			jww.INFO.Printf("[%s]Channels - Received reply from %s "+
+				"to %s on %s", tag, base64.StdEncoding.EncodeToString(pubKey),
+				base64.StdEncoding.EncodeToString(txt.ReplyMessageID),
+				channelID)
 			return e.model.ReceiveReply(channelID, messageID, replyTo,
 				nickname, txt.Text, pubKey, codeset, timestamp, lease, round, Text, status)
 
@@ -317,9 +318,10 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 	}
 
 	tag := makeChaDebugTag(channelID, pubKey, content, SendMessageTag)
-	jww.INFO.Printf("[%s]UserListener - Received message from %s "+
-		"to %s", tag, base64.StdEncoding.EncodeToString(pubKey),
-		base64.StdEncoding.EncodeToString(txt.ReplyMessageID))
+	jww.INFO.Printf("[%s]Channels - Received message from %s "+
+		"to %s on %s", tag, base64.StdEncoding.EncodeToString(pubKey),
+		base64.StdEncoding.EncodeToString(txt.ReplyMessageID),
+		channelID)
 
 	return e.model.ReceiveMessage(channelID, messageID, nickname, txt.Text, pubKey, codeset,
 		timestamp, lease, round, Text, status)
@@ -361,9 +363,10 @@ func (e *events) receiveReaction(channelID *id.ID,
 		copy(reactTo[:], react.ReactionMessageID)
 
 		tag := makeChaDebugTag(channelID, pubKey, content, SendReactionTag)
-		jww.INFO.Printf("[%s]UserListener - Received reaction from %s "+
-			"to %s", tag, base64.StdEncoding.EncodeToString(pubKey),
-			base64.StdEncoding.EncodeToString(react.ReactionMessageID))
+		jww.INFO.Printf("[%s]Channels - Received reaction from %s "+
+			"to %s on %s", tag, base64.StdEncoding.EncodeToString(pubKey),
+			base64.StdEncoding.EncodeToString(react.ReactionMessageID),
+			channelID)
 
 		return e.model.ReceiveReaction(channelID, messageID, reactTo, nickname,
 			react.Reaction, pubKey, codeset, timestamp, lease, round, Reaction, status)

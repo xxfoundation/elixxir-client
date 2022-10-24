@@ -187,6 +187,7 @@ func (m *manager) LeaveChannel(channelID *id.ID) error {
 // GetChannels returns the IDs of all channels that have been joined. Use
 // getChannelsUnsafe if you already have taken the mux.
 func (m *manager) GetChannels() []*id.ID {
+	jww.INFO.Printf("GetChannels")
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	return m.getChannelsUnsafe()
@@ -194,7 +195,7 @@ func (m *manager) GetChannels() []*id.ID {
 
 // GetChannel returns the underlying cryptographic structure for a given channel.
 func (m *manager) GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error) {
-	jww.INFO.Printf("GetChannel %s", chID)
+	jww.INFO.Printf("GetChannel(%s)", chID)
 	jc, err := m.getChannel(chID)
 	if err != nil {
 		return nil, err

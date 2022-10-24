@@ -115,7 +115,10 @@ func (c *client) followNetwork(report ClientErrorReport,
 				return nil
 			}
 
-			// get the list of identities to track
+			//denote the execution
+			atomic.AddUint64(c.tracker, 1)
+
+			// track the message on every identity
 			stream := c.rng.GetStream()
 			err := c.Tracker.ForEach(
 				int(c.param.MaxParallelIdentityTracks),
@@ -173,8 +176,6 @@ func (c *client) follow(identity receptionID.IdentityUse,
 		fakeEr.Set(c.getFakeEarliestRound())
 		identity.ER = fakeEr
 	}
-
-	atomic.AddUint64(c.tracker, 1)
 
 	// Get client version for poll
 	version := c.session.GetClientVersion()

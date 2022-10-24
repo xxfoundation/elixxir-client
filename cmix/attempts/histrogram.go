@@ -18,11 +18,19 @@ const (
 	optimalAttemptsInitValue    = -1
 )
 
+// SendAttemptTracker tracks the number of attempts it took to send a cMix
+// message in order to predict how many attempt are needed.
 type SendAttemptTracker interface {
+	// SubmitProbeAttempt feeds the number of attempts it took to send a cMix
+	// message into the tracker and updates the optimal number of attempts.
 	SubmitProbeAttempt(numAttemptsUntilSuccessful int)
+
+	// GetOptimalNumAttempts returns the number of optimal sends. If there is
+	// insufficient data to calculate, then ready is false.
 	GetOptimalNumAttempts() (attempts int, ready bool)
 }
 
+// sendAttempts tracks the number of attempts to send a cMix message.
 type sendAttempts struct {
 	optimalAttempts *int32
 	isFull          bool
@@ -31,6 +39,7 @@ type sendAttempts struct {
 	lock            sync.Mutex
 }
 
+// NewSendAttempts initialises a new SendAttemptTracker.
 func NewSendAttempts() SendAttemptTracker {
 	optimalAttempts := int32(optimalAttemptsInitValue)
 	sa := &sendAttempts{
@@ -43,6 +52,8 @@ func NewSendAttempts() SendAttemptTracker {
 	return sa
 }
 
+// SubmitProbeAttempt feeds the number of attempts it took to send a cMix
+// message into the tracker and updates the optimal number of attempts.
 func (sa *sendAttempts) SubmitProbeAttempt(numAttemptsUntilSuccessful int) {
 	sa.lock.Lock()
 	defer sa.lock.Unlock()
@@ -58,6 +69,8 @@ func (sa *sendAttempts) SubmitProbeAttempt(numAttemptsUntilSuccessful int) {
 	sa.computeOptimalUnsafe()
 }
 
+// GetOptimalNumAttempts returns the number of optimal sends. If there is
+// insufficient data to calculate, then ready is false.
 func (sa *sendAttempts) GetOptimalNumAttempts() (attempts int, ready bool) {
 	optimalAttempts := atomic.LoadInt32(sa.optimalAttempts)
 
@@ -68,6 +81,7 @@ func (sa *sendAttempts) GetOptimalNumAttempts() (attempts int, ready bool) {
 	return int(optimalAttempts), true
 }
 
+// computeOptimalUnsafe updates the optimal send attempts.
 func (sa *sendAttempts) computeOptimalUnsafe() {
 	toCopy := maxHistogramSize
 	if !sa.isFull {

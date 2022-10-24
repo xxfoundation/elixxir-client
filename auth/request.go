@@ -8,6 +8,7 @@
 package auth
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"strings"
@@ -89,6 +90,16 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 	}
 	ownership := cAuth.MakeOwnershipProof(historicalDHPriv,
 		partner.DhPubKey, dhGrp)
+
+	jww.WARN.Printf("[GO-UPDATE] REQUEST: \n"+
+		"partnerPubKey: %+v\n"+
+		"myPublicKey: %+v"+
+		"ownershipProof: %+v",
+		base64.StdEncoding.EncodeToString(partner.DhPubKey.Bytes()),
+		base64.StdEncoding.EncodeToString(historicalDHPub.Bytes()),
+		base64.StdEncoding.EncodeToString(ownership),
+	)
+
 	confirmFp := cAuth.MakeOwnershipProofFP(ownership)
 
 	// Add the sent request and use the return to build the

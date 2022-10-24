@@ -10,6 +10,7 @@ package auth
 import (
 	"encoding/base64"
 	"fmt"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	"strings"
 
 	"github.com/cloudflare/circl/dh/sidh"
@@ -209,7 +210,20 @@ func (rrs *receivedRequestService) Process(message format.Message,
 			//auto accept
 			//This runner will auto delete the sent request if successful
 
+			// fixme: remove
+			privateDhKey := authState.e2e.GetHistoricalDHPrivkey()
+			historicalDHPub := diffieHellman.GeneratePublicKey(privateDhKey,
+				authState.e2e.GetGroup())
+
 			//verify ownership proof
+			jww.WARN.Printf("[GO-UPDATE] RECEIVED REQUEST: \n"+
+				"partnerPubKey: %+v\n"+
+				"myPublicKey: %+v"+
+				"ownershipProof: %+v",
+				base64.StdEncoding.EncodeToString(partnerPubKey.Bytes()),
+				base64.StdEncoding.EncodeToString(historicalDHPub.Bytes()),
+				base64.StdEncoding.EncodeToString(ownershipProof),
+			)
 			if !cAuth.VerifyOwnershipProof(authState.e2e.GetHistoricalDHPrivkey(),
 				partnerPubKey, authState.e2e.GetGroup(), ownershipProof) {
 				jww.WARN.Printf("Invalid ownership proof from %s to %s "+

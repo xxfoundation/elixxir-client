@@ -1,49 +1,66 @@
 package attempts
 
 import (
+	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 )
 
-const maxHistogramSize = 100
-const minElements = 3
-const percentileNumerator = 66
-const percentileDenominator = 99
-const percentileDenominatorOffset = 49
+const (
+	maxHistogramSize            = 100
+	minElements                 = 3
+	percentileNumerator         = 66
+	percentileDenominator       = 99
+	percentileDenominatorOffset = 49
+	optimalAttemptsInitValue    = -1
+)
 
+// SendAttemptTracker tracks the number of attempts it took to send a cMix
+// message in order to predict how many attempt are needed.
 type SendAttemptTracker interface {
+	// SubmitProbeAttempt feeds the number of attempts it took to send a cMix
+	// message into the tracker and updates the optimal number of attempts.
 	SubmitProbeAttempt(numAttemptsUntilSuccessful int)
+
+	// GetOptimalNumAttempts returns the number of optimal sends. If there is
+	// insufficient data to calculate, then ready is false.
 	GetOptimalNumAttempts() (attempts int, ready bool)
 }
 
+// sendAttempts tracks the number of attempts to send a cMix message.
 type sendAttempts struct {
-	lock         sync.Mutex
-	numAttempts  []int
-	currentIndex int
-	isFull       bool
-
 	optimalAttempts *int32
+	isFull          bool
+	currentIndex    int
+	numAttempts     []int
+	lock            sync.Mutex
 }
 
+// NewSendAttempts initialises a new SendAttemptTracker.
 func NewSendAttempts() SendAttemptTracker {
-	optimalAttempts := int32(-1)
-
+	optimalAttempts := int32(optimalAttemptsInitValue)
 	sa := &sendAttempts{
-		numAttempts:     make([]int, maxHistogramSize),
-		currentIndex:    0,
-		isFull:          false,
 		optimalAttempts: &optimalAttempts,
+		isFull:          false,
+		currentIndex:    0,
+		numAttempts:     make([]int, maxHistogramSize),
 	}
+
 	return sa
 }
 
-func (sa *sendAttempts) SubmitProbeAttempt(a int) {
+// SubmitProbeAttempt feeds the number of attempts it took to send a cMix
+// message into the tracker and updates the optimal number of attempts.
+func (sa *sendAttempts) SubmitProbeAttempt(numAttemptsUntilSuccessful int) {
 	sa.lock.Lock()
 	defer sa.lock.Unlock()
 
-	sa.numAttempts[sa.currentIndex] = a
-	sa.currentIndex += 1
+	sa.numAttempts[sa.currentIndex] = numAttemptsUntilSuccessful
+	sa.currentIndex++
+
 	if sa.currentIndex == len(sa.numAttempts) {
 		sa.currentIndex = 0
 		sa.isFull = true
@@ -52,16 +69,19 @@ func (sa *sendAttempts) SubmitProbeAttempt(a int) {
 	sa.computeOptimalUnsafe()
 }
 
+// GetOptimalNumAttempts returns the number of optimal sends. If there is
+// insufficient data to calculate, then ready is false.
 func (sa *sendAttempts) GetOptimalNumAttempts() (attempts int, ready bool) {
 	optimalAttempts := atomic.LoadInt32(sa.optimalAttempts)
 
-	if optimalAttempts == -1 {
+	if optimalAttempts == optimalAttemptsInitValue {
 		return 0, false
 	}
 
 	return int(optimalAttempts), true
 }
 
+// computeOptimalUnsafe updates the optimal send attempts.
 func (sa *sendAttempts) computeOptimalUnsafe() {
 	toCopy := maxHistogramSize
 	if !sa.isFull {
@@ -69,16 +89,28 @@ func (sa *sendAttempts) computeOptimalUnsafe() {
 			return
 		}
 		toCopy = sa.currentIndex
-
 	}
 
-	histoCopy := make([]int, toCopy)
-	copy(histoCopy, sa.numAttempts[:toCopy])
+	histogramCopy := make([]int, toCopy)
+	copy(histogramCopy, sa.numAttempts[:toCopy])
+	sort.Ints(histogramCopy)
 
-	sort.Slice(histoCopy, func(i, j int) bool {
-		return histoCopy[i] < histoCopy[j]
-	})
-
-	optimal := histoCopy[((toCopy*percentileNumerator)+percentileDenominatorOffset)/percentileDenominator]
+	i := ((toCopy * percentileNumerator) + percentileDenominatorOffset) /
+		percentileDenominator
+	optimal := histogramCopy[i]
 	atomic.StoreInt32(sa.optimalAttempts, int32(optimal))
+}
+
+// String prints the values in the sendAttempts in a human-readable form for
+// debugging and logging purposes. This function adheres to the fmt.Stringer
+// interface.
+func (sa *sendAttempts) String() string {
+	fields := []string{
+		"optimalAttempts:" + strconv.Itoa(int(atomic.LoadInt32(sa.optimalAttempts))),
+		"isFull:" + strconv.FormatBool(sa.isFull),
+		"currentIndex:" + strconv.Itoa(sa.currentIndex),
+		"numAttempts:" + fmt.Sprintf("%d", sa.numAttempts),
+	}
+
+	return "{" + strings.Join(fields, " ") + "}"
 }

@@ -173,9 +173,6 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient
 		attempted = excludedRounds.NewSet()
 	}
 
-	jww.INFO.Printf("[Send-%s] Looking for round to send cMix message to "+
-		"%s", cmixParams.DebugTag, recipient)
-
 	stream := rng.GetStream()
 	defer stream.Close()
 
@@ -184,12 +181,22 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient
 		optimalAttempts, ready := attemptTracker.GetOptimalNumAttempts()
 		if ready {
 			numAttempts = optimalAttempts
+			jww.INFO.Printf("[Send-%s] Looking for round to send cMix message to "+
+				"%s, sending non probe with %d optimalAttempts", cmixParams.DebugTag, recipient, numAttempts)
 		} else {
 			numAttempts = 4
+			jww.INFO.Printf("[Send-%s] Looking for round to send cMix message to "+
+				"%s, sending non probe with %d non optimalAttempts, insufficient data",
+				cmixParams.DebugTag, recipient, numAttempts)
 		}
 	} else {
+		jww.INFO.Printf("[Send-%s] Looking for round to send cMix message to "+
+			"%s, sending probe with %d Attempts, insufficient data",
+			cmixParams.DebugTag, recipient, numAttempts)
 		defer attemptTracker.SubmitProbeAttempt(numAttempts)
 	}
+
+	jww.INFO.Printf("")
 
 	for numRoundTries := uint(0); numRoundTries < cmixParams.RoundTries; numRoundTries,
 		numAttempts = numRoundTries+1, numAttempts+1 {

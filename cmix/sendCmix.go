@@ -196,8 +196,6 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient
 		defer attemptTracker.SubmitProbeAttempt(numAttempts)
 	}
 
-	jww.INFO.Printf("")
-
 	for numRoundTries := uint(0); numRoundTries < cmixParams.RoundTries; numRoundTries,
 		numAttempts = numRoundTries+1, numAttempts+1 {
 		elapsed := netTime.Since(timeStart)

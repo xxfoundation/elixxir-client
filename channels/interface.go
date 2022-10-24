@@ -55,8 +55,7 @@ type Manager interface {
 	// it will always be possible to send a payload of 802 bytes at minimum
 	// Them meaning of validUntil depends on the use case.
 	SendGeneric(channelID *id.ID, messageType MessageType,
-		msg []byte, validUntil time.Duration, msgDigest string,
-		params cmix.CMIXParams) (
+		msg []byte, validUntil time.Duration, params cmix.CMIXParams) (
 		cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error)
 
 	// SendAdminGeneric is used to send a raw message over a channel encrypted
@@ -66,7 +65,7 @@ type Manager interface {
 	// return an error. The message must be at most 510 bytes long.
 	SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 		messageType MessageType, msg []byte, validUntil time.Duration,
-		msgDigest string, params cmix.CMIXParams) (cryptoChannel.MessageID,
+		params cmix.CMIXParams) (cryptoChannel.MessageID,
 		rounds.Round, ephemeral.Id, error)
 
 	// SendMessage is used to send a formatted message over a channel.

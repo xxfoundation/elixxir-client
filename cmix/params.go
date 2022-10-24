@@ -10,6 +10,7 @@ package cmix
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"gitlab.com/elixxir/client/cmix/message"
@@ -298,6 +299,18 @@ func (p *CMIXParams) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+// SetDebugTag appends the debug tag if one already exists,
+// otherwise it just used the new debug tag
+func (p CMIXParams) SetDebugTag(newTag string) CMIXParams {
+	if p.DebugTag != DefaultDebugTag {
+		p.DebugTag = fmt.Sprintf("%s-%s", p.DebugTag, newTag)
+	} else {
+		p.DebugTag = newTag
+	}
+
+	return p
 }
 
 // NodeMap represents a map of nodes and whether they have been

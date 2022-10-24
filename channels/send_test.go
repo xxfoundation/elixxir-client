@@ -196,7 +196,6 @@ func TestSendGeneric(t *testing.T) {
 		messageType,
 		msg,
 		validUntil,
-		"",
 		*params)
 	if err != nil {
 		t.Logf("ERROR %v", err)
@@ -287,7 +286,7 @@ func TestAdminGeneric(t *testing.T) {
 	}
 
 	messageId, roundId, ephemeralId, err := m.SendAdminGeneric(priv,
-		ch.ReceptionID, messageType, msg, validUntil, "",
+		ch.ReceptionID, messageType, msg, validUntil,
 		cmix.GetDefaultCMIXParams())
 	if err != nil {
 		t.Fatalf("Failed to SendAdminGeneric: %v", err)

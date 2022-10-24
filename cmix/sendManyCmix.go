@@ -161,8 +161,8 @@ func sendManyCmixHelper(sender gateway.Sender,
 		remainingTime := param.Timeout - elapsed
 
 		// Find the best round to send to, excluding attempted rounds
-		bestRound, _ := instance.GetWaitingRounds().GetUpcomingRealtime(
-			remainingTime, attempted, sendTimeBuffer)
+		bestRound, _, _ := instance.GetWaitingRounds().GetUpcomingRealtime(
+			remainingTime, attempted, int(numRoundTries), sendTimeBuffer)
 		if bestRound == nil {
 			continue
 		}

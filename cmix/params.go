@@ -219,6 +219,10 @@ type CMIXParams struct {
 	// should only be used in cases where repeats cannot be different. Only used
 	// in sendCmix, not sendManyCmix.
 	Critical bool
+
+	// Probe tells the client that this send can be used to test network performance,
+	// that outgoing latency is not important
+	Probe bool
 }
 
 // cMixParamsDisk will be the marshal-able and umarshal-able object.
@@ -241,7 +245,8 @@ func GetDefaultCMIXParams() CMIXParams {
 		DebugTag:    DefaultDebugTag,
 		// Unused stoppable so components that require one have a channel to
 		// wait on
-		Stop: stoppable.NewSingle("cmixParamsDefault"),
+		Stop:  stoppable.NewSingle("cmixParamsDefault"),
+		Probe: false,
 	}
 }
 

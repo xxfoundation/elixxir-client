@@ -9,6 +9,7 @@ package channels
 
 import (
 	"crypto/ed25519"
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
@@ -18,6 +19,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
+	"golang.org/x/crypto/blake2b"
 	"google.golang.org/protobuf/proto"
 	"time"
 )
@@ -39,6 +41,11 @@ const messageNonceSize = 4
 func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	msg []byte, validUntil time.Duration, params cmix.CMIXParams) (
 	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+
+	sendPrint := fmt.Sprintf("Sending to ch %s type %d at %s - "+
+		"contentsHash %d", channelID, messageType, netTime.Now(), hashMsg(msg))
+
+	defer jww.INFO.Println(sendPrint)
 
 	//find the channel
 	ch, err := m.getChannel(channelID)
@@ -110,22 +117,36 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		return usrMsgSerial, nil
 	}
 
+	sendPrint += fmt.Sprintf("\n\tDenoting pending send at %s", netTime.Now())
 	uuid, err := m.st.denotePendingSend(channelID, &userMessageInternal{
 		userMessage:    usrMsg,
 		channelMessage: chMsg,
 		messageID:      msgId,
 	})
-
+	if err != nil {
+		sendPrint += fmt.Sprintf("\n\tDenoting pending send failed: %s",
+			err.Error())
+		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+	}
+	sendPrint += fmt.Sprintf("\n\tBroadcasting message at %s", netTime.Now())
 	r, ephid, err := ch.broadcast.BroadcastWithAssembler(assemble, params)
 	if err != nil {
+		sendPrint += fmt.Sprintf("\n\tBroadcasting failed at %s, denoting "+
+			"failure: %s", netTime.Now(), err.Error())
 		errDenote := m.st.failedSend(uuid)
 		if errDenote != nil {
-			jww.ERROR.Printf("Failed to update for a failed send to "+
-				"%s: %+v", channelID, err)
+			sendPrint += fmt.Sprintf("\n\tFailed to denote failure of "+
+				"broadcast: %s", err.Error())
 		}
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
+	sendPrint += fmt.Sprintf("\n\tBroadcast succeeded at %s, denoting "+
+		"send success", netTime.Now())
 	err = m.st.send(uuid, msgId, r)
+	if err != nil {
+		sendPrint += fmt.Sprintf("\n\tDenotation of send success failed: "+
+			"%s", err.Error())
+	}
 	return msgId, r, ephid, err
 }
 
@@ -287,4 +308,10 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 
 	return m.SendGeneric(channelID, Reaction, reactMarshaled, ValidForever,
 		params)
+}
+
+func hashMsg(msg []byte) []byte {
+	h, _ := blake2b.New256(nil)
+	h.Write(msg)
+	return h.Sum(nil)
 }

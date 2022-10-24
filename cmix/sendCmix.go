@@ -235,7 +235,7 @@ func sendCmixHelper(sender gateway.Sender, assembler messageAssembler, recipient
 			continue
 		}
 
-		jww.INFO.Printf("[Send-%s] Best round found, took %s: %d",
+		jww.DEBUG.Printf("[Send-%s] Best round found, took %s: %d",
 			cmixParams.DebugTag, netTime.Since(startSearch), bestRound.ID)
 
 		// Determine whether the selected round contains any

@@ -11,6 +11,7 @@ package cmix
 // and intra-client state are accessible through the context object.
 
 import (
+	"gitlab.com/elixxir/client/cmix/attempts"
 	"gitlab.com/elixxir/client/cmix/clockSkew"
 	"gitlab.com/xx_network/primitives/netTime"
 	"math"
@@ -74,7 +75,8 @@ type client struct {
 	address.Space
 	identity.Tracker
 	health.Monitor
-	crit *critical
+	crit           *critical
+	attemptTracker attempts.SendAttemptTracker
 
 	// Earliest tracked round
 	earliestRound *uint64
@@ -105,15 +107,16 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 
 	// Create client object
 	c := &client{
-		param:         params,
-		tracker:       &tracker,
-		events:        events,
-		earliestRound: &earliest,
-		session:       session,
-		rng:           rng,
-		comms:         comms,
-		maxMsgLen:     tmpMsg.ContentsSize(),
-		skewTracker:   clockSkew.New(params.ClockSkewClamp),
+		param:          params,
+		tracker:        &tracker,
+		events:         events,
+		earliestRound:  &earliest,
+		session:        session,
+		rng:            rng,
+		comms:          comms,
+		maxMsgLen:      tmpMsg.ContentsSize(),
+		skewTracker:    clockSkew.New(params.ClockSkewClamp),
+		attemptTracker: attempts.NewSendAttempts(),
 	}
 
 	if params.VerboseRoundTracking {
@@ -201,7 +204,7 @@ func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
 		}
 		r, eid, _, sendErr := sendCmixHelper(c.Sender, compiler, recipient, params, c.instance,
 			c.session.GetCmixGroup(), c.Registrar, c.rng, c.events,
-			c.session.GetTransmissionID(), c.comms)
+			c.session.GetTransmissionID(), c.comms, c.attemptTracker)
 		return r, eid, sendErr
 
 	}

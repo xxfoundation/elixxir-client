@@ -1,4 +1,4 @@
-package channels
+package utility
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
@@ -9,9 +9,9 @@ import (
 
 // Storage constats
 const (
-	saltKey     = "databaseSalt"
+	saltKey     = "encryptionSalt"
 	saltVersion = 0
-	saltPrefix  = "databaseSaltPrefix"
+	saltPrefix  = "encryptionSaltPrefix"
 )
 
 // saltSize is the defined size in bytes of the salt generated in

@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/channels"
 	"gitlab.com/elixxir/client/cmix/rounds"
+	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/xxdk"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
@@ -1450,9 +1451,9 @@ type channelDbCipherTracker struct {
 	mux     sync.RWMutex
 }
 
-// make create a ChannelDbCipher from a [channel.Cipher], assigns it a unique
+// create creates a ChannelDbCipher from a [channel.Cipher], assigns it a unique
 // ID, and adds it to the channelDbCipherTracker.
-func (ct *channelDbCipherTracker) make(c cryptoChannel.Cipher) *ChannelDbCipher {
+func (ct *channelDbCipherTracker) create(c cryptoChannel.Cipher) *ChannelDbCipher {
 	ct.mux.Lock()
 	defer ct.mux.Unlock()
 
@@ -1516,7 +1517,7 @@ func NewChannelsDatabaseCipher(cmixID int, password []byte,
 	stream := user.api.GetRng().GetStream()
 
 	// Load or generate a salt
-	salt, err := channels.NewOrLoadSalt(
+	salt, err := utility.NewOrLoadSalt(
 		user.api.GetStorage().GetKV(), stream)
 	if err != nil {
 		return nil, err
@@ -1530,7 +1531,7 @@ func NewChannelsDatabaseCipher(cmixID int, password []byte,
 	}
 
 	// Return a cipher
-	return channelDbCipherTrackerSingleton.make(c), nil
+	return channelDbCipherTrackerSingleton.create(c), nil
 }
 
 // GetID returns the ID for this ChannelDbCipher in the channelDbCipherTracker.

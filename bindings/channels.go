@@ -807,12 +807,11 @@ func (cm *ChannelsManager) SendGeneric(marshalledChanId []byte,
 	}
 
 	msgTy := channels.MessageType(messageType)
-	msgDigest := channels.MakeChanMsgDigest(chanId, msgTy, message)
 
 	// Send message
 	chanMsgId, rnd, ephId, err := cm.api.SendGeneric(chanId,
 		msgTy, message, time.Duration(leaseTimeMS),
-		msgDigest, params.CMIX)
+		params.CMIX)
 	if err != nil {
 		return nil, err
 	}
@@ -864,12 +863,11 @@ func (cm *ChannelsManager) SendAdminGeneric(adminPrivateKey,
 	}
 
 	msgTy := channels.MessageType(messageType)
-	msgDigest := channels.MakeChanMsgDigest(chanId, msgTy, message)
 
 	// Send admin message
 	chanMsgId, rnd, ephId, err := cm.api.SendAdminGeneric(rsaPrivKey,
 		chanId, msgTy, message, time.Duration(leaseTimeMS),
-		msgDigest, params.CMIX)
+		params.CMIX)
 
 	// Construct send report
 	return constructChannelSendReport(chanMsgId, rnd.ID, ephId)

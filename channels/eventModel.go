@@ -9,6 +9,7 @@ package channels
 
 import (
 	"crypto/ed25519"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -297,6 +298,11 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 		if len(txt.ReplyMessageID) == cryptoChannel.MessageIDLen {
 			var replyTo cryptoChannel.MessageID
 			copy(replyTo[:], txt.ReplyMessageID)
+			tag := makeChaDebugTag(channelID, pubKey, content, SendReplyTag)
+			jww.INFO.Printf("[%s]Channels - Received reply from %s "+
+				"to %s on %s", tag, base64.StdEncoding.EncodeToString(pubKey),
+				base64.StdEncoding.EncodeToString(txt.ReplyMessageID),
+				channelID)
 			return e.model.ReceiveReply(channelID, messageID, replyTo,
 				nickname, txt.Text, pubKey, codeset, timestamp, lease, round, Text, status)
 
@@ -310,6 +316,12 @@ func (e *events) receiveTextMessage(channelID *id.ID,
 			// malformed
 		}
 	}
+
+	tag := makeChaDebugTag(channelID, pubKey, content, SendMessageTag)
+	jww.INFO.Printf("[%s]Channels - Received message from %s "+
+		"to %s on %s", tag, base64.StdEncoding.EncodeToString(pubKey),
+		base64.StdEncoding.EncodeToString(txt.ReplyMessageID),
+		channelID)
 
 	return e.model.ReceiveMessage(channelID, messageID, nickname, txt.Text, pubKey, codeset,
 		timestamp, lease, round, Text, status)
@@ -349,6 +361,13 @@ func (e *events) receiveReaction(channelID *id.ID,
 	if react.ReactionMessageID != nil && len(react.ReactionMessageID) == cryptoChannel.MessageIDLen {
 		var reactTo cryptoChannel.MessageID
 		copy(reactTo[:], react.ReactionMessageID)
+
+		tag := makeChaDebugTag(channelID, pubKey, content, SendReactionTag)
+		jww.INFO.Printf("[%s]Channels - Received reaction from %s "+
+			"to %s on %s", tag, base64.StdEncoding.EncodeToString(pubKey),
+			base64.StdEncoding.EncodeToString(react.ReactionMessageID),
+			channelID)
+
 		return e.model.ReceiveReaction(channelID, messageID, reactTo, nickname,
 			react.Reaction, pubKey, codeset, timestamp, lease, round, Reaction, status)
 	} else {

@@ -89,6 +89,8 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 
 	// Prefix the kv with the username so multiple can be run
 	storageTag := getStorageTag(identity.PubKey)
+	jww.INFO.Printf("NewManager(ID:%s-%s, tag:%s)", identity.Codename,
+		identity.PubKey, storageTag)
 	kv = kv.Prefix(storageTag)
 
 	if err := storeIdentity(kv, identity); err != nil {
@@ -109,6 +111,8 @@ func NewManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 // tag.
 func LoadManager(storageTag string, kv *versioned.KV, net Client,
 	rng *fastRNG.StreamGenerator, modelBuilder EventModelBuilder) (Manager, error) {
+
+	jww.INFO.Printf("LoadManager(tag:%s)", storageTag)
 
 	// Prefix the kv with the username so multiple can be run
 	kv = kv.Prefix(storageTag)
@@ -155,6 +159,7 @@ func setupManager(identity cryptoChannel.PrivateIdentity, kv *versioned.KV,
 // JoinChannel joins the given channel. It will fail if the channel has already
 // been joined.
 func (m *manager) JoinChannel(channel *cryptoBroadcast.Channel) error {
+	jww.INFO.Printf("JoinChannel(%s[%s])", channel.Name, channel.ReceptionID)
 	err := m.addChannel(channel)
 	if err != nil {
 		return err
@@ -168,6 +173,7 @@ func (m *manager) JoinChannel(channel *cryptoBroadcast.Channel) error {
 // LeaveChannel leaves the given channel. It will return an error if the channel
 // was not previously joined.
 func (m *manager) LeaveChannel(channelID *id.ID) error {
+	jww.INFO.Printf("LeaveChannel(%s)", channelID)
 	err := m.removeChannel(channelID)
 	if err != nil {
 		return err
@@ -181,6 +187,7 @@ func (m *manager) LeaveChannel(channelID *id.ID) error {
 // GetChannels returns the IDs of all channels that have been joined. Use
 // getChannelsUnsafe if you already have taken the mux.
 func (m *manager) GetChannels() []*id.ID {
+	jww.INFO.Printf("GetChannels")
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	return m.getChannelsUnsafe()
@@ -188,6 +195,7 @@ func (m *manager) GetChannels() []*id.ID {
 
 // GetChannel returns the underlying cryptographic structure for a given channel.
 func (m *manager) GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error) {
+	jww.INFO.Printf("GetChannel(%s)", chID)
 	jc, err := m.getChannel(chID)
 	if err != nil {
 		return nil, err
@@ -202,7 +210,7 @@ func (m *manager) GetChannel(chID *id.ID) (*cryptoBroadcast.Channel, error) {
 // underlying state tracking for message pickup for the channel, causing all
 // messages to be re-retrieved from the network
 func (m *manager) ReplayChannel(chID *id.ID) error {
-	jww.INFO.Printf("Replaying messages on channel %s", chID)
+	jww.INFO.Printf("ReplayChannel(%s)", chID)
 	m.mux.RLock()
 	defer m.mux.RUnlock()
 
@@ -243,6 +251,7 @@ func (m *manager) GetIdentity() cryptoChannel.Identity {
 // ExportPrivateIdentity encrypts and exports the private identity to a portable
 // string.
 func (m *manager) ExportPrivateIdentity(password string) ([]byte, error) {
+	jww.INFO.Printf("ExportPrivateIdentity()")
 	rng := m.rng.GetStream()
 	defer rng.Close()
 	return m.me.Export(password, rng)

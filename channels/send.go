@@ -9,6 +9,10 @@ package channels
 
 import (
 	"crypto/ed25519"
+	"encoding/base64"
+	"fmt"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix"
@@ -18,13 +22,16 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
+	"golang.org/x/crypto/blake2b"
 	"google.golang.org/protobuf/proto"
-	"time"
 )
 
 const (
 	cmixChannelTextVersion     = 0
 	cmixChannelReactionVersion = 0
+	SendMessageTag             = "ChMessage"
+	SendReplyTag               = "ChReply"
+	SendReactionTag            = "ChReaction"
 )
 
 // The size of the nonce used in the message ID.
@@ -40,13 +47,21 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 	msg []byte, validUntil time.Duration, params cmix.CMIXParams) (
 	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
 
+	// Note: We log sends on exit, and append what happened to the message
+	// this cuts down on clutter in the log.
+	sendPrint := fmt.Sprintf("[%s] Sending ch %s type %d at %s",
+		params.DebugTag, channelID, messageType,
+		netTime.Now())
+	defer jww.INFO.Println(sendPrint)
+
 	//find the channel
 	ch, err := m.getChannel(channelID)
 	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return cryptoChannel.MessageID{}, rounds.Round{},
+			ephemeral.Id{}, err
 	}
 
-	nickname, _ := m.nicknameManager.GetNickname(channelID)
+	nickname, _ := m.GetNickname(channelID)
 
 	var msgId cryptoChannel.MessageID
 
@@ -59,18 +74,25 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		LocalTimestamp: netTime.Now().UnixNano(),
 	}
 
-	// Generate random nonce to be used for message ID generation. This makes it
-	// so two identical messages sent on the same round have different message IDs
+	// Generate random nonce to be used for message ID
+	// generation. This makes it so two identical messages sent on
+	// the same round have different message IDs
 	rng := m.rng.GetStream()
 	n, err := rng.Read(chMsg.Nonce)
 	rng.Close()
 	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+		sendPrint += fmt.Sprintf(", failed to generate nonce: %+v", err)
+		return cryptoChannel.MessageID{}, rounds.Round{},
+			ephemeral.Id{},
 			errors.Errorf("Failed to generate nonce: %+v", err)
 	} else if n != messageNonceSize {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{},
+		sendPrint += fmt.Sprintf(", got %d bytes for %d-byte nonce", n,
+			messageNonceSize)
+		return cryptoChannel.MessageID{}, rounds.Round{},
+			ephemeral.Id{},
 			errors.Errorf(
-				"Generated %d bytes for %-byte nonce", n, messageNonceSize)
+				"Generated %d bytes for %d-byte nonce", n,
+				messageNonceSize)
 	}
 
 	usrMsg := &UserMessage{
@@ -110,22 +132,38 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 		return usrMsgSerial, nil
 	}
 
+	sendPrint += fmt.Sprintf(", pending send %s", netTime.Now())
 	uuid, err := m.st.denotePendingSend(channelID, &userMessageInternal{
 		userMessage:    usrMsg,
 		channelMessage: chMsg,
 		messageID:      msgId,
 	})
+	if err != nil {
+		sendPrint += fmt.Sprintf(", pending send failed %s",
+			err.Error())
+		return cryptoChannel.MessageID{}, rounds.Round{},
+			ephemeral.Id{}, err
+	}
 
+	sendPrint += fmt.Sprintf(", broadcasting message %s", netTime.Now())
 	r, ephid, err := ch.broadcast.BroadcastWithAssembler(assemble, params)
 	if err != nil {
+		sendPrint += fmt.Sprintf(", broadcast failed %s, %s",
+			netTime.Now(), err.Error())
 		errDenote := m.st.failedSend(uuid)
 		if errDenote != nil {
-			jww.ERROR.Printf("Failed to update for a failed send to "+
-				"%s: %+v", channelID, err)
+			sendPrint += fmt.Sprintf(", failed to denote failed "+
+				"broadcast: %s", err.Error())
 		}
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		return cryptoChannel.MessageID{}, rounds.Round{},
+			ephemeral.Id{}, err
 	}
+	sendPrint += fmt.Sprintf(", broadcast succeeded %s, success!",
+		netTime.Now())
 	err = m.st.send(uuid, msgId, r)
+	if err != nil {
+		sendPrint += fmt.Sprintf(", broadcast failed: %s ", err.Error())
+	}
 	return msgId, r, ephid, err
 }
 
@@ -136,8 +174,15 @@ func (m *manager) SendGeneric(channelID *id.ID, messageType MessageType,
 // return an error. The message must be at most 510 bytes long.
 func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 	messageType MessageType, msg []byte, validUntil time.Duration,
-	params cmix.CMIXParams) (cryptoChannel.MessageID, rounds.Round, ephemeral.Id,
-	error) {
+	params cmix.CMIXParams) (cryptoChannel.MessageID, rounds.Round,
+	ephemeral.Id, error) {
+
+	// Note: We log sends on exit, and append what happened to the message
+	// this cuts down on clutter in the log.
+	sendPrint := fmt.Sprintf("[%s] Admin sending ch %s type %d at %s",
+		params.DebugTag, channelID, messageType,
+		netTime.Now())
+	defer jww.INFO.Println(sendPrint)
 
 	//find the channel
 	ch, err := m.getChannel(channelID)
@@ -194,25 +239,34 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 		return chMsgSerial, nil
 	}
 
+	sendPrint += fmt.Sprintf(", pending send %s", netTime.Now())
 	uuid, err := m.st.denotePendingAdminSend(channelID, chMsg)
 	if err != nil {
+		sendPrint += fmt.Sprintf(", pending send failed %s",
+			err.Error())
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
+	sendPrint += fmt.Sprintf(", broadcasting message %s", netTime.Now())
 	r, ephid, err := ch.broadcast.BroadcastRSAToPublicWithAssembler(privKey,
 		assemble, params)
 	if err != nil {
+		sendPrint += fmt.Sprintf(", broadcast failed %s, %s",
+			netTime.Now(), err.Error())
 		errDenote := m.st.failedSend(uuid)
 		if errDenote != nil {
+			sendPrint += fmt.Sprintf(", failed to denote failed "+
+				"broadcast: %s", err.Error())
 			jww.ERROR.Printf("Failed to update for a failed send to "+
 				"%s: %+v", channelID, err)
 		}
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
-
+	sendPrint += fmt.Sprintf(", broadcast succeeded %s, success!",
+		netTime.Now())
 	err = m.st.send(uuid, msgId, r)
 	if err != nil {
-		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
+		sendPrint += fmt.Sprintf(", broadcast failed: %s ", err.Error())
 	}
 	return msgId, r, ephid, err
 }
@@ -224,18 +278,24 @@ func (m *manager) SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 func (m *manager) SendMessage(channelID *id.ID, msg string,
 	validUntil time.Duration, params cmix.CMIXParams) (
 	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	tag := makeChaDebugTag(channelID, m.me.PubKey, []byte(msg), SendMessageTag)
+	jww.INFO.Printf("[%s]SendMessage(%s)", tag, channelID)
+
 	txt := &CMIXChannelText{
 		Version:        cmixChannelTextVersion,
 		Text:           msg,
 		ReplyMessageID: nil,
 	}
 
+	params = params.SetDebugTag(tag)
+
 	txtMarshaled, err := proto.Marshal(txt)
 	if err != nil {
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
-	return m.SendGeneric(channelID, Text, txtMarshaled, validUntil, params)
+	return m.SendGeneric(channelID, Text, txtMarshaled, validUntil,
+		params)
 }
 
 // SendReply is used to send a formatted message over a channel.
@@ -248,18 +308,23 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 	replyTo cryptoChannel.MessageID, validUntil time.Duration,
 	params cmix.CMIXParams) (cryptoChannel.MessageID, rounds.Round,
 	ephemeral.Id, error) {
+	tag := makeChaDebugTag(channelID, m.me.PubKey, []byte(msg), SendReplyTag)
+	jww.INFO.Printf("[%s]SendReply(%s, to %s)", tag, channelID, replyTo)
 	txt := &CMIXChannelText{
 		Version:        cmixChannelTextVersion,
 		Text:           msg,
 		ReplyMessageID: replyTo[:],
 	}
 
+	params = params.SetDebugTag(tag)
+
 	txtMarshaled, err := proto.Marshal(txt)
 	if err != nil {
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
 	}
 
-	return m.SendGeneric(channelID, Text, txtMarshaled, validUntil, params)
+	return m.SendGeneric(channelID, Text, txtMarshaled, validUntil,
+		params)
 }
 
 // SendReaction is used to send a reaction to a message over a channel.
@@ -269,6 +334,8 @@ func (m *manager) SendReply(channelID *id.ID, msg string,
 func (m *manager) SendReaction(channelID *id.ID, reaction string,
 	reactTo cryptoChannel.MessageID, params cmix.CMIXParams) (
 	cryptoChannel.MessageID, rounds.Round, ephemeral.Id, error) {
+	tag := makeChaDebugTag(channelID, m.me.PubKey, []byte(reaction), SendReactionTag)
+	jww.INFO.Printf("[%s]SendReply(%s, to %s)", tag, channelID, reactTo)
 
 	if err := ValidateReaction(reaction); err != nil {
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
@@ -280,6 +347,8 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 		ReactionMessageID: reactTo[:],
 	}
 
+	params = params.SetDebugTag(tag)
+
 	reactMarshaled, err := proto.Marshal(react)
 	if err != nil {
 		return cryptoChannel.MessageID{}, rounds.Round{}, ephemeral.Id{}, err
@@ -287,4 +356,19 @@ func (m *manager) SendReaction(channelID *id.ID, reaction string,
 
 	return m.SendGeneric(channelID, Reaction, reactMarshaled, ValidForever,
 		params)
+}
+
+// makeChaDebugTag is a debug helper that creates non-unique msg identifier
+// This is set as the debug tag on messages and enables some level
+// of tracing a message (if it's contents/chan/type are unique)
+func makeChaDebugTag(channelID *id.ID, id ed25519.PublicKey,
+	msg []byte, baseTag string) string {
+
+	h, _ := blake2b.New256(nil)
+	h.Write(channelID[:])
+	h.Write(msg)
+	h.Write(id)
+
+	tripcode := base64.RawStdEncoding.EncodeToString(h.Sum(nil))[:12]
+	return fmt.Sprintf("%s-%s", baseTag, tripcode)
 }

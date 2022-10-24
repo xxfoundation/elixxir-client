@@ -8,6 +8,9 @@
 package channels
 
 import (
+	"math"
+	"time"
+
 	"gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	cryptoBroadcast "gitlab.com/elixxir/crypto/broadcast"
@@ -15,8 +18,6 @@ import (
 	"gitlab.com/elixxir/crypto/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"math"
-	"time"
 )
 
 // ValidForever is used as a validUntil lease when sending to denote the
@@ -64,8 +65,8 @@ type Manager interface {
 	// return an error. The message must be at most 510 bytes long.
 	SendAdminGeneric(privKey rsa.PrivateKey, channelID *id.ID,
 		messageType MessageType, msg []byte, validUntil time.Duration,
-		params cmix.CMIXParams) (cryptoChannel.MessageID, rounds.Round,
-		ephemeral.Id, error)
+		params cmix.CMIXParams) (cryptoChannel.MessageID,
+		rounds.Round, ephemeral.Id, error)
 
 	// SendMessage is used to send a formatted message over a channel.
 	// Due to the underlying encoding using compression, it isn't

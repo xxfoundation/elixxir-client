@@ -218,16 +218,22 @@ func (rrs *receivedRequestService) Process(message format.Message,
 			//verify ownership proof
 			jww.WARN.Printf("[GO-UPDATE] RECEIVED REQUEST: \n"+
 				"partnerPubKey: %+v\n"+
-				"myPublicKey: %+v"+
-				"ownershipProof: %+v",
+				"myPublicKey: %+v\n"+
+				"ownershipProof: %+v\n",
 				base64.StdEncoding.EncodeToString(partnerPubKey.Bytes()),
 				base64.StdEncoding.EncodeToString(historicalDHPub.Bytes()),
 				base64.StdEncoding.EncodeToString(ownershipProof),
 			)
 			if !cAuth.VerifyOwnershipProof(authState.e2e.GetHistoricalDHPrivkey(),
 				partnerPubKey, authState.e2e.GetGroup(), ownershipProof) {
-				jww.WARN.Printf("Invalid ownership proof from %s to %s "+
+				generatedProof := cAuth.MakeOwnershipProof(privateDhKey,
+					partnerPubKey, authState.e2e.GetGroup())
+
+				jww.WARN.Printf("Invalid ownership proof (expected %s vs received %s) "+
+					"from %s to %s "+
 					"received, discarding msgDigest: %s, fp: %s",
+					base64.StdEncoding.EncodeToString(ownershipProof),
+					base64.StdEncoding.EncodeToString(generatedProof),
 					partnerID, receptionID.Source,
 					format.DigestContents(message.GetContents()),
 					base64.StdEncoding.EncodeToString(fp))

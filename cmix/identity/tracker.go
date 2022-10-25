@@ -152,8 +152,8 @@ func (t *manager) AddIdentityWithHistory(id *id.ID, validUntil, historicalBeginn
 	}
 
 	if now := time.Now(); historicalBeginning.After(now) ||
-		now.Sub(historicalBeginning) < 1*time.Minute {
-		historicalBeginning = now.Add(-1 * time.Minute)
+		now.Sub(historicalBeginning) < time.Duration(ephemeral.Period) {
+		historicalBeginning = now.Add(-time.Duration(ephemeral.Period))
 	}
 
 	t.newIdentity <- TrackedID{

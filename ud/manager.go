@@ -129,12 +129,8 @@ func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
 //  - user is an interface that adheres to the xxdk.E2e object.
 //  - comms is an interface that adheres to client.Comms object.
 //  - follower is a method off of xxdk.Cmix which returns the network follower's status.
-//  - username is the name of the user as it is registered with UD. This will be what the end user
-//    provides if through the bindings.
 //  - networkValidationSig is a signature provided by the network (i.e. the client registrar). This may
 //    be nil, however UD may return an error in some cases (e.g. in a production level environment).
-//  - email is a fact.Fact (type Email) which has been registered with UD already.
-//  - phone is a fact.Fact (type Phone) which has been registered with UD already.
 //  - cert is the TLS certificate for the UD server this call will connect with.
 //  - contactFile is the data within a marshalled contact.Contact. This represents the
 //    contact file of the server this call will connect with.
@@ -142,9 +138,9 @@ func NewOrLoad(user udE2e, comms Comms, follower udNetworkStatus,
 //
 // Returns
 //  - A Manager object which is registered to the specified UD service.
-func NewManagerFromBackup(user udE2e, comms Comms, follower udNetworkStatus,
-	username, email, phone fact.Fact,
-	cert, contactFile []byte, address string) (*Manager, error) {
+func NewManagerFromBackup(user udE2e, comms Comms,
+	follower udNetworkStatus, cert, contactFile []byte,
+	address string) (*Manager, error) {
 	jww.INFO.Println("ud.NewManagerFromBackup()")
 	if follower() != xxdk.Running {
 		return nil, errors.New(
@@ -163,13 +159,6 @@ func NewManagerFromBackup(user udE2e, comms Comms, follower udNetworkStatus,
 	m.store, err = store.NewOrLoadStore(m.getKv())
 	if err != nil {
 		return nil, err
-	}
-
-	// Put any passed in missing facts into store
-	err = m.store.BackUpMissingFacts(username, email, phone)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to restore UD store "+
-			"from backup")
 	}
 
 	// Set as registered. Since it's from a backup,

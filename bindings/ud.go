@@ -203,29 +203,23 @@ func NewOrLoadUd(e2eID int, follower UdNetworkStatus, username string,
 }
 
 // NewUdManagerFromBackup builds a new user discover manager from a backup. It
-// will construct a manager that is already registered and restore already
-// registered facts into store.
+// will construct a manager that is already registered. Confirmed facts have
+// already been restored via the call NewCmixFromBackup.
 //
 // Parameters:
 //  - e2eID - e2e object ID in the tracker
 //  - follower - network follower func wrapped in UdNetworkStatus
-//  - username - The username this user registered with initially. This should
-//               not be nullable, and be JSON marshalled as retrieved from
-//               UserDiscovery.GetFacts().
-//  - emailFactJson - nullable JSON marshalled email [fact.Fact]
-//  - phoneFactJson - nullable JSON marshalled phone [fact.Fact]
 //  - cert - the TLS certificate for the UD server this call will connect with.
 //    You may use the UD server run by the xx network team by using
-//    E2e.GetUdCertFromNdf.
-//  - contactFile - the data within a marshalled contact.Contact. This
+//    [E2e.GetUdCertFromNdf].
+//  - contactFile - the data within a marshalled [contact.Contact]. This
 //    represents the contact file of the server this call will connect with. You
 //    may use the UD server run by the xx network team by using
-//    E2e.GetUdContactFromNdf.
+//    [E2e.GetUdContactFromNdf].
 //  - address - the IP address of the UD server this call will connect with. You
 //    may use the UD server run by the xx network team by using
-//    E2e.GetUdAddressFromNdf.
+//    [E2e.GetUdAddressFromNdf].
 func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus,
-	usernameJson, emailFactJson, phoneFactJson,
 	cert, contactFile []byte, address string) (*UserDiscovery, error) {
 
 	// Get user from singleton
@@ -234,38 +228,12 @@ func NewUdManagerFromBackup(e2eID int, follower UdNetworkStatus,
 		return nil, err
 	}
 
-	var email, phone, username fact.Fact
-
-	// Parse email if non-nil
-	if emailFactJson != nil {
-		err = json.Unmarshal(emailFactJson, &email)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Parse phone if non-nil
-	if phoneFactJson != nil {
-		err = json.Unmarshal(phoneFactJson, &phone)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Parse username
-	err = json.Unmarshal(usernameJson, &username)
-	if err != nil {
-		return nil, err
-	}
-
 	UdNetworkStatusFn := func() xxdk.Status {
 		return xxdk.Status(follower.UdNetworkStatus())
 	}
 
-	u, err := ud.NewManagerFromBackup(
-		user.api, user.api.GetComms(), UdNetworkStatusFn,
-		username, email, phone,
-		cert, contactFile, address)
+	u, err := ud.NewManagerFromBackup(user.api, user.api.GetComms(),
+		UdNetworkStatusFn, cert, contactFile, address)
 	if err != nil {
 		return nil, err
 	}
@@ -445,9 +413,9 @@ type UdMultiLookupCallback interface {
 }
 
 type lookupResp struct {
-	id      *id.ID
-	contact contact.Contact
-	err     error
+	Id      *id.ID
+	Contact contact.Contact
+	Err     error
 }
 
 // MultiLookupUD returns the public key of all passed in IDs as known by the
@@ -490,26 +458,27 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 		return err
 	}
 
+	jww.INFO.Printf("ud.MultiLookupUD(%s, %s)", idList, p.Timeout)
+
 	respCh := make(chan lookupResp, len(idList))
 	for _, uid := range idList {
-		localID := uid.DeepCopy()
 		callback := func(c contact.Contact, err error) {
 			respCh <- lookupResp{
-				id:      localID,
-				contact: c,
-				err:     err,
+				Id:      uid,
+				Contact: c,
+				Err:     err,
 			}
 		}
-		go func() {
+		go func(localID *id.ID) {
 			_, _, err := ud.Lookup(user.api, c, callback, localID, p)
 			if err != nil {
 				respCh <- lookupResp{
-					id:      localID,
-					contact: contact.Contact{},
-					err:     err,
+					Id:      localID,
+					Contact: contact.Contact{},
+					Err:     err,
 				}
 			}
-		}()
+		}(uid.DeepCopy())
 
 	}
 
@@ -519,14 +488,14 @@ func MultiLookupUD(e2eID int, udContact []byte, cb UdMultiLookupCallback,
 		var errorString string
 		for numReturned := 0; numReturned < len(idList); numReturned++ {
 			response := <-respCh
-			if response.err != nil {
-				failedIDs = append(failedIDs, response.id)
-				marshaledContactList = append(
-					marshaledContactList, response.contact.Marshal())
-			} else {
+			if response.Err != nil {
+				failedIDs = append(failedIDs, response.Id)
 				errorString = errorString +
 					fmt.Sprintf("Failed to lookup id %s: %+v",
-						response.id, response.err)
+						response.Id, response.Err)
+			} else {
+				marshaledContactList = append(
+					marshaledContactList, response.Contact.Marshal())
 			}
 		}
 

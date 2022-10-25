@@ -110,6 +110,10 @@ func (s *Single) Close() error {
 
 		// Send on quit channel
 		s.quit <- struct{}{}
+
+		jww.TRACE.Printf("Sent to quit channel for single stoppable %q.",
+			s.Name())
+
 	})
 
 	if err != nil {

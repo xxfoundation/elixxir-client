@@ -92,6 +92,7 @@ func NewCmixFromBackup(ndfJSON, storageDir, backupPassphrase string,
 			phone = f
 		}
 	}
+
 	err = ud.InitStoreFromBackup(storageSess.GetKV(), username, email, phone)
 	return backUp.Contacts.Identities, backUp.JSONParams, err
 }

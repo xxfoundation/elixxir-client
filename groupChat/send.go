@@ -14,9 +14,7 @@ import (
 	"gitlab.com/elixxir/client/cmix/message"
 	"gitlab.com/elixxir/client/cmix/rounds"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/group"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"io"
@@ -64,7 +62,7 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 	timeNow := netTime.Now().Round(0)
 
 	// Create a cMix message for each group member
-	groupMessages, err := m.newMessages(g, tag, message, timeNow)
+	groupMessages, msgId, err := m.newMessages(g, tag, message, timeNow)
 	if err != nil {
 		return rounds.Round{}, time.Time{}, group.MessageID{},
 			errors.Errorf(newCmixMsgErr, g.Name, g.ID, err)
@@ -93,14 +91,39 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 
 // newMessages builds a list of messages, one for each group chat member.
 func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
-	timestamp time.Time) ([]cmix.TargetedCmixMessage, error) {
+	timestamp time.Time) ([]cmix.TargetedCmixMessage, group.MessageID, error) {
 
 	// Create list of cMix messages
 	messages := make([]cmix.TargetedCmixMessage, 0, len(g.Members))
 	rng := m.getRng().GetStream()
 	defer rng.Close()
 
-	// Create cMix messages in parallel
+	// Generate initial internal message
+	maxCmixMessageLength := m.getCMix().GetMaxMessageLength()
+
+	// Generate public message to determine what length internal message can be
+	pubMsg, err := newPublicMsg(maxCmixMessageLength)
+	if err != nil {
+		return nil, group.MessageID{}, errors.Errorf(newPublicMsgErr, err)
+	}
+
+	// Generate internal message
+	intlMsg, err := newInternalMsg(pubMsg.GetPayloadSize())
+	if err != nil {
+		return nil, group.MessageID{}, errors.Errorf(newInternalMsgErr, err)
+	}
+
+	// Return an error if the message is too large to fit in the payload
+	if intlMsg.GetPayloadMaxSize() < len(msg) {
+		return nil, group.MessageID{}, errors.Errorf(
+			messageLenErr, len(msg), intlMsg.GetPayloadMaxSize())
+	}
+
+	// Generate internal message
+	internalMessagePayload := setInternalPayload(intlMsg, timestamp,
+		m.getReceptionIdentity().ID, msg)
+
+	// Create cMix messages
 	for _, member := range g.Members {
 		// Do not send to the sender
 		if m.getReceptionIdentity().ID.Cmp(member.ID) {
@@ -108,21 +131,22 @@ func (m *manager) newMessages(g gs.Group, tag string, msg []byte,
 		}
 
 		// Add cMix message to list
-		cMixMsg, err := newCmixMsg(g, tag, msg, timestamp, member, rng,
-			m.getReceptionIdentity().ID, m.getCMix().GetMaxMessageLength())
+		cMixMsg, err := newCmixMsg(g, tag, timestamp, member, rng, maxCmixMessageLength,
+			internalMessagePayload)
 		if err != nil {
-			return nil, err
+			return nil, group.MessageID{}, err
 		}
 		messages = append(messages, cMixMsg)
 	}
 
-	return messages, nil
+	return messages, group.NewMessageID(g.ID, internalMessagePayload), nil
 }
 
 // newCmixMsg generates a new cmix.TargetedCmixMessage for the given group
 // member
-func newCmixMsg(g gs.Group, tag string, msg []byte, timestamp time.Time,
-	mem group.Member, rng io.Reader, senderId *id.ID, maxCmixMessageSize int) (
+func newCmixMsg(g gs.Group, tag string, timestamp time.Time,
+	mem group.Member, rng io.Reader, maxCmixMessageSize int,
+	internalMessagePayload []byte) (
 	cmix.TargetedCmixMessage, error) {
 
 	// Initialize targeted message
@@ -135,16 +159,10 @@ func newCmixMsg(g gs.Group, tag string, msg []byte, timestamp time.Time,
 		},
 	}
 
-	// Create three message layers
-	pubMsg, intlMsg, err := newMessageParts(maxCmixMessageSize)
+	// Generate public message
+	pubMsg, err := newPublicMsg(maxCmixMessageSize)
 	if err != nil {
 		return cmixMsg, err
-	}
-
-	// Return an error if the message is too large to fit in the payload
-	if intlMsg.GetPayloadMaxSize() < len(msg) {
-		return cmixMsg, errors.Errorf(
-			messageLenErr, len(msg), intlMsg.GetPayloadMaxSize())
 	}
 
 	// Generate 256-bit salt
@@ -162,11 +180,9 @@ func newCmixMsg(g gs.Group, tag string, msg []byte, timestamp time.Time,
 		return cmixMsg, errors.WithMessage(err, newKeyErr)
 	}
 
-	// Generate internal message
-	payload := setInternalPayload(intlMsg, timestamp, senderId, msg)
-
 	// Encrypt internal message
-	encryptedPayload := group.Encrypt(key, cmixMsg.Fingerprint, payload)
+	encryptedPayload := group.Encrypt(key, cmixMsg.Fingerprint,
+		internalMessagePayload)
 
 	// Generate public message
 	cmixMsg.Payload = setPublicPayload(pubMsg, salt, encryptedPayload)
@@ -175,35 +191,6 @@ func newCmixMsg(g gs.Group, tag string, msg []byte, timestamp time.Time,
 	cmixMsg.Mac = group.NewMAC(key, encryptedPayload, g.DhKeys[*mem.ID])
 
 	return cmixMsg, nil
-}
-
-// getGroupMessageId builds the group message ID.
-func getGroupMessageId(grp *cyclic.Group, groupId, senderId *id.ID,
-	timestamp time.Time, msg []byte) (group.MessageID, error) {
-	cmixMsg := format.NewMessage(grp.GetP().ByteLen())
-	_, intlMsg, err := newMessageParts(cmixMsg.ContentsSize())
-	if err != nil {
-		return group.MessageID{}, errors.WithMessage(err,
-			"Failed to make message parts for message ID")
-	}
-	return group.NewMessageID(groupId,
-		setInternalPayload(intlMsg, timestamp, senderId, msg)), nil
-}
-
-// newMessageParts generates a public payload message and the internal payload
-// message. An error is returned if the messages cannot fit in the payloadSize.
-func newMessageParts(payloadSize int) (publicMsg, internalMsg, error) {
-	pubMsg, err := newPublicMsg(payloadSize)
-	if err != nil {
-		return pubMsg, internalMsg{}, errors.Errorf(newPublicMsgErr, err)
-	}
-
-	intlMsg, err := newInternalMsg(pubMsg.GetPayloadSize())
-	if err != nil {
-		return pubMsg, intlMsg, errors.Errorf(newInternalMsgErr, err)
-	}
-
-	return pubMsg, intlMsg, nil
 }
 
 // newSalt generates a new salt of the specified size.

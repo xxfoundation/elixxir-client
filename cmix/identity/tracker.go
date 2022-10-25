@@ -47,6 +47,11 @@ const (
 	// NetworkRetention is how long messages are
 	// retained on the network
 	NetworkRetention = 500 * time.Hour
+
+	// GenerationDelta is how far into the past
+	// to go in order to ensure all relevant
+	// ephemeral identities are generated
+	GenerationDelta = time.Duration(ephemeral.Period) + (5 * time.Second)
 )
 
 type Tracker interface {
@@ -133,7 +138,7 @@ func (t *manager) StartProcesses() stoppable.Stoppable {
 
 // AddIdentity adds an identity to be tracked.
 func (t *manager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
-	lastGeneration := netTime.Now().Add(-time.Duration(ephemeral.Period))
+	lastGeneration := netTime.Now().Add(-GenerationDelta)
 	t.newIdentity <- TrackedID{
 		NextGeneration: netTime.Now().Add(-time.Second),
 		LastGeneration: lastGeneration,
@@ -152,8 +157,8 @@ func (t *manager) AddIdentityWithHistory(id *id.ID, validUntil, historicalBeginn
 	}
 
 	if now := time.Now(); historicalBeginning.After(now) ||
-		now.Sub(historicalBeginning) < time.Duration(ephemeral.Period) {
-		historicalBeginning = now.Add(-time.Duration(ephemeral.Period))
+		now.Sub(historicalBeginning) < GenerationDelta {
+		historicalBeginning = now.Add(-GenerationDelta)
 	}
 
 	t.newIdentity <- TrackedID{

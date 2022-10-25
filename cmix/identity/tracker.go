@@ -392,12 +392,12 @@ func (t *manager) generateIdentitiesOverRange(inQuestion *TrackedID,
 		if isLastIdentity := i == len(protoIds)-1; isLastIdentity {
 			jww.INFO.Printf("Current Identity: %d (source: %s), Start: %s, "+
 				"End: %s, addrSize: %d",
-				identitiesToAdd[i].EphId.Int64(),
-				identitiesToAdd[i].Source,
-				identitiesToAdd[i].StartValid,
-				identitiesToAdd[i].EndValid,
+				newIdentity.EphId.Int64(),
+				newIdentity.Source,
+				newIdentity.StartValid,
+				newIdentity.EndValid,
 				addressSize)
-			lastIdentityEnd = identitiesToAdd[i].End
+			lastIdentityEnd = newIdentity.End
 		}
 	}
 

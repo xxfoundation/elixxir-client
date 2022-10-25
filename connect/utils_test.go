@@ -172,8 +172,9 @@ func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAss
 func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	return rounds.Round{}, []ephemeral.Id{}, nil
 }
-func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool) {}
-func (m *mockCmix) RemoveIdentity(*id.ID)               {}
+func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)                       {}
+func (m *mockCmix) AddIdentityWithHistory(*id.ID, time.Time, time.Time, bool) {}
+func (m *mockCmix) RemoveIdentity(*id.ID)                                     {}
 
 func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error) {
 	return identity.TrackedID{Creation: netTime.Now().Add(-time.Minute)}, nil

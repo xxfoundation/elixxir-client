@@ -160,6 +160,10 @@ func (t *testNetworkManagerGeneric) AddHealthCallback(f func(bool)) uint64 {
 func (t *testNetworkManagerGeneric) AddIdentity(id *id.ID,
 	validUntil time.Time, persistent bool) {
 }
+func (t *testNetworkManagerGeneric) AddIdentityWithHistory(id *id.ID, validUntil,
+	beginning time.Time, persistent bool) {
+}
+
 func (t *testNetworkManagerGeneric) RemoveIdentity(id *id.ID) {}
 func (t *testNetworkManagerGeneric) AddService(clientID *id.ID,
 	newService message.Service, response message.Processor) {

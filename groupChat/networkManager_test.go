@@ -95,6 +95,11 @@ func (tnm *testNetworkManager) AddIdentity(id *id.ID, validUntil time.Time, pers
 	panic("implement me")
 }
 
+func (tnm *testNetworkManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (tnm *testNetworkManager) RemoveIdentity(id *id.ID) {
 	//TODO implement me
 	panic("implement me")

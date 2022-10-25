@@ -31,6 +31,8 @@ func (mc *mockClient) IsHealthy() bool {
 	return true
 }
 func (mc *mockClient) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {}
+func (mc *mockClient) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+}
 func (mc *mockClient) AddService(clientID *id.ID, newService message.Service,
 	response message.Processor) {
 }

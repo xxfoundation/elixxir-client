@@ -151,6 +151,11 @@ func (t *manager) AddIdentityWithHistory(id *id.ID, validUntil, historicalBeginn
 		historicalBeginning = retention
 	}
 
+	if now := time.Now(); historicalBeginning.After(now) ||
+		now.Sub(historicalBeginning) < 1*time.Minute {
+		historicalBeginning = now.Add(-1 * time.Minute)
+	}
+
 	t.newIdentity <- TrackedID{
 		NextGeneration: netTime.Now().Add(-time.Second),
 		LastGeneration: historicalBeginning,

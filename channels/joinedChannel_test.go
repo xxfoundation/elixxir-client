@@ -580,7 +580,7 @@ func newTestChannel(name, description string, rng csprng.Source,
 	level cryptoBroadcast.PrivacyLevel) (
 	*cryptoBroadcast.Channel, rsa.PrivateKey, error) {
 	c, pk, err := cryptoBroadcast.NewChannelVariableKeyUnsafe(
-		name, description, level, 1000, 512, rng)
+		name, description, level, time.Now(), 1000, 512, rng)
 	return c, pk, err
 }
 

@@ -44,6 +44,8 @@ const (
 	// on receptionID.Identity.
 	DefaultExtraChecks = 5
 
+	// NetworkRetention is how long messages are
+	// retained on the network
 	NetworkRetention = 500 * time.Hour
 )
 

@@ -42,7 +42,7 @@ const (
 
 	// DefaultExtraChecks is the default value for ExtraChecks
 	// on receptionID.Identity.
-	DefaultExtraChecks = 10
+	DefaultExtraChecks = 5
 
 	NetworkRetention = 500 * time.Hour
 )

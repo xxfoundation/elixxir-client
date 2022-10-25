@@ -359,6 +359,7 @@ func (t *manager) generateIdentitiesOverRange(inQuestion *TrackedID,
 
 	// Add identities for every address ID
 	lastIdentityEnd := time.Time{}
+	var NewestIdentity receptionID.Identity
 	for i, _ := range protoIds {
 		eid := protoIds[i]
 		// Expand the grace period for both start and end
@@ -391,15 +392,9 @@ func (t *manager) generateIdentitiesOverRange(inQuestion *TrackedID,
 			identitiesToAdd = append(identitiesToAdd, newIdentity)
 		}
 
-		if isLastIdentity := i == len(protoIds)-1; isLastIdentity {
-			jww.INFO.Printf("Current Identity: %d (source: %s), Start: %s, "+
-				"End: %s, addrSize: %d",
-				newIdentity.EphId.Int64(),
-				newIdentity.Source,
-				newIdentity.StartValid,
-				newIdentity.EndValid,
-				addressSize)
+		if newIdentity.End.After(lastIdentityEnd) {
 			lastIdentityEnd = newIdentity.End
+			NewestIdentity = newIdentity
 		}
 	}
 
@@ -423,8 +418,16 @@ func (t *manager) generateIdentitiesOverRange(inQuestion *TrackedID,
 		}
 	}
 
+	jww.INFO.Printf("Current Identity: %d (source: %s), Start: %s, "+
+		"End: %s, addrSize: %d",
+		NewestIdentity.EphId.Int64(),
+		NewestIdentity.Source,
+		NewestIdentity.StartValid,
+		NewestIdentity.EndValid,
+		addressSize)
+
 	jww.INFO.Printf("Number of identities generated: %d", len(protoIds))
-	return lastIdentityEnd
+	return NewestIdentity.End
 }
 
 // save persistent TrackedID to storage

@@ -405,14 +405,15 @@ func (t *manager) generateIdentitiesOverRange(inQuestion *TrackedID,
 
 	//link the chain
 	if len(identitiesToChain) > 0 {
-		firstLink := identitiesToChain[len(identitiesToChain)-1]
+		firstLink := &identitiesToChain[len(identitiesToChain)-1]
 		currentLink := firstLink
 		if len(identitiesToChain) > 1 {
 			for i := len(identitiesToChain) - 1; i >= 0; i-- {
 				currentLink.ProcessNext = &identitiesToChain[i]
+				currentLink = currentLink.ProcessNext
 			}
 		}
-		identitiesToAdd = append(identitiesToAdd, firstLink)
+		identitiesToAdd = append(identitiesToAdd, *firstLink)
 	}
 
 	//add the identities

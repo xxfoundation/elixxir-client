@@ -93,8 +93,8 @@ func (s *state) request(partner contact.Contact, myfacts fact.FactList,
 
 	jww.WARN.Printf("[GO-UPDATE] REQUEST: \n"+
 		"partnerPubKey: %+v\n"+
-		"myPublicKey: %+v"+
-		"ownershipProof: %+v",
+		"myPublicKey: %+v\n"+
+		"ownershipProof: %+v\n",
 		base64.StdEncoding.EncodeToString(partner.DhPubKey.Bytes()),
 		base64.StdEncoding.EncodeToString(historicalDHPub.Bytes()),
 		base64.StdEncoding.EncodeToString(ownership),

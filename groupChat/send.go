@@ -68,13 +68,6 @@ func (m *manager) Send(groupID *id.ID, tag string, message []byte) (
 			errors.Errorf(newCmixMsgErr, g.Name, g.ID, err)
 	}
 
-	// Obtain message ID
-	msgId, err := getGroupMessageId(
-		m.getE2eGroup(), groupID, m.getReceptionIdentity().ID, timeNow, message)
-	if err != nil {
-		return rounds.Round{}, time.Time{}, group.MessageID{}, err
-	}
-
 	// Send all the groupMessages
 	param := cmix.GetDefaultCMIXParams()
 	param.DebugTag = "group.Message"

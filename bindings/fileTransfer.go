@@ -33,12 +33,12 @@ type FileTransfer struct {
 //
 // Example JSON:
 //  {
-//   "TransferID":"B4Z9cwU18beRoGbk5xBjbcd5Ryi9ZUFA2UBvi8FOHWo=",
-//   "SenderID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
-//   "Preview":"aXQncyBtZSBhIHByZXZpZXc=",
-//   "Name":"testfile.txt",
-//   "Type":"text file",
-//   "Size":2048
+//    "TransferID":"B4Z9cwU18beRoGbk5xBjbcd5Ryi9ZUFA2UBvi8FOHWo=",
+//    "SenderID":"emV6aW1hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD",
+//    "Preview":"aXQncyBtZSBhIHByZXZpZXc=",
+//    "Name":"testfile.txt",
+//    "Type":"text file",
+//    "Size":2048
 //  }
 type ReceivedFile struct {
 	TransferID []byte // ID of the file transfer
@@ -52,10 +52,10 @@ type ReceivedFile struct {
 // FileSend is a public struct that contains the file contents and its name,
 // type, and preview.
 //  {
-//   "Name":"testfile.txt",
-//   "Type":"text file",
-//   "Preview":"aXQncyBtZSBhIHByZXZpZXc=",
-//   "Contents":"VGhpcyBpcyB0aGUgZnVsbCBjb250ZW50cyBvZiB0aGUgZmlsZSBpbiBieXRlcw=="
+//    "Name":"testfile.txt",
+//    "Type":"text file",
+//    "Preview":"aXQncyBtZSBhIHByZXZpZXc=",
+//    "Contents":"VGhpcyBpcyB0aGUgZnVsbCBjb250ZW50cyBvZiB0aGUgZmlsZSBpbiBieXRlcw=="
 //  }
 type FileSend struct {
 	Name     string // Name of the file
@@ -69,10 +69,10 @@ type FileSend struct {
 //
 // Example JSON:
 //  {
-//   "Completed":false,
-//   "Transmitted":128,
-//   "Total":2048,
-//   "Err":null
+//    "Completed":false,
+//    "Transmitted":128,
+//    "Total":2048,
+//    "Err":null
 //  }
 type Progress struct {
 	Completed   bool  // Status of transfer (true if done)
@@ -183,8 +183,8 @@ func InitFileTransfer(e2eID int, receiveFileCallback ReceiveFileCallback,
 //  - retry - number of retries allowed
 //  - callback - callback that reports file sending progress
 //  - period - Duration (in ms) to wait between progress callbacks triggering.
-//             This value should depend on how frequently you want to receive
-//             updates, and should be tuned to your implementation.
+//    This value should depend on how frequently you want to receive updates,
+//    and should be tuned to your implementation.
 //
 // Returns:
 //  - []byte - unique file transfer ID
@@ -271,8 +271,8 @@ func (f *FileTransfer) CloseSend(tidBytes []byte) error {
 //  - tidBytes - file transfer ID
 //  - callback - callback that reports file reception progress
 //  - period - Duration (in ms) to wait between progress callbacks triggering.
-//             This value should depend on how frequently you want to receive
-//             updates, and should be tuned to your implementation.
+//    This value should depend on how frequently you want to receive updates,
+//    and should be tuned to your implementation.
 func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 	callback FileTransferSentProgressCallback, period int) error {
 	cb := func(completed bool, arrived, total uint16,
@@ -301,8 +301,8 @@ func (f *FileTransfer) RegisterSentProgressCallback(tidBytes []byte,
 //  - tidBytes - file transfer ID
 //  - callback - callback that reports file reception progress
 //  - period - Duration (in ms) to wait between progress callbacks triggering.
-//             This value should depend on how frequently you want to receive
-//             updates, and should be tuned to your implementation.
+//    This value should depend on how frequently you want to receive updates,
+//    and should be tuned to your implementation.
 func (f *FileTransfer) RegisterReceivedProgressCallback(tidBytes []byte,
 	callback FileTransferReceiveProgressCallback, period int) error {
 	cb := func(completed bool, received, total uint16,

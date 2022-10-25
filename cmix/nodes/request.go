@@ -8,6 +8,9 @@
 package nodes
 
 import (
+	"io"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -24,10 +27,8 @@ import (
 	"gitlab.com/xx_network/crypto/chacha"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/crypto/tls"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
-	"io"
 )
 
 // requestKey is a helper function which constructs a ClientKeyRequest message.
@@ -41,9 +42,9 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	// Generate a Diffie-Hellman keypair
 	grp := r.session.GetCmixGroup()
 
+	start := time.Now()
 	prime := grp.GetPBytes()
-	keyLen := len(prime)
-	dhPrivBytes, err := csprng.GenerateInGroup(prime, keyLen, rng)
+	dhPrivBytes, err := csprng.GenerateInGroup(prime, 32, rng)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -66,9 +67,11 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 
 	// Request nonce message from gateway
 	jww.INFO.Printf("Register: Requesting client key from "+
-		"gateway %s", gatewayID)
+		"gateway %s, setup took %s", gatewayID, time.Since(start))
 
+	start = time.Now()
 	result, err := sender.SendToAny(func(host *connect.Host) (interface{}, error) {
+		startInternal := time.Now()
 		keyResponse, err2 := comms.SendRequestClientKeyMessage(host, signedKeyReq)
 		if err2 != nil {
 			return nil, errors.WithMessagef(err2,
@@ -78,9 +81,11 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 			return nil, errors.WithMessage(err2,
 				"requestKey: clientKeyResponse error")
 		}
+		jww.TRACE.Printf("just comm reg request took %s", time.Since(startInternal))
 
 		return keyResponse, nil
 	}, stop)
+	jww.TRACE.Printf("full reg request took %s", time.Since(start))
 
 	if err != nil {
 		return nil, nil, 0, err
@@ -169,22 +174,8 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 	h.Write(signedKeyResponse.KeyResponse)
 	hashedResponse := h.Sum(nil)
 
-	// Load nodes certificate
-	gatewayCert, err := tls.LoadCertificate(ngw.Gateway.TlsCertificate)
-	if err != nil {
-		return nil, nil, 0,
-			errors.Errorf("Unable to load nodes's certificate: %+v", err)
-	}
-
-	// Extract public key
-	nodePubKey, err := tls.ExtractPublicKey(gatewayCert)
-	if err != nil {
-		return nil, nil, 0,
-			errors.Errorf("Unable to load node's public key: %v", err)
-	}
-
 	// Verify the response signature
-	err = rsa.Verify(nodePubKey, opts.Hash, hashedResponse,
+	err := verifyNodeSignature(ngw.Gateway.TlsCertificate, opts.Hash, hashedResponse,
 		signedKeyResponse.KeyResponseSignedByGateway.Signature, opts)
 	if err != nil {
 		return nil, nil, 0,
@@ -202,10 +193,13 @@ func processRequestResponse(signedKeyResponse *pb.SignedKeyResponse,
 	// Convert Node DH Public key to a cyclic.Int
 	nodeDHPub := grp.NewIntFromBytes(keyResponse.NodeDHPubKey)
 
+	start := time.Now()
 	// Construct the session key
 	h.Reset()
 	sessionKey := registration.GenerateBaseKey(grp,
 		nodeDHPub, dhPrivKey, h)
+
+	jww.TRACE.Printf("DH for reg took %s", time.Since(start))
 
 	// Verify the HMAC
 	if !registration.VerifyClientHMAC(sessionKey.Bytes(),

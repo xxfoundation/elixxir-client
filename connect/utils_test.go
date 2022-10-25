@@ -160,11 +160,17 @@ func (m *mockCmix) Follow(cmix.ClientErrorReport) (stoppable.Stoppable, error) {
 func (m *mockCmix) GetMaxMessageLength() int { return 4096 }
 
 func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
-	[]byte, cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
-	return 0, ephemeral.Id{}, nil
+	[]byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
-func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
-	return 0, []ephemeral.Id{}, nil
+
+func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAssembler,
+	cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	return rounds.Round{}, ephemeral.Id{}, nil
+}
+
+func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
+	return rounds.Round{}, []ephemeral.Id{}, nil
 }
 func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool) {}
 func (m *mockCmix) RemoveIdentity(*id.ID)               {}
@@ -189,9 +195,8 @@ func (m *mockCmix) HasNode(*id.ID) bool                                         
 func (m *mockCmix) NumRegisteredNodes() int                                            { return 24 }
 func (m *mockCmix) TriggerNodeRegistration(*id.ID)                                     {}
 
-func (m *mockCmix) GetRoundResults(_ time.Duration, roundCallback cmix.RoundEventCallback, _ ...id.Round) error {
+func (m *mockCmix) GetRoundResults(_ time.Duration, roundCallback cmix.RoundEventCallback, _ ...id.Round) {
 	roundCallback(true, false, nil)
-	return nil
 }
 
 func (m *mockCmix) LookupHistoricalRound(id.Round, rounds.RoundResultCallback) error { return nil }

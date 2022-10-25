@@ -141,7 +141,7 @@ type cmixClient interface {
 	DeleteFingerprint(identity *id.ID, fingerprint format.Fingerprint)
 	Send(recipient *id.ID, fingerprint format.Fingerprint,
 		service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (
-		id.Round, ephemeral.Id, error)
+		rounds.Round, ephemeral.Id, error)
 }
 
 // e2eHandler is a sub-interface of e2e.Handler containing

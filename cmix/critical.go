@@ -8,6 +8,7 @@
 package cmix
 
 import (
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -35,7 +36,7 @@ type roundEventRegistrar interface {
 // anonymous function to include the structures from client that critical is
 // not aware of.
 type criticalSender func(msg format.Message, recipient *id.ID,
-	params CMIXParams) (id.Round, ephemeral.Id, error)
+	params CMIXParams) (rounds.Round, ephemeral.Id, error)
 
 // critical is a structure that allows the auto resending of messages that must
 // be received.
@@ -134,7 +135,7 @@ func (c *critical) evaluate(stop *stoppable.Single) {
 			round, _, err := c.send(msg, recipient, params)
 
 			// Pass to the handler
-			c.handle(msg, recipient, round, err)
+			c.handle(msg, recipient, round.ID, err)
 		}(msg, localRid, params)
 	}
 

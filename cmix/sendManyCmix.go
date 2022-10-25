@@ -9,6 +9,8 @@ package cmix
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/cmix/attempts"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"strings"
 	"time"
 
@@ -67,9 +69,9 @@ type TargetedCmixMessage struct {
 // (along with the reason). Blocks until successful send or err.
 // WARNING: Do not roll your own crypto
 func (c *client) SendMany(messages []TargetedCmixMessage,
-	p CMIXParams) (id.Round, []ephemeral.Id, error) {
+	p CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	if !c.Monitor.IsHealthy() {
-		return 0, []ephemeral.Id{}, errors.New(
+		return rounds.Round{}, []ephemeral.Id{}, errors.New(
 			"Cannot send cMix message when the network is not healthy")
 	}
 
@@ -89,7 +91,7 @@ func (c *client) SendMany(messages []TargetedCmixMessage,
 
 	return sendManyCmixHelper(c.Sender, acms, p,
 		c.instance, c.session.GetCmixGroup(), c.Registrar, c.rng, c.events,
-		c.session.GetTransmissionID(), c.comms)
+		c.session.GetTransmissionID(), c.comms, c.attemptTracker)
 }
 
 type assembledCmixMessage struct {
@@ -108,12 +110,12 @@ type assembledCmixMessage struct {
 // If the message is successfully sent, the ID of the round sent it is returned,
 // which can be registered with the network instance to get a callback on its
 // status.
-func sendManyCmixHelper(sender gateway.Sender,
-	msgs []assembledCmixMessage, param CMIXParams, instance *network.Instance,
-	grp *cyclic.Group, registrar nodes.Registrar,
-	rng *fastRNG.StreamGenerator, events event.Reporter,
-	senderId *id.ID, comms SendCmixCommsInterface) (
-	id.Round, []ephemeral.Id, error) {
+func sendManyCmixHelper(sender gateway.Sender, msgs []assembledCmixMessage,
+	param CMIXParams, instance *network.Instance, grp *cyclic.Group,
+	registrar nodes.Registrar, rng *fastRNG.StreamGenerator,
+	events event.Reporter, senderId *id.ID, comms SendCmixCommsInterface,
+	attemptTracker attempts.SendAttemptTracker) (
+	rounds.Round, []ephemeral.Id, error) {
 
 	timeStart := netTime.Now()
 	var attempted excludedRounds.ExcludedRounds
@@ -140,14 +142,36 @@ func sendManyCmixHelper(sender gateway.Sender,
 		cmix.SetGroupBits(msgs[i].Message, grp, stream)
 	}
 
-	for numRoundTries := uint(0); numRoundTries < param.RoundTries; numRoundTries++ {
+	numAttempts := 0
+	if !param.Probe {
+		optimalAttempts, ready := attemptTracker.GetOptimalNumAttempts()
+		if ready {
+			numAttempts = optimalAttempts
+			jww.INFO.Printf("[SendMany-%s] Looking for round to send cMix "+
+				"messages to %s, sending non probe with %d optimalAttempts",
+				param.DebugTag, recipientString, numAttempts)
+		} else {
+			numAttempts = 4
+			jww.INFO.Printf("[SendMany-%s] Looking for round to send cMix "+
+				"messages to %s, sending non probe with %d non optimalAttempts, "+
+				"insufficient data", param.DebugTag, recipientString, numAttempts)
+		}
+	} else {
+		jww.INFO.Printf("[SendMany-%s] Looking for round to send cMix messages "+
+			"to %s, sending probe with %d Attempts, insufficient data",
+			param.DebugTag, recipientString, numAttempts)
+		defer attemptTracker.SubmitProbeAttempt(numAttempts)
+	}
+
+	for numRoundTries := uint(0); numRoundTries < param.RoundTries; numRoundTries,
+		numAttempts = numRoundTries+1, numAttempts+1 {
 		elapsed := netTime.Since(timeStart)
 
 		if elapsed > param.Timeout {
 			jww.INFO.Printf("[SendMany-%s] No rounds to send to %s "+
 				"(msgDigest: %s) were found before timeout %s", param.DebugTag,
 				recipientString, msgDigests, param.Timeout)
-			return 0, []ephemeral.Id{},
+			return rounds.Round{}, []ephemeral.Id{},
 				errors.New("sending cMix message timed out")
 		}
 
@@ -160,8 +184,8 @@ func sendManyCmixHelper(sender gateway.Sender,
 		remainingTime := param.Timeout - elapsed
 
 		// Find the best round to send to, excluding attempted rounds
-		bestRound, _ := instance.GetWaitingRounds().GetUpcomingRealtime(
-			remainingTime, attempted, sendTimeBuffer)
+		bestRound, _, _ := instance.GetWaitingRounds().GetUpcomingRealtime(
+			remainingTime, attempted, numAttempts, sendTimeBuffer)
 		if bestRound == nil {
 			continue
 		}
@@ -210,7 +234,7 @@ func sendManyCmixHelper(sender gateway.Sender,
 				stream.Close()
 				jww.INFO.Printf("[SendMany-%s] Error building slot "+
 					"received: %v", param.DebugTag, err)
-				return 0, []ephemeral.Id{}, errors.Errorf("failed to build "+
+				return rounds.Round{}, []ephemeral.Id{}, errors.Errorf("failed to build "+
 					"slot message for %s: %+v", msg.Recipient, err)
 			}
 		}
@@ -259,7 +283,7 @@ func sendManyCmixHelper(sender gateway.Sender,
 
 		// Exit if the thread has been stopped
 		if stoppable.CheckErr(err) {
-			return 0, []ephemeral.Id{}, err
+			return rounds.Round{}, []ephemeral.Id{}, err
 		}
 
 		// If the comm errors or the message fails to send, continue retrying
@@ -276,7 +300,7 @@ func sendManyCmixHelper(sender gateway.Sender,
 				jww.INFO.Printf("[SendMany-%s] Error received: %v",
 					param.DebugTag, err)
 			}
-			return 0, []ephemeral.Id{}, err
+			return rounds.Round{}, []ephemeral.Id{}, err
 		}
 
 		// Return if it sends properly
@@ -288,7 +312,7 @@ func sendManyCmixHelper(sender gateway.Sender,
 				bestRound.ID, msgDigests)
 			jww.INFO.Print(m)
 			events.Report(1, "MessageSendMany", "Metric", m)
-			return id.Round(bestRound.ID), ephemeralIDs, nil
+			return rounds.MakeRound(bestRound), ephemeralIDs, nil
 		} else {
 			jww.FATAL.Panicf("[SendMany-%s] Gateway %s returned no "+
 				"error, but failed to accept message when sending to EphIDs "+
@@ -297,6 +321,6 @@ func sendManyCmixHelper(sender gateway.Sender,
 		}
 	}
 
-	return 0, []ephemeral.Id{},
+	return rounds.Round{}, []ephemeral.Id{},
 		errors.New("failed to send the message, unknown error")
 }

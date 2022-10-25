@@ -203,8 +203,8 @@ func (g *GroupChat) Send(groupId, message []byte, tag string) ([]byte, error) {
 
 	// Construct send report
 	sendReport := &GroupSendReport{
-		RoundsList: makeRoundsList(round),
-		RoundURL:   getRoundURL(round),
+		RoundURL:   getRoundURL(round.ID),
+		RoundsList: makeRoundsList(round.ID),
 		Timestamp:  timestamp.UnixNano(),
 		MessageID:  msgID.Bytes(),
 	}
@@ -322,7 +322,7 @@ func (g *Group) Serialize() []byte {
 	return g.g.Serialize()
 }
 
-// DeserializeGroup converts the results of Group.Serialize() into a Group
+// DeserializeGroup converts the results of Group.Serialize into a Group
 // so that its methods can be called.
 func DeserializeGroup(serializedGroupData []byte) (*Group, error) {
 	grp, err := gs.DeserializeGroup(serializedGroupData)

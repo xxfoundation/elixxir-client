@@ -60,10 +60,6 @@ func NewCmix(ndfJSON, storageDir string, password []byte, registrationCode strin
 // subprocesses to perform network operations.
 func LoadCmix(storageDir string, password []byte, cmixParamsJSON []byte) (*Cmix,
 	error) {
-	if len(cmixParamsJSON) == 0 {
-		jww.WARN.Printf("cMix params not specified, using defaults...")
-		cmixParamsJSON = GetDefaultCMixParams()
-	}
 
 	params, err := parseCMixParams(cmixParamsJSON)
 	if err != nil {

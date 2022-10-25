@@ -44,9 +44,9 @@ func newTestNetworkManager(sendErr int) cmix.Client {
 	}
 }
 
-func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, _ cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
+func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, _ cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	if tnm.sendErr == 1 {
-		return 0, nil, errors.New("SendManyCMIX error")
+		return rounds.Round{}, nil, errors.New("SendManyCMIX error")
 	}
 
 	tnm.Lock()
@@ -63,7 +63,7 @@ func (tnm *testNetworkManager) SendMany(messages []cmix.TargetedCmixMessage, _ c
 		receiveMessages = append(receiveMessages, receiveMsg)
 	}
 	tnm.receptionMessages = append(tnm.receptionMessages, receiveMessages)
-	return 0, nil, nil
+	return rounds.Round{}, nil, nil
 }
 
 func (*testNetworkManager) AddService(*id.ID, message.Service, message.Processor)    {}
@@ -78,7 +78,14 @@ func (tnm *testNetworkManager) Follow(report cmix.ClientErrorReport) (stoppable.
 	panic("implement me")
 }
 
-func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+func (tnm *testNetworkManager) SendWithAssembler(recipient *id.ID,
+	assembler cmix.MessageAssembler, cmixParams cmix.CMIXParams) (rounds.Round,
+	ephemeral.Id, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tnm *testNetworkManager) Send(recipient *id.ID, fingerprint format.Fingerprint, service message.Service, payload, mac []byte, cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -163,7 +170,7 @@ func (tnm *testNetworkManager) TriggerNodeRegistration(nid *id.ID) {
 	panic("implement me")
 }
 
-func (tnm *testNetworkManager) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) error {
+func (tnm *testNetworkManager) GetRoundResults(timeout time.Duration, roundCallback cmix.RoundEventCallback, roundList ...id.Round) {
 	//TODO implement me
 	panic("implement me")
 }

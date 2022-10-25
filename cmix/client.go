@@ -11,6 +11,9 @@ package cmix
 // and intra-client state are accessible through the context object.
 
 import (
+	"gitlab.com/elixxir/client/cmix/attempts"
+	"gitlab.com/elixxir/client/cmix/clockSkew"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"strconv"
 	"sync/atomic"
@@ -57,6 +60,8 @@ type client struct {
 	comms *commClient.Comms
 	// Contains the network instance
 	instance *commNetwork.Instance
+	//contains the clock skew tracker
+	skewTracker clockSkew.Tracker
 
 	// Parameters of the network
 	param Params
@@ -70,7 +75,8 @@ type client struct {
 	address.Space
 	identity.Tracker
 	health.Monitor
-	crit *critical
+	crit           *critical
+	attemptTracker attempts.SendAttemptTracker
 
 	// Earliest tracked round
 	earliestRound *uint64
@@ -97,16 +103,20 @@ func NewClient(params Params, comms *commClient.Comms, session storage.Session,
 	tracker := uint64(0)
 	earliest := uint64(0)
 
+	netTime.SetTimeSource(localTime{})
+
 	// Create client object
 	c := &client{
-		param:         params,
-		tracker:       &tracker,
-		events:        events,
-		earliestRound: &earliest,
-		session:       session,
-		rng:           rng,
-		comms:         comms,
-		maxMsgLen:     tmpMsg.ContentsSize(),
+		param:          params,
+		tracker:        &tracker,
+		events:         events,
+		earliestRound:  &earliest,
+		session:        session,
+		rng:            rng,
+		comms:          comms,
+		maxMsgLen:      tmpMsg.ContentsSize(),
+		skewTracker:    clockSkew.New(params.ClockSkewClamp),
+		attemptTracker: attempts.NewSendAttempts(),
 	}
 
 	if params.VerboseRoundTracking {
@@ -188,10 +198,15 @@ func (c *client) initialize(ndf *ndf.NetworkDefinition) error {
 
 	// Set up critical message tracking (sendCmix only)
 	critSender := func(msg format.Message, recipient *id.ID, params CMIXParams,
-	) (id.Round, ephemeral.Id, error) {
-		return sendCmixHelper(c.Sender, msg, recipient, params, c.instance,
+	) (rounds.Round, ephemeral.Id, error) {
+		compiler := func(round id.Round) (format.Message, error) {
+			return msg, nil
+		}
+		r, eid, _, sendErr := sendCmixHelper(c.Sender, compiler, recipient, params, c.instance,
 			c.session.GetCmixGroup(), c.Registrar, c.rng, c.events,
-			c.session.GetTransmissionID(), c.comms)
+			c.session.GetTransmissionID(), c.comms, c.attemptTracker)
+		return r, eid, sendErr
+
 	}
 
 	c.crit = newCritical(c.session.GetKV(), c.Monitor,

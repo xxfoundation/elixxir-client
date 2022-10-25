@@ -115,12 +115,12 @@ func (m *mockCmix) GetMaxMessageLength() int {
 }
 
 func (m *mockCmix) Send(*id.ID, format.Fingerprint, message.Service, []byte,
-	[]byte, cmix.CMIXParams) (id.Round, ephemeral.Id, error) {
+	[]byte, cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
 	panic("implement me")
 }
 
 func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
-	_ cmix.CMIXParams) (id.Round, []ephemeral.Id, error) {
+	_ cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	m.handler.Lock()
 	for _, targetedMsg := range messages {
 		msg := format.NewMessage(m.numPrimeBytes)
@@ -132,7 +132,12 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage,
 			rounds.Round{ID: 42})
 	}
 	m.handler.Unlock()
-	return 42, []ephemeral.Id{}, nil
+	return rounds.Round{ID: 42}, []ephemeral.Id{}, nil
+}
+
+func (m *mockCmix) SendWithAssembler(*id.ID, cmix.MessageAssembler,
+	cmix.CMIXParams) (rounds.Round, ephemeral.Id, error) {
+	panic("implement me")
 }
 
 func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)            { panic("implement me") }
@@ -184,18 +189,19 @@ func (m *mockCmix) NumRegisteredNodes() int        { panic("implement me") }
 func (m *mockCmix) TriggerNodeRegistration(*id.ID) { panic("implement me") }
 
 func (m *mockCmix) GetRoundResults(_ time.Duration,
-	roundCallback cmix.RoundEventCallback, _ ...id.Round) error {
+	roundCallback cmix.RoundEventCallback, _ ...id.Round) {
 	go roundCallback(true, false, map[id.Round]cmix.RoundResult{42: {}})
-	return nil
 }
 
 func (m *mockCmix) LookupHistoricalRound(id.Round, rounds.RoundResultCallback) error {
 	panic("implement me")
 }
-func (m *mockCmix) SendToAny(func(host *connect.Host) (interface{}, error), *stoppable.Single) (interface{}, error) {
+func (m *mockCmix) SendToAny(func(host *connect.Host) (interface{}, error),
+	*stoppable.Single) (interface{}, error) {
 	panic("implement me")
 }
-func (m *mockCmix) SendToPreferred([]*id.ID, gateway.SendToPreferredFunc, *stoppable.Single, time.Duration) (interface{}, error) {
+func (m *mockCmix) SendToPreferred([]*id.ID, gateway.SendToPreferredFunc,
+	*stoppable.Single, time.Duration) (interface{}, error) {
 	panic("implement me")
 }
 func (m *mockCmix) SetGatewayFilter(gateway.Filter)   { panic("implement me") }

@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"gitlab.com/elixxir/client/cmix"
 	cmixMsg "gitlab.com/elixxir/client/cmix/message"
+	"gitlab.com/elixxir/client/cmix/rounds"
 	"gitlab.com/elixxir/client/single/message"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -186,14 +187,14 @@ func (m *mockRequestCmix) GetMaxMessageLength() int {
 
 func (m *mockRequestCmix) Send(_ *id.ID, fp format.Fingerprint,
 	_ cmixMsg.Service, payload, mac []byte, _ cmix.CMIXParams) (
-	id.Round, ephemeral.Id, error) {
+	rounds.Round, ephemeral.Id, error) {
 	msg := format.NewMessage(m.numPrimeBytes)
 	msg.SetMac(mac)
 	msg.SetKeyFP(fp)
 	msg.SetContents(payload)
 	m.sendPayload <- msg
 
-	return 0, ephemeral.Id{}, nil
+	return rounds.Round{}, ephemeral.Id{}, nil
 }
 
 func (m *mockRequestCmix) GetInstance() *network.Instance {

@@ -11,6 +11,13 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
+	"math/rand"
+	"reflect"
+	"sort"
+	"strconv"
+	"testing"
+	"time"
+
 	"gitlab.com/elixxir/client/broadcast"
 	clientCmix "gitlab.com/elixxir/client/cmix"
 	"gitlab.com/elixxir/client/cmix/message"
@@ -24,12 +31,6 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"math/rand"
-	"reflect"
-	"sort"
-	"strconv"
-	"testing"
-	"time"
 )
 
 // Tests that manager.store stores the channel list in the ekv.
@@ -143,9 +144,19 @@ func Test_manager_loadChannels(t *testing.T) {
 			t.Errorf("Channel %s does not exist.", &chID)
 		}
 
-		if !reflect.DeepEqual(ch.broadcast, loadedCh.broadcast) {
+		expected := ch.broadcast.Get()
+		received := loadedCh.broadcast.Get()
+
+		// NOTE: Times don't compare properly after
+		// marshalling due to the monotonic counter
+		if expected.Created.Equal(received.Created) {
+			expected.Created = received.Created
+		}
+
+		if !reflect.DeepEqual(expected, received) {
 			t.Errorf("Channel %s does not match loaded channel."+
-				"\nexpected: %+v\nreceived: %+v", &chID, ch.broadcast, loadedCh.broadcast)
+				"\nexpected: %+v\nreceived: %+v", &chID,
+				expected, received)
 		}
 	}
 }
@@ -507,9 +518,17 @@ func Test_loadJoinedChannel(t *testing.T) {
 		t.Errorf("Failed to load joinedChannel: %+v", err)
 	}
 
-	if !reflect.DeepEqual(ch, loadedJc.broadcast.Get()) {
+	expected := *ch
+	received := *loadedJc.broadcast.Get()
+	// NOTE: Times don't compare properly after marshalling due to the
+	// monotonic counter
+	if expected.Created.Equal(received.Created) {
+		expected.Created = received.Created
+	}
+
+	if !reflect.DeepEqual(expected, received) {
 		t.Errorf("Loaded joinedChannel does not match original."+
-			"\nexpected: %+v\nreceived: %+v", ch, loadedJc.broadcast.Get())
+			"\nexpected: %+v\nreceived: %+v", expected, received)
 	}
 }
 
@@ -580,7 +599,7 @@ func newTestChannel(name, description string, rng csprng.Source,
 	level cryptoBroadcast.PrivacyLevel) (
 	*cryptoBroadcast.Channel, rsa.PrivateKey, error) {
 	c, pk, err := cryptoBroadcast.NewChannelVariableKeyUnsafe(
-		name, description, level, 1000, 512, rng)
+		name, description, level, time.Now(), 1000, 512, rng)
 	return c, pk, err
 }
 
@@ -599,8 +618,10 @@ func (m *mockBroadcastClient) SendWithAssembler(*id.ID,
 	return rounds.Round{ID: id.Round(567)}, ephemeral.Id{}, nil
 }
 
-func (m *mockBroadcastClient) IsHealthy() bool                                       { return true }
-func (m *mockBroadcastClient) AddIdentity(*id.ID, time.Time, bool)                   {}
+func (m *mockBroadcastClient) IsHealthy() bool                     { return true }
+func (m *mockBroadcastClient) AddIdentity(*id.ID, time.Time, bool) {}
+func (m *mockBroadcastClient) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+}
 func (m *mockBroadcastClient) AddService(*id.ID, message.Service, message.Processor) {}
 func (m *mockBroadcastClient) DeleteClientService(*id.ID)                            {}
 func (m *mockBroadcastClient) RemoveIdentity(*id.ID)                                 {}

@@ -86,6 +86,11 @@ func (m *mockCmix) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CMIXPara
 	panic("implement me")
 }
 
+func (m *mockCmix) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *mockCmix) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {
 	//TODO implement me
 	panic("implement me")

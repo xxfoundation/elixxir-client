@@ -214,7 +214,9 @@ func (m *mockCmix) SendWithAssembler(recipient *id.ID, assembler cmix.MessageAss
 func (m *mockCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (rounds.Round, []ephemeral.Id, error) {
 	return rounds.Round{}, nil, nil
 }
-func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)            {}
+func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool) {}
+func (m *mockCmix) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+}
 func (m *mockCmix) RemoveIdentity(*id.ID)                          {}
 func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error) { return identity.TrackedID{}, nil }
 

@@ -110,6 +110,17 @@ func (m *mockCmix) AddIdentity(id *id.ID, _ time.Time, _ bool) {
 	m.handler.processorMap[*id] = make(map[string][]message.Processor)
 }
 
+func (m *mockCmix) AddIdentityWithHistory(id *id.ID, _, _ time.Time, _ bool) {
+	m.handler.Lock()
+	defer m.handler.Unlock()
+
+	if _, exists := m.handler.processorMap[*id]; exists {
+		return
+	}
+
+	m.handler.processorMap[*id] = make(map[string][]message.Processor)
+}
+
 func (m *mockCmix) AddService(clientID *id.ID, newService message.Service,
 	response message.Processor) {
 	m.handler.Lock()

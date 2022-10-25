@@ -67,6 +67,7 @@ type Client interface {
 		cmixParams cmix.CMIXParams) (rounds.Round, ephemeral.Id, error)
 	IsHealthy() bool
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
+	AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool)
 	AddService(clientID *id.ID, newService message.Service,
 		response message.Processor)
 	DeleteClientService(clientID *id.ID)

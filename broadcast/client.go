@@ -42,7 +42,8 @@ func NewBroadcastChannel(channel *crypto.Channel, net Client,
 	}
 
 	// Add channel's identity
-	net.AddIdentity(channel.ReceptionID, identity.Forever, true)
+	net.AddIdentityWithHistory(channel.ReceptionID, identity.Forever,
+		channel.Created, true)
 
 	jww.INFO.Printf("New broadcast channel client created for channel %q (%s)",
 		channel.Name, channel.ReceptionID)

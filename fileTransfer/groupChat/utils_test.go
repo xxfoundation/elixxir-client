@@ -137,7 +137,10 @@ func (m *mockCmix) SendWithAssembler(*id.ID, cmix.MessageAssembler,
 	panic("implement me")
 }
 
-func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool)            { panic("implement me") }
+func (m *mockCmix) AddIdentity(*id.ID, time.Time, bool) { panic("implement me") }
+func (m *mockCmix) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+	panic("implement me")
+}
 func (m *mockCmix) RemoveIdentity(*id.ID)                          { panic("implement me") }
 func (m *mockCmix) GetIdentity(*id.ID) (identity.TrackedID, error) { panic("implement me") }
 

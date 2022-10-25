@@ -203,9 +203,29 @@ func (s *Store) ForEach(n int, rng io.Reader,
 }
 
 func (s *Store) AddIdentity(identity Identity) error {
-	idH := makeIdHash(identity.EphId, identity.Source)
+
 	s.mux.Lock()
 	defer s.mux.Unlock()
+	return s.addIdentity(identity)
+}
+
+func (s *Store) addIdentity(identity Identity) error {
+	err := s.addIdentityNoSave(identity)
+	if err != nil {
+		return err
+	}
+	if !identity.Ephemeral {
+		if err = s.save(); err != nil {
+			jww.FATAL.Panicf("Failed to save reception store after identity "+
+				"addition: %+v", err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Store) addIdentityNoSave(identity Identity) error {
+	idH := makeIdHash(identity.EphId, identity.Source)
 
 	// Do not make duplicates of IDs
 	if _, ok := s.present[idH]; ok {
@@ -228,13 +248,6 @@ func (s *Store) AddIdentity(identity Identity) error {
 
 	s.active = append(s.active, reg)
 	s.present[idH] = struct{}{}
-	if !identity.Ephemeral {
-		if err = s.save(); err != nil {
-			jww.FATAL.Panicf("Failed to save reception store after identity "+
-				"addition: %+v", err)
-		}
-	}
-
 	return nil
 }
 
@@ -313,12 +326,18 @@ func (s *Store) SetToExpire(addressSize uint8) {
 }
 
 func (s *Store) prune(now time.Time) {
-	lengthBefore := len(s.active)
-	var pruned []int64
+	pruned := make([]int64, 0, len(s.active))
+	added := make([]int64, 0, len(s.active))
 	// Prune the list
+	toAdd := make([]Identity, 0, len(s.active))
 	for i := 0; i < len(s.active); i++ {
 		inQuestion := s.active[i]
 		if now.After(inQuestion.End) && inQuestion.ExtraChecks == 0 {
+			if inQuestion.ProcessNext != nil {
+				toAdd = append(toAdd, *inQuestion.ProcessNext)
+				added = append(added, inQuestion.ProcessNext.EphId.Int64())
+
+			}
 			if err := inQuestion.Delete(); err != nil {
 				jww.ERROR.Printf("Failed to delete Identity for %s: %+v",
 					inQuestion, err)
@@ -331,11 +350,20 @@ func (s *Store) prune(now time.Time) {
 			i--
 		}
 	}
+	for i := range toAdd {
+		next := toAdd[i]
+		if err := s.addIdentityNoSave(next); err != nil {
+			jww.ERROR.Printf("Failed to add identity to process next "+
+				"for %d(%s). The identity chain may be lost",
+				next.EphId.Int64(), next.Source)
+		}
+	}
 
 	// Save the list if it changed
-	if lengthBefore != len(s.active) {
+	if len(added) > 0 || len(pruned) > 0 {
 		jww.INFO.Printf(
-			"Pruned %d identities [%+v]", lengthBefore-len(s.active), pruned)
+			"Pruned %d identities [%+v], added %d [%+v]", len(pruned), pruned,
+			len(added), added)
 		if err := s.save(); err != nil {
 			jww.FATAL.Panicf("Failed to store reception storage: %+v", err)
 		}

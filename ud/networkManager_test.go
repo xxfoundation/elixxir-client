@@ -127,6 +127,10 @@ func (tnm *testNetworkManager) AddIdentity(id *id.ID, validUntil time.Time, pers
 	return
 }
 
+func (tnm *testNetworkManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+	return
+}
+
 func (tnm *testNetworkManager) DeleteClientFingerprints(identity *id.ID) {
 	return
 }

@@ -129,7 +129,9 @@ func (m *mockFpgCmix) SendMany([]cmix.TargetedCmixMessage, cmix.CMIXParams) (rou
 	return rounds.Round{}, nil, nil
 }
 func (m *mockFpgCmix) AddIdentity(*id.ID, time.Time, bool) {}
-func (m *mockFpgCmix) RemoveIdentity(*id.ID)               {}
+func (m *mockFpgCmix) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+}
+func (m *mockFpgCmix) RemoveIdentity(*id.ID) {}
 func (m *mockFpgCmix) GetIdentity(*id.ID) (identity.TrackedID, error) {
 	return identity.TrackedID{}, nil
 }

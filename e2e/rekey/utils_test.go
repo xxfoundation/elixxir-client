@@ -252,6 +252,9 @@ func (m *mockNetManager) SendMany(messages []cmix.TargetedCmixMessage, p cmix.CM
 
 func (m *mockNetManager) AddIdentity(id *id.ID, validUntil time.Time, persistent bool) {}
 
+func (m *mockNetManager) AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool) {
+}
+
 func (m *mockNetManager) RemoveIdentity(id *id.ID) {}
 
 func (m *mockNetManager) AddFingerprint(identity *id.ID, fingerprint format.Fingerprint,

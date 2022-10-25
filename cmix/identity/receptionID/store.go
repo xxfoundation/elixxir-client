@@ -203,9 +203,14 @@ func (s *Store) ForEach(n int, rng io.Reader,
 }
 
 func (s *Store) AddIdentity(identity Identity) error {
-	idH := makeIdHash(identity.EphId, identity.Source)
+
 	s.mux.Lock()
 	defer s.mux.Unlock()
+	return s.addIdentity(identity)
+}
+
+func (s *Store) addIdentity(identity Identity) error {
+	idH := makeIdHash(identity.EphId, identity.Source)
 
 	// Do not make duplicates of IDs
 	if _, ok := s.present[idH]; ok {
@@ -319,6 +324,13 @@ func (s *Store) prune(now time.Time) {
 	for i := 0; i < len(s.active); i++ {
 		inQuestion := s.active[i]
 		if now.After(inQuestion.End) && inQuestion.ExtraChecks == 0 {
+			if inQuestion.ProcessNext != nil {
+				if err := s.AddIdentity(*inQuestion.ProcessNext); err != nil {
+					jww.ERROR.Printf("Failed to add identity to process next "+
+						"for %d(%s). The identity chain may be lost",
+						inQuestion.EphId.Int64(), inQuestion.Source)
+				}
+			}
 			if err := inQuestion.Delete(); err != nil {
 				jww.ERROR.Printf("Failed to delete Identity for %s: %+v",
 					inQuestion, err)

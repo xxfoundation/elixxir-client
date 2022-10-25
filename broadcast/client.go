@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/cmix/message"
 	crypto "gitlab.com/elixxir/crypto/broadcast"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"time"
 )
 
 // broadcastClient implements the [broadcast.Channel] interface for sending/
@@ -42,7 +43,8 @@ func NewBroadcastChannel(channel *crypto.Channel, net Client,
 	}
 
 	// Add channel's identity
-	net.AddIdentity(channel.ReceptionID, identity.Forever, true)
+	net.AddIdentityWithHistory(channel.ReceptionID, identity.Forever,
+		time.Now().Add(-500*time.Second), true)
 
 	jww.INFO.Printf("New broadcast channel client created for channel %q (%s)",
 		channel.Name, channel.ReceptionID)

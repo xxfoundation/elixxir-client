@@ -116,6 +116,13 @@ type Client interface {
 	// the identity will not be stored to disk and will be dropped on reload.
 	AddIdentity(id *id.ID, validUntil time.Time, persistent bool)
 
+	// AddIdentityWithHistory adds an identity to be tracked. If persistent is
+	// false, the identity will not be stored to disk and will be dropped on
+	// reload. It will pickup messages slowly back in the history or up back
+	// until beginning or the start of message retention, which should be ~500
+	// houses back
+	AddIdentityWithHistory(id *id.ID, validUntil, beginning time.Time, persistent bool)
+
 	// RemoveIdentity removes a currently tracked identity.
 	RemoveIdentity(id *id.ID)
 

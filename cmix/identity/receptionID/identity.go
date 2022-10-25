@@ -48,6 +48,11 @@ type Identity struct {
 
 	// Makes the identity not store on disk
 	Ephemeral bool
+
+	// When this identity expired, it will auto add processNext to the identity list
+	// to be processed. In practice this is a reverse ordered list and is added whenever
+	// many identities are added at once in order to pick up sequentially
+	ProcessNext *Identity
 }
 
 func loadIdentity(kv *versioned.KV) (Identity, error) {

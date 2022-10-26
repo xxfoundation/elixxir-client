@@ -100,7 +100,7 @@ func (r *Received) AddTransfer(key *ftCrypto.TransferKey,
 
 	_, exists := r.transfers[*tid]
 	if exists {
-		return nil, errors.Errorf(errAddExistingReceivedTransfer, *tid)
+		return nil, errors.Errorf(errAddExistingReceivedTransfer, tid)
 	}
 
 	rt, err := newReceivedTransfer(

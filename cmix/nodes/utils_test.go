@@ -202,6 +202,24 @@ type MockClientComms struct {
 	t          *testing.T
 }
 
+func (m *MockClientComms) BatchNodeRegistration(_ *connect.Host, message *pb.SignedClientBatchKeyRequest) (*pb.SignedBatchKeyResponse, error) {
+	resp := make([]*pb.SignedKeyResponse, len(message.Targets))
+	for i := range message.Targets {
+		part, err := m.SendRequestClientKeyMessage(nil, &pb.SignedClientKeyRequest{
+			ClientKeyRequest:          message.ClientKeyRequest,
+			ClientKeyRequestSignature: message.ClientKeyRequestSignature,
+			Target:                    message.Targets[i],
+		})
+		if err != nil {
+			return nil, err
+		}
+		resp[i] = part
+	}
+	return &pb.SignedBatchKeyResponse{
+		SignedKeys: resp,
+	}, nil
+}
+
 func (m *MockClientComms) GetHost(_ *id.ID) (*connect.Host, bool) {
 	return &connect.Host{}, true
 }

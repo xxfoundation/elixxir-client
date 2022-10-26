@@ -8,6 +8,7 @@
 package nodes
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/gateway"
@@ -46,7 +47,8 @@ type registrar struct {
 	comms   RegisterNodeCommsInterface
 	rng     *fastRNG.StreamGenerator
 
-	c chan network.NodeGateway
+	c  chan network.NodeGateway
+	rc chan registrationResponsePart
 }
 
 // LoadRegistrar loads a Registrar from disk or creates a new one if it does not
@@ -59,6 +61,7 @@ func LoadRegistrar(session session, sender gateway.Sender,
 	r := &registrar{
 		nodes: make(map[id.ID]*key),
 		kv:    kv,
+		rc:    make(chan registrationResponsePart, 25),
 	}
 
 	obj, err := kv.Get(storeKey, currentKeyVersion)
@@ -100,8 +103,16 @@ func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 	for i := uint(0); i < numParallel; i++ {
 		stop := stoppable.NewSingle("NodeRegistration " + strconv.Itoa(int(i)))
 
-		go registerNodes(r, r.session, stop, inProgress, attempts)
+		go processNodeRegistration(r, r.session, stop, inProgress, attempts)
 		multi.Add(stop)
+
+		workerCount := 4 // TODO parametrize me
+		for j := 0; j < workerCount; j++ {
+			respStop := stoppable.NewSingle(fmt.Sprintf("NodeRegistrationResponseHandler%d", j))
+			go processNodeRegistrationResponses(r, inProgress, attempts, respStop)
+			multi.Add(respStop)
+
+		}
 	}
 
 	return multi

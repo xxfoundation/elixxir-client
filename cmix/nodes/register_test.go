@@ -79,10 +79,10 @@ func TestRegisterWithNode(t *testing.T) {
 		grp:        grp,
 		t:          t,
 	}
-	r := makeTestRegistrar(&MockClientComms{}, t)
+	r := makeTestRegistrar(mockComms, t)
 
 	// Call registerWithNode
-	err = registerWithNode(&mockSender{}, mockComms, ngw,
+	err = registerWithNodes([]network.NodeGateway{ngw},
 		mockSession, r, stream, stop)
 	if err != nil {
 		t.Fatalf("registerWithNode error: %+v", err)

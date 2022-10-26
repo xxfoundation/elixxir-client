@@ -34,10 +34,10 @@ import (
 // requestKey is a helper function which constructs a ClientKeyRequest message.
 // This message is sent to the passed gateway. It will further handle the
 // request from the gateway.
-func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
-	ngw network.NodeGateway, s session, r *registrar,
+func requestKeys(sender gateway.Sender, comms RegisterNodeCommsInterface,
+	ngws []network.NodeGateway, s session, r *registrar,
 	rng io.Reader,
-	stop *stoppable.Single) (*cyclic.Int, []byte, uint64, error) {
+	stop *stoppable.Single) error {
 
 	// Generate a Diffie-Hellman keypair
 	grp := r.session.GetCmixGroup()
@@ -46,40 +46,40 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	prime := grp.GetPBytes()
 	dhPrivBytes, err := csprng.GenerateInGroup(prime, 32, rng)
 	if err != nil {
-		return nil, nil, 0, err
+		return err
 	}
 	dhPriv := grp.NewIntFromBytes(dhPrivBytes)
 	dhPub := diffieHellman.GeneratePublicKey(dhPriv, grp)
 
-	// Parse the ID into an id.ID object.
-	gwId := ngw.Gateway.ID
-	gatewayID, err := id.Unmarshal(gwId)
-	if err != nil {
-		jww.ERROR.Printf("registerWithNode failed to decode "+
-			"gateway ID: %v", err)
-		return nil, nil, 0, err
+	var gwIds []*id.ID
+	for _, ngw := range ngws {
+		// Parse the ID into an id.ID object.
+		gwId := ngw.Gateway.ID
+		gatewayID, err := id.Unmarshal(gwId)
+		if err != nil {
+			jww.ERROR.Printf("registerWithNode failed to decode "+
+				"gateway ID: %v", err)
+			return err
+		}
+		gwIds = append(gwIds, gatewayID)
 	}
 
-	signedKeyReq, err := makeSignedKeyRequest(s, rng, gatewayID, dhPub)
+	signedBatchKeyReq, err := makeSignedKeyRequest(s, rng, gwIds, dhPub)
 	if err != nil {
-		return nil, nil, 0, err
+		return err
 	}
 
 	// Request nonce message from gateway
 	jww.INFO.Printf("Register: Requesting client key from "+
-		"gateway %s, setup took %s", gatewayID, time.Since(start))
+		"gateways %+v, setup took %s", gwIds, time.Since(start))
 
 	start = time.Now()
 	result, err := sender.SendToAny(func(host *connect.Host) (interface{}, error) {
 		startInternal := time.Now()
-		keyResponse, err2 := comms.SendRequestClientKeyMessage(host, signedKeyReq)
+		keyResponse, err2 := comms.BatchNodeRegistration(host, signedBatchKeyReq)
 		if err2 != nil {
 			return nil, errors.WithMessagef(err2,
-				"Register: Failed requesting client key from gateway %s", gatewayID.String())
-		}
-		if keyResponse.Error != "" {
-			return nil, errors.WithMessage(err2,
-				"requestKey: clientKeyResponse error")
+				"Register: Failed requesting client key from gateways %+v", gwIds)
 		}
 		jww.TRACE.Printf("just comm reg request took %s", time.Since(startInternal))
 
@@ -88,24 +88,31 @@ func requestKey(sender gateway.Sender, comms RegisterNodeCommsInterface,
 	jww.TRACE.Printf("full reg request took %s", time.Since(start))
 
 	if err != nil {
-		return nil, nil, 0, err
+		return err
 	}
 
 	// Cast the response
-	signedKeyResponse := result.(*pb.SignedKeyResponse)
-	if signedKeyResponse.Error != "" {
-		return nil, nil, 0, errors.New(signedKeyResponse.Error)
+	signedKeyResponses := result.(*pb.SignedBatchKeyResponse)
+	if len(ngws) != len(signedKeyResponses.SignedKeys) {
+		jww.ERROR.Printf("Should have received same number of response slots back")
+	}
+	for i, ngw := range ngws {
+		r.rc <- registrationResponsePart{
+			ngw:      ngw,
+			response: signedKeyResponses.SignedKeys[i],
+			dhPriv:   dhPriv,
+		}
 	}
 
 	// Process the server's response
-	return processRequestResponse(signedKeyResponse, ngw, grp, dhPriv)
+	return nil
 }
 
 // makeSignedKeyRequest is a helper function which constructs a
 // pb.SignedClientKeyRequest to send to the node/gateway pair the
 // user is trying to register with.
 func makeSignedKeyRequest(s session, rng io.Reader,
-	gwId *id.ID, dhPub *cyclic.Int) (*pb.SignedClientKeyRequest, error) {
+	targets []*id.ID, dhPub *cyclic.Int) (*pb.SignedClientBatchKeyRequest, error) {
 
 	// Reconstruct client confirmation message
 	userPubKeyRSA := rsa.CreatePublicKeyPem(s.GetTransmissionRSA().GetPublic())
@@ -149,11 +156,17 @@ func makeSignedKeyRequest(s session, rng io.Reader,
 		return nil, err
 	}
 
+	var targetBytes [][]byte
+	for _, gwId := range targets {
+		targetBytes = append(targetBytes, gwId.Bytes())
+	}
+
 	// Construct signed key request message
-	signedRequest := &pb.SignedClientKeyRequest{
+	signedRequest := &pb.SignedClientBatchKeyRequest{
 		ClientKeyRequest:          serializedMessage,
 		ClientKeyRequestSignature: &messages.RSASignature{Signature: clientSig},
-		Target:                    gwId.Bytes(),
+		Targets:                   targetBytes,
+		Timeout:                   250,
 	}
 
 	return signedRequest, nil

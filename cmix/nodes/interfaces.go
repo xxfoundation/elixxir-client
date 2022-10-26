@@ -67,6 +67,8 @@ type MixCypher interface {
 type RegisterNodeCommsInterface interface {
 	SendRequestClientKeyMessage(host *connect.Host,
 		message *pb.SignedClientKeyRequest) (*pb.SignedKeyResponse, error)
+	BatchNodeRegistration(host *connect.Host,
+		message *pb.SignedClientBatchKeyRequest) (*pb.SignedBatchKeyResponse, error)
 }
 
 // session is a sub-interface of the storage.Session interface relevant to

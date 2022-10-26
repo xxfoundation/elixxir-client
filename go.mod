@@ -16,7 +16,7 @@ require (
 	gitlab.com/elixxir/bloomfilter v0.0.0-20211222005329-7d931ceead6f
 	gitlab.com/elixxir/comms v0.0.4-0.20221025202829-c33bbe4d8838
 	gitlab.com/elixxir/crypto v0.0.7-0.20221025180839-3d8948607447
-	gitlab.com/elixxir/ekv v0.2.2-0.20221026171556-67265b7e9f6a
+	gitlab.com/elixxir/ekv v0.2.2-0.20221026202359-21e3e77f69a3
 	gitlab.com/elixxir/primitives v0.0.3-0.20221025020430-f5d2eb330fbc
 	gitlab.com/xx_network/comms v0.0.4-0.20221025202603-3043ba10b2a2
 	gitlab.com/xx_network/crypto v0.0.5-0.20221025020316-517fa8f91d2c
@@ -38,6 +38,7 @@ require (
 	github.com/elliotchance/orderedmap v1.4.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/hack-pad/go-indexeddb v0.2.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/improbable-eng/grpc-web v0.15.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect

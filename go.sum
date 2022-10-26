@@ -301,6 +301,8 @@ github.com/grpc-ecosystem/go-grpc-middleware v1.2.2/go.mod h1:EaizFBKfUKtMIF5iaD
 github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0/go.mod h1:8NvIoxWQoOIhqOTXgfV/d3M/q6VIi02HzZEHgUlZvzk=
 github.com/grpc-ecosystem/grpc-gateway v1.9.5/go.mod h1:vNeuVxBJEsws4ogUvrchl83t/GYV9WGTSLVdBhOQFDY=
 github.com/grpc-ecosystem/grpc-gateway v1.16.0/go.mod h1:BDjrQk3hbvj6Nolgz8mAMFbcEtjT1g+wF4CSlocrBnw=
+github.com/hack-pad/go-indexeddb v0.2.0 h1:QHDM6gLrtCJvHdHUK8UdibJu4xWQlIDs4+l8L65AUdA=
+github.com/hack-pad/go-indexeddb v0.2.0/go.mod h1:NH8CaojufPNcKYDhy5JkjfyBXE/72oJPeiywlabN/lM=
 github.com/hashicorp/consul/api v1.3.0/go.mod h1:MmDNSzIMUjNpY/mQ398R4bk2FnqQLoPndWW5VkKPlCE=
 github.com/hashicorp/consul/api v1.12.0/go.mod h1:6pVBMo0ebnYdt2S3H87XhekM/HHrUoTD2XXb/VrZVy0=
 github.com/hashicorp/consul/sdk v0.3.0/go.mod h1:VKf9jXwCTEY1QZP2MOLRhb5i/I/ssyNV1vwHyQBF0x8=
@@ -641,6 +643,8 @@ gitlab.com/elixxir/ekv v0.2.1 h1:dtwbt6KmAXG2Tik5d60iDz2fLhoFBgWwST03p7T+9Is=
 gitlab.com/elixxir/ekv v0.2.1/go.mod h1:USLD7xeDnuZEavygdrgzNEwZXeLQJK/w1a+htpN+JEU=
 gitlab.com/elixxir/ekv v0.2.2-0.20221026171556-67265b7e9f6a h1:E3bzKZcAxBS9UaQFcpXvVS/IQaEG1C2F/O/H9lNjqKc=
 gitlab.com/elixxir/ekv v0.2.2-0.20221026171556-67265b7e9f6a/go.mod h1:InofHM7VvqerATEZqhEvfALSI/0zlQFI7ON9KWHNHjc=
+gitlab.com/elixxir/ekv v0.2.2-0.20221026202359-21e3e77f69a3 h1:wYGGsvr4kfm+O/5uAMhv2MOlmKr4tPMSCaHoIKJ09V0=
+gitlab.com/elixxir/ekv v0.2.2-0.20221026202359-21e3e77f69a3/go.mod h1:PJFBumJWvKBS/QE6HUE7UZpejKamx7EJS79yJ+X1JjI=
 gitlab.com/elixxir/primitives v0.0.0-20200731184040-494269b53b4d/go.mod h1:OQgUZq7SjnE0b+8+iIAT2eqQF+2IFHn73tOo+aV11mg=
 gitlab.com/elixxir/primitives v0.0.0-20200804170709-a1896d262cd9/go.mod h1:p0VelQda72OzoUckr1O+vPW0AiFe0nyKQ6gYcmFSuF8=
 gitlab.com/elixxir/primitives v0.0.0-20200804182913-788f47bded40/go.mod h1:tzdFFvb1ESmuTCOl1z6+yf6oAICDxH2NPUemVgoNLxc=

@@ -8,9 +8,12 @@
 package partition
 
 import (
-	"bytes"
+	"crypto/hmac"
 	"encoding/binary"
 	"encoding/json"
+	"sync"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/catalog"
 	"gitlab.com/elixxir/client/e2e/receive"
@@ -19,8 +22,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"golang.org/x/crypto/blake2b"
-	"sync"
-	"time"
 )
 
 type multiPartID [16]byte
@@ -60,7 +61,7 @@ func (s *Store) AddFirst(partner *id.ID, mt catalog.MessageType,
 
 	mpm := s.load(partner, messageID)
 	mpm.AddFirst(mt, partNum, numParts, senderTimestamp, storageTimestamp, part)
-	if bytes.Equal(residue.Marshal(), []byte{}) {
+	if hmac.Equal(residue.Marshal(), []byte{}) {
 		// fixme: should this error or crash?
 		jww.WARN.Printf("Key reside from first message " +
 			"is empty, continuing...")

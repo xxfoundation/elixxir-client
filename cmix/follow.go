@@ -23,13 +23,14 @@ package cmix
 //		instance
 
 import (
-	"bytes"
+	"crypto/hmac"
 	"encoding/binary"
 	"fmt"
-	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"gitlab.com/elixxir/client/cmix/identity/receptionID"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmix/identity/receptionID/store"
@@ -284,7 +285,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 			marshaledTid := c.session.GetTransmissionID().Marshal()
 			for _, clientErr := range update.ClientErrors {
 				// If this ClientId appears in the ClientError
-				if bytes.Equal(clientErr.ClientId, marshaledTid) {
+				if hmac.Equal(clientErr.ClientId, marshaledTid) {
 
 					// Obtain relevant NodeGateway information
 					nid, err := id.Unmarshal(clientErr.Source)

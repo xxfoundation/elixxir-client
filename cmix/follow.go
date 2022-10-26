@@ -336,7 +336,7 @@ func (c *client) follow(identity receptionID.IdentityUse,
 	}
 
 	if len(pollResp.Filters.Filters) == 0 {
-		jww.WARN.Printf("No filters found for the passed ID %d (%s), "+
+		jww.TRACE.Printf("No filters found for the passed ID %d (%s), "+
 			"skipping processing.", identity.EphId.Int64(), identity.Source)
 		return
 	}

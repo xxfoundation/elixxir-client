@@ -8,7 +8,6 @@
 package channels
 
 import (
-	"bytes"
 	"regexp"
 )
 
@@ -26,12 +25,12 @@ func ValidateReaction(reaction string) error {
 		return InvalidReaction
 	}
 
-	reader := bytes.NewReader([]byte(reaction))
-
-	// make sure it has emojis
-	if !compiledFindEmoji.MatchReader(reader) {
-		return InvalidReaction
-	}
-
+	/*
+		reader := bytes.NewReader([]byte(reaction))
+			// make sure it has emojis
+			if !compiledFindEmoji.MatchReader(reader) {
+				return InvalidReaction
+			}
+	*/
 	return nil
 }

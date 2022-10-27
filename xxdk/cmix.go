@@ -484,8 +484,6 @@ func (c *Cmix) GetNodeRegistrationStatus() (int, int, error) {
 	return numRegistered, len(nodes) - numStale, nil
 }
 
-
-
 // IsReady returns true if at least percentReady of node registrations has
 // completed. If not all have completed, then it returns false and howClose will
 // be a percent (0-1) of node registrations completed.
@@ -502,6 +500,9 @@ func (c *Cmix) IsReady(percentReady float64) (isReady bool, howClose float64) {
 
 	isReady = (float64(numReg) / float64(numNodes)) >= percentReady
 	howClose = float64(numReg) / (float64(numNodes) * percentReady)
+	if howClose > 1 {
+		howClose = 1
+	}
 
 	return isReady, howClose
 }

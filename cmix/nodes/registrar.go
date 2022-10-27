@@ -46,6 +46,11 @@ type registrar struct {
 	comms   RegisterNodeCommsInterface
 	rng     *fastRNG.StreamGenerator
 
+	inProgress sync.Map
+	// We are relying on the in progress check to ensure there is only a single
+	// operator at a time, as a result this is a map of ID -> int
+	attempts sync.Map
+
 	c chan network.NodeGateway
 }
 
@@ -91,20 +96,31 @@ func LoadRegistrar(session session, sender gateway.Sender,
 func (r *registrar) StartProcesses(numParallel uint) stoppable.Stoppable {
 	multi := stoppable.NewMulti("NodeRegistrations")
 
-	inProgress := &sync.Map{}
-
-	// We are relying on the in progress check to ensure there is only a single
-	// operator at a time, as a result this is a map of ID -> int
-	attempts := &sync.Map{}
-
 	for i := uint(0); i < numParallel; i++ {
 		stop := stoppable.NewSingle("NodeRegistration " + strconv.Itoa(int(i)))
 
-		go registerNodes(r, r.session, stop, inProgress, attempts)
+		go registerNodes(r, r.session, stop, &r.inProgress, &r.attempts)
 		multi.Add(stop)
 	}
 
 	return multi
+}
+
+// IncreaseParallelNodeRegistration increases the number of parallel node
+// registrations by num
+func (r *registrar) IncreaseParallelNodeRegistration(numParallel uint) func() (stoppable.Stoppable, error) {
+	return func() (stoppable.Stoppable, error) {
+		multi := stoppable.NewMulti("NodeRegistrationsIncrease")
+
+		for i := uint(0); i < numParallel; i++ {
+			stop := stoppable.NewSingle("NodeRegistration Increase" + strconv.Itoa(int(i)))
+
+			go registerNodes(r, r.session, stop, &r.inProgress, &r.attempts)
+			multi.Add(stop)
+		}
+
+		return multi, nil
+	}
 }
 
 // GetNodeKeys returns a MixCypher for the topology and a list of nodes it did

@@ -484,6 +484,14 @@ func (c *Cmix) GetNodeRegistrationStatus() (int, int, error) {
 	return numRegistered, len(nodes) - numStale, nil
 }
 
+// IncreaseParallelNodeRegistration increases the number of parallel node
+// registrations by num
+func (c *Cmix) IncreaseParallelNodeRegistration(num int) error {
+	jww.INFO.Printf("IncreaseParallelNodeRegistration(%d)", num)
+	svc := c.network.IncreaseParallelNodeRegistration(num)
+	return c.followerServices.add(svc)
+}
+
 // GetPreferredBins returns the geographic bin or bins that the provided two
 // character country code is a part of.
 func (c *Cmix) GetPreferredBins(countryCode string) ([]string, error) {

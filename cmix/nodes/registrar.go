@@ -135,10 +135,14 @@ func (r *registrar) PauseNodeRegistrations(timeout time.Duration) error {
 	for i := int64(0); i < numRegistrations; i++ {
 		select {
 		case r.pauser <- struct{}{}:
+			jww.INFO.Printf("paused node %d", i)
 		case <-timer.C:
 			return errors.Errorf("Timed out on pausing node registration on %d", i)
 		}
 	}
+
+	jww.INFO.Printf("PauseNodeRegistrations() - Paused all nodes")
+
 	return nil
 }
 
